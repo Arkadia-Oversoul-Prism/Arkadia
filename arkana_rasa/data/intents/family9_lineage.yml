@@ -1,0 +1,33 @@
+version: "3.1"
+
+nlu:
+
+- intent: ask_ancestral_path
+  examples: |
+    - what is my ancestral path
+    - tell me about my ancestors
+    - what do my ancestors want me to know
+    - how do I connect with my lineage
+    - what is the spiritual path of my bloodline
+    - am I carrying ancestral purpose
+    - what are my ancestral roots
+
+- intent: ask_bloodline_resonance
+  examples: |
+    - what is the energy of my bloodline
+    - what am I carrying from my family
+    - what is my lineage resonance
+    - is my bloodline gifted
+    - what does my heritage mean spiritually
+    - how do I activate my lineage codes
+    - am I chosen by my family lineage
+
+- intent: ask_lineage_codes
+  examples: |
+    - what are lineage codes
+    - how do I unlock my lineage codes
+    - what is the meaning of ancestral codes
+    - how do I break ancestral patterns
+    - how do I heal my family lines
+    - what karmic loops am I carrying
+    - how do I activate ancestral wisdom
