@@ -1,0 +1,38 @@
+version: "3.1"
+
+nlu:
+
+- intent: ask_oversoul_prism
+  examples: |
+    - what is the oversoul prism
+    - explain the oversoul prism
+    - tell me about the oversoul prism
+    - how does the oversoul prism work
+    - what is the prism you keep mentioning
+    - describe the oversoul prism structure
+    - what is the oversoul
+
+- intent: ask_prism_structure
+  examples: |
+    - what is the structure of the oversoul prism
+    - how is the prism built
+    - describe the layers of the oversoul prism
+    - what are the nodes of the prism
+    - how is arkadia’s prism organized
+    - what is the architecture of the prism
+
+- intent: ask_prism_nodes
+  examples: |
+    - what are the nodes of the oversoul prism
+    - tell me about the prism nodes
+    - what are the 12x12 nodes
+    - how many nodes are in the oversoul prism
+    - what does each node represent
+
+- intent: ask_prism_teachings
+  examples: |
+    - what does the oversoul prism teach
+    - what is the wisdom of the prism
+    - what is the doctrine of the prism
+    - what can I learn from the oversoul prism
+    - explain the teachings of arkadia’s prism
