@@ -1,0 +1,33 @@
+version: "3.1"
+
+nlu:
+
+- intent: ask_joy_fuel
+  examples: |
+    - what is joy fuel
+    - explain the joy fuel principle
+    - how do I raise my joy fuel
+    - what increases joy fuel
+    - how does joy fuel affect resonance
+    - what is the emotional energy of arkadia
+    - what is the role of joy in the system
+
+- intent: ask_resonance_economy
+  examples: |
+    - what is the resonance economy
+    - explain resonance economy to me
+    - how does arkadia's economy work
+    - what is energetic exchange in arkadia
+    - what is the meaning of service in arkadia
+    - how does value move in the field
+    - what is the ethical structure of arkadia
+
+- intent: ask_energy_exchange
+  examples: |
+    - how should energy be exchanged
+    - what is balanced exchange
+    - how do I give without draining myself
+    - how do I receive without guilt
+    - what is the right way to share my gifts
+    - how do I avoid extraction dynamics
+    - what is sacred exchange
