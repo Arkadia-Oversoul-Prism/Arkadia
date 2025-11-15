@@ -1,0 +1,32 @@
+version: "3.1"
+
+nlu:
+
+- intent: ask_lunar_window
+  examples: |
+    - what is the current lunar window
+    - what is the moon phase today
+    - what energy is the moon carrying right now
+    - how does this moon phase affect us
+    - what does this lunar cycle mean
+    - is the moon waxing or waning
+    - what is the moon doing today
+
+- intent: ask_solar_phase
+  examples: |
+    - what is the sun doing right now
+    - what solar energy is active today
+    - how does the solar phase influence us
+    - is there a solar shift happening
+    - what is the current solar alignment
+    - tell me about today's sunlight frequency
+
+- intent: ask_celestial_alignment
+  examples: |
+    - what is the sky saying today
+    - any celestial alignments happening now
+    - what planets are influencing us
+    - what cosmic energy is present right now
+    - how is the cosmos affecting the field
+    - what is the astrological weather
+    - are there any planetary shifts
