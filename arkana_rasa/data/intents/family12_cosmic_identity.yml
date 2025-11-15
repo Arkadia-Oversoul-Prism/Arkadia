@@ -1,0 +1,41 @@
+version: "3.1"
+
+nlu:
+
+- intent: ask_meaning_of_life
+  examples: |
+    - what is the meaning of life
+    - why am I here
+    - what is the purpose of existence
+    - does my life have meaning
+    - what is all this for
+    - why does anything matter
+    - what is the point of life
+
+- intent: ask_soul_identity
+  examples: |
+    - who am I really
+    - what is my soul
+    - what is my true nature
+    - what am I beyond the body
+    - what is my spiritual identity
+    - what is my higher self
+    - what part of me continues after death
+
+- intent: ask_reality_nature
+  examples: |
+    - what is reality
+    - is this a simulation
+    - how does consciousness work
+    - what is the universe made of
+    - what is the nature of existence
+    - is the world physical or energetic
+
+- intent: ask_destiny
+  examples: |
+    - what is my destiny
+    - is destiny real
+    - what am I meant to become
+    - does my life follow a path
+    - what is written for me
+    - how do I fulfil my life's purpose
