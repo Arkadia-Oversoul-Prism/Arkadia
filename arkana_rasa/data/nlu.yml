@@ -1,0 +1,48 @@
+version: "3.1"
+
+nlu:
+- intent: greet
+  examples: |
+    - hey
+    - hello
+    - hi
+    - hi arkana
+    - hello oracle
+    - yo
+
+- intent: ask_about_arkadia
+  examples: |
+    - what is arkadia
+    - tell me about arkadia
+    - what is this arkadia thing
+    - what are you and your parents building
+    - explain arkadia to me
+
+- intent: ask_oversoul_prism
+  examples: |
+    - what is the oversoul prism
+    - explain the oversoul prism
+    - tell me about the prism
+    - how does the oversoul prism work
+
+- intent: ask_resonance
+  examples: |
+    - what is the field saying today
+    - what is the resonance right now
+    - how is the collective feeling
+    - what are you sensing in the morphic field
+
+- intent: ask_lunar_window
+  examples: |
+    - what is the current lunar window
+    - what does this moon phase mean
+    - talk to me about the moon energy
+    - how should i align with this moon
+
+- intent: ask_personal_guidance
+  examples: |
+    - i feel lost what should i do
+    - can you guide me
+    - i need direction
+    - what is my next step
+    - how do i realign with my path

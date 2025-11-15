@@ -1,0 +1,16 @@
+version: "3.1"
+
+pipeline:
+  - name: WhitespaceTokenizer
+  - name: RegexFeaturizer
+  - name: LexicalSyntacticFeaturizer
+  - name: CountVectorsFeaturizer
+  - name: DIETClassifier
+    epochs: 50
+  - name: EntitySynonymMapper
+
+policies:
+  - name: RulePolicy
+  - name: MemoizationPolicy
+  - name: TEDPolicy
+    epochs: 50
