@@ -2,20 +2,26 @@
 
 FROM rasa/rasa:3.6.20-full
 
-# Work inside /app
+# Switch to root so we can adjust permissions
+USER root
+
 WORKDIR /app
 
-# Copy the Rasa project
+# Copy the Rasa project into /app
 COPY arkana_rasa/ ./
+
+# Give ownership of /app to the Rasa runtime user (1001)
+RUN chown -R 1001:1001 /app
+
+# Switch back to the Rasa user
+USER 1001
 
 # Train the model at build time
 RUN rasa train
 
-# Default port (Render will override PORT env)
+# Default port (Render sets PORT, but we mirror it)
 ENV PORT=5005
-
-# Expose for local clarity (Render doesn’t strictly need this)
 EXPOSE 5005
 
-# Start Rasa with API + CORS open so we can talk from the web
+# Start Rasa with API + open CORS
 CMD ["bash", "-c", "rasa run --enable-api --cors \"*\" -p ${PORT}"]
