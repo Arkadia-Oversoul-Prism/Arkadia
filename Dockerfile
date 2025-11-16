@@ -19,9 +19,9 @@ USER 1001
 # Train the model at build time
 RUN rasa train
 
-# Default port (Render sets PORT, but we mirror it)
+# Default port (Render sets PORT, but we also align with 5005)
 ENV PORT=5005
 EXPOSE 5005
 
 # Start Rasa with API + open CORS
-CMD ["bash", "-c", "rasa run --enable-api --cors \"*\" -p ${PORT}"]
+CMD ["run", "--enable-api", "--cors", "*", "--port", "5005"]
