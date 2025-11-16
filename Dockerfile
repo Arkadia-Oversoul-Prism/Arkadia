@@ -1,27 +1,26 @@
-# Arkana Rasa cloud container
+# Lightweight Arkana Oracle API (no Rasa, FastAPI only)
 
-FROM rasa/rasa:3.6.20-full
-
-# Switch to root so we can adjust permissions
-USER root
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy the Rasa project into /app
-COPY arkana_rasa/ ./
+# Install system deps (sometimes needed for pip builds)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+  && rm -rf /var/lib/apt/lists/*
 
-# Give ownership of /app to the Rasa runtime user (1001)
-RUN chown -R 1001:1001 /app
+# Copy app files
+COPY arkana_app.py requirements.txt ./
 
-# Switch back to the Rasa user
-USER 1001
+# Install Python deps
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Train the model at build time
-RUN rasa train
+# (Optional) copy corpora if arkana_app will read them
+COPY arkana_rasa/ arkana_rasa/
+COPY Oversoul_Prism/ Oversoul_Prism/
 
-# Default port (Render sets PORT, but we also align with 5005)
-ENV PORT=5005
-EXPOSE 5005
+ENV PORT=8000
+EXPOSE 8000
 
-# Start Rasa with API + open CORS
-CMD ["run", "--enable-api", "--cors", "*", "--port", "5005"]
+# Start FastAPI app
+CMD ["uvicorn", "arkana_app:app", "--host", "0.0.0.0", "--port", "8000"]
