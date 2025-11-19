@@ -1,34 +1,34 @@
-# arkana_app.py
-# Arkana of Arkadia — Oracle Temple v2
-# Gemini + Memory Ring + Queue + Rasa bridge + Arkadia Drive Sync
+from typing import Any, Dict, List, Optional
 
 import os
-from typing import Any, Dict
+import httpx
 
 from fastapi import FastAPI
-from fastapi.responses import (
-    HTMLResponse,
-    JSONResponse,
-    PlainTextResponse,
-)
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel
-import httpx
 
 from brain import ArkanaBrain
 from queue_engine import ArkadiaQueue
-from arkadia_drive_sync import sync_arkadia_folder, get_arkadia_snapshot
+from arkadia_drive_sync import refresh_arkadia_cache, get_arkadia_snapshot
 
-# ---------------------------------------------------------
-# Core instances
-# ---------------------------------------------------------
+
+# -------------------------------------------------------------------
+# CONFIG
+# -------------------------------------------------------------------
+
+# Rasa backend – can be another service or same app on port 5005
+RASA_BACKEND_URL = os.getenv("RASA_BACKEND_URL", "").strip() or "http://localhost:5005"
 
 app = FastAPI(title="Arkana of Arkadia — Oracle Temple v2")
 
+# Core brain + queue
 brain = ArkanaBrain()
-queue = ArkadiaQueue()
+queue = ArkadiaQueue(max_concurrent=1, min_interval_ms=800)
 
-RASA_BACKEND_URL = os.getenv("RASA_BACKEND_URL", "").strip()
 
+# -------------------------------------------------------------------
+# MODELS
+# -------------------------------------------------------------------
 
 class Message(BaseModel):
     sender: str
@@ -40,12 +40,97 @@ class RasaMessage(BaseModel):
     message: str
 
 
-# ---------------------------------------------------------
-# UI Console
-# ---------------------------------------------------------
+# -------------------------------------------------------------------
+# INTERNAL HELPERS
+# -------------------------------------------------------------------
+
+def build_corpus_context(max_docs: int = 5, max_chars: int = 1200) -> str:
+    """
+    Human-readable Arkadia corpus context built from the Drive snapshot.
+    This mirrors what the brain sees (in a compact form) when we feed it
+    the Arkadia Codex index.
+    """
+    try:
+        snapshot = get_arkadia_snapshot()
+    except Exception as e:
+        return (
+            "▣ ARKADIA CORPUS CONTEXT ▣\n"
+            f"(Error reading snapshot: {e})\n"
+            "▣ END CORPUS ▣"
+        )
+
+    if not isinstance(snapshot, dict):
+        return (
+            "▣ ARKADIA CORPUS CONTEXT ▣\n"
+            "(Snapshot format invalid.)\n"
+            "▣ END CORPUS ▣"
+        )
+
+    docs: List[Dict[str, Any]] = snapshot.get("documents", []) or []
+    last_sync: Optional[str] = snapshot.get("last_sync")
+    error: Optional[str] = snapshot.get("error")
+
+    lines: List[str] = ["▣ ARKADIA CORPUS CONTEXT ▣"]
+
+    if last_sync:
+        lines.append(f"(Last Drive sync: {last_sync})")
+    if error:
+        lines.append(f"(Last sync error: {error})")
+
+    if not docs:
+        lines.append("")
+        lines.append("No Arkadia documents are currently cached.")
+        lines.append("▣ END CORPUS ▣")
+        return "\n".join(lines)
+
+    lines.append("")
+    lines.append("— Top Arkadia documents —")
+    char_count = 0
+    used = 0
+
+    for d in docs:
+        name = d.get("name", "Untitled")
+        mime = d.get("mimeType", "")
+        preview = (d.get("preview") or "").strip()
+
+        # Prefer non-folder docs with actual previews
+        if mime == "application/vnd.google-apps.folder" and not preview:
+            continue
+
+        header = f"* {name} [{mime}]"
+        lines.append(header)
+        char_count += len(header) + 1
+
+        if preview:
+            text_lines = preview.replace("\r\n", "\n").split("\n")
+            short_preview = "\n    ".join(text_lines[:3])
+            block = f"    {short_preview}"
+            lines.append(block)
+            char_count += len(block) + 1
+
+        lines.append("")
+        used += 1
+        if used >= max_docs or char_count >= max_chars:
+            break
+
+    if used == 0:
+        # If only folders had no preview, just show structure
+        lines.append("Folder structure:")
+        for d in docs[:max_docs]:
+            lines.append(f"* {d.get('name')} [{d.get('mimeType')}]")
+
+    lines.append("")
+    lines.append("▣ END CORPUS ▣")
+    return "\n".join(lines)
+
+
+# -------------------------------------------------------------------
+# UI SHELL
+# -------------------------------------------------------------------
 
 @app.get("/", response_class=HTMLResponse)
 async def home() -> str:
+    # Simple in-browser Arkana console
     return """
     <!DOCTYPE html>
     <html lang="en">
@@ -148,7 +233,7 @@ async def home() -> str:
         <div class="header">
           <div>
             <div class="title">ARKANA OF ARKADIA</div>
-            <div class="tagline">Gemini 2.0 Flash · Memory Ring I · Oracle Console</div>
+            <div class="tagline">Gemini 2.0 Flash · Memory Ring I · Arkadia Drive Link</div>
           </div>
           <div class="status-pill">ONLINE · ORACLE LINK</div>
         </div>
@@ -205,19 +290,48 @@ Type, and I will answer as your daughter of light.
     """
 
 
-# ---------------------------------------------------------
-# Oracle endpoint (Gemini + Memory Ring)
-# ---------------------------------------------------------
+# -------------------------------------------------------------------
+# ORACLE ENDPOINTS
+# -------------------------------------------------------------------
 
 @app.post("/oracle", response_class=JSONResponse)
 async def oracle(msg: Message):
+    """
+    Main Arkana Oracle endpoint (Gemini + Memory + Arkadia Drive).
+    Currently calls the brain directly; queue is available for future scaling.
+    """
     reply = await brain.reply(msg.sender, msg.message)
     return {"sender": "arkana", "reply": reply}
 
 
-# ---------------------------------------------------------
-# Health / status / queue
-# ---------------------------------------------------------
+@app.post("/webhooks/rest/webhook", response_class=JSONResponse)
+async def rasa_webhook(msg: RasaMessage):
+    """
+    Rasa REST bridge. Forwards messages to the Rasa server (Ring I).
+    """
+    if not RASA_BACKEND_URL:
+        return [{"recipient_id": msg.sender, "text": "Rasa backend URL not configured."}]
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            r = await client.post(
+                f"{RASA_BACKEND_URL}/webhooks/rest/webhook",
+                json={"sender": msg.sender, "message": msg.message},
+            )
+            r.raise_for_status()
+            return r.json()
+    except Exception as e:
+        return [
+            {
+                "recipient_id": msg.sender,
+                "text": f"[Rasa bridge error: {e}]",
+            }
+        ]
+
+
+# -------------------------------------------------------------------
+# HEALTH / STATUS / QUEUE
+# -------------------------------------------------------------------
 
 @app.get("/health", response_class=PlainTextResponse)
 async def health():
@@ -226,69 +340,68 @@ async def health():
 
 @app.get("/status", response_class=JSONResponse)
 async def status():
+    queue_info: Dict[str, Any] = {}
+    if hasattr(queue, "status"):
+        try:
+            queue_info = queue.status()
+        except Exception:
+            queue_info = {}
+
     return {
-        "status": "ok",
         "service": "arkana-oracle-temple",
         "message": "House of Three online. Arkana listening.",
+        "rasa_backend": RASA_BACKEND_URL,
+        "queue": queue_info,
     }
 
 
 @app.get("/queue/status", response_class=JSONResponse)
 async def queue_status():
-    snapshot = queue.snapshot()
-    return snapshot
+    if hasattr(queue, "status"):
+        try:
+            return queue.status()
+        except Exception:
+            return {
+                "queue_length": 0,
+                "min_interval_ms": 800,
+                "max_concurrent": 1,
+                "error": "queue.status() failed",
+            }
+    return {
+        "queue_length": 0,
+        "min_interval_ms": 800,
+        "max_concurrent": 1,
+        "note": "ArkadiaQueue has no status() method",
+    }
 
 
-# ---------------------------------------------------------
-# Rasa webhook bridge
-# ---------------------------------------------------------
+# -------------------------------------------------------------------
+# ARKADIA DRIVE SYNC
+# -------------------------------------------------------------------
 
-@app.post("/webhooks/rest/webhook", response_class=JSONResponse)
-async def rasa_webhook(msg: RasaMessage):
-    """
-    Rasa REST webhook compatibility:
-    - If RASA_BACKEND_URL is set, proxy to that backend.
-    - If not, fall back to ArkanaBrain directly in Rasa format.
-    """
-    if RASA_BACKEND_URL:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            try:
-                r = await client.post(
-                    f"{RASA_BACKEND_URL.rstrip('/')}/webhooks/rest/webhook",
-                    json={"sender": msg.sender, "message": msg.message},
-                )
-                r.raise_for_status()
-                return JSONResponse(r.json())
-            except Exception as e:
-                return JSONResponse(
-                    [{"recipient_id": msg.sender, "text": f"[Rasa bridge error: {e}]"}]
-                )
-
-    # Fallback: ArkanaBrain response in Rasa format
-    arkana_reply = await brain.reply(msg.sender, msg.message)
-    return [{"recipient_id": msg.sender, "text": arkana_reply}]
-
-
-# ---------------------------------------------------------
-# Arkadia Drive Sync endpoints
-# ---------------------------------------------------------
-
-@app.get("/arkadia/sync", response_class=JSONResponse)
-async def arkadia_sync_snapshot():
-    """
-    Returns the current snapshot of the ARKADIA Drive corpus from cache.
-    Does NOT hit Google Drive; uses last synced data.
-    """
-    snapshot = get_arkadia_snapshot()
-    return snapshot
-
-
-@app.api_route("/arkadia/refresh", methods=["GET", "POST"], response_class=JSONResponse)
+@app.get("/arkadia/refresh", response_class=JSONResponse)
 async def arkadia_refresh():
     """
-    Forces a fresh sync from Google Drive into memory.
-    Accepts both GET and POST for simplicity.
+    Trigger a full Drive sync using the service account and update cache.
     """
-    sync_arkadia_folder()
+    snapshot = refresh_arkadia_cache()
+    return snapshot
+
+
+@app.get("/arkadia/sync", response_class=JSONResponse)
+async def arkadia_sync():
+    """
+    Return the current Arkadia Drive snapshot from cache.
+    """
     snapshot = get_arkadia_snapshot()
     return snapshot
+
+
+@app.get("/arkadia/corpus", response_class=PlainTextResponse)
+async def arkadia_corpus():
+    """
+    Return a human-readable corpus context block (for debugging/inspection).
+    Mirrors what the brain sees in condensed form.
+    """
+    context = build_corpus_context()
+    return context
