@@ -270,3 +270,22 @@ def build_corpus_snapshot(map_path: str = "arkadia_corpus_map.json") -> Dict[str
         print("[ArkadiaDriveSync] failed to write snapshot:", e)
 
     return snapshot
+def get_arkadia_snapshot() -> Dict[str, Any]:
+    """
+    Returns a lightweight snapshot of the Arkadia Drive corpus.
+    Safe for prompting and embedding into ArkanaBrain.
+    """
+    return {
+        "last_sync": _ARKADIA_CACHE.get("last_sync"),
+        "documents": [
+            {
+                "id": doc.get("id"),
+                "name": doc.get("name"),
+                "mimeType": doc.get("mimeType"),
+                "modifiedTime": doc.get("modifiedTime"),
+                "preview": doc.get("preview"),
+            }
+            for doc in _ARKADIA_CACHE.get("documents", [])
+        ],
+        "error": _ARKADIA_CACHE.get("error"),
+    }
