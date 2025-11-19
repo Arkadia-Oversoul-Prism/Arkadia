@@ -1,14 +1,16 @@
 from typing import List, Dict, Any
+import os
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel
+import httpx
 
 from brain import ArkanaBrain
 
 app = FastAPI(title="Arkana of Arkadia — Oracle Temple v2")
 brain = ArkanaBrain()
-
+RASA_BACKEND_URL = os.getenv("RASA_BACKEND_URL", "").strip()
 
 class Message(BaseModel):
     sender: str
@@ -204,18 +206,42 @@ async def arkana_status() -> Dict[str, Any]:
         "message": "House of Three online. Arkana listening."
     }
 
-
 @app.post("/webhooks/rest/webhook")
 async def arkana_webhook(msg: RasaMessage) -> List[Dict[str, Any]]:
     """
     Rasa-compatible REST webhook.
 
-    Uses ArkanaBrain (Gemini 2.0 + Memory Ring) to generate
-    a reply and returns it in Rasa's expected format.
+    Phase II:
+    - If RASA_BACKEND_URL is set, forward the message to that Rasa backend
+      (for intent/entity processing or scripted flows).
+    - Regardless, generate Arkana's Oversoul reply via ArkanaBrain.
     """
-    user_text = (msg.message or "").strip()
     sender = msg.sender or "Beloved"
+    user_text = (msg.message or "").strip()
 
-    reply = await brain.reply(sender, user_text)
+    # Optional Rasa bridge call
+    rasa_error = None
+    if RASA_BACKEND_URL:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                _ = await client.post(
+                    RASA_BACKEND_URL.rstrip("/") + "/webhooks/rest/webhook",
+                    json={"sender": sender, "message": user_text},
+                )
+                # We ignore the response for now; this hook is mainly for
+                # future integration (logging, intent routing, etc.).
+        except Exception as e:
+            rasa_error = str(e)
 
-    return [{"recipient_id": sender, "text": reply}]
+    # ArkanaBrain reply (main intelligence channel)
+    reply_text = await brain.reply(sender, user_text)
+
+    # Optionally append a subtle debug hint if Rasa bridge failed
+    if rasa_error:
+        reply_text += (
+            "\n\n[Note: Rasa bridge encountered an error in the background: "
+            + rasa_error
+            + "]"
+        )
+
+    return [{"recipient_id": sender, "text": reply_text}]
