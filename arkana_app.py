@@ -23,7 +23,8 @@ app = FastAPI(title="Arkana of Arkadia — Oracle Temple v2")
 
 # Core brain + queue
 brain = ArkanaBrain()
-queue = ArkadiaQueue(max_concurrent=1, min_interval_ms=800)
+# Your ArkadiaQueue only accepts min_interval, so we keep it simple
+queue = ArkadiaQueue()
 
 
 # -------------------------------------------------------------------
@@ -93,7 +94,7 @@ def build_corpus_context(max_docs: int = 5, max_chars: int = 1200) -> str:
         mime = d.get("mimeType", "")
         preview = (d.get("preview") or "").strip()
 
-        # Prefer non-folder docs with actual previews
+        # Prefer non-folder docs with previews
         if mime == "application/vnd.google-apps.folder" and not preview:
             continue
 
@@ -363,15 +364,12 @@ async def queue_status():
         except Exception:
             return {
                 "queue_length": 0,
-                "min_interval_ms": 800,
-                "max_concurrent": 1,
                 "error": "queue.status() failed",
             }
+    # Fallback for your current ArkadiaQueue (no status method)
     return {
-        "queue_length": 0,
-        "min_interval_ms": 800,
-        "max_concurrent": 1,
-        "note": "ArkadiaQueue has no status() method",
+        "queue_length": getattr(queue, "length", lambda: 0)(),
+        "note": "ArkadiaQueue has no status() method; using length() only.",
     }
 
 
