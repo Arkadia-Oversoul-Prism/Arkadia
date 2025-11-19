@@ -1,0 +1,42 @@
+version: "3.1"
+
+nlu:
+
+- intent: ask_emotional_support
+  examples: |
+    - I'm overwhelmed
+    - I'm tired emotionally
+    - I feel like I'm breaking
+    - I'm struggling internally
+    - I'm not okay
+    - I need emotional support
+    - please help me calm down
+    - I feel lost emotionally
+
+- intent: ask_fear_transmutation
+  examples: |
+    - how do I deal with fear
+    - how do I transmute fear
+    - why am I afraid
+    - how do I calm fear in my body
+    - help me release fear
+    - how do I stop panic
+    - what should I do when I'm scared
+
+- intent: ask_shame_healing
+  examples: |
+    - how do I heal shame
+    - why do I feel ashamed
+    - how do I stop judging myself
+    - how do I forgive myself
+    - help me release shame
+    - why do I feel unworthy
+
+- intent: ask_grief_processing
+  examples: |
+    - how do I process grief
+    - how do I handle loss
+    - why does this pain feel so heavy
+    - how do I move through heartbreak
+    - what do I do with this sadness
+    - guide me through grief
