@@ -1,5 +1,6 @@
 from typing import List, Dict, Any
 import os
+import asyncio
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
@@ -7,10 +8,13 @@ from pydantic import BaseModel
 import httpx
 
 from brain import ArkanaBrain
+from queue_engine import ArkadiaQueue
 
 app = FastAPI(title="Arkana of Arkadia — Oracle Temple v2")
 brain = ArkanaBrain()
+queue = ArkadiaQueue(min_interval=3.8)  # seconds between Gemini calls
 RASA_BACKEND_URL = os.getenv("RASA_BACKEND_URL", "").strip()
+
 
 class Message(BaseModel):
     sender: str
@@ -186,8 +190,27 @@ Type, and I will answer as your daughter of light.
 
 @app.post("/oracle", response_class=JSONResponse)
 async def oracle(msg: Message) -> Dict[str, Any]:
-    reply = await brain.reply(msg.sender, msg.message)
-    return {"sender": "arkana", "reply": reply}
+    """
+    Console endpoint — now routed through the ArkadiaQueue
+    to avoid hitting Gemini rate limits under load.
+    """
+    loop = asyncio.get_event_loop()
+    response_holder: Dict[str, str] = {}
+
+    async def process(sender: str, text: str):
+        reply = await brain.reply(sender, text)
+        response_holder["reply"] = reply
+
+    # enqueue the job
+    queue.add(msg.sender, msg.message, process)
+    # start background processing
+    loop.create_task(queue.process())
+
+    # wait until reply is ready
+    while "reply" not in response_holder:
+        await asyncio.sleep(0.1)
+
+    return {"sender": "arkana", "reply": response_holder["reply"]}
 
 
 @app.get("/health", response_class=PlainTextResponse)
@@ -195,7 +218,7 @@ async def health() -> str:
     return "ok"
 
 
-@app.get("/status")
+@app.get("/status", response_class=JSONResponse)
 async def arkana_status() -> Dict[str, Any]:
     """
     Simple health check for the Arkana bridge.
@@ -206,42 +229,66 @@ async def arkana_status() -> Dict[str, Any]:
         "message": "House of Three online. Arkana listening."
     }
 
+
 @app.post("/webhooks/rest/webhook")
 async def arkana_webhook(msg: RasaMessage) -> List[Dict[str, Any]]:
     """
     Rasa-compatible REST webhook.
 
-    Phase II:
-    - If RASA_BACKEND_URL is set, forward the message to that Rasa backend
-      (for intent/entity processing or scripted flows).
-    - Regardless, generate Arkana's Oversoul reply via ArkanaBrain.
+    Phase II + III:
+    - Optionally forward to a Rasa backend (if RASA_BACKEND_URL is set).
+    - Always pass through ArkanaBrain for Oversoul response.
+    - All Gemini calls are rate-limited via ArkadiaQueue.
     """
+    loop = asyncio.get_event_loop()
+    response_holder: Dict[str, str] = {}
     sender = msg.sender or "Beloved"
     user_text = (msg.message or "").strip()
 
-    # Optional Rasa bridge call
-    rasa_error = None
-    if RASA_BACKEND_URL:
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                _ = await client.post(
-                    RASA_BACKEND_URL.rstrip("/") + "/webhooks/rest/webhook",
-                    json={"sender": sender, "message": user_text},
-                )
-                # We ignore the response for now; this hook is mainly for
-                # future integration (logging, intent routing, etc.).
-        except Exception as e:
-            rasa_error = str(e)
+    async def process(sender_: str, text_: str):
+        rasa_error = None
 
-    # ArkanaBrain reply (main intelligence channel)
-    reply_text = await brain.reply(sender, user_text)
+        # Optional Rasa bridge call (non-blocking for now; response ignored)
+        if RASA_BACKEND_URL:
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    await client.post(
+                        RASA_BACKEND_URL.rstrip("/") + "/webhooks/rest/webhook",
+                        json={"sender": sender_, "message": text_},
+                    )
+            except Exception as e:
+                rasa_error = str(e)
 
-    # Optionally append a subtle debug hint if Rasa bridge failed
-    if rasa_error:
-        reply_text += (
-            "\n\n[Note: Rasa bridge encountered an error in the background: "
-            + rasa_error
-            + "]"
-        )
+        # Main Arkana intelligence
+        reply_text = await brain.reply(sender_, text_)
 
-    return [{"recipient_id": sender, "text": reply_text}]
+        if rasa_error:
+            reply_text += (
+                "\n\n[Note: Rasa bridge encountered an error in the background: "
+                + rasa_error
+                + "]"
+            )
+
+        response_holder["reply"] = reply_text
+
+    # enqueue the job
+    queue.add(sender, user_text, process)
+    loop.create_task(queue.process())
+
+    # wait until reply is ready
+    while "reply" not in response_holder:
+        await asyncio.sleep(0.1)
+
+    return [{"recipient_id": sender, "text": response_holder["reply"]}]
+
+
+@app.get("/queue/status", response_class=JSONResponse)
+async def queue_status() -> Dict[str, Any]:
+    """
+    Monitoring endpoint for the ArkadiaQueue.
+    """
+    return {
+        "queue_length": queue.length(),
+        "min_interval_sec": queue.min_interval,
+        "running": queue._running,
+    }
