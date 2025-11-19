@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
   && rm -rf /var/lib/apt/lists/*
 
-COPY arkana_app.py brain.py memory_engine.py queue_engine.py requirements.txt ./
+COPY arkana_app.py brain.py memory_engine.py queue_engine.py arkadia_drive_sync.py requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY arkana_rasa/ arkana_rasa/

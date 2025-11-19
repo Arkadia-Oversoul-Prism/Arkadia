@@ -4,3 +4,4 @@ pydantic
 anyio
 google-genai
 httpx
+google-api-python-client

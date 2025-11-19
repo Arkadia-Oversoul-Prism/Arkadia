@@ -9,7 +9,7 @@ import httpx
 
 from brain import ArkanaBrain
 from queue_engine import ArkadiaQueue
-
+from arkadia_drive_sync import sync_arkadia_folder, get_arkadia_snapshot
 app = FastAPI(title="Arkana of Arkadia — Oracle Temple v2")
 brain = ArkanaBrain()
 queue = ArkadiaQueue(min_interval=3.8)  # seconds between Gemini calls
@@ -292,3 +292,26 @@ async def queue_status() -> Dict[str, Any]:
         "min_interval_sec": queue.min_interval,
         "running": queue._running,
     }
+# ---------------------------------------------------------
+# Arkadia Drive Sync endpoints
+# ---------------------------------------------------------
+
+@app.get("/arkadia/sync", response_class=JSONResponse)
+async def arkadia_sync_snapshot():
+    """
+    Returns the current snapshot of the ARKADIA Drive corpus from cache.
+    Does NOT hit Google Drive; uses last synced data.
+    """
+    snapshot = get_arkadia_snapshot()
+    return snapshot
+
+
+@app.post("/arkadia/refresh", response_class=JSONResponse)
+async def arkadia_refresh():
+    """
+    Forces a fresh sync from Google Drive into memory.
+    This WILL hit Google Drive, so use sparingly.
+    """
+    sync_arkadia_folder()
+    snapshot = get_arkadia_snapshot()
+    return snapshot
