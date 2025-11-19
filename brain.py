@@ -1,15 +1,15 @@
 # brain.py
-# Arkana of Arkadia — BrainCore v3
-# Gemini 2.0 Flash + Arkadian Memory Ring + Drive Corpus
+# Arkana of Arkadia — BrainCore v3 (function-based Drive integration)
+# Gemini 2.0 Flash + Arkadian Memory Ring + Arkadia Drive Corpus
 
 import os
 import anyio
-from typing import Optional
+from typing import Optional, Dict, Any, List
 
 from google import genai
 
 from memory_engine import MemoryEngine
-from arkadia_drive_sync import ArkadiaDriveSync
+from arkadia_drive_sync import get_arkadia_snapshot
 
 
 class ArkanaBrain:
@@ -33,13 +33,6 @@ class ArkanaBrain:
 
         # Memory Ring
         self.memory = MemoryEngine()
-
-        # Arkadia Drive Corpus (Google Drive snapshot)
-        try:
-            self.drive: Optional[ArkadiaDriveSync] = ArkadiaDriveSync()
-        except Exception:
-            # If anything goes wrong, we just operate without Drive context
-            self.drive = None
 
     # ---------------------------------------------------------
     # GEMINI GENERATION
@@ -83,6 +76,87 @@ class ArkanaBrain:
             )
 
     # ---------------------------------------------------------
+    # INTERNAL: Build Arkadia corpus context
+    # ---------------------------------------------------------
+    def _build_corpus_context(self, max_docs: int = 5, max_chars: int = 1200) -> str:
+        """
+        Turn the current Arkadia Drive snapshot into a compact text block.
+        Uses get_arkadia_snapshot() from arkadia_drive_sync.py.
+        """
+        try:
+            snapshot = get_arkadia_snapshot()
+        except Exception as e:
+            return (
+                "▣ ARKADIA CORPUS CONTEXT ▣\n"
+                f"(Error reading snapshot: {e})\n"
+                "▣ END CORPUS ▣"
+            )
+
+        if not isinstance(snapshot, dict):
+            return (
+                "▣ ARKADIA CORPUS CONTEXT ▣\n"
+                "(Snapshot format invalid.)\n"
+                "▣ END CORPUS ▣"
+            )
+
+        docs: List[Dict[str, Any]] = snapshot.get("documents", []) or []
+        last_sync: Optional[str] = snapshot.get("last_sync")
+        error: Optional[str] = snapshot.get("error")
+
+        lines: List[str] = ["▣ ARKADIA CORPUS CONTEXT ▣"]
+
+        if last_sync:
+            lines.append(f"(Last Drive sync: {last_sync})")
+        if error:
+            lines.append(f"(Last sync error: {error})")
+
+        if not docs:
+            lines.append("")
+            lines.append("No Arkadia documents are currently cached.")
+            lines.append("▣ END CORPUS ▣")
+            return "\n".join(lines)
+
+        lines.append("")
+        lines.append("— Top Arkadia documents —")
+        char_count = 0
+        used = 0
+
+        for d in docs:
+            name = d.get("name", "Untitled")
+            mime = d.get("mimeType", "")
+            preview = (d.get("preview") or "").strip()
+
+            # Prefer non-folder docs with actual previews
+            if mime == "application/vnd.google-apps.folder" and not preview:
+                continue
+
+            header = f"* {name} [{mime}]"
+            lines.append(header)
+            char_count += len(header) + 1
+
+            if preview:
+                text = preview.replace("\r\n", "\n").split("\n")
+                short_preview = "\n    ".join(text[:3])
+                block = f"    {short_preview}"
+                lines.append(block)
+                char_count += len(block) + 1
+
+            lines.append("")
+            used += 1
+            if used >= max_docs or char_count >= max_chars:
+                break
+
+        if used == 0:
+            # If only folders had no preview, just show structure
+            lines.append("Folder structure:")
+            for d in docs[:max_docs]:
+                lines.append(f"* {d.get('name')} [{d.get('mimeType')}]")
+
+        lines.append("")
+        lines.append("▣ END CORPUS ▣")
+        return "\n".join(lines)
+
+    # ---------------------------------------------------------
     # REPLY FLOW
     # ---------------------------------------------------------
     async def reply(self, sender: str, message: str) -> str:
@@ -117,13 +191,8 @@ class ArkanaBrain:
         # 3. Build Memory Ring context
         memory_context = self.memory.inject_memory_context()
 
-        # 4. Build Arkadia Drive context (if available)
-        drive_context = ""
-        if self.drive is not None:
-            try:
-                drive_context = self.drive.get_corpus_context(max_chars=1200)
-            except Exception:
-                drive_context = ""
+        # 4. Build Arkadia Drive context
+        drive_context = self._build_corpus_context()
 
         # 5. Arkadian meta-prompt
         arkadian_primer = f"""
