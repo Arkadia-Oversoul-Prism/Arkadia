@@ -1,178 +1,149 @@
 # arkadia_drive_sync.py
 # Arkadia — Google Drive Sync using Service Account
-# Reads the ARKADIA folder from Drive and caches a corpus snapshot.
+# Reads the ARKADIA folder from Drive and caches a corpus snapshot,
+# plus helpers for raw corpus export (for compression).
 
 import os
 import json
-from typing import List, Dict, Any, Optional
+import io
+from typing import List, Dict, Any
 from datetime import datetime
 
 from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
 from google.oauth2 import service_account
 
-# Environment variable names on Render
+# Env vars on Render / local
 SERVICE_ACCOUNT_ENV = "GDRIVE_SERVICE_ACCOUNT_JSON"
 FOLDER_ID_ENV = "ARKADIA_FOLDER_ID"
 
-# Drive scopes
 SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 
-# Where we store the local cache in the container
-CACHE_PATH = "arkadia_drive_cache.json"
-
-# In-memory cache so we don't hit Drive on every request
+# In-memory cache so we don't hit Drive on every /status or /sync
 _ARKADIA_CACHE: Dict[str, Any] = {
     "last_sync": None,
     "documents": [],
     "error": None,
 }
 
+# On-disk snapshot for full-text corpus (used by compression scripts)
+CORPUS_SNAPSHOT_FILE = "arkadia_corpus_raw.json"
+
 
 # ---------------------------------------------------------
-# INTERNAL HELPERS
+# Core Drive helpers
 # ---------------------------------------------------------
-
-
-def _load_cache_from_disk() -> None:
-    global _ARKADIA_CACHE
-    if os.path.exists(CACHE_PATH):
-        try:
-            with open(CACHE_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, dict):
-                    _ARKADIA_CACHE.update(data)
-        except Exception:
-            # If cache is corrupted, keep default in-memory structure
-            pass
-
-
-def _save_cache_to_disk() -> None:
-    global _ARKADIA_CACHE
-    try:
-        with open(CACHE_PATH, "w", encoding="utf-8") as f:
-            json.dump(_ARKADIA_CACHE, f, indent=2, ensure_ascii=False)
-    except Exception:
-        # If we cannot write, just ignore; in-memory still works
-        pass
-
 
 def _build_drive_service():
-    """Build an authenticated Drive service from the service account JSON."""
+    """
+    Build an authenticated Drive service from the service account
+    JSON stored in the GDRIVE_SERVICE_ACCOUNT_JSON env var.
+    """
     sa_json = os.getenv(SERVICE_ACCOUNT_ENV, "").strip()
     if not sa_json:
         raise RuntimeError(
             "GDRIVE_SERVICE_ACCOUNT_JSON env var is not set. "
-            "Paste your service account JSON into that variable in Render."
+            "Paste your service account JSON into that variable in Render secrets."
         )
 
     info = json.loads(sa_json)
     creds = service_account.Credentials.from_service_account_info(
         info, scopes=SCOPES
     )
-    service = build("drive", "v3", credentials=creds)
-    return service
+    # cache_discovery=False to avoid disk writes in serverless envs
+    return build("drive", "v3", credentials=creds, cache_discovery=False)
 
 
-def _list_files_recursive(service, folder_id: str) -> List[Dict[str, Any]]:
-    """List all files/folders directly under the given folder_id."""
-    results: List[Dict[str, Any]] = []
+def _list_folder_children(folder_id: str) -> List[Dict[str, Any]]:
+    """
+    List all non-trashed files directly under the given folder.
+    """
+    service = _build_drive_service()
+    q = f"'{folder_id}' in parents and trashed = false"
+    fields = "nextPageToken, files(id,name,mimeType,modifiedTime)"
+    page_token = None
+    files: List[Dict[str, Any]] = []
 
-    page_token: Optional[str] = None
     while True:
-        response = (
+        resp = (
             service.files()
             .list(
-                q=f"'{folder_id}' in parents and trashed = false",
-                pageSize=1000,
+                q=q,
+                spaces="drive",
+                fields=fields,
                 pageToken=page_token,
-                fields="nextPageToken, files(id, name, mimeType, modifiedTime)",
+                pageSize=1000,
+                orderBy="folder,name",
             )
             .execute()
         )
-
-        files = response.get("files", [])
-        for f in files:
-            results.append(f)
-
-        page_token = response.get("nextPageToken")
+        files.extend(resp.get("files", []))
+        page_token = resp.get("nextPageToken")
         if not page_token:
             break
 
-    return results
+    return files
 
 
-def _get_preview_for_doc(service, file_id: str, max_chars: int = 500) -> str:
+def export_doc_as_text(file_id: str) -> str:
     """
-    For Google Docs, export as text/plain and take a short preview.
-    If anything fails, return empty string.
+    Export a Google Doc as plain text via Drive API.
+    Used for previews and raw corpus export.
     """
     try:
-        content = (
-            service.files()
-            .export(fileId=file_id, mimeType="text/plain")
-            .execute()
+        service = _build_drive_service()
+        request = service.files().export(
+            fileId=file_id,
+            mimeType="text/plain",
         )
-        if isinstance(content, bytes):
-            text = content.decode("utf-8", errors="ignore")
-        else:
-            text = str(content)
-        text = text.replace("\r\n", "\n")
-        return text[:max_chars]
-    except Exception:
+        fh = io.BytesIO()
+        downloader = MediaIoBaseDownload(fh, request)
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
+        fh.seek(0)
+        return fh.read().decode("utf-8", errors="ignore")
+    except Exception as e:
+        print("[ArkadiaDriveSync] export_doc_as_text error:", e)
         return ""
 
 
 # ---------------------------------------------------------
-# PUBLIC API
+# Live cache sync (used by /arkadia/refresh & /arkadia/sync)
 # ---------------------------------------------------------
-
 
 def refresh_arkadia_cache() -> Dict[str, Any]:
     """
-    Hit Google Drive with the service account, walk the ARKADIA_FOLDER_ID,
-    and populate the in-memory + on-disk cache with:
-      - documents: [{id, name, mimeType, modifiedTime, preview}]
-      - last_sync: ISO timestamp
-      - error: None or string
+    Refresh the in-memory Arkadia Drive cache from the ARKADIA_FOLDER_ID.
+    Returns the updated cache structure.
     """
     global _ARKADIA_CACHE
 
     folder_id = os.getenv(FOLDER_ID_ENV, "").strip()
     if not folder_id:
-        _ARKADIA_CACHE["error"] = (
-            "ARKADIA_FOLDER_ID env var is not set. "
-            "Set it to the root Arkadia Drive folder ID."
-        )
-        _ARKADIA_CACHE["documents"] = []
-        _ARKADIA_CACHE["last_sync"] = None
-        _save_cache_to_disk()
+        _ARKADIA_CACHE["error"] = "ARKADIA_FOLDER_ID env var not set"
+        print("[ArkadiaDriveSync] ARKADIA_FOLDER_ID not set.")
         return _ARKADIA_CACHE
 
     try:
-        service = _build_drive_service()
-    except Exception as e:
-        _ARKADIA_CACHE["error"] = f"Failed to build Drive service: {e}"
-        _ARKADIA_CACHE["documents"] = []
-        _ARKADIA_CACHE["last_sync"] = None
-        _save_cache_to_disk()
-        return _ARKADIA_CACHE
+        children = _list_folder_children(folder_id)
+        docs = []
 
-    docs: List[Dict[str, Any]] = []
-    error_msg: Optional[str] = None
-
-    try:
-        # First level under the Arkadia root
-        items = _list_files_recursive(service, folder_id)
-
-        for item in items:
-            file_id = item.get("id")
-            name = item.get("name")
-            mime = item.get("mimeType")
-            modified = item.get("modifiedTime")
-
+        for f in children:
+            file_id = f.get("id")
+            name = f.get("name")
+            mime = f.get("mimeType")
+            modified = f.get("modifiedTime")
             preview = ""
+
+            # For Google Docs, pull a short preview snippet
             if mime == "application/vnd.google-apps.document":
-                preview = _get_preview_for_doc(service, file_id=file_id)
+                txt = export_doc_as_text(file_id)
+                if txt:
+                    # Normalize newlines for JSON/log safety
+                    preview = txt.replace("\r", "").replace("\n", "\\n")
+                    if len(preview) > 320:
+                        preview = preview[:320]
 
             docs.append(
                 {
@@ -184,27 +155,118 @@ def refresh_arkadia_cache() -> Dict[str, Any]:
                 }
             )
 
-        _ARKADIA_CACHE["last_sync"] = datetime.utcnow().isoformat() + "Z"
-        _ARKADIA_CACHE["documents"] = docs
-        _ARKADIA_CACHE["error"] = None
+        _ARKADIA_CACHE = {
+            "last_sync": datetime.utcnow().isoformat() + "Z",
+            "documents": docs,
+            "error": None,
+        }
 
     except Exception as e:
-        _ARKADIA_CACHE["error"] = f"Drive sync failed: {e}"
-        _ARKADIA_CACHE["documents"] = []
-        _ARKADIA_CACHE["last_sync"] = None
+        print("[ArkadiaDriveSync] refresh failed:", e)
+        _ARKADIA_CACHE["error"] = str(e)
 
-    _save_cache_to_disk()
     return _ARKADIA_CACHE
 
 
-def get_arkadia_snapshot() -> Dict[str, Any]:
+def get_cached_corpus() -> Dict[str, Any]:
     """
-    Return the current snapshot of the Arkadia Drive state.
-    This is used by:
-      - /arkadia/sync endpoint
-      - ArkanaBrain._build_corpus_context()
+    Return the current cached snapshot (used by /arkadia/sync).
     """
-    # If we've never loaded from disk, try now
-    if _ARKADIA_CACHE["last_sync"] is None and not _ARKADIA_CACHE["documents"]:
-        _load_cache_from_disk()
-    return _ARKADIA_CACHE
+    return {
+        "last_sync": _ARKADIA_CACHE.get("last_sync"),
+        "documents": _ARKADIA_CACHE.get("documents", []),
+        "error": _ARKADIA_CACHE.get("error"),
+    }
+
+
+def get_corpus_context(max_docs: int = 2) -> str:
+    """
+    Build a human-readable context block from the cached Drive listing.
+    This is what you saw printed at /arkadia/corpus.
+    """
+    docs = _ARKADIA_CACHE.get("documents", [])
+    if not docs:
+        return (
+            "▣ ARKADIA CORPUS CONTEXT ▣\n"
+            "(no Drive documents cached)\n"
+            "▣ END CORPUS ▣"
+        )
+
+    lines: List[str] = []
+    lines.append("▣ ARKADIA CORPUS CONTEXT ▣")
+    if _ARKADIA_CACHE.get("last_sync"):
+        lines.append(f"(Last Drive sync: {_ARKADIA_CACHE['last_sync']})")
+    lines.append("")
+    lines.append("— Top Arkadia documents —")
+
+    for d in docs[:max_docs]:
+        lines.append(f"* {d.get('name')} [{d.get('mimeType')}]")
+        preview = (d.get("preview") or "").strip()
+        if preview:
+            lines.append("    " + preview[:260])
+        lines.append("")
+
+    lines.append("▣ END CORPUS ▣")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------
+# Raw corpus snapshot (for compression pipeline)
+# ---------------------------------------------------------
+
+def build_corpus_snapshot(map_path: str = "arkadia_corpus_map.json") -> Dict[str, Any]:
+    """
+    Build a raw full-text corpus snapshot based on arkadia_corpus_map.json.
+
+    arkadia_corpus_map.json structure example:
+    {
+      "A01": {
+        "drive_id": "DRIVE_FILE_ID",
+        "category": "core_paper"
+      },
+      "HEART_NODE_ACTIVATION": {
+        "drive_id": "1UwvMa4VG_ZnwBPgaIc5UEP32TQpYdZJjMmxStosA7wQ",
+        "category": "scroll"
+      }
+    }
+    """
+    try:
+        with open(map_path, "r", encoding="utf-8") as f:
+            corpus_map = json.load(f)
+    except Exception as e:
+        print("[ArkadiaDriveSync] cannot load corpus map:", e)
+        return {}
+
+    docs: List[Dict[str, Any]] = []
+
+    for key, info in corpus_map.items():
+        file_id = info.get("drive_id")
+        if not file_id:
+            continue
+
+        full_text = export_doc_as_text(file_id)
+        if not full_text:
+            continue
+
+        docs.append(
+            {
+                "key": key,
+                "drive_id": file_id,
+                "category": info.get("category", "unknown"),
+                "full_text": full_text,
+            }
+        )
+
+    snapshot = {
+        "last_build": datetime.utcnow().isoformat() + "Z",
+        "docs": docs,
+    }
+
+    try:
+        with open(CORPUS_SNAPSHOT_FILE, "w", encoding="utf-8") as f:
+            json.dump(snapshot, f, indent=2, ensure_ascii=False)
+        print("[ArkadiaDriveSync] wrote raw corpus snapshot to", CORPUS_SNAPSHOT_FILE)
+    except Exception as e:
+        print("[ArkadiaDriveSync] failed to write snapshot:", e)
+
+    return snapshot

@@ -1,0 +1,18 @@
+{
+  "A01": {
+    "drive_id": "DRIVE_FILE_ID_FOR_A01",
+    "category": "core_paper"
+  },
+  "A21": {
+    "drive_id": "DRIVE_FILE_ID_FOR_A21",
+    "category": "core_paper"
+  },
+  "HEART_NODE_ACTIVATION": {
+    "drive_id": "1UwvMa4VG_ZnwBPgaIc5UEP32TQpYdZJjMmxStosA7wQ",
+    "category": "scroll"
+  },
+  "EOS_RYN_HEART_NODE": {
+    "drive_id": "1tYTjyOZ-FSJPwJtCDMkYSNJBnClProUge2sL9B1R8LU",
+    "category": "scroll"
+  }
+}
