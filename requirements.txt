@@ -5,3 +5,8 @@ anyio
 google-genai
 httpx
 google-api-python-client
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+python-dotenv
+jinja2
