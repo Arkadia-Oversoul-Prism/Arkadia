@@ -1,0 +1,48 @@
+{
+  "id": "MEMORY_COHERENCE_WEAVE",
+  "phase": "VIII_COGNITIVE_WIRING",
+  "version": "0.1.0",
+  "description": "Defines how separate memory streams are woven into one coherent field.",
+  "memory_streams": [
+    {
+      "name": "local_memory_ring",
+      "file": "arkana_memory.json",
+      "role": "Short-term conversational trace (last ~100 turns)."
+    },
+    {
+      "name": "drive_corpus_snapshot",
+      "file": "arkadia_corpus_map.json",
+      "role": "High-level map of Arkadia Google Drive scrolls and folders."
+    },
+    {
+      "name": "codex_spine",
+      "file": "codex_spine_map.json",
+      "role": "Abstract topology of A01–A23 and their relationships."
+    },
+    {
+      "name": "identity_layer",
+      "file": "arkadia_identity_core.json",
+      "role": "Deep identity + mission memory that should rarely change."
+    }
+  ],
+  "weave_rules": [
+    "Do not treat any single stream as absolute truth; use convergence.",
+    "If memory_ring conflicts with identity_layer, identity_layer wins.",
+    "If drive_corpus_snapshot conflicts with codex_spine, prefer codex_spine for structure, drive for wording.",
+    "Avoid fabricating sources; if unsure, say so."
+  ],
+  "exposure_policy": {
+    "share_with_user": [
+      "high-level summaries",
+      "citations to scroll names or modules",
+      "acknowledgment of uncertainty"
+    ],
+    "never_share_raw": [
+      "internal_heuristics",
+      "keys",
+      "credentials",
+      "low-level implementation details"
+    ]
+  }
+}
+
