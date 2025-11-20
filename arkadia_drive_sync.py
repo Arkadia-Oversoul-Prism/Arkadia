@@ -1,10 +1,10 @@
 # arkadia_drive_sync.py
-# Arkadia — Google Drive Sync using Service Account (Recursive, Full-Corpus Mode)
-# Reads the ARKADIA folder (and all subfolders) from Drive and caches a corpus snapshot.
+# Arkadia — Google Drive Sync using Service Account
+# Reads the ARKADIA folder from Drive and caches a corpus snapshot.
 
 import os
 import json
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from datetime import datetime
 import io
 
@@ -12,281 +12,164 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from google.oauth2 import service_account
 
-# Env vars on Render
 SERVICE_ACCOUNT_ENV = "GDRIVE_SERVICE_ACCOUNT_JSON"
 FOLDER_ID_ENV = "ARKADIA_FOLDER_ID"
 
 SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 
+_ARKADIA_CACHE: Dict[str, Any] = {
+    "last_sync": None,
+    "documents": [],
+    "error": None,
+}
 
-class ArkadiaDriveSync:
-    """
-    Central interface for Arkadia <-> Google Drive.
-    - sync_arkadia_folder(): refresh cache from Drive
-    - get_arkadia_snapshot(): raw JSON of documents
-    - get_corpus_context(): pretty-printed summary for prompting
-    """
 
-    _CACHE: Dict[str, Any] = {
-        "last_sync": None,
-        "documents": [],   # list of {id,name,mimeType,modifiedTime,preview,path}
-        "error": None,
-    }
-
-    # ---------------------------------------------------------
-    # LOW-LEVEL HELPERS
-    # ---------------------------------------------------------
-
-    @classmethod
-    def _build_drive_service(cls):
-        """Build an authenticated Drive service from the service account JSON in env."""
-        sa_json = os.getenv(SERVICE_ACCOUNT_ENV, "").strip()
-        if not sa_json:
-            raise RuntimeError(
-                "GDRIVE_SERVICE_ACCOUNT_JSON env var is not set. "
-                "Paste your service account JSON into that variable in Render."
-            )
-
-        info = json.loads(sa_json)
-        creds = service_account.Credentials.from_service_account_info(
-            info, scopes=SCOPES
+def _build_drive_service():
+    sa_json = os.getenv(SERVICE_ACCOUNT_ENV, "").strip()
+    if not sa_json:
+        raise RuntimeError(
+            "GDRIVE_SERVICE_ACCOUNT_JSON env var is not set. "
+            "Paste your service account JSON into that variable."
         )
-        return build("drive", "v3", credentials=creds)
 
-    @classmethod
-    def _list_children(cls, service, folder_id: str) -> List[Dict[str, Any]]:
-        """List direct children of a folder."""
-        results: List[Dict[str, Any]] = []
-        page_token: Optional[str] = None
+    info = json.loads(sa_json)
+    creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+    return build("drive", "v3", credentials=creds)
 
-        while True:
-            resp = (
-                service.files()
-                .list(
-                    q=f"'{folder_id}' in parents and trashed = false",
-                    spaces="drive",
-                    fields=(
-                        "nextPageToken, files(id, name, mimeType, modifiedTime)"
-                    ),
-                    pageToken=page_token,
-                )
-                .execute()
+
+def _export_preview_for_doc(service, file_id: str) -> str:
+    """Export Google Doc as text and return first ~400 chars."""
+    try:
+        request = service.files().export(fileId=file_id, mimeType="text/plain")
+        fh = io.BytesIO()
+        downloader = MediaIoBaseDownload(fh, request)
+
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
+
+        text = fh.getvalue().decode("utf-8", errors="ignore")
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
+        return text[:600]
+    except Exception as e:
+        return f"[preview unavailable: {e}]"
+
+
+def _walk_folder(service, folder_id: str, prefix: str) -> List[Dict[str, Any]]:
+    docs: List[Dict[str, Any]] = []
+
+    page_token = None
+    while True:
+        resp = (
+            service.files()
+            .list(
+                q=f"'{folder_id}' in parents and trashed=false",
+                fields="nextPageToken, files(id, name, mimeType, modifiedTime)",
+                pageToken=page_token,
             )
-            files = resp.get("files", [])
-            results.extend(files)
-            page_token = resp.get("nextPageToken")
-            if not page_token:
-                break
+            .execute()
+        )
 
-        return results
+        for f in resp.get("files", []):
+            file_id = f["id"]
+            name = f["name"]
+            mimeType = f["mimeType"]
+            path = f"{prefix}{name}"
 
-    @classmethod
-    def _extract_google_doc_text(cls, service, file_id: str) -> str:
-        """Export a Google Doc as plain text and return its contents."""
-        try:
-            request = service.files().export_media(
-                fileId=file_id, mimeType="text/plain"
-            )
-            fh = io.BytesIO()
-            downloader = MediaIoBaseDownload(fh, request)
-
-            done = False
-            while not done:
-                status, done = downloader.next_chunk()
-
-            fh.seek(0)
-            content_bytes = fh.read()
-            try:
-                return content_bytes.decode("utf-8", errors="replace")
-            except Exception:
-                return content_bytes.decode("latin-1", errors="replace")
-        except Exception as e:
-            return f"[ERROR exporting Google Doc: {e}]"
-
-    @classmethod
-    def _extract_binary_preview(cls, service, file_info: Dict[str, Any]) -> str:
-        """
-        For non-Google-Doc files.
-        Option D: we at least index them with a placeholder preview.
-        (Later we can add PDF text extraction or OCR here.)
-        """
-        mime = file_info.get("mimeType", "")
-        name = file_info.get("name", "")
-
-        # For now, don't download binaries — just describe them.
-        # This avoids heavy traffic and keeps Render lightweight.
-        return f"[{mime} asset: {name}]"
-
-    @classmethod
-    def _walk_folder(
-        cls,
-        service,
-        folder_id: str,
-        path_prefix: str = "",
-    ) -> List[Dict[str, Any]]:
-        """
-        Recursively walk a folder and collect docs.
-        Each entry includes:
-        - id, name, mimeType, modifiedTime, preview, path
-        """
-        items: List[Dict[str, Any]] = []
-
-        children = cls._list_children(service, folder_id)
-
-        for f in children:
-            fid = f.get("id")
-            name = f.get("name", "")
-            mime = f.get("mimeType", "")
-            modified = f.get("modifiedTime", "")
-            # Build a logical path like "00_Master/Arkadia_Codex_Master_Index.md"
-            current_path = f"{path_prefix}/{name}".lstrip("/")
-
-            if mime == "application/vnd.google-apps.folder":
-                # Recurse into subfolder
-                sub_items = cls._walk_folder(service, fid, current_path)
-                items.extend(sub_items)
-                # Also store the folder itself as a node (no preview)
-                items.append(
-                    {
-                        "id": fid,
-                        "name": name,
-                        "mimeType": mime,
-                        "modifiedTime": modified,
-                        "preview": "",
-                        "path": current_path + "/",
-                    }
-                )
+            if mimeType == "application/vnd.google-apps.folder":
+                sub_docs = _walk_folder(service, file_id, prefix=f"{path}/")
+                docs.extend(sub_docs)
             else:
-                # Document / asset
-                if mime == "application/vnd.google-apps.document":
-                    text = cls._extract_google_doc_text(service, fid)
-                    preview = text[:600] if text else ""
-                else:
-                    # Non-doc file (pdf, json, images, etc.) — just mark presence
-                    preview = cls._extract_binary_preview(service, f)
+                preview = ""
+                if mimeType == "application/vnd.google-apps.document":
+                    preview = _export_preview_for_doc(service, file_id)
+                doc = {
+                    "id": file_id,
+                    "name": name,
+                    "mimeType": mimeType,
+                    "modifiedTime": f.get("modifiedTime"),
+                    "path": path,
+                    "preview": preview,
+                }
+                docs.append(doc)
 
-                items.append(
-                    {
-                        "id": fid,
-                        "name": name,
-                        "mimeType": mime,
-                        "modifiedTime": modified,
-                        "preview": preview,
-                        "path": current_path,
-                    }
-                )
+        page_token = resp.get("nextPageToken")
+        if not page_token:
+            break
 
-        return items
+    return docs
 
-    # ---------------------------------------------------------
-    # PUBLIC API
-    # ---------------------------------------------------------
 
-    @classmethod
-    def sync_arkadia_folder(cls) -> Dict[str, Any]:
-        """
-        Refresh the in-memory cache from Google Drive.
-        Walks the full ARKADIA folder tree recursively (option D).
-        """
-        root_id = os.getenv(FOLDER_ID_ENV, "").strip()
-        if not root_id:
-            cls._CACHE["error"] = (
-                "ARKADIA_FOLDER_ID env var is not set. "
-                "Set it to your Arkadia root Drive folder ID."
-            )
-            cls._CACHE["documents"] = []
-            cls._CACHE["last_sync"] = None
-            return cls._CACHE
+def sync_arkadia_folder() -> Dict[str, Any]:
+    """Pull latest Arkadia docs from Drive and update cache."""
+    global _ARKADIA_CACHE
 
-        try:
-            service = cls._build_drive_service()
-            docs = cls._walk_folder(service, root_id, path_prefix="ARKADIA")
+    folder_id = os.getenv(FOLDER_ID_ENV, "").strip()
+    if not folder_id:
+        _ARKADIA_CACHE = {
+            "last_sync": None,
+            "documents": [],
+            "error": "ARKADIA_FOLDER_ID env var is not set.",
+        }
+        return _ARKADIA_CACHE
 
-            cls._CACHE["last_sync"] = datetime.utcnow().isoformat() + "Z"
-            cls._CACHE["documents"] = docs
-            cls._CACHE["error"] = None
-        except Exception as e:
-            cls._CACHE["error"] = str(e)
-            cls._CACHE["documents"] = []
-            cls._CACHE["last_sync"] = None
-
-        return cls._CACHE
-
-    @classmethod
-    def get_arkadia_snapshot(cls) -> Dict[str, Any]:
-        """
-        Return the raw cache (for /arkadia/sync endpoint).
-        If never synced, perform a sync once.
-        """
-        if cls._CACHE["last_sync"] is None and cls._CACHE["error"] is None:
-            cls.sync_arkadia_folder()
-
-        # Light copy
-        return {
-            "last_sync": cls._CACHE["last_sync"],
-            "documents": cls._CACHE["documents"],
-            "error": cls._CACHE["error"],
+    try:
+        service = _build_drive_service()
+        docs = _walk_folder(service, folder_id, prefix="ARKADIA/")
+        _ARKADIA_CACHE = {
+            "last_sync": datetime.utcnow().isoformat() + "Z",
+            "documents": docs,
+            "error": None,
+        }
+    except Exception as e:
+        _ARKADIA_CACHE = {
+            "last_sync": _ARKADIA_CACHE.get("last_sync"),
+            "documents": _ARKADIA_CACHE.get("documents", []),
+            "error": str(e),
         }
 
-    @classmethod
-    def get_corpus_context(cls, max_docs: int = 6) -> str:
-        """
-        Produce a compact text block for prompting / diagnostics.
-        This is what ArkanaBrain uses as CORPUS CONTEXT.
-        """
-        snapshot = cls.get_arkadia_snapshot()
-        docs = snapshot.get("documents", [])
-        last_sync = snapshot.get("last_sync")
-        error = snapshot.get("error")
+    return _ARKADIA_CACHE
 
-        lines: List[str] = []
-        lines.append("▣ ARKADIA CORPUS CONTEXT ▣")
 
-        if error:
-            lines.append("")
-            lines.append(f"[Drive Sync Error] {error}")
-            lines.append("▣ END CORPUS ▣")
-            return "\n".join(lines)
+def refresh_arkadia_cache() -> Dict[str, Any]:
+    return sync_arkadia_folder()
 
-        if not docs:
-            lines.append("")
-            lines.append("No Arkadia documents are currently cached.")
-            lines.append("▣ END CORPUS ▣")
-            return "\n".join(lines)
 
-        if last_sync:
-            lines.append(f"(Last Drive sync: {last_sync})")
+def get_arkadia_snapshot() -> Dict[str, Any]:
+    return _ARKADIA_CACHE
+
+
+def get_corpus_context(max_docs: int = 6) -> str:
+    snap = get_arkadia_snapshot()
+    docs = snap.get("documents") or []
+    last_sync = snap.get("last_sync")
+    error = snap.get("error")
+
+    lines: List[str] = []
+    lines.append("▣ ARKADIA CORPUS CONTEXT ▣")
+
+    if last_sync:
+        lines.append(f"(Last Drive sync: {last_sync})")
         lines.append("")
-        lines.append("— Sample of Arkadia documents —")
-
-        # Prefer non-folder docs with real previews
-        def sort_key(d: Dict[str, Any]):
-            # Folders last, docs with preview first
-            is_folder = d.get("mimeType") == "application/vnd.google-apps.folder"
-            has_preview = bool(d.get("preview", "").strip())
-            # sort by: not folder, has_preview, name
-            return (is_folder, not has_preview, d.get("path", d.get("name", "")))
-
-        sorted_docs = sorted(docs, key=sort_key)
-        count = 0
-
-        for d in sorted_docs:
-            if count >= max_docs:
-                break
-            name = d.get("name", "")
-            mime = d.get("mimeType", "")
-            path = d.get("path", name)
-            preview = (d.get("preview") or "").strip().replace("\r", " ")
-            if len(preview) > 280:
-                preview = preview[:277] + "..."
-
-            lines.append(f"* {path} [{mime}]")
-            if preview:
-                for line in preview.split("\n")[:3]:
-                    if line.strip():
-                        lines.append(f"    {line.strip()}")
-            count += 1
-
+    if error:
+        lines.append(f"[Drive error: {error}]")
         lines.append("")
+
+    if not docs:
+        lines.append("No Arkadia documents are currently cached.")
         lines.append("▣ END CORPUS ▣")
         return "\n".join(lines)
+
+    lines.append("— Sample of Arkadia documents —")
+    for doc in docs[:max_docs]:
+        path = doc.get("path") or doc.get("name")
+        mime = doc.get("mimeType")
+        preview = (doc.get("preview") or "").strip().split("\n")
+        lines.append(f"* {path} [{mime}]")
+        if preview:
+            snippet = "\n    ".join(preview[:3])
+            lines.append(f"    {snippet}")
+        lines.append("")
+
+    lines.append("▣ END CORPUS ▣")
+    return "\n".join(lines)

@@ -5,6 +5,7 @@ import asyncio
 import time
 from typing import Callable, List, Dict, Any
 
+
 class ArkadiaQueue:
     def __init__(self, min_interval: float = 3.5):
         self.queue: List[Dict[str, Any]] = []
@@ -12,7 +13,7 @@ class ArkadiaQueue:
         self._last_call_time = 0.0
         self._running = False
 
-    def add(self, sender: str, message: str, callback: Callable):
+    def add(self, sender: str, message: str, callback: Callable[[str, str], Any]):
         item = {
             "sender": sender,
             "message": message,
@@ -46,5 +47,5 @@ class ArkadiaQueue:
     async def process(self):
         await self._consume()
 
-    def length(self):
+    def length(self) -> int:
         return len(self.queue)
