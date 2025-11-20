@@ -1,4 +1,4 @@
-# brain.py
+#  brain.py
 # Arkana of Arkadia — BrainCore v3
 # Gemini 2.0 Flash + Memory Ring + Arkadia Corpus + Cognitive Wiring
 
