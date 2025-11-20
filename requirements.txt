@@ -10,3 +10,5 @@ google-auth-oauthlib
 google-auth-httplib2
 python-dotenv
 jinja2
+SQLAlchemy==2.0.23
+alembic==1.13.1
