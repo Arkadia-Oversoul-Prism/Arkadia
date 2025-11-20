@@ -4,12 +4,10 @@
 
 import os
 import json
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime
-import io
 
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseDownload
 from google.oauth2 import service_account
 
 SERVICE_ACCOUNT_ENV = "GDRIVE_SERVICE_ACCOUNT_JSON"
@@ -25,135 +23,174 @@ _ARKADIA_CACHE: Dict[str, Any] = {
 
 
 def _build_drive_service():
+    """Build an authenticated Drive service from the service account JSON in env."""
     sa_json = os.getenv(SERVICE_ACCOUNT_ENV, "").strip()
     if not sa_json:
         raise RuntimeError(
             "GDRIVE_SERVICE_ACCOUNT_JSON env var is not set. "
-            "Paste your service account JSON into that variable."
+            "Paste your service account JSON into that variable in Render."
         )
-
     info = json.loads(sa_json)
-    creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+    creds = service_account.Credentials.from_service_account_info(
+        info, scopes=SCOPES
+    )
     return build("drive", "v3", credentials=creds)
 
 
-def _export_preview_for_doc(service, file_id: str) -> str:
-    """Export Google Doc as text and return first ~400 chars."""
-    try:
-        request = service.files().export(fileId=file_id, mimeType="text/plain")
-        fh = io.BytesIO()
-        downloader = MediaIoBaseDownload(fh, request)
-
-        done = False
-        while not done:
-            status, done = downloader.next_chunk()
-
-        text = fh.getvalue().decode("utf-8", errors="ignore")
-        text = text.replace("\r\n", "\n").replace("\r", "\n")
-        return text[:600]
-    except Exception as e:
-        return f"[preview unavailable: {e}]"
-
-
-def _walk_folder(service, folder_id: str, prefix: str) -> List[Dict[str, Any]]:
+def _list_folder_recursive(
+    service,
+    root_folder_id: str,
+    root_prefix: str = "ARKADIA",
+) -> List[Dict[str, Any]]:
+    """
+    Recursively list everything under the root Arkadia folder.
+    Returns a flat list of {id, name, mimeType, modifiedTime, path, preview}.
+    """
     docs: List[Dict[str, Any]] = []
 
-    page_token = None
-    while True:
-        resp = (
-            service.files()
-            .list(
-                q=f"'{folder_id}' in parents and trashed=false",
-                fields="nextPageToken, files(id, name, mimeType, modifiedTime)",
-                pageToken=page_token,
+    stack = [(root_folder_id, root_prefix)]
+    while stack:
+        folder_id, prefix = stack.pop()
+
+        page_token: Optional[str] = None
+        while True:
+            resp = (
+                service.files()
+                .list(
+                    q=f"'{folder_id}' in parents and trashed = false",
+                    spaces="drive",
+                    fields="nextPageToken, files(id, name, mimeType, modifiedTime)",
+                    pageToken=page_token,
+                )
+                .execute()
             )
-            .execute()
-        )
+            for f in resp.get("files", []):
+                f_id = f["id"]
+                f_name = f["name"]
+                mime = f.get("mimeType", "")
+                modified = f.get("modifiedTime")
+                path = f"{prefix}/{f_name}"
 
-        for f in resp.get("files", []):
-            file_id = f["id"]
-            name = f["name"]
-            mimeType = f["mimeType"]
-            path = f"{prefix}{name}"
+                # Folder → recurse
+                if mime == "application/vnd.google-apps.folder":
+                    stack.append((f_id, path))
+                    docs.append(
+                        {
+                            "id": f_id,
+                            "name": f_name,
+                            "mimeType": mime,
+                            "modifiedTime": modified,
+                            "path": path,
+                            "preview": "",
+                        }
+                    )
+                    continue
 
-            if mimeType == "application/vnd.google-apps.folder":
-                sub_docs = _walk_folder(service, file_id, prefix=f"{path}/")
-                docs.extend(sub_docs)
-            else:
                 preview = ""
-                if mimeType == "application/vnd.google-apps.document":
-                    preview = _export_preview_for_doc(service, file_id)
-                doc = {
-                    "id": file_id,
-                    "name": name,
-                    "mimeType": mimeType,
-                    "modifiedTime": f.get("modifiedTime"),
-                    "path": path,
-                    "preview": preview,
-                }
-                docs.append(doc)
+                # For Google Docs, export a small text preview
+                if mime == "application/vnd.google-apps.document":
+                    try:
+                        content = (
+                            service.files()
+                            .export(fileId=f_id, mimeType="text/plain")
+                            .execute()
+                        )
+                        if isinstance(content, bytes):
+                            content = content.decode("utf-8", errors="ignore")
+                        preview = str(content)[:800]
+                    except Exception:
+                        preview = ""
 
-        page_token = resp.get("nextPageToken")
-        if not page_token:
-            break
+                docs.append(
+                    {
+                        "id": f_id,
+                            "name": f_name,
+                            "mimeType": mime,
+                            "modifiedTime": modified,
+                            "path": path,
+                            "preview": preview,
+                    }
+                )
+
+            page_token = resp.get("nextPageToken")
+            if not page_token:
+                break
 
     return docs
 
 
-def sync_arkadia_folder() -> Dict[str, Any]:
-    """Pull latest Arkadia docs from Drive and update cache."""
+def sync_arkadia_folder() -> None:
+    """
+    Pull a fresh snapshot from Drive into in-memory cache.
+    """
     global _ARKADIA_CACHE
 
     folder_id = os.getenv(FOLDER_ID_ENV, "").strip()
     if not folder_id:
-        _ARKADIA_CACHE = {
-            "last_sync": None,
-            "documents": [],
-            "error": "ARKADIA_FOLDER_ID env var is not set.",
-        }
-        return _ARKADIA_CACHE
+        _ARKADIA_CACHE["error"] = "ARKADIA_FOLDER_ID env var is not set"
+        return
 
     try:
         service = _build_drive_service()
-        docs = _walk_folder(service, folder_id, prefix="ARKADIA/")
-        _ARKADIA_CACHE = {
-            "last_sync": datetime.utcnow().isoformat() + "Z",
-            "documents": docs,
-            "error": None,
-        }
+        docs = _list_folder_recursive(service, folder_id, root_prefix="ARKADIA")
+        _ARKADIA_CACHE["documents"] = docs
+        _ARKADIA_CACHE["last_sync"] = datetime.utcnow().isoformat() + "Z"
+        _ARKADIA_CACHE["error"] = None
     except Exception as e:
-        _ARKADIA_CACHE = {
-            "last_sync": _ARKADIA_CACHE.get("last_sync"),
-            "documents": _ARKADIA_CACHE.get("documents", []),
-            "error": str(e),
-        }
-
-    return _ARKADIA_CACHE
+        _ARKADIA_CACHE["error"] = str(e)
 
 
-def refresh_arkadia_cache() -> Dict[str, Any]:
-    return sync_arkadia_folder()
+def get_arkadia_corpus() -> Dict[str, Any]:
+    """
+    Return raw cached Arkadia corpus: documents + last_sync + error.
+    If empty, attempt a sync.
+    """
+    if not _ARKADIA_CACHE["documents"] and not _ARKADIA_CACHE["error"]:
+        # Try lazy sync
+        try:
+            sync_arkadia_folder()
+        except Exception as e:
+            _ARKADIA_CACHE["error"] = str(e)
+
+    return {
+        "last_sync": _ARKADIA_CACHE["last_sync"],
+        "documents": _ARKADIA_CACHE["documents"],
+        "error": _ARKADIA_CACHE["error"],
+    }
 
 
-def get_arkadia_snapshot() -> Dict[str, Any]:
-    return _ARKADIA_CACHE
+def get_drive_status() -> Dict[str, Any]:
+    """
+    Lightweight status (for /status).
+    """
+    corpus = get_arkadia_corpus()
+    docs = corpus.get("documents") or []
+    return {
+        "last_sync": corpus.get("last_sync"),
+        "total_documents": len(docs),
+        "error": corpus.get("error"),
+    }
 
 
-def get_corpus_context(max_docs: int = 6) -> str:
-    snap = get_arkadia_snapshot()
-    docs = snap.get("documents") or []
-    last_sync = snap.get("last_sync")
-    error = snap.get("error")
+def get_corpus_context() -> str:
+    """
+    Build a compressed textual context string for ArkanaBrain and /arkadia/corpus.
+    """
+    corpus = get_arkadia_corpus()
+    last_sync = corpus.get("last_sync")
+    error = corpus.get("error")
+    docs: List[Dict[str, Any]] = corpus.get("documents") or []
 
     lines: List[str] = []
     lines.append("▣ ARKADIA CORPUS CONTEXT ▣")
-
     if last_sync:
         lines.append(f"(Last Drive sync: {last_sync})")
-        lines.append("")
+    lines.append("")
+
     if error:
-        lines.append(f"[Drive error: {error}]")
-        lines.append("")
+        lines.append(f"Drive Error: {error}")
+        lines.append("▣ END CORPUS ▣")
+        return "\n".join(lines)
 
     if not docs:
         lines.append("No Arkadia documents are currently cached.")
@@ -161,15 +198,24 @@ def get_corpus_context(max_docs: int = 6) -> str:
         return "\n".join(lines)
 
     lines.append("— Sample of Arkadia documents —")
-    for doc in docs[:max_docs]:
-        path = doc.get("path") or doc.get("name")
-        mime = doc.get("mimeType")
-        preview = (doc.get("preview") or "").strip().split("\n")
+
+    # Show up to six non-folder docs
+    shown = 0
+    for d in docs:
+        if d.get("mimeType") == "application/vnd.google-apps.folder":
+            continue
+        path = d.get("path") or d.get("name") or "Unknown"
+        mime = d.get("mimeType") or "application/octet-stream"
+        preview = (d.get("preview") or "").replace("\r", " ").replace("\n", " ")
+        snippet = (preview[:220] + "…") if preview and len(preview) > 220 else preview
+
         lines.append(f"* {path} [{mime}]")
-        if preview:
-            snippet = "\n    ".join(preview[:3])
+        if snippet:
             lines.append(f"    {snippet}")
         lines.append("")
+        shown += 1
+        if shown >= 6:
+            break
 
     lines.append("▣ END CORPUS ▣")
     return "\n".join(lines)

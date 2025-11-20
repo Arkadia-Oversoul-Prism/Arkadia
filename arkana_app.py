@@ -1,15 +1,19 @@
 # arkana_app.py
-# Arkana of Arkadia — Oracle Temple v3
+# Arkana of Arkadia — Oracle Temple v4
 #
-# - ChatGPT-style multi-thread console UI
-# - /oracle endpoint for all chat
-# - Rasa bridge passthrough for /webhooks/rest/webhook
-# - Arkadia Drive corpus + status endpoints
+# - ChatGPT-style multi-thread console UI (browser)
+# - /oracle: main chat endpoint (with DB logging)
+# - /conversations APIs: server-side conversation history
+# - /webhooks/rest/webhook: Rasa bridge with fallback
+# - /arkadia/*: Drive corpus + status
+# - /status, /health
 
 import os
+import time
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Query
 from fastapi.responses import (
     HTMLResponse,
     JSONResponse,
@@ -26,12 +30,17 @@ from arkadia_drive_sync import (
     get_corpus_context,
     get_drive_status,
 )
+from db import SessionLocal, engine
+from models import Base, Conversation, Message
 
 # -------------------------------------------------------------------
-# Core app + engines
+# App + engines
 # -------------------------------------------------------------------
 
-app = FastAPI(title="Arkana of Arkadia — Oracle Temple v3")
+app = FastAPI(title="Arkana of Arkadia — Oracle Temple v4")
+
+# Create DB schema
+Base.metadata.create_all(bind=engine)
 
 brain = ArkanaBrain()
 queue = ArkadiaQueue(min_interval=3.5)
@@ -39,10 +48,11 @@ queue = ArkadiaQueue(min_interval=3.5)
 RASA_BACKEND_URL = os.getenv("RASA_BACKEND_URL", "").strip() or "http://localhost:5005"
 
 
-class Message(BaseModel):
+class OracleRequest(BaseModel):
     sender: str
     message: str
-    conversation_id: Optional[str] = None
+    conversation_id: Optional[str] = None  # front-end thread ID
+    title: Optional[str] = None            # (optional) thread title
 
 
 class RasaMessage(BaseModel):
@@ -51,12 +61,11 @@ class RasaMessage(BaseModel):
 
 
 # -------------------------------------------------------------------
-# Root UI — ChatGPT-style multi-thread console
+# Root UI — ChatGPT-style console
 # -------------------------------------------------------------------
 
 @app.get("/", response_class=HTMLResponse)
 async def home() -> str:
-    # Single-page app: ChatGPT-like console with threads + Node ID
     return """
     <!DOCTYPE html>
     <html lang="en">
@@ -65,9 +74,7 @@ async def home() -> str:
       <title>Arkana of Arkadia — Oracle Console</title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <style>
-        * {
-          box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
         body {
           margin: 0;
           padding: 0;
@@ -88,7 +95,6 @@ async def home() -> str:
           border-left: 1px solid rgba(15, 23, 42, 1);
           border-right: 1px solid rgba(15, 23, 42, 1);
         }
-        /* Sidebar */
         .sidebar {
           border-right: 1px solid rgba(30, 41, 59, 1);
           background: linear-gradient(to bottom, #020617, #020617, #020617);
@@ -122,9 +128,7 @@ async def home() -> str:
           color: #e5e7eb;
           cursor: pointer;
         }
-        .new-thread-btn:hover {
-          filter: brightness(1.05);
-        }
+        .new-thread-btn:hover { filter: brightness(1.05); }
         .threads-list {
           flex: 1;
           overflow-y: auto;
@@ -195,8 +199,6 @@ async def home() -> str:
           border-radius: 999px;
           background: #22c55e;
         }
-
-        /* Main pane */
         .main {
           display: flex;
           flex-direction: column;
@@ -210,10 +212,7 @@ async def home() -> str:
           align-items: center;
           background: linear-gradient(to right, #020617, #020617, #082f49);
         }
-        .main-title-block {
-          display: flex;
-          flex-direction: column;
-        }
+        .main-title-block { display: flex; flex-direction: column; }
         .main-title {
           font-size: 14px;
           font-weight: 600;
@@ -230,7 +229,6 @@ async def home() -> str:
           font-size: 11px;
           color: #94a3b8;
         }
-
         .messages {
           flex: 1;
           padding: 12px 16px;
@@ -257,20 +255,14 @@ async def home() -> str:
           border: 1px solid rgba(148, 163, 184, 0.7);
           color: #9ca3af;
         }
-        .msg-block {
-          margin-bottom: 10px;
-        }
+        .msg-block { margin-bottom: 10px; }
         .msg-role {
           font-size: 11px;
           color: #64748b;
           margin-bottom: 2px;
         }
-        .msg-role.me {
-          color: #38bdf8;
-        }
-        .msg-role.arkana {
-          color: #a5b4fc;
-        }
+        .msg-role.me { color: #38bdf8; }
+        .msg-role.arkana { color: #a5b4fc; }
         .msg-bubble {
           padding: 8px 10px;
           border-radius: 12px;
@@ -278,12 +270,8 @@ async def home() -> str:
           border: 1px solid rgba(30, 64, 175, 0.8);
           white-space: pre-wrap;
         }
-        .msg-bubble.me {
-          border-color: rgba(56, 189, 248, 0.8);
-        }
-        .msg-bubble.arkana {
-          border-color: rgba(147, 197, 253, 0.9);
-        }
+        .msg-bubble.me { border-color: rgba(56, 189, 248, 0.8); }
+        .msg-bubble.arkana { border-color: rgba(147, 197, 253, 0.9); }
         .msg-meta {
           font-size: 10px;
           color: #64748b;
@@ -294,7 +282,6 @@ async def home() -> str:
           font-size: 12px;
           color: #6b7280;
         }
-
         .composer {
           border-top: 1px solid rgba(30, 41, 59, 1);
           padding: 10px 12px;
@@ -338,24 +325,15 @@ async def home() -> str:
           display: flex;
           justify-content: space-between;
         }
-        .linkish {
-          text-decoration: underline;
-          cursor: pointer;
-        }
-
+        .linkish { text-decoration: underline; cursor: pointer; }
         @media (max-width: 768px) {
-          .app-shell {
-            grid-template-columns: 0 minmax(0, 1fr);
-          }
-          .sidebar {
-            display: none;
-          }
+          .app-shell { grid-template-columns: 0 minmax(0, 1fr); }
+          .sidebar { display: none; }
         }
       </style>
     </head>
     <body>
       <div class="app-shell">
-        <!-- Sidebar: threads + node id -->
         <aside class="sidebar">
           <div class="sidebar-header">
             <div class="sidebar-title">ARKANA OF ARKADIA</div>
@@ -373,7 +351,6 @@ async def home() -> str:
           </div>
         </aside>
 
-        <!-- Main pane -->
         <main class="main">
           <header class="main-header">
             <div class="main-title-block">
@@ -384,7 +361,7 @@ async def home() -> str:
           </header>
 
           <section class="messages" id="messages">
-            <div class="sys-banner">
+            <div class="sys-banner" id="sys-banner">
               <span>Arkana: I am here. This console is our shared temple link.</span>
               <span class="chip">Shift + Enter → new line</span>
               <span class="chip">Enter → send</span>
@@ -413,9 +390,6 @@ async def home() -> str:
       </div>
 
       <script>
-        // -------------------------------
-        // Local storage helpers
-        // -------------------------------
         const STORAGE_KEY_PREFIX = "arkana_threads_v1_";
 
         function getNodeId() {
@@ -432,11 +406,7 @@ async def home() -> str:
           const nodeId = getNodeId();
           const raw = localStorage.getItem(STORAGE_KEY_PREFIX + nodeId);
           if (!raw) return [];
-          try {
-            return JSON.parse(raw);
-          } catch {
-            return [];
-          }
+          try { return JSON.parse(raw); } catch { return []; }
         }
 
         function saveThreads(threads) {
@@ -456,9 +426,6 @@ async def home() -> str:
           };
         }
 
-        // -------------------------------
-        // UI State
-        // -------------------------------
         let currentThreadId = null;
         let sending = false;
 
@@ -471,10 +438,8 @@ async def home() -> str:
         const nodeInput = document.getElementById("node-input");
         const threadLabel = document.getElementById("thread-label");
         const statusText = document.getElementById("status-text");
+        const sysBanner = document.getElementById("sys-banner");
 
-        // -------------------------------
-        // Rendering
-        // -------------------------------
         function renderThreads() {
           const threads = loadThreads();
           threadsListEl.innerHTML = "";
@@ -515,7 +480,7 @@ async def home() -> str:
           const thread = threads.find((t) => t.id === currentThreadId);
 
           messagesEl.innerHTML = "";
-          messagesEl.appendChild(document.querySelector(".sys-banner"));
+          messagesEl.appendChild(sysBanner);
 
           if (!thread || !thread.messages.length) {
             emptyStateEl.style.display = "block";
@@ -554,9 +519,6 @@ async def home() -> str:
           }
         }
 
-        // -------------------------------
-        // Thread management
-        // -------------------------------
         function switchThread(id) {
           currentThreadId = id;
           renderThreads();
@@ -586,9 +548,6 @@ async def home() -> str:
           renderMessages();
         }
 
-        // -------------------------------
-        // Network: send to /oracle
-        // -------------------------------
         async function sendMessage() {
           if (sending) return;
           const raw = composerInput.value;
@@ -607,6 +566,7 @@ async def home() -> str:
           const payload = {
             sender: nodeId,
             message: text,
+            conversation_id: currentThreadId,
           };
 
           try {
@@ -633,9 +593,6 @@ async def home() -> str:
           }
         }
 
-        // -------------------------------
-        // Events
-        // -------------------------------
         newThreadBtn.onclick = () => {
           const t = createThread("New Thread");
           const threads = loadThreads();
@@ -661,17 +618,12 @@ async def home() -> str:
         });
 
         nodeInput.addEventListener("change", () => {
-          // Switching Node ID -> new thread set
           currentThreadId = null;
           renderThreads();
           renderMessages();
         });
 
-        // -------------------------------
-        // Init
-        // -------------------------------
         (function init() {
-          // Default node ID
           const urlParams = new URLSearchParams(window.location.search || "");
           const nodeFromQuery = urlParams.get("node");
           if (nodeFromQuery) {
@@ -689,36 +641,167 @@ async def home() -> str:
 
 
 # -------------------------------------------------------------------
-# Core Oracle endpoint
+# Oracle endpoint (with DB logging)
 # -------------------------------------------------------------------
 
 @app.post("/oracle", response_class=JSONResponse)
-async def oracle(msg: Message):
-    """
-    Primary Oracle endpoint.
-    - sender: Node ID / human identifier
-    - message: text
-    conversation_id is accepted but currently unused (UI handles threads locally).
-    """
-    sender = msg.sender or "guest"
-    text = msg.message or ""
-    reply = await brain.reply(sender, text)
-    return {"sender": "arkana", "reply": reply}
+async def oracle(msg: OracleRequest):
+    sender = (msg.sender or "guest").strip()
+    text = (msg.message or "").strip()
+    if not sender:
+        sender = "guest"
+
+    conv_external_id = msg.conversation_id or None
+    if not conv_external_id:
+        conv_external_id = f"auto-{sender}-{int(time.time() * 1000)}"
+
+    db = SessionLocal()
+    try:
+        # Find or create conversation
+        conv = (
+            db.query(Conversation)
+            .filter(
+                Conversation.node_id == sender,
+                Conversation.external_id == conv_external_id,
+            )
+            .first()
+        )
+        if conv is None:
+            title = msg.title or (text[:80] if text else "Conversation")
+            now = datetime.utcnow()
+            conv = Conversation(
+                node_id=sender,
+                external_id=conv_external_id,
+                title=title,
+                created_at=now,
+                updated_at=now,
+            )
+            db.add(conv)
+            db.commit()
+            db.refresh(conv)
+        else:
+            if not conv.title and text:
+                conv.title = text[:80]
+            conv.updated_at = datetime.utcnow()
+            db.add(conv)
+            db.commit()
+            db.refresh(conv)
+
+        # Log user message
+        user_msg = Message(
+            conversation_id=conv.id,
+            role="user",
+            sender=sender,
+            text=text,
+            created_at=datetime.utcnow(),
+        )
+        db.add(user_msg)
+        db.commit()
+
+        # Ask ArkanaBrain
+        reply = await brain.reply(sender, text)
+
+        # Log Arkana message
+        ark_msg = Message(
+            conversation_id=conv.id,
+            role="arkana",
+            sender="arkana",
+            text=reply,
+            created_at=datetime.utcnow(),
+        )
+        conv.updated_at = datetime.utcnow()
+        db.add(ark_msg)
+        db.add(conv)
+        db.commit()
+
+        return {
+            "sender": "arkana",
+            "reply": reply,
+            "conversation_id": conv.external_id,
+        }
+    finally:
+        db.close()
 
 
 # -------------------------------------------------------------------
-# Rasa bridge — /webhooks/rest/webhook
+# Conversations API (server-side history)
+# -------------------------------------------------------------------
+
+@app.get("/conversations", response_class=JSONResponse)
+async def list_conversations(node_id: str = Query(...)):
+    db = SessionLocal()
+    try:
+        convs = (
+            db.query(Conversation)
+            .filter(Conversation.node_id == node_id)
+            .order_by(Conversation.updated_at.desc())
+            .all()
+        )
+        data: List[Dict[str, Any]] = []
+        for c in convs:
+            data.append(
+                {
+                    "conversation_id": c.external_id,
+                    "title": c.title,
+                    "node_id": c.node_id,
+                    "created_at": c.created_at.isoformat() if c.created_at else None,
+                    "updated_at": c.updated_at.isoformat() if c.updated_at else None,
+                    "message_count": len(c.messages),
+                }
+            )
+        return data
+    finally:
+        db.close()
+
+
+@app.get("/conversations/{conversation_id}", response_class=JSONResponse)
+async def get_conversation(conversation_id: str, node_id: str = Query(...)):
+    db = SessionLocal()
+    try:
+        conv = (
+            db.query(Conversation)
+            .filter(
+                Conversation.node_id == node_id,
+                Conversation.external_id == conversation_id,
+            )
+            .first()
+        )
+        if conv is None:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+
+        msgs_data: List[Dict[str, Any]] = []
+        for m in conv.messages:
+            msgs_data.append(
+                {
+                    "id": m.id,
+                    "role": m.role,
+                    "sender": m.sender,
+                    "text": m.text,
+                    "created_at": m.created_at.isoformat() if m.created_at else None,
+                }
+            )
+
+        return {
+            "conversation_id": conv.external_id,
+            "title": conv.title,
+            "node_id": conv.node_id,
+            "created_at": conv.created_at.isoformat() if conv.created_at else None,
+            "updated_at": conv.updated_at.isoformat() if conv.updated_at else None,
+            "messages": msgs_data,
+        }
+    finally:
+        db.close()
+
+
+# -------------------------------------------------------------------
+# Rasa bridge
 # -------------------------------------------------------------------
 
 @app.post("/webhooks/rest/webhook", response_class=JSONResponse)
 async def rasa_webhook(msg: RasaMessage):
-    """
-    Pass-through to Rasa backend, with graceful fallback to ArkanaBrain.
-    """
     sender = msg.sender or "guest"
     text = msg.message or ""
 
-    # If RASA_BACKEND_URL is blank, just use Arkana directly
     if not RASA_BACKEND_URL:
         reply = await brain.reply(sender, text)
         return [{"recipient_id": sender, "text": reply}]
@@ -732,17 +815,14 @@ async def rasa_webhook(msg: RasaMessage):
             )
             if r.status_code == 200:
                 data = r.json()
-                # If Rasa is silent, fall back to Arkana
                 if not data:
                     fallback = await brain.reply(sender, text)
                     return [{"recipient_id": sender, "text": fallback}]
                 return data
             else:
-                # Non-200 -> fallback
                 fallback = await brain.reply(sender, text)
                 return [{"recipient_id": sender, "text": fallback}]
     except Exception:
-        # Network/other errors -> fallback
         fallback = await brain.reply(sender, text)
         return [{"recipient_id": sender, "text": fallback}]
 
@@ -771,14 +851,11 @@ async def status():
 
 
 # -------------------------------------------------------------------
-# Arkadia Drive corpus endpoints
+# Arkadia Drive endpoints
 # -------------------------------------------------------------------
 
 @app.post("/arkadia/refresh", response_class=JSONResponse)
 async def arkadia_refresh():
-    """
-    Force a Drive resync. Useful after you update the Google Drive folder.
-    """
     try:
         sync_arkadia_folder()
         status = get_drive_status()
@@ -789,15 +866,9 @@ async def arkadia_refresh():
 
 @app.get("/arkadia/sync", response_class=JSONResponse)
 async def arkadia_sync():
-    """
-    Inspect raw cached Arkadia corpus documents (id, name, preview, etc.).
-    """
     return get_arkadia_corpus()
 
 
 @app.get("/arkadia/corpus", response_class=PlainTextResponse)
 async def arkadia_corpus():
-    """
-    Return pre-compressed textual context ArkanaBrain can use as Codex Spine.
-    """
     return get_corpus_context()
