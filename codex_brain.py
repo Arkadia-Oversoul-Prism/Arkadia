@@ -108,25 +108,27 @@ class CodexBrain:
     """
 
     def __init__(self) -> None:
-        self.model_name = os.getenv("CODEX_MODEL", "gemini-1.5-flash-latest")
+        # Read desired model from env, but normalise away "-latest"
+        raw_model = os.getenv("CODEX_MODEL", "gemini-1.5-flash")
+        if raw_model.endswith("-latest"):
+            raw_model = raw_model.replace("-latest", "")
+        self.model_name = raw_model
+
         self.use_rasa = False  # kept for compatibility with /status
         self.rasa_ok = False
-
         self._model = None
 
-        api_key = os.getenv("GEMINI_API_KEY")
-        if genai is None:
-            logger.warning("CodexBrain: google.generativeai not available, running in fallback-only mode.")
-        elif not api_key:
-            logger.warning("CodexBrain: GEMINI_API_KEY not set, running in fallback-only mode.")
-        else:
-            try:
-                genai.configure(api_key=api_key)
-                self._model = genai.GenerativeModel(self.model_name)
-                logger.info("CodexBrain: initialised Gemini model %s", self.model_name)
-            except Exception as e:  # pragma: no cover
-                logger.exception("CodexBrain: failed to initialise Gemini model: %s", e)
-                self._model = None
+    def __init__(self) -> None:
+        # Read desired model from env, but normalise away "-latest"
+        raw_model = os.getenv("CODEX_MODEL", "gemini-1.5-flash")
+        if raw_model.endswith("-latest"):
+            raw_model = raw_model.replace("-latest", "")
+        self.model_name = raw_model
+
+        self.use_rasa = False  # kept for compatibility with /status
+        self.rasa_ok = False
+        logger.exception("CodexBrain: failed to initialise Gemini model: %s", e)
+        self._model = None
 
     # ── Corpus Helpers ──────────────────────────────────────────────────────
 
