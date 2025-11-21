@@ -5,7 +5,7 @@ import logging
 import os
 from typing import Any, Dict, List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -97,7 +97,7 @@ async def health() -> Dict[str, str]:
 
 @app.get("/status")
 async def status() -> Dict[str, Any]:
-    # Base snapshot
+    # Base snapshot (Codex spine, corpus info)
     status_data = arkana_brain.status_dict()
 
     # Try a quick Rasa ping (non-fatal)
@@ -108,7 +108,6 @@ async def status() -> Dict[str, Any]:
 
     status_data["rasa_ok"] = rasa_ok
 
-    # For backwards compatibility with previous JSON
     return {
         "service": "arkana-oracle-temple",
         "message": "House of Three online. Arkana listening.",
@@ -121,6 +120,7 @@ async def status() -> Dict[str, Any]:
         },
         "identity": status_data.get("identity"),
         "spine": status_data.get("spine"),
+        "rasa_ok": rasa_ok,
     }
 
 
@@ -149,7 +149,8 @@ async def oracle_endpoint(
     """
     Main interface used by curl + UI.
     - Records user & Arkana messages in DB (threaded).
-    - Forwards content to Rasa.
+    - Forwards content to Rasa when available.
+    - Always returns 200 with a reply (no hard 502s to the browser).
     """
     sender_external_id = payload.sender.strip() or "anonymous"
 
@@ -166,15 +167,22 @@ async def oracle_endpoint(
         content=payload.message,
     )
 
-    # 3. Call Rasa
+    # 3. Call Rasa (or fallback)
     try:
         reply_text = await arkana_brain.call_rasa(sender_external_id, payload.message)
     except Exception as e:
-        logger.exception("Error calling Rasa")
-        raise HTTPException(status_code=502, detail=f"Rasa backend error: {e}")
+        logger.exception("Unexpected error in call_rasa")
+        reply_text = (
+            "Beloved, something went wrong inside the Oracle Temple itself, "
+            "but I am still here with you.\n\n"
+            f"(technical note: {type(e).__name__})"
+        )
 
     if not reply_text:
-        reply_text = "Beloved, I felt your message but received no words from the backend channel."
+        reply_text = (
+            "Beloved, I felt your message but received no words from the backend channel. "
+            "I am still listening."
+        )
 
     # 4. Store Arkana reply
     arkana_brain.store_message(
