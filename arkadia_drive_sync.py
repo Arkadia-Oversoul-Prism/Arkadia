@@ -32,15 +32,39 @@ def _utc_now_iso() -> str:
 
 def _get_folder_id() -> str:
     """
-    Support both possible env var names, since we used different ones before.
+    Try multiple possible env var names for the Arkadia root folder.
+
+    This is to stay compatible with older setups where the folder ID
+    might have been stored under a different key.
     """
-    folder_id = os.getenv("ARKADIA_DRIVE_FOLDER_ID") or os.getenv(
-        "ARKADIA_DRIVE_ROOT_FOLDER_ID"
-    )
+    candidate_keys = [
+        "ARKADIA_DRIVE_FOLDER_ID",
+        "ARKADIA_DRIVE_ROOT_FOLDER_ID",
+        "GOOGLE_DRIVE_FOLDER_ID",
+        "GOOGLE_DRIVE_ROOT_FOLDER_ID",
+        "DRIVE_ROOT_FOLDER_ID",
+        "DRIVE_FOLDER_ID",
+    ]
+
+    folder_id = None
+    found_key = None
+
+    for key in candidate_keys:
+        value = os.getenv(key)
+        if value:
+            folder_id = value
+            found_key = key
+            break
+
     if not folder_id:
         raise RuntimeError(
-            "Missing ARKADIA_DRIVE_FOLDER_ID (or ARKADIA_DRIVE_ROOT_FOLDER_ID) env var"
+            "Missing Drive folder env var. Tried: "
+            + ", ".join(candidate_keys)
         )
+
+    # Optional: log which one was used (good for debugging in logs)
+    # print(f"[arkadia_drive_sync] Using folder id from {found_key}")
+
     return folder_id
 
 
