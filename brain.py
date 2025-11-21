@@ -127,6 +127,28 @@ class ArkanaBrain:
         db.refresh(msg)
         return msg
 
+    def store_message(
+        self,
+        db: Session,
+        thread: Thread,
+        role: str,
+        sender: str,
+        content: str,
+    ) -> Message:
+        msg = Message(thread_id=thread.id, role=role, sender=sender, content=content)
+        db.add(msg)
+
+        # finesse: auto-title threads from first user message
+        if role == "user" and not thread.title:
+            snippet = content.strip().replace("\n", " ")
+            if len(snippet) > 60:
+                snippet = snippet[:57] + "..."
+            thread.title = snippet
+
+        db.commit()
+        db.refresh(msg)
+        return msg
+
     async def call_rasa(self, sender: str, message: str) -> str:
         """
         Call Rasa REST webhook and return concatenated text reply.
