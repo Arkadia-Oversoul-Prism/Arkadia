@@ -2,7 +2,6 @@
 # Arkadia — ORM Models
 
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import (
     Column,
@@ -12,11 +11,9 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import relationship
 
-from db import engine
-
-Base = declarative_base()
+from db import engine, Base
 
 
 class User(Base):
@@ -37,7 +34,7 @@ class Thread(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     title = Column(String(256), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User", back_populates="threads")
     messages = relationship("Message", back_populates="thread", cascade="all, delete")
@@ -59,11 +56,3 @@ class Message(Base):
 def init_db() -> None:
     """Create tables if they don't exist."""
     Base.metadata.create_all(bind=engine)
-class Thread(Base):
-    __tablename__ = "threads"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    title = Column(String(256), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
