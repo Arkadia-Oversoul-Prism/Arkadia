@@ -1,157 +1,188 @@
 # arkadia_drive_sync.py
-# Arkadia — Drive / Corpus Sync Adapter
+# Arkadia — Google Drive Codex Binder
 
+import datetime
 import json
-import logging
 import os
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Tuple
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+try:
+    from google.oauth2 import service_account
+    from googleapiclient.discovery import build
+except ImportError:
+    # On local dev without Google libs, we fail gracefully.
+    service_account = None
+    build = None
 
-BASE_DIR = Path(__file__).parent
-CORPUS_MAP_PATH = BASE_DIR / "arkadia_corpus_map.json"
+# Read-only scope is enough
+SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+
+# In-memory snapshot of the Arkadia corpus
+_SNAPSHOT: Dict[str, Any] = {
+    "last_sync": None,
+    "error": None,
+    "total_documents": 0,
+    "documents": [],
+}
 
 
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+def _utc_now_iso() -> str:
+    return datetime.datetime.utcnow().isoformat() + "Z"
 
 
-def _load_local_corpus_map() -> Dict[str, Any]:
+def _get_folder_id() -> str:
     """
-    Load local arkadia_corpus_map.json if it exists.
-    Structure:
-    {
-      "last_sync": "...",
-      "documents": [ { id, name, mimeType, modifiedTime, path, preview }, ... ]
-    }
+    Support both possible env var names, since we used different ones before.
     """
-    if not CORPUS_MAP_PATH.exists():
-        return {
-            "last_sync": None,
-            "error": "arkadia_corpus_map.json not found",
-            "total_documents": 0,
-            "documents": [],
-        }
+    folder_id = os.getenv("ARKADIA_DRIVE_FOLDER_ID") or os.getenv(
+        "ARKADIA_DRIVE_ROOT_FOLDER_ID"
+    )
+    if not folder_id:
+        raise RuntimeError(
+            "Missing ARKADIA_DRIVE_FOLDER_ID (or ARKADIA_DRIVE_ROOT_FOLDER_ID) env var"
+        )
+    return folder_id
+
+
+def _build_drive_service():
+    """
+    Build a Google Drive service using service account credentials
+    stored in GOOGLE_SERVICE_ACCOUNT_JSON.
+    """
+    if service_account is None or build is None:
+        raise RuntimeError(
+            "google-auth / google-api-python-client not installed in this environment"
+        )
+
+    sa_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+    if not sa_json:
+        raise RuntimeError("Missing GOOGLE_SERVICE_ACCOUNT_JSON env var")
 
     try:
-        with CORPUS_MAP_PATH.open("r", encoding="utf-8") as f:
-            data = json.load(f)
+        info = json.loads(sa_json)
     except Exception as e:
-        logger.exception("Failed to load arkadia_corpus_map.json")
-        return {
-            "last_sync": None,
-            "error": f"Failed to read arkadia_corpus_map.json: {e}",
-            "total_documents": 0,
-            "documents": [],
-        }
+        raise RuntimeError(f"Invalid GOOGLE_SERVICE_ACCOUNT_JSON: {e}")
 
-    docs: List[Dict[str, Any]] = data.get("documents", [])
-    return {
-        "last_sync": data.get("last_sync"),
-        "error": None,
-        "total_documents": len(docs),
-        "documents": docs,
-    }
+    creds = service_account.Credentials.from_service_account_info(
+        info, scopes=SCOPES
+    )
+    service = build("drive", "v3", credentials=creds, cache_discovery=False)
+    return service
 
 
-def get_arkadia_corpus() -> Dict[str, Any]:
+def _list_children(
+    service: Any, folder_id: str
+) -> List[Dict[str, Any]]:
     """
-    Public accessor used by /arkadia/corpus.
-    Returns stable snapshot from local map.
+    List direct children of a folder.
     """
-    snapshot = _load_local_corpus_map()
-    # Ensure keys always present
-    snapshot.setdefault("last_sync", None)
-    snapshot.setdefault("error", None)
-    snapshot.setdefault("total_documents", 0)
-    snapshot.setdefault("documents", [])
-    return snapshot
+    results: List[Dict[str, Any]] = []
+    page_token = None
+
+    while True:
+        resp = (
+            service.files()
+            .list(
+                q=f"'{folder_id}' in parents and trashed = false",
+                fields=(
+                    "nextPageToken, files(id, name, mimeType, modifiedTime)"
+                ),
+                pageSize=1000,
+                pageToken=page_token,
+            )
+            .execute()
+        )
+        files = resp.get("files", [])
+        results.extend(files)
+        page_token = resp.get("nextPageToken")
+        if not page_token:
+            break
+
+    return results
 
 
-def get_arkadia_snapshot() -> Dict[str, Any]:
+def _walk_tree(
+    service: Any, root_id: str, root_name: str = "ARKADIA"
+) -> List[Dict[str, Any]]:
     """
-    Backwards-compat alias (older versions imported this name).
+    BFS over the folder tree under ARKADIA root,
+    building a flat list of documents with full paths.
     """
-    return get_arkadia_corpus()
+    docs: List[Dict[str, Any]] = []
+
+    # Each stack entry: (folder_id, folder_path)
+    stack: List[Tuple[str, str]] = [(root_id, root_name)]
+
+    while stack:
+        current_id, current_path = stack.pop()
+        children = _list_children(service, current_id)
+
+        for f in children:
+            mime = f.get("mimeType", "")
+            name = f.get("name", "")
+            file_id = f.get("id")
+            modified = f.get("modifiedTime")
+
+            if mime == "application/vnd.google-apps.folder":
+                # Recurse into subfolder
+                next_path = f"{current_path}/{name}"
+                stack.append((file_id, next_path))
+            else:
+                docs.append(
+                    {
+                        "id": file_id,
+                        "name": name,
+                        "mimeType": mime,
+                        "modifiedTime": modified,
+                        "path": f"{current_path}/{name}",
+                    }
+                )
+
+    return docs
 
 
 def refresh_arkadia_corpus() -> Dict[str, Any]:
     """
-    Attempt to refresh from Google Drive if credentials are available.
-    If anything fails, fall back to local map but still return a valid structure.
-    """
-    # Try Drive-based sync if configuration present
-    service_creds_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
-    folder_id = os.getenv("ARKADIA_DRIVE_FOLDER_ID")
+    Pull the latest Arkadia snapshot from Google Drive and cache it
+    in memory for the current process.
 
-    if not service_creds_json or not folder_id:
-        logger.info("Drive credentials or folder id not set; using local corpus map only.")
-        snapshot = _load_local_corpus_map()
-        # Bump last_sync so UI sees 'recent'
-        snapshot["last_sync"] = _now_iso()
-        return snapshot
+    This is what /arkadia/refresh calls.
+    """
+    global _SNAPSHOT
 
     try:
-        # Lazy import so app can still run without these libs locally
-        from google.oauth2.service_account import Credentials
-        from googleapiclient.discovery import build
+        folder_id = _get_folder_id()
+        service = _build_drive_service()
+        docs = _walk_tree(service, folder_id, "ARKADIA")
 
-        creds = Credentials.from_service_account_info(
-            json.loads(service_creds_json),
-            scopes=["https://www.googleapis.com/auth/drive.readonly"],
-        )
-        service = build("drive", "v3", credentials=creds)
-
-        # List documents recursively under ARKADIA folder
-        query = f"'{folder_id}' in parents and trashed = false"
-        results = service.files().list(
-            q=query,
-            pageSize=1000,
-            fields="files(id, name, mimeType, modifiedTime, parents)",
-        ).execute()
-
-        files = results.get("files", [])
-
-        documents: List[Dict[str, Any]] = []
-        for fobj in files:
-            doc = {
-                "id": fobj["id"],
-                "name": fobj["name"],
-                "mimeType": fobj["mimeType"],
-                "modifiedTime": fobj.get("modifiedTime"),
-                # We don't resolve full folder paths here; keep name or simple prefix
-                "path": f"ARKADIA/{fobj['name']}",
-                "preview": None,
-            }
-            documents.append(doc)
-
-        snapshot = {
-            "last_sync": _now_iso(),
+        _SNAPSHOT = {
+            "last_sync": _utc_now_iso(),
             "error": None,
-            "total_documents": len(documents),
-            "documents": documents,
+            "total_documents": len(docs),
+            "documents": docs,
+        }
+    except Exception as e:
+        _SNAPSHOT = {
+            "last_sync": _utc_now_iso(),
+            "error": f"{type(e).__name__}: {e}",
+            "total_documents": 0,
+            "documents": [],
         }
 
-        # Persist back to arkadia_corpus_map.json as cache
-        try:
-            with CORPUS_MAP_PATH.open("w", encoding="utf-8") as f:
-                json.dump(
-                    {"last_sync": snapshot["last_sync"], "documents": documents},
-                    f,
-                    ensure_ascii=False,
-                    indent=2,
-                )
-        except Exception as e:
-            logger.warning("Failed to write arkadia_corpus_map.json: %s", e)
+    return _SNAPSHOT
 
-        return snapshot
 
-    except Exception as e:
-        logger.exception("Drive sync failed; falling back to local corpus map.")
-        snapshot = _load_local_corpus_map()
-        snapshot["error"] = f"Drive sync failed: {e}"
-        snapshot["last_sync"] = _now_iso()
-        return snapshot
+def get_arkadia_corpus() -> Dict[str, Any]:
+    """
+    Return the current in-memory corpus snapshot.
+
+    This is what /arkadia/corpus uses.
+    """
+    return _SNAPSHOT
+
+
+def get_arkadia_snapshot() -> Dict[str, Any]:
+    """
+    Alias used by ArkanaBrain.get_status() to show Drive state in /status.
+    """
+    return _SNAPSHOT
