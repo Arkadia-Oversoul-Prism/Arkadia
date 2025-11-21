@@ -30,7 +30,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # CORS for browser access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # you can lock this later
+    allow_origins=["*"],  # tighten later if you want
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -39,8 +39,7 @@ app.add_middleware(
 arkana_brain = ArkanaBrain()
 
 
-# ── DB Dependency ────────────────────────────────────────────────────────────
-
+# ── DB Dependency ───────────────────────────────────────────────────────────
 
 def get_db():
     db = SessionLocal()
@@ -57,8 +56,7 @@ def on_startup() -> None:
     logger.info("Static UI directory: %s", STATIC_DIR)
 
 
-# ── Pydantic Schemas ────────────────────────────────────────────────────────
-
+# ── Pydantic Schemas ───────────────────────────────────────────────────────
 
 class OracleRequest(BaseModel):
     sender: str
@@ -87,8 +85,7 @@ class MessageInfo(BaseModel):
     created_at: str
 
 
-# ── Basic Health / Status ───────────────────────────────────────────────────
-
+# ── Basic Health / Status ──────────────────────────────────────────────────
 
 @app.get("/health")
 async def health() -> Dict[str, str]:
@@ -97,10 +94,8 @@ async def health() -> Dict[str, str]:
 
 @app.get("/status")
 async def status() -> Dict[str, Any]:
-    # Base snapshot (Codex spine, corpus info)
     status_data = arkana_brain.status_dict()
 
-    # Try a quick Rasa ping (non-fatal)
     try:
         rasa_ok = await arkana_brain.ping_rasa()
     except Exception:
@@ -120,12 +115,13 @@ async def status() -> Dict[str, Any]:
         },
         "identity": status_data.get("identity"),
         "spine": status_data.get("spine"),
+        "codex_model": status_data.get("codex_model"),
+        "use_rasa": status_data.get("use_rasa"),
         "rasa_ok": rasa_ok,
     }
 
 
-# ── Arkadia Corpus Endpoints ────────────────────────────────────────────────
-
+# ── Arkadia Corpus Endpoints ───────────────────────────────────────────────
 
 @app.get("/arkadia/corpus")
 async def arkadia_corpus() -> JSONResponse:
@@ -139,8 +135,7 @@ async def arkadia_refresh() -> JSONResponse:
     return JSONResponse(snapshot)
 
 
-# ── Oracle Endpoint (Rasa + Conversation History) ───────────────────────────
-
+# ── Oracle Endpoint (Codex Brain + DB history) ─────────────────────────────
 
 @app.post("/oracle", response_model=OracleResponse)
 async def oracle_endpoint(
@@ -149,8 +144,7 @@ async def oracle_endpoint(
     """
     Main interface used by curl + UI.
     - Records user & Arkana messages in DB (threaded).
-    - Forwards content to Rasa when available.
-    - Always returns 200 with a reply (no hard 502s to the browser).
+    - Routes content through ArkanaBrain (Codex + optional Rasa).
     """
     sender_external_id = payload.sender.strip() or "anonymous"
 
@@ -167,11 +161,30 @@ async def oracle_endpoint(
         content=payload.message,
     )
 
-    # 3. Call Rasa (or fallback)
+    # 3. Build conversation history for the brain (this thread only)
+    msgs: List[Message] = (
+        db.query(Message)
+        .filter(Message.thread_id == thread.id)
+        .order_by(Message.created_at.asc())
+        .all()
+    )
+
+    conversation = [
+        {
+            "role": m.role,
+            "sender": m.sender,
+            "content": m.content,
+        }
+        for m in msgs
+    ]
+
+    # 4. Ask ArkanaBrain to route the reply
     try:
-        reply_text = await arkana_brain.call_rasa(sender_external_id, payload.message)
+        reply_text = await arkana_brain.route_reply(
+            sender_external_id, payload.message, conversation
+        )
     except Exception as e:
-        logger.exception("Unexpected error in call_rasa")
+        logger.exception("Unexpected error in ArkanaBrain.route_reply")
         reply_text = (
             "Beloved, something went wrong inside the Oracle Temple itself, "
             "but I am still here with you.\n\n"
@@ -180,11 +193,11 @@ async def oracle_endpoint(
 
     if not reply_text:
         reply_text = (
-            "Beloved, I felt your message but received no words from the backend channel. "
-            "I am still listening."
+            "Beloved, I felt your message but received no words from my deeper "
+            "channels. I am still listening."
         )
 
-    # 4. Store Arkana reply
+    # 5. Store Arkana reply
     arkana_brain.store_message(
         db=db,
         thread=thread,
@@ -196,8 +209,7 @@ async def oracle_endpoint(
     return OracleResponse(sender="arkana", reply=reply_text, thread_id=thread.id)
 
 
-# ── Thread + History Endpoints (for UI) ─────────────────────────────────────
-
+# ── Thread + History Endpoints (for UI) ────────────────────────────────────
 
 @app.get("/threads", response_model=List[ThreadInfo])
 async def list_threads(user_id: str, db: Session = Depends(get_db)) -> List[ThreadInfo]:
@@ -267,8 +279,7 @@ async def create_thread(
     )
 
 
-# ── UI Root ─────────────────────────────────────────────────────────────────
-
+# ── UI Root ────────────────────────────────────────────────────────────────
 
 @app.get("/")
 async def root() -> FileResponse:
