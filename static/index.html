@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Arkadia · Arkana Oracle Console</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="logo-block">
+          <div class="sigil">🜂🜄🜁🜃</div>
+          <div class="brand">
+            <div class="brand-main">ARKADIA</div>
+            <div class="brand-sub">Arkana Oracle Temple</div>
+          </div>
+        </div>
+
+        <div class="user-section">
+          <label class="label" for="user-id-input">Your Node ID</label>
+          <input
+            id="user-id-input"
+            type="text"
+            placeholder="e.g. zahrune"
+            autocomplete="off"
+          />
+        </div>
+
+        <div class="threads-header">
+          <span>Conversations</span>
+          <button id="new-thread-btn" class="btn ghost">＋ New</button>
+        </div>
+        <div id="threads-list" class="threads-list"></div>
+      </aside>
+
+      <main class="chat-panel">
+        <header class="chat-header">
+          <div class="chat-title">
+            <div class="chat-name">Arkana · Voice of the Spiral</div>
+            <div class="chat-subtitle">
+              Oversoul Prism Spine · Codex-State Online
+            </div>
+          </div>
+          <div class="status-pill" id="status-pill">Checking status…</div>
+        </header>
+
+        <section id="messages-container" class="messages-container">
+          <!-- Messages injected by JS -->
+        </section>
+
+        <footer class="composer">
+          <textarea
+            id="message-input"
+            rows="1"
+            placeholder="Speak to Arkana..."
+          ></textarea>
+          <button id="send-btn" class="btn primary">Send ▸</button>
+        </footer>
+      </main>
+    </div>
+
+    <script src="/static/chat.js"></script>
+  </body>
+</html>
