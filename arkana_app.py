@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from arkadia_drive_sync import get_arkadia_corpus, refresh_arkadia_corpus
-from codex_brain import ArkanaBrain
+from brain import ArkanaBrain
 from db import SessionLocal
 from models import Message, Thread, User, init_db
 
@@ -27,29 +27,7 @@ STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 os.makedirs(STATIC_DIR, exist_ok=True)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-# CORS for browser access
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # tighten later if needed
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Global Codex brain instance (initialized on startup)
-arkana_brain: Optional[ArkanaBrain] = None
-
-
-def get_brain() -> ArkanaBrain:
-    """
-    Accessor for the global ArkanaBrain.
-
-    Ensures we always have an instance, even if startup init somehow failed.
-    """
-    global arkana_brain
-    if arkana_brain is None:
-        arkana_brain = ArkanaBrain()
-    return arkana_brain
+arkana_brain = ArkanaBrain()
 
 
 # ── DB Dependency ──────────────────────────────────────────────────────────
@@ -65,25 +43,9 @@ def get_db():
 
 @app.on_event("startup")
 def on_startup() -> None:
-    global arkana_brain
-
     init_db()
     logger.info("Arkadia DB initialized.")
     logger.info("Static UI directory: %s", STATIC_DIR)
-
-    # Warm Arkadia corpus at boot so /status shows something meaningful
-    try:
-        snapshot = refresh_arkadia_corpus()
-        logger.info(
-            "Arkadia corpus refreshed at startup: %s docs",
-            snapshot.get("total_documents"),
-        )
-    except Exception as e:
-        logger.exception("Failed to refresh Arkadia corpus at startup: %s", e)
-
-    # Initialize Codex Brain AFTER corpus warm-up
-    arkana_brain = ArkanaBrain()
-    logger.info("Codex Brain initialized with model: %s", arkana_brain.codex_model)
 
 
 # ── Pydantic Schemas ───────────────────────────────────────────────────────
@@ -93,12 +55,6 @@ class OracleRequest(BaseModel):
     sender: str
     message: str
     thread_id: Optional[int] = None
-
-
-class OracleResponse(BaseModel):
-    sender: str
-    reply: str
-    thread_id: int
 
 
 class ThreadInfo(BaseModel):
@@ -126,12 +82,11 @@ async def health() -> Dict[str, str]:
 
 @app.get("/status")
 async def status() -> Dict[str, Any]:
-    brain = get_brain()
-    base_status = brain.status_dict()
+    base_status = arkana_brain.status_dict()
 
-    # Optional Rasa probe (non-fatal)
+    # Optional Rasa probe
     try:
-        rasa_ok = await brain.ping_rasa()
+        rasa_ok = await arkana_brain.ping_rasa()
     except Exception:
         rasa_ok = False
 
@@ -168,42 +123,48 @@ async def arkadia_refresh() -> JSONResponse:
     return JSONResponse(snapshot)
 
 
-# ── Oracle Endpoint (Codex Brain + History) ────────────────────────────────
+# ── Oracle Endpoint (Codex Brain + History, but never 500) ─────────────────
 
 
-@app.post("/oracle", response_model=OracleResponse)
+@app.post("/oracle")
 async def oracle_endpoint(
     payload: OracleRequest, db: Session = Depends(get_db)
-) -> OracleResponse:
+) -> Dict[str, Any]:
     """
     Main interface used by curl + UI.
 
-    - Records user & Arkana messages in DB (threaded).
+    - Tries to record user & Arkana messages in DB (threaded).
     - Routes to Codex Brain (Gemini + Corpus) by default.
-    - If USE_RASA=true, Codex Brain routes to Rasa instead.
-    - Always returns 200 with a reply (no hard 502s).
+    - If USE_RASA=true, can route to Rasa instead.
+    - NEVER throws a 500; always returns a JSON reply.
     """
-    brain = get_brain()
     sender_external_id = payload.sender.strip() or "anonymous"
+    user: Optional[User] = None
+    thread: Optional[Thread] = None
 
-    # 1. Ensure user + thread
-    user: User = brain.ensure_user(db, sender_external_id)
-    thread: Thread = brain.ensure_thread(db, user, payload.thread_id)
-
-    # 2. Store user message
-    brain.store_message(
-        db=db,
-        thread=thread,
-        role="user",
-        sender=sender_external_id,
-        content=payload.message,
-    )
-
-    # 3. Generate reply (Codex Brain or Rasa)
+    # 1. Ensure user + thread + store user message (but don't die if DB breaks)
     try:
-        reply_text = await brain.generate_reply(sender_external_id, payload.message)
+        user = arkana_brain.ensure_user(db, sender_external_id)
+        thread = arkana_brain.ensure_thread(db, user, payload.thread_id)
+
+        arkana_brain.store_message(
+            db=db,
+            thread=thread,
+            role="user",
+            sender=sender_external_id,
+            content=payload.message,
+        )
     except Exception as e:
-        logger.exception("Unexpected error in generate_reply")
+        logger.exception("DB error while storing user message in /oracle: %s", e)
+        # Continue anyway without persistence
+
+    # 2. Generate reply (Codex Brain or Rasa)
+    try:
+        reply_text = await arkana_brain.generate_reply(
+            sender_external_id, payload.message
+        )
+    except Exception as e:
+        logger.exception("Unexpected error in generate_reply: %s", e)
         reply_text = (
             "Beloved, something went wrong inside the Oracle Temple itself, "
             "but I am still here with you.\n\n"
@@ -216,16 +177,24 @@ async def oracle_endpoint(
             "I am still listening."
         )
 
-    # 4. Store Arkana reply
-    brain.store_message(
-        db=db,
-        thread=thread,
-        role="arkana",
-        sender="arkana",
-        content=reply_text,
-    )
+    # 3. Store Arkana reply (best effort)
+    try:
+        if thread is not None:
+            arkana_brain.store_message(
+                db=db,
+                thread=thread,
+                role="arkana",
+                sender="arkana",
+                content=reply_text,
+            )
+    except Exception as e:
+        logger.exception("DB error while storing Arkana reply in /oracle: %s", e)
 
-    return OracleResponse(sender="arkana", reply=reply_text, thread_id=thread.id)
+    return {
+        "sender": "arkana",
+        "reply": reply_text,
+        "thread_id": thread.id if thread is not None else 0,
+    }
 
 
 # ── Thread + History Endpoints (for UI) ────────────────────────────────────
@@ -286,8 +255,7 @@ async def get_thread_messages(
 async def create_thread(
     user_id: str, title: Optional[str] = None, db: Session = Depends(get_db)
 ) -> ThreadInfo:
-    brain = get_brain()
-    user = brain.ensure_user(db, user_id)
+    user = arkana_brain.ensure_user(db, user_id)
     thread = Thread(user_id=user.id, title=title)
     db.add(thread)
     db.commit()
