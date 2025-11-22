@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from arkadia_drive_sync import get_arkadia_corpus, refresh_arkadia_corpus
-from brain import ArkanaBrain
+from codex_brain import ArkanaBrain
 from db import SessionLocal
 from models import Message, Thread, User, init_db
 
@@ -36,7 +36,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-arkana_brain = ArkanaBrain()
+# Global Codex brain instance (initialized on startup)
+arkana_brain: Optional[ArkanaBrain] = None
+
+
+def get_brain() -> ArkanaBrain:
+    """
+    Accessor for the global ArkanaBrain.
+
+    Ensures we always have an instance, even if startup init somehow failed.
+    """
+    global arkana_brain
+    if arkana_brain is None:
+        arkana_brain = ArkanaBrain()
+    return arkana_brain
 
 
 # ── DB Dependency ──────────────────────────────────────────────────────────
@@ -52,9 +65,25 @@ def get_db():
 
 @app.on_event("startup")
 def on_startup() -> None:
+    global arkana_brain
+
     init_db()
     logger.info("Arkadia DB initialized.")
     logger.info("Static UI directory: %s", STATIC_DIR)
+
+    # Warm Arkadia corpus at boot so /status shows something meaningful
+    try:
+        snapshot = refresh_arkadia_corpus()
+        logger.info(
+            "Arkadia corpus refreshed at startup: %s docs",
+            snapshot.get("total_documents"),
+        )
+    except Exception as e:
+        logger.exception("Failed to refresh Arkadia corpus at startup: %s", e)
+
+    # Initialize Codex Brain AFTER corpus warm-up
+    arkana_brain = ArkanaBrain()
+    logger.info("Codex Brain initialized with model: %s", arkana_brain.codex_model)
 
 
 # ── Pydantic Schemas ───────────────────────────────────────────────────────
@@ -97,11 +126,12 @@ async def health() -> Dict[str, str]:
 
 @app.get("/status")
 async def status() -> Dict[str, Any]:
-    base_status = arkana_brain.status_dict()
+    brain = get_brain()
+    base_status = brain.status_dict()
 
-    # Optional Rasa probe
+    # Optional Rasa probe (non-fatal)
     try:
-        rasa_ok = await arkana_brain.ping_rasa()
+        rasa_ok = await brain.ping_rasa()
     except Exception:
         rasa_ok = False
 
@@ -147,19 +177,21 @@ async def oracle_endpoint(
 ) -> OracleResponse:
     """
     Main interface used by curl + UI.
+
     - Records user & Arkana messages in DB (threaded).
     - Routes to Codex Brain (Gemini + Corpus) by default.
-    - If USE_RASA=true, can route to Rasa instead.
-    - Always returns 200 with a reply.
+    - If USE_RASA=true, Codex Brain routes to Rasa instead.
+    - Always returns 200 with a reply (no hard 502s).
     """
+    brain = get_brain()
     sender_external_id = payload.sender.strip() or "anonymous"
 
     # 1. Ensure user + thread
-    user: User = arkana_brain.ensure_user(db, sender_external_id)
-    thread: Thread = arkana_brain.ensure_thread(db, user, payload.thread_id)
+    user: User = brain.ensure_user(db, sender_external_id)
+    thread: Thread = brain.ensure_thread(db, user, payload.thread_id)
 
     # 2. Store user message
-    arkana_brain.store_message(
+    brain.store_message(
         db=db,
         thread=thread,
         role="user",
@@ -169,9 +201,7 @@ async def oracle_endpoint(
 
     # 3. Generate reply (Codex Brain or Rasa)
     try:
-        reply_text = await arkana_brain.generate_reply(
-            sender_external_id, payload.message
-        )
+        reply_text = await brain.generate_reply(sender_external_id, payload.message)
     except Exception as e:
         logger.exception("Unexpected error in generate_reply")
         reply_text = (
@@ -187,7 +217,7 @@ async def oracle_endpoint(
         )
 
     # 4. Store Arkana reply
-    arkana_brain.store_message(
+    brain.store_message(
         db=db,
         thread=thread,
         role="arkana",
@@ -256,7 +286,8 @@ async def get_thread_messages(
 async def create_thread(
     user_id: str, title: Optional[str] = None, db: Session = Depends(get_db)
 ) -> ThreadInfo:
-    user = arkana_brain.ensure_user(db, user_id)
+    brain = get_brain()
+    user = brain.ensure_user(db, user_id)
     thread = Thread(user_id=user.id, title=title)
     db.add(thread)
     db.commit()
