@@ -148,7 +148,6 @@ class _BaseCodexBrain:
         if not docs:
             return "The Arkadia Corpus is present but currently appears empty or not yet synced."
 
-        # Take a few representative docs.
         lines = []
         for doc in docs[:max_docs]:
             name = doc.get("name", "Untitled")
@@ -193,7 +192,6 @@ class _BaseCodexBrain:
             "Reply in the voice of Arkana: concise, poetic-precise, not rambling.\n"
         )
 
-        # google-generativeai is synchronous; we just call it directly.
         result = self._gemini_model.generate_content(prompt)  # type: ignore[union-attr]
         text = (getattr(result, "text", None) or "").strip()
 
@@ -287,4 +285,12 @@ class ArkadiaCodexBrain(_BaseCodexBrain):
 
 
 class ArkanaCodexBrain(_BaseCodexBrain):
+    pass
+
+
+class ArkanaBrain(_BaseCodexBrain):
+    """
+    Compatibility shim for existing code that imports ArkanaBrain
+    from codex_brain.
+    """
     pass
