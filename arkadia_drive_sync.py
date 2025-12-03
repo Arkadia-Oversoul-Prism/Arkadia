@@ -1,7 +1,3 @@
-# -------------------------------
-# arkadia_drive_sync.py (with tree flattening)
-# -------------------------------
-
 import os, json, io
 from typing import List, Dict, Any
 from datetime import datetime
@@ -17,6 +13,8 @@ except Exception:
 SERVICE_ACCOUNT_ENV = "GDRIVE_SERVICE_ACCOUNT_JSON"
 FOLDER_ID_ENV = "ARKADIA_FOLDER_ID"
 SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+CORPUS_MAP_FILE = "arkadia_corpus_map.json"
+
 _ARKADIA_CACHE: Dict[str, Any] = {"last_sync": None, "documents": [], "error": None}
 
 def _build_drive_service():
@@ -73,24 +71,52 @@ def _download_preview(service, file_id: str, mime_type: str, max_chars: int = 60
         print("[arkadia_drive_sync] preview error:", e)
         return ""
 
-# --- NEW: build paths map ---
 def _build_tree_with_paths(docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    # Build a simple id->doc map so we can walk parents to make full_path
     id_map = {d["id"]: d for d in docs}
     for d in docs:
         parents = d.get("parents") or []
-        full_path = d["name"]
-        current = d
+        # reconstruct path by walking up first-parent chain (best-effort)
+        name = d.get("name") or ""
+        parts = [name]
         visited = set()
-        while parents:
-            pid = parents[0]
+        cur_parents = parents
+        while cur_parents:
+            pid = cur_parents[0]
             if pid in visited or pid not in id_map:
                 break
             visited.add(pid)
-            parent = id_map[pid]
-            full_path = parent["name"] + "/" + full_path
-            parents = parent.get("parents") or []
-        d["full_path"] = "/" + full_path
+            parent = id_map.get(pid)
+            if not parent:
+                break
+            parts.insert(0, parent.get("name",""))
+            cur_parents = parent.get("parents") or []
+        d["full_path"] = "/" + "/".join([p for p in parts if p])
     return docs
+
+def _write_corpus_map(docs: List[Dict[str, Any]]) -> None:
+    """
+    Write a flat path -> metadata map to CORPUS_MAP_FILE.
+    Only include non-folder documents (text/docs).
+    """
+    flat = {}
+    for d in docs:
+        mime = d.get("mimeType","")
+        if mime == "application/vnd.google-apps.folder":
+            continue
+        path = d.get("full_path") or d.get("name") or d.get("id")
+        flat[path] = {
+            "id": d.get("id"),
+            "name": d.get("name"),
+            "mimeType": mime,
+            "modifiedTime": d.get("modifiedTime"),
+            "preview": d.get("preview") or ""
+        }
+    try:
+        with open(CORPUS_MAP_FILE, "w", encoding="utf-8") as f:
+            json.dump(flat, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print("[arkadia_drive_sync] error writing corpus map:", e)
 
 def refresh_arkadia_cache(force: bool = False) -> Dict[str, Any]:
     global _ARKADIA_CACHE
@@ -109,17 +135,22 @@ def refresh_arkadia_cache(force: bool = False) -> Dict[str, Any]:
             preview = _download_preview(service, f.get("id"), f.get("mimeType"), max_chars=800) \
                       if f.get("mimeType") in ("application/vnd.google-apps.document","text/plain","text/markdown","text/csv","text/x-markdown") else ""
             documents.append({
-                "id": f.get("id"), "name": f.get("name"), "path": None,
-                "mimeType": f.get("mimeType"), "modifiedTime": f.get("modifiedTime"),
+                "id": f.get("id"),
+                "name": f.get("name"),
+                "mimeType": f.get("mimeType"),
+                "modifiedTime": f.get("modifiedTime"),
                 "preview": preview,
                 "parents": f.get("parents") or []
             })
-        # attach full paths
+        docs_with_paths = _build_tree_with_paths(documents)
+        # save cache
         _ARKADIA_CACHE = {
-            "last_sync": datetime.utcnow().isoformat()+"Z",
-            "documents": _build_tree_with_paths(documents),
+            "last_sync": datetime.utcnow().isoformat() + "Z",
+            "documents": docs_with_paths,
             "error": None
         }
+        # write flat corpus map for fast path lookup
+        _write_corpus_map(docs_with_paths)
     except Exception as e:
         _ARKADIA_CACHE["error"] = f"Sync error: {e}"
     return _ARKADIA_CACHE
