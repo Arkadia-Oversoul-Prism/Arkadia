@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
-# Copy entire repo
+# Copy all files
 COPY . /app
 
 # Runtime folder for JSON
@@ -26,5 +26,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Use entrypoint to write JSON + start uvicorn
 ENTRYPOINT ["/entrypoint.sh"]

@@ -1,3 +1,4 @@
+fastapi
 uvicorn[standard]
 google-generativeai
 google-api-python-client
