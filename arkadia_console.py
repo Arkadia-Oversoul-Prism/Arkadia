@@ -1,32 +1,37 @@
 #!/usr/bin/env python3
 """
-arkadia_console.py
+Dual-mode Arkadia console:
 
-Console UI for Arkadia. Robust startup: does not crash when Drive / Gemini are misconfigured.
-Provides simple commands:
-  - tree
-  - preview <full_path>
-  - ask <question>
-  - refresh
-  - exit
+- Interactive REPL when run in a TTY (your Termux/dev machine).
+- FastAPI HTTP server when no TTY is attached (Render / container deployments).
 
-Reads:
-  - GEMINI_API_KEY (optional; ask will use Gemini only if available)
-  - ARKADIA_FOLDER_ID
-  - GOOGLE_SERVICE_ACCOUNT_JSON
+Endpoints:
+  GET  /                 -> basic HTML status page
+  GET  /tree             -> JSON tree of corpus
+  GET  /preview?path=... -> JSON { name, full_path, preview, mimeType }
+  POST /ask              -> JSON { question } -> { answer, context }
+  POST /refresh          -> triggers refresh and returns status
+
+Env:
+  GEMINI_API_KEY
+  ARKADIA_FOLDER_ID
+  GOOGLE_SERVICE_ACCOUNT_JSON
 """
 
 import os
+import sys
+import json
+import asyncio
+from typing import Optional
+
 from rich.console import Console
-from rich.prompt import Prompt
 from rich.markdown import Markdown
-from rich.tree import Tree
 
 from arkadia_drive_sync import refresh_arkadia_cache, build_tree_with_paths, get_corpus_context
 
 console = Console()
 
-# Gemeni client will be imported lazily inside ask_gemini so console can run without it.
+# Lazy gemini import flag — we'll attempt to import when needed
 GEMINI_AVAILABLE = False
 try:
     import google.generativeai as genai  # type: ignore
@@ -34,220 +39,159 @@ try:
 except Exception:
     GEMINI_AVAILABLE = False
 
-# Initial corpus load (safe)
-console.print("[cyan]Refreshing Arkadia corpus...[/cyan]")
-try:
-    snap = refresh_arkadia_cache(force=True)
-    docs = snap.get("documents") or []
-    tree_data = build_tree_with_paths(docs)
-    path_map = {d.get("full_path") or d.get("name"): d for d in docs}
-    if snap.get("error"):
-        console.print(f"[yellow]Warning: Arkadia refresh warning:[/yellow] {snap['error']}")
-except Exception as e:
-    console.print(f"[red]Error refreshing Arkadia corpus at startup (continuing with empty corpus): {e}[/red]")
-    docs = []
-    tree_data = []
-    path_map = {}
+# ---------------------------------------------------------------------
+# Safe initial corpus load (non-fatal)
+# ---------------------------------------------------------------------
+def safe_initial_load():
+    try:
+        snap = refresh_arkadia_cache(force=True)
+        docs = snap.get("documents") or []
+        tree = build_tree_with_paths(docs)
+        path_map = {d.get("full_path") or d.get("name"): d for d in docs}
+        err = snap.get("error")
+        if err:
+            console.print(f"[yellow]Warning during initial refresh:[/yellow] {err}")
+        return snap, docs, tree, path_map
+    except Exception as e:
+        console.print(f"[red]Initial refresh failed (continuing empty corpus): {e}[/red]")
+        return {"last_sync": None, "documents": [], "error": str(e)}, [], [], {}
 
-def show_dashboard():
-    console.rule("[bold blue]ARKADIA DASHBOARD[/bold blue]")
-    last_sync = snap.get("last_sync") if 'snap' in globals() else None
-    console.print(f"Last sync: {last_sync}")
-    console.print(f"Documents cached: {len(docs)}")
-    if 'snap' in globals() and snap.get("error"):
-        console.print(f"[yellow]Warning: {snap.get('error')}[/yellow]")
-    console.print("\n[bold]Top previews:[/bold]")
-    console.print(get_corpus_context(max_documents=5, max_preview_chars=300))
+snap, docs, tree_data, path_map = safe_initial_load()
 
-
-def build_tree_ui(tree_nodes):
-    """
-    tree_nodes is the list returned by build_tree_with_paths.
-    Convert into a Rich Tree for display.
-    """
-    root = Tree("ARKADIA CORPUS")
-
-    def add_node(branch, node):
-        label = f"{node['name']} [{node.get('mimeType','')}]"
-        if node.get("full_path"):
-            label += f" | {node['full_path']}"
-        sub = branch.add(label)
-        for c in node.get("children", []):
-            add_node(sub, c)
-
-    for n in tree_nodes:
-        add_node(root, n)
-    return root
-
-
+# ---------------------------------------------------------------------
+# Reuse ask_gemini from before, but as an async-friendly function
+# ---------------------------------------------------------------------
 def score_documents(question: str, docs_list: list):
-    """
-    Basic relevance: keyword overlap (lowercase split). Returns docs sorted by score desc.
-    """
     q_words = set(question.lower().split())
     scored = []
     for d in docs_list:
         text = (d.get("preview") or "").lower()
         if not text:
-            scored.append((0, d))
-            continue
+            scored.append((0, d)); continue
         overlap = len(q_words & set(text.split()))
         scored.append((overlap, d))
     scored.sort(key=lambda x: x[0], reverse=True)
     return [d for score, d in scored if score > 0]
 
-
-def ask_gemini(question: str):
+def ask_gemini_sync(question: str) -> dict:
     """
-    Use Gemini (if available) to answer the question using weighted context from the corpus.
-    This function is safe if Gemini client is not installed or GEMINI_API_KEY is missing — it will inform you.
+    Return: { 'answer': str, 'context': str, 'error': Optional[str] }
     """
+    global docs
     if not docs:
-        return "No documents are loaded. Run 'refresh' first."
+        return {"answer": "No documents loaded. Run /refresh.", "context": "", "error": None}
 
-    # Build ranking
     relevant = score_documents(question, docs)
     if not relevant:
-        # fallback: choose top 5 by preview length
         relevant = sorted(docs, key=lambda d: len(d.get("preview","")), reverse=True)[:5]
 
-    # Combine context - trim each doc preview to avoid sending extremely long context
     context_parts = []
-    for d in relevant[:12]:  # cap at 12 docs for safety
+    for d in relevant[:12]:
         preview = (d.get("preview") or "").strip()
         if not preview:
             continue
         context_parts.append(f"[{d.get('full_path')}] {preview[:1500]}")
-
     context = "\n\n".join(context_parts)
+
     if not context:
-        return "No textual previews available for relevant documents."
+        return {"answer": "No preview text available for relevant documents.", "context": "", "error": None}
 
-    # If Gemini client/library is unavailable, return the prepared context summary and inform
+    # If Gemini lib not installed, return prepared context
     if not GEMINI_AVAILABLE:
-        return (
-            "[Gemini SDK not installed in this environment.]\n\n"
-            "Prepared context (top relevant docs):\n\n" + context[:4000] + "\n\n"
-            "Install google-generativeai / set GEMINI_API_KEY to enable live queries."
-        )
+        return {
+            "answer": "[Gemini SDK not installed in this environment. Prepared context returned instead.]",
+            "context": context[:4000],
+            "error": "gemini_not_installed"
+        }
 
-    # Ensure API key is present
     gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not gemini_key:
-        return "GEMINI_API_KEY is not set in environment. Set it to query Gemini."
+        return {"answer": "GEMINI_API_KEY is not set in environment.", "context": context[:4000], "error": "no_key"}
 
-    # Configure client and call
+    # configure genai safely
     try:
-        # configure may be named differently depending on SDK version; attempt safe config
         try:
-            genai.configure(api_key=gemini_key)  # newer google.generativeai uses configure
+            genai.configure(api_key=gemini_key)
         except Exception:
-            # older/other variations may set genai.api_key
             setattr(genai, "api_key", gemini_key)
 
-        # Prefer responses.create if available
         prompt = (
             "You are Arkana, an oracle. Use the documents below to answer precisely and concisely.\n\n"
             f"{context}\n\nQuestion: {question}\n\nAnswer:"
         )
-        # Attempt to use responses API (modern)
-        resp = None
+
+        # Try the modern responses API then fallback to chat
         try:
             resp = genai.responses.create(model="models/text-bison-001", input=prompt, temperature=0.2, max_output_tokens=800)
-            # best-effort extraction of text
             text = getattr(resp, "output_text", None)
             if not text:
-                # some versions place text in resp.output[0].content[0].text
                 out = getattr(resp, "output", None)
                 if out and len(out) > 0:
-                    # defensive extraction
-                    first = out[0]
-                    # content might be first["content"][0]["text"] or similar
                     try:
-                        text = first["content"][0]["text"]
+                        text = out[0]["content"][0]["text"]
                     except Exception:
-                        try:
-                            text = first.get("text") or str(first)
-                        except Exception:
-                            text = str(first)
-            return text or "[No text returned by Gemini]"
+                        text = str(out[0])
+            return {"answer": text or "[No text returned by Gemini]", "context": context[:4000], "error": None}
         except Exception:
-            # fallback to chat.create if responses not available
-            try:
-                chat_resp = genai.chat.create(model="gemini-1", messages=[{"role": "user", "content": prompt}])
-                # Try extracting last message
-                last = getattr(chat_resp, "last", None)
-                if last:
-                    c = last.get("content") or last.get("message") or {}
-                    # many SDKs present text in slightly different ways
-                    if isinstance(c, list):
-                        try:
-                            return c[0].get("text") or str(c[0])
-                        except Exception:
-                            return str(c)
-                    if isinstance(c, dict):
-                        return c.get("text") or str(c)
-                # fallback stringify
-                return str(chat_resp)
-            except Exception as e:
-                return f"Gemini API call failed: {e}"
+            # fallback chat
+            chat_resp = genai.chat.create(model="gemini-1", messages=[{"role": "user", "content": prompt}])
+            last = getattr(chat_resp, "last", None)
+            if last:
+                c = last.get("content") or last.get("message") or {}
+                if isinstance(c, list):
+                    try:
+                        return {"answer": c[0].get("text") or str(c[0]), "context": context[:4000], "error": None}
+                    except Exception:
+                        return {"answer": str(c), "context": context[:4000], "error": None}
+                if isinstance(c, dict):
+                    return {"answer": c.get("text") or str(c), "context": context[:4000], "error": None}
+            return {"answer": str(chat_resp), "context": context[:4000], "error": None}
 
     except Exception as e:
-        return f"Unexpected error while calling Gemini: {e}"
+        return {"answer": f"Gemini call failed: {e}", "context": context[:4000], "error": str(e)}
 
-
-def main():
-    global docs, tree_data, path_map, snap
-    show_dashboard()
-    try:
-        console.print(build_tree_ui(tree_data))
-    except Exception:
-        console.print("[yellow]Could not render tree UI (structure may be empty).[/yellow]")
-
-    console.print("\n[green]Commands:[/green] tree | preview <full_path> | ask <question> | refresh | exit")
-
+# ---------------------------------------------------------------------
+# Interactive REPL (TTY) mode, unchanged behavior
+# ---------------------------------------------------------------------
+def interactive_repl():
+    from rich.prompt import Prompt
+    console.print("\n[green]Interactive Arkadia console (TTY mode).[/green]")
+    console.print("Commands: tree | preview <full_path> | ask <question> | refresh | exit")
     while True:
-        cmd = Prompt.ask("[cyan]arkadia>[/cyan]").strip()
+        try:
+            cmd = Prompt.ask("[cyan]arkadia>[/cyan]").strip()
+        except (EOFError, KeyboardInterrupt):
+            console.print("Goodbye.")
+            break
         if not cmd:
             continue
         if cmd.lower() in ("exit", "quit"):
-            console.print("Goodbye.")
             break
-
         if cmd.lower() == "tree":
             try:
-                console.print(build_tree_ui(tree_data))
+                console.print(build_tree_with_paths(docs))
             except Exception as e:
-                console.print(f"[red]Error showing tree: {e}[/red]")
+                console.print(f"[red]Error rendering tree: {e}[/red]")
             continue
-
         if cmd.lower().startswith("preview "):
             path = cmd[8:].strip()
-            doc = path_map.get(path)
-            if not doc:
-                # attempt a fallback search by name
-                doc = next((d for d in docs if d.get("name") == path or d.get("full_path") == path), None)
+            doc = path_map.get(path) or next((d for d in docs if d.get("full_path")==path), None)
             if not doc:
                 console.print(f"[red]Path not found:[/red] {path}")
             else:
                 console.rule(f"{doc['name']} — {doc.get('full_path')}")
                 console.print(Markdown(doc.get("preview") or "*No preview available*"))
             continue
-
         if cmd.lower().startswith("ask "):
-            question = cmd[4:].strip()
+            q = cmd[4:].strip()
             console.print("[cyan]Preparing query...[/cyan]")
-            answer = ask_gemini(question)
+            res = ask_gemini_sync(q)
             console.rule("[green]Arkana (response)[/green]")
-            # Print as markdown if it looks like prose
-            try:
-                console.print(Markdown(answer))
-            except Exception:
-                console.print(answer)
+            console.print(Markdown(res.get("answer") or str(res)))
             continue
-
         if cmd.lower() == "refresh":
             console.print("[cyan]Refreshing Arkadia corpus...[/cyan]")
+            global snap, docs, tree_data, path_map
             snap = refresh_arkadia_cache(force=True)
             if snap.get("error"):
                 console.print(f"[yellow]Refresh warning:[/yellow] {snap.get('error')}")
@@ -256,9 +200,93 @@ def main():
             path_map = {d.get("full_path") or d.get("name"): d for d in docs}
             console.print(f"[green]Documents cached:[/green] {len(docs)}")
             continue
+        console.print("[yellow]Unknown command[/yellow]")
 
-        console.print("[yellow]Unknown command. Try: tree | preview <full_path> | ask <question> | refresh | exit[/yellow]")
+# ---------------------------------------------------------------------
+# FastAPI HTTP server mode (non-TTY)
+# ---------------------------------------------------------------------
+def start_http_server(host="0.0.0.0", port: int = 5005):
+    try:
+        from fastapi import FastAPI, Request
+        from fastapi.responses import JSONResponse, HTMLResponse
+        import uvicorn
+    except Exception as e:
+        console.print(f"[red]FastAPI/uvicorn are not installed: {e}[/red]")
+        console.print("[yellow]Install fastapi and uvicorn to run HTTP server mode.[/yellow]")
+        return
 
+    app = FastAPI(title="Arkadia Console (HTTP)")
 
+    @app.get("/", response_class=HTMLResponse)
+    async def index():
+        docs_count = len(docs)
+        last = snap.get("last_sync") if snap else None
+        html = f"""
+        <html>
+          <head><title>Arkadia Console</title></head>
+          <body>
+            <h2>Arkadia Console</h2>
+            <p>Documents cached: {docs_count}</p>
+            <p>Last sync: {last}</p>
+            <p>Endpoints:</p>
+            <ul>
+              <li>GET /tree</li>
+              <li>GET /preview?path=&lt;full_path&gt;</li>
+              <li>POST /ask  (JSON: {{ "question": "..." }})</li>
+              <li>POST /refresh</li>
+            </ul>
+          </body>
+        </html>
+        """
+        return HTMLResponse(content=html)
+
+    @app.get("/tree")
+    async def get_tree():
+        return JSONResponse(content=tree_data)
+
+    @app.get("/preview")
+    async def get_preview(path: Optional[str] = None):
+        if not path:
+            return JSONResponse(status_code=400, content={"error": "missing 'path' query parameter"})
+        doc = path_map.get(path) or next((d for d in docs if d.get("full_path")==path or d.get("name")==path), None)
+        if not doc:
+            return JSONResponse(status_code=404, content={"error": "not found", "path": path})
+        return JSONResponse(content={"name": doc.get("name"), "full_path": doc.get("full_path"), "mimeType": doc.get("mimeType"), "preview": doc.get("preview")})
+
+    @app.post("/ask")
+    async def post_ask(req: Request):
+        body = await req.json()
+        question = body.get("question") or body.get("q")
+        if not question:
+            return JSONResponse(status_code=400, content={"error": "missing question in JSON body"})
+        # Run ask in thread to avoid blocking event loop for long gemini call
+        loop = asyncio.get_running_loop()
+        res = await loop.run_in_executor(None, ask_gemini_sync, question)
+        return JSONResponse(content=res)
+
+    @app.post("/refresh")
+    async def post_refresh():
+        global snap, docs, tree_data, path_map
+        snap = refresh_arkadia_cache(force=True)
+        if snap.get("error"):
+            return JSONResponse(status_code=500, content={"error": snap.get("error")})
+        docs = snap.get("documents") or []
+        tree_data = build_tree_with_paths(docs)
+        path_map = {d.get("full_path") or d.get("name"): d for d in docs}
+        return JSONResponse(content={"status": "ok", "docs_cached": len(docs), "last_sync": snap.get("last_sync")})
+
+    # Run uvicorn (blocking)
+    console.print(f"[green]Starting Arkadia HTTP server on {host}:{port}[/green]")
+    uvicorn.run(app, host=host, port=port, log_level="info")
+
+# ---------------------------------------------------------------------
+# Entrypoint: choose mode based on TTY
+# ---------------------------------------------------------------------
 if __name__ == "__main__":
-    main()
+    # If stdin is attached to a TTY --- run the interactive REPL.
+    if sys.stdin and sys.stdin.isatty():
+        interactive_repl()
+    else:
+        # non-interactive: run HTTP server (Render)
+        port = int(os.getenv("PORT", os.getenv("RENDER_PORT", "5005")))
+        start_http_server(host="0.0.0.0", port=port)
