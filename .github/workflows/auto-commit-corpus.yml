@@ -1,0 +1,38 @@
+name: Auto-Commit Arkadia Corpus Map
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: "0 */6 * * *"
+
+jobs:
+  commit-corpus:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      - name: Install deps (fast, best-effort)
+        run: |
+          pip install --no-cache-dir -r requirements.txt || true
+      - name: Run flatten & refresh (if script exists)
+        run: |
+          if [ -f ./arkadia_flatten_tree.py ]; then
+            python ./arkadia_flatten_tree.py || true
+          fi
+      - name: Commit and push if changed
+        run: |
+          git config user.name "arkadia-bot"
+          git config user.email "bot@arkadia.local"
+          if ! git diff --quiet; then
+            git add arkadia_corpus_map.json
+            git commit -m "[auto] refresh arkadia_corpus_map.json"
+            git push origin HEAD:main
+          else
+            echo "No changes to commit"
+          fi
