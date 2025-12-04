@@ -91,5 +91,47 @@ def main():
         else:
             print("Unknown command. Available: tree | preview <full_path> | refresh | ask <question> | exit")
 
+# --- interactive-vs-server bootstrap (paste at bottom of arkadia_console.py) ---
+import sys
+import logging
+
+logger = logging.getLogger(__name__)
+
+def run_server():
+    """
+    Start the ASGI server using your FastAPI app (arkana_app:app).
+    This is used on Render / Docker when there is no TTY.
+    """
+    try:
+        import uvicorn
+    except Exception as e:
+        logger.exception("uvicorn not installed; cannot start server: %s", e)
+        raise
+
+    host = "0.0.0.0"
+    port = int(os.environ.get("PORT", os.environ.get("RENDER_PORT", 5005)))
+    logger.info("Starting Arkadia ASGI server on %s:%s", host, port)
+    # run in the same process (blocking)
+    uvicorn.run("arkana_app:app", host=host, port=port, log_level="info", access_log=False)
+
+
 if __name__ == "__main__":
-    main()
+    # detect interactive terminal
+    interactive = sys.stdin.isatty()
+
+    if interactive:
+        logger.info("Interactive TTY detected — starting Arkadia console (interactive mode).")
+        try:
+            main()
+        except EOFError:
+            # graceful on Ctrl-D or EOF
+            print("\nExiting Arkadia Console.")
+    else:
+        logger.info("No TTY detected — starting Arkadia as a service (non-interactive / server mode).")
+        # Ensure we refresh corpus first (same as interactive flow)
+        try:
+            refresh_corpus()
+        except Exception:
+            logger.exception("Failed to refresh Arkadia corpus before server startup.")
+        # Start ASGI server (blocks)
+        run_server()
