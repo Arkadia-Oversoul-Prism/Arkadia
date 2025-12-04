@@ -44,18 +44,19 @@ except Exception:
 # ---------------------------------------------------------------------
 def safe_initial_load():
     try:
-        snap = refresh_arkadia_cache(force=True)
-        docs = snap.get("documents") or []
-        tree = build_tree_with_paths(docs)
-        path_map = {d.get("full_path") or d.get("name"): d for d in docs}
-        err = snap.get("error")
+        snap_local = refresh_arkadia_cache(force=True)
+        docs_local = snap_local.get("documents") or []
+        tree_local = build_tree_with_paths(docs_local)
+        path_map_local = {d.get("full_path") or d.get("name"): d for d in docs_local}
+        err = snap_local.get("error")
         if err:
             console.print(f"[yellow]Warning during initial refresh:[/yellow] {err}")
-        return snap, docs, tree, path_map
+        return snap_local, docs_local, tree_local, path_map_local
     except Exception as e:
         console.print(f"[red]Initial refresh failed (continuing empty corpus): {e}[/red]")
         return {"last_sync": None, "documents": [], "error": str(e)}, [], [], {}
 
+# module-level state
 snap, docs, tree_data, path_map = safe_initial_load()
 
 # ---------------------------------------------------------------------
@@ -108,7 +109,7 @@ def ask_gemini_sync(question: str) -> dict:
     if not gemini_key:
         return {"answer": "GEMINI_API_KEY is not set in environment.", "context": context[:4000], "error": "no_key"}
 
-    # configure genai safely
+    # configure genai safely and call
     try:
         try:
             genai.configure(api_key=gemini_key)
@@ -151,9 +152,12 @@ def ask_gemini_sync(question: str) -> dict:
         return {"answer": f"Gemini call failed: {e}", "context": context[:4000], "error": str(e)}
 
 # ---------------------------------------------------------------------
-# Interactive REPL (TTY) mode, unchanged behavior
+# Interactive REPL (TTY) mode
 # ---------------------------------------------------------------------
 def interactive_repl():
+    # declare globals up-front (required before any use)
+    global snap, docs, tree_data, path_map
+
     from rich.prompt import Prompt
     console.print("\n[green]Interactive Arkadia console (TTY mode).[/green]")
     console.print("Commands: tree | preview <full_path> | ask <question> | refresh | exit")
@@ -187,11 +191,13 @@ def interactive_repl():
             console.print("[cyan]Preparing query...[/cyan]")
             res = ask_gemini_sync(q)
             console.rule("[green]Arkana (response)[/green]")
-            console.print(Markdown(res.get("answer") or str(res)))
+            try:
+                console.print(Markdown(res.get("answer") or str(res)))
+            except Exception:
+                console.print(res.get("answer") or str(res))
             continue
         if cmd.lower() == "refresh":
             console.print("[cyan]Refreshing Arkadia corpus...[/cyan]")
-            global snap, docs, tree_data, path_map
             snap = refresh_arkadia_cache(force=True)
             if snap.get("error"):
                 console.print(f"[yellow]Refresh warning:[/yellow] {snap.get('error')}")
@@ -275,7 +281,6 @@ def start_http_server(host="0.0.0.0", port: int = 5005):
         path_map = {d.get("full_path") or d.get("name"): d for d in docs}
         return JSONResponse(content={"status": "ok", "docs_cached": len(docs), "last_sync": snap.get("last_sync")})
 
-    # Run uvicorn (blocking)
     console.print(f"[green]Starting Arkadia HTTP server on {host}:{port}[/green]")
     uvicorn.run(app, host=host, port=port, log_level="info")
 
