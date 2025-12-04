@@ -9,13 +9,14 @@ import google.generativeai as genai
 console = Console()
 
 # Ensure API key is set
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
     console.print("[red]Error: GEMINI_API_KEY not set in environment[/red]")
     exit(1)
+
 genai.configure(api_key=GEMINI_API_KEY)
 
-# Load Arkadia corpus
+# Load corpus
 console.print("[cyan]Refreshing Arkadia corpus...[/cyan]")
 snap = refresh_arkadia_cache(force=True)
 docs = snap.get("documents") or []
@@ -48,55 +49,48 @@ def build_tree_ui(tree_nodes):
         add_node(root, n)
     return root
 
-def score_documents(question: str, docs_list: list):
-    """
-    Simple relevance scoring: counts overlapping words between question and document preview.
-    Returns documents sorted by score descending.
-    """
-    q_words = set(question.lower().split())
-    scored = []
-    for d in docs_list:
-        preview_text = d.get("preview","").lower()
-        overlap = len(q_words & set(preview_text.split()))
-        scored.append((overlap, d))
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [d for score,d in scored if score > 0]
+def ask_gemini(question: str):
+    """Send a smart weighted query to Gemini using the top documents"""
+    # Collect top documents and calculate weight
+    sorted_docs = sorted(docs, key=lambda d: len(d.get("preview","")), reverse=True)
+    context = "\n\n".join([d.get("preview","")[:1000] for d in sorted_docs[:5]])
 
-def smart_query(question: str, docs_list: list):
-    """
-    Build a prompt including all relevant documents, sorted by relevance.
-    """
-    relevant_docs = score_documents(question, docs_list)
-    if not relevant_docs:
-        # fallback to top 5 documents if none match keywords
-        relevant_docs = docs_list[:5]
+    prompt = f"""
+You are Arkana, the Arkadia Superintelligence.
+Use the following context from the Arkadia Corpus to answer the question.
+Context:
+{context}
 
-    context_lines = []
-    for d in relevant_docs:
-        preview = d.get("preview", "")
-        full_path = d.get("full_path") or d.get("name")
-        context_lines.append(f"[{full_path}]: {preview}")
-
-    context_text = "\n\n".join(context_lines)
-    return f"{context_text}\n\nQuestion: {question}\nAnswer concisely based on the documents above."
+Question: {question}
+Provide a concise, structured, and insightful answer based on the above context.
+"""
+    try:
+        response = genai.chat.create(
+            model="chat-bison-001",
+            messages=[{"role":"user","content":prompt}],
+            temperature=0.7
+        )
+        return response.last["content"][0]["text"]
+    except Exception as e:
+        console.print(f"[red]Error asking Gemini:[/red] {e}")
+        return "[No response from Gemini]"
 
 def main():
     global docs, tree_data, path_map, snap
     show_dashboard()
     console.print(build_tree_ui(tree_data))
     console.print("\n[green]Commands:[/green] tree | preview <full_path> | ask <question> | refresh | exit")
+
     while True:
         cmd = Prompt.ask("[cyan]arkadia>[/cyan]").strip()
         if not cmd:
             continue
-        if cmd.lower() in ("exit", "quit"):
+        if cmd.lower() in ("exit","quit"):
             break
         if cmd.lower() == "tree":
-            console.print(build_tree_ui(tree_data))
-            continue
+            console.print(build_tree_ui(tree_data)); continue
         if cmd.lower().startswith("preview "):
-            path = cmd[8:].strip()
-            doc = path_map.get(path)
+            path = cmd[8:].strip(); doc = path_map.get(path)
             if not doc:
                 console.print(f"[red]Path not found:[/red] {path}")
             else:
@@ -105,28 +99,16 @@ def main():
             continue
         if cmd.lower().startswith("ask "):
             question = cmd[4:].strip()
-            if not docs:
-                console.print("[red]No documents loaded. Please refresh first.[/red]")
-                continue
-            prompt_text = smart_query(question, docs)
-            console.print("[cyan]Asking Gemini...[/cyan]\n")
-            try:
-                response = genai.chat.create(
-                    model="gemini-1",
-                    messages=[{"role": "user", "content": prompt_text}]
-                )
-                answer = response.last.get("content") or "[No response from Gemini]"
-                console.print(Markdown(answer))
-            except Exception as e:
-                console.print(f"[red]Error querying Gemini:[/red] {e}")
+            console.print("[cyan]Asking Arkana (Gemini)...[/cyan]")
+            answer = ask_gemini(question)
+            console.print(Markdown(answer))
             continue
         if cmd.lower() == "refresh":
-            console.print("[cyan]Refreshing Arkadia corpus...[/cyan]")
             snap = refresh_arkadia_cache(force=True)
             docs = snap.get("documents") or []
             tree_data = build_tree_with_paths(docs)
             path_map = {d.get("full_path") or d.get("name"): d for d in docs}
-            console.print(f"[green]Documents cached:[/green] {len(docs)}")
+            console.print("[green]Corpus refreshed.[/green]")
             continue
         console.print("[red]Unknown command[/red]")
 

@@ -1,90 +1,73 @@
 import os
 import json
-from datetime import datetime
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-
-ARKADIA_FOLDER_ID = os.getenv("ARKADIA_FOLDER_ID")
-SERVICE_ACCOUNT_JSON_FILE = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON_FILE")
-
-_cache_snap = {}
+from datetime import datetime
 
 def _get_drive_service():
-    creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_JSON_FILE)
-    return build("drive", "v3", credentials=creds)
+    creds_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    creds_dict = json.loads(creds_json)
+    creds = service_account.Credentials.from_service_account_info(creds_dict)
+    service = build("drive", "v3", credentials=creds)
+    return service
 
 def _list_drive_files_recursive(service, folder_id: str):
-    """Recursively list all files in a folder, including subfolders."""
-    all_files = []
-
+    results = []
     def _recurse(current_folder_id, path_prefix=""):
-        query = f"'{current_folder_id}' in parents and trashed = false"
+        query = f"'{current_folder_id}' in parents and trashed=false"
         page_token = None
         while True:
-            resp = service.files().list(
+            response = service.files().list(
                 q=query,
-                fields="nextPageToken, files(id, name, mimeType, modifiedTime)",
-                pageSize=1000,
+                spaces="drive",
+                fields="nextPageToken, files(id, name, mimeType, parents)",
                 pageToken=page_token
             ).execute()
-            for f in resp.get("files", []):
-                full_path = f"{path_prefix}/{f['name']}".lstrip("/")
-                if f['mimeType'] == "application/vnd.google-apps.folder":
-                    _recurse(f['id'], path_prefix=full_path)
-                else:
-                    all_files.append({
-                        "id": f["id"],
-                        "name": f["name"],
-                        "mimeType": f["mimeType"],
-                        "modifiedTime": f.get("modifiedTime"),
-                        "full_path": full_path,
-                        "preview": ""
-                    })
-            page_token = resp.get("nextPageToken")
-            if not page_token:
+            for file in response.get("files", []):
+                full_path = f"{path_prefix}{file['name']}"
+                results.append({
+                    "id": file["id"],
+                    "name": file["name"],
+                    "full_path": full_path,
+                    "mimeType": file["mimeType"],
+                })
+                if file["mimeType"] == "application/vnd.google-apps.folder":
+                    _recurse(file["id"], f"{full_path}/")
+            page_token = response.get("nextPageToken", None)
+            if page_token is None:
                 break
-
     _recurse(folder_id)
-    return all_files
+    return results
 
 def refresh_arkadia_cache(force=False):
-    global _cache_snap
-    if _cache_snap and not force:
-        return _cache_snap
-
-    snap = {"last_sync": datetime.utcnow().isoformat(), "documents": [], "error": None}
-    if not ARKADIA_FOLDER_ID or not SERVICE_ACCOUNT_JSON_FILE:
-        snap["error"] = "ARKADIA_FOLDER_ID or SERVICE_ACCOUNT_JSON_FILE not set"
-        _cache_snap = snap
-        return snap
-
-    try:
-        service = _get_drive_service()
-        snap["documents"] = _list_drive_files_recursive(service, ARKADIA_FOLDER_ID)
-    except Exception as e:
-        snap["error"] = str(e)
-
-    _cache_snap = snap
-    return snap
+    folder_id = os.environ.get("ARKADIA_FOLDER_ID")
+    service = _get_drive_service()
+    documents = _list_drive_files_recursive(service, folder_id)
+    last_sync = datetime.utcnow().isoformat()
+    return {
+        "documents": documents,
+        "last_sync": last_sync,
+        "error": None
+    }
 
 def build_tree_with_paths(docs):
-    """Build nested tree nodes from flat list using full_path"""
     tree = {}
-    for d in docs:
-        parts = d["full_path"].split("/")
-        node = tree
-        for p in parts[:-1]:
-            node = node.setdefault(p, {})
-        node[parts[-1]] = d
+    for doc in docs:
+        parts = doc["full_path"].split("/")
+        current = tree
+        for part in parts:
+            current = current.setdefault(part, {})
     return tree
 
 def get_corpus_context(max_documents=5, max_preview_chars=300):
-    from random import sample
-    docs = _cache_snap.get("documents", [])
-    if not docs:
-        return []
-    selected = sample(docs, min(len(docs), max_documents))
-    for d in selected:
-        # Here you can implement smart preview generation or weighting later
-        d["preview"] = d.get("preview")[:max_preview_chars]
-    return selected
+    from google.generativeai import text
+    # simple smart-weighted context: select first N documents, truncate each to max_preview_chars
+    snap = refresh_arkadia_cache(force=True)
+    docs = snap.get("documents", [])
+    previews = []
+    for d in docs[:max_documents]:
+        # weight = length of document name as a naive weight example
+        weight = len(d["name"])
+        preview_text = f"{d['name']}: " + "..." * min(weight, 5)
+        previews.append(preview_text[:max_preview_chars])
+    return "\n\n".join(previews)
