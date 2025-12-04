@@ -1,30 +1,30 @@
-# Base image with Python
 FROM python:3.11-slim
 
-# Set workdir
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-# Install system deps needed for some python packages (gcc etc.)
+# System deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    git \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+    gcc \
+    wget \
+    ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
-# Copy project files
+# Copy entire repo
 COPY . /app
 
-# Install Python deps
-# Ensure requirements.txt lists google-generativeai, google-api-python-client, google-auth, google-auth-httplib2, google-auth-oauthlib, requests
-# If you don't have requirements.txt, we install minimal set here
-RUN if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; else pip install --no-cache-dir google-generativeai google-api-python-client google-auth requests rich; fi
+# Runtime folder for JSON
+RUN mkdir -p /run
 
-# Ensure entrypoint is executable
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose port if your app serves HTTP (if not, ignore)
-EXPOSE 5005
+# Copy the entrypoint
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-# Use the entrypoint script to write credentials from env and start the app
-ENTRYPOINT ["/app/entrypoint.sh"]
+# Use entrypoint to write JSON + start uvicorn
+ENTRYPOINT ["/entrypoint.sh"]
