@@ -11,6 +11,10 @@ if [ -n "${GDRIVE_SERVICE_ACCOUNT_JSON:-}" ]; then
   echo "$GDRIVE_SERVICE_ACCOUNT_JSON" > /run/service_account.json
   chmod 600 /run/service_account.json
   echo "✓ Wrote Drive service account JSON to /run/service_account.json"
+elif [ -n "${GOOGLE_SERVICE_ACCOUNT_JSON:-}" ]; then
+  echo "$GOOGLE_SERVICE_ACCOUNT_JSON" > /run/service_account.json
+  chmod 600 /run/service_account.json
+  echo "✓ Wrote Google service account JSON to /run/service_account.json"
 fi
 
 # If user provided a file pointer env, copy it into /run (optional fallback)

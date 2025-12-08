@@ -269,6 +269,72 @@ async def create_thread(
     )
 
 
+# ── Debug Endpoints ───────────────────────────────────────────────────────
+
+@app.get("/debug/gemini")
+async def debug_gemini():
+    """Debug endpoint to test Gemini API directly."""
+    try:
+        if not arkana_brain.genai_client:
+            return {
+                "status": "error",
+                "error": arkana_brain.gemini_error or "Gemini client not initialized",
+                "api_key_set": bool(arkana_brain.gemini_api_key),
+                "library_available": arkana_brain.genai_client is not None
+            }
+        
+        # Test simple generation
+        test_prompt = "Say 'Hello from Arkana' in exactly those words."
+        response = await arkana_brain._call_gemini(test_prompt)
+        
+        return {
+            "status": "success",
+            "test_prompt": test_prompt,
+            "response": response,
+            "model": arkana_brain.model_name
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "api_key_set": bool(arkana_brain.gemini_api_key)
+        }
+
+
+@app.get("/debug/drive")
+async def debug_drive():
+    """Debug endpoint to test Google Drive access."""
+    try:
+        from arkadia_drive_sync import _get_drive_service
+        service = _get_drive_service()
+        
+        # Test folder access
+        folder_id = os.environ.get("ARKADIA_FOLDER_ID")
+        if not folder_id:
+            return {"status": "error", "error": "ARKADIA_FOLDER_ID not set"}
+            
+        # Try to list files in the folder
+        query = f"'{folder_id}' in parents and trashed=false"
+        response = service.files().list(q=query, pageSize=5).execute()
+        files = response.get('files', [])
+        
+        return {
+            "status": "success",
+            "folder_id": folder_id,
+            "files_found": len(files),
+            "sample_files": [{"name": f.get("name"), "id": f.get("id")} for f in files[:3]]
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "service_account_file": os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON_FILE"),
+            "file_exists": os.path.exists(os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON_FILE", ""))
+        }
+
+
 # ── UI Root ────────────────────────────────────────────────────────────────
 
 @app.get("/")

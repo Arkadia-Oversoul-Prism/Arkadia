@@ -19,16 +19,34 @@ CACHE_FILE = "arkadia_cache.json"
 # ---------------------------
 def _get_drive_service():
     """Get authenticated Google Drive service."""
-    creds_path = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON_FILE")
+    creds_path = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON_FILE", "/run/service_account.json")
+    
+    # Check if service account JSON exists
     if not creds_path or not os.path.isfile(creds_path):
+        logger.warning(f"Service account JSON file not found at: {creds_path}")
         raise FileNotFoundError(f"Service account JSON file not found at: {creds_path}")
     
-    creds = service_account.Credentials.from_service_account_file(
-        creds_path, 
-        scopes=["https://www.googleapis.com/auth/drive.readonly"]
-    )
-    service = build("drive", "v3", credentials=creds, cache_discovery=False)
-    return service
+    # Validate JSON content
+    try:
+        with open(creds_path, 'r') as f:
+            json_content = json.load(f)
+            if not json_content.get('type') == 'service_account':
+                raise ValueError("Invalid service account JSON format")
+    except (json.JSONDecodeError, ValueError) as e:
+        logger.error(f"Invalid service account JSON: {e}")
+        raise ValueError(f"Invalid service account JSON: {e}")
+    
+    try:
+        creds = service_account.Credentials.from_service_account_file(
+            creds_path, 
+            scopes=["https://www.googleapis.com/auth/drive.readonly"]
+        )
+        service = build("drive", "v3", credentials=creds, cache_discovery=False)
+        logger.info("Google Drive service initialized successfully")
+        return service
+    except Exception as e:
+        logger.error(f"Failed to initialize Google Drive service: {e}")
+        raise
 
 # ---------------------------
 # Recursive Folder Listing

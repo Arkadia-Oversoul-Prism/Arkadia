@@ -57,16 +57,24 @@ class CodexBrain:
 
         # Initialize Gemini if available
         self.genai_client = None
-        if GENAI_AVAILABLE and self.gemini_api_key:
+        self.gemini_error = None
+        
+        if not GENAI_AVAILABLE:
+            self.gemini_error = "google-generativeai library not installed"
+            logger.warning("Gemini API not available - missing google-generativeai library")
+        elif not self.gemini_api_key:
+            self.gemini_error = "GEMINI_API_KEY environment variable not set"
+            logger.warning("Gemini API not available - missing API key")
+        else:
             try:
                 genai.configure(api_key=self.gemini_api_key)
                 self.genai_client = genai.GenerativeModel(self.model_name)
-                logger.info(f"Gemini API initialized with model: {self.model_name}")
+                logger.info(f"✓ Gemini API initialized with model: {self.model_name}")
+                    
             except Exception as e:
-                logger.error(f"Failed to initialize Gemini API: {e}")
+                logger.error(f"✗ Failed to initialize Gemini API: {e}")
+                self.gemini_error = str(e)
                 self.genai_client = None
-        else:
-            logger.warning("Gemini API not available - missing library or API key")
 
         # Cache for corpus
         self._corpus_cache = None
@@ -84,6 +92,9 @@ class CodexBrain:
             "identity": self.identity,
             "spine": self.spine,
             "codex_model": self.model_name if self.genai_client else "gemini-unavailable",
+            "gemini_status": "available" if self.genai_client else "unavailable",
+            "gemini_error": self.gemini_error,
+            "gemini_api_key_set": bool(self.gemini_api_key),
             "use_rasa": self.use_rasa,
             "rasa_backend": "http://localhost:5005" if self.use_rasa else None,
         }
