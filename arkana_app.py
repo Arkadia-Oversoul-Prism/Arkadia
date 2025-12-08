@@ -275,30 +275,43 @@ async def create_thread(
 async def debug_gemini():
     """Debug endpoint to test Gemini API directly."""
     try:
-        if not arkana_brain.genai_client:
+        # Access CodexBrain through ArkanaBrain
+        codex_brain = arkana_brain.codex
+        
+        # Check if CodexBrain has the necessary attributes
+        if not hasattr(codex_brain, 'genai_client'):
             return {
                 "status": "error",
-                "error": arkana_brain.gemini_error or "Gemini client not initialized",
-                "api_key_set": bool(arkana_brain.gemini_api_key),
-                "library_available": arkana_brain.genai_client is not None
+                "error": "CodexBrain missing genai_client attribute",
+                "brain_type": type(codex_brain).__name__
+            }
+            
+        if not codex_brain.genai_client:
+            return {
+                "status": "error",
+                "error": getattr(codex_brain, 'gemini_error', 'Gemini client not initialized'),
+                "api_key_set": bool(getattr(codex_brain, 'gemini_api_key', None)),
+                "library_available": hasattr(codex_brain, 'genai_client')
             }
         
         # Test simple generation
         test_prompt = "Say 'Hello from Arkana' in exactly those words."
-        response = await arkana_brain._call_gemini(test_prompt)
+        response = await codex_brain._call_gemini(test_prompt)
         
         return {
             "status": "success",
             "test_prompt": test_prompt,
             "response": response,
-            "model": arkana_brain.model_name
+            "model": getattr(codex_brain, 'model_name', 'unknown')
         }
         
     except Exception as e:
+        import traceback
         return {
             "status": "error",
             "error": str(e),
-            "api_key_set": bool(arkana_brain.gemini_api_key)
+            "traceback": traceback.format_exc(),
+            "api_key_set": bool(getattr(arkana_brain.codex, 'gemini_api_key', None))
         }
 
 

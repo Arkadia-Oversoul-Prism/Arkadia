@@ -248,7 +248,19 @@ Respond as Arkana with wisdom, compassion, and spiritual insight. Keep responses
                 lambda: self.genai_client.generate_content(prompt)
             )
             
-            return response.text if response.text else ""
+            # Handle different response formats
+            if hasattr(response, 'text') and response.text:
+                return response.text
+            elif hasattr(response, 'candidates') and response.candidates:
+                # Try to get text from candidates
+                candidate = response.candidates[0]
+                if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
+                    parts = candidate.content.parts
+                    if parts and hasattr(parts[0], 'text'):
+                        return parts[0].text
+            
+            logger.warning(f"Gemini response format unexpected: {type(response)}")
+            return ""
             
         except Exception as e:
             logger.error(f"Gemini API error: {e}")
