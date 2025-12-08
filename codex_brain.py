@@ -39,7 +39,7 @@ class CodexBrain:
     def __init__(self) -> None:
         # Configuration
         self.gemini_api_key = os.environ.get("GEMINI_API_KEY")
-        self.model_name = os.environ.get("CODEX_MODEL", "gemini-1.5-flash")
+        self.model_name = os.environ.get("CODEX_MODEL", "models/gemini-2.5-flash")
         self.use_rasa = os.environ.get("USE_RASA", "false").lower() in ("1", "true", "yes")
         
         # Identity and spine configuration
@@ -264,5 +264,14 @@ Respond as Arkana with wisdom, compassion, and spiritual insight. Keep responses
             return ""
             
         except Exception as e:
+            error_msg = str(e)
+            # Check for specific error conditions
+            if "403" in error_msg and "leaked" in error_msg.lower():
+                logger.error("🚨 CRITICAL: Gemini API key has been compromised and disabled by Google!")
+                raise Exception("API key compromised - please generate a new Gemini API key")
+            elif "404" in error_msg and "not found" in error_msg:
+                logger.error(f"🚨 Model not found: {self.model_name}. Available models may have changed.")
+                raise Exception(f"Model '{self.model_name}' not available - check available models")
+            
             logger.error(f"Gemini API error: {e}")
             raise
