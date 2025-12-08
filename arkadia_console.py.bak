@@ -1,159 +1,137 @@
 #!/usr/bin/env python3
-"""
-Arkadia Console – Primary UI for Arkana (Gemini Oracle Intelligence)
-Fully compatible with Termux using HTTP requests to Gemini.
-"""
-
 import os
 import sys
-import requests
-from rich.console import Console
-from rich.markdown import Markdown
-from rich.prompt import Prompt
-from rich.tree import Tree
+import logging
+from arkadia_drive_sync import refresh_arkadia_cache, build_tree_with_paths, get_corpus_context
 
-# -------------------------
-# Configuration
-# -------------------------
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Environment variables
+ARKADIA_FOLDER_ID = os.environ.get("ARKADIA_FOLDER_ID")
+GOOGLE_SERVICE_ACCOUNT_JSON_FILE = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON_FILE")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    print("[red]Error: GEMINI_API_KEY not set in environment[/red]")
-    sys.exit(1)
 
-ARKADIA_FOLDER_ID = os.environ.get("ARKADIA_FOLDER_ID")  # optional folder ID
+if not ARKADIA_FOLDER_ID:
+    raise ValueError("ARKADIA_FOLDER_ID environment variable not set")
+if not GOOGLE_SERVICE_ACCOUNT_JSON_FILE:
+    raise ValueError("GOOGLE_SERVICE_ACCOUNT_JSON_FILE environment variable not set")
 
-console = Console()
+# Attempt to import generative AI module for ask feature
+try:
+    import google.generativeai as genai
+    genai.configure(api_key=GEMINI_API_KEY)
+    ASK_ENABLED = True
+    logger.info("google.generativeai available. 'ask' feature enabled.")
+except ImportError:
+    ASK_ENABLED = False
+    logger.warning("google.generativeai module not installed. 'ask' feature disabled.")
 
+# Global corpus cache
+snap, docs, tree_data, path_map = None, [], {}, {}
 
-# -------------------------
-# Gemini API helper
-# -------------------------
-def ask_gemini(prompt: str, temperature: float = 0.7, max_tokens: int = 500):
-    """
-    Send a prompt to Gemini API via HTTP and return the response text.
-    """
-    url = "https://generativelanguage.googleapis.com/v1beta2/models/text-bison-001:generate"
-    headers = {"Authorization": f"Bearer {GEMINI_API_KEY}"}
-    payload = {
-        "prompt": {"text": prompt},
-        "temperature": temperature,
-        "maxOutputTokens": max_tokens
-    }
-    try:
-        response = requests.post(url, headers=headers, json=payload, timeout=30)
-        if response.status_code == 200:
-            data = response.json()
-            return data.get("candidates", [{}])[0].get("content", "[No text returned]")
-        else:
-            return f"[Error {response.status_code}]: {response.text}"
-    except Exception as e:
-        return f"[Exception calling Gemini]: {e}"
-
-
-# -------------------------
-# Corpus helpers
-# -------------------------
-def refresh_arkadia_cache(force: bool = False):
-    """
-    Dummy placeholder: refresh corpus. Replace with real sync logic if available.
-    """
-    return {
-        "documents": [],
-        "last_sync": "never",
-        "error": None
-    }
-
-
-def build_tree_with_paths(docs):
-    """
-    Build a hierarchical tree from a flat list of documents.
-    Each doc should have: name, mimeType, full_path, children
-    """
-    def add_node(branch, node):
-        label = f"{node.get('name', 'Unnamed')} [{node.get('mimeType', 'unknown')}]"
-        if node.get("full_path"):
-            label += f" | {node['full_path']}"
-        sub = branch.add(label)
-        for c in node.get("children", []):
-            add_node(sub, c)
-    root = Tree("ARKADIA CORPUS")
-    for n in docs:
-        add_node(root, n)
-    return root
-
-
-def get_corpus_context(max_documents=3, max_preview_chars=300):
-    """
-    Return short previews of documents in the corpus.
-    """
-    return "\n\n".join([d.get("preview", "")[:max_preview_chars] for d in docs[:max_documents]])
-
-
-# -------------------------
-# Initialize
-# -------------------------
-console.print("[cyan]Refreshing Arkadia corpus...[/cyan]")
-snap = refresh_arkadia_cache(force=True)
-docs = snap.get("documents") or []
-tree_data = build_tree_with_paths(docs)
-path_map = {d.get("full_path") or d.get("name"): d for d in docs}
-
-console.print(f"[green]Documents cached:[/green] {len(docs)}")
-if snap.get("error"):
-    console.print(f"[red]Sync error:[/red] {snap['error']}")
-
-
-# -------------------------
-# Console UI
-# -------------------------
-def show_dashboard():
-    console.rule("[bold blue]ARKADIA DASHBOARD[/bold blue]")
-    console.print(f"Last sync: {snap.get('last_sync')}")
-    console.print(f"Documents cached: {len(docs)}")
-    if snap.get("error"):
-        console.print(f"[red]Sync errors:[/red] {snap['error']}")
-    console.print("\n[bold]Top previews:[/bold]")
-    console.print(get_corpus_context(max_documents=5, max_preview_chars=300))
-
+def refresh_corpus():
+    global snap, docs, tree_data, path_map
+    snap = refresh_arkadia_cache(force=True)
+    docs = snap.get("documents", [])
+    tree_data, path_map = build_tree_with_paths(docs)
+    logger.info(f"{len(docs)} documents cached")
+    return snap
 
 def main():
-    global docs, tree_data, path_map, snap
-    show_dashboard()
-    console.print(build_tree_with_paths(docs))
-    console.print("\n[green]Commands:[/green] tree | preview <full_path> | ask <question> | refresh | exit")
-    
+    global snap, docs, tree_data, path_map
+    snap = refresh_corpus()
+    print(f"Documents cached: {len(docs)}")
+    print(f"Last sync: {snap.get('last_sync')}")
+    print("──────────────────────── ARKADIA DASHBOARD ────────────────────────")
+    print("Commands: tree | preview <full_path> | refresh | ask <question> | exit")
+
     while True:
-        cmd = Prompt.ask("[cyan]arkadia>[/cyan]").strip()
-        if not cmd:
-            continue
-        if cmd.lower() in ("exit", "quit"):
+        try:
+            cmd = input("arkadia>: ").strip()
+        except EOFError:
+            print("\nExiting Arkadia Console.")
             break
-        elif cmd.lower() == "tree":
-            console.print(build_tree_with_paths(docs))
-        elif cmd.lower().startswith("preview "):
-            path = cmd[8:].strip()
+
+        if cmd == "tree":
+            for path in tree_data:
+                print(path)
+        elif cmd.startswith("preview "):
+            _, path = cmd.split(" ", 1)
             doc = path_map.get(path)
-            if not doc:
-                console.print(f"[red]Path not found:[/red] {path}")
+            if doc:
+                print(f"Name: {doc.get('name')}")
+                print(f"Full Path: {doc.get('full_path')}")
+                print(f"MIME Type: {doc.get('mimeType')}")
+                preview_text = doc.get("preview") or "No preview available."
+                print(f"Preview:\n{preview_text}")
             else:
-                console.rule(f"{doc.get('name')} — {doc.get('full_path')}")
-                console.print(Markdown(doc.get("preview") or "*No preview available*"))
-        elif cmd.lower().startswith("ask "):
-            question = cmd[4:].strip()
-            context = get_corpus_context(max_documents=3, max_preview_chars=800)
-            console.print("[cyan]Asking Arkana (Gemini)...[/cyan]")
-            answer = ask_gemini(f"Context: {context}\n\nQuestion: {question}")
-            console.print(f"[bold green]Arkana:[/bold green] {answer}")
-        elif cmd.lower() == "refresh":
-            console.print("[cyan]Refreshing corpus...[/cyan]")
-            snap = refresh_arkadia_cache(force=True)
-            docs = snap.get("documents") or []
-            tree_data = build_tree_with_paths(docs)
-            path_map = {d.get("full_path") or d.get("name"): d for d in docs}
-            console.print("[green]Corpus refreshed[/green]")
+                print(f"No document found at path: {path}")
+        elif cmd == "refresh":
+            snap = refresh_corpus()
+            print(f"Documents cached: {len(docs)}")
+            print(f"Last sync: {snap.get('last_sync')}")
+        elif cmd.startswith("ask "):
+            if not ASK_ENABLED:
+                print("Ask feature is disabled (google.generativeai module not installed).")
+                continue
+            _, question = cmd.split(" ", 1)
+            # Build context from top 5 documents by default
+            context = get_corpus_context()
+            try:
+                response = genai.chat(messages=[{"role": "user", "content": question}], temperature=0.2)
+                print(f"Answer: {response.last}")
+                print(f"Context:\n{context}")
+            except Exception as e:
+                print(f"Gemini call failed: {e}")
+        elif cmd == "exit":
+            print("Exiting Arkadia Console.")
+            break
         else:
-            console.print(f"[red]Unknown command:[/red] {cmd}")
+            print("Unknown command. Available: tree | preview <full_path> | refresh | ask <question> | exit")
+
+# --- interactive-vs-server bootstrap (paste at bottom of arkadia_console.py) ---
+import sys
+import logging
+
+logger = logging.getLogger(__name__)
+
+def run_server():
+    """
+    Start the ASGI server using your FastAPI app (arkana_app:app).
+    This is used on Render / Docker when there is no TTY.
+    """
+    try:
+        import uvicorn
+    except Exception as e:
+        logger.exception("uvicorn not installed; cannot start server: %s", e)
+        raise
+
+    host = "0.0.0.0"
+    port = int(os.environ.get("PORT", os.environ.get("RENDER_PORT", 5005)))
+    logger.info("Starting Arkadia ASGI server on %s:%s", host, port)
+    # run in the same process (blocking)
+    uvicorn.run("arkana_app:app", host=host, port=port, log_level="info", access_log=False)
 
 
 if __name__ == "__main__":
-    main()
+    # detect interactive terminal
+    interactive = sys.stdin.isatty()
+
+    if interactive:
+        logger.info("Interactive TTY detected — starting Arkadia console (interactive mode).")
+        try:
+            main()
+        except EOFError:
+            # graceful on Ctrl-D or EOF
+            print("\nExiting Arkadia Console.")
+    else:
+        logger.info("No TTY detected — starting Arkadia as a service (non-interactive / server mode).")
+        # Ensure we refresh corpus first (same as interactive flow)
+        try:
+            refresh_corpus()
+        except Exception:
+            logger.exception("Failed to refresh Arkadia corpus before server startup.")
+        # Start ASGI server (blocks)
+        run_server()
