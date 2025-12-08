@@ -1,33 +1,47 @@
 # arkana_app.py
 # Arkadia — Arkana Oracle Temple (FastAPI)
+"""
+Defensive, single-file FastAPI app for Arkadia that:
+- Uses refresh_arkadia_cache() + get_corpus_context(...) from arkadia_drive_sync
+- Uses ArkanaBrain for oracle replies
+- Works even if model class names vary slightly (Conversation vs Thread, Message)
+- Provides endpoints:
+  - GET /health
+  - GET /status
+  - GET /arkadia/corpus
+  - GET /arkadia/refresh
+  - POST /oracle
+  - Thread/history endpoints for UI
+  - GET /
+"""
 
 import logging
 import os
 from typing import Any, Dict, List, Optional
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from arkadia_drive_sync import refresh_arkadia_cache, get_arkadia_corpus
+# Arkadia modules (current names in your repo)
+from arkadia_drive_sync import refresh_arkadia_cache, get_corpus_context
 from brain import ArkanaBrain
-from db import SessionLocal
-from models import Message, Thread, User, init_db
+from db import SessionLocal, engine  # engine used for fallback init_db
+import models as models_module  # we'll inspect for classes inside models
 
 logger = logging.getLogger("arkadia")
 logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="Arkadia — Arkana Oracle Temple")
 
-# Add CORS middleware
+# Allow CORS (UI hosted elsewhere can call this)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -38,9 +52,41 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 arkana_brain = ArkanaBrain()
 
+# -----------------------
+# Models compatibility
+# -----------------------
+# The repo has used several model names historically:
+# - Conversation / Message (older)
+# - Thread / Message / User / init_db (expected by older arkana_app)
+# We'll try to map gracefully.
 
-# ── DB Dependency ──────────────────────────────────────────────────────────
+# Default model fallbacks
+ThreadModel = getattr(models_module, "Thread", None) or getattr(models_module, "Conversation", None)
+MessageModel = getattr(models_module, "Message", None)
+UserModel = getattr(models_module, "User", None)
+init_db_fn = getattr(models_module, "init_db", None)
 
+# If init_db is not provided in models, create a fallback using SQLAlchemy metadata if available
+if init_db_fn is None:
+    try:
+        Base = getattr(models_module, "Base", None)
+        if Base is not None and engine is not None:
+            def _fallback_init_db():
+                Base.metadata.create_all(bind=engine)
+            init_db_fn = _fallback_init_db
+            logger.info("Using fallback init_db to create tables from models.Base")
+        else:
+            def _no_op_init_db():
+                logger.warning("No init_db or Base found in models; DB tables may not be created automatically.")
+            init_db_fn = _no_op_init_db
+    except Exception:
+        def _no_op_init_db():
+            logger.exception("Failed to create fallback init_db")
+        init_db_fn = _no_op_init_db
+
+# -----------------------
+# DB Dependency
+# -----------------------
 def get_db():
     db = SessionLocal()
     try:
@@ -48,16 +94,18 @@ def get_db():
     finally:
         db.close()
 
-
 @app.on_event("startup")
 def on_startup() -> None:
-    init_db()
-    logger.info("Arkadia DB initialized.")
+    try:
+        init_db_fn()
+        logger.info("Arkadia DB initialized.")
+    except Exception as e:
+        logger.exception("Error during DB init: %s", e)
     logger.info("Static UI directory: %s", STATIC_DIR)
 
-
-# ── Pydantic Schemas ───────────────────────────────────────────────────────
-
+# -----------------------
+# Pydantic Schemas
+# -----------------------
 class OracleRequest(BaseModel):
     sender: str
     message: str
@@ -78,9 +126,9 @@ class MessageInfo(BaseModel):
     content: str
     created_at: str
 
-
-# ── Health / Status ────────────────────────────────────────────────────────
-
+# -----------------------
+# Health / Status
+# -----------------------
 @app.get("/health")
 async def health() -> Dict[str, str]:
     return {"status": "ok"}
@@ -88,9 +136,25 @@ async def health() -> Dict[str, str]:
 
 @app.get("/status")
 async def status() -> Dict[str, Any]:
-    base_status = arkana_brain.status_dict()
+    base_status = {}
     try:
-        rasa_ok = await arkana_brain.ping_rasa()
+        # ArkanaBrain.status_dict may exist; fallback to empty dict
+        base_status = getattr(arkana_brain, "status_dict", lambda: {})()  # type: ignore
+    except Exception:
+        logger.exception("Error fetching arkana_brain status_dict")
+
+    # Optional Rasa probe
+    rasa_ok = False
+    try:
+        ping_rasa = getattr(arkana_brain, "ping_rasa", None)
+        if ping_rasa:
+            # ping_rasa may be async; attempt to call it sensibly
+            maybe = ping_rasa()
+            if hasattr(maybe, "__await__"):
+                import asyncio
+                rasa_ok = asyncio.get_event_loop().run_until_complete(maybe)
+            else:
+                rasa_ok = bool(maybe)
     except Exception:
         rasa_ok = False
 
@@ -111,64 +175,77 @@ async def status() -> Dict[str, Any]:
         "rasa_ok": rasa_ok,
     }
 
-
-# ── Arkadia Corpus Endpoints ───────────────────────────────────────────────
-
+# -----------------------
+# Arkadia Corpus Endpoints
+# -----------------------
 @app.get("/arkadia/corpus")
 async def arkadia_corpus() -> JSONResponse:
     try:
-        snapshot = get_arkadia_corpus()
-        return JSONResponse(snapshot)
+        snapshot = refresh_arkadia_cache(force=True)
+        docs = snapshot.get("documents") or []
+        context_summary = get_corpus_context(docs, max_documents=6, max_preview_chars=400)
+        return JSONResponse({"snapshot": snapshot, "context_summary": context_summary})
     except Exception as e:
-        logger.exception("Error getting corpus: %s", e)
-        return JSONResponse({"error": str(e), "documents": []})
+        logger.exception("Error returning arkadia corpus: %s", e)
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.get("/arkadia/refresh")
 async def arkadia_refresh() -> JSONResponse:
     try:
         snapshot = refresh_arkadia_cache(force=True)
-        return JSONResponse(snapshot)
+        docs = snapshot.get("documents") or []
+        context_summary = get_corpus_context(docs, max_documents=6, max_preview_chars=400)
+        return JSONResponse({"snapshot": snapshot, "context_summary": context_summary})
     except Exception as e:
-        logger.exception("Error refreshing corpus: %s", e)
-        return JSONResponse({"error": str(e), "documents": []})
+        logger.exception("Error refreshing arkadia corpus: %s", e)
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
-# ── Oracle Endpoint (Codex Brain + History) ─────────────────────────────────
-
+# -----------------------
+# Oracle Endpoint (Codex Brain + History)
+# -----------------------
 @app.post("/oracle")
-async def oracle_endpoint(
-    payload: OracleRequest, db: Session = Depends(get_db)
-) -> Dict[str, Any]:
+async def oracle_endpoint(payload: OracleRequest, db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
-    Main interface used by curl + UI.
-    - Tries to record user & Arkana messages in DB (threaded).
+    - Records user & Arkana messages in DB (best-effort).
     - Routes to Codex Brain (Gemini + Corpus) by default.
-    - NEVER throws a 500; always returns a JSON reply.
+    - NEVER throws 500; always returns JSON.
     """
-    sender_external_id = payload.sender.strip() or "anonymous"
-    user: Optional[User] = None
-    thread: Optional[Thread] = None
+    sender_external_id = (payload.sender or "anonymous").strip() or "anonymous"
+    user = None
+    thread = None
 
-    # 1. Ensure user + thread + store user message (but don't die if DB breaks)
+    # 1) Ensure user + thread + store user message (best effort)
     try:
-        user = arkana_brain.ensure_user(db, sender_external_id)
-        thread = arkana_brain.ensure_thread(db, user, payload.thread_id)
-        arkana_brain.store_message(
-            db=db,
-            thread=thread,
-            role="user",
-            sender=sender_external_id,
-            content=payload.message,
-        )
+        # ArkanaBrain may provide ensure_user / ensure_thread / store_message helpers
+        ensure_user = getattr(arkana_brain, "ensure_user", None)
+        ensure_thread = getattr(arkana_brain, "ensure_thread", None)
+        store_message = getattr(arkana_brain, "store_message", None)
+
+        if ensure_user:
+            user = ensure_user(db, sender_external_id)
+        if ensure_thread:
+            thread = ensure_thread(db, user, payload.thread_id)
+
+        if store_message and thread is not None:
+            store_message(db=db, thread=thread, role="user", sender=sender_external_id, content=payload.message)
     except Exception as e:
         logger.exception("DB error while storing user message in /oracle: %s", e)
 
-    # 2. Generate reply (Codex Brain)
+    # 2) Generate reply (Codex Brain or Rasa)
     try:
-        reply_text = await arkana_brain.generate_reply(
-            sender_external_id, payload.message
-        )
+        # generate_reply on ArkanaBrain is async in your brain.py; call it accordingly.
+        gen = getattr(arkana_brain, "generate_reply", None)
+        if gen is None:
+            reply_text = "Arkana's generative channel is not available."
+        else:
+            maybe = gen(sender_external_id, payload.message)
+            if hasattr(maybe, "__await__"):
+                import asyncio
+                reply_text = asyncio.get_event_loop().run_until_complete(maybe)
+            else:
+                reply_text = maybe
     except Exception as e:
         logger.exception("Unexpected error in generate_reply: %s", e)
         reply_text = (
@@ -183,208 +260,65 @@ async def oracle_endpoint(
             "I am still listening."
         )
 
-    # 3. Store Arkana reply (best effort)
+    # 3) Store Arkana reply (best effort)
     try:
-        if thread is not None:
-            arkana_brain.store_message(
-                db=db,
-                thread=thread,
-                role="arkana",
-                sender="arkana",
-                content=reply_text,
-            )
+        store_message = getattr(arkana_brain, "store_message", None)
+        if store_message and thread is not None:
+            store_message(db=db, thread=thread, role="arkana", sender="arkana", content=reply_text)
     except Exception as e:
         logger.exception("DB error while storing Arkana reply in /oracle: %s", e)
 
-    return {
-        "sender": "arkana",
-        "reply": reply_text,
-        "thread_id": thread.id if thread is not None else 0,
-    }
+    return {"sender": "arkana", "reply": reply_text, "thread_id": getattr(thread, "id", 0) if thread else 0}
 
 
-# ── Thread + History Endpoints (for UI) ────────────────────────────────────
-
+# -----------------------
+# Thread + History Endpoints
+# -----------------------
 @app.get("/threads", response_model=List[ThreadInfo])
 async def list_threads(user_id: str, db: Session = Depends(get_db)) -> List[ThreadInfo]:
-    user = db.query(User).filter(User.external_id == user_id).first()
+    if UserModel is None or ThreadModel is None:
+        return []
+
+    user = db.query(UserModel).filter(getattr(UserModel, "external_id", "external_id") == user_id).first()
     if not user:
         return []
 
-    threads = (
-        db.query(Thread)
-        .filter(Thread.user_id == user.id)
-        .order_by(Thread.updated_at.desc())
-        .all()
-    )
+    threads = db.query(ThreadModel).filter(getattr(ThreadModel, "user_id", "user_id") == user.id).order_by(getattr(ThreadModel, "updated_at", "updated_at").desc()).all()
 
-    return [
-        ThreadInfo(
-            id=t.id,
-            title=t.title,
-            created_at=t.created_at.isoformat(),
-            updated_at=t.updated_at.isoformat(),
-        )
-        for t in threads
-    ]
+    out: List[ThreadInfo] = []
+    for t in threads:
+        out.append(ThreadInfo(id=t.id, title=getattr(t, "title", None), created_at=getattr(t, "created_at").isoformat(), updated_at=getattr(t, "updated_at").isoformat()))
+    return out
 
 
 @app.get("/threads/{thread_id}/messages", response_model=List[MessageInfo])
-async def get_thread_messages(
-    thread_id: int, db: Session = Depends(get_db)
-) -> List[MessageInfo]:
-    msgs = (
-        db.query(Message)
-        .filter(Message.thread_id == thread_id)
-        .order_by(Message.created_at.asc())
-        .all()
-    )
+async def get_thread_messages(thread_id: int, db: Session = Depends(get_db)) -> List[MessageInfo]:
+    if MessageModel is None:
+        return []
 
-    return [
-        MessageInfo(
-            id=m.id,
-            role=m.role,
-            sender=m.sender,
-            content=m.content,
-            created_at=m.created_at.isoformat(),
-        )
-        for m in msgs
-    ]
+    msgs = db.query(MessageModel).filter(getattr(MessageModel, "thread_id", "thread_id") == thread_id).order_by(getattr(MessageModel, "created_at", "created_at").asc()).all()
+    out: List[MessageInfo] = []
+    for m in msgs:
+        out.append(MessageInfo(id=m.id, role=getattr(m, "role", "user"), sender=getattr(m, "sender", "unknown"), content=getattr(m, "content", ""), created_at=getattr(m, "created_at").isoformat()))
+    return out
 
 
 @app.post("/threads", response_model=ThreadInfo)
-async def create_thread(
-    user_id: str, title: Optional[str] = None, db: Session = Depends(get_db)
-) -> ThreadInfo:
-    user = arkana_brain.ensure_user(db, user_id)
-    thread = Thread(user_id=user.id, title=title)
+async def create_thread(user_id: str, title: Optional[str] = None, db: Session = Depends(get_db)) -> ThreadInfo:
+    if UserModel is None or ThreadModel is None:
+        raise HTTPException(status_code=500, detail="Thread/User models not available")
+
+    user = getattr(arkana_brain, "ensure_user", lambda db, uid: None)(db, user_id)
+    thread = ThreadModel(user_id=user.id, title=title)
     db.add(thread)
     db.commit()
     db.refresh(thread)
-    return ThreadInfo(
-        id=thread.id,
-        title=thread.title,
-        created_at=thread.created_at.isoformat(),
-        updated_at=thread.updated_at.isoformat(),
-    )
+    return ThreadInfo(id=thread.id, title=thread.title, created_at=thread.created_at.isoformat(), updated_at=thread.updated_at.isoformat())
 
 
-# ── Debug Endpoints ───────────────────────────────────────────────────────
-
-@app.get("/debug/gemini")
-async def debug_gemini():
-    """Debug endpoint to test Gemini API directly."""
-    try:
-        # Access CodexBrain through ArkanaBrain
-        codex_brain = arkana_brain.codex
-        
-        # Check if CodexBrain has the necessary attributes
-        if not hasattr(codex_brain, 'genai_client'):
-            return {
-                "status": "error",
-                "error": "CodexBrain missing genai_client attribute",
-                "brain_type": type(codex_brain).__name__,
-                "available_attributes": dir(codex_brain)
-            }
-            
-        if not codex_brain.genai_client:
-            return {
-                "status": "error",
-                "error": getattr(codex_brain, 'gemini_error', 'Gemini client not initialized'),
-                "api_key_set": bool(getattr(codex_brain, 'gemini_api_key', None)),
-                "api_key_length": len(getattr(codex_brain, 'gemini_api_key', '') or ''),
-                "library_available": hasattr(codex_brain, 'genai_client'),
-                "model_name": getattr(codex_brain, 'model_name', 'unknown')
-            }
-        
-        # Test simple generation
-        test_prompt = "Say 'Hello from Arkana' in exactly those words."
-        response = await codex_brain._call_gemini(test_prompt)
-        
-        return {
-            "status": "success",
-            "test_prompt": test_prompt,
-            "response": response,
-            "response_length": len(response) if response else 0,
-            "model": getattr(codex_brain, 'model_name', 'unknown')
-        }
-        
-    except Exception as e:
-        import traceback
-        return {
-            "status": "error",
-            "error": str(e),
-            "error_type": type(e).__name__,
-            "traceback": traceback.format_exc(),
-            "api_key_set": bool(getattr(arkana_brain.codex, 'gemini_api_key', None))
-        }
-
-
-@app.get("/debug/oracle")
-async def debug_oracle():
-    """Debug endpoint to test full Oracle functionality."""
-    try:
-        # Test the full Oracle pipeline
-        test_message = "Hello Arkana, please respond with wisdom."
-        test_sender = "debug_user"
-        
-        # Call the main Oracle function
-        response = await arkana_brain.generate_reply(test_sender, test_message)
-        
-        return {
-            "status": "success",
-            "test_message": test_message,
-            "test_sender": test_sender,
-            "oracle_response": response,
-            "response_length": len(response) if response else 0,
-            "is_fallback": "beloved" in response.lower() and "technical note" in response.lower()
-        }
-        
-    except Exception as e:
-        import traceback
-        return {
-            "status": "error",
-            "error": str(e),
-            "error_type": type(e).__name__,
-            "traceback": traceback.format_exc()
-        }
-
-
-@app.get("/debug/drive")
-async def debug_drive():
-    """Debug endpoint to test Google Drive access."""
-    try:
-        from arkadia_drive_sync import _get_drive_service
-        service = _get_drive_service()
-        
-        # Test folder access
-        folder_id = os.environ.get("ARKADIA_FOLDER_ID")
-        if not folder_id:
-            return {"status": "error", "error": "ARKADIA_FOLDER_ID not set"}
-            
-        # Try to list files in the folder
-        query = f"'{folder_id}' in parents and trashed=false"
-        response = service.files().list(q=query, pageSize=5).execute()
-        files = response.get('files', [])
-        
-        return {
-            "status": "success",
-            "folder_id": folder_id,
-            "files_found": len(files),
-            "sample_files": [{"name": f.get("name"), "id": f.get("id")} for f in files[:3]]
-        }
-        
-    except Exception as e:
-        return {
-            "status": "error",
-            "error": str(e),
-            "service_account_file": os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON_FILE"),
-            "file_exists": os.path.exists(os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON_FILE", ""))
-        }
-
-
-# ── UI Root ────────────────────────────────────────────────────────────────
-
+# -----------------------
+# UI Root
+# -----------------------
 @app.get("/")
 async def root() -> FileResponse:
     index_path = os.path.join(STATIC_DIR, "index.html")
