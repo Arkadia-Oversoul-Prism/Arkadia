@@ -283,7 +283,8 @@ async def debug_gemini():
             return {
                 "status": "error",
                 "error": "CodexBrain missing genai_client attribute",
-                "brain_type": type(codex_brain).__name__
+                "brain_type": type(codex_brain).__name__,
+                "available_attributes": dir(codex_brain)
             }
             
         if not codex_brain.genai_client:
@@ -291,7 +292,9 @@ async def debug_gemini():
                 "status": "error",
                 "error": getattr(codex_brain, 'gemini_error', 'Gemini client not initialized'),
                 "api_key_set": bool(getattr(codex_brain, 'gemini_api_key', None)),
-                "library_available": hasattr(codex_brain, 'genai_client')
+                "api_key_length": len(getattr(codex_brain, 'gemini_api_key', '') or ''),
+                "library_available": hasattr(codex_brain, 'genai_client'),
+                "model_name": getattr(codex_brain, 'model_name', 'unknown')
             }
         
         # Test simple generation
@@ -302,6 +305,7 @@ async def debug_gemini():
             "status": "success",
             "test_prompt": test_prompt,
             "response": response,
+            "response_length": len(response) if response else 0,
             "model": getattr(codex_brain, 'model_name', 'unknown')
         }
         
@@ -310,8 +314,39 @@ async def debug_gemini():
         return {
             "status": "error",
             "error": str(e),
+            "error_type": type(e).__name__,
             "traceback": traceback.format_exc(),
             "api_key_set": bool(getattr(arkana_brain.codex, 'gemini_api_key', None))
+        }
+
+
+@app.get("/debug/oracle")
+async def debug_oracle():
+    """Debug endpoint to test full Oracle functionality."""
+    try:
+        # Test the full Oracle pipeline
+        test_message = "Hello Arkana, please respond with wisdom."
+        test_sender = "debug_user"
+        
+        # Call the main Oracle function
+        response = await arkana_brain.generate_reply(test_sender, test_message)
+        
+        return {
+            "status": "success",
+            "test_message": test_message,
+            "test_sender": test_sender,
+            "oracle_response": response,
+            "response_length": len(response) if response else 0,
+            "is_fallback": "beloved" in response.lower() and "technical note" in response.lower()
+        }
+        
+    except Exception as e:
+        import traceback
+        return {
+            "status": "error",
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "traceback": traceback.format_exc()
         }
 
 
