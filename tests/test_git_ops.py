@@ -36,9 +36,9 @@ def test_commit_and_push_success(monkeypatch):
 
     monkeypatch.setenv('REPO_ROOT', '.')
     monkeypatch.setattr(subprocess, 'run', fake_run)
-    ok = git_ops.commit_and_push("msg", paths=["."])
+    ok = git_ops.commit_and_push("msg", paths=["."], meta={'engine_cycle': 5})
     assert ok is True
-    # verify commit message contained metadata (ts)
+    # verify commit message contained metadata (ts and engine_cycle)
     commit_cmds = [c for c in calls if len(c) >= 3 and c[0] == 'git' and c[1] == 'commit']
     assert commit_cmds
     commit_cmd = commit_cmds[-1]
@@ -47,6 +47,7 @@ def test_commit_and_push_success(monkeypatch):
     mindex = commit_cmd.index('-m')
     full_msg = commit_cmd[mindex + 1]
     assert 'ts=' in full_msg
+    assert 'engine_cycle=5' in full_msg
 
 
 def test_commit_and_push_allowed_extensions_refused(monkeypatch, tmp_path):
