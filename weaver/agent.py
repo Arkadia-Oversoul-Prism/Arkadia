@@ -7,7 +7,7 @@ import re
 
 LOGGER = get_logger()
 
-def run(task: str):
+def run(task: str, engine_cycle: int | None = None):
     files = read_repo(".")
     prompt = build_prompt(task, files)
     try:
@@ -32,7 +32,14 @@ def run(task: str):
 
     if updated_files:
         commit_msg = f"weaver: auto update - {task}"
-        success = commit_and_push(commit_msg, paths=updated_files)
+        # attempt to parse engine cycle from task if provided
+        try:
+            m = re.search(r"recursive step (\d+)", task)
+            engine_cycle = int(m.group(1)) if m else engine_cycle
+        except Exception:
+            engine_cycle = engine_cycle
+        meta = {"engine_cycle": engine_cycle} if engine_cycle is not None else None
+        success = commit_and_push(commit_msg, paths=updated_files, meta=meta)
         if success:
             LOGGER.info("Committed changes: %s", commit_msg)
             return updated_files, commit_msg

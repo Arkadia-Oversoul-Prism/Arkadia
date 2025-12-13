@@ -72,6 +72,14 @@ PROVIDERS = {
     "gemini": gemini,
 }
 
+def available_providers() -> dict:
+    """Return a mapping of provider -> availability boolean."""
+    providers = {}
+    # For now only gemini has a key to check
+    providers["gemini"] = bool(os.environ.get("GEMINI_API_KEY"))
+    return providers
+
+
 def call_llm(provider: str, prompt: str) -> str:
     if provider not in PROVIDERS:
         raise ValueError(f"Unknown LLM provider: {provider}")

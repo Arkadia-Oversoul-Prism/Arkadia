@@ -23,15 +23,16 @@ def test_agent_run_writes_and_commits(tmp_path, monkeypatch):
     # Capture commit message without actually calling git
     called = {}
 
-    def fake_commit(msg, paths=None):
+    def fake_commit(msg, paths=None, meta=None, **kwargs):
         called['msg'] = msg
         called['paths'] = paths
+        called['meta'] = meta
         return True
 
     # Monkeypatch the commit function the agent imported
     monkeypatch.setattr('weaver.agent.commit_and_push', fake_commit)
 
-    updated_files, commit_msg = agent.run('test task')
+    updated_files, commit_msg = agent.run('test task', engine_cycle=5)
     assert isinstance(updated_files, list)
     assert len(updated_files) == 1
     # The commit msg should match expected pattern
@@ -42,3 +43,6 @@ def test_agent_run_writes_and_commits(tmp_path, monkeypatch):
     assert new_file.read_text().strip() == 'Hello New Content'
     # The fake commit was called with the expected paths
     assert called['paths'] == updated_files
+    # meta should include engine_cycle
+    assert 'meta' in called
+    assert called['meta']['engine_cycle'] == 5

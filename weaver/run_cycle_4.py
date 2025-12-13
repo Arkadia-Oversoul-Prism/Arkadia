@@ -7,9 +7,13 @@ from weaver.agent import call_llm as original_call_llm
 
 
 def deterministic_stub(provider, prompt):
+    # Extract step index from the task embedded in the prompt
+    import re
+    m = re.search(r"recursive step (\d+)", prompt)
+    step = int(m.group(1)) if m else 0
     # produce a minimal file patch intended to be adopted by agent.run
-    target = 'weaver/notes/cycle_4.txt'
-    content = 'Cycle 4: Safe deterministic update.\n'
+    target = f'weaver/notes/cycle_4_step_{step}.txt'
+    content = f'Cycle 4 step {step}: Safe deterministic update.\n'
     return f"--- FILE: {target} ---\n{content}\n"
 
 

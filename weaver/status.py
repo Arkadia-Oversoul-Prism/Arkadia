@@ -1,5 +1,6 @@
 import os
 from .recursive import RecursiveEngine
+from .llm import available_providers
 
 
 def report() -> dict:
@@ -10,6 +11,7 @@ def report() -> dict:
         "interval": engine.interval,
         "module_status": engine.validate(),
         "ready": engine.ready(),
+        "llm_providers": available_providers(),
     }
     return status
 
