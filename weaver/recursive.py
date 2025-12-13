@@ -149,14 +149,71 @@ class RecursiveEngine:
         # Sanitize errors: include only short messages without newlines
         simple_errors = [str(e).splitlines()[0] if e else "" for e in list(self.errors)]
 
+        # read governance_version from static manifest if present
+        gov_version = None
+        try:
+            manifest_path = os.path.join(os.getcwd(), "governance", "manifest.json")
+            if os.path.exists(manifest_path):
+                import json as _json
+                with open(manifest_path, "r", encoding="utf-8") as mf:
+                    mdata = _json.load(mf)
+                    gov_version = mdata.get("governance_version")
+        except Exception:
+            gov_version = None
+
+        # compute derived fields for gate visibility
+        # uptime_cycles = number of cycles recorded in metrics
+        uptime_cycles = len(self.metrics.get("cycles", [])) if isinstance(self.metrics.get("cycles", []), list) else 0
+
+        # Determine system phase
+        if self.current_cycle <= 0:
+            system_phase = "Foundation"
+        elif self.current_cycle <= 3:
+            system_phase = "Stabilization"
+        else:
+            system_phase = "Expansion"
+
+        # governance mode: manual / scheduled / autonomous
+        governance_mode = "manual"
+        autonomy_enabled = False
+        try:
+            autopath = os.path.join(os.getcwd(), "governance", "autonomy.json")
+            if os.path.exists(autopath):
+                import json as _json
+                with open(autopath, "r", encoding="utf-8") as af:
+                    aconf = _json.load(af)
+                    if aconf.get("enabled"):
+                        autonomy_enabled = True
+                        # By default Option A is scheduled
+                        if os.environ.get("ARKADIA_AUTONOMOUS") == "true":
+                            governance_mode = "autonomous"
+                        else:
+                            governance_mode = "scheduled"
+        except Exception:
+            autonomy_enabled = False
+            governance_mode = "manual"
+
+        last_cycle_summary = "No activity"
+        try:
+            if uptime_cycles > 0:
+                last_cycle_summary = f"Cycle {self.current_cycle}: {len(commits)} commits, {len(self.updates)} updates"
+        except Exception:
+            last_cycle_summary = "No activity"
+
         state = {
             "cycle": self.current_cycle,
             "depth": self.depth,
             "ready": self.ready(),
+            "system_phase": system_phase,
+            "governance_mode": governance_mode,
+            "autonomy_enabled": autonomy_enabled,
+            "last_cycle_summary": last_cycle_summary,
+            "uptime_cycles": uptime_cycles,
             "updates": list(self.updates),
             "commits": commits,
             "metrics": self.metrics,
             "errors": simple_errors,
+            "governance_version": gov_version,
             "last_updated_ts": int(time.time()),
         }
 
