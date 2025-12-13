@@ -1,4 +1,4 @@
-from .llm import call_llm, gemini
+from .llm import call_llm
 from .fs import read_repo, write_file
 from .git_ops import commit_and_push
 from .prompts import build_prompt

@@ -10,6 +10,14 @@ def read_repo(root="."):
     for p in Path(root).rglob("*"):
         if p.is_file() and not any(x in str(p) for x in EXCLUDE_DIRS):
             try:
+                # skip very large files to avoid memory issues
+                try:
+                    size = p.stat().st_size
+                except Exception:
+                    size = 0
+                if size > 1_000_000:  # 1MB
+                    LOGGER.debug("Skipping large file %s (size=%s)", p, size)
+                    continue
                 files[str(p)] = p.read_text()
             except Exception:
                 LOGGER.debug("Skipping unreadable file: %s", p)

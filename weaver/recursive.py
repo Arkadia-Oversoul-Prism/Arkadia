@@ -5,6 +5,7 @@ import time
 from typing import Dict
 
 from .logger import get_logger
+from .git_ops import last_commit_messages
 
 LOGGER = get_logger()
 
@@ -126,10 +127,13 @@ class RecursiveEngine:
         self._running = False
 
     def report(self) -> dict:
+        commits = list(self.commits)
+        if not commits:
+            commits = last_commit_messages(3)
         return {
             "cycle": self.current_cycle,
             "updates": list(self.updates),
-            "commits": list(self.commits),
+            "commits": commits,
             "ready": self.ready(),
             "errors": list(self.errors),
         }

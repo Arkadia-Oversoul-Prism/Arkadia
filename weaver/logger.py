@@ -23,5 +23,6 @@ def get_logger(level: int = logging.INFO, logfile: str | None = None) -> Logger:
             fh = logging.FileHandler(logpath)
             fh.setFormatter(formatter)
             logger.addHandler(fh)
-    logger.setLevel(level)
+        logger.setLevel(level)
+        logger.propagate = False
     return logger

@@ -1,6 +1,9 @@
 import os
 import time
 import requests
+from .logger import get_logger
+
+LOGGER = get_logger()
 
 # =========================
 # CONFIG
@@ -46,7 +49,7 @@ def gemini(prompt: str) -> str:
 
             if r.status_code != 200:
                 last_error = f"{r.status_code}: {r.text}"
-                print(f"[Gemini retry {attempt}/{MAX_RETRIES}] {last_error}")
+                LOGGER.warning("[Gemini retry %s/%s] %s", attempt, MAX_RETRIES, last_error)
                 time.sleep(RETRY_DELAY)
                 continue
 
@@ -55,7 +58,7 @@ def gemini(prompt: str) -> str:
 
         except requests.exceptions.RequestException as e:
             last_error = str(e)
-            print(f"[Gemini retry {attempt}/{MAX_RETRIES}] {last_error}")
+            LOGGER.warning("[Gemini retry %s/%s] %s", attempt, MAX_RETRIES, last_error)
             time.sleep(RETRY_DELAY)
 
     raise RuntimeError(f"Gemini failed after retries: {last_error}")
