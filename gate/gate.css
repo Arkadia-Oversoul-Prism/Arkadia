@@ -7,3 +7,16 @@ dd { margin-bottom: 0.75rem; }
 #commits { padding-left: 1rem; }
 .closed { color: #a00; font-weight: bold; }
 .open { color: #080; font-weight: bold; }
+
+.banner {
+	margin-top: 0.5rem;
+	padding: 0.5rem 1rem;
+	border-radius: 6px;
+	font-weight: 600;
+}
+.banner.stable { background: #e6f7ef; color: #065f46; border: 1px solid #d1fae5; }
+.banner.evolving { background: #fff7ed; color: #92400e; border: 1px solid #ffedd5; }
+.banner.paused { background: #fef2f2; color: #991b1b; border: 1px solid #fee2e2; }
+.banner.autonomous { background: #f0f9ff; color: #0369a1; border: 1px solid #e0f2fe; }
+.banner.scheduled { background: #f8fafc; color: #0f172a; border: 1px solid #e2e8f0; }
+.banner.foundation { background: #f3f4f6; color: #111827; border: 1px solid #e5e7eb; }

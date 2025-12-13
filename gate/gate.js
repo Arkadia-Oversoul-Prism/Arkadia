@@ -4,6 +4,13 @@
   const ready = document.getElementById('ready');
   const lastUpdated = document.getElementById('last_updated');
   const commits = document.getElementById('commits');
+  const sysPhase = document.getElementById('system_phase');
+  const govMode = document.getElementById('governance_mode');
+  const autonomy = document.getElementById('autonomy_enabled');
+  const uptime = document.getElementById('uptime_cycles');
+  const lastCycleSummary = document.getElementById('last_cycle_summary');
+  const governanceVersion = document.getElementById('governance_version');
+  const bannerEl = document.getElementById('gate-banner');
 
   function showClosed() {
     statusSummary.textContent = 'Gate Closed';
@@ -12,6 +19,13 @@
     ready.textContent = '—';
     lastUpdated.textContent = '—';
     commits.innerHTML = '';
+    sysPhase.textContent = '—';
+    govMode.textContent = '—';
+    autonomy.textContent = '—';
+    uptime.textContent = '—';
+    lastCycleSummary.textContent = '—';
+    governanceVersion.textContent = '—';
+    if (bannerEl) { bannerEl.textContent = '—'; bannerEl.className = 'banner'; }
   }
 
   function render(state) {
@@ -21,6 +35,47 @@
     ready.textContent = state.ready ? 'Yes' : 'No';
     const ts = state.last_updated_ts ? new Date(state.last_updated_ts * 1000) : null;
     lastUpdated.textContent = ts ? ts.toISOString() : '—';
+    sysPhase.textContent = state.system_phase ?? '—';
+    govMode.textContent = state.governance_mode ?? '—';
+    autonomy.textContent = typeof state.autonomy_enabled === 'boolean' ? (state.autonomy_enabled ? 'Yes' : 'No') : '—';
+    uptime.textContent = (typeof state.uptime_cycles === 'number') ? state.uptime_cycles : '—';
+    lastCycleSummary.textContent = state.last_cycle_summary ?? '—';
+    governanceVersion.textContent = state.governance_version ?? '—';
+    // Determine a human-friendly banner and class
+    if (bannerEl) {
+      let text = 'Arkadia';
+      let cls = 'banner';
+      if (state.governance_mode === 'manual') {
+        text = 'Arkadia is Paused';
+        cls = 'banner paused';
+      } else if (state.governance_mode === 'autonomous') {
+        text = 'Arkadia is Autonomous';
+        cls = 'banner autonomous';
+      } else if (state.governance_mode === 'scheduled') {
+        text = 'Arkadia is Scheduled';
+        cls = 'banner scheduled';
+      } else {
+        switch ((state.system_phase || '').toLowerCase()) {
+          case 'foundation':
+            text = 'Arkadia — Foundation';
+            cls = 'banner foundation';
+            break;
+          case 'stabilization':
+            text = 'Arkadia is Stable';
+            cls = 'banner stable';
+            break;
+          case 'expansion':
+            text = 'Arkadia is Evolving';
+            cls = 'banner evolving';
+            break;
+          default:
+            text = 'Arkadia — Unknown State';
+            cls = 'banner';
+        }
+      }
+      bannerEl.textContent = text;
+      bannerEl.className = cls;
+    }
     commits.innerHTML = '';
     if (Array.isArray(state.commits)) {
       state.commits.slice(0,5).forEach(c => {
