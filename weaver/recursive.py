@@ -85,7 +85,7 @@ class RecursiveEngine:
 
             task = f"{self.initial_task} [recursive step {step_index}]"
             self.logger.info("Running step %s: %s", step_index, task)
-            updated_files, commit_msg = agent_run(task)
+            updated_files, commit_msg = agent_run(task, engine_cycle=step_index)
             if updated_files:
                 self.updates.extend(updated_files)
             if commit_msg:
@@ -138,18 +138,42 @@ class RecursiveEngine:
         self.logger.info("Setting RecursiveEngine depth: %s", depth)
         self.depth = int(depth)
 
-    def report(self) -> dict:
+    def report(self, export_path: str | None = None) -> dict:
+        """Return runtime state. If `export_path` is provided, write a sanitized
+        JSON to disk (no env vars, no stack traces) for external gates to read.
+        """
         commits = list(self.commits)
         if not commits:
             commits = last_commit_messages(3)
-        return {
+
+        # Sanitize errors: include only short messages without newlines
+        simple_errors = [str(e).splitlines()[0] if e else "" for e in list(self.errors)]
+
+        state = {
             "cycle": self.current_cycle,
+            "depth": self.depth,
+            "ready": self.ready(),
             "updates": list(self.updates),
             "commits": commits,
-            "ready": self.ready(),
-            "errors": list(self.errors),
             "metrics": self.metrics,
+            "errors": simple_errors,
+            "last_updated_ts": int(time.time()),
         }
+
+        if export_path:
+            try:
+                export_path = str(export_path)
+                export_dir = os.path.dirname(export_path)
+                if export_dir:
+                    os.makedirs(export_dir, exist_ok=True)
+                import json
+                with open(export_path, "w", encoding="utf-8") as f:
+                    json.dump(state, f, indent=2)
+                self.logger.info("Wrote sanctum status to %s", export_path)
+            except Exception as e:
+                self.logger.exception("Failed to write status export to %s: %s", export_path, e)
+
+        return state
 
 
 __all__ = ["RecursiveEngine"]

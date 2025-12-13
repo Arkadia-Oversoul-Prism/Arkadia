@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Arkadia — Living Gate</title>
+  <link rel="stylesheet" href="gate.css" />
+</head>
+<body>
+  <main id="app" class="container">
+    <header>
+      <h1>Arkadia — Living Gate</h1>
+      <p id="status-summary">Loading...</p>
+    </header>
+    <section id="details">
+      <dl>
+        <dt>Cycle</dt>
+        <dd id="cycle">—</dd>
+        <dt>Ready</dt>
+        <dd id="ready">—</dd>
+        <dt>Last Updated</dt>
+        <dd id="last_updated">—</dd>
+      </dl>
+      <h2>Recent Commits</h2>
+      <ul id="commits"></ul>
+    </section>
+    <footer>
+      <small>Gate is read-only. If JSON status is missing or invalid the gate remains closed.</small>
+    </footer>
+  </main>
+  <script src="gate.js"></script>
+</body>
+</html>
