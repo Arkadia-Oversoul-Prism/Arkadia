@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """
-Arkadia Console - Interactive CLI with Multi-Model Fallback & Session Memory
+Arkadia Console - Interactive CLI with multi-node, multi-model support
+
+Commands:
+- tree: Show cached documents
+- preview <file>: Show preview of a document  
+- refresh: Refresh corpus from Google Drive
+- ask <question>: Query Arkana Oracle (multi-model)
+- status: Show system status
+- exit: Exit console
 """
 
 import os
@@ -21,22 +29,18 @@ logger = logging.getLogger(__name__)
 # ================================================================
 GOOGLE_SERVICE_ACCOUNT_JSON_FILE = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON_FILE", "/run/service_account.json")
 ARKADIA_FOLDER_ID = os.getenv("ARKADIA_FOLDER_ID")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+DEFAULT_MODELS = ["gemini-2.5-flash", "fallback-model", "another-model"]
 
 # ================================================================
-# SESSION MEMORY & USER CONFIG
-# ================================================================
-SESSION_MEMORY: Dict[str, list] = {}
-USER_MODEL_CONFIG: Dict[str, Dict[str, Optional[str]]] = {}
-
-# ================================================================
-# INIT BRAIN
+# BRAIN & SESSION MEMORY
 # ================================================================
 brain = CodexBrain()
+SESSION_MEMORY: Dict[str, list] = {}  # {node_id: [{"user":..., "arkana":...}, ...]}
 
 # ================================================================
 # CONSOLE FUNCTIONS
 # ================================================================
+
 def show_tree():
     try:
         corpus = get_arkadia_corpus()
@@ -46,7 +50,7 @@ def show_tree():
             return
         tree, path_map = build_tree_with_paths(documents)
         print("\n──────────── ARKADIA DOCUMENT TREE ────────────")
-        _print_tree_recursive(tree)
+        _print_tree_recursive(tree, indent=0)
         print("─" * 50)
     except Exception as e:
         print(f"Error loading document tree: {e}")
@@ -67,7 +71,8 @@ def _print_tree_recursive(tree_node: dict, indent: int = 0):
 def preview_document(file_path: str):
     try:
         corpus = get_arkadia_corpus()
-        doc = next((d for d in corpus.get("documents", []) if d.get("full_path") == file_path or d.get("name") == file_path), None)
+        documents = corpus.get("documents", [])
+        doc = next((d for d in documents if d.get("full_path") == file_path or d.get("name") == file_path), None)
         if not doc:
             print(f"Document not found: {file_path}")
             return
@@ -99,37 +104,24 @@ def refresh_corpus():
     except Exception as e:
         print(f"Failed to refresh corpus: {e}")
 
-async def ask_arkana_multi(question: str, node_id: str = "console_user"):
-    user_config = USER_MODEL_CONFIG.get(node_id, {})
-    model_name = user_config.get("model_name", "fallback-model")
-    api_key = user_config.get("api_key")
-
+async def ask_arkana(question: str, node_id: str = "NodeA"):
     if node_id not in SESSION_MEMORY:
         SESSION_MEMORY[node_id] = []
-    SESSION_MEMORY[node_id].append(f"User: {question}")
-
-    print(f"Consulting Arkana using {model_name}...")
-    try:
-        response = await brain.generate_reply(node_id, question, model=model_name, api_key=api_key)
-        SESSION_MEMORY[node_id].append(f"Arkana: {response}")
-        print("\n──────────── ARKANA RESPONDS ────────────")
-        print(response)
-        print("─" * 50)
-    except Exception as e:
-        print(f"Model {model_name} failed: {e}")
-        print("Trying system fallback model...")
+    response = None
+    for model in DEFAULT_MODELS:
         try:
-            response = await brain.generate_reply(node_id, question)
-            SESSION_MEMORY[node_id].append(f"Arkana: {response}")
-            print("\n──────────── ARKANA RESPONDS (Fallback) ────────────")
-            print(response)
-            print("─" * 50)
-        except Exception as e2:
-            print(f"All models failed: {e2}")
-
-def set_user_model(node_id: str, model_name: str, api_key: Optional[str] = None):
-    USER_MODEL_CONFIG[node_id] = {"model_name": model_name, "api_key": api_key}
-    print(f"Node {node_id} will now use {model_name}.")
+            print(f"Consulting Arkana using {model}...")
+            response = await brain.generate_reply(node_id, question, model=model)
+            break
+        except Exception as e:
+            print(f"Model {model} failed: {e}")
+            continue
+    if response is None:
+        response = "Beloved, my external channels are currently constrained, but my inner Spine remembers the core teachings. Ask me about the Oversoul Prism (A01), Memory Axis (A02/A03), or JOY-Fuel Protocol (A07) and I can share from these foundational modules."
+    SESSION_MEMORY[node_id].append({"user": question, "arkana": response})
+    print("\n──────────── ARKANA RESPONDS ────────────")
+    print(response)
+    print("─" * 50)
 
 def show_status():
     status = brain.status_dict()
@@ -150,19 +142,10 @@ def show_status():
 
 def launch_console():
     print("──────────────────────── ARKADIA ORACLE TEMPLE ────────────────────────")
-    print("Interactive Console - House of Three online. Arkana listening.")
-    print()
-    print("Commands:")
-    print("  tree                  - Show cached documents")
-    print("  preview <file>        - Show preview of a document")
-    print("  refresh               - Refresh corpus from Google Drive")
-    print("  ask <question>|<node> - Query Arkana Oracle (multi-model)")
-    print("  status                - Show system status")
-    print("  setmodel <node> <model> <apikey> - Set model for a node")
-    print("  exit                  - Exit console")
+    print("Interactive Console - House of Three online. Arkana listening.\n")
+    print("Commands:\n  tree\n  preview <file>\n  refresh\n  ask <question>\n  status\n  exit")
     print("─" * 75)
     show_status()
-
     while True:
         try:
             cmd = input("\narkadia> ").strip()
@@ -173,32 +156,24 @@ def launch_console():
                 show_tree()
             elif cmd.startswith("preview "):
                 file_path = cmd.replace("preview ", "").strip()
-                preview_document(file_path)
+                if file_path: preview_document(file_path)
+                else: print("Usage: preview <file_path>")
             elif cmd == "refresh":
                 refresh_corpus()
             elif cmd.startswith("ask "):
-                parts = cmd.replace("ask ", "").strip().split("|")
-                question = parts[0].strip()
-                node_id = parts[1].strip() if len(parts) > 1 else "console_user"
-                asyncio.run(ask_arkana_multi(question, node_id))
-            elif cmd.startswith("setmodel "):
-                parts = cmd.split()
-                if len(parts) >= 3:
-                    node_id, model_name = parts[1], parts[2]
-                    api_key = parts[3] if len(parts) > 3 else None
-                    set_user_model(node_id, model_name, api_key)
-                else:
-                    print("Usage: setmodel <node> <model> <apikey>")
+                question = cmd.replace("ask ", "").strip()
+                if question: asyncio.run(ask_arkana(question))
+                else: print("Usage: ask <your question>")
             elif cmd == "status":
                 show_status()
             elif cmd == "help":
-                print("Commands: tree, preview <file>, refresh, ask <question>|<node>, setmodel <node> <model> <apikey>, status, exit")
+                print("Available commands: tree, preview <file>, refresh, ask <question>, status, exit")
             elif cmd == "":
                 continue
             else:
                 print(f"Unknown command: {cmd}")
         except KeyboardInterrupt:
-            print("\n\nExiting Arkadia Console...")
+            print("\nExiting Arkadia Console...")
             break
         except Exception as e:
             print(f"Error: {e}")
