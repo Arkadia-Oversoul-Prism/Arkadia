@@ -46,6 +46,7 @@ class RecursiveEngine:
         self.updates: list[str] = []
         self.commits: list[str] = []
         self.errors: list[str] = []
+        self.metrics = {"cycles": []}  # store cycle runtime metrics
 
     def validate(self) -> Dict[str, str]:
         """Check if required modules are importable and report versions/status."""
@@ -77,6 +78,8 @@ class RecursiveEngine:
 
     def run_step(self, step_index: int):
         """Run a single step of the recursive loop. Uses weaver.agent.run for simplicity."""
+        from time import time
+        start = time()
         try:
             from .agent import run as agent_run
 
@@ -92,6 +95,10 @@ class RecursiveEngine:
             self.logger.exception("Step %s failed: %s", step_index, e)
             self.errors.append(str(e))
             return [], None
+        finally:
+            duration = time() - start
+            self.metrics.setdefault("cycles", []).append({"cycle": step_index, "duration": duration})
+            self.logger.info("Step %s completed in %.2fs", step_index, duration)
 
     def start(self):
         """Execute a small, safe recursive loop. This intentionally respects `self.depth` and lies
@@ -105,6 +112,7 @@ class RecursiveEngine:
         self.updates = []
         self.commits = []
         self.errors = []
+        self.metrics = {"cycles": []}
         self.logger.info("Starting RecursiveEngine: depth=%s interval=%s", self.depth, self.interval)
         max_depth = int(os.environ.get("RECURSIVE_DEPTH", os.environ.get("ARKADIA_RECURSIVE_DEPTH", str(self.depth))))
         for i in range(1, max_depth + 1):
@@ -117,7 +125,6 @@ class RecursiveEngine:
             if (not updated_files) and (not self.errors):
                 self.logger.info("No updates in cycle %s; stopping early.", i)
                 break
-        self.logger.info("RecursiveEngine completed %s steps", self.depth)
         self._running = False
         self.logger.info("RecursiveEngine completed %s cycles", self.current_cycle)
 
@@ -125,6 +132,11 @@ class RecursiveEngine:
         """Signal the loop to stop gracefully."""
         self.logger.info("Stopping RecursiveEngine")
         self._running = False
+
+    def set_depth(self, depth: int):
+        """Set the engine depth and update environment if necessary."""
+        self.logger.info("Setting RecursiveEngine depth: %s", depth)
+        self.depth = int(depth)
 
     def report(self) -> dict:
         commits = list(self.commits)
@@ -136,6 +148,7 @@ class RecursiveEngine:
             "commits": commits,
             "ready": self.ready(),
             "errors": list(self.errors),
+            "metrics": self.metrics,
         }
 
 

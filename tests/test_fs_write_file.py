@@ -10,14 +10,19 @@ def test_write_file_creates_backup(tmp_path, monkeypatch):
     # write new content and expect backup created
     changed = write_file(str(p), "updated")
     assert changed is True
-    bak = p.with_suffix(p.suffix + ".bak") if p.suffix else Path(str(p) + ".bak")
+    # backup may include a timestamp suffix (e.g. .bak.1670000000)
+    bak_candidates = list(tmp_path.glob("sample.txt.bak*"))
+    assert bak_candidates, "Expected a backup file with .bak or .bak.<timestamp>"
+    bak = bak_candidates[0]
     assert bak.exists()
     assert bak.read_text() == "original"
 
     # writing same content returns False and does not alter backup
     changed2 = write_file(str(p), "updated")
     assert changed2 is False
-    assert bak.exists()
+    bak_candidates2 = list(tmp_path.glob("sample.txt.bak*"))
+    assert bak_candidates2
+    assert bak_candidates2[0].exists()
 
 
 

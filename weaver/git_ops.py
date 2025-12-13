@@ -10,10 +10,17 @@ def run(cmd, *, check=True):
     return subprocess.run(cmd, check=check)
 
 
-def commit_and_push(msg="Arkadia Code Weaver update", paths: list[str] | None = None):
-    add_cmd = ["git", "add"]
+def commit_and_push(msg="Arkadia Code Weaver update", paths: list[str] | None = None) -> bool:
+    add_cmd = ["git", "add", "--"]
     if paths:
-        add_cmd.extend(paths)
+        # ensure we only add files inside REPO_ROOT
+        import os
+        repo_root = os.environ.get("REPO_ROOT", ".")
+        filtered = [p for p in paths if str(os.path.realpath(p)).startswith(str(os.path.realpath(repo_root)))]
+        if not filtered:
+            LOGGER.warning("No files to add inside REPO_ROOT; skipping add/commit")
+            return False
+        add_cmd.extend(filtered)
     else:
         add_cmd.append(".")
     run(add_cmd)
@@ -22,7 +29,7 @@ def commit_and_push(msg="Arkadia Code Weaver update", paths: list[str] | None = 
         staged = subprocess.run(["git", "diff", "--staged", "--name-only"], capture_output=True, text=True, check=True)
         if not staged.stdout.strip():
             LOGGER.info("No staged changes to commit; skipping commit/push")
-            return
+            return False
     except subprocess.CalledProcessError:
         LOGGER.exception("Failed to check staged files; attempting commit anyway")
 
@@ -31,13 +38,15 @@ def commit_and_push(msg="Arkadia Code Weaver update", paths: list[str] | None = 
     except subprocess.CalledProcessError as e:
         # If there are no changes to commit, this is okay; otherwise re-raise
         LOGGER.warning("Git commit failed: %s", e)
-        return
+        return False
     LOGGER.info("Committed changes: %s", msg)
     try:
         run(["git", "push"])
         LOGGER.info("Pushed changes to origin")
+        return True
     except subprocess.CalledProcessError:
         LOGGER.exception("Git push failed")
+        return False
 
 
 def last_commit_messages(n: int = 1) -> list[str]:
@@ -51,4 +60,20 @@ def last_commit_messages(n: int = 1) -> list[str]:
         return commits
     except Exception:
         LOGGER.exception("Failed to read git logs")
+        return []
+
+
+def last_commit_files(n: int = 1) -> list[str]:
+    try:
+        if n <= 0:
+            return []
+        # When n==1, diff HEAD~1 HEAD returns the last commit files
+        res = subprocess.run(["git", "diff", "--name-only", f"HEAD~{n}", "HEAD"], capture_output=True, text=True, check=True)
+        out = res.stdout.strip()
+        if not out:
+            return []
+        files = [l.strip() for l in out.splitlines() if l.strip()]
+        return files
+    except Exception:
+        LOGGER.exception("Failed to read commit files")
         return []

@@ -32,7 +32,11 @@ def run(task: str):
 
     if updated_files:
         commit_msg = f"weaver: auto update - {task}"
-        commit_and_push(commit_msg, paths=updated_files)
-        LOGGER.info("Committed changes: %s", commit_msg)
-        return updated_files, commit_msg
+        success = commit_and_push(commit_msg, paths=updated_files)
+        if success:
+            LOGGER.info("Committed changes: %s", commit_msg)
+            return updated_files, commit_msg
+        else:
+            LOGGER.warning("Commit or push failed for %s", commit_msg)
+            return updated_files, None
     return [], None

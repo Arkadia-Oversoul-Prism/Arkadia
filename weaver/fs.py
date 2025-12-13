@@ -6,6 +6,8 @@ LOGGER = get_logger()
 
 EXCLUDE_DIRS = {".git", ".venv", "venv", "__pycache__"}
 EXCLUDE_SUFFIXES = {".bak"}
+MAX_FILE_SIZE_ENV = "REPO_MAX_FILE_SIZE"
+DEFAULT_MAX_FILE_SIZE = 1_000_000
 
 def read_repo(root="."):
     files = {}
@@ -50,9 +52,26 @@ def write_file(path, content):
     changed = existing != content
     if existing is not None and changed:
         try:
-            bak_path = p.with_suffix(p.suffix + ".bak") if p.suffix else Path(str(p) + ".bak")
-            bak_path.write_text(existing)
-            LOGGER.info("Created backup for %s -> %s", p, bak_path)
+            # Use timestamped .bak to avoid overwriting previous backups, and limit size of backup file
+            import time
+            ts = int(time.time())
+            bak_suffix = f".bak.{ts}"
+            bak_path = p.with_suffix(p.suffix + bak_suffix) if p.suffix else Path(str(p) + bak_suffix)
+            # if REPO_MAX_FILE_SIZE is set, only create backups for files under the threshold
+            try:
+                max_size = int(os.environ.get(MAX_FILE_SIZE_ENV, DEFAULT_MAX_FILE_SIZE))
+            except Exception:
+                max_size = DEFAULT_MAX_FILE_SIZE
+            try:
+                if p.stat().st_size <= max_size:
+                    bak_path.write_text(existing)
+                    LOGGER.info("Created backup for %s -> %s", p, bak_path)
+                else:
+                    LOGGER.info("Skipping backup for %s due to size threshold (%s > %s)", p, p.stat().st_size, max_size)
+            except Exception:
+                # If we can't stat, write the backup anyway
+                bak_path.write_text(existing)
+                LOGGER.info("Created backup for %s -> %s", p, bak_path)
         except Exception:
             LOGGER.warning("Failed to write backup for %s", p)
     p.write_text(content)

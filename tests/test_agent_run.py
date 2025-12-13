@@ -26,6 +26,7 @@ def test_agent_run_writes_and_commits(tmp_path, monkeypatch):
     def fake_commit(msg, paths=None):
         called['msg'] = msg
         called['paths'] = paths
+        return True
 
     # Monkeypatch the commit function the agent imported
     monkeypatch.setattr('weaver.agent.commit_and_push', fake_commit)
