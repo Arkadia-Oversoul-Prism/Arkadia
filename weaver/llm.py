@@ -7,8 +7,6 @@ import requests
 # =========================
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise RuntimeError("GEMINI_API_KEY not set")
 
 MODEL = "models/gemini-2.5-flash"
 BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
@@ -24,6 +22,8 @@ RETRY_DELAY = 3
 # =========================
 
 def gemini(prompt: str) -> str:
+    if not GEMINI_API_KEY:
+        raise RuntimeError("GEMINI_API_KEY not set")
     payload = {
         "contents": [
             {

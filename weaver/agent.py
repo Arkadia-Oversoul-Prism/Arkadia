@@ -1,21 +1,38 @@
-from .llm import gemini
+from .llm import call_llm, gemini
 from .fs import read_repo, write_file
 from .git_ops import commit_and_push
 from .prompts import build_prompt
+from .logger import get_logger
 import re
+
+LOGGER = get_logger()
 
 def run(task: str):
     files = read_repo(".")
     prompt = build_prompt(task, files)
-    response = gemini(prompt)
+    try:
+        response = call_llm("gemini", prompt)
+    except Exception as e:
+        # Log gracefully and return no updates
+        LOGGER.warning("LLM call failed for task '%s': %s", task, e)
+        return [], None
 
     pattern = r"--- FILE: (.*?) ---\n(.*?)(?=--- FILE:|\Z)"
     matches = re.findall(pattern, response, re.S)
 
     if not matches:
-        raise RuntimeError("No files returned by model")
+        LOGGER.info("LLM returned no file updates for task: %s", task)
+        return [], None
 
+    updated_files = []
     for path, content in matches:
-        write_file(path.strip(), content.strip())
+        changed = write_file(path.strip(), content.strip())
+        if changed:
+            updated_files.append(path.strip())
 
-    commit_and_push(f"Arkadia update: {task}")
+    if updated_files:
+        commit_msg = f"weaver: auto update - {task}"
+        commit_and_push(commit_msg, paths=updated_files)
+        LOGGER.info("Committed changes: %s", commit_msg)
+        return updated_files, commit_msg
+    return [], None
