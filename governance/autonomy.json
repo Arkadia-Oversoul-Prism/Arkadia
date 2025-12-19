@@ -1,11 +1,24 @@
 {
-  "enabled": true,
-  "approved_by": "Flamekeeper",
-  "max_commits_per_run": 3,
-  "allowed_extensions": [".py", ".md", ".json", ".txt"],
-  "interval_seconds": 60,
-  "run_depth": 2,
-  "require_env": {
-    "ARKADIA_AUTONOMOUS": "true"
-  }
+  "version": 9,
+  "status": "disabled",
+  "mode": "conditional",
+  "approved_by": null,
+  "conditions": {
+    "tests_must_pass": true,
+    "proposal_reviewed": true,
+    "human_present": true,
+    "max_files_changed": 5,
+    "max_lines_changed": 300
+  },
+  "kill_switch": {
+    "env_var": "ARKADIA_KILL",
+    "default": true
+  },
+  "forbidden_paths": [
+    "governance/",
+    "sanctum/",
+    ".git/",
+    ".github/"
+  ],
+  "notes": "Autonomy may only generate proposals until explicitly approved."
 }

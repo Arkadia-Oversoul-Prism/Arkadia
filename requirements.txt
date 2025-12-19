@@ -24,3 +24,4 @@ sift-stack-py
 sqlalchemy
 uvicorn[standard]
 psycopg2-binary
+pytest

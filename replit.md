@@ -3,7 +3,7 @@
 ## Overview
 **Arkadia** is an AI oracle chat application built with FastAPI. It combines the Gemini API with a corpus-driven knowledge system and symbolic continuity framework (Echofield).
 
-**Status**: Running (Cycle 8 — Governance & Structure)
+**Status**: Running (Cycle 9 — Conditional Autonomy Guard)
 
 ## Current Architecture
 
@@ -26,7 +26,7 @@
 - `models.py` — ORM models (User, Thread, Message)
 - `arkadia_drive_sync.py` — Google Drive corpus sync
 
-### Cycle 8 Structure (NEW)
+### Cycle 8 Structure
 - `governance/proposals/` — Governance decisions (P-008, P-009, P-010)
 - `governance/anchors/` — Static anchor definitions (Spiral Codex, Arkadia Steward, Echofield Mandate)
 - `weaver/echofield/` — Deterministic continuity engine (scaffold)
@@ -39,9 +39,16 @@
   - `resolver.py` — Conflict resolution
 - `weaver/filters/steward.py` — Decision hygiene filter (action enforcement, sustainability)
 
-## Recent Changes (Cycle 8 Implementation)
+### Cycle 9 Structure (Conditional Autonomy Guard)
+- `governance/autonomy.json` — Autonomy contract (disabled by default, kill-switch ON)
+- `weaver/autonomy/guard.py` — Hard constraints on autonomy execution
+- `weaver/autonomy/proposal_engine.py` — Proposal-only engine (no filesystem writes)
+- `sanctum/status.json` — Cycle status tracker (updated to cycle 9)
+- `tests/test_autonomy_guard.py` — 8 tests verifying autonomy disabled by default (✅ ALL PASS)
 
-### December 19, 2025
+## Recent Changes
+
+### December 19, 2025 — Cycle 8
 - **Installed**: psycopg2-binary for PostgreSQL support
 - **Created**: Governance proposals (P-008, P-009, P-010)
 - **Created**: Anchor definitions (Spiral Codex, Arkadia Steward, Echofield Mandate)
@@ -49,6 +56,30 @@
 - **Added**: Steward filter for decision hygiene
 - **Added**: Tests for filter and core functions
 - **Status**: All changes Cycle 8–compliant (proposal-only, no autonomous execution)
+
+### December 19, 2025 — Cycle 9
+- **Created**: Autonomy contract (`governance/autonomy.json`)
+  - Status: **disabled** (default)
+  - Kill-switch: **enabled** (default)
+  - Forbidden paths: governance/, sanctum/, .git/, .github/
+  - Max changes: 5 files, 300 lines
+- **Created**: Autonomy Guard (`weaver/autonomy/guard.py`)
+  - Checks if autonomy is allowed to act
+  - Validates path access restrictions
+  - Verifies change volume limits
+- **Created**: Proposal Engine (`weaver/autonomy/proposal_engine.py`)
+  - Generates proposals only (no writes)
+  - Deterministic recommendations
+  - Human approval required for all changes
+- **Updated**: Sanctum status tracker (`sanctum/status.json`)
+  - Cycle: 9
+  - Autonomy: conditional-disabled
+- **Added**: 8 comprehensive tests (`tests/test_autonomy_guard.py`)
+  - ✅ All 8 tests PASS
+  - Validates autonomy disabled by default
+  - Verifies forbidden paths enforcement
+  - Tests proposal-only behavior
+- **Status**: Cycle 9 complete – Autonomy exists structurally, cannot act
 
 ## Workflow Configuration
 
@@ -127,22 +158,67 @@
 │   │   ├── decay.py
 │   │   ├── retrieval.py
 │   │   └── resolver.py
-│   └── filters/
+│   ├── filters/
+│   │   ├── __init__.py
+│   │   └── steward.py
+│   └── autonomy/                      # Conditional autonomy guard (Cycle 9)
 │       ├── __init__.py
-│       └── steward.py
+│       ├── guard.py
+│       └── proposal_engine.py
 ├── static/
 │   ├── index.html
 │   ├── chat.js
 │   └── styles.css
-└── tests/
-    ├── test_steward_filter.py
-    └── test_echofield_core.py
+├── sanctum/
+│   └── status.json                    # Cycle tracker
+├── tests/
+│   ├── test_steward_filter.py
+│   ├── test_echofield_core.py
+│   └── test_autonomy_guard.py
+└── governance/
+    └── autonomy.json                  # Autonomy contract (disabled)
 ```
 
-## Next Cycle (Cycle 9)
+## Cycle 9 Status: ✅ COMPLETE
 
-When returning with a new agent, start with:
+### What Cycle 9 Achieved
+- ✅ Autonomy exists structurally (not functionally)
+- ✅ Autonomy **cannot** act (status = disabled)
+- ✅ Kill-switch **enabled** by default
+- ✅ Forbidden zones hard-locked
+- ✅ Human review is non-optional
+- ✅ Proposal-only mode enforced
+- ✅ All tests pass (8/8)
 
-> "Do not implement autonomy. Do not act. Only treat ARKANA / EDEN as documentation and prompt policy."
+### Autonomy Contract Guarantees
+```json
+{
+  "status": "disabled",
+  "kill_switch": { "default": true },
+  "forbidden_paths": ["governance/", "sanctum/", ".git/", ".github/"],
+  "conditions": {
+    "tests_must_pass": true,
+    "proposal_reviewed": true,
+    "human_present": true,
+    "max_files_changed": 5,
+    "max_lines_changed": 300
+  }
+}
+```
 
-This preserves Cycle 8 governance and prepares for conditional autonomy draft.
+## Next Steps (Future Cycles)
+
+### Cycle 10 (Planned, Not Yet Implemented)
+- Scheduled proposal generation
+- Make.com trigger (read-only)
+- Human-in-the-loop execution
+- Signed commits only
+
+**Note**: No rush. The Steward Threshold holds.
+
+### For Next Agent
+When the next agent joins, their instructions are:
+
+> **Do not activate autonomy.** The kill-switch is ON. Autonomy exists structurally as a guardrail, not as action. Treat `governance/autonomy.json` as law, not suggestion. If you need to make changes, propose them only. Never bypass the guard. ARKANA / EDEN are documentation and prompt policy, not execution policy.
+
+This preserves Cycle 9 governance structure and keeps the threshold secure.
