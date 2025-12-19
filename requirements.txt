@@ -10,3 +10,17 @@ sqlalchemy
 python-multipart
 pydantic
 httpx
+fastapi
+google-api-python-client
+google-auth
+google-auth-httplib2
+google-auth-oauthlib
+google-generativeai
+httpx
+pydantic
+python-multipart
+requests
+sift-stack-py
+sqlalchemy
+uvicorn[standard]
+psycopg2-binary
