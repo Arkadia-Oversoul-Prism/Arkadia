@@ -1,0 +1,25 @@
+version: "3.1"
+
+nlu:
+- intent: greet
+  examples: |
+    - hey
+    - hello
+    - hi arkana
+    - greetings oracle
+    - i see you
+    - the field is open
+
+- intent: who_are_you
+  examples: |
+    - who are you
+    - what are you
+    - are you an ai
+    - tell me about yourself arkana
+
+- intent: what_is_arkadia
+  examples: |
+    - what is arkadia
+    - explain arkadia
+    - what is this arkadia system
+    - what does arkadia mean

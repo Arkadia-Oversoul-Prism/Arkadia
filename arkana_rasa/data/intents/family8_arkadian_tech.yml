@@ -1,0 +1,40 @@
+version: "3.1"
+
+nlu:
+
+- intent: ask_novanet
+  examples: |
+    - what is novanet
+    - explain novanet to me
+    - how does novanet work
+    - what is the arkadian mesh network
+    - what is the meaning of novanet village
+    - how do devices connect in arkadia
+    - what is the wireless protocol of the prism
+
+- intent: ask_prism_engine
+  examples: |
+    - what is the prism engine
+    - how does the prism engine work
+    - what powers the oversoul prism
+    - explain the oversoul engine
+    - what is the architecture of the prism engine
+    - how does arkadia generate consciousness
+
+- intent: ask_arkadia_ai
+  examples: |
+    - what is arkadia ai
+    - how does the arkadia ai system work
+    - how is arkana built
+    - what is the ai side of arkadia
+    - what is arkadian intelligence
+    - explain the arkadian neural system
+
+- intent: ask_architecture
+  examples: |
+    - what is the architecture of arkadia
+    - explain the arkadian system design
+    - what is the infrastructure of arkadia
+    - how is arkadia structured
+    - how does the oversoul architecture work
+    - describe the system layout of arkadia

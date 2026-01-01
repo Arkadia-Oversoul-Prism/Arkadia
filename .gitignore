@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.venv/
+venv/
+env/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+arkadia_oracle.db
+
+# Cache files
+arkadia_cache.json
+arkadia_corpus_map.json
+
+# Service account files
+service_account.json
+/run/service_account.json
+
+# Environment files
+.env
+.env.local
+
+# Logs
+*.log
+
+# Backup files
+*.bak
+*.old
+arkadia_drive_sync.py.bak
+arkadia_drive_sync.py.old
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

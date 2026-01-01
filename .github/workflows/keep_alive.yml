@@ -1,0 +1,22 @@
+name: A13 Perpetual Light
+on:
+  schedule:
+    - cron: '*/14 * * * *' # Every 14 minutes
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  radiance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Altar
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install Requisites
+        run: pip install requests
+      - name: Send Pulse
+        env:
+          RENDER_API_URL: ${{ secrets.RENDER_API_URL }}
+        run: python weaver/heartbeat.py

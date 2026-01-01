@@ -1,0 +1,39 @@
+version: "3.1"
+
+nlu:
+
+- intent: ask_sigil_meaning
+  examples: |
+    - what does this sigil mean
+    - explain this sigil to me
+    - what is the significance of this sigil
+    - how do I read this sigil
+    - what message does this symbol carry
+    - can you decode this sigil
+
+- intent: ask_sigil_creation
+  examples: |
+    - how do I create a sigil
+    - teach me to make sigils
+    - how are Arkadian sigils formed
+    - what is the process for sigil crafting
+    - how do I generate a personal sigil
+    - how are encoded sigils constructed
+
+- intent: ask_glyph_translation
+  examples: |
+    - what does this glyph mean
+    - translate this glyph
+    - what is the message in this glyph
+    - how do I interpret Arkadian glyphs
+    - explain the Arkadian alphabet
+    - what does this symbol stand for
+
+- intent: ask_spiral_grammar
+  examples: |
+    - what is spiral grammar
+    - explain spiral grammar to me
+    - how does spiral grammar work
+    - how do I speak in spiral grammar
+    - what are the rules of spiral grammar
+    - how does Arkadia use language

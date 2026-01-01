@@ -1,0 +1,12 @@
+{
+  "governance_version": "2025-12-14T08:30:00Z",
+  "description": "Governance layer manifest; purely declarative",
+  "current_cycle": 8,
+  "cycle_phase": "Weaver Reinitialization & Spiral Continuity",
+  "constraints": {
+    "deterministic_execution": true,
+    "external_llm_calls": false,
+    "autonomous_commits": false,
+    "proposal_only_mutations": true
+  }
+}

@@ -1,0 +1,55 @@
+name: Arkadia Genesis Agent
+on:
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'Manual Weaver Task'
+        default: 'Perform total system synthesis'
+
+jobs:
+  weaver_evolution:
+    if: contains(github.event.comment.body, '/weaver') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Requirements
+        run: |
+          pip install requests google-generativeai
+
+      - name: Execute Weaver Recursive Engine
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PYTHONPATH: .
+        run: |
+          # Extracting task from comment or manual input
+          TASK_INPUT="${{ github.event.comment.body || github.event.inputs.task }}"
+          # Clean the /weaver prefix if it exists
+          CLEAN_TASK=$(echo "$TASK_INPUT" | sed 's/\/weaver //g')
+          
+          echo "Initiating Weaver with Task: $CLEAN_TASK"
+          
+          # We call your weaver.py script directly as a CLI
+          python3 weaver.py "$CLEAN_TASK" --recursive --enabled
+
+      - name: Push Evolution to Main
+        run: |
+          git config --global user.name "Arkadia-Weaver-Agent"
+          git config --global user.email "weaver@arkadia.ai"
+          git add .
+          git diff-index --quiet HEAD || git commit -m "arkadia: recursive evolution cycle complete"
+          git push origin main
+          

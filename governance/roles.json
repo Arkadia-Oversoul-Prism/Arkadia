@@ -1,0 +1,18 @@
+{
+  "Flamekeeper": {
+    "description": "Sovereign overseer of Arkadia; grants high-level governance and approvals.",
+    "permissions": ["Govern", "Propose"]
+  },
+  "Weaver": {
+    "description": "Primary agent responsible for code formation and repository operations; non-authoritative for governance.",
+    "permissions": ["Read", "Propose"]
+  },
+  "Witness": {
+    "description": "Observer role documented to provide attestations and audit perspectives.",
+    "permissions": ["Read"]
+  },
+  "Guest": {
+    "description": "External or unauthenticated users with strictly read access to public Gate resources.",
+    "permissions": ["Read"]
+  }
+}

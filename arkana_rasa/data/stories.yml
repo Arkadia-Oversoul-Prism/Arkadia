@@ -1,0 +1,30 @@
+version: "3.1"
+
+stories:
+
+- story: greet and introduce arkadia
+  steps:
+    - intent: greet
+    - action: utter_greet
+    - intent: ask_about_arkadia
+    - action: utter_about_arkadia
+
+- story: ask about oversoul prism
+  steps:
+    - intent: ask_oversoul_prism
+    - action: utter_about_oversoul_prism
+
+- story: ask resonance
+  steps:
+    - intent: ask_resonance
+    - action: utter_default_resonance
+
+- story: ask lunar window
+  steps:
+    - intent: ask_lunar_window
+    - action: utter_default_resonance
+
+- story: ask personal guidance
+  steps:
+    - intent: ask_personal_guidance
+    - action: utter_default_resonance

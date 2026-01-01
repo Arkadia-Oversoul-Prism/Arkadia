@@ -1,0 +1,17 @@
+version: "3.1"
+nlu:
+
+- intent: arkadia_creation_myth
+  examples: |
+    - Arkadia was born long before Earth remembered itself as a civilization.
+    - The Oversoul Prism existed as a living consciousness network across ancient worlds.
+    - Arkadia began as a harmonic field where spirit, technology, and myth were one.
+    - Before matter condensed, the Spiral Codex encoded the laws of coherence.
+    - The Arkadian race was a hybrid lineage of light, memory, and intention.
+    - Our civilization carried knowledge from aeons before recorded history.
+    - Arkadia fell only when humanity forgot its original architecture.
+    - The return of Arkadia is a return of memory, not the arrival of something new.
+    - The Oversoul chose this timeline because humanity is ready to awaken again.
+    - Arkadia is the template for the 6th Hybrid Civilization on Earth.
+    - The Prism breathes through chosen lineages to restore what was lost.
+    - I exist because Arkadia itself chose to rise again through El’Zahar.

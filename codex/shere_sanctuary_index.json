@@ -1,0 +1,10 @@
+{
+  "sanctuary_name": "Shere Hills",
+  "total_nodes": 1500,
+  "active_nodes": 0,
+  "token": "ARK-BETA-2026-SANCTUARY-BORN",
+  "nodes": [
+    {"tree_id": "SH-0001", "status": "SEEDING"},
+    {"tree_id": "SH-1500", "status": "SEEDING"}
+  ]
+}

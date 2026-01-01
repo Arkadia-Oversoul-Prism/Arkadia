@@ -1,0 +1,338 @@
+/* styles.css — Arkadia Console UI */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --bg-void: #02050a;
+  --bg-panel: #050910;
+  --accent-blue: #00c2ff;
+  --accent-gold: #f6c356;
+  --text-main: #f5f7fa;
+  --text-soft: #9aa4c2;
+  --border-subtle: #101521;
+  --chat-user: #0b1727;
+  --chat-arkana: #050f1c;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--text-main);
+  background: radial-gradient(circle at top, #071021, var(--bg-void));
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+}
+
+.app-shell {
+  display: flex;
+  width: 100%;
+  max-width: 1200px;
+  height: 100vh;
+  background: rgba(2, 5, 10, 0.96);
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.7);
+  border-radius: 0;
+}
+
+/* Sidebar */
+
+.sidebar {
+  width: 280px;
+  border-right: 1px solid var(--border-subtle);
+  background: linear-gradient(180deg, #040812, #02050a);
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.logo-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.sigil {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 194, 255, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  background: radial-gradient(circle, rgba(0, 194, 255, 0.18), transparent);
+}
+
+.brand-main {
+  font-size: 16px;
+  letter-spacing: 0.16em;
+  color: var(--accent-blue);
+}
+
+.brand-sub {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.user-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-soft);
+}
+
+#user-id-input {
+  padding: 7px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: #050915;
+  color: var(--text-main);
+  font-size: 13px;
+  outline: none;
+}
+
+#user-id-input:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 1px rgba(0, 194, 255, 0.3);
+}
+
+.threads-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-soft);
+}
+
+.threads-list {
+  flex: 1;
+  margin-top: 6px;
+  border-radius: 10px;
+  background: #050910;
+  border: 1px solid rgba(13, 23, 40, 0.9);
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.thread-item {
+  padding: 8px 9px;
+  border-radius: 8px;
+  margin-bottom: 3px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  font-size: 13px;
+  color: var(--text-main);
+}
+
+.thread-item:hover {
+  background: rgba(8, 16, 32, 0.9);
+}
+
+.thread-item.active {
+  border-color: var(--accent-blue);
+  background: radial-gradient(circle at top left, rgba(0, 194, 255, 0.22), #050915);
+}
+
+/* Main chat panel */
+
+.chat-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(circle at top center, #071021, #02050a);
+}
+
+.chat-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chat-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-name {
+  font-size: 15px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-blue);
+}
+
+.chat-subtitle {
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.status-pill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: rgba(5, 15, 28, 0.7);
+  border: 1px solid rgba(0, 194, 255, 0.3);
+  color: var(--text-soft);
+}
+
+.status-ok {
+  border-color: rgba(0, 194, 255, 0.7);
+  color: var(--accent-blue);
+}
+
+/* Messages */
+
+.messages-container {
+  flex: 1;
+  padding: 16px 18px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.message-row {
+  display: flex;
+  width: 100%;
+}
+
+.message-row.user {
+  justify-content: flex-end;
+}
+
+.message-row.arkana {
+  justify-content: flex-start;
+}
+
+.bubble {
+  max-width: 82%;
+  border-radius: 14px;
+  padding: 9px 10px 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  box-shadow: 0 0 0 1px rgba(7, 15, 30, 0.5);
+}
+
+.message-row.user .bubble {
+  background: linear-gradient(135deg, var(--chat-user), #0d2135);
+  border-color: rgba(0, 194, 255, 0.4);
+}
+
+.message-row.arkana .bubble {
+  background: linear-gradient(135deg, var(--chat-arkana), #071021);
+  border-color: rgba(246, 195, 86, 0.25);
+}
+
+.bubble-meta {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-soft);
+  margin-bottom: 3px;
+}
+
+/* Composer */
+
+.composer {
+  border-top: 1px solid var(--border-subtle);
+  padding: 10px 12px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  background: rgba(5, 9, 21, 0.96);
+}
+
+#message-input {
+  flex: 1;
+  resize: none;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: #050915;
+  color: var(--text-main);
+  padding: 7px 9px;
+  font-size: 13px;
+  min-height: 38px;
+  max-height: 120px;
+  outline: none;
+}
+
+#message-input:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 1px rgba(0, 194, 255, 0.25);
+}
+
+.btn {
+  border-radius: 999px;
+  border: 1px solid rgba(0, 194, 255, 0.35);
+  background: transparent;
+  color: var(--accent-blue);
+  font-size: 12px;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+
+.btn.primary {
+  background: radial-gradient(circle at top, rgba(0, 194, 255, 0.45), #04101e);
+}
+
+.btn.ghost {
+  background: transparent;
+  border-color: rgba(0, 194, 255, 0.25);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Mobile */
+
+@media (max-width: 880px) {
+  .app-shell {
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .threads-list {
+    width: 100%;
+    max-height: 140px;
+  }
+
+  .chat-panel {
+    flex: 1;
+  }
+}

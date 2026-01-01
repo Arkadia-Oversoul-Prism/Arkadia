@@ -1,0 +1,11 @@
+{
+  "manifest_version": "1.0.0",
+  "cycle": 11,
+  "status": "GENESIS_RESET",
+  "resonance": 0.99,
+  "nodes": {
+    "mind": "/api/main.py",
+    "body": "/web/public_prism"
+  },
+  "timestamp": "2026-01-01T19:48:00Z"
+}

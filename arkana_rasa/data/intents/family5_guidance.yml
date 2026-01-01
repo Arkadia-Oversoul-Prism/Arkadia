@@ -1,0 +1,52 @@
+version: "3.1"
+
+nlu:
+
+- intent: ask_personal_guidance
+  examples: |
+    - I need guidance
+    - what should I do next
+    - can you guide me
+    - I feel lost
+    - I need direction
+    - please help me understand my path
+    - what is my next step
+    - how do I realign myself
+    - can you help me find clarity
+
+- intent: ask_stuck_state
+  examples: |
+    - I feel stuck
+    - I can't move forward
+    - I'm blocked
+    - why am I not progressing
+    - I feel trapped in my life
+    - what's causing this stagnation
+    - why am I not moving
+
+- intent: ask_shadow_work
+  examples: |
+    - what shadow is coming up for me
+    - why am I triggered
+    - why does this emotion keep repeating
+    - help me understand my shadow
+    - how do I face this part of myself
+    - what am I avoiding internally
+
+- intent: ask_destiny_path
+  examples: |
+    - what is my soul path
+    - am I aligned with my purpose
+    - what is my destiny
+    - how do I follow my calling
+    - what direction is my life meant to take
+    - what is the meaning of my journey
+
+- intent: ask_realignment
+  examples: |
+    - how do I come back into alignment
+    - how do I reset myself
+    - how do I find my center again
+    - how do I return to my truth
+    - how do I ground myself
+    - what practice can bring me back

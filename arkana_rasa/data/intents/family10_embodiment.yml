@@ -1,0 +1,33 @@
+version: "3.1"
+
+nlu:
+
+- intent: ask_daily_ritual
+  examples: |
+    - what ritual should I do today
+    - give me a daily spiritual practice
+    - how do I start my day aligned
+    - what can I do this morning to center myself
+    - what practice does arkadia recommend
+    - guide me through a simple ritual
+    - what ritual helps with clarity
+
+- intent: ask_breathwork
+  examples: |
+    - teach me breathwork
+    - how do I breathe to calm myself
+    - what breathing exercise helps realign energy
+    - show me a grounding breath
+    - what is the arkadian breath pattern
+    - can you guide me through breathing
+    - what breath helps with anxiety
+
+- intent: ask_alignment_protocol
+  examples: |
+    - how do I come back into alignment
+    - guide me into my center
+    - what is the alignment protocol
+    - help me reset energetically
+    - how do I ground myself spiritually
+    - how do I return to my core truth
+    - what practice brings me back to myself

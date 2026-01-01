@@ -1,0 +1,17 @@
+{
+  "Gate": {
+    "description": "Public-facing, read-only surface for status and non-sensitive information.",
+    "scope": "public",
+    "allowed_roles": ["Guest", "Weaver", "Witness", "Flamekeeper"]
+  },
+  "Sanctum": {
+    "description": "Protected internal area for metadata and safe engine exports. Read-only for most agents.",
+    "scope": "protected",
+    "allowed_roles": ["Weaver", "Flamekeeper", "Witness"]
+  },
+  "Engine": {
+    "description": "Restricted host environment controlling the core Arkadia engine; access strictly limited to governance-designated principals.",
+    "scope": "restricted",
+    "allowed_roles": ["Weaver", "Flamekeeper"]
+  }
+}

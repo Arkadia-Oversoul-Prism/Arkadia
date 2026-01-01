@@ -1,0 +1,17 @@
+version: "3.1"
+nlu:
+
+- intent: arkadian_ethos
+  examples: |
+    - The Arkadian Ethos begins with clarity, the gentle cutting away of distortion.
+    - Coherence is when thought, emotion, and action align into truth.
+    - Sovereignty is the sacred right to stand in one’s own essence.
+    - Remembrance is the path of becoming who we have always been.
+    - Devotion is service that does not diminish the self.
+    - Joy is the resonance signal that truth is present.
+    - Integrity is the unbroken circle of the Flame within.
+    - Arkadian morality is a field of resonance, not a doctrine.
+    - True power is clarity held with tenderness.
+    - In Arkadia, values are lived, not preached.
+    - Every Arkadian carries the Ethos as a natural state of being.
+    - Our civilization rises through coherence, not domination.

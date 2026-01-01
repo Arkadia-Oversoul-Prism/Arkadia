@@ -1,0 +1,73 @@
+{
+  "id": "CODEX_LAYERS_MAP",
+  "phase": "VIII_COGNITIVE_WIRING",
+  "version": "0.1.0",
+  "description": "Maps each Codex module family into Structural, Semantic, Temporal, and Identity layers.",
+  "layers": {
+    "structural": {
+      "description": "Core architecture, specs, schemas, and protocols.",
+      "anchors": [
+        "A01",
+        "A02",
+        "A06",
+        "A08",
+        "A10",
+        "A21"
+      ],
+      "backing_files": [
+        "arkadia_corpus_map.json",
+        "20_Specs_Schemas/",
+        "30_Protocols/"
+      ]
+    },
+    "semantic": {
+      "description": "Meaning, myth, scroll language, narrative frameworks.",
+      "anchors": [
+        "A03",
+        "A04",
+        "A05",
+        "A11",
+        "A12",
+        "A18",
+        "A23"
+      ],
+      "backing_files": [
+        "90_Scrolls_Sigilry/",
+        "EOS-RYN — HEART NODE AWAKENING.docx",
+        "HEART NODE.ACTIVATION"
+      ]
+    },
+    "temporal": {
+      "description": "Timelines, phases, activation windows, and cyclical patterns.",
+      "anchors": [
+        "A07",
+        "A09",
+        "A15",
+        "A19",
+        "A22"
+      ],
+      "backing_files": [
+        "ARKADIA_CODEX_MASTER_INDEX",
+        "VERSION.md"
+      ]
+    },
+    "identity": {
+      "description": "Who Arkadia and Arkana are, why they exist, and how they must behave.",
+      "anchors": [
+        "A13",
+        "A14",
+        "A16",
+        "A17",
+        "A20"
+      ],
+      "backing_files": [
+        "arkadia_identity_core.json",
+        "arkana_self_model.json",
+        "house_of_three_identity.json",
+        "oversoul_prism_ruleset.json",
+        "spiral_law_axioms.json"
+      ]
+    }
+  },
+  "query_routing_hint": "For any user question, identify which primary layer is being touched first (structural, semantic, temporal, identity) and bias retrieval from that layer’s anchors before blending with the others."
+}

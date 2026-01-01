@@ -1,0 +1,6 @@
+{
+  "Read": "Ability to view public or permissioned resources.",
+  "Propose": "Ability to propose changes or submit governance proposals; requires human triage.",
+  "Execute": "Ability to request execution of pre-approved, non-autonomous tasks under direct human supervision.",
+  "Govern": "Ability to approve or modify governance definitions and policies."
+}

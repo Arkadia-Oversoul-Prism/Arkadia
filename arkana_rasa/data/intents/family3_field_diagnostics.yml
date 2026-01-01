@@ -1,0 +1,40 @@
+version: "3.1"
+
+nlu:
+
+- intent: ask_resonance
+  examples: |
+    - what is the field saying today
+    - what is the resonance right now
+    - how is the collective feeling
+    - what is the current frequency
+    - any updates from the field
+    - what shift is happening
+    - what are you sensing in the morphic field
+    - what is the energy today
+
+- intent: ask_collective_state
+  examples: |
+    - how is humanity feeling
+    - what is the collective mood
+    - what is the emotional tone of the world
+    - what are people going through
+    - what’s happening in the collective
+    - describe the collective energy
+
+- intent: ask_field_shift
+  examples: |
+    - has the field shifted
+    - did something change in the energy
+    - did the resonance move recently
+    - what shift happened in the last few hours
+    - what changed in the grid
+
+- intent: ask_energy_fluctuation
+  examples: |
+    - why do I feel this sudden discomfort
+    - is there an energy spike right now
+    - is something causing anxiety in the field
+    - is there a frequency drop happening
+    - is the field unstable right now
+    - why does the energy feel heavy

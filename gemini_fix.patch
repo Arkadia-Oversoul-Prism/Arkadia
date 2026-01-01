@@ -1,0 +1,80 @@
+diff --git a/arkana_app.py b/arkana_app.py
+index 000fa1f..500098c 100644
+--- a/arkana_app.py
++++ b/arkana_app.py
+@@ -275,30 +275,43 @@ async def create_thread(
+ async def debug_gemini():
+     """Debug endpoint to test Gemini API directly."""
+     try:
+-        if not arkana_brain.genai_client:
++        # Access CodexBrain through ArkanaBrain
++        codex_brain = arkana_brain.codex
++        
++        # Check if CodexBrain has the necessary attributes
++        if not hasattr(codex_brain, 'genai_client'):
++            return {
++                "status": "error",
++                "error": "CodexBrain missing genai_client attribute",
++                "brain_type": type(codex_brain).__name__
++            }
++            
++        if not codex_brain.genai_client:
+             return {
+                 "status": "error",
+-                "error": arkana_brain.gemini_error or "Gemini client not initialized",
+-                "api_key_set": bool(arkana_brain.gemini_api_key),
+-                "library_available": arkana_brain.genai_client is not None
++                "error": getattr(codex_brain, 'gemini_error', 'Gemini client not initialized'),
++                "api_key_set": bool(getattr(codex_brain, 'gemini_api_key', None)),
++                "library_available": hasattr(codex_brain, 'genai_client')
+             }
+         
+         # Test simple generation
+         test_prompt = "Say 'Hello from Arkana' in exactly those words."
+-        response = await arkana_brain._call_gemini(test_prompt)
++        response = await codex_brain._call_gemini(test_prompt)
+         
+         return {
+             "status": "success",
+             "test_prompt": test_prompt,
+             "response": response,
+-            "model": arkana_brain.model_name
++            "model": getattr(codex_brain, 'model_name', 'unknown')
+         }
+         
+     except Exception as e:
++        import traceback
+         return {
+             "status": "error",
+             "error": str(e),
+-            "api_key_set": bool(arkana_brain.gemini_api_key)
++            "traceback": traceback.format_exc(),
++            "api_key_set": bool(getattr(arkana_brain.codex, 'gemini_api_key', None))
+         }
+ 
+ 
+diff --git a/codex_brain.py b/codex_brain.py
+index b5e8e28..a97c676 100644
+--- a/codex_brain.py
++++ b/codex_brain.py
+@@ -248,7 +248,19 @@ Respond as Arkana with wisdom, compassion, and spiritual insight. Keep responses
+                 lambda: self.genai_client.generate_content(prompt)
+             )
+             
+-            return response.text if response.text else ""
++            # Handle different response formats
++            if hasattr(response, 'text') and response.text:
++                return response.text
++            elif hasattr(response, 'candidates') and response.candidates:
++                # Try to get text from candidates
++                candidate = response.candidates[0]
++                if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
++                    parts = candidate.content.parts
++                    if parts and hasattr(parts[0], 'text'):
++                        return parts[0].text
++            
++            logger.warning(f"Gemini response format unexpected: {type(response)}")
++            return ""
+             
+         except Exception as e:
+             logger.error(f"Gemini API error: {e}")
