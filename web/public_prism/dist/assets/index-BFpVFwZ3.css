@@ -1,0 +1,1 @@
+@tailwind base;@tailwind components;@tailwind utilities;:root{--deep-azure: #001F3F;--emerald-gold: #D4AF37;--sky-blue: #7FDBFF}body{margin:0;padding:0;background-color:var(--deep-azure);color:var(--emerald-gold);font-family:serif}
