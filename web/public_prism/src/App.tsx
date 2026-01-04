@@ -120,14 +120,15 @@ import ArkadiaNavigation from './components/ArkadiaNavigation';
 import ArkanaCommune from './components/ArkanaCommune';
 import SpiralVault from './components/SpiralVault';
 import ShereSanctuary from './components/ShereSanctuary';
+import CoherenceReset from './pages/CoherenceReset';
 
 function App() {
-  const [view, setView] = useState<'home' | 'gate' | 'commune' | 'vault' | 'sanctuary'>('home');
+  const [view, setView] = useState<'home' | 'gate' | 'commune' | 'vault' | 'sanctuary' | 'reset'>('home');
 
   return (
     <ArkadiaNavigation>
       <div className="fixed top-24 left-6 z-50 flex flex-col gap-4">
-        {['gate', 'commune', 'vault', 'sanctuary'].map((v) => (
+        {['gate', 'commune', 'vault', 'sanctuary', 'reset'].map((v) => (
           <button
             key={v}
             onClick={() => setView(v as any)}
@@ -141,6 +142,7 @@ function App() {
             {v === 'commune' && '🌀'}
             {v === 'vault' && '📜'}
             {v === 'sanctuary' && '🌳'}
+            {v === 'reset' && '⏱️'}
           </button>
         ))}
       </div>
@@ -191,6 +193,19 @@ function App() {
           >
             <div className="relative w-full max-w-4xl mt-20">
               <SpiralVault />
+            </div>
+          </motion.div>
+        ) : view === 'reset' ? (
+          <motion.div
+            key="reset"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.05 }}
+            transition={{ duration: 0.8 }}
+            className="min-h-screen flex items-center justify-center p-4"
+          >
+            <div className="relative w-full max-w-2xl mt-20">
+              <CoherenceReset userTier="free" />
             </div>
           </motion.div>
         ) : (

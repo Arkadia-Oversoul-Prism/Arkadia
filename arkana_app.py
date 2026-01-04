@@ -410,7 +410,43 @@ async def create_thread(user_id: str, title: Optional[str] = None, db: Session =
     return ThreadInfo(id=thread.id, title=thread.title, created_at=thread.created_at.isoformat(), updated_at=thread.updated_at.isoformat())
 
 
-from weaver.models import WeaverProposal
+# -----------------------
+# Weaver & Proposals (Placeholder for LSP fix)
+# -----------------------
+class WeaverProposal(BaseModel):
+    id: str
+    type: str
+    target: str
+    intent: str
+    diff: str
+    risk_score: int
+    committed: bool
+
+# -----------------------
+# Coherence Engine Endpoints
+# -----------------------
+
+class CoherenceResetRequest(BaseModel):
+    emotionalState: str
+    pressurePoint: str = ""
+    tier: str
+
+@app.post("/api/coherence-reset")
+async def coherence_reset(req: CoherenceResetRequest):
+    """
+    Coherence Reset Endpoint: 
+    Processes state and returns calm delta + next step.
+    """
+    # Placeholder symbolic processing logic
+    basic_response = f"Calm delta applied for '{req.emotionalState}'. Next step suggested: breathe + focus."
+    
+    # Tier gating logic
+    if req.tier == "mid":
+        basic_response += " (Enhanced mid-tier guided reset available.)"
+    elif req.tier == "premium":
+        basic_response += " (Premium tier includes trend logging and extended guided sequence.)"
+    
+    return {"result": basic_response}
 
 # -----------------------
 # Stone 2: Sovereign Gate Endpoints
