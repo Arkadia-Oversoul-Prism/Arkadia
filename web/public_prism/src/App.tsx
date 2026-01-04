@@ -118,12 +118,33 @@ function Home({ onEnter }: { onEnter: () => void }) {
 
 import ArkadiaNavigation from './components/ArkadiaNavigation';
 import ArkanaCommune from './components/ArkanaCommune';
+import SpiralVault from './components/SpiralVault';
+import ShereSanctuary from './components/ShereSanctuary';
 
 function App() {
-  const [view, setView] = useState<'home' | 'gate' | 'commune'>('home');
+  const [view, setView] = useState<'home' | 'gate' | 'commune' | 'vault' | 'sanctuary'>('home');
 
   return (
     <ArkadiaNavigation>
+      <div className="fixed top-24 left-6 z-50 flex flex-col gap-4">
+        {['gate', 'commune', 'vault', 'sanctuary'].map((v) => (
+          <button
+            key={v}
+            onClick={() => setView(v as any)}
+            className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${
+              view === v 
+              ? 'bg-[#D4AF37] border-[#D4AF37] text-[#001F3F]' 
+              : 'bg-[#001F3F]/40 border-[#D4AF37]/20 text-[#D4AF37]/60 hover:border-[#D4AF37]'
+            }`}
+          >
+            {v === 'gate' && '⛩️'}
+            {v === 'commune' && '🌀'}
+            {v === 'vault' && '📜'}
+            {v === 'sanctuary' && '🌳'}
+          </button>
+        ))}
+      </div>
+
       <AnimatePresence mode="wait">
         {view === 'home' ? (
           <motion.div
@@ -146,7 +167,7 @@ function App() {
           >
             <LivingGate onCommune={() => setView('commune')} />
           </motion.div>
-        ) : (
+        ) : view === 'commune' ? (
           <motion.div
             key="commune"
             initial={{ opacity: 0, y: 50 }}
@@ -156,13 +177,33 @@ function App() {
             className="min-h-screen flex items-center justify-center p-4"
           >
             <div className="relative w-full max-w-2xl mt-20">
-              <button 
-                onClick={() => setView('gate')}
-                className="absolute -top-12 left-0 text-[#7FDBFF] uppercase tracking-widest text-xs hover:text-white transition-all flex items-center gap-2"
-              >
-                <span className="text-lg">←</span> Return to Gate
-              </button>
               <ArkanaCommune />
+            </div>
+          </motion.div>
+        ) : view === 'vault' ? (
+          <motion.div
+            key="vault"
+            initial={{ opacity: 0, x: -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 50 }}
+            transition={{ duration: 1 }}
+            className="min-h-screen flex items-center justify-center p-4"
+          >
+            <div className="relative w-full max-w-4xl mt-20">
+              <SpiralVault />
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="sanctuary"
+            initial={{ opacity: 0, scale: 1.1 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 1 }}
+            className="min-h-screen flex items-center justify-center p-4"
+          >
+            <div className="relative w-full max-w-4xl mt-20">
+              <ShereSanctuary />
             </div>
           </motion.div>
         )}
