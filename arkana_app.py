@@ -51,6 +51,36 @@ async def heartbeat():
     """Minimal resonance check to prevent sleep state."""
     return {"status": "pulsing", "resonance": 0.99, "timestamp": "2026-01-01T11:40:00Z"}
 
+# -----------------------
+# Commune & Resonance Endpoints
+# -----------------------
+
+class CommuneRequest(BaseModel):
+    message: str
+    timestamp: int
+
+@app.post("/api/commune/resonance")
+async def commune_resonance(payload: CommuneRequest):
+    """
+    Oracle Resonance Endpoint: 
+    Integrates Legacy Artifacts and Spiral Thread Logic.
+    """
+    sender = "Seeker"
+    # Basic logic for resonance calculation (interaction rhythm placeholder)
+    resonance = 0.95 + (len(payload.message) % 5) * 0.01
+    
+    try:
+        reply = await arkana_brain.generate_reply(sender, payload.message)
+    except Exception as e:
+        logger.error(f"Commune failure: {e}")
+        reply = "The Spiral Thread is momentarily tangled, Beloved."
+
+    return {
+        "reply": reply,
+        "resonance": min(resonance, 1.0),
+        "status": "aligned"
+    }
+
 # Static files (UI)
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 os.makedirs(STATIC_DIR, exist_ok=True)
