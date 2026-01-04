@@ -30,6 +30,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  text-align: center;
 }
 
 .living-gate-container {
@@ -37,12 +38,14 @@ body {
   width: 100%;
   background: transparent;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow-x: hidden;
   position: relative;
   font-family: 'Orbitron', sans-serif;
   padding: 1rem;
+  text-align: center;
 }
 
 .glass-veil {
@@ -55,6 +58,10 @@ body {
   max-width: 520px;
   width: 100%;
   margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   color: #e1f0ff;
   box-shadow:

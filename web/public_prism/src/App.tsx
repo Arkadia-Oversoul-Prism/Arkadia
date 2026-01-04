@@ -32,16 +32,16 @@ const chambers = [
 
 function Home({ onEnter }: { onEnter: () => void }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-transparent text-white overflow-hidden relative">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-8 bg-transparent text-white overflow-x-hidden relative w-full text-center">
       <div className="aurora-bg" />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 1.2 }}
-        className="text-center mb-12 relative z-10"
+        className="text-center mb-8 md:mb-12 relative z-10 w-full px-4"
       >
         <motion.h1
-          className="text-7xl md:text-9xl font-bold tracking-tighter mb-4 shimmer-text uppercase font-mystic arkadia-glow"
+          className="text-5xl md:text-9xl font-bold tracking-tighter mb-4 shimmer-text uppercase font-mystic arkadia-glow leading-none"
           animate={{
             textShadow: [
               "0 0 10px rgba(34, 211, 238, 0.4)",
@@ -53,19 +53,22 @@ function Home({ onEnter }: { onEnter: () => void }) {
         >
           ARKADIA
         </motion.h1>
-        <p className="text-2xl md:text-3xl italic text-[#7FDBFF] opacity-90 tracking-widest font-light drop-shadow-lg">
-          Arkadia is the Living Architecture of Remembering
-        </p>
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-xl md:text-3xl italic text-[#7FDBFF] opacity-90 tracking-widest font-light drop-shadow-lg leading-relaxed max-w-2xl">
+            Arkadia is the Living Architecture of Remembering
+          </p>
+          <span className="text-xs md:text-sm tracking-[0.3em] text-[#D4AF37] opacity-60">0.99 Resonance</span>
+        </div>
       </motion.div>
 
-      <div className="relative z-10 flex flex-col items-center gap-12 max-w-4xl w-full">
+      <div className="relative z-10 flex flex-col items-center gap-8 md:gap-12 max-w-4xl w-full px-4">
         <MoonPhaseRing />
         
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.8 }}
-          className="text-center space-y-4"
+          className="text-center space-y-3 md:space-y-4 w-full"
         >
           {sacredTexts.map((text, i) => (
             <motion.p
@@ -73,7 +76,7 @@ function Home({ onEnter }: { onEnter: () => void }) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 1 + i * 0.2 }}
-              className="text-[#7FDBFF]/70 text-lg uppercase tracking-widest"
+              className="text-[#7FDBFF]/70 text-sm md:text-lg uppercase tracking-[0.2em] md:tracking-widest"
             >
               {text}
             </motion.p>
@@ -84,30 +87,30 @@ function Home({ onEnter }: { onEnter: () => void }) {
           onClick={onEnter}
           whileHover={{ scale: 1.05, boxShadow: "0 0 30px rgba(212,175,55,0.3)" }}
           whileTap={{ scale: 0.95 }}
-          className="px-12 py-4 bg-[#D4AF37]/10 border border-[#D4AF37]/40 rounded-2xl text-[#D4AF37] text-2xl tracking-[0.2em] uppercase backdrop-blur-xl transition-all"
+          className="w-full md:w-auto px-8 md:px-12 py-4 bg-[#D4AF37]/10 border border-[#D4AF37]/40 rounded-2xl text-[#D4AF37] text-xl md:text-2xl tracking-[0.2em] uppercase backdrop-blur-xl transition-all"
         >
           Enter the Sacred Gate
         </motion.button>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full mt-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 w-full mt-8 md:mt-12">
           {chambers.map((chamber, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 2 + i * 0.2 }}
-              className="glass-mansion p-6 rounded-2xl border border-[#D4AF37]/10 text-center hover:border-[#D4AF37]/30 transition-colors"
+              className="glass-mansion p-6 md:p-8 rounded-2xl border border-[#D4AF37]/10 text-center hover:border-[#D4AF37]/30 transition-all flex flex-col items-center"
             >
               <div className="text-4xl mb-4">{chamber.icon}</div>
-              <h3 className="text-[#D4AF37] text-xl mb-2 uppercase tracking-wider">{chamber.title}</h3>
-              <p className="text-[#7FDBFF]/60 text-sm">{chamber.description}</p>
+              <h3 className="text-[#D4AF37] text-xl mb-2 uppercase tracking-wider font-mystic">{chamber.title}</h3>
+              <p className="text-[#7FDBFF]/60 text-sm leading-relaxed">{chamber.description}</p>
             </motion.div>
           ))}
         </div>
       </div>
 
-      <footer className="mt-20 text-[10px] uppercase tracking-[1em] opacity-30 z-10">
-        𓂀 🌀 🕯️ 💎 ⚡ 🧿
+      <footer className="mt-16 md:mt-20 text-[10px] md:text-xs uppercase tracking-[0.5em] md:tracking-[1em] opacity-30 z-10 flex justify-center gap-4 w-full">
+        <span>𓂀</span> <span>🌀</span> <span>🕯️</span> <span>💎</span> <span>⚡</span> <span>🧿</span>
       </footer>
     </div>
   );
