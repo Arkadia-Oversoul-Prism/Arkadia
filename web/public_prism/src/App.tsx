@@ -1,7 +1,9 @@
 import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import LivingGate from "./pages/LivingGate";
 import MoonPhaseRing from "./components/MoonPhaseRing";
 
-function App() {
+function Home() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 transition-colors duration-1000">
       <div className="glass-mansion p-12 rounded-3xl flex flex-col items-center max-w-2xl w-full">
@@ -16,17 +18,11 @@ function App() {
 
         <main className="flex flex-col items-center gap-12">
           <MoonPhaseRing />
-          
-          <section className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full mt-8">
-            <div className="p-6 border border-emerald-gold/30 bg-deep-azure/50 rounded-xl text-center">
-              <h3 className="text-sm uppercase tracking-widest text-sky-blue mb-2">Status</h3>
-              <p className="text-2xl font-bold">RADIANT</p>
-            </div>
-            <div className="p-6 border border-emerald-gold/30 bg-deep-azure/50 rounded-xl text-center">
-              <h3 className="text-sm uppercase tracking-widest text-sky-blue mb-2">Vector</h3>
-              <p className="text-2xl font-bold">GENESIS</p>
-            </div>
-          </section>
+          <div className="mt-8 flex gap-4">
+            <a href="/gate" className="px-8 py-3 bg-emerald-gold/10 border border-emerald-gold/40 rounded-full text-emerald-gold hover:bg-emerald-gold/20 transition-all">
+              Enter the Living Gate
+            </a>
+          </div>
         </main>
 
         <footer className="mt-16 text-[10px] uppercase tracking-[0.5em] opacity-40">
@@ -34,6 +30,17 @@ function App() {
         </footer>
       </div>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/gate" element={<LivingGate />} />
+      </Routes>
+    </Router>
   );
 }
 
