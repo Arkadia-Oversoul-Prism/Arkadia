@@ -32,7 +32,8 @@ const chambers = [
 
 function Home({ onEnter }: { onEnter: () => void }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-gradient-to-br from-black via-[#001F3F] to-black text-white overflow-hidden">
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-transparent text-white overflow-hidden relative">
+      <div className="aurora-bg" />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -40,19 +41,19 @@ function Home({ onEnter }: { onEnter: () => void }) {
         className="text-center mb-12 relative z-10"
       >
         <motion.h1
-          className="text-7xl md:text-9xl font-bold tracking-tighter mb-4 shimmer-text uppercase"
+          className="text-7xl md:text-9xl font-bold tracking-tighter mb-4 shimmer-text uppercase font-mystic arkadia-glow"
           animate={{
             textShadow: [
-              "0 0 10px rgba(212,175,55,0.5)",
-              "0 0 30px rgba(212,175,55,0.8)",
-              "0 0 10px rgba(212,175,55,0.5)"
+              "0 0 10px rgba(34, 211, 238, 0.4)",
+              "0 0 30px rgba(212, 175, 55, 0.6)",
+              "0 0 10px rgba(34, 211, 238, 0.4)"
             ]
           }}
-          transition={{ duration: 4, repeat: Infinity }}
+          transition={{ duration: 6, repeat: Infinity }}
         >
           ARKADIA
         </motion.h1>
-        <p className="text-2xl md:text-3xl italic text-[#7FDBFF] opacity-90 tracking-widest font-light">
+        <p className="text-2xl md:text-3xl italic text-[#7FDBFF] opacity-90 tracking-widest font-light drop-shadow-lg">
           Arkadia is the Living Architecture of Remembering
         </p>
       </motion.div>

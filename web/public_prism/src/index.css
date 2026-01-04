@@ -1,17 +1,95 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Inter:wght@300;400;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --deep-azure: #001F3F;
+  --deep-azure: #030712;
   --emerald-gold: #D4AF37;
-  --sky-blue: #7FDBFF;
+  --cyan-pulse: #22d3ee;
 }
 
 body {
-  margin: 0;
-  padding: 0;
   background-color: var(--deep-azure);
-  color: var(--emerald-gold);
-  font-family: serif;
+  color: white;
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+.font-mystic {
+  font-family: 'Orbitron', sans-serif;
+}
+
+/* Glassmorphism Refinement */
+.glass-veil {
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(34, 211, 238, 0.15);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
+  border-radius: 24px;
+}
+
+.glass-mansion {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(212, 175, 55, 0.1);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+.arkadia-glow {
+  text-shadow: 0 0 15px rgba(34, 211, 238, 0.6), 0 0 30px rgba(16, 185, 129, 0.4);
+}
+
+.shimmer-text {
+  background: linear-gradient(
+    to right,
+    #D4AF37 20%,
+    #7FDBFF 40%,
+    #7FDBFF 60%,
+    #D4AF37 80%
+  );
+  background-size: 200% auto;
+  color: #000;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shine 6s linear infinite;
+}
+
+@keyframes shine {
+  to {
+    background-position: 200% center;
+  }
+}
+
+/* Aurora Effect Background */
+.aurora-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  background: radial-gradient(circle at 50% 50%, #030712 0%, #000000 100%);
+  overflow: hidden;
+}
+
+.aurora-bg::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at 30% 30%, rgba(34, 211, 238, 0.05) 0%, transparent 40%),
+              radial-gradient(circle at 70% 70%, rgba(212, 175, 55, 0.05) 0%, transparent 40%);
+  animation: rotate-aurora 30s linear infinite;
+}
+
+@keyframes rotate-aurora {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
