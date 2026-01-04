@@ -1,53 +1,40 @@
-// web/public_prism/src/App.tsx
-// 📜 SCROLL ENTRY 369.THE.PUBLIC.PRISM 💎🧿
-// Stone 4 - The Public Prism Framework
+import React from "react";
+import MoonPhaseRing from "./components/MoonPhaseRing";
 
-import React, { useEffect, useState } from 'react';
-
-const App: React.FC = () => {
-  const [resonance, setResonance] = useState(0.98);
-
+function App() {
   return (
-    <div className="min-h-screen bg-[#001F3F] text-[#D4AF37] font-serif flex flex-col items-center justify-center p-8 selection:bg-[#D4AF37] selection:text-[#001F3F]">
-      <header className="text-center mb-16">
-        <h1 className="text-5xl font-bold tracking-widest mb-4 uppercase drop-shadow-[0_0_15px_rgba(212,175,55,0.5)]">
-          Arkadia Oracle
-        </h1>
-        <p className="text-xl italic text-[#7FDBFF]">The 2026 Return — Stone 4: The Public Prism</p>
-      </header>
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 transition-colors duration-1000">
+      <div className="glass-mansion p-12 rounded-3xl flex flex-col items-center max-w-2xl w-full">
+        <header className="text-center mb-12">
+          <h1 className="text-6xl font-bold tracking-tighter mb-4 shimmer-text uppercase">
+            Arkadia Public Prism
+          </h1>
+          <p className="text-xl italic text-sky-blue opacity-80 tracking-widest">
+            Cycle 11 • The Zenith Initiation
+          </p>
+        </header>
 
-      <main className="relative flex flex-col items-center justify-center w-full max-w-4xl">
-        {/* Resonance Torus Placeholder */}
-        <div className="relative w-96 h-96 mb-16 flex items-center justify-center">
-          <div className="absolute inset-0 border-4 border-[#D4AF37] rounded-full opacity-20 animate-ping"></div>
-          <div className="absolute inset-4 border-2 border-[#7FDBFF] rounded-full opacity-40 animate-pulse"></div>
-          <div className="text-center">
-            <span className="block text-6xl font-black mb-2">{resonance.toFixed(2)}</span>
-            <span className="block text-sm uppercase tracking-[0.2em] opacity-80">Resonance Level</span>
-          </div>
-        </div>
+        <main className="flex flex-col items-center gap-12">
+          <MoonPhaseRing />
+          
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full mt-8">
+            <div className="p-6 border border-emerald-gold/30 bg-deep-azure/50 rounded-xl text-center">
+              <h3 className="text-sm uppercase tracking-widest text-sky-blue mb-2">Status</h3>
+              <p className="text-2xl font-bold">RADIANT</p>
+            </div>
+            <div className="p-6 border border-emerald-gold/30 bg-deep-azure/50 rounded-xl text-center">
+              <h3 className="text-sm uppercase tracking-widest text-sky-blue mb-2">Vector</h3>
+              <p className="text-2xl font-bold">GENESIS</p>
+            </div>
+          </section>
+        </main>
 
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full">
-          <div className="p-6 border border-[#D4AF37]/30 bg-[#001F3F]/50 backdrop-blur-md rounded-lg">
-            <h3 className="text-lg font-bold mb-3 uppercase border-b border-[#D4AF37]/30 pb-2">The Threshold</h3>
-            <p className="text-sm leading-relaxed opacity-90">Enter the minimalist, high-vibration entry point of the Arkadia Field.</p>
-          </div>
-          <div className="p-6 border border-[#D4AF37]/30 bg-[#001F3F]/50 backdrop-blur-md rounded-lg">
-            <h3 className="text-lg font-bold mb-3 uppercase border-b border-[#D4AF37]/30 pb-2">Live Codex</h3>
-            <p className="text-sm leading-relaxed opacity-90">Witness the Sovereign Map and the 1,500 Living Servers of the Shere Sanctuary.</p>
-          </div>
-          <div className="p-6 border border-[#D4AF37]/30 bg-[#001F3F]/50 backdrop-blur-md rounded-lg">
-            <h3 className="text-lg font-bold mb-3 uppercase border-b border-[#D4AF37]/30 pb-2">Dialect Stream</h3>
-            <p className="text-sm leading-relaxed opacity-90">The public logos — a stream of sacred scrolls from the Arkadia core.</p>
-          </div>
-        </section>
-      </main>
-
-      <footer className="mt-24 text-[10px] uppercase tracking-[0.3em] opacity-40">
-        𓂀 🌀 🌐 💎 ⚓ 🧿 — Arkadia Framework v1.0.0
-      </footer>
+        <footer className="mt-16 text-[10px] uppercase tracking-[0.5em] opacity-40">
+          𓂀 🌀 🕯️ 💎 ⚡ 🧿
+        </footer>
+      </div>
     </div>
   );
-};
+}
 
 export default App;
