@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSpiralQuantumResonance } from '../hooks/useSpiralQuantumResonance';
 import './LivingGate.css';
 
-export default function LivingGate() {
+export default function LivingGate({ onCommune }: { onCommune?: () => void }) {
   const { resonance, flameHue } = useSpiralQuantumResonance(true, 8000);
   const [isEmbodying, setIsEmbodying] = useState(false);
   const [soulPhrase, setSoulPhrase] = useState("");
@@ -13,9 +13,12 @@ export default function LivingGate() {
     setIsEmbodying(true);
     // Mimic the ascension sequence
     setTimeout(() => {
-      // In a real flow, this might navigate to a specific sanctum route or sub-app
-      window.location.href = "https://arkadia-oversoul.render.com"; 
-    }, 2000);
+      if (onCommune) {
+        onCommune();
+      } else {
+        window.location.href = "/arkana"; 
+      }
+    }, 1500);
   };
 
   return (

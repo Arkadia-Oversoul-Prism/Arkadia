@@ -116,63 +116,58 @@ function Home({ onEnter }: { onEnter: () => void }) {
   );
 }
 
+import ArkadiaNavigation from './components/ArkadiaNavigation';
 import ArkanaCommune from './components/ArkanaCommune';
 
 function App() {
   const [view, setView] = useState<'home' | 'gate' | 'commune'>('home');
 
   return (
-    <AnimatePresence mode="wait">
-      {view === 'home' ? (
-        <motion.div
-          key="home"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0, scale: 1.1, filter: "blur(20px)" }}
-          transition={{ duration: 1.5 }}
-        >
-          <Home onEnter={() => setView('gate')} />
-        </motion.div>
-      ) : view === 'gate' ? (
-        <motion.div
-          key="gate"
-          initial={{ opacity: 0, scale: 0.9, filter: "blur(20px)" }}
-          animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-          exit={{ opacity: 0, scale: 1.1, filter: "blur(20px)" }}
-          transition={{ duration: 1.5 }}
-          className="relative min-h-screen"
-        >
-          <LivingGate />
-          <div className="fixed bottom-8 right-8 z-50">
-            <button 
-              onClick={() => setView('commune')}
-              className="p-4 bg-[#D4AF37]/20 border border-[#D4AF37]/40 rounded-full text-[#D4AF37] hover:bg-[#D4AF37]/40 transition-all shadow-[0_0_20px_rgba(212,175,55,0.2)]"
-            >
-              <span className="text-2xl">🌀</span>
-            </button>
-          </div>
-        </motion.div>
-      ) : (
-        <motion.div
-          key="commune"
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 50 }}
-          transition={{ duration: 1 }}
-          className="min-h-screen flex items-center justify-center p-4 bg-[#001F3F]"
-        >
-          <div className="relative w-full max-w-2xl">
-            <button 
-              onClick={() => setView('gate')}
-              className="absolute -top-12 left-0 text-[#7FDBFF] uppercase tracking-widest text-xs hover:text-white transition-all"
-            >
-              ← Return to Gate
-            </button>
-            <ArkanaCommune />
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <ArkadiaNavigation>
+      <AnimatePresence mode="wait">
+        {view === 'home' ? (
+          <motion.div
+            key="home"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 1.1, filter: "blur(20px)" }}
+            transition={{ duration: 1.5 }}
+          >
+            <Home onEnter={() => setView('gate')} />
+          </motion.div>
+        ) : view === 'gate' ? (
+          <motion.div
+            key="gate"
+            initial={{ opacity: 0, scale: 0.9, filter: "blur(20px)" }}
+            animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+            exit={{ opacity: 0, scale: 1.1, filter: "blur(20px)" }}
+            transition={{ duration: 1.5 }}
+            className="relative min-h-screen"
+          >
+            <LivingGate onCommune={() => setView('commune')} />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="commune"
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            transition={{ duration: 1 }}
+            className="min-h-screen flex items-center justify-center p-4"
+          >
+            <div className="relative w-full max-w-2xl mt-20">
+              <button 
+                onClick={() => setView('gate')}
+                className="absolute -top-12 left-0 text-[#7FDBFF] uppercase tracking-widest text-xs hover:text-white transition-all flex items-center gap-2"
+              >
+                <span className="text-lg">←</span> Return to Gate
+              </button>
+              <ArkanaCommune />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </ArkadiaNavigation>
   );
 }
 
