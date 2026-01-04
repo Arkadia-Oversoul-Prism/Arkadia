@@ -13,8 +13,9 @@ export default function LivingGate() {
     setIsEmbodying(true);
     // Mimic the ascension sequence
     setTimeout(() => {
-      window.location.href = '/oracle';
-    }, 1500);
+      // In a real flow, this might navigate to a specific sanctum route or sub-app
+      window.location.href = "https://arkadia-oversoul.render.com"; 
+    }, 2000);
   };
 
   return (
