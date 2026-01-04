@@ -1,16 +1,3 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-:root {
-  --deep-azure: #001F3F;
-  --emerald-gold: #D4AF37;
-  --sky-blue: #7FDBFF;
-}
-
-body {
-  margin: 0;
-  padding: 0;
-  overflow-x: hidden;
-  background-color: var(--deep-azure);
-}
+import "tailwindcss/base";
+import "tailwindcss/components";
+import "tailwindcss/utilities";
