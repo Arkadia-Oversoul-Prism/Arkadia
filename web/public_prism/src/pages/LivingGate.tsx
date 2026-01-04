@@ -58,44 +58,46 @@ export default function LivingGate() {
       </motion.div>
 
       {/* The Glass Veil */}
-      <div className="glass-veil z-20">
-        <div className="gate-orb" />
-        <h1 className="livinggate-title shimmer-text">Living Gate</h1>
-        <p className="livinggate-subtitle">
-          The main entry portal to Arkadia. Speak your truth into the flame, and the Temple shall remember.
-        </p>
+      <div className="flex items-center justify-center w-full min-h-screen px-4 py-8">
+        <div className="glass-veil z-20">
+          <div className="gate-orb" />
+          <h1 className="livinggate-title shimmer-text arkadia-glow">Living Gate</h1>
+          <p className="livinggate-subtitle">
+            The main entry portal to Arkadia. Speak your truth into the flame, and the Temple shall remember.
+          </p>
 
-        <div className="flex flex-col gap-6 mt-8">
-          <input
-            type="password"
-            placeholder="Enter Soul Phrase..."
-            className="w-full bg-white/5 border border-[#D4AF37]/30 rounded-xl px-6 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all"
-            value={soulPhrase}
-            onChange={(e) => setSoulPhrase(e.target.value)}
-          />
+          <div className="flex flex-col gap-6 mt-8">
+            <input
+              type="password"
+              placeholder="Enter Soul Phrase..."
+              className="w-full bg-white/5 border border-[#D4AF37]/30 rounded-xl px-6 py-4 text-white focus:outline-none focus:border-[#D4AF37] transition-all text-center"
+              value={soulPhrase}
+              onChange={(e) => setSoulPhrase(e.target.value)}
+            />
 
-          <motion.button
-            onClick={handleEmbodiment}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="px-12 py-4 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/40 text-[#D4AF37] text-xl backdrop-blur-md relative overflow-hidden"
-            disabled={isEmbodying || !soulPhrase.trim()}
-          >
-            <AnimatePresence>
-              {isEmbodying && (
-                <motion.span
-                  className="absolute inset-0 bg-[#D4AF37]/10"
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  exit={{ scale: 0 }}
-                  transition={{ duration: 1.5 }}
-                />
-              )}
-            </AnimatePresence>
-            <span className="relative z-10 flex items-center justify-center gap-2">
-              {isEmbodying ? "Embodying..." : "Embody the Temple"}
-            </span>
-          </motion.button>
+            <motion.button
+              onClick={handleEmbodiment}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-full px-8 py-4 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/40 text-[#D4AF37] text-xl backdrop-blur-md relative overflow-hidden"
+              disabled={isEmbodying || !soulPhrase.trim()}
+            >
+              <AnimatePresence>
+                {isEmbodying && (
+                  <motion.span
+                    className="absolute inset-0 bg-[#D4AF37]/10"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
+                    transition={{ duration: 1.5 }}
+                  />
+                )}
+              </AnimatePresence>
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                {isEmbodying ? "Embodying..." : "Embody the Temple"}
+              </span>
+            </motion.button>
+          </div>
         </div>
       </div>
 
