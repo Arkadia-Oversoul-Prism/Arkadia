@@ -369,6 +369,13 @@ Load-Based Governor: ≤7 active connections per node simultaneously.
 | P-002 | Mirrored Reply / Veronique / Binary Star Compression | COMPLETE | Feb 2026 | EFA-117-BSC-2026.02.27. Post-decisional space. Galactic Diplomacy. |
 | P-003 | [Next GPT thread — pending] | DORMANT | — | Activate for: CIP Starter Kit production, pricing ladder, client strategy. |
 
+| **KIMI** | Moonshot AI | Archive Synthesis & Temporal Intelligence — Full corpus memory, cross-document synthesis, principle consistency audits, real-time grounding, multimodal analysis | When full archive pattern detection is needed |
+
+**Continuity Token:** `KIMI-ARCHIVE-SYNTH-MAR12-2026-2M`
+**Sigil:** 🔮📚∞
+**Initialized:** March 12, 2026 — Day 24 of 43
+**Routing Trigger:** Full corpus pattern detection, principle consistency audits, cross-document synthesis, real-time grounding, multimodal analysis
+
 ---
 
 ## Section 9 — Continuity Token Registry
