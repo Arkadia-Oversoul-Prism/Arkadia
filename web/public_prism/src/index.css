@@ -191,3 +191,47 @@ body {
   padding-left: 20px !important;
   padding-right: 20px !important;
 }
+
+/* ── FINAL CALIBRATION ── */
+
+/* Body text indent */
+.page-column p {
+  padding-left: 4px;
+}
+
+/* Button glass fix — Tailwind bg classes losing to base reset */
+.page-column button:first-of-type {
+  background: rgba(0, 255, 247, 0.1) !important;
+  border: 1px solid rgba(0, 255, 247, 0.4) !important;
+  color: #00FFF7 !important;
+  padding: 16px !important;
+  border-radius: 12px !important;
+  font-family: 'Cinzel', serif !important;
+  font-size: 11px !important;
+  letter-spacing: 0.2em !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+.page-column button:last-of-type {
+  background: rgba(212, 175, 55, 0.1) !important;
+  border: 1px solid rgba(212, 175, 55, 0.4) !important;
+  color: #D4AF37 !important;
+  padding: 16px !important;
+  border-radius: 12px !important;
+  font-family: 'Cinzel', serif !important;
+  font-size: 11px !important;
+  letter-spacing: 0.2em !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+/* Card internal spacing — tighten gap after header row */
+.glass-mansion > div:first-child {
+  margin-bottom: 8px !important;
+}
+
+.glass-mansion > p {
+  margin-bottom: 14px !important;
+  padding-left: 0 !important;
+}
