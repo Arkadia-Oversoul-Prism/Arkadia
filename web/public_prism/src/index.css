@@ -136,3 +136,26 @@ body {
 .font-cinzel-decorative { font-family: 'Cinzel Decorative', serif !important; }
 .font-cinzel             { font-family: 'Cinzel', serif !important; }
 .font-inter              { font-family: 'Inter', sans-serif !important; }
+
+/* ── CENTERING FIX — bypasses Tailwind conflicts ── */
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+.page-column {
+  width: 100%;
+  max-width: 440px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.page-column * {
+  text-align: left;
+}
+
+.page-column .center-text {
+  text-align: center;
+}

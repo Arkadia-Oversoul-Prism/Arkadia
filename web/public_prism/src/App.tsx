@@ -48,14 +48,14 @@ function Home({ onEnter, onNavigate }: { onEnter: () => void; onNavigate: (view:
       <div className="aurora-bg" />
 
       {/* PAGE CONTENT — centered column with consistent padding */}
-      <div className="relative z-10 mx-auto max-w-[440px] px-5 pt-12 pb-16 flex flex-col">
+      <div className="page-column relative z-10 pt-12 pb-16 flex flex-col">
 
         {/* LABEL */}
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8 }}
-          className="font-cinzel text-[10px] tracking-[0.35em] text-[#D4AF37]/60 uppercase mb-3 text-center"
+          className="font-cinzel text-[10px] tracking-[0.35em] text-[#D4AF37]/60 uppercase mb-3 center-text"
         >
           Identity Architecture
         </motion.p>
