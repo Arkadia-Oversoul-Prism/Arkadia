@@ -54,7 +54,7 @@ function Home({ onEnter, onNavigate }: { onEnter: () => void, onNavigate: (view:
           Identity Architecture
         </p>
         <motion.h1
-          className="text-6xl md:text-9xl font-bold tracking-tighter mb-6 uppercase leading-none"
+          className="text-6xl md:text-9xl font-bold tracking-tighter mb-6 uppercase leading-none font-cinzel-decorative"
           style={{
             color: '#00FFF7',
             textShadow: '0 0 40px rgba(0, 255, 247, 0.3)'
@@ -97,7 +97,7 @@ function Home({ onEnter, onNavigate }: { onEnter: () => void, onNavigate: (view:
           onClick={() => onNavigate('reset')}
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
-          className="px-8 py-4 bg-[#00FFF7]/10 border border-[#00FFF7]/40 rounded-xl text-[#00FFF7] text-base tracking-widest uppercase backdrop-blur-xl transition-all"
+          className="px-8 py-4 rounded-xl text-base tracking-widest uppercase btn-glass-teal"
         >
           Free Reset — 5 Minutes
         </motion.button>
@@ -105,7 +105,7 @@ function Home({ onEnter, onNavigate }: { onEnter: () => void, onNavigate: (view:
           onClick={onEnter}
           whileHover={{ scale: 1.03, boxShadow: "0 0 30px rgba(212,175,55,0.4)" }}
           whileTap={{ scale: 0.97 }}
-          className="px-8 py-4 bg-[#D4AF37]/10 border border-[#D4AF37]/50 rounded-xl text-[#D4AF37] text-base tracking-widest uppercase backdrop-blur-xl transition-all"
+          className="px-8 py-4 rounded-xl text-base tracking-widest uppercase btn-glass-gold"
         >
           Identity Mapping — $777
         </motion.button>

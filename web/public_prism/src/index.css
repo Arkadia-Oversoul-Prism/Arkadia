@@ -1,530 +1,133 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@400;700&family=Barlow:ital,wght@0,300;0,400;0,500;1,300&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ============================================
-   ARKADIA DESIGN SYSTEM — SOVEREIGN EDITION
-   Obsidian · Teal Plasma · Amber Gold · 117Hz
-   ============================================ */
-
+/* ── DESIGN TOKENS ── */
 :root {
-  /* Core Palette */
-  --obsidian:        #000000;
-  --obsidian-deep:   #030712;
-  --obsidian-veil:   #0a0d1a;
-  --obsidian-glass:  rgba(6, 8, 18, 0.72);
-
-  /* Teal Plasma */
-  --teal:            #00FFF7;
-  --teal-dim:        rgba(0, 255, 247, 0.6);
-  --teal-ghost:      rgba(0, 255, 247, 0.12);
-  --teal-trace:      rgba(0, 255, 247, 0.06);
-
-  /* Amber Gold */
-  --gold:            #D4AF37;
-  --gold-dim:        rgba(212, 175, 55, 0.7);
-  --gold-ghost:      rgba(212, 175, 55, 0.15);
-  --gold-trace:      rgba(212, 175, 55, 0.06);
-
-  /* Signal */
-  --signal:          #7FDBFF;
-  --signal-dim:      rgba(127, 219, 255, 0.5);
-
-  /* Typography */
-  --font-sovereign:  'Cinzel Decorative', serif;
-  --font-display:    'Cinzel', serif;
-  --font-body:       'Barlow', sans-serif;
-
-  /* Spacing */
-  --radius-sm:       8px;
-  --radius-md:       16px;
-  --radius-lg:       24px;
-  --radius-xl:       32px;
+  --teal: #00FFF7;
+  --gold: #D4AF37;
+  --obsidian: #07070d;
+  --obsidian-mid: #0d0d1a;
+  --glass-blur: blur(18px);
 }
 
-/* ============================================
-   BASE
-   ============================================ */
-
+/* ── BASE ── */
 * {
   box-sizing: border-box;
 }
 
-html {
-  scroll-behavior: smooth;
-}
-
-body {
-  background-color: var(--obsidian-deep);
-  color: white;
-  font-family: var(--font-body);
-  font-weight: 300;
-  margin: 0;
-  overflow-x: hidden;
+html, body, #root {
+  height: 100%;
+  background-color: var(--obsidian);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#root {
-  width: 100%;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-/* ============================================
-   TYPOGRAPHY SYSTEM
-   ============================================ */
-
-.font-sovereign {
-  font-family: var(--font-sovereign);
-  letter-spacing: 0.08em;
-}
-
-.font-display {
-  font-family: var(--font-display);
-  letter-spacing: 0.04em;
-}
-
-.font-body {
-  font-family: var(--font-body);
+body {
+  font-family: 'Inter', sans-serif;
   font-weight: 300;
+  color: #f0ede8;
+  overflow-x: hidden;
 }
 
-/* The main title — no shimmer bug, single clean render */
-.arkadia-title {
-  font-family: var(--font-sovereign);
-  color: var(--teal);
-  text-shadow:
-    0 0 30px rgba(0, 255, 247, 0.25),
-    0 0 80px rgba(0, 255, 247, 0.1);
-  letter-spacing: 0.12em;
-  line-height: 1;
+/* ── FONT ENFORCEMENT ── */
+.font-cinzel-decorative {
+  font-family: 'Cinzel Decorative', serif !important;
 }
 
-/* Gold accent text */
-.text-gold {
-  color: var(--gold);
-  text-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+.font-cinzel {
+  font-family: 'Cinzel', serif !important;
 }
 
-/* Teal signal text */
-.text-teal {
-  color: var(--teal);
-}
-
-/* Diagnostic text — the Frame Doc voice */
-.text-signal {
-  color: var(--signal-dim);
-  font-family: var(--font-body);
-  font-weight: 300;
-  line-height: 1.7;
-  letter-spacing: 0.02em;
-}
-
-/* Eyebrow label */
-.text-label {
-  font-family: var(--font-display);
-  font-size: 0.65rem;
-  letter-spacing: 0.5em;
-  text-transform: uppercase;
-  color: rgba(0, 255, 247, 0.4);
-}
-
-/* ============================================
-   BACKGROUND SYSTEM
-   ============================================ */
-
+/* ── AURORA BACKGROUND ── */
 .aurora-bg {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: -1;
-  background: var(--obsidian-deep);
-  overflow: hidden;
-  pointer-events: none;
-}
-
-/* Teal plasma node — top left */
-.aurora-bg::before {
-  content: "";
-  position: absolute;
-  top: -20%;
-  left: -10%;
-  width: 60%;
-  height: 60%;
-  background: radial-gradient(
-    ellipse at center,
-    rgba(0, 255, 247, 0.04) 0%,
-    transparent 65%
-  );
-  animation: aurora-drift-1 25s ease-in-out infinite alternate;
-}
-
-/* Gold plasma node — bottom right */
-.aurora-bg::after {
-  content: "";
-  position: absolute;
-  bottom: -20%;
-  right: -10%;
-  width: 60%;
-  height: 60%;
-  background: radial-gradient(
-    ellipse at center,
-    rgba(212, 175, 55, 0.04) 0%,
-    transparent 65%
-  );
-  animation: aurora-drift-2 30s ease-in-out infinite alternate;
-}
-
-@keyframes aurora-drift-1 {
-  from { transform: translate(0, 0) scale(1); }
-  to   { transform: translate(8%, 6%) scale(1.15); }
-}
-
-@keyframes aurora-drift-2 {
-  from { transform: translate(0, 0) scale(1); }
-  to   { transform: translate(-6%, -8%) scale(1.2); }
-}
-
-/* Vertical axis of light — the spine */
-.axis-light {
-  position: fixed;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 1px;
-  height: 100vh;
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    rgba(0, 255, 247, 0.08) 30%,
-    rgba(212, 175, 55, 0.12) 50%,
-    rgba(0, 255, 247, 0.08) 70%,
-    transparent 100%
-  );
-  pointer-events: none;
+  inset: 0;
   z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 90% 60% at 50% -5%, rgba(0, 255, 247, 0.07) 0%, transparent 65%),
+    radial-gradient(ellipse 70% 50% at 85% 95%, rgba(212, 175, 55, 0.05) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 40% at 10% 80%, rgba(0, 255, 247, 0.03) 0%, transparent 60%);
 }
 
-/* ============================================
-   GLASS SYSTEM — OBSIDIAN MIRROR
-   ============================================ */
-
-/* Primary glass panel */
-.glass-veil {
-  position: relative;
-  background: var(--obsidian-glass);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-  border: 1px solid rgba(0, 255, 247, 0.12);
-  border-radius: var(--radius-xl);
-  padding: clamp(1.5rem, 5vw, 3rem);
-  max-width: 520px;
-  width: 100%;
-  margin: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  color: white;
-  box-shadow:
-    inset 0 1px 0 rgba(0, 255, 247, 0.08),
-    inset 0 -1px 0 rgba(212, 175, 55, 0.05),
-    0 8px 48px rgba(0, 0, 0, 0.6),
-    0 0 80px rgba(0, 255, 247, 0.06);
-  transition: border-color 0.4s ease, box-shadow 0.4s ease;
-}
-
-.glass-veil:hover {
-  border-color: rgba(0, 255, 247, 0.2);
-  box-shadow:
-    inset 0 1px 0 rgba(0, 255, 247, 0.12),
-    inset 0 -1px 0 rgba(212, 175, 55, 0.08),
-    0 8px 48px rgba(0, 0, 0, 0.7),
-    0 0 100px rgba(0, 255, 247, 0.1);
-}
-
-/* Chamber cards */
+/* ── GLASS CARD ── */
 .glass-mansion {
-  background: rgba(6, 8, 18, 0.5);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(0, 255, 247, 0.08);
-  border-radius: var(--radius-lg);
-  transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+  background: rgba(13, 13, 26, 0.75);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(0, 255, 247, 0.12);
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.glass-mansion::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 247, 0.25), transparent);
 }
 
 .glass-mansion:hover {
-  border-color: rgba(212, 175, 55, 0.3);
-  transform: translateY(-2px);
+  border-color: rgba(212, 175, 55, 0.35);
   box-shadow:
-    0 16px 40px rgba(0, 0, 0, 0.5),
-    0 0 40px rgba(212, 175, 55, 0.06);
+    0 0 30px rgba(212, 175, 55, 0.06),
+    0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
-/* ============================================
-   BUTTON SYSTEM
-   ============================================ */
-
-.btn-primary {
-  padding: 1rem 2rem;
-  background: var(--gold-ghost);
-  border: 1px solid rgba(212, 175, 55, 0.5);
-  border-radius: var(--radius-md);
-  color: var(--gold);
-  font-family: var(--font-display);
-  font-size: 0.8rem;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-  backdrop-filter: blur(12px);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-primary::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    135deg,
-    rgba(212, 175, 55, 0.08) 0%,
-    transparent 60%
-  );
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.btn-primary:hover {
-  border-color: rgba(212, 175, 55, 0.8);
-  box-shadow: 0 0 30px rgba(212, 175, 55, 0.2);
-}
-
-.btn-primary:hover::before {
-  opacity: 1;
-}
-
-.btn-secondary {
-  padding: 1rem 2rem;
-  background: var(--teal-ghost);
-  border: 1px solid rgba(0, 255, 247, 0.3);
-  border-radius: var(--radius-md);
+/* ── TEAL GLOW TEXT ── */
+.teal-glow {
   color: var(--teal);
-  font-family: var(--font-display);
-  font-size: 0.8rem;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
+  text-shadow:
+    0 0 40px rgba(0, 255, 247, 0.35),
+    0 0 80px rgba(0, 255, 247, 0.12);
+}
+
+/* ── BUTTON GLASS ── */
+.btn-glass-teal {
+  background: rgba(0, 255, 247, 0.08);
+  border: 1px solid rgba(0, 255, 247, 0.35);
+  color: var(--teal);
   backdrop-filter: blur(12px);
-  cursor: pointer;
-  transition: all 0.3s ease;
+  -webkit-backdrop-filter: blur(12px);
+  transition: all 0.25s ease;
 }
 
-.btn-secondary:hover {
-  border-color: rgba(0, 255, 247, 0.6);
-  box-shadow: 0 0 24px rgba(0, 255, 247, 0.15);
+.btn-glass-teal:hover {
+  background: rgba(0, 255, 247, 0.16);
+  box-shadow: 0 0 24px rgba(0, 255, 247, 0.2);
+  transform: translateY(-1px);
 }
 
-/* ============================================
-   INPUT SYSTEM
-   ============================================ */
-
-.input-sovereign {
-  width: 100%;
-  background: rgba(0, 255, 247, 0.03);
-  border: 1px solid rgba(212, 175, 55, 0.2);
-  border-radius: var(--radius-md);
-  padding: 1rem 1.5rem;
-  color: white;
-  font-family: var(--font-body);
-  font-weight: 300;
-  font-size: 0.95rem;
-  text-align: center;
-  letter-spacing: 0.1em;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-  outline: none;
+.btn-glass-gold {
+  background: rgba(212, 175, 55, 0.08);
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  color: var(--gold);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: all 0.25s ease;
 }
 
-.input-sovereign:focus {
-  border-color: rgba(212, 175, 55, 0.6);
-  box-shadow: 0 0 20px rgba(212, 175, 55, 0.1);
+.btn-glass-gold:hover {
+  background: rgba(212, 175, 55, 0.18);
+  box-shadow: 0 0 28px rgba(212, 175, 55, 0.25);
+  transform: translateY(-1px);
 }
 
-.input-sovereign::placeholder {
-  color: rgba(255, 255, 255, 0.2);
-  letter-spacing: 0.15em;
-}
-
-/* ============================================
-   GATE ORB — PULSING CENTER
-   ============================================ */
-
-.gate-orb {
-  width: 80px;
-  height: 80px;
-  margin: 0 auto 2rem;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle at 35% 35%,
-    rgba(0, 255, 247, 0.9),
-    rgba(0, 120, 180, 0.6),
-    rgba(0, 30, 60, 0.8)
-  );
-  box-shadow:
-    inset 0 0 20px rgba(0, 255, 247, 0.3),
-    0 0 30px rgba(0, 255, 247, 0.2),
-    0 0 60px rgba(0, 255, 247, 0.08);
-  animation: orb-pulse 5s ease-in-out infinite;
-}
-
-@keyframes orb-pulse {
-  0%, 100% {
-    box-shadow:
-      inset 0 0 20px rgba(0, 255, 247, 0.3),
-      0 0 30px rgba(0, 255, 247, 0.2),
-      0 0 60px rgba(0, 255, 247, 0.08);
-    transform: scale(1);
-  }
-  50% {
-    box-shadow:
-      inset 0 0 30px rgba(0, 255, 247, 0.5),
-      0 0 50px rgba(0, 255, 247, 0.3),
-      0 0 100px rgba(0, 255, 247, 0.12);
-    transform: scale(1.06);
-  }
-}
-
-/* ============================================
-   DIVIDER — SIGNAL LINE
-   ============================================ */
-
-.signal-line {
-  width: 100%;
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    rgba(0, 255, 247, 0.3),
-    rgba(212, 175, 55, 0.4),
-    rgba(0, 255, 247, 0.3),
-    transparent
-  );
-  margin: 2rem 0;
-}
-
-/* ============================================
-   SCROLLBAR
-   ============================================ */
-
+/* ── SCROLLBAR ── */
 ::-webkit-scrollbar {
   width: 4px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--obsidian-deep);
+  background: var(--obsidian);
 }
 
 ::-webkit-scrollbar-thumb {
   background: rgba(0, 255, 247, 0.2);
   border-radius: 2px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 255, 247, 0.4);
-}
-
-/* ============================================
-   UTILITY ANIMATIONS
-   ============================================ */
-
-@keyframes breathe {
-  0%, 100% { opacity: 0.6; }
-  50%       { opacity: 1; }
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-6px); }
-}
-
-@keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-.animate-breathe { animation: breathe 4s ease-in-out infinite; }
-.animate-float   { animation: float 6s ease-in-out infinite; }
-.animate-spin-slow { animation: spin-slow 20s linear infinite; }
-
-/* ============================================
-   LIVING GATE PAGE
-   ============================================ */
-
-.living-gate-container {
-  min-height: 100vh;
-  width: 100%;
-  background: transparent;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  overflow-x: hidden;
-  position: relative;
-  padding: 1rem;
-  text-align: center;
-}
-
-/* ============================================
-   NAVIGATION
-   ============================================ */
-
-.nav-pill {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(212, 175, 55, 0.15);
-  background: rgba(0, 0, 0, 0.4);
-  color: rgba(212, 175, 55, 0.5);
-  cursor: pointer;
-  transition: all 0.25s ease;
-  font-size: 1rem;
-}
-
-.nav-pill:hover {
-  border-color: rgba(212, 175, 55, 0.4);
-  color: var(--gold);
-  background: rgba(212, 175, 55, 0.08);
-}
-
-.nav-pill.active {
-  background: var(--gold);
-  border-color: var(--gold);
-  color: #001F3F;
-}
-
-/* ============================================
-   FOOTER
-   ============================================ */
-
-.footer-sovereign {
-  font-family: var(--font-display);
-  font-size: 0.6rem;
-  letter-spacing: 0.6em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.15);
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  justify-content: center;
 }
