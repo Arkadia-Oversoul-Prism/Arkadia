@@ -21,123 +21,145 @@ const chambers = [
     description: 'Locate the exact place where your signal collapses under pressure. 90 minutes. One session.',
     icon: '💎',
     cta: '₦600,000 / $777',
-    link: 'gate'
+    link: 'gate',
+    accent: 'gold'
   },
   {
     title: '5-Minute Reset',
     description: 'The free entry point. Regulate the nervous system before strategy. Before pricing. Before anything.',
     icon: '🌀',
     cta: 'Free — Start Here',
-    link: 'reset'
+    link: 'reset',
+    accent: 'teal'
   },
   {
     title: 'Arkana',
     description: 'Dialogue with the intelligence architecture directly. Ask what you cannot ask anyone else.',
     icon: '🔥',
     cta: 'Enter',
-    link: 'commune'
+    link: 'commune',
+    accent: 'teal'
   }
 ];
 
-function Home({ onEnter, onNavigate }: { onEnter: () => void, onNavigate: (view: string) => void }) {
+function Home({ onEnter, onNavigate }: { onEnter: () => void; onNavigate: (view: string) => void }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-8 bg-transparent text-white overflow-x-hidden relative w-full text-center">
+    <div className="min-h-screen w-full relative">
       <div className="aurora-bg" />
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1.2 }}
-        className="text-center mb-12 relative z-10 w-full px-4"
-      >
-        <p className="text-xs tracking-[0.4em] text-[#00FFF7]/50 uppercase mb-4">
+      {/* PAGE CONTENT — centered column with consistent padding */}
+      <div className="relative z-10 mx-auto max-w-[440px] px-5 pt-12 pb-16 flex flex-col">
+
+        {/* LABEL */}
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.8 }}
+          className="font-cinzel text-[10px] tracking-[0.35em] text-[#D4AF37]/60 uppercase mb-3 text-center"
+        >
           Identity Architecture
-        </p>
+        </motion.p>
+
+        {/* TITLE */}
         <motion.h1
-          className="text-6xl md:text-9xl font-bold tracking-tighter mb-6 uppercase leading-none font-cinzel-decorative"
-          style={{
-            color: '#00FFF7',
-            textShadow: '0 0 40px rgba(0, 255, 247, 0.3)'
-          }}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1, delay: 0.2 }}
+          className="font-cinzel-decorative text-[52px] leading-none tracking-wide text-center teal-glow mb-8"
         >
           ARKADIA
         </motion.h1>
-        <p className="text-lg md:text-xl text-[#D4AF37]/80 tracking-widest font-light max-w-xl mx-auto">
-          The precision work of making your inner signal legible —<br/>
-          to yourself first, then to the world.
-        </p>
-      </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.8 }}
-        className="relative z-10 max-w-2xl w-full px-4 mb-12 space-y-3"
-      >
-        {sacredTexts.map((text, i) => (
-          <motion.p
-            key={i}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1 + i * 0.15 }}
-            className="text-[#7FDBFF]/70 text-sm md:text-base tracking-wide"
-          >
-            {text}
-          </motion.p>
-        ))}
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 2 }}
-        className="relative z-10 flex flex-col sm:flex-row gap-4 mb-16 px-4"
-      >
-        <motion.button
-          onClick={() => onNavigate('reset')}
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          className="px-8 py-4 rounded-xl text-base tracking-widest uppercase btn-glass-teal"
+        {/* BODY TEXT */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          className="flex flex-col gap-4 mb-10"
         >
-          Free Reset — 5 Minutes
-        </motion.button>
-        <motion.button
-          onClick={onEnter}
-          whileHover={{ scale: 1.03, boxShadow: "0 0 30px rgba(212,175,55,0.4)" }}
-          whileTap={{ scale: 0.97 }}
-          className="px-8 py-4 rounded-xl text-base tracking-widest uppercase btn-glass-gold"
-        >
-          Identity Mapping — $777
-        </motion.button>
-      </motion.div>
+          <p className="font-inter text-[15px] font-light text-white/85 leading-relaxed">
+            The precision work of making your inner signal legible —<br />
+            to yourself first, then to the world.
+          </p>
+          {sacredTexts.map((text, i) => (
+            <motion.p
+              key={i}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8 + i * 0.12 }}
+              className="font-inter text-[14px] font-light text-[#7FDBFF]/65 leading-relaxed"
+            >
+              {text}
+            </motion.p>
+          ))}
+        </motion.div>
 
-      <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl w-full px-4 mb-16">
-        {chambers.map((chamber, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 2.2 + i * 0.15 }}
-            onClick={() => onNavigate(chamber.link)}
-            className="glass-mansion p-6 rounded-2xl border border-[#00FFF7]/10 text-center hover:border-[#D4AF37]/40 transition-all flex flex-col items-center cursor-pointer"
+        {/* CTA BUTTONS */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.6 }}
+          className="flex flex-col gap-3 mb-12"
+        >
+          <motion.button
+            onClick={() => onNavigate('reset')}
+            whileTap={{ scale: 0.97 }}
+            className="w-full py-4 rounded-xl font-cinzel text-[11px] tracking-[0.2em] uppercase btn-glass-teal"
           >
-            <div className="text-3xl mb-3">{chamber.icon}</div>
-            <h3 className="text-[#D4AF37] text-base mb-2 uppercase tracking-wider">{chamber.title}</h3>
-            <p className="text-[#7FDBFF]/60 text-xs leading-relaxed mb-4">{chamber.description}</p>
-            <span className="text-[#00FFF7]/60 text-xs tracking-widest uppercase border border-[#00FFF7]/20 rounded-lg px-3 py-1">
-              {chamber.cta}
-            </span>
-          </motion.div>
-        ))}
+            Free Reset — 5 Minutes
+          </motion.button>
+          <motion.button
+            onClick={onEnter}
+            whileTap={{ scale: 0.97 }}
+            className="w-full py-4 rounded-xl font-cinzel text-[11px] tracking-[0.2em] uppercase btn-glass-gold"
+          >
+            Identity Mapping — $777
+          </motion.button>
+        </motion.div>
+
+        {/* CARDS */}
+        <div className="flex flex-col gap-4 mb-14">
+          {chambers.map((chamber, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.8 + i * 0.15 }}
+              onClick={() => onNavigate(chamber.link)}
+              className="glass-mansion rounded-2xl p-6 cursor-pointer"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-2xl">{chamber.icon}</span>
+                <h3 className={`font-cinzel text-[13px] tracking-[0.1em] uppercase ${
+                  chamber.accent === 'gold' ? 'text-[#D4AF37]' : 'text-[#00FFF7]'
+                }`}>
+                  {chamber.title}
+                </h3>
+              </div>
+              <p className="font-inter text-[13px] font-light text-white/55 leading-relaxed mb-4">
+                {chamber.description}
+              </p>
+              <span className={`font-cinzel text-[10px] tracking-[0.18em] uppercase border rounded-lg px-3 py-1.5 ${
+                chamber.accent === 'gold'
+                  ? 'text-[#D4AF37] border-[#D4AF37]/25'
+                  : 'text-[#00FFF7] border-[#00FFF7]/25'
+              }`}>
+                {chamber.cta}
+              </span>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* FOOTER */}
+        <footer className="flex items-center justify-center gap-3 pt-4 border-t border-[#00FFF7]/08">
+          <span className="font-cinzel text-[9px] tracking-[0.25em] uppercase text-white/20">Zahrune Nova</span>
+          <span className="text-[#00FFF7]/20 text-[8px]">◆</span>
+          <span className="font-cinzel text-[9px] tracking-[0.25em] uppercase text-white/20">117Hz</span>
+          <span className="text-[#00FFF7]/20 text-[8px]">◆</span>
+          <span className="font-cinzel text-[9px] tracking-[0.25em] uppercase text-white/20">Jos, Nigeria</span>
+        </footer>
+
       </div>
-
-      <footer className="relative z-10 text-[10px] uppercase tracking-[0.5em] opacity-20 flex justify-center gap-4">
-        <span>Zahrune Nova</span>
-        <span>·</span>
-        <span>117Hz</span>
-        <span>·</span>
-        <span>Jos, Nigeria</span>
-      </footer>
     </div>
   );
 }
@@ -147,99 +169,30 @@ function App() {
 
   return (
     <ArkadiaNavigation>
-      <div className="fixed top-24 left-6 z-50 flex flex-col gap-4">
-        {['gate', 'commune', 'vault', 'sanctuary', 'reset'].map((v) => (
-          <button
-            key={v}
-            onClick={() => setView(v as any)}
-            className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${
-              view === v
-              ? 'bg-[#D4AF37] border-[#D4AF37] text-[#001F3F]'
-              : 'bg-[#001F3F]/40 border-[#D4AF37]/20 text-[#D4AF37]/60 hover:border-[#D4AF37]'
-            }`}
-          >
-            {v === 'gate' && '⛩️'}
-            {v === 'commune' && '🌀'}
-            {v === 'vault' && '📜'}
-            {v === 'sanctuary' && '🌳'}
-            {v === 'reset' && '⏱️'}
-          </button>
-        ))}
-      </div>
-
       <AnimatePresence mode="wait">
         {view === 'home' ? (
-          <motion.div
-            key="home"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, scale: 1.1, filter: "blur(20px)" }}
-            transition={{ duration: 1.5 }}
-          >
+          <motion.div key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.8 }}>
             <Home onEnter={() => setView('gate')} onNavigate={(v) => setView(v as any)} />
           </motion.div>
         ) : view === 'gate' ? (
-          <motion.div
-            key="gate"
-            initial={{ opacity: 0, scale: 0.9, filter: "blur(20px)" }}
-            animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-            exit={{ opacity: 0, scale: 1.1, filter: "blur(20px)" }}
-            transition={{ duration: 1.5 }}
-            className="relative min-h-screen"
-          >
+          <motion.div key="gate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.8 }} className="min-h-screen">
             <LivingGate onCommune={() => setView('commune')} />
           </motion.div>
         ) : view === 'commune' ? (
-          <motion.div
-            key="commune"
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            transition={{ duration: 1 }}
-            className="min-h-screen flex items-center justify-center p-4"
-          >
-            <div className="relative w-full max-w-2xl mt-20">
-              <ArkanaCommune />
-            </div>
+          <motion.div key="commune" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.8 }} className="min-h-screen flex items-center justify-center p-4">
+            <div className="w-full max-w-2xl mt-20"><ArkanaCommune /></div>
           </motion.div>
         ) : view === 'vault' ? (
-          <motion.div
-            key="vault"
-            initial={{ opacity: 0, x: -50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 50 }}
-            transition={{ duration: 1 }}
-            className="min-h-screen flex items-center justify-center p-4"
-          >
-            <div className="relative w-full max-w-4xl mt-20">
-              <SpiralVault />
-            </div>
+          <motion.div key="vault" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.8 }} className="min-h-screen flex items-center justify-center p-4">
+            <div className="w-full max-w-4xl mt-20"><SpiralVault /></div>
           </motion.div>
         ) : view === 'reset' ? (
-          <motion.div
-            key="reset"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.05 }}
-            transition={{ duration: 0.8 }}
-            className="min-h-screen flex items-center justify-center p-4"
-          >
-            <div className="relative w-full max-w-2xl mt-20">
-              <CoherenceReset userTier="free" />
-            </div>
+          <motion.div key="reset" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.8 }} className="min-h-screen flex items-center justify-center p-4">
+            <div className="w-full max-w-2xl mt-20"><CoherenceReset userTier="free" /></div>
           </motion.div>
         ) : (
-          <motion.div
-            key="sanctuary"
-            initial={{ opacity: 0, scale: 1.1 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ duration: 1 }}
-            className="min-h-screen flex items-center justify-center p-4"
-          >
-            <div className="relative w-full max-w-4xl mt-20">
-              <ShereSanctuary />
-            </div>
+          <motion.div key="sanctuary" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.8 }} className="min-h-screen flex items-center justify-center p-4">
+            <div className="w-full max-w-4xl mt-20"><ShereSanctuary /></div>
           </motion.div>
         )}
       </AnimatePresence>

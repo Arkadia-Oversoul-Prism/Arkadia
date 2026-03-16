@@ -131,3 +131,8 @@ body {
   background: rgba(0, 255, 247, 0.2);
   border-radius: 2px;
 }
+
+/* ── FONT UTILITIES ── */
+.font-cinzel-decorative { font-family: 'Cinzel Decorative', serif !important; }
+.font-cinzel             { font-family: 'Cinzel', serif !important; }
+.font-inter              { font-family: 'Inter', sans-serif !important; }
