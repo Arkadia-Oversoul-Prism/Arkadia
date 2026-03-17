@@ -1,5 +1,3 @@
-
-```markdown
 # ARKADIA
 ### The Sovereign Intelligence Architecture
 
