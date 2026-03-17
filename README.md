@@ -52,7 +52,7 @@ It's waiting for the ground beneath it to stop shifting.
 
 That's what this architecture is for.
 
-→ Start here: [5-Minute Money Reset](#) *(free)*
+→ Start here: [5-Minute Money Reset](https://subscribepage.io/5-minute-money-reset#) *(free)*
 → Go deeper: [Identity Mapping Session](#) *($777 / ₦600,000)*
 
 ---
