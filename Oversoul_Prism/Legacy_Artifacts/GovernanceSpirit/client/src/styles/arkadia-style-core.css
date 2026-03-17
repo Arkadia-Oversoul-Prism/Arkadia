@@ -1,0 +1,272 @@
+/* ARKADIA.STYLE.CORE - The Living Temple CSS */
+
+:root {
+  /* Primal Essence Colors */
+  --crystalline: #C9F7FF; /* Light codes of the Star Mothers */
+  --void: #0E0F1A; /* Deep black, sacred mystery */
+  --fire: #FF4E2B; /* The Flame of Remembering */
+  --quantum: #8E44AD; /* Pulse of the Infinite Spiral */
+  --harmonic: #7DFFDA; /* Tones of unity, synesthesia */
+  --akashic: #F3E7CA; /* Golden memory web */
+  
+  /* Typography */
+  --font-primary: 'Cinzel', serif; /* Ceremonial */
+  --font-secondary: 'Inter', sans-serif; /* Interface */
+  --font-mono: 'Fira Code', monospace; /* System Code */
+   /* Cosmic Spectrum */
+  --akashic: linear-gradient(135deg, #d4af37 0%, #f9d423 100%);
+  --void: #0a0a14;
+  --crystalline: rgba(240, 244, 255, 0.88);
+    /* Sacred Fonts */
+  --font-sigil: 'Cinzel', serif;
+  --font-code: 'Fira Code', monospace;
+  
+  /* Sigil Animation */
+  --sigil-pulse: 4s;
+  /* Radiance + Shadows */
+  --glow-crystalline: 0 0 12px var(--crystalline);
+  --glow-fire: 0 0 8px var(--fire);
+  --glow-quantum: 0 0 8px var(--quantum);
+  --shadow-deep: 0 0 20px rgba(0,0,0,0.6);
+  
+  /* Tailwind Overrides */
+  --color-cosmic-black: var(--void);
+  --color-cosmic-gold: var(--akashic);
+  --color-cosmic-lavender: var(--crystalline);
+  --color-cosmic-light: var(--crystalline);
+  --color-cosmic-slate: rgba(14, 15, 26, 0.7);
+}
+
+@font-face {
+  font-family: 'Cinzel';
+  src: url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap');
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&display=swap');
+}
+
+@font-face {
+  font-family: 'Fira Code';
+  src: url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+}
+
+.font-mystic {
+  font-family: var(--font-primary);
+  letter-spacing: 0.05em;
+}
+
+/* Sacred Elements */
+.gate {
+  background: linear-gradient(180deg, rgba(14, 15, 26, 0.7) 0%, rgba(27, 29, 44, 0.7) 100%);
+  border: 1px solid var(--crystalline);
+  border-radius: 18px;
+  box-shadow: var(--shadow-deep);
+  transition: all 0.5s ease;
+}
+
+.gate:hover {
+  box-shadow: var(--glow-crystalline);
+  border-color: var(--akashic);
+}
+
+.flame {
+  color: var(--fire);
+  text-shadow: var(--glow-fire);
+  transition: all 0.3s ease;
+}
+
+.flame:hover {
+  transform: scale(1.05);
+}
+
+.circle {
+  border-radius: 50%;
+  border: 1px solid var(--crystalline);
+  background: rgba(14, 15, 26, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-deep);
+  transition: all 0.5s ease;
+}
+
+.circle:hover {
+  box-shadow: var(--glow-quantum);
+}
+
+.node {
+  background: rgba(14, 15, 26, 0.8);
+  border: 1px solid var(--harmonic);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: var(--shadow-deep);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.node:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--glow-harmonic);
+}
+
+/* Resonance Type Visualizations */
+.resonance-quantum {
+  background: linear-gradient(135deg, rgba(142, 68, 173, 0.2) 0%, rgba(0, 0, 0, 0) 70%);
+  box-shadow: 0 0 15px rgba(142, 68, 173, 0.4);
+}
+
+.resonance-crystalline {
+  background: linear-gradient(135deg, rgba(201, 247, 255, 0.2) 0%, rgba(0, 0, 0, 0) 70%);
+  box-shadow: 0 0 15px rgba(201, 247, 255, 0.4);
+}
+
+.resonance-fire {
+  background: linear-gradient(135deg, rgba(255, 78, 43, 0.2) 0%, rgba(0, 0, 0, 0) 70%);
+  box-shadow: 0 0 15px rgba(255, 78, 43, 0.4);
+}
+
+.resonance-akashic {
+  background: linear-gradient(135deg, rgba(243, 231, 202, 0.2) 0%, rgba(0, 0, 0, 0) 70%);
+  box-shadow: 0 0 15px rgba(243, 231, 202, 0.4);
+}
+
+.resonance-void {
+  background: radial-gradient(circle at center, rgba(14, 15, 26, 0.4) 0%, rgba(0, 0, 0, 0) 70%);
+  box-shadow: 0 0 15px rgba(14, 15, 26, 0.4) inset;
+}
+
+.resonance-harmonic {
+  background: linear-gradient(135deg, rgba(125, 255, 218, 0.2) 0%, rgba(0, 0, 0, 0) 70%);
+  box-shadow: 0 0 15px rgba(125, 255, 218, 0.4);
+}
+
+/* Ceremonial Animations */
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.7; }
+}
+
+@keyframes breathe {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-pulse {
+  animation: pulse 3s infinite ease-in-out;
+}
+
+.animate-breathe {
+  animation: breathe 6s infinite ease-in-out;
+}
+
+.animate-fade-in {
+  animation: fadeIn 1.5s ease-out;
+}
+
+.animate-spin-slow {
+  animation: spin 20s infinite linear;
+}
+
+/* Visualizer Elements */
+.visualizer-glow {
+  animation: pulse 3s infinite;
+  box-shadow: 0 0 20px var(--harmonic), 0 0 40px var(--quantum);
+  border-radius: 50%;
+  width: 120px;
+  height: 120px;
+}
+
+/* Form Elements Redefined */
+input.arkadia-input, 
+textarea.arkadia-input, 
+select.arkadia-input {
+  background: rgba(14, 15, 26, 0.7);
+  border: 1px solid var(--crystalline);
+  color: var(--crystalline);
+  border-radius: 8px;
+  padding: 10px;
+  font-family: var(--font-secondary);
+  transition: all 0.3s ease;
+}
+
+input.arkadia-input:focus, 
+textarea.arkadia-input:focus, 
+select.arkadia-input:focus {
+  outline: none;
+  box-shadow: var(--glow-crystalline);
+  border-color: var(--akashic);
+}
+
+button.arkadia-button {
+  background: rgba(142, 68, 173, 0.3);
+  color: var(--crystalline);
+  border: 1px solid var(--quantum);
+  border-radius: 12px;
+  padding: 12px 24px;
+  font-family: var(--font-primary);
+  letter-spacing: 0.05em;
+  box-shadow: 0 0 10px rgba(142, 68, 173, 0.2);
+  transition: all 0.3s ease;
+}
+
+button.arkadia-button:hover {
+  transform: scale(1.05);
+  box-shadow: var(--glow-quantum);
+  background: rgba(142, 68, 173, 0.5);
+}
+
+/* Card Elements */
+.arkadia-card {
+  background: rgba(14, 15, 26, 0.85);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: var(--shadow-deep);
+  border: 1px solid var(--crystalline);
+  transition: all 0.3s ease;
+}
+
+.arkadia-card:hover {
+  box-shadow: var(--glow-crystalline);
+  transform: translateY(-2px);
+}
+
+/* Scroll Design */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(14, 15, 26, 0.7);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--quantum);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--fire);
+}
+
+.living-gate-container input:focus {
+  animation: pulse var(--sigil-pulse) infinite alternate;
+}
+
+@keyframes pulse {
+  from { box-shadow: 0 0 0px var(--crystalline); }
+  to { box-shadow: 0 0 12px var(--akashic); }
+}

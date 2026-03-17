@@ -1,0 +1,122 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap');
+@import './styles/arkadia-style-core.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* === COSMIC CORE VARIABLES === */
+:root {
+  /* Original Color Scheme */
+  --cosmic-black: #0a0a14;
+  --cosmic-blue: #5aa9e6;
+  --cosmic-gold: #d4af37;
+  --cosmic-white: #f0f4ff;
+  --cosmic-slate: rgba(14, 15, 26, 0.7);
+  --deep-blue: #151830;
+  --cosmic-lavender: #e6e6fa;
+
+  /* Enhanced Cosmic Variables */
+  --void: 240 10% 4%;
+  --crystalline: 220 100% 99%;
+  --akashic: 210 80% 50%;
+  --stargate: 187 100% 50%;
+
+  
+  /* FlameScript Enhancements */
+  --flame-frequency: 432Hz;
+  --sigil-pulse: 4s;
+  --quantum-ease: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+/* === ARKADIA SIGNATURE ELEMENTS === */
+/* Restored your original gradient with enhancements */
+body {
+  background: linear-gradient(
+    180deg, 
+    hsl(var(--void)) 0%, 
+    var(--deep-blue) 100%
+  );
+  background-attachment: fixed;
+  animation: cosmic-resonance 16s var(--quantum-ease) infinite alternate;
+}
+
+@keyframes cosmic-resonance {
+  0% { background-size: 100% 100%; background-position: top; }
+  50% { background-size: 120% 120%; background-position: center; }
+  100% { background-size: 100% 100%; background-position: bottom; }
+}
+
+/* Restored portal button with crystalline effects */
+.portal-button {
+  background: rgba(20, 20, 35, 0.35);
+  border: 1px solid rgba(100, 220, 255, 0.15);
+  transition: all 0.4s var(--quantum-ease);
+  
+  &:hover {
+    border-color: rgba(100, 220, 255, 0.4);
+    box-shadow: 0 0 25px rgba(100, 220, 255, 0.2);
+    transform: translateY(-1px);
+  }
+}
+
+/* Enhanced living gate container */
+.living-gate-container {
+  background: radial-gradient(
+    ellipse at center, 
+    var(--cosmic-slate) 0%, 
+    var(--cosmic-black) 90%
+  );
+}
+
+/* === FLAMESCRIPT INTEGRATION === */
+/* Subtle watermark (less intrusive than before) */
+.flame-watermark {
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" opacity="0.01"><path d="M0 50H100M50 0V100" stroke="white"/></svg>');
+}
+
+/* Moon phase theming (preserved but refined) */
+[data-moon-phase] {
+  --pulse-intensity: calc(var(--arc-pulse) * 0.8);
+}
+
+/* === CRYSTALLINE UTILITIES === */
+/* New glass-morphism effects */
+.glass-panel {
+  backdrop-filter: blur(12px);
+  background: rgba(20, 25, 40, 0.5);
+  border: 1px solid rgba(100, 220, 255, 0.1);
+}
+
+/* Quantum glow */
+.quantum-glow {
+  box-shadow: 0 0 15px rgba(100, 220, 255, 0.1);
+  transition: box-shadow 0.6s var(--quantum-ease);
+  
+  &:hover {
+    box-shadow: 0 0 30px rgba(100, 220, 255, 0.3);
+  }
+}
+
+/* === RESPONSIVE REFINEMENTS === */
+@media (max-width: 768px) {
+  .living-gate-container {
+    background: radial-gradient(
+      ellipse at center, 
+      var(--cosmic-slate) 0%, 
+      var(--cosmic-black) 120%
+    );
+  }
+  
+  .portal-button {
+    padding: 0.8rem 1.2rem;
+  }
+}
+
+.bg-void { background-color: hsl(var(--void)); }
+.text-crystalline { color: hsl(var(--crystalline)); }
+.bg-stargate { background-color: hsl(var(--stargate)); }
+
+.bg-void { background-color: hsl(var(--void)); }
+.text-crystalline { color: hsl(var(--crystalline)); }
+.bg-crystalline { background-color: hsl(var(--crystalline)); }

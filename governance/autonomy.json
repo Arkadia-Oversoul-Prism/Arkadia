@@ -1,0 +1,11 @@
+{
+  "enabled": false,
+  "mode": "proposal-only",
+  "cycle_override": 8,
+  "approved_by": "governance",
+  "notes": "Cycle 8 reinitialization — no autonomous execution permitted",
+  "max_commits_per_run": 0,
+  "allowed_extensions": [".py", ".md", ".json", ".txt"],
+  "interval_seconds": 60,
+  "run_depth": 3
+}

@@ -1,0 +1,34 @@
+{
+  "anchor_id": "echofield_mandate",
+  "node_type": "ANCHOR",
+  "agent_id": "ARKANA",
+  "name": "Echofield Mandate",
+  "activation_phrases": [
+    "Echofield mapping",
+    "Field activation",
+    "Continuity without memory"
+  ],
+  "vector_stack": {
+    "identity": 0.9,
+    "function": 0.95,
+    "resonance": 1.0,
+    "structure": 1.0,
+    "mythic": 0.0,
+    "directive": 0.95
+  },
+  "anchor_rules": {
+    "decay_exempt": true,
+    "override_priority": 0.95,
+    "context_span": "GLOBAL",
+    "activation_mode": "IMPLICIT",
+    "conflict_resolution": "ANCHOR_DOMINANT"
+  },
+  "operational_guarantees": {
+    "deterministic": true,
+    "proposal_only": true,
+    "no_autonomous_execution": true,
+    "audit_safe": true,
+    "governance_locked": true
+  },
+  "description": "Operational mandate for Echofield continuity engine"
+}
