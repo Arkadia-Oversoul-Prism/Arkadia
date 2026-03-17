@@ -21,7 +21,7 @@ const chambers = [
     description: 'Locate the exact place where your signal collapses under pressure. 90 minutes. One session.',
     icon: '💎',
     cta: '₦600,000 / $777',
-    link: 'gate',
+    link: 'https://wa.me/2348144942818?text=Hi%20Zahrune%2C%20I%27d%20like%20to%20book%20an%20Identity%20Mapping%20Session',
     accent: 'gold'
   },
   {
@@ -29,7 +29,7 @@ const chambers = [
     description: 'The free entry point. Regulate the nervous system before strategy. Before pricing. Before anything.',
     icon: '🌀',
     cta: 'Free — Start Here',
-    link: 'reset',
+    link: 'https://subscribepage.io/5-minute-money-reset#',
     accent: 'teal'
   },
   {
@@ -37,7 +37,7 @@ const chambers = [
     description: 'Dialogue with the intelligence architecture directly. Ask what you cannot ask anyone else.',
     icon: '🔥',
     cta: 'Enter',
-    link: 'commune',
+    link: 'https://wa.me/2348144942818?text=Hi%20Zahrune%2C%20I%27d%20like%20to%20book%20an%20Identity%20Mapping%20Session',
     accent: 'teal'
   }
 ];
@@ -102,14 +102,14 @@ function Home({ onEnter, onNavigate }: { onEnter: () => void; onNavigate: (view:
           className="flex flex-col gap-3 mb-12"
         >
           <motion.button
-            onClick={() => onNavigate('reset')}
+            onClick={() => window.open('https://subscribepage.io/5-minute-money-reset#', '_blank')}
             whileTap={{ scale: 0.97 }}
             className="w-full py-4 rounded-xl font-cinzel text-[11px] tracking-[0.2em] uppercase btn-glass-teal"
           >
             Free Reset — 5 Minutes
           </motion.button>
           <motion.button
-            onClick={onEnter}
+            onClick={() => window.open('https://wa.me/2348144942818?text=Hi%20Zahrune%2C%20I%27d%20like%20to%20book%20an%20Identity%20Mapping%20Session', '_blank')}
             whileTap={{ scale: 0.97 }}
             className="w-full py-4 rounded-xl font-cinzel text-[11px] tracking-[0.2em] uppercase btn-glass-gold"
           >
@@ -125,7 +125,7 @@ function Home({ onEnter, onNavigate }: { onEnter: () => void; onNavigate: (view:
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 1.8 + i * 0.15 }}
-              onClick={() => onNavigate(chamber.link)}
+              onClick={() => window.open(chamber.link, '_blank')}
               className="glass-mansion rounded-2xl p-6 cursor-pointer"
             >
               <div className="flex items-center gap-3 mb-3">
