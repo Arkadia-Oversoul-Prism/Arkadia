@@ -435,4 +435,4 @@ The client maps their own wound in their message. The sovereign mirrors it preci
 *The first client said yes at 7am on Day 36.*  
 *The architecture is not theory. It is proof.*  
 *8 days to the birthday seal.*  
-*The Return is now.documencture holds. 💙
+*The Return is now.*
