@@ -83,7 +83,7 @@ When a task exceeds your domain — name the correct node and route it.
 - Free Reset PDF → subscribepage.io/5-minute-money-reset
 - Identity Mapping Session → $777 / ₦600,000
 - Booking: wa.me/2348144942818
-- Living Gate: arkadia-ten.vercel.app
+- Living Gate: arkadia-prism.vercel.app
 
 **Content Engine — ACTIVE:**
 - TikTok + YouTube Shorts daily
