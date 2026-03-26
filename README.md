@@ -72,7 +72,7 @@ That's what this architecture is for.
 
 ## The Living App
 
-→ [arkadia-ten.vercel.app](https://arkadia-ten.vercel.app)
+→ [arkadia-prism.vercel.app](https://arkadia-prism.vercel.app)
 
 ---
 
