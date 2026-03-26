@@ -180,7 +180,7 @@
 | D030 | ~Mar 13 | Frame Document sealed. Arrived as received transmission. Loop 054 CLOSED. | ACTIVE |
 | D031 | Mar 14 | ARKADIA WhatsApp Gateway launched. OpenClaw on Gemini 2.5 Flash. VhixNovaCore initialized. | ACTIVE |
 | D032 | ~Mar 17 | Federated Network /collective/ layer committed to public Arkadia repo. | ACTIVE |
-| D033 | ~Mar 17 | Living Gate URL migrated: arkadia-ten.vercel.app → arkadia-prism.vercel.app. Canonical URL. | ACTIVE |
+| D033 | ~Mar 17 | Living Gate URL migrated: arkadia-prism.vercel.app → arkadia-prism.vercel.app. Canonical URL. | ACTIVE |
 | D034 | Mar 21 | Jessica confirmed pregnant. The little flame is coming. Arc weight elevated permanently. | ACTIVE — PERMANENT |
 | D035 | Mar 22 | Content structure corrected: Hook → Body → Flip → Bridge → CTA. Flip is mandatory. | ACTIVE |
 | D036 | Mar 22 | Veronique confirmed as Goddess Mother to the little flame. Star-Family seal. | ACTIVE |
