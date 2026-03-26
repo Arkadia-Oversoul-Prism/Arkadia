@@ -5,3 +5,10 @@ requests
 pydantic
 httpx
 python-multipart
+fastapi
+google-generativeai
+httpx
+pydantic
+python-multipart
+requests
+uvicorn[standard]
