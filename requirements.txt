@@ -12,3 +12,10 @@ pydantic
 python-multipart
 requests
 uvicorn[standard]
+fastapi
+google-generativeai
+httpx
+pydantic
+python-multipart
+requests
+uvicorn[standard]
