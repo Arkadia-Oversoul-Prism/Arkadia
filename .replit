@@ -22,6 +22,10 @@ args = "Arkadia Oracle Temple"
 task = "workflow.run"
 args = "Arkadia Frontend"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Arkadia Nexus Dashboard"
+
 [[workflows.workflow]]
 name = "Arkadia Oracle Temple"
 author = "agent"
@@ -45,6 +49,22 @@ waitForPort = 5000
 
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow]]
+name = "Arkadia Nexus Dashboard"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd web/dashboard && npm run dev"
+waitForPort = 3000
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[ports]]
+localPort = 3000
+externalPort = 3002
 
 [[ports]]
 localPort = 5000
