@@ -31,6 +31,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [hasHistory, setHasHistory] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const didSendInitial = useRef(false);
 
   // Auto-scroll on new messages
@@ -143,8 +144,18 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
     sendMessage(text);
   };
 
-  const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') handleSend();
+  const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.shiftKey)) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    const el = e.target;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 180) + 'px';
   };
 
   return (
@@ -344,27 +355,34 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
           borderTop: '1px solid rgba(0,212,170,0.1)',
           backgroundColor: 'rgba(10,10,15,0.7)',
           display: 'flex',
+          alignItems: 'flex-end',
           gap: '10px',
           flexShrink: 0,
         }}
       >
-        <input
-          type="text"
+        <textarea
+          ref={textareaRef}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={handleTextareaChange}
           onKeyDown={handleKey}
           disabled={loading}
-          placeholder="Speak into the field..."
+          placeholder="Speak clearly. Structure what you're carrying."
+          rows={1}
           style={{
             flex: 1,
-            padding: '12px 16px',
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(0,212,170,0.2)',
-            borderRadius: '10px',
+            padding: '12px 14px',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(0,212,170,0.12)',
+            borderRadius: '12px',
             color: '#E8E8E8',
             fontFamily: 'sans-serif',
             fontSize: '14px',
             outline: 'none',
+            resize: 'none',
+            minHeight: '48px',
+            maxHeight: '180px',
+            overflowY: 'auto',
+            lineHeight: '1.5',
           }}
         />
         <button
