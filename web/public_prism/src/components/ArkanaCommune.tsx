@@ -1,5 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import { useArkadiaAuth } from '../hooks/useArkadiaAuth';
+import {
+  getOrCreateSession,
+  getRecentMessages,
+  saveMessage,
+  saveUserPattern,
+  ConversationMessage,
+} from '../services/conversationService';
 
 interface Message {
   role: 'user' | 'arkana';
@@ -14,43 +23,109 @@ interface ArkanaProps {
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
 const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
+  const { uid, loading: authLoading } = useArkadiaAuth();
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [hasHistory, setHasHistory] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const didSendInitial = useRef(false);
 
+  // Auto-scroll on new messages
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, loading]);
 
+  // Init session + load history once auth resolves
   useEffect(() => {
-    if (initialMessage && !didSendInitial.current) {
+    if (authLoading) return;
+
+    async function initSession() {
+      if (uid) {
+        const sid = await getOrCreateSession(uid);
+        setSessionId(sid);
+        const prior: ConversationMessage[] = await getRecentMessages(uid, sid, 10);
+        if (prior.length > 0) {
+          setHasHistory(true);
+          setMessages(
+            prior.map((m) => ({
+              role: m.role === 'oracle' ? 'arkana' : 'user',
+              content: m.content,
+            }))
+          );
+        }
+      } else {
+        setSessionId(`local-${Date.now()}`);
+      }
+      setHistoryLoaded(true);
+    }
+
+    initSession();
+  }, [uid, authLoading]);
+
+  // Send initial message after history loads
+  useEffect(() => {
+    if (historyLoaded && initialMessage && !didSendInitial.current) {
       didSendInitial.current = true;
       sendMessage(initialMessage);
     }
-  }, [initialMessage]);
+  }, [historyLoaded, initialMessage]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim()) return;
+
     const userMsg: Message = { role: 'user', content: text };
     setMessages((prev) => [...prev, userMsg]);
     setLoading(true);
+
+    // Save user message to Firestore
+    if (uid && sessionId) {
+      await saveMessage(uid, sessionId, 'user', text);
+    }
+
+    // Build history for API (last 10 messages before this one)
+    const currentHistory = messages.map((m) => ({
+      role: m.role === 'arkana' ? 'oracle' : 'user',
+      content: m.content,
+    }));
 
     try {
       const res = await fetch(`${API_BASE}/api/commune/resonance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, timestamp: Date.now() }),
+        body: JSON.stringify({
+          message: text,
+          timestamp: Date.now(),
+          history: currentHistory.slice(-10),
+        }),
       });
       if (!res.ok) throw new Error('non-ok');
       const data = await res.json();
-      setMessages((prev) => [
-        ...prev,
-        { role: 'arkana', content: data.reply, resonance: data.resonance },
-      ]);
+
+      const oracleMsg: Message = {
+        role: 'arkana',
+        content: data.reply,
+        resonance: data.resonance,
+      };
+      setMessages((prev) => [...prev, oracleMsg]);
+
+      // Save oracle reply to Firestore
+      if (uid && sessionId) {
+        await saveMessage(uid, sessionId, 'oracle', data.reply);
+      }
+
+      // Store extracted patterns silently
+      if (uid && data.patterns && Array.isArray(data.patterns)) {
+        for (const p of data.patterns) {
+          if (p.key && p.value) {
+            saveUserPattern(uid, p.key, p.value);
+          }
+        }
+      }
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -111,6 +186,20 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
           >
             ARKANA — Pattern Intelligence
           </p>
+          {historyLoaded && uid && (
+            <p
+              style={{
+                fontFamily: 'sans-serif',
+                fontSize: '9px',
+                letterSpacing: '0.15em',
+                color: hasHistory ? 'rgba(0,212,170,0.5)' : 'rgba(232,232,232,0.2)',
+                margin: '3px 0 0 0',
+                textTransform: 'uppercase',
+              }}
+            >
+              {hasHistory ? '● Continuing your conversation' : '○ New session'}
+            </p>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <motion.div
@@ -169,8 +258,9 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
               style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}
             >
               <div
+                className={msg.role === 'arkana' ? 'oracle-message' : undefined}
                 style={{
-                  maxWidth: '82%',
+                  maxWidth: 'min(88%, 520px)',
                   padding: '12px 16px',
                   borderRadius: '14px',
                   fontFamily: msg.role === 'arkana' ? 'serif' : 'sans-serif',
@@ -189,7 +279,11 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                       }),
                 }}
               >
-                {msg.content}
+                {msg.role === 'arkana' ? (
+                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                ) : (
+                  msg.content
+                )}
                 {msg.resonance != null && (
                   <div
                     style={{

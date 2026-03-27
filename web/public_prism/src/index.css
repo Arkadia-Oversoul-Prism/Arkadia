@@ -235,3 +235,33 @@ body {
   margin-bottom: 14px !important;
   padding-left: 0 !important;
 }
+
+/* ── ORACLE MESSAGE PROSE ── */
+.oracle-message p {
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
+}
+.oracle-message p:last-child {
+  margin-bottom: 0;
+}
+.oracle-message h1,
+.oracle-message h2,
+.oracle-message h3 {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: #00D4AA;
+  font-weight: 600;
+}
+.oracle-message strong {
+  color: #00D4AA;
+}
+.oracle-message em {
+  color: #C9A84C;
+}
+.oracle-message ul {
+  padding-left: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+.oracle-message li {
+  margin-bottom: 0.25rem;
+}

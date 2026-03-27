@@ -128,7 +128,7 @@ export default function LivingGate({ onEnterField }: LivingGateProps) {
               value={phrase}
               onChange={(e) => setPhrase(e.target.value)}
               onKeyDown={handleKey}
-              placeholder="Speak what you are carrying..."
+              placeholder="Arkana, open the gates. I am ready to remember."
               style={{
                 width: '100%',
                 padding: '16px 20px',
