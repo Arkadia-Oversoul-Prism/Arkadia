@@ -4,9 +4,9 @@
 
 /* ── DESIGN TOKENS ── */
 :root {
-  --teal: #00FFF7;
-  --gold: #D4AF37;
-  --obsidian: #07070d;
+  --teal: #00D4AA;
+  --gold: #C9A84C;
+  --obsidian: #0A0A0F;
   --obsidian-mid: #0d0d1a;
   --glass-blur: blur(18px);
 }
@@ -201,12 +201,12 @@ body {
 
 /* Button glass fix — Tailwind bg classes losing to base reset */
 .page-column button:first-of-type {
-  background: rgba(0, 255, 247, 0.1) !important;
-  border: 1px solid rgba(0, 255, 247, 0.4) !important;
-  color: #00FFF7 !important;
+  background: rgba(0, 212, 170, 0.1) !important;
+  border: 1px solid rgba(0, 212, 170, 0.4) !important;
+  color: #00D4AA !important;
   padding: 16px !important;
   border-radius: 12px !important;
-  font-family: 'Cinzel', serif !important;
+  font-family: sans-serif !important;
   font-size: 11px !important;
   letter-spacing: 0.2em !important;
   backdrop-filter: blur(12px) !important;
@@ -214,12 +214,12 @@ body {
 }
 
 .page-column button:last-of-type {
-  background: rgba(212, 175, 55, 0.1) !important;
-  border: 1px solid rgba(212, 175, 55, 0.4) !important;
-  color: #D4AF37 !important;
+  background: rgba(201, 168, 76, 0.1) !important;
+  border: 1px solid rgba(201, 168, 76, 0.4) !important;
+  color: #C9A84C !important;
   padding: 16px !important;
   border-radius: 12px !important;
-  font-family: 'Cinzel', serif !important;
+  font-family: sans-serif !important;
   font-size: 11px !important;
   letter-spacing: 0.2em !important;
   backdrop-filter: blur(12px) !important;

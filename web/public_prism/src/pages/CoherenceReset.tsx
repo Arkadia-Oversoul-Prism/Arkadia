@@ -1,85 +1,202 @@
-import { useState } from "react";
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-type Tier = "free" | "mid" | "premium";
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
-interface CoherenceResetProps {
-  userTier?: Tier;
-}
-
-export default function CoherenceReset({ userTier = "free" }: CoherenceResetProps) {
-  const [emotionalState, setEmotionalState] = useState("");
-  const [pressurePoint, setPressurePoint] = useState("");
-  const [output, setOutput] = useState<string | null>(null);
+export default function CoherenceReset() {
+  const [emotionalState, setEmotionalState] = useState('');
+  const [pressurePoint, setPressurePoint] = useState('');
+  const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleReset = async () => {
+  const handleSubmit = async () => {
+    if (!emotionalState.trim()) return;
     setLoading(true);
-    setOutput(null);
+    setResult(null);
 
     try {
-      const response = await fetch("/api/coherence-reset", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emotionalState, pressurePoint, tier: userTier }),
+      const res = await fetch(`${API_BASE}/api/coherence-reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emotionalState, pressurePoint }),
       });
-      const data = await response.json();
-      setOutput(data.result);
-    } catch (err) {
-      setOutput("Error connecting to server.");
-      console.error(err);
+      if (!res.ok) throw new Error('non-ok');
+      const data = await res.json();
+      setResult(data.result);
+    } catch {
+      setResult('The field is recalibrating. Try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="max-w-xl mx-auto p-8 bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 text-white mt-12">
-      <h2 className="text-3xl font-bold mb-6 text-[#D4AF37]">Coherence Reset</h2>
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    fontFamily: 'sans-serif',
+    fontSize: '10px',
+    letterSpacing: '0.25em',
+    textTransform: 'uppercase',
+    color: 'rgba(232,232,232,0.45)',
+    marginBottom: '8px',
+  };
 
-      <div className="space-y-4">
+  const textareaStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '14px 16px',
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(0,212,170,0.18)',
+    borderRadius: '10px',
+    color: '#E8E8E8',
+    fontFamily: 'sans-serif',
+    fontSize: '14px',
+    lineHeight: '1.6',
+    resize: 'none',
+    outline: 'none',
+    minHeight: '90px',
+    transition: 'border-color 0.2s',
+  };
+
+  return (
+    <div className="w-full" style={{ maxWidth: '520px', margin: '0 auto', paddingTop: '12px' }}>
+      {/* Title */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7 }}
+        style={{ marginBottom: '32px' }}
+      >
+        <h1
+          style={{
+            fontFamily: 'serif',
+            fontSize: '26px',
+            letterSpacing: '0.05em',
+            color: '#00D4AA',
+            margin: '0 0 8px',
+          }}
+        >
+          Coherence Reset
+        </h1>
+        <p
+          style={{
+            fontFamily: 'sans-serif',
+            fontSize: '14px',
+            color: 'rgba(232,232,232,0.5)',
+            margin: 0,
+            lineHeight: '1.6',
+          }}
+        >
+          Name what is running. The field responds.
+        </p>
+      </motion.div>
+
+      {/* Form */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.25 }}
+        style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}
+      >
         <div>
-          <label className="block mb-2 text-sm uppercase tracking-widest opacity-70">Current Emotional State</label>
-          <input
-            type="text"
+          <label style={labelStyle}>What are you feeling right now?</label>
+          <textarea
+            name="emotionalState"
             value={emotionalState}
             onChange={(e) => setEmotionalState(e.target.value)}
-            className="w-full p-3 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:border-[#D4AF37] transition-colors"
-            placeholder="e.g., stressed, anxious"
+            placeholder="Be specific. Vague answers get vague protocols."
+            style={textareaStyle}
           />
         </div>
 
         <div>
-          <label className="block mb-2 text-sm uppercase tracking-widest opacity-70">Pressure Point (optional)</label>
-          <input
-            type="text"
+          <label style={labelStyle}>What are you avoiding?</label>
+          <textarea
+            name="pressurePoint"
             value={pressurePoint}
             onChange={(e) => setPressurePoint(e.target.value)}
-            className="w-full p-3 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:border-[#D4AF37] transition-colors"
-            placeholder="e.g., deadline, meeting"
+            placeholder="The thing you keep not doing. Or not saying."
+            style={textareaStyle}
           />
         </div>
 
-        <button
-          onClick={handleReset}
-          disabled={loading}
-          className="w-full bg-[#D4AF37] text-[#001F3F] font-bold p-4 rounded-lg hover:bg-[#7FDBFF] transition-all transform active:scale-95 disabled:opacity-50"
+        <motion.button
+          onClick={handleSubmit}
+          disabled={loading || !emotionalState.trim()}
+          whileTap={{ scale: 0.98 }}
+          style={{
+            width: '100%',
+            padding: '16px',
+            background: emotionalState.trim() && !loading ? 'rgba(0,212,170,0.1)' : 'rgba(255,255,255,0.03)',
+            border: `1px solid ${emotionalState.trim() && !loading ? 'rgba(0,212,170,0.4)' : 'rgba(255,255,255,0.08)'}`,
+            borderRadius: '12px',
+            color: emotionalState.trim() && !loading ? '#00D4AA' : 'rgba(232,232,232,0.25)',
+            fontFamily: 'serif',
+            fontSize: '12px',
+            letterSpacing: '0.2em',
+            textTransform: 'uppercase',
+            cursor: emotionalState.trim() && !loading ? 'pointer' : 'not-allowed',
+            transition: 'all 0.25s ease',
+          }}
         >
-          {loading ? "Aligning..." : "Initialize Reset"}
-        </button>
-      </div>
+          {loading ? (
+            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              {[0, 0.2, 0.4].map((delay, i) => (
+                <motion.span
+                  key={i}
+                  animate={{ opacity: [0.3, 1, 0.3] }}
+                  transition={{ duration: 1, repeat: Infinity, delay }}
+                  style={{ display: 'inline-block', width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#00D4AA' }}
+                />
+              ))}
+            </span>
+          ) : (
+            'Reset the Field'
+          )}
+        </motion.button>
+      </motion.div>
 
-      {output && (
-        <div className="mt-8 p-6 border border-[#D4AF37]/30 bg-[#D4AF37]/10 rounded-xl animate-in fade-in slide-in-from-bottom-4">
-          <strong className="block text-[#D4AF37] mb-2 uppercase text-xs tracking-widest">Oracle Guidance:</strong>
-          <p className="text-lg italic leading-relaxed text-[#7FDBFF]">{output}</p>
-        </div>
-      )}
-
-      {userTier === "free" && (
-        <p className="mt-6 text-center text-xs text-white/40 uppercase tracking-widest">
-          Free tier: Basic 2-minute reset protocol active.
-        </p>
-      )}
+      {/* Result */}
+      <AnimatePresence>
+        {result && (
+          <motion.div
+            key="result"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+            style={{
+              marginTop: '28px',
+              padding: '20px 22px',
+              background: 'rgba(0,212,170,0.05)',
+              border: '1px solid rgba(0,212,170,0.2)',
+              borderRadius: '14px',
+            }}
+          >
+            <p
+              style={{
+                fontFamily: 'sans-serif',
+                fontSize: '10px',
+                letterSpacing: '0.25em',
+                textTransform: 'uppercase',
+                color: 'rgba(0,212,170,0.5)',
+                marginBottom: '12px',
+              }}
+            >
+              Field Response
+            </p>
+            <p
+              style={{
+                fontFamily: 'serif',
+                fontSize: '15px',
+                lineHeight: '1.8',
+                color: 'rgba(232,232,232,0.82)',
+                margin: 0,
+              }}
+            >
+              {result}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

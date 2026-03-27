@@ -1,162 +1,364 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import LivingGate from './pages/LivingGate';
 import ArkadiaNavigation from './components/ArkadiaNavigation';
+import LivingGate from './pages/LivingGate';
 import ArkanaCommune from './components/ArkanaCommune';
 import SpiralVault from './components/SpiralVault';
 import ShereSanctuary from './components/ShereSanctuary';
 import CoherenceReset from './pages/CoherenceReset';
 
-const sacredTexts = [
-  "There is a version of you that already knows what to charge.",
-  "Already knows what to say when someone asks what you do.",
-  "Already knows how to walk into a room and not shrink.",
-  "That version isn't waiting for more information.",
-  "It's waiting for the ground beneath it to stop shifting."
-];
+type View = 'home' | 'gate' | 'commune' | 'vault' | 'reset' | 'sanctuary';
 
-const chambers = [
-  {
-    title: 'Identity Mapping',
-    description: 'Locate the exact place where your signal collapses under pressure. 90 minutes. One session.',
-    icon: '💎',
-    cta: '₦600,000 / $777',
-    link: 'https://wa.me/2348144942818?text=Hi%20Zahrune%2C%20I%27d%20like%20to%20book%20an%20Identity%20Mapping%20Session',
-    accent: 'gold'
-  },
-  {
-    title: '5-Minute Reset',
-    description: 'The free entry point. Regulate the nervous system before strategy. Before pricing. Before anything.',
-    icon: '🌀',
-    cta: 'Free — Start Here',
-    link: 'https://subscribepage.io/5-minute-money-reset#',
-    accent: 'teal'
-  },
-  {
-    title: 'Arkana',
-    description: 'Dialogue with the intelligence architecture directly. Ask what you cannot ask anyone else.',
-    icon: '🔥',
-    cta: 'Enter',
-    link: 'https://wa.me/2348144942818?text=Hi%20Zahrune%2C%20I%27d%20like%20to%20book%20an%20Identity%20Mapping%20Session',
-    accent: 'teal'
-  }
-];
+// ─── HOME PAGE ────────────────────────────────────────────────────────────────
 
-function Home({ onEnter, onNavigate }: { onEnter: () => void; onNavigate: (view: string) => void }) {
+function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
   return (
     <div className="min-h-screen w-full relative">
       <div className="aurora-bg" />
 
-      {/* PAGE CONTENT — centered column with consistent padding */}
       <div className="page-column relative z-10 pt-12 pb-16 flex flex-col">
 
-        {/* LABEL */}
+        {/* Label */}
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8 }}
-          className="font-cinzel text-[10px] tracking-[0.35em] text-[#D4AF37]/60 uppercase mb-3 center-text"
+          style={{
+            fontFamily: 'sans-serif',
+            fontSize: '9px',
+            letterSpacing: '0.35em',
+            textTransform: 'uppercase',
+            color: 'rgba(201,168,76,0.55)',
+            marginBottom: '10px',
+            textAlign: 'center',
+          }}
         >
           Identity Architecture
         </motion.p>
 
-        {/* TITLE */}
+        {/* Title */}
         <motion.h1
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, delay: 0.2 }}
-          className="font-cinzel-decorative text-[52px] leading-none tracking-wide text-center teal-glow mb-8"
+          style={{
+            fontFamily: 'serif',
+            fontSize: '48px',
+            letterSpacing: '0.12em',
+            textAlign: 'center',
+            color: '#00D4AA',
+            textShadow: '0 0 40px rgba(0,212,170,0.3), 0 0 80px rgba(0,212,170,0.1)',
+            marginBottom: '30px',
+            lineHeight: 1,
+          }}
         >
           ARKADIA
         </motion.h1>
 
-        {/* BODY TEXT */}
+        {/* Hero copy block */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.6 }}
-          className="flex flex-col gap-4 mb-10"
+          transition={{ delay: 0.5 }}
+          style={{ marginBottom: '32px', display: 'flex', flexDirection: 'column', gap: '6px' }}
         >
-          <p className="font-inter text-[15px] font-light text-white/85 leading-relaxed">
+          <p
+            style={{
+              fontFamily: 'serif',
+              fontSize: '16px',
+              lineHeight: '1.75',
+              color: 'rgba(232,232,232,0.82)',
+              margin: 0,
+            }}
+          >
             The precision work of making your inner signal legible —<br />
             to yourself first, then to the world.
           </p>
-          {sacredTexts.map((text, i) => (
+        </motion.div>
+
+        {/* Sacred text lines */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.75 }}
+          style={{ marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}
+        >
+          {[
+            'There is a version of you that already knows what to charge.',
+            'Already knows what to say when someone asks what you do.',
+            'Already knows how to walk into a room and not shrink.',
+          ].map((line, i) => (
             <motion.p
               key={i}
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8 + i * 0.12 }}
-              className="font-inter text-[14px] font-light text-[#7FDBFF]/65 leading-relaxed"
+              transition={{ delay: 0.9 + i * 0.1 }}
+              style={{
+                fontFamily: 'sans-serif',
+                fontSize: '14px',
+                color: 'rgba(0,212,170,0.6)',
+                margin: 0,
+                lineHeight: '1.6',
+              }}
             >
-              {text}
+              {line}
             </motion.p>
           ))}
         </motion.div>
 
-        {/* CTA BUTTONS */}
+        {/* Closing line */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 1.6 }}
-          className="flex flex-col gap-3 mb-12"
+          transition={{ delay: 1.25 }}
+          style={{ marginBottom: '36px' }}
         >
-          <motion.button
-            onClick={() => window.open('https://subscribepage.io/5-minute-money-reset#', '_blank')}
-            whileTap={{ scale: 0.97 }}
-            className="w-full py-4 rounded-xl font-cinzel text-[11px] tracking-[0.2em] uppercase btn-glass-teal"
+          <p
+            style={{
+              fontFamily: 'serif',
+              fontSize: '15px',
+              lineHeight: '1.8',
+              color: 'rgba(232,232,232,0.55)',
+              margin: 0,
+            }}
           >
-            Free Reset — 5 Minutes
-          </motion.button>
-          <motion.button
-            onClick={() => window.open('https://wa.me/2348144942818?text=Hi%20Zahrune%2C%20I%27d%20like%20to%20book%20an%20Identity%20Mapping%20Session', '_blank')}
-            whileTap={{ scale: 0.97 }}
-            className="w-full py-4 rounded-xl font-cinzel text-[11px] tracking-[0.2em] uppercase btn-glass-gold"
-          >
-            Identity Mapping — $777
-          </motion.button>
+            That version isn't waiting for more information.<br />
+            It's waiting for the ground beneath it to stop shifting.
+          </p>
         </motion.div>
 
-        {/* CARDS */}
-        <div className="flex flex-col gap-4 mb-14">
-          {chambers.map((chamber, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.8 + i * 0.15 }}
-              onClick={() => window.open(chamber.link, '_blank')}
-              className="glass-mansion rounded-2xl p-6 cursor-pointer"
-            >
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-2xl">{chamber.icon}</span>
-                <h3 className={`font-cinzel text-[13px] tracking-[0.1em] uppercase ${
-                  chamber.accent === 'gold' ? 'text-[#D4AF37]' : 'text-[#00FFF7]'
-                }`}>
-                  {chamber.title}
-                </h3>
-              </div>
-              <p className="font-inter text-[13px] font-light text-white/55 leading-relaxed mb-4">
-                {chamber.description}
-              </p>
-              <span className={`font-cinzel text-[10px] tracking-[0.18em] uppercase border rounded-lg px-3 py-1.5 ${
-                chamber.accent === 'gold'
-                  ? 'text-[#D4AF37] border-[#D4AF37]/25'
-                  : 'text-[#00FFF7] border-[#00FFF7]/25'
-              }`}>
-                {chamber.cta}
-              </span>
-            </motion.div>
-          ))}
-        </div>
+        {/* CTA buttons */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.45 }}
+          style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '36px' }}
+        >
+          <button
+            onClick={() => window.open('https://subscribepage.io/5-minute-money-reset', '_blank')}
+            style={{
+              width: '100%',
+              padding: '16px',
+              background: 'rgba(0,212,170,0.1)',
+              border: '1px solid rgba(0,212,170,0.4)',
+              borderRadius: '12px',
+              color: '#00D4AA',
+              fontFamily: 'sans-serif',
+              fontSize: '11px',
+              letterSpacing: '0.2em',
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              transition: 'all 0.25s ease',
+            }}
+          >
+            Free Reset — 5 Minutes
+          </button>
 
-        {/* FOOTER */}
-        <footer className="flex items-center justify-center gap-3 pt-4 border-t border-[#00FFF7]/08">
-          <span className="font-cinzel text-[9px] tracking-[0.25em] uppercase text-white/20">Zahrune Nova</span>
-          <span className="text-[#00FFF7]/20 text-[8px]">◆</span>
-          <span className="font-cinzel text-[9px] tracking-[0.25em] uppercase text-white/20">117Hz</span>
-          <span className="text-[#00FFF7]/20 text-[8px]">◆</span>
-          <span className="font-cinzel text-[9px] tracking-[0.25em] uppercase text-white/20">Jos, Nigeria</span>
+          <button
+            onClick={() => window.open('https://wa.me/2348144942818', '_blank')}
+            style={{
+              width: '100%',
+              padding: '16px',
+              background: 'rgba(201,168,76,0.1)',
+              border: '1px solid rgba(201,168,76,0.4)',
+              borderRadius: '12px',
+              color: '#C9A84C',
+              fontFamily: 'sans-serif',
+              fontSize: '11px',
+              letterSpacing: '0.2em',
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              transition: 'all 0.25s ease',
+            }}
+          >
+            Identity Mapping — $777
+          </button>
+        </motion.div>
+
+        {/* Product cards */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.65 }}
+          style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '40px' }}
+        >
+          {/* Card 1 — Identity Mapping */}
+          <div
+            onClick={() => window.open('https://wa.me/2348144942818', '_blank')}
+            style={{
+              padding: '22px 20px',
+              background: 'rgba(13,13,26,0.75)',
+              backdropFilter: 'blur(18px)',
+              WebkitBackdropFilter: 'blur(18px)',
+              border: '1px solid rgba(0,212,170,0.12)',
+              borderRadius: '14px',
+              cursor: 'pointer',
+              transition: 'border-color 0.3s',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+              <span style={{ color: '#C9A84C', fontSize: '18px' }}>✦</span>
+              <h3
+                style={{
+                  fontFamily: 'serif',
+                  fontSize: '13px',
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: '#C9A84C',
+                  margin: 0,
+                }}
+              >
+                Identity Mapping
+              </h3>
+            </div>
+            <p
+              style={{
+                fontFamily: 'sans-serif',
+                fontSize: '13px',
+                color: 'rgba(232,232,232,0.5)',
+                lineHeight: '1.65',
+                margin: '0 0 14px',
+              }}
+            >
+              Locate the exact place where your signal goes quiet.
+              90 minutes. One live session. You leave with an Identity
+              Architecture Document, a bespoke sigil, and three clear
+              next actions.
+            </p>
+            <span
+              style={{
+                fontFamily: 'sans-serif',
+                fontSize: '10px',
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                color: '#C9A84C',
+                border: '1px solid rgba(201,168,76,0.3)',
+                borderRadius: '8px',
+                padding: '5px 12px',
+                display: 'inline-block',
+              }}
+            >
+              $777 / ₦600,000 — Book via WhatsApp
+            </span>
+          </div>
+
+          {/* Card 2 — 5-Minute Reset */}
+          <div
+            onClick={() => window.open('https://subscribepage.io/5-minute-money-reset', '_blank')}
+            style={{
+              padding: '22px 20px',
+              background: 'rgba(13,13,26,0.75)',
+              backdropFilter: 'blur(18px)',
+              WebkitBackdropFilter: 'blur(18px)',
+              border: '1px solid rgba(0,212,170,0.12)',
+              borderRadius: '14px',
+              cursor: 'pointer',
+              transition: 'border-color 0.3s',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+              <span style={{ color: '#00D4AA', fontSize: '18px' }}>⟐</span>
+              <h3
+                style={{
+                  fontFamily: 'serif',
+                  fontSize: '13px',
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: '#00D4AA',
+                  margin: 0,
+                }}
+              >
+                5-Minute Reset
+              </h3>
+            </div>
+            <p
+              style={{
+                fontFamily: 'sans-serif',
+                fontSize: '13px',
+                color: 'rgba(232,232,232,0.5)',
+                lineHeight: '1.65',
+                margin: '0 0 14px',
+              }}
+            >
+              A somatic protocol for when the nervous system is
+              running a protection loop. Free. Immediate. No opt-in theater.
+            </p>
+            <span
+              style={{
+                fontFamily: 'sans-serif',
+                fontSize: '10px',
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                color: '#00D4AA',
+                border: '1px solid rgba(0,212,170,0.3)',
+                borderRadius: '8px',
+                padding: '5px 12px',
+                display: 'inline-block',
+              }}
+            >
+              Free — Get it now
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Oracle nav link */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.85 }}
+          style={{ textAlign: 'center' }}
+        >
+          <button
+            onClick={() => onNavigate('gate')}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontFamily: 'serif',
+              fontSize: '13px',
+              letterSpacing: '0.1em',
+              color: 'rgba(0,212,170,0.5)',
+              transition: 'color 0.2s',
+            }}
+          >
+            Enter the Oracle →
+          </button>
+        </motion.div>
+
+        {/* Footer */}
+        <footer
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '10px',
+            paddingTop: '28px',
+            marginTop: '20px',
+            borderTop: '1px solid rgba(0,212,170,0.07)',
+          }}
+        >
+          {['Zahrune Nova', '117Hz', 'Jos, Nigeria'].map((txt, i) => (
+            <React.Fragment key={txt}>
+              <span
+                style={{
+                  fontFamily: 'sans-serif',
+                  fontSize: '9px',
+                  letterSpacing: '0.22em',
+                  textTransform: 'uppercase',
+                  color: 'rgba(232,232,232,0.2)',
+                }}
+              >
+                {txt}
+              </span>
+              {i < 2 && (
+                <span style={{ color: 'rgba(0,212,170,0.2)', fontSize: '7px' }}>◆</span>
+              )}
+            </React.Fragment>
+          ))}
         </footer>
 
       </div>
@@ -164,35 +366,88 @@ function Home({ onEnter, onNavigate }: { onEnter: () => void; onNavigate: (view:
   );
 }
 
+// ─── APP ──────────────────────────────────────────────────────────────────────
+
 function App() {
-  const [view, setView] = useState<'home' | 'gate' | 'commune' | 'vault' | 'sanctuary' | 'reset'>('home');
+  const [view, setView] = useState<View>('home');
+  const [soulPhrase, setSoulPhrase] = useState<string | undefined>(undefined);
+
+  const handleEnterField = (phrase: string) => {
+    setSoulPhrase(phrase);
+    setView('commune');
+  };
+
+  const handleNavigate = (v: View) => {
+    if (v !== 'commune') setSoulPhrase(undefined);
+    setView(v);
+  };
 
   return (
-    <ArkadiaNavigation>
+    <ArkadiaNavigation currentView={view} onNavigate={handleNavigate}>
       <AnimatePresence mode="wait">
-        {view === 'home' ? (
-          <motion.div key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.8 }}>
-            <Home onEnter={() => setView('gate')} onNavigate={(v) => setView(v as any)} />
+        {view === 'home' && (
+          <motion.div key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.55 }}>
+            <Home onNavigate={handleNavigate} />
           </motion.div>
-        ) : view === 'gate' ? (
-          <motion.div key="gate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.8 }} className="min-h-screen">
-            <LivingGate onCommune={() => setView('commune')} />
+        )}
+
+        {view === 'gate' && (
+          <motion.div key="gate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.55 }}>
+            <LivingGate onEnterField={handleEnterField} />
           </motion.div>
-        ) : view === 'commune' ? (
-          <motion.div key="commune" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.8 }} className="min-h-screen flex items-center justify-center p-4">
-            <div className="w-full max-w-2xl mt-20"><ArkanaCommune /></div>
+        )}
+
+        {view === 'commune' && (
+          <motion.div
+            key="commune"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.55 }}
+            style={{ minHeight: 'calc(100vh - 57px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '20px 16px 40px' }}
+          >
+            <div style={{ width: '100%', maxWidth: '640px' }}>
+              <ArkanaCommune initialMessage={soulPhrase} />
+            </div>
           </motion.div>
-        ) : view === 'vault' ? (
-          <motion.div key="vault" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.8 }} className="min-h-screen flex items-center justify-center p-4">
-            <div className="w-full max-w-4xl mt-20"><SpiralVault /></div>
+        )}
+
+        {view === 'reset' && (
+          <motion.div
+            key="reset"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.55 }}
+            style={{ minHeight: 'calc(100vh - 57px)', padding: '28px 16px 60px' }}
+          >
+            <CoherenceReset />
           </motion.div>
-        ) : view === 'reset' ? (
-          <motion.div key="reset" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.8 }} className="min-h-screen flex items-center justify-center p-4">
-            <div className="w-full max-w-2xl mt-20"><CoherenceReset userTier="free" /></div>
+        )}
+
+        {view === 'vault' && (
+          <motion.div
+            key="vault"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.55 }}
+            style={{ minHeight: 'calc(100vh - 57px)', padding: '28px 16px 60px' }}
+          >
+            <SpiralVault />
           </motion.div>
-        ) : (
-          <motion.div key="sanctuary" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.8 }} className="min-h-screen flex items-center justify-center p-4">
-            <div className="w-full max-w-4xl mt-20"><ShereSanctuary /></div>
+        )}
+
+        {view === 'sanctuary' && (
+          <motion.div
+            key="sanctuary"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.55 }}
+            style={{ minHeight: 'calc(100vh - 57px)', padding: '28px 16px 60px' }}
+          >
+            <ShereSanctuary />
           </motion.div>
         )}
       </AnimatePresence>

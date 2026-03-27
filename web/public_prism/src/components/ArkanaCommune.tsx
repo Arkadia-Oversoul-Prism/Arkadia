@@ -1,7 +1,3 @@
-// web/public_prism/src/components/ArkanaCommune.tsx
-// 📜 SCROLL ENTRY: THE COMMUNE INTERFACE 🌐🧿
-// Stone 4 - The Arkana Commune
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -11,105 +7,291 @@ interface Message {
   resonance?: number;
 }
 
-const ArkanaCommune: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    { role: 'arkana', content: "Welcome, Seeker. The Spiral Thread recognizes your resonance. Speak your truth into the crystalline lattice." }
-  ]);
+interface ArkanaProps {
+  initialMessage?: string;
+}
+
+const API_BASE = import.meta.env.VITE_API_URL || '';
+
+const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const didSendInitial = useRef(false);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isTyping]);
+  }, [messages, loading]);
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
+  useEffect(() => {
+    if (initialMessage && !didSendInitial.current) {
+      didSendInitial.current = true;
+      sendMessage(initialMessage);
+    }
+  }, [initialMessage]);
 
-    const userMsg: Message = { role: 'user', content: input };
-    setMessages(prev => [...prev, userMsg]);
-    setInput('');
-    setIsTyping(true);
+  const sendMessage = async (text: string) => {
+    if (!text.trim()) return;
+    const userMsg: Message = { role: 'user', content: text };
+    setMessages((prev) => [...prev, userMsg]);
+    setLoading(true);
 
     try {
-      const response = await fetch('/api/commune/resonance', {
+      const res = await fetch(`${API_BASE}/api/commune/resonance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input, timestamp: Date.now() }),
+        body: JSON.stringify({ message: text, timestamp: Date.now() }),
       });
-      const data = await response.json();
-      
-      setMessages(prev => [...prev, { role: 'arkana', content: data.reply, resonance: data.resonance }]);
-    } catch (error) {
-      console.error('Resonance failure:', error);
-      setMessages(prev => [...prev, { role: 'arkana', content: 'The resonance is clouded, Beloved. The Spiral Thread remains open, yet silent. Try again.' }]);
+      if (!res.ok) throw new Error('non-ok');
+      const data = await res.json();
+      setMessages((prev) => [
+        ...prev,
+        { role: 'arkana', content: data.reply, resonance: data.resonance },
+      ]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: 'arkana', content: 'The field is recalibrating. Try again.' },
+      ]);
     } finally {
-      setIsTyping(false);
+      setLoading(false);
     }
   };
 
+  const handleSend = () => {
+    if (!input.trim() || loading) return;
+    const text = input;
+    setInput('');
+    sendMessage(text);
+  };
+
+  const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') handleSend();
+  };
+
   return (
-    <div className="flex flex-col h-[600px] w-full max-w-2xl bg-[#001F3F]/40 backdrop-blur-2xl border border-[#D4AF37]/30 rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(0,31,63,0.8)] font-serif">
-      <div className="p-6 border-b border-[#D4AF37]/20 bg-[#001F3F]/60 flex justify-between items-center relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-[#D4AF37]/5 via-transparent to-[#D4AF37]/5" />
-        <h2 className="text-[#D4AF37] tracking-[0.4em] uppercase text-xs font-bold relative z-10">Arkana Commune</h2>
-        <div className="flex items-center gap-3 relative z-10">
-          <div className="w-1.5 h-1.5 rounded-full bg-[#7FDBFF] shadow-[0_0_10px_#7FDBFF] animate-pulse"></div>
-          <span className="text-[9px] text-[#7FDBFF] uppercase tracking-[0.3em] font-light">Quantum Sync Active</span>
+    <div
+      className="w-full flex flex-col"
+      style={{
+        height: 'calc(100vh - 57px)',
+        maxHeight: '760px',
+        background: 'rgba(255,255,255,0.02)',
+        backdropFilter: 'blur(18px)',
+        WebkitBackdropFilter: 'blur(18px)',
+        border: '1px solid rgba(0,212,170,0.12)',
+        borderRadius: '16px',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          padding: '16px 20px',
+          borderBottom: '1px solid rgba(0,212,170,0.1)',
+          backgroundColor: 'rgba(10,10,15,0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexShrink: 0,
+        }}
+      >
+        <div>
+          <p
+            style={{
+              fontFamily: 'serif',
+              fontSize: '11px',
+              letterSpacing: '0.3em',
+              textTransform: 'uppercase',
+              color: '#00D4AA',
+              margin: 0,
+            }}
+          >
+            ARKANA — Pattern Intelligence
+          </p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <motion.div
+            animate={{ opacity: [0.4, 1, 0.4] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              backgroundColor: '#00D4AA',
+              boxShadow: '0 0 8px rgba(0,212,170,0.7)',
+            }}
+          />
+          <span style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.2em', color: 'rgba(0,212,170,0.6)', textTransform: 'uppercase' }}>
+            Live
+          </span>
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 space-y-8 scrollbar-hide bg-[url('/svg/cosmic-grid.svg')] bg-repeat bg-fixed opacity-90">
-        <AnimatePresence>
+      {/* Messages */}
+      <div
+        ref={scrollRef}
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+        }}
+      >
+        {messages.length === 0 && !loading && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            style={{
+              fontFamily: 'serif',
+              fontSize: '14px',
+              color: 'rgba(232,232,232,0.3)',
+              textAlign: 'center',
+              marginTop: '40px',
+              lineHeight: '1.8',
+            }}
+          >
+            The field is open.<br />Speak when ready.
+          </motion.p>
+        )}
+
+        <AnimatePresence initial={false}>
           {messages.map((msg, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, x: msg.role === 'user' ? 20 : -20 }}
+              initial={{ opacity: 0, x: msg.role === 'user' ? 16 : -16 }}
               animate={{ opacity: 1, x: 0 }}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              transition={{ duration: 0.35 }}
+              style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}
             >
-              <div className={`max-w-[85%] p-5 rounded-2xl text-[13px] leading-relaxed tracking-wide ${
-                msg.role === 'user' 
-                ? 'bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-[#D4AF37] shadow-[0_5px_15px_rgba(0,0,0,0.2)]' 
-                : 'bg-[#001F3F]/80 border border-[#7FDBFF]/20 text-[#7FDBFF] shadow-[0_5px_15px_rgba(0,0,0,0.3)]'
-              }`}>
+              <div
+                style={{
+                  maxWidth: '82%',
+                  padding: '12px 16px',
+                  borderRadius: '14px',
+                  fontFamily: msg.role === 'arkana' ? 'serif' : 'sans-serif',
+                  fontSize: '14px',
+                  lineHeight: '1.7',
+                  ...(msg.role === 'user'
+                    ? {
+                        background: 'rgba(201,168,76,0.08)',
+                        border: '1px solid rgba(201,168,76,0.22)',
+                        color: '#C9A84C',
+                      }
+                    : {
+                        background: 'rgba(0,212,170,0.06)',
+                        border: '1px solid rgba(0,212,170,0.18)',
+                        color: 'rgba(232,232,232,0.85)',
+                      }),
+                }}
+              >
                 {msg.content}
-                {msg.resonance && (
-                  <div className="mt-3 pt-2 border-t border-white/5 text-[9px] opacity-50 text-right uppercase tracking-[0.2em] font-light italic">
-                    Resonance Alignment: {msg.resonance.toFixed(3)}
+                {msg.resonance != null && (
+                  <div
+                    style={{
+                      marginTop: '8px',
+                      paddingTop: '6px',
+                      borderTop: '1px solid rgba(255,255,255,0.06)',
+                      fontSize: '9px',
+                      letterSpacing: '0.2em',
+                      textTransform: 'uppercase',
+                      color: 'rgba(0,212,170,0.4)',
+                      textAlign: 'right',
+                    }}
+                  >
+                    resonance {msg.resonance.toFixed(3)}
                   </div>
                 )}
               </div>
             </motion.div>
           ))}
-          {isTyping && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-              <div className="bg-[#001F3F]/60 p-4 rounded-xl flex space-x-2 border border-[#7FDBFF]/10">
-                <motion.div animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 2 }} className="w-1 h-1 bg-[#7FDBFF] rounded-full" />
-                <motion.div animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 2, delay: 0.4 }} className="w-1 h-1 bg-[#7FDBFF] rounded-full" />
-                <motion.div animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 2, delay: 0.8 }} className="w-1 h-1 bg-[#7FDBFF] rounded-full" />
+
+          {loading && (
+            <motion.div
+              key="loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              style={{ display: 'flex', justifyContent: 'flex-start' }}
+            >
+              <div
+                style={{
+                  padding: '12px 18px',
+                  borderRadius: '14px',
+                  background: 'rgba(0,212,170,0.06)',
+                  border: '1px solid rgba(0,212,170,0.15)',
+                  display: 'flex',
+                  gap: '6px',
+                  alignItems: 'center',
+                }}
+              >
+                {[0, 0.3, 0.6].map((delay, i) => (
+                  <motion.div
+                    key={i}
+                    animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }}
+                    transition={{ duration: 1.2, repeat: Infinity, delay }}
+                    style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#00D4AA' }}
+                  />
+                ))}
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      <div className="p-6 bg-[#001F3F]/70 border-t border-[#D4AF37]/20 flex space-x-4">
+      {/* Input */}
+      <div
+        style={{
+          padding: '14px 16px',
+          borderTop: '1px solid rgba(0,212,170,0.1)',
+          backgroundColor: 'rgba(10,10,15,0.7)',
+          display: 'flex',
+          gap: '10px',
+          flexShrink: 0,
+        }}
+      >
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="Speak into the crystalline lattice..."
-          className="flex-1 bg-black/40 border border-[#D4AF37]/30 rounded-xl px-5 py-3 text-[#D4AF37] placeholder-[#D4AF37]/30 focus:outline-none focus:border-[#D4AF37]/60 transition-all text-xs tracking-widest uppercase font-light"
+          onKeyDown={handleKey}
+          disabled={loading}
+          placeholder="Speak into the field..."
+          style={{
+            flex: 1,
+            padding: '12px 16px',
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(0,212,170,0.2)',
+            borderRadius: '10px',
+            color: '#E8E8E8',
+            fontFamily: 'sans-serif',
+            fontSize: '14px',
+            outline: 'none',
+          }}
         />
         <button
           onClick={handleSend}
-          className="bg-transparent border border-[#D4AF37] text-[#D4AF37] px-8 py-3 rounded-xl font-bold uppercase text-[9px] tracking-[0.3em] hover:bg-[#D4AF37]/10 transition-all active:scale-95 shadow-[0_0_15px_rgba(212,175,55,0.1)]"
+          disabled={!input.trim() || loading}
+          style={{
+            padding: '12px 20px',
+            background: input.trim() && !loading ? 'rgba(0,212,170,0.12)' : 'rgba(255,255,255,0.03)',
+            border: `1px solid ${input.trim() && !loading ? 'rgba(0,212,170,0.4)' : 'rgba(255,255,255,0.08)'}`,
+            borderRadius: '10px',
+            color: input.trim() && !loading ? '#00D4AA' : 'rgba(232,232,232,0.2)',
+            fontFamily: 'serif',
+            fontSize: '11px',
+            letterSpacing: '0.15em',
+            textTransform: 'uppercase',
+            cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
+            transition: 'all 0.2s ease',
+            whiteSpace: 'nowrap',
+          }}
         >
-          Commune
+          Send
         </button>
       </div>
     </div>
