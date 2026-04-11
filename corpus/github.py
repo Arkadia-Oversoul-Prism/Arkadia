@@ -57,7 +57,7 @@ class GitHubSource(BaseCorpusSource):
     name = "github"
 
     def __init__(self):
-        self.repo = _env("CORPUS_GITHUB_REPO")
+        self.repo = _env("CORPUS_GITHUB_REPO", "Arkadia-Oversoul-Prism/Arkadia")
         self.token = _env("CORPUS_GITHUB_TOKEN") or _env("GITHUB_TOKEN")
         self.branch = _env("CORPUS_GITHUB_BRANCH", "main")
         self.extensions = [
