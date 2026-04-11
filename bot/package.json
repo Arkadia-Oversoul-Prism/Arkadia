@@ -1,0 +1,20 @@
+{
+  "name": "arkadia-oracle-bot",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Arkadia Oversoul — Telegram relay to Oracle API",
+  "main": "telegram-bot.mjs",
+  "scripts": {
+    "start": "node telegram-bot.mjs"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "axios": "^1.7.0",
+    "dotenv": "^16.4.0",
+    "fs-extra": "^11.2.0",
+    "node-telegram-bot-api": "^0.66.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
