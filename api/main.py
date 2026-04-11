@@ -30,32 +30,53 @@ _cache: dict = {"scrolls": None, "at": 0.0}
 CACHE_TTL = 300  # seconds
 
 # ── Category inference from file path ─────────────────────────────────────────
-PATH_TO_CATEGORY = {
-    "00_Master":            "NEURAL_SPINE",
-    "10_Core_Papers":       "NEURAL_SPINE",
-    "20_Specs_Schemas":     "COLLECTIVE",
-    "30_Protocols":         "GOVERNANCE",
-    "40_Design_UI":         "CREATIVE_OS",
-    "50_Code_Modules":      "NEURAL_SPINE",
-    "60_Atlas":             "COLLECTIVE",
-    "70_Governance_Licensing": "GOVERNANCE",
-    "80_Research_Citations":"COLLECTIVE",
-    "90_Scrolls_Sigilry":   "CREATIVE_OS",
-}
+# Dynamic: categories are inferred from folder structure - any folder in the repo
+# becomes a category automatically, allowing new categories to be added without code changes
+
+def _infer_category(path: str) -> str:
+    """Infer category from folder path - dynamic based on repo structure."""
+    parts = path.split("/")
+    if len(parts) >= 2:
+        # Use the first-level folder as category (e.g., docs/, creative/, corpus/)
+        folder = parts[0]
+        # Map common folder names to semantic categories
+        category_map = {
+            "00_Master": "NEURAL_SPINE",
+            "10_Core_Papers": "NEURAL_SPINE",
+            "50_Code_Modules": "NEURAL_SPINE",
+            "20_Specs_Schemas": "COLLECTIVE",
+            "60_Atlas": "COLLECTIVE",
+            "80_Research_Citations": "COLLECTIVE",
+            "30_Protocols": "GOVERNANCE",
+            "70_Governance_Licensing": "GOVERNANCE",
+            "40_Design_UI": "CREATIVE_OS",
+            "90_Scrolls_Sigilry": "CREATIVE_OS",
+            "docs": "NEURAL_SPINE",
+            "creative": "CREATIVE_OS",
+            "corpus": "COLLECTIVE",
+            "governance": "GOVERNANCE",
+            "archive": "ARCHIVE",
+            "codex": "CODEX",
+            "scripts": "SCRIPTS",
+            "tests": "TESTS",
+        }
+        if folder in category_map:
+            return category_map[folder]
+        # For unknown folders, convert to uppercase with underscores
+        return folder.replace("-", "_").replace(" ", "_").upper()
+    return "NEURAL_SPINE"
+
 
 CATEGORY_PRIORITY = {
     "NEURAL_SPINE": 1,
     "CREATIVE_OS":  2,
     "COLLECTIVE":   3,
     "GOVERNANCE":   4,
+    "CODEX":        5,
+    "ARCHIVE":      6,
+    "SCRIPTS":      7,
+    "TESTS":        8,
 }
-
-
-def _infer_category(path: str) -> str:
-    for prefix, cat in PATH_TO_CATEGORY.items():
-        if f"/{prefix}/" in path or path.startswith(prefix + "/"):
-            return cat
-    return "NEURAL_SPINE"
 
 
 def _make_label(path: str) -> str:
@@ -282,3 +303,26 @@ async def github_tree():
         return {"total": len(tree), "files": tree}
     except Exception as e:
         return JSONResponse(status_code=502, content={"error": str(e)})
+
+
+@app.get("/api/codex/categories")
+async def codex_categories():
+    """Return dynamically discovered categories from the corpus."""
+    scrolls = await _get_scrolls()
+    
+    # Extract unique categories and their counts
+    category_counts: dict[str, int] = {}
+    for scroll in scrolls.values():
+        cat = scroll.get("category", "UNKNOWN")
+        category_counts[cat] = category_counts.get(cat, 0) + 1
+    
+    # Build category list with metadata
+    categories = []
+    for cat, count in sorted(category_counts.items(), key=lambda x: x[0]):
+        categories.append({
+            "key": cat,
+            "label": cat.replace("_", " ").title(),
+            "count": count,
+        })
+    
+    return {"categories": categories}
