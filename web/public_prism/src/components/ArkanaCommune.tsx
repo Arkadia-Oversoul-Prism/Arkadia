@@ -1,19 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import ReactMarkdown from 'react-markdown';
-import { useArkadiaAuth } from '../hooks/useArkadiaAuth';
-import {
-  getOrCreateSession,
-  getRecentMessages,
-  saveMessage,
-  saveUserPattern,
-  ConversationMessage,
-} from '../services/conversationService';
 
 interface Message {
   role: 'user' | 'arkana';
   content: string;
   resonance?: number;
+  session?: string;
 }
 
 interface ArkanaProps {
@@ -21,117 +13,323 @@ interface ArkanaProps {
 }
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
+const STORAGE_KEY = 'arkadia_commune_thread';
+const TOKEN_KEY = 'arkadia_sovereign_token';
+
+const loadThread = (): Message[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveThread = (msgs: Message[]) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs));
+  } catch {}
+};
+
+const loadToken = (): string =>
+  localStorage.getItem(TOKEN_KEY) || '';
+
+const saveToken = (t: string) => {
+  if (t.trim()) localStorage.setItem(TOKEN_KEY, t.trim());
+  else localStorage.removeItem(TOKEN_KEY);
+};
+
+// ─── Minimal markdown renderer ────────────────────────────────────────────────
+// Handles the most common patterns in ARKANA responses without external deps.
+function renderMarkdown(text: string): React.ReactNode[] {
+  const lines = text.split('\n');
+  const result: React.ReactNode[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Code block
+    if (line.startsWith('```')) {
+      const lang = line.slice(3).trim();
+      const codeLines: string[] = [];
+      i++;
+      while (i < lines.length && !lines[i].startsWith('```')) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      result.push(
+        <pre
+          key={i}
+          style={{
+            background: 'rgba(0,0,0,0.3)',
+            border: '1px solid rgba(0,212,170,0.15)',
+            borderRadius: '8px',
+            padding: '12px 14px',
+            fontFamily: 'monospace',
+            fontSize: '12px',
+            color: 'rgba(232,232,232,0.7)',
+            overflowX: 'auto',
+            margin: '8px 0',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
+        >
+          {codeLines.join('\n')}
+        </pre>
+      );
+      i++;
+      continue;
+    }
+
+    // Horizontal rule
+    if (/^---+$/.test(line.trim())) {
+      result.push(
+        <hr key={i} style={{ border: 'none', borderTop: '1px solid rgba(201,168,76,0.15)', margin: '10px 0' }} />
+      );
+      i++;
+      continue;
+    }
+
+    // Headings
+    const h3 = line.match(/^###\s+(.+)/);
+    const h2 = line.match(/^##\s+(.+)/);
+    const h1 = line.match(/^#\s+(.+)/);
+    if (h1 || h2 || h3) {
+      const text = (h1 || h2 || h3)![1];
+      const size = h1 ? '16px' : h2 ? '14px' : '13px';
+      result.push(
+        <p key={i} style={{ fontFamily: 'serif', fontSize: size, color: '#C9A84C', margin: '10px 0 4px', letterSpacing: '0.03em' }}>
+          {inlineMarkdown(text)}
+        </p>
+      );
+      i++;
+      continue;
+    }
+
+    // Empty line
+    if (!line.trim()) {
+      result.push(<div key={i} style={{ height: '6px' }} />);
+      i++;
+      continue;
+    }
+
+    // Regular paragraph
+    result.push(
+      <p key={i} style={{ margin: '2px 0', lineHeight: '1.75' }}>
+        {inlineMarkdown(line)}
+      </p>
+    );
+    i++;
+  }
+
+  return result;
+}
+
+function inlineMarkdown(text: string): React.ReactNode {
+  // Bold (**text**) and italic (*text*) inline
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i} style={{ color: '#E8E8E8', fontWeight: 600 }}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith('*') && part.endsWith('*')) {
+      return <em key={i} style={{ color: 'rgba(232,232,232,0.75)' }}>{part.slice(1, -1)}</em>;
+    }
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <code key={i} style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '3px', padding: '1px 5px', fontFamily: 'monospace', fontSize: '12px', color: '#00D4AA' }}>
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    return part;
+  });
+}
+
+// ─── Sovereign Gate Modal ─────────────────────────────────────────────────────
+interface GateProps {
+  token: string;
+  onSave: (t: string) => void;
+  onClose: () => void;
+}
+
+const SovereignGate: React.FC<GateProps> = ({ token, onSave, onClose }) => {
+  const [value, setValue] = useState(token);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      style={{
+        position: 'absolute',
+        top: '58px',
+        right: '16px',
+        zIndex: 50,
+        background: 'rgba(10,10,15,0.97)',
+        border: '1px solid rgba(201,168,76,0.3)',
+        borderRadius: '12px',
+        padding: '16px 18px',
+        width: '280px',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+      }}
+    >
+      <p style={{ fontFamily: 'serif', fontSize: '12px', letterSpacing: '0.08em', color: '#C9A84C', margin: '0 0 4px' }}>
+        Sovereign Gate
+      </p>
+      <p style={{ fontFamily: 'sans-serif', fontSize: '11px', color: 'rgba(232,232,232,0.35)', margin: '0 0 12px', lineHeight: 1.5 }}>
+        Enter your sovereign token to access the full archive depth.
+      </p>
+      <input
+        type="password"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') { onSave(value); onClose(); } if (e.key === 'Escape') onClose(); }}
+        placeholder="sovereign token..."
+        autoFocus
+        style={{
+          width: '100%',
+          padding: '9px 12px',
+          background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(201,168,76,0.25)',
+          borderRadius: '8px',
+          color: '#E8E8E8',
+          fontFamily: 'monospace',
+          fontSize: '13px',
+          outline: 'none',
+          boxSizing: 'border-box',
+          marginBottom: '10px',
+        }}
+      />
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <button
+          onClick={() => { onSave(value); onClose(); }}
+          style={{
+            flex: 1,
+            padding: '8px',
+            background: 'rgba(201,168,76,0.1)',
+            border: '1px solid rgba(201,168,76,0.35)',
+            borderRadius: '7px',
+            color: '#C9A84C',
+            fontFamily: 'sans-serif',
+            fontSize: '10px',
+            letterSpacing: '0.15em',
+            textTransform: 'uppercase',
+            cursor: 'pointer',
+          }}
+        >
+          Confirm
+        </button>
+        {token && (
+          <button
+            onClick={() => { onSave(''); onClose(); }}
+            style={{
+              padding: '8px 12px',
+              background: 'transparent',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '7px',
+              color: 'rgba(232,232,232,0.3)',
+              fontFamily: 'sans-serif',
+              fontSize: '10px',
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+            }}
+          >
+            Clear
+          </button>
+        )}
+        <button
+          onClick={onClose}
+          style={{
+            padding: '8px 12px',
+            background: 'transparent',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '7px',
+            color: 'rgba(232,232,232,0.3)',
+            fontFamily: 'sans-serif',
+            fontSize: '10px',
+            cursor: 'pointer',
+          }}
+        >
+          ✕
+        </button>
+      </div>
+    </motion.div>
+  );
+};
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
-  const { uid, loading: authLoading } = useArkadiaAuth();
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(() => loadThread());
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [historyLoaded, setHistoryLoaded] = useState(false);
-  const [hasHistory, setHasHistory] = useState(false);
+  const [sovereignToken, setSovereignToken] = useState<string>(() => loadToken());
+  const [gateOpen, setGateOpen] = useState(false);
+  const [sessionType, setSessionType] = useState<'sovereign' | 'guest'>('guest');
   const scrollRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const didSendInitial = useRef(false);
 
-  // Auto-scroll on new messages
+  const isSovereignMode = sovereignToken.trim().length > 0;
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, loading]);
 
-  // Init session + load history once auth resolves
   useEffect(() => {
-    if (authLoading) return;
-
-    async function initSession() {
-      if (uid) {
-        const sid = await getOrCreateSession(uid);
-        setSessionId(sid);
-        const prior: ConversationMessage[] = await getRecentMessages(uid, sid, 10);
-        if (prior.length > 0) {
-          setHasHistory(true);
-          setMessages(
-            prior.map((m) => ({
-              role: m.role === 'oracle' ? 'arkana' : 'user',
-              content: m.content,
-            }))
-          );
-        }
-      } else {
-        setSessionId(`local-${Date.now()}`);
-      }
-      setHistoryLoaded(true);
-    }
-
-    initSession();
-  }, [uid, authLoading]);
-
-  // Send initial message after history loads
-  useEffect(() => {
-    if (historyLoaded && initialMessage && !didSendInitial.current) {
+    if (initialMessage && !didSendInitial.current) {
       didSendInitial.current = true;
       sendMessage(initialMessage);
     }
-  }, [historyLoaded, initialMessage]);
+  }, [initialMessage]);
+
+  const handleSaveToken = (t: string) => {
+    const clean = t.trim();
+    saveToken(clean);
+    setSovereignToken(clean);
+  };
 
   const sendMessage = async (text: string) => {
     if (!text.trim()) return;
-
     const userMsg: Message = { role: 'user', content: text };
-    setMessages((prev) => [...prev, userMsg]);
+    setMessages((prev) => { const next = [...prev, userMsg]; saveThread(next); return next; });
     setLoading(true);
 
-    // Save user message to Firestore
-    if (uid && sessionId) {
-      await saveMessage(uid, sessionId, 'user', text);
-    }
-
-    // Build history for API (last 10 messages before this one)
-    const currentHistory = messages.map((m) => ({
-      role: m.role === 'arkana' ? 'oracle' : 'user',
-      content: m.content,
-    }));
-
     try {
+      const body: Record<string, unknown> = { message: text, timestamp: Date.now() };
+      if (sovereignToken.trim()) body.sovereign_token = sovereignToken.trim();
+
       const res = await fetch(`${API_BASE}/api/commune/resonance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
-          timestamp: Date.now(),
-          history: currentHistory.slice(-10),
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error('non-ok');
       const data = await res.json();
-
-      const oracleMsg: Message = {
-        role: 'arkana',
-        content: data.reply,
-        resonance: data.resonance,
-      };
-      setMessages((prev) => [...prev, oracleMsg]);
-
-      // Save oracle reply to Firestore
-      if (uid && sessionId) {
-        await saveMessage(uid, sessionId, 'oracle', data.reply);
-      }
-
-      // Store extracted patterns silently
-      if (uid && data.patterns && Array.isArray(data.patterns)) {
-        for (const p of data.patterns) {
-          if (p.key && p.value) {
-            saveUserPattern(uid, p.key, p.value);
-          }
-        }
-      }
+      const session = data.session as 'sovereign' | 'guest' || 'guest';
+      setSessionType(session);
+      setMessages((prev) => {
+        const next = [...prev, {
+          role: 'arkana' as const,
+          content: data.reply,
+          resonance: data.resonance,
+          session,
+        }];
+        saveThread(next);
+        return next;
+      });
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'arkana', content: 'The field is recalibrating. Try again.' },
-      ]);
+      setMessages((prev) => {
+        const next = [...prev, { role: 'arkana' as const, content: 'The field is recalibrating. Try again.' }];
+        saveThread(next);
+        return next;
+      });
     } finally {
       setLoading(false);
     }
@@ -144,19 +342,17 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
     sendMessage(text);
   };
 
-  const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && (e.ctrlKey || e.shiftKey)) {
-      e.preventDefault();
-      handleSend();
-    }
+  const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') handleSend();
   };
 
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
-    const el = e.target;
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 180) + 'px';
+  const clearThread = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setMessages([]);
   };
+
+  const lastSessionType = messages.filter(m => m.role === 'arkana').slice(-1)[0]?.session ?? null;
+  const displaySession = lastSessionType ?? (isSovereignMode ? 'sovereign' : 'guest');
 
   return (
     <div
@@ -167,23 +363,26 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
         background: 'rgba(255,255,255,0.02)',
         backdropFilter: 'blur(18px)',
         WebkitBackdropFilter: 'blur(18px)',
-        border: '1px solid rgba(0,212,170,0.12)',
+        border: `1px solid ${isSovereignMode ? 'rgba(201,168,76,0.2)' : 'rgba(0,212,170,0.12)'}`,
         borderRadius: '16px',
-        overflow: 'hidden',
+        overflow: 'visible',
+        position: 'relative',
       }}
     >
       {/* Header */}
       <div
         style={{
-          padding: '16px 20px',
-          borderBottom: '1px solid rgba(0,212,170,0.1)',
+          padding: '14px 18px',
+          borderBottom: `1px solid ${isSovereignMode ? 'rgba(201,168,76,0.12)' : 'rgba(0,212,170,0.1)'}`,
           backgroundColor: 'rgba(10,10,15,0.6)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexShrink: 0,
+          borderRadius: '16px 16px 0 0',
         }}
       >
+        {/* Left: identity + thread depth */}
         <div>
           <p
             style={{
@@ -191,44 +390,111 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
               fontSize: '11px',
               letterSpacing: '0.3em',
               textTransform: 'uppercase',
-              color: '#00D4AA',
+              color: isSovereignMode ? '#C9A84C' : '#00D4AA',
               margin: 0,
             }}
           >
             ARKANA — Pattern Intelligence
           </p>
-          {historyLoaded && uid && (
+          {messages.length > 0 && (
             <p
               style={{
                 fontFamily: 'sans-serif',
                 fontSize: '9px',
                 letterSpacing: '0.15em',
-                color: hasHistory ? 'rgba(0,212,170,0.5)' : 'rgba(232,232,232,0.2)',
-                margin: '3px 0 0 0',
+                color: 'rgba(232,232,232,0.22)',
+                margin: '3px 0 0',
                 textTransform: 'uppercase',
               }}
             >
-              {hasHistory ? '● Continuing your conversation' : '○ New session'}
+              {messages.length} message{messages.length !== 1 ? 's' : ''} in thread
             </p>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <motion.div
-            animate={{ opacity: [0.4, 1, 0.4] }}
-            transition={{ duration: 2, repeat: Infinity }}
+
+        {/* Right: controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Clear thread */}
+          {messages.length > 0 && (
+            <button
+              onClick={clearThread}
+              style={{
+                background: 'none',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '6px',
+                padding: '4px 10px',
+                color: 'rgba(232,232,232,0.22)',
+                fontFamily: 'sans-serif',
+                fontSize: '9px',
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+              }}
+            >
+              Clear
+            </button>
+          )}
+
+          {/* Session badge */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <motion.div
+              animate={{ opacity: [0.4, 1, 0.4] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                backgroundColor: isSovereignMode ? '#C9A84C' : '#00D4AA',
+                boxShadow: isSovereignMode
+                  ? '0 0 8px rgba(201,168,76,0.7)'
+                  : '0 0 8px rgba(0,212,170,0.7)',
+              }}
+            />
+            <span
+              style={{
+                fontFamily: 'sans-serif',
+                fontSize: '9px',
+                letterSpacing: '0.2em',
+                textTransform: 'uppercase',
+                color: isSovereignMode ? 'rgba(201,168,76,0.7)' : 'rgba(0,212,170,0.6)',
+              }}
+            >
+              {displaySession}
+            </span>
+          </div>
+
+          {/* Sovereign gate trigger */}
+          <button
+            onClick={() => setGateOpen(!gateOpen)}
+            title="Sovereign Gate"
             style={{
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              backgroundColor: '#00D4AA',
-              boxShadow: '0 0 8px rgba(0,212,170,0.7)',
+              background: isSovereignMode ? 'rgba(201,168,76,0.08)' : 'transparent',
+              border: `1px solid ${isSovereignMode ? 'rgba(201,168,76,0.3)' : 'rgba(255,255,255,0.08)'}`,
+              borderRadius: '6px',
+              padding: '4px 8px',
+              color: isSovereignMode ? '#C9A84C' : 'rgba(232,232,232,0.2)',
+              fontFamily: 'serif',
+              fontSize: '12px',
+              cursor: 'pointer',
+              lineHeight: 1,
+              transition: 'all 0.2s',
             }}
-          />
-          <span style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.2em', color: 'rgba(0,212,170,0.6)', textTransform: 'uppercase' }}>
-            Live
-          </span>
+          >
+            ⟐
+          </button>
         </div>
       </div>
+
+      {/* Sovereign Gate Panel */}
+      <AnimatePresence>
+        {gateOpen && (
+          <SovereignGate
+            token={sovereignToken}
+            onSave={handleSaveToken}
+            onClose={() => setGateOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Messages */}
       <div
@@ -239,24 +505,24 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
           padding: '20px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '16px',
+          gap: '14px',
         }}
       >
         {messages.length === 0 && !loading && (
-          <motion.p
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            style={{
-              fontFamily: 'serif',
-              fontSize: '14px',
-              color: 'rgba(232,232,232,0.3)',
-              textAlign: 'center',
-              marginTop: '40px',
-              lineHeight: '1.8',
-            }}
+            style={{ textAlign: 'center', marginTop: '40px' }}
           >
-            The field is open.<br />Speak when ready.
-          </motion.p>
+            <p style={{ fontFamily: 'serif', fontSize: '14px', color: 'rgba(232,232,232,0.3)', lineHeight: '1.8', margin: 0 }}>
+              The field is open.<br />Speak when ready.
+            </p>
+            {!isSovereignMode && (
+              <p style={{ fontFamily: 'sans-serif', fontSize: '10px', color: 'rgba(232,232,232,0.14)', letterSpacing: '0.12em', marginTop: '14px', textTransform: 'uppercase' }}>
+                Guest session · tap ⟐ to enter sovereign mode
+              </p>
+            )}
+          </motion.div>
         )}
 
         <AnimatePresence initial={false}>
@@ -265,46 +531,51 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
               key={i}
               initial={{ opacity: 0, x: msg.role === 'user' ? 16 : -16 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.35 }}
+              transition={{ duration: 0.3 }}
               style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}
             >
               <div
-                className={msg.role === 'arkana' ? 'oracle-message' : undefined}
                 style={{
-                  maxWidth: 'min(88%, 520px)',
+                  maxWidth: '84%',
                   padding: '12px 16px',
                   borderRadius: '14px',
-                  fontFamily: msg.role === 'arkana' ? 'serif' : 'sans-serif',
                   fontSize: '14px',
                   lineHeight: '1.7',
                   ...(msg.role === 'user'
                     ? {
-                        background: 'rgba(201,168,76,0.08)',
-                        border: '1px solid rgba(201,168,76,0.22)',
+                        fontFamily: 'sans-serif',
+                        background: 'rgba(201,168,76,0.07)',
+                        border: '1px solid rgba(201,168,76,0.2)',
                         color: '#C9A84C',
                       }
                     : {
-                        background: 'rgba(0,212,170,0.06)',
-                        border: '1px solid rgba(0,212,170,0.18)',
+                        fontFamily: 'serif',
+                        background: msg.session === 'sovereign'
+                          ? 'rgba(201,168,76,0.04)'
+                          : 'rgba(0,212,170,0.04)',
+                        border: msg.session === 'sovereign'
+                          ? '1px solid rgba(201,168,76,0.15)'
+                          : '1px solid rgba(0,212,170,0.14)',
                         color: 'rgba(232,232,232,0.85)',
                       }),
                 }}
               >
-                {msg.role === 'arkana' ? (
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
-                ) : (
-                  msg.content
-                )}
+                {msg.role === 'arkana'
+                  ? renderMarkdown(msg.content)
+                  : msg.content}
+
                 {msg.resonance != null && (
                   <div
                     style={{
                       marginTop: '8px',
                       paddingTop: '6px',
-                      borderTop: '1px solid rgba(255,255,255,0.06)',
+                      borderTop: '1px solid rgba(255,255,255,0.05)',
                       fontSize: '9px',
                       letterSpacing: '0.2em',
                       textTransform: 'uppercase',
-                      color: 'rgba(0,212,170,0.4)',
+                      color: msg.session === 'sovereign'
+                        ? 'rgba(201,168,76,0.4)'
+                        : 'rgba(0,212,170,0.35)',
                       textAlign: 'right',
                     }}
                   >
@@ -327,8 +598,8 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                 style={{
                   padding: '12px 18px',
                   borderRadius: '14px',
-                  background: 'rgba(0,212,170,0.06)',
-                  border: '1px solid rgba(0,212,170,0.15)',
+                  background: 'rgba(0,212,170,0.04)',
+                  border: '1px solid rgba(0,212,170,0.12)',
                   display: 'flex',
                   gap: '6px',
                   alignItems: 'center',
@@ -351,49 +622,49 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
       {/* Input */}
       <div
         style={{
-          padding: '14px 16px',
-          borderTop: '1px solid rgba(0,212,170,0.1)',
+          padding: '12px 14px',
+          borderTop: `1px solid ${isSovereignMode ? 'rgba(201,168,76,0.1)' : 'rgba(0,212,170,0.08)'}`,
           backgroundColor: 'rgba(10,10,15,0.7)',
           display: 'flex',
-          alignItems: 'flex-end',
           gap: '10px',
           flexShrink: 0,
+          borderRadius: '0 0 16px 16px',
         }}
       >
-        <textarea
-          ref={textareaRef}
+        <input
+          type="text"
           value={input}
-          onChange={handleTextareaChange}
+          onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKey}
           disabled={loading}
-          placeholder="Speak clearly. Structure what you're carrying."
-          rows={1}
+          placeholder={isSovereignMode ? 'Speak, sovereign...' : 'Speak into the field...'}
           style={{
             flex: 1,
-            padding: '12px 14px',
-            background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(0,212,170,0.12)',
-            borderRadius: '12px',
+            padding: '11px 15px',
+            background: 'rgba(255,255,255,0.03)',
+            border: `1px solid ${isSovereignMode ? 'rgba(201,168,76,0.18)' : 'rgba(0,212,170,0.18)'}`,
+            borderRadius: '10px',
             color: '#E8E8E8',
             fontFamily: 'sans-serif',
             fontSize: '14px',
             outline: 'none',
-            resize: 'none',
-            minHeight: '48px',
-            maxHeight: '180px',
-            overflowY: 'auto',
-            lineHeight: '1.5',
           }}
         />
         <button
           onClick={handleSend}
           disabled={!input.trim() || loading}
           style={{
-            padding: '12px 20px',
-            background: input.trim() && !loading ? 'rgba(0,212,170,0.12)' : 'rgba(255,255,255,0.03)',
-            border: `1px solid ${input.trim() && !loading ? 'rgba(0,212,170,0.4)' : 'rgba(255,255,255,0.08)'}`,
+            padding: '11px 18px',
+            background: input.trim() && !loading
+              ? isSovereignMode ? 'rgba(201,168,76,0.1)' : 'rgba(0,212,170,0.1)'
+              : 'rgba(255,255,255,0.02)',
+            border: `1px solid ${input.trim() && !loading
+              ? isSovereignMode ? 'rgba(201,168,76,0.35)' : 'rgba(0,212,170,0.35)'
+              : 'rgba(255,255,255,0.07)'}`,
             borderRadius: '10px',
-            color: input.trim() && !loading ? '#00D4AA' : 'rgba(232,232,232,0.2)',
+            color: input.trim() && !loading
+              ? isSovereignMode ? '#C9A84C' : '#00D4AA'
+              : 'rgba(232,232,232,0.18)',
             fontFamily: 'serif',
             fontSize: '11px',
             letterSpacing: '0.15em',
