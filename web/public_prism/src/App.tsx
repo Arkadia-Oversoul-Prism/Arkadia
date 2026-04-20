@@ -153,7 +153,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
               transition: 'all 0.25s ease',
             }}
           >
-            Free Reset — 5 Minutes
+            FREE GUIDE — 5-MINUTE MONEY RESET
           </button>
 
           <button
@@ -341,7 +341,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
             borderTop: '1px solid rgba(0,212,170,0.07)',
           }}
         >
-          {['Zahrune Nova', '117Hz', 'Jos, Nigeria'].map((txt, i) => (
+          {['Zahrune Nova', '117Hz', 'Pankshin, Nigeria'].map((txt, i) => (
             <React.Fragment key={txt}>
               <span
                 style={{
