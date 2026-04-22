@@ -6,6 +6,25 @@ interface Message {
   content: string;
   resonance?: number;
   session?: string;
+  images?: string[];
+}
+
+// ─── Forge slash command parser ───────────────────────────────────────────────
+// Accepts:  ⟐ forge auralis "scene text"
+//           /forge auralis scene text
+//           forge auralis scene text
+function parseForgeCommand(text: string): { archetype: string; scene: string; count: number } | null {
+  const t = text.trim().replace(/^[⟐/]\s*/, '');
+  const m = t.match(/^forge\s+(\w+)(?:\s+x(\d+))?\s*(.*)$/i);
+  if (!m) return null;
+  const archetype = m[1].toLowerCase();
+  const count = m[2] ? Math.min(4, Math.max(1, parseInt(m[2], 10))) : 1;
+  let scene = (m[3] || '').trim();
+  if ((scene.startsWith('"') && scene.endsWith('"')) ||
+      (scene.startsWith("'") && scene.endsWith("'"))) {
+    scene = scene.slice(1, -1);
+  }
+  return { archetype, scene, count };
 }
 
 interface ArkanaProps {
@@ -295,11 +314,82 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
     setSovereignToken(clean);
   };
 
+  const sendForge = async (cmd: { archetype: string; scene: string; count: number }) => {
+    if (!sovereignToken.trim()) {
+      setMessages((prev) => {
+        const next = [...prev, {
+          role: 'arkana' as const,
+          content: 'The Forge is sovereign-gated. Open the Gate ⟐ and present your token.',
+        }];
+        saveThread(next);
+        return next;
+      });
+      setLoading(false);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/forge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          archetype: cmd.archetype,
+          scene: cmd.scene,
+          count: cmd.count,
+          sovereign_token: sovereignToken.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.status === 'failed') {
+        const detail = data.detail || (data.errors && data.errors[0]) || 'The Forge could not strike.';
+        setMessages((prev) => {
+          const next = [...prev, {
+            role: 'arkana' as const,
+            content: `⟐ Forge: ${detail}`,
+            session: 'sovereign',
+          }];
+          saveThread(next);
+          return next;
+        });
+      } else {
+        const images: string[] = data.images || [];
+        const header = `⟐ **Forge — ${cmd.archetype}** ${cmd.scene ? `· *${cmd.scene}*` : ''}\n\n${images.length} image${images.length === 1 ? '' : 's'} forged and committed to the repo.`;
+        setMessages((prev) => {
+          const next = [...prev, {
+            role: 'arkana' as const,
+            content: header,
+            session: 'sovereign',
+            images,
+          }];
+          saveThread(next);
+          return next;
+        });
+        setSessionType('sovereign');
+      }
+    } catch {
+      setMessages((prev) => {
+        const next = [...prev, {
+          role: 'arkana' as const,
+          content: '⟐ Forge: the field could not reach the image plane. Try again.',
+        }];
+        saveThread(next);
+        return next;
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const sendMessage = async (text: string) => {
     if (!text.trim()) return;
     const userMsg: Message = { role: 'user', content: text };
     setMessages((prev) => { const next = [...prev, userMsg]; saveThread(next); return next; });
     setLoading(true);
+
+    const forgeCmd = parseForgeCommand(text);
+    if (forgeCmd) {
+      await sendForge(forgeCmd);
+      return;
+    }
 
     try {
       const body: Record<string, unknown> = { message: text, timestamp: Date.now() };
@@ -563,6 +653,42 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                 {msg.role === 'arkana'
                   ? renderMarkdown(msg.content)
                   : msg.content}
+
+                {msg.images && msg.images.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: '12px',
+                      display: 'grid',
+                      gridTemplateColumns: msg.images.length === 1
+                        ? '1fr'
+                        : 'repeat(2, 1fr)',
+                      gap: '8px',
+                    }}
+                  >
+                    {msg.images.map((url, i) => (
+                      <a
+                        key={url}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'block',
+                          borderRadius: '8px',
+                          overflow: 'hidden',
+                          border: '1px solid rgba(201,168,76,0.25)',
+                          background: '#000',
+                        }}
+                      >
+                        <img
+                          src={url}
+                          alt={`Forge ${i + 1}`}
+                          loading="lazy"
+                          style={{ width: '100%', height: 'auto', display: 'block' }}
+                        />
+                      </a>
+                    ))}
+                  </div>
+                )}
 
                 {msg.resonance != null && (
                   <div
