@@ -28,7 +28,7 @@ interface ArkanaProps {
   initialMessage?: string;
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://arkadia-n26k.onrender.com';
 
 const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
   const { uid, loading: authLoading } = useArkadiaAuth();
