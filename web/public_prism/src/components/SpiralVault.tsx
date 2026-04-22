@@ -192,7 +192,11 @@ const ScrollCard: React.FC<{ docKey: string; scroll: Scroll; index: number; dyna
 }) => {
   const [expanded, setExpanded] = useState(false);
   const meta = getCategoryMeta(scroll.category, dynamicCatIndex);
-  const isLive = !scroll.error && scroll.chars > 0;
+  const isLive  = !scroll.error && scroll.chars > 0;
+  const isEmpty = !scroll.error && scroll.chars === 0;
+  const status  = scroll.error ? 'error' : isEmpty ? 'empty' : 'live';
+  const statusColor = isLive ? meta.color : isEmpty ? '#888' : '#ff6b6b';
+  const statusGlow  = isLive ? meta.glow : 'none';
 
   return (
     <motion.div
@@ -222,8 +226,8 @@ const ScrollCard: React.FC<{ docKey: string; scroll: Scroll; index: number; dyna
                 width: '6px',
                 height: '6px',
                 borderRadius: '50%',
-                backgroundColor: isLive ? meta.color : '#ff6b6b',
-                boxShadow: isLive ? `0 0 7px ${meta.glow}` : 'none',
+                backgroundColor: statusColor,
+                boxShadow: statusGlow !== 'none' ? `0 0 7px ${statusGlow}` : 'none',
               }}
             />
             <span
@@ -232,10 +236,10 @@ const ScrollCard: React.FC<{ docKey: string; scroll: Scroll; index: number; dyna
                 fontSize: '9px',
                 letterSpacing: '0.2em',
                 textTransform: 'uppercase',
-                color: isLive ? `${meta.color}90` : 'rgba(255,107,107,0.6)',
+                color: isLive ? `${meta.color}90` : isEmpty ? 'rgba(160,160,160,0.55)' : 'rgba(255,107,107,0.6)',
               }}
             >
-              {isLive ? 'live' : 'error'}
+              {status}
             </span>
           </div>
         </div>

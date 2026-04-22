@@ -257,7 +257,24 @@ async def _gemini_chat(messages: list[dict], system: str) -> str:
                     continue
                 resp.raise_for_status()
                 data = resp.json()
-                return data["candidates"][0]["content"]["parts"][0]["text"]
+                # Robust extraction: Gemini may return safety-blocked responses
+                # with no candidates/content/parts. Surface a meaningful message
+                # instead of crashing with a KeyError/IndexError.
+                cands = data.get("candidates") or []
+                if not cands:
+                    pf = data.get("promptFeedback", {})
+                    last_err = f"no candidates (blockReason={pf.get('blockReason','unknown')})"
+                    logger.warning(f"Model {model}: {last_err}")
+                    continue
+                cand = cands[0]
+                finish = cand.get("finishReason", "")
+                parts = (cand.get("content") or {}).get("parts") or []
+                texts = [p.get("text", "") for p in parts if p.get("text")]
+                if not texts:
+                    last_err = f"empty response (finishReason={finish})"
+                    logger.warning(f"Model {model}: {last_err}")
+                    continue
+                return "".join(texts)
             except Exception as e:
                 last_err = str(e)
                 logger.warning(f"Model {model} failed: {e}")

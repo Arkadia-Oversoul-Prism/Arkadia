@@ -484,8 +484,11 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error('non-ok');
-      const data = await res.json();
+      const data = await res.json().catch(() => ({} as any));
+      if (!res.ok) {
+        const detail = data?.detail || data?.error || `HTTP ${res.status}`;
+        throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+      }
       const session = data.session as 'sovereign' | 'guest' || 'guest';
       setSessionType(session);
       setMessages((prev) => {
@@ -498,9 +501,13 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
         saveThread(next);
         return next;
       });
-    } catch {
+    } catch (err: any) {
+      const reason = err?.message || 'unknown';
       setMessages((prev) => {
-        const next = [...prev, { role: 'arkana' as const, content: 'The field is recalibrating. Try again.' }];
+        const next = [...prev, {
+          role: 'arkana' as const,
+          content: `The field is recalibrating. Try again.\n\n*(${reason})*`,
+        }];
         saveThread(next);
         return next;
       });
