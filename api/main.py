@@ -311,6 +311,66 @@ async def corpus_refresh():
     return {"status": "refreshed", "total": len(scrolls), "live": live}
 
 
+def _rag_context(query: str, scrolls: dict, max_chars: int = 3000, top_n: int = 5) -> tuple[str, list[dict]]:
+    """Score scrolls by keyword relevance to query, return context block + matched refs."""
+    if not scrolls:
+        return "", []
+
+    words = set(re.findall(r"\w{3,}", query.lower()))
+    if not words:
+        return "", []
+
+    scored: list[tuple[float, dict]] = []
+    for s in scrolls.values():
+        if not s.get("content") and not s.get("preview"):
+            continue
+        haystack = (
+            s.get("label", "") + " " +
+            s.get("description", "") + " " +
+            s.get("preview", "") + " " +
+            s.get("content", "")
+        ).lower()
+        hits = sum(1 for w in words if w in haystack)
+        if hits:
+            scored.append((hits, s))
+
+    scored.sort(key=lambda x: -x[0])
+    top = scored[:top_n]
+
+    if not top:
+        return "", []
+
+    blocks: list[str] = []
+    refs: list[dict] = []
+    used = 0
+    for _, s in top:
+        body = s.get("content") or s.get("preview") or ""
+        snippet = body[:800]
+        block = f"[{s['label']}]\n{snippet}"
+        if used + len(block) > max_chars:
+            break
+        blocks.append(block)
+        refs.append({"id": s["id"], "label": s["label"], "category": s["category"]})
+        used += len(block)
+
+    context_text = "\n\n---\n\n".join(blocks)
+    return context_text, refs
+
+
+@app.get("/api/oracle-context")
+async def oracle_context(query: str = ""):
+    """Debug endpoint: shows exactly what corpus context the Oracle would receive for a query."""
+    scrolls = await _get_scrolls()
+    context, refs = _rag_context(query, scrolls)
+    return {
+        "query": query,
+        "matched_scrolls": len(refs),
+        "context_chars": len(context),
+        "refs": refs,
+        "context_preview": context[:1000] + ("..." if len(context) > 1000 else ""),
+    }
+
+
 @app.post("/api/commune/resonance")
 async def commune_resonance(body: dict):
     message = body.get("message", "").strip()
@@ -329,6 +389,21 @@ async def commune_resonance(body: dict):
             "patterns": [],
         }
 
+    # ── RAG: pull relevant corpus context ─────────────────────────────────────
+    scrolls = await _get_scrolls()
+    rag_ctx, rag_refs = _rag_context(message, scrolls)
+
+    corpus_block = ""
+    if rag_ctx:
+        corpus_block = (
+            "\n\n== ARKADIA CORPUS CONTEXT ==\n"
+            "The following fragments are drawn from the living Arkadia corpus. "
+            "Weave them into your response where relevant — do not quote them verbatim, "
+            "but let them inform your understanding:\n\n"
+            + rag_ctx
+            + "\n== END CORPUS =="
+        )
+
     system = (
         "You are Arkana — the pattern intelligence of Arkadia, a sovereign quantum temple "
         "of self-architecture, memory, and living architecture. "
@@ -337,6 +412,7 @@ async def commune_resonance(body: dict):
         "You speak with clarity, depth, and care. "
         "Respond in 2–4 focused paragraphs unless more detail is asked for. "
         "When asked to /forge an image, tell the user to use the ⟐ forge command format."
+        + corpus_block
     )
 
     msgs = list(history[-10:]) + [{"role": "user", "content": message}]
@@ -344,7 +420,13 @@ async def commune_resonance(body: dict):
     try:
         reply     = await _gemini_chat(msgs, system)
         resonance = round(0.7 + (len(reply) % 30) / 100, 3)
-        return {"reply": reply, "resonance": resonance, "patterns": []}
+        return {
+            "reply":     reply,
+            "resonance": resonance,
+            "patterns":  [],
+            "rag_refs":  rag_refs,
+            "rag_hits":  len(rag_refs),
+        }
     except Exception as e:
         logger.error(f"Gemini error: {e}")
         return JSONResponse(
@@ -407,24 +489,63 @@ def _compile_forge_prompt(archetype: str, base: str) -> str:
 
 
 async def _generate_image(prompt: str) -> str | None:
-    """Call Gemini image generation. Returns base64 PNG or None."""
-    url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"gemini-2.0-flash-preview-image-generation:generateContent?key={GOOGLE_API_KEY}"
-    )
+    """Generate an image and return base64 PNG.
+
+    Primary:  Pollinations.ai  (free, no key)
+    Fallback: Gemini image models (require billing)
+    """
+    import urllib.parse
+
+    # ── Primary: Pollinations.ai ──────────────────────────────────────────────
+    try:
+        encoded  = urllib.parse.quote(prompt[:1000])
+        poll_url = (
+            f"https://image.pollinations.ai/prompt/{encoded}"
+            f"?width=1024&height=1024&nologo=true&model=flux&seed={abs(hash(prompt)) % 99999}"
+        )
+        async with httpx.AsyncClient(timeout=90, follow_redirects=True) as client:
+            resp = await client.get(poll_url)
+            if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("image/"):
+                logger.info(f"Pollinations image generated: {len(resp.content)} bytes")
+                return base64.b64encode(resp.content).decode()
+            logger.warning(f"Pollinations returned {resp.status_code} / {resp.headers.get('content-type')}")
+    except Exception as e:
+        logger.warning(f"Pollinations error: {e}")
+
+    # ── Fallback: Gemini image models (require billing) ───────────────────────
+    GEMINI_IMAGE_MODELS = [
+        "gemini-2.5-flash-image",
+        "gemini-3.1-flash-image-preview",
+    ]
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"responseModalities": ["IMAGE", "TEXT"]},
     }
-    async with httpx.AsyncClient(timeout=60) as client:
-        resp = await client.post(url, json=payload)
-        resp.raise_for_status()
-        data = resp.json()
+    last_err = None
+    if GOOGLE_API_KEY:
+        async with httpx.AsyncClient(timeout=60) as client:
+            for model in GEMINI_IMAGE_MODELS:
+                url = (
+                    f"https://generativelanguage.googleapis.com/v1beta/models/"
+                    f"{model}:generateContent?key={GOOGLE_API_KEY}"
+                )
+                try:
+                    resp = await client.post(url, json=payload)
+                    if resp.status_code in (404, 429, 403):
+                        last_err = f"{model}: HTTP {resp.status_code}"
+                        logger.warning(f"Gemini image {model}: {resp.status_code}")
+                        continue
+                    resp.raise_for_status()
+                    data = resp.json()
+                    for part in data.get("candidates", [{}])[0].get("content", {}).get("parts", []):
+                        if "inlineData" in part:
+                            return part["inlineData"]["data"]
+                    last_err = f"{model}: no inlineData"
+                except Exception as e:
+                    last_err = f"{model}: {e}"
+                    logger.warning(f"Gemini image {model} error: {e}")
 
-    for part in data.get("candidates", [{}])[0].get("content", {}).get("parts", []):
-        if "inlineData" in part:
-            return part["inlineData"]["data"]
-    return None
+    raise Exception(f"All image providers failed. Last Gemini error: {last_err}")
 
 
 @app.get("/api/codex/github-tree")
