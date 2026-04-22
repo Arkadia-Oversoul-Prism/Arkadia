@@ -239,7 +239,7 @@ async def _gemini_chat(messages: list[dict], system: str) -> str:
     payload = {
         "system_instruction": {"parts": [{"text": system}]},
         "contents": contents,
-        "generationConfig": {"temperature": 0.88, "maxOutputTokens": 700},
+        "generationConfig": {"temperature": 0.88, "maxOutputTokens": 2048},
     }
 
     last_err = None
