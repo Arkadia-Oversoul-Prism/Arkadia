@@ -27,6 +27,35 @@ function parseForgeCommand(text: string): { archetype: string; scene: string; co
   return { archetype, scene, count };
 }
 
+// ─── Codex RAG probe command parser ───────────────────────────────────────────
+// Accepts:  ⟐ codex memory spiral law
+//           /codex what does the Oversoul Prism say about identity?
+function parseCodexCommand(text: string): string | null {
+  const t = text.trim().replace(/^[⟐/]\s*/, '');
+  const m = t.match(/^codex\s*(.*)?$/i);
+  if (!m) return null;
+  return (m[1] || '').trim() || 'arkadia spiral codex';
+}
+
+// ─── Help command parser ───────────────────────────────────────────────────────
+function isHelpCommand(text: string): boolean {
+  const t = text.trim().replace(/^[⟐/]\s*/, '').toLowerCase();
+  return t === 'help' || t === '?' || t === 'commands';
+}
+
+const HELP_TEXT = `**Arkana Commands**
+
+⟐ **forge** \`[archetype]\` \`[scene]\` — Generate an image through the Forge
+  Archetypes: \`auralis\` · \`active_grid\` · \`arkana\` · \`vhix\`
+  Example: \`⟐ forge auralis meditating under the Sahara\`
+
+⟐ **codex** \`[query]\` — Probe which corpus scrolls Arkana is drawing from for a topic
+  Example: \`⟐ codex spiral law memory identity\`
+
+⟐ **help** — Show this command reference
+
+Or simply speak — Arkana reads the living corpus and responds.`;
+
 interface ArkanaProps {
   initialMessage?: string;
 }
@@ -379,15 +408,70 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
     }
   };
 
+  const sendCodexQuery = async (query: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/oracle-context?query=${encodeURIComponent(query)}`);
+      const data = await res.json();
+      const hits: Array<{ label: string; category: string }> = data.refs || [];
+      const chars: number = data.context_chars || 0;
+
+      let reply: string;
+      if (hits.length === 0) {
+        reply = `⟐ **Codex Probe** · *"${query}"*\n\nNo scrolls matched this query in the active corpus. The field may need a broader term, or those documents are indexed as binary (docx) without readable text.`;
+      } else {
+        const catIcon: Record<string, string> = {
+          NEURAL_SPINE: '🧬',
+          CREATIVE_OS: '🎨',
+          COLLECTIVE: '📚',
+          GOVERNANCE: '⚖️',
+        };
+        const lines = hits.map(
+          (r) => `${catIcon[r.category] || '📄'} **${r.label}** ·  \`${r.category}\``
+        );
+        reply = `⟐ **Codex Probe** · *"${query}"*\n\nArkana is drawing from **${hits.length} scroll${hits.length === 1 ? '' : 's'}** (${chars.toLocaleString()} chars injected):\n\n${lines.join('\n')}\n\nThis is the live corpus context woven into the next Oracle response.`;
+      }
+
+      setMessages((prev) => {
+        const next = [...prev, { role: 'arkana' as const, content: reply }];
+        saveThread(next);
+        return next;
+      });
+    } catch {
+      setMessages((prev) => {
+        const next = [...prev, { role: 'arkana' as const, content: '⟐ Codex: could not reach the corpus index. The field is recalibrating.' }];
+        saveThread(next);
+        return next;
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const sendMessage = async (text: string) => {
     if (!text.trim()) return;
     const userMsg: Message = { role: 'user', content: text };
     setMessages((prev) => { const next = [...prev, userMsg]; saveThread(next); return next; });
     setLoading(true);
 
+    if (isHelpCommand(text)) {
+      setMessages((prev) => {
+        const next = [...prev, { role: 'arkana' as const, content: HELP_TEXT }];
+        saveThread(next);
+        return next;
+      });
+      setLoading(false);
+      return;
+    }
+
     const forgeCmd = parseForgeCommand(text);
     if (forgeCmd) {
       await sendForge(forgeCmd);
+      return;
+    }
+
+    const codexQuery = parseCodexCommand(text);
+    if (codexQuery !== null) {
+      await sendCodexQuery(codexQuery);
       return;
     }
 
