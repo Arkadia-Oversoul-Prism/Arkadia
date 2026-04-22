@@ -1,67 +1,60 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://arkadia-n26k.onrender.com';
 
-// Map category keys to display metadata
-const CATEGORY_META: Record<string, { label: string; color: string; icon: string }> = {
-  NEURAL_SPINE: { label: 'Neural Spine', color: '#00D4AA', icon: '🧬' },
-  CREATIVE_OS: { label: 'Creative OS', color: '#C9A84C', icon: '🎨' },
-  COLLECTIVE: { label: 'Collective', color: '#B08DE8', icon: '📚' },
-  GOVERNANCE: { label: 'Governance', color: '#6A9FD8', icon: '⚖️' },
-  ARCHIVE: { label: 'Archive', color: '#8B7355', icon: '📦' },
-  CODEX: { label: 'Codex', color: '#D4AF37', icon: '📜' },
-  SCRIPTS: { label: 'Scripts', color: '#4ADE80', icon: '⚡' },
-  TESTS: { label: 'Tests', color: '#F472B6', icon: '🧪' },
+const CATEGORY_ICONS: Record<string, string> = {
+  '00_Master': '📜',
+  '10_Core_Papers': '🧬',
+  '20_Specs_Schemas': '🔷',
+  '30_Protocols': '⚙️',
+  '40_Design_UI': '🎨',
+  '50_Code_Modules': '💻',
+  '60_Atlas': '🗺️',
+  '70_Governance_Licensing': '⚖️',
+  '80_Research_Citations': '🔬',
+  '90_Scrolls_Sigilry': '🌀',
+  'root': '✨',
 };
 
-const DEFAULT_META = { label: 'Unknown', color: '#888', icon: '📄' };
+const RESONANCE_COLORS: Record<string, string> = {
+  '00_Master': 'border-[#D4AF37]/60 bg-[#D4AF37]/5',
+  '10_Core_Papers': 'border-[#22d3ee]/40 bg-[#22d3ee]/5',
+  '20_Specs_Schemas': 'border-blue-400/40 bg-blue-400/5',
+  '30_Protocols': 'border-purple-400/40 bg-purple-400/5',
+  '40_Design_UI': 'border-pink-400/40 bg-pink-400/5',
+  '50_Code_Modules': 'border-green-400/40 bg-green-400/5',
+  '60_Atlas': 'border-yellow-400/40 bg-yellow-400/5',
+  '70_Governance_Licensing': 'border-orange-400/40 bg-orange-400/5',
+  '80_Research_Citations': 'border-teal-400/40 bg-teal-400/5',
+  '90_Scrolls_Sigilry': 'border-violet-400/40 bg-violet-400/5',
+  'root': 'border-[#D4AF37]/80 bg-[#D4AF37]/10',
+};
 
-function getCategoryMeta(category: string) {
-  return CATEGORY_META[category] ?? { ...DEFAULT_META, label: category.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) };
-}
-
-interface Scroll {
+interface CodexDoc {
   id: string;
-  source: string;
+  path: string;
+  title: string;
+  summary: string;
   category: string;
-  priority: number;
-  label: string;
-  description: string;
-  chars: number;
-  preview: string;
-  content: string;
-  fetched_at: string | null;
-  error: string | null;
-}
-
-interface CodexResponse {
-  status: string;
-  total_docs: number;
-  live_docs: number;
-  total_chars: number;
-  scrolls: Record<string, Scroll>;
+  category_label: string;
+  category_icon: string;
+  tags: string[];
+  github_url: string;
+  raw_url: string;
 }
 
 interface Category {
   key: string;
   label: string;
+  icon: string;
   count: number;
 }
 
-// Dynamic color palette for unknown categories
-const DYNAMIC_COLORS = [
-  { color: '#E88DB0', icon: '🩷' },
-  { color: '#8DE8C4', icon: '💚' },
-  { color: '#E8C48D', icon: '🧡' },
-  { color: '#8DAEE8', icon: '💙' },
-  { color: '#C48DE8', icon: '💜' },
-];
-
 export default function SpiralCodexFeed({ onBack }: { onBack: () => void }) {
-  const [codex, setCodex] = useState<CodexResponse | null>(null);
+  const [docs, setDocs] = useState<CodexDoc[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [activeCategory, setActiveCategory] = useState<string>('ALL');
+  const [activeCategory, setActiveCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,22 +62,26 @@ export default function SpiralCodexFeed({ onBack }: { onBack: () => void }) {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [activeCategory, searchQuery]);
 
   const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [codexRes, catsRes] = await Promise.all([
-        fetch(`${API_BASE}/api/codex`),
+      const params = new URLSearchParams();
+      if (activeCategory !== 'all') params.set('category', activeCategory);
+      if (searchQuery.trim()) params.set('q', searchQuery.trim());
+
+      const [docsRes, catsRes] = await Promise.all([
+        fetch(`${API_BASE}/api/codex?${params}`),
         fetch(`${API_BASE}/api/codex/categories`),
       ]);
 
-      if (!codexRes.ok) throw new Error(`API error: ${codexRes.status}`);
-      const codexData = await codexRes.json();
+      if (!docsRes.ok) throw new Error(`API error: ${docsRes.status}`);
+      const docsData = await docsRes.json();
       const catsData = catsRes.ok ? await catsRes.json() : { categories: [] };
 
-      setCodex(codexData);
+      setDocs(docsData.docs || []);
       setCategories(catsData.categories || []);
     } catch (e: any) {
       setError(e.message);
@@ -93,45 +90,7 @@ export default function SpiralCodexFeed({ onBack }: { onBack: () => void }) {
     }
   };
 
-  // Filter scrolls based on active category and search
-  const filteredScrolls = useMemo(() => {
-    if (!codex?.scrolls) return [];
-    
-    const allScrolls = Object.entries(codex.scrolls);
-    
-    return allScrolls
-      .filter(([_, scroll]) => {
-        // Filter by category
-        if (activeCategory !== 'ALL' && scroll.category !== activeCategory) {
-          return false;
-        }
-        // Filter by search
-        if (searchQuery.trim()) {
-          const query = searchQuery.toLowerCase();
-          const labelMatch = scroll.label?.toLowerCase().includes(query);
-          const descMatch = scroll.description?.toLowerCase().includes(query);
-          const previewMatch = scroll.preview?.toLowerCase().includes(query);
-          if (!labelMatch && !descMatch && !previewMatch) return false;
-        }
-        return true;
-      })
-      .map(([key, scroll]) => ({ key, ...scroll }));
-  }, [codex, activeCategory, searchQuery]);
-
-  // Count for each category
-  const categoryCounts = useMemo(() => {
-    if (!codex?.scrolls) return {};
-    const counts: Record<string, number> = { ALL: Object.keys(codex.scrolls).length };
-    for (const scroll of Object.values(codex.scrolls)) {
-      counts[scroll.category] = (counts[scroll.category] || 0) + 1;
-    }
-    return counts;
-  }, [codex]);
-
-  const formatChars = (n: number) => {
-    if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-    return `${n}`;
-  };
+  const filteredDocs = docs;
 
   return (
     <div className="min-h-screen bg-[#030712] text-white relative overflow-x-hidden">
@@ -162,7 +121,7 @@ export default function SpiralCodexFeed({ onBack }: { onBack: () => void }) {
               Spiral Codex
             </h1>
             <p className="text-[#7FDBFF]/50 text-xs tracking-[0.3em] mt-1 uppercase">
-              The Living Archive of Arkadia — {codex?.live_docs || 0} Scrolls Live
+              The Living Archive of Arkadia — {docs.length} Scrolls Indexed
             </p>
           </div>
 
@@ -183,35 +142,30 @@ export default function SpiralCodexFeed({ onBack }: { onBack: () => void }) {
           {/* Category Tabs */}
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
             <button
-              onClick={() => setActiveCategory('ALL')}
+              onClick={() => setActiveCategory('all')}
               className={`shrink-0 px-3 py-1 rounded-full text-xs transition-all border ${
-                activeCategory === 'ALL'
+                activeCategory === 'all'
                   ? 'bg-[#D4AF37]/20 border-[#D4AF37]/60 text-[#D4AF37]'
                   : 'border-white/10 text-white/40 hover:border-white/30'
               }`}
             >
-              ✦ All ({categoryCounts.ALL || 0})
+              ✦ All ({categories.reduce((a, c) => a + c.count, 0)})
             </button>
-            {categories.map((cat, idx) => {
-              const meta = getCategoryMeta(cat.key);
-              const isActive = activeCategory === cat.key;
-              return (
-                <button
-                  key={cat.key}
-                  onClick={() => setActiveCategory(cat.key)}
-                  className={`shrink-0 px-3 py-1 rounded-full text-xs transition-all border flex items-center gap-1 ${
-                    isActive
-                      ? `bg-[${meta.color}]/20 border-[${meta.color}]/60 text-[${meta.color}]`
-                      : 'border-white/10 text-white/40 hover:border-white/30'
-                  }`}
-                  style={isActive ? { background: `${meta.color}20`, borderColor: `${meta.color}60`, color: meta.color } : {}}
-                >
-                  <span>{meta.icon}</span>
-                  <span>{cat.label}</span>
-                  <span className="opacity-50">({categoryCounts[cat.key] || 0})</span>
-                </button>
-              );
-            })}
+            {categories.map(cat => (
+              <button
+                key={cat.key}
+                onClick={() => setActiveCategory(cat.key)}
+                className={`shrink-0 px-3 py-1 rounded-full text-xs transition-all border flex items-center gap-1 ${
+                  activeCategory === cat.key
+                    ? 'bg-[#22d3ee]/20 border-[#22d3ee]/60 text-[#22d3ee]'
+                    : 'border-white/10 text-white/40 hover:border-white/30'
+                }`}
+              >
+                <span>{cat.icon}</span>
+                <span>{cat.label}</span>
+                <span className="opacity-50">({cat.count})</span>
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -238,7 +192,7 @@ export default function SpiralCodexFeed({ onBack }: { onBack: () => void }) {
           </div>
         )}
 
-        {!loading && !error && filteredScrolls.length === 0 && (
+        {!loading && !error && filteredDocs.length === 0 && (
           <div className="text-center py-16">
             <div className="text-5xl mb-4">🌀</div>
             <p className="text-white/40">No scrolls found in this frequency.</p>
@@ -247,78 +201,51 @@ export default function SpiralCodexFeed({ onBack }: { onBack: () => void }) {
 
         <AnimatePresence>
           <div className="space-y-3">
-            {filteredScrolls.map((scroll, i) => {
-              const isExpanded = expandedDoc === scroll.id;
-              const meta = getCategoryMeta(scroll.category);
-              const isLive = !scroll.error && scroll.chars > 0;
-              
-              // Dynamic color for unknown categories
-              const catIdx = categories.findIndex(c => c.key === scroll.category);
-              const dynamicMeta = catIdx >= 0 ? meta : { 
-                ...DYNAMIC_COLORS[catIdx % DYNAMIC_COLORS.length], 
-                label: scroll.category.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) 
-              };
-              const colorClass = `border-[${dynamicMeta.color}]/40 bg-[${dynamicMeta.color}]/5`;
+            {filteredDocs.map((doc, i) => {
+              const isExpanded = expandedDoc === doc.id;
+              const colorClass = RESONANCE_COLORS[doc.category] || 'border-white/10 bg-white/5';
 
               return (
                 <motion.div
-                  key={scroll.id}
+                  key={doc.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.04, duration: 0.3 }}
-                  className="border rounded-xl overflow-hidden transition-all cursor-pointer"
-                  style={{ 
-                    borderColor: `${dynamicMeta.color}40`, 
-                    background: `${dynamicMeta.color}05` 
-                  }}
-                  onClick={() => setExpandedDoc(isExpanded ? null : scroll.id)}
+                  className={`border rounded-xl overflow-hidden transition-all cursor-pointer ${colorClass}`}
+                  onClick={() => setExpandedDoc(isExpanded ? null : doc.id)}
                 >
                   {/* Card Header */}
                   <div className="p-4 flex items-start gap-3">
                     <div className="text-2xl shrink-0 mt-0.5">
-                      {meta.icon}
+                      {CATEGORY_ICONS[doc.category] || '📄'}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span 
-                          className="text-[10px] uppercase tracking-[0.2em]"
-                          style={{ color: dynamicMeta.color }}
-                        >
-                          {meta.label}
+                        <span className="text-[10px] uppercase tracking-[0.2em] text-[#7FDBFF]/50">
+                          {doc.category_label}
                         </span>
                         <span className="text-white/20">·</span>
-                        <span className="text-[10px] text-white/30">
-                          {scroll.chars ? formatChars(scroll.chars) + ' chars' : '—'}
-                        </span>
+                        <span className="text-[10px] text-white/30">{doc.path}</span>
                       </div>
                       <h3 className="text-[#D4AF37] font-medium text-sm md:text-base leading-snug">
-                        {scroll.label}
+                        {doc.title}
                       </h3>
-                      {scroll.preview && (
+                      {doc.summary && (
                         <p className={`text-white/50 text-xs mt-1 leading-relaxed ${isExpanded ? '' : 'line-clamp-2'}`}>
-                          {scroll.preview}
+                          {doc.summary}
                         </p>
                       )}
 
-                      {/* Live/Error indicator */}
-                      <div className="flex items-center gap-1 mt-2">
-                        <motion.div
-                          animate={isLive ? { opacity: [0.5, 1, 0.5] } : {}}
-                          transition={{ duration: 2.5, repeat: Infinity }}
-                          style={{
-                            width: '6px',
-                            height: '6px',
-                            borderRadius: '50%',
-                            backgroundColor: isLive ? dynamicMeta.color : '#ff6b6b',
-                          }}
-                        />
-                        <span 
-                          className="text-[10px] uppercase tracking-wider"
-                          style={{ color: isLive ? `${dynamicMeta.color}90` : 'rgba(255,107,107,0.6)' }}
-                        >
-                          {isLive ? 'live' : 'error'}
-                        </span>
-                      </div>
+                      {/* Tags */}
+                      {doc.tags && doc.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {doc.tags.slice(0, isExpanded ? undefined : 3).map(tag => (
+                            <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-white/10">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     {/* Expand Indicator */}
@@ -331,7 +258,7 @@ export default function SpiralCodexFeed({ onBack }: { onBack: () => void }) {
                     </motion.div>
                   </div>
 
-                  {/* Expanded: Content & Actions */}
+                  {/* Expanded: Actions */}
                   <AnimatePresence>
                     {isExpanded && (
                       <motion.div
@@ -341,18 +268,28 @@ export default function SpiralCodexFeed({ onBack }: { onBack: () => void }) {
                         transition={{ duration: 0.3 }}
                         className="overflow-hidden"
                       >
-                        <div className="px-4 pb-4 border-t border-white/5 pt-3">
-                          {scroll.content && (
-                            <pre className="text-white/60 text-xs font-mono whitespace-pre-wrap max-h-64 overflow-y-auto mb-3">
-                              {scroll.content.slice(0, 2000)}
-                              {scroll.content.length > 2000 && '\n\n... (content truncated)'}
-                            </pre>
-                          )}
-                          <div className="flex flex-wrap gap-2">
-                            <span className="ml-auto text-[10px] text-white/20 self-center">
-                              ID: {scroll.id.slice(0, 20)}...
-                            </span>
-                          </div>
+                        <div className="px-4 pb-4 flex flex-wrap gap-2 border-t border-white/5 pt-3">
+                          <a
+                            href={doc.github_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-[#D4AF37] text-xs hover:bg-[#D4AF37]/20 transition"
+                          >
+                            <span>⟡</span> Open in GitHub
+                          </a>
+                          <a
+                            href={doc.raw_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#22d3ee]/10 border border-[#22d3ee]/30 text-[#22d3ee] text-xs hover:bg-[#22d3ee]/20 transition"
+                          >
+                            <span>◈</span> Raw Scroll
+                          </a>
+                          <span className="ml-auto text-[10px] text-white/20 self-center">
+                            ID: {doc.id.slice(0, 16)}...
+                          </span>
                         </div>
                       </motion.div>
                     )}
@@ -364,7 +301,7 @@ export default function SpiralCodexFeed({ onBack }: { onBack: () => void }) {
         </AnimatePresence>
 
         {/* Footer Signal */}
-        {!loading && filteredScrolls.length > 0 && (
+        {!loading && filteredDocs.length > 0 && (
           <div className="text-center mt-12 pb-8">
             <motion.div
               animate={{ opacity: [0.3, 0.7, 0.3] }}
