@@ -4,15 +4,19 @@ ARKANA node. Gemini-powered. Full living corpus. Semantic relevance injection.
 Phase 2: Sovereign session verification + user-context-aware responses.
 """
 
+import asyncio
+import base64
 import hashlib
 import hmac
 import logging
 import math
 import os
 import re
-from typing import Optional
+import time
+from typing import List, Optional
 
-from fastapi import FastAPI, BackgroundTasks
+import httpx
+from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -20,6 +24,7 @@ from pydantic import BaseModel
 import google.generativeai as genai
 
 from github_corpus import get_full_corpus, refresh_corpus
+from forge.templates import registry as forge_registry
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("arkadia")
@@ -399,3 +404,143 @@ async def corpus_refresh(background_tasks: BackgroundTasks):
     """Force corpus re-discovery from GitHub. Runs in background."""
     background_tasks.add_task(refresh_corpus)
     return {"status": "refresh initiated", "message": "The corpus is re-syncing from the source."}
+
+
+# ─── FORGE — sovereign-gated image generation ─────────────────────────────────
+
+FORGE_REPO = os.environ.get("FORGE_REPO", "Arkadia-Oversoul-Prism/Arkadia")
+FORGE_BRANCH = os.environ.get("FORGE_BRANCH", "main")
+FORGE_IMAGE_MODEL = os.environ.get("FORGE_IMAGE_MODEL", "gemini-2.5-flash-image-preview")
+FORGE_MAX_IMAGES = 4
+
+
+def _github_token() -> Optional[str]:
+    return (
+        os.environ.get("GITHUB_TOKEN")
+        or os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN")
+    )
+
+
+def _google_api_key() -> Optional[str]:
+    return os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+
+
+async def _push_image_to_github(path: str, png_bytes: bytes, message: str) -> str:
+    """Push PNG to repo. Returns the raw.githubusercontent.com URL."""
+    token = _github_token()
+    if not token:
+        raise RuntimeError("No GITHUB_TOKEN / GITHUB_PERSONAL_ACCESS_TOKEN set")
+
+    api_url = f"https://api.github.com/repos/{FORGE_REPO}/contents/{path}"
+    payload = {
+        "message": message,
+        "content": base64.b64encode(png_bytes).decode("ascii"),
+        "branch": FORGE_BRANCH,
+    }
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github+json",
+    }
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await client.put(api_url, json=payload, headers=headers)
+    if r.status_code not in (200, 201):
+        raise RuntimeError(f"GitHub push failed {r.status_code}: {r.text[:200]}")
+    return f"https://raw.githubusercontent.com/{FORGE_REPO}/{FORGE_BRANCH}/{path}"
+
+
+def _generate_one_image(prompt: str) -> bytes:
+    """Synchronous Gemini image gen call. Returns PNG bytes."""
+    api_key = _google_api_key()
+    if not api_key:
+        raise RuntimeError("No GEMINI_API_KEY / GOOGLE_API_KEY set")
+
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel(FORGE_IMAGE_MODEL)
+    try:
+        result = model.generate_content(
+            prompt,
+            generation_config={"response_modalities": ["IMAGE", "TEXT"]},
+        )
+    except TypeError:
+        # Older library: response_modalities not supported
+        result = model.generate_content(prompt)
+
+    for cand in (getattr(result, "candidates", None) or []):
+        content = getattr(cand, "content", None)
+        if not content:
+            continue
+        for part in getattr(content, "parts", []) or []:
+            inline = getattr(part, "inline_data", None)
+            if inline and getattr(inline, "data", None):
+                data = inline.data
+                if isinstance(data, str):
+                    return base64.b64decode(data)
+                return data
+    raise RuntimeError("Image model returned no image data")
+
+
+class ForgeRequest(BaseModel):
+    archetype: str
+    scene: str = ""
+    count: int = 1
+    sovereign_token: Optional[str] = None
+
+
+@app.post("/api/forge")
+async def forge(payload: ForgeRequest):
+    """
+    Sovereign-gated image generation.
+    Compiles archetype + scene → high-fidelity prompt → generates N images
+    → pushes each to GitHub /forge/<archetype>/ → returns raw URLs.
+    """
+    if not _is_sovereign(payload.sovereign_token):
+        raise HTTPException(status_code=403, detail="Forge is sovereign-gated.")
+
+    archetype = (payload.archetype or "").strip().lower()
+    if archetype not in forge_registry.list():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown archetype '{archetype}'. Available: {forge_registry.list()}",
+        )
+
+    count = max(1, min(int(payload.count or 1), FORGE_MAX_IMAGES))
+    try:
+        compiled_prompt = forge_registry.compile(archetype, payload.scene)
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    logger.info(f"[Forge] {archetype} x{count} | scene={payload.scene[:60]!r}")
+
+    timestamp = int(time.time())
+    urls: List[str] = []
+    errors: List[str] = []
+
+    for i in range(count):
+        try:
+            png = await asyncio.to_thread(_generate_one_image, compiled_prompt)
+            path = f"forge/{archetype}/{timestamp}_{i+1}.png"
+            url = await _push_image_to_github(
+                path,
+                png,
+                f"Forge: {archetype} #{i+1} — {payload.scene[:80]}",
+            )
+            urls.append(url)
+        except Exception as e:
+            logger.error(f"[Forge] image {i+1} failed: {e}")
+            errors.append(str(e))
+
+    return {
+        "status": "forged" if urls else "failed",
+        "archetype": archetype,
+        "scene": payload.scene,
+        "compiled_prompt": compiled_prompt,
+        "images": urls,
+        "errors": errors,
+        "session": "sovereign",
+    }
+
+
+@app.get("/api/forge/archetypes")
+async def forge_archetypes():
+    """List available Forge archetypes."""
+    return {"archetypes": forge_registry.list()}
