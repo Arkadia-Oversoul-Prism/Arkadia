@@ -103,12 +103,12 @@ class CorpusManager:
         try:
             content = source.fetch_content(doc)
             doc.content = content
-            doc.fetched_at = doc.now_iso()
+            doc.fetched_at = source.now_iso()
             doc.error = None
         except Exception as e:
             print(f"[Corpus Manager] Failed to fetch {doc.id}: {e}")
             doc.content = ""
-            doc.fetched_at = doc.now_iso()
+            doc.fetched_at = source.now_iso()
             doc.error = str(e)
         return doc
 
