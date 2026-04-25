@@ -217,6 +217,54 @@ async def _build_scrolls(tree_items: list[dict]) -> dict:
     return scrolls
 
 
+def _path_canonicality_score(path: str) -> tuple:
+    """Lower score = more canonical. Used to pick the winner among duplicate
+    scrolls (same content body) so the canonical path is kept and archive/
+    legacy mirrors are dropped from the corpus.
+
+    Tiebreaker order:
+      1. Heavily penalize archive / legacy / nested-mirror paths
+      2. Prefer fewer path segments (shorter paths)
+      3. Lexicographic for deterministic stability
+    """
+    p = path
+    lower = p.lower()
+    penalty = 0
+    if "origin_archive" in lower:                  penalty += 100
+    if "legacy_artifacts" in lower:                penalty += 100
+    if "arkadia_codex_v2/arkadia_codex_v2" in lower: penalty += 80
+    if lower.startswith("archive/"):               penalty += 100
+    if "/archive/" in lower:                       penalty += 50
+    return (penalty, p.count("/"), p)
+
+
+def _dedup_scrolls(scrolls: dict) -> tuple[dict, int]:
+    """Drop duplicate scrolls (identical body content) and keep the most
+    canonical path. Returns (deduped_scrolls, dropped_count).
+    Errored / empty scrolls are passed through untouched."""
+    import hashlib
+    by_hash: dict[str, list[str]] = {}
+    for key, s in scrolls.items():
+        if s.get("chars", 0) <= 0:
+            continue
+        body = s.get("content", "") or ""
+        h = hashlib.sha256(body.encode("utf-8", errors="ignore")).hexdigest()
+        by_hash.setdefault(h, []).append(key)
+
+    drop_keys: set[str] = set()
+    for keys in by_hash.values():
+        if len(keys) <= 1:
+            continue
+        ranked = sorted(keys, key=lambda k: _path_canonicality_score(scrolls[k]["description"]))
+        # Keep ranked[0]; drop the rest
+        for k in ranked[1:]:
+            drop_keys.add(k)
+
+    if not drop_keys:
+        return scrolls, 0
+    return ({k: v for k, v in scrolls.items() if k not in drop_keys}, len(drop_keys))
+
+
 async def _get_scrolls(force: bool = False) -> dict:
     now = time.time()
     if not force and _cache["scrolls"] is not None and (now - _cache["at"]) < CACHE_TTL:
@@ -224,9 +272,10 @@ async def _get_scrolls(force: bool = False) -> dict:
     try:
         tree    = await _fetch_github_tree()
         scrolls = await _build_scrolls(tree)
+        scrolls, dropped = _dedup_scrolls(scrolls)
         _cache["scrolls"] = scrolls
         _cache["at"]      = now
-        logger.info(f"Indexed {len(scrolls)} Arkadia scrolls from GitHub")
+        logger.info(f"Indexed {len(scrolls)} Arkadia scrolls from GitHub (deduped {dropped} mirror copies)")
         return scrolls
     except Exception as e:
         logger.error(f"GitHub fetch failed: {e}")
