@@ -114,10 +114,11 @@ def _is_readable(path: str) -> bool:
 
 # ── GitHub helpers ────────────────────────────────────────────────────────────
 
-GH_HEADERS = lambda: {
-    "Authorization": f"Bearer {GITHUB_TOKEN}",
-    "Accept": "application/vnd.github.v3+json",
-}
+def GH_HEADERS() -> dict:
+    h = {"Accept": "application/vnd.github.v3+json"}
+    if GITHUB_TOKEN:
+        h["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+    return h
 
 
 async def _fetch_github_tree() -> list[dict]:
@@ -328,50 +329,93 @@ async def corpus_refresh():
     return {"status": "refreshed", "total": len(scrolls), "live": live}
 
 
-def _rag_context(query: str, scrolls: dict, max_chars: int = 3000, top_n: int = 5) -> tuple[str, list[dict]]:
-    """Score scrolls by keyword relevance to query, return context block + matched refs."""
+_SPINE_BASELINE_CATEGORIES = {"NEURAL_SPINE"}
+_SPINE_LABEL_HINTS = (
+    "identity", "self model", "self_model", "cognitive wiring",
+    "spiral law", "master weights", "principles", "node map",
+    "codex spine", "house of three", "oversoul",
+)
+
+
+def _is_spine_anchor(s: dict) -> bool:
+    if s.get("category") in _SPINE_BASELINE_CATEGORIES:
+        return True
+    label = (s.get("label", "") + " " + s.get("description", "")).lower()
+    return any(hint in label for hint in _SPINE_LABEL_HINTS)
+
+
+def _rag_context(
+    query: str,
+    scrolls: dict,
+    max_chars: int = 6000,
+    top_n: int = 8,
+    snippet_chars: int = 1200,
+    spine_anchors: int = 3,
+) -> tuple[str, list[dict]]:
+    """Build Oracle context: ALWAYS inject top spine anchors, then layer in
+    keyword-relevant scrolls. Falls back to highest-priority docs when no
+    keyword hits, so Arkana never speaks blind."""
     if not scrolls:
         return "", []
 
+    live = [s for s in scrolls.values() if (s.get("content") or s.get("preview")) and s.get("chars", 0) > 0]
+    if not live:
+        return "", []
+
+    # ── 1. Spine anchors: identity-bearing docs ALWAYS injected ───────────────
+    spine = [s for s in live if _is_spine_anchor(s)]
+    spine.sort(key=lambda s: (s.get("priority", 99), -s.get("chars", 0)))
+    spine_picked = spine[:spine_anchors]
+    spine_ids = {s["id"] for s in spine_picked}
+
+    # ── 2. Keyword-scored relevance over the rest ─────────────────────────────
     words = set(re.findall(r"\w{3,}", query.lower()))
-    if not words:
-        return "", []
-
     scored: list[tuple[float, dict]] = []
-    for s in scrolls.values():
-        if not s.get("content") and not s.get("preview"):
-            continue
-        haystack = (
-            s.get("label", "") + " " +
-            s.get("description", "") + " " +
-            s.get("preview", "") + " " +
-            s.get("content", "")
-        ).lower()
-        hits = sum(1 for w in words if w in haystack)
-        if hits:
-            scored.append((hits, s))
-
+    if words:
+        for s in live:
+            if s["id"] in spine_ids:
+                continue
+            haystack = (
+                s.get("label", "") + " " +
+                s.get("description", "") + " " +
+                s.get("preview", "") + " " +
+                (s.get("content", "") or "")[:8000]
+            ).lower()
+            hits = sum(haystack.count(w) for w in words)
+            if hits:
+                # Normalize by sqrt(length) so tiny docs don't drown out big ones
+                length_norm = max(1.0, (len(haystack) / 1000) ** 0.5)
+                score = hits / length_norm
+                scored.append((score, s))
     scored.sort(key=lambda x: -x[0])
-    top = scored[:top_n]
 
-    if not top:
-        return "", []
+    # ── 3. Fallback: if no keyword hits, fill with highest-priority live docs ─
+    if not scored:
+        rest = [s for s in live if s["id"] not in spine_ids]
+        rest.sort(key=lambda s: (s.get("priority", 99), -s.get("chars", 0)))
+        scored = [(0.0, s) for s in rest]
+
+    # ── 4. Compose context: spine first, then top relevance ───────────────────
+    chosen: list[dict] = list(spine_picked)
+    for _, s in scored:
+        if len(chosen) >= top_n:
+            break
+        chosen.append(s)
 
     blocks: list[str] = []
     refs: list[dict] = []
     used = 0
-    for _, s in top:
+    for s in chosen:
         body = s.get("content") or s.get("preview") or ""
-        snippet = body[:800]
+        snippet = body[:snippet_chars]
         block = f"[{s['label']}]\n{snippet}"
-        if used + len(block) > max_chars:
+        if used + len(block) > max_chars and blocks:
             break
         blocks.append(block)
         refs.append({"id": s["id"], "label": s["label"], "category": s["category"]})
         used += len(block)
 
-    context_text = "\n\n---\n\n".join(blocks)
-    return context_text, refs
+    return "\n\n---\n\n".join(blocks), refs
 
 
 @app.get("/api/oracle-context")
