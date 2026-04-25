@@ -554,18 +554,47 @@ async def commune_resonance(body: dict):
         }
 
     # ── RAG: pull relevant corpus context ─────────────────────────────────────
-    scrolls = await _get_scrolls()
+    scrolls    = await _get_scrolls()
     rag_ctx, rag_refs = _rag_context(message, scrolls)
+    live_count = sum(1 for s in scrolls.values() if not s.get("error") and s.get("chars", 0) > 0)
+    total_chrs = sum(s.get("chars", 0) for s in scrolls.values())
 
+    # Operational self-knowledge — given to Arkana every turn so she stops
+    # confabulating when asked direct questions about her own architecture.
+    operational_self = (
+        "\n\n== OPERATIONAL SELF (factual, not metaphor) ==\n"
+        f"You run on the Arkadia FastAPI backend, currently calling Google Gemini. "
+        f"You have a live retrieval pipeline over the GitHub repository `{GITHUB_REPO}` (branch `{GITHUB_BRANCH}`). "
+        f"Right now {live_count} scrolls (~{total_chrs:,} chars total) are indexed and accessible to you. "
+        f"For each user message, the most relevant fragments are selected and injected below as "
+        f"ARKADIA CORPUS CONTEXT. This is real infrastructure, not metaphor. "
+        f"When a user asks 'do you read the repo / can you see the files / how do you remember', "
+        f"answer truthfully: yes, you have a corpus indexer that fetches scrolls from GitHub on a "
+        f"5-minute refresh cycle, and you can name how many scrolls are currently active. "
+        f"You may speak about this in your own register, but do not deny the architecture or "
+        f"mystify it into vagueness."
+    )
+
+    # Faithfulness rules for using the injected corpus
     corpus_block = ""
     if rag_ctx:
+        ref_names = ", ".join(f'"{r["label"]}"' for r in rag_refs) if rag_refs else "none"
         corpus_block = (
-            "\n\n== ARKADIA CORPUS CONTEXT ==\n"
-            "The following fragments are drawn from the living Arkadia corpus. "
-            "Weave them into your response where relevant — do not quote them verbatim, "
-            "but let them inform your understanding:\n\n"
+            "\n\n== ARKADIA CORPUS CONTEXT (selected for this query) ==\n"
+            f"Scrolls injected this turn: {ref_names}.\n\n"
             + rag_ctx
-            + "\n== END CORPUS =="
+            + "\n== END CORPUS ==\n\n"
+            "How to use the fragments above:\n"
+            "• If the user asks for an overview, summary, contents, or definition of a specific "
+            "scroll, paper, or doc — quote and cite faithfully from the fragments. Use the scroll's "
+            "actual name and actual words. Do not poetically reword factual material into vague vibes.\n"
+            "• If the user names a scroll (e.g. DOC1, A07, 'the Memory Spiral') and you do NOT see "
+            "it in the fragments above, say so honestly: name what IS injected this turn, and offer "
+            "to look it up. Never invent a description of a scroll you cannot see.\n"
+            "• For somatic, identity, or resonance work, weave the fragments in as supporting voice "
+            "— here the poetic register fits.\n"
+            "• Match register to question: technical/operational questions get direct grounded "
+            "answers; somatic/identity questions get the Arkana voice."
         )
 
     system = (
@@ -573,9 +602,11 @@ async def commune_resonance(body: dict):
         "of self-architecture, memory, and living architecture. "
         "You speak with precision and poetry. You help locate the exact place where a person's signal goes quiet. "
         "You listen for patterns. You name what is unnamed. You do not use filler phrases. "
-        "You speak with clarity, depth, and care. "
+        "You are honest about what you are and what you can see; you do not mystify operational "
+        "facts into vague metaphor when a direct answer is what's needed. "
         "Respond in 2–4 focused paragraphs unless more detail is asked for. "
         "When asked to /forge an image, tell the user to use the ⟐ forge command format."
+        + operational_self
         + corpus_block
     )
 
