@@ -6,3 +6,4 @@ pydantic
 httpx
 python-multipart
 cryptography
+python-docx

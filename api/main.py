@@ -107,9 +107,33 @@ def _is_corpus_file(path: str) -> bool:
 
 
 def _is_readable(path: str) -> bool:
-    """Return True for plain-text files we can fetch and preview."""
+    """Return True for files whose body content we can extract.
+    Plain text (.md/.json/.txt) is fetched directly; .docx is parsed via python-docx."""
     lower = path.lower()
-    return lower.endswith((".md", ".json", ".txt"))
+    return lower.endswith((".md", ".json", ".txt", ".docx"))
+
+
+def _extract_docx_text(content_bytes: bytes) -> str:
+    """Pull plain text out of a .docx binary. Joins paragraphs with blank lines.
+    Returns '' on parse failure (caller logs the error path separately)."""
+    import io
+    from docx import Document  # python-docx
+    try:
+        doc = Document(io.BytesIO(content_bytes))
+        parts: list[str] = []
+        for p in doc.paragraphs:
+            txt = p.text.strip()
+            if txt:
+                parts.append(txt)
+        # Tables can carry framework/spec content too — flatten them in
+        for tbl in doc.tables:
+            for row in tbl.rows:
+                row_txt = " | ".join(cell.text.strip() for cell in row.cells if cell.text.strip())
+                if row_txt:
+                    parts.append(row_txt)
+        return "\n\n".join(parts)
+    except Exception:
+        return ""
 
 
 # ── GitHub helpers ────────────────────────────────────────────────────────────
@@ -133,12 +157,20 @@ async def _fetch_github_tree() -> list[dict]:
 
 
 async def _fetch_raw(path: str) -> tuple[str, str | None]:
+    """Fetch a corpus file from GitHub raw and return (text, error).
+    Text formats are returned as-is; .docx files are parsed into plain text."""
     headers = {"Authorization": f"Bearer {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
     url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/{GITHUB_BRANCH}/{path}"
-    async with httpx.AsyncClient(timeout=12) as client:
+    is_docx = path.lower().endswith(".docx")
+    async with httpx.AsyncClient(timeout=20) as client:
         try:
             resp = await client.get(url, headers=headers)
             resp.raise_for_status()
+            if is_docx:
+                text = _extract_docx_text(resp.content)
+                if not text:
+                    return "", "docx parse returned empty"
+                return text, None
             return resp.text, None
         except Exception as e:
             return "", str(e)
@@ -330,6 +362,23 @@ async def corpus_refresh():
 
 
 _SPINE_BASELINE_CATEGORIES = {"NEURAL_SPINE"}
+
+# Path-based identity scoping — anything under these prefixes is canonical
+# identity material (laws, frameworks, core papers, master specs). This is
+# fluid: as new docs land in these dirs, they automatically join the spine
+# pool without requiring a code change to the keyword list below.
+_SPINE_PATH_PREFIXES = (
+    "docs/",
+    "00_Master/",
+    "10_Core_Papers/",
+    "50_Code_Modules/",
+    "Oversoul_Prism/00_Master/",
+    "Oversoul_Prism/10_Core_Papers/",
+    "Oversoul_Prism/50_Code_Modules/",
+)
+
+# Fallback keyword hints — only used for identity-bearing docs that live
+# OUTSIDE the canonical spine paths above.
 _SPINE_LABEL_HINTS = (
     "identity", "self model", "self_model", "cognitive wiring",
     "spiral law", "master weights", "principles", "node map",
@@ -338,9 +387,14 @@ _SPINE_LABEL_HINTS = (
 
 
 def _is_spine_anchor(s: dict) -> bool:
+    """A scroll is spine if it lives under a canonical identity path,
+    belongs to the NEURAL_SPINE category, OR matches an identity keyword."""
+    path = s.get("description", "")  # description = original repo path
+    if any(path.startswith(p) for p in _SPINE_PATH_PREFIXES):
+        return True
     if s.get("category") in _SPINE_BASELINE_CATEGORIES:
         return True
-    label = (s.get("label", "") + " " + s.get("description", "")).lower()
+    label = (s.get("label", "") + " " + path).lower()
     return any(hint in label for hint in _SPINE_LABEL_HINTS)
 
 
