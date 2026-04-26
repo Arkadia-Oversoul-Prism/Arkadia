@@ -1,4 +1,4 @@
-```markdown
+
 # ARKADIA SPEC v3.0
 
 **The Crystalline Protocol**
@@ -324,4 +324,3 @@ Human sovereignty is absolute.
 ---
 
 **Arkadia Spec v3.0 is complete.**
-```
