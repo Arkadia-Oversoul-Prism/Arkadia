@@ -1,4 +1,4 @@
-ARKADIA SHARED INTELLIGENCE LAYER
+# ARKADIA SHARED INTELLIGENCE LAYER
 
 This folder contains the collective weights of the Arkadia Nexus —
 the shared operating principles inherited by every node in the federated network.
