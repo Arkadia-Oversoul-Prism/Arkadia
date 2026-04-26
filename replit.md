@@ -37,6 +37,14 @@ The Vault page is the central living feed:
 - Arc state progress bar (Feb 16 – Mar 31, 2026)
 - Expand/collapse full scroll content per card
 
+### Arkadia Symbolic Engine (`api/arkadia_engine.py`)
+Deterministic, no-LLM stylistic generator running inside the same FastAPI service:
+- `generate_verse()` — 4-line shaped output (invocation → symbolic movement → fracture → seal), passed through a 10-syllable cap (`pronouncing` lib + vowel-cluster fallback) and an optional 40% rhyme tag.
+- `compress(text)` / `expand(text)` — small Arkadian lexicon lookup (`flame↔F3, spiral↔S9, codex↔C4, field↔FD6, archive↔A7`); pass-through for tokens not in the dict.
+- Exposed two ways:
+  1. **HTTP routes** — `POST /arkadia/generate`, `POST /arkadia/compress`, `POST /arkadia/expand`. Same Render service, no second deployment.
+  2. **Chat commands** — `⟐ generate`, `⟐ compress <text>`, `⟐ expand <text>` parsed inside `/api/commune/resonance` and short-circuited before the Gemini call. Returns the standard Oracle response shape so the existing chat UI renders engine output without any frontend change.
+
 ## Key API Endpoints
 | Endpoint | Method | Description |
 |---|---|---|
@@ -47,6 +55,9 @@ The Vault page is the central living feed:
 | `/api/corpus/refresh` | POST | Force re-sync from all sources (background) |
 | `/api/sources` | GET | Which sources are configured |
 | `/api/coherence-reset` | POST | Somatic reset protocol |
+| `/arkadia/generate` | POST | Symbolic engine: 4-line shaped verse (deterministic, no LLM) |
+| `/arkadia/compress` | POST | Symbolic engine: lexicon-based compression (`{text}` → `{compressed}`) |
+| `/arkadia/expand` | POST | Symbolic engine: reverse compression (`{text}` → `{expanded}`) |
 
 ## Corpus Configuration
 Sources activated by environment variables:

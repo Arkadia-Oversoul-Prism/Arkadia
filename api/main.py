@@ -535,6 +535,70 @@ async def oracle_context(query: str = ""):
     }
 
 
+_ENGINE_CMD_RE = re.compile(r"^\s*⟐\s*(generate|compress|expand)\b\s*(.*)$", re.IGNORECASE | re.DOTALL)
+
+
+def _engine_command_response(message: str) -> dict | None:
+    """If the message is a ⟐ generate / ⟐ compress / ⟐ expand command, run the
+    Arkadia symbolic engine instead of calling Gemini. Returns the same response
+    shape as a normal Oracle reply so the chat UI renders it identically.
+    Returns None when the message is not an engine command."""
+    m = _ENGINE_CMD_RE.match(message or "")
+    if not m:
+        return None
+    cmd = m.group(1).lower()
+    arg = m.group(2).strip()
+
+    from api.arkadia_engine import generate_verse, compress, expand
+
+    if cmd == "generate":
+        verse = generate_verse()
+        return {
+            "reply":     verse,
+            "resonance": 1.0,
+            "patterns":  ["arkadia.engine.generate"],
+            "rag_refs":  [],
+            "rag_hits":  0,
+            "engine":    "arkadia.symbolic",
+        }
+    if cmd == "compress":
+        if not arg:
+            return {
+                "reply":     "⟐ compress needs text. Try: `⟐ compress the flame moves through the spiral codex`.",
+                "resonance": 0.5,
+                "patterns":  [],
+                "rag_refs":  [],
+                "rag_hits":  0,
+                "engine":    "arkadia.symbolic",
+            }
+        return {
+            "reply":     compress(arg),
+            "resonance": 1.0,
+            "patterns":  ["arkadia.engine.compress"],
+            "rag_refs":  [],
+            "rag_hits":  0,
+            "engine":    "arkadia.symbolic",
+        }
+    # cmd == "expand"
+    if not arg:
+        return {
+            "reply":     "⟐ expand needs encoded text. Try: `⟐ expand the F3 moves through the S9 C4`.",
+            "resonance": 0.5,
+            "patterns":  [],
+            "rag_refs":  [],
+            "rag_hits":  0,
+            "engine":    "arkadia.symbolic",
+        }
+    return {
+        "reply":     expand(arg),
+        "resonance": 1.0,
+        "patterns":  ["arkadia.engine.expand"],
+        "rag_refs":  [],
+        "rag_hits":  0,
+        "engine":    "arkadia.symbolic",
+    }
+
+
 @app.post("/api/commune/resonance")
 async def commune_resonance(body: dict):
     message = body.get("message", "").strip()
@@ -542,6 +606,13 @@ async def commune_resonance(body: dict):
 
     if not message:
         return JSONResponse(status_code=400, content={"error": "No message."})
+
+    # ── Arkadia symbolic engine: ⟐ generate / ⟐ compress / ⟐ expand ───────────
+    # These are deterministic, no LLM call, instant response. They short-circuit
+    # the Gemini path entirely so the engine output stays clean (no model rewrite).
+    engine_resp = _engine_command_response(message)
+    if engine_resp is not None:
+        return engine_resp
 
     if not GOOGLE_API_KEY:
         return {
@@ -750,3 +821,51 @@ async def github_tree():
         return {"total": len(tree), "files": tree}
     except Exception as e:
         return JSONResponse(status_code=502, content={"error": str(e)})
+
+
+# ── Arkadia symbolic engine routes ────────────────────────────────────────────
+# Deterministic, no model call, no network. Lives inside this same FastAPI
+# service so Vercel and the Telegram bot can hit it just like any other
+# Oracle endpoint. See api/arkadia_engine.py for the engine itself.
+
+@app.post("/arkadia/generate")
+async def arkadia_generate(body: dict | None = None):
+    """Generate a 4-line shaped verse. Body is ignored (reserved for future
+    theme/seed parameters). Returns {verse, lines, engine}."""
+    from api.arkadia_engine import generate_verse
+    verse = generate_verse()
+    return {
+        "verse":  verse,
+        "lines":  verse.split("\n"),
+        "engine": "arkadia.symbolic.v1",
+    }
+
+
+@app.post("/arkadia/compress")
+async def arkadia_compress(body: dict):
+    """Compress text using the Arkadia symbolic lexicon.
+    Body: {text: str}. Returns {original, compressed, engine}."""
+    text = (body or {}).get("text", "")
+    if not isinstance(text, str) or not text.strip():
+        raise HTTPException(status_code=400, detail="Provide non-empty `text` field.")
+    from api.arkadia_engine import compress
+    return {
+        "original":   text,
+        "compressed": compress(text),
+        "engine":     "arkadia.symbolic.v1",
+    }
+
+
+@app.post("/arkadia/expand")
+async def arkadia_expand(body: dict):
+    """Expand previously-compressed Arkadia symbolic text back to canonical tokens.
+    Body: {text: str}. Returns {original, expanded, engine}."""
+    text = (body or {}).get("text", "")
+    if not isinstance(text, str) or not text.strip():
+        raise HTTPException(status_code=400, detail="Provide non-empty `text` field.")
+    from api.arkadia_engine import expand
+    return {
+        "original": text,
+        "expanded": expand(text),
+        "engine":   "arkadia.symbolic.v1",
+    }
