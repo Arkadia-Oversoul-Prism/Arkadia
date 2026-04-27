@@ -1,0 +1,85 @@
+{
+  "transactions": [
+    {
+      "id": "txn_2af7cc1ac7",
+      "ts": 1777257943.7840042,
+      "amount": 42.5,
+      "currency": "USD",
+      "party": null,
+      "note": "spent $42.50 on coffee"
+    }
+  ],
+  "open_loops": [
+    {
+      "id": "loop_e0444e73cf",
+      "ts": 1777257944.152709,
+      "loop": "ship phase 4",
+      "status": "open",
+      "updated_at": 1777257944.1527095
+    }
+  ],
+  "assets": [
+    {
+      "id": "asset_9acf73d0cf",
+      "ts": 1777257943.9530897,
+      "kind": "image",
+      "count": 2,
+      "prompt": "a spiral codex",
+      "refs": [
+        {
+          "id": "img_071f9be5",
+          "prompt": "a spiral codex",
+          "status": "stubbed"
+        },
+        {
+          "id": "img_f547c6af",
+          "prompt": "a spiral codex",
+          "status": "stubbed"
+        }
+      ]
+    }
+  ],
+  "balance": {
+    "USD": 42.5
+  },
+  "events": [
+    {
+      "id": "evt_7a39c6e710",
+      "ts": 1777257943.7841022,
+      "payload": {
+        "kind": "transaction",
+        "transaction_id": "txn_2af7cc1ac7"
+      }
+    },
+    {
+      "id": "evt_2f3483b3c0",
+      "ts": 1777257943.9538183,
+      "payload": {
+        "kind": "generate_images",
+        "payload": {
+          "count": 2,
+          "prompt": "a spiral codex"
+        },
+        "ts": 1777257943.95366,
+        "context": {
+          "kind": "generate_images"
+        }
+      }
+    },
+    {
+      "id": "evt_e20d654417",
+      "ts": 1777257944.1533382,
+      "payload": {
+        "kind": "update_open_loops",
+        "payload": {
+          "loop": "ship phase 4",
+          "status": "open"
+        },
+        "ts": 1777257944.1531703,
+        "context": {
+          "kind": "update_open_loops"
+        }
+      }
+    }
+  ]
+}

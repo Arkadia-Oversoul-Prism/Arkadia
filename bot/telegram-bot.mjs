@@ -73,6 +73,10 @@ async function callOracle(message, chatId) {
     `${m.role === 'user' ? 'Human' : 'Arkana'}: ${m.content}`
   ).join('\n');
 
+  // Phase 4: kernel-handled intents (transaction / image / loop / verse)
+  // are classified server-side from the RAW user message, not from the
+  // history-prefixed context, so we send the raw message for those and
+  // the prefixed message only as fallback context.
   const fullMessage = recentContext.length > 0
     ? `${recentContext}\nHuman: ${message}`
     : message;
@@ -80,12 +84,13 @@ async function callOracle(message, chatId) {
   try {
     const res = await axios.post(
       `${CONFIG.oracleUrl}/api/commune/resonance`,
-      { message: fullMessage },
+      { message: message, history: history.slice(-10), source: 'telegram' },
       { timeout: 30000 }
     );
     return {
       reply: res.data.reply,
       resonance: res.data.resonance,
+      kernel: res.data.kernel || null,
       source: 'oracle',
     };
   } catch (err) {
@@ -153,11 +158,19 @@ async function startBot() {
       await bot.sendChatAction(chatId, 'typing');
       appendHistory(chatId, 'user', userText);
 
-      const { reply, resonance, source } = await callOracle(userText, chatId);
+      const { reply, resonance, kernel, source } = await callOracle(userText, chatId);
       appendHistory(chatId, 'arkana', reply);
 
       let response = reply;
-      if (resonance != null) {
+
+      // Phase 4: when the kernel handled the message, surface a compact
+      // status line so the user sees the action was actually executed,
+      // not just discussed.
+      if (kernel && kernel.handled) {
+        const itype = kernel.intent?.type || 'kernel';
+        const status = kernel.success ? '✓' : '⚠';
+        response = `${reply}\n\n${status} kernel: ${itype}`;
+      } else if (resonance != null) {
         response += `\n\n_resonance ${resonance.toFixed(3)}_`;
       }
 

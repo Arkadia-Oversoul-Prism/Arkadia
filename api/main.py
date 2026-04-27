@@ -614,6 +614,24 @@ async def commune_resonance(body: dict):
     if engine_resp is not None:
         return engine_resp
 
+    # ── Phase 4 Execution Kernel ──────────────────────────────────────────────
+    # Classify the message into one of the four strict kernel intent types.
+    # If it matches, run the full plan→execute→verify pipeline and return a
+    # structured result. If not, fall through to Arkana / Gemini below.
+    try:
+        from kernel.execution import classify_input, execute_intent
+        kernel_intent = classify_input(message, source=body.get("source", "web"))
+        if kernel_intent.get("type"):
+            kernel_result = execute_intent(kernel_intent)
+            return {
+                "reply":     kernel_result.get("summary", ""),
+                "resonance": 0.93 if kernel_result.get("success") else 0.42,
+                "patterns":  [],
+                "kernel":    kernel_result,
+            }
+    except Exception as e:
+        logger.warning("Phase 4 kernel error (falling through to Arkana): %s", e)
+
     if not GOOGLE_API_KEY:
         return {
             "reply": (
@@ -966,3 +984,46 @@ async def solspire_get_plan(plan_id: str):
     if p is None:
         raise HTTPException(status_code=404, detail=f"Unknown plan_id: {plan_id}")
     return p
+
+
+# ── SolSpire Phase 4 — Execution Kernel ──────────────────────────────────────
+# Strict 4-intent kernel with JSON-persisted Oracle. See kernel/execution.py.
+
+@app.post("/solspire/intent")
+async def solspire_intent(body: dict):
+    """Direct kernel invocation. Two modes:
+
+    1. Pre-classified intent:
+       {"intent": {"type": "log_transaction", "payload": {...}, "source": "..."}}
+    2. Raw message — the kernel classifies first:
+       {"message": "spent $40 on coffee"}
+    """
+    body = body or {}
+    from kernel.execution import classify_input, execute_intent
+
+    intent = body.get("intent")
+    if not isinstance(intent, dict):
+        message = body.get("message", "")
+        if not isinstance(message, str) or not message.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Provide either `intent` dict or non-empty `message`.",
+            )
+        intent = classify_input(message, source=body.get("source", "api"))
+        if not intent.get("type"):
+            return {
+                "success": False,
+                "intent":  intent,
+                "steps":   [],
+                "results": [],
+                "summary": "Message did not match any kernel-handled intent type.",
+                "handled": False,
+            }
+    return execute_intent(intent)
+
+
+@app.get("/solspire/oracle/snapshot")
+async def solspire_oracle_snapshot():
+    """Read the persistent Phase 4 Oracle store (transactions, loops, assets)."""
+    from kernel.oracle_store import snapshot
+    return snapshot()
