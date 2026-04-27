@@ -869,3 +869,42 @@ async def arkadia_expand(body: dict):
         "expanded": expand(text),
         "engine":   "arkadia.symbolic.v1",
     }
+
+
+# ── SolSpire Phase 2 router ──────────────────────────────────────────────────
+# Hybrid intent compiler: rules first, LLM fallback only when ambiguous.
+# See parsers/intent_parser.py and app/router.py for the engine.
+
+@app.post("/solspire/route")
+async def solspire_route(body: dict):
+    """Route a raw user message through the SolSpire intent compiler.
+
+    Body: {message: str}
+    Returns: {intent, results, state_snapshot}
+    """
+    message = (body or {}).get("message", "")
+    if not isinstance(message, str) or not message.strip():
+        raise HTTPException(status_code=400, detail="Provide non-empty `message` field.")
+    from app.router import route_request
+    return route_request(message)
+
+
+@app.post("/solspire/classify")
+async def solspire_classify(body: dict):
+    """Classify a message into a routing envelope without executing it.
+
+    Body: {message: str}
+    Returns: {route, actions, response_strategy, intent}
+    """
+    message = (body or {}).get("message", "")
+    if not isinstance(message, str) or not message.strip():
+        raise HTTPException(status_code=400, detail="Provide non-empty `message` field.")
+    from parsers.routing_engine import classify
+    return classify(message)
+
+
+@app.get("/solspire/tools")
+async def solspire_tools():
+    """Return the SolSpire tool registry."""
+    from solspire.registry import list_tools
+    return {"tools": list_tools()}
