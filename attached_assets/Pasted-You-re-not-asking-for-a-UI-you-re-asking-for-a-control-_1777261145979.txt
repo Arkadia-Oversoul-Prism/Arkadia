@@ -1,0 +1,460 @@
+You’re not asking for a UI—you’re asking for a control surface that compiles directly into your live system.
+
+Below is a single, production-grade Replit Agent prompt that will:
+
+scaffold a clean Next.js dashboard
+
+wire it to your existing FastAPI backend (Render)
+
+prepare it for Vercel deployment
+
+and connect all core endpoints (Jobs, Goals, Traces, Tools, System)
+
+
+No fluff. This is executable architecture.
+
+
+---
+
+⚙️ REPLIT AGENT — FULL DASHBOARD BUILD + VERCEL WIRING
+
+Paste this exactly into Replit Agent:
+
+
+---
+
+🧠 SYSTEM ROLE
+
+You are building a production-ready Arkadia Dashboard frontend.
+
+Stack requirements:
+
+Next.js 14 (App Router)
+
+TypeScript
+
+TailwindCSS
+
+shadcn/ui components
+
+Recharts (for charts)
+
+React Query (for API state)
+
+
+This dashboard must connect to an existing FastAPI backend deployed on Render.
+
+
+---
+
+🏗️ OBJECTIVE
+
+Create a complete dashboard with the following pages:
+
+/ → Overview
+
+/jobs
+
+/goals
+
+/traces
+
+/tools
+
+/system
+
+
+Each page must fetch live data from backend APIs.
+
+
+---
+
+🧬 STEP 1 — PROJECT SETUP
+
+Initialize Next.js app:
+
+npx create-next-app@latest arkadia-dashboard --typescript --app
+
+Install dependencies:
+
+npm install @tanstack/react-query recharts axios lucide-react
+
+Initialize Tailwind + shadcn/ui.
+
+
+---
+
+🧬 STEP 2 — ENV CONFIG
+
+Create:
+
+.env.local
+
+Add:
+
+NEXT_PUBLIC_API_URL=https://your-render-backend.onrender.com
+
+All API calls must use:
+
+process.env.NEXT_PUBLIC_API_URL
+
+
+---
+
+🧬 STEP 3 — API CLIENT
+
+Create:
+
+/lib/api.ts
+
+import axios from "axios";
+
+const API = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
+});
+
+export const getJobs = () => API.get("/api/jobs");
+export const getJob = (id: string) => API.get(`/api/job/${id}`);
+export const getTrace = (id: string) => API.get(`/api/job/${id}/trace`);
+
+export const getGoals = () => API.get("/api/goals");
+
+export const getTools = () => API.get("/api/tools");
+
+export const getSystemMetrics = () => API.get("/api/system/metrics");
+
+
+---
+
+🧬 STEP 4 — GLOBAL LAYOUT
+
+Create sidebar layout:
+
+Left sidebar (fixed)
+
+Top header
+
+Main content area
+
+
+Sidebar links:
+
+Overview
+
+Jobs
+
+Goals
+
+Traces
+
+Tools
+
+System
+
+
+
+---
+
+🧬 STEP 5 — OVERVIEW PAGE /
+
+Display:
+
+Active jobs count
+
+Running jobs
+
+Failed jobs
+
+Active goals
+
+
+Add chart:
+
+Jobs over time (Recharts)
+
+
+Fetch:
+
+/api/system/metrics
+
+
+---
+
+🧬 STEP 6 — JOBS PAGE /jobs
+
+Table:
+
+job_id
+
+status
+
+tool_used
+
+created_at
+
+duration
+
+
+Use React Query polling every 3 seconds.
+
+Row click → navigate to:
+
+/jobs/[id]
+
+
+---
+
+🧬 STEP 7 — JOB DETAIL PAGE /jobs/[id]
+
+Display:
+
+Job summary
+
+Intent
+
+Result
+
+
+Add button:
+
+“View Trace” → /traces/[id]
+
+
+---
+
+🧬 STEP 8 — TRACES PAGE /traces
+
+Table:
+
+job_id
+
+status
+
+steps
+
+duration
+
+
+
+---
+
+🧬 STEP 9 — TRACE DETAIL /traces/[id]
+
+Display:
+
+Input
+
+Retrieved context
+
+Plan (JSON formatted)
+
+Step-by-step execution
+
+Final result
+
+
+Make JSON collapsible.
+
+
+---
+
+🧬 STEP 10 — GOALS PAGE /goals
+
+Table:
+
+goal_id
+
+description
+
+status
+
+last_run
+
+
+Add:
+
+Pause/Resume buttons (UI only for now)
+
+
+
+---
+
+🧬 STEP 11 — TOOLS PAGE /tools
+
+Table:
+
+name
+
+description
+
+
+
+---
+
+🧬 STEP 12 — SYSTEM PAGE /system
+
+Display:
+
+queue depth
+
+job success rate
+
+avg duration
+
+
+
+---
+
+🧬 STEP 13 — STYLING RULES
+
+Clean, minimal UI
+
+Use cards for sections
+
+Color status:
+
+green = success
+
+yellow = running
+
+red = failed
+
+
+
+
+---
+
+🧬 STEP 14 — DEPLOYMENT CONFIG
+
+Create:
+
+vercel.json
+
+{
+  "framework": "nextjs"
+}
+
+Ensure app builds with:
+
+npm run build
+
+
+---
+
+🧬 STEP 15 — VERCEL DEPLOY
+
+Prepare for deployment:
+
+1. Push code to GitHub repo
+
+
+2. Connect repo to Vercel
+
+
+3. Add environment variable in Vercel dashboard:
+
+
+
+NEXT_PUBLIC_API_URL=https://your-render-backend.onrender.com
+
+4. Deploy
+
+
+
+
+---
+
+🧬 STEP 16 — FINAL CHECKS
+
+All pages load without errors
+
+API calls succeed
+
+Jobs update in real time
+
+Trace pages render structured execution
+
+
+
+---
+
+⚙️ EXPECTED OUTPUT
+
+A working dashboard that:
+
+connects to your backend
+
+displays jobs, goals, traces
+
+updates live
+
+deploys cleanly to Vercel
+
+
+
+---
+
+⚠️ IMPORTANT CONSTRAINTS
+
+Do NOT mock data
+
+Do NOT hardcode endpoints
+
+Must use env variable
+
+Must use React Query for fetching
+
+
+
+---
+
+🔥 WHAT THIS GIVES YOU
+
+Once the agent finishes:
+
+You have a live operational console
+
+Fully connected to your system
+
+Deployable instantly via Vercel
+
+
+
+---
+
+⚡ AFTER IT RUNS
+
+You will:
+
+1. Replace:
+
+
+
+https://your-render-backend.onrender.com
+
+2. Push to GitHub
+
+
+3. Click “Deploy” on Vercel
+
+
+
+And your system becomes:
+
+> observable
+controllable
+debuggable
+
+
+
+
+---
+
+If you want next, I can:
+
+add **real-time WebSocket updates (no polling)**
+
+or design a **mission-control style UI (command center level)**
+
+
+This is now a real system—not a prototype.
