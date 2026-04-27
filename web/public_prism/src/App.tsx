@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ArkadiaNavigation from './components/ArkadiaNavigation';
 import LivingGate from './pages/LivingGate';
@@ -6,7 +6,29 @@ import ArkanaCommune from './components/ArkanaCommune';
 import SpiralVault from './components/SpiralVault';
 import ShereSanctuary from './components/ShereSanctuary';
 import CoherenceReset from './pages/CoherenceReset';
-import Dashboard from './pages/dashboard/Dashboard';
+
+// Dashboard ships its own heavy deps (Recharts, React Query). Lazy-load it so
+// the public landing route doesn't pay for a control surface most visitors
+// will never see. Vite splits this into its own chunk.
+const Dashboard = lazy(() => import('./pages/dashboard/Dashboard'));
+
+const DashboardFallback = () => (
+  <div
+    style={{
+      minHeight: 'calc(100vh - 57px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: 'rgba(0,212,170,0.55)',
+      fontFamily: 'serif',
+      fontSize: 13,
+      letterSpacing: '0.25em',
+      textTransform: 'uppercase',
+    }}
+  >
+    Loading console…
+  </div>
+);
 
 type View = 'home' | 'gate' | 'commune' | 'vault' | 'reset' | 'sanctuary' | 'dashboard';
 
@@ -460,7 +482,9 @@ function App() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4 }}
           >
-            <Dashboard />
+            <Suspense fallback={<DashboardFallback />}>
+              <Dashboard />
+            </Suspense>
           </motion.div>
         )}
       </AnimatePresence>
