@@ -1152,3 +1152,107 @@ async def api_jobs_list(status: str | None = None, limit: int = 50):
         "jobs":  store.list(limit=max(1, min(limit, 500)), status=status),
         "stats": store.stats(),
     }
+
+
+# ── SolSpire Phase 7 — LLM planner + multi-tool chain endpoints ─────────────
+# These three routes expose the planning layer:
+#   POST /api/plan       — generate a plan WITHOUT executing it (preview)
+#   POST /api/plan/run   — generate + execute synchronously (returns chain result)
+#   POST /api/plan/job   — queue a planning run as a background job
+# All three respect MAX_STEPS, validate against TOOL_REGISTRY, and fall back
+# to deterministic Phase 6 routing when the LLM is unavailable or invalid.
+
+@app.post("/api/plan")
+async def api_plan_preview(body: dict):
+    """Generate a plan from raw input WITHOUT executing it. Useful for the
+    frontend to preview what the planner intends to do before confirming.
+    Body: {"input": "raw user message"}
+    """
+    body = body or {}
+    user_input = (body.get("input") or "").strip()
+    if not user_input:
+        raise HTTPException(status_code=400, detail="`input` is required.")
+
+    from kernel.planner import generate_plan, validate_plan, _fallback_plan
+
+    plan = generate_plan(user_input)
+    source = "llm"
+    if plan is None:
+        plan = _fallback_plan(user_input)
+        source = "fallback" if plan else "none"
+
+    if plan is None:
+        return {
+            "ok":     False,
+            "source": "none",
+            "plan":   None,
+            "reason": "No plan could be produced (LLM unavailable and no deterministic match).",
+        }
+
+    ok, reason = validate_plan(plan)
+    return {
+        "ok":     ok,
+        "source": source,
+        "plan":   plan,
+        "reason": reason,
+    }
+
+
+@app.post("/api/plan/run")
+async def api_plan_run(body: dict):
+    """Plan + execute synchronously. Body accepts EITHER:
+      {"input": "raw user message"}             — LLM plans, then runs
+      {"plan":  {"steps": [...]}}               — runs a pre-built plan
+    """
+    body = body or {}
+    user_input = body.get("input")
+    prebuilt   = body.get("plan")
+
+    if not isinstance(prebuilt, dict) and not (isinstance(user_input, str) and user_input.strip()):
+        raise HTTPException(
+            status_code=400,
+            detail="Provide either `input` (str) or `plan` (object).",
+        )
+
+    from kernel.execution import execute_intent
+
+    payload = {}
+    if isinstance(prebuilt, dict):
+        payload["plan"] = prebuilt
+    if isinstance(user_input, str) and user_input.strip():
+        payload["input"] = user_input.strip()
+
+    intent = {"type": "__plan__", "payload": payload, "source": body.get("source", "api")}
+    return execute_intent(intent)
+
+
+@app.post("/api/plan/job")
+async def api_plan_job(body: dict):
+    """Queue a plan-and-execute run as a background job. Body shape matches
+    /api/plan/run. Returns immediately with a job_id; poll /api/job/{id}.
+    """
+    body = body or {}
+    user_input = body.get("input")
+    prebuilt   = body.get("plan")
+
+    if not isinstance(prebuilt, dict) and not (isinstance(user_input, str) and user_input.strip()):
+        raise HTTPException(
+            status_code=400,
+            detail="Provide either `input` (str) or `plan` (object).",
+        )
+
+    from kernel.jobs import get_store
+
+    payload = {}
+    if isinstance(prebuilt, dict):
+        payload["plan"] = prebuilt
+    if isinstance(user_input, str) and user_input.strip():
+        payload["input"] = user_input.strip()
+
+    intent = {"type": "__plan__", "payload": payload, "source": body.get("source", "api")}
+    job = get_store().create(intent, source=body.get("source", "api"))
+    return {
+        "message": "Plan accepted",
+        "job_id":  job["job_id"],
+        "status":  job["status"],
+    }

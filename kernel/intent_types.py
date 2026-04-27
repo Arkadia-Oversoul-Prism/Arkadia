@@ -14,6 +14,10 @@ ALLOWED_TYPES = {
     "log_transaction",
     "update_open_loops",
     "generate_verse",
+    # Phase 7 — meta-intent that delegates to the LLM planner + chain
+    # executor. Payload shape: {"input": "raw user text"} OR
+    # {"plan": {"steps": [...]}} for a pre-built plan.
+    "__plan__",
 }
 
 ALLOWED_SOURCES = {"telegram", "web", "api", "internal"}

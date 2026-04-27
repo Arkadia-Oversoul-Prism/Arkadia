@@ -226,6 +226,12 @@ def execute_intent(intent: dict[str, Any]) -> dict[str, Any]:
             "handled":   False,
         }
 
+    # Phase 7 meta-intent: route through the planner + chain executor
+    # instead of a single tool. Keeps the kernel envelope shape stable so
+    # the worker, /api/job/{id}, and the bot all keep working unchanged.
+    if intent["type"] == "__plan__":
+        return _execute_planner_intent(intent)
+
     tool = select_tool(intent)
     if tool is None:
         return {
@@ -259,6 +265,74 @@ def execute_intent(intent: dict[str, Any]) -> dict[str, Any]:
     envelope.setdefault("steps", plan_task(intent))
     envelope.setdefault("tool_used", tool.name)
     return envelope
+
+
+def _execute_planner_intent(intent: dict[str, Any]) -> dict[str, Any]:
+    """Phase 7 bridge: turn a __plan__ intent into a planner run wrapped in
+    the standard kernel envelope. Accepts either a raw `input` string (LLM
+    plans on the fly) or a pre-built `plan` dict (skips planning, just
+    validates + executes)."""
+    from kernel.planner import (
+        execute_plan, format_response, plan_or_fallback, validate_plan,
+    )
+
+    payload = intent.get("payload") or {}
+    user_input = payload.get("input")
+    prebuilt   = payload.get("plan")
+
+    if isinstance(prebuilt, dict):
+        ok, reason = validate_plan(prebuilt)
+        if not ok:
+            return {
+                "success":   False,
+                "intent":    intent,
+                "steps":     [],
+                "results":   [],
+                "summary":   f"Plan rejected: {reason}",
+                "tool_used": "__plan__",
+                "handled":   True,
+                "plan":      prebuilt,
+                "plan_source": "user",
+            }
+        execution = execute_plan(prebuilt)
+        return {
+            "success":     execution["success"],
+            "intent":      intent,
+            "steps":       execution["steps"],
+            "results":     [s["envelope"] for s in execution["steps"]],
+            "summary":     format_response(execution),
+            "tool_used":   "__plan__",
+            "handled":     True,
+            "plan":        prebuilt,
+            "plan_source": "user",
+            "execution":   execution,
+        }
+
+    if not isinstance(user_input, str) or not user_input.strip():
+        return {
+            "success":   False,
+            "intent":    intent,
+            "steps":     [],
+            "results":   [],
+            "summary":   "__plan__ payload requires `input` (str) or `plan` (object).",
+            "tool_used": "__plan__",
+            "handled":   True,
+        }
+
+    outcome = plan_or_fallback(user_input)
+    execution = outcome.get("execution") or {}
+    return {
+        "success":     outcome["success"],
+        "intent":      intent,
+        "steps":       execution.get("steps", []),
+        "results":     [s["envelope"] for s in execution.get("steps", [])],
+        "summary":     outcome["summary"],
+        "tool_used":   "__plan__",
+        "handled":     True,
+        "plan":        outcome.get("plan"),
+        "plan_source": outcome.get("source"),
+        "execution":   execution or None,
+    }
 
 
 def _summarize(intent: dict[str, Any], results: list[dict[str, Any]],

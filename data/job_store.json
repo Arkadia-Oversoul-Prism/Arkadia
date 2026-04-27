@@ -258,5 +258,228 @@
     "updated_at": 1777259344.5423572,
     "started_at": 1777259344.5399897,
     "ended_at": 1777259344.5423517
+  },
+  "job_0a1b7e276532": {
+    "job_id": "job_0a1b7e276532",
+    "status": "completed",
+    "intent": {
+      "type": "__plan__",
+      "payload": {
+        "input": "generate a verse"
+      },
+      "source": "api"
+    },
+    "result": {
+      "success": true,
+      "intent": {
+        "type": "__plan__",
+        "payload": {
+          "input": "generate a verse"
+        },
+        "source": "api"
+      },
+      "steps": [
+        {
+          "step_id": "step_0",
+          "tool": "generate_verse",
+          "input": {},
+          "envelope": {
+            "success": true,
+            "results": [
+              {
+                "status": "success",
+                "verse": "The flame spoke before the mouth did.\nlight moving through the lattice of the node.\nI built cages out of certainty.\nThe flame holds — code to node.",
+                "lines": [
+                  "The flame spoke before the mouth did.",
+                  "light moving through the lattice of the node.",
+                  "I built cages out of certainty.",
+                  "The flame holds — code to node."
+                ],
+                "engine": "arkadia.symbolic.v1",
+                "action": "generate_verse"
+              },
+              {
+                "status": "written",
+                "event_id": "evt_bc8aebe997",
+                "data": {
+                  "kind": "generate_verse",
+                  "payload": {},
+                  "ts": 1777260324.5393274,
+                  "context": {
+                    "kind": "generate_verse"
+                  }
+                },
+                "action": "log_event"
+              }
+            ],
+            "tool_used": "generate_verse",
+            "summary": "The flame spoke before the mouth did.\nlight moving through the lattice of the node.\nI built cages out of certainty.\nThe flame holds — code to node."
+          }
+        }
+      ],
+      "results": [
+        {
+          "success": true,
+          "results": [
+            {
+              "status": "success",
+              "verse": "The flame spoke before the mouth did.\nlight moving through the lattice of the node.\nI built cages out of certainty.\nThe flame holds — code to node.",
+              "lines": [
+                "The flame spoke before the mouth did.",
+                "light moving through the lattice of the node.",
+                "I built cages out of certainty.",
+                "The flame holds — code to node."
+              ],
+              "engine": "arkadia.symbolic.v1",
+              "action": "generate_verse"
+            },
+            {
+              "status": "written",
+              "event_id": "evt_bc8aebe997",
+              "data": {
+                "kind": "generate_verse",
+                "payload": {},
+                "ts": 1777260324.5393274,
+                "context": {
+                  "kind": "generate_verse"
+                }
+              },
+              "action": "log_event"
+            }
+          ],
+          "tool_used": "generate_verse",
+          "summary": "The flame spoke before the mouth did.\nlight moving through the lattice of the node.\nI built cages out of certainty.\nThe flame holds — code to node."
+        }
+      ],
+      "summary": "The flame spoke before the mouth did.\nlight moving through the lattice of the node.\nI built cages out of certainty.\nThe flame holds — code to node.",
+      "tool_used": "__plan__",
+      "handled": true,
+      "plan": {
+        "steps": [
+          {
+            "tool": "generate_verse",
+            "input": {}
+          }
+        ],
+        "fallback": true
+      },
+      "plan_source": "fallback",
+      "execution": {
+        "success": true,
+        "steps": [
+          {
+            "step_id": "step_0",
+            "tool": "generate_verse",
+            "input": {},
+            "envelope": {
+              "success": true,
+              "results": [
+                {
+                  "status": "success",
+                  "verse": "The flame spoke before the mouth did.\nlight moving through the lattice of the node.\nI built cages out of certainty.\nThe flame holds — code to node.",
+                  "lines": [
+                    "The flame spoke before the mouth did.",
+                    "light moving through the lattice of the node.",
+                    "I built cages out of certainty.",
+                    "The flame holds — code to node."
+                  ],
+                  "engine": "arkadia.symbolic.v1",
+                  "action": "generate_verse"
+                },
+                {
+                  "status": "written",
+                  "event_id": "evt_bc8aebe997",
+                  "data": {
+                    "kind": "generate_verse",
+                    "payload": {},
+                    "ts": 1777260324.5393274,
+                    "context": {
+                      "kind": "generate_verse"
+                    }
+                  },
+                  "action": "log_event"
+                }
+              ],
+              "tool_used": "generate_verse",
+              "summary": "The flame spoke before the mouth did.\nlight moving through the lattice of the node.\nI built cages out of certainty.\nThe flame holds — code to node."
+            }
+          }
+        ],
+        "context": {
+          "step_0": {
+            "success": true,
+            "results": [
+              {
+                "status": "success",
+                "verse": "The flame spoke before the mouth did.\nlight moving through the lattice of the node.\nI built cages out of certainty.\nThe flame holds — code to node.",
+                "lines": [
+                  "The flame spoke before the mouth did.",
+                  "light moving through the lattice of the node.",
+                  "I built cages out of certainty.",
+                  "The flame holds — code to node."
+                ],
+                "engine": "arkadia.symbolic.v1",
+                "action": "generate_verse"
+              },
+              {
+                "status": "written",
+                "event_id": "evt_bc8aebe997",
+                "data": {
+                  "kind": "generate_verse",
+                  "payload": {},
+                  "ts": 1777260324.5393274,
+                  "context": {
+                    "kind": "generate_verse"
+                  }
+                },
+                "action": "log_event"
+              }
+            ],
+            "tool_used": "generate_verse",
+            "summary": "The flame spoke before the mouth did.\nlight moving through the lattice of the node.\nI built cages out of certainty.\nThe flame holds — code to node."
+          },
+          "generate_verse": {
+            "success": true,
+            "results": [
+              {
+                "status": "success",
+                "verse": "The flame spoke before the mouth did.\nlight moving through the lattice of the node.\nI built cages out of certainty.\nThe flame holds — code to node.",
+                "lines": [
+                  "The flame spoke before the mouth did.",
+                  "light moving through the lattice of the node.",
+                  "I built cages out of certainty.",
+                  "The flame holds — code to node."
+                ],
+                "engine": "arkadia.symbolic.v1",
+                "action": "generate_verse"
+              },
+              {
+                "status": "written",
+                "event_id": "evt_bc8aebe997",
+                "data": {
+                  "kind": "generate_verse",
+                  "payload": {},
+                  "ts": 1777260324.5393274,
+                  "context": {
+                    "kind": "generate_verse"
+                  }
+                },
+                "action": "log_event"
+              }
+            ],
+            "tool_used": "generate_verse",
+            "summary": "The flame spoke before the mouth did.\nlight moving through the lattice of the node.\nI built cages out of certainty.\nThe flame holds — code to node."
+          }
+        },
+        "failed_at": null
+      }
+    },
+    "error": null,
+    "retries": 0,
+    "source": "api",
+    "created_at": 1777260324.2000427,
+    "updated_at": 1777260324.5404322,
+    "started_at": 1777260324.2015817,
+    "ended_at": 1777260324.5404253
   }
 }
