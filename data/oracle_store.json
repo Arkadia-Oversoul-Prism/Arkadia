@@ -15,6 +15,30 @@
       "currency": "USD",
       "party": null,
       "note": "spent $12 on tea"
+    },
+    {
+      "id": "txn_41b72852d4",
+      "ts": 1777259344.021852,
+      "amount": 7.25,
+      "currency": "EUR",
+      "party": null,
+      "note": "phase 6 smoke test"
+    },
+    {
+      "id": "txn_c4d2e65c7b",
+      "ts": 1777259344.5408092,
+      "amount": 50.0,
+      "currency": "USD",
+      "party": null,
+      "note": "received $50 from client"
+    },
+    {
+      "id": "txn_2e8b7ec0ac",
+      "ts": 1777259346.0013819,
+      "amount": 3.0,
+      "currency": "USD",
+      "party": null,
+      "note": "spent $3 on gum"
     }
   ],
   "open_loops": [
@@ -24,6 +48,13 @@
       "loop": "ship phase 4",
       "status": "open",
       "updated_at": 1777257944.1527095
+    },
+    {
+      "id": "loop_e982f68dc2",
+      "ts": 1777259344.4122684,
+      "loop": "phase 6 verify",
+      "status": "open",
+      "updated_at": 1777259344.4122686
     }
   ],
   "assets": [
@@ -82,7 +113,8 @@
     }
   ],
   "balance": {
-    "USD": 54.5
+    "USD": 107.5,
+    "EUR": 7.25
   },
   "events": [
     {
@@ -144,6 +176,57 @@
         "context": {
           "kind": "generate_images"
         }
+      }
+    },
+    {
+      "id": "evt_aa874f58ff",
+      "ts": 1777259343.9564795,
+      "payload": {
+        "kind": "generate_verse",
+        "payload": {},
+        "ts": 1777259343.9562254,
+        "context": {
+          "kind": "generate_verse"
+        }
+      }
+    },
+    {
+      "id": "evt_f533941822",
+      "ts": 1777259344.0220838,
+      "payload": {
+        "kind": "transaction",
+        "transaction_id": "txn_41b72852d4"
+      }
+    },
+    {
+      "id": "evt_2969c3e86d",
+      "ts": 1777259344.413144,
+      "payload": {
+        "kind": "update_open_loops",
+        "payload": {
+          "loop": "phase 6 verify",
+          "status": "open"
+        },
+        "ts": 1777259344.4129872,
+        "context": {
+          "kind": "update_open_loops"
+        }
+      }
+    },
+    {
+      "id": "evt_d8bb36882a",
+      "ts": 1777259344.5409875,
+      "payload": {
+        "kind": "transaction",
+        "transaction_id": "txn_c4d2e65c7b"
+      }
+    },
+    {
+      "id": "evt_9f02d34ed9",
+      "ts": 1777259346.0016093,
+      "payload": {
+        "kind": "transaction",
+        "transaction_id": "txn_2e8b7ec0ac"
       }
     }
   ]

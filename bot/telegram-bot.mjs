@@ -197,6 +197,63 @@ async function startBot() {
       return;
     }
 
+    // ── Phase 6 — Tool registry commands ─────────────────────────────────
+    // /tools                    → list every registered tool
+    // /run <tool_name> <json?>  → invoke a tool directly with optional payload
+    if (userText === '/tools') {
+      try {
+        const res = await axios.get(`${CONFIG.oracleUrl}/api/tools`, { timeout: 8000 });
+        const tools = res.data.tools || [];
+        if (tools.length === 0) {
+          await bot.sendMessage(chatId, '🛠 No tools registered.');
+          return;
+        }
+        const lines = tools.map(t =>
+          `• *${t.name}*\n  ${t.description || '(no description)'}`
+        );
+        await sendChunkedMessage(bot, chatId, `🛠 Registered tools (${tools.length}):\n\n${lines.join('\n\n')}`);
+      } catch (err) {
+        await bot.sendMessage(chatId, `⚠ Could not list tools: ${err.message}`);
+      }
+      return;
+    }
+
+    if (userText.startsWith('/run ')) {
+      const rest = userText.slice(5).trim();
+      const spaceIdx = rest.indexOf(' ');
+      const toolName = spaceIdx === -1 ? rest : rest.slice(0, spaceIdx);
+      const payloadStr = spaceIdx === -1 ? '' : rest.slice(spaceIdx + 1).trim();
+      if (!toolName) {
+        await bot.sendMessage(chatId, 'Usage: `/run <tool_name> {json payload}`');
+        return;
+      }
+      let payload = {};
+      if (payloadStr) {
+        try {
+          payload = JSON.parse(payloadStr);
+        } catch {
+          await bot.sendMessage(chatId, `⚠ Invalid JSON payload for /run ${toolName}`);
+          return;
+        }
+      }
+      try {
+        await bot.sendChatAction(chatId, 'typing');
+        const res = await axios.post(
+          `${CONFIG.oracleUrl}/api/tools/${encodeURIComponent(toolName)}/run`,
+          { payload },
+          { timeout: 30000 },
+        );
+        const env = res.data || {};
+        const summary = env.summary || (env.success ? 'Done.' : 'No output.');
+        const status = env.success ? '✓' : '⚠';
+        await sendChunkedMessage(bot, chatId, `${summary}\n\n${status} tool: ${toolName}`);
+      } catch (err) {
+        const detail = err.response?.data?.detail || err.message;
+        await bot.sendMessage(chatId, `⚠ /run ${toolName} failed: ${detail}`);
+      }
+      return;
+    }
+
     try {
       await bot.sendChatAction(chatId, 'typing');
       appendHistory(chatId, 'user', userText);

@@ -1096,6 +1096,48 @@ async def api_job_status(job_id: str):
     return job
 
 
+# ── SolSpire Phase 6 — Tool Registry endpoints ──────────────────────────────
+# Pluggable capability layer. List the registered tools, or invoke any tool
+# by name with a payload — this is the surface a future LLM router or
+# autonomous planner will call against.
+
+@app.get("/api/tools")
+async def api_tools_list():
+    """Catalog of every registered tool with its name, description, and
+    payload schema. Frontend introspection + future agent self-discovery.
+    """
+    from kernel.tools import list_tools
+    tools = list_tools()
+    return {"tools": tools, "count": len(tools)}
+
+
+@app.post("/api/tools/{name}/run")
+async def api_tools_run(name: str, body: dict | None = None):
+    """Direct tool invocation. Body shape:
+        {"payload": {...}}
+    or just the raw payload as the body.
+    Returns the same envelope kernel.execute_intent returns.
+    """
+    from kernel.tools import get_tool
+    tool = get_tool(name)
+    if tool is None:
+        raise HTTPException(status_code=404, detail=f"Unknown tool: {name}")
+
+    body = body or {}
+    payload = body.get("payload") if isinstance(body.get("payload"), dict) else body
+    if not isinstance(payload, dict):
+        payload = {}
+
+    try:
+        envelope = tool.run(payload)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Tool '{name}' failed: {e}")
+
+    envelope["tool_used"] = name
+    envelope["status"] = "completed" if envelope.get("success") else "failed"
+    return envelope
+
+
 @app.get("/api/jobs")
 async def api_jobs_list(status: str | None = None, limit: int = 50):
     """List recent jobs. Optional ?status=pending|running|completed|failed."""

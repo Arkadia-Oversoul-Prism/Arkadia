@@ -53,6 +53,17 @@ Wraps the Phase 4 kernel in a background worker pool. Decouples execution from r
 - **Lifecycle:** workers start via FastAPI `on_event("startup")`, shut down on `on_event("shutdown")`
 - **Bot integration:** opt-in via `TELEGRAM_ASYNC_JOBS=true` — kernel-classified messages go through `/api/job/create`, bot replies "Task received…" then polls until completion. Default off, sync behavior preserved
 
+### SolSpire Phase 6 — Tool Registry + Dynamic Routing (`kernel/tools.py`)
+Replaces the if/elif dispatch inside `execute_steps` with a pluggable tool catalog. Adding a new capability = subclass `BaseTool`, set `name`/`description`/`payload_schema`, implement `run(payload)`, call `register_tool()`. Zero edits to the kernel.
+
+- **`BaseTool`** contract — `name`, `description`, `payload_schema`, `run(payload) -> envelope`. `manifest()` for introspection
+- **`TOOL_REGISTRY`** — module-level dict, `register_tool / unregister_tool / get_tool / select_tool / list_tools`
+- **Built-ins** (auto-registered on import) — `GenerateImagesTool`, `LogTransactionTool`, `UpdateOpenLoopsTool`, `GenerateVerseTool` — each wraps the existing `kernel.agents` functions, no behavior change
+- **`execute_intent`** now dispatches via `select_tool(intent)` → `tool.run(payload)`; returns the same Phase 4 envelope shape with new `tool_used` field appended (Phase 5 worker + bot rendering unchanged)
+- **Endpoints:** `GET /api/tools` (catalog), `POST /api/tools/{name}/run` (direct invocation, accepts `{payload: {...}}` or raw payload as body)
+- **Bot commands:** `/tools` (list registered tools), `/run <name> {json}` (invoke directly with optional JSON payload)
+- **Phase 7 hook:** `select_tool()` is the single seam where an LLM router will replace literal type-matching with reasoning-based selection
+
 ### Arkadia Symbolic Engine (`api/arkadia_engine.py`)
 Deterministic, no-LLM stylistic generator running inside the same FastAPI service:
 - `generate_verse()` — 4-line shaped output (invocation → symbolic movement → fracture → seal), passed through a 10-syllable cap (`pronouncing` lib + vowel-cluster fallback) and an optional 40% rhyme tag.

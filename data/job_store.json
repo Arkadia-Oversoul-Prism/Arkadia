@@ -193,5 +193,70 @@
     "updated_at": 1777258664.6113346,
     "started_at": 1777258664.6090956,
     "ended_at": 1777258664.6113307
+  },
+  "job_ecc28aaca35c": {
+    "job_id": "job_ecc28aaca35c",
+    "status": "completed",
+    "intent": {
+      "type": "log_transaction",
+      "payload": {
+        "amount": 50.0,
+        "currency": "USD",
+        "note": "received $50 from client"
+      },
+      "source": "api"
+    },
+    "result": {
+      "success": true,
+      "results": [
+        {
+          "status": "written",
+          "transaction": {
+            "id": "txn_c4d2e65c7b",
+            "ts": 1777259344.5408092,
+            "amount": 50.0,
+            "currency": "USD",
+            "party": null,
+            "note": "received $50 from client"
+          },
+          "action": "write_transaction"
+        },
+        {
+          "status": "success",
+          "balance": {
+            "USD": 104.5,
+            "EUR": 7.25
+          },
+          "action": "update_balance"
+        }
+      ],
+      "tool_used": "log_transaction",
+      "summary": "💱 Logged 50.0 USD. Balance now 104.5 USD.",
+      "intent": {
+        "type": "log_transaction",
+        "payload": {
+          "amount": 50.0,
+          "currency": "USD",
+          "note": "received $50 from client"
+        },
+        "source": "api"
+      },
+      "handled": true,
+      "steps": [
+        {
+          "action": "write_transaction"
+        },
+        {
+          "action": "update_balance"
+        }
+      ]
+    },
+    "error": null,
+    "retries": 0,
+    "source": "api",
+    "created_at": 1777259344.538539,
+    "updated_at": 1777259344.5423572,
+    "started_at": 1777259344.5399897,
+    "ended_at": 1777259344.5423517
   }
 }

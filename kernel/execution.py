@@ -204,32 +204,61 @@ def verify(results: list[dict[str, Any]]) -> bool:
 
 def execute_intent(intent: dict[str, Any]) -> dict[str, Any]:
     """End-to-end execution kernel. Returns:
-        {success, intent, steps, results, summary}
+        {success, intent, steps, results, summary, tool_used, handled}
+
+    Phase 6: dispatch goes through the tool registry. The legacy
+    plan_task / execute_steps pair is kept for introspection and
+    backward compatibility — callers can still invoke them directly,
+    but the master pipeline now flows through tools.select_tool.
     """
+    from kernel.tools import select_tool  # local import avoids circular
+
     intent = normalize(intent)
 
     if intent.get("type") not in ALLOWED_TYPES:
         return {
-            "success": False,
-            "intent":  intent,
-            "steps":   [],
-            "results": [],
-            "summary": "No kernel-handled intent. Pass through to Arkana.",
-            "handled": False,
+            "success":   False,
+            "intent":    intent,
+            "steps":     [],
+            "results":   [],
+            "summary":   "No kernel-handled intent. Pass through to Arkana.",
+            "tool_used": None,
+            "handled":   False,
         }
 
-    steps   = plan_task(intent)
-    results = execute_steps(steps, intent.get("payload") or {},
-                            intent_type=intent["type"])
-    success = verify(results)
-    return {
-        "success": success,
-        "intent":  intent,
-        "steps":   steps,
-        "results": results,
-        "summary": _summarize(intent, results, success),
-        "handled": True,
-    }
+    tool = select_tool(intent)
+    if tool is None:
+        return {
+            "success":   False,
+            "intent":    intent,
+            "steps":     [],
+            "results":   [],
+            "summary":   f"No tool registered for intent type '{intent['type']}'.",
+            "tool_used": None,
+            "handled":   True,
+        }
+
+    payload = intent.get("payload") or {}
+    try:
+        envelope = tool.run(payload)
+    except Exception as e:  # noqa: BLE001
+        return {
+            "success":   False,
+            "intent":    intent,
+            "steps":     plan_task(intent),
+            "results":   [{"status": "failed", "action": tool.name, "error": str(e)}],
+            "summary":   f"Tool '{tool.name}' raised: {e}",
+            "tool_used": tool.name,
+            "handled":   True,
+        }
+
+    # Re-attach the Phase 4 contract fields so Phase 5 workers and the
+    # bot's kernel rendering keep working without modification.
+    envelope["intent"]  = intent
+    envelope["handled"] = True
+    envelope.setdefault("steps", plan_task(intent))
+    envelope.setdefault("tool_used", tool.name)
+    return envelope
 
 
 def _summarize(intent: dict[str, Any], results: list[dict[str, Any]],
