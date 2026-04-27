@@ -10,7 +10,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
-import { Volume2, Square, Send, Trash2, Copy, Check } from 'lucide-react';
+import { Volume2, Square, Send, Trash2, Copy, Check, RotateCw, Pencil, X } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'arkana';
@@ -222,6 +222,8 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
   const [sessionType, setSessionType] = useState<'sovereign' | 'guest'>('guest');
   const [speakingIdx, setSpeakingIdx] = useState<number | null>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [editText, setEditText] = useState<string>('');
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -386,10 +388,13 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
     } finally { setLoading(false); }
   };
 
-  const sendMessage = async (text: string) => {
+  const sendMessage = async (text: string, opts: { appendUser?: boolean } = {}) => {
     if (!text.trim()) return;
-    const userMsg: Message = { role: 'user', content: text };
-    setMessages((prev) => { const next = [...prev, userMsg]; saveThread(next); return next; });
+    const appendUser = opts.appendUser !== false;
+    if (appendUser) {
+      const userMsg: Message = { role: 'user', content: text };
+      setMessages((prev) => { const next = [...prev, userMsg]; saveThread(next); return next; });
+    }
     setLoading(true);
 
     if (isHelpCommand(text)) {
@@ -461,6 +466,79 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
     setMessages([]);
     if (ttsAvailable) window.speechSynthesis.cancel();
     setSpeakingIdx(null);
+    setEditingIdx(null);
+  };
+
+  // ── Regenerate ─────────────────────────────────────────────────────────────
+  // Re-roll the LAST arkana reply against the user message immediately above it.
+  const regenerateLast = async () => {
+    if (loading) return;
+    // Find last arkana index walking from the end.
+    let lastArkanaIdx = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'arkana') { lastArkanaIdx = i; break; }
+    }
+    if (lastArkanaIdx <= 0) return;
+    // The user message that prompted it must be just before.
+    const userIdx = lastArkanaIdx - 1;
+    if (messages[userIdx]?.role !== 'user') return;
+    const userText = messages[userIdx].content;
+
+    // Stop any TTS targeting the soon-to-be-removed message.
+    if (ttsAvailable && speakingIdx === lastArkanaIdx) {
+      window.speechSynthesis.cancel();
+      setSpeakingIdx(null);
+    }
+
+    // Drop the trailing arkana message (and anything after it, defensively).
+    setMessages((prev) => {
+      const next = prev.slice(0, lastArkanaIdx);
+      saveThread(next);
+      return next;
+    });
+
+    await sendMessage(userText, { appendUser: false });
+  };
+
+  // ── Edit a user message ────────────────────────────────────────────────────
+  const startEdit = (idx: number) => {
+    if (loading) return;
+    setEditingIdx(idx);
+    setEditText(messages[idx]?.content ?? '');
+  };
+
+  const cancelEdit = () => {
+    setEditingIdx(null);
+    setEditText('');
+  };
+
+  const saveEdit = async () => {
+    if (editingIdx == null) return;
+    const idx = editingIdx;
+    const newText = editText.trim();
+    if (!newText) { cancelEdit(); return; }
+
+    // Stop TTS that may target a removed reply.
+    if (ttsAvailable) {
+      window.speechSynthesis.cancel();
+      setSpeakingIdx(null);
+    }
+
+    // Truncate the thread to just before the edited message, then
+    // re-append the edited user message. Anything after is dropped
+    // (the stale arkana reply we're about to regenerate).
+    setMessages((prev) => {
+      const next = [
+        ...prev.slice(0, idx),
+        { ...prev[idx], content: newText },
+      ];
+      saveThread(next);
+      return next;
+    });
+    setEditingIdx(null);
+    setEditText('');
+
+    await sendMessage(newText, { appendUser: false });
   };
 
   const lastSessionType = messages.filter(m => m.role === 'arkana').slice(-1)[0]?.session ?? null;
@@ -623,9 +701,18 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
           )}
 
           <AnimatePresence initial={false}>
-            {messages.map((msg, i) => {
+            {(() => {
+              // Compute last arkana index once per render so we can gate
+              // the Regenerate button to the most recent reply only.
+              let lastArkanaIdx = -1;
+              for (let k = messages.length - 1; k >= 0; k--) {
+                if (messages[k].role === 'arkana') { lastArkanaIdx = k; break; }
+              }
+              return messages.map((msg, i) => {
               const isUser = msg.role === 'user';
               const sov = msg.session === 'sovereign';
+              const isEditing = isUser && editingIdx === i;
+              const isLastArkana = !isUser && i === lastArkanaIdx;
               return (
                 <motion.div
                   key={i}
@@ -634,7 +721,8 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                   transition={{ duration: 0.22 }}
                   style={{
                     display: 'flex',
-                    justifyContent: isUser ? 'flex-end' : 'flex-start',
+                    flexDirection: 'column',
+                    alignItems: isUser ? 'flex-end' : 'flex-start',
                   }}
                 >
                   {/* User: subtle bubble. Arkana: flush, no bubble — ChatGPT-like canvas. */}
@@ -642,7 +730,8 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                     style={
                       isUser
                         ? {
-                            maxWidth: '85%',
+                            maxWidth: isEditing ? '100%' : '85%',
+                            width: isEditing ? '100%' : 'auto',
                             padding: '10px 14px',
                             borderRadius: '16px 16px 4px 16px',
                             background: 'rgba(201,168,76,0.07)',
@@ -657,9 +746,32 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                           }
                     }
                   >
-                    <MarkdownBlock text={msg.content} tone={isUser ? 'user' : 'arkana'} />
+                    {isEditing ? (
+                      <textarea
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        autoFocus
+                        rows={Math.min(12, Math.max(2, editText.split('\n').length))}
+                        data-testid={`textarea-edit-${i}`}
+                        style={{
+                          width: '100%',
+                          padding: 8,
+                          background: 'rgba(0,0,0,0.25)',
+                          border: '1px solid rgba(201,168,76,0.25)',
+                          borderRadius: 8,
+                          color: 'rgba(232,232,232,0.95)',
+                          fontFamily: 'Inter, sans-serif',
+                          fontSize: 13,
+                          lineHeight: 1.6,
+                          resize: 'vertical',
+                          outline: 'none',
+                        }}
+                      />
+                    ) : (
+                      <MarkdownBlock text={msg.content} tone={isUser ? 'user' : 'arkana'} />
+                    )}
 
-                    {msg.images && msg.images.length > 0 && (
+                    {msg.images && msg.images.length > 0 && !isEditing && (
                       <div
                         style={{
                           marginTop: 12,
@@ -734,6 +846,28 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                             {speakingIdx === i ? 'Stop' : 'Listen'}
                           </button>
                         )}
+                        {isLastArkana && (
+                          <button
+                            onClick={regenerateLast}
+                            disabled={loading}
+                            title="Regenerate this reply"
+                            data-testid={`button-regenerate-${i}`}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 5,
+                              background: 'transparent',
+                              border: 'none',
+                              padding: '2px 4px',
+                              color: 'rgba(232,232,232,0.4)',
+                              fontFamily: 'sans-serif', fontSize: 10.5,
+                              letterSpacing: '0.04em',
+                              cursor: loading ? 'not-allowed' : 'pointer',
+                              opacity: loading ? 0.4 : 1,
+                            }}
+                          >
+                            <RotateCw size={12} />
+                            Regenerate
+                          </button>
+                        )}
                         {msg.resonance != null && (
                           <span
                             style={{
@@ -749,9 +883,80 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                       </div>
                     )}
                   </div>
+
+                  {/* Edit affordance for user messages — quiet inline row */}
+                  {isUser && (
+                    <div
+                      style={{
+                        marginTop: 4,
+                        display: 'flex',
+                        gap: 10,
+                        opacity: isEditing ? 1 : 0.55,
+                      }}
+                    >
+                      {isEditing ? (
+                        <>
+                          <button
+                            onClick={saveEdit}
+                            disabled={loading || !editText.trim()}
+                            data-testid={`button-save-edit-${i}`}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 5,
+                              background: 'rgba(201,168,76,0.12)',
+                              border: '1px solid rgba(201,168,76,0.3)',
+                              borderRadius: 6,
+                              padding: '4px 10px',
+                              color: '#C9A84C',
+                              fontFamily: 'sans-serif', fontSize: 10.5,
+                              letterSpacing: '0.04em',
+                              cursor: loading || !editText.trim() ? 'not-allowed' : 'pointer',
+                            }}
+                          >
+                            <Check size={12} /> Save & resend
+                          </button>
+                          <button
+                            onClick={cancelEdit}
+                            data-testid={`button-cancel-edit-${i}`}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 5,
+                              background: 'transparent',
+                              border: 'none',
+                              padding: '4px 6px',
+                              color: 'rgba(232,232,232,0.5)',
+                              fontFamily: 'sans-serif', fontSize: 10.5,
+                              letterSpacing: '0.04em',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <X size={12} /> Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => startEdit(i)}
+                          disabled={loading}
+                          title="Edit and resend"
+                          data-testid={`button-edit-${i}`}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 5,
+                            background: 'transparent',
+                            border: 'none',
+                            padding: '2px 4px',
+                            color: 'rgba(232,232,232,0.4)',
+                            fontFamily: 'sans-serif', fontSize: 10.5,
+                            letterSpacing: '0.04em',
+                            cursor: loading ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          <Pencil size={11} /> Edit
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </motion.div>
               );
-            })}
+            });
+            })()}
 
             {loading && (
               <motion.div
