@@ -908,3 +908,61 @@ async def solspire_tools():
     """Return the SolSpire tool registry."""
     from solspire.registry import list_tools
     return {"tools": list_tools()}
+
+
+# ── SolSpire Phase 3 — Task Engine ───────────────────────────────────────────
+# Plan / execute / inspect multi-step task plans with state, retries, and a
+# safety gate. See engine/task_engine.py for the engine itself.
+
+@app.post("/solspire/plan")
+async def solspire_plan(body: dict):
+    """Decompose a message into a task plan WITHOUT executing it.
+
+    Body: {message: str, autonomy_level?: int}
+    Returns: full plan envelope including plan_id, tasks, safety triggers.
+    """
+    message = (body or {}).get("message", "")
+    if not isinstance(message, str) or not message.strip():
+        raise HTTPException(status_code=400, detail="Provide non-empty `message` field.")
+    level = int((body or {}).get("autonomy_level", 3))
+    from engine.task_engine import plan
+    return plan(message, autonomy_level=level)
+
+
+@app.post("/solspire/execute")
+async def solspire_execute(body: dict):
+    """Plan + execute in one shot, OR execute an existing plan_id.
+
+    Body: {message?: str, plan_id?: str, confirmed?: bool, autonomy_level?: int}
+
+    If `plan_id` is provided, the existing plan is run. Otherwise `message`
+    is required and a fresh plan is built and run. Sensitive plans require
+    `confirmed: true` to actually execute.
+    """
+    body = body or {}
+    plan_id = body.get("plan_id")
+    confirmed = bool(body.get("confirmed", False))
+    from engine.task_engine import execute, plan
+
+    if plan_id:
+        return execute(plan_id, confirmed=confirmed)
+
+    message = body.get("message", "")
+    if not isinstance(message, str) or not message.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Provide either `plan_id` or non-empty `message`.",
+        )
+    level = int(body.get("autonomy_level", 3))
+    p = plan(message, autonomy_level=level)
+    return execute(p["plan_id"], confirmed=confirmed)
+
+
+@app.get("/solspire/plan/{plan_id}")
+async def solspire_get_plan(plan_id: str):
+    """Read the current state of a plan (post-execution snapshot)."""
+    from engine.state import get_plan
+    p = get_plan(plan_id)
+    if p is None:
+        raise HTTPException(status_code=404, detail=f"Unknown plan_id: {plan_id}")
+    return p
