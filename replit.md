@@ -142,8 +142,35 @@ Add to repo root to override labels/descriptions/categories for specific files:
 | `VITE_FIREBASE_AUTH_DOMAIN` | Firebase auth |
 | `VITE_FIREBASE_PROJECT_ID` | Firebase auth |
 
+### Phase 8 — Memory-Aware Planning, Goals, Observability
+- **`kernel/memory.py`** — keyword-match retrieval over `data/oracle_store.json`; injected into planner as `context`
+- **`kernel/goals.py`** — persistent long-running directives (`data/goals.json`); CRUD + scheduler enqueues due goals every 15s (env: `SOLSPIRE_GOAL_TICK_SECONDS`); safety floors: min cadence 30s, hourly cap 60
+- **`kernel/metrics.py`** — sliding-window per-tool counters (success rate, p50/p95) + plan/goal counters
+- **Worker:** spawns goal scheduler thread on startup; persists per-job execution `trace` (input, plan, plan_source, context, per-step timings/summaries)
+- **API endpoints:** `GET/POST/PATCH/DELETE /api/goals`, `GET /api/job/{id}/trace`, `GET /api/metrics`
+
+### Operational Dashboard — `web/public_prism/src/pages/dashboard/`
+Mounted as a top-level View ("Dashboard") in the existing Arkadia navigation. Same gold/teal palette, same state-driven nav pattern (no URL routing).
+- **`Dashboard.tsx`** — sidebar shell + sub-page state machine
+- **`Overview.tsx`** — live stats + Recharts line chart (client-side ring buffer, 60 samples max)
+- **`Jobs.tsx`** — table with auto-refresh (3s), click-to-expand detail pane, "View Trace" jump
+- **`Goals.tsx`** — full CRUD with pause/resume/complete/delete
+- **`Traces.tsx`** — execution breakdown: input, plan JSON, retrieved context, per-step timings, final result
+- **`Tools.tsx`** — registry view (name, description, input schema)
+- **`System.tsx`** — queue depth, success rate, avg latency, per-tool metrics table
+- **`lib/dashboardApi.ts`** — typed fetch client; uses `VITE_API_BASE_URL` (empty in dev → Vite proxies `/api` to `:8000`)
+- **`main.tsx`** — wraps app in `QueryClientProvider`; React Query handles all polling + cache invalidation
+- **Vite config:** added `server.proxy['/api'] → http://localhost:8000` for dev
+
+### Vercel Deployment Notes
+- Frontend deploys from `web/public_prism/` (existing `vercel.json`, framework auto-detected as Vite)
+- For dashboard to reach Render backend in prod, set Vercel env var: `VITE_API_BASE_URL=https://arkadia-n26k.onrender.com`
+- If unset, the dashboard makes same-origin requests (which fail on Vercel since the backend is on Render — set the env var)
+
 ## Cycle History
 - **Cycle 13:** ARKANA identity, 20-scroll corpus, /api/codex, SpiralVault feed UI (Weaver)
 - **Cycle 14:** Firebase memory layer — anonymous auth, Firestore conversation persistence
 - **Cycle 15:** Conversation summarization, pattern extraction, textarea UX, react-markdown
 - **Cycle 16:** Dynamic multi-source corpus engine, Spiral Codex Live Console Feed
+- **Phase 7:** LLM planner + multi-tool chaining (Gemini-driven plans with deterministic fallback)
+- **Phase 8:** Memory-aware planning, persistent goals, observability + operational dashboard
