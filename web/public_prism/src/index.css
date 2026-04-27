@@ -79,189 +79,158 @@ body {
     0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
-/* ── TEAL GLOW TEXT ── */
-.teal-glow {
-  color: var(--teal);
-  text-shadow:
-    0 0 40px rgba(0, 255, 247, 0.35),
-    0 0 80px rgba(0, 255, 247, 0.12);
+/* ── MARKDOWN (Google-Docs clean) ─────────────────────────────────────── */
+/* Used by both user and Arkana messages. Two tone variants are provided;
+   the wrapping <div> picks one with .arkadia-prose-arkana | .arkadia-prose-user. */
+.arkadia-prose {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: rgba(232, 232, 232, 0.90);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .arkadia-prose { font-size: 13px; }
 }
 
-/* ── BUTTON GLASS ── */
-.btn-glass-teal {
-  background: rgba(0, 255, 247, 0.08);
-  border: 1px solid rgba(0, 255, 247, 0.35);
-  color: var(--teal);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  transition: all 0.25s ease;
+.arkadia-prose > *:first-child { margin-top: 0; }
+.arkadia-prose > *:last-child  { margin-bottom: 0; }
+
+.arkadia-prose p {
+  margin: 0 0 0.7em;
 }
-
-.btn-glass-teal:hover {
-  background: rgba(0, 255, 247, 0.16);
-  box-shadow: 0 0 24px rgba(0, 255, 247, 0.2);
-  transform: translateY(-1px);
-}
-
-.btn-glass-gold {
-  background: rgba(212, 175, 55, 0.08);
-  border: 1px solid rgba(212, 175, 55, 0.4);
-  color: var(--gold);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  transition: all 0.25s ease;
-}
-
-.btn-glass-gold:hover {
-  background: rgba(212, 175, 55, 0.18);
-  box-shadow: 0 0 28px rgba(212, 175, 55, 0.25);
-  transform: translateY(-1px);
-}
-
-/* ── SCROLLBAR ── */
-::-webkit-scrollbar {
-  width: 4px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--obsidian);
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(0, 255, 247, 0.2);
-  border-radius: 2px;
-}
-
-/* ── FONT UTILITIES ── */
-.font-cinzel-decorative { font-family: 'Cinzel Decorative', serif !important; }
-.font-cinzel             { font-family: 'Cinzel', serif !important; }
-.font-inter              { font-family: 'Inter', sans-serif !important; }
-
-/* ── CENTERING FIX — bypasses Tailwind conflicts ── */
-#root {
-  width: 100%;
-  min-height: 100vh;
-}
-
-.page-column {
-  width: 100%;
-  max-width: 440px;
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: 20px;
-  padding-right: 20px;
-}
-
-.page-column * {
-  text-align: left;
-}
-
-.page-column .center-text {
-  text-align: center;
-}
-
-/* ── REMAINING FIXES ── */
-
-/* Force title center */
-.page-column h1 {
-  text-align: center !important;
-}
-
-/* Full-width buttons */
-.page-column button {
-  width: 100% !important;
-  display: block !important;
-}
-
-/* Card internal padding — sigil was bleeding to edge */
-.glass-mansion {
-  padding: 24px 20px !important;
-}
-
-/* Card header row — sigil + title aligned */
-.glass-mansion > div:first-child {
-  display: flex !important;
-  align-items: center !important;
-  gap: 12px !important;
-  margin-bottom: 12px !important;
-}
-
-/* Nav brand row — stop it wrapping */
-.nav, header {
-  padding-left: 20px !important;
-  padding-right: 20px !important;
-}
-
-/* ── FINAL CALIBRATION ── */
-
-/* Body text indent */
-.page-column p {
-  padding-left: 4px;
-}
-
-/* Button glass fix — Tailwind bg classes losing to base reset */
-.page-column button:first-of-type {
-  background: rgba(0, 212, 170, 0.1) !important;
-  border: 1px solid rgba(0, 212, 170, 0.4) !important;
-  color: #00D4AA !important;
-  padding: 16px !important;
-  border-radius: 12px !important;
-  font-family: sans-serif !important;
-  font-size: 11px !important;
-  letter-spacing: 0.2em !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
-}
-
-.page-column button:last-of-type {
-  background: rgba(201, 168, 76, 0.1) !important;
-  border: 1px solid rgba(201, 168, 76, 0.4) !important;
-  color: #C9A84C !important;
-  padding: 16px !important;
-  border-radius: 12px !important;
-  font-family: sans-serif !important;
-  font-size: 11px !important;
-  letter-spacing: 0.2em !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
-}
-
-/* Card internal spacing — tighten gap after header row */
-.glass-mansion > div:first-child {
-  margin-bottom: 8px !important;
-}
-
-.glass-mansion > p {
-  margin-bottom: 14px !important;
-  padding-left: 0 !important;
-}
-
-/* ── ORACLE MESSAGE PROSE ── */
-.oracle-message p {
-  margin-bottom: 0.75rem;
-  line-height: 1.5;
-}
-.oracle-message p:last-child {
-  margin-bottom: 0;
-}
-.oracle-message h1,
-.oracle-message h2,
-.oracle-message h3 {
-  margin-top: 1rem;
-  margin-bottom: 0.5rem;
-  color: #00D4AA;
+.arkadia-prose strong {
+  color: #f5f1e8;
   font-weight: 600;
 }
-.oracle-message strong {
+.arkadia-prose em {
+  color: rgba(232, 232, 232, 0.78);
+  font-style: italic;
+}
+
+.arkadia-prose h1,
+.arkadia-prose h2,
+.arkadia-prose h3,
+.arkadia-prose h4 {
+  font-family: 'Cinzel', 'Playfair Display', serif;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #C9A84C;
+  margin: 1em 0 0.35em;
+  line-height: 1.25;
+}
+.arkadia-prose h1 { font-size: 1.45em; }
+.arkadia-prose h2 { font-size: 1.22em; }
+.arkadia-prose h3 { font-size: 1.05em; color: #d6b860; }
+.arkadia-prose h4 { font-size: 0.98em; color: rgba(201,168,76,0.85); }
+
+.arkadia-prose ul,
+.arkadia-prose ol {
+  margin: 0.4em 0 0.8em;
+  padding-left: 1.4em;
+}
+.arkadia-prose li {
+  margin-bottom: 0.35em;
+}
+.arkadia-prose ul li::marker {
+  color: rgba(0, 212, 170, 0.7);
+}
+.arkadia-prose ol li::marker {
+  color: rgba(201, 168, 76, 0.75);
+  font-variant-numeric: tabular-nums;
+}
+
+.arkadia-prose blockquote {
+  border-left: 3px solid rgba(201,168,76,0.45);
+  padding: 0.2em 0 0.2em 0.95em;
+  color: rgba(232, 232, 232, 0.7);
+  font-style: italic;
+  margin: 0.6em 0 0.9em;
+  background: rgba(201,168,76,0.04);
+  border-radius: 0 6px 6px 0;
+}
+
+.arkadia-prose code {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(0, 212, 170, 0.10);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: ui-monospace, SFMono-Regular, "JetBrains Mono", monospace;
+  font-size: 0.88em;
   color: #00D4AA;
 }
-.oracle-message em {
+.arkadia-prose pre {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(0, 212, 170, 0.12);
+  border-radius: 8px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  margin: 0.6em 0 0.9em;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.arkadia-prose pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: rgba(232, 232, 232, 0.86);
+}
+
+.arkadia-prose a {
+  color: #00D4AA;
+  text-decoration: underline;
+  text-decoration-color: rgba(0, 212, 170, 0.4);
+  text-underline-offset: 2px;
+}
+.arkadia-prose a:hover { text-decoration-color: #00D4AA; }
+
+.arkadia-prose hr {
+  border: none;
+  border-top: 1px solid rgba(201, 168, 76, 0.18);
+  margin: 1em 0;
+}
+
+.arkadia-prose table {
+  border-collapse: collapse;
+  margin: 0.7em 0 0.9em;
+  width: 100%;
+  font-size: 0.92em;
+}
+.arkadia-prose th, .arkadia-prose td {
+  border: 1px solid rgba(232, 232, 232, 0.08);
+  padding: 6px 10px;
+  text-align: left;
+}
+.arkadia-prose th {
+  background: rgba(201, 168, 76, 0.06);
   color: #C9A84C;
+  font-weight: 600;
 }
-.oracle-message ul {
-  padding-left: 1.25rem;
-  margin-bottom: 0.75rem;
+
+/* User-bubble tone: warmer, slightly different color anchor */
+.arkadia-prose-user {
+  color: rgba(245, 241, 232, 0.92);
 }
-.oracle-message li {
-  margin-bottom: 0.25rem;
+.arkadia-prose-user strong { color: #fff8e5; }
+.arkadia-prose-user h1, .arkadia-prose-user h2, .arkadia-prose-user h3 {
+  color: #d6b860;
 }
+
+/* Arkana-bubble tone: airy serif feel */
+.arkadia-prose-arkana {
+  font-family: 'Inter', 'Lora', system-ui, serif;
+}
+
+/* ── Hide scrollbars on horizontal nav strips ─────────────────────────── */
+.scrollbar-thin::-webkit-scrollbar { height: 4px; width: 4px; }
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(201,168,76,0.18);
+  border-radius: 4px;
+}
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(201,168,76,0.18) transparent;
+}
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

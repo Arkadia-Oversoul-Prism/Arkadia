@@ -5,6 +5,7 @@ import {
   Card, COLORS, Empty, ErrorBox, StatusBadge,
   CollapsibleJSON, Button, fmtTime, fmtDuration,
 } from "./ui"
+import { useMediaQuery } from "../../hooks/useMediaQuery"
 
 export default function Jobs({
   onOpenTrace,
@@ -12,6 +13,7 @@ export default function Jobs({
   onOpenTrace: (jobId: string) => void
 }) {
   const [selected, setSelected] = useState<string | null>(null)
+  const isNarrow = useMediaQuery("(max-width: 900px)")
 
   const list = useQuery({
     queryKey: ["jobs"],
@@ -24,7 +26,11 @@ export default function Jobs({
   const jobs = list.data?.jobs ?? []
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: selected ? "minmax(320px, 1fr) minmax(360px, 1fr)" : "1fr", gap: 18 }}>
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: selected && !isNarrow ? "minmax(320px, 1fr) minmax(360px, 1fr)" : "1fr",
+      gap: 18,
+    }}>
       <Card title="Jobs" subtitle={`${jobs.length} most recent · auto-refresh 3s`}>
         {jobs.length === 0 ? (
           <Empty>No jobs yet. Submit one via /api/job/create or /api/plan/run.</Empty>

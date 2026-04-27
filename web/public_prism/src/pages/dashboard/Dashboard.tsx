@@ -1,9 +1,10 @@
 /**
  * Arkadia Operational Dashboard.
  *
- * Self-contained module mounted as a top-level View in the existing
- * navigation. Internal sub-page state is managed locally so URL routing
- * matches the parent app's existing pattern (state-driven, not URL-driven).
+ * Mobile-first responsive shell. Below 768px the sidebar collapses into a
+ * horizontal scrollable tab strip across the top; above, it returns to a
+ * fixed 220px sidebar. Sub-pages render with internal scroll + tighter
+ * padding on small viewports.
  */
 import React, { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -18,6 +19,7 @@ import Traces from "./Traces"
 import Tools from "./Tools"
 import System from "./System"
 import { COLORS } from "./ui"
+import { useMediaQuery } from "../../hooks/useMediaQuery"
 
 type DashView =
   | "overview" | "jobs" | "goals" | "traces" | "tools" | "system"
@@ -34,15 +36,110 @@ const NAV: { id: DashView; label: string; icon: React.ComponentType<{ size?: num
 export default function Dashboard() {
   const [view, setView] = useState<DashView>("overview")
   const [traceJobId, setTraceJobId] = useState<string | null>(null)
+  const isMobile = useMediaQuery("(max-width: 768px)")
 
   const openTrace = (jobId: string) => {
     setTraceJobId(jobId)
     setView("traces")
   }
 
+  const PageBody = (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={view}
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.22 }}
+      >
+        {view === "overview" && <Overview />}
+        {view === "jobs"     && <Jobs onOpenTrace={openTrace} />}
+        {view === "goals"    && <Goals />}
+        {view === "traces"   && <Traces openJobId={traceJobId} />}
+        {view === "tools"    && <Tools />}
+        {view === "system"   && <System />}
+      </motion.div>
+    </AnimatePresence>
+  )
+
+  // ── Mobile: top tab strip + full-bleed content ───────────────────────
+  if (isMobile) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", minHeight: "calc(100vh - 57px)" }}>
+        <nav
+          className="scrollbar-thin"
+          style={{
+            display: "flex",
+            gap: 6,
+            overflowX: "auto",
+            padding: "10px 12px",
+            borderBottom: "1px solid rgba(201,168,76,0.10)",
+            background: "rgba(13,13,26,0.55)",
+            backdropFilter: "blur(14px)",
+            position: "sticky",
+            top: 57,
+            zIndex: 20,
+          }}
+        >
+          {NAV.map((item) => {
+            const Icon = item.icon
+            const active = view === item.id
+            return (
+              <button
+                key={item.id}
+                onClick={() => setView(item.id)}
+                data-testid={`link-dashboard-${item.id}`}
+                style={{
+                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 12px",
+                  background: active ? "rgba(0,212,170,0.10)" : "transparent",
+                  border: active ? "1px solid rgba(0,212,170,0.35)" : "1px solid rgba(232,232,232,0.07)",
+                  borderRadius: 999,
+                  color: active ? COLORS.teal : COLORS.muted,
+                  fontFamily: "sans-serif",
+                  fontSize: 10.5,
+                  letterSpacing: "0.16em",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  transition: "all .15s",
+                }}
+              >
+                <Icon size={13} />
+                {item.label}
+              </button>
+            )
+          })}
+        </nav>
+
+        <header style={{ padding: "16px 16px 4px" }}>
+          <p style={{
+            fontFamily: "sans-serif", fontSize: 8.5, letterSpacing: "0.32em",
+            textTransform: "uppercase", color: COLORS.dim, margin: 0,
+          }}>
+            Arkadia / Dashboard
+          </p>
+          <h1 style={{
+            fontFamily: "serif", fontSize: 22, color: COLORS.text,
+            margin: "4px 0 0", letterSpacing: "0.04em",
+          }}>
+            {NAV.find((n) => n.id === view)?.label}
+          </h1>
+        </header>
+
+        <main style={{ padding: "12px 14px 40px", flex: 1 }}>
+          {PageBody}
+        </main>
+      </div>
+    )
+  }
+
+  // ── Desktop: sidebar + content ────────────────────────────────────────
   return (
     <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", minHeight: "calc(100vh - 57px)" }}>
-      {/* Sidebar */}
       <aside
         style={{
           width: 220,
@@ -99,7 +196,6 @@ export default function Dashboard() {
         })}
       </aside>
 
-      {/* Content */}
       <main style={{ padding: "28px 32px 60px", overflow: "auto" }}>
         <header style={{ marginBottom: 22 }}>
           <p style={{
@@ -115,23 +211,7 @@ export default function Dashboard() {
             {NAV.find((n) => n.id === view)?.label}
           </h1>
         </header>
-
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={view}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-          >
-            {view === "overview" && <Overview />}
-            {view === "jobs"     && <Jobs onOpenTrace={openTrace} />}
-            {view === "goals"    && <Goals />}
-            {view === "traces"   && <Traces openJobId={traceJobId} />}
-            {view === "tools"    && <Tools />}
-            {view === "system"   && <System />}
-          </motion.div>
-        </AnimatePresence>
+        {PageBody}
       </main>
     </div>
   )

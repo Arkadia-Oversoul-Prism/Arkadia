@@ -423,15 +423,12 @@ function App() {
         {view === 'commune' && (
           <motion.div
             key="commune"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.55 }}
-            style={{ minHeight: 'calc(100vh - 57px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '20px 16px 40px' }}
+            transition={{ duration: 0.4 }}
           >
-            <div style={{ width: '100%', maxWidth: '640px' }}>
-              <ArkanaCommune initialMessage={soulPhrase} />
-            </div>
+            <ArkanaCommune initialMessage={soulPhrase} />
           </motion.div>
         )}
 

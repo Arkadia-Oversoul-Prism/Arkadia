@@ -6,9 +6,11 @@ import {
   CollapsibleJSON, Button, fmtTime, fmtMs,
 } from "./ui"
 import { Table, Row, Cell, shortId } from "./Jobs"
+import { useMediaQuery } from "../../hooks/useMediaQuery"
 
 export default function Traces({ openJobId }: { openJobId?: string | null }) {
   const [selected, setSelected] = useState<string | null>(openJobId ?? null)
+  const isNarrow = useMediaQuery("(max-width: 960px)")
 
   // External nav (from Jobs page) opens a specific trace.
   useEffect(() => {
@@ -26,7 +28,11 @@ export default function Traces({ openJobId }: { openJobId?: string | null }) {
   const jobs = (list.data?.jobs ?? []).filter((j) => j.trace || j.status === "completed" || j.status === "failed")
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: selected ? "minmax(280px, 1fr) minmax(420px, 2fr)" : "1fr", gap: 18 }}>
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: selected && !isNarrow ? "minmax(280px, 1fr) minmax(420px, 2fr)" : "1fr",
+      gap: 18,
+    }}>
       <Card title="Traces" subtitle={`${jobs.length} traceable jobs`}>
         {jobs.length === 0 ? (
           <Empty>No completed jobs yet.</Empty>

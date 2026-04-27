@@ -137,7 +137,15 @@ function NewGoalForm({
 
   return (
     <Card title="New goal" subtitle="Min cadence 30s · max 60 runs/hr (hard cap)">
-      <form onSubmit={submit} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 10, alignItems: "end" }}>
+      <form
+        onSubmit={submit}
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+          gap: 10,
+          alignItems: "end",
+        }}
+      >
         <div>
           <Label>Description</Label>
           <Input value={desc} onChange={setDesc}
