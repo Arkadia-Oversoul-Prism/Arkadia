@@ -47,6 +47,14 @@
       "currency": "USD",
       "party": null,
       "note": "spent $42 on coffee"
+    },
+    {
+      "id": "txn_0723af563b",
+      "ts": 1777260965.431152,
+      "amount": 12.5,
+      "currency": "USD",
+      "party": null,
+      "note": "spent 12.50 on coffee"
     }
   ],
   "open_loops": [
@@ -121,7 +129,7 @@
     }
   ],
   "balance": {
-    "USD": 149.5,
+    "USD": 162.0,
     "EUR": 7.25
   },
   "events": [
@@ -264,6 +272,38 @@
         "kind": "generate_verse",
         "payload": {},
         "ts": 1777260326.4980588,
+        "context": {
+          "kind": "generate_verse"
+        }
+      }
+    },
+    {
+      "id": "evt_56e788c274",
+      "ts": 1777260965.2154796,
+      "payload": {
+        "kind": "generate_verse",
+        "payload": {},
+        "ts": 1777260965.2152152,
+        "context": {
+          "kind": "generate_verse"
+        }
+      }
+    },
+    {
+      "id": "evt_3fc3ad1d73",
+      "ts": 1777260965.4313264,
+      "payload": {
+        "kind": "transaction",
+        "transaction_id": "txn_0723af563b"
+      }
+    },
+    {
+      "id": "evt_6c842bc74d",
+      "ts": 1777260979.1697183,
+      "payload": {
+        "kind": "generate_verse",
+        "payload": {},
+        "ts": 1777260979.1695757,
         "context": {
           "kind": "generate_verse"
         }

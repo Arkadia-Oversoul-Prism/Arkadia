@@ -24,6 +24,7 @@ from kernel.jobs import (
     COMPLETED, FAILED, MAX_RETRIES, RUNNING,
     get_store,
 )
+from kernel.goals import get_store as get_goal_store
 
 logger = logging.getLogger("arkadia.worker")
 
@@ -31,6 +32,10 @@ _workers: list[threading.Thread] = []
 _started = False
 _lock = threading.Lock()
 _shutdown = threading.Event()
+
+# ── Goal scheduler config ───────────────────────────────────────────────────
+_GOAL_TICK_SECONDS = float(os.environ.get("SOLSPIRE_GOAL_TICK_SECONDS", "15"))
+_GOAL_THREAD: threading.Thread | None = None
 
 
 def _backoff_seconds(retry_count: int) -> float:
@@ -67,6 +72,9 @@ def _process_job(job: dict[str, Any]) -> None:
     store.mark_completed(job_id, result)
     logger.info("job %s completed", job_id)
 
+    # Phase 8: persist a focused trace for this job alongside the result.
+    _record_job_trace(job_id, intent, result)
+
 
 def _handle_failure(job_id: str, error: str,
                     partial_result: Any | None = None) -> None:
@@ -88,6 +96,43 @@ def _handle_failure(job_id: str, error: str,
         store.mark_failed(job_id, error=error)
         if partial_result is not None:
             store.update(job_id, result=partial_result)
+
+
+def _record_job_trace(job_id: str, intent: dict[str, Any],
+                      result: dict[str, Any] | None) -> None:
+    """Phase 8 trace projection. Stores a compact, focused breakdown of the
+    job — input, plan, per-step outputs, final summary — on the job record
+    itself so /api/job/{id}/trace can serve it without recomputing."""
+    if not isinstance(result, dict):
+        return
+    payload = (intent or {}).get("payload") or {}
+    execution = result.get("execution") or {}
+    steps = execution.get("steps") if isinstance(execution, dict) else result.get("steps") or []
+    trace = {
+        "job_id":     job_id,
+        "intent_type": (intent or {}).get("type"),
+        "input":      payload.get("input") or payload.get("message") or payload,
+        "plan":       result.get("plan"),
+        "plan_source": result.get("plan_source"),
+        "context":    (execution or {}).get("context") if isinstance(execution, dict) else None,
+        "steps": [
+            {
+                "step_id":     s.get("step_id"),
+                "tool":        s.get("tool"),
+                "input":       s.get("input"),
+                "duration_ms": s.get("duration_ms"),
+                "success":     bool((s.get("envelope") or {}).get("success")),
+                "summary":     (s.get("envelope") or {}).get("summary"),
+            }
+            for s in (steps or []) if isinstance(s, dict)
+        ],
+        "success":    bool(result.get("success")),
+        "summary":    result.get("summary"),
+    }
+    try:
+        get_store().update(job_id, trace=trace)
+    except Exception:  # noqa: BLE001 — trace is best-effort
+        logger.exception("failed to persist trace for %s", job_id)
 
 
 def _worker_loop(worker_id: int) -> None:
@@ -144,12 +189,87 @@ def stop_workers(timeout: float = 5.0) -> None:
     for t in _workers:
         t.join(timeout=timeout)
     _workers.clear()
-    global _started
+    global _started, _GOAL_THREAD
     _started = False
+    if _GOAL_THREAD is not None:
+        _GOAL_THREAD.join(timeout=timeout)
+        _GOAL_THREAD = None
 
 
 def worker_count() -> int:
     return sum(1 for t in _workers if t.is_alive())
 
 
-__all__ = ["start_workers", "stop_workers", "worker_count"]
+# ── Phase 8: goal scheduler ─────────────────────────────────────────────────
+
+def _goal_scheduler_loop() -> None:
+    """Periodically check the GoalStore for due goals and enqueue each as
+    a __plan__ job. The scheduler never executes a goal in its own thread —
+    it only enqueues, so retries / persistence / observability all flow
+    through the existing job machinery.
+    """
+    from kernel import metrics
+
+    job_store  = get_store()
+    goal_store = get_goal_store()
+    logger.info("goal scheduler online (tick=%.1fs)", _GOAL_TICK_SECONDS)
+
+    while not _shutdown.is_set():
+        try:
+            due = goal_store.due_goals()
+        except Exception:  # noqa: BLE001
+            logger.exception("goal scheduler: due_goals failed")
+            due = []
+
+        for goal in due:
+            goal_id = goal.get("goal_id")
+            description = goal.get("description") or ""
+            try:
+                intent = {
+                    "type":    "__plan__",
+                    "payload": {"input": description, "goal_id": goal_id},
+                    "source":  "goal",
+                }
+                job = job_store.create(intent, source="goal")
+                goal_store.record_run(goal_id, job_id=job["job_id"])
+                metrics.record_goal_run(success=True)
+                logger.info("goal %s → enqueued job %s", goal_id, job["job_id"])
+            except Exception as e:  # noqa: BLE001
+                logger.exception("goal %s scheduling failed", goal_id)
+                metrics.record_goal_run(success=False)
+
+        # Sleep in small slices so shutdown is responsive.
+        slept = 0.0
+        while slept < _GOAL_TICK_SECONDS and not _shutdown.is_set():
+            time.sleep(0.5)
+            slept += 0.5
+
+    logger.info("goal scheduler offline")
+
+
+def start_goal_scheduler() -> bool:
+    """Spin up the goal scheduler thread. Idempotent. Returns True if
+    started this call (vs already running)."""
+    global _GOAL_THREAD
+    with _lock:
+        if _GOAL_THREAD is not None and _GOAL_THREAD.is_alive():
+            return False
+        _shutdown.clear()
+        t = threading.Thread(
+            target=_goal_scheduler_loop,
+            name="solspire-goal-scheduler",
+            daemon=True,
+        )
+        t.start()
+        _GOAL_THREAD = t
+        return True
+
+
+def goal_scheduler_alive() -> bool:
+    return _GOAL_THREAD is not None and _GOAL_THREAD.is_alive()
+
+
+__all__ = [
+    "start_workers", "stop_workers", "worker_count",
+    "start_goal_scheduler", "goal_scheduler_alive",
+]

@@ -1036,9 +1036,11 @@ async def solspire_oracle_snapshot():
 
 @app.on_event("startup")
 async def _solspire_start_workers() -> None:
-    from kernel.worker import start_workers
+    from kernel.worker import start_workers, start_goal_scheduler
     n = start_workers()
     logger.info("Phase 5 job workers online: %d", n)
+    if start_goal_scheduler():
+        logger.info("Phase 8 goal scheduler online")
 
 
 @app.on_event("shutdown")
@@ -1256,3 +1258,149 @@ async def api_plan_job(body: dict):
         "job_id":  job["job_id"],
         "status":  job["status"],
     }
+
+
+# ── SolSpire Phase 8 — Memory, persistent goals, observability ──────────────
+# Three concerns, surfaced as plain-REST endpoints:
+#
+#   POST   /api/goals             — create a long-running goal
+#   GET    /api/goals             — list goals (optional ?status=)
+#   GET    /api/goals/{goal_id}   — fetch one goal
+#   PATCH  /api/goals/{goal_id}   — update description/status/cadence/cap
+#   DELETE /api/goals/{goal_id}   — remove a goal
+#
+#   GET    /api/job/{job_id}/trace  — focused execution trace (plan + steps)
+#   GET    /api/metrics             — tool/plan/goal counters + latencies
+#
+# Goals execute through the existing job machinery — the scheduler thread
+# enqueues each due goal as a __plan__ job, so retries, persistence, and
+# tracing all flow through the standard pipeline.
+
+@app.post("/api/goals")
+async def api_goal_create(body: dict):
+    """Create a persistent goal. Body:
+        {
+          "description":       "Generate a daily verse and log it",
+          "cadence_seconds":   3600,        # optional, min 30s
+          "max_runs_per_hour": 6,           # optional, hard cap 60
+          "start_now":         true         # optional, default true
+        }
+    """
+    body = body or {}
+    description = (body.get("description") or "").strip()
+    if not description:
+        raise HTTPException(status_code=400, detail="`description` is required.")
+
+    from kernel.goals import get_store as _goal_store, DEFAULT_MAX_PER_HOUR
+    try:
+        goal = _goal_store().create(
+            description,
+            cadence_seconds=float(body.get("cadence_seconds", 300)),
+            max_runs_per_hour=int(body.get("max_runs_per_hour", DEFAULT_MAX_PER_HOUR)),
+            start_now=bool(body.get("start_now", True)),
+        )
+    except (TypeError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"message": "Goal created", "goal": goal}
+
+
+@app.get("/api/goals")
+async def api_goal_list(status: str | None = None):
+    from kernel.goals import get_store as _goal_store, VALID_STATUSES
+    if status and status not in VALID_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"status must be one of: {sorted(VALID_STATUSES)}",
+        )
+    goals = _goal_store().list(status=status)
+    return {"goals": goals, "count": len(goals)}
+
+
+@app.get("/api/goals/{goal_id}")
+async def api_goal_get(goal_id: str):
+    from kernel.goals import get_store as _goal_store
+    goal = _goal_store().get(goal_id)
+    if goal is None:
+        raise HTTPException(status_code=404, detail=f"Unknown goal_id: {goal_id}")
+    return goal
+
+
+@app.patch("/api/goals/{goal_id}")
+async def api_goal_update(goal_id: str, body: dict):
+    """Update mutable goal fields. Allowed: description, status, cadence_seconds,
+    max_runs_per_hour. Other fields are ignored."""
+    body = body or {}
+    allowed = {"description", "status", "cadence_seconds", "max_runs_per_hour"}
+    fields = {k: v for k, v in body.items() if k in allowed}
+    if not fields:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Provide at least one of: {sorted(allowed)}",
+        )
+    from kernel.goals import get_store as _goal_store
+    try:
+        goal = _goal_store().update(goal_id, **fields)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if goal is None:
+        raise HTTPException(status_code=404, detail=f"Unknown goal_id: {goal_id}")
+    return {"message": "Goal updated", "goal": goal}
+
+
+@app.delete("/api/goals/{goal_id}")
+async def api_goal_delete(goal_id: str):
+    from kernel.goals import get_store as _goal_store
+    if not _goal_store().delete(goal_id):
+        raise HTTPException(status_code=404, detail=f"Unknown goal_id: {goal_id}")
+    return {"message": "Goal deleted", "goal_id": goal_id}
+
+
+@app.get("/api/job/{job_id}/trace")
+async def api_job_trace(job_id: str):
+    """Focused execution trace for a job: input, plan, per-step outputs,
+    and final summary. Falls back to a minimal projection of the result
+    if the worker hasn't yet attached a trace (job still in flight)."""
+    from kernel.jobs import get_store as _job_store
+    job = _job_store().get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Unknown job_id: {job_id}")
+
+    trace = job.get("trace")
+    if trace:
+        return {"job_id": job_id, "status": job.get("status"), "trace": trace}
+
+    # In-flight or pre-Phase-8 job — synthesize a minimal view.
+    return {
+        "job_id":  job_id,
+        "status":  job.get("status"),
+        "trace": {
+            "job_id":      job_id,
+            "intent_type": (job.get("intent") or {}).get("type"),
+            "input":       (job.get("intent") or {}).get("payload"),
+            "plan":        (job.get("result") or {}).get("plan"),
+            "steps":       [],
+            "success":     (job.get("result") or {}).get("success"),
+            "summary":     (job.get("result") or {}).get("summary")
+                          or "Trace not yet available — job may still be running.",
+        },
+    }
+
+
+@app.get("/api/metrics")
+async def api_metrics():
+    """Lightweight observability snapshot: per-tool call counts +
+    success rate + p50/p95 latency, plus plan/goal counters and live
+    worker status."""
+    from kernel import metrics as _metrics
+    from kernel.worker import worker_count, goal_scheduler_alive
+    from kernel.jobs import get_store as _job_store
+    from kernel.goals import get_store as _goal_store
+
+    snap = _metrics.snapshot()
+    snap["workers"] = {
+        "alive":           worker_count(),
+        "goal_scheduler":  goal_scheduler_alive(),
+    }
+    snap["jobs"]  = _job_store().stats()
+    snap["goals_active"] = len(_goal_store().list(status="active"))
+    return snap

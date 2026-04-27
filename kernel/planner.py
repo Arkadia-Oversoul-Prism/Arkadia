@@ -33,6 +33,7 @@ import json
 import logging
 import os
 import re
+import time
 from typing import Any
 
 import httpx
@@ -40,6 +41,13 @@ import httpx
 from kernel.tools import TOOL_REGISTRY, list_tools
 
 logger = logging.getLogger("arkadia.planner")
+
+# Phase 8: optional context block injected into the planner prompt
+# when the Oracle has signal to share. Kept in JSON for token economy.
+_CONTEXT_INSTRUCTION = (
+    "\nSystem memory (use only if relevant; do NOT hallucinate fields not present):\n"
+    "{context_json}\n"
+)
 
 # ── Hard constraints ────────────────────────────────────────────────────────
 MAX_STEPS = 5
@@ -57,7 +65,8 @@ _REF_RE = re.compile(r"^\$([a-zA-Z0-9_]+)(?:\.([a-zA-Z0-9_.]+))?$")
 
 # ── Step 1: planner LLM call ────────────────────────────────────────────────
 
-def _build_planner_system_prompt(tools: list[dict[str, Any]]) -> str:
+def _build_planner_system_prompt(tools: list[dict[str, Any]],
+                                  context: dict[str, Any] | None = None) -> str:
     tool_lines = []
     for t in tools:
         schema = t.get("payload_schema") or {}
@@ -65,12 +74,25 @@ def _build_planner_system_prompt(tools: list[dict[str, Any]]) -> str:
         tool_lines.append(f"  • {t['name']} — {t['description']}\n      input: {schema_str}")
     tool_block = "\n".join(tool_lines) if tool_lines else "  (no tools registered)"
 
+    # Phase 8: optional memory injection. Only included when there is real
+    # signal — empty memory just wastes tokens.
+    from kernel.memory import has_signal
+    context_block = ""
+    if has_signal(context):
+        try:
+            context_block = _CONTEXT_INSTRUCTION.format(
+                context_json=json.dumps(context, ensure_ascii=False, default=str)[:2000],
+            )
+        except Exception:  # noqa: BLE001
+            context_block = ""
+
     return (
         "You are a planning engine for the Arkadia execution kernel.\n"
         "You MUST return a single valid JSON object — no prose, no code fences, no commentary.\n"
         "\n"
         "Available tools:\n"
         f"{tool_block}\n"
+        f"{context_block}"
         "\n"
         "Rules:\n"
         f"- Return at most {MAX_STEPS} steps.\n"
@@ -80,6 +102,8 @@ def _build_planner_system_prompt(tools: list[dict[str, Any]]) -> str:
         "  the string \"$<step_id>.<field>\" (e.g. \"$step_0.verse\"). The step_id is "
         "  \"step_0\" for the first step, \"step_1\" for the second, etc.\n"
         "- Prefer the smallest plan that satisfies the request. One step is often enough.\n"
+        "- If system memory is provided, use it to avoid redundant work and to keep "
+        "  decisions consistent with prior state. Never invent values not in memory.\n"
         "\n"
         "Output format (exact):\n"
         "{\n"
@@ -149,14 +173,19 @@ def _gemini_plan(user_input: str, system_prompt: str) -> str | None:
     return None
 
 
-def generate_plan(user_input: str) -> dict[str, Any] | None:
+def generate_plan(user_input: str,
+                  context: dict[str, Any] | None = None) -> dict[str, Any] | None:
     """Turn raw input into a structured plan. Returns None on planner failure;
     caller should drop to deterministic fallback.
+
+    Phase 8: `context` is an optional memory dict from kernel.memory.
+    When provided and non-empty, it's injected into the system prompt
+    so the LLM can plan with awareness of prior state.
     """
     if not isinstance(user_input, str) or not user_input.strip():
         return None
 
-    system = _build_planner_system_prompt(list_tools())
+    system = _build_planner_system_prompt(list_tools(), context=context)
     raw = _gemini_plan(user_input.strip(), system)
     if raw is None:
         return None
@@ -232,7 +261,12 @@ def execute_plan(plan: dict[str, Any]) -> dict[str, Any]:
     """Run validated steps in order. Each step's result is added to the
     context under both its step_id and its tool name so later steps can
     reference either. One failed step short-circuits the chain.
+
+    Phase 8: every step records to the metrics ledger (success + duration)
+    and carries timing in its trace record.
     """
+    from kernel import metrics  # local to avoid import cycles
+
     context: dict[str, Any] = {}
     step_results: list[dict[str, Any]] = []
     success = True
@@ -243,6 +277,7 @@ def execute_plan(plan: dict[str, Any]) -> dict[str, Any]:
         tool = TOOL_REGISTRY[step["tool"]]
         resolved_input = _resolve_ref(step.get("input") or {}, context)
 
+        started = time.time()
         try:
             envelope = tool.run(resolved_input)
         except Exception as e:  # noqa: BLE001 — chain must capture, not crash
@@ -253,12 +288,20 @@ def execute_plan(plan: dict[str, Any]) -> dict[str, Any]:
                 "summary": f"Tool '{tool.name}' raised: {e}",
                 "tool_used": tool.name,
             }
+        duration_ms = round((time.time() - started) * 1000, 2)
+        metrics.record_tool_call(
+            tool.name,
+            success=bool(envelope.get("success")),
+            duration_ms=duration_ms,
+        )
 
         step_record = {
-            "step_id":  step_id,
-            "tool":     tool.name,
-            "input":    resolved_input,
-            "envelope": envelope,
+            "step_id":     step_id,
+            "tool":        tool.name,
+            "input":       resolved_input,
+            "envelope":    envelope,
+            "started_at":  started,
+            "duration_ms": duration_ms,
         }
         step_results.append(step_record)
 
@@ -319,22 +362,31 @@ def _fallback_plan(user_input: str) -> dict[str, Any] | None:
 
 # ── Top-level orchestrator ──────────────────────────────────────────────────
 
-def plan_or_fallback(user_input: str) -> dict[str, Any]:
-    """End-to-end: plan → validate → execute. On any planner failure, retry
-    once with the deterministic fallback. The return shape is stable for the
-    API and worker callers.
+def plan_or_fallback(user_input: str, *,
+                     with_context: bool = True) -> dict[str, Any]:
+    """End-to-end: retrieve memory → plan → validate → execute. On any
+    planner failure, retry once with the deterministic fallback. The
+    return shape is stable for the API and worker callers.
+
+    Phase 8: `with_context=True` (the default) enriches the planner prompt
+    with a slice of Oracle state. Set False to plan blind (test/debug).
     """
+    from kernel import memory, metrics
+
     if not isinstance(user_input, str) or not user_input.strip():
         return {
-            "success":  False,
-            "plan":     None,
-            "source":   "none",
-            "summary":  "Empty input.",
+            "success":   False,
+            "plan":      None,
+            "source":    "none",
+            "summary":   "Empty input.",
             "execution": None,
+            "context":   None,
         }
 
+    ctx = memory.retrieve_context(user_input) if with_context else None
+
     plan_source = "llm"
-    plan = generate_plan(user_input)
+    plan = generate_plan(user_input, context=ctx)
     if plan is not None:
         ok, reason = validate_plan(plan)
         if not ok:
@@ -346,31 +398,37 @@ def plan_or_fallback(user_input: str) -> dict[str, Any]:
         plan_source = "fallback" if plan else "none"
 
     if plan is None:
+        metrics.record_plan(success=False, source="none")
         return {
-            "success":  False,
-            "plan":     None,
-            "source":   "none",
-            "summary":  "No plan could be produced (LLM unavailable and no deterministic match).",
+            "success":   False,
+            "plan":      None,
+            "source":    "none",
+            "summary":   "No plan could be produced (LLM unavailable and no deterministic match).",
             "execution": None,
+            "context":   ctx,
         }
 
     ok, reason = validate_plan(plan)
     if not ok:
+        metrics.record_plan(success=False, source=plan_source)
         return {
-            "success":  False,
-            "plan":     plan,
-            "source":   plan_source,
-            "summary":  f"Plan rejected: {reason}",
+            "success":   False,
+            "plan":      plan,
+            "source":    plan_source,
+            "summary":   f"Plan rejected: {reason}",
             "execution": None,
+            "context":   ctx,
         }
 
     execution = execute_plan(plan)
+    metrics.record_plan(success=execution["success"], source=plan_source)
     return {
         "success":   execution["success"],
         "plan":      plan,
         "source":    plan_source,
         "summary":   format_response(execution),
         "execution": execution,
+        "context":   ctx,
     }
 
 
