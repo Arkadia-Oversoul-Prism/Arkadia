@@ -450,12 +450,9 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
     sendMessage(text);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Enter sends; Shift+Enter inserts a newline.
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+  const handleKeyDown = (_e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Enter inserts a newline (default textarea behavior). Use the Send
+    // button to submit — works the same on desktop and mobile.
   };
 
   const clearThread = () => {
@@ -816,8 +813,8 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
             disabled={loading}
             rows={1}
             placeholder={isSovereignMode
-              ? 'Speak, sovereign… (Shift+Enter for newline, Enter to send)'
-              : 'Speak into the field… (Shift+Enter for newline, Enter to send)'}
+              ? 'Speak, sovereign…'
+              : 'Speak into the field…'}
             style={{
               flex: 1,
               padding: '11px 14px',
