@@ -10,7 +10,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
-import { Volume2, Square, Send, Trash2 } from 'lucide-react';
+import { Volume2, Square, Send, Trash2, Copy, Check } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'arkana';
@@ -22,7 +22,18 @@ interface Message {
 
 // ─── Slash commands ───────────────────────────────────────────────────────────
 
+// Slash commands MUST be prefixed with `⟐ ` or `/` on a single-line message,
+// otherwise pasted scrolls or essays containing the words `forge` / `codex`
+// would silently trigger image generation or codex probes. The whole message
+// also has to be a single line — multi-line pastes are never commands.
+function isSingleLineCommand(text: string): boolean {
+  const t = text.trim();
+  if (t.includes('\n')) return false;
+  return /^[⟐/]\s*/.test(t);
+}
+
 function parseForgeCommand(text: string): { archetype: string; scene: string; count: number } | null {
+  if (!isSingleLineCommand(text)) return null;
   const t = text.trim().replace(/^[⟐/]\s*/, '');
   const m = t.match(/^forge\s+(\w+)(?:\s+x(\d+))?\s*(.*)$/i);
   if (!m) return null;
@@ -37,6 +48,7 @@ function parseForgeCommand(text: string): { archetype: string; scene: string; co
 }
 
 function parseCodexCommand(text: string): string | null {
+  if (!isSingleLineCommand(text)) return null;
   const t = text.trim().replace(/^[⟐/]\s*/, '');
   const m = t.match(/^codex\s*(.*)?$/i);
   if (!m) return null;
@@ -44,6 +56,7 @@ function parseCodexCommand(text: string): string | null {
 }
 
 function isHelpCommand(text: string): boolean {
+  if (!isSingleLineCommand(text)) return false;
   const t = text.trim().replace(/^[⟐/]\s*/, '').toLowerCase();
   return t === 'help' || t === '?' || t === 'commands';
 }
@@ -208,6 +221,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
   const [gateOpen, setGateOpen] = useState(false);
   const [sessionType, setSessionType] = useState<'sovereign' | 'guest'>('guest');
   const [speakingIdx, setSpeakingIdx] = useState<number | null>(null);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -254,6 +268,31 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
     const clean = t.trim();
     saveToken(clean);
     setSovereignToken(clean);
+  };
+
+  // ── Copy as markdown ───────────────────────────────────────────────────────
+  const copyAsMarkdown = async (idx: number, text: string) => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        // Fallback for older / non-https contexts.
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopiedIdx(idx);
+      setTimeout(() => {
+        setCopiedIdx((cur) => (cur === idx ? null : cur));
+      }, 1600);
+    } catch {
+      // Silent — UI button just won't flip to "copied".
+    }
   };
 
   // ── TTS controls ───────────────────────────────────────────────────────────
@@ -643,7 +682,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                       </div>
                     )}
 
-                    {/* Footer: TTS + resonance (Arkana only) — quiet, inline, no top border */}
+                    {/* Footer: copy + TTS + resonance (Arkana only) — quiet, inline, no top border */}
                     {!isUser && (
                       <div
                         style={{
@@ -652,13 +691,35 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                           alignItems: 'center',
                           justifyContent: 'flex-start',
                           gap: 12,
-                          opacity: 0.7,
+                          opacity: 0.75,
+                          flexWrap: 'wrap',
                         }}
                       >
+                        <button
+                          onClick={() => copyAsMarkdown(i, msg.content)}
+                          title="Copy as Markdown"
+                          data-testid={`button-copy-markdown-${i}`}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 5,
+                            background: 'transparent',
+                            border: 'none',
+                            padding: '2px 4px',
+                            color: copiedIdx === i
+                              ? (sov ? '#C9A84C' : '#00D4AA')
+                              : 'rgba(232,232,232,0.4)',
+                            fontFamily: 'sans-serif', fontSize: 10.5,
+                            letterSpacing: '0.04em',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {copiedIdx === i ? <Check size={12} /> : <Copy size={12} />}
+                          {copiedIdx === i ? 'Copied' : 'Copy'}
+                        </button>
                         {ttsAvailable && (
                           <button
                             onClick={() => toggleSpeak(i, msg.content)}
                             title={speakingIdx === i ? 'Stop reading' : 'Read aloud'}
+                            data-testid={`button-tts-${i}`}
                             style={{
                               display: 'flex', alignItems: 'center', gap: 5,
                               background: 'transparent',
@@ -682,6 +743,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                               fontFamily: 'sans-serif', fontSize: 10,
                               letterSpacing: '0.06em',
                               color: sov ? 'rgba(201,168,76,0.5)' : 'rgba(0,212,170,0.45)',
+                              marginLeft: 'auto',
                             }}
                           >
                             resonance {msg.resonance.toFixed(3)}

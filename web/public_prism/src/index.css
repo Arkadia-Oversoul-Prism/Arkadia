@@ -281,11 +281,15 @@ body {
    ───────────────────────────────────────────────────────────────────────────── */
 .arkadia-prose {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 14px;
-  line-height: 1.65;
-  color: rgba(232, 232, 232, 0.92);
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(232, 232, 232, 0.9);
   word-wrap: break-word;
   overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .arkadia-prose { font-size: 12.5px; line-height: 1.6; }
 }
 
 .arkadia-prose > *:first-child { margin-top: 0; }
