@@ -593,26 +593,33 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
               return (
                 <motion.div
                   key={i}
-                  initial={{ opacity: 0, y: 6 }}
+                  initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.22 }}
-                  style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}
+                  style={{
+                    display: 'flex',
+                    justifyContent: isUser ? 'flex-end' : 'flex-start',
+                  }}
                 >
+                  {/* User: subtle bubble. Arkana: flush, no bubble — ChatGPT-like canvas. */}
                   <div
-                    style={{
-                      maxWidth: '92%',
-                      padding: '11px 14px',
-                      borderRadius: isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-                      ...(isUser
+                    style={
+                      isUser
                         ? {
-                            background: 'rgba(201,168,76,0.06)',
-                            border: '1px solid rgba(201,168,76,0.18)',
+                            maxWidth: '85%',
+                            padding: '10px 14px',
+                            borderRadius: '16px 16px 4px 16px',
+                            background: 'rgba(201,168,76,0.07)',
+                            border: '1px solid rgba(201,168,76,0.16)',
                           }
                         : {
-                            background: sov ? 'rgba(201,168,76,0.04)' : 'rgba(0,212,170,0.04)',
-                            border: sov ? '1px solid rgba(201,168,76,0.13)' : '1px solid rgba(0,212,170,0.12)',
-                          }),
-                    }}
+                            maxWidth: '100%',
+                            width: '100%',
+                            padding: '4px 2px 2px',
+                            background: 'transparent',
+                            border: 'none',
+                          }
+                    }
                   >
                     <MarkdownBlock text={msg.content} tone={isUser ? 'user' : 'arkana'} />
 
@@ -636,44 +643,45 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                       </div>
                     )}
 
-                    {/* Footer: TTS + resonance (Arkana only) */}
+                    {/* Footer: TTS + resonance (Arkana only) — quiet, inline, no top border */}
                     {!isUser && (
                       <div
                         style={{
-                          marginTop: 10,
-                          paddingTop: 6,
-                          borderTop: '1px solid rgba(255,255,255,0.04)',
+                          marginTop: 8,
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: 10,
+                          justifyContent: 'flex-start',
+                          gap: 12,
+                          opacity: 0.7,
                         }}
                       >
-                        {ttsAvailable ? (
+                        {ttsAvailable && (
                           <button
                             onClick={() => toggleSpeak(i, msg.content)}
                             title={speakingIdx === i ? 'Stop reading' : 'Read aloud'}
                             style={{
                               display: 'flex', alignItems: 'center', gap: 5,
                               background: 'transparent',
-                              border: '1px solid rgba(232,232,232,0.07)',
-                              borderRadius: 6, padding: '3px 7px',
-                              color: speakingIdx === i ? (sov ? '#C9A84C' : '#00D4AA') : 'rgba(232,232,232,0.35)',
-                              fontFamily: 'sans-serif', fontSize: 9,
-                              letterSpacing: '0.18em', textTransform: 'uppercase',
+                              border: 'none',
+                              padding: '2px 4px',
+                              color: speakingIdx === i
+                                ? (sov ? '#C9A84C' : '#00D4AA')
+                                : 'rgba(232,232,232,0.4)',
+                              fontFamily: 'sans-serif', fontSize: 10.5,
+                              letterSpacing: '0.04em',
                               cursor: 'pointer',
                             }}
                           >
-                            {speakingIdx === i ? <Square size={9} /> : <Volume2 size={10} />}
+                            {speakingIdx === i ? <Square size={11} /> : <Volume2 size={12} />}
                             {speakingIdx === i ? 'Stop' : 'Listen'}
                           </button>
-                        ) : <span />}
+                        )}
                         {msg.resonance != null && (
                           <span
                             style={{
-                              fontFamily: 'sans-serif', fontSize: 8.5,
-                              letterSpacing: '0.2em', textTransform: 'uppercase',
-                              color: sov ? 'rgba(201,168,76,0.45)' : 'rgba(0,212,170,0.4)',
+                              fontFamily: 'sans-serif', fontSize: 10,
+                              letterSpacing: '0.06em',
+                              color: sov ? 'rgba(201,168,76,0.5)' : 'rgba(0,212,170,0.45)',
                             }}
                           >
                             resonance {msg.resonance.toFixed(3)}
