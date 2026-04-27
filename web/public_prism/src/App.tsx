@@ -1,4 +1,4 @@
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ArkadiaNavigation from './components/ArkadiaNavigation';
 import LivingGate from './pages/LivingGate';
@@ -7,30 +7,7 @@ import SpiralVault from './components/SpiralVault';
 import ShereSanctuary from './components/ShereSanctuary';
 import CoherenceReset from './pages/CoherenceReset';
 
-// Dashboard ships its own heavy deps (Recharts, React Query). Lazy-load it so
-// the public landing route doesn't pay for a control surface most visitors
-// will never see. Vite splits this into its own chunk.
-const Dashboard = lazy(() => import('./pages/dashboard/Dashboard'));
-
-const DashboardFallback = () => (
-  <div
-    style={{
-      minHeight: 'calc(100vh - 57px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      color: 'rgba(0,212,170,0.55)',
-      fontFamily: 'serif',
-      fontSize: 13,
-      letterSpacing: '0.25em',
-      textTransform: 'uppercase',
-    }}
-  >
-    Loading console…
-  </div>
-);
-
-type View = 'home' | 'gate' | 'commune' | 'vault' | 'reset' | 'sanctuary' | 'dashboard';
+type View = 'home' | 'gate' | 'commune' | 'vault' | 'reset' | 'sanctuary';
 
 // ─── HOME PAGE ────────────────────────────────────────────────────────────────
 
@@ -94,8 +71,8 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
               margin: 0,
             }}
           >
-            The precision work of making your inner signal legible —<br />
-            to yourself first, then to the world.
+            The precision work of making your inner signal legible — to
+            yourself first, then to the world.
           </p>
         </motion.div>
 
@@ -104,7 +81,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.75 }}
-          style={{ marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}
+          style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}
         >
           {[
             'There is a version of you that already knows what to charge.',
@@ -145,8 +122,8 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
               margin: 0,
             }}
           >
-            That version isn't waiting for more information.<br />
-            It's waiting for the ground beneath it to stop shifting.
+            That version isn't waiting for more information. It's waiting for
+            the ground beneath it to stop shifting.
           </p>
         </motion.div>
 
@@ -176,7 +153,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
               transition: 'all 0.25s ease',
             }}
           >
-            FREE GUIDE — 5-MINUTE MONEY RESET
+            Free Reset — 5 Minutes
           </button>
 
           <button
@@ -364,7 +341,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
             borderTop: '1px solid rgba(0,212,170,0.07)',
           }}
         >
-          {['Zahrune Nova', '117Hz', 'Pankshin, Nigeria'].map((txt, i) => (
+          {['Zahrune Nova', '117Hz', 'Jos, Nigeria'].map((txt, i) => (
             <React.Fragment key={txt}>
               <span
                 style={{
@@ -423,12 +400,15 @@ function App() {
         {view === 'commune' && (
           <motion.div
             key="commune"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.4 }}
+            transition={{ duration: 0.55 }}
+            style={{ minHeight: 'calc(100vh - 57px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '20px 16px 40px' }}
           >
-            <ArkanaCommune initialMessage={soulPhrase} />
+            <div style={{ width: '100%', maxWidth: '640px' }}>
+              <ArkanaCommune initialMessage={soulPhrase} />
+            </div>
           </motion.div>
         )}
 
@@ -468,20 +448,6 @@ function App() {
             style={{ minHeight: 'calc(100vh - 57px)', padding: '28px 16px 60px' }}
           >
             <ShereSanctuary />
-          </motion.div>
-        )}
-
-        {view === 'dashboard' && (
-          <motion.div
-            key="dashboard"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <Suspense fallback={<DashboardFallback />}>
-              <Dashboard />
-            </Suspense>
           </motion.div>
         )}
       </AnimatePresence>
