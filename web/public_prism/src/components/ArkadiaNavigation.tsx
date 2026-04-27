@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-type View = 'home' | 'gate' | 'commune' | 'vault' | 'reset' | 'sanctuary';
+type View = 'home' | 'gate' | 'commune' | 'vault' | 'reset' | 'sanctuary' | 'dashboard';
 
 interface NavProps {
   currentView: View;
@@ -16,6 +16,7 @@ const navItems: { label: string; view: View }[] = [
   { label: 'Reset', view: 'reset' },
   { label: 'Vault', view: 'vault' },
   { label: 'Sanctuary', view: 'sanctuary' },
+  { label: 'Dashboard', view: 'dashboard' },
 ];
 
 const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, children }) => {

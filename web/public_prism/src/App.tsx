@@ -6,8 +6,9 @@ import ArkanaCommune from './components/ArkanaCommune';
 import SpiralVault from './components/SpiralVault';
 import ShereSanctuary from './components/ShereSanctuary';
 import CoherenceReset from './pages/CoherenceReset';
+import Dashboard from './pages/dashboard/Dashboard';
 
-type View = 'home' | 'gate' | 'commune' | 'vault' | 'reset' | 'sanctuary';
+type View = 'home' | 'gate' | 'commune' | 'vault' | 'reset' | 'sanctuary' | 'dashboard';
 
 // ─── HOME PAGE ────────────────────────────────────────────────────────────────
 
@@ -448,6 +449,18 @@ function App() {
             style={{ minHeight: 'calc(100vh - 57px)', padding: '28px 16px 60px' }}
           >
             <ShereSanctuary />
+          </motion.div>
+        )}
+
+        {view === 'dashboard' && (
+          <motion.div
+            key="dashboard"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <Dashboard />
           </motion.div>
         )}
       </AnimatePresence>
