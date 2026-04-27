@@ -1027,3 +1027,86 @@ async def solspire_oracle_snapshot():
     """Read the persistent Phase 4 Oracle store (transactions, loops, assets)."""
     from kernel.oracle_store import snapshot
     return snapshot()
+
+
+# ── SolSpire Phase 5 — Async Job System ─────────────────────────────────────
+# Wraps the Phase 4 kernel in a background-worker pool so callers can
+# fire-and-forget. Existing sync endpoints (/api/commune/resonance and
+# /solspire/intent) are unchanged.
+
+@app.on_event("startup")
+async def _solspire_start_workers() -> None:
+    from kernel.worker import start_workers
+    n = start_workers()
+    logger.info("Phase 5 job workers online: %d", n)
+
+
+@app.on_event("shutdown")
+async def _solspire_stop_workers() -> None:
+    from kernel.worker import stop_workers
+    stop_workers()
+
+
+@app.post("/api/job/create")
+async def api_job_create(body: dict):
+    """Enqueue a job for background execution. Two modes:
+
+    1. Pre-classified intent:
+       {"intent": {"type": "log_transaction", "payload": {...}}}
+    2. Raw message — kernel classifies first:
+       {"message": "spent $40 on coffee", "source": "telegram"}
+
+    Returns immediately with a job_id. Poll GET /api/job/{job_id}
+    for status and result.
+    """
+    body = body or {}
+    from kernel.execution import classify_input
+    from kernel.jobs import get_store
+
+    intent = body.get("intent")
+    if not isinstance(intent, dict) or not intent.get("type"):
+        message = body.get("message", "")
+        if not isinstance(message, str) or not message.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Provide either `intent` dict (with type) or non-empty `message`.",
+            )
+        intent = classify_input(message, source=body.get("source", "api"))
+        if not intent.get("type"):
+            raise HTTPException(
+                status_code=422,
+                detail="Message did not match any kernel-handled intent type.",
+            )
+
+    job = get_store().create(intent, source=body.get("source", "api"))
+    return {
+        "message": "Task accepted",
+        "job_id":  job["job_id"],
+        "status":  job["status"],
+    }
+
+
+@app.get("/api/job/{job_id}")
+async def api_job_status(job_id: str):
+    """Get current status and (if completed) result for a job."""
+    from kernel.jobs import get_store
+    job = get_store().get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Unknown job_id: {job_id}")
+    return job
+
+
+@app.get("/api/jobs")
+async def api_jobs_list(status: str | None = None, limit: int = 50):
+    """List recent jobs. Optional ?status=pending|running|completed|failed."""
+    from kernel.jobs import VALID_STATUSES, get_store
+    if status and status not in VALID_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"status must be one of: {sorted(VALID_STATUSES)}",
+        )
+    store = get_store()
+    return {
+        "jobs":  store.list(limit=max(1, min(limit, 500)), status=status),
+        "stats": store.stats(),
+    }

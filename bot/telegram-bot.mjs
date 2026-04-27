@@ -15,6 +15,11 @@ const CONFIG = {
   workspace: process.cwd(),
   memoryPath: './MEMORY.md',
   identityPath: './IDENTITY.md',
+  // Phase 5: opt-in async job orchestration. When true, kernel-classified
+  // intents are sent to /api/job/create and the bot polls for the result.
+  asyncJobs: String(process.env.TELEGRAM_ASYNC_JOBS || '').toLowerCase() === 'true',
+  jobPollMs: Number(process.env.TELEGRAM_JOB_POLL_MS || 1000),
+  jobTimeoutMs: Number(process.env.TELEGRAM_JOB_TIMEOUT_MS || 60000),
 };
 
 // Gemini is kept for document parsing only
@@ -59,6 +64,44 @@ function appendHistory(chatId, role, content) {
   history.push({ role, content, ts: Date.now() });
   // Keep last 40 exchanges to prevent runaway memory
   if (history.length > 80) history.splice(0, history.length - 80);
+}
+
+// ─── Phase 5 — async job helpers
+// Used only when CONFIG.asyncJobs is true. The bot creates a job, returns
+// immediately with a placeholder reply, and polls until the worker finishes.
+
+async function createJob(message, chatId) {
+  try {
+    const res = await axios.post(
+      `${CONFIG.oracleUrl}/api/job/create`,
+      { message, source: 'telegram' },
+      { timeout: 10000 }
+    );
+    return { jobId: res.data.job_id || null, status: res.data.status || null };
+  } catch (err) {
+    // 422 = no kernel-handled intent; that's expected, caller falls back to sync
+    if (err.response && err.response.status === 422) return { jobId: null, status: 'no_intent' };
+    console.warn('Job create failed:', err.message);
+    return { jobId: null, status: 'error' };
+  }
+}
+
+async function pollJob(jobId, { intervalMs, timeoutMs }) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const res = await axios.get(
+        `${CONFIG.oracleUrl}/api/job/${jobId}`,
+        { timeout: 5000 }
+      );
+      const job = res.data;
+      if (job.status === 'completed' || job.status === 'failed') return job;
+    } catch (err) {
+      console.warn(`Poll for ${jobId} failed:`, err.message);
+    }
+    await new Promise(r => setTimeout(r, intervalMs));
+  }
+  return { status: 'timeout', job_id: jobId };
 }
 
 // ─── Oracle relay
@@ -157,6 +200,35 @@ async function startBot() {
     try {
       await bot.sendChatAction(chatId, 'typing');
       appendHistory(chatId, 'user', userText);
+
+      // ── Phase 5: async path (opt-in via TELEGRAM_ASYNC_JOBS=true) ──
+      // If the message looks like a kernel-handled intent, create a job,
+      // tell the user "Task received", then poll for the result and send
+      // it when ready. Fall through to sync for anything else.
+      if (CONFIG.asyncJobs) {
+        const { jobId, status } = await createJob(userText, chatId);
+        if (jobId) {
+          await bot.sendMessage(chatId, '⏳ Task received. Processing…');
+          const job = await pollJob(jobId, {
+            intervalMs: CONFIG.jobPollMs,
+            timeoutMs:  CONFIG.jobTimeoutMs,
+          });
+          let asyncResponse;
+          if (job.status === 'completed') {
+            const summary = job.result?.summary || 'Done.';
+            const itype = job.result?.intent?.type || 'kernel';
+            asyncResponse = `${summary}\n\n✓ kernel: ${itype} · job ${jobId.slice(0, 14)}`;
+          } else if (job.status === 'failed') {
+            asyncResponse = `⚠ Job failed after retries.\n${job.error || ''}\n\njob ${jobId}`;
+          } else {
+            asyncResponse = `⏳ Still working… check back with /job ${jobId}`;
+          }
+          appendHistory(chatId, 'arkana', asyncResponse);
+          await sendChunkedMessage(bot, chatId, asyncResponse);
+          return;
+        }
+        // status === 'no_intent' → silently fall through to the sync Arkana path
+      }
 
       const { reply, resonance, kernel, source } = await callOracle(userText, chatId);
       appendHistory(chatId, 'arkana', reply);

@@ -7,6 +7,14 @@
       "currency": "USD",
       "party": null,
       "note": "spent $42.50 on coffee"
+    },
+    {
+      "id": "txn_0bb8fb289f",
+      "ts": 1777258664.2570767,
+      "amount": 12.0,
+      "currency": "USD",
+      "party": null,
+      "note": "spent $12 on tea"
     }
   ],
   "open_loops": [
@@ -37,10 +45,44 @@
           "status": "stubbed"
         }
       ]
+    },
+    {
+      "id": "asset_b42ee5a060",
+      "ts": 1777258664.6096401,
+      "kind": "image",
+      "count": 5,
+      "prompt": "async test",
+      "refs": [
+        {
+          "id": "img_21b0a4e1",
+          "prompt": "async test",
+          "status": "stubbed"
+        },
+        {
+          "id": "img_a22bc5ac",
+          "prompt": "async test",
+          "status": "stubbed"
+        },
+        {
+          "id": "img_0fa5ef27",
+          "prompt": "async test",
+          "status": "stubbed"
+        },
+        {
+          "id": "img_6d5c5df5",
+          "prompt": "async test",
+          "status": "stubbed"
+        },
+        {
+          "id": "img_d70b2c45",
+          "prompt": "async test",
+          "status": "stubbed"
+        }
+      ]
     }
   ],
   "balance": {
-    "USD": 42.5
+    "USD": 54.5
   },
   "events": [
     {
@@ -78,6 +120,29 @@
         "ts": 1777257944.1531703,
         "context": {
           "kind": "update_open_loops"
+        }
+      }
+    },
+    {
+      "id": "evt_e8a1c9074e",
+      "ts": 1777258664.257254,
+      "payload": {
+        "kind": "transaction",
+        "transaction_id": "txn_0bb8fb289f"
+      }
+    },
+    {
+      "id": "evt_34db11fc8a",
+      "ts": 1777258664.6106932,
+      "payload": {
+        "kind": "generate_images",
+        "payload": {
+          "count": 5,
+          "prompt": "async test"
+        },
+        "ts": 1777258664.6102145,
+        "context": {
+          "kind": "generate_images"
         }
       }
     }

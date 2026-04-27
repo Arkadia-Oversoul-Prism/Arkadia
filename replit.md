@@ -37,6 +37,22 @@ The Vault page is the central living feed:
 - Arc state progress bar (Feb 16 – Mar 31, 2026)
 - Expand/collapse full scroll content per card
 
+### SolSpire Phase 4 — Execution Kernel (`kernel/`)
+Strict, deterministic closed-loop execution layer beneath Arkana. Wires into `/api/commune/resonance` (classify-first, fall through to Arkana on no match) and exposes direct endpoints. **Pipeline:** `classify_input → plan_task → execute_steps → verify → summary`. No LLM in the kernel itself.
+
+- **`kernel/intent_types.py`** — strict 4-type contract: `generate_images | log_transaction | update_open_loops | generate_verse`
+- **`kernel/oracle_store.py`** — JSON-file Mutation Layer (`data/oracle_store.json`), thread-safe, atomic writes, sections: `transactions / open_loops / assets / balance / events`
+- **`kernel/agents.py`** — internal agent functions, all return `{status: ...}` envelopes for `verify()`
+- **`kernel/execution.py`** — regex-based classifier (recognizes `$/₦/€/£`, currency words, image/loop/verse verbs), planner, executor, verifier, master `execute_intent(intent)`
+
+### SolSpire Phase 5 — Async Job Orchestration (`kernel/jobs.py`, `kernel/worker.py`)
+Wraps the Phase 4 kernel in a background worker pool. Decouples execution from response. Existing sync endpoints remain unchanged.
+
+- **`kernel/jobs.py`** — thread-safe `JobStore` with FIFO `queue.Queue`, JSON snapshot at `data/job_store.json` (jobs survive soft restart, in-flight jobs re-enqueue), `MAX_RETRIES=3`
+- **`kernel/worker.py`** — N daemon worker threads (default 2, configurable via `SOLSPIRE_WORKERS`), exponential backoff (0.5s → 1s → 2s) between retries, soft-failure detection (kernel `success=False` triggers retry)
+- **Lifecycle:** workers start via FastAPI `on_event("startup")`, shut down on `on_event("shutdown")`
+- **Bot integration:** opt-in via `TELEGRAM_ASYNC_JOBS=true` — kernel-classified messages go through `/api/job/create`, bot replies "Task received…" then polls until completion. Default off, sync behavior preserved
+
 ### Arkadia Symbolic Engine (`api/arkadia_engine.py`)
 Deterministic, no-LLM stylistic generator running inside the same FastAPI service:
 - `generate_verse()` — 4-line shaped output (invocation → symbolic movement → fracture → seal), passed through a 10-syllable cap (`pronouncing` lib + vowel-cluster fallback) and an optional 40% rhyme tag.
