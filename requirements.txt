@@ -1,6 +1,7 @@
 fastapi
 uvicorn[standard]
 google-generativeai
+google-cloud-storage
 requests
 pydantic
 httpx

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import re
@@ -29,6 +30,14 @@ GITHUB_BRANCH  = "main"
 GITHUB_TOKEN   = os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN", "")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 SOVEREIGN_KEY  = os.environ.get("SOVEREIGN_KEY", "arkadia-forge-2026")
+
+# Forge image storage: "auto" (default), "firebase", or "github"
+#   auto     → Firebase if FIREBASE_STORAGE_BUCKET + creds are set, else GitHub
+#   firebase → Firebase only (errors if not configured)
+#   github   → legacy behavior, push images to forge/ in the GitHub repo
+FORGE_STORAGE             = os.environ.get("FORGE_STORAGE", "auto").lower().strip()
+FIREBASE_STORAGE_BUCKET   = os.environ.get("FIREBASE_STORAGE_BUCKET", "").strip()
+FIREBASE_SA_JSON          = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON", "").strip()
 
 # ── Category → SpiralVault category + display priority ───────────────────────
 # Handles both root-level dirs and Oversoul_Prism/ prefixed dirs
@@ -297,6 +306,93 @@ async def _push_image_to_github(image_b64: str, filename: str) -> str:
         resp = await client.put(url, headers=GH_HEADERS(), json=payload)
         resp.raise_for_status()
     return f"https://raw.githubusercontent.com/{GITHUB_REPO}/{GITHUB_BRANCH}/{path}"
+
+
+# ── Firebase Storage upload (preferred when configured) ──────────────────────
+
+_firebase_bucket_cache: dict = {"bucket": None, "tried": False}
+
+
+def _get_firebase_bucket():
+    """Return a cached google-cloud-storage Bucket, or None if not configured.
+    Configuration requires both FIREBASE_STORAGE_BUCKET and a service account
+    JSON in FIREBASE_SERVICE_ACCOUNT_JSON."""
+    if _firebase_bucket_cache["tried"]:
+        return _firebase_bucket_cache["bucket"]
+    _firebase_bucket_cache["tried"] = True
+
+    if not FIREBASE_STORAGE_BUCKET or not FIREBASE_SA_JSON:
+        return None
+    try:
+        from google.cloud import storage
+        from google.oauth2 import service_account
+        info        = json.loads(FIREBASE_SA_JSON)
+        creds       = service_account.Credentials.from_service_account_info(info)
+        client      = storage.Client(project=info.get("project_id"), credentials=creds)
+        bucket      = client.bucket(FIREBASE_STORAGE_BUCKET)
+        _firebase_bucket_cache["bucket"] = bucket
+        logger.info(f"Firebase Storage bucket ready: {FIREBASE_STORAGE_BUCKET}")
+        return bucket
+    except Exception as e:
+        logger.error(f"Firebase Storage init failed: {e}")
+        return None
+
+
+def _push_image_to_firebase_sync(image_bytes: bytes, filename: str) -> str:
+    """Synchronous Firebase upload — runs in a worker thread.
+    Returns a public HTTPS URL."""
+    bucket = _get_firebase_bucket()
+    if bucket is None:
+        raise RuntimeError("Firebase Storage not configured.")
+    blob_path = f"forge/{filename}"
+    blob      = bucket.blob(blob_path)
+    blob.upload_from_string(image_bytes, content_type="image/png")
+    # make_public() raises on uniform bucket-level access — that's fine,
+    # the bucket rules should allow public read on /forge/* in that case.
+    try:
+        blob.make_public()
+        return blob.public_url
+    except Exception:
+        return f"https://storage.googleapis.com/{FIREBASE_STORAGE_BUCKET}/{blob_path}"
+
+
+async def _push_image_to_firebase(image_b64: str, filename: str) -> str:
+    image_bytes = base64.b64decode(image_b64)
+    return await asyncio.to_thread(_push_image_to_firebase_sync, image_bytes, filename)
+
+
+# ── Storage dispatcher ──────────────────────────────────────────────────────
+
+async def _persist_forge_image(image_b64: str, filename: str) -> tuple[str, str]:
+    """Upload a base64 image and return (url, storage_kind).
+
+    Honors FORGE_STORAGE env:
+      - "firebase": Firebase only (raises if not configured)
+      - "github":   GitHub only (legacy)
+      - "auto":     Firebase if configured, otherwise GitHub.
+                    If Firebase is configured but the upload fails, falls
+                    back to GitHub so a transient bucket issue doesn't kill
+                    the whole forge call.
+    """
+    mode = FORGE_STORAGE if FORGE_STORAGE in ("auto", "firebase", "github") else "auto"
+
+    if mode == "github":
+        url = await _push_image_to_github(image_b64, filename)
+        return url, "github"
+
+    if mode == "firebase":
+        url = await _push_image_to_firebase(image_b64, filename)
+        return url, "firebase"
+
+    # auto
+    if _get_firebase_bucket() is not None:
+        try:
+            url = await _push_image_to_firebase(image_b64, filename)
+            return url, "firebase"
+        except Exception as e:
+            logger.warning(f"Firebase upload failed, falling back to GitHub: {e}")
+    url = await _push_image_to_github(image_b64, filename)
+    return url, "github"
 
 
 # ── Gemini call ───────────────────────────────────────────────────────────────
@@ -740,17 +836,19 @@ async def forge(request: Request):
     compiled = _compile_forge_prompt(archetype, base_prompt)
     logger.info(f"Forging {count}x [{archetype}]: {compiled[:80]}...")
 
-    urls = []
-    errors = []
+    urls    = []
+    images  = []   # richer per-image record: {url, storage}
+    errors  = []
 
     for i in range(count):
         try:
             image_b64 = await _generate_image(compiled)
             if image_b64:
-                ts       = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-                filename = f"{archetype}_{ts}_{i+1}.png"
-                url      = await _push_image_to_github(image_b64, filename)
+                ts             = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+                filename       = f"{archetype}_{ts}_{i+1}.png"
+                url, storage   = await _persist_forge_image(image_b64, filename)
                 urls.append(url)
+                images.append({"url": url, "storage": storage, "filename": filename})
             else:
                 errors.append(f"Image {i+1}: no data returned")
         except Exception as e:
@@ -761,7 +859,9 @@ async def forge(request: Request):
         "status":    "forged" if urls else "failed",
         "archetype": archetype,
         "prompt":    compiled,
-        "urls":      urls,
+        "urls":      urls,        # kept for backwards compatibility
+        "images":    images,      # new: per-image url + storage backend
+        "storage":   FORGE_STORAGE,
         "errors":    errors,
     }
 

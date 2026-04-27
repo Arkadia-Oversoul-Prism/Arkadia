@@ -141,6 +141,9 @@ Add to repo root to override labels/descriptions/categories for specific files:
 | `VITE_FIREBASE_APP_ID` | Firebase auth |
 | `VITE_FIREBASE_AUTH_DOMAIN` | Firebase auth |
 | `VITE_FIREBASE_PROJECT_ID` | Firebase auth |
+| `FIREBASE_STORAGE_BUCKET` | Forge image hosting (e.g. `arkadia-prism.appspot.com`) — optional, falls back to GitHub `forge/` |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Service-account JSON (full file contents) granting upload to the bucket above — optional |
+| `FORGE_STORAGE` | `auto` (default) / `firebase` / `github` — controls `/api/forge` upload destination |
 
 ### Phase 8 — Memory-Aware Planning, Goals, Observability
 - **`kernel/memory.py`** — keyword-match retrieval over `data/oracle_store.json`; injected into planner as `context`
