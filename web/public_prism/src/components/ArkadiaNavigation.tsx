@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-type View = 'home' | 'gate' | 'commune' | 'vault' | 'reset' | 'sanctuary' | 'dashboard' | 'about';
+type View = 'home' | 'gate' | 'commune' | 'reset' | 'sanctuary' | 'dashboard' | 'about';
 
 interface NavProps {
   currentView: View;
@@ -9,13 +9,12 @@ interface NavProps {
   children: React.ReactNode;
 }
 
-const navItems: { label: string; view: View }[] = [
+const NAV_ITEMS: { label: string; view: View }[] = [
   { label: 'Home', view: 'home' },
   { label: 'Gate', view: 'gate' },
   { label: 'Oracle', view: 'commune' },
   { label: 'Reset', view: 'reset' },
-  { label: 'Vault', view: 'vault' },
-  { label: 'Sanctuary', view: 'sanctuary' },
+  { label: 'Nexus', view: 'sanctuary' },
   { label: 'Dashboard', view: 'dashboard' },
   { label: 'About', view: 'about' },
 ];
@@ -41,8 +40,8 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
         style={{
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(201,168,76,0.12)',
-          backgroundColor: 'rgba(10,10,15,0.85)',
+          borderBottom: '1px solid rgba(201,168,76,0.1)',
+          backgroundColor: 'rgba(10,10,15,0.88)',
         }}
       >
         <button
@@ -56,26 +55,11 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
         </button>
 
         <div className="flex items-center gap-5">
-          {navItems.map((item) => {
+          {NAV_ITEMS.map(item => {
             const active = currentView === item.view;
             return (
-              <button
-                key={item.view}
-                onClick={() => onNavigate(item.view)}
-                style={{
-                  fontFamily: 'sans-serif',
-                  fontSize: '10px',
-                  letterSpacing: '0.25em',
-                  textTransform: 'uppercase',
-                  color: active ? '#00D4AA' : 'rgba(232,232,232,0.45)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  paddingBottom: '4px',
-                  borderBottom: active ? '1px solid #00D4AA' : '1px solid transparent',
-                  transition: 'color 0.2s, border-color 0.2s',
-                }}
-              >
+              <button key={item.view} onClick={() => onNavigate(item.view)}
+                style={{ fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: active ? '#00D4AA' : 'rgba(232,232,232,0.42)', background: 'none', border: 'none', cursor: 'pointer', paddingBottom: '4px', borderBottom: active ? '1px solid #00D4AA' : '1px solid transparent', transition: 'color 0.2s, border-color 0.2s' }}>
                 {item.label}
               </button>
             );
@@ -86,63 +70,29 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
       {/* Mobile top bar */}
       <nav
         className="fixed top-0 left-0 w-full z-40 flex md:hidden items-center justify-between px-5 py-4"
-        style={{
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(201,168,76,0.12)',
-          backgroundColor: 'rgba(10,10,15,0.85)',
-        }}
+        style={{ backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(201,168,76,0.1)', backgroundColor: 'rgba(10,10,15,0.88)' }}
       >
         <button onClick={() => onNavigate('home')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{ color: '#C9A84C', fontSize: '14px' }}>☥</span>
           <span style={{ fontFamily: 'serif', fontSize: '9px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.7)' }}>ARKADIA</span>
         </button>
-        <button
-          onClick={() => setMenuOpen(!menuOpen)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(232,232,232,0.6)', fontSize: '20px' }}
-        >
+        <button onClick={() => setMenuOpen(!menuOpen)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(232,232,232,0.6)', fontSize: '20px' }}>
           {menuOpen ? '✕' : '☰'}
         </button>
       </nav>
 
-      {/* Mobile dropdown menu */}
       <AnimatePresence>
         {menuOpen && (
-          <motion.div
-            key="mobile-menu"
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
+          <motion.div key="mobile-menu"
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}
             className="fixed top-[57px] left-0 w-full z-40 md:hidden"
-            style={{
-              backgroundColor: 'rgba(10,10,15,0.97)',
-              borderBottom: '1px solid rgba(201,168,76,0.12)',
-              backdropFilter: 'blur(20px)',
-            }}
-          >
-            {navItems.map((item) => {
+            style={{ backgroundColor: 'rgba(10,10,15,0.97)', borderBottom: '1px solid rgba(201,168,76,0.1)', backdropFilter: 'blur(20px)' }}>
+            {NAV_ITEMS.map(item => {
               const active = currentView === item.view;
               return (
-                <button
-                  key={item.view}
-                  onClick={() => { onNavigate(item.view); setMenuOpen(false); }}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: '14px 24px',
-                    fontFamily: 'sans-serif',
-                    fontSize: '11px',
-                    letterSpacing: '0.22em',
-                    textTransform: 'uppercase',
-                    color: active ? '#00D4AA' : 'rgba(232,232,232,0.55)',
-                    background: active ? 'rgba(0,212,170,0.05)' : 'none',
-                    border: 'none',
-                    borderLeft: active ? '2px solid #00D4AA' : '2px solid transparent',
-                    cursor: 'pointer',
-                  }}
-                >
+                <button key={item.view} onClick={() => { onNavigate(item.view); setMenuOpen(false); }}
+                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '14px 24px', fontFamily: 'sans-serif', fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', color: active ? '#00D4AA' : 'rgba(232,232,232,0.5)', background: active ? 'rgba(0,212,170,0.05)' : 'none', border: 'none', borderLeft: active ? '2px solid #00D4AA' : '2px solid transparent', cursor: 'pointer' }}>
                   {item.label}
                 </button>
               );
@@ -151,7 +101,6 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
         )}
       </AnimatePresence>
 
-      {/* Page content */}
       <div className="md:pt-[57px] pt-[57px]">
         {children}
       </div>
