@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-type View = 'home' | 'gate' | 'commune' | 'vault' | 'reset' | 'sanctuary' | 'dashboard';
+type View = 'home' | 'gate' | 'commune' | 'vault' | 'reset' | 'sanctuary' | 'dashboard' | 'about';
 
 interface NavProps {
   currentView: View;
@@ -17,6 +17,7 @@ const navItems: { label: string; view: View }[] = [
   { label: 'Vault', view: 'vault' },
   { label: 'Sanctuary', view: 'sanctuary' },
   { label: 'Dashboard', view: 'dashboard' },
+  { label: 'About', view: 'about' },
 ];
 
 const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, children }) => {
@@ -44,43 +45,17 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
           backgroundColor: 'rgba(10,10,15,0.85)',
         }}
       >
-        <div className="flex items-center gap-3">
-          <motion.span
-            animate={{ opacity: [0.3, 1, 0.3] }}
-            transition={{ duration: 4, repeat: Infinity }}
-            style={{ color: '#C9A84C', fontSize: '16px' }}
-          >
-            ☥
-          </motion.span>
-          <motion.span
-            animate={{ opacity: [0.3, 1, 0.3] }}
-            transition={{ duration: 4, repeat: Infinity, delay: 0.5 }}
-            style={{ color: '#00D4AA', fontSize: '14px' }}
-          >
-            ⟐
-          </motion.span>
-          <motion.span
-            animate={{ opacity: [0.3, 1, 0.3] }}
-            transition={{ duration: 4, repeat: Infinity, delay: 1 }}
-            style={{ color: '#C9A84C', fontSize: '12px' }}
-          >
-            ✦
-          </motion.span>
-          <span
-            className="ml-2"
-            style={{
-              fontFamily: 'serif',
-              fontSize: '10px',
-              letterSpacing: '0.35em',
-              textTransform: 'uppercase',
-              color: 'rgba(201,168,76,0.7)',
-            }}
-          >
-            ARKADIA
-          </span>
-        </div>
+        <button
+          onClick={() => onNavigate('home')}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+        >
+          <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 4, repeat: Infinity }} style={{ color: '#C9A84C', fontSize: '16px' }}>☥</motion.span>
+          <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 4, repeat: Infinity, delay: 0.5 }} style={{ color: '#00D4AA', fontSize: '14px' }}>⟐</motion.span>
+          <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 4, repeat: Infinity, delay: 1 }} style={{ color: '#C9A84C', fontSize: '12px' }}>✦</motion.span>
+          <span className="ml-1" style={{ fontFamily: 'serif', fontSize: '10px', letterSpacing: '0.35em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.7)' }}>ARKADIA</span>
+        </button>
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-5">
           {navItems.map((item) => {
             const active = currentView === item.view;
             return (
@@ -118,20 +93,10 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
           backgroundColor: 'rgba(10,10,15,0.85)',
         }}
       >
-        <div className="flex items-center gap-2">
+        <button onClick={() => onNavigate('home')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{ color: '#C9A84C', fontSize: '14px' }}>☥</span>
-          <span
-            style={{
-              fontFamily: 'serif',
-              fontSize: '9px',
-              letterSpacing: '0.3em',
-              textTransform: 'uppercase',
-              color: 'rgba(201,168,76,0.7)',
-            }}
-          >
-            ARKADIA
-          </span>
-        </div>
+          <span style={{ fontFamily: 'serif', fontSize: '9px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.7)' }}>ARKADIA</span>
+        </button>
         <button
           onClick={() => setMenuOpen(!menuOpen)}
           style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(232,232,232,0.6)', fontSize: '20px' }}
