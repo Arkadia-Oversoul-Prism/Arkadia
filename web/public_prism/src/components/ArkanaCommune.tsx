@@ -390,6 +390,14 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
 
   const sendMessage = async (text: string, opts: { appendUser?: boolean } = {}) => {
     if (!text.trim()) return;
+    // Capture thread history BEFORE we append the new user message — so
+    // the snapshot doesn't include the message we're about to send.
+    // Backend expects [{role:'user'|'oracle', content:string}]; 'oracle' maps
+    // to 'model' inside _gemini_chat, giving Gemini a real multi-turn context.
+    const threadHistory = messages
+      .slice(-20)
+      .map((m) => ({ role: m.role === 'arkana' ? 'oracle' : 'user', content: m.content }));
+
     const appendUser = opts.appendUser !== false;
     if (appendUser) {
       const userMsg: Message = { role: 'user', content: text };
@@ -412,7 +420,11 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
     if (codexQuery !== null) { await sendCodexQuery(codexQuery); return; }
 
     try {
-      const body: Record<string, unknown> = { message: text, timestamp: Date.now() };
+      const body: Record<string, unknown> = {
+        message: text,
+        timestamp: Date.now(),
+        history: threadHistory,
+      };
       if (sovereignToken.trim()) body.sovereign_token = sovereignToken.trim();
       const res = await fetch(`${API_BASE}/api/commune/resonance`, {
         method: 'POST',
