@@ -66,8 +66,15 @@ def classify_input(message: str, source: str = "api") -> dict[str, Any]:
 
     lc = message.lower()
 
-    # generate_images — explicit image verbs
-    if re.search(r"\b(image|images|picture|pictures|draw|render|visual)\b", lc):
+    # generate_images — ONLY fires on explicit forge commands or unambiguous
+    # image-creation requests. The previous broad match on "image / visual /
+    # render / draw" was firing on any pasted scroll or corpus document that
+    # happened to contain those words. Now requires either the ⟐ forge slash
+    # command OR a clear action+object phrase ("generate an image of ...").
+    # The web forge slash command (⟐ forge <archetype> <scene>) is the primary
+    # surface; this kernel path handles explicit plain-language requests only.
+    if re.match(r"^\s*[⟐/]\s*forge\b", message) or \
+       re.search(r"\b(generate|create|make|draw)\s+(an?\s+)?(image|picture|photo|illustration)\b", lc):
         m = _INT_RE.search(message)
         count = int(m.group(1)) if m else 1
         return {
