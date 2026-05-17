@@ -1,11 +1,10 @@
 fastapi
 uvicorn[standard]
 google-generativeai
-google-cloud-storage
 requests
 pydantic
 httpx
 python-multipart
-cryptography
+pdfminer.six
 python-docx
-pronouncing
+beautifulsoup4
