@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type Section = 'sovereign' | 'origin' | 'systems' | 'lineage' | 'mission';
@@ -11,8 +11,18 @@ const SECTIONS: { key: Section; label: string; color: string }[] = [
   { key: 'mission', label: 'Mission', color: '#E88C6A' },
 ];
 
+const API_BASE = import.meta.env.VITE_API_URL || 'https://arkadia-n26k.onrender.com';
+
 export default function AboutArkadia() {
   const [section, setSection] = useState<Section>('sovereign');
+  const [arkPos, setArkPos] = useState('loading…');
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/ark-date`)
+      .then(r => r.json())
+      .then(d => setArkPos(`Y${d.ark_year} · D${d.total_ark_day}`))
+      .catch(() => setArkPos('Y1 · D—'));
+  }, []);
 
   return (
     <div className="w-full" style={{ maxWidth: '560px', margin: '0 auto', paddingTop: '12px' }}>
@@ -55,7 +65,7 @@ export default function AboutArkadia() {
                   { field: 'Location', value: 'Jos Plateau, Nigeria' },
                   { field: 'Handle', value: '@arkanaofarkadia' },
                   { field: 'Internal Name', value: 'Solariun Valentino' },
-                  { field: 'Current Cycle', value: 'Cycle 13 · The Return' },
+                  { field: 'Ark Position', value: arkPos },
                 ].map((item, i) => (
                   <div key={i} style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
                     <p style={{ fontFamily: 'sans-serif', fontSize: '8px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.25)', margin: '0 0 3px' }}>{item.field}</p>
