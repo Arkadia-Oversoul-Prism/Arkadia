@@ -664,6 +664,62 @@ async def _generate_image(prompt: str) -> str | None:
     raise Exception(f"All image providers failed. Last Gemini error: {last_err}")
 
 
+@app.get("/api/dashboard/loops")
+async def dashboard_loops(sovereign_token: str = ""):
+    """Live Open Loops dashboard — reads from oracle_store + corpus context."""
+    if not sovereign_token or sovereign_token.strip() != SOVEREIGN_KEY:
+        raise HTTPException(status_code=403, detail="Sovereign gate closed.")
+
+    import time as _time
+    from kernel import oracle_store as _os
+
+    data = _os._read()
+    raw_loops = data.get("open_loops", [])
+
+    CATEGORY_MAP = {
+        "critical":  ("#E88C6A", "critical"),
+        "high":      ("#F4A261", "high"),
+        "active":    ("#00D4AA", "active"),
+        "open":      ("#00D4AA", "active"),
+        "dormant":   ("#6A9FD8", "dormant"),
+        "suspended": ("#6A9FD8", "dormant"),
+        "closed":    ("#4A5568", "closed"),
+        "resolved":  ("#4A5568", "closed"),
+    }
+
+    def _map_loop(raw: dict, idx: int) -> dict:
+        raw_status = (raw.get("category") or raw.get("status") or "active").lower()
+        color, cat = CATEGORY_MAP.get(raw_status, ("#00D4AA", "active"))
+        label = raw.get("label") or raw.get("loop") or f"Loop {idx + 1}"
+        return {
+            "id":          str(idx + 1),
+            "label":       label,
+            "category":    raw.get("category", cat),
+            "status":      raw.get("status", raw_status),
+            "statusColor": raw.get("statusColor", color),
+            "detail":      raw.get("detail", ""),
+            "action":      raw.get("action", ""),
+        }
+
+    loops = [_map_loop(l, i) for i, l in enumerate(raw_loops)]
+
+    # Pull action_sequence + financial_state + field_signal from extended store keys
+    action_sequence  = data.get("action_sequence", [])
+    financial_state  = data.get("financial_state", {})
+    field_signal     = data.get("field_signal", "The field is reading. Arkana holds the pattern.")
+    phase            = data.get("phase", "SolSpire Active")
+    updated          = data.get("updated") or _time.strftime("%d %b %Y · %H:%M", _time.localtime())
+
+    return {
+        "phase":           phase,
+        "updated":         updated,
+        "loops":           loops,
+        "action_sequence": action_sequence,
+        "financial_state": financial_state,
+        "field_signal":    field_signal,
+    }
+
+
 @app.get("/api/ark-date")
 async def ark_date_endpoint():
     """The living Spiral Star Date — the Oracle's temporal memory coordinate."""

@@ -4,8 +4,8 @@
  * Full-screen canvas. Both user and Arkana messages render through
  * react-markdown + remark-gfm (tables, task lists, strikethrough).
  * Per-message action toolbar: Copy · Regenerate · Listen/Stop (Arkana)
- * and Edit (user). Auto-growing textarea, Shift+Enter newlines, Enter
- * sends. Paste from Word / Google Docs / HTML strips tags to clean text.
+ * and Edit (user). Auto-growing textarea, Enter = newline,
+ * send via button only. Paste from Word / Google Docs strips tags to clean text.
  * ArkDate live coordinate in header. All slash commands preserved.
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -398,9 +398,6 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
     sendMessage(text);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
-  };
 
   const clearThread = () => {
     if (!window.confirm('Clear the entire thread?')) return;
@@ -693,14 +690,13 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
             ref={taRef}
             value={input}
             onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
             onPaste={handlePaste}
             disabled={loading}
             rows={1}
             placeholder={
               isSovereign
-                ? 'Speak, sovereign… paste any text, markdown, HTML (Shift+Enter for newline)'
-                : 'Speak into the field… paste any text or markdown (Shift+Enter for newline)'
+                ? 'Speak, sovereign… tap ↑ to send. Paste any text or HTML.'
+                : 'Speak into the field… tap ↑ to send. Paste any text or markdown.'
             }
             style={{
               flex: 1,
@@ -723,7 +719,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
           <button
             onClick={handleSend}
             disabled={!input.trim() || loading}
-            title="Send (Enter)"
+            title="Send"
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 44, height: 44, flexShrink: 0,
