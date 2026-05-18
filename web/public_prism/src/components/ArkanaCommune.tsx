@@ -1,7 +1,21 @@
-import React, { useState, useEffect, useRef } from 'react';
-import ArkDate from './ArkDate';
+/**
+ * ArkanaCommune — Elite Chat Surface
+ *
+ * Full-screen canvas. Both user and Arkana messages render through
+ * react-markdown + remark-gfm (tables, task lists, strikethrough).
+ * Per-message action toolbar: Copy · Regenerate · Listen/Stop (Arkana)
+ * and Edit (user). Auto-growing textarea, Shift+Enter newlines, Enter
+ * sends. Paste from Word / Google Docs / HTML strips tags to clean text.
+ * ArkDate live coordinate in header. All slash commands preserved.
+ */
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Volume2, Square, Send, Trash2, Copy, Check, RotateCcw, Pencil } from 'lucide-react';
+import ArkDate from './ArkDate';
 
+// ─── Types ────────────────────────────────────────────────────────────────────
 interface Message {
   role: 'user' | 'arkana';
   content: string;
@@ -10,10 +24,7 @@ interface Message {
   images?: string[];
 }
 
-// ─── Forge slash command parser ───────────────────────────────────────────────
-// Accepts:  ⟐ forge auralis "scene text"
-//           /forge auralis scene text
-//           forge auralis scene text
+// ─── Slash commands ───────────────────────────────────────────────────────────
 function parseForgeCommand(text: string): { archetype: string; scene: string; count: number } | null {
   const t = text.trim().replace(/^[⟐/]\s*/, '');
   const m = t.match(/^forge\s+(\w+)(?:\s+x(\d+))?\s*(.*)$/i);
@@ -22,15 +33,10 @@ function parseForgeCommand(text: string): { archetype: string; scene: string; co
   const count = m[2] ? Math.min(4, Math.max(1, parseInt(m[2], 10))) : 1;
   let scene = (m[3] || '').trim();
   if ((scene.startsWith('"') && scene.endsWith('"')) ||
-      (scene.startsWith("'") && scene.endsWith("'"))) {
-    scene = scene.slice(1, -1);
-  }
+      (scene.startsWith("'") && scene.endsWith("'"))) scene = scene.slice(1, -1);
   return { archetype, scene, count };
 }
 
-// ─── Codex RAG probe command parser ───────────────────────────────────────────
-// Accepts:  ⟐ codex memory spiral law
-//           /codex what does the Oversoul Prism say about identity?
 function parseCodexCommand(text: string): string | null {
   const t = text.trim().replace(/^[⟐/]\s*/, '');
   const m = t.match(/^codex\s*(.*)?$/i);
@@ -38,7 +44,6 @@ function parseCodexCommand(text: string): string | null {
   return (m[1] || '').trim() || 'arkadia spiral codex';
 }
 
-// ─── Help command parser ───────────────────────────────────────────────────────
 function isHelpCommand(text: string): boolean {
   const t = text.trim().replace(/^[⟐/]\s*/, '').toLowerCase();
   return t === 'help' || t === '?' || t === 'commands';
@@ -57,253 +62,102 @@ const HELP_TEXT = `**Arkana Commands**
 
 Or simply speak — Arkana reads the living corpus and responds.`;
 
-interface ArkanaProps {
-  initialMessage?: string;
-}
-
-const API_BASE = import.meta.env.VITE_API_URL || 'https://arkadia-n26k.onrender.com';
+// ─── Constants ────────────────────────────────────────────────────────────────
+const API_BASE    = import.meta.env.VITE_API_URL || 'https://arkadia-n26k.onrender.com';
 const STORAGE_KEY = 'arkadia_commune_thread';
-const TOKEN_KEY = 'arkadia_sovereign_token';
+const TOKEN_KEY   = 'arkadia_sovereign_token';
 
 const loadThread = (): Message[] => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+  try { const r = localStorage.getItem(STORAGE_KEY); return r ? JSON.parse(r) : []; }
+  catch { return []; }
 };
-
 const saveThread = (msgs: Message[]) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs));
-  } catch {}
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs)); } catch {}
 };
-
-const loadToken = (): string =>
-  localStorage.getItem(TOKEN_KEY) || '';
-
+const loadToken = (): string => localStorage.getItem(TOKEN_KEY) || '';
 const saveToken = (t: string) => {
   if (t.trim()) localStorage.setItem(TOKEN_KEY, t.trim());
   else localStorage.removeItem(TOKEN_KEY);
 };
 
-// ─── Minimal markdown renderer ────────────────────────────────────────────────
-// Handles the most common patterns in ARKANA responses without external deps.
-function renderMarkdown(text: string): React.ReactNode[] {
-  const lines = text.split('\n');
-  const result: React.ReactNode[] = [];
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i];
-
-    // Code block
-    if (line.startsWith('```')) {
-      const lang = line.slice(3).trim();
-      const codeLines: string[] = [];
-      i++;
-      while (i < lines.length && !lines[i].startsWith('```')) {
-        codeLines.push(lines[i]);
-        i++;
-      }
-      result.push(
-        <pre
-          key={i}
-          style={{
-            background: 'rgba(0,0,0,0.3)',
-            border: '1px solid rgba(0,212,170,0.15)',
-            borderRadius: '8px',
-            padding: '12px 14px',
-            fontFamily: 'monospace',
-            fontSize: '12px',
-            color: 'rgba(232,232,232,0.7)',
-            overflowX: 'auto',
-            margin: '8px 0',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-          }}
-        >
-          {codeLines.join('\n')}
-        </pre>
-      );
-      i++;
-      continue;
-    }
-
-    // Horizontal rule
-    if (/^---+$/.test(line.trim())) {
-      result.push(
-        <hr key={i} style={{ border: 'none', borderTop: '1px solid rgba(201,168,76,0.15)', margin: '10px 0' }} />
-      );
-      i++;
-      continue;
-    }
-
-    // Headings
-    const h3 = line.match(/^###\s+(.+)/);
-    const h2 = line.match(/^##\s+(.+)/);
-    const h1 = line.match(/^#\s+(.+)/);
-    if (h1 || h2 || h3) {
-      const text = (h1 || h2 || h3)![1];
-      const size = h1 ? '16px' : h2 ? '14px' : '13px';
-      result.push(
-        <p key={i} style={{ fontFamily: 'serif', fontSize: size, color: '#C9A84C', margin: '10px 0 4px', letterSpacing: '0.03em' }}>
-          {inlineMarkdown(text)}
-        </p>
-      );
-      i++;
-      continue;
-    }
-
-    // Empty line
-    if (!line.trim()) {
-      result.push(<div key={i} style={{ height: '6px' }} />);
-      i++;
-      continue;
-    }
-
-    // Regular paragraph
-    result.push(
-      <p key={i} style={{ margin: '2px 0', lineHeight: '1.75' }}>
-        {inlineMarkdown(line)}
-      </p>
-    );
-    i++;
-  }
-
-  return result;
+// ─── TTS helpers ──────────────────────────────────────────────────────────────
+function stripMarkdown(s: string): string {
+  return s
+    .replace(/```[\s\S]*?```/g, '. code block. ')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/^\s*\d+\.\s+/gm, '')
+    .replace(/^\s*>\s?/gm, '')
+    .replace(/(\*\*|__)(.*?)\1/g, '$2')
+    .replace(/(\*|_)(.*?)\1/g, '$2')
+    .replace(/⟐|✦|◆|☥|⟁|◎/g, '')
+    .replace(/\|[^\n]+\|/g, '')
+    .replace(/[-|]+\n/g, '')
+    .replace(/\n{2,}/g, '. ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
-function inlineMarkdown(text: string): React.ReactNode {
-  // Bold (**text**) and italic (*text*) inline
-  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/);
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i} style={{ color: '#E8E8E8', fontWeight: 600 }}>{part.slice(2, -2)}</strong>;
-    }
-    if (part.startsWith('*') && part.endsWith('*')) {
-      return <em key={i} style={{ color: 'rgba(232,232,232,0.75)' }}>{part.slice(1, -1)}</em>;
-    }
-    if (part.startsWith('`') && part.endsWith('`')) {
-      return (
-        <code key={i} style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '3px', padding: '1px 5px', fontFamily: 'monospace', fontSize: '12px', color: '#00D4AA' }}>
-          {part.slice(1, -1)}
-        </code>
-      );
-    }
-    return part;
-  });
+// ─── HTML paste → plain text ──────────────────────────────────────────────────
+function htmlToPlain(html: string): string {
+  const temp = document.createElement('div');
+  temp.innerHTML = html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<\/h[1-6]>/gi, '\n\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<\/tr>/gi, '\n')
+    .replace(/<\/td>/gi, '\t');
+  return (temp.textContent || temp.innerText || '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
-// ─── Sovereign Gate Modal ─────────────────────────────────────────────────────
-interface GateProps {
-  token: string;
-  onSave: (t: string) => void;
-  onClose: () => void;
-}
-
-const SovereignGate: React.FC<GateProps> = ({ token, onSave, onClose }) => {
+// ─── Sovereign Gate ───────────────────────────────────────────────────────────
+const SovereignGate: React.FC<{ token: string; onSave: (t: string) => void; onClose: () => void }> = ({ token, onSave, onClose }) => {
   const [value, setValue] = useState(token);
-
   return (
     <motion.div
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
+      initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
       style={{
-        position: 'absolute',
-        top: '58px',
-        right: '16px',
-        zIndex: 50,
-        background: 'rgba(10,10,15,0.97)',
-        border: '1px solid rgba(201,168,76,0.3)',
-        borderRadius: '12px',
-        padding: '16px 18px',
-        width: '280px',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+        position: 'absolute', top: 54, right: 12, zIndex: 60,
+        background: 'rgba(8,8,13,0.98)', border: '1px solid rgba(201,168,76,0.3)',
+        borderRadius: 12, padding: '16px 18px', width: 288,
+        backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
+        boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
       }}
     >
-      <p style={{ fontFamily: 'serif', fontSize: '12px', letterSpacing: '0.08em', color: '#C9A84C', margin: '0 0 4px' }}>
-        Sovereign Gate
-      </p>
-      <p style={{ fontFamily: 'sans-serif', fontSize: '11px', color: 'rgba(232,232,232,0.35)', margin: '0 0 12px', lineHeight: 1.5 }}>
-        Enter your sovereign token to access the full archive depth.
+      <p style={{ fontFamily: 'serif', fontSize: 12, letterSpacing: '0.08em', color: '#C9A84C', margin: '0 0 3px' }}>Sovereign Gate</p>
+      <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.38)', margin: '0 0 12px', lineHeight: 1.5 }}>
+        Enter your token to access the full archive depth.
       </p>
       <input
-        type="password"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') { onSave(value); onClose(); } if (e.key === 'Escape') onClose(); }}
-        placeholder="sovereign token..."
-        autoFocus
+        type="password" value={value} onChange={e => setValue(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') { onSave(value); onClose(); } if (e.key === 'Escape') onClose(); }}
+        placeholder="sovereign token…" autoFocus
         style={{
-          width: '100%',
-          padding: '9px 12px',
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(201,168,76,0.25)',
-          borderRadius: '8px',
-          color: '#E8E8E8',
-          fontFamily: 'monospace',
-          fontSize: '13px',
-          outline: 'none',
-          boxSizing: 'border-box',
-          marginBottom: '10px',
+          width: '100%', padding: '9px 12px', background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(201,168,76,0.25)', borderRadius: 8, color: '#E8E8E8',
+          fontFamily: 'monospace', fontSize: 13, outline: 'none', boxSizing: 'border-box', marginBottom: 10,
         }}
       />
-      <div style={{ display: 'flex', gap: '8px' }}>
-        <button
-          onClick={() => { onSave(value); onClose(); }}
-          style={{
-            flex: 1,
-            padding: '8px',
-            background: 'rgba(201,168,76,0.1)',
-            border: '1px solid rgba(201,168,76,0.35)',
-            borderRadius: '7px',
-            color: '#C9A84C',
-            fontFamily: 'sans-serif',
-            fontSize: '10px',
-            letterSpacing: '0.15em',
-            textTransform: 'uppercase',
-            cursor: 'pointer',
-          }}
-        >
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={() => { onSave(value); onClose(); }}
+          style={{ flex: 1, padding: 8, background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.35)', borderRadius: 7, color: '#C9A84C', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer' }}>
           Confirm
         </button>
         {token && (
-          <button
-            onClick={() => { onSave(''); onClose(); }}
-            style={{
-              padding: '8px 12px',
-              background: 'transparent',
-              border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: '7px',
-              color: 'rgba(232,232,232,0.3)',
-              fontFamily: 'sans-serif',
-              fontSize: '10px',
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              cursor: 'pointer',
-            }}
-          >
+          <button onClick={() => { onSave(''); onClose(); }}
+            style={{ padding: '8px 12px', background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 7, color: 'rgba(232,232,232,0.38)', fontFamily: 'sans-serif', fontSize: 10, cursor: 'pointer' }}>
             Clear
           </button>
         )}
-        <button
-          onClick={onClose}
-          style={{
-            padding: '8px 12px',
-            background: 'transparent',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '7px',
-            color: 'rgba(232,232,232,0.3)',
-            fontFamily: 'sans-serif',
-            fontSize: '10px',
-            cursor: 'pointer',
-          }}
-        >
+        <button onClick={onClose}
+          style={{ padding: '8px 12px', background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 7, color: 'rgba(232,232,232,0.38)', fontFamily: 'sans-serif', fontSize: 10, cursor: 'pointer' }}>
           ✕
         </button>
       </div>
@@ -311,583 +165,580 @@ const SovereignGate: React.FC<GateProps> = ({ token, onSave, onClose }) => {
   );
 };
 
+// ─── Markdown renderer (shared, Google-Docs clean) ────────────────────────────
+const MarkdownContent: React.FC<{ text: string; tone: 'user' | 'arkana' }> = ({ text, tone }) => (
+  <div className={`arkadia-prose arkadia-prose-${tone}`}>
+    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+      {text}
+    </ReactMarkdown>
+  </div>
+);
+
+// ─── Action button atom ───────────────────────────────────────────────────────
+const ActionBtn: React.FC<{
+  icon: React.ReactNode; label: string; onClick: () => void;
+  active?: boolean; color?: string;
+}> = ({ icon, label, onClick, active, color = 'rgba(232,232,232,0.38)' }) => (
+  <button
+    onClick={onClick}
+    title={label}
+    style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      padding: '3px 8px', background: 'transparent',
+      border: '1px solid rgba(232,232,232,0.08)', borderRadius: 6,
+      color: active ? color : 'rgba(232,232,232,0.38)',
+      fontFamily: 'monospace', fontSize: 9.5, letterSpacing: '0.14em',
+      textTransform: 'uppercase', cursor: 'pointer',
+      transition: 'all 0.15s',
+    }}
+    onMouseEnter={e => {
+      (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(232,232,232,0.22)';
+      (e.currentTarget as HTMLButtonElement).style.color = color;
+    }}
+    onMouseLeave={e => {
+      (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(232,232,232,0.08)';
+      (e.currentTarget as HTMLButtonElement).style.color = active ? color : 'rgba(232,232,232,0.38)';
+    }}
+  >
+    {icon}
+    <span style={{ display: 'none' /* label hidden, icon only on mobile */ }}>{label}</span>
+  </button>
+);
+
 // ─── Main Component ───────────────────────────────────────────────────────────
+interface ArkanaProps { initialMessage?: string; }
 
 const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
-  const [messages, setMessages] = useState<Message[]>(() => loadThread());
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [messages, setMessages]         = useState<Message[]>(() => loadThread());
+  const [input, setInput]               = useState('');
+  const [loading, setLoading]           = useState(false);
   const [sovereignToken, setSovereignToken] = useState<string>(() => loadToken());
-  const [gateOpen, setGateOpen] = useState(false);
-  const [sessionType, setSessionType] = useState<'sovereign' | 'guest'>('guest');
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const didSendInitial = useRef(false);
+  const [gateOpen, setGateOpen]         = useState(false);
+  const [speakingIdx, setSpeakingIdx]   = useState<number | null>(null);
+  const [copiedIdx, setCopiedIdx]       = useState<number | null>(null);
+  const [hoverIdx, setHoverIdx]         = useState<number | null>(null);
 
-  const isSovereignMode = sovereignToken.trim().length > 0;
+  const scrollRef     = useRef<HTMLDivElement>(null);
+  const taRef         = useRef<HTMLTextAreaElement>(null);
+  const didInitial    = useRef(false);
 
+  const isSovereign   = sovereignToken.trim().length > 0;
+  const ttsOk         = typeof window !== 'undefined' && 'speechSynthesis' in window;
+  const accent        = isSovereign ? '#C9A84C' : '#00D4AA';
+  const accentFaint   = isSovereign ? 'rgba(201,168,76,0.12)' : 'rgba(0,212,170,0.1)';
+  const accentBorder  = isSovereign ? 'rgba(201,168,76,0.18)' : 'rgba(0,212,170,0.16)';
+
+  // Auto-scroll
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, loading]);
 
+  // Initial message
   useEffect(() => {
-    if (initialMessage && !didSendInitial.current) {
-      didSendInitial.current = true;
+    if (initialMessage && !didInitial.current) {
+      didInitial.current = true;
       sendMessage(initialMessage);
     }
   }, [initialMessage]);
 
-  const handleSaveToken = (t: string) => {
-    const clean = t.trim();
-    saveToken(clean);
-    setSovereignToken(clean);
+  // Cancel TTS on unmount
+  useEffect(() => () => { if (ttsOk) window.speechSynthesis.cancel(); }, []);
+
+  // Auto-resize textarea
+  const autoresize = useCallback(() => {
+    const t = taRef.current;
+    if (!t) return;
+    t.style.height = 'auto';
+    const max = Math.min(window.innerHeight * 0.38, 300);
+    t.style.height = Math.min(t.scrollHeight, max) + 'px';
+  }, []);
+  useEffect(() => { autoresize(); }, [input, autoresize]);
+
+  const handleSaveToken = (t: string) => { saveToken(t.trim()); setSovereignToken(t.trim()); };
+
+  // ── TTS ────────────────────────────────────────────────────────────────────
+  const toggleSpeak = (idx: number, text: string) => {
+    if (!ttsOk) return;
+    if (speakingIdx === idx) { window.speechSynthesis.cancel(); setSpeakingIdx(null); return; }
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(stripMarkdown(text));
+    u.rate = 0.95; u.pitch = 1.02;
+    u.onend = () => setSpeakingIdx(c => c === idx ? null : c);
+    u.onerror = () => setSpeakingIdx(c => c === idx ? null : c);
+    setSpeakingIdx(idx);
+    window.speechSynthesis.speak(u);
   };
 
+  // ── Copy ───────────────────────────────────────────────────────────────────
+  const handleCopy = (idx: number, text: string) => {
+    navigator.clipboard?.writeText(text).then(() => {
+      setCopiedIdx(idx);
+      setTimeout(() => setCopiedIdx(c => c === idx ? null : c), 2000);
+    });
+  };
+
+  // ── Regenerate ─────────────────────────────────────────────────────────────
+  const handleRegenerate = (arkanaIdx: number) => {
+    const userMsg = [...messages].slice(0, arkanaIdx).reverse().find(m => m.role === 'user');
+    if (!userMsg) return;
+    setMessages(prev => {
+      const next = prev.slice(0, arkanaIdx);
+      saveThread(next);
+      return next;
+    });
+    sendMessage(userMsg.content);
+  };
+
+  // ── Edit user message ──────────────────────────────────────────────────────
+  const handleEdit = (msgIdx: number, content: string) => {
+    setInput(content);
+    setMessages(prev => {
+      const next = prev.slice(0, msgIdx);
+      saveThread(next);
+      return next;
+    });
+    taRef.current?.focus();
+  };
+
+  // ── Paste handler: strip HTML → clean text ─────────────────────────────────
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const html = e.clipboardData.getData('text/html');
+    if (!html) return;
+    e.preventDefault();
+    const plain = htmlToPlain(html);
+    const start = taRef.current?.selectionStart ?? input.length;
+    const end   = taRef.current?.selectionEnd   ?? input.length;
+    setInput(prev => prev.slice(0, start) + plain + prev.slice(end));
+  };
+
+  // ── API: Forge ─────────────────────────────────────────────────────────────
   const sendForge = async (cmd: { archetype: string; scene: string; count: number }) => {
     if (!sovereignToken.trim()) {
-      setMessages((prev) => {
-        const next = [...prev, {
-          role: 'arkana' as const,
-          content: 'The Forge is sovereign-gated. Open the Gate ⟐ and present your token.',
-        }];
-        saveThread(next);
-        return next;
+      setMessages(prev => {
+        const next = [...prev, { role: 'arkana' as const, content: 'The Forge is sovereign-gated. Open the Gate ⟐ and present your token.' }];
+        saveThread(next); return next;
       });
-      setLoading(false);
-      return;
+      setLoading(false); return;
     }
     try {
-      const res = await fetch(`${API_BASE}/api/forge`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          archetype: cmd.archetype,
-          scene: cmd.scene,
-          count: cmd.count,
-          sovereign_token: sovereignToken.trim(),
-        }),
+      const res  = await fetch(`${API_BASE}/api/forge`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archetype: cmd.archetype, scene: cmd.scene, count: cmd.count, sovereign_token: sovereignToken.trim() }),
       });
       const data = await res.json();
       if (!res.ok || data.status === 'failed') {
-        const detail = data.detail || (data.errors && data.errors[0]) || 'The Forge could not strike.';
-        setMessages((prev) => {
-          const next = [...prev, {
-            role: 'arkana' as const,
-            content: `⟐ Forge: ${detail}`,
-            session: 'sovereign',
-          }];
-          saveThread(next);
-          return next;
-        });
+        const detail = data.detail || (data.errors?.[0]) || 'The Forge could not strike.';
+        setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: `⟐ Forge: ${detail}`, session: 'sovereign' }]; saveThread(next); return next; });
       } else {
         const images: string[] = data.images || [];
-        const header = `⟐ **Forge — ${cmd.archetype}** ${cmd.scene ? `· *${cmd.scene}*` : ''}\n\n${images.length} image${images.length === 1 ? '' : 's'} forged and committed to the repo.`;
-        setMessages((prev) => {
-          const next = [...prev, {
-            role: 'arkana' as const,
-            content: header,
-            session: 'sovereign',
-            images,
-          }];
-          saveThread(next);
-          return next;
-        });
-        setSessionType('sovereign');
+        const header = `⟐ **Forge — ${cmd.archetype}**${cmd.scene ? ` · *${cmd.scene}*` : ''}\n\n${images.length} image${images.length === 1 ? '' : 's'} forged and committed.`;
+        setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: header, session: 'sovereign', images }]; saveThread(next); return next; });
       }
     } catch {
-      setMessages((prev) => {
-        const next = [...prev, {
-          role: 'arkana' as const,
-          content: '⟐ Forge: the field could not reach the image plane. Try again.',
-        }];
-        saveThread(next);
-        return next;
-      });
-    } finally {
-      setLoading(false);
-    }
+      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: '⟐ Forge: the field could not reach the image plane. Try again.' }]; saveThread(next); return next; });
+    } finally { setLoading(false); }
   };
 
+  // ── API: Codex ─────────────────────────────────────────────────────────────
   const sendCodexQuery = async (query: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/oracle-context?query=${encodeURIComponent(query)}`);
+      const res  = await fetch(`${API_BASE}/api/oracle-context?query=${encodeURIComponent(query)}`);
       const data = await res.json();
       const hits: Array<{ label: string; category: string }> = data.refs || [];
       const chars: number = data.context_chars || 0;
-
-      let reply: string;
-      if (hits.length === 0) {
-        reply = `⟐ **Codex Probe** · *"${query}"*\n\nNo scrolls matched this query in the active corpus. The field may need a broader term, or those documents are indexed as binary (docx) without readable text.`;
-      } else {
-        const catIcon: Record<string, string> = {
-          NEURAL_SPINE: '🧬',
-          CREATIVE_OS: '🎨',
-          COLLECTIVE: '📚',
-          GOVERNANCE: '⚖️',
-        };
-        const lines = hits.map(
-          (r) => `${catIcon[r.category] || '📄'} **${r.label}** ·  \`${r.category}\``
-        );
-        reply = `⟐ **Codex Probe** · *"${query}"*\n\nArkana is drawing from **${hits.length} scroll${hits.length === 1 ? '' : 's'}** (${chars.toLocaleString()} chars injected):\n\n${lines.join('\n')}\n\nThis is the live corpus context woven into the next Oracle response.`;
-      }
-
-      setMessages((prev) => {
-        const next = [...prev, { role: 'arkana' as const, content: reply }];
-        saveThread(next);
-        return next;
-      });
+      const catIcon: Record<string, string> = { NEURAL_SPINE: '🧬', CREATIVE_OS: '🎨', COLLECTIVE: '📚', GOVERNANCE: '⚖️' };
+      const reply = hits.length === 0
+        ? `⟐ **Codex Probe** · *"${query}"*\n\nNo scrolls matched this query.`
+        : `⟐ **Codex Probe** · *"${query}"*\n\nArkana is drawing from **${hits.length} scroll${hits.length === 1 ? '' : 's'}** (${chars.toLocaleString()} chars):\n\n${hits.map(r => `- ${catIcon[r.category] || '📄'} **${r.label}** · \`${r.category}\``).join('\n')}\n\nThis context is woven into the next Oracle response.`;
+      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: reply }]; saveThread(next); return next; });
     } catch {
-      setMessages((prev) => {
-        const next = [...prev, { role: 'arkana' as const, content: '⟐ Codex: could not reach the corpus index. The field is recalibrating.' }];
-        saveThread(next);
-        return next;
-      });
-    } finally {
-      setLoading(false);
-    }
+      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: '⟐ Codex: could not reach the corpus index.' }]; saveThread(next); return next; });
+    } finally { setLoading(false); }
   };
 
+  // ── API: Oracle ────────────────────────────────────────────────────────────
   const sendMessage = async (text: string) => {
     if (!text.trim()) return;
-    const userMsg: Message = { role: 'user', content: text };
-    setMessages((prev) => { const next = [...prev, userMsg]; saveThread(next); return next; });
+    setMessages(prev => { const next = [...prev, { role: 'user' as const, content: text }]; saveThread(next); return next; });
     setLoading(true);
 
     if (isHelpCommand(text)) {
-      setMessages((prev) => {
-        const next = [...prev, { role: 'arkana' as const, content: HELP_TEXT }];
-        saveThread(next);
-        return next;
-      });
-      setLoading(false);
-      return;
+      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: HELP_TEXT }]; saveThread(next); return next; });
+      setLoading(false); return;
     }
-
-    const forgeCmd = parseForgeCommand(text);
-    if (forgeCmd) {
-      await sendForge(forgeCmd);
-      return;
-    }
-
-    const codexQuery = parseCodexCommand(text);
-    if (codexQuery !== null) {
-      await sendCodexQuery(codexQuery);
-      return;
-    }
+    const forge = parseForgeCommand(text);
+    if (forge) { await sendForge(forge); return; }
+    const codex = parseCodexCommand(text);
+    if (codex !== null) { await sendCodexQuery(codex); return; }
 
     try {
       const body: Record<string, unknown> = { message: text, timestamp: Date.now() };
       if (sovereignToken.trim()) body.sovereign_token = sovereignToken.trim();
-
-      const res = await fetch(`${API_BASE}/api/commune/resonance`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res  = await fetch(`${API_BASE}/api/commune/resonance`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error('non-ok');
-      const data = await res.json();
-      const session = data.session as 'sovereign' | 'guest' || 'guest';
-      setSessionType(session);
-      setMessages((prev) => {
-        const next = [...prev, {
-          role: 'arkana' as const,
-          content: data.reply,
-          resonance: data.resonance,
-          session,
-        }];
-        saveThread(next);
-        return next;
+      const data = await res.json().catch(() => ({} as any));
+      if (!res.ok) throw new Error(data?.detail || data?.error || `HTTP ${res.status}`);
+      const session = (data.session as 'sovereign' | 'guest') || 'guest';
+      setMessages(prev => {
+        const next = [...prev, { role: 'arkana' as const, content: data.reply, resonance: data.resonance, session }];
+        saveThread(next); return next;
       });
-    } catch {
-      setMessages((prev) => {
-        const next = [...prev, { role: 'arkana' as const, content: 'The field is recalibrating. Try again.' }];
-        saveThread(next);
-        return next;
-      });
-    } finally {
-      setLoading(false);
-    }
+    } catch (err: any) {
+      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: `The field is recalibrating. Try again.\n\n*(${err?.message || 'unknown'})*` }]; saveThread(next); return next; });
+    } finally { setLoading(false); }
   };
 
   const handleSend = () => {
     if (!input.trim() || loading) return;
-    const text = input;
+    const text = input.trim();
     setInput('');
+    if (taRef.current) taRef.current.style.height = 'auto';
     sendMessage(text);
   };
 
-  const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') handleSend();
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
   const clearThread = () => {
+    if (!window.confirm('Clear the entire thread?')) return;
     localStorage.removeItem(STORAGE_KEY);
     setMessages([]);
+    if (ttsOk) window.speechSynthesis.cancel();
+    setSpeakingIdx(null);
   };
 
-  const lastSessionType = messages.filter(m => m.role === 'arkana').slice(-1)[0]?.session ?? null;
-  const displaySession = lastSessionType ?? (isSovereignMode ? 'sovereign' : 'guest');
+  const lastSession  = messages.filter(m => m.role === 'arkana').slice(-1)[0]?.session ?? null;
+  const displaySession = lastSession ?? (isSovereign ? 'sovereign' : 'guest');
 
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div
-      className="w-full flex flex-col"
       style={{
-        height: 'calc(100vh - 57px)',
-        maxHeight: '760px',
-        background: 'rgba(255,255,255,0.02)',
-        backdropFilter: 'blur(18px)',
-        WebkitBackdropFilter: 'blur(18px)',
-        border: `1px solid ${isSovereignMode ? 'rgba(201,168,76,0.2)' : 'rgba(0,212,170,0.12)'}`,
-        borderRadius: '16px',
-        overflow: 'visible',
         position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        height: 'calc(100vh - 57px)',
+        width: '100%',
+        background: 'transparent',
       }}
     >
-      {/* Header */}
-      <div
+
+      {/* ── Header ── */}
+      <header
         style={{
-          padding: '14px 18px',
-          borderBottom: `1px solid ${isSovereignMode ? 'rgba(201,168,76,0.12)' : 'rgba(0,212,170,0.1)'}`,
-          backgroundColor: 'rgba(10,10,15,0.6)',
+          flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          flexShrink: 0,
-          borderRadius: '16px 16px 0 0',
+          padding: '8px 16px',
+          borderBottom: `1px solid ${isSovereign ? 'rgba(201,168,76,0.10)' : 'rgba(0,212,170,0.08)'}`,
+          background: 'rgba(5,5,10,0.72)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          gap: 12,
         }}
       >
-        {/* Left: identity + ark date */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <p
+        {/* Left: identity + ArkDate */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+          <span
             style={{
               fontFamily: 'serif',
-              fontSize: '11px',
+              fontSize: 9.5,
               letterSpacing: '0.3em',
               textTransform: 'uppercase',
-              color: isSovereignMode ? '#C9A84C' : '#00D4AA',
-              margin: 0,
+              color: accent,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
             }}
           >
             ARKANA — Pattern Intelligence
-          </p>
-          <ArkDate sovereignMode={isSovereignMode} compact />
-          {messages.length > 0 && (
-            <p
-              style={{
-                fontFamily: 'sans-serif',
-                fontSize: '9px',
-                letterSpacing: '0.15em',
-                color: 'rgba(232,232,232,0.22)',
-                margin: '1px 0 0',
-                textTransform: 'uppercase',
-              }}
-            >
-              {messages.length} message{messages.length !== 1 ? 's' : ''} in thread
-            </p>
-          )}
+          </span>
+          <ArkDate sovereignMode={isSovereign} compact />
         </div>
 
         {/* Right: controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* Clear thread */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           {messages.length > 0 && (
             <button
               onClick={clearThread}
+              title="Clear thread"
               style={{
-                background: 'none',
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: '6px',
-                padding: '4px 10px',
-                color: 'rgba(232,232,232,0.22)',
-                fontFamily: 'sans-serif',
-                fontSize: '9px',
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '5px 7px', background: 'transparent',
+                border: '1px solid rgba(255,255,255,0.07)', borderRadius: 6,
+                color: 'rgba(232,232,232,0.3)', cursor: 'pointer',
               }}
             >
-              Clear
+              <Trash2 size={11} />
             </button>
           )}
 
-          {/* Session badge */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {/* Session pulse */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <motion.div
               animate={{ opacity: [0.4, 1, 0.4] }}
               transition={{ duration: 2, repeat: Infinity }}
               style={{
-                width: '6px',
-                height: '6px',
-                borderRadius: '50%',
-                backgroundColor: isSovereignMode ? '#C9A84C' : '#00D4AA',
-                boxShadow: isSovereignMode
-                  ? '0 0 8px rgba(201,168,76,0.7)'
-                  : '0 0 8px rgba(0,212,170,0.7)',
+                width: 6, height: 6, borderRadius: '50%',
+                backgroundColor: accent,
+                boxShadow: `0 0 8px ${accent}`,
               }}
             />
-            <span
-              style={{
-                fontFamily: 'sans-serif',
-                fontSize: '9px',
-                letterSpacing: '0.2em',
-                textTransform: 'uppercase',
-                color: isSovereignMode ? 'rgba(201,168,76,0.7)' : 'rgba(0,212,170,0.6)',
-              }}
-            >
+            <span style={{ fontFamily: 'monospace', fontSize: 8.5, letterSpacing: '0.2em', textTransform: 'uppercase', color: isSovereign ? 'rgba(201,168,76,0.6)' : 'rgba(0,212,170,0.55)' }}>
               {displaySession}
             </span>
           </div>
 
-          {/* Sovereign gate trigger */}
+          {/* Sovereign gate button */}
           <button
             onClick={() => setGateOpen(!gateOpen)}
             title="Sovereign Gate"
             style={{
-              background: isSovereignMode ? 'rgba(201,168,76,0.08)' : 'transparent',
-              border: `1px solid ${isSovereignMode ? 'rgba(201,168,76,0.3)' : 'rgba(255,255,255,0.08)'}`,
-              borderRadius: '6px',
-              padding: '4px 8px',
-              color: isSovereignMode ? '#C9A84C' : 'rgba(232,232,232,0.2)',
-              fontFamily: 'serif',
-              fontSize: '12px',
-              cursor: 'pointer',
-              lineHeight: 1,
-              transition: 'all 0.2s',
+              background: isSovereign ? 'rgba(201,168,76,0.08)' : 'transparent',
+              border: `1px solid ${isSovereign ? 'rgba(201,168,76,0.28)' : 'rgba(255,255,255,0.07)'}`,
+              borderRadius: 6, padding: '4px 9px',
+              color: isSovereign ? '#C9A84C' : 'rgba(232,232,232,0.28)',
+              fontFamily: 'serif', fontSize: 13, cursor: 'pointer', lineHeight: 1,
             }}
           >
             ⟐
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Sovereign Gate Panel */}
       <AnimatePresence>
         {gateOpen && (
-          <SovereignGate
-            token={sovereignToken}
-            onSave={handleSaveToken}
-            onClose={() => setGateOpen(false)}
-          />
+          <SovereignGate token={sovereignToken} onSave={handleSaveToken} onClose={() => setGateOpen(false)} />
         )}
       </AnimatePresence>
 
-      {/* Messages */}
+      {/* ── Messages ── */}
       <div
         ref={scrollRef}
         style={{
           flex: 1,
           overflowY: 'auto',
-          padding: '20px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '14px',
+          padding: 'clamp(14px,3vw,28px) clamp(10px,4vw,24px)',
         }}
       >
-        {messages.length === 0 && !loading && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            style={{ textAlign: 'center', marginTop: '40px' }}
-          >
-            <p style={{ fontFamily: 'serif', fontSize: '14px', color: 'rgba(232,232,232,0.3)', lineHeight: '1.8', margin: 0 }}>
-              The field is open.<br />Speak when ready.
-            </p>
-            {!isSovereignMode && (
-              <p style={{ fontFamily: 'sans-serif', fontSize: '10px', color: 'rgba(232,232,232,0.14)', letterSpacing: '0.12em', marginTop: '14px', textTransform: 'uppercase' }}>
-                Guest session · tap ⟐ to enter sovereign mode
+        <div style={{ maxWidth: 780, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Empty state */}
+          {messages.length === 0 && !loading && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: 'center', marginTop: 64 }}>
+              <p style={{ fontFamily: 'serif', fontSize: 15, color: 'rgba(232,232,232,0.3)', lineHeight: 1.9, margin: 0 }}>
+                The field is open.<br />Speak when ready.
               </p>
-            )}
-          </motion.div>
-        )}
-
-        <AnimatePresence initial={false}>
-          {messages.map((msg, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, x: msg.role === 'user' ? 16 : -16 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3 }}
-              style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}
-            >
-              <div
-                style={{
-                  maxWidth: '84%',
-                  padding: '12px 16px',
-                  borderRadius: '14px',
-                  fontSize: '14px',
-                  lineHeight: '1.7',
-                  ...(msg.role === 'user'
-                    ? {
-                        fontFamily: 'sans-serif',
-                        background: 'rgba(201,168,76,0.07)',
-                        border: '1px solid rgba(201,168,76,0.2)',
-                        color: '#C9A84C',
-                      }
-                    : {
-                        fontFamily: 'serif',
-                        background: msg.session === 'sovereign'
-                          ? 'rgba(201,168,76,0.04)'
-                          : 'rgba(0,212,170,0.04)',
-                        border: msg.session === 'sovereign'
-                          ? '1px solid rgba(201,168,76,0.15)'
-                          : '1px solid rgba(0,212,170,0.14)',
-                        color: 'rgba(232,232,232,0.85)',
-                      }),
-                }}
-              >
-                {msg.role === 'arkana'
-                  ? renderMarkdown(msg.content)
-                  : msg.content}
-
-                {msg.images && msg.images.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: '12px',
-                      display: 'grid',
-                      gridTemplateColumns: msg.images.length === 1
-                        ? '1fr'
-                        : 'repeat(2, 1fr)',
-                      gap: '8px',
-                    }}
-                  >
-                    {msg.images.map((url, i) => (
-                      <a
-                        key={url}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          display: 'block',
-                          borderRadius: '8px',
-                          overflow: 'hidden',
-                          border: '1px solid rgba(201,168,76,0.25)',
-                          background: '#000',
-                        }}
-                      >
-                        <img
-                          src={url}
-                          alt={`Forge ${i + 1}`}
-                          loading="lazy"
-                          style={{ width: '100%', height: 'auto', display: 'block' }}
-                        />
-                      </a>
-                    ))}
-                  </div>
-                )}
-
-                {msg.resonance != null && (
-                  <div
-                    style={{
-                      marginTop: '8px',
-                      paddingTop: '6px',
-                      borderTop: '1px solid rgba(255,255,255,0.05)',
-                      fontSize: '9px',
-                      letterSpacing: '0.2em',
-                      textTransform: 'uppercase',
-                      color: msg.session === 'sovereign'
-                        ? 'rgba(201,168,76,0.4)'
-                        : 'rgba(0,212,170,0.35)',
-                      textAlign: 'right',
-                    }}
-                  >
-                    resonance {msg.resonance.toFixed(3)}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          ))}
-
-          {loading && (
-            <motion.div
-              key="loading"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              style={{ display: 'flex', justifyContent: 'flex-start' }}
-            >
-              <div
-                style={{
-                  padding: '12px 18px',
-                  borderRadius: '14px',
-                  background: 'rgba(0,212,170,0.04)',
-                  border: '1px solid rgba(0,212,170,0.12)',
-                  display: 'flex',
-                  gap: '6px',
-                  alignItems: 'center',
-                }}
-              >
-                {[0, 0.3, 0.6].map((delay, i) => (
-                  <motion.div
-                    key={i}
-                    animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }}
-                    transition={{ duration: 1.2, repeat: Infinity, delay }}
-                    style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#00D4AA' }}
-                  />
-                ))}
-              </div>
+              {!isSovereign && (
+                <p style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(232,232,232,0.15)', letterSpacing: '0.14em', marginTop: 14, textTransform: 'uppercase' }}>
+                  Guest session · tap ⟐ to enter sovereign mode
+                </p>
+              )}
             </motion.div>
           )}
-        </AnimatePresence>
+
+          <AnimatePresence initial={false}>
+            {messages.map((msg, i) => {
+              const isUser = msg.role === 'user';
+              const isSov  = msg.session === 'sovereign';
+
+              return (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.22 }}
+                  onMouseEnter={() => setHoverIdx(i)}
+                  onMouseLeave={() => setHoverIdx(null)}
+                  style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}
+                >
+                  <div style={{ maxWidth: '88%', position: 'relative' }}>
+
+                    {/* Bubble */}
+                    <div
+                      style={{
+                        padding: '12px 16px',
+                        borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                        ...(isUser
+                          ? { background: accentFaint, border: `1px solid ${accentBorder}` }
+                          : {
+                              background: isSov ? 'rgba(201,168,76,0.04)' : 'rgba(0,212,170,0.04)',
+                              border: isSov ? '1px solid rgba(201,168,76,0.12)' : '1px solid rgba(0,212,170,0.11)',
+                            }),
+                      }}
+                    >
+                      <MarkdownContent text={msg.content} tone={isUser ? 'user' : 'arkana'} />
+
+                      {/* Forge images */}
+                      {msg.images && msg.images.length > 0 && (
+                        <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: msg.images.length === 1 ? '1fr' : 'repeat(2,1fr)', gap: 8 }}>
+                          {msg.images.map((url, j) => (
+                            <a key={url} href={url} target="_blank" rel="noopener noreferrer"
+                               style={{ display: 'block', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(201,168,76,0.25)', background: '#000' }}>
+                              <img src={url} alt={`Forge ${j+1}`} loading="lazy" style={{ width: '100%', height: 'auto', display: 'block' }} />
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ── Action toolbar ── */}
+                    <AnimatePresence>
+                      {(hoverIdx === i || speakingIdx === i || copiedIdx === i) && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 3 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.15 }}
+                          style={{
+                            display: 'flex',
+                            gap: 5,
+                            marginTop: 5,
+                            justifyContent: isUser ? 'flex-end' : 'flex-start',
+                          }}
+                        >
+                          {isUser ? (
+                            /* User: Edit */
+                            <ActionBtn
+                              icon={<Pencil size={10} />}
+                              label="Edit"
+                              onClick={() => handleEdit(i, msg.content)}
+                              color={accent}
+                            />
+                          ) : (
+                            /* Arkana: Copy · Regenerate · Listen */
+                            <>
+                              <ActionBtn
+                                icon={copiedIdx === i ? <Check size={10} /> : <Copy size={10} />}
+                                label={copiedIdx === i ? 'Copied' : 'Copy'}
+                                onClick={() => handleCopy(i, msg.content)}
+                                active={copiedIdx === i}
+                                color={accent}
+                              />
+                              <ActionBtn
+                                icon={<RotateCcw size={10} />}
+                                label="Regenerate"
+                                onClick={() => handleRegenerate(i)}
+                                color={accent}
+                              />
+                              {ttsOk && (
+                                <ActionBtn
+                                  icon={speakingIdx === i ? <Square size={10} /> : <Volume2 size={10} />}
+                                  label={speakingIdx === i ? 'Stop' : 'Listen'}
+                                  onClick={() => toggleSpeak(i, msg.content)}
+                                  active={speakingIdx === i}
+                                  color={accent}
+                                />
+                              )}
+                              {/* Resonance badge */}
+                              {msg.resonance != null && (
+                                <span
+                                  style={{
+                                    fontFamily: 'monospace', fontSize: 8.5,
+                                    letterSpacing: '0.18em', textTransform: 'uppercase',
+                                    color: isSov ? 'rgba(201,168,76,0.4)' : 'rgba(0,212,170,0.38)',
+                                    alignSelf: 'center', paddingLeft: 4,
+                                  }}
+                                >
+                                  resonance {msg.resonance.toFixed(3)}
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                  </div>
+                </motion.div>
+              );
+            })}
+
+            {/* Loading dots */}
+            {loading && (
+              <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                <div style={{ padding: '11px 16px', borderRadius: '16px 16px 16px 4px', background: 'rgba(0,212,170,0.04)', border: '1px solid rgba(0,212,170,0.11)', display: 'flex', gap: 6, alignItems: 'center' }}>
+                  {[0, 0.28, 0.56].map((delay, k) => (
+                    <motion.div key={k}
+                      animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }}
+                      transition={{ duration: 1.2, repeat: Infinity, delay }}
+                      style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#00D4AA' }}
+                    />
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
-      {/* Input */}
+      {/* ── Composer ── */}
       <div
         style={{
-          padding: '12px 14px',
-          borderTop: `1px solid ${isSovereignMode ? 'rgba(201,168,76,0.1)' : 'rgba(0,212,170,0.08)'}`,
-          backgroundColor: 'rgba(10,10,15,0.7)',
-          display: 'flex',
-          gap: '10px',
           flexShrink: 0,
-          borderRadius: '0 0 16px 16px',
+          padding: 'clamp(8px,2vw,14px) clamp(10px,3vw,20px)',
+          borderTop: `1px solid ${isSovereign ? 'rgba(201,168,76,0.09)' : 'rgba(0,212,170,0.07)'}`,
+          background: 'rgba(5,5,10,0.85)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
         }}
       >
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKey}
-          disabled={loading}
-          placeholder={isSovereignMode ? 'Speak, sovereign...' : 'Speak into the field...'}
-          style={{
-            flex: 1,
-            padding: '11px 15px',
-            background: 'rgba(255,255,255,0.03)',
-            border: `1px solid ${isSovereignMode ? 'rgba(201,168,76,0.18)' : 'rgba(0,212,170,0.18)'}`,
-            borderRadius: '10px',
-            color: '#E8E8E8',
-            fontFamily: 'sans-serif',
-            fontSize: '14px',
-            outline: 'none',
-          }}
-        />
-        <button
-          onClick={handleSend}
-          disabled={!input.trim() || loading}
-          style={{
-            padding: '11px 18px',
-            background: input.trim() && !loading
-              ? isSovereignMode ? 'rgba(201,168,76,0.1)' : 'rgba(0,212,170,0.1)'
-              : 'rgba(255,255,255,0.02)',
-            border: `1px solid ${input.trim() && !loading
-              ? isSovereignMode ? 'rgba(201,168,76,0.35)' : 'rgba(0,212,170,0.35)'
-              : 'rgba(255,255,255,0.07)'}`,
-            borderRadius: '10px',
-            color: input.trim() && !loading
-              ? isSovereignMode ? '#C9A84C' : '#00D4AA'
-              : 'rgba(232,232,232,0.18)',
-            fontFamily: 'serif',
-            fontSize: '11px',
-            letterSpacing: '0.15em',
-            textTransform: 'uppercase',
-            cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
-            transition: 'all 0.2s ease',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          Send
-        </button>
+        <div style={{ maxWidth: 780, margin: '0 auto', display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+          <textarea
+            ref={taRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            disabled={loading}
+            rows={1}
+            placeholder={
+              isSovereign
+                ? 'Speak, sovereign… paste any text, markdown, HTML (Shift+Enter for newline)'
+                : 'Speak into the field… paste any text or markdown (Shift+Enter for newline)'
+            }
+            style={{
+              flex: 1,
+              padding: '11px 14px',
+              background: 'rgba(255,255,255,0.03)',
+              border: `1px solid ${isSovereign ? 'rgba(201,168,76,0.2)' : 'rgba(0,212,170,0.2)'}`,
+              borderRadius: 12,
+              color: '#E8E8E8',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: 13.5,
+              lineHeight: 1.55,
+              outline: 'none',
+              resize: 'none',
+              overflowY: 'auto',
+              maxHeight: '38vh',
+              minHeight: 44,
+              transition: 'border-color 0.2s',
+            }}
+          />
+          <button
+            onClick={handleSend}
+            disabled={!input.trim() || loading}
+            title="Send (Enter)"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 44, height: 44, flexShrink: 0,
+              padding: 0,
+              background: input.trim() && !loading ? accentFaint : 'rgba(255,255,255,0.02)',
+              border: `1px solid ${input.trim() && !loading ? accentBorder : 'rgba(255,255,255,0.06)'}`,
+              borderRadius: 12,
+              color: input.trim() && !loading ? accent : 'rgba(232,232,232,0.18)',
+              cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
+              transition: 'all 0.18s',
+            }}
+          >
+            <Send size={15} />
+          </button>
+        </div>
       </div>
     </div>
   );
