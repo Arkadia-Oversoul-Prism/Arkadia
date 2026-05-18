@@ -20,6 +20,7 @@ from typing import Optional
 from fastapi import FastAPI, BackgroundTasks, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import google.generativeai as genai
@@ -37,6 +38,12 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# Serve static HTML documents (IMS sessions, scrolls, etc.)
+_static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
+if not os.path.exists(_static_dir):
+    os.makedirs(_static_dir, exist_ok=True)
+app.mount("/static", StaticFiles(directory=_static_dir), name="static")
 
 
 # ─── ORACLE IDENTITY ─────────────────────────────────────────────────────────
