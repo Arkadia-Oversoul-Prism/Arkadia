@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react'
 
 interface ArkDateData {
-  cycle: number
-  arc: number
+  ark_year: number
+  ark_total_years: number
+  day_in_year: number
+  total_ark_day: number
   pulse: number
   breath: number
-  phase: string
+  ark_completion_pct: number
   coordinate: string
   display: string
+  epoch: string
   sync: {
     auto_sync_active: boolean
     refresh_count: number
@@ -27,20 +30,20 @@ interface Props {
 
 export default function ArkDate({ sovereignMode = false, compact = false }: Props) {
   const [data, setData] = useState<ArkDateData | null>(null)
-  const [tick, setTick] = useState(0)
+  const [, setTick] = useState(0)
 
   const accent = sovereignMode ? '#C9A84C' : '#00D4AA'
-  const dim    = sovereignMode ? 'rgba(201,168,76,0.45)' : 'rgba(0,212,170,0.45)'
+  const dim    = sovereignMode ? 'rgba(201,168,76,0.5)' : 'rgba(0,212,170,0.5)'
 
   useEffect(() => {
     let alive = true
-    const fetch_ = () =>
+    const load = () =>
       fetch(`${API_BASE}/api/ark-date`)
         .then(r => r.json())
         .then(d => { if (alive) setData(d) })
         .catch(() => {})
-    fetch_()
-    const id = setInterval(fetch_, 60_000)
+    load()
+    const id = setInterval(load, 60_000)
     return () => { alive = false; clearInterval(id) }
   }, [])
 
@@ -50,19 +53,28 @@ export default function ArkDate({ sovereignMode = false, compact = false }: Prop
   }, [])
 
   const now = new Date()
-  const liveBreath = String(now.getMinutes()).padStart(2, '0')
-  const liveSecond = String(now.getSeconds()).padStart(2, '0')
+  const mm  = String(now.getMinutes()).padStart(2, '0')
+  const ss  = String(now.getSeconds()).padStart(2, '0')
 
   if (!data) return (
     <span style={{ fontSize: '9px', letterSpacing: '0.1em', color: dim, opacity: 0.5 }}>
-      ◎ calibrating spiral…
+      ◎ calibrating ark…
     </span>
   )
+
+  const tooltip = [
+    `Ark Date — ${data.epoch}`,
+    `Year ${data.ark_year} of ${data.ark_total_years} · Day ${data.total_ark_day}`,
+    `${data.ark_completion_pct}% of the 8-year Ark complete`,
+    data.sync.last_scroll_count
+      ? `${data.sync.last_scroll_count} scrolls last ingested`
+      : '',
+  ].filter(Boolean).join('\n')
 
   if (compact) {
     return (
       <span
-        title={`Spiral Star Date\n${data.display}\nPhase: ${data.phase}\nAuto-sync: every ${data.sync.cadence_minutes}min · ${data.sync.last_scroll_count} scrolls indexed`}
+        title={tooltip}
         style={{
           fontSize: '9px',
           letterSpacing: '0.18em',
@@ -73,69 +85,53 @@ export default function ArkDate({ sovereignMode = false, compact = false }: Prop
           textTransform: 'uppercase',
         }}
       >
-        ◎ {data.coordinate.split('Pulse')[0].trim()} · Pulse {data.pulse}:{liveBreath}:{liveSecond}
+        ◎ ARK Y{data.ark_year} · D{data.total_ark_day} · {data.pulse}:{mm}:{ss}
       </span>
     )
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-        }}
-      >
-        <span
-          style={{
-            fontSize: '8px',
-            letterSpacing: '0.35em',
-            color: dim,
-            textTransform: 'uppercase',
-            fontFamily: 'monospace',
-          }}
-        >
-          ◎ SPIRAL STAR DATE
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <span style={{
+          fontSize: '8px',
+          letterSpacing: '0.35em',
+          color: dim,
+          textTransform: 'uppercase',
+          fontFamily: 'monospace',
+        }}>
+          ◎ ARK DATE
         </span>
         {data.sync.auto_sync_active && (
           <span
-            title={`Auto-sync active · ${data.sync.refresh_count} ingestions · ${data.sync.last_scroll_count} scrolls`}
+            title={`Auto-sync active · ${data.sync.refresh_count} ingestions`}
             style={{
-              width: '5px',
-              height: '5px',
-              borderRadius: '50%',
-              background: accent,
-              display: 'inline-block',
+              width: '5px', height: '5px', borderRadius: '50%',
+              background: accent, display: 'inline-block',
               boxShadow: `0 0 4px ${accent}`,
               animation: 'arkPulse 2.5s ease-in-out infinite',
             }}
           />
         )}
       </div>
-      <div
-        style={{
-          fontSize: '10px',
-          letterSpacing: '0.12em',
-          color: accent,
-          fontFamily: 'monospace',
-          textTransform: 'uppercase',
-        }}
-      >
-        Cycle {data.cycle} · Arc {data.arc} · Pulse {data.pulse}:{liveBreath}:{liveSecond}
+      <div style={{
+        fontSize: '10px',
+        letterSpacing: '0.12em',
+        color: accent,
+        fontFamily: 'monospace',
+        textTransform: 'uppercase',
+      }}>
+        Year {data.ark_year} of {data.ark_total_years} · Day {data.total_ark_day} · {data.pulse}:{mm}:{ss}
       </div>
-      <div
-        style={{
-          fontSize: '8px',
-          letterSpacing: '0.2em',
-          color: dim,
-          textTransform: 'uppercase',
-          fontFamily: 'monospace',
-        }}
-      >
-        {data.phase}
+      <div style={{
+        fontSize: '8px',
+        letterSpacing: '0.2em',
+        color: dim,
+        textTransform: 'uppercase',
+        fontFamily: 'monospace',
+      }}>
+        {data.ark_completion_pct}% of 8-year Ark
       </div>
-
       <style>{`
         @keyframes arkPulse {
           0%, 100% { opacity: 1; transform: scale(1); }
