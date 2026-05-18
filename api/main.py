@@ -17,15 +17,6 @@ from fastapi.responses import JSONResponse
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("arkadia")
 
-app = FastAPI(title="Arkadia Mind — Cycle 11", lifespan=lifespan)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["*"],
-)
-
 GITHUB_REPO    = "Arkadia-Oversoul-Prism/Arkadia"
 GITHUB_BRANCH  = "main"
 GITHUB_TOKEN   = os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN", "")
@@ -134,6 +125,17 @@ async def lifespan(app: FastAPI):
     task.cancel()
     _sync_state["running"] = False
     logger.info("[ARK-SYNC] Self-evolution daemon released.")
+
+
+# ── App — created here so lifespan is already defined ────────────────────────
+app = FastAPI(title="Arkadia Mind — Cycle 11", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 
 # ── In-memory cache (5-minute TTL) ───────────────────────────────────────────
