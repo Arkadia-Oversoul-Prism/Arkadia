@@ -12,7 +12,9 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+import os as _os
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("arkadia")
@@ -141,6 +143,13 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# ── Static file serving (IMS HTML documents, forge images, etc.) ─────────────
+_static_dir = _os.path.join(_os.path.dirname(__file__), "..", "static")
+if _os.path.isdir(_static_dir):
+    app.mount("/static", StaticFiles(directory=_static_dir), name="static")
+else:
+    logger.warning(f"Static directory not found: {_static_dir}")
 
 
 # ── In-memory cache (5-minute TTL) ───────────────────────────────────────────
@@ -745,7 +754,12 @@ async def _generate_image(prompt: str) -> str | None:
 
 @app.get("/api/dashboard/loops")
 async def dashboard_loops(sovereign_token: str = ""):
-    """Live Open Loops dashboard — reads from oracle_store + corpus context."""
+    """Live Open Loops dashboard — reads from DOC2 oracle_store + corpus context.
+    
+    DOC2 is the living Open Loops document in the Arkadia corpus.
+    It tracks active commitments, their status, and next actions.
+    This endpoint merges live oracle_store data with DOC2 context.
+    """
     if not sovereign_token or sovereign_token.strip() != SOVEREIGN_KEY:
         raise HTTPException(status_code=403, detail="Sovereign gate closed.")
 
@@ -766,28 +780,94 @@ async def dashboard_loops(sovereign_token: str = ""):
         "resolved":  ("#4A5568", "closed"),
     }
 
-    def _map_loop(raw: dict, idx: int) -> dict:
-        raw_status = (raw.get("category") or raw.get("status") or "active").lower()
-        color, cat = CATEGORY_MAP.get(raw_status, ("#00D4AA", "active"))
-        label = raw.get("label") or raw.get("loop") or f"Loop {idx + 1}"
+    # Enrichment keywords for auto-categorizing and adding detail/action
+    CRITICAL_KEYWORDS = ["burn", "crash", "broke", "down", "critical", "urgent", 
+                         "block", "bottleneck", "highest", "revenue", "$", "client"]
+    HIGH_KEYWORDS = ["important", "launch", "ship", "deploy", "refactor", 
+                     "structure", "partnership", "hire", "team"]
+    DORMANT_KEYWORDS = ["paused", "waiting", "hold", "stalled", "backlog", "icebox"]
+    CLOSED_KEYWORDS = ["done", "complete", "resolved", "shipped", "archived", "closed"]
+
+    def _enrich_loop(raw: dict, idx: int) -> dict:
+        loop_text = raw.get("loop") or raw.get("label", "")
+        raw_status = (raw.get("status") or "open").lower()
+        
+        # Auto-detect category from loop text if not explicitly set
+        loop_lower = loop_text.lower()
+        detected_cat = None
+        if any(k in loop_lower for k in CLOSED_KEYWORDS):
+            detected_cat = "closed"
+        elif any(k in loop_lower for k in CRITICAL_KEYWORDS):
+            detected_cat = "critical"
+        elif any(k in loop_lower for k in HIGH_KEYWORDS):
+            detected_cat = "high"
+        elif any(k in loop_lower for k in DORMANT_KEYWORDS):
+            detected_cat = "dormant"
+        else:
+            detected_cat = "active" if raw_status in ("open", "active") else raw_status
+
+        color, cat = CATEGORY_MAP.get(detected_cat, ("#00D4AA", "active"))
+        
+        # Build enriched detail and action
+        detail = raw.get("detail", "")
+        action = raw.get("action", "")
+        
+        if not detail:
+            status_desc = {
+                "open": "Live commitment tracked in DOC2",
+                "active": "Currently in motion",
+                "critical": "Requires immediate attention",
+                "high": "Priority pathway",
+                "dormant": "Stalled or awaiting signal",
+                "closed": "Archived or resolved",
+            }
+            detail = status_desc.get(detected_cat, f"Status: {raw_status}")
+
+        if not action:
+            if detected_cat == "critical":
+                action = "Address immediately — escalation required"
+            elif detected_cat == "high":
+                action = "Schedule focused execution block"
+            elif detected_cat == "dormant":
+                action = "Reactivate or formally archive"
+            elif detected_cat == "active":
+                action = "Continue tracking — check in next cycle"
+            elif detected_cat == "closed":
+                action = "None required — maintain archive"
+
         return {
             "id":          str(idx + 1),
-            "label":       label,
-            "category":    raw.get("category", cat),
-            "status":      raw.get("status", raw_status),
-            "statusColor": raw.get("statusColor", color),
-            "detail":      raw.get("detail", ""),
-            "action":      raw.get("action", ""),
+            "label":       loop_text,
+            "category":    cat,
+            "status":      detail,
+            "statusColor": color,
+            "detail":      f"Tracked at {_time.strftime('%d %b %Y · %H:%M', _time.localtime(raw.get('ts', _time.time())))} · Status: {raw_status}",
+            "action":      action,
         }
 
-    loops = [_map_loop(l, i) for i, l in enumerate(raw_loops)]
+    loops = [_enrich_loop(l, i) for i, l in enumerate(raw_loops)]
 
     # Pull action_sequence + financial_state + field_signal from extended store keys
     action_sequence  = data.get("action_sequence", [])
     financial_state  = data.get("financial_state", {})
     field_signal     = data.get("field_signal", "The field is reading. Arkana holds the pattern.")
-    phase            = data.get("phase", "SolSpire Active")
+    phase            = data.get("phase", "DOC2 Live · SolSpire Active")
     updated          = data.get("updated") or _time.strftime("%d %b %Y · %H:%M", _time.localtime())
+
+    # Build default financial state from transactions if not explicitly set
+    if not financial_state and data.get("transactions"):
+        txns = data.get("transactions", [])
+        balances = {}
+        for t in txns:
+            cur = (t.get("currency") or "USD").upper()
+            amt = float(t.get("amount", 0.0))
+            balances[cur] = round(balances.get(cur, 0.0) + amt, 2)
+        financial_state = {
+            "arc_status": "LIVE" if balances else "No active transactions",
+            "primary_income": f"{balances.get('USD', 0):,.2f} USD" if balances else "—",
+            "pending_income": "Tracked via oracle_store",
+            "infrastructure_gap": "Monitor cash flow weekly",
+        }
 
     return {
         "phase":           phase,
@@ -860,3 +940,132 @@ async def github_tree():
         return {"total": len(tree), "files": tree}
     except Exception as e:
         return JSONResponse(status_code=502, content={"error": str(e)})
+
+
+# ── File Upload for Spiral Codex ──────────────────────────────────────────────
+
+@app.post("/api/codex/upload")
+async def upload_file(request: Request):
+    """Upload a file (PDF, DOCX, TXT, MD) to the Spiral Codex.
+    
+    The file content is extracted and stored as a direct scroll,
+    making it immediately available to Arkana for RAG context.
+    """
+    import cgi
+    import io
+    import urllib.parse
+
+    content_type = request.headers.get("content-type", "")
+    if not content_type.startswith("multipart/form-data"):
+        raise HTTPException(status_code=400, detail="Expected multipart/form-data")
+
+    body = await request.body()
+    
+    # Parse multipart form data manually
+    boundary = content_type.split("boundary=")[-1].strip('"')
+    parts = body.split(("--" + boundary).encode())
+    
+    uploaded_file = None
+    file_name = "upload"
+    category = "COLLECTIVE"
+    description = ""
+    
+    for part in parts:
+        if b'Content-Disposition' not in part:
+            continue
+        
+        # Parse headers
+        header_end = part.find(b'\r\n\r\n')
+        if header_end == -1:
+            continue
+            
+        headers = part[:header_end].decode('utf-8', errors='ignore')
+        content = part[header_end + 4:]
+        
+        # Remove trailing \r\n before boundary
+        if content.endswith(b'\r\n'):
+            content = content[:-2]
+        
+        # Extract field name and filename
+        if 'filename=' in headers:
+            # File field
+            fname_match = re.search(r'filename="([^"]+)"', headers)
+            if fname_match:
+                file_name = urllib.parse.unquote(fname_match.group(1))
+            uploaded_file = content
+        elif 'name="category"' in headers:
+            category = content.decode('utf-8', errors='ignore').strip().upper() or "COLLECTIVE"
+        elif 'name="description"' in headers:
+            description = content.decode('utf-8', errors='ignore').strip()
+    
+    if not uploaded_file:
+        raise HTTPException(status_code=400, detail="No file provided")
+    
+    # Extract text content based on file type
+    extracted_text = ""
+    file_lower = file_name.lower()
+    
+    try:
+        if file_lower.endswith('.txt') or file_lower.endswith('.md'):
+            extracted_text = uploaded_file.decode('utf-8', errors='ignore')
+        elif file_lower.endswith('.docx'):
+            # For DOCX, store the binary and note it needs extraction
+            # We'll store base64 content marker for later processing
+            extracted_text = f"[DOCX FILE: {file_name} - {len(uploaded_file)} bytes]\n\n"
+            # Try to extract text if python-docx is available
+            try:
+                from docx import Document
+                doc = Document(io.BytesIO(uploaded_file))
+                extracted_text = "\n\n".join([p.text for p in doc.paragraphs if p.text.strip()])
+            except ImportError:
+                extracted_text += "[Install python-docx for full text extraction. Stored as binary.]"
+        elif file_lower.endswith('.pdf'):
+            extracted_text = f"[PDF FILE: {file_name} - {len(uploaded_file)} bytes]\n\n"
+            try:
+                import PyPDF2
+                reader = PyPDF2.PdfReader(io.BytesIO(uploaded_file))
+                for page in reader.pages:
+                    extracted_text += page.extract_text() + "\n\n"
+            except ImportError:
+                extracted_text += "[Install PyPDF2 for full text extraction. Stored as binary.]"
+        else:
+            # Try as text for unknown types
+            extracted_text = uploaded_file.decode('utf-8', errors='ignore')
+    except Exception as e:
+        extracted_text = f"[Error extracting content from {file_name}: {str(e)}]"
+    
+    # Store as a direct scroll
+    now = _now_iso()
+    scroll_id = "upload_" + re.sub(r"[^a-z0-9]", "_", file_name.lower())[:40] + "_" + str(int(time.time()))
+    
+    scroll = {
+        "id":          scroll_id,
+        "source":      "upload",
+        "category":    category,
+        "priority":    50,
+        "label":       _make_label(file_name),
+        "description": description or f"Uploaded file: {file_name}",
+        "chars":       len(extracted_text),
+        "preview":     extracted_text[:320],
+        "content":     extracted_text,
+        "fetched_at":  now,
+        "error":       None,
+        "created_at":  now,
+        "filename":    file_name,
+        "file_size":   len(uploaded_file),
+    }
+    
+    existing = _load_direct_scrolls()
+    existing.insert(0, scroll)
+    _save_direct_scrolls(existing)
+    
+    # Bust cache
+    _cache["at"] = 0.0
+    
+    logger.info(f"[UPLOAD] File stored as scroll: {file_name} ({len(extracted_text)} chars, {category})")
+    
+    return {
+        "status": "uploaded",
+        "scroll": scroll,
+        "message": f"'{file_name}' has been ingested into the Spiral Codex and is now live for Arkana queries.",
+    }

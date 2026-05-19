@@ -12,8 +12,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Volume2, Square, Send, Trash2, Copy, Check, RotateCcw, Pencil } from 'lucide-react';
+import { Volume2, Square, Send, Trash2, Copy, Check, RotateCcw, Pencil, Paperclip, FileText, X } from 'lucide-react';
 import ArkDate from './ArkDate';
+import MarkdownViewer from './MarkdownViewer';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Message {
@@ -22,6 +23,7 @@ interface Message {
   resonance?: number;
   session?: string;
   images?: string[];
+  attachment?: { name: string; type: string; size: number } | null;
 }
 
 // ─── Slash commands ───────────────────────────────────────────────────────────
@@ -165,12 +167,10 @@ const SovereignGate: React.FC<{ token: string; onSave: (t: string) => void; onCl
   );
 };
 
-// ─── Markdown renderer (shared, Google-Docs clean) ────────────────────────────
+// ─── Markdown renderer (full canvas with bolds, headers, italics, quotes, emoji) ────────────────────────────
 const MarkdownContent: React.FC<{ text: string; tone: 'user' | 'arkana' }> = ({ text, tone }) => (
   <div className={`arkadia-prose arkadia-prose-${tone}`}>
-    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-      {text}
-    </ReactMarkdown>
+    <MarkdownViewer content={text} compact />
   </div>
 );
 
@@ -217,6 +217,11 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
   const [speakingIdx, setSpeakingIdx]   = useState<number | null>(null);
   const [copiedIdx, setCopiedIdx]       = useState<number | null>(null);
   const [hoverIdx, setHoverIdx]         = useState<number | null>(null);
+  
+  // File attachment state
+  const [attachment, setAttachment]     = useState<{ name: string; type: string; size: number; content: string } | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef                    = useRef<HTMLInputElement>(null);
 
   const scrollRef     = useRef<HTMLDivElement>(null);
   const taRef         = useRef<HTMLTextAreaElement>(null);
@@ -255,6 +260,51 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
   useEffect(() => { autoresize(); }, [input, autoresize]);
 
   const handleSaveToken = (t: string) => { saveToken(t.trim()); setSovereignToken(t.trim()); };
+
+  // ── File Attachment ────────────────────────────────────────────────────────
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Read file content for text files
+    let content = '';
+    if (file.type.startsWith('text/') || file.name.endsWith('.md') || file.name.endsWith('.txt') || file.name.endsWith('.json')) {
+      content = await file.text();
+    } else if (file.name.endsWith('.docx') || file.type === 'application/pdf') {
+      content = `[${file.type || 'binary'} file: ${file.name} — ${(file.size / 1024).toFixed(1)} KB]`;
+    }
+
+    setAttachment({
+      name: file.name,
+      type: file.type || 'application/octet-stream',
+      size: file.size,
+      content,
+    });
+    
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleFileUpload = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('category', 'COLLECTIVE');
+    formData.append('description', `Uploaded via Oracle Chat: ${file.name}`);
+
+    const res = await fetch(`${API_BASE}/api/codex/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Upload failed: ${res.status}`);
+    }
+
+    const data = await res.json();
+    return data.message || file.name;
+  };
+
+  const clearAttachment = () => setAttachment(null);
 
   // ── TTS ────────────────────────────────────────────────────────────────────
   const toggleSpeak = (idx: number, text: string) => {
@@ -358,22 +408,42 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
 
   // ── API: Oracle ────────────────────────────────────────────────────────────
   const sendMessage = async (text: string) => {
-    if (!text.trim()) return;
-    setMessages(prev => { const next = [...prev, { role: 'user' as const, content: text }]; saveThread(next); return next; });
+    if (!text.trim() && !attachment) return;
+    
+    const displayText = text.trim() || (attachment ? `[Attached: ${attachment.name}]` : '');
+    const userMsg: Message = { 
+      role: 'user', 
+      content: displayText,
+      attachment: attachment ? { name: attachment.name, type: attachment.type, size: attachment.size } : undefined,
+    };
+    
+    setMessages(prev => { const next = [...prev, userMsg]; saveThread(next); return next; });
     setLoading(true);
 
     if (isHelpCommand(text)) {
       setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: HELP_TEXT }]; saveThread(next); return next; });
-      setLoading(false); return;
+      setLoading(false); setAttachment(null); return;
     }
     const forge = parseForgeCommand(text);
-    if (forge) { await sendForge(forge); return; }
+    if (forge) { await sendForge(forge); setAttachment(null); return; }
     const codex = parseCodexCommand(text);
-    if (codex !== null) { await sendCodexQuery(codex); return; }
+    if (codex !== null) { await sendCodexQuery(codex); setAttachment(null); return; }
 
     try {
-      const body: Record<string, unknown> = { message: text, timestamp: Date.now() };
+      // Build message with attachment context
+      let messageWithContext = text.trim();
+      if (attachment?.content) {
+        messageWithContext += `\n\n[ATTACHED FILE: ${attachment.name}]\n${attachment.content}`;
+      } else if (attachment) {
+        messageWithContext += `\n\n[ATTACHED FILE: ${attachment.name} (${(attachment.size / 1024).toFixed(1)} KB)]`;
+      }
+
+      const body: Record<string, unknown> = { 
+        message: messageWithContext, 
+        timestamp: Date.now(),
+      };
       if (sovereignToken.trim()) body.sovereign_token = sovereignToken.trim();
+      
       const res  = await fetch(`${API_BASE}/api/commune/resonance`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -381,13 +451,32 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
       const data = await res.json().catch(() => ({} as any));
       if (!res.ok) throw new Error(data?.detail || data?.error || `HTTP ${res.status}`);
       const session = (data.session as 'sovereign' | 'guest') || 'guest';
+      
+      // If we have a file, upload it to the codex for future RAG
+      if (attachment && attachment.content.length > 50) {
+        try {
+          await fetch(`${API_BASE}/api/scrolls`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              label: `Chat Upload: ${attachment.name}`,
+              content: attachment.content,
+              category: 'COLLECTIVE',
+              description: `Uploaded via Oracle Chat: ${attachment.name}`,
+            }),
+          });
+        } catch {
+          // Silent — chat works even if scroll storage fails
+        }
+      }
+      
       setMessages(prev => {
         const next = [...prev, { role: 'arkana' as const, content: data.reply, resonance: data.resonance, session }];
         saveThread(next); return next;
       });
     } catch (err: any) {
       setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: `The field is recalibrating. Try again.\n\n*(${err?.message || 'unknown'})*` }]; saveThread(next); return next; });
-    } finally { setLoading(false); }
+    } finally { setLoading(false); setAttachment(null); }
   };
 
   const handleSend = () => {
@@ -570,6 +659,16 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                     >
                       <MarkdownContent text={msg.content} tone={isUser ? 'user' : 'arkana'} />
 
+                      {/* Attachment indicator */}
+                      {msg.attachment && (
+                        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: 'rgba(0,212,170,0.05)', border: '1px solid rgba(0,212,170,0.15)', borderRadius: 6 }}>
+                          <Paperclip size={10} style={{ color: accent, flexShrink: 0 }} />
+                          <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(232,232,232,0.45)' }}>
+                            {msg.attachment.name} ({(msg.attachment.size / 1024).toFixed(0)} KB)
+                          </span>
+                        </div>
+                      )}
+
                       {/* Forge images */}
                       {msg.images && msg.images.length > 0 && (
                         <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: msg.images.length === 1 ? '1fr' : 'repeat(2,1fr)', gap: 8 }}>
@@ -685,7 +784,65 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
           WebkitBackdropFilter: 'blur(16px)',
         }}
       >
-        <div style={{ maxWidth: 780, margin: '0 auto', display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+        <div style={{ maxWidth: 780, margin: '0 auto' }}>
+        {/* Attachment indicator */}
+        <AnimatePresence>
+          {attachment && (
+            <motion.div
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '6px 10px',
+                marginBottom: 8,
+                background: `${accentFaint}`,
+                border: `1px dashed ${accentBorder}`,
+                borderRadius: 8,
+              }}
+            >
+              <FileText size={12} style={{ color: accent, flexShrink: 0 }} />
+              <span style={{ fontFamily: 'monospace', fontSize: 10, color: accent, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {attachment.name} ({(attachment.size / 1024).toFixed(1)} KB)
+              </span>
+              <button onClick={clearAttachment} style={{ background: 'none', border: 'none', color: 'rgba(232,232,232,0.3)', cursor: 'pointer', padding: 2, display: 'flex' }}>
+                <X size={12} />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+          {/* File attachment button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={loading || uploadingFile}
+            title="Attach file"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 44, height: 44, flexShrink: 0,
+              padding: 0,
+              background: attachment ? accentFaint : 'transparent',
+              border: `1px solid ${attachment ? accentBorder : 'rgba(255,255,255,0.08)'}`,
+              borderRadius: 12,
+              color: attachment ? accent : 'rgba(232,232,232,0.25)',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.18s',
+            }}
+          >
+            <Paperclip size={16} />
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".txt,.md,.json,.docx,.pdf"
+            onChange={handleFileSelect}
+            className="hidden"
+            style={{ display: 'none' }}
+          />
+
           <textarea
             ref={taRef}
             value={input}
@@ -695,8 +852,8 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
             rows={1}
             placeholder={
               isSovereign
-                ? 'Speak, sovereign… tap ↑ to send. Paste any text or HTML.'
-                : 'Speak into the field… tap ↑ to send. Paste any text or markdown.'
+                ? 'Speak, sovereign… attach files or paste any text/HTML.'
+                : 'Speak into the field… attach files or paste markdown.'
             }
             style={{
               flex: 1,
@@ -718,23 +875,24 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
           />
           <button
             onClick={handleSend}
-            disabled={!input.trim() || loading}
+            disabled={(!input.trim() && !attachment) || loading}
             title="Send"
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 44, height: 44, flexShrink: 0,
               padding: 0,
-              background: input.trim() && !loading ? accentFaint : 'rgba(255,255,255,0.02)',
-              border: `1px solid ${input.trim() && !loading ? accentBorder : 'rgba(255,255,255,0.06)'}`,
+              background: (input.trim() || attachment) && !loading ? accentFaint : 'rgba(255,255,255,0.02)',
+              border: `1px solid ${(input.trim() || attachment) && !loading ? accentBorder : 'rgba(255,255,255,0.06)'}`,
               borderRadius: 12,
-              color: input.trim() && !loading ? accent : 'rgba(232,232,232,0.18)',
-              cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
+              color: (input.trim() || attachment) && !loading ? accent : 'rgba(232,232,232,0.18)',
+              cursor: (input.trim() || attachment) && !loading ? 'pointer' : 'not-allowed',
               transition: 'all 0.18s',
             }}
           >
             <Send size={15} />
           </button>
         </div>
+      </div>
       </div>
     </div>
   );

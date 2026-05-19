@@ -50,6 +50,7 @@ const AI_NODES = [
 const IMS_SESSIONS = [
   { id: 'IMS-001', subject: 'Jay',           date: 'April 11, 2026',  arkDay: 12, status: 'PROOF OF CONCEPT',       statusColor: '#00D4AA', type: 'Internal', tagline: 'The Sovereign Exit — architecture\'s first living test.', htmlPath: '/static/ims/jay_ims.html' },
   { id: 'IMS-002', subject: 'Won John Chong',date: 'April 2026',      arkDay: 15, status: 'COMPLETE · FIRST ARTIFACT', statusColor: '#C9A84C', type: 'Internal', tagline: 'First completed artifact. Full deliverable finalised — the first finished proof of work.', htmlPath: '/static/ims/won_ims.html' },
+  { id: 'IMS-003', subject: 'EduLeague',     date: 'May 2026',        arkDay: 45, status: 'PILOT DEPLOYMENT',        statusColor: '#B08DE8', type: 'System',   tagline: 'Structured competitive learning system — Solid Foundation Academy, Pankshin.', htmlPath: '/static/ims/eduleague.html' },
 ];
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
@@ -254,6 +255,16 @@ function ScrollEntry({ scroll, color }: { scroll: Scroll; color: string }) {
 
 function IMSArchiveSection() {
   const [viewer, setViewer] = useState<{ url: string; title: string } | null>(null);
+  const [iframeError, setIframeError] = useState<string | null>(null);
+  const [iframeLoading, setIframeLoading] = useState(true);
+  
+  // Build full IMS URL ensuring it points to the backend API
+  const buildImsUrl = (htmlPath: string) => {
+    // Always use the API_BASE (backend) for static IMS files
+    const base = API_BASE || (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '');
+    return `${base}${htmlPath}`;
+  };
+
   return (
     <>
       <AnimatePresence>
@@ -265,9 +276,54 @@ function IMSArchiveSection() {
                 <span style={{ color:'#c9a84c', fontSize:'14px' }}>☥</span>
                 <p style={{ fontFamily:'sans-serif', fontSize:'11px', letterSpacing:'0.2em', textTransform:'uppercase', color:'rgba(201,168,76,0.65)', margin:0 }}>{viewer.title}</p>
               </div>
-              <button onClick={() => setViewer(null)} style={{ padding:'8px 16px', background:'rgba(232,140,106,0.08)', border:'1px solid rgba(232,140,106,0.25)', borderRadius:'6px', color:'#E88C6A', fontFamily:'sans-serif', fontSize:'10px', letterSpacing:'0.18em', textTransform:'uppercase', cursor:'pointer' }}>✕ Close</button>
+              <button onClick={() => { setViewer(null); setIframeError(null); setIframeLoading(true); }} style={{ padding:'8px 16px', background:'rgba(232,140,106,0.08)', border:'1px solid rgba(232,140,106,0.25)', borderRadius:'6px', color:'#E88C6A', fontFamily:'sans-serif', fontSize:'10px', letterSpacing:'0.18em', textTransform:'uppercase', cursor:'pointer' }}>✕ Close</button>
             </div>
-            <iframe src={viewer.url} title={viewer.title} style={{ flex:1, border:'none', width:'100%' }} sandbox="allow-scripts allow-same-origin" />
+            
+            {/* Loading state */}
+            {iframeLoading && !iframeError && (
+              <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', background:'#03040a' }}>
+                <div style={{ textAlign:'center' }}>
+                  <motion.div
+                    className="w-8 h-8 rounded-full border-2 border-[#D4AF37]/30 border-t-[#D4AF37] mx-auto"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                  />
+                  <p style={{ fontFamily:'sans-serif', fontSize:'10px', color:'rgba(201,168,76,0.5)', marginTop:'12px', letterSpacing:'0.2em', textTransform:'uppercase' }}>
+                    Loading IMS Document...
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {/* Error state */}
+            {iframeError && (
+              <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', background:'#03040a', padding:'20px' }}>
+                <div style={{ textAlign:'center', maxWidth:'400px' }}>
+                  <p style={{ fontSize:'24px', marginBottom:'12px' }}>⚡</p>
+                  <p style={{ fontFamily:'sans-serif', fontSize:'13px', color:'rgba(232,140,106,0.8)', marginBottom:'8px' }}>{iframeError}</p>
+                  <p style={{ fontFamily:'monospace', fontSize:'9px', color:'rgba(232,232,232,0.25)', marginBottom:'16px', wordBreak:'break-all' }}>
+                    URL: {viewer.url}
+                  </p>
+                  <button
+                    onClick={() => window.open(viewer.url, '_blank')}
+                    style={{ padding:'10px 20px', background:'rgba(201,168,76,0.08)', border:'1px solid rgba(201,168,76,0.3)', borderRadius:'8px', color:'#C9A84C', fontFamily:'sans-serif', fontSize:'10px', letterSpacing:'0.18em', textTransform:'uppercase', cursor:'pointer' }}
+                  >
+                    Open in New Tab ↗
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {/* Iframe */}
+            {!iframeError && (
+              <iframe
+                src={viewer.url}
+                title={viewer.title}
+                style={{ flex:1, border:'none', width:'100%', display: iframeLoading ? 'none' : 'block' }}
+                onLoad={() => { setIframeLoading(false); setIframeError(null); }}
+                onError={() => { setIframeLoading(false); setIframeError('Failed to load the IMS document. The file may not be available on the server.'); }}
+              />
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -289,7 +345,7 @@ function IMSArchiveSection() {
             </div>
             <p style={{ fontFamily: 'sans-serif', fontSize: '12px', lineHeight: '1.7', color: 'rgba(232,232,232,0.38)', margin: '0 0 14px' }}>{s.tagline}</p>
             {s.htmlPath && (
-              <button onClick={() => setViewer({ url: `${API_BASE}${s.htmlPath}`, title: `${s.subject} — ${s.id}` })}
+              <button onClick={() => { setIframeError(null); setIframeLoading(true); setViewer({ url: buildImsUrl(s.htmlPath), title: `${s.subject} — ${s.id}` }); }}
                 style={{ width:'100%', padding:'11px 16px', background:`${s.statusColor}08`, border:`1px solid ${s.statusColor}30`, borderRadius:'9px', color:s.statusColor, fontFamily:'sans-serif', fontSize:'10px', letterSpacing:'0.18em', textTransform:'uppercase', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', transition:'all 0.2s' }}>
                 <span>↗</span><span>Open Full Document</span>
               </button>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://arkadia-n26k.onrender.com';
@@ -66,6 +66,13 @@ export default function SpiralCodexFeed({ onBack }: { onBack: () => void }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedDoc, setExpandedDoc] = useState<string | null>(null);
+  
+  // Upload state
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [showUpload, setShowUpload] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchData();
@@ -133,6 +140,78 @@ export default function SpiralCodexFeed({ onBack }: { onBack: () => void }) {
     return `${n}`;
   };
 
+  // ── File Upload ────────────────────────────────────────────────────────────
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setUploadError(null);
+    setUploadSuccess(null);
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('category', 'COLLECTIVE');
+    formData.append('description', `Uploaded via Spiral Codex: ${file.name}`);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/codex/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || `Upload failed: ${res.status}`);
+      }
+
+      const data = await res.json();
+      setUploadSuccess(data.message || `'${file.name}' uploaded successfully`);
+      // Refresh codex data to show the new upload
+      fetchData();
+    } catch (e: any) {
+      setUploadError(e.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setUploadError(null);
+    setUploadSuccess(null);
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('category', 'COLLECTIVE');
+    formData.append('description', `Uploaded via Spiral Codex: ${file.name}`);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/codex/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || `Upload failed: ${res.status}`);
+      }
+
+      const data = await res.json();
+      setUploadSuccess(data.message || `'${file.name}' uploaded successfully`);
+      fetchData();
+    } catch (e: any) {
+      setUploadError(e.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#030712] text-white relative overflow-x-hidden">
       {/* Aurora Background */}
@@ -179,6 +258,90 @@ export default function SpiralCodexFeed({ onBack }: { onBack: () => void }) {
               <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">✕</button>
             )}
           </div>
+
+          {/* Upload Toggle */}
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => { setShowUpload(!showUpload); setUploadError(null); setUploadSuccess(null); }}
+              className={`text-xs tracking-widest uppercase transition-all border rounded-lg px-3 py-1.5 flex items-center gap-2 ${
+                showUpload
+                  ? 'bg-[#D4AF37]/20 border-[#D4AF37]/60 text-[#D4AF37]'
+                  : 'border-white/10 text-white/40 hover:border-white/30'
+              }`}
+            >
+              <span>📎</span>
+              <span>{showUpload ? 'Close Upload' : 'Upload File'}</span>
+            </button>
+            <span className="text-[10px] text-white/20 tracking-wider">PDF · DOCX · TXT · MD</span>
+          </div>
+
+          {/* Upload Area */}
+          <AnimatePresence>
+            {showUpload && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25 }}
+                className="overflow-hidden"
+              >
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={e => e.preventDefault()}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-[#D4AF37]/25 rounded-xl p-6 text-center cursor-pointer transition-all hover:border-[#D4AF37]/50 hover:bg-[#D4AF37]/5"
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.docx,.txt,.md,.json"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  {uploading ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <motion.div
+                        className="w-6 h-6 rounded-full border-2 border-[#D4AF37]/30 border-t-[#D4AF37]"
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                      />
+                      <span className="text-xs text-[#D4AF37]/60 tracking-wider">Ingesting into the Codex...</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-lg">📤</span>
+                      <span className="text-xs text-white/40 tracking-wider">Drop file here or click to browse</span>
+                      <span className="text-[10px] text-white/20">PDF, DOCX, TXT, MD accepted</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Upload feedback */}
+                <AnimatePresence>
+                  {uploadSuccess && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="mt-2 p-2 bg-[#00D4AA]/10 border border-[#00D4AA]/30 rounded-lg text-center"
+                    >
+                      <span className="text-[10px] text-[#00D4AA] tracking-wider">{uploadSuccess}</span>
+                    </motion.div>
+                  )}
+                  {uploadError && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="mt-2 p-2 bg-red-500/10 border border-red-500/30 rounded-lg text-center"
+                    >
+                      <span className="text-[10px] text-red-400 tracking-wider">{uploadError}</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Category Tabs */}
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
