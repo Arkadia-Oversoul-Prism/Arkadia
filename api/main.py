@@ -147,6 +147,26 @@ app.add_middleware(
 _cache: dict = {"scrolls": None, "at": 0.0}
 CACHE_TTL = 300
 
+# ── Direct-upload scroll store ────────────────────────────────────────────────
+DIRECT_SCROLLS_FILE = "data/direct_scrolls.json"
+
+
+def _load_direct_scrolls() -> list[dict]:
+    try:
+        with open(DIRECT_SCROLLS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f).get("scrolls", [])
+    except FileNotFoundError:
+        return []
+    except Exception as e:
+        logger.warning(f"direct scrolls load error: {e}")
+        return []
+
+
+def _save_direct_scrolls(scrolls: list[dict]) -> None:
+    os.makedirs("data", exist_ok=True)
+    with open(DIRECT_SCROLLS_FILE, "w", encoding="utf-8") as f:
+        json.dump({"scrolls": scrolls}, f, ensure_ascii=False, indent=2)
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -284,17 +304,24 @@ async def _build_scrolls(tree_items: list[dict]) -> dict:
 async def _get_scrolls(force: bool = False) -> dict:
     now = time.time()
     if not force and _cache["scrolls"] is not None and (now - _cache["at"]) < CACHE_TTL:
-        return _cache["scrolls"]
+        # Still merge in latest direct scrolls even from cache
+        scrolls = dict(_cache["scrolls"])
+        for ds in _load_direct_scrolls():
+            scrolls[ds["id"]] = ds
+        return scrolls
     try:
         tree    = await _fetch_github_tree()
         scrolls = await _build_scrolls(tree)
         _cache["scrolls"] = scrolls
         _cache["at"]      = now
         logger.info(f"Indexed {len(scrolls)} Arkadia scrolls from GitHub")
-        return scrolls
     except Exception as e:
         logger.error(f"GitHub fetch failed: {e}")
-        return _cache["scrolls"] or {}
+        scrolls = dict(_cache["scrolls"] or {})
+    # Merge direct uploads (always fresh — they live on disk)
+    for ds in _load_direct_scrolls():
+        scrolls[ds["id"]] = ds
+    return scrolls
 
 
 # ── Forge helpers ─────────────────────────────────────────────────────────────
@@ -336,7 +363,7 @@ async def _gemini_chat(messages: list[dict], system: str) -> str:
     payload = {
         "system_instruction": {"parts": [{"text": system}]},
         "contents": contents,
-        "generationConfig": {"temperature": 0.88, "maxOutputTokens": 700},
+        "generationConfig": {"temperature": 0.88, "maxOutputTokens": 2048},
     }
 
     last_err = None
@@ -406,6 +433,58 @@ async def corpus_refresh():
     scrolls = await _get_scrolls(force=True)
     live    = sum(1 for s in scrolls.values() if not s.get("error") and s.get("chars", 0) > 0)
     return {"status": "refreshed", "total": len(scrolls), "live": live}
+
+
+@app.post("/api/scrolls")
+async def create_scroll(body: dict):
+    """Add a direct scroll to the living corpus. Immediately available to Arkana."""
+    label   = (body.get("label") or "").strip()
+    content = (body.get("content") or "").strip()
+    if not label or not content:
+        raise HTTPException(status_code=400, detail="label and content are required.")
+    category    = (body.get("category") or "CREATIVE_OS").strip().upper()
+    description = (body.get("description") or "").strip()
+    now         = _now_iso()
+    scroll_id   = "direct_" + re.sub(r"[^a-z0-9]", "_", label.lower())[:40] + "_" + str(int(time.time()))
+    scroll = {
+        "id":         scroll_id,
+        "source":     "direct",
+        "category":   category,
+        "priority":   50,
+        "label":      label,
+        "description": description,
+        "chars":      len(content),
+        "preview":    content[:320],
+        "content":    content,
+        "fetched_at": now,
+        "error":      None,
+        "created_at": now,
+    }
+    existing = _load_direct_scrolls()
+    existing.insert(0, scroll)
+    _save_direct_scrolls(existing)
+    # Bust the main cache so the new scroll shows up immediately
+    _cache["at"] = 0.0
+    logger.info(f"[DIRECT-SCROLL] Added: {label!r} ({len(content)} chars, {category})")
+    return {"status": "committed", "scroll": scroll}
+
+
+@app.delete("/api/scrolls/{scroll_id}")
+async def delete_scroll(scroll_id: str):
+    """Remove a directly-uploaded scroll from the corpus."""
+    existing = _load_direct_scrolls()
+    updated  = [s for s in existing if s["id"] != scroll_id]
+    if len(updated) == len(existing):
+        raise HTTPException(status_code=404, detail="Scroll not found.")
+    _save_direct_scrolls(updated)
+    _cache["at"] = 0.0
+    return {"status": "removed", "id": scroll_id}
+
+
+@app.get("/api/scrolls")
+async def list_direct_scrolls():
+    """List only the directly-uploaded scrolls."""
+    return {"scrolls": _load_direct_scrolls()}
 
 
 def _rag_context(query: str, scrolls: dict, max_chars: int = 3000, top_n: int = 5) -> tuple[str, list[dict]]:
