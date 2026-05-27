@@ -7,8 +7,9 @@ import ShereSanctuary from './components/ShereSanctuary';
 import CoherenceReset from './pages/CoherenceReset';
 import AboutArkadia from './pages/AboutArkadia';
 import DashboardView from './pages/DashboardView';
+import NexusPage from './pages/NexusPage';
 
-type View = 'home' | 'gate' | 'commune' | 'reset' | 'sanctuary' | 'dashboard' | 'about';
+type View = 'home' | 'gate' | 'commune' | 'reset' | 'nexus' | 'sanctuary' | 'dashboard' | 'about';
 
 // ─── FIELD PULSE ──────────────────────────────────────────────────────────────
 
@@ -41,18 +42,12 @@ function PortalDoor({ label, sub, color, sigil, onClick, delay }: {
   const [hovered, setHovered] = useState(false);
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.55 }}
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay, duration: 0.55 }}
+      onClick={onClick} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       style={{ padding: '15px 17px', background: hovered ? `${color}09` : 'rgba(255,255,255,0.015)', border: `1px solid ${hovered ? color + '40' : 'rgba(255,255,255,0.05)'}`, borderRadius: '11px', cursor: 'pointer', transition: 'all 0.22s', display: 'flex', alignItems: 'center', gap: '14px' }}
     >
       <motion.span animate={{ opacity: hovered ? 1 : [0.35, 0.75, 0.35] }} transition={{ duration: 3.5, repeat: Infinity }}
-        style={{ fontSize: '18px', flexShrink: 0, width: '26px', textAlign: 'center' }}>
-        {sigil}
-      </motion.span>
+        style={{ fontSize: '18px', flexShrink: 0, width: '26px', textAlign: 'center' }}>{sigil}</motion.span>
       <div style={{ flex: 1 }}>
         <p style={{ fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.22em', textTransform: 'uppercase', color: hovered ? color : 'rgba(232,232,232,0.52)', margin: '0 0 3px', transition: 'color 0.2s' }}>{label}</p>
         <p style={{ fontFamily: 'sans-serif', fontSize: '11px', color: 'rgba(232,232,232,0.28)', margin: 0 }}>{sub}</p>
@@ -70,7 +65,8 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
       <div className="aurora-bg" />
       <div className="page-column relative z-10 pt-10 pb-16 flex flex-col">
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.7 }} style={{ marginBottom: '26px', display: 'flex', justifyContent: 'center' }}>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.7 }}
+          style={{ marginBottom: '26px', display: 'flex', justifyContent: 'center' }}>
           <FieldPulse />
         </motion.div>
 
@@ -86,13 +82,13 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
 
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.42 }}
           style={{ fontFamily: 'serif', fontSize: '14px', lineHeight: '1.8', color: 'rgba(232,232,232,0.4)', margin: '0 0 30px', textAlign: 'center' }}>
-          Arkadia is a field.<br />The IMS is the door.
+          Arkadia is a field. The IMS is the door.
         </motion.p>
 
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} style={{ marginBottom: '10px' }}>
-          <button onClick={() => window.open('https://wa.me/2348144942818', '_blank')}
+          <button onClick={() => onNavigate('gate')}
             style={{ width: '100%', padding: '18px', background: 'linear-gradient(135deg, rgba(201,168,76,0.12), rgba(201,168,76,0.06))', border: '1px solid rgba(201,168,76,0.38)', borderRadius: '12px', color: '#C9A84C', fontFamily: 'sans-serif', fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
-            ✦ Identity Mapping — $777 — Enter Here
+            ✦ Identity Mapping Session — $777 — Begin Here
           </button>
         </motion.div>
 
@@ -128,8 +124,8 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
         </motion.p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginBottom: '30px' }}>
-          <PortalDoor label="Oracle" sub="ARKANA · Pattern intelligence · Live commune" color="#00D4AA" sigil="⟐" onClick={() => onNavigate('gate')} delay={1.14} />
-          <PortalDoor label="Nexus" sub="Pankshin deployment · IMS Archive · Spiral Codex" color="#C9A84C" sigil="☥" onClick={() => onNavigate('sanctuary')} delay={1.19} />
+          <PortalDoor label="Oracle" sub="ARKANA · Pattern intelligence · Live commune" color="#00D4AA" sigil="⟐" onClick={() => onNavigate('commune')} delay={1.14} />
+          <PortalDoor label="Nexus" sub="Crystal Matrix · AIS University · Living Larder" color="#C9A84C" sigil="☥" onClick={() => onNavigate('nexus')} delay={1.19} />
           <PortalDoor label="Dashboard" sub="Open loops · DOC2 live · Action matrix" color="#E88C6A" sigil="◈" onClick={() => onNavigate('dashboard')} delay={1.24} />
           <PortalDoor label="About" sub="Zahrune Nova · Lineage · Architecture" color="#6A9FD8" sigil="✦" onClick={() => onNavigate('about')} delay={1.29} />
         </div>
@@ -192,6 +188,12 @@ function App() {
         {view === 'reset' && (
           <motion.div key="reset" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
             <CoherenceReset />
+          </motion.div>
+        )}
+
+        {view === 'nexus' && (
+          <motion.div key="nexus" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
+            <NexusPage />
           </motion.div>
         )}
 

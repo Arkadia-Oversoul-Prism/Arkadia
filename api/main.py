@@ -1252,3 +1252,103 @@ async def upload_file(request: Request):
         "scroll": scroll,
         "message": f"'{file_name}' has been ingested into the Spiral Codex and is now live for Arkana queries.",
     }
+
+
+# ── Living Larder Orders ──────────────────────────────────────────────────────
+
+ORDERS_FILE = "data/orders.json"
+IMS_FILE    = "data/ims_inquiries.json"
+
+def _load_json_list(path: str) -> list:
+    try:
+        with open(path) as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else data.get("items", [])
+    except Exception:
+        return []
+
+def _save_json_list(path: str, items: list) -> None:
+    os.makedirs("data", exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(items, f, indent=2, ensure_ascii=False)
+
+def _order_id() -> str:
+    return "LL-" + datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+
+def _inquiry_id() -> str:
+    return "IMS-" + datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+
+
+@app.post("/api/orders")
+async def create_order(request: Request):
+    """Create a new Living Larder Saturday order."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    order = {
+        "order_id":    _order_id(),
+        "status":      "pending",
+        "created_at":  datetime.now(timezone.utc).isoformat(),
+        "customer":    body.get("customer", {}),
+        "items":       body.get("items", []),
+        "subtotal":    body.get("subtotal", 0),
+        "delivery_fee": body.get("delivery_fee", 500),
+        "total":       body.get("total", 0),
+    }
+
+    orders = _load_json_list(ORDERS_FILE)
+    orders.insert(0, order)
+    _save_json_list(ORDERS_FILE, orders)
+
+    logger.info(f"[LARDER] New order {order['order_id']} — {len(order['items'])} item(s) — ₦{order['total']}")
+    return {"status": "received", "order_id": order["order_id"]}
+
+
+@app.get("/api/orders")
+async def get_orders(request: Request):
+    """List all Living Larder orders (sovereign-only access)."""
+    key = request.headers.get("x-sovereign-key", "")
+    if key != SOVEREIGN_KEY:
+        raise HTTPException(status_code=403, detail="Sovereign key required")
+    orders = _load_json_list(ORDERS_FILE)
+    return {"orders": orders, "total": len(orders)}
+
+
+# ── IMS Inquiries ─────────────────────────────────────────────────────────────
+
+@app.post("/api/ims/inquiry")
+async def create_ims_inquiry(request: Request):
+    """Accept an IMS application from the Gate."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    inquiry = {
+        "inquiry_id":  _inquiry_id(),
+        "status":      "pending_review",
+        "created_at":  datetime.now(timezone.utc).isoformat(),
+        "name":        body.get("name", ""),
+        "email":       body.get("email", ""),
+        "phone":       body.get("phone", ""),
+        "answers":     body.get("answers", {}),
+    }
+
+    inquiries = _load_json_list(IMS_FILE)
+    inquiries.insert(0, inquiry)
+    _save_json_list(IMS_FILE, inquiries)
+
+    logger.info(f"[IMS] New inquiry {inquiry['inquiry_id']} from {inquiry['name']} ({inquiry['email']})")
+    return {"status": "received", "inquiry_id": inquiry["inquiry_id"]}
+
+
+@app.get("/api/ims/inquiries")
+async def get_ims_inquiries(request: Request):
+    """List all IMS inquiries (sovereign-only access)."""
+    key = request.headers.get("x-sovereign-key", "")
+    if key != SOVEREIGN_KEY:
+        raise HTTPException(status_code=403, detail="Sovereign key required")
+    inquiries = _load_json_list(IMS_FILE)
+    return {"inquiries": inquiries, "total": len(inquiries)}
