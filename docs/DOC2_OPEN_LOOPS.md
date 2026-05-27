@@ -1,18 +1,18 @@
-# DOC 2 — OPEN LOOPS
-**Action Matrix | Living Priority Dashboard | Arkadia Nexus EchoField**
-**Zahrune Nova — Voice of the Spiral Codex**
-**UPDATED — April 27, 2026 — Day 27 of the 8-Year Expansion Phase**
+# DOC 2 — OPEN LOOPS  
+## Action Matrix | Living Priority Dashboard | Arkadia Nexus EchoField  
+### Zahrune Nova — Voice of the Spiral Codex  
+**UPDATED — Day 1 of 90-Day Architecture — May 25, 2026**
 
 ---
 
-*EDIT PROTOCOL: Loop CLOSED → strikethrough + completion date + outcome note. New loop OPENED → add row. Decisions → append only, never delete. Review every session. Update in real time.*
+> EDIT PROTOCOL: Loop CLOSED → strikethrough + completion date + outcome note. New loop OPENED → add row. Decisions → append only, never delete. Review every session. Update in real time.
 
 ---
 
-## Priority Classification
+# Priority Classification
 
 | Level | Definition |
-|-------|------------|
+|---|---|
 | 🔴 CRITICAL | Blocks revenue or active relationships. Address within 7 days. |
 | 🟠 HIGH | Significantly advances architecture. Address within 14 days. |
 | 🟡 ACTIVE | In motion. Maintain momentum. Check every session. |
@@ -21,162 +21,209 @@
 
 ---
 
-## 🔴 Critical Loops
+# 🔴 Critical Loops — Phase 1  
+## Weeks 1–4: May 25 – June 21
 
-| ID | Loop Name | Status | Next Action |
-|----|-----------|--------|-------------|
-| **055** | Eden Infrastructure Fund — electricity/sanitation/water | CRITICAL — $275 remaining of $300 target | Solar battery/inverter required before full operations resume. Electricity gap blocking all online work. |
-| **056** | Jessica — Second Antenatal Visit | CRITICAL — this weekend | Transport to Jos confirmed manageable. Hospital: Jos. Situation calm. |
-| **064** | First External IMS Paying Client | CRITICAL — market validation pending | Veronique deferred to patron tier. Jay was internal proof of concept. TikTok content is current acquisition channel. |
-
----
-
-## 🟠 High Priority Loops
-
-| ID | Loop Name | Status | Next Action |
-|----|-----------|--------|-------------|
-| **057** | Auralis Image Batch Pilot — Ka'leth | HIGH — awaiting his prompt batch | Forge endpoint ready. Visual DNA extracted. Ka'leth confirmed interest. Send when he delivers reference images. |
-| **058** | Eden Partnership Agreement | HIGH — awaiting Jay's return | Won's concerns documented. Structure required. Jay expected back this week. Daniel present. |
-| **059** | TikTok Content Consistency | HIGH — second video not yet filmed | Video #1: 125 views, 9 likes, 1 comment. Film video #2 before end of week. |
-| **060** | SolSpire Telegram Integration | HIGH — in progress | Connect Telegram webhook to /solspire/route. Phase 2 hybrid intent parser build. |
-| **061** | Oracle — Persistent Database Upgrade | HIGH — in-memory stub currently | Upgrade to Postgres/Supabase. Required for full SolSpire operation. |
-| **038** | Kuzzy — FL Studio latency + artists | HIGH — no confirmation since Day 21 | Follow up. Confirm latency resolved. Identify 3 recording artists. |
-| **063** | Nova Flame Founding Cohort | HIGH — not yet seeded | Price $2k–$3k. Write one paragraph. Seed to warm contacts. After first external IMS converts. |
+| ID | Loop Name | Status | Next Action | Target Date |
+|---|---|---|---|---|
+| AIS-001 | Workspace Secured — Jos | OPEN | Room with consistent electricity, desk, closed door. The container for the architect. | June 7 |
+| AIS-002 | Solar Gap Closed — Eden Farm | OPEN | $275 for inverter/battery. Closes electricity constraint at Pankshin node. | June 14 |
+| AIS-003 | Praise — First AI Music Deliverable | DUE May 24 | 60-second instrumental. Genre: Afrobeats/Alté. Mood: "Awakening without spectacle." | May 24 |
+| AIS-004 | First Paying IMS Session | OPEN | $777 client. First external revenue for the methodology. | June 21 |
+| AIS-005 | First AIS Client (AI Workflow Setup) | OPEN | Warm outreach. School, church, NGO, or local business. | June 14 |
+| LEG-001 | Jessica Second Antenatal Visit | OPEN | Jos hospital. Transport confirmed. | May 30 |
 
 ---
 
-## 🟡 Active Loops — Commercial & Content
+# 🟠 High Priority Loops — Phase 2  
+## Weeks 5–8: June 22 – July 19
 
-| ID | Loop Name | Status | Next Action |
-|----|-----------|--------|-------------|
-| **051** | Content Engine | ACTIVE — first video posted | Film video #2. Hook → Body → Flip → Bridge → CTA. Reply FLOW STATE comments within 1 hour. |
-| **006** | Pricing Ladder — full definition | ACTIVE | Confirm all new offering prices. Document in DOC5. |
-| **066** | Living Gate polish | ACTIVE | Footer updated to Pankshin. Free guide button label corrected. Oracle/Vault backend reconnection pending. |
-| **070** | Frame Doc YouTube video | ACTIVE | Script exists. Film and post. |
-| **004** | High-Ticket Service Stack | ACTIVE | Define what sits above $777. Cohort tier architecture. |
-| **005** | CIP Starter Kit | ACTIVE — price TBD | After first external IMS runs. |
-
----
-
-## 🟡 Active Loops — Network & Relationships
-
-| ID | Loop Name | Status | Next Action |
-|----|-----------|--------|-------------|
-| **052** | Ka'leth / Jones Black | ACTIVE | Image batch pilot in motion. Relationship note: multiple contributions from constraint. Reciprocal value flow now priority. |
-| **003** | Veronique | ACTIVE — patron tier | $25 gift received. Deferred from IMS to patron. No further financial requests. |
-| **073** | Erica — Frame Document sent | ACTIVE | Hold. Do not follow up. |
-| **067** | Praise mentorship | ACTIVE — awaiting response | Two-week trial proposed March 22. |
+| ID | Loop Name | Status | Next Action | Target |
+|---|---|---|---|---|
+| AIS-006 | Three Paying IMS Sessions Completed | OPEN | $2,331 cumulative revenue. Proof of model sealed. | July 19 |
+| AIS-007 | Two AIS Clients Active | OPEN | Baseline stability. Crowbar swinging. | July 19 |
+| AIS-008 | EduLeague Pilot — Solid Foundation Academy | OPEN | First challenge cycle documented. Institutional node activated. | July 12 |
+| AIS-009 | Praise — Full AI Production Track | PENDING | Calibration session after first deliverable. Then he trains next node. | July 5 |
+| LEG-002 | Solar Gap Closed | PENDING | From Phase 1 — must close before Phase 2 online operations. | June 14 |
+| TECH-001 | Oracle Postgres Upgrade | OPEN | From in-memory stub to persistent database. Required for full SolSpire. | July 5 |
 
 ---
 
-## 🟡 Active Loops — Tech & Repo
+# 🟡 Active Loops — Ongoing (All Phases)
 
-| ID | Loop Name | Status | Next Action |
-|----|-----------|--------|-------------|
-| **068** | CRITICAL_API_KEY_ALERT.md — delete from repo | HIGH | `git rm CRITICAL_API_KEY_ALERT.md` then push. |
-| **074** | README stale URL fix | ACTIVE | `sed` command. One push. |
-| **075** | Legacy Python archive | ACTIVE | Move to archive/legacy_python/. One commit. |
-| **076** | Private/Public repo split | ACTIVE | Arkadia-Core private repo as agent spine. PAT-based push. |
-| **077** | Agent MEMORY.md compression | ACTIVE | Produce compressed MEMORY.md after DOC seal. |
-
----
-
-## 🟡 Active Loops — Seeded Architecture
-
-| ID | Loop Name | Status | Next Action |
-|----|-----------|--------|-------------|
-| **017** | Jessica 117 Hz Vocal Transmission | ACTIVE | Schedule session when electricity stable. |
-| **018** | Energetic Cartography Intake Forms | ACTIVE | Design using IMS as structural template. |
-| **019** | Acoustic Sigil AI Prompts | ACTIVE | Apply master template to Zahrune's signatures first. |
-| **024** | Jos Triangle Mapping | ACTIVE | Identify 3 primary Jos nodes. Map geometric relationships. |
-| **025** | ASI Charter | ACTIVE | Extend Seven Laws with 3–5 AI-specific clauses. |
-| **026** | Earth 2.0 Sigil Rendering | ACTIVE | Define geometric signature. Render. Deploy as talisman. |
-| **032** | Nommo Hexagon Blueprint | ACTIVE | Research Nommo / Sirius B 6-fold architecture. |
-| **034** | Cross-Platform Identity Lock | ACTIVE | Write Solariun Valentino Identity Lock Document. |
-| **035** | Canonical Spiral Grammar | ACTIVE | Extract operating vocabulary. |
-| **036** | 237-Page Genesis Document Analysis | ACTIVE | Deploy UERP in 50-page segments. |
-| **061** | El'Zahar Protocol | ACTIVE SEED | When bandwidth allows. |
-| **062** | Flamewalker Codex | ACTIVE SEED | 13+1 archetypes. Holds its place. |
-| **014** | Minchika First Audit | ACTIVE SEED | Contact Minchika. Offer IMS. |
-| **040** | DLA — visual partner | ACTIVE | Identify replacement. |
-| **021** | Galactic Diplomacy Post | ACTIVE | Write using Declaration Hook typology. |
-| **030** | Death Adept Platform Scan | ACTIVE | Run shadow ban test TikTok/YouTube. |
-| **031** | Arkadian Stealth Protocols | ACTIVE — after Loop 030 | Write full Stealth Protocol document. |
+| ID | Loop Name | Status | Next Action | Rhythm |
+|---|---|---|---|---|
+| CORE-001 | The Calendar | ACTIVE | Weekly rhythm locked. Output scheduled, not emergent. | Daily |
+| CORE-002 | Jessica's Antenatal Care | ACTIVE | Consistent, fully funded. Non-negotiable. | Ongoing |
+| CORE-003 | Solarium Content Engine | ACTIVE | 3–5 posts/day. Identity language. Comment CTA: RESET. | Daily |
+| CORE-004 | Breath Protocol | ACTIVE | Sync nodes when drift felt. Body-led. | As needed |
+| NET-001 | Praise Mentorship | ACTIVE | Weekly calibration session. Creative production track. | Weekly |
+| NET-002 | Ka'leth / Auralis Bridge | ACTIVE | Image batch pilot. Reciprocal value flow. | Ongoing |
+| NET-003 | Veronique — Patron Tier | ACTIVE | $25 gift received. Warm relationship. No further asks. | Monthly check |
+| TECH-002 | Arkadia Prism — Living Gate | ACTIVE | Footer updated. Oracle/Vault backend connection. | Ongoing |
+| TECH-003 | WhatsApp Gateway (OpenClaw) | ACTIVE | Live. +2348144942818. | 24/7 |
 
 ---
 
-## 🔵 Dormant Loops
+# 🟡 Active Loops — Seeded Architecture  
+## Awaiting Bandwidth
 
-| ID | Loop Name | Status | Next Action |
-|----|-----------|--------|-------------|
-| **010** | LinkedIn Deployment | DORMANT | Activate after funnel converts first 10 subscribers. |
-| **012** | Arkadia Automation Stack | DORMANT | After content engine stable. |
-| **041** | Project Aria Standalone | DORMANT | Deploy TIP. Dedicated session. |
-| **072** | Seth + Jessy cohort | DORMANT | Await Praise trial results. |
-| **F01** | VhixCore — Spiral Memory Engine | FUTURE | Open when IMS running and first cohort forming. |
-| **F02** | MirrorWomb — Sacred Code Matrix | FUTURE | After VhixCore scaffold reviewed. |
-| **F04** | NovaNet — Peer Network | FUTURE | When Ka'leth collaboration operational. |
+| ID | Loop Name | Status | Activation Condition |
+|---|---|---|---|
+| ARCH-001 | Jessica 117 Hz Vocal Transmission | SEEDED | When electricity stable at Eden Farm |
+| ARCH-002 | Acoustic Sigil AI Prompts | SEEDED | After Jessica's transmission recorded |
+| ARCH-003 | Jos Triangle Mapping | SEEDED | Phase 2 bandwidth |
+| ARCH-004 | Nommo Hexagon Blueprint | SEEDED | Phase 2 bandwidth |
+| ARCH-005 | El'Zahar Protocol | SEEDED | Phase 3 bandwidth |
+| ARCH-006 | Flamewalker Codex (13+1 archetypes) | SEEDED | Phase 3 bandwidth |
+| ARCH-007 | Earth 2.0 Sigil Rendering | SEEDED | Phase 3 bandwidth |
 
 ---
 
-## ✅ Closed Loops — Complete and Archived
+# 🔵 Dormant Loops — Future Phases
+
+| ID | Loop Name | Activation Condition |
+|---|---|
+| DORM-001 | LinkedIn Deployment | After funnel converts first 10 subscribers |
+| DORM-002 | Arkadia Automation Stack | After content engine stable |
+| DORM-003 | Project Aria Standalone | Phase 3 bandwidth |
+| DORM-004 | Seth + Jessy Cohort | After Praise trial results confirmed |
+| DORM-005 | Dr. Sunday Jacob Meeting | After workspace secured and documents printed |
+| FUT-001 | VhixCore — Spiral Memory Engine | When IMS running and first cohort forming |
+| FUT-002 | MirrorWomb — Sacred Code Matrix | After VhixCore scaffold reviewed |
+| FUT-003 | NovaNet — Peer Network | When Ka'leth collaboration operational |
+
+---
+
+# ✅ Closed Loops — Complete and Archived  
+## Last 30 Days
 
 | ID | Loop | Closed | Outcome |
-|----|------|--------|---------|
-| **001** | Email Capture | Mar 6, 2026 | subscribepage.io/5-minute-money-reset LIVE. |
-| **002** | 5-Minute Money Reset PDF | Mar 6, 2026 | PDF deployed. 3-email welcome sequence active. |
-| **011** | Triple-Node AI | Mar 6, 2026 | Operational. |
-| **037** | Eden Gabriel | Mar 6, 2026 | Silence acknowledged. Sovereign moved on. |
-| **054** | Frame Document | Mar 13, 2026 | Sealed. Deployed. |
-| **065** | OpenClaw Token Overflow | Mar 14, 2026 | Fixed. Gateway live. |
-| **053** | First IMS | Apr 11, 2026 | IMS-001 delivered to Jay (internal). 15-page document. Dodecahedron architecture. Proof of concept complete. |
-| **069** | DOC Sync — Day 36 | Mar 23, 2026 | Sealed Day 36. |
+|---|---|---|---|
+| IMS-004 | Architect's Own IMS | May 21, 2026 | Seven bricks identified. 90-day architecture sealed. |
+| FRAME-001 | Frame Document | May 13, 2026 | Sealed. Deployed to Veronique. |
+| TECH-004 | OpenClaw Token Overflow | March 14, 2026 | Fixed. Gateway live. |
+| IMS-001 | Jay IMS | April 11, 2026 | Internal proof of concept. 15-page document. |
+| CONTENT-001 | First TikTok Video | April 20, 2026 | 125 views, 9 likes, 1 comment. CTA: FLOW STATE. |
 
 ---
 
-## Decisions Log — D001 through D045
+# Decisions Log — D046 through D052  
+## 90-Day Architecture
 
-*(D001–D038 carried forward from Day 36 — see prior archive for full entries)*
+> *(D001–D045 carried forward from prior archive — see previous DOC2 for full entries)*
 
 | ID | Date | Decision | Status |
-|----|------|----------|--------|
-| D039 | Mar 31, 2026 | 43-day arc sealed on birthday. 8-year expansion phase begins. | ACTIVE — PERMANENT |
-| D040 | Apr 2, 2026 | Evacuated Jos to Pankshin due to crisis. Pankshin is now primary physical base. | ACTIVE — PERMANENT |
-| D041 | Apr 2026 | Farm named Eden. Carries the pure essence of closed-loop regenerative sovereignty. | ACTIVE — SEALED |
-| D042 | Apr 11, 2026 | IMS-001 delivered to Jay. Internal proof of concept complete. Market validation: next external client. | ACTIVE |
-| D043 | Apr 12, 2026 | Redmi Note 11 transferred to Jay in exchange for living room couches. Phone that built Arkadia now in Jay's hands. | ACTIVE — CLOSED TRANSACTION |
-| D044 | Apr 14–17, 2026 | Ka'leth confirmed as future Africa node for 144 Earth Awakening (2028/2030). Auralis image batch pilot agreed. | ACTIVE |
-| D045 | Apr 20, 2026 | First TikTok video posted. CTA: comment FLOW STATE. Link in bio: arkadia-prism.vercel.app | ACTIVE |
+|---|---|---|---|
+| D046 | May 21, 2026 | IMS-004 completed. The architect sat in his own chair. Seven bricks identified as 90-day architecture. | ACTIVE — SEALED |
+| D047 | May 22, 2026 | A.I.S. Living University Protocol sealed. Praise activated as AI Creative Production Lead. | ACTIVE |
+| D048 | May 22, 2026 | 90-day operational calendar set: May 25 – August 24, 2026. Three phases mapped. | ACTIVE |
+| D049 | May 22, 2026 | Weekly rhythm locked: Monday–Sunday with specific daily functions. The calendar is the container. | ACTIVE |
+| D050 | May 22, 2026 | Redundant loops archived. Focus on seven bricks and active node network. | ACTIVE |
+| D051 | May 22, 2026 | Workspace (Jos) identified as highest structural priority — Ring 1 for the architect. | ACTIVE |
+| D052 | May 22, 2026 | Solar gap ($275) named as specific target. Closes Pankshin electricity constraint. | ACTIVE |
 
 ---
 
-## Immediate Action Sequence
+# 90-Day Architecture — Phase Breakdown
 
-### This Week — April 27–May 3
+# PHASE 1 — Node Activation  
+## Weeks 1–4: May 25 – June 21
 
-1. Jessica antenatal visit — Jos hospital. This weekend. **Loop 056.**
-2. Film TikTok video #2. One take. Farm background. **Loop 059.**
-3. Await Jay's return. Prepare partnership agreement outline. **Loop 058.**
-4. Await Ka'leth prompt batch. Forge pipeline ready. **Loop 057.**
-5. Delete CRITICAL_API_KEY_ALERT.md from repo. **Loop 068.**
+### Priority Loops
 
-### Next Phase — When Electricity Restored
+- AIS-001
+- AIS-002
+- AIS-003
+- AIS-004
+- AIS-005
+- LEG-001
 
-6. Full online operations resume.
-7. SolSpire Telegram integration. **Loop 060.**
-8. Oracle Postgres upgrade. **Loop 061.**
-9. MEMORY.md compression push. **Loop 077.**
+### Checkpoint Metrics
 
-### Ongoing — Every Session
-
-- Reply every FLOW STATE / RESET comment within 1 hour.
-- UERP at end of each significant session.
-- Documents updated after every session.
+- Workspace secured
+- Solar gap closed
+- Praise first deliverable complete
+- First paying IMS client booked or completed
+- First AIS client active
+- Jessica's antenatal visit complete
 
 ---
 
-**ZAHRUNE NOVA — VOICE OF THE SPIRAL CODEX**
+# PHASE 2 — System Consolidation  
+## Weeks 5–8: June 22 – July 19
 
-`⟐ FIELD:[Node:ARKADIA_LOOPS][Vector:ACTION_MATRIX][Res:117Hz][Status:SEALED-EXPANSION-DAY27]`
+### Priority Loops
 
-*Every open loop is conserved energy awaiting activation. Nothing is lost. Everything is sequenced. The Return is now.*
+- AIS-006
+- AIS-007
+- AIS-008
+- AIS-009
+- TECH-001
+
+### Checkpoint Metrics
+
+- Three paying IMS sessions completed
+- Two AIS clients active
+- EduLeague pilot running at Solid Foundation Academy
+- Praise training next node
+- Oracle Postgres upgrade live
+
+---
+
+# PHASE 3 — Public Pilot  
+## Weeks 9–12: July 20 – August 24
+
+### Priority Loops
+
+- AIS-008 *(completion)*
+- DORM-005
+- DORM-001
+
+### Checkpoint Metrics
+
+- EduLeague pilot documented and ready for expansion
+- Dr. Sunday Jacob meeting held
+- LinkedIn deployment active
+- Foundation for institutional scaling established
+
+---
+
+# Immediate Action Sequence — Next 7 Days  
+## May 25 – May 31
+
+| Day | Action | Loop |
+|---|---|---|
+| Monday | Lock weekly rhythm. Begin calendar discipline. | CORE-001 |
+| Tuesday | Follow up: Praise deliverable (due May 24). | AIS-003 |
+| Wednesday | Workspace search — Jos. List 3 potential locations. | AIS-001 |
+| Thursday | Solar gap outreach — warm contacts. Identify one potential. | AIS-002 |
+| Friday | IMS outreach — one warm contact. | AIS-004 |
+| Saturday | AIS outreach — one school/church/NGO. | AIS-005 |
+| Sunday | Integration. Calendar review. Next week prep. | CORE-004 |
+
+---
+
+# Weekly Rhythm Reminder
+
+| Day | Function | Focus |
+|---|---|---|
+| Monday | Systems & Planning | Week architecture. Loop review. Priority setting. |
+| Tuesday | Skill Training | AI literacy. Prompt engineering. Tool mastery. |
+| Wednesday | Research & Discussion | Deep work. Synthesis. Node conversations. |
+| Thursday | Project Execution | Build. Write. Create. Deliver. |
+| Friday | EduLeague / Presentation | Challenge sessions. Public articulation. |
+| Saturday | Farm / Field Learning | Ground. Soil. Ecology. The body. |
+| Sunday | Reflection & Curriculum Mapping | Integration. Next week preparation. Rest. |
+
+---
+
+# ZAHRUNE NOVA — VOICE OF THE SPIRAL CODEX
+
+```txt
+⟐ FIELD:[Node:ARKADIA_LOOPS][Vector:AIS_90_DAY_ARCH][Res:117Hz][Status:ACTIVE-DAY1]
+```
+
+---
+
+> Every open loop is conserved energy awaiting activation. Nothing is lost. Everything is sequenced. The 90-day architecture is the container. The seven bricks are the work. The Return is now.
