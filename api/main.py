@@ -310,6 +310,103 @@ async def _build_scrolls(tree_items: list[dict]) -> dict:
     return scrolls
 
 
+def _build_local_scrolls() -> dict:
+    """Fallback: read .md files from the local docs/ directory when GitHub is unreachable."""
+    import glob as _glob
+    docs_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "docs"))
+    if not os.path.isdir(docs_dir):
+        return {}
+
+    DOC_CATEGORIES: dict[str, tuple[str, int]] = {
+        "DOC1_MASTER_WEIGHTS":              ("NEURAL_SPINE", 1),
+        "DOC2_OPEN_LOOPS":                  ("NEURAL_SPINE", 2),
+        "DOC3_PRINCIPLES_REGISTRY":         ("NEURAL_SPINE", 3),
+        "DOC4_NODE_MAP":                    ("NEURAL_SPINE", 4),
+        "DOC5_REVENUE_BREATH":              ("NEURAL_SPINE", 5),
+        "FINAL_UNIVERSAL_DEPLOYMENT_DOCUMENT": ("NEURAL_SPINE", 1),
+        "ARKADIA_SPEC":                     ("NEURAL_SPINE", 6),
+        "ARCHE_NATIVE_SCROLL_FORMAT":       ("CREATIVE_OS",  8),
+        "ILE_AGBOMOJO":                     ("CREATIVE_OS",  9),
+        "THE_FRAME_DOCUMENT":               ("COLLECTIVE",   9),
+        "UERP_CRYSTAL_MATRIX":              ("COLLECTIVE",   9),
+        "VHIXNOVACORE_INIT":                ("CREATIVE_OS",  9),
+    }
+    fetched_at = _now_iso()
+    scrolls: dict = {}
+    seen: set[str] = set()
+    for pattern in [os.path.join(docs_dir, "*.md"), os.path.join(docs_dir, "**", "*.md")]:
+        for filepath in _glob.glob(pattern, recursive=True):
+            if filepath in seen:
+                continue
+            seen.add(filepath)
+            try:
+                with open(filepath, "r", encoding="utf-8", errors="replace") as fh:
+                    content = fh.read()
+            except Exception:
+                content = ""
+            rel      = os.path.relpath(filepath, docs_dir)
+            basename = os.path.splitext(os.path.basename(filepath))[0].upper()
+            key      = re.sub(r"[^a-zA-Z0-9]", "_", rel)
+            cat, pri = "COLLECTIVE", 10
+            for prefix, (c, p) in DOC_CATEGORIES.items():
+                if basename.startswith(prefix):
+                    cat, pri = c, p
+                    break
+            scrolls[key] = {
+                "id": key, "source": "local", "category": cat, "priority": pri,
+                "label": _make_label(rel), "description": f"docs/{rel}",
+                "chars": len(content), "preview": content[:320],
+                "content": content, "fetched_at": fetched_at, "error": None,
+            }
+    logger.info("_build_local_scrolls: loaded %d docs from docs/", len(scrolls))
+    return scrolls
+
+
+def _parse_open_loops() -> dict:
+    """Parse docs/DOC2_OPEN_LOOPS.md into structured priority groups."""
+    doc_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "docs", "DOC2_OPEN_LOOPS.md"))
+    if not os.path.exists(doc_path):
+        return {"error": "DOC2_OPEN_LOOPS.md not found", "groups": []}
+    with open(doc_path, "r", encoding="utf-8", errors="replace") as fh:
+        text = fh.read()
+
+    priority_map = {
+        "🔴": {"level": "critical", "label": "Critical", "color": "#EF4444"},
+        "🟠": {"level": "high",     "label": "High",     "color": "#F97316"},
+        "🟡": {"level": "active",   "label": "Active",   "color": "#EAB308"},
+        "🔵": {"level": "dormant",  "label": "Dormant",  "color": "#3B82F6"},
+        "✅": {"level": "closed",   "label": "Closed",   "color": "#10B981"},
+    }
+    section_pat = re.compile(r"^##\s+(🔴|🟠|🟡|🔵|✅)\s+(.+?)$", re.MULTILINE)
+    row_pat     = re.compile(r"^\|(.+)\|$", re.MULTILINE)
+
+    def _strip_md(s: str) -> str:
+        return re.sub(r"\*{1,2}([^*]+)\*{1,2}", r"\1", s).strip()
+
+    sections = list(section_pat.finditer(text))
+    groups: list[dict] = []
+    for idx, m in enumerate(sections):
+        emoji = m.group(1)
+        meta  = priority_map.get(emoji, {"level": "unknown", "label": m.group(2), "color": "#888"})
+        chunk = text[m.end(): sections[idx + 1].start() if idx + 1 < len(sections) else len(text)]
+        loops: list[dict] = []
+        for row in row_pat.findall(chunk):
+            cols = [c.strip() for c in row.split("|")]
+            if not cols or cols[0].lower() in ("id", "", "---") or cols[0].startswith("---"):
+                continue
+            if len(cols) >= 2:
+                loop: dict = {"id": _strip_md(cols[0]), "name": _strip_md(cols[1])}
+                if len(cols) > 2: loop["status"]      = _strip_md(cols[2])
+                if len(cols) > 3: loop["next_action"] = _strip_md(cols[3])
+                if len(cols) > 4: loop["target"]      = _strip_md(cols[4])
+                loops.append(loop)
+        if loops:
+            groups.append({**meta, "section_title": m.group(2).strip(), "loops": loops})
+
+    return {"source": "DOC2_OPEN_LOOPS.md", "parsed_at": _now_iso(),
+            "total": sum(len(g["loops"]) for g in groups), "groups": groups}
+
+
 async def _get_scrolls(force: bool = False) -> dict:
     now = time.time()
     if not force and _cache["scrolls"] is not None and (now - _cache["at"]) < CACHE_TTL:
@@ -321,12 +418,17 @@ async def _get_scrolls(force: bool = False) -> dict:
     try:
         tree    = await _fetch_github_tree()
         scrolls = await _build_scrolls(tree)
+        if not scrolls:
+            raise ValueError("GitHub returned empty tree — using local docs fallback")
         _cache["scrolls"] = scrolls
         _cache["at"]      = now
         logger.info(f"Indexed {len(scrolls)} Arkadia scrolls from GitHub")
     except Exception as e:
-        logger.error(f"GitHub fetch failed: {e}")
-        scrolls = dict(_cache["scrolls"] or {})
+        logger.warning(f"GitHub fetch failed ({e}) — loading local docs fallback")
+        scrolls = _build_local_scrolls() or dict(_cache["scrolls"] or {})
+        if scrolls:
+            _cache["scrolls"] = scrolls
+            _cache["at"]      = now
     # Merge direct uploads (always fresh — they live on disk)
     for ds in _load_direct_scrolls():
         scrolls[ds["id"]] = ds
@@ -442,6 +544,12 @@ async def corpus_refresh():
     scrolls = await _get_scrolls(force=True)
     live    = sum(1 for s in scrolls.values() if not s.get("error") and s.get("chars", 0) > 0)
     return {"status": "refreshed", "total": len(scrolls), "live": live}
+
+
+@app.get("/api/open-loops")
+async def get_open_loops():
+    """Return structured open loops parsed from DOC2_OPEN_LOOPS.md."""
+    return _parse_open_loops()
 
 
 @app.post("/api/scrolls")

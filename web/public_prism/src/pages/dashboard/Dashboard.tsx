@@ -9,7 +9,7 @@
 import React, { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
-  LayoutDashboard, ListChecks, Target, Waypoints, Wrench, Activity,
+  LayoutDashboard, ListChecks, Target, Waypoints, Wrench, Activity, AlertCircle,
 } from "lucide-react"
 
 import Overview from "./Overview"
@@ -18,19 +18,21 @@ import Goals from "./Goals"
 import Traces from "./Traces"
 import Tools from "./Tools"
 import System from "./System"
+import OpenLoops from "./OpenLoops"
 import { COLORS } from "./ui"
 import { useMediaQuery } from "../../hooks/useMediaQuery"
 
 type DashView =
-  | "overview" | "jobs" | "goals" | "traces" | "tools" | "system"
+  | "overview" | "jobs" | "goals" | "traces" | "tools" | "system" | "loops"
 
 const NAV: { id: DashView; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "jobs",     label: "Jobs",     icon: ListChecks },
-  { id: "goals",    label: "Goals",    icon: Target },
-  { id: "traces",   label: "Traces",   icon: Waypoints },
-  { id: "tools",    label: "Tools",    icon: Wrench },
-  { id: "system",   label: "System",   icon: Activity },
+  { id: "overview", label: "Overview",   icon: LayoutDashboard },
+  { id: "loops",    label: "Open Loops", icon: AlertCircle },
+  { id: "jobs",     label: "Jobs",       icon: ListChecks },
+  { id: "goals",    label: "Goals",      icon: Target },
+  { id: "traces",   label: "Traces",     icon: Waypoints },
+  { id: "tools",    label: "Tools",      icon: Wrench },
+  { id: "system",   label: "System",     icon: Activity },
 ]
 
 export default function Dashboard() {
@@ -53,6 +55,7 @@ export default function Dashboard() {
         transition={{ duration: 0.22 }}
       >
         {view === "overview" && <Overview />}
+        {view === "loops"    && <OpenLoops />}
         {view === "jobs"     && <Jobs onOpenTrace={openTrace} />}
         {view === "goals"    && <Goals />}
         {view === "traces"   && <Traces openJobId={traceJobId} />}

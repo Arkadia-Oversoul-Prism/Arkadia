@@ -70,6 +70,7 @@ ALL_FILES = {
     "web/public_prism/src/pages/dashboard/Tools.tsx":                     "web/public_prism/src/pages/dashboard/Tools.tsx",
     "web/public_prism/src/pages/dashboard/Traces.tsx":                    "web/public_prism/src/pages/dashboard/Traces.tsx",
     "web/public_prism/src/pages/dashboard/ui.tsx":                        "web/public_prism/src/pages/dashboard/ui.tsx",
+    "web/public_prism/src/pages/dashboard/OpenLoops.tsx":                 "web/public_prism/src/pages/dashboard/OpenLoops.tsx",
 }
 
 
