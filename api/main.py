@@ -118,7 +118,7 @@ async def _background_corpus_sync() -> None:
             )
         except Exception as e:
             logger.error(f"[ARK-SYNC] Auto-sync error: {e}")
-        await asyncio.sleep(1800)   # 30-minute spiral cadence
+        await asyncio.sleep(300)   # 5-minute cadence — near-real-time corpus awareness
 
 
 @asynccontextmanager
@@ -154,7 +154,7 @@ else:
 
 # ── In-memory cache (5-minute TTL) ───────────────────────────────────────────
 _cache: dict = {"scrolls": None, "at": 0.0}
-CACHE_TTL = 300
+CACHE_TTL = 60   # 60-second in-memory TTL for near-real-time GitHub awareness
 
 # ── Direct-upload scroll store ────────────────────────────────────────────────
 DIRECT_SCROLLS_FILE = "data/direct_scrolls.json"
@@ -240,10 +240,11 @@ def _is_readable(path: str) -> bool:
 
 # ── GitHub helpers ────────────────────────────────────────────────────────────
 
-GH_HEADERS = lambda: {
-    "Authorization": f"Bearer {GITHUB_TOKEN}",
-    "Accept": "application/vnd.github.v3+json",
-}
+def GH_HEADERS() -> dict:
+    h = {"Accept": "application/vnd.github.v3+json"}
+    if GITHUB_TOKEN:
+        h["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+    return h
 
 
 async def _fetch_github_tree() -> list[dict]:
@@ -363,12 +364,27 @@ def _build_local_scrolls() -> dict:
 
 
 def _parse_open_loops() -> dict:
-    """Parse docs/DOC2_OPEN_LOOPS.md into structured priority groups."""
-    doc_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "docs", "DOC2_OPEN_LOOPS.md"))
-    if not os.path.exists(doc_path):
-        return {"error": "DOC2_OPEN_LOOPS.md not found", "groups": []}
-    with open(doc_path, "r", encoding="utf-8", errors="replace") as fh:
-        text = fh.read()
+    """Parse DOC2_OPEN_LOOPS.md into structured priority groups.
+    Reads from the live in-memory corpus cache first (GitHub source),
+    falling back to the local docs/ copy only when cache is cold.
+    """
+    text = ""
+
+    # 1. Try the live in-memory cache (GitHub-fetched content takes priority)
+    cached = _cache.get("scrolls") or {}
+    for key, doc in cached.items():
+        if "DOC2" in key and "OPEN_LOOP" in key.upper() and not doc.get("error"):
+            text = doc.get("content", "")
+            if text:
+                break
+
+    # 2. Fall back to local file when cache is cold
+    if not text:
+        doc_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "docs", "DOC2_OPEN_LOOPS.md"))
+        if not os.path.exists(doc_path):
+            return {"error": "DOC2_OPEN_LOOPS.md not found", "groups": []}
+        with open(doc_path, "r", encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
 
     priority_map = {
         "🔴": {"level": "critical", "label": "Critical", "color": "#EF4444"},
@@ -377,7 +393,7 @@ def _parse_open_loops() -> dict:
         "🔵": {"level": "dormant",  "label": "Dormant",  "color": "#3B82F6"},
         "✅": {"level": "closed",   "label": "Closed",   "color": "#10B981"},
     }
-    section_pat = re.compile(r"^##\s+(🔴|🟠|🟡|🔵|✅)\s+(.+?)$", re.MULTILINE)
+    section_pat = re.compile(r"^#+\s+(🔴|🟠|🟡|🔵|✅)\s+(.+?)$", re.MULTILINE)
     row_pat     = re.compile(r"^\|(.+)\|$", re.MULTILINE)
 
     def _strip_md(s: str) -> str:
@@ -515,9 +531,18 @@ async def heartbeat():
 
 @app.get("/api/sources")
 async def sources():
+    cached = _cache.get("scrolls") or {}
+    github_live = any(v.get("source") == "github" for v in cached.values())
     return {
         "sources": [
-            {"name": "github",   "configured": bool(GITHUB_TOKEN)},
+            {
+                "name": "github",
+                "configured": bool(GITHUB_REPO),
+                "authenticated": bool(GITHUB_TOKEN),
+                "live": github_live,
+                "repo": GITHUB_REPO,
+                "branch": GITHUB_BRANCH,
+            },
             {"name": "gdrive",   "configured": False},
             {"name": "joplin",   "configured": False},
             {"name": "obsidian", "configured": False},
@@ -546,9 +571,59 @@ async def corpus_refresh():
     return {"status": "refreshed", "total": len(scrolls), "live": live}
 
 
+@app.post("/api/github/webhook")
+async def github_webhook(request: Request):
+    """GitHub push webhook — instantly busts the corpus cache when docs change.
+
+    To wire up: GitHub repo → Settings → Webhooks → Payload URL = <backend>/api/github/webhook
+    Content type: application/json. Optional secret: set SOVEREIGN_KEY env var and add it as the
+    webhook secret so only GitHub can trigger a bust.
+    """
+    # Validate HMAC signature when a secret is configured
+    if SOVEREIGN_KEY and SOVEREIGN_KEY != "arkadia-forge-2026":
+        sig_header = request.headers.get("X-Hub-Signature-256", "")
+        body = await request.body()
+        expected = "sha256=" + hmac.new(
+            SOVEREIGN_KEY.encode(), body, hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(sig_header, expected):
+            raise HTTPException(status_code=401, detail="Invalid webhook signature")
+    else:
+        body = await request.body()
+
+    try:
+        payload = json.loads(body)
+    except Exception:
+        payload = {}
+
+    # Only bust cache when .md / corpus files actually changed
+    changed_files = []
+    for commit in payload.get("commits", []):
+        changed_files.extend(commit.get("added", []))
+        changed_files.extend(commit.get("modified", []))
+        changed_files.extend(commit.get("removed", []))
+
+    corpus_touched = any(
+        _is_corpus_file(f) for f in changed_files
+    ) if changed_files else True   # unknown — bust anyway
+
+    if corpus_touched:
+        _cache["at"] = 0.0   # invalidate in-memory cache immediately
+        logger.info(
+            f"[WEBHOOK] GitHub push — corpus cache busted. "
+            f"Changed files: {changed_files[:10]}"
+        )
+        return {"status": "cache_busted", "files_changed": len(changed_files)}
+
+    return {"status": "no_corpus_change", "files_changed": len(changed_files)}
+
+
 @app.get("/api/open-loops")
 async def get_open_loops():
-    """Return structured open loops parsed from DOC2_OPEN_LOOPS.md."""
+    """Return structured open loops parsed from DOC2_OPEN_LOOPS.md (live GitHub source)."""
+    # Ensure we have the freshest possible content — warm the cache if cold
+    if _cache["scrolls"] is None:
+        await _get_scrolls()
     return _parse_open_loops()
 
 
