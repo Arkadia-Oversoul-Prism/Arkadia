@@ -25,11 +25,7 @@ async function request<T>(
   const text = await res.text()
   let data: unknown = null
   if (text) {
-    try {
-      data = JSON.parse(text)
-    } catch {
-      data = text
-    }
+    try { data = JSON.parse(text) } catch { data = text }
   }
   if (!res.ok) {
     const detail =
@@ -41,7 +37,7 @@ async function request<T>(
   return data as T
 }
 
-// ── Domain types ───────────────────────────────────────────────────────────
+// ── Job types ─────────────────────────────────────────────────────────────────
 
 export type JobStatus = "pending" | "running" | "completed" | "failed"
 
@@ -150,6 +146,96 @@ export interface MetricsSnapshot {
   goals_active: number
 }
 
+// ── Corpus / Codex types ──────────────────────────────────────────────────────
+
+export interface HeartbeatResponse {
+  status: string
+  resonance: number
+}
+
+export interface SourceItem {
+  name: string
+  configured: boolean
+  authenticated?: boolean
+  live?: boolean
+  repo?: string
+  branch?: string
+}
+
+export interface SourcesResponse {
+  sources: SourceItem[]
+}
+
+export interface ArkDateSync {
+  auto_sync_active: boolean
+  refresh_count: number
+  last_sync_coordinate: string
+  last_scroll_count: number
+  cadence_minutes: number
+}
+
+export interface ArkDateResponse {
+  ark_year: number
+  ark_total_years: number
+  day_in_year: number
+  total_ark_day: number
+  pulse: number
+  breath: number
+  ark_completion_pct: number
+  coordinate: string
+  display: string
+  epoch: string
+  linear_utc: string
+  linear_note: string
+  sync: ArkDateSync
+}
+
+export interface CodexScroll {
+  id: string
+  source: string
+  category: string
+  priority: number
+  label: string
+  description: string
+  chars: number
+  preview: string
+  content: string
+  fetched_at: string | null
+  error: string | null
+}
+
+export interface CodexResponse {
+  status: string
+  total_docs: number
+  live_docs: number
+  total_chars: number
+  scrolls: Record<string, CodexScroll>
+}
+
+export interface OpenLoopItem {
+  id: string
+  name: string
+  status?: string
+  next_action?: string
+  target?: string
+}
+
+export interface OpenLoopGroup {
+  level: string
+  label: string
+  color: string
+  section_title: string
+  loops: OpenLoopItem[]
+}
+
+export interface OpenLoopsResponse {
+  source: string
+  parsed_at: string
+  total: number
+  groups: OpenLoopGroup[]
+  error?: string
+}
+
 // ── Endpoints ──────────────────────────────────────────────────────────────
 
 export const api = {
@@ -201,4 +287,13 @@ export const api = {
       method: "POST",
       json: { input },
     }),
+
+  // ── Field Intelligence ──────────────────────────────────────────────────
+  heartbeat: () => request<HeartbeatResponse>(`/api/heartbeat`),
+  sources: () => request<SourcesResponse>(`/api/sources`),
+  arkDate: () => request<ArkDateResponse>(`/api/ark-date`),
+  codex: () => request<CodexResponse>(`/api/codex`),
+  openLoops: () => request<OpenLoopsResponse>(`/api/open-loops`),
+  refreshCorpus: () =>
+    request<{ status: string }>(`/api/corpus/refresh`, { method: "POST" }),
 }

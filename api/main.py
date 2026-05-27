@@ -123,15 +123,31 @@ async def _background_corpus_sync() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Awakens the auto-sync daemon on startup; releases it on shutdown."""
+    """Awakens the auto-sync daemon and kernel workers on startup."""
     task = asyncio.create_task(_background_corpus_sync())
     _sync_state["running"] = True
     ark = _ark_date()
     logger.info(f"[ARK-SYNC] Self-evolution daemon awakened @ {ark['display']}")
+
+    # ── Phase 5-8 kernel boot ────────────────────────────────────────────
+    try:
+        from kernel import worker as _worker
+        _worker.start_workers()
+        _worker.start_goal_scheduler()
+        logger.info("[KERNEL] Workers + goal scheduler online")
+    except Exception as _ke:
+        logger.warning(f"[KERNEL] Boot skipped: {_ke}")
+
     yield
+
     task.cancel()
     _sync_state["running"] = False
     logger.info("[ARK-SYNC] Self-evolution daemon released.")
+    try:
+        from kernel import worker as _worker
+        _worker.stop_workers(timeout=3.0)
+    except Exception:
+        pass
 
 
 # ── App — created here so lifespan is already defined ────────────────────────
@@ -140,7 +156,7 @@ app = FastAPI(title="Arkadia Mind — Cycle 11", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -1352,3 +1368,203 @@ async def get_ims_inquiries(request: Request):
         raise HTTPException(status_code=403, detail="Sovereign key required")
     inquiries = _load_json_list(IMS_FILE)
     return {"inquiries": inquiries, "total": len(inquiries)}
+
+
+# ── Phase 5-8 Kernel API Routes ───────────────────────────────────────────────
+# Jobs, Goals, Tools, Metrics — wired to the SolSpire kernel modules.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _job_store():
+    from kernel.jobs import get_store
+    return get_store()
+
+def _goal_store():
+    from kernel.goals import get_store
+    return get_store()
+
+
+# ── Jobs ─────────────────────────────────────────────────────────────────────
+
+@app.get("/api/jobs")
+async def list_jobs(status: str | None = None, limit: int = 100):
+    store = _job_store()
+    valid = {"pending", "running", "completed", "failed"}
+    s = status if status in valid else None
+    jobs = store.list(limit=limit, status=s)
+    return {"jobs": jobs, "stats": store.stats()}
+
+
+@app.post("/api/job/create")
+async def create_job(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    intent = body.get("intent") or body
+    if not isinstance(intent, dict):
+        raise HTTPException(status_code=400, detail="intent must be an object")
+    job = _job_store().create(intent, source=body.get("source", "api"))
+    return {"job_id": job["job_id"], "status": job["status"]}
+
+
+@app.get("/api/job/{job_id}")
+async def get_job(job_id: str):
+    job = _job_store().get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+    return job
+
+
+@app.get("/api/job/{job_id}/trace")
+async def get_job_trace(job_id: str):
+    job = _job_store().get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+    trace = job.get("trace")
+    if trace is None:
+        raise HTTPException(status_code=404, detail="No trace recorded for this job yet")
+    return {"job_id": job_id, "status": job.get("status"), "trace": trace}
+
+
+# ── Goals ─────────────────────────────────────────────────────────────────────
+
+@app.get("/api/goals")
+async def list_goals(status: str | None = None):
+    from kernel.goals import VALID_STATUSES
+    s = status if status in VALID_STATUSES else None
+    goals = _goal_store().list(status=s)
+    active_count = sum(1 for g in goals if g.get("status") == "active")
+    return {"goals": goals, "count": len(goals), "active": active_count}
+
+
+@app.post("/api/goals")
+async def create_goal(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    description = body.get("description", "").strip()
+    if not description:
+        raise HTTPException(status_code=400, detail="description is required")
+    try:
+        goal = _goal_store().create(
+            description,
+            cadence_seconds=float(body.get("cadence_seconds", 300)),
+            max_runs_per_hour=int(body.get("max_runs_per_hour", 6)),
+            start_now=bool(body.get("start_now", True)),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"message": "Goal created", "goal": goal}
+
+
+@app.patch("/api/goals/{goal_id}")
+async def update_goal(goal_id: str, request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    allowed = {"description", "status", "cadence_seconds", "max_runs_per_hour"}
+    fields = {k: v for k, v in body.items() if k in allowed}
+    if not fields:
+        raise HTTPException(status_code=400, detail="No updatable fields provided")
+    try:
+        goal = _goal_store().update(goal_id, **fields)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if goal is None:
+        raise HTTPException(status_code=404, detail=f"Goal {goal_id} not found")
+    return {"message": "Goal updated", "goal": goal}
+
+
+@app.delete("/api/goals/{goal_id}")
+async def delete_goal(goal_id: str):
+    deleted = _goal_store().delete(goal_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Goal {goal_id} not found")
+    return {"message": "Goal deleted", "goal_id": goal_id}
+
+
+# ── Tools ─────────────────────────────────────────────────────────────────────
+
+@app.get("/api/tools")
+async def list_tools_endpoint():
+    try:
+        import kernel.tools as _tools  # ensures built-ins are registered
+        tools = _tools.list_tools()
+    except Exception as e:
+        tools = []
+        logger.warning(f"[TOOLS] list_tools failed: {e}")
+    return {"tools": tools, "count": len(tools)}
+
+
+@app.post("/api/tools/{tool_name}/run")
+async def run_tool_endpoint(tool_name: str, request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    payload = body.get("payload", body)
+    try:
+        import kernel.tools as _tools
+        tool = _tools.get_tool(tool_name)
+        if tool is None:
+            raise HTTPException(status_code=404, detail=f"Tool '{tool_name}' not found")
+        result = tool.run(payload)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    return result
+
+
+# ── Plan / execute ────────────────────────────────────────────────────────────
+
+@app.post("/api/plan/run")
+async def run_plan(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    user_input = body.get("input", "").strip()
+    if not user_input:
+        raise HTTPException(status_code=400, detail="input is required")
+    try:
+        from kernel.planner import plan_or_fallback
+        from kernel.execution import execute_plan
+        plan = plan_or_fallback(user_input)
+        result = execute_plan(plan)
+        return {
+            "success":  bool(result.get("success")),
+            "summary":  result.get("summary", ""),
+            "steps":    result.get("steps", []),
+            "plan":     plan,
+        }
+    except Exception as e:
+        logger.exception("[PLAN/RUN] Error")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Metrics ────────────────────────────────────────────────────────────────────
+
+@app.get("/api/metrics")
+async def get_metrics():
+    try:
+        from kernel import metrics as _metrics
+        from kernel.worker import worker_count, goal_scheduler_alive
+        snap = _metrics.snapshot()
+        job_stats = _job_store().stats()
+        goal_list = _goal_store().list(status="active")
+        snap["workers"]      = {"alive": worker_count(), "goal_scheduler": goal_scheduler_alive()}
+        snap["jobs"]         = job_stats
+        snap["goals_active"] = len(goal_list)
+        return snap
+    except Exception as e:
+        logger.warning(f"[METRICS] snapshot failed: {e}")
+        return {
+            "ts": time.time(),
+            "tools": [], "plans": {}, "goals": {},
+            "workers": {"alive": 0, "goal_scheduler": False},
+            "jobs": {"pending": 0, "running": 0, "completed": 0, "failed": 0, "total": 0, "queue_depth": 0},
+            "goals_active": 0,
+        }
