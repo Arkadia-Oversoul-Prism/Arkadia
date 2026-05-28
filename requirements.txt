@@ -8,3 +8,4 @@ python-multipart
 pdfminer.six
 python-docx
 beautifulsoup4
+piper-tts

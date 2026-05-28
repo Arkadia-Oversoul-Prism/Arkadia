@@ -1,6 +1,6 @@
 /**
  * OracleVoicePlayer — persistent, floating audio player for the Oracle chamber.
- * ElevenLabs primary · Web Speech API fallback
+ * Piper TTS primary · Web Speech API fallback
  * Survives SPA navigation via singleton audioManager.
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -157,8 +157,8 @@ const OracleVoicePlayer: React.FC<OracleVoicePlayerProps> = ({
   // Speed sync
   useEffect(() => { audioManager.setSpeed(speed); }, [speed]);
 
-  // ── Generate audio via ElevenLabs proxy ──────────────────────────────────
-  const generateElevenLabs = useCallback(async (plain: string): Promise<Blob | null> => {
+  // ── Generate audio via Piper TTS ─────────────────────────────────────────────
+  const generatePiper = useCallback(async (plain: string): Promise<Blob | null> => {
     try {
       console.log('[TTS] Calling /api/tts with text length:', plain.length);
       const res = await fetch(`${API_BASE}/api/tts`, {
@@ -191,7 +191,7 @@ const OracleVoicePlayer: React.FC<OracleVoicePlayerProps> = ({
     setUsedFallback(false);
 
     // Check IndexedDB cache first
-    const key = audioCacheKey(plain, 'el_rachel', speed);
+    const key = audioCacheKey(plain, 'piper_amy', speed);
     const cached = await cacheGet(key);
     if (cached) {
       const url = URL.createObjectURL(cached);
@@ -203,10 +203,10 @@ const OracleVoicePlayer: React.FC<OracleVoicePlayerProps> = ({
       return;
     }
 
-    // Generate via ElevenLabs
+    // Generate via Piper TTS
     setGenerating(true);
     try {
-      const blob = await generateElevenLabs(plain);
+      const blob = await generatePiper(plain);
       if (blob && blob.size > 1000) {
         await cachePut(key, blob);
         const url = URL.createObjectURL(blob);
@@ -226,7 +226,7 @@ const OracleVoicePlayer: React.FC<OracleVoicePlayerProps> = ({
     // Fallback: Web Speech API
     setUsedFallback(true);
     console.log('[TTS] Falling back to Web Speech API');
-    setToast('ElevenLabs unavailable — using browser voice as fallback.');
+    setToast('Piper TTS unavailable — using browser voice as fallback.');
     const voices = await getVoicesAsync();
     const voice  = pickBestVoice(voices);
     const utt = new SpeechSynthesisUtterance(plain);
@@ -250,7 +250,7 @@ const OracleVoicePlayer: React.FC<OracleVoicePlayerProps> = ({
     utt.onend   = () => { setWsFallbackPlaying(false); setWsFallbackPos(0); clearInterval(wsTimerRef.current!); };
     utt.onerror = () => { setWsFallbackPlaying(false); clearInterval(wsTimerRef.current!); };
     window.speechSynthesis.speak(utt);
-  }, [speed, audioState.playing, generateElevenLabs]);
+  }, [speed, audioState.playing, generatePiper]);
 
   // ── Auto-generate when text changes ──────────────────────────────────────
   const prevTextRef = useRef<string | null>(null);

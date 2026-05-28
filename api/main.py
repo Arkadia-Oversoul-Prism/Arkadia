@@ -1598,15 +1598,11 @@ async def delete_goal(goal_id: str):
 
 # ── Tools ─────────────────────────────────────────────────────────────────────
 
-# ── ElevenLabs TTS proxy ──────────────────────────────────────────────────────
-
-ELEVENLABS_KEY      = os.environ.get("ELEVENLABS_API_KEY", "")
-ELEVENLABS_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"   # Rachel — warm, natural
-ELEVENLABS_MODEL    = "eleven_turbo_v2_5"        # lowest-latency model
+# ── Piper TTS endpoint (primary) ────────────────────────────────────────────────
 
 @app.post("/api/tts")
 async def text_to_speech(request: Request):
-    """Proxy ElevenLabs TTS so the API key never touches the browser."""
+    """Piper TTS synthesis - offline, high-quality, no API key required."""
     try:
         body = await request.json()
     except Exception:
@@ -1615,57 +1611,63 @@ async def text_to_speech(request: Request):
     text  = (body.get("text") or "").strip()
     speed = float(body.get("speed", 1.0))
     speed = max(0.5, min(2.0, speed))
+    voice = body.get("voice", "amy-medium")
 
     if not text:
         raise HTTPException(status_code=400, detail="text is required")
 
-    # Clamp to ElevenLabs safe limit
+    # Clamp text length
     text = text[:4500]
 
-    if not ELEVENLABS_KEY:
-        raise HTTPException(status_code=503, detail="ElevenLabs not configured")
+    # Get or init Piper engine
+    from kernel.tts import get_piper, PiperTTS
+    piper = get_piper()
 
-    url = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}"
-    payload = {
-        "text": text,
-        "model_id": ELEVENLABS_MODEL,
-        "voice_settings": {
-            "stability":        0.5,
-            "similarity_boost": 0.75,
-            "style":            0.0,
-            "use_speaker_boost": True,
-        },
-    }
+    # Lazy init on first request
+    if not piper.is_ready():
+        logger.info("[TTS] Initializing Piper TTS engine...")
+        if not piper.load_voice(voice):
+            raise HTTPException(status_code=503, detail="TTS engine not ready - please retry")
 
     try:
-        async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.post(
-                url,
-                json=payload,
-                headers={
-                    "xi-api-key":   ELEVENLABS_KEY,
-                    "Accept":       "audio/mpeg",
-                    "Content-Type": "application/json",
-                },
-            )
-            if resp.status_code == 401:
-                raise HTTPException(status_code=401, detail="ElevenLabs API key invalid")
-            if resp.status_code == 429:
-                raise HTTPException(status_code=429, detail="ElevenLabs quota exceeded")
-            resp.raise_for_status()
-            audio_bytes = resp.content
-    except HTTPException:
-        raise
+        # Synthesize audio (run in thread to avoid blocking)
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        loop = asyncio.get_event_loop()
+        executor = ThreadPoolExecutor(max_workers=1)
+
+        audio_bytes = await loop.run_in_executor(
+            executor,
+            lambda: piper.synthesize(text, speed)
+        )
+        executor.shutdown(wait=False)
+
+        logger.info(f"[TTS] Synthesized {len(text)} chars at {speed}× speed → {len(audio_bytes)} bytes")
+
     except Exception as e:
-        logger.warning(f"[TTS] ElevenLabs error: {e}")
-        raise HTTPException(status_code=502, detail=f"TTS generation failed: {e}")
+        logger.error(f"[TTS] Piper synthesis failed: {e}")
+        raise HTTPException(status_code=502, detail=f"TTS synthesis failed: {e}")
 
     from fastapi.responses import Response as _Response
     return _Response(
         content=audio_bytes,
-        media_type="audio/mpeg",
+        media_type="audio/wav",
         headers={"Cache-Control": "public, max-age=3600"},
     )
+
+
+@app.get("/api/tts/status")
+async def tts_status():
+    """Check TTS engine status."""
+    from kernel.tts import get_piper
+    piper = get_piper()
+    return {
+        "engine": "piper",
+        "ready": piper.is_ready(),
+        "voice": piper.voice_name,
+        "available_voices": list(AVAILABLE_VOICES.keys()),
+    }
 
 
 @app.get("/api/tools")
