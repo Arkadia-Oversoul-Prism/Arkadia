@@ -104,37 +104,48 @@ function stripMarkdown(s: string): string {
     .trim();
 }
 
-// ─── Voice selection — prefer high-quality natural voices ────────────────────
-let _selectedVoice: SpeechSynthesisVoice | null = null;
-
-function pickBestVoice(): SpeechSynthesisVoice | null {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
-  const voices = window.speechSynthesis.getVoices();
+// ─── Voice selection — async, reliable, prefer high-quality natural voices ────
+function pickBestVoiceFromList(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
   if (!voices.length) return null;
-
   const priority = [
     // Google neural voices (Chrome/Chromium — least robotic)
     (v: SpeechSynthesisVoice) => /google.*english.*female/i.test(v.name),
     (v: SpeechSynthesisVoice) => /google.*uk.*female/i.test(v.name),
     (v: SpeechSynthesisVoice) => /google.*us.*female/i.test(v.name),
     (v: SpeechSynthesisVoice) => /google.*english/i.test(v.name),
-    // Microsoft Azure neural voices
-    (v: SpeechSynthesisVoice) => /microsoft.*aria|microsoft.*jenny|microsoft.*sonia/i.test(v.name),
-    (v: SpeechSynthesisVoice) => /microsoft.*natural/i.test(v.name),
+    (v: SpeechSynthesisVoice) => /google/i.test(v.name) && v.lang.startsWith('en'),
+    // Microsoft Azure neural voices (Edge/Windows)
+    (v: SpeechSynthesisVoice) => /microsoft.*(aria|jenny|sonia|natasha|clara|hazel)/i.test(v.name),
     (v: SpeechSynthesisVoice) => /microsoft.*online/i.test(v.name),
+    (v: SpeechSynthesisVoice) => /microsoft.*natural/i.test(v.name),
     // Apple premium voices (macOS/iOS)
-    (v: SpeechSynthesisVoice) => /samantha|karen|moira|fiona/i.test(v.name),
-    // Any English online voice (cloud-rendered = higher quality)
+    (v: SpeechSynthesisVoice) => /samantha|karen|moira|fiona|serena|tessa/i.test(v.name),
+    // Any cloud-rendered English voice (not local = higher quality)
     (v: SpeechSynthesisVoice) => v.lang.startsWith('en') && !v.localService,
-    // Any English voice
+    // Fallback: any English voice
     (v: SpeechSynthesisVoice) => v.lang.startsWith('en'),
   ];
-
   for (const test of priority) {
     const match = voices.find(test);
     if (match) return match;
   }
-  return voices[0] ?? null;
+  return voices[0];
+}
+
+// Waits up to 1.5 s for the browser to populate the voice list
+function getVoicesAsync(): Promise<SpeechSynthesisVoice[]> {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return Promise.resolve([]);
+  const immediate = window.speechSynthesis.getVoices();
+  if (immediate.length > 0) return Promise.resolve(immediate);
+  return new Promise(resolve => {
+    const timeout = setTimeout(() => resolve(window.speechSynthesis.getVoices()), 1500);
+    const prev = window.speechSynthesis.onvoiceschanged;
+    window.speechSynthesis.onvoiceschanged = () => {
+      clearTimeout(timeout);
+      window.speechSynthesis.onvoiceschanged = prev ?? null;
+      resolve(window.speechSynthesis.getVoices());
+    };
+  });
 }
 
 // ─── HTML paste → plain text ──────────────────────────────────────────────────
@@ -340,30 +351,22 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
 
   const clearAttachment = () => setAttachment(null);
 
-  // ── TTS — voice preload on mount ───────────────────────────────────────────
-  useEffect(() => {
-    if (!ttsOk) return;
-    const load = () => { _selectedVoice = pickBestVoice(); };
-    load();
-    window.speechSynthesis.onvoiceschanged = load;
-    return () => { window.speechSynthesis.onvoiceschanged = null; };
-  }, [ttsOk]);
-
   // ── TTS ────────────────────────────────────────────────────────────────────
-  const toggleSpeak = (idx: number, text: string) => {
+  const toggleSpeak = async (idx: number, text: string) => {
     if (!ttsOk) return;
     if (speakingIdx === idx) { window.speechSynthesis.cancel(); setSpeakingIdx(null); return; }
     window.speechSynthesis.cancel();
+    setSpeakingIdx(idx);
+    // Wait for browser voice list to be ready (async — fixes "robotic default" bug)
+    const voices = await getVoicesAsync();
+    const voice  = pickBestVoiceFromList(voices);
     const u = new SpeechSynthesisUtterance(stripMarkdown(text));
-    const voice = _selectedVoice ?? pickBestVoice();
     if (voice) u.voice = voice;
-    // Natural pacing: slightly slower than default, neutral pitch
-    u.rate  = 0.88;
-    u.pitch = 0.97;
+    u.rate   = 0.88;   // measured, not rushed
+    u.pitch  = 0.97;   // neutral — no artificial robot high-pitch
     u.volume = 1.0;
     u.onend  = () => setSpeakingIdx(c => c === idx ? null : c);
     u.onerror = () => setSpeakingIdx(c => c === idx ? null : c);
-    setSpeakingIdx(idx);
     window.speechSynthesis.speak(u);
   };
 

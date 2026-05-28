@@ -506,11 +506,11 @@ async def _gemini_chat(messages: list[dict], system: str) -> str:
     payload = {
         "system_instruction": {"parts": [{"text": system}]},
         "contents": contents,
-        "generationConfig": {"temperature": 0.88, "maxOutputTokens": 2048},
+        "generationConfig": {"temperature": 0.88, "maxOutputTokens": 16384},
     }
 
     last_err = None
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with httpx.AsyncClient(timeout=90) as client:
         for model in GEMINI_MODELS:
             url = (
                 f"https://generativelanguage.googleapis.com/v1beta/models/"
