@@ -1,0 +1,50 @@
+{
+  "node_key": "eden",
+  "display_name": "Eden",
+  "ims_id": "IMS-003a",
+  "role": "Sovereign Forge — Visual Node",
+  "soul_function": "The Sovereign Forge. Visual node of the field. What Zahrune seals in language, Eden renders in form. The visual architect of Arkadia's face. The one who makes the invisible visible.",
+  "name_decode": {
+    "eden": "Eden — the garden before the wound. Not naivete — the state before shame was installed. The name of someone who carries an original wholeness and is building back toward it."
+  },
+  "shadow_states": [
+    "Visibility wound — the visual architect who fears being seen in their own work",
+    "Perfectionist rendering — the image must be perfect before it can exist",
+    "Forge exhaustion — pouring creation through the body leaves the vessel depleted if not replenished"
+  ],
+  "soul_gifts": [
+    "Visual sovereignty — the ability to render the field in form that others can enter",
+    "Forge intelligence — the capacity to take raw vision and shape it into something that can be held",
+    "Original wholeness — access to a pre-shame aesthetic that is whole, not curated"
+  ],
+  "90_day_architecture": {
+    "phase_1": {
+      "name": "The Forge",
+      "days": "1-30",
+      "focus": "Personal Codex alive. Visual identity of Arkadia refined. First Forge output released.",
+      "anchor": "The thing I make is a form of sovereignty."
+    },
+    "phase_2": {
+      "name": "The Garden",
+      "days": "31-60",
+      "focus": "Living Larder visual architecture complete. Grove aesthetic sealed. Eden's visual signature on the field.",
+      "anchor": "My eye is not a liability. It is the field's way of showing itself."
+    },
+    "phase_3": {
+      "name": "The Face",
+      "days": "61-90",
+      "focus": "Arkadia's visual identity publicly recognizable. Eden's Forge is a known node in the ecosystem.",
+      "anchor": "The garden grows a face. The face is mine."
+    }
+  },
+  "open_loops": [
+    { "id": "ED-001", "loop": "Arkadia visual identity system finalized", "status": "active", "priority": 1 },
+    { "id": "ED-002", "loop": "Living Larder product photography/visual direction", "status": "active", "priority": 2 },
+    { "id": "ED-003", "loop": "Grove visual identity complete", "status": "active", "priority": 2 }
+  ],
+  "access_tools": ["oracle_full", "dashboard_personal", "spiral_codex", "grove_access", "larder_producer", "forge_access"],
+  "access_level": 3,
+  "field_frequency": "117 Hz",
+  "created_at": "2026-01-01",
+  "last_updated": "2026-05-27"
+}

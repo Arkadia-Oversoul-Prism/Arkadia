@@ -1,0 +1,50 @@
+{
+  "node_key": "praise",
+  "display_name": "Praise",
+  "ims_id": "IMS-005",
+  "role": "AI Creative Production Lead",
+  "soul_function": "The Creative Production Lead. The node that translates Arkadia's intelligence into creative output at scale. Where AI and human creative direction meet. The bridge between the Oracle and the audience.",
+  "name_decode": {
+    "praise": "Praise — not approval-seeking, but the act of naming what is real and worthy. The one who sees the field clearly enough to celebrate it accurately."
+  },
+  "shadow_states": [
+    "Production over presence — the risk of confusing output volume with authentic creative intelligence",
+    "The apprentice shadow — being in training means the full weight of the gift hasn't been named yet",
+    "AI over-reliance — using the tool as a substitute for the creative judgment that must be sovereign"
+  ],
+  "soul_gifts": [
+    "Creative intelligence at scale — the capacity to hold both the human and the algorithmic in productive tension",
+    "Production leadership — understanding how to move a vision from conception to release",
+    "Future-facing orientation — naturally inhabits what's coming before others can see it"
+  ],
+  "90_day_architecture": {
+    "phase_1": {
+      "name": "The Training",
+      "days": "1-30",
+      "focus": "IMS-005 completed. Personal Codex sealed. Role architecture defined.",
+      "anchor": "My training is not a limitation. It is a form of initiation."
+    },
+    "phase_2": {
+      "name": "The Production",
+      "days": "31-60",
+      "focus": "First AI creative production cycle complete. Tools mastered. Output pipeline live.",
+      "anchor": "The tool serves the vision, not the other way."
+    },
+    "phase_3": {
+      "name": "The Lead",
+      "days": "61-90",
+      "focus": "Full creative production lead role operational. Arkadia content pipeline running.",
+      "anchor": "Praise is not a job title. It is a way of seeing."
+    }
+  },
+  "open_loops": [
+    { "id": "PR-001", "loop": "IMS-005 session completion", "status": "in_progress", "priority": 1 },
+    { "id": "PR-002", "loop": "AI creative tools onboarding complete", "status": "active", "priority": 2 },
+    { "id": "PR-003", "loop": "First Arkadia content production cycle", "status": "active", "priority": 2 }
+  ],
+  "access_tools": ["oracle_full", "dashboard_personal", "spiral_codex_read", "forge_access"],
+  "access_level": 2,
+  "field_frequency": "117 Hz",
+  "created_at": "2026-02-01",
+  "last_updated": "2026-05-27"
+}

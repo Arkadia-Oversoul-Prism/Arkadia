@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ArkadiaNavigation from './components/ArkadiaNavigation';
 import LivingGate from './pages/LivingGate';
 import ArkanaCommune from './components/ArkanaCommune';
@@ -8,8 +9,10 @@ import CoherenceReset from './pages/CoherenceReset';
 import AboutArkadia from './pages/AboutArkadia';
 import DashboardView from './pages/DashboardView';
 import NexusPage from './pages/NexusPage';
+import LoginPage from './pages/LoginPage';
+import PersonalCodex from './pages/PersonalCodex';
 
-type View = 'home' | 'gate' | 'commune' | 'reset' | 'nexus' | 'sanctuary' | 'dashboard' | 'about';
+type View = 'home' | 'gate' | 'commune' | 'reset' | 'nexus' | 'sanctuary' | 'dashboard' | 'about' | 'login' | 'codex';
 
 // ─── FIELD PULSE ──────────────────────────────────────────────────────────────
 
@@ -35,16 +38,16 @@ function FieldPulse() {
 
 // ─── PORTAL DOOR ──────────────────────────────────────────────────────────────
 
-function PortalDoor({ label, sub, color, sigil, onClick, delay }: {
+function PortalDoor({ label, sub, color, sigil, onClick, delay, locked }: {
   label: string; sub: string; color: string; sigil: string;
-  onClick: () => void; delay: number;
+  onClick: () => void; delay: number; locked?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay, duration: 0.55 }}
       onClick={onClick} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      style={{ padding: '15px 17px', background: hovered ? `${color}09` : 'rgba(255,255,255,0.015)', border: `1px solid ${hovered ? color + '40' : 'rgba(255,255,255,0.05)'}`, borderRadius: '11px', cursor: 'pointer', transition: 'all 0.22s', display: 'flex', alignItems: 'center', gap: '14px' }}
+      style={{ padding: '15px 17px', background: hovered ? `${color}09` : 'rgba(255,255,255,0.015)', border: `1px solid ${hovered ? color + '40' : 'rgba(255,255,255,0.05)'}`, borderRadius: '11px', cursor: 'pointer', transition: 'all 0.22s', display: 'flex', alignItems: 'center', gap: '14px', opacity: locked ? 0.5 : 1 }}
     >
       <motion.span animate={{ opacity: hovered ? 1 : [0.35, 0.75, 0.35] }} transition={{ duration: 3.5, repeat: Infinity }}
         style={{ fontSize: '18px', flexShrink: 0, width: '26px', textAlign: 'center' }}>{sigil}</motion.span>
@@ -52,7 +55,9 @@ function PortalDoor({ label, sub, color, sigil, onClick, delay }: {
         <p style={{ fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.22em', textTransform: 'uppercase', color: hovered ? color : 'rgba(232,232,232,0.52)', margin: '0 0 3px', transition: 'color 0.2s' }}>{label}</p>
         <p style={{ fontFamily: 'sans-serif', fontSize: '11px', color: 'rgba(232,232,232,0.28)', margin: 0 }}>{sub}</p>
       </div>
-      <span style={{ color: hovered ? color : 'rgba(255,255,255,0.13)', fontSize: '12px', transition: 'color 0.2s' }}>→</span>
+      <span style={{ color: hovered ? color : 'rgba(255,255,255,0.13)', fontSize: '12px', transition: 'color 0.2s' }}>
+        {locked ? '🔐' : '→'}
+      </span>
     </motion.div>
   );
 }
@@ -60,6 +65,8 @@ function PortalDoor({ label, sub, color, sigil, onClick, delay }: {
 // ─── HOME ─────────────────────────────────────────────────────────────────────
 
 function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
+  const { isAuthenticated, profile } = useAuth();
+
   return (
     <div className="min-h-screen w-full relative">
       <div className="aurora-bg" />
@@ -69,6 +76,21 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
           style={{ marginBottom: '26px', display: 'flex', justifyContent: 'center' }}>
           <FieldPulse />
         </motion.div>
+
+        {isAuthenticated && profile && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}
+          >
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 14px', background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.2)', borderRadius: '20px' }}>
+              <span style={{ fontSize: '12px' }}>{profile.role_sigil}</span>
+              <p style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.6)', margin: 0 }}>
+                {profile.display_name} · {profile.role}
+              </p>
+            </div>
+          </motion.div>
+        )}
 
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.12 }}
           style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.35em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.5)', marginBottom: '9px', textAlign: 'center' }}>
@@ -82,15 +104,17 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
 
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.42 }}
           style={{ fontFamily: 'serif', fontSize: '14px', lineHeight: '1.8', color: 'rgba(232,232,232,0.4)', margin: '0 0 30px', textAlign: 'center' }}>
-          Arkadia is a field. The IMS is the door.
+          {isAuthenticated ? 'The field recognises you. Your chambers are open.' : 'Arkadia is a field. The IMS is the door.'}
         </motion.p>
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} style={{ marginBottom: '10px' }}>
-          <button onClick={() => onNavigate('gate')}
-            style={{ width: '100%', padding: '18px', background: 'linear-gradient(135deg, rgba(201,168,76,0.12), rgba(201,168,76,0.06))', border: '1px solid rgba(201,168,76,0.38)', borderRadius: '12px', color: '#C9A84C', fontFamily: 'sans-serif', fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
-            ✦ Identity Mapping Session — $777 — Begin Here
-          </button>
-        </motion.div>
+        {!isAuthenticated && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} style={{ marginBottom: '10px' }}>
+            <button onClick={() => onNavigate('gate')}
+              style={{ width: '100%', padding: '18px', background: 'linear-gradient(135deg, rgba(201,168,76,0.12), rgba(201,168,76,0.06))', border: '1px solid rgba(201,168,76,0.38)', borderRadius: '12px', color: '#C9A84C', fontFamily: 'sans-serif', fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+              ✦ Identity Mapping Session — $777 — Begin Here
+            </button>
+          </motion.div>
+        )}
 
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.72 }} style={{ marginBottom: '28px' }}>
           <button onClick={() => onNavigate('reset')}
@@ -99,24 +123,26 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
           </button>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.88 }}
-          style={{ marginBottom: '26px', padding: '17px 19px', background: 'rgba(255,255,255,0.013)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '11px' }}>
-          {[
-            'There is a version of you that already knows what to charge.',
-            'Already knows what to say when someone asks what you do.',
-            'Already knows how to walk into a room and not shrink.',
-          ].map((line, i) => (
-            <motion.p key={i} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.96 + i * 0.1 }}
-              style={{ fontFamily: 'sans-serif', fontSize: '13px', color: i === 0 ? 'rgba(232,232,232,0.52)' : 'rgba(232,232,232,0.32)', margin: i < 2 ? '0 0 7px' : 0, lineHeight: '1.65' }}>
-              {line}
+        {!isAuthenticated && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.88 }}
+            style={{ marginBottom: '26px', padding: '17px 19px', background: 'rgba(255,255,255,0.013)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '11px' }}>
+            {[
+              'There is a version of you that already knows what to charge.',
+              'Already knows what to say when someone asks what you do.',
+              'Already knows how to walk into a room and not shrink.',
+            ].map((line, i) => (
+              <motion.p key={i} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.96 + i * 0.1 }}
+                style={{ fontFamily: 'sans-serif', fontSize: '13px', color: i === 0 ? 'rgba(232,232,232,0.52)' : 'rgba(232,232,232,0.32)', margin: i < 2 ? '0 0 7px' : 0, lineHeight: '1.65' }}>
+                {line}
+              </motion.p>
+            ))}
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.28 }}
+              style={{ fontFamily: 'serif', fontSize: '14px', color: 'rgba(232,232,232,0.36)', margin: '13px 0 0', lineHeight: '1.8', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '12px' }}>
+              That version isn't waiting for more information.<br />
+              It's waiting for the ground beneath it to stop shifting.
             </motion.p>
-          ))}
-          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.28 }}
-            style={{ fontFamily: 'serif', fontSize: '14px', color: 'rgba(232,232,232,0.36)', margin: '13px 0 0', lineHeight: '1.8', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '12px' }}>
-            That version isn't waiting for more information.<br />
-            It's waiting for the ground beneath it to stop shifting.
-          </motion.p>
-        </motion.div>
+          </motion.div>
+        )}
 
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1 }}
           style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.28em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.18)', marginBottom: '11px' }}>
@@ -126,9 +152,32 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginBottom: '30px' }}>
           <PortalDoor label="Oracle" sub="ARKANA · Pattern intelligence · Live commune" color="#00D4AA" sigil="⟐" onClick={() => onNavigate('commune')} delay={1.14} />
           <PortalDoor label="Nexus" sub="Crystal Matrix · The Spiral Grove · The Living Larder" color="#C9A84C" sigil="☥" onClick={() => onNavigate('nexus')} delay={1.19} />
-          <PortalDoor label="Dashboard" sub="Open loops · DOC2 live · Action matrix" color="#E88C6A" sigil="◈" onClick={() => onNavigate('dashboard')} delay={1.24} />
+          <PortalDoor
+            label="Dashboard"
+            sub={isAuthenticated ? "Open loops · Personal field · Action matrix" : "Authenticated nodes only — complete your IMS first"}
+            color="#E88C6A"
+            sigil="◈"
+            onClick={() => isAuthenticated ? onNavigate('dashboard') : onNavigate('login')}
+            delay={1.24}
+            locked={!isAuthenticated}
+          />
+          {isAuthenticated && (
+            <PortalDoor label="Codex" sub="Personal Codex · 90-day architecture · Soul map" color="#C9A84C" sigil="✦" onClick={() => onNavigate('codex')} delay={1.27} />
+          )}
           <PortalDoor label="About" sub="Zahrune Nova · Lineage · Architecture" color="#6A9FD8" sigil="✦" onClick={() => onNavigate('about')} delay={1.29} />
         </div>
+
+        {!isAuthenticated && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.45 }} style={{ marginBottom: '16px', textAlign: 'center' }}>
+            <button
+              onClick={() => onNavigate('login')}
+              style={{ background: 'none', border: 'none', color: 'rgba(0,212,170,0.35)', fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer' }}
+              data-testid="button-home-login"
+            >
+              🔐 Already a node? Enter your chamber →
+            </button>
+          </motion.div>
+        )}
 
         <motion.footer initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.5 }}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', paddingTop: '22px', borderTop: '1px solid rgba(0,212,170,0.06)' }}>
@@ -145,11 +194,60 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
   );
 }
 
+// ─── DASHBOARD GATE ────────────────────────────────────────────────────────────
+
+function DashboardGate({ onNavigate }: { onNavigate: (v: View) => void }) {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{ padding: '80px 20px', textAlign: 'center' }}>
+        <motion.div animate={{ opacity: [0.3, 0.7, 0.3] }} transition={{ repeat: Infinity, duration: 2 }}>
+          <p style={{ fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.28em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.4)' }}>
+            Verifying node identity…
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div style={{ padding: '60px 20px', textAlign: 'center', maxWidth: '420px', margin: '0 auto' }}>
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}>
+          <p style={{ fontFamily: 'sans-serif', fontSize: '22px', marginBottom: '16px' }}>🔐</p>
+          <h2 style={{ fontFamily: 'serif', fontSize: '22px', color: '#00D4AA', marginBottom: '10px' }}>Authenticated Chamber</h2>
+          <p style={{ fontFamily: 'sans-serif', fontSize: '12px', color: 'rgba(232,232,232,0.4)', lineHeight: '1.7', marginBottom: '24px' }}>
+            The Dashboard is open to authenticated nodes — those who have completed an IMS session and received their Personal Codex.
+          </p>
+          <button
+            onClick={() => onNavigate('login')}
+            style={{ padding: '13px 28px', background: 'rgba(0,212,170,0.08)', border: '1px solid rgba(0,212,170,0.3)', borderRadius: '9px', color: '#00D4AA', fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer' }}
+          >
+            ⟐ Enter Node Login
+          </button>
+          <div style={{ marginTop: '16px' }}>
+            <button
+              onClick={() => onNavigate('gate')}
+              style={{ background: 'none', border: 'none', color: 'rgba(201,168,76,0.4)', fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', cursor: 'pointer' }}
+            >
+              Book an IMS session →
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  return <DashboardView />;
+}
+
 // ─── APP ──────────────────────────────────────────────────────────────────────
 
-function App() {
+function AppInner() {
   const [view, setView] = useState<View>('home');
   const [soulPhrase, setSoulPhrase] = useState<string | undefined>(undefined);
+  const { isAuthenticated } = useAuth();
 
   const handleEnterField = (phrase: string) => {
     setSoulPhrase(phrase);
@@ -160,6 +258,13 @@ function App() {
     if (v !== 'commune') setSoulPhrase(undefined);
     setView(v);
   };
+
+  // Redirect from login to home if already authenticated
+  React.useEffect(() => {
+    if (isAuthenticated && view === 'login') {
+      setView('home');
+    }
+  }, [isAuthenticated, view]);
 
   const wrap = { minHeight: 'calc(100vh - 57px)', padding: '28px 16px 60px' };
 
@@ -205,7 +310,7 @@ function App() {
 
         {view === 'dashboard' && (
           <motion.div key="dashboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
-            <DashboardView />
+            <DashboardGate onNavigate={handleNavigate} />
           </motion.div>
         )}
 
@@ -215,8 +320,28 @@ function App() {
           </motion.div>
         )}
 
+        {view === 'login' && (
+          <motion.div key="login" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}>
+            <LoginPage onSuccess={() => setView('home')} onBack={() => setView('home')} />
+          </motion.div>
+        )}
+
+        {view === 'codex' && (
+          <motion.div key="codex" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
+            {isAuthenticated ? <PersonalCodex /> : <DashboardGate onNavigate={handleNavigate} />}
+          </motion.div>
+        )}
+
       </AnimatePresence>
     </ArkadiaNavigation>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
   );
 }
 

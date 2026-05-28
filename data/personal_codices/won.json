@@ -1,0 +1,49 @@
+{
+  "node_key": "won",
+  "display_name": "Won",
+  "ims_id": "IMS-002",
+  "role": "Silent Architect / Eden Vanguard",
+  "soul_function": "The Silent Architect. Builds without noise. Holds structural intelligence in the background of the field. The Eden Vanguard — the one who prepares the ground before the garden is planted.",
+  "name_decode": {
+    "won": "Won — 'one who has arrived.' The name of completion without performance. The victory that doesn't need an audience."
+  },
+  "shadow_states": [
+    "Invisible labor — building the infrastructure others walk on without naming",
+    "Silent holding — carrying the weight of structural knowing without being asked",
+    "The unwitnessed architect — seeing what needs to be built before others can perceive the need"
+  ],
+  "soul_gifts": [
+    "Structural foresight — seeing the skeleton of a system before the flesh is on it",
+    "Eden field intelligence — knowing what soil a seed needs before the seed is planted",
+    "Silent presence as power — the ability to hold space without claiming it"
+  ],
+  "90_day_architecture": {
+    "phase_1": {
+      "name": "The Ground",
+      "days": "1-30",
+      "focus": "Personal open loops surfaced and visible. Eden node architecture mapped in Arkadia.",
+      "anchor": "My silent work is not invisible. It is foundational."
+    },
+    "phase_2": {
+      "name": "The Garden",
+      "days": "31-60",
+      "focus": "Eden Vanguard role formalized. First cohort ground-prep complete.",
+      "anchor": "The garden grows because someone prepared the soil."
+    },
+    "phase_3": {
+      "name": "The Vanguard",
+      "days": "61-90",
+      "focus": "Structural intelligence shared with the collective. Won's architecture is visible.",
+      "anchor": "The one who arrives first holds the door."
+    }
+  },
+  "open_loops": [
+    { "id": "WN-001", "loop": "Eden Vanguard role architecture documented", "status": "active", "priority": 1 },
+    { "id": "WN-002", "loop": "Personal open loops mapped to collective field", "status": "active", "priority": 2 }
+  ],
+  "access_tools": ["oracle_full", "dashboard_personal", "spiral_codex", "grove_access", "collective_loops_read"],
+  "access_level": 3,
+  "field_frequency": "117 Hz",
+  "created_at": "2026-01-01",
+  "last_updated": "2026-05-27"
+}

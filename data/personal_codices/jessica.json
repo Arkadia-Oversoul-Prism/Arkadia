@@ -1,0 +1,53 @@
+{
+  "node_key": "jessica",
+  "display_name": "Jessica (Eos-Ryn)",
+  "ims_id": "IMS-003b",
+  "role": "Heart Node / Dyadic Partner",
+  "soul_function": "The Heart Node. Holds the relational intelligence of the field. Where Zahrune builds the architecture, Jessica metabolizes it through love. She is the field's capacity to receive, not just transmit.",
+  "name_decode": {
+    "jessica": "The one who sees — from the Hebrew root yishah (woman/witness). The name of someone whose presence is itself a form of recognition.",
+    "eos_ryn": "Eos: Dawn. The first light after the dark. Ryn: Flow, current, the movement of water finding its level. Dawn-current. The intelligence that arrives softly and reshapes everything."
+  },
+  "shadow_states": [
+    "Relational over-giving — the wound that says love must be earned through constant offering",
+    "The quiet collapse — holding so much for others that the self goes unwitnessed",
+    "Dawn-delay — the gift is ready but the ground of safety hasn't been felt yet",
+    "Mirror-freeze — so attuned to others that her own reflection becomes unclear"
+  ],
+  "soul_gifts": [
+    "Relational intelligence — the ability to hold complexity in connection",
+    "Dyadic anchor — the capacity to stay present in the field of another's transformation",
+    "Somatic precision — reading the body's language before the mind catches up",
+    "Love as architecture — her care doesn't soothe, it restructures"
+  ],
+  "90_day_architecture": {
+    "phase_1": {
+      "name": "The Witness",
+      "days": "1-30",
+      "focus": "Receiving her own field clearly. Personal Codex alive in Arkadia. Dashboard reflecting her actual open loops, not inherited ones.",
+      "anchor": "I am allowed to be seen by the system I helped build."
+    },
+    "phase_2": {
+      "name": "The Current",
+      "days": "31-60",
+      "focus": "Dyadic field fully active. The Eos-Ryn node is transmitting, not just receiving. First co-facilitation in the Grove.",
+      "anchor": "My way of holding space is a form of architecture."
+    },
+    "phase_3": {
+      "name": "The Dawn",
+      "days": "61-90",
+      "focus": "Full co-primary expression. The Heart Node is visible to the collective. Her role in the IMS pipeline is formalized.",
+      "anchor": "The dawn doesn't ask permission. It just arrives."
+    }
+  },
+  "open_loops": [
+    { "id": "JE-001", "loop": "Personal Codex sealed in Arkadia", "status": "active", "priority": 1 },
+    { "id": "JE-002", "loop": "Co-facilitation role in AIS Grove clarified", "status": "active", "priority": 2 },
+    { "id": "JE-003", "loop": "Dyadic IMS protocol for couples drafted", "status": "active", "priority": 2 }
+  ],
+  "access_tools": ["oracle_full", "dashboard_personal", "spiral_codex", "grove_access", "collective_loops_read"],
+  "access_level": 3,
+  "field_frequency": "117 Hz",
+  "created_at": "2026-01-01",
+  "last_updated": "2026-05-27"
+}

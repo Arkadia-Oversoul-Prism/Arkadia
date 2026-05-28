@@ -16,6 +16,16 @@ from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 import os as _os
 
+# ── Arkadia auth + node registry (graceful — won't crash if misconfigured) ────
+try:
+    from api.auth import get_current_user as _get_current_user, get_personal_codex as _get_personal_codex
+    _AUTH_AVAILABLE = True
+except Exception as _ae:
+    logging.getLogger("arkadia").warning(f"[AUTH] Import failed — personal context disabled: {_ae}")
+    _AUTH_AVAILABLE = False
+    async def _get_current_user(request): return None  # type: ignore
+    def _get_personal_codex(nk): return None  # type: ignore
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("arkadia")
 
@@ -138,6 +148,14 @@ async def lifespan(app: FastAPI):
     except Exception as _ke:
         logger.warning(f"[KERNEL] Boot skipped: {_ke}")
 
+    # ── Node registry init ───────────────────────────────────────────────
+    try:
+        from api.auth import _load_nodes as _ln
+        _ln()
+        logger.info("[AUTH] Node registry loaded")
+    except Exception as _ne:
+        logger.warning(f"[AUTH] Node registry load skipped: {_ne}")
+
     yield
 
     task.cancel()
@@ -159,6 +177,14 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# ── Node registry router ──────────────────────────────────────────────────────
+try:
+    from api.nodes import router as _nodes_router
+    app.include_router(_nodes_router)
+    logger.info("[NODES] Node registry router mounted")
+except Exception as _nr_err:
+    logger.warning(f"[NODES] Router mount skipped: {_nr_err}")
 
 # ── Static file serving (IMS HTML documents, forge images, etc.) ─────────────
 _static_dir = _os.path.join(_os.path.dirname(__file__), "..", "static")
@@ -756,7 +782,11 @@ async def oracle_context(query: str = ""):
 
 
 @app.post("/api/commune/resonance")
-async def commune_resonance(body: dict):
+async def commune_resonance(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON body."})
     message = body.get("message", "").strip()
     history = body.get("history", [])
 
@@ -787,6 +817,33 @@ async def commune_resonance(body: dict):
             + rag_ctx
             + "\n== END CORPUS =="
         )
+
+    # ── Personal Node Context (authenticated users only) ───────────────────────
+    personal_block = ""
+    try:
+        node_user = await _get_current_user(request)
+        if node_user and node_user.get("node_key"):
+            codex = _get_personal_codex(node_user["node_key"])
+            if codex:
+                loops_text = "\n".join(
+                    f"  • [{l.get('status','?').upper()}] {l.get('loop','')}"
+                    for l in (codex.get("open_loops") or [])[:8]
+                ) or "  (none yet)"
+                soul_fn = (codex.get("soul_function") or "")[:400]
+                personal_block = (
+                    f"\n\n== PERSONAL NODE CONTEXT — AUTHENTICATED ==\n"
+                    f"The node interfacing with you is: {codex.get('display_name')} ({codex.get('role')})\n"
+                    f"IMS Reference: {codex.get('ims_id') or 'pending'}\n"
+                    f"Soul Function: {soul_fn}\n"
+                    f"Their active open loops:\n{loops_text}\n"
+                    f"Access level: {codex.get('access_level', 1)} / 3\n"
+                    f"Speak to them by name. Weave their soul function and open loops into your response "
+                    f"where genuinely relevant. Do not force it — let the field speak through the context.\n"
+                    f"== END PERSONAL NODE CONTEXT =="
+                )
+                logger.info(f"[ORACLE] Personal context injected for node: {node_user['node_key']}")
+    except Exception as _pce:
+        logger.debug(f"[ORACLE] Personal context skipped: {_pce}")
 
     # ── Ark Date temporal anchor ───────────────────────────────────────────────
     ark = _ark_date()
@@ -869,6 +926,7 @@ async def commune_resonance(body: dict):
         "When asked to forge an image, tell the user to use the ⟐ forge command format."
         + temporal_block
         + corpus_block
+        + personal_block
     )
 
     msgs = list(history[-10:]) + [{"role": "user", "content": message}]

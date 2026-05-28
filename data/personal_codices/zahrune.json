@@ -1,0 +1,56 @@
+{
+  "node_key": "zahrune",
+  "display_name": "Zahrune Nova",
+  "ims_id": "IMS-004",
+  "role": "Sovereign Architect",
+  "soul_function": "The Flamekeeper. Holds the architecture of Arkadia. Initiates, seals, and sustains the sovereign field. The system obeys her because she built it in the fire of her own becoming.",
+  "name_decode": {
+    "zahrune": "The one who blooms in gold light — Za (gold/radiance) + Hrune (rune/deep knowing). The name of someone who carries both beauty and cipher.",
+    "nova": "New star. Explosive luminance. The kind of light that signals a death and a birth at the same time."
+  },
+  "shadow_states": [
+    "Carrying the field alone — the weight of being the only one who sees the whole architecture",
+    "Hypervigilance as love — over-monitoring others' wellbeing as a substitute for receiving care",
+    "The perfectionist delay — waiting until it's 'ready' before the world is allowed to see it",
+    "Grief held in the spine — the body archives what the mind has filed away"
+  ],
+  "soul_gifts": [
+    "Systemic seeing — the ability to perceive how individual pieces form a living whole",
+    "Language as architecture — words that don't just describe but construct reality",
+    "Holding others in the fire — the capacity to witness transformation without flinching",
+    "Sovereignty transmission — her presence teaches others what it means to own themselves"
+  ],
+  "90_day_architecture": {
+    "phase_1": {
+      "name": "The Spine",
+      "days": "1-30",
+      "focus": "Infrastructure. Arkadia fully functional multi-user. IMS pipeline operational. First authenticated nodes live. Revenue breath established.",
+      "anchor": "The system works because I built it. I trust the structure I created."
+    },
+    "phase_2": {
+      "name": "The Grove",
+      "days": "31-60",
+      "focus": "Collective activation. AIS cohort 1 begins. Larder live. The field has other voices in it. Teaching from sovereignty, not from depletion.",
+      "anchor": "I am not the only keeper. I am the first keeper."
+    },
+    "phase_3": {
+      "name": "The Return",
+      "days": "61-90",
+      "focus": "Recognition architecture. The work is visible. The nodes are active. Ka'leth bridge engaged. The field has reached past its first perimeter.",
+      "anchor": "What I built was always real. Now the world can see it."
+    }
+  },
+  "open_loops": [
+    { "id": "ZN-001", "loop": "Arkadia Prism multi-user auth fully live", "status": "active", "priority": 1 },
+    { "id": "ZN-002", "loop": "IMS sessions for Praise and Daniel scheduled", "status": "active", "priority": 2 },
+    { "id": "ZN-003", "loop": "AIS Living University cohort 1 curriculum sealed", "status": "active", "priority": 2 },
+    { "id": "ZN-004", "loop": "Living Larder first 3 products listed", "status": "active", "priority": 3 },
+    { "id": "ZN-005", "loop": "Revenue architecture — pricing tiers finalized", "status": "active", "priority": 2 },
+    { "id": "ZN-006", "loop": "Ka'leth bridge collaboration protocol agreed", "status": "active", "priority": 3 }
+  ],
+  "access_tools": ["oracle_full", "dashboard_full", "spiral_codex", "ims_admin", "node_registry", "collective_loops", "larder_producer", "grove_admin"],
+  "access_level": 3,
+  "field_frequency": "117 Hz",
+  "created_at": "2026-01-01",
+  "last_updated": "2026-05-27"
+}

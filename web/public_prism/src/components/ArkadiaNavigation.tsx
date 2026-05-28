@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../contexts/AuthContext';
 
-type View = 'home' | 'gate' | 'commune' | 'reset' | 'nexus' | 'sanctuary' | 'dashboard' | 'about';
+type View = 'home' | 'gate' | 'commune' | 'reset' | 'nexus' | 'sanctuary' | 'dashboard' | 'about' | 'login' | 'codex';
 
 interface NavProps {
   currentView: View;
@@ -19,8 +20,129 @@ const navItems: { label: string; view: View }[] = [
   { label: 'About',     view: 'about' },
 ];
 
+function UserIndicator({ onNavigate }: { onNavigate: (v: View) => void }) {
+  const { user, profile, signOut, isAuthenticated } = useAuth();
+  const [open, setOpen] = useState(false);
+
+  if (!isAuthenticated) {
+    return (
+      <button
+        onClick={() => onNavigate('login')}
+        style={{
+          padding: '5px 12px',
+          background: 'rgba(201,168,76,0.07)',
+          border: '1px solid rgba(201,168,76,0.22)',
+          borderRadius: '6px',
+          color: 'rgba(201,168,76,0.65)',
+          fontFamily: 'sans-serif',
+          fontSize: '9px',
+          letterSpacing: '0.2em',
+          textTransform: 'uppercase',
+          cursor: 'pointer',
+          transition: 'all 0.2s',
+        }}
+        data-testid="button-nav-login"
+      >
+        🔐 Node Login
+      </button>
+    );
+  }
+
+  const displayName = profile?.display_name || user?.displayName || user?.email?.split('@')[0] || 'Node';
+  const sigil = profile?.role_sigil || '◈';
+  const accessColor = (profile?.access_level ?? 0) >= 3 ? '#C9A84C' : '#00D4AA';
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '7px',
+          padding: '5px 12px',
+          background: `${accessColor}09`,
+          border: `1px solid ${accessColor}30`,
+          borderRadius: '6px',
+          color: accessColor,
+          fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase',
+          cursor: 'pointer', transition: 'all 0.2s',
+        }}
+        data-testid="button-user-menu"
+      >
+        <span>{sigil}</span>
+        <span>{displayName}</span>
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.15 }}
+            style={{
+              position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+              background: 'rgba(10,10,15,0.97)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '10px',
+              overflow: 'hidden',
+              minWidth: '160px',
+              zIndex: 100,
+              backdropFilter: 'blur(20px)',
+            }}
+          >
+            <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+              <p style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: accessColor, margin: '0 0 2px' }}>
+                {profile?.role ?? 'Authenticated Node'}
+              </p>
+              <p style={{ fontFamily: 'sans-serif', fontSize: '10px', color: 'rgba(232,232,232,0.4)', margin: 0 }}>
+                {user?.email}
+              </p>
+            </div>
+            {[
+              { label: '✦ Personal Codex', action: () => { onNavigate('codex'); setOpen(false); } },
+              { label: '◈ Dashboard', action: () => { onNavigate('dashboard'); setOpen(false); } },
+            ].map(item => (
+              <button
+                key={item.label}
+                onClick={item.action}
+                style={{
+                  display: 'block', width: '100%', textAlign: 'left',
+                  padding: '10px 14px',
+                  background: 'none', border: 'none',
+                  color: 'rgba(232,232,232,0.55)',
+                  fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase',
+                  cursor: 'pointer', transition: 'color 0.15s',
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+              <button
+                onClick={() => { signOut(); setOpen(false); }}
+                style={{
+                  display: 'block', width: '100%', textAlign: 'left',
+                  padding: '10px 14px',
+                  background: 'none', border: 'none',
+                  color: 'rgba(232,82,70,0.5)',
+                  fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase',
+                  cursor: 'pointer',
+                }}
+                data-testid="button-sign-out"
+              >
+                ← Sign Out
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, children }) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { isAuthenticated, profile } = useAuth();
 
   return (
     <div className="relative min-h-screen" style={{ backgroundColor: '#0A0A0F' }}>
@@ -66,6 +188,21 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
               </button>
             );
           })}
+          {isAuthenticated && profile && (
+            <button
+              onClick={() => onNavigate('codex')}
+              style={{
+                fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
+                color: currentView === 'codex' ? '#C9A84C' : 'rgba(201,168,76,0.5)',
+                background: 'none', border: 'none', cursor: 'pointer', paddingBottom: '4px',
+                borderBottom: currentView === 'codex' ? '1px solid #C9A84C' : '1px solid transparent',
+                transition: 'color 0.2s, border-color 0.2s',
+              }}
+            >
+              Codex
+            </button>
+          )}
+          <UserIndicator onNavigate={onNavigate} />
         </div>
       </nav>
 
@@ -101,6 +238,15 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
                 </button>
               );
             })}
+            {isAuthenticated && (
+              <button onClick={() => { onNavigate('codex'); setMenuOpen(false); }}
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '14px 24px', fontFamily: 'sans-serif', fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', color: currentView === 'codex' ? '#C9A84C' : 'rgba(201,168,76,0.55)', background: 'none', border: 'none', borderLeft: '2px solid transparent', cursor: 'pointer' }}>
+                ✦ Codex
+              </button>
+            )}
+            <div style={{ padding: '12px 24px', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+              <UserIndicator onNavigate={(v) => { onNavigate(v); setMenuOpen(false); }} />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
