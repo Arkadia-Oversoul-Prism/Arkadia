@@ -212,3 +212,58 @@ def init_piper(voice_name: str = DEFAULT_VOICE) -> bool:
     """Initialize Piper TTS with specified voice."""
     piper = get_piper()
     return piper.load_voice(voice_name)
+
+
+def warm_up_piper(voice_name: str = DEFAULT_VOICE) -> dict:
+    """
+    Pre-initialize Piper TTS at startup.
+    Downloads voice model and loads the engine for immediate use.
+    Returns status dict for logging.
+    """
+    import urllib.request
+    
+    piper = get_piper()
+    voice_info = AVAILABLE_VOICES.get(voice_name, AVAILABLE_VOICES[DEFAULT_VOICE])
+    onnx_path = VOICE_DIR / f"{voice_name}.onnx"
+    config_path = VOICE_DIR / f"{voice_name}.onnx.json"
+    
+    status = {
+        "voice": voice_name,
+        "model_downloaded": False,
+        "engine_ready": False,
+        "error": None,
+    }
+    
+    # Download model if needed
+    try:
+        if not onnx_path.exists():
+            logger.info(f"[PIPER] Pre-downloading voice model: {voice_name}...")
+            urllib.request.urlretrieve(voice_info["onnx"], onnx_path)
+            logger.info(f"[PIPER] Downloaded: {onnx_path.name}")
+        else:
+            logger.info(f"[PIPER] Model already exists: {onnx_path.name}")
+        
+        if not config_path.exists():
+            urllib.request.urlretrieve(voice_info["config"], config_path)
+            logger.info(f"[PIPER] Downloaded: {config_path.name}")
+        
+        status["model_downloaded"] = True
+        
+    except Exception as e:
+        logger.error(f"[PIPER] Model download failed: {e}")
+        status["error"] = str(e)
+        return status
+    
+    # Load the engine
+    try:
+        success = piper.load_voice(voice_name)
+        status["engine_ready"] = success
+        if success:
+            logger.info(f"[PIPER] Engine ready: {voice_name}")
+        else:
+            status["error"] = "Failed to load voice"
+    except Exception as e:
+        logger.error(f"[PIPER] Engine load failed: {e}")
+        status["error"] = str(e)
+    
+    return status

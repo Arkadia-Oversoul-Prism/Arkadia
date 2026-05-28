@@ -148,6 +148,18 @@ async def lifespan(app: FastAPI):
     except Exception as _ke:
         logger.warning(f"[KERNEL] Boot skipped: {_ke}")
 
+    # ── Piper TTS warmup ────────────────────────────────────────────────
+    try:
+        from kernel.tts import warm_up_piper
+        logger.info("[PIPER] Warming up TTS engine...")
+        tts_status = warm_up_piper()
+        if tts_status["engine_ready"]:
+            logger.info(f"[PIPER] TTS ready: {tts_status['voice']}")
+        else:
+            logger.warning(f"[PIPER] TTS warmup failed: {tts_status.get('error', 'unknown')}")
+    except Exception as _pe:
+        logger.warning(f"[PIPER] Warmup skipped: {_pe}")
+
     # ── Node registry init ───────────────────────────────────────────────
     try:
         from api.auth import _load_nodes as _ln
@@ -1660,7 +1672,7 @@ async def text_to_speech(request: Request):
 @app.get("/api/tts/status")
 async def tts_status():
     """Check TTS engine status."""
-    from kernel.tts import get_piper
+    from kernel.tts import get_piper, AVAILABLE_VOICES
     piper = get_piper()
     return {
         "engine": "piper",
