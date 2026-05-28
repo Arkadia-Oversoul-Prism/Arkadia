@@ -54,4 +54,6 @@ dependencies {
     implementation(libs.okhttp)
     // MediaSessionCompat + MediaStyle notification
     implementation(libs.androidx.media)
+    // CardView — used by overlay_player.xml
+    implementation(libs.androidx.cardview)
 }

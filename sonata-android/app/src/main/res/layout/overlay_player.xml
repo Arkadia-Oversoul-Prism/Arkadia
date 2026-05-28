@@ -64,13 +64,13 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center"
-            android:gap="8dp">
+            android:gravity="center">
 
             <ImageButton
                 android:id="@+id/btnPlayPause"
                 android:layout_width="36dp"
                 android:layout_height="36dp"
+                android:layout_marginEnd="6dp"
                 android:src="@android:drawable/ic_media_pause"
                 android:background="@drawable/bg_play_btn"
                 android:tint="@color/bg_dark"
@@ -80,6 +80,7 @@
                 android:id="@+id/btnStop"
                 android:layout_width="32dp"
                 android:layout_height="32dp"
+                android:layout_marginEnd="6dp"
                 android:src="@android:drawable/ic_media_previous"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:tint="@color/text_secondary"
@@ -93,7 +94,6 @@
                 android:text="1.0×"
                 android:textSize="10sp"
                 android:textColor="@color/text_secondary"
-                android:strokeColor="@color/overlay_border"
                 android:paddingStart="8dp"
                 android:paddingEnd="8dp"
                 android:minWidth="0dp"

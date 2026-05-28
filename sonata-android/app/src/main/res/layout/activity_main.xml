@@ -132,8 +132,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center"
-            android:layout_marginBottom="24dp"
-            android:gap="12dp">
+            android:layout_marginBottom="24dp">
 
             <Button
                 android:id="@+id/btnSpeak"
@@ -141,6 +140,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:layout_marginEnd="4dp"
                 android:text="▶ Speak"
                 android:backgroundTint="@color/accent_teal"
                 android:textColor="@color/bg_dark" />
@@ -151,6 +151,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:layout_marginEnd="4dp"
                 android:text="Pause"
                 android:enabled="false" />
 

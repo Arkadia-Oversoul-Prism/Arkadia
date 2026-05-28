@@ -32,13 +32,18 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x sonata-android/gradlew
 
-      # ── Build ────────────────────────────────────────────────────────────
+      # ── Build debug APK (always installable, no signing needed) ─────────
+      - name: Build Debug APK
+        working-directory: sonata-android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      # ── Build release APK ────────────────────────────────────────────────
       - name: Build Release APK
         working-directory: sonata-android
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
-      # ── Sign (optional — skipped if secrets are not set) ────────────────
-      - name: Sign APK
+      # ── Sign release with provided keystore ─────────────────────────────
+      - name: Sign Release APK (provided keystore)
         if: ${{ secrets.SIGNING_KEY != '' }}
         uses: r0adkll/sign-android-release@v1
         id: sign
@@ -51,8 +56,37 @@ jobs:
         env:
           BUILD_TOOLS_VERSION: "34.0.0"
 
-      # ── Upload signed APK (if signing ran) ───────────────────────────────
-      - name: Upload Signed APK
+      # ── Auto-sign release with generated debug keystore (no secrets) ────
+      - name: Sign Release APK (generated debug keystore)
+        if: ${{ secrets.SIGNING_KEY == '' }}
+        run: |
+          keytool -genkeypair -v \
+            -keystore sonata-debug.jks \
+            -alias sonata \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass sonata123 \
+            -keypass sonata123 \
+            -dname "CN=Sonata Debug, OU=Arkadia, O=Arkadia Intelligence, L=Earth, ST=Earth, C=US"
+
+          APK=$(find sonata-android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          SIGNED="${APK%.apk}-installable.apk"
+
+          BUILD_TOOLS=$ANDROID_HOME/build-tools/34.0.0
+          $BUILD_TOOLS/zipalign -v -p 4 "$APK" "${APK%.apk}-aligned.apk"
+          $BUILD_TOOLS/apksigner sign \
+            --ks sonata-debug.jks \
+            --ks-key-alias sonata \
+            --ks-pass pass:sonata123 \
+            --key-pass pass:sonata123 \
+            --out "$SIGNED" \
+            "${APK%.apk}-aligned.apk"
+
+          echo "INSTALLABLE_APK=$SIGNED" >> $GITHUB_ENV
+
+      # ── Upload signed release APK (provided keystore path) ──────────────
+      - name: Upload Signed Release APK
         if: ${{ secrets.SIGNING_KEY != '' }}
         uses: actions/upload-artifact@v4
         with:
@@ -60,13 +94,21 @@ jobs:
           path: ${{ steps.sign.outputs.signedReleaseFile }}
           retention-days: 30
 
-      # ── Upload unsigned APK (fallback / dev builds) ──────────────────────
-      - name: Upload Unsigned APK
+      # ── Upload auto-signed release APK (generated keystore path) ────────
+      - name: Upload Auto-Signed Release APK
         if: ${{ secrets.SIGNING_KEY == '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: Sonata-release-unsigned-${{ github.sha }}
-          path: sonata-android/app/build/outputs/apk/release/*.apk
+          name: Sonata-release-installable-${{ github.sha }}
+          path: ${{ env.INSTALLABLE_APK }}
+          retention-days: 30
+
+      # ── Upload debug APK (always — directly installable on any device) ───
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sonata-debug-${{ github.sha }}
+          path: sonata-android/app/build/outputs/apk/debug/*.apk
           retention-days: 30
 
       # ── Build summary ─────────────────────────────────────────────────────
