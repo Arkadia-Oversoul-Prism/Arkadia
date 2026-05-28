@@ -66,7 +66,7 @@ const HELP_TEXT = `**Arkana Commands**
 Or simply speak — Arkana reads the living corpus and responds.`;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const API_BASE    = import.meta.env.VITE_API_URL || 'https://arkadia-n26k.onrender.com';
+const API_BASE    = import.meta.env.VITE_API_URL || '';
 const STORAGE_KEY = 'arkadia_commune_thread';
 const TOKEN_KEY   = 'arkadia_sovereign_token';
 

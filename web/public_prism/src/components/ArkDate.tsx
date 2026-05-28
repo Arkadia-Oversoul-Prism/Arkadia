@@ -21,7 +21,7 @@ interface ArkDateData {
 }
 
 const API_BASE =
-  import.meta.env.VITE_API_URL || 'https://arkadia-n26k.onrender.com'
+  import.meta.env.VITE_API_URL || ''
 
 interface Props {
   sovereignMode?: boolean

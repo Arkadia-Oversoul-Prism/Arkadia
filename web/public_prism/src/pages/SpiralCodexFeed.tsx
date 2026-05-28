@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://arkadia-n26k.onrender.com';
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 // Map category keys to display metadata
 const CATEGORY_META: Record<string, { label: string; color: string; icon: string }> = {

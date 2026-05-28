@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSpiralQuantumResonance } from '../hooks/useSpiralQuantumResonance';
 import MoonPhaseRing from '../components/MoonPhaseRing';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://arkadia-n26k.onrender.com';
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 interface LivingGateProps {
   onEnterField: (soulPhrase: string) => void;

@@ -11,7 +11,7 @@ const SECTIONS: { key: Section; label: string; color: string }[] = [
   { key: 'mission', label: 'Mission', color: '#E88C6A' },
 ];
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://arkadia-n26k.onrender.com';
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 export default function AboutArkadia() {
   const [section, setSection] = useState<Section>('sovereign');

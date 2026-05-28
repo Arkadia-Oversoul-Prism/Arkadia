@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ArkDate from './ArkDate';
 import MarkdownViewer from './MarkdownViewer';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://arkadia-n26k.onrender.com';
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
