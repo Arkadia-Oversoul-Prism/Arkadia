@@ -15,6 +15,7 @@ locally without credentials.
 """
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import os
@@ -63,6 +64,19 @@ _init_firebase()
 
 
 # ── Token verification ───────────────────────────────────────────────────────
+
+def _decode_jwt_payload_unsafe(token: str) -> dict[str, Any] | None:
+    """Decode JWT payload without signature verification (dev-mode only)."""
+    try:
+        parts = token.split(".")
+        if len(parts) != 3:
+            return None
+        payload = parts[1]
+        payload += "=" * (4 - len(payload) % 4)
+        return json.loads(base64.urlsafe_b64decode(payload))
+    except Exception:
+        return None
+
 
 def verify_firebase_token(token: str) -> dict[str, Any] | None:
     """Return decoded Firebase claims dict, or None on failure."""
@@ -171,12 +185,23 @@ def _extract_token(request: Request) -> str | None:
 
 async def get_current_user(request: Request) -> dict[str, Any] | None:
     """Optional auth dependency. Returns user profile if token present + valid,
-    None if no token or invalid (does not raise)."""
+    None if no token or invalid (does not raise).
+
+    In dev-mode (no Firebase service account) the JWT signature is NOT verified —
+    the payload is decoded just to identify the user by email/uid so that the
+    node-registry lookup still works locally.
+    """
     token = _extract_token(request)
     if not token:
         return None
     if _dev_mode:
-        return None
+        claims = _decode_jwt_payload_unsafe(token)
+        if not claims:
+            return None
+        uid = claims.get("user_id") or claims.get("sub") or "dev-user"
+        email = claims.get("email", "")
+        logger.debug(f"[AUTH] dev-mode — decoded token for uid={uid} email={email}")
+        return build_user_profile(uid, claims, email)
     claims = verify_firebase_token(token)
     if not claims:
         return None

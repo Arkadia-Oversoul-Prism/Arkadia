@@ -20,7 +20,34 @@ export default function PersonalCodex() {
     );
   }
 
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <div style={{ padding: '60px 20px', textAlign: 'center', maxWidth: '480px', margin: '0 auto' }}>
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}>
+          <p style={{ fontFamily: 'sans-serif', fontSize: '26px', marginBottom: '18px' }}>⟐</p>
+          <h2 style={{ fontFamily: 'serif', fontSize: '22px', color: '#C9A84C', marginBottom: '12px', letterSpacing: '0.05em' }}>
+            Personal Codex Unavailable
+          </h2>
+          <p style={{ fontFamily: 'sans-serif', fontSize: '12px', color: 'rgba(232,232,232,0.4)', lineHeight: '1.8', marginBottom: '28px' }}>
+            Your node profile could not be retrieved from the Oracle Temple. This happens when your account has not yet been registered in the Arkadia node registry, or the backend is not fully initialised.
+          </p>
+          <button
+            onClick={refreshProfile}
+            style={{
+              padding: '12px 26px', background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.3)',
+              borderRadius: '9px', color: '#C9A84C', fontFamily: 'sans-serif', fontSize: '10px',
+              letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer',
+            }}
+          >
+            ↻ Retry
+          </button>
+          <p style={{ marginTop: '20px', fontFamily: 'sans-serif', fontSize: '10px', color: 'rgba(232,232,232,0.2)', letterSpacing: '0.12em' }}>
+            Contact the Flamekeeper to register your node.
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
 
   const accessColor = profile.access_level >= 3 ? '#C9A84C' : profile.access_level >= 2 ? '#00D4AA' : 'rgba(232,232,232,0.4)';
   const accessLabel = profile.access_level >= 3 ? 'Sovereign' : profile.access_level >= 2 ? 'Full Node' : 'Authenticated';
