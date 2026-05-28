@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sonata</string>
+    <string name="app_description">Your voice, everywhere</string>
+    <string name="notification_channel_name">Playback</string>
+    <string name="notification_channel_description">Text-to-speech playback controls</string>
+    <string name="speak_with_sonata">Speak with Sonata</string>
+    <string name="pause">Pause</string>
+    <string name="play">Play</string>
+    <string name="stop">Stop</string>
+    <string name="close">Close</string>
+</resources>

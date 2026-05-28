@@ -1,0 +1,2 @@
+- [TTS Engine](tts-engine.md) — Edge TTS (Microsoft Neural) replaced Piper as Oracle voice; no API key, no model download.
+- [Voice Architecture](voice-architecture.md) — voiceContext singleton broadcasts to SonataBar; OracleVoicePlayer publishes; both survive SPA navigation.

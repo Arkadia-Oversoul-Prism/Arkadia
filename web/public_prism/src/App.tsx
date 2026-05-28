@@ -11,6 +11,7 @@ import DashboardView from './pages/DashboardView';
 import NexusPage from './pages/NexusPage';
 import LoginPage from './pages/LoginPage';
 import PersonalCodex from './pages/PersonalCodex';
+import SonataBar from './components/SonataBar';
 
 type View = 'home' | 'gate' | 'commune' | 'reset' | 'nexus' | 'sanctuary' | 'dashboard' | 'about' | 'login' | 'codex';
 
@@ -270,6 +271,7 @@ function AppInner() {
 
   return (
     <ArkadiaNavigation currentView={view} onNavigate={handleNavigate}>
+      <SonataBar />
       <AnimatePresence mode="wait">
 
         {view === 'home' && (

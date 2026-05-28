@@ -148,17 +148,8 @@ async def lifespan(app: FastAPI):
     except Exception as _ke:
         logger.warning(f"[KERNEL] Boot skipped: {_ke}")
 
-    # ── Piper TTS warmup ────────────────────────────────────────────────
-    try:
-        from kernel.tts import warm_up_piper
-        logger.info("[PIPER] Warming up TTS engine...")
-        tts_status = warm_up_piper()
-        if tts_status["engine_ready"]:
-            logger.info(f"[PIPER] TTS ready: {tts_status['voice']}")
-        else:
-            logger.warning(f"[PIPER] TTS warmup failed: {tts_status.get('error', 'unknown')}")
-    except Exception as _pe:
-        logger.warning(f"[PIPER] Warmup skipped: {_pe}")
+    # ── TTS engine note ──────────────────────────────────────────────────
+    logger.info("[TTS] Edge TTS neural engine active — no warmup needed.")
 
     # ── Node registry init ───────────────────────────────────────────────
     try:
@@ -1610,75 +1601,71 @@ async def delete_goal(goal_id: str):
 
 # ── Tools ─────────────────────────────────────────────────────────────────────
 
-# ── Piper TTS endpoint (primary) ────────────────────────────────────────────────
+# ── Edge TTS endpoint ──────────────────────────────────────────────────────────
 
 @app.post("/api/tts")
 async def text_to_speech(request: Request):
-    """Piper TTS synthesis - offline, high-quality, no API key required."""
+    """
+    Neural TTS synthesis via Microsoft Edge TTS.
+    Natural, human-like voices with emotional range — no API key required.
+    Request: { text, voice?, speed? }
+    Response: MP3 audio stream (audio/mpeg)
+    """
     try:
         body = await request.json()
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON body")
 
-    text  = (body.get("text") or "").strip()
-    speed = float(body.get("speed", 1.0))
-    speed = max(0.5, min(2.0, speed))
-    voice = body.get("voice", "amy-medium")
+    text      = (body.get("text") or "").strip()
+    speed     = float(body.get("speed", 1.0))
+    speed     = max(0.5, min(2.0, speed))
+    voice_key = (body.get("voice") or "aria").strip()
 
     if not text:
         raise HTTPException(status_code=400, detail="text is required")
 
-    # Clamp text length
-    text = text[:4500]
-
-    # Get or init Piper engine
-    from kernel.tts import get_piper, PiperTTS
-    piper = get_piper()
-
-    # Lazy init on first request
-    if not piper.is_ready():
-        logger.info("[TTS] Initializing Piper TTS engine...")
-        if not piper.load_voice(voice):
-            raise HTTPException(status_code=503, detail="TTS engine not ready - please retry")
-
     try:
-        # Synthesize audio (run in thread to avoid blocking)
         import asyncio
         from concurrent.futures import ThreadPoolExecutor
+        from kernel.tts import synthesize
 
-        loop = asyncio.get_event_loop()
-        executor = ThreadPoolExecutor(max_workers=1)
-
-        audio_bytes = await loop.run_in_executor(
+        loop     = asyncio.get_event_loop()
+        executor = ThreadPoolExecutor(max_workers=2)
+        audio_bytes, media_type = await loop.run_in_executor(
             executor,
-            lambda: piper.synthesize(text, speed)
+            lambda: synthesize(text, voice_key, speed),
         )
         executor.shutdown(wait=False)
 
-        logger.info(f"[TTS] Synthesized {len(text)} chars at {speed}× speed → {len(audio_bytes)} bytes")
+        logger.info(f"[TTS] {voice_key} {speed}× → {len(audio_bytes)} bytes ({media_type})")
 
     except Exception as e:
-        logger.error(f"[TTS] Piper synthesis failed: {e}")
-        raise HTTPException(status_code=502, detail=f"TTS synthesis failed: {e}")
+        logger.error(f"[TTS] Synthesis failed: {e}")
+        raise HTTPException(status_code=502, detail=f"TTS synthesis failed: {str(e)}")
 
     from fastapi.responses import Response as _Response
     return _Response(
         content=audio_bytes,
-        media_type="audio/wav",
+        media_type=media_type,
         headers={"Cache-Control": "public, max-age=3600"},
     )
+
+
+@app.get("/api/tts/voices")
+async def tts_voices():
+    """List available neural voice options."""
+    from kernel.tts import VOICES
+    return {"voices": VOICES, "default": "aria"}
 
 
 @app.get("/api/tts/status")
 async def tts_status():
     """Check TTS engine status."""
-    from kernel.tts import get_piper, AVAILABLE_VOICES
-    piper = get_piper()
     return {
-        "engine": "piper",
-        "ready": piper.is_ready(),
-        "voice": piper.voice_name,
-        "available_voices": list(AVAILABLE_VOICES.keys()),
+        "engine":  "edge_tts",
+        "ready":   True,
+        "voices":  list(__import__("kernel.tts", fromlist=["VOICES"]).VOICES.keys()),
+        "default": "aria",
     }
 
 
