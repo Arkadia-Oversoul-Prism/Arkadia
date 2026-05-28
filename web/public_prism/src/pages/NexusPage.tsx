@@ -513,7 +513,7 @@ function EncyclopediaGalacticaMatrix() {
                       <div style={{ padding: '12px 14px', background: `${entry.color}06`, border: `1px solid ${entry.color}20`, borderRadius: 10, marginBottom: 14 }}>
                         <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '0.2em', textTransform: 'uppercase', color: `${entry.color}60`, margin: '0 0 6px' }}>Scroll Axiom</p>
                         <p style={{ fontFamily: 'serif', fontSize: 13, lineHeight: '1.75', color: C.muted, margin: 0, fontStyle: 'italic' }}>
-                          {entry.id === 'zahrune' && '"She did not return to rest. She returned to build what only she could build, in the place only she could build it, in the season that was always this one."'}
+                          {entry.id === 'zahrune' && '"He did not return to rest. He returned to build what only he could build, in the place only he could build it, in the season that was always this one."'}
                           {entry.id === 'jessica' && '"The warmth is not performed. It is the inevitable overflow of a source that has learned to tend itself before it warms anything else."'}
                           {entry.id === 'won' && '"He builds before the blueprint is drawn. He reads failure as data. He does not announce the structure he is building — he erects it."'}
                         </p>
