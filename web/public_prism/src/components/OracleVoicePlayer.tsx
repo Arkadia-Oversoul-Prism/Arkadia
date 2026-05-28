@@ -160,14 +160,21 @@ const OracleVoicePlayer: React.FC<OracleVoicePlayerProps> = ({
   // ── Generate audio via ElevenLabs proxy ──────────────────────────────────
   const generateElevenLabs = useCallback(async (plain: string): Promise<Blob | null> => {
     try {
+      console.log('[TTS] Calling /api/tts with text length:', plain.length);
       const res = await fetch(`${API_BASE}/api/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: plain, speed }),
       });
-      if (!res.ok) return null;
+      console.log('[TTS] Response status:', res.status);
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error('[TTS] Error response:', errText);
+        return null;
+      }
       return await res.blob();
-    } catch {
+    } catch (err) {
+      console.error('[TTS] Fetch error:', err);
       return null;
     }
   }, [speed]);
@@ -218,6 +225,7 @@ const OracleVoicePlayer: React.FC<OracleVoicePlayerProps> = ({
 
     // Fallback: Web Speech API
     setUsedFallback(true);
+    console.log('[TTS] Falling back to Web Speech API');
     setToast('ElevenLabs unavailable — using browser voice as fallback.');
     const voices = await getVoicesAsync();
     const voice  = pickBestVoice(voices);
