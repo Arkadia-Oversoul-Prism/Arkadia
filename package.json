@@ -1,11 +1,15 @@
 {
   "dependencies": {
+    "@google/genai": "^2.6.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.4.27",
+    "drizzle-zod": "^0.8.3",
     "framer-motion": "^12.38.0",
     "lucide-react": "^0.562.0",
+    "p-limit": "^7.3.0",
+    "p-retry": "^7.1.1",
     "postcss": "^8.5.8",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
@@ -13,6 +17,8 @@
     "tailwindcss": "^4.2.2",
     "typescript": "^6.0.2",
     "vite": "^8.0.3",
-    "wouter": "^3.9.0"
+    "wouter": "^3.9.0",
+    "zod": "^4.4.3",
+    "zod-validation-error": "^5.0.0"
   }
 }
