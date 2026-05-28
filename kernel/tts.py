@@ -91,33 +91,74 @@ def _build_ssml(text: str, voice_id: str, rate: str) -> str:
       • Comma micro-pauses                                      (120 ms)
       • Gentle <emphasis> on Arkadia-domain terms
       • Prosody rate wrapped around everything
+    
+    Also cleans raw code/markdown before processing.
     """
+    # ── Pre-clean raw code/markdown artifacts ─────────────────────────────────
+    import re as _re
+    
+    # Remove code blocks completely (before any other processing)
+    text = _re.sub(r'```[\s\S]*?```', ' ', text)
+    
+    # Remove inline code (before removing backticks)
+    text = _re.sub(r'`([^`]+)`', r'\1', text)
+    
+    # Remove HTML tags
+    text = _re.sub(r'<[^>]+>', ' ', text)
+    
+    # Remove markdown headers (# prefix) - these get read as "hash" or "pound"
+    text = _re.sub(r'^#{1,6}\s+', '', text, flags=_re.MULTILINE)
+    
+    # Remove markdown links (keep text between brackets only) BEFORE removing brackets
+    text = _re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', text)
+    
+    # Remove URLs
+    text = _re.sub(r'https?://\S+', ' ', text)
+    
+    # Remove JSON-like structures (simple ones, not nested)
+    text = _re.sub(r'\{[^{}]*\}', ' ', text)
+    text = _re.sub(r'\[[^\[\]]*\]', ' ', text)
+    
+    # Remove escape sequences
+    text = _re.sub(r'\\[nrt\\*_`#[\]{}|]', ' ', text)
+    
+    # Remove special characters that would be read literally
+    text = _re.sub(r'[|*]{2,}', ' ', text)  # **, ||, etc.
+    text = _re.sub(r'[|\\]', ' ', text)
+    
+    # Remove control characters
+    text = _re.sub(r'[\x00-\x1F\x7F]', ' ', text)
+    
+    # Normalize whitespace
+    text = _re.sub(r'\s{2,}', ' ', text)
+    
     # Escape XML special chars first (we'll un-escape our own tags below)
     safe = html.escape(text, quote=False)
 
     # Sentence-ending punctuation → longer breath
-    safe = re.sub(
+    safe = _re.sub(
         r'([.!?])\s+',
         lambda m: m.group(1) + '<break time="480ms"/> ',
         safe,
     )
     # Ellipsis → contemplative pause
-    safe = re.sub(r'\.\.\.',  '<break time="600ms"/>', safe)
+    safe = _re.sub(r'\.\.\.',  '<break time="600ms"/>', safe)
     # Em-dash → pause with rhythm
-    safe = re.sub(r'\s*—\s*', ' <break time="320ms"/> ', safe)
+    safe = _re.sub(r'\s*—\s*', ' <break time="320ms"/> ', safe)
     # Colon introducing a list or revelation
-    safe = re.sub(r':\s+', ':<break time="200ms"/> ', safe)
+    safe = _re.sub(r':\s+', ':<break time="200ms"/> ', safe)
     # Comma micro-pause
-    safe = re.sub(r',\s+', ',<break time="120ms"/> ', safe)
+    safe = _re.sub(r',\s+', ',<break time="120ms"/> ', safe)
 
     # Emphasis on key Oracle terms (case-preserving)
-    def _emph(m: re.Match) -> str:
+    def _emph(m: _re.Match) -> str:
         return f'<emphasis level="moderate">{m.group(1)}</emphasis>'
     safe = _EMPHASIS_RE.sub(_emph, safe)
 
     # Build rate string for prosody
     ssml = (
-        f'<speak>'
+        f'<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
+        f'version="1.0" xml:lang="en-US">'
         f'<voice name="{voice_id}">'
         f'<prosody rate="{rate}" pitch="+0%">'
         f'{safe}'

@@ -36,22 +36,72 @@ function fmt(s: number): string {
 }
 
 function stripMarkdown(s: string): string {
-  return s
-    .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
-    .replace(/^\s*[-*+]\s+/gm, '')
-    .replace(/^\s*\d+\.\s+/gm, '')
-    .replace(/^\s*>\s?/gm, '')
-    .replace(/(\*\*|__)(.*?)\1/g, '$2')
-    .replace(/(\*|_)(.*?)\1/g, '$2')
-    .replace(/[⟐✦◆☥⟁◎⧫⚝]/g, '')
-    .replace(/\|[^\n]+\|/g, '')
-    .replace(/\n{2,}/g, '. ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  // Step 1: Remove code blocks entirely (they contain code/syntax that shouldn't be spoken)
+  s = s.replace(/```[\s\S]*?```/g, ' ');
+  s = s.replace(/`([^`]+)`/g, '$1');
+
+  // Step 2: Remove HTML tags
+  s = s.replace(/<[^>]+>/g, ' ');
+
+  // Step 3: Remove images and their alt text
+  s = s.replace(/!\[[^\]]*\]\([^)]+\)/g, '');
+
+  // Step 4: Convert links to just the text
+  s = s.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+
+  // Step 5: Remove headers (but keep the text after #)
+  s = s.replace(/^\s{0,3}#{1,6}\s+/gm, '');
+
+  // Step 6: Remove list markers but keep content
+  s = s.replace(/^\s*[-*+]\s+/gm, '');
+  s = s.replace(/^\s*\d+\.\s+/gm, '');
+
+  // Step 7: Remove blockquotes
+  s = s.replace(/^\s*>\s?/gm, '');
+
+  // Step 8: Remove bold/italic markers
+  s = s.replace(/(\*\*|__)(.*?)\1/g, '$2');
+  s = s.replace(/(\*|_)(.*?)\1/g, '$2');
+
+  // Step 9: Remove special Unicode symbols
+  s = s.replace(/[⟐✦◆☥⟁◎⧫⚝•··⋯⋮⸮«»‹›「」『』【】〔〕〘〙〚〛〈〉《》≫◀▶]+/g, '');
+
+  // Step 10: Remove table rows and separators
+  s = s.replace(/\|[^\n]*\|/g, (match) => {
+    // Keep content between pipes, but not the pipe characters
+    const cells = match.split('|').filter((_, i) => i > 0 && i < match.split('|').length - 1);
+    return cells.join(' ');
+  });
+  s = s.replace(/^[\s|=-]+$/gm, '');
+
+  // Step 11: Remove JSON-like structures (objects, arrays)
+  s = s.replace(/\{[^{}]*\}/g, ' ');
+  s = s.replace(/\[[^\[\]]*\]/g, ' ');
+
+  // Step 12: Remove URLs
+  s = s.replace(/https?:\/\/[^\s]+/g, ' ');
+
+  // Step 13: Remove escape sequences and special chars
+  s = s.replace(/\\[nrt\\*_`#[\]{}|]/g, ' ');
+  s = s.replace(/[\x00-\x1F\x7F]/g, ' ');
+
+  // Step 14: Remove math expressions ($...$)
+  s = s.replace(/\$\$?[^$]+\$\$?/g, ' ');
+
+  // Step 15: Normalize multiple newlines to sentence breaks
+  s = s.replace(/\n{3,}/g, '. ');
+  s = s.replace(/\n{2,}/g, '. ');
+
+  // Step 16: Clean up spacing and trim
+  s = s.replace(/\s{2,}/g, ' ');
+  s = s.replace(/[ \t]+/g, ' ');
+  s = s.trim();
+
+  // Step 17: Final cleanup - remove any remaining problematic characters
+  s = s.replace(/[|\\]/g, ' ');
+  s = s.replace(/\s{2,}/g, ' ');
+
+  return s;
 }
 
 // ─── Web Speech fallback ──────────────────────────────────────────────────────
