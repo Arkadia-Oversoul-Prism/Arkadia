@@ -281,15 +281,15 @@ body {
    ───────────────────────────────────────────────────────────────────────────── */
 .arkadia-prose {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 13px;
-  line-height: 1.6;
-  color: rgba(232, 232, 232, 0.9);
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: rgba(218, 218, 218, 0.88);
   word-wrap: break-word;
   overflow-wrap: anywhere;
 }
 
 @media (max-width: 640px) {
-  .arkadia-prose { font-size: 12.5px; line-height: 1.6; }
+  .arkadia-prose { font-size: 12px; line-height: 1.62; }
 }
 
 .arkadia-prose > *:first-child { margin-top: 0; }
@@ -398,23 +398,36 @@ body {
   font-size: 1em;
 }
 
-/* Tables */
+/* Tables — full-width, no cramping */
 .arkadia-prose table {
   width: 100%;
-  margin: 0.9em 0;
+  margin: 1em 0;
   border-collapse: collapse;
-  font-size: 0.92em;
+  font-size: 0.9em;
+  table-layout: auto;
 }
+/* Scrollable wrapper is provided by MarkdownViewer via overflowX:auto on the div */
 .arkadia-prose th,
 .arkadia-prose td {
   text-align: left;
-  padding: 0.55em 0.75em;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0.55em 1em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  white-space: nowrap;
+  min-width: 80px;
+}
+.arkadia-prose td {
+  white-space: normal;
+  min-width: 100px;
 }
 .arkadia-prose th {
   font-weight: 600;
-  color: rgba(0, 212, 170, 0.9);
-  letter-spacing: 0.02em;
+  color: rgba(0, 212, 170, 0.85);
+  letter-spacing: 0.04em;
+  background: rgba(0, 212, 170, 0.03);
+  border-bottom-color: rgba(0, 212, 170, 0.18);
+}
+.arkadia-prose tr:hover td {
+  background: rgba(255, 255, 255, 0.018);
 }
 
 /* HR */

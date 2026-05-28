@@ -9,9 +9,9 @@ interface MarkdownViewerProps {
 
 const base: React.CSSProperties = {
   fontFamily: "'Georgia', 'Times New Roman', serif",
-  fontSize: '15px',
-  lineHeight: '1.85',
-  color: 'rgba(212,201,184,0.9)',
+  fontSize: '13px',
+  lineHeight: '1.75',
+  color: 'rgba(212,201,184,0.88)',
 };
 
 export default function MarkdownViewer({ content, compact = false }: MarkdownViewerProps) {
@@ -21,37 +21,37 @@ export default function MarkdownViewer({ content, compact = false }: MarkdownVie
         remarkPlugins={[remarkGfm]}
         components={{
           h1: ({ children }) => (
-            <h1 style={{ fontFamily: "'Cinzel', 'Georgia', serif", fontSize: compact ? '18px' : '22px', fontWeight: 600, color: '#e8c96a', letterSpacing: '0.08em', margin: '0 0 14px', lineHeight: 1.3, borderBottom: '1px solid rgba(201,168,76,0.18)', paddingBottom: '10px' }}>
+            <h1 style={{ fontFamily: "'Cinzel', 'Georgia', serif", fontSize: compact ? '15px' : '20px', fontWeight: 600, color: '#e8c96a', letterSpacing: '0.06em', margin: compact ? '16px 0 10px' : '0 0 14px', lineHeight: 1.3, borderBottom: '1px solid rgba(201,168,76,0.15)', paddingBottom: '8px' }}>
               {children}
             </h1>
           ),
           h2: ({ children }) => (
-            <h2 style={{ fontFamily: "'Cinzel', 'Georgia', serif", fontSize: compact ? '15px' : '17px', fontWeight: 600, color: '#c9a84c', letterSpacing: '0.06em', margin: '22px 0 10px', lineHeight: 1.35, borderLeft: '3px solid rgba(61,232,208,0.5)', paddingLeft: '12px' }}>
+            <h2 style={{ fontFamily: "'Cinzel', 'Georgia', serif", fontSize: compact ? '13px' : '16px', fontWeight: 600, color: '#c9a84c', letterSpacing: '0.05em', margin: compact ? '14px 0 7px' : '20px 0 10px', lineHeight: 1.35, borderLeft: '2px solid rgba(61,232,208,0.4)', paddingLeft: '10px' }}>
               {children}
             </h2>
           ),
           h3: ({ children }) => (
-            <h3 style={{ fontFamily: "'Cinzel', 'Georgia', serif", fontSize: compact ? '13px' : '14px', fontWeight: 600, color: '#3de8d0', letterSpacing: '0.1em', textTransform: 'uppercase', margin: '18px 0 8px' }}>
+            <h3 style={{ fontFamily: "'Cinzel', 'Georgia', serif", fontSize: compact ? '11.5px' : '13px', fontWeight: 600, color: '#3de8d0', letterSpacing: '0.1em', textTransform: 'uppercase', margin: compact ? '12px 0 6px' : '16px 0 8px' }}>
               {children}
             </h3>
           ),
           h4: ({ children }) => (
-            <h4 style={{ fontFamily: 'sans-serif', fontSize: '12px', fontWeight: 600, color: 'rgba(201,168,76,0.7)', letterSpacing: '0.14em', textTransform: 'uppercase', margin: '14px 0 6px' }}>
+            <h4 style={{ fontFamily: 'sans-serif', fontSize: compact ? '10.5px' : '12px', fontWeight: 600, color: 'rgba(201,168,76,0.7)', letterSpacing: '0.14em', textTransform: 'uppercase', margin: compact ? '10px 0 5px' : '14px 0 6px' }}>
               {children}
             </h4>
           ),
           h5: ({ children }) => (
-            <h5 style={{ fontFamily: 'sans-serif', fontSize: '11px', fontWeight: 600, color: 'rgba(232,232,232,0.5)', letterSpacing: '0.12em', textTransform: 'uppercase', margin: '12px 0 5px' }}>
+            <h5 style={{ fontFamily: 'sans-serif', fontSize: compact ? '10px' : '11px', fontWeight: 600, color: 'rgba(232,232,232,0.5)', letterSpacing: '0.12em', textTransform: 'uppercase', margin: compact ? '8px 0 4px' : '12px 0 5px' }}>
               {children}
             </h5>
           ),
           h6: ({ children }) => (
-            <h6 style={{ fontFamily: 'sans-serif', fontSize: '10px', fontWeight: 500, color: 'rgba(232,232,232,0.35)', letterSpacing: '0.18em', textTransform: 'uppercase', margin: '10px 0 4px' }}>
+            <h6 style={{ fontFamily: 'sans-serif', fontSize: '9.5px', fontWeight: 500, color: 'rgba(232,232,232,0.35)', letterSpacing: '0.18em', textTransform: 'uppercase', margin: '8px 0 4px' }}>
               {children}
             </h6>
           ),
           p: ({ children }) => (
-            <p style={{ margin: '0 0 12px', color: 'rgba(212,201,184,0.82)', lineHeight: '1.85', fontSize: compact ? '13px' : '15px' }}>
+            <p style={{ margin: '0 0 10px', color: 'rgba(212,201,184,0.82)', lineHeight: compact ? '1.72' : '1.8', fontSize: compact ? '12.5px' : '14px' }}>
               {children}
             </p>
           ),

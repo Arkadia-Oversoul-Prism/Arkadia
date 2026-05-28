@@ -659,19 +659,22 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
         style={{
           flex: 1,
           overflowY: 'auto',
-          padding: 'clamp(14px,3vw,28px) clamp(10px,4vw,24px)',
+          padding: 'clamp(20px,3vw,40px) clamp(12px,4vw,28px)',
         }}
       >
-        <div style={{ maxWidth: 780, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
 
           {/* Empty state */}
           {messages.length === 0 && !loading && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: 'center', marginTop: 64 }}>
-              <p style={{ fontFamily: 'serif', fontSize: 15, color: 'rgba(232,232,232,0.3)', lineHeight: 1.9, margin: 0 }}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: 'center', marginTop: 80 }}>
+              <motion.p
+                animate={{ opacity: [0.2, 0.45, 0.2] }}
+                transition={{ duration: 4, repeat: Infinity }}
+                style={{ fontFamily: 'serif', fontSize: 14, color: 'rgba(232,232,232,0.35)', lineHeight: 2, margin: 0 }}>
                 The field is open.<br />Speak when ready.
-              </p>
+              </motion.p>
               {!isSovereign && (
-                <p style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(232,232,232,0.15)', letterSpacing: '0.14em', marginTop: 14, textTransform: 'uppercase' }}>
+                <p style={{ fontFamily: 'monospace', fontSize: 8.5, color: 'rgba(232,232,232,0.12)', letterSpacing: '0.16em', marginTop: 18, textTransform: 'uppercase' }}>
                   Guest session · tap ⟐ to enter sovereign mode
                 </p>
               )}
@@ -682,142 +685,146 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
             {messages.map((msg, i) => {
               const isUser = msg.role === 'user';
               const isSov  = msg.session === 'sovereign';
+              const msgAccent = isSov ? '#C9A84C' : '#00D4AA';
 
               return (
                 <motion.div
                   key={i}
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.22 }}
+                  transition={{ duration: 0.24 }}
                   onMouseEnter={() => setHoverIdx(i)}
                   onMouseLeave={() => setHoverIdx(null)}
-                  style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}
+                  style={{ marginBottom: isUser ? 20 : 0 }}
                 >
-                  <div style={{ maxWidth: '88%', position: 'relative' }}>
-
-                    {/* Bubble */}
-                    <div
-                      style={{
-                        padding: '12px 16px',
-                        borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                        ...(isUser
-                          ? { background: accentFaint, border: `1px solid ${accentBorder}` }
-                          : {
-                              background: isSov ? 'rgba(201,168,76,0.04)' : 'rgba(0,212,170,0.04)',
-                              border: isSov ? '1px solid rgba(201,168,76,0.12)' : '1px solid rgba(0,212,170,0.11)',
-                            }),
-                      }}
-                    >
-                      <MarkdownContent text={msg.content} tone={isUser ? 'user' : 'arkana'} />
-
-                      {/* Attachment indicator */}
-                      {msg.attachment && (
-                        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: 'rgba(0,212,170,0.05)', border: '1px solid rgba(0,212,170,0.15)', borderRadius: 6 }}>
-                          <Paperclip size={10} style={{ color: accent, flexShrink: 0 }} />
-                          <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(232,232,232,0.45)' }}>
-                            {msg.attachment.name} ({(msg.attachment.size / 1024).toFixed(0)} KB)
+                  {isUser ? (
+                    /* ── USER: compact right-aligned pill ── */
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <div style={{
+                        maxWidth: '68%',
+                        padding: '9px 14px',
+                        borderRadius: '14px 14px 3px 14px',
+                        background: accentFaint,
+                        border: `1px solid ${accentBorder}`,
+                        wordBreak: 'break-word',
+                      }}>
+                        <p style={{ fontFamily: 'sans-serif', fontSize: 13, lineHeight: 1.6, color: 'rgba(232,232,232,0.88)', margin: 0, whiteSpace: 'pre-wrap' }}>
+                          {msg.content}
+                        </p>
+                        {msg.attachment && (
+                          <div style={{ marginTop: 7, display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', background: 'rgba(0,212,170,0.05)', border: '1px solid rgba(0,212,170,0.12)', borderRadius: 5 }}>
+                            <Paperclip size={9} style={{ color: accent, flexShrink: 0 }} />
+                            <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(232,232,232,0.4)' }}>
+                              {msg.attachment.name}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    /* ── ARKANA: full-width canvas, no bubble ── */
+                    <div style={{ paddingTop: 6, paddingBottom: 6 }}>
+                      {/* Label */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                        <motion.span
+                          animate={{ opacity: [0.35, 0.8, 0.35] }}
+                          transition={{ duration: 3, repeat: Infinity }}
+                          style={{ color: msgAccent, fontSize: 9 }}>✦</motion.span>
+                        <span style={{
+                          fontFamily: 'sans-serif', fontSize: 8.5, letterSpacing: '0.22em',
+                          textTransform: 'uppercase', color: isSov ? 'rgba(201,168,76,0.45)' : 'rgba(0,212,170,0.45)',
+                        }}>
+                          {isSov ? 'ARKANA · SOVEREIGN' : 'ARKANA'}
+                        </span>
+                        {msg.resonance != null && (
+                          <span style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.12em', color: 'rgba(232,232,232,0.15)', marginLeft: 4 }}>
+                            {msg.resonance.toFixed(3)}
                           </span>
-                        </div>
-                      )}
+                        )}
+                      </div>
+
+                      {/* Full-width markdown — no bubble constraint = tables breathe */}
+                      <MarkdownContent text={msg.content} tone="arkana" />
 
                       {/* Forge images */}
                       {msg.images && msg.images.length > 0 && (
-                        <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: msg.images.length === 1 ? '1fr' : 'repeat(2,1fr)', gap: 8 }}>
+                        <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: msg.images.length === 1 ? '1fr' : 'repeat(2,1fr)', gap: 10 }}>
                           {msg.images.map((url, j) => (
                             <a key={url} href={url} target="_blank" rel="noopener noreferrer"
-                               style={{ display: 'block', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(201,168,76,0.25)', background: '#000' }}>
+                               style={{ display: 'block', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(201,168,76,0.22)', background: '#000' }}>
                               <img src={url} alt={`Forge ${j+1}`} loading="lazy" style={{ width: '100%', height: 'auto', display: 'block' }} />
                             </a>
                           ))}
                         </div>
                       )}
-                    </div>
 
-                    {/* ── Action toolbar ── */}
-                    <AnimatePresence>
-                      {(hoverIdx === i || speakingIdx === i || copiedIdx === i) && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 3 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.15 }}
-                          style={{
-                            display: 'flex',
-                            gap: 5,
-                            marginTop: 5,
-                            justifyContent: isUser ? 'flex-end' : 'flex-start',
-                          }}
-                        >
-                          {isUser ? (
-                            /* User: Edit */
+                      {/* Thin separator after each Arkana response */}
+                      <div style={{ marginTop: 18, height: 1, background: 'linear-gradient(90deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02) 60%, transparent)' }} />
+                    </div>
+                  )}
+
+                  {/* ── Action toolbar ── */}
+                  <AnimatePresence>
+                    {(hoverIdx === i || speakingIdx === i || copiedIdx === i) && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 2 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.14 }}
+                        style={{
+                          display: 'flex', gap: 4, marginTop: 4,
+                          justifyContent: isUser ? 'flex-end' : 'flex-start',
+                          marginBottom: isUser ? 0 : 14,
+                        }}
+                      >
+                        {isUser ? (
+                          <ActionBtn icon={<Pencil size={10} />} label="Edit" onClick={() => handleEdit(i, msg.content)} color={accent} />
+                        ) : (
+                          <>
                             <ActionBtn
-                              icon={<Pencil size={10} />}
-                              label="Edit"
-                              onClick={() => handleEdit(i, msg.content)}
+                              icon={copiedIdx === i ? <Check size={10} /> : <Copy size={10} />}
+                              label={copiedIdx === i ? 'Copied' : 'Copy'}
+                              onClick={() => handleCopy(i, msg.content)}
+                              active={copiedIdx === i}
                               color={accent}
                             />
-                          ) : (
-                            /* Arkana: Copy · Regenerate · Listen */
-                            <>
+                            <ActionBtn
+                              icon={<RotateCcw size={10} />}
+                              label="Regenerate"
+                              onClick={() => handleRegenerate(i)}
+                              color={accent}
+                            />
+                            {ttsOk && (
                               <ActionBtn
-                                icon={copiedIdx === i ? <Check size={10} /> : <Copy size={10} />}
-                                label={copiedIdx === i ? 'Copied' : 'Copy'}
-                                onClick={() => handleCopy(i, msg.content)}
-                                active={copiedIdx === i}
+                                icon={speakingIdx === i ? <Square size={10} /> : <Volume2 size={10} />}
+                                label={speakingIdx === i ? 'Stop' : 'Listen'}
+                                onClick={() => toggleSpeak(i, msg.content)}
+                                active={speakingIdx === i}
                                 color={accent}
                               />
-                              <ActionBtn
-                                icon={<RotateCcw size={10} />}
-                                label="Regenerate"
-                                onClick={() => handleRegenerate(i)}
-                                color={accent}
-                              />
-                              {ttsOk && (
-                                <ActionBtn
-                                  icon={speakingIdx === i ? <Square size={10} /> : <Volume2 size={10} />}
-                                  label={speakingIdx === i ? 'Stop' : 'Listen'}
-                                  onClick={() => toggleSpeak(i, msg.content)}
-                                  active={speakingIdx === i}
-                                  color={accent}
-                                />
-                              )}
-                              {/* Resonance badge */}
-                              {msg.resonance != null && (
-                                <span
-                                  style={{
-                                    fontFamily: 'monospace', fontSize: 8.5,
-                                    letterSpacing: '0.18em', textTransform: 'uppercase',
-                                    color: isSov ? 'rgba(201,168,76,0.4)' : 'rgba(0,212,170,0.38)',
-                                    alignSelf: 'center', paddingLeft: 4,
-                                  }}
-                                >
-                                  resonance {msg.resonance.toFixed(3)}
-                                </span>
-                              )}
-                            </>
-                          )}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                            )}
+                          </>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-                  </div>
                 </motion.div>
               );
             })}
 
-            {/* Loading dots */}
+            {/* Loading — canvas pulse, no bubble */}
             {loading && (
               <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                <div style={{ padding: '11px 16px', borderRadius: '16px 16px 16px 4px', background: 'rgba(0,212,170,0.04)', border: '1px solid rgba(0,212,170,0.11)', display: 'flex', gap: 6, alignItems: 'center' }}>
-                  {[0, 0.28, 0.56].map((delay, k) => (
-                    <motion.div key={k}
-                      animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }}
-                      transition={{ duration: 1.2, repeat: Infinity, delay }}
-                      style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#00D4AA' }}
-                    />
-                  ))}
-                </div>
+                style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 6, paddingBottom: 6 }}>
+                <span style={{ fontFamily: 'sans-serif', fontSize: 8.5, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.4)' }}>⟐ ARKANA</span>
+                {[0, 0.22, 0.44].map((delay, k) => (
+                  <motion.div key={k}
+                    animate={{ opacity: [0.25, 1, 0.25], scale: [0.7, 1, 0.7] }}
+                    transition={{ duration: 1.4, repeat: Infinity, delay }}
+                    style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: '#00D4AA' }}
+                  />
+                ))}
               </motion.div>
             )}
           </AnimatePresence>
