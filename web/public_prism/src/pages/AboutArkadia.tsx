@@ -116,7 +116,7 @@ export default function AboutArkadia() {
                 { location: 'ABU — Zaria', note: 'Dropped out. The Codex pulled elsewhere. This was not failure — it was routing.', color: '#00D4AA' },
                 { location: 'Abuja', note: 'The dark night. Where the ancestors fell silent. Where they rose again.', color: '#E88C6A' },
                 { location: 'El\'Zahar — The Tree', note: 'Built an altar by a tree no one else noticed. It became the teacher.', color: '#D4C86A' },
-                { location: 'Pankshin — The Return', note: 'Current Earth Node. Eden Farm. EduLeague. The architecture in practice.', color: '#00D4AA' },
+                { location: 'Pankshin — The Return', note: 'Current Earth Node. Eden Farm. The Spiral Grove. The architecture in practice.', color: '#00D4AA' },
               ].map((stop, i) => (
                 <div key={i} style={{ display: 'flex', gap: '0' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginRight: '16px' }}>
@@ -165,10 +165,10 @@ export default function AboutArkadia() {
                   status: 'CONVERTING',
                 },
                 {
-                  name: 'EduLeague × Eden',
-                  sub: 'Education Deployment',
+                  name: 'The Spiral Grove',
+                  sub: 'Learning Civilization Layer',
                   color: '#B08DE8',
-                  desc: 'Structured academic challenge system piloted at Solid Foundation Academy, Pankshin. Competitive learning, collaborative study, real-world application via Eden Farm.',
+                  desc: 'The school layer where knowledge is transmitted across generations. EduLeague (challenge engine) piloted at Solid Foundation Academy, Pankshin. Learning by farming, trading, creating, and serving — rooted in Eden Farm.',
                   status: 'PILOT',
                 },
                 {

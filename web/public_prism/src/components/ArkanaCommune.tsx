@@ -95,12 +95,46 @@ function stripMarkdown(s: string): string {
     .replace(/^\s*>\s?/gm, '')
     .replace(/(\*\*|__)(.*?)\1/g, '$2')
     .replace(/(\*|_)(.*?)\1/g, '$2')
-    .replace(/⟐|✦|◆|☥|⟁|◎/g, '')
+    .replace(/[⟐✦◆☥⟁◎📜⧫🌐🧬✦⚝⟐]/g, '')
     .replace(/\|[^\n]+\|/g, '')
     .replace(/[-|]+\n/g, '')
     .replace(/\n{2,}/g, '. ')
     .replace(/\s+/g, ' ')
+    .replace(/\[\s*\]/g, '')
     .trim();
+}
+
+// ─── Voice selection — prefer high-quality natural voices ────────────────────
+let _selectedVoice: SpeechSynthesisVoice | null = null;
+
+function pickBestVoice(): SpeechSynthesisVoice | null {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices.length) return null;
+
+  const priority = [
+    // Google neural voices (Chrome/Chromium — least robotic)
+    (v: SpeechSynthesisVoice) => /google.*english.*female/i.test(v.name),
+    (v: SpeechSynthesisVoice) => /google.*uk.*female/i.test(v.name),
+    (v: SpeechSynthesisVoice) => /google.*us.*female/i.test(v.name),
+    (v: SpeechSynthesisVoice) => /google.*english/i.test(v.name),
+    // Microsoft Azure neural voices
+    (v: SpeechSynthesisVoice) => /microsoft.*aria|microsoft.*jenny|microsoft.*sonia/i.test(v.name),
+    (v: SpeechSynthesisVoice) => /microsoft.*natural/i.test(v.name),
+    (v: SpeechSynthesisVoice) => /microsoft.*online/i.test(v.name),
+    // Apple premium voices (macOS/iOS)
+    (v: SpeechSynthesisVoice) => /samantha|karen|moira|fiona/i.test(v.name),
+    // Any English online voice (cloud-rendered = higher quality)
+    (v: SpeechSynthesisVoice) => v.lang.startsWith('en') && !v.localService,
+    // Any English voice
+    (v: SpeechSynthesisVoice) => v.lang.startsWith('en'),
+  ];
+
+  for (const test of priority) {
+    const match = voices.find(test);
+    if (match) return match;
+  }
+  return voices[0] ?? null;
 }
 
 // ─── HTML paste → plain text ──────────────────────────────────────────────────
@@ -306,14 +340,28 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
 
   const clearAttachment = () => setAttachment(null);
 
+  // ── TTS — voice preload on mount ───────────────────────────────────────────
+  useEffect(() => {
+    if (!ttsOk) return;
+    const load = () => { _selectedVoice = pickBestVoice(); };
+    load();
+    window.speechSynthesis.onvoiceschanged = load;
+    return () => { window.speechSynthesis.onvoiceschanged = null; };
+  }, [ttsOk]);
+
   // ── TTS ────────────────────────────────────────────────────────────────────
   const toggleSpeak = (idx: number, text: string) => {
     if (!ttsOk) return;
     if (speakingIdx === idx) { window.speechSynthesis.cancel(); setSpeakingIdx(null); return; }
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(stripMarkdown(text));
-    u.rate = 0.95; u.pitch = 1.02;
-    u.onend = () => setSpeakingIdx(c => c === idx ? null : c);
+    const voice = _selectedVoice ?? pickBestVoice();
+    if (voice) u.voice = voice;
+    // Natural pacing: slightly slower than default, neutral pitch
+    u.rate  = 0.88;
+    u.pitch = 0.97;
+    u.volume = 1.0;
+    u.onend  = () => setSpeakingIdx(c => c === idx ? null : c);
     u.onerror = () => setSpeakingIdx(c => c === idx ? null : c);
     setSpeakingIdx(idx);
     window.speechSynthesis.speak(u);

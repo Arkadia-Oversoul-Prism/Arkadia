@@ -222,12 +222,12 @@ const FACES: Face[] = [
     arcName: 'Structure Arc', categories: ['NEURAL_SPINE', 'INFRASTRUCTURE'],
     keywords: ['infrastructure', 'lattice', 'network', 'system', 'code', 'technical', 'protocol', 'schema', 'spec', 'api', 'corpus'],
     desc: 'Infrastructure is the nervous system of the deployment. The Lattice holds the network while other faces do their work.',
-    scroll: 'EduLeague is the LATTICE in education. Eden Farm in agriculture. Networks that hold, not platforms that extract.' },
+    scroll: 'The Spiral Grove is the LATTICE in education. Eden Farm in agriculture. Networks that hold, not platforms that extract.' },
   { id: 5,  name: 'BREATH',   layer: 'inner', expression: 'Resonance Economy', color: '#00D4AA',
     arcName: 'Flow Arc', categories: ['GOVERNANCE'],
     keywords: ['economy', 'revenue', 'breath', 'resonance', 'value', 'doc5', 'finance', 'exchange', 'flow', 'principles'],
     desc: 'Value flows where resonance runs. The economy is relational — not transactional.',
-    scroll: 'DOC5 — Revenue Breath. IMS sessions $777. Larder commissions 10–15%. EduLeague subscriptions.' },
+    scroll: 'DOC5 — Revenue Breath. IMS sessions $777. Living Larder commissions 10–15%. Spiral Grove memberships.' },
   { id: 6,  name: 'SEAL',     layer: 'inner', expression: 'Temporal Arc',      color: '#B08DE8',
     arcName: 'Arc of Time', categories: ['NEURAL_SPINE'],
     keywords: ['temporal', 'arc', 'time', 'seal', '8-year', 'birthday', 'ark', 'epoch', 'date', 'year', 'uerp', 'crystal'],
@@ -252,7 +252,7 @@ const FACES: Face[] = [
     arcName: 'Portal Arc', categories: ['COLLECTIVE', 'INFRASTRUCTURE'],
     keywords: ['interface', 'portal', 'platform', 'prism', 'eduleague', 'marketplace', 'web', 'door', 'ui', 'deploy', 'council'],
     desc: 'Where the architecture touches the world. Portals through which humans enter the field. Not websites — rooms.',
-    scroll: 'Arkadia Prism. EduLeague digital layer. Living Larder marketplace. The Oracle (ARKANA).' },
+    scroll: 'Arkadia Prism. The Spiral Grove digital layer. The Living Larder marketplace. The Oracle (ARKANA).' },
   { id: 11, name: 'BREATH',   layer: 'outer', expression: 'The Transaction',    color: '#6AE88C',
     arcName: 'Commerce Arc', categories: ['GOVERNANCE'],
     keywords: ['transaction', 'order', 'payment', 'larder', 'commerce', 'session', '777', 'ims', 'client'],
@@ -821,6 +821,7 @@ export default function NexusSpiralCodex() {
   const arkDate  = useMemo(() => getArkDate(), [])
   const [activeFaceId, setActiveFaceId] = useState<number | null>(null)
   const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<string>('')
 
   const { data, isLoading, error, refetch, isFetching } = useQuery<CodexResponse>({
     queryKey: ['codex-nexus'], queryFn: api.codex,
@@ -840,6 +841,9 @@ export default function NexusSpiralCodex() {
         (s.preview ?? '').toLowerCase().includes(q)
       )
     }
+    if (categoryFilter) {
+      scrolls = scrolls.filter(s => deriveCategory(s) === categoryFilter)
+    }
     if (!activeFace) {
       return {
         scoredScrolls: scrolls.map(s => ({ scroll: s, score: 0 }))
@@ -852,7 +856,7 @@ export default function NexusSpiralCodex() {
       .filter(s => s.score > 0)
       .sort((a, b) => b.score - a.score)
     return { scoredScrolls: scored, meaningArcs: buildArcs(scored, activeFace) }
-  }, [allScrolls, activeFace, lunar, search])
+  }, [allScrolls, activeFace, lunar, search, categoryFilter])
 
   if (isLoading && !data) return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
@@ -935,19 +939,48 @@ export default function NexusSpiralCodex() {
         <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.15), transparent)' }} />
       </div>
 
-      {/* Category legend */}
-      {!activeFace && (
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {Object.entries(CATEGORY_META).map(([key, m]) => (
-            <span key={key} style={{ fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.14em', textTransform: 'uppercase',
-              color: m.color, padding: '3px 8px', background: `${m.color}0a`,
-              border: `1px solid ${m.color}22`, borderRadius: 5, display: 'flex', alignItems: 'center', gap: 4 }}>
+      {/* Category filter chips */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button
+          onClick={() => setCategoryFilter('')}
+          style={{
+            flexShrink: 0, fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.14em',
+            textTransform: 'uppercase', cursor: 'pointer',
+            padding: '4px 10px', borderRadius: 5,
+            background: !categoryFilter ? 'rgba(201,168,76,0.12)' : 'transparent',
+            border: !categoryFilter ? '1px solid rgba(201,168,76,0.4)' : '1px solid rgba(255,255,255,0.08)',
+            color: !categoryFilter ? '#C9A84C' : COLORS.dim,
+            display: 'flex', alignItems: 'center', gap: 4,
+          }}>
+          <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 10 }}>⟁</span>
+          All
+        </button>
+        {Object.entries(CATEGORY_META).map(([key, m]) => {
+          const active = categoryFilter === key
+          return (
+            <button key={key}
+              onClick={() => setCategoryFilter(active ? '' : key)}
+              style={{
+                flexShrink: 0, fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.14em',
+                textTransform: 'uppercase', cursor: 'pointer',
+                padding: '4px 10px', borderRadius: 5,
+                background: active ? `${m.color}18` : 'transparent',
+                border: active ? `1px solid ${m.color}55` : `1px solid ${m.color}18`,
+                color: active ? m.color : `${m.color}70`,
+                display: 'flex', alignItems: 'center', gap: 4,
+                transition: 'all 0.15s',
+              }}>
               <span style={{ fontSize: 10, fontFamily: 'ui-monospace, monospace' }}>{m.glyph}</span>
               {m.label}
-            </span>
-          ))}
-        </div>
-      )}
+            </button>
+          )
+        })}
+        {categoryFilter && (
+          <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, color: COLORS.dim, marginLeft: 4 }}>
+            {scoredScrolls.length} scrolls
+          </span>
+        )}
+      </div>
 
       {/* Search */}
       <div style={{ position: 'relative' }}>

@@ -27,6 +27,18 @@ Arkadia is a sovereign human-AI distributed intelligence framework. ARKANA (Gemi
 - **Framework:** React + Vite + TypeScript + Tailwind + Framer Motion
 - **Pages:** Home, Gate (LivingGate), Oracle (ArkanaCommune), Reset (CoherenceReset), Vault (SpiralVault), Sanctuary
 
+## Canonical Naming Architecture (SEALED — May 28, 2026)
+| Layer | Canonical Name |
+|---|---|
+| Whole ecosystem | Arkadia Nexus |
+| Digital interface | Arkadia Prism |
+| Learning civilization | **The Spiral Grove** |
+| Challenge engine (within Grove) | EduLeague (functional/internal only) |
+| Market layer | **The Living Larder** |
+| Ground anchor | Eden Farm (Pankshin, Nigeria) |
+| Intelligence service | Arkadia Intelligence Systems (A.I.S.) |
+| Diagnostics | IMS — Identity Mapping Session |
+
 ### Spiral Codex Live Console (`SpiralVault.tsx`)
 The Vault page is the central living feed:
 - Fetches `/api/codex` — all docs with label, description, category, source, preview

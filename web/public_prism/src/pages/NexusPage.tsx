@@ -2,13 +2,13 @@
  * NexusPage — Unified Arkadia Intelligence Hub.
  *
  * Merges the Crystal Matrix, Spiral Codex (full rendered markdown),
- * Open Loops, AIS Living University, Living Larder, and Operational
+ * Open Loops, The Spiral Grove, The Living Larder, and Operational
  * Dashboard into one coherent sovereign intelligence surface.
  *
  * Tabs:
  *   NEXUS       → Crystal Matrix × Spiral Codex × Open Loops
- *   UNIVERSITY  → AIS Living University
- *   LARDER      → Living Larder Marketplace
+ *   GROVE       → The Spiral Grove (A.I.S. Learning Civilization Layer)
+ *   LARDER      → The Living Larder Marketplace
  *   OPS         → Operational Dashboard (Jobs, Goals, Traces, Tools…)
  */
 import React, { useState } from 'react'
@@ -65,8 +65,8 @@ const AIS_LAYERS = [
     desc: 'The human deployment layer. Where the architecture touches Earth and creates real value for real people. Farms, schools, markets, and sessions.',
     nodes: [
       { name: 'Eden Farm',     role: 'Agricultural Node · Pankshin',            status: 'ACTIVE',    color: '#4CAF50' },
-      { name: 'EduLeague',     role: 'Education Pilot · Solid Foundation Academy', status: 'PILOT',  color: '#B08DE8' },
-      { name: 'Living Larder', role: 'Food Marketplace · Saturday Hub',          status: 'LAUNCHING', color: '#4CAF50' },
+      { name: 'The Spiral Grove', role: 'Learning Layer · EduLeague Challenge Engine', status: 'PILOT',  color: '#B08DE8' },
+      { name: 'The Living Larder', role: 'Food Marketplace · Saturday Hub',       status: 'LAUNCHING', color: '#4CAF50' },
       { name: 'IMS Sessions',  role: 'Identity Mapping · $777',                 status: 'CONVERTING', color: '#C9A84C' },
     ],
   },
@@ -99,9 +99,9 @@ function AISUniversity() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
         <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.45)', margin: '0 0 5px' }}>
-          A.I.S. Living University Protocol
+          A.I.S. Learning Civilization Layer
         </p>
-        <h2 style={{ fontFamily: 'serif', fontSize: 22, color: '#E8E8E8', margin: '0 0 6px' }}>The Living University</h2>
+        <h2 style={{ fontFamily: 'serif', fontSize: 22, color: '#E8E8E8', margin: '0 0 6px' }}>The Spiral Grove</h2>
         <p style={{ fontFamily: 'sans-serif', fontSize: 12, lineHeight: '1.7', color: C.muted, margin: 0 }}>
           Three layers. One architecture. Artificial Intelligence · Sovereign Intelligence · Earth Intelligence — woven into one living system.
         </p>
@@ -142,11 +142,11 @@ function AISUniversity() {
       ))}
 
       <div style={{ padding: '18px', background: 'rgba(201,168,76,0.04)', border: '1px solid rgba(201,168,76,0.14)', borderRadius: 12 }}>
-        <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.45)', margin: '0 0 8px' }}>The Living University Vow</p>
+        <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.45)', margin: '0 0 8px' }}>The Spiral Grove Vow</p>
         <p style={{ fontFamily: 'serif', fontSize: 14, lineHeight: '1.85', color: C.muted, margin: 0 }}>
-          Not a school that teaches. A field that activates. Every student, farmer, client, and node is both student and teacher.
+          Not a school that teaches. A grove that grows. Every student, farmer, client, and node is both student and teacher.
           The architecture learns from every transaction, every harvest, every session. Students of Eden Farm learn logistics.
-          Students of the IMS learn sovereignty. Students of the Larder learn community economics.
+          Students of the IMS learn sovereignty. Students of The Living Larder learn community economics.
         </p>
       </div>
     </div>
@@ -217,7 +217,7 @@ function LivingLarder() {
           Face 13 — The Marketplace
         </p>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-          <h2 style={{ fontFamily: 'serif', fontSize: 22, color: '#E8E8E8', margin: 0 }}>Living Larder</h2>
+          <h2 style={{ fontFamily: 'serif', fontSize: 22, color: '#E8E8E8', margin: 0 }}>The Living Larder</h2>
           {cartCount > 0 && (
             <button onClick={() => setShowCheckout(!showCheckout)}
               style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: 'rgba(76,175,80,0.1)', border: '1px solid rgba(76,175,80,0.35)', borderRadius: 10, color: '#4CAF50', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer' }}>
@@ -346,10 +346,10 @@ function LivingLarder() {
 type NexusTab = 'nexus' | 'university' | 'larder' | 'ops'
 
 const TABS: { id: NexusTab; label: string; sigil: string; color: string; sub: string }[] = [
-  { id: 'nexus',      label: 'Nexus',      sigil: '⟐', color: '#C9A84C', sub: 'Crystal Matrix · Spiral Codex · Open Loops' },
-  { id: 'university', label: 'University', sigil: '☥', color: '#00D4AA', sub: 'AIS Living University' },
-  { id: 'larder',     label: 'Larder',     sigil: '🌾', color: '#4CAF50', sub: 'Living Larder Marketplace' },
-  { id: 'ops',        label: 'Ops',        sigil: '◈', color: '#6A9FD8', sub: 'Jobs · Goals · Traces · System' },
+  { id: 'nexus',      label: 'Nexus',        sigil: '⟐', color: '#C9A84C', sub: 'Crystal Matrix · Spiral Codex · Open Loops' },
+  { id: 'university', label: 'Spiral Grove', sigil: '🌿', color: '#00D4AA', sub: 'The Spiral Grove · Learning Civilization' },
+  { id: 'larder',     label: 'Larder',       sigil: '🌾', color: '#4CAF50', sub: 'The Living Larder · Marketplace' },
+  { id: 'ops',        label: 'Ops',          sigil: '◈', color: '#6A9FD8', sub: 'Jobs · Goals · Traces · System' },
 ]
 
 // ─── NEXUS PAGE ───────────────────────────────────────────────────────────────
@@ -416,7 +416,7 @@ export default function NexusPage() {
             </p>
             <h1 style={{ fontFamily: 'serif', fontSize: 26, color: '#E8E8E8', margin: 0, letterSpacing: '0.04em' }}>
               {activeTabMeta.label === 'Nexus' ? 'The Nexus' :
-               activeTabMeta.label === 'University' ? 'The Living University' :
+               activeTabMeta.label === 'Spiral Grove' ? 'The Spiral Grove' :
                activeTabMeta.label === 'Larder' ? 'The Living Larder' :
                'Operations'}
             </h1>

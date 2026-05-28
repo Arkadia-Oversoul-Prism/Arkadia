@@ -50,7 +50,7 @@ const AI_NODES = [
 const IMS_SESSIONS = [
   { id: 'IMS-001', subject: 'Jay',           date: 'April 11, 2026',  arkDay: 12, status: 'PROOF OF CONCEPT',       statusColor: '#00D4AA', type: 'Internal', tagline: 'The Sovereign Exit — architecture\'s first living test.', htmlPath: '/static/ims/jay_ims.html' },
   { id: 'IMS-002', subject: 'Won John Chong',date: 'April 2026',      arkDay: 15, status: 'COMPLETE · FIRST ARTIFACT', statusColor: '#C9A84C', type: 'Internal', tagline: 'First completed artifact. Full deliverable finalised — the first finished proof of work.', htmlPath: '/static/ims/won_ims.html' },
-  { id: 'IMS-003', subject: 'EduLeague',     date: 'May 2026',        arkDay: 45, status: 'PILOT DEPLOYMENT',        statusColor: '#B08DE8', type: 'System',   tagline: 'Structured competitive learning system — Solid Foundation Academy, Pankshin.', htmlPath: '/static/ims/eduleague.html' },
+  { id: 'IMS-003', subject: 'Spiral Grove',  date: 'May 2026',        arkDay: 45, status: 'PILOT DEPLOYMENT',        statusColor: '#B08DE8', type: 'System',   tagline: 'The Spiral Grove learning layer — EduLeague challenge engine deployed at Solid Foundation Academy, Pankshin.', htmlPath: '/static/ims/eduleague.html' },
 ];
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────

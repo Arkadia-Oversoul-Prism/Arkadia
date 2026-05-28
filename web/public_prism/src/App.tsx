@@ -125,7 +125,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginBottom: '30px' }}>
           <PortalDoor label="Oracle" sub="ARKANA · Pattern intelligence · Live commune" color="#00D4AA" sigil="⟐" onClick={() => onNavigate('commune')} delay={1.14} />
-          <PortalDoor label="Nexus" sub="Crystal Matrix · AIS University · Living Larder" color="#C9A84C" sigil="☥" onClick={() => onNavigate('nexus')} delay={1.19} />
+          <PortalDoor label="Nexus" sub="Crystal Matrix · The Spiral Grove · The Living Larder" color="#C9A84C" sigil="☥" onClick={() => onNavigate('nexus')} delay={1.19} />
           <PortalDoor label="Dashboard" sub="Open loops · DOC2 live · Action matrix" color="#E88C6A" sigil="◈" onClick={() => onNavigate('dashboard')} delay={1.24} />
           <PortalDoor label="About" sub="Zahrune Nova · Lineage · Architecture" color="#6A9FD8" sigil="✦" onClick={() => onNavigate('about')} delay={1.29} />
         </div>
