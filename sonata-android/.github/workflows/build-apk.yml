@@ -1,0 +1,80 @@
+name: Build Sonata APK
+
+on:
+  push:
+    branches: [main, "feature/**"]
+    paths:
+      - "sonata-android/**"
+      - ".github/workflows/build-apk.yml"
+  pull_request:
+    paths: ["sonata-android/**"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build & Sign Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Source ──────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Java 17 ─────────────────────────────────────────────────────────
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: gradle
+
+      # ── Gradle wrapper ──────────────────────────────────────────────────
+      - name: Make gradlew executable
+        run: chmod +x sonata-android/gradlew
+
+      # ── Build ────────────────────────────────────────────────────────────
+      - name: Build Release APK
+        working-directory: sonata-android
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      # ── Sign (optional — skipped if secrets are not set) ────────────────
+      - name: Sign APK
+        if: ${{ secrets.SIGNING_KEY != '' }}
+        uses: r0adkll/sign-android-release@v1
+        id: sign
+        with:
+          releaseDirectory: sonata-android/app/build/outputs/apk/release
+          signingKeyBase64: ${{ secrets.SIGNING_KEY }}
+          alias:            ${{ secrets.KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword:      ${{ secrets.KEY_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "34.0.0"
+
+      # ── Upload signed APK (if signing ran) ───────────────────────────────
+      - name: Upload Signed APK
+        if: ${{ secrets.SIGNING_KEY != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sonata-release-signed-${{ github.sha }}
+          path: ${{ steps.sign.outputs.signedReleaseFile }}
+          retention-days: 30
+
+      # ── Upload unsigned APK (fallback / dev builds) ──────────────────────
+      - name: Upload Unsigned APK
+        if: ${{ secrets.SIGNING_KEY == '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sonata-release-unsigned-${{ github.sha }}
+          path: sonata-android/app/build/outputs/apk/release/*.apk
+          retention-days: 30
+
+      # ── Build summary ─────────────────────────────────────────────────────
+      - name: APK size report
+        if: always()
+        run: |
+          echo "### Build output" >> $GITHUB_STEP_SUMMARY
+          find sonata-android/app/build/outputs/apk -name "*.apk" 2>/dev/null | while read f; do
+            size=$(du -sh "$f" | cut -f1)
+            echo "- \`$(basename $f)\` — $size" >> $GITHUB_STEP_SUMMARY
+          done

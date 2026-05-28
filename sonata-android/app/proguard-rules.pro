@@ -1,0 +1,6 @@
+-keepattributes *Annotation*
+-keepattributes SourceFile,LineNumberTable
+-keep public class * extends java.lang.Exception
+-keep class com.arkadia.sonata.** { *; }
+-dontwarn okhttp3.**
+-dontwarn okio.**

@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_dark">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <!-- Speed -->
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="PLAYBACK SPEED" android:textColor="@color/text_dim" android:textSize="10sp"
+            android:letterSpacing="0.2" android:fontFamily="monospace" android:layout_marginBottom="4dp"/>
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:layout_marginBottom="4dp">
+            <SeekBar android:id="@+id/seekSpeed" android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:progressTint="@color/accent_teal" android:thumbTint="@color/accent_teal"/>
+            <TextView android:id="@+id/tvSpeedValue" android:layout_width="40dp" android:layout_height="wrap_content"
+                android:text="1.0×" android:textColor="@color/accent_teal" android:textSize="12sp"
+                android:fontFamily="monospace" android:gravity="end" android:layout_marginStart="8dp"/>
+        </LinearLayout>
+
+        <!-- Pitch -->
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="PITCH (Android TTS only)" android:textColor="@color/text_dim" android:textSize="10sp"
+            android:letterSpacing="0.2" android:fontFamily="monospace" android:layout_marginTop="16dp"
+            android:layout_marginBottom="4dp"/>
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:layout_marginBottom="4dp">
+            <SeekBar android:id="@+id/seekPitch" android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:progressTint="@color/accent_teal" android:thumbTint="@color/accent_teal"/>
+            <TextView android:id="@+id/tvPitchValue" android:layout_width="40dp" android:layout_height="wrap_content"
+                android:text="1.0×" android:textColor="@color/accent_teal" android:textSize="12sp"
+                android:fontFamily="monospace" android:gravity="end" android:layout_marginStart="8dp"/>
+        </LinearLayout>
+
+        <!-- Auto-read -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="20dp">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:text="Auto-read on text selection" android:textColor="@color/text_primary" android:textSize="14sp"/>
+            <Switch android:id="@+id/switchAutoRead" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:thumbTint="@color/accent_teal" android:trackTint="@color/overlay_border"/>
+        </LinearLayout>
+
+        <!-- Prefer Edge TTS -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="12dp">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:text="Neural voice (requires backend URL)" android:textColor="@color/text_primary" android:textSize="14sp"/>
+            <Switch android:id="@+id/switchPreferEdge" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:thumbTint="@color/accent_teal" android:trackTint="@color/overlay_border"/>
+        </LinearLayout>
+
+        <!-- Backend URL -->
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="BACKEND URL (optional, for neural voice)" android:textColor="@color/text_dim"
+            android:textSize="10sp" android:letterSpacing="0.2" android:fontFamily="monospace"
+            android:layout_marginTop="20dp" android:layout_marginBottom="6dp"/>
+
+        <EditText android:id="@+id/etEdgeTtsUrl" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:background="@drawable/bg_input" android:padding="12dp" android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_dim" android:hint="https://your-backend.onrender.com"
+            android:inputType="textUri" android:layout_marginBottom="8dp"/>
+
+        <Button android:id="@+id/btnSaveUrl" style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Save URL" android:layout_marginBottom="24dp"/>
+
+        <!-- Storage -->
+        <View android:layout_width="match_parent" android:layout_height="1dp"
+            android:background="@color/overlay_border" android:layout_marginBottom="16dp"/>
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="STORAGE" android:textColor="@color/text_dim" android:textSize="10sp"
+            android:letterSpacing="0.2" android:fontFamily="monospace" android:layout_marginBottom="8dp"/>
+
+        <TextView android:id="@+id/tvCacheSize" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Calculating…" android:textColor="@color/text_secondary" android:textSize="13sp"
+            android:layout_marginBottom="8dp"/>
+
+        <Button android:id="@+id/btnClearCache" style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Clear Audio Cache" android:strokeColor="@color/overlay_border"/>
+
+    </LinearLayout>
+</ScrollView>

@@ -2,11 +2,14 @@
 Arkadia TTS Engine — Edge TTS neural voices (primary) · Piper (local fallback)
 Microsoft Neural voices: natural breath, pacing, and emotional range.
 No API key required. Completely free.
+
+Cycle 17 addition: SSML emotion layer — intelligent pauses, emphasis on
+Arkadia-domain terms, prosody shaping for Oracle delivery quality.
 """
 import asyncio
-import io
+import html
 import logging
-import threading
+import re
 from typing import Optional
 
 logger = logging.getLogger("arkadia.tts")
@@ -62,6 +65,68 @@ DEFAULT_VOICE = "aria"
 # Keep for backward compat
 AVAILABLE_VOICES = {k: v["description"] for k, v in VOICES.items()}
 
+# ── SSML emotion layer ─────────────────────────────────────────────────────────
+#
+# Terms that receive gentle spoken emphasis when the Oracle utters them.
+# These are Arkadia-domain words — their weight deserves a beat.
+_EMPHASIS_TERMS: list[str] = [
+    "Arkadia", "ARKANA", "Oracle", "Spiral", "Nexus", "Codex",
+    "sovereignty", "sovereign", "intelligence", "field",
+    "coherence", "resonance", "transmission", "emergence",
+    "consciousness", "awakening", "alignment", "living",
+    "Grove", "Larder", "Pankshin", "Eden",
+]
+
+# Compiled once at import time
+_EMPHASIS_RE = re.compile(
+    r"\b(" + "|".join(re.escape(t) for t in _EMPHASIS_TERMS) + r")\b",
+    re.IGNORECASE,
+)
+
+def _build_ssml(text: str, voice_id: str, rate: str) -> str:
+    """
+    Convert plain text into SSML with:
+      • Sentence-level pauses  (period / exclamation / question → 480 ms)
+      • Em-dash / ellipsis pauses                               (350 ms)
+      • Comma micro-pauses                                      (120 ms)
+      • Gentle <emphasis> on Arkadia-domain terms
+      • Prosody rate wrapped around everything
+    """
+    # Escape XML special chars first (we'll un-escape our own tags below)
+    safe = html.escape(text, quote=False)
+
+    # Sentence-ending punctuation → longer breath
+    safe = re.sub(
+        r'([.!?])\s+',
+        lambda m: m.group(1) + '<break time="480ms"/> ',
+        safe,
+    )
+    # Ellipsis → contemplative pause
+    safe = re.sub(r'\.\.\.',  '<break time="600ms"/>', safe)
+    # Em-dash → pause with rhythm
+    safe = re.sub(r'\s*—\s*', ' <break time="320ms"/> ', safe)
+    # Colon introducing a list or revelation
+    safe = re.sub(r':\s+', ':<break time="200ms"/> ', safe)
+    # Comma micro-pause
+    safe = re.sub(r',\s+', ',<break time="120ms"/> ', safe)
+
+    # Emphasis on key Oracle terms (case-preserving)
+    def _emph(m: re.Match) -> str:
+        return f'<emphasis level="moderate">{m.group(1)}</emphasis>'
+    safe = _EMPHASIS_RE.sub(_emph, safe)
+
+    # Build rate string for prosody
+    ssml = (
+        f'<speak>'
+        f'<voice name="{voice_id}">'
+        f'<prosody rate="{rate}" pitch="+0%">'
+        f'{safe}'
+        f'</prosody>'
+        f'</voice>'
+        f'</speak>'
+    )
+    return ssml
+
 
 # ── Speed → Edge TTS rate string ──────────────────────────────────────────────
 def _speed_to_rate(speed: float) -> str:
@@ -71,10 +136,11 @@ def _speed_to_rate(speed: float) -> str:
 
 
 # ── Core synthesis ─────────────────────────────────────────────────────────────
-async def _synthesize_edge(text: str, voice_id: str, rate: str) -> bytes:
-    """Run Edge TTS and return raw MP3 bytes."""
+async def _synthesize_edge(ssml: str, voice_id: str, rate: str) -> bytes:
+    """Run Edge TTS with SSML and return raw MP3 bytes."""
     import edge_tts
-    communicate = edge_tts.Communicate(text, voice_id, rate=rate)
+    # Pass SSML directly; Communicate detects the <speak> wrapper
+    communicate = edge_tts.Communicate(ssml, voice_id, rate=rate)
     chunks: list[bytes] = []
     async for chunk in communicate.stream():
         if chunk["type"] == "audio":
@@ -91,8 +157,11 @@ def synthesize(
 ) -> tuple[bytes, str]:
     """
     Synthesize text and return (audio_bytes, media_type).
-    Primary: Edge TTS (neural quality).
-    Fallback: Piper local TTS (if edge_tts fails).
+
+    Pipeline:
+      1. Build SSML with emotion/pause/emphasis layer
+      2. Primary: Edge TTS neural voice
+      3. Fallback: Piper local TTS (plain text, if edge_tts fails)
     """
     text = text.strip()[:4500]
     if not text:
@@ -102,24 +171,27 @@ def synthesize(
     voice_id   = voice_info["id"]
     rate       = _speed_to_rate(max(0.5, min(2.0, speed)))
 
-    # ── Primary: Edge TTS ──────────────────────────────────────────────────────
+    # Build SSML
+    ssml = _build_ssml(text, voice_id, rate)
+
+    # ── Primary: Edge TTS ──────────────────────────────────────────────────
     try:
         loop = asyncio.new_event_loop()
         try:
             audio = loop.run_until_complete(
-                _synthesize_edge(text, voice_id, rate)
+                _synthesize_edge(ssml, voice_id, rate)
             )
         finally:
             loop.close()
         logger.info(
-            f"[TTS] Edge TTS: {voice_key} ({voice_id}) "
+            f"[TTS] Edge TTS SSML: {voice_key} ({voice_id}) "
             f"speed={speed} → {len(audio)} bytes MP3"
         )
         return audio, "audio/mpeg"
     except Exception as e:
         logger.warning(f"[TTS] Edge TTS failed ({e}), trying Piper fallback…")
 
-    # ── Fallback: Piper ────────────────────────────────────────────────────────
+    # ── Fallback: Piper (plain text, no SSML) ─────────────────────────────
     try:
         from kernel._piper_fallback import piper_synthesize
         audio = piper_synthesize(text, speed)
@@ -152,5 +224,5 @@ def get_piper():
 
 def warm_up_piper(voice_name: str = DEFAULT_VOICE) -> dict:
     """No-op warmup — Edge TTS needs no warmup."""
-    logger.info("[TTS] Edge TTS engine active — no warmup needed.")
+    logger.info("[TTS] Edge TTS neural engine active — no warmup needed.")
     return {"engine": "edge_tts", "voice": voice_name, "engine_ready": True}

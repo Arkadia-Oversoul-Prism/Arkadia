@@ -1,2 +1,3 @@
-- [TTS Engine](tts-engine.md) — Edge TTS (Microsoft Neural) replaced Piper as Oracle voice; no API key, no model download.
+- [TTS Engine](tts-engine.md) — Edge TTS (Microsoft Neural) replaced Piper; SSML emotion layer added in Cycle 17.
 - [Voice Architecture](voice-architecture.md) — voiceContext singleton broadcasts to SonataBar; OracleVoicePlayer publishes; both survive SPA navigation.
+- [Sonata Android](sonata-android.md) — full Android project in sonata-android/; push to SONATA repo via push-to-sonata.sh.
