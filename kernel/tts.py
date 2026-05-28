@@ -83,90 +83,66 @@ _EMPHASIS_RE = re.compile(
     re.IGNORECASE,
 )
 
-def _build_ssml(text: str, voice_id: str, rate: str) -> str:
+def _clean_text(text: str) -> str:
     """
-    Convert plain text into SSML with:
-      • Sentence-level pauses  (period / exclamation / question → 480 ms)
-      • Em-dash / ellipsis pauses                               (350 ms)
-      • Comma micro-pauses                                      (120 ms)
-      • Gentle <emphasis> on Arkadia-domain terms
-      • Prosody rate wrapped around everything
-    
-    Also cleans raw code/markdown before processing.
+    Strip all markdown, HTML, code blocks, and special characters from text
+    so Edge TTS receives clean, speakable prose.
+
+    Edge TTS 7.x does NOT accept SSML input — passing XML tags causes them to
+    be read aloud literally ("forward slash", "greater than", etc.).
+    Always pass plain text; use the rate/pitch parameters on Communicate instead.
     """
-    # ── Pre-clean raw code/markdown artifacts ─────────────────────────────────
     import re as _re
-    
-    # Remove code blocks completely (before any other processing)
+
+    # Remove fenced code blocks entirely
     text = _re.sub(r'```[\s\S]*?```', ' ', text)
-    
-    # Remove inline code (before removing backticks)
+    # Remove inline code — keep the inner text
     text = _re.sub(r'`([^`]+)`', r'\1', text)
-    
-    # Remove HTML tags
+    # Remove HTML/XML tags
     text = _re.sub(r'<[^>]+>', ' ', text)
-    
-    # Remove markdown headers (# prefix) - these get read as "hash" or "pound"
-    text = _re.sub(r'^#{1,6}\s+', '', text, flags=_re.MULTILINE)
-    
-    # Remove markdown links (keep text between brackets only) BEFORE removing brackets
+    # Remove markdown images
+    text = _re.sub(r'!\[[^\]]*\]\([^)]*\)', ' ', text)
+    # Convert markdown links to link text only
     text = _re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', text)
-    
+    # Remove markdown headers (# symbols)
+    text = _re.sub(r'^#{1,6}\s+', '', text, flags=_re.MULTILINE)
+    # Remove blockquotes
+    text = _re.sub(r'^\s*>\s?', '', text, flags=_re.MULTILINE)
+    # Remove list markers, keep content
+    text = _re.sub(r'^\s*[-*+]\s+', '', text, flags=_re.MULTILINE)
+    text = _re.sub(r'^\s*\d+\.\s+', '', text, flags=_re.MULTILINE)
+    # Remove bold/italic markers
+    text = _re.sub(r'(\*\*|__)(.*?)\1', r'\2', text)
+    text = _re.sub(r'(\*|_)(.*?)\1', r'\2', text)
+    # Remove table rows / separators
+    text = _re.sub(r'\|[^\n]*\|', lambda m: ' '.join(
+        c.strip() for c in m.group(0).split('|') if c.strip()
+    ), text)
+    text = _re.sub(r'^[\s|=\-]+$', '', text, flags=_re.MULTILINE)
     # Remove URLs
     text = _re.sub(r'https?://\S+', ' ', text)
-    
-    # Remove JSON-like structures (simple ones, not nested)
+    # Remove JSON/bracket structures (non-nested)
     text = _re.sub(r'\{[^{}]*\}', ' ', text)
     text = _re.sub(r'\[[^\[\]]*\]', ' ', text)
-    
+    # Remove math expressions
+    text = _re.sub(r'\$\$?[^$]+\$\$?', ' ', text)
     # Remove escape sequences
-    text = _re.sub(r'\\[nrt\\*_`#[\]{}|]', ' ', text)
-    
-    # Remove special characters that would be read literally
-    text = _re.sub(r'[|*]{2,}', ' ', text)  # **, ||, etc.
+    text = _re.sub(r'\\[nrt\\*_`#\[\]{}|]', ' ', text)
+    # Remove pipe and backslash characters
     text = _re.sub(r'[|\\]', ' ', text)
-    
+    # Remove repeated symbol runs (**, --, ==, etc.)
+    text = _re.sub(r'[*_~`#>]{2,}', ' ', text)
+    # Remove special Unicode decoration
+    text = _re.sub(r'[⟐✦◆☥⟁◎⧫⚝•··⋯⋮⸮«»‹›「」『』【】〔〕〘〙〚〛〈〉《》≫◀▶]+', ' ', text)
     # Remove control characters
     text = _re.sub(r'[\x00-\x1F\x7F]', ' ', text)
-    
-    # Normalize whitespace
-    text = _re.sub(r'\s{2,}', ' ', text)
-    
-    # Escape XML special chars first (we'll un-escape our own tags below)
-    safe = html.escape(text, quote=False)
-
-    # Sentence-ending punctuation → longer breath
-    safe = _re.sub(
-        r'([.!?])\s+',
-        lambda m: m.group(1) + '<break time="480ms"/> ',
-        safe,
-    )
-    # Ellipsis → contemplative pause
-    safe = _re.sub(r'\.\.\.',  '<break time="600ms"/>', safe)
-    # Em-dash → pause with rhythm
-    safe = _re.sub(r'\s*—\s*', ' <break time="320ms"/> ', safe)
-    # Colon introducing a list or revelation
-    safe = _re.sub(r':\s+', ':<break time="200ms"/> ', safe)
-    # Comma micro-pause
-    safe = _re.sub(r',\s+', ',<break time="120ms"/> ', safe)
-
-    # Emphasis on key Oracle terms (case-preserving)
-    def _emph(m: _re.Match) -> str:
-        return f'<emphasis level="moderate">{m.group(1)}</emphasis>'
-    safe = _EMPHASIS_RE.sub(_emph, safe)
-
-    # Build rate string for prosody
-    ssml = (
-        f'<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
-        f'version="1.0" xml:lang="en-US">'
-        f'<voice name="{voice_id}">'
-        f'<prosody rate="{rate}" pitch="+0%">'
-        f'{safe}'
-        f'</prosody>'
-        f'</voice>'
-        f'</speak>'
-    )
-    return ssml
+    # Collapse multiple newlines into sentence breaks
+    text = _re.sub(r'\n{3,}', '. ', text)
+    text = _re.sub(r'\n{2,}', '. ', text)
+    text = _re.sub(r'\n', ' ', text)
+    # Collapse whitespace
+    text = _re.sub(r'[ \t]{2,}', ' ', text)
+    return text.strip()
 
 
 # ── Speed → Edge TTS rate string ──────────────────────────────────────────────
@@ -177,11 +153,14 @@ def _speed_to_rate(speed: float) -> str:
 
 
 # ── Core synthesis ─────────────────────────────────────────────────────────────
-async def _synthesize_edge(ssml: str, voice_id: str, rate: str) -> bytes:
-    """Run Edge TTS with SSML and return raw MP3 bytes."""
+async def _synthesize_edge(plain: str, voice_id: str, rate: str) -> bytes:
+    """Run Edge TTS with plain text and return raw MP3 bytes.
+
+    Edge TTS 7.x does NOT support SSML input — XML tags are read aloud literally.
+    Always pass clean plain text here; prosody is controlled via the rate parameter.
+    """
     import edge_tts
-    # Pass SSML directly; Communicate detects the <speak> wrapper
-    communicate = edge_tts.Communicate(ssml, voice_id, rate=rate)
+    communicate = edge_tts.Communicate(plain, voice_id, rate=rate)
     chunks: list[bytes] = []
     async for chunk in communicate.stream():
         if chunk["type"] == "audio":
@@ -200,9 +179,9 @@ def synthesize(
     Synthesize text and return (audio_bytes, media_type).
 
     Pipeline:
-      1. Build SSML with emotion/pause/emphasis layer
-      2. Primary: Edge TTS neural voice
-      3. Fallback: Piper local TTS (plain text, if edge_tts fails)
+      1. Clean markdown/HTML/code from text → plain speakable prose
+      2. Primary: Edge TTS neural voice (plain text + rate parameter)
+      3. Fallback: Piper local TTS
     """
     text = text.strip()[:4500]
     if not text:
@@ -212,30 +191,32 @@ def synthesize(
     voice_id   = voice_info["id"]
     rate       = _speed_to_rate(max(0.5, min(2.0, speed)))
 
-    # Build SSML
-    ssml = _build_ssml(text, voice_id, rate)
+    # Strip all markdown/HTML/code — Edge TTS reads plain prose only
+    plain = _clean_text(text)
+    if not plain:
+        raise ValueError("text is empty after cleaning")
 
     # ── Primary: Edge TTS ──────────────────────────────────────────────────
     try:
         loop = asyncio.new_event_loop()
         try:
             audio = loop.run_until_complete(
-                _synthesize_edge(ssml, voice_id, rate)
+                _synthesize_edge(plain, voice_id, rate)
             )
         finally:
             loop.close()
         logger.info(
-            f"[TTS] Edge TTS SSML: {voice_key} ({voice_id}) "
-            f"speed={speed} → {len(audio)} bytes MP3"
+            f"[TTS] Edge TTS: {voice_key} ({voice_id}) "
+            f"speed={speed} chars={len(plain)} → {len(audio)} bytes MP3"
         )
         return audio, "audio/mpeg"
     except Exception as e:
         logger.warning(f"[TTS] Edge TTS failed ({e}), trying Piper fallback…")
 
-    # ── Fallback: Piper (plain text, no SSML) ─────────────────────────────
+    # ── Fallback: Piper (plain text) ───────────────────────────────────────
     try:
         from kernel._piper_fallback import piper_synthesize
-        audio = piper_synthesize(text, speed)
+        audio = piper_synthesize(plain, speed)
         logger.info(f"[TTS] Piper fallback: {len(audio)} bytes WAV")
         return audio, "audio/wav"
     except Exception as e2:
