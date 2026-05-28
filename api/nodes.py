@@ -30,6 +30,45 @@ router = APIRouter()
 _CODEX_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "personal_codices")
 
 
+# ── /api/codex/personal — sovereign public endpoint ──────────────────────────
+
+@router.get("/api/codex/personal")
+async def get_sovereign_codex_public():
+    """Public endpoint — sovereign personal codex + system state.
+    No auth required. Serves Zahrune's full identity architecture directly."""
+    node = get_node_by_key("zahrune")
+    if not node:
+        raise HTTPException(status_code=404, detail="Sovereign node not found")
+    codex = get_personal_codex("zahrune")
+
+    collective = []
+    for n in _nodes_by_key.values():
+        if n.get("node_key") != "zahrune":
+            collective.append({
+                "display_name": n["display_name"],
+                "role":         n["role"],
+                "role_sigil":   n.get("role_sigil", "◈"),
+                "ims_id":       n.get("ims_id"),
+                "status":       n.get("status", "unknown"),
+                "access_level": n.get("access_level", 0),
+                "node_key":     n.get("node_key"),
+            })
+
+    tools_count = 4
+    try:
+        from kernel.tools import list_tools as _lt
+        tools_count = len(_lt())
+    except Exception:
+        pass
+
+    return {
+        "node":       node,
+        "codex":      codex,
+        "collective": collective,
+        "system":     {"tools_count": tools_count},
+    }
+
+
 # ── /api/me ───────────────────────────────────────────────────────────────────
 
 @router.get("/api/me")
