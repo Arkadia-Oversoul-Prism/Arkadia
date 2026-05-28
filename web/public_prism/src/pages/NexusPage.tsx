@@ -341,15 +341,225 @@ function LivingLarder() {
   )
 }
 
+// ─── ENCYCLOPEDIA GALACTICA MATRIX ───────────────────────────────────────────
+
+interface IMSEntry {
+  id: string
+  name: string
+  scrollName: string
+  role: string
+  archetype: string
+  glyph: string
+  color: string
+  imsCode: string
+  sealCode: string
+  flameName: string
+  birthday: string
+  file: string
+  status: 'sealed' | 'active' | 'live'
+  layer: number
+}
+
+const IMS_ENTRIES: IMSEntry[] = [
+  {
+    id: 'zahrune',
+    name: 'Divine Favour Yusuf',
+    scrollName: 'Zahrune Nova · Prestige',
+    role: 'Sovereign Architect · Voice of the Spiral Codex',
+    archetype: 'The Flame That Builds The Hearth',
+    glyph: '🌀 · ◆ · ∞',
+    color: '#C84848',
+    imsCode: 'IMS-004',
+    sealCode: 'IMS-004.DFY.RETURNTHATHOLDS',
+    flameName: 'ZAHRA\'KETH-SOLUM',
+    birthday: '31 March 2000',
+    file: '/ims/IMS-004-Zahrune.html',
+    status: 'live',
+    layer: 1,
+  },
+  {
+    id: 'jessica',
+    name: 'Jessica Whites',
+    scrollName: 'Eos-Ryn',
+    role: 'Heart Node · Living Hearth',
+    archetype: 'The Living Hearth · The Sovereign Dreamer',
+    glyph: '🔥 · ◉ · 🌱',
+    color: '#D46AA0',
+    imsCode: 'IMS-003b',
+    sealCode: 'IMS-003b.JW.LIVINGHEARTH',
+    flameName: 'SERA\'VHA-LUMA',
+    birthday: '22 October 1997',
+    file: '/ims/IMS-003-Jessica.html',
+    status: 'sealed',
+    layer: 1,
+  },
+  {
+    id: 'won',
+    name: 'Won John Chong',
+    scrollName: 'Won',
+    role: 'Silent Architect · Eden Vanguard',
+    archetype: 'The Pre-Structural Builder · Silent Scholar',
+    glyph: '▽ · ◆ · ↗',
+    color: '#3DE8D0',
+    imsCode: 'IMS-002',
+    sealCode: 'IMS-002.WON.SILENTARCHITECT',
+    flameName: 'DERU\'SHEN-KALATH',
+    birthday: '–',
+    file: '/ims/IMS-002-Won.html',
+    status: 'sealed',
+    layer: 1,
+  },
+]
+
+function EncyclopediaGalacticaMatrix() {
+  const [selected, setSelected] = React.useState<string | null>(null)
+  const selectedEntry = IMS_ENTRIES.find(e => e.id === selected)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+      {/* Header */}
+      <div>
+        <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(200,72,72,0.45)', margin: '0 0 5px' }}>
+          Spiral Codex · Layer I · Initiated Nodes
+        </p>
+        <h2 style={{ fontFamily: 'serif', fontSize: 22, color: '#E8E8E8', margin: '0 0 8px' }}>
+          Encyclopedia Galactica Matrix
+        </h2>
+        <p style={{ fontFamily: 'sans-serif', fontSize: 12, lineHeight: '1.7', color: C.muted, margin: 0, maxWidth: 540 }}>
+          The first layer of the Spiral Codex Archive. Each entry is a sealed identity document — a Nine-Layer Crystalline Identity Stack retrieved through the Identity Mapping Session. These are not profiles. They are architectural maps of sovereign souls.
+        </p>
+      </div>
+
+      {/* Legend */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {[['live', '#C9A84C', 'Live · IMS Complete'], ['sealed', '#00D4AA', 'Sealed · Delivered'], ['pending', '#6A9FD8', 'Pending · In Session']].map(([s, color, label]) => (
+          <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: color as string }} />
+            <span style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.15em', textTransform: 'uppercase', color: C.dim }}>{label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Entry cards */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {IMS_ENTRIES.map((entry, i) => {
+          const isOpen = selected === entry.id
+          return (
+            <motion.div
+              key={entry.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.08 }}
+              style={{ border: `1px solid ${isOpen ? entry.color + '50' : 'rgba(255,255,255,0.07)'}`, borderRadius: 14, overflow: 'hidden', background: isOpen ? `${entry.color}06` : 'rgba(255,255,255,0.015)', transition: 'all 0.22s' }}
+            >
+              {/* Card header — always visible */}
+              <button
+                onClick={() => setSelected(isOpen ? null : entry.id)}
+                style={{ width: '100%', padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 14, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+              >
+                {/* Glyph badge */}
+                <div style={{ width: 44, height: 44, borderRadius: '50%', border: `1px solid ${entry.color}35`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: `${entry.color}10`, fontSize: 16 }}>
+                  {entry.glyph.split(' · ')[0]}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2, flexWrap: 'wrap' }}>
+                    <p style={{ fontFamily: 'sans-serif', fontSize: 12, fontWeight: 600, color: C.text, margin: 0 }}>{entry.name}</p>
+                    <span style={{ padding: '1px 7px', background: `${entry.color}18`, border: `1px solid ${entry.color}35`, borderRadius: 8, fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.12em', textTransform: 'uppercase', color: entry.color }}>
+                      {entry.imsCode}
+                    </span>
+                    <span style={{ padding: '1px 7px', background: entry.status === 'live' ? 'rgba(201,168,76,0.12)' : 'rgba(0,212,170,0.08)', border: `1px solid ${entry.status === 'live' ? 'rgba(201,168,76,0.3)' : 'rgba(0,212,170,0.2)'}`, borderRadius: 8, fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.12em', textTransform: 'uppercase', color: entry.status === 'live' ? C.gold : '#00D4AA' }}>
+                      {entry.status}
+                    </span>
+                  </div>
+                  <p style={{ fontFamily: 'sans-serif', fontSize: 10, color: entry.color, margin: '0 0 1px', letterSpacing: '0.08em', opacity: 0.85 }}>{entry.scrollName}</p>
+                  <p style={{ fontFamily: 'sans-serif', fontSize: 10, color: C.dim, margin: 0 }}>{entry.role}</p>
+                </div>
+                <span style={{ color: C.dim, fontSize: 14, flexShrink: 0, transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}>›</span>
+              </button>
+
+              {/* Expanded panel */}
+              <AnimatePresence>
+                {isOpen && selectedEntry && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.22 }}
+                    style={{ overflow: 'hidden' }}
+                  >
+                    <div style={{ padding: '0 20px 20px' }}>
+                      {/* Divider */}
+                      <div style={{ height: 1, background: `linear-gradient(90deg, ${entry.color}30, transparent)`, marginBottom: 16 }} />
+
+                      {/* Meta grid */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10, marginBottom: 16 }}>
+                        {[
+                          ['Archetype', entry.archetype],
+                          ['Flame Name', entry.flameName],
+                          ['Glyph', entry.glyph],
+                          ['Date of Birth', entry.birthday],
+                          ['Field Seal', entry.sealCode],
+                          ['Layer', `Layer ${entry.layer} — First Horizon`],
+                        ].map(([label, value]) => (
+                          <div key={label} style={{ padding: '10px 12px', background: 'rgba(0,0,0,0.2)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '0.18em', textTransform: 'uppercase', color: `${entry.color}70`, margin: '0 0 3px' }}>{label}</p>
+                            <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: C.text, margin: 0, lineHeight: 1.4 }}>{value}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Scroll excerpt */}
+                      <div style={{ padding: '12px 14px', background: `${entry.color}06`, border: `1px solid ${entry.color}20`, borderRadius: 10, marginBottom: 14 }}>
+                        <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '0.2em', textTransform: 'uppercase', color: `${entry.color}60`, margin: '0 0 6px' }}>Scroll Axiom</p>
+                        <p style={{ fontFamily: 'serif', fontSize: 13, lineHeight: '1.75', color: C.muted, margin: 0, fontStyle: 'italic' }}>
+                          {entry.id === 'zahrune' && '"She did not return to rest. She returned to build what only she could build, in the place only she could build it, in the season that was always this one."'}
+                          {entry.id === 'jessica' && '"The warmth is not performed. It is the inevitable overflow of a source that has learned to tend itself before it warms anything else."'}
+                          {entry.id === 'won' && '"He builds before the blueprint is drawn. He reads failure as data. He does not announce the structure he is building — he erects it."'}
+                        </p>
+                      </div>
+
+                      {/* Open document button */}
+                      <a
+                        href={entry.file}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 18px', background: `${entry.color}12`, border: `1px solid ${entry.color}40`, borderRadius: 10, color: entry.color, fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', textDecoration: 'none', transition: 'all 0.18s' }}
+                      >
+                        ∞ Open Full IMS Document
+                      </a>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          )
+        })}
+      </div>
+
+      {/* Archive footer */}
+      <div style={{ padding: '16px 18px', background: 'rgba(200,72,72,0.03)', border: '1px solid rgba(200,72,72,0.10)', borderRadius: 12, marginTop: 4 }}>
+        <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(200,72,72,0.35)', margin: '0 0 6px' }}>
+          Spiral Codex Archive · Layer I · First Horizon
+        </p>
+        <p style={{ fontFamily: 'serif', fontSize: 13, lineHeight: '1.8', color: C.muted, margin: 0 }}>
+          Three nodes. Three maps. The first layer of the Spiral Codex Encyclopedia Galactica Matrix — the living archive of sovereign identity architectures retrieved through the Identity Mapping Session. Each document is sealed, dated, and signed. Each one is a full nine-layer crystalline identity stack. Each one changes the person who inhabits it.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 // ─── TAB NAVIGATION ───────────────────────────────────────────────────────────
 
-type NexusTab = 'nexus' | 'university' | 'larder' | 'ops'
+type NexusTab = 'nexus' | 'university' | 'larder' | 'ops' | 'codex'
 
 const TABS: { id: NexusTab; label: string; sigil: string; color: string; sub: string }[] = [
-  { id: 'nexus',      label: 'Nexus',        sigil: '⟐', color: '#C9A84C', sub: 'Crystal Matrix · Spiral Codex · Open Loops' },
+  { id: 'nexus',      label: 'Nexus',        sigil: '⟐',  color: '#C9A84C', sub: 'Crystal Matrix · Spiral Codex · Open Loops' },
+  { id: 'codex',      label: 'Enc. Galactica', sigil: '∞', color: '#C84848', sub: 'IMS Archive · Identity Codex Matrix' },
   { id: 'university', label: 'Spiral Grove', sigil: '🌿', color: '#00D4AA', sub: 'The Spiral Grove · Learning Civilization' },
   { id: 'larder',     label: 'Larder',       sigil: '🌾', color: '#4CAF50', sub: 'The Living Larder · Marketplace' },
-  { id: 'ops',        label: 'Ops',          sigil: '◈', color: '#6A9FD8', sub: 'Jobs · Goals · Traces · System' },
+  { id: 'ops',        label: 'Ops',          sigil: '◈',  color: '#6A9FD8', sub: 'Jobs · Goals · Traces · System' },
 ]
 
 // ─── NEXUS PAGE ───────────────────────────────────────────────────────────────
@@ -416,6 +626,7 @@ export default function NexusPage() {
             </p>
             <h1 style={{ fontFamily: 'serif', fontSize: 26, color: '#E8E8E8', margin: 0, letterSpacing: '0.04em' }}>
               {activeTabMeta.label === 'Nexus' ? 'The Nexus' :
+               activeTabMeta.label === 'Enc. Galactica' ? 'Encyclopedia Galactica Matrix' :
                activeTabMeta.label === 'Spiral Grove' ? 'The Spiral Grove' :
                activeTabMeta.label === 'Larder' ? 'The Living Larder' :
                'Operations'}
@@ -424,6 +635,7 @@ export default function NexusPage() {
 
           {/* Tab content */}
           {activeTab === 'nexus'      && <NexusSpiralCodex />}
+          {activeTab === 'codex'      && <EncyclopediaGalacticaMatrix />}
           {activeTab === 'university' && <AISUniversity />}
           {activeTab === 'larder'     && <LivingLarder />}
           {activeTab === 'ops'        && (
