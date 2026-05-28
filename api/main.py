@@ -1598,6 +1598,76 @@ async def delete_goal(goal_id: str):
 
 # ── Tools ─────────────────────────────────────────────────────────────────────
 
+# ── ElevenLabs TTS proxy ──────────────────────────────────────────────────────
+
+ELEVENLABS_KEY      = os.environ.get("ELEVENLABS_API_KEY", "")
+ELEVENLABS_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"   # Rachel — warm, natural
+ELEVENLABS_MODEL    = "eleven_turbo_v2_5"        # lowest-latency model
+
+@app.post("/api/tts")
+async def text_to_speech(request: Request):
+    """Proxy ElevenLabs TTS so the API key never touches the browser."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    text  = (body.get("text") or "").strip()
+    speed = float(body.get("speed", 1.0))
+    speed = max(0.5, min(2.0, speed))
+
+    if not text:
+        raise HTTPException(status_code=400, detail="text is required")
+
+    # Clamp to ElevenLabs safe limit
+    text = text[:4500]
+
+    if not ELEVENLABS_KEY:
+        raise HTTPException(status_code=503, detail="ElevenLabs not configured")
+
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}"
+    payload = {
+        "text": text,
+        "model_id": ELEVENLABS_MODEL,
+        "voice_settings": {
+            "stability":        0.5,
+            "similarity_boost": 0.75,
+            "style":            0.0,
+            "use_speaker_boost": True,
+        },
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(
+                url,
+                json=payload,
+                headers={
+                    "xi-api-key":   ELEVENLABS_KEY,
+                    "Accept":       "audio/mpeg",
+                    "Content-Type": "application/json",
+                },
+            )
+            if resp.status_code == 401:
+                raise HTTPException(status_code=401, detail="ElevenLabs API key invalid")
+            if resp.status_code == 429:
+                raise HTTPException(status_code=429, detail="ElevenLabs quota exceeded")
+            resp.raise_for_status()
+            audio_bytes = resp.content
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"[TTS] ElevenLabs error: {e}")
+        raise HTTPException(status_code=502, detail=f"TTS generation failed: {e}")
+
+    from fastapi.responses import Response as _Response
+    return _Response(
+        content=audio_bytes,
+        media_type="audio/mpeg",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
 @app.get("/api/tools")
 async def list_tools_endpoint():
     try:

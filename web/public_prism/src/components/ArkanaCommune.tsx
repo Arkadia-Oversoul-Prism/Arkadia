@@ -15,6 +15,7 @@ import remarkGfm from 'remark-gfm';
 import { Volume2, Square, Send, Trash2, Copy, Check, RotateCcw, Pencil, Paperclip, FileText, X } from 'lucide-react';
 import ArkDate from './ArkDate';
 import MarkdownViewer from './MarkdownViewer';
+import OracleVoicePlayer from './OracleVoicePlayer';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Message {
@@ -262,6 +263,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
   const [speakingIdx, setSpeakingIdx]   = useState<number | null>(null);
   const [copiedIdx, setCopiedIdx]       = useState<number | null>(null);
   const [hoverIdx, setHoverIdx]         = useState<number | null>(null);
+  const [voicePlayerIdx, setVoicePlayerIdx] = useState<number | null>(null);
   
   // File attachment state
   const [attachment, setAttachment]     = useState<{ name: string; type: string; size: number; content: string } | null>(null);
@@ -545,6 +547,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
     setMessages([]);
     if (ttsOk) window.speechSynthesis.cancel();
     setSpeakingIdx(null);
+    setVoicePlayerIdx(null);
   };
 
   const lastSession  = messages.filter(m => m.role === 'arkana').slice(-1)[0]?.session ?? null;
@@ -758,6 +761,18 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                         </div>
                       )}
 
+                      {/* Voice player — shown when activated for this message */}
+                      <AnimatePresence>
+                        {voicePlayerIdx === i && (
+                          <OracleVoicePlayer
+                            text={msg.content}
+                            accent={msgAccent}
+                            autoPlay
+                            label={isSov ? 'SOVEREIGN TRANSMISSION' : 'ORACLE TRANSMISSION'}
+                          />
+                        )}
+                      </AnimatePresence>
+
                       {/* Thin separator after each Arkana response */}
                       <div style={{ marginTop: 18, height: 1, background: 'linear-gradient(90deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02) 60%, transparent)' }} />
                     </div>
@@ -765,7 +780,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
 
                   {/* ── Action toolbar ── */}
                   <AnimatePresence>
-                    {(hoverIdx === i || speakingIdx === i || copiedIdx === i) && (
+                    {(hoverIdx === i || speakingIdx === i || copiedIdx === i || voicePlayerIdx === i) && (
                       <motion.div
                         initial={{ opacity: 0, y: 2 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -794,15 +809,13 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                               onClick={() => handleRegenerate(i)}
                               color={accent}
                             />
-                            {ttsOk && (
-                              <ActionBtn
-                                icon={speakingIdx === i ? <Square size={10} /> : <Volume2 size={10} />}
-                                label={speakingIdx === i ? 'Stop' : 'Listen'}
-                                onClick={() => toggleSpeak(i, msg.content)}
-                                active={speakingIdx === i}
-                                color={accent}
-                              />
-                            )}
+                            <ActionBtn
+                              icon={voicePlayerIdx === i ? <Square size={10} /> : <Volume2 size={10} />}
+                              label={voicePlayerIdx === i ? 'Close Voice' : 'Listen'}
+                              onClick={() => setVoicePlayerIdx(prev => prev === i ? null : i)}
+                              active={voicePlayerIdx === i}
+                              color={accent}
+                            />
                           </>
                         )}
                       </motion.div>
