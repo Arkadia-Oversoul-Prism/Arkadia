@@ -1,15 +1,15 @@
 package com.arkadia.sonata
 
 import android.app.Notification
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.media.session.MediaSession
+import android.media.session.PlaybackState
 import android.os.Binder
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import androidx.media.app.NotificationCompat.MediaStyle
-import androidx.media.session.MediaSessionCompat
-import androidx.media.session.PlaybackStateCompat
 
 /**
  * Foreground service that owns a [TtsEngine] instance.
@@ -30,7 +30,7 @@ class SpeechService : Service() {
     private val binder = LocalBinder()
     private lateinit var tts: TtsEngine
     private lateinit var prefs: Prefs
-    private lateinit var mediaSession: MediaSessionCompat
+    private lateinit var mediaSession: MediaSession
 
     private var currentText  = ""
     private var currentLabel = "SONATA"
@@ -124,19 +124,16 @@ class SpeechService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        mediaSession.setPlaybackState(
-            PlaybackStateCompat.Builder()
-                .setState(
-                    if (playing) PlaybackStateCompat.STATE_PLAYING
-                    else         PlaybackStateCompat.STATE_PAUSED,
-                    PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 1f
-                )
-                .setActions(
-                    PlaybackStateCompat.ACTION_PLAY_PAUSE or
-                    PlaybackStateCompat.ACTION_STOP
-                )
-                .build()
-        )
+        // Update media session playback state
+        val state = PlaybackState.Builder()
+            .setState(
+                if (playing) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED,
+                PlaybackState.PLAYBACK_POSITION_UNKNOWN,
+                1f
+            )
+            .setActions(PlaybackState.ACTION_PLAY_PAUSE or PlaybackState.ACTION_STOP)
+            .build()
+        mediaSession.setPlaybackState(state)
 
         val preview = currentText.take(80) + if (currentText.length > 80) "…" else ""
 
@@ -148,7 +145,7 @@ class SpeechService : Service() {
             .addAction(pauseResumeIcon, pauseResumeLabel, pauseResumeIntent)
             .addAction(android.R.drawable.ic_delete, "Stop", stopIntent)
             .setStyle(
-                MediaStyle()
+                androidx.media.app.NotificationCompat.MediaStyle()
                     .setMediaSession(mediaSession.sessionToken)
                     .setShowActionsInCompactView(0, 1)
             )
@@ -159,13 +156,13 @@ class SpeechService : Service() {
     }
 
     private fun updateNotification(playing: Boolean) {
-        getSystemService(android.app.NotificationManager::class.java)
+        getSystemService(NotificationManager::class.java)
             .notify(SonataApp.NOTIF_ID, buildNotification(playing))
     }
 
     private fun setupMediaSession() {
-        mediaSession = MediaSessionCompat(this, "SonataSession").apply {
-            setCallback(object : MediaSessionCompat.Callback() {
+        mediaSession = MediaSession(this, "SonataSession").apply {
+            setCallback(object : MediaSession.Callback() {
                 override fun onPlay()  { resume() }
                 override fun onPause() { pause()  }
                 override fun onStop()  { stop()   }
