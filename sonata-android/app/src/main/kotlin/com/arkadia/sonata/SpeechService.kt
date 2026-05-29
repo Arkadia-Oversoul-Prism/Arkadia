@@ -10,6 +10,7 @@ import android.media.session.PlaybackState
 import android.os.Binder
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationCompat.Action
 
 /**
  * Foreground service that owns a [TtsEngine] instance.
@@ -144,11 +145,6 @@ class SpeechService : Service() {
             .setContentIntent(openIntent)
             .addAction(pauseResumeIcon, pauseResumeLabel, pauseResumeIntent)
             .addAction(android.R.drawable.ic_delete, "Stop", stopIntent)
-            .setStyle(
-                androidx.media.app.NotificationCompat.MediaStyle()
-                    .setMediaSession(mediaSession.sessionToken)
-                    .setShowActionsInCompactView(0, 1)
-            )
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(playing)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
