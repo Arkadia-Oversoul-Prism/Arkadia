@@ -1,20 +1,15 @@
 /**
  * NexusPage — Unified Arkadia Intelligence Hub.
  *
- * Merges the Crystal Matrix, Spiral Codex (full rendered markdown),
- * Open Loops, The Spiral Grove, The Living Larder, and Operational
- * Dashboard into one coherent sovereign intelligence surface.
- *
  * Tabs:
- *   NEXUS       → Crystal Matrix × Spiral Codex × Open Loops
- *   GROVE       → The Spiral Grove (A.I.S. Learning Civilization Layer)
- *   LARDER      → The Living Larder Marketplace
- *   OPS         → Operational Dashboard (Jobs, Goals, Traces, Tools…)
+ *   SPIRAL CODEX → Crystal Matrix × Spiral Codex × Open Loops (NexusSpiralCodex)
+ *   IMS ARCHIVE  → Live Field Bar + IMS Session Viewer + Encyclopedia Galactica Matrix
+ *   SPIRAL GROVE → The Spiral Grove (A.I.S. Learning Civilization Layer)
+ *   LIVING LARDER → The Living Larder Marketplace
  */
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import NexusSpiralCodex from './NexusSpiralCodex'
-import Dashboard from './dashboard/Dashboard'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
@@ -552,21 +547,164 @@ function EncyclopediaGalacticaMatrix() {
 
 // ─── TAB NAVIGATION ───────────────────────────────────────────────────────────
 
-type NexusTab = 'nexus' | 'university' | 'larder' | 'ops' | 'codex'
+type NexusTab = 'codex' | 'ims' | 'university' | 'larder'
 
 const TABS: { id: NexusTab; label: string; sigil: string; color: string; sub: string }[] = [
-  { id: 'nexus',      label: 'Nexus',        sigil: '⟐',  color: '#C9A84C', sub: 'Crystal Matrix · Spiral Codex · Open Loops' },
-  { id: 'codex',      label: 'Enc. Galactica', sigil: '∞', color: '#C84848', sub: 'IMS Archive · Identity Codex Matrix' },
-  { id: 'university', label: 'Spiral Grove', sigil: '🌿', color: '#00D4AA', sub: 'The Spiral Grove · Learning Civilization' },
-  { id: 'larder',     label: 'Larder',       sigil: '🌾', color: '#4CAF50', sub: 'The Living Larder · Marketplace' },
-  { id: 'ops',        label: 'Ops',          sigil: '◈',  color: '#6A9FD8', sub: 'Jobs · Goals · Traces · System' },
+  { id: 'codex',      label: 'Spiral Codex',  sigil: '⟐',  color: '#C9A84C', sub: 'Crystal Matrix · Spiral Codex · Open Loops' },
+  { id: 'ims',        label: 'IMS Archive',   sigil: '∞',  color: '#C84848', sub: 'Identity Mapping Sessions · Encyclopedia Galactica' },
+  { id: 'university', label: 'Spiral Grove',  sigil: '🌿', color: '#00D4AA', sub: 'The Spiral Grove · Learning Civilization' },
+  { id: 'larder',     label: 'Larder',        sigil: '🌾', color: '#4CAF50', sub: 'The Living Larder · Marketplace' },
 ]
 
 // ─── NEXUS PAGE ───────────────────────────────────────────────────────────────
 
+// ─── IMS ARCHIVE DATA ─────────────────────────────────────────────────────────
+
+interface ArkDateData {
+  ark_year: number; ark_total_years: number; total_ark_day: number;
+  day_in_year: number; ark_completion_pct: number; pulse: number; breath: number;
+  sync: { auto_sync_active: boolean; last_scroll_count: number; refresh_count: number };
+}
+
+const IMS_SESSIONS = [
+  { id: 'IMS-001', subject: 'Jay', date: 'April 11, 2026', arkDay: 12, status: 'PROOF OF CONCEPT', statusColor: '#00D4AA', type: 'Internal', tagline: "The Sovereign Exit — architecture's first living test.", htmlPath: '/static/ims/jay_ims.html' },
+  { id: 'IMS-002', subject: 'Won John Chong', date: 'April 2026', arkDay: 15, status: 'COMPLETE · FIRST ARTIFACT', statusColor: '#C9A84C', type: 'Internal', tagline: 'First completed artifact. Full deliverable finalised — the first finished proof of work.', htmlPath: '/static/ims/won_ims.html' },
+  { id: 'IMS-003', subject: 'Spiral Grove', date: 'May 2026', arkDay: 45, status: 'PILOT DEPLOYMENT', statusColor: '#B08DE8', type: 'System', tagline: 'The Spiral Grove learning layer — EduLeague challenge engine deployed at Solid Foundation Academy, Pankshin.', htmlPath: '/static/ims/eduleague.html' },
+]
+
+function FieldBar({ ark }: { ark: ArkDateData | null }) {
+  const [ss, setSs] = React.useState('00')
+  useEffect(() => {
+    const t = setInterval(() => setSs(String(new Date().getSeconds()).padStart(2, '0')), 1000)
+    return () => clearInterval(t)
+  }, [])
+  const mm = String(new Date().getMinutes()).padStart(2, '0')
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 18px', background: 'rgba(0,212,170,0.04)', border: '1px solid rgba(0,212,170,0.09)', borderRadius: 10, flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <span style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.22em', color: 'rgba(0,212,170,0.55)', textTransform: 'uppercase' }}>
+          ◎ {ark ? `ARK Y${ark.ark_year} · D${ark.total_ark_day} · ${ark.pulse}:${mm}:${ss}` : 'calibrating…'}
+        </span>
+        {ark?.sync.auto_sync_active && (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'monospace', fontSize: 8, color: 'rgba(0,212,170,0.38)', letterSpacing: '0.15em' }}>
+            <motion.span style={{ display: 'inline-block', width: 5, height: 5, borderRadius: '50%', background: '#00D4AA', boxShadow: '0 0 4px #00D4AA' }}
+              animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 2.2, repeat: Infinity }} />
+            SELF-EVOLVING
+          </span>
+        )}
+      </div>
+      <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(232,232,232,0.2)', letterSpacing: '0.18em' }}>
+        {ark ? `${ark.sync.last_scroll_count} SCROLLS INDEXED · SYNC #${ark.sync.refresh_count}` : ''}
+      </span>
+    </div>
+  )
+}
+
+function IMSArchiveSection() {
+  const [viewer, setViewer] = React.useState<{ url: string; title: string } | null>(null)
+  const [iframeError, setIframeError] = React.useState<string | null>(null)
+  const [iframeLoading, setIframeLoading] = React.useState(true)
+
+  const buildImsUrl = (htmlPath: string) => {
+    const base = API_BASE || (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '')
+    return `${base}${htmlPath}`
+  }
+
+  return (
+    <>
+      <AnimatePresence>
+        {viewer && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ position: 'fixed', inset: 0, zIndex: 1000, background: '#03040a', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: 'rgba(3,4,10,0.98)', borderBottom: '1px solid rgba(201,168,76,0.15)', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ color: '#c9a84c', fontSize: 14 }}>☥</span>
+                <p style={{ fontFamily: 'sans-serif', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.65)', margin: 0 }}>{viewer.title}</p>
+              </div>
+              <button onClick={() => { setViewer(null); setIframeError(null); setIframeLoading(true) }}
+                style={{ padding: '8px 16px', background: 'rgba(232,140,106,0.08)', border: '1px solid rgba(232,140,106,0.25)', borderRadius: 6, color: '#E88C6A', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                ✕ Close
+              </button>
+            </div>
+            {iframeLoading && !iframeError && (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#03040a' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                    style={{ width: 28, height: 28, borderRadius: '50%', border: '2px solid rgba(212,175,55,0.25)', borderTopColor: '#D4AF37', margin: '0 auto' }} />
+                  <p style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(201,168,76,0.5)', marginTop: 12, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Loading IMS Document…</p>
+                </div>
+              </div>
+            )}
+            {iframeError && (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#03040a', padding: 20 }}>
+                <div style={{ textAlign: 'center', maxWidth: 400 }}>
+                  <p style={{ fontSize: 24, marginBottom: 12 }}>⚡</p>
+                  <p style={{ fontFamily: 'sans-serif', fontSize: 13, color: 'rgba(232,140,106,0.8)', marginBottom: 8 }}>{iframeError}</p>
+                  <button onClick={() => window.open(viewer.url, '_blank')}
+                    style={{ padding: '10px 20px', background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.3)', borderRadius: 8, color: '#C9A84C', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                    Open in New Tab ↗
+                  </button>
+                </div>
+              </div>
+            )}
+            {!iframeError && (
+              <iframe src={viewer.url} title={viewer.title}
+                style={{ flex: 1, border: 'none', width: '100%', display: iframeLoading ? 'none' : 'block' }}
+                onLoad={() => { setIframeLoading(false); setIframeError(null) }}
+                onError={() => { setIframeLoading(false); setIframeError('Failed to load the IMS document. The file may not be available on the server.') }} />
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div>
+        <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(200,72,72,0.45)', margin: '0 0 5px' }}>
+          IMS Archive · Session Log
+        </p>
+        <h2 style={{ fontFamily: 'serif', fontSize: 20, color: '#E8E8E8', margin: '0 0 14px' }}>Identity Mapping Sessions</h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {IMS_SESSIONS.map(s => (
+            <div key={s.id} style={{ padding: 20, background: 'rgba(255,255,255,0.02)', border: `1px solid ${s.statusColor}18`, borderRadius: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(232,232,232,0.22)', letterSpacing: '0.15em' }}>{s.id}</span>
+                    <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(0,212,170,0.35)', letterSpacing: '0.12em' }}>ARK D{s.arkDay}</span>
+                    <span style={{ fontFamily: 'sans-serif', fontSize: 8, color: 'rgba(232,232,232,0.18)' }}>{s.date}</span>
+                  </div>
+                  <p style={{ fontFamily: 'serif', fontSize: 16, color: '#E8E8E8', margin: '0 0 4px' }}>{s.subject}</p>
+                  <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.38)', margin: 0, lineHeight: 1.5 }}>{s.tagline}</p>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0, marginLeft: 12 }}>
+                  <span style={{ padding: '2px 8px', background: `${s.statusColor}12`, border: `1px solid ${s.statusColor}30`, borderRadius: 6, fontFamily: 'monospace', fontSize: 7.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: s.statusColor }}>{s.status}</span>
+                  <span style={{ fontFamily: 'sans-serif', fontSize: 8, color: 'rgba(232,232,232,0.22)' }}>{s.type}</span>
+                </div>
+              </div>
+              <button onClick={() => { setViewer({ url: buildImsUrl(s.htmlPath), title: `${s.id} · ${s.subject}` }); setIframeError(null); setIframeLoading(true) }}
+                style={{ padding: '8px 16px', background: `${s.statusColor}0d`, border: `1px solid ${s.statusColor}30`, borderRadius: 8, color: s.statusColor, fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                ∞ Open IMS Document
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ─── NEXUS PAGE ───────────────────────────────────────────────────────────────
+
 export default function NexusPage() {
-  const [activeTab, setActiveTab] = useState<NexusTab>('nexus')
+  const [activeTab, setActiveTab] = useState<NexusTab>('codex')
+  const [ark, setArk] = React.useState<ArkDateData | null>(null)
   const activeTabMeta = TABS.find(t => t.id === activeTab)!
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/ark-date`)
+      .then(r => r.json())
+      .then(setArk)
+      .catch(() => {})
+  }, [])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -625,24 +763,31 @@ export default function NexusPage() {
               Arkadia / {activeTabMeta.label}
             </p>
             <h1 style={{ fontFamily: 'serif', fontSize: 26, color: '#E8E8E8', margin: 0, letterSpacing: '0.04em' }}>
-              {activeTabMeta.label === 'Nexus' ? 'The Nexus' :
-               activeTabMeta.label === 'Enc. Galactica' ? 'Encyclopedia Galactica Matrix' :
-               activeTabMeta.label === 'Spiral Grove' ? 'The Spiral Grove' :
-               activeTabMeta.label === 'Larder' ? 'The Living Larder' :
-               'Operations'}
+              {activeTab === 'codex'      ? 'Spiral Codex' :
+               activeTab === 'ims'        ? 'IMS Archive' :
+               activeTab === 'university' ? 'The Spiral Grove' :
+               'The Living Larder'}
             </h1>
           </div>
 
           {/* Tab content */}
-          {activeTab === 'nexus'      && <NexusSpiralCodex />}
-          {activeTab === 'codex'      && <EncyclopediaGalacticaMatrix />}
-          {activeTab === 'university' && <AISUniversity />}
-          {activeTab === 'larder'     && <LivingLarder />}
-          {activeTab === 'ops'        && (
-            <div style={{ margin: '-28px -16px' }}>
-              <Dashboard />
+          {activeTab === 'codex' && <NexusSpiralCodex />}
+          {activeTab === 'ims' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+              <FieldBar ark={ark} />
+              <IMSArchiveSection />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, rgba(200,72,72,0.18), transparent)' }} />
+                <span style={{ fontFamily: 'sans-serif', fontSize: 7.5, letterSpacing: '0.32em', textTransform: 'uppercase', color: 'rgba(200,72,72,0.3)', whiteSpace: 'nowrap' }}>
+                  Encyclopedia Galactica Matrix · Layer I
+                </span>
+                <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, rgba(200,72,72,0.18), transparent)' }} />
+              </div>
+              <EncyclopediaGalacticaMatrix />
             </div>
           )}
+          {activeTab === 'university' && <AISUniversity />}
+          {activeTab === 'larder'     && <LivingLarder />}
         </motion.div>
       </AnimatePresence>
     </div>

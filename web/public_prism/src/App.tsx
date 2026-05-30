@@ -4,7 +4,6 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ArkadiaNavigation from './components/ArkadiaNavigation';
 import LivingGate from './pages/LivingGate';
 import ArkanaCommune from './components/ArkanaCommune';
-import ShereSanctuary from './components/ShereSanctuary';
 import CoherenceReset from './pages/CoherenceReset';
 import AboutArkadia from './pages/AboutArkadia';
 import DashboardView from './pages/DashboardView';
@@ -13,7 +12,7 @@ import LoginPage from './pages/LoginPage';
 import PersonalCodex from './pages/PersonalCodex';
 import SonataBar from './components/SonataBar';
 
-type View = 'home' | 'gate' | 'commune' | 'reset' | 'nexus' | 'sanctuary' | 'dashboard' | 'about' | 'login' | 'codex';
+type View = 'home' | 'gate' | 'commune' | 'reset' | 'nexus' | 'dashboard' | 'about' | 'login' | 'codex';
 
 // ─── FIELD PULSE ──────────────────────────────────────────────────────────────
 
@@ -301,12 +300,6 @@ function AppInner() {
         {view === 'nexus' && (
           <motion.div key="nexus" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
             <NexusPage />
-          </motion.div>
-        )}
-
-        {view === 'sanctuary' && (
-          <motion.div key="sanctuary" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
-            <ShereSanctuary />
           </motion.div>
         )}
 

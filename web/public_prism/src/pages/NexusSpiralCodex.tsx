@@ -814,6 +814,18 @@ function CompactLoopsPanel() {
   )
 }
 
+// ─── SEVEN PRINCIPLES ─────────────────────────────────────────────────────────
+
+const PRINCIPLES: { id: string; label: string; sigil: string; color: string; categories: string[] }[] = [
+  { id: 'meaning',     label: 'Architecture of Meaning', sigil: '◈', color: '#00D4AA', categories: ['NEURAL_SPINE'] },
+  { id: 'soul',        label: 'Physics of the Soul',     sigil: '⊹', color: '#B08DE8', categories: ['COLLECTIVE'] },
+  { id: 'language',    label: 'Living Codex',            sigil: '◈', color: '#C9A84C', categories: ['CREATIVE_OS'] },
+  { id: 'ethics',      label: 'Ethics of Creation',      sigil: '⊞', color: '#6A9FD8', categories: ['GOVERNANCE'] },
+  { id: 'economies',   label: 'Spiral Economies',        sigil: '≡', color: '#A07848', categories: ['ARCHIVE', 'INFRASTRUCTURE'] },
+  { id: 'cartography', label: 'Dream Cartography',       sigil: '⊛', color: '#E86A8C', categories: ['TRANSMISSION'] },
+  { id: 'joy',         label: 'Technology of Joy',       sigil: '✦', color: '#D4AF37', categories: ['CODEX'] },
+]
+
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
 export default function NexusSpiralCodex() {
@@ -822,6 +834,7 @@ export default function NexusSpiralCodex() {
   const [activeFaceId, setActiveFaceId] = useState<number | null>(null)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('')
+  const [principleFilter, setPrincipleFilter] = useState<string>('')
 
   const { data, isLoading, error, refetch, isFetching } = useQuery<CodexResponse>({
     queryKey: ['codex-nexus'], queryFn: api.codex,
@@ -841,7 +854,10 @@ export default function NexusSpiralCodex() {
         (s.preview ?? '').toLowerCase().includes(q)
       )
     }
-    if (categoryFilter) {
+    if (principleFilter) {
+      const pCats = PRINCIPLES.find(p => p.id === principleFilter)?.categories ?? []
+      scrolls = scrolls.filter(s => pCats.includes(deriveCategory(s)))
+    } else if (categoryFilter) {
       scrolls = scrolls.filter(s => deriveCategory(s) === categoryFilter)
     }
     if (!activeFace) {
@@ -856,7 +872,7 @@ export default function NexusSpiralCodex() {
       .filter(s => s.score > 0)
       .sort((a, b) => b.score - a.score)
     return { scoredScrolls: scored, meaningArcs: buildArcs(scored, activeFace) }
-  }, [allScrolls, activeFace, lunar, search, categoryFilter])
+  }, [allScrolls, activeFace, lunar, search, categoryFilter, principleFilter])
 
   if (isLoading && !data) return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
@@ -939,17 +955,58 @@ export default function NexusSpiralCodex() {
         <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.15), transparent)' }} />
       </div>
 
+      {/* Seven Principles filter */}
+      <div>
+        <p style={{ fontFamily: 'sans-serif', fontSize: 7.5, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.3)', margin: '0 0 7px' }}>
+          Seven Principles
+        </p>
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button
+            onClick={() => { setPrincipleFilter(''); setCategoryFilter('') }}
+            style={{
+              flexShrink: 0, fontFamily: 'sans-serif', fontSize: 7.5, letterSpacing: '0.12em',
+              textTransform: 'uppercase', cursor: 'pointer',
+              padding: '3px 9px', borderRadius: 5,
+              background: !principleFilter && !categoryFilter ? 'rgba(201,168,76,0.1)' : 'transparent',
+              border: !principleFilter && !categoryFilter ? '1px solid rgba(201,168,76,0.35)' : '1px solid rgba(255,255,255,0.06)',
+              color: !principleFilter && !categoryFilter ? '#C9A84C' : COLORS.dim,
+            }}>
+            ⟁ All
+          </button>
+          {PRINCIPLES.map(p => {
+            const active = principleFilter === p.id
+            return (
+              <button key={p.id}
+                onClick={() => { setPrincipleFilter(active ? '' : p.id); setCategoryFilter('') }}
+                style={{
+                  flexShrink: 0, fontFamily: 'sans-serif', fontSize: 7.5, letterSpacing: '0.1em',
+                  textTransform: 'uppercase', cursor: 'pointer',
+                  padding: '3px 9px', borderRadius: 5,
+                  background: active ? `${p.color}14` : 'transparent',
+                  border: active ? `1px solid ${p.color}50` : `1px solid ${p.color}16`,
+                  color: active ? p.color : `${p.color}65`,
+                  display: 'flex', alignItems: 'center', gap: 3,
+                  transition: 'all 0.15s',
+                }}>
+                <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 9 }}>{p.sigil}</span>
+                {p.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
       {/* Category filter chips */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         <button
-          onClick={() => setCategoryFilter('')}
+          onClick={() => { setCategoryFilter(''); setPrincipleFilter('') }}
           style={{
             flexShrink: 0, fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.14em',
             textTransform: 'uppercase', cursor: 'pointer',
             padding: '4px 10px', borderRadius: 5,
-            background: !categoryFilter ? 'rgba(201,168,76,0.12)' : 'transparent',
-            border: !categoryFilter ? '1px solid rgba(201,168,76,0.4)' : '1px solid rgba(255,255,255,0.08)',
-            color: !categoryFilter ? '#C9A84C' : COLORS.dim,
+            background: !categoryFilter && !principleFilter ? 'rgba(201,168,76,0.12)' : 'transparent',
+            border: !categoryFilter && !principleFilter ? '1px solid rgba(201,168,76,0.4)' : '1px solid rgba(255,255,255,0.08)',
+            color: !categoryFilter && !principleFilter ? '#C9A84C' : COLORS.dim,
             display: 'flex', alignItems: 'center', gap: 4,
           }}>
           <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 10 }}>⟁</span>
@@ -959,7 +1016,7 @@ export default function NexusSpiralCodex() {
           const active = categoryFilter === key
           return (
             <button key={key}
-              onClick={() => setCategoryFilter(active ? '' : key)}
+              onClick={() => { setCategoryFilter(active ? '' : key); setPrincipleFilter('') }}
               style={{
                 flexShrink: 0, fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.14em',
                 textTransform: 'uppercase', cursor: 'pointer',
@@ -975,7 +1032,7 @@ export default function NexusSpiralCodex() {
             </button>
           )
         })}
-        {categoryFilter && (
+        {(categoryFilter || principleFilter) && (
           <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, color: COLORS.dim, marginLeft: 4 }}>
             {scoredScrolls.length} scrolls
           </span>

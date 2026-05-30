@@ -6,7 +6,7 @@ import React, { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   LayoutDashboard, ListChecks, Target, Waypoints,
-  Wrench, Activity, AlertCircle, BookOpen,
+  Wrench, Activity, AlertCircle,
 } from "lucide-react"
 
 import Overview        from "./Overview"
@@ -16,16 +16,14 @@ import Traces          from "./Traces"
 import Tools           from "./Tools"
 import System          from "./System"
 import OpenLoops       from "./OpenLoops"
-import DashboardCodex  from "./DashboardCodex"
 import { COLORS }      from "./ui"
 import { useMediaQuery } from "../../hooks/useMediaQuery"
 
 type DashView =
-  | "overview" | "codex" | "loops" | "jobs" | "goals" | "traces" | "tools" | "system"
+  | "overview" | "loops" | "jobs" | "goals" | "traces" | "tools" | "system"
 
 const NAV: { id: DashView; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
   { id: "overview", label: "Overview",      icon: LayoutDashboard },
-  { id: "codex",    label: "Spiral Codex",  icon: BookOpen },
   { id: "loops",    label: "Open Loops",    icon: AlertCircle },
   { id: "jobs",     label: "Jobs",          icon: ListChecks },
   { id: "goals",    label: "Goals",         icon: Target },
@@ -54,7 +52,6 @@ export default function Dashboard() {
         transition={{ duration: 0.22 }}
       >
         {view === "overview" && <Overview />}
-        {view === "codex"    && <DashboardCodex />}
         {view === "loops"    && <OpenLoops />}
         {view === "jobs"     && <Jobs onOpenTrace={openTrace} />}
         {view === "goals"    && <Goals />}
