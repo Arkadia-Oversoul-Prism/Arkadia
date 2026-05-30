@@ -7,7 +7,7 @@ import ArkanaCommune from './components/ArkanaCommune';
 import CoherenceReset from './pages/CoherenceReset';
 import AboutArkadia from './pages/AboutArkadia';
 import DashboardView from './pages/DashboardView';
-import NexusPage from './pages/NexusPage';
+import EncyclopediaGalactica from './pages/EncyclopediaGalactica';
 import LoginPage from './pages/LoginPage';
 import PersonalCodex from './pages/PersonalCodex';
 import SonataBar from './components/SonataBar';
@@ -151,7 +151,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginBottom: '30px' }}>
           <PortalDoor label="Oracle" sub="ARKANA · Pattern intelligence · Live commune" color="#00D4AA" sigil="⟐" onClick={() => onNavigate('commune')} delay={1.14} />
-          <PortalDoor label="Nexus" sub="Crystal Matrix · The Spiral Grove · The Living Larder" color="#C9A84C" sigil="☥" onClick={() => onNavigate('nexus')} delay={1.19} />
+          <PortalDoor label="Encyclopedia Galactica" sub="Crystal Matrix · 12 Chambers · The Living Library" color="#C9A84C" sigil="☥" onClick={() => onNavigate('nexus')} delay={1.19} />
           <PortalDoor
             label="Dashboard"
             sub={isAuthenticated ? "Open loops · Personal field · Action matrix" : "Authenticated nodes only — complete your IMS first"}
@@ -299,7 +299,7 @@ function AppInner() {
 
         {view === 'nexus' && (
           <motion.div key="nexus" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
-            <NexusPage />
+            <EncyclopediaGalactica />
           </motion.div>
         )}
 

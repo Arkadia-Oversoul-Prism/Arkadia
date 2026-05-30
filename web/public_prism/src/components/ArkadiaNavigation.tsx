@@ -15,7 +15,7 @@ const navItems: { label: string; view: View }[] = [
   { label: 'Gate',      view: 'gate' },
   { label: 'Oracle',    view: 'commune' },
   { label: 'Reset',     view: 'reset' },
-  { label: 'Nexus',     view: 'nexus' },
+  { label: 'Encyclopedia Galactica', view: 'nexus' },
   { label: 'Dashboard', view: 'dashboard' },
   { label: 'About',     view: 'about' },
 ];

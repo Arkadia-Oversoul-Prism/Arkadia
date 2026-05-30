@@ -10,3 +10,14 @@ python-docx
 beautifulsoup4
 piper-tts
 edge-tts
+beautifulsoup4
+edge-tts
+fastapi
+google-generativeai
+httpx
+pdfminer.six
+pydantic
+python-docx
+python-multipart
+requests
+uvicorn[standard]
