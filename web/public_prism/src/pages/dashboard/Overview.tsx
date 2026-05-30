@@ -3,7 +3,7 @@
  * Pulls live data from all available backend endpoints and surfaces
  * real-time insights routed through the Oracle weighting system.
  */
-import React, { useEffect, useRef, useMemo } from "react"
+import React, { useEffect, useRef, useMemo, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useQuery } from "@tanstack/react-query"
 import {
@@ -515,7 +515,164 @@ export default function Overview() {
           </div>
         </Card>
       )}
+
+      {/* ── SCROLL UPLOAD ────────────────────────────────────────────────── */}
+      <ScrollUploadCard />
     </div>
+  )
+}
+
+// ── Scroll Upload ─────────────────────────────────────────────────────────────
+
+const UPLOAD_CATEGORIES = [
+  { value: "NEURAL_SPINE", label: "Neural Spine" },
+  { value: "CREATIVE_OS",  label: "Creative OS" },
+  { value: "COLLECTIVE",   label: "Collective" },
+  { value: "GOVERNANCE",   label: "Governance" },
+  { value: "ARCHIVE",      label: "Archive" },
+  { value: "CODEX",        label: "Codex" },
+]
+
+function ScrollUploadCard() {
+  const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ""
+  const [label, setLabel]       = useState("")
+  const [category, setCategory] = useState("COLLECTIVE")
+  const [content, setContent]   = useState("")
+  const [file, setFile]         = useState<File | null>(null)
+  const [status, setStatus]     = useState<"idle" | "uploading" | "success" | "error">("idle")
+  const [errMsg, setErrMsg]     = useState("")
+  const fileRef = React.useRef<HTMLInputElement>(null)
+
+  const catColor = UPLOAD_CATEGORIES.find(c => c.value === category)
+  const accent = catColor?.value === "NEURAL_SPINE" ? "#00D4AA"
+    : catColor?.value === "CREATIVE_OS" ? "#C9A84C"
+    : catColor?.value === "COLLECTIVE" ? "#B08DE8"
+    : catColor?.value === "GOVERNANCE" ? "#6A9FD8"
+    : catColor?.value === "ARCHIVE" ? "#8B7355"
+    : "#D4AF37"
+
+  async function handleFileRead(f: File) {
+    setFile(f)
+    if (!label) setLabel(f.name.replace(/\.[^.]+$/, ""))
+    const reader = new FileReader()
+    reader.onload = e => setContent(String(e.target?.result ?? ""))
+    reader.readAsText(f)
+  }
+
+  async function handleUpload() {
+    if (!label.trim() || !content.trim()) { setErrMsg("Label and content are required."); setStatus("error"); return }
+    setStatus("uploading"); setErrMsg("")
+    try {
+      const res = await fetch(`${API_BASE}/api/scrolls`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: label.trim(), content: content.trim(), category, description: file ? `Uploaded via Dashboard: ${file.name}` : "Uploaded via Dashboard" }),
+      })
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error((d as any)?.detail ?? `HTTP ${res.status}`) }
+      setStatus("success"); setLabel(""); setContent(""); setFile(null)
+      setTimeout(() => setStatus("idle"), 4000)
+    } catch (e: any) { setErrMsg(e?.message ?? "Upload failed"); setStatus("error") }
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%", boxSizing: "border-box",
+    background: "rgba(255,255,255,0.025)",
+    border: "1px solid rgba(255,255,255,0.08)",
+    borderRadius: 8, color: COLORS.text,
+    fontFamily: "sans-serif", fontSize: 12,
+    outline: "none", transition: "border-color 0.18s",
+  }
+
+  return (
+    <Card title="Scroll Upload" subtitle="Add a new document directly to the Oracle corpus — authenticated operators only">
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+        {/* Label + Category row */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10 }}>
+          <input
+            value={label}
+            onChange={e => setLabel(e.target.value)}
+            placeholder="Scroll label…"
+            style={{ ...inputStyle, padding: "9px 12px" }}
+          />
+          <select
+            value={category}
+            onChange={e => setCategory(e.target.value)}
+            style={{ ...inputStyle, padding: "9px 12px", cursor: "pointer", minWidth: 140 }}
+          >
+            {UPLOAD_CATEGORIES.map(c => (
+              <option key={c.value} value={c.value} style={{ background: "#0A0A0F" }}>{c.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* File picker */}
+        <div>
+          <input ref={fileRef} type="file" accept=".txt,.md,.json,.docx" style={{ display: "none" }}
+            onChange={e => { const f = e.target.files?.[0]; if (f) handleFileRead(f) }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              onClick={() => fileRef.current?.click()}
+              style={{ padding: "8px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: COLORS.muted, fontFamily: "sans-serif", fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", cursor: "pointer" }}>
+              {file ? `📄 ${file.name}` : "Attach File"}
+            </button>
+            {file && (
+              <button onClick={() => { setFile(null); setContent(""); if (fileRef.current) fileRef.current.value = "" }}
+                style={{ background: "none", border: "none", color: COLORS.dim, cursor: "pointer", fontSize: 11 }}>✕</button>
+            )}
+            <span style={{ fontFamily: "sans-serif", fontSize: 9.5, color: COLORS.dim }}>or paste content below</span>
+          </div>
+        </div>
+
+        {/* Content textarea */}
+        <textarea
+          value={content}
+          onChange={e => setContent(e.target.value)}
+          rows={5}
+          placeholder="Paste scroll content here… (markdown, plain text, JSON)"
+          style={{ ...inputStyle, padding: "10px 12px", resize: "vertical", minHeight: 90, lineHeight: 1.6 }}
+        />
+
+        {/* Footer: char count + upload button */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <div style={{ display: "flex", align: "center", gap: 8 } as any}>
+            <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 9, color: COLORS.dim }}>
+              {content.length.toLocaleString()} chars
+            </span>
+            {status === "error" && (
+              <span style={{ fontFamily: "sans-serif", fontSize: 10, color: "#ef6c6c", marginLeft: 8 }}>⚠ {errMsg}</span>
+            )}
+            {status === "success" && (
+              <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                style={{ fontFamily: "sans-serif", fontSize: 10, color: "#00D4AA", marginLeft: 8 }}>
+                ✓ Scroll uploaded to corpus
+              </motion.span>
+            )}
+          </div>
+          <button
+            onClick={handleUpload}
+            disabled={status === "uploading" || !label.trim() || !content.trim()}
+            style={{
+              padding: "9px 20px",
+              background: status === "success" ? "rgba(0,212,170,0.1)" : `${accent}12`,
+              border: `1px solid ${status === "success" ? "rgba(0,212,170,0.4)" : `${accent}40`}`,
+              borderRadius: 9, color: status === "success" ? "#00D4AA" : accent,
+              fontFamily: "sans-serif", fontSize: 9.5, letterSpacing: "0.18em", textTransform: "uppercase",
+              cursor: status === "uploading" || !label.trim() || !content.trim() ? "not-allowed" : "pointer",
+              opacity: !label.trim() || !content.trim() ? 0.45 : 1,
+              display: "flex", alignItems: "center", gap: 7, transition: "all 0.18s",
+            }}>
+            {status === "uploading" ? (
+              <>
+                <motion.span animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  style={{ display: "inline-block", width: 11, height: 11, borderRadius: "50%", border: `2px solid ${accent}30`, borderTopColor: accent }} />
+                Uploading…
+              </>
+            ) : status === "success" ? "✓ Uploaded" : "⟐ Add to Corpus"}
+          </button>
+        </div>
+      </div>
+    </Card>
   )
 }
 

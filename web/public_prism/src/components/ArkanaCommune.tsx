@@ -780,7 +780,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
 
                   {/* ── Action toolbar ── */}
                   <AnimatePresence>
-                    {(hoverIdx === i || speakingIdx === i || copiedIdx === i || voicePlayerIdx === i) && (
+                    {(!isUser || hoverIdx === i || speakingIdx === i || copiedIdx === i || voicePlayerIdx === i) && (
                       <motion.div
                         initial={{ opacity: 0, y: 2 }}
                         animate={{ opacity: 1, y: 0 }}
