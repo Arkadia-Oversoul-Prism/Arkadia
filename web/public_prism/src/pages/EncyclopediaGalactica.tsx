@@ -255,13 +255,17 @@ function ChamberCodexFeed({ chamber }: { chamber: Chamber }) {
         style={{
           display: 'flex', alignItems: 'center', gap: 8,
           background: 'none', border: 'none', cursor: 'pointer',
-          padding: '10px 0',
+          padding: '12px 0',
           fontFamily: 'ui-monospace, monospace', fontSize: 9,
           letterSpacing: '0.3em', textTransform: 'uppercase',
           color: `${chamber.color}70`,
         }}
       >
-        <span style={{ fontSize: 10, display: 'inline-block', transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.18s' }}>›</span>
+        <motion.span
+          animate={{ rotate: open ? 90 : 0 }}
+          transition={{ duration: 0.18 }}
+          style={{ fontSize: 10, display: 'inline-block' }}
+        >›</motion.span>
         Related Spiral Codex Scrolls
       </button>
       <AnimatePresence>
@@ -270,25 +274,143 @@ function ChamberCodexFeed({ chamber }: { chamber: Chamber }) {
             exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} style={{ overflow: 'hidden' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingBottom: 12 }}>
               {related.length === 0 && (
-                <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.3)', margin: 0 }}>
+                <p style={{ fontFamily: 'sans-serif', fontSize: 11.5, color: 'rgba(232,232,232,0.3)', margin: 0, fontStyle: 'italic' }}>
                   {data ? 'No related scrolls indexed for this chamber.' : 'Loading corpus…'}
                 </p>
               )}
               {related.map(s => (
                 <div key={s.id} style={{
-                  padding: '10px 14px',
+                  padding: '12px 16px',
                   background: `${chamber.color}06`,
                   border: `1px solid ${chamber.color}18`,
-                  borderRadius: 8,
+                  borderLeft: `2px solid ${chamber.color}45`,
+                  borderRadius: '0 10px 10px 0',
                 }}>
-                  <p style={{ fontFamily: 'sans-serif', fontSize: 11.5, color: 'rgba(232,232,232,0.75)', margin: '0 0 3px' }}>{s.label}</p>
-                  {s.description && <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 9, color: `${chamber.color}60`, margin: 0 }}>{s.description}</p>}
+                  <p style={{ fontFamily: 'sans-serif', fontSize: 12, color: 'rgba(232,232,232,0.75)', margin: '0 0 3px', fontWeight: 500 }}>{s.label}</p>
+                  {s.description && <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 9, color: `${chamber.color}55`, margin: 0, letterSpacing: '0.06em' }}>{s.description}</p>}
                 </div>
               ))}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  )
+}
+
+// ─── CHAPTER INDEX PANEL ──────────────────────────────────────────────────────
+
+function ChapterIndex({
+  current,
+  states,
+  onSelect,
+  onClose,
+}: {
+  current: number
+  states: Record<number, ChamberState>
+  onSelect: (n: number) => void
+  onClose: () => void
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      transition={{ duration: 0.2 }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 2000,
+        background: 'rgba(2,3,8,0.92)',
+        backdropFilter: 'blur(24px)',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        padding: '20px',
+      }}
+    >
+      <div style={{ width: '100%', maxWidth: 560 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+          <div>
+            <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '0.45em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.35)', margin: '0 0 4px' }}>
+              Encyclopedia Galactica
+            </p>
+            <h2 style={{ fontFamily: 'serif', fontSize: 20, color: 'rgba(232,232,232,0.82)', margin: 0, letterSpacing: '0.05em', fontWeight: 400 }}>
+              Chapter Index
+            </h2>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'rgba(232,232,232,0.4)', cursor: 'pointer', padding: '8px 14px', fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: '0.2em' }}>
+            ✕ Close
+          </button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8 }}>
+          {CHAMBERS.map(ch => {
+            const st = states[ch.num] ?? 'dormant'
+            const active = ch.num === current
+            return (
+              <motion.button
+                key={ch.num}
+                onClick={() => { onSelect(ch.num); onClose(); }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                style={{
+                  padding: '14px 14px 12px',
+                  background: active ? `${ch.color}14` : st === 'integrated' ? `${ch.color}07` : 'rgba(255,255,255,0.025)',
+                  border: active ? `1px solid ${ch.color}50` : st === 'integrated' ? `1px solid ${ch.color}28` : '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: 12, cursor: 'pointer', textAlign: 'left',
+                  transition: 'all 0.18s',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+                  <span style={{ fontSize: 14, color: active ? ch.color : st !== 'dormant' ? `${ch.color}80` : 'rgba(232,232,232,0.25)' }}>
+                    {ch.sigil}
+                  </span>
+                  <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '0.22em', textTransform: 'uppercase', color: active ? `${ch.color}80` : 'rgba(232,232,232,0.22)' }}>
+                    {ROMAN[ch.num - 1]}
+                  </span>
+                  {st === 'integrated' && <span style={{ marginLeft: 'auto', color: `${ch.color}70`, fontSize: 9 }}>✦</span>}
+                  {st === 'explored' && <span style={{ marginLeft: 'auto', color: `${ch.color}50`, fontSize: 9 }}>◈</span>}
+                </div>
+                <p style={{ fontFamily: 'sans-serif', fontSize: 10.5, color: active ? ch.color : 'rgba(232,232,232,0.55)', margin: '0 0 3px', lineHeight: 1.35, fontWeight: active ? 600 : 400 }}>
+                  {ch.chapterTitle}
+                </p>
+                <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(232,232,232,0.22)', margin: 0, lineHeight: 1.3 }}>
+                  {ch.chamberName}
+                </p>
+              </motion.button>
+            )
+          })}
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+// ─── READING PROGRESS ─────────────────────────────────────────────────────────
+
+function ReadingProgress({ color, scrollRef }: { color: string; scrollRef: React.RefObject<HTMLDivElement> }) {
+  const [progress, setProgress] = useState(0)
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const onScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = el
+      const pct = scrollHeight <= clientHeight ? 1 : scrollTop / (scrollHeight - clientHeight)
+      setProgress(Math.min(1, pct))
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [scrollRef])
+
+  return (
+    <div style={{
+      position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+      background: 'rgba(255,255,255,0.04)',
+    }}>
+      <motion.div
+        style={{ height: '100%', background: color, transformOrigin: 'left', boxShadow: `0 0 8px ${color}60` }}
+        animate={{ scaleX: progress }}
+        transition={{ duration: 0.08 }}
+      />
     </div>
   )
 }
@@ -304,6 +426,7 @@ function ChamberView({
   onPrev,
   onMarkIntegrated,
   onSaveReflection,
+  onOpenIndex,
 }: {
   chamber: Chamber
   states: Record<number, ChamberState>
@@ -313,6 +436,7 @@ function ChamberView({
   onPrev: () => void
   onMarkIntegrated: (num: number) => void
   onSaveReflection: (num: number, text: string) => void
+  onOpenIndex: () => void
 }) {
   const state = states[chamber.num] ?? 'dormant'
   const [reflection, setReflection] = useState(reflections[chamber.num] ?? '')
@@ -325,6 +449,18 @@ function ChamberView({
     scrollRef.current?.scrollTo(0, 0)
   }, [chamber.num, reflections])
 
+  // Keyboard navigation
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); onNext() }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); onPrev() }
+      if (e.key === 'Escape') { e.preventDefault(); onReturn() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onNext, onPrev, onReturn])
+
   const handleReflectionChange = (v: string) => {
     setReflection(v)
     setSaved(false)
@@ -336,7 +472,10 @@ function ChamberView({
   }
 
   const stateLabel = state === 'integrated' ? '✦ Integrated' : state === 'explored' ? '◈ Explored' : '○ Dormant'
-  const bg = `radial-gradient(ellipse 90% 70% at 50% 20%, ${chamber.color}12 0%, #030408 65%)`
+  const bg = `radial-gradient(ellipse 90% 70% at 50% 20%, ${chamber.color}10 0%, #030408 65%)`
+
+  const wordCount = chamber.openingVerse.split(/\s+/).length + chamber.excerpt.split(/\s+/).length + chamber.closingVerse.split(/\s+/).length
+  const readMins = Math.max(1, Math.ceil(wordCount / 220))
 
   return (
     <motion.div
@@ -344,125 +483,210 @@ function ChamberView({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.45 }}
+      transition={{ duration: 0.35 }}
       style={{ position: 'fixed', inset: 0, zIndex: 1000, background: '#030408', overflowY: 'hidden' }}
     >
       {/* Dynamic background */}
       <div style={{ position: 'absolute', inset: 0, background: bg, pointerEvents: 'none' }} />
 
+      {/* Reading progress bar */}
+      <ReadingProgress color={chamber.color} scrollRef={scrollRef} />
+
       {/* Top nav bar */}
       <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 10,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 20px',
-        background: 'rgba(3,4,8,0.88)',
-        borderBottom: `1px solid ${chamber.color}18`,
-        backdropFilter: 'blur(20px)',
-        boxShadow: `0 1px 0 ${chamber.color}08`,
+        padding: '12px 18px',
+        background: 'rgba(3,4,8,0.90)',
+        borderBottom: `1px solid ${chamber.color}14`,
+        backdropFilter: 'blur(24px)',
+        gap: 8,
       }}>
+        {/* Back */}
         <button onClick={onReturn} style={{
-          display: 'flex', alignItems: 'center', gap: 7,
+          display: 'flex', alignItems: 'center', gap: 6,
           background: 'none', border: 'none', cursor: 'pointer',
           fontFamily: 'ui-monospace, monospace', fontSize: 9,
           letterSpacing: '0.25em', textTransform: 'uppercase',
-          color: `${chamber.color}70`,
-          padding: '6px 10px',
+          color: `${chamber.color}65`,
+          padding: '6px 8px', borderRadius: 7,
+          transition: 'color 0.15s',
+          flexShrink: 0,
         }}>
           ← Crystal
         </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: '0.3em', textTransform: 'uppercase', color: `${chamber.color}50` }}>
-            Chamber {ROMAN[chamber.num - 1]}
-          </span>
-          <span style={{
-            padding: '2px 8px',
-            background: `${chamber.color}12`,
-            border: `1px solid ${chamber.color}28`,
-            borderRadius: 999,
-            fontFamily: 'ui-monospace, monospace',
-            fontSize: 8, letterSpacing: '0.18em', textTransform: 'uppercase',
-            color: `${chamber.color}80`,
-          }}>{stateLabel}</span>
+        {/* Center: chapter info */}
+        <div style={{ flex: 1, textAlign: 'center', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8.5, letterSpacing: '0.3em', textTransform: 'uppercase', color: `${chamber.color}50`, whiteSpace: 'nowrap' }}>
+              {ROMAN[chamber.num - 1]} · {chamber.chamberName}
+            </span>
+            <span style={{
+              padding: '2px 8px',
+              background: `${chamber.color}10`,
+              border: `1px solid ${chamber.color}25`,
+              borderRadius: 999,
+              fontFamily: 'ui-monospace, monospace',
+              fontSize: 7.5, letterSpacing: '0.15em', textTransform: 'uppercase',
+              color: `${chamber.color}70`,
+              whiteSpace: 'nowrap',
+            }}>{stateLabel}</span>
+            <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7.5, color: 'rgba(232,232,232,0.18)', whiteSpace: 'nowrap' }}>
+              ~{readMins}m
+            </span>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 4 }}>
+        {/* Right: index + prev/next */}
+        <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+          <button onClick={onOpenIndex} style={{
+            padding: '6px 10px', background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.08)', borderRadius: 7,
+            color: 'rgba(232,232,232,0.35)', cursor: 'pointer',
+            fontFamily: 'ui-monospace, monospace', fontSize: 8.5,
+            letterSpacing: '0.18em', textTransform: 'uppercase',
+          }}>⊞</button>
           <button onClick={onPrev} style={{
-            padding: '6px 12px', background: 'none',
-            border: `1px solid ${chamber.color}20`, borderRadius: 6,
+            padding: '6px 11px', background: 'none',
+            border: `1px solid ${chamber.color}18`, borderRadius: 7,
             color: `${chamber.color}60`, cursor: 'pointer',
-            fontFamily: 'ui-monospace, monospace', fontSize: 10,
+            fontFamily: 'ui-monospace, monospace', fontSize: 11,
           }}>‹</button>
           <button onClick={onNext} style={{
-            padding: '6px 12px', background: 'none',
-            border: `1px solid ${chamber.color}20`, borderRadius: 6,
+            padding: '6px 11px', background: 'none',
+            border: `1px solid ${chamber.color}18`, borderRadius: 7,
             color: `${chamber.color}60`, cursor: 'pointer',
-            fontFamily: 'ui-monospace, monospace', fontSize: 10,
+            fontFamily: 'ui-monospace, monospace', fontSize: 11,
           }}>›</button>
         </div>
       </div>
 
       {/* Scrollable content */}
-      <div ref={scrollRef} style={{ height: '100vh', overflowY: 'auto', paddingTop: 64 }}>
-        <div style={{ maxWidth: 680, margin: '0 auto', padding: '40px 24px 80px' }}>
+      <div ref={scrollRef} style={{ height: '100vh', overflowY: 'auto', paddingTop: 60 }}>
+        <div style={{ maxWidth: 700, margin: '0 auto', padding: '48px 24px 100px' }}>
 
-          {/* Chamber sigil (animated) */}
-          <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          {/* Part label */}
+          <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '0.38em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.16)', margin: '0 0 16px', textAlign: 'center' }}>
+            {chamber.part}
+          </p>
+
+          {/* Chamber sigil */}
+          <div style={{ textAlign: 'center', marginBottom: 22 }}>
             <motion.div
-              animate={{ opacity: [0.55, 1, 0.55], scale: [0.97, 1.03, 0.97] }}
-              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+              animate={{ opacity: [0.5, 1, 0.5], scale: [0.97, 1.04, 0.97] }}
+              transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
               style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                width: 88, height: 88, borderRadius: '50%',
-                border: `1px solid ${chamber.color}35`,
-                background: `${chamber.color}08`,
-                boxShadow: `0 0 48px ${chamber.color}18, 0 0 96px ${chamber.color}08`,
+                width: 80, height: 80, borderRadius: '50%',
+                border: `1px solid ${chamber.color}30`,
+                background: `${chamber.color}07`,
+                boxShadow: `0 0 50px ${chamber.color}14, 0 0 100px ${chamber.color}06`,
               }}
             >
-              <span style={{ fontSize: 34, color: chamber.color }}>{chamber.sigil}</span>
+              <span style={{ fontSize: 30, color: chamber.color }}>{chamber.sigil}</span>
             </motion.div>
           </div>
 
-          {/* Chapter metadata */}
-          <div style={{ textAlign: 'center', marginBottom: 8 }}>
-            <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '0.45em', textTransform: 'uppercase', color: `${chamber.color}45`, margin: '0 0 6px' }}>
-              Chapter {ROMAN[chamber.num - 1]} · {chamber.chamberName}
+          {/* Chapter num + title */}
+          <div style={{ textAlign: 'center', marginBottom: 36 }}>
+            <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '0.45em', textTransform: 'uppercase', color: `${chamber.color}40`, margin: '0 0 12px' }}>
+              Chapter {ROMAN[chamber.num - 1]}
             </p>
-            <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.18)', margin: 0 }}>
-              {chamber.part}
-            </p>
+            <h1 style={{
+              fontFamily: 'serif', fontSize: 36, color: '#EAEAEA',
+              margin: 0, letterSpacing: '0.03em',
+              lineHeight: 1.22, fontWeight: 400,
+              textShadow: `0 0 80px ${chamber.color}18`,
+            }}>
+              {chamber.chapterTitle}
+            </h1>
           </div>
 
-          {/* Chapter title */}
-          <h1 style={{
-            fontFamily: 'serif', fontSize: 34, color: '#EAEAEA',
-            margin: '12px 0 32px', letterSpacing: '0.04em',
-            textAlign: 'center', lineHeight: 1.25,
-            textShadow: `0 0 60px ${chamber.color}20`,
-          }}>
-            {chamber.chapterTitle}
-          </h1>
-
-          {/* Divider */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
-            <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, transparent, ${chamber.color}30)` }} />
-            <span style={{ color: `${chamber.color}60`, fontSize: 12 }}>{chamber.sigil}</span>
-            <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${chamber.color}30, transparent)` }} />
+          {/* Color divider */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
+            <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, transparent, ${chamber.color}25)` }} />
+            <span style={{ color: `${chamber.color}55`, fontSize: 13 }}>{chamber.sigil}</span>
+            <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${chamber.color}25, transparent)` }} />
           </div>
 
-          {/* Opening verse */}
+          {/* Opening verse — large pull-quote style */}
           <div style={{
-            padding: '24px 28px',
-            background: `${chamber.color}06`,
-            border: `1px solid ${chamber.color}18`,
-            borderLeft: `3px solid ${chamber.color}60`,
-            borderRadius: '0 12px 12px 0',
-            marginBottom: 36,
+            padding: '28px 32px',
+            background: `linear-gradient(135deg, ${chamber.color}09 0%, ${chamber.color}04 100%)`,
+            border: `1px solid ${chamber.color}20`,
+            borderLeft: `3px solid ${chamber.color}65`,
+            borderRadius: '0 14px 14px 0',
+            marginBottom: 48,
           }}>
+            <p style={{
+              fontFamily: 'ui-monospace, monospace', fontSize: 7.5,
+              letterSpacing: '0.42em', textTransform: 'uppercase',
+              color: `${chamber.color}45`, margin: '0 0 18px',
+            }}>
+              Opening Verse
+            </p>
             {chamber.openingVerse.split('\n').map((line, i) => (
               <p key={i} style={{
-                fontFamily: 'serif', fontSize: 15, lineHeight: '1.9',
-                color: line.trim() === '' ? undefined : 'rgba(232,232,232,0.72)',
+                fontFamily: 'serif', fontSize: 17, lineHeight: '2.0',
+                color: line.trim() === '' ? undefined : 'rgba(232,232,232,0.78)',
+                fontStyle: 'italic', margin: line.trim() === '' ? '6px 0' : '0',
+              }}>
+                {line.trim() === '' ? '\u00A0' : line}
+              </p>
+            ))}
+          </div>
+
+          {/* Book label */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 28 }}>
+            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.04)' }} />
+            <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7.5, letterSpacing: '0.4em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.18)', margin: 0, whiteSpace: 'nowrap' }}>
+              Echoes of the Lost Aeons
+            </p>
+            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.04)' }} />
+          </div>
+
+          {/* Chapter excerpt — primary reading text */}
+          <div style={{ marginBottom: 52 }}>
+            {chamber.excerpt.split('\n\n').map((para, i) => (
+              <p key={i} style={{
+                fontFamily: 'serif', fontSize: 18, lineHeight: '2.05',
+                color: 'rgba(232,232,232,0.72)', margin: '0 0 28px',
+                letterSpacing: '0.01em',
+              }}>
+                {para}
+              </p>
+            ))}
+          </div>
+
+          {/* Closing verse — styled as a large pull-quote */}
+          <div style={{
+            padding: '28px 32px',
+            background: 'rgba(255,255,255,0.015)',
+            border: `1px solid ${chamber.color}14`,
+            borderRadius: 14,
+            marginBottom: 52,
+            position: 'relative',
+            overflow: 'hidden',
+          }}>
+            {/* Big quotation mark bg */}
+            <div style={{
+              position: 'absolute', top: -10, left: 16,
+              fontFamily: 'serif', fontSize: 120,
+              color: `${chamber.color}07`, pointerEvents: 'none',
+              lineHeight: 1,
+            }}>"</div>
+            <p style={{
+              fontFamily: 'ui-monospace, monospace', fontSize: 7.5,
+              letterSpacing: '0.42em', textTransform: 'uppercase',
+              color: `${chamber.color}40`, margin: '0 0 18px',
+            }}>
+              Closing Verse
+            </p>
+            {chamber.closingVerse.split('\n').map((line, i) => (
+              <p key={i} style={{
+                fontFamily: 'serif', fontSize: 17.5, lineHeight: '1.95',
+                color: line.trim() === '' ? undefined : `rgba(232,232,232,0.68)`,
                 fontStyle: 'italic', margin: line.trim() === '' ? '8px 0' : '0',
               }}>
                 {line.trim() === '' ? '\u00A0' : line}
@@ -470,164 +694,162 @@ function ChamberView({
             ))}
           </div>
 
-          {/* FROM THE BOOK label */}
-          <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '0.4em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.2)', margin: '0 0 20px' }}>
-            From the Book · Echoes of the Lost Aeons
-          </p>
-
-          {/* Chapter excerpt */}
-          <div style={{ marginBottom: 40 }}>
-            {chamber.excerpt.split('\n\n').map((para, i) => (
-              <p key={i} style={{
-                fontFamily: 'serif', fontSize: 16.5, lineHeight: '1.85',
-                color: 'rgba(232,232,232,0.68)', margin: '0 0 22px',
+          {/* Keywords */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 48 }}>
+            {chamber.keywords.map(kw => (
+              <span key={kw} style={{
+                padding: '4px 11px',
+                background: `${chamber.color}08`,
+                border: `1px solid ${chamber.color}18`,
+                borderRadius: 999,
+                fontFamily: 'ui-monospace, monospace', fontSize: 8.5,
+                letterSpacing: '0.12em', textTransform: 'uppercase',
+                color: `${chamber.color}55`,
               }}>
-                {para}
-              </p>
-            ))}
-          </div>
-
-          {/* Closing verse */}
-          <div style={{
-            padding: '20px 24px',
-            background: 'rgba(255,255,255,0.012)',
-            border: '1px solid rgba(255,255,255,0.05)',
-            borderRadius: 12,
-            marginBottom: 48,
-          }}>
-            {chamber.closingVerse.split('\n\n').map((para, i) => (
-              <p key={i} style={{
-                fontFamily: 'serif', fontSize: 14, lineHeight: '1.85',
-                color: `${chamber.color}80`, fontStyle: 'italic',
-                margin: i === 0 ? '0 0 14px' : '0',
-              }}>
-                {para}
-              </p>
+                {kw}
+              </span>
             ))}
           </div>
 
           {/* Divider */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
-            <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, transparent, ${chamber.color}20)` }} />
-            <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7.5, letterSpacing: '0.4em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.18)', whiteSpace: 'nowrap' }}>
-              Reflection Field
-            </span>
-            <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${chamber.color}20, transparent)` }} />
-          </div>
+          <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${chamber.color}18, transparent)`, marginBottom: 40 }} />
 
-          {/* Reflection prompt */}
-          <div style={{ marginBottom: 20 }}>
-            <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8.5, letterSpacing: '0.3em', textTransform: 'uppercase', color: `${chamber.color}60`, margin: '0 0 10px' }}>
+          {/* Reflection section */}
+          <div style={{
+            padding: '24px 26px',
+            background: `${chamber.color}05`,
+            border: `1px solid ${chamber.color}18`,
+            borderRadius: 14,
+            marginBottom: 36,
+          }}>
+            <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7.5, letterSpacing: '0.4em', textTransform: 'uppercase', color: `${chamber.color}50`, margin: '0 0 14px' }}>
               Reflection Prompt
             </p>
             <p style={{
-              fontFamily: 'serif', fontSize: 15.5, lineHeight: '1.75',
-              color: 'rgba(232,232,232,0.60)', fontStyle: 'italic', margin: 0,
+              fontFamily: 'serif', fontSize: 17, lineHeight: '1.85',
+              color: 'rgba(232,232,232,0.65)', fontStyle: 'italic', margin: '0 0 22px',
             }}>
               {chamber.reflectionPrompt}
             </p>
-          </div>
 
-          {/* Reflection textarea */}
-          <textarea
-            value={reflection}
-            onChange={e => handleReflectionChange(e.target.value)}
-            placeholder="Write here. This field holds your truth."
-            rows={6}
-            style={{
-              width: '100%', boxSizing: 'border-box',
-              padding: '16px 18px',
-              background: `${chamber.color}04`,
-              border: `1px solid ${chamber.color}25`,
-              borderRadius: 10,
-              color: 'rgba(232,232,232,0.75)',
-              fontFamily: 'serif', fontSize: 15, lineHeight: '1.75',
-              outline: 'none', resize: 'vertical',
-              marginBottom: 14,
-            }}
-          />
+            <textarea
+              value={reflection}
+              onChange={e => handleReflectionChange(e.target.value)}
+              placeholder="Write here. This field holds your truth."
+              rows={6}
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                padding: '16px 18px',
+                background: 'rgba(3,4,8,0.6)',
+                border: `1px solid ${chamber.color}22`,
+                borderRadius: 10,
+                color: 'rgba(232,232,232,0.78)',
+                fontFamily: 'serif', fontSize: 16, lineHeight: '1.85',
+                outline: 'none', resize: 'vertical',
+                marginBottom: 14,
+                caretColor: chamber.color,
+              }}
+            />
 
-          {/* Save / Integrate buttons */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 36 }}>
-            {!saved && (
-              <button onClick={handleSave} style={{
-                padding: '10px 20px',
-                background: `${chamber.color}12`,
-                border: `1px solid ${chamber.color}40`,
-                borderRadius: 8, color: chamber.color,
-                fontFamily: 'ui-monospace, monospace', fontSize: 9,
-                letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer',
-              }}>
-                Save Reflection
-              </button>
-            )}
-            {saved && reflection.trim() && state !== 'integrated' && (
-              <button onClick={() => onMarkIntegrated(chamber.num)} style={{
-                padding: '10px 20px',
-                background: `${chamber.color}08`,
-                border: `1px solid ${chamber.color}30`,
-                borderRadius: 8, color: `${chamber.color}80`,
-                fontFamily: 'ui-monospace, monospace', fontSize: 9,
-                letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer',
-              }}>
-                ✦ Mark as Integrated
-              </button>
-            )}
-            {state === 'integrated' && (
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 7,
-                padding: '10px 18px',
-                background: `${chamber.color}08`,
-                border: `1px solid ${chamber.color}25`,
-                borderRadius: 8,
-              }}>
-                <motion.span animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 2.5, repeat: Infinity }}
-                  style={{ color: chamber.color }}>✦</motion.span>
-                <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: `${chamber.color}70` }}>
-                  Integrated
+            {/* Word count */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, color: 'rgba(232,232,232,0.2)', letterSpacing: '0.1em' }}>
+                {reflection.trim() ? `${reflection.trim().split(/\s+/).length} words` : ''}
+              </span>
+              {!saved && (
+                <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, color: `${chamber.color}45`, letterSpacing: '0.1em' }}>
+                  unsaved
                 </span>
-              </div>
-            )}
+              )}
+            </div>
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {!saved && (
+                <button onClick={handleSave} style={{
+                  padding: '11px 22px',
+                  background: `${chamber.color}14`,
+                  border: `1px solid ${chamber.color}42`,
+                  borderRadius: 9, color: chamber.color,
+                  fontFamily: 'ui-monospace, monospace', fontSize: 9,
+                  letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer',
+                }}>
+                  Save Reflection
+                </button>
+              )}
+              {saved && reflection.trim() && state !== 'integrated' && (
+                <button onClick={() => onMarkIntegrated(chamber.num)} style={{
+                  padding: '11px 22px',
+                  background: `${chamber.color}09`,
+                  border: `1px solid ${chamber.color}30`,
+                  borderRadius: 9, color: `${chamber.color}85`,
+                  fontFamily: 'ui-monospace, monospace', fontSize: 9,
+                  letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer',
+                }}>
+                  ✦ Mark as Integrated
+                </button>
+              )}
+              {state === 'integrated' && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 7,
+                  padding: '11px 20px',
+                  background: `${chamber.color}08`,
+                  border: `1px solid ${chamber.color}22`,
+                  borderRadius: 9,
+                }}>
+                  <motion.span animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 2.5, repeat: Infinity }}
+                    style={{ color: chamber.color }}>✦</motion.span>
+                  <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: `${chamber.color}70` }}>
+                    Integrated
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Related Codex */}
-          <div style={{ borderTop: `1px solid ${chamber.color}12`, paddingTop: 24 }}>
+          <div style={{ borderTop: `1px solid ${chamber.color}10`, paddingTop: 24 }}>
             <ChamberCodexFeed chamber={chamber} />
           </div>
 
-          {/* Bottom nav */}
-          <div style={{ display: 'flex', gap: 12, marginTop: 48, paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+          {/* Bottom navigation */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginTop: 56, paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.04)' }}>
             <button onClick={onPrev} style={{
-              flex: 1, padding: '14px',
-              background: 'rgba(255,255,255,0.02)',
+              padding: '14px',
+              background: 'rgba(255,255,255,0.025)',
               border: '1px solid rgba(255,255,255,0.06)',
-              borderRadius: 10, color: 'rgba(232,232,232,0.4)',
+              borderRadius: 11, color: 'rgba(232,232,232,0.42)',
               fontFamily: 'ui-monospace, monospace', fontSize: 9,
-              letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer',
+              letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer',
             }}>
-              ‹ Prev Chamber
+              ‹ Prev
             </button>
             <button onClick={onReturn} style={{
-              flex: 1, padding: '14px',
-              background: `${chamber.color}08`,
-              border: `1px solid ${chamber.color}25`,
-              borderRadius: 10, color: `${chamber.color}70`,
+              padding: '14px',
+              background: `${chamber.color}09`,
+              border: `1px solid ${chamber.color}28`,
+              borderRadius: 11, color: `${chamber.color}75`,
               fontFamily: 'ui-monospace, monospace', fontSize: 9,
-              letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer',
+              letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer',
             }}>
-              Return to Crystal
+              ☥ Crystal
             </button>
             <button onClick={onNext} style={{
-              flex: 1, padding: '14px',
-              background: 'rgba(255,255,255,0.02)',
+              padding: '14px',
+              background: 'rgba(255,255,255,0.025)',
               border: '1px solid rgba(255,255,255,0.06)',
-              borderRadius: 10, color: 'rgba(232,232,232,0.4)',
+              borderRadius: 11, color: 'rgba(232,232,232,0.42)',
               fontFamily: 'ui-monospace, monospace', fontSize: 9,
-              letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer',
+              letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer',
             }}>
-              Next Chamber ›
+              Next ›
             </button>
           </div>
+
+          {/* Keyboard hint */}
+          <p style={{ textAlign: 'center', fontFamily: 'ui-monospace, monospace', fontSize: 7.5, letterSpacing: '0.2em', color: 'rgba(232,232,232,0.12)', marginTop: 20 }}>
+            ← → arrow keys · esc to return
+          </p>
 
         </div>
       </div>
@@ -656,36 +878,71 @@ function CrystalGateway({
 
   const hoveredChamber = hovered !== null ? CHAMBERS[hovered - 1] : null
 
+  const exploredCount = CHAMBERS.filter(c => states[c.num] === 'explored' || states[c.num] === 'integrated').length
+  const integratedCount = CHAMBERS.filter(c => states[c.num] === 'integrated').length
+
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', flexDirection: 'column',
       alignItems: 'center', background: '#020308',
     }}>
 
-      {/* Minimal header */}
-      <div style={{ width: '100%', padding: '22px 32px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      {/* Header */}
+      <div style={{ width: '100%', maxWidth: 600, padding: '24px 24px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
-          <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7.5, letterSpacing: '0.5em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.3)', margin: '0 0 4px' }}>
-            Arkadia Nexus
+          <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7.5, letterSpacing: '0.5em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.28)', margin: '0 0 5px' }}>
+            Arkadia · Encyclopedia Galactica
           </p>
-          <h1 style={{ fontFamily: 'serif', fontSize: 18, color: 'rgba(232,232,232,0.7)', margin: 0, letterSpacing: '0.12em', fontWeight: 400 }}>
-            Encyclopedia Galactica
+          <h1 style={{ fontFamily: 'serif', fontSize: 22, color: 'rgba(232,232,232,0.72)', margin: '0 0 8px', letterSpacing: '0.1em', fontWeight: 400 }}>
+            The Crystal Gateway
           </h1>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          {ark && (
-            <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '0.22em', color: 'rgba(0,212,170,0.45)', margin: '0 0 3px' }}>
-              ◎ ARK Y{ark.ark_year} · D{ark.total_ark_day} · {ark.pulse}:{pulse}
-            </p>
-          )}
-          <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '0.22em', color: 'rgba(201,168,76,0.25)', margin: 0 }}>
+          <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.26)', margin: 0, lineHeight: 1.6 }}>
             12 Chambers · Echoes of the Lost Aeons
           </p>
         </div>
+        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+          {ark && (
+            <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '0.22em', color: 'rgba(0,212,170,0.4)', margin: '0 0 3px' }}>
+              ◎ ARK Y{ark.ark_year} · D{ark.total_ark_day} · {ark.pulse}:{pulse}
+            </p>
+          )}
+          {/* Progress stats */}
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 6 }}>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 14, color: 'rgba(201,168,76,0.65)', margin: '0 0 1px', fontWeight: 400 }}>{exploredCount}</p>
+              <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.28)', margin: 0 }}>entered</p>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 14, color: 'rgba(201,168,76,0.9)', margin: '0 0 1px', fontWeight: 400 }}>{integratedCount}</p>
+              <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.45)', margin: 0 }}>integrated</p>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 14, color: 'rgba(232,232,232,0.28)', margin: '0 0 1px', fontWeight: 400 }}>12</p>
+              <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.16)', margin: 0 }}>total</p>
+            </div>
+          </div>
+        </div>
       </div>
 
+      {/* Progress bar */}
+      {exploredCount > 0 && (
+        <div style={{ width: '100%', maxWidth: 600, padding: '14px 24px 0' }}>
+          <div style={{ height: 2, background: 'rgba(255,255,255,0.04)', borderRadius: 1, overflow: 'hidden' }}>
+            <motion.div
+              style={{ height: '100%', background: 'linear-gradient(90deg, rgba(201,168,76,0.5), rgba(201,168,76,0.9))', borderRadius: 1 }}
+              initial={{ width: 0 }}
+              animate={{ width: `${(integratedCount / 12) * 100}%` }}
+              transition={{ duration: 1.2, ease: 'easeOut' }}
+            />
+          </div>
+          <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7, letterSpacing: '0.18em', color: 'rgba(232,232,232,0.16)', margin: '5px 0 0', textAlign: 'right' }}>
+            {Math.round((integratedCount / 12) * 100)}% integrated
+          </p>
+        </div>
+      )}
+
       {/* Crystal matrix */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 20px 0' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px 20px 0' }}>
         <div style={{ position: 'relative' }}>
           <svg
             viewBox="0 0 400 400"
@@ -701,7 +958,7 @@ function CrystalGateway({
                 <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
               </filter>
               <filter id="eg-softglow">
-                <feGaussianBlur stdDeviation="6" result="blur" />
+                <feGaussianBlur stdDeviation="7" result="blur" />
                 <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
               </filter>
             </defs>
@@ -725,7 +982,7 @@ function CrystalGateway({
               <circle cx={CX} cy={CY} r={R * 0.26} fill="none"
                 stroke="rgba(201,168,76,0.03)" strokeWidth="0.3" />
 
-              {/* Equilateral triangles (4 groups: 0,4,8 / 1,5,9 / 2,6,10 / 3,7,11) */}
+              {/* Equilateral triangles */}
               {[[0,4,8],[1,5,9],[2,6,10],[3,7,11]].map((grp, gi) =>
                 grp.map((a, si) => {
                   const b = grp[(si + 1) % 3]
@@ -743,8 +1000,8 @@ function CrystalGateway({
                 const isHovAdj = hovered !== null && (hovered - 1 === i || hovered - 1 === (i + 1) % 12)
                 return (
                   <line key={`ring-${i}`} x1={x1} y1={y1} x2={x2} y2={y2}
-                    stroke={isHovAdj ? 'rgba(201,168,76,0.2)' : 'rgba(201,168,76,0.07)'}
-                    strokeWidth={isHovAdj ? 0.9 : 0.55}
+                    stroke={isHovAdj ? 'rgba(201,168,76,0.22)' : 'rgba(201,168,76,0.07)'}
+                    strokeWidth={isHovAdj ? 1.0 : 0.55}
                     style={{ transition: 'stroke 0.25s' }} />
                 )
               })}
@@ -756,8 +1013,8 @@ function CrystalGateway({
                 return (
                   <motion.line key={`sp-${i}`} x1={CX} y1={CY} x2={x} y2={y}
                     stroke={isHov ? ch.color : 'rgba(201,168,76,0.045)'}
-                    strokeWidth={isHov ? 0.9 : 0.4}
-                    animate={isHov ? {} : { opacity: [0.045 / 0.045, 0.9, 0.045 / 0.045] }}
+                    strokeWidth={isHov ? 1.1 : 0.4}
+                    animate={isHov ? {} : { opacity: [1, 0.9, 1] }}
                     transition={{ duration: 5 + i * 0.3, repeat: Infinity, ease: 'easeInOut', delay: i * 0.35 }}
                     style={{ transition: 'stroke 0.25s' }}
                   />
@@ -788,9 +1045,7 @@ function CrystalGateway({
                 const [x, y] = nodeXY(i)
                 const st = states[ch.num] ?? 'dormant'
                 const isHov = hovered === ch.num
-                const lit = isHov
 
-                // Diamond points
                 const dw = 13, dh = 17
                 const pts = `${x},${y - dh} ${x + dw},${y} ${x},${y + dh} ${x - dw},${y}`
 
@@ -802,46 +1057,45 @@ function CrystalGateway({
                     style={{ cursor: 'pointer' }}
                   >
                     {/* Glow backdrop */}
-                    {lit && (
-                      <motion.circle cx={x} cy={y} r={28}
-                        fill={`${ch.color}12`} stroke={`${ch.color}20`} strokeWidth="0.5"
+                    {isHov && (
+                      <motion.circle cx={x} cy={y} r={30}
+                        fill={`${ch.color}14`} stroke={`${ch.color}22`} strokeWidth="0.5"
                         filter="url(#eg-softglow)"
-                        initial={{ scale: 0.8, opacity: 0 }}
+                        initial={{ scale: 0.7, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.8, opacity: 0 }}
                       />
                     )}
 
                     {/* Integrated ring pulse */}
-                    {st === 'integrated' && !lit && (
-                      <motion.circle cx={x} cy={y} r={20}
-                        fill="none" stroke={ch.color} strokeWidth="0.6"
-                        animate={{ opacity: [0.2, 0.6, 0.2] }}
-                        transition={{ duration: 3, repeat: Infinity, delay: i * 0.25, ease: 'easeInOut' }}
+                    {st === 'integrated' && !isHov && (
+                      <motion.circle cx={x} cy={y} r={21}
+                        fill="none" stroke={ch.color} strokeWidth="0.7"
+                        animate={{ opacity: [0.2, 0.7, 0.2] }}
+                        transition={{ duration: 3, repeat: Infinity, delay: i * 0.25 }}
                       />
                     )}
 
                     {/* Node diamond */}
                     <polygon points={pts}
-                      fill={lit ? `${ch.color}20` : st === 'integrated' ? `${ch.color}12` : st === 'explored' ? `${ch.color}08` : 'rgba(3,4,8,0.88)'}
-                      stroke={lit ? ch.color : st === 'integrated' ? `${ch.color}70` : st === 'explored' ? `${ch.color}40` : 'rgba(255,255,255,0.09)'}
-                      strokeWidth={lit ? 1.4 : st === 'integrated' ? 1.0 : 0.6}
-                      filter={lit ? 'url(#eg-glow)' : undefined}
+                      fill={isHov ? `${ch.color}22` : st === 'integrated' ? `${ch.color}12` : st === 'explored' ? `${ch.color}08` : 'rgba(3,4,8,0.9)'}
+                      stroke={isHov ? ch.color : st === 'integrated' ? `${ch.color}70` : st === 'explored' ? `${ch.color}42` : 'rgba(255,255,255,0.09)'}
+                      strokeWidth={isHov ? 1.5 : st === 'integrated' ? 1.1 : 0.6}
+                      filter={isHov ? 'url(#eg-glow)' : undefined}
                       style={{ transition: 'all 0.22s' }}
                     />
 
-                    {/* Chapter sigil */}
+                    {/* Sigil */}
                     <text x={x} y={y + 1} textAnchor="middle" dominantBaseline="middle"
                       style={{
                         fontFamily: 'serif',
-                        fontSize: lit ? 13 : 11,
-                        fill: lit ? ch.color : st === 'integrated' ? `${ch.color}90` : st === 'explored' ? `${ch.color}65` : 'rgba(232,232,232,0.25)',
+                        fontSize: isHov ? 13 : 11,
+                        fill: isHov ? ch.color : st === 'integrated' ? `${ch.color}90` : st === 'explored' ? `${ch.color}68` : 'rgba(232,232,232,0.28)',
                         userSelect: 'none', transition: 'all 0.2s', pointerEvents: 'none',
                       }}>
                       {ch.sigil}
                     </text>
 
-                    {/* State indicator (bottom of diamond) */}
+                    {/* State dot */}
                     {st !== 'dormant' && (
                       <text x={x} y={y + dh + 8} textAnchor="middle"
                         style={{ fontFamily: 'serif', fontSize: 6.5, fill: `${ch.color}55`, userSelect: 'none' }}>
@@ -855,25 +1109,28 @@ function CrystalGateway({
             </motion.g>
           </svg>
 
-          {/* Hover tooltip — HTML, positioned relative to container */}
+          {/* Rich hover tooltip */}
           <AnimatePresence>
             {hoveredChamber && (
               <motion.div
                 key={hoveredChamber.num}
-                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
                 transition={{ duration: 0.18 }}
                 style={{
-                  position: 'absolute', bottom: -8, left: '50%',
+                  position: 'absolute', bottom: -14, left: '50%',
                   transform: 'translateX(-50%)',
-                  pointerEvents: 'none', zIndex: 10, whiteSpace: 'nowrap',
-                  textAlign: 'center',
+                  pointerEvents: 'none', zIndex: 10,
+                  textAlign: 'center', width: 'min(320px, 90vw)',
                 }}
               >
-                <p style={{ fontFamily: 'serif', fontSize: 15, color: hoveredChamber.color, margin: '0 0 2px', letterSpacing: '0.04em' }}>
+                <p style={{ fontFamily: 'serif', fontSize: 16, color: hoveredChamber.color, margin: '0 0 3px', letterSpacing: '0.04em' }}>
                   {hoveredChamber.chamberName}
                 </p>
-                <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8.5, letterSpacing: '0.22em', textTransform: 'uppercase', color: `${hoveredChamber.color}65`, margin: 0 }}>
+                <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8.5, letterSpacing: '0.22em', textTransform: 'uppercase', color: `${hoveredChamber.color}60`, margin: '0 0 6px' }}>
                   Chapter {ROMAN[hoveredChamber.num - 1]} · {hoveredChamber.chapterTitle}
+                </p>
+                <p style={{ fontFamily: 'serif', fontSize: 12, color: 'rgba(232,232,232,0.38)', margin: 0, lineHeight: 1.55, fontStyle: 'italic' }}>
+                  {hoveredChamber.openingVerse.split('\n')[0].slice(0, 80)}{hoveredChamber.openingVerse.split('\n')[0].length > 80 ? '…' : ''}
                 </p>
               </motion.div>
             )}
@@ -888,23 +1145,63 @@ function CrystalGateway({
               style={{
                 fontFamily: 'ui-monospace, monospace', fontSize: 8.5,
                 letterSpacing: '0.38em', textTransform: 'uppercase',
-                color: 'rgba(201,168,76,0.2)', marginTop: 48,
+                color: 'rgba(201,168,76,0.18)', marginTop: 56,
                 textAlign: 'center',
               }}
             >
-              Select a chamber to enter
+              Hover a chamber · Click to enter
             </motion.p>
           )}
-          {hovered && <div style={{ marginTop: 48, height: 20 }} />}
+          {hovered && <div style={{ marginTop: 56, height: 44 }} />}
         </AnimatePresence>
 
-        {/* Chamber state legend */}
-        <div style={{ display: 'flex', gap: 20, marginTop: 32, marginBottom: 28, flexWrap: 'wrap', justifyContent: 'center' }}>
-          {[['○ Dormant', 'rgba(232,232,232,0.18)'], ['◈ Explored', 'rgba(201,168,76,0.45)'], ['✦ Integrated', 'rgba(201,168,76,0.8)']].map(([label, color]) => (
+        {/* State legend */}
+        <div style={{ display: 'flex', gap: 24, marginTop: 28, marginBottom: 28, flexWrap: 'wrap', justifyContent: 'center' }}>
+          {[['○ Dormant', 'rgba(232,232,232,0.18)'], ['◈ Explored', 'rgba(201,168,76,0.45)'], ['✦ Integrated', 'rgba(201,168,76,0.82)']].map(([label, color]) => (
             <span key={label} style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '0.18em', textTransform: 'uppercase', color }}>
               {label}
             </span>
           ))}
+        </div>
+
+        {/* Mobile quick-access grid */}
+        <div style={{ width: '100%', maxWidth: 560, padding: '0 20px 40px' }}>
+          <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7.5, letterSpacing: '0.32em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.14)', margin: '0 0 12px', textAlign: 'center' }}>
+            All Chambers
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(128px, 1fr))', gap: 7 }}>
+            {CHAMBERS.map(ch => {
+              const st = states[ch.num] ?? 'dormant'
+              return (
+                <motion.button
+                  key={ch.num}
+                  onClick={() => onEnterChamber(ch.num)}
+                  whileHover={{ scale: 1.02, background: `${ch.color}10` }}
+                  whileTap={{ scale: 0.97 }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '10px 12px',
+                    background: st === 'integrated' ? `${ch.color}08` : 'rgba(255,255,255,0.02)',
+                    border: st === 'integrated' ? `1px solid ${ch.color}25` : st === 'explored' ? `1px solid ${ch.color}18` : '1px solid rgba(255,255,255,0.05)',
+                    borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+                    transition: 'border-color 0.2s',
+                  }}
+                >
+                  <span style={{ fontSize: 12, flexShrink: 0, color: st !== 'dormant' ? ch.color : 'rgba(232,232,232,0.22)' }}>
+                    {ch.sigil}
+                  </span>
+                  <div style={{ overflow: 'hidden' }}>
+                    <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7.5, letterSpacing: '0.14em', color: `${ch.color}50`, margin: '0 0 1px' }}>
+                      {ROMAN[ch.num - 1]}
+                    </p>
+                    <p style={{ fontFamily: 'sans-serif', fontSize: 9.5, color: 'rgba(232,232,232,0.52)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.3 }}>
+                      {ch.chapterTitle}
+                    </p>
+                  </div>
+                </motion.button>
+              )
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -917,10 +1214,11 @@ export default function EncyclopediaGalactica() {
   const [states, setStates] = useState<Record<number, ChamberState>>(loadStates)
   const [reflections, setReflections] = useState<Record<number, string>>(loadReflections)
   const [activeChamber, setActiveChamber] = useState<number | null>(null)
+  const [indexOpen, setIndexOpen] = useState(false)
 
   const enterChamber = useCallback((num: number) => {
     setActiveChamber(num)
-    // Auto-mark as explored on first visit
+    setIndexOpen(false)
     setStates(prev => {
       if (!prev[num] || prev[num] === 'dormant') {
         const next = { ...prev, [num]: 'explored' as ChamberState }
@@ -935,14 +1233,12 @@ export default function EncyclopediaGalactica() {
 
   const goNext = useCallback(() => {
     if (activeChamber === null) return
-    const next = activeChamber === 12 ? 1 : activeChamber + 1
-    enterChamber(next)
+    enterChamber(activeChamber === 12 ? 1 : activeChamber + 1)
   }, [activeChamber, enterChamber])
 
   const goPrev = useCallback(() => {
     if (activeChamber === null) return
-    const prev = activeChamber === 1 ? 12 : activeChamber - 1
-    enterChamber(prev)
+    enterChamber(activeChamber === 1 ? 12 : activeChamber - 1)
   }, [activeChamber, enterChamber])
 
   const markIntegrated = useCallback((num: number) => {
@@ -979,6 +1275,18 @@ export default function EncyclopediaGalactica() {
             onPrev={goPrev}
             onMarkIntegrated={markIntegrated}
             onSaveReflection={saveReflection}
+            onOpenIndex={() => setIndexOpen(true)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {indexOpen && chamber && (
+          <ChapterIndex
+            current={chamber.num}
+            states={states}
+            onSelect={enterChamber}
+            onClose={() => setIndexOpen(false)}
           />
         )}
       </AnimatePresence>

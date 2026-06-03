@@ -19,48 +19,77 @@ interface NavProps {
   children: React.ReactNode;
 }
 
-const navItems: { label: string; view: View }[] = [
-  { label: 'Home',                  view: 'home' },
-  { label: 'Gate',                  view: 'gate' },
-  { label: 'Oracle',                view: 'commune' },
-  { label: 'Reset',                 view: 'reset' },
-  { label: 'Nexus',                 view: 'nexus' },
-  { label: 'Encyclopedia',          view: 'encyclopedia' },
-  { label: 'Spiral Codex',          view: 'spiral-codex' },
-  { label: 'Open Loops',            view: 'loops' },
-  { label: 'Spiral Grove',          view: 'grove' },
-  { label: 'Living Larder',         view: 'larder' },
-  { label: 'IMS Archive',           view: 'ims' },
-  { label: 'NovaNet',               view: 'novanet' },
-  { label: 'Dashboard',             view: 'dashboard' },
-  { label: 'About',                 view: 'about' },
+interface NavItem { label: string; view: View; sigil: string; sub: string; color: string }
+interface NavGroup { label: string; items: NavItem[] }
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Core',
+    items: [
+      { label: 'Home',        view: 'home',    sigil: '⌂', sub: 'Field entry point',                  color: '#C9A84C' },
+      { label: 'Gate',        view: 'gate',    sigil: '✦', sub: 'Identity Mapping Session · $777',     color: '#C9A84C' },
+      { label: 'Oracle',      view: 'commune', sigil: '⟐', sub: 'ARKANA · Pattern intelligence',        color: '#00D4AA' },
+      { label: 'Field Reset', view: 'reset',   sigil: '◎', sub: '5-minute coherence reset',            color: '#B08DE8' },
+    ],
+  },
+  {
+    label: 'Intelligence',
+    items: [
+      { label: 'Nexus Hub',              view: 'nexus',        sigil: '☥', sub: 'Codex · Archive · Grove · Larder',     color: '#C9A84C' },
+      { label: 'Encyclopedia Galactica', view: 'encyclopedia', sigil: '✧', sub: '12 Chambers · Echoes of the Lost Aeons', color: '#B08DE8' },
+    ],
+  },
+  {
+    label: 'Modules',
+    items: [
+      { label: 'Spiral Codex',  view: 'spiral-codex', sigil: '⟐', sub: 'Crystal Matrix · 26+ scrolls',   color: '#C9A84C' },
+      { label: 'Open Loops',    view: 'loops',        sigil: '∞', sub: 'Active initiatives · next actions', color: '#E88C6A' },
+      { label: 'Spiral Grove',  view: 'grove',        sigil: '🌿', sub: 'A.I.S. Learning Layer',            color: '#00D4AA' },
+      { label: 'Living Larder', view: 'larder',       sigil: '🌾', sub: 'Sovereign food network',           color: '#4CAF50' },
+      { label: 'IMS Archive',   view: 'ims',          sigil: '⊕', sub: 'Identity Mapping Sessions',        color: '#C84848' },
+      { label: 'NovaNet',       view: 'novanet',      sigil: '◉', sub: 'Living node mesh',                 color: '#6A9FD8' },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { label: 'Dashboard', view: 'dashboard', sigil: '◈', sub: 'Open loops · personal field', color: '#E88C6A' },
+      { label: 'About',     view: 'about',     sigil: '✦', sub: 'Zahrune Nova · Lineage',      color: '#6A9FD8' },
+    ],
+  },
 ];
 
-function UserIndicator({ onNavigate }: { onNavigate: (v: View) => void }) {
+const VIEW_LABEL: Partial<Record<View, string>> = {
+  home: 'Home', gate: 'Gate', commune: 'Oracle', reset: 'Field Reset', about: 'About',
+  login: 'Node Login', codex: 'Personal Codex', dashboard: 'Dashboard',
+  nexus: 'Nexus Hub', encyclopedia: 'Encyclopedia Galactica',
+  'spiral-codex': 'Spiral Codex', loops: 'Open Loops', grove: 'Spiral Grove',
+  larder: 'Living Larder', novanet: 'NovaNet', ims: 'IMS Archive',
+};
+
+function UserSection({ onNavigate, onClose }: { onNavigate: (v: View) => void; onClose: () => void }) {
   const { user, profile, signOut, isAuthenticated } = useAuth();
-  const [open, setOpen] = useState(false);
 
   if (!isAuthenticated) {
     return (
-      <button
-        onClick={() => onNavigate('login')}
-        style={{
-          padding: '5px 12px',
-          background: 'rgba(201,168,76,0.07)',
-          border: '1px solid rgba(201,168,76,0.22)',
-          borderRadius: '6px',
-          color: 'rgba(201,168,76,0.65)',
-          fontFamily: 'sans-serif',
-          fontSize: '9px',
-          letterSpacing: '0.2em',
-          textTransform: 'uppercase',
-          cursor: 'pointer',
-          transition: 'all 0.2s',
-        }}
-        data-testid="button-nav-login"
-      >
-        🔐 Node Login
-      </button>
+      <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+        <button
+          onClick={() => { onNavigate('login'); onClose(); }}
+          style={{
+            width: '100%', padding: '11px 16px',
+            background: 'rgba(201,168,76,0.07)',
+            border: '1px solid rgba(201,168,76,0.22)',
+            borderRadius: 10,
+            color: 'rgba(201,168,76,0.75)',
+            fontFamily: 'sans-serif', fontSize: 10,
+            letterSpacing: '0.22em', textTransform: 'uppercase',
+            cursor: 'pointer', textAlign: 'center',
+          }}
+          data-testid="button-nav-login"
+        >
+          🔐 Node Login
+        </button>
+      </div>
     );
   }
 
@@ -69,100 +98,85 @@ function UserIndicator({ onNavigate }: { onNavigate: (v: View) => void }) {
   const accessColor = (profile?.access_level ?? 0) >= 3 ? '#C9A84C' : '#00D4AA';
 
   return (
-    <div style={{ position: 'relative' }}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: '7px',
-          padding: '5px 12px',
-          background: `${accessColor}09`,
-          border: `1px solid ${accessColor}30`,
-          borderRadius: '6px',
-          color: accessColor,
-          fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase',
-          cursor: 'pointer', transition: 'all 0.2s',
-        }}
-        data-testid="button-user-menu"
-      >
-        <span>{sigil}</span>
-        <span>{displayName}</span>
-      </button>
+    <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+      {/* User identity */}
+      <div style={{ padding: '14px 20px 10px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{
+          width: 32, height: 32, borderRadius: '50%',
+          background: `${accessColor}12`,
+          border: `1px solid ${accessColor}35`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <span style={{ color: accessColor, fontSize: 13 }}>{sigil}</span>
+        </div>
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: accessColor, margin: '0 0 1px', fontWeight: 600, letterSpacing: '0.06em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {displayName}
+          </p>
+          <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(232,232,232,0.3)', margin: 0, letterSpacing: '0.08em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {profile?.role ?? user?.email}
+          </p>
+        </div>
+      </div>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.15 }}
+      {/* Quick links */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, padding: '0 16px 10px' }}>
+        {[
+          { label: '✦ Codex', view: 'codex' as View },
+          { label: '◈ Dashboard', view: 'dashboard' as View },
+        ].map(item => (
+          <button key={item.view} onClick={() => { onNavigate(item.view); onClose(); }}
             style={{
-              position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-              background: 'rgba(10,10,15,0.97)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: '10px',
-              overflow: 'hidden',
-              minWidth: '160px',
-              zIndex: 100,
-              backdropFilter: 'blur(20px)',
+              padding: '8px', background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8,
+              color: 'rgba(232,232,232,0.45)', fontFamily: 'sans-serif',
+              fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase',
+              cursor: 'pointer', transition: 'all 0.15s',
             }}
           >
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-              <p style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: accessColor, margin: '0 0 2px' }}>
-                {profile?.role ?? 'Authenticated Node'}
-              </p>
-              <p style={{ fontFamily: 'sans-serif', fontSize: '10px', color: 'rgba(232,232,232,0.4)', margin: 0 }}>
-                {user?.email}
-              </p>
-            </div>
-            {[
-              { label: '✦ Personal Codex', action: () => { onNavigate('codex'); setOpen(false); } },
-              { label: '◈ Dashboard', action: () => { onNavigate('dashboard'); setOpen(false); } },
-            ].map(item => (
-              <button
-                key={item.label}
-                onClick={item.action}
-                style={{
-                  display: 'block', width: '100%', textAlign: 'left',
-                  padding: '10px 14px',
-                  background: 'none', border: 'none',
-                  color: 'rgba(232,232,232,0.55)',
-                  fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase',
-                  cursor: 'pointer', transition: 'color 0.15s',
-                }}
-              >
-                {item.label}
-              </button>
-            ))}
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-              <button
-                onClick={() => { signOut(); setOpen(false); }}
-                style={{
-                  display: 'block', width: '100%', textAlign: 'left',
-                  padding: '10px 14px',
-                  background: 'none', border: 'none',
-                  color: 'rgba(232,82,70,0.5)',
-                  fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase',
-                  cursor: 'pointer',
-                }}
-                data-testid="button-sign-out"
-              >
-                ← Sign Out
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ padding: '0 16px 14px' }}>
+        <button
+          onClick={() => { signOut(); onClose(); }}
+          style={{
+            width: '100%', padding: '9px',
+            background: 'rgba(232,82,70,0.04)',
+            border: '1px solid rgba(232,82,70,0.14)',
+            borderRadius: 8,
+            color: 'rgba(232,82,70,0.45)',
+            fontFamily: 'sans-serif', fontSize: 9,
+            letterSpacing: '0.18em', textTransform: 'uppercase',
+            cursor: 'pointer', textAlign: 'center',
+          }}
+          data-testid="button-sign-out"
+        >
+          ← Sign Out
+        </button>
+      </div>
     </div>
   );
 }
 
 const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, children }) => {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const { isAuthenticated, profile } = useAuth();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const { isAuthenticated } = useAuth();
+
+  const currentLabel = VIEW_LABEL[currentView] ?? 'Arkadia';
+
+  const handleNavigate = (v: View) => {
+    onNavigate(v);
+    setDrawerOpen(false);
+  };
 
   return (
     <div className="relative min-h-screen" style={{ backgroundColor: '#0A0A0F' }}>
-      {/* Top shimmer line */}
+
+      {/* ── Shimmer line ── */}
       <div className="fixed top-0 left-0 w-full h-px z-50 overflow-hidden">
         <motion.div
           className="h-full w-1/2"
@@ -172,103 +186,277 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
         />
       </div>
 
-      {/* Desktop nav */}
+      {/* ── Top bar ── */}
       <nav
-        className="fixed top-0 left-0 w-full z-40 hidden md:flex items-center justify-between px-8 py-4"
+        className="fixed top-0 left-0 w-full z-40"
         style={{
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(201,168,76,0.12)',
-          backgroundColor: 'rgba(10,10,15,0.85)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '0 16px',
+          height: 52,
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          borderBottom: '1px solid rgba(201,168,76,0.10)',
+          backgroundColor: 'rgba(10,10,15,0.88)',
         }}
       >
-        <div className="flex items-center gap-3">
-          <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 4, repeat: Infinity }}
-            style={{ color: '#C9A84C', fontSize: '16px' }}>☥</motion.span>
-          <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 4, repeat: Infinity, delay: 0.5 }}
-            style={{ color: '#00D4AA', fontSize: '14px' }}>⟐</motion.span>
-          <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 4, repeat: Infinity, delay: 1 }}
-            style={{ color: '#C9A84C', fontSize: '12px' }}>✦</motion.span>
-          <span className="ml-2" style={{ fontFamily: 'serif', fontSize: '10px', letterSpacing: '0.35em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.7)' }}>
+        {/* Logo — click to go home */}
+        <button
+          onClick={() => handleNavigate('home')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+          }}
+        >
+          <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 4, repeat: Infinity }}
+            style={{ color: '#C9A84C', fontSize: 15 }}>☥</motion.span>
+          <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 4, repeat: Infinity, delay: 0.6 }}
+            style={{ color: '#00D4AA', fontSize: 13 }}>⟐</motion.span>
+          <span style={{ fontFamily: 'serif', fontSize: 10, letterSpacing: '0.38em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.65)', marginLeft: 2 }}>
             ARKADIA
           </span>
-        </div>
+        </button>
 
-        <div className="flex items-center gap-6">
-          {navItems.map((item) => {
-            const active = currentView === item.view;
-            return (
-              <button key={item.view} onClick={() => onNavigate(item.view)}
-                style={{ fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: active ? '#00D4AA' : 'rgba(232,232,232,0.45)', background: 'none', border: 'none', cursor: 'pointer', paddingBottom: '4px', borderBottom: active ? '1px solid #00D4AA' : '1px solid transparent', transition: 'color 0.2s, border-color 0.2s' }}>
-                {item.label}
-              </button>
-            );
-          })}
-          {isAuthenticated && profile && (
-            <button
-              onClick={() => onNavigate('codex')}
-              style={{
-                fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
-                color: currentView === 'codex' ? '#C9A84C' : 'rgba(201,168,76,0.5)',
-                background: 'none', border: 'none', cursor: 'pointer', paddingBottom: '4px',
-                borderBottom: currentView === 'codex' ? '1px solid #C9A84C' : '1px solid transparent',
-                transition: 'color 0.2s, border-color 0.2s',
-              }}
-            >
-              Codex
-            </button>
-          )}
-          <UserIndicator onNavigate={onNavigate} />
-        </div>
-      </nav>
+        {/* Current view label */}
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={currentView}
+            initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -3 }}
+            transition={{ duration: 0.25 }}
+            style={{
+              fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.3em',
+              textTransform: 'uppercase', color: 'rgba(232,232,232,0.28)',
+              position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+              pointerEvents: 'none', whiteSpace: 'nowrap',
+            }}
+          >
+            {currentLabel}
+          </motion.span>
+        </AnimatePresence>
 
-      {/* Mobile top bar */}
-      <nav
-        className="fixed top-0 left-0 w-full z-40 flex md:hidden items-center justify-between px-5 py-4"
-        style={{ backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(201,168,76,0.12)', backgroundColor: 'rgba(10,10,15,0.85)' }}
-      >
-        <div className="flex items-center gap-2">
-          <span style={{ color: '#C9A84C', fontSize: '14px' }}>☥</span>
-          <span style={{ fontFamily: 'serif', fontSize: '9px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.7)' }}>
-            ARKADIA
-          </span>
-        </div>
-        <button onClick={() => setMenuOpen(!menuOpen)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(232,232,232,0.6)', fontSize: '20px' }}>
-          {menuOpen ? '✕' : '☰'}
+        {/* Menu toggle */}
+        <button
+          onClick={() => setDrawerOpen(o => !o)}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 36, height: 36,
+            background: drawerOpen ? 'rgba(201,168,76,0.08)' : 'rgba(255,255,255,0.03)',
+            border: `1px solid ${drawerOpen ? 'rgba(201,168,76,0.3)' : 'rgba(255,255,255,0.07)'}`,
+            borderRadius: 9,
+            cursor: 'pointer', transition: 'all 0.2s',
+            flexShrink: 0,
+          }}
+          aria-label="Toggle navigation"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
+            <motion.div
+              animate={{ rotate: drawerOpen ? 45 : 0, y: drawerOpen ? 6 : 0 }}
+              transition={{ duration: 0.22 }}
+              style={{ width: 14, height: 1, background: drawerOpen ? '#C9A84C' : 'rgba(232,232,232,0.55)', transformOrigin: 'center', borderRadius: 1 }}
+            />
+            <motion.div
+              animate={{ opacity: drawerOpen ? 0 : 1 }}
+              transition={{ duration: 0.15 }}
+              style={{ width: 10, height: 1, background: 'rgba(232,232,232,0.35)', borderRadius: 1 }}
+            />
+            <motion.div
+              animate={{ rotate: drawerOpen ? -45 : 0, y: drawerOpen ? -6 : 0 }}
+              transition={{ duration: 0.22 }}
+              style={{ width: 14, height: 1, background: drawerOpen ? '#C9A84C' : 'rgba(232,232,232,0.55)', transformOrigin: 'center', borderRadius: 1 }}
+            />
+          </div>
         </button>
       </nav>
 
-      {/* Mobile dropdown menu */}
+      {/* ── Backdrop ── */}
       <AnimatePresence>
-        {menuOpen && (
-          <motion.div key="mobile-menu" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}
-            className="fixed top-[57px] left-0 w-full z-40 md:hidden"
-            style={{ backgroundColor: 'rgba(10,10,15,0.97)', borderBottom: '1px solid rgba(201,168,76,0.12)', backdropFilter: 'blur(20px)' }}>
-            {navItems.map((item) => {
-              const active = currentView === item.view;
-              return (
-                <button key={item.view} onClick={() => { onNavigate(item.view); setMenuOpen(false); }}
-                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '14px 24px', fontFamily: 'sans-serif', fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', color: active ? '#00D4AA' : 'rgba(232,232,232,0.55)', background: active ? 'rgba(0,212,170,0.05)' : 'none', border: 'none', borderLeft: active ? '2px solid #00D4AA' : '2px solid transparent', cursor: 'pointer' }}>
-                  {item.label}
-                </button>
-              );
-            })}
-            {isAuthenticated && (
-              <button onClick={() => { onNavigate('codex'); setMenuOpen(false); }}
-                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '14px 24px', fontFamily: 'sans-serif', fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', color: currentView === 'codex' ? '#C9A84C' : 'rgba(201,168,76,0.55)', background: 'none', border: 'none', borderLeft: '2px solid transparent', cursor: 'pointer' }}>
-                ✦ Codex
+        {drawerOpen && (
+          <motion.div
+            key="backdrop"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            onClick={() => setDrawerOpen(false)}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 45,
+              background: 'rgba(2,3,8,0.65)',
+              backdropFilter: 'blur(4px)',
+              WebkitBackdropFilter: 'blur(4px)',
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Drawer ── */}
+      <AnimatePresence>
+        {drawerOpen && (
+          <motion.div
+            key="drawer"
+            initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
+            transition={{ type: 'spring', stiffness: 340, damping: 38, mass: 0.9 }}
+            style={{
+              position: 'fixed', top: 0, left: 0, bottom: 0,
+              width: 288,
+              zIndex: 50,
+              display: 'flex', flexDirection: 'column',
+              background: 'rgba(7,8,14,0.96)',
+              borderRight: '1px solid rgba(201,168,76,0.10)',
+              backdropFilter: 'blur(32px)',
+              WebkitBackdropFilter: 'blur(32px)',
+              boxShadow: '4px 0 40px rgba(0,0,0,0.6), 1px 0 0 rgba(201,168,76,0.06)',
+            }}
+          >
+            {/* Drawer header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '0 18px',
+              height: 52,
+              borderBottom: '1px solid rgba(201,168,76,0.08)',
+              flexShrink: 0,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 4, repeat: Infinity }}
+                  style={{ color: '#C9A84C', fontSize: 14 }}>☥</motion.span>
+                <span style={{ fontFamily: 'serif', fontSize: 9.5, letterSpacing: '0.38em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.6)' }}>
+                  ARKADIA
+                </span>
+              </div>
+              <button
+                onClick={() => setDrawerOpen(false)}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'rgba(232,232,232,0.3)', fontSize: 16,
+                  padding: '4px 6px', borderRadius: 6,
+                  transition: 'color 0.15s',
+                }}
+              >
+                ✕
               </button>
-            )}
-            <div style={{ padding: '12px 24px', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-              <UserIndicator onNavigate={(v) => { onNavigate(v); setMenuOpen(false); }} />
             </div>
+
+            {/* Nav groups — scrollable */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 12px 8px' }}>
+              {NAV_GROUPS.map(group => {
+                const visibleItems = group.label === 'System' && !isAuthenticated
+                  ? group.items.filter(i => i.view !== 'dashboard')
+                  : group.items;
+
+                return (
+                  <div key={group.label} style={{ marginBottom: 18 }}>
+                    {/* Group label */}
+                    <p style={{
+                      fontFamily: 'sans-serif', fontSize: 7.5,
+                      letterSpacing: '0.4em', textTransform: 'uppercase',
+                      color: 'rgba(201,168,76,0.28)',
+                      margin: '0 8px 6px',
+                    }}>
+                      {group.label}
+                    </p>
+
+                    {/* Items */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {visibleItems.map(item => {
+                        const active = currentView === item.view;
+                        return (
+                          <button
+                            key={item.view}
+                            onClick={() => handleNavigate(item.view)}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 11,
+                              padding: '9px 10px',
+                              background: active ? `${item.color}0d` : 'transparent',
+                              border: active ? `1px solid ${item.color}28` : '1px solid transparent',
+                              borderRadius: 10,
+                              cursor: 'pointer', textAlign: 'left',
+                              transition: 'all 0.16s',
+                            }}
+                          >
+                            {/* Sigil */}
+                            <motion.span
+                              animate={active ? { opacity: [0.7, 1, 0.7] } : {}}
+                              transition={{ duration: 3, repeat: Infinity }}
+                              style={{
+                                fontSize: 13, flexShrink: 0,
+                                width: 22, textAlign: 'center',
+                                color: active ? item.color : 'rgba(232,232,232,0.28)',
+                              }}
+                            >
+                              {item.sigil}
+                            </motion.span>
+
+                            {/* Labels */}
+                            <div style={{ flex: 1, overflow: 'hidden' }}>
+                              <p style={{
+                                fontFamily: 'sans-serif', fontSize: 11,
+                                color: active ? item.color : 'rgba(232,232,232,0.6)',
+                                margin: '0 0 1px', fontWeight: active ? 600 : 400,
+                                letterSpacing: '0.04em',
+                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                              }}>
+                                {item.label}
+                              </p>
+                              <p style={{
+                                fontFamily: 'sans-serif', fontSize: 9,
+                                color: active ? `${item.color}60` : 'rgba(232,232,232,0.22)',
+                                margin: 0, letterSpacing: '0.04em',
+                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                              }}>
+                                {item.sub}
+                              </p>
+                            </div>
+
+                            {/* Active indicator */}
+                            {active && (
+                              <motion.div
+                                layoutId="nav-active-dot"
+                                style={{
+                                  width: 4, height: 4, borderRadius: '50%',
+                                  background: item.color, flexShrink: 0,
+                                }}
+                              />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Authenticated Codex link */}
+              {isAuthenticated && (
+                <div style={{ marginBottom: 8 }}>
+                  <button
+                    onClick={() => handleNavigate('codex')}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 11,
+                      width: '100%', padding: '9px 10px',
+                      background: currentView === 'codex' ? 'rgba(201,168,76,0.08)' : 'transparent',
+                      border: currentView === 'codex' ? '1px solid rgba(201,168,76,0.28)' : '1px solid transparent',
+                      borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+                      transition: 'all 0.16s',
+                    }}
+                  >
+                    <span style={{ fontSize: 13, flexShrink: 0, width: 22, textAlign: 'center', color: currentView === 'codex' ? '#C9A84C' : 'rgba(232,232,232,0.28)' }}>✦</span>
+                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                      <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: currentView === 'codex' ? '#C9A84C' : 'rgba(232,232,232,0.6)', margin: '0 0 1px', fontWeight: currentView === 'codex' ? 600 : 400, letterSpacing: '0.04em' }}>
+                        Personal Codex
+                      </p>
+                      <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(232,232,232,0.22)', margin: 0, letterSpacing: '0.04em' }}>
+                        90-day architecture · soul map
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Footer: user section */}
+            <UserSection onNavigate={onNavigate} onClose={() => setDrawerOpen(false)} />
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Page content */}
-      <div className="md:pt-[57px] pt-[57px]">
+      {/* ── Page content ── */}
+      <div style={{ paddingTop: 52 }}>
         {children}
       </div>
     </div>
