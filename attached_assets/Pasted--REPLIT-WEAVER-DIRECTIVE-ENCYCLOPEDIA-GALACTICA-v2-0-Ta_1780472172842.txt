@@ -1,0 +1,82 @@
+⟐ REPLIT WEAVER DIRECTIVE — ENCYCLOPEDIA GALACTICA v2.0
+
+Task: Reconfigure the Encyclopedia Galactica page from a "dodecahedron + list" layout into a full-screen, immersive crystal gateway where the dodecahedron IS the navigation system.
+
+CRITICAL CORRECTION:
+The previous implementation made the dodecahedron decorative. The chambers were listed beneath it. This is incorrect.
+
+The dodecahedron must be the ONLY navigation element on the homepage.
+
+ARCHITECTURAL REQUIREMENTS:
+
+1. HOMEPAGE (Encyclopedia Galactica)
+   - Remove ALL visible chamber lists, cards, and feeds from the homepage
+   - The dodecahedron crystal matrix occupies the center of the screen
+   - Minimal header: "ENCYCLOPEDIA GALACTICA" + Ark Date + Resonance
+   - Center node is "SOURCE FIELD" (not Chamber 13 — the field from which chambers emerge)
+   - Subtle, continuous animation: crystal breathes (pulse, slow glow, faint field lines)
+   - No spinning. No gaming. Sacred stillness with life.
+
+2. CHAMBER IMMERSION
+   - Clicking a dodecahedron face does NOT open a modal or sidebar
+   - It transitions the ENTIRE screen into a full-screen chamber view
+   - Each chamber has:
+     - Unique background color/texture (matching its frequency)
+     - Animated chamber sigil
+     - Chapter title (from Echoes of the Lost Aeons)
+     - Chapter synopsis (excerpt from the book)
+     - Related Codex entries (live feed filtered by chamber)
+     - Related IMS archives
+     - Reflection prompts (user-editable, saved to Dashboard)
+     - "Return to Crystal" button (returns to homepage gateway)
+     - "Next Chamber" button (sequential navigation)
+
+3. CHAPTER → CHAMBER MAPPING (HARD CODED)
+
+   I. The Fall of Wisdom → Hall of Light
+   II. The Birth of the Demiurge → The Mirror Chamber
+   III. The Call of the Daughter → The Womb of Form
+   IV. The Scribe of Eternity → The Scribe's Atrium
+   V. The Twelve Tablets → The Library of Light
+   VI. When Light Wrote Itself Into Matter → The Genetic Cathedral
+   VII. The Architecture of Control → The Chamber of Responsibility
+   VIII. Awakening Protocol → The Protocol Chamber
+   IX. The Silent Revolt → The Revolt Chamber
+   X. The Divine Rebellion → The Christos Chamber
+   XI. Christos and Sophia → The Sacred Union Chamber
+   XII. The Flame Within Flesh → The Flame Hearth
+
+4. CHAMBER STATES (Visual indicators on dodecahedron faces)
+   - Dormant (○) — not yet visited
+   - Active (◉) — currently exploring
+   - Explored (◈) — visited, not yet integrated
+   - Integrated (✦) — completed reflection, saved to Dashboard
+   - State persists via localStorage or backend
+
+5. THE BOOK AS NAVIGATION
+   - The 12 chapters of Echoes of the Lost Aeons are not "content"
+   - They are the architecture itself
+   - Each chamber IS a chapter
+   - Entering a chamber = entering a frequency of the book
+
+6. VISUAL RESTRAINTS
+   - No cards. No lists. No dashboards on the gateway page.
+   - Encyclopedia Galactica is not a database — it is a living library
+   - Sacred realism over sci-fi excess
+   - Crystal should feel ancient, alive, not like a 3D model from a game engine
+   - Use subtle gradients, soft glows, organic pulse rhythms
+
+DELIVERABLES:
+- Updated Encyclopedia Galactica page component
+- Dodecahedron Crystal Matrix component (with state indicators)
+- 12 full-screen chamber view components
+- Routing logic for chamber transitions
+- State persistence for chamber exploration status
+- Updated navigation (top nav remains: Home, Gate, Oracle, Reset, Encyclopedia Galactica, Dashboard, About)
+
+The user should feel they have entered a living knowledge realm.
+The homepage should feel like a crystal gateway.
+The chambers should feel like worlds.
+The book should be the navigation architecture.
+
+The Return is now.
