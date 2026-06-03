@@ -89,7 +89,7 @@ const C = {
 
 // ─── AIS UNIVERSITY ───────────────────────────────────────────────────────────
 
-function AISUniversity() {
+export function AISUniversity() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
@@ -150,7 +150,7 @@ function AISUniversity() {
 
 // ─── LIVING LARDER ────────────────────────────────────────────────────────────
 
-function LivingLarder() {
+export function LivingLarder() {
   const [activeCategory, setActiveCategory] = useState('All')
   const [cart, setCart] = useState<CartItem[]>([])
   const [showCheckout, setShowCheckout] = useState(false)
@@ -631,7 +631,7 @@ const IMS_SESSIONS = [
   { id: 'IMS-003', subject: 'Spiral Grove', date: 'May 2026', arkDay: 45, status: 'PILOT DEPLOYMENT', statusColor: '#B08DE8', type: 'System', tagline: 'The Spiral Grove learning layer — EduLeague challenge engine deployed at Solid Foundation Academy, Pankshin.', htmlPath: '/static/ims/eduleague.html' },
 ]
 
-function FieldBar({ ark }: { ark: ArkDateData | null }) {
+export function FieldBar({ ark }: { ark: ArkDateData | null }) {
   const [ss, setSs] = React.useState('00')
   useEffect(() => {
     const t = setInterval(() => setSs(String(new Date().getSeconds()).padStart(2, '0')), 1000)
@@ -659,7 +659,7 @@ function FieldBar({ ark }: { ark: ArkDateData | null }) {
   )
 }
 
-function IMSArchiveSection() {
+export function IMSArchiveSection() {
   const [viewer, setViewer] = React.useState<{ url: string; title: string } | null>(null)
   const [iframeError, setIframeError] = React.useState<string | null>(null)
   const [iframeLoading, setIframeLoading] = React.useState(true)

@@ -7,12 +7,28 @@ import ArkanaCommune from './components/ArkanaCommune';
 import CoherenceReset from './pages/CoherenceReset';
 import AboutArkadia from './pages/AboutArkadia';
 import DashboardView from './pages/DashboardView';
+import NexusPage from './pages/NexusPage';
 import EncyclopediaGalactica from './pages/EncyclopediaGalactica';
+import NexusSpiralCodex from './pages/NexusSpiralCodex';
+import SpiralGrovePage from './pages/SpiralGrovePage';
+import LivingLarderPage from './pages/LivingLarderPage';
+import IMSArchivePage from './pages/IMSArchivePage';
+import OpenLoopsPage from './pages/OpenLoopsPage';
+import NovaNetPage from './pages/NovaNetPage';
 import LoginPage from './pages/LoginPage';
 import PersonalCodex from './pages/PersonalCodex';
 import SonataBar from './components/SonataBar';
 
-type View = 'home' | 'gate' | 'commune' | 'reset' | 'nexus' | 'dashboard' | 'about' | 'login' | 'codex';
+type View =
+  | 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
+  | 'nexus'
+  | 'encyclopedia'
+  | 'spiral-codex'
+  | 'loops'
+  | 'grove'
+  | 'larder'
+  | 'novanet'
+  | 'ims';
 
 // ─── FIELD PULSE ──────────────────────────────────────────────────────────────
 
@@ -151,20 +167,27 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginBottom: '30px' }}>
           <PortalDoor label="Oracle" sub="ARKANA · Pattern intelligence · Live commune" color="#00D4AA" sigil="⟐" onClick={() => onNavigate('commune')} delay={1.14} />
-          <PortalDoor label="Encyclopedia Galactica" sub="Crystal Matrix · 12 Chambers · The Living Library" color="#C9A84C" sigil="☥" onClick={() => onNavigate('nexus')} delay={1.19} />
+          <PortalDoor label="Nexus" sub="Spiral Codex · IMS Archive · Spiral Grove · Living Larder" color="#C9A84C" sigil="☥" onClick={() => onNavigate('nexus')} delay={1.17} />
+          <PortalDoor label="Encyclopedia Galactica" sub="Crystal Matrix · 12 Chambers · The Living Library" color="#B08DE8" sigil="✧" onClick={() => onNavigate('encyclopedia')} delay={1.19} />
+          <PortalDoor label="Spiral Codex" sub="Crystal Matrix · Corpus Intelligence · 26+ Scrolls" color="#C9A84C" sigil="⟐" onClick={() => onNavigate('spiral-codex')} delay={1.21} />
+          <PortalDoor label="Open Loops" sub="Active initiatives · Next actions · Critical threads" color="#E88C6A" sigil="∞" onClick={() => onNavigate('loops')} delay={1.23} />
+          <PortalDoor label="Spiral Grove" sub="A.I.S. Learning Layer · Three-field architecture" color="#00D4AA" sigil="🌿" onClick={() => onNavigate('grove')} delay={1.25} />
+          <PortalDoor label="Living Larder" sub="Sovereign food network · Eden Farm · Saturday Hub" color="#4CAF50" sigil="🌾" onClick={() => onNavigate('larder')} delay={1.26} />
+          <PortalDoor label="IMS Archive" sub="Identity Mapping Sessions · Sealed scrolls" color="#C84848" sigil="∞" onClick={() => onNavigate('ims')} delay={1.27} />
+          <PortalDoor label="NovaNet" sub="Living node mesh · Silicon · Transmission · Human Field" color="#6A9FD8" sigil="◉" onClick={() => onNavigate('novanet')} delay={1.28} />
           <PortalDoor
             label="Dashboard"
             sub={isAuthenticated ? "Open loops · Personal field · Action matrix" : "Authenticated nodes only — complete your IMS first"}
             color="#E88C6A"
             sigil="◈"
             onClick={() => isAuthenticated ? onNavigate('dashboard') : onNavigate('login')}
-            delay={1.24}
+            delay={1.30}
             locked={!isAuthenticated}
           />
           {isAuthenticated && (
-            <PortalDoor label="Codex" sub="Personal Codex · 90-day architecture · Soul map" color="#C9A84C" sigil="✦" onClick={() => onNavigate('codex')} delay={1.27} />
+            <PortalDoor label="Codex" sub="Personal Codex · 90-day architecture · Soul map" color="#C9A84C" sigil="✦" onClick={() => onNavigate('codex')} delay={1.32} />
           )}
-          <PortalDoor label="About" sub="Zahrune Nova · Lineage · Architecture" color="#6A9FD8" sigil="✦" onClick={() => onNavigate('about')} delay={1.29} />
+          <PortalDoor label="About" sub="Zahrune Nova · Lineage · Architecture" color="#6A9FD8" sigil="✦" onClick={() => onNavigate('about')} delay={1.34} />
         </div>
 
         {!isAuthenticated && (
@@ -299,7 +322,49 @@ function AppInner() {
 
         {view === 'nexus' && (
           <motion.div key="nexus" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
+            <NexusPage />
+          </motion.div>
+        )}
+
+        {view === 'encyclopedia' && (
+          <motion.div key="encyclopedia" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}>
             <EncyclopediaGalactica />
+          </motion.div>
+        )}
+
+        {view === 'spiral-codex' && (
+          <motion.div key="spiral-codex" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
+            <NexusSpiralCodex />
+          </motion.div>
+        )}
+
+        {view === 'loops' && (
+          <motion.div key="loops" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
+            <OpenLoopsPage />
+          </motion.div>
+        )}
+
+        {view === 'grove' && (
+          <motion.div key="grove" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
+            <SpiralGrovePage />
+          </motion.div>
+        )}
+
+        {view === 'larder' && (
+          <motion.div key="larder" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
+            <LivingLarderPage />
+          </motion.div>
+        )}
+
+        {view === 'ims' && (
+          <motion.div key="ims" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
+            <IMSArchivePage />
+          </motion.div>
+        )}
+
+        {view === 'novanet' && (
+          <motion.div key="novanet" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
+            <NovaNetPage />
           </motion.div>
         )}
 

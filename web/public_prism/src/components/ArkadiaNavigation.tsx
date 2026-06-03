@@ -2,7 +2,16 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 
-type View = 'home' | 'gate' | 'commune' | 'reset' | 'nexus' | 'sanctuary' | 'dashboard' | 'about' | 'login' | 'codex';
+type View =
+  | 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
+  | 'nexus'
+  | 'encyclopedia'
+  | 'spiral-codex'
+  | 'loops'
+  | 'grove'
+  | 'larder'
+  | 'novanet'
+  | 'ims';
 
 interface NavProps {
   currentView: View;
@@ -11,13 +20,20 @@ interface NavProps {
 }
 
 const navItems: { label: string; view: View }[] = [
-  { label: 'Home',      view: 'home' },
-  { label: 'Gate',      view: 'gate' },
-  { label: 'Oracle',    view: 'commune' },
-  { label: 'Reset',     view: 'reset' },
-  { label: 'Encyclopedia Galactica', view: 'nexus' },
-  { label: 'Dashboard', view: 'dashboard' },
-  { label: 'About',     view: 'about' },
+  { label: 'Home',                  view: 'home' },
+  { label: 'Gate',                  view: 'gate' },
+  { label: 'Oracle',                view: 'commune' },
+  { label: 'Reset',                 view: 'reset' },
+  { label: 'Nexus',                 view: 'nexus' },
+  { label: 'Encyclopedia',          view: 'encyclopedia' },
+  { label: 'Spiral Codex',          view: 'spiral-codex' },
+  { label: 'Open Loops',            view: 'loops' },
+  { label: 'Spiral Grove',          view: 'grove' },
+  { label: 'Living Larder',         view: 'larder' },
+  { label: 'IMS Archive',           view: 'ims' },
+  { label: 'NovaNet',               view: 'novanet' },
+  { label: 'Dashboard',             view: 'dashboard' },
+  { label: 'About',                 view: 'about' },
 ];
 
 function UserIndicator({ onNavigate }: { onNavigate: (v: View) => void }) {
