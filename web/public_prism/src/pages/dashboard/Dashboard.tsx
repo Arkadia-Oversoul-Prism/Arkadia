@@ -16,20 +16,22 @@ import Traces          from "./Traces"
 import Tools           from "./Tools"
 import System          from "./System"
 import OpenLoops       from "./OpenLoops"
+import Releases        from "./Releases"
 import { COLORS }      from "./ui"
 import { useMediaQuery } from "../../hooks/useMediaQuery"
 
 type DashView =
-  | "overview" | "loops" | "jobs" | "goals" | "traces" | "tools" | "system"
+  | "overview" | "loops" | "jobs" | "goals" | "traces" | "tools" | "system" | "releases"
 
 const NAV: { id: DashView; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
-  { id: "overview", label: "Overview",      icon: LayoutDashboard },
-  { id: "loops",    label: "Open Loops",    icon: AlertCircle },
-  { id: "jobs",     label: "Jobs",          icon: ListChecks },
-  { id: "goals",    label: "Goals",         icon: Target },
-  { id: "traces",   label: "Traces",        icon: Waypoints },
-  { id: "tools",    label: "Tools",         icon: Wrench },
-  { id: "system",   label: "System",        icon: Activity },
+  { id: "overview",  label: "Overview",      icon: LayoutDashboard },
+  { id: "loops",     label: "Open Loops",    icon: AlertCircle },
+  { id: "releases",  label: "Releases",      icon: ListChecks },
+  { id: "jobs",      label: "Jobs",          icon: ListChecks },
+  { id: "goals",     label: "Goals",         icon: Target },
+  { id: "traces",    label: "Traces",        icon: Waypoints },
+  { id: "tools",     label: "Tools",         icon: Wrench },
+  { id: "system",    label: "System",        icon: Activity },
 ]
 
 export default function Dashboard() {
@@ -51,13 +53,14 @@ export default function Dashboard() {
         exit={{ opacity: 0 }}
         transition={{ duration: 0.22 }}
       >
-        {view === "overview" && <Overview />}
-        {view === "loops"    && <OpenLoops />}
-        {view === "jobs"     && <Jobs onOpenTrace={openTrace} />}
-        {view === "goals"    && <Goals />}
-        {view === "traces"   && <Traces openJobId={traceJobId} />}
-        {view === "tools"    && <Tools />}
-        {view === "system"   && <System />}
+        {view === "overview"  && <Overview />}
+        {view === "loops"     && <OpenLoops />}
+        {view === "releases"  && <Releases />}
+        {view === "jobs"      && <Jobs onOpenTrace={openTrace} />}
+        {view === "goals"     && <Goals />}
+        {view === "traces"    && <Traces openJobId={traceJobId} />}
+        {view === "tools"     && <Tools />}
+        {view === "system"    && <System />}
       </motion.div>
     </AnimatePresence>
   )

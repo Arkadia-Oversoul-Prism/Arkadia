@@ -189,6 +189,14 @@ try:
 except Exception as _nr_err:
     logger.warning(f"[NODES] Router mount skipped: {_nr_err}")
 
+# ── Distribution module router ────────────────────────────────────────────────
+try:
+    from api.distribution import router as _dist_router
+    app.include_router(_dist_router)
+    logger.info("[DIST] Distribution module router mounted")
+except Exception as _dist_err:
+    logger.warning(f"[DIST] Distribution router mount skipped: {_dist_err}")
+
 # ── Static file serving (IMS HTML documents, forge images, etc.) ─────────────
 _static_dir = _os.path.join(_os.path.dirname(__file__), "..", "static")
 if _os.path.isdir(_static_dir):

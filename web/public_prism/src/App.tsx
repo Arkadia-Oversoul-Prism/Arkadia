@@ -18,6 +18,7 @@ import NovaNetPage from './pages/NovaNetPage';
 import LoginPage from './pages/LoginPage';
 import PersonalCodex from './pages/PersonalCodex';
 import SonataBar from './components/SonataBar';
+import DistributePage from './pages/DistributePage';
 
 type View =
   | 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
@@ -28,7 +29,8 @@ type View =
   | 'grove'
   | 'larder'
   | 'novanet'
-  | 'ims';
+  | 'ims'
+  | 'distribute';
 
 // ─── FIELD PULSE ──────────────────────────────────────────────────────────────
 
@@ -175,6 +177,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
           <PortalDoor label="Living Larder" sub="Sovereign food network · Eden Farm · Saturday Hub" color="#4CAF50" sigil="🌾" onClick={() => onNavigate('larder')} delay={1.26} />
           <PortalDoor label="IMS Archive" sub="Identity Mapping Sessions · Sealed scrolls" color="#C84848" sigil="∞" onClick={() => onNavigate('ims')} delay={1.27} />
           <PortalDoor label="NovaNet" sub="Living node mesh · Silicon · Transmission · Human Field" color="#6A9FD8" sigil="◉" onClick={() => onNavigate('novanet')} delay={1.28} />
+          <PortalDoor label="Distribute" sub="Sovereign music distribution · 100% master ownership" color="#C9A84C" sigil="⟁" onClick={() => onNavigate('distribute')} delay={1.29} />
           <PortalDoor
             label="Dashboard"
             sub={isAuthenticated ? "Open loops · Personal field · Action matrix" : "Authenticated nodes only — complete your IMS first"}
@@ -365,6 +368,12 @@ function AppInner() {
         {view === 'novanet' && (
           <motion.div key="novanet" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
             <NovaNetPage />
+          </motion.div>
+        )}
+
+        {view === 'distribute' && (
+          <motion.div key="distribute" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
+            <DistributePage />
           </motion.div>
         )}
 

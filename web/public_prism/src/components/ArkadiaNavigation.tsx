@@ -11,7 +11,8 @@ type View =
   | 'grove'
   | 'larder'
   | 'novanet'
-  | 'ims';
+  | 'ims'
+  | 'distribute';
 
 interface NavProps {
   currentView: View;
@@ -48,6 +49,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Living Larder', view: 'larder',       sigil: '🌾', sub: 'Sovereign food network',           color: '#4CAF50' },
       { label: 'IMS Archive',   view: 'ims',          sigil: '⊕', sub: 'Identity Mapping Sessions',        color: '#C84848' },
       { label: 'NovaNet',       view: 'novanet',      sigil: '◉', sub: 'Living node mesh',                 color: '#6A9FD8' },
+      { label: 'Distribute',    view: 'distribute',   sigil: '⟁', sub: 'Sovereign music distribution',     color: '#C9A84C' },
     ],
   },
   {
@@ -65,6 +67,7 @@ const VIEW_LABEL: Partial<Record<View, string>> = {
   nexus: 'Nexus Hub', encyclopedia: 'Encyclopedia Galactica',
   'spiral-codex': 'Spiral Codex', loops: 'Open Loops', grove: 'Spiral Grove',
   larder: 'Living Larder', novanet: 'NovaNet', ims: 'IMS Archive',
+  distribute: 'Distribute',
 };
 
 function UserSection({ onNavigate, onClose }: { onNavigate: (v: View) => void; onClose: () => void }) {
