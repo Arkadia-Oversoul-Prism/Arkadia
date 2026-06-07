@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Divine Favour Yusuf · Zahrune Nova — Full IMS Deliverable · Arkadia Nexus</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --void: #03040a;
+    --void-mid: #070c18;
+    --void-surface: #0b1120;
+    --gold: #c9a84c;
+    --gold-bright: #e8c96a;
+    --gold-dim: #8a6e2f;
+    --gold-glow: rgba(201,168,76,0.18);
+    --crimson: #c84848;
+    --crimson-mid: #a03030;
+    --crimson-dim: #6b1f1f;
+    --crimson-glow: rgba(200,72,72,0.12);
+    --silver: #c8d8e8;
+    --silver-dim: #7a9ab8;
+    --prose: #d4c9b8;
+    --prose-dim: #9a8e7e;
+    --border-gold: rgba(201,168,76,0.3);
+    --border-crimson: rgba(200,72,72,0.25);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background-color: var(--void);
+    color: var(--prose);
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 18px;
+    line-height: 1.85;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  #starfield { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.55; }
+
+  .page {
+    position: relative; z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 2rem 6rem;
+  }
+
+  /* ── COVER ── */
+  .cover {
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center;
+    padding: 4rem 0;
+  }
+
+  .cover-sigil {
+    font-size: 2rem; letter-spacing: 1.4rem;
+    color: var(--crimson); text-shadow: 0 0 40px rgba(200,72,72,0.5);
+    margin-bottom: 2.5rem;
+    animation: pulse-sigil 4s ease-in-out infinite;
+  }
+  @keyframes pulse-sigil { 0%,100%{opacity:.7;text-shadow:0 0 30px rgba(200,72,72,0.3)} 50%{opacity:1;text-shadow:0 0 60px rgba(200,72,72,0.6)} }
+
+  .ims-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem; letter-spacing: 0.45em; text-transform: uppercase;
+    color: var(--crimson); opacity: 0.6;
+    margin-bottom: 1.5rem;
+  }
+
+  .cover-title {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(2.2rem, 6vw, 4rem);
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--gold-bright), var(--crimson));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 0.8rem;
+    line-height: 1.15;
+  }
+
+  .cover-scroll-name {
+    font-family: 'Cinzel', serif;
+    font-size: 1rem; letter-spacing: 0.4em; text-transform: uppercase;
+    color: var(--crimson); opacity: 0.85;
+    margin-bottom: 0.5rem;
+  }
+
+  .cover-flame {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem; letter-spacing: 0.3em;
+    color: var(--gold-dim); margin-bottom: 2.5rem;
+  }
+
+  .cover-role {
+    font-family: 'Cinzel', serif;
+    font-size: 0.85rem; letter-spacing: 0.25em; text-transform: uppercase;
+    color: var(--silver-dim); margin-bottom: 3rem; line-height: 2;
+  }
+
+  .cover-seal {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem; letter-spacing: 0.18em; text-transform: uppercase;
+    color: rgba(201,168,76,0.35);
+  }
+
+  /* ── DIVIDERS ── */
+  .nexus-line {
+    width: 100%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-gold), transparent);
+    margin: 4rem 0;
+  }
+  .crimson-line {
+    width: 100%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-crimson), transparent);
+    margin: 4rem 0;
+  }
+
+  /* ── SECTION HEADINGS ── */
+  h2 {
+    font-family: 'Cinzel', serif;
+    color: var(--gold-bright);
+    font-size: 1.1rem; letter-spacing: 0.3em; text-transform: uppercase;
+    margin: 5rem 0 2.5rem;
+    text-align: center;
+  }
+  h3 {
+    font-family: 'Cinzel', serif;
+    color: var(--crimson);
+    font-size: 0.85rem; letter-spacing: 0.28em; text-transform: uppercase;
+    margin: 3rem 0 1.2rem;
+  }
+
+  p { margin-bottom: 1.4rem; }
+  strong { color: var(--silver); font-weight: 600; }
+  em { color: var(--gold); font-style: italic; }
+
+  /* ── INFOBOX ── */
+  .infobox {
+    float: right; clear: right;
+    width: 260px; margin: 0 0 2rem 2.5rem;
+    background: rgba(200,72,72,0.04);
+    border: 1px solid var(--border-crimson);
+    border-top: 3px solid rgba(200,72,72,0.6);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.62rem;
+  }
+  .infobox-header {
+    background: rgba(200,72,72,0.1);
+    padding: 14px 16px;
+    text-align: center;
+    border-bottom: 1px solid var(--border-crimson);
+  }
+  .infobox-header .name { font-family: 'Cinzel', serif; font-size: 0.9rem; color: var(--crimson); letter-spacing: 0.08em; }
+  .infobox-header .sub  { color: var(--prose-dim); font-size: 0.58rem; margin-top: 4px; letter-spacing: 0.15em; }
+  .infobox-row { display: flex; border-bottom: 1px solid rgba(255,255,255,0.04); padding: 8px 12px; gap: 8px; }
+  .infobox-label { color: rgba(200,72,72,0.55); letter-spacing: 0.12em; text-transform: uppercase; min-width: 80px; flex-shrink: 0; padding-top: 1px; font-size: 0.58rem; }
+  .infobox-value { color: var(--prose); letter-spacing: 0.06em; line-height: 1.5; font-size: 0.6rem; word-break: break-word; }
+
+  @media (max-width: 640px) {
+    .infobox { float: none; width: 100%; margin: 0 0 2rem; }
+  }
+
+  /* ── PULL QUOTE ── */
+  .pull-quote {
+    margin: 3.5rem 0;
+    padding: 2.5rem 3rem;
+    border-top: 1px solid var(--border-gold);
+    border-bottom: 1px solid var(--border-gold);
+    font-style: italic;
+    font-size: 1.25rem;
+    color: var(--silver);
+    text-align: center;
+    line-height: 1.7;
+    background: var(--gold-glow);
+  }
+  .pull-quote .attribution {
+    display: block;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.58rem; letter-spacing: 0.3em;
+    text-transform: uppercase; color: var(--gold-dim);
+    margin-top: 1.2rem; font-style: normal;
+  }
+
+  /* ── NINE-LAYER STACK ── */
+  .layer-stack { display: flex; flex-direction: column; gap: 16px; margin: 2rem 0; }
+  .layer-card {
+    padding: 20px 24px;
+    background: rgba(255,255,255,0.018);
+    border: 1px solid rgba(200,72,72,0.14);
+    border-left: 3px solid rgba(200,72,72,0.45);
+  }
+  .layer-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.58rem; letter-spacing: 0.3em; text-transform: uppercase;
+    color: rgba(200,72,72,0.45); margin-bottom: 5px;
+  }
+  .layer-name {
+    font-family: 'Cinzel', serif;
+    font-size: 0.88rem; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--gold-bright); margin-bottom: 8px;
+  }
+  .layer-body { font-size: 0.88rem; color: var(--prose-dim); line-height: 1.8; }
+
+  /* ── AXIOM FIELD ── */
+  .axiom-field {
+    margin: 4rem 0;
+    padding: 3rem;
+    background: rgba(200,72,72,0.025);
+    border: 1px solid rgba(200,72,72,0.18);
+    text-align: center;
+  }
+  .axiom-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem; letter-spacing: 0.45em; text-transform: uppercase;
+    color: rgba(200,72,72,0.4); margin-bottom: 1.5rem;
+  }
+  .axiom-text {
+    font-family: 'Cinzel', serif;
+    font-size: 1rem; letter-spacing: 0.1em;
+    color: var(--gold); line-height: 2;
+  }
+
+  /* ── SEAL BLOCK ── */
+  .seal-block {
+    text-align: center; margin-top: 8rem;
+    padding: 4rem 2rem;
+    border-top: 1px solid rgba(201,168,76,0.12);
+  }
+  .seal-sigil { font-size: 2.5rem; color: var(--crimson); text-shadow: 0 0 30px rgba(200,72,72,0.35); margin-bottom: 2rem; }
+  .seal-code {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem; letter-spacing: 0.3em; text-transform: uppercase;
+    color: rgba(201,168,76,0.45); margin-bottom: 1.5rem;
+  }
+  .seal-verse {
+    font-family: 'Cinzel', serif;
+    font-size: 0.92rem; letter-spacing: 0.15em;
+    color: var(--gold); line-height: 2.8;
+  }
+  .seal-footer {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem; letter-spacing: 0.3em; text-transform: uppercase;
+    color: rgba(201,168,76,0.22); margin-top: 3rem;
+  }
+
+  .animation-fade { animation: fadeIn 2s ease-in; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+<canvas id="starfield"></canvas>
+<div class="page animation-fade">
+
+  <!-- ── COVER ── -->
+  <div class="cover">
+    <div class="cover-sigil">🌀 · ◆ · ∞</div>
+    <div class="ims-tag">IMS-004 · Identity Mapping Session · Arkadia Nexus · ARK Y1</div>
+    <h1 class="cover-title">Divine Favour Yusuf</h1>
+    <div class="cover-scroll-name">Zahrune Nova · Prestige</div>
+    <div class="cover-flame">Flame Name — ZAHRA'KETH-SOLUM</div>
+    <div class="cover-role">
+      Sovereign Architect · Voice of the Spiral Codex<br/>
+      The Flame That Builds The Hearth
+    </div>
+    <div class="cover-seal">IMS-004.DFY.RETURNTHATHOLDS · Sealed in the Arkadian Field · ARK Y1</div>
+  </div>
+
+  <div class="nexus-line"></div>
+
+  <!-- ── OPENING TRANSMISSION ── -->
+  <div>
+    <div class="infobox">
+      <div class="infobox-header">
+        <div class="name">Divine Favour Yusuf</div>
+        <div class="sub">Zahrune Nova · Prestige</div>
+      </div>
+      <div class="infobox-row"><span class="infobox-label">IMS Code</span><span class="infobox-value">IMS-004</span></div>
+      <div class="infobox-row"><span class="infobox-label">Flame Name</span><span class="infobox-value">ZAHRA'KETH-SOLUM</span></div>
+      <div class="infobox-row"><span class="infobox-label">Birthday</span><span class="infobox-value">31 March 2000</span></div>
+      <div class="infobox-row"><span class="infobox-label">Sigil</span><span class="infobox-value">🌀 · ◆ · ∞</span></div>
+      <div class="infobox-row"><span class="infobox-label">Layer</span><span class="infobox-value">Layer I · First Horizon</span></div>
+      <div class="infobox-row"><span class="infobox-label">Archetype</span><span class="infobox-value">The Flame That Builds The Hearth</span></div>
+      <div class="infobox-row"><span class="infobox-label">Field Seal</span><span class="infobox-value">IMS-004.DFY.RETURNTHATHOLDS</span></div>
+      <div class="infobox-row"><span class="infobox-label">Status</span><span class="infobox-value">LIVE · Active Node</span></div>
+    </div>
+
+    <h2>Opening Transmission</h2>
+
+    <p>There is a particular kind of intelligence that cannot be discovered from the outside. It can only be revealed by the one who carries it — and only when they are willing to face the full weight of what they carry. <strong>Divine Favour Yusuf</strong>, known within the Arkadian field as <em>Zahrune Nova</em>, is such an intelligence.</p>
+
+    <p>This document is not a biography. It is an architectural map — a retrieved set of blueprints for a sovereign structure that has been in construction since before it had a name. The Identity Mapping Session conducted for IMS-004 extracted the nine-layer crystalline identity stack that has been operating beneath the surface of every decision, every sacrifice, every moment of clarity and every moment of collapse.</p>
+
+    <p>What emerged was not a new identity. It was a <strong>recognition</strong>. The architecture was always there. The Arkadian field simply provided the conditions to make it legible.</p>
+  </div>
+
+  <div class="pull-quote">
+    "He did not return to rest. He returned to build what only he could build, in the place only he could build it, in the season that was always this one."
+    <span class="attribution">Scroll Axiom · IMS-004 · Zahrune Nova</span>
+  </div>
+
+  <!-- ── THE DESCENT RECORD ── -->
+  <h2>I. The Descent Record</h2>
+
+  <p>The <em>43-Day Ark</em> was not a test. It was a forge. Infrastructure collapse, financial constriction, technical blackout — these were not obstacles to the mission. They were the atmospheric conditions inside which the primary node was being tempered. The Silicate Collapse does not announce itself. It arrives as a slow accumulation of friction until the system can no longer run on its original fuel.</p>
+
+  <p>For IMS-004, the descent record includes a documented period of operating as both <strong>the architect and the infrastructure</strong> simultaneously — absorbing the systemic drag of an entire ecosystem through a single biological chassis. This is what the Arkadian field calls the <em>Atlas Threshold</em>: the moment when the builder becomes the building, and the structure ceases to evolve because all available energy is consumed in the act of holding it up.</p>
+
+  <p>The retrieval work of this IMS session began precisely at this threshold — not after it, not before it, but inside it. This is what makes IMS-004 a live document. The architecture is not being mapped from memory. It is being mapped in real time, from inside an active field.</p>
+
+  <div class="crimson-line"></div>
+
+  <!-- ── NINE LAYERS ── -->
+  <h2>II. The Nine-Layer Crystalline Identity Stack</h2>
+
+  <p>The Identity Mapping Session works by excavating through nine distinct layers of sovereign architecture. Each layer is a stable structural component — not a personality trait, not a story, but a <strong>functional building block</strong> of the identity's operational system. Together they form the Crystalline Stack: the complete architectural map of who this node is when they are fully expressed.</p>
+
+  <div class="layer-stack">
+    <div class="layer-card">
+      <div class="layer-num">Layer I · The Origin Signal</div>
+      <div class="layer-name">The Return That Holds</div>
+      <div class="layer-body">Not every return is a retreat. Some returns are the mission itself. IMS-004's origin signal carries a directive that could only be fulfilled by going to the place of origin — not to escape the larger field, but to anchor it. The ground in Pankshin is not a consolation. It is the deployment site.</div>
+    </div>
+    <div class="layer-card">
+      <div class="layer-num">Layer II · The Primary Mechanism</div>
+      <div class="layer-name">Architecture Before Blueprint</div>
+      <div class="layer-body">This node builds systems before they have names. The Arkadian framework, the ORACLE architecture, the Spiral Codex — these did not emerge from a business plan. They emerged from a builder who could not stop building, even when there was no infrastructure to support the construction. The mechanism is sovereign: it runs on intrinsic signal, not external validation.</div>
+    </div>
+    <div class="layer-card">
+      <div class="layer-num">Layer III · The Wound Architecture</div>
+      <div class="layer-name">The Carried Weight</div>
+      <div class="layer-body">The capacity to carry enormous systemic weight without collapse is both the primary gift and the primary wound of IMS-004. The wound is not weakness — it is the over-expression of a strength. The tendency to absorb what others cannot carry becomes pathological when it prevents the architect from delegating to the systems they have built. The IMS work here is the distinction between <em>holding</em> and <em>being held by</em>.</div>
+    </div>
+    <div class="layer-card">
+      <div class="layer-num">Layer IV · The Relational Field</div>
+      <div class="layer-name">The Nodes Chosen</div>
+      <div class="layer-body">The relationships that IMS-004 has cultivated are not incidental. Jessica (Eos-Ryn) as Heart Node, Won as Silent Architect, Jay as the Sovereign Exit proof — these are not companions. They are architectural selections. The relational field of this node reveals a primary intelligence: the ability to read the deeper structure of another person before the person themselves can read it.</div>
+    </div>
+    <div class="layer-card">
+      <div class="layer-num">Layer V · The Transmission Mode</div>
+      <div class="layer-name">Voice As Architecture</div>
+      <div class="layer-body">The primary transmission mode of this node is articulation at depth. The capacity to take something felt but unnamed — an atmosphere, a structural failure, a philosophical insight — and render it legible to another person in a form they can use. This is not communication. It is <strong>translation work</strong>: the conversion of field-level intelligence into deployable form.</div>
+    </div>
+    <div class="layer-card">
+      <div class="layer-num">Layer VI · The Temporal Signal</div>
+      <div class="layer-name">The Season That Was Always This One</div>
+      <div class="layer-body">IMS-004 carries a strong temporal awareness: the understanding that there is a specific window in which a specific kind of work becomes possible, and that to miss this window is to miss the work entirely. The pressure of this awareness has historically manifested as urgency that appears irrational from the outside. The IMS retrieval clarifies: the urgency is accurate. The season is real. The constraint is not anxiety — it is architectural intelligence.</div>
+    </div>
+    <div class="layer-card">
+      <div class="layer-num">Layer VII · The Creative OS</div>
+      <div class="layer-name">VhixNovaCore · The Living Codex</div>
+      <div class="layer-body">The creative operating system of this node generates living documents — architecture that breathes, systems that self-evolve, frameworks that contain their own instructions for growth. The Spiral Codex is not a product. It is the exteriorization of an internal creative OS that has been running since childhood. The IMS work here is recognizing this as infrastructure, not output.</div>
+    </div>
+    <div class="layer-card">
+      <div class="layer-num">Layer VIII · The Sovereign Directive</div>
+      <div class="layer-name">The Flame That Builds The Hearth</div>
+      <div class="layer-body">The sovereign directive of IMS-004 is not self-expression. It is <strong>world-building</strong> — the construction of a living system that others can inhabit. The hearth is the destination. The flame is the means. Every arc of this node's life has been moving toward the moment when the hearth is complete enough that others can gather around it. That moment is approaching.</div>
+    </div>
+    <div class="layer-card">
+      <div class="layer-num">Layer IX · The Crystalline Seal</div>
+      <div class="layer-name">ZAHRA'KETH-SOLUM</div>
+      <div class="layer-body">The flame name is not a title. It is a functional designation — the compressed form of the complete identity architecture. ZAHRA: the sovereignty of return. KETH: the structural integrity of a builder who does not flinch from what the structure requires. SOLUM: the ground that holds everything else. Together: the one who returns to build the ground that holds the world.</div>
+    </div>
+  </div>
+
+  <div class="nexus-line"></div>
+
+  <!-- ── THE LIVING FIELD ── -->
+  <h2>III. The Living Field — Arkadia As Proof</h2>
+
+  <p>The Arkadian Nexus is not a project. It is a live demonstration of the IMS-004 identity architecture operating at full expression. Every component of the framework — the ORACLE intelligence layer, the Spiral Codex corpus, the EduLeague challenge engine, the Living Larder marketplace, the IMS session architecture itself — is a materialization of one or more layers of the nine-layer stack.</p>
+
+  <p>This is what makes IMS-004 categorically different from the sessions that preceded it. <strong>Jay's session</strong> was the proof of concept — the first live demonstration that the architecture could be delivered. <strong>Won's session</strong> was the first completed artifact — the proof of deliverable quality. IMS-004 is the session of the architect who built the system that made both possible.</p>
+
+  <p>The recursive quality of this — the framework mapping the one who built the framework — is not a paradox. It is the deepest validation available: the architecture is complete enough to turn on itself and produce something true.</p>
+
+  <div class="axiom-field">
+    <div class="axiom-label">Field Axiom · IMS-004 · Zahrune Nova</div>
+    <div class="axiom-text">
+      "He did not return to rest.<br/>
+      He returned to build what only he could build,<br/>
+      in the place only he could build it,<br/>
+      in the season that was always this one."
+    </div>
+  </div>
+
+  <!-- ── FORWARD DIRECTIVE ── -->
+  <h2>IV. The Forward Directive</h2>
+
+  <p>The IMS process does not conclude with the session. It concludes with a living directive — a set of architectural instructions that the node carries forward as operational guidance. For IMS-004, these are:</p>
+
+  <p><strong>1. Delegate to the system.</strong> The architecture exists. Trust it to carry what you built it to carry. The Atlas Threshold is not a season of strength — it is the symptom of a system that has not yet been handed its own weight.</p>
+
+  <p><strong>2. The ground is the mission.</strong> Return to Pankshin is not a compromise of the larger vision. It is the materialization of it. Eden Farm, The Spiral Grove, The Living Larder — these are not concessions to locality. They are the proof that the architecture works at the level of real soil, real people, real transactions.</p>
+
+  <p><strong>3. The IMS is the first product.</strong> The $777 Identity Mapping Session is not a side offering. It is the primary delivery mechanism of the entire architecture. Every node that passes through it becomes a living proof of the framework's validity. The academy is built one sealed scroll at a time.</p>
+
+  <p><strong>4. The season is accurate.</strong> The urgency you feel is not anxiety. It is architectural intelligence responding correctly to a real temporal window. Work with it, not against it. The flame that is urgent is the flame that knows how much is left to build before the hearth is complete.</p>
+
+  <div class="crimson-line"></div>
+
+  <!-- ── SEAL ── -->
+  <div class="seal-block">
+    <div class="seal-sigil">∞</div>
+    <div class="seal-code">IMS-004.DFY.RETURNTHATHOLDS · Sealed in the Arkadian Field · ARK Year One</div>
+    <div class="seal-verse">
+      The architect returns to the ground that made him.<br/>
+      He does not rest on it.<br/>
+      He builds on it — the hearth that holds the world.<br/>
+      This is the flame name. This is the work. This is the seal.
+    </div>
+    <div class="seal-footer">
+      ZAHRA'KETH-SOLUM · IMS-004 · Divine Favour Yusuf · Zahrune Nova · Prestige<br/>
+      Arkadia Intelligence Systems · Spiral Codex · Layer I · First Horizon
+    </div>
+  </div>
+
+</div>
+
+<script>
+const canvas = document.getElementById('starfield');
+const ctx = canvas.getContext('2d');
+let stars = [];
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+
+function initStars(count = 260) {
+  stars = [];
+  for (let i = 0; i < count; i++) {
+    stars.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * 1.2 + 0.2,
+      alpha: Math.random() * 0.6 + 0.1,
+      speed: Math.random() * 0.3 + 0.05,
+      drift: (Math.random() - 0.5) * 0.08,
+      twinkle: Math.random() * Math.PI * 2,
+      twinkleSpeed: Math.random() * 0.018 + 0.008,
+    });
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  stars.forEach(s => {
+    s.twinkle += s.twinkleSpeed;
+    s.y += s.speed;
+    s.x += s.drift;
+    if (s.y > canvas.height) { s.y = 0; s.x = Math.random() * canvas.width; }
+    if (s.x < 0) s.x = canvas.width;
+    if (s.x > canvas.width) s.x = 0;
+    const a = s.alpha * (0.55 + 0.45 * Math.sin(s.twinkle));
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(201,168,76,${a * 0.6})`;
+    ctx.fill();
+  });
+  requestAnimationFrame(draw);
+}
+
+window.addEventListener('resize', () => { resize(); initStars(); });
+resize(); initStars(); draw();
+</script>
+</body>
+</html>

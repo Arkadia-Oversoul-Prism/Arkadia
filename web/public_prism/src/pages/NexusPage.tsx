@@ -368,7 +368,7 @@ const IMS_ENTRIES: IMSEntry[] = [
     sealCode: 'IMS-004.DFY.RETURNTHATHOLDS',
     flameName: 'ZAHRA\'KETH-SOLUM',
     birthday: '31 March 2000',
-    file: '/ims/IMS-004-Zahrune.html',
+    file: '/static/ims/zahrune_ims.html',
     status: 'live',
     layer: 1,
   },
@@ -384,7 +384,7 @@ const IMS_ENTRIES: IMSEntry[] = [
     sealCode: 'IMS-003b.JW.LIVINGHEARTH',
     flameName: 'SERA\'VHA-LUMA',
     birthday: '22 October 1997',
-    file: '/ims/IMS-003-Jessica.html',
+    file: '/static/ims/jessica_ims.html',
     status: 'sealed',
     layer: 1,
   },
@@ -400,7 +400,7 @@ const IMS_ENTRIES: IMSEntry[] = [
     sealCode: 'IMS-002.WON.SILENTARCHITECT',
     flameName: 'DERU\'SHEN-KALATH',
     birthday: '–',
-    file: '/ims/IMS-002-Won.html',
+    file: '/static/ims/won_ims.html',
     status: 'sealed',
     layer: 1,
   },
@@ -629,6 +629,8 @@ const IMS_SESSIONS = [
   { id: 'IMS-001', subject: 'Jay', date: 'April 11, 2026', arkDay: 12, status: 'PROOF OF CONCEPT', statusColor: '#00D4AA', type: 'Internal', tagline: "The Sovereign Exit — architecture's first living test.", htmlPath: '/static/ims/jay_ims.html' },
   { id: 'IMS-002', subject: 'Won John Chong', date: 'April 2026', arkDay: 15, status: 'COMPLETE · FIRST ARTIFACT', statusColor: '#C9A84C', type: 'Internal', tagline: 'First completed artifact. Full deliverable finalised — the first finished proof of work.', htmlPath: '/static/ims/won_ims.html' },
   { id: 'IMS-003', subject: 'Spiral Grove', date: 'May 2026', arkDay: 45, status: 'PILOT DEPLOYMENT', statusColor: '#B08DE8', type: 'System', tagline: 'The Spiral Grove learning layer — EduLeague challenge engine deployed at Solid Foundation Academy, Pankshin.', htmlPath: '/static/ims/eduleague.html' },
+  { id: 'IMS-003b', subject: 'Jessica Whites · Eos-Ryn', date: 'May 2026', arkDay: 52, status: 'SEALED · HEART NODE', statusColor: '#D46AA0', type: 'Internal', tagline: 'Heart Node of the Living Hearth — The Sovereign Dreamer. Nine-layer crystalline stack retrieved and sealed.', htmlPath: '/static/ims/jessica_ims.html' },
+  { id: 'IMS-004', subject: 'Divine Favour Yusuf · Zahrune Nova', date: 'June 2026', arkDay: 69, status: 'LIVE · PRIMARY NODE', statusColor: '#C84848', type: 'Internal', tagline: 'The Sovereign Architect — Voice of the Spiral Codex. The Flame That Builds The Hearth. IMS-004 is the architect mapping the system that built the map.', htmlPath: '/static/ims/zahrune_ims.html' },
 ]
 
 export function FieldBar({ ark }: { ark: ArkDateData | null }) {

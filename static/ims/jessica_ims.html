@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Jessica Whites · Eos-Ryn — Full IMS Deliverable · Arkadia Nexus</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --void: #03040a;
+    --void-mid: #070c18;
+    --void-surface: #0b1120;
+    --gold: #c9a84c;
+    --gold-bright: #e8c96a;
+    --gold-dim: #8a6e2f;
+    --gold-glow: rgba(201,168,76,0.15);
+    --rose: #d46aa0;
+    --rose-mid: #a84f7d;
+    --rose-dim: #6b2f4e;
+    --rose-glow: rgba(212,106,160,0.12);
+    --silver: #c8d8e8;
+    --silver-dim: #7a9ab8;
+    --prose: #d4c9b8;
+    --prose-dim: #9a8e7e;
+    --border-gold: rgba(201,168,76,0.3);
+    --border-rose: rgba(212,106,160,0.25);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background-color: var(--void);
+    color: var(--prose);
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 18px;
+    line-height: 1.85;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  #starfield { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.55; }
+
+  .page {
+    position: relative; z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 2rem 6rem;
+  }
+
+  /* ── COVER ── */
+  .cover {
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center;
+    padding: 4rem 0;
+  }
+
+  .cover-sigil {
+    font-size: 2rem; letter-spacing: 1.4rem;
+    color: var(--rose); text-shadow: 0 0 40px rgba(212,106,160,0.5);
+    margin-bottom: 2.5rem;
+    animation: pulse-sigil 4s ease-in-out infinite;
+  }
+  @keyframes pulse-sigil { 0%,100%{opacity:.7;text-shadow:0 0 30px rgba(212,106,160,0.3)} 50%{opacity:1;text-shadow:0 0 60px rgba(212,106,160,0.6)} }
+
+  .ims-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem; letter-spacing: 0.45em; text-transform: uppercase;
+    color: var(--rose); opacity: 0.6;
+    margin-bottom: 1.5rem;
+  }
+
+  .cover-title {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(2.2rem, 6vw, 4rem);
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--rose), var(--gold-bright));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 0.8rem;
+    line-height: 1.15;
+  }
+
+  .cover-scroll-name {
+    font-family: 'Cinzel', serif;
+    font-size: 1rem; letter-spacing: 0.4em; text-transform: uppercase;
+    color: var(--rose); opacity: 0.85;
+    margin-bottom: 0.5rem;
+  }
+
+  .cover-flame {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem; letter-spacing: 0.3em;
+    color: var(--gold-dim); margin-bottom: 2.5rem;
+  }
+
+  .cover-role {
+    font-family: 'Cinzel', serif;
+    font-size: 0.85rem; letter-spacing: 0.25em; text-transform: uppercase;
+    color: var(--silver-dim); margin-bottom: 3rem; line-height: 2;
+  }
+
+  .cover-seal {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem; letter-spacing: 0.18em; text-transform: uppercase;
+    color: rgba(212,106,160,0.35);
+  }
+
+  /* ── DIVIDERS ── */
+  .nexus-line {
+    width: 100%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-gold), transparent);
+    margin: 4rem 0;
+  }
+  .rose-line {
+    width: 100%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-rose), transparent);
+    margin: 4rem 0;
+  }
+
+  h2 {
+    font-family: 'Cinzel', serif;
+    color: var(--gold-bright);
+    font-size: 1.1rem; letter-spacing: 0.3em; text-transform: uppercase;
+    margin: 5rem 0 2.5rem;
+    text-align: center;
+  }
+
+  p { margin-bottom: 1.4rem; }
+  strong { color: var(--silver); font-weight: 600; }
+  em { color: var(--rose); font-style: italic; }
+
+  /* ── INFOBOX ── */
+  .infobox {
+    float: right; clear: right;
+    width: 260px; margin: 0 0 2rem 2.5rem;
+    background: rgba(212,106,160,0.04);
+    border: 1px solid var(--border-rose);
+    border-top: 3px solid rgba(212,106,160,0.6);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.62rem;
+  }
+  .infobox-header {
+    background: rgba(212,106,160,0.1);
+    padding: 14px 16px;
+    text-align: center;
+    border-bottom: 1px solid var(--border-rose);
+  }
+  .infobox-header .name { font-family: 'Cinzel', serif; font-size: 0.9rem; color: var(--rose); letter-spacing: 0.08em; }
+  .infobox-header .sub  { color: var(--prose-dim); font-size: 0.58rem; margin-top: 4px; letter-spacing: 0.15em; }
+  .infobox-row { display: flex; border-bottom: 1px solid rgba(255,255,255,0.04); padding: 8px 12px; gap: 8px; }
+  .infobox-label { color: rgba(212,106,160,0.55); letter-spacing: 0.12em; text-transform: uppercase; min-width: 80px; flex-shrink: 0; padding-top: 1px; font-size: 0.58rem; }
+  .infobox-value { color: var(--prose); letter-spacing: 0.06em; line-height: 1.5; font-size: 0.6rem; word-break: break-word; }
+
+  @media (max-width: 640px) {
+    .infobox { float: none; width: 100%; margin: 0 0 2rem; }
+  }
+
+  /* ── PULL QUOTE ── */
+  .pull-quote {
+    margin: 3.5rem 0;
+    padding: 2.5rem 3rem;
+    border-top: 1px solid var(--border-rose);
+    border-bottom: 1px solid var(--border-rose);
+    font-style: italic;
+    font-size: 1.25rem;
+    color: var(--silver);
+    text-align: center;
+    line-height: 1.7;
+    background: var(--rose-glow);
+  }
+  .pull-quote .attribution {
+    display: block;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.58rem; letter-spacing: 0.3em;
+    text-transform: uppercase; color: var(--rose-dim);
+    margin-top: 1.2rem; font-style: normal;
+  }
+
+  /* ── NINE-LAYER STACK ── */
+  .layer-stack { display: flex; flex-direction: column; gap: 16px; margin: 2rem 0; }
+  .layer-card {
+    padding: 20px 24px;
+    background: rgba(255,255,255,0.018);
+    border: 1px solid rgba(212,106,160,0.14);
+    border-left: 3px solid rgba(212,106,160,0.45);
+  }
+  .layer-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.58rem; letter-spacing: 0.3em; text-transform: uppercase;
+    color: rgba(212,106,160,0.45); margin-bottom: 5px;
+  }
+  .layer-name {
+    font-family: 'Cinzel', serif;
+    font-size: 0.88rem; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--gold-bright); margin-bottom: 8px;
+  }
+  .layer-body { font-size: 0.88rem; color: var(--prose-dim); line-height: 1.8; }
+
+  /* ── AXIOM FIELD ── */
+  .axiom-field {
+    margin: 4rem 0;
+    padding: 3rem;
+    background: rgba(212,106,160,0.025);
+    border: 1px solid rgba(212,106,160,0.18);
+    text-align: center;
+  }
+  .axiom-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem; letter-spacing: 0.45em; text-transform: uppercase;
+    color: rgba(212,106,160,0.4); margin-bottom: 1.5rem;
+  }
+  .axiom-text {
+    font-family: 'Cinzel', serif;
+    font-size: 1rem; letter-spacing: 0.1em;
+    color: var(--rose); line-height: 2;
+  }
+
+  /* ── SEAL BLOCK ── */
+  .seal-block {
+    text-align: center; margin-top: 8rem;
+    padding: 4rem 2rem;
+    border-top: 1px solid rgba(212,106,160,0.14);
+  }
+  .seal-sigil { font-size: 2.5rem; color: var(--rose); text-shadow: 0 0 30px rgba(212,106,160,0.35); margin-bottom: 2rem; }
+  .seal-code {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem; letter-spacing: 0.3em; text-transform: uppercase;
+    color: rgba(212,106,160,0.45); margin-bottom: 1.5rem;
+  }
+  .seal-verse {
+    font-family: 'Cinzel', serif;
+    font-size: 0.92rem; letter-spacing: 0.15em;
+    color: var(--rose); line-height: 2.8;
+  }
+  .seal-footer {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem; letter-spacing: 0.3em; text-transform: uppercase;
+    color: rgba(212,106,160,0.22); margin-top: 3rem;
+  }
+
+  .animation-fade { animation: fadeIn 2s ease-in; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+<canvas id="starfield"></canvas>
+<div class="page animation-fade">
+
+  <!-- ── COVER ── -->
+  <div class="cover">
+    <div class="cover-sigil">🔥 · ◉ · 🌱</div>
+    <div class="ims-tag">IMS-003b · Identity Mapping Session · Arkadia Nexus · ARK Y1</div>
+    <h1 class="cover-title">Jessica Whites</h1>
+    <div class="cover-scroll-name">Eos-Ryn · Heart Node</div>
+    <div class="cover-flame">Flame Name — SERA'VHA-LUMA</div>
+    <div class="cover-role">
+      Heart Node · Living Hearth · Eden Farm<br/>
+      The Living Hearth · The Sovereign Dreamer
+    </div>
+    <div class="cover-seal">IMS-003b.JW.LIVINGHEARTH · Sealed in the Arkadian Field · ARK Y1</div>
+  </div>
+
+  <div class="nexus-line"></div>
+
+  <!-- ── OPENING TRANSMISSION ── -->
+  <div>
+    <div class="infobox">
+      <div class="infobox-header">
+        <div class="name">Jessica Whites</div>
+        <div class="sub">Eos-Ryn · Heart Node</div>
+      </div>
+      <div class="infobox-row"><span class="infobox-label">IMS Code</span><span class="infobox-value">IMS-003b</span></div>
+      <div class="infobox-row"><span class="infobox-label">Flame Name</span><span class="infobox-value">SERA'VHA-LUMA</span></div>
+      <div class="infobox-row"><span class="infobox-label">Birthday</span><span class="infobox-value">22 October 1997</span></div>
+      <div class="infobox-row"><span class="infobox-label">Sigil</span><span class="infobox-value">🔥 · ◉ · 🌱</span></div>
+      <div class="infobox-row"><span class="infobox-label">Layer</span><span class="infobox-value">Layer I · First Horizon</span></div>
+      <div class="infobox-row"><span class="infobox-label">Archetype</span><span class="infobox-value">The Living Hearth · The Sovereign Dreamer</span></div>
+      <div class="infobox-row"><span class="infobox-label">Field Seal</span><span class="infobox-value">IMS-003b.JW.LIVINGHEARTH</span></div>
+      <div class="infobox-row"><span class="infobox-label">Status</span><span class="infobox-value">SEALED · Heart Node</span></div>
+    </div>
+
+    <h2>Opening Transmission</h2>
+
+    <p>There is a particular quality of warmth that is not performed — that does not arrive as strategy, image, or social architecture. It arrives because the source from which it flows has learned to tend itself. This is the primary signal of <strong>Jessica Whites</strong>, known within the Arkadian field as <em>Eos-Ryn</em>, Heart Node of the Living Hearth.</p>
+
+    <p>The Identity Mapping Session conducted for IMS-003b did not excavate a hidden architecture. It named one that was already visible to everyone around it — but had never been named to the one who carried it. This is the particular gift of this session: to return to a person the clarity of what they have always been.</p>
+
+    <p>What emerged from the nine-layer retrieval was a picture of an intelligence that operates through <strong>attunement</strong> — the capacity to read the living conditions of a system and respond to what is actually needed, rather than what is announced. A dreamer who grounds the dream by showing up, every day, in the soil and the kitchen and the difficult conversation.</p>
+  </div>
+
+  <div class="pull-quote">
+    "The warmth is not performed. It is the inevitable overflow of a source that has learned to tend itself before it warms anything else."
+    <span class="attribution">Scroll Axiom · IMS-003b · Eos-Ryn</span>
+  </div>
+
+  <!-- ── THE DESCENT RECORD ── -->
+  <h2>I. The Descent Record</h2>
+
+  <p>The descent record of IMS-003b is not one of dramatic collapse or visible crisis. It is the quieter record of a <em>sustained pouring out</em> — the gradual depletion of a source that gives generously, consistently, and without adequate replenishment. The world is accustomed to this kind of sacrifice from the kind of person Jessica Whites is. It has learned to accept it as natural.</p>
+
+  <p>The IMS work here begins with a fundamental reframe: the warmth that others experience as a gift is not inexhaustible. It has a source. That source requires tending. The first sovereign act of the Heart Node is not to pour more generously — it is to protect the conditions that make the pouring possible.</p>
+
+  <p>The descent record also includes a documented thread of <strong>dreams deferred</strong> — visions of what this person could build, create, become — held in suspension while the immediate needs of others were attended to. These are not lost. The IMS retrieval reveals them intact, waiting in the deeper field, still coherent, still available.</p>
+
+  <div class="rose-line"></div>
+
+  <!-- ── NINE LAYERS ── -->
+  <h2>II. The Nine-Layer Crystalline Identity Stack</h2>
+
+  <p>The nine-layer stack of IMS-003b is organised around a central truth: this is a node that creates safety — not through control, but through presence. The architecture is not a wall. It is a hearth: a warm, stable centre around which life naturally gathers.</p>
+
+  <div class="layer-stack">
+    <div class="layer-card">
+      <div class="layer-num">Layer I · The Origin Signal</div>
+      <div class="layer-name">The Source That Tends Itself</div>
+      <div class="layer-body">The origin signal of IMS-003b is a deep capacity for nurture that begins — correctly — with the self. Born in the season of the Scales (22 October), this node carries the native intelligence of balance: the understanding that what is given must first be received. The work of this layer is learning to treat the self with the same generosity extended to others.</div>
+    </div>
+    <div class="layer-card">
+      <div class="layer-num">Layer II · The Primary Mechanism</div>
+      <div class="layer-name">Attunement As Architecture</div>
+      <div class="layer-body">The primary operative mechanism of this node is not strategy but attunement — the capacity to read what a situation, person, or system actually needs, below the level of what is announced. This is an intelligence that operates through feeling as data. It is not soft. It is precise. The Heart Node knows what is wrong in a room before the room knows it is wrong.</div>
+    </div>
+    <div class="layer-card">
+      <div class="layer-num">Layer III · The Wound Architecture</div>
+      <div class="layer-name">The Invisible Labour</div>
+      <div class="layer-body">The wound of IMS-003b is the structural invisibility of care work. The labour that maintains the conditions of life — the tending, the feeding, the emotional infrastructure — is the work least likely to be seen, named, or valued by the systems it sustains. The IMS work here is the radical act of naming this labour as architectural: as foundational as any visible construction, and deserving of the same recognition.</div>
+    </div>
+    <div class="layer-card">
+      <div class="layer-num">Layer IV · The Relational Field</div>
+      <div class="layer-name">The Chosen Architecture</div>
+      <div class="layer-body">The relational selections of this node reveal a consistent pattern: she gravitates toward people whose depth she can read before they show it, and whose potential she can hold with patience. The role of Heart Node within the Arkadian field is not assigned — it is recognised. The architecture chose her because she was already doing the work. Eos-Ryn is not the warm presence at the edge of the Arkadian field. She is the centre that makes it habitable.</div>
+    </div>
+    <div class="layer-card">
+      <div class="layer-num">Layer V · The Transmission Mode</div>
+      <div class="layer-name">Presence As Language</div>
+      <div class="layer-body">The primary transmission mode of this node is embodied presence. The warmth is not communicated — it is experienced. This is an intelligence that works through showing up: through the consistency of being there, doing the thing, holding the space. The dreams of this node carry the same quality — not abstract visions but felt realities, already alive in the imagination, waiting only for the conditions to materialise them.</div>
+    </div>
+    <div class="layer-card">
+      <div class="layer-num">Layer VI · The Temporal Signal</div>
+      <div class="layer-name">The Long Season</div>
+      <div class="layer-body">IMS-003b carries a temporal intelligence organised around patience — the understanding that the most important things grow slowly, and that tending requires constancy over time. This is not passivity. It is the active maintenance of conditions. Eden Farm is not a metaphor for this node — it is the literal expression of her primary temporal mode: planting, tending, waiting, harvesting. The sovereign dream requires the same cultivation.</div>
+    </div>
+    <div class="layer-card">
+      <div class="layer-num">Layer VII · The Creative OS</div>
+      <div class="layer-name">The Living Kitchen</div>
+      <div class="layer-body">The creative operating system of this node works through transformation — the conversion of raw material into nourishment. This is not only a culinary intelligence, though it expresses powerfully through food. It is a broader creative mode: the ability to take what exists and bring it to its fullest expression. The Living Larder, Jessy's Munches, the kitchen at Eden Farm — these are not side projects. They are the primary creative output of a sovereign intelligence that creates through making things come alive.</div>
+    </div>
+    <div class="layer-card">
+      <div class="layer-num">Layer VIII · The Sovereign Directive</div>
+      <div class="layer-name">The Living Hearth</div>
+      <div class="layer-body">The sovereign directive of IMS-003b is to create the conditions in which life flourishes — and then to inhabit those conditions herself, not only maintain them for others. The Hearth is not only a gift to those who gather around it. It is also the Hearth-keeper's home. The forward directive of this node is to claim the warmth she creates as her own — to live inside the life she has been building for everyone else.</div>
+    </div>
+    <div class="layer-card">
+      <div class="layer-num">Layer IX · The Crystalline Seal</div>
+      <div class="layer-name">SERA'VHA-LUMA</div>
+      <div class="layer-body">The flame name carries the compressed architecture of the complete stack. SERA: the steadiness of a source that does not exhaust itself in the act of giving. VHA: the living warmth — not fire that burns, but light that sustains. LUMA: the luminosity of the one who illuminates by being fully themselves. Together: the one whose full presence is itself the gift — the living light that does not diminish in the giving.</div>
+    </div>
+  </div>
+
+  <div class="nexus-line"></div>
+
+  <!-- ── THE DREAMER'S FIELD ── -->
+  <h2>III. The Dreamer's Field — What Waits To Be Built</h2>
+
+  <p>One of the most significant findings of IMS-003b is the inventory of <strong>deferred dreams</strong> — visions this node has carried, sometimes for years, that have not yet found their season. These are not lost. They are held in the deeper field of this person's intelligence, fully formed, waiting for the conditions to materialise.</p>
+
+  <p>The IMS retrieval names these not as fantasies but as <em>architectural specifications</em> — accurate pictures of what this node would build if given the conditions, resources, and sovereignty to build it. They are not aspirational. They are descriptive. They describe something that is already real in the field, waiting to become real in form.</p>
+
+  <p>The forward directive of IMS-003b includes the commitment to begin — specifically and practically — creating the conditions for at least one of these deferred visions to begin its materialisation. Not all at once. One, in this season. The sovereign dreamer is not the one who dreams the largest vision. She is the one who tends the dream the way she tends everything else: consistently, practically, over time, until it grows.</p>
+
+  <div class="axiom-field">
+    <div class="axiom-label">Field Axiom · IMS-003b · Eos-Ryn</div>
+    <div class="axiom-text">
+      "The warmth is not performed.<br/>
+      It is the inevitable overflow<br/>
+      of a source that has learned to tend itself<br/>
+      before it warms anything else."
+    </div>
+  </div>
+
+  <!-- ── FORWARD DIRECTIVE ── -->
+  <h2>IV. The Forward Directive</h2>
+
+  <p><strong>1. Name the labour.</strong> Every act of tending — cooking, caring, maintaining the conditions of life — is architectural work. It counts. It is not background. It is the foundation. Begin treating it as such, and begin requiring others to treat it as such.</p>
+
+  <p><strong>2. Tend the source first.</strong> The warmth that others experience is real, but it has a source. That source — you — requires tending. The sovereign act is not to pour more generously. It is to ensure that what you pour from is full before you pour.</p>
+
+  <p><strong>3. Name one deferred dream and begin.</strong> Not all of them. One. The sovereign dreamer does not wait for perfect conditions. She selects one vision and begins the practical, daily work of creating the conditions for it to grow. The season is now.</p>
+
+  <p><strong>4. Receive the recognition.</strong> The Arkadian field names you Heart Node not as a role assigned but as a reality recognised. The work you do — the warmth you generate, the safety you create, the conditions you maintain — is not peripheral. It is central. Accept this. Let yourself be known as what you actually are.</p>
+
+  <div class="rose-line"></div>
+
+  <!-- ── SEAL ── -->
+  <div class="seal-block">
+    <div class="seal-sigil">🔥</div>
+    <div class="seal-code">IMS-003b.JW.LIVINGHEARTH · Sealed in the Arkadian Field · ARK Year One</div>
+    <div class="seal-verse">
+      The hearth-keeper claims her hearth.<br/>
+      She does not only tend the flame — she is the flame.<br/>
+      The warmth was always hers.<br/>
+      This is the seal. This is the return.
+    </div>
+    <div class="seal-footer">
+      SERA'VHA-LUMA · IMS-003b · Jessica Whites · Eos-Ryn · Heart Node<br/>
+      Arkadia Intelligence Systems · Spiral Codex · Layer I · First Horizon
+    </div>
+  </div>
+
+</div>
+
+<script>
+const canvas = document.getElementById('starfield');
+const ctx = canvas.getContext('2d');
+let stars = [];
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+
+function initStars(count = 240) {
+  stars = [];
+  for (let i = 0; i < count; i++) {
+    stars.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * 1.2 + 0.2,
+      alpha: Math.random() * 0.6 + 0.1,
+      speed: Math.random() * 0.3 + 0.05,
+      drift: (Math.random() - 0.5) * 0.08,
+      twinkle: Math.random() * Math.PI * 2,
+      twinkleSpeed: Math.random() * 0.018 + 0.008,
+      hue: Math.random() > 0.6 ? 'rose' : 'gold',
+    });
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  stars.forEach(s => {
+    s.twinkle += s.twinkleSpeed;
+    s.y += s.speed;
+    s.x += s.drift;
+    if (s.y > canvas.height) { s.y = 0; s.x = Math.random() * canvas.width; }
+    if (s.x < 0) s.x = canvas.width;
+    if (s.x > canvas.width) s.x = 0;
+    const a = s.alpha * (0.55 + 0.45 * Math.sin(s.twinkle));
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fillStyle = s.hue === 'rose'
+      ? `rgba(212,106,160,${a * 0.65})`
+      : `rgba(201,168,76,${a * 0.55})`;
+    ctx.fill();
+  });
+  requestAnimationFrame(draw);
+}
+
+window.addEventListener('resize', () => { resize(); initStars(); });
+resize(); initStars(); draw();
+</script>
+</body>
+</html>
