@@ -7,8 +7,9 @@
     "node": ">=22.19.0"
   },
   "scripts": {
-    "start": "npx openclaw@latest start --config config.json",
-    "start:dev": "npx openclaw@latest start --config config.json --verbose"
+    "start": "openclaw start --config config.json",
+    "start:dev": "openclaw start --config config.json --verbose",
+    "install:openclaw": "npm install -g openclaw@latest"
   },
   "keywords": ["arkadia", "oracle", "openclaw", "agent"],
   "dependencies": {}

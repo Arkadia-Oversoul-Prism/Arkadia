@@ -94,37 +94,71 @@ curl https://arkadia-n26k.onrender.com/api/job/job_abc123
 
 ---
 
-## Deploying OpenClaw to Railway
+## Deploying OpenClaw (Choose One)
 
-### Step 1 — Push openclaw/ to GitHub
+The `openclaw/` directory contains a `Dockerfile` that works on both platforms below.
 
-The `openclaw/` directory is already in your repo with:
-- `config.json` — Oracle endpoint + trigger config
-- `package.json` — Node 22+ service definition
-- `railway.json` — Railway deploy config
+---
 
-### Step 2 — Create Railway service
+### Option A — Render.com ✅ Recommended (you already have an account)
 
-1. Go to [railway.app](https://railway.app) → sign up (free)
-2. Click **New Project** → **Deploy from GitHub repo**
-3. Select your repo
-4. Set the **root directory** to `openclaw/`
-5. Railway detects `package.json` and deploys automatically
+**Pros:** Same dashboard as Oracle, GitHub auto-deploy, no new accounts needed.  
+**Con:** Free tier sleeps after 15min — add a second UptimeRobot monitor for OpenClaw too.
 
-### Step 3 — Set environment variables in Railway
+1. Go to [render.com](https://render.com) → your existing dashboard
+2. Click **New +** → **Web Service**
+3. Connect your GitHub repo
+4. Set **Root Directory** → `openclaw`
+5. Set **Runtime** → **Docker**
+6. Set **Instance Type** → **Free**
+7. Add environment variables:
+   - `TELEGRAM_BOT_TOKEN` — from @BotFather on Telegram
+   - `WEBHOOK_SECRET` — optional, secures incoming webhooks
+8. Click **Create Web Service**
 
+Render builds the Dockerfile and deploys. Auto-redeploys on every push to `main`.
+
+---
+
+### Option B — Fly.io (Never sleeps — better for persistent agents)
+
+**Pros:** Free tier always keeps 1 machine running. No sleep. Better for real-time triggers.  
+**Con:** Requires the flyctl CLI for first deploy.
+
+**Install flyctl (one time):**
+```bash
+curl -L https://fly.io/install.sh | sh
+fly auth signup   # or: fly auth login
 ```
-TELEGRAM_BOT_TOKEN    # From @BotFather on Telegram
-WEBHOOK_SECRET        # Optional — secures incoming webhooks
+
+**Deploy:**
+```bash
+cd openclaw
+fly launch        # first time — reads fly.toml, creates the app
+fly deploy        # every subsequent push
 ```
 
-### Step 4 — Verify
+**Set secrets:**
+```bash
+fly secrets set TELEGRAM_BOT_TOKEN=your_token_here
+fly secrets set WEBHOOK_SECRET=your_secret_here
+```
+
+**Monitor:**
+```bash
+fly status   # check machine health
+fly logs     # live log stream
+```
+
+---
+
+### Verify (same for both)
 
 Once deployed, send a message to your Telegram bot. OpenClaw will:
 1. Receive the message
-2. POST to `https://arkadia-n26k.onrender.com/api/agent/spawn`
-3. Poll `/api/job/{job_id}` until complete
-4. Reply with the Oracle's response
+2. `POST https://arkadia-n26k.onrender.com/api/agent/spawn`
+3. Poll `/api/job/{job_id}` every 2s until complete
+4. Reply with the Oracle's result in Telegram
 
 ---
 
