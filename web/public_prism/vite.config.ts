@@ -15,6 +15,7 @@ export default defineConfig({
   },
   server: {
     host: true,
+    port: 5000,
     allowedHosts: true,
     proxy: {
       // Dev only — Replit workflow runs the FastAPI backend on :8000.
