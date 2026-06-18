@@ -1,8 +1,7 @@
-# Fly.io deployment config for Arkadia OpenClaw Gateway
-# Free tier: 3 shared VMs, never sleeps
-# Deploy: cd openclaw && fly launch (first time) or fly deploy
+# Fly.io deployment for Arkadia Oracle Gateway
+# cd openclaw && fly launch (first time) or fly deploy
 
-app = "arkadia-openclaw"
+app = "arkadia-oracle-gateway"
 primary_region = "lhr"
 
 [build]

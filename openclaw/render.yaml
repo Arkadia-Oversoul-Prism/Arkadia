@@ -1,10 +1,9 @@
-# Render.com deployment config for Arkadia OpenClaw Gateway
-# Add as a new Web Service in your existing Render account.
-# Root directory: openclaw/
+# Render.com deployment for Arkadia Oracle Gateway
+# New Web Service → Root Directory: openclaw → Runtime: Docker
 
 services:
   - type: web
-    name: arkadia-openclaw
+    name: arkadia-oracle-gateway
     runtime: docker
     dockerfilePath: ./Dockerfile
     plan: free
