@@ -1758,3 +1758,69 @@ async def get_metrics():
             "jobs": {"pending": 0, "running": 0, "completed": 0, "failed": 0, "total": 0, "queue_depth": 0},
             "goals_active": 0,
         }
+
+
+# ── Agent Spawn — OpenClaw / external trigger entry point ─────────────────────
+
+@app.post("/api/agent/spawn")
+async def agent_spawn(request: Request):
+    """Universal on-demand agent spawn endpoint.
+
+    Accepts an intent + optional context from any external trigger:
+    OpenClaw, Telegram bot, WhatsApp webhook, n8n workflow, cron job, curl.
+
+    Body (JSON):
+        intent   : str  — what the agent should do (required)
+        context  : dict — arbitrary key/value payload passed to the kernel
+        agent    : str  — target agent type: "oracle" | "weaver" | "planner" | "custom"
+        priority : str  — "high" | "normal" (default: "normal")
+        source   : str  — caller identity e.g. "openclaw" | "telegram" | "webhook"
+
+    Returns:
+        job_id   : str  — poll /api/job/{job_id} for status + result
+        status   : str  — "queued"
+        agent    : str  — resolved agent type
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    intent = (body.get("intent") or "").strip()
+    if not intent:
+        raise HTTPException(status_code=400, detail="'intent' field is required")
+
+    context  = body.get("context") or {}
+    agent    = body.get("agent", "oracle")
+    priority = body.get("priority", "normal")
+    source   = body.get("source", "external")
+
+    # Build a kernel-compatible intent payload
+    kernel_intent = {
+        "type":    agent,
+        "input":   intent,
+        "context": context,
+        "meta": {
+            "source":   source,
+            "priority": priority,
+            "spawned_at": _now_iso(),
+        },
+    }
+
+    try:
+        store  = _job_store()
+        job_id = store.enqueue(kernel_intent)
+        logger.info(
+            "[SPAWN] job=%s agent=%s source=%s priority=%s intent=%r",
+            job_id, agent, source, priority, intent[:80],
+        )
+        return {
+            "job_id":  job_id,
+            "status":  "queued",
+            "agent":   agent,
+            "source":  source,
+            "poll_url": f"/api/job/{job_id}",
+        }
+    except Exception as e:
+        logger.exception("[SPAWN] Failed to enqueue job")
+        raise HTTPException(status_code=500, detail=f"Spawn failed: {e}")
