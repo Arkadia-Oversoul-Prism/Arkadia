@@ -1,5 +1,5 @@
 # Render.com deployment config for Arkadia OpenClaw Gateway
-# Add this as a new Web Service in your existing Render account.
+# Add as a new Web Service in your existing Render account.
 # Root directory: openclaw/
 
 services:
@@ -8,7 +8,11 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     plan: free
+    port: 3000
+    healthCheckPath: /health
     envVars:
+      - key: PORT
+        value: "3000"
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: WEBHOOK_SECRET

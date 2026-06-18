@@ -1,6 +1,10 @@
 {
   "name": "arkadia-oracle-gateway",
   "description": "Arkadia Oracle — sovereign AI execution gateway. Routes intents through the Oracle brain on Render and polls for results.",
+  "server": {
+    "port": 3000,
+    "host": "0.0.0.0"
+  },
   "oracle": {
     "base_url": "https://arkadia-n26k.onrender.com",
     "spawn_endpoint": "/api/agent/spawn",
