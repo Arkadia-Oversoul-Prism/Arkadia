@@ -68,22 +68,40 @@ class JobStore:
 
     # ── persistence ─────────────────────────────────────────────────────────
     def _load_snapshot(self) -> None:
-        if not os.path.exists(self._snapshot_path):
-            return
-        try:
-            with open(self._snapshot_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except (json.JSONDecodeError, OSError):
-            return
-        if not isinstance(data, dict):
-            return
-        for job_id, job in data.items():
-            if isinstance(job, dict) and "job_id" in job:
-                self._jobs[job_id] = job
-                # Re-enqueue any work that was unfinished when we shut down.
-                if job.get("status") in (PENDING, RUNNING):
-                    job["status"] = PENDING
-                    self._queue.put(job_id)
+        loaded_from_disk = False
+        if os.path.exists(self._snapshot_path):
+            try:
+                with open(self._snapshot_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, dict):
+                    for job_id, job in data.items():
+                        if isinstance(job, dict) and "job_id" in job:
+                            self._jobs[job_id] = job
+                            if job.get("status") in (PENDING, RUNNING):
+                                job["status"] = PENDING
+                                self._queue.put(job_id)
+                    loaded_from_disk = bool(self._jobs)
+            except (json.JSONDecodeError, OSError):
+                pass
+
+        # Firebase fallback: if local snapshot was empty, try Firestore
+        if not loaded_from_disk:
+            try:
+                from api.firebase_store import fb_load_jobs
+                fb_jobs = fb_load_jobs()
+                for job_id, job in fb_jobs.items():
+                    if isinstance(job, dict) and "job_id" in job:
+                        self._jobs[job_id] = job
+                        if job.get("status") in (PENDING, RUNNING):
+                            job["status"] = PENDING
+                            self._queue.put(job_id)
+                if fb_jobs:
+                    import logging
+                    logging.getLogger("arkadia.jobs").info(
+                        "[JOBS] Restored %d jobs from Firestore", len(fb_jobs)
+                    )
+            except Exception:
+                pass
 
     def _persist(self) -> None:
         try:
@@ -94,6 +112,13 @@ class JobStore:
             os.replace(tmp, self._snapshot_path)
         except OSError:
             pass  # best-effort; never crash a worker on snapshot failure
+
+        # Firebase mirror — runs after local write, never raises
+        try:
+            from api.firebase_store import fb_sync_jobs
+            fb_sync_jobs(self._jobs)
+        except Exception:
+            pass
 
     # ── core API ────────────────────────────────────────────────────────────
     def create(self, intent: dict[str, Any], *, source: str = "api") -> dict[str, Any]:

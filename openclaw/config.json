@@ -1,0 +1,40 @@
+{
+  "name": "arkadia-oracle-gateway",
+  "description": "Arkadia Oracle — sovereign AI execution gateway. Routes intents through the Oracle brain on Render and polls for results.",
+  "oracle": {
+    "base_url": "https://arkadia-n26k.onrender.com",
+    "spawn_endpoint": "/api/agent/spawn",
+    "poll_endpoint": "/api/job/{job_id}",
+    "poll_interval_ms": 2000,
+    "poll_timeout_ms": 120000
+  },
+  "agents": {
+    "oracle": {
+      "description": "Core reasoning + Ifa synthesis via Gemini",
+      "default": true
+    },
+    "planner": {
+      "description": "Multi-step plan execution via SolSpire kernel"
+    },
+    "weaver": {
+      "description": "Self-evolution — reads repo, generates patches, commits"
+    }
+  },
+  "triggers": {
+    "telegram": {
+      "enabled": true,
+      "token_env": "TELEGRAM_BOT_TOKEN",
+      "default_agent": "oracle"
+    },
+    "webhook": {
+      "enabled": true,
+      "path": "/webhook/oracle",
+      "secret_env": "WEBHOOK_SECRET"
+    }
+  },
+  "spawn_defaults": {
+    "source": "openclaw",
+    "agent": "oracle",
+    "priority": "normal"
+  }
+}

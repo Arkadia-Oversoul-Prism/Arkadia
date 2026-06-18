@@ -1,0 +1,15 @@
+{
+  "name": "arkadia-openclaw-gateway",
+  "version": "1.0.0",
+  "description": "OpenClaw execution gateway for the Arkadia Oracle sovereign cloud agentic system",
+  "private": true,
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "start": "npx openclaw@latest start --config config.json",
+    "start:dev": "npx openclaw@latest start --config config.json --verbose"
+  },
+  "keywords": ["arkadia", "oracle", "openclaw", "agent"],
+  "dependencies": {}
+}

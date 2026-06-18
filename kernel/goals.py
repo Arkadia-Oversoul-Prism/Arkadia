@@ -61,17 +61,34 @@ class GoalStore:
 
     # ── persistence ─────────────────────────────────────────────────────────
     def _load(self) -> None:
-        if not os.path.exists(self._snapshot_path):
-            return
-        try:
-            with open(self._snapshot_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except (json.JSONDecodeError, OSError):
-            return
-        if isinstance(data, dict):
-            for gid, g in data.items():
-                if isinstance(g, dict) and g.get("goal_id"):
-                    self._goals[gid] = g
+        loaded_from_disk = False
+        if os.path.exists(self._snapshot_path):
+            try:
+                with open(self._snapshot_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, dict):
+                    for gid, g in data.items():
+                        if isinstance(g, dict) and g.get("goal_id"):
+                            self._goals[gid] = g
+                    loaded_from_disk = bool(self._goals)
+            except (json.JSONDecodeError, OSError):
+                pass
+
+        # Firebase fallback: restore from Firestore when local file is absent
+        if not loaded_from_disk:
+            try:
+                from api.firebase_store import fb_load_goals
+                fb_goals = fb_load_goals()
+                for gid, g in fb_goals.items():
+                    if isinstance(g, dict) and g.get("goal_id"):
+                        self._goals[gid] = g
+                if fb_goals:
+                    import logging
+                    logging.getLogger("arkadia.goals").info(
+                        "[GOALS] Restored %d goals from Firestore", len(fb_goals)
+                    )
+            except Exception:
+                pass
 
     def _persist(self) -> None:
         try:
@@ -81,6 +98,13 @@ class GoalStore:
                 json.dump(self._goals, f, indent=2, ensure_ascii=False, default=str)
             os.replace(tmp, self._snapshot_path)
         except OSError:
+            pass
+
+        # Firebase mirror — runs after local write, never raises
+        try:
+            from api.firebase_store import fb_sync_goals
+            fb_sync_goals(self._goals)
+        except Exception:
             pass
 
     # ── core API ────────────────────────────────────────────────────────────
