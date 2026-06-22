@@ -389,13 +389,80 @@ function ClientDashboard({ email }: { email: string }) {
   );
 }
 
+// ─── Oracle Recommendations Panel ─────────────────────────────────────────────
+
+interface AICRec { id: string; name: string; price: string; reasoning: string }
+
+function OracleRecommendationsPanel({ seed, onSelect }: { seed: any; onSelect: (p: Product) => void }) {
+  const recs: AICRec[] = seed?.recommendations ?? [];
+  if (recs.length === 0) return null;
+
+  return (
+    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+      style={{ marginBottom: 28, padding: '20px', background: 'rgba(0,212,170,0.04)', border: '1px solid rgba(0,212,170,0.18)', borderRadius: 13 }}>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+        <div>
+          <p style={{ fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.5)', margin: '0 0 3px' }}>Oracle — Personalized Synthesis</p>
+          <h2 style={{ fontFamily: 'serif', fontSize: 16, color: '#00D4AA', margin: 0 }}>Your Field Recommendations</h2>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <p style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(201,168,76,0.55)', margin: '0 0 2px', letterSpacing: '0.1em' }}>{seed.mbti_type}</p>
+          <p style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(0,212,170,0.35)', margin: 0, letterSpacing: '0.08em' }}>{seed.morphic_code}</p>
+        </div>
+      </div>
+
+      {seed.primary_archetypes?.length > 0 && (
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 14 }}>
+          {(seed.primary_archetypes as string[]).map(a => (
+            <span key={a} style={{ padding: '2px 9px', background: 'rgba(201,168,76,0.07)', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 20, fontFamily: 'sans-serif', fontSize: 9, color: '#C9A84C' }}>{a}</span>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+        {recs.map((rec, i) => {
+          const product = PRODUCTS.find(p => p.id === rec.id);
+          return (
+            <div key={rec.id} style={{ padding: '13px 15px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 9, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(0,212,170,0.4)' }}>0{i+1}</span>
+                  <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: product?.color ?? '#E8E8E8', margin: 0 }}>{rec.name}</p>
+                  <p style={{ fontFamily: 'serif', fontSize: 11, color: product?.color ?? '#E8E8E8', margin: 0, marginLeft: 'auto' }}>{rec.price}</p>
+                </div>
+                <p style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(232,232,232,0.42)', margin: 0, lineHeight: 1.65 }}>{rec.reasoning}</p>
+              </div>
+              {product && product.price_usd > 0 && (
+                <button onClick={() => onSelect(product)}
+                  style={{ flexShrink: 0, padding: '8px 14px', background: `${product.color}12`, border: `1px solid ${product.color}38`, borderRadius: 7, color: product.color, fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  Book →
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {seed.soul_contract && (
+        <div style={{ marginTop: 14, padding: '12px 14px', background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 8 }}>
+          <p style={{ fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.25)', margin: '0 0 5px' }}>Soul Contract</p>
+          <p style={{ fontFamily: 'serif', fontSize: 11, color: 'rgba(232,232,232,0.5)', margin: 0, lineHeight: 1.7 }}>{seed.soul_contract}</p>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function OfferingsPage({ onGoToAIC }: { onGoToAIC: () => void }) {
+export default function OfferingsPage({ onGoToAIC, aicSeed }: { onGoToAIC: () => void; aicSeed?: any }) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [confirmedOrder, setConfirmedOrder] = useState<{ id: string; product: Product } | null>(null);
   const [dashboardEmail, setDashboardEmail] = useState('');
   const [showDashboard, setShowDashboard] = useState(false);
+
+  const recommendedIds = (aicSeed?.recommendations ?? []).map((r: AICRec) => r.id) as string[];
 
   const handleSelect = (p: Product) => {
     if (p.id === 'aic') { onGoToAIC(); return; }
@@ -409,31 +476,46 @@ export default function OfferingsPage({ onGoToAIC }: { onGoToAIC: () => void }) 
     }
   };
 
+  const hasAIC = aicSeed && (aicSeed.mbti_type || aicSeed.morphic_code);
+
   return (
     <div className="min-h-screen w-full relative">
       <div className="aurora-bg" />
       <div className="page-column relative z-10 pt-8 pb-24">
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ marginBottom: 28 }}>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ marginBottom: 24 }}>
           <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.45)', margin: '0 0 4px' }}>
             Arkadia / Offerings
           </p>
           <h1 style={{ fontFamily: 'serif', fontSize: 28, color: '#E8E8E8', margin: '0 0 6px', letterSpacing: '0.04em' }}>
             The Oracle's Table
           </h1>
-          <p style={{ fontFamily: 'sans-serif', fontSize: 12, color: 'rgba(232,232,232,0.35)', margin: '0 0 16px', lineHeight: 1.6 }}>
-            Every offering begins with the AIC Diagnostic — free, instant, and the only prerequisite that matters.
+          <p style={{ fontFamily: 'sans-serif', fontSize: 12, color: 'rgba(232,232,232,0.35)', margin: '0 0 14px', lineHeight: 1.6 }}>
+            {hasAIC
+              ? 'The Oracle has read your field. Recommendations generated below.'
+              : 'Every offering begins with the AIC Diagnostic — free, instant, and the only prerequisite that matters.'}
           </p>
-          <button onClick={onGoToAIC}
-            style={{ padding: '13px 22px', background: 'linear-gradient(135deg, rgba(0,212,170,0.1), rgba(0,212,170,0.05))', border: '1px solid rgba(0,212,170,0.32)', borderRadius: 9, color: '#00D4AA', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer' }}>
-            ◎ Begin AIC Diagnostic — Free
-          </button>
+          {!hasAIC && (
+            <button onClick={onGoToAIC}
+              style={{ padding: '13px 22px', background: 'linear-gradient(135deg, rgba(0,212,170,0.1), rgba(0,212,170,0.05))', border: '1px solid rgba(0,212,170,0.32)', borderRadius: 9, color: '#00D4AA', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer' }}>
+              ◎ Begin AIC Diagnostic — Free
+            </button>
+          )}
         </motion.div>
 
+        {hasAIC && (
+          <OracleRecommendationsPanel seed={aicSeed} onSelect={handleSelect} />
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 32 }}>
+          {hasAIC && (
+            <p style={{ fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.2)', margin: '0 0 4px' }}>
+              All Offerings — Oracle Recommended items are highlighted
+            </p>
+          )}
           {PRODUCTS.map((p, i) => (
             <motion.div key={p.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}>
-              <ProductCard p={p} onSelect={handleSelect} />
+              <ProductCard p={p} onSelect={handleSelect} recommended={recommendedIds.includes(p.id)} />
             </motion.div>
           ))}
         </div>

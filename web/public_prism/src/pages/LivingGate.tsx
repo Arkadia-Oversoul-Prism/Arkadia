@@ -14,6 +14,7 @@ type AICStep  = 1 | 2 | 3 | 4 | 'generating' | 'result';
 interface LivingGateProps {
   onEnterField: (phrase: string) => void;
   onGoToOfferings?: () => void;
+  onAICComplete?: (seed: any) => void;
   initialMode?: GateMode;
 }
 
@@ -349,7 +350,7 @@ function AICResult({ seed, onBookIMS, onGoToOfferings, onRetake }: {
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
-export default function LivingGate({ onEnterField, onGoToOfferings, initialMode = 'oracle' }: LivingGateProps) {
+export default function LivingGate({ onEnterField, onGoToOfferings, onAICComplete, initialMode = 'oracle' }: LivingGateProps) {
   const { resonance, flameHue } = useSpiralQuantumResonance(true, 8000);
   const [mode, setMode] = useState<GateMode>(initialMode);
 
@@ -420,6 +421,7 @@ export default function LivingGate({ onEnterField, onGoToOfferings, initialMode 
       if (!res.ok) throw new Error(`Oracle error ${res.status}`);
       const data = await res.json();
       setAicSeed(data);
+      onAICComplete?.(data);
       setAicStep('result');
     } catch (e: any) {
       setAicError(e.message ?? 'Oracle synthesis failed. Please try again.');

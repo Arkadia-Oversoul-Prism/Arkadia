@@ -436,6 +436,54 @@ Each part should be substantive and immediately actionable.""",
 }
 
 
+@router.post("/api/paystack/initialize")
+async def initialize_paystack(request: Request):
+    """Server-side Paystack transaction initialization (redirect flow)."""
+    body = await request.json()
+    email      = body.get("email", "")
+    amount_usd = float(body.get("amount_usd", 0))
+    amount_ngn = int(body.get("amount_ngn", 0))
+    product_id = body.get("product_id", "")
+    name       = body.get("name", "")
+    callback   = body.get("callback_url", "https://arkadia-prism.vercel.app/offerings")
+
+    if not email or not product_id:
+        raise HTTPException(status_code=400, detail="email and product_id are required")
+
+    # Use NGN amount if supplied, otherwise derive from USD (approx 1 USD = 1600 NGN)
+    ngn_kobo = amount_ngn * 100 if amount_ngn else int(amount_usd * 1600 * 100)
+
+    if not PAYSTACK_SECRET:
+        return JSONResponse({
+            "status": True,
+            "message": "dev-mode (no PAYSTACK_SECRET_KEY)",
+            "data": {
+                "authorization_url": callback,
+                "access_code": "dev_mode",
+                "reference": f"DEV-{int(time.time())}",
+            },
+        })
+
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.post(
+                "https://api.paystack.co/transaction/initialize",
+                headers={"Authorization": f"Bearer {PAYSTACK_SECRET}", "Content-Type": "application/json"},
+                json={
+                    "email": email,
+                    "amount": ngn_kobo,
+                    "currency": "NGN",
+                    "callback_url": callback,
+                    "metadata": {"product_id": product_id, "name": name},
+                },
+            )
+            r.raise_for_status()
+            return r.json()
+    except Exception as e:
+        logger.error(f"[PAYSTACK-INIT] {e}")
+        raise HTTPException(status_code=502, detail=f"Paystack error: {e}")
+
+
 @router.post("/api/products/deliver/{product_id}")
 async def deliver_product(product_id: str, request: Request):
     """Trigger Oracle synthesis for a specific order."""

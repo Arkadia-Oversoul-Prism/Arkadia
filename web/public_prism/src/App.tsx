@@ -279,6 +279,7 @@ function DashboardGate({ onNavigate }: { onNavigate: (v: View) => void }) {
 function AppInner() {
   const [view, setView] = useState<View>('home');
   const [soulPhrase, setSoulPhrase] = useState<string | undefined>(undefined);
+  const [aicSeed, setAicSeed] = useState<any>(null);
   const { isAuthenticated } = useAuth();
 
   const handleEnterField = (phrase: string) => {
@@ -313,7 +314,11 @@ function AppInner() {
 
         {view === 'gate' && (
           <motion.div key="gate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}>
-            <LivingGate onEnterField={handleEnterField} onGoToOfferings={() => handleNavigate('offerings')} />
+            <LivingGate
+              onEnterField={handleEnterField}
+              onGoToOfferings={() => handleNavigate('offerings')}
+              onAICComplete={setAicSeed}
+            />
           </motion.div>
         )}
 
@@ -385,13 +390,18 @@ function AppInner() {
 
         {view === 'offerings' && (
           <motion.div key="offerings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}>
-            <OfferingsPage onGoToAIC={() => handleNavigate('gate')} />
+            <OfferingsPage onGoToAIC={() => handleNavigate('gate')} aicSeed={aicSeed} />
           </motion.div>
         )}
 
         {view === 'aic' && (
           <motion.div key="aic" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}>
-            <LivingGate onEnterField={handleEnterField} onGoToOfferings={() => handleNavigate('offerings')} initialMode="aic" />
+            <LivingGate
+              onEnterField={handleEnterField}
+              onGoToOfferings={() => handleNavigate('offerings')}
+              onAICComplete={setAicSeed}
+              initialMode="aic"
+            />
           </motion.div>
         )}
 
