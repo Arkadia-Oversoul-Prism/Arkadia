@@ -173,7 +173,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginBottom: '30px' }}>
           <PortalDoor label="Offerings" sub="Sessions · Products · AIC Diagnostic · Book Now" color="#C9A84C" sigil="✦" onClick={() => onNavigate('offerings')} delay={1.12} />
-          <PortalDoor label="AIC Diagnostic" sub="Arkadian Identity Cartography · Free · 20 min" color="#00D4AA" sigil="◎" onClick={() => onNavigate('aic')} delay={1.13} />
+          <PortalDoor label="AIC Diagnostic" sub="Arkadian Identity Cartography · Free · 20 min · Via Living Gate" color="#00D4AA" sigil="◎" onClick={() => onNavigate('gate')} delay={1.13} />
           <PortalDoor label="Oracle" sub="ARKANA · Pattern intelligence · Live commune" color="#00D4AA" sigil="⟐" onClick={() => onNavigate('commune')} delay={1.14} />
           <PortalDoor label="Nexus" sub="Spiral Codex · IMS Archive · Spiral Grove · Living Larder" color="#C9A84C" sigil="☥" onClick={() => onNavigate('nexus')} delay={1.17} />
           <PortalDoor label="Encyclopedia Galactica" sub="Crystal Matrix · 12 Chambers · The Living Library" color="#B08DE8" sigil="✧" onClick={() => onNavigate('encyclopedia')} delay={1.19} />
@@ -313,7 +313,7 @@ function AppInner() {
 
         {view === 'gate' && (
           <motion.div key="gate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}>
-            <LivingGate onEnterField={handleEnterField} />
+            <LivingGate onEnterField={handleEnterField} onGoToOfferings={() => handleNavigate('offerings')} />
           </motion.div>
         )}
 
@@ -385,13 +385,13 @@ function AppInner() {
 
         {view === 'offerings' && (
           <motion.div key="offerings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}>
-            <OfferingsPage onGoToAIC={() => handleNavigate('aic')} />
+            <OfferingsPage onGoToAIC={() => handleNavigate('gate')} />
           </motion.div>
         )}
 
         {view === 'aic' && (
           <motion.div key="aic" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}>
-            <AICDiagnosticPage onGoToOfferings={() => handleNavigate('offerings')} />
+            <LivingGate onEnterField={handleEnterField} onGoToOfferings={() => handleNavigate('offerings')} initialMode="aic" />
           </motion.div>
         )}
 
