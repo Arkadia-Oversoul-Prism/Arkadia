@@ -1,4 +1,4 @@
-modules = ["bash", "nodejs-20", "web", "python-3.11", "language"]
+modules = ["bash", "nodejs-20", "web", "python-3.11", "language", "python3"]
 [agent]
 expertMode = true
 stack = "FULLSTACK_JS"
@@ -33,7 +33,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "uvicorn api.main:app --host 0.0.0.0 --port 8000"
+args = "python3 -m uvicorn api.main:app --host 0.0.0.0 --port 8000"
 waitForPort = 8000
 
 [[workflows.workflow]]

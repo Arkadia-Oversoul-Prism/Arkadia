@@ -12,7 +12,9 @@ type View =
   | 'larder'
   | 'novanet'
   | 'ims'
-  | 'distribute';
+  | 'distribute'
+  | 'offerings'
+  | 'aic';
 
 interface NavProps {
   currentView: View;
@@ -27,10 +29,12 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Core',
     items: [
-      { label: 'Home',        view: 'home',    sigil: '⌂', sub: 'Field entry point',                  color: '#C9A84C' },
-      { label: 'Gate',        view: 'gate',    sigil: '✦', sub: 'Identity Mapping Session · $777',     color: '#C9A84C' },
-      { label: 'Oracle',      view: 'commune', sigil: '⟐', sub: 'ARKANA · Pattern intelligence',        color: '#00D4AA' },
-      { label: 'Field Reset', view: 'reset',   sigil: '◎', sub: '5-minute coherence reset',            color: '#B08DE8' },
+      { label: 'Home',        view: 'home',      sigil: '⌂', sub: 'Field entry point',                  color: '#C9A84C' },
+      { label: 'Offerings',   view: 'offerings', sigil: '✦', sub: 'Sessions · Products · Bookings',      color: '#C9A84C' },
+      { label: 'AIC Diagnostic', view: 'aic',    sigil: '◎', sub: 'Identity Cartography · Free',         color: '#00D4AA' },
+      { label: 'Oracle',      view: 'commune',   sigil: '⟐', sub: 'ARKANA · Pattern intelligence',       color: '#00D4AA' },
+      { label: 'Field Reset', view: 'reset',     sigil: '◎', sub: '5-minute coherence reset',            color: '#B08DE8' },
+      { label: 'Gate',        view: 'gate',      sigil: '✦', sub: 'IMS Inquiry · $777',                  color: '#C9A84C' },
     ],
   },
   {
@@ -67,7 +71,7 @@ const VIEW_LABEL: Partial<Record<View, string>> = {
   nexus: 'Nexus Hub', encyclopedia: 'Encyclopedia Galactica',
   'spiral-codex': 'Spiral Codex', loops: 'Open Loops', grove: 'Spiral Grove',
   larder: 'Living Larder', novanet: 'NovaNet', ims: 'IMS Archive',
-  distribute: 'Distribute',
+  distribute: 'Distribute', offerings: 'Offerings', aic: 'AIC Diagnostic',
 };
 
 function UserSection({ onNavigate, onClose }: { onNavigate: (v: View) => void; onClose: () => void }) {

@@ -21,3 +21,9 @@ python-docx
 python-multipart
 requests
 uvicorn[standard]
+fastapi
+firebase-admin
+google-generativeai
+httpx
+pydantic
+uvicorn[standard]

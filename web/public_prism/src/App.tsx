@@ -19,6 +19,8 @@ import LoginPage from './pages/LoginPage';
 import PersonalCodex from './pages/PersonalCodex';
 import SonataBar from './components/SonataBar';
 import DistributePage from './pages/DistributePage';
+import OfferingsPage from './pages/OfferingsPage';
+import AICDiagnosticPage from './pages/AICDiagnosticPage';
 
 type View =
   | 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
@@ -30,7 +32,9 @@ type View =
   | 'larder'
   | 'novanet'
   | 'ims'
-  | 'distribute';
+  | 'distribute'
+  | 'offerings'
+  | 'aic';
 
 // ─── FIELD PULSE ──────────────────────────────────────────────────────────────
 
@@ -168,6 +172,8 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
         </motion.p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginBottom: '30px' }}>
+          <PortalDoor label="Offerings" sub="Sessions · Products · AIC Diagnostic · Book Now" color="#C9A84C" sigil="✦" onClick={() => onNavigate('offerings')} delay={1.12} />
+          <PortalDoor label="AIC Diagnostic" sub="Arkadian Identity Cartography · Free · 20 min" color="#00D4AA" sigil="◎" onClick={() => onNavigate('aic')} delay={1.13} />
           <PortalDoor label="Oracle" sub="ARKANA · Pattern intelligence · Live commune" color="#00D4AA" sigil="⟐" onClick={() => onNavigate('commune')} delay={1.14} />
           <PortalDoor label="Nexus" sub="Spiral Codex · IMS Archive · Spiral Grove · Living Larder" color="#C9A84C" sigil="☥" onClick={() => onNavigate('nexus')} delay={1.17} />
           <PortalDoor label="Encyclopedia Galactica" sub="Crystal Matrix · 12 Chambers · The Living Library" color="#B08DE8" sigil="✧" onClick={() => onNavigate('encyclopedia')} delay={1.19} />
@@ -374,6 +380,18 @@ function AppInner() {
         {view === 'distribute' && (
           <motion.div key="distribute" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
             <DistributePage />
+          </motion.div>
+        )}
+
+        {view === 'offerings' && (
+          <motion.div key="offerings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}>
+            <OfferingsPage onGoToAIC={() => handleNavigate('aic')} />
+          </motion.div>
+        )}
+
+        {view === 'aic' && (
+          <motion.div key="aic" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}>
+            <AICDiagnosticPage onGoToOfferings={() => handleNavigate('offerings')} />
           </motion.div>
         )}
 

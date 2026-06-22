@@ -197,6 +197,14 @@ try:
 except Exception as _dist_err:
     logger.warning(f"[DIST] Distribution router mount skipped: {_dist_err}")
 
+# ── IMS Diagnostic + Product Engine ──────────────────────────────────────────
+try:
+    from api.ims_products import router as _ims_products_router
+    app.include_router(_ims_products_router)
+    logger.info("[IMS-PRODUCTS] Diagnostic + product engine router mounted")
+except Exception as _imp_err:
+    logger.warning(f"[IMS-PRODUCTS] Router mount skipped: {_imp_err}")
+
 # ── Static file serving (IMS HTML documents, forge images, etc.) ─────────────
 _static_dir = _os.path.join(_os.path.dirname(__file__), "..", "static")
 if _os.path.isdir(_static_dir):
