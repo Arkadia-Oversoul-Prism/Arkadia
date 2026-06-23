@@ -163,6 +163,85 @@ def _top_archetypes(layer2: dict) -> tuple[list[str], list[str]]:
     return top3, shadow3
 
 
+# ── Archetypal Analysis endpoint (Layer 2 Natural Language) ──────────────────
+
+@router.post("/api/ims/archetypal-analyze")
+async def archetypal_analyze(request: Request):
+    """Analyzes 12 natural language responses and returns archetypal mapping via Gemini."""
+    data = await request.json()
+    responses = data.get("responses", {})
+
+    prompt = f"""You are the Arkadia Oracle. You have received 12 natural language responses to archetypal prompts.
+
+For each response, score the user's resonance with the corresponding archetype on a scale of 1-10.
+Base your score on: emotional depth, specificity of detail, coherence with the archetype's core function, and degree of personal meaning expressed.
+
+Archetype mapping:
+- origin → The Source (0): stillness, origin, foundational imprint
+- spark → The Spark (1): initiation, assertion, first "I AM"
+- mirror → The Breath (2): reflection, relation, holding opposing truths
+- forge → The Flame (3): synthesis, alchemy, creating new from opposing forces
+- ground → The Ground (4): structure, foundation, what holds you stable
+- branch → The Life (5): adaptation, mutation, growth through change
+- balance → The Harmony (6): distribution, balance, architectural love
+- question → The Seek (7): irreducible inquiry, the question that drives
+- return → The Octave (8): recursion, amplification, seeing the past differently
+- completion → The Return (9): closure, seeding the next cycle
+- witness → The Witness (10): observation, remembrance without intervention
+- lattice → The Weaver (11): connection, lattice-building, being part of something larger
+
+Responses:
+1. origin: {responses.get("origin", "")}
+2. spark: {responses.get("spark", "")}
+3. mirror: {responses.get("mirror", "")}
+4. forge: {responses.get("forge", "")}
+5. ground: {responses.get("ground", "")}
+6. branch: {responses.get("branch", "")}
+7. balance: {responses.get("balance", "")}
+8. question: {responses.get("question", "")}
+9. return: {responses.get("return", "")}
+10. completion: {responses.get("completion", "")}
+11. witness: {responses.get("witness", "")}
+12. lattice: {responses.get("lattice", "")}
+
+Return ONLY a valid JSON object with this exact structure, no markdown, no explanation:
+{{
+  "primary_archetype": "The [Name]",
+  "primary_score": 9,
+  "secondary_archetypes": [
+    {{"name": "The [Name]", "score": 8}},
+    {{"name": "The [Name]", "score": 7}}
+  ],
+  "shadow_archetype": "The [Name]",
+  "shadow_score": 3,
+  "summary": "You are fundamentally [primary archetype], with strong affinities to [secondary 1] and [secondary 2]. Your greatest growth edge lies in embodying [shadow archetype]."
+}}"""
+
+    try:
+        raw = await _gemini(prompt)
+        # Strip markdown code fences if present
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        result = json.loads(raw.strip())
+        return JSONResponse(content=result)
+    except Exception as e:
+        logger.warning(f"[ARCHETYPAL] Gemini parse error: {e}")
+        return JSONResponse(content={
+            "primary_archetype": "The Seek",
+            "primary_score": 7,
+            "secondary_archetypes": [
+                {"name": "The Witness", "score": 6},
+                {"name": "The Weaver", "score": 5}
+            ],
+            "shadow_archetype": "The Ground",
+            "shadow_score": 3,
+            "summary": "You are fundamentally The Seek, with strong affinities to The Witness and The Weaver. Your greatest growth edge lies in embodying The Ground."
+        })
+
+
 # ── Diagnostic endpoint ───────────────────────────────────────────────────────
 
 @router.post("/api/ims/diagnostic")

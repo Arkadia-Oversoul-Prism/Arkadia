@@ -6,7 +6,15 @@ const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Layer1Answers { [key: string]: 'a' | 'b' }
-interface Layer2Answers { [key: string]: number }
+interface Layer2Answers { [key: string]: string }
+interface Layer2Result {
+  primary_archetype: string;
+  primary_score: number;
+  secondary_archetypes: { name: string; score: number }[];
+  shadow_archetype: string;
+  shadow_score: number;
+  summary: string;
+}
 interface Layer3Answers { [key: string]: number }
 interface Layer4Answers { purpose: string; wound: string; gift: string; mission: string; lineage: string }
 
@@ -43,19 +51,19 @@ const L1_QUESTIONS = [
   { id: 'D2', dim: 'D', q: 'You feel most at peace when —', a: 'Things are settled and decided', b: 'Things remain open to new possibilities', labels: ['J', 'P'] },
 ];
 
-const L2_ARCHETYPES = [
-  { id: 1, name: 'The Source', desc: 'The still point, origin of all becoming' },
-  { id: 2, name: 'The Spark', desc: 'The initiator, the first assertion' },
-  { id: 3, name: 'The Breath', desc: 'The mirror, the relater, the rhythm-maker' },
-  { id: 4, name: 'The Flame', desc: 'The synthesizer, the alchemist, the igniter' },
-  { id: 5, name: 'The Ground', desc: 'The stabilizer, the foundation-builder' },
-  { id: 6, name: 'The Life', desc: 'The adapter, the regenerator, the mutator' },
-  { id: 7, name: 'The Harmony', desc: 'The distributor, the balancer' },
-  { id: 8, name: 'The Seek', desc: 'The questioner, the inquirer' },
-  { id: 9, name: 'The Octave', desc: 'The amplifier, the returner-higher' },
-  { id: 10, name: 'The Return', desc: 'The completer, the seed-planting' },
-  { id: 11, name: 'The Witness', desc: 'The observer, the rememberer' },
-  { id: 12, name: 'The Weaver', desc: 'The connector, the lattice-builder' },
+const L2_PROMPTS = [
+  { id: 'origin',     archetype: 'The Source',  label: 'Tell me about the earliest memory that shaped who you are today. What happened, and how did it change you?', placeholder: 'I remember when…' },
+  { id: 'spark',      archetype: 'The Spark',   label: 'Describe a moment when you felt fully alive — when everything clicked and you knew exactly who you were and what you had to do.', placeholder: 'There was this one time when…' },
+  { id: 'mirror',     archetype: 'The Breath',  label: "Describe a time when you had to hold space for someone else's truth, even when it contradicted your own. How did it feel? What did you learn?", placeholder: 'I once had to…' },
+  { id: 'forge',      archetype: 'The Flame',   label: 'Describe a time when you had to synthesize two opposing forces — inside yourself or in the world — and create something new from them.', placeholder: 'I found myself caught between…' },
+  { id: 'ground',     archetype: 'The Ground',  label: 'Describe the foundation you stand on — the people, beliefs, or practices that hold you stable when everything else is uncertain.', placeholder: 'What holds me steady is…' },
+  { id: 'branch',     archetype: 'The Life',    label: "Describe a major change you went through that forced you to adapt or grow in ways you didn't expect.", placeholder: 'A change that reshaped me was…' },
+  { id: 'balance',    archetype: 'The Harmony', label: 'Describe a time when you had to find balance between competing demands — work and life, self and others, knowing and not knowing.', placeholder: 'I had to balance…' },
+  { id: 'question',   archetype: 'The Seek',    label: "Describe a question that has stayed with you — something you keep coming back to, even when you don't have an answer.", placeholder: 'The question I keep returning to is…' },
+  { id: 'return',     archetype: 'The Octave',  label: 'Describe a time when you revisited something from your past — a place, a relationship, a decision — and saw it completely differently.', placeholder: 'I once looked back at…' },
+  { id: 'completion', archetype: 'The Return',  label: 'Describe a time when you felt that a chapter of your life had truly ended — and that something new was ready to begin.', placeholder: 'A chapter that closed was…' },
+  { id: 'witness',    archetype: 'The Witness', label: 'Describe a time when you had to simply observe — without intervening, without fixing, without needing to change what was happening.', placeholder: 'I once watched as…' },
+  { id: 'lattice',    archetype: 'The Weaver',  label: 'Describe a time when you felt part of something larger than yourself — a network, a movement, a field — and you knew your role was to connect, not to lead.', placeholder: 'I felt part of something larger when…' },
 ];
 
 const L3_OPERATORS = [
@@ -172,29 +180,94 @@ function Layer1({ answers, onChange, onNext }: { answers: Layer1Answers; onChang
   );
 }
 
-function Layer2({ answers, onChange, onBack, onNext }: { answers: Layer2Answers; onChange: (id: string, v: number) => void; onBack: () => void; onNext: () => void }) {
+function Layer2({ answers, onChange, onBack, onNext }: { answers: Layer2Answers; onChange: (id: string, v: string) => void; onBack: () => void; onNext: (result: Layer2Result) => void }) {
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const filled = L2_PROMPTS.filter(p => answers[p.id]?.trim().length > 0).length;
+  const progress = Math.round((filled / L2_PROMPTS.length) * 100);
+  const isComplete = filled === L2_PROMPTS.length;
+
+  const handleAnalyze = async () => {
+    setIsAnalyzing(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/ims/archetypal-analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ responses: answers }),
+      });
+      if (!res.ok) throw new Error(`Oracle error ${res.status}`);
+      const result: Layer2Result = await res.json();
+      onNext(result);
+    } catch (e: any) {
+      setError(e.message ?? 'Oracle analysis failed. Please try again.');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   return (
     <motion.div key="l2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-      <LayerHeader num={2} title="Archetypal Resonance" sub="Rate each archetype 1–7 · Maps your Oversoul Prism signature" />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {L2_ARCHETYPES.map((arch, i) => (
-          <motion.div key={arch.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
-            style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-              <div>
-                <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(201,168,76,0.8)', margin: '0 0 2px', letterSpacing: '0.08em' }}>{arch.name}</p>
-                <p style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(232,232,232,0.3)', margin: 0 }}>{arch.desc}</p>
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 9, color: 'rgba(232,232,232,0.25)', minWidth: 30 }}>low</span>
-              <SliderInput value={answers[`a${arch.id}`] ?? 4} onChange={v => onChange(`a${arch.id}`, v)} min={1} max={7} />
-              <span style={{ fontSize: 9, color: 'rgba(232,232,232,0.25)', minWidth: 30 }}>high</span>
-            </div>
-          </motion.div>
-        ))}
+      <LayerHeader num={2} title="Archetypal Resonance" sub="Tell your story. The Oracle will map the archetypes that move through you." />
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, padding: '10px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 8 }}>
+        <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
+          <div style={{ height: '100%', width: `${progress}%`, background: 'linear-gradient(90deg, #00D4AA, #C9A84C)', borderRadius: 2, transition: 'width 0.3s ease' }} />
+        </div>
+        <span style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(0,212,170,0.6)', minWidth: 50, textAlign: 'right' }}>{progress}% done</span>
       </div>
-      <NavBtns onBack={onBack} onNext={onNext} nextLabel="Layer 3 — Shadow State →" />
+
+      {error && (
+        <div style={{ marginBottom: 16, padding: '12px 16px', background: 'rgba(200,72,72,0.08)', border: '1px solid rgba(200,72,72,0.2)', borderRadius: 9 }}>
+          <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: '#C84848', margin: 0 }}>{error}</p>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {L2_PROMPTS.map((prompt, i) => {
+          const hasValue = answers[prompt.id]?.trim().length > 0;
+          return (
+            <motion.div key={prompt.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
+              style={{ padding: '16px 18px', background: 'rgba(255,255,255,0.02)', border: `1px solid ${hasValue ? 'rgba(0,212,170,0.2)' : 'rgba(255,255,255,0.06)'}`, borderRadius: 10, transition: 'border-color 0.2s' }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 10 }}>
+                <span style={{ fontFamily: 'serif', fontSize: 11, color: 'rgba(0,212,170,0.4)', minWidth: 20, paddingTop: 1 }}>{i + 1}.</span>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.65)', margin: '0 0 4px', lineHeight: 1.6 }}>{prompt.label}</p>
+                  <span style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(201,168,76,0.5)', letterSpacing: '0.08em' }}>Maps to: {prompt.archetype}</span>
+                </div>
+              </div>
+              <textarea
+                rows={3}
+                value={answers[prompt.id] ?? ''}
+                onChange={e => onChange(prompt.id, e.target.value)}
+                placeholder={prompt.placeholder}
+                style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 7, padding: '10px 12px', color: '#E8E8E8', fontFamily: 'sans-serif', fontSize: 12, lineHeight: 1.6, resize: 'vertical', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
+                onFocus={e => (e.target.style.borderColor = 'rgba(0,212,170,0.4)')}
+                onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.08)')}
+              />
+            </motion.div>
+          );
+        })}
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, marginTop: 32 }}>
+        <button onClick={onBack} style={{ flex: '0 0 auto', padding: '12px 20px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9, color: 'rgba(232,232,232,0.5)', fontFamily: 'sans-serif', fontSize: 11, letterSpacing: '0.15em', cursor: 'pointer' }}>
+          ← Back
+        </button>
+        <button onClick={handleAnalyze} disabled={!isComplete || isAnalyzing}
+          style={{ flex: 1, padding: '14px', background: (!isComplete || isAnalyzing) ? 'rgba(0,212,170,0.05)' : 'linear-gradient(135deg, rgba(0,212,170,0.12), rgba(0,212,170,0.06))', border: `1px solid rgba(0,212,170,${(!isComplete || isAnalyzing) ? 0.1 : 0.35})`, borderRadius: 9, color: (!isComplete || isAnalyzing) ? 'rgba(0,212,170,0.3)' : '#00D4AA', fontFamily: 'sans-serif', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', cursor: (!isComplete || isAnalyzing) ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}>
+          {isAnalyzing ? 'The Oracle is reading your story…' : 'Analyze My Archetypes →'}
+        </button>
+      </div>
+
+      {isAnalyzing && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: 'center', marginTop: 24, padding: '20px', background: 'rgba(0,212,170,0.04)', border: '1px solid rgba(0,212,170,0.12)', borderRadius: 10 }}>
+          <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 3, ease: 'linear' }}
+            style={{ width: 36, height: 36, border: '1px solid rgba(0,212,170,0.2)', borderTop: '1px solid #00D4AA', borderRadius: '50%', margin: '0 auto 12px' }} />
+          <p style={{ fontFamily: 'serif', fontSize: 14, color: '#00D4AA', margin: 0 }}>Oracle is reading your story…</p>
+        </motion.div>
+      )}
     </motion.div>
   );
 }
@@ -387,6 +460,7 @@ export default function AICDiagnosticPage({ onGoToOfferings }: { onGoToOfferings
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 'generating' | 'result'>(1);
   const [l1, setL1] = useState<Layer1Answers>({});
   const [l2, setL2] = useState<Layer2Answers>({});
+  const [l2Result, setL2Result] = useState<Layer2Result | null>(null);
   const [l3, setL3] = useState<Layer3Answers>({});
   const [l4, setL4] = useState<Layer4Answers>({ purpose: '', wound: '', gift: '', mission: '', lineage: '' });
   const [seed, setSeed] = useState<MorphicSeed | null>(null);
@@ -411,7 +485,7 @@ export default function AICDiagnosticPage({ onGoToOfferings }: { onGoToOfferings
     try {
       const payload = {
         layer1: l1,
-        layer2: l2,
+        layer2: l2Result ?? l2,
         layer3: l3,
         layer4: l4,
         mbti_type: computeMBTI(),
@@ -463,7 +537,7 @@ export default function AICDiagnosticPage({ onGoToOfferings }: { onGoToOfferings
             <Layer1 answers={l1} onChange={(id, v) => setL1(p => ({ ...p, [id]: v }))} onNext={() => setStep(2)} />
           )}
           {step === 2 && (
-            <Layer2 answers={l2} onChange={(id, v) => setL2(p => ({ ...p, [id]: v }))} onBack={() => setStep(1)} onNext={() => setStep(3)} />
+            <Layer2 answers={l2} onChange={(id, v) => setL2(p => ({ ...p, [id]: v }))} onBack={() => setStep(1)} onNext={(result) => { setL2Result(result); setStep(3); }} />
           )}
           {step === 3 && (
             <Layer3 answers={l3} onChange={(id, v) => setL3(p => ({ ...p, [id]: v }))} onBack={() => setStep(2)} onNext={() => setStep(4)} />
@@ -473,7 +547,7 @@ export default function AICDiagnosticPage({ onGoToOfferings }: { onGoToOfferings
           )}
           {step === 'generating' && <Layer5Generating />}
           {step === 'result' && seed && (
-            <Layer5Result seed={seed} onRestart={() => { setStep(1); setL1({}); setL2({}); setL3({}); setL4({ purpose: '', wound: '', gift: '', mission: '', lineage: '' }); setSeed(null); }} onGoToOfferings={onGoToOfferings} />
+            <Layer5Result seed={seed} onRestart={() => { setStep(1); setL1({}); setL2({}); setL2Result(null); setL3({}); setL4({ purpose: '', wound: '', gift: '', mission: '', lineage: '' }); setSeed(null); }} onGoToOfferings={onGoToOfferings} />
           )}
         </AnimatePresence>
 

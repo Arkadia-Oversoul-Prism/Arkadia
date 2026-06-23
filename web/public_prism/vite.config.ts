@@ -15,9 +15,9 @@ export default defineConfig({
     allowedHosts: true,
     proxy: {
       "/api": {
-        target: "https://arkadia-n26k.onrender.com",
+        target: "http://localhost:8000",
         changeOrigin: true,
-        secure: true,
+        secure: false,
       },
     },
   },
