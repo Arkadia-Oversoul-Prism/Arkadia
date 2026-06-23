@@ -205,6 +205,14 @@ try:
 except Exception as _imp_err:
     logger.warning(f"[IMS-PRODUCTS] Router mount skipped: {_imp_err}")
 
+# ── Arkadian Pulse — Identity Measurement Engine ───────────────────────────────
+try:
+    from api.pulse import router as _pulse_router
+    app.include_router(_pulse_router)
+    logger.info("[PULSE] Arkadian Pulse engine router mounted")
+except Exception as _pulse_err:
+    logger.warning(f"[PULSE] Router mount skipped: {_pulse_err}")
+
 # ── Static file serving (IMS HTML documents, forge images, etc.) ─────────────
 _static_dir = _os.path.join(_os.path.dirname(__file__), "..", "static")
 if _os.path.isdir(_static_dir):

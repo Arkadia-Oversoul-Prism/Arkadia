@@ -21,6 +21,7 @@ import SonataBar from './components/SonataBar';
 import DistributePage from './pages/DistributePage';
 import OfferingsPage from './pages/OfferingsPage';
 import AICDiagnosticPage from './pages/AICDiagnosticPage';
+import ArkadianPulse from './pages/ArkadianPulse';
 
 type View =
   | 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
@@ -34,7 +35,8 @@ type View =
   | 'ims'
   | 'distribute'
   | 'offerings'
-  | 'aic';
+  | 'aic'
+  | 'pulse';
 
 // ─── FIELD PULSE ──────────────────────────────────────────────────────────────
 
@@ -198,6 +200,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '30px' }}>
           <PortalDoor label="Offerings" sub="Sessions · Products · AIC Diagnostic · Book Now" color="#C9A84C" sigil="✦" onClick={() => onNavigate('offerings')} delay={1.12} />
+          <PortalDoor label="Arkadian Pulse" sub="36-statement vector · Pattern cluster · Sigil · Oracle report · Free" color="#C9A84C" sigil="◈" onClick={() => onNavigate('pulse')} delay={1.115} />
           <PortalDoor label="AIC Diagnostic" sub="Arkadian Identity Cartography · Free · 20 min · Via Living Gate" color="#00D4AA" sigil="◎" onClick={() => onNavigate('gate')} delay={1.13} />
           <PortalDoor label="Oracle" sub="ARKANA · Pattern intelligence · Live commune" color="#00D4AA" sigil="⟐" onClick={() => onNavigate('commune')} delay={1.14} />
           <PortalDoor label="Nexus" sub="Spiral Codex · IMS Archive · Spiral Grove · Living Larder" color="#C9A84C" sigil="☥" onClick={() => onNavigate('nexus')} delay={1.17} />
@@ -463,6 +466,12 @@ function AppInner() {
         {view === 'codex' && (
           <motion.div key="codex" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
             <PersonalCodex />
+          </motion.div>
+        )}
+
+        {view === 'pulse' && (
+          <motion.div key="pulse" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
+            <ArkadianPulse />
           </motion.div>
         )}
 
