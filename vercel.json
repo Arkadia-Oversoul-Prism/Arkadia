@@ -1,0 +1,13 @@
+{
+  "installCommand": "cd web/public_prism && npm install",
+  "buildCommand": "cd web/public_prism && npm run build",
+  "outputDirectory": "web/public_prism/dist",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "build": {
+    "env": {
+      "NODE_VERSION": "20"
+    }
+  }
+}
