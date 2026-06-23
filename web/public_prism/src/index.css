@@ -47,10 +47,11 @@ body {
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 90% 60% at 50% -5%,  rgba(0, 212, 170, 0.13) 0%, transparent 65%),
-    radial-gradient(ellipse 70% 50% at 85% 95%,  rgba(201, 168, 76, 0.09) 0%, transparent 65%),
-    radial-gradient(ellipse 60% 40% at 10% 80%,  rgba(0, 212, 170, 0.06) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 35% at 50% 50%,  rgba(0,  40,  80, 0.18) 0%, transparent 70%);
+    radial-gradient(ellipse 110% 55% at 50% -8%,  rgba(0, 212, 170, 0.28) 0%, transparent 60%),
+    radial-gradient(ellipse 60%  45% at 50% -2%,  rgba(0, 212, 170, 0.14) 0%, transparent 50%),
+    radial-gradient(ellipse 80%  60% at 92% 100%, rgba(201, 168, 76, 0.20) 0%, transparent 60%),
+    radial-gradient(ellipse 55%  40% at 5%  85%,  rgba(0, 212, 170, 0.11) 0%, transparent 55%),
+    radial-gradient(ellipse 40%  30% at 50% 52%,  rgba(10,  20,  60, 0.35) 0%, transparent 70%);
 }
 
 /* ── GLASS CARD ── */
@@ -280,33 +281,6 @@ body {
 .page-column p {
   padding-left: 0;
   padding-right: 0;
-}
-
-/* Button glass fix — Tailwind bg classes losing to base reset */
-.page-column button:first-of-type {
-  background: rgba(0, 212, 170, 0.11) !important;
-  border: 1px solid rgba(0, 212, 170, 0.45) !important;
-  color: #00D4AA !important;
-  padding: 16px !important;
-  border-radius: 12px !important;
-  font-family: sans-serif !important;
-  font-size: 11px !important;
-  letter-spacing: 0.2em !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
-}
-
-.page-column button:last-of-type {
-  background: rgba(201, 168, 76, 0.11) !important;
-  border: 1px solid rgba(201, 168, 76, 0.45) !important;
-  color: #C9A84C !important;
-  padding: 16px !important;
-  border-radius: 12px !important;
-  font-family: sans-serif !important;
-  font-size: 11px !important;
-  letter-spacing: 0.2em !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
 }
 
 /* Card internal spacing — tighten gap after header row */

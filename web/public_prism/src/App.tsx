@@ -69,15 +69,31 @@ function PortalDoor({ label, sub, color, sigil, onClick, delay, locked }: {
     <motion.div
       initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay, duration: 0.55 }}
       onClick={onClick} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      style={{ padding: '15px 17px', background: hovered ? `${color}09` : 'rgba(255,255,255,0.015)', border: `1px solid ${hovered ? color + '40' : 'rgba(255,255,255,0.05)'}`, borderRadius: '11px', cursor: 'pointer', transition: 'all 0.22s', display: 'flex', alignItems: 'center', gap: '14px', opacity: locked ? 0.5 : 1 }}
+      style={{
+        padding: '14px 16px',
+        background: hovered ? `rgba(14,17,32,0.92)` : 'rgba(14,17,32,0.72)',
+        border: `1px solid ${hovered ? color + '55' : 'rgba(0,212,170,0.16)'}`,
+        borderRadius: '10px',
+        cursor: 'pointer',
+        transition: 'all 0.22s',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '13px',
+        opacity: locked ? 0.45 : 1,
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        boxShadow: hovered
+          ? `0 4px 24px rgba(0,0,0,0.55), 0 0 0 1px ${color}22, inset 0 1px 0 rgba(255,255,255,0.06)`
+          : '0 2px 12px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03)',
+      }}
     >
-      <motion.span animate={{ opacity: hovered ? 1 : [0.35, 0.75, 0.35] }} transition={{ duration: 3.5, repeat: Infinity }}
-        style={{ fontSize: '18px', flexShrink: 0, width: '26px', textAlign: 'center' }}>{sigil}</motion.span>
+      <motion.span animate={{ opacity: hovered ? 1 : [0.5, 0.85, 0.5] }} transition={{ duration: 3.5, repeat: Infinity }}
+        style={{ fontSize: '16px', flexShrink: 0, width: '24px', textAlign: 'center' }}>{sigil}</motion.span>
       <div style={{ flex: 1 }}>
-        <p style={{ fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.22em', textTransform: 'uppercase', color: hovered ? color : 'rgba(232,232,232,0.52)', margin: '0 0 3px', transition: 'color 0.2s' }}>{label}</p>
-        <p style={{ fontFamily: 'sans-serif', fontSize: '11px', color: 'rgba(232,232,232,0.28)', margin: 0 }}>{sub}</p>
+        <p style={{ fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.22em', textTransform: 'uppercase', color: hovered ? color : 'rgba(232,232,232,0.72)', margin: '0 0 3px', transition: 'color 0.2s', fontWeight: 500 }}>{label}</p>
+        <p style={{ fontFamily: 'sans-serif', fontSize: '11px', color: 'rgba(232,232,232,0.38)', margin: 0, lineHeight: 1.4 }}>{sub}</p>
       </div>
-      <span style={{ color: hovered ? color : 'rgba(255,255,255,0.13)', fontSize: '12px', transition: 'color 0.2s' }}>
+      <span style={{ color: hovered ? color : 'rgba(255,255,255,0.22)', fontSize: '11px', transition: 'color 0.2s', flexShrink: 0 }}>
         {locked ? '🔐' : '→'}
       </span>
     </motion.div>
@@ -114,64 +130,82 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
           </motion.div>
         )}
 
+        {/* Geometric ornament divider */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }}
+          style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '18px' }}>
+          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.30))' }} />
+          <div style={{ width: '7px', height: '7px', border: '1px solid rgba(201,168,76,0.55)', transform: 'rotate(45deg)', backgroundColor: '#0C0D18' }} />
+          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(270deg, transparent, rgba(201,168,76,0.30))' }} />
+        </motion.div>
+
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.12 }}
-          style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.35em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.5)', marginBottom: '9px', textAlign: 'center' }}>
+          style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.35em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.65)', marginBottom: '9px', textAlign: 'center' }}>
           Cognitive Sovereignty Framework
         </motion.p>
 
         <motion.h1 initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: 0.18 }}
-          style={{ fontFamily: 'serif', fontSize: '54px', letterSpacing: '0.12em', textAlign: 'center', color: '#00D4AA', textShadow: '0 0 40px rgba(0,212,170,0.28)', marginBottom: '10px', lineHeight: 1 }}>
+          style={{ fontFamily: '"Cinzel", serif', fontSize: '52px', letterSpacing: '0.18em', textAlign: 'center', color: '#C9A84C', textShadow: '0 0 50px rgba(201,168,76,0.40), 0 0 120px rgba(201,168,76,0.15)', marginBottom: '10px', lineHeight: 1 }}>
           ARKADIA
         </motion.h1>
 
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.42 }}
-          style={{ fontFamily: 'serif', fontSize: '14px', lineHeight: '1.8', color: 'rgba(232,232,232,0.4)', margin: '0 0 30px', textAlign: 'center' }}>
+          style={{ fontFamily: 'serif', fontSize: '13px', lineHeight: '1.9', color: 'rgba(212,223,232,0.55)', margin: '0 0 28px', textAlign: 'center', letterSpacing: '0.02em' }}>
           {isAuthenticated ? 'The field recognises you. Your chambers are open.' : 'Arkadia is a field. The IMS is the door.'}
         </motion.p>
 
         {!isAuthenticated && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} style={{ marginBottom: '10px' }}>
             <button onClick={() => onNavigate('gate')}
-              style={{ width: '100%', padding: '18px', background: 'linear-gradient(135deg, rgba(201,168,76,0.12), rgba(201,168,76,0.06))', border: '1px solid rgba(201,168,76,0.38)', borderRadius: '12px', color: '#C9A84C', fontFamily: 'sans-serif', fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+              style={{ width: '100%', padding: '17px', background: 'linear-gradient(135deg, rgba(201,168,76,0.18), rgba(201,168,76,0.08))', border: '1px solid rgba(201,168,76,0.55)', borderRadius: '11px', color: '#C9A84C', fontFamily: 'sans-serif', fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', boxShadow: '0 4px 24px rgba(201,168,76,0.12), inset 0 1px 0 rgba(255,255,255,0.06)' }}>
               ✦ Identity Mapping Session — $777 — Begin Here
             </button>
           </motion.div>
         )}
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.72 }} style={{ marginBottom: '28px' }}>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.72 }} style={{ marginBottom: '18px' }}>
           <button onClick={() => onNavigate('reset')}
-            style={{ width: '100%', padding: '14px', background: 'rgba(0,212,170,0.05)', border: '1px solid rgba(0,212,170,0.2)', borderRadius: '12px', color: '#00D4AA', fontFamily: 'sans-serif', fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer' }}>
+            style={{ width: '100%', padding: '13px', background: 'rgba(0,212,170,0.08)', border: '1px solid rgba(0,212,170,0.35)', borderRadius: '11px', color: '#00D4AA', fontFamily: 'sans-serif', fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', boxShadow: '0 4px 18px rgba(0,212,170,0.08)' }}>
             ⟐ 5-Minute Field Reset — Free
           </button>
         </motion.div>
 
         {!isAuthenticated && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.88 }}
-            style={{ marginBottom: '26px', padding: '17px 19px', background: 'rgba(255,255,255,0.013)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '11px' }}>
+            style={{ marginBottom: '24px', padding: '18px 20px', background: 'rgba(14,17,32,0.72)', border: '1px solid rgba(201,168,76,0.20)', borderRadius: '10px', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', boxShadow: '0 2px 16px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.04)', position: 'relative' }}>
+            {/* Corner ornaments */}
+            <div style={{ position: 'absolute', top: 0, left: 0, width: 8, height: 8, borderTop: '1px solid rgba(201,168,76,0.55)', borderLeft: '1px solid rgba(201,168,76,0.55)' }} />
+            <div style={{ position: 'absolute', top: 0, right: 0, width: 8, height: 8, borderTop: '1px solid rgba(201,168,76,0.55)', borderRight: '1px solid rgba(201,168,76,0.55)' }} />
+            <div style={{ position: 'absolute', bottom: 0, left: 0, width: 8, height: 8, borderBottom: '1px solid rgba(201,168,76,0.55)', borderLeft: '1px solid rgba(201,168,76,0.55)' }} />
+            <div style={{ position: 'absolute', bottom: 0, right: 0, width: 8, height: 8, borderBottom: '1px solid rgba(201,168,76,0.55)', borderRight: '1px solid rgba(201,168,76,0.55)' }} />
             {[
               'There is a version of you that already knows what to charge.',
               'Already knows what to say when someone asks what you do.',
               'Already knows how to walk into a room and not shrink.',
             ].map((line, i) => (
               <motion.p key={i} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.96 + i * 0.1 }}
-                style={{ fontFamily: 'sans-serif', fontSize: '13px', color: i === 0 ? 'rgba(232,232,232,0.52)' : 'rgba(232,232,232,0.32)', margin: i < 2 ? '0 0 7px' : 0, lineHeight: '1.65' }}>
+                style={{ fontFamily: 'sans-serif', fontSize: '13px', color: i === 0 ? 'rgba(212,223,232,0.72)' : 'rgba(212,223,232,0.48)', margin: i < 2 ? '0 0 8px' : 0, lineHeight: '1.65' }}>
                 {line}
               </motion.p>
             ))}
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.28 }}
-              style={{ fontFamily: 'serif', fontSize: '14px', color: 'rgba(232,232,232,0.36)', margin: '13px 0 0', lineHeight: '1.8', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '12px' }}>
+              style={{ fontFamily: 'serif', fontSize: '13px', color: 'rgba(212,223,232,0.50)', margin: '14px 0 0', lineHeight: '1.9', borderTop: '1px solid rgba(201,168,76,0.12)', paddingTop: '13px' }}>
               That version isn't waiting for more information.<br />
               It's waiting for the ground beneath it to stop shifting.
             </motion.p>
           </motion.div>
         )}
 
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1 }}
-          style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.28em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.18)', marginBottom: '11px' }}>
-          The Field
-        </motion.p>
+        {/* Portal grid divider */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.08 }}
+          style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, transparent, rgba(0,212,170,0.25))' }} />
+          <div style={{ width: '5px', height: '5px', border: '1px solid rgba(0,212,170,0.45)', transform: 'rotate(45deg)', backgroundColor: '#0C0D18' }} />
+          <span style={{ fontFamily: '"Cinzel", serif', fontSize: '8px', letterSpacing: '0.35em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.55)', whiteSpace: 'nowrap' }}>The Field</span>
+          <div style={{ width: '5px', height: '5px', border: '1px solid rgba(0,212,170,0.45)', transform: 'rotate(45deg)', backgroundColor: '#0C0D18' }} />
+          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(270deg, transparent, rgba(0,212,170,0.25))' }} />
+        </motion.div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginBottom: '30px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '30px' }}>
           <PortalDoor label="Offerings" sub="Sessions · Products · AIC Diagnostic · Book Now" color="#C9A84C" sigil="✦" onClick={() => onNavigate('offerings')} delay={1.12} />
           <PortalDoor label="AIC Diagnostic" sub="Arkadian Identity Cartography · Free · 20 min · Via Living Gate" color="#00D4AA" sigil="◎" onClick={() => onNavigate('gate')} delay={1.13} />
           <PortalDoor label="Oracle" sub="ARKANA · Pattern intelligence · Live commune" color="#00D4AA" sigil="⟐" onClick={() => onNavigate('commune')} delay={1.14} />
