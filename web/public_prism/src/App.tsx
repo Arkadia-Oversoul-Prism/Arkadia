@@ -158,7 +158,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} style={{ marginBottom: '18px' }}>
           <button onClick={() => onNavigate('gate')}
             style={{ width: '100%', padding: '17px', background: 'linear-gradient(135deg, rgba(0,212,170,0.12), rgba(0,212,170,0.05))', border: '1px solid rgba(0,212,170,0.45)', borderRadius: '11px', color: '#00D4AA', fontFamily: 'sans-serif', fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', boxShadow: '0 4px 24px rgba(0,212,170,0.08), inset 0 1px 0 rgba(255,255,255,0.06)' }}>
-            ⟐ Enter the Field
+            ⟐ Begin Your 5-Minute Reset
           </button>
         </motion.div>
 
@@ -200,8 +200,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '30px' }}>
           <PortalDoor label="Offerings" sub="Sessions · Products · AIC Diagnostic · Book Now" color="#C9A84C" sigil="✦" onClick={() => onNavigate('offerings')} delay={1.12} />
-          <PortalDoor label="Arkadian Pulse" sub="36-statement vector · Pattern cluster · Sigil · Oracle report · Free" color="#C9A84C" sigil="◈" onClick={() => onNavigate('pulse')} delay={1.115} />
-          <PortalDoor label="AIC Diagnostic" sub="Arkadian Identity Cartography · Free · 20 min · Via Living Gate" color="#00D4AA" sigil="◎" onClick={() => onNavigate('gate')} delay={1.13} />
+          <PortalDoor label="AIC Diagnostic" sub="Reset → Arkadian Pulse · 24 statements · AIC Snapshot · Free · 10 min" color="#00D4AA" sigil="◎" onClick={() => onNavigate('gate')} delay={1.13} />
           <PortalDoor label="Oracle" sub="ARKANA · Pattern intelligence · Live commune" color="#00D4AA" sigil="⟐" onClick={() => onNavigate('commune')} delay={1.14} />
           <PortalDoor label="Nexus" sub="Spiral Codex · IMS Archive · Spiral Grove · Living Larder" color="#C9A84C" sigil="☥" onClick={() => onNavigate('nexus')} delay={1.17} />
           <PortalDoor label="Encyclopedia Galactica" sub="Crystal Matrix · 12 Chambers · The Living Library" color="#B08DE8" sigil="✧" onClick={() => onNavigate('encyclopedia')} delay={1.19} />

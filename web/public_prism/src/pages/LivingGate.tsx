@@ -1,88 +1,615 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSpiralQuantumResonance } from '../hooks/useSpiralQuantumResonance';
-import MoonPhaseRing from '../components/MoonPhaseRing';
 
 const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ── Flow step machine ─────────────────────────────────────────────────────────
 
-type GateMode = 'aic' | 'reset' | 'ims';
-type IMSStep  = 'intro' | 'form' | 'questionnaire' | 'confirmed';
-type AICStep  = 1 | 2 | 3 | 4 | 'generating' | 'result';
+type FlowStep = 'reset' | 'diagnostic' | 'processing' | 'snapshot' | 'invitation' | 'booking' | 'confirmed';
 
 interface LivingGateProps {
   onEnterField: (phrase: string) => void;
   onGoToOfferings?: () => void;
   onAICComplete?: (seed: any) => void;
   onGoToReset?: () => void;
-  initialMode?: GateMode;
+  initialMode?: string;
 }
 
-interface IMSForm { name: string; email: string; phone: string }
+// ── Diagnostic statements — 24 total (2 per node: 1 pos + 1 reverse) ─────────
 
-// ─── AIC Data ─────────────────────────────────────────────────────────────────
+interface Statement {
+  key: string;
+  node: string;
+  nodeDisplay: string;
+  text: string;
+  reverse: boolean;
+}
 
-const L1_QUESTIONS = [
-  { id: 'A1', q: 'When faced with a complex problem, you first —', a: 'Turn inward to consult your own understanding', b: 'Turn outward to gather external input', la: 'I', lb: 'E' },
-  { id: 'A2', q: 'After a long day, you recharge by —', a: 'Spending time alone, processing your thoughts', b: 'Engaging with others and exchanging energy', la: 'I', lb: 'E' },
-  { id: 'B1', q: 'When learning something new, you focus on —', a: 'Concrete details and practical applications', b: 'Underlying patterns and future possibilities', la: 'S', lb: 'N' },
-  { id: 'B2', q: 'You are more drawn to —', a: 'What is currently real and tangible', b: 'What could be possible and imagined', la: 'S', lb: 'N' },
-  { id: 'C1', q: 'When making an important decision, you rely on —', a: 'Logical consistency and objective analysis', b: 'Personal values and impact on people', la: 'T', lb: 'F' },
-  { id: 'C2', q: 'You feel most confident when a decision —', a: 'Makes rational sense', b: 'Feels morally right', la: 'T', lb: 'F' },
-  { id: 'D1', q: 'You prefer environments that are —', a: 'Structured, planned, and decisive', b: 'Flexible, open, and adaptable', la: 'J', lb: 'P' },
-  { id: 'D2', q: 'You feel most at peace when —', a: 'Things are settled and decided', b: 'Things remain open to new possibilities', la: 'J', lb: 'P' },
+const STATEMENTS: Statement[] = [
+  { key: 'source_pos',  node: 'source',      nodeDisplay: 'Source',  text: 'I often return to the origins of things before deciding what they mean.', reverse: false },
+  { key: 'source_rev',  node: 'source',      nodeDisplay: 'Source',  text: 'I rarely think about the origins of things — I focus on where they are now.', reverse: true },
+  { key: 'spark_pos',   node: 'spark',       nodeDisplay: 'Spark',   text: 'When I have a new idea, I act on it quickly before overthinking.', reverse: false },
+  { key: 'spark_rev',   node: 'spark',       nodeDisplay: 'Spark',   text: 'I prefer to wait and see before committing to a new direction.', reverse: true },
+  { key: 'breath_pos',  node: 'breath',      nodeDisplay: 'Breath',  text: 'I can easily hold two opposing viewpoints without needing to resolve them immediately.', reverse: false },
+  { key: 'breath_rev',  node: 'breath',      nodeDisplay: 'Breath',  text: 'I prefer clarity and certainty over holding opposing truths.', reverse: true },
+  { key: 'flame_pos',   node: 'flame',       nodeDisplay: 'Flame',   text: 'I often synthesize ideas from different domains into something new.', reverse: false },
+  { key: 'flame_rev',   node: 'flame',       nodeDisplay: 'Flame',   text: 'I prefer to keep ideas separate rather than merge them.', reverse: true },
+  { key: 'ground_pos',  node: 'ground',      nodeDisplay: 'Ground',  text: 'I build stable routines that help me stay consistent.', reverse: false },
+  { key: 'ground_rev',  node: 'ground',      nodeDisplay: 'Ground',  text: 'I prefer flexibility over structure.', reverse: true },
+  { key: 'life_pos',    node: 'life',        nodeDisplay: 'Life',    text: 'I adapt quickly when unexpected changes occur.', reverse: false },
+  { key: 'life_rev',    node: 'life',        nodeDisplay: 'Life',    text: 'I prefer stability over change, even when change might be better.', reverse: true },
+  { key: 'harmony_pos', node: 'harmony',     nodeDisplay: 'Harmony', text: 'I actively balance competing demands in my life.', reverse: false },
+  { key: 'harmony_rev', node: 'harmony',     nodeDisplay: 'Harmony', text: 'I often struggle to balance competing priorities.', reverse: true },
+  { key: 'seek_pos',    node: 'seek',        nodeDisplay: 'Seek',    text: 'I am driven by questions that have no easy answers.', reverse: false },
+  { key: 'seek_rev',    node: 'seek',        nodeDisplay: 'Seek',    text: 'I prefer answers over questions.', reverse: true },
+  { key: 'octave_pos',  node: 'octave',      nodeDisplay: 'Octave',  text: 'I often revisit past experiences and see them completely differently.', reverse: false },
+  { key: 'octave_rev',  node: 'octave',      nodeDisplay: 'Octave',  text: 'I rarely look back — the past is past.', reverse: true },
+  { key: 'return_pos',  node: 'return_node', nodeDisplay: 'Return',  text: 'I sense when a chapter of my life is complete and ready to close.', reverse: false },
+  { key: 'return_rev',  node: 'return_node', nodeDisplay: 'Return',  text: 'I struggle to let go of things that are finished.', reverse: true },
+  { key: 'witness_pos', node: 'witness',     nodeDisplay: 'Witness', text: 'I can observe a situation without needing to intervene or fix it.', reverse: false },
+  { key: 'witness_rev', node: 'witness',     nodeDisplay: 'Witness', text: 'I become uncomfortable when I cannot immediately act.', reverse: true },
+  { key: 'weaver_pos',  node: 'weaver',      nodeDisplay: 'Weaver',  text: 'I naturally connect people, ideas, and resources.', reverse: false },
+  { key: 'weaver_rev',  node: 'weaver',      nodeDisplay: 'Weaver',  text: 'I prefer to work independently rather than connect others.', reverse: true },
 ];
 
-const L2_PROMPTS = [
-  { id: 'origin',     archetype: 'The Source',  label: 'Tell me about the earliest memory that shaped who you are today. What happened, and how did it change you?', placeholder: 'I remember when…' },
-  { id: 'spark',      archetype: 'The Spark',   label: 'Describe a moment when you felt fully alive — when everything clicked and you knew exactly who you were and what you had to do.', placeholder: 'There was this one time when…' },
-  { id: 'mirror',     archetype: 'The Breath',  label: "Describe a time when you had to hold space for someone else's truth, even when it contradicted your own. How did it feel? What did you learn?", placeholder: 'I once had to…' },
-  { id: 'forge',      archetype: 'The Flame',   label: 'Describe a time when you had to synthesize two opposing forces — inside yourself or in the world — and create something new from them.', placeholder: 'I found myself caught between…' },
-  { id: 'ground',     archetype: 'The Ground',  label: 'Describe the foundation you stand on — the people, beliefs, or practices that hold you stable when everything else is uncertain.', placeholder: 'What holds me steady is…' },
-  { id: 'branch',     archetype: 'The Life',    label: "Describe a major change you went through that forced you to adapt or grow in ways you didn't expect.", placeholder: 'A change that reshaped me was…' },
-  { id: 'balance',    archetype: 'The Harmony', label: 'Describe a time when you had to find balance between competing demands — work and life, self and others, knowing and not knowing.', placeholder: 'I had to balance…' },
-  { id: 'question',   archetype: 'The Seek',    label: "Describe a question that has stayed with you — something you keep coming back to, even when you don't have an answer.", placeholder: 'The question I keep returning to is…' },
-  { id: 'return',     archetype: 'The Octave',  label: 'Describe a time when you revisited something from your past — a place, a relationship, a decision — and saw it completely differently.', placeholder: 'I once looked back at…' },
-  { id: 'completion', archetype: 'The Return',  label: 'Describe a time when you felt that a chapter of your life had truly ended — and that something new was ready to begin.', placeholder: 'A chapter that closed was…' },
-  { id: 'witness',    archetype: 'The Witness', label: 'Describe a time when you had to simply observe — without intervening, without fixing, without needing to change what was happening.', placeholder: 'I once watched as…' },
-  { id: 'lattice',    archetype: 'The Weaver',  label: 'Describe a time when you felt part of something larger than yourself — a network, a movement, a field — and you knew your role was to connect, not to lead.', placeholder: 'I felt part of something larger when…' },
+const SCALE = [
+  { value: 1, label: 'Strongly\nDisagree' },
+  { value: 2, label: 'Disagree' },
+  { value: 3, label: 'Neutral' },
+  { value: 4, label: 'Agree' },
+  { value: 5, label: 'Strongly\nAgree' },
 ];
 
-const L3_OPERATORS = [
-  { id: 0, name: 'Source',  q: 'How connected do you feel to a sense of origin or purpose beyond yourself?' },
-  { id: 1, name: 'Spark',   q: 'When you have a new idea, how quickly do you act on it without overthinking?' },
-  { id: 2, name: 'Breath',  q: 'How easily do you hold space for opposing viewpoints without needing to resolve them?' },
-  { id: 3, name: 'Flame',   q: 'How often do you experience creative flow states where time disappears?' },
-  { id: 4, name: 'Ground',  q: 'How stable and consistent is your daily routine and environment?' },
-  { id: 5, name: 'Life',    q: 'How adaptable are you when unexpected changes occur?' },
-  { id: 6, name: 'Harmony', q: 'How balanced are your life domains — work, relationships, health, purpose?' },
-  { id: 7, name: 'Seek',    q: 'How comfortable are you with not having answers to life\'s biggest questions?' },
-  { id: 8, name: 'Octave',  q: 'How often do you revisit past experiences with new understanding?' },
-  { id: 9, name: 'Return',  q: 'How complete do you feel in your current life phase?' },
+const NODE_COLOR: Record<string, string> = {
+  source: '#C9A84C', spark: '#FF8C42', breath: '#00D4AA', flame: '#FF6B6B',
+  ground: '#6A9FD8', life: '#4CAF50', harmony: '#B08DE8', seek: '#00D4AA',
+  octave: '#C9A84C', return_node: '#E88C6A', witness: '#B08DE8', weaver: '#00D4AA',
+};
+
+// ── IMS questionnaire ────────────────────────────────────────────────────────
+
+const IMS_QUESTIONS = [
+  { id: 'q1', q: 'What is your primary work or creative practice right now?' },
+  { id: 'q2', q: 'What feels most fractured or unclear in your sense of self?' },
+  { id: 'q3', q: 'What is the most important decision you have been avoiding?' },
+  { id: 'q4', q: 'What do you most want others to understand about you — that they currently do not?' },
+  { id: 'q5', q: 'If you knew there were no consequences, what would you say or do differently right now?' },
 ];
 
-const IMS_QUESTIONNAIRE = [
-  { id: 'q1', question: 'What is your primary work or creative practice right now?' },
-  { id: 'q2', question: 'What feels most fractured or unclear in your sense of self — the part you keep circling back to?' },
-  { id: 'q3', question: 'What is the most important decision you have been avoiding, and what story have you been telling yourself about why?' },
-  { id: 'q4', question: 'What do you most want others to understand about you — that they currently do not?' },
-  { id: 'q5', question: 'If you knew there were no consequences, what would you say or do differently right now?' },
-];
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-// ─── Shared sub-components ────────────────────────────────────────────────────
+function useCountdown(initial: number, running: boolean, onDone: () => void) {
+  const [secs, setSecs] = useState(initial);
+  useEffect(() => {
+    if (!running || secs <= 0) return;
+    const t = setInterval(() => setSecs(s => {
+      if (s <= 1) { onDone(); return 0; }
+      return s - 1;
+    }), 1000);
+    return () => clearInterval(t);
+  }, [running, secs]);
+  return secs;
+}
 
-function AICSlider({ value, onChange, min = 1, max = 10 }: { value: number; onChange: (v: number) => void; min?: number; max?: number }) {
+function fmt(s: number) {
+  return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+}
+
+function BreathingCircle({ phase }: { phase: 'inhale' | 'hold' | 'exhale' }) {
+  const scale = phase === 'inhale' ? 1.4 : phase === 'hold' ? 1.4 : 1.0;
+  const dur   = phase === 'inhale' ? 4 : phase === 'hold' ? 2 : 6;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <input type="range" min={min} max={max} value={value} onChange={e => onChange(Number(e.target.value))}
-        style={{ flex: 1, accentColor: '#00D4AA', cursor: 'pointer' }} />
-      <div style={{ minWidth: 30, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,212,170,0.07)', border: '1px solid rgba(0,212,170,0.25)', borderRadius: 6 }}>
-        <span style={{ fontFamily: 'serif', fontSize: 13, color: '#00D4AA' }}>{value}</span>
+    <div style={{ position: 'relative', width: 80, height: 80, margin: '0 auto' }}>
+      <motion.div
+        animate={{ scale }}
+        transition={{ duration: dur, ease: 'easeInOut' }}
+        style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '1px solid rgba(0,212,170,0.3)', background: 'radial-gradient(circle, rgba(0,212,170,0.08) 0%, transparent 70%)' }}
+      />
+      <motion.div
+        animate={{ scale: scale * 0.6 }}
+        transition={{ duration: dur, ease: 'easeInOut' }}
+        style={{ position: 'absolute', inset: '20%', borderRadius: '50%', background: 'rgba(0,212,170,0.18)' }}
+      />
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.65)' }}>
+          {phase === 'inhale' ? 'inhale' : phase === 'hold' ? 'hold' : 'exhale'}
+        </span>
       </div>
     </div>
   );
 }
+
+// ── STEP 1 — Field Reset ──────────────────────────────────────────────────────
+
+const RESET_STEPS = [
+  {
+    num: 1, title: 'Regulate', duration: '2 min', color: '#00D4AA',
+    icon: '◎',
+    body: 'Sit upright or stand tall. Drop your shoulders. Relax your jaw.\n\nInhale slowly. Exhale longer than you inhaled.\n\nRepeat 3–5 times.',
+    anchor: '"I release pressure that isn\'t mine to carry."',
+    science: 'Longer exhales activate parasympathetic response. Stress hormones reduce. Clear thinking returns.',
+  },
+  {
+    num: 2, title: 'Reclaim', duration: '2 min', color: '#C9A84C',
+    icon: '✦',
+    body: 'Place one hand over your upper abdomen.\n\nSay each line slowly:',
+    affirmations: ['My work creates value.', 'My actions create movement.', 'I am allowed to be paid.'],
+    science: 'This is identity reinforcement, not affirmation. Income follows identity. Identity drives action.',
+  },
+  {
+    num: 3, title: 'Receive', duration: '1 min', color: '#B08DE8',
+    icon: '∞',
+    body: 'Breathing pattern:',
+    breathPattern: { inhale: 4, hold: 2, exhale: 6 },
+    anchor: '"I move. Money moves with me."',
+    science: 'Long exhale = nervous system stability. Stability = better decisions.',
+  },
+];
+
+type BreathPhase = 'inhale' | 'hold' | 'exhale';
+
+function ResetStep({ onComplete }: { onComplete: () => void }) {
+  const [step, setStep] = useState(0);
+  const [timerRunning, setTimerRunning] = useState(true);
+  const totalSecs = useCountdown(300, timerRunning, onComplete);
+  const pct = ((300 - totalSecs) / 300) * 100;
+
+  // Breathing cycle for step 3
+  const [breathPhase, setBreathPhase] = useState<BreathPhase>('inhale');
+  const breathTimer = useRef<any>(null);
+  useEffect(() => {
+    if (step !== 2) return;
+    const cycle = () => {
+      setBreathPhase('inhale');
+      breathTimer.current = setTimeout(() => {
+        setBreathPhase('hold');
+        breathTimer.current = setTimeout(() => {
+          setBreathPhase('exhale');
+          breathTimer.current = setTimeout(cycle, 6000);
+        }, 2000);
+      }, 4000);
+    };
+    cycle();
+    return () => clearTimeout(breathTimer.current);
+  }, [step]);
+
+  const rs = RESET_STEPS[step];
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ maxWidth: 520, margin: '0 auto' }}>
+
+      {/* Header */}
+      <div style={{ textAlign: 'center', marginBottom: 24 }}>
+        <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.35em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.45)', marginBottom: 6 }}>
+          5-Minute Field Reset
+        </p>
+        <h2 style={{ fontFamily: '"Cinzel", serif', fontSize: 22, color: '#00D4AA', margin: '0 0 4px', letterSpacing: '0.1em' }}>
+          Regulate. Reclaim. Receive.
+        </h2>
+        <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.35)', margin: 0 }}>
+          Restore clarity before your identity measurement
+        </p>
+      </div>
+
+      {/* Timer ring */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 22, padding: '12px 18px', background: 'rgba(0,212,170,0.04)', border: '1px solid rgba(0,212,170,0.12)', borderRadius: 10 }}>
+        <div style={{ position: 'relative', width: 44, height: 44, flexShrink: 0 }}>
+          <svg viewBox="0 0 44 44" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
+            <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(0,212,170,0.1)" strokeWidth="2.5" />
+            <motion.circle
+              cx="22" cy="22" r="18" fill="none" stroke="#00D4AA" strokeWidth="2.5"
+              strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 18}`}
+              strokeDashoffset={`${2 * Math.PI * 18 * (1 - pct / 100)}`}
+              transition={{ duration: 1 }}
+            />
+          </svg>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontFamily: 'sans-serif', fontSize: 9, color: '#00D4AA', letterSpacing: '0.04em' }}>{fmt(totalSecs)}</span>
+          </div>
+        </div>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(0,212,170,0.6)', margin: '0 0 2px', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+            Time Remaining
+          </p>
+          <div style={{ height: 2, background: 'rgba(0,212,170,0.08)', borderRadius: 2, overflow: 'hidden' }}>
+            <motion.div animate={{ width: `${pct}%` }} transition={{ duration: 1 }} style={{ height: '100%', background: '#00D4AA', borderRadius: 2 }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Step tabs */}
+      <div style={{ display: 'flex', gap: 5, marginBottom: 18 }}>
+        {RESET_STEPS.map((s, i) => (
+          <button key={i} onClick={() => setStep(i)}
+            style={{ flex: 1, padding: '8px 6px', background: step === i ? `${s.color}15` : 'rgba(255,255,255,0.02)', border: `1px solid ${step === i ? `${s.color}44` : 'rgba(255,255,255,0.07)'}`, borderRadius: 8, cursor: 'pointer', transition: 'all 0.18s' }}>
+            <p style={{ fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.2em', textTransform: 'uppercase', color: step === i ? s.color : 'rgba(232,232,232,0.3)', margin: '0 0 2px' }}>{s.num}.</p>
+            <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: step === i ? s.color : 'rgba(232,232,232,0.35)', margin: '0 0 1px', fontWeight: step === i ? 500 : 400 }}>{s.title}</p>
+            <p style={{ fontFamily: 'sans-serif', fontSize: 8, color: 'rgba(232,232,232,0.22)', margin: 0 }}>{s.duration}</p>
+          </button>
+        ))}
+      </div>
+
+      {/* Active step content */}
+      <AnimatePresence mode="wait">
+        <motion.div key={step} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}>
+          <div style={{ padding: '20px', background: `${rs.color}08`, border: `1px solid ${rs.color}22`, borderRadius: 12, marginBottom: 14 }}>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <span style={{ fontSize: 18, color: rs.color }}>{rs.icon}</span>
+              <div>
+                <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: `${rs.color}88`, margin: '0 0 2px' }}>Step {rs.num} of 3 · {rs.duration}</p>
+                <h3 style={{ fontFamily: '"Cinzel", serif', fontSize: 18, color: rs.color, margin: 0, letterSpacing: '0.08em' }}>{rs.title}</h3>
+              </div>
+            </div>
+
+            {/* Breathing circle for steps 1 and 3 */}
+            {(step === 0 || step === 2) && (
+              <div style={{ marginBottom: 18 }}>
+                <BreathingCircle phase={step === 2 ? breathPhase : 'exhale'} />
+                {step === 2 && (
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 18, marginTop: 10 }}>
+                    {[['Inhale', 4], ['Hold', 2], ['Exhale', 6]].map(([label, n]) => (
+                      <div key={label as string} style={{ textAlign: 'center' }}>
+                        <p style={{ fontFamily: 'sans-serif', fontSize: 16, color: '#B08DE8', margin: '0 0 2px' }}>{n}</p>
+                        <p style={{ fontFamily: 'sans-serif', fontSize: 8, color: 'rgba(232,232,232,0.3)', margin: 0, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{label}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <p style={{ fontFamily: 'sans-serif', fontSize: 12, color: 'rgba(232,232,232,0.62)', lineHeight: '1.8', margin: '0 0 14px', whiteSpace: 'pre-line' }}>
+              {rs.body}
+            </p>
+
+            {/* Affirmations for step 2 */}
+            {rs.affirmations && (
+              <div style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {rs.affirmations.map((a, i) => (
+                  <motion.div key={a} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.2 }}
+                    style={{ padding: '10px 16px', background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 8 }}>
+                    <p style={{ fontFamily: 'serif', fontSize: 13, color: '#C9A84C', margin: 0, letterSpacing: '0.02em' }}>{a}</p>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+
+            {/* Anchor phrase */}
+            {rs.anchor && (
+              <div style={{ padding: '11px 16px', background: 'rgba(0,0,0,0.3)', border: `1px solid ${rs.color}22`, borderRadius: 8, marginBottom: 12 }}>
+                <p style={{ fontFamily: 'serif', fontSize: 13, color: rs.color, margin: 0, fontStyle: 'italic', letterSpacing: '0.02em' }}>{rs.anchor}</p>
+              </div>
+            )}
+
+            {/* Science note */}
+            {rs.science && (
+              <p style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(232,232,232,0.28)', lineHeight: '1.65', margin: 0, borderTop: `1px solid ${rs.color}18`, paddingTop: 10 }}>
+                {rs.science}
+              </p>
+            )}
+          </div>
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Navigation */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {step < 2 ? (
+          <button onClick={() => setStep(s => s + 1)}
+            style={{ flex: 1, padding: '12px', background: 'rgba(0,212,170,0.06)', border: '1px solid rgba(0,212,170,0.22)', borderRadius: 9, color: 'rgba(0,212,170,0.7)', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer' }}>
+            Next Step →
+          </button>
+        ) : null}
+        <button onClick={onComplete}
+          style={{ flex: step === 2 ? 1 : undefined, padding: '12px 18px', background: 'linear-gradient(135deg, rgba(0,212,170,0.12), rgba(0,212,170,0.06))', border: '1px solid rgba(0,212,170,0.4)', borderRadius: 9, color: '#00D4AA', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', boxShadow: '0 4px 18px rgba(0,212,170,0.08)' }}>
+          ⟐ Begin Diagnostic
+        </button>
+      </div>
+
+      <div style={{ textAlign: 'center' }}>
+        <button onClick={onComplete} style={{ background: 'none', border: 'none', color: 'rgba(232,232,232,0.2)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer' }}>
+          Skip Reset
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── STEP 2 — AIC Diagnostic (24 Likert) ──────────────────────────────────────
+
+function DiagnosticStep({ responses, onAnswer, onSubmit }: {
+  responses: Record<string, number>;
+  onAnswer: (key: string, value: number) => void;
+  onSubmit: () => void;
+}) {
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const total = STATEMENTS.length;
+  const answered = Object.keys(responses).length;
+  const current = STATEMENTS[currentIdx];
+  const currentVal = current ? responses[current.key] : undefined;
+  const allAnswered = answered === total;
+  const color = NODE_COLOR[current?.node] || '#C9A84C';
+
+  const handleSelect = (val: number) => {
+    onAnswer(current.key, val);
+    if (currentIdx < total - 1) setTimeout(() => setCurrentIdx(i => i + 1), 260);
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ maxWidth: 520, margin: '0 auto' }}>
+
+      {/* Header */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div>
+            <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.28em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.45)', margin: '0 0 2px' }}>AIC Diagnostic</p>
+            <p style={{ fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.4)', margin: 0 }}>Arkadian Pulse</p>
+          </div>
+          <span style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(232,232,232,0.28)', letterSpacing: '0.08em' }}>
+            {currentIdx + 1} of {total}
+          </span>
+        </div>
+        {/* Progress */}
+        <div style={{ height: '2px', background: 'rgba(0,212,170,0.08)', borderRadius: 2, overflow: 'hidden' }}>
+          <motion.div animate={{ width: `${(answered / total) * 100}%` }} transition={{ duration: 0.4 }}
+            style={{ height: '100%', background: 'linear-gradient(90deg, #00D4AA, #C9A84C)', borderRadius: 2 }} />
+        </div>
+      </div>
+
+      {/* Question */}
+      <div style={{ minHeight: 260, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        <AnimatePresence mode="wait">
+          <motion.div key={currentIdx} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -14 }} transition={{ duration: 0.28 }}>
+
+            {/* Node chip */}
+            <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'center' }}>
+              <span style={{ padding: '3px 12px', border: `1px solid ${color}33`, borderRadius: 20, fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.25em', textTransform: 'uppercase', color: `${color}99` }}>
+                {current?.nodeDisplay}
+                {current?.reverse && <span style={{ marginLeft: 5, opacity: 0.5 }}>↺</span>}
+              </span>
+            </div>
+
+            {/* Statement */}
+            <p style={{ fontFamily: 'serif', fontSize: 16, lineHeight: '1.8', color: 'rgba(232,232,232,0.88)', textAlign: 'center', marginBottom: 28, minHeight: 72 }}>
+              {current?.text}
+            </p>
+
+            {/* Likert scale */}
+            <div style={{ display: 'flex', gap: 5, justifyContent: 'center' }}>
+              {SCALE.map(opt => {
+                const active = currentVal === opt.value;
+                return (
+                  <button key={opt.value} onClick={() => handleSelect(opt.value)}
+                    style={{ flex: 1, maxWidth: 68, padding: '10px 4px', background: active ? `${color}1A` : 'rgba(255,255,255,0.02)', border: `1px solid ${active ? color : 'rgba(255,255,255,0.07)'}`, borderRadius: 8, cursor: 'pointer', transition: 'all 0.16s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                    <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${active ? color : 'rgba(255,255,255,0.15)'}`, background: active ? color : 'transparent', transition: 'all 0.16s' }} />
+                    <span style={{ fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.03em', color: active ? color : 'rgba(232,232,232,0.28)', textAlign: 'center', whiteSpace: 'pre-line', lineHeight: 1.3 }}>{opt.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* Nav */}
+      <div style={{ display: 'flex', gap: 8, marginTop: 22 }}>
+        {currentIdx > 0 && (
+          <button onClick={() => setCurrentIdx(i => i - 1)}
+            style={{ padding: '11px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: 'rgba(232,232,232,0.3)', fontFamily: 'sans-serif', fontSize: 10, cursor: 'pointer' }}>
+            ←
+          </button>
+        )}
+        {currentIdx < total - 1 && currentVal !== undefined && (
+          <button onClick={() => setCurrentIdx(i => i + 1)}
+            style={{ flex: 1, padding: '11px', background: 'rgba(0,212,170,0.04)', border: '1px solid rgba(0,212,170,0.2)', borderRadius: 8, color: 'rgba(0,212,170,0.65)', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', cursor: 'pointer' }}>
+            Next →
+          </button>
+        )}
+        {allAnswered && (
+          <button onClick={onSubmit}
+            style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, rgba(201,168,76,0.14), rgba(201,168,76,0.06))', border: '1px solid rgba(201,168,76,0.5)', borderRadius: 10, color: '#C9A84C', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer', boxShadow: '0 4px 18px rgba(201,168,76,0.1)' }}>
+            ✦ Reveal My Pattern
+          </button>
+        )}
+      </div>
+
+      {!allAnswered && (
+        <p style={{ textAlign: 'center', fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(232,232,232,0.2)', marginTop: 12 }}>
+          {answered} of {total} answered · respond instinctively
+        </p>
+      )}
+    </motion.div>
+  );
+}
+
+// ── STEP 3 — Processing ───────────────────────────────────────────────────────
+
+function ProcessingStep() {
+  const lines = ['Mapping your identity vector…', 'Calculating shadow architecture…', 'Generating seed sigil…', 'Synthesising Oracle summary…'];
+  const [li, setLi] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setLi(i => (i + 1) % lines.length), 1200);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: 'center', padding: '70px 20px', maxWidth: 520, margin: '0 auto' }}>
+      <motion.div animate={{ rotate: 360 }} transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
+        style={{ width: 48, height: 48, margin: '0 auto 28px', border: '1px solid rgba(201,168,76,0.25)', borderTop: '1px solid #C9A84C', borderRadius: '50%' }} />
+      <p style={{ fontFamily: '"Cinzel", serif', fontSize: 15, color: '#C9A84C', marginBottom: 6, letterSpacing: '0.06em' }}>AIC Snapshot</p>
+      <AnimatePresence mode="wait">
+        <motion.p key={li} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} transition={{ duration: 0.35 }}
+          style={{ fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.55)', margin: 0 }}>
+          {lines[li]}
+        </motion.p>
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+// ── STEP 4 — AIC Snapshot ─────────────────────────────────────────────────────
+
+interface SnapshotData {
+  scores: Record<string, number>;
+  primary_patterns: { node: string; display: string; score: number }[];
+  growth_edge: { node: string; display: string; score: number; shadow_index: number; description: string };
+  confidence: number;
+  pattern_cluster: string;
+  oracle_summary: string;
+  sigil_svg: string;
+}
+
+function ScoreBar({ label, score, highlight }: { label: string; score: number; highlight?: boolean }) {
+  const color = highlight ? '#C9A84C' : 'rgba(0,212,170,0.6)';
+  return (
+    <div style={{ marginBottom: 7 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+        <span style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: highlight ? '#C9A84C' : 'rgba(232,232,232,0.42)' }}>{label}</span>
+        <span style={{ fontFamily: 'sans-serif', fontSize: 9, color: highlight ? '#C9A84C' : 'rgba(232,232,232,0.28)' }}>{score}</span>
+      </div>
+      <div style={{ height: 2, background: 'rgba(255,255,255,0.04)', borderRadius: 2, overflow: 'hidden' }}>
+        <motion.div initial={{ width: 0 }} animate={{ width: `${score}%` }} transition={{ duration: 0.9, ease: 'easeOut', delay: 0.1 }}
+          style={{ height: '100%', background: color, borderRadius: 2 }} />
+      </div>
+    </div>
+  );
+}
+
+function SnapshotStep({ data, onUnlock, onRetake }: {
+  data: SnapshotData; onUnlock: () => void; onRetake: () => void;
+}) {
+  const topNodes = data.primary_patterns.slice(0, 3);
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }} style={{ maxWidth: 520, margin: '0 auto' }}>
+
+      {/* Title */}
+      <div style={{ textAlign: 'center', marginBottom: 22 }}>
+        <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.35em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.45)', marginBottom: 6 }}>AIC Snapshot</p>
+        <h2 style={{ fontFamily: '"Cinzel", serif', fontSize: 24, color: '#C9A84C', margin: '0 0 5px', letterSpacing: '0.1em' }}>{data.pattern_cluster}</h2>
+        <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(0,212,170,0.4)', letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+          Confidence {data.confidence}/100
+        </p>
+      </div>
+
+      {/* Sigil */}
+      <motion.div initial={{ opacity: 0, scale: 0.88 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.9 }}
+        style={{ width: 180, height: 180, margin: '0 auto 22px', border: '1px solid rgba(201,168,76,0.18)', borderRadius: '50%', padding: 8, background: 'radial-gradient(circle, rgba(201,168,76,0.04) 0%, transparent 70%)', boxShadow: '0 0 36px rgba(201,168,76,0.07)' }}
+        dangerouslySetInnerHTML={{ __html: data.sigil_svg }} />
+
+      {/* Primary patterns */}
+      <div style={{ marginBottom: 14, padding: '16px 18px', background: 'rgba(201,168,76,0.04)', border: '1px solid rgba(201,168,76,0.14)', borderRadius: 10 }}>
+        <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.45)', marginBottom: 12 }}>Dominant Nodes</p>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+          {topNodes.map((p, i) => (
+            <span key={p.node} style={{ padding: '4px 12px', background: i === 0 ? 'rgba(201,168,76,0.12)' : 'rgba(201,168,76,0.05)', border: `1px solid ${i === 0 ? 'rgba(201,168,76,0.4)' : 'rgba(201,168,76,0.15)'}`, borderRadius: 20, fontFamily: 'sans-serif', fontSize: 10, color: i === 0 ? '#C9A84C' : 'rgba(201,168,76,0.55)' }}>
+              {p.display}
+            </span>
+          ))}
+        </div>
+        {topNodes.map((p, i) => (
+          <ScoreBar key={p.node} label={p.display} score={p.score} highlight={i === 0} />
+        ))}
+      </div>
+
+      {/* Growth edge */}
+      <div style={{ marginBottom: 14, padding: '16px 18px', background: 'rgba(232,140,106,0.04)', border: '1px solid rgba(232,140,106,0.16)', borderRadius: 10 }}>
+        <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(232,140,106,0.5)', marginBottom: 8 }}>
+          Growth Edge · Shadow Index {data.growth_edge.shadow_index}
+        </p>
+        <p style={{ fontFamily: '"Cinzel", serif', fontSize: 15, color: '#E88C6A', margin: '0 0 6px', letterSpacing: '0.06em' }}>{data.growth_edge.display}</p>
+        <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.45)', lineHeight: '1.7', margin: 0 }}>{data.growth_edge.description}</p>
+      </div>
+
+      {/* Oracle summary */}
+      <div style={{ marginBottom: 22, padding: '18px 20px', background: 'rgba(14,17,32,0.72)', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 10, position: 'relative', backdropFilter: 'blur(12px)' }}>
+        {[['top','left'],['top','right'],['bottom','left'],['bottom','right']].map(([v,h]) => (
+          <div key={`${v}${h}`} style={{ position: 'absolute', [v]: 0, [h]: 0, width: 7, height: 7, borderTop: v==='top' ? '1px solid rgba(201,168,76,0.4)' : 'none', borderBottom: v==='bottom' ? '1px solid rgba(201,168,76,0.4)' : 'none', borderLeft: h==='left' ? '1px solid rgba(201,168,76,0.4)' : 'none', borderRight: h==='right' ? '1px solid rgba(201,168,76,0.4)' : 'none' }} />
+        ))}
+        <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.4)', marginBottom: 10 }}>Oracle Summary</p>
+        <p style={{ fontFamily: 'serif', fontSize: 13, lineHeight: '1.85', color: 'rgba(212,223,232,0.75)', margin: 0 }}>{data.oracle_summary}</p>
+      </div>
+
+      {/* CTA */}
+      <button onClick={onUnlock}
+        style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, rgba(201,168,76,0.14), rgba(201,168,76,0.06))', border: '1px solid rgba(201,168,76,0.5)', borderRadius: 11, color: '#C9A84C', fontFamily: 'sans-serif', fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer', boxShadow: '0 4px 20px rgba(201,168,76,0.1)', marginBottom: 10 }}>
+        ✦ Ready for the Full Map?
+      </button>
+      <div style={{ textAlign: 'center' }}>
+        <button onClick={onRetake} style={{ background: 'none', border: 'none', color: 'rgba(232,232,232,0.2)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', cursor: 'pointer' }}>
+          ↺ Retake Diagnostic
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── STEP 5 — IMS Invitation ───────────────────────────────────────────────────
+
+function InvitationStep({ cluster, onBook, onRetake }: {
+  cluster: string; onBook: () => void; onRetake: () => void;
+}) {
+  const deliverables = [
+    ['90-Min Live Session', 'Direct mapping with Zahrune Nova'],
+    ['12 Narrative Prompts', 'Deep identity excavation'],
+    ['Shadow Architecture', 'Full pattern visibility'],
+    ['Personal Morphic Seed', 'Your sovereign identity code'],
+    ['Oracle Report', 'PDF + Audio + Custom Sigil'],
+  ];
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ maxWidth: 520, margin: '0 auto' }}>
+
+      <div style={{ textAlign: 'center', marginBottom: 26 }}>
+        <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.35em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.45)', marginBottom: 8 }}>Identity Mapping Session</p>
+        <h2 style={{ fontFamily: '"Cinzel", serif', fontSize: 26, color: '#C9A84C', margin: '0 0 10px', letterSpacing: '0.1em' }}>Ready for the Full Map?</h2>
+        <p style={{ fontFamily: 'sans-serif', fontSize: 12, color: 'rgba(232,232,232,0.45)', lineHeight: '1.7', margin: 0 }}>
+          The AIC Snapshot measures your signal.<br />The full IMS maps your architecture.
+        </p>
+      </div>
+
+      {/* Cluster echo */}
+      <div style={{ marginBottom: 18, padding: '14px 18px', background: 'rgba(201,168,76,0.04)', border: '1px solid rgba(201,168,76,0.15)', borderRadius: 10, textAlign: 'center' }}>
+        <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.4)', marginBottom: 5 }}>Your Pattern Cluster</p>
+        <p style={{ fontFamily: '"Cinzel", serif', fontSize: 18, color: '#C9A84C', margin: 0, letterSpacing: '0.08em' }}>{cluster}</p>
+      </div>
+
+      {/* Deliverables */}
+      <div style={{ marginBottom: 22, padding: '18px 20px', background: 'rgba(14,17,32,0.72)', border: '1px solid rgba(201,168,76,0.18)', borderRadius: 10 }}>
+        <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.45)', marginBottom: 14 }}>What's Included</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {deliverables.map(([title, sub]) => (
+            <div key={title} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+              <span style={{ color: '#C9A84C', fontSize: 12, flexShrink: 0, marginTop: 1 }}>✦</span>
+              <div>
+                <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.72)', margin: '0 0 2px', letterSpacing: '0.04em' }}>{title}</p>
+                <p style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(232,232,232,0.3)', margin: 0 }}>{sub}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Price + CTA */}
+      <div style={{ marginBottom: 12, padding: '20px', background: 'linear-gradient(135deg, rgba(201,168,76,0.08), rgba(201,168,76,0.03))', border: '1px solid rgba(201,168,76,0.32)', borderRadius: 12, textAlign: 'center' }}>
+        <p style={{ fontFamily: '"Cinzel", serif', fontSize: 28, color: '#C9A84C', margin: '0 0 4px' }}>$777</p>
+        <p style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(201,168,76,0.4)', margin: '0 0 16px', letterSpacing: '0.14em' }}>One-time · Full sovereign mapping</p>
+        <button onClick={onBook}
+          style={{ width: '100%', padding: '15px', background: 'rgba(201,168,76,0.12)', border: '1px solid rgba(201,168,76,0.5)', borderRadius: 10, color: '#C9A84C', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer', boxShadow: '0 4px 20px rgba(201,168,76,0.12)' }}>
+          ✦ Unlock Full IMS
+        </button>
+      </div>
+
+      <div style={{ textAlign: 'center' }}>
+        <button onClick={onRetake} style={{ background: 'none', border: 'none', color: 'rgba(232,232,232,0.18)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer' }}>
+          ← Back to Snapshot
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── STEP 6 — IMS Booking form ─────────────────────────────────────────────────
 
 const inputBase: React.CSSProperties = {
   width: '100%', padding: '11px 14px', background: 'rgba(255,255,255,0.03)',
@@ -91,397 +618,187 @@ const inputBase: React.CSSProperties = {
   outline: 'none', boxSizing: 'border-box',
 };
 
-// ─── AIC Layers ───────────────────────────────────────────────────────────────
+function BookingStep({ cluster, onConfirm }: { cluster: string; onConfirm: () => void }) {
+  const [form, setForm] = useState({ name: '', email: '', phone: '' });
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [stage, setStage] = useState<'details' | 'questions'>('details');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-function AICLayer1({ answers, onChange, onNext }: {
-  answers: Record<string, 'a'|'b'>; onChange: (id: string, v: 'a'|'b') => void; onNext: () => void;
-}) {
-  const allAnswered = L1_QUESTIONS.every(q => answers[q.id]);
+  const detailsReady = form.name.trim() && form.email.trim();
+  const filled = IMS_QUESTIONS.filter(q => (answers[q.id] ?? '').trim().length > 3).length;
+
+  const handleSubmit = async () => {
+    setSubmitting(true); setError(null);
+    try {
+      await fetch(`${API_BASE}/api/ims/inquiry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, answers, pattern_cluster: cluster }),
+      });
+      onConfirm();
+    } catch {
+      setError('Could not submit. Email arkanaofarkadia@gmail.com or WhatsApp +234 814 494 2818');
+    } finally { setSubmitting(false); }
+  };
+
   return (
-    <motion.div key="aic-l1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-      <div style={{ marginBottom: 16 }}>
-        <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.45)', margin: '0 0 3px' }}>Layer 1 of 4</p>
-        <h3 style={{ fontFamily: 'serif', fontSize: 18, color: '#E8E8E8', margin: '0 0 4px' }}>Cognitive Orientation</h3>
-        <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.35)', margin: 0 }}>8 questions — maps your primary cognitive stack</p>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ maxWidth: 520, margin: '0 auto' }}>
+      <div style={{ marginBottom: 22 }}>
+        <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.28em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.45)', margin: '0 0 3px' }}>Identity Mapping Session — $777</p>
+        <h3 style={{ fontFamily: 'serif', fontSize: 20, color: '#C9A84C', margin: 0 }}>
+          {stage === 'details' ? 'Your Contact Details' : 'Pre-Session Questions'}
+        </h3>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {L1_QUESTIONS.map((q, i) => (
-          <div key={q.id} style={{ padding: '13px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 9 }}>
-            <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.65)', margin: '0 0 9px', lineHeight: 1.55 }}>
-              <span style={{ color: 'rgba(0,212,170,0.45)', marginRight: 5, fontSize: 9 }}>{i+1}.</span>{q.q}
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {(['a','b'] as const).map((opt, oi) => {
-                const sel = answers[q.id] === opt;
-                return (
-                  <button key={opt} onClick={() => onChange(q.id, opt)}
-                    style={{ padding: '8px 12px', background: sel ? 'rgba(0,212,170,0.09)' : 'transparent', border: `1px solid ${sel ? 'rgba(0,212,170,0.38)' : 'rgba(255,255,255,0.06)'}`, borderRadius: 6, color: sel ? '#00D4AA' : 'rgba(232,232,232,0.42)', fontFamily: 'sans-serif', fontSize: 11, textAlign: 'left', cursor: 'pointer', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontFamily: 'serif', fontSize: 8, opacity: 0.5 }}>{oi === 0 ? q.la : q.lb}</span>
-                    {oi === 0 ? q.a : q.b}
-                  </button>
-                );
-              })}
+
+      {error && (
+        <div style={{ marginBottom: 14, padding: '10px 14px', background: 'rgba(200,72,72,0.07)', border: '1px solid rgba(200,72,72,0.2)', borderRadius: 8 }}>
+          <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: '#C84848', margin: 0 }}>{error}</p>
+        </div>
+      )}
+
+      {stage === 'details' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {[['Name', 'name', 'text', 'Your full name'], ['Email', 'email', 'email', 'your@email.com'], ['WhatsApp', 'phone', 'tel', '+1 or +234…']].map(([label, key, type, ph]) => (
+            <div key={key}>
+              <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.35)', margin: '0 0 6px' }}>{label}</p>
+              <input type={type} placeholder={ph} value={form[key as keyof typeof form]}
+                onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} style={inputBase} />
             </div>
+          ))}
+          <button onClick={() => setStage('questions')} disabled={!detailsReady}
+            style={{ padding: '13px', background: detailsReady ? 'rgba(201,168,76,0.09)' : 'rgba(255,255,255,0.03)', border: `1px solid ${detailsReady ? 'rgba(201,168,76,0.35)' : 'rgba(255,255,255,0.07)'}`, borderRadius: 9, color: detailsReady ? '#C9A84C' : 'rgba(232,232,232,0.25)', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: detailsReady ? 'pointer' : 'not-allowed', marginTop: 4 }}>
+            Continue →
+          </button>
+        </div>
+      ) : (
+        <div>
+          <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.35)', marginBottom: 16, lineHeight: '1.65' }}>
+            Answer at least 3 of 5. These inform the session preparation.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
+            {IMS_QUESTIONS.map((q, i) => (
+              <div key={q.id} style={{ padding: '13px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 9 }}>
+                <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(201,168,76,0.4)', margin: '0 0 5px', letterSpacing: '0.08em' }}>{i + 1}.</p>
+                <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.62)', margin: '0 0 8px', lineHeight: 1.6 }}>{q.q}</p>
+                <textarea value={answers[q.id] ?? ''} onChange={e => setAnswers(a => ({ ...a, [q.id]: e.target.value }))}
+                  rows={2} placeholder="Your response…"
+                  style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6 }} />
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      <button onClick={onNext} disabled={!allAnswered}
-        style={{ width: '100%', marginTop: 16, padding: '13px', background: allAnswered ? 'rgba(0,212,170,0.09)' : 'rgba(255,255,255,0.03)', border: `1px solid ${allAnswered ? 'rgba(0,212,170,0.35)' : 'rgba(255,255,255,0.07)'}`, borderRadius: 9, color: allAnswered ? '#00D4AA' : 'rgba(232,232,232,0.25)', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: allAnswered ? 'pointer' : 'not-allowed', transition: 'all 0.2s' }}>
-        Layer 2 — Archetypal Resonance →
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setStage('details')}
+              style={{ padding: '11px 16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: 'rgba(232,232,232,0.4)', fontFamily: 'sans-serif', fontSize: 10, cursor: 'pointer' }}>← Back</button>
+            <button onClick={handleSubmit} disabled={submitting || filled < 3}
+              style={{ flex: 1, padding: '12px', background: filled >= 3 ? 'rgba(201,168,76,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${filled >= 3 ? 'rgba(201,168,76,0.38)' : 'rgba(255,255,255,0.07)'}`, borderRadius: 8, color: filled >= 3 ? '#C9A84C' : 'rgba(232,232,232,0.25)', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: filled >= 3 ? 'pointer' : 'not-allowed' }}>
+              {submitting ? 'Submitting…' : `Submit — ${filled}/5 answered`}
+            </button>
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// ── STEP 7 — Confirmed ────────────────────────────────────────────────────────
+
+function ConfirmedStep({ onDone }: { onDone: () => void }) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} style={{ textAlign: 'center', padding: '50px 20px', maxWidth: 480, margin: '0 auto' }}>
+      <motion.div animate={{ scale: [1, 1.08, 1], opacity: [0.6, 1, 0.6] }} transition={{ duration: 4, repeat: Infinity }}
+        style={{ fontSize: 36, marginBottom: 22 }}>✦</motion.div>
+      <h2 style={{ fontFamily: '"Cinzel", serif', fontSize: 22, color: '#C9A84C', marginBottom: 12, letterSpacing: '0.1em' }}>Received</h2>
+      <p style={{ fontFamily: 'sans-serif', fontSize: 12, color: 'rgba(232,232,232,0.5)', lineHeight: '1.8', marginBottom: 8 }}>
+        Your IMS inquiry has been received. You will hear from the field within 48 hours.
+      </p>
+      <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.3)', lineHeight: '1.7', marginBottom: 28 }}>
+        WhatsApp: <span style={{ color: 'rgba(0,212,170,0.5)' }}>+234 814 494 2818</span>
+        <br />Email: <span style={{ color: 'rgba(0,212,170,0.5)' }}>arkanaofarkadia@gmail.com</span>
+      </p>
+      <button onClick={onDone}
+        style={{ padding: '12px 28px', background: 'rgba(0,212,170,0.06)', border: '1px solid rgba(0,212,170,0.25)', borderRadius: 9, color: 'rgba(0,212,170,0.7)', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer' }}>
+        ← Return to Arkadia
       </button>
     </motion.div>
   );
 }
 
-type Layer2Result = {
-  primary_archetype: string; primary_score: number;
-  secondary_archetypes: { name: string; score: number }[];
-  shadow_archetype: string; shadow_score: number; summary: string;
-};
+// ── Flow breadcrumb ───────────────────────────────────────────────────────────
 
-function AICLayer2({ answers, onChange, onBack, onNext }: {
-  answers: Record<string, string>; onChange: (id: string, v: string) => void;
-  onBack: () => void; onNext: (result: Layer2Result) => void;
-}) {
-  const [analyzing, setAnalyzing] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const filled = L2_PROMPTS.filter(p => (answers[p.id] ?? '').trim().length >= 15).length;
-  const allFilled = filled >= 9;
+const BREADCRUMB: { step: FlowStep; label: string }[] = [
+  { step: 'reset',      label: 'Reset' },
+  { step: 'diagnostic', label: 'Diagnostic' },
+  { step: 'snapshot',   label: 'Snapshot' },
+  { step: 'invitation', label: 'IMS' },
+];
 
-  const handleAnalyze = async () => {
-    setAnalyzing(true); setError(null);
-    try {
-      const res = await fetch(`${API_BASE}/api/ims/archetypal-analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ responses: answers }),
-      });
-      if (!res.ok) throw new Error(`Oracle error ${res.status}`);
-      const data: Layer2Result = await res.json();
-      onNext(data);
-    } catch (e: any) {
-      setError(e.message ?? 'Oracle synthesis failed. Please try again.');
-    } finally { setAnalyzing(false); }
-  };
-
+function Breadcrumb({ current }: { current: FlowStep }) {
+  const activeIdx = BREADCRUMB.findIndex(b => b.step === current);
   return (
-    <motion.div key="aic-l2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-      <div style={{ marginBottom: 14 }}>
-        <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.45)', margin: '0 0 3px' }}>Layer 2 of 4</p>
-        <h3 style={{ fontFamily: 'serif', fontSize: 18, color: '#E8E8E8', margin: '0 0 4px' }}>Archetypal Resonance</h3>
-        <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.35)', margin: 0 }}>Answer at least 9 of 12 · Oracle will map your Oversoul Prism signature · {filled}/12 answered</p>
-      </div>
-      {error && (
-        <div style={{ marginBottom: 10, padding: '9px 12px', background: 'rgba(200,72,72,0.07)', border: '1px solid rgba(200,72,72,0.2)', borderRadius: 8 }}>
-          <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: '#C84848', margin: 0 }}>{error}</p>
-        </div>
-      )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {L2_PROMPTS.map((p, i) => (
-          <div key={p.id} style={{ padding: '13px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 9 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 7 }}>
-              <p style={{ fontFamily: 'sans-serif', fontSize: 8, color: 'rgba(201,168,76,0.5)', margin: 0, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-                {String(i + 1).padStart(2, '0')} — {p.archetype}
-              </p>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 28, justifyContent: 'center' }}>
+      {BREADCRUMB.map((b, i) => {
+        const done = i < activeIdx;
+        const active = i === activeIdx;
+        return (
+          <React.Fragment key={b.step}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: active ? '#C9A84C' : done ? 'rgba(0,212,170,0.6)' : 'rgba(255,255,255,0.1)', border: active ? '1px solid #C9A84C' : 'none', transition: 'all 0.3s' }} />
+              <span style={{ fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.18em', textTransform: 'uppercase', color: active ? '#C9A84C' : done ? 'rgba(0,212,170,0.5)' : 'rgba(255,255,255,0.18)', transition: 'all 0.3s' }}>
+                {b.label}
+              </span>
             </div>
-            <p style={{ fontFamily: 'sans-serif', fontSize: 12, color: 'rgba(232,232,232,0.65)', margin: '0 0 8px', lineHeight: 1.6 }}>{p.label}</p>
-            <textarea
-              value={answers[p.id] ?? ''}
-              onChange={e => onChange(p.id, e.target.value)}
-              rows={3} placeholder={p.placeholder}
-              style={{ width: '100%', padding: '10px 12px', background: 'rgba(255,255,255,0.03)', border: `1px solid ${(answers[p.id] ?? '').trim().length >= 15 ? 'rgba(0,212,170,0.25)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 7, color: '#E8E8E8', fontFamily: 'sans-serif', fontSize: 12, outline: 'none', resize: 'vertical', lineHeight: 1.6, boxSizing: 'border-box', transition: 'border-color 0.2s' }}
-            />
-          </div>
-        ))}
-      </div>
-      <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-        <button onClick={onBack} style={{ padding: '11px 16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: 'rgba(232,232,232,0.4)', fontFamily: 'sans-serif', fontSize: 10, cursor: 'pointer' }}>← Back</button>
-        <button onClick={handleAnalyze} disabled={!allFilled || analyzing}
-          style={{ flex: 1, padding: '12px', background: allFilled ? 'rgba(0,212,170,0.08)' : 'rgba(255,255,255,0.03)', border: `1px solid ${allFilled ? 'rgba(0,212,170,0.3)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 8, color: allFilled ? '#00D4AA' : 'rgba(232,232,232,0.25)', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: allFilled ? 'pointer' : 'not-allowed', transition: 'all 0.2s' }}>
-          {analyzing ? 'Oracle Analyzing…' : `Analyze My Archetypes →`}
-        </button>
-      </div>
-    </motion.div>
+            {i < BREADCRUMB.length - 1 && (
+              <div style={{ width: 22, height: 1, background: done ? 'rgba(0,212,170,0.3)' : 'rgba(255,255,255,0.07)', margin: '0 6px', transition: 'all 0.3s' }} />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </div>
   );
 }
 
-function AICLayer3({ answers, onChange, onBack, onNext }: {
-  answers: Record<string, number>; onChange: (id: string, v: number) => void; onBack: () => void; onNext: () => void;
-}) {
-  return (
-    <motion.div key="aic-l3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-      <div style={{ marginBottom: 12 }}>
-        <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.45)', margin: '0 0 3px' }}>Layer 3 of 4</p>
-        <h3 style={{ fontFamily: 'serif', fontSize: 18, color: '#E8E8E8', margin: '0 0 4px' }}>Shadow State Diagnostic</h3>
-        <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.35)', margin: 0 }}>1–10 per operator · Detects coherence, distortion, or collapse</p>
-      </div>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
-        {[['1–3','Collapsed','#C84848'],['4–7','Distorted','#C9A84C'],['8–10','Coherent','#00D4AA']].map(([r,l,c])=>(
-          <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <div style={{ width: 5, height: 5, borderRadius: '50%', background: c }} />
-            <span style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(232,232,232,0.32)' }}>{r} = {l}</span>
-          </div>
-        ))}
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-        {L3_OPERATORS.map(op => {
-          const val = answers[`op${op.id}`] ?? 5;
-          const sc = val >= 8 ? '#00D4AA' : val >= 4 ? '#C9A84C' : '#C84848';
-          return (
-            <div key={op.id} style={{ padding: '11px 13px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <div>
-                  <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(176,141,232,0.6)', margin: '0 0 2px', letterSpacing: '0.08em' }}>Op {op.id} — {op.name}</p>
-                  <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.52)', margin: 0, lineHeight: 1.5 }}>{op.q}</p>
-                </div>
-                <span style={{ fontFamily: 'sans-serif', fontSize: 8, color: sc, minWidth: 52, textAlign: 'right', paddingTop: 2 }}>
-                  {val >= 8 ? 'Coherent' : val >= 4 ? 'Distorted' : 'Collapsed'}
-                </span>
-              </div>
-              <AICSlider value={val} onChange={v => onChange(`op${op.id}`, v)} min={1} max={10} />
-            </div>
-          );
-        })}
-      </div>
-      <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-        <button onClick={onBack} style={{ padding: '11px 16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: 'rgba(232,232,232,0.4)', fontFamily: 'sans-serif', fontSize: 10, cursor: 'pointer' }}>← Back</button>
-        <button onClick={onNext} style={{ flex: 1, padding: '12px', background: 'rgba(0,212,170,0.08)', border: '1px solid rgba(0,212,170,0.3)', borderRadius: 8, color: '#00D4AA', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer' }}>Layer 4 — Soul Contract →</button>
-      </div>
-    </motion.div>
-  );
-}
+// ── Main component ────────────────────────────────────────────────────────────
 
-function AICLayer4({ answers, onChange, onBack, onSubmit }: {
-  answers: { purpose: string; wound: string; gift: string; mission: string; lineage: string };
-  onChange: (k: string, v: string) => void; onBack: () => void; onSubmit: () => void;
-}) {
-  const fields = [
-    { key: 'purpose', label: 'Purpose', sub: 'What do you feel you are here to contribute to the world?' },
-    { key: 'wound',   label: 'Wound',   sub: 'What is the recurring pattern of pain or limitation in your life?' },
-    { key: 'gift',    label: 'Gift',    sub: 'What do others consistently tell you is your unique strength?' },
-    { key: 'mission', label: 'Mission', sub: 'What specific work or calling feels unavoidable to you?' },
-    { key: 'lineage', label: 'Lineage', sub: 'What ancestral or cultural inheritance do you feel you carry?' },
-  ];
-  const allFilled = fields.every(f => answers[f.key as keyof typeof answers].trim().length > 3);
-  return (
-    <motion.div key="aic-l4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-      <div style={{ marginBottom: 14 }}>
-        <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.45)', margin: '0 0 3px' }}>Layer 4 of 4</p>
-        <h3 style={{ fontFamily: 'serif', fontSize: 18, color: '#E8E8E8', margin: '0 0 4px' }}>Soul Contract</h3>
-        <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.35)', margin: 0 }}>5 semantic anchors — become the core of your Morphic Seed</p>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {fields.map(f => (
-          <div key={f.key} style={{ padding: '13px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 9 }}>
-            <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(201,168,76,0.65)', margin: '0 0 2px', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{f.label}</p>
-            <p style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(232,232,232,0.38)', margin: '0 0 8px', lineHeight: 1.5 }}>{f.sub}</p>
-            <textarea value={answers[f.key as keyof typeof answers]} onChange={e => onChange(f.key, e.target.value)}
-              placeholder="One sentence…" rows={2}
-              style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6 }} />
-          </div>
-        ))}
-      </div>
-      <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-        <button onClick={onBack} style={{ padding: '11px 16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: 'rgba(232,232,232,0.4)', fontFamily: 'sans-serif', fontSize: 10, cursor: 'pointer' }}>← Back</button>
-        <button onClick={onSubmit} disabled={!allFilled}
-          style={{ flex: 1, padding: '12px', background: allFilled ? 'rgba(0,212,170,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${allFilled ? 'rgba(0,212,170,0.38)' : 'rgba(255,255,255,0.07)'}`, borderRadius: 8, color: allFilled ? '#00D4AA' : 'rgba(232,232,232,0.25)', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: allFilled ? 'pointer' : 'not-allowed', transition: 'all 0.2s' }}>
-          Generate Morphic Seed →
-        </button>
-      </div>
-    </motion.div>
-  );
-}
-
-function AICGenerating() {
-  return (
-    <motion.div key="aic-gen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: 'center', padding: '52px 20px' }}>
-      <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 4, ease: 'linear' }}
-        style={{ width: 48, height: 48, border: '1px solid rgba(0,212,170,0.3)', borderTop: '1px solid #00D4AA', borderRadius: '50%', margin: '0 auto 24px' }} />
-      <p style={{ fontFamily: 'serif', fontSize: 17, color: '#00D4AA', marginBottom: 8 }}>Oracle is synthesizing…</p>
-      <p style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(232,232,232,0.32)', lineHeight: 1.8 }}>
-        Processing 4 diagnostic layers<br />Generating your Morphic Seed<br />Calibrating Oversoul Prism signature
-      </p>
-    </motion.div>
-  );
-}
-
-function AICResult({ seed, onBookIMS, onGoToOfferings, onRetake }: {
-  seed: any; onBookIMS: () => void; onGoToOfferings?: () => void; onRetake: () => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const codes = (seed.operator_state ?? '').split('-');
-  const stateColor = (v: string) => { const n = parseInt(v); return n >= 8 ? '#00D4AA' : n >= 4 ? '#C9A84C' : '#C84848'; };
-
-  return (
-    <motion.div key="aic-result" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}>
-      <div style={{ marginBottom: 16 }}>
-        <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.45)', margin: '0 0 3px' }}>Morphic Seed Generated</p>
-        <h3 style={{ fontFamily: 'serif', fontSize: 20, color: '#00D4AA', margin: 0 }}>Your Arkadian Identity</h3>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-        <div style={{ padding: '14px 16px', background: 'rgba(0,212,170,0.06)', border: '1px solid rgba(0,212,170,0.22)', borderRadius: 10 }}>
-          <p style={{ fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.45)', margin: '0 0 4px' }}>Cognitive Type</p>
-          <p style={{ fontFamily: 'serif', fontSize: 26, color: '#00D4AA', margin: '0 0 3px', letterSpacing: '0.08em' }}>{seed.mbti_type}</p>
-          <p style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(232,232,232,0.45)', margin: 0 }}>{seed.cognitive_stack}</p>
-        </div>
-
-        <div style={{ padding: '13px 15px', background: 'rgba(201,168,76,0.04)', border: '1px solid rgba(201,168,76,0.16)', borderRadius: 10 }}>
-          <p style={{ fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.45)', margin: '0 0 7px' }}>Primary Archetypes</p>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {(seed.primary_archetypes ?? []).map((a: string) => (
-              <span key={a} style={{ padding: '3px 9px', background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.22)', borderRadius: 20, fontFamily: 'sans-serif', fontSize: 10, color: '#C9A84C' }}>{a}</span>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ padding: '13px 15px', background: 'rgba(176,141,232,0.04)', border: '1px solid rgba(176,141,232,0.13)', borderRadius: 10 }}>
-          <p style={{ fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(176,141,232,0.45)', margin: '0 0 7px' }}>Operator State</p>
-          <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginBottom: 6 }}>
-            {codes.map((v: string, i: number) => (
-              <span key={i} style={{ padding: '2px 7px', background: 'rgba(0,0,0,0.25)', border: `1px solid ${stateColor(v)}40`, borderRadius: 4, fontFamily: 'serif', fontSize: 12, color: stateColor(v) }}>{v}</span>
-            ))}
-          </div>
-          <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(232,232,232,0.3)', margin: 0 }}>Recovery: {seed.recovery_vector}</p>
-        </div>
-
-        <div style={{ padding: '13px 15px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10 }}>
-          <p style={{ fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.3)', margin: '0 0 6px' }}>Soul Contract</p>
-          <p style={{ fontFamily: 'serif', fontSize: 12, color: 'rgba(232,232,232,0.6)', margin: 0, lineHeight: 1.75 }}>{seed.soul_contract}</p>
-        </div>
-
-        <div style={{ padding: '11px 15px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(0,212,170,0.1)', borderRadius: 9 }}>
-          <p style={{ fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.3)', margin: '0 0 4px' }}>Morphic Code</p>
-          <p style={{ fontFamily: 'monospace', fontSize: 13, color: 'rgba(0,212,170,0.65)', margin: 0, letterSpacing: '0.14em' }}>{seed.morphic_code}</p>
-        </div>
-
-        <button onClick={() => setExpanded(e => !e)}
-          style={{ padding: '10px 14px', background: 'transparent', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: 'rgba(232,232,232,0.35)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', textAlign: 'left' }}>
-          {expanded ? '▲ Collapse Report' : '▼ View Full Oracle Report'}
-        </button>
-
-        <AnimatePresence>
-          {expanded && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-              style={{ padding: '16px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 9, overflow: 'hidden' }}>
-              <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.5)', lineHeight: 1.85, margin: 0, whiteSpace: 'pre-wrap' }}>{seed.full_report}</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
-        <button onClick={onBookIMS}
-          style={{ width: '100%', padding: '14px', background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.38)', borderRadius: 10, color: '#C9A84C', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer' }}>
-          ✦ Book Identity Mapping Session — $777
-        </button>
-        {onGoToOfferings && (
-          <button onClick={onGoToOfferings}
-            style={{ width: '100%', padding: '11px', background: 'rgba(0,212,170,0.06)', border: '1px solid rgba(0,212,170,0.22)', borderRadius: 9, color: '#00D4AA', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer' }}>
-            ◎ View All Offerings
-          </button>
-        )}
-        <button onClick={onRetake}
-          style={{ padding: '10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, color: 'rgba(232,232,232,0.28)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer' }}>
-          Retake Diagnostic
-        </button>
-      </div>
-    </motion.div>
-  );
-}
-
-// ─── Main Component ────────────────────────────────────────────────────────────
-
-export default function LivingGate({ onEnterField, onGoToOfferings, onAICComplete, onGoToReset, initialMode = 'aic' }: LivingGateProps) {
+export default function LivingGate({ onEnterField, onGoToOfferings, onAICComplete, initialMode }: LivingGateProps) {
   const { resonance, flameHue } = useSpiralQuantumResonance(true, 8000);
-  const [mode, setMode] = useState<GateMode>(initialMode);
+  const [step, setStep] = useState<FlowStep>('reset');
+  const [responses, setResponses] = useState<Record<string, number>>({});
+  const [snapshot, setSnapshot] = useState<SnapshotData | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // ── Oracle state ────────────────────────────────────────────────────────────
-  const [phrase, setPhrase]   = useState('');
-  const [entering, setEntering] = useState(false);
-
-  // ── IMS state ───────────────────────────────────────────────────────────────
-  const [imsStep, setImsStep] = useState<IMSStep>('intro');
-  const [imsForm, setImsForm] = useState<IMSForm>({ name: '', email: '', phone: '' });
-  const [imsAnswers, setImsAnswers] = useState<Record<string, string>>({});
-  const [imsSubmitting, setImsSubmitting] = useState(false);
-  const [imsError, setImsError]   = useState<string | null>(null);
-
-  // ── AIC state ───────────────────────────────────────────────────────────────
-  const [aicStep, setAicStep] = useState<AICStep>(1);
-  const [aicL1, setAicL1]   = useState<Record<string, 'a'|'b'>>({});
-  const [aicL2, setAicL2]   = useState<Record<string, string>>({});
-  const [aicL2Result, setAicL2Result] = useState<Layer2Result | null>(null);
-  const [aicL3, setAicL3]   = useState<Record<string, number>>({});
-  const [aicL4, setAicL4]   = useState({ purpose: '', wound: '', gift: '', mission: '', lineage: '' });
-  const [aicSeed, setAicSeed] = useState<any>(null);
-  const [aicError, setAicError] = useState<string | null>(null);
-
-  const switchMode = (m: GateMode) => {
-    setMode(m);
-    if (m === 'ims') setImsStep('intro');
+  const handleAnswer = (key: string, value: number) => {
+    setResponses(r => ({ ...r, [key]: value }));
   };
 
-  // ── Oracle handlers ─────────────────────────────────────────────────────────
-  const handleOracleSubmit = () => {
-    if (!phrase.trim()) return;
-    setEntering(true);
-    setTimeout(() => onEnterField(phrase.trim()), 900);
-  };
-
-  // ── IMS handlers ────────────────────────────────────────────────────────────
-  const handleIMSSubmit = async () => {
-    setImsSubmitting(true); setImsError(null);
+  const handleSubmitDiagnostic = async () => {
+    setStep('processing');
+    setError(null);
     try {
-      await fetch(`${API_BASE}/api/ims/inquiry`, {
+      const res = await fetch(`${API_BASE}/api/pulse/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...imsForm, answers: imsAnswers }),
-      });
-      setImsStep('confirmed');
-    } catch {
-      setImsError('Could not submit. Email arkanaofarkadia@gmail.com or WhatsApp +234 814 494 2818');
-    } finally { setImsSubmitting(false); }
-  };
-
-  // ── AIC handlers ────────────────────────────────────────────────────────────
-  const computeMBTI = () => {
-    const dims = [
-      { a: 'I', b: 'E', ids: ['A1','A2'] }, { a: 'S', b: 'N', ids: ['B1','B2'] },
-      { a: 'T', b: 'F', ids: ['C1','C2'] }, { a: 'J', b: 'P', ids: ['D1','D2'] },
-    ];
-    return dims.map(d => d.ids.filter(id => aicL1[id] === 'a').length >= 1 ? d.a : d.b).join('');
-  };
-
-  const handleAICSubmit = async () => {
-    setAicStep('generating'); setAicError(null);
-    try {
-      const res = await fetch(`${API_BASE}/api/ims/diagnostic`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ layer1: aicL1, layer2: aicL2Result ?? aicL2, layer3: aicL3, layer4: aicL4, mbti_type: computeMBTI() }),
+        body: JSON.stringify({ responses }),
       });
       if (!res.ok) throw new Error(`Oracle error ${res.status}`);
       const data = await res.json();
-      setAicSeed(data);
+      setSnapshot(data);
       onAICComplete?.(data);
-      setAicStep('result');
+      setStep('snapshot');
     } catch (e: any) {
-      setAicError(e.message ?? 'Oracle synthesis failed. Please try again.');
-      setAicStep(4);
+      setError(e.message ?? 'Oracle synthesis failed. Please try again.');
+      setStep('diagnostic');
     }
   };
 
-  const resetAIC = () => {
-    setAicStep(1); setAicL1({}); setAicL2({}); setAicL2Result(null); setAicL3({});
-    setAicL4({ purpose: '', wound: '', gift: '', mission: '', lineage: '' });
-    setAicSeed(null); setAicError(null);
+  const handleRetake = () => {
+    setResponses({});
+    setSnapshot(null);
+    setStep('reset');
   };
 
-  const aicStepNum = aicStep === 'generating' || aicStep === 'result' ? 4 : aicStep as number;
-
   return (
-    <div className="relative w-full min-h-screen flex flex-col items-center justify-start px-5 py-10"
+    <div className="relative w-full min-h-screen flex flex-col items-center justify-start px-5 py-8"
       style={{ backgroundColor: '#0A0A0F', overflow: 'hidden' }}>
 
       {/* Ambient glow */}
@@ -490,246 +807,74 @@ export default function LivingGate({ onEnterField, onGoToOfferings, onAICComplet
         transition={{ duration: 8, repeat: Infinity }} />
 
       <motion.div className="absolute pointer-events-none" style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
-        animate={{ scale: [1, 1.08 * resonance, 1], opacity: [0.06, 0.15, 0.06] }} transition={{ duration: 6, repeat: Infinity }}>
-        <div style={{ width: '360px', height: '360px', borderRadius: '50%', border: `1px solid hsl(${flameHue},80%,65%)` }} />
+        animate={{ scale: [1, 1.06 * resonance, 1], opacity: [0.04, 0.1, 0.04] }} transition={{ duration: 6, repeat: Infinity }}>
+        <div style={{ width: '340px', height: '340px', borderRadius: '50%', border: `1px solid hsl(${flameHue},80%,65%)` }} />
       </motion.div>
 
-      <motion.div className="absolute top-0 bottom-0 pointer-events-none"
-        style={{ left: '50%', width: '1px', background: 'linear-gradient(180deg, transparent, rgba(201,168,76,0.1), transparent)' }}
-        initial={{ scaleY: 0, opacity: 0 }} animate={{ scaleY: 1, opacity: 1 }} transition={{ duration: 2, ease: 'easeOut' }} />
+      {/* Content */}
+      <div className="relative z-10 w-full" style={{ maxWidth: 560 }}>
 
-      {/* ── Mode tabs ──────────────────────────────────────────────────────── */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-        className="relative z-10 w-full mb-6" style={{ maxWidth: '520px' }}>
-        <div style={{ display: 'flex', gap: '6px', padding: '5px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '11px' }}>
-          {([
-            { id: 'aic',   label: '◎ AIC Diagnostic',       color: '#00D4AA' },
-            { id: 'reset', label: '⟐ Field Reset — Free',   color: '#00D4AA' },
-            { id: 'ims',   label: '✦ IMS — $777',           color: '#C9A84C' },
-          ] as { id: GateMode; label: string; color: string }[]).map(m => (
-            <button key={m.id} onClick={() => switchMode(m.id)}
-              style={{ flex: 1, padding: '9px 8px', background: mode === m.id ? `${m.color}10` : 'transparent', border: `1px solid ${mode === m.id ? m.color + '40' : 'transparent'}`, borderRadius: '7px', color: mode === m.id ? m.color : 'rgba(232,232,232,0.3)', fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.18s' }}>
-              {m.label}
-            </button>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* ── Panels ─────────────────────────────────────────────────────────── */}
-      <AnimatePresence mode="wait">
-
-        {/* ── FIELD RESET ─────────────────────────────────────────────────── */}
-        {mode === 'reset' && (
-          <motion.div key="reset-panel" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="relative z-10 w-full" style={{ maxWidth: '460px' }}>
-            <div className="flex justify-center mb-8"><MoonPhaseRing /></div>
-            <div style={{ textAlign: 'center', marginBottom: 24 }}>
-              <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 3, repeat: Infinity }}
-                style={{ fontSize: 22, display: 'block', marginBottom: 10 }}>⟐</motion.span>
-              <h2 style={{ fontFamily: 'serif', fontSize: 22, color: '#00D4AA', margin: '0 0 8px' }}>5-Minute Field Reset</h2>
-              <p style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(0,212,170,0.4)', margin: 0, letterSpacing: '0.18em' }}>FREE · SOMATIC · GUIDED PROTOCOL</p>
-            </div>
-            <div style={{ padding: '18px 20px', background: 'rgba(0,212,170,0.03)', border: '1px solid rgba(0,212,170,0.12)', borderRadius: 12, marginBottom: 22 }}>
-              <p style={{ fontFamily: 'serif', fontSize: 14, lineHeight: 1.8, color: 'rgba(232,232,232,0.62)', margin: '0 0 12px' }}>
-                A brief somatic protocol to reset your nervous system and reconnect to the field.
-              </p>
-              <p style={{ fontFamily: 'sans-serif', fontSize: 11, lineHeight: 1.7, color: 'rgba(232,232,232,0.35)', margin: 0 }}>
-                Use this when you are dysregulated, scattered, or disconnected. Five minutes. No prerequisites.
-              </p>
-            </div>
-            <motion.button whileTap={{ scale: 0.97 }} onClick={() => onGoToReset?.()}
-              style={{ width: '100%', padding: '16px', background: 'rgba(0,212,170,0.1)', border: '1px solid rgba(0,212,170,0.38)', borderRadius: '12px', color: '#00D4AA', fontFamily: 'sans-serif', fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.25s' }}>
-              ⟐ Begin Field Reset
-            </motion.button>
-            <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(232,232,232,0.2)', textAlign: 'center', marginTop: 16, letterSpacing: '0.14em' }}>
-              Want a deeper reset? — <button onClick={() => switchMode('aic')} style={{ background: 'none', border: 'none', color: 'rgba(0,212,170,0.4)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.14em', cursor: 'pointer', textDecoration: 'underline' }}>Complete the AIC Diagnostic</button>
-            </p>
+        {/* Breadcrumb (hidden during booking/confirmed) */}
+        {step !== 'booking' && step !== 'confirmed' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
+            <Breadcrumb current={step} />
           </motion.div>
         )}
 
-        {/* ── AIC DIAGNOSTIC ──────────────────────────────────────────────── */}
-        {mode === 'aic' && (
-          <motion.div key="aic-panel" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="relative z-10 w-full" style={{ maxWidth: '520px' }}>
+        {/* Error banner */}
+        <AnimatePresence>
+          {error && (
+            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              style={{ marginBottom: 16, padding: '11px 16px', background: 'rgba(200,72,72,0.07)', border: '1px solid rgba(200,72,72,0.2)', borderRadius: 9 }}>
+              <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: '#C84848', margin: 0 }}>{error}</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-            {/* Progress bar */}
-            {aicStep !== 'generating' && aicStep !== 'result' && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.4)' }}>Arkadian Identity Cartography</span>
-                  <span style={{ fontFamily: 'sans-serif', fontSize: 8, color: 'rgba(232,232,232,0.25)' }}>{Math.round((aicStepNum / 4) * 100)}%</span>
-                </div>
-                <div style={{ height: 2, background: 'rgba(255,255,255,0.05)', borderRadius: 2 }}>
-                  <motion.div animate={{ width: `${(aicStepNum / 4) * 100}%` }} transition={{ duration: 0.4 }}
-                    style={{ height: '100%', background: 'linear-gradient(90deg, #00D4AA, #C9A84C)', borderRadius: 2 }} />
-                </div>
-              </div>
-            )}
+        <AnimatePresence mode="wait">
+          {step === 'reset' && (
+            <motion.div key="reset" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+              <ResetStep onComplete={() => setStep('diagnostic')} />
+            </motion.div>
+          )}
 
-            {aicError && (
-              <div style={{ marginBottom: 12, padding: '10px 13px', background: 'rgba(200,72,72,0.07)', border: '1px solid rgba(200,72,72,0.2)', borderRadius: 8 }}>
-                <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: '#C84848', margin: 0 }}>{aicError}</p>
-              </div>
-            )}
+          {step === 'diagnostic' && (
+            <motion.div key="diagnostic" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+              <DiagnosticStep responses={responses} onAnswer={handleAnswer} onSubmit={handleSubmitDiagnostic} />
+            </motion.div>
+          )}
 
-            <AnimatePresence mode="wait">
-              {aicStep === 1 && <AICLayer1 answers={aicL1} onChange={(id, v) => setAicL1(p => ({...p, [id]: v}))} onNext={() => setAicStep(2)} />}
-              {aicStep === 2 && <AICLayer2 answers={aicL2} onChange={(id, v) => setAicL2(p => ({...p, [id]: v}))} onBack={() => setAicStep(1)} onNext={(result) => { setAicL2Result(result); setAicStep(3); }} />}
-              {aicStep === 3 && <AICLayer3 answers={aicL3} onChange={(id, v) => setAicL3(p => ({...p, [id]: v}))} onBack={() => setAicStep(2)} onNext={() => setAicStep(4)} />}
-              {aicStep === 4 && <AICLayer4 answers={aicL4} onChange={(k, v) => setAicL4(p => ({...p, [k]: v}))} onBack={() => setAicStep(3)} onSubmit={handleAICSubmit} />}
-              {aicStep === 'generating' && <AICGenerating />}
-              {aicStep === 'result' && aicSeed && (
-                <AICResult
-                  seed={aicSeed}
-                  onBookIMS={() => switchMode('ims')}
-                  onGoToOfferings={onGoToOfferings}
-                  onRetake={resetAIC}
-                />
-              )}
-            </AnimatePresence>
-          </motion.div>
-        )}
+          {step === 'processing' && (
+            <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+              <ProcessingStep />
+            </motion.div>
+          )}
 
-        {/* ── IMS INQUIRY ─────────────────────────────────────────────────── */}
-        {mode === 'ims' && (
-          <motion.div key="ims-panel" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="relative z-10 w-full" style={{ maxWidth: '520px' }}>
-            <AnimatePresence mode="wait">
+          {step === 'snapshot' && snapshot && (
+            <motion.div key="snapshot" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+              <SnapshotStep data={snapshot} onUnlock={() => setStep('invitation')} onRetake={handleRetake} />
+            </motion.div>
+          )}
 
-              {imsStep === 'intro' && (
-                <motion.div key="ims-intro" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                    <motion.span animate={{ opacity: [0.4,1,0.4] }} transition={{ duration: 3, repeat: Infinity }}
-                      style={{ fontSize: 28, display: 'block', marginBottom: 10 }}>✦</motion.span>
-                    <h2 style={{ fontFamily: 'serif', fontSize: 21, color: '#C9A84C', margin: '0 0 5px' }}>Identity Mapping Session</h2>
-                    <p style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(201,168,76,0.45)', margin: 0, letterSpacing: '0.18em' }}>$777 · 90 minutes · One sovereign architecture</p>
-                  </div>
+          {step === 'invitation' && snapshot && (
+            <motion.div key="invitation" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+              <InvitationStep cluster={snapshot.pattern_cluster} onBook={() => setStep('booking')} onRetake={() => setStep('snapshot')} />
+            </motion.div>
+          )}
 
-                  <div style={{ padding: '16px', background: 'rgba(201,168,76,0.04)', border: '1px solid rgba(201,168,76,0.13)', borderRadius: 11, marginBottom: 16 }}>
-                    <p style={{ fontFamily: 'serif', fontSize: 13, lineHeight: 1.8, color: 'rgba(232,232,232,0.62)', margin: '0 0 10px' }}>
-                      Not coaching. Not therapy. Not a blueprint you could have Googled.
-                    </p>
-                    <p style={{ fontFamily: 'sans-serif', fontSize: 11, lineHeight: 1.7, color: 'rgba(232,232,232,0.4)', margin: 0 }}>
-                      A 90-minute live excavation of who you actually are underneath the noise — your architecture, your sovereign signal, your next three actions. You leave with an Identity Architecture Document, a bespoke sigil, and a deployment blueprint.
-                    </p>
-                  </div>
+          {step === 'booking' && snapshot && (
+            <motion.div key="booking" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+              <BookingStep cluster={snapshot.pattern_cluster} onConfirm={() => setStep('confirmed')} />
+            </motion.div>
+          )}
 
-                  <div style={{ marginBottom: 18 }}>
-                    {[
-                      { step: '01', label: 'Apply',   desc: 'Fill the intake form and diagnostic below.' },
-                      { step: '02', label: 'Review',  desc: 'Zahrune Nova reviews within 24–48 hours.' },
-                      { step: '03', label: 'Pay',     desc: 'Send $777 via Remitly or bank transfer. Session booked on receipt.' },
-                      { step: '04', label: 'Session', desc: '90 minutes live. Full excavation. Architecture mapped.' },
-                      { step: '05', label: 'Deliver', desc: 'Identity Architecture Document + sigil sent within 72 hours.' },
-                    ].map(item => (
-                      <div key={item.step} style={{ display: 'flex', gap: 10, marginBottom: 8, alignItems: 'flex-start' }}>
-                        <span style={{ fontFamily: 'monospace', fontSize: 8, color: '#C9A84C', minWidth: 18, flexShrink: 0, paddingTop: 1 }}>{item.step}</span>
-                        <div>
-                          <span style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.6)' }}>{item.label}</span>
-                          <p style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(232,232,232,0.35)', margin: '2px 0 0', lineHeight: 1.55 }}>{item.desc}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <button onClick={() => setImsStep('form')}
-                    style={{ width: '100%', padding: '15px', background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.38)', borderRadius: '11px', color: '#C9A84C', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer' }}>
-                    ✦ Begin Application
-                  </button>
-
-                  {/* AIC nudge */}
-                  <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(232,232,232,0.2)', textAlign: 'center', marginTop: 14, letterSpacing: '0.14em' }}>
-                    Haven't done the diagnostic yet? —{' '}
-                    <button onClick={() => switchMode('aic')} style={{ background: 'none', border: 'none', color: 'rgba(0,212,170,0.4)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.14em', cursor: 'pointer', textDecoration: 'underline' }}>
-                      Complete AIC first (free)
-                    </button>
-                  </p>
-                </motion.div>
-              )}
-
-              {imsStep === 'form' && (
-                <motion.div key="ims-form" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
-                    <button onClick={() => setImsStep('intro')} style={{ background: 'none', border: 'none', color: 'rgba(232,232,232,0.35)', cursor: 'pointer', fontSize: 16, padding: 0 }}>←</button>
-                    <h3 style={{ fontFamily: 'serif', fontSize: 17, color: '#E8E8E8', margin: 0 }}>Your Details</h3>
-                  </div>
-                  {[
-                    { key: 'name' as const, label: 'Full Name',        type: 'text',  ph: 'Your name' },
-                    { key: 'email' as const, label: 'Email',           type: 'email', ph: 'your@email.com' },
-                    { key: 'phone' as const, label: 'WhatsApp (optional)', type: 'tel', ph: '+1 000 000 0000' },
-                  ].map(f => (
-                    <div key={f.key} style={{ marginBottom: 12 }}>
-                      <label style={{ display: 'block', fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.28)', marginBottom: 4 }}>{f.label}</label>
-                      <input type={f.type} value={imsForm[f.key]} onChange={e => setImsForm(p => ({...p, [f.key]: e.target.value}))}
-                        placeholder={f.ph} style={inputBase} />
-                    </div>
-                  ))}
-                  <button onClick={() => { if (imsForm.name.trim() && imsForm.email.trim()) setImsStep('questionnaire'); }}
-                    disabled={!imsForm.name.trim() || !imsForm.email.trim()}
-                    style={{ width: '100%', padding: '13px', background: (imsForm.name && imsForm.email) ? 'rgba(201,168,76,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${(imsForm.name && imsForm.email) ? 'rgba(201,168,76,0.38)' : 'rgba(255,255,255,0.07)'}`, borderRadius: '10px', color: (imsForm.name && imsForm.email) ? '#C9A84C' : 'rgba(232,232,232,0.2)', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: (imsForm.name && imsForm.email) ? 'pointer' : 'not-allowed', transition: 'all 0.2s' }}>
-                    Continue → Diagnostic
-                  </button>
-                </motion.div>
-              )}
-
-              {imsStep === 'questionnaire' && (
-                <motion.div key="ims-q" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                    <button onClick={() => setImsStep('form')} style={{ background: 'none', border: 'none', color: 'rgba(232,232,232,0.35)', cursor: 'pointer', fontSize: 16, padding: 0 }}>←</button>
-                    <div>
-                      <h3 style={{ fontFamily: 'serif', fontSize: 17, color: '#E8E8E8', margin: '0 0 2px' }}>Diagnostic</h3>
-                      <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(232,232,232,0.3)', margin: 0 }}>5 questions — answer honestly, not perfectly</p>
-                    </div>
-                  </div>
-                  {IMS_QUESTIONNAIRE.map((q, i) => (
-                    <div key={q.id} style={{ marginBottom: 14 }}>
-                      <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.1em', color: '#C9A84C', margin: '0 0 4px' }}>{String(i+1).padStart(2,'0')} —</p>
-                      <p style={{ fontFamily: 'sans-serif', fontSize: 12, color: 'rgba(232,232,232,0.68)', margin: '0 0 6px', lineHeight: 1.6 }}>{q.question}</p>
-                      <textarea value={imsAnswers[q.id] || ''} onChange={e => setImsAnswers(p => ({...p, [q.id]: e.target.value}))}
-                        rows={3} placeholder="Write what's true, not what sounds right."
-                        style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6 }} />
-                    </div>
-                  ))}
-                  {imsError && (
-                    <div style={{ padding: '9px 12px', background: 'rgba(232,100,100,0.07)', border: '1px solid rgba(232,100,100,0.18)', borderRadius: 8, marginBottom: 10 }}>
-                      <p style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(232,150,150,0.8)', margin: 0 }}>{imsError}</p>
-                    </div>
-                  )}
-                  <button onClick={handleIMSSubmit} disabled={imsSubmitting}
-                    style={{ width: '100%', padding: '14px', background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.38)', borderRadius: '11px', color: '#C9A84C', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer' }}>
-                    {imsSubmitting ? 'Submitting…' : '✦ Submit Application'}
-                  </button>
-                </motion.div>
-              )}
-
-              {imsStep === 'confirmed' && (
-                <motion.div key="ims-confirmed" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} style={{ textAlign: 'center', padding: '16px 0' }}>
-                  <motion.span animate={{ opacity: [0.5,1,0.5] }} transition={{ duration: 3, repeat: Infinity }}
-                    style={{ fontSize: 44, display: 'block', marginBottom: 14 }}>✦</motion.span>
-                  <h2 style={{ fontFamily: 'serif', fontSize: 21, color: '#C9A84C', margin: '0 0 8px' }}>Application Received</h2>
-                  <p style={{ fontFamily: 'sans-serif', fontSize: 12, lineHeight: 1.7, color: 'rgba(232,232,232,0.5)', margin: '0 0 18px' }}>
-                    Thank you, {imsForm.name}.<br />Zahrune Nova will review within 24–48 hours.<br />
-                    A Remitly payment link ($777) will be sent to {imsForm.email}.
-                  </p>
-                  <div style={{ padding: '13px 15px', background: 'rgba(201,168,76,0.04)', border: '1px solid rgba(201,168,76,0.14)', borderRadius: 10, marginBottom: 18 }}>
-                    <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.4)', margin: '0 0 5px' }}>Questions?</p>
-                    <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.38)', margin: 0, lineHeight: 1.65 }}>
-                      Email: <span style={{ color: 'rgba(201,168,76,0.6)' }}>arkanaofarkadia@gmail.com</span><br />
-                      WhatsApp: <span style={{ color: 'rgba(201,168,76,0.6)' }}>+234 814 494 2818</span>
-                    </p>
-                  </div>
-                  <button onClick={() => { setImsStep('intro'); setImsForm({name:'',email:'',phone:''}); setImsAnswers({}); }}
-                    style={{ padding: '11px 24px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '9px', color: 'rgba(232,232,232,0.4)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.16em', cursor: 'pointer' }}>
-                    Back to Gate
-                  </button>
-                </motion.div>
-              )}
-
-            </AnimatePresence>
-          </motion.div>
-        )}
-
-      </AnimatePresence>
+          {step === 'confirmed' && (
+            <motion.div key="confirmed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+              <ConfirmedStep onDone={handleRetake} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
