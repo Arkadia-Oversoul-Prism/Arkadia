@@ -6,9 +6,10 @@
 :root {
   --teal: #00D4AA;
   --gold: #C9A84C;
-  --obsidian: #0A0A0F;
-  --obsidian-mid: #0d0d1a;
-  --glass-blur: blur(18px);
+  --obsidian: #0C0D18;
+  --obsidian-mid: #111326;
+  --obsidian-surface: #141830;
+  --glass-blur: blur(20px);
 }
 
 /* ── BASE ── */
@@ -26,7 +27,7 @@ html, body, #root {
 body {
   font-family: 'Inter', sans-serif;
   font-weight: 300;
-  color: #f0ede8;
+  color: #E8E8E8;
   overflow-x: hidden;
 }
 
@@ -46,17 +47,18 @@ body {
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 90% 60% at 50% -5%, rgba(0, 255, 247, 0.07) 0%, transparent 65%),
-    radial-gradient(ellipse 70% 50% at 85% 95%, rgba(212, 175, 55, 0.05) 0%, transparent 65%),
-    radial-gradient(ellipse 60% 40% at 10% 80%, rgba(0, 255, 247, 0.03) 0%, transparent 60%);
+    radial-gradient(ellipse 90% 60% at 50% -5%,  rgba(0, 212, 170, 0.13) 0%, transparent 65%),
+    radial-gradient(ellipse 70% 50% at 85% 95%,  rgba(201, 168, 76, 0.09) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 40% at 10% 80%,  rgba(0, 212, 170, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 35% at 50% 50%,  rgba(0,  40,  80, 0.18) 0%, transparent 70%);
 }
 
 /* ── GLASS CARD ── */
 .glass-mansion {
-  background: rgba(13, 13, 26, 0.75);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border: 1px solid rgba(0, 255, 247, 0.12);
+  background: rgba(16, 18, 38, 0.80);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid rgba(0, 212, 170, 0.22);
   position: relative;
   overflow: hidden;
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
@@ -66,31 +68,59 @@ body {
   content: '';
   position: absolute;
   top: 0;
-  left: 10%;
-  right: 10%;
+  left: 8%;
+  right: 8%;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(0, 255, 247, 0.25), transparent);
+  background: linear-gradient(90deg, transparent, rgba(0, 212, 170, 0.45), transparent);
 }
 
 .glass-mansion:hover {
-  border-color: rgba(212, 175, 55, 0.35);
+  border-color: rgba(201, 168, 76, 0.42);
   box-shadow:
-    0 0 30px rgba(212, 175, 55, 0.06),
-    0 8px 32px rgba(0, 0, 0, 0.5);
+    0 0 30px rgba(201, 168, 76, 0.08),
+    0 8px 40px rgba(0, 0, 0, 0.55);
+}
+
+/* ── GLASS CARD — GOLD VARIANT ── */
+.glass-gold {
+  background: rgba(18, 15, 34, 0.82);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid rgba(201, 168, 76, 0.28);
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-gold::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201, 168, 76, 0.50), transparent);
 }
 
 /* ── TEAL GLOW TEXT ── */
 .teal-glow {
   color: var(--teal);
   text-shadow:
-    0 0 40px rgba(0, 255, 247, 0.35),
-    0 0 80px rgba(0, 255, 247, 0.12);
+    0 0 30px rgba(0, 212, 170, 0.50),
+    0 0 70px rgba(0, 212, 170, 0.20);
+}
+
+/* ── GOLD GLOW TEXT ── */
+.gold-glow {
+  color: var(--gold);
+  text-shadow:
+    0 0 30px rgba(201, 168, 76, 0.45),
+    0 0 60px rgba(201, 168, 76, 0.15);
 }
 
 /* ── BUTTON GLASS ── */
 .btn-glass-teal {
-  background: rgba(0, 255, 247, 0.08);
-  border: 1px solid rgba(0, 255, 247, 0.35);
+  background: rgba(0, 212, 170, 0.10);
+  border: 1px solid rgba(0, 212, 170, 0.42);
   color: var(--teal);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -98,14 +128,14 @@ body {
 }
 
 .btn-glass-teal:hover {
-  background: rgba(0, 255, 247, 0.16);
-  box-shadow: 0 0 24px rgba(0, 255, 247, 0.2);
+  background: rgba(0, 212, 170, 0.18);
+  box-shadow: 0 0 28px rgba(0, 212, 170, 0.28);
   transform: translateY(-1px);
 }
 
 .btn-glass-gold {
-  background: rgba(212, 175, 55, 0.08);
-  border: 1px solid rgba(212, 175, 55, 0.4);
+  background: rgba(201, 168, 76, 0.10);
+  border: 1px solid rgba(201, 168, 76, 0.45);
   color: var(--gold);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -113,9 +143,50 @@ body {
 }
 
 .btn-glass-gold:hover {
-  background: rgba(212, 175, 55, 0.18);
-  box-shadow: 0 0 28px rgba(212, 175, 55, 0.25);
+  background: rgba(201, 168, 76, 0.20);
+  box-shadow: 0 0 28px rgba(201, 168, 76, 0.28);
   transform: translateY(-1px);
+}
+
+/* ── ORNAMENTAL DIVIDER (Ancient Light) ── */
+.ornament-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.ornament-divider::before,
+.ornament-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201, 168, 76, 0.30), transparent);
+}
+
+.ornament-divider-inner {
+  color: rgba(201, 168, 76, 0.50);
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  font-family: 'Cinzel', serif;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── PULSE ANIMATION ── */
+@keyframes arkadia-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50%       { opacity: 1;   transform: scale(1.06); }
+}
+
+@keyframes arkadia-teal-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(0, 212, 170, 0.20); }
+  50%       { box-shadow: 0 0 20px rgba(0, 212, 170, 0.50), 0 0 40px rgba(0, 212, 170, 0.15); }
+}
+
+.teal-pulse {
+  animation: arkadia-teal-pulse 3s ease-in-out infinite;
 }
 
 /* ── SCROLLBAR ── */
@@ -128,8 +199,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 255, 247, 0.2);
+  background: rgba(0, 212, 170, 0.28);
   border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 212, 170, 0.48);
 }
 
 /* ── FONT UTILITIES ── */
@@ -209,8 +284,8 @@ body {
 
 /* Button glass fix — Tailwind bg classes losing to base reset */
 .page-column button:first-of-type {
-  background: rgba(0, 212, 170, 0.1) !important;
-  border: 1px solid rgba(0, 212, 170, 0.4) !important;
+  background: rgba(0, 212, 170, 0.11) !important;
+  border: 1px solid rgba(0, 212, 170, 0.45) !important;
   color: #00D4AA !important;
   padding: 16px !important;
   border-radius: 12px !important;
@@ -222,8 +297,8 @@ body {
 }
 
 .page-column button:last-of-type {
-  background: rgba(201, 168, 76, 0.1) !important;
-  border: 1px solid rgba(201, 168, 76, 0.4) !important;
+  background: rgba(201, 168, 76, 0.11) !important;
+  border: 1px solid rgba(201, 168, 76, 0.45) !important;
   color: #C9A84C !important;
   padding: 16px !important;
   border-radius: 12px !important;
@@ -283,7 +358,7 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 12.5px;
   line-height: 1.65;
-  color: rgba(218, 218, 218, 0.88);
+  color: #D4DDE8;
   word-wrap: break-word;
   overflow-wrap: anywhere;
 }
@@ -310,7 +385,7 @@ body {
 .arkadia-prose h6 {
   font-family: 'Inter', sans-serif;
   font-weight: 600;
-  color: rgba(240, 240, 240, 0.97);
+  color: #F0F0F0;
   letter-spacing: -0.005em;
   line-height: 1.35;
   margin: 1.4em 0 0.55em;
@@ -318,29 +393,29 @@ body {
 .arkadia-prose h1 { font-size: 1.35em; }
 .arkadia-prose h2 { font-size: 1.18em; }
 .arkadia-prose h3 { font-size: 1.05em; }
-.arkadia-prose h4 { font-size: 0.98em; color: rgba(232,232,232,0.85); }
+.arkadia-prose h4 { font-size: 0.98em; color: #D8D8D8; }
 .arkadia-prose h5,
 .arkadia-prose h6 {
   font-size: 0.92em;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(201, 168, 76, 0.78);
+  color: rgba(201, 168, 76, 0.90);
 }
 
 /* Inline emphasis */
-.arkadia-prose strong { color: rgba(255, 255, 255, 0.97); font-weight: 600; }
-.arkadia-prose em     { color: rgba(201, 168, 76, 0.92); font-style: italic; }
+.arkadia-prose strong { color: #FFFFFF; font-weight: 600; }
+.arkadia-prose em     { color: rgba(201, 168, 76, 0.95); font-style: italic; }
 
 /* Links */
 .arkadia-prose a {
   color: #00D4AA;
   text-decoration: none;
-  border-bottom: 1px solid rgba(0, 212, 170, 0.35);
+  border-bottom: 1px solid rgba(0, 212, 170, 0.42);
   transition: border-color 0.15s ease, color 0.15s ease;
 }
 .arkadia-prose a:hover {
   color: #4be6c7;
-  border-bottom-color: rgba(0, 212, 170, 0.85);
+  border-bottom-color: rgba(0, 212, 170, 0.88);
 }
 
 /* Lists */
@@ -354,15 +429,15 @@ body {
   line-height: 1.65;
 }
 .arkadia-prose li > p { margin: 0.2em 0; }
-.arkadia-prose ul li::marker { color: rgba(0, 212, 170, 0.6); }
-.arkadia-prose ol li::marker { color: rgba(201, 168, 76, 0.7); }
+.arkadia-prose ul li::marker { color: rgba(0, 212, 170, 0.75); }
+.arkadia-prose ol li::marker { color: rgba(201, 168, 76, 0.80); }
 
 /* Blockquote */
 .arkadia-prose blockquote {
   margin: 0.9em 0;
   padding: 0.4em 0 0.4em 0.95em;
-  border-left: 2px solid rgba(0, 212, 170, 0.35);
-  color: rgba(232, 232, 232, 0.7);
+  border-left: 2px solid rgba(0, 212, 170, 0.45);
+  color: rgba(232, 232, 232, 0.85);
   font-style: italic;
 }
 .arkadia-prose blockquote p { margin: 0.3em 0; }
@@ -372,8 +447,8 @@ body {
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.88em;
   padding: 0.15em 0.4em;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 5px;
   color: #e8d8a8;
 }
@@ -382,8 +457,8 @@ body {
 .arkadia-prose pre {
   margin: 0.9em 0;
   padding: 0.85em 1em;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.50);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   overflow-x: auto;
   font-size: 0.86em;
@@ -394,7 +469,7 @@ body {
   border: 0;
   padding: 0;
   border-radius: 0;
-  color: rgba(232, 232, 232, 0.92);
+  color: rgba(232, 232, 232, 0.95);
   font-size: 1em;
 }
 
@@ -406,12 +481,11 @@ body {
   font-size: 0.9em;
   table-layout: auto;
 }
-/* Scrollable wrapper is provided by MarkdownViewer via overflowX:auto on the div */
 .arkadia-prose th,
 .arkadia-prose td {
   text-align: left;
   padding: 0.55em 1em;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   white-space: nowrap;
   min-width: 80px;
 }
@@ -421,19 +495,19 @@ body {
 }
 .arkadia-prose th {
   font-weight: 600;
-  color: rgba(0, 212, 170, 0.85);
+  color: rgba(0, 212, 170, 0.90);
   letter-spacing: 0.04em;
-  background: rgba(0, 212, 170, 0.03);
-  border-bottom-color: rgba(0, 212, 170, 0.18);
+  background: rgba(0, 212, 170, 0.05);
+  border-bottom-color: rgba(0, 212, 170, 0.22);
 }
 .arkadia-prose tr:hover td {
-  background: rgba(255, 255, 255, 0.018);
+  background: rgba(255, 255, 255, 0.025);
 }
 
 /* HR */
 .arkadia-prose hr {
   border: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
   margin: 1.4em 0;
 }
 
@@ -449,20 +523,20 @@ body {
 .arkadia-prose-user strong { color: #ffe9b8; }
 .arkadia-prose-user a {
   color: #C9A84C;
-  border-bottom-color: rgba(201, 168, 76, 0.4);
+  border-bottom-color: rgba(201, 168, 76, 0.45);
 }
 .arkadia-prose-user a:hover {
   color: #e6c977;
-  border-bottom-color: rgba(201, 168, 76, 0.8);
+  border-bottom-color: rgba(201, 168, 76, 0.85);
 }
 
 /* Slim scrollbar inside chat scrollers */
 .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
 .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.10);
   border-radius: 3px;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 212, 170, 0.25);
+  background: rgba(0, 212, 170, 0.32);
 }

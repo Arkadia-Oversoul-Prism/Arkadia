@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ArkadiaNavigation from './components/ArkadiaNavigation';
@@ -6,7 +6,7 @@ import LivingGate from './pages/LivingGate';
 import ArkanaCommune from './components/ArkanaCommune';
 import CoherenceReset from './pages/CoherenceReset';
 import AboutArkadia from './pages/AboutArkadia';
-import DashboardView from './pages/DashboardView';
+const DashboardView = lazy(() => import('./pages/DashboardView'));
 import NexusPage from './pages/NexusPage';
 import EncyclopediaGalactica from './pages/EncyclopediaGalactica';
 import NexusSpiralCodex from './pages/NexusSpiralCodex';
@@ -271,7 +271,18 @@ function DashboardGate({ onNavigate }: { onNavigate: (v: View) => void }) {
     );
   }
 
-  return <DashboardView />;
+  return (
+    <Suspense fallback={
+      <div style={{ padding: '80px 20px', textAlign: 'center' }}>
+        <motion.p animate={{ opacity: [0.3, 0.7, 0.3] }} transition={{ repeat: Infinity, duration: 2 }}
+          style={{ fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.28em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.4)' }}>
+          Loading chamber…
+        </motion.p>
+      </div>
+    }>
+      <DashboardView />
+    </Suspense>
+  );
 }
 
 // ─── APP ──────────────────────────────────────────────────────────────────────

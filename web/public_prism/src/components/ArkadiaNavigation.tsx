@@ -86,7 +86,7 @@ function UserSection({ onNavigate, onClose }: { onNavigate: (v: View) => void; o
             background: 'rgba(201,168,76,0.07)',
             border: '1px solid rgba(201,168,76,0.22)',
             borderRadius: 10,
-            color: 'rgba(201,168,76,0.75)',
+            color: 'rgba(201,168,76,0.90)',
             fontFamily: 'sans-serif', fontSize: 10,
             letterSpacing: '0.22em', textTransform: 'uppercase',
             cursor: 'pointer', textAlign: 'center',
@@ -180,7 +180,7 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
   };
 
   return (
-    <div className="relative min-h-screen" style={{ backgroundColor: '#0A0A0F' }}>
+    <div className="relative min-h-screen" style={{ backgroundColor: '#0C0D18' }}>
 
       {/* ── Shimmer line ── */}
       <div className="fixed top-0 left-0 w-full h-px z-50 overflow-hidden">
@@ -201,8 +201,8 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
           height: 52,
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
-          borderBottom: '1px solid rgba(201,168,76,0.10)',
-          backgroundColor: 'rgba(10,10,15,0.88)',
+          borderBottom: '1px solid rgba(201,168,76,0.18)',
+          backgroundColor: 'rgba(12,13,24,0.94)',
         }}
       >
         {/* Logo — click to go home */}
@@ -217,7 +217,7 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
             style={{ color: '#C9A84C', fontSize: 15 }}>☥</motion.span>
           <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 4, repeat: Infinity, delay: 0.6 }}
             style={{ color: '#00D4AA', fontSize: 13 }}>⟐</motion.span>
-          <span style={{ fontFamily: 'serif', fontSize: 10, letterSpacing: '0.38em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.65)', marginLeft: 2 }}>
+          <span style={{ fontFamily: 'serif', fontSize: 10, letterSpacing: '0.38em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.90)', marginLeft: 2 }}>
             ARKADIA
           </span>
         </button>
@@ -230,7 +230,7 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
             transition={{ duration: 0.25 }}
             style={{
               fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.3em',
-              textTransform: 'uppercase', color: 'rgba(232,232,232,0.28)',
+              textTransform: 'uppercase', color: 'rgba(232,232,232,0.62)',
               position: 'absolute', left: '50%', transform: 'translateX(-50%)',
               pointerEvents: 'none', whiteSpace: 'nowrap',
             }}
@@ -303,8 +303,8 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
               width: 288,
               zIndex: 50,
               display: 'flex', flexDirection: 'column',
-              background: 'rgba(7,8,14,0.96)',
-              borderRight: '1px solid rgba(201,168,76,0.10)',
+              background: 'rgba(9,10,22,0.97)',
+              borderRight: '1px solid rgba(201,168,76,0.18)',
               backdropFilter: 'blur(32px)',
               WebkitBackdropFilter: 'blur(32px)',
               boxShadow: '4px 0 40px rgba(0,0,0,0.6), 1px 0 0 rgba(201,168,76,0.06)',
@@ -315,13 +315,13 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '0 18px',
               height: 52,
-              borderBottom: '1px solid rgba(201,168,76,0.08)',
+              borderBottom: '1px solid rgba(201,168,76,0.16)',
               flexShrink: 0,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 4, repeat: Infinity }}
                   style={{ color: '#C9A84C', fontSize: 14 }}>☥</motion.span>
-                <span style={{ fontFamily: 'serif', fontSize: 9.5, letterSpacing: '0.38em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.6)' }}>
+                <span style={{ fontFamily: 'serif', fontSize: 9.5, letterSpacing: '0.38em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.88)' }}>
                   ARKADIA
                 </span>
               </div>
@@ -329,7 +329,7 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
                 onClick={() => setDrawerOpen(false)}
                 style={{
                   background: 'none', border: 'none', cursor: 'pointer',
-                  color: 'rgba(232,232,232,0.3)', fontSize: 16,
+                  color: 'rgba(232,232,232,0.58)', fontSize: 16,
                   padding: '4px 6px', borderRadius: 6,
                   transition: 'color 0.15s',
                 }}
@@ -351,7 +351,7 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
                     <p style={{
                       fontFamily: 'sans-serif', fontSize: 7.5,
                       letterSpacing: '0.4em', textTransform: 'uppercase',
-                      color: 'rgba(201,168,76,0.28)',
+                      color: 'rgba(201,168,76,0.55)',
                       margin: '0 8px 6px',
                     }}>
                       {group.label}
@@ -382,7 +382,7 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
                               style={{
                                 fontSize: 13, flexShrink: 0,
                                 width: 22, textAlign: 'center',
-                                color: active ? item.color : 'rgba(232,232,232,0.28)',
+                                color: active ? item.color : 'rgba(232,232,232,0.52)',
                               }}
                             >
                               {item.sigil}
@@ -392,7 +392,7 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
                             <div style={{ flex: 1, overflow: 'hidden' }}>
                               <p style={{
                                 fontFamily: 'sans-serif', fontSize: 11,
-                                color: active ? item.color : 'rgba(232,232,232,0.6)',
+                                color: active ? item.color : 'rgba(232,232,232,0.82)',
                                 margin: '0 0 1px', fontWeight: active ? 600 : 400,
                                 letterSpacing: '0.04em',
                                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -401,7 +401,7 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
                               </p>
                               <p style={{
                                 fontFamily: 'sans-serif', fontSize: 9,
-                                color: active ? `${item.color}60` : 'rgba(232,232,232,0.22)',
+                                color: active ? `${item.color}90` : 'rgba(232,232,232,0.50)',
                                 margin: 0, letterSpacing: '0.04em',
                                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                               }}>
@@ -441,12 +441,12 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
                       transition: 'all 0.16s',
                     }}
                   >
-                    <span style={{ fontSize: 13, flexShrink: 0, width: 22, textAlign: 'center', color: currentView === 'codex' ? '#C9A84C' : 'rgba(232,232,232,0.28)' }}>✦</span>
+                    <span style={{ fontSize: 13, flexShrink: 0, width: 22, textAlign: 'center', color: currentView === 'codex' ? '#C9A84C' : 'rgba(232,232,232,0.52)' }}>✦</span>
                     <div style={{ flex: 1, overflow: 'hidden' }}>
                       <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: currentView === 'codex' ? '#C9A84C' : 'rgba(232,232,232,0.6)', margin: '0 0 1px', fontWeight: currentView === 'codex' ? 600 : 400, letterSpacing: '0.04em' }}>
                         Personal Codex
                       </p>
-                      <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(232,232,232,0.22)', margin: 0, letterSpacing: '0.04em' }}>
+                      <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(232,232,232,0.50)', margin: 0, letterSpacing: '0.04em' }}>
                         90-day architecture · soul map
                       </p>
                     </div>
