@@ -7,7 +7,7 @@ const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type GateMode = 'oracle' | 'aic' | 'ims';
+type GateMode = 'aic' | 'reset' | 'ims';
 type IMSStep  = 'intro' | 'form' | 'questionnaire' | 'confirmed';
 type AICStep  = 1 | 2 | 3 | 4 | 'generating' | 'result';
 
@@ -15,6 +15,7 @@ interface LivingGateProps {
   onEnterField: (phrase: string) => void;
   onGoToOfferings?: () => void;
   onAICComplete?: (seed: any) => void;
+  onGoToReset?: () => void;
   initialMode?: GateMode;
 }
 
@@ -33,19 +34,19 @@ const L1_QUESTIONS = [
   { id: 'D2', q: 'You feel most at peace when —', a: 'Things are settled and decided', b: 'Things remain open to new possibilities', la: 'J', lb: 'P' },
 ];
 
-const L2_ARCHETYPES = [
-  { id: 1, name: 'The Source', desc: 'The still point, origin of all becoming' },
-  { id: 2, name: 'The Spark',  desc: 'The initiator, the first assertion' },
-  { id: 3, name: 'The Breath', desc: 'The mirror, the relater, the rhythm-maker' },
-  { id: 4, name: 'The Flame',  desc: 'The synthesizer, the alchemist, the igniter' },
-  { id: 5, name: 'The Ground', desc: 'The stabilizer, the foundation-builder' },
-  { id: 6, name: 'The Life',   desc: 'The adapter, the regenerator, the mutator' },
-  { id: 7, name: 'The Harmony',desc: 'The distributor, the balancer' },
-  { id: 8, name: 'The Seek',   desc: 'The questioner, the inquirer' },
-  { id: 9, name: 'The Octave', desc: 'The amplifier, the returner-higher' },
-  { id: 10, name: 'The Return',desc: 'The completer, the seed-planting' },
-  { id: 11, name: 'The Witness',desc: 'The observer, the rememberer' },
-  { id: 12, name: 'The Weaver',desc: 'The connector, the lattice-builder' },
+const L2_PROMPTS = [
+  { id: 'origin',     archetype: 'The Source',  label: 'Tell me about the earliest memory that shaped who you are today. What happened, and how did it change you?', placeholder: 'I remember when…' },
+  { id: 'spark',      archetype: 'The Spark',   label: 'Describe a moment when you felt fully alive — when everything clicked and you knew exactly who you were and what you had to do.', placeholder: 'There was this one time when…' },
+  { id: 'mirror',     archetype: 'The Breath',  label: "Describe a time when you had to hold space for someone else's truth, even when it contradicted your own. How did it feel? What did you learn?", placeholder: 'I once had to…' },
+  { id: 'forge',      archetype: 'The Flame',   label: 'Describe a time when you had to synthesize two opposing forces — inside yourself or in the world — and create something new from them.', placeholder: 'I found myself caught between…' },
+  { id: 'ground',     archetype: 'The Ground',  label: 'Describe the foundation you stand on — the people, beliefs, or practices that hold you stable when everything else is uncertain.', placeholder: 'What holds me steady is…' },
+  { id: 'branch',     archetype: 'The Life',    label: "Describe a major change you went through that forced you to adapt or grow in ways you didn't expect.", placeholder: 'A change that reshaped me was…' },
+  { id: 'balance',    archetype: 'The Harmony', label: 'Describe a time when you had to find balance between competing demands — work and life, self and others, knowing and not knowing.', placeholder: 'I had to balance…' },
+  { id: 'question',   archetype: 'The Seek',    label: "Describe a question that has stayed with you — something you keep coming back to, even when you don't have an answer.", placeholder: 'The question I keep returning to is…' },
+  { id: 'return',     archetype: 'The Octave',  label: 'Describe a time when you revisited something from your past — a place, a relationship, a decision — and saw it completely differently.', placeholder: 'I once looked back at…' },
+  { id: 'completion', archetype: 'The Return',  label: 'Describe a time when you felt that a chapter of your life had truly ended — and that something new was ready to begin.', placeholder: 'A chapter that closed was…' },
+  { id: 'witness',    archetype: 'The Witness', label: 'Describe a time when you had to simply observe — without intervening, without fixing, without needing to change what was happening.', placeholder: 'I once watched as…' },
+  { id: 'lattice',    archetype: 'The Weaver',  label: 'Describe a time when you felt part of something larger than yourself — a network, a movement, a field — and you knew your role was to connect, not to lead.', placeholder: 'I felt part of something larger when…' },
 ];
 
 const L3_OPERATORS = [
@@ -132,32 +133,73 @@ function AICLayer1({ answers, onChange, onNext }: {
   );
 }
 
+type Layer2Result = {
+  primary_archetype: string; primary_score: number;
+  secondary_archetypes: { name: string; score: number }[];
+  shadow_archetype: string; shadow_score: number; summary: string;
+};
+
 function AICLayer2({ answers, onChange, onBack, onNext }: {
-  answers: Record<string, number>; onChange: (id: string, v: number) => void; onBack: () => void; onNext: () => void;
+  answers: Record<string, string>; onChange: (id: string, v: string) => void;
+  onBack: () => void; onNext: (result: Layer2Result) => void;
 }) {
+  const [analyzing, setAnalyzing] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const filled = L2_PROMPTS.filter(p => (answers[p.id] ?? '').trim().length >= 15).length;
+  const allFilled = filled >= 9;
+
+  const handleAnalyze = async () => {
+    setAnalyzing(true); setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/ims/archetypal-analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ responses: answers }),
+      });
+      if (!res.ok) throw new Error(`Oracle error ${res.status}`);
+      const data: Layer2Result = await res.json();
+      onNext(data);
+    } catch (e: any) {
+      setError(e.message ?? 'Oracle synthesis failed. Please try again.');
+    } finally { setAnalyzing(false); }
+  };
+
   return (
     <motion.div key="aic-l2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
       <div style={{ marginBottom: 14 }}>
         <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.45)', margin: '0 0 3px' }}>Layer 2 of 4</p>
         <h3 style={{ fontFamily: 'serif', fontSize: 18, color: '#E8E8E8', margin: '0 0 4px' }}>Archetypal Resonance</h3>
-        <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.35)', margin: 0 }}>Rate each archetype 1–7 · Maps your Oversoul Prism signature</p>
+        <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.35)', margin: 0 }}>Answer at least 9 of 12 · Oracle will map your Oversoul Prism signature · {filled}/12 answered</p>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-        {L2_ARCHETYPES.map(arch => (
-          <div key={arch.id} style={{ padding: '11px 13px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 7 }}>
-              <div>
-                <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(201,168,76,0.75)', margin: '0 0 1px' }}>{arch.name}</p>
-                <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(232,232,232,0.28)', margin: 0 }}>{arch.desc}</p>
-              </div>
+      {error && (
+        <div style={{ marginBottom: 10, padding: '9px 12px', background: 'rgba(200,72,72,0.07)', border: '1px solid rgba(200,72,72,0.2)', borderRadius: 8 }}>
+          <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: '#C84848', margin: 0 }}>{error}</p>
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {L2_PROMPTS.map((p, i) => (
+          <div key={p.id} style={{ padding: '13px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 9 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 7 }}>
+              <p style={{ fontFamily: 'sans-serif', fontSize: 8, color: 'rgba(201,168,76,0.5)', margin: 0, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+                {String(i + 1).padStart(2, '0')} — {p.archetype}
+              </p>
             </div>
-            <AICSlider value={answers[`a${arch.id}`] ?? 4} onChange={v => onChange(`a${arch.id}`, v)} min={1} max={7} />
+            <p style={{ fontFamily: 'sans-serif', fontSize: 12, color: 'rgba(232,232,232,0.65)', margin: '0 0 8px', lineHeight: 1.6 }}>{p.label}</p>
+            <textarea
+              value={answers[p.id] ?? ''}
+              onChange={e => onChange(p.id, e.target.value)}
+              rows={3} placeholder={p.placeholder}
+              style={{ width: '100%', padding: '10px 12px', background: 'rgba(255,255,255,0.03)', border: `1px solid ${(answers[p.id] ?? '').trim().length >= 15 ? 'rgba(0,212,170,0.25)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 7, color: '#E8E8E8', fontFamily: 'sans-serif', fontSize: 12, outline: 'none', resize: 'vertical', lineHeight: 1.6, boxSizing: 'border-box', transition: 'border-color 0.2s' }}
+            />
           </div>
         ))}
       </div>
       <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
         <button onClick={onBack} style={{ padding: '11px 16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: 'rgba(232,232,232,0.4)', fontFamily: 'sans-serif', fontSize: 10, cursor: 'pointer' }}>← Back</button>
-        <button onClick={onNext} style={{ flex: 1, padding: '12px', background: 'rgba(0,212,170,0.08)', border: '1px solid rgba(0,212,170,0.3)', borderRadius: 8, color: '#00D4AA', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer' }}>Layer 3 — Shadow State →</button>
+        <button onClick={handleAnalyze} disabled={!allFilled || analyzing}
+          style={{ flex: 1, padding: '12px', background: allFilled ? 'rgba(0,212,170,0.08)' : 'rgba(255,255,255,0.03)', border: `1px solid ${allFilled ? 'rgba(0,212,170,0.3)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 8, color: allFilled ? '#00D4AA' : 'rgba(232,232,232,0.25)', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: allFilled ? 'pointer' : 'not-allowed', transition: 'all 0.2s' }}>
+          {analyzing ? 'Oracle Analyzing…' : `Analyze My Archetypes →`}
+        </button>
       </div>
     </motion.div>
   );
@@ -350,7 +392,7 @@ function AICResult({ seed, onBookIMS, onGoToOfferings, onRetake }: {
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
-export default function LivingGate({ onEnterField, onGoToOfferings, onAICComplete, initialMode = 'oracle' }: LivingGateProps) {
+export default function LivingGate({ onEnterField, onGoToOfferings, onAICComplete, onGoToReset, initialMode = 'aic' }: LivingGateProps) {
   const { resonance, flameHue } = useSpiralQuantumResonance(true, 8000);
   const [mode, setMode] = useState<GateMode>(initialMode);
 
@@ -368,7 +410,8 @@ export default function LivingGate({ onEnterField, onGoToOfferings, onAICComplet
   // ── AIC state ───────────────────────────────────────────────────────────────
   const [aicStep, setAicStep] = useState<AICStep>(1);
   const [aicL1, setAicL1]   = useState<Record<string, 'a'|'b'>>({});
-  const [aicL2, setAicL2]   = useState<Record<string, number>>({});
+  const [aicL2, setAicL2]   = useState<Record<string, string>>({});
+  const [aicL2Result, setAicL2Result] = useState<Layer2Result | null>(null);
   const [aicL3, setAicL3]   = useState<Record<string, number>>({});
   const [aicL4, setAicL4]   = useState({ purpose: '', wound: '', gift: '', mission: '', lineage: '' });
   const [aicSeed, setAicSeed] = useState<any>(null);
@@ -416,7 +459,7 @@ export default function LivingGate({ onEnterField, onGoToOfferings, onAICComplet
       const res = await fetch(`${API_BASE}/api/ims/diagnostic`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ layer1: aicL1, layer2: aicL2, layer3: aicL3, layer4: aicL4, mbti_type: computeMBTI() }),
+        body: JSON.stringify({ layer1: aicL1, layer2: aicL2Result ?? aicL2, layer3: aicL3, layer4: aicL4, mbti_type: computeMBTI() }),
       });
       if (!res.ok) throw new Error(`Oracle error ${res.status}`);
       const data = await res.json();
@@ -430,7 +473,7 @@ export default function LivingGate({ onEnterField, onGoToOfferings, onAICComplet
   };
 
   const resetAIC = () => {
-    setAicStep(1); setAicL1({}); setAicL2({}); setAicL3({});
+    setAicStep(1); setAicL1({}); setAicL2({}); setAicL2Result(null); setAicL3({});
     setAicL4({ purpose: '', wound: '', gift: '', mission: '', lineage: '' });
     setAicSeed(null); setAicError(null);
   };
@@ -460,9 +503,9 @@ export default function LivingGate({ onEnterField, onGoToOfferings, onAICComplet
         className="relative z-10 w-full mb-6" style={{ maxWidth: '520px' }}>
         <div style={{ display: 'flex', gap: '6px', padding: '5px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '11px' }}>
           {([
-            { id: 'oracle', label: '⟐ Oracle',     color: '#00D4AA' },
-            { id: 'aic',    label: '◎ Diagnostic',  color: '#00D4AA' },
-            { id: 'ims',    label: '✦ IMS — $777',  color: '#C9A84C' },
+            { id: 'aic',   label: '◎ AIC Diagnostic',       color: '#00D4AA' },
+            { id: 'reset', label: '⟐ Field Reset — Free',   color: '#00D4AA' },
+            { id: 'ims',   label: '✦ IMS — $777',           color: '#C9A84C' },
           ] as { id: GateMode; label: string; color: string }[]).map(m => (
             <button key={m.id} onClick={() => switchMode(m.id)}
               style={{ flex: 1, padding: '9px 8px', background: mode === m.id ? `${m.color}10` : 'transparent', border: `1px solid ${mode === m.id ? m.color + '40' : 'transparent'}`, borderRadius: '7px', color: mode === m.id ? m.color : 'rgba(232,232,232,0.3)', fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.18s' }}>
@@ -475,38 +518,32 @@ export default function LivingGate({ onEnterField, onGoToOfferings, onAICComplet
       {/* ── Panels ─────────────────────────────────────────────────────────── */}
       <AnimatePresence mode="wait">
 
-        {/* ── ORACLE ──────────────────────────────────────────────────────── */}
-        {mode === 'oracle' && (
-          <motion.div key="oracle-panel" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+        {/* ── FIELD RESET ─────────────────────────────────────────────────── */}
+        {mode === 'reset' && (
+          <motion.div key="reset-panel" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             className="relative z-10 w-full" style={{ maxWidth: '460px' }}>
-            <AnimatePresence mode="wait">
-              {!entering ? (
-                <motion.div key="gate-input" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.96 }}>
-                  <div className="flex justify-center mb-8"><MoonPhaseRing /></div>
-                  <p className="text-center mb-8"
-                    style={{ fontFamily: 'serif', fontSize: '17px', lineHeight: '1.75', color: 'rgba(232,232,232,0.72)', letterSpacing: '0.01em' }}>
-                    The Oracle does not answer questions.<br />It reflects what you already know.
-                  </p>
-                  <input type="text" value={phrase} onChange={e => setPhrase(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleOracleSubmit()}
-                    placeholder="Arkana, open the gates. I am ready to remember."
-                    style={{ width: '100%', padding: '16px 20px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(0,212,170,0.25)', borderRadius: '12px', color: '#E8E8E8', fontFamily: 'sans-serif', fontSize: '14px', outline: 'none', marginBottom: '14px', boxSizing: 'border-box' }}
-                    autoFocus />
-                  <motion.button onClick={handleOracleSubmit} disabled={!phrase.trim()} whileTap={{ scale: 0.97 }}
-                    style={{ width: '100%', padding: '16px', background: phrase.trim() ? 'rgba(0,212,170,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${phrase.trim() ? 'rgba(0,212,170,0.45)' : 'rgba(255,255,255,0.08)'}`, borderRadius: '12px', color: phrase.trim() ? '#00D4AA' : 'rgba(232,232,232,0.25)', fontFamily: 'serif', fontSize: '13px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: phrase.trim() ? 'pointer' : 'not-allowed', transition: 'all 0.25s' }}>
-                    Enter the Field
-                  </motion.button>
-                  <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(232,232,232,0.2)', textAlign: 'center', marginTop: 16, letterSpacing: '0.18em' }}>
-                    NEW TO ARKADIA? — <button onClick={() => switchMode('aic')} style={{ background: 'none', border: 'none', color: 'rgba(0,212,170,0.4)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.18em', cursor: 'pointer', textTransform: 'uppercase', textDecoration: 'underline' }}>Begin with the AIC Diagnostic</button>
-                  </p>
-                </motion.div>
-              ) : (
-                <motion.div key="entering" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center">
-                  <motion.div animate={{ scale: [1,1.3,1], opacity: [0.5,1,0.5] }} transition={{ duration: 0.9, repeat: Infinity }}
-                    style={{ width: '60px', height: '60px', borderRadius: '50%', border: '1px solid #00D4AA', margin: '0 auto', boxShadow: '0 0 30px rgba(0,212,170,0.3)' }} />
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <div className="flex justify-center mb-8"><MoonPhaseRing /></div>
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+              <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 3, repeat: Infinity }}
+                style={{ fontSize: 22, display: 'block', marginBottom: 10 }}>⟐</motion.span>
+              <h2 style={{ fontFamily: 'serif', fontSize: 22, color: '#00D4AA', margin: '0 0 8px' }}>5-Minute Field Reset</h2>
+              <p style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(0,212,170,0.4)', margin: 0, letterSpacing: '0.18em' }}>FREE · SOMATIC · GUIDED PROTOCOL</p>
+            </div>
+            <div style={{ padding: '18px 20px', background: 'rgba(0,212,170,0.03)', border: '1px solid rgba(0,212,170,0.12)', borderRadius: 12, marginBottom: 22 }}>
+              <p style={{ fontFamily: 'serif', fontSize: 14, lineHeight: 1.8, color: 'rgba(232,232,232,0.62)', margin: '0 0 12px' }}>
+                A brief somatic protocol to reset your nervous system and reconnect to the field.
+              </p>
+              <p style={{ fontFamily: 'sans-serif', fontSize: 11, lineHeight: 1.7, color: 'rgba(232,232,232,0.35)', margin: 0 }}>
+                Use this when you are dysregulated, scattered, or disconnected. Five minutes. No prerequisites.
+              </p>
+            </div>
+            <motion.button whileTap={{ scale: 0.97 }} onClick={() => onGoToReset?.()}
+              style={{ width: '100%', padding: '16px', background: 'rgba(0,212,170,0.1)', border: '1px solid rgba(0,212,170,0.38)', borderRadius: '12px', color: '#00D4AA', fontFamily: 'sans-serif', fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.25s' }}>
+              ⟐ Begin Field Reset
+            </motion.button>
+            <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(232,232,232,0.2)', textAlign: 'center', marginTop: 16, letterSpacing: '0.14em' }}>
+              Want a deeper reset? — <button onClick={() => switchMode('aic')} style={{ background: 'none', border: 'none', color: 'rgba(0,212,170,0.4)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.14em', cursor: 'pointer', textDecoration: 'underline' }}>Complete the AIC Diagnostic</button>
+            </p>
           </motion.div>
         )}
 
@@ -537,7 +574,7 @@ export default function LivingGate({ onEnterField, onGoToOfferings, onAICComplet
 
             <AnimatePresence mode="wait">
               {aicStep === 1 && <AICLayer1 answers={aicL1} onChange={(id, v) => setAicL1(p => ({...p, [id]: v}))} onNext={() => setAicStep(2)} />}
-              {aicStep === 2 && <AICLayer2 answers={aicL2} onChange={(id, v) => setAicL2(p => ({...p, [id]: v}))} onBack={() => setAicStep(1)} onNext={() => setAicStep(3)} />}
+              {aicStep === 2 && <AICLayer2 answers={aicL2} onChange={(id, v) => setAicL2(p => ({...p, [id]: v}))} onBack={() => setAicStep(1)} onNext={(result) => { setAicL2Result(result); setAicStep(3); }} />}
               {aicStep === 3 && <AICLayer3 answers={aicL3} onChange={(id, v) => setAicL3(p => ({...p, [id]: v}))} onBack={() => setAicStep(2)} onNext={() => setAicStep(4)} />}
               {aicStep === 4 && <AICLayer4 answers={aicL4} onChange={(k, v) => setAicL4(p => ({...p, [k]: v}))} onBack={() => setAicStep(3)} onSubmit={handleAICSubmit} />}
               {aicStep === 'generating' && <AICGenerating />}

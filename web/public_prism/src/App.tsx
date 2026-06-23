@@ -52,7 +52,7 @@ function FieldPulse() {
         <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', backgroundColor: '#00D4AA' }} />
       </div>
       <p style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.55)', margin: 0 }}>
-        Field Active · 117 Hz · Pankshin Node
+        Field Active · 117 Hz · Jos Node 1759
       </p>
     </div>
   );
@@ -153,19 +153,10 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
           {isAuthenticated ? 'The field recognises you. Your chambers are open.' : 'Arkadia is a field. The IMS is the door.'}
         </motion.p>
 
-        {!isAuthenticated && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} style={{ marginBottom: '10px' }}>
-            <button onClick={() => onNavigate('gate')}
-              style={{ width: '100%', padding: '17px', background: 'linear-gradient(135deg, rgba(201,168,76,0.18), rgba(201,168,76,0.08))', border: '1px solid rgba(201,168,76,0.55)', borderRadius: '11px', color: '#C9A84C', fontFamily: 'sans-serif', fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', boxShadow: '0 4px 24px rgba(201,168,76,0.12), inset 0 1px 0 rgba(255,255,255,0.06)' }}>
-              ✦ Identity Mapping Session — $777 — Begin Here
-            </button>
-          </motion.div>
-        )}
-
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.72 }} style={{ marginBottom: '18px' }}>
-          <button onClick={() => onNavigate('reset')}
-            style={{ width: '100%', padding: '13px', background: 'rgba(0,212,170,0.08)', border: '1px solid rgba(0,212,170,0.35)', borderRadius: '11px', color: '#00D4AA', fontFamily: 'sans-serif', fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', boxShadow: '0 4px 18px rgba(0,212,170,0.08)' }}>
-            ⟐ 5-Minute Field Reset — Free
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} style={{ marginBottom: '18px' }}>
+          <button onClick={() => onNavigate('gate')}
+            style={{ width: '100%', padding: '17px', background: 'linear-gradient(135deg, rgba(0,212,170,0.12), rgba(0,212,170,0.05))', border: '1px solid rgba(0,212,170,0.45)', borderRadius: '11px', color: '#00D4AA', fontFamily: 'sans-serif', fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', boxShadow: '0 4px 24px rgba(0,212,170,0.08), inset 0 1px 0 rgba(255,255,255,0.06)' }}>
+            ⟐ Enter the Field
           </button>
         </motion.div>
 
@@ -247,7 +238,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
 
         <motion.footer initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.5 }}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', paddingTop: '22px', borderTop: '1px solid rgba(0,212,170,0.06)' }}>
-          {['Zahrune Nova', '117 Hz', 'Pankshin, Nigeria'].map((txt, i) => (
+          {['Zahrune Nova', '117 Hz', 'Jos Node 1759'].map((txt, i) => (
             <React.Fragment key={txt}>
               <span style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.16)' }}>{txt}</span>
               {i < 2 && <span style={{ color: 'rgba(0,212,170,0.16)', fontSize: '7px' }}>◆</span>}
@@ -363,6 +354,7 @@ function AppInner() {
               onEnterField={handleEnterField}
               onGoToOfferings={() => handleNavigate('offerings')}
               onAICComplete={setAicSeed}
+              onGoToReset={() => handleNavigate('reset')}
             />
           </motion.div>
         )}

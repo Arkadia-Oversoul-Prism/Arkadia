@@ -156,6 +156,14 @@ def _recovery_vector(layer3: dict) -> str:
 
 
 def _top_archetypes(layer2: dict) -> tuple[list[str], list[str]]:
+    # Oracle natural-language format: {primary_archetype, secondary_archetypes, shadow_archetype}
+    if "primary_archetype" in layer2:
+        top3 = [layer2["primary_archetype"]] + [
+            a["name"] for a in layer2.get("secondary_archetypes", [])[:2]
+        ]
+        shadow3 = [layer2.get("shadow_archetype", ARCHETYPES[-1])]
+        return top3, shadow3
+    # Legacy slider format: {a1: score, a2: score, ...}
     scores = [(ARCHETYPES[i], layer2.get(f"a{i+1}", 4)) for i in range(12)]
     scores.sort(key=lambda x: x[1], reverse=True)
     top3 = [s[0] for s in scores[:3]]
