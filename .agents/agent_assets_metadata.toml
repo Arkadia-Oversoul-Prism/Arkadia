@@ -12,3 +12,9 @@ id = "N2bQQQ2v4fLNGQ2XHL7_4"
 uri = "file://attached_assets/generated_audio/oracle_ambient.mp3"
 type = "audio"
 title = "Oracle Ambient — Sacred Background Music"
+
+[[outputs]]
+id = "FcTJ-DMk2V6RVarIGBB4c"
+uri = "file://attached_assets/generated_audio/oracle_reset_v2.mp3"
+type = "audio"
+title = "Oracle Reset v2 — Communion Transmission (Sonia, 0.72×)"
