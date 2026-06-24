@@ -150,17 +150,24 @@ const RESET_STEPS = [
 type BreathPhase = 'inhale' | 'hold' | 'exhale';
 
 function ResetStep({ onComplete }: { onComplete: () => void }) {
-  const [step, setStep] = useState(0);
-  const [playing, setPlaying] = useState(false);
+  // Inner reset tab (Regulate / Reclaim / Receive) — user can click OR audio drives it
+  const [step, setStep]             = useState(0);
+  const [manualStep, setManualStep] = useState(false); // true when user tapped a tab
+
+  const [playing, setPlaying]           = useState(false);
   const [audioDuration, setAudioDuration] = useState(300);
-  const [audioTime, setAudioTime]     = useState(0);
-  const [audioReady, setAudioReady]   = useState(false);
-  const [audioEnded, setAudioEnded]   = useState(false);
+  const [audioTime, setAudioTime]       = useState(0);
+  const [audioReady, setAudioReady]     = useState(false);
+  const [audioFinished, setAudioFinished] = useState(false);
+  const [audioError, setAudioError]     = useState(false);
 
-  const voiceRef   = useRef<HTMLAudioElement | null>(null);
-  const ambientRef = useRef<HTMLAudioElement | null>(null);
+  const voiceRef      = useRef<HTMLAudioElement | null>(null);
+  const ambientRef    = useRef<HTMLAudioElement | null>(null);
+  // Keep a stable ref to onComplete so the audio event listener never goes stale
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
 
-  // Initialise audio elements once
+  // Initialise audio elements exactly once
   useEffect(() => {
     const voice   = new Audio('/oracle-reset.mp3');
     const ambient = new Audio('/oracle-ambient.mp3');
@@ -170,15 +177,19 @@ function ResetStep({ onComplete }: { onComplete: () => void }) {
     ambient.preload = 'auto';
 
     voice.addEventListener('loadedmetadata', () => {
-      setAudioDuration(voice.duration || 300);
+      setAudioDuration(voice.duration > 0 ? voice.duration : 300);
       setAudioReady(true);
     });
     voice.addEventListener('timeupdate', () => setAudioTime(voice.currentTime));
     voice.addEventListener('ended', () => {
+      // Audio finished — mark done but do NOT auto-navigate; let the user press the CTA
       setPlaying(false);
-      setAudioEnded(true);
+      setAudioFinished(true);
       ambient.pause();
-      onComplete();
+    });
+    voice.addEventListener('error', () => {
+      setAudioError(true);
+      setAudioReady(true); // still show the UI
     });
 
     voiceRef.current   = voice;
@@ -199,15 +210,30 @@ function ResetStep({ onComplete }: { onComplete: () => void }) {
     }
   };
 
-  const pct = audioDuration > 0 ? (audioTime / audioDuration) * 100 : 0;
+  const pct       = audioDuration > 0 ? (audioTime / audioDuration) * 100 : 0;
   const remaining = Math.max(0, audioDuration - audioTime);
 
-  // Auto-advance step tab based on audio time (120s = step 1→2, 240s = step 2→3)
+  // Audio-driven tab advance — only when user hasn't manually selected a tab
   useEffect(() => {
-    if      (audioTime >= 240) setStep(2);
-    else if (audioTime >= 120) setStep(1);
-    else                       setStep(0);
-  }, [Math.floor(audioTime / 10)]);
+    if (manualStep) return;
+    const dur = audioDuration;
+    const t1  = dur * 0.40; // ~40% = Regulate → Reclaim
+    const t2  = dur * 0.80; // ~80% = Reclaim  → Receive
+    if      (audioTime >= t2) setStep(2);
+    else if (audioTime >= t1) setStep(1);
+    else                      setStep(0);
+  }, [Math.floor(audioTime / 5), manualStep, audioDuration]);
+
+  const handleTabClick = (i: number) => {
+    setStep(i);
+    setManualStep(true);
+    // If audio is loaded, seek to that segment
+    if (voiceRef.current && audioDuration > 0) {
+      const starts = [0, audioDuration * 0.40, audioDuration * 0.80];
+      voiceRef.current.currentTime = starts[i];
+      setManualStep(false); // hand control back to audio after seek
+    }
+  };
 
   // Breathing cycle for step 3
   const [breathPhase, setBreathPhase] = useState<BreathPhase>('inhale');
@@ -296,10 +322,10 @@ function ResetStep({ onComplete }: { onComplete: () => void }) {
         </div>
       </div>
 
-      {/* Step tabs */}
+      {/* Step tabs — clickable to jump + seek audio */}
       <div style={{ display: 'flex', gap: 5, marginBottom: 18 }}>
         {RESET_STEPS.map((s, i) => (
-          <button key={i} onClick={() => setStep(i)}
+          <button key={i} onClick={() => handleTabClick(i)}
             style={{ flex: 1, padding: '8px 6px', background: step === i ? `${s.color}15` : 'rgba(255,255,255,0.02)', border: `1px solid ${step === i ? `${s.color}44` : 'rgba(255,255,255,0.07)'}`, borderRadius: 8, cursor: 'pointer', transition: 'all 0.18s' }}>
             <p style={{ fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.2em', textTransform: 'uppercase', color: step === i ? s.color : 'rgba(232,232,232,0.3)', margin: '0 0 2px' }}>{s.num}.</p>
             <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: step === i ? s.color : 'rgba(232,232,232,0.35)', margin: '0 0 1px', fontWeight: step === i ? 500 : 400 }}>{s.title}</p>
@@ -371,24 +397,40 @@ function ResetStep({ onComplete }: { onComplete: () => void }) {
         </motion.div>
       </AnimatePresence>
 
-      {/* Navigation */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-        {step < 2 ? (
-          <button onClick={() => setStep(s => s + 1)}
-            style={{ flex: 1, padding: '12px', background: 'rgba(0,212,170,0.06)', border: '1px solid rgba(0,212,170,0.22)', borderRadius: 9, color: 'rgba(0,212,170,0.7)', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer' }}>
-            Next Step →
-          </button>
-        ) : null}
-        <button onClick={onComplete}
-          style={{ flex: step === 2 ? 1 : undefined, padding: '12px 18px', background: 'linear-gradient(135deg, rgba(0,212,170,0.12), rgba(0,212,170,0.06))', border: '1px solid rgba(0,212,170,0.4)', borderRadius: 9, color: '#00D4AA', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', boxShadow: '0 4px 18px rgba(0,212,170,0.08)' }}>
-          ⟐ Begin Diagnostic
-        </button>
-      </div>
+      {/* CTA — prominent after audio finishes; available to skip at any time */}
+      <AnimatePresence>
+        {audioFinished && (
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+            style={{ marginBottom: 14, padding: '18px 20px', background: 'linear-gradient(135deg, rgba(0,212,170,0.1), rgba(0,212,170,0.04))', border: '1px solid rgba(0,212,170,0.45)', borderRadius: 12, textAlign: 'center', boxShadow: '0 0 28px rgba(0,212,170,0.08)' }}>
+            <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.55)', margin: '0 0 10px' }}>
+              Reset Complete
+            </p>
+            <button onClick={() => onCompleteRef.current()}
+              style={{ width: '100%', padding: '14px', background: 'rgba(0,212,170,0.1)', border: '1px solid rgba(0,212,170,0.5)', borderRadius: 9, color: '#00D4AA', fontFamily: 'sans-serif', fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer' }}>
+              ⟐ Begin Diagnostic
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      <div style={{ textAlign: 'center' }}>
-        <button onClick={onComplete} style={{ background: 'none', border: 'none', color: 'rgba(232,232,232,0.2)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer' }}>
-          Skip Reset
-        </button>
+      {!audioFinished && (
+        <div style={{ marginBottom: 14, display: 'flex', gap: 8 }}>
+          {/* Only show Begin Diagnostic if audio hasn't started yet (allow skip before playing) */}
+          {!playing && audioTime === 0 && (
+            <button onClick={() => onCompleteRef.current()}
+              style={{ flex: 1, padding: '12px 18px', background: 'rgba(0,212,170,0.04)', border: '1px solid rgba(0,212,170,0.2)', borderRadius: 9, color: 'rgba(0,212,170,0.5)', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer' }}>
+              Skip Reset → Begin Diagnostic
+            </button>
+          )}
+        </div>
+      )}
+
+      <div style={{ textAlign: 'center', marginBottom: 8 }}>
+        {(playing || audioTime > 0) && !audioFinished && (
+          <button onClick={() => onCompleteRef.current()} style={{ background: 'none', border: 'none', color: 'rgba(232,232,232,0.18)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', cursor: 'pointer' }}>
+            Skip — go to diagnostic
+          </button>
+        )}
       </div>
     </motion.div>
   );
