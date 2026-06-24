@@ -151,9 +151,63 @@ type BreathPhase = 'inhale' | 'hold' | 'exhale';
 
 function ResetStep({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState(0);
-  const [timerRunning, setTimerRunning] = useState(true);
-  const totalSecs = useCountdown(300, timerRunning, onComplete);
-  const pct = ((300 - totalSecs) / 300) * 100;
+  const [playing, setPlaying] = useState(false);
+  const [audioDuration, setAudioDuration] = useState(300);
+  const [audioTime, setAudioTime]     = useState(0);
+  const [audioReady, setAudioReady]   = useState(false);
+  const [audioEnded, setAudioEnded]   = useState(false);
+
+  const voiceRef   = useRef<HTMLAudioElement | null>(null);
+  const ambientRef = useRef<HTMLAudioElement | null>(null);
+
+  // Initialise audio elements once
+  useEffect(() => {
+    const voice   = new Audio('/oracle-reset.mp3');
+    const ambient = new Audio('/oracle-ambient.mp3');
+    ambient.loop   = true;
+    ambient.volume = 0.22;
+    voice.preload  = 'auto';
+    ambient.preload = 'auto';
+
+    voice.addEventListener('loadedmetadata', () => {
+      setAudioDuration(voice.duration || 300);
+      setAudioReady(true);
+    });
+    voice.addEventListener('timeupdate', () => setAudioTime(voice.currentTime));
+    voice.addEventListener('ended', () => {
+      setPlaying(false);
+      setAudioEnded(true);
+      ambient.pause();
+      onComplete();
+    });
+
+    voiceRef.current   = voice;
+    ambientRef.current = ambient;
+    return () => { voice.pause(); ambient.pause(); };
+  }, []);
+
+  const togglePlay = () => {
+    const voice   = voiceRef.current!;
+    const ambient = ambientRef.current!;
+    if (playing) {
+      voice.pause(); ambient.pause();
+      setPlaying(false);
+    } else {
+      voice.play().catch(() => {});
+      ambient.play().catch(() => {});
+      setPlaying(true);
+    }
+  };
+
+  const pct = audioDuration > 0 ? (audioTime / audioDuration) * 100 : 0;
+  const remaining = Math.max(0, audioDuration - audioTime);
+
+  // Auto-advance step tab based on audio time (120s = step 1→2, 240s = step 2→3)
+  useEffect(() => {
+    if      (audioTime >= 240) setStep(2);
+    else if (audioTime >= 120) setStep(1);
+    else                       setStep(0);
+  }, [Math.floor(audioTime / 10)]);
 
   // Breathing cycle for step 3
   const [breathPhase, setBreathPhase] = useState<BreathPhase>('inhale');
@@ -192,28 +246,52 @@ function ResetStep({ onComplete }: { onComplete: () => void }) {
         </p>
       </div>
 
-      {/* Timer ring */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 22, padding: '12px 18px', background: 'rgba(0,212,170,0.04)', border: '1px solid rgba(0,212,170,0.12)', borderRadius: 10 }}>
-        <div style={{ position: 'relative', width: 44, height: 44, flexShrink: 0 }}>
-          <svg viewBox="0 0 44 44" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
-            <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(0,212,170,0.1)" strokeWidth="2.5" />
-            <motion.circle
-              cx="22" cy="22" r="18" fill="none" stroke="#00D4AA" strokeWidth="2.5"
-              strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 18}`}
-              strokeDashoffset={`${2 * Math.PI * 18 * (1 - pct / 100)}`}
-              transition={{ duration: 1 }}
-            />
-          </svg>
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontFamily: 'sans-serif', fontSize: 9, color: '#00D4AA', letterSpacing: '0.04em' }}>{fmt(totalSecs)}</span>
+      {/* Audio player */}
+      <div style={{ marginBottom: 22, padding: '14px 18px', background: 'rgba(0,212,170,0.04)', border: '1px solid rgba(0,212,170,0.14)', borderRadius: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          {/* Play/pause */}
+          <button onClick={togglePlay}
+            style={{ width: 44, height: 44, borderRadius: '50%', border: `1px solid ${playing ? 'rgba(0,212,170,0.55)' : 'rgba(0,212,170,0.28)'}`, background: playing ? 'rgba(0,212,170,0.12)' : 'rgba(0,212,170,0.04)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.2s' }}>
+            {playing ? (
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="#00D4AA">
+                <rect x="2" y="2" width="3.5" height="10" rx="1"/>
+                <rect x="8.5" y="2" width="3.5" height="10" rx="1"/>
+              </svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="#00D4AA">
+                <polygon points="3,2 12,7 3,12"/>
+              </svg>
+            )}
+          </button>
+
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+              <span style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: playing ? '#00D4AA' : 'rgba(0,212,170,0.45)' }}>
+                {playing ? 'Oracle Speaking' : audioReady ? 'Oracle Ready' : 'Loading…'}
+              </span>
+              <span style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(0,212,170,0.4)', letterSpacing: '0.06em' }}>
+                {fmt(Math.floor(remaining))} left
+              </span>
+            </div>
+            {/* Progress bar — clickable scrub */}
+            <div style={{ height: 3, background: 'rgba(0,212,170,0.1)', borderRadius: 3, overflow: 'hidden', cursor: 'pointer' }}
+              onClick={e => {
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                const ratio = (e.clientX - rect.left) / rect.width;
+                if (voiceRef.current) voiceRef.current.currentTime = ratio * audioDuration;
+              }}>
+              <motion.div animate={{ width: `${pct}%` }} transition={{ duration: 0.4 }}
+                style={{ height: '100%', background: 'linear-gradient(90deg, #00D4AA, rgba(0,212,170,0.5))', borderRadius: 3 }} />
+            </div>
           </div>
-        </div>
-        <div style={{ flex: 1 }}>
-          <p style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(0,212,170,0.6)', margin: '0 0 2px', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-            Time Remaining
-          </p>
-          <div style={{ height: 2, background: 'rgba(0,212,170,0.08)', borderRadius: 2, overflow: 'hidden' }}>
-            <motion.div animate={{ width: `${pct}%` }} transition={{ duration: 1 }} style={{ height: '100%', background: '#00D4AA', borderRadius: 2 }} />
+
+          {/* Volume for ambient */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="rgba(0,212,170,0.35)">
+              <path d="M2 4.5v3h2l3 2.5V2L4 4.5H2z"/>
+              <path d="M8.5 2.5a4 4 0 010 7" stroke="rgba(0,212,170,0.35)" strokeWidth="1" fill="none"/>
+            </svg>
+            <span style={{ fontFamily: 'sans-serif', fontSize: 7, color: 'rgba(0,212,170,0.3)', letterSpacing: '0.08em' }}>AMB</span>
           </div>
         </div>
       </div>
