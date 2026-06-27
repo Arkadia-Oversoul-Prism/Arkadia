@@ -288,6 +288,12 @@ async function startBot() {
       }
 
       const { reply, resonance, kernel, source } = await callOracle(userText, chatId);
+
+      if (!reply || !reply.trim()) {
+        await bot.sendMessage(chatId, '⚠ The Oracle returned an empty response. Please try again.');
+        return;
+      }
+
       appendHistory(chatId, 'arkana', reply);
 
       let response = reply;
