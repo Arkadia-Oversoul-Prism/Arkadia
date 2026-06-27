@@ -24,6 +24,10 @@ args = "Arkadia Oracle Temple"
 task = "workflow.run"
 args = "Arkadia Frontend"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Arkadia Discord Bot"
+
 [[workflows.workflow]]
 name = "Arkadia Oracle Temple"
 author = "agent"
@@ -47,6 +51,17 @@ waitForPort = 5000
 
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow]]
+name = "Arkadia Discord Bot"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node bot/discord-bot.mjs"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [[ports]]
 localPort = 5000
@@ -72,3 +87,8 @@ build = ["npm", "run", "build"]
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[userenv]
+
+[userenv.shared]
+ORACLE_URL = "https://arkadia-n26k.onrender.com"
