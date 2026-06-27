@@ -1825,7 +1825,8 @@ async def agent_spawn(request: Request):
 
     try:
         store  = _job_store()
-        job_id = store.enqueue(kernel_intent)
+        job    = store.create(kernel_intent, source=source)
+        job_id = job["job_id"]
         logger.info(
             "[SPAWN] job=%s agent=%s source=%s priority=%s intent=%r",
             job_id, agent, source, priority, intent[:80],
