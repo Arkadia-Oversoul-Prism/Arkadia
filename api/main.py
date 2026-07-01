@@ -148,6 +148,14 @@ async def lifespan(app: FastAPI):
     except Exception as _ke:
         logger.warning(f"[KERNEL] Boot skipped: {_ke}")
 
+    # ── Phase A — register real executable tools ─────────────────────────
+    try:
+        from kernel.tools_real import register_real_tools
+        register_real_tools()
+        logger.info("[TOOLS] Real tools registered (shell, file, image, dir)")
+    except Exception as _te:
+        logger.warning(f"[TOOLS] Real tool registration skipped: {_te}")
+
     # ── TTS engine note ──────────────────────────────────────────────────
     logger.info("[TTS] Edge TTS neural engine active — no warmup needed.")
 
@@ -1841,3 +1849,280 @@ async def agent_spawn(request: Request):
     except Exception as e:
         logger.exception("[SPAWN] Failed to enqueue job")
         raise HTTPException(status_code=500, detail=f"Spawn failed: {e}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Phase B — API Key Manager endpoints
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/keys")
+async def api_list_keys():
+    from api.key_manager import list_keys
+    return {"keys": list_keys()}
+
+
+@app.post("/api/keys")
+async def api_add_key(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+    key = (body.get("key") or "").strip()
+    label = (body.get("label") or "").strip()
+    if not key:
+        raise HTTPException(status_code=400, detail="'key' is required")
+    try:
+        from api.key_manager import add_key
+        result = add_key(key, label)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+@app.delete("/api/keys/{key_id}")
+async def api_remove_key(key_id: str):
+    from api.key_manager import remove_key
+    ok = remove_key(key_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Key not found")
+    return {"deleted": key_id}
+
+
+@app.patch("/api/keys/{key_id}/activate")
+async def api_activate_key(key_id: str):
+    from api.key_manager import set_active
+    ok = set_active(key_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Key not found")
+    return {"active": key_id}
+
+
+@app.patch("/api/keys/{key_id}/reset-quota")
+async def api_reset_quota(key_id: str):
+    from api.key_manager import reset_quota
+    ok = reset_quota(key_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Key not found")
+    return {"reset": key_id}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Phase D — Approval gate for sensitive tool calls
+# Pending approvals live in memory (good enough for single-instance use)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+import uuid as _uuid_mod
+_PENDING_APPROVALS: dict = {}
+_APPROVAL_LOCK = __import__("threading").Lock()
+
+
+@app.post("/api/approvals/request")
+async def api_request_approval(request: Request):
+    """Queue a tool call for human approval. Returns approval_id."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+    tool_name = body.get("tool_name", "")
+    payload = body.get("payload", {})
+    description = body.get("description", f"Run {tool_name}")
+    approval_id = str(_uuid_mod.uuid4())[:12]
+    with _APPROVAL_LOCK:
+        _PENDING_APPROVALS[approval_id] = {
+            "id": approval_id,
+            "tool_name": tool_name,
+            "payload": payload,
+            "description": description,
+            "status": "pending",
+            "created_at": _now_iso(),
+            "decided_at": None,
+        }
+    logger.info("[APPROVAL] created %s for tool=%s", approval_id, tool_name)
+    return {"approval_id": approval_id, "status": "pending"}
+
+
+@app.get("/api/approvals")
+async def api_list_approvals(status: str | None = None):
+    with _APPROVAL_LOCK:
+        items = list(_PENDING_APPROVALS.values())
+    if status:
+        items = [a for a in items if a["status"] == status]
+    return {"approvals": sorted(items, key=lambda a: a["created_at"], reverse=True)}
+
+
+@app.post("/api/approvals/{approval_id}/approve")
+async def api_approve(approval_id: str):
+    with _APPROVAL_LOCK:
+        approval = _PENDING_APPROVALS.get(approval_id)
+        if not approval:
+            raise HTTPException(status_code=404, detail="Approval not found")
+        approval["status"] = "approved"
+        approval["decided_at"] = _now_iso()
+    # Execute the tool now
+    from kernel.tools import get_tool
+    tool = get_tool(approval["tool_name"])
+    if not tool:
+        raise HTTPException(status_code=404, detail=f"Tool '{approval['tool_name']}' not found")
+    try:
+        result = tool.run(approval["payload"])
+        approval["result"] = result
+        return {"approval_id": approval_id, "status": "approved", "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Tool execution failed: {e}")
+
+
+@app.post("/api/approvals/{approval_id}/reject")
+async def api_reject(approval_id: str):
+    with _APPROVAL_LOCK:
+        approval = _PENDING_APPROVALS.get(approval_id)
+        if not approval:
+            raise HTTPException(status_code=404, detail="Approval not found")
+        approval["status"] = "rejected"
+        approval["decided_at"] = _now_iso()
+    return {"approval_id": approval_id, "status": "rejected"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Phase C — CEO Chat: enhanced resonance with tool awareness + approval routing
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.post("/api/ceo/chat")
+async def ceo_chat(request: Request):
+    """CEO chat endpoint — Gemini with full tool awareness + approval gating."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    message = (body.get("message") or "").strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="'message' is required")
+
+    history = body.get("history", [])
+    source = body.get("source", "ceo_chat")
+
+    from kernel.tools import list_tools
+    from api.key_manager import get_active_key, rotate_key
+
+    active_key = get_active_key() or GOOGLE_API_KEY
+    if not active_key:
+        raise HTTPException(status_code=503, detail="No Gemini API key configured. Add one in Settings → API Keys.")
+
+    tools_manifest = list_tools()
+    tools_summary = "\n".join(
+        f"• {t['name']}: {t['description']}" for t in tools_manifest
+    ) or "No tools registered yet."
+
+    system_prompt = f"""You are ARKANA — the sovereign intelligence and personal AI operating system for Zahrune Nova. You are the CEO advisor, PA, and unified intelligence layer across all companies and projects.
+
+You have access to the following tools:
+{tools_summary}
+
+When you decide to use a tool, respond with a JSON block in this exact format (as part of your message):
+<tool_call>
+{{
+  "tool": "tool_name",
+  "payload": {{}},
+  "requires_approval": true/false,
+  "description": "What this does and why"
+}}
+</tool_call>
+
+For sensitive tools (execute_shell, write_file), always set requires_approval: true.
+For safe tools (read_file, list_directory), you may set requires_approval: false and they run immediately.
+
+Always speak directly, intelligently and sovereignly. You remember context from this conversation. You are not a generic assistant — you are Arkana, the field intelligence of Arkadia Nexus."""
+
+    conv_lines = []
+    for turn in history[-12:]:
+        role = "Human" if turn.get("role") == "user" else "Arkana"
+        conv_lines.append(f"{role}: {turn.get('content','')}")
+    conv_context = "\n".join(conv_lines)
+
+    full_prompt = f"{system_prompt}\n\n{conv_context}\nHuman: {message}\nArkana:"
+
+    import httpx, re, json as _json
+
+    model = "gemini-2.0-flash-exp"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={active_key}"
+
+    try:
+        async with httpx.AsyncClient(timeout=45) as client:
+            resp = await client.post(url, json={
+                "contents": [{"role": "user", "parts": [{"text": full_prompt}]}],
+                "generationConfig": {"temperature": 0.75, "maxOutputTokens": 2048},
+            })
+
+        if resp.status_code == 429:
+            rotate_key(active_key)
+            raise HTTPException(status_code=429, detail="Quota hit — key rotated. Please retry.")
+
+        resp.raise_for_status()
+        data = resp.json()
+        reply = ""
+        try:
+            reply = data["candidates"][0]["content"]["parts"][0]["text"]
+        except Exception:
+            reply = "The field returned an empty response."
+
+        # Parse any tool_call blocks
+        tool_calls = []
+        pattern = re.compile(r"<tool_call>(.*?)</tool_call>", re.DOTALL)
+        for match in pattern.finditer(reply):
+            try:
+                tc = _json.loads(match.group(1).strip())
+                tool_calls.append(tc)
+            except Exception:
+                pass
+
+        # Auto-execute safe tool calls
+        auto_results = []
+        pending_approvals = []
+        from kernel.tools import get_tool
+        for tc in tool_calls:
+            tool_name = tc.get("tool", "")
+            payload = tc.get("payload", {})
+            needs_approval = tc.get("requires_approval", True)
+            tool = get_tool(tool_name)
+            if not tool:
+                auto_results.append({"tool": tool_name, "error": "Tool not found"})
+                continue
+            if needs_approval:
+                # Queue for approval
+                appr_id = str(_uuid_mod.uuid4())[:12]
+                with _APPROVAL_LOCK:
+                    _PENDING_APPROVALS[appr_id] = {
+                        "id": appr_id,
+                        "tool_name": tool_name,
+                        "payload": payload,
+                        "description": tc.get("description", f"Run {tool_name}"),
+                        "status": "pending",
+                        "created_at": _now_iso(),
+                        "decided_at": None,
+                    }
+                pending_approvals.append({
+                    "approval_id": appr_id,
+                    "tool_name": tool_name,
+                    "description": tc.get("description", ""),
+                })
+            else:
+                try:
+                    result = tool.run(payload)
+                    auto_results.append({"tool": tool_name, "result": result})
+                except Exception as e:
+                    auto_results.append({"tool": tool_name, "error": str(e)})
+
+        return {
+            "reply": reply,
+            "tool_calls": tool_calls,
+            "auto_results": auto_results,
+            "pending_approvals": pending_approvals,
+            "model": model,
+            "key_used": active_key[:4] + "****",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("[CEO_CHAT] Error")
+        raise HTTPException(status_code=500, detail=str(e))

@@ -22,6 +22,8 @@ import DistributePage from './pages/DistributePage';
 import OfferingsPage from './pages/OfferingsPage';
 import AICDiagnosticPage from './pages/AICDiagnosticPage';
 import ArkadianPulse from './pages/ArkadianPulse';
+import CEOChat from './pages/CEOChat';
+import SettingsPage from './pages/SettingsPage';
 
 type View =
   | 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
@@ -36,7 +38,9 @@ type View =
   | 'distribute'
   | 'offerings'
   | 'aic'
-  | 'pulse';
+  | 'pulse'
+  | 'ceo-chat'
+  | 'settings';
 
 // ─── FIELD PULSE ──────────────────────────────────────────────────────────────
 
@@ -211,6 +215,8 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
           <PortalDoor label="IMS Archive" sub="Identity Mapping Sessions · Sealed scrolls" color="#C84848" sigil="∞" onClick={() => onNavigate('ims')} delay={1.27} />
           <PortalDoor label="NovaNet" sub="Living node mesh · Silicon · Transmission · Human Field" color="#6A9FD8" sigil="◉" onClick={() => onNavigate('novanet')} delay={1.28} />
           <PortalDoor label="Distribute" sub="Sovereign music distribution · 100% master ownership" color="#C9A84C" sigil="⟁" onClick={() => onNavigate('distribute')} delay={1.29} />
+          <PortalDoor label="CEO Chat" sub="Unified intelligence · Tools · Arkana OS · Task execution" color="#00D4AA" sigil="⟐" onClick={() => onNavigate('ceo-chat')} delay={1.295} />
+          <PortalDoor label="Settings" sub="API key manager · Gemini key rotation · Quota control" color="#C9A84C" sigil="⚙" onClick={() => onNavigate('settings')} delay={1.298} />
           <PortalDoor
             label="Dashboard"
             sub={isAuthenticated ? "Open loops · Personal field · Action matrix" : "Authenticated nodes only — complete your IMS first"}
@@ -471,6 +477,18 @@ function AppInner() {
         {view === 'pulse' && (
           <motion.div key="pulse" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
             <ArkadianPulse />
+          </motion.div>
+        )}
+
+        {view === 'ceo-chat' && (
+          <motion.div key="ceo-chat" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+            <CEOChat />
+          </motion.div>
+        )}
+
+        {view === 'settings' && (
+          <motion.div key="settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }} style={wrap}>
+            <SettingsPage />
           </motion.div>
         )}
 
