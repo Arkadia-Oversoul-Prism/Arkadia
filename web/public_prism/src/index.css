@@ -514,3 +514,7 @@ body {
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 212, 170, 0.32);
 }
+
+/* Invisible scrollbar — used by CoherenceReset lyrics player */
+.hide-scrollbar { scrollbar-width: none; }
+.hide-scrollbar::-webkit-scrollbar { display: none; }
