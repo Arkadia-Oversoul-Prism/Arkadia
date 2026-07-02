@@ -43,6 +43,22 @@ interface KernelStatus {
   milestone: number;
 }
 
+interface GhRepo {
+  name: string;
+  full_name: string;
+  url: string;
+  description: string | null;
+  language: string | null;
+  stars: number;
+  updated_at: string;
+}
+
+interface GhEntry {
+  path: string;
+  type: 'blob' | 'tree';
+  size: number | null;
+}
+
 const INTENT_COLORS: Record<IntentType, string> = {
   Question:   '#00D4AA',
   Coding:     '#6A9FD8',
@@ -103,7 +119,7 @@ function MetricCard({ label, value, sub }: { label: string; value: string | numb
 }
 
 export default function SolSpireConsole() {
-  const [tab, setTab] = useState<'run' | 'projects' | 'executions' | 'tools'>('run');
+  const [tab, setTab] = useState<'run' | 'projects' | 'executions' | 'tools' | 'github'>('run');
   const [request, setRequest] = useState('');
   const [provider, setProvider] = useState('gemini');
   const [loading, setLoading] = useState(false);
@@ -120,10 +136,23 @@ export default function SolSpireConsole() {
   const [toolOp, setToolOp] = useState<'read' | 'write' | 'list'>('list');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // GitHub state
+  const [ghOwner, setGhOwner] = useState('Arkadia-Oversoul-Prism');
+  const [ghRepo, setGhRepo] = useState('');
+  const [ghBranch, setGhBranch] = useState('main');
+  const [ghFilePath, setGhFilePath] = useState('');
+  const [ghRepos, setGhRepos] = useState<GhRepo[]>([]);
+  const [ghTree, setGhTree] = useState<GhEntry[]>([]);
+  const [ghFileContent, setGhFileContent] = useState<string | null>(null);
+  const [ghLoading, setGhLoading] = useState(false);
+  const [ghError, setGhError] = useState<string | null>(null);
+  const [ghMode, setGhMode] = useState<'repos' | 'tree' | 'file'>('repos');
+
   useEffect(() => { loadStatus(); }, []);
   useEffect(() => {
     if (tab === 'projects') loadProjects();
     if (tab === 'executions') loadExecutions();
+    if (tab === 'github') loadGhRepos();
   }, [tab]);
 
   async function loadStatus() {
@@ -171,6 +200,37 @@ export default function SolSpireConsole() {
     try { await api(`/solspire/executions/${id}/${action}`, 'POST'); loadExecutions(); } catch {}
   }
 
+  async function loadGhRepos() {
+    if (!ghOwner.trim()) return;
+    setGhLoading(true); setGhError(null);
+    try {
+      const r = await api<{ ok: boolean; repos: GhRepo[]; error?: string }>('/solspire/tools/github/repos', 'POST', { owner: ghOwner });
+      if (!r.ok) { setGhError(r.error || 'Failed'); return; }
+      setGhRepos(r.repos); setGhMode('repos');
+    } catch (e) { setGhError(e instanceof Error ? e.message : String(e)); }
+    finally { setGhLoading(false); }
+  }
+
+  async function loadGhTree(repo: string) {
+    setGhRepo(repo); setGhLoading(true); setGhError(null); setGhTree([]); setGhFileContent(null);
+    try {
+      const r = await api<{ ok: boolean; files: GhEntry[]; error?: string }>('/solspire/tools/github/tree', 'POST', { owner: ghOwner, repo, branch: ghBranch });
+      if (!r.ok) { setGhError(r.error || 'Failed'); return; }
+      setGhTree(r.files); setGhMode('tree');
+    } catch (e) { setGhError(e instanceof Error ? e.message : String(e)); }
+    finally { setGhLoading(false); }
+  }
+
+  async function loadGhFile(path: string) {
+    setGhFilePath(path); setGhLoading(true); setGhError(null); setGhFileContent(null);
+    try {
+      const r = await api<{ ok: boolean; content: string; error?: string }>('/solspire/tools/github/read', 'POST', { owner: ghOwner, repo: ghRepo, path, branch: ghBranch });
+      if (!r.ok) { setGhError(r.error || 'Failed'); return; }
+      setGhFileContent(r.content); setGhMode('file');
+    } catch (e) { setGhError(e instanceof Error ? e.message : String(e)); }
+    finally { setGhLoading(false); }
+  }
+
   async function handleFsTool() {
     setToolLoading(true); setToolResult(null);
     try {
@@ -190,7 +250,8 @@ export default function SolSpireConsole() {
     { id: 'run' as const, label: 'Run', sigil: '⟐' },
     { id: 'projects' as const, label: 'Projects', sigil: '◈' },
     { id: 'executions' as const, label: 'Executions', sigil: '⚙' },
-    { id: 'tools' as const, label: 'Tools', sigil: '⌖' },
+    { id: 'tools' as const, label: 'Files', sigil: '⌖' },
+    { id: 'github' as const, label: 'GitHub', sigil: '⟁' },
   ];
 
   return (
@@ -526,6 +587,149 @@ export default function SolSpireConsole() {
                   )}
                 </div>
               )}
+            </motion.div>
+          )}
+
+          {/* ── GITHUB TAB ── */}
+          {tab === 'github' && (
+            <motion.div key="github" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+
+              {/* Owner + branch bar */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+                <input value={ghOwner} onChange={e => setGhOwner(e.target.value)}
+                  placeholder="GitHub owner / org"
+                  style={{ flex: '2 1 160px', padding: '9px 12px', background: 'rgba(14,17,32,0.85)', border: '1px solid rgba(106,159,216,0.25)', borderRadius: '8px', color: 'rgba(212,223,232,0.85)', fontFamily: 'monospace', fontSize: '12px', outline: 'none' }} />
+                <input value={ghBranch} onChange={e => setGhBranch(e.target.value)}
+                  placeholder="branch"
+                  style={{ flex: '1 1 80px', padding: '9px 12px', background: 'rgba(14,17,32,0.85)', border: '1px solid rgba(106,159,216,0.18)', borderRadius: '8px', color: 'rgba(212,223,232,0.85)', fontFamily: 'monospace', fontSize: '12px', outline: 'none' }} />
+                <button onClick={loadGhRepos} disabled={ghLoading || !ghOwner.trim()}
+                  style={{ padding: '9px 18px', background: 'rgba(106,159,216,0.12)', border: '1px solid rgba(106,159,216,0.35)', borderRadius: '8px', color: '#6A9FD8', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: '11px', letterSpacing: '0.15em', whiteSpace: 'nowrap' }}>
+                  {ghLoading ? '...' : '⟁ Browse'}
+                </button>
+              </div>
+
+              {/* Breadcrumb */}
+              {ghMode !== 'repos' && (
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+                  <button onClick={() => { setGhMode('repos'); setGhRepo(''); setGhTree([]); setGhFileContent(null); }}
+                    style={{ background: 'none', border: 'none', color: '#6A9FD8', cursor: 'pointer', fontFamily: 'monospace', fontSize: '12px', padding: 0 }}>
+                    {ghOwner}
+                  </button>
+                  {ghRepo && <>
+                    <span style={{ color: 'rgba(212,223,232,0.25)' }}>/</span>
+                    <button onClick={() => { setGhMode('tree'); setGhFileContent(null); setGhFilePath(''); }}
+                      style={{ background: 'none', border: 'none', color: '#6A9FD8', cursor: 'pointer', fontFamily: 'monospace', fontSize: '12px', padding: 0 }}>
+                      {ghRepo}
+                    </button>
+                  </>}
+                  {ghFilePath && <>
+                    <span style={{ color: 'rgba(212,223,232,0.25)' }}>/</span>
+                    <span style={{ fontFamily: 'monospace', fontSize: '12px', color: 'rgba(212,223,232,0.55)' }}>{ghFilePath.split('/').pop()}</span>
+                  </>}
+                  <span style={{ marginLeft: '4px', padding: '1px 7px', borderRadius: '8px', fontSize: '9px', background: 'rgba(106,159,216,0.1)', color: '#6A9FD8', fontFamily: 'sans-serif', letterSpacing: '0.12em' }}>
+                    {ghBranch}
+                  </span>
+                </div>
+              )}
+
+              {/* Error */}
+              {ghError && (
+                <div style={{ padding: '12px 14px', background: 'rgba(200,72,72,0.08)', border: '1px solid rgba(200,72,72,0.22)', borderRadius: '8px', marginBottom: '12px' }}>
+                  <p style={{ fontFamily: 'sans-serif', fontSize: '12px', color: '#C84848', margin: 0 }}>⚠ {ghError}</p>
+                </div>
+              )}
+
+              {/* Repos list */}
+              {ghMode === 'repos' && !ghLoading && ghRepos.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <p style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(106,159,216,0.55)', margin: '0 0 8px' }}>
+                    {ghRepos.length} repositories · {ghOwner}
+                  </p>
+                  {ghRepos.map(r => (
+                    <motion.div key={r.name} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                      onClick={() => loadGhTree(r.name)}
+                      style={{ padding: '12px 16px', background: 'rgba(14,17,32,0.75)', border: '1px solid rgba(106,159,216,0.12)', borderRadius: '9px', cursor: 'pointer', display: 'flex', gap: '12px', alignItems: 'center', transition: 'border-color 0.18s' }}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(106,159,216,0.35)')}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(106,159,216,0.12)')}>
+                      <span style={{ fontSize: '15px' }}>⟁</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontFamily: 'monospace', fontSize: '13px', color: '#6A9FD8', margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</p>
+                        {r.description && <p style={{ fontFamily: 'sans-serif', fontSize: '11px', color: 'rgba(212,223,232,0.4)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.description}</p>}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px', flexShrink: 0 }}>
+                        {r.language && <span style={{ fontSize: '9px', color: 'rgba(212,223,232,0.35)', fontFamily: 'sans-serif' }}>{r.language}</span>}
+                        <span style={{ fontSize: '9px', color: 'rgba(201,168,76,0.55)', fontFamily: 'sans-serif' }}>★ {r.stars}</span>
+                      </div>
+                      <span style={{ color: 'rgba(106,159,216,0.4)', fontSize: '12px' }}>→</span>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+
+              {/* File tree */}
+              {ghMode === 'tree' && !ghLoading && ghTree.length > 0 && (
+                <div>
+                  <p style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(106,159,216,0.55)', margin: '0 0 10px' }}>
+                    {ghTree.length} entries · click a file to view
+                  </p>
+                  <div style={{ maxHeight: '480px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    {ghTree.map(entry => (
+                      <div key={entry.path}
+                        onClick={() => entry.type === 'blob' ? loadGhFile(entry.path) : undefined}
+                        style={{ display: 'flex', gap: '10px', alignItems: 'center', padding: '5px 10px', borderRadius: '6px', cursor: entry.type === 'blob' ? 'pointer' : 'default', transition: 'background 0.15s' }}
+                        onMouseEnter={e => { if (entry.type === 'blob') e.currentTarget.style.background = 'rgba(106,159,216,0.07)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+                        <span style={{ fontSize: '11px', color: entry.type === 'tree' ? '#C9A84C' : 'rgba(212,223,232,0.4)', flexShrink: 0, width: '14px' }}>
+                          {entry.type === 'tree' ? '▸' : '·'}
+                        </span>
+                        <span style={{ fontFamily: 'monospace', fontSize: '12px', color: entry.type === 'tree' ? 'rgba(201,168,76,0.75)' : 'rgba(212,223,232,0.65)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {entry.path}
+                        </span>
+                        {entry.size != null && (
+                          <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'rgba(212,223,232,0.25)', flexShrink: 0 }}>
+                            {entry.size > 1024 ? `${(entry.size / 1024).toFixed(1)}k` : `${entry.size}b`}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* File viewer */}
+              {ghMode === 'file' && !ghLoading && ghFileContent !== null && (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <p style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(106,159,216,0.55)', margin: 0 }}>
+                      {ghFilePath} · {ghFileContent.length.toLocaleString()} chars
+                    </p>
+                    <button onClick={() => navigator.clipboard.writeText(ghFileContent)}
+                      style={{ padding: '4px 10px', background: 'transparent', border: '1px solid rgba(106,159,216,0.2)', borderRadius: '5px', color: 'rgba(106,159,216,0.6)', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: '10px' }}>
+                      Copy
+                    </button>
+                  </div>
+                  <pre style={{ fontFamily: 'monospace', fontSize: '12px', color: 'rgba(212,223,232,0.78)', background: 'rgba(0,0,0,0.35)', padding: '14px', borderRadius: '8px', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '520px', overflowY: 'auto', lineHeight: '1.6', border: '1px solid rgba(106,159,216,0.1)' }}>
+                    {ghFileContent}
+                  </pre>
+                </div>
+              )}
+
+              {/* Loading spinner */}
+              {ghLoading && (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'rgba(106,159,216,0.5)', fontFamily: 'sans-serif', fontSize: '12px' }}>
+                  <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.2, repeat: Infinity }}>
+                    ⟁ Connecting to GitHub...
+                  </motion.span>
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!ghLoading && ghMode === 'repos' && ghRepos.length === 0 && !ghError && (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'rgba(212,223,232,0.25)', fontFamily: 'sans-serif', fontSize: '13px' }}>
+                  Enter an owner / org name and click Browse.
+                </div>
+              )}
+
             </motion.div>
           )}
 
