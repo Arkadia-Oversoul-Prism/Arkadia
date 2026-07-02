@@ -24,6 +24,7 @@ import AICDiagnosticPage from './pages/AICDiagnosticPage';
 import ArkadianPulse from './pages/ArkadianPulse';
 import CEOChat from './pages/CEOChat';
 import SettingsPage from './pages/SettingsPage';
+import SolSpireConsole from './pages/SolSpireConsole';
 
 type View =
   | 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
@@ -40,7 +41,8 @@ type View =
   | 'aic'
   | 'pulse'
   | 'ceo-chat'
-  | 'settings';
+  | 'settings'
+  | 'solspire';
 
 // ─── FIELD PULSE ──────────────────────────────────────────────────────────────
 
@@ -216,6 +218,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
           <PortalDoor label="NovaNet" sub="Living node mesh · Silicon · Transmission · Human Field" color="#6A9FD8" sigil="◉" onClick={() => onNavigate('novanet')} delay={1.28} />
           <PortalDoor label="Distribute" sub="Sovereign music distribution · 100% master ownership" color="#C9A84C" sigil="⟁" onClick={() => onNavigate('distribute')} delay={1.29} />
           <PortalDoor label="CEO Chat" sub="Unified intelligence · Tools · Arkana OS · Task execution" color="#00D4AA" sigil="⟐" onClick={() => onNavigate('ceo-chat')} delay={1.295} />
+          <PortalDoor label="SolSpire Console" sub="Intent · Plan · Execute · Observe · Kernel v0.1 · Milestone 1" color="#C9A84C" sigil="◉" onClick={() => onNavigate('solspire')} delay={1.296} />
           <PortalDoor label="Settings" sub="API key manager · Gemini key rotation · Quota control" color="#C9A84C" sigil="⚙" onClick={() => onNavigate('settings')} delay={1.298} />
           <PortalDoor
             label="Dashboard"
@@ -489,6 +492,12 @@ function AppInner() {
         {view === 'settings' && (
           <motion.div key="settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }} style={wrap}>
             <SettingsPage />
+          </motion.div>
+        )}
+
+        {view === 'solspire' && (
+          <motion.div key="solspire" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+            <SolSpireConsole />
           </motion.div>
         )}
 

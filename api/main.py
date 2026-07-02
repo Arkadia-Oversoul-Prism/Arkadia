@@ -221,6 +221,14 @@ try:
 except Exception as _pulse_err:
     logger.warning(f"[PULSE] Router mount skipped: {_pulse_err}")
 
+# ── SolSpire Console — Milestone 1 Kernel API ────────────────────────────────
+try:
+    from solspire.console_router import router as _solspire_router
+    app.include_router(_solspire_router)
+    logger.info("[SOLSPIRE] Console kernel router mounted at /solspire")
+except Exception as _ss_err:
+    logger.warning(f"[SOLSPIRE] Console router mount skipped: {_ss_err}")
+
 # ── Static file serving (IMS HTML documents, forge images, etc.) ─────────────
 _static_dir = _os.path.join(_os.path.dirname(__file__), "..", "static")
 if _os.path.isdir(_static_dir):
