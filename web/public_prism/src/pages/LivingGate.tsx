@@ -147,50 +147,190 @@ const RESET_STEPS = [
   },
 ];
 
-type BreathPhase = 'inhale' | 'hold' | 'exhale';
+// ── Lyrics for the oracle-reset meditation (7:22 = 442s) ─────────────────────
+// Timestamps are estimates — they auto-sync to the actual audio via timeupdate.
+// Adjust the `t` values here if any line feels early or late.
+
+type LyricType = 'normal' | 'breath' | 'affirmation' | 'count';
+interface ResetLyric { t: number; text: string; type?: LyricType }
+
+const RESET_LYRICS: ResetLyric[] = [
+  { t: 0,   text: 'Welcome.' },
+  { t: 4,   text: 'For the next few minutes, allow yourself to pause.' },
+  { t: 11,  text: 'There is nothing to solve.' },
+  { t: 15,  text: 'Nothing to chase.' },
+  { t: 18,  text: 'Nothing to force.' },
+  { t: 21,  text: 'Simply arrive here.' },
+  { t: 27,  text: 'Take a slow breath in...', type: 'breath' },
+  { t: 35,  text: 'And a longer breath out.', type: 'breath' },
+  { t: 44,  text: 'Again.' },
+  { t: 48,  text: 'Inhale gently...', type: 'breath' },
+  { t: 55,  text: 'Exhale completely.', type: 'breath' },
+  { t: 63,  text: 'One more time.' },
+  { t: 67,  text: 'Breathing in...', type: 'breath' },
+  { t: 74,  text: 'And breathing out.', type: 'breath' },
+  { t: 82,  text: 'Allow your shoulders to soften.' },
+  { t: 87,  text: 'Relax your jaw.' },
+  { t: 91,  text: 'Unclench your hands.' },
+  { t: 95,  text: 'Let your body know that, for this moment, it is safe to slow down.' },
+  { t: 103, text: 'When we are stressed, financial decisions feel heavy.' },
+  { t: 109, text: 'We hesitate.' },
+  { t: 112, text: 'We overthink.' },
+  { t: 115, text: 'We delay.' },
+  { t: 118, text: 'We question our value.' },
+  { t: 122, text: 'But when we are regulated, decisions become simpler.' },
+  { t: 128, text: 'Action becomes easier.' },
+  { t: 132, text: 'Receiving becomes natural.' },
+  { t: 136, text: 'Today, we begin with regulation.' },
+  { t: 142, text: 'Take a slow breath in.', type: 'breath' },
+  { t: 149, text: 'And an even slower breath out.', type: 'breath' },
+  { t: 158, text: 'Again.' },
+  { t: 162, text: 'Inhale.', type: 'breath' },
+  { t: 169, text: 'Exhale.', type: 'breath' },
+  { t: 177, text: 'Allow each exhale to be longer than the inhale.' },
+  { t: 183, text: 'With every breath out, release what you no longer need to carry.' },
+  { t: 191, text: 'Quietly repeat:' },
+  { t: 196, text: 'I release pressure that is not mine to carry.', type: 'affirmation' },
+  { t: 205, text: 'Again.' },
+  { t: 209, text: 'I release pressure that is not mine to carry.', type: 'affirmation' },
+  { t: 218, text: 'And once more.' },
+  { t: 222, text: 'I release pressure that is not mine to carry.', type: 'affirmation' },
+  { t: 231, text: 'Feel your body becoming lighter.' },
+  { t: 237, text: 'Your mind becoming clearer.' },
+  { t: 242, text: 'Your breathing becoming steadier.' },
+  { t: 248, text: 'Now place one hand gently over your upper abdomen.' },
+  { t: 255, text: 'Feel the warmth of your own presence.' },
+  { t: 260, text: 'Feel yourself here.' },
+  { t: 266, text: 'And slowly repeat:' },
+  { t: 271, text: 'My work creates value.', type: 'affirmation' },
+  { t: 278, text: 'My work creates value.', type: 'affirmation' },
+  { t: 284, text: 'My actions create movement.', type: 'affirmation' },
+  { t: 291, text: 'My actions create movement.', type: 'affirmation' },
+  { t: 297, text: 'I am allowed to be paid.', type: 'affirmation' },
+  { t: 304, text: 'I am allowed to be paid.', type: 'affirmation' },
+  { t: 311, text: 'There is no force here.' },
+  { t: 316, text: 'No proving.' },
+  { t: 319, text: 'No chasing.' },
+  { t: 322, text: 'Simply recognition.' },
+  { t: 327, text: 'Your work creates value.' },
+  { t: 332, text: 'Your actions create movement.' },
+  { t: 337, text: 'And movement creates opportunity.' },
+  { t: 342, text: 'Take a deeper breath now.', type: 'breath' },
+  { t: 349, text: 'Feel your posture rise naturally.' },
+  { t: 354, text: 'Not from effort.' },
+  { t: 357, text: 'From certainty.' },
+  { t: 361, text: 'Now we enter the final phase.' },
+  { t: 367, text: 'Receiving.' },
+  { t: 372, text: 'Breathe in for four.', type: 'breath' },
+  { t: 375, text: 'Two...', type: 'count' },
+  { t: 377, text: 'Three...', type: 'count' },
+  { t: 379, text: 'Four...', type: 'count' },
+  { t: 381, text: 'Hold.', type: 'breath' },
+  { t: 383, text: 'Two.', type: 'count' },
+  { t: 385, text: 'And exhale.', type: 'breath' },
+  { t: 387, text: 'Two...', type: 'count' },
+  { t: 389, text: 'Three...', type: 'count' },
+  { t: 391, text: 'Four...', type: 'count' },
+  { t: 393, text: 'Five...', type: 'count' },
+  { t: 395, text: 'Six.', type: 'count' },
+  { t: 397, text: 'Again.' },
+  { t: 400, text: 'Inhale.', type: 'breath' },
+  { t: 402, text: 'Two...', type: 'count' },
+  { t: 404, text: 'Three...', type: 'count' },
+  { t: 406, text: 'Four.', type: 'count' },
+  { t: 408, text: 'Hold.', type: 'breath' },
+  { t: 410, text: 'Two.', type: 'count' },
+  { t: 412, text: 'Exhale.', type: 'breath' },
+  { t: 414, text: 'Two...', type: 'count' },
+  { t: 416, text: 'Three...', type: 'count' },
+  { t: 418, text: 'Four...', type: 'count' },
+  { t: 420, text: 'Five...', type: 'count' },
+  { t: 422, text: 'Six.', type: 'count' },
+  { t: 424, text: 'One final round.' },
+  { t: 427, text: 'Inhale.', type: 'breath' },
+  { t: 429, text: 'Two...', type: 'count' },
+  { t: 431, text: 'Three...', type: 'count' },
+  { t: 433, text: 'Four.', type: 'count' },
+  { t: 435, text: 'Hold.', type: 'breath' },
+  { t: 437, text: 'Two.', type: 'count' },
+  { t: 438, text: 'Exhale.', type: 'breath' },
+  { t: 439, text: 'Two...', type: 'count' },
+  { t: 440, text: 'Three...', type: 'count' },
+  { t: 441, text: 'Four...', type: 'count' },
+  { t: 442, text: 'Five...', type: 'count' },
+  { t: 443, text: 'Six.', type: 'count' },
+  { t: 446, text: 'Good.' },
+  { t: 449, text: 'Notice the calm that is available when you stop fighting yourself.' },
+  { t: 454, text: 'Notice the clarity that appears when pressure leaves.' },
+  { t: 458, text: 'Notice the space that opens when you trust your own value.' },
+  { t: 463, text: 'Remember this:' },
+  { t: 466, text: 'Self-belief creates action.' },
+  { t: 469, text: 'Action creates receiving.' },
+  { t: 472, text: 'Receiving strengthens self-belief.' },
+  { t: 476, text: 'The cycle continues.' },
+  { t: 479, text: 'If momentum feels slow today, keep it simple.' },
+  { t: 483, text: 'One message.' },
+  { t: 485, text: 'One offer.' },
+  { t: 487, text: 'One post.' },
+  { t: 489, text: 'One conversation.' },
+  { t: 491, text: 'One action.' },
+  { t: 493, text: 'Movement creates momentum.' },
+  { t: 496, text: 'Momentum creates opportunity.' },
+  { t: 499, text: 'And opportunity grows through consistent action.' },
+  { t: 503, text: 'Take one final breath in.', type: 'breath' },
+  { t: 508, text: 'And slowly let it go.', type: 'breath' },
+  { t: 514, text: 'As we close, repeat softly:' },
+  { t: 518, text: 'I move.', type: 'affirmation' },
+  { t: 523, text: 'Money moves with me.', type: 'affirmation' },
+  { t: 528, text: 'Again.' },
+  { t: 531, text: 'I move.', type: 'affirmation' },
+  { t: 535, text: 'Money moves with me.', type: 'affirmation' },
+  { t: 540, text: 'One last time.' },
+  { t: 543, text: 'I move.', type: 'affirmation' },
+  { t: 547, text: 'Money moves with me.', type: 'affirmation' },
+  { t: 553, text: 'Carry this feeling with you.' },
+  { t: 557, text: 'Clear.' },
+  { t: 560, text: 'Grounded.' },
+  { t: 563, text: 'Open.' },
+  { t: 566, text: 'Ready to act.' },
+  { t: 569, text: 'Ready to receive.' },
+  { t: 572, text: 'And ready to move forward.' },
+  { t: 578, text: 'When you are ready, gently open your eyes.' },
+  { t: 584, text: 'And begin.' },
+];
 
 function ResetStep({ onComplete }: { onComplete: () => void }) {
-  // Inner reset tab (Regulate / Reclaim / Receive) — user can click OR audio drives it
-  const [step, setStep]             = useState(0);
-  const [manualStep, setManualStep] = useState(false); // true when user tapped a tab
-
-  const [playing, setPlaying]           = useState(false);
-  const [audioDuration, setAudioDuration] = useState(300);
-  const [audioTime, setAudioTime]       = useState(0);
-  const [audioReady, setAudioReady]     = useState(false);
+  const [playing, setPlaying]             = useState(false);
+  const [audioDuration, setAudioDuration] = useState(442);
+  const [audioTime, setAudioTime]         = useState(0);
   const [audioFinished, setAudioFinished] = useState(false);
-  const [audioError, setAudioError]     = useState(false);
 
   const voiceRef      = useRef<HTMLAudioElement | null>(null);
   const ambientRef    = useRef<HTMLAudioElement | null>(null);
-  // Keep a stable ref to onComplete so the audio event listener never goes stale
   const onCompleteRef = useRef(onComplete);
+  const scrollRef     = useRef<HTMLDivElement>(null);
+  const lineRefs      = useRef<(HTMLDivElement | null)[]>([]);
+
   useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
 
-  // Initialise audio elements exactly once
   useEffect(() => {
     const voice   = new Audio('/oracle-reset.mp3');
     const ambient = new Audio('/oracle-ambient.mp3');
-    ambient.loop   = true;
-    ambient.volume = 0.22;
-    voice.preload  = 'auto';
+    ambient.loop    = true;
+    ambient.volume  = 0.22;
+    voice.preload   = 'auto';
     ambient.preload = 'auto';
 
     voice.addEventListener('loadedmetadata', () => {
-      setAudioDuration(voice.duration > 0 ? voice.duration : 300);
-      setAudioReady(true);
+      setAudioDuration(voice.duration > 0 ? voice.duration : 442);
     });
     voice.addEventListener('timeupdate', () => setAudioTime(voice.currentTime));
     voice.addEventListener('ended', () => {
-      // Audio finished — mark done but do NOT auto-navigate; let the user press the CTA
       setPlaying(false);
       setAudioFinished(true);
       ambient.pause();
     });
-    voice.addEventListener('error', () => {
-      setAudioError(true);
-      setAudioReady(true); // still show the UI
-    });
+    voice.addEventListener('error', () => {}); // silent — UI still usable
 
     voiceRef.current   = voice;
     ambientRef.current = ambient;
@@ -201,8 +341,7 @@ function ResetStep({ onComplete }: { onComplete: () => void }) {
     const voice   = voiceRef.current!;
     const ambient = ambientRef.current!;
     if (playing) {
-      voice.pause(); ambient.pause();
-      setPlaying(false);
+      voice.pause(); ambient.pause(); setPlaying(false);
     } else {
       voice.play().catch(() => {});
       ambient.play().catch(() => {});
@@ -210,227 +349,198 @@ function ResetStep({ onComplete }: { onComplete: () => void }) {
     }
   };
 
-  const pct       = audioDuration > 0 ? (audioTime / audioDuration) * 100 : 0;
-  const remaining = Math.max(0, audioDuration - audioTime);
+  // Active lyric index
+  const activeIdx = RESET_LYRICS.reduce((acc, line, i) => line.t <= audioTime ? i : acc, 0);
+  const activeLine = RESET_LYRICS[activeIdx];
 
-  // Audio-driven tab advance — only when user hasn't manually selected a tab
+  // Scroll active line to centre
   useEffect(() => {
-    if (manualStep) return;
-    const dur = audioDuration;
-    const t1  = dur * 0.40; // ~40% = Regulate → Reclaim
-    const t2  = dur * 0.80; // ~80% = Reclaim  → Receive
-    if      (audioTime >= t2) setStep(2);
-    else if (audioTime >= t1) setStep(1);
-    else                      setStep(0);
-  }, [Math.floor(audioTime / 5), manualStep, audioDuration]);
+    const container = scrollRef.current;
+    const el = lineRefs.current[activeIdx];
+    if (!container || !el) return;
+    const target = el.offsetTop - container.clientHeight / 2 + el.offsetHeight / 2;
+    container.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+  }, [activeIdx]);
 
-  const handleTabClick = (i: number) => {
-    setStep(i);
-    setManualStep(true);
-    // If audio is loaded, seek to that segment
-    if (voiceRef.current && audioDuration > 0) {
-      const starts = [0, audioDuration * 0.40, audioDuration * 0.80];
-      voiceRef.current.currentTime = starts[i];
-      setManualStep(false); // hand control back to audio after seek
-    }
-  };
-
-  // Breathing cycle for step 3
-  const [breathPhase, setBreathPhase] = useState<BreathPhase>('inhale');
-  const breathTimer = useRef<any>(null);
-  useEffect(() => {
-    if (step !== 2) return;
-    const cycle = () => {
-      setBreathPhase('inhale');
-      breathTimer.current = setTimeout(() => {
-        setBreathPhase('hold');
-        breathTimer.current = setTimeout(() => {
-          setBreathPhase('exhale');
-          breathTimer.current = setTimeout(cycle, 6000);
-        }, 2000);
-      }, 4000);
-    };
-    cycle();
-    return () => clearTimeout(breathTimer.current);
-  }, [step]);
-
-  const rs = RESET_STEPS[step];
+  const pct = audioDuration > 0 ? (audioTime / audioDuration) * 100 : 0;
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ maxWidth: 520, margin: '0 auto' }}>
-
-      {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.35em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.45)', marginBottom: 6 }}>
-          5-Minute Field Reset
-        </p>
-        <h2 style={{ fontFamily: '"Cinzel", serif', fontSize: 22, color: '#00D4AA', margin: '0 0 4px', letterSpacing: '0.1em' }}>
-          Regulate. Reclaim. Receive.
-        </h2>
-        <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.35)', margin: 0 }}>
-          Restore clarity before your identity measurement
-        </p>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      style={{ maxWidth: 520, margin: '0 auto', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 180px)', minHeight: 500 }}
+    >
+      {/* Tiny header badge */}
+      <div style={{ textAlign: 'center', marginBottom: 12, flexShrink: 0 }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+          <motion.div
+            animate={{ opacity: [0.4, 1, 0.4] }}
+            transition={{ duration: playing ? 2 : 99, repeat: Infinity }}
+            style={{ width: 5, height: 5, borderRadius: '50%', background: '#00D4AA', boxShadow: '0 0 5px #00D4AA' }}
+          />
+          <span style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.35)' }}>
+            {playing ? 'Field Calibration Active' : 'Field Calibration · 7 min'}
+          </span>
+        </div>
       </div>
 
-      {/* Audio player */}
-      <div style={{ marginBottom: 22, padding: '14px 18px', background: 'rgba(0,212,170,0.04)', border: '1px solid rgba(0,212,170,0.14)', borderRadius: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          {/* Play/pause */}
-          <button onClick={togglePlay}
-            style={{ width: 44, height: 44, borderRadius: '50%', border: `1px solid ${playing ? 'rgba(0,212,170,0.55)' : 'rgba(0,212,170,0.28)'}`, background: playing ? 'rgba(0,212,170,0.12)' : 'rgba(0,212,170,0.04)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.2s' }}>
+      {/* ── Lyrics scroll ── */}
+      <div
+        ref={scrollRef}
+        className="hide-scrollbar"
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          paddingTop: '35%',
+          paddingBottom: '35%',
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
+        {RESET_LYRICS.map((line, i) => {
+          const dist     = i - activeIdx;
+          const isActive = dist === 0;
+          const isNear   = Math.abs(dist) === 1;
+          const isFar    = Math.abs(dist) === 2;
+          const type     = line.type;
+
+          let color = '#EAEAEA';
+          if (type === 'breath')      color = '#00D4AA';
+          if (type === 'affirmation') color = '#C9A84C';
+          if (type === 'count')       color = '#B08DE8';
+
+          const opacity  = isActive ? 1 : isNear ? 0.22 : isFar ? 0.1 : 0.04;
+          const fontSize = isActive ? (type === 'count' ? 26 : 21) : isNear ? 14 : 12;
+
+          return (
+            <div
+              key={i}
+              ref={el => { lineRefs.current[i] = el; }}
+              style={{ padding: `${isActive ? 9 : 4}px 20px`, textAlign: 'center' }}
+            >
+              <motion.p
+                animate={{ opacity, fontSize }}
+                transition={{ duration: 0.45, ease: 'easeOut' }}
+                style={{
+                  fontFamily: type === 'count' ? 'ui-monospace, monospace' : 'serif',
+                  color,
+                  margin: '0 auto',
+                  lineHeight: 1.4,
+                  letterSpacing: isActive ? '0.04em' : '0.01em',
+                  maxWidth: 480,
+                  cursor: 'default',
+                  userSelect: 'none',
+                }}
+              >
+                {line.text}
+              </motion.p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── Bottom controls ── */}
+      <div style={{ flexShrink: 0, paddingTop: 14 }}>
+
+        {/* Progress bar */}
+        <div
+          style={{ marginBottom: 10, cursor: 'pointer' }}
+          onClick={e => {
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            const t = ((e.clientX - rect.left) / rect.width) * audioDuration;
+            if (voiceRef.current) voiceRef.current.currentTime = t;
+          }}
+        >
+          <div style={{ height: 2, background: 'rgba(255,255,255,0.07)', borderRadius: 1 }}>
+            <motion.div
+              animate={{ width: `${pct}%` }}
+              transition={{ duration: 0.35, ease: 'linear' }}
+              style={{
+                height: '100%',
+                borderRadius: 1,
+                background: activeLine?.type === 'affirmation' ? '#C9A84C'
+                  : activeLine?.type === 'breath' ? '#00D4AA'
+                  : activeLine?.type === 'count' ? '#B08DE8'
+                  : 'rgba(232,232,232,0.45)',
+                transition: 'background 1.2s ease',
+              }}
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(232,232,232,0.18)' }}>
+              {fmt(Math.floor(audioTime))}
+            </span>
+            <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(232,232,232,0.18)' }}>
+              {fmt(Math.floor(audioDuration))}
+            </span>
+          </div>
+        </div>
+
+        {/* Play / pause */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+          <motion.button
+            onClick={togglePlay}
+            whileTap={{ scale: 0.92 }}
+            style={{
+              width: 50, height: 50, borderRadius: '50%',
+              background: 'rgba(255,255,255,0.04)',
+              border: `1px solid ${playing ? 'rgba(0,212,170,0.35)' : 'rgba(255,255,255,0.1)'}`,
+              color: playing ? '#00D4AA' : 'rgba(232,232,232,0.7)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', transition: 'border-color 0.3s, color 0.3s',
+            }}
+          >
             {playing ? (
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="#00D4AA">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
                 <rect x="2" y="2" width="3.5" height="10" rx="1"/>
                 <rect x="8.5" y="2" width="3.5" height="10" rx="1"/>
               </svg>
             ) : (
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="#00D4AA">
-                <polygon points="3,2 12,7 3,12"/>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                <path d="M3 2l9 5-9 5V2z"/>
               </svg>
             )}
-          </button>
-
-          <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-              <span style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: playing ? '#00D4AA' : 'rgba(0,212,170,0.45)' }}>
-                {playing ? 'Oracle Speaking' : audioReady ? 'Oracle Ready' : 'Loading…'}
-              </span>
-              <span style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(0,212,170,0.4)', letterSpacing: '0.06em' }}>
-                {fmt(Math.floor(remaining))} left
-              </span>
-            </div>
-            {/* Progress bar — clickable scrub */}
-            <div style={{ height: 3, background: 'rgba(0,212,170,0.1)', borderRadius: 3, overflow: 'hidden', cursor: 'pointer' }}
-              onClick={e => {
-                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                const ratio = (e.clientX - rect.left) / rect.width;
-                if (voiceRef.current) voiceRef.current.currentTime = ratio * audioDuration;
-              }}>
-              <motion.div animate={{ width: `${pct}%` }} transition={{ duration: 0.4 }}
-                style={{ height: '100%', background: 'linear-gradient(90deg, #00D4AA, rgba(0,212,170,0.5))', borderRadius: 3 }} />
-            </div>
-          </div>
-
-          {/* Volume for ambient */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="rgba(0,212,170,0.35)">
-              <path d="M2 4.5v3h2l3 2.5V2L4 4.5H2z"/>
-              <path d="M8.5 2.5a4 4 0 010 7" stroke="rgba(0,212,170,0.35)" strokeWidth="1" fill="none"/>
-            </svg>
-            <span style={{ fontFamily: 'sans-serif', fontSize: 7, color: 'rgba(0,212,170,0.3)', letterSpacing: '0.08em' }}>AMB</span>
-          </div>
+          </motion.button>
         </div>
-      </div>
 
-      {/* Step tabs — clickable to jump + seek audio */}
-      <div style={{ display: 'flex', gap: 5, marginBottom: 18 }}>
-        {RESET_STEPS.map((s, i) => (
-          <button key={i} onClick={() => handleTabClick(i)}
-            style={{ flex: 1, padding: '8px 6px', background: step === i ? `${s.color}15` : 'rgba(255,255,255,0.02)', border: `1px solid ${step === i ? `${s.color}44` : 'rgba(255,255,255,0.07)'}`, borderRadius: 8, cursor: 'pointer', transition: 'all 0.18s' }}>
-            <p style={{ fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.2em', textTransform: 'uppercase', color: step === i ? s.color : 'rgba(232,232,232,0.3)', margin: '0 0 2px' }}>{s.num}.</p>
-            <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: step === i ? s.color : 'rgba(232,232,232,0.35)', margin: '0 0 1px', fontWeight: step === i ? 500 : 400 }}>{s.title}</p>
-            <p style={{ fontFamily: 'sans-serif', fontSize: 8, color: 'rgba(232,232,232,0.22)', margin: 0 }}>{s.duration}</p>
-          </button>
-        ))}
-      </div>
-
-      {/* Active step content */}
-      <AnimatePresence mode="wait">
-        <motion.div key={step} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}>
-          <div style={{ padding: '20px', background: `${rs.color}08`, border: `1px solid ${rs.color}22`, borderRadius: 12, marginBottom: 14 }}>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <span style={{ fontSize: 18, color: rs.color }}>{rs.icon}</span>
-              <div>
-                <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: `${rs.color}88`, margin: '0 0 2px' }}>Step {rs.num} of 3 · {rs.duration}</p>
-                <h3 style={{ fontFamily: '"Cinzel", serif', fontSize: 18, color: rs.color, margin: 0, letterSpacing: '0.08em' }}>{rs.title}</h3>
-              </div>
-            </div>
-
-            {/* Breathing circle for steps 1 and 3 */}
-            {(step === 0 || step === 2) && (
-              <div style={{ marginBottom: 18 }}>
-                <BreathingCircle phase={step === 2 ? breathPhase : 'exhale'} />
-                {step === 2 && (
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: 18, marginTop: 10 }}>
-                    {[['Inhale', 4], ['Hold', 2], ['Exhale', 6]].map(([label, n]) => (
-                      <div key={label as string} style={{ textAlign: 'center' }}>
-                        <p style={{ fontFamily: 'sans-serif', fontSize: 16, color: '#B08DE8', margin: '0 0 2px' }}>{n}</p>
-                        <p style={{ fontFamily: 'sans-serif', fontSize: 8, color: 'rgba(232,232,232,0.3)', margin: 0, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{label}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <p style={{ fontFamily: 'sans-serif', fontSize: 12, color: 'rgba(232,232,232,0.62)', lineHeight: '1.8', margin: '0 0 14px', whiteSpace: 'pre-line' }}>
-              {rs.body}
-            </p>
-
-            {/* Affirmations for step 2 */}
-            {rs.affirmations && (
-              <div style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {rs.affirmations.map((a, i) => (
-                  <motion.div key={a} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.2 }}
-                    style={{ padding: '10px 16px', background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 8 }}>
-                    <p style={{ fontFamily: 'serif', fontSize: 13, color: '#C9A84C', margin: 0, letterSpacing: '0.02em' }}>{a}</p>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-
-            {/* Anchor phrase */}
-            {rs.anchor && (
-              <div style={{ padding: '11px 16px', background: 'rgba(0,0,0,0.3)', border: `1px solid ${rs.color}22`, borderRadius: 8, marginBottom: 12 }}>
-                <p style={{ fontFamily: 'serif', fontSize: 13, color: rs.color, margin: 0, fontStyle: 'italic', letterSpacing: '0.02em' }}>{rs.anchor}</p>
-              </div>
-            )}
-
-            {/* Science note */}
-            {rs.science && (
-              <p style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(232,232,232,0.28)', lineHeight: '1.65', margin: 0, borderTop: `1px solid ${rs.color}18`, paddingTop: 10 }}>
-                {rs.science}
+        {/* CTA after audio finishes */}
+        <AnimatePresence>
+          {audioFinished && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+              style={{ marginBottom: 12, padding: '16px 20px', background: 'linear-gradient(135deg, rgba(0,212,170,0.1), rgba(0,212,170,0.04))', border: '1px solid rgba(0,212,170,0.45)', borderRadius: 10, textAlign: 'center' }}
+            >
+              <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.55)', margin: '0 0 10px' }}>
+                Reset Complete
               </p>
-            )}
-          </div>
-        </motion.div>
-      </AnimatePresence>
+              <button
+                onClick={() => onCompleteRef.current()}
+                style={{ width: '100%', padding: '13px', background: 'rgba(0,212,170,0.1)', border: '1px solid rgba(0,212,170,0.5)', borderRadius: 8, color: '#00D4AA', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer' }}
+              >
+                ⟐ Begin Diagnostic
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-      {/* CTA — prominent after audio finishes; available to skip at any time */}
-      <AnimatePresence>
-        {audioFinished && (
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
-            style={{ marginBottom: 14, padding: '18px 20px', background: 'linear-gradient(135deg, rgba(0,212,170,0.1), rgba(0,212,170,0.04))', border: '1px solid rgba(0,212,170,0.45)', borderRadius: 12, textAlign: 'center', boxShadow: '0 0 28px rgba(0,212,170,0.08)' }}>
-            <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.55)', margin: '0 0 10px' }}>
-              Reset Complete
-            </p>
-            <button onClick={() => onCompleteRef.current()}
-              style={{ width: '100%', padding: '14px', background: 'rgba(0,212,170,0.1)', border: '1px solid rgba(0,212,170,0.5)', borderRadius: 9, color: '#00D4AA', fontFamily: 'sans-serif', fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer' }}>
-              ⟐ Begin Diagnostic
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {!audioFinished && (
-        <div style={{ marginBottom: 14, display: 'flex', gap: 8 }}>
-          {/* Only show Begin Diagnostic if audio hasn't started yet (allow skip before playing) */}
-          {!playing && audioTime === 0 && (
-            <button onClick={() => onCompleteRef.current()}
-              style={{ flex: 1, padding: '12px 18px', background: 'rgba(0,212,170,0.04)', border: '1px solid rgba(0,212,170,0.2)', borderRadius: 9, color: 'rgba(0,212,170,0.5)', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer' }}>
+        {/* Skip links */}
+        <div style={{ textAlign: 'center', paddingBottom: 8 }}>
+          {!playing && audioTime === 0 && !audioFinished && (
+            <button
+              onClick={() => onCompleteRef.current()}
+              style={{ background: 'none', border: 'none', color: 'rgba(232,232,232,0.2)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', cursor: 'pointer' }}
+            >
               Skip Reset → Begin Diagnostic
             </button>
           )}
+          {(playing || audioTime > 0) && !audioFinished && (
+            <button
+              onClick={() => onCompleteRef.current()}
+              style={{ background: 'none', border: 'none', color: 'rgba(232,232,232,0.12)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', cursor: 'pointer' }}
+            >
+              Skip — go to diagnostic
+            </button>
+          )}
         </div>
-      )}
-
-      <div style={{ textAlign: 'center', marginBottom: 8 }}>
-        {(playing || audioTime > 0) && !audioFinished && (
-          <button onClick={() => onCompleteRef.current()} style={{ background: 'none', border: 'none', color: 'rgba(232,232,232,0.18)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', cursor: 'pointer' }}>
-            Skip — go to diagnostic
-          </button>
-        )}
       </div>
     </motion.div>
   );
