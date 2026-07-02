@@ -395,6 +395,269 @@ async def console_status() -> dict[str, Any]:
     }
 
 
+# ── Project Sub-Resources ──────────────────────────────────────────────────────
+
+class UpdateProjectRequest(BaseModel):
+    name: str | None = None
+    status: str | None = None
+    description: str | None = None
+
+class CreateConversationRequest(BaseModel):
+    title: str = "Untitled"
+
+class AppendMessageRequest(BaseModel):
+    role: str = "user"
+    content: str
+
+class CreateFileRequest(BaseModel):
+    name: str
+    content: str = ""
+    mime_type: str = "text/plain"
+
+class UpdateFileRequest(BaseModel):
+    content: str
+    name: str | None = None
+
+class LinkRepoRequest(BaseModel):
+    owner: str
+    repo: str
+    branch: str = "main"
+    label: str = ""
+
+class CreateTaskRequest(BaseModel):
+    title: str
+    description: str = ""
+    assigned_to: str = ""
+    priority: str = "normal"
+
+class UpdateTaskRequest(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    status: str | None = None
+    assigned_to: str | None = None
+    priority: str | None = None
+
+class AddMemoryRequest(BaseModel):
+    title: str
+    content: str
+    tags: list[str] = []
+
+class UpdateMemoryRequest(BaseModel):
+    title: str | None = None
+    content: str | None = None
+    tags: list[str] | None = None
+
+class ProjectRunRequest(BaseModel):
+    request: str
+    provider: str | None = None
+
+
+@router.put("/projects/{project_id}")
+async def update_project(project_id: str, body: UpdateProjectRequest) -> dict[str, Any]:
+    import time, sqlite3, os
+    db_path = os.environ.get("SOLSPIRE_PROJECTS_DB", "data/solspire_projects.db")
+    fields, vals = [], []
+    if body.name is not None:
+        fields.append("name=?"); vals.append(body.name.strip())
+    if body.status is not None:
+        fields.append("status=?"); vals.append(body.status)
+    if body.description is not None:
+        import json
+        from solspire.project_manager import get_project_manager
+        p = get_project_manager().load(project_id)
+        p.metadata["description"] = body.description
+        fields.append("metadata=?"); vals.append(json.dumps(p.metadata))
+    if not fields:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    fields.append("updated_at=?"); vals.append(time.time()); vals.append(project_id)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(f"UPDATE projects SET {', '.join(fields)} WHERE id=?", vals)
+    return {"ok": True}
+
+
+@router.get("/projects/{project_id}/conversations")
+async def project_list_conversations(project_id: str) -> dict[str, Any]:
+    from solspire.project_store import list_conversations
+    items = list_conversations(project_id)
+    return {"conversations": items, "count": len(items)}
+
+
+@router.post("/projects/{project_id}/conversations")
+async def project_create_conversation(project_id: str, body: CreateConversationRequest) -> dict[str, Any]:
+    from solspire.project_store import create_conversation
+    return create_conversation(project_id, body.title)
+
+
+@router.delete("/projects/{project_id}/conversations/{conv_id}")
+async def project_archive_conversation(project_id: str, conv_id: str) -> dict[str, Any]:
+    from solspire.project_store import archive_conversation
+    archive_conversation(conv_id)
+    return {"ok": True}
+
+
+@router.post("/projects/{project_id}/conversations/{conv_id}/messages")
+async def project_append_message(project_id: str, conv_id: str, body: AppendMessageRequest) -> dict[str, Any]:
+    from solspire.project_store import append_message
+    return append_message(conv_id, body.role, body.content)
+
+
+@router.get("/projects/{project_id}/files")
+async def project_list_files(project_id: str) -> dict[str, Any]:
+    from solspire.project_store import list_files
+    return {"files": list_files(project_id)}
+
+
+@router.post("/projects/{project_id}/files")
+async def project_create_file(project_id: str, body: CreateFileRequest) -> dict[str, Any]:
+    from solspire.project_store import create_file
+    return create_file(project_id, body.name, body.content, body.mime_type)
+
+
+@router.get("/projects/{project_id}/files/{file_id}")
+async def project_get_file(project_id: str, file_id: str) -> dict[str, Any]:
+    from solspire.project_store import get_file
+    f = get_file(file_id)
+    if not f:
+        raise HTTPException(status_code=404, detail="File not found")
+    return f
+
+
+@router.put("/projects/{project_id}/files/{file_id}")
+async def project_update_file(project_id: str, file_id: str, body: UpdateFileRequest) -> dict[str, Any]:
+    from solspire.project_store import update_file
+    return update_file(file_id, body.content, body.name)
+
+
+@router.delete("/projects/{project_id}/files/{file_id}")
+async def project_delete_file(project_id: str, file_id: str) -> dict[str, Any]:
+    from solspire.project_store import delete_file
+    if not delete_file(file_id):
+        raise HTTPException(status_code=404, detail="File not found")
+    return {"ok": True}
+
+
+@router.get("/projects/{project_id}/repositories")
+async def project_list_repos(project_id: str) -> dict[str, Any]:
+    from solspire.project_store import list_repositories
+    return {"repositories": list_repositories(project_id)}
+
+
+@router.post("/projects/{project_id}/repositories")
+async def project_link_repo(project_id: str, body: LinkRepoRequest) -> dict[str, Any]:
+    from solspire.project_store import link_repository
+    return link_repository(project_id, body.owner, body.repo, body.branch, body.label)
+
+
+@router.delete("/projects/{project_id}/repositories/{repo_id}")
+async def project_unlink_repo(project_id: str, repo_id: str) -> dict[str, Any]:
+    from solspire.project_store import unlink_repository
+    if not unlink_repository(repo_id):
+        raise HTTPException(status_code=404, detail="Repository not found")
+    return {"ok": True}
+
+
+@router.get("/projects/{project_id}/tasks")
+async def project_list_tasks(project_id: str, status: str | None = None) -> dict[str, Any]:
+    from solspire.project_store import list_tasks
+    return {"tasks": list_tasks(project_id, status)}
+
+
+@router.post("/projects/{project_id}/tasks")
+async def project_create_task(project_id: str, body: CreateTaskRequest) -> dict[str, Any]:
+    from solspire.project_store import create_task
+    return create_task(project_id, body.title, body.description, body.assigned_to, body.priority)
+
+
+@router.put("/projects/{project_id}/tasks/{task_id}")
+async def project_update_task(project_id: str, task_id: str, body: UpdateTaskRequest) -> dict[str, Any]:
+    from solspire.project_store import update_task
+    return update_task(task_id, title=body.title, description=body.description,
+                       status=body.status, assigned_to=body.assigned_to, priority=body.priority)
+
+
+@router.delete("/projects/{project_id}/tasks/{task_id}")
+async def project_delete_task(project_id: str, task_id: str) -> dict[str, Any]:
+    from solspire.project_store import delete_task
+    if not delete_task(task_id):
+        raise HTTPException(status_code=404, detail="Task not found")
+    return {"ok": True}
+
+
+@router.get("/projects/{project_id}/memory")
+async def project_list_memory(project_id: str, q: str = "") -> dict[str, Any]:
+    from solspire.project_store import list_memory
+    return {"memory": list_memory(project_id, q)}
+
+
+@router.post("/projects/{project_id}/memory")
+async def project_add_memory(project_id: str, body: AddMemoryRequest) -> dict[str, Any]:
+    from solspire.project_store import add_memory
+    return add_memory(project_id, body.title, body.content, body.tags)
+
+
+@router.put("/projects/{project_id}/memory/{mem_id}")
+async def project_update_memory(project_id: str, mem_id: str, body: UpdateMemoryRequest) -> dict[str, Any]:
+    from solspire.project_store import update_memory
+    return update_memory(mem_id, body.title, body.content, body.tags)
+
+
+@router.delete("/projects/{project_id}/memory/{mem_id}")
+async def project_delete_memory(project_id: str, mem_id: str) -> dict[str, Any]:
+    from solspire.project_store import delete_memory
+    if not delete_memory(mem_id):
+        raise HTTPException(status_code=404, detail="Memory entry not found")
+    return {"ok": True}
+
+
+@router.get("/projects/{project_id}/events")
+async def project_list_events(project_id: str, event_type: str | None = None) -> dict[str, Any]:
+    from solspire.project_store import list_events
+    return {"events": list_events(project_id, event_type)}
+
+
+@router.post("/projects/{project_id}/run")
+async def project_run(project_id: str, body: RunRequest) -> dict[str, Any]:
+    """Run an intent in the context of a project — logs an event on completion."""
+    import time as _time
+    from solspire.provider_manager import get_manager
+    from solspire.intent_router import get_router
+    from solspire.planner import get_planner
+    from solspire.execution_runtime import get_runtime, ExecutionStatus
+    from solspire.project_store import log_event
+
+    started = _time.time()
+    if body.provider:
+        try:
+            get_manager().select_provider(body.provider)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    intent = get_router().classify(body.request)
+    plan = get_planner().create_plan(body.request, intent)
+    if not get_planner().validate_plan(plan):
+        raise HTTPException(status_code=422, detail="Invalid plan")
+
+    execution = get_runtime().execute(plan)
+    deadline = _time.time() + 60
+    while _time.time() < deadline:
+        if execution.status not in (ExecutionStatus.RUNNING, ExecutionStatus.PAUSED):
+            break
+        _time.sleep(0.25)
+
+    elapsed = round((_time.time() - started) * 1000)
+    log_event(project_id, "workflow_run",
+              f"⟐ {intent.value}: {body.request[:80]}",
+              {"status": execution.status.value, "elapsed_ms": elapsed})
+
+    return {
+        "ok": execution.status.value == "completed",
+        "intent": intent.value,
+        "plan": plan.to_dict(),
+        "execution": execution.to_dict(),
+        "elapsed_ms": elapsed,
+    }
+
+
 def _count_by_status(execs: list[dict[str, Any]]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for ex in execs:
