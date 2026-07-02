@@ -72,6 +72,29 @@ class GithubReadRequest(BaseModel):
     path: str
     branch: str = "main"
 
+class GithubCommitRequest(BaseModel):
+    owner: str
+    repo: str
+    path: str
+    content: str
+    message: str = ""
+    branch: str = "main"
+
+class AddKeyRequest(BaseModel):
+    provider: str
+    label: str = ""
+    key: str
+
+class SetActiveKeyRequest(BaseModel):
+    key_id: str
+
+class SetModelRequest(BaseModel):
+    provider: str
+    model: str
+
+class SetFallbackRequest(BaseModel):
+    enabled: bool
+
 
 # ── End-to-end run ─────────────────────────────────────────────────────────
 
@@ -262,6 +285,74 @@ async def github_tree(body: GithubTreeRequest) -> dict[str, Any]:
 async def github_read(body: GithubReadRequest) -> dict[str, Any]:
     from solspire.tools_github import read_file
     return read_file(body.owner, body.repo, body.path, body.branch)
+
+
+@router.post("/tools/github/commit")
+async def github_commit(body: GithubCommitRequest) -> dict[str, Any]:
+    from solspire.tools_github import commit_file
+    return commit_file(body.owner, body.repo, body.path, body.content, body.message, body.branch)
+
+
+# ── Provider Key Management ─────────────────────────────────────────────────
+
+@router.get("/providers/keys")
+async def list_provider_keys(provider: str | None = None) -> dict[str, Any]:
+    from solspire.provider_manager import get_manager
+    m = get_manager()
+    return {
+        "keys": m.list_keys(provider),
+        "models": m.get_models(),
+        "auto_fallback": m.get_auto_fallback(),
+    }
+
+
+@router.post("/providers/keys")
+async def add_provider_key(body: AddKeyRequest) -> dict[str, Any]:
+    from solspire.provider_manager import get_manager
+    try:
+        key_id = get_manager().add_key(body.provider, body.label, body.key)
+        return {"ok": True, "key_id": key_id}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/providers/keys/{key_id}")
+async def delete_provider_key(key_id: str) -> dict[str, Any]:
+    from solspire.provider_manager import get_manager
+    removed = get_manager().remove_key(key_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Key not found")
+    return {"ok": True}
+
+
+@router.post("/providers/keys/{key_id}/activate")
+async def activate_provider_key(key_id: str) -> dict[str, Any]:
+    from solspire.provider_manager import get_manager
+    m = get_manager()
+    # Find provider for this key
+    all_keys = m.list_keys()
+    entry = next((k for k in all_keys if k["id"] == key_id), None)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Key not found")
+    ok = m.set_active_key(entry["provider"], key_id)
+    return {"ok": ok}
+
+
+@router.post("/providers/model")
+async def set_provider_model(body: SetModelRequest) -> dict[str, Any]:
+    from solspire.provider_manager import get_manager
+    try:
+        get_manager().set_model(body.provider, body.model)
+        return {"ok": True, "provider": body.provider, "model": body.model}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/providers/fallback")
+async def set_auto_fallback(body: SetFallbackRequest) -> dict[str, Any]:
+    from solspire.provider_manager import get_manager
+    get_manager().set_auto_fallback(body.enabled)
+    return {"ok": True, "auto_fallback": body.enabled}
 
 
 # ── Status ─────────────────────────────────────────────────────────────────

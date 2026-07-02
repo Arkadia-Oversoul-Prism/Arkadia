@@ -76,6 +76,53 @@ def read_file(owner: str, repo: str, path: str, branch: str = "main") -> dict[st
         return {"ok": False, "error": str(e)}
 
 
+def commit_file(owner: str, repo: str, path: str, content: str,
+                message: str, branch: str = "main") -> dict[str, Any]:
+    """Create or update a file via the GitHub Contents API.
+
+    Requires GITHUB_TOKEN with repo write scope.
+    Automatically fetches the current file SHA when updating an existing file.
+    """
+    import base64
+    try:
+        contents_url = f"{_API}/repos/{owner}/{repo}/contents/{path}"
+        sha: str | None = None
+
+        # Fetch existing SHA (needed for update; absent for create)
+        existing = httpx.get(contents_url, headers=_headers(),
+                             params={"ref": branch}, timeout=_TIMEOUT)
+        if existing.status_code == 200:
+            sha = existing.json().get("sha")
+        elif existing.status_code not in (404,):
+            return {"ok": False, "error": f"GitHub {existing.status_code}: {existing.text[:200]}"}
+
+        encoded = base64.b64encode(content.encode()).decode()
+        payload: dict[str, Any] = {
+            "message": message or f"chore: update {path}",
+            "content": encoded,
+            "branch": branch,
+        }
+        if sha:
+            payload["sha"] = sha
+
+        resp = httpx.put(contents_url, headers=_headers(), json=payload, timeout=_TIMEOUT)
+        if resp.status_code not in (200, 201):
+            return {"ok": False, "error": f"GitHub {resp.status_code}: {resp.text[:300]}"}
+
+        action = "updated" if sha else "created"
+        return {
+            "ok": True,
+            "action": action,
+            "path": path,
+            "branch": branch,
+            "commit_sha": resp.json().get("commit", {}).get("sha", ""),
+            "html_url": resp.json().get("content", {}).get("html_url", ""),
+        }
+    except Exception as e:
+        logger.error("tools_github.commit_file error: %s", e)
+        return {"ok": False, "error": str(e)}
+
+
 def get_repo_info(owner: str, repo: str) -> dict[str, Any]:
     try:
         url = f"{_API}/repos/{owner}/{repo}"
