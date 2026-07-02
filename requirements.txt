@@ -39,3 +39,15 @@ python-docx
 python-multipart
 requests
 uvicorn[standard]
+beautifulsoup4
+edge-tts
+fastapi
+firebase-admin
+google-generativeai
+httpx
+pdfminer.six
+pydantic
+python-docx
+python-multipart
+requests
+uvicorn

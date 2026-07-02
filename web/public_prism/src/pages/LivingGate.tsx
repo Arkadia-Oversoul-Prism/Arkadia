@@ -349,6 +349,76 @@ function ResetStep({ onComplete }: { onComplete: () => void }) {
     }
   };
 
+  // ── Calibration mode — tap-mark exact timestamps against the real audio ────
+  const [calibrating, setCalibrating]         = useState(false);
+  const [calibrateIdx, setCalibrateIdx]       = useState(0);
+  const [calibratedTimes, setCalibratedTimes] = useState<(number | null)[]>(() => RESET_LYRICS.map(() => null));
+  const [showExport, setShowExport]           = useState(false);
+  const [copied, setCopied]                   = useState(false);
+
+  const startCalibration = () => {
+    setCalibrating(true);
+    setShowExport(false);
+    setCalibrateIdx(0);
+    setCalibratedTimes(RESET_LYRICS.map(() => null));
+    if (voiceRef.current) {
+      voiceRef.current.currentTime = 0;
+      voiceRef.current.play().catch(() => {});
+    }
+    ambientRef.current?.play().catch(() => {});
+    setPlaying(true);
+  };
+
+  const stopCalibration = () => {
+    setCalibrating(false);
+    setShowExport(false);
+    if (voiceRef.current) { voiceRef.current.pause(); }
+    ambientRef.current?.pause();
+    setPlaying(false);
+  };
+
+  const markLine = () => {
+    const t = voiceRef.current ? voiceRef.current.currentTime : audioTime;
+    setCalibratedTimes(prev => {
+      const next = [...prev];
+      next[calibrateIdx] = Math.round(t * 10) / 10;
+      return next;
+    });
+    if (calibrateIdx < RESET_LYRICS.length - 1) {
+      setCalibrateIdx(i => i + 1);
+    } else {
+      voiceRef.current?.pause();
+      ambientRef.current?.pause();
+      setPlaying(false);
+      setShowExport(true);
+    }
+  };
+
+  const goBackLine = () => setCalibrateIdx(i => Math.max(0, i - 1));
+
+  useEffect(() => {
+    if (!calibrating || showExport) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.code === 'Space')     { e.preventDefault(); markLine(); }
+      if (e.code === 'ArrowLeft') { e.preventDefault(); goBackLine(); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [calibrating, showExport, calibrateIdx]);
+
+  const exportText = RESET_LYRICS.map((line, i) => {
+    const tv = calibratedTimes[i] !== null ? calibratedTimes[i] : line.t;
+    const typeStr = line.type ? `, type: '${line.type}'` : '';
+    return `  { t: ${tv}, text: ${JSON.stringify(line.text)}${typeStr} },`;
+  }).join('\n');
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(exportText).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
   // Active lyric index
   const activeIdx = RESET_LYRICS.reduce((acc, line, i) => line.t <= audioTime ? i : acc, 0);
   const activeLine = RESET_LYRICS[activeIdx];
@@ -371,177 +441,284 @@ function ResetStep({ onComplete }: { onComplete: () => void }) {
       style={{ maxWidth: 520, margin: '0 auto', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 180px)', minHeight: 500 }}
     >
       {/* Tiny header badge */}
-      <div style={{ textAlign: 'center', marginBottom: 12, flexShrink: 0 }}>
+      <div style={{ textAlign: 'center', marginBottom: 12, flexShrink: 0, position: 'relative' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
           <motion.div
             animate={{ opacity: [0.4, 1, 0.4] }}
             transition={{ duration: playing ? 2 : 99, repeat: Infinity }}
-            style={{ width: 5, height: 5, borderRadius: '50%', background: '#00D4AA', boxShadow: '0 0 5px #00D4AA' }}
+            style={{ width: 5, height: 5, borderRadius: '50%', background: calibrating ? '#B08DE8' : '#00D4AA', boxShadow: `0 0 5px ${calibrating ? '#B08DE8' : '#00D4AA'}` }}
           />
-          <span style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.35)' }}>
-            {playing ? 'Field Calibration Active' : 'Field Calibration · 7 min'}
+          <span style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.3em', textTransform: 'uppercase', color: calibrating ? 'rgba(176,141,232,0.5)' : 'rgba(0,212,170,0.35)' }}>
+            {calibrating ? 'Calibration Mode' : playing ? 'Field Calibration Active' : 'Field Calibration · 7 min'}
           </span>
         </div>
-      </div>
-
-      {/* ── Lyrics scroll ── */}
-      <div
-        ref={scrollRef}
-        className="hide-scrollbar"
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          paddingTop: '35%',
-          paddingBottom: '35%',
-          WebkitOverflowScrolling: 'touch',
-        }}
-      >
-        {RESET_LYRICS.map((line, i) => {
-          const dist     = i - activeIdx;
-          const isActive = dist === 0;
-          const isNear   = Math.abs(dist) === 1;
-          const isFar    = Math.abs(dist) === 2;
-          const type     = line.type;
-
-          let color = '#EAEAEA';
-          if (type === 'breath')      color = '#00D4AA';
-          if (type === 'affirmation') color = '#C9A84C';
-          if (type === 'count')       color = '#B08DE8';
-
-          const opacity  = isActive ? 1 : isNear ? 0.22 : isFar ? 0.1 : 0.04;
-          const fontSize = isActive ? (type === 'count' ? 26 : 21) : isNear ? 14 : 12;
-
-          return (
-            <div
-              key={i}
-              ref={el => { lineRefs.current[i] = el; }}
-              style={{ padding: `${isActive ? 9 : 4}px 20px`, textAlign: 'center' }}
-            >
-              <motion.p
-                animate={{ opacity, fontSize }}
-                transition={{ duration: 0.45, ease: 'easeOut' }}
-                style={{
-                  fontFamily: type === 'count' ? 'ui-monospace, monospace' : 'serif',
-                  color,
-                  margin: '0 auto',
-                  lineHeight: 1.4,
-                  letterSpacing: isActive ? '0.04em' : '0.01em',
-                  maxWidth: 480,
-                  cursor: 'default',
-                  userSelect: 'none',
-                }}
-              >
-                {line.text}
-              </motion.p>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* ── Bottom controls ── */}
-      <div style={{ flexShrink: 0, paddingTop: 14 }}>
-
-        {/* Progress bar */}
-        <div
-          style={{ marginBottom: 10, cursor: 'pointer' }}
-          onClick={e => {
-            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-            const t = ((e.clientX - rect.left) / rect.width) * audioDuration;
-            if (voiceRef.current) voiceRef.current.currentTime = t;
+        <button
+          onClick={() => (calibrating ? stopCalibration() : startCalibration())}
+          style={{
+            position: 'absolute', right: 0, top: -2,
+            background: 'none',
+            border: `1px solid ${calibrating ? 'rgba(176,141,232,0.4)' : 'rgba(255,255,255,0.08)'}`,
+            borderRadius: 6, padding: '3px 8px',
+            color: calibrating ? '#B08DE8' : 'rgba(232,232,232,0.22)',
+            fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer',
           }}
         >
-          <div style={{ height: 2, background: 'rgba(255,255,255,0.07)', borderRadius: 1 }}>
-            <motion.div
-              animate={{ width: `${pct}%` }}
-              transition={{ duration: 0.35, ease: 'linear' }}
-              style={{
-                height: '100%',
-                borderRadius: 1,
-                background: activeLine?.type === 'affirmation' ? '#C9A84C'
-                  : activeLine?.type === 'breath' ? '#00D4AA'
-                  : activeLine?.type === 'count' ? '#B08DE8'
-                  : 'rgba(232,232,232,0.45)',
-                transition: 'background 1.2s ease',
-              }}
-            />
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
-            <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(232,232,232,0.18)' }}>
-              {fmt(Math.floor(audioTime))}
-            </span>
-            <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(232,232,232,0.18)' }}>
-              {fmt(Math.floor(audioDuration))}
-            </span>
-          </div>
-        </div>
+          {calibrating ? '✕ Exit' : '⚙ Calibrate'}
+        </button>
+      </div>
 
-        {/* Play / pause */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
-          <motion.button
-            onClick={togglePlay}
-            whileTap={{ scale: 0.92 }}
+      {calibrating ? (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          {!showExport ? (
+            <>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '0 20px' }}>
+                <p style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(176,141,232,0.5)', letterSpacing: '0.2em', marginBottom: 14 }}>
+                  LINE {calibrateIdx + 1} / {RESET_LYRICS.length}
+                </p>
+                <p style={{
+                  fontFamily: RESET_LYRICS[calibrateIdx].type === 'count' ? 'ui-monospace, monospace' : 'serif',
+                  fontSize: 24, textAlign: 'center', color: '#EAEAEA', lineHeight: 1.5, maxWidth: 440, margin: 0,
+                }}>
+                  {RESET_LYRICS[calibrateIdx].text}
+                </p>
+                {calibratedTimes[calibrateIdx] !== null && (
+                  <p style={{ fontFamily: 'monospace', fontSize: 10, color: '#00D4AA', marginTop: 14 }}>
+                    marked @ {fmt(Math.floor(calibratedTimes[calibrateIdx]!))}
+                  </p>
+                )}
+              </div>
+
+              <div style={{ padding: '14px 0' }}>
+                <div style={{ height: 2, background: 'rgba(255,255,255,0.07)', borderRadius: 1, marginBottom: 14 }}>
+                  <motion.div
+                    animate={{ width: `${pct}%` }}
+                    transition={{ duration: 0.3, ease: 'linear' }}
+                    style={{ height: '100%', borderRadius: 1, background: '#B08DE8' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                  <button
+                    onClick={togglePlay}
+                    style={{ width: 44, height: 44, borderRadius: '50%', border: '1px solid rgba(176,141,232,0.3)', background: 'rgba(176,141,232,0.06)', color: '#B08DE8', cursor: 'pointer', fontSize: 14 }}
+                  >
+                    {playing ? '⏸' : '▶'}
+                  </button>
+                  <button
+                    onClick={markLine}
+                    style={{ padding: '0 26px', height: 44, borderRadius: 22, border: '1px solid rgba(176,141,232,0.5)', background: 'rgba(176,141,232,0.14)', color: '#B08DE8', fontFamily: 'sans-serif', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    ⏱ Mark (Space)
+                  </button>
+                  <button
+                    onClick={goBackLine}
+                    disabled={calibrateIdx === 0}
+                    style={{ width: 44, height: 44, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)', color: 'rgba(232,232,232,0.4)', cursor: calibrateIdx === 0 ? 'default' : 'pointer', opacity: calibrateIdx === 0 ? 0.3 : 1 }}
+                  >
+                    ←
+                  </button>
+                </div>
+                <p style={{ textAlign: 'center', fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(232,232,232,0.2)', letterSpacing: '0.06em' }}>
+                  Play the audio, tap Mark the instant this line is spoken.
+                </p>
+              </div>
+            </>
+          ) : (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '10px 0' }}>
+              <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: '#00D4AA', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10, textAlign: 'center' }}>
+                ✓ Calibration Complete — {RESET_LYRICS.length} lines
+              </p>
+              <textarea
+                readOnly
+                value={exportText}
+                style={{ flex: 1, minHeight: 200, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(176,141,232,0.2)', borderRadius: 8, color: 'rgba(232,232,232,0.7)', fontFamily: 'ui-monospace, monospace', fontSize: 10, padding: 12, resize: 'none', marginBottom: 12 }}
+              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={handleCopy}
+                  style={{ flex: 1, padding: 12, background: 'rgba(176,141,232,0.1)', border: '1px solid rgba(176,141,232,0.4)', borderRadius: 8, color: '#B08DE8', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer' }}
+                >
+                  {copied ? '✓ Copied' : 'Copy Array'}
+                </button>
+                <a
+                  href={`data:text/plain;charset=utf-8,${encodeURIComponent(exportText)}`}
+                  download="reset-lyrics-calibrated.txt"
+                  style={{ flex: 1, padding: 12, textAlign: 'center', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'rgba(232,232,232,0.5)', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', textDecoration: 'none' }}
+                >
+                  Download
+                </a>
+              </div>
+              <button
+                onClick={stopCalibration}
+                style={{ marginTop: 10, background: 'none', border: 'none', color: 'rgba(232,232,232,0.2)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer' }}
+              >
+                Exit Calibration
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* ── Lyrics scroll ── */}
+          <div
+            ref={scrollRef}
+            className="hide-scrollbar"
             style={{
-              width: 50, height: 50, borderRadius: '50%',
-              background: 'rgba(255,255,255,0.04)',
-              border: `1px solid ${playing ? 'rgba(0,212,170,0.35)' : 'rgba(255,255,255,0.1)'}`,
-              color: playing ? '#00D4AA' : 'rgba(232,232,232,0.7)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', transition: 'border-color 0.3s, color 0.3s',
+              flex: 1,
+              overflowY: 'auto',
+              paddingTop: '35%',
+              paddingBottom: '35%',
+              WebkitOverflowScrolling: 'touch',
             }}
           >
-            {playing ? (
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-                <rect x="2" y="2" width="3.5" height="10" rx="1"/>
-                <rect x="8.5" y="2" width="3.5" height="10" rx="1"/>
-              </svg>
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-                <path d="M3 2l9 5-9 5V2z"/>
-              </svg>
-            )}
-          </motion.button>
-        </div>
+            {RESET_LYRICS.map((line, i) => {
+              const dist     = i - activeIdx;
+              const isActive = dist === 0;
+              const isNear   = Math.abs(dist) === 1;
+              const isFar    = Math.abs(dist) === 2;
+              const type     = line.type;
 
-        {/* CTA after audio finishes */}
-        <AnimatePresence>
-          {audioFinished && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
-              style={{ marginBottom: 12, padding: '16px 20px', background: 'linear-gradient(135deg, rgba(0,212,170,0.1), rgba(0,212,170,0.04))', border: '1px solid rgba(0,212,170,0.45)', borderRadius: 10, textAlign: 'center' }}
+              let color = '#EAEAEA';
+              if (type === 'breath')      color = '#00D4AA';
+              if (type === 'affirmation') color = '#C9A84C';
+              if (type === 'count')       color = '#B08DE8';
+
+              const opacity  = isActive ? 1 : isNear ? 0.22 : isFar ? 0.1 : 0.04;
+              const fontSize = isActive ? (type === 'count' ? 26 : 21) : isNear ? 14 : 12;
+
+              return (
+                <div
+                  key={i}
+                  ref={el => { lineRefs.current[i] = el; }}
+                  style={{ padding: `${isActive ? 9 : 4}px 20px`, textAlign: 'center' }}
+                >
+                  <motion.p
+                    animate={{ opacity, fontSize }}
+                    transition={{ duration: 0.45, ease: 'easeOut' }}
+                    style={{
+                      fontFamily: type === 'count' ? 'ui-monospace, monospace' : 'serif',
+                      color,
+                      margin: '0 auto',
+                      lineHeight: 1.4,
+                      letterSpacing: isActive ? '0.04em' : '0.01em',
+                      maxWidth: 480,
+                      cursor: 'default',
+                      userSelect: 'none',
+                    }}
+                  >
+                    {line.text}
+                  </motion.p>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── Bottom controls ── */}
+          <div style={{ flexShrink: 0, paddingTop: 14 }}>
+
+            {/* Progress bar */}
+            <div
+              style={{ marginBottom: 10, cursor: 'pointer' }}
+              onClick={e => {
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                const t = ((e.clientX - rect.left) / rect.width) * audioDuration;
+                if (voiceRef.current) voiceRef.current.currentTime = t;
+              }}
             >
-              <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.55)', margin: '0 0 10px' }}>
-                Reset Complete
-              </p>
-              <button
-                onClick={() => onCompleteRef.current()}
-                style={{ width: '100%', padding: '13px', background: 'rgba(0,212,170,0.1)', border: '1px solid rgba(0,212,170,0.5)', borderRadius: 8, color: '#00D4AA', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer' }}
+              <div style={{ height: 2, background: 'rgba(255,255,255,0.07)', borderRadius: 1 }}>
+                <motion.div
+                  animate={{ width: `${pct}%` }}
+                  transition={{ duration: 0.35, ease: 'linear' }}
+                  style={{
+                    height: '100%',
+                    borderRadius: 1,
+                    background: activeLine?.type === 'affirmation' ? '#C9A84C'
+                      : activeLine?.type === 'breath' ? '#00D4AA'
+                      : activeLine?.type === 'count' ? '#B08DE8'
+                      : 'rgba(232,232,232,0.45)',
+                    transition: 'background 1.2s ease',
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
+                <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(232,232,232,0.18)' }}>
+                  {fmt(Math.floor(audioTime))}
+                </span>
+                <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(232,232,232,0.18)' }}>
+                  {fmt(Math.floor(audioDuration))}
+                </span>
+              </div>
+            </div>
+
+            {/* Play / pause */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+              <motion.button
+                onClick={togglePlay}
+                whileTap={{ scale: 0.92 }}
+                style={{
+                  width: 50, height: 50, borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${playing ? 'rgba(0,212,170,0.35)' : 'rgba(255,255,255,0.1)'}`,
+                  color: playing ? '#00D4AA' : 'rgba(232,232,232,0.7)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', transition: 'border-color 0.3s, color 0.3s',
+                }}
               >
-                ⟐ Begin Diagnostic
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                {playing ? (
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                    <rect x="2" y="2" width="3.5" height="10" rx="1"/>
+                    <rect x="8.5" y="2" width="3.5" height="10" rx="1"/>
+                  </svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                    <path d="M3 2l9 5-9 5V2z"/>
+                  </svg>
+                )}
+              </motion.button>
+            </div>
 
-        {/* Skip links */}
-        <div style={{ textAlign: 'center', paddingBottom: 8 }}>
-          {!playing && audioTime === 0 && !audioFinished && (
-            <button
-              onClick={() => onCompleteRef.current()}
-              style={{ background: 'none', border: 'none', color: 'rgba(232,232,232,0.2)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', cursor: 'pointer' }}
-            >
-              Skip Reset → Begin Diagnostic
-            </button>
-          )}
-          {(playing || audioTime > 0) && !audioFinished && (
-            <button
-              onClick={() => onCompleteRef.current()}
-              style={{ background: 'none', border: 'none', color: 'rgba(232,232,232,0.12)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', cursor: 'pointer' }}
-            >
-              Skip — go to diagnostic
-            </button>
-          )}
-        </div>
-      </div>
+            {/* CTA after audio finishes */}
+            <AnimatePresence>
+              {audioFinished && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+                  style={{ marginBottom: 12, padding: '16px 20px', background: 'linear-gradient(135deg, rgba(0,212,170,0.1), rgba(0,212,170,0.04))', border: '1px solid rgba(0,212,170,0.45)', borderRadius: 10, textAlign: 'center' }}
+                >
+                  <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.55)', margin: '0 0 10px' }}>
+                    Reset Complete
+                  </p>
+                  <button
+                    onClick={() => onCompleteRef.current()}
+                    style={{ width: '100%', padding: '13px', background: 'rgba(0,212,170,0.1)', border: '1px solid rgba(0,212,170,0.5)', borderRadius: 8, color: '#00D4AA', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer' }}
+                  >
+                    ⟐ Begin Diagnostic
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Skip links */}
+            <div style={{ textAlign: 'center', paddingBottom: 8 }}>
+              {!playing && audioTime === 0 && !audioFinished && (
+                <button
+                  onClick={() => onCompleteRef.current()}
+                  style={{ background: 'none', border: 'none', color: 'rgba(232,232,232,0.2)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', cursor: 'pointer' }}
+                >
+                  Skip Reset → Begin Diagnostic
+                </button>
+              )}
+              {(playing || audioTime > 0) && !audioFinished && (
+                <button
+                  onClick={() => onCompleteRef.current()}
+                  style={{ background: 'none', border: 'none', color: 'rgba(232,232,232,0.12)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', cursor: 'pointer' }}
+                >
+                  Skip — go to diagnostic
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </motion.div>
   );
 }
