@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { FieldBar, IMSArchiveSection } from './NexusPage'
+import { FieldBar } from './NexusPage'
+import { IMSArchiveSection, EncyclopediaGalacticaMatrix } from '../components/IMSArchive'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
@@ -28,6 +29,7 @@ export default function IMSArchivePage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
         <FieldBar ark={ark} />
         <IMSArchiveSection />
+        <EncyclopediaGalacticaMatrix />
       </div>
     </div>
   )

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ArkDate from './ArkDate';
 import MarkdownViewer from './MarkdownViewer';
+import { IMSArchiveSection } from './IMSArchive';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -45,12 +46,6 @@ const AI_NODES = [
   { id: 'DEEPSEEK',   label: 'DEEPSEEK',     sub: 'Solariun · Execution',    color: '#D46AA0', angle: 225 },
   { id: 'OPENCLAW',   label: 'OPENCLAW',     sub: 'WhatsApp · Gateway',      color: '#6AD4C8', angle: 270 },
   { id: 'GROK',       label: 'GROK',         sub: 'XAI · Ancestral depth',   color: '#8E6AD4', angle: 315 },
-];
-
-const IMS_SESSIONS = [
-  { id: 'IMS-001', subject: 'Jay',           date: 'April 11, 2026',  arkDay: 12, status: 'PROOF OF CONCEPT',       statusColor: '#00D4AA', type: 'Internal', tagline: 'The Sovereign Exit — architecture\'s first living test.', htmlPath: '/static/ims/jay_ims.html' },
-  { id: 'IMS-002', subject: 'Won John Chong',date: 'April 2026',      arkDay: 15, status: 'COMPLETE · FIRST ARTIFACT', statusColor: '#C9A84C', type: 'Internal', tagline: 'First completed artifact. Full deliverable finalised — the first finished proof of work.', htmlPath: '/static/ims/won_ims.html' },
-  { id: 'IMS-003', subject: 'Spiral Grove',  date: 'May 2026',        arkDay: 45, status: 'PILOT DEPLOYMENT',        statusColor: '#B08DE8', type: 'System',   tagline: 'The Spiral Grove learning layer — EduLeague challenge engine deployed at Solid Foundation Academy, Pankshin.', htmlPath: '/static/ims/eduleague.html' },
 ];
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
@@ -252,116 +247,23 @@ function ScrollEntry({ scroll, color }: { scroll: Scroll; color: string }) {
 }
 
 // ─── IMS ARCHIVE SECTION ──────────────────────────────────────────────────────
+// Canonical rendering lives in ../components/IMSArchive.tsx — imported above.
+// A local booking CTA is appended below the shared session list to preserve
+// Sanctuary-specific functionality without duplicating the archive data/UI.
 
-function IMSArchiveSection() {
-  const [viewer, setViewer] = useState<{ url: string; title: string } | null>(null);
-  const [iframeError, setIframeError] = useState<string | null>(null);
-  const [iframeLoading, setIframeLoading] = useState(true);
-  
-  // Build full IMS URL ensuring it points to the backend API
-  const buildImsUrl = (htmlPath: string) => {
-    // Always use the API_BASE (backend) for static IMS files
-    const base = API_BASE || (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '');
-    return `${base}${htmlPath}`;
-  };
-
+function IMSArchiveWithBooking() {
   return (
-    <>
-      <AnimatePresence>
-        {viewer && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ position:'fixed', inset:0, zIndex:1000, background:'#03040a', display:'flex', flexDirection:'column' }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 16px', background:'rgba(3,4,10,0.98)', borderBottom:'1px solid rgba(201,168,76,0.15)', flexShrink:0 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-                <span style={{ color:'#c9a84c', fontSize:'14px' }}>☥</span>
-                <p style={{ fontFamily:'sans-serif', fontSize:'11px', letterSpacing:'0.2em', textTransform:'uppercase', color:'rgba(201,168,76,0.65)', margin:0 }}>{viewer.title}</p>
-              </div>
-              <button onClick={() => { setViewer(null); setIframeError(null); setIframeLoading(true); }} style={{ padding:'8px 16px', background:'rgba(232,140,106,0.08)', border:'1px solid rgba(232,140,106,0.25)', borderRadius:'6px', color:'#E88C6A', fontFamily:'sans-serif', fontSize:'10px', letterSpacing:'0.18em', textTransform:'uppercase', cursor:'pointer' }}>✕ Close</button>
-            </div>
-            
-            {/* Loading state */}
-            {iframeLoading && !iframeError && (
-              <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', background:'#03040a' }}>
-                <div style={{ textAlign:'center' }}>
-                  <motion.div
-                    className="w-8 h-8 rounded-full border-2 border-[#D4AF37]/30 border-t-[#D4AF37] mx-auto"
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                  />
-                  <p style={{ fontFamily:'sans-serif', fontSize:'10px', color:'rgba(201,168,76,0.5)', marginTop:'12px', letterSpacing:'0.2em', textTransform:'uppercase' }}>
-                    Loading IMS Document...
-                  </p>
-                </div>
-              </div>
-            )}
-            
-            {/* Error state */}
-            {iframeError && (
-              <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', background:'#03040a', padding:'20px' }}>
-                <div style={{ textAlign:'center', maxWidth:'400px' }}>
-                  <p style={{ fontSize:'24px', marginBottom:'12px' }}>⚡</p>
-                  <p style={{ fontFamily:'sans-serif', fontSize:'13px', color:'rgba(232,140,106,0.8)', marginBottom:'8px' }}>{iframeError}</p>
-                  <p style={{ fontFamily:'monospace', fontSize:'9px', color:'rgba(232,232,232,0.25)', marginBottom:'16px', wordBreak:'break-all' }}>
-                    URL: {viewer.url}
-                  </p>
-                  <button
-                    onClick={() => window.open(viewer.url, '_blank')}
-                    style={{ padding:'10px 20px', background:'rgba(201,168,76,0.08)', border:'1px solid rgba(201,168,76,0.3)', borderRadius:'8px', color:'#C9A84C', fontFamily:'sans-serif', fontSize:'10px', letterSpacing:'0.18em', textTransform:'uppercase', cursor:'pointer' }}
-                  >
-                    Open in New Tab ↗
-                  </button>
-                </div>
-              </div>
-            )}
-            
-            {/* Iframe */}
-            {!iframeError && (
-              <iframe
-                src={viewer.url}
-                title={viewer.title}
-                style={{ flex:1, border:'none', width:'100%', display: iframeLoading ? 'none' : 'block' }}
-                onLoad={() => { setIframeLoading(false); setIframeError(null); }}
-                onError={() => { setIframeLoading(false); setIframeError('Failed to load the IMS document. The file may not be available on the server.'); }}
-              />
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {IMS_SESSIONS.map(s => (
-          <div key={s.id} style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', border: `1px solid ${s.statusColor}18`, borderRadius: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: '8px', color: 'rgba(232,232,232,0.22)', letterSpacing: '0.15em' }}>{s.id}</span>
-                  <span style={{ fontFamily: 'monospace', fontSize: '8px', color: 'rgba(0,212,170,0.35)', letterSpacing: '0.12em' }}>ARK D{s.arkDay}</span>
-                  <span style={{ fontFamily: 'sans-serif', fontSize: '8px', color: 'rgba(232,232,232,0.18)' }}>{s.date}</span>
-                </div>
-                <p style={{ fontFamily: 'serif', fontSize: '19px', color: '#E8E8E8', margin: 0 }}>{s.subject}</p>
-                <p style={{ fontFamily: 'sans-serif', fontSize: '9px', color: 'rgba(232,232,232,0.25)', margin: '2px 0 0', letterSpacing: '0.08em' }}>{s.type}</p>
-              </div>
-              <span style={{ padding: '3px 9px', background: `${s.statusColor}12`, border: `1px solid ${s.statusColor}33`, borderRadius: '20px', fontFamily: 'sans-serif', fontSize: '7px', letterSpacing: '0.14em', textTransform: 'uppercase', color: s.statusColor, flexShrink: 0, marginLeft: '10px' }}>{s.status}</span>
-            </div>
-            <p style={{ fontFamily: 'sans-serif', fontSize: '12px', lineHeight: '1.7', color: 'rgba(232,232,232,0.38)', margin: '0 0 14px' }}>{s.tagline}</p>
-            {s.htmlPath && (
-              <button onClick={() => { setIframeError(null); setIframeLoading(true); setViewer({ url: buildImsUrl(s.htmlPath), title: `${s.subject} — ${s.id}` }); }}
-                style={{ width:'100%', padding:'11px 16px', background:`${s.statusColor}08`, border:`1px solid ${s.statusColor}30`, borderRadius:'9px', color:s.statusColor, fontFamily:'sans-serif', fontSize:'10px', letterSpacing:'0.18em', textTransform:'uppercase', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', transition:'all 0.2s' }}>
-                <span>↗</span><span>Open Full Document</span>
-              </button>
-            )}
-          </div>
-        ))}
-        <div style={{ padding: '16px', background: 'rgba(201,168,76,0.03)', border: '1px solid rgba(201,168,76,0.15)', borderRadius: '12px', textAlign: 'center' }}>
-          <p style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.45)', margin: '0 0 10px' }}>Book Your Session</p>
-          <p style={{ fontFamily: 'serif', fontSize: '13px', color: 'rgba(232,232,232,0.45)', margin: '0 0 14px', lineHeight: '1.7' }}>90 minutes · $777 · Bespoke sovereign architecture mapping</p>
-          <button onClick={() => window.open('https://wa.me/2348144942818','_blank')}
-            style={{ padding:'12px 28px', background:'rgba(201,168,76,0.08)', border:'1px solid rgba(201,168,76,0.3)', borderRadius:'8px', color:'#C9A84C', fontFamily:'sans-serif', fontSize:'10px', letterSpacing:'0.2em', textTransform:'uppercase', cursor:'pointer' }}>
-            ✦ Enter — $777
-          </button>
-        </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <IMSArchiveSection />
+      <div style={{ padding: '16px', background: 'rgba(201,168,76,0.03)', border: '1px solid rgba(201,168,76,0.15)', borderRadius: '12px', textAlign: 'center' }}>
+        <p style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.45)', margin: '0 0 10px' }}>Book Your Session</p>
+        <p style={{ fontFamily: 'serif', fontSize: '13px', color: 'rgba(232,232,232,0.45)', margin: '0 0 14px', lineHeight: '1.7' }}>90 minutes · $777 · Bespoke sovereign architecture mapping</p>
+        <button onClick={() => window.open('https://wa.me/2348144942818','_blank')}
+          style={{ padding:'12px 28px', background:'rgba(201,168,76,0.08)', border:'1px solid rgba(201,168,76,0.3)', borderRadius:'8px', color:'#C9A84C', fontFamily:'sans-serif', fontSize:'10px', letterSpacing:'0.2em', textTransform:'uppercase', cursor:'pointer' }}>
+          ✦ Enter — $777
+        </button>
       </div>
-    </>
+    </div>
   );
 }
 
