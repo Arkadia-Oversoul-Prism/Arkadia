@@ -24,6 +24,7 @@ import AICDiagnosticPage from './pages/AICDiagnosticPage';
 import ArkadianPulse from './pages/ArkadianPulse';
 import SettingsPage from './pages/SettingsPage';
 import SolSpireConsole from './pages/SolSpireConsole';
+import KnowledgeOSPage from './pages/knowledge/KnowledgeOSPage';
 
 type View =
   | 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
@@ -40,7 +41,8 @@ type View =
   | 'aic'
   | 'pulse'
   | 'settings'
-  | 'solspire';
+  | 'solspire'
+  | 'knowledge-os';
 
 // ─── FIELD PULSE ──────────────────────────────────────────────────────────────
 
@@ -490,6 +492,12 @@ function AppInner() {
         {view === 'solspire' && (
           <motion.div key="solspire" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
             <SolSpireConsole />
+          </motion.div>
+        )}
+
+        {view === 'knowledge-os' && (
+          <motion.div key="knowledge-os" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+            <KnowledgeOSPage />
           </motion.div>
         )}
 

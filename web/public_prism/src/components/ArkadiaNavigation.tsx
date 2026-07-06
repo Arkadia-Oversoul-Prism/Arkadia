@@ -14,7 +14,11 @@ type View =
   | 'ims'
   | 'distribute'
   | 'offerings'
-  | 'aic';
+  | 'aic'
+  | 'pulse'
+  | 'settings'
+  | 'solspire'
+  | 'knowledge-os';
 
 interface NavProps {
   currentView: View;
@@ -39,8 +43,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Intelligence',
     items: [
-      { label: 'Nexus Hub',              view: 'nexus',        sigil: '☥', sub: 'Codex · Archive · Grove · Larder',     color: '#C9A84C' },
-      { label: 'Encyclopedia Galactica', view: 'encyclopedia', sigil: '✧', sub: '12 Chambers · Echoes of the Lost Aeons', color: '#B08DE8' },
+      { label: 'Nexus Hub',              view: 'nexus',         sigil: '☥', sub: 'Codex · Archive · Grove · Larder',       color: '#C9A84C' },
+      { label: 'Encyclopedia Galactica', view: 'encyclopedia',  sigil: '✧', sub: '12 Chambers · Echoes of the Lost Aeons',  color: '#B08DE8' },
+      { label: 'Prism — Knowledge OS',   view: 'knowledge-os',  sigil: '◈', sub: 'Graph · Timeline · Semantic Search',      color: '#00D4AA' },
     ],
   },
   {
@@ -71,6 +76,8 @@ const VIEW_LABEL: Partial<Record<View, string>> = {
   'spiral-codex': 'Spiral Codex', loops: 'Open Loops', grove: 'Spiral Grove',
   larder: 'Living Larder', novanet: 'NovaNet', ims: 'IMS Archive',
   distribute: 'Distribute', offerings: 'Offerings', aic: 'AIC Diagnostic',
+  pulse: 'Arkadian Pulse', settings: 'Settings', solspire: 'SolSpire Console',
+  'knowledge-os': 'Prism — Knowledge OS',
 };
 
 function UserSection({ onNavigate, onClose }: { onNavigate: (v: View) => void; onClose: () => void }) {

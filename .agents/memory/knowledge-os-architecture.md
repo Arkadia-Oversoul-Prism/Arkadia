@@ -50,7 +50,23 @@ Schema: `knowledge/schema.sql`. Seeded with 6 providers + 8 personas.
 - ADR-011: Provider Router — AI providers as replaceable adapters
 - ADR-012: Context Engine — semantic retrieval over memory dump
 
-## Next phases
-- Phase 2: Prism views (Knowledge Graph, Timeline, Semantic Search UI)
-- Phase 3: Claude, GPT, DeepSeek, Grok, Local LLM adapters
-- Phase 4: Flutter Android client (shared SQLite schema)
+## Phase 2 — Prism Frontend (complete)
+- `web/public_prism/src/lib/knowledgeApi.ts` — typed API client for /api/knowledge/*
+- `web/public_prism/src/pages/knowledge/KnowledgeGraphView.tsx` — D3 force graph (cleanup on unmount, ResizeObserver)
+- `web/public_prism/src/pages/knowledge/TimelineView.tsx` — Recharts AreaChart + event stream, epoch-sorted buckets
+- `web/public_prism/src/pages/knowledge/SemanticSearchView.tsx` — 7-mode search UI
+- `web/public_prism/src/pages/knowledge/ProjectsView.tsx` — vault stats, providers, personas, projects
+- `web/public_prism/src/pages/knowledge/KnowledgeOSPage.tsx` — tab container
+- Added `'knowledge-os'` to View type in App.tsx and ArkadiaNavigation.tsx
+- Nav item: Intelligence group → "Prism — Knowledge OS" (sigil ◈, color #00D4AA)
+- d3 installed in web/public_prism/package.json (required — do not remove)
+
+## Phase 3 — Provider Adapters (complete)
+- `providers/claude.py` — Anthropic Claude; system messages filtered from messages[], merged into system= param
+- `providers/gpt.py` — OpenAI GPT via official SDK
+- `providers/deepseek.py` — DeepSeek via OpenAI-compat API (DEEPSEEK_BASE_URL)
+- `providers/local.py` — Ollama local LLM (httpx, fully offline, LAW II)
+- `providers/router.py` — all 5 providers registered by priority: gemini→claude→gpt→deepseek→local
+
+## Phase 4 — Android Client
+- Not yet built. Target: Flutter + sqflite (shared schema), offline-first, sync to /api/knowledge/*
