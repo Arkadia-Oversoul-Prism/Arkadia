@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0A0A0F"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <!-- Header -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="◈  ARKADIA OS"
+            android:textColor="#00D4AA"
+            android:textSize="18sp"
+            android:letterSpacing="0.2"
+            android:fontFamily="monospace"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Connect to your Arkadia instance"
+            android:textColor="#55606A"
+            android:textSize="11sp"
+            android:fontFamily="monospace"
+            android:layout_marginBottom="32dp" />
+
+        <!-- URL label -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="ARKADIA URL"
+            android:textColor="#55606A"
+            android:textSize="9sp"
+            android:letterSpacing="0.2"
+            android:fontFamily="monospace"
+            android:layout_marginBottom="6dp" />
+
+        <EditText
+            android:id="@+id/etArkadiaUrl"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:background="@drawable/bg_input"
+            android:padding="14dp"
+            android:textColor="#E8E8E8"
+            android:textColorHint="#55606A"
+            android:hint="https://arkadia-xxxx.replit.app"
+            android:textSize="13sp"
+            android:inputType="textUri"
+            android:singleLine="true"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/tvSaveStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#00D4AA"
+            android:textSize="11sp"
+            android:fontFamily="monospace"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/btnSaveUrl"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Save"
+            android:backgroundTint="#00D4AA"
+            android:textColor="#0A0A0F"
+            android:layout_marginBottom="12dp" />
+
+        <Button
+            android:id="@+id/btnEmulator"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Use emulator localhost (http://10.0.2.2:5000)"
+            android:textColor="#55606A"
+            android:textSize="10sp"
+            android:layout_marginBottom="32dp" />
+
+        <!-- Divider -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#1A00D4AA"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Info -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="HOW TO CONNECT"
+            android:textColor="#55606A"
+            android:textSize="9sp"
+            android:letterSpacing="0.2"
+            android:fontFamily="monospace"
+            android:layout_marginBottom="10dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="1. Deploy Arkadia on Replit (or run locally)\n2. Copy the .replit.app URL\n3. Paste it above and Save\n\nFor local dev with an emulator:\n   http://10.0.2.2:5000"
+            android:textColor="#55606A"
+            android:textSize="11sp"
+            android:fontFamily="monospace"
+            android:lineSpacingMultiplier="1.6"
+            android:layout_marginBottom="24dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="PROCESS TEXT"
+            android:textColor="#55606A"
+            android:textSize="9sp"
+            android:letterSpacing="0.2"
+            android:fontFamily="monospace"
+            android:layout_marginBottom="10dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Select any text in any app → tap More → 'Send to Arkadia Oracle' to route it directly to the Knowledge OS."
+            android:textColor="#55606A"
+            android:textSize="11sp"
+            android:fontFamily="monospace"
+            android:lineSpacingMultiplier="1.6" />
+
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

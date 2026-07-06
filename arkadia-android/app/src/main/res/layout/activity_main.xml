@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0A0A0F">
+
+    <!-- WebView — full screen -->
+    <WebView
+        android:id="@+id/webView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#0A0A0F" />
+
+    <!-- Loading bar — top edge -->
+    <ProgressBar
+        android:id="@+id/progressBar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="3dp"
+        android:layout_gravity="top"
+        android:max="100"
+        android:progressTint="#00D4AA"
+        android:visibility="gone" />
+
+    <!-- Error / no-connection screen -->
+    <LinearLayout
+        android:id="@+id/errorLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="36dp"
+        android:background="#0A0A0F"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="◈"
+            android:textColor="#00D4AA"
+            android:textSize="52sp"
+            android:layout_marginBottom="12dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ARKADIA"
+            android:textColor="#C9A84C"
+            android:textSize="14sp"
+            android:letterSpacing="0.3"
+            android:fontFamily="monospace"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Knowledge Operating System"
+            android:textColor="#333"
+            android:textSize="10sp"
+            android:fontFamily="monospace"
+            android:layout_marginBottom="32dp" />
+
+        <TextView
+            android:id="@+id/tvError"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Connection unavailable"
+            android:textColor="#55606A"
+            android:textSize="11sp"
+            android:fontFamily="monospace"
+            android:gravity="center"
+            android:layout_marginBottom="32dp" />
+
+        <Button
+            android:id="@+id/btnReload"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="200dp"
+            android:layout_height="48dp"
+            android:text="↺  Reconnect"
+            android:textColor="#00D4AA"
+            android:layout_marginBottom="10dp" />
+
+        <Button
+            android:id="@+id/btnSettings"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="200dp"
+            android:layout_height="wrap_content"
+            android:text="⚙  Configure URL"
+            android:textColor="#55606A" />
+
+    </LinearLayout>
+
+    <!-- Persistent floating settings button (top-right) -->
+    <!-- Only shown when WebView is loaded; hidden during error and loading states -->
+    <TextView
+        android:id="@+id/fabSettings"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="10dp"
+        android:text="⚙"
+        android:textColor="#33FFFFFF"
+        android:textSize="16sp"
+        android:gravity="center"
+        android:background="#00000000"
+        android:clickable="true"
+        android:focusable="true" />
+
+</FrameLayout>

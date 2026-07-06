@@ -1,0 +1,3 @@
+-keep class com.arkadia.os.** { *; }
+-dontwarn okhttp3.**
+-keep class okhttp3.** { *; }

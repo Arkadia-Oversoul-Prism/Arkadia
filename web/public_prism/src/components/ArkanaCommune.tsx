@@ -296,6 +296,20 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
   // Cancel TTS on unmount
   useEffect(() => () => { if (ttsOk) window.speechSynthesis.cancel(); }, []);
 
+  // Android bridge — receive PROCESS_TEXT from the native APK shell
+  // Dispatched by MainActivity.kt after any "Send to Arkadia Oracle" intent
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const text = (e as CustomEvent<{ text: string }>).detail?.text;
+      if (text) {
+        setInput(text);
+        setTimeout(() => taRef.current?.focus(), 100);
+      }
+    };
+    window.addEventListener('arkadia-process-text', handler);
+    return () => window.removeEventListener('arkadia-process-text', handler);
+  }, []);
+
   // Auto-resize textarea
   const autoresize = useCallback(() => {
     const t = taRef.current;
