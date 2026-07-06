@@ -84,7 +84,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupSpeedSeekBar() {
-        // Map 0-8 → 0.5×, 0.75×, 1.0×, 1.25×, 1.5×, 1.75×, 2.0×
         val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
         binding.seekSpeed.max      = speeds.size - 1
         binding.seekSpeed.progress = speeds.indexOfFirst { it == prefs.speed }.coerceAtLeast(2)
@@ -120,8 +119,24 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnPause.setOnClickListener  { speechService?.pause()  }
         binding.btnStop.setOnClickListener   { speechService?.stop()   }
+
         binding.btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
+        // ── Knowledge OS ──────────────────────────────────────────────
+        binding.btnKnowledgeOs.setOnClickListener {
+            if (prefs.edgeTtsUrl.isBlank()) {
+                Snackbar.make(
+                    binding.root,
+                    "Set your Arkadia backend URL in Settings first",
+                    Snackbar.LENGTH_LONG
+                ).setAction("Settings") {
+                    startActivity(Intent(this, SettingsActivity::class.java))
+                }.show()
+            } else {
+                startActivity(Intent(this, KnowledgeActivity::class.java))
+            }
         }
     }
 

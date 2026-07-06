@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/bg_dark">
+
+    <!-- Status bar -->
+    <TextView
+        android:id="@+id/tvOracleStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="◎ ORACLE · KNOWLEDGE OS"
+        android:textColor="@color/text_dim"
+        android:textSize="9sp"
+        android:fontFamily="monospace"
+        android:letterSpacing="0.18"
+        android:padding="12dp"
+        android:paddingStart="16dp"
+        android:background="@color/bg_card" />
+
+    <!-- Messages scroll -->
+    <ScrollView
+        android:id="@+id/oracleScrollView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:padding="16dp"
+        android:clipToPadding="false">
+
+        <LinearLayout
+            android:id="@+id/oracleMessagesContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+    </ScrollView>
+
+    <!-- Input row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="12dp"
+        android:gravity="bottom"
+        android:background="@color/bg_card">
+
+        <EditText
+            android:id="@+id/etOracleInput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:minHeight="44dp"
+            android:maxLines="4"
+            android:background="@drawable/bg_input"
+            android:padding="10dp"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_dim"
+            android:hint="Ask Oracle…"
+            android:textSize="13sp"
+            android:inputType="textMultiLine"
+            android:layout_marginEnd="8dp" />
+
+        <Button
+            android:id="@+id/btnOracleSend"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:text="∞"
+            android:textSize="20sp"
+            android:backgroundTint="@color/accent_teal"
+            android:textColor="@color/bg_dark"
+            android:minWidth="0dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp" />
+
+    </LinearLayout>
+
+</LinearLayout>

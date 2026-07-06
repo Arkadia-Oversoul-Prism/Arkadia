@@ -48,6 +48,13 @@
             android:exported="false"
             android:label="@string/settings" />
 
+        <!-- ── Knowledge OS ──────────────────────────────────────────── -->
+        <activity
+            android:name=".KnowledgeActivity"
+            android:exported="false"
+            android:label="Knowledge OS"
+            android:windowSoftInputMode="adjustResize" />
+
         <!-- ── Foreground TTS service ────────────────────────────────── -->
         <service
             android:name=".SpeechService"

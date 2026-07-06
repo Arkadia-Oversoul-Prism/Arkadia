@@ -1,9 +1,11 @@
-# Sonata — Arkadia Voice App
+# Sonata — Arkadia Voice + Knowledge OS
 
-Android 10+ TTS client for the Arkadia Intelligence System (ARKANA).
+Android 10+ companion app for the Arkadia Intelligence System.  
+Voice layer (Sonata) + Knowledge OS client (Prism) in a single APK.
 
 ## Features
 
+### Voice (Sonata)
 | Feature | Detail |
 |---|---|
 | **PROCESS_TEXT** | Appears as "Speak with Sonata" in every app's text-selection menu |
@@ -12,6 +14,14 @@ Android 10+ TTS client for the Arkadia Intelligence System (ARKANA).
 | **Two TTS tiers** | Online: Arkadia neural voices (Edge TTS via `/api/tts`) · Offline: Android built-in TTS |
 | **Settings** | Voice, speed, pitch, auto-read, backend URL, storage management |
 | **Performance** | Cold start < 1 s · Speech start < 2 s · No wakelock abuse |
+
+### Knowledge OS (Phase 4 — Prism Android)
+| Feature | Detail |
+|---|---|
+| **◈ Search** | Semantic + full-text search of the Knowledge Vault (`/api/knowledge/search/*`) |
+| **∞ Oracle** | Chat directly with the Knowledge OS — context-aware, auto-ingests responses |
+| **◎ Timeline** | Live immutable event log from the backend (`/api/knowledge/timeline`) |
+| **ArkadiaRepository** | Single OkHttp client for all Knowledge OS API calls — no extra dependencies |
 
 ## Building
 
