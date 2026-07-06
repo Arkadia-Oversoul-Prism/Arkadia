@@ -1,18 +1,14 @@
-"""SolSpire Phase 8 — Memory / Context Retrieval.
+"""
+Arkadia Knowledge OS — Memory / Context Retrieval (Upgraded)
+=============================================================
+Phase 8 → Knowledge OS upgrade:
+  - Primary: semantic retrieval from SQLite Knowledge Vault (knowledge/context_engine.py)
+  - Fallback: keyword-based oracle_store scan (backward-compatible with Phase 8)
 
-Reads the Oracle store and returns a compact, planner-ready context slice
-for a given user input. Keep this small and relevant: huge context blows
-out the LLM token budget AND degrades plan quality.
+The contract (return type) is unchanged so the planner is never broken.
+Swap the retrieval strategy here without touching the planner.
 
-Strategy (deliberately simple in Phase 8):
-  • Always include current balance and the last N transactions
-  • Always include OPEN loops only (closed ones are noise)
-  • Keyword-match the event log so the planner sees prior runs of similar
-    work (e.g. "verse" → recent verse generations)
-  • Cap every list at MAX_ITEMS
-
-This is RAG-style retrieval over local state. Swap in a vector store
-later without touching the planner — the contract is just a dict.
+LAW IV: Oracle retrieves knowledge. Providers generate language.
 """
 from __future__ import annotations
 
@@ -43,27 +39,58 @@ def _summarize_event(evt: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def retrieve_context(user_input: str, *, max_items: int = MAX_ITEMS) -> dict[str, Any]:
-    """Return a small, structured memory slice keyed off the input.
-    Never raises — falls back to an empty-ish dict so the planner is
-    always callable even when the store is missing or unreadable.
+def _semantic_context(user_input: str) -> dict[str, Any] | None:
+    """
+    Attempt semantic retrieval from the Knowledge Vault.
+    Returns None if the vault is not yet initialised or unavailable.
     """
     try:
-        snap = oracle_store.snapshot()
-    except Exception:  # noqa: BLE001
-        return {"balance": {}, "recent_transactions": [], "open_loops": [], "relevant_events": []}
+        from knowledge.context_engine import assemble_context, format_context_for_provider
+        package = assemble_context(
+            query=user_input,
+            max_notes=5,
+            graph_depth=1,
+            include_timeline=True,
+            timeline_limit=5,
+        )
+        formatted = format_context_for_provider(package)
+        if not formatted.strip():
+            return None
+        return {
+            "source": "knowledge_vault",
+            "relevant_notes": package.get("relevant_notes", []),
+            "formatted_context": formatted,
+        }
+    except Exception:
+        return None
 
-    txns = snap.get("transactions") or []
-    loops = snap.get("open_loops") or []
+
+def retrieve_context(user_input: str, *, max_items: int = MAX_ITEMS) -> dict[str, Any]:
+    """
+    Return a structured memory slice for the planner.
+
+    Priority:
+    1. Semantic retrieval from Knowledge Vault (if available)
+    2. Keyword-based oracle_store scan (backward-compat fallback)
+
+    Never raises — always returns a valid dict.
+    """
+    # ── 1. Try Knowledge Vault semantic retrieval ─────────────────────────────
+    semantic = _semantic_context(user_input)
+
+    # ── 2. Oracle store (always included for backward compat) ─────────────────
+    try:
+        snap = oracle_store.snapshot()
+    except Exception:
+        snap = {}
+
+    txns   = snap.get("transactions") or []
+    loops  = snap.get("open_loops") or []
     events = snap.get("events") or []
 
-    # Recent transactions — newest first, capped
     recent_txns = list(reversed(txns[-max_items:])) if txns else []
+    open_loops  = [l for l in loops if (l.get("status") or "open") == "open"][-max_items:]
 
-    # Open loops only — closed ones are not relevant for planning
-    open_loops = [l for l in loops if (l.get("status") or "open") == "open"][-max_items:]
-
-    # Keyword-match recent events so the planner sees prior similar work
     kws = _keywords(user_input)
     relevant_events: list[dict[str, Any]] = []
     if kws and events:
@@ -79,17 +106,22 @@ def retrieve_context(user_input: str, *, max_items: int = MAX_ITEMS) -> dict[str
                 if len(relevant_events) >= MAX_KEYWORD_EVENTS:
                     break
 
-    return {
+    result: dict[str, Any] = {
         "balance":             snap.get("balance") or {},
         "recent_transactions": recent_txns,
         "open_loops":          open_loops,
         "relevant_events":     relevant_events,
     }
 
+    # Attach semantic context if available
+    if semantic:
+        result["knowledge_vault"] = semantic
+
+    return result
+
 
 def has_signal(context: dict[str, Any]) -> bool:
-    """True if the context has anything worth showing the planner.
-    Used to skip the context-injection block when memory is empty."""
+    """True if the context has anything worth showing the planner."""
     if not isinstance(context, dict):
         return False
     return bool(
@@ -97,6 +129,7 @@ def has_signal(context: dict[str, Any]) -> bool:
         or context.get("recent_transactions")
         or context.get("open_loops")
         or context.get("relevant_events")
+        or context.get("knowledge_vault")
     )
 
 

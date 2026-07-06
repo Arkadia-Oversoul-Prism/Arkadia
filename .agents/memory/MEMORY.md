@@ -1,3 +1,4 @@
+- [Knowledge OS Architecture](knowledge-os-architecture.md) — GENESIS_V1: vault+SQLite+graph+context engine+provider router; laws, module map, critical rules.
 - [TTS Engine](tts-engine.md) — Edge TTS (Microsoft Neural) replaced Piper; SSML emotion layer added in Cycle 17.
 - [Voice Architecture](voice-architecture.md) — voiceContext singleton broadcasts to SonataBar; OracleVoicePlayer publishes; both survive SPA navigation.
 - [Sonata Android](sonata-android.md) — full Android project in sonata-android/; push to SONATA repo via push-to-sonata.sh.

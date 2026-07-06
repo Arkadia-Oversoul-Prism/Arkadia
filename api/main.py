@@ -229,6 +229,14 @@ try:
 except Exception as _ss_err:
     logger.warning(f"[SOLSPIRE] Console router mount skipped: {_ss_err}")
 
+# ── Knowledge OS router ───────────────────────────────────────────────────────
+try:
+    from api.knowledge_routes import router as _knowledge_router
+    app.include_router(_knowledge_router)
+    logger.info("[KNOWLEDGE-OS] Knowledge OS routes mounted at /api/knowledge")
+except Exception as _ke:
+    logger.warning(f"[KNOWLEDGE-OS] Knowledge router mount skipped: {_ke}")
+
 # ── Static file serving (IMS HTML documents, forge images, etc.) ─────────────
 _static_dir = _os.path.join(_os.path.dirname(__file__), "..", "static")
 if _os.path.isdir(_static_dir):
