@@ -28,15 +28,16 @@ jobs:
         with:
           java-version: "17"
           distribution: "temurin"
+          cache: gradle
 
-      - name: Set up Gradle 8.4
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: "8.4"
-
-      - name: Generate Gradle wrapper
-        working-directory: arkadia-android
-        run: gradle wrapper --gradle-version 8.4
+      # Arkadia shares the same Gradle 8.4 wrapper as Sonata.
+      # We copy it at build time so no binary needs to live in git.
+      - name: Bootstrap Gradle wrapper from Sonata
+        run: |
+          cp sonata-android/gradlew arkadia-android/gradlew
+          cp sonata-android/gradle/wrapper/gradle-wrapper.jar \
+             arkadia-android/gradle/wrapper/gradle-wrapper.jar
+          chmod +x arkadia-android/gradlew
 
       - name: Build Debug APK
         working-directory: arkadia-android
@@ -46,18 +47,23 @@ jobs:
         working-directory: arkadia-android
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
-      - name: Sign & upload APKs
+      - name: Sign & collect APKs
         run: |
           keytool -genkeypair -v \
-            -keystore arkadia.jks \
-            -alias arkadia \
+            -keystore arkadia.jks -alias arkadia \
             -keyalg RSA -keysize 2048 -validity 10000 \
             -storepass arkadia2026 -keypass arkadia2026 \
             -dname "CN=Arkadia,OU=KnowledgeOS,O=ArkadiaIS,L=Earth,ST=Earth,C=US"
 
           BT=$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools/ | sort -V | tail -1)
-          RELEASE=$(find arkadia-android/app/build/outputs/apk/release -name "*unsigned.apk" | head -1)
-          DEBUG=$(find arkadia-android/app/build/outputs/apk/debug -name "*.apk" | head -1)
+
+          RELEASE=$(find arkadia-android/app/build/outputs/apk/release \
+                    -name "*unsigned.apk" | head -1)
+          DEBUG=$(find arkadia-android/app/build/outputs/apk/debug \
+                  -name "*.apk" | head -1)
+
+          echo "Release APK: $RELEASE"
+          echo "Debug APK:   $DEBUG"
 
           $BT/zipalign -v -p 4 "$RELEASE" arkadia-aligned.apk
           $BT/apksigner sign \
@@ -65,7 +71,7 @@ jobs:
             --ks-pass pass:arkadia2026 --key-pass pass:arkadia2026 \
             --out arkadia-release-signed.apk arkadia-aligned.apk
 
-          echo "DEBUG_APK=$DEBUG" >> $GITHUB_ENV
+          echo "ARKADIA_DEBUG=$DEBUG" >> $GITHUB_ENV
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
@@ -78,16 +84,20 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Arkadia-debug-${{ github.sha }}
-          path: ${{ env.DEBUG_APK }}
+          path: ${{ env.ARKADIA_DEBUG }}
           retention-days: 30
 
       - name: Build summary
         if: always()
         run: |
           echo "### Arkadia APK" >> $GITHUB_STEP_SUMMARY
-          find arkadia-android/app/build/outputs/apk -name "*.apk" 2>/dev/null | while read f; do
-            echo "- \`$(basename $f)\` $(du -sh $f | cut -f1)" >> $GITHUB_STEP_SUMMARY
-          done
+          find arkadia-android/app/build/outputs/apk -name "*.apk" 2>/dev/null \
+            | while read f; do
+                echo "- \`$(basename $f)\` — $(du -sh $f | cut -f1)" >> $GITHUB_STEP_SUMMARY
+              done
+          [ -f arkadia-release-signed.apk ] && \
+            echo "- \`arkadia-release-signed.apk\` — $(du -sh arkadia-release-signed.apk | cut -f1)" \
+            >> $GITHUB_STEP_SUMMARY || true
 
   # ── Sonata APK ────────────────────────────────────────────────────────────
   build-sonata:
@@ -116,18 +126,20 @@ jobs:
         working-directory: sonata-android
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
-      - name: Sign & upload APKs
+      - name: Sign & collect APKs
         run: |
           keytool -genkeypair -v \
-            -keystore sonata.jks \
-            -alias sonata \
+            -keystore sonata.jks -alias sonata \
             -keyalg RSA -keysize 2048 -validity 10000 \
             -storepass sonata123 -keypass sonata123 \
             -dname "CN=Sonata,OU=Arkadia,O=ArkadiaIS,L=Earth,ST=Earth,C=US"
 
           BT=$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools/ | sort -V | tail -1)
-          RELEASE=$(find sonata-android/app/build/outputs/apk/release -name "*unsigned.apk" | head -1)
-          DEBUG=$(find sonata-android/app/build/outputs/apk/debug -name "*.apk" | head -1)
+
+          RELEASE=$(find sonata-android/app/build/outputs/apk/release \
+                    -name "*unsigned.apk" | head -1)
+          DEBUG=$(find sonata-android/app/build/outputs/apk/debug \
+                  -name "*.apk" | head -1)
 
           $BT/zipalign -v -p 4 "$RELEASE" sonata-aligned.apk
           $BT/apksigner sign \
@@ -155,6 +167,10 @@ jobs:
         if: always()
         run: |
           echo "### Sonata APK" >> $GITHUB_STEP_SUMMARY
-          find sonata-android/app/build/outputs/apk -name "*.apk" 2>/dev/null | while read f; do
-            echo "- \`$(basename $f)\` $(du -sh $f | cut -f1)" >> $GITHUB_STEP_SUMMARY
-          done
+          find sonata-android/app/build/outputs/apk -name "*.apk" 2>/dev/null \
+            | while read f; do
+                echo "- \`$(basename $f)\` — $(du -sh $f | cut -f1)" >> $GITHUB_STEP_SUMMARY
+              done
+          [ -f sonata-release-signed.apk ] && \
+            echo "- \`sonata-release-signed.apk\` — $(du -sh sonata-release-signed.apk | cut -f1)" \
+            >> $GITHUB_STEP_SUMMARY || true
