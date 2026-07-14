@@ -3,3 +3,4 @@
 - [Voice Architecture](voice-architecture.md) — voiceContext singleton broadcasts to SonataBar; OracleVoicePlayer publishes; both survive SPA navigation.
 - [Sonata Android Phase 4](sonata-android.md) — Phase 4 done: KnowledgeActivity + 3 Fragments (Search/Oracle/Timeline) + ArkadiaRepository added. API shape gotchas documented.
 - [Encyclopedia Galactica Architecture](encyclopedia-galactica.md) — Crystal gateway: dodecahedron IS the nav; 12 chambers = 12 chapters of Echoes of the Lost Aeons; state in localStorage key arkadia_chambers_v2.
+- [Arkadia Android CI diagnosis](arkadia-android-ci.md) — WebView-shell architecture; how to surface CI errors via $GITHUB_STEP_SUMMARY without admin log access; PUSH_REJECTED root-cause test.
