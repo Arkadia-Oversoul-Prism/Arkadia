@@ -41,11 +41,31 @@ jobs:
 
       - name: Build Debug APK
         working-directory: arkadia-android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee /tmp/arkadia-debug.log
+
+      - name: Report Debug build failure
+        if: failure()
+        run: |
+          echo "## ❌ Arkadia Debug build failed" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 150 /tmp/arkadia-debug.log >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build Release APK
         working-directory: arkadia-android
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee /tmp/arkadia-release.log
+
+      - name: Report Release build failure
+        if: failure()
+        run: |
+          echo "## ❌ Arkadia Release build failed" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 150 /tmp/arkadia-release.log >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Sign & collect APKs
         run: |
