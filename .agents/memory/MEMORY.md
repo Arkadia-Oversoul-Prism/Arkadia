@@ -4,3 +4,6 @@
 - [Sonata Android Phase 4](sonata-android.md) — Phase 4 done: KnowledgeActivity + 3 Fragments (Search/Oracle/Timeline) + ArkadiaRepository added. API shape gotchas documented.
 - [Encyclopedia Galactica Architecture](encyclopedia-galactica.md) — Crystal gateway: dodecahedron IS the nav; 12 chambers = 12 chapters of Echoes of the Lost Aeons; state in localStorage key arkadia_chambers_v2.
 - [Arkadia Android CI diagnosis](arkadia-android-ci.md) — WebView-shell architecture; how to surface CI errors via $GITHUB_STEP_SUMMARY without admin log access; PUSH_REJECTED root-cause test.
+- [Recharts/es-toolkit crash fix](recharts-crash.md) — recharts crashes at runtime via CJS interop with es-toolkit; fixed by lazy-loading DashboardView + optimizeDeps in vite.config.
+- [d3 missing from node_modules](d3-install.md) — d3 was in package.json but not installed; `cd web/public_prism && npm install d3` fixed Vercel build failure.
+- [Visual synthesis tokens](visual-synthesis.md) — ARKADIA title: gold #C9A84C + Cinzel font. Aurora pushed to 0.28/0.20. Portal cards: rgba(14,17,32,0.72) + teal border 0.16. Diamond dividers + corner ornaments.

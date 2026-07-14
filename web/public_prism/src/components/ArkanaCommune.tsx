@@ -587,12 +587,13 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '8px 16px',
-          borderBottom: `1px solid ${isSovereign ? 'rgba(201,168,76,0.10)' : 'rgba(0,212,170,0.08)'}`,
-          background: 'rgba(5,5,10,0.72)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
+          padding: '9px 16px',
+          borderBottom: `1px solid ${isSovereign ? 'rgba(201,168,76,0.28)' : 'rgba(0,212,170,0.22)'}`,
+          background: 'rgba(12,13,24,0.92)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
           gap: 12,
+          boxShadow: '0 1px 0 rgba(0,212,170,0.05)',
         }}
       >
         {/* Left: identity + ArkDate */}
@@ -683,15 +684,21 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
 
           {/* Empty state */}
           {messages.length === 0 && !loading && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: 'center', marginTop: 80 }}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: 'center', marginTop: 80, padding: '0 24px' }}>
+              {/* Geometric diamond */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28, justifyContent: 'center' }}>
+                <div style={{ flex: 1, maxWidth: 80, height: '1px', background: 'linear-gradient(90deg, transparent, rgba(0,212,170,0.25))' }} />
+                <div style={{ width: 8, height: 8, border: '1px solid rgba(0,212,170,0.45)', transform: 'rotate(45deg)' }} />
+                <div style={{ flex: 1, maxWidth: 80, height: '1px', background: 'linear-gradient(270deg, transparent, rgba(0,212,170,0.25))' }} />
+              </div>
               <motion.p
-                animate={{ opacity: [0.2, 0.45, 0.2] }}
+                animate={{ opacity: [0.35, 0.65, 0.35] }}
                 transition={{ duration: 4, repeat: Infinity }}
-                style={{ fontFamily: 'serif', fontSize: 14, color: 'rgba(232,232,232,0.35)', lineHeight: 2, margin: 0 }}>
+                style={{ fontFamily: '"Cinzel", serif', fontSize: 13, color: 'rgba(212,223,232,0.55)', lineHeight: 2.1, margin: '0 0 8px', letterSpacing: '0.04em' }}>
                 The field is open.<br />Speak when ready.
               </motion.p>
               {!isSovereign && (
-                <p style={{ fontFamily: 'monospace', fontSize: 8.5, color: 'rgba(232,232,232,0.12)', letterSpacing: '0.16em', marginTop: 18, textTransform: 'uppercase' }}>
+                <p style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(0,212,170,0.25)', letterSpacing: '0.2em', marginTop: 16, textTransform: 'uppercase' }}>
                   Guest session · tap ⟐ to enter sovereign mode
                 </p>
               )}
@@ -740,18 +747,16 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                     </div>
                   ) : (
                     /* ── ARKANA: full-width canvas, no bubble ── */
-                    <div style={{ paddingTop: 6, paddingBottom: 6 }}>
+                    <div style={{ paddingTop: 8, paddingBottom: 6, borderLeft: `2px solid ${msgAccent}22`, paddingLeft: 14, marginLeft: 2 }}>
                       {/* Label */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                        <motion.span
-                          animate={{ opacity: [0.35, 0.8, 0.35] }}
-                          transition={{ duration: 3, repeat: Infinity }}
-                          style={{ color: msgAccent, fontSize: 9 }}>✦</motion.span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
+                        <div style={{ width: 14, height: '1px', background: msgAccent, opacity: 0.6 }} />
                         <span style={{
-                          fontFamily: 'sans-serif', fontSize: 8.5, letterSpacing: '0.22em',
-                          textTransform: 'uppercase', color: isSov ? 'rgba(201,168,76,0.45)' : 'rgba(0,212,170,0.45)',
+                          fontFamily: '"Cinzel", serif', fontSize: 8, letterSpacing: '0.28em',
+                          textTransform: 'uppercase', color: isSov ? 'rgba(201,168,76,0.75)' : 'rgba(0,212,170,0.70)',
+                          fontWeight: 500,
                         }}>
-                          {isSov ? 'ARKANA · SOVEREIGN' : 'ARKANA'}
+                          {isSov ? 'ARKANA // SOVEREIGN' : 'ARKANA // Pattern Intelligence'}
                         </span>
                         {msg.resonance != null && (
                           <span style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.12em', color: 'rgba(232,232,232,0.15)', marginLeft: 4 }}>
@@ -788,7 +793,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                       </AnimatePresence>
 
                       {/* Thin separator after each Arkana response */}
-                      <div style={{ marginTop: 18, height: 1, background: 'linear-gradient(90deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02) 60%, transparent)' }} />
+                      <div style={{ marginTop: 20, height: 1, background: isSov ? 'linear-gradient(90deg, rgba(201,168,76,0.22), rgba(201,168,76,0.06) 55%, transparent)' : 'linear-gradient(90deg, rgba(0,212,170,0.20), rgba(0,212,170,0.05) 55%, transparent)' }} />
                     </div>
                   )}
 
@@ -862,11 +867,12 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
       <div
         style={{
           flexShrink: 0,
-          padding: 'clamp(8px,2vw,14px) clamp(10px,3vw,20px)',
-          borderTop: `1px solid ${isSovereign ? 'rgba(201,168,76,0.09)' : 'rgba(0,212,170,0.07)'}`,
-          background: 'rgba(5,5,10,0.85)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
+          padding: 'clamp(10px,2vw,16px) clamp(12px,3vw,22px)',
+          borderTop: `1px solid ${isSovereign ? 'rgba(201,168,76,0.28)' : 'rgba(0,212,170,0.22)'}`,
+          background: 'rgba(12,13,24,0.94)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          boxShadow: `inset 0 1px 0 ${isSovereign ? 'rgba(201,168,76,0.06)' : 'rgba(0,212,170,0.05)'}`,
         }}
       >
         <div style={{ maxWidth: 780, margin: '0 auto' }}>

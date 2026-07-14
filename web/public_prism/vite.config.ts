@@ -6,8 +6,23 @@ export default defineConfig({
   css: {
     postcss: "./postcss.config.cjs",
   },
+  optimizeDeps: {
+    include: ["recharts", "es-toolkit", "es-toolkit/compat"],
+  },
   build: {
-    outDir: "dist"
+    outDir: "dist",
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-react": ["react", "react-dom"],
+          "vendor-motion": ["framer-motion"],
+          "vendor-recharts": ["recharts"],
+          "vendor-d3": ["d3"],
+          "vendor-firebase": ["firebase"],
+        },
+      },
+    },
   },
   server: {
     host: true,
