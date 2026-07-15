@@ -41,6 +41,7 @@ class SpeechService : Service() {
     var onPause:    (() -> Unit)? = null
     var onResume:   (() -> Unit)? = null
     var onComplete: (() -> Unit)? = null
+    var onError: ((String) -> Unit)? = null
 
     // ── Service lifecycle ──────────────────────────────────────────────────
 
@@ -80,9 +81,12 @@ class SpeechService : Service() {
     fun pause()  { tts.pause();  updateNotification(playing = false) }
     fun resume() { tts.resume(); updateNotification(playing = true)  }
     fun stop()   { tts.stop();   stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
+    fun seekTo(positionMs: Int) { tts.seekTo(positionMs) }
 
     val isPlaying get() = tts.isPlaying
     val isPaused  get() = tts.isPausedState
+    val currentPositionMs: Int get() = tts.currentPositionMs
+    val durationMs: Int get() = tts.durationMs
 
     // ── TTS listener ───────────────────────────────────────────────────────
 
@@ -93,12 +97,13 @@ class SpeechService : Service() {
         override fun onComplete()        {
             stopForeground(STOP_FOREGROUND_REMOVE)
             onComplete?.invoke()
-            stopSelf()
         }
         override fun onError(msg: String) {
             stopForeground(STOP_FOREGROUND_REMOVE)
+            onError?.invoke(msg)
             stopSelf()
         }
+        override fun onProgress(currentMs: Int, totalMs: Int) { /* used by UI */ }
     }
 
     // ── Notification ───────────────────────────────────────────────────────
