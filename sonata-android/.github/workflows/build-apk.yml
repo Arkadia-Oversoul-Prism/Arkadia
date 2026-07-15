@@ -32,10 +32,15 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x sonata-android/gradlew
 
+      # ── Clean stale build cache (prevents CompilationErrorException) ────
+      - name: Clean
+        working-directory: sonata-android
+        run: ./gradlew clean --no-daemon
+
       # ── Build debug APK (always installable, no signing needed) ─────────
       - name: Build Debug APK
         working-directory: sonata-android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee /tmp/build-debug.log; grep -E "error:|warning:|FAILED|BUILD" /tmp/build-debug.log | tail -40
 
       # ── Build release APK ────────────────────────────────────────────────
       - name: Build Release APK
