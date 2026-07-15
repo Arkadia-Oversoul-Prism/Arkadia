@@ -1929,6 +1929,61 @@ async def api_reset_quota(key_id: str):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# TTS Key Manager endpoints
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/tts/keys")
+async def api_list_tts_keys():
+    from api.tts_key_manager import list_keys
+    return {"keys": list_keys()}
+
+
+@app.post("/api/tts/keys")
+async def api_add_tts_key(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+    key = (body.get("key") or "").strip()
+    label = (body.get("label") or "").strip()
+    if not key:
+        raise HTTPException(status_code=400, detail="'key' is required")
+    try:
+        from api.tts_key_manager import add_key
+        result = add_key(key, label)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+@app.delete("/api/tts/keys/{key_id}")
+async def api_remove_tts_key(key_id: str):
+    from api.tts_key_manager import remove_key
+    ok = remove_key(key_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Key not found")
+    return {"deleted": key_id}
+
+
+@app.patch("/api/tts/keys/{key_id}/activate")
+async def api_activate_tts_key(key_id: str):
+    from api.tts_key_manager import set_active
+    ok = set_active(key_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Key not found")
+    return {"active": key_id}
+
+
+@app.patch("/api/tts/keys/{key_id}/reset-quota")
+async def api_reset_tts_quota(key_id: str):
+    from api.tts_key_manager import reset_quota
+    ok = reset_quota(key_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Key not found")
+    return {"reset": key_id}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Phase D — Approval gate for sensitive tool calls
 # Pending approvals live in memory (good enough for single-instance use)
 # ═══════════════════════════════════════════════════════════════════════════════
