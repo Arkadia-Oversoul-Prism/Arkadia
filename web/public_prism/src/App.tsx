@@ -205,33 +205,18 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
         </motion.div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '30px' }}>
-          <PortalDoor label="Offerings" sub="Sessions · Products · AIC Diagnostic · Book Now" color="#C9A84C" sigil="✦" onClick={() => onNavigate('offerings')} delay={1.12} />
-          <PortalDoor label="AIC Diagnostic" sub="Reset → Arkadian Pulse · 24 statements · AIC Snapshot · Free · 10 min" color="#00D4AA" sigil="◎" onClick={() => onNavigate('gate')} delay={1.13} />
-          <PortalDoor label="Oracle" sub="ARKANA · Pattern intelligence · Live commune" color="#00D4AA" sigil="⟐" onClick={() => onNavigate('commune')} delay={1.14} />
-          <PortalDoor label="Nexus" sub="Spiral Codex · IMS Archive · Spiral Grove · Living Larder" color="#C9A84C" sigil="☥" onClick={() => onNavigate('nexus')} delay={1.17} />
-          <PortalDoor label="Encyclopedia Galactica" sub="Crystal Matrix · 12 Chambers · The Living Library" color="#B08DE8" sigil="✧" onClick={() => onNavigate('encyclopedia')} delay={1.19} />
-          <PortalDoor label="Spiral Codex" sub="Crystal Matrix · Corpus Intelligence · 26+ Scrolls" color="#C9A84C" sigil="⟐" onClick={() => onNavigate('spiral-codex')} delay={1.21} />
-          <PortalDoor label="Open Loops" sub="Active initiatives · Next actions · Critical threads" color="#E88C6A" sigil="∞" onClick={() => onNavigate('loops')} delay={1.23} />
-          <PortalDoor label="Spiral Grove" sub="A.I.S. Learning Layer · Three-field architecture" color="#00D4AA" sigil="🌿" onClick={() => onNavigate('grove')} delay={1.25} />
-          <PortalDoor label="Living Larder" sub="Sovereign food network · Eden Farm · Saturday Hub" color="#4CAF50" sigil="🌾" onClick={() => onNavigate('larder')} delay={1.26} />
-          <PortalDoor label="IMS Archive" sub="Identity Mapping Sessions · Sealed scrolls" color="#C84848" sigil="∞" onClick={() => onNavigate('ims')} delay={1.27} />
-          <PortalDoor label="NovaNet" sub="Living node mesh · Silicon · Transmission · Human Field" color="#6A9FD8" sigil="◉" onClick={() => onNavigate('novanet')} delay={1.28} />
-          <PortalDoor label="Distribute" sub="Sovereign music distribution · 100% master ownership" color="#C9A84C" sigil="⟁" onClick={() => onNavigate('distribute')} delay={1.29} />
-          <PortalDoor label="SolSpire Console" sub="Intent · Plan · Execute · Observe · Kernel v0.1 · Milestone 1" color="#C9A84C" sigil="◉" onClick={() => onNavigate('solspire')} delay={1.296} />
-          <PortalDoor label="Settings" sub="API key manager · Gemini key rotation · Quota control" color="#C9A84C" sigil="⚙" onClick={() => onNavigate('settings')} delay={1.298} />
-          <PortalDoor
-            label="Dashboard"
-            sub={isAuthenticated ? "Open loops · Personal field · Action matrix" : "Authenticated nodes only — complete your IMS first"}
-            color="#E88C6A"
-            sigil="◈"
-            onClick={() => isAuthenticated ? onNavigate('dashboard') : onNavigate('login')}
-            delay={1.30}
-            locked={!isAuthenticated}
-          />
-          {isAuthenticated && (
-            <PortalDoor label="Codex" sub="Personal Codex · 90-day architecture · Soul map" color="#C9A84C" sigil="✦" onClick={() => onNavigate('codex')} delay={1.32} />
-          )}
-          <PortalDoor label="About" sub="Zahrune Nova · Lineage · Architecture" color="#6A9FD8" sigil="✦" onClick={() => onNavigate('about')} delay={1.34} />
+          {/* Main gates - consolidated entry points */}
+          <PortalDoor label="Oracle" sub="ARKANA · Pattern intelligence · Live commune" color="#00D4AA" sigil="⟐" onClick={() => onNavigate('commune')} delay={1.12} />
+          <PortalDoor label="Nexus Hub" sub="Codex · IMS · Grove · Larder · NovaNet · Distribute" color="#C9A84C" sigil="☥" onClick={() => onNavigate('nexus')} delay={1.14} />
+          <PortalDoor label="SolSpire Console" sub="Projects · Knowledge · Operations · Codex" color="#C9A84C" sigil="◉" onClick={() => onNavigate('solspire')} delay={1.16} />
+          <PortalDoor label="Living Gate" sub="Reset · IMS · AIC Diagnostic · 5-Minute Coherence" color="#00D4AA" sigil="◎" onClick={() => onNavigate('gate')} delay={1.18} />
+          
+          {/* Secondary gates */}
+          <PortalDoor label="Offerings" sub="Sessions · Products · Book Now" color="#C9A84C" sigil="✦" onClick={() => onNavigate('offerings')} delay={1.22} />
+          <PortalDoor label="Settings" sub="API key manager · Gemini key rotation · Quota control" color="#C9A84C" sigil="⚙" onClick={() => onNavigate('settings')} delay={1.24} />
+          
+          {/* About */}
+          <PortalDoor label="About" sub="Zahrune Nova · Lineage · Architecture" color="#6A9FD8" sigil="✦" onClick={() => onNavigate('about')} delay={1.28} />
         </div>
 
         {!isAuthenticated && (

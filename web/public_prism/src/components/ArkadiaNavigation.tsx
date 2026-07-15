@@ -34,37 +34,29 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Core',
     items: [
       { label: 'Home',         view: 'home',      sigil: '⌂', sub: 'Field entry point',                             color: '#C9A84C' },
-      { label: 'Living Gate',  view: 'gate',      sigil: '✦', sub: 'Oracle · AIC Diagnostic · IMS $777',             color: '#C9A84C' },
-      { label: 'Offerings',    view: 'offerings', sigil: '✦', sub: 'Sessions · Products · Bookings',                 color: '#C9A84C' },
       { label: 'Oracle',       view: 'commune',   sigil: '⟐', sub: 'ARKANA · Pattern intelligence',                  color: '#00D4AA' },
-      { label: 'Field Reset',  view: 'reset',     sigil: '◎', sub: '5-minute coherence reset',                       color: '#B08DE8' },
+      { label: 'Living Gate',  view: 'gate',      sigil: '✦', sub: 'Reset · IMS · AIC Diagnostic · 5-Minute',        color: '#C9A84C' },
     ],
   },
   {
     label: 'Intelligence',
     items: [
-      { label: 'Nexus Hub',              view: 'nexus',         sigil: '☥', sub: 'Codex · Archive · Grove · Larder',       color: '#C9A84C' },
-      { label: 'Encyclopedia Galactica', view: 'encyclopedia',  sigil: '✧', sub: '12 Chambers · Echoes of the Lost Aeons',  color: '#B08DE8' },
-      { label: 'Prism — Knowledge OS',   view: 'knowledge-os',  sigil: '◈', sub: 'Graph · Timeline · Semantic Search',      color: '#00D4AA' },
+      { label: 'Nexus Hub',              view: 'nexus',         sigil: '☥', sub: 'Codex · IMS · Grove · Larder · NovaNet · Distribute', color: '#C9A84C' },
+      { label: 'SolSpire Console',       view: 'solspire',      sigil: '◉', sub: 'Projects · Knowledge · Operations · Codex',        color: '#C9A84C' },
     ],
   },
   {
     label: 'Modules',
     items: [
-      { label: 'Spiral Codex',  view: 'spiral-codex', sigil: '⟐', sub: 'Crystal Matrix · 26+ scrolls',   color: '#C9A84C' },
-      { label: 'Open Loops',    view: 'loops',        sigil: '∞', sub: 'Active initiatives · next actions', color: '#E88C6A' },
-      { label: 'Spiral Grove',  view: 'grove',        sigil: '🌿', sub: 'A.I.S. Learning Layer',            color: '#00D4AA' },
-      { label: 'Living Larder', view: 'larder',       sigil: '🌾', sub: 'Sovereign food network',           color: '#4CAF50' },
-      { label: 'IMS Archive',   view: 'ims',          sigil: '⊕', sub: 'Identity Mapping Sessions',        color: '#C84848' },
-      { label: 'NovaNet',       view: 'novanet',      sigil: '◉', sub: 'Living node mesh',                 color: '#6A9FD8' },
-      { label: 'Distribute',    view: 'distribute',   sigil: '⟁', sub: 'Sovereign music distribution',     color: '#C9A84C' },
+      { label: 'Offerings',    view: 'offerings', sigil: '✦', sub: 'Sessions · Products · Book Now',    color: '#C9A84C' },
+      { label: 'Distribute',   view: 'distribute', sigil: '⟁', sub: 'Sovereign music distribution',     color: '#C9A84C' },
     ],
   },
   {
     label: 'System',
     items: [
-      { label: 'Dashboard', view: 'dashboard', sigil: '◈', sub: 'Open loops · personal field', color: '#E88C6A' },
-      { label: 'About',     view: 'about',     sigil: '✦', sub: 'Zahrune Nova · Lineage',      color: '#6A9FD8' },
+      { label: 'Settings',  view: 'settings', sigil: '⚙', sub: 'API keys · Configuration', color: '#C9A84C' },
+      { label: 'About',    view: 'about',     sigil: '✦', sub: 'Zahrune Nova · Lineage',      color: '#6A9FD8' },
     ],
   },
 ];
@@ -136,8 +128,8 @@ function UserSection({ onNavigate, onClose }: { onNavigate: (v: View) => void; o
       {/* Quick links */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, padding: '0 16px 10px' }}>
         {[
-          { label: '✦ Codex', view: 'codex' as View },
-          { label: '◈ Dashboard', view: 'dashboard' as View },
+          { label: '☥ Nexus', view: 'nexus' as View },
+          { label: '◉ SolSpire', view: 'solspire' as View },
         ].map(item => (
           <button key={item.view} onClick={() => { onNavigate(item.view); onClose(); }}
             style={{

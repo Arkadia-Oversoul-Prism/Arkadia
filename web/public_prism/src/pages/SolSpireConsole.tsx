@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProjectDashboard, { Project } from './ProjectDashboard';
+import KnowledgeOSPage from './knowledge/KnowledgeOSPage';
+import Dashboard from './dashboard/Dashboard';
+import NexusSpiralCodex from './NexusSpiralCodex';
 
 const ORACLE = import.meta.env.VITE_ORACLE_URL || 'http://localhost:8000';
 
@@ -170,6 +173,17 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
   );
 }
 
+// ── Tab Types ──────────────────────────────────────────────────────────────────
+
+type SolSpireTab = 'projects' | 'knowledge' | 'operations' | 'codex';
+
+const TABS: { id: SolSpireTab; label: string; sigil: string; color: string }[] = [
+  { id: 'projects',   label: 'Projects',    sigil: '⚙',  color: '#C9A84C' },
+  { id: 'knowledge',  label: 'Knowledge',   sigil: '◈',  color: '#00D4AA' },
+  { id: 'operations', label: 'Operations',   sigil: '◎',  color: '#E88C6A' },
+  { id: 'codex',      label: 'Codex',       sigil: '⟐',  color: '#B08DE8' },
+];
+
 // ── Main Console Shell ────────────────────────────────────────────────────────
 
 export default function SolSpireConsole() {
@@ -182,6 +196,7 @@ export default function SolSpireConsole() {
   const [filter, setFilter] = useState<'all' | 'active' | 'archived'>('active');
   const [searchQ, setSearchQ] = useState('');
   const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState<SolSpireTab>('projects');
 
   const load = () => {
     setLoading(true);
@@ -215,13 +230,43 @@ export default function SolSpireConsole() {
     </>
   );
 
+  // Render different tab content
+  if (tab === 'knowledge') {
+    return (
+      <div className="min-h-screen w-full" style={{ background: '#0A0B14' }}>
+        <KnowledgeOSPage />
+      </div>
+    );
+  }
+
+  if (tab === 'operations') {
+    return (
+      <div className="min-h-screen w-full" style={{ background: '#0A0B14' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px 16px' }}>
+          <Dashboard />
+        </div>
+      </div>
+    );
+  }
+
+  if (tab === 'codex') {
+    return (
+      <div className="min-h-screen w-full" style={{ background: '#0A0B14' }}>
+        <div style={{ maxWidth: '960px', margin: '0 auto', padding: '24px 16px' }}>
+          <NexusSpiralCodex />
+        </div>
+      </div>
+    );
+  }
+
+  // Projects tab (default)
   return (
     <div className="min-h-screen w-full" style={{ background: '#0A0B14' }}>
       <div className="aurora-bg" />
       <div style={{ maxWidth: '920px', margin: '0 auto', padding: '28px 16px', position: 'relative', zIndex: 10 }}>
 
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: '28px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: '16px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
               <div style={{ width: '7px', height: '7px', background: '#C9A84C', borderRadius: '50%', boxShadow: '0 0 10px #C9A84C88' }} />
@@ -230,13 +275,41 @@ export default function SolSpireConsole() {
               </p>
             </div>
             <h1 style={{ fontFamily: '"Cinzel",serif', fontSize: '34px', color: '#C9A84C', margin: '0 0 4px', letterSpacing: '0.18em', textShadow: '0 0 40px rgba(201,168,76,0.3)' }}>SOLSPIRE</h1>
-            <p style={{ fontFamily: 'sans-serif', fontSize: '12px', color: 'rgba(212,223,232,0.4)', margin: 0 }}>Select a project — or create a new one</p>
           </div>
           <button onClick={() => setShowKeys(true)}
             style={{ padding: '9px 16px', background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)', borderRadius: '8px', color: 'rgba(201,168,76,0.6)', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.15em', display: 'flex', alignItems: 'center', gap: '6px' }}>
             ⚿ API Keys
           </button>
         </motion.div>
+
+        {/* Tab navigation */}
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', borderBottom: '1px solid rgba(201,168,76,0.08)', paddingBottom: '12px' }}>
+          {TABS.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              style={{
+                padding: '8px 16px',
+                background: tab === t.id ? `${t.color}10` : 'transparent',
+                border: tab === t.id ? `1px solid ${t.color}45` : '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                transition: 'all 0.18s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <span style={{ fontSize: '14px' }}>{t.sigil}</span>
+              <span style={{ fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: tab === t.id ? t.color : 'rgba(212,223,232,0.5)' }}>
+                {t.label}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Sub-header for projects tab */}
+        <p style={{ fontFamily: 'sans-serif', fontSize: '12px', color: 'rgba(212,223,232,0.4)', margin: '0 0 20px' }}>Select a project — or create a new one</p>
 
         {/* Controls */}
         <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>

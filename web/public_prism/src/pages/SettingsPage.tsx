@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const API = "";
+const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
 
 interface ApiKey {
   id: string;
@@ -190,11 +190,16 @@ export default function SettingsPage() {
 
   async function loadKeys() {
     try {
-      const res = await fetch(`${API}/api/keys`);
+      const res = await fetch(`${API_BASE}/api/keys`);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Failed to load keys: ${res.status} ${text.slice(0, 100)}`);
+      }
       const data = await res.json();
       setKeys(data.keys || []);
-    } catch {
-      setError("Could not load keys");
+    } catch (e) {
+      console.error('loadKeys error:', e);
+      setError(e instanceof Error ? e.message : "Could not load keys");
     } finally {
       setLoading(false);
     }
@@ -210,12 +215,18 @@ export default function SettingsPage() {
     setError("");
     setSuccess("");
     try {
-      const res = await fetch(`${API}/api/keys`, {
+      const res = await fetch(`${API_BASE}/api/keys`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: newKey.trim(), label: newLabel.trim() || undefined }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(`Server returned non-JSON: ${res.status} ${text.slice(0, 100)}`);
+      }
       if (!res.ok) throw new Error(data.detail || "Failed to add key");
       setNewKey("");
       setNewLabel("");
@@ -230,20 +241,20 @@ export default function SettingsPage() {
 
   async function activateKey(id: string) {
     setError("");
-    await fetch(`${API}/api/keys/${id}/activate`, { method: "PATCH" });
+    await fetch(`${API_BASE}/api/keys/${id}/activate`, { method: "PATCH" });
     await loadKeys();
     setSuccess("Active key switched.");
   }
 
   async function removeKey(id: string) {
     setError("");
-    await fetch(`${API}/api/keys/${id}`, { method: "DELETE" });
+    await fetch(`${API_BASE}/api/keys/${id}`, { method: "DELETE" });
     await loadKeys();
     setSuccess("Key removed.");
   }
 
   async function resetQuota(id: string) {
-    await fetch(`${API}/api/keys/${id}/reset-quota`, { method: "PATCH" });
+    await fetch(`${API_BASE}/api/keys/${id}/reset-quota`, { method: "PATCH" });
     await loadKeys();
     setSuccess("Quota reset — key is active again.");
   }

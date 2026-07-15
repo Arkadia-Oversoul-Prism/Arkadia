@@ -6,10 +6,14 @@
  *   IMS ARCHIVE  → Live Field Bar + IMS Session Viewer + Encyclopedia Galactica Matrix
  *   SPIRAL GROVE → The Spiral Grove (A.I.S. Learning Civilization Layer)
  *   LIVING LARDER → The Living Larder Marketplace
+ *   NOVANET → Living Node Mesh + Encyclopedia Galactica
+ *   DISTRIBUTE → Sovereign Music Distribution
  */
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import NexusSpiralCodex from './NexusSpiralCodex'
+import NovaNetPage from './NovaNetPage'
+import DistributePage from './DistributePage'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
@@ -606,13 +610,15 @@ function EncyclopediaGalacticaMatrix() {
 
 // ─── TAB NAVIGATION ───────────────────────────────────────────────────────────
 
-type NexusTab = 'codex' | 'ims' | 'university' | 'larder'
+type NexusTab = 'codex' | 'ims' | 'university' | 'larder' | 'novanet' | 'distribute'
 
 const TABS: { id: NexusTab; label: string; sigil: string; color: string; sub: string }[] = [
   { id: 'codex',      label: 'Spiral Codex',  sigil: '⟐',  color: '#C9A84C', sub: 'Crystal Matrix · Spiral Codex · Open Loops' },
   { id: 'ims',        label: 'IMS Archive',   sigil: '∞',  color: '#C84848', sub: 'Identity Mapping Sessions · Encyclopedia Galactica' },
   { id: 'university', label: 'Spiral Grove',  sigil: '🌿', color: '#00D4AA', sub: 'The Spiral Grove · Learning Civilization' },
   { id: 'larder',     label: 'Larder',        sigil: '🌾', color: '#4CAF50', sub: 'The Living Larder · Marketplace' },
+  { id: 'novanet',    label: 'NovaNet',       sigil: '◉',  color: '#6A9FD8', sub: 'Living Node Mesh · Encyclopedia Galactica' },
+  { id: 'distribute', label: 'Distribute',    sigil: '⟁',  color: '#B08DE8', sub: 'Sovereign Music Distribution' },
 ]
 
 // ─── NEXUS PAGE ───────────────────────────────────────────────────────────────
@@ -894,6 +900,8 @@ export default function NexusPage() {
           )}
           {activeTab === 'university' && <AISUniversity />}
           {activeTab === 'larder'     && <LivingLarder />}
+          {activeTab === 'novanet'    && <NovaNetPage />}
+          {activeTab === 'distribute' && <DistributePage />}
         </motion.div>
       </AnimatePresence>
     </div>
