@@ -129,6 +129,8 @@ function UserSection({ onNavigate, onClose }: { onNavigate: (v: View) => void; o
         {[
           { label: '☥ Nexus', view: 'nexus' as View },
           { label: '◉ SolSpire', view: 'solspire' as View },
+          { label: '⟐ Crystal Tribune', view: 'spiral-codex' as View },
+          { label: '⬡ Encyclopedia', view: 'encyclopedia' as View },
         ].map(item => (
           <button key={item.view} onClick={() => { onNavigate(item.view); onClose(); }}
             style={{

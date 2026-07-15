@@ -236,8 +236,8 @@ function CrystalPolygon({ lunar, activeFaceId, onSelectFace }: {
   const tooltipFace = tooltip ? FACES.find(f => f.id === tooltip.faceId) : null
 
   return (
-    <div style={{ width: '100%', position: 'relative' }}>
-      <div style={{ width: POLY_SIZE, height: POLY_SIZE, transform: 'scale(0.9)', transformOrigin: 'top center', marginBottom: -POLY_SIZE * 0.1 }}>
+    <div style={{ width: '100%', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ width: POLY_SIZE, height: POLY_SIZE, transform: 'scale(0.62)', transformOrigin: 'top left', marginBottom: -POLY_SIZE * 0.38 }}>
         <svg width={POLY_SIZE} height={POLY_SIZE} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }}>
           <circle cx={CX} cy={CY} r={RING_R} fill="none" stroke="rgba(201,168,76,0.06)" strokeWidth={0.75} strokeDasharray="3 8" />
           {RING_ORDER.map((_, i) => {
@@ -664,8 +664,8 @@ export default function NexusSpiralCodex() {
     return () => window.removeEventListener('resize', handler)
   }, [])
 
-  const isWide = windowW >= 960
-  const isMedium = windowW >= 640
+  const isWide = windowW >= 680
+  const isMedium = windowW >= 480
 
   const { data, isLoading, error, refetch, isFetching } = useQuery<CodexResponse>({
     queryKey: ['codex-nexus'], queryFn: api.codex,
@@ -812,7 +812,7 @@ export default function NexusSpiralCodex() {
       {/* ── 3-column body ── */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: isWide ? '290px 1fr 268px' : isMedium && showCrystal && showReasoMate ? '1fr' : '1fr',
+        gridTemplateColumns: isWide ? '210px 1fr 210px' : '1fr',
         gap: 14,
         alignItems: 'start',
       }}>
