@@ -1,5 +1,5 @@
 {
-  "installCommand": "cd web/public_prism && npm install",
+  "installCommand": "cd web/public_prism && npm ci",
   "buildCommand": "cd web/public_prism && npm run build",
   "outputDirectory": "web/public_prism/dist",
   "rewrites": [
