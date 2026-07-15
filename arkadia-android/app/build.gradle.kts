@@ -52,5 +52,6 @@ dependencies {
     implementation(libs.androidx.preference.ktx)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.okhttp)
+    implementation(libs.androidx.media)
     implementation(libs.androidx.cardview)
 }

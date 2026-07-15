@@ -10,6 +10,7 @@ const DashboardView = lazy(() => import('./pages/DashboardView'));
 import NexusPage from './pages/NexusPage';
 import EncyclopediaGalactica from './pages/EncyclopediaGalactica';
 import NexusSpiralCodex from './pages/NexusSpiralCodex';
+import SpiralCodexFeed from './pages/SpiralCodexFeed';
 import SpiralGrovePage from './pages/SpiralGrovePage';
 import LivingLarderPage from './pages/LivingLarderPage';
 import IMSArchivePage from './pages/IMSArchivePage';
@@ -31,6 +32,7 @@ type View =
   | 'nexus'
   | 'encyclopedia'
   | 'spiral-codex'
+  | 'codex-feed'
   | 'loops'
   | 'grove'
   | 'larder'
@@ -381,6 +383,12 @@ function AppInner() {
         {view === 'spiral-codex' && (
           <motion.div key="spiral-codex" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
             <NexusSpiralCodex />
+          </motion.div>
+        )}
+
+        {view === 'codex-feed' && (
+          <motion.div key="codex-feed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
+            <SpiralCodexFeed onBack={() => setView('nexus')} />
           </motion.div>
         )}
 

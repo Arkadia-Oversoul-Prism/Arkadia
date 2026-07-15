@@ -7,6 +7,7 @@ type View =
   | 'nexus'
   | 'encyclopedia'
   | 'spiral-codex'
+  | 'codex-feed'
   | 'loops'
   | 'grove'
   | 'larder'
@@ -65,7 +66,7 @@ const VIEW_LABEL: Partial<Record<View, string>> = {
   home: 'Home', gate: 'Living Gate', commune: 'Oracle', reset: 'Field Reset', about: 'About',
   login: 'Node Login', codex: 'Personal Codex', dashboard: 'Dashboard',
   nexus: 'Nexus Hub', encyclopedia: 'Encyclopedia Galactica',
-  'spiral-codex': 'Spiral Codex', loops: 'Open Loops', grove: 'Spiral Grove',
+  'spiral-codex': 'Spiral Codex', 'codex-feed': 'Codex Feed', loops: 'Open Loops', grove: 'Spiral Grove',
   larder: 'Living Larder', novanet: 'NovaNet', ims: 'IMS Archive',
   distribute: 'Distribute', offerings: 'Offerings', aic: 'AIC Diagnostic',
   pulse: 'Arkadian Pulse', settings: 'Settings', solspire: 'SolSpire Console',
