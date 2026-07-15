@@ -70,6 +70,10 @@ def _mask(key: str) -> str:
 # ── Public API ───────────────────────────────────────────────────────────────
 
 def get_active_key() -> str:
+    """Alias for get_next_key() for backwards compatibility."""
+    return get_next_key()
+
+def get_next_key() -> str:
     with _lock:
         store = _load()
         active_id = store.get("active_id")
