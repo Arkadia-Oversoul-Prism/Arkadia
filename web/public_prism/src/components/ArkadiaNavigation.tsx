@@ -41,15 +41,14 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Intelligence',
     items: [
-      { label: 'Nexus Hub',              view: 'nexus',         sigil: '☥', sub: 'Codex · IMS · Grove · Larder · NovaNet · Distribute', color: '#C9A84C' },
-      { label: 'SolSpire Console',       view: 'solspire',      sigil: '◉', sub: 'Projects · Knowledge · Operations · Codex',        color: '#C9A84C' },
+      { label: 'Nexus Hub',              view: 'nexus',         sigil: '☥', sub: 'IMS · Encyclopedia · NovaNet · Grove · Larder · Distribute', color: '#C9A84C' },
+      { label: 'SolSpire Console',       view: 'solspire',      sigil: '◉', sub: 'Projects · Knowledge · Operations · Codex · Open Loops',   color: '#C9A84C' },
     ],
   },
   {
     label: 'Modules',
     items: [
       { label: 'Offerings',    view: 'offerings', sigil: '✦', sub: 'Sessions · Products · Book Now',    color: '#C9A84C' },
-      { label: 'Distribute',   view: 'distribute', sigil: '⟁', sub: 'Sovereign music distribution',     color: '#C9A84C' },
     ],
   },
   {

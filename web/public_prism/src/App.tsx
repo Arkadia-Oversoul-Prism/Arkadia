@@ -205,18 +205,10 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
         </motion.div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '30px' }}>
-          {/* Main gates - consolidated entry points */}
           <PortalDoor label="Oracle" sub="ARKANA · Pattern intelligence · Live commune" color="#00D4AA" sigil="⟐" onClick={() => onNavigate('commune')} delay={1.12} />
-          <PortalDoor label="Nexus Hub" sub="Codex · IMS · Grove · Larder · NovaNet · Distribute" color="#C9A84C" sigil="☥" onClick={() => onNavigate('nexus')} delay={1.14} />
-          <PortalDoor label="SolSpire Console" sub="Projects · Knowledge · Operations · Codex" color="#C9A84C" sigil="◉" onClick={() => onNavigate('solspire')} delay={1.16} />
-          <PortalDoor label="Living Gate" sub="Reset · IMS · AIC Diagnostic · 5-Minute Coherence" color="#00D4AA" sigil="◎" onClick={() => onNavigate('gate')} delay={1.18} />
-          
-          {/* Secondary gates */}
-          <PortalDoor label="Offerings" sub="Sessions · Products · Book Now" color="#C9A84C" sigil="✦" onClick={() => onNavigate('offerings')} delay={1.22} />
-          <PortalDoor label="Settings" sub="API key manager · Gemini key rotation · Quota control" color="#C9A84C" sigil="⚙" onClick={() => onNavigate('settings')} delay={1.24} />
-          
-          {/* About */}
-          <PortalDoor label="About" sub="Zahrune Nova · Lineage · Architecture" color="#6A9FD8" sigil="✦" onClick={() => onNavigate('about')} delay={1.28} />
+          <PortalDoor label="Nexus Hub" sub="IMS · Encyclopedia · NovaNet · Grove · Larder · Distribute" color="#C9A84C" sigil="☥" onClick={() => onNavigate('nexus')} delay={1.14} />
+          <PortalDoor label="SolSpire Console" sub="Projects · Knowledge · Operations · Codex · Open Loops" color="#C9A84C" sigil="◉" onClick={() => onNavigate('solspire')} delay={1.16} />
+          <PortalDoor label="Offerings" sub="IMS Sessions · Products · AIC Diagnostic" color="#00D4AA" sigil="✦" onClick={() => onNavigate('offerings')} delay={1.18} />
         </div>
 
         {!isAuthenticated && (

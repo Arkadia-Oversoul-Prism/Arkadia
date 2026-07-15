@@ -4,6 +4,7 @@ import ProjectDashboard, { Project } from './ProjectDashboard';
 import KnowledgeOSPage from './knowledge/KnowledgeOSPage';
 import Dashboard from './dashboard/Dashboard';
 import NexusSpiralCodex from './NexusSpiralCodex';
+import OpenLoopsPage from './OpenLoopsPage';
 import { ORACLE } from '../lib/apiConfig';
 
 // ── API ───────────────────────────────────────────────────────────────────────
@@ -60,19 +61,20 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
 
 // ── Tab Types ──────────────────────────────────────────────────────────────────
 
-type SolSpireTab = 'projects' | 'knowledge' | 'operations' | 'codex';
+type SolSpireTab = 'projects' | 'knowledge' | 'operations' | 'codex' | 'loops';
 
 const TABS: { id: SolSpireTab; label: string; sigil: string; color: string }[] = [
   { id: 'projects',   label: 'Projects',    sigil: '⚙',  color: '#C9A84C' },
   { id: 'knowledge',  label: 'Knowledge',   sigil: '◈',  color: '#00D4AA' },
-  { id: 'operations', label: 'Operations',   sigil: '◎',  color: '#E88C6A' },
+  { id: 'operations', label: 'Operations',  sigil: '◎',  color: '#E88C6A' },
   { id: 'codex',      label: 'Codex',       sigil: '⟐',  color: '#B08DE8' },
+  { id: 'loops',      label: 'Open Loops',  sigil: '∞',  color: '#C84848' },
 ];
 
 // ── Main Console Shell ────────────────────────────────────────────────────────
 
 export default function SolSpireConsole() {
-  	  const [projects, setProjects] = useState<Project[]>([]);
+          const [projects, setProjects] = useState<Project[]>([]);
   const [openProject, setOpenProject] = useState<Project | null>(null);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
@@ -142,6 +144,16 @@ export default function SolSpireConsole() {
     return (
       <div className="min-h-screen w-full" style={{ background: '#0A0B14' }}>
         <NexusSpiralCodex />
+      </div>
+    );
+  }
+
+  if (tab === 'loops') {
+    return (
+      <div className="min-h-screen w-full" style={{ background: '#0A0B14' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px 16px' }}>
+          <OpenLoopsPage />
+        </div>
       </div>
     );
   }
