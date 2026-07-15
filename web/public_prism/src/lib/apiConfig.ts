@@ -16,6 +16,7 @@ const API_BASE_URL = (
 // Ensure we always have a valid URL
 const safeUrl = API_BASE_URL.startsWith('http') ? API_BASE_URL : RENDER_URL;
 
-export { safeUrl as API_BASE_URL };
-export { safeUrl as API_BASE };  // Alias for backwards compatibility
+// Named exports for the API base URL
+export const API_BASE_URL = safeUrl;
+export const API_BASE = safeUrl;      // Alias for backwards compatibility
 export const ORACLE = safeUrl;
