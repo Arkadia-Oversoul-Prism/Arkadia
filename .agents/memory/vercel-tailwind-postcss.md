@@ -19,3 +19,11 @@ for the `@tailwindcss/postcss` plugin key — remove both and use plain `tailwin
 config to match the pinned v3 major version. Root-level `package.json` (unrelated to the Vercel build,
 see `vercel.json` installCommand) is on Tailwind v4 and correctly pairs with `@tailwindcss/postcss` —
 don't "fix" that one to match.
+
+**Separate recurring failure mode:** even after the Tailwind conflict was fixed, Vercel's `npm install`
+kept crashing with npm's own internal bug `npm error Exit handler never called!` (a known npm/cli bug,
+not a project dependency conflict — it can be triggered by npm's audit/fund network calls or a stale
+Vercel-side npm cache restored from a prior deploy). Mitigated by pinning `engines.node` to an exact
+`20.x` (not a `>=` range, to avoid Vercel silently trying a newer Node/bundled-npm combo) and adding
+`web/public_prism/.npmrc` with `audit=false` / `fund=false` to cut the extra registry calls. If it
+recurs, also try redeploying on Vercel with the build cache explicitly cleared.
