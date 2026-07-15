@@ -4,13 +4,13 @@ import ProjectDashboard, { Project } from './ProjectDashboard';
 import KnowledgeOSPage from './knowledge/KnowledgeOSPage';
 import Dashboard from './dashboard/Dashboard';
 import NexusSpiralCodex from './NexusSpiralCodex';
-
-const ORACLE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
+import { ORACLE } from '../lib/apiConfig';
 
 // ── API ───────────────────────────────────────────────────────────────────────
 
 async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
-  const res = await fetch(`${ORACLE}${path}`, {
+  const url = `${ORACLE}${path}`;
+  const res = await fetch(url, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : {},
     body: body ? JSON.stringify(body) : undefined,
@@ -80,11 +80,19 @@ export default function SolSpireConsole() {
   const [filter, setFilter] = useState<'all' | 'active' | 'archived'>('active');
   const [searchQ, setSearchQ] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<SolSpireTab>('projects');
 
   const load = () => {
     setLoading(true);
-    api<{ projects: Project[] }>('/solspire/projects').then(r => { setProjects(r.projects); setLoading(false); }).catch(() => setLoading(false));
+    setError(null);
+    api<{ projects: Project[] }>('/solspire/projects')
+      .then(r => { setProjects(r.projects); setLoading(false); })
+      .catch(err => {
+        console.error('Failed to load projects:', err);
+        setError(err.message || 'Failed to connect to backend');
+        setLoading(false);
+      });
   };
 
   useEffect(() => { load(); }, []);
@@ -226,6 +234,21 @@ export default function SolSpireConsole() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Error display */}
+        {error && (
+          <div style={{ padding: '16px', background: 'rgba(200,72,72,0.08)', border: '1px solid rgba(200,72,72,0.25)', borderRadius: '8px', marginBottom: '20px' }}>
+            <p style={{ fontFamily: 'sans-serif', fontSize: '12px', color: 'rgba(200,72,72,0.9)', margin: '0 0 8px' }}>
+              ⚠ Connection Error
+            </p>
+            <p style={{ fontFamily: 'sans-serif', fontSize: '11px', color: 'rgba(212,223,232,0.5)', margin: '0' }}>
+              {error}
+            </p>
+            <p style={{ fontFamily: 'sans-serif', fontSize: '10px', color: 'rgba(212,223,232,0.3)', margin: '8px 0 0' }}>
+              Backend: {ORACLE}
+            </p>
+          </div>
+        )}
 
         {/* Project grid */}
         {loading ? (

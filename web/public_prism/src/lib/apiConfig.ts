@@ -3,7 +3,7 @@
  * All components should import from here instead of using their own ORACLE/API_BASE.
  */
 
-// The Render backend URL - set in Vercel environment variables
+// The Render backend URL - this is the production backend
 const RENDER_URL = 'https://arkadia-n26k.onrender.com';
 
 // Get from env, fallback to Render URL, fallback to localhost
@@ -13,5 +13,8 @@ const API_BASE_URL = (
   RENDER_URL
 ).replace(/\/$/, '');
 
-export { API_BASE_URL };
-export const ORACLE = API_BASE_URL;
+// Ensure we always have a valid URL
+const safeUrl = API_BASE_URL.startsWith('http') ? API_BASE_URL : RENDER_URL;
+
+export { safeUrl as API_BASE_URL };
+export const ORACLE = safeUrl;

@@ -12,8 +12,7 @@ import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import NovaNetPage from './NovaNetPage'
 import DistributePage from './DistributePage'
-
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+import { API_BASE } from '../lib/apiConfig'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
