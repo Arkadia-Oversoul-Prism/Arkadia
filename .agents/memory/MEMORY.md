@@ -8,3 +8,4 @@
 - [d3 missing from node_modules](d3-install.md) — d3 was in package.json but not installed; `cd web/public_prism && npm install d3` fixed Vercel build failure.
 - [Visual synthesis tokens](visual-synthesis.md) — ARKADIA title: gold #C9A84C + Cinzel font. Aurora pushed to 0.28/0.20. Portal cards: rgba(14,17,32,0.72) + teal border 0.16. Diamond dividers + corner ornaments.
 - [web/public_prism Tailwind pin](vercel-tailwind-postcss.md) — never add @tailwindcss/postcss there; it's pinned to Tailwind v3 and Vercel's npm install crashes on the v3/v4 plugin conflict.
+- [Arkadia system recalibration](arkadia-recalibration.md) — dead code archived, root package.json drift removed, sovereign-key gate hardening, live deploy targets confirmed. Read before touching engine/parsers/schemas, routing deps, or openclaw configs.
