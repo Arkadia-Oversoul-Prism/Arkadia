@@ -36,6 +36,12 @@ def _init_firebase() -> None:
 
     sa_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON", "").strip()
     if not sa_json:
+        if os.environ.get("ENVIRONMENT", "").strip().lower() == "production":
+            raise RuntimeError(
+                "[AUTH] FIREBASE_SERVICE_ACCOUNT_JSON is not set while ENVIRONMENT=production. "
+                "Refusing to start in unsigned-JWT dev-mode auth fallback in production. "
+                "Set FIREBASE_SERVICE_ACCOUNT_JSON (or unset ENVIRONMENT=production for local/dev use)."
+            )
         logger.warning("[AUTH] FIREBASE_SERVICE_ACCOUNT_JSON not set — running in dev-mode (no token verification)")
         _dev_mode = True
         return

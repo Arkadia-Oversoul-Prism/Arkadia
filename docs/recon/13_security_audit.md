@@ -5,7 +5,7 @@ Each finding includes a risk score (Critical / High / Medium / Low) based on exp
 ## Findings
 
 ### 1. Hardcoded Gemini API key in committed files — **HIGH**
-- `archive/legacy_python/entrypoint.sh` line 30: hardcoded key `AIzaSyCGBWv8tDCevIAc1flyFKN8twx3wq9jQ-Y`.
+- `archive/legacy_python/entrypoint.sh` line 30: hardcoded Gemini API key (redacted from this doc and the source file — see MEMORY.md; rotate the key, it is still in git history).
 - `DEPLOYMENT_GUIDE.md` lines 25/39/54: same key repeated as a documentation "example."
 - **Risk**: if this key is still active, it is fully exposed in git history and any public mirror/fork. Even if labeled "legacy"/"example," a real-looking key string in a doc invites accidental reuse.
 - **Recommendation**: rotate this key immediately if it was ever real/active, then scrub or replace with an obviously-fake placeholder (`AIzaSy_EXAMPLE_KEY_DO_NOT_USE`) in the doc.

@@ -33,7 +33,13 @@ GITHUB_REPO    = "Arkadia-Oversoul-Prism/Arkadia"
 GITHUB_BRANCH  = "main"
 GITHUB_TOKEN   = os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN", "")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
-SOVEREIGN_KEY  = os.environ.get("SOVEREIGN_KEY", "arkadia-forge-2026")
+SOVEREIGN_KEY  = os.environ.get("SOVEREIGN_KEY", "")
+if not SOVEREIGN_KEY:
+    logger.warning(
+        "[SECURITY] SOVEREIGN_KEY env var is not set — sovereign-key-gated endpoints "
+        "(forge webhook signature, sovereign admin routes) will reject all requests "
+        "until it is configured. Set SOVEREIGN_KEY to a long random secret."
+    )
 
 # ── Category → SpiralVault category + display priority ───────────────────────
 # Handles both root-level dirs and Oversoul_Prism/ prefixed dirs
@@ -673,7 +679,7 @@ async def github_webhook(request: Request):
     webhook secret so only GitHub can trigger a bust.
     """
     # Validate HMAC signature when a secret is configured
-    if SOVEREIGN_KEY and SOVEREIGN_KEY != "arkadia-forge-2026":
+    if SOVEREIGN_KEY:
         sig_header = request.headers.get("X-Hub-Signature-256", "")
         body = await request.body()
         expected = "sha256=" + hmac.new(
@@ -1007,7 +1013,7 @@ async def forge(request: Request):
 
     # Sovereign gate check
     provided_key = body.get("sovereign_key", "")
-    if provided_key != SOVEREIGN_KEY:
+    if not SOVEREIGN_KEY or not provided_key or provided_key != SOVEREIGN_KEY:
         raise HTTPException(status_code=403, detail="Sovereign gate closed.")
 
     if not GOOGLE_API_KEY:
@@ -1121,7 +1127,7 @@ async def dashboard_loops(sovereign_token: str = ""):
     It tracks active commitments, their status, and next actions.
     This endpoint merges live oracle_store data with DOC2 context.
     """
-    if not sovereign_token or sovereign_token.strip() != SOVEREIGN_KEY:
+    if not SOVEREIGN_KEY or not sovereign_token or sovereign_token.strip() != SOVEREIGN_KEY:
         raise HTTPException(status_code=403, detail="Sovereign gate closed.")
 
     import time as _time
@@ -1488,7 +1494,7 @@ async def create_order(request: Request):
 async def get_orders(request: Request):
     """List all Living Larder orders (sovereign-only access)."""
     key = request.headers.get("x-sovereign-key", "")
-    if key != SOVEREIGN_KEY:
+    if not SOVEREIGN_KEY or not key or key != SOVEREIGN_KEY:
         raise HTTPException(status_code=403, detail="Sovereign key required")
     orders = _load_json_list(ORDERS_FILE)
     return {"orders": orders, "total": len(orders)}
@@ -1526,7 +1532,7 @@ async def create_ims_inquiry(request: Request):
 async def get_ims_inquiries(request: Request):
     """List all IMS inquiries (sovereign-only access)."""
     key = request.headers.get("x-sovereign-key", "")
-    if key != SOVEREIGN_KEY:
+    if not SOVEREIGN_KEY or not key or key != SOVEREIGN_KEY:
         raise HTTPException(status_code=403, detail="Sovereign key required")
     inquiries = _load_json_list(IMS_FILE)
     return {"inquiries": inquiries, "total": len(inquiries)}

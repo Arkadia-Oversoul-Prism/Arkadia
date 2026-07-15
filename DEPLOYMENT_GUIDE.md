@@ -22,7 +22,7 @@ The Arkadia Oracle Temple is now **fully functional** with all required componen
 3. **Set Environment Variables in Render:**
    ```
    ARKADIA_FOLDER_ID=1J_2_RQWml85SQ7ZP7DwAVSbrXOHTO9fF
-   GEMINI_API_KEY=AIzaSyCGBWv8tDCevIAc1flyFKN8twx3wq9jQ-Y
+   GEMINI_API_KEY=<your Gemini API key>
    GDRIVE_SERVICE_ACCOUNT_JSON={"type":"service_account",...your JSON...}
    ```
 4. **Deploy using Docker** - Render will automatically use the Dockerfile
@@ -36,7 +36,7 @@ docker build -t arkadia-oracle-temple .
 # Run with environment variables
 docker run -p 8080:8080 \
   -e ARKADIA_FOLDER_ID=1J_2_RQWml85SQ7ZP7DwAVSbrXOHTO9fF \
-  -e GEMINI_API_KEY=AIzaSyCGBWv8tDCevIAc1flyFKN8twx3wq9jQ-Y \
+  -e GEMINI_API_KEY=<your Gemini API key> \
   -e GDRIVE_SERVICE_ACCOUNT_JSON='{"type":"service_account",...}' \
   arkadia-oracle-temple
 ```
@@ -51,7 +51,7 @@ ARKADIA_FOLDER_ID=1J_2_RQWml85SQ7ZP7DwAVSbrXOHTO9fF
 GDRIVE_SERVICE_ACCOUNT_JSON={"type":"service_account",...your full JSON...}
 
 # AI Integration  
-GEMINI_API_KEY=AIzaSyCGBWv8tDCevIAc1flyFKN8twx3wq9jQ-Y
+GEMINI_API_KEY=<your Gemini API key>
 
 # Optional - Port (defaults to 8080)
 PORT=8080

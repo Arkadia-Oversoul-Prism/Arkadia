@@ -27,7 +27,7 @@ fi
 # Set default environment variables
 export GOOGLE_SERVICE_ACCOUNT_JSON_FILE="/run/service_account.json"
 export ARKADIA_FOLDER_ID="${ARKADIA_FOLDER_ID:-1J_2_RQWml85SQ7ZP7DwAVSbrXOHTO9fF}"
-export GEMINI_API_KEY="${GEMINI_API_KEY:-AIzaSyCGBWv8tDCevIAc1flyFKN8twx3wq9jQ-Y}"
+export GEMINI_API_KEY="${GEMINI_API_KEY:-}"
 
 # Display configuration
 echo "Configuration:"
