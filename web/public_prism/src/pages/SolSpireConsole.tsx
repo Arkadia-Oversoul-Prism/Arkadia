@@ -252,9 +252,7 @@ export default function SolSpireConsole() {
   if (tab === 'codex') {
     return (
       <div className="min-h-screen w-full" style={{ background: '#0A0B14' }}>
-        <div style={{ maxWidth: '960px', margin: '0 auto', padding: '24px 16px' }}>
-          <NexusSpiralCodex />
-        </div>
+        <NexusSpiralCodex />
       </div>
     );
   }
