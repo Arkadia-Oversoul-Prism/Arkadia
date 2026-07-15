@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const ORACLE = import.meta.env.VITE_ORACLE_URL || 'http://localhost:8000';
+const ORACLE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
