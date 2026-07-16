@@ -1876,51 +1876,96 @@ async def agent_spawn(request: Request):
 # ═══════════════════════════════════════════════════════════════════════════════
 # Phase B — API Key Manager endpoints
 # ═══════════════════════════════════════════════════════════════════════════════
+# Per-User API Key Manager — Firestore-backed, auth-protected
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @app.get("/api/keys")
-async def api_list_keys():
-    from api.key_manager import list_keys
-    return {"keys": list_keys()}
+async def api_list_keys(request: Request):
+    """List API keys for the authenticated user."""
+    user = await _get_current_user(request)
+    user_id = user.get("uid") if user else None
+    
+    if not user_id:
+        from api.key_manager import list_keys
+        return {"keys": list_keys()}
+    
+    from api.user_key_store import get_user_keys
+    return {"keys": get_user_keys(user_id)}
 
 
 @app.post("/api/keys")
 async def api_add_key(request: Request):
+    """Add a new API key for the authenticated user."""
     try:
         body = await request.json()
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON")
+    
     key = (body.get("key") or "").strip()
     label = (body.get("label") or "").strip()
     if not key:
         raise HTTPException(status_code=400, detail="'key' is required")
+    
+    user = await _get_current_user(request)
+    user_id = user.get("uid") if user else None
+    
+    if not user_id:
+        try:
+            from api.key_manager import add_key
+            return add_key(key, label)
+        except ValueError as e:
+            raise HTTPException(status_code=409, detail=str(e))
+    
+    from api.user_key_store import add_user_key
     try:
-        from api.key_manager import add_key
-        result = add_key(key, label)
-        return result
+        return add_user_key(user_id, key, label)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
 
 
 @app.delete("/api/keys/{key_id}")
-async def api_remove_key(key_id: str):
-    from api.key_manager import remove_key
-    ok = remove_key(key_id)
+async def api_remove_key(key_id: str, request: Request):
+    """Remove an API key for the authenticated user."""
+    user = await _get_current_user(request)
+    user_id = user.get("uid") if user else None
+    
+    if not user_id:
+        from api.key_manager import remove_key
+        ok = remove_key(key_id)
+        if not ok:
+            raise HTTPException(status_code=404, detail="Key not found")
+        return {"deleted": key_id}
+    
+    from api.user_key_store import remove_user_key
+    ok = remove_user_key(user_id, key_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Key not found")
     return {"deleted": key_id}
 
 
 @app.patch("/api/keys/{key_id}/activate")
-async def api_activate_key(key_id: str):
-    from api.key_manager import set_active
-    ok = set_active(key_id)
+async def api_activate_key(key_id: str, request: Request):
+    """Set the active API key for the authenticated user."""
+    user = await _get_current_user(request)
+    user_id = user.get("uid") if user else None
+    
+    if not user_id:
+        from api.key_manager import set_active
+        ok = set_active(key_id)
+        if not ok:
+            raise HTTPException(status_code=404, detail="Key not found")
+        return {"active": key_id}
+    
+    from api.user_key_store import set_active_user_key
+    ok = set_active_user_key(user_id, key_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Key not found")
     return {"active": key_id}
 
 
 @app.patch("/api/keys/{key_id}/reset-quota")
-async def api_reset_quota(key_id: str):
+async def api_reset_quota(key_id: str, request: Request):
+    """Reset quota for an API key."""
     from api.key_manager import reset_quota
     ok = reset_quota(key_id)
     if not ok:
@@ -2079,9 +2124,26 @@ async def ceo_chat(request: Request):
     source = body.get("source", "ceo_chat")
 
     from kernel.tools import list_tools
-    from api.key_manager import get_active_key, rotate_key
-
-    active_key = get_active_key() or GOOGLE_API_KEY
+    
+    # Try user's personal key first, then fall back to global key manager
+    user = await _get_current_user(request)
+    user_id = user.get("uid") if user else None
+    active_key = None
+    
+    if user_id:
+        try:
+            from api.user_key_store import get_active_key_for_user
+            active_key = get_active_key_for_user(user_id)
+        except Exception:
+            pass
+    
+    if not active_key:
+        try:
+            from api.key_manager import get_active_key
+            active_key = get_active_key() or GOOGLE_API_KEY
+        except Exception:
+            active_key = GOOGLE_API_KEY
+    
     if not active_key:
         raise HTTPException(status_code=503, detail="No Gemini API key configured. Add one in Settings → API Keys.")
 
@@ -2131,7 +2193,19 @@ Always speak directly, intelligently and sovereignly. You remember context from 
             })
 
         if resp.status_code == 429:
-            rotate_key(active_key)
+            # Rotate the appropriate key store
+            if user_id:
+                try:
+                    from api.user_key_store import rotate_user_key
+                    rotate_user_key(user_id, active_key)
+                except Exception:
+                    pass
+            else:
+                try:
+                    from api.key_manager import rotate_key
+                    rotate_key(active_key)
+                except Exception:
+                    pass
             raise HTTPException(status_code=429, detail="Quota hit — key rotated. Please retry.")
 
         resp.raise_for_status()
