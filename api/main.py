@@ -1126,8 +1126,8 @@ async def _generate_image(prompt: str) -> str | None:
     }
     last_err = None
     try:
-        from api.key_manager import get_active_key as _gak
-        _img_key = _gak() or GOOGLE_API_KEY
+        from api.provider_key_store import get_key
+        _img_key = get_key("gemini") or GOOGLE_API_KEY
     except Exception:
         _img_key = GOOGLE_API_KEY
     if _img_key:
