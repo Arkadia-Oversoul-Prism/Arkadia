@@ -9,18 +9,24 @@ LOGGER = get_logger()
 # CONFIG - THE DIAMOND KEY
 # =========================
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-
-# Use the stable production model and path
-MODEL = "gemini-1.5-flash" 
+MODEL = "gemini-1.5-flash"
 BASE_URL = "https://generativelanguage.googleapis.com/v1"
-
-# THE FIX: Absolute pathing to avoid the 404 resource error
-ENDPOINT = f"{BASE_URL}/models/{MODEL}:generateContent?key={GEMINI_API_KEY}"
 
 TIMEOUT = 180  # Increased for full repo synthesis of 160+ files
 MAX_RETRIES = 3
 RETRY_DELAY = 5
+
+
+def _resolve_key() -> str:
+    """Resolve Gemini key per-call: key_manager → GEMINI_API_KEY env → GOOGLE_API_KEY env."""
+    try:
+        from api.key_manager import get_active_key
+        key = get_active_key()
+        if key:
+            return key
+    except Exception:
+        pass
+    return os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
 
 
 # =========================
@@ -28,9 +34,12 @@ RETRY_DELAY = 5
 # =========================
 
 def gemini(prompt: str) -> str:
-    if not GEMINI_API_KEY:
-        raise RuntimeError("GEMINI_API_KEY environment variable not set")
-    
+    api_key = _resolve_key()
+    if not api_key:
+        raise RuntimeError("No Gemini API key available. Add one in Settings → API Keys.")
+
+    endpoint = f"{BASE_URL}/models/{MODEL}:generateContent?key={api_key}"
+
     payload = {
         "contents": [
             {
@@ -45,9 +54,8 @@ def gemini(prompt: str) -> str:
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            # Explicitly set content-type for the V1 API
             r = requests.post(
-                ENDPOINT,
+                endpoint,
                 json=payload,
                 timeout=TIMEOUT,
                 headers={"Content-Type": "application/json"}
@@ -61,12 +69,10 @@ def gemini(prompt: str) -> str:
                     last_error = f"Malformed response structure: {data}"
                     LOGGER.error("[Gemini] %s", last_error)
                     continue
-            
-            # Handle specific 404 or 429 errors
+
             last_error = f"Status {r.status_code}: {r.text}"
             LOGGER.warning("[Gemini retry %s/%s] %s", attempt, MAX_RETRIES, last_error)
-            
-            # Backoff before retry
+
             time.sleep(RETRY_DELAY * attempt)
 
         except requests.exceptions.RequestException as e:
@@ -87,13 +93,12 @@ PROVIDERS = {
 
 def available_providers() -> dict:
     """Check availability of configured LLM providers."""
-    return {"gemini": bool(GEMINI_API_KEY)}
+    return {"gemini": bool(_resolve_key())}
 
 def call_llm(provider: str, prompt: str) -> str:
     """Entry point for LLM interactions."""
     if provider not in PROVIDERS:
         raise ValueError(f"Unknown LLM provider: {provider}")
-    
+
     LOGGER.info("Calling LLM provider: %s", provider)
     return PROVIDERS[provider](prompt)
-                

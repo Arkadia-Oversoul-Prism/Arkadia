@@ -577,8 +577,16 @@ GEMINI_MODELS = [
 ]
 
 
-async def _gemini_chat(messages: list[dict], system: str) -> str:
-    if not GOOGLE_API_KEY:
+async def _gemini_chat(messages: list[dict], system: str, api_key: str | None = None) -> str:
+    # Resolve the key: caller-supplied → key_manager → env var
+    if not api_key:
+        try:
+            from api.key_manager import get_active_key
+            api_key = get_active_key() or GOOGLE_API_KEY
+        except Exception:
+            api_key = GOOGLE_API_KEY
+
+    if not api_key:
         return None
 
     contents = []
@@ -597,7 +605,7 @@ async def _gemini_chat(messages: list[dict], system: str) -> str:
         for model in GEMINI_MODELS:
             url = (
                 f"https://generativelanguage.googleapis.com/v1beta/models/"
-                f"{model}:generateContent?key={GOOGLE_API_KEY}"
+                f"{model}:generateContent?key={api_key}"
             )
             try:
                 resp = await client.post(url, json=payload)
@@ -850,15 +858,34 @@ async def commune_resonance(request: Request):
     if not message:
         return JSONResponse(status_code=400, content={"error": "No message."})
 
-    if not GOOGLE_API_KEY:
-        return {
+    # ── Key resolution: user key → key_manager → env var ──────────────────────
+    active_key = None
+    try:
+        node_user_pre = await _get_current_user(request)
+        user_id_pre = node_user_pre.get("uid") if node_user_pre else None
+        if user_id_pre:
+            from api.user_key_store import get_active_key_for_user
+            active_key = get_active_key_for_user(user_id_pre)
+    except Exception:
+        pass
+
+    if not active_key:
+        try:
+            from api.key_manager import get_active_key
+            active_key = get_active_key() or GOOGLE_API_KEY
+        except Exception:
+            active_key = GOOGLE_API_KEY
+
+    if not active_key:
+        return JSONResponse(status_code=503, content={
+            "error": "No Gemini API key configured. Add one in Settings → API Keys.",
             "reply": (
                 "The Arkana field is present — but the resonance channel needs a key to open. "
-                "Add GOOGLE_API_KEY to the Replit secrets to activate the Oracle."
+                "Add a Gemini API key in Settings → API Keys to activate the Oracle."
             ),
             "resonance": 0.42,
             "patterns": [],
-        }
+        })
 
     # ── RAG: pull relevant corpus context ─────────────────────────────────────
     scrolls = await _get_scrolls()
@@ -989,7 +1016,7 @@ async def commune_resonance(request: Request):
     msgs = list(history[-10:]) + [{"role": "user", "content": message}]
 
     try:
-        reply     = await _gemini_chat(msgs, system)
+        reply     = await _gemini_chat(msgs, system, api_key=active_key)
         resonance = round(0.7 + (len(reply) % 30) / 100, 3)
         return {
             "reply":     reply,
@@ -1016,8 +1043,13 @@ async def forge(request: Request):
     if not SOVEREIGN_KEY or not provided_key or provided_key != SOVEREIGN_KEY:
         raise HTTPException(status_code=403, detail="Sovereign gate closed.")
 
-    if not GOOGLE_API_KEY:
-        raise HTTPException(status_code=503, detail="GOOGLE_API_KEY not configured.")
+    try:
+        from api.key_manager import get_active_key
+        _forge_key = get_active_key() or GOOGLE_API_KEY
+    except Exception:
+        _forge_key = GOOGLE_API_KEY
+    if not _forge_key:
+        raise HTTPException(status_code=503, detail="No Gemini API key configured. Add one in Settings → API Keys.")
 
     archetype   = body.get("archetype", "auralis")
     base_prompt = body.get("prompt", "")
@@ -1093,12 +1125,17 @@ async def _generate_image(prompt: str) -> str | None:
         "generationConfig": {"responseModalities": ["IMAGE", "TEXT"]},
     }
     last_err = None
-    if GOOGLE_API_KEY:
+    try:
+        from api.key_manager import get_active_key as _gak
+        _img_key = _gak() or GOOGLE_API_KEY
+    except Exception:
+        _img_key = GOOGLE_API_KEY
+    if _img_key:
         async with httpx.AsyncClient(timeout=60) as client:
             for model in GEMINI_IMAGE_MODELS:
                 url = (
                     f"https://generativelanguage.googleapis.com/v1beta/models/"
-                    f"{model}:generateContent?key={GOOGLE_API_KEY}"
+                    f"{model}:generateContent?key={_img_key}"
                 )
                 try:
                     resp = await client.post(url, json=payload)

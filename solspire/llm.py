@@ -29,7 +29,11 @@ except Exception:
 
 def _client():
     """Lazily configure and return a Gemini model, or None if unavailable."""
-    api_key = os.environ.get("GOOGLE_API_KEY", "")
+    try:
+        from api.key_manager import get_active_key
+        api_key = get_active_key() or os.environ.get("GOOGLE_API_KEY", "")
+    except Exception:
+        api_key = os.environ.get("GOOGLE_API_KEY", "")
     if not (_HAS_GENAI and api_key):
         return None
     try:

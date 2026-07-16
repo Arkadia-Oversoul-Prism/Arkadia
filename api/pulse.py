@@ -14,7 +14,16 @@ from pydantic import BaseModel
 logger = logging.getLogger("arkadia")
 router = APIRouter()
 
-GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
+_GOOGLE_API_KEY_ENV = os.environ.get("GOOGLE_API_KEY", "")
+
+
+def _get_api_key() -> str:
+    """Resolve active Gemini key: key_manager → env var."""
+    try:
+        from api.key_manager import get_active_key
+        return get_active_key() or _GOOGLE_API_KEY_ENV
+    except Exception:
+        return _GOOGLE_API_KEY_ENV
 
 GEMINI_MODELS = [
     "gemini-2.5-flash",
@@ -230,11 +239,12 @@ def _generate_sigil_svg(scores: dict) -> str:
 
 
 async def _gemini_oracle(prompt: str) -> str:
-    if not GOOGLE_API_KEY:
-        return "The Oracle is resting. Provide a GOOGLE_API_KEY to awaken the synthesis."
+    api_key = _get_api_key()
+    if not api_key:
+        return "The Oracle is resting. Add a Gemini API key in Settings → API Keys to awaken the synthesis."
     async with httpx.AsyncClient(timeout=60) as client:
         for model in GEMINI_MODELS:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GOOGLE_API_KEY}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
             payload = {
                 "contents": [{"role": "user", "parts": [{"text": prompt}]}],
                 "generationConfig": {"temperature": 0.88, "maxOutputTokens": 400},

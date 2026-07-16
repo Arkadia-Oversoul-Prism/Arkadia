@@ -126,9 +126,13 @@ def _strip_code_fence(text: str) -> str:
 def _gemini_plan(user_input: str, system_prompt: str) -> str | None:
     """Synchronous Gemini call (the worker thread is sync). Returns raw text
     or None on every-model failure. Tries each fallback model in order."""
-    api_key = os.environ.get("GOOGLE_API_KEY", "")
+    try:
+        from api.key_manager import get_active_key
+        api_key = get_active_key() or os.environ.get("GOOGLE_API_KEY", "")
+    except Exception:
+        api_key = os.environ.get("GOOGLE_API_KEY", "")
     if not api_key:
-        logger.warning("GOOGLE_API_KEY not set — planner will fallback")
+        logger.warning("No Gemini API key available — planner will fallback")
         return None
 
     payload = {

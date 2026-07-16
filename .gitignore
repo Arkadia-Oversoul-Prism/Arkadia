@@ -15,6 +15,11 @@ env/
 *.sqlite3
 arkadia_oracle.db
 
+# API key stores (contain sensitive credentials — never commit)
+data/api_keys.json
+data/provider_keys.json
+data/user_keys/
+
 # Cache files
 arkadia_cache.json
 arkadia_corpus_map.json
