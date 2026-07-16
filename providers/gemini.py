@@ -21,12 +21,25 @@ class GeminiProvider(BaseProvider):
         self.model = model
 
     def _get_key(self) -> Optional[str]:
-        """Resolve API key via key_manager rotation if available, else env var."""
+        """Resolve API key: provider_key_store → key_manager rotation → env vars."""
+        # 1. Multi-provider store (set via Settings → AI Provider Keys)
+        try:
+            from api.provider_key_store import get_key
+            key = get_key("gemini")
+            if key:
+                return key
+        except Exception:
+            pass
+        # 2. Legacy Gemini key_manager (supports rotation on 429)
         try:
             from api.key_manager import get_next_key
-            return get_next_key()
+            key = get_next_key()
+            if key:
+                return key
         except Exception:
-            return os.environ.get("GEMINI_API_KEY", "") or None
+            pass
+        # 3. Direct env var fallback
+        return os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or None
 
     def _configured_genai(self):
         """Return genai configured with a fresh key per call — supports rotation."""

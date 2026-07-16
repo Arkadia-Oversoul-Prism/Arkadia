@@ -178,12 +178,28 @@ function KeyRow({
   );
 }
 
+interface ProviderKey {
+  provider: string;
+  label: string | null;
+  masked: string | null;
+  added_at: string | null;
+  source: "stored" | "env" | "none";
+}
+
+const PROVIDER_META: Record<string, { label: string; color: string; placeholder: string; hint: string }> = {
+  gemini:   { label: "Google Gemini",  color: "#4A90D9", placeholder: "AIza…",        hint: "aistudio.google.com/app/apikey" },
+  openai:   { label: "OpenAI GPT",     color: "#19C37D", placeholder: "sk-…",          hint: "platform.openai.com/api-keys" },
+  claude:   { label: "Anthropic Claude", color: "#D4875F", placeholder: "sk-ant-…",    hint: "console.anthropic.com/settings/keys" },
+  deepseek: { label: "DeepSeek",       color: "#7B8CDE", placeholder: "…",             hint: "platform.deepseek.com" },
+};
+
 export default function SettingsPage() {
-  const [keys, setKeys] = useState<ApiKey[]>([]);
+  const [providerKeys, setProviderKeys] = useState<ProviderKey[]>([]);
   const [ttsKeys, setTtsKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newKey, setNewKey] = useState("");
-  const [newLabel, setNewLabel] = useState("");
+  const [selectedProvider, setSelectedProvider] = useState("gemini");
+  const [newProviderKey, setNewProviderKey] = useState("");
+  const [newProviderLabel, setNewProviderLabel] = useState("");
   const [newTtsKey, setNewTtsKey] = useState("");
   const [newTtsLabel, setNewTtsLabel] = useState("");
   const [adding, setAdding] = useState(false);
@@ -193,18 +209,15 @@ export default function SettingsPage() {
   const [ttsError, setTtsError] = useState("");
   const [ttsSuccess, setTtsSuccess] = useState("");
 
-  async function loadKeys() {
+  async function loadProviderKeys() {
     try {
-      const res = await fetch(`${API_BASE}/api/keys`);
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Failed to load keys: ${res.status} ${text.slice(0, 100)}`);
-      }
+      const res = await fetch(`${API_BASE}/api/provider-keys`);
+      if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();
-      setKeys(data.keys || []);
+      setProviderKeys(data.keys || []);
     } catch (e) {
-      console.error('loadKeys error:', e);
-      setError(e instanceof Error ? e.message : "Could not load keys");
+      console.error('loadProviderKeys error:', e);
+      setError(e instanceof Error ? e.message : "Could not load provider keys");
     } finally {
       setLoading(false);
     }
@@ -226,38 +239,45 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
-    loadKeys();
+    loadProviderKeys();
     loadTtsKeys();
   }, []);
 
-  async function addKey() {
-    if (!newKey.trim()) return;
+  async function addProviderKey() {
+    if (!newProviderKey.trim()) return;
     setAdding(true);
     setError("");
     setSuccess("");
     try {
-      const res = await fetch(`${API_BASE}/api/keys`, {
+      const res = await fetch(`${API_BASE}/api/provider-keys`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: newKey.trim(), label: newLabel.trim() || undefined }),
+        body: JSON.stringify({
+          provider: selectedProvider,
+          key: newProviderKey.trim(),
+          label: newProviderLabel.trim() || undefined,
+        }),
       });
       const text = await res.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        throw new Error(`Server returned non-JSON: ${res.status} ${text.slice(0, 100)}`);
-      }
+      let data: { label?: string; detail?: string };
+      try { data = JSON.parse(text); } catch { throw new Error(`Server returned non-JSON: ${res.status} ${text.slice(0, 100)}`); }
       if (!res.ok) throw new Error(data.detail || "Failed to add key");
-      setNewKey("");
-      setNewLabel("");
-      setSuccess(`Key "${data.label}" added.`);
-      await loadKeys();
+      setNewProviderKey("");
+      setNewProviderLabel("");
+      setSuccess(`${PROVIDER_META[selectedProvider]?.label ?? selectedProvider} key saved.`);
+      await loadProviderKeys();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Error adding key");
     } finally {
       setAdding(false);
     }
+  }
+
+  async function removeProviderKey(provider: string) {
+    setError("");
+    await fetch(`${API_BASE}/api/provider-keys/${provider}`, { method: "DELETE" });
+    setSuccess(`${PROVIDER_META[provider]?.label ?? provider} key removed.`);
+    await loadProviderKeys();
   }
 
   async function addTtsKey() {
@@ -290,13 +310,6 @@ export default function SettingsPage() {
     }
   }
 
-  async function activateKey(id: string) {
-    setError("");
-    await fetch(`${API_BASE}/api/keys/${id}/activate`, { method: "PATCH" });
-    await loadKeys();
-    setSuccess("Active key switched.");
-  }
-
   async function activateTtsKey(id: string) {
     setTtsError("");
     await fetch(`${API_BASE}/api/tts/keys/${id}/activate`, { method: "PATCH" });
@@ -304,24 +317,11 @@ export default function SettingsPage() {
     setTtsSuccess("Active TTS key switched.");
   }
 
-  async function removeKey(id: string) {
-    setError("");
-    await fetch(`${API_BASE}/api/keys/${id}`, { method: "DELETE" });
-    await loadKeys();
-    setSuccess("Key removed.");
-  }
-
   async function removeTtsKey(id: string) {
     setTtsError("");
     await fetch(`${API_BASE}/api/tts/keys/${id}`, { method: "DELETE" });
     await loadTtsKeys();
     setTtsSuccess("TTS Key removed.");
-  }
-
-  async function resetQuota(id: string) {
-    await fetch(`${API_BASE}/api/keys/${id}/reset-quota`, { method: "PATCH" });
-    await loadKeys();
-    setSuccess("Quota reset — key is active again.");
   }
 
   async function resetTtsQuota(id: string) {
@@ -350,8 +350,7 @@ export default function SettingsPage() {
           </h2>
         </div>
         <p style={{ fontFamily: "sans-serif", fontSize: 12, color: "rgba(232,232,232,0.4)", margin: "0 0 28px" }}>
-          Manage Gemini API keys. When a key hits its quota limit, Arkana automatically
-          rotates to the next available key.
+          Add API keys for any AI provider — Arkana will use the first one that's configured.
         </p>
       </motion.div>
 
@@ -378,7 +377,69 @@ export default function SettingsPage() {
         )}
       </AnimatePresence>
 
-      {/* Add key form */}
+      {/* Provider key status grid */}
+      {!loading && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+          {providerKeys.map((pk) => {
+            const meta = PROVIDER_META[pk.provider];
+            const hasKey = pk.source !== "none";
+            return (
+              <motion.div
+                key={pk.provider}
+                layout
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "10px 14px",
+                  background: hasKey ? "rgba(14,17,32,0.7)" : "rgba(14,17,32,0.4)",
+                  border: `1px solid ${hasKey ? `${meta?.color}28` : "rgba(255,255,255,0.05)"}`,
+                  borderRadius: 10,
+                }}
+              >
+                <div style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                  background: hasKey ? (meta?.color ?? "#00D4AA") : "rgba(255,255,255,0.12)",
+                  boxShadow: hasKey ? `0 0 6px ${meta?.color ?? "#00D4AA"}88` : "none" }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: "sans-serif", fontSize: 12,
+                    color: hasKey ? "rgba(232,232,232,0.85)" : "rgba(232,232,232,0.35)",
+                    fontWeight: hasKey ? 500 : 400 }}>
+                    {meta?.label ?? pk.provider}
+                    {pk.source === "env" && (
+                      <span style={{ marginLeft: 8, fontSize: 9, letterSpacing: "0.2em",
+                        color: meta?.color ?? "#00D4AA", opacity: 0.7,
+                        textTransform: "uppercase" }}>env</span>
+                    )}
+                  </div>
+                  {hasKey && pk.masked && (
+                    <div style={{ fontFamily: "monospace", fontSize: 10,
+                      color: "rgba(232,232,232,0.28)", marginTop: 2 }}>
+                      {pk.masked}
+                    </div>
+                  )}
+                </div>
+                {pk.source === "stored" && (
+                  <button onClick={() => removeProviderKey(pk.provider)}
+                    style={{ padding: "3px 8px", background: "rgba(200,72,72,0.06)",
+                      border: "1px solid rgba(200,72,72,0.2)", borderRadius: 5,
+                      color: "#C84848", fontSize: 10, cursor: "pointer" }}>
+                    ✕
+                  </button>
+                )}
+                {!hasKey && (
+                  <span style={{ fontSize: 10, color: "rgba(232,232,232,0.2)",
+                    fontFamily: "sans-serif" }}>not set</span>
+                )}
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Add provider key form */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -391,24 +452,36 @@ export default function SettingsPage() {
           marginBottom: 20,
         }}
       >
-        <p
-          style={{
-            fontFamily: "sans-serif",
-            fontSize: 9,
-            letterSpacing: "0.22em",
-            textTransform: "uppercase",
-            color: "rgba(201,168,76,0.55)",
-            margin: "0 0 12px",
-          }}
-        >
-          Add Gemini API Key
+        <p style={{ fontFamily: "sans-serif", fontSize: 9, letterSpacing: "0.22em",
+          textTransform: "uppercase", color: "rgba(201,168,76,0.55)", margin: "0 0 12px" }}>
+          Add / Replace Provider Key
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {/* Provider selector */}
+          <select
+            value={selectedProvider}
+            onChange={(e) => { setSelectedProvider(e.target.value); setNewProviderKey(""); }}
+            style={{
+              padding: "9px 12px",
+              background: "rgba(0,0,0,0.4)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 7,
+              color: "rgba(232,232,232,0.85)",
+              fontFamily: "sans-serif",
+              fontSize: 12,
+              outline: "none",
+              cursor: "pointer",
+            }}
+          >
+            {Object.entries(PROVIDER_META).map(([val, m]) => (
+              <option key={val} value={val} style={{ background: "#0E1120" }}>{m.label}</option>
+            ))}
+          </select>
           <input
             type="text"
-            placeholder="Label (e.g. Key 2, Backup)"
-            value={newLabel}
-            onChange={(e) => setNewLabel(e.target.value)}
+            placeholder="Label (optional)"
+            value={newProviderLabel}
+            onChange={(e) => setNewProviderLabel(e.target.value)}
             style={{
               padding: "9px 12px",
               background: "rgba(0,0,0,0.3)",
@@ -422,10 +495,10 @@ export default function SettingsPage() {
           />
           <input
             type="password"
-            placeholder="AIza… (paste your Gemini API key)"
-            value={newKey}
-            onChange={(e) => setNewKey(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addKey()}
+            placeholder={PROVIDER_META[selectedProvider]?.placeholder ?? "API key…"}
+            value={newProviderKey}
+            onChange={(e) => setNewProviderKey(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addProviderKey()}
             style={{
               padding: "9px 12px",
               background: "rgba(0,0,0,0.3)",
@@ -437,15 +510,18 @@ export default function SettingsPage() {
               outline: "none",
             }}
           />
+          {PROVIDER_META[selectedProvider]?.hint && (
+            <p style={{ margin: 0, fontFamily: "sans-serif", fontSize: 10,
+              color: "rgba(232,232,232,0.25)" }}>
+              Get key → {PROVIDER_META[selectedProvider].hint}
+            </p>
+          )}
           <button
-            onClick={addKey}
-            disabled={adding || !newKey.trim()}
+            onClick={addProviderKey}
+            disabled={adding || !newProviderKey.trim()}
             style={{
               padding: "10px",
-              background:
-                adding || !newKey.trim()
-                  ? "rgba(201,168,76,0.05)"
-                  : "rgba(201,168,76,0.1)",
+              background: adding || !newProviderKey.trim() ? "rgba(201,168,76,0.05)" : "rgba(201,168,76,0.1)",
               border: "1px solid rgba(201,168,76,0.3)",
               borderRadius: 7,
               color: "#C9A84C",
@@ -453,52 +529,13 @@ export default function SettingsPage() {
               fontSize: 10,
               letterSpacing: "0.2em",
               textTransform: "uppercase",
-              cursor: adding || !newKey.trim() ? "not-allowed" : "pointer",
+              cursor: adding || !newProviderKey.trim() ? "not-allowed" : "pointer",
             }}
           >
-            {adding ? "Adding…" : "+ Add Key"}
+            {adding ? "Saving…" : `+ Save ${PROVIDER_META[selectedProvider]?.label ?? "Key"}`}
           </button>
         </div>
       </motion.div>
-
-      {/* Key list */}
-      <div>
-        <p
-          style={{
-            fontFamily: "sans-serif",
-            fontSize: 9,
-            letterSpacing: "0.22em",
-            textTransform: "uppercase",
-            color: "rgba(0,212,170,0.45)",
-            margin: "0 0 10px",
-          }}
-        >
-          Stored Keys ({keys.length})
-        </p>
-        {loading ? (
-          <p style={{ fontFamily: "sans-serif", fontSize: 11, color: "rgba(232,232,232,0.3)" }}>
-            Loading…
-          </p>
-        ) : keys.length === 0 ? (
-          <p style={{ fontFamily: "sans-serif", fontSize: 11, color: "rgba(232,232,232,0.3)" }}>
-            No keys stored yet. Add your Gemini API key above.
-          </p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <AnimatePresence>
-              {keys.map((k) => (
-                <KeyRow
-                  key={k.id}
-                  k={k}
-                  onActivate={activateKey}
-                  onRemove={removeKey}
-                  onResetQuota={resetQuota}
-                />
-              ))}
-            </AnimatePresence>
-          </div>
-        )}
-      </div>
 
       {/* TTS Keys Section */}
       <div style={{ marginTop: 32 }}>
@@ -659,10 +696,10 @@ export default function SettingsPage() {
           How it works
         </p>
         {[
-          "Keys are stored locally in data/api_keys.json — never sent to third parties.",
-          "When a key returns a 429 quota error, Arkana auto-rotates to the next key.",
-          "You can add up to any number of keys and switch manually at any time.",
-          "Get keys at aistudio.google.com/app/apikey",
+          "Keys are stored locally in data/provider_keys.json — never sent to third parties.",
+          "Arkana checks providers in priority order: Gemini → OpenAI → Claude → DeepSeek.",
+          "You only need one key. Adding more providers gives Arkana fallback options.",
+          "Gemini: aistudio.google.com/app/apikey · OpenAI: platform.openai.com/api-keys",
         ].map((line, i) => (
           <p
             key={i}

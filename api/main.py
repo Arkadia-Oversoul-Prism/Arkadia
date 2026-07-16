@@ -1974,6 +1974,48 @@ async def api_reset_quota(key_id: str, request: Request):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Multi-provider key store  (gemini / openai / claude / deepseek)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/provider-keys")
+async def api_list_provider_keys():
+    """List one key entry per provider (masked), including env-var sources."""
+    from api.provider_key_store import list_keys
+    return {"keys": list_keys()}
+
+
+@app.post("/api/provider-keys")
+async def api_set_provider_key(request: Request):
+    """Store or replace the key for a given provider."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+    provider = (body.get("provider") or "").strip().lower()
+    key      = (body.get("key")      or "").strip()
+    label    = (body.get("label")    or "").strip()
+    if not provider or not key:
+        raise HTTPException(status_code=400, detail="'provider' and 'key' are required")
+    from api.provider_key_store import set_key
+    try:
+        result = set_key(provider, key, label)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    logger.info("[provider-keys] stored key for %s", provider)
+    return result
+
+
+@app.delete("/api/provider-keys/{provider}")
+async def api_remove_provider_key(provider: str):
+    """Remove the stored key for a provider."""
+    from api.provider_key_store import remove_key
+    ok = remove_key(provider)
+    if not ok:
+        raise HTTPException(status_code=404, detail="No stored key for this provider")
+    return {"removed": provider}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # TTS Key Manager endpoints
 # ═══════════════════════════════════════════════════════════════════════════════
 

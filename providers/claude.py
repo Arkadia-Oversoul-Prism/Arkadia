@@ -20,7 +20,11 @@ class ClaudeProvider(BaseProvider):
         self.model = model
 
     def _get_key(self) -> Optional[str]:
-        return os.environ.get("ANTHROPIC_API_KEY", "") or None
+        try:
+            from api.provider_key_store import get_key
+            return get_key("claude")
+        except Exception:
+            return os.environ.get("ANTHROPIC_API_KEY", "") or None
 
     def _get_client(self):
         import anthropic
