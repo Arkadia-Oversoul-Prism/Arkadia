@@ -578,11 +578,11 @@ GEMINI_MODELS = [
 
 
 async def _gemini_chat(messages: list[dict], system: str, api_key: str | None = None) -> str:
-    # Resolve the key: caller-supplied → key_manager → env var
+    # Resolve the key: caller-supplied → provider_key_store → env var
     if not api_key:
         try:
-            from api.key_manager import get_active_key
-            api_key = get_active_key() or GOOGLE_API_KEY
+            from api.provider_key_store import get_key
+            api_key = get_key("gemini") or GOOGLE_API_KEY
         except Exception:
             api_key = GOOGLE_API_KEY
 
@@ -858,7 +858,7 @@ async def commune_resonance(request: Request):
     if not message:
         return JSONResponse(status_code=400, content={"error": "No message."})
 
-    # ── Key resolution: user key → key_manager → env var ──────────────────────
+    # ── Key resolution: user key → provider_key_store → env var ─────────────
     active_key = None
     try:
         node_user_pre = await _get_current_user(request)
@@ -871,8 +871,8 @@ async def commune_resonance(request: Request):
 
     if not active_key:
         try:
-            from api.key_manager import get_active_key
-            active_key = get_active_key() or GOOGLE_API_KEY
+            from api.provider_key_store import get_key
+            active_key = get_key("gemini") or GOOGLE_API_KEY
         except Exception:
             active_key = GOOGLE_API_KEY
 
@@ -1044,8 +1044,8 @@ async def forge(request: Request):
         raise HTTPException(status_code=403, detail="Sovereign gate closed.")
 
     try:
-        from api.key_manager import get_active_key
-        _forge_key = get_active_key() or GOOGLE_API_KEY
+        from api.provider_key_store import get_key
+        _forge_key = get_key("gemini") or GOOGLE_API_KEY
     except Exception:
         _forge_key = GOOGLE_API_KEY
     if not _forge_key:
@@ -2052,6 +2052,16 @@ async def api_remove_provider_key(provider: str):
     return {"removed": provider}
 
 
+@app.patch("/api/provider-keys/{provider}/reset-quota")
+async def api_reset_provider_quota(provider: str):
+    """Reset quota-hit flag for a provider's key."""
+    from api.provider_key_store import reset_quota
+    ok = reset_quota(provider)
+    if not ok:
+        raise HTTPException(status_code=404, detail="No stored key for this provider")
+    return {"provider": provider, "quota_reset": True}
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TTS Key Manager endpoints
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2218,8 +2228,8 @@ async def ceo_chat(request: Request):
     
     if not active_key:
         try:
-            from api.key_manager import get_active_key
-            active_key = get_active_key() or GOOGLE_API_KEY
+            from api.provider_key_store import get_key
+            active_key = get_key("gemini") or GOOGLE_API_KEY
         except Exception:
             active_key = GOOGLE_API_KEY
     
@@ -2281,11 +2291,11 @@ Always speak directly, intelligently and sovereignly. You remember context from 
                     pass
             else:
                 try:
-                    from api.key_manager import rotate_key
-                    rotate_key(active_key)
+                    from api.provider_key_store import mark_quota_hit
+                    mark_quota_hit("gemini")
                 except Exception:
                     pass
-            raise HTTPException(status_code=429, detail="Quota hit — key rotated. Please retry.")
+            raise HTTPException(status_code=429, detail="Quota hit — key marked. Please retry.")
 
         resp.raise_for_status()
         data = resp.json()

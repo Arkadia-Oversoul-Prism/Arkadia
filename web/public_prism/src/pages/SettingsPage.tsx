@@ -280,6 +280,13 @@ export default function SettingsPage() {
     await loadProviderKeys();
   }
 
+  async function resetProviderQuota(provider: string) {
+    setError("");
+    await fetch(`${API_BASE}/api/provider-keys/${provider}/reset-quota`, { method: "PATCH" });
+    setSuccess(`${PROVIDER_META[provider]?.label ?? provider} quota reset — key is active again.`);
+    await loadProviderKeys();
+  }
+
   async function addTtsKey() {
     if (!newTtsKey.trim()) return;
     setAddingTts(true);
@@ -383,6 +390,7 @@ export default function SettingsPage() {
           {providerKeys.map((pk) => {
             const meta = PROVIDER_META[pk.provider];
             const hasKey = pk.source !== "none";
+            const isQuotaHit = pk.quota_hit;
             return (
               <motion.div
                 key={pk.provider}
@@ -394,24 +402,28 @@ export default function SettingsPage() {
                   alignItems: "center",
                   gap: 12,
                   padding: "10px 14px",
-                  background: hasKey ? "rgba(14,17,32,0.7)" : "rgba(14,17,32,0.4)",
-                  border: `1px solid ${hasKey ? `${meta?.color}28` : "rgba(255,255,255,0.05)"}`,
+                  background: isQuotaHit ? "rgba(200,72,72,0.08)" : (hasKey ? "rgba(14,17,32,0.7)" : "rgba(14,17,32,0.4)"),
+                  border: `1px solid ${isQuotaHit ? "rgba(200,72,72,0.4)" : (hasKey ? `${meta?.color}28` : "rgba(255,255,255,0.05)")}`,
                   borderRadius: 10,
                 }}
               >
                 <div style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-                  background: hasKey ? (meta?.color ?? "#00D4AA") : "rgba(255,255,255,0.12)",
-                  boxShadow: hasKey ? `0 0 6px ${meta?.color ?? "#00D4AA"}88` : "none" }}
+                  background: isQuotaHit ? "#C84848" : (hasKey ? (meta?.color ?? "#00D4AA") : "rgba(255,255,255,0.12)"),
+                  boxShadow: isQuotaHit ? "0 0 6px #C8484888" : (hasKey ? `0 0 6px ${meta?.color ?? "#00D4AA"}88` : "none") }}
                 />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: "sans-serif", fontSize: 12,
-                    color: hasKey ? "rgba(232,232,232,0.85)" : "rgba(232,232,232,0.35)",
+                    color: isQuotaHit ? "rgba(200,72,72,0.9)" : (hasKey ? "rgba(232,232,232,0.85)" : "rgba(232,232,232,0.35)"),
                     fontWeight: hasKey ? 500 : 400 }}>
                     {meta?.label ?? pk.provider}
                     {pk.source === "env" && (
                       <span style={{ marginLeft: 8, fontSize: 9, letterSpacing: "0.2em",
                         color: meta?.color ?? "#00D4AA", opacity: 0.7,
                         textTransform: "uppercase" }}>env</span>
+                    )}
+                    {isQuotaHit && (
+                      <span style={{ marginLeft: 8, fontSize: 9, letterSpacing: "0.2em",
+                        color: "#C84848", textTransform: "uppercase" }}>quota hit</span>
                     )}
                   </div>
                   {hasKey && pk.masked && (
@@ -422,12 +434,23 @@ export default function SettingsPage() {
                   )}
                 </div>
                 {pk.source === "stored" && (
-                  <button onClick={() => removeProviderKey(pk.provider)}
-                    style={{ padding: "3px 8px", background: "rgba(200,72,72,0.06)",
-                      border: "1px solid rgba(200,72,72,0.2)", borderRadius: 5,
-                      color: "#C84848", fontSize: 10, cursor: "pointer" }}>
-                    ✕
-                  </button>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {isQuotaHit && (
+                      <button onClick={() => resetProviderQuota(pk.provider)}
+                        style={{ padding: "3px 8px", background: "rgba(201,168,76,0.08)",
+                          border: "1px solid rgba(201,168,76,0.25)", borderRadius: 5,
+                          color: "#C9A84C", fontSize: 9, letterSpacing: "0.1em",
+                          textTransform: "uppercase", cursor: "pointer" }}>
+                        Reset
+                      </button>
+                    )}
+                    <button onClick={() => removeProviderKey(pk.provider)}
+                      style={{ padding: "3px 8px", background: "rgba(200,72,72,0.06)",
+                        border: "1px solid rgba(200,72,72,0.2)", borderRadius: 5,
+                        color: "#C84848", fontSize: 10, cursor: "pointer" }}>
+                      ✕
+                    </button>
+                  </div>
                 )}
                 {!hasKey && (
                   <span style={{ fontSize: 10, color: "rgba(232,232,232,0.2)",

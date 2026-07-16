@@ -59,12 +59,19 @@ def _mask(key: str) -> str:
 
 
 def get_key(provider: str) -> Optional[str]:
-    """Return the stored key for provider, or fall back to env vars."""
+    """Return the stored key for provider, or fall back to env vars.
+    
+    Skips keys marked as quota_hit, returning the next available key or env fallback.
+    """
     with _lock:
         store = _load()
         entry = store.get(provider)
         if entry and entry.get("key"):
-            return entry["key"]
+            # Skip if quota was hit - fall back to env vars instead
+            if entry.get("quota_hit"):
+                logger.info("[provider_key_store] %s key marked quota_hit, using env fallback", provider)
+            else:
+                return entry["key"]
     # env fallback
     for var in _ENV_FALLBACKS.get(provider, []):
         val = os.environ.get(var, "")
@@ -83,6 +90,7 @@ def set_key(provider: str, key: str, label: str = "") -> dict:
             "key": key,
             "label": label or f"{provider.capitalize()} Key",
             "added_at": _now(),
+            "quota_hit": False,
         }
         _save(store)
     logger.info("[provider_key_store] set key for %s", provider)
@@ -101,6 +109,30 @@ def remove_key(provider: str) -> bool:
     return True
 
 
+def mark_quota_hit(provider: str) -> bool:
+    """Mark a provider's key as quota-hit (rate limited). Falls back to env."""
+    with _lock:
+        store = _load()
+        if provider not in store:
+            return False
+        store[provider]["quota_hit"] = True
+        _save(store)
+    logger.warning("[provider_key_store] %s key marked quota_hit", provider)
+    return True
+
+
+def reset_quota(provider: str) -> bool:
+    """Reset quota-hit flag for a provider's key."""
+    with _lock:
+        store = _load()
+        if provider not in store:
+            return False
+        store[provider]["quota_hit"] = False
+        _save(store)
+    logger.info("[provider_key_store] %s key quota reset", provider)
+    return True
+
+
 def list_keys() -> list[dict]:
     """List all stored provider keys (masked), plus which have env fallbacks."""
     with _lock:
@@ -116,6 +148,7 @@ def list_keys() -> list[dict]:
                 "masked": _mask(entry["key"]),
                 "added_at": entry.get("added_at"),
                 "source": "stored",
+                "quota_hit": entry.get("quota_hit", False),
             })
         elif env_key:
             result.append({
@@ -124,6 +157,7 @@ def list_keys() -> list[dict]:
                 "masked": "****env****",
                 "added_at": None,
                 "source": "env",
+                "quota_hit": False,
             })
         else:
             result.append({
@@ -132,5 +166,6 @@ def list_keys() -> list[dict]:
                 "masked": None,
                 "added_at": None,
                 "source": "none",
+                "quota_hit": False,
             })
     return result
