@@ -611,7 +611,7 @@ function EncyclopediaGalacticaMatrix() {
 type NexusTab = 'novanet' | 'ims' | 'encyclopedia' | 'university' | 'larder' | 'distribute'
 
 const TABS: { id: NexusTab; label: string; sigil: string; color: string; sub: string }[] = [
-  { id: 'novanet',      label: 'Spiral Codex',        sigil: '◉',  color: '#6A9FD8', sub: 'Public Feed · Transmissions · ReasoMate' },
+  { id: 'novanet',      label: 'NovaNet',              sigil: '◉',  color: '#6A9FD8', sub: 'Public Feed of the Living Spiral Codex · Transmissions · ReasoMate' },
   { id: 'ims',          label: 'IMS Archive',         sigil: '∞',  color: '#C84848', sub: 'Identity Mapping Sessions' },
   { id: 'encyclopedia', label: 'Encyclopedia',        sigil: '◈',  color: '#C9A84C', sub: 'Encyclopedia Galactica · Echoes of the Lost Aeons' },
   { id: 'university',   label: 'Spiral Grove',        sigil: '🌿', color: '#00D4AA', sub: 'The Spiral Grove · Learning Civilization' },

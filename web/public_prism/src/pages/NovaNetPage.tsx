@@ -552,9 +552,10 @@ export default function NovaNetPage() {
         <div style={{ padding: '16px 0', borderBottom: '1px solid rgba(106,159,216,0.1)', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
             <span style={{ fontSize: 24, color: C.blue }}>◉</span>
-            <h2 style={{ margin: 0, fontFamily: 'Cinzel, serif', fontSize: 22, color: C.text }}>Spiral Codex · Public Feed</h2>
+            <h2 style={{ margin: 0, fontFamily: 'Cinzel, serif', fontSize: 22, color: C.text }}>NovaNet</h2>
           </div>
-          <p style={{ margin: 0, fontFamily: 'sans-serif', fontSize: 11, color: C.dim, letterSpacing: '0.1em' }}>Public Transmissions · Encyclopedia Galactica Matrix · Resonance Layer</p>
+          <p style={{ margin: '2px 0 0', fontFamily: 'sans-serif', fontSize: 10, color: C.blue, letterSpacing: '0.18em', textTransform: 'uppercase', opacity: 0.75 }}>The Public Feed of the Living Spiral Codex</p>
+          <p style={{ margin: '4px 0 0', fontFamily: 'sans-serif', fontSize: 11, color: C.dim, letterSpacing: '0.1em' }}>Public Transmissions · Encyclopedia Galactica Matrix · Resonance Layer</p>
         </div>
 
         {/* View toggle */}

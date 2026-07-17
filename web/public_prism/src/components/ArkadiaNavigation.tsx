@@ -65,7 +65,7 @@ const VIEW_LABEL: Partial<Record<View, string>> = {
   login: 'Node Login', codex: 'Personal Codex', dashboard: 'Dashboard',
   nexus: 'Nexus Hub', encyclopedia: 'Encyclopedia Galactica',
   'spiral-codex': 'Spiral Codex', loops: 'Open Loops', grove: 'Spiral Grove',
-  larder: 'Living Larder', novanet: 'Spiral Codex · Public Feed', ims: 'IMS Archive',
+  larder: 'Living Larder', novanet: 'NovaNet', ims: 'IMS Archive',
   distribute: 'Distribute', offerings: 'Offerings', aic: 'AIC Diagnostic',
   pulse: 'Arkadian Pulse', settings: 'Settings', solspire: 'SolSpire Console',
   'knowledge-os': 'Prism — Knowledge OS',
@@ -130,7 +130,7 @@ function UserSection({ onNavigate, onClose }: { onNavigate: (v: View) => void; o
           { label: '☥ Nexus', view: 'nexus' as View },
           { label: '◉ SolSpire', view: 'solspire' as View },
           { label: '⬡ Encyclopedia', view: 'encyclopedia' as View },
-          { label: '◉ Spiral Codex', view: 'novanet' as View },
+          { label: '◉ NovaNet', view: 'novanet' as View },
         ].map(item => (
           <button key={item.view} onClick={() => { onNavigate(item.view); onClose(); }}
             style={{
