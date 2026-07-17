@@ -1,18 +1,33 @@
 """
-Arkadia TTS Engine — Edge TTS neural voices (primary) · Piper (local fallback)
-Microsoft Neural voices: natural breath, pacing, and emotional range.
-No API key required. Completely free.
+Arkadia TTS Engine
+
+Priority chain:
+  1. ElevenLabs (premium neural — requires ELEVENLABS_API_KEY env var or key manager)
+  2. Edge TTS   (Microsoft Neural — free, no key required)
+  3. Piper      (local fallback)
 
 Cycle 17 addition: SSML emotion layer — intelligent pauses, emphasis on
 Arkadia-domain terms, prosody shaping for Oracle delivery quality.
 """
 import asyncio
-import html
 import logging
+import os
 import re
 from typing import Optional
 
 logger = logging.getLogger("arkadia.tts")
+
+# ── ElevenLabs voice map ───────────────────────────────────────────────────────
+# Maps the shared voice keys (used in both frontend and Edge TTS) to ElevenLabs
+# voice IDs. These are stable, publicly documented IDs from the pre-made library.
+ELEVENLABS_VOICE_MAP: dict[str, str] = {
+    "aria":        "21m00Tcm4TlvDq8ikWAM",  # Rachel  — warm, expressive female (Oracle default)
+    "jenny":       "EXAVITQu4vr4xnSDxMaL",  # Bella   — soft, clear American female
+    "sonia":       "ThT5KcBeYPX3keUQqHPh",  # Dorothy — eloquent British female
+    "christopher": "TxGEqnHWrfWFTfGW9XjX",  # Josh    — rich American male
+    "george":      "VR6AewLTigWG4xSOukaG",  # Arnold  — authoritative, warm male
+    "ryan":        "yoZ06aMxZJJ28mfd3POQ",  # Sam     — casual, approachable male
+}
 
 # ── Voice catalogue ────────────────────────────────────────────────────────────
 VOICES: dict[str, dict] = {
@@ -64,6 +79,76 @@ DEFAULT_VOICE = "aria"
 
 # Keep for backward compat
 AVAILABLE_VOICES = {k: v["description"] for k, v in VOICES.items()}
+
+# ── ElevenLabs key resolver ───────────────────────────────────────────────────
+
+def _get_elevenlabs_key() -> str:
+    """Return the active ElevenLabs API key, or '' if none is configured.
+
+    Resolution order (most-persistent first):
+      1. ELEVENLABS_API_KEY environment variable  (set on Render/Vercel — survives deploys)
+      2. tts_key_manager JSON store              (added via Settings UI — ephemeral on Render)
+    """
+    key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
+    if key:
+        return key
+    try:
+        from api.tts_key_manager import get_active_key
+        return get_active_key()
+    except Exception:
+        pass
+    return ""
+
+
+# ── ElevenLabs synthesis ──────────────────────────────────────────────────────
+
+async def _synthesize_elevenlabs(text: str, voice_key: str, api_key: str) -> bytes:
+    """POST to ElevenLabs TTS API and return MP3 bytes.
+
+    Raises:
+        RuntimeError("ELEVENLABS_429") on quota / rate-limit
+        RuntimeError("ELEVENLABS_401") on bad/expired key
+        RuntimeError(...)              on any other failure
+    """
+    import httpx
+
+    el_voice_id = ELEVENLABS_VOICE_MAP.get(voice_key, ELEVENLABS_VOICE_MAP["aria"])
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{el_voice_id}"
+
+    payload = {
+        "text": text[:5000],
+        "model_id": "eleven_multilingual_v2",
+        "voice_settings": {
+            "stability": 0.45,
+            "similarity_boost": 0.78,
+            "style": 0.10,
+            "use_speaker_boost": True,
+        },
+    }
+    headers = {
+        "xi-api-key": api_key,
+        "Content-Type": "application/json",
+        "Accept": "audio/mpeg",
+    }
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.post(url, json=payload, headers=headers)
+
+    if resp.status_code == 429:
+        raise RuntimeError("ELEVENLABS_429")
+    if resp.status_code == 401:
+        raise RuntimeError("ELEVENLABS_401: invalid or expired API key")
+    if not resp.is_success:
+        snippet = resp.text[:200] if hasattr(resp, "text") else str(resp.status_code)
+        raise RuntimeError(f"ElevenLabs HTTP {resp.status_code}: {snippet}")
+
+    data = resp.content
+    if len(data) < 500:
+        raise RuntimeError(
+            f"ElevenLabs returned suspiciously small payload ({len(data)} bytes) — "
+            "likely an error JSON masquerading as audio"
+        )
+    return data
 
 # ── SSML emotion layer ─────────────────────────────────────────────────────────
 #
@@ -174,16 +259,18 @@ def synthesize(
     text: str,
     voice_key: str = DEFAULT_VOICE,
     speed: float = 1.0,
-) -> tuple[bytes, str]:
-    """
-    Synthesize text and return (audio_bytes, media_type).
+    elevenlabs_key: str = "",
+) -> tuple[bytes, str, str]:
+    """Synthesize text and return (audio_bytes, media_type, engine_used).
 
-    Pipeline:
-      1. Clean markdown/HTML/code from text → plain speakable prose
-      2. Primary: Edge TTS neural voice (plain text + rate parameter)
-      3. Fallback: Piper local TTS
+    Priority:
+      1. ElevenLabs  — if key available (ELEVENLABS_API_KEY env or key manager)
+      2. Edge TTS    — Microsoft Neural, free, no key required
+      3. Piper       — local fallback
+
+    The third return value is a short engine label: 'elevenlabs', 'edge_tts', 'piper'.
     """
-    text = text.strip()[:4500]
+    text = text.strip()[:5000]
     if not text:
         raise ValueError("text is empty")
 
@@ -191,37 +278,86 @@ def synthesize(
     voice_id   = voice_info["id"]
     rate       = _speed_to_rate(max(0.5, min(2.0, speed)))
 
-    # Strip all markdown/HTML/code — Edge TTS reads plain prose only
     plain = _clean_text(text)
     if not plain:
         raise ValueError("text is empty after cleaning")
 
-    # ── Primary: Edge TTS ──────────────────────────────────────────────────
+    # ── 1. ElevenLabs ─────────────────────────────────────────────────────
+    el_key = elevenlabs_key or _get_elevenlabs_key()
+    if el_key:
+        try:
+            loop = asyncio.new_event_loop()
+            try:
+                audio = loop.run_until_complete(
+                    _synthesize_elevenlabs(plain, voice_key, el_key)
+                )
+            finally:
+                loop.close()
+            logger.info(
+                f"[TTS] ElevenLabs ✓ voice={voice_key} chars={len(plain)} → {len(audio)} bytes MP3"
+            )
+            return audio, "audio/mpeg", "elevenlabs"
+
+        except RuntimeError as e:
+            err = str(e)
+            if "ELEVENLABS_429" in err:
+                # Rotate to next key and retry once
+                rotated = ""
+                try:
+                    from api.tts_key_manager import rotate_key
+                    rotated = rotate_key(el_key)
+                except Exception:
+                    pass
+                if rotated and rotated != el_key:
+                    try:
+                        loop2 = asyncio.new_event_loop()
+                        try:
+                            audio = loop2.run_until_complete(
+                                _synthesize_elevenlabs(plain, voice_key, rotated)
+                            )
+                        finally:
+                            loop2.close()
+                        logger.info(f"[TTS] ElevenLabs ✓ (rotated key) → {len(audio)} bytes")
+                        return audio, "audio/mpeg", "elevenlabs"
+                    except Exception:
+                        pass
+                logger.warning("[TTS] ElevenLabs quota exhausted — falling back to Edge TTS")
+            elif "ELEVENLABS_401" in err:
+                logger.warning("[TTS] ElevenLabs key invalid/expired — falling back to Edge TTS")
+            else:
+                logger.warning(f"[TTS] ElevenLabs failed ({err}) — falling back to Edge TTS")
+
+        except Exception as e:
+            logger.warning(f"[TTS] ElevenLabs unexpected error ({e}) — falling back to Edge TTS")
+    else:
+        logger.debug("[TTS] No ElevenLabs key configured — using Edge TTS directly")
+
+    # ── 2. Edge TTS ───────────────────────────────────────────────────────
+    edge_exc: Exception | None = None
     try:
         loop = asyncio.new_event_loop()
         try:
-            audio = loop.run_until_complete(
-                _synthesize_edge(plain, voice_id, rate)
-            )
+            audio = loop.run_until_complete(_synthesize_edge(plain, voice_id, rate))
         finally:
             loop.close()
         logger.info(
-            f"[TTS] Edge TTS: {voice_key} ({voice_id}) "
+            f"[TTS] Edge TTS ✓ voice={voice_key} ({voice_id}) "
             f"speed={speed} chars={len(plain)} → {len(audio)} bytes MP3"
         )
-        return audio, "audio/mpeg"
+        return audio, "audio/mpeg", "edge_tts"
     except Exception as e:
-        logger.warning(f"[TTS] Edge TTS failed ({e}), trying Piper fallback…")
+        edge_exc = e
+        logger.warning(f"[TTS] Edge TTS failed ({e}) — trying Piper fallback…")
 
-    # ── Fallback: Piper (plain text) ───────────────────────────────────────
+    # ── 3. Piper ──────────────────────────────────────────────────────────
     try:
         from kernel._piper_fallback import piper_synthesize
         audio = piper_synthesize(plain, speed)
-        logger.info(f"[TTS] Piper fallback: {len(audio)} bytes WAV")
-        return audio, "audio/wav"
+        logger.info(f"[TTS] Piper ✓ {len(audio)} bytes WAV")
+        return audio, "audio/wav", "piper"
     except Exception as e2:
-        logger.error(f"[TTS] Piper fallback also failed: {e2}")
-        raise RuntimeError(f"All TTS engines failed. Edge: {e}. Piper: {e2}")
+        logger.error(f"[TTS] All TTS engines failed. Edge: {edge_exc}. Piper: {e2}")
+        raise RuntimeError(f"All TTS engines failed. Edge: {edge_exc}. Piper: {e2}")
 
 
 # ── Backward-compat shims (used by main.py) ───────────────────────────────────

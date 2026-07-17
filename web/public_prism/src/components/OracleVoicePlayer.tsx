@@ -193,6 +193,7 @@ const OracleVoicePlayer: React.FC<OracleVoicePlayerProps> = ({
   const [collapsed, setCollapsed]       = useState(false);
   const [blobUrl, setBlobUrl]           = useState<string | null>(null);
   const [usedFallback, setUsedFallback] = useState(false);
+  const [engine, setEngine]             = useState<'elevenlabs'|'edge_tts'|'piper'|'browser'>('edge_tts');
 
   const utterRef   = useRef<SpeechSynthesisUtterance | null>(null);
   const [wsFallbackPlaying, setWsFallbackPlaying] = useState(false);
@@ -203,6 +204,14 @@ const OracleVoicePlayer: React.FC<OracleVoicePlayerProps> = ({
   useEffect(() => audioManager.subscribe(setAudioState), []);
   useEffect(() => { return () => { if (prevBlobRef.current) URL.revokeObjectURL(prevBlobRef.current); }; }, []);
   useEffect(() => { audioManager.setSpeed(speed); }, [speed]);
+
+  // Probe which engine is active so we can display it before first playback
+  useEffect(() => {
+    fetch(`${API_BASE}/api/tts/status`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.engine) setEngine(d.engine as typeof engine); })
+      .catch(() => {});
+  }, []);
 
   // ── Generate via Edge TTS ──────────────────────────────────────────────────
   const generateEdge = useCallback(async (plain: string): Promise<Blob | null> => {

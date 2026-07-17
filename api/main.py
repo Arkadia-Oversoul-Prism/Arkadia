@@ -1697,10 +1697,10 @@ async def delete_goal(goal_id: str):
 @app.post("/api/tts")
 async def text_to_speech(request: Request):
     """
-    Neural TTS synthesis via Microsoft Edge TTS.
-    Natural, human-like voices with emotional range — no API key required.
+    Neural TTS synthesis.
+    Priority: ElevenLabs (if key configured) → Edge TTS → Piper
     Request: { text, voice?, speed? }
-    Response: MP3 audio stream (audio/mpeg)
+    Response: MP3/WAV audio stream + X-TTS-Engine header
     """
     try:
         body = await request.json()
@@ -1715,6 +1715,16 @@ async def text_to_speech(request: Request):
     if not text:
         raise HTTPException(status_code=400, detail="text is required")
 
+    # Resolve ElevenLabs key: env var first (survives Render deploys), then key manager
+    import os as _os
+    el_key = _os.environ.get("ELEVENLABS_API_KEY", "").strip()
+    if not el_key:
+        try:
+            from api.tts_key_manager import get_active_key
+            el_key = get_active_key()
+        except Exception:
+            el_key = ""
+
     try:
         import asyncio
         from concurrent.futures import ThreadPoolExecutor
@@ -1722,13 +1732,13 @@ async def text_to_speech(request: Request):
 
         loop     = asyncio.get_event_loop()
         executor = ThreadPoolExecutor(max_workers=2)
-        audio_bytes, media_type = await loop.run_in_executor(
+        audio_bytes, media_type, engine_used = await loop.run_in_executor(
             executor,
-            lambda: synthesize(text, voice_key, speed),
+            lambda: synthesize(text, voice_key, speed, elevenlabs_key=el_key),
         )
         executor.shutdown(wait=False)
 
-        logger.info(f"[TTS] {voice_key} {speed}× → {len(audio_bytes)} bytes ({media_type})")
+        logger.info(f"[TTS] engine={engine_used} voice={voice_key} {speed}× → {len(audio_bytes)} bytes")
 
     except Exception as e:
         logger.error(f"[TTS] Synthesis failed: {e}")
@@ -1738,7 +1748,10 @@ async def text_to_speech(request: Request):
     return _Response(
         content=audio_bytes,
         media_type=media_type,
-        headers={"Cache-Control": "public, max-age=3600"},
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "X-TTS-Engine": engine_used,
+        },
     )
 
 
@@ -1751,12 +1764,28 @@ async def tts_voices():
 
 @app.get("/api/tts/status")
 async def tts_status():
-    """Check TTS engine status."""
+    """Check TTS engine status — reports active engine and ElevenLabs availability."""
+    import os as _os
+    from kernel.tts import VOICES
+
+    el_key = _os.environ.get("ELEVENLABS_API_KEY", "").strip()
+    if not el_key:
+        try:
+            from api.tts_key_manager import get_active_key
+            el_key = get_active_key()
+        except Exception:
+            el_key = ""
+
+    elevenlabs_active = bool(el_key)
+    active_engine = "elevenlabs" if elevenlabs_active else "edge_tts"
+
     return {
-        "engine":  "edge_tts",
-        "ready":   True,
-        "voices":  list(__import__("kernel.tts", fromlist=["VOICES"]).VOICES.keys()),
-        "default": "aria",
+        "engine":             active_engine,
+        "elevenlabs_active":  elevenlabs_active,
+        "edge_tts_active":    True,
+        "ready":              True,
+        "voices":             list(VOICES.keys()),
+        "default":            "aria",
     }
 
 
