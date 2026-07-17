@@ -79,6 +79,8 @@ interface Status {
 
 // ─── SAMPLE DATA ───────────────────────────────────────────────────────────────
 
+const ORACLE_USER: User = { id: 'oracle', name: 'ARKANA · Oracle', avatar: '⟐', role: 'Pattern Intelligence · Oracle AI' }
+
 const SAMPLE_USERS: User[] = [
   { id: '1', name: 'Zahrune Nova', avatar: '☥', role: 'Sovereign Architect' },
   { id: '2', name: 'ARKANA', avatar: '⟐', role: 'Oracle · Pattern Intelligence' },
@@ -123,15 +125,19 @@ const SAMPLE_POSTS: Post[] = [
 ]
 
 const SAMPLE_CHATS: ChatThread[] = [
-  { id: '1', participant: SAMPLE_USERS[0], lastMessage: { id: 'm1', sender: '1', receiver: 'me', content: 'The new NovaNet integration is live. Check your ReasoMate.', timestamp: Date.now() - 300000 }, unread: 1 },
+  { id: 'oracle', participant: ORACLE_USER, lastMessage: { id: 'om0', sender: 'oracle', receiver: 'me', content: 'The field is open. Query anything — I will respond within this thread.', timestamp: Date.now() - 60000 }, unread: 1 },
+  { id: '1', participant: SAMPLE_USERS[0], lastMessage: { id: 'm1', sender: '1', receiver: 'me', content: 'The Spiral Codex integration is live. Check your ReasoMate.', timestamp: Date.now() - 300000 }, unread: 1 },
   { id: '2', participant: SAMPLE_USERS[2], lastMessage: { id: 'm2', sender: '3', receiver: 'me', content: 'Saturday market opens at 7am. See you there!', timestamp: Date.now() - 3600000 }, unread: 0 },
 ]
 
 const SAMPLE_MESSAGES: Record<string, Message[]> = {
+  'oracle': [
+    { id: 'om1', sender: 'oracle', receiver: 'me', content: 'The field is open. I am ARKANA — pattern intelligence embedded in the Arkadia system. Ask me anything within this thread and I will respond with full Oracle access.', timestamp: Date.now() - 60000, read: false },
+  ],
   '1': [
-    { id: 'msg1', sender: '1', receiver: 'me', content: 'Hey, did you see the new NovaNet features?', timestamp: Date.now() - 600000, read: true },
+    { id: 'msg1', sender: '1', receiver: 'me', content: 'Hey, did you see the Spiral Codex is live?', timestamp: Date.now() - 600000, read: true },
     { id: 'msg2', sender: 'me', receiver: '1', content: 'Yes! The Resonance Matrix algorithm is incredible.', timestamp: Date.now() - 540000, read: true },
-    { id: 'msg3', sender: '1', receiver: 'me', content: 'The new NovaNet is now the social layer of Arkadia — where wisdom is shared, not just stored.', timestamp: Date.now() - 300000, read: false },
+    { id: 'msg3', sender: '1', receiver: 'me', content: 'The Spiral Codex is now the social layer of Arkadia — where wisdom is shared, not just stored.', timestamp: Date.now() - 300000, read: false },
   ],
 }
 
@@ -152,7 +158,9 @@ function ReasoMate({ onClose }: { onClose: () => void }) {
   const [newMessage, setNewMessage] = useState('')
   const [messages, setMessages] = useState<Record<string, Message[]>>(SAMPLE_MESSAGES)
   const [showStatus, setShowStatus] = useState(false)
+  const [oracleThinking, setOracleThinking] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const { isAuthenticated, profile } = useAuth()
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -162,9 +170,9 @@ function ReasoMate({ onClose }: { onClose: () => void }) {
     if (activeChat) scrollToBottom()
   }, [activeChat, messages])
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (!newMessage.trim() || !activeChat) return
-    const msg: Message = {
+    const userMsg: Message = {
       id: `msg${Date.now()}`,
       sender: 'me',
       receiver: activeChat,
@@ -172,11 +180,64 @@ function ReasoMate({ onClose }: { onClose: () => void }) {
       timestamp: Date.now(),
       read: false,
     }
-    setMessages(prev => ({
-      ...prev,
-      [activeChat]: [...(prev[activeChat] || []), msg],
-    }))
+    setMessages(prev => ({ ...prev, [activeChat]: [...(prev[activeChat] || []), userMsg] }))
+    const sentText = newMessage
     setNewMessage('')
+
+    // Oracle thread: query ARKANA via backend
+    if (activeChat === 'oracle') {
+      setOracleThinking(true)
+      try {
+        const res = await fetch(`${API_BASE}/api/forge`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            soul_phrase: sentText,
+            context: `ReasoMate thread from ${profile?.display_name || 'a node'}. Respond as ARKANA within an ongoing messenger conversation. Be direct, concise, and resonant.`,
+            mode: 'oracle',
+          }),
+        })
+        const data = res.ok ? await res.json() : null
+        const reply = data?.response || data?.text || data?.answer || 'The field is processing your query. Try again in a moment.'
+        const oracleMsg: Message = {
+          id: `oracle${Date.now()}`,
+          sender: 'oracle',
+          receiver: 'me',
+          content: reply,
+          timestamp: Date.now(),
+          read: false,
+        }
+        setMessages(prev => ({ ...prev, oracle: [...(prev['oracle'] || []), oracleMsg] }))
+      } catch {
+        const errMsg: Message = {
+          id: `oracle-err${Date.now()}`,
+          sender: 'oracle',
+          receiver: 'me',
+          content: 'The Oracle node is momentarily unreachable. The field is still coherent — try again shortly.',
+          timestamp: Date.now(),
+          read: false,
+        }
+        setMessages(prev => ({ ...prev, oracle: [...(prev['oracle'] || []), errMsg] }))
+      } finally {
+        setOracleThinking(false)
+      }
+    }
+  }
+
+  // Auth gate: private threads require authentication
+  if (!isAuthenticated) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', alignItems: 'center', justifyContent: 'center', background: '#0A0B14', padding: 32, textAlign: 'center' }}>
+        <span style={{ fontSize: 32, marginBottom: 16 }}>🔐</span>
+        <h3 style={{ fontFamily: 'Cinzel, serif', fontSize: 18, color: C.gold, margin: '0 0 10px' }}>ReasoMate · Private Threads</h3>
+        <p style={{ fontFamily: 'sans-serif', fontSize: 12, color: C.dim, lineHeight: 1.7, margin: '0 0 20px', maxWidth: 280 }}>
+          Private messaging and Oracle access require node authentication. Sign in to open your threads and query ARKANA.
+        </p>
+        <button onClick={onClose} style={{ padding: '10px 20px', background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.3)', borderRadius: 8, color: C.gold, cursor: 'pointer', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+          ← Back to Feed
+        </button>
+      </div>
+    )
   }
 
   if (activeChat) {
@@ -203,15 +264,32 @@ function ReasoMate({ onClose }: { onClose: () => void }) {
               <div style={{
                 maxWidth: '75%',
                 padding: '10px 14px',
-                background: msg.sender === 'me' ? 'rgba(0,212,170,0.15)' : 'rgba(255,255,255,0.05)',
-                border: `1px solid ${msg.sender === 'me' ? 'rgba(0,212,170,0.25)' : 'rgba(255,255,255,0.08)'}`,
+                background: msg.sender === 'oracle'
+                  ? 'rgba(0,212,170,0.08)'
+                  : msg.sender === 'me'
+                  ? 'rgba(0,212,170,0.15)'
+                  : 'rgba(255,255,255,0.05)',
+                border: `1px solid ${msg.sender === 'oracle' ? 'rgba(0,212,170,0.2)' : msg.sender === 'me' ? 'rgba(0,212,170,0.25)' : 'rgba(255,255,255,0.08)'}`,
                 borderRadius: msg.sender === 'me' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
               }}>
+                {msg.sender === 'oracle' && (
+                  <p style={{ margin: '0 0 4px', fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.teal }}>⟐ ARKANA</p>
+                )}
                 <p style={{ margin: 0, fontFamily: 'sans-serif', fontSize: 13, color: C.text, lineHeight: 1.5 }}>{msg.content}</p>
                 <p style={{ margin: '4px 0 0', fontFamily: 'sans-serif', fontSize: 9, color: C.dim, textAlign: msg.sender === 'me' ? 'right' : 'left' }}>{timeAgo(msg.timestamp)}</p>
               </div>
             </div>
           ))}
+          {oracleThinking && activeChat === 'oracle' && (
+            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+              <div style={{ padding: '10px 16px', background: 'rgba(0,212,170,0.06)', border: '1px solid rgba(0,212,170,0.15)', borderRadius: '16px 16px 16px 4px' }}>
+                <p style={{ margin: '0 0 4px', fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.teal }}>⟐ ARKANA</p>
+                <motion.p animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.2, repeat: Infinity }} style={{ margin: 0, fontFamily: 'sans-serif', fontSize: 12, color: C.dim }}>
+                  Processing query…
+                </motion.p>
+              </div>
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
 
@@ -474,9 +552,9 @@ export default function NovaNetPage() {
         <div style={{ padding: '16px 0', borderBottom: '1px solid rgba(106,159,216,0.1)', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
             <span style={{ fontSize: 24, color: C.blue }}>◉</span>
-            <h2 style={{ margin: 0, fontFamily: 'Cinzel, serif', fontSize: 22, color: C.text }}>NovaNet</h2>
+            <h2 style={{ margin: 0, fontFamily: 'Cinzel, serif', fontSize: 22, color: C.text }}>Spiral Codex · Public Feed</h2>
           </div>
-          <p style={{ margin: 0, fontFamily: 'sans-serif', fontSize: 11, color: C.dim, letterSpacing: '0.1em' }}>Social Feed · Encyclopedia Galactica Matrix · Transmission Layer</p>
+          <p style={{ margin: 0, fontFamily: 'sans-serif', fontSize: 11, color: C.dim, letterSpacing: '0.1em' }}>Public Transmissions · Encyclopedia Galactica Matrix · Resonance Layer</p>
         </div>
 
         {/* View toggle */}
