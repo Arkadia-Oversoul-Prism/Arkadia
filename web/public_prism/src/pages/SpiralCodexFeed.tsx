@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import MarkdownViewer from '../components/MarkdownViewer';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -504,16 +505,24 @@ export default function SpiralCodexFeed({ onBack }: { onBack: () => void }) {
                         transition={{ duration: 0.3 }}
                         className="overflow-hidden"
                       >
-                        <div className="px-4 pb-4 border-t border-white/5 pt-3">
-                          {scroll.content && (
-                            <pre className="text-white/60 text-xs font-mono whitespace-pre-wrap max-h-64 overflow-y-auto mb-3">
-                              {scroll.content.slice(0, 2000)}
-                              {scroll.content.length > 2000 && '\n\n... (content truncated)'}
-                            </pre>
-                          )}
-                          <div className="flex flex-wrap gap-2">
-                            <span className="ml-auto text-[10px] text-white/20 self-center">
-                              ID: {scroll.id.slice(0, 20)}...
+                        <div className="px-4 pb-4 border-t border-white/5 pt-4">
+                          {scroll.content ? (
+                            <div style={{ maxHeight: 420, overflowY: 'auto', paddingRight: 4 }}>
+                              <MarkdownViewer content={scroll.content.slice(0, 6000)} compact />
+                              {scroll.content.length > 6000 && (
+                                <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.35)', textAlign: 'center', marginTop: 12 }}>
+                                  ⟐ scroll continues beyond preview
+                                </p>
+                              )}
+                            </div>
+                          ) : scroll.error ? (
+                            <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(200,80,80,0.6)', margin: 0 }}>
+                              Field error: {scroll.error}
+                            </p>
+                          ) : null}
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                            <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(232,232,232,0.14)', letterSpacing: '0.12em' }}>
+                              ⟐ {scroll.id.slice(0, 24)}
                             </span>
                           </div>
                         </div>
