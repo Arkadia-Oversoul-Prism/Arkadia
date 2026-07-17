@@ -12,7 +12,7 @@ import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import NovaNetPage from './NovaNetPage'
 import DistributePage from './DistributePage'
-import EncyclopediaGalactica from './EncyclopediaGalactica'
+import NexusSpiralCodex from './NexusSpiralCodex'
 import { API_BASE } from '../lib/apiConfig'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
@@ -885,7 +885,7 @@ export default function NexusPage() {
 
           {/* Tab content */}
           {activeTab === 'novanet' && <NovaNetPage />}
-          {activeTab === 'encyclopedia' && <EncyclopediaGalactica />}
+          {activeTab === 'encyclopedia' && <NexusSpiralCodex />}
           {activeTab === 'ims' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
               <FieldBar ark={ark} />

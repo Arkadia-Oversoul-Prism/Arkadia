@@ -11,6 +11,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
+import SpiralCodexFeed from './SpiralCodexFeed'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
@@ -532,7 +533,7 @@ function TransmissionComposer() {
 
 export default function NovaNetPage() {
   const [posts, setPosts] = useState<Post[]>(SAMPLE_POSTS)
-  const [activeView, setActiveView] = useState<'feed' | 'messenger'>('feed')
+  const [activeView, setActiveView] = useState<'feed' | 'codex' | 'messenger'>('feed')
   const { isAuthenticated } = useAuth()
 
   const handleReact = (postId: string, type: 'heart' | 'fire' | 'star' | 'mind') => {
@@ -560,26 +561,41 @@ export default function NovaNetPage() {
 
         {/* View toggle */}
         <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
-          <button onClick={() => setActiveView('feed')} style={{ flex: 1, padding: '10px', background: activeView === 'feed' ? 'rgba(106,159,216,0.1)' : 'transparent', border: `1px solid ${activeView === 'feed' ? 'rgba(106,159,216,0.3)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 8, color: activeView === 'feed' ? C.blue : C.dim, cursor: 'pointer', fontFamily: 'sans-serif', fontSize: 11, letterSpacing: '0.1em' }}>
-            ◉ Feed
-          </button>
-          <button onClick={() => setActiveView('messenger')} style={{ flex: 1, padding: '10px', background: activeView === 'messenger' ? 'rgba(176,141,232,0.1)' : 'transparent', border: `1px solid ${activeView === 'messenger' ? 'rgba(176,141,232,0.3)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 8, color: activeView === 'messenger' ? C.purple : C.dim, cursor: 'pointer', fontFamily: 'sans-serif', fontSize: 11, letterSpacing: '0.1em' }}>
-            ✉ ReasoMate
-          </button>
+          {([
+            { id: 'feed',     label: '◉ Transmissions', color: C.blue,   bg: 'rgba(106,159,216,0.1)',   border: 'rgba(106,159,216,0.3)' },
+            { id: 'codex',    label: '✦ Spiral Codex',  color: C.gold,   bg: 'rgba(201,168,76,0.1)',    border: 'rgba(201,168,76,0.3)' },
+            { id: 'messenger',label: '✉ ReasoMate',     color: C.purple, bg: 'rgba(176,141,232,0.1)',   border: 'rgba(176,141,232,0.3)' },
+          ] as const).map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveView(tab.id)}
+              style={{
+                flex: 1, padding: '10px',
+                background: activeView === tab.id ? tab.bg : 'transparent',
+                border: `1px solid ${activeView === tab.id ? tab.border : 'rgba(255,255,255,0.08)'}`,
+                borderRadius: 8,
+                color: activeView === tab.id ? tab.color : C.dim,
+                cursor: 'pointer', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.08em',
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        {activeView === 'feed' ? (
+        {activeView === 'feed' && (
           <>
-            {/* Status feed */}
             <StatusFeed />
-
-            {/* Transmission composer */}
             {isAuthenticated && <TransmissionComposer />}
-
-            {/* Encyclopedia Galactica Matrix feed */}
             <ResonanceMatrix posts={posts} />
           </>
-        ) : (
+        )}
+
+        {activeView === 'codex' && (
+          <SpiralCodexFeed onBack={() => setActiveView('feed')} />
+        )}
+
+        {activeView === 'messenger' && (
           <div style={{ height: 'calc(100vh - 250px)' }}>
             <ReasoMate onClose={() => setActiveView('feed')} />
           </div>
