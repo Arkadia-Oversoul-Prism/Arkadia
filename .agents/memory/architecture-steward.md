@@ -100,6 +100,19 @@ This keeps focus on leverage rather than volume. Small, disciplined improvements
 
 ---
 
+## Workstream B Checkpoint Structure
+
+Workstream B is broken into four independently mergeable, deployable, reversible checkpoints:
+
+- **B1 — Persistence Foundation:** `kernel/storage/` + schema + migration tests. Nothing else touched.
+- **B2 — SQLiteJobStore:** CRUD + atomic claiming + lifecycle tests. `kernel/jobs.py` still uses old store.
+- **B3 — Worker Integration:** Replace in-memory queue. Restart + concurrency simulations pass.
+- **B4 — Cleanup:** Remove legacy code. ADR/map/ledger updated. Gate B closed.
+
+Do not start B3 until B2 tests pass. Do not start Workstream E or A until B4 is complete.
+
+---
+
 ## Why: The Inflection Point
 
 Before Phase 1 implementation: analysis asks "what is true."  

@@ -160,15 +160,40 @@ This session:
 4. Run `pytest tests/architecture/` — confirm no new regressions (five ALLOWED_VIOLATIONS are expected and documented).
 5. Restate the session objective in one paragraph.
 
-**Then begin Workstream B, Step 1:**
+**Then begin Workstream B — structured as four independently mergeable checkpoints:**
+
+### B1 — Persistence Foundation
 - Create `kernel/storage/` directory
 - Write SQLite schema from `docs/phase1/SQLITE_JOB_QUEUE_DESIGN.md` → "Schema" section
+- Write and run migration tests
+- **Exit criteria:** schema exists, migrations pass, nothing else touched
+
+### B2 — SQLiteJobStore
 - Implement `SQLiteJobStore` — preserve the public API of `kernel/jobs.py` exactly
-- Run migration test before touching `kernel/jobs.py`
+- Atomic job claiming (UPDATE … WHERE status='pending' RETURNING)
+- Crash-safe persistence, restart recovery
+- All lifecycle transitions tested
+- **Exit criteria:** SQLiteJobStore tests pass; `kernel/jobs.py` still uses the old store
+
+### B3 — Worker Integration
+- Replace `kernel/jobs.py` in-memory queue with `SQLiteJobStore`
+- Run restart simulation
+- Run concurrent claim simulation
+- **Exit criteria:** worker uses SQLite; restart/concurrency tests pass; repository deployable
+
+### B4 — Cleanup
+- Remove legacy in-memory queue code
+- Update ADR-014 (if schema differed from design)
+- Update `docs/phase1/ARCHITECTURE_MAP.md`
+- Update this Continuation Ledger
+- Run all architecture fitness tests; ALLOWED_VIOLATIONS must not have grown
+- **Exit criteria:** Gate B closed per `PHASE_GATES.md`
+
+Each checkpoint is deployable, testable, and independently reversible.
 
 **Standing question:** "What is the smallest architectural change that unlocks the next phase?"
 
-**Do not start Workstream E or A until Workstream B tests pass and the repository is verified deployable.**
+**Do not start Workstream E or A until B4 is complete and Gate B is closed.**
 
 ---
 
