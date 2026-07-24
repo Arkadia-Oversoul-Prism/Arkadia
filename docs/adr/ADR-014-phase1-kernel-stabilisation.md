@@ -1,10 +1,10 @@
 # ADR-014: Phase 1 — Kernel Stabilisation
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Date:** ARK Y1 · D116 (2026-07-24)  
 **Decider:** Flamekeeper + Principal Engineer  
 **Supersedes:** None  
-**References:** ADR-013 (Phase 0 Security), ADR-010/011/012 (Knowledge OS)
+**References:** ADR-013 (Phase 0 Security), ADR-015 (Dependency Direction), ADR-010/011/012 (Knowledge OS)
 
 ---
 

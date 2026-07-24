@@ -40,13 +40,18 @@ This session:
 | Responsibility Matrix | `docs/phase1/RESPONSIBILITY_MATRIX.md` | ✅ Complete |
 | Dependency Graph + Coupling Report | `docs/phase1/DEPENDENCY_GRAPH.md` | ✅ Complete |
 | Runtime State Diagram | `docs/phase1/RUNTIME_STATE_DIAGRAM.md` | ✅ Complete |
+| Architecture Map | `docs/phase1/ARCHITECTURE_MAP.md` | ✅ Complete |
 | SQLite Job Queue Design | `docs/phase1/SQLITE_JOB_QUEUE_DESIGN.md` | ✅ Complete |
 | Plugin Registry Specification | `docs/phase1/PLUGIN_REGISTRY_SPEC.md` | ✅ Complete |
 | Observability Design | `docs/phase1/OBSERVABILITY_DESIGN.md` | ✅ Complete |
 | Corpus Sync Design | `docs/phase1/CORPUS_SYNC_DESIGN.md` | ✅ Complete |
-| ADR-014 (Phase 1 decisions) | `docs/adr/ADR-014-phase1-kernel-stabilisation.md` | ✅ Filed (Proposed) |
+| Architecture Fitness Tests | `tests/architecture/test_layer_boundaries.py` | ✅ Complete |
+| Layer Map | `tests/architecture/LAYER_MAP.py` | ✅ Complete |
+| Phase Gates | `docs/phase1/PHASE_GATES.md` | ✅ Complete |
+| ADR-014 (Phase 1 decisions) | `docs/adr/ADR-014-phase1-kernel-stabilisation.md` | ✅ Filed (Accepted) |
+| ADR-015 (Dependency Direction Rule) | `docs/adr/ADR-015-dependency-direction-rule.md` | ✅ Filed (Accepted) |
 
-**All pre-implementation deliverables are complete. Implementation is blocked pending approval of these documents.**
+**All pre-implementation deliverables are complete. Phase 0 and Phase 1 Analysis approved by Flamekeeper (2026-07-24). Implementation may begin.**
 
 ---
 
