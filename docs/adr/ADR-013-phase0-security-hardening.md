@@ -16,32 +16,59 @@ The Principal Engineering Directive v1.0 mandated that these be closed before an
 
 ## Decisions
 
-### 1. Shell Execution — Allowlist Replaces Blacklist
+### 1. Shell Execution — Allowlist + Path-Separator Guard
 
 **File:** `kernel/tools_real.py`  
-**Change:** `BLOCKED_COMMANDS` (blacklist) → `ALLOWED_SHELL_COMMANDS` (frozenset allowlist)
+**Change:** `BLOCKED_COMMANDS` (blacklist) → `ALLOWED_SHELL_COMMANDS` (frozenset allowlist) + two-stage guard in `_check_shell_command()`
 
-The `ExecuteShellTool` now extracts the base command name (first token, path-stripped) and validates it against an explicit allowlist before execution. Any command not on the list is rejected with a clear error. The working directory is also constrained to resolve within the project root.
+`_check_shell_command()` now enforces two gates before any subprocess is created:
 
-**Why:** Blacklists are trivially bypassed. `python -c "import os; os.system(...)"`, base64-encoded payloads, and path-prefixed binaries all defeat string-match blocklists. With LLM-driven planning, a prompt injection attack on the planner could become full RCE. An allowlist shrinks the attack surface to exactly the commands the system genuinely needs.
+**Stage 1 — Path separator rejection:**  
+If `args[0]` contains `/` or `\`, the command is immediately rejected. This closes the basename-aliasing bypass: an attacker cannot rename `python3` to `./ls` and invoke it, because path-prefixed tokens are refused before the allowlist is consulted.
 
-**Allowlist rationale:** `git`, read-only filesystem tools (`ls`, `grep`, `cat`, etc.), Python/Node runtimes, `mkdir/cp/mv`, `curl/wget`. No `rm`, no `chmod`, no `chown`, no `bash`/`sh` as a bare command.
+**Stage 2 — Allowlist:**  
+The bare command name must be in `ALLOWED_SHELL_COMMANDS`. Current allowlist:
+
+```
+ls, cat, head, tail, grep, wc, echo, pwd, date, uname, whoami, printenv, stat
+curl, wget
+mkdir
+```
+
+**Execution is always `subprocess.run(..., shell=False)`:**  
+The command is parsed via `shlex.split()` into a token list. Shell metacharacters (`;`, `&&`, `|`, `$()`) have no effect inside `subprocess.run(shell=False)` — they become literal arguments.
+
+**Intentionally excluded (with rationale):**
+- `env` — execution trampoline: `env python3 -c ...` invokes `python3` regardless of allowlist
+- `find` — `-exec`/`-execdir` flags allow arbitrary command execution
+- `git` — hooks, `difftool`, `mergetool`, config-driven helpers allow arbitrary execution
+- `python`, `python3`, `node` — script-file execution → arbitrary code
+- `pip`, `pip3`, `npm` — install hooks → arbitrary code
+- `cp`, `mv` — binary staging vectors: attacker copies `python3 → ./ls`, then invokes it as a bare name
+
+**Why an allowlist, not a blacklist:** Blacklists are trivially bypassed via path prefixes, base64-encoded payloads, renamed binaries, and command aliases. Any allowlist bypass closes the entire class of bypass, not just the specific instance. With LLM-driven planning, a prompt injection on the planner could become full RCE if the shell tool is insufficiently constrained.
+
+**Adding to the allowlist:** Any addition to `ALLOWED_SHELL_COMMANDS` must be a conscious decision documented in an ADR update. Evaluation criteria: does the command have a secondary execution path (trampoline, `-exec` flag, hook system, config-driven helper)?
 
 ---
 
-### 2. File Write — Canonical Root Validation
+### 2. File Write — Canonical Root Validation + O_NOFOLLOW
 
 **File:** `kernel/tools_real.py`  
-**Change:** `WriteFileTool.run()` now validates every write path before any disk I/O
+**Change:** `WriteFileTool.run()` validates every write path before any disk I/O, then writes atomically via `os.open(O_NOFOLLOW)`
 
-Three checks in sequence:
-1. Resolve path to absolute using `Path.resolve(strict=False)` — eliminates `../` traversal
-2. Walk path components rejecting any that are symlinks — prevents symlink-redirect attacks
-3. Require the resolved path to be inside one of `APPROVED_WRITE_DIRS`: `vault/`, `knowledge/`, `data/`, `tmp/`, `artifacts/`, `web/public_prism/public/`
+Four checks in sequence (`_validate_write_path()`):
+1. Walk the **original** (pre-resolution) path components rejecting any that are symlinks — catches symlink redirects before `resolve()` follows them
+2. Resolve to absolute (`Path.resolve(strict=False)`) — eliminates `../` traversal
+3. Re-walk resolved components rejecting any new symlinks (TOCTOU mitigation between steps 1 and 2)
+4. Require the resolved path to be inside `APPROVED_WRITE_DIRS`: `vault/`, `knowledge/`, `data/`, `tmp/`, `artifacts/`, `web/public_prism/public/`
 
-`ReadFileTool` and `ListDirectoryTool` now also enforce containment within the project root.
+**Write is via `os.open(..., O_NOFOLLOW)`:**  
+Even if a symlink is created between `resolve()` and the write, the OS rejects the `open()` call with `ELOOP`, which is caught and returned as an error. This is a kernel guarantee, not a Python race.
 
-**Why:** The original `WriteFileTool` accepted any path. An LLM planner could be manipulated into writing to `api/main.py`, `.env`, or any credential file to establish persistence. The approved-directories model ensures agents can only write to knowledge artefact locations, never source code or configuration.
+`ReadFileTool` and `ListDirectoryTool` enforce containment within the project root.
+
+**Why:** The original `WriteFileTool` accepted any path. An LLM planner could be manipulated into writing to `api/main.py`, `.env`, or any credential file. The approved-directories model ensures agents can only write to knowledge artefact locations.
 
 ---
 
@@ -50,13 +77,15 @@ Three checks in sequence:
 **File:** `api/auth.py`  
 **Change:** Firebase init failure is now always a hard error if credentials were provided; missing credentials in production is a hard startup error
 
-Two conditions now cause `RuntimeError` on startup (rather than silent `_dev_mode = True`):
+Two conditions now cause `RuntimeError` on startup:
 - `FIREBASE_SERVICE_ACCOUNT_JSON` is unset AND `ENVIRONMENT=production`
 - `FIREBASE_SERVICE_ACCOUNT_JSON` is set but Firebase Admin SDK initialisation fails (any environment)
 
-Development without credentials continues to work as before — dev-mode with unsigned JWT decoding, but with an explicit warning that signatures are not verified.
+The import guard in `api/main.py` re-raises any `RuntimeError` from `api/auth.py` in production, so a misconfigured auth module cannot silently disable authentication at startup.
 
-**Why:** The previous code silently downgraded to no-auth on any Firebase failure. A misconfigured service account or missing credential in production would result in an apparently-running system where every token is accepted unsigned. This is worse than a crash — it's invisible.
+Development without credentials continues to work — dev-mode with unsigned JWT decoding, with an explicit warning that signatures are not verified.
+
+**Why:** The previous code silently downgraded to no-auth on any Firebase failure. A misconfigured service account in production would result in an apparently-running system where every token is accepted unsigned. This is worse than a crash — it's invisible.
 
 ---
 
@@ -70,37 +99,40 @@ Now: if `ENVIRONMENT=production` and `SOVEREIGN_KEY` is unset, the process refus
 
 In development: warning is retained (sovereign endpoints will reject, but the rest of the system is usable locally).
 
-**Why:** Broken systems should fail loudly. A server that starts and silently rejects all sovereign operations is harder to debug than one that refuses to start with a clear message. Fail-fast surfaces deployment configuration errors at deploy time, not at the first user request.
+**Why:** Broken systems should fail loudly. A server that starts and silently rejects all sovereign operations is harder to debug than one that refuses to start with a clear message.
 
 ---
 
-### 5. CORS — Explicit Origin List
+### 5. CORS — Explicit Origin List, Production-Locked Default
 
 **File:** `api/main.py`  
-**Change:** `allow_origins=["*"]` → explicit `_CORS_ORIGINS` list
+**Change:** `allow_origins=["*"]` → explicit `_CORS_ORIGINS` list; production default excludes localhost
 
-Default development origins: `localhost:5000`, `localhost:5173`, `localhost:3000`, `https://arkadia-n26k.onrender.com`.  
-Production override: set `CORS_ALLOWED_ORIGINS` env var to a comma-separated list.  
+When `CORS_ALLOWED_ORIGINS` is not set:
+- **Development:** `localhost:5000`, `localhost:5173`, `localhost:3000`, `https://arkadia-n26k.onrender.com`
+- **Production (`ENVIRONMENT=production`):** `https://arkadia-n26k.onrender.com` only — no localhost
+
 `allow_headers` tightened from `["*"]` to `["Authorization", "Content-Type", "X-Requested-With"]`.  
 `allow_credentials=True` added (required when origins are explicit).
 
-**Why:** Wildcard CORS combined with state-mutating endpoints (spawn, write, forge) is CSRF attack surface. Explicit origins enforce the same-origin policy intention and prevent arbitrary third-party sites from making credentialed requests to the API.
+**Why:** Wildcard CORS combined with state-mutating endpoints (spawn, write, forge) is CSRF attack surface. Explicit origins enforce the same-origin policy intention and prevent arbitrary third-party sites from making credentialed requests to the API. Production localhost leakage would also allow a compromised developer machine to call the production API from a browser.
 
 ---
 
 ## Consequences
 
 ### Positive
-- Prompt injection → RCE path is closed for the shell tool
-- Arbitrary file write path is closed
-- Silent auth bypass is closed
-- CORS surface is reduced to declared origins
-- All security failures are now observable at startup, not at runtime
+- Prompt injection → RCE path via shell tool is closed (allowlist + path-separator guard + no trampolines + shell=False)
+- Arbitrary file write path is closed (path validation + O_NOFOLLOW)
+- Silent auth bypass is closed (fail-fast on misconfigured or missing credentials in production)
+- CORS surface is reduced to declared origins; production is locked to Render URL
+- All security failures are observable at startup, not silently at runtime
 
 ### Risks to monitor
-- The shell allowlist may need extension as new legitimate agent capabilities are added. Any addition to `ALLOWED_SHELL_COMMANDS` should be a conscious decision documented here.
+- The shell allowlist may need extension as new legitimate agent capabilities are added. Any addition to `ALLOWED_SHELL_COMMANDS` requires conscious review — see evaluation criteria in Decision 1.
 - The approved write directories list (`APPROVED_WRITE_DIRS`) should be reviewed when new knowledge storage locations are added.
 - CORS origins must be kept current as new frontends or domains are added — use `CORS_ALLOWED_ORIGINS` env var rather than modifying the default list.
+- `curl`/`wget` in the shell allowlist can fetch arbitrary data over the network (SSRF risk). This is an accepted residual risk given the `requires_approval = True` gate on `ExecuteShellTool`. If automated agent pipelines are introduced (no human in the loop), reconsider.
 
 ---
 
@@ -113,6 +145,7 @@ The following remain open as later-phase work:
 - `api/main.py` monolith decomposition (Phase 2)
 - Client-side `isSovereign` flag (Phase 2)
 - Frontend Oracle request timeout (near-term, low effort)
+- `curl`/`wget` SSRF exposure in automated (no-approval) agent pipelines (if introduced)
 
 ---
 

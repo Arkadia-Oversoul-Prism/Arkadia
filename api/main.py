@@ -16,12 +16,22 @@ from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 import os as _os
 
-# ── Arkadia auth + node registry (graceful — won't crash if misconfigured) ────
+# ── Arkadia auth + node registry ─────────────────────────────────────────────
+# In production (ENVIRONMENT=production) an auth import failure is a fatal
+# startup error — the server must not run with authentication silently disabled.
+# In development, a failure disables personal context but allows the app to run.
 try:
     from api.auth import get_current_user as _get_current_user, get_personal_codex as _get_personal_codex
     _AUTH_AVAILABLE = True
 except Exception as _ae:
-    logging.getLogger("arkadia").warning(f"[AUTH] Import failed — personal context disabled: {_ae}")
+    if _os.environ.get("ENVIRONMENT", "").strip().lower() == "production":
+        raise RuntimeError(
+            f"[AUTH] Auth module failed to load in production — refusing to start "
+            f"with authentication disabled. Error: {_ae}"
+        ) from _ae
+    logging.getLogger("arkadia").warning(
+        f"[AUTH] Import failed — personal context disabled (dev-mode only): {_ae}"
+    )
     _AUTH_AVAILABLE = False
     async def _get_current_user(request): return None  # type: ignore
     def _get_personal_codex(nk): return None  # type: ignore
@@ -202,18 +212,23 @@ app = FastAPI(title="Arkadia Mind — Cycle 11", lifespan=lifespan)
 #
 # Example (Render env var):
 #   CORS_ALLOWED_ORIGINS=https://arkadia-n26k.onrender.com,https://your-custom-domain.com
-_DEFAULT_CORS_ORIGINS = [
-    "http://localhost:5000",
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "https://arkadia-n26k.onrender.com",
-]
 _cors_env = os.environ.get("CORS_ALLOWED_ORIGINS", "").strip()
-_CORS_ORIGINS: list[str] = (
-    [o.strip() for o in _cors_env.split(",") if o.strip()]
-    if _cors_env
-    else _DEFAULT_CORS_ORIGINS
-)
+if _cors_env:
+    # Explicit override — use exactly what is configured
+    _CORS_ORIGINS: list[str] = [o.strip() for o in _cors_env.split(",") if o.strip()]
+elif _is_production:
+    # Production without explicit config: lock to the canonical deployment URL only.
+    # localhost origins must never be allowed in production — they would permit
+    # any localhost-based request to make credentialed cross-origin calls.
+    _CORS_ORIGINS = ["https://arkadia-n26k.onrender.com"]
+else:
+    # Development: include localhost variants for convenience
+    _CORS_ORIGINS = [
+        "http://localhost:5000",
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://arkadia-n26k.onrender.com",
+    ]
 logger.info("[CORS] allowed origins: %s", _CORS_ORIGINS)
 
 app.add_middleware(

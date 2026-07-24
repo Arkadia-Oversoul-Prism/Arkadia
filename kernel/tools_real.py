@@ -46,48 +46,79 @@ SENSITIVE_OPS: set[str] = {"execute_shell", "write_file"}
 
 # ── Shell execution: allowlist ────────────────────────────────────────────────
 # Only the base command name (first token) is checked.
-# Add to this set when a new legitimate command is genuinely required.
+# Add to this set only when a new command is genuinely required AND safe.
 # Never use a blocklist — blocklists are trivially bypassed.
+#
+# INTERPRETER EXCLUSION: python, python3, node, pip, npm are intentionally
+# absent. Even with shell=False, `python3 script.py` permits arbitrary code
+# execution if an attacker (via prompt injection) can first write a script
+# to an approved directory. The kernel is itself a Python process — any
+# Python logic needed by a tool should be implemented directly in Python,
+# not by spawning a new interpreter. The same applies to Node and package
+# managers (pip install and npm install run arbitrary hook scripts).
 
 ALLOWED_SHELL_COMMANDS: frozenset[str] = frozenset({
-    # Version control
-    "git",
-    # Filesystem inspection (read-only)
-    "ls", "find", "cat", "head", "tail", "grep", "wc", "echo",
-    "pwd", "date", "uname", "whoami", "env", "printenv", "stat",
-    # Python / Node runtimes (scripts only — no -c inline eval)
-    "python3", "python", "node",
-    # Package managers (read operations, e.g. npm list)
-    "pip", "pip3", "npm",
-    # Network inspection (read-only)
+    # Filesystem inspection — read-only, no execution or trampoline surfaces
+    "ls", "cat", "head", "tail", "grep", "wc", "echo",
+    "pwd", "date", "uname", "whoami", "printenv", "stat",
+    # Network data fetching — cannot execute fetched content with shell=False
     "curl", "wget",
-    # Safe filesystem mutations (no rm, no chmod, no chown)
-    "mkdir", "cp", "mv",
+    # Directory creation only — no execution surface
+    "mkdir",
+    #
+    # INTENTIONALLY EXCLUDED (with rationale):
+    # - env: execution trampoline (env <cmd> ... invokes <cmd> directly)
+    # - find: -exec/-execdir flags → arbitrary command execution
+    # - git: hooks, difftool, mergetool, config-driven helpers → arbitrary execution
+    # - python/python3/node: script-file execution → arbitrary code
+    # - pip/pip3/npm: install hooks → arbitrary code
+    # - cp, mv: binary staging vectors — attacker copies python3→ls, then runs ./ls
+    #   ('cp' and 'mv' combined with basename aliasing bypass allowlist enforcement)
+    #
+    # If git or interpreter operations are needed by an agent capability,
+    # implement them as dedicated Python tools with strict argument validation —
+    # do not add them to this general shell allowlist.
 })
 
-def _extract_base_command(command: str) -> str:
-    """Return the base executable name from a shell command string."""
+def _check_shell_command(command: str) -> tuple[bool, str]:
+    """
+    Returns (allowed, rejection_reason).
+
+    Two-stage check:
+      1. Path separator rejection — bars './ls', '/bin/sh', '../python' and any
+         other path-prefixed invocation that would bypass allowlist enforcement
+         via basename aliasing (copy python3 → ./ls, then run it).
+      2. Allowlist check — the first token must be a bare name present in
+         ALLOWED_SHELL_COMMANDS.
+
+    NOTE: shlex.split() is intentionally re-run inside run() so that the same
+    token list drives both validation and subprocess.run(). This function is
+    a fast pre-flight guard, NOT the final exec gate.
+    """
     try:
         tokens = shlex.split(command)
-        if not tokens:
-            return ""
-        # Strip any path prefix so '/usr/bin/python3' → 'python3'
-        return Path(tokens[0]).name
     except ValueError:
-        # shlex.split raises on unmatched quotes
-        return ""
+        return False, "Could not parse command (unmatched quotes?)"
 
+    if not tokens:
+        return False, "Empty command"
 
-def _check_shell_command(command: str) -> tuple[bool, str]:
-    """Returns (allowed, rejection_reason)."""
-    base = _extract_base_command(command)
-    if not base:
-        return False, "Could not parse command"
-    if base not in ALLOWED_SHELL_COMMANDS:
+    cmd = tokens[0]
+
+    # Stage 1 — reject path-prefixed commands
+    if "/" in cmd or "\\" in cmd:
         return False, (
-            f"'{base}' is not in the shell execution allowlist. "
+            f"Path-prefixed commands are not permitted: '{cmd}'. "
+            "Use bare command names only (e.g. 'ls', not './ls' or '/bin/ls')."
+        )
+
+    # Stage 2 — allowlist
+    if cmd not in ALLOWED_SHELL_COMMANDS:
+        return False, (
+            f"'{cmd}' is not in the shell execution allowlist. "
             f"Allowed base commands: {sorted(ALLOWED_SHELL_COMMANDS)}"
         )
+
     return True, ""
 
 
@@ -113,25 +144,38 @@ def _validate_write_path(path: Path) -> tuple[bool, str]:
     Returns (allowed, rejection_reason).
 
     Checks performed (in order):
-      1. Resolve to absolute without following symlinks.
-      2. Reject any path component that is itself a symlink.
-      3. Require the resolved path to be inside an approved write directory.
+      1. Walk the ORIGINAL (pre-resolution) path components rejecting any that
+         are already symlinks. This must happen before resolve() so that symlinks
+         which redirect an in-bounds path to an out-of-bounds location are caught.
+         (Checking only the resolved path would miss them — the resolved path
+         would appear to be inside the approved dir even though it was reached
+         via a symlink that escapes it.)
+      2. Resolve to absolute (strict=False) to eliminate any '..' traversal.
+      3. Re-check: reject any resolved component that is a symlink (TOCTOU
+         mitigation — a symlink created between steps 1 and 3 is caught here).
+      4. Require the resolved path to be inside an approved write directory.
     """
+    # Step 1 — walk original path components for existing symlinks
+    check = path
+    while check != check.parent:
+        if check.exists() and check.is_symlink():
+            return False, f"Symlink detected in original path component: {check}"
+        check = check.parent
+
+    # Step 2 — resolve to eliminate '..' traversal
     try:
-        # resolve(strict=False) resolves '..' components without requiring the
-        # path to exist yet, so we can validate before creating the file.
         resolved = path.resolve(strict=False)
     except Exception as exc:
         return False, f"Path resolution failed: {exc}"
 
-    # Walk path components looking for symlinks that already exist
+    # Step 3 — re-check resolved components (TOCTOU mitigation)
     check = resolved
     while check != check.parent:
         if check.exists() and check.is_symlink():
-            return False, f"Symlink detected in path component: {check}"
+            return False, f"Symlink detected in resolved path component: {check}"
         check = check.parent
 
-    # Must be strictly inside one of the approved directories
+    # Step 4 — containment inside approved directories
     for approved in APPROVED_WRITE_DIRS:
         approved_resolved = approved.resolve()
         try:
@@ -193,6 +237,20 @@ class ExecuteShellTool(BaseTool):
                 "error": f"Command not permitted: {reason}",
             }])
 
+        # Parse into token list for subprocess. shlex.split() is the
+        # injection boundary — shell metacharacters (;&&|) become literal
+        # arguments when shell=False. ValueError on unmatched quotes.
+        try:
+            args = shlex.split(command)
+        except ValueError as exc:
+            return _envelope(self.name, payload, [{
+                "status": "error",
+                "error": f"Could not parse command (unmatched quotes?): {exc}",
+            }])
+
+        if not args:
+            return _envelope(self.name, payload, [{"status": "error", "error": "Empty command after parsing"}])
+
         timeout = int(payload.get("timeout") or _EXEC_TIMEOUT)
 
         # workdir must stay inside the project root
@@ -208,8 +266,8 @@ class ExecuteShellTool(BaseTool):
 
         try:
             result = subprocess.run(
-                command,
-                shell=True,
+                args,        # token list — shell metacharacters (;&&|) have no effect
+                shell=False, # MUST be False: shell=True with an allowlist is still bypassable
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -319,15 +377,46 @@ class WriteFileTool(BaseTool):
             }])
 
         try:
-            path.parent.mkdir(parents=True, exist_ok=True)
+            import errno as _errno
             encoding = payload.get("encoding") or "utf-8"
-            path.write_text(content, encoding=encoding)
-            logger.info("[write_file] wrote %d bytes to %s", len(content), path)
+
+            # Write to the RESOLVED (canonical) path to eliminate the primary
+            # TOCTOU window (path swapped between validation and write).
+            canonical = path.resolve(strict=False)
+            canonical.parent.mkdir(parents=True, exist_ok=True)
+
+            # O_NOFOLLOW: if the final component of `canonical` is a symlink,
+            # the OS rejects the open() call with ELOOP — closing the residual
+            # TOCTOU window where a symlink is created between resolve() and
+            # write_text(). This is a Linux/macOS kernel guarantee, not a Python
+            # race. Falls back to ordinary open on platforms without O_NOFOLLOW.
+            _nofollow = getattr(os, "O_NOFOLLOW", 0)
+            _flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | _nofollow
+
+            fd = os.open(str(canonical), _flags, 0o644)
+            try:
+                fobj = os.fdopen(fd, "w", encoding=encoding)
+            except Exception:
+                os.close(fd)
+                raise
+            with fobj:
+                fobj.write(content)
+
+            logger.info("[write_file] wrote %d bytes to %s", len(content), canonical)
             return _envelope(self.name, payload, [{
                 "status": "written",
-                "path": str(path),
+                "path": str(canonical),
                 "bytes_written": len(content.encode(encoding)),
             }])
+        except OSError as exc:
+            import errno as _errno
+            if exc.errno in (_errno.ELOOP, _errno.EMLINK):
+                logger.warning("[write_file] O_NOFOLLOW: symlink at write target %s", canonical)
+                return _envelope(self.name, payload, [{
+                    "status": "error",
+                    "error": f"Write blocked: symlink detected at '{canonical}' at write time.",
+                }])
+            return _envelope(self.name, payload, [{"status": "error", "error": str(exc)}])
         except Exception as exc:
             return _envelope(self.name, payload, [{"status": "error", "error": str(exc)}])
 
