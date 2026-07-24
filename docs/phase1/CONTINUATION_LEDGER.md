@@ -1,15 +1,39 @@
 # Arkadia — Continuation Ledger
 
+---
+
+## Session: B0.5 — Baseline Integrity
+
+**Session date:** ARK Y1 · D116 (2026-07-24)  
+**Role:** Architecture Steward  
+**Session type:** Workstream B0.5 — Calibration and Debt Registration (NO implementation code changed)  
+**Next session starting point:** Begin Workstream B1 — Persistence Foundation
+
+### Session Summary
+
+This session executed the three-commit B0.5 plan:
+
+1. **Commit 1 — Calibration:** Fixed the inverted enforcement condition in `test_no_layer_inversions` (`imported_layer > importer_layer` → `imported_layer < importer_layer`). Added `ALLOWED_CIRCULAR_IMPORTS` debt-registry mechanism to `LAYER_MAP.py` and `test_no_circular_imports_in_kernel`. Fixed internally inconsistent dependency-direction docstring in `LAYER_MAP.py`. Added `ENGINEERING_PRINCIPLES.md` Principle 11: "Reality Overrides Documentation."
+
+2. **Commit 2 — Debt Registration:** Registered all discovered architectural violations in `ALLOWED_VIOLATIONS` and `ALLOWED_CIRCULAR_IMPORTS` with owner, workstream, and exit criterion. Four violations were newly discovered that were not in the original calibration report (see Debt Registry below).
+
+3. **Commit 3 — Governance Synchronization:** Updated this Ledger; corrected the Open ADRs table; froze the baseline.
+
+**Architecture fitness tests: 10/10 passing.**  
+**No implementation code was touched.**
+
+---
+
+## Session: Phase 1 Analysis
+
 **Session date:** ARK Y1 · D116 (2026-07-24)  
 **Role:** Architecture Steward (elevated from Principal Engineer at Phase 1 implementation inflection)  
 **Session type:** Phase 1 Analysis — NO CODE CHANGES  
 **Next session starting point:** → See "Recommended Starting Point" below
 
----
+### Session Summary
 
-## Session Summary
-
-This session: 
+This session:
 1. Verified Phase 0 security hardening (ADR-013) is fully implemented and matches spec.
 2. Produced all seven Phase 1 pre-implementation deliverables.
 3. Filed ADR-014 (Phase 1 constitutional decisions).
@@ -112,8 +136,10 @@ This session:
 | ADR | Status | Waiting on |
 |---|---|---|
 | ADR-013 Phase 0 Security | Accepted | Nothing — complete |
-| ADR-014 Phase 1 Kernel Stabilisation | **Proposed** | Flamekeeper approval before implementation begins |
-| ADR-015 Kernel Port Interfaces | Pending | ADR-014 approval; design in progress |
+| ADR-014 Phase 1 Kernel Stabilisation | **Accepted** | Nothing — approved by Flamekeeper 2026-07-24 |
+| ADR-015 Dependency Direction Rule | **Accepted** | Nothing — approved by Flamekeeper 2026-07-24 |
+
+*(Note: the previous version of this table incorrectly showed ADR-014 as "Proposed" and ADR-015 as "Pending". Both ADR files show Accepted. Corrected in B0.5 governance sync per Principle 11.)*
 
 ---
 
@@ -123,6 +149,38 @@ This session:
 2. Firebase sync extraction: implement as a "sync adapter" registered at FastAPI startup via dependency injection — not embedded in `JobStore`.
 3. `contextvars.ContextVar` is the correct propagation mechanism for `request_id` / `execution_id` across async routes and daemon worker threads.
 4. Workstream priority order: B → E → D → A → C (highest architectural risk first; observability early to support debugging the other workstreams).
+
+---
+
+## Architectural Debt Registry (B0.5 Baseline)
+
+All entries are registered in `tests/architecture/LAYER_MAP.py` (`ALLOWED_VIOLATIONS` or `ALLOWED_CIRCULAR_IMPORTS`). Each entry has an owner, workstream, and exit criterion. Removing an entry from the registry is the exit criterion — not just fixing the code.
+
+### Layer Inversions (registered in ALLOWED_VIOLATIONS)
+
+| Importer | Imported | Violation | Workstream | Exit Criterion |
+|---|---|---|---|---|
+| `kernel/agents.py` | `api` | kernel→api: generate_verse | A | `grep "from api" kernel/agents.py` empty |
+| `kernel/planner.py` | `api` | kernel→api: key_manager | A | `grep "from api" kernel/planner.py` empty |
+| `kernel/tools_real.py` | `api` | kernel→api: key_manager | A | `grep "from api" kernel/tools_real.py` empty |
+| `kernel/jobs.py` | `api` | kernel→api: firebase_store | A | `grep "from api" kernel/jobs.py` empty |
+| `kernel/goals.py` | `api` | kernel→api: firebase_store | A | `grep "from api" kernel/goals.py` empty |
+| `kernel/tts.py` | `api` | kernel→api: tts_key_manager *(new — B0.5)* | A | `grep "from api" kernel/tts.py` empty |
+| `api/nodes.py` | `kernel` | identity→runtime: kernel.tools *(new — B0.5)* | A | `grep "from kernel" api/nodes.py` empty |
+| `api/main.py` | `solspire` | api→presentation: console_router *(new — B0.5)* | A | `grep "solspire" api/main.py` empty |
+| `providers/` | `api` | provider→api: key_manager/provider_key_store *(new — B0.5)* | A | `grep -rn "from api" providers/` empty |
+| `providers/router.py` | `knowledge` | orthogonal: provider→knowledge *(new — B0.5)* | A | `grep "knowledge" providers/router.py` empty |
+
+### Circular Imports (registered in ALLOWED_CIRCULAR_IMPORTS)
+
+| Cycle | Notes | Workstream | Exit Criterion |
+|---|---|---|---|
+| `kernel.execution → kernel.tools → kernel.execution` | *(new — B0.5)* | A | Test passes with entry removed |
+| `kernel.execution → kernel.planner → kernel.execution` | *(new — B0.5)* | A | Test passes with entry removed |
+
+**Total registered debt:** 10 layer violations + 2 circular import cycles = **12 entries**  
+**Previously documented:** 5 | **Newly discovered in B0.5:** 7  
+**All assigned to:** Workstream A, Phase 1 Gate E
 
 ---
 

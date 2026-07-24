@@ -14,8 +14,10 @@ Layer stability order (higher number = more stable = fewer permitted dependencie
   4 — Storage Substrate
   5 — Constitution  (most stable — nothing depends on it)
 
-Dependency rule: imports may only point FROM lower layers TO higher layers.
-i.e., a file in layer N may import from layer N or lower, never from N+1 or above.
+Dependency rule: imports may only point FROM less stable layers TO more stable layers.
+i.e., a file in layer N may import from layer N+1 or above (higher number = more stable),
+never from layer N-1 or below (lower number = less stable).
+Example: api (1) → kernel (2) is permitted. kernel (2) → api (1) is a violation.
 
 Orthogonal layers (all at level 3) must not import from each other:
   knowledge <-> identity: forbidden
@@ -87,9 +89,96 @@ ORTHOGONAL_GROUPS: dict[str, str] = {
 # Remove an entry only after the violation is resolved.
 
 ALLOWED_VIOLATIONS: list[tuple[str, str, str]] = [
-    ("kernel/agents.py",    "api",   "kernel→api: generate_verse — remediate in Phase 1 Workstream A"),
-    ("kernel/planner.py",   "api",   "kernel→api: key_manager — remediate in Phase 1 Workstream A"),
-    ("kernel/tools_real.py","api",   "kernel→api: key_manager — remediate in Phase 1 Workstream A"),
-    ("kernel/jobs.py",      "api",   "kernel→api: firebase_store — remediate in Phase 1 Workstream A"),
-    ("kernel/goals.py",     "api",   "kernel→api: firebase_store — remediate in Phase 1 Workstream A"),
+    # ── Previously documented (Phase 1 analysis) ────────────────────────────
+    # Owner: Principal Engineer | Workstream: A | Deadline: Phase 1 Gate E
+    # Exit criterion: grep -n "from api" kernel/agents.py returns empty
+    ("kernel/agents.py",     "api", "kernel→api: generate_verse — Workstream A, Phase 1 Gate E"),
+
+    # Exit criterion: grep -n "from api" kernel/planner.py returns empty
+    ("kernel/planner.py",    "api", "kernel→api: key_manager — Workstream A, Phase 1 Gate E"),
+
+    # Exit criterion: grep -n "from api" kernel/tools_real.py returns empty
+    ("kernel/tools_real.py", "api", "kernel→api: key_manager — Workstream A, Phase 1 Gate E"),
+
+    # Exit criterion: grep -n "from api" kernel/jobs.py returns empty
+    ("kernel/jobs.py",       "api", "kernel→api: firebase_store — Workstream A, Phase 1 Gate E"),
+
+    # Exit criterion: grep -n "from api" kernel/goals.py returns empty
+    ("kernel/goals.py",      "api", "kernel→api: firebase_store — Workstream A, Phase 1 Gate E"),
+
+    # ── Discovered during B0.5 calibration (2026-07-24) ─────────────────────
+
+    # kernel/tts.py imports api.tts_key_manager (Layer 2 → Layer 1).
+    # TTS subsystem was added without following architectural governance.
+    # Owner: Principal Engineer | Workstream: A | Deadline: Phase 1 Gate E
+    # Exit criterion: grep -n "from api" kernel/tts.py returns empty
+    ("kernel/tts.py",        "api", "kernel→api: tts_key_manager — Workstream A, Phase 1 Gate E"),
+
+    # api/nodes.py imports kernel.tools (Layer 3 Identity → Layer 2 Runtime Core).
+    # Identity layer must be a leaf — it may not depend on Runtime Core.
+    # Owner: Principal Engineer | Workstream: A | Deadline: Phase 1 Gate E
+    # Exit criterion: grep -n "from kernel" api/nodes.py returns empty
+    ("api/nodes.py",         "kernel", "identity→runtime: kernel.tools — Workstream A, Phase 1 Gate E"),
+
+    # api/main.py imports solspire.console_router (Layer 1 API → Layer 0 Presentation).
+    # API surface must not depend on any presentation layer module.
+    # Owner: Principal Engineer | Workstream: A | Deadline: Phase 1 Gate E
+    # Exit criterion: grep -n "solspire" api/main.py returns empty
+    ("api/main.py",          "solspire", "api→presentation: solspire.console_router — Workstream A, Phase 1 Gate E"),
+
+    # providers/* import api.provider_key_store / api.key_manager (Layer 3 → Layer 1).
+    # Providers are leaf adapters — they must receive keys via injection, not import them.
+    # The fix is a KeyProvider interface injected at startup (see ADR-014 Decision 4).
+    # Owner: Principal Engineer | Workstream: A | Deadline: Phase 1 Gate E
+    # Exit criterion: grep -rn "from api" providers/ returns empty
+    ("providers/",           "api", "provider→api: key_manager/provider_key_store — Workstream A, Phase 1 Gate E"),
+
+    # providers/router.py imports knowledge.db (orthogonal: Provider → Knowledge).
+    # Providers must not reach into the Knowledge layer; routing decisions belong
+    # in the Runtime Core (kernel/planner.py), not the provider adapter.
+    # Owner: Principal Engineer | Workstream: A | Deadline: Phase 1 Gate E
+    # Exit criterion: grep -n "knowledge" providers/router.py returns empty
+    ("providers/router.py",  "knowledge", "provider→knowledge: knowledge.db — Workstream A, Phase 1 Gate E"),
+]
+
+# ── Debt registry: circular imports (Phase 1 remediation backlog) ─────────────
+# Format: (cycle_as_tuple, "owner — workstream — exit criterion")
+# A cycle is expressed as the sequence of module names the detector reports,
+# starting and ending at the same node.
+# Remove an entry only after the cycle is broken and the fix is merged.
+
+ALLOWED_CIRCULAR_IMPORTS: list[tuple[tuple[str, ...], str]] = [
+    # Discovered during B0.5 calibration (2026-07-24).
+    # kernel.execution and kernel.tools form a mutual import cycle.
+    # Root cause: execution.py imports from tools.py; tools.py imports back from execution.py
+    # (likely for type hints or shared constants). These cycles prevent DI and risk
+    # cold-start ImportError under some import orderings.
+    # Owner: Principal Engineer | Workstream: A | Deadline: Phase 1 Gate E
+    # Exit criterion: test_no_circular_imports_in_kernel passes with this entry removed
+    (
+        ("kernel.execution", "kernel.tools", "kernel.execution"),
+        "execution↔tools mutual import — Workstream A, Phase 1 Gate E",
+    ),
+
+    # kernel.execution and kernel.planner form a mutual import cycle.
+    # execution.py is the orchestration entry point; planner.py is the LLM planner.
+    # A circular dependency between these two is architecturally inconsistent with
+    # their defined responsibilities (orchestrator must not be co-dependent with planner).
+    # Owner: Principal Engineer | Workstream: A | Deadline: Phase 1 Gate E
+    # Exit criterion: test_no_circular_imports_in_kernel passes with this entry removed
+    (
+        ("kernel.execution", "kernel.planner", "kernel.execution"),
+        "execution↔planner mutual import — Workstream A, Phase 1 Gate E",
+    ),
+
+    # Three-node cycle: execution → planner → tools → execution.
+    # This is a manifestation of the same underlying execution/planner/tools
+    # mutual-import cluster. The DFS may report it as a distinct cycle depending
+    # on traversal order. Registered separately so the registry is exhaustive.
+    # Owner: Principal Engineer | Workstream: A | Deadline: Phase 1 Gate E
+    # Exit criterion: test_no_circular_imports_in_kernel passes with this entry removed
+    (
+        ("kernel.execution", "kernel.planner", "kernel.tools", "kernel.execution"),
+        "execution→planner→tools→execution three-node cycle — Workstream A, Phase 1 Gate E",
+    ),
 ]

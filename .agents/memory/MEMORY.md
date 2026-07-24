@@ -14,3 +14,4 @@
 - [Phase 1 Analysis](phase1-analysis.md) — all deliverables written + ADR-014/015 Accepted; implementation approved 2026-07-24.
 - [Architecture Steward Framework](architecture-steward.md) — elevated role adopted at Phase 1 implementation inflection; session start/end checklists, change budget, commit rules.
 - [Strategic Roadmap](roadmap-notes.md) — phase sequence (0→5) with dependency rationale; Architecture Freeze v1.0 criteria; CI enforcement milestone.
+- [B0.5 Debt Registry](b05-debt-registry.md) — baseline frozen; 10 layer violations + 3 circular import cycles registered; test direction bug fixed; 10/10 fitness tests passing. B1 may begin.

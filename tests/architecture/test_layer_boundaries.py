@@ -30,7 +30,7 @@ _HERE = Path(__file__).resolve().parent
 _ROOT = _HERE.parent.parent
 
 sys.path.insert(0, str(_HERE))
-from LAYER_MAP import ALLOWED_VIOLATIONS, LAYER_MAP, ORTHOGONAL_GROUPS, PROJECT_ROOT  # noqa: E402
+from LAYER_MAP import ALLOWED_CIRCULAR_IMPORTS, ALLOWED_VIOLATIONS, LAYER_MAP, ORTHOGONAL_GROUPS, PROJECT_ROOT  # noqa: E402
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -156,8 +156,13 @@ def collect_violations() -> list[dict]:
                     imported_group = group
                     break
 
-            # Rule 1: lower layer may not import from higher layer
-            if imported_layer > importer_layer:
+            # Rule 1: more stable layer may not import from less stable layer.
+            # LAYER_MAP numbering: higher number = more stable.
+            # Permitted direction: lower-numbered (less stable) → higher-numbered (more stable).
+            # Violation: higher-numbered (more stable) → lower-numbered (less stable).
+            # e.g. kernel (2) → api (1) is a violation; api (1) → kernel (2) is permitted.
+            # See: ADR-015, tests/architecture/LAYER_MAP.py
+            if imported_layer < importer_layer:
                 if not _is_allowed_violation(py_file, prefix_dir or prefix_file):
                     violations.append({
                         "type": "layer_inversion",
@@ -380,9 +385,17 @@ def test_no_circular_imports_in_kernel():
         if color[node] == WHITE:
             dfs(node, [])
 
-    assert not cycles, (
-        f"{len(cycles)} circular import cycle(s) in kernel/:\n"
-        + "\n".join(f"  • {' → '.join(c)}" for c in cycles)
+    # Filter out cycles registered in the debt registry.
+    # A detected cycle matches an allowed entry when the cycle's node sequence
+    # (as a tuple) equals the registered cycle tuple.
+    allowed_cycle_tuples = {entry[0] for entry in ALLOWED_CIRCULAR_IMPORTS}
+    unregistered = [c for c in cycles if tuple(c) not in allowed_cycle_tuples]
+
+    assert not unregistered, (
+        f"{len(unregistered)} unregistered circular import cycle(s) in kernel/:\n"
+        + "\n".join(f"  • {' → '.join(c)}" for c in unregistered)
+        + "\n\nRegister known cycles in ALLOWED_CIRCULAR_IMPORTS in LAYER_MAP.py "
+        "with owner, workstream, and exit criterion. Do not leave cycles undocumented."
     )
 
 
