@@ -97,7 +97,7 @@ Work inside a phase may overlap with preparation for the next. But **implementat
 | `kernel/tools_real.py` does not import `api.key_manager` | `grep -n "from api" kernel/tools_real.py` → empty | ⬜ |
 | `kernel/jobs.py` does not import `api.firebase_store` | `grep -n "from api" kernel/jobs.py` → empty | ⬜ |
 | `kernel/goals.py` does not import `api.firebase_store` | `grep -n "from api" kernel/goals.py` → empty | ⬜ |
-| `ALLOWED_VIOLATIONS` in `LAYER_MAP.py` is empty | File inspection | ⬜ |
+| `REGISTERED_ARCHITECTURAL_DEBT` in `LAYER_MAP.py` is empty | File inspection | ⬜ |
 | Architecture fitness tests pass with no allowed violations | `pytest tests/architecture/` | ⬜ |
 
 ### Gate F: Corpus Sync (Workstream C)
@@ -115,7 +115,7 @@ Work inside a phase may overlap with preparation for the next. But **implementat
 | Criterion | Verified By | Status |
 |---|---|---|
 | All architecture tests pass | `pytest tests/architecture/ -v` | ⬜ |
-| `test_kernel_does_not_import_api_directly` passes with empty ALLOWED_VIOLATIONS | Requires Gate E completion | ⬜ |
+| `test_kernel_does_not_import_api_directly` passes with empty REGISTERED_ARCHITECTURAL_DEBT | Requires Gate E completion | ⬜ |
 | `test_api_main_line_count_within_budget` passes | `wc -l api/main.py` ≤ 2600 | ⬜ |
 | No circular imports in kernel | `pytest test_no_circular_imports_in_kernel` | ⬜ |
 

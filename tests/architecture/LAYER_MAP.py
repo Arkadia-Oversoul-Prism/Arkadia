@@ -84,13 +84,27 @@ ORTHOGONAL_GROUPS: dict[str, str] = {
     "providers":            "provider",
 }
 
-# ── Temporary violations (Phase 1 remediation backlog) ───────────────────────
-# Format: (importer_prefix, imported_prefix, "reason — deadline: Phase N")
-# Remove an entry only after the violation is resolved.
+# ── Architectural Debt Registry ───────────────────────────────────────────────
+#
+# This registry records known architectural violations that exist in the
+# codebase. It does NOT grant permission for them. Every entry represents
+# a liability: understood, scheduled for removal, and assigned to a workstream.
+#
+# Freeze rule: this registry may only be edited in two cases:
+#   1. New debt is intentionally introduced — rare; requires ADR justification.
+#   2. Existing debt is removed — because the underlying violation has been fixed.
+#
+# Do not add entries to avoid a failing test. If a test fails due to a new
+# violation, the correct response is to fix the import, not to register it here.
+# If deferral is genuinely necessary, document the reason in an ADR first.
+#
+# Format: (importer_prefix, imported_prefix, "description — workstream — exit criterion")
+# Remove an entry only after the violation is resolved and the fix is merged.
 
-ALLOWED_VIOLATIONS: list[tuple[str, str, str]] = [
+REGISTERED_ARCHITECTURAL_DEBT: list[tuple[str, str, str]] = [
     # ── Previously documented (Phase 1 analysis) ────────────────────────────
     # Owner: Principal Engineer | Workstream: A | Deadline: Phase 1 Gate E
+
     # Exit criterion: grep -n "from api" kernel/agents.py returns empty
     ("kernel/agents.py",     "api", "kernel→api: generate_verse — Workstream A, Phase 1 Gate E"),
 
@@ -141,13 +155,15 @@ ALLOWED_VIOLATIONS: list[tuple[str, str, str]] = [
     ("providers/router.py",  "knowledge", "provider→knowledge: knowledge.db — Workstream A, Phase 1 Gate E"),
 ]
 
-# ── Debt registry: circular imports (Phase 1 remediation backlog) ─────────────
-# Format: (cycle_as_tuple, "owner — workstream — exit criterion")
+# ── Circular Import Debt Registry ─────────────────────────────────────────────
+#
+# Same freeze rule as REGISTERED_ARCHITECTURAL_DEBT above.
+# Format: (cycle_as_tuple, "description — workstream — exit criterion")
 # A cycle is expressed as the sequence of module names the detector reports,
 # starting and ending at the same node.
 # Remove an entry only after the cycle is broken and the fix is merged.
 
-ALLOWED_CIRCULAR_IMPORTS: list[tuple[tuple[str, ...], str]] = [
+REGISTERED_CIRCULAR_DEBT: list[tuple[tuple[str, ...], str]] = [
     # Discovered during B0.5 calibration (2026-07-24).
     # kernel.execution and kernel.tools form a mutual import cycle.
     # Root cause: execution.py imports from tools.py; tools.py imports back from execution.py

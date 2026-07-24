@@ -13,9 +13,11 @@
 
 This session executed the three-commit B0.5 plan:
 
-1. **Commit 1 — Calibration:** Fixed the inverted enforcement condition in `test_no_layer_inversions` (`imported_layer > importer_layer` → `imported_layer < importer_layer`). Added `ALLOWED_CIRCULAR_IMPORTS` debt-registry mechanism to `LAYER_MAP.py` and `test_no_circular_imports_in_kernel`. Fixed internally inconsistent dependency-direction docstring in `LAYER_MAP.py`. Added `ENGINEERING_PRINCIPLES.md` Principle 11: "Reality Overrides Documentation."
+1. **Commit 1 — Calibration:** Fixed the inverted enforcement condition in `test_no_layer_inversions` (`imported_layer > importer_layer` → `imported_layer < importer_layer`). Added `REGISTERED_CIRCULAR_DEBT` debt-registry mechanism to `LAYER_MAP.py` and `test_no_circular_imports_in_kernel`. Fixed internally inconsistent dependency-direction docstring in `LAYER_MAP.py`. Added `ENGINEERING_PRINCIPLES.md` Principle 11: "Reality Overrides Documentation."
 
-2. **Commit 2 — Debt Registration:** Registered all discovered architectural violations in `ALLOWED_VIOLATIONS` and `ALLOWED_CIRCULAR_IMPORTS` with owner, workstream, and exit criterion. Four violations were newly discovered that were not in the original calibration report (see Debt Registry below).
+2. **Commit 2 — Debt Registration:** Registered all discovered architectural violations in `REGISTERED_ARCHITECTURAL_DEBT` and `REGISTERED_CIRCULAR_DEBT` with owner, workstream, and exit criterion. Four violations were newly discovered that were not in the original calibration report (see Debt Registry below).
+
+3. **Post-acceptance refinement:** Renamed `ALLOWED_VIOLATIONS` → `REGISTERED_ARCHITECTURAL_DEBT` and `ALLOWED_CIRCULAR_IMPORTS` → `REGISTERED_CIRCULAR_DEBT` throughout `LAYER_MAP.py` and `test_layer_boundaries.py`. Added explicit freeze rule to `LAYER_MAP.py`. Language now reflects intent: these entries are scheduled liabilities, not granted permissions.
 
 3. **Commit 3 — Governance Synchronization:** Updated this Ledger; corrected the Open ADRs table; froze the baseline.
 
@@ -154,9 +156,9 @@ This session:
 
 ## Architectural Debt Registry (B0.5 Baseline)
 
-All entries are registered in `tests/architecture/LAYER_MAP.py` (`ALLOWED_VIOLATIONS` or `ALLOWED_CIRCULAR_IMPORTS`). Each entry has an owner, workstream, and exit criterion. Removing an entry from the registry is the exit criterion — not just fixing the code.
+All entries are registered in `tests/architecture/LAYER_MAP.py` (`REGISTERED_ARCHITECTURAL_DEBT` or `REGISTERED_CIRCULAR_DEBT`). Each entry has an owner, workstream, and exit criterion. Removing an entry from the registry is the exit criterion — not just fixing the code.
 
-### Layer Inversions (registered in ALLOWED_VIOLATIONS)
+### Layer Inversions (registered in REGISTERED_ARCHITECTURAL_DEBT)
 
 | Importer | Imported | Violation | Workstream | Exit Criterion |
 |---|---|---|---|---|
@@ -171,7 +173,7 @@ All entries are registered in `tests/architecture/LAYER_MAP.py` (`ALLOWED_VIOLAT
 | `providers/` | `api` | provider→api: key_manager/provider_key_store *(new — B0.5)* | A | `grep -rn "from api" providers/` empty |
 | `providers/router.py` | `knowledge` | orthogonal: provider→knowledge *(new — B0.5)* | A | `grep "knowledge" providers/router.py` empty |
 
-### Circular Imports (registered in ALLOWED_CIRCULAR_IMPORTS)
+### Circular Imports (registered in REGISTERED_CIRCULAR_DEBT)
 
 | Cycle | Notes | Workstream | Exit Criterion |
 |---|---|---|---|
@@ -215,7 +217,7 @@ All entries are registered in `tests/architecture/LAYER_MAP.py` (`ALLOWED_VIOLAT
 1. Read this Continuation Ledger.
 2. Read ADR-013, ADR-014, ADR-015.
 3. Read `docs/phase1/PHASE_GATES.md`.
-4. Run `pytest tests/architecture/` — confirm no new regressions (five ALLOWED_VIOLATIONS are expected and documented).
+4. Run `pytest tests/architecture/` — confirm no new regressions (10 entries in REGISTERED_ARCHITECTURAL_DEBT + 3 in REGISTERED_CIRCULAR_DEBT are expected and documented).
 5. Restate the session objective in one paragraph.
 
 **Then begin Workstream B — structured as four independently mergeable checkpoints:**
@@ -244,7 +246,7 @@ All entries are registered in `tests/architecture/LAYER_MAP.py` (`ALLOWED_VIOLAT
 - Update ADR-014 (if schema differed from design)
 - Update `docs/phase1/ARCHITECTURE_MAP.md`
 - Update this Continuation Ledger
-- Run all architecture fitness tests; ALLOWED_VIOLATIONS must not have grown
+- Run all architecture fitness tests; REGISTERED_ARCHITECTURAL_DEBT must not have grown
 - **Exit criteria:** Gate B closed per `PHASE_GATES.md`
 
 Each checkpoint is deployable, testable, and independently reversible.

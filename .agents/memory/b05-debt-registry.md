@@ -16,7 +16,15 @@ description: What was found and fixed in Workstream B0.5; the full architectural
 
 **Why:** LAYER_MAP numbering is 0=Presentation (least stable) → 5=Constitution (most stable). Permitted direction is lower-number → higher-number. A violation is a higher-numbered layer importing a lower-numbered one.
 
-## ALLOWED_CIRCULAR_IMPORTS Mechanism
+## Registry Variable Names (post-rename)
+
+- `ALLOWED_VIOLATIONS` was renamed to `REGISTERED_ARCHITECTURAL_DEBT`
+- `ALLOWED_CIRCULAR_IMPORTS` was renamed to `REGISTERED_CIRCULAR_DEBT`
+- Both live in `tests/architecture/LAYER_MAP.py`
+- Test functions also renamed: `test_allowed_violations_are_documented` → `test_registered_debt_is_documented`, etc.
+- Freeze rule added to LAYER_MAP.py: registry edits only when adding new intentional debt or removing resolved debt.
+
+## REGISTERED_CIRCULAR_DEBT Mechanism
 
 Added to `LAYER_MAP.py` and `test_no_circular_imports_in_kernel` — a debt registry for circular import cycles analogous to ALLOWED_VIOLATIONS for layer inversions. Format: `(cycle_tuple, "owner — workstream — exit criterion")`.
 

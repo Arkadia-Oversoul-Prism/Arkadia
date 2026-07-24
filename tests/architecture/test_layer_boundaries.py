@@ -14,7 +14,7 @@ no code is executed. Safe to run without secrets or a running server.
 
 Failure means a new layer violation was introduced. Either:
   a) Reverse the import (preferred), OR
-  b) Add a temporary entry to ALLOWED_VIOLATIONS in LAYER_MAP.py with a
+  b) Add a temporary entry to REGISTERED_ARCHITECTURAL_DEBT in LAYER_MAP.py with a
      documented rationale and deadline.
 """
 from __future__ import annotations
@@ -30,7 +30,7 @@ _HERE = Path(__file__).resolve().parent
 _ROOT = _HERE.parent.parent
 
 sys.path.insert(0, str(_HERE))
-from LAYER_MAP import ALLOWED_CIRCULAR_IMPORTS, ALLOWED_VIOLATIONS, LAYER_MAP, ORTHOGONAL_GROUPS, PROJECT_ROOT  # noqa: E402
+from LAYER_MAP import REGISTERED_ARCHITECTURAL_DEBT, REGISTERED_CIRCULAR_DEBT, LAYER_MAP, ORTHOGONAL_GROUPS, PROJECT_ROOT  # noqa: E402
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ def _module_to_path_prefix(module: str) -> str:
 def _is_allowed_violation(importer: Path, imported_prefix: str) -> bool:
     """Return True if this importer/imported pair is in the allowed list."""
     rel = str(importer.relative_to(PROJECT_ROOT)).replace("\\", "/")
-    for allowed_importer, allowed_imported, _ in ALLOWED_VIOLATIONS:
+    for allowed_importer, allowed_imported, _ in REGISTERED_ARCHITECTURAL_DEBT:
         if rel == allowed_importer or rel.startswith(allowed_importer):
             if imported_prefix.startswith(allowed_imported):
                 return True
@@ -201,7 +201,7 @@ def collect_violations() -> list[dict]:
 def test_no_layer_inversions():
     """
     No Python file in a lower architectural layer may import from a higher layer.
-    Violations must be listed in ALLOWED_VIOLATIONS with a remediation deadline.
+    Violations must be registered in REGISTERED_ARCHITECTURAL_DEBT with a remediation deadline.
 
     See: ADR-015, docs/phase1/ARCHITECTURE_MAP.md
     """
@@ -210,8 +210,9 @@ def test_no_layer_inversions():
         report = "\n".join(f"  • {v['file']}: {v['message']}" for v in violations)
         raise AssertionError(
             f"\n{len(violations)} layer boundary violation(s) detected:\n{report}\n\n"
-            "Fix the import, or add a temporary entry to ALLOWED_VIOLATIONS in "
-            "tests/architecture/LAYER_MAP.py with a documented rationale and deadline."
+            "Fix the import, or register it in REGISTERED_ARCHITECTURAL_DEBT in "
+            "tests/architecture/LAYER_MAP.py with owner, workstream, and exit criterion.\n"
+            "Read the freeze rule in LAYER_MAP.py before adding an entry."
         )
 
 
@@ -230,34 +231,35 @@ def test_no_orthogonal_cross_dependencies():
         )
 
 
-def test_allowed_violations_are_documented():
+def test_registered_debt_is_documented():
     """
-    Every entry in ALLOWED_VIOLATIONS must have a non-empty reason string.
-    This ensures temporary exceptions are documented before they are committed.
+    Every entry in REGISTERED_ARCHITECTURAL_DEBT must have a non-empty reason string.
+    Undocumented debt entries defeat the purpose of the registry.
     """
     undocumented = [
         (importer, imported)
-        for importer, imported, reason in ALLOWED_VIOLATIONS
+        for importer, imported, reason in REGISTERED_ARCHITECTURAL_DEBT
         if not reason.strip()
     ]
     assert not undocumented, (
-        "Every ALLOWED_VIOLATIONS entry must have a non-empty reason string. "
+        "Every REGISTERED_ARCHITECTURAL_DEBT entry must have a non-empty reason string. "
         f"Missing reasons for: {undocumented}"
     )
 
 
-def test_allowed_violations_reference_remediation():
+def test_registered_debt_references_remediation():
     """
-    Every ALLOWED_VIOLATIONS entry must reference a remediation plan
-    (must contain 'Phase' or 'deadline' or 'remediate').
+    Every REGISTERED_ARCHITECTURAL_DEBT entry must reference a remediation plan
+    (must contain 'Phase', 'Gate', 'Workstream', 'deadline', or 'remediate').
+    Debt without a scheduled removal is not a registry — it's an excuse.
     """
     without_deadline = [
         (importer, imported, reason)
-        for importer, imported, reason in ALLOWED_VIOLATIONS
-        if not any(kw in reason.lower() for kw in ("phase", "deadline", "remediate", "wip"))
+        for importer, imported, reason in REGISTERED_ARCHITECTURAL_DEBT
+        if not any(kw in reason.lower() for kw in ("phase", "gate", "workstream", "deadline", "remediate", "wip"))
     ]
     assert not without_deadline, (
-        "Every ALLOWED_VIOLATIONS entry must reference a remediation timeline. "
+        "Every REGISTERED_ARCHITECTURAL_DEBT entry must reference a remediation timeline. "
         f"Missing deadline: {[(i, r) for i, _, r in without_deadline]}"
     )
 
@@ -265,8 +267,8 @@ def test_allowed_violations_reference_remediation():
 def test_kernel_does_not_import_api_directly():
     """
     Fast-path guard: the kernel/ layer must not import from api/ (except via
-    ALLOWED_VIOLATIONS). This is the single most critical boundary in the current
-    codebase — tested separately for clarity of failure messages.
+    REGISTERED_ARCHITECTURAL_DEBT). This is the single most critical boundary in the
+    current codebase — tested separately for clarity of failure messages.
 
     See: ADR-015, docs/phase1/DEPENDENCY_GRAPH.md
     """
@@ -285,8 +287,8 @@ def test_kernel_does_not_import_api_directly():
     if unapproved:
         report = "\n".join(f"  • {f}: imports '{m}'" for f, m in unapproved)
         raise AssertionError(
-            f"\nkernel/ imports api/ without an ALLOWED_VIOLATIONS entry:\n{report}\n\n"
-            "Add to ALLOWED_VIOLATIONS in LAYER_MAP.py or fix the import."
+            f"\nkernel/ imports api/ without a REGISTERED_ARCHITECTURAL_DEBT entry:\n{report}\n\n"
+            "Fix the import (preferred), or register it in LAYER_MAP.py after reading the freeze rule."
         )
 
 
@@ -388,14 +390,14 @@ def test_no_circular_imports_in_kernel():
     # Filter out cycles registered in the debt registry.
     # A detected cycle matches an allowed entry when the cycle's node sequence
     # (as a tuple) equals the registered cycle tuple.
-    allowed_cycle_tuples = {entry[0] for entry in ALLOWED_CIRCULAR_IMPORTS}
+    allowed_cycle_tuples = {entry[0] for entry in REGISTERED_CIRCULAR_DEBT}
     unregistered = [c for c in cycles if tuple(c) not in allowed_cycle_tuples]
 
     assert not unregistered, (
         f"{len(unregistered)} unregistered circular import cycle(s) in kernel/:\n"
         + "\n".join(f"  • {' → '.join(c)}" for c in unregistered)
-        + "\n\nRegister known cycles in ALLOWED_CIRCULAR_IMPORTS in LAYER_MAP.py "
-        "with owner, workstream, and exit criterion. Do not leave cycles undocumented."
+        + "\n\nRegister known cycles in REGISTERED_CIRCULAR_DEBT in LAYER_MAP.py "
+        "with owner, workstream, and exit criterion. Read the freeze rule first."
     )
 
 
@@ -469,6 +471,9 @@ if __name__ == "__main__":
         print(f"❌ {len(violations)} violation(s):\n")
         for v in violations:
             print(f"  • {v['file']}: {v['message']}")
-    print(f"\nAllowed violations (pending remediation): {len(ALLOWED_VIOLATIONS)}")
-    for importer, imported, reason in ALLOWED_VIOLATIONS:
+    print(f"\nRegistered architectural debt ({len(REGISTERED_ARCHITECTURAL_DEBT)} entries):")
+    for importer, imported, reason in REGISTERED_ARCHITECTURAL_DEBT:
         print(f"  ⚠  {importer} → {imported}: {reason}")
+    print(f"\nRegistered circular debt ({len(REGISTERED_CIRCULAR_DEBT)} entries):")
+    for cycle, reason in REGISTERED_CIRCULAR_DEBT:
+        print(f"  ⚠  {' → '.join(cycle)}: {reason}")
