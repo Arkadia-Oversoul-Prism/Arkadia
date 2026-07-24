@@ -109,14 +109,10 @@ Created the `kernel/storage/` package and the SQLite runtime database schema.
 ## Outstanding Work (Phase 1 Implementation)
 
 ### Workstream B — Runtime Durability (Highest Priority)
-- [x] Create `kernel/storage/` + schema from `SQLITE_JOB_QUEUE_DESIGN.md` ← **B1.1 complete**
-- [ ] Create `data/runtime.db` with schema from `SQLITE_JOB_QUEUE_DESIGN.md` (created on first `create_tables()` call)
-- [ ] Implement `kernel/storage/sqlite_job_store.py`
-- [ ] Implement `kernel/storage/sqlite_goal_store.py`
-- [ ] Migration: JSON → SQLite import on first startup
-- [ ] Update `kernel/jobs.py` and `kernel/goals.py` to use new backends
-- [ ] Tests: `test_sqlite_job_store.py`, `test_sqlite_goal_store.py`, `test_jobs_migration.py`
-- [ ] Extract Firebase sync from `JobStore`/`GoalStore` into separate sync adapter
+- [x] **B1.1 CLOSED** — `kernel/storage/` + schema (commit `1a38633`; 21/21 tests; see `docs/checkpoints/B1.1.md`)
+- [ ] **B1.2** — Implement `kernel/storage/sqlite_job_store.py` + `kernel/storage/sqlite_goal_store.py`
+- [ ] **B1.3** — Migration: JSON → SQLite import on first startup; update `kernel/jobs.py` and `kernel/goals.py`
+- [ ] **B1.4** — Remove legacy code; close Gate B; extract Firebase sync adapter
 
 ### Workstream E — Plugin Architecture (Second Priority)
 - [ ] Implement `kernel/plugin_registry.py` (PluginRegistry, PluginManifest)
