@@ -11,4 +11,5 @@
 - [Arkadia system recalibration](arkadia-recalibration.md) — dead code archived, root package.json drift removed, sovereign-key gate hardening, live deploy targets confirmed. Read before touching engine/parsers/schemas, routing deps, or openclaw configs.
 - [Phase 0 Security Hardening](phase0-security.md) — ADR-013: shell allowlist, write-path validation, auth fail-fast, SOVEREIGN_KEY fail-fast, CORS explicit origins. All gated on ENVIRONMENT=production.
 - [Spawn Oracle routing](spawn-oracle-routing.md) — oracle agent spawns bypass kernel worker (which only handles 4 types); call Gemini directly via _gemini_chat, return reply+text synchronously. ADR pending.
-- [Phase 1 Analysis](phase1-analysis.md) — all 7 deliverables written (docs/phase1/); ADR-014 filed (Proposed); zero code changed; implementation blocked pending approval.
+- [Phase 1 Analysis](phase1-analysis.md) — all deliverables written + ADR-014/015 Accepted; implementation approved 2026-07-24.
+- [Architecture Steward Framework](architecture-steward.md) — elevated role adopted at Phase 1 implementation inflection; session start/end checklists, change budget, commit rules.

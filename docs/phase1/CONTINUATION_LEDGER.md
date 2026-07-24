@@ -1,7 +1,8 @@
 # Arkadia — Continuation Ledger
 
 **Session date:** ARK Y1 · D116 (2026-07-24)  
-**Principal Engineer session type:** Phase 1 Analysis — NO CODE CHANGES  
+**Role:** Architecture Steward (elevated from Principal Engineer at Phase 1 implementation inflection)  
+**Session type:** Phase 1 Analysis — NO CODE CHANGES  
 **Next session starting point:** → See "Recommended Starting Point" below
 
 ---
@@ -146,14 +147,26 @@ This session:
 
 ## Recommended Starting Point for Next Session
 
-**Read this file first.** Then:
+**The next session operates under the Architecture Steward framework.** The full charter is at `.agents/memory/architecture-steward.md`. Key rules:
+- First responsibility: protecting the architecture. Second: delivering working software. Never reverse.
+- Session start checklist is mandatory before writing any code.
+- Change budget: one bounded context, one ADR, one migration, one deployable checkpoint.
+- Session end: all 8 deliverables required. Architecture fitness tests must pass before Continuation Ledger can be marked complete.
 
-1. Confirm ADR-014 is approved (status: Accepted) before writing any code.
-2. Begin with **Workstream B, Step 1**: create `data/runtime.db` schema.
-   - File: `kernel/storage/` (new directory)
-   - Reference: `docs/phase1/SQLITE_JOB_QUEUE_DESIGN.md` → "Schema" section
-3. After schema, implement `SQLiteJobStore` — preserve the public API exactly.
-4. Run the migration test before touching `kernel/jobs.py`.
+**Session start checklist:**
+1. Read this Continuation Ledger.
+2. Read ADR-013, ADR-014, ADR-015.
+3. Read `docs/phase1/PHASE_GATES.md`.
+4. Run `pytest tests/architecture/` — confirm no new regressions (five ALLOWED_VIOLATIONS are expected and documented).
+5. Restate the session objective in one paragraph.
+
+**Then begin Workstream B, Step 1:**
+- Create `kernel/storage/` directory
+- Write SQLite schema from `docs/phase1/SQLITE_JOB_QUEUE_DESIGN.md` → "Schema" section
+- Implement `SQLiteJobStore` — preserve the public API of `kernel/jobs.py` exactly
+- Run migration test before touching `kernel/jobs.py`
+
+**Standing question:** "What is the smallest architectural change that unlocks the next phase?"
 
 **Do not start Workstream E or A until Workstream B tests pass and the repository is verified deployable.**
 
