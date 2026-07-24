@@ -86,7 +86,18 @@ This is not about heroic refactors. It is about the discipline of the small: a t
 
 ---
 
+## 11. Reality Overrides Documentation
+
+Documentation records the architecture. It does not define observed behavior.
+
+When code and documentation disagree, the correct response is not to trust the document. It is to verify the code, update the documentation, and make the discrepancy explicit. A discrepancy that is acknowledged is a debt. A discrepancy that is papered over is a lie.
+
+This rule prevents documentation drift from becoming institutionalized. Systems rot when documentation accumulates authority it has not earned. Every calibration session, every measurement, and every fitness test is an act of trusting reality over record.
+
+---
+
 *These principles are not a checklist. They are a shared way of thinking. When two principles appear to conflict, that tension is worth a conversation — it usually means an architectural decision needs to be made explicit.*
 
 *Filed: ARK Y1 · D116 (2026-07-24)*  
+*Principle 11 added: ARK Y1 · D116 (2026-07-24)*  
 *Authority: Flamekeeper*
