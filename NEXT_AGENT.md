@@ -5,11 +5,14 @@
 ---
 
 ## Completed This Session
-- B0.5 — Baseline Integrity (fitness test direction fix, debt registration, registry rename)
-- Governance infrastructure: BOOTSTRAP.md, CURRENT_STATE.md, ACTIVE_CONTEXT.md, DECISION_CACHE.md, PROJECT_INDEX.md, NEXT_AGENT.md created
+- B1.1 — SQLite Schema
+  - `kernel/storage/__init__.py` created
+  - `kernel/storage/schema.py` created — DDL + `create_tables(db_path)` function
+  - `tests/test_sqlite_schema.py` created — 11 tests, all passing
+  - Architecture fitness: 10/10 (unchanged)
 
 ## Not Started
-- B1.1 — SQLite Schema (`kernel/storage/schema.py`, `tests/test_sqlite_schema.py`)
+- B1.2 — SQLiteJobStore (`kernel/storage/sqlite_job_store.py`, `kernel/storage/sqlite_goal_store.py`)
 
 ---
 
@@ -18,7 +21,7 @@
 1. Read `BOOTSTRAP.md`
 2. Read `CURRENT_STATE.md`
 3. Read `ACTIVE_CONTEXT.md`
-4. Run `pytest tests/architecture/ -v` — confirm 10/10
+4. Run `python3 -m pytest tests/architecture/ -v` — confirm 10/10
 5. Implement the objective in `ACTIVE_CONTEXT.md`
 6. Run verification once (see ACTIVE_CONTEXT.md stop condition)
 7. Update `CURRENT_STATE.md` and `NEXT_AGENT.md`
@@ -33,11 +36,14 @@
 - CONTINUATION_LEDGER.md (except to update it at session end)
 
 ## Begin In
-`kernel/storage/` — create the directory and schema file.
-Schema spec: `docs/phase1/SQLITE_JOB_QUEUE_DESIGN.md`
+`kernel/storage/` — create `sqlite_job_store.py` and `sqlite_goal_store.py`.
+
+Read `kernel/jobs.py` and `kernel/goals.py` to match the public API exactly.
+Import `create_tables` from `kernel.storage.schema` — do not duplicate DDL.
 
 ## Stop When
-`pytest tests/test_sqlite_schema.py` passes.
+`pytest tests/test_sqlite_job_store.py` passes.
+`pytest tests/test_sqlite_goal_store.py` passes.
 `pytest tests/architecture/` is 10/10.
 `CURRENT_STATE.md` is updated.
-This file (`NEXT_AGENT.md`) is rewritten for the B1.2 session.
+This file (`NEXT_AGENT.md`) is rewritten for the B1.3 session.

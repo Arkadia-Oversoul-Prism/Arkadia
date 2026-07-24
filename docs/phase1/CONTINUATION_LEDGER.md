@@ -82,10 +82,35 @@ This session:
 
 ---
 
-## Outstanding Work (Phase 1 Implementation — Not Started)
+## Session: B1.1 — SQLite Schema
+
+**Session date:** ARK Y1 · D116 (2026-07-24)
+**Role:** Architecture Steward
+**Session type:** Workstream B1.1 — Persistence Foundation, Schema checkpoint
+**Next session starting point:** Begin B1.2 — SQLiteJobStore
+
+### Session Summary
+
+Created the `kernel/storage/` package and the SQLite runtime database schema.
+
+**Files created:**
+- `kernel/storage/__init__.py` — package marker
+- `kernel/storage/schema.py` — DDL constants + `create_tables(db_path)` (idempotent, WAL mode)
+- `tests/test_sqlite_schema.py` — 11 tests covering table existence, all columns, all indexes, WAL mode, idempotency, CHECK constraints, and return value
+
+**Verification:**
+- `pytest tests/test_sqlite_schema.py` — **11/11 passing**
+- `pytest tests/architecture/` — **10/10 passing** (unchanged)
+
+**No other files were touched.** `kernel/jobs.py`, `kernel/goals.py`, `kernel/worker.py`, and all API files are unmodified.
+
+---
+
+## Outstanding Work (Phase 1 Implementation)
 
 ### Workstream B — Runtime Durability (Highest Priority)
-- [ ] Create `data/runtime.db` with schema from `SQLITE_JOB_QUEUE_DESIGN.md`
+- [x] Create `kernel/storage/` + schema from `SQLITE_JOB_QUEUE_DESIGN.md` ← **B1.1 complete**
+- [ ] Create `data/runtime.db` with schema from `SQLITE_JOB_QUEUE_DESIGN.md` (created on first `create_tables()` call)
 - [ ] Implement `kernel/storage/sqlite_job_store.py`
 - [ ] Implement `kernel/storage/sqlite_goal_store.py`
 - [ ] Migration: JSON → SQLite import on first startup

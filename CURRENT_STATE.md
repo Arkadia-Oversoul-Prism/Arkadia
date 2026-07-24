@@ -8,27 +8,28 @@
 Phase 1 — Runtime Stabilization
 
 ## Checkpoint
-**B1.1 — Schema** (READY TO BEGIN)
+**B1.2 — SQLiteJobStore** (READY TO BEGIN)
 
 ## Mode
 BUILD
 
 ## Objective
-Create `kernel/storage/` directory and the SQLite schema for the job/goal runtime database.
-Source of truth for schema: `docs/phase1/SQLITE_JOB_QUEUE_DESIGN.md` → "Schema" section.
+Implement `kernel/storage/sqlite_job_store.py` and `kernel/storage/sqlite_goal_store.py`.
+The public API of `kernel/jobs.py` (JobStore class) must be preserved exactly.
+`kernel/jobs.py` itself is NOT changed in this checkpoint — that is B1.3.
 
 ## Scope (this checkpoint only)
-- Create `kernel/storage/__init__.py`
-- Create `kernel/storage/schema.py` (or `kernel/storage/migrations.py`) — schema DDL and `create_tables()` function
-- Create `data/runtime.db` (or confirm it is created on first call to `create_tables()`)
-- Write `tests/test_sqlite_schema.py` — verifies tables exist with correct columns
+- Create `kernel/storage/sqlite_job_store.py` — `SQLiteJobStore` class
+- Create `kernel/storage/sqlite_goal_store.py` — `SQLiteGoalStore` class
+- Write `tests/test_sqlite_job_store.py` — full lifecycle + concurrency + retry tests
+- Write `tests/test_sqlite_goal_store.py` — due_goals, run tracking tests
 
 ## Stop When
-Schema file exists. Migration test passes. Nothing else has been touched.
+All unit tests pass. `kernel/jobs.py` still uses the old in-memory store. Architecture fitness still 10/10.
 
 ## Do Not Touch
-- `kernel/jobs.py` (B1.2)
-- `kernel/goals.py` (B1.2)
+- `kernel/jobs.py` (B1.3)
+- `kernel/goals.py` (B1.3)
 - `kernel/worker.py` (B1.3)
 - `api/` (any file)
 - Fitness tests / LAYER_MAP.py
@@ -40,21 +41,26 @@ Nothing.
 ## Repository Health
 - Branch: `main`
 - Fitness tests: 10/10 passing
+- Schema tests: 11/11 passing (new — B1.1)
 - Registered debt: 10 layer violations + 3 circular imports (all in LAYER_MAP.py — do not touch)
 - Workflows: failing (pre-existing — missing secrets, not a B1 blocker)
 
-## Success Criteria (B1.1)
-- [ ] `kernel/storage/` directory exists with `__init__.py`
-- [ ] Schema DDL matches `docs/phase1/SQLITE_JOB_QUEUE_DESIGN.md`
-- [ ] `pytest tests/test_sqlite_schema.py` passes
+## Success Criteria (B1.2)
+- [ ] `kernel/storage/sqlite_job_store.py` exists and passes all tests
+- [ ] `kernel/storage/sqlite_goal_store.py` exists and passes all tests
+- [ ] Atomic claim test passes (two workers, no double-claim)
+- [ ] Crash recovery test passes (RUNNING → PENDING on startup)
 - [ ] `pytest tests/architecture/` still 10/10
 - [ ] Repository deployable (no import errors introduced)
 - [ ] Continuation Ledger updated
 
 ## Last Session
-B0.5 — Baseline Integrity complete. Fitness tests fixed, debt registered, registry renamed from ALLOWED_VIOLATIONS → REGISTERED_ARCHITECTURAL_DEBT.
+B1.1 — SQLite Schema complete.
+- Created `kernel/storage/__init__.py`
+- Created `kernel/storage/schema.py` (DDL + `create_tables()`)
+- Created `tests/test_sqlite_schema.py` (11 tests — all passing)
+- Architecture fitness: 10/10 (unchanged)
 
 ## Next Checkpoints (do not implement yet)
-- B1.2 — SQLiteJobStore
-- B1.3 — Worker Integration
+- B1.3 — Worker Integration (replace in-memory queue in kernel/jobs.py)
 - B1.4 — Cleanup / Gate B close
