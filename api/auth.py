@@ -32,20 +32,38 @@ _dev_mode = False
 
 
 def _init_firebase() -> None:
+    """Initialise the Firebase Admin SDK.
+
+    Security contract (Phase 0):
+      • In production (ENVIRONMENT=production): any failure — missing credentials
+        OR failed initialisation — is a hard startup error. The process must not
+        start in an unauthenticated state silently.
+      • In development: missing credentials falls back to dev-mode with unsigned
+        JWT decoding so the app remains runnable locally without secrets.
+        A failed initialisation (credentials present but invalid) is always fatal
+        regardless of environment — if you set the variable it must work.
+    """
     global _firebase_app, _dev_mode
 
+    _is_production = os.environ.get("ENVIRONMENT", "").strip().lower() == "production"
     sa_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON", "").strip()
+
     if not sa_json:
-        if os.environ.get("ENVIRONMENT", "").strip().lower() == "production":
+        if _is_production:
             raise RuntimeError(
-                "[AUTH] FIREBASE_SERVICE_ACCOUNT_JSON is not set while ENVIRONMENT=production. "
-                "Refusing to start in unsigned-JWT dev-mode auth fallback in production. "
-                "Set FIREBASE_SERVICE_ACCOUNT_JSON (or unset ENVIRONMENT=production for local/dev use)."
+                "[AUTH] FIREBASE_SERVICE_ACCOUNT_JSON is required in production. "
+                "The server will not start without valid Firebase credentials. "
+                "Set FIREBASE_SERVICE_ACCOUNT_JSON or remove ENVIRONMENT=production "
+                "for local/dev use."
             )
-        logger.warning("[AUTH] FIREBASE_SERVICE_ACCOUNT_JSON not set — running in dev-mode (no token verification)")
+        logger.warning(
+            "[AUTH] FIREBASE_SERVICE_ACCOUNT_JSON not set — running in dev-mode "
+            "(token signatures are NOT verified; local development only)"
+        )
         _dev_mode = True
         return
 
+    # Credentials are present — initialise or die. Never silently downgrade.
     try:
         import firebase_admin
         from firebase_admin import credentials
@@ -62,8 +80,13 @@ def _init_firebase() -> None:
         _firebase_app = firebase_admin.initialize_app(cred)
         logger.info("[AUTH] Firebase Admin SDK initialised")
     except Exception as e:
-        logger.warning(f"[AUTH] Firebase Admin init failed — dev-mode: {e}")
-        _dev_mode = True
+        # Credentials were present but initialisation failed — this is always
+        # a hard error. A misconfigured credential is worse than a missing one
+        # because it signals a deployment error that must be surfaced immediately.
+        raise RuntimeError(
+            f"[AUTH] Firebase Admin SDK initialisation failed: {e}. "
+            "Fix FIREBASE_SERVICE_ACCOUNT_JSON or remove it to run in dev-mode."
+        ) from e
 
 
 _init_firebase()

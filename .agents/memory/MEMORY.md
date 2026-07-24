@@ -9,3 +9,5 @@
 - [Visual synthesis tokens](visual-synthesis.md) — ARKADIA title: gold #C9A84C + Cinzel font. Aurora pushed to 0.28/0.20. Portal cards: rgba(14,17,32,0.72) + teal border 0.16. Diamond dividers + corner ornaments.
 - [web/public_prism Tailwind pin](vercel-tailwind-postcss.md) — never add @tailwindcss/postcss there; it's pinned to Tailwind v3 and Vercel's npm install crashes on the v3/v4 plugin conflict.
 - [Arkadia system recalibration](arkadia-recalibration.md) — dead code archived, root package.json drift removed, sovereign-key gate hardening, live deploy targets confirmed. Read before touching engine/parsers/schemas, routing deps, or openclaw configs.
+- [Phase 0 Security Hardening](phase0-security.md) — ADR-013: shell allowlist, write-path validation, auth fail-fast, SOVEREIGN_KEY fail-fast, CORS explicit origins. All gated on ENVIRONMENT=production.
+- [Spawn Oracle routing](spawn-oracle-routing.md) — oracle agent spawns bypass kernel worker (which only handles 4 types); call Gemini directly via _gemini_chat, return reply+text synchronously. ADR pending.

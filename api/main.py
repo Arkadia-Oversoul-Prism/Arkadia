@@ -34,11 +34,18 @@ GITHUB_BRANCH  = "main"
 GITHUB_TOKEN   = os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN", "")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 SOVEREIGN_KEY  = os.environ.get("SOVEREIGN_KEY", "")
+_is_production = os.environ.get("ENVIRONMENT", "").strip().lower() == "production"
 if not SOVEREIGN_KEY:
+    if _is_production:
+        raise RuntimeError(
+            "[SECURITY] SOVEREIGN_KEY is required in production. "
+            "The server will not start without it. "
+            "Set SOVEREIGN_KEY to a long random secret in your environment variables."
+        )
     logger.warning(
         "[SECURITY] SOVEREIGN_KEY env var is not set — sovereign-key-gated endpoints "
-        "(forge webhook signature, sovereign admin routes) will reject all requests "
-        "until it is configured. Set SOVEREIGN_KEY to a long random secret."
+        "(forge, webhook signature, sovereign admin routes) will reject all requests. "
+        "Set SOVEREIGN_KEY before deploying to production."
     )
 
 # ── Category → SpiralVault category + display priority ───────────────────────
@@ -188,11 +195,33 @@ async def lifespan(app: FastAPI):
 # ── App — created here so lifespan is already defined ────────────────────────
 app = FastAPI(title="Arkadia Mind — Cycle 11", lifespan=lifespan)
 
+# ── CORS — explicit origin list (Phase 0 hardening) ──────────────────────────
+# Wildcard origins are banned. In production, set CORS_ALLOWED_ORIGINS to a
+# comma-separated list of permitted origins. In development the default list
+# covers localhost and the canonical Render deployment.
+#
+# Example (Render env var):
+#   CORS_ALLOWED_ORIGINS=https://arkadia-n26k.onrender.com,https://your-custom-domain.com
+_DEFAULT_CORS_ORIGINS = [
+    "http://localhost:5000",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://arkadia-n26k.onrender.com",
+]
+_cors_env = os.environ.get("CORS_ALLOWED_ORIGINS", "").strip()
+_CORS_ORIGINS: list[str] = (
+    [o.strip() for o in _cors_env.split(",") if o.strip()]
+    if _cors_env
+    else _DEFAULT_CORS_ORIGINS
+)
+logger.info("[CORS] allowed origins: %s", _CORS_ORIGINS)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_CORS_ORIGINS,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
+    allow_credentials=True,
 )
 
 # ── Node registry router ──────────────────────────────────────────────────────
