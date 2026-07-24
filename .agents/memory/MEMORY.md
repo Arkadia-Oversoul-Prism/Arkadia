@@ -13,3 +13,4 @@
 - [Spawn Oracle routing](spawn-oracle-routing.md) — oracle agent spawns bypass kernel worker (which only handles 4 types); call Gemini directly via _gemini_chat, return reply+text synchronously. ADR pending.
 - [Phase 1 Analysis](phase1-analysis.md) — all deliverables written + ADR-014/015 Accepted; implementation approved 2026-07-24.
 - [Architecture Steward Framework](architecture-steward.md) — elevated role adopted at Phase 1 implementation inflection; session start/end checklists, change budget, commit rules.
+- [Strategic Roadmap](roadmap-notes.md) — phase sequence (0→5) with dependency rationale; Architecture Freeze v1.0 criteria; CI enforcement milestone.
