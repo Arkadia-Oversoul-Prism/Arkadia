@@ -5,45 +5,45 @@
 ---
 
 ## Completed This Session
-- B1.1 — SQLite Schema
-  - `kernel/storage/__init__.py` created
-  - `kernel/storage/schema.py` created — DDL + `create_tables(db_path)` function
-  - `tests/test_sqlite_schema.py` created — 11 tests, all passing
-  - Architecture fitness: 10/10 (unchanged)
+- B1.2 — SQLiteJobStore + SQLiteGoalStore
+  - `kernel/storage/sqlite_job_store.py` — 21 tests passing
+  - `kernel/storage/sqlite_goal_store.py` — 26 tests passing
+  - `MISSION.md` created (one-page session orientation)
+  - Total: 68/68 tests passing; architecture fitness 10/10
 
 ## Not Started
-- B1.2 — SQLiteJobStore (`kernel/storage/sqlite_job_store.py`, `kernel/storage/sqlite_goal_store.py`)
+- B1.3 — Worker Integration
 
 ---
 
-## Your Startup (follow exactly, in order)
+## Your Startup (maximum 3 minutes, follow exactly)
 
-1. Read `BOOTSTRAP.md`
-2. Read `CURRENT_STATE.md`
-3. Read `ACTIVE_CONTEXT.md`
-4. Run `python3 -m pytest tests/architecture/ -v` — confirm 10/10
-5. Implement the objective in `ACTIVE_CONTEXT.md`
-6. Run verification once (see ACTIVE_CONTEXT.md stop condition)
-7. Update `CURRENT_STATE.md` and `NEXT_AGENT.md`
+1. Read `MISSION.md`
+2. Read `BOOTSTRAP.md`
+3. Read `CURRENT_STATE.md`
+4. Run `python3 -m pytest tests/architecture/ -q` — confirm 10/10
+5. Implement the objective in `CURRENT_STATE.md`
+6. Run verification once
+7. Update `MISSION.md`, `CURRENT_STATE.md`, `NEXT_AGENT.md`
 8. Stop
 
 ## Do NOT Reopen
-- ENGINEERING_PRINCIPLES.md
-- ROADMAP.md
-- ARCHITECTURE_MAP.md
-- PHASE_GATES.md
+- ENGINEERING_PRINCIPLES.md, ROADMAP.md, ARCHITECTURE_MAP.md, PHASE_GATES.md
 - Any ADR (ADR-010 through ADR-015)
-- CONTINUATION_LEDGER.md (except to update it at session end)
+- CONTINUATION_LEDGER.md (except to update at session end)
+- ACTIVE_CONTEXT.md (superseded by MISSION.md)
+- DECISION_CACHE.md (unless blocked by a design question)
 
-## Begin In
-`kernel/storage/` — create `sqlite_job_store.py` and `sqlite_goal_store.py`.
-
-Read `kernel/jobs.py` and `kernel/goals.py` to match the public API exactly.
-Import `create_tables` from `kernel.storage.schema` — do not duplicate DDL.
+## Key Files for B1.3
+- `kernel/jobs.py` — replace JobStore backend (read it first; match existing module-level API)
+- `kernel/goals.py` — replace GoalStore backend (read it first)
+- `kernel/storage/sqlite_job_store.py` — already done; import from here
+- `kernel/storage/sqlite_goal_store.py` — already done; import from here
+- `data/job_store.json` / `data/goal_store.json` — migration source; preserve read-only
 
 ## Stop When
-`pytest tests/test_sqlite_job_store.py` passes.
-`pytest tests/test_sqlite_goal_store.py` passes.
+`pytest tests/test_jobs_migration.py` passes.
 `pytest tests/architecture/` is 10/10.
-`CURRENT_STATE.md` is updated.
-This file (`NEXT_AGENT.md`) is rewritten for the B1.3 session.
+`MISSION.md` updated to B1.4.
+`CURRENT_STATE.md` updated to B1.4 ready.
+This file rewritten for the B1.4 session.

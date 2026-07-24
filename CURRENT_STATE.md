@@ -8,29 +8,28 @@
 Phase 1 — Runtime Stabilization
 
 ## Checkpoint
-**B1.2 — SQLiteJobStore** (READY TO BEGIN)
+**B1.3 — Worker Integration** (READY TO BEGIN)
 
 ## Mode
 BUILD
 
 ## Objective
-Implement `kernel/storage/sqlite_job_store.py` and `kernel/storage/sqlite_goal_store.py`.
-The public API of `kernel/jobs.py` (JobStore class) must be preserved exactly.
-`kernel/jobs.py` itself is NOT changed in this checkpoint — that is B1.3.
+Wire `kernel/jobs.py` to use `SQLiteJobStore` and `kernel/goals.py` to use `SQLiteGoalStore`.
+Run the JSON→SQLite migration on first startup. Add restart and concurrency tests on the live path.
 
 ## Scope (this checkpoint only)
-- Create `kernel/storage/sqlite_job_store.py` — `SQLiteJobStore` class
-- Create `kernel/storage/sqlite_goal_store.py` — `SQLiteGoalStore` class
-- Write `tests/test_sqlite_job_store.py` — full lifecycle + concurrency + retry tests
-- Write `tests/test_sqlite_goal_store.py` — due_goals, run tracking tests
+- Edit `kernel/jobs.py`: import `SQLiteJobStore as JobStore` from `kernel.storage.sqlite_job_store`
+- Edit `kernel/goals.py`: import `SQLiteGoalStore as GoalStore` from `kernel.storage.sqlite_goal_store`
+- Add migration: on first startup, if `data/runtime.db` does not exist, import `data/job_store.json` and `data/goal_store.json`
+- Write `tests/test_jobs_migration.py` — verifies JSON→SQLite import integrity
+- Run restart simulation test (RUNNING → PENDING recovery on new store init)
+- Run concurrency test on the wired-up path
 
 ## Stop When
-All unit tests pass. `kernel/jobs.py` still uses the old in-memory store. Architecture fitness still 10/10.
+All tests pass. `kernel/jobs.py` and `kernel/goals.py` use SQLite. JSON files preserved read-only. Architecture fitness 10/10.
 
 ## Do Not Touch
-- `kernel/jobs.py` (B1.3)
-- `kernel/goals.py` (B1.3)
-- `kernel/worker.py` (B1.3)
+- `kernel/worker.py` (unchanged — it calls jobs.get_store() which will now return SQLiteJobStore)
 - `api/` (any file)
 - Fitness tests / LAYER_MAP.py
 - ADRs / Governance docs
@@ -40,27 +39,30 @@ Nothing.
 
 ## Repository Health
 - Branch: `main`
-- Fitness tests: 10/10 passing
-- Schema tests: 11/11 passing (new — B1.1)
-- Registered debt: 10 layer violations + 3 circular imports (all in LAYER_MAP.py — do not touch)
+- Architecture fitness: 10/10 passing
+- Schema tests: 11/11 passing (B1.1)
+- Job store tests: 21/21 passing (B1.2)
+- Goal store tests: 26/26 passing (B1.2)
+- Total: 68/68 passing
 - Workflows: failing (pre-existing — missing secrets, not a B1 blocker)
 
-## Success Criteria (B1.2)
-- [ ] `kernel/storage/sqlite_job_store.py` exists and passes all tests
-- [ ] `kernel/storage/sqlite_goal_store.py` exists and passes all tests
-- [ ] Atomic claim test passes (two workers, no double-claim)
-- [ ] Crash recovery test passes (RUNNING → PENDING on startup)
+## Success Criteria (B1.3)
+- [ ] `kernel/jobs.py` uses SQLiteJobStore
+- [ ] `kernel/goals.py` uses SQLiteGoalStore
+- [ ] JSON→SQLite migration runs on first startup
+- [ ] `pytest tests/test_jobs_migration.py` passes
+- [ ] Restart simulation passes
+- [ ] Concurrency test passes
 - [ ] `pytest tests/architecture/` still 10/10
-- [ ] Repository deployable (no import errors introduced)
+- [ ] Repository deployable
 - [ ] Continuation Ledger updated
 
 ## Last Session
-B1.1 — SQLite Schema complete.
-- Created `kernel/storage/__init__.py`
-- Created `kernel/storage/schema.py` (DDL + `create_tables()`)
-- Created `tests/test_sqlite_schema.py` (11 tests — all passing)
+B1.2 — SQLiteJobStore + SQLiteGoalStore complete.
+- Created `kernel/storage/sqlite_job_store.py` (SQLiteJobStore, 21 tests all passing)
+- Created `kernel/storage/sqlite_goal_store.py` (SQLiteGoalStore, 26 tests all passing)
+- Created `MISSION.md` (one-page session orientation)
 - Architecture fitness: 10/10 (unchanged)
 
 ## Next Checkpoints (do not implement yet)
-- B1.3 — Worker Integration (replace in-memory queue in kernel/jobs.py)
 - B1.4 — Cleanup / Gate B close
