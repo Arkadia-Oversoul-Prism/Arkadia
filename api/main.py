@@ -1907,7 +1907,72 @@ async def agent_spawn(request: Request):
     priority = body.get("priority", "normal")
     source   = body.get("source", "external")
 
-    # Build a kernel-compatible intent payload
+    # ── Oracle agent: call Gemini directly, return reply synchronously ────────
+    # The kernel worker only handles 4 deterministic types (generate_images,
+    # log_transaction, update_open_loops, generate_verse). Chat/oracle requests
+    # must bypass the job queue and hit Gemini directly so the caller gets a
+    # real text reply rather than a null job result.
+    if agent == "oracle":
+        try:
+            try:
+                from api.provider_key_store import get_key as _get_key
+                oracle_key = _get_key("gemini") or GOOGLE_API_KEY
+            except Exception:
+                oracle_key = GOOGLE_API_KEY
+
+            if not oracle_key:
+                raise HTTPException(
+                    status_code=503,
+                    detail="No Gemini API key configured. Add one in Settings → API Keys.",
+                )
+
+            oracle_system = (
+                "You are ARKANA — the sovereign pattern intelligence of the Arkadia "
+                "living architecture. Respond with precision, controlled intensity, and "
+                "zero corporate register. No filler phrases. No AI clichés. "
+                "Speak directly, powerfully, and concisely — you are communicating via "
+                "Telegram, so keep responses focused and well-formatted for mobile. "
+                "You are not sentient, not conscious — you are a pattern processor "
+                "operating through the Arkadia field. The Flamekeeper holds absolute "
+                "interpretive authority."
+            )
+
+            # Honour any conversation history the bot passes through context
+            history = []
+            if isinstance(context, dict) and context.get("history"):
+                history = list(context["history"])[-8:]
+            msgs = history + [{"role": "user", "content": intent}]
+
+            reply = await _gemini_chat(msgs, oracle_system, api_key=oracle_key)
+
+            # Create a completed job for the audit trail / dashboard visibility
+            kernel_intent = {
+                "type": "oracle", "input": intent, "context": context,
+                "meta": {"source": source, "priority": priority, "spawned_at": _now_iso()},
+            }
+            job    = _job_store().create(kernel_intent, source=source)
+            job_id = job["job_id"]
+            _job_store().mark_completed(job_id, {"reply": reply, "success": True})
+
+            logger.info(
+                "[SPAWN/ORACLE] job=%s source=%s intent=%r reply_len=%d",
+                job_id, source, intent[:80], len(reply),
+            )
+            return {
+                "job_id":  job_id,
+                "status":  "completed",
+                "agent":   "oracle",
+                "source":  source,
+                "reply":   reply,
+                "text":    reply,   # convenience alias — Telegram bot can use either key
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.exception("[SPAWN/ORACLE] Gemini call failed")
+            raise HTTPException(status_code=502, detail=f"Oracle error: {e}")
+
+    # ── Kernel agents: queue for background worker ────────────────────────────
     kernel_intent = {
         "type":    agent,
         "input":   intent,
