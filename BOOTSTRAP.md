@@ -104,15 +104,45 @@ Do not narrate edits, reads, or routine actions.
 
 ---
 
-## Consult Only If Needed
+## Thinking Budget
+
+| Activity | Budget |
+|---|---|
+| Architecture / design thinking | 5% |
+| Coding | 80% |
+| Testing | 10% |
+| Documentation | 5% |
+
+If you are spending more than 5% of your effort on architecture, you are off-track. The architecture is already decided. Obey it, don't re-derive it.
+
+---
+
+## Immutable Documents — Never Reread
+
+These documents are frozen. Unless BOOTSTRAP.md explicitly says otherwise, do not open them. Check `git diff` to see if they changed; if they didn't, skip them entirely.
+
+```
+ENGINEERING_PRINCIPLES.md     — frozen
+ROADMAP.md                    — frozen
+docs/phase1/ARCHITECTURE_MAP.md  — frozen
+docs/adr/ADR-013-*            — frozen
+docs/adr/ADR-014-*            — frozen
+docs/adr/ADR-015-*            — frozen
+```
+
+`BOOTSTRAP.md` summarizes everything you need from these. Trust the summary.
+
+---
+
+## Reference Documents — Consult Only If Needed
 
 | Document | When to read it |
 |---|---|
-| `docs/phase1/SQLITE_JOB_QUEUE_DESIGN.md` | B1.1: for the exact schema SQL |
-| `docs/phase1/CONTINUATION_LEDGER.md` | End of session: to update it |
+| `DECISION_CACHE.md` | Before asking "why was X decided?" — the answer is probably already there |
+| `PROJECT_INDEX.md` | Before exploring the repository tree — the map is already drawn |
+| `docs/phase1/SQLITE_JOB_QUEUE_DESIGN.md` | B1.1: for the exact schema DDL |
+| `docs/phase1/CONTINUATION_LEDGER.md` | End of session only: to update it |
 | `docs/phase1/PHASE_GATES.md` | When closing a gate |
 | `kernel/jobs.py` | B1.2/B1.3: to match the existing public API exactly |
-| `tests/architecture/LAYER_MAP.py` | Only if a fitness test fails |
-| Any ADR | Only if a design decision requires a constitutional reference |
-
-Do not read ENGINEERING_PRINCIPLES.md, ROADMAP.md, ADR-013, ADR-015, or ARCHITECTURE_MAP.md unless the Continuation Ledger explicitly references them for this checkpoint.
+| `tests/architecture/LAYER_MAP.py` | Only if a fitness test fails unexpectedly |
+| Any ADR | Only if a design decision requires a constitutional reference not covered by DECISION_CACHE.md |
