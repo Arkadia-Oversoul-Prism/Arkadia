@@ -730,7 +730,19 @@ async def get_codex():
 @app.post("/api/corpus/refresh")
 async def corpus_refresh():
     scrolls = await _get_scrolls(force=True)
-    live    = sum(1 for s in scrolls.values() if not s.get("error") and s.get("chars", 0) > 0)
+    live_scrolls = [s for s in scrolls.values() if not s.get("error") and s.get("chars", 0) > 0]
+    live = len(live_scrolls)
+    # K1: ingest all live corpus documents into Knowledge OS in a single background thread.
+    # pipeline.ingest() duplicate-detection makes this idempotent across refreshes.
+    def _bulk_ingest(docs: list) -> None:
+        for doc in docs:
+            _ingest_to_knowledge_os(
+                title=doc.get("label") or doc.get("id", "corpus-doc"),
+                content=doc.get("content", ""),
+                source="corpus_refresh",
+                extra_tags=[doc.get("category", "corpus").lower()],
+            )
+    threading.Thread(target=_bulk_ingest, args=(live_scrolls,), daemon=True).start()
     return {"status": "refreshed", "total": len(scrolls), "live": live}
 
 
@@ -821,6 +833,12 @@ async def create_scroll(body: dict):
     # Bust the main cache so the new scroll shows up immediately
     _cache["at"] = 0.0
     logger.info(f"[DIRECT-SCROLL] Added: {label!r} ({len(content)} chars, {category})")
+    # K1: ingest into Knowledge OS in background
+    threading.Thread(
+        target=_ingest_to_knowledge_os,
+        args=(label, content, "direct_scroll", [category.lower()]),
+        daemon=True,
+    ).start()
     return {"status": "committed", "scroll": scroll}
 
 
@@ -914,6 +932,31 @@ def _archive_oracle_turn(user_input: str, response: str, session_id: str) -> Non
         )
     except Exception:
         pass  # Never block the Oracle response
+
+
+def _ingest_to_knowledge_os(title: str, content: str, source: str = "corpus", extra_tags: list | None = None) -> None:
+    """Fire-and-forget: ingest a corpus document into the Knowledge Layer.
+
+    Called from all document ingestion entry points (direct scrolls, file
+    uploads, corpus refresh). Duplicate-detection inside pipeline.ingest()
+    makes repeated calls idempotent — safe to call on every refresh.
+    Exceptions are swallowed so the caller is never blocked.
+    """
+    if not content or not content.strip():
+        return
+    try:
+        from knowledge import pipeline as kp
+        tags = ["corpus", "document", source]
+        if extra_tags:
+            tags.extend(extra_tags)
+        kp.ingest(
+            title=title,
+            content=content,
+            note_type="document",
+            tags=tags,
+        )
+    except Exception:
+        pass  # Never block the caller
 
 
 @app.post("/api/commune/resonance")
@@ -1543,7 +1586,13 @@ async def upload_file(request: Request):
     _cache["at"] = 0.0
     
     logger.info(f"[UPLOAD] File stored as scroll: {file_name} ({len(extracted_text)} chars, {category})")
-    
+    # K1: ingest into Knowledge OS in background
+    threading.Thread(
+        target=_ingest_to_knowledge_os,
+        args=(scroll["label"], extracted_text, "upload", [category.lower(), "file"]),
+        daemon=True,
+    ).start()
+
     return {
         "status": "uploaded",
         "scroll": scroll,

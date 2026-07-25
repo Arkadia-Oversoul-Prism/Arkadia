@@ -1,4 +1,4 @@
-# Session Handoff — K1
+# Session Handoff — K5
 > Copy this file as the opening message to the next session.
 
 ---
@@ -9,14 +9,18 @@
 - Backend LIVE: https://arkadia-kw64.onrender.com ✅
 - Knowledge OS recon complete: `docs/recon/KNOWLEDGE_OS_EVOLUTION.md` ✅
 - K2 — Oracle Conversation Archival: daemon thread archives every Oracle turn into the Knowledge Layer ✅
+- K1 — Corpus Document Ingestion: all three corpus ingestion entry points wired to `_ingest_to_knowledge_os()` ✅
+  - `POST /api/scrolls` (direct scroll creation)
+  - `POST /api/codex/upload` (file upload: PDF, DOCX, MD, TXT)
+  - `POST /api/corpus/refresh` (external source refresh: GitHub, GDrive, etc.)
 
-## ⚠ One manual action still pending (does not block K1)
+## ⚠ One manual action still pending (does not block K5)
 `web/public_prism/.env.production` → `VITE_API_URL` must be updated to `https://arkadia-kw64.onrender.com` by the user in Vercel dashboard before next frontend deploy.
 
-## This Session: K1 — Corpus Document Ingestion
+## This Session: K5 — Static Ingestion
 **Read `MISSION.md` first.** It has everything.
 
-Quick version: After corpus documents are stored/synced, call `knowledge/pipeline.ingest()` in a daemon thread so the Knowledge Graph becomes aware of document content. The duplicate-detection inside `pipeline.ingest()` makes this idempotent.
+Quick version: Walk known static paths (`docs/`, vault, ADRs) at startup and call `_ingest_to_knowledge_os()` for each markdown file. One-time pass in a daemon thread from the FastAPI lifespan startup block. Duplicate-detection inside `pipeline.ingest()` makes restarts safe.
 
 ---
 
@@ -24,11 +28,11 @@ Quick version: After corpus documents are stored/synced, call `knowledge/pipelin
 
 1. Read `MISSION.md`
 2. Read `.bootstrap/01_STATE.md`
-3. Read `docs/recon/KNOWLEDGE_OS_EVOLUTION.md` → "K1" section only
+3. Read `docs/recon/KNOWLEDGE_OS_EVOLUTION.md` → "K5" section only
 4. Run `pytest tests/architecture -q` — confirm 10/10
-5. Read `corpus/manager.py` (find where documents are stored after upload/sync)
-6. Read `api/main.py` corpus upload/sync endpoint(s)
-7. Implement K1
+5. Read `api/main.py` lifespan/startup block
+6. Survey `docs/` and `knowledge/vault/` to understand what's ingestable
+7. Implement K5
 8. Run pre-push checklist (see MISSION.md)
 9. Run verification
 10. Update `MISSION.md`, `.bootstrap/01_STATE.md`, `NEXT_AGENT.md`

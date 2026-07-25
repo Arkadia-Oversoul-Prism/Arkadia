@@ -12,6 +12,7 @@
 | Workstream B | **COMPLETE** — SQLite durability in production |
 | Gate B | **CLOSED** |
 | K2 — Oracle Conversation Archival | **COMPLETE** |
+| K1 — Corpus Document Ingestion | **COMPLETE** |
 | Deployment | STABLE — do not revisit unless a checkpoint requires it |
 
 ---
@@ -30,11 +31,13 @@ Either in the Vercel dashboard under Environment Variables, or by updating `.env
 
 ## Mission
 
-**Begin Workstream K — Checkpoint K1: Corpus Document Ingestion**
+**Workstream K — Checkpoint K5: Static Ingestion**
 
-K2 is complete. Oracle conversations now enter the Knowledge Layer automatically.
+K2 and K1 are complete. The Knowledge OS now receives:
+- Every Oracle conversation (K2)
+- Every corpus document on upload, creation, and refresh (K1)
 
-K1 connects the corpus ingestion pipeline so that uploaded/synced documents (scrolls, PDFs, markdown files) are processed through `knowledge/pipeline.ingest()` rather than only through the corpus RAG layer. This makes the Knowledge Graph aware of the full document corpus — not just Oracle conversations.
+K5 connects the remaining static knowledge that already exists in the repository but has never been ingested: the vault notes, ADRs, open loops, and any other structured markdown in `docs/`. This completes the initial Knowledge OS population and ensures SolSpire Console has a meaningful corpus from day one.
 
 ---
 
@@ -44,7 +47,7 @@ Read only:
 
 1. `MISSION.md` (this file)
 2. `.bootstrap/01_STATE.md`
-3. `docs/recon/KNOWLEDGE_OS_EVOLUTION.md` → section "K1" only
+3. `docs/recon/KNOWLEDGE_OS_EVOLUTION.md` → section "K5" only
 
 Then run:
 
@@ -65,44 +68,35 @@ Assume these are facts. Do not re-verify them.
 
 - Runtime durability is complete. SQLite is production ready.
 - Architecture governance is frozen.
-- K2 complete: Oracle turns are now archived to `knowledge/arkadia.db` via `_archive_oracle_turn()` daemon thread in `api/main.py`.
-- `knowledge/pipeline.py` exists — `ingest()` is the entry point.
-- `knowledge/context_engine.py` exists — `assemble_context()` is the retrieval entry point.
+- K2 complete: Oracle turns archived to `knowledge/arkadia.db` via `_archive_oracle_turn()` in `api/main.py`.
+- K1 complete: All three corpus ingestion entry points (`/api/scrolls`, `/api/codex/upload`, `/api/corpus/refresh`) now fire `_ingest_to_knowledge_os()` in background threads after saving.
+- `knowledge/pipeline.py` — `ingest()` is the entry point; duplicate-detection makes it idempotent.
+- `knowledge/context_engine.py` — `assemble_context()` is the retrieval entry point.
 - Semantic search, knowledge graph, timeline, and embeddings all exist.
-- Corpus pipeline (`corpus/manager.py`) is connected to the Oracle today.
 - All production references point to `https://arkadia-kw64.onrender.com`.
 
 Do not rebuild any of these.
 
 ---
 
-## Objective: K1 — Corpus Document Ingestion
+## Objective: K5 — Static Ingestion
 
-**The gap:** Uploaded corpus documents (scrolls, PDFs, markdown) are served through the RAG corpus layer but are NOT ingested into the Knowledge Layer (`knowledge/arkadia.db`). The Knowledge Graph has no awareness of document content — only of Oracle conversations (added in K2).
+**The gap:** The vault, ADRs, open-loop documents, and other structured markdown files in `docs/` contain critical Arkadia knowledge that has never been ingested into the Knowledge OS. SolSpire Console's graph and search will be sparse until this static corpus is seeded.
 
-**The fix:** After a document is successfully stored/synced in the corpus, call `knowledge/pipeline.ingest()` with the document content. This should be a one-time ingestion per document (idempotent via the duplicate-detection already in `pipeline.ingest()`).
+**The fix:** A one-time startup ingestion pass that reads static markdown files from known paths and calls `knowledge/pipeline.ingest()` for each. Idempotent — duplicate-detection prevents re-ingestion on restart.
 
 **Files to read before writing any code:**
 
 ```
-corpus/manager.py        — find where documents are stored/synced after upload
-knowledge/pipeline.py    — lines 182–210: ingest() signature (already verified in K2)
-api/main.py              — find corpus upload/sync endpoint(s)
+knowledge/pipeline.py     — ingest() signature (already known)
+api/main.py               — lifespan() or startup hook — best place to add one-time pass
+docs/                     — survey which subdirectories contain ingestable knowledge
+knowledge/vault/          — if it exists, this is the primary vault source
 ```
 
 **Implementation approach** (verify against actual code before writing):
 
-After a document is stored to the corpus, call in a daemon thread:
-
-```python
-threading.Thread(
-    target=_ingest_corpus_document,
-    args=(title, content, source_path),
-    daemon=True,
-).start()
-```
-
-Where `_ingest_corpus_document` calls `pipeline.ingest()` with `note_type="document"` and appropriate tags.
+In the FastAPI `lifespan()` startup block (already exists in `api/main.py`), add a daemon thread that walks known static paths and calls `_ingest_to_knowledge_os()` for each file. Runs once at startup. Duplicate-detection inside `pipeline.ingest()` makes restarts safe.
 
 **Standing question — ask before every code change:**
 > What is the smallest connection that unlocks the existing Knowledge Layer without increasing maintenance?
@@ -114,9 +108,6 @@ Where `_ingest_corpus_document` calls `pipeline.ingest()` with `note_type="docum
 **Before writing any new code, search the repository for an existing implementation.**
 If the required capability exists anywhere in the codebase, reuse it.
 Duplicate implementations are defects unless explicitly authorised by the checkpoint.
-
-Do not redesign. Do not create new abstractions. Do not create a second pipeline.
-Do not replace the Context Engine. Do not create a new graph implementation.
 
 ---
 
@@ -142,8 +133,7 @@ Before every commit, run a repository-wide search for:
 grep -rn "TODO\|FIXME\|XXX\|HACK\|arkadia-n26k" --include="*.py" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.mjs" . 2>/dev/null | grep -v "docs/adr/" | grep -v "docs/recon/" | grep -v ".env.production"
 ```
 
-If any were introduced by this checkpoint: resolve them or record them explicitly
-in the checkpoint document before pushing.
+If any were introduced by this checkpoint: resolve them or record them explicitly in the checkpoint document before pushing.
 
 ---
 
@@ -155,9 +145,9 @@ Update only:
 
 ```
 MISSION.md                                      (rewrite for next checkpoint)
-.bootstrap/01_STATE.md                          (mark K1 complete, set K5 as next)
-NEXT_AGENT.md                                   (rewrite for K5)
-docs/checkpoints/K1_corpus_ingestion.md        (checkpoint record)
+.bootstrap/01_STATE.md                          (mark K5 complete, set K3 as next)
+NEXT_AGENT.md                                   (rewrite for K3)
+docs/checkpoints/K5_static_ingestion.md        (checkpoint record)
 docs/phase1/CONTINUATION_LEDGER.md             (session record — at session end)
 ```
 
@@ -174,34 +164,17 @@ pytest tests/architecture -q           # must be 10/10
 pytest tests/ -q                       # must pass (pre-existing failures acceptable)
 ```
 
-The repository must remain deployable.
-Workflow failures due to missing secrets are pre-existing — ignore them.
-
----
-
-## Steward Roles (from this point forward)
-
-Arkadia now uses parallel stewards per session:
-
-| Role | Responsibility |
-|---|---|
-| **Implementation Steward** | Ships the active checkpoint — writes code, runs tests, commits |
-| **Verification Steward** | Reviews the diff, runs full test suite, checks architectural boundaries, confirms the commit |
-| **Recon Steward** | Investigates unfamiliar code without changing it — produces a report, never commits |
-
-One engineer builds. Another validates. This preserves architectural discipline at speed.
-
 ---
 
 ## Success Condition
 
 At the end of this session:
 
-- ✅ Corpus documents begin entering the Knowledge Layer on ingest
+- ✅ Vault, ADRs, and structured docs are ingested into the Knowledge OS on startup
 - ✅ Architecture tests remain green (10/10)
-- ✅ Existing corpus RAG behaviour is preserved (response shape and latency unchanged)
+- ✅ Startup time not materially increased (ingestion is background/daemon)
 - ✅ Pre-push checklist clean
 - ✅ One commit pushed
-- ✅ MISSION.md rewritten for the next checkpoint (K5)
+- ✅ MISSION.md rewritten for the next checkpoint (K3)
 
 Then stop immediately.

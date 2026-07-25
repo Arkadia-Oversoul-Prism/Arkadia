@@ -334,6 +334,33 @@ Total delta: ~16 lines added. Zero lines removed from handler logic. Zero new de
 
 ---
 
+## Session: K1 — Corpus Document Ingestion
+
+**Session date:** ARK Y1 · D117 (2026-07-25)
+**Role:** Implementation Steward
+**Session type:** Workstream K — Knowledge OS Integration, Checkpoint K1
+**Next session starting point:** K5 — Static Ingestion
+
+### Session Summary
+
+Implemented K1 by adding one shared helper and three wire points in `api/main.py`:
+
+1. `_ingest_to_knowledge_os(title, content, source, extra_tags)` — fire-and-forget helper adjacent to `_archive_oracle_turn()`. Calls `knowledge.pipeline.ingest()` with `note_type="document"` in a daemon thread. Exceptions suppressed. Duplicate-detection in `pipeline.ingest()` makes all calls idempotent.
+
+2. `POST /api/scrolls` (`create_scroll`) — thread spawned after `_save_direct_scrolls()`, `source="direct_scroll"`.
+
+3. `POST /api/codex/upload` (`upload_file`) — thread spawned after `_save_direct_scrolls()`, `source="upload"`, tags include category and `"file"`.
+
+4. `POST /api/corpus/refresh` (`corpus_refresh`) — single background thread iterates all live scrolls and calls `_ingest_to_knowledge_os()` for each. HTTP response is not delayed.
+
+Crystal Triune scan: no user-facing references found in source files — no replacements needed.
+
+**Architecture fitness tests: 10/10 passing.**
+**Pre-push checklist: clean — all TODO/FIXME hits are in node_modules (third-party).**
+**Pre-existing test collection errors (codex_brain) unchanged.**
+
+---
+
 ## Architectural Laws (Never Violate)
 
 1. One capability. One implementation. One canonical home.
