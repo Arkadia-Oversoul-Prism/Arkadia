@@ -310,6 +310,30 @@ Each checkpoint is deployable, testable, and independently reversible.
 
 ---
 
+## Session: K2 — Oracle Conversation Archival
+
+**Session date:** ARK Y1 · D117 (2026-07-25)
+**Role:** Implementation Steward
+**Session type:** Workstream K — Knowledge OS Integration, Checkpoint K2
+**Next session starting point:** K1 — Corpus Document Ingestion
+
+### Session Summary
+
+Implemented K2 in a single change to `api/main.py`:
+
+1. Added `import threading` to top-level imports.
+2. Added `_archive_oracle_turn(user_input, response, session_id)` daemon-thread helper that calls `knowledge.pipeline.ingest()` with `note_type="conversation"` and tags `["oracle", "conversation"]`. All exceptions are suppressed — the Oracle response is never blocked.
+3. Extracted `session_id` from the request body in `/api/commune/resonance`.
+4. Spawned the daemon thread after `reply` is assembled, before the return statement.
+
+Total delta: ~16 lines added. Zero lines removed from handler logic. Zero new dependencies.
+
+**Architecture fitness tests: 10/10 passing.**
+**Pre-push checklist: clean — no TODO/FIXME/XXX/HACK introduced in workspace source files.**
+**Pre-existing test collection errors (codex_brain) unchanged — not introduced by this checkpoint.**
+
+---
+
 ## Architectural Laws (Never Violate)
 
 1. One capability. One implementation. One canonical home.

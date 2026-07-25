@@ -13,7 +13,7 @@ Phase 1 — Runtime Stabilization
 K — Knowledge OS Integration (active)
 
 ## Checkpoint
-**K2 — Oracle Conversation Archival** (READY TO BEGIN)
+**K1 — Corpus Document Ingestion** (READY TO BEGIN)
 
 ---
 
@@ -28,6 +28,7 @@ K — Knowledge OS Integration (active)
 - ✅ Knowledge Recon: all 21 `docs/recon/` documents + `KNOWLEDGE_OS_EVOLUTION.md`
 - ✅ Backend LIVE: https://arkadia-kw64.onrender.com
 - ✅ Session infrastructure: `.bootstrap/`, `PARKING_LOT.md`, `REPOSITORY_SNAPSHOT.md`
+- ✅ K2 — Oracle Conversation Archival: daemon thread archives every Oracle turn into the Knowledge Layer
 
 ### Pending (manual — user action)
 - 🟡 `web/public_prism/.env.production` — `VITE_API_URL` must be updated to `https://arkadia-kw64.onrender.com` in Vercel dashboard before next frontend deploy

@@ -8,6 +8,7 @@ import base64
 import hashlib
 import hmac
 import httpx
+import threading
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from fastapi import FastAPI, Request, HTTPException
@@ -901,14 +902,29 @@ async def oracle_context(query: str = ""):
     }
 
 
+def _archive_oracle_turn(user_input: str, response: str, session_id: str) -> None:
+    """Fire-and-forget: archive each Oracle turn into the Knowledge Layer."""
+    try:
+        from knowledge import pipeline as kp
+        kp.ingest(
+            title=f"Oracle — {session_id[:8] if session_id else 'anon'}",
+            content=f"User: {user_input}\n\nArkana: {response}",
+            note_type="conversation",
+            tags=["oracle", "conversation"],
+        )
+    except Exception:
+        pass  # Never block the Oracle response
+
+
 @app.post("/api/commune/resonance")
 async def commune_resonance(request: Request):
     try:
         body = await request.json()
     except Exception:
         return JSONResponse(status_code=400, content={"error": "Invalid JSON body."})
-    message = body.get("message", "").strip()
-    history = body.get("history", [])
+    message    = body.get("message", "").strip()
+    history    = body.get("history", [])
+    session_id = body.get("session_id", "")
 
     if not message:
         return JSONResponse(status_code=400, content={"error": "No message."})
@@ -1072,6 +1088,11 @@ async def commune_resonance(request: Request):
 
     try:
         reply     = await _gemini_chat(msgs, system, api_key=active_key)
+        threading.Thread(
+            target=_archive_oracle_turn,
+            args=(message, reply, session_id),
+            daemon=True,
+        ).start()
         resonance = round(0.7 + (len(reply) % 30) / 100, 3)
         return {
             "reply":     reply,

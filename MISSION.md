@@ -8,11 +8,10 @@
 | Item | State |
 |---|---|
 | Backend | **LIVE** — https://arkadia-kw64.onrender.com |
-| Phase 0 — Endpoint migration | **COMPLETE** — all active references updated |
+| Phase 0 — Endpoint migration | **COMPLETE** |
 | Workstream B | **COMPLETE** — SQLite durability in production |
 | Gate B | **CLOSED** |
-| Workstream C | Started |
-| Knowledge Layer Recon | COMPLETE — `docs/recon/KNOWLEDGE_OS_EVOLUTION.md` |
+| K2 — Oracle Conversation Archival | **COMPLETE** |
 | Deployment | STABLE — do not revisit unless a checkpoint requires it |
 
 ---
@@ -31,10 +30,11 @@ Either in the Vercel dashboard under Environment Variables, or by updating `.env
 
 ## Mission
 
-**Begin Workstream K — Knowledge OS Integration**
+**Begin Workstream K — Checkpoint K1: Corpus Document Ingestion**
 
-This workstream does not build a Knowledge Layer.
-It connects the one that already exists.
+K2 is complete. Oracle conversations now enter the Knowledge Layer automatically.
+
+K1 connects the corpus ingestion pipeline so that uploaded/synced documents (scrolls, PDFs, markdown files) are processed through `knowledge/pipeline.ingest()` rather than only through the corpus RAG layer. This makes the Knowledge Graph aware of the full document corpus — not just Oracle conversations.
 
 ---
 
@@ -44,7 +44,7 @@ Read only:
 
 1. `MISSION.md` (this file)
 2. `.bootstrap/01_STATE.md`
-3. `docs/recon/KNOWLEDGE_OS_EVOLUTION.md` → sections "The Checkpoint: K2" and "Summary for Implementation Agent"
+3. `docs/recon/KNOWLEDGE_OS_EVOLUTION.md` → section "K1" only
 
 Then run:
 
@@ -65,6 +65,7 @@ Assume these are facts. Do not re-verify them.
 
 - Runtime durability is complete. SQLite is production ready.
 - Architecture governance is frozen.
+- K2 complete: Oracle turns are now archived to `knowledge/arkadia.db` via `_archive_oracle_turn()` daemon thread in `api/main.py`.
 - `knowledge/pipeline.py` exists — `ingest()` is the entry point.
 - `knowledge/context_engine.py` exists — `assemble_context()` is the retrieval entry point.
 - Semantic search, knowledge graph, timeline, and embeddings all exist.
@@ -75,45 +76,33 @@ Do not rebuild any of these.
 
 ---
 
-## Objective: K2 — Oracle Conversation Archival
+## Objective: K1 — Corpus Document Ingestion
 
-**The gap:** Every Oracle turn currently ends and is discarded.
-Zero embeddings. Zero graph links. Zero future retrieval.
+**The gap:** Uploaded corpus documents (scrolls, PDFs, markdown) are served through the RAG corpus layer but are NOT ingested into the Knowledge Layer (`knowledge/arkadia.db`). The Knowledge Graph has no awareness of document content — only of Oracle conversations (added in K2).
 
-**The fix:** ~8 lines. A fire-and-forget background thread after the Oracle response
-is assembled in `/api/commune/resonance` that calls `knowledge/pipeline.ingest()`.
+**The fix:** After a document is successfully stored/synced in the corpus, call `knowledge/pipeline.ingest()` with the document content. This should be a one-time ingestion per document (idempotent via the duplicate-detection already in `pipeline.ingest()`).
 
 **Files to read before writing any code:**
 
 ```
-api/main.py              — find /api/commune/resonance handler; locate where
-                           the response string is assembled before return
-knowledge/pipeline.py    — lines ~180–260: verify ingest() signature
+corpus/manager.py        — find where documents are stored/synced after upload
+knowledge/pipeline.py    — lines 182–210: ingest() signature (already verified in K2)
+api/main.py              — find corpus upload/sync endpoint(s)
 ```
 
-**Implementation sketch** (verify argument names against actual `pipeline.py`):
+**Implementation approach** (verify against actual code before writing):
+
+After a document is stored to the corpus, call in a daemon thread:
 
 ```python
-import threading
-from knowledge import pipeline as kp
-
-def _archive_oracle_turn(user_input: str, response: str, session_id: str) -> None:
-    try:
-        kp.ingest(
-            title=f"Oracle — {session_id[:8] if session_id else 'anon'}",
-            content=f"User: {user_input}\n\nArkana: {response}",
-            note_type="conversation",
-            tags=["oracle", "conversation"],
-        )
-    except Exception:
-        pass  # Never block the Oracle response
-
 threading.Thread(
-    target=_archive_oracle_turn,
-    args=(user_input, arkana_response, session_id),
+    target=_ingest_corpus_document,
+    args=(title, content, source_path),
     daemon=True,
 ).start()
 ```
+
+Where `_ingest_corpus_document` calls `pipeline.ingest()` with `note_type="document"` and appropriate tags.
 
 **Standing question — ask before every code change:**
 > What is the smallest connection that unlocks the existing Knowledge Layer without increasing maintenance?
@@ -166,10 +155,10 @@ Update only:
 
 ```
 MISSION.md                                      (rewrite for next checkpoint)
-.bootstrap/01_STATE.md                          (mark K2 complete, set K1 as next)
-NEXT_AGENT.md                                   (rewrite for K1)
-docs/checkpoints/K2_conversation_archival.md    (checkpoint record)
-docs/phase1/CONTINUATION_LEDGER.md              (session record — at session end)
+.bootstrap/01_STATE.md                          (mark K1 complete, set K5 as next)
+NEXT_AGENT.md                                   (rewrite for K5)
+docs/checkpoints/K1_corpus_ingestion.md        (checkpoint record)
+docs/phase1/CONTINUATION_LEDGER.md             (session record — at session end)
 ```
 
 Nothing else outside checkpoint scope.
@@ -202,19 +191,17 @@ Arkadia now uses parallel stewards per session:
 
 One engineer builds. Another validates. This preserves architectural discipline at speed.
 
-The Implementation Steward writes the checkpoint. The Verification Steward signs it off before merge.
-
 ---
 
 ## Success Condition
 
 At the end of this session:
 
-- ✅ Oracle conversations begin entering the Knowledge Layer
+- ✅ Corpus documents begin entering the Knowledge Layer on ingest
 - ✅ Architecture tests remain green (10/10)
-- ✅ Existing Oracle behaviour is preserved (response shape and latency unchanged)
+- ✅ Existing corpus RAG behaviour is preserved (response shape and latency unchanged)
 - ✅ Pre-push checklist clean
 - ✅ One commit pushed
-- ✅ MISSION.md rewritten for the next checkpoint (K1)
+- ✅ MISSION.md rewritten for the next checkpoint (K5)
 
 Then stop immediately.
