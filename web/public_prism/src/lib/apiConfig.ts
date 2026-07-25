@@ -19,9 +19,11 @@ if (import.meta.env.DEV) {
   _safeUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '';
 } else {
   // In production, resolve from env vars with Render as final fallback.
+  // Note: VITE_API_URL is intentionally excluded here — .env.production may
+  // contain a stale value from a previous deployment. Use VITE_API_BASE_URL
+  // (set in the Vercel dashboard) to override, or the RENDER_URL constant.
   const raw = (
     import.meta.env.VITE_API_BASE_URL ||
-    import.meta.env.VITE_API_URL ||
     RENDER_URL
   ).replace(/\/$/, '');
   _safeUrl = raw.startsWith('http') ? raw : RENDER_URL;
