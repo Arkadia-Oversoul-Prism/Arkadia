@@ -1,47 +1,43 @@
-# Session Handoff
+# Session Handoff — K2
 > Copy this file as the opening message to the next session.
-> Rewrite it at the end of every session.
 
 ---
 
 ## Completed
-- B0.5 — Baseline Integrity (fitness tests fixed, debt registered)
-- Infrastructure: `railway.json` + `docs/deployment/RAILWAY.md` (Railway deploy config)
-- Analysis: `DEPLOYMENT_OPTIONS.md` (Fly.io ⭐ vs Koyeb vs Local+Cloudflare Tunnel comparison)
-- Analysis: `docs/recon/KNOWLEDGE_OS_EVOLUTION.md` (Knowledge OS synthesis — Workstream K plan)
-- Session infrastructure: `.bootstrap/`, `PARKING_LOT.md`, `REPOSITORY_SNAPSHOT.md`
+- Workstream B — SQLite durability complete; Gate B CLOSED
+- Backend LIVE: https://arkadia-kw64.onrender.com
+- Knowledge OS recon complete: `docs/recon/KNOWLEDGE_OS_EVOLUTION.md`
+- Session infrastructure: `.bootstrap/`, MISSION.md, PARKING_LOT.md
 
-## Awaiting User Decision
-- **Deployment platform**: Fly.io (recommended), Koyeb, or Local + Cloudflare Tunnel — user must choose before running infrastructure agent
-- **Workstream K start**: K2 (Oracle Conversation Archival) is ready after B1 complete
+## This Session: K2 — Oracle Conversation Archival
 
-## Not Started
-- **B1.1 — SQLite Schema** ← implement this session
+**Read `MISSION.md` first.** It contains the full implementation brief.
+
+Quick version: add a background thread in `api/main.py` at the end of the `/api/commune/resonance` handler that calls `knowledge/pipeline.ingest()` with the conversation turn. ~8 lines. Non-blocking. Non-breaking.
 
 ---
 
-## Your Startup (follow exactly, in order)
+## Your Startup
 
-1. Read `.bootstrap/00_BOOT.md`
+1. Read `MISSION.md`
 2. Read `.bootstrap/01_STATE.md`
-3. Read `.bootstrap/03_SCOPE.md`
-4. Run: `pytest tests/architecture/ -v` — confirm 10/10
-5. Implement B1.1 (see `03_SCOPE.md`)
-6. Run verification once (see `.bootstrap/04_SUCCESS.md`)
-7. Update `.bootstrap/01_STATE.md`, `03_SCOPE.md`, `04_SUCCESS.md`
-8. Rewrite `NEXT_AGENT.md` for B1.2
-9. Stop
+3. Read `docs/recon/KNOWLEDGE_OS_EVOLUTION.md` (sections: "The Checkpoint: K2" and "Summary for Implementation Agent")
+4. Run `pytest tests/architecture -q` — confirm 10/10
+5. Read `api/main.py` around the `/api/commune/resonance` handler
+6. Read `knowledge/pipeline.py` lines 180–260 (the `ingest()` signature)
+7. Implement K2
+8. Run verification
+9. Update `MISSION.md`, `.bootstrap/01_STATE.md`, `NEXT_AGENT.md`
+10. Stop
 
 ## Do NOT Open
 - ENGINEERING_PRINCIPLES.md, ROADMAP.md, ARCHITECTURE_MAP.md, PHASE_GATES.md, any ADR
-- CONTINUATION_LEDGER.md (update it at session end, don't read it at start)
-- `docs/recon/KNOWLEDGE_OS_EVOLUTION.md` (already internalized — check DECISION_CACHE.md)
+- CONTINUATION_LEDGER.md at startup — only at session end to update it
 
-## Architecture is frozen. Do not challenge it. Obey it.
-
-## Begin In
-`kernel/storage/` — create directory, `__init__.py`, `schema.py`
-Schema DDL source: `docs/phase1/SQLITE_JOB_QUEUE_DESIGN.md`
+## Architecture is frozen. Connect, don't rebuild.
 
 ## Stop When
-All items in `.bootstrap/04_SUCCESS.md` are checked.
+- `pytest tests/architecture -q` is green
+- Oracle behaviour unchanged
+- One commit pushed
+- `MISSION.md` rewritten for K1 or next checkpoint

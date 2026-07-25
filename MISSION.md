@@ -1,36 +1,191 @@
-# Arkadia — Mission
-> One page. Never grow this file. Update at the end of every session.
-> Start here. Then read BOOTSTRAP.md and CURRENT_STATE.md. Nothing else is mandatory.
+# Arkadia Implementation Steward
+> Copy this file as the opening message to the next agent session.
 
 ---
 
-## Current Phase
-Phase 1 — Runtime Stabilization
+## Status
 
-## Current Workstream
-C — Corpus Synchronisation
+| Item | State |
+|---|---|
+| Backend | **LIVE** — https://arkadia-kw64.onrender.com |
+| Workstream B | **COMPLETE** — SQLite durability in production |
+| Gate B | **CLOSED** |
+| Workstream C | Started |
+| Knowledge Layer Recon | COMPLETE — `docs/recon/KNOWLEDGE_OS_EVOLUTION.md` |
+| Deployment | STABLE — do not revisit unless a checkpoint requires it |
 
-## Current Checkpoint
-**C1.2 — Incremental Sync Engine**
+---
 
-## Today's Goal
-Implement `github_corpus_incremental.py` with SHA-comparison logic, per-file
-checkpoint writes, and rate-limit backoff. Unit-test with mocked GitHub
-responses. Do not modify `github_corpus.py` or any API file.
+## Mission
 
-## Stop Condition
-`pytest tests/test_corpus_sync_incremental.py` passes.
-`pytest tests/architecture/` is 10/10.
-`github_corpus_incremental.py` implements the algorithm in CORPUS_SYNC_DESIGN.md.
-Repository is deployable.
+**Begin Workstream K — Knowledge OS Integration**
 
-## Success Criteria
-- [ ] `github_corpus_incremental.py` implements `incremental_sync()`
-- [ ] `load_sync_state()` / `save_sync_state()` read/write `corpus_sync_state`
-- [ ] `load_file_shas()` / `save_file_sha()` read/write `corpus_file_state`
-- [ ] `fetch_with_backoff()` handles 403 + X-RateLimit-Remaining
-- [ ] Unit tests cover: tree-unchanged fast-path, partial ingest, rate-limit abort, resumability
-- [ ] `pytest tests/test_corpus_sync_incremental.py` — all passing
-- [ ] Architecture fitness: 10/10
-- [ ] `docs/checkpoints/C1.2.md` written
-- [ ] `CURRENT_STATE.md` updated to C1.3 ready
+This workstream does not build a Knowledge Layer.
+It connects the one that already exists.
+
+---
+
+## Startup Protocol (Maximum 5 minutes)
+
+Read only:
+
+1. `MISSION.md` (this file)
+2. `.bootstrap/01_STATE.md`
+3. `docs/recon/KNOWLEDGE_OS_EVOLUTION.md`
+
+Then run:
+
+```bash
+pytest tests/architecture -q
+```
+
+If architecture tests fail: repair only those failures.
+If they pass: continue immediately.
+
+Do not read ADRs. Do not read ROADMAP. Do not read ENGINEERING_PRINCIPLES.
+Do not read CONTINUATION_LEDGER at startup — only at session end to update it.
+
+---
+
+## Repository Truth
+
+Assume these are facts. Do not re-verify them.
+
+- Runtime durability is complete. SQLite is production ready.
+- Architecture governance is frozen.
+- `knowledge/pipeline.py` exists and works — `ingest()` is the entry point.
+- `knowledge/context_engine.py` exists and works — `assemble_context()` is the retrieval entry point.
+- Semantic search, knowledge graph, timeline, and embeddings all exist.
+- Corpus pipeline (`corpus/manager.py`) exists and is connected to the Oracle today.
+
+Do not rebuild any of these.
+
+---
+
+## Objective
+
+Implement the first checkpoint of Workstream K.
+
+**Inspect only what is required** — do not explore beyond this list:
+
+```
+knowledge/pipeline.py          — find the ingest() signature
+api/main.py                    — find the /api/commune/resonance handler
+kernel/memory.py               — understand what currently feeds the Oracle
+```
+
+Identify:
+1. Where Oracle responses are produced in `api/main.py`
+2. The exact signature of `knowledge/pipeline.ingest()`
+3. Where to add the post-response hook
+
+---
+
+## Implementation Rule
+
+**Before writing any new code, search the repository for an existing implementation.**
+If the required capability already exists anywhere in the codebase, reuse it.
+Duplicate implementations are defects unless explicitly authorised by the active checkpoint.
+
+Do not redesign.
+Do not create new abstractions.
+Do not create a second pipeline.
+Do not replace the Context Engine.
+Do not create a new graph implementation.
+
+Connect existing systems using the smallest possible change.
+
+---
+
+## The Checkpoint: K2 — Oracle Conversation Archival
+
+Every Oracle turn currently ends and is discarded.
+Zero embeddings. Zero graph links. Zero future retrieval.
+
+**The fix:** add a background thread after the Oracle response is assembled in `/api/commune/resonance` that calls `knowledge/pipeline.ingest()` with the conversation turn.
+
+Implementation sketch (verify exact argument names against `pipeline.py`):
+
+```python
+import threading
+from knowledge import pipeline as kp
+
+def _archive_oracle_turn(user_input: str, response: str, session_id: str) -> None:
+    try:
+        kp.ingest(
+            title=f"Oracle — {session_id[:8] if session_id else 'anon'}",
+            content=f"User: {user_input}\n\nArkana: {response}",
+            note_type="conversation",
+            tags=["oracle", "conversation"],
+        )
+    except Exception:
+        pass  # Never block the Oracle response
+
+threading.Thread(
+    target=_archive_oracle_turn,
+    args=(user_input, arkana_response, session_id),
+    daemon=True,
+).start()
+```
+
+**Standing question — ask before every code change:**
+> What is the smallest connection that unlocks the existing Knowledge Layer without increasing maintenance?
+
+---
+
+## Constraints
+
+- No governance edits
+- No ADR edits
+- No ROADMAP edits
+- No architecture refactors
+- No speculative optimisation
+- No new framework or dependency
+- No duplicate retrieval engine
+- No new graph implementation
+- No replacement of the Context Engine
+
+---
+
+## Deliverables
+
+Exactly one checkpoint. Exactly one commit. Exactly one push.
+
+Update only:
+
+```
+MISSION.md                              (rewrite for next session)
+.bootstrap/01_STATE.md                  (mark K2 complete, set next checkpoint)
+docs/checkpoints/K2_conversation_archival.md   (checkpoint record)
+docs/phase1/CONTINUATION_LEDGER.md     (session record)
+```
+
+Nothing else outside checkpoint scope.
+
+---
+
+## Verification
+
+After implementation, run once:
+
+```bash
+pytest tests/architecture -q           # must be 10/10
+pytest tests/ -q                       # must pass (or show only pre-existing failures)
+```
+
+The repository must remain deployable.
+Workflow failures due to missing secrets are pre-existing — ignore them.
+
+---
+
+## Success Condition
+
+At the end of this session:
+
+- ✅ Oracle conversations begin entering the Knowledge Layer
+- ✅ Architecture tests remain green (10/10)
+- ✅ Existing Oracle behaviour is preserved (no change to response shape or latency)
+- ✅ One commit pushed
+- ✅ MISSION.md rewritten for the next checkpoint
+
+Then stop immediately.

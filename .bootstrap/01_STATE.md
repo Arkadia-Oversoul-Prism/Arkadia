@@ -10,42 +10,46 @@ BUILD
 Phase 1 — Runtime Stabilization
 
 ## Workstream
-B — Durable Persistence (runtime track)
-K — Knowledge OS Wiring (knowledge track, starts after B1 complete)
+K — Knowledge OS Integration (active)
 
 ## Checkpoint
-**B1.1 — SQLite Schema** (READY TO BEGIN — first priority)
+**K2 — Oracle Conversation Archival** (READY TO BEGIN)
+
+---
 
 ## True Current Position
 
 ### Completed
 - ✅ B0.5 — Baseline Integrity (fitness tests fixed, debt registered)
-- ✅ Infrastructure Steward session: `railway.json` + `docs/deployment/RAILWAY.md` created
-- ✅ Knowledge Architect recon: all 21 `docs/recon/` documents exist
-- ✅ `docs/recon/KNOWLEDGE_OS_EVOLUTION.md` — Knowledge OS synthesis written
-- ✅ `DEPLOYMENT_OPTIONS.md` — Fly.io / Koyeb / Cloudflare Tunnel comparison written
-- ✅ `.bootstrap/` session infrastructure (00–04), PARKING_LOT, REPOSITORY_SNAPSHOT, NEXT_AGENT
+- ✅ Workstream B — SQLite durability complete; Gate B CLOSED
+- ✅ Workstream C — Started
+- ✅ Infrastructure: `railway.json`, `docs/deployment/RAILWAY.md`, `DEPLOYMENT_OPTIONS.md`
+- ✅ Knowledge Recon: all 21 `docs/recon/` documents + `KNOWLEDGE_OS_EVOLUTION.md`
+- ✅ Session infrastructure: `.bootstrap/`, `PARKING_LOT.md`, `REPOSITORY_SNAPSHOT.md`
+- ✅ Backend LIVE: https://arkadia-kw64.onrender.com
 
-### Blocked (waiting on user decision)
-- 🔴 Deployment: user must choose Fly.io vs Koyeb vs Local + Cloudflare (see `DEPLOYMENT_OPTIONS.md`)
-- 🔴 Workstream K: user must decide to begin after B1 completes
+### Next Checkpoint
+**K2 — Oracle Conversation Archival**
 
-### Ready to implement
-- **B1.1 — SQLite Schema** (`kernel/storage/schema.py`) — no blockers
+Add a fire-and-forget background call to `knowledge/pipeline.ingest()` at the end of the `/api/commune/resonance` handler in `api/main.py`.
 
-## Last Commit
-B0.5 complete + session infrastructure + DEPLOYMENT_OPTIONS.md + KNOWLEDGE_OS_EVOLUTION.md
+Every Oracle turn will be embedded and stored in `knowledge/arkadia.db`.
+~8 lines of code. Non-blocking. Non-breaking.
+
+See `MISSION.md` for implementation sketch.
 
 ## Repository Health
 - Architecture fitness tests: **10/10**
 - Registered layer violations: 10 (LAYER_MAP.py — do not touch)
 - Registered circular imports: 3 (LAYER_MAP.py — do not touch)
-- Workflows: failing (pre-existing — missing secrets, not a B1 blocker)
-- Deployment: Railway configured but free tier exhausted; awaiting platform decision
+- Workflows (local Replit): failing (pre-existing — missing secrets)
+- Production: LIVE at https://arkadia-kw64.onrender.com
 
-## Next Checkpoints
-- **B1.1** — SQLite Schema (implement now)
-- **B1.2** — SQLiteJobStore + SQLiteGoalStore
-- **B1.3** — Worker Integration
-- **B1.4** — Cleanup / Gate B close
-- **K2** — Oracle Conversation Archival (after B1 complete)
+## Blocked By
+Nothing.
+
+## Next Checkpoints After K2
+- K1 — Corpus Document Ingestion
+- K5 — Static Ingestion (vault, ADRs, open loops)
+- K3 — Context Engine Wiring (replaces corpus/manager.py)
+- K4 — Response Provenance (citable sources in Oracle response)
