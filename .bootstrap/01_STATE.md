@@ -10,31 +10,42 @@ BUILD
 Phase 1 — Runtime Stabilization
 
 ## Workstream
-B — Durable Persistence
+B — Durable Persistence (runtime track)
+K — Knowledge OS Wiring (knowledge track, starts after B1 complete)
 
 ## Checkpoint
-**B1.1 — SQLite Schema** (READY TO BEGIN)
+**B1.1 — SQLite Schema** (READY TO BEGIN — first priority)
 
-## Current Goal
-Create the SQLite schema for the runtime database (`data/runtime.db`).
-This is the foundation for all durable job and goal persistence.
+## True Current Position
+
+### Completed
+- ✅ B0.5 — Baseline Integrity (fitness tests fixed, debt registered)
+- ✅ Infrastructure Steward session: `railway.json` + `docs/deployment/RAILWAY.md` created
+- ✅ Knowledge Architect recon: all 21 `docs/recon/` documents exist
+- ✅ `docs/recon/KNOWLEDGE_OS_EVOLUTION.md` — Knowledge OS synthesis written
+- ✅ `DEPLOYMENT_OPTIONS.md` — Fly.io / Koyeb / Cloudflare Tunnel comparison written
+- ✅ `.bootstrap/` session infrastructure (00–04), PARKING_LOT, REPOSITORY_SNAPSHOT, NEXT_AGENT
+
+### Blocked (waiting on user decision)
+- 🔴 Deployment: user must choose Fly.io vs Koyeb vs Local + Cloudflare (see `DEPLOYMENT_OPTIONS.md`)
+- 🔴 Workstream K: user must decide to begin after B1 completes
+
+### Ready to implement
+- **B1.1 — SQLite Schema** (`kernel/storage/schema.py`) — no blockers
 
 ## Last Commit
-B0.5 complete — baseline integrity: fitness test direction fixed, debt registered, registry renamed ALLOWED_VIOLATIONS → REGISTERED_ARCHITECTURAL_DEBT.
+B0.5 complete + session infrastructure + DEPLOYMENT_OPTIONS.md + KNOWLEDGE_OS_EVOLUTION.md
 
 ## Repository Health
 - Architecture fitness tests: **10/10**
 - Registered layer violations: 10 (LAYER_MAP.py — do not touch)
 - Registered circular imports: 3 (LAYER_MAP.py — do not touch)
 - Workflows: failing (pre-existing — missing secrets, not a B1 blocker)
+- Deployment: Railway configured but free tier exhausted; awaiting platform decision
 
-## Blocked By
-Nothing.
-
-## Known Debt
-See `REPOSITORY_SNAPSHOT.md` → Debt Registry section. All 13 entries assigned to Workstream A, Gate E. Do not touch in B1.
-
-## Next Checkpoints (implement only when current is done)
-- B1.2 — SQLiteJobStore
-- B1.3 — Worker Integration
-- B1.4 — Cleanup / Gate B close
+## Next Checkpoints
+- **B1.1** — SQLite Schema (implement now)
+- **B1.2** — SQLiteJobStore + SQLiteGoalStore
+- **B1.3** — Worker Integration
+- **B1.4** — Cleanup / Gate B close
+- **K2** — Oracle Conversation Archival (after B1 complete)

@@ -14,6 +14,13 @@ Every agent session reads exactly these, in order:
 4. `pytest tests/architecture/ -v` — verify 10/10
 5. Implement. Verify once. Stop.
 
+## True Current State (as of 2026-07-25)
+- Railway deployment done: `railway.json` + `docs/deployment/RAILWAY.md`
+- All 21 recon docs exist in `docs/recon/`
+- `docs/recon/KNOWLEDGE_OS_EVOLUTION.md` written (K workstream plan)
+- `DEPLOYMENT_OPTIONS.md` written (Fly.io ⭐ recommended; awaiting user decision)
+- Next implementation: B1.1 — SQLite Schema
+
 ## The 6 Files
 
 | File | Purpose | Updated when |
