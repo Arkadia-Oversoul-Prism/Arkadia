@@ -5,14 +5,13 @@
 ---
 
 ## Completed This Session
-- C1.1 — Corpus Sync Schema Extension
-  - `kernel/storage/schema.py` — added `corpus_sync_state` + `corpus_file_state` tables
-  - `tests/test_corpus_sync_schema.py` — 13 tests, all passing
-  - `docs/checkpoints/C1.1.md` — written and closed
-  - Total: 81/81 tests passing; architecture fitness 10/10
+- Infrastructure: Railway deployment configuration
+  - `railway.json` (root) — DOCKERFILE builder, healthcheck `/api/heartbeat`, restart policy
+  - `docs/deployment/RAILWAY.md` — full deployment guide: env vars, volume config, Render migration, rollback
+  - No application code modified; 81/81 tests passing; architecture fitness 10/10
 
 ## Not Started
-- C1.2 — Incremental Sync Engine
+- C1.2 — Incremental Sync Engine (`github_corpus_incremental.py`)
 
 ---
 
@@ -36,9 +35,9 @@
 
 ## Key Files for C1.2
 - `docs/phase1/CORPUS_SYNC_DESIGN.md` — full algorithm, schema, rate-limit spec
-- `github_corpus.py` — existing full-tree sync; read to understand `should_ingest()` and `ingest_document()` signatures before replicating them
-- `kernel/storage/schema.py` — `corpus_sync_state` + `corpus_file_state` DDL (for column reference)
-- `data/runtime.db` — created at runtime by `create_tables()`; pass `ARKADIA_DB_PATH` env var in tests
+- `github_corpus.py` — existing full-tree sync; read to understand `should_ingest()` and `ingest_document()` signatures
+- `kernel/storage/schema.py` — column reference for `corpus_sync_state` + `corpus_file_state`
+- Pass `ARKADIA_DB_PATH` env var in tests to use a temp database
 
 ## Stop When
 `pytest tests/test_corpus_sync_incremental.py` passes.

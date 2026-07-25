@@ -82,6 +82,39 @@ This session:
 
 ---
 
+## Session: Infrastructure — Railway Migration
+
+**Session date:** ARK Y1 · D117 (2026-07-25)
+**Role:** Infrastructure Steward
+**Session type:** Infrastructure — Railway deployment configuration (NO application code changed)
+**Next session starting point:** Begin C1.2 — Incremental Sync Engine
+
+### Session Summary
+
+Render free-tier allocation exhausted. Backend migrated to Railway.
+
+**Files created:**
+- `railway.json` (root) — DOCKERFILE builder, `healthcheckPath: /api/heartbeat`, restart-on-failure policy
+- `docs/deployment/RAILWAY.md` — full operator guide: env vars, persistent volume setup, migration from Render, rollback procedure
+
+**No application code was modified.** `entrypoint.sh`, `Dockerfile`, `api/main.py`, and all kernel files are untouched.
+
+**Architecture fitness tests: 10/10 passing (unchanged).**
+
+### Operator Actions Still Required
+
+The following must be completed by the project operator in the Railway dashboard before the backend is live:
+
+1. Create a Railway service from this GitHub repo (Railway detects `railway.json` automatically).
+2. Set required environment variables: `ENVIRONMENT`, `SOVEREIGN_KEY`, `GOOGLE_API_KEY`, `CORS_ALLOWED_ORIGINS`.
+3. Add a persistent volume mounted at `/arkadia-data`.
+4. Set `SOLSPIRE_DATA_DIR=/arkadia-data` and `ARKADIA_DB_PATH=/arkadia-data/arkadia.db`.
+5. Update frontend `ORACLE_URL` references from the old Render domain to the new Railway domain.
+
+See `docs/deployment/RAILWAY.md` for full steps.
+
+---
+
 ## Session: B1.1 — SQLite Schema
 
 **Session date:** ARK Y1 · D116 (2026-07-24)

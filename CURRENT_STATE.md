@@ -24,12 +24,8 @@ responses. Do not touch `github_corpus.py`, `api/`, or architecture tests.
 - Implement `load_sync_state()` / `save_sync_state()` using `corpus_sync_state` table
 - Implement `load_file_shas()` / `save_file_sha()` using `corpus_file_state` table
 - Implement `fetch_with_backoff()` with rate-limit handling (X-RateLimit-Remaining)
-- Write `tests/test_corpus_sync_incremental.py` covering:
-  - Tree-unchanged fast-path (returns early, no file fetches)
-  - Only changed files fetched (SHA diff)
-  - Per-file checkpoint: partial ingest resumable on next call
-  - Rate-limit abort: saves progress, aborts cleanly
-  - `should_ingest()` filters non-eligible files
+- Write `tests/test_corpus_sync_incremental.py`
+- `github_corpus.py` is NOT modified
 
 ## Stop When
 All tests pass. Architecture fitness 10/10. `github_corpus.py` untouched. Repository deployable.
@@ -53,6 +49,12 @@ Nothing.
 - Total: 81/81 passing
 - Workflows: failing (pre-existing — missing secrets, not a C1 blocker)
 
+## Deployment Status
+- **Render:** exhausted free-tier allocation — unavailable
+- **Railway:** configuration committed (`railway.json` + `docs/deployment/RAILWAY.md`)
+  - Pending: operator must create Railway service, set env vars, add volume at `/arkadia-data`
+  - See `docs/deployment/RAILWAY.md` for full steps
+
 ## Success Criteria (C1.2)
 - [ ] `github_corpus_incremental.py` exists at repo root
 - [ ] `incremental_sync()` implements algorithm from CORPUS_SYNC_DESIGN.md
@@ -64,10 +66,10 @@ Nothing.
 - [ ] `CURRENT_STATE.md` updated to C1.3 ready
 
 ## Last Session
-C1.1 — Corpus Sync Schema Extension complete.
-- Added `_CORPUS_SYNC_DDL` to `kernel/storage/schema.py`
-- Added `corpus_sync_state` and `corpus_file_state` tables
-- Created `tests/test_corpus_sync_schema.py` (13 tests, all passing)
+Infrastructure — Railway migration configuration.
+- Created `railway.json` (root): DOCKERFILE builder, healthcheck `/api/heartbeat`, restart on failure
+- Created `docs/deployment/RAILWAY.md`: env vars, volume setup, migration from Render, rollback
+- No application code modified
 - Architecture fitness: 10/10 (unchanged)
 
 ## Next Checkpoints (do not implement yet)
