@@ -217,10 +217,13 @@ if _cors_env:
     # Explicit override — use exactly what is configured
     _CORS_ORIGINS: list[str] = [o.strip() for o in _cors_env.split(",") if o.strip()]
 elif _is_production:
-    # Production without explicit config: lock to the canonical deployment URL only.
+    # Production without explicit config: lock to known frontend origins.
     # localhost origins must never be allowed in production — they would permit
     # any localhost-based request to make credentialed cross-origin calls.
-    _CORS_ORIGINS = ["https://arkadia-kw64.onrender.com"]
+    _CORS_ORIGINS = [
+        "https://arkadia-prism.vercel.app",
+        "https://arkadia-kw64.onrender.com",
+    ]
 else:
     # Development: include localhost variants for convenience
     _CORS_ORIGINS = [
