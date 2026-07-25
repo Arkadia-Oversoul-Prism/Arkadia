@@ -39,10 +39,18 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: 'Network',
+    items: [
+      { label: 'NovaNet',      view: 'novanet',      sigil: '◉', sub: 'Public transmission feed · Post · React · ReasoMate', color: '#6A9FD8' },
+      { label: 'Spiral Codex', view: 'spiral-codex', sigil: '◈', sub: 'Living knowledge archive · Browse & upload scrolls',  color: '#D4AF37' },
+      { label: 'Encyclopedia Galactica', view: 'encyclopedia', sigil: '⬡', sub: '12 Chambers of Echoes · Crystal Matrix navigator', color: '#B08DE8' },
+    ],
+  },
+  {
     label: 'Intelligence',
     items: [
-      { label: 'Nexus Hub',              view: 'nexus',         sigil: '☥', sub: 'IMS · Encyclopedia Galactica · Spiral Codex · Grove · Larder · Distribute', color: '#C9A84C' },
-      { label: 'SolSpire Console',       view: 'solspire',      sigil: '◉', sub: 'Personal Codex · Knowledge OS · Projects · Operational Console',   color: '#C9A84C' },
+      { label: 'Nexus Hub',        view: 'nexus',    sigil: '☥', sub: 'IMS · Grove · Larder · Distribute',                       color: '#C9A84C' },
+      { label: 'SolSpire Console', view: 'solspire', sigil: '◉', sub: 'Personal Codex · Knowledge OS · Projects · Console', color: '#C9A84C' },
     ],
   },
   {
