@@ -5,14 +5,14 @@
 ---
 
 ## Completed This Session
-- B1.2 — SQLiteJobStore + SQLiteGoalStore
-  - `kernel/storage/sqlite_job_store.py` — 21 tests passing
-  - `kernel/storage/sqlite_goal_store.py` — 26 tests passing
-  - `MISSION.md` created (one-page session orientation)
-  - Total: 68/68 tests passing; architecture fitness 10/10
+- C1.1 — Corpus Sync Schema Extension
+  - `kernel/storage/schema.py` — added `corpus_sync_state` + `corpus_file_state` tables
+  - `tests/test_corpus_sync_schema.py` — 13 tests, all passing
+  - `docs/checkpoints/C1.1.md` — written and closed
+  - Total: 81/81 tests passing; architecture fitness 10/10
 
 ## Not Started
-- B1.3 — Worker Integration
+- C1.2 — Incremental Sync Engine
 
 ---
 
@@ -34,16 +34,15 @@
 - ACTIVE_CONTEXT.md (superseded by MISSION.md)
 - DECISION_CACHE.md (unless blocked by a design question)
 
-## Key Files for B1.3
-- `kernel/jobs.py` — replace JobStore backend (read it first; match existing module-level API)
-- `kernel/goals.py` — replace GoalStore backend (read it first)
-- `kernel/storage/sqlite_job_store.py` — already done; import from here
-- `kernel/storage/sqlite_goal_store.py` — already done; import from here
-- `data/job_store.json` / `data/goal_store.json` — migration source; preserve read-only
+## Key Files for C1.2
+- `docs/phase1/CORPUS_SYNC_DESIGN.md` — full algorithm, schema, rate-limit spec
+- `github_corpus.py` — existing full-tree sync; read to understand `should_ingest()` and `ingest_document()` signatures before replicating them
+- `kernel/storage/schema.py` — `corpus_sync_state` + `corpus_file_state` DDL (for column reference)
+- `data/runtime.db` — created at runtime by `create_tables()`; pass `ARKADIA_DB_PATH` env var in tests
 
 ## Stop When
-`pytest tests/test_jobs_migration.py` passes.
+`pytest tests/test_corpus_sync_incremental.py` passes.
 `pytest tests/architecture/` is 10/10.
-`MISSION.md` updated to B1.4.
-`CURRENT_STATE.md` updated to B1.4 ready.
-This file rewritten for the B1.4 session.
+`MISSION.md` updated to C1.3.
+`CURRENT_STATE.md` updated to C1.3 ready.
+This file rewritten for the C1.3 session.

@@ -2,7 +2,7 @@
 
 Single responsibility: define DDL and expose ``create_tables()``.
 Nothing in this module touches kernel/jobs.py, kernel/goals.py, or
-the API layer. Those integrations belong to B1.2 and B1.3.
+the API layer.  Corpus sync tables added in C1.1.
 
 Usage::
 
@@ -74,6 +74,29 @@ CREATE INDEX IF NOT EXISTS idx_goals_status   ON goals (status);
 CREATE INDEX IF NOT EXISTS idx_goals_next_run ON goals (next_run);
 """
 
+# Workstream C — Corpus Synchronisation (C1.1)
+# Tracks incremental GitHub corpus sync state so that only changed files
+# are fetched on subsequent runs.  See docs/phase1/CORPUS_SYNC_DESIGN.md.
+_CORPUS_SYNC_DDL = """
+CREATE TABLE IF NOT EXISTS corpus_sync_state (
+    key        TEXT PRIMARY KEY,
+    tree_sha   TEXT NOT NULL,
+    synced_at  REAL NOT NULL,
+    file_count INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS corpus_file_state (
+    repo_key    TEXT NOT NULL,
+    path        TEXT NOT NULL,
+    file_sha    TEXT NOT NULL,
+    ingested_at REAL NOT NULL,
+    PRIMARY KEY (repo_key, path)
+);
+
+CREATE INDEX IF NOT EXISTS idx_corpus_file_state_repo_key
+    ON corpus_file_state (repo_key);
+"""
+
 
 # ── Public API ───────────────────────────────────────────────────────────────
 
@@ -102,6 +125,7 @@ def create_tables(db_path: str | None = None) -> str:
         conn.executescript(_PRAGMAS)
         conn.executescript(_JOBS_DDL)
         conn.executescript(_GOALS_DDL)
+        conn.executescript(_CORPUS_SYNC_DDL)
         conn.commit()
     finally:
         conn.close()

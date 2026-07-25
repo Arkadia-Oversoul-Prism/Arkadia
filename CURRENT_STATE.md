@@ -8,28 +8,34 @@
 Phase 1 — Runtime Stabilization
 
 ## Checkpoint
-**B1.3 — Worker Integration** (READY TO BEGIN)
+**C1.2 — Incremental Sync Engine** (READY TO BEGIN)
 
 ## Mode
 BUILD
 
 ## Objective
-Wire `kernel/jobs.py` to use `SQLiteJobStore` and `kernel/goals.py` to use `SQLiteGoalStore`.
-Run the JSON→SQLite migration on first startup. Add restart and concurrency tests on the live path.
+Implement `github_corpus_incremental.py` with the incremental sync algorithm
+from `docs/phase1/CORPUS_SYNC_DESIGN.md`. Unit-test with mocked GitHub
+responses. Do not touch `github_corpus.py`, `api/`, or architecture tests.
 
 ## Scope (this checkpoint only)
-- Edit `kernel/jobs.py`: import `SQLiteJobStore as JobStore` from `kernel.storage.sqlite_job_store`
-- Edit `kernel/goals.py`: import `SQLiteGoalStore as GoalStore` from `kernel.storage.sqlite_goal_store`
-- Add migration: on first startup, if `data/runtime.db` does not exist, import `data/job_store.json` and `data/goal_store.json`
-- Write `tests/test_jobs_migration.py` — verifies JSON→SQLite import integrity
-- Run restart simulation test (RUNNING → PENDING recovery on new store init)
-- Run concurrency test on the wired-up path
+- Create `github_corpus_incremental.py` at repo root (alongside `github_corpus.py`)
+- Implement `incremental_sync(repo, branch, token)` → `SyncResult`
+- Implement `load_sync_state()` / `save_sync_state()` using `corpus_sync_state` table
+- Implement `load_file_shas()` / `save_file_sha()` using `corpus_file_state` table
+- Implement `fetch_with_backoff()` with rate-limit handling (X-RateLimit-Remaining)
+- Write `tests/test_corpus_sync_incremental.py` covering:
+  - Tree-unchanged fast-path (returns early, no file fetches)
+  - Only changed files fetched (SHA diff)
+  - Per-file checkpoint: partial ingest resumable on next call
+  - Rate-limit abort: saves progress, aborts cleanly
+  - `should_ingest()` filters non-eligible files
 
 ## Stop When
-All tests pass. `kernel/jobs.py` and `kernel/goals.py` use SQLite. JSON files preserved read-only. Architecture fitness 10/10.
+All tests pass. Architecture fitness 10/10. `github_corpus.py` untouched. Repository deployable.
 
 ## Do Not Touch
-- `kernel/worker.py` (unchanged — it calls jobs.get_store() which will now return SQLiteJobStore)
+- `github_corpus.py` (unchanged until C1.3 cutover)
 - `api/` (any file)
 - Fitness tests / LAYER_MAP.py
 - ADRs / Governance docs
@@ -43,26 +49,27 @@ Nothing.
 - Schema tests: 11/11 passing (B1.1)
 - Job store tests: 21/21 passing (B1.2)
 - Goal store tests: 26/26 passing (B1.2)
-- Total: 68/68 passing
-- Workflows: failing (pre-existing — missing secrets, not a B1 blocker)
+- Corpus sync schema tests: 13/13 passing (C1.1)
+- Total: 81/81 passing
+- Workflows: failing (pre-existing — missing secrets, not a C1 blocker)
 
-## Success Criteria (B1.3)
-- [ ] `kernel/jobs.py` uses SQLiteJobStore
-- [ ] `kernel/goals.py` uses SQLiteGoalStore
-- [ ] JSON→SQLite migration runs on first startup
-- [ ] `pytest tests/test_jobs_migration.py` passes
-- [ ] Restart simulation passes
-- [ ] Concurrency test passes
+## Success Criteria (C1.2)
+- [ ] `github_corpus_incremental.py` exists at repo root
+- [ ] `incremental_sync()` implements algorithm from CORPUS_SYNC_DESIGN.md
+- [ ] `fetch_with_backoff()` handles 403 + rate-limit headers
+- [ ] `pytest tests/test_corpus_sync_incremental.py` passes
 - [ ] `pytest tests/architecture/` still 10/10
 - [ ] Repository deployable
-- [ ] Continuation Ledger updated
+- [ ] `docs/checkpoints/C1.2.md` written
+- [ ] `CURRENT_STATE.md` updated to C1.3 ready
 
 ## Last Session
-B1.2 — SQLiteJobStore + SQLiteGoalStore complete.
-- Created `kernel/storage/sqlite_job_store.py` (SQLiteJobStore, 21 tests all passing)
-- Created `kernel/storage/sqlite_goal_store.py` (SQLiteGoalStore, 26 tests all passing)
-- Created `MISSION.md` (one-page session orientation)
+C1.1 — Corpus Sync Schema Extension complete.
+- Added `_CORPUS_SYNC_DDL` to `kernel/storage/schema.py`
+- Added `corpus_sync_state` and `corpus_file_state` tables
+- Created `tests/test_corpus_sync_schema.py` (13 tests, all passing)
 - Architecture fitness: 10/10 (unchanged)
 
 ## Next Checkpoints (do not implement yet)
-- B1.4 — Cleanup / Gate B close
+- C1.3 — Integration: switch `/api/sync` endpoint to `incremental_sync()`
+- C1.4 — Cleanup: remove legacy `github_corpus.py` after two stable cycles; close Gate F

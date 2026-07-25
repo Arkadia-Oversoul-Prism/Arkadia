@@ -139,12 +139,11 @@ Created the `kernel/storage/` package and the SQLite runtime database schema.
 - [ ] Extract Firebase sync adapters from kernel layer
 - [ ] Verify: `import kernel.execution` does not load any `api/` module
 
-### Workstream C — Corpus Synchronisation (Fifth Priority)
-- [ ] Add `corpus_sync_state` and `corpus_file_state` tables to `data/runtime.db`
-- [ ] Implement `github_corpus_incremental.py`
-- [ ] Validate with two live sync cycles
-- [ ] Switch `/api/sync` endpoint to incremental version
-- [ ] Remove legacy `github_corpus.py` code (two weeks after stable operation)
+### Workstream C — Corpus Synchronisation (Active)
+- [x] **C1.1 CLOSED** — schema extension: `corpus_sync_state` + `corpus_file_state` tables (13 tests; see `docs/checkpoints/C1.1.md`)
+- [ ] **C1.2** — Implement `github_corpus_incremental.py` (SHA comparison, rate-limit backoff, per-file checkpoint)
+- [ ] **C1.3** — Switch `/api/sync` endpoint to `incremental_sync()`
+- [ ] **C1.4** — Cleanup: remove `github_corpus.py` after two stable cycles; close Gate F
 
 ---
 
