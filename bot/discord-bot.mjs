@@ -8,7 +8,7 @@ dotenv.config();
 
 const CONFIG = {
   discordToken: process.env.DISCORD_BOT_TOKEN,
-  oracleUrl: process.env.ORACLE_URL || 'https://arkadia-n26k.onrender.com',
+  oracleUrl: process.env.ORACLE_URL || 'https://arkadia-kw64.onrender.com',
   memoryPath: './MEMORY.md',
   identityPath: './IDENTITY.md',
   asyncJobs: String(process.env.DISCORD_ASYNC_JOBS || '').toLowerCase() === 'true',

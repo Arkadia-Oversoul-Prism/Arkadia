@@ -6,7 +6,7 @@
     "host": "0.0.0.0"
   },
   "oracle": {
-    "base_url": "https://arkadia-n26k.onrender.com",
+    "base_url": "https://arkadia-kw64.onrender.com",
     "spawn_endpoint": "/api/agent/spawn",
     "poll_endpoint": "/api/job/{job_id}",
     "poll_interval_ms": 2000,

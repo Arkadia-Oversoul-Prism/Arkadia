@@ -11,7 +11,7 @@ const CONFIG = {
   telegramToken: process.env.TELEGRAM_BOT_TOKEN,
   geminiApiKey: process.env.GEMINI_API_KEY,
   geminiModel: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
-  oracleUrl: process.env.ORACLE_URL || 'https://arkadia-n26k.onrender.com',
+  oracleUrl: process.env.ORACLE_URL || 'https://arkadia-kw64.onrender.com',
   workspace: process.cwd(),
   memoryPath: './MEMORY.md',
   identityPath: './IDENTITY.md',

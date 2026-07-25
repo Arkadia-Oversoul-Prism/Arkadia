@@ -4,7 +4,7 @@
 
 | Service | URL | Platform |
 |---|---|---|
-| Oracle Backend | https://arkadia-n26k.onrender.com | Render |
+| Oracle Backend | https://arkadia-kw64.onrender.com | Render |
 | Prism Frontend | https://arkadia-prism.vercel.app | Vercel |
 | OpenClaw Gateway | Deploy via Railway (see below) | Railway |
 
@@ -20,7 +20,7 @@
                        │  POST /api/agent/spawn
                        │  { intent, agent, context, source }
 ┌──────────────────────▼───────────────────────────────────┐
-│             ORACLE — arkadia-n26k.onrender.com           │
+│             ORACLE — arkadia-kw64.onrender.com           │
 │  FastAPI · Gemini fallback chain · kernel workers        │
 │  goal scheduler · weaver self-evolution · RAG corpus     │
 │  Returns job_id immediately. Workers execute async.      │
@@ -66,7 +66,7 @@ FIREBASE_SERVICE_ACCOUNT_JSON    # Enables Firestore state persistence
 ### Test the spawn endpoint
 
 ```bash
-curl -X POST https://arkadia-n26k.onrender.com/api/agent/spawn \
+curl -X POST https://arkadia-kw64.onrender.com/api/agent/spawn \
   -H "Content-Type: application/json" \
   -d '{
     "intent": "Generate an Ifa reading for the Arkadia lattice",
@@ -89,7 +89,7 @@ Expected response:
 ### Poll for result
 
 ```bash
-curl https://arkadia-n26k.onrender.com/api/job/job_abc123
+curl https://arkadia-kw64.onrender.com/api/job/job_abc123
 ```
 
 ---
@@ -156,7 +156,7 @@ fly logs     # live log stream
 
 Once deployed, send a message to your Telegram bot. OpenClaw will:
 1. Receive the message
-2. `POST https://arkadia-n26k.onrender.com/api/agent/spawn`
+2. `POST https://arkadia-kw64.onrender.com/api/agent/spawn`
 3. Poll `/api/job/{job_id}` every 2s until complete
 4. Reply with the Oracle's result in Telegram
 

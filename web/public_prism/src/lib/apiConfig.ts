@@ -7,7 +7,7 @@
  */
 
 // The Render backend URL - production fallback only
-const RENDER_URL = 'https://arkadia-n26k.onrender.com';
+const RENDER_URL = 'https://arkadia-kw64.onrender.com';
 
 let _safeUrl: string;
 

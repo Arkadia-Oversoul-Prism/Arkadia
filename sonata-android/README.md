@@ -63,7 +63,7 @@ keytool -genkey -v -keystore sonata-release.jks \
 
 ## Configuration
 
-In the Settings screen, enter your Arkadia backend URL (e.g. `https://arkadia-n26k.onrender.com`) to enable neural voice quality. Leave blank to use offline Android TTS.
+In the Settings screen, enter your Arkadia backend URL (e.g. `https://arkadia-kw64.onrender.com`) to enable neural voice quality. Leave blank to use offline Android TTS.
 
 ## Permissions
 
