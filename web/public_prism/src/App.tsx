@@ -10,7 +10,6 @@ const DashboardView = lazy(() => import('./pages/DashboardView'));
 import NexusPage from './pages/NexusPage';
 import EncyclopediaGalactica from './pages/EncyclopediaGalactica';
 import NexusSpiralCodex from './pages/NexusSpiralCodex';
-import SpiralCodexFeed from './pages/SpiralCodexFeed';
 import SpiralGrovePage from './pages/SpiralGrovePage';
 import LivingLarderPage from './pages/LivingLarderPage';
 import IMSArchivePage from './pages/IMSArchivePage';
@@ -26,12 +25,14 @@ import ArkadianPulse from './pages/ArkadianPulse';
 import SettingsPage from './pages/SettingsPage';
 import SolSpireConsole from './pages/SolSpireConsole';
 import KnowledgeOSPage from './pages/knowledge/KnowledgeOSPage';
+import ReasoMatePage from './pages/ReasoMatePage';
 
 type View =
   | 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
   | 'nexus'
   | 'encyclopedia'
   | 'spiral-codex'
+  | 'reasonate'
   | 'loops'
   | 'grove'
   | 'larder'
@@ -207,7 +208,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '30px' }}>
           <PortalDoor label="Oracle" sub="ARKANA · Pattern intelligence · Live commune" color="#00D4AA" sigil="⟐" onClick={() => onNavigate('commune')} delay={1.12} />
-          <PortalDoor label="Nexus Hub" sub="IMS · Encyclopedia Galactica · Spiral Codex · Grove · Larder · Distribute" color="#C9A84C" sigil="☥" onClick={() => onNavigate('nexus')} delay={1.14} />
+          <PortalDoor label="Nexus Hub" sub="IMS · Spiral Grove · Living Larder · Distribute" color="#C9A84C" sigil="☥" onClick={() => onNavigate('nexus')} delay={1.14} />
           <PortalDoor label="SolSpire Console" sub="Personal Codex · Knowledge OS · Projects · Operational Console" color="#C9A84C" sigil="◉" onClick={() => onNavigate('solspire')} delay={1.16} />
           <PortalDoor label="Offerings" sub="IMS Sessions · Products · AIC Diagnostic" color="#00D4AA" sigil="✦" onClick={() => onNavigate('offerings')} delay={1.18} />
         </div>
@@ -372,8 +373,8 @@ function AppInner() {
         )}
 
         {view === 'spiral-codex' && (
-          <motion.div key="spiral-codex" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}>
-            <SpiralCodexFeed onBack={() => handleNavigate('home')} />
+          <motion.div key="spiral-codex" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
+            <NexusSpiralCodex />
           </motion.div>
         )}
 
@@ -476,6 +477,12 @@ function AppInner() {
         {view === 'knowledge-os' && (
           <motion.div key="knowledge-os" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
             <KnowledgeOSPage />
+          </motion.div>
+        )}
+
+        {view === 'reasonate' && (
+          <motion.div key="reasonate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+            <ReasoMatePage />
           </motion.div>
         )}
 

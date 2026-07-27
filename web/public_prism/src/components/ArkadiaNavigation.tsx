@@ -7,6 +7,7 @@ type View =
   | 'nexus'
   | 'encyclopedia'
   | 'spiral-codex'
+  | 'reasonate'
   | 'loops'
   | 'grove'
   | 'larder'
@@ -41,9 +42,10 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Network',
     items: [
-      { label: 'NovaNet',      view: 'novanet',      sigil: '◉', sub: 'Public transmission feed · Post · React · ReasoMate', color: '#6A9FD8' },
-      { label: 'Spiral Codex', view: 'spiral-codex', sigil: '◈', sub: 'Living knowledge archive · Browse & upload scrolls',  color: '#D4AF37' },
-      { label: 'Encyclopedia Galactica', view: 'encyclopedia', sigil: '⬡', sub: '12 Chambers of Echoes · Crystal Matrix navigator', color: '#B08DE8' },
+      { label: 'NovaNet',               view: 'novanet',      sigil: '◉', sub: 'Public transmission feed · Post · React',              color: '#6A9FD8' },
+      { label: 'Spiral Codex',          view: 'spiral-codex', sigil: '◈', sub: 'Living knowledge archive · Browse & upload scrolls',  color: '#D4AF37' },
+      { label: 'Encyclopedia Galactica',view: 'encyclopedia', sigil: '⬡', sub: '12 Chambers of Echoes · Crystal Matrix navigator',   color: '#B08DE8' },
+      { label: 'ReasoMate',             view: 'reasonate',    sigil: '✉', sub: 'Arkana messenger · Persistent oracle conversations',  color: '#6A9FD8' },
     ],
   },
   {
@@ -72,7 +74,7 @@ const VIEW_LABEL: Partial<Record<View, string>> = {
   home: 'Home', gate: 'Living Gate', commune: 'Oracle', reset: 'Field Reset', about: 'About',
   login: 'Node Login', codex: 'Personal Codex', dashboard: 'Dashboard',
   nexus: 'Nexus Hub', encyclopedia: 'Encyclopedia Galactica',
-  'spiral-codex': 'Spiral Codex', loops: 'Open Loops', grove: 'Spiral Grove',
+  'spiral-codex': 'Spiral Codex', reasonate: 'ReasoMate', loops: 'Open Loops', grove: 'Spiral Grove',
   larder: 'Living Larder', novanet: 'NovaNet', ims: 'IMS Archive',
   distribute: 'Distribute', offerings: 'Offerings', aic: 'AIC Diagnostic',
   pulse: 'Arkadian Pulse', settings: 'Settings', solspire: 'SolSpire Console',
