@@ -17,3 +17,4 @@
 - [B0.5 Debt Registry](b05-debt-registry.md) — baseline frozen; 10 layer violations + 3 circular import cycles registered; test direction bug fixed; 10/10 fitness tests passing. B1 may begin.
 - [Session Infrastructure](session-infrastructure.md) — .bootstrap/ dir (00–04) + REPOSITORY_SNAPSHOT + PARKING_LOT + NEXT_AGENT; startup = read 3 files + pytest + implement one checkpoint + stop.
 - [NovaNet Product Slice 1](novanet-slice1.md) — transmissions API added (api/transmissions.py), NovaNet feed wired to real API, ReasoMate oracle fixed to /api/commune/resonance with localStorage persistence, Spiral Codex separated as own nav destination.
+- [Frontend Hub Architecture](frontend-hub-architecture.md) — Nexus + SolSpire are THE hubs; never fragment into standalone nav items. Crystal Matrix lives in NexusSpiralCodex. ReasoMate lives in NovaNet. Read before any frontend structural work.
