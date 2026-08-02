@@ -1,8 +1,8 @@
 /**
  * NovaNet — The Public Transmission Feed
  *
- * Human social posts only. Feed, reactions, comments.
- * Spiral Codex scrolls → Spiral Codex. ReasoMate → standalone destination.
+ * Human social posts only. Codex Scrolls live in their own Spiral Codex room.
+ * ReasoMate floats as a persistent panel with Arkana conversation memory.
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -516,6 +516,7 @@ export default function NovaNetPage() {
   const [posts, setPosts]             = useState<Post[]>([])
   const [postsLoading, setPostsLoading] = useState(true)
   const [search, setSearch]           = useState('')
+  const [messengerOpen, setMessengerOpen] = useState(false)
   const { isAuthenticated } = useAuth()
 
   // Load transmissions from API
@@ -626,6 +627,39 @@ export default function NovaNetPage() {
         </motion.div>
       )}
 
+      {/* ── Floating ReasoMate button ── */}
+      <motion.button
+        onClick={() => setMessengerOpen(v => !v)}
+        whileHover={{ scale: 1.07 }} whileTap={{ scale: 0.94 }}
+        style={{ position: 'fixed', bottom: 24, right: 20, width: 52, height: 52, borderRadius: '50%', background: messengerOpen ? 'rgba(106,159,216,0.25)' : 'rgba(106,159,216,0.15)', border: `1px solid ${C.blue}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 100, boxShadow: `0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px ${C.blue}20` }}
+      >
+        <span style={{ fontSize: 20 }}>✉</span>
+      </motion.button>
+
+      {/* ── ReasoMate sliding panel ── */}
+      <AnimatePresence>
+        {messengerOpen && (
+          <>
+            <motion.div key="rm-bg" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setMessengerOpen(false)}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(2,3,10,0.55)', backdropFilter: 'blur(4px)', zIndex: 101 }}
+            />
+            <motion.div key="rm-panel" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+              transition={{ type: 'spring', stiffness: 340, damping: 36, mass: 0.9 }}
+              style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 320, zIndex: 102, background: 'rgba(9,10,22,0.97)', borderLeft: `1px solid ${C.blue}22`, backdropFilter: 'blur(32px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+            >
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(106,159,216,0.12)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                <span style={{ fontSize: 16, color: C.blue }}>✉</span>
+                <span style={{ fontFamily: 'Cinzel, serif', fontSize: 13, color: C.blue, flex: 1 }}>ReasoMate</span>
+                <button onClick={() => setMessengerOpen(false)} style={{ background: 'none', border: 'none', color: C.dim, cursor: 'pointer', fontSize: 16, padding: '2px 4px', borderRadius: 4 }}>✕</button>
+              </div>
+              <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <ReasoMatePanel onClose={() => setMessengerOpen(false)} />
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

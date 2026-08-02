@@ -1,21 +1,18 @@
 /**
- * NexusPage — Nexus Hub.
+ * NexusPage — Unified Arkadia Intelligence Hub.
  *
  * Tabs:
- *   IMS ARCHIVE  → Live Field Bar + IMS Session Viewer
+ *   NOVANET → Social Feed + Transmissions + ReasoMate Messenger
+ *   IMS ARCHIVE  → Live Field Bar + IMS Session Viewer + Encyclopedia Galactica Matrix
  *   SPIRAL GROVE → The Spiral Grove (A.I.S. Learning Civilization Layer)
  *   LIVING LARDER → The Living Larder Marketplace
  *   DISTRIBUTE → Sovereign Music Distribution
- *
- * Standalone destinations (not tabs here):
- *   NovaNet → standalone nav item
- *   Encyclopedia Galactica → standalone nav item
- *   Spiral Codex → standalone nav item
- *   ReasoMate → standalone nav item
  */
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import NovaNetPage from './NovaNetPage'
 import DistributePage from './DistributePage'
+import NexusSpiralCodex from './NexusSpiralCodex'
 import { API_BASE } from '../lib/apiConfig'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
@@ -341,7 +338,7 @@ export function LivingLarder() {
   )
 }
 
-// ─── IMS NODE MATRIX (dead-code archive — kept for reference) ────────────────
+// ─── ENCYCLOPEDIA GALACTICA MATRIX ───────────────────────────────────────────
 
 interface IMSEntry {
   id: string
@@ -611,13 +608,15 @@ function EncyclopediaGalacticaMatrix() {
 
 // ─── TAB NAVIGATION ───────────────────────────────────────────────────────────
 
-type NexusTab = 'ims' | 'university' | 'larder' | 'distribute'
+type NexusTab = 'novanet' | 'ims' | 'encyclopedia' | 'university' | 'larder' | 'distribute'
 
 const TABS: { id: NexusTab; label: string; sigil: string; color: string; sub: string }[] = [
-  { id: 'ims',        label: 'IMS Archive',  sigil: '∞',  color: '#C84848', sub: 'Identity Mapping Sessions' },
-  { id: 'university', label: 'Spiral Grove', sigil: '🌿', color: '#00D4AA', sub: 'The Spiral Grove · Learning Civilization' },
-  { id: 'larder',     label: 'Larder',       sigil: '🌾', color: '#4CAF50', sub: 'The Living Larder · Marketplace' },
-  { id: 'distribute', label: 'Distribute',   sigil: '⟁',  color: '#B08DE8', sub: 'Sovereign Music Distribution' },
+  { id: 'novanet',      label: 'NovaNet',              sigil: '◉',  color: '#6A9FD8', sub: 'Public Feed of the Living Spiral Codex · Transmissions · ReasoMate' },
+  { id: 'ims',          label: 'IMS Archive',         sigil: '∞',  color: '#C84848', sub: 'Identity Mapping Sessions' },
+  { id: 'encyclopedia', label: 'Encyclopedia',        sigil: '◈',  color: '#C9A84C', sub: 'Encyclopedia Galactica · Echoes of the Lost Aeons' },
+  { id: 'university',   label: 'Spiral Grove',        sigil: '🌿', color: '#00D4AA', sub: 'The Spiral Grove · Learning Civilization' },
+  { id: 'larder',       label: 'Larder',              sigil: '🌾', color: '#4CAF50', sub: 'The Living Larder · Marketplace' },
+  { id: 'distribute',   label: 'Distribute',          sigil: '⟁',  color: '#B08DE8', sub: 'Sovereign Music Distribution' },
 ]
 
 // ─── NEXUS PAGE ───────────────────────────────────────────────────────────────
@@ -806,7 +805,7 @@ export function IMSArchiveSection() {
 // ─── NEXUS PAGE ───────────────────────────────────────────────────────────────
 
 export default function NexusPage() {
-  const [activeTab, setActiveTab] = useState<NexusTab>('ims')
+  const [activeTab, setActiveTab] = useState<NexusTab>('novanet')
   const [ark, setArk] = React.useState<ArkDateData | null>(null)
   const activeTabMeta = TABS.find(t => t.id === activeTab)!
 
@@ -869,20 +868,24 @@ export default function NexusPage() {
           transition={{ duration: 0.22 }}
         >
           {/* Page heading */}
-          <div style={{ marginBottom: 24 }}>
-            <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.3em', textTransform: 'uppercase', color: `${activeTabMeta.color}50`, margin: '0 0 4px' }}>
-              Arkadia / {activeTabMeta.label}
-            </p>
-            <h1 style={{ fontFamily: 'serif', fontSize: 26, color: '#E8E8E8', margin: 0, letterSpacing: '0.04em' }}>
-              {activeTab === 'ims'        ? 'IMS Archive' :
-               activeTab === 'university' ? 'The Spiral Grove' :
-               activeTab === 'larder'     ? 'The Living Larder' :
-               activeTab === 'distribute' ? 'Distribute' :
-               activeTabMeta.label}
-            </h1>
-          </div>
+          {activeTab !== 'novanet' && activeTab !== 'encyclopedia' && (
+            <div style={{ marginBottom: 24 }}>
+              <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.3em', textTransform: 'uppercase', color: `${activeTabMeta.color}50`, margin: '0 0 4px' }}>
+                Arkadia / {activeTabMeta.label}
+              </p>
+              <h1 style={{ fontFamily: 'serif', fontSize: 26, color: '#E8E8E8', margin: 0, letterSpacing: '0.04em' }}>
+                {activeTab === 'ims'        ? 'IMS Archive' :
+                 activeTab === 'university' ? 'The Spiral Grove' :
+                 activeTab === 'larder'     ? 'The Living Larder' :
+                 activeTab === 'distribute' ? 'Distribute' :
+                 activeTabMeta.label}
+              </h1>
+            </div>
+          )}
 
           {/* Tab content */}
+          {activeTab === 'novanet' && <NovaNetPage />}
+          {activeTab === 'encyclopedia' && <NexusSpiralCodex />}
           {activeTab === 'ims' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
               <FieldBar ark={ark} />
