@@ -66,49 +66,22 @@ TYPE_TO_DIR: dict[str, str] = {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Canonical relationship types
-# Every graph_edges row must use one of these relationship values.
+# Canonical relationship types — imported from relationship_types.py
+# LAW I: One capability. One implementation. One canonical home.
+# The authoritative definition lives in knowledge/relationship_types.py.
 # ─────────────────────────────────────────────────────────────────────────────
 
-RELATIONSHIP_TYPES: list[str] = [
-    # Semantic
-    "references",     # A cites or points to B
-    "derived_from",   # A is built on or sourced from B
-    "contradicts",    # A directly opposes B
-    "supported_by",   # A is validated by B
-    "inspired_by",    # A was creatively motivated by B
-    "mentions",       # A contains a reference to B without deep dependency
+from knowledge.relationship_types import (  # noqa: E402
+    RELATIONSHIP_TYPES,
+    RELATIONSHIP_TYPES_SET,
+    validate_relationship,
+    RELATIONSHIP_REGISTRY,
+)
 
-    # Structural
-    "belongs_to",     # A is a member of collection B
-    "part_of",        # A is a sub-element of B
-    "child_of",       # A descends from B in a hierarchy
-    "parent_of",      # A contains B as a child element
-    "follows",        # A comes after B in sequence
-    "precedes",       # A comes before B in sequence
-
-    # Authorship / Provenance
-    "authored_by",    # A was created by person B
-    "generated_by",   # A was produced by a system B
-    "reviewed_by",    # A was evaluated by B
-
-    # General
-    "relates_to",     # Catch-all semantic connection
-    "extends",        # A builds upon B
-    "summarizes",     # A is a condensed version of B
-    "implements",     # A is a concrete realisation of B
-]
-
-# Fast O(1) lookup sets
+# Fast O(1) lookup set for node types
 NODE_TYPES_SET: frozenset[str] = frozenset(NODE_TYPES)
-RELATIONSHIP_TYPES_SET: frozenset[str] = frozenset(RELATIONSHIP_TYPES)
 
 
 def validate_node_type(note_type: str) -> bool:
     """Return True if note_type is canonical. Does not raise."""
     return note_type in NODE_TYPES_SET
-
-
-def validate_relationship(relationship: str) -> bool:
-    """Return True if relationship is canonical. Does not raise."""
-    return relationship in RELATIONSHIP_TYPES_SET

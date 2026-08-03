@@ -32,10 +32,7 @@ TYPE_TO_DIR: dict[str, str] = {
     "daily":        "Daily",
 }
 
-RELATIONSHIP_TYPES = [
-    "references", "extends", "contradicts", "summarizes",
-    "implements", "belongs_to", "generated_by", "reviewed_by", "derived_from",
-]
+from knowledge.relationship_types import RELATIONSHIP_TYPES  # noqa: F401 — re-exported for callers
 
 
 # ─────────────────────────────────────────────────────────────────────────────

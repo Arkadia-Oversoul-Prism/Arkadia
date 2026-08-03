@@ -395,3 +395,39 @@ Crystal Triune scan: no user-facing references found in source files — no repl
 5. Every subsystem must have a single responsibility.
 6. (Phase 0 addition) The kernel must never import from the API layer.
 7. (Phase 1 addition) Every commit must leave the repository deployable.
+
+---
+
+## Session: K3-A — Canonical Knowledge Graph Ontology
+
+**Session date:** ARK Y1 · D136 (2026-08-03)
+**Role:** Implementation Steward
+**Session type:** Workstream K — Checkpoint K3-A (ontology only, no feature code)
+**Next session starting point:** K3-B — Operational Graph Work
+
+### Session Summary
+
+Established the constitutional type vocabulary for the Knowledge OS. Two classes of duplicate definitions existed: `RELATIONSHIP_TYPES` was defined identically in both `knowledge/vault.py` and `knowledge/graph.py`, and `knowledge/node_types.py` (created in a prior session) contained a local `RELATIONSHIP_TYPES` that belonged in a separate canonical file.
+
+**Files created:**
+
+1. `knowledge/relationship_types.py` — canonical registry for all relationship types. Defines `RelationshipDef` (frozen dataclass: identifier, display_name, direction, description) and `RELATIONSHIP_REGISTRY` dict (28 types). Exports `RELATIONSHIP_TYPES` list and `RELATIONSHIP_TYPES_SET` frozenset for backward-compatible validation. Exports `validate_relationship()` helper.
+
+**Files modified:**
+
+2. `knowledge/node_types.py` — removed local `RELATIONSHIP_TYPES` definition (21 types); now imports `RELATIONSHIP_TYPES`, `RELATIONSHIP_TYPES_SET`, `validate_relationship`, `RELATIONSHIP_REGISTRY` from `relationship_types.py`.
+
+3. `knowledge/graph.py` — removed 7-line local `RELATIONSHIP_TYPES` definition (9 narrow types); now imports from `relationship_types.py`.
+
+4. `knowledge/vault.py` — removed 4-line local `RELATIONSHIP_TYPES` definition; now re-exports from `relationship_types.py` for any callers that import it from here.
+
+5. `knowledge/pipeline.py` — updated `RELATIONSHIP_TYPES` import source from `knowledge.vault` to `knowledge.relationship_types`.
+
+**Verification results:**
+- `pytest tests/architecture -q` → **10/10 PASSED**
+- `python3 -c "from knowledge.node_types import NODE_TYPES; print('node types ok')"` → **OK**
+- `python3 -c "from knowledge.relationship_types import RELATIONSHIP_TYPES; print('relationship types ok')"` → **OK**
+- `grep -rn "RELATIONSHIP_TYPES\s*=" --include="*.py"` → **1 definition only** (relationship_types.py)
+- Pre-push checklist (TODO/FIXME/XXX/HACK in source files) → **CLEAN**
+
+**No features added. No UI touched. No APIs created. Foundation only.**

@@ -10,12 +10,7 @@ import json
 from typing import Optional
 
 from knowledge.db import execute, execute_one
-
-
-RELATIONSHIP_TYPES = [
-    "references", "extends", "contradicts", "summarizes",
-    "implements", "belongs_to", "generated_by", "reviewed_by", "derived_from",
-]
+from knowledge.relationship_types import RELATIONSHIP_TYPES, RELATIONSHIP_TYPES_SET
 
 
 # ─────────────────────────────────────────────────────────────────────────────

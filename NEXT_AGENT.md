@@ -1,32 +1,54 @@
-# Session Handoff — K5 / Frontend Integration
+# Session Handoff — K3-B / Operational Graph Work
 > Copy this file as the opening message to the next session.
 
 ---
 
-## Completed This Session
-- **Crystal Triune Unification** ✅ — NexusSpiralCodex now has SCROLLS and ECHOES modes (single component, not duplicated)
-- **Encyclopedia route corrected** ✅ — `view === 'encyclopedia'` opens Crystal Triune in ECHOES mode; standalone EncyclopediaGalactica.tsx preserved but no longer routed to
-- **SolSpire → Knowledge OS Dashboard** ✅ — Encyclopedia Galactica section added to Intelligence group; live corpus status from `/api/knowledge/status`; 12-chamber progress grid
-- **ChamberView.tsx created** ✅ — full chamber reading infrastructure (full-screen view, reflections, chapter index, localStorage persistence)
+## Completed This Session — K3-A: Canonical Knowledge Graph Ontology
+
+- **`knowledge/relationship_types.py` created** ✅ — single canonical source for all 28 relationship types; `RelationshipDef` dataclass + `RELATIONSHIP_REGISTRY` dict + backward-compatible `RELATIONSHIP_TYPES` list + `RELATIONSHIP_TYPES_SET` frozenset
+- **`knowledge/node_types.py` updated** ✅ — local `RELATIONSHIP_TYPES` definition removed; now imports from `relationship_types.py`
+- **`knowledge/graph.py` updated** ✅ — local `RELATIONSHIP_TYPES` definition removed; now imports from `relationship_types.py`
+- **`knowledge/vault.py` updated** ✅ — local `RELATIONSHIP_TYPES` definition removed; re-exports from `relationship_types.py`
+- **`knowledge/pipeline.py` updated** ✅ — import source changed from `knowledge.vault` to `knowledge.relationship_types`
+- **Zero duplicate RELATIONSHIP_TYPES definitions** ✅ — verified by grep
+- **Architecture tests: 10/10** ✅
 
 ## Previously Completed
-- Phase 0 — Endpoint migration: all active `arkadia-n26k` → `arkadia-kw64` references updated ✅
-- Workstream B — SQLite durability complete; Gate B CLOSED ✅
-- Backend LIVE: https://arkadia-kw64.onrender.com ✅
-- Knowledge OS recon complete ✅
+- Crystal Triune Unification ✅
+- Encyclopedia Integration ✅
+- SolSpire Knowledge OS Dashboard ✅
 - K2 — Oracle Conversation Archival ✅
 - K1 — Corpus Document Ingestion ✅
+- K5 — Static Ingestion ✅ (per MISSION.md)
+- Phase 0 — Security hardening + endpoint migration ✅
+- Workstream B — SQLite durability; Gate B CLOSED ✅
+- Backend LIVE: https://arkadia-kw64.onrender.com ✅
 
-## ⚠ One manual action still pending (does not block K5)
+## ⚠ One manual action still pending (does not block next checkpoint)
 `web/public_prism/.env.production` → `VITE_API_URL` must be updated to `https://arkadia-kw64.onrender.com` by the user in Vercel dashboard before next frontend deploy.
 
 ---
 
-## Next Session: K5 — Static Ingestion
+## Ontology Is Now Frozen
 
-**Read `MISSION.md` first.** It has everything.
+The constitutional layer is established. Every relationship type in the graph has:
+- A unique `identifier` (snake_case)
+- A `display_name`
+- A `direction` (directed / undirected)
+- A `description`
 
-Quick version: Walk known static paths (`docs/`, vault, ADRs) at startup and call `_ingest_to_knowledge_os()` for each markdown file. One-time pass in a daemon thread from the FastAPI lifespan startup block. Duplicate-detection inside `pipeline.ingest()` makes restarts safe.
+**Do not add new relationship or node types without a checkpoint authorising it.**
+
+---
+
+## Next Session: K3-B — Operational Graph Work
+
+With the ontology frozen, the next step is to wire the Knowledge Graph to real operational use:
+- Verify `add_edge()` validation uses the full canonical 28-type list (not just the old 9-type narrow list)
+- Confirm ingestion pipeline auto-links use valid relationship identifiers from the canonical registry
+- Consider surfacing `RELATIONSHIP_REGISTRY` metadata through the existing `/api/knowledge/status` endpoint (optional — check checkpoint spec first)
+
+**Read `MISSION.md` and `.bootstrap/01_STATE.md` before writing any code.**
 
 ---
 
@@ -34,16 +56,13 @@ Quick version: Walk known static paths (`docs/`, vault, ADRs) at startup and cal
 
 1. Read `MISSION.md`
 2. Read `.bootstrap/01_STATE.md`
-3. Read `docs/recon/KNOWLEDGE_OS_EVOLUTION.md` → "K5" section only
-4. Run `pytest tests/architecture -q` — confirm 10/10
-5. Read `api/main.py` lifespan/startup block
-6. Survey `docs/` and `knowledge/vault/` to understand what's ingestable
-7. Implement K5
-8. Run pre-push checklist (see MISSION.md)
-9. Run verification
-10. Update `MISSION.md`, `.bootstrap/01_STATE.md`, `NEXT_AGENT.md`
-11. Commit and push
-12. Stop
+3. Run `pytest tests/architecture -q` — confirm 10/10
+4. Implement next checkpoint
+5. Run pre-push checklist (see MISSION.md)
+6. Run verification
+7. Update `MISSION.md`, `.bootstrap/01_STATE.md`, `NEXT_AGENT.md`
+8. Commit and push
+9. Stop
 
 ## Do NOT Open
 - ENGINEERING_PRINCIPLES.md, ROADMAP.md, ARCHITECTURE_MAP.md, PHASE_GATES.md, any ADR
