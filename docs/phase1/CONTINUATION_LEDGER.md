@@ -334,6 +334,31 @@ Total delta: ~16 lines added. Zero lines removed from handler logic. Zero new de
 
 ---
 
+## Session: Crystal Triune Unification
+
+**Session date:** ARK Y1 · D183 (2026-08-02)
+**Role:** Implementation Steward
+**Session type:** Frontend — Crystal Tribune / Encyclopedia Galactica Merge
+**Next session starting point:** K5 — Static Ingestion
+
+### Session Summary
+
+Completed the Crystal Triune unification across four files:
+
+1. **`ChamberView.tsx` (new)** — Full chamber reading infrastructure: `CHAMBERS` data array (12 chapters of Echoes of the Lost Aeons), `ChamberState` type, `loadChamberStates/saveChamberStates/loadChamberReflections/saveChamberReflections` localStorage helpers, `ChamberCodexFeed`, `ChapterIndex` overlay, and the `ChamberView` default export. All shared infrastructure for the ECHOES mode.
+
+2. **`NexusSpiralCodex.tsx`** — Added `initialMode?: 'scrolls' | 'echoes'` prop, `FACE_CHAMBER_MAP` (12-face → 12-chapter resonance), `mode` toggle state, chamber state/reflection management, SCROLLS/ECHOES mode toggle UI, full ECHOES chamber-cards grid (parts I–IV, with face resonance highlighting), and ChamberView + ChapterIndex full-screen renders. Crystal Matrix and ReasoMate panels unchanged.
+
+3. **`App.tsx`** — `view === 'encyclopedia'` now renders `<NexusSpiralCodex initialMode="echoes" />` instead of `<EncyclopediaGalactica />`. Standalone `EncyclopediaGalactica.tsx` preserved, not deleted.
+
+4. **`SolSpireConsole.tsx`** — Added `'encyclopedia'` to `SolSection` type, added Encyclopedia Galactica item (⬡, #B08DE8) to Intelligence nav group, wrote `EncyclopediaProgress` component: live corpus status from `/api/knowledge/status`, 12-chamber progress bar with per-chapter segment ticks, part-grouped chapter grid.
+
+**Architecture fitness tests: 10/10 passing.**
+**Build: 0 errors.**
+**Pre-push checklist: clean — no TODO/FIXME/XXX/HACK in source files.**
+
+---
+
 ## Session: K1 — Corpus Document Ingestion
 
 **Session date:** ARK Y1 · D117 (2026-07-25)

@@ -29,12 +29,15 @@ import Releases   from './dashboard/Releases';
 import KnowledgeOSPage  from './knowledge/KnowledgeOSPage';
 import PersonalCodex    from './PersonalCodex';
 import ProjectDashboard, { Project } from './ProjectDashboard';
+import { CHAMBERS, ROMAN, loadChamberStates, ChamberState } from './ChamberView';
+import { getStatus, KnowledgeStatus } from '../lib/knowledgeApi';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type SolSection =
   | 'codex' | 'loops' | 'knowledge' | 'projects'
-  | 'overview' | 'goals' | 'releases' | 'jobs' | 'traces' | 'tools' | 'system';
+  | 'overview' | 'goals' | 'releases' | 'jobs' | 'traces' | 'tools' | 'system'
+  | 'encyclopedia';
 
 interface NavItem {
   id: SolSection;
@@ -61,8 +64,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Intelligence',
     items: [
-      { id: 'knowledge', label: 'Knowledge OS',     sigil: '◈', color: '#00D4AA', source: 'vault/ + public', sub: 'Graph · timeline · scrolls · full-system feed' },
-      { id: 'projects',  label: 'Projects',         sigil: '⚙', color: '#C9A84C', source: 'solspire/projects', sub: 'Operational Console · catalogue & index' },
+      { id: 'knowledge',     label: 'Knowledge OS',        sigil: '◈', color: '#00D4AA', source: 'knowledge/', sub: 'Graph · timeline · search · corpus status' },
+      { id: 'encyclopedia',  label: 'Encyclopedia Galactica', sigil: '⬡', color: '#B08DE8', source: 'echoes/', sub: 'Civilizations · timelines · ontology · chapter progress' },
+      { id: 'projects',      label: 'Projects',            sigil: '⚙', color: '#C9A84C', source: 'solspire/projects', sub: 'Operational Console · catalogue & index' },
     ],
   },
   {
@@ -291,6 +295,149 @@ function ProjectsView({ onOpenProject }: { onOpenProject: (p: Project) => void }
   );
 }
 
+// ── Encyclopedia Progress Section ─────────────────────────────────────────────
+
+function EncyclopediaProgress() {
+  const [states, setStates] = React.useState<Record<number, ChamberState>>(() => loadChamberStates());
+  const [kosStatus, setKosStatus] = React.useState<KnowledgeStatus | null>(null);
+  const [kosError, setKosError] = React.useState(false);
+
+  React.useEffect(() => {
+    getStatus()
+      .then(s => setKosStatus(s))
+      .catch(() => setKosError(true));
+  }, []);
+
+  const integrated = CHAMBERS.filter(c => states[c.num] === 'integrated').length;
+  const explored   = CHAMBERS.filter(c => states[c.num] === 'explored').length;
+  const dormant    = CHAMBERS.filter(c => !states[c.num] || states[c.num] === 'dormant').length;
+  const pct = Math.round(((integrated * 1 + explored * 0.5) / 12) * 100);
+
+  // Part groupings
+  const PARTS: { label: string; short: string; color: string; nums: number[] }[] = [
+    { label: 'The Forgotten Mother',  short: 'Part I',   color: '#B08DE8', nums: [1,2,3] },
+    { label: 'The Hidden Architect',  short: 'Part II',  color: '#6A9FD8', nums: [4,5,6] },
+    { label: 'The True Exodus',       short: 'Part III', color: '#00D4AA', nums: [7,8,9] },
+    { label: 'The Living Flame',      short: 'Part IV',  color: '#C9A84C', nums: [10,11,12] },
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+      {/* ── Progress summary bar ── */}
+      <div style={{ padding: '18px 20px', background: 'rgba(14,17,32,0.7)', border: '1px solid rgba(176,141,232,0.12)', borderRadius: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 10 }}>
+          <div>
+            <p style={{ fontFamily: '"Cinzel", serif', fontSize: 11, letterSpacing: '0.2em', color: 'rgba(176,141,232,0.55)', margin: '0 0 3px', textTransform: 'uppercase' }}>
+              Echoes of the Lost Aeons
+            </p>
+            <p style={{ fontFamily: '"Cinzel", serif', fontSize: 18, color: '#B08DE8', margin: 0, letterSpacing: '0.06em' }}>
+              {pct}% Integrated
+            </p>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <p style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(232,232,232,0.3)', margin: 0 }}>
+              {integrated} integrated · {explored} explored · {dormant} dormant
+            </p>
+            <p style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(232,232,232,0.2)', margin: '3px 0 0' }}>12 chambers total</p>
+          </div>
+        </div>
+        {/* Progress bar */}
+        <div style={{ height: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden' }}>
+          <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 1, ease: 'easeOut' }}
+            style={{ height: '100%', background: 'linear-gradient(90deg, #B08DE8, #6A9FD8)', borderRadius: 2 }} />
+        </div>
+        {/* Segment ticks */}
+        <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
+          {CHAMBERS.map(c => {
+            const s = states[c.num] ?? 'dormant';
+            return (
+              <div key={c.num} title={`${ROMAN[c.num-1]}: ${c.chapterTitle}`}
+                style={{ flex: 1, height: 6, borderRadius: 2,
+                  background: s === 'integrated' ? c.color : s === 'explored' ? `${c.color}60` : 'rgba(255,255,255,0.06)',
+                  transition: 'background 0.3s' }} />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Knowledge OS corpus stats (live) ── */}
+      <div style={{ padding: '16px 20px', background: 'rgba(14,17,32,0.6)', border: '1px solid rgba(0,212,170,0.1)', borderRadius: 12 }}>
+        <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.4)', margin: '0 0 12px' }}>
+          Knowledge OS · Corpus Status
+        </p>
+        {kosError ? (
+          <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(200,72,72,0.6)', margin: 0 }}>⚠ Cannot reach Knowledge OS — backend offline</p>
+        ) : kosStatus ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 10 }}>
+            {[
+              { label: 'Notes',      value: kosStatus.vault.notes,              color: '#00D4AA' },
+              { label: 'Projects',   value: kosStatus.vault.projects,           color: '#C9A84C' },
+              { label: 'Chunks',     value: kosStatus.vault.chunks,             color: '#6A9FD8' },
+              { label: 'Embeddings', value: kosStatus.vault.embeddings,         color: '#B08DE8' },
+              { label: 'Pending',    value: kosStatus.vault.pending_embeddings, color: '#C84848' },
+              { label: 'Graph Edges',value: kosStatus.graph.edges,              color: '#00D4AA' },
+              { label: 'Timeline',   value: kosStatus.timeline.events,          color: '#C9A84C' },
+            ].map(stat => (
+              <div key={stat.label} style={{ padding: '10px 12px', background: `${stat.color}08`, border: `1px solid ${stat.color}18`, borderRadius: 8 }}>
+                <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 18, fontWeight: 700, color: stat.color, margin: '0 0 3px' }}>{stat.value.toLocaleString()}</p>
+                <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(232,232,232,0.35)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
+              style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(0,212,170,0.15)', borderTopColor: '#00D4AA' }} />
+            <span style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.3)' }}>Connecting to Knowledge OS…</span>
+          </div>
+        )}
+      </div>
+
+      {/* ── Chapter grid by part ── */}
+      {PARTS.map(part => (
+        <div key={part.short}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7.5, letterSpacing: '0.2em', textTransform: 'uppercase', color: `${part.color}55` }}>{part.short}</span>
+            <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${part.color}20, transparent)` }} />
+            <span style={{ fontFamily: 'sans-serif', fontSize: 10, color: `${part.color}50`, fontStyle: 'italic' }}>{part.label}</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 8 }}>
+            {part.nums.map(num => {
+              const chamber = CHAMBERS.find(c => c.num === num)!;
+              const state   = states[num] ?? 'dormant';
+              const stateColor = state === 'integrated' ? chamber.color : state === 'explored' ? `${chamber.color}70` : 'rgba(255,255,255,0.15)';
+              return (
+                <div key={num} style={{ padding: '12px 14px', background: 'rgba(8,10,20,0.55)',
+                  border: `1px solid ${state !== 'dormant' ? chamber.color + '28' : 'rgba(255,255,255,0.05)'}`,
+                  borderLeft: `3px solid ${state !== 'dormant' ? chamber.color : 'rgba(255,255,255,0.08)'}`,
+                  borderRadius: '0 9px 9px 0', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1, color: state !== 'dormant' ? chamber.color : `${chamber.color}30` }}>{chamber.sigil}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6 }}>
+                      <p style={{ fontFamily: 'serif', fontSize: 12.5, color: state !== 'dormant' ? 'rgba(232,232,232,0.85)' : 'rgba(232,232,232,0.4)', margin: '0 0 3px', flex: 1 }}>{chamber.chapterTitle}</p>
+                      <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7, letterSpacing: '0.1em', textTransform: 'uppercase', color: stateColor, flexShrink: 0 }}>
+                        {state === 'integrated' ? '✦' : state === 'explored' ? '◈' : '○'}
+                      </span>
+                    </div>
+                    <p style={{ fontFamily: 'sans-serif', fontSize: 9.5, color: 'rgba(232,232,232,0.2)', margin: 0, fontStyle: 'italic' }}>
+                      {ROMAN[num-1]} · {chamber.chamberName}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+
+      <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(232,232,232,0.15)', margin: '4px 0 0', textAlign: 'center' }}>
+        Reading progress stored locally · Open Crystal Tribune to explore chapters
+      </p>
+    </div>
+  );
+}
+
 // ── Sidebar nav item ──────────────────────────────────────────────────────────
 
 function SidebarItem({ item, active, onClick }: { item: NavItem; active: boolean; onClick: () => void }) {
@@ -355,19 +502,20 @@ export default function SolSpireConsole() {
       >
         <SectionHeader item={activeItem} />
 
-        {section === 'codex'     && <PersonalCodex />}
-        {section === 'loops'     && <OpenLoops />}
-        {section === 'knowledge' && <KnowledgeOSPage />}
-        {section === 'projects'  && (
+        {section === 'codex'        && <PersonalCodex />}
+        {section === 'loops'        && <OpenLoops />}
+        {section === 'knowledge'    && <KnowledgeOSPage />}
+        {section === 'encyclopedia' && <EncyclopediaProgress />}
+        {section === 'projects'     && (
           <ProjectsView onOpenProject={p => setOpenProject(p)} />
         )}
-        {section === 'overview'  && <Overview />}
-        {section === 'goals'     && <Goals />}
-        {section === 'releases'  && <Releases />}
-        {section === 'jobs'      && <Jobs onOpenTrace={(id: string) => { setTraceJobId(id); setSection('traces'); }} />}
-        {section === 'traces'    && <Traces openJobId={traceJobId} />}
-        {section === 'tools'     && <Tools />}
-        {section === 'system'    && <System />}
+        {section === 'overview'     && <Overview />}
+        {section === 'goals'        && <Goals />}
+        {section === 'releases'     && <Releases />}
+        {section === 'jobs'         && <Jobs onOpenTrace={(id: string) => { setTraceJobId(id); setSection('traces'); }} />}
+        {section === 'traces'       && <Traces openJobId={traceJobId} />}
+        {section === 'tools'        && <Tools />}
+        {section === 'system'       && <System />}
       </motion.div>
     </AnimatePresence>
   );

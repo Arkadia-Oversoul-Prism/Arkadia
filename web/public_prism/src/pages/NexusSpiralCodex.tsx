@@ -18,6 +18,13 @@ import { api, CodexResponse, CodexScroll } from '../lib/dashboardApi'
 import { ingestNote } from '../lib/knowledgeApi'
 import MarkdownViewer from '../components/MarkdownViewer'
 import { COLORS, Empty, ErrorBox } from './dashboard/ui'
+import ChamberView, {
+  CHAMBERS, ROMAN,
+  ChamberState, Chamber,
+  ChapterIndex,
+  loadChamberStates, saveChamberStates,
+  loadChamberReflections, saveChamberReflections,
+} from './ChamberView'
 
 // ─── CATEGORY INFERENCE ───────────────────────────────────────────────────────
 
@@ -165,6 +172,15 @@ const HEX_W = 44, HEX_H = HEX_W * 0.866
 const CTR_W = 52, CTR_H = CTR_W * 0.866
 const RING_ORDER = [6, 12, 5, 11, 4, 10, 3, 9, 2, 8, 1, 7]
 const PAIR_IDX: [number, number][] = [[0,1],[2,3],[4,5],[6,7],[8,9],[10,11]]
+
+// Each Crystal Matrix face maps to one Encyclopedia chapter
+// Inner ring (1–6) → Chapters 1–6, Outer ring (7–12) → Chapters 7–12
+// Center face 13 (LARDER) → 0 means "show all"
+const FACE_CHAMBER_MAP: Record<number, number> = {
+  1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6,
+  7: 7, 8: 8, 9: 9, 10: 10, 11: 11, 12: 12,
+  13: 0,
+}
 
 function hexPts(w: number, h: number, pad = 1.5) {
   return `${w*0.25+pad},${pad} ${w*0.75-pad},${pad} ${w-pad},${h/2} ${w*0.75-pad},${h-pad} ${w*0.25+pad},${h-pad} ${pad},${h/2}`
@@ -646,7 +662,7 @@ const PRINCIPLES = [
   { id: 'joy',     label: 'Technology of Joy',       sigil: '✦', color: '#D4AF37', categories: ['CODEX'] },
 ]
 
-export default function NexusSpiralCodex() {
+export default function NexusSpiralCodex({ initialMode = 'scrolls' }: { initialMode?: 'scrolls' | 'echoes' }) {
   const lunar   = useMemo(() => getLunarPhase(), [])
   const arkDate = useMemo(() => getArkDate(), [])
   const [activeFaceId, setActiveFaceId] = useState<number | null>(null)
@@ -657,6 +673,57 @@ export default function NexusSpiralCodex() {
   const [showReasoMate, setShowReasoMate] = useState(true)
   const [showCrystal, setShowCrystal] = useState(true)
   const [windowW, setWindowW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1280)
+
+  // ── Encyclopedia / Echoes mode ───────────────────────────────────────────
+  const [mode, setMode] = useState<'scrolls' | 'echoes'>(initialMode)
+  const [openChamberNum, setOpenChamberNum] = useState<number | null>(null)
+  const [showChapterIndex, setShowChapterIndex] = useState(false)
+  const [chamberStates, setChamberStates] = useState<Record<number, ChamberState>>(() => loadChamberStates())
+  const [chamberReflections, setChamberReflections] = useState<Record<number, string>>(() => loadChamberReflections())
+
+  const openChamber = openChamberNum !== null ? CHAMBERS.find(c => c.num === openChamberNum) ?? null : null
+
+  const handleMarkIntegrated = (num: number) => {
+    const next = { ...chamberStates, [num]: 'integrated' as ChamberState }
+    setChamberStates(next); saveChamberStates(next)
+  }
+  const handleSaveReflection = (num: number, text: string) => {
+    const next = { ...chamberReflections, [num]: text }
+    setChamberReflections(next); saveChamberReflections(next)
+    if (!chamberStates[num] || chamberStates[num] === 'dormant') {
+      const ns = { ...chamberStates, [num]: 'explored' as ChamberState }
+      setChamberStates(ns); saveChamberStates(ns)
+    }
+  }
+  const handleOpenChamber = (num: number) => {
+    setOpenChamberNum(num)
+    if (!chamberStates[num] || chamberStates[num] === 'dormant') {
+      const ns = { ...chamberStates, [num]: 'explored' as ChamberState }
+      setChamberStates(ns); saveChamberStates(ns)
+    }
+  }
+  const handleNextChamber = () => {
+    if (openChamberNum === null) return
+    const idx = CHAMBERS.findIndex(c => c.num === openChamberNum)
+    setOpenChamberNum(CHAMBERS[(idx + 1) % CHAMBERS.length].num)
+  }
+  const handlePrevChamber = () => {
+    if (openChamberNum === null) return
+    const idx = CHAMBERS.findIndex(c => c.num === openChamberNum)
+    setOpenChamberNum(CHAMBERS[(idx - 1 + CHAMBERS.length) % CHAMBERS.length].num)
+  }
+
+  // Chambers to show in ECHOES mode: if face is selected, prioritize its mapped chamber
+  const echoesChambersOrdered = useMemo(() => {
+    if (!activeFaceId) return CHAMBERS
+    const mapped = FACE_CHAMBER_MAP[activeFaceId]
+    if (!mapped) return CHAMBERS
+    return [...CHAMBERS].sort((a, b) => {
+      if (a.num === mapped) return -1
+      if (b.num === mapped) return 1
+      return a.num - b.num
+    })
+  }, [activeFaceId])
 
   useEffect(() => {
     const handler = () => setWindowW(window.innerWidth)
@@ -998,45 +1065,142 @@ export default function NexusSpiralCodex() {
               )}
             </AnimatePresence>
 
-            {/* Feed section label */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.12))' }} />
-              <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7, letterSpacing: '0.38em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.3)', whiteSpace: 'nowrap' }}>
-                Spiral Codex · Public Intelligence Feed
-              </span>
-              <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, rgba(201,168,76,0.12), transparent)' }} />
+            {/* Mode toggle — SCROLLS ↔ ECHOES */}
+            <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: 0 }}>
+              {(['scrolls', 'echoes'] as const).map(m => (
+                <button key={m} onClick={() => setMode(m)}
+                  style={{ padding: '7px 16px', background: 'none', border: 'none', cursor: 'pointer',
+                    fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase',
+                    color: mode === m ? (m === 'scrolls' ? '#C9A84C' : '#B08DE8') : 'rgba(232,232,232,0.28)',
+                    borderBottom: `2px solid ${mode === m ? (m === 'scrolls' ? '#C9A84C' : '#B08DE8') : 'transparent'}`,
+                    marginBottom: -1, transition: 'all 0.15s' }}>
+                  {m === 'scrolls' ? '◈ Codex Scrolls' : '⬡ Echoes · Chambers'}
+                </button>
+              ))}
+              {mode === 'echoes' && (
+                <button onClick={() => setShowChapterIndex(true)}
+                  style={{ marginLeft: 'auto', padding: '7px 12px', background: 'none', border: 'none', cursor: 'pointer',
+                    fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '0.18em', textTransform: 'uppercase',
+                    color: 'rgba(176,141,232,0.45)' }}>
+                  ⊞ Index
+                </button>
+              )}
             </div>
+
+            {/* Feed section label (scrolls mode only) */}
+            {mode === 'scrolls' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.12))' }} />
+                <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7, letterSpacing: '0.38em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.3)', whiteSpace: 'nowrap' }}>
+                  Spiral Codex · Public Intelligence Feed
+                </span>
+                <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, rgba(201,168,76,0.12), transparent)' }} />
+              </div>
+            )}
           </div>
 
-          {/* Loading */}
-          {isLoading && !data && (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
-              <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.6, repeat: Infinity, ease: 'linear' }}
-                style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid rgba(201,168,76,0.15)', borderTopColor: '#C9A84C' }} />
-            </div>
+          {/* ── SCROLLS MODE ── */}
+          {mode === 'scrolls' && (
+            <>
+              {isLoading && !data && (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
+                  <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.6, repeat: Infinity, ease: 'linear' }}
+                    style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid rgba(201,168,76,0.15)', borderTopColor: '#C9A84C' }} />
+                </div>
+              )}
+              {!isLoading && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  {feed.length === 0
+                    ? <Empty>{search || catFilter || prinFilter ? 'No scrolls match this query.' : activeFace ? 'No scrolls resonate with this face.' : 'Corpus is empty.'}</Empty>
+                    : feed.map(({ scroll, score }, i) => (
+                        <EditorialScrollCard key={scroll.id} scroll={scroll} score={score} faceColor={activeFace?.color ?? '#C9A84C'} idx={i} />
+                      ))
+                  }
+                  {feed.length > 0 && (
+                    <motion.p animate={{ opacity: [0.12, 0.3, 0.12] }} transition={{ duration: 6, repeat: Infinity }}
+                      style={{ textAlign: 'center', fontFamily: 'ui-monospace, monospace', fontSize: 7, letterSpacing: '0.5em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.18)', margin: '8px 0 0' }}>
+                      ⟐ {feed.length} scrolls · End of transmission ⟐
+                    </motion.p>
+                  )}
+                </div>
+              )}
+            </>
           )}
 
-          {/* Feed */}
-          {!isLoading && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-              {feed.length === 0
-                ? <Empty>{search || catFilter || prinFilter ? 'No scrolls match this query.' : activeFace ? 'No scrolls resonate with this face.' : 'Corpus is empty.'}</Empty>
-                : feed.map(({ scroll, score }, i) => (
-                    <EditorialScrollCard
-                      key={scroll.id}
-                      scroll={scroll}
-                      score={score}
-                      faceColor={activeFace?.color ?? '#C9A84C'}
-                      idx={i}
-                    />
-                  ))
-              }
-              {feed.length > 0 && (
-                <motion.p animate={{ opacity: [0.12, 0.3, 0.12] }} transition={{ duration: 6, repeat: Infinity }}
-                  style={{ textAlign: 'center', fontFamily: 'ui-monospace, monospace', fontSize: 7, letterSpacing: '0.5em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.18)', margin: '8px 0 0' }}>
-                  ⟐ {feed.length} scrolls · End of transmission ⟐
-                </motion.p>
-              )}
+          {/* ── ECHOES MODE: Encyclopedia Galactica chambers ── */}
+          {mode === 'echoes' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {/* Part headings */}
+              {(['The Forgotten Mother — Sophia\'s Descent and Return',
+                 'The Hidden Architect — Thoth, Enoch & The Grid of Light',
+                 "The True Exodus — Humanity's Escape From Programmed Sleep",
+                 'The Living Flame — Christos and the Restoration of the Aeons'] as const
+              ).map(part => {
+                const partChambers = echoesChambersOrdered.filter(c => c.part === part)
+                if (partChambers.length === 0) return null
+                const mappedNum = activeFaceId ? FACE_CHAMBER_MAP[activeFaceId] : null
+                return (
+                  <div key={part}>
+                    <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7, letterSpacing: '0.32em', textTransform: 'uppercase', color: 'rgba(176,141,232,0.35)', margin: '12px 0 8px' }}>
+                      {part.split(' — ')[0]}
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                      {partChambers.map(chamber => {
+                        const state = chamberStates[chamber.num] ?? 'dormant'
+                        const isResonant = mappedNum === chamber.num
+                        const stateColor = state === 'integrated' ? chamber.color : state === 'explored' ? `${chamber.color}70` : 'rgba(232,232,232,0.18)'
+                        return (
+                          <motion.button key={chamber.num}
+                            initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: Math.min(chamber.num * 0.03, 0.4), duration: 0.2 }}
+                            onClick={() => handleOpenChamber(chamber.num)}
+                            whileHover={{ scale: 1.005 }} whileTap={{ scale: 0.995 }}
+                            style={{ textAlign: 'left', cursor: 'pointer', padding: '14px 16px',
+                              background: isResonant ? `${chamber.color}10` : 'rgba(8,10,20,0.55)',
+                              border: `1px solid ${isResonant ? chamber.color + '45' : 'rgba(255,255,255,0.06)'}`,
+                              borderLeft: `3px solid ${state !== 'dormant' ? chamber.color : chamber.color + '28'}`,
+                              borderRadius: '0 10px 10px 0', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                            {/* Sigil + number */}
+                            <div style={{ flexShrink: 0, width: 36, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, paddingTop: 2 }}>
+                              <span style={{ fontSize: 18, color: state !== 'dormant' ? chamber.color : `${chamber.color}40` }}>{chamber.sigil}</span>
+                              <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7.5, letterSpacing: '0.15em', color: `${chamber.color}50` }}>{ROMAN[chamber.num - 1]}</span>
+                            </div>
+                            {/* Text */}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
+                                <h3 style={{ fontFamily: 'serif', fontSize: 14, fontWeight: 400, color: state !== 'dormant' ? 'rgba(232,232,232,0.9)' : 'rgba(232,232,232,0.62)', margin: 0, letterSpacing: '0.02em', flex: 1 }}>
+                                  {chamber.chapterTitle}
+                                </h3>
+                                {isResonant && (
+                                  <motion.span animate={{ opacity: [0.5,1,0.5] }} transition={{ duration: 2, repeat: Infinity }}
+                                    style={{ fontSize: 7.5, color: chamber.color, padding: '1px 6px', background: `${chamber.color}12`, border: `1px solid ${chamber.color}30`, borderRadius: 4, whiteSpace: 'nowrap', fontFamily: 'ui-monospace, monospace', letterSpacing: '0.18em', textTransform: 'uppercase', flexShrink: 0 }}>
+                                    Resonant
+                                  </motion.span>
+                                )}
+                              </div>
+                              <p style={{ fontFamily: 'sans-serif', fontSize: 10.5, color: 'rgba(232,232,232,0.3)', margin: '0 0 6px', fontStyle: 'italic' }}>{chamber.chamberName}</p>
+                              <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.38)', margin: 0, lineHeight: 1.55,
+                                overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const }}>
+                                {chamber.openingVerse.split('\n\n')[0]}
+                              </p>
+                            </div>
+                            {/* State badge */}
+                            <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, paddingTop: 2 }}>
+                              <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: stateColor }}>
+                                {state === 'integrated' ? '✦ Integrated' : state === 'explored' ? '◈ Explored' : '○ Dormant'}
+                              </span>
+                            </div>
+                          </motion.button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+              <motion.p animate={{ opacity: [0.12, 0.28, 0.12] }} transition={{ duration: 6, repeat: Infinity }}
+                style={{ textAlign: 'center', fontFamily: 'ui-monospace, monospace', fontSize: 7, letterSpacing: '0.5em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.15)', margin: '8px 0 0' }}>
+                ⬡ 12 Chambers · Echoes of the Lost Aeons ⬡
+              </motion.p>
             </div>
           )}
         </main>
@@ -1056,6 +1220,43 @@ export default function NexusSpiralCodex() {
       {/* ── Scroll Upload Modal ── */}
       <AnimatePresence>
         {showUpload && <ScrollUploadModal onClose={() => setShowUpload(false)} />}
+      </AnimatePresence>
+
+      {/* ── Chapter Index overlay ── */}
+      <AnimatePresence>
+        {showChapterIndex && openChamberNum !== null && (
+          <ChapterIndex
+            current={openChamberNum}
+            states={chamberStates}
+            onSelect={num => { setOpenChamberNum(num); setShowChapterIndex(false) }}
+            onClose={() => setShowChapterIndex(false)}
+          />
+        )}
+        {showChapterIndex && openChamberNum === null && (
+          <ChapterIndex
+            current={0}
+            states={chamberStates}
+            onSelect={num => { handleOpenChamber(num); setShowChapterIndex(false) }}
+            onClose={() => setShowChapterIndex(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── ChamberView full-screen ── */}
+      <AnimatePresence>
+        {openChamber && (
+          <ChamberView
+            chamber={openChamber}
+            states={chamberStates}
+            reflections={chamberReflections}
+            onReturn={() => setOpenChamberNum(null)}
+            onNext={handleNextChamber}
+            onPrev={handlePrevChamber}
+            onMarkIntegrated={handleMarkIntegrated}
+            onSaveReflection={handleSaveReflection}
+            onOpenIndex={() => setShowChapterIndex(true)}
+          />
+        )}
       </AnimatePresence>
     </div>
   )
