@@ -6,18 +6,20 @@
 |---|---|
 | K3-A — Canonical Ontology | **COMPLETE** |
 | K3-B — Operational Graph | **COMPLETE** |
+| K3-C — Semantic Enrichment | **COMPLETE** |
 | Architecture tests | **10/10 PASSING** |
 | Frontend build | **PASSING** |
 | Ontology | **FROZEN** — do not modify `node_types.py` or `relationship_types.py` |
+| api/main.py | **AT BUDGET** — 2600 lines; do not add inline logic; use router modules |
 
-## What K3-B Delivered
+## What K3-C Delivered
 
-- `GET /api/knowledge/relationships` — graph analytics endpoint
-- `GET /api/knowledge/status` — enhanced with ontology, density, health, indexing, growth
-- `GET /api/knowledge/graph/health` — full health evaluation (6 checks)
-- `knowledge/graph_health.py` — reusable health service
-- `knowledge/static_ingestion.py` — K5 idempotent startup ingestion
-- SolSpire "Graph State" tab in `KnowledgeOSPage` consuming all new APIs
+- `knowledge/edge_migration.py` — legacy edge migration (report + apply, dry-run safe)
+- `knowledge/enrichment.py` — semantic enrichment engine, 5 scorers, confidence-gated
+- `knowledge/embedding_queue.py` — embedding completion queue, background startup pass
+- 10 new API endpoints including `/node/{id}`, `/neighbors/{id}`, `/path`
+- `NodeInspector.tsx` — full node detail with edge browser in SolSpire graph view
+- Extended `/status` growth metrics
 
 ## Your Startup Protocol (Maximum 5 minutes)
 
@@ -36,8 +38,8 @@
 
 ## Hard Rules (permanent)
 
-- Ontology is frozen — no new node or relationship types without an approved checkpoint
-- No new databases
-- No competing graph implementations — everything calls `pipeline.ingest()`
+- Ontology frozen — no new node or relationship types without an approved checkpoint
+- No new databases; no competing graph implementations
+- api/main.py at 2600-line budget — any new startup logic must be compact
 - No UI redesigns — extend only
 - No ADR or ROADMAP edits

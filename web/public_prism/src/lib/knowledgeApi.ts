@@ -157,3 +157,56 @@ export const sendWithContext = (payload: {
   persona?: string; provider?: string; project_id?: number;
   ingest_response?: boolean;
 }) => fetchJSON('/api/knowledge/providers/send', { method: 'POST', body: JSON.stringify(payload) });
+
+// ── Graph Explorer (K3-C) ─────────────────────────────────────────────────────
+export interface EdgeDetail {
+  id: number; relationship: string; weight: number; created_at: string;
+  target_note_id?: number; source_note_id?: number;
+  target_title?: string; target_type?: string; target_uuid?: string;
+  source_title?: string; source_type?: string; source_uuid?: string;
+}
+export interface NodeDetail {
+  node: Note;
+  outbound_edges: EdgeDetail[];
+  inbound_edges: EdgeDetail[];
+  degree: number;
+}
+export const getNode = (noteId: number) =>
+  fetchJSON<NodeDetail>(`/api/knowledge/node/${noteId}`);
+
+export interface NeighborResult {
+  root_id: number; depth: number;
+  nodes: GraphNode[]; edges: GraphEdge[];
+  node_count: number; edge_count: number;
+}
+export const getNeighbors = (noteId: number, depth = 1, relationship?: string) => {
+  const q = new URLSearchParams({ depth: String(depth) });
+  if (relationship) q.set('relationship', relationship);
+  return fetchJSON<NeighborResult>(`/api/knowledge/neighbors/${noteId}?${q}`);
+};
+
+export interface PathResult {
+  from_id: number; to_id: number;
+  path_ids: number[]; path_nodes: GraphNode[]; hops: number; found: boolean;
+}
+export const getPath = (fromId: number, toId: number, maxDepth = 4) =>
+  fetchJSON<PathResult>(`/api/knowledge/path?from_id=${fromId}&to_id=${toId}&max_depth=${maxDepth}`);
+
+// ── Embedding queue (K3-C) ────────────────────────────────────────────────────
+export interface EmbeddingStatus {
+  total: number; complete: number; pending: number;
+  partial: number; failed: number; coverage: number; backlog: number;
+}
+export const getEmbeddingStatus = () =>
+  fetchJSON<EmbeddingStatus>('/api/knowledge/embeddings/status');
+
+// ── Migration (K3-C) ──────────────────────────────────────────────────────────
+export interface MigrationReport {
+  summary: { total_edges: number; violated_types: number; affected_edges: number; clean: boolean };
+  violations: { legacy_type: string; count: number; canonical_map: string | null; mappable: boolean }[];
+}
+export const getMigrationReport = () =>
+  fetchJSON<MigrationReport>('/api/knowledge/migrate/edges/report');
+
+export const applyEdgeMigration = (dryRun = true) =>
+  fetchJSON('/api/knowledge/migrate/edges/apply?dry_run=' + dryRun, { method: 'POST' });

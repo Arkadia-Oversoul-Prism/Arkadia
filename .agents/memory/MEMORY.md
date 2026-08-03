@@ -20,3 +20,4 @@
 - [Frontend Hub Architecture](frontend-hub-architecture.md) — Nexus + SolSpire are THE hubs; never fragment into standalone nav items. Crystal Matrix lives in NexusSpiralCodex. ReasoMate lives in NovaNet. Read before any frontend structural work.
 - [Crystal Triune Unification](crystal-triune-unification.md) — NexusSpiralCodex is the ONE component for Spiral Codex (SCROLLS) and Encyclopedia Galactica (ECHOES); face→chamber resonance map; ChamberView.tsx is shared infrastructure.
 - [K3-B Operational Graph](k3b-operational-graph.md) — graph_health.py + static_ingestion.py + /relationships + enhanced /status; d3 must be installed in web/public_prism; ontology frozen at v1.0.0.
+- [K3-C Enrichment](k3c-enrichment.md) — enrichment.py (5 scorers, confidence gate); edge_migration.py; embedding_queue.py; api/main.py at 2600-line hard budget — keep startup blocks compact.

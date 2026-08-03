@@ -434,6 +434,50 @@ Established the constitutional type vocabulary for the Knowledge OS. Two classes
 
 ---
 
+## Session: K3-C — Knowledge Graph Enrichment
+
+**Session date:** ARK Y1 · D136 (2026-08-03)
+**Role:** Implementation Steward
+**Session type:** Workstream K — Checkpoint K3-C (semantic enrichment + graph intelligence)
+**Next session starting point:** K4 — defined by next checkpoint spec
+
+### Session Summary
+
+Made the Knowledge Graph intelligent — isolated nodes now self-link via evidence-based semantic relationships. Seven tasks implemented:
+
+**Files created:**
+
+1. `knowledge/edge_migration.py` — legacy edge migration utility. 40-entry `LEGACY_TO_CANONICAL` map. Three operations: `build_migration_report()` (read-only), `apply_migration(dry_run=True)` (safe default), `apply_migration(dry_run=False)` (writes). Uses INSERT OR IGNORE + DELETE pattern to preserve data. CLI: `--report | --dry-run | --apply`.
+
+2. `knowledge/enrichment.py` — semantic enrichment engine. Five evidence scorers: shared-tag links (→ `relates_to`/`references`), shared-project links (→ `relates_to`), conversation-thread links (→ `replies_to`), type-affinity links (→ `follows`/`references`), source-provider links (→ `connected_to`). Confidence threshold gate (MIN=0.25, HIGH=0.65). `schedule_enrichment(note_id)` runs in background thread. `schedule_orphan_enrichment()` processes all orphan nodes at startup.
+
+3. `knowledge/embedding_queue.py` — embedding completion queue. `get_embedding_status()` (read-only snapshot), `process_pending_batch(n)` (embed up to n notes), `run_full_embedding_pass()` (loop until backlog clear), `schedule_embedding_pass()` (background thread launched at startup).
+
+4. `web/public_prism/src/pages/knowledge/NodeInspector.tsx` — full node detail panel. Displays: type badge, title, creation date, stable UUID, degree stats (out/in/total), scrollable edge list with relationship type + direction + weight + target title, "Explore Neighbors" button. Replaces the minimal text card that existed in `KnowledgeGraphView`.
+
+**Files modified:**
+
+5. `knowledge/pipeline.py` — auto-link step now calls `enrichment.schedule_enrichment(note_id)` with the original tag-heuristic as a fallback if enrichment module unavailable.
+
+6. `api/main.py` — startup now schedules embedding pass + orphan enrichment in background threads. Kept within 2600-line architecture budget (trimmed to exact limit).
+
+7. `api/knowledge_routes.py` — 10 new endpoints: `GET /node/{id}`, `GET /neighbors/{id}`, `GET /path`, `POST /enrich/{id}`, `POST /enrich/orphans`, `GET /migrate/edges/report`, `POST /migrate/edges/apply`, `GET /embeddings/status`, `POST /embeddings/process`. Extended `/status` `growth` block with: `notes_today`, `edges_today`, `avg_node_degree`, `semantic_links`, `embed_coverage`. `indexing_status` now includes `coverage` float.
+
+8. `web/public_prism/src/lib/knowledgeApi.ts` — 8 new types (`NodeDetail`, `EdgeDetail`, `NeighborResult`, `PathResult`, `EmbeddingStatus`, `MigrationReport`) + 8 new API call functions.
+
+9. `web/public_prism/src/pages/knowledge/KnowledgeGraphView.tsx` — `NodeInspector` imported and wired; replaces old selected-node card.
+
+**Canonical ontology untouched.** `node_types.py` and `relationship_types.py` not modified.
+
+**Verification results:**
+- `pytest tests/architecture -q` → **10/10 PASSED** (api/main.py within 2600-line budget)
+- `npm run build` → **✓ zero errors**
+- `python3 -c "from knowledge.enrichment import enrich_note; ..."` → **OK**
+- `python3 -c "from knowledge.edge_migration import build_migration_report; ..."` → **OK — clean DB**
+- `python3 -c "from knowledge.embedding_queue import get_embedding_status; ..."` → **OK**
+
+---
+
 ## Session: K3-B — Operational Knowledge Graph
 
 **Session date:** ARK Y1 · D136 (2026-08-03)

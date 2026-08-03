@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import * as d3 from 'd3';
 import { useQuery } from '@tanstack/react-query';
 import { getGraph, type GraphNode, type GraphEdge } from '../../lib/knowledgeApi';
+import NodeInspector from './NodeInspector';
 
 const TYPE_COLORS: Record<string, string> = {
   note:         '#C9A84C',
@@ -198,24 +199,16 @@ export default function KnowledgeGraphView() {
         </div>
 
         {/* Side panel */}
-        <div style={{ width: 220, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {/* Selected note */}
+        <div style={{ width: 220, display: 'flex', flexDirection: 'column', gap: 10, overflow: 'hidden' }}>
+          {/* Node Inspector — replaces minimal text card */}
           {selected && (
-            <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', padding: 12 }}>
-              <div style={{ color: TYPE_COLORS[selected.note_type] || '#C9A84C', fontSize: 10, fontFamily: 'Inter', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                {selected.note_type}
-              </div>
-              <div style={{ color: '#e0e0e0', fontSize: 13, fontFamily: 'Cinzel, serif', fontWeight: 600, marginBottom: 6 }}>
-                {selected.title}
-              </div>
-              <div style={{ color: '#666', fontSize: 10, fontFamily: 'Inter' }}>
-                {new Date(selected.created_at).toLocaleDateString()}
-              </div>
-              <button onClick={() => setSelected(null)}
-                style={{ marginTop: 8, width: '100%', padding: '4px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, color: '#888', fontSize: 11, cursor: 'pointer', fontFamily: 'Inter' }}>
-                Clear
-              </button>
-            </div>
+            <NodeInspector
+              noteId={selected.id}
+              title={selected.title}
+              noteType={selected.note_type}
+              createdAt={selected.created_at}
+              onClear={() => setSelected(null)}
+            />
           )}
 
           {/* Relationship legend */}

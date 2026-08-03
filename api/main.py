@@ -191,14 +191,18 @@ async def lifespan(app: FastAPI):
     except Exception as _ne:
         logger.warning(f"[AUTH] Node registry load skipped: {_ne}")
 
-    # ── K5 Static corpus ingestion ───────────────────────────────────────
-    # Idempotent: duplicate-detection in pipeline.ingest() prevents re-ingestion.
-    # Runs in a background thread so startup is not blocked.
+    # ── K5 Static ingestion (idempotent, background) ─────────────────────
     try:
         from knowledge.static_ingestion import schedule_static_ingestion
         schedule_static_ingestion()
     except Exception as _k5e:
         logger.warning(f"[K5] Static ingestion could not be scheduled: {_k5e}")
+    # ── K3-C Enrichment + embedding completion passes (background) ───────
+    try:
+        from knowledge.embedding_queue import schedule_embedding_pass
+        from knowledge.enrichment import schedule_orphan_enrichment
+        schedule_embedding_pass(); schedule_orphan_enrichment()
+    except Exception as _kce: logger.warning(f"[K3-C] Startup pass skipped: {_kce}")
 
     yield
 

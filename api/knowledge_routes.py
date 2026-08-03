@@ -440,14 +440,27 @@ async def knowledge_os_status():
         )
         last_ingestion = last_ingestion_row["ts"] if last_ingestion_row else None
 
-        # ── Growth metrics (last 7 days) ──────────────────────────────────────
+        # ── Growth metrics (K3-B + K3-C) ─────────────────────────────────────
         from datetime import datetime, timezone, timedelta
-        week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-        notes_last_7d = execute_one(
-            "SELECT COUNT(*) as n FROM notes WHERE created_at >= ?", (week_ago,)
-        )
-        edges_last_7d = execute_one(
-            "SELECT COUNT(*) as n FROM graph_edges WHERE created_at >= ?", (week_ago,)
+        now_utc  = datetime.now(timezone.utc)
+        week_ago = (now_utc - timedelta(days=7)).isoformat()
+        day_ago  = (now_utc - timedelta(days=1)).isoformat()
+
+        notes_last_7d  = execute_one("SELECT COUNT(*) as n FROM notes WHERE created_at >= ?", (week_ago,))
+        edges_last_7d  = execute_one("SELECT COUNT(*) as n FROM graph_edges WHERE created_at >= ?", (week_ago,))
+        notes_today    = execute_one("SELECT COUNT(*) as n FROM notes WHERE created_at >= ?", (day_ago,))
+        edges_today    = execute_one("SELECT COUNT(*) as n FROM graph_edges WHERE created_at >= ?", (day_ago,))
+
+        # ── Average degree ────────────────────────────────────────────────────
+        avg_degree = round((2 * total_edges) / total_notes, 3) if total_notes else 0.0
+
+        # ── Embedding coverage ────────────────────────────────────────────────
+        embed_complete = embed_count["n"] if embed_count else 0
+        embed_coverage = round(embed_complete / total_notes, 4) if total_notes else 0.0
+
+        # ── Semantic link count (enrichment-created edges) ────────────────────
+        semantic_edges = execute_one(
+            "SELECT COUNT(*) as n FROM graph_edges WHERE relationship IN ('relates_to','references','connected_to','mentions','derived_from')"
         )
 
         return {
@@ -457,7 +470,7 @@ async def knowledge_os_status():
                 "notes": total_notes,
                 "projects": project_count["n"] if project_count else 0,
                 "chunks": chunk_count["n"] if chunk_count else 0,
-                "embeddings": embed_count["n"] if embed_count else 0,
+                "embeddings": embed_complete,
                 "pending_embeddings": pending_embed["n"] if pending_embed else 0,
             },
             "graph": {
@@ -478,15 +491,22 @@ async def knowledge_os_status():
             "graph_density": graph_density,
             "graph_health": health["overall"],
             "indexing_status": {
-                "complete": embed_count["n"] if embed_count else 0,
+                "complete": embed_complete,
                 "pending": pending_embed["n"] if pending_embed else 0,
                 "partial": partial_embed["n"] if partial_embed else 0,
                 "failed": failed_embed["n"] if failed_embed else 0,
+                "coverage": embed_coverage,
             },
             "last_ingestion": last_ingestion,
+            # ── Extended block (K3-C) ─────────────────────────────────────────
             "growth": {
-                "notes_last_7d": notes_last_7d["n"] if notes_last_7d else 0,
-                "edges_last_7d": edges_last_7d["n"] if edges_last_7d else 0,
+                "notes_last_7d":   notes_last_7d["n"] if notes_last_7d else 0,
+                "edges_last_7d":   edges_last_7d["n"] if edges_last_7d else 0,
+                "notes_today":     notes_today["n"]   if notes_today   else 0,
+                "edges_today":     edges_today["n"]   if edges_today   else 0,
+                "avg_node_degree": avg_degree,
+                "semantic_links":  semantic_edges["n"] if semantic_edges else 0,
+                "embed_coverage":  embed_coverage,
             },
         }
     except Exception as e:
@@ -574,7 +594,7 @@ async def graph_relationships():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Graph health endpoint  (Task 4 — public surface)
+# Graph health endpoint  (K3-B public surface)
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.get("/graph/health")
@@ -583,5 +603,197 @@ async def graph_health():
     try:
         from knowledge.graph_health import evaluate_graph_health
         return evaluate_graph_health()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Graph Explorer API  (K3-C Task 4)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/node/{note_id}")
+async def get_node(note_id: int):
+    """
+    Retrieve a Knowledge Object by its integer ID.
+    Returns the note metadata plus its outbound and inbound edges.
+    Stable — the integer ID is the persistent identity of a Knowledge Object.
+    """
+    from knowledge.db import execute_one, execute
+    note = execute_one("SELECT * FROM notes WHERE id = ?", (note_id,))
+    if not note:
+        raise HTTPException(status_code=404, detail=f"Node {note_id} not found")
+
+    # Outbound edges
+    out_edges = execute(
+        """
+        SELECT ge.id, ge.target_note_id, ge.relationship, ge.weight, ge.created_at,
+               n.title as target_title, n.note_type as target_type, n.uuid as target_uuid
+        FROM graph_edges ge
+        JOIN notes n ON n.id = ge.target_note_id
+        WHERE ge.source_note_id = ?
+        ORDER BY ge.weight DESC
+        """,
+        (note_id,),
+    )
+    # Inbound edges
+    in_edges = execute(
+        """
+        SELECT ge.id, ge.source_note_id, ge.relationship, ge.weight, ge.created_at,
+               n.title as source_title, n.note_type as source_type, n.uuid as source_uuid
+        FROM graph_edges ge
+        JOIN notes n ON n.id = ge.source_note_id
+        WHERE ge.target_note_id = ?
+        ORDER BY ge.weight DESC
+        """,
+        (note_id,),
+    )
+
+    return {
+        "node": dict(note),
+        "outbound_edges": out_edges,
+        "inbound_edges":  in_edges,
+        "degree":         len(out_edges) + len(in_edges),
+    }
+
+
+@router.get("/neighbors/{note_id}")
+async def get_neighbors(
+    note_id: int,
+    depth: int = Query(1, ge=1, le=3),
+    relationship: Optional[str] = None,
+):
+    """
+    Return all neighboring Knowledge Objects within `depth` hops.
+    Supports relationship-type filtering.
+    Powers the concept drill-down in SolSpire and Arkana retrieval.
+    """
+    from knowledge.graph import traverse
+    try:
+        result = traverse(note_id, max_depth=depth, relationship_filter=relationship)
+        return {
+            "root_id":    note_id,
+            "depth":      depth,
+            "nodes":      result["nodes"],
+            "edges":      result["edges"],
+            "node_count": len(result["nodes"]),
+            "edge_count": len(result["edges"]),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/path")
+async def graph_path(
+    from_id: int,
+    to_id: int,
+    max_depth: int = Query(4, ge=1, le=6),
+):
+    """
+    Shortest path between two Knowledge Objects.
+    Returns ordered list of node IDs and the full node metadata for each.
+    """
+    from knowledge.graph import find_path
+    from knowledge.db import execute_one
+    try:
+        path = find_path(from_id, to_id, max_depth=max_depth)
+        nodes = []
+        for nid in path:
+            n = execute_one("SELECT id, uuid, title, note_type, created_at FROM notes WHERE id = ?", (nid,))
+            if n:
+                nodes.append(dict(n))
+        return {
+            "from_id":   from_id,
+            "to_id":     to_id,
+            "path_ids":  path,
+            "path_nodes": nodes,
+            "hops":      max(0, len(path) - 1),
+            "found":     len(path) > 0,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Semantic Enrichment  (K3-C Task 2)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/enrich/{note_id}")
+async def enrich_note(note_id: int):
+    """
+    Run the semantic enrichment engine for one note.
+    Creates canonical graph edges based on evidence.
+    """
+    try:
+        from knowledge.enrichment import enrich_note as _enrich
+        result = _enrich(note_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/enrich/orphans")
+async def enrich_orphans():
+    """
+    Enrich all orphan nodes (nodes with no outbound edges).
+    Runs synchronously — use for small graphs; prefer background scheduling for large ones.
+    """
+    try:
+        from knowledge.enrichment import enrich_all_orphans
+        return enrich_all_orphans(limit=200)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Legacy Edge Migration  (K3-C Task 1)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/migrate/edges/report")
+async def migration_report():
+    """
+    Report on legacy edge types not in the canonical RELATIONSHIP_REGISTRY.
+    Read-only — produces no changes.
+    """
+    try:
+        from knowledge.edge_migration import build_migration_report
+        return build_migration_report()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/migrate/edges/apply")
+async def migration_apply(dry_run: bool = True):
+    """
+    Apply the legacy edge migration.
+    dry_run=True (default) — reports what would change, writes nothing.
+    dry_run=False — writes changes to the database.
+    """
+    try:
+        from knowledge.edge_migration import apply_migration
+        return apply_migration(dry_run=dry_run)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Embedding Queue  (K3-C Task 6)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/embeddings/status")
+async def embedding_status():
+    """Embedding completion progress — powers SolSpire indexing panel."""
+    try:
+        from knowledge.embedding_queue import get_embedding_status
+        return get_embedding_status()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/embeddings/process")
+async def process_embeddings(batch_size: int = Query(50, ge=1, le=200)):
+    """Trigger an embedding batch for pending notes."""
+    try:
+        from knowledge.embedding_queue import process_pending_batch
+        return process_pending_batch(batch_size=batch_size)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

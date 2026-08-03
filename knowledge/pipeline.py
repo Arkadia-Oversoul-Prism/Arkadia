@@ -244,28 +244,25 @@ def ingest(
     if auto_embed:
         embed_note_chunks(note_id)
 
-    # ── 7. Auto-link via tag similarity ──────────────────────────────────────
+    # ── 7. Semantic enrichment (replaces simple tag-only auto-link) ──────────
     if auto_link and note_id:
-        # Find recent notes with overlapping tags
-        candidate_rows = execute(
-            "SELECT DISTINCT n.id FROM notes n JOIN note_tags nt ON nt.note_id = n.id "
-            "JOIN tags t ON t.id = nt.tag_id WHERE t.name IN ({}) AND n.id != ? LIMIT 20".format(
-                ",".join("?" * len(final_tags))
-            ),
-            tuple(final_tags) + (note_id,),
-        ) if final_tags else []
-
-        for cand in candidate_rows:
-            try:
-                add_graph_edge(note_id, cand["id"], "references", weight=0.5)
-                tl.record(
-                    "graph_link",
-                    {"source": note_id, "target": cand["id"], "relationship": "references"},
-                    note_id=note_id,
-                    project_id=project_id,
-                )
-            except Exception:
-                pass
+        try:
+            from knowledge.enrichment import schedule_enrichment
+            schedule_enrichment(note_id)
+        except Exception:
+            # Fall back to the original tag-similarity heuristic if enrichment unavailable
+            candidate_rows = execute(
+                "SELECT DISTINCT n.id FROM notes n JOIN note_tags nt ON nt.note_id = n.id "
+                "JOIN tags t ON t.id = nt.tag_id WHERE t.name IN ({}) AND n.id != ? LIMIT 20".format(
+                    ",".join("?" * len(final_tags))
+                ),
+                tuple(final_tags) + (note_id,),
+            ) if final_tags else []
+            for cand in candidate_rows:
+                try:
+                    add_graph_edge(note_id, cand["id"], "references", weight=0.5)
+                except Exception:
+                    pass
 
     # ── 8. Timeline record ───────────────────────────────────────────────────
     tl.record(
