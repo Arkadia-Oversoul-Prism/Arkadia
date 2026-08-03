@@ -4,13 +4,15 @@ import KnowledgeGraphView from './KnowledgeGraphView';
 import TimelineView from './TimelineView';
 import SemanticSearchView from './SemanticSearchView';
 import ProjectsView from './ProjectsView';
+import GraphHealthPanel from './GraphHealthPanel';
 
-type Tab = 'graph' | 'timeline' | 'search' | 'projects';
+type Tab = 'graph' | 'health' | 'timeline' | 'search' | 'projects';
 
 const TABS: { id: Tab; label: string; sigil: string; color: string }[] = [
   { id: 'graph',    label: 'Knowledge Graph', sigil: '◈', color: '#00D4AA' },
-  { id: 'timeline', label: 'Timeline',         sigil: '◎', color: '#C9A84C' },
-  { id: 'search',   label: 'Search',           sigil: '⟐', color: '#B08DE8' },
+  { id: 'health',   label: 'Graph State',     sigil: '◎', color: '#C9A84C' },
+  { id: 'timeline', label: 'Timeline',         sigil: '⟐', color: '#B08DE8' },
+  { id: 'search',   label: 'Search',           sigil: '⊕', color: '#B08DE8' },
   { id: 'projects', label: 'Observatory',      sigil: '✧', color: '#6A9FD8' },
 ];
 
@@ -83,6 +85,7 @@ export default function KnowledgeOSPage() {
             style={{ height: '100%' }}
           >
             {tab === 'graph'    && <KnowledgeGraphView />}
+            {tab === 'health'   && <GraphHealthPanel />}
             {tab === 'timeline' && <TimelineView />}
             {tab === 'search'   && <SemanticSearchView />}
             {tab === 'projects' && <ProjectsView />}

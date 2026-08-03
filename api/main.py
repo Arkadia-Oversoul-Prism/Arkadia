@@ -191,6 +191,15 @@ async def lifespan(app: FastAPI):
     except Exception as _ne:
         logger.warning(f"[AUTH] Node registry load skipped: {_ne}")
 
+    # ── K5 Static corpus ingestion ───────────────────────────────────────
+    # Idempotent: duplicate-detection in pipeline.ingest() prevents re-ingestion.
+    # Runs in a background thread so startup is not blocked.
+    try:
+        from knowledge.static_ingestion import schedule_static_ingestion
+        schedule_static_ingestion()
+    except Exception as _k5e:
+        logger.warning(f"[K5] Static ingestion could not be scheduled: {_k5e}")
+
     yield
 
     task.cancel()

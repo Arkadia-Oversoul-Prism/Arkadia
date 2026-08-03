@@ -431,3 +431,45 @@ Established the constitutional type vocabulary for the Knowledge OS. Two classes
 - Pre-push checklist (TODO/FIXME/XXX/HACK in source files) → **CLEAN**
 
 **No features added. No UI touched. No APIs created. Foundation only.**
+
+---
+
+## Session: K3-B — Operational Knowledge Graph
+
+**Session date:** ARK Y1 · D136 (2026-08-03)
+**Role:** Implementation Steward
+**Session type:** Workstream K — Checkpoint K3-B (operational graph integration)
+**Next session starting point:** K4 — defined by next checkpoint spec
+
+### Session Summary
+
+Transformed the Knowledge Graph from passive storage into the operational semantic backbone of Arkadia. Six tasks implemented:
+
+**Files created:**
+
+1. `knowledge/graph_health.py` — reusable, read-only graph health service. Six checks: orphan nodes, duplicate nodes, invalid references, ontology violations, embedding completeness, graph connectivity (union-find). Returns `overall: ok | warn | error` plus per-check metrics. Will power SolSpire diagnostics.
+
+2. `knowledge/static_ingestion.py` — K5 idempotent startup corpus ingestion. Scans `static/**/*.md`, `docs/*.md`, `docs/collective/*.md`, `docs/creative/*.md`, `vault/**/*.md`. Calls `pipeline.ingest()` — checksum deduplication prevents re-ingestion on restart. Runs in a background daemon thread. Logs ingested / skipped / errors on completion.
+
+3. `web/public_prism/src/pages/knowledge/GraphHealthPanel.tsx` — SolSpire "Graph State" tab. Consumes all three new API endpoints. Shows: summary strip (6 metrics), ontology card, health check badges, indexing progress bars, relationship distribution, top connected nodes, node-type distribution.
+
+**Files modified:**
+
+4. `api/knowledge_routes.py` — Added `GET /api/knowledge/relationships` (graph analytics: counts, types, density, components, top nodes); enhanced `GET /api/knowledge/status` with canonical ontology stats, density, health, indexing progress, growth metrics (all backwards-compatible); added `GET /api/knowledge/graph/health` as public surface for the health service.
+
+5. `api/main.py` — K5 static ingestion wired to `lifespan()` startup hook via `schedule_static_ingestion()`.
+
+6. `web/public_prism/src/lib/knowledgeApi.ts` — Extended `KnowledgeStatus` type with all new fields; added `GraphRelationships` and `GraphHealth` types; added `getGraphRelationships()` and `getGraphHealth()` functions.
+
+7. `web/public_prism/src/pages/knowledge/KnowledgeOSPage.tsx` — Added "Graph State" tab wiring `GraphHealthPanel`. No existing tabs modified.
+
+**Canonical ontology untouched:** `knowledge/node_types.py` and `knowledge/relationship_types.py` were not modified.
+
+**Verification results:**
+- `pytest tests/architecture -q` → **10/10 PASSED**
+- `npm run build` → **✓ zero errors** (also fixed pre-existing `d3` missing from node_modules)
+- `python3 -c "from knowledge.graph_health import evaluate_graph_health; ..."` → **OK**
+- `python3 -c "from knowledge.static_ingestion import schedule_static_ingestion; ..."` → **OK**
+- All 3 new endpoints registered and verified via `api.knowledge_routes.router.routes`
+
+**Knowledge Object Flow (Task 6):** Verified — all sources (Oracle conversations, corpus uploads, Encyclopedia, Spiral Codex, static docs via K5, direct notes) flow through `pipeline.ingest()`. No parallel pipelines exist.

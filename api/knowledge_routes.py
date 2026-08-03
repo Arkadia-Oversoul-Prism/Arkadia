@@ -383,37 +383,205 @@ async def get_persona(name: str):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Knowledge OS status
+# Knowledge OS status  (Task 2 — enhanced with canonical ontology)
 # ─────────────────────────────────────────────────────────────────────────────
+
+_ONTOLOGY_VERSION = "1.0.0"   # frozen at K3-A
+_GRAPH_VERSION    = "1.0.0"   # operational graph version
+
 
 @router.get("/status")
 async def knowledge_os_status():
-    """Arkadia Knowledge OS health summary."""
+    """
+    Arkadia Knowledge OS health summary — extended with canonical ontology stats.
+    Backwards-compatible: all original keys are preserved.
+    """
     from knowledge.db import execute_one, execute
+    from knowledge.node_types import NODE_TYPES
+    from knowledge.relationship_types import RELATIONSHIP_TYPES
     try:
-        note_count = execute_one("SELECT COUNT(*) as n FROM notes")
+        # ── Core counts ──────────────────────────────────────────────────────
+        note_count    = execute_one("SELECT COUNT(*) as n FROM notes")
         project_count = execute_one("SELECT COUNT(*) as n FROM projects")
-        timeline_count = execute_one("SELECT COUNT(*) as n FROM timeline")
-        edge_count = execute_one("SELECT COUNT(*) as n FROM graph_edges")
-        chunk_count = execute_one("SELECT COUNT(*) as n FROM chunks")
-        embed_count = execute_one("SELECT COUNT(*) as n FROM embeddings")
+        timeline_count= execute_one("SELECT COUNT(*) as n FROM timeline")
+        edge_count    = execute_one("SELECT COUNT(*) as n FROM graph_edges")
+        chunk_count   = execute_one("SELECT COUNT(*) as n FROM chunks")
+        embed_count   = execute_one("SELECT COUNT(*) as n FROM embeddings")
         pending_embed = execute_one("SELECT COUNT(*) as n FROM notes WHERE embedding_status = 'pending'")
+        partial_embed = execute_one("SELECT COUNT(*) as n FROM notes WHERE embedding_status = 'partial'")
+        failed_embed  = execute_one("SELECT COUNT(*) as n FROM notes WHERE embedding_status = 'failed'")
+
+        total_notes = note_count["n"] if note_count else 0
+        total_edges = edge_count["n"] if edge_count else 0
+
+        # ── Nodes grouped by canonical node type ─────────────────────────────
+        type_rows = execute(
+            "SELECT note_type, COUNT(*) as cnt FROM notes GROUP BY note_type ORDER BY cnt DESC"
+        )
+        nodes_by_type = {row["note_type"]: row["cnt"] for row in type_rows}
+
+        # ── Relationships grouped by canonical relationship type ──────────────
+        rel_rows = execute(
+            "SELECT relationship, COUNT(*) as cnt FROM graph_edges GROUP BY relationship ORDER BY cnt DESC"
+        )
+        relationships_by_type = {row["relationship"]: row["cnt"] for row in rel_rows}
+
+        # ── Graph density (edges / max possible edges) ────────────────────────
+        max_edges = total_notes * (total_notes - 1) if total_notes > 1 else 1
+        graph_density = round(total_edges / max_edges, 6) if max_edges else 0.0
+
+        # ── Graph health quick summary ────────────────────────────────────────
+        from knowledge.graph_health import evaluate_graph_health
+        health = evaluate_graph_health()
+
+        # ── Last ingestion timestamp ──────────────────────────────────────────
+        last_ingestion_row = execute_one(
+            "SELECT MAX(created_at) as ts FROM notes"
+        )
+        last_ingestion = last_ingestion_row["ts"] if last_ingestion_row else None
+
+        # ── Growth metrics (last 7 days) ──────────────────────────────────────
+        from datetime import datetime, timezone, timedelta
+        week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+        notes_last_7d = execute_one(
+            "SELECT COUNT(*) as n FROM notes WHERE created_at >= ?", (week_ago,)
+        )
+        edges_last_7d = execute_one(
+            "SELECT COUNT(*) as n FROM graph_edges WHERE created_at >= ?", (week_ago,)
+        )
 
         return {
+            # ── Backwards-compatible block ────────────────────────────────────
             "status": "operational",
             "vault": {
-                "notes": note_count["n"] if note_count else 0,
+                "notes": total_notes,
                 "projects": project_count["n"] if project_count else 0,
                 "chunks": chunk_count["n"] if chunk_count else 0,
                 "embeddings": embed_count["n"] if embed_count else 0,
                 "pending_embeddings": pending_embed["n"] if pending_embed else 0,
             },
             "graph": {
-                "edges": edge_count["n"] if edge_count else 0,
+                "edges": total_edges,
             },
             "timeline": {
                 "events": timeline_count["n"] if timeline_count else 0,
             },
+            # ── Extended block (K3-B) ─────────────────────────────────────────
+            "ontology": {
+                "version": _ONTOLOGY_VERSION,
+                "node_types_count": len(NODE_TYPES),
+                "relationship_types_count": len(RELATIONSHIP_TYPES),
+            },
+            "graph_version": _GRAPH_VERSION,
+            "nodes_by_type": nodes_by_type,
+            "relationships_by_type": relationships_by_type,
+            "graph_density": graph_density,
+            "graph_health": health["overall"],
+            "indexing_status": {
+                "complete": embed_count["n"] if embed_count else 0,
+                "pending": pending_embed["n"] if pending_embed else 0,
+                "partial": partial_embed["n"] if partial_embed else 0,
+                "failed": failed_embed["n"] if failed_embed else 0,
+            },
+            "last_ingestion": last_ingestion,
+            "growth": {
+                "notes_last_7d": notes_last_7d["n"] if notes_last_7d else 0,
+                "edges_last_7d": edges_last_7d["n"] if edges_last_7d else 0,
+            },
         }
     except Exception as e:
         return {"status": "error", "detail": str(e)}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Knowledge Graph relationships  (Task 1 — operational graph analytics)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/relationships")
+async def graph_relationships():
+    """
+    Operational Knowledge Graph analytics.
+    Exposes relationship counts, node connectivity, density, components,
+    and top connected nodes — structured for future visualizations.
+    Does NOT expose internal implementation details.
+    """
+    from knowledge.db import execute, execute_one
+    from knowledge.relationship_types import RELATIONSHIP_REGISTRY
+    from knowledge.graph_health import _check_graph_connectivity
+    try:
+        total_nodes = execute_one("SELECT COUNT(*) as n FROM notes")["n"] or 0
+        total_edges = execute_one("SELECT COUNT(*) as n FROM graph_edges")["n"] or 0
+
+        # ── Relationship type distribution ────────────────────────────────────
+        rel_rows = execute(
+            "SELECT relationship, COUNT(*) as cnt FROM graph_edges GROUP BY relationship ORDER BY cnt DESC"
+        )
+        rel_distribution = []
+        for row in rel_rows:
+            reg = RELATIONSHIP_REGISTRY.get(row["relationship"])
+            rel_distribution.append({
+                "type": row["relationship"],
+                "display_name": reg.display_name if reg else row["relationship"],
+                "direction": reg.direction if reg else "unknown",
+                "count": row["cnt"],
+            })
+
+        # ── Top connected nodes (highest degree) ─────────────────────────────
+        degree_rows = execute(
+            """
+            SELECT n.id, n.title, n.note_type,
+                   (SELECT COUNT(*) FROM graph_edges WHERE source_note_id = n.id
+                     OR target_note_id = n.id) as degree
+            FROM notes n
+            ORDER BY degree DESC
+            LIMIT 10
+            """
+        )
+        top_nodes = [
+            {
+                "id": row["id"],
+                "title": row["title"],
+                "note_type": row["note_type"],
+                "degree": row["degree"],
+            }
+            for row in degree_rows
+        ]
+
+        # ── Graph density ─────────────────────────────────────────────────────
+        max_edges = total_nodes * (total_nodes - 1) if total_nodes > 1 else 1
+        density   = round(total_edges / max_edges, 6) if max_edges else 0.0
+
+        # ── Node connectivity summary ─────────────────────────────────────────
+        connectivity = _check_graph_connectivity()
+
+        # ── Average degree ────────────────────────────────────────────────────
+        avg_degree = round((2 * total_edges) / total_nodes, 2) if total_nodes else 0.0
+
+        return {
+            "summary": {
+                "total_nodes": total_nodes,
+                "total_relationships": total_edges,
+                "relationship_types_used": len(rel_distribution),
+                "graph_density": density,
+                "average_degree": avg_degree,
+                "connected_components": connectivity.get("components", 0),
+            },
+            "relationship_distribution": rel_distribution,
+            "top_connected_nodes": top_nodes,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Graph health endpoint  (Task 4 — public surface)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/graph/health")
+async def graph_health():
+    """Full graph health evaluation — powers SolSpire diagnostics."""
+    try:
+        from knowledge.graph_health import evaluate_graph_health
+        return evaluate_graph_health()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

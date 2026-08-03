@@ -20,8 +20,49 @@ export interface KnowledgeStatus {
   vault: { notes: number; projects: number; chunks: number; embeddings: number; pending_embeddings: number };
   graph: { edges: number };
   timeline: { events: number };
+  // Extended (K3-B)
+  ontology?: { version: string; node_types_count: number; relationship_types_count: number };
+  graph_version?: string;
+  nodes_by_type?: Record<string, number>;
+  relationships_by_type?: Record<string, number>;
+  graph_density?: number;
+  graph_health?: 'ok' | 'warn' | 'error';
+  indexing_status?: { complete: number; pending: number; partial: number; failed: number };
+  last_ingestion?: string | null;
+  growth?: { notes_last_7d: number; edges_last_7d: number };
 }
 export const getStatus = () => fetchJSON<KnowledgeStatus>('/api/knowledge/status');
+
+// ── Relationships analytics ───────────────────────────────────────────────────
+export interface RelationshipEntry {
+  type: string; display_name: string; direction: string; count: number;
+}
+export interface TopNode {
+  id: number; title: string; note_type: string; degree: number;
+}
+export interface GraphRelationships {
+  summary: {
+    total_nodes: number;
+    total_relationships: number;
+    relationship_types_used: number;
+    graph_density: number;
+    average_degree: number;
+    connected_components: number;
+  };
+  relationship_distribution: RelationshipEntry[];
+  top_connected_nodes: TopNode[];
+}
+export const getGraphRelationships = () =>
+  fetchJSON<GraphRelationships>('/api/knowledge/relationships');
+
+// ── Graph health ──────────────────────────────────────────────────────────────
+export interface GraphHealth {
+  overall: 'ok' | 'warn' | 'error';
+  checks?: Record<string, Record<string, unknown>>;
+  error?: string;
+}
+export const getGraphHealth = () =>
+  fetchJSON<GraphHealth>('/api/knowledge/graph/health');
 
 // ── Graph ─────────────────────────────────────────────────────────────────────
 export interface GraphNode {
