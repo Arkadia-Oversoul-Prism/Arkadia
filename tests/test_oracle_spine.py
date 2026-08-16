@@ -167,3 +167,74 @@ def test_archive_survives_thread_boundary():
     block, meta = build_memory_block(marker, session_id)
     assert meta["notes_retrieved"] >= 1
     assert marker in block
+
+
+def test_retrieval_works_with_zero_embeddings_bm25_fallback():
+    """PRODUCTION-PROOF: the conversational spine must retrieve archived turns
+    even when NO embeddings exist (Gemini offline/unconfigured) — the exact
+    condition observed on arkadia-kw64.onrender.com (chunks: 90, embeddings: 0).
+
+    all_chunk_embeddings() JOINs chunks→embeddings and returns [] when 0
+    embeddings exist. The local-first BM25 fallback (LAW II) must therefore
+    score raw chunks WITHOUT the embeddings JOIN, or the spine's retrieval is
+    silently dead in the offline/unconfigured condition.
+
+    This test forces that condition: no embedding rows, and embed_text patched
+    to return None (offline). assemble_context must STILL retrieve the archived
+    turn via BM25.
+    """
+    import knowledge.embeddings as emb
+    import knowledge.pipeline as pipe
+    import knowledge.context_engine as ctx
+    # Force the offline condition: Gemini unavailable AND no embeddings stored.
+    # Patch every import binding site (embeddings, pipeline, context_engine) since
+    # each module imported embed_text by name at load time.
+    orig_embed = emb.embed_text
+    orig_store = emb.store_chunk_embedding
+    orig_pipe_embed = pipe.embed_text
+    orig_pipe_store = pipe.store_chunk_embedding
+    orig_ctx_embed = ctx.embed_text
+    _none = lambda text, task_type="RETRIEVAL_QUERY": None
+    _noop = lambda *a, **k: None
+    emb.embed_text = _none
+    emb.store_chunk_embedding = _noop
+    pipe.embed_text = _none
+    pipe.store_chunk_embedding = _noop
+    ctx.embed_text = _none
+    try:
+        from api.oracle_spine import archive_oracle_turn, build_memory_block
+        # Purge any embeddings from prior tests so the JOIN truly returns [].
+        from knowledge.db import execute
+        execute("DELETE FROM embeddings")
+        execute("DELETE FROM chunks")
+        execute("DELETE FROM notes")
+        execute("DELETE FROM threads")
+
+        session_id = "arkana-spine-bm25-004"
+        marker = "SOLARIUN-117-BM25-anchor"
+        archive_oracle_turn(
+            f"Remember this anchor: the project codename is {marker}. Jessica is due soon. Eden Farm.",
+            f"Stored: codename {marker}, Jessica/Eden Farm context.",
+            session_id,
+        )
+        import time; time.sleep(0.05)
+
+        # Confirm the offline condition is real: zero embeddings, nonzero chunks.
+        embs = execute("SELECT COUNT(*) AS n FROM embeddings")[0]["n"]
+        chs = execute("SELECT COUNT(*) AS n FROM chunks")[0]["n"]
+        assert embs == 0, "test precondition: 0 embeddings (offline)"
+        assert chs > 0, "test precondition: chunks exist (archive worked)"
+
+        block, meta = build_memory_block(
+            f"What was the codename {marker} and what is the context?",
+            session_id,
+        )
+        assert meta["notes_retrieved"] >= 1, \
+            "BM25 fallback must retrieve the archived turn when embeddings are absent"
+        assert marker in block, "retrieved context must contain the anchor"
+    finally:
+        emb.embed_text = orig_embed
+        emb.store_chunk_embedding = orig_store
+        pipe.embed_text = orig_pipe_embed
+        pipe.store_chunk_embedding = orig_pipe_store
+        ctx.embed_text = orig_ctx_embed

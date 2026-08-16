@@ -12,7 +12,7 @@ from typing import Optional
 
 from knowledge.db import execute
 from knowledge.embeddings import (
-    embed_text, cosine_similarity, bm25_score, _tokenise, all_chunk_embeddings
+    embed_text, cosine_similarity, bm25_score, _tokenise, all_chunk_embeddings, all_chunks
 )
 
 
@@ -56,7 +56,9 @@ def semantic_search(query: str, top_k: int = 10) -> list[dict]:
     Returns ranked list of {note_id, chunk_id, score, content, title}.
     """
     query_vec = embed_text(query, task_type="RETRIEVAL_QUERY")
-    chunks = all_chunk_embeddings()
+    # Local-first (LAW II): use raw chunks (no embeddings JOIN) for BM25 when
+    # the query embedding is unavailable, so the fallback is reachable.
+    chunks = all_chunk_embeddings() if query_vec is not None else all_chunks()
 
     if not chunks:
         return []

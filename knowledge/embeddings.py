@@ -111,3 +111,20 @@ def all_chunk_embeddings() -> list[dict]:
         ORDER BY e.id DESC
         """
     )
+
+
+def all_chunks() -> list[dict]:
+    """Return all chunks WITHOUT requiring an embedding row.
+
+    Used by the local-first BM25 fallback when no embeddings are stored
+    (Gemini offline/unconfigured). all_chunk_embeddings() JOINs chunks to
+    embeddings and returns [] when 0 embeddings exist, which would make the
+    BM25 fallback unreachable. This helper keeps LAW II ("Local First") honest.
+    """
+    return execute(
+        """
+        SELECT id AS chunk_id, note_id, content
+        FROM chunks
+        ORDER BY id DESC
+        """
+    )

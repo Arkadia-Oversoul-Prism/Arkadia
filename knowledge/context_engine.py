@@ -17,7 +17,7 @@ from typing import Optional
 
 from knowledge.db import execute
 from knowledge.embeddings import (
-    embed_text, cosine_similarity, all_chunk_embeddings, bm25_score, _tokenise
+    embed_text, cosine_similarity, all_chunk_embeddings, all_chunks, bm25_score, _tokenise
 )
 from knowledge.graph import traverse
 
@@ -70,7 +70,14 @@ def assemble_context(
 
     # ── Step 1+2: Semantic search ──────────────────────────────────────────
     query_vec = embed_text(query, task_type="RETRIEVAL_QUERY")
-    all_chunks = all_chunk_embeddings()
+    # Local-first (LAW II): when the query embedding is unavailable (Gemini
+    # offline/unconfigured), score raw chunks by BM25 instead of cosine.
+    # all_chunk_embeddings() JOINs chunks→embeddings and returns [] when 0
+    # embeddings exist, which would otherwise make the BM25 fallback dead.
+    if query_vec is not None:
+        all_chunks_local = all_chunk_embeddings()
+    else:
+        all_chunks_local = all_chunks()
 
     # Apply thread_id filter if provided — only retrieve chunks from that thread's notes
     if thread_id is not None:
@@ -79,11 +86,11 @@ def assemble_context(
             for row in execute("SELECT id FROM notes WHERE thread_id = ?", (thread_id,))
         }
         if thread_note_ids:
-            all_chunks = [c for c in all_chunks if c["note_id"] in thread_note_ids]
+            all_chunks_local = [c for c in all_chunks_local if c["note_id"] in thread_note_ids]
 
     scored: list[dict] = []
-    if query_vec and all_chunks:
-        for chunk in all_chunks:
+    if query_vec and all_chunks_local:
+        for chunk in all_chunks_local:
             try:
                 chunk_vec = json.loads(chunk["vector"])
                 score = cosine_similarity(query_vec, chunk_vec)
@@ -91,9 +98,9 @@ def assemble_context(
             except (TypeError, json.JSONDecodeError, ValueError):
                 continue
         scored.sort(key=lambda x: x["score"], reverse=True)
-    elif all_chunks:
+    elif all_chunks_local:
         q_tokens = _tokenise(query)
-        for chunk in all_chunks:
+        for chunk in all_chunks_local:
             doc_tokens = _tokenise(chunk["content"])
             score = bm25_score(q_tokens, doc_tokens)
             if score > 0:
