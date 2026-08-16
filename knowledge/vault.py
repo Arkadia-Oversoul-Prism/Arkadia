@@ -266,3 +266,43 @@ def get_project(name_or_uuid: str) -> Optional[dict]:
         "SELECT * FROM projects WHERE uuid = ? OR name = ?",
         (name_or_uuid, name_or_uuid),
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Thread helpers
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# A thread is the canonical conversation grouping in the Knowledge OS. The
+# Oracle/Arkana runtime keys conversational continuity on a stable external
+# session_id (user-scoped, interface-independent). get_or_create_thread maps
+# that external session_id onto a threads row so that archived conversation
+# notes and the context engine's thread_id filter describe the same
+# longitudinal conversation regardless of which surface (Oracle Chat,
+# ReasoMate, NovaNet) initiated the turn.
+
+def get_or_create_thread(session_id: str, title: Optional[str] = None) -> Optional[int]:
+    """Return the threads.id for ``session_id``, creating it if necessary.
+
+    Returns None when ``session_id`` is empty so anonymous turns simply skip
+    thread-scoped retrieval (global semantic search still applies upstream).
+    """
+    if not session_id or not session_id.strip():
+        return None
+    sid = session_id.strip()
+    existing = execute_one("SELECT id FROM threads WHERE uuid = ?", (sid,))
+    if existing:
+        return existing["id"]
+    now = datetime.now(timezone.utc).isoformat()
+    execute(
+        "INSERT INTO threads (uuid, title, created_at, updated_at) VALUES (?,?,?,?)",
+        (sid, (title or f"Arkana session {sid[:12]}")[:200], now, now),
+    )
+    return last_insert_id()
+
+
+def get_thread_id(session_id: str) -> Optional[int]:
+    """Look up an existing thread id without creating one (read-only)."""
+    if not session_id or not session_id.strip():
+        return None
+    row = execute_one("SELECT id FROM threads WHERE uuid = ?", (session_id.strip(),))
+    return row["id"] if row else None

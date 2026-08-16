@@ -933,20 +933,6 @@ async def oracle_context(query: str = ""):
     }
 
 
-def _archive_oracle_turn(user_input: str, response: str, session_id: str) -> None:
-    """Fire-and-forget: archive each Oracle turn into the Knowledge Layer."""
-    try:
-        from knowledge import pipeline as kp
-        kp.ingest(
-            title=f"Oracle — {session_id[:8] if session_id else 'anon'}",
-            content=f"User: {user_input}\n\nArkana: {response}",
-            note_type="conversation",
-            tags=["oracle", "conversation"],
-        )
-    except Exception:
-        pass  # Never block the Oracle response
-
-
 def _ingest_to_knowledge_os(title: str, content: str, source: str = "corpus", extra_tags: list | None = None) -> None:
     """Fire-and-forget: ingest a corpus document into the Knowledge Layer.
 
@@ -1028,6 +1014,15 @@ async def commune_resonance(request: Request):
             + rag_ctx
             + "\n== END CORPUS =="
         )
+
+    # ── Knowledge OS: retrieved conversational memory (the spine) ──────────────
+    # Personal longitudinal memory via assemble_context, scoped to the
+    # session_id thread. Empty block when nothing retrieved — never fabricate.
+    memory_block, memory_meta = "", {}
+    try:
+        from api.oracle_spine import build_memory_block; memory_block, memory_meta = build_memory_block(message, session_id)
+    except Exception as _mce:
+        logger.debug(f"[ORACLE] Knowledge OS memory retrieval skipped: {_mce}")
 
     # ── Personal Node Context (authenticated users only) ───────────────────────
     personal_block = ""
@@ -1136,6 +1131,7 @@ async def commune_resonance(request: Request):
         "Speculation must be explicitly labeled. Fabrication is unacceptable. "
         "When asked to forge an image, tell the user to use the ⟐ forge command format."
         + temporal_block
+        + memory_block
         + corpus_block
         + personal_block
     )
@@ -1144,8 +1140,9 @@ async def commune_resonance(request: Request):
 
     try:
         reply     = await _gemini_chat(msgs, system, api_key=active_key)
+        from api.oracle_spine import archive_oracle_turn
         threading.Thread(
-            target=_archive_oracle_turn,
+            target=archive_oracle_turn,
             args=(message, reply, session_id),
             daemon=True,
         ).start()
@@ -1156,6 +1153,9 @@ async def commune_resonance(request: Request):
             "patterns":  [],
             "rag_refs":  rag_refs,
             "rag_hits":  len(rag_refs),
+            "memory": {"session_id": session_id or None, "thread_id": memory_meta.get("thread_id"),
+                       "notes_retrieved": memory_meta.get("notes_retrieved", 0),
+                       "source": memory_meta.get("source", "knowledge_os"), "injected": bool(memory_block)},
         }
     except Exception as e:
         logger.error(f"Gemini error: {e}")

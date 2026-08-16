@@ -13,6 +13,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Volume2, Square, Send, Trash2, Copy, Check, RotateCcw, Pencil, Paperclip, FileText, X } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { arkanaSessionId } from '../lib/arkanaSession';
 import ArkDate from './ArkDate';
 import MarkdownViewer from './MarkdownViewer';
 import OracleVoicePlayer from './OracleVoicePlayer';
@@ -255,6 +257,7 @@ const ActionBtn: React.FC<{
 interface ArkanaProps { initialMessage?: string; }
 
 const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
+  const { user } = useAuth();
   const [messages, setMessages]         = useState<Message[]>(() => loadThread());
   const [input, setInput]               = useState('');
   const [loading, setLoading]           = useState(false);
@@ -505,9 +508,10 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
         messageWithContext += `\n\n[ATTACHED FILE: ${attachment.name} (${(attachment.size / 1024).toFixed(1)} KB)]`;
       }
 
-      const body: Record<string, unknown> = { 
-        message: messageWithContext, 
+      const body: Record<string, unknown> = {
+        message: messageWithContext,
         timestamp: Date.now(),
+        session_id: arkanaSessionId(user?.uid, sovereignToken),
       };
       if (sovereignToken.trim()) body.sovereign_token = sovereignToken.trim();
       

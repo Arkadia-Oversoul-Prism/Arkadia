@@ -22,101 +22,20 @@ from kernel.intent_types import ALLOWED_TYPES, normalize
 
 
 # ── Step 1: classify a raw user message into a strict intent ────────────────
+#
+# classify_input and its private helpers live in kernel.intent_types (the
+# intent-contract leaf) so kernel.planner can import them without forming a
+# kernel.planner ↔ kernel.execution import cycle. Re-exported here to keep
+# execution.classify_input as the historical public entry point.
 
-_INT_RE = re.compile(r"\b(\d+)\b")
-_AMOUNT_RE = re.compile(
-    r"(?:\$|usd|ngn|eur|gbp|₦|€|£)?\s*(\d+(?:[.,]\d+)?)\s*(usd|ngn|eur|gbp|naira|dollars?|euros?)?",
-    re.IGNORECASE,
+from kernel.intent_types import (
+    classify_input,
+    _extract_amount,
+    _INT_RE,
+    _AMOUNT_RE,
+    _CURRENCY_SYMBOLS,
+    _CURRENCY_WORDS,
 )
-_CURRENCY_SYMBOLS = {"$": "USD", "₦": "NGN", "€": "EUR", "£": "GBP"}
-_CURRENCY_WORDS = {
-    "usd": "USD", "dollar": "USD", "dollars": "USD",
-    "ngn": "NGN", "naira": "NGN",
-    "eur": "EUR", "euro": "EUR", "euros": "EUR",
-    "gbp": "GBP", "pound": "GBP", "pounds": "GBP",
-}
-
-
-def _extract_amount(message: str) -> tuple[float | None, str]:
-    m = _AMOUNT_RE.search(message)
-    if not m:
-        return None, "USD"
-    try:
-        amount = float(m.group(1).replace(",", "."))
-    except ValueError:
-        return None, "USD"
-    currency = "USD"
-    for sym, code in _CURRENCY_SYMBOLS.items():
-        if sym in message:
-            currency = code
-            break
-    word = (m.group(2) or "").lower().strip()
-    if word in _CURRENCY_WORDS:
-        currency = _CURRENCY_WORDS[word]
-    return amount, currency
-
-
-def classify_input(message: str, source: str = "api") -> dict[str, Any]:
-    """Map a raw user message into the strict Phase 4 intent envelope.
-    Returns {type: None, ...} when the message does not match any of the
-    four kernel-handled types — caller should then fall back to Arkana.
-    """
-    if not isinstance(message, str) or not message.strip():
-        return {"type": None, "payload": {}, "source": source}
-
-    lc = message.lower()
-
-    # generate_images — ONLY fires on explicit forge commands or unambiguous
-    # image-creation requests. The previous broad match on "image / visual /
-    # render / draw" was firing on any pasted scroll or corpus document that
-    # happened to contain those words. Now requires either the ⟐ forge slash
-    # command OR a clear action+object phrase ("generate an image of ...").
-    # The web forge slash command (⟐ forge <archetype> <scene>) is the primary
-    # surface; this kernel path handles explicit plain-language requests only.
-    if re.match(r"^\s*[⟐/]\s*forge\b", message) or \
-       re.search(r"\b(generate|create|make|draw)\s+(an?\s+)?(image|picture|photo|illustration)\b", lc):
-        m = _INT_RE.search(message)
-        count = int(m.group(1)) if m else 1
-        return {
-            "type":    "generate_images",
-            "payload": {"count": max(1, count), "prompt": message.strip()},
-            "source":  source,
-        }
-
-    # log_transaction — money verbs OR currency markers
-    if re.search(r"\b(spent|paid|received|transaction|earned|invoice|charged)\b", lc) \
-            or any(s in message for s in _CURRENCY_SYMBOLS):
-        amount, currency = _extract_amount(message)
-        if amount is not None:
-            return {
-                "type":    "log_transaction",
-                "payload": {"amount": amount, "currency": currency, "note": message.strip()},
-                "source":  source,
-            }
-
-    # update_open_loops — explicit loop / followup vocabulary
-    loop_match = re.match(
-        r"^(?:open\s+loop|loop|todo|follow(?:[\s-]?up)?|track)\s*[:\-]?\s*(.+)$",
-        message.strip(), re.IGNORECASE,
-    )
-    if loop_match:
-        loop_text = loop_match.group(1).strip()
-        status = "open"
-        if re.search(r"\b(close|done|resolved|complete)\b", lc):
-            status = "closed"
-        return {
-            "type":    "update_open_loops",
-            "payload": {"loop": loop_text, "status": status},
-            "source":  source,
-        }
-
-    # generate_verse — explicit verse / scroll verbs (avoid the bare 'generate')
-    if re.search(r"\b(verse|scroll|poem)\b", lc) and \
-            re.search(r"\b(generate|write|compose|create)\b", lc):
-        return {"type": "generate_verse", "payload": {}, "source": source}
-
-    # No deterministic match — let caller fall through to Arkana.
-    return {"type": None, "payload": {}, "source": source}
 
 
 # ── Step 2: plan ────────────────────────────────────────────────────────────
@@ -344,35 +263,13 @@ def _execute_planner_intent(intent: dict[str, Any]) -> dict[str, Any]:
 
 def _summarize(intent: dict[str, Any], results: list[dict[str, Any]],
                success: bool) -> str:
-    """Short, human-readable confirmation line for Telegram / chat clients."""
-    itype = intent["type"]
-    if not success:
-        return f"⚠️ {itype}: execution incomplete."
+    """Short, human-readable confirmation line for Telegram / chat clients.
 
-    if itype == "generate_images":
-        img = next((r for r in results if r.get("action") == "call_image_agent"), {})
-        n = img.get("count", 0)
-        return f"🖼  Generated {n} image(s) and stored to Oracle."
-
-    if itype == "log_transaction":
-        txn = next((r for r in results if r.get("action") == "write_transaction"), {})
-        bal = next((r for r in results if r.get("action") == "update_balance"), {})
-        t = txn.get("transaction") or {}
-        amt = t.get("amount", 0)
-        cur = t.get("currency", "USD")
-        bal_line = bal.get("balance", {}).get(cur, amt)
-        return f"💱 Logged {amt} {cur}. Balance now {bal_line} {cur}."
-
-    if itype == "update_open_loops":
-        loop = next((r for r in results if r.get("action") == "update_open_loops"), {})
-        l = loop.get("loop") or {}
-        return f"🌀 Open loop '{l.get('loop')}' → {l.get('status')}."
-
-    if itype == "generate_verse":
-        v = next((r for r in results if r.get("action") == "generate_verse"), {})
-        return v.get("verse") or "🜂 Verse generated."
-
-    return f"✓ {itype} complete."
+    Moved to kernel.tools to break the kernel.tools ↔ kernel.execution import
+    cycle; re-exported here for any caller that imports it from execution.
+    """
+    from kernel.tools import _summarize as _tools_summarize
+    return _tools_summarize(intent, results, success)
 
 
 __all__ = [

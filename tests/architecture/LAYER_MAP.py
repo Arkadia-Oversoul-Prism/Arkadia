@@ -164,37 +164,12 @@ REGISTERED_ARCHITECTURAL_DEBT: list[tuple[str, str, str]] = [
 # Remove an entry only after the cycle is broken and the fix is merged.
 
 REGISTERED_CIRCULAR_DEBT: list[tuple[tuple[str, ...], str]] = [
-    # Discovered during B0.5 calibration (2026-07-24).
-    # kernel.execution and kernel.tools form a mutual import cycle.
-    # Root cause: execution.py imports from tools.py; tools.py imports back from execution.py
-    # (likely for type hints or shared constants). These cycles prevent DI and risk
-    # cold-start ImportError under some import orderings.
-    # Owner: Principal Engineer | Workstream: A | Deadline: Phase 1 Gate E
-    # Exit criterion: test_no_circular_imports_in_kernel passes with this entry removed
-    (
-        ("kernel.execution", "kernel.tools", "kernel.execution"),
-        "execution↔tools mutual import — Workstream A, Phase 1 Gate E",
-    ),
-
-    # kernel.execution and kernel.planner form a mutual import cycle.
-    # execution.py is the orchestration entry point; planner.py is the LLM planner.
-    # A circular dependency between these two is architecturally inconsistent with
-    # their defined responsibilities (orchestrator must not be co-dependent with planner).
-    # Owner: Principal Engineer | Workstream: A | Deadline: Phase 1 Gate E
-    # Exit criterion: test_no_circular_imports_in_kernel passes with this entry removed
-    (
-        ("kernel.execution", "kernel.planner", "kernel.execution"),
-        "execution↔planner mutual import — Workstream A, Phase 1 Gate E",
-    ),
-
-    # Three-node cycle: execution → planner → tools → execution.
-    # This is a manifestation of the same underlying execution/planner/tools
-    # mutual-import cluster. The DFS may report it as a distinct cycle depending
-    # on traversal order. Registered separately so the registry is exhaustive.
-    # Owner: Principal Engineer | Workstream: A | Deadline: Phase 1 Gate E
-    # Exit criterion: test_no_circular_imports_in_kernel passes with this entry removed
-    (
-        ("kernel.execution", "kernel.planner", "kernel.tools", "kernel.execution"),
-        "execution→planner→tools→execution three-node cycle — Workstream A, Phase 1 Gate E",
-    ),
+    # All previously registered kernel circular import cycles have been resolved
+    # in source (Checkpoint A, conversational-spine prep) by relocating shared
+    # helpers into the lowest appropriate kernel leaf module:
+    #   • _summarize moved kernel.execution → kernel.tools
+    #   • classify_input (+ private helpers) moved kernel.execution → kernel.intent_types
+    # The former execution↔tools, execution↔planner, and execution→planner→tools
+    # cycles no longer exist in the import graph. Keep this list empty until a
+    # new cycle is genuinely introduced and registered with owner + exit criterion.
 ]

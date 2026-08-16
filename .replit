@@ -91,4 +91,4 @@ timeoutMs = 20000
 [userenv]
 
 [userenv.shared]
-ORACLE_URL = "https://arkadia-n26k.onrender.com"
+ORACLE_URL = "https://arkadia-kw64.onrender.com"

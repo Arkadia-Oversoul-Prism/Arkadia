@@ -352,7 +352,9 @@ def _fallback_plan(user_input: str) -> dict[str, Any] | None:
     """When the LLM is unavailable or returned an invalid plan, drop to
     Phase 4's regex classifier and wrap the matched intent as a single-step
     plan. Returns None if even the classifier doesn't match."""
-    from kernel.execution import classify_input
+    # Import from the intent-contract leaf, not kernel.execution, to avoid
+    # a kernel.planner ↔ kernel.execution import cycle.
+    from kernel.intent_types import classify_input
 
     intent = classify_input(user_input, source="planner")
     itype = intent.get("type")

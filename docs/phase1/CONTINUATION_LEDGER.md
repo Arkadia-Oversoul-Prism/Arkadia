@@ -517,3 +517,81 @@ Transformed the Knowledge Graph from passive storage into the operational semant
 - All 3 new endpoints registered and verified via `api.knowledge_routes.router.routes`
 
 **Knowledge Object Flow (Task 6):** Verified — all sources (Oracle conversations, corpus uploads, Encyclopedia, Spiral Codex, static docs via K5, direct notes) flow through `pipeline.ingest()`. No parallel pipelines exist.
+
+---
+
+## Session: CS1 — Conversational Spine (Oracle / Arkana runtime)
+
+**Session date:** ARK Y1 · D129 (2026-08-16)
+**Role:** Implementation Steward
+**Session type:** CS1 — Conversational Spine (the canonical Oracle/Arkana runtime)
+**Base HEAD:** `36fe2c6` (K3-C)
+**Next session starting point:** CS2 — Reusable conversational UI (extract/generalise the Oracle Chat interaction model into a canonical conversational component boundary)
+
+### Session Summary
+
+This session established the canonical conversational spine and proved it
+testable. Guiding principle: **ONE INTELLIGENCE SPINE. MANY INTERFACES.**
+Memory and intelligence are now interface-independent.
+
+**Pre-implementation architecture-gate repair (gate was claimed 10/10 but was
+9/10):** Two genuine circular import cycles in the source graph were broken
+(not merely registered as debt):
+- Cycle 1 (`kernel.tools ↔ kernel.execution`): `_summarize` moved from
+  `execution.py` into `tools.py`.
+- Cycle 2 (`kernel.planner ↔ kernel.execution`): `classify_input` + private
+  regex helpers moved from `execution.py` into `intent_types.py`;
+  `execution.py` re-exports for backward compat; `planner._fallback_plan`
+  imports from `intent_types`. Import parity verified.
+- Stale cycle entries cleared from `REGISTERED_CIRCULAR_DEBT` in
+  `tests/architecture/LAYER_MAP.py`.
+- Architecture gate restored to 10/10 before any product work began.
+
+**Spine implementation:**
+- New `api/oracle_spine.py`: `resolve_thread_id`, `retrieve_arkana_context`
+  (via canonical `knowledge.context_engine.assemble_context`), `build_memory_block`,
+  `archive_oracle_turn` (now uses `pipeline.ingest_conversation()` with thread_id
+  linkage + provider/persona provenance — replaces generic `pipeline.ingest()`).
+- `knowledge/vault.py`: `get_or_create_thread` / `get_thread_id` (session_id ↔
+  threads.id; threads created at archive time only, so retrieval never mutates state).
+- `api/main.py` (net +0 lines, at 2600-line budget): `/api/commune/resonance`
+  now retrieves Knowledge OS context (distinct from corpus RAG) and injects it
+  as `== RETRIEVED CONTEXTUAL MEMORY — KNOWLEDGE OS ==`; archives turns with
+  thread linkage; returns a `memory` diagnostic object.
+- Frontend session propagation (minimal, additive): new shared
+  `web/public_prism/src/lib/arkanaSession.ts` resolves a stable,
+  interface-independent session id (uid → sovereign token → stable guest id);
+  `ArkanaCommune.tsx`, `ReasoMatePage.tsx`, `NovaNetPage.tsx` each now send
+  `session_id` in the resonance body. The Oracle Chat UI was NOT redesigned.
+- Production config: corrected stale active Render endpoint in `.replit` and
+  `web/public_prism/.env.production` from `arkadia-n26k` → `arkadia-kw64`.
+
+### Verification
+
+- `pytest tests/architecture -q` → **10/10 PASSED**
+- `pytest tests/test_oracle_spine.py -q` → **4/4 PASSED** (continuity,
+  no-fabrication, transparency label, thread-boundary archive safety)
+- `tsc --noEmit` → zero errors in changed files
+- api/main.py at 2600-line budget (net +0)
+- 3 pre-existing `test_steward_filter.py` failures confirmed present on clean
+  `main` (HEAD `36fe2c6`) — NOT caused by CS1
+
+### Architectural note — the canonical conversational spine
+
+The invariant is NOT "make Arkana remember." It is: **make memory and
+intelligence interface-independent.** The UI is a window; the contextual state
+belongs beneath it, keyed on the human-owned, interface-independent
+`session_id`. Retrieval is explicitly labelled as "retrieved historical
+context, NOT the current conversation." No second memory system, second
+Oracle endpoint, or parallel social database was created.
+
+### Known gaps (later checkpoints)
+
+- Oracle Chat UI not redesigned (only `session_id` added) — CS2 extracts its
+  proven interaction model into a reusable component boundary.
+- NovaNet/ReasoMate client message lists still per-surface (`localStorage`).
+- `assemble_context()` retrieval requires stored embeddings; a Gemini key must
+  be configured in production for the semantic retrieval path. Operational
+  config dependency, not a code defect.
+- ReasoMate standalone routing and Encyclopedia/Codex duplicate-surface
+  reconciliation remain.

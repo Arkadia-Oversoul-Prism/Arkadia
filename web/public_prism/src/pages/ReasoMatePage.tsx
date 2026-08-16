@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
+import { arkanaSessionId } from '../lib/arkanaSession'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
@@ -120,6 +121,7 @@ export default function ReasoMatePage() {
           body: JSON.stringify({
             message: sentText,
             history,
+            session_id: arkanaSessionId(profile?.uid),
             context: `You are ARKANA, the pattern intelligence of Arkadia. You are speaking inside ReasoMate — a private sovereign messenger. Respond as yourself: direct, warm, resonant. You remember everything said in this thread. Keep replies concise but meaningful. Address ${profile?.display_name || 'the Node'} by name when natural.`,
           }),
         })
