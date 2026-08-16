@@ -5,11 +5,13 @@
 | Item | State |
 |---|---|
 | CS1 — Conversational Spine (Oracle/Arkana) | **COMPLETE** |
+| CS1.1 — Production-proof BM25 retrieval repair | **COMPLETE** (Phase 4 Gate A PASSED) |
 | K3-A — Canonical Ontology | **COMPLETE** |
 | K3-B — Operational Graph | **COMPLETE** |
 | K3-C — Semantic Enrichment | **COMPLETE** |
 | Architecture tests | **10/10 PASSING** |
-| Spine continuity tests | **4/4 PASSING** (`tests/test_oracle_spine.py`) |
+| Spine continuity tests | **5/5 PASSING** (`tests/test_oracle_spine.py`) |
+| Production proof (Gate A) | **PASSING** — thread jump verified on arkadia-kw64.onrender.com |
 | Frontend typecheck | **PASSING** (changed files, zero errors) |
 | Ontology | **FROZEN** — do not modify `node_types.py` or `relationship_types.py` |
 | api/main.py | **AT BUDGET** — 2600 lines; do not add inline logic; use router modules |

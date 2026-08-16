@@ -1,9 +1,10 @@
 # CS1 — Conversational Spine (Oracle / Arkana runtime)
 
-**Checkpoint:** CS1 — Conversational Spine
+**Checkpoint:** CS1 — Conversational Spine (+ CS1.1 production-proof repair)
 **Branch:** main
-**Base HEAD:** `36fe2c6`
+**Base HEAD:** `36fe2c6` → CS1 `1e7840f` → CS1.1 `28bd02b`
 **Architecture gate:** 10/10 PASSING
+**Production proof:** PASSING (Phase 4 Gate A)
 
 ## Objective
 
@@ -178,3 +179,59 @@ CS2 — Reusable conversational UI: extract/generalise the Oracle Chat
 interaction model into a canonical conversational component boundary, informed
 by Arkana Pattern Intelligence Chat and ReasoMate. Preserve the Oracle UI;
 do not rebuild it.
+
+
+---
+
+## CS1.1 — Production-proof repair (Phase 4 Gate A)
+
+**Trigger:** Gate A live test on arkadia-kw64.onrender.com FAILED on first run.
+The anchor turn was archived (thread created, chunk stored) but the recall leg
+returned notes_retrieved: 0 — Arkana did not surface SOLARIUN-117 across
+interfaces.
+
+**Diagnosis (production /api/knowledge/status):**
+    notes: 30  chunks: 96  embeddings: 0  pending_embeddings: 30  coverage: 0.0
+
+Gemini is unconfigured on Render, so embed_text() returns None. The documented
+BM25 "local-first" fallback (LAW II) was DEAD CODE: assemble_context() and
+semantic_search() both called all_chunk_embeddings() (INNER JOIN chunks to
+embeddings), which returns [] when 0 embeddings exist — so the elif-all_chunks
+BM25 branch was unreachable. The spine's retrieval was silently broken in the
+exact offline condition the local-first law was written to handle.
+
+**Minimal repair (commit 28bd02b, 4 files, no refactor / no UI):**
+- knowledge/embeddings.py: new all_chunks() — chunks WITHOUT the embeddings
+  JOIN (chunk_id, note_id, content). all_chunk_embeddings() unchanged.
+- knowledge/context_engine.py: when query_vec is None (offline), score
+  all_chunks() by BM25 instead of all_chunk_embeddings(). Cosine path
+  unchanged when embeddings exist.
+- knowledge/search.py: same one-line gating in semantic_search().
+- tests/test_oracle_spine.py: new
+  test_retrieval_works_with_zero_embeddings_bm25_fallback — forces the exact
+  production condition (0 embeddings, embed_text -> None, chunks present) and
+  asserts the archived anchor is still retrieved via BM25.
+
+**Gate A re-run on production (commit 28bd02b deployed):**
+
+- Test 1 (Thread Jump): ReasoMate recalls SOLARIUN-117 from an Oracle-Chat
+  anchor, same session_id, different surface -> PASS (notes_retrieved: 1,
+  reply contains SOLARIUN-117).
+- Test 2 (assemble_context contract): memory diagnostic returns the same
+  {session_id, thread_id, notes_retrieved, source, injected} regardless of
+  surface -> PASS (identical contract on both legs).
+- Test 3 (Invisibility): no "I remember from Oracle Chat" leak; Arkana just
+  answers -> PASS (reply contains SOLARIUN-117, Jessica, Eden Farm; does NOT
+  contain "Oracle Chat" or "I remember from").
+
+**Decisive evidence:** production STILL has embeddings: 0, pending: 30 (Gemini
+unconfigured), yet the thread jump now passes — BM25 is carrying the retrieval
+that cosine could not. The local-first law is now actually true.
+
+**Tests:** pytest tests/architecture -> 10/10; pytest tests/test_oracle_spine.py -> 5/5.
+
+**Remaining operational note (not a code defect):** when a Gemini key is
+configured on Render, the cosine path will activate and retrieval quality will
+improve (semantic match vs. keyword match). The BM25 path remains the
+guaranteed floor. Embedding backfill of the 30 pending notes is a config
+deploy, not a code change.
