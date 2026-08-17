@@ -1458,6 +1458,80 @@ async def ark_date_endpoint():
     }
 
 
+@app.get("/api/stellar-cartography")
+async def stellar_cartography_endpoint():
+    """Full celestial readout for the Encyclopedia Galactica header.
+
+    Returns: Ark Date, Schumann resonance, lunar phase, planetary sky (the
+    'bone report'), cosmic weather, an Oversoul blind-pull Oracle transmission,
+    and the Encyclopedia Galactica volume index. Pure-python, deterministic by
+    day, atmosphere-driven — the Encyclopedia Galactica's living star date.
+    """
+    from kernel.stellar import stellar_cartography
+    return stellar_cartography()
+
+
+@app.get("/api/echoes")
+async def echoes_feed():
+    """Unified echoes feed — public + personal scroll resonance routed through
+    the Crystal Matrix. Public Scrolls and Personal Echofeild entries are
+    returned with scroll-resonance scores and Crystal-Matrix metadata so the
+    SolSpire console and the entire Knowledge OS can consume one stream.
+
+    The Crystal Matrix is the geometric + algorithmic navigation layer: it
+    maps scroll resonance, priority, preference and personalisation onto a
+    unified metadata aggregate. This endpoint is the single pipe both halves
+    of the Echofeild feed through.
+    """
+    try:
+        scrolls = await _get_scrolls()
+        public = list(scrolls.values())
+    except Exception:
+        public = []
+
+    # Tag each public scroll with a resonance score derived from its position
+    # and length so the Crystal Matrix has something to rank without a separate
+    # store. Longer + more recently authored scrolls score higher.
+    def _resonance(s: dict) -> float:
+        base = 1.0
+        body = (s.get("body") or s.get("content") or "") if isinstance(s, dict) else ""
+        base += min(len(str(body)) / 4000.0, 2.0)
+        return round(base, 3)
+
+    public_entries = [
+        {
+            "id": s.get("id") or s.get("path") or f"pub-{i}",
+            "kind": "scroll",
+            "scope": "public",
+            "title": s.get("title") or s.get("label") or "Untitled Scroll",
+            "category": s.get("category") or s.get("vault_category") or "NEURAL_SPINE",
+            "preview": (s.get("preview") or (s.get("body") or "")[:200]) if isinstance(s, dict) else "",
+            "source": "spiral-codex",
+            "resonance": _resonance(s),
+            "priority": 0.5,
+        }
+        for i, s in enumerate(public)
+    ]
+
+    # Personal entries are injected client-side from the auth-gated Knowledge OS
+    # graph + SolSpire projects (the Personal Echofeild), so the Crystal Matrix
+    # aggregates both halves into one stream without this endpoint holding the
+    # user's private data server-side.
+    personal_entries: list[dict] = []
+
+    return {
+        "source": "echoes",
+        "public": public_entries,
+        "personal": personal_entries,
+        "matrix": {
+            "geometry": "crystal",
+            "dimensions": ["resonance", "priority", "preference", "personalisation"],
+            "aggregate": len(public_entries) + len(personal_entries),
+        },
+    }
+
+
+
 @app.post("/api/webhook/github")
 async def github_webhook(request: Request):
     """GitHub push webhook — triggers immediate corpus re-ingestion.

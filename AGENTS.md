@@ -86,3 +86,40 @@
 - `SettingsPage` has a "Gemini Key Pool" section using the legacy `/api/keys` multi-key
   store + live `/api/keys/pool` status (size / available / cooling + reset). TTS ElevenLabs
   keys use `/api/tts/keys` (already existed). Add 3+ of each so the pools never exhaust.
+
+## NovaNet = Nexus Hub unification + navigation restructure
+- **NovaNet IS the Nexus Hub** — not separate pages. `novanet` route renders `NexusPage`,
+  which hosts every surface as a tab: NovaNet (social feed + Stellar Cartography header),
+  Echofeild Matrix, ReasoMate, SolSpire, Offerings, IMS, Encyclopedia, Grove, Larder,
+  Distribute. The old standalone `nexus` view aliases the same hub.
+- **Personal Echofeild IS the Personal Codex** — not separate pages.
+  `PersonalEchofeild` renders `<PersonalCodex />` as its identity layer, then appends the
+  living projects + knowledge-graph feed + Crystal Matrix aggregation stats below it. The
+  `UniversalEchofeildMatrix` tabs both halves (public Spiral Codex ↔ personal Echofeild)
+  over the same data substrate — one spine, two windows.
+- **Echofeild → echoes endpoint → SolSpire/KnowledgeOS via Crystal Matrix**: `/api/echoes`
+  returns public + personal scroll entries tagged with resonance scores + Crystal-Matrix
+  metadata (dimensions: resonance, priority, preference, personalisation). Both halves of
+  the Echofeild feed through this single pipe so the SolSpire console and Knowledge OS
+  consume one stream. Personal entries are injected client-side (auth-gated Knowledge OS
+  graph + SolSpire projects) — the endpoint holds no private data server-side.
+- **Navigation**: vertical drawer (`ArkadiaNavigation`) reduced to the six anchors only —
+  Home, Oracle, Living Gate, NovaNet, About, Settings. Everything else lives on the
+  persistent `HorizonNav` horizontal bar (`components/HorizonNav.tsx`) that is rendered on
+  EVERY page (sticky below the top bar): SolSpire, ReasoMate, Echofeild, Encyclopedia,
+  Offerings, Knowledge OS, IMS, Grove, Larder, Distribute, Dashboard, Pulse.
+
+## Stellar Cartography (Encyclopedia Galactica living star date)
+- `kernel/stellar.py` — pure-python celestial readout, decoupled from `api.main` (no
+  httpx/fastapi import) so it loads standalone and in tests. Exposed at
+  `/api/stellar-cartography`.
+- Returns: Ark Date, Schumann resonance (7 bands + dominant), lunar phase (illumination +
+  glyph + folk name), planetary sky / "bone report" (simplified mean-longitude ephemeris for
+  Sun/Moon/Mercury/Venus/Mars/Jupiter/Saturn → zodiac), cosmic weather (solar wind, Kp
+  index, geomagnetic pressure + mood), Oversoul blind-pull Oracle transmission (rotated by
+  Ark Day so each day has its own), and the Encyclopedia Galactica volume index.
+- `components/StellarCartography.tsx` renders the readout (always-on primary readout +
+  expandable full atlas) with a `ScrollListenButton` on the Oversoul transmission. Mounted
+  at the top of `NovaNetPage` and the `echofeild-matrix` route so the atlas lives in the hub.
+- Replaces the minimal "Ark Y1 · D140" phrase with a full encyclopedia galactica readout.
+- Tests: `tests/test_stellar_cartography.py` (10 tests).

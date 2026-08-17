@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
+import HorizonNav from './HorizonNav';
 
 type View =
   | 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
@@ -32,43 +33,29 @@ interface NavProps {
 interface NavItem { label: string; view: View; sigil: string; sub: string; color: string }
 interface NavGroup { label: string; items: NavItem[] }
 
+// ── Vertical drawer — only the six anchors ────────────────────────────────────
+// Home, Oracle, Living Gate, NovaNet, About, Settings. Everything else lives
+// on the persistent HorizonNav bar (accessible on every page).
 const NAV_GROUPS: NavGroup[] = [
   {
-    label: 'Core',
+    label: 'Field',
     items: [
-      { label: 'Home',         view: 'home',      sigil: '⌂', sub: 'Field entry point',                             color: '#C9A84C' },
-      { label: 'Oracle',       view: 'commune',   sigil: '⟐', sub: 'ARKANA · Pattern intelligence',                  color: '#00D4AA' },
-      { label: 'ReasoMate',    view: 'reasomate', sigil: '✧', sub: 'Arkana messenger · continuous conversation',    color: '#6A9FD8' },
-      { label: 'Living Gate',  view: 'gate',      sigil: '✦', sub: 'Reset · IMS · AIC Diagnostic · 5-Minute',        color: '#C9A84C' },
+      { label: 'Home',         view: 'home',      sigil: '⌂', sub: 'Field entry point',     color: '#C9A84C' },
+      { label: 'Oracle',       view: 'commune',   sigil: '⟐', sub: 'ARKANA · Pattern intelligence', color: '#00D4AA' },
+      { label: 'Living Gate',  view: 'gate',      sigil: '✦', sub: 'Reset · IMS · AIC · 5-Minute', color: '#C9A84C' },
     ],
   },
   {
-    label: 'Network',
+    label: 'Nexus',
     items: [
-      { label: 'NovaNet',      view: 'novanet',      sigil: '◉', sub: 'Public transmission feed · Post · React · ReasoMate', color: '#6A9FD8' },
-      { label: 'Echofeild Matrix', view: 'echofeild-matrix', sigil: '⬡', sub: 'Spiral Codex Live Feed · Personal Echofeild · unified field', color: '#B08DE8' },
-      { label: 'Encyclopedia Galactica', view: 'encyclopedia', sigil: '◈', sub: 'Canonical knowledge · Crystal Tribune', color: '#D4AF37' },
-    ],
-  },
-  {
-    label: 'Intelligence',
-    items: [
-      { label: 'Nexus Hub',        view: 'nexus',    sigil: '☥', sub: 'IMS · Grove · Larder · Distribute',                       color: '#C9A84C' },
-      { label: 'SolSpire Console', view: 'solspire', sigil: '◉', sub: 'Personal Codex · Knowledge OS · Projects · Console', color: '#C9A84C' },
-      { label: 'Personal Echofeild', view: 'personal-echofeild', sigil: '✦', sub: 'Your living projects · auth-gated feed', color: '#00D4AA' },
-    ],
-  },
-  {
-    label: 'Modules',
-    items: [
-      { label: 'Offerings',    view: 'offerings', sigil: '✦', sub: 'Sessions · Products · Book Now',    color: '#C9A84C' },
+      { label: 'NovaNet',      view: 'novanet',   sigil: '◉', sub: 'The Nexus Hub · unified field', color: '#6A9FD8' },
     ],
   },
   {
     label: 'System',
     items: [
-      { label: 'Settings',  view: 'settings', sigil: '⚙', sub: 'API keys · Configuration', color: '#C9A84C' },
-      { label: 'About',    view: 'about',     sigil: '✦', sub: 'Zahrune Nova · Lineage',      color: '#6A9FD8' },
+      { label: 'About',    view: 'about',     sigil: '✦', sub: 'Zahrune Nova · Lineage',   color: '#6A9FD8' },
+      { label: 'Settings', view: 'settings',  sigil: '⚙', sub: 'API keys · Configuration', color: '#C9A84C' },
     ],
   },
 ];
@@ -76,7 +63,7 @@ const NAV_GROUPS: NavGroup[] = [
 const VIEW_LABEL: Partial<Record<View, string>> = {
   home: 'Home', gate: 'Living Gate', commune: 'Oracle', reset: 'Field Reset', about: 'About',
   login: 'Node Login', codex: 'Personal Codex', dashboard: 'Dashboard',
-  nexus: 'Nexus Hub', encyclopedia: 'Encyclopedia Galactica',
+  nexus: 'NovaNet', encyclopedia: 'Encyclopedia Galactica',
   'spiral-codex': 'Spiral Codex', loops: 'Open Loops', grove: 'Spiral Grove',
   larder: 'Living Larder', novanet: 'NovaNet', ims: 'IMS Archive',
   distribute: 'Distribute', offerings: 'Offerings', aic: 'AIC Diagnostic',
@@ -143,11 +130,11 @@ function UserSection({ onNavigate, onClose }: { onNavigate: (v: View) => void; o
       {/* Quick links */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, padding: '0 16px 10px' }}>
         {[
-          { label: '☥ Nexus', view: 'nexus' as View },
           { label: '◉ SolSpire', view: 'solspire' as View },
-          { label: '⬡ Encyclopedia', view: 'encyclopedia' as View },
+          { label: '✧ ReasoMate', view: 'reasomate' as View },
           { label: '⬡ Echofeild', view: 'echofeild-matrix' as View },
-          { label: '◉ NovaNet', view: 'novanet' as View },
+          { label: '◈ Encyclopedia', view: 'encyclopedia' as View },
+          { label: '✦ Offerings', view: 'offerings' as View },
         ].map(item => (
           <button key={item.view} onClick={() => { onNavigate(item.view); onClose(); }}
             style={{
@@ -480,6 +467,8 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
 
       {/* ── Page content ── */}
       <div style={{ paddingTop: 52 }}>
+        {/* Persistent horizontal nav — accessible on every page */}
+        <HorizonNav current={currentView} onNavigate={handleNavigate} />
         {children}
       </div>
     </div>

@@ -20,6 +20,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ORACLE } from '../lib/apiConfig';
 import { getGraph, getRecentTimeline, GraphNode, GraphEdge, TimelineEvent } from '../lib/knowledgeApi';
 import ScrollListenButton from '../components/ScrollListenButton';
+import PersonalCodex from './PersonalCodex';
 
 type View = 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
   | 'nexus' | 'encyclopedia' | 'spiral-codex' | 'loops' | 'grove' | 'larder' | 'novanet'
@@ -67,7 +68,7 @@ function buildAdjacency(nodes: GraphNode[], edges: GraphEdge[]) {
 }
 
 export default function PersonalEchofeild({ onNavigate }: { onNavigate: (v: View) => void }) {
-  const { isAuthenticated, profile, codex } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [projects, setProjects] = useState<SolProject[]>([]);
   const [graphNodes, setGraphNodes] = useState<GraphNode[]>([]);
   const [graphEdges, setGraphEdges] = useState<GraphEdge[]>([]);
@@ -106,24 +107,12 @@ export default function PersonalEchofeild({ onNavigate }: { onNavigate: (v: View
   );
 
   // Auth gate — the Personal Echofeild is genuinely private, not decorative.
+  // Delegates to PersonalCodex's own gate for the identity half, so the unified
+  // field shows the same sign-in prompt either way.
   if (!isAuthenticated) {
     return (
-      <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-        <div style={{ maxWidth: 460, textAlign: 'center' }}>
-          <div style={{ fontSize: 36, color: '#00D4AA', marginBottom: 16 }}>✦</div>
-          <h2 style={{ fontFamily: 'serif', fontSize: 22, color: '#E8E8E8', margin: '0 0 10px', fontWeight: 400, letterSpacing: '0.02em' }}>
-            The Personal Echofeild is private
-          </h2>
-          <p style={{ fontFamily: 'sans-serif', fontSize: 13, color: 'rgba(232,232,232,0.5)', lineHeight: 1.6, margin: '0 0 24px' }}>
-            This living feed of your own projects, codex and captured knowledge is auth-gated.
-            Sign in to render the field that belongs to you — aggregated through the knowledge graph.
-          </p>
-          <button onClick={() => onNavigate('login')}
-            style={{ padding: '11px 28px', background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.3)',
-              borderRadius: 10, color: 'rgba(201,168,76,0.9)', fontFamily: 'sans-serif', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer' }}>
-            Sign in to enter the field
-          </button>
-        </div>
+      <div style={{ maxWidth: 760, margin: '0 auto', padding: '24px 20px 80px' }}>
+        <PersonalCodex onNavigate={onNavigate} />
       </div>
     );
   }
@@ -133,20 +122,19 @@ export default function PersonalEchofeild({ onNavigate }: { onNavigate: (v: View
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: '24px 20px 80px' }}>
-      {/* Masthead */}
-      <div style={{ marginBottom: 28, paddingBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: '0.28em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.5)', margin: '0 0 6px' }}>
-          ✦ Personal Echofeild · private
-        </p>
-        <h1 style={{ fontFamily: 'serif', fontSize: 30, fontWeight: 400, color: '#E8E8E8', margin: 0, letterSpacing: '0.01em' }}>
-          {codex?.display_name ?? profile?.display_name ?? 'Your living field'}
-        </h1>
-        {codex?.role && (
-          <p style={{ fontFamily: 'sans-serif', fontSize: 12, color: 'rgba(232,232,232,0.42)', margin: '6px 0 0', fontStyle: 'italic' }}>
-            {codex.role}{codex.soul_function ? ` · ${codex.soul_function}` : ''}
-          </p>
-        )}
-        <div style={{ display: 'flex', gap: 18, marginTop: 14, flexWrap: 'wrap' }}>
+      {/* ── UNIFIED IDENTITY: Personal Codex IS the Personal Echofeild ── */}
+      {/* The Personal Codex identity stack renders as the identity layer of the
+          unified field. Below it: the living projects + knowledge graph feed. */}
+      <PersonalCodex />
+
+      {/* Crystal Matrix metadata aggregation — the field stats the Codex identity
+          does not carry: graph connections, timeline events, project pulse. */}
+      <div style={{ marginTop: 28, marginBottom: 28, padding: '16px 20px', background: 'rgba(176,141,232,0.04)', border: '1px solid rgba(176,141,232,0.16)', borderRadius: 12, borderBottom: '3px solid rgba(176,141,232,0.5)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <span style={{ color: '#B08DE8', fontSize: 14 }}>⬡</span>
+          <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'rgba(176,141,232,0.6)' }}>Crystal Matrix · Echofeild Aggregation</span>
+        </div>
+        <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
           <Stat label="active projects" value={activeProjects.length} color="#00D4AA" />
           <Stat label="knowledge nodes" value={graphNodes.length} color="#C9A84C" />
           <Stat label="graph connections" value={totalConnections} color="#B08DE8" />

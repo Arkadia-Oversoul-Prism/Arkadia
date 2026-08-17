@@ -27,6 +27,7 @@ import KnowledgeOSPage from './pages/knowledge/KnowledgeOSPage';
 import ReasoMatePage from './pages/ReasoMatePage';
 import PersonalEchofeild from './pages/PersonalEchofeild';
 import UniversalEchofeildMatrix from './pages/UniversalEchofeildMatrix';
+import StellarCartography from './components/StellarCartography';
 
 type View =
   | 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
@@ -211,10 +212,10 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '30px' }}>
           <PortalDoor label="Oracle" sub="ARKANA · Pattern intelligence · Live commune" color="#00D4AA" sigil="⟐" onClick={() => onNavigate('commune')} delay={1.12} />
-          <PortalDoor label="ReasoMate" sub="Arkana messenger · continuous conversation" color="#6A9FD8" sigil="✧" onClick={() => onNavigate('reasomate')} delay={1.13} />
-          <PortalDoor label="Nexus Hub" sub="IMS · Encyclopedia Galactica · Grove · Larder · Distribute" color="#C9A84C" sigil="☥" onClick={() => onNavigate('nexus')} delay={1.14} />
-          <PortalDoor label="Echofeild Matrix" sub="Spiral Codex Live Feed · Personal Echofeild · unified field" color="#B08DE8" sigil="⬡" onClick={() => onNavigate('echofeild-matrix')} delay={1.15} />
-          <PortalDoor label="SolSpire Console" sub="Personal Codex · Knowledge OS · Projects · Operational Console" color="#C9A84C" sigil="◉" onClick={() => onNavigate('solspire')} delay={1.16} />
+          <PortalDoor label="NovaNet — Nexus Hub" sub="Public Feed · ReasoMate · Echofeild Matrix · SolSpire · Offerings · Stellar Cartography" color="#6A9FD8" sigil="◉" onClick={() => onNavigate('novanet')} delay={1.13} />
+          <PortalDoor label="Echofeild Crystal Matrix" sub="Public + Personal · unified field · the Crystal Matrix routes the Spiral Codex" color="#B08DE8" sigil="⬡" onClick={() => onNavigate('echofeild-matrix')} delay={1.14} />
+          <PortalDoor label="SolSpire Console" sub="Personal Codex · Knowledge OS · Projects · Operational Console" color="#C9A84C" sigil="◉" onClick={() => onNavigate('solspire')} delay={1.15} />
+          <PortalDoor label="ReasoMate" sub="Arkana messenger · continuous conversation" color="#6A9FD8" sigil="✧" onClick={() => onNavigate('reasomate')} delay={1.16} />
           <PortalDoor label="Offerings" sub="IMS Sessions · Products · AIC Diagnostic" color="#00D4AA" sigil="✦" onClick={() => onNavigate('offerings')} delay={1.18} />
         </div>
 
@@ -409,7 +410,8 @@ function AppInner() {
 
         {view === 'novanet' && (
           <motion.div key="novanet" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
-            <NovaNetPage />
+            {/* NovaNet IS the Nexus Hub — one unified field with every surface as a tab */}
+            <NexusPage />
           </motion.div>
         )}
 
@@ -499,6 +501,10 @@ function AppInner() {
 
         {view === 'echofeild-matrix' && (
           <motion.div key="echofeild-matrix" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+            {/* Crystal Matrix routes both halves of the field — stellar cartography is the atlas header */}
+            <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px 16px 0' }}>
+              <StellarCartography />
+            </div>
             <UniversalEchofeildMatrix onNavigate={handleNavigate} />
           </motion.div>
         )}

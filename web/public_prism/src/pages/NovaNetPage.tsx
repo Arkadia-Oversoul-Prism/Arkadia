@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { arkanaSessionId } from '../lib/arkanaSession'
 import MarkdownViewer from '../components/MarkdownViewer'
 import { formatToArkadiaMarkdown } from '../lib/arkadiaFormatter'
+import StellarCartography from '../components/StellarCartography'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
@@ -555,6 +556,11 @@ export default function NovaNetPage() {
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh' }}>
+
+      {/* ── Stellar Cartography — the Encyclopedia Galactica living star date ── */}
+      <div style={{ marginBottom: 16 }}>
+        <StellarCartography />
+      </div>
 
       {/* ── Header ── */}
       <div style={{ padding: '14px 0 10px', borderBottom: '1px solid rgba(106,159,216,0.08)', marginBottom: 14 }}>

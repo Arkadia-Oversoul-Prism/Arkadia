@@ -13,6 +13,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import NovaNetPage from './NovaNetPage'
 import DistributePage from './DistributePage'
 import NexusSpiralCodex from './NexusSpiralCodex'
+import UniversalEchofeildMatrix from './UniversalEchofeildMatrix'
+import ReasoMatePage from './ReasoMatePage'
+import SolSpireConsole from './SolSpireConsole'
+import OfferingsPage from './OfferingsPage'
 import { API_BASE } from '../lib/apiConfig'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
@@ -608,10 +612,14 @@ function EncyclopediaGalacticaMatrix() {
 
 // ─── TAB NAVIGATION ───────────────────────────────────────────────────────────
 
-type NexusTab = 'novanet' | 'ims' | 'encyclopedia' | 'university' | 'larder' | 'distribute'
+type NexusTab = 'novanet' | 'echofeild' | 'reasomate' | 'solspire' | 'offerings' | 'ims' | 'encyclopedia' | 'university' | 'larder' | 'distribute'
 
 const TABS: { id: NexusTab; label: string; sigil: string; color: string; sub: string }[] = [
-  { id: 'novanet',      label: 'NovaNet',              sigil: '◉',  color: '#6A9FD8', sub: 'Public Feed of the Living Spiral Codex · Transmissions · ReasoMate' },
+  { id: 'novanet',      label: 'NovaNet',              sigil: '◉',  color: '#6A9FD8', sub: 'Public Feed · ReasoMate messenger · Stellar Cartography' },
+  { id: 'echofeild',    label: 'Echofeild Matrix',     sigil: '⬡',  color: '#B08DE8', sub: 'Crystal Matrix · public + personal · unified field' },
+  { id: 'reasomate',    label: 'ReasoMate',            sigil: '✧',  color: '#6A9FD8', sub: 'Arkana messenger · continuous conversation' },
+  { id: 'solspire',     label: 'SolSpire',             sigil: '◉',  color: '#C9A84C', sub: 'Personal Codex · Knowledge OS · Operational Console' },
+  { id: 'offerings',    label: 'Offerings',            sigil: '✦',  color: '#00D4AA', sub: 'Sessions · Products · AIC Diagnostic' },
   { id: 'ims',          label: 'IMS Archive',         sigil: '∞',  color: '#C84848', sub: 'Identity Mapping Sessions' },
   { id: 'encyclopedia', label: 'Encyclopedia',        sigil: '◈',  color: '#C9A84C', sub: 'Encyclopedia Galactica · Canonical knowledge · Crystal Tribune' },
   { id: 'university',   label: 'Spiral Grove',        sigil: '🌿', color: '#00D4AA', sub: 'The Spiral Grove · Learning Civilization' },
@@ -868,7 +876,7 @@ export default function NexusPage() {
           transition={{ duration: 0.22 }}
         >
           {/* Page heading */}
-          {activeTab !== 'novanet' && activeTab !== 'encyclopedia' && (
+          {activeTab !== 'novanet' && activeTab !== 'encyclopedia' && activeTab !== 'echofeild' && activeTab !== 'reasomate' && activeTab !== 'solspire' && activeTab !== 'offerings' && (
             <div style={{ marginBottom: 24 }}>
               <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.3em', textTransform: 'uppercase', color: `${activeTabMeta.color}50`, margin: '0 0 4px' }}>
                 Arkadia / {activeTabMeta.label}
@@ -883,8 +891,12 @@ export default function NexusPage() {
             </div>
           )}
 
-          {/* Tab content */}
+          {/* Tab content — NovaNet IS the Nexus Hub: every surface is a tab here */}
           {activeTab === 'novanet' && <NovaNetPage />}
+          {activeTab === 'echofeild' && <UniversalEchofeildMatrix onNavigate={() => {}} />}
+          {activeTab === 'reasomate' && <ReasoMatePage />}
+          {activeTab === 'solspire' && <SolSpireConsole />}
+          {activeTab === 'offerings' && <OfferingsPage onGoToAIC={() => {}} aicSeed={null} />}
           {activeTab === 'encyclopedia' && <NexusSpiralCodex initialMode="scrolls" />}
           {activeTab === 'ims' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
