@@ -19,6 +19,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { ORACLE } from '../lib/apiConfig';
 import { getGraph, getRecentTimeline, GraphNode, GraphEdge, TimelineEvent } from '../lib/knowledgeApi';
+import ScrollListenButton from '../components/ScrollListenButton';
 
 type View = 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
   | 'nexus' | 'encyclopedia' | 'spiral-codex' | 'loops' | 'grove' | 'larder' | 'novanet'
@@ -207,6 +208,9 @@ export default function PersonalEchofeild({ onNavigate }: { onNavigate: (v: View
                   {connCount > 0
                     ? <Chip text={`${connCount} graph ${connCount === 1 ? 'connection' : 'connections'}`} color="#B08DE8" />
                     : <Chip text="isolated node" color="rgba(232,232,232,0.25)" />}
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <ScrollListenButton text={n.title} label={`PERSONAL CAPTURE · ${n.title.slice(0, 36)}`} accent="#B08DE8" />
                 </div>
               </motion.div>
             );

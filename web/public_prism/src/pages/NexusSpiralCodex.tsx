@@ -17,6 +17,7 @@ import { RefreshCw, Search, X, ChevronDown, Upload, CheckCircle, MessageSquare, 
 import { api, CodexResponse, CodexScroll } from '../lib/dashboardApi'
 import { ingestNote } from '../lib/knowledgeApi'
 import MarkdownViewer from '../components/MarkdownViewer'
+import ScrollListenButton from '../components/ScrollListenButton'
 import { COLORS, Empty, ErrorBox } from './dashboard/ui'
 import ChamberView, {
   CHAMBERS, ROMAN,
@@ -574,6 +575,11 @@ function EditorialScrollCard({ scroll, score, faceColor, idx }: {
                 : <p style={{ fontFamily: 'sans-serif', fontSize: 12, color: 'rgba(232,232,232,0.35)', margin: 0, fontStyle: 'italic' }}>
                     Scroll content not indexed.
                   </p>}
+              {(scroll.content || scroll.preview) && (
+                <div style={{ marginTop: 10 }}>
+                  <ScrollListenButton text={(scroll.content || scroll.preview)!} label={`SCROLL · ${(scroll.label || scroll.id).slice(0, 40)}`} accent={accent} />
+                </div>
+              )}
             </div>
           </motion.div>
         )}

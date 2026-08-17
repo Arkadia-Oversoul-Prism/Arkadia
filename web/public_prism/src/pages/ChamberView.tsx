@@ -9,6 +9,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { api, CodexResponse } from '../lib/dashboardApi'
+import ScrollListenButton from '../components/ScrollListenButton'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -383,6 +384,13 @@ export default function ChamberView({ chamber, states, reflections, onReturn, on
           <div style={{ textAlign: 'center', marginBottom: 36 }}>
             <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '0.45em', textTransform: 'uppercase', color: `${chamber.color}40`, margin: '0 0 12px' }}>Chapter {ROMAN[chamber.num - 1]}</p>
             <h1 style={{ fontFamily: 'serif', fontSize: 36, color: '#EAEAEA', margin: 0, letterSpacing: '0.03em', lineHeight: 1.22, fontWeight: 400, textShadow: `0 0 80px ${chamber.color}18` }}>{chamber.chapterTitle}</h1>
+            <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center' }}>
+              <ScrollListenButton
+                text={[chamber.openingVerse, chamber.excerpt, chamber.closingVerse, chamber.reflectionPrompt].join('\n\n')}
+                label={`CHAMBER · ${chamber.chapterTitle}`}
+                accent={chamber.color}
+              />
+            </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
             <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, transparent, ${chamber.color}25)` }} />

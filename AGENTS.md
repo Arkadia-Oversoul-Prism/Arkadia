@@ -1,0 +1,77 @@
+# Arkadia — Agent Memory
+
+## Architecture overview
+- **Backend**: `api/main.py` (FastAPI, 2600+ lines). Endpoints: `/api/commune/resonance`
+  (Oracle/ReasoMate chat), `/api/tts`, `/api/tts/status`, `/api/tts/voices`,
+  `/api/keys` (legacy multi-key Gemini), `/api/tts/keys` (multi TTS key),
+  `/api/provider-keys` (one key per provider), `/api/forge` (sovereign-gated image gen).
+- **Frontend**: `web/public_prism/` (React + Vite + TypeScript, Tailwind, framer-motion).
+  Global `SonataBar` mounted once in `App.tsx`. Oracle Chat = `components/ArkanaCommune.tsx`
+  (full canvas: `MarkdownViewer` + `OracleVoicePlayer` per message). ReasoMate = `pages/ReasoMatePage.tsx`.
+- **Key stores** (3 separate JSON files in `data/`):
+  - `api/key_manager.py` → `data/api_keys.json` (multi Gemini keys, rotation on 429)
+  - `api/provider_key_store.py` → `data/provider_keys.json` (one key/provider: gemini/openai/claude/deepseek)
+  - `api/tts_key_manager.py` → `data/tts_keys.json` (multi TTS/ElevenLabs keys)
+  - `api/user_key_store.py` → Firestore (per-user keys) with in-memory fallback
+- **TTS**: `kernel/tts.py`. Priority: ElevenLabs (needs key) → Edge TTS (free) → Piper.
+  ElevenLabs key resolver: `ELEVENLABS_API_KEY` env → `tts_key_manager`. Rotate on 429.
+- **Oracle spine**: `api/oracle_spine.py` — shared by Oracle Chat, ReasoMate, NovaNet.
+  ONE INTELLIGENCE SPINE, MANY INTERFACES. Memory via `knowledge/context_engine.py`.
+- **Gemini call**: `api/main.py::_gemini_chat` iterates `GEMINI_MODELS` on 429 but does
+  NOT rotate keys. SolSpire (`solspire/provider_manager.py`) does key rotation independently.
+
+## Key conventions
+- Frontend API base: import from `lib/apiConfig.ts` (`API_BASE`). Many older files use
+  `import.meta.env.VITE_API_URL` — that's a stale path; `apiConfig` is canonical.
+- Markdown rendering: `components/MarkdownViewer.tsx` (react-markdown + remark-gfm).
+- Voice: `components/OracleVoicePlayer.tsx` publishes to `lib/voiceContext.ts`;
+  `components/SonataBar.tsx` subscribes + drives `lib/audioManager.ts` (singleton audio el).
+  Cache via `lib/audioCache.ts` (IndexedDB).
+- Architectural debt is tracked in `tests/architecture/LAYER_MAP.py` — kernel→api and
+  providers→api imports are REGISTERED DEBT (allowed but flagged). Do not add new ones
+  without registering.
+
+## Build/test
+- Frontend: `cd web/public_prism && pnpm install && pnpm build` (node 24, pnpm 10.26).
+- Backend tests: `python -m pytest tests/ -q` (key managers import cleanly; data/ holds JSON).
+- TTS kernel needs `edge_tts`, `httpx`; ElevenLabs optional.
+
+## Voice/TTS notes
+- `OracleVoicePlayer` defaults voice to `'aria'` (Edge TTS). ElevenLabs voices mapped in
+  `kernel/tts.py::ELEVENLABS_VOICE_MAP`. Status endpoint reports active engine.
+- The "defaulting to aria voice" issue = TTS engine falls back to Edge TTS when no
+  ElevenLabs key is configured, AND the frontend always shows voice='aria' regardless of
+  active engine. ElevenLabs is only attempted if `ELEVENLABS_API_KEY` env or tts_key_manager
+  has a key — Settings stores these keys but they must be present to engage.
+
+## Distributed key pool (load-balancing across surfaces)
+- `api/key_pool.py` is the SINGLE source of truth for "which Gemini key right now".
+  `acquire_key()` round-robins over all configured keys so Oracle Chat, ReasoMate,
+  SolSpire and Knowledge OS spread across the pool instead of pinning one key.
+  `report_failure(key)` cools a key (~45s) and hands out the next one;
+  `report_success(key)` clears the cooldown. `pool_snapshot()`/`reset_all()` power the
+  Settings UI. Key sources (union): `provider_key_store["gemini"]` + `key_manager` +
+  `GEMINI_API_KEY`/`GOOGLE_API_KEY` env.
+- **CRITICAL**: `report_failure` must NOT call `acquire_key()` (non-reentrant lock →
+  deadlock). It calls `_acquire_key_locked()` instead. A deadlock here was found+fixed
+  via `tests/test_key_pool.py`.
+- Routing: `_gemini_chat`, `/commune/resonance`, CEO chat, and `solspire/provider_manager`
+  all go through `key_pool.acquire_key()`. SolSpire falls back to local candidates only if
+  the pool module is unavailable (older deploys).
+- `api/tts_key_manager.get_active_key()` is now round-robin too — concurrent "Read aloud"
+  requests distribute across all ElevenLabs keys rather than pinning one active key.
+
+## Read-aloud (Listen) rollout
+- `components/ScrollListenButton.tsx` — reusable read-aloud for any scroll/note content.
+  Uses the SAME audio infra as Oracle Chat (`audioManager` + `voiceContext` + `audioCache`)
+  so the global `SonataBar` surfaces everywhere. Strips markdown before TTS.
+- Wired into: `ReasoMatePage` (OracleVoicePlayer per Arkana reply + MarkdownViewer),
+  `SpiralCodexFeed`, `NexusSpiralCodex`, `PersonalCodex` (soul function),
+  `PersonalEchofeild` (captures), `ChamberView` (chapter verses + excerpt).
+- `ReasoMatePage` now renders Arkana replies through `MarkdownViewer` (canvas display),
+  not raw markdown — matches Oracle Chat.
+
+## Settings (multi-key)
+- `SettingsPage` has a "Gemini Key Pool" section using the legacy `/api/keys` multi-key
+  store + live `/api/keys/pool` status (size / available / cooling + reset). TTS ElevenLabs
+  keys use `/api/tts/keys` (already existed). Add 3+ of each so the pools never exhaust.

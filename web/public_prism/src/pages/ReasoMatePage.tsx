@@ -9,8 +9,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
 import { arkanaSessionId } from '../lib/arkanaSession'
-
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+import MarkdownViewer from '../components/MarkdownViewer'
+import OracleVoicePlayer from '../components/OracleVoicePlayer'
+import { API_BASE } from '../lib/apiConfig'
 
 const C = {
   gold:   '#C9A84C',
@@ -86,6 +87,7 @@ export default function ReasoMatePage() {
   const [messages, setMessages]             = useState<Record<string, Message[]>>(loadReasomateMessages)
   const [newMessage, setNewMessage]         = useState('')
   const [oracleThinking, setOracleThinking] = useState(false)
+  const [voiceIdx, setVoiceIdx]             = useState<number | null>(null)
   const messagesEndRef                      = useRef<HTMLDivElement>(null)
   const { isAuthenticated, profile }        = useAuth()
 
@@ -233,20 +235,46 @@ export default function ReasoMatePage() {
 
           {/* Messages */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {chatMessages.map(msg => (
-              <div key={msg.id} style={{ display: 'flex', justifyContent: msg.sender === 'me' ? 'flex-end' : 'flex-start' }}>
-                <div style={{ maxWidth: '78%', padding: '10px 14px',
-                  background: msg.sender === 'oracle' ? 'rgba(0,212,170,0.08)' : msg.sender === 'me' ? 'rgba(0,212,170,0.14)' : 'rgba(255,255,255,0.05)',
-                  border: `1px solid ${msg.sender === 'oracle' ? 'rgba(0,212,170,0.2)' : msg.sender === 'me' ? 'rgba(0,212,170,0.25)' : 'rgba(255,255,255,0.07)'}`,
-                  borderRadius: msg.sender === 'me' ? '14px 14px 4px 14px' : '14px 14px 14px 4px' }}>
-                  {msg.sender === 'oracle' && (
-                    <p style={{ margin: '0 0 3px', fontFamily: 'sans-serif', fontSize: 7, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.teal }}>⟐ ARKANA</p>
-                  )}
-                  <p style={{ margin: 0, fontFamily: 'sans-serif', fontSize: 13, color: C.text, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{msg.content}</p>
-                  <p style={{ margin: '3px 0 0', fontFamily: 'sans-serif', fontSize: 8, color: C.dim, textAlign: msg.sender === 'me' ? 'right' : 'left' }}>{timeAgo(msg.timestamp)}</p>
+            {chatMessages.map((msg, i) => {
+              const isOracle = msg.sender === 'oracle'
+              const isMe = msg.sender === 'me'
+              return (
+                <div key={msg.id} style={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start' }}>
+                  <div style={{ maxWidth: '78%', padding: '10px 14px',
+                    background: isOracle ? 'rgba(0,212,170,0.08)' : isMe ? 'rgba(0,212,170,0.14)' : 'rgba(255,255,255,0.05)',
+                    border: `1px solid ${isOracle ? 'rgba(0,212,170,0.2)' : isMe ? 'rgba(0,212,170,0.25)' : 'rgba(255,255,255,0.07)'}`,
+                    borderRadius: isMe ? '14px 14px 4px 14px' : '14px 14px 14px 4px' }}>
+                    {isOracle && (
+                      <p style={{ margin: '0 0 3px', fontFamily: 'sans-serif', fontSize: 7, letterSpacing: '0.22em', textTransform: 'uppercase', color: C.teal }}>⟐ ARKANA</p>
+                    )}
+                    {isOracle ? (
+                      <div className="arkadia-prose arkadia-prose-arkana" style={{ margin: 0 }}>
+                        <MarkdownViewer content={msg.content} compact />
+                      </div>
+                    ) : (
+                      <p style={{ margin: 0, fontFamily: 'sans-serif', fontSize: 13, color: C.text, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{msg.content}</p>
+                    )}
+                    {/* Oracle voice player — full canvas read-aloud (sonata) */}
+                    <AnimatePresence>
+                      {isOracle && voiceIdx === i && (
+                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} style={{ overflow: 'hidden', marginTop: 8 }}>
+                          <OracleVoicePlayer text={msg.content} accent={C.teal} autoPlay label="REASOMATE · ARKANA" />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                    {isOracle && (
+                      <button
+                        onClick={() => setVoiceIdx(prev => prev === i ? null : i)}
+                        style={{ marginTop: 6, background: 'none', border: 'none', color: voiceIdx === i ? C.teal : C.dim, cursor: 'pointer', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
+                      >
+                        {voiceIdx === i ? '✕ close voice' : '▶ listen'}
+                      </button>
+                    )}
+                    <p style={{ margin: '3px 0 0', fontFamily: 'sans-serif', fontSize: 8, color: C.dim, textAlign: isMe ? 'right' : 'left' }}>{timeAgo(msg.timestamp)}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
             {oracleThinking && activeChat === 'oracle' && (
               <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
                 <div style={{ padding: '10px 14px', background: 'rgba(0,212,170,0.06)', border: '1px solid rgba(0,212,170,0.14)', borderRadius: '14px 14px 14px 4px' }}>

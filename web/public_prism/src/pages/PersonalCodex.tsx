@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
+import ScrollListenButton from '../components/ScrollListenButton';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
 
@@ -218,7 +219,10 @@ export default function PersonalCodex({ onNavigate }: { onNavigate?: (v: 'login'
 
           {/* Soul Function */}
           <div style={{ padding: '18px 20px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-            <Label color="rgba(201,168,76,0.45)">Soul Function</Label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <Label color="rgba(201,168,76,0.45)">Soul Function</Label>
+              <ScrollListenButton text={codex.soul_function || ''} label={`SOUL FUNCTION · ${codex.display_name}`} accent="#C9A84C" />
+            </div>
             <p style={{ fontFamily: 'serif', fontSize: '14px', color: 'rgba(232,232,232,0.78)',
                         lineHeight: '1.85', margin: 0 }}>
               {codex.soul_function}

@@ -26,6 +26,11 @@ _DATA_DIR = os.environ.get("SOLSPIRE_DATA_DIR", "data")
 _KEYS_PATH = Path(_DATA_DIR) / "tts_keys.json"
 _lock = threading.Lock()
 
+# Round-robin cursor for load-balanced selection across parallel TTS calls.
+# Without this, concurrent "Read aloud" requests (multiple scrolls) all pin
+# the single active key and burn its quota before any rotation happens.
+_rr_cursor = 0
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -57,24 +62,55 @@ def _mask(key: str) -> str:
 # ── Public API ───────────────────────────────────────────────────────────────
 
 def get_active_key() -> str:
+    """Return a TTS key for the next call.
+
+    Load-balanced round-robin across all non-quota-hit keys so concurrent
+    "Read aloud" requests (across scrolls + the Oracle chat) distribute across
+    the pool instead of all hammering a single active key. Falls back to the
+    pinned active key, then env, then "" when none are configured.
+    """
+    global _rr_cursor
     with _lock:
         store = _load()
+        keys = store.get("keys", {})
+        available = [
+            (kid, entry) for kid, entry in keys.items()
+            if not entry.get("quota_hit")
+        ]
+        if not available:
+            return ""
+
+        # Round-robin: rotate cursor so the next caller gets a different key.
         active_id = store.get("active_id")
-        if active_id and active_id in store["keys"]:
-            entry = store["keys"][active_id]
-            if not entry.get("quota_hit"):
-                entry["last_used"] = _now()
-                _save(store)
-                return entry["key"]
-        # try to find any non-quota-hit key
-        for kid, entry in store["keys"].items():
-            if not entry.get("quota_hit"):
+        if len(available) == 1:
+            kid, entry = available[0]
+            entry["last_used"] = _now()
+            if active_id != kid:
                 store["active_id"] = kid
-                entry["last_used"] = _now()
-                _save(store)
-                logger.info("[tts_key_manager] switched active key to %s", kid)
-                return entry["key"]
-        return ""
+            _save(store)
+            return entry["key"]
+
+        _rr_cursor = (_rr_cursor + 1) % len(available)
+        kid, entry = available[_rr_cursor % len(available)]
+        entry["last_used"] = _now()
+        # Keep active_id pointing at a working key for status display.
+        if active_id not in keys or keys[active_id].get("quota_hit"):
+            store["active_id"] = kid
+        _save(store)
+        logger.info("[tts_key_manager] round-robin selected key %s", kid)
+        return entry["key"]
+
+
+def count_keys() -> dict:
+    """Return counts for the TTS key pool — used by status + Settings."""
+    with _lock:
+        store = _load()
+        keys = store.get("keys", {})
+        return {
+            "total": len(keys),
+            "available": sum(1 for e in keys.values() if not e.get("quota_hit")),
+            "quota_hit": sum(1 for e in keys.values() if e.get("quota_hit")),
+        }
 
 
 def rotate_key(exhausted_key: str | None = None) -> str:

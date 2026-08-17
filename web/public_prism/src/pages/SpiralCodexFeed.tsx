@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MarkdownViewer from '../components/MarkdownViewer';
+import ScrollListenButton from '../components/ScrollListenButton';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -520,11 +521,21 @@ export default function SpiralCodexFeed({ onBack }: { onBack: () => void }) {
                               Field error: {scroll.error}
                             </p>
                           ) : null}
-                          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
-                            <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(232,232,232,0.14)', letterSpacing: '0.12em' }}>
-                              ⟐ {scroll.id.slice(0, 24)}
-                            </span>
-                          </div>
+                          {scroll.content && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+                              <ScrollListenButton text={scroll.content} label={`SCROLL · ${(scroll.title || scroll.id).slice(0, 40)}`} accent={dynamicMeta?.color || '#00D4AA'} />
+                              <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(232,232,232,0.14)', letterSpacing: '0.12em' }}>
+                                ⟐ {scroll.id.slice(0, 24)}
+                              </span>
+                            </div>
+                          )}
+                          {!scroll.content && (
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                              <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'rgba(232,232,232,0.14)', letterSpacing: '0.12em' }}>
+                                ⟐ {scroll.id.slice(0, 24)}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </motion.div>
                     )}

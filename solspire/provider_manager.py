@@ -186,6 +186,35 @@ class ProviderManager:
             return self._invoke_stub(prompt, ctx)
 
     def _invoke_with_fallback_gemini(self, prompt: str, ctx: dict[str, Any]) -> str:
+        # Route SolSpire through the shared distributed key pool so its calls
+        # load-balance against Oracle Chat / Knowledge OS rather than always
+        # pinning the same active key. Falls back to local candidates if the
+        # pool module is unavailable (older deploys).
+        try:
+            from api.key_pool import acquire_key, report_failure, report_success
+            key = acquire_key()
+            if key:
+                try:
+                    result = self._call_gemini(key, prompt, ctx)
+                    report_success(key)
+                    return result
+                except Exception as exc:
+                    if self.get_auto_fallback() and _is_quota_error(exc):
+                        report_failure(key)
+                        logger.warning("ProviderManager: pool key exhausted (%s), rotating", exc)
+                        rotated = acquire_key()
+                        if rotated and rotated != key:
+                            try:
+                                result = self._call_gemini(rotated, prompt, ctx)
+                                report_success(rotated)
+                                return result
+                            except Exception as exc2:
+                                if self.get_auto_fallback() and _is_quota_error(exc2):
+                                    report_failure(rotated)
+                    raise
+        except Exception as _pe:
+            logger.debug("ProviderManager: key_pool unavailable (%s), using local candidates", _pe)
+
         key_env = os.environ.get("GOOGLE_API_KEY", "") or os.environ.get("GEMINI_API_KEY", "")
         stored_keys = self._get_all_keys_for_provider("gemini")
 

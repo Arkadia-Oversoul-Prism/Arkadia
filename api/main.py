@@ -647,13 +647,19 @@ GEMINI_MODELS = [
 
 
 async def _gemini_chat(messages: list[dict], system: str, api_key: str | None = None) -> str:
-    # Resolve the key: caller-supplied → provider_key_store → env var
+    # Resolve the key: caller-supplied → distributed key pool (load-balanced).
+    # The pool round-robins across ALL configured keys so Oracle, SolSpire and
+    # Knowledge OS spread load instead of all pinning the same active key.
+    from api.key_pool import acquire_key, report_failure, report_success
+
+    # Track which keys we've already tried this call so a 429 on key A moves
+    # to key B (not just model B).
+    tried_keys: set[str] = set()
+
     if not api_key:
-        try:
-            from api.provider_key_store import get_key
-            api_key = get_key("gemini") or GOOGLE_API_KEY
-        except Exception:
-            api_key = GOOGLE_API_KEY
+        api_key = acquire_key()
+    if api_key:
+        tried_keys.add(api_key)
 
     if not api_key:
         return None
@@ -671,26 +677,44 @@ async def _gemini_chat(messages: list[dict], system: str, api_key: str | None = 
 
     last_err = None
     async with httpx.AsyncClient(timeout=90) as client:
-        for model in GEMINI_MODELS:
-            url = (
-                f"https://generativelanguage.googleapis.com/v1beta/models/"
-                f"{model}:generateContent?key={api_key}"
-            )
-            try:
-                resp = await client.post(url, json=payload)
-                if resp.status_code == 429 or resp.status_code == 403:
-                    last_err = resp.text
-                    logger.warning(f"Model {model} quota/access issue, trying next...")
+        # Try the (model × key) grid: on a quota/rate failure, rotate the KEY
+        # (cooled via the pool) before exhausting every model on a dead key.
+        current_key = api_key
+        key_attempts = 0
+        max_key_attempts = 8  # hard ceiling so we never loop forever
+        while current_key and key_attempts < max_key_attempts:
+            for model in GEMINI_MODELS:
+                url = (
+                    f"https://generativelanguage.googleapis.com/v1beta/models/"
+                    f"{model}:generateContent?key={current_key}"
+                )
+                try:
+                    resp = await client.post(url, json=payload)
+                    if resp.status_code == 429 or resp.status_code == 403:
+                        last_err = resp.text
+                        logger.warning(f"[gemini] {model} quota/access on key {current_key[:4]}… — rotate key")
+                        # Break the model loop and rotate to a fresh key.
+                        break
+                    resp.raise_for_status()
+                    data = resp.json()
+                    report_success(current_key)
+                    return data["candidates"][0]["content"]["parts"][0]["text"]
+                except Exception as e:
+                    last_err = str(e)
+                    logger.warning(f"[gemini] {model} failed: {e}")
                     continue
-                resp.raise_for_status()
-                data = resp.json()
-                return data["candidates"][0]["content"]["parts"][0]["text"]
-            except Exception as e:
-                last_err = str(e)
-                logger.warning(f"Model {model} failed: {e}")
-                continue
+            # Got here from a 429/403 break or all models failed on this key.
+            report_failure(current_key)
+            tried_keys.add(current_key)
+            next_key = acquire_key()
+            if not next_key or next_key in tried_keys:
+                break
+            current_key = next_key
+            key_attempts += 1
 
-    raise Exception(f"All Gemini models failed. Last error: {last_err}")
+    if last_err:
+        raise Exception(f"All Gemini models failed. Last error: {last_err}")
+    return None
 
 
 # ── ROUTES ────────────────────────────────────────────────────────────────────
@@ -983,9 +1007,12 @@ async def commune_resonance(request: Request):
         pass
 
     if not active_key:
+        # Distributed pool: load-balanced selection across ALL configured keys
+        # so concurrent surfaces (Oracle Chat, ReasoMate, SolSpire, Knowledge OS)
+        # spread across the pool rather than all pinning one active key.
         try:
-            from api.provider_key_store import get_key
-            active_key = get_key("gemini") or GOOGLE_API_KEY
+            from api.key_pool import acquire_key
+            active_key = acquire_key() or GOOGLE_API_KEY
         except Exception:
             active_key = GOOGLE_API_KEY
 
@@ -1176,8 +1203,8 @@ async def forge(request: Request):
         raise HTTPException(status_code=403, detail="Sovereign gate closed.")
 
     try:
-        from api.provider_key_store import get_key
-        _forge_key = get_key("gemini") or GOOGLE_API_KEY
+        from api.key_pool import acquire_key
+        _forge_key = acquire_key() or GOOGLE_API_KEY
     except Exception:
         _forge_key = GOOGLE_API_KEY
     if not _forge_key:
@@ -1258,8 +1285,8 @@ async def _generate_image(prompt: str) -> str | None:
     }
     last_err = None
     try:
-        from api.provider_key_store import get_key
-        _img_key = get_key("gemini") or GOOGLE_API_KEY
+        from api.key_pool import acquire_key
+        _img_key = acquire_key() or GOOGLE_API_KEY
     except Exception:
         _img_key = GOOGLE_API_KEY
     if _img_key:
@@ -1902,17 +1929,28 @@ async def tts_voices():
 
 @app.get("/api/tts/status")
 async def tts_status():
-    """Check TTS engine status — reports active engine and ElevenLabs availability."""
+    """Check TTS engine status — reports active engine, ElevenLabs availability
+    and the TTS key-pool state. The frontend uses this to decide whether to
+    request ElevenLabs voices and which engine label to show on the player.
+    """
     import os as _os
     from kernel.tts import VOICES
 
     el_key = _os.environ.get("ELEVENLABS_API_KEY", "").strip()
+    pool = {"total": 0, "available": 0, "quota_hit": 0}
     if not el_key:
         try:
-            from api.tts_key_manager import get_active_key
+            from api.tts_key_manager import get_active_key, count_keys
             el_key = get_active_key()
+            pool = count_keys()
         except Exception:
             el_key = ""
+    else:
+        try:
+            from api.tts_key_manager import count_keys
+            pool = count_keys()
+        except Exception:
+            pass
 
     elevenlabs_active = bool(el_key)
     active_engine = "elevenlabs" if elevenlabs_active else "edge_tts"
@@ -1924,6 +1962,12 @@ async def tts_status():
         "ready":              True,
         "voices":             list(VOICES.keys()),
         "default":            "aria",
+        # When ElevenLabs is active, the voice keys map to richer neural voices
+        # (see kernel/tts.py ELEVENLABS_VOICE_MAP). The same 'aria' key is used
+        # for both engines so the UI selection is engine-agnostic.
+        "elevenlabs_voices":  elevenlabs_active,
+        "key_pool":           pool,
+        "preferred_engine":   "elevenlabs" if elevenlabs_active else "edge_tts",
     }
 
 
@@ -2053,8 +2097,8 @@ async def agent_spawn(request: Request):
     if agent == "oracle":
         try:
             try:
-                from api.provider_key_store import get_key as _get_key
-                oracle_key = _get_key("gemini") or GOOGLE_API_KEY
+                from api.key_pool import acquire_key
+                oracle_key = acquire_key() or GOOGLE_API_KEY
             except Exception:
                 oracle_key = GOOGLE_API_KEY
 
@@ -2295,6 +2339,35 @@ async def api_reset_provider_quota(provider: str):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Distributed Gemini Key Pool — load-balanced across all surfaces
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/keys/pool")
+async def api_key_pool_status():
+    """Report the live Gemini key pool: total / available / cooled keys.
+
+    Used by Settings so the user can see how keys are distributed across
+    Oracle Chat, ReasoMate, SolSpire and Knowledge OS. No secrets exposed.
+    """
+    from api.key_pool import pool_snapshot
+    snap = pool_snapshot()
+    return {
+        "size": snap["size"],
+        "available": snap["available"],
+        "cooled": snap["cooled"],
+        "strategy": "round-robin (load-balanced) — concurrent callers spread across the pool",
+    }
+
+
+@app.post("/api/keys/pool/reset")
+async def api_key_pool_reset():
+    """Clear all Gemini key cooldowns in the pool."""
+    from api.key_pool import reset_all
+    reset_all()
+    return {"reset": True}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # TTS Key Manager endpoints
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -2459,9 +2532,10 @@ async def ceo_chat(request: Request):
             pass
     
     if not active_key:
+        # Distributed pool (load-balanced across all keys) for CEO Chat too.
         try:
-            from api.provider_key_store import get_key
-            active_key = get_key("gemini") or GOOGLE_API_KEY
+            from api.key_pool import acquire_key
+            active_key = acquire_key() or GOOGLE_API_KEY
         except Exception:
             active_key = GOOGLE_API_KEY
     
