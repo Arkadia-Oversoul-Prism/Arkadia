@@ -18,7 +18,10 @@ type View =
   | 'pulse'
   | 'settings'
   | 'solspire'
-  | 'knowledge-os';
+  | 'knowledge-os'
+  | 'reasomate'
+  | 'personal-echofeild'
+  | 'echofeild-matrix';
 
 interface NavProps {
   currentView: View;
@@ -35,6 +38,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Home',         view: 'home',      sigil: '⌂', sub: 'Field entry point',                             color: '#C9A84C' },
       { label: 'Oracle',       view: 'commune',   sigil: '⟐', sub: 'ARKANA · Pattern intelligence',                  color: '#00D4AA' },
+      { label: 'ReasoMate',    view: 'reasomate', sigil: '✧', sub: 'Arkana messenger · continuous conversation',    color: '#6A9FD8' },
       { label: 'Living Gate',  view: 'gate',      sigil: '✦', sub: 'Reset · IMS · AIC Diagnostic · 5-Minute',        color: '#C9A84C' },
     ],
   },
@@ -42,8 +46,8 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Network',
     items: [
       { label: 'NovaNet',      view: 'novanet',      sigil: '◉', sub: 'Public transmission feed · Post · React · ReasoMate', color: '#6A9FD8' },
-      { label: 'Spiral Codex', view: 'spiral-codex', sigil: '◈', sub: 'Living knowledge archive · Browse & upload scrolls',  color: '#D4AF37' },
-      { label: 'Encyclopedia Galactica', view: 'encyclopedia', sigil: '⬡', sub: '12 Chambers of Echoes · Crystal Matrix navigator', color: '#B08DE8' },
+      { label: 'Echofeild Matrix', view: 'echofeild-matrix', sigil: '⬡', sub: 'Spiral Codex Live Feed · Personal Echofeild · unified field', color: '#B08DE8' },
+      { label: 'Encyclopedia Galactica', view: 'encyclopedia', sigil: '◈', sub: 'Canonical knowledge · Crystal Tribune', color: '#D4AF37' },
     ],
   },
   {
@@ -51,6 +55,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Nexus Hub',        view: 'nexus',    sigil: '☥', sub: 'IMS · Grove · Larder · Distribute',                       color: '#C9A84C' },
       { label: 'SolSpire Console', view: 'solspire', sigil: '◉', sub: 'Personal Codex · Knowledge OS · Projects · Console', color: '#C9A84C' },
+      { label: 'Personal Echofeild', view: 'personal-echofeild', sigil: '✦', sub: 'Your living projects · auth-gated feed', color: '#00D4AA' },
     ],
   },
   {
@@ -77,6 +82,9 @@ const VIEW_LABEL: Partial<Record<View, string>> = {
   distribute: 'Distribute', offerings: 'Offerings', aic: 'AIC Diagnostic',
   pulse: 'Arkadian Pulse', settings: 'Settings', solspire: 'SolSpire Console',
   'knowledge-os': 'Prism — Knowledge OS',
+  reasomate: 'ReasoMate',
+  'personal-echofeild': 'Personal Echofeild',
+  'echofeild-matrix': 'Echofeild Crystal Matrix',
 };
 
 function UserSection({ onNavigate, onClose }: { onNavigate: (v: View) => void; onClose: () => void }) {
@@ -138,6 +146,7 @@ function UserSection({ onNavigate, onClose }: { onNavigate: (v: View) => void; o
           { label: '☥ Nexus', view: 'nexus' as View },
           { label: '◉ SolSpire', view: 'solspire' as View },
           { label: '⬡ Encyclopedia', view: 'encyclopedia' as View },
+          { label: '⬡ Echofeild', view: 'echofeild-matrix' as View },
           { label: '◉ NovaNet', view: 'novanet' as View },
         ].map(item => (
           <button key={item.view} onClick={() => { onNavigate(item.view); onClose(); }}

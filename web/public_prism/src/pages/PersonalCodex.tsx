@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../contexts/AuthContext';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
 
@@ -71,7 +72,8 @@ function SectionHead({ label, color = '#00D4AA', right }: { label: string; color
 
 // ── main component ────────────────────────────────────────────────────────────
 
-export default function PersonalCodex() {
+export default function PersonalCodex({ onNavigate }: { onNavigate?: (v: 'login') => void } = {}) {
+  const { isAuthenticated } = useAuth();
   const [data,    setData]    = useState<PersonalData | null>(null);
   const [scrolls, setScrolls] = useState<Scroll[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,6 +81,7 @@ export default function PersonalCodex() {
   const [activeCat, setActiveCat] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isAuthenticated) { setLoading(false); return; }
     Promise.all([
       fetch(`${API_BASE}/api/codex/personal`).then(r => { if (!r.ok) throw new Error(`${r.status} from /api/codex/personal`); return r.json(); }),
       fetch(`${API_BASE}/api/codex`).then(r => r.json()),
@@ -90,7 +93,31 @@ export default function PersonalCodex() {
         : (raw as Scroll[]));
       setLoading(false);
     }).catch(e => { setError(String(e)); setLoading(false); });
-  }, []);
+  }, [isAuthenticated]);
+
+  // Auth gate — the Personal Codex is genuinely private, not decorative.
+  if (!isAuthenticated) {
+    return (
+      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <div style={{ maxWidth: 420, textAlign: 'center' }}>
+          <div style={{ fontSize: 30, color: '#C9A84C', marginBottom: 14 }}>✦</div>
+          <h2 style={{ fontFamily: 'serif', fontSize: 20, color: '#E8E8E8', margin: '0 0 8px', fontWeight: 400, letterSpacing: '0.02em' }}>
+            The Personal Codex is private
+          </h2>
+          <p style={{ fontFamily: 'sans-serif', fontSize: 12, color: 'rgba(232,232,232,0.48)', lineHeight: 1.6, margin: '0 0 22px' }}>
+            Your nine-layer crystalline identity stack is only available to authenticated nodes. Sign in to retrieve it.
+          </p>
+          {onNavigate && (
+            <button onClick={() => onNavigate('login')}
+              style={{ padding: '11px 28px', background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.3)',
+                borderRadius: 10, color: 'rgba(201,168,76,0.9)', fontFamily: 'sans-serif', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer' }}>
+              Sign in
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

@@ -8,9 +8,7 @@ import CoherenceReset from './pages/CoherenceReset';
 import AboutArkadia from './pages/AboutArkadia';
 const DashboardView = lazy(() => import('./pages/DashboardView'));
 import NexusPage from './pages/NexusPage';
-import EncyclopediaGalactica from './pages/EncyclopediaGalactica';
 import NexusSpiralCodex from './pages/NexusSpiralCodex';
-import SpiralCodexFeed from './pages/SpiralCodexFeed';
 import SpiralGrovePage from './pages/SpiralGrovePage';
 import LivingLarderPage from './pages/LivingLarderPage';
 import IMSArchivePage from './pages/IMSArchivePage';
@@ -26,6 +24,9 @@ import ArkadianPulse from './pages/ArkadianPulse';
 import SettingsPage from './pages/SettingsPage';
 import SolSpireConsole from './pages/SolSpireConsole';
 import KnowledgeOSPage from './pages/knowledge/KnowledgeOSPage';
+import ReasoMatePage from './pages/ReasoMatePage';
+import PersonalEchofeild from './pages/PersonalEchofeild';
+import UniversalEchofeildMatrix from './pages/UniversalEchofeildMatrix';
 
 type View =
   | 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
@@ -43,7 +44,10 @@ type View =
   | 'pulse'
   | 'settings'
   | 'solspire'
-  | 'knowledge-os';
+  | 'knowledge-os'
+  | 'reasomate'
+  | 'personal-echofeild'
+  | 'echofeild-matrix';
 
 // ─── FIELD PULSE ──────────────────────────────────────────────────────────────
 
@@ -207,7 +211,9 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '30px' }}>
           <PortalDoor label="Oracle" sub="ARKANA · Pattern intelligence · Live commune" color="#00D4AA" sigil="⟐" onClick={() => onNavigate('commune')} delay={1.12} />
-          <PortalDoor label="Nexus Hub" sub="IMS · Encyclopedia Galactica · Spiral Codex · Grove · Larder · Distribute" color="#C9A84C" sigil="☥" onClick={() => onNavigate('nexus')} delay={1.14} />
+          <PortalDoor label="ReasoMate" sub="Arkana messenger · continuous conversation" color="#6A9FD8" sigil="✧" onClick={() => onNavigate('reasomate')} delay={1.13} />
+          <PortalDoor label="Nexus Hub" sub="IMS · Encyclopedia Galactica · Grove · Larder · Distribute" color="#C9A84C" sigil="☥" onClick={() => onNavigate('nexus')} delay={1.14} />
+          <PortalDoor label="Echofeild Matrix" sub="Spiral Codex Live Feed · Personal Echofeild · unified field" color="#B08DE8" sigil="⬡" onClick={() => onNavigate('echofeild-matrix')} delay={1.15} />
           <PortalDoor label="SolSpire Console" sub="Personal Codex · Knowledge OS · Projects · Operational Console" color="#C9A84C" sigil="◉" onClick={() => onNavigate('solspire')} delay={1.16} />
           <PortalDoor label="Offerings" sub="IMS Sessions · Products · AIC Diagnostic" color="#00D4AA" sigil="✦" onClick={() => onNavigate('offerings')} delay={1.18} />
         </div>
@@ -367,13 +373,13 @@ function AppInner() {
 
         {view === 'encyclopedia' && (
           <motion.div key="encyclopedia" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}>
-            <NexusSpiralCodex initialMode="echoes" />
+            <NexusSpiralCodex initialMode="scrolls" />
           </motion.div>
         )}
 
         {view === 'spiral-codex' && (
           <motion.div key="spiral-codex" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}>
-            <SpiralCodexFeed onBack={() => handleNavigate('home')} />
+            <UniversalEchofeildMatrix onNavigate={handleNavigate} />
           </motion.div>
         )}
 
@@ -476,6 +482,24 @@ function AppInner() {
         {view === 'knowledge-os' && (
           <motion.div key="knowledge-os" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
             <KnowledgeOSPage />
+          </motion.div>
+        )}
+
+        {view === 'reasomate' && (
+          <motion.div key="reasomate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+            <ReasoMatePage />
+          </motion.div>
+        )}
+
+        {view === 'personal-echofeild' && (
+          <motion.div key="personal-echofeild" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+            <PersonalEchofeild onNavigate={handleNavigate} />
+          </motion.div>
+        )}
+
+        {view === 'echofeild-matrix' && (
+          <motion.div key="echofeild-matrix" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+            <UniversalEchofeildMatrix onNavigate={handleNavigate} />
           </motion.div>
         )}
 

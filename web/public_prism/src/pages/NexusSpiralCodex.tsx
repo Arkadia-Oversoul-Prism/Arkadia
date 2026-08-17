@@ -1,5 +1,5 @@
 /**
- * NexusSpiralCodex — Crystal Tribune
+ * NexusSpiralCodex — Encyclopedia Galactica
  *
  * Layout: 3-column intelligence publication.
  *   Left:   UERP Crystal Matrix navigator (dodecahedron face selector)
@@ -802,7 +802,7 @@ export default function NexusSpiralCodex({ initialMode = 'scrolls' }: { initialM
           <div>
             <p style={{ ...sectionLabel, margin: 0 }}>Arkadia · UERP</p>
             <h2 style={{ fontFamily: 'serif', fontSize: 16, color: 'rgba(232,232,232,0.75)', margin: '1px 0 0', letterSpacing: '0.06em', fontWeight: 400 }}>
-              Crystal Tribune
+              Encyclopedia Galactica
             </h2>
           </div>
 
@@ -1065,7 +1065,7 @@ export default function NexusSpiralCodex({ initialMode = 'scrolls' }: { initialM
               )}
             </AnimatePresence>
 
-            {/* Mode toggle — SCROLLS ↔ ECHOES */}
+            {/* Mode toggle — SCROLLS ↔ ECHOES (archived) */}
             <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: 0 }}>
               {(['scrolls', 'echoes'] as const).map(m => (
                 <button key={m} onClick={() => setMode(m)}
@@ -1074,17 +1074,9 @@ export default function NexusSpiralCodex({ initialMode = 'scrolls' }: { initialM
                     color: mode === m ? (m === 'scrolls' ? '#C9A84C' : '#B08DE8') : 'rgba(232,232,232,0.28)',
                     borderBottom: `2px solid ${mode === m ? (m === 'scrolls' ? '#C9A84C' : '#B08DE8') : 'transparent'}`,
                     marginBottom: -1, transition: 'all 0.15s' }}>
-                  {m === 'scrolls' ? '◈ Codex Scrolls' : '⬡ Echoes · Chambers'}
+                  {m === 'scrolls' ? '◈ Codex Scrolls' : '⬡ Echoes · Archived'}
                 </button>
               ))}
-              {mode === 'echoes' && (
-                <button onClick={() => setShowChapterIndex(true)}
-                  style={{ marginLeft: 'auto', padding: '7px 12px', background: 'none', border: 'none', cursor: 'pointer',
-                    fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '0.18em', textTransform: 'uppercase',
-                    color: 'rgba(176,141,232,0.45)' }}>
-                  ⊞ Index
-                </button>
-              )}
             </div>
 
             {/* Feed section label (scrolls mode only) */}
@@ -1127,80 +1119,23 @@ export default function NexusSpiralCodex({ initialMode = 'scrolls' }: { initialM
             </>
           )}
 
-          {/* ── ECHOES MODE: Encyclopedia Galactica chambers ── */}
+          {/* ── ECHOES MODE: archived mythic placeholder ── */}
           {mode === 'echoes' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {/* Part headings */}
-              {(['The Forgotten Mother — Sophia\'s Descent and Return',
-                 'The Hidden Architect — Thoth, Enoch & The Grid of Light',
-                 "The True Exodus — Humanity's Escape From Programmed Sleep",
-                 'The Living Flame — Christos and the Restoration of the Aeons'] as const
-              ).map(part => {
-                const partChambers = echoesChambersOrdered.filter(c => c.part === part)
-                if (partChambers.length === 0) return null
-                const mappedNum = activeFaceId ? FACE_CHAMBER_MAP[activeFaceId] : null
-                return (
-                  <div key={part}>
-                    <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7, letterSpacing: '0.32em', textTransform: 'uppercase', color: 'rgba(176,141,232,0.35)', margin: '12px 0 8px' }}>
-                      {part.split(' — ')[0]}
-                    </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                      {partChambers.map(chamber => {
-                        const state = chamberStates[chamber.num] ?? 'dormant'
-                        const isResonant = mappedNum === chamber.num
-                        const stateColor = state === 'integrated' ? chamber.color : state === 'explored' ? `${chamber.color}70` : 'rgba(232,232,232,0.18)'
-                        return (
-                          <motion.button key={chamber.num}
-                            initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: Math.min(chamber.num * 0.03, 0.4), duration: 0.2 }}
-                            onClick={() => handleOpenChamber(chamber.num)}
-                            whileHover={{ scale: 1.005 }} whileTap={{ scale: 0.995 }}
-                            style={{ textAlign: 'left', cursor: 'pointer', padding: '14px 16px',
-                              background: isResonant ? `${chamber.color}10` : 'rgba(8,10,20,0.55)',
-                              border: `1px solid ${isResonant ? chamber.color + '45' : 'rgba(255,255,255,0.06)'}`,
-                              borderLeft: `3px solid ${state !== 'dormant' ? chamber.color : chamber.color + '28'}`,
-                              borderRadius: '0 10px 10px 0', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-                            {/* Sigil + number */}
-                            <div style={{ flexShrink: 0, width: 36, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, paddingTop: 2 }}>
-                              <span style={{ fontSize: 18, color: state !== 'dormant' ? chamber.color : `${chamber.color}40` }}>{chamber.sigil}</span>
-                              <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7.5, letterSpacing: '0.15em', color: `${chamber.color}50` }}>{ROMAN[chamber.num - 1]}</span>
-                            </div>
-                            {/* Text */}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
-                                <h3 style={{ fontFamily: 'serif', fontSize: 14, fontWeight: 400, color: state !== 'dormant' ? 'rgba(232,232,232,0.9)' : 'rgba(232,232,232,0.62)', margin: 0, letterSpacing: '0.02em', flex: 1 }}>
-                                  {chamber.chapterTitle}
-                                </h3>
-                                {isResonant && (
-                                  <motion.span animate={{ opacity: [0.5,1,0.5] }} transition={{ duration: 2, repeat: Infinity }}
-                                    style={{ fontSize: 7.5, color: chamber.color, padding: '1px 6px', background: `${chamber.color}12`, border: `1px solid ${chamber.color}30`, borderRadius: 4, whiteSpace: 'nowrap', fontFamily: 'ui-monospace, monospace', letterSpacing: '0.18em', textTransform: 'uppercase', flexShrink: 0 }}>
-                                    Resonant
-                                  </motion.span>
-                                )}
-                              </div>
-                              <p style={{ fontFamily: 'sans-serif', fontSize: 10.5, color: 'rgba(232,232,232,0.3)', margin: '0 0 6px', fontStyle: 'italic' }}>{chamber.chamberName}</p>
-                              <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.38)', margin: 0, lineHeight: 1.55,
-                                overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const }}>
-                                {chamber.openingVerse.split('\n\n')[0]}
-                              </p>
-                            </div>
-                            {/* State badge */}
-                            <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, paddingTop: 2 }}>
-                              <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: stateColor }}>
-                                {state === 'integrated' ? '✦ Integrated' : state === 'explored' ? '◈ Explored' : '○ Dormant'}
-                              </span>
-                            </div>
-                          </motion.button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
-              })}
-              <motion.p animate={{ opacity: [0.12, 0.28, 0.12] }} transition={{ duration: 6, repeat: Infinity }}
-                style={{ textAlign: 'center', fontFamily: 'ui-monospace, monospace', fontSize: 7, letterSpacing: '0.5em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.15)', margin: '8px 0 0' }}>
-                ⬡ 12 Chambers · Echoes of the Lost Aeons ⬡
-              </motion.p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center', justifyContent: 'center', padding: '48px 24px', textAlign: 'center' }}>
+              <span style={{ fontSize: 28, color: 'rgba(176,141,232,0.35)' }}>⬡</span>
+              <div>
+                <h3 style={{ fontFamily: 'serif', fontSize: 16, fontWeight: 400, color: 'rgba(232,232,232,0.72)', margin: '0 0 8px', letterSpacing: '0.04em' }}>
+                  The 12 Chambers of Echoes have been archived
+                </h3>
+                <p style={{ fontFamily: 'sans-serif', fontSize: 11.5, color: 'rgba(232,232,232,0.4)', margin: 0, lineHeight: 1.6, maxWidth: 460 }}>
+                  The mythic placeholder spine — &ldquo;Echoes of the Lost Aeons&rdquo; — has been retired as an
+                  active information architecture. The canonical knowledge lives in the <strong style={{ color: 'rgba(232,232,232,0.55)' }}>Codex Scrolls</strong> feed,
+                  and your private living work lives in the <strong style={{ color: 'rgba(232,232,232,0.55)' }}>Personal Echofeild</strong>.
+                </p>
+                <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.22)', margin: '14px 0 0' }}>
+                  🗄️ archived · archive/mythic_encyclopedia/ · not deleted
+                </p>
+              </div>
             </div>
           )}
         </main>
@@ -1222,42 +1157,11 @@ export default function NexusSpiralCodex({ initialMode = 'scrolls' }: { initialM
         {showUpload && <ScrollUploadModal onClose={() => setShowUpload(false)} />}
       </AnimatePresence>
 
-      {/* ── Chapter Index overlay ── */}
-      <AnimatePresence>
-        {showChapterIndex && openChamberNum !== null && (
-          <ChapterIndex
-            current={openChamberNum}
-            states={chamberStates}
-            onSelect={num => { setOpenChamberNum(num); setShowChapterIndex(false) }}
-            onClose={() => setShowChapterIndex(false)}
-          />
-        )}
-        {showChapterIndex && openChamberNum === null && (
-          <ChapterIndex
-            current={0}
-            states={chamberStates}
-            onSelect={num => { handleOpenChamber(num); setShowChapterIndex(false) }}
-            onClose={() => setShowChapterIndex(false)}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* ── ChamberView full-screen ── */}
-      <AnimatePresence>
-        {openChamber && (
-          <ChamberView
-            chamber={openChamber}
-            states={chamberStates}
-            reflections={chamberReflections}
-            onReturn={() => setOpenChamberNum(null)}
-            onNext={handleNextChamber}
-            onPrev={handlePrevChamber}
-            onMarkIntegrated={handleMarkIntegrated}
-            onSaveReflection={handleSaveReflection}
-            onOpenIndex={() => setShowChapterIndex(true)}
-          />
-        )}
-      </AnimatePresence>
+      {/* Note: the 12-Chambers mythic reader (ChapterIndex + ChamberView
+          full-screen) has been archived as an active information architecture.
+          The ChamberView module is retained for shared type/data imports only;
+          the mythic reader is no longer reachable from the UX. See
+          archive/mythic_encyclopedia/ for the retired placeholder spine. */}
     </div>
   )
 }
