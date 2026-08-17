@@ -18,6 +18,7 @@ import { api, CodexResponse, CodexScroll } from '../lib/dashboardApi'
 import { ingestNote } from '../lib/knowledgeApi'
 import MarkdownViewer from '../components/MarkdownViewer'
 import ScrollListenButton from '../components/ScrollListenButton'
+import StellarCartography from '../components/StellarCartography'
 import { COLORS, Empty, ErrorBox } from './dashboard/ui'
 import ChamberView, {
   CHAMBERS, ROMAN,
@@ -145,10 +146,6 @@ function getLunarPhase(date = new Date()): LunarPhase {
   if (phase < 0.6875)  return { phase, name: 'Waning Gibbous',  icon: '🌖', illumination, amplifiedFaces: [7,8],  desc: 'Archive and signal intelligence gather the harvest.' }
   if (phase < 0.8125)  return { phase, name: 'Last Quarter',    icon: '🌗', illumination, amplifiedFaces: [1,7],  desc: 'Root and archive align for deep clearing.' }
   return                        { phase, name: 'Waning Crescent', icon: '🌘', illumination, amplifiedFaces: [6,13], desc: 'Temporal seal and living larder close the cycle.' }
-}
-function getArkDate(date = new Date()) {
-  const D = Math.floor((date.getTime() - new Date('2026-03-31T00:00:00Z').getTime()) / 864e5)
-  return { arkYear: D < 0 ? 0 : Math.floor(D / 365) + 1, dayInYear: D < 0 ? 365 + D : (D % 365) + 1 }
 }
 
 // ─── RESONANCE ENGINE ─────────────────────────────────────────────────────────
@@ -670,7 +667,6 @@ const PRINCIPLES = [
 
 export default function NexusSpiralCodex({ initialMode = 'scrolls' }: { initialMode?: 'scrolls' | 'echoes' }) {
   const lunar   = useMemo(() => getLunarPhase(), [])
-  const arkDate = useMemo(() => getArkDate(), [])
   const [activeFaceId, setActiveFaceId] = useState<number | null>(null)
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState('')
@@ -814,23 +810,8 @@ export default function NexusSpiralCodex({ initialMode = 'scrolls' }: { initialM
 
           <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.06)' }} />
 
-          {/* ARK date */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <motion.span animate={{ opacity: [0.4,1,0.4] }} transition={{ duration: 3, repeat: Infinity }}
-              style={{ color: '#C9A84C', fontSize: 9 }}>✦</motion.span>
-            <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 9, color: 'rgba(201,168,76,0.55)', letterSpacing: '0.1em' }}>
-              ARK Y{arkDate.arkYear} · D{arkDate.dayInYear}
-            </span>
-          </div>
-
-          {/* Lunar */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 9px',
-            background: 'rgba(176,141,232,0.05)', border: '1px solid rgba(176,141,232,0.1)', borderRadius: 6 }}>
-            <span style={{ fontSize: 12 }}>{lunar.icon}</span>
-            <span style={{ fontFamily: 'sans-serif', fontSize: 8, color: 'rgba(176,141,232,0.55)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-              {lunar.name}
-            </span>
-          </div>
+          {/* Full stellar cartography lives below as the Encyclopedia Galactica atlas.
+              The minimal ark-date chip is retired in favour of the full readout. */}
 
           <div style={{ flex: 1 }} />
 
@@ -880,6 +861,14 @@ export default function NexusSpiralCodex({ initialMode = 'scrolls' }: { initialM
             </button>
           </div>
         </div>
+      </div>
+
+      {/* ── Stellar Cartography — the Encyclopedia Galactica living atlas ── */}
+      {/* Replaces the minimal ark-date/lunar chips with the full readout:
+          Ark Date, Schumann, lunar phase, planetary sky bone report, cosmic
+          weather, Oversoul blind-pull, and the Galactica volume index. */}
+      <div style={{ marginBottom: 16 }}>
+        <StellarCartography />
       </div>
 
       {/* ── 3-column body ── */}

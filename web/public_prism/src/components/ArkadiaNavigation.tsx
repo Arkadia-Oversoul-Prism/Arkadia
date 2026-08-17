@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
-import HorizonNav from './HorizonNav';
 
 type View =
   | 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
@@ -35,7 +34,7 @@ interface NavGroup { label: string; items: NavItem[] }
 
 // ── Vertical drawer — only the six anchors ────────────────────────────────────
 // Home, Oracle, Living Gate, NovaNet, About, Settings. Everything else lives
-// on the persistent HorizonNav bar (accessible on every page).
+// as tabs inside the Nexus hub (Novanet) — that tab strip is the horizontal nav.
 const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Field',
@@ -431,32 +430,8 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
                 );
               })}
 
-              {/* Authenticated Codex link */}
-              {isAuthenticated && (
-                <div style={{ marginBottom: 8 }}>
-                  <button
-                    onClick={() => handleNavigate('codex')}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 11,
-                      width: '100%', padding: '9px 10px',
-                      background: currentView === 'codex' ? 'rgba(201,168,76,0.08)' : 'transparent',
-                      border: currentView === 'codex' ? '1px solid rgba(201,168,76,0.28)' : '1px solid transparent',
-                      borderRadius: 10, cursor: 'pointer', textAlign: 'left',
-                      transition: 'all 0.16s',
-                    }}
-                  >
-                    <span style={{ fontSize: 13, flexShrink: 0, width: 22, textAlign: 'center', color: currentView === 'codex' ? '#C9A84C' : 'rgba(232,232,232,0.52)' }}>✦</span>
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                      <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: currentView === 'codex' ? '#C9A84C' : 'rgba(232,232,232,0.6)', margin: '0 0 1px', fontWeight: currentView === 'codex' ? 600 : 400, letterSpacing: '0.04em' }}>
-                        Personal Codex
-                      </p>
-                      <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(232,232,232,0.50)', margin: 0, letterSpacing: '0.04em' }}>
-                        90-day architecture · soul map
-                      </p>
-                    </div>
-                  </button>
-                </div>
-              )}
+              {/* Authenticated Codex link removed — Personal Codex is unified into
+                  the Personal Echofeild and reached via SolSpire / the Nexus hub. */}
             </div>
 
             {/* Footer: user section */}
@@ -467,8 +442,8 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
 
       {/* ── Page content ── */}
       <div style={{ paddingTop: 52 }}>
-        {/* Persistent horizontal nav — accessible on every page */}
-        <HorizonNav current={currentView} onNavigate={handleNavigate} />
+        {/* No global horizontal nav here — the Nexus hub's own tab strip
+            (inside Novanet) is the horizontal navigation. */}
         {children}
       </div>
     </div>

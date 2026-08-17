@@ -104,10 +104,10 @@
   consume one stream. Personal entries are injected client-side (auth-gated Knowledge OS
   graph + SolSpire projects) — the endpoint holds no private data server-side.
 - **Navigation**: vertical drawer (`ArkadiaNavigation`) reduced to the six anchors only —
-  Home, Oracle, Living Gate, NovaNet, About, Settings. Everything else lives on the
-  persistent `HorizonNav` horizontal bar (`components/HorizonNav.tsx`) that is rendered on
-  EVERY page (sticky below the top bar): SolSpire, ReasoMate, Echofeild, Encyclopedia,
-  Offerings, Knowledge OS, IMS, Grove, Larder, Distribute, Dashboard, Pulse.
+  Home, Oracle, Living Gate, NovaNet, About, Settings. There is **no** second global
+  horizontal nav bar; the Nexus hub's own tab strip (inside Novanet/NexusPage) IS the
+  horizontal navigation. Personal Codex was removed from the vertical drawer (it is reached
+  via the Personal Echofeild / SolSpire inside the hub).
 
 ## Stellar Cartography (Encyclopedia Galactica living star date)
 - `kernel/stellar.py` — pure-python celestial readout, decoupled from `api.main` (no
@@ -120,6 +120,7 @@
   Ark Day so each day has its own), and the Encyclopedia Galactica volume index.
 - `components/StellarCartography.tsx` renders the readout (always-on primary readout +
   expandable full atlas) with a `ScrollListenButton` on the Oversoul transmission. Mounted
-  at the top of `NovaNetPage` and the `echofeild-matrix` route so the atlas lives in the hub.
+  at the top of `NovaNetPage` AND as the Encyclopedia Galactica header in
+  `NexusSpiralCodex` (replacing the minimal ark-date + lunar chip there).
 - Replaces the minimal "Ark Y1 · D140" phrase with a full encyclopedia galactica readout.
 - Tests: `tests/test_stellar_cartography.py` (10 tests).
