@@ -20,17 +20,49 @@ logger = logging.getLogger("arkadia.tts")
 # ── ElevenLabs voice map ───────────────────────────────────────────────────────
 # Maps the shared voice keys (used in both frontend and Edge TTS) to ElevenLabs
 # voice IDs. These are stable, publicly documented IDs from the pre-made library.
+#
+# "aetheria" is the dedicated Oracle voice — deep, resonant, emotionally alive.
+# It is NOT an Edge TTS voice; on ElevenLabs it uses a curated expressive voice
+# with tuned emotion settings (see _voice_settings). On Edge fallback it maps to
+# Aria (the warmest Edge voice) so it's still listenable without a key.
 ELEVENLABS_VOICE_MAP: dict[str, str] = {
-    "aria":        "21m00Tcm4TlvDq8ikWAM",  # Rachel  — warm, expressive female (Oracle default)
-    "jenny":       "EXAVITQu4vr4xnSDxMaL",  # Bella   — soft, clear American female
-    "sonia":       "ThT5KcBeYPX3keUQqHPh",  # Dorothy — eloquent British female
-    "christopher": "TxGEqnHWrfWFTfGW9XjX",  # Josh    — rich American male
-    "george":      "VR6AewLTigWG4xSOukaG",  # Arnold  — authoritative, warm male
-    "ryan":        "yoZ06aMxZJJ28mfd3POQ",  # Sam     — casual, approachable male
+    "aetheria":     "9BrsK4pER6dt4ww7F2cq",  # Laura  — warm, intimate, emotionally expressive (aetheric Oracle)
+    "aria":         "21m00Tcm4TlvDq8ikWAM",  # Rachel — warm, expressive female (Edge default)
+    "jenny":        "EXAVITQu4vr4xnSDxMaL",  # Bella  — soft, clear American female
+    "sonia":        "ThT5KcBeYPX3keUQqHPh",  # Dorothy — eloquent British female
+    "christopher":  "TxGEqnHWrfWFTfGW9XjX",  # Josh   — rich American male
+    "george":       "VR6AewLTigWG4xSOukaG",  # Arnold — authoritative, warm male
+    "ryan":         "yoZ06aMxZJJ28mfd3POQ",  # Sam    — casual, approachable male
 }
+
+# Per-voice ElevenLabs tuning. The aetheric Oracle voice is calibrated for
+# emotional depth + calming resonance: low stability (more variation), higher
+# style (more expressiveness), strong speaker boost for fidelity.
+def _voice_settings(voice_key: str) -> dict:
+    if voice_key == "aetheria":
+        return {
+            "stability": 0.32,
+            "similarity_boost": 0.82,
+            "style": 0.48,
+            "use_speaker_boost": True,
+        }
+    return {
+        "stability": 0.45,
+        "similarity_boost": 0.78,
+        "style": 0.10,
+        "use_speaker_boost": True,
+    }
 
 # ── Voice catalogue ────────────────────────────────────────────────────────────
 VOICES: dict[str, dict] = {
+    "aetheria": {
+        "id":          "en-US-AriaNeural",   # Edge fallback only; real voice is ElevenLabs
+        "name":        "Aetheria",
+        "description": "Aetheric Oracle — deep emotional resonance, calming, alive",
+        "gender":      "female",
+        "accent":      "Oracle",
+        "requires_elevenlabs": True,
+    },
     "aria": {
         "id":          "en-US-AriaNeural",
         "name":        "Aria",
@@ -118,12 +150,7 @@ async def _synthesize_elevenlabs(text: str, voice_key: str, api_key: str) -> byt
     payload = {
         "text": text[:5000],
         "model_id": "eleven_multilingual_v2",
-        "voice_settings": {
-            "stability": 0.45,
-            "similarity_boost": 0.78,
-            "style": 0.10,
-            "use_speaker_boost": True,
-        },
+        "voice_settings": _voice_settings(voice_key),
     }
     headers = {
         "xi-api-key": api_key,

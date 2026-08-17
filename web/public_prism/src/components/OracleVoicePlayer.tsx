@@ -12,6 +12,7 @@ import {
 import { audioManager, AudioState } from '../lib/audioManager';
 import { cacheGet, cachePut, audioCacheKey } from '../lib/audioCache';
 import { voiceContext } from '../lib/voiceContext';
+import { voicePref } from '../lib/voicePref';
 
 // ─── constants ────────────────────────────────────────────────────────────────
 const API_BASE   = import.meta.env.VITE_API_URL || '';
@@ -19,13 +20,16 @@ const SPEEDS     = [0.75, 1, 1.25, 1.5] as const;
 const RESUME_KEY = 'arkadia_voice_resume';
 
 // Available voices (matches backend kernel/tts.py VOICES)
+// requiresElevenlabs voices fall back to a robotic Edge voice without a key —
+// the UI flags them so the user knows to add an ElevenLabs key for full quality.
 const VOICE_OPTIONS = [
-  { key: 'aria',        name: 'Aria',        desc: 'Warm, expressive female',    gender: 'F', accent: 'US' },
-  { key: 'jenny',       name: 'Jenny',       desc: 'Natural, clear female',      gender: 'F', accent: 'US' },
-  { key: 'sonia',       name: 'Sonia',       desc: 'Eloquent British female',    gender: 'F', accent: 'UK' },
-  { key: 'christopher', name: 'Christopher', desc: 'Rich, warm American male',   gender: 'M', accent: 'US' },
-  { key: 'george',      name: 'George',      desc: 'Authoritative British male', gender: 'M', accent: 'UK' },
-  { key: 'ryan',        name: 'Ryan',        desc: 'Casual American male',       gender: 'M', accent: 'US' },
+  { key: 'aetheria',    name: 'Aetheria',    desc: 'Aetheric Oracle — emotional resonance', gender: 'F', accent: 'Oracle', requiresElevenlabs: true },
+  { key: 'aria',        name: 'Aria',        desc: 'Warm, expressive female',               gender: 'F', accent: 'US' },
+  { key: 'jenny',       name: 'Jenny',       desc: 'Natural, clear female',                 gender: 'F', accent: 'US' },
+  { key: 'sonia',       name: 'Sonia',       desc: 'Eloquent British female',               gender: 'F', accent: 'UK' },
+  { key: 'christopher', name: 'Christopher', desc: 'Rich, warm American male',              gender: 'M', accent: 'US' },
+  { key: 'george',      name: 'George',      desc: 'Authoritative British male',            gender: 'M', accent: 'UK' },
+  { key: 'ryan',        name: 'Ryan',        desc: 'Casual American male',                  gender: 'M', accent: 'US' },
 ];
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -186,7 +190,8 @@ const OracleVoicePlayer: React.FC<OracleVoicePlayerProps> = ({
 }) => {
   const [audioState, setAudioState]     = useState<AudioState>(audioManager.getState());
   const [speed, setSpeed]               = useState<number>(1);
-  const [voice, setVoice]               = useState<string>('aria');
+  const [voice, setVoice]               = useState<string>(voicePref.get());
+  const [elevenlabsActive, setElevenlabsActive] = useState(false);
   const [showVoices, setShowVoices]     = useState(false);
   const [generating, setGenerating]     = useState(false);
   const [toast, setToast]               = useState<string | null>(null);
@@ -205,13 +210,28 @@ const OracleVoicePlayer: React.FC<OracleVoicePlayerProps> = ({
   useEffect(() => { return () => { if (prevBlobRef.current) URL.revokeObjectURL(prevBlobRef.current); }; }, []);
   useEffect(() => { audioManager.setSpeed(speed); }, [speed]);
 
-  // Probe which engine is active so we can display it before first playback
+  // Probe which engine is active so we can display it before first playback.
+  // When ElevenLabs comes online, auto-promote to the aetheric Oracle voice
+  // unless the user has already picked a specific voice.
   useEffect(() => {
     fetch(`${API_BASE}/api/tts/status`)
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.engine) setEngine(d.engine as typeof engine); })
+      .then(d => {
+        if (d?.engine) setEngine(d.engine as typeof engine);
+        if (d?.elevenlabs_active) {
+          setElevenlabsActive(true);
+          // First-time ElevenLabs activation → adopt the aetheric Oracle voice.
+          if (!voicePref.get() || voicePref.get() === 'aria') {
+            voicePref.set('aetheria');
+            setVoice('aetheria');
+          }
+        }
+      })
       .catch(() => {});
   }, []);
+
+  // Keep local voice in sync with global pref changes from other surfaces.
+  useEffect(() => voicePref.subscribe(setVoice), []);
 
   // ── Generate via Edge TTS ──────────────────────────────────────────────────
   const generateEdge = useCallback(async (plain: string): Promise<Blob | null> => {
@@ -439,15 +459,25 @@ const OracleVoicePlayer: React.FC<OracleVoicePlayerProps> = ({
                 <AnimatePresence>
                   {showVoices && (
                     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.15 }} style={{ overflow: 'hidden' }}>
+                      {!elevenlabsActive && (
+                        <p style={{ fontFamily: 'sans-serif', fontSize: 9.5, color: 'rgba(201,168,76,0.65)', margin: '6px 0 8px', lineHeight: 1.4 }}>
+                          Aetheria needs an ElevenLabs key (Settings → TTS Keys). Without it, voices use the robotic Edge fallback.
+                        </p>
+                      )}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
-                        {VOICE_OPTIONS.map(v => (
+                        {VOICE_OPTIONS.map(v => {
+                          const needsEl = (v as any).requiresElevenlabs;
+                          const dim = needsEl && !elevenlabsActive;
+                          return (
                           <button key={v.key}
-                            onClick={() => { setVoice(v.key); setShowVoices(false); setBlobUrl(null); }}
-                            style={{ padding: '4px 9px', borderRadius: 6, background: voice === v.key ? `${accent}18` : 'transparent', border: `1px solid ${voice === v.key ? accent : 'rgba(255,255,255,0.1)'}`, color: voice === v.key ? accent : 'rgba(232,232,232,0.45)', fontFamily: 'monospace', fontSize: 9, cursor: 'pointer', transition: 'all 0.15s' }}>
+                            onClick={() => { voicePref.set(v.key); setVoice(v.key); setShowVoices(false); setBlobUrl(null); }}
+                            style={{ padding: '4px 9px', borderRadius: 6, background: voice === v.key ? `${accent}18` : 'transparent', border: `1px solid ${voice === v.key ? accent : 'rgba(255,255,255,0.1)'}`, color: voice === v.key ? accent : 'rgba(232,232,232,0.45)', fontFamily: 'monospace', fontSize: 9, cursor: 'pointer', transition: 'all 0.15s', opacity: dim ? 0.5 : 1 }}>
                             {v.name}
                             <span style={{ opacity: 0.45, fontSize: 8, marginLeft: 4 }}>{v.accent} {v.gender}</span>
+                            {needsEl && <span style={{ opacity: 0.6, fontSize: 8, marginLeft: 3 }}>{elevenlabsActive ? '✦' : '🔒'}</span>}
                           </button>
-                        ))}
+                          );
+                        })}
                       </div>
                     </motion.div>
                   )}

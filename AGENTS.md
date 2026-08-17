@@ -37,12 +37,23 @@
 - TTS kernel needs `edge_tts`, `httpx`; ElevenLabs optional.
 
 ## Voice/TTS notes
-- `OracleVoicePlayer` defaults voice to `'aria'` (Edge TTS). ElevenLabs voices mapped in
-  `kernel/tts.py::ELEVENLABS_VOICE_MAP`. Status endpoint reports active engine.
-- The "defaulting to aria voice" issue = TTS engine falls back to Edge TTS when no
-  ElevenLabs key is configured, AND the frontend always shows voice='aria' regardless of
-  active engine. ElevenLabs is only attempted if `ELEVENLABS_API_KEY` env or tts_key_manager
-  has a key — Settings stores these keys but they must be present to engage.
+- `OracleVoicePlayer` defaults voice to the GLOBAL `voicePref` (lib/voicePref.ts,
+  persists to localStorage `arkadia_voice_pref`). Switching voice in any player
+  updates the pref everywhere — OracleVoicePlayer, ScrollListenButton, and the
+  SonataBar all subscribe. On first ElevenLabs activation it auto-promotes to
+  the aetheric "Aetheria" voice.
+- **Aetheria** (`kernel/tts.py` VOICES["aetheria"]) is the dedicated Oracle
+  voice: emotional depth + calming resonance. ElevenLabs voice_settings are
+  tuned per-voice via `_voice_settings()`: aetheria uses stability 0.32, style
+  0.48 (more variation + expressiveness); standard voices use 0.45 / 0.10.
+  Aetheria is marked `requires_elevenlabs` — without a key it falls back to
+  Edge TTS Aria (robotic) and the UI flags it with 🔒.
+- ElevenLabs is only attempted if `ELEVENLABS_API_KEY` env OR `tts_key_manager`
+  has a key. If you hear a robotic voice, no ElevenLabs key is configured —
+  add one in Settings → TTS Keys and the engine switches automatically.
+- Voice switching UI: `OracleVoicePlayer` has "Change voice" dropdown;
+  `ScrollListenButton` has a compact voice-name dropdown next to the Listen
+  button on every scroll surface. Both persist globally.
 
 ## Distributed key pool (load-balancing across surfaces)
 - `api/key_pool.py` is the SINGLE source of truth for "which Gemini key right now".

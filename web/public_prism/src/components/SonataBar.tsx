@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, SkipBack, SkipForward, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { audioManager, AudioState } from '../lib/audioManager';
 import { voiceContext, VoicePayload } from '../lib/voiceContext';
+import { voicePref } from '../lib/voicePref';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function fmt(s: number): string {
@@ -93,9 +94,11 @@ const SonataBar: React.FC = () => {
   const [payload, setPayload]       = useState<VoicePayload | null>(voiceContext.get());
   const [expanded, setExpanded]     = useState(false);
   const [dismissed, setDismissed]   = useState(false);
+  const [voiceKey, setVoiceKey]     = useState<string>(voicePref.get());
 
   useEffect(() => audioManager.subscribe(setAudioState), []);
   useEffect(() => voiceContext.subscribe(setPayload), []);
+  useEffect(() => voicePref.subscribe(setVoiceKey), []);
 
   // Reset dismiss when new content loads
   const prevSrc = useRef<string | null>(null);
@@ -116,6 +119,7 @@ const SonataBar: React.FC = () => {
 
   const label = payload?.label ?? 'ORACLE TRANSMISSION';
   const truncLabel = label.length > 40 ? label.slice(0, 38) + '…' : label;
+  const voiceName = voiceKey.charAt(0).toUpperCase() + voiceKey.slice(1);
 
   return (
     <AnimatePresence>
@@ -160,14 +164,13 @@ const SonataBar: React.FC = () => {
               }}>
                 {truncLabel}
               </p>
-              {expanded && audioState.duration > 0 && (
-                <p style={{
-                  fontFamily: 'monospace', fontSize: 8,
-                  color: 'rgba(232,232,232,0.28)', margin: 0,
-                }}>
-                  {fmt(audioState.currentTime)} · {fmt(audioState.duration)}
-                </p>
-              )}
+              <p style={{
+                fontFamily: 'monospace', fontSize: 8,
+                color: 'rgba(232,232,232,0.28)', margin: 0,
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              }}>
+                voice · {voiceName}{audioState.duration > 0 ? ` · ${fmt(audioState.currentTime)} / ${fmt(audioState.duration)}` : ''}
+              </p>
             </div>
 
             {/* Controls */}

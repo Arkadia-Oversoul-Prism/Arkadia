@@ -14,6 +14,7 @@ import { audioManager, AudioState } from '../lib/audioManager';
 import { cacheGet, cachePut, audioCacheKey } from '../lib/audioCache';
 import { voiceContext } from '../lib/voiceContext';
 import { API_BASE } from '../lib/apiConfig';
+import { voicePref } from '../lib/voicePref';
 
 // Mirror of OracleVoicePlayer.stripMarkdown so scroll text is speakable.
 function stripMarkdown(s: string): string {
@@ -55,17 +56,37 @@ interface Props {
   voice?: string;
 }
 
+// Compact voice options shared with OracleVoicePlayer.
+const VOICE_OPTIONS = [
+  { key: 'aetheria',    name: 'Aetheria',   requiresElevenlabs: true },
+  { key: 'aria',        name: 'Aria' },
+  { key: 'jenny',       name: 'Jenny' },
+  { key: 'sonia',       name: 'Sonia' },
+  { key: 'christopher', name: 'Christopher' },
+  { key: 'george',      name: 'George' },
+  { key: 'ryan',        name: 'Ryan' },
+];
+
 export default function ScrollListenButton({
   text,
   label = 'SCROLL TRANSMISSION',
   accent = '#00D4AA',
-  voice = 'aria',
+  voice,
 }: Props) {
+  // Honor explicit prop, else the global persistent preference.
+  const [voiceKey, setVoiceKey] = useState<string>(voice || voicePref.get());
+  const [showVoices, setShowVoices] = useState(false);
   const [audioState, setAudioState] = useState<AudioState>(audioManager.getState());
   const [generating, setGenerating] = useState(false);
   const [active, setActive] = useState(false);
   const blobRef = useRef<string | null>(null);
   const textKeyRef = useRef<string>('');
+
+  // Keep local voice in sync with global pref changes from other surfaces.
+  useEffect(() => {
+    if (voice) { setVoiceKey(voice); return; }
+    return voicePref.subscribe(setVoiceKey);
+  }, [voice]);
 
   useEffect(() => audioManager.subscribe(setAudioState), []);
   useEffect(() => () => { if (blobRef.current) URL.revokeObjectURL(blobRef.current); }, []);
@@ -99,10 +120,10 @@ export default function ScrollListenButton({
     }
 
     textKeyRef.current = plain;
-    voiceContext.set({ text: plain, label, voice });
+    voiceContext.set({ text: plain, label, voice: voiceKey });
 
     // Cache check
-    const key = audioCacheKey(plain, `edge_${voice}`, 1);
+    const key = audioCacheKey(plain, `edge_${voiceKey}`, 1);
     const cached = await cacheGet(key);
     if (cached) {
       const url = URL.createObjectURL(cached);
@@ -119,7 +140,7 @@ export default function ScrollListenButton({
       const res = await fetch(`${API_BASE}/api/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: plain, speed: 1, voice }),
+        body: JSON.stringify({ text: plain, speed: 1, voice: voiceKey }),
       });
       if (!res.ok) throw new Error(`TTS ${res.status}`);
       const blob = await res.blob();
@@ -138,41 +159,88 @@ export default function ScrollListenButton({
     } finally {
       setGenerating(false);
     }
-  }, [text, label, voice, active, audioState.src, audioState.playing]);
+  }, [text, label, voiceKey, active, audioState.src, audioState.playing]);
 
   const isPlaying = active && audioState.src === blobRef.current && audioState.playing;
   const isPaused = active && audioState.src === blobRef.current && !audioState.playing;
+  const currentVoiceName = VOICE_OPTIONS.find(v => v.key === voiceKey)?.name ?? 'Aria';
 
   return (
-    <button
-      onClick={() => (active ? (audioState.playing ? audioManager.pause() : audioManager.play()) : play())}
-      disabled={generating}
-      title={isPlaying ? 'Pause read-aloud' : isPaused ? 'Resume' : 'Read aloud'}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 5,
-        padding: '4px 9px',
-        background: active ? `${accent}18` : 'transparent',
-        border: `1px solid ${active ? accent : 'rgba(255,255,255,0.08)'}`,
-        borderRadius: 6,
-        color: active ? accent : 'rgba(232,232,232,0.45)',
-        fontFamily: 'monospace',
-        fontSize: 9,
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase',
-        cursor: generating ? 'wait' : 'pointer',
-        opacity: generating ? 0.7 : 1,
-        transition: 'all 0.15s',
-      }}
-    >
-      {generating
-        ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} />
-        : active
-          ? <Square size={11} />
-          : <Volume2 size={11} />}
-      {generating ? 'Generating…' : active ? (isPlaying ? 'Pause' : 'Resume') : 'Listen'}
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, position: 'relative' }}>
+      <button
+        onClick={() => (active ? (audioState.playing ? audioManager.pause() : audioManager.play()) : play())}
+        disabled={generating}
+        title={isPlaying ? 'Pause read-aloud' : isPaused ? 'Resume' : 'Read aloud'}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 5,
+          padding: '4px 9px',
+          background: active ? `${accent}18` : 'transparent',
+          border: `1px solid ${active ? accent : 'rgba(255,255,255,0.08)'}`,
+          borderRadius: 6,
+          color: active ? accent : 'rgba(232,232,232,0.45)',
+          fontFamily: 'monospace',
+          fontSize: 9,
+          letterSpacing: '0.1em',
+          textTransform: 'uppercase',
+          cursor: generating ? 'wait' : 'pointer',
+          opacity: generating ? 0.7 : 1,
+          transition: 'all 0.15s',
+        }}
+      >
+        {generating
+          ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} />
+          : active
+            ? <Square size={11} />
+            : <Volume2 size={11} />}
+        {generating ? 'Generating…' : active ? (isPlaying ? 'Pause' : 'Resume') : 'Listen'}
+      </button>
+
+      {/* Voice picker - compact dropdown, persists globally */}
+      <button
+        onClick={() => setShowVoices(v => !v)}
+        title="Change voice"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 3,
+          padding: '4px 7px', background: 'transparent',
+          border: `1px solid ${showVoices ? accent : 'rgba(255,255,255,0.08)'}`,
+          borderRadius: 6, color: 'rgba(232,232,232,0.4)',
+          fontFamily: 'monospace', fontSize: 8.5, cursor: 'pointer',
+          letterSpacing: '0.06em', transition: 'all 0.15s',
+        }}
+      >
+        <Volume2 size={9} style={{ opacity: 0.5 }} />{currentVoiceName}
+      </button>
+      {showVoices && (
+        <>
+          <div onClick={() => setShowVoices(false)} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
+          <div style={{
+            position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 9999,
+            background: 'rgba(14,17,32,0.97)', border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 8, padding: 6, minWidth: 150, boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(12px)',
+          }}>
+            {VOICE_OPTIONS.map(v => (
+              <button
+                key={v.key}
+                onClick={() => { if (!voice) voicePref.set(v.key); setVoiceKey(v.key); setShowVoices(false); if (active) { audioManager.stop(); setActive(false); } }}
+                style={{
+                  display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '6px 9px', background: voiceKey === v.key ? `${accent}18` : 'transparent',
+                  border: 'none', borderRadius: 5, cursor: 'pointer',
+                  color: voiceKey === v.key ? accent : 'rgba(232,232,232,0.6)',
+                  fontFamily: 'monospace', fontSize: 9, textAlign: 'left',
+                }}
+              >
+                <span>{v.name}</span>
+                {(v as any).requiresElevenlabs && <span style={{ fontSize: 8, opacity: 0.5 }}>✦</span>}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-    </button>
+    </span>
   );
 }
