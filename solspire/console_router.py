@@ -25,10 +25,11 @@ Endpoints:
 """
 from __future__ import annotations
 
+import re
 import time
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -534,6 +535,74 @@ async def project_delete_file(project_id: str, file_id: str) -> dict[str, Any]:
     if not delete_file(file_id):
         raise HTTPException(status_code=404, detail="File not found")
     return {"ok": True}
+
+
+@router.post("/projects/{project_id}/files/upload")
+async def project_upload_file(project_id: str, request: Request) -> dict[str, Any]:
+    """Attach a real document (PDF/DOCX/TXT/MD/etc) to a SolSpire project.
+
+    Accepts multipart/form-data. Extracts text via the shared kernel.doc_extract
+    helper, stores the extracted text as a project file (so it is editable and
+    indexed inside the project), and ingests it into the Knowledge OS so the
+    project's documents flow through the personal knowledge graph.
+    """
+    content_type = request.headers.get("content-type", "")
+    if not content_type.startswith("multipart/form-data"):
+        raise HTTPException(status_code=400, detail="Expected multipart/form-data")
+    body = await request.body()
+    boundary = content_type.split("boundary=")[-1].strip('"')
+
+    file_name = "upload"
+    raw: bytes = b""
+    for part in body.split(("--" + boundary).encode()):
+        if b"Content-Disposition" not in part:
+            continue
+        hdr_end = part.find(b"\r\n\r\n")
+        if hdr_end == -1:
+            continue
+        headers = part[:hdr_end].decode("utf-8", errors="ignore")
+        content = part[hdr_end + 4:]
+        if content.endswith(b"\r\n"):
+            content = content[:-2]
+        if 'filename="' in headers:
+            fm = re.search(r'filename="([^"]+)"', headers)
+            if fm:
+                import urllib.parse
+                file_name = urllib.parse.unquote(fm.group(1))
+            raw = content
+
+    if not raw:
+        raise HTTPException(status_code=400, detail="No file provided")
+
+    from kernel.doc_extract import extract_text, make_label
+    extracted_text, mime_type = extract_text(file_name, raw)
+    if not extracted_text.strip():
+        raise HTTPException(status_code=400, detail="Could not extract any text from the uploaded file.")
+
+    from solspire.project_store import create_file
+    stored = create_file(project_id, file_name, extracted_text, mime_type)
+
+    # Also ingest into the Knowledge OS so the project document joins the graph.
+    try:
+        from knowledge.pipeline import ingest
+        ingest(
+            title=make_label(file_name),
+            content=extracted_text,
+            note_type="document",
+            tags=["solspire", "project", "file", project_id],
+            auto_tag=True, auto_embed=True, auto_link=True,
+        )
+    except Exception:
+        # Knowledge OS ingestion is best-effort; the project file is still stored.
+        pass
+
+    return {
+        "ok": True,
+        "file": stored,
+        "file_name": file_name,
+        "chars": len(extracted_text),
+        "message": f"'{file_name}' attached to the project and ingested into Knowledge OS.",
+    }
 
 
 @router.get("/projects/{project_id}/repositories")

@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { RefreshCw, Search, X, ChevronDown, Upload, CheckCircle, MessageSquare, Send } from 'lucide-react'
 import { api, CodexResponse, CodexScroll } from '../lib/dashboardApi'
-import { ingestNote } from '../lib/knowledgeApi'
+import { API_BASE } from '../lib/apiConfig'
 import MarkdownViewer from '../components/MarkdownViewer'
 import ScrollListenButton from '../components/ScrollListenButton'
 import StellarCartography from '../components/StellarCartography'
@@ -588,21 +588,54 @@ function EditorialScrollCard({ scroll, score, faceColor, idx }: {
 // ─── SCROLL UPLOAD MODAL ──────────────────────────────────────────────────────
 
 function ScrollUploadModal({ onClose }: { onClose: () => void }) {
+  const [mode, setMode] = useState<'file' | 'text'>('file')
+  // file mode
+  const [dragOver, setDragOver] = useState(false)
+  const [file, setFile] = useState<File | null>(null)
+  const [category, setCategory] = useState('COLLECTIVE')
+  const [description, setDescription] = useState('')
+  // text mode
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
-  const [type, setType] = useState('note')
+  const [textCategory, setTextCategory] = useState('CREATIVE_OS')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [successMsg, setSuccessMsg] = useState('')
   const [err, setErr] = useState('')
 
-  const submit = async () => {
+  const submitFile = async () => {
+    if (!file) return
+    setLoading(true); setErr('')
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('category', category)
+      fd.append('description', description)
+      const res = await fetch(`${API_BASE}/api/codex/upload`, { method: 'POST', body: fd })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.detail || `${res.status}`)
+      setSuccessMsg(data.message || `'${file.name}' ingested into the public Spiral Codex.`)
+      setSuccess(true)
+      setTimeout(onClose, 2000)
+    } catch (e) { setErr((e as Error).message || 'Upload failed') }
+    finally { setLoading(false) }
+  }
+
+  const submitText = async () => {
     if (!title.trim() || !content.trim()) return
     setLoading(true); setErr('')
     try {
-      await ingestNote({ title: title.trim(), content: content.trim(), note_type: type })
+      const res = await fetch(`${API_BASE}/api/scrolls`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label: title.trim(), content: content.trim(), category: textCategory, description }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.detail || `${res.status}`)
+      setSuccessMsg(data.status === 'committed' ? `'${title.trim()}' committed to the public corpus.` : 'Scroll committed.')
       setSuccess(true)
-      setTimeout(onClose, 1800)
-    } catch (e) { setErr((e as Error).message || 'Ingest failed') }
+      setTimeout(onClose, 2000)
+    } catch (e) { setErr((e as Error).message || 'Commit failed') }
     finally { setLoading(false) }
   }
 
@@ -613,39 +646,87 @@ function ScrollUploadModal({ onClose }: { onClose: () => void }) {
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <motion.div initial={{ scale: 0.94, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.94 }}
         style={{ background: '#0C0D18', border: '1px solid rgba(201,168,76,0.22)', borderRadius: 14,
-          padding: 24, width: '100%', maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          padding: 24, width: '100%', maxWidth: 540, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <p style={{ fontFamily: 'sans-serif', fontSize: 7.5, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.5)', margin: 0 }}>Oracle Corpus</p>
+            <p style={{ fontFamily: 'sans-serif', fontSize: 7.5, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.5)', margin: 0 }}>Public Spiral Codex</p>
             <h3 style={{ fontFamily: 'serif', fontSize: 17, color: '#C9A84C', margin: '2px 0 0' }}>Scroll Upload</h3>
+            <p style={{ fontFamily: 'sans-serif', fontSize: 9.5, color: 'rgba(0,212,170,0.55)', margin: '4px 0 0', letterSpacing: '0.06em' }}>◈ PUBLIC corpus — shared with all readers & Arkana</p>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: COLORS.dim, cursor: 'pointer', fontSize: 15 }}>✕</button>
         </div>
         {success ? (
           <div style={{ textAlign: 'center', padding: '20px 0' }}>
             <CheckCircle size={30} color="#00D4AA" style={{ margin: '0 auto 8px' }} />
-            <p style={{ fontFamily: 'serif', fontSize: 14, color: '#00D4AA', margin: 0 }}>Scroll ingested into corpus</p>
+            <p style={{ fontFamily: 'serif', fontSize: 14, color: '#00D4AA', margin: 0 }}>{successMsg}</p>
           </div>
         ) : (
           <>
-            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Scroll title…"
-              style={{ padding: '9px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#E0E0E0', fontFamily: 'sans-serif', fontSize: 13, outline: 'none' }} />
-            <select value={type} onChange={e => setType(e.target.value)}
-              style={{ padding: '8px 12px', background: 'rgba(14,17,32,0.9)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#E0E0E0', fontFamily: 'sans-serif', fontSize: 12, outline: 'none' }}>
-              {['note','research','conversation','decision','daily'].map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
-            </select>
-            <textarea value={content} onChange={e => setContent(e.target.value)} rows={7} placeholder="Markdown content…"
-              style={{ padding: '9px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: '#E0E0E0', fontFamily: 'ui-monospace, monospace', fontSize: 11.5, outline: 'none', resize: 'vertical', lineHeight: 1.55 }} />
-            {err && <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: '#EF4444', margin: 0 }}>{err}</p>}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={submit} disabled={loading || !title.trim() || !content.trim()}
-                style={{ flex: 1, padding: '10px', background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.32)', borderRadius: 8, color: '#C9A84C', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', opacity: (!title.trim() || !content.trim()) ? 0.4 : 1 }}>
-                {loading ? 'Ingesting…' : '⟐ Ingest into Corpus'}
-              </button>
-              <button onClick={onClose} style={{ padding: '10px 14px', background: 'transparent', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: COLORS.dim, cursor: 'pointer', fontFamily: 'sans-serif', fontSize: 10 }}>
-                Cancel
-              </button>
+            {/* Mode toggle */}
+            <div style={{ display: 'flex', gap: 4, background: 'rgba(0,0,0,0.3)', padding: 3, borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
+              {(['file', 'text'] as const).map(m => (
+                <button key={m} onClick={() => setMode(m)}
+                  style={{ flex: 1, padding: '8px', background: mode === m ? 'rgba(201,168,76,0.12)' : 'transparent', border: 'none', borderRadius: 6, color: mode === m ? '#C9A84C' : 'rgba(212,223,232,0.4)', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                  {m === 'file' ? '📄 Upload document' : '✍ Write scroll'}
+                </button>
+              ))}
             </div>
+
+            {mode === 'file' ? (
+              <>
+                <div
+                  onClick={() => document.getElementById('codex-file-input')?.click()}
+                  onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={e => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0]) }}
+                  style={{ cursor: 'pointer', padding: '26px 16px', border: `1.5px dashed ${dragOver ? 'rgba(201,168,76,0.6)' : 'rgba(201,168,76,0.28)'}`, borderRadius: 10, background: dragOver ? 'rgba(201,168,76,0.06)' : 'rgba(0,0,0,0.2)', textAlign: 'center' }}>
+                  <input id="codex-file-input" type="file" style={{ display: 'none' }} accept=".pdf,.docx,.txt,.md,.html,.htm,.json"
+                    onChange={e => { if (e.target.files?.[0]) setFile(e.target.files[0]) }} />
+                  <div style={{ fontSize: 22, marginBottom: 6 }}>📄</div>
+                  <p style={{ fontFamily: 'sans-serif', fontSize: 12, color: 'rgba(212,223,232,0.8)', margin: 0 }}>
+                    {file ? file.name : 'Drop a document or click to upload'}
+                  </p>
+                  <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 9, color: 'rgba(201,168,76,0.45)', margin: '4px 0 0', letterSpacing: '0.12em' }}>
+                    PDF · DOCX · TXT · MD · HTML · JSON
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <select value={category} onChange={e => setCategory(e.target.value)}
+                    style={{ flex: 1, padding: '8px 12px', background: 'rgba(14,17,32,0.9)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#E0E0E0', fontFamily: 'sans-serif', fontSize: 12, outline: 'none' }}>
+                    {['COLLECTIVE','CREATIVE_OS','NEURAL_SPINE','GOVERNANCE','CODEX','ARCHIVE'].map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Description (optional)…"
+                  style={{ padding: '9px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#E0E0E0', fontFamily: 'sans-serif', fontSize: 12, outline: 'none' }} />
+                {err && <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: '#EF4444', margin: 0 }}>{err}</p>}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={submitFile} disabled={loading || !file}
+                    style={{ flex: 1, padding: '10px', background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.32)', borderRadius: 8, color: '#C9A84C', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', opacity: (!file) ? 0.4 : 1 }}>
+                    {loading ? 'Ingesting…' : '⟐ Ingest into public corpus'}
+                  </button>
+                  <button onClick={onClose} style={{ padding: '10px 14px', background: 'transparent', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: COLORS.dim, cursor: 'pointer', fontFamily: 'sans-serif', fontSize: 10 }}>Cancel</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Scroll title…"
+                  style={{ padding: '9px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#E0E0E0', fontFamily: 'sans-serif', fontSize: 13, outline: 'none' }} />
+                <select value={textCategory} onChange={e => setTextCategory(e.target.value)}
+                  style={{ padding: '8px 12px', background: 'rgba(14,17,32,0.9)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#E0E0E0', fontFamily: 'sans-serif', fontSize: 12, outline: 'none' }}>
+                  {['CREATIVE_OS','COLLECTIVE','NEURAL_SPINE','GOVERNANCE','CODEX','ARCHIVE','TRANSMISSION'].map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <textarea value={content} onChange={e => setContent(e.target.value)} rows={7} placeholder="Markdown content…"
+                  style={{ padding: '9px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: '#E0E0E0', fontFamily: 'ui-monospace, monospace', fontSize: 11.5, outline: 'none', resize: 'vertical', lineHeight: 1.55 }} />
+                {err && <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: '#EF4444', margin: 0 }}>{err}</p>}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={submitText} disabled={loading || !title.trim() || !content.trim()}
+                    style={{ flex: 1, padding: '10px', background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.32)', borderRadius: 8, color: '#C9A84C', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', opacity: (!title.trim() || !content.trim()) ? 0.4 : 1 }}>
+                    {loading ? 'Committing…' : '⟐ Commit to public corpus'}
+                  </button>
+                  <button onClick={onClose} style={{ padding: '10px 14px', background: 'transparent', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: COLORS.dim, cursor: 'pointer', fontFamily: 'sans-serif', fontSize: 10 }}>Cancel</button>
+                </div>
+              </>
+            )}
           </>
         )}
       </motion.div>

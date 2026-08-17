@@ -21,6 +21,7 @@ import { ORACLE } from '../lib/apiConfig';
 import { getGraph, getRecentTimeline, GraphNode, GraphEdge, TimelineEvent } from '../lib/knowledgeApi';
 import ScrollListenButton from '../components/ScrollListenButton';
 import PersonalCodex from './PersonalCodex';
+import PersonalUploadZone from '../components/PersonalUploadZone';
 
 type View = 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
   | 'nexus' | 'encyclopedia' | 'spiral-codex' | 'loops' | 'grove' | 'larder' | 'novanet'
@@ -141,6 +142,9 @@ export default function PersonalEchofeild({ onNavigate }: { onNavigate: (v: View
           <Stat label="timeline events" value={timeline.length} color="#6A9FD8" />
         </div>
       </div>
+
+      {/* ── PERSONAL UPLOAD ZONE — file + quick-capture into the private vault ── */}
+      <PersonalUploadZone />
 
       {loading && (
         <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(232,232,232,0.35)', fontFamily: 'sans-serif', fontSize: 12 }}>

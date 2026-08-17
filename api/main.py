@@ -1638,40 +1638,11 @@ async def upload_file(request: Request):
     if not uploaded_file:
         raise HTTPException(status_code=400, detail="No file provided")
     
-    # Extract text content based on file type
-    extracted_text = ""
-    file_lower = file_name.lower()
-    
-    try:
-        if file_lower.endswith('.txt') or file_lower.endswith('.md'):
-            extracted_text = uploaded_file.decode('utf-8', errors='ignore')
-        elif file_lower.endswith('.docx'):
-            # For DOCX, store the binary and note it needs extraction
-            # We'll store base64 content marker for later processing
-            extracted_text = f"[DOCX FILE: {file_name} - {len(uploaded_file)} bytes]\n\n"
-            # Try to extract text if python-docx is available
-            try:
-                from docx import Document
-                doc = Document(io.BytesIO(uploaded_file))
-                extracted_text = "\n\n".join([p.text for p in doc.paragraphs if p.text.strip()])
-            except ImportError:
-                extracted_text += "[Install python-docx for full text extraction. Stored as binary.]"
-        elif file_lower.endswith('.pdf'):
-            extracted_text = f"[PDF FILE: {file_name} - {len(uploaded_file)} bytes]\n\n"
-            try:
-                import PyPDF2
-                reader = PyPDF2.PdfReader(io.BytesIO(uploaded_file))
-                for page in reader.pages:
-                    extracted_text += page.extract_text() + "\n\n"
-            except ImportError:
-                extracted_text += "[Install PyPDF2 for full text extraction. Stored as binary.]"
-        else:
-            # Try as text for unknown types
-            extracted_text = uploaded_file.decode('utf-8', errors='ignore')
-    except Exception as e:
-        extracted_text = f"[Error extracting content from {file_name}: {str(e)}]"
-    
-    # Store as a direct scroll
+    # Extract text content based on file type (shared with personal + solspire uploads)
+    from kernel.doc_extract import extract_text, make_label
+    extracted_text, _mime = extract_text(file_name, uploaded_file)
+
+    # Store as a direct scroll (PUBLIC Spiral Codex corpus)
     now = _now_iso()
     scroll_id = "upload_" + re.sub(r"[^a-z0-9]", "_", file_name.lower())[:40] + "_" + str(int(time.time()))
     
@@ -1712,6 +1683,118 @@ async def upload_file(request: Request):
         "scroll": scroll,
         "message": f"'{file_name}' has been ingested into the Spiral Codex and is now live for Arkana queries.",
     }
+
+
+# ── Personal Document Ingest (Knowledge OS vault — NOT public corpus) ─────────
+
+def _parse_multipart(body: bytes, content_type: str) -> dict:
+    """Tiny multipart/form-data parser returning {fieldname: {value, filename}}."""
+    import urllib.parse
+    boundary = content_type.split("boundary=")[-1].strip('"')
+    out: dict = {}
+    for part in body.split(("--" + boundary).encode()):
+        if b"Content-Disposition" not in part:
+            continue
+        hdr_end = part.find(b"\r\n\r\n")
+        if hdr_end == -1:
+            continue
+        headers = part[:hdr_end].decode("utf-8", errors="ignore")
+        content = part[hdr_end + 4:]
+        if content.endswith(b"\r\n"):
+            content = content[:-2]
+        if 'filename="' in headers:
+            fm = re.search(r'filename="([^"]+)"', headers)
+            nm = re.search(r'name="([^"]+)"', headers)
+            out[nm.group(1) if nm else "file"] = {
+                "value": content, "filename": urllib.parse.unquote(fm.group(1)) if fm else "upload",
+            }
+        else:
+            nm = re.search(r'name="([^"]+)"', headers)
+            if nm:
+                out[nm.group(1)] = {"value": content.decode("utf-8", errors="ignore").strip()}
+    return out
+
+
+@app.post("/api/personal/ingest-file")
+async def personal_ingest_file(request: Request):
+    """Upload a document to the PERSONAL Knowledge OS vault.
+
+    Distinct from /api/codex/upload (which adds a PUBLIC scroll to the shared
+    Spiral Codex corpus). This route extracts text from PDF/DOCX/TXT/MD and
+    ingests it through the knowledge pipeline into the authenticated node's
+    personal vault — embeddings, graph links, timeline — without ever writing
+    to the public scroll store.
+    """
+    content_type = request.headers.get("content-type", "")
+    if not content_type.startswith("multipart/form-data"):
+        raise HTTPException(status_code=400, detail="Expected multipart/form-data")
+    body = await request.body()
+    fields = _parse_multipart(body, content_type)
+
+    file_field = fields.get("file")
+    if not file_field or not file_field.get("value"):
+        raise HTTPException(status_code=400, detail="No file provided")
+    raw = file_field["value"]
+    file_name = file_field.get("filename", "upload")
+    note_type = (fields.get("note_type", {}).get("value", "") or "document").strip() or "document"
+    tags_raw = fields.get("tags", {}).get("value", "")
+    tags = [t.strip() for t in tags_raw.split(",") if t.strip()] if tags_raw else ["personal", "upload"]
+
+    from kernel.doc_extract import extract_text, make_label
+    extracted_text, _mime = extract_text(file_name, raw)
+    if not extracted_text.strip():
+        raise HTTPException(status_code=400, detail="Could not extract any text from the uploaded file.")
+
+    title = make_label(file_name)
+    try:
+        from knowledge.pipeline import ingest
+        result = ingest(
+            title=title,
+            content=extracted_text,
+            note_type=note_type,
+            tags=tags + ["personal", "file"],
+            auto_tag=True,
+            auto_embed=True,
+            auto_link=True,
+        )
+        logger.info(f"[PERSONAL-INGEST] {file_name} -> vault ({len(extracted_text)} chars, type={note_type})")
+        return {
+            "status": "ingested",
+            "title": title,
+            "file_name": file_name,
+            "chars": len(extracted_text),
+            "note": result,
+            "message": f"'{file_name}' ingested into your personal Knowledge OS vault.",
+        }
+    except Exception as e:
+        logger.warning(f"[PERSONAL-INGEST] pipeline failed for {file_name}: {e}")
+        raise HTTPException(status_code=500, detail=f"Knowledge pipeline ingestion failed: {e}")
+
+
+@app.post("/api/personal/ingest-note")
+async def personal_ingest_note(body: dict):
+    """Quick-capture a personal note (text only) into the personal Knowledge OS vault.
+
+    Separate from the public /api/scrolls endpoint — personal notes never touch
+    the public scroll store.
+    """
+    title = (body.get("title") or "").strip()
+    content = (body.get("content") or "").strip()
+    if not title or not content:
+        raise HTTPException(status_code=400, detail="title and content are required.")
+    note_type = (body.get("note_type") or "note").strip() or "note"
+    tags = list(body.get("tags") or ["personal", "capture"])
+    try:
+        from knowledge.pipeline import ingest
+        result = ingest(
+            title=title, content=content, note_type=note_type,
+            tags=tags, auto_tag=True, auto_embed=True, auto_link=True,
+        )
+        logger.info(f"[PERSONAL-NOTE] ingested: {title!r} ({len(content)} chars)")
+        return {"status": "ingested", "title": title, "note": result,
+                "message": "Personal capture ingested into your Knowledge OS vault."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Knowledge pipeline ingestion failed: {e}")
 
 
 # ── Living Larder Orders ──────────────────────────────────────────────────────

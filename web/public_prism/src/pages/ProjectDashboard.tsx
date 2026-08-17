@@ -216,6 +216,9 @@ function Files({ project }: { project: Project }) {
   const [newName, setNewName] = useState('');
   const [newContent, setNewContent] = useState('');
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = () => api<{ files: PFile[] }>(`/solspire/projects/${project.id}/files`).then(r => setFiles(r.files)).catch(() => {});
   useEffect(() => { load(); }, [project.id]);
@@ -243,6 +246,25 @@ function Files({ project }: { project: Project }) {
     load();
   }
 
+  async function uploadAttachment(file: File) {
+    setUploading(true); setUploadMsg(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(`${ORACLE}/solspire/projects/${project.id}/files/upload`, { method: 'POST', body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || `${res.status}`);
+      setUploadMsg({ ok: true, text: data.message || `'${file.name}' attached.` });
+      load();
+      setTimeout(() => setUploadMsg(null), 3000);
+    } catch (e) {
+      setUploadMsg({ ok: false, text: (e as Error).message || 'Upload failed.' });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
+
   if (open) return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -256,6 +278,25 @@ function Files({ project }: { project: Project }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {/* Upload + create controls */}
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <input ref={fileInputRef} type="file" style={{ display: 'none' }}
+          accept=".pdf,.docx,.txt,.md,.html,.htm,.json"
+          onChange={e => { if (e.target.files?.[0]) uploadAttachment(e.target.files[0]); }} />
+        <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
+          style={{ ...S.btnTeal, opacity: uploading ? 0.6 : 1 }}>
+          {uploading ? 'Uploading…' : '⬆ Attach file'}
+        </button>
+        {!creating && (
+          <button onClick={() => setCreating(true)} style={S.btnGold}>+ New file</button>
+        )}
+        <span style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(212,223,232,0.3)' }}>PDF · DOCX · TXT · MD → extracted & stored in project</span>
+      </div>
+      {uploadMsg && (
+        <div style={{ padding: '8px 12px', background: uploadMsg.ok ? 'rgba(0,212,170,0.08)' : 'rgba(200,72,72,0.08)', border: `1px solid ${uploadMsg.ok ? 'rgba(0,212,170,0.25)' : 'rgba(200,72,72,0.25)'}`, borderRadius: 7, fontFamily: 'sans-serif', fontSize: 11, color: uploadMsg.ok ? '#00D4AA' : 'rgba(200,72,72,0.9)' }}>
+          {uploadMsg.ok ? '✓ ' : '⚠ '}{uploadMsg.text}
+        </div>
+      )}
       {creating ? (
         <div style={{ ...S.card, display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <span style={S.label}>New File</span>
@@ -266,10 +307,8 @@ function Files({ project }: { project: Project }) {
             <button onClick={() => setCreating(false)} style={S.btnDanger}>Cancel</button>
           </div>
         </div>
-      ) : (
-        <button onClick={() => setCreating(true)} style={{ ...S.btnGold, alignSelf: 'flex-start' }}>+ New File</button>
-      )}
-      {files.length === 0 ? <div style={S.empty}>No files yet</div> : files.map(f => (
+      ) : null}
+      {files.length === 0 && !creating ? <div style={S.empty}>No files yet — attach a document or create a new file above.</div> : files.map(f => (
         <motion.div key={f.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           style={{ ...S.card, display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ fontSize: '16px' }}>📄</span>

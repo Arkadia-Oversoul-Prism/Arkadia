@@ -124,3 +124,39 @@
   `NexusSpiralCodex` (replacing the minimal ark-date + lunar chip there).
 - Replaces the minimal "Ark Y1 · D140" phrase with a full encyclopedia galactica readout.
 - Tests: `tests/test_stellar_cartography.py` (10 tests).
+
+## Document upload — public vs personal (separate fields)
+
+Two distinct upload fields. **Public** uploads go to the shared Spiral Codex
+corpus (visible to all readers + Arkana RAG). **Personal** uploads go to the
+authenticated node's private Knowledge OS vault — never the public scroll store.
+
+- `kernel/doc_extract.py` — shared text-extraction helper
+  (`extract_text(file_name, raw) -> (text, mime_type)`) for PDF/DOCX/TXT/MD/HTML/JSON.
+  Used by all three upload routes so extraction logic is not duplicated. Tests:
+  `tests/test_doc_extract.py` (12 tests).
+- **PUBLIC** routes (in `api/main.py`):
+  - `POST /api/codex/upload` — multipart file → extracts text → stores as a PUBLIC
+    direct scroll in the Spiral Codex (`direct_scrolls.json`).
+  - `POST /api/scrolls` — text/markdown scroll → PUBLIC direct scroll.
+  - `DELETE /api/scrolls/{id}` / `GET /api/scrolls` — manage public scrolls.
+  - UI: `NexusSpiralCodex` `ScrollUploadModal` — two modes ("Upload document" +
+    "Write scroll"), clearly labeled "PUBLIC corpus". Lives on the Encyclopedia
+    Galactica / Spiral Codex.
+- **PERSONAL** routes (in `api/main.py`):
+  - `POST /api/personal/ingest-file` — multipart file → extracts text → ingests
+    through `knowledge.pipeline.ingest` into the private vault (embeddings, graph,
+    timeline). No public scroll write.
+  - `POST /api/personal/ingest-note` — quick text capture → private vault.
+  - UI: `components/PersonalUploadZone.tsx` — file dropzone + quick-capture
+    textarea, mounted in `PersonalEchofeild`. Labeled "private Knowledge OS vault".
+- **SolSpire project file attachments** (`solspire/console_router.py`):
+  - `POST /solspire/projects/{id}/files/upload` — multipart file → extracts text →
+    stored as an editable project file (`project_files` table) AND best-effort
+    ingested into the Knowledge OS graph. UI: `ProjectDashboard` Files tab has an
+    "⬆ Attach file" button (PDF/DOCX/TXT/MD) alongside the existing "+ New file"
+    markdown editor.
+- **Project creation** (`SolSpireConsole.tsx` `createProject`) now wraps the
+  POST in try/catch and surfaces a visible error + keeps the form open so a
+  failed create no longer silently drops the user.
+

@@ -192,11 +192,24 @@ function ProjectsView({ onOpenProject }: { onOpenProject: (p: Project) => void }
 
   const createProject = async () => {
     if (!newName.trim()) return;
-    const r = await apiFetch<{ ok: boolean; project: Project }>('/solspire/projects', 'POST', {
-      name: newName, metadata: { description: newDesc },
-    });
-    setNewName(''); setNewDesc(''); setCreating(false); load();
-    if (r.project) onOpenProject(r.project);
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await apiFetch<{ ok: boolean; project: Project }>('/solspire/projects', 'POST', {
+        name: newName, metadata: { description: newDesc },
+      });
+      setNewName(''); setNewDesc(''); setCreating(false);
+      if (r.project) {
+        onOpenProject(r.project);
+      } else {
+        // Created but no project returned — reload the list so it shows up.
+        load();
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to create project — check the SolSpire kernel connection.');
+      setLoading(false);
+      // Keep the form open + fields intact so the user can retry / edit.
+    }
   };
 
   const visible = projects.filter(p => {
@@ -240,11 +253,11 @@ function ProjectsView({ onOpenProject }: { onOpenProject: (p: Project) => void }
                 placeholder="Description (optional)…"
                 style={{ padding: '10px 14px', background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(201,168,76,0.15)', borderRadius: 8, color: 'rgba(212,223,232,0.8)', fontFamily: 'sans-serif', fontSize: 12, outline: 'none', resize: 'vertical' }} />
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={createProject} disabled={!newName.trim()}
-                  style={{ padding: '8px 16px', background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.3)', borderRadius: 7, color: '#C9A84C', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.12em', opacity: newName.trim() ? 1 : 0.45 }}>
-                  Create & Open →
+                <button onClick={createProject} disabled={!newName.trim() || loading}
+                  style={{ padding: '8px 16px', background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.3)', borderRadius: 7, color: '#C9A84C', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.12em', opacity: (!newName.trim() || loading) ? 0.45 : 1 }}>
+                  {loading ? 'Creating…' : 'Create & Open →'}
                 </button>
-                <button onClick={() => { setCreating(false); setNewName(''); setNewDesc(''); }}
+                <button onClick={() => { setCreating(false); setNewName(''); setNewDesc(''); setError(null); }}
                   style={{ padding: '8px 14px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, color: 'rgba(212,223,232,0.4)', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: 10 }}>
                   Cancel
                 </button>
