@@ -256,6 +256,14 @@ app.add_middleware(
     allow_credentials=True,
 )
 
+# Phase 1 — operational rate limiting (in-memory; env-configurable)
+try:
+    from api.rate_limit import RateLimitMiddleware
+    app.add_middleware(RateLimitMiddleware)
+except Exception as _rl_err:
+    logging.getLogger("arkadia").warning(f"[RL] Rate limit middleware not loaded: {_rl_err}")
+
+
 # ── Node registry router ──────────────────────────────────────────────────────
 try:
     from api.nodes import router as _nodes_router
