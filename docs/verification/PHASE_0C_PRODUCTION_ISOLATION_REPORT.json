@@ -1,21 +1,21 @@
 {
-  "verdict": "RED",
-  "run_id": "86456a31",
+  "verdict": "GREEN",
+  "run_id": "ef07d6b7",
   "base_url": "https://arkadia-kw64.onrender.com",
-  "started": "2026-08-19T22:23:01.648117+00:00",
-  "finished": "2026-08-19T22:23:05.184478+00:00",
-  "user_a_uid": "gYNhNFAgU5NnZSi9nCKXKdxoY5G2",
-  "user_b_uid": "lAWaz7vozIQeFYyKPqATMR05mrF3",
+  "started": "2026-08-19T22:48:32.302273+00:00",
+  "finished": "2026-08-19T22:48:54.461720+00:00",
+  "user_a_uid": "BLc7JcytC9PdaKU3XQXypaXgYQ83",
+  "user_b_uid": "QgJlxsGk1KfRdnwkdlbwaWq5D3h2",
   "canaries": {
     "a": {
-      "uuid": "926e9b06-2c17-4913-bad4-e798cb337b7d",
-      "id": 32,
-      "marker": "PHASE0C_USER_A_86456a31_197b7a"
+      "uuid": "c40a7f9e-7dd0-4417-befc-4319457cc517",
+      "id": 33,
+      "marker": "PHASE0C_USER_A_ef07d6b7_2d6206"
     },
     "b": {
-      "uuid": null,
-      "id": null,
-      "marker": "PHASE0C_USER_B_86456a31_82dc35"
+      "uuid": "b1aaba6d-4c25-4c5b-85e2-06659fc4dd90",
+      "id": 34,
+      "marker": "PHASE0C_USER_B_ef07d6b7_36b16a"
     }
   },
   "results": [
@@ -33,14 +33,14 @@
     },
     {
       "name": "a_create_canary",
-      "ok": "926e9b06-2c17-4913-bad4-e798cb337b7d",
-      "detail": "uuid=926e9b06-2c17-4913-bad4-e798cb337b7d id=32",
+      "ok": true,
+      "detail": "uuid=c40a7f9e-7dd0-4417-befc-4319457cc517 id=33",
       "status": 200
     },
     {
       "name": "b_create_canary",
       "ok": true,
-      "detail": "uuid=None id=None",
+      "detail": "uuid=b1aaba6d-4c25-4c5b-85e2-06659fc4dd90 id=34",
       "status": 200
     },
     {
@@ -129,8 +129,56 @@
     },
     {
       "name": "anon_search_a",
-      "ok": false,
-      "detail": "status=200 leaked=True",
+      "ok": true,
+      "detail": "status=200 leaked=False",
+      "status": 200
+    },
+    {
+      "name": "anon_get_b_note",
+      "ok": true,
+      "detail": "status=404 leaked=False",
+      "status": 404
+    },
+    {
+      "name": "anon_search_b",
+      "ok": true,
+      "detail": "status=200 leaked=False",
+      "status": 200
+    },
+    {
+      "name": "anon_graph_no_private",
+      "ok": true,
+      "detail": "leaked_a=False leaked_b=False",
+      "status": 200
+    },
+    {
+      "name": "anon_timeline_no_private",
+      "ok": true,
+      "detail": "status=200",
+      "status": 200
+    },
+    {
+      "name": "a_oracle_seed",
+      "ok": true,
+      "detail": "status=200 memory=True",
+      "status": 200
+    },
+    {
+      "name": "a_oracle_retrieve",
+      "ok": true,
+      "detail": "status=200 marker_in_response=True",
+      "status": 200
+    },
+    {
+      "name": "b_oracle_no_a_marker",
+      "ok": true,
+      "detail": "status=200 leaked=False",
+      "status": 200
+    },
+    {
+      "name": "anon_oracle_no_a_marker",
+      "ok": true,
+      "detail": "status=200 leaked=False",
       "status": 200
     },
     {
@@ -140,9 +188,7 @@
       "status": 200
     }
   ],
-  "errors": [
-    "anon_search_a: status=200 leaked=True"
-  ],
+  "errors": [],
   "cleanup_ok": true,
   "commit_expected": "ffefb338b2a620c78ef7933bff6bb90b1e56eacf"
 }
