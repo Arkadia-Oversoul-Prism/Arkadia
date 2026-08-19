@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS threads (
     uuid        TEXT NOT NULL UNIQUE,
     project_id  INTEGER REFERENCES projects(id) ON DELETE SET NULL,
     title       TEXT NOT NULL,
+    user_id     TEXT,                              -- authenticated owner (Firebase uid) — NULL = anonymous/legacy
     created_at  TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -50,6 +51,7 @@ CREATE TABLE IF NOT EXISTS notes (
     graph_nodes      TEXT NOT NULL DEFAULT '[]',   -- JSON array of related graph node IDs
     checksum         TEXT,                         -- SHA-256 of content for change detection
     source_provider  TEXT,                         -- gemini | claude | gpt | human | system
+    user_id          TEXT,                         -- authenticated owner (Firebase uid) — NULL = public/legacy
     created_at       TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -181,6 +183,8 @@ CREATE INDEX IF NOT EXISTS idx_notes_project    ON notes(project_id);
 CREATE INDEX IF NOT EXISTS idx_notes_thread     ON notes(thread_id);
 CREATE INDEX IF NOT EXISTS idx_notes_type       ON notes(note_type);
 CREATE INDEX IF NOT EXISTS idx_notes_created    ON notes(created_at);
+CREATE INDEX IF NOT EXISTS idx_notes_user       ON notes(user_id);
+CREATE INDEX IF NOT EXISTS idx_threads_user     ON threads(user_id);
 CREATE INDEX IF NOT EXISTS idx_chunks_note      ON chunks(note_id);
 CREATE INDEX IF NOT EXISTS idx_embeddings_chunk ON embeddings(chunk_id);
 CREATE INDEX IF NOT EXISTS idx_graph_source     ON graph_edges(source_note_id);

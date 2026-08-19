@@ -93,6 +93,7 @@ def create_note(
     tags: Optional[list[str]] = None,
     links: Optional[list[str]] = None,
     source_provider: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> dict:
     """Create a note: write Markdown to vault, insert SQLite record."""
     now = datetime.now(timezone.utc).isoformat()
@@ -109,6 +110,7 @@ def create_note(
     abs_path = VAULT_ROOT / vault_path
     abs_path.parent.mkdir(parents=True, exist_ok=True)
 
+    uid = (user_id or "").strip() or None
     note_row = {
         "uuid": note_uuid,
         "title": title,
@@ -124,6 +126,7 @@ def create_note(
         "graph_nodes": "[]",
         "checksum": _checksum(content),
         "source_provider": source_provider,
+        "user_id": uid,
         "created_at": now,
         "updated_at": now,
         # helpers for frontmatter (not stored in db directly)
@@ -141,15 +144,15 @@ def create_note(
         INSERT INTO notes
             (uuid, title, content, vault_path, note_type, project_id, thread_id,
              participants, tags, links, embedding_status, graph_nodes, checksum,
-             source_provider, created_at, updated_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+             source_provider, user_id, created_at, updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """,
         (
             note_uuid, title, content, vault_path, note_type,
             project_id, thread_id,
             participants_json, tags_json, links_json,
             "pending", "[]", note_row["checksum"],
-            source_provider, now, now,
+            source_provider, uid, now, now,
         ),
     )
 
@@ -213,6 +216,7 @@ def update_note(
 def list_notes(
     note_type: Optional[str] = None,
     project_id: Optional[int] = None,
+    user_id: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
 ) -> list[dict]:
@@ -222,6 +226,8 @@ def list_notes(
         conditions.append("note_type = ?"); params.append(note_type)
     if project_id:
         conditions.append("project_id = ?"); params.append(project_id)
+    if user_id:
+        conditions.append("user_id = ?"); params.append(user_id)
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
     params += [limit, offset]
     return execute(
@@ -280,29 +286,47 @@ def get_project(name_or_uuid: str) -> Optional[dict]:
 # longitudinal conversation regardless of which surface (Oracle Chat,
 # ReasoMate, NovaNet) initiated the turn.
 
-def get_or_create_thread(session_id: str, title: Optional[str] = None) -> Optional[int]:
+def get_or_create_thread(
+    session_id: str,
+    title: Optional[str] = None,
+    user_id: Optional[str] = None,
+) -> Optional[int]:
     """Return the threads.id for ``session_id``, creating it if necessary.
 
-    Returns None when ``session_id`` is empty so anonymous turns simply skip
-    thread-scoped retrieval (global semantic search still applies upstream).
+    When ``user_id`` is provided, it is stamped on new threads and backfilled
+    onto legacy NULL-owner threads that match this session_id.
     """
     if not session_id or not session_id.strip():
         return None
     sid = session_id.strip()
-    existing = execute_one("SELECT id FROM threads WHERE uuid = ?", (sid,))
+    uid = (user_id or "").strip() or None
+    existing = execute_one("SELECT id, user_id FROM threads WHERE uuid = ?", (sid,))
     if existing:
+        if uid and not existing.get("user_id"):
+            execute("UPDATE threads SET user_id = ? WHERE id = ?", (uid, existing["id"]))
         return existing["id"]
     now = datetime.now(timezone.utc).isoformat()
     execute(
-        "INSERT INTO threads (uuid, title, created_at, updated_at) VALUES (?,?,?,?)",
-        (sid, (title or f"Arkana session {sid[:12]}")[:200], now, now),
+        "INSERT INTO threads (uuid, title, user_id, created_at, updated_at) VALUES (?,?,?,?,?)",
+        (sid, (title or f"Arkana session {sid[:12]}")[:200], uid, now, now),
     )
     return last_insert_id()
 
 
-def get_thread_id(session_id: str) -> Optional[int]:
-    """Look up an existing thread id without creating one (read-only)."""
+def get_thread_id(session_id: str, user_id: Optional[str] = None) -> Optional[int]:
+    """Look up an existing thread id without creating one (read-only).
+
+    When ``user_id`` is provided, only return a thread owned by that user
+    (or a legacy thread with NULL user_id that matches session_id).
+    """
     if not session_id or not session_id.strip():
         return None
-    row = execute_one("SELECT id FROM threads WHERE uuid = ?", (session_id.strip(),))
+    uid = (user_id or "").strip() or None
+    if uid:
+        row = execute_one(
+            "SELECT id FROM threads WHERE uuid = ? AND (user_id = ? OR user_id IS NULL)",
+            (session_id.strip(), uid),
+        )
+    else:
+        row = execute_one("SELECT id FROM threads WHERE uuid = ?", (session_id.strip(),))
     return row["id"] if row else None

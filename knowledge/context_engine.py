@@ -41,6 +41,7 @@ def assemble_context(
     include_timeline: bool = True,
     timeline_limit: int = 10,
     token_budget: int = DEFAULT_TOKEN_BUDGET,
+    user_id: Optional[str] = None,
 ) -> dict:
     """
     Build a context package for a provider call.
@@ -87,6 +88,18 @@ def assemble_context(
         }
         if thread_note_ids:
             all_chunks_local = [c for c in all_chunks_local if c["note_id"] in thread_note_ids]
+
+    # Private boundary: when user_id is bound, only surface notes owned by that
+    # user (or legacy NULL-owner public/shared notes).
+    if user_id:
+        owned_ids = {
+            row["id"]
+            for row in execute(
+                "SELECT id FROM notes WHERE user_id = ? OR user_id IS NULL",
+                (user_id,),
+            )
+        }
+        all_chunks_local = [c for c in all_chunks_local if c["note_id"] in owned_ids]
 
     scored: list[dict] = []
     if query_vec and all_chunks_local:

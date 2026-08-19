@@ -20,7 +20,12 @@ from knowledge.embeddings import (
 # Full-text search (SQLite LIKE across title + content)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def fulltext_search(query: str, note_type: Optional[str] = None, limit: int = 20) -> list[dict]:
+def fulltext_search(
+    query: str,
+    note_type: Optional[str] = None,
+    limit: int = 20,
+    user_id: Optional[str] = None,
+) -> list[dict]:
     terms = [t.strip() for t in query.split() if len(t.strip()) >= 2]
     if not terms:
         return []
@@ -33,6 +38,10 @@ def fulltext_search(query: str, note_type: Optional[str] = None, limit: int = 20
     if note_type:
         conditions.append("note_type = ?")
         params.append(note_type)
+
+    if user_id:
+        conditions.append("(user_id = ? OR user_id IS NULL)")
+        params.append(user_id)
 
     where = " AND ".join(conditions)
     params.append(limit)
@@ -48,7 +57,11 @@ def fulltext_search(query: str, note_type: Optional[str] = None, limit: int = 20
 # Semantic search (embedding cosine similarity with BM25 fallback)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def semantic_search(query: str, top_k: int = 10) -> list[dict]:
+def semantic_search(
+    query: str,
+    top_k: int = 10,
+    user_id: Optional[str] = None,
+) -> list[dict]:
     """
     1. Embed the query via Gemini.
     2. Score all stored chunk embeddings by cosine similarity.
@@ -56,12 +69,22 @@ def semantic_search(query: str, top_k: int = 10) -> list[dict]:
     Returns ranked list of {note_id, chunk_id, score, content, title}.
     """
     query_vec = embed_text(query, task_type="RETRIEVAL_QUERY")
-    # Local-first (LAW II): use raw chunks (no embeddings JOIN) for BM25 when
-    # the query embedding is unavailable, so the fallback is reachable.
     chunks = all_chunk_embeddings() if query_vec is not None else all_chunks()
 
     if not chunks:
         return []
+
+    if user_id:
+        owned = {
+            row["id"]
+            for row in execute(
+                "SELECT id FROM notes WHERE user_id = ? OR user_id IS NULL",
+                (user_id,),
+            )
+        }
+        chunks = [c for c in chunks if c.get("note_id") in owned]
+        if not chunks:
+            return []
 
     scored: list[dict] = []
 
@@ -119,22 +142,31 @@ def semantic_search(query: str, top_k: int = 10) -> list[dict]:
 # Tag search
 # ─────────────────────────────────────────────────────────────────────────────
 
-def tag_search(tags: list[str], limit: int = 20) -> list[dict]:
+def tag_search(
+    tags: list[str],
+    limit: int = 20,
+    user_id: Optional[str] = None,
+) -> list[dict]:
     if not tags:
         return []
     results: list[dict] = []
+    owner_clause = ""
+    owner_params: tuple = ()
+    if user_id:
+        owner_clause = " AND (n.user_id = ? OR n.user_id IS NULL)"
+        owner_params = (user_id,)
     for tag in tags:
         rows = execute(
-            """
+            f"""
             SELECT n.id, n.uuid, n.title, n.note_type, n.created_at, n.vault_path
             FROM notes n
             JOIN note_tags nt ON nt.note_id = n.id
             JOIN tags t ON t.id = nt.tag_id
-            WHERE t.name = ?
+            WHERE t.name = ?{owner_clause}
             ORDER BY n.updated_at DESC
             LIMIT ?
             """,
-            (tag.lower(), limit),
+            (tag.lower(),) + owner_params + (limit,),
         )
         results.extend(rows)
     seen: set[int] = set()
@@ -211,7 +243,18 @@ def project_search(query: str, limit: int = 20) -> list[dict]:
 # People search
 # ─────────────────────────────────────────────────────────────────────────────
 
-def people_search(query: str, limit: int = 20) -> list[dict]:
+def people_search(
+    query: str,
+    limit: int = 20,
+    user_id: Optional[str] = None,
+) -> list[dict]:
+    if user_id:
+        return execute(
+            "SELECT id, uuid, title, created_at FROM notes "
+            "WHERE note_type = 'person' AND (title LIKE ? OR content LIKE ?) "
+            "AND (user_id = ? OR user_id IS NULL) LIMIT ?",
+            (f"%{query}%", f"%{query}%", user_id, limit),
+        )
     return execute(
         "SELECT id, uuid, title, created_at FROM notes "
         "WHERE note_type = 'person' AND (title LIKE ? OR content LIKE ?) LIMIT ?",
@@ -243,6 +286,7 @@ def unified_search(
     top_k: int = 20,
     note_id_for_graph: Optional[int] = None,
     project_id: Optional[int] = None,
+    user_id: Optional[str] = None,
 ) -> dict:
     """
     Run multiple search modes and return a consolidated result set.
@@ -256,17 +300,17 @@ def unified_search(
     results: dict = {}
 
     if "semantic" in modes:
-        results["semantic"] = semantic_search(query, top_k=top_k)
+        results["semantic"] = semantic_search(query, top_k=top_k, user_id=user_id)
 
     if "fulltext" in modes:
-        results["fulltext"] = fulltext_search(query, limit=top_k)
+        results["fulltext"] = fulltext_search(query, limit=top_k, user_id=user_id)
 
     if "tag" in modes:
         tags = [t.lstrip("#") for t in re.findall(r"#\w+", query)]
         if not tags:
             # Extract bare words as potential tags
             tags = [w for w in query.lower().split() if len(w) >= 3][:5]
-        results["tag"] = tag_search(tags, limit=top_k) if tags else []
+        results["tag"] = tag_search(tags, limit=top_k, user_id=user_id) if tags else []
 
     if "timeline" in modes:
         results["timeline"] = timeline_search(
@@ -280,7 +324,7 @@ def unified_search(
         results["project"] = project_search(query, limit=10)
 
     if "people" in modes:
-        results["people"] = people_search(query, limit=10)
+        results["people"] = people_search(query, limit=10, user_id=user_id)
 
     if "reference" in modes:
         results["reference"] = reference_search(query, limit=10)

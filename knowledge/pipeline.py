@@ -190,6 +190,7 @@ def ingest(
     tags: Optional[list[str]] = None,
     links: Optional[list[str]] = None,
     source_provider: Optional[str] = None,
+    user_id: Optional[str] = None,
     auto_tag: bool = True,
     auto_embed: bool = True,
     auto_link: bool = True,
@@ -230,6 +231,7 @@ def ingest(
         tags=final_tags,
         links=links,
         source_provider=source_provider,
+        user_id=user_id,
     )
     note_id = note["id"]
 
@@ -290,6 +292,7 @@ def ingest_conversation(
     persona: Optional[str] = None,
     project_id: Optional[int] = None,
     thread_id: Optional[int] = None,
+    user_id: Optional[str] = None,
 ) -> dict:
     """
     Convenience wrapper: ingest a full conversation exchange as a knowledge note.
@@ -311,4 +314,5 @@ def ingest_conversation(
         project_id=project_id,
         thread_id=thread_id,
         source_provider=provider,
+        user_id=user_id,
     )

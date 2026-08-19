@@ -997,6 +997,7 @@ async def commune_resonance(request: Request):
 
     # ── Key resolution: user key → provider_key_store → env var ─────────────
     active_key = None
+    user_id_pre = None
     try:
         node_user_pre = await _get_current_user(request)
         user_id_pre = node_user_pre.get("uid") if node_user_pre else None
@@ -1046,8 +1047,12 @@ async def commune_resonance(request: Request):
     # Personal longitudinal memory via assemble_context, scoped to the
     # session_id thread. Empty block when nothing retrieved — never fabricate.
     memory_block, memory_meta = "", {}
+    spine_user_id = user_id_pre
     try:
-        from api.oracle_spine import build_memory_block; memory_block, memory_meta = build_memory_block(message, session_id)
+        from api.oracle_spine import build_memory_block
+        memory_block, memory_meta = build_memory_block(
+            message, session_id, user_id=spine_user_id or "",
+        )
     except Exception as _mce:
         logger.debug(f"[ORACLE] Knowledge OS memory retrieval skipped: {_mce}")
 
@@ -1170,7 +1175,7 @@ async def commune_resonance(request: Request):
         from api.oracle_spine import archive_oracle_turn
         threading.Thread(
             target=archive_oracle_turn,
-            args=(message, reply, session_id),
+            args=(message, reply, session_id, spine_user_id or ""),
             daemon=True,
         ).start()
         resonance = round(0.7 + (len(reply) % 30) / 100, 3)
@@ -1181,6 +1186,7 @@ async def commune_resonance(request: Request):
             "rag_refs":  rag_refs,
             "rag_hits":  len(rag_refs),
             "memory": {"session_id": session_id or None, "thread_id": memory_meta.get("thread_id"),
+                       "user_id": spine_user_id or None,
                        "notes_retrieved": memory_meta.get("notes_retrieved", 0),
                        "source": memory_meta.get("source", "knowledge_os"), "injected": bool(memory_block)},
         }
@@ -1723,8 +1729,13 @@ async def personal_ingest_file(request: Request):
     Spiral Codex corpus). This route extracts text from PDF/DOCX/TXT/MD and
     ingests it through the knowledge pipeline into the authenticated node's
     personal vault — embeddings, graph links, timeline — without ever writing
-    to the public scroll store.
+    to the public scroll store. Requires authentication (user_id ownership).
     """
+    user = await _get_current_user(request)
+    user_id = user.get("uid") if user else None
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required for personal vault ingest.")
+
     content_type = request.headers.get("content-type", "")
     if not content_type.startswith("multipart/form-data"):
         raise HTTPException(status_code=400, detail="Expected multipart/form-data")
@@ -1753,11 +1764,12 @@ async def personal_ingest_file(request: Request):
             content=extracted_text,
             note_type=note_type,
             tags=tags + ["personal", "file"],
+            user_id=user_id,
             auto_tag=True,
             auto_embed=True,
             auto_link=True,
         )
-        logger.info(f"[PERSONAL-INGEST] {file_name} -> vault ({len(extracted_text)} chars, type={note_type})")
+        logger.info(f"[PERSONAL-INGEST] {file_name} -> vault ({len(extracted_text)} chars, type={note_type}, user={user_id[:8]}…)")
         return {
             "status": "ingested",
             "title": title,
@@ -1772,12 +1784,18 @@ async def personal_ingest_file(request: Request):
 
 
 @app.post("/api/personal/ingest-note")
-async def personal_ingest_note(body: dict):
+async def personal_ingest_note(request: Request):
     """Quick-capture a personal note (text only) into the personal Knowledge OS vault.
 
     Separate from the public /api/scrolls endpoint — personal notes never touch
-    the public scroll store.
+    the public scroll store. Requires authentication (user_id ownership).
     """
+    user = await _get_current_user(request)
+    user_id = user.get("uid") if user else None
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required for personal vault ingest.")
+
+    body = await request.json()
     title = (body.get("title") or "").strip()
     content = (body.get("content") or "").strip()
     if not title or not content:
@@ -1788,9 +1806,10 @@ async def personal_ingest_note(body: dict):
         from knowledge.pipeline import ingest
         result = ingest(
             title=title, content=content, note_type=note_type,
-            tags=tags, auto_tag=True, auto_embed=True, auto_link=True,
+            tags=tags, user_id=user_id,
+            auto_tag=True, auto_embed=True, auto_link=True,
         )
-        logger.info(f"[PERSONAL-NOTE] ingested: {title!r} ({len(content)} chars)")
+        logger.info(f"[PERSONAL-NOTE] ingested: {title!r} ({len(content)} chars, user={user_id[:8]}…)")
         return {"status": "ingested", "title": title, "note": result,
                 "message": "Personal capture ingested into your Knowledge OS vault."}
     except Exception as e:

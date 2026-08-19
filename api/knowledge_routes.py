@@ -6,11 +6,22 @@ All routes are read-by-Oracle, write-by-pipeline.
 No business logic here — this is a thin HTTP skin over the knowledge layer.
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 from typing import Optional
 
 router = APIRouter(prefix="/api/knowledge", tags=["knowledge-os"])
+
+
+async def _optional_user_id(request: Request) -> Optional[str]:
+    """Extract Firebase uid when present; never raise (optional auth)."""
+    try:
+        from api.auth import get_current_user
+        user = await get_current_user(request)
+        return (user or {}).get("uid") or None
+    except Exception:
+        return None
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -84,7 +95,7 @@ class SendRequest(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.post("/ingest")
-async def ingest_note(req: IngestRequest):
+async def ingest_note(req: IngestRequest, request: Request):
     """Ingest a note through the full knowledge pipeline."""
     try:
         from knowledge.pipeline import ingest
@@ -97,6 +108,7 @@ async def ingest_note(req: IngestRequest):
             participants=req.participants,
             tags=req.tags,
             source_provider=req.source_provider,
+            user_id=await _optional_user_id(request),
             auto_tag=req.auto_tag,
             auto_embed=req.auto_embed,
             auto_link=req.auto_link,
@@ -107,7 +119,7 @@ async def ingest_note(req: IngestRequest):
 
 
 @router.post("/ingest/conversation")
-async def ingest_conversation(req: ConversationIngestRequest):
+async def ingest_conversation(req: ConversationIngestRequest, request: Request):
     """Ingest a full conversation exchange as structured knowledge."""
     try:
         from knowledge.pipeline import ingest_conversation
@@ -118,6 +130,7 @@ async def ingest_conversation(req: ConversationIngestRequest):
             persona=req.persona,
             project_id=req.project_id,
             thread_id=req.thread_id,
+            user_id=await _optional_user_id(request),
         )
         return result
     except Exception as e:
@@ -130,13 +143,20 @@ async def ingest_conversation(req: ConversationIngestRequest):
 
 @router.get("/notes")
 async def list_notes(
+    request: Request,
     note_type: Optional[str] = None,
     project_id: Optional[int] = None,
     limit: int = Query(50, le=200),
     offset: int = 0,
 ):
     from knowledge.vault import list_notes
-    return list_notes(note_type=note_type, project_id=project_id, limit=limit, offset=offset)
+    return list_notes(
+        note_type=note_type,
+        project_id=project_id,
+        user_id=await _optional_user_id(request),
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/notes/{note_uuid}")
@@ -153,25 +173,37 @@ async def get_note(note_uuid: str):
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.post("/search")
-async def search(req: SearchRequest):
-    """Unified multi-mode search across the Knowledge Vault."""
+async def search(req: SearchRequest, request: Request):
+    """Unified multi-mode search across the Knowledge Vault (user-scoped when authenticated)."""
     try:
         from knowledge.search import unified_search
-        return unified_search(req.query, modes=req.modes, top_k=req.top_k)
+        return unified_search(
+            req.query,
+            modes=req.modes,
+            top_k=req.top_k,
+            user_id=await _optional_user_id(request),
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/search/semantic")
-async def semantic_search(q: str, top_k: int = 10):
+async def semantic_search(request: Request, q: str, top_k: int = 10):
     from knowledge.search import semantic_search
-    return semantic_search(q, top_k=top_k)
+    return semantic_search(q, top_k=top_k, user_id=await _optional_user_id(request))
 
 
 @router.get("/search/fulltext")
-async def fulltext_search(q: str, note_type: Optional[str] = None, limit: int = 20):
+async def fulltext_search(
+    request: Request,
+    q: str,
+    note_type: Optional[str] = None,
+    limit: int = 20,
+):
     from knowledge.search import fulltext_search
-    return fulltext_search(q, note_type=note_type, limit=limit)
+    return fulltext_search(
+        q, note_type=note_type, limit=limit, user_id=await _optional_user_id(request),
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -179,7 +211,7 @@ async def fulltext_search(q: str, note_type: Optional[str] = None, limit: int = 
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.post("/context")
-async def assemble_context(req: ContextRequest):
+async def assemble_context(req: ContextRequest, request: Request):
     """Assemble a context package for a given query — the Oracle's input to any provider."""
     try:
         from knowledge.context_engine import assemble_context, format_context_for_provider
@@ -189,6 +221,7 @@ async def assemble_context(req: ContextRequest):
             thread_id=req.thread_id,
             max_notes=req.max_notes,
             include_timeline=req.include_timeline,
+            user_id=await _optional_user_id(request),
         )
         return {
             "package": package,
@@ -313,7 +346,7 @@ async def providers_health():
 
 
 @router.post("/providers/send")
-async def send_with_context(req: SendRequest):
+async def send_with_context(req: SendRequest, request: Request):
     """
     Send a message through the Knowledge OS pipeline:
     1. Assemble context from the vault for the last user message
@@ -325,12 +358,14 @@ async def send_with_context(req: SendRequest):
         from knowledge.context_engine import assemble_context, format_context_for_provider
         from providers.router import send
 
-        # Resolve query from last user message
+        uid = await _optional_user_id(request)
+
         user_msgs = [m for m in req.messages if m.get("role") == "user"]
         query = user_msgs[-1]["content"] if user_msgs else ""
 
-        # Build knowledge-aware system prompt
-        context_pkg = assemble_context(query, project_id=req.project_id)
+        context_pkg = assemble_context(
+            query, project_id=req.project_id, user_id=uid,
+        )
         context_str = format_context_for_provider(context_pkg)
         system = (req.system_prompt or "") + ("\n\n" + context_str if context_str else "")
 
@@ -343,7 +378,6 @@ async def send_with_context(req: SendRequest):
             max_tokens=req.max_tokens,
         )
 
-        # Ingest conversation as knowledge
         if req.ingest_response and query and response.content:
             from knowledge.pipeline import ingest_conversation
             ingest_conversation(
@@ -353,6 +387,7 @@ async def send_with_context(req: SendRequest):
                 persona=req.persona,
                 project_id=req.project_id,
                 thread_id=req.thread_id,
+                user_id=uid,
             )
 
         return response.to_dict()

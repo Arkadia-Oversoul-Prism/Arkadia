@@ -238,3 +238,80 @@ def test_retrieval_works_with_zero_embeddings_bm25_fallback():
         pipe.embed_text = orig_pipe_embed
         pipe.store_chunk_embedding = orig_pipe_store
         ctx.embed_text = orig_ctx_embed
+
+
+def test_private_boundary_user_id_scoping():
+    """Authenticated ownership: a turn archived under user A must not surface
+    in user B's context assembly.
+    """
+    from api.oracle_spine import archive_oracle_turn, build_memory_block
+    from knowledge.db import execute
+    import time
+
+    session_id = "arkana-spine-private-005"
+    marker = "PrivateBoundaryZephyr9"
+    user_a = "firebase-uid-user-A"
+    user_b = "firebase-uid-user-B"
+
+    archive_oracle_turn(
+        f"My private fact is {marker}.",
+        f"Stored private fact {marker}.",
+        session_id,
+        user_id=user_a,
+    )
+    time.sleep(0.05)
+
+    notes = execute("SELECT user_id FROM notes WHERE content LIKE ?", (f"%{marker}%",))
+    assert notes, "note must exist"
+    assert notes[0]["user_id"] == user_a
+
+    threads = execute("SELECT user_id FROM threads WHERE uuid = ?", (session_id,))
+    assert threads and threads[0]["user_id"] == user_a
+
+    block_a, meta_a = build_memory_block(marker, session_id, user_id=user_a)
+    assert meta_a["notes_retrieved"] >= 1
+    assert marker in block_a
+
+    block_b, meta_b = build_memory_block(marker, session_id, user_id=user_b)
+    assert marker not in (block_b or ""), \
+        "private boundary: user B must not retrieve user A's owned notes"
+
+
+def test_search_private_boundary_cross_user():
+    """Adversarial: user A's note must not appear in user B's search results."""
+    from knowledge.pipeline import ingest
+    from knowledge.search import fulltext_search, unified_search
+    from knowledge.db import execute
+    import time
+
+    marker = "SearchBoundaryQuartz7"
+    user_a = "firebase-uid-search-A"
+    user_b = "firebase-uid-search-B"
+
+    result = ingest(
+        title=f"Private search marker {marker}",
+        content=f"This is a confidential note containing {marker} for ownership proof.",
+        note_type="note",
+        tags=["private", "test"],
+        user_id=user_a,
+        auto_embed=True,
+        auto_link=False,
+    )
+    assert not result.get("duplicate")
+    time.sleep(0.05)
+
+    rows = execute("SELECT user_id FROM notes WHERE content LIKE ?", (f"%{marker}%",))
+    assert rows and rows[0]["user_id"] == user_a
+
+    hits_a = fulltext_search(marker, user_id=user_a)
+    assert any(marker in str(h) for h in hits_a), "owner A must find their note"
+
+    hits_b = fulltext_search(marker, user_id=user_b)
+    assert not any(marker in str(h) for h in hits_b), \
+        "private boundary: user B must not fulltext-find user A's note"
+
+    uni_a = unified_search(marker, modes=["fulltext", "semantic"], top_k=10, user_id=user_a)
+    uni_b = unified_search(marker, modes=["fulltext", "semantic"], top_k=10, user_id=user_b)
+    assert any(marker in str(h) for h in uni_a.get("fulltext", []))
+    assert not any(marker in str(h) for h in uni_b.get("fulltext", []))
+    assert not any(marker in str(h) for h in uni_b.get("semantic", []))
