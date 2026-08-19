@@ -154,7 +154,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
 
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.12 }}
           style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.35em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.65)', marginBottom: '9px', textAlign: 'center' }}>
-          Cognitive Sovereignty Framework
+          Personal intelligence · private by default
         </motion.p>
 
         <motion.h1 initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: 0.18 }}
@@ -163,14 +163,40 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
         </motion.h1>
 
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.42 }}
-          style={{ fontFamily: 'serif', fontSize: '13px', lineHeight: '1.9', color: 'rgba(212,223,232,0.55)', margin: '0 0 28px', textAlign: 'center', letterSpacing: '0.02em' }}>
-          {isAuthenticated ? 'The field recognises you. Your chambers are open.' : 'Arkadia is a field. The IMS is the door.'}
+          style={{ fontFamily: 'serif', fontSize: '14px', lineHeight: '1.85', color: 'rgba(212,223,232,0.62)', margin: '0 0 10px', textAlign: 'center', letterSpacing: '0.02em', maxWidth: '34em', alignSelf: 'center' }}>
+          {isAuthenticated
+            ? 'The field recognises you. Your private chambers and Oracle memory are open.'
+            : 'Talk to Arkana. Capture notes that stay yours. Search your own field — not the public corpus.'}
         </motion.p>
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} style={{ marginBottom: '18px' }}>
-          <button onClick={() => onNavigate('gate')}
-            style={{ width: '100%', padding: '17px', background: 'linear-gradient(135deg, rgba(0,212,170,0.12), rgba(0,212,170,0.05))', border: '1px solid rgba(0,212,170,0.45)', borderRadius: '11px', color: '#00D4AA', fontFamily: 'sans-serif', fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', boxShadow: '0 4px 24px rgba(0,212,170,0.08), inset 0 1px 0 rgba(255,255,255,0.06)' }}>
-            ⟐ Begin Your 5-Minute Reset
+        {!isAuthenticated && (
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+            style={{ fontFamily: 'sans-serif', fontSize: '11px', color: 'rgba(212,223,232,0.38)', margin: '0 0 22px', textAlign: 'center', lineHeight: 1.5 }}>
+            Guest mode works now. Sign in when you want private memory and ownership.
+          </motion.p>
+        )}
+        {isAuthenticated && (
+          <div style={{ height: 18 }} />
+        )}
+
+        {/* P0-B primary path: Oracle in under 30s */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} style={{ marginBottom: '10px' }}>
+          <button
+            onClick={() => onNavigate('commune')}
+            data-testid="button-home-oracle"
+            style={{ width: '100%', padding: '17px', background: 'linear-gradient(135deg, rgba(0,212,170,0.16), rgba(0,212,170,0.06))', border: '1px solid rgba(0,212,170,0.5)', borderRadius: '11px', color: '#00D4AA', fontFamily: 'sans-serif', fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', boxShadow: '0 4px 24px rgba(0,212,170,0.1), inset 0 1px 0 rgba(255,255,255,0.06)' }}
+          >
+            ⟐ Talk to the Oracle
+          </button>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.72 }} style={{ marginBottom: '18px' }}>
+          <button
+            onClick={() => onNavigate('gate')}
+            data-testid="button-home-reset"
+            style={{ width: '100%', padding: '13px', background: 'rgba(14,17,32,0.55)', border: '1px solid rgba(201,168,76,0.28)', borderRadius: '11px', color: 'rgba(201,168,76,0.85)', fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer' }}
+          >
+            Begin Your 5-Minute Reset
           </button>
         </motion.div>
 
@@ -200,6 +226,14 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
           </motion.div>
         )}
 
+        {/* First-session path (P0-B) — three doors, plain language */}
+        {!isAuthenticated && (
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.0 }}
+            style={{ fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.12em', color: 'rgba(232,232,232,0.32)', margin: '0 0 12px', textAlign: 'center', textTransform: 'uppercase' }}>
+            First 5 minutes · Oracle → optional reset → sign in when ready
+          </motion.p>
+        )}
+
         {/* Portal grid divider */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.08 }}
           style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
@@ -226,7 +260,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
               style={{ background: 'none', border: 'none', color: 'rgba(0,212,170,0.35)', fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer' }}
               data-testid="button-home-login"
             >
-              🔐 Already a node? Enter your chamber →
+              🔐 Sign in for private memory →
             </button>
           </motion.div>
         )}
