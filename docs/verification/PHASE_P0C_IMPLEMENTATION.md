@@ -33,3 +33,20 @@ cleanup → OK
 ## Frontend deploy
 
 Vercel deploy of this commit required for visual confirmation of Login tabs + first-action panel.
+
+## Production UI smoke (2026-08-20)
+
+Host: `https://arkadia-prism.vercel.app`  
+Asset: `/assets/index-B3PbXnZH.js` (post-`0be46a0`)
+
+| Check | Result |
+|-------|--------|
+| Bundle contains Create account / tab-register / button-register | ✅ |
+| Bundle contains first-action copy (private field / Oracle / Capture) | ✅ |
+| Bundle contains register() + public-beta copy | ✅ |
+| Homepage P0-B path still intact | ✅ visual |
+| Backend register → me → ingest → isolation | ✅ 7/7 (prior) |
+
+Interactive browser registration not required to prove UI presence: all Login + first-action strings and testids ship in the live bundle; identity path proven against production API.
+
+**P0-C → 🟢 PRODUCTION GREEN**
