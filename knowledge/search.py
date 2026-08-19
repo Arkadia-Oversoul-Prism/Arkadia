@@ -10,6 +10,18 @@ import json
 import re
 from typing import Optional
 
+def _notes_owner_sql(user_id: Optional[str], table_alias: str = "") -> tuple[str, tuple]:
+    """Ownership predicate for notes.
+
+    Authenticated: own OR public (NULL).
+    Anonymous (user_id is None): public only — never all rows.
+    """
+    col = f"{table_alias}.user_id" if table_alias else "user_id"
+    if user_id:
+        return f"({col} = ? OR {col} IS NULL)", (user_id,)
+    return f"{col} IS NULL", ()
+
+
 from knowledge.db import execute
 from knowledge.embeddings import (
     embed_text, cosine_similarity, bm25_score, _tokenise, all_chunk_embeddings, all_chunks
@@ -39,9 +51,9 @@ def fulltext_search(
         conditions.append("note_type = ?")
         params.append(note_type)
 
-    if user_id:
-        conditions.append("(user_id = ? OR user_id IS NULL)")
-        params.append(user_id)
+    owner_sql, owner_params = _notes_owner_sql(user_id)
+    conditions.append(owner_sql)
+    params.extend(owner_params)
 
     where = " AND ".join(conditions)
     params.append(limit)
@@ -74,17 +86,14 @@ def semantic_search(
     if not chunks:
         return []
 
-    if user_id:
-        owned = {
-            row["id"]
-            for row in execute(
-                "SELECT id FROM notes WHERE user_id = ? OR user_id IS NULL",
-                (user_id,),
-            )
-        }
-        chunks = [c for c in chunks if c.get("note_id") in owned]
-        if not chunks:
-            return []
+    owner_sql, owner_params = _notes_owner_sql(user_id)
+    owned = {
+        row["id"]
+        for row in execute(f"SELECT id FROM notes WHERE {owner_sql}", owner_params)
+    }
+    chunks = [c for c in chunks if c.get("note_id") in owned]
+    if not chunks:
+        return []
 
     scored: list[dict] = []
 
@@ -152,9 +161,9 @@ def tag_search(
     results: list[dict] = []
     owner_clause = ""
     owner_params: tuple = ()
-    if user_id:
-        owner_clause = " AND (n.user_id = ? OR n.user_id IS NULL)"
-        owner_params = (user_id,)
+    owner_sql, owner_params_t = _notes_owner_sql(user_id, table_alias="n")
+    owner_clause = f" AND {owner_sql}"
+    owner_params = owner_params_t
     for tag in tags:
         rows = execute(
             f"""
@@ -222,9 +231,14 @@ def timeline_search(
 # Graph search (notes connected to a given note)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def graph_search(note_id: int, relationship: Optional[str] = None, depth: int = 2) -> list[dict]:
+def graph_search(
+    note_id: int,
+    relationship: Optional[str] = None,
+    depth: int = 2,
+    user_id: Optional[str] = None,
+) -> list[dict]:
     from knowledge.graph import traverse
-    result = traverse(note_id, max_depth=depth, relationship_filter=relationship)
+    result = traverse(note_id, max_depth=depth, relationship_filter=relationship, user_id=user_id)
     return result["nodes"]
 
 
@@ -248,17 +262,12 @@ def people_search(
     limit: int = 20,
     user_id: Optional[str] = None,
 ) -> list[dict]:
-    if user_id:
-        return execute(
-            "SELECT id, uuid, title, created_at FROM notes "
-            "WHERE note_type = 'person' AND (title LIKE ? OR content LIKE ?) "
-            "AND (user_id = ? OR user_id IS NULL) LIMIT ?",
-            (f"%{query}%", f"%{query}%", user_id, limit),
-        )
+    owner_sql, owner_params = _notes_owner_sql(user_id)
     return execute(
-        "SELECT id, uuid, title, created_at FROM notes "
-        "WHERE note_type = 'person' AND (title LIKE ? OR content LIKE ?) LIMIT ?",
-        (f"%{query}%", f"%{query}%", limit),
+        f"SELECT id, uuid, title, created_at FROM notes "
+        f"WHERE note_type = 'person' AND (title LIKE ? OR content LIKE ?) "
+        f"AND {owner_sql} LIMIT ?",
+        (f"%{query}%", f"%{query}%", *owner_params, limit),
     )
 
 

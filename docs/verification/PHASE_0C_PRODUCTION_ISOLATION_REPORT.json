@@ -1,0 +1,148 @@
+{
+  "verdict": "RED",
+  "run_id": "86456a31",
+  "base_url": "https://arkadia-kw64.onrender.com",
+  "started": "2026-08-19T22:23:01.648117+00:00",
+  "finished": "2026-08-19T22:23:05.184478+00:00",
+  "user_a_uid": "gYNhNFAgU5NnZSi9nCKXKdxoY5G2",
+  "user_b_uid": "lAWaz7vozIQeFYyKPqATMR05mrF3",
+  "canaries": {
+    "a": {
+      "uuid": "926e9b06-2c17-4913-bad4-e798cb337b7d",
+      "id": 32,
+      "marker": "PHASE0C_USER_A_86456a31_197b7a"
+    },
+    "b": {
+      "uuid": null,
+      "id": null,
+      "marker": "PHASE0C_USER_B_86456a31_82dc35"
+    }
+  },
+  "results": [
+    {
+      "name": "anon_status",
+      "ok": true,
+      "detail": "status=200",
+      "status": 200
+    },
+    {
+      "name": "anon_public_search",
+      "ok": true,
+      "detail": "hits=3",
+      "status": 200
+    },
+    {
+      "name": "a_create_canary",
+      "ok": "926e9b06-2c17-4913-bad4-e798cb337b7d",
+      "detail": "uuid=926e9b06-2c17-4913-bad4-e798cb337b7d id=32",
+      "status": 200
+    },
+    {
+      "name": "b_create_canary",
+      "ok": true,
+      "detail": "uuid=None id=None",
+      "status": 200
+    },
+    {
+      "name": "a_get_note",
+      "ok": true,
+      "detail": "status=200",
+      "status": 200
+    },
+    {
+      "name": "a_get_node",
+      "ok": true,
+      "detail": "status=200",
+      "status": 200
+    },
+    {
+      "name": "a_traverse",
+      "ok": true,
+      "detail": "status=200 nodes=1",
+      "status": 200
+    },
+    {
+      "name": "a_full_graph",
+      "ok": true,
+      "detail": "status=200",
+      "status": 200
+    },
+    {
+      "name": "a_search",
+      "ok": true,
+      "detail": "status=200",
+      "status": 200
+    },
+    {
+      "name": "b_get_a_note",
+      "ok": true,
+      "detail": "status=404 leaked=False",
+      "status": 404
+    },
+    {
+      "name": "b_get_a_node",
+      "ok": true,
+      "detail": "status=404 leaked=False",
+      "status": 404
+    },
+    {
+      "name": "b_traverse_a",
+      "ok": true,
+      "detail": "status=200 nodes=0",
+      "status": 200
+    },
+    {
+      "name": "b_graph_no_a",
+      "ok": true,
+      "detail": "status=200 leaked=False",
+      "status": 200
+    },
+    {
+      "name": "b_search_a_marker",
+      "ok": true,
+      "detail": "status=200 leaked=False",
+      "status": 200
+    },
+    {
+      "name": "b_timeline_no_a",
+      "ok": true,
+      "detail": "status=200 leaked=False",
+      "status": 200
+    },
+    {
+      "name": "a_get_b_note",
+      "ok": true,
+      "detail": "status=404 leaked=False",
+      "status": 404
+    },
+    {
+      "name": "a_search_b_marker",
+      "ok": true,
+      "detail": "status=200 leaked=False",
+      "status": 200
+    },
+    {
+      "name": "anon_get_a_note",
+      "ok": true,
+      "detail": "status=404 leaked=False",
+      "status": 404
+    },
+    {
+      "name": "anon_search_a",
+      "ok": false,
+      "detail": "status=200 leaked=True",
+      "status": 200
+    },
+    {
+      "name": "public_corpus_regression",
+      "ok": true,
+      "detail": "hits=5",
+      "status": 200
+    }
+  ],
+  "errors": [
+    "anon_search_a: status=200 leaked=True"
+  ],
+  "cleanup_ok": true,
+  "commit_expected": "ffefb338b2a620c78ef7933bff6bb90b1e56eacf"
+}
