@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, ReactNode 
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   sendSignInLinkToEmail,
   isSignInWithEmailLink,
   signInWithEmailLink,
@@ -9,6 +10,7 @@ import {
   User,
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import { API_BASE as API_BASE_FROM_CONFIG } from '../lib/apiConfig';
 
 export interface ArkadiaUser {
   uid: string;
@@ -52,6 +54,7 @@ interface AuthContextValue {
   profileLoading: boolean;
   error: string | null;
   signIn: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string) => Promise<void>;
   sendMagicLink: (email: string) => Promise<void>;
   completeMagicLink: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -62,7 +65,8 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
+// Align with apiConfig (VITE_API_BASE_URL → Render fallback in prod)
+const API_BASE = API_BASE_FROM_CONFIG.replace(/\/$/, '');
 
 const MAGIC_LINK_KEY = 'arkadia_magic_email';
 
@@ -92,12 +96,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res2 = await fetch(`${API_BASE}/api/me/codex`, {
         headers: { Authorization: `Bearer ${idToken}` },
       });
+      // 404 for non-IMS guests is expected — private memory does not require codex
       if (res2.ok) {
         const data2 = await res2.json();
         setCodex(data2.codex ?? null);
+      } else {
+        setCodex(null);
       }
     } catch {
-      // no codex yet — not fatal
+      setCodex(null);
     }
     setProfileLoading(false);
   }, []);
@@ -150,6 +157,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signInWithEmailAndPassword(auth, email, password);
   };
 
+  const register = async (email: string, password: string) => {
+    if (!auth) throw new Error('Firebase not configured');
+    setError(null);
+    if (password.length < 8) {
+      throw new Error('Password must be at least 8 characters');
+    }
+    await createUserWithEmailAndPassword(auth, email, password);
+  };
+
   const sendMagicLink = async (email: string) => {
     if (!auth) throw new Error('Firebase not configured');
     setError(null);
@@ -185,6 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profileLoading,
       error,
       signIn,
+      register,
       sendMagicLink,
       completeMagicLink,
       signOut,

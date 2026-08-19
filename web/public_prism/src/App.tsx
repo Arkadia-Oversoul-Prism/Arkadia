@@ -114,6 +114,83 @@ function PortalDoor({ label, sub, color, sigil, onClick, delay, locked }: {
   );
 }
 
+
+// ─── P0-C thin post-login first action ───────────────────────────────────────
+const FIRST_ACTION_KEY = 'arkadia_first_private_action_done';
+
+function FirstPrivateAction({ onNavigate }: { onNavigate: (v: View) => void }) {
+  const { isAuthenticated, user } = useAuth();
+  const [visible, setVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isAuthenticated || !user) {
+      setVisible(false);
+      return;
+    }
+    try {
+      const done = localStorage.getItem(FIRST_ACTION_KEY);
+      setVisible(!done);
+    } catch {
+      setVisible(true);
+    }
+  }, [isAuthenticated, user]);
+
+  if (!visible) return null;
+
+  const dismiss = () => {
+    try { localStorage.setItem(FIRST_ACTION_KEY, '1'); } catch { /* ignore */ }
+    setVisible(false);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      style={{
+        marginBottom: 18,
+        padding: '16px 18px',
+        background: 'rgba(0,212,170,0.06)',
+        border: '1px solid rgba(0,212,170,0.28)',
+        borderRadius: 11,
+      }}
+      data-testid="panel-first-private-action"
+    >
+      <p style={{ fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.7)', margin: '0 0 8px' }}>
+        Your private field is open
+      </p>
+      <p style={{ fontFamily: 'serif', fontSize: 13, color: 'rgba(212,223,232,0.65)', margin: '0 0 14px', lineHeight: 1.55 }}>
+        Signed in as {user?.email || 'you'}. Notes and Oracle context stay on this account.
+        Choose one first step:
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <button
+          type="button"
+          data-testid="button-first-oracle"
+          onClick={() => { dismiss(); onNavigate('commune'); }}
+          style={{ width: '100%', padding: 12, background: 'rgba(0,212,170,0.12)', border: '1px solid rgba(0,212,170,0.4)', borderRadius: 9, color: '#00D4AA', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', cursor: 'pointer' }}
+        >
+          Ask the Oracle with your memory
+        </button>
+        <button
+          type="button"
+          data-testid="button-first-capture"
+          onClick={() => { dismiss(); onNavigate('personal-echofeild'); }}
+          style={{ width: '100%', padding: 12, background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.35)', borderRadius: 9, color: 'rgba(201,168,76,0.9)', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', cursor: 'pointer' }}
+        >
+          Capture a private note
+        </button>
+        <button
+          type="button"
+          onClick={dismiss}
+          style={{ background: 'none', border: 'none', color: 'rgba(232,232,232,0.3)', fontSize: 10, letterSpacing: '0.1em', cursor: 'pointer', padding: 6 }}
+        >
+          Dismiss
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── HOME ─────────────────────────────────────────────────────────────────────
 
 function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
@@ -128,6 +205,8 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
           style={{ marginBottom: '26px', display: 'flex', justifyContent: 'center' }}>
           <FieldPulse />
         </motion.div>
+
+        <FirstPrivateAction onNavigate={onNavigate} />
 
         {isAuthenticated && profile && (
           <motion.div
