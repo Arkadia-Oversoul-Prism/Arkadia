@@ -35,3 +35,25 @@ Isolation + oracle suites remain green.
 - Per-process memory only (Render multi-instance does not share buckets)
 - Not a substitute for edge WAF / Cloudflare
 - Payload size limits and TTS quotas are separate follow-ups
+
+## Production smoke (2026-08-19)
+
+Host: `https://arkadia-kw64.onrender.com`  
+Commit: `9c0a6ac`
+
+| Probe | Result |
+|-------|--------|
+| Exempt `/api/knowledge/status` | 200 |
+| Search under limit | 200 |
+| Search burst → 429 at request 60 | PASS |
+| `Retry-After` present | PASS (e.g. 49s) |
+| 429 JSON `{detail, retry_after}` | PASS |
+| Exempt after burst | 200 |
+| Public corpus after window | 200 |
+| Personal ingest unauth | 401 |
+| Anon graph no private owners | PASS |
+| UID keying (A exhausts, B still 200) | PASS |
+
+**PHASE 1 PRODUCTION SMOKE: GREEN**
+
+Caveat remains: in-memory limiter is per process, not cross-instance.
