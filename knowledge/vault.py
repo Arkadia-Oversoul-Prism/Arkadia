@@ -160,12 +160,27 @@ def create_note(
     return note_row
 
 
-def get_note(note_uuid: str) -> Optional[dict]:
-    return execute_one("SELECT * FROM notes WHERE uuid = ?", (note_uuid,))
+def _note_owner_clause(user_id: Optional[str]) -> tuple[str, tuple]:
+    """Auth: own OR public. Anon: public only."""
+    if user_id:
+        return "(user_id = ? OR user_id IS NULL)", (user_id,)
+    return "user_id IS NULL", ()
 
 
-def get_note_by_id(note_id: int) -> Optional[dict]:
-    return execute_one("SELECT * FROM notes WHERE id = ?", (note_id,))
+def get_note(note_uuid: str, user_id: Optional[str] = None) -> Optional[dict]:
+    clause, params = _note_owner_clause(user_id)
+    return execute_one(
+        f"SELECT * FROM notes WHERE uuid = ? AND {clause}",
+        (note_uuid, *params),
+    )
+
+
+def get_note_by_id(note_id: int, user_id: Optional[str] = None) -> Optional[dict]:
+    clause, params = _note_owner_clause(user_id)
+    return execute_one(
+        f"SELECT * FROM notes WHERE id = ? AND {clause}",
+        (note_id, *params),
+    )
 
 
 def update_note(
@@ -226,9 +241,10 @@ def list_notes(
         conditions.append("note_type = ?"); params.append(note_type)
     if project_id:
         conditions.append("project_id = ?"); params.append(project_id)
-    if user_id:
-        conditions.append("user_id = ?"); params.append(user_id)
-    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    clause, owner_params = _note_owner_clause(user_id)
+    conditions.append(clause)
+    params.extend(owner_params)
+    where = f"WHERE {' AND '.join(conditions)}"
     params += [limit, offset]
     return execute(
         f"SELECT * FROM notes {where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
@@ -256,21 +272,42 @@ def get_graph_neighbours(note_id: int, max_depth: int = 2) -> list[dict]:
 # Project helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def create_project(name: str, description: str = "", tags: Optional[list[str]] = None) -> dict:
+def create_project(
+    name: str,
+    description: str = "",
+    tags: Optional[list[str]] = None,
+    user_id: Optional[str] = None,
+) -> dict:
     now = datetime.now(timezone.utc).isoformat()
     proj_uuid = str(_uuid.uuid4())
     tags_json = json.dumps(tags or [])
+    uid = (user_id or "").strip() or None
     execute(
-        "INSERT INTO projects (uuid, name, description, tags, created_at, updated_at) VALUES (?,?,?,?,?,?)",
-        (proj_uuid, name, description, tags_json, now, now),
+        "INSERT INTO projects (uuid, name, description, tags, user_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
+        (proj_uuid, name, description, tags_json, uid, now, now),
     )
-    return {"uuid": proj_uuid, "name": name, "description": description, "id": last_insert_id()}
+    return {"uuid": proj_uuid, "name": name, "description": description, "user_id": uid, "id": last_insert_id()}
 
 
-def get_project(name_or_uuid: str) -> Optional[dict]:
+def _project_owner_clause(user_id: Optional[str]) -> tuple[str, tuple]:
+    if user_id:
+        return "(user_id = ? OR user_id IS NULL)", (user_id,)
+    return "user_id IS NULL", ()
+
+
+def get_project(name_or_uuid: str, user_id: Optional[str] = None) -> Optional[dict]:
+    clause, params = _project_owner_clause(user_id)
     return execute_one(
-        "SELECT * FROM projects WHERE uuid = ? OR name = ?",
-        (name_or_uuid, name_or_uuid),
+        f"SELECT * FROM projects WHERE (uuid = ? OR name = ?) AND {clause}",
+        (name_or_uuid, name_or_uuid, *params),
+    )
+
+
+def list_projects(user_id: Optional[str] = None) -> list[dict]:
+    clause, params = _project_owner_clause(user_id)
+    return execute(
+        f"SELECT * FROM projects WHERE {clause} ORDER BY updated_at DESC",
+        params,
     )
 
 

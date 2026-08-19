@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS projects (
     uuid        TEXT NOT NULL UNIQUE,
     name        TEXT NOT NULL,
     description TEXT,
+    user_id     TEXT,                              -- authenticated owner — NULL = public/legacy
     created_at  TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
     status      TEXT NOT NULL DEFAULT 'active',  -- active | archived | suspended
@@ -118,6 +119,7 @@ CREATE TABLE IF NOT EXISTS timeline (
     project_id  INTEGER REFERENCES projects(id) ON DELETE SET NULL,
     provider    TEXT,
     persona     TEXT,
+    user_id     TEXT,            -- owner when known — NULL only for explicit public — undetermined inaccessible
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
     -- NO UPDATE — timeline is immutable
 );
@@ -184,6 +186,8 @@ CREATE INDEX IF NOT EXISTS idx_notes_thread     ON notes(thread_id);
 CREATE INDEX IF NOT EXISTS idx_notes_type       ON notes(note_type);
 CREATE INDEX IF NOT EXISTS idx_notes_created    ON notes(created_at);
 CREATE INDEX IF NOT EXISTS idx_notes_user       ON notes(user_id);
+CREATE INDEX IF NOT EXISTS idx_projects_user    ON projects(user_id);
+CREATE INDEX IF NOT EXISTS idx_timeline_user    ON timeline(user_id);
 CREATE INDEX IF NOT EXISTS idx_threads_user     ON threads(user_id);
 CREATE INDEX IF NOT EXISTS idx_chunks_note      ON chunks(note_id);
 CREATE INDEX IF NOT EXISTS idx_embeddings_chunk ON embeddings(chunk_id);

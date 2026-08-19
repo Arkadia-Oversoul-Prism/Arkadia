@@ -47,8 +47,12 @@ def _apply_schema(conn: sqlite3.Connection) -> None:
     for alter in (
         "ALTER TABLE threads ADD COLUMN user_id TEXT",
         "ALTER TABLE notes ADD COLUMN user_id TEXT",
+        "ALTER TABLE projects ADD COLUMN user_id TEXT",
+        "ALTER TABLE timeline ADD COLUMN user_id TEXT",
         "CREATE INDEX IF NOT EXISTS idx_notes_user ON notes(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_threads_user ON threads(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_projects_user ON projects(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_timeline_user ON timeline(user_id)",
     ):
         try:
             conn.execute(alter)

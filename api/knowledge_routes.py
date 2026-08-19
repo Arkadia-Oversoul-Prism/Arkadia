@@ -160,9 +160,9 @@ async def list_notes(
 
 
 @router.get("/notes/{note_uuid}")
-async def get_note(note_uuid: str):
+async def get_note(note_uuid: str, request: Request):
     from knowledge.vault import get_note
-    note = get_note(note_uuid)
+    note = get_note(note_uuid, user_id=await _optional_user_id(request))
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
     return note
@@ -236,22 +236,30 @@ async def assemble_context(req: ContextRequest, request: Request):
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.get("/graph")
-async def full_graph():
-    """Export the entire knowledge graph (for Prism visualization)."""
+async def full_graph(request: Request):
+    """Export the accessible knowledge graph (own + public corpus)."""
     from knowledge.graph import full_graph_export
-    return full_graph_export()
+    return full_graph_export(user_id=await _optional_user_id(request))
 
 
 @router.get("/graph/{note_id}/traverse")
-async def traverse_graph(note_id: int, depth: int = 2, relationship: Optional[str] = None):
+async def traverse_graph(
+    note_id: int,
+    request: Request,
+    depth: int = 2,
+    relationship: Optional[str] = None,
+):
     from knowledge.graph import traverse
-    return traverse(note_id, max_depth=depth, relationship_filter=relationship)
+    return traverse(
+        note_id, max_depth=depth, relationship_filter=relationship,
+        user_id=await _optional_user_id(request),
+    )
 
 
 @router.get("/graph/{note_id}/path/{target_id}")
-async def find_path(note_id: int, target_id: int):
+async def find_path_route(note_id: int, target_id: int, request: Request):
     from knowledge.graph import find_path
-    path = find_path(note_id, target_id)
+    path = find_path(note_id, target_id, user_id=await _optional_user_id(request))
     return {"path": path, "length": len(path)}
 
 
@@ -271,6 +279,7 @@ async def add_edge(req: GraphEdgeRequest):
 
 @router.get("/timeline")
 async def get_timeline(
+    request: Request,
     event_type: Optional[str] = None,
     project_id: Optional[int] = None,
     note_id: Optional[int] = None,
@@ -281,27 +290,22 @@ async def get_timeline(
 ):
     from knowledge import timeline as tl
     return tl.query(
-        event_type=event_type,
-        project_id=project_id,
-        note_id=note_id,
-        since=since,
-        until=until,
-        limit=limit,
-        offset=offset,
+        event_type=event_type, project_id=project_id, note_id=note_id,
+        since=since, until=until, limit=limit, offset=offset,
+        user_id=await _optional_user_id(request),
     )
 
 
 @router.get("/timeline/recent")
-async def recent_timeline(limit: int = 20):
+async def recent_timeline(request: Request, limit: int = 20):
     from knowledge import timeline as tl
-    return tl.recent(limit=limit)
+    return tl.recent(limit=limit, user_id=await _optional_user_id(request))
 
 
 @router.get("/timeline/replay/{project_id}")
-async def replay_project(project_id: int):
-    """Replay the full event stream for a project."""
+async def replay_project(project_id: int, request: Request):
     from knowledge import timeline as tl
-    return tl.replay_project(project_id)
+    return tl.replay_project(project_id, user_id=await _optional_user_id(request))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -309,21 +313,23 @@ async def replay_project(project_id: int):
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.get("/projects")
-async def list_projects():
-    from knowledge.db import execute
-    return execute("SELECT * FROM projects ORDER BY updated_at DESC")
+async def list_projects(request: Request):
+    from knowledge.vault import list_projects as vault_list_projects
+    return vault_list_projects(user_id=await _optional_user_id(request))
 
 
 @router.post("/projects")
-async def create_project(req: ProjectRequest):
+async def create_project(req: ProjectRequest, request: Request):
     from knowledge.vault import create_project
-    return create_project(req.name, req.description, req.tags)
+    return create_project(
+        req.name, req.description, req.tags, user_id=await _optional_user_id(request)
+    )
 
 
 @router.get("/projects/{name_or_uuid}")
-async def get_project(name_or_uuid: str):
+async def get_project(name_or_uuid: str, request: Request):
     from knowledge.vault import get_project
-    project = get_project(name_or_uuid)
+    project = get_project(name_or_uuid, user_id=await _optional_user_id(request))
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     return project
@@ -647,18 +653,16 @@ async def graph_health():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.get("/node/{note_id}")
-async def get_node(note_id: int):
-    """
-    Retrieve a Knowledge Object by its integer ID.
-    Returns the note metadata plus its outbound and inbound edges.
-    Stable — the integer ID is the persistent identity of a Knowledge Object.
-    """
-    from knowledge.db import execute_one, execute
-    note = execute_one("SELECT * FROM notes WHERE id = ?", (note_id,))
+async def get_node(note_id: int, request: Request):
+    """Retrieve a Knowledge Object by ID (ownership scoped)."""
+    from knowledge.vault import get_note_by_id
+    from knowledge.db import execute
+    from knowledge.graph import accessible_note_ids
+    user_id = await _optional_user_id(request)
+    note = get_note_by_id(note_id, user_id=user_id)
     if not note:
-        raise HTTPException(status_code=404, detail=f"Node {note_id} not found")
-
-    # Outbound edges
+        raise HTTPException(status_code=404, detail="Node not found")
+    allowed = accessible_note_ids(user_id)
     out_edges = execute(
         """
         SELECT ge.id, ge.target_note_id, ge.relationship, ge.weight, ge.created_at,
@@ -670,7 +674,7 @@ async def get_node(note_id: int):
         """,
         (note_id,),
     )
-    # Inbound edges
+    out_edges = [e for e in out_edges if e["target_note_id"] in allowed]
     in_edges = execute(
         """
         SELECT ge.id, ge.source_note_id, ge.relationship, ge.weight, ge.created_at,
@@ -682,36 +686,33 @@ async def get_node(note_id: int):
         """,
         (note_id,),
     )
-
+    in_edges = [e for e in in_edges if e["source_note_id"] in allowed]
     return {
         "node": dict(note),
         "outbound_edges": out_edges,
-        "inbound_edges":  in_edges,
-        "degree":         len(out_edges) + len(in_edges),
+        "inbound_edges": in_edges,
+        "degree": len(out_edges) + len(in_edges),
     }
 
 
 @router.get("/neighbors/{note_id}")
 async def get_neighbors(
     note_id: int,
+    request: Request,
     depth: int = Query(1, ge=1, le=3),
     relationship: Optional[str] = None,
 ):
-    """
-    Return all neighboring Knowledge Objects within `depth` hops.
-    Supports relationship-type filtering.
-    Powers the concept drill-down in SolSpire and Arkana retrieval.
-    """
+    """Return neighboring Knowledge Objects within depth hops (ownership scoped)."""
     from knowledge.graph import traverse
     try:
-        result = traverse(note_id, max_depth=depth, relationship_filter=relationship)
+        result = traverse(
+            note_id, max_depth=depth, relationship_filter=relationship,
+            user_id=await _optional_user_id(request),
+        )
         return {
-            "root_id":    note_id,
-            "depth":      depth,
-            "nodes":      result["nodes"],
-            "edges":      result["edges"],
-            "node_count": len(result["nodes"]),
-            "edge_count": len(result["edges"]),
+            "root_id": note_id, "depth": depth,
+            "nodes": result["nodes"], "edges": result["edges"],
+            "node_count": len(result["nodes"]), "edge_count": len(result["edges"]),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -721,16 +722,14 @@ async def get_neighbors(
 async def graph_path(
     from_id: int,
     to_id: int,
+    request: Request,
     max_depth: int = Query(4, ge=1, le=6),
 ):
-    """
-    Shortest path between two Knowledge Objects.
-    Returns ordered list of node IDs and the full node metadata for each.
-    """
+    """Shortest path between two Knowledge Objects (ownership scoped)."""
     from knowledge.graph import find_path
     from knowledge.db import execute_one
     try:
-        path = find_path(from_id, to_id, max_depth=max_depth)
+        path = find_path(from_id, to_id, max_depth=max_depth, user_id=await _optional_user_id(request))
         nodes = []
         for nid in path:
             n = execute_one("SELECT id, uuid, title, note_type, created_at FROM notes WHERE id = ?", (nid,))
