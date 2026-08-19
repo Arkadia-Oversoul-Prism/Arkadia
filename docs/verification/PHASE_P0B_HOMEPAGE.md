@@ -43,3 +43,20 @@ Existing surface (`web/public_prism`):
 - LivingGate rewrite  
 - Mobile polish pass  
 - Onboarding checklist after login  
+
+## Production visual/smoke (2026-08-19)
+
+Host: `https://arkadia-prism.vercel.app`  
+Bundle asset: `/assets/index-CCsBWWI-.js` (post-`2144910`)
+
+| # | Check | Result |
+|---|--------|--------|
+| 1 | Plain-language value prop visible | ✅ "Talk to Arkana. Capture notes… not the public corpus." |
+| 2 | Dominant CTA = Talk to the Oracle | ✅ teal primary button |
+| 3 | Guest mode copy visible | ✅ "Guest mode works now…" |
+| 4 | Secondary 5-Minute Reset present | ✅ gold secondary button |
+| 5 | Sign-in framed as private memory | ✅ in deployed bundle |
+| 6 | Path hint first 5 minutes | ✅ on page |
+| 7 | Guest Oracle API without auth | ✅ `POST /api/commune/resonance` → 200 |
+
+**P0-B → 🟢 PRODUCTION VERIFIED**
