@@ -189,11 +189,19 @@ def build_user_profile(uid: str, firebase_claims: dict | None, email: str = "") 
         role = node.get("role", "Authenticated Node")
         node_key = node.get("node_key")
 
+    resolved_email = email or (firebase_claims or {}).get("email", "") or ""
+    display_name = (
+        (node or {}).get("display_name")
+        or (firebase_claims or {}).get("name")
+        or (resolved_email.split("@")[0] if resolved_email else "")
+        or uid[:8]
+    )
+
     return {
         "uid":          uid,
-        "email":        email or (firebase_claims or {}).get("email", ""),
+        "email":        resolved_email,
         "node_key":     node_key,
-        "display_name": (node or {}).get("display_name") or (firebase_claims or {}).get("name", ""),
+        "display_name": display_name,
         "role":         role,
         "role_sigil":   (node or {}).get("role_sigil", "◈"),
         "ims_id":       (node or {}).get("ims_id"),

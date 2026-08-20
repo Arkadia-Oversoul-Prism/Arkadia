@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
+import { API_BASE as API_BASE_CFG } from '../lib/apiConfig';
 import ScrollListenButton from '../components/ScrollListenButton';
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
+const API_BASE = API_BASE_CFG.replace(/\/$/, '');
+
 
 interface Loop   { id: string; loop: string; status: string; priority: number }
 interface Phase  { name: string; days: string; focus: string; anchor: string }
@@ -74,27 +76,71 @@ function SectionHead({ label, color = '#00D4AA', right }: { label: string; color
 // ── main component ────────────────────────────────────────────────────────────
 
 export default function PersonalCodex({ onNavigate }: { onNavigate?: (v: 'login') => void } = {}) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, profile, codex: authCodex } = useAuth();
   const [data,    setData]    = useState<PersonalData | null>(null);
   const [scrolls, setScrolls] = useState<Scroll[]>([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
   const [activeCat, setActiveCat] = useState<string | null>(null);
 
+  // P0-D: identity from AuthContext /api/me — never universal Zahrune fallback
+  const resolvedName =
+    (profile?.display_name && profile.display_name.trim()) ||
+    user?.displayName ||
+    (user?.email ? user.email.split('@')[0] : '') ||
+    'Signed-in user';
+  const resolvedRole = profile?.role || (profile?.access_level && profile.access_level > 0 ? 'Authenticated Node' : 'Guest');
+  const resolvedSigil = profile?.role_sigil || '◈';
+  const hasImsCodex = Boolean(profile?.node_key && authCodex);
+
   useEffect(() => {
-    if (!isAuthenticated) { setLoading(false); return; }
-    Promise.all([
-      fetch(`${API_BASE}/api/codex/personal`).then(r => { if (!r.ok) throw new Error(`${r.status} from /api/codex/personal`); return r.json(); }),
-      fetch(`${API_BASE}/api/codex`).then(r => r.json()),
-    ]).then(([personal, corpus]) => {
-      setData(personal);
-      const raw = corpus.scrolls || {};
-      setScrolls(typeof raw === 'object' && !Array.isArray(raw)
-        ? Object.values(raw) as Scroll[]
-        : (raw as Scroll[]));
+    if (!isAuthenticated) { setLoading(false); setData(null); return; }
+
+    // Build identity from live auth profile (User A ≠ User B)
+    const nodeFromAuth: NodeProfile = {
+      display_name: resolvedName,
+      role: resolvedRole,
+      role_sigil: resolvedSigil,
+      ims_id: profile?.ims_id || undefined,
+      access_level: profile?.access_level ?? 0,
+    };
+
+    if (hasImsCodex && authCodex) {
+      setData({
+        node: nodeFromAuth,
+        codex: authCodex as unknown as Codex,
+        collective: [],
+        system: { tools_count: 0 },
+      });
       setLoading(false);
-    }).catch(e => { setError(String(e)); setLoading(false); });
-  }, [isAuthenticated]);
+    } else {
+      // Non-IMS guest: personal field without sovereign codex stack
+      setData({
+        node: nodeFromAuth,
+        codex: {
+          display_name: resolvedName,
+          ims_id: profile?.ims_id || '—',
+          role: resolvedRole,
+          soul_function: 'Your private Knowledge OS and Oracle memory are scoped to this account.',
+        },
+        collective: [],
+        system: { tools_count: 0 },
+      });
+      setLoading(false);
+    }
+
+    // Optional public corpus scrolls (not identity)
+    fetch(`${API_BASE}/api/codex`)
+      .then(r => r.ok ? r.json() : null)
+      .then(corpus => {
+        if (!corpus) return;
+        const raw = corpus.scrolls || {};
+        setScrolls(typeof raw === 'object' && !Array.isArray(raw)
+          ? Object.values(raw) as Scroll[]
+          : (raw as Scroll[]));
+      })
+      .catch(() => { /* optional */ });
+  }, [isAuthenticated, user?.uid, user?.email, user?.displayName, profile?.display_name, profile?.role, profile?.node_key, profile?.access_level, profile?.ims_id, profile?.role_sigil, hasImsCodex, authCodex, resolvedName, resolvedRole, resolvedSigil]);
 
   // Auth gate — the Personal Codex is genuinely private, not decorative.
   if (!isAuthenticated) {
@@ -179,7 +225,7 @@ export default function PersonalCodex({ onNavigate }: { onNavigate?: (v: 'login'
           <div>
             <p style={{ fontFamily: 'monospace', fontSize: '8px', letterSpacing: '0.32em',
                         textTransform: 'uppercase', color: 'rgba(201,168,76,0.45)', marginBottom: '6px' }}>
-              Personal Codex · {codex.ims_id} · EchoField Recursion Neural Spine
+              {hasImsCodex ? `Personal Codex · ${codex.ims_id}` : 'Personal field'} · private to this account
             </p>
             <h1 style={{ fontFamily: 'serif', fontSize: '32px', color: '#C9A84C',
                          margin: '0 0 4px', letterSpacing: '0.04em' }}>
