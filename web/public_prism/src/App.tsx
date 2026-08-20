@@ -233,7 +233,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
 
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.12 }}
           style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.35em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.65)', marginBottom: '9px', textAlign: 'center' }}>
-          Personal intelligence · private by default
+          Think · Remember · Build
         </motion.p>
 
         <motion.h1 initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: 0.18 }}
@@ -241,31 +241,38 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
           ARKADIA
         </motion.h1>
 
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.42 }}
-          style={{ fontFamily: 'serif', fontSize: '14px', lineHeight: '1.85', color: 'rgba(212,223,232,0.62)', margin: '0 0 10px', textAlign: 'center', letterSpacing: '0.02em', maxWidth: '34em', alignSelf: 'center' }}>
+        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.32 }}
+          style={{ fontFamily: 'serif', fontSize: '17px', lineHeight: '1.5', color: 'rgba(232,232,232,0.78)', margin: '0 0 12px', textAlign: 'center', letterSpacing: '0.01em', maxWidth: '28em', alignSelf: 'center', fontWeight: 400 }}>
           {isAuthenticated
-            ? 'The field recognises you. Your private chambers and Oracle memory are open.'
-            : 'Talk to Arkana. Capture notes that stay yours. Search your own field — not the public corpus.'}
+            ? 'Your private workspace is open — conversations, notes, and projects stay with you.'
+            : 'A place to think, remember, and build — with AI that keeps your thread.'}
         </motion.p>
 
-        {!isAuthenticated && (
-          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-            style={{ fontFamily: 'sans-serif', fontSize: '11px', color: 'rgba(212,223,232,0.38)', margin: '0 0 22px', textAlign: 'center', lineHeight: 1.5 }}>
-            Guest mode works now. Sign in when you want private memory and ownership.
-          </motion.p>
-        )}
-        {isAuthenticated && (
-          <div style={{ height: 18 }} />
-        )}
+        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.42 }}
+          style={{ fontFamily: 'sans-serif', fontSize: '13px', lineHeight: '1.7', color: 'rgba(212,223,232,0.48)', margin: '0 0 22px', textAlign: 'center', maxWidth: '32em', alignSelf: 'center' }}>
+          {isAuthenticated
+            ? 'Ask the Oracle, capture a private note, or continue a project. Your field is not the public corpus.'
+            : 'Talk through ideas. Keep what matters. Return later and continue where you left off — free to start, private when you sign in.'}
+        </motion.p>
 
-        {/* P0-B primary path: Oracle in under 30s */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} style={{ marginBottom: '10px' }}>
+        {/* Primary CTA — product entry, not diagnostic */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55 }} style={{ marginBottom: '10px' }}>
           <button
             onClick={() => onNavigate('commune')}
             data-testid="button-home-oracle"
             style={{ width: '100%', padding: '17px', background: 'linear-gradient(135deg, rgba(0,212,170,0.16), rgba(0,212,170,0.06))', border: '1px solid rgba(0,212,170,0.5)', borderRadius: '11px', color: '#00D4AA', fontFamily: 'sans-serif', fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', boxShadow: '0 4px 24px rgba(0,212,170,0.1), inset 0 1px 0 rgba(255,255,255,0.06)' }}
           >
-            ⟐ Talk to the Oracle
+            {isAuthenticated ? '⟐ Continue with the Oracle' : '⟐ Start free — talk to the Oracle'}
+          </button>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.65 }} style={{ marginBottom: '10px' }}>
+          <button
+            onClick={() => onNavigate(isAuthenticated ? 'personal-echofeild' : 'login')}
+            data-testid="button-home-private"
+            style={{ width: '100%', padding: '13px', background: 'rgba(14,17,32,0.55)', border: '1px solid rgba(201,168,76,0.28)', borderRadius: '11px', color: 'rgba(201,168,76,0.85)', fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer' }}
+          >
+            {isAuthenticated ? 'Open your private field' : 'Create account for private memory'}
           </button>
         </motion.div>
 
@@ -273,35 +280,29 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
           <button
             onClick={() => onNavigate('gate')}
             data-testid="button-home-reset"
-            style={{ width: '100%', padding: '13px', background: 'rgba(14,17,32,0.55)', border: '1px solid rgba(201,168,76,0.28)', borderRadius: '11px', color: 'rgba(201,168,76,0.85)', fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer' }}
+            style={{ width: '100%', padding: '11px', background: 'transparent', border: '1px solid rgba(232,232,232,0.08)', borderRadius: '11px', color: 'rgba(232,232,232,0.35)', fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', cursor: 'pointer' }}
           >
-            Begin Your 5-Minute Reset
+            Optional · 5-minute reset
           </button>
         </motion.div>
 
         {!isAuthenticated && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.88 }}
-            style={{ marginBottom: '24px', padding: '18px 20px', background: 'rgba(14,17,32,0.72)', border: '1px solid rgba(201,168,76,0.20)', borderRadius: '10px', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', boxShadow: '0 2px 16px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.04)', position: 'relative' }}>
-            {/* Corner ornaments */}
-            <div style={{ position: 'absolute', top: 0, left: 0, width: 8, height: 8, borderTop: '1px solid rgba(201,168,76,0.55)', borderLeft: '1px solid rgba(201,168,76,0.55)' }} />
-            <div style={{ position: 'absolute', top: 0, right: 0, width: 8, height: 8, borderTop: '1px solid rgba(201,168,76,0.55)', borderRight: '1px solid rgba(201,168,76,0.55)' }} />
-            <div style={{ position: 'absolute', bottom: 0, left: 0, width: 8, height: 8, borderBottom: '1px solid rgba(201,168,76,0.55)', borderLeft: '1px solid rgba(201,168,76,0.55)' }} />
-            <div style={{ position: 'absolute', bottom: 0, right: 0, width: 8, height: 8, borderBottom: '1px solid rgba(201,168,76,0.55)', borderRight: '1px solid rgba(201,168,76,0.55)' }} />
+            style={{ marginBottom: '24px', padding: '18px 20px', background: 'rgba(14,17,32,0.72)', border: '1px solid rgba(0,212,170,0.16)', borderRadius: '10px' }}>
+            <p style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.55)', margin: '0 0 14px' }}>
+              How it works
+            </p>
             {[
-              'There is a version of you that already knows what to charge.',
-              'Already knows what to say when someone asks what you do.',
-              'Already knows how to walk into a room and not shrink.',
-            ].map((line, i) => (
-              <motion.p key={i} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.96 + i * 0.1 }}
-                style={{ fontFamily: 'sans-serif', fontSize: '13px', color: i === 0 ? 'rgba(212,223,232,0.72)' : 'rgba(212,223,232,0.48)', margin: i < 2 ? '0 0 8px' : 0, lineHeight: '1.65' }}>
-                {line}
-              </motion.p>
+              ['Think', 'Talk through ideas with the Oracle — clear answers, your context.'],
+              ['Remember', 'Save notes and conversations that stay private to your account.'],
+              ['Build', 'Turn threads into projects, research, and work you can return to.'],
+              ['Return', 'Come back later. Your field is still there.'],
+            ].map(([title, body], i) => (
+              <div key={title} style={{ marginBottom: i < 3 ? 12 : 0 }}>
+                <p style={{ fontFamily: 'sans-serif', fontSize: '12px', color: 'rgba(232,232,232,0.75)', margin: '0 0 2px', fontWeight: 500 }}>{title}</p>
+                <p style={{ fontFamily: 'sans-serif', fontSize: '12px', color: 'rgba(212,223,232,0.42)', margin: 0, lineHeight: 1.5 }}>{body}</p>
+              </div>
             ))}
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.28 }}
-              style={{ fontFamily: 'serif', fontSize: '13px', color: 'rgba(212,223,232,0.50)', margin: '14px 0 0', lineHeight: '1.9', borderTop: '1px solid rgba(201,168,76,0.12)', paddingTop: '13px' }}>
-              That version isn't waiting for more information.<br />
-              It's waiting for the ground beneath it to stop shifting.
-            </motion.p>
           </motion.div>
         )}
 
@@ -346,7 +347,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
 
         <motion.footer initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.5 }}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', paddingTop: '22px', borderTop: '1px solid rgba(0,212,170,0.06)' }}>
-          {['Zahrune Nova', '117 Hz', 'Jos Node 1759'].map((txt, i) => (
+          {['Arkadia', 'Private by default', 'Start free'].map((txt, i) => (
             <React.Fragment key={txt}>
               <span style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.16)' }}>{txt}</span>
               {i < 2 && <span style={{ color: 'rgba(0,212,170,0.16)', fontSize: '7px' }}>◆</span>}
