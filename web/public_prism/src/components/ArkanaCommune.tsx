@@ -12,8 +12,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Volume2, Square, Send, Trash2, Copy, Check, RotateCcw, Pencil, Paperclip, FileText, X } from 'lucide-react';
+import { Volume2, Square, Send, Trash2, Copy, Check, RotateCcw, Pencil, Paperclip, FileText, X, Bookmark } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { API_BASE as API_BASE_CFG } from '../lib/apiConfig';
 import { arkanaSessionId } from '../lib/arkanaSession';
 import ArkDate from './ArkDate';
 import MarkdownViewer from './MarkdownViewer';
@@ -68,7 +69,7 @@ const HELP_TEXT = `**Arkana Commands**
 Or simply speak — Arkana reads the living corpus and responds.`;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const API_BASE    = import.meta.env.VITE_API_URL || '';
+const API_BASE    = (API_BASE_CFG || import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 const STORAGE_KEY = 'arkadia_commune_thread';
 const TOKEN_KEY   = 'arkadia_sovereign_token';
 
@@ -257,8 +258,11 @@ const ActionBtn: React.FC<{
 interface ArkanaProps { initialMessage?: string; }
 
 const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [messages, setMessages]         = useState<Message[]>(() => loadThread());
+  const [savedIdx, setSavedIdx]         = useState<number | null>(null);
+  const [saveBusy, setSaveBusy]         = useState(false);
+  const [saveHint, setSaveHint]         = useState('');
   const [input, setInput]               = useState('');
   const [loading, setLoading]           = useState(false);
   const [sovereignToken, setSovereignToken] = useState<string>(() => loadToken());
@@ -324,6 +328,45 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
   useEffect(() => { autoresize(); }, [input, autoresize]);
 
   const handleSaveToken = (t: string) => { saveToken(t.trim()); setSovereignToken(t.trim()); };
+
+  // P0-G: explicit conversational capture → Knowledge OS personal note
+  const handleSaveToMemory = async (idx: number, content: string, role: string) => {
+    if (!user?.idToken) {
+      setSaveHint('Sign in to save to your private memory.');
+      return;
+    }
+    const body = (content || '').trim();
+    if (!body) return;
+    setSaveBusy(true);
+    setSaveHint('');
+    try {
+      const title = (body.split('\n').find(l => l.trim()) || 'Oracle exchange').slice(0, 120);
+      const res = await fetch(`${API_BASE}/api/personal/ingest-note`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user.idToken}`,
+        },
+        body: JSON.stringify({
+          title,
+          content: body,
+          note_type: 'conversation',
+          tags: ['personal', 'capture', 'oracle', role === 'user' ? 'user-turn' : 'arkana-turn'],
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || `${res.status}`);
+      setSavedIdx(idx);
+      setSaveHint('Saved to your memory.');
+      setTimeout(() => { setSavedIdx(null); setSaveHint(''); }, 3200);
+    } catch (e) {
+      setSaveHint((e as Error).message || 'Could not save.');
+    } finally {
+      setSaveBusy(false);
+    }
+  };
+
+
 
   // ── File Attachment ────────────────────────────────────────────────────────
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -687,6 +730,11 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
         <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
 
           {/* Empty state */}
+          {saveHint && (
+            <p data-testid="save-memory-hint" style={{ fontFamily: 'sans-serif', fontSize: 11, color: saveHint.includes('Saved') ? 'rgba(0,212,170,0.75)' : 'rgba(232,140,120,0.85)', textAlign: 'center', marginBottom: 10 }}>
+              {saveHint}
+            </p>
+          )}
           {messages.length === 0 && !loading && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: 'center', marginTop: 80, padding: '0 24px' }}>
               {/* Geometric diamond */}
@@ -816,7 +864,16 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                         }}
                       >
                         {isUser ? (
-                          <ActionBtn icon={<Pencil size={10} />} label="Edit" onClick={() => handleEdit(i, msg.content)} color={accent} />
+                          <>
+                            <ActionBtn icon={<Pencil size={10} />} label="Edit" onClick={() => handleEdit(i, msg.content)} color={accent} />
+                            <ActionBtn
+                              icon={savedIdx === i ? <Check size={10} /> : <Bookmark size={10} />}
+                              label={savedIdx === i ? 'Saved' : 'Save to memory'}
+                              onClick={() => handleSaveToMemory(i, msg.content, 'user')}
+                              active={savedIdx === i}
+                              color={accent}
+                            />
+                          </>
                         ) : (
                           <>
                             <ActionBtn
@@ -824,6 +881,13 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                               label={copiedIdx === i ? 'Copied' : 'Copy'}
                               onClick={() => handleCopy(i, msg.content)}
                               active={copiedIdx === i}
+                              color={accent}
+                            />
+                            <ActionBtn
+                              icon={savedIdx === i ? <Check size={10} /> : <Bookmark size={10} />}
+                              label={savedIdx === i ? 'Saved' : 'Save to memory'}
+                              onClick={() => handleSaveToMemory(i, msg.content, 'arkana')}
+                              active={savedIdx === i}
                               color={accent}
                             />
                             <ActionBtn
