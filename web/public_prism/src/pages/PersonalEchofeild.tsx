@@ -17,8 +17,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
-import { ORACLE } from '../lib/apiConfig';
-import { getGraph, getRecentTimeline, GraphNode, GraphEdge, TimelineEvent } from '../lib/knowledgeApi';
+import { API_BASE, ORACLE } from '../lib/apiConfig';
+import {
+  getGraph, getRecentTimeline, getNotes, setKnowledgeAuthToken,
+  GraphNode, GraphEdge, TimelineEvent, Note,
+} from '../lib/knowledgeApi';
 import ScrollListenButton from '../components/ScrollListenButton';
 import PersonalCodex from './PersonalCodex';
 import PersonalUploadZone from '../components/PersonalUploadZone';
@@ -32,14 +35,6 @@ interface SolProject {
   id: string; name: string; status: string;
   created_at: number; updated_at: number;
   metadata: Record<string, unknown>; conversations: unknown[];
-}
-
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
-
-async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`);
-  if (!res.ok) throw new Error(`${res.status}`);
-  return res.json();
 }
 
 function fmtAgo(ts: number | string): string {
@@ -69,36 +64,57 @@ function buildAdjacency(nodes: GraphNode[], edges: GraphEdge[]) {
 }
 
 export default function PersonalEchofeild({ onNavigate }: { onNavigate: (v: View) => void }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [projects, setProjects] = useState<SolProject[]>([]);
   const [graphNodes, setGraphNodes] = useState<GraphNode[]>([]);
   const [graphEdges, setGraphEdges] = useState<GraphEdge[]>([]);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
+  // P0-E: attach Firebase ID token so Knowledge OS returns THIS user's scoped data
   useEffect(() => {
-    if (!isAuthenticated) { setLoading(false); return; }
+    setKnowledgeAuthToken(user?.idToken ?? null);
+    return () => setKnowledgeAuthToken(null);
+  }, [user?.idToken]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.idToken) {
+      setProjects([]); setGraphNodes([]); setGraphEdges([]); setTimeline([]); setNotes([]);
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     (async () => {
       setLoading(true); setErr(null);
+      const authHeaders = { Authorization: `Bearer ${user.idToken}` };
       const results = await Promise.allSettled([
-        get<{ projects: SolProject[] }>(`${ORACLE}/solspire/projects?status=active`),
+        fetch(`${API_BASE}/api/knowledge/projects`, { headers: authHeaders })
+          .then(r => r.ok ? r.json() : [])
+          .then(d => Array.isArray(d) ? d : (d.projects ?? [])),
         getGraph(),
         getRecentTimeline(40),
+        getNotes({ limit: 40 }),
       ]);
       if (cancelled) return;
-      if (results[0].status === 'fulfilled') setProjects(results[0].value.projects ?? []);
+      if (results[0].status === 'fulfilled') {
+        const plist = results[0].value as SolProject[];
+        setProjects(Array.isArray(plist) ? plist : []);
+      } else setProjects([]);
       if (results[1].status === 'fulfilled') {
         setGraphNodes(results[1].value.nodes ?? []);
         setGraphEdges(results[1].value.edges ?? []);
-      }
+      } else { setGraphNodes([]); setGraphEdges([]); }
       if (results[2].status === 'fulfilled') setTimeline(results[2].value ?? []);
+      else setTimeline([]);
+      if (results[3].status === 'fulfilled') setNotes(results[3].value ?? []);
+      else setNotes([]);
       if (results.every(r => r.status === 'rejected')) setErr('Unable to reach the field right now.');
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.uid, user?.idToken]);
 
   const adjacency = useMemo(() => buildAdjacency(graphNodes, graphEdges), [graphNodes, graphEdges]);
   const convNodes = useMemo(
@@ -144,7 +160,42 @@ export default function PersonalEchofeild({ onNavigate }: { onNavigate: (v: View
       </div>
 
       {/* ── PERSONAL UPLOAD ZONE — file + quick-capture into the private vault ── */}
-      <PersonalUploadZone />
+      <PersonalUploadZone onIngested={() => {
+        // refresh notes after capture without full page reload
+        if (user?.idToken) {
+          setKnowledgeAuthToken(user.idToken);
+          getNotes({ limit: 40 }).then(setNotes).catch(() => {});
+        }
+      }} />
+
+      {!loading && !err && notes.length === 0 && projects.length === 0 && graphNodes.length === 0 && (
+        <div
+          data-testid="echofeild-empty-state"
+          style={{ marginBottom: 24, padding: '22px 20px', background: 'rgba(14,17,32,0.6)', border: '1px solid rgba(0,212,170,0.18)', borderRadius: 12, textAlign: 'center' }}
+        >
+          <p style={{ fontFamily: 'sans-serif', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.65)', margin: '0 0 10px' }}>
+            Your field is just beginning
+          </p>
+          <p style={{ fontFamily: 'serif', fontSize: 14, color: 'rgba(212,223,232,0.55)', margin: 0, lineHeight: 1.65 }}>
+            Capture a thought above, or talk with the Oracle. What you keep stays private to this account — not the public corpus.
+          </p>
+        </div>
+      )}
+
+      {!loading && notes.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <SectionLabel sigil="◈" color="#C9A84C" label="Your notes" sub="private Knowledge OS" />
+          {notes.slice(0, 20).map((n, i) => (
+            <motion.div key={n.uuid || n.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.03, 0.3) }}
+              style={{ padding: '14px 16px', marginBottom: 8, background: 'rgba(201,168,76,0.04)', border: '1px solid rgba(201,168,76,0.14)', borderRadius: 10, borderLeft: '3px solid rgba(201,168,76,0.4)' }}>
+              <h3 style={{ fontFamily: 'serif', fontSize: 15, color: 'rgba(232,232,232,0.88)', margin: '0 0 4px' }}>{n.title}</h3>
+              <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.35)', margin: 0 }}>
+                {n.note_type} · {fmtAgo(n.updated_at || n.created_at)}
+              </p>
+            </motion.div>
+          ))}
+        </div>
+      )}
 
       {loading && (
         <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(232,232,232,0.35)', fontFamily: 'sans-serif', fontSize: 12 }}>

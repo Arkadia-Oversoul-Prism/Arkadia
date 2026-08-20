@@ -14,10 +14,12 @@
 import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { API_BASE } from '../lib/apiConfig';
+import { useAuth } from '../contexts/AuthContext';
 
 type Status = 'idle' | 'uploading' | 'success' | 'error';
 
-export default function PersonalUploadZone() {
+export default function PersonalUploadZone({ onIngested }: { onIngested?: () => void } = {}) {
+  const { user } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<Status>('idle');
   const [msg, setMsg] = useState('');
@@ -35,11 +37,14 @@ export default function PersonalUploadZone() {
       fd.append('file', file);
       fd.append('note_type', 'document');
       fd.append('tags', 'personal,upload');
-      const res = await fetch(`${API_BASE}/api/personal/ingest-file`, { method: 'POST', body: fd });
+      const headers: Record<string, string> = {};
+      if (user?.idToken) headers['Authorization'] = `Bearer ${user.idToken}`;
+      const res = await fetch(`${API_BASE}/api/personal/ingest-file`, { method: 'POST', body: fd, headers });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || `${res.status}`);
       setStatus('success');
       setMsg(data.message || `'${file.name}' ingested into your personal vault.`);
+      onIngested?.();
       setTimeout(() => setStatus('idle'), 3200);
     } catch (e) {
       setStatus('error');
@@ -55,9 +60,11 @@ export default function PersonalUploadZone() {
     if (!noteTitle.trim() || !noteBody.trim()) return;
     setStatus('uploading'); setMsg('');
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (user?.idToken) headers['Authorization'] = `Bearer ${user.idToken}`;
       const res = await fetch(`${API_BASE}/api/personal/ingest-note`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ title: noteTitle.trim(), content: noteBody.trim(), note_type: noteType, tags: ['personal', 'capture'] }),
       });
       const data = await res.json().catch(() => ({}));
@@ -65,6 +72,7 @@ export default function PersonalUploadZone() {
       setStatus('success');
       setMsg(data.message || 'Personal capture ingested.');
       setNoteTitle(''); setNoteBody('');
+      onIngested?.();
       setTimeout(() => setStatus('idle'), 2600);
     } catch (e) {
       setStatus('error');
