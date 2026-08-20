@@ -129,6 +129,7 @@ export interface Note {
   id: number; uuid: string; title: string; content: string; note_type: string;
   vault_path: string; tags: string; created_at: string; updated_at: string;
   embedding_status: string; source_provider: string | null;
+  user_id?: string | null;
 }
 export const getNotes = (params?: { note_type?: string; project_id?: number; limit?: number }) => {
   const q = new URLSearchParams();
@@ -137,6 +138,14 @@ export const getNotes = (params?: { note_type?: string; project_id?: number; lim
   if (params?.limit) q.set('limit', String(params.limit));
   return fetchJSON<Note[]>(`/api/knowledge/notes?${q}`);
 };
+
+/** P0-F: owner-only update of a private note */
+export const updateNote = (uuid: string, body: { title?: string; content?: string; tags?: string[] }) =>
+  fetchJSON<Note>(`/api/knowledge/notes/${uuid}`, { method: 'PATCH', body: JSON.stringify(body) });
+
+/** P0-F: owner-only hard delete of a private note */
+export const deleteNote = (uuid: string) =>
+  fetchJSON<{ deleted: boolean; uuid: string }>(`/api/knowledge/notes/${uuid}`, { method: 'DELETE' });
 
 // ── Projects ──────────────────────────────────────────────────────────────────
 export interface Project {

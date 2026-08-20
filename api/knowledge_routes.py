@@ -42,6 +42,12 @@ class IngestRequest(BaseModel):
     auto_link: bool = True
 
 
+class NoteUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    tags: Optional[list[str]] = None
+
+
 class ConversationIngestRequest(BaseModel):
     prompt: str
     response: str
@@ -166,6 +172,39 @@ async def get_note(note_uuid: str, request: Request):
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
     return note
+
+
+
+@router.patch("/notes/{note_uuid}")
+async def patch_note(note_uuid: str, req: NoteUpdateRequest, request: Request):
+    """Owner-only update of a privately owned note (P0-F memory governance)."""
+    uid = await _optional_user_id(request)
+    if not uid:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    from knowledge.vault import update_note
+    updated = update_note(
+        note_uuid,
+        title=req.title,
+        content=req.content,
+        tags=req.tags,
+        user_id=uid,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Note not found")
+    return updated
+
+
+@router.delete("/notes/{note_uuid}")
+async def remove_note(note_uuid: str, request: Request):
+    """Owner-only hard delete of a privately owned note (P0-F)."""
+    uid = await _optional_user_id(request)
+    if not uid:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    from knowledge.vault import delete_note
+    ok = delete_note(note_uuid, user_id=uid)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Note not found")
+    return {"deleted": True, "uuid": note_uuid}
 
 
 # ─────────────────────────────────────────────────────────────────────────────

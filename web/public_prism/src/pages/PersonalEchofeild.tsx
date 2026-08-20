@@ -19,7 +19,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { API_BASE, ORACLE } from '../lib/apiConfig';
 import {
-  getGraph, getRecentTimeline, getNotes, setKnowledgeAuthToken,
+  getGraph, getRecentTimeline, getNotes, updateNote, deleteNote, setKnowledgeAuthToken,
   GraphNode, GraphEdge, TimelineEvent, Note,
 } from '../lib/knowledgeApi';
 import ScrollListenButton from '../components/ScrollListenButton';
@@ -182,19 +182,12 @@ export default function PersonalEchofeild({ onNavigate }: { onNavigate: (v: View
         </div>
       )}
 
-      {!loading && notes.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <SectionLabel sigil="◈" color="#C9A84C" label="Your notes" sub="private Knowledge OS" />
-          {notes.slice(0, 20).map((n, i) => (
-            <motion.div key={n.uuid || n.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.03, 0.3) }}
-              style={{ padding: '14px 16px', marginBottom: 8, background: 'rgba(201,168,76,0.04)', border: '1px solid rgba(201,168,76,0.14)', borderRadius: 10, borderLeft: '3px solid rgba(201,168,76,0.4)' }}>
-              <h3 style={{ fontFamily: 'serif', fontSize: 15, color: 'rgba(232,232,232,0.88)', margin: '0 0 4px' }}>{n.title}</h3>
-              <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.35)', margin: 0 }}>
-                {n.note_type} · {fmtAgo(n.updated_at || n.created_at)}
-              </p>
-            </motion.div>
-          ))}
-        </div>
+      {!loading && (
+        <MemoryGovernance
+          notes={notes}
+          uid={user?.uid}
+          onChange={setNotes}
+        />
       )}
 
       {loading && (
@@ -318,3 +311,94 @@ function Chip({ text, color }: { text: string; color: string }) {
     </span>
   );
 }
+
+
+/** P0-F — inspect / edit / delete privately owned saved notes */
+function MemoryGovernance({
+  notes, uid, onChange,
+}: {
+  notes: Note[];
+  uid?: string;
+  onChange: (n: Note[]) => void;
+}) {
+  const owned = notes.filter(n => uid && n.user_id && n.user_id === uid);
+  const [editing, setEditing] = React.useState<string | null>(null);
+  const [title, setTitle] = React.useState('');
+  const [busy, setBusy] = React.useState<string | null>(null);
+  const [err, setErr] = React.useState('');
+
+  if (!uid) return null;
+
+  const startEdit = (n: Note) => {
+    setEditing(n.uuid); setTitle(n.title); setErr('');
+  };
+
+  const save = async (uuid: string) => {
+    setBusy(uuid); setErr('');
+    try {
+      const updated = await updateNote(uuid, { title: title.trim() });
+      onChange(notes.map(n => n.uuid === uuid ? { ...n, ...updated, title: title.trim() } : n));
+      setEditing(null);
+    } catch (e) {
+      setErr((e as Error).message || 'Update failed');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const remove = async (uuid: string) => {
+    if (!confirm('Delete this saved item permanently?')) return;
+    setBusy(uuid); setErr('');
+    try {
+      await deleteNote(uuid);
+      onChange(notes.filter(n => n.uuid !== uuid));
+    } catch (e) {
+      setErr((e as Error).message || 'Delete failed');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div style={{ marginBottom: 20 }} data-testid="memory-governance">
+      <SectionLabel sigil="◈" color="#C9A84C" label="Your saved memory" sub="review · edit · delete" />
+      {err && <p style={{ fontSize: 11, color: '#E88C6A', marginBottom: 8 }}>{err}</p>}
+      {owned.length === 0 && (
+        <p data-testid="memory-empty" style={{ fontFamily: 'serif', fontSize: 13, color: 'rgba(212,223,232,0.45)', lineHeight: 1.6, margin: '0 0 12px' }}>
+          Nothing saved yet. Captures and Oracle notes you keep will appear here — private to this account.
+        </p>
+      )}
+      {owned.slice(0, 30).map((n, i) => (
+        <motion.div key={n.uuid || n.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.03, 0.3) }}
+          style={{ padding: '14px 16px', marginBottom: 8, background: 'rgba(201,168,76,0.04)', border: '1px solid rgba(201,168,76,0.14)', borderRadius: 10, borderLeft: '3px solid rgba(201,168,76,0.4)' }}>
+          {editing === n.uuid ? (
+            <div>
+              <input value={title} onChange={e => setTitle(e.target.value)}
+                style={{ width: '100%', padding: '8px 10px', marginBottom: 8, background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(0,212,170,0.3)', borderRadius: 6, color: '#E8E8E8', fontSize: 13 }} />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" disabled={!!busy} onClick={() => save(n.uuid)}
+                  style={{ padding: '6px 12px', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'rgba(0,212,170,0.12)', border: '1px solid rgba(0,212,170,0.4)', color: '#00D4AA', borderRadius: 6, cursor: 'pointer' }}>Save</button>
+                <button type="button" onClick={() => setEditing(null)}
+                  style={{ padding: '6px 12px', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'transparent', border: '1px solid rgba(232,232,232,0.15)', color: 'rgba(232,232,232,0.5)', borderRadius: 6, cursor: 'pointer' }}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <h3 style={{ fontFamily: 'serif', fontSize: 15, color: 'rgba(232,232,232,0.88)', margin: '0 0 4px' }}>{n.title}</h3>
+              <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.35)', margin: '0 0 10px' }}>
+                {n.note_type} · {fmtAgo(n.updated_at || n.created_at)} · used to keep your thread
+              </p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" data-testid={`memory-edit-${n.uuid}`} onClick={() => startEdit(n)}
+                  style={{ padding: '5px 10px', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'transparent', border: '1px solid rgba(0,212,170,0.25)', color: 'rgba(0,212,170,0.75)', borderRadius: 6, cursor: 'pointer' }}>Edit</button>
+                <button type="button" data-testid={`memory-delete-${n.uuid}`} disabled={busy === n.uuid} onClick={() => remove(n.uuid)}
+                  style={{ padding: '5px 10px', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'transparent', border: '1px solid rgba(232,100,100,0.3)', color: 'rgba(232,140,120,0.85)', borderRadius: 6, cursor: 'pointer' }}>Delete</button>
+              </div>
+            </>
+          )}
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+

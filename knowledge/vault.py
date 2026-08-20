@@ -183,6 +183,15 @@ def get_note_by_id(note_id: int, user_id: Optional[str] = None) -> Optional[dict
     )
 
 
+def _user_owns_note(note: dict, user_id: Optional[str]) -> bool:
+    """True only when note is privately stamped to this user (not public/legacy NULL)."""
+    uid = (user_id or "").strip() or None
+    if not uid:
+        return False
+    owner = (note.get("user_id") or "").strip() or None
+    return owner is not None and owner == uid
+
+
 def update_note(
     note_uuid: str,
     title: Optional[str] = None,
@@ -190,9 +199,14 @@ def update_note(
     tags: Optional[list[str]] = None,
     links: Optional[list[str]] = None,
     embedding_status: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> Optional[dict]:
-    note = get_note(note_uuid)
+    """Update a note. When user_id is provided, only the private owner may update."""
+    note = get_note(note_uuid, user_id=user_id)
     if not note:
+        return None
+    if user_id is not None and not _user_owns_note(note, user_id):
+        # Visible via public clause but not privately owned — refuse mutation
         return None
 
     now = datetime.now(timezone.utc).isoformat()
@@ -225,7 +239,50 @@ def update_note(
         )
         abs_path.write_text(md, encoding="utf-8")
 
-    return get_note(note_uuid)
+    return get_note(note_uuid, user_id=user_id)
+
+
+def delete_note(note_uuid: str, user_id: Optional[str] = None) -> bool:
+    """Permanently delete a privately owned note. Returns True if deleted.
+
+    - Requires authenticated user_id.
+    - Only deletes when note.user_id == user_id.
+    - Public/legacy (NULL user_id) notes cannot be deleted via this path.
+    - Removes SQLite row, graph edges, and vault Markdown when present.
+    """
+    uid = (user_id or "").strip() or None
+    if not uid:
+        return False
+    note = execute_one("SELECT * FROM notes WHERE uuid = ?", (note_uuid,))
+    if not note:
+        return False
+    if not _user_owns_note(dict(note), uid):
+        return False
+
+    note_id = note["id"]
+    vault_path = note.get("vault_path") or ""
+    try:
+        execute("DELETE FROM graph_edges WHERE source_note_id = ? OR target_note_id = ?", (note_id, note_id))
+    except Exception:
+        pass
+    try:
+        execute("DELETE FROM timeline_events WHERE note_id = ?", (note_id,))
+    except Exception:
+        pass
+    try:
+        execute("DELETE FROM chunks WHERE note_id = ?", (note_id,))
+    except Exception:
+        pass
+    execute("DELETE FROM notes WHERE id = ? AND user_id = ?", (note_id, uid))
+
+    if vault_path:
+        try:
+            abs_path = VAULT_ROOT / vault_path
+            if abs_path.is_file():
+                abs_path.unlink()
+        except Exception:
+            pass
+    return True
 
 
 def list_notes(
