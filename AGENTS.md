@@ -166,9 +166,9 @@ authenticated node's private Knowledge OS vault — never the public scroll stor
   messages-router mount was nested inside the Knowledge OS `try:` block, leaving the outer
   `try` with no `except`. Every Render deploy of `cd24bb1`+ failed at boot → production
   pinned to the last healthy pre-P1-A image. Misdiagnosed earlier as "deployment lag".
-- Fix lives in local commit `63c3a65` (two clean try/except blocks). **Unpushed** at
-  session end: env GITHUB_TOKEN is read-only for this repo (git push + Contents API all
-  403; a user-supplied `sha256:…` PAT returned 401 — not a GitHub credential).
+- Fix in commit `63c3a65` (two clean try/except blocks), pushed to `main` (`f0fdf72`).
+  NOTE: the env GITHUB_TOKEN is read-only for this repo (git push + Contents API all 403);
+  a user-supplied `ghp_…` PAT with Contents:write was needed to push.
 - Full diagnosis + verbatim patch: `docs/verification/P1-A_FINAL.md` §2.
 - Lesson: `python -m py_compile api/main.py` before every commit that touches boot code;
   Render boot failure (not deploy lag) is the first hypothesis when routes go stale.
