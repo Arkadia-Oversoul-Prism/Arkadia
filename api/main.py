@@ -309,15 +309,17 @@ except Exception as _ss_err:
 try:
     from api.knowledge_routes import router as _knowledge_router
     app.include_router(_knowledge_router)
-try:
-    from api.messages import router as _messages_router
-    app.include_router(_messages_router)
-except Exception as _e:
-    logger.warning(f'[BOOT] messages router skipped: {_e}')
-
     logger.info("[KNOWLEDGE-OS] Knowledge OS routes mounted at /api/knowledge")
 except Exception as _ke:
     logger.warning(f"[KNOWLEDGE-OS] Knowledge router mount skipped: {_ke}")
+
+# ── ReasoMate messaging router (P1-A) ────────────────────────────────────────
+try:
+    from api.messages import router as _messages_router
+    app.include_router(_messages_router)
+    logger.info("[MESSAGES] ReasoMate messaging router mounted at /api/messages")
+except Exception as _e:
+    logger.warning(f'[BOOT] messages router skipped: {_e}')
 
 # ── Social transmissions feed ─────────────────────────────────────────────────
 try:
