@@ -65,34 +65,20 @@ const ORACLE_INIT_MSG: Message = {
   timestamp: Date.now() - 60000, read: false,
 }
 
-const SAMPLE_USERS: User[] = [
-  { id: '1', name: 'Zahrune Nova',  avatar: '☥', role: 'Sovereign Architect' },
-  { id: '3', name: 'Jessica / Eos', avatar: '◐', role: 'Heart Node · Eden Farm' },
-]
-
+// Real ReasoMate threads are the Oracle only. No seeded identities — every
+// visible author in NovaNet must come from the live transmissions feed.
 const SAMPLE_CHATS: ChatThread[] = [
-  { id: 'oracle', participant: ORACLE_USER,    lastMessage: { id: 'om1', sender: 'oracle', receiver: 'me', content: 'The field is open. Ask me anything.', timestamp: Date.now() - 60000, read: false }, unread: 1 },
-  { id: '1',      participant: SAMPLE_USERS[0], lastMessage: { id: 'msg3', sender: '1', receiver: 'me', content: 'NovaNet is the social layer of Arkadia.', timestamp: Date.now() - 300000, read: false }, unread: 1 },
-  { id: '3',      participant: SAMPLE_USERS[1], lastMessage: { id: 'msg5', sender: '3', receiver: 'me', content: 'Saturday market opens at 7am.', timestamp: Date.now() - 3600000, read: false }, unread: 0 },
+  { id: 'oracle', participant: ORACLE_USER, lastMessage: { id: 'om1', sender: 'oracle', receiver: 'me', content: 'The field is open. Ask me anything.', timestamp: Date.now() - 60000, read: false }, unread: 1 },
 ]
-
-const SAMPLE_DM_MESSAGES: Record<string, Message[]> = {
-  '1': [
-    { id: 'msg1', sender: '1', receiver: 'me', content: 'Did you see the latest scroll in the Neural Spine?', timestamp: Date.now() - 600000, read: true },
-    { id: 'msg2', sender: 'me', receiver: '1', content: 'Yes — the Resonance Matrix is incredible.', timestamp: Date.now() - 540000, read: true },
-    { id: 'msg3', sender: '1', receiver: 'me', content: 'The NovaNet is now the social layer of Arkadia — where wisdom is shared, not just stored.', timestamp: Date.now() - 300000, read: false },
-  ],
-}
 
 function loadReasomateMessages(): Record<string, Message[]> {
   try {
     const saved = localStorage.getItem(RM_STORAGE_KEY)
     return {
       oracle: saved ? JSON.parse(saved) : [ORACLE_INIT_MSG],
-      ...SAMPLE_DM_MESSAGES,
     }
   } catch {
-    return { oracle: [ORACLE_INIT_MSG], ...SAMPLE_DM_MESSAGES }
+    return { oracle: [ORACLE_INIT_MSG] }
   }
 }
 
@@ -127,16 +113,6 @@ function StatusFeed() {
         </label>
         <span style={{ fontFamily: 'sans-serif', fontSize: 9, color: C.dim }}>Status</span>
       </div>
-      {SAMPLE_USERS.map(u => (
-        <div key={u.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 60 }}>
-          <div style={{ width: 56, height: 56, borderRadius: '50%', border: `2px solid ${C.teal}`, padding: 2, background: `${C.teal}10`, cursor: 'pointer' }}>
-            <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: 18 }}>{u.avatar}</span>
-            </div>
-          </div>
-          <span style={{ fontFamily: 'sans-serif', fontSize: 9, color: C.dim }}>{u.name.split(' ')[0]}</span>
-        </div>
-      ))}
     </div>
   )
 }
@@ -149,7 +125,7 @@ function TransmissionComposer({ onPostCreated }: { onPostCreated: (post: Post) =
   const [posting, setPosting] = useState(false)
   const [mediaFile, setMediaFile] = useState<File | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
 
   const handlePost = async () => {
     if (!content.trim() || posting) return
@@ -158,7 +134,10 @@ function TransmissionComposer({ onPostCreated }: { onPostCreated: (post: Post) =
     try {
       const res = await fetch(`${API_BASE}/api/transmissions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(user?.idToken ? { Authorization: `Bearer ${user.idToken}` } : {}),
+        },
         body: JSON.stringify({
           content: formatted,
           author: {
@@ -228,15 +207,19 @@ function TransmissionComposer({ onPostCreated }: { onPostCreated: (post: Post) =
 
 // ─── POST CARD ────────────────────────────────────────────────────────────────
 
-function PostCard({ post, onReact, onCommentAdded }: {
+function PostCard({ post, myUid, onReact, onCommentAdded, onDelete }: {
   post: Post
+  myUid?: string
   onReact: (type: 'heart'|'fire'|'star'|'mind') => void
   onCommentAdded: (postId: string, comment: Comment) => void
+  onDelete: () => void
 }) {
   const [showComments, setShowComments] = useState(false)
   const [newComment, setNewComment]     = useState('')
   const [submitting, setSubmitting]     = useState(false)
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
+  const tokenHeaders: Record<string,string> = user?.idToken ? { Authorization: `Bearer ${user.idToken}` } : {}
+  const isOwn = !!myUid && (post as any).owner_uid === myUid
 
   const submitComment = async () => {
     if (!newComment.trim() || submitting) return
@@ -244,7 +227,7 @@ function PostCard({ post, onReact, onCommentAdded }: {
     try {
       const res = await fetch(`${API_BASE}/api/transmissions/${post.id}/comment`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...tokenHeaders },
         body: JSON.stringify({
           content: newComment.trim(),
           author: {
@@ -278,6 +261,12 @@ function PostCard({ post, onReact, onCommentAdded }: {
           <p style={{ margin: 0, fontFamily: 'sans-serif', fontSize: 10, color: C.dim }}>{post.author.role} · {timeAgo(post.timestamp)}</p>
         </div>
         <span style={{ padding: '2px 8px', background: 'rgba(106,159,216,0.08)', border: '1px solid rgba(106,159,216,0.2)', borderRadius: 6, fontFamily: 'monospace', fontSize: 9, color: C.blue }}>◉ {post.resonance}%</span>
+        {isOwn && (
+          <button onClick={onDelete} title="Delete your post"
+            style={{ background: 'none', border: '1px solid rgba(200,72,72,0.35)', borderRadius: 6, padding: '2px 7px', cursor: 'pointer', fontSize: 11, color: C.red }}>
+            🗑
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -520,7 +509,24 @@ export default function NovaNetPage() {
   const [postsLoading, setPostsLoading] = useState(true)
   const [search, setSearch]           = useState('')
   const [messengerOpen, setMessengerOpen] = useState(false)
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, profile, user } = useAuth()
+
+  // Owner delete: server re-verifies the Firebase Bearer token. On server
+  // failure, the list is refetched so a rejected delete never vanishes.
+  const handleDeleteOwn = async (postId: string) => {
+    setPosts(prev => prev.filter(p => p.id !== postId))
+    try {
+      const res = await fetch(`${API_BASE}/api/transmissions/${postId}`, {
+        method: 'DELETE',
+        headers: user?.idToken ? { Authorization: `Bearer ${user.idToken}` } : {},
+      })
+      if (!res.ok) {
+        const r = await fetch(`${API_BASE}/api/transmissions`)
+        const data = await r.json()
+        if (data?.transmissions) setPosts(data.transmissions)
+      }
+    } catch {}
+  }
 
   // Load transmissions from API
   useEffect(() => {
@@ -623,8 +629,10 @@ export default function NovaNetPage() {
           <PostCard
             key={post.id}
             post={post}
+            myUid={profile?.uid}
             onReact={t => handleReact(post.id, t)}
             onCommentAdded={handleCommentAdded}
+            onDelete={() => handleDeleteOwn(post.id)}
           />
         ))}
       </div>
