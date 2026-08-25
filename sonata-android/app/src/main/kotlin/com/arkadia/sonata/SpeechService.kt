@@ -84,7 +84,7 @@ class SpeechService : Service() {
     fun seekTo(positionMs: Int) { tts.seekTo(positionMs) }
 
     val isPlaying get() = tts.isPlaying
-    val isPausedState get() = tts.isPausedState
+    val isPaused  get() = tts.isPausedState
     val currentPositionMs: Int get() = tts.currentPositionMs
     val durationMs: Int get() = tts.durationMs
 
