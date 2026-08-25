@@ -149,11 +149,13 @@ REGISTERED_ARCHITECTURAL_DEBT: list[tuple[str, str, str]] = [
 
     # ── Discovered during B0.5 calibration (2026-07-24) ─────────────────────
 
-    # kernel/tts.py imports api.tts_key_manager (Layer 2 → Layer 1).
-    # TTS subsystem was added without following architectural governance.
-    # Owner: Principal Engineer | Workstream: A | Deadline: Phase 1 Gate E
-    # Exit criterion: grep -n "from api" kernel/tts.py returns empty
-    ("kernel/tts.py",        "api", "kernel→api: tts_key_manager — Workstream A, Phase 1 Gate E"),
+    # RESOLVED (Consolidation Pass 04, 2026-08-25): kernel/tts.py →
+    # api.tts_key_manager. Fixed by dependency injection (ADR-014 Decision 4
+    # pattern): api/main.py (composition root) injects the store accessors
+    # into kernel.tts via kernel.tts.configure_key_store(); the kernel no
+    # longer imports the api layer. Exit criterion met:
+    # grep -n "from api" kernel/tts.py returns empty. This removes the last
+    # detector-visible Layer-2→Layer-1 import in the codebase.
 
     # api/nodes.py imports kernel.tools (Layer 3 Identity → Layer 2 Runtime Core).
     # Identity layer must be a leaf — it may not depend on Runtime Core.

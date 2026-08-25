@@ -13,7 +13,7 @@ import asyncio
 import logging
 import os
 import re
-from typing import Optional
+from typing import Callable, Optional
 
 logger = logging.getLogger("arkadia.tts")
 
@@ -113,6 +113,22 @@ DEFAULT_VOICE = "aria"
 AVAILABLE_VOICES = {k: v["description"] for k, v in VOICES.items()}
 
 # ── ElevenLabs key resolver ───────────────────────────────────────────────────
+# The kernel must not import the API layer (ADR-015). The TTS key store lives
+# in api/tts_key_manager.py, so the composition root (api/main.py) injects its
+# accessors at startup via configure_key_store(). Without injection the kernel
+# falls back to env-only resolution — identical to the previous behavior when
+# the api module was unavailable.
+
+_get_store_active_key: "Optional[Callable[[], str]]" = None
+_rotate_store_key: "Optional[Callable[[str], str]]" = None
+
+
+def configure_key_store(get_active_key, rotate_key) -> None:
+    """Inject the TTS key-store accessors (called once by api/main.py)."""
+    global _get_store_active_key, _rotate_store_key
+    _get_store_active_key = get_active_key
+    _rotate_store_key = rotate_key
+
 
 def _get_elevenlabs_key() -> str:
     """Return the active ElevenLabs API key, or '' if none is configured.
@@ -124,11 +140,11 @@ def _get_elevenlabs_key() -> str:
     key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
     if key:
         return key
-    try:
-        from api.tts_key_manager import get_active_key
-        return get_active_key()
-    except Exception:
-        pass
+    if _get_store_active_key is not None:
+        try:
+            return _get_store_active_key()
+        except Exception:
+            pass
     return ""
 
 
@@ -328,13 +344,13 @@ def synthesize(
         except RuntimeError as e:
             err = str(e)
             if "ELEVENLABS_429" in err:
-                # Rotate to next key and retry once
+                # Rotate to next key and retry once (via injected key store)
                 rotated = ""
-                try:
-                    from api.tts_key_manager import rotate_key
-                    rotated = rotate_key(el_key)
-                except Exception:
-                    pass
+                if _rotate_store_key is not None:
+                    try:
+                        rotated = _rotate_store_key(el_key)
+                    except Exception:
+                        pass
                 if rotated and rotated != el_key:
                     try:
                         loop2 = asyncio.new_event_loop()
