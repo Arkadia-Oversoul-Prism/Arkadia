@@ -77,6 +77,27 @@ async def get_me(user: dict = Depends(require_auth)):
     return {"user": user}
 
 
+@router.patch("/api/me")
+async def patch_me(request: Request, user: dict = Depends(require_auth)):
+    """P1-A: update user-owned product profile fields only."""
+    from api.auth import save_user_profile_store, build_user_profile
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Invalid body")
+    patch = {k: body[k] for k in ("display_name", "username", "bio", "avatar_url") if k in body}
+    if not patch:
+        raise HTTPException(status_code=400, detail="No profile fields provided")
+    save_user_profile_store(user["uid"], patch)
+    # Rebuild profile from claims-equivalent
+    from api.auth import get_current_user
+    # re-fetch via build
+    updated = build_user_profile(user["uid"], {"email": user.get("email"), "name": user.get("display_name")}, user.get("email", ""))
+    return {"user": updated}
+
+
 @router.get("/api/me/codex")
 async def get_my_codex(user: dict = Depends(require_auth)):
     """Return the authenticated user's Personal Codex."""

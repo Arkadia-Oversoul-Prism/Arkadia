@@ -153,7 +153,7 @@ export default function KnowledgeGraphView() {
   const noteTypes = data ? [...new Set(data.nodes.map(n => n.note_type))] : [];
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ height: '100%', minHeight: 'min(70vh, 640px)', display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* Controls */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <span style={{ color: '#888', fontSize: 12, fontFamily: 'Inter' }}>Filter:</span>
@@ -175,10 +175,10 @@ export default function KnowledgeGraphView() {
         )}
       </div>
 
-      {/* Graph + Legend row */}
-      <div style={{ display: 'flex', gap: 12, flex: 1, minHeight: 0 }}>
+      {/* Graph + Legend row — stacks on narrow viewports */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, flex: 1, minHeight: 0 }}>
         {/* SVG Canvas */}
-        <div ref={containerRef} style={{ flex: 1, background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', position: 'relative', overflow: 'hidden' }}>
+        <div ref={containerRef} style={{ flex: '1 1 280px', minWidth: 0, minHeight: 320, height: 'min(55vh, 520px)', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', position: 'relative', overflow: 'hidden', touchAction: 'none' }}>
           {isLoading && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666', fontFamily: 'Inter', fontSize: 13 }}>
               Loading knowledge graph…
@@ -199,7 +199,7 @@ export default function KnowledgeGraphView() {
         </div>
 
         {/* Side panel */}
-        <div style={{ width: 220, display: 'flex', flexDirection: 'column', gap: 10, overflow: 'hidden' }}>
+        <div style={{ flex: '0 1 220px', width: '100%', maxWidth: 280, display: 'flex', flexDirection: 'column', gap: 10, overflow: 'auto' }}>
           {/* Node Inspector — replaces minimal text card */}
           {selected && (
             <NodeInspector

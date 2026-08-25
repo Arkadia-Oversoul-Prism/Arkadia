@@ -24,12 +24,16 @@ export interface NodeProfile {
   email: string;
   node_key: string | null;
   display_name: string;
+  username?: string | null;
+  bio?: string | null;
+  avatar_url?: string | null;
   role: string;
   role_sigil: string;
   ims_id: string | null;
   access_level: number;
   status: string;
   access_tools: string[];
+  profile_complete?: boolean;
 }
 
 export interface PersonalCodex {
@@ -54,7 +58,7 @@ interface AuthContextValue {
   profileLoading: boolean;
   error: string | null;
   signIn: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, displayName?: string) => Promise<void>;
   sendMagicLink: (email: string) => Promise<void>;
   completeMagicLink: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -157,13 +161,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signInWithEmailAndPassword(auth, email, password);
   };
 
-  const register = async (email: string, password: string) => {
+  const register = async (email: string, password: string, displayName?: string) => {
     if (!auth) throw new Error('Firebase not configured');
     setError(null);
     if (password.length < 8) {
       throw new Error('Password must be at least 8 characters');
     }
-    await createUserWithEmailAndPassword(auth, email, password);
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    const name = (displayName || '').trim();
+    if (name && cred.user) {
+      const idToken = await cred.user.getIdToken();
+      try {
+        await fetch(`${API_BASE}/api/me`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ display_name: name }),
+        });
+      } catch {
+        // profile patch optional at register; user can set later
+      }
+    }
   };
 
   const sendMagicLink = async (email: string) => {

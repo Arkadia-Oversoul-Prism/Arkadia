@@ -52,31 +52,16 @@ const ORACLE_INIT_MSG: Message = {
   timestamp: Date.now() - 60000, read: false,
 }
 
-const SAMPLE_USERS: User[] = [
-  { id: '1', name: 'Zahrune Nova',  avatar: '☥', role: 'Sovereign Architect' },
-  { id: '3', name: 'Jessica / Eos', avatar: '◐', role: 'Heart Node · Eden Farm' },
+const BASE_CHATS: ChatThread[] = [
+  { id: 'oracle', participant: ORACLE_USER, lastMessage: { id: 'om1', sender: 'oracle', receiver: 'me', content: 'The field is open. Ask me anything.', timestamp: Date.now() - 60000, read: false }, unread: 0 },
 ]
-
-const SAMPLE_CHATS: ChatThread[] = [
-  { id: 'oracle', participant: ORACLE_USER, lastMessage: { id: 'om1', sender: 'oracle', receiver: 'me', content: 'The field is open. Ask me anything.', timestamp: Date.now() - 60000, read: false }, unread: 1 },
-  { id: '1',      participant: SAMPLE_USERS[0], lastMessage: { id: 'msg3', sender: '1', receiver: 'me', content: 'NovaNet is the social layer of Arkadia.', timestamp: Date.now() - 300000, read: false }, unread: 1 },
-  { id: '3',      participant: SAMPLE_USERS[1], lastMessage: { id: 'msg5', sender: '3', receiver: 'me', content: 'Saturday market opens at 7am.', timestamp: Date.now() - 3600000, read: false }, unread: 0 },
-]
-
-const SAMPLE_DM_MESSAGES: Record<string, Message[]> = {
-  '1': [
-    { id: 'msg1', sender: '1', receiver: 'me', content: 'Did you see the latest scroll in the Neural Spine?', timestamp: Date.now() - 600000, read: true },
-    { id: 'msg2', sender: 'me', receiver: '1', content: 'Yes — the Resonance Matrix is incredible.', timestamp: Date.now() - 540000, read: true },
-    { id: 'msg3', sender: '1', receiver: 'me', content: 'NovaNet is now the social layer of Arkadia — wisdom shared, not just stored.', timestamp: Date.now() - 300000, read: false },
-  ],
-}
 
 function loadReasomateMessages(): Record<string, Message[]> {
   try {
     const saved = localStorage.getItem(RM_STORAGE_KEY)
-    return { oracle: saved ? JSON.parse(saved) : [ORACLE_INIT_MSG], ...SAMPLE_DM_MESSAGES }
+    return { oracle: saved ? JSON.parse(saved) : [ORACLE_INIT_MSG] }
   } catch {
-    return { oracle: [ORACLE_INIT_MSG], ...SAMPLE_DM_MESSAGES }
+    return { oracle: [ORACLE_INIT_MSG] }
   }
 }
 
@@ -85,16 +70,95 @@ function loadReasomateMessages(): Record<string, Message[]> {
 export default function ReasoMatePage() {
   const [activeChat, setActiveChat]         = useState<string | null>(null)
   const [messages, setMessages]             = useState<Record<string, Message[]>>(loadReasomateMessages)
+  const [chats, setChats]                   = useState<ChatThread[]>(BASE_CHATS)
   const [newMessage, setNewMessage]         = useState('')
+  const [peerUid, setPeerUid]               = useState('')
   const [oracleThinking, setOracleThinking] = useState(false)
   const [voiceIdx, setVoiceIdx]             = useState<number | null>(null)
+  const [dmError, setDmError]               = useState('')
   const messagesEndRef                      = useRef<HTMLDivElement>(null)
-  const { isAuthenticated, profile }        = useAuth()
+  const { isAuthenticated, profile, user }  = useAuth()
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [activeChat, messages])
 
-  const chat        = activeChat ? SAMPLE_CHATS.find(c => c.id === activeChat) : null
+  // P1-A: load real DM inbox when authenticated
+  useEffect(() => {
+    if (!user?.idToken) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/messages/inbox`, {
+          headers: { Authorization: `Bearer ${user.idToken}` },
+        })
+        if (!res.ok || cancelled) return
+        const data = await res.json()
+        const convs = (data.conversations || []) as Array<{ peer_uid: string; last_message: { content: string; timestamp: number; sender_uid: string }; count: number }>
+        if (cancelled) return
+        setChats(prev => {
+          const oracle = prev.filter(c => c.id === 'oracle')
+          const peers: ChatThread[] = convs.map(c => ({
+            id: c.peer_uid,
+            participant: { id: c.peer_uid, name: c.peer_uid.slice(0, 10) + '…', avatar: '◈', role: 'Peer' },
+            lastMessage: {
+              id: 'last',
+              sender: c.last_message.sender_uid === user.uid ? 'me' : c.peer_uid,
+              receiver: c.last_message.sender_uid === user.uid ? c.peer_uid : 'me',
+              content: c.last_message.content,
+              timestamp: c.last_message.timestamp,
+              read: true,
+            },
+            unread: 0,
+          }))
+          return [...oracle, ...peers]
+        })
+      } catch { /* optional */ }
+    })()
+    return () => { cancelled = true }
+  }, [user?.idToken, user?.uid])
+
+  // Load thread when selecting a peer (not oracle)
+  useEffect(() => {
+    if (!user?.idToken || !activeChat || activeChat === 'oracle') return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/messages/thread/${encodeURIComponent(activeChat)}`, {
+          headers: { Authorization: `Bearer ${user.idToken}` },
+        })
+        if (!res.ok || cancelled) return
+        const data = await res.json()
+        const mapped: Message[] = (data.messages || []).map((m: { id: string; sender_uid: string; recipient_uid: string; content: string; timestamp: number }) => ({
+          id: m.id,
+          sender: m.sender_uid === user.uid ? 'me' : m.sender_uid,
+          receiver: m.recipient_uid === user.uid ? 'me' : m.recipient_uid,
+          content: m.content,
+          timestamp: m.timestamp,
+          read: true,
+        }))
+        if (!cancelled) setMessages(prev => ({ ...prev, [activeChat]: mapped }))
+      } catch { /* optional */ }
+    })()
+    return () => { cancelled = true }
+  }, [activeChat, user?.idToken, user?.uid])
+
+  const chat        = activeChat ? chats.find(c => c.id === activeChat) : null
   const chatMessages = activeChat ? (messages[activeChat] || []) : []
+
+  const openPeer = () => {
+    const id = peerUid.trim()
+    if (!id) return
+    setChats(prev => {
+      if (prev.some(c => c.id === id)) return prev
+      return [...prev, {
+        id,
+        participant: { id, name: id.slice(0, 12) + (id.length > 12 ? '…' : ''), avatar: '◈', role: 'Peer' },
+        lastMessage: { id: 'n', sender: 'me', receiver: id, content: 'New conversation', timestamp: Date.now(), read: true },
+        unread: 0,
+      }]
+    })
+    setActiveChat(id)
+    setPeerUid('')
+  }
 
   const sendMessage = useCallback(async () => {
     if (!newMessage.trim() || !activeChat) return
@@ -108,6 +172,34 @@ export default function ReasoMatePage() {
       }
       return updated
     })
+    setNewMessage('')
+
+    // P1-A: persist peer DMs server-side
+    if (activeChat !== 'oracle') {
+      if (!user?.idToken) {
+        setDmError('Sign in to message other users.')
+        return
+      }
+      try {
+        const res = await fetch(`${API_BASE}/api/messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${user.idToken}`,
+          },
+          body: JSON.stringify({ recipient_uid: activeChat, content: sentText }),
+        })
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}))
+          setDmError(d.detail || `Send failed (${res.status})`)
+        } else {
+          setDmError('')
+        }
+      } catch (e) {
+        setDmError((e as Error).message || 'Send failed')
+      }
+      return
+    }
     setNewMessage('')
 
     if (activeChat === 'oracle') {
@@ -145,7 +237,7 @@ export default function ReasoMatePage() {
         setOracleThinking(false)
       }
     }
-  }, [newMessage, activeChat, messages, profile])
+  }, [newMessage, activeChat, messages, profile, user])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 57px)' }}>
@@ -188,7 +280,21 @@ export default function ReasoMatePage() {
       {/* ── Thread list ── */}
       {isAuthenticated && !activeChat && (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          {SAMPLE_CHATS.map(c => (
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 8 }}>
+            <input
+              value={peerUid}
+              onChange={e => setPeerUid(e.target.value)}
+              placeholder="Peer user id (Firebase uid)"
+              data-testid="input-peer-uid"
+              style={{ flex: 1, padding: '8px 10px', background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(106,159,216,0.25)', borderRadius: 8, color: C.text, fontSize: 12 }}
+            />
+            <button type="button" onClick={openPeer} data-testid="button-open-peer"
+              style={{ padding: '8px 12px', background: 'rgba(0,212,170,0.1)', border: '1px solid rgba(0,212,170,0.35)', borderRadius: 8, color: C.teal, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+              Message
+            </button>
+          </div>
+          {dmError && <p style={{ padding: '0 16px', fontSize: 11, color: '#E88C6A' }}>{dmError}</p>}
+          {chats.map(c => (
             <div key={c.id} onClick={() => setActiveChat(c.id)}
               style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: 12, background: c.unread ? 'rgba(0,212,170,0.03)' : 'transparent' }}>

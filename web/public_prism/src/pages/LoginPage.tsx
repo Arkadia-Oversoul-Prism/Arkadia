@@ -15,6 +15,7 @@ export default function LoginPage({ onSuccess, onBack }: LoginPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
   const [localError, setLocalError] = useState('');
   const [magicSent, setMagicSent] = useState(false);
@@ -62,7 +63,7 @@ export default function LoginPage({ onSuccess, onBack }: LoginPageProps) {
     setLocalError('');
     setLoading(true);
     try {
-      await register(email.trim(), password);
+      await register(email.trim(), password, displayName.trim() || undefined);
       onSuccess?.();
     } catch (e: unknown) {
       setLocalError(mapAuthError((e as { message?: string }).message || ''));
@@ -177,6 +178,8 @@ export default function LoginPage({ onSuccess, onBack }: LoginPageProps) {
 
             {mode === 'register' && (
               <motion.form key="register" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onSubmit={handleRegister}>
+                <label style={{ display: 'block', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.4)', marginBottom: 6 }}>Display name</label>
+                <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} required maxLength={80} autoComplete="nickname" data-testid="input-display-name" placeholder="How you appear in Arkadia" style={{ ...inputStyle, marginBottom: 14 }} />
                 <label style={{ display: 'block', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.4)', marginBottom: 6 }}>Email</label>
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" data-testid="input-email-register" style={{ ...inputStyle, marginBottom: 14 }} />
                 <label style={{ display: 'block', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.4)', marginBottom: 6 }}>Password (min 8)</label>

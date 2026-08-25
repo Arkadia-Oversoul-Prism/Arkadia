@@ -165,20 +165,52 @@ def get_personal_codex(node_key: str) -> dict | None:
         return None
 
 
-def build_user_profile(uid: str, firebase_claims: dict | None, email: str = "") -> dict[str, Any]:
-    """Construct a user profile dict from Firebase claims + node registry."""
-    node = None
+def _profiles_dir() -> str:
+    return os.path.join(os.path.dirname(__file__), "..", "data", "user_profiles")
 
-    # 1. Try custom claim node_key (set by admin)
+
+def load_user_profile_store(uid: str) -> dict[str, Any]:
+    """User-created product profile (P1-A). Empty dict if none."""
+    path = os.path.join(_profiles_dir(), f"{uid}.json")
+    if not os.path.isfile(path):
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def save_user_profile_store(uid: str, patch: dict[str, Any]) -> dict[str, Any]:
+    """Merge and persist user-owned profile fields. Returns full stored profile."""
+    os.makedirs(_profiles_dir(), exist_ok=True)
+    current = load_user_profile_store(uid)
+    allowed = ("display_name", "username", "bio", "avatar_url")
+    for k in allowed:
+        if k in patch and patch[k] is not None:
+            val = patch[k]
+            if isinstance(val, str):
+                val = val.strip()[:500]
+            current[k] = val
+    current["uid"] = uid
+    path = os.path.join(_profiles_dir(), f"{uid}.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(current, f, indent=2)
+    return current
+
+
+def build_user_profile(uid: str, firebase_claims: dict | None, email: str = "") -> dict[str, Any]:
+    """Construct product profile: user-created store first; IMS node only with explicit claim.
+
+    P1-A: email-hint matching no longer populates display identity. Canonical/IMS
+    nodes apply only when Firebase custom claim node_key is set by admin.
+    """
+    node = None
     if firebase_claims:
         node_key = firebase_claims.get("node_key") or firebase_claims.get("arkadia_node")
         if node_key:
             node = get_node_by_key(node_key)
-        # 2. Fall back to email-hint matching
-        if not node:
-            email = email or firebase_claims.get("email", "")
-            if email:
-                node = get_node_by_email_hint(email)
 
     access_level = 0
     role = "Guest"
@@ -190,8 +222,13 @@ def build_user_profile(uid: str, firebase_claims: dict | None, email: str = "") 
         node_key = node.get("node_key")
 
     resolved_email = email or (firebase_claims or {}).get("email", "") or ""
+    stored = load_user_profile_store(uid)
+
+    # Product identity priority: user-created profile > Firebase name > email local-part
+    # Node display_name only when explicit node_key claim (initiated IMS nodes)
     display_name = (
-        (node or {}).get("display_name")
+        (stored.get("display_name") or "").strip()
+        or ((node or {}).get("display_name") if node_key else None)
         or (firebase_claims or {}).get("name")
         or (resolved_email.split("@")[0] if resolved_email else "")
         or uid[:8]
@@ -202,12 +239,16 @@ def build_user_profile(uid: str, firebase_claims: dict | None, email: str = "") 
         "email":        resolved_email,
         "node_key":     node_key,
         "display_name": display_name,
+        "username":     (stored.get("username") or "").strip() or None,
+        "bio":          (stored.get("bio") or "").strip() or None,
+        "avatar_url":   (stored.get("avatar_url") or "").strip() or None,
         "role":         role,
-        "role_sigil":   (node or {}).get("role_sigil", "◈"),
-        "ims_id":       (node or {}).get("ims_id"),
+        "role_sigil":   (node or {}).get("role_sigil", "◈") if node else "◈",
+        "ims_id":       (node or {}).get("ims_id") if node else None,
         "access_level": access_level,
-        "status":       (node or {}).get("status", "authenticated"),
-        "access_tools": (node or {}).get("access_tools", []),
+        "status":       (node or {}).get("status", "authenticated") if node else "authenticated",
+        "access_tools": (node or {}).get("access_tools", []) if node else [],
+        "profile_complete": bool((stored.get("display_name") or "").strip()),
     }
 
 
@@ -266,6 +307,6 @@ async def require_sovereign(request: Request) -> dict[str, Any]:
 __all__ = [
     "verify_firebase_token",
     "get_current_user", "require_auth", "require_sovereign",
-    "build_user_profile", "get_node_by_key", "get_personal_codex",
+    "build_user_profile", "load_user_profile_store", "save_user_profile_store", "get_node_by_key", "get_personal_codex",
     "_nodes_by_key",
 ]
