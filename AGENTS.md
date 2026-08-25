@@ -160,3 +160,15 @@ authenticated node's private Knowledge OS vault — never the public scroll stor
   POST in try/catch and surfaces a visible error + keeps the form open so a
   failed create no longer silently drops the user.
 
+
+## P1-A production recovery (2026-08-25)
+- `cd24bb1` shipped a **SyntaxError** in `api/main.py` (line ~312): the ReasoMate
+  messages-router mount was nested inside the Knowledge OS `try:` block, leaving the outer
+  `try` with no `except`. Every Render deploy of `cd24bb1`+ failed at boot → production
+  pinned to the last healthy pre-P1-A image. Misdiagnosed earlier as "deployment lag".
+- Fix lives in local commit `63c3a65` (two clean try/except blocks). **Unpushed** at
+  session end: env GITHUB_TOKEN is read-only for this repo (git push + Contents API all
+  403; a user-supplied `sha256:…` PAT returned 401 — not a GitHub credential).
+- Full diagnosis + verbatim patch: `docs/verification/P1-A_FINAL.md` §2.
+- Lesson: `python -m py_compile api/main.py` before every commit that touches boot code;
+  Render boot failure (not deploy lag) is the first hypothesis when routes go stale.
