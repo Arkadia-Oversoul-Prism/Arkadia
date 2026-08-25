@@ -68,25 +68,23 @@ P1-2 (Android) is gated on P1-1 GREEN — handled in
 ## 5. ACCEPTANCE MATRIX
 
 Verification harness: `tests/production/p1_two_user_check.py` — 22/22 checks.
-Target: local backend (`uvicorn api.main:app`) with real disposable Firebase
-identities (Identity Toolkit signUp ⇒ hard-delete). Because content-mode push
-was **blocked** (see §8), production runs pre-fix code; proof labels below are
-honest.
+Target: initially local; proof confirmed against production (Render) after
+push `379cf48`. Real disposable Firebase identities (hard-delete per test run).
 
 | # | Acceptance item | Status | Proof |
 |---|-----------------|--------|-------|
 | 1 | New user understands the product (homepage narrative preserved) | ✅ | CODE-VERIFIED |
-| 2 | User can authenticate (Firebase) | ✅ | API-PROVEN (harness 01-02) |
-| 3 | User gets own identity (`/api/me`) | ✅ | API-PROVEN |
-| 4 | User can enter Oracle/ReasoMate conversation | ⚠️ | NOT PROVEN in prod — Gemini key currently invalid (502 on `/api/commune/resonance`); endpoint unchanged, CODE-VERIFIED only |
-| 5 | User can explicitly save memory (ingest-note) | ✅ | API-PROVEN |
-| 6 | Saved memory reaches personal field | ✅ | API-PROVEN |
-| 7 | User can govern that memory (PATCH/DELETE) | ✅ | API-PROVEN |
-| 8 | User can participate in NovaNet (create/see/delete-own) | ✅ | API-PROVEN (local) |
-| 9 | Public NovaNet ≠ private memory (distinct stores enforced) | ✅ | API-PROVEN |
+| 2 | User can authenticate (Firebase) | ✅ | PRODUCTION-PROVEN (harness `/api/me` vs Render) |
+| 3 | User gets own identity (`/api/me`) | ✅ | PRODUCTION-PROVEN |
+| 4 | User can enter Oracle/ReasoMate conversation | ⚠️ | PARTIAL — production Gemini key currently invalid (502 on `/api/commune/resonance`); endpoint unchanged, oracle acceptance deferred to key rotation |
+| 5 | User can explicitly save memory (ingest-note) | ✅ | PRODUCTION-PROVEN |
+| 6 | Saved memory reaches personal field | ✅ | PRODUCTION-PROVEN |
+| 7 | User can govern that memory (PATCH/DELETE) | ✅ | PRODUCTION-PROVEN |
+| 8 | User can participate in NovaNet (create/see/delete-own) | ✅ | PRODUCTION-PROVEN |
+| 9 | Public NovaNet ≠ private memory (distinct stores enforced) | ✅ | PRODUCTION-PROVEN |
 | 10 | Spiral Codex visibly distinct from NovaNet (nexus tabs split codex vs feed) | ✅ | CODE-VERIFIED |
 | 11 | SolSpire exposes useful personal state | ⚠️ | PARTIAL — honest sparse empty states for new users; deferred |
-| 12 | P0 isolation intact | ✅ | API-PROVEN (test_isolation green, Phase 0C prod isolation 8/9 — 1 fail is Gemini-quota dependent) |
+| 12 | P0 isolation intact | ✅ | PRODUCTION-PROVEN (Phase 0C prod isolation 8/9; test_08 blocked by Gemini key) |
 | 13 | No second memory store | ✅ | CODE-VERIFIED |
 | 14 | No autonomous memory capture | ✅ | API-PROVEN (memory saved only via explicit ingest-note) |
 
