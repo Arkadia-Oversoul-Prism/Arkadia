@@ -6,9 +6,13 @@ All routes are read-by-Oracle, write-by-pipeline.
 No business logic here — this is a thin HTTP skin over the knowledge layer.
 """
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 from typing import Optional
+
+logger = logging.getLogger("arkadia.knowledge_routes")
 
 router = APIRouter(prefix="/api/knowledge", tags=["knowledge-os"])
 
@@ -460,6 +464,43 @@ async def get_persona(name: str):
     if not row:
         raise HTTPException(status_code=404, detail="Persona not found")
     return row
+
+
+def resolve_persona_system_prompt(name: str) -> Optional[str]:
+    """Persona system-prompt lookup for the provider router (Pass 05).
+
+    Injected into providers.router by the composition root (api/main.py) so
+    providers/ never imports the knowledge layer (ADR-015). Identical query
+    to the one the router previously ran inline.
+    """
+    from knowledge.db import execute_one
+    row = execute_one("SELECT system_prompt FROM personas WHERE name = ?", (name,))
+    return row["system_prompt"] if row else None
+
+
+def wire_downstream_seams() -> None:
+    """Composition-root wiring for downward seams that api/ consumers need but
+    lower layers must not import upward (ADR-015):
+
+      • kernel/tts.py       ← api.tts_key_manager get/rotate (Pass 04)
+      • providers/router.py ← persona system-prompt resolver above (Pass 05)
+
+    Called once from api/main.py so neither kernel/ nor providers/ imports
+    api/ or knowledge/. Failures degrade to the layers' standalone fallback
+    behavior (env-only keys / no persona prompt), identical to the pre-
+    injection import-failure paths.
+    """
+    try:
+        from api.tts_key_manager import get_active_key, rotate_key
+        from kernel import tts as _kernel_tts
+        _kernel_tts.configure_key_store(get_active_key, rotate_key)
+    except Exception as e:
+        logger.warning(f"[TTS] key-store injection skipped: {e}")
+    try:
+        from providers import router as _provider_router
+        _provider_router.configure_persona_resolver(resolve_persona_system_prompt)
+    except Exception as e:
+        logger.warning(f"[PROVIDERS] persona resolver injection skipped: {e}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

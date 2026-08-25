@@ -124,11 +124,25 @@ def send(
     return provider.send(canonical_msgs, system_prompt=system_prompt, temperature=temperature, max_tokens=max_tokens)
 
 
+# Persona prompts live in the Knowledge OS store. Providers are leaf adapters
+# and must not import the knowledge layer (ADR-015), so the composition root
+# (api/main.py) injects the resolver via configure_persona_resolver(). Without
+# injection the router falls back to no persona prompt — identical to the
+# previous behavior when the personas query raised or returned no row.
+_persona_resolver = None
+
+
+def configure_persona_resolver(resolver) -> None:
+    """Inject the persona system-prompt resolver: (name) -> Optional[str]."""
+    global _persona_resolver
+    _persona_resolver = resolver
+
+
 def _resolve_persona_prompt(persona_name: str) -> Optional[str]:
+    if _persona_resolver is None:
+        return None
     try:
-        from knowledge.db import execute_one
-        row = execute_one("SELECT system_prompt FROM personas WHERE name = ?", (persona_name,))
-        return row["system_prompt"] if row else None
+        return _persona_resolver(persona_name)
     except Exception:
         return None
 

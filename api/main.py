@@ -341,16 +341,12 @@ except Exception as _tx_err:
 from api.key_routes import router as _key_router
 app.include_router(_key_router)
 
-# ── TTS key-store injection (Pass 04) ────────────────────────────────────
-# kernel.tts may not import the api layer (ADR-015), so the composition root
-# injects the TTS key-store accessors. Resolution order inside the kernel is
-# unchanged: env var first, then the injected store.
-try:
-    from api.tts_key_manager import get_active_key as _tts_get_key, rotate_key as _tts_rotate_key
-    from kernel import tts as _kernel_tts
-    _kernel_tts.configure_key_store(_tts_get_key, _tts_rotate_key)
-except Exception as _tts_wire_err:
-    logger.warning(f"[TTS] key-store injection skipped: {_tts_wire_err}")
+# ── Downward seam injection (Passes 04+05) ───────────────────────────────
+# kernel/ and providers/ must not import api/ or knowledge/ (ADR-015). The
+# composition root injects both seams: TTS key store into kernel.tts, persona
+# system-prompt resolver into providers.router. Logic lives in knowledge_routes.
+from api.knowledge_routes import wire_downstream_seams
+wire_downstream_seams()
 
 # ── Approval gate router (Phase 2 extraction) ───────────────────────────
 from api.approval_routes import router as _approval_router

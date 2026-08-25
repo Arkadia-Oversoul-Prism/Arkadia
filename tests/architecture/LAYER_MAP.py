@@ -176,12 +176,15 @@ REGISTERED_ARCHITECTURAL_DEBT: list[tuple[str, str, str]] = [
     # Exit criterion: grep -rn "from api" providers/ returns empty
     ("providers/",           "api", "provider→api: key_manager/provider_key_store — Workstream A, Phase 1 Gate E"),
 
-    # providers/router.py imports knowledge.db (orthogonal: Provider → Knowledge).
-    # Providers must not reach into the Knowledge layer; routing decisions belong
-    # in the Runtime Core (kernel/planner.py), not the provider adapter.
-    # Owner: Principal Engineer | Workstream: A | Deadline: Phase 1 Gate E
-    # Exit criterion: grep -n "knowledge" providers/router.py returns empty
-    ("providers/router.py",  "knowledge", "provider→knowledge: knowledge.db — Workstream A, Phase 1 Gate E"),
+    # RESOLVED (Consolidation Pass 05, 2026-08-25): providers/router.py →
+    # knowledge.db. The only knowledge use was a single persona system-prompt
+    # lookup in _resolve_persona_prompt. Removed by dependency injection: the
+    # composition root (api/knowledge_routes.wire_downstream_seams, called
+    # from api/main.py) injects api.knowledge_routes.resolve_persona_system_prompt
+    # into providers.router.configure_persona_resolver(). Without injection the
+    # router falls back to no persona prompt — identical to the old behavior
+    # when the query raised or returned no row. Exit criterion met: no
+    # knowledge.db import remains in providers/router.py.
 ]
 
 # ── Circular Import Debt Registry ─────────────────────────────────────────────
