@@ -91,7 +91,8 @@ jobs:
             --ks-pass pass:arkadia2026 --key-pass pass:arkadia2026 \
             --out arkadia-release-signed.apk arkadia-aligned.apk
 
-          echo "ARKADIA_DEBUG=$DEBUG" >> $GITHUB_ENV
+          cp "$DEBUG" arkadia-debug.apk
+          echo "ARKADIA_DEBUG=arkadia-debug.apk" >> $GITHUB_ENV
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
@@ -167,7 +168,8 @@ jobs:
             --ks-pass pass:sonata123 --key-pass pass:sonata123 \
             --out sonata-release-signed.apk sonata-aligned.apk
 
-          echo "SONATA_DEBUG=$DEBUG" >> $GITHUB_ENV
+          cp "$DEBUG" sonata-debug.apk
+          echo "SONATA_DEBUG=sonata-debug.apk" >> $GITHUB_ENV
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4

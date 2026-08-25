@@ -48,3 +48,6 @@ service_account.json
 # OS
 .DS_Store
 Thumbs.db
+arkadia-android/.gradle/
+arkadia-android/app/build/
+arkadia-android/gradlew

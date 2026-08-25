@@ -35,6 +35,16 @@ class Prefs(context: Context) {
         get() = sp.getFloat(KEY_SPEED, 1.0f)
         set(v) = sp.edit().putFloat(KEY_SPEED, v).apply()
 
+    /** Voice pitch 0.5 – 1.5 (defaults to 1.0) */
+    var pitch: Float
+        get() = sp.getFloat(KEY_PITCH, 1.0f)
+        set(v) = sp.edit().putFloat(KEY_PITCH, v).apply()
+
+    /** Prefer Edge TTS (server) over on-device fallback when no ElevenLabs key */
+    var preferEdgeTts: Boolean
+        get() = sp.getBoolean(KEY_PREFER_EDGE, true)
+        set(v) = sp.edit().putBoolean(KEY_PREFER_EDGE, v).apply()
+
     // ── Legacy / Fallback ──────────────────────────────────────────────────
 
     /** Base URL of the Arkadia Oracle Temple backend (for Edge TTS fallback) */
@@ -68,6 +78,8 @@ class Prefs(context: Context) {
         private const val KEY_EL_K2  = "el_key_2"
         private const val KEY_EL_VOICE = "el_voice"
         private const val KEY_SPEED  = "speed"
+        private const val KEY_PITCH  = "pitch"
+        private const val KEY_PREFER_EDGE = "prefer_edge_tts"
         private const val KEY_EDGE_TTS_URL = "edge_tts_url"
         private const val KEY_AUTO_READ = "auto_read"
         private const val KEY_USE_EL  = "use_elevenlabs"

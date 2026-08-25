@@ -91,20 +91,4 @@
 
     </LinearLayout>
 
-    <!-- Persistent floating settings button (top-right) -->
-    <!-- Only shown when WebView is loaded; hidden during error and loading states -->
-    <TextView
-        android:id="@+id/fabSettings"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
-        android:layout_gravity="top|end"
-        android:layout_margin="10dp"
-        android:text="⚙"
-        android:textColor="#33FFFFFF"
-        android:textSize="16sp"
-        android:gravity="center"
-        android:background="#00000000"
-        android:clickable="true"
-        android:focusable="true" />
-
 </FrameLayout>

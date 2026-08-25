@@ -80,12 +80,12 @@ class MainActivity : AppCompatActivity() {
             override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
                 binding.progressBar.visibility = View.VISIBLE
                 binding.errorLayout.visibility = View.GONE
-                binding.fabSettings.visibility = View.GONE
+                
             }
 
             override fun onPageFinished(view: WebView, url: String) {
                 binding.progressBar.visibility = View.GONE
-                binding.fabSettings.visibility = View.VISIBLE
+                
                 injectPendingText()
             }
 
@@ -123,9 +123,6 @@ class MainActivity : AppCompatActivity() {
         binding.btnReload.setOnClickListener {
             loadArkadia()
         }
-        binding.fabSettings.setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
-        }
     }
 
     // ── Navigation ───────────────────────────────────────────────────────────
@@ -138,7 +135,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showError(message: String) {
         binding.progressBar.visibility = View.GONE
-        binding.fabSettings.visibility = View.GONE
+        
         binding.errorLayout.visibility = View.VISIBLE
         val url = prefs.arkadiaUrl.ifBlank { Prefs.DEFAULT_URL }
         binding.tvError.text = "$message\n\n$url"
