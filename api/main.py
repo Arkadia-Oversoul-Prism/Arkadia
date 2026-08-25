@@ -9,6 +9,7 @@ import hashlib
 import hmac
 import httpx
 import threading
+import uuid as _uuid_mod
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from fastapi import FastAPI, Request, HTTPException
@@ -319,6 +320,18 @@ try:
     logger.info("[TRANSMISSIONS] Social feed router mounted at /api/transmissions")
 except Exception as _tx_err:
     logger.warning(f"[TRANSMISSIONS] Router mount skipped: {_tx_err}")
+
+# ── Key management router (Phase 2 extraction) ──────────────────────────
+from api.key_routes import router as _key_router
+app.include_router(_key_router)
+
+# ── Approval gate router (Phase 2 extraction) ───────────────────────────
+from api.approval_routes import router as _approval_router
+app.include_router(_approval_router)
+from api.approval_routes import (
+    APPROVAL_LOCK as _APPROVAL_LOCK,
+    PENDING_APPROVALS as _PENDING_APPROVALS,
+)
 
 # ── Static file serving (IMS HTML documents, forge images, etc.) ─────────────
 _static_dir = _os.path.join(_os.path.dirname(__file__), "..", "static")
@@ -2370,316 +2383,11 @@ async def agent_spawn(request: Request):
         raise HTTPException(status_code=500, detail=f"Spawn failed: {e}")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Phase B — API Key Manager endpoints
-# ═══════════════════════════════════════════════════════════════════════════════
-# Per-User API Key Manager — Firestore-backed, auth-protected
-# ═══════════════════════════════════════════════════════════════════════════════
-
-@app.get("/api/keys")
-async def api_list_keys(request: Request):
-    """List API keys for the authenticated user."""
-    user = await _get_current_user(request)
-    user_id = user.get("uid") if user else None
-    
-    if not user_id:
-        from api.key_manager import list_keys
-        return {"keys": list_keys()}
-    
-    from api.user_key_store import get_user_keys
-    return {"keys": get_user_keys(user_id)}
-
-
-@app.post("/api/keys")
-async def api_add_key(request: Request):
-    """Add a new API key for the authenticated user."""
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON")
-    
-    key = (body.get("key") or "").strip()
-    label = (body.get("label") or "").strip()
-    if not key:
-        raise HTTPException(status_code=400, detail="'key' is required")
-    
-    user = await _get_current_user(request)
-    user_id = user.get("uid") if user else None
-    
-    if not user_id:
-        try:
-            from api.key_manager import add_key
-            return add_key(key, label)
-        except ValueError as e:
-            raise HTTPException(status_code=409, detail=str(e))
-    
-    from api.user_key_store import add_user_key
-    try:
-        return add_user_key(user_id, key, label)
-    except ValueError as e:
-        raise HTTPException(status_code=409, detail=str(e))
-
-
-@app.delete("/api/keys/{key_id}")
-async def api_remove_key(key_id: str, request: Request):
-    """Remove an API key for the authenticated user."""
-    user = await _get_current_user(request)
-    user_id = user.get("uid") if user else None
-    
-    if not user_id:
-        from api.key_manager import remove_key
-        ok = remove_key(key_id)
-        if not ok:
-            raise HTTPException(status_code=404, detail="Key not found")
-        return {"deleted": key_id}
-    
-    from api.user_key_store import remove_user_key
-    ok = remove_user_key(user_id, key_id)
-    if not ok:
-        raise HTTPException(status_code=404, detail="Key not found")
-    return {"deleted": key_id}
-
-
-@app.patch("/api/keys/{key_id}/activate")
-async def api_activate_key(key_id: str, request: Request):
-    """Set the active API key for the authenticated user."""
-    user = await _get_current_user(request)
-    user_id = user.get("uid") if user else None
-    
-    if not user_id:
-        from api.key_manager import set_active
-        ok = set_active(key_id)
-        if not ok:
-            raise HTTPException(status_code=404, detail="Key not found")
-        return {"active": key_id}
-    
-    from api.user_key_store import set_active_user_key
-    ok = set_active_user_key(user_id, key_id)
-    if not ok:
-        raise HTTPException(status_code=404, detail="Key not found")
-    return {"active": key_id}
-
-
-@app.patch("/api/keys/{key_id}/reset-quota")
-async def api_reset_quota(key_id: str, request: Request):
-    """Reset quota for an API key."""
-    from api.key_manager import reset_quota
-    ok = reset_quota(key_id)
-    if not ok:
-        raise HTTPException(status_code=404, detail="Key not found")
-    return {"reset": key_id}
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Multi-provider key store  (gemini / openai / claude / deepseek)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-@app.get("/api/provider-keys")
-async def api_list_provider_keys():
-    """List one key entry per provider (masked), including env-var sources."""
-    from api.provider_key_store import list_keys
-    return {"keys": list_keys()}
-
-
-@app.post("/api/provider-keys")
-async def api_set_provider_key(request: Request):
-    """Store or replace the key for a given provider."""
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON")
-    provider = (body.get("provider") or "").strip().lower()
-    key      = (body.get("key")      or "").strip()
-    label    = (body.get("label")    or "").strip()
-    if not provider or not key:
-        raise HTTPException(status_code=400, detail="'provider' and 'key' are required")
-    from api.provider_key_store import set_key
-    try:
-        result = set_key(provider, key, label)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    logger.info("[provider-keys] stored key for %s", provider)
-    return result
-
-
-@app.delete("/api/provider-keys/{provider}")
-async def api_remove_provider_key(provider: str):
-    """Remove the stored key for a provider."""
-    from api.provider_key_store import remove_key
-    ok = remove_key(provider)
-    if not ok:
-        raise HTTPException(status_code=404, detail="No stored key for this provider")
-    return {"removed": provider}
-
-
-@app.patch("/api/provider-keys/{provider}/reset-quota")
-async def api_reset_provider_quota(provider: str):
-    """Reset quota-hit flag for a provider's key."""
-    from api.provider_key_store import reset_quota
-    ok = reset_quota(provider)
-    if not ok:
-        raise HTTPException(status_code=404, detail="No stored key for this provider")
-    return {"provider": provider, "quota_reset": True}
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Distributed Gemini Key Pool — load-balanced across all surfaces
-# ═══════════════════════════════════════════════════════════════════════════════
-
-@app.get("/api/keys/pool")
-async def api_key_pool_status():
-    """Report the live Gemini key pool: total / available / cooled keys.
-
-    Used by Settings so the user can see how keys are distributed across
-    Oracle Chat, ReasoMate, SolSpire and Knowledge OS. No secrets exposed.
-    """
-    from api.key_pool import pool_snapshot
-    snap = pool_snapshot()
-    return {
-        "size": snap["size"],
-        "available": snap["available"],
-        "cooled": snap["cooled"],
-        "strategy": "round-robin (load-balanced) — concurrent callers spread across the pool",
-    }
-
-
-@app.post("/api/keys/pool/reset")
-async def api_key_pool_reset():
-    """Clear all Gemini key cooldowns in the pool."""
-    from api.key_pool import reset_all
-    reset_all()
-    return {"reset": True}
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# TTS Key Manager endpoints
-# ═══════════════════════════════════════════════════════════════════════════════
-
-@app.get("/api/tts/keys")
-async def api_list_tts_keys():
-    from api.tts_key_manager import list_keys
-    return {"keys": list_keys()}
-
-
-@app.post("/api/tts/keys")
-async def api_add_tts_key(request: Request):
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON")
-    key = (body.get("key") or "").strip()
-    label = (body.get("label") or "").strip()
-    if not key:
-        raise HTTPException(status_code=400, detail="'key' is required")
-    try:
-        from api.tts_key_manager import add_key
-        result = add_key(key, label)
-        return result
-    except ValueError as e:
-        raise HTTPException(status_code=409, detail=str(e))
-
-
-@app.delete("/api/tts/keys/{key_id}")
-async def api_remove_tts_key(key_id: str):
-    from api.tts_key_manager import remove_key
-    ok = remove_key(key_id)
-    if not ok:
-        raise HTTPException(status_code=404, detail="Key not found")
-    return {"deleted": key_id}
-
-
-@app.patch("/api/tts/keys/{key_id}/activate")
-async def api_activate_tts_key(key_id: str):
-    from api.tts_key_manager import set_active
-    ok = set_active(key_id)
-    if not ok:
-        raise HTTPException(status_code=404, detail="Key not found")
-    return {"active": key_id}
-
-
-@app.patch("/api/tts/keys/{key_id}/reset-quota")
-async def api_reset_tts_quota(key_id: str):
-    from api.tts_key_manager import reset_quota
-    ok = reset_quota(key_id)
-    if not ok:
-        raise HTTPException(status_code=404, detail="Key not found")
-    return {"reset": key_id}
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Phase D — Approval gate for sensitive tool calls
-# Pending approvals live in memory (good enough for single-instance use)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-import uuid as _uuid_mod
-_PENDING_APPROVALS: dict = {}
-_APPROVAL_LOCK = __import__("threading").Lock()
-
-
-@app.post("/api/approvals/request")
-async def api_request_approval(request: Request):
-    """Queue a tool call for human approval. Returns approval_id."""
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON")
-    tool_name = body.get("tool_name", "")
-    payload = body.get("payload", {})
-    description = body.get("description", f"Run {tool_name}")
-    approval_id = str(_uuid_mod.uuid4())[:12]
-    with _APPROVAL_LOCK:
-        _PENDING_APPROVALS[approval_id] = {
-            "id": approval_id,
-            "tool_name": tool_name,
-            "payload": payload,
-            "description": description,
-            "status": "pending",
-            "created_at": _now_iso(),
-            "decided_at": None,
-        }
-    logger.info("[APPROVAL] created %s for tool=%s", approval_id, tool_name)
-    return {"approval_id": approval_id, "status": "pending"}
-
-
-@app.get("/api/approvals")
-async def api_list_approvals(status: str | None = None):
-    with _APPROVAL_LOCK:
-        items = list(_PENDING_APPROVALS.values())
-    if status:
-        items = [a for a in items if a["status"] == status]
-    return {"approvals": sorted(items, key=lambda a: a["created_at"], reverse=True)}
-
-
-@app.post("/api/approvals/{approval_id}/approve")
-async def api_approve(approval_id: str):
-    with _APPROVAL_LOCK:
-        approval = _PENDING_APPROVALS.get(approval_id)
-        if not approval:
-            raise HTTPException(status_code=404, detail="Approval not found")
-        approval["status"] = "approved"
-        approval["decided_at"] = _now_iso()
-    # Execute the tool now
-    from kernel.tools import get_tool
-    tool = get_tool(approval["tool_name"])
-    if not tool:
-        raise HTTPException(status_code=404, detail=f"Tool '{approval['tool_name']}' not found")
-    try:
-        result = tool.run(approval["payload"])
-        approval["result"] = result
-        return {"approval_id": approval_id, "status": "approved", "result": result}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Tool execution failed: {e}")
-
-
-@app.post("/api/approvals/{approval_id}/reject")
-async def api_reject(approval_id: str):
-    with _APPROVAL_LOCK:
-        approval = _PENDING_APPROVALS.get(approval_id)
-        if not approval:
-            raise HTTPException(status_code=404, detail="Approval not found")
-        approval["status"] = "rejected"
-        approval["decided_at"] = _now_iso()
-    return {"approval_id": approval_id, "status": "rejected"}
+# ──────────────────────────────────────────────────────────────────────
+# Key management (legacy Gemini / provider / pool / TTS) — moved to
+# api/key_routes.py. Approvals gate state + endpoints — api/approval_routes.py.
+# Phase 2 decomposition: mounted via include_router below the CEO chat import.
+# ──────────────────────────────────────────────────────────────────────
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
