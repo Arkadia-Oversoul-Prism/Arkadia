@@ -120,20 +120,26 @@ REGISTERED_ARCHITECTURAL_DEBT: list[tuple[str, str, str]] = [
     # ── Previously documented (Phase 1 analysis) ────────────────────────────
     # Owner: Principal Engineer | Workstream: A | Deadline: Phase 1 Gate E
 
-    # Exit criterion: grep -n "from api" kernel/agents.py returns empty
-    ("kernel/agents.py",     "api", "kernel→api: generate_verse — Workstream A, Phase 1 Gate E"),
+    # CONFIRMED VIOLATION (Pass 07 detector hardening): kernel/agents.py does
+    # 'from api import arkadia_engine' — a real Layer-2 → Layer-1 inversion that
+    # the pre-Pass-07 detector missed (bare from-package import resolved via a
+    # longer LAYER_MAP file entry). Now detected: bypassing this entry surfaces
+    # it (see test_from_package_import_resolves_package_layer). Runtime use is
+    # generate_verse() in call_verse_agent. Exit criterion: grep -n
+    # "from api" kernel/agents.py returns empty — i.e. relocate/reverse the
+    # dependency (a separate authorized pass; not Pass 07 scope).
+    ("kernel/agents.py",     "api", "kernel→api: arkadia_engine.generate_verse — detector-confirmed Pass 07 — Workstream A, Phase 1 Gate E"),
 
-    # Exit criterion: grep -n "from api" kernel/planner.py returns empty
-    ("kernel/planner.py",    "api", "kernel→api: key_manager — Workstream A, Phase 1 Gate E"),
-
-    # Exit criterion: grep -n "from api" kernel/tools_real.py returns empty
-    ("kernel/tools_real.py", "api", "kernel→api: key_manager — Workstream A, Phase 1 Gate E"),
-
-    # Exit criterion: grep -n "from api" kernel/jobs.py returns empty
-    ("kernel/jobs.py",       "api", "kernel→api: firebase_store — Workstream A, Phase 1 Gate E"),
-
-    # Exit criterion: grep -n "from api" kernel/goals.py returns empty
-    ("kernel/goals.py",      "api", "kernel→api: firebase_store — Workstream A, Phase 1 Gate E"),
+    # Pass 07 reconciliation: the next four entries are NOT layer inversions
+    # under the hardened detector (api.key_manager / api.firebase_store are
+    # layer-3 substrate, so kernel(2)→them(3) is a permitted direction).
+    # They remain REGISTERED solely because the stricter kernel-purity guard
+    # (test_kernel_does_not_import_api_directly) forbids ANY kernel→api import.
+    # Exit criterion (unchanged): grep -n "from api" <file> returns empty.
+    ("kernel/planner.py",    "api", "kernel-purity guard: kernel→api.key_manager (layer-3 substrate; guard-active, not a layer inversion) — Phase 1 Gate E"),
+    ("kernel/tools_real.py", "api", "kernel-purity guard: kernel→api.key_manager (layer-3 substrate; guard-active, not a layer inversion) — Phase 1 Gate E"),
+    ("kernel/jobs.py",       "api", "kernel-purity guard: kernel→api.firebase_store (layer-3 substrate; guard-active, not a layer inversion) — Phase 1 Gate E"),
+    ("kernel/goals.py",      "api", "kernel-purity guard: kernel→api.firebase_store (layer-3 substrate; guard-active, not a layer inversion) — Phase 1 Gate E"),
 
     # ── Resolved in Consolidation Pass 03 (2026-08-25) ──────────────────────
     # solspire/provider_manager.py → api.key_pool and solspire/llm.py →
@@ -169,18 +175,20 @@ REGISTERED_ARCHITECTURAL_DEBT: list[tuple[str, str, str]] = [
     # criterion met: grep -n "from kernel" api/nodes.py returns empty. The
     # identity layer is now a true leaf.
 
-    # api/main.py imports solspire.console_router (Layer 1 API → Layer 0 Presentation).
-    # API surface must not depend on any presentation layer module.
-    # Owner: Principal Engineer | Workstream: A | Deadline: Phase 1 Gate E
-    # Exit criterion: grep -n "solspire" api/main.py returns empty
-    ("api/main.py",          "solspire", "api→presentation: solspire.console_router — Workstream A, Phase 1 Gate E"),
+    # Pass 07 reconciliation: api/main.py → solspire.console_router is NOT a
+    # violation under the current layer model (solspire is layer 2, so
+    # api(1)→solspire(2) is the permitted downward direction). Registry entry
+    # retained for historical traceability only; the layer detector does not
+    # flag it and no guard requires it.
+    ("api/main.py",          "solspire", "historical (layer-valid under current model): api→solspire.console_router — remediate with Phase 1 Gate E decomposition"),
 
-    # providers/* import api.provider_key_store / api.key_manager (Layer 3 → Layer 1).
-    # Providers are leaf adapters — they must receive keys via injection, not import them.
-    # The fix is a KeyProvider interface injected at startup (see ADR-014 Decision 4).
-    # Owner: Principal Engineer | Workstream: A | Deadline: Phase 1 Gate E
-    # Exit criterion: grep -rn "from api" providers/ returns empty
-    ("providers/",           "api", "provider→api: key_manager/provider_key_store — Workstream A, Phase 1 Gate E"),
+    # Pass 07 reconciliation: providers/* → api.key_manager/provider_key_store
+    # is NOT a layer inversion (those are layer-3 substrate; providers(3)→them(3)
+    # same-layer). It remains a REGISTERED design debt per ADR-014 Decision 4:
+    # providers should receive keys via injection rather than importing stores.
+    # Detector confirms no layer violation. Exit criterion: grep -rn "from api"
+    # providers/ returns empty (requires key injection into providers/*).
+    ("providers/",           "api", "design debt (not a layer inversion): provider→api key stores — ADR-014 Decision 4 injection — Phase 1 Gate E"),
 
     # RESOLVED (Consolidation Pass 05, 2026-08-25): providers/router.py →
     # knowledge.db. The only knowledge use was a single persona system-prompt

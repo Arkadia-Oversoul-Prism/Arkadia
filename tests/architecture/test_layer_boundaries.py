@@ -141,6 +141,17 @@ def collect_violations() -> list[dict]:
                     key=lambda x: len(x[0]),
                     reverse=True,
                 )
+                # Pass 07: when the module resolves to a real directory (a
+                # package, e.g. bare 'from api import arkadia_engine' → 'api'),
+                # an entry INSIDE that package (e.g. 'api/key_pool.py') must
+                # not outrank the package's own layer entry ('api') — the
+                # import targets the package as a whole, not that submodule.
+                # Without this guard the longer file prefix wins by length
+                # and the whole package is misclassified (detector blind spot).
+                if (PROJECT_ROOT / prefix).is_dir():
+                    exact = [c for c in candidates if c[0] == prefix]
+                    if exact:
+                        candidates = exact
                 if candidates:
                     imported_layer = candidates[0][1]
                     matched_prefix = candidates[0][0]
@@ -458,6 +469,35 @@ def test_intent_types_allowed_types_is_not_a_frozenset():
                                 "Once the plugin registry is implemented, remove the frozenset "
                                 "assignment and this test."
                             )
+
+
+def test_from_package_import_resolves_package_layer():
+    """Pass 07 regression: bare 'from api import <module>' must be classified
+    by the api package's own layer (1), not by a longer LAYER_MAP entry inside
+    the package (e.g. 'api/key_pool.py' → 3). This was the blind spot that hid
+    kernel/agents.py → api.arkadia_engine: '_extract_imports' yields 'api',
+    and the old longest-prefix match picked 'api/key_pool.py' over 'api'.
+    The proof is allowlist-independent: the kernel/agents debt entry is
+    temporarily removed, so only correct classification can surface it.
+    """
+    saved = list(REGISTERED_ARCHITECTURAL_DEBT)
+    try:
+        REGISTERED_ARCHITECTURAL_DEBT[:] = [
+            e for e in saved if e[0] != "kernel/agents.py"
+        ]
+        violations = collect_violations()
+        kernel_agents = [
+            v for v in violations
+            if v["file"] == "kernel/agents.py" and v["imported_module"] == "api"
+        ]
+        assert kernel_agents, (
+            "detector must see kernel/agents.py → api (the from-package import "
+            "of api.arkadia_engine) once the debt entry is bypassed"
+        )
+        assert kernel_agents[0]["imported_layer"] == 1
+        assert kernel_agents[0]["importer_layer"] == 2
+    finally:
+        REGISTERED_ARCHITECTURAL_DEBT[:] = saved
 
 
 # ── Main (for manual runs) ──────────────────────────────────────────────────
