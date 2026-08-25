@@ -479,16 +479,16 @@ def resolve_persona_system_prompt(name: str) -> Optional[str]:
 
 
 def wire_downstream_seams() -> None:
-    """Composition-root wiring for downward seams that api/ consumers need but
-    lower layers must not import upward (ADR-015):
+    """Composition-root wiring for cross-layer capability seams (ADR-015):
 
       • kernel/tts.py       ← api.tts_key_manager get/rotate (Pass 04)
       • providers/router.py ← persona system-prompt resolver above (Pass 05)
+      • api/nodes.py        ← kernel.tools registered-tool count (Pass 06)
 
-    Called once from api/main.py so neither kernel/ nor providers/ imports
-    api/ or knowledge/. Failures degrade to the layers' standalone fallback
-    behavior (env-only keys / no persona prompt), identical to the pre-
-    injection import-failure paths.
+    Called once from api/main.py so kernel/ never imports api/, providers/
+    never imports knowledge/, and the identity layer (api/nodes) stays a
+    leaf. Failures degrade to each layer's standalone fallback behavior,
+    identical to the pre-injection import-failure paths.
     """
     try:
         from api.tts_key_manager import get_active_key, rotate_key
@@ -501,6 +501,12 @@ def wire_downstream_seams() -> None:
         _provider_router.configure_persona_resolver(resolve_persona_system_prompt)
     except Exception as e:
         logger.warning(f"[PROVIDERS] persona resolver injection skipped: {e}")
+    try:
+        from kernel.tools import list_tools
+        from api import nodes as _nodes
+        _nodes.configure_tools_counter(lambda: len(list_tools()))
+    except Exception as e:
+        logger.warning(f"[NODES] tools counter injection skipped: {e}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

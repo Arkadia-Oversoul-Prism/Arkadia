@@ -157,11 +157,17 @@ REGISTERED_ARCHITECTURAL_DEBT: list[tuple[str, str, str]] = [
     # grep -n "from api" kernel/tts.py returns empty. This removes the last
     # detector-visible Layer-2→Layer-1 import in the codebase.
 
-    # api/nodes.py imports kernel.tools (Layer 3 Identity → Layer 2 Runtime Core).
-    # Identity layer must be a leaf — it may not depend on Runtime Core.
-    # Owner: Principal Engineer | Workstream: A | Deadline: Phase 1 Gate E
-    # Exit criterion: grep -n "from kernel" api/nodes.py returns empty
-    ("api/nodes.py",         "kernel", "identity→runtime: kernel.tools — Workstream A, Phase 1 Gate E"),
+    # RESOLVED (Consolidation Pass 06, 2026-08-25): api/nodes.py → kernel.tools.
+    # The only kernel use was len(list_tools()) for the tools_count field of
+    # the public /api/codex/personal response — non-identity data, already
+    # guarded by try/except with a default of 4. Removed by capability
+    # injection: the composition root (api/knowledge_routes.wire_downstream_seams)
+    # injects a () -> int counter via api.nodes.configure_tools_counter().
+    # Without injection the fallback remains 4, identical to the previous
+    # import-failure path. Identity semantics unchanged: no identity,
+    # ownership, or request context ever crossed this boundary. Exit
+    # criterion met: grep -n "from kernel" api/nodes.py returns empty. The
+    # identity layer is now a true leaf.
 
     # api/main.py imports solspire.console_router (Layer 1 API → Layer 0 Presentation).
     # API surface must not depend on any presentation layer module.

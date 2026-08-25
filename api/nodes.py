@@ -29,6 +29,18 @@ router = APIRouter()
 
 _CODEX_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "personal_codices")
 
+# Injected capability seam (Pass 06): the only runtime datum the identity
+# layer needs from the kernel is the registered-tool count for
+# /api/codex/personal's system block. Wired by the composition root
+# (api/knowledge_routes.wire_downstream_seams); None = standalone fallback.
+_tools_counter = None
+
+
+def configure_tools_counter(counter) -> None:
+    """Inject the tool-count capability: () -> int. Called once at startup."""
+    global _tools_counter
+    _tools_counter = counter
+
 
 # ── /api/codex/personal — sovereign public endpoint ──────────────────────────
 
@@ -54,12 +66,16 @@ async def get_sovereign_codex_public():
                 "node_key":     n.get("node_key"),
             })
 
+    # Tool count comes from kernel.tools, but the identity layer must be a
+    # leaf (ADR-015). The composition root injects the counter via
+    # configure_tools_counter(); without injection we keep the historical
+    # fallback (4), identical to the previous import-failure path.
     tools_count = 4
-    try:
-        from kernel.tools import list_tools as _lt
-        tools_count = len(_lt())
-    except Exception:
-        pass
+    if _tools_counter is not None:
+        try:
+            tools_count = _tools_counter()
+        except Exception:
+            pass
 
     return {
         "node":       node,
