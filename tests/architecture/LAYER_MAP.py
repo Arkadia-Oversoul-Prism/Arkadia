@@ -57,6 +57,11 @@ LAYER_MAP: dict[str, int] = {
 
     # Layer 2 — Runtime Core
     "kernel":               2,
+    # SolSpire is the backend console kernel per the structural audit: api
+    # routers mount it and api.echofeild aggregates its owner-scoped
+    # primitives (Pass 01R/02R), so api(1) → solspire(2) is the correct
+    # dependency direction.
+    "solspire":             2,
 
     # Layer 1 — API Surface
     "api":                  1,   # catches all api/* not already assigned above
@@ -66,7 +71,6 @@ LAYER_MAP: dict[str, int] = {
     "bot":                  0,
     "arkadia-android":      0,
     "sonata-android":       0,
-    "solspire":             0,
     "app":                  0,
     "static":               0,
 
@@ -119,6 +123,18 @@ REGISTERED_ARCHITECTURAL_DEBT: list[tuple[str, str, str]] = [
 
     # Exit criterion: grep -n "from api" kernel/goals.py returns empty
     ("kernel/goals.py",      "api", "kernel→api: firebase_store — Workstream A, Phase 1 Gate E"),
+
+    # ── Exposed by SolSpire reclassification (Pass 02R, 2026-08-25) ──────────
+    # SolSpire was reclassified 0 → 2 (it is the backend console kernel per
+    # the structural audit). That exposed these pre-existing upward imports,
+    # previously invisible while solspire was lumped with web/bot at layer 0.
+    # Owner: Principal Engineer | Workstream: Consolidation | Deadline: next consolidation pass
+    # Exit criterion: key acquisition for SolSpire Gemini calls moves to a
+    # layer-appropriate provider primitive and these imports disappear.
+    # Check: grep -rn "from api" solspire/provider_manager.py returns empty
+    ("solspire/provider_manager.py", "api", "solspire→api: key_pool — Consolidation, next pass deadline"),
+    # Exit criterion: grep -n "from api" solspire/llm.py returns empty
+    ("solspire/llm.py",              "api", "solspire→api: key_manager — Consolidation, next pass deadline"),
 
     # ── Discovered during B0.5 calibration (2026-07-24) ─────────────────────
 

@@ -163,6 +163,15 @@ export interface FieldIdentity {
 export interface FieldConversation {
   peer_uid: string; last_message: Record<string, unknown>; count: number;
 }
+export interface SolSpireProject {
+  id: string; name: string; status: string; created_at: number; updated_at: number;
+  metadata: Record<string, unknown>; conversations: unknown[]; owner_uid: string | null;
+}
+export interface FieldExecution {
+  id: string; plan_id: string; status: string; started_at: number;
+  completed_at: number | null; results: unknown[]; error: string | null;
+  retries: number; owner_uid: string | null;
+}
 export interface FieldSource {
   source: string; primitive: string; included: boolean; detail?: string;
 }
@@ -172,9 +181,10 @@ export interface PersonalField {
   graph: GraphData;
   timeline: TimelineEvent[];
   projects: Project[];
+  solspire_projects: SolSpireProject[];
   conversations: FieldConversation[];
   messages: Record<string, unknown>[];
-  executions: unknown[];
+  executions: FieldExecution[];
   meta: { owner_uid: string; generated_at: string; sources: FieldSource[] };
 }
 export const getPersonalField = () => fetchJSON<PersonalField>('/api/me/field');

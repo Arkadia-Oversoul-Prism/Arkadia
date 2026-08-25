@@ -12,8 +12,12 @@ owner-scoped primitives only:
   projects      — knowledge.vault.list_projects(user_id=uid)
   conversations — api.messages inbox reader (pair-keyed JSONL, participant-only)
   messages      — api.messages thread reader, bounded, participant-only
-  executions    — [] (SolSpire is not owner-scoped in this repo state; excluded
-                       rather than weakening any boundary)
+  solspire_projects — solspire.project_manager.list_projects(owner_uid=uid)
+  executions        — solspire.execution_runtime.list_executions(owner_uid=uid)
+
+SolSpire ownership was established by Consolidation Pass 01R (9ca894d);
+the aggregator reads the existing owner-scoped primitives only. Legacy
+NULL-owner projects/executions are excluded by those primitives.
 
 Ownership is derived exclusively from the authenticated Firebase uid via
 api.auth.require_auth. No request parameter (uid/user_id/owner/node_key/...)
@@ -65,6 +69,23 @@ def _read_timeline(uid: str) -> list[dict]:
 def _read_projects(uid: str) -> list[dict]:
     from knowledge.vault import list_projects
     return list_projects(user_id=uid)
+
+
+def _read_solspire_projects(uid: str) -> list[dict]:
+    """Owner-scoped SolSpire projects (Pass 01R primitive).
+
+    list_projects(owner_uid=uid) returns only the caller's projects;
+    legacy NULL-owner rows are excluded by the store query itself.
+    Read-only.
+    """
+    from solspire.project_manager import get_project_manager
+    return [p.to_dict() for p in get_project_manager().list_projects(owner_uid=uid)]
+
+
+def _read_executions(uid: str) -> list[dict]:
+    """Owner-scoped SolSpire executions (Pass 01R primitive). Read-only."""
+    from solspire.execution_runtime import get_runtime
+    return get_runtime().list_executions(owner_uid=uid)
 
 
 def _read_messages(uid: str) -> tuple[list[dict], list[dict]]:
@@ -159,17 +180,22 @@ async def get_my_field(user: dict = Depends(require_auth)) -> dict[str, Any]:
         conversations, messages = [], []
         _source(sources, "conversations", "api.messages pair-keyed thread readers (participant-only)", False, "unavailable")
 
-    # SolSpire projects/executions are intentionally excluded: the SolSpire
-    # console store is not owner-scoped in the current repository state, so
-    # aggregating it would leak cross-user data. Excluded per the
-    # source-of-truth rule rather than weakening the boundary.
-    executions: list = []
-    _source(
-        sources, "solspire",
-        "solspire.project_store",
-        False,
-        "excluded — not owner-scoped in current repository state",
-    )
+    # SolSpire — owner-scoped by Pass 01R; knowledge "projects" and SolSpire
+    # projects are distinct models, so SolSpire projects get their own
+    # namespaced field rather than an ambiguous merge.
+    try:
+        solspire_projects = _read_solspire_projects(uid)
+        _source(sources, "solspire_projects", "solspire.project_manager.list_projects(owner_uid=uid)", True)
+    except Exception:
+        solspire_projects = []
+        _source(sources, "solspire_projects", "solspire.project_manager.list_projects(owner_uid=uid)", False, "unavailable")
+
+    try:
+        executions = _read_executions(uid)
+        _source(sources, "executions", "solspire.execution_runtime.list_executions(owner_uid=uid)", True)
+    except Exception:
+        executions = []
+        _source(sources, "executions", "solspire.execution_runtime.list_executions(owner_uid=uid)", False, "unavailable")
 
     return {
         "identity": identity,
@@ -177,6 +203,7 @@ async def get_my_field(user: dict = Depends(require_auth)) -> dict[str, Any]:
         "graph": graph,
         "timeline": timeline,
         "projects": projects,
+        "solspire_projects": solspire_projects,
         "conversations": conversations,
         "messages": messages,
         "executions": executions,

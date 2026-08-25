@@ -24,6 +24,7 @@ import pytest
 
 _tmpdir = tempfile.mkdtemp(prefix="arkadia_echofeild_")
 os.environ["ARKADIA_DB_PATH"] = os.path.join(_tmpdir, "test.db")
+os.environ["SOLSPIRE_PROJECTS_DB"] = os.path.join(_tmpdir, "solspire_projects.db")
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -31,9 +32,12 @@ from fastapi.testclient import TestClient
 import api.echofeild as echofeild
 import api.messages as messages_mod
 import knowledge.vault as vault
+import solspire.project_manager as sol_pm
+import solspire.project_store as sol_store
 from knowledge import timeline as tl
 from knowledge.db import get_connection
 from knowledge.graph import add_edge
+from solspire.execution_runtime import Plan, get_runtime
 
 USER_A = "echofeild-user-a"
 USER_B = "echofeild-user-b"
@@ -45,7 +49,7 @@ CANARY_BC = "ECHOFEILD_CANARY_PRIVATE_PAIR_BC_20260825"
 
 EXPECTED_KEYS = {
     "identity", "notes", "graph", "timeline", "projects",
-    "conversations", "messages", "executions", "meta",
+    "solspire_projects", "conversations", "messages", "executions", "meta",
 }
 
 
@@ -98,6 +102,12 @@ def _counts() -> dict:
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(vault, "VAULT_ROOT", tmp_path / "vault")
     monkeypatch.setattr(messages_mod, "_MSG_DIR", str(tmp_path / "messages"))
+    monkeypatch.setattr(sol_pm, "_DB_PATH", os.environ["SOLSPIRE_PROJECTS_DB"])
+    monkeypatch.setattr(sol_store, "_DB_PATH", os.environ["SOLSPIRE_PROJECTS_DB"])
+    runtime = get_runtime()
+    monkeypatch.setattr(runtime, "_executions", {})
+    monkeypatch.setattr(runtime, "_pause_events", {})
+    monkeypatch.setattr(runtime, "_cancel_flags", {})
     conn = get_connection()
     for table in ("graph_edges", "timeline", "chunks", "embeddings", "note_tags", "notes", "threads", "projects"):
         try:
@@ -204,10 +214,80 @@ def test_projects_are_owner_scoped(client):
     names_b = {p["name"] for p in field_b["projects"]}
     assert "A project" in names_a and "B project" not in names_a
     assert "B project" in names_b and "A project" not in names_b
-    # SolSpire is not owner-scoped in this repo state — excluded, never leaked
-    assert field_a["executions"] == []
-    solspire_source = next(s for s in field_a["meta"]["sources"] if s["source"] == "solspire")
-    assert solspire_source["included"] is False
+
+
+# ── E2. SolSpire projects & executions (Pass 02R connector) ───────────────────
+
+def _seed_solspire() -> dict:
+    """Seed via the real owner-scoped SolSpire primitives (Pass 01R)."""
+    pm = sol_pm.get_project_manager()
+    proj_a = pm.create(f"A solspire {CANARY_A}", owner_uid=USER_A)
+    pm.create(f"B solspire {CANARY_B}", owner_uid=USER_B)
+    legacy = pm.create("legacy null-owner solspire project")  # owner_uid=None
+    ex_a = get_runtime().execute(
+        Plan(id="p-a", request=f"run {CANARY_A}", intent="Question",
+             steps=[{"tool": "fs_read", "payload": {}}]),
+        owner_uid=USER_A,
+    )
+    get_runtime().execute(
+        Plan(id="p-b", request=f"run {CANARY_B}", intent="Question",
+             steps=[{"tool": "fs_read", "payload": {}}]),
+        owner_uid=USER_B,
+    )
+    legacy_ex = get_runtime().execute(
+        Plan(id="p-legacy", request="legacy run", intent="Question",
+             steps=[{"tool": "fs_read", "payload": {}}])
+    )  # owner_uid=None
+    return {"proj_a": proj_a, "legacy": legacy, "ex_a": ex_a, "legacy_ex": legacy_ex}
+
+
+def test_solspire_projects_are_owner_scoped_in_field(client):
+    seed = _seed_solspire()
+    field_a = client.get("/api/me/field", headers=_auth(USER_A)).json()
+    field_b = client.get("/api/me/field", headers=_auth(USER_B)).json()
+
+    names_a = {p["name"] for p in field_a["solspire_projects"]}
+    names_b = {p["name"] for p in field_b["solspire_projects"]}
+    assert f"A solspire {CANARY_A}" in names_a
+    assert f"B solspire {CANARY_B}" not in names_a
+    assert f"B solspire {CANARY_B}" in names_b
+    assert f"A solspire {CANARY_A}" not in names_b
+    # Legacy NULL-owner project appears in nobody's field (Pass 01R rule).
+    assert seed["legacy"].id not in {p["id"] for p in field_a["solspire_projects"]}
+    assert seed["legacy"].id not in {p["id"] for p in field_b["solspire_projects"]}
+    src = next(s for s in field_a["meta"]["sources"] if s["source"] == "solspire_projects")
+    assert src["included"] is True
+
+
+def test_executions_are_owner_scoped_in_field(client):
+    seed = _seed_solspire()
+    field_a = client.get("/api/me/field", headers=_auth(USER_A)).json()
+    field_b = client.get("/api/me/field", headers=_auth(USER_B)).json()
+
+    ids_a = {e["id"] for e in field_a["executions"]}
+    ids_b = {e["id"] for e in field_b["executions"]}
+    assert seed["ex_a"].id in ids_a
+    assert seed["ex_a"].id not in ids_b
+    assert all(e["owner_uid"] == USER_A for e in field_a["executions"])
+    assert all(e["owner_uid"] == USER_B for e in field_b["executions"])
+    # Legacy NULL-owner execution appears in nobody's field.
+    assert seed["legacy_ex"].id not in ids_a
+    assert seed["legacy_ex"].id not in ids_b
+    src = next(s for s in field_a["meta"]["sources"] if s["source"] == "executions")
+    assert src["included"] is True
+
+
+def test_solspire_spoofed_params_cannot_change_field_owner(client):
+    _seed_solspire()
+    for key in ("uid", "owner", "user_id", "owner_uid", "node_key"):
+        r = client.get("/api/me/field", headers=_auth(USER_A), params={key: USER_B})
+        assert r.status_code == 200
+        field = r.json()
+        assert field["meta"]["owner_uid"] == USER_A
+        names = {p["name"] for p in field["solspire_projects"]}
+        assert f"A solspire {CANARY_A}" in names
+        assert f"B solspire {CANARY_B}" not in names
+        assert all(e["owner_uid"] == USER_A for e in field["executions"])
 
 
 # ── F. Messages ───────────────────────────────────────────────────────────────
@@ -252,6 +332,24 @@ def test_field_does_not_create_message_store(client):
     assert not os.path.exists(messages_mod._MSG_DIR)
 
 
+def test_field_does_not_write_solspire_state(client):
+    _seed_solspire()
+    pm = sol_pm.get_project_manager()
+    runtime = get_runtime()
+    projects_before = sorted((p.id, p.name, p.status, p.owner_uid) for p in pm.list_projects())
+    executions_before = dict(runtime._executions)
+    sol_db = os.environ["SOLSPIRE_PROJECTS_DB"]
+    sol_db_before = open(sol_db, "rb").read() if os.path.exists(sol_db) else None
+
+    r = client.get("/api/me/field", headers=_auth(USER_A))
+    assert r.status_code == 200
+
+    assert sorted((p.id, p.name, p.status, p.owner_uid) for p in pm.list_projects()) == projects_before
+    assert dict(runtime._executions) == executions_before  # no executions created
+    sol_db_after = open(sol_db, "rb").read() if os.path.exists(sol_db) else None
+    assert sol_db_after == sol_db_before  # SolSpire DB bytes unchanged — no writes
+
+
 # ── H. Response contract ──────────────────────────────────────────────────────
 
 def test_response_contract(client):
@@ -265,6 +363,7 @@ def test_response_contract(client):
     assert isinstance(field["graph"], dict) and "nodes" in field["graph"] and "edges" in field["graph"]
     assert isinstance(field["timeline"], list)
     assert isinstance(field["projects"], list)
+    assert isinstance(field["solspire_projects"], list)
     assert isinstance(field["conversations"], list)
     assert isinstance(field["messages"], list)
     assert isinstance(field["executions"], list)
