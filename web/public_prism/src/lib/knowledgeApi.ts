@@ -154,6 +154,31 @@ export interface Project {
 }
 export const getProjects = () => fetchJSON<Project[]>('/api/knowledge/projects');
 
+// ── Personal Field (Echofeild Aggregator — Consolidation Pass 02) ────────────
+export interface FieldIdentity {
+  uid: string; email: string; display_name: string; username: string | null;
+  bio: string | null; avatar_url: string | null; role: string;
+  node_key: string | null; access_level: number; profile_complete: boolean;
+}
+export interface FieldConversation {
+  peer_uid: string; last_message: Record<string, unknown>; count: number;
+}
+export interface FieldSource {
+  source: string; primitive: string; included: boolean; detail?: string;
+}
+export interface PersonalField {
+  identity: FieldIdentity;
+  notes: Note[];
+  graph: GraphData;
+  timeline: TimelineEvent[];
+  projects: Project[];
+  conversations: FieldConversation[];
+  messages: Record<string, unknown>[];
+  executions: unknown[];
+  meta: { owner_uid: string; generated_at: string; sources: FieldSource[] };
+}
+export const getPersonalField = () => fetchJSON<PersonalField>('/api/me/field');
+
 // ── Providers ─────────────────────────────────────────────────────────────────
 export interface ProviderInfo {
   name: string; display_name: string; capabilities: string[]; authenticated: boolean;

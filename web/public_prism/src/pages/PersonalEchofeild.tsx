@@ -17,9 +17,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
-import { API_BASE, ORACLE } from '../lib/apiConfig';
+import { ORACLE } from '../lib/apiConfig';
 import {
-  getGraph, getRecentTimeline, getNotes, updateNote, deleteNote, setKnowledgeAuthToken,
+  getPersonalField, getNotes, updateNote, deleteNote, setKnowledgeAuthToken,
   GraphNode, GraphEdge, TimelineEvent, Note,
 } from '../lib/knowledgeApi';
 import ScrollListenButton from '../components/ScrollListenButton';
@@ -88,29 +88,21 @@ export default function PersonalEchofeild({ onNavigate }: { onNavigate: (v: View
     let cancelled = false;
     (async () => {
       setLoading(true); setErr(null);
-      const authHeaders = { Authorization: `Bearer ${user.idToken}` };
-      const results = await Promise.allSettled([
-        fetch(`${API_BASE}/api/knowledge/projects`, { headers: authHeaders })
-          .then(r => r.ok ? r.json() : [])
-          .then(d => Array.isArray(d) ? d : (d.projects ?? [])),
-        getGraph(),
-        getRecentTimeline(40),
-        getNotes({ limit: 40 }),
-      ]);
-      if (cancelled) return;
-      if (results[0].status === 'fulfilled') {
-        const plist = results[0].value as SolProject[];
+      // Consolidation Pass 02: single canonical aggregator read-model.
+      try {
+        const field = await getPersonalField();
+        if (cancelled) return;
+        const plist = (field.projects ?? []) as unknown as SolProject[];
         setProjects(Array.isArray(plist) ? plist : []);
-      } else setProjects([]);
-      if (results[1].status === 'fulfilled') {
-        setGraphNodes(results[1].value.nodes ?? []);
-        setGraphEdges(results[1].value.edges ?? []);
-      } else { setGraphNodes([]); setGraphEdges([]); }
-      if (results[2].status === 'fulfilled') setTimeline(results[2].value ?? []);
-      else setTimeline([]);
-      if (results[3].status === 'fulfilled') setNotes(results[3].value ?? []);
-      else setNotes([]);
-      if (results.every(r => r.status === 'rejected')) setErr('Unable to reach the field right now.');
+        setGraphNodes(field.graph?.nodes ?? []);
+        setGraphEdges(field.graph?.edges ?? []);
+        setTimeline(field.timeline ?? []);
+        setNotes(field.notes ?? []);
+      } catch {
+        if (cancelled) return;
+        setProjects([]); setGraphNodes([]); setGraphEdges([]); setTimeline([]); setNotes([]);
+        setErr('Unable to reach the field right now.');
+      }
       setLoading(false);
     })();
     return () => { cancelled = true; };

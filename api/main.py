@@ -321,6 +321,14 @@ try:
 except Exception as _e:
     logger.warning(f'[BOOT] messages router skipped: {_e}')
 
+# ── Echofeild aggregator (Consolidation Pass 02) ─────────────────────────────
+try:
+    from api.echofeild import router as _echofeild_router
+    app.include_router(_echofeild_router)
+    logger.info("[ECHOFEILD] Personal field aggregator mounted at /api/me/field")
+except Exception as _ef_err:
+    logger.warning(f'[BOOT] echofeild router skipped: {_ef_err}')
+
 # ── Social transmissions feed ─────────────────────────────────────────────────
 try:
     from api.transmissions import router as _tx_router
