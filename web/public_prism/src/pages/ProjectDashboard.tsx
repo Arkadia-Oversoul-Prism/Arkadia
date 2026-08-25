@@ -24,10 +24,20 @@ type ProjTab = 'overview'|'conversations'|'files'|'repos'|'tasks'|'workflows'|'m
 
 // ── API ───────────────────────────────────────────────────────────────────────
 
+// Pass 01R: /solspire now requires the Firebase ID token on every request.
+let authToken: string | null = null;
+export function setSolspireAuthToken(token: string | null) { authToken = token; }
+
+function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const h = { ...extra };
+  if (authToken) h.Authorization = `Bearer ${authToken}`;
+  return h;
+}
+
 async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const res = await fetch(`${ORACLE}${path}`, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : {},
+    headers: authHeaders(body ? { 'Content-Type': 'application/json' } : {}),
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) throw new Error(`${res.status}: ${(await res.text()).slice(0, 200)}`);
@@ -251,7 +261,7 @@ function Files({ project }: { project: Project }) {
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await fetch(`${ORACLE}/solspire/projects/${project.id}/files/upload`, { method: 'POST', body: fd });
+      const res = await fetch(`${ORACLE}/solspire/projects/${project.id}/files/upload`, { method: 'POST', headers: authHeaders(), body: fd });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || `${res.status}`);
       setUploadMsg({ ok: true, text: data.message || `'${file.name}' attached.` });

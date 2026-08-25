@@ -32,6 +32,7 @@ class Project:
     updated_at: float
     metadata: dict[str, Any] = field(default_factory=dict)
     conversations: list[dict[str, Any]] = field(default_factory=list)
+    owner_uid: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -54,12 +55,20 @@ def _db() -> sqlite3.Connection:
             conversations TEXT NOT NULL DEFAULT '[]'
         )
     """)
+    # Additive ownership migration (Pass 01R). Existing rows keep NULL owner;
+    # NULL-owner projects are legacy/unowned and are hidden from every
+    # authenticated listing and rejected for every project-scoped operation.
+    try:
+        conn.execute("ALTER TABLE projects ADD COLUMN owner_uid TEXT")
+    except sqlite3.OperationalError:
+        pass  # column already present
     conn.commit()
     return conn
 
 
 class ProjectManager:
-    def create(self, name: str, metadata: dict[str, Any] | None = None) -> Project:
+    def create(self, name: str, metadata: dict[str, Any] | None = None,
+               owner_uid: str | None = None) -> Project:
         if not name or not name.strip():
             raise ValueError("Project name must not be empty")
         project = Project(
@@ -70,14 +79,16 @@ class ProjectManager:
             updated_at=time.time(),
             metadata=metadata or {},
             conversations=[],
+            owner_uid=(owner_uid or "").strip() or None,
         )
         with _db() as conn:
             conn.execute(
-                "INSERT INTO projects (id, name, status, created_at, updated_at, metadata, conversations) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO projects (id, name, status, created_at, updated_at, metadata, conversations, owner_uid) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (project.id, project.name, project.status,
                  project.created_at, project.updated_at,
-                 json.dumps(project.metadata), json.dumps(project.conversations)),
+                 json.dumps(project.metadata), json.dumps(project.conversations),
+                 project.owner_uid),
             )
         logger.info("ProjectManager: created project '%s' id=%s", project.name, project.id)
         return project
@@ -99,9 +110,22 @@ class ProjectManager:
             raise KeyError(f"Project '{project_id}' not found")
         logger.info("ProjectManager: archived project id=%s", project_id)
 
-    def list_projects(self, status: str | None = None) -> list[Project]:
+    def list_projects(self, status: str | None = None, owner_uid: str | None = None) -> list[Project]:
+        """List projects. When ``owner_uid`` is given, only that owner's
+        projects are returned — legacy NULL-owner projects stay hidden."""
         with _db() as conn:
-            if status:
+            if owner_uid is not None:
+                if status:
+                    rows = conn.execute(
+                        "SELECT * FROM projects WHERE owner_uid=? AND status=? ORDER BY updated_at DESC",
+                        (owner_uid, status),
+                    ).fetchall()
+                else:
+                    rows = conn.execute(
+                        "SELECT * FROM projects WHERE owner_uid=? ORDER BY updated_at DESC",
+                        (owner_uid,),
+                    ).fetchall()
+            elif status:
                 rows = conn.execute("SELECT * FROM projects WHERE status=? ORDER BY updated_at DESC", (status,)).fetchall()
             else:
                 rows = conn.execute("SELECT * FROM projects ORDER BY updated_at DESC").fetchall()
@@ -117,6 +141,7 @@ class ProjectManager:
             )
 
     def _from_row(self, row: sqlite3.Row) -> Project:
+        keys = row.keys()
         return Project(
             id=row["id"],
             name=row["name"],
@@ -125,6 +150,7 @@ class ProjectManager:
             updated_at=row["updated_at"],
             metadata=json.loads(row["metadata"] or "{}"),
             conversations=json.loads(row["conversations"] or "[]"),
+            owner_uid=row["owner_uid"] if "owner_uid" in keys else None,
         )
 
 

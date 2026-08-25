@@ -28,7 +28,7 @@ import Releases   from './dashboard/Releases';
 // ── Other page components ─────────────────────────────────────────────────────
 import KnowledgeOSPage  from './knowledge/KnowledgeOSPage';
 import PersonalCodex    from './PersonalCodex';
-import ProjectDashboard, { Project } from './ProjectDashboard';
+import ProjectDashboard, { Project, setSolspireAuthToken } from './ProjectDashboard';
 import { CHAMBERS, ROMAN, loadChamberStates, ChamberState } from './ChamberView';
 import { getStatus, KnowledgeStatus } from '../lib/knowledgeApi';
 
@@ -87,10 +87,16 @@ const ALL_ITEMS: NavItem[] = NAV_GROUPS.flatMap(g => g.items);
 
 // ── API ───────────────────────────────────────────────────────────────────────
 
+// Pass 01R: /solspire now requires the Firebase ID token on every request.
+let consoleAuthToken: string | null = null;
+function setConsoleAuthToken(token: string | null) { consoleAuthToken = token; }
+
 async function apiFetch<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+  const headers: Record<string, string> = body ? { 'Content-Type': 'application/json' } : {};
+  if (consoleAuthToken) headers.Authorization = `Bearer ${consoleAuthToken}`;
   const res = await fetch(`${ORACLE}${path}`, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : {},
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) throw new Error(`${res.status}: ${(await res.text()).slice(0, 200)}`);
@@ -486,7 +492,14 @@ export default function SolSpireConsole() {
   const [openProject, setOpenProject] = useState<Project | null>(null);
   const [traceJobId, setTraceJobId] = useState<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+
+  // Propagate the Firebase ID token to both SolSpire fetch helpers.
+  useEffect(() => {
+    const token = user?.idToken ?? null;
+    setConsoleAuthToken(token);
+    setSolspireAuthToken(token);
+  }, [user?.idToken]);
 
   const activeItem = ALL_ITEMS.find(i => i.id === section)!;
 

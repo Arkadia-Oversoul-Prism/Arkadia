@@ -29,11 +29,37 @@ import re
 import time
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/solspire", tags=["SolSpire Console"])
+from api.auth import require_auth
+
+# Pass 01R: every /solspire route requires a verified Firebase identity.
+# require_auth rejects unauthenticated requests before any handler runs.
+router = APIRouter(
+    prefix="/solspire",
+    tags=["SolSpire Console"],
+    dependencies=[Depends(require_auth)],
+)
+
+
+async def require_project_owner(project_id: str, user: dict = Depends(require_auth)) -> dict:
+    """FastAPI dependency: resolve the project and enforce caller ownership.
+
+    Ownership is derived exclusively from the authenticated Firebase uid.
+    Missing, legacy (NULL owner), and cross-owner projects all return 404 so
+    existence is never leaked across users.
+    """
+    from solspire.project_manager import get_project_manager
+    try:
+        project = get_project_manager().load(project_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+    owner = (project.owner_uid or "").strip()
+    if not owner or owner != user["uid"]:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return user
 
 
 # ── Request models ─────────────────────────────────────────────────────────
@@ -100,7 +126,7 @@ class SetFallbackRequest(BaseModel):
 # ── End-to-end run ─────────────────────────────────────────────────────────
 
 @router.post("/run")
-async def run_request(body: RunRequest) -> dict[str, Any]:
+async def run_request(body: RunRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     """Route a natural language request through the full kernel pipeline."""
     from solspire.provider_manager import get_manager
     from solspire.intent_router import get_router
@@ -123,7 +149,7 @@ async def run_request(body: RunRequest) -> dict[str, Any]:
     if not valid:
         raise HTTPException(status_code=422, detail="Planner produced an invalid plan")
 
-    execution = get_runtime().execute(plan)
+    execution = get_runtime().execute(plan, owner_uid=user["uid"])
 
     # Wait for completion (max 60s for Milestone 1 sync flow)
     deadline = time.time() + 60
@@ -145,14 +171,14 @@ async def run_request(body: RunRequest) -> dict[str, Any]:
 # ── Providers ──────────────────────────────────────────────────────────────
 
 @router.get("/providers")
-async def list_providers() -> dict[str, Any]:
+async def list_providers(user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.provider_manager import get_manager
     m = get_manager()
     return {"providers": m.list_providers(), "active": m.active_provider(), "token_usage": m.token_usage()}
 
 
 @router.post("/providers/select")
-async def select_provider(body: SelectProviderRequest) -> dict[str, Any]:
+async def select_provider(body: SelectProviderRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.provider_manager import get_manager
     try:
         get_manager().select_provider(body.name)
@@ -164,24 +190,26 @@ async def select_provider(body: SelectProviderRequest) -> dict[str, Any]:
 # ── Projects ───────────────────────────────────────────────────────────────
 
 @router.get("/projects")
-async def list_projects(status: str | None = None) -> dict[str, Any]:
+async def list_projects(status: str | None = None, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.project_manager import get_project_manager
-    projects = get_project_manager().list_projects(status=status)
+    # Only caller-owned projects; legacy NULL-owner projects stay hidden.
+    projects = get_project_manager().list_projects(status=status, owner_uid=user["uid"])
     return {"projects": [p.to_dict() for p in projects], "count": len(projects)}
 
 
 @router.post("/projects")
-async def create_project(body: CreateProjectRequest) -> dict[str, Any]:
+async def create_project(body: CreateProjectRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.project_manager import get_project_manager
     try:
-        p = get_project_manager().create(body.name, body.metadata)
+        # Owner is the authenticated uid — client-supplied ownership fields are ignored.
+        p = get_project_manager().create(body.name, body.metadata, owner_uid=user["uid"])
         return {"ok": True, "project": p.to_dict()}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/projects/{project_id}")
-async def get_project(project_id: str) -> dict[str, Any]:
+async def get_project(project_id: str, user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_manager import get_project_manager
     try:
         p = get_project_manager().load(project_id)
@@ -191,7 +219,7 @@ async def get_project(project_id: str) -> dict[str, Any]:
 
 
 @router.post("/projects/{project_id}/archive")
-async def archive_project(project_id: str) -> dict[str, Any]:
+async def archive_project(project_id: str, user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_manager import get_project_manager
     try:
         get_project_manager().archive(project_id)
@@ -202,25 +230,33 @@ async def archive_project(project_id: str) -> dict[str, Any]:
 
 # ── Executions ─────────────────────────────────────────────────────────────
 
-@router.get("/executions")
-async def list_executions() -> dict[str, Any]:
+def _owned_execution(execution_id: str, uid: str):
+    """Return the execution owned by uid, else 404 (no existence leak)."""
     from solspire.execution_runtime import get_runtime
-    execs = get_runtime().list_executions()
-    return {"executions": execs, "active": get_runtime().active_count()}
+    ex = get_runtime().get(execution_id, owner_uid=uid)
+    if not ex:
+        raise HTTPException(status_code=404, detail="Execution not found")
+    return ex
+
+
+@router.get("/executions")
+async def list_executions(user: dict = Depends(require_auth)) -> dict[str, Any]:
+    from solspire.execution_runtime import get_runtime
+    execs = get_runtime().list_executions(owner_uid=user["uid"])
+    active = sum(1 for ex in execs if ex["status"] in ("running", "paused"))
+    return {"executions": execs, "active": active}
 
 
 @router.get("/executions/{execution_id}")
-async def get_execution(execution_id: str) -> dict[str, Any]:
-    from solspire.execution_runtime import get_runtime
-    ex = get_runtime().get(execution_id)
-    if not ex:
-        raise HTTPException(status_code=404, detail="Execution not found")
+async def get_execution(execution_id: str, user: dict = Depends(require_auth)) -> dict[str, Any]:
+    ex = _owned_execution(execution_id, user["uid"])
     return {"execution": ex.to_dict()}
 
 
 @router.post("/executions/{execution_id}/pause")
-async def pause_execution(execution_id: str) -> dict[str, Any]:
+async def pause_execution(execution_id: str, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.execution_runtime import get_runtime
+    _owned_execution(execution_id, user["uid"])
     try:
         get_runtime().pause(execution_id)
         return {"ok": True, "status": "paused"}
@@ -229,8 +265,9 @@ async def pause_execution(execution_id: str) -> dict[str, Any]:
 
 
 @router.post("/executions/{execution_id}/resume")
-async def resume_execution(execution_id: str) -> dict[str, Any]:
+async def resume_execution(execution_id: str, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.execution_runtime import get_runtime
+    _owned_execution(execution_id, user["uid"])
     try:
         get_runtime().resume(execution_id)
         return {"ok": True, "status": "running"}
@@ -239,8 +276,9 @@ async def resume_execution(execution_id: str) -> dict[str, Any]:
 
 
 @router.post("/executions/{execution_id}/cancel")
-async def cancel_execution(execution_id: str) -> dict[str, Any]:
+async def cancel_execution(execution_id: str, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.execution_runtime import get_runtime
+    _owned_execution(execution_id, user["uid"])
     try:
         get_runtime().cancel(execution_id)
         return {"ok": True, "status": "cancelled"}
@@ -251,45 +289,54 @@ async def cancel_execution(execution_id: str) -> dict[str, Any]:
 # ── File System Tools ──────────────────────────────────────────────────────
 
 @router.post("/tools/fs/read")
-async def fs_read(body: FsReadRequest) -> dict[str, Any]:
+async def fs_read(body: FsReadRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
+    # Authenticated global tool: operates on the shared server workspace
+    # (tools_fs sandboxes paths to SOLSPIRE_WORKSPACE_ROOT), never on
+    # project-private rows. Project files live in the project store and are
+    # reachable only through the owner-guarded /projects/{id}/files routes.
     from solspire.tools_fs import read_file
     return read_file(body.path)
 
 
 @router.post("/tools/fs/write")
-async def fs_write(body: FsWriteRequest) -> dict[str, Any]:
+async def fs_write(body: FsWriteRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.tools_fs import write_file
     return write_file(body.path, body.content)
 
 
 @router.post("/tools/fs/list")
-async def fs_list(body: FsListRequest) -> dict[str, Any]:
+async def fs_list(body: FsListRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.tools_fs import list_directory
     return list_directory(body.path)
 
 
 # ── GitHub Tools ───────────────────────────────────────────────────────────
 
+# GitHub tool routes: `body.owner` is a GitHub org/user, NOT Arkadia
+# application ownership. These routes proxy the caller's intent to GitHub
+# using the server-configured credential; they never read or mutate
+# project-private state, so project ownership does not apply.
+
 @router.post("/tools/github/repos")
-async def github_repos(body: GithubReposRequest) -> dict[str, Any]:
+async def github_repos(body: GithubReposRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.tools_github import list_repos
     return list_repos(body.owner)
 
 
 @router.post("/tools/github/tree")
-async def github_tree(body: GithubTreeRequest) -> dict[str, Any]:
+async def github_tree(body: GithubTreeRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.tools_github import get_tree
     return get_tree(body.owner, body.repo, body.branch)
 
 
 @router.post("/tools/github/read")
-async def github_read(body: GithubReadRequest) -> dict[str, Any]:
+async def github_read(body: GithubReadRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.tools_github import read_file
     return read_file(body.owner, body.repo, body.path, body.branch)
 
 
 @router.post("/tools/github/commit")
-async def github_commit(body: GithubCommitRequest) -> dict[str, Any]:
+async def github_commit(body: GithubCommitRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.tools_github import commit_file
     return commit_file(body.owner, body.repo, body.path, body.content, body.message, body.branch)
 
@@ -297,7 +344,7 @@ async def github_commit(body: GithubCommitRequest) -> dict[str, Any]:
 # ── Provider Key Management ─────────────────────────────────────────────────
 
 @router.get("/providers/keys")
-async def list_provider_keys(provider: str | None = None) -> dict[str, Any]:
+async def list_provider_keys(provider: str | None = None, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.provider_manager import get_manager
     m = get_manager()
     return {
@@ -308,7 +355,7 @@ async def list_provider_keys(provider: str | None = None) -> dict[str, Any]:
 
 
 @router.post("/providers/keys")
-async def add_provider_key(body: AddKeyRequest) -> dict[str, Any]:
+async def add_provider_key(body: AddKeyRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.provider_manager import get_manager
     try:
         key_id = get_manager().add_key(body.provider, body.label, body.key)
@@ -318,7 +365,7 @@ async def add_provider_key(body: AddKeyRequest) -> dict[str, Any]:
 
 
 @router.delete("/providers/keys/{key_id}")
-async def delete_provider_key(key_id: str) -> dict[str, Any]:
+async def delete_provider_key(key_id: str, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.provider_manager import get_manager
     removed = get_manager().remove_key(key_id)
     if not removed:
@@ -327,7 +374,7 @@ async def delete_provider_key(key_id: str) -> dict[str, Any]:
 
 
 @router.post("/providers/keys/{key_id}/activate")
-async def activate_provider_key(key_id: str) -> dict[str, Any]:
+async def activate_provider_key(key_id: str, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.provider_manager import get_manager
     m = get_manager()
     # Find provider for this key
@@ -340,7 +387,7 @@ async def activate_provider_key(key_id: str) -> dict[str, Any]:
 
 
 @router.post("/providers/model")
-async def set_provider_model(body: SetModelRequest) -> dict[str, Any]:
+async def set_provider_model(body: SetModelRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.provider_manager import get_manager
     try:
         get_manager().set_model(body.provider, body.model)
@@ -350,7 +397,7 @@ async def set_provider_model(body: SetModelRequest) -> dict[str, Any]:
 
 
 @router.post("/providers/fallback")
-async def set_auto_fallback(body: SetFallbackRequest) -> dict[str, Any]:
+async def set_auto_fallback(body: SetFallbackRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.provider_manager import get_manager
     get_manager().set_auto_fallback(body.enabled)
     return {"ok": True, "auto_fallback": body.enabled}
@@ -359,7 +406,7 @@ async def set_auto_fallback(body: SetFallbackRequest) -> dict[str, Any]:
 # ── Status ─────────────────────────────────────────────────────────────────
 
 @router.get("/status")
-async def console_status() -> dict[str, Any]:
+async def console_status(user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.provider_manager import get_manager
     from solspire.execution_runtime import get_runtime
     from solspire.project_manager import get_project_manager
@@ -367,8 +414,9 @@ async def console_status() -> dict[str, Any]:
     runtime = get_runtime()
     pm = get_manager()
 
-    projects = get_project_manager().list_projects(status="active")
-    executions = runtime.list_executions()
+    # Caller-scoped counts — another user's projects/executions are invisible.
+    projects = get_project_manager().list_projects(status="active", owner_uid=user["uid"])
+    executions = runtime.list_executions(owner_uid=user["uid"])
 
     return {
         "version": {
@@ -388,7 +436,7 @@ async def console_status() -> dict[str, Any]:
         },
         "executions": {
             "total": len(executions),
-            "active": runtime.active_count(),
+            "active": sum(1 for ex in executions if ex["status"] in ("running", "paused")),
             "by_status": _count_by_status(executions),
         },
         "milestone": 1,
@@ -454,7 +502,8 @@ class ProjectRunRequest(BaseModel):
 
 
 @router.put("/projects/{project_id}")
-async def update_project(project_id: str, body: UpdateProjectRequest) -> dict[str, Any]:
+async def update_project(project_id: str, body: UpdateProjectRequest,
+                         user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     import time, sqlite3, os
     db_path = os.environ.get("SOLSPIRE_PROJECTS_DB", "data/solspire_projects.db")
     fields, vals = [], []
@@ -477,45 +526,50 @@ async def update_project(project_id: str, body: UpdateProjectRequest) -> dict[st
 
 
 @router.get("/projects/{project_id}/conversations")
-async def project_list_conversations(project_id: str) -> dict[str, Any]:
+async def project_list_conversations(project_id: str, user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import list_conversations
     items = list_conversations(project_id)
     return {"conversations": items, "count": len(items)}
 
 
 @router.post("/projects/{project_id}/conversations")
-async def project_create_conversation(project_id: str, body: CreateConversationRequest) -> dict[str, Any]:
+async def project_create_conversation(project_id: str, body: CreateConversationRequest,
+                                      user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import create_conversation
     return create_conversation(project_id, body.title)
 
 
 @router.delete("/projects/{project_id}/conversations/{conv_id}")
-async def project_archive_conversation(project_id: str, conv_id: str) -> dict[str, Any]:
+async def project_archive_conversation(project_id: str, conv_id: str,
+                                       user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import archive_conversation
     archive_conversation(conv_id)
     return {"ok": True}
 
 
 @router.post("/projects/{project_id}/conversations/{conv_id}/messages")
-async def project_append_message(project_id: str, conv_id: str, body: AppendMessageRequest) -> dict[str, Any]:
+async def project_append_message(project_id: str, conv_id: str, body: AppendMessageRequest,
+                                 user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import append_message
     return append_message(conv_id, body.role, body.content)
 
 
 @router.get("/projects/{project_id}/files")
-async def project_list_files(project_id: str) -> dict[str, Any]:
+async def project_list_files(project_id: str, user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import list_files
     return {"files": list_files(project_id)}
 
 
 @router.post("/projects/{project_id}/files")
-async def project_create_file(project_id: str, body: CreateFileRequest) -> dict[str, Any]:
+async def project_create_file(project_id: str, body: CreateFileRequest,
+                              user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import create_file
     return create_file(project_id, body.name, body.content, body.mime_type)
 
 
 @router.get("/projects/{project_id}/files/{file_id}")
-async def project_get_file(project_id: str, file_id: str) -> dict[str, Any]:
+async def project_get_file(project_id: str, file_id: str,
+                           user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import get_file
     f = get_file(file_id)
     if not f:
@@ -524,13 +578,15 @@ async def project_get_file(project_id: str, file_id: str) -> dict[str, Any]:
 
 
 @router.put("/projects/{project_id}/files/{file_id}")
-async def project_update_file(project_id: str, file_id: str, body: UpdateFileRequest) -> dict[str, Any]:
+async def project_update_file(project_id: str, file_id: str, body: UpdateFileRequest,
+                              user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import update_file
     return update_file(file_id, body.content, body.name)
 
 
 @router.delete("/projects/{project_id}/files/{file_id}")
-async def project_delete_file(project_id: str, file_id: str) -> dict[str, Any]:
+async def project_delete_file(project_id: str, file_id: str,
+                              user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import delete_file
     if not delete_file(file_id):
         raise HTTPException(status_code=404, detail="File not found")
@@ -538,7 +594,8 @@ async def project_delete_file(project_id: str, file_id: str) -> dict[str, Any]:
 
 
 @router.post("/projects/{project_id}/files/upload")
-async def project_upload_file(project_id: str, request: Request) -> dict[str, Any]:
+async def project_upload_file(project_id: str, request: Request,
+                              user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     """Attach a real document (PDF/DOCX/TXT/MD/etc) to a SolSpire project.
 
     Accepts multipart/form-data. Extracts text via the shared kernel.doc_extract
@@ -583,6 +640,8 @@ async def project_upload_file(project_id: str, request: Request) -> dict[str, An
     stored = create_file(project_id, file_name, extracted_text, mime_type)
 
     # Also ingest into the Knowledge OS so the project document joins the graph.
+    # Pass 01R: ingest under the uploader's uid so the note is private —
+    # previously it was ingested with no owner, landing in the public corpus.
     try:
         from knowledge.pipeline import ingest
         ingest(
@@ -591,6 +650,7 @@ async def project_upload_file(project_id: str, request: Request) -> dict[str, An
             note_type="document",
             tags=["solspire", "project", "file", project_id],
             auto_tag=True, auto_embed=True, auto_link=True,
+            user_id=user["uid"],
         )
     except Exception:
         # Knowledge OS ingestion is best-effort; the project file is still stored.
@@ -606,19 +666,21 @@ async def project_upload_file(project_id: str, request: Request) -> dict[str, An
 
 
 @router.get("/projects/{project_id}/repositories")
-async def project_list_repos(project_id: str) -> dict[str, Any]:
+async def project_list_repos(project_id: str, user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import list_repositories
     return {"repositories": list_repositories(project_id)}
 
 
 @router.post("/projects/{project_id}/repositories")
-async def project_link_repo(project_id: str, body: LinkRepoRequest) -> dict[str, Any]:
+async def project_link_repo(project_id: str, body: LinkRepoRequest,
+                            user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import link_repository
     return link_repository(project_id, body.owner, body.repo, body.branch, body.label)
 
 
 @router.delete("/projects/{project_id}/repositories/{repo_id}")
-async def project_unlink_repo(project_id: str, repo_id: str) -> dict[str, Any]:
+async def project_unlink_repo(project_id: str, repo_id: str,
+                              user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import unlink_repository
     if not unlink_repository(repo_id):
         raise HTTPException(status_code=404, detail="Repository not found")
@@ -626,26 +688,30 @@ async def project_unlink_repo(project_id: str, repo_id: str) -> dict[str, Any]:
 
 
 @router.get("/projects/{project_id}/tasks")
-async def project_list_tasks(project_id: str, status: str | None = None) -> dict[str, Any]:
+async def project_list_tasks(project_id: str, status: str | None = None,
+                             user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import list_tasks
     return {"tasks": list_tasks(project_id, status)}
 
 
 @router.post("/projects/{project_id}/tasks")
-async def project_create_task(project_id: str, body: CreateTaskRequest) -> dict[str, Any]:
+async def project_create_task(project_id: str, body: CreateTaskRequest,
+                              user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import create_task
     return create_task(project_id, body.title, body.description, body.assigned_to, body.priority)
 
 
 @router.put("/projects/{project_id}/tasks/{task_id}")
-async def project_update_task(project_id: str, task_id: str, body: UpdateTaskRequest) -> dict[str, Any]:
+async def project_update_task(project_id: str, task_id: str, body: UpdateTaskRequest,
+                              user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import update_task
     return update_task(task_id, title=body.title, description=body.description,
                        status=body.status, assigned_to=body.assigned_to, priority=body.priority)
 
 
 @router.delete("/projects/{project_id}/tasks/{task_id}")
-async def project_delete_task(project_id: str, task_id: str) -> dict[str, Any]:
+async def project_delete_task(project_id: str, task_id: str,
+                              user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import delete_task
     if not delete_task(task_id):
         raise HTTPException(status_code=404, detail="Task not found")
@@ -653,25 +719,29 @@ async def project_delete_task(project_id: str, task_id: str) -> dict[str, Any]:
 
 
 @router.get("/projects/{project_id}/memory")
-async def project_list_memory(project_id: str, q: str = "") -> dict[str, Any]:
+async def project_list_memory(project_id: str, q: str = "",
+                              user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import list_memory
     return {"memory": list_memory(project_id, q)}
 
 
 @router.post("/projects/{project_id}/memory")
-async def project_add_memory(project_id: str, body: AddMemoryRequest) -> dict[str, Any]:
+async def project_add_memory(project_id: str, body: AddMemoryRequest,
+                             user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import add_memory
     return add_memory(project_id, body.title, body.content, body.tags)
 
 
 @router.put("/projects/{project_id}/memory/{mem_id}")
-async def project_update_memory(project_id: str, mem_id: str, body: UpdateMemoryRequest) -> dict[str, Any]:
+async def project_update_memory(project_id: str, mem_id: str, body: UpdateMemoryRequest,
+                                user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import update_memory
     return update_memory(mem_id, body.title, body.content, body.tags)
 
 
 @router.delete("/projects/{project_id}/memory/{mem_id}")
-async def project_delete_memory(project_id: str, mem_id: str) -> dict[str, Any]:
+async def project_delete_memory(project_id: str, mem_id: str,
+                                user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import delete_memory
     if not delete_memory(mem_id):
         raise HTTPException(status_code=404, detail="Memory entry not found")
@@ -679,13 +749,15 @@ async def project_delete_memory(project_id: str, mem_id: str) -> dict[str, Any]:
 
 
 @router.get("/projects/{project_id}/events")
-async def project_list_events(project_id: str, event_type: str | None = None) -> dict[str, Any]:
+async def project_list_events(project_id: str, event_type: str | None = None,
+                              user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import list_events
     return {"events": list_events(project_id, event_type)}
 
 
 @router.post("/projects/{project_id}/run")
-async def project_run(project_id: str, body: RunRequest) -> dict[str, Any]:
+async def project_run(project_id: str, body: RunRequest,
+                      user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     """Run an intent in the context of a project — logs an event on completion."""
     import time as _time
     from solspire.provider_manager import get_manager
@@ -706,7 +778,7 @@ async def project_run(project_id: str, body: RunRequest) -> dict[str, Any]:
     if not get_planner().validate_plan(plan):
         raise HTTPException(status_code=422, detail="Invalid plan")
 
-    execution = get_runtime().execute(plan)
+    execution = get_runtime().execute(plan, owner_uid=user["uid"])
     deadline = _time.time() + 60
     while _time.time() < deadline:
         if execution.status not in (ExecutionStatus.RUNNING, ExecutionStatus.PAUSED):

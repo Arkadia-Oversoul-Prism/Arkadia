@@ -60,6 +60,7 @@ class Execution:
     results: list[dict[str, Any]]
     error: str | None
     retries: int = 0
+    owner_uid: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -71,6 +72,7 @@ class Execution:
             "results": self.results,
             "error": self.error,
             "retries": self.retries,
+            "owner_uid": self.owner_uid,
         }
 
 
@@ -85,7 +87,7 @@ class ExecutionRuntime:
         self._cancel_flags: dict[str, bool] = {}
         self._lock = threading.Lock()
 
-    def execute(self, plan: Plan) -> Execution:
+    def execute(self, plan: Plan, owner_uid: str | None = None) -> Execution:
         exec_id = str(uuid.uuid4())
         execution = Execution(
             id=exec_id,
@@ -95,6 +97,7 @@ class ExecutionRuntime:
             completed_at=None,
             results=[],
             error=None,
+            owner_uid=owner_uid,
         )
         pause_event = threading.Event()
         pause_event.set()  # not paused initially
@@ -150,12 +153,22 @@ class ExecutionRuntime:
         ex.status = ExecutionStatus.CANCELLED
         logger.info("ExecutionRuntime: cancelled %s", execution_id)
 
-    def get(self, execution_id: str) -> Execution | None:
-        return self._executions.get(execution_id)
+    def get(self, execution_id: str, owner_uid: str | None = None) -> Execution | None:
+        """Return an execution. When ``owner_uid`` is given, executions owned by
+        a different user (or legacy executions with no owner) are invisible."""
+        ex = self._executions.get(execution_id)
+        if ex is None:
+            return None
+        if owner_uid is not None and ex.owner_uid != owner_uid:
+            return None
+        return ex
 
-    def list_executions(self) -> list[dict[str, Any]]:
+    def list_executions(self, owner_uid: str | None = None) -> list[dict[str, Any]]:
         with self._lock:
-            return [ex.to_dict() for ex in self._executions.values()]
+            execs = list(self._executions.values())
+        if owner_uid is not None:
+            execs = [ex for ex in execs if ex.owner_uid == owner_uid]
+        return [ex.to_dict() for ex in execs]
 
     def active_count(self) -> int:
         with self._lock:
