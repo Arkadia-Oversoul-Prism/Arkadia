@@ -186,55 +186,63 @@ class ProviderManager:
             return self._invoke_stub(prompt, ctx)
 
     def _invoke_with_fallback_gemini(self, prompt: str, ctx: dict[str, Any]) -> str:
-        # Route SolSpire through the shared distributed key pool so its calls
-        # load-balance against Oracle Chat / Knowledge OS rather than always
-        # pinning the same active key. Falls back to local candidates if the
-        # pool module is unavailable (older deploys).
+        # Canonical Gemini key routing: the shared distributed key pool
+        # (api.key_pool), the single source of truth for key selection across
+        # Oracle Chat / ReasoMate / Knowledge OS / SolSpire. The pool already
+        # unions the provider-key store, the legacy key_manager store, and env
+        # vars, and handles cooldown + fair rotation — so there is no separate
+        # SolSpire-local candidate list (removed in Consolidation Pass 03).
         try:
             from api.key_pool import acquire_key, report_failure, report_success
-            key = acquire_key()
-            if key:
-                try:
-                    result = self._call_gemini(key, prompt, ctx)
-                    report_success(key)
-                    return result
-                except Exception as exc:
-                    if self.get_auto_fallback() and _is_quota_error(exc):
-                        report_failure(key)
-                        logger.warning("ProviderManager: pool key exhausted (%s), rotating", exc)
-                        rotated = acquire_key()
-                        if rotated and rotated != key:
-                            try:
-                                result = self._call_gemini(rotated, prompt, ctx)
-                                report_success(rotated)
-                                return result
-                            except Exception as exc2:
-                                if self.get_auto_fallback() and _is_quota_error(exc2):
-                                    report_failure(rotated)
-                    raise
         except Exception as _pe:
-            logger.debug("ProviderManager: key_pool unavailable (%s), using local candidates", _pe)
+            logger.debug("ProviderManager: key_pool unavailable (%s), using stored candidates", _pe)
+            key_env = os.environ.get("GOOGLE_API_KEY", "") or os.environ.get("GEMINI_API_KEY", "")
+            stored_keys = self._get_all_keys_for_provider("gemini")
+            candidates = stored_keys if stored_keys else ([key_env] if key_env else [])
+            if not candidates:
+                logger.warning("ProviderManager: no Gemini API keys configured")
+                return "[Gemini stub] No API key. Configure one in the Keys tab."
+            last_err: Exception | None = None
+            for api_key in candidates:
+                try:
+                    return self._call_gemini(api_key, prompt, ctx)
+                except Exception as exc:
+                    last_err = exc
+                    if self.get_auto_fallback() and _is_quota_error(exc):
+                        logger.warning("ProviderManager: Gemini key exhausted (%s), trying next key", exc)
+                        continue
+                    raise
+            logger.error("ProviderManager: all Gemini keys exhausted. Last error: %s", last_err)
+            return f"[Gemini error — all keys exhausted] {last_err}"
 
-        key_env = os.environ.get("GOOGLE_API_KEY", "") or os.environ.get("GEMINI_API_KEY", "")
-        stored_keys = self._get_all_keys_for_provider("gemini")
-
-        candidates = stored_keys if stored_keys else ([key_env] if key_env else [])
-        if not candidates:
+        # Pool exhausted → same stub as before (pool sources already include
+        # env vars, so an empty pool means nothing is configured anywhere).
+        key = acquire_key()
+        if not key:
             logger.warning("ProviderManager: no Gemini API keys configured")
             return "[Gemini stub] No API key. Configure one in the Keys tab."
 
-        last_err: Exception | None = None
-        for api_key in candidates:
-            try:
-                return self._call_gemini(api_key, prompt, ctx)
-            except Exception as exc:
-                last_err = exc
-                if self.get_auto_fallback() and _is_quota_error(exc):
-                    logger.warning("ProviderManager: Gemini key exhausted (%s), trying next key", exc)
-                    continue
-                raise
-        logger.error("ProviderManager: all Gemini keys exhausted. Last error: %s", last_err)
-        return f"[Gemini error — all keys exhausted] {last_err}"
+        try:
+            result = self._call_gemini(key, prompt, ctx)
+            report_success(key)
+            return result
+        except Exception as exc:
+            if self.get_auto_fallback() and _is_quota_error(exc):
+                report_failure(key)
+                logger.warning("ProviderManager: pool key exhausted (%s), rotating", exc)
+                rotated = acquire_key()
+                if rotated and rotated != key:
+                    try:
+                        result = self._call_gemini(rotated, prompt, ctx)
+                        report_success(rotated)
+                        return result
+                    except Exception as exc2:
+                        if self.get_auto_fallback() and _is_quota_error(exc2):
+                            report_failure(rotated)
+                            logger.error("ProviderManager: rotated pool key also exhausted: %s", exc2)
+                            return f"[Gemini error — all keys exhausted] {exc2}"
+                        raise
+            raise
 
     def _call_gemini(self, api_key: str, prompt: str, ctx: dict[str, Any]) -> str:
         import google.generativeai as genai

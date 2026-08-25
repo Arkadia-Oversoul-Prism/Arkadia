@@ -55,6 +55,17 @@ LAYER_MAP: dict[str, int] = {
     # Layer 3 — Provider (orthogonal)
     "providers":            3,
 
+    # Layer 3 — Key/credential substrate (stable leaves consumed by layer 1/2).
+    # These are not presentation/API-surface handlers; they are the canonical
+    # key-routing substrate (Pass 03 consolidation). api.key_pool is the single
+    # source of truth for Gemini key selection (its own docstring; consumed by
+    # api/main, solspire/provider_manager, solspire/llm). key_manager is the
+    # legacy multi-key store read by the pool. provider_key_store is the
+    # Settings multi-provider store read by the pool.
+    "api/key_pool.py":           3,
+    "api/key_manager.py":        3,
+    "api/provider_key_store.py": 3,
+
     # Layer 2 — Runtime Core
     "kernel":               2,
     # SolSpire is the backend console kernel per the structural audit: api
@@ -124,17 +135,17 @@ REGISTERED_ARCHITECTURAL_DEBT: list[tuple[str, str, str]] = [
     # Exit criterion: grep -n "from api" kernel/goals.py returns empty
     ("kernel/goals.py",      "api", "kernel→api: firebase_store — Workstream A, Phase 1 Gate E"),
 
-    # ── Exposed by SolSpire reclassification (Pass 02R, 2026-08-25) ──────────
-    # SolSpire was reclassified 0 → 2 (it is the backend console kernel per
-    # the structural audit). That exposed these pre-existing upward imports,
-    # previously invisible while solspire was lumped with web/bot at layer 0.
-    # Owner: Principal Engineer | Workstream: Consolidation | Deadline: next consolidation pass
-    # Exit criterion: key acquisition for SolSpire Gemini calls moves to a
-    # layer-appropriate provider primitive and these imports disappear.
-    # Check: grep -rn "from api" solspire/provider_manager.py returns empty
-    ("solspire/provider_manager.py", "api", "solspire→api: key_pool — Consolidation, next pass deadline"),
-    # Exit criterion: grep -n "from api" solspire/llm.py returns empty
-    ("solspire/llm.py",              "api", "solspire→api: key_manager — Consolidation, next pass deadline"),
+    # ── Resolved in Consolidation Pass 03 (2026-08-25) ──────────────────────
+    # solspire/provider_manager.py → api.key_pool and solspire/llm.py →
+    # api.key_manager were resolved by consolidating both consumers onto the
+    # canonical distributed key pool (api.key_pool.acquire_key), which already
+    # unions provider_key_store + key_manager + env. The upward imports are
+    # gone; the registry entries are removed.
+    #
+    # Remaining (intentional, protected boundary): solspire/console_router.py
+    # imports api.auth.require_auth (Pass 01R) — api.auth is layer 3 identity,
+    # so solspire(2) → api.auth(3) is a *permitted* direction (downward toward
+    # more stable), not debt.
 
     # ── Discovered during B0.5 calibration (2026-07-24) ─────────────────────
 

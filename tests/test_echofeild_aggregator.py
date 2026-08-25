@@ -332,6 +332,21 @@ def test_field_does_not_create_message_store(client):
     assert not os.path.exists(messages_mod._MSG_DIR)
 
 
+def _solspire_db_rows(db_path: str) -> dict:
+    """Logical content of the SolSpire projects DB (every table's rows),
+    independent of SQLite page/WAL layout which can churn without any write."""
+    import sqlite3
+    if not os.path.exists(db_path):
+        return {}
+    conn = sqlite3.connect(db_path)
+    try:
+        tables = [r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")]
+        return {t: conn.execute(f"SELECT * FROM {t} ORDER BY rowid").fetchall() for t in tables}
+    finally:
+        conn.close()
+
+
 def test_field_does_not_write_solspire_state(client):
     _seed_solspire()
     pm = sol_pm.get_project_manager()
@@ -339,15 +354,15 @@ def test_field_does_not_write_solspire_state(client):
     projects_before = sorted((p.id, p.name, p.status, p.owner_uid) for p in pm.list_projects())
     executions_before = dict(runtime._executions)
     sol_db = os.environ["SOLSPIRE_PROJECTS_DB"]
-    sol_db_before = open(sol_db, "rb").read() if os.path.exists(sol_db) else None
+    rows_before = _solspire_db_rows(sol_db)
 
     r = client.get("/api/me/field", headers=_auth(USER_A))
     assert r.status_code == 200
 
     assert sorted((p.id, p.name, p.status, p.owner_uid) for p in pm.list_projects()) == projects_before
     assert dict(runtime._executions) == executions_before  # no executions created
-    sol_db_after = open(sol_db, "rb").read() if os.path.exists(sol_db) else None
-    assert sol_db_after == sol_db_before  # SolSpire DB bytes unchanged — no writes
+    # SolSpire DB logical content unchanged — the aggregator performed no writes.
+    assert _solspire_db_rows(sol_db) == rows_before
 
 
 # ── H. Response contract ──────────────────────────────────────────────────────

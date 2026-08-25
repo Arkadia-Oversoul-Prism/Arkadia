@@ -28,11 +28,18 @@ except Exception:
 
 
 def _client():
-    """Lazily configure and return a Gemini model, or None if unavailable."""
+    """Lazily configure and return a Gemini model, or None if unavailable.
+
+    Key resolution goes through the canonical shared key pool (api.key_pool),
+    which already unions the provider-key store, the legacy key_manager store,
+    and env vars — no duplicate resolution chain here.
+    """
     try:
-        from api.key_manager import get_active_key
-        api_key = get_active_key() or os.environ.get("GOOGLE_API_KEY", "")
+        from api.key_pool import acquire_key
+        api_key = acquire_key()
     except Exception:
+        api_key = ""
+    if not api_key:
         api_key = os.environ.get("GOOGLE_API_KEY", "")
     if not (_HAS_GENAI and api_key):
         return None
