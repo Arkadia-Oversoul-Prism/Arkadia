@@ -72,7 +72,9 @@ export default function ReasoMatePage() {
   const [messages, setMessages]             = useState<Record<string, Message[]>>(loadReasomateMessages)
   const [chats, setChats]                   = useState<ChatThread[]>(BASE_CHATS)
   const [newMessage, setNewMessage]         = useState('')
-  const [peerUid, setPeerUid]               = useState('')
+  const [peerHandle, setPeerHandle]         = useState('')
+  const [peerPreview, setPeerPreview]       = useState<{ handle: string; display_name: string; avatar_url?: string | null } | null>(null)
+  const [peerLookupBusy, setPeerLookupBusy] = useState(false)
   const [oracleThinking, setOracleThinking] = useState(false)
   const [voiceIdx, setVoiceIdx]             = useState<number | null>(null)
   const [dmError, setDmError]               = useState('')
@@ -92,13 +94,13 @@ export default function ReasoMatePage() {
         })
         if (!res.ok || cancelled) return
         const data = await res.json()
-        const convs = (data.conversations || []) as Array<{ peer_uid: string; last_message: { content: string; timestamp: number; sender_uid: string }; count: number }>
+        const convs = (data.conversations || []) as Array<{ peer_uid: string; peer_handle?: string; last_message: { content: string; timestamp: number; sender_uid: string }; count: number }>
         if (cancelled) return
         setChats(prev => {
           const oracle = prev.filter(c => c.id === 'oracle')
           const peers: ChatThread[] = convs.map(c => ({
             id: c.peer_uid,
-            participant: { id: c.peer_uid, name: c.peer_uid.slice(0, 10) + '…', avatar: '◈', role: 'Peer' },
+            participant: { id: c.peer_uid, name: c.peer_handle ? `@${c.peer_handle}` : (c.peer_uid.slice(0, 10) + '…'), avatar: '◈', role: 'Peer' },
             lastMessage: {
               id: 'last',
               sender: c.last_message.sender_uid === user.uid ? 'me' : c.peer_uid,
@@ -144,20 +146,58 @@ export default function ReasoMatePage() {
   const chat        = activeChat ? chats.find(c => c.id === activeChat) : null
   const chatMessages = activeChat ? (messages[activeChat] || []) : []
 
-  const openPeer = () => {
-    const id = peerUid.trim()
-    if (!id) return
+  const lookupPeer = async () => {
+    const raw = peerHandle.trim()
+    if (!raw) return
+    setDmError('')
+    setPeerLookupBusy(true)
+    setPeerPreview(null)
+    try {
+      const path = encodeURIComponent(raw.startsWith('@') ? raw.slice(1) : raw)
+      const res = await fetch(`${API_BASE}/api/users/by-handle/${path}`)
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        setDmError(typeof d.detail === 'string' ? d.detail : `Lookup failed (${res.status})`)
+        return
+      }
+      const data = await res.json()
+      const u = data.user || {}
+      if (!u.handle && !u.username) {
+        setDmError('User not found')
+        return
+      }
+      setPeerPreview({
+        handle: u.handle || u.username,
+        display_name: u.display_name || u.handle || u.username,
+        avatar_url: u.avatar_url,
+      })
+    } catch (e) {
+      setDmError((e as Error).message || 'Lookup failed')
+    } finally {
+      setPeerLookupBusy(false)
+    }
+  }
+
+  const openPeer = async () => {
+    let preview = peerPreview
+    if (!preview) {
+      await lookupPeer()
+      return
+    }
+    const handle = preview.handle
+    const provisionalId = `handle:${handle}`
     setChats(prev => {
-      if (prev.some(c => c.id === id)) return prev
+      if (prev.some(c => c.id === provisionalId || c.participant.name === `@${handle}`)) return prev
       return [...prev, {
-        id,
-        participant: { id, name: id.slice(0, 12) + (id.length > 12 ? '…' : ''), avatar: '◈', role: 'Peer' },
-        lastMessage: { id: 'n', sender: 'me', receiver: id, content: 'New conversation', timestamp: Date.now(), read: true },
+        id: provisionalId,
+        participant: { id: provisionalId, name: `@${handle}`, avatar: preview.avatar_url ? '◉' : '◈', role: 'Peer' },
+        lastMessage: { id: 'n', sender: 'me', receiver: provisionalId, content: 'New conversation', timestamp: Date.now(), read: true },
         unread: 0,
       }]
     })
-    setActiveChat(id)
-    setPeerUid('')
+    setActiveChat(provisionalId)
+    setPeerHandle('')
+    setPeerPreview(null)
   }
 
   const sendMessage = useCallback(async () => {
@@ -187,13 +227,32 @@ export default function ReasoMatePage() {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${user.idToken}`,
           },
-          body: JSON.stringify({ recipient_uid: activeChat, content: sentText }),
+          body: JSON.stringify(
+            activeChat.startsWith('handle:')
+              ? { recipient_handle: activeChat.slice('handle:'.length), content: sentText }
+              : { recipient_uid: activeChat, content: sentText }
+          ),
         })
         if (!res.ok) {
           const d = await res.json().catch(() => ({}))
           setDmError(d.detail || `Send failed (${res.status})`)
         } else {
           setDmError('')
+          const payload = await res.json().catch(() => ({}))
+          const realPeer = payload?.message?.recipient_uid
+          if (activeChat.startsWith('handle:') && realPeer) {
+            setActiveChat(realPeer)
+            setChats(prev => prev.map(c => c.id === activeChat
+              ? { ...c, id: realPeer, participant: { ...c.participant, id: realPeer } }
+              : c))
+            setMessages(prev => {
+              const list = prev[activeChat] || []
+              const next = { ...prev }
+              delete next[activeChat]
+              next[realPeer] = list
+              return next
+            })
+          }
         }
       } catch (e) {
         setDmError((e as Error).message || 'Send failed')
@@ -282,17 +341,27 @@ export default function ReasoMatePage() {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 8 }}>
             <input
-              value={peerUid}
-              onChange={e => setPeerUid(e.target.value)}
-              placeholder="Peer user id (Firebase uid)"
-              data-testid="input-peer-uid"
+              value={peerHandle}
+              onChange={e => { setPeerHandle(e.target.value); setPeerPreview(null) }}
+              placeholder="@handle"
+              data-testid="input-peer-handle"
               style={{ flex: 1, padding: '8px 10px', background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(106,159,216,0.25)', borderRadius: 8, color: C.text, fontSize: 12 }}
             />
+            <button type="button" onClick={lookupPeer} disabled={peerLookupBusy} data-testid="button-lookup-peer"
+              style={{ padding: '8px 12px', background: 'rgba(106,159,216,0.12)', border: '1px solid rgba(106,159,216,0.35)', borderRadius: 8, color: C.blue ?? '#6A9FD8', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+              {peerLookupBusy ? '…' : 'Lookup'}
+            </button>
             <button type="button" onClick={openPeer} data-testid="button-open-peer"
               style={{ padding: '8px 12px', background: 'rgba(0,212,170,0.1)', border: '1px solid rgba(0,212,170,0.35)', borderRadius: 8, color: C.teal, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
               Message
             </button>
           </div>
+          {peerPreview && (
+            <div data-testid="peer-preview-card" style={{ margin: '0 16px 8px', padding: '10px 12px', background: 'rgba(0,212,170,0.06)', border: '1px solid rgba(0,212,170,0.25)', borderRadius: 8 }}>
+              <p style={{ margin: 0, fontSize: 12, color: C.text }}>@{peerPreview.handle}</p>
+              <p style={{ margin: '2px 0 0', fontSize: 11, color: C.dim }}>{peerPreview.display_name}</p>
+            </div>
+          )}
           {dmError && <p style={{ padding: '0 16px', fontSize: 11, color: '#E88C6A' }}>{dmError}</p>}
           {chats.map(c => (
             <div key={c.id} onClick={() => setActiveChat(c.id)}
