@@ -25,9 +25,6 @@ import SettingsPage from './pages/SettingsPage';
 import SolSpireConsole from './pages/SolSpireConsole';
 import KnowledgeOSPage from './pages/knowledge/KnowledgeOSPage';
 import ReasoMatePage from './pages/ReasoMatePage';
-import PersonalEchofeild from './pages/PersonalEchofeild';
-import UniversalEchofeildMatrix from './pages/UniversalEchofeildMatrix';
-import StellarCartography from './components/StellarCartography';
 
 type View =
   | 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
@@ -174,7 +171,7 @@ function FirstPrivateAction({ onNavigate }: { onNavigate: (v: View) => void }) {
         <button
           type="button"
           data-testid="button-first-capture"
-          onClick={() => { dismiss(); onNavigate('personal-echofeild'); }}
+          onClick={() => { dismiss(); onNavigate('solspire'); }}
           style={{ width: '100%', padding: 12, background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.35)', borderRadius: 9, color: 'rgba(201,168,76,0.9)', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', cursor: 'pointer' }}
         >
           Capture a private note
@@ -268,7 +265,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
 
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.65 }} style={{ marginBottom: '10px' }}>
           <button
-            onClick={() => onNavigate(isAuthenticated ? 'personal-echofeild' : 'login')}
+            onClick={() => onNavigate(isAuthenticated ? 'solspire' : 'login')}
             data-testid="button-home-private"
             style={{ width: '100%', padding: '13px', background: 'rgba(14,17,32,0.55)', border: '1px solid rgba(201,168,76,0.28)', borderRadius: '11px', color: 'rgba(201,168,76,0.85)', fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer' }}
           >
@@ -326,9 +323,8 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '30px' }}>
           <PortalDoor label="Oracle" sub="ARKANA · Pattern intelligence · Live commune" color="#00D4AA" sigil="⟐" onClick={() => onNavigate('commune')} delay={1.12} />
-          <PortalDoor label="NovaNet — Nexus Hub" sub="Public Feed · ReasoMate · Echofeild Matrix · SolSpire · Offerings · Stellar Cartography" color="#6A9FD8" sigil="◉" onClick={() => onNavigate('novanet')} delay={1.13} />
-          <PortalDoor label="Echofeild Crystal Matrix" sub="Public + Personal · unified field · the Crystal Matrix routes the Spiral Codex" color="#B08DE8" sigil="⬡" onClick={() => onNavigate('echofeild-matrix')} delay={1.14} />
-          <PortalDoor label="SolSpire Console" sub="Personal Codex · Knowledge OS · Projects · Operational Console" color="#C9A84C" sigil="◉" onClick={() => onNavigate('solspire')} delay={1.15} />
+          <PortalDoor label="NovaNet — Nexus Hub" sub="Public Feed · ReasoMate · Offerings · Stellar Cartography" color="#6A9FD8" sigil="◉" onClick={() => onNavigate('novanet')} delay={1.13} />
+          <PortalDoor label="SolSpire Console" sub="Echo Field Matrix · Spiral Codex · Personal Codex · Projects · Knowledge" color="#C9A84C" sigil="◉" onClick={() => onNavigate('solspire')} delay={1.14} />
           <PortalDoor label="ReasoMate" sub="Arkana messenger · continuous conversation" color="#6A9FD8" sigil="✧" onClick={() => onNavigate('reasomate')} delay={1.16} />
           <PortalDoor label="Offerings" sub="IMS Sessions · Products · AIC Diagnostic" color="#00D4AA" sigil="✦" onClick={() => onNavigate('offerings')} delay={1.18} />
         </div>
@@ -494,7 +490,7 @@ function AppInner() {
 
         {view === 'spiral-codex' && (
           <motion.div key="spiral-codex" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}>
-            <UniversalEchofeildMatrix onNavigate={handleNavigate} />
+            <SolSpireConsole onNavigate={handleNavigate} initialSection="field" />
           </motion.div>
         )}
 
@@ -591,7 +587,7 @@ function AppInner() {
 
         {view === 'solspire' && (
           <motion.div key="solspire" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
-            <SolSpireConsole />
+            <SolSpireConsole onNavigate={handleNavigate} />
           </motion.div>
         )}
 
@@ -609,17 +605,13 @@ function AppInner() {
 
         {view === 'personal-echofeild' && (
           <motion.div key="personal-echofeild" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
-            <PersonalEchofeild onNavigate={handleNavigate} />
+            <SolSpireConsole onNavigate={handleNavigate} initialSection="field" />
           </motion.div>
         )}
 
         {view === 'echofeild-matrix' && (
           <motion.div key="echofeild-matrix" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
-            {/* Crystal Matrix routes both halves of the field — stellar cartography is the atlas header */}
-            <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px 16px 0' }}>
-              <StellarCartography />
-            </div>
-            <UniversalEchofeildMatrix onNavigate={handleNavigate} />
+            <SolSpireConsole onNavigate={handleNavigate} initialSection="field" />
           </motion.div>
         )}
 

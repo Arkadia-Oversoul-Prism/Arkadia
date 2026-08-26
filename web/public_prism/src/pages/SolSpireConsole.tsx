@@ -28,6 +28,7 @@ import Releases   from './dashboard/Releases';
 // ── Other page components ─────────────────────────────────────────────────────
 import KnowledgeOSPage  from './knowledge/KnowledgeOSPage';
 import PersonalCodex    from './PersonalCodex';
+import UniversalEchofeildMatrix from './UniversalEchofeildMatrix';
 import ProjectDashboard, { Project, setSolspireAuthToken } from './ProjectDashboard';
 import { CHAMBERS, ROMAN, loadChamberStates, ChamberState } from './ChamberView';
 import { getStatus, KnowledgeStatus } from '../lib/knowledgeApi';
@@ -35,6 +36,7 @@ import { getStatus, KnowledgeStatus } from '../lib/knowledgeApi';
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type SolSection =
+  | 'field'
   | 'codex' | 'loops' | 'knowledge' | 'projects'
   | 'overview' | 'goals' | 'releases' | 'jobs' | 'traces' | 'tools' | 'system'
   | 'encyclopedia';
@@ -54,6 +56,12 @@ interface NavGroup {
 }
 
 const NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Field',
+    items: [
+      { id: 'field', label: 'Echo Field Matrix', sigil: '⬡', color: '#B08DE8', source: 'echofeild/', sub: 'Spiral Codex · Personal field · documents · projects' },
+    ],
+  },
   {
     label: 'Personal',
     items: [
@@ -487,8 +495,19 @@ function SidebarItem({ item, active, onClick }: { item: NavItem; active: boolean
 
 // ── Main Console ──────────────────────────────────────────────────────────────
 
-export default function SolSpireConsole() {
-  const [section, setSection] = useState<SolSection>('codex');
+type AppView = 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
+  | 'nexus' | 'encyclopedia' | 'spiral-codex' | 'loops' | 'grove' | 'larder' | 'novanet'
+  | 'ims' | 'distribute' | 'offerings' | 'aic' | 'pulse' | 'settings' | 'solspire'
+  | 'knowledge-os' | 'reasomate' | 'personal-echofeild' | 'echofeild-matrix';
+
+export default function SolSpireConsole({
+  onNavigate,
+  initialSection = 'field',
+}: {
+  onNavigate?: (v: AppView) => void;
+  initialSection?: SolSection;
+} = {}) {
+  const [section, setSection] = useState<SolSection>(initialSection);
   const [openProject, setOpenProject] = useState<Project | null>(null);
   const [traceJobId, setTraceJobId] = useState<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -501,7 +520,7 @@ export default function SolSpireConsole() {
     setSolspireAuthToken(token);
   }, [user?.idToken]);
 
-  const activeItem = ALL_ITEMS.find(i => i.id === section)!;
+  const activeItem = ALL_ITEMS.find(i => i.id === section) || ALL_ITEMS[0];
 
   // If a project is open, render it full-screen
   if (openProject) {
@@ -526,8 +545,11 @@ export default function SolSpireConsole() {
         initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
       >
-        <SectionHeader item={activeItem} />
+        {section !== 'field' && <SectionHeader item={activeItem} />}
 
+        {section === 'field'        && (
+          <UniversalEchofeildMatrix onNavigate={onNavigate || (() => {})} />
+        )}
         {section === 'codex'        && <PersonalCodex />}
         {section === 'loops'        && <OpenLoops />}
         {section === 'knowledge'    && <KnowledgeOSPage />}
@@ -546,8 +568,46 @@ export default function SolSpireConsole() {
     </AnimatePresence>
   );
 
+  const CONSOLE_CARDS: { id: SolSection; label: string; sigil: string; color: string }[] = [
+    { id: 'field', label: 'Echo Field', sigil: '⬡', color: '#B08DE8' },
+    { id: 'projects', label: 'Projects', sigil: '⚙', color: '#C9A84C' },
+    { id: 'knowledge', label: 'Knowledge', sigil: '◈', color: '#00D4AA' },
+    { id: 'codex', label: 'Personal Codex', sigil: '✦', color: '#C9A84C' },
+    { id: 'overview', label: 'Ops', sigil: '◎', color: '#6A9FD8' },
+  ];
+
+  const ConsoleCardStrip = () => (
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '12px 0 4px' }} data-testid="solspire-console-cards">
+      {CONSOLE_CARDS.map(c => {
+        const active = section === c.id;
+        return (
+          <button
+            key={c.id}
+            type="button"
+            data-testid={`solspire-card-${c.id}`}
+            onClick={() => handleSection(c.id)}
+            style={{
+              flex: '1 1 100px',
+              minWidth: 96,
+              maxWidth: 160,
+              padding: '12px 10px',
+              background: active ? `${c.color}14` : 'rgba(255,255,255,0.03)',
+              border: `1px solid ${active ? c.color + '45' : 'rgba(255,255,255,0.08)'}`,
+              borderRadius: 10,
+              cursor: 'pointer',
+              textAlign: 'left',
+            }}
+          >
+            <div style={{ fontSize: 16, color: active ? c.color : 'rgba(232,232,232,0.45)', marginBottom: 4 }}>{c.sigil}</div>
+            <div style={{ fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: active ? c.color : 'rgba(232,232,232,0.55)' }}>{c.label}</div>
+          </button>
+        );
+      })}
+    </div>
+  );
+
   return (
-    <div style={{ minHeight: 'calc(100vh - 52px)', background: '#0A0B14', position: 'relative' }}>
+    <div style={{ minHeight: 'calc(100vh - 52px)', background: '#0A0B14', position: 'relative' }} data-testid="solspire-console">
       <div className="aurora-bg" />
 
       {/* ── Mobile: collapsible menu strip ── */}
@@ -599,7 +659,8 @@ export default function SolSpireConsole() {
         </AnimatePresence>
 
         {/* Mobile content */}
-        <div style={{ padding: '20px 16px 60px', position: 'relative', zIndex: 10 }}>
+        <div style={{ padding: '12px 16px 60px', position: 'relative', zIndex: 10 }}>
+          <ConsoleCardStrip />
           <SectionContent />
         </div>
       </div>
@@ -651,7 +712,8 @@ export default function SolSpireConsole() {
         </aside>
 
         {/* Main content */}
-        <main style={{ flex: 1, padding: '32px 36px 60px', overflowX: 'hidden', position: 'relative', zIndex: 10 }}>
+        <main style={{ flex: 1, padding: '20px 28px 60px', overflowX: 'hidden', position: 'relative', zIndex: 10 }}>
+          <ConsoleCardStrip />
           <SectionContent />
         </main>
       </div>
