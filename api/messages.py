@@ -14,7 +14,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from api.auth import require_auth
+from api.auth import require_auth, normalize_handle, resolve_uid_by_handle, load_user_profile_store
 
 router = APIRouter(tags=["messages"])
 
@@ -54,14 +54,25 @@ def _append(a: str, b: str, msg: dict) -> None:
 
 
 class SendMessageRequest(BaseModel):
-    recipient_uid: str = Field(..., min_length=1, max_length=128)
+    recipient_uid: str | None = Field(None, min_length=1, max_length=128)
+    recipient_handle: str | None = Field(None, min_length=1, max_length=64)
     content: str = Field(..., min_length=1, max_length=8000)
 
 
 @router.post("/api/messages")
 async def send_message(req: SendMessageRequest, user: dict = Depends(require_auth)):
     sender = user["uid"]
-    recipient = req.recipient_uid.strip()
+    recipient = None
+    if req.recipient_handle and str(req.recipient_handle).strip():
+        try:
+            normalize_handle(req.recipient_handle)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid handle format")
+        recipient = resolve_uid_by_handle(req.recipient_handle)
+        if not recipient:
+            raise HTTPException(status_code=404, detail="User not found")
+    elif req.recipient_uid and str(req.recipient_uid).strip():
+        recipient = req.recipient_uid.strip()
     if not recipient or recipient == sender:
         raise HTTPException(status_code=400, detail="Invalid recipient")
     content = req.content.strip()
@@ -78,6 +89,17 @@ async def send_message(req: SendMessageRequest, user: dict = Depends(require_aut
     return {"message": msg}
 
 
+def _peer_handle_for(uid: str) -> str | None:
+    stored = load_user_profile_store(uid)
+    u = (stored.get("username") or "").strip()
+    if not u:
+        return None
+    try:
+        return normalize_handle(u)
+    except ValueError:
+        return None
+
+
 @router.get("/api/messages/thread/{peer_uid}")
 async def get_thread(peer_uid: str, user: dict = Depends(require_auth)):
     me = user["uid"]
@@ -85,8 +107,11 @@ async def get_thread(peer_uid: str, user: dict = Depends(require_auth)):
     if not peer:
         raise HTTPException(status_code=400, detail="Invalid peer")
     msgs = _read_thread(me, peer)
-    # Only participants can read — enforced by pair key including me
-    return {"messages": msgs, "peer_uid": peer}
+    out: dict = {"messages": msgs, "peer_uid": peer}
+    ph = _peer_handle_for(peer)
+    if ph:
+        out["peer_handle"] = ph
+    return out
 
 
 @router.get("/api/messages/inbox")
@@ -106,9 +131,13 @@ async def inbox(user: dict = Depends(require_auth)):
         if not msgs:
             continue
         last = msgs[-1]
-        peers[peer] = {
+        entry = {
             "peer_uid": peer,
             "last_message": last,
             "count": len(msgs),
         }
+        ph = _peer_handle_for(peer)
+        if ph:
+            entry["peer_handle"] = ph
+        peers[peer] = entry
     return {"conversations": list(peers.values())}
