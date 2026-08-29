@@ -1,0 +1,99 @@
+{
+  "anchor": {
+    "clean": true,
+    "head_sha": "72771bc6f4ca4db7571565b52ceca6277b70cefd",
+    "origin_sha": "72771bc6f4ca4db7571565b52ceca6277b70cefd"
+  },
+  "authorization": {
+    "current_pass_authorized": false,
+    "note": "MEMORY \u2260 AUTHORIZATION. A new PassSpec is required to modify the repository.",
+    "state": "NONE"
+  },
+  "continuation_id": "cont-72771bc6f4ca",
+  "current_session": {
+    "authorization": "NONE",
+    "next_action": "awaiting human authorization"
+  },
+  "decisions": [
+    {
+      "id": "k2-key-pool",
+      "source": "docs/verification/WEAVER_K2.md",
+      "statement": "K2 reuses api/key_pool.py for Gemini rotation.",
+      "status": "accepted"
+    },
+    {
+      "id": "k7-delegate",
+      "source": "docs/verification/WEAVER_K7.md",
+      "statement": "K7 delegates execution to K6 session conductor.",
+      "status": "accepted"
+    },
+    {
+      "id": "no-autonomous-objectives",
+      "source": "constitution",
+      "statement": "Autonomous objectives are prohibited.",
+      "status": "accepted"
+    }
+  ],
+  "execution": {
+    "builds": [],
+    "changed_files": [
+      "weaver/continuation.py",
+      "tests/test_weaver_k8.py",
+      "docs/verification/WEAVER_K8.md"
+    ],
+    "limitations": [
+      "Continuation bound at write time; may show STALE immediately after next commit until rewritten"
+    ],
+    "tests": [
+      "tests/test_weaver_k8.py"
+    ],
+    "verification": "verified"
+  },
+  "generated_at": 1788006618,
+  "last_pass": {
+    "capability": "WEAVER-K7",
+    "commit_sha": "72771bc6f4ca4db7571565b52ceca6277b70cefd",
+    "message": "WEAVER-K7: add governed engineering workbench",
+    "pass_id": "WEAVER-K7",
+    "source": "git_log",
+    "status": "published"
+  },
+  "next_action": "awaiting human authorization",
+  "objective": {
+    "previous_authorized_objective": "WEAVER-K7: add governed engineering workbench"
+  },
+  "plan": {},
+  "previous_session": {
+    "commit_sha": "72771bc6f4ca4db7571565b52ceca6277b70cefd",
+    "last_pass": "WEAVER-K7"
+  },
+  "proposal": {},
+  "publication": {
+    "remote_sha": "72771bc6f4ca4db7571565b52ceca6277b70cefd",
+    "required": true,
+    "result_sha": "72771bc6f4ca4db7571565b52ceca6277b70cefd",
+    "status": "published"
+  },
+  "repository": {
+    "branch": "main",
+    "remote": "origin"
+  },
+  "schema_version": "1.0.0",
+  "scope": {
+    "allowed_paths": [
+      "weaver/",
+      "tests/test_weaver_*.py",
+      "docs/verification/",
+      "data/weaver/"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Autonomous objectives",
+      "Self-authorization",
+      "Product feature work"
+    ]
+  },
+  "unresolved": [
+    "CLI multi-step state is process-local"
+  ]
+}
