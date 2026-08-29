@@ -10,6 +10,7 @@ from typing import Any
 from weaver.capabilities import capability_summary
 from weaver.operator_validation import run_all_scenarios, run_scenario
 from weaver.workbench_view import run_read_only_pipeline
+from solspire.project_knowledge import build_project_context_for_weaver, build_knowledge_summary
 
 
 def project_weaver_context(project: dict[str, Any]) -> dict[str, Any]:
@@ -43,6 +44,7 @@ def project_analyze(
 ) -> dict[str, Any]:
     """Run read-only Weaver pipeline inside explicit project context."""
     ctx = project_weaver_context(project)
+    rich = build_project_context_for_weaver(project)
     pipeline = run_read_only_pipeline(
         objective,
         repo_root=repo_root,
@@ -60,7 +62,7 @@ def project_analyze(
         "note": "Project access ≠ PassSpec ≠ PatchApproval ≠ execution.",
     }
     pipeline["executed"] = False
-    pipeline["project_context"] = ctx
+    pipeline["project_context"] = {**ctx, **{k: rich.get(k) for k in ("knowledge", "repositories", "memory_note", "embeddings")}}
     return pipeline
 
 

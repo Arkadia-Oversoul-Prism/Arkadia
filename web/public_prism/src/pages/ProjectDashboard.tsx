@@ -20,7 +20,7 @@ interface Task { id: string; title: string; description: string; status: string;
 interface MemEntry { id: string; title: string; content: string; tags: string[]; created_at: number; updated_at: number; }
 interface PEvent { id: string; event_type: string; summary: string; created_at: number; }
 interface RunResult { ok: boolean; intent: string; plan: { steps: { tool: string; description: string }[] }; execution: { status: string; results: Record<string,unknown>[] }; elapsed_ms: number; }
-type ProjTab = 'overview'|'weaver'|'conversations'|'files'|'repos'|'tasks'|'workflows'|'memory'|'events'|'settings';
+type ProjTab = 'overview'|'weaver'|'knowledge'|'conversations'|'files'|'repos'|'tasks'|'workflows'|'memory'|'events'|'settings';
 
 // ── API ───────────────────────────────────────────────────────────────────────
 
@@ -74,7 +74,7 @@ const EVENT_ICONS: Record<string, string> = { conversation_created: '💬', file
 // ── Tab Sections ──────────────────────────────────────────────────────────────
 
 
-/** W4 — Project Weaver workspace (read-only). Project access ≠ execution auth. */
+/** W5 — Project Weaver workbench (read-only). Project access ≠ execution auth. */
 function WeaverPanel({ project }: { project: Project }) {
   const [objective, setObjective] = React.useState('');
   const [paths, setPaths] = React.useState('weaver/execution.py');
@@ -83,9 +83,10 @@ function WeaverPanel({ project }: { project: Project }) {
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState('');
   const base = `${ORACLE}/solspire/projects/${project.id}/weaver`;
+  const token = () => localStorage.getItem('arkadia_token') || '';
 
   React.useEffect(() => {
-    fetch(`${base}/capabilities`, { headers: { Authorization: `Bearer ${localStorage.getItem('arkadia_token') || ''}` } })
+    fetch(`${base}/capabilities`, { headers: { Authorization: `Bearer ${token()}` } })
       .then(r => r.json()).then(setCaps).catch(() => {});
   }, [project.id]);
 
@@ -94,17 +95,14 @@ function WeaverPanel({ project }: { project: Project }) {
     try {
       const r = await fetch(`${base}/analyze`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('arkadia_token') || ''}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
         body: JSON.stringify({
           objective,
           affected_paths: paths.split(/[\n,]/).map((s: string) => s.trim()).filter(Boolean),
         }),
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.detail || r.statusText);
+      if (!r.ok) throw new Error(typeof data.detail === 'string' ? data.detail : r.statusText);
       setResult(data);
     } catch (e: any) {
       setErr(String(e.message || e));
@@ -114,46 +112,122 @@ function WeaverPanel({ project }: { project: Project }) {
   }
 
   const auth = result?.authorization || { Execution: 'LOCKED', PassSpec: 'NONE', PatchApproval: 'NONE' };
+  const scope = result?.scope || {};
+  const an = result?.analysis || {};
   return (
     <div style={{ fontFamily: 'sans-serif', color: '#D4DFE8' }}>
       <div style={{ marginBottom: 12, padding: 12, border: '1px solid rgba(0,212,170,0.2)', borderRadius: 8 }}>
-        <div style={{ fontSize: 11, letterSpacing: '0.12em', color: '#00D4AA', marginBottom: 6 }}>PROJECT WEAVER · READ-ONLY</div>
-        <div style={{ fontSize: 12, opacity: 0.7 }}>Project access ≠ PassSpec ≠ PatchApproval ≠ execution. Mutation path: K3 ONLY.</div>
+        <div style={{ fontSize: 11, letterSpacing: '0.12em', color: '#00D4AA', marginBottom: 6 }}>PROJECT ENGINEERING WORKBENCH · READ-ONLY</div>
+        <div style={{ fontSize: 12, opacity: 0.75 }}>
+          PROJECT ACCESS ≠ PASSSPEC ≠ PATCH APPROVAL ≠ EXECUTION · Mutation: K3 ONLY via K15
+        </div>
         <div style={{ marginTop: 8, fontSize: 12 }}>
           Execution: <strong style={{ color: '#C9A84C' }}>{auth.Execution || 'LOCKED'}</strong>
           {' · '}PassSpec: {auth.PassSpec || 'NONE'}
           {' · '}Approval: {auth.PatchApproval || 'NONE'}
         </div>
+        {result?.project_context?.knowledge && (
+          <div style={{ marginTop: 6, fontSize: 11, opacity: 0.7 }}>
+            Context sources: {JSON.stringify(result.project_context.knowledge)}
+          </div>
+        )}
       </div>
-      <textarea value={objective} onChange={e => setObjective(e.target.value)} placeholder="Engineering objective"
-        style={{ width: '100%', minHeight: 60, background: '#0a0b14', border: '1px solid rgba(0,212,170,0.25)', color: '#D4DFE8', padding: 8, borderRadius: 6 }} />
-      <textarea value={paths} onChange={e => setPaths(e.target.value)} placeholder="Affected paths (one per line)"
-        style={{ width: '100%', minHeight: 48, marginTop: 8, background: '#0a0b14', border: '1px solid rgba(0,212,170,0.25)', color: '#D4DFE8', padding: 8, borderRadius: 6, fontFamily: 'monospace', fontSize: 12 }} />
-      <button onClick={analyze} disabled={busy || !objective.trim()}
-        style={{ marginTop: 10, padding: '8px 14px', background: 'rgba(0,212,170,0.15)', border: '1px solid #00D4AA', color: '#00D4AA', borderRadius: 6, cursor: 'pointer' }}>
-        {busy ? 'Analyzing…' : 'ANALYZE (READ-ONLY)'}
-      </button>
+      <div style={{ fontSize: 11, color: 'rgba(212,223,232,0.5)', marginBottom: 4 }}>OBJECTIVE</div>
+      <textarea value={objective} onChange={e => setObjective(e.target.value)} placeholder="Engineering objective for this project"
+        style={{ width: '100%', minHeight: 56, background: '#0a0b14', border: '1px solid rgba(0,212,170,0.25)', color: '#D4DFE8', padding: 8, borderRadius: 6 }} />
+      <div style={{ fontSize: 11, color: 'rgba(212,223,232,0.5)', margin: '10px 0 4px' }}>SCOPE — affected paths (optional)</div>
+      <textarea value={paths} onChange={e => setPaths(e.target.value)} placeholder="weaver/execution.py"
+        style={{ width: '100%', minHeight: 48, background: '#0a0b14', border: '1px solid rgba(0,212,170,0.25)', color: '#D4DFE8', padding: 8, borderRadius: 6, fontFamily: 'monospace', fontSize: 12 }} />
+      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+        <button onClick={analyze} disabled={busy || !objective.trim()}
+          style={{ padding: '8px 14px', background: 'rgba(0,212,170,0.15)', border: '1px solid #00D4AA', color: '#00D4AA', borderRadius: 6, cursor: 'pointer' }}>
+          {busy ? 'Analyzing…' : 'ANALYZE (READ-ONLY)'}
+        </button>
+        <button disabled title="Requires PassSpec + PatchApproval via K15→K3"
+          style={{ padding: '8px 14px', opacity: 0.4, border: '1px solid #666', color: '#888', borderRadius: 6 }}>
+          BUILD / EXECUTE (LOCKED)
+        </button>
+      </div>
       {err && <div style={{ color: '#c44', marginTop: 8 }}>{err}</div>}
       {result && (
-        <pre style={{ marginTop: 12, fontSize: 11, maxHeight: 360, overflow: 'auto', background: '#0a0b14', padding: 10, borderRadius: 6 }}>
-{JSON.stringify({
-  scope: result.scope,
-  authorization: result.authorization,
-  executed: result.executed,
-  plan_id: result.plan?.plan_id,
-  paths: result.plan?.affected_paths,
-  facts: (result.analysis?.facts || []).slice(0, 5),
-  unknowns: (result.analysis?.unknowns || []).slice(0, 3),
-  changeset_files: (result.changeset?.files || []).map((f: any) => f.path),
-}, null, 2)}
-        </pre>
-      )}
-      {caps && (
-        <div style={{ marginTop: 16, fontSize: 11, opacity: 0.8 }}>
-          Capabilities: {(caps.read_only_capabilities || []).join(', ')}
-          {caps.mutation_capabilities?.length ? ` · Mutation (gated): ${caps.mutation_capabilities.join(', ')}` : ''}
+        <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
+          <div style={{ padding: 10, border: '1px solid rgba(0,212,170,0.12)', borderRadius: 6 }}>
+            <div style={{ fontSize: 11, color: '#00D4AA' }}>SCOPE · {scope.status || 'UNSCOPED'}</div>
+            <div style={{ fontSize: 11, fontFamily: 'monospace' }}>{JSON.stringify(scope.affected_paths || [])}</div>
+            <div style={{ fontSize: 11, opacity: 0.6 }}>{scope.note}</div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            <div><div style={{ fontSize: 10, color: '#8ab' }}>FACTS</div>
+              {(an.facts || []).slice(0, 4).map((f: any, i: number) => <div key={i} style={{ fontSize: 11 }}>{f.statement || f}</div>)}
+            </div>
+            <div><div style={{ fontSize: 10, color: '#ca8' }}>INFERENCES</div>
+              {(an.inferences || []).slice(0, 4).map((f: any, i: number) => <div key={i} style={{ fontSize: 11 }}>{f.statement || f}</div>)}
+            </div>
+            <div><div style={{ fontSize: 10, color: '#a88' }}>UNKNOWN</div>
+              {(an.unknowns || []).slice(0, 4).map((f: any, i: number) => <div key={i} style={{ fontSize: 11 }}>{f.statement || f}</div>)}
+            </div>
+          </div>
+          <div style={{ padding: 10, border: '1px solid rgba(0,212,170,0.12)', borderRadius: 6, fontSize: 11 }}>
+            <div>PLAN · {result.plan?.plan_id} · {result.plan?.scope_status}</div>
+            <div>paths: {JSON.stringify(result.plan?.affected_paths || [])}</div>
+            <div>CHANGESET files: {(result.changeset?.files || []).map((f: any) => f.path).join(', ') || '—'}</div>
+            <div>PATCH · {result.patch?.status} · quality {result.patch?.implementation_quality || '—'} · EXECUTED: {String(result.patch?.EXECUTED ?? false)}</div>
+          </div>
         </div>
       )}
+      {caps && (
+        <div style={{ marginTop: 16, fontSize: 11, opacity: 0.75 }}>
+          Available: {(caps.read_only_capabilities || []).join(', ')}
+          {caps.mutation_capabilities?.length ? ` · Gated mutation: ${caps.mutation_capabilities.join(', ')}` : ''}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function KnowledgePanel({ project }: { project: Project }) {
+  const [data, setData] = React.useState<any>(null);
+  const [graph, setGraph] = React.useState<any>(null);
+  const [emb, setEmb] = React.useState<any>(null);
+  const [q, setQ] = React.useState('');
+  const [hits, setHits] = React.useState<any[]>([]);
+  const base = `${ORACLE}/solspire/projects/${project.id}/knowledge`;
+  const token = () => localStorage.getItem('arkadia_token') || '';
+  React.useEffect(() => {
+    const h = { Authorization: `Bearer ${token()}` };
+    fetch(base, { headers: h }).then(r => r.json()).then(setData).catch(() => {});
+    fetch(`${base}/graph`, { headers: h }).then(r => r.json()).then(setGraph).catch(() => {});
+    fetch(`${base}/embeddings`, { headers: h }).then(r => r.json()).then(setEmb).catch(() => {});
+  }, [project.id]);
+  async function search() {
+    const r = await fetch(`${base}/search`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+      body: JSON.stringify({ q }),
+    });
+    const d = await r.json();
+    setHits(d.hits || []);
+  }
+  return (
+    <div style={{ fontFamily: 'sans-serif', color: '#D4DFE8', fontSize: 12 }}>
+      <div style={{ marginBottom: 10, color: '#00D4AA', letterSpacing: '0.1em' }}>PROJECT KNOWLEDGE OS</div>
+      {data && (
+        <div style={{ marginBottom: 12 }}>
+          Sources: {JSON.stringify(data.sources)}
+          <div style={{ opacity: 0.6, marginTop: 4 }}>{data.embeddings?.note}</div>
+        </div>
+      )}
+      <div style={{ marginBottom: 8 }}>Embeddings: <strong>{emb?.embeddings?.status || data?.embeddings?.status || '—'}</strong></div>
+      {graph && (
+        <div style={{ marginBottom: 12 }}>
+          Graph (DERIVED): {graph.counts?.nodes} nodes / {graph.counts?.edges} edges
+          <pre style={{ fontSize: 10, maxHeight: 160, overflow: 'auto', background: '#0a0b14', padding: 8 }}>{JSON.stringify((graph.edges || []).slice(0, 12), null, 2)}</pre>
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Keyword search" style={{ flex: 1, background: '#0a0b14', border: '1px solid rgba(0,212,170,0.25)', color: '#D4DFE8', padding: 8, borderRadius: 6 }} />
+        <button onClick={search} style={{ border: '1px solid #00D4AA', color: '#00D4AA', background: 'transparent', padding: '0 12px', borderRadius: 6 }}>Search</button>
+      </div>
+      <pre style={{ fontSize: 11, marginTop: 8 }}>{JSON.stringify(hits, null, 2)}</pre>
     </div>
   );
 }
@@ -838,6 +912,7 @@ function Settings({ project, onProjectUpdated, onArchive }: { project: Project; 
 const TABS: { id: ProjTab; label: string; sigil: string }[] = [
   { id: 'overview',       label: 'Overview',       sigil: '◈' },
   { id: 'weaver',         label: 'Weaver',         sigil: '⟐' },
+  { id: 'knowledge',      label: 'Knowledge',      sigil: '◈' },
   { id: 'conversations',  label: 'Conversations',  sigil: '💬' },
   { id: 'files',          label: 'Files',          sigil: '📄' },
   { id: 'repos',          label: 'Repos',          sigil: '⟁' },
@@ -898,6 +973,7 @@ export default function ProjectDashboard({ project, onBack, onProjectUpdated }: 
       {/* Content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px', maxWidth: '880px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
         <AnimatePresence mode="wait">
+          {tab === 'knowledge'     && <motion.div key="kn" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><KnowledgePanel project={currentProject} /></motion.div>}
           {tab === 'weaver'        && <motion.div key="wv" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><WeaverPanel project={currentProject} /></motion.div>}
           {tab === 'overview'      && <motion.div key="ov" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><Overview project={currentProject} onTabChange={setTab} /></motion.div>}
           {tab === 'conversations' && <motion.div key="cv" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><Conversations project={currentProject} /></motion.div>}

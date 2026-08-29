@@ -101,7 +101,8 @@
     "tests/test_weaver_w1.py",
     "tests/test_weaver_w2.py",
     "tests/test_weaver_w3.py",
-    "tests/test_weaver_w4.py"
+    "tests/test_weaver_w4.py",
+    "tests/test_weaver_w5.py"
   ],
   "behind": 0,
   "branch": "main",
@@ -110,18 +111,18 @@
     "current": null,
     "recent": []
   },
-  "generated_at": "2026-08-29T19:52:10.751549+00:00",
-  "head_sha": "ab5e5d703422a43df5e14eabfb358f7ea31050a2",
+  "generated_at": "2026-08-29T20:20:03.492752+00:00",
+  "head_sha": "b6ed4b7c312be6aea35125b4ae3ae5ff7ea39bd6",
   "last_verified_pass": {
-    "message": "WEAVER-W3: operator path scoping without increasing authority",
+    "message": "WEAVER-W4: operator validation and SolSpire project Weaver workspace",
     "pass_id": null,
     "publication_status": null,
-    "sha": "ab5e5d703422a43df5e14eabfb358f7ea31050a2",
+    "sha": "b6ed4b7c312be6aea35125b4ae3ae5ff7ea39bd6",
     "source": "git_log",
     "status": null
   },
   "next_action": "awaiting human authorization",
-  "origin_sha": "ab5e5d703422a43df5e14eabfb358f7ea31050a2",
+  "origin_sha": "b6ed4b7c312be6aea35125b4ae3ae5ff7ea39bd6",
   "protected_boundaries": [
     "api/auth.py",
     "api/ (ownership / isolation)",
@@ -137,6 +138,10 @@
     "deployment (vercel/render)"
   ],
   "recent_lineage": [
+    {
+      "message": "WEAVER-W4: operator validation and SolSpire project Weaver workspace",
+      "sha": "b6ed4b7c312be6aea35125b4ae3ae5ff7ea39bd6"
+    },
     {
       "message": "WEAVER-W3: operator path scoping without increasing authority",
       "sha": "ab5e5d703422a43df5e14eabfb358f7ea31050a2"
@@ -164,10 +169,6 @@
     {
       "message": "WEAVER-K12: add evidence-grounded verification and proof reconciliation",
       "sha": "ca55206cc17e6f0794b1b1bfe192e785916f5cb9"
-    },
-    {
-      "message": "WEAVER-K11: add evidence-grounded engineering planning",
-      "sha": "875da1bc1efb61e2fe90b7eef83c67e60bf7c944"
     }
   ],
   "repository": {
@@ -175,15 +176,15 @@
     "behind": 0,
     "branch": "main",
     "divergent": false,
-    "head_sha": "ab5e5d703422a43df5e14eabfb358f7ea31050a2",
-    "origin_sha": "ab5e5d703422a43df5e14eabfb358f7ea31050a2",
+    "head_sha": "b6ed4b7c312be6aea35125b4ae3ae5ff7ea39bd6",
+    "origin_sha": "b6ed4b7c312be6aea35125b4ae3ae5ff7ea39bd6",
     "remote": "https://github.com/Arkadia-Oversoul-Prism/Arkadia.git",
     "working_tree_clean": false
   },
   "schema_version": "1.0.0",
   "stale_detection": {
-    "bound_head_sha": "ab5e5d703422a43df5e14eabfb358f7ea31050a2",
-    "bound_origin_sha": "ab5e5d703422a43df5e14eabfb358f7ea31050a2",
+    "bound_head_sha": "b6ed4b7c312be6aea35125b4ae3ae5ff7ea39bd6",
+    "bound_origin_sha": "b6ed4b7c312be6aea35125b4ae3ae5ff7ea39bd6",
     "instruction": "If HEAD or origin/main differs from bound_* fields, this packet is stale."
   },
   "topology": [

@@ -922,4 +922,61 @@ async def project_weaver_knowledge_summary(project_id: str,
 
 
 
+
+@router.get("/projects/{project_id}/knowledge")
+async def project_knowledge_os(project_id: str,
+                               user: dict = Depends(require_project_owner)) -> dict[str, Any]:
+    from solspire.project_knowledge import build_knowledge_summary
+    return build_knowledge_summary(project_id)
+
+
+@router.get("/projects/{project_id}/knowledge/graph")
+async def project_knowledge_graph(project_id: str,
+                                  user: dict = Depends(require_project_owner)) -> dict[str, Any]:
+    from solspire.project_knowledge import build_derived_graph
+    return build_derived_graph(project_id)
+
+
+@router.get("/projects/{project_id}/knowledge/embeddings")
+async def project_knowledge_embeddings(project_id: str,
+                                       user: dict = Depends(require_project_owner)) -> dict[str, Any]:
+    from solspire.project_knowledge import build_knowledge_summary
+    s = build_knowledge_summary(project_id)
+    return {
+        "project_id": project_id,
+        "embeddings": s.get("embeddings"),
+        "authorization": s.get("authorization"),
+    }
+
+
+@router.post("/projects/{project_id}/knowledge/search")
+async def project_knowledge_search(project_id: str, body: dict[str, Any],
+                                   user: dict = Depends(require_project_owner)) -> dict[str, Any]:
+    """Keyword search over existing project store fields — not a vector DB."""
+    from solspire.project_store import list_memory, list_files, list_tasks
+    q = str((body or {}).get("q") or "").strip().lower()
+    hits = []
+    if not q:
+        return {"project_id": project_id, "q": q, "hits": [], "note": "empty query"}
+    for m in list_memory(project_id) or []:
+        blob = f"{m.get('title','')} {m.get('content','')}".lower()
+        if q in blob:
+            hits.append({"type": "memory", "id": m.get("id"), "title": m.get("title"), "classification": "SOURCE-BACKED"})
+    for f in list_files(project_id) or []:
+        if q in str(f.get("name") or "").lower():
+            hits.append({"type": "file", "id": f.get("id"), "name": f.get("name"), "classification": "SOURCE-BACKED"})
+    for t in list_tasks(project_id) or []:
+        blob = f"{t.get('title','')} {t.get('description','')}".lower()
+        if q in blob:
+            hits.append({"type": "task", "id": t.get("id"), "title": t.get("title"), "classification": "SOURCE-BACKED"})
+    return {
+        "project_id": project_id,
+        "q": q,
+        "hits": hits[:50],
+        "note": "Keyword search over project_store. Not semantic vector retrieval.",
+        "authorization": {"Execution": "LOCKED"},
+    }
+
+
+
 __all__ = ["router"]
