@@ -116,12 +116,36 @@ def observatory(repo_root: str = ".", pipeline: dict[str, Any] | None = None) ->
     return ObservatoryState(repository=repo, system=system, authority=auth, lifecycle=stages)
 
 
-def run_read_only_pipeline(objective: str, repo_root: str = ".") -> dict[str, Any]:
+def _normalize_path_hints(paths: list[str] | None) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for raw in paths or []:
+        n = str(raw).replace("\\", "/").strip().lstrip("./")
+        if not n or n in seen:
+            continue
+        seen.add(n)
+        out.append(n)
+    return out
+
+
+def run_read_only_pipeline(
+    objective: str,
+    repo_root: str = ".",
+    *,
+    affected_paths: list[str] | None = None,
+    symbols: list[str] | None = None,
+    pass_spec_display: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """
     Surfaces 2–3: objective → analysis → plan → changeset → patch.
-    Never mutates. Never creates PassSpec or approval.
+    Never mutates. Never creates PassSpec or approval from UI input.
+    path hints inform scope only; pass_spec_display is informational.
     """
+    from .pass_spec import PassSpec
+
     objective = (objective or "").strip()
+    path_hints = _normalize_path_hints(affected_paths)
+    symbol_hints = [s.strip() for s in (symbols or []) if str(s).strip()]
     out: dict[str, Any] = {
         "objective": objective,
         "authorization": {
@@ -129,14 +153,53 @@ def run_read_only_pipeline(objective: str, repo_root: str = ".") -> dict[str, An
             "PatchApproval": "NONE",
             "Execution": "LOCKED",
             "Mutation path": "K3 ONLY",
-            "note": "Read-only pipeline. ANALYSIS ≠ AUTHORIZATION.",
+            "note": "Read-only pipeline. ANALYSIS ≠ AUTHORIZATION. Display ≠ approval.",
         },
         "executed": False,
+        "scope": {
+            "status": "UNSCOPED",
+            "affected_paths": [],
+            "operator_hints": path_hints,
+            "symbol_hints": symbol_hints,
+            "note": "No concrete repository scope supplied.",
+        },
+        "pass_spec_display": pass_spec_display or None,
     }
     if not objective:
         out["status"] = "BLOCKED"
         out["message"] = "empty objective"
         return out
+
+    # Optional planning PassSpec constructed ONLY for scope context when display
+    # provides allow-lists. Never grants execution authorization in this pipeline.
+    plan_spec: PassSpec | None = None
+    display = pass_spec_display or {}
+    if display.get("allowed_paths") or path_hints:
+        try:
+            from .pass_spec import current_head
+            allowed = list(display.get("allowed_paths") or [])
+            if path_hints and not allowed:
+                # operator-scoped: allow only hinted paths' top segments under weaver/docs/tests/data
+                allowed = sorted({p.split("/")[0] + "/" for p in path_hints if "/" in p} | set(path_hints))
+            forbidden = list(display.get("forbidden_paths") or ["api/"])
+            plan_spec = PassSpec(
+                pass_id=str(display.get("pass_id") or "W3-SCOPE-DISPLAY"),
+                objective=objective,
+                base_sha=str(display.get("base_sha") or current_head(repo_root)),
+                allowed_paths=allowed or path_hints,
+                forbidden_paths=forbidden,
+                required_tests=list(display.get("required_tests") or []),
+                publication_required=False,
+            )
+            # Still NOT authorization for execution in UI
+            out["authorization"]["PassSpec"] = "DISPLAY_ONLY"
+            out["authorization"]["note"] = (
+                "PassSpec display/scope context present. NOT authorization. "
+                "Execution remains LOCKED without bound PatchApproval + K15."
+            )
+        except Exception as e:
+            out["scope"]["note"] = f"PassSpec display could not be constructed: {e}"
+            plan_spec = None
 
     # Recon / context
     try:
@@ -157,7 +220,12 @@ def run_read_only_pipeline(objective: str, repo_root: str = ".") -> dict[str, An
     }
 
     # Analysis
-    analysis = analyze_objective(objective, pass_spec=None, repo_root=repo_root)
+    analysis = analyze_objective(
+        objective,
+        pass_spec=plan_spec,
+        affected_path_hints=path_hints or None,
+        repo_root=repo_root,
+    )
     out["analysis"] = {
         "status": "COMPLETED",
         "result_kind": analysis.result_kind,
@@ -171,7 +239,12 @@ def run_read_only_pipeline(objective: str, repo_root: str = ".") -> dict[str, An
     }
 
     # Plan (no PassSpec → unscoped / candidate)
-    plan = build_engineering_plan(objective, pass_spec=None, repo_root=repo_root)
+    plan = build_engineering_plan(
+        objective,
+        pass_spec=plan_spec,
+        affected_path_hints=path_hints or None,
+        repo_root=repo_root,
+    )
     out["plan"] = {
         "status": "COMPLETED",
         "plan_id": plan.plan_id,
@@ -186,8 +259,37 @@ def run_read_only_pipeline(objective: str, repo_root: str = ".") -> dict[str, An
         "review_bundle": plan.review_bundle,
     }
 
+    # Scope status for operator
+    paths = list(plan.affected_paths or []) or list(path_hints)
+    if not paths:
+        scope_status = "UNSCOPED"
+        scope_note = (
+            "Analysis completed, but no concrete repository scope was supplied or established. "
+            "Planning and change design may remain incomplete."
+        )
+    elif plan.scope_status == "OUT_OF_SCOPE":
+        scope_status = "OUT-OF-SCOPE"
+        scope_note = "One or more paths conflict with allow/forbid rules."
+    elif path_hints and plan.scope_status in ("IN_SCOPE", "UNSCOPED"):
+        scope_status = "OPERATOR-SCOPED" if plan.scope_status != "IN_SCOPE" else "IN-SCOPE"
+        scope_note = "Scope informed by operator path hints."
+    elif plan.scope_status == "IN_SCOPE":
+        scope_status = "IN-SCOPE"
+        scope_note = "Plan paths within planning PassSpec allow-list (display-only)."
+    else:
+        scope_status = plan.scope_status or "UNSCOPED"
+        scope_note = "Derived from planning pipeline."
+    out["scope"] = {
+        "status": scope_status,
+        "affected_paths": paths,
+        "operator_hints": path_hints,
+        "symbol_hints": symbol_hints,
+        "plan_scope_status": plan.scope_status,
+        "note": scope_note,
+    }
+
     # Changeset
-    cs = synthesize_changeset(plan, pass_spec=None, repo_root=repo_root)
+    cs = synthesize_changeset(plan, pass_spec=plan_spec, repo_root=repo_root)
     out["changeset"] = {
         "status": cs.status,
         "changeset_id": cs.changeset_id,
@@ -201,7 +303,7 @@ def run_read_only_pipeline(objective: str, repo_root: str = ".") -> dict[str, An
     }
 
     # Patch
-    patch = synthesize_patch(cs, pass_spec=None, repo_root=repo_root)
+    patch = synthesize_patch(cs, pass_spec=plan_spec, repo_root=repo_root)
     out["patch"] = {
         "status": patch.status,
         "patch_id": patch.patch_id,
@@ -221,6 +323,11 @@ def run_read_only_pipeline(objective: str, repo_root: str = ".") -> dict[str, An
         "execution": patch.execution,
         "review": patch.review,
         "EXECUTED": False,
+        "implementation_quality": (
+            "DESIGN-ONLY"
+            if (patch.status in ("PATCH_UNDER_SPECIFIED", "PROPOSED") and not path_hints)
+            else ("HUMAN-COMPLETE" if patch.status in ("VALID", "PROPOSED") else patch.status)
+        ),
     }
 
     out["governance"] = {

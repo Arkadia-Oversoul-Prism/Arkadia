@@ -101,7 +101,7 @@ HTML = r"""<!DOCTYPE html>
 </head>
 <body>
 <header>
-  <h1>WEAVER COCKPIT <span class="muted">W2</span></h1>
+  <h1>WEAVER COCKPIT <span class="muted">W3</span></h1>
   <div class="auth-badge" id="authBadge">AUTH: LOCKED</div>
 </header>
 <div class="layout">
@@ -118,7 +118,19 @@ HTML = r"""<!DOCTYPE html>
         <input type="text" id="objective" placeholder="What do you want Weaver to investigate?"/>
         <button id="btnAnalyze">ANALYZE</button>
       </div>
-      <p class="muted" style="margin:8px 0 0">Does not modify files, commit, push, or authorize execution.</p>
+      <div style="margin-top:10px">
+        <div class="muted" style="font-size:11px;margin-bottom:4px">Affected path hints (optional, one per line) — SCOPE only, not authorization</div>
+        <textarea id="paths" rows="3" style="width:100%;background:#0c0f14;border:1px solid var(--border);color:var(--text);padding:8px;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px" placeholder="weaver/execution.py&#10;weaver/transaction.py"></textarea>
+      </div>
+      <div style="margin-top:8px">
+        <div class="muted" style="font-size:11px;margin-bottom:4px">Symbol hints (optional)</div>
+        <input type="text" id="symbols" placeholder="execute_patch, run_transaction" style="width:100%"/>
+      </div>
+      <p class="muted" style="margin:8px 0 0">Does not modify files, commit, push, or authorize execution. Path hints inform planning scope only.</p>
+    </div>
+    <div class="panel">
+      <h3>Scope</h3>
+      <div id="scopePanel" class="mono muted">UNSCOPED</div>
     </div>
     <div class="panel">
       <h3>Analysis</h3>
@@ -199,6 +211,11 @@ function renderObs(o) {
   ).join('');
 }
 function renderPipeline(p) {
+  const sp = document.getElementById('scopePanel');
+  if (sp) {
+    const sc = p.scope || {};
+    sp.textContent = 'STATUS: '+(sc.status||'UNSCOPED')+'\nPATHS: '+JSON.stringify(sc.affected_paths||[])+'\n'+(sc.note||'');
+  }
   const an = p.analysis||{};
   fillList(document.getElementById('facts'), an.facts, x => (x.kind?('['+x.kind+'] '):'')+(x.statement||x));
   fillList(document.getElementById('inferences'), an.inferences, x => (x.kind?('['+x.kind+'] '):'')+(x.statement||x));
@@ -242,9 +259,13 @@ async function refresh() {
 document.getElementById('btnAnalyze').onclick = async () => {
   const objective = document.getElementById('objective').value.trim();
   if (!objective) return;
+  const pathsEl = document.getElementById('paths');
+  const symEl = document.getElementById('symbols');
+  const paths = pathsEl ? pathsEl.value.split(/\n|,/).map(s=>s.trim()).filter(Boolean) : [];
+  const symbols = symEl ? symEl.value.split(/\n|,/).map(s=>s.trim()).filter(Boolean) : [];
   document.getElementById('btnAnalyze').disabled = true;
   try {
-    const p = await jpost('/api/analyze', {objective});
+    const p = await jpost('/api/analyze', {objective, affected_paths: paths, symbols});
     renderPipeline(p);
     const o = await jget('/api/observatory');
     // merge pipeline statuses
@@ -330,7 +351,27 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
             self._send(400, b'{"error":"invalid json"}', "application/json")
             return
         objective = str(data.get("objective") or "").strip()
-        result = run_read_only_pipeline(objective)
+        paths = data.get("affected_paths") or data.get("scope_hints") or []
+        if isinstance(paths, str):
+            paths = [x.strip() for x in paths.replace(",", "\n").splitlines() if x.strip()]
+        symbols = data.get("symbols") or []
+        if isinstance(symbols, str):
+            symbols = [x.strip() for x in symbols.replace(",", "\n").splitlines() if x.strip()]
+        display = data.get("pass_spec_display")
+        if display is not None and not isinstance(display, dict):
+            display = None
+        result = run_read_only_pipeline(
+            objective,
+            affected_paths=list(paths) if paths else None,
+            symbols=list(symbols) if symbols else None,
+            pass_spec_display=display,
+        )
+        auth = result.setdefault("authorization", {})
+        auth["Execution"] = "LOCKED"
+        auth["PatchApproval"] = "NONE"
+        if auth.get("PassSpec") not in ("NONE", "DISPLAY_ONLY"):
+            auth["PassSpec"] = "DISPLAY_ONLY"
+        result["executed"] = False
         _LAST = result
         self._send(200, _json_bytes(result), "application/json")
 
@@ -341,6 +382,6 @@ def make_server(host: str = "127.0.0.1", port: int = 8765) -> ThreadingHTTPServe
 
 def serve(host: str = "127.0.0.1", port: int = 8765) -> None:
     httpd = make_server(host, port)
-    print(f"Weaver Cockpit W2: http://{host}:{port}/")
+    print(f"Weaver Cockpit W3: http://{host}:{port}/")
     print("Read-only default. Mutation path: K3 ONLY (not exposed as one-click).")
     httpd.serve_forever()
