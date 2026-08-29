@@ -29,6 +29,10 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("objective", nargs="+", help="Engineering objective text")
     a.add_argument("--json", action="store_true", help="Emit JSON")
 
+    w = sub.add_parser("web", help="Start local browser cockpit (W2)")
+    w.add_argument("--host", default="127.0.0.1")
+    w.add_argument("--port", type=int, default=8765)
+
     args = p.parse_args(argv)
     if args.cmd == "observatory":
         state = observatory()
@@ -43,6 +47,10 @@ def main(argv: list[str] | None = None) -> int:
             print(render_text_pipeline(result))
             print()
             print(render_text_observatory(observatory(pipeline=result.get("pipeline"))))
+        return 0
+    if args.cmd == "web":
+        from .workbench_web import serve
+        serve(host=args.host, port=args.port)
         return 0
     return 1
 
