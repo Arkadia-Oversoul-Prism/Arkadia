@@ -40,7 +40,9 @@ export const GROVE_DOMAINS = [
   { id: 'ecological_agricultural', label: 'Ground Intelligence', icon: '◇', accent: '#6DBE73' },
 ] as const
 
-export const AIS_CAPABILITIES: GroveCapability[] = [
+type CapabilitySeed = [string, string, string, string, string, number, string[], string[]]
+
+const CAPABILITY_SEEDS: CapabilitySeed[] = [
   ['cap-digital-intelligence','digital-intelligence','Digital Intelligence','Use digital systems critically, safely, and effectively.','digital_intelligence',1,[],['navigate-digital-systems','evaluate-digital-information']],
   ['cap-ai-prompt-engineering','ai-prompt-engineering','AI Prompt Engineering','Design bounded prompts and evaluate AI-assisted outputs.','digital_intelligence',2,['cap-digital-intelligence'],['write-bounded-prompts','evaluate-ai-output']],
   ['cap-research-systems','research-systems','Research Systems','Find, verify, synthesize, and communicate evidence.','digital_intelligence',2,['cap-digital-intelligence'],['source-information','synthesize-evidence']],
@@ -72,7 +74,11 @@ export const AIS_CAPABILITIES: GroveCapability[] = [
   ['cap-water-systems','water-systems','Water Systems','Understand basic water resources, use, conservation, and management.','ecological_agricultural',1,[],['map-water-use','identify-conservation-actions']],
   ['cap-resource-management','resource-management','Resource Management','Allocate scarce resources responsibly against real constraints.','ecological_agricultural',2,['cap-problem-solving'],['allocate-resources','track-resource-use']],
   ['cap-sustainable-agriculture','sustainable-agriculture','Sustainable Agriculture','Design agricultural practices balancing productivity and ecological stewardship.','ecological_agricultural',3,['cap-soil-systems','cap-water-systems','cap-resource-management'],['design-sustainable-practices','evaluate-agricultural-tradeoffs']],
-].map(([id,slug,name,description,domain,level,prerequisites,outcomes]) => ({ id, slug, name, description, domain, level, prerequisites, outcomes, status: 'ACTIVE' as CapabilityStatus }))
+]
+
+export const AIS_CAPABILITIES: GroveCapability[] = CAPABILITY_SEEDS.map(([id, slug, name, description, domain, level, prerequisites, outcomes]) => ({
+  id, slug, name, description, domain, level, prerequisites, outcomes, status: 'ACTIVE',
+}))
 
 export const INITIAL_LEARNER_STATES: LearnerCapabilityState[] = AIS_CAPABILITIES.map(capability => ({
   learner_id: 'local-learner',
