@@ -272,6 +272,7 @@ def build_context_packet(repo_root: str = ".") -> dict[str, Any]:
         "available_tests": test_inventory(repo_root),
         "available_builds": build_inventory(repo_root),
         "recent_lineage": lineage,
+        "available_providers": _provider_inventory(),
         "next_action": "awaiting human authorization",
         "authorization": {
             "note": "CONTEXT ≠ AUTHORIZATION. This packet never grants a PassSpec.",
@@ -302,3 +303,18 @@ def write_context_packet(repo_root: str = ".", path: str | None = None) -> str:
     full.parent.mkdir(parents=True, exist_ok=True)
     full.write_text(json.dumps(packet, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return str(rel).replace("\\", "/")
+
+
+def _provider_inventory() -> dict:
+    """Names and capabilities only — never keys or secrets."""
+    try:
+        from weaver.provider import list_available_providers
+
+        names = list_available_providers()
+    except Exception:
+        names = ["gemini"]
+    return {
+        "providers": names,
+        "gemini_key_pool": "api.key_pool (acquire_key / report_failure)",
+        "note": "No credentials included. CONTEXT ≠ AUTHORIZATION.",
+    }

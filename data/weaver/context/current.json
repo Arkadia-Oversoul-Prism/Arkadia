@@ -66,6 +66,17 @@
       "surface": "vercel.json"
     }
   ],
+  "available_providers": {
+    "gemini_key_pool": "api.key_pool (acquire_key / report_failure)",
+    "note": "No credentials included. CONTEXT \u2260 AUTHORIZATION.",
+    "providers": [
+      "gemini",
+      "openai",
+      "claude",
+      "deepseek",
+      "local"
+    ]
+  },
   "available_tests": [
     "tests/architecture/test_layer_boundaries.py",
     "tests/test_weaver_k0.py",
@@ -73,7 +84,8 @@
     "tests/test_recursive_init.py",
     "tests/test_git_ops.py",
     "tests/test_autonomy_guard.py",
-    "tests/test_key_pool.py"
+    "tests/test_key_pool.py",
+    "tests/test_weaver_k2.py"
   ],
   "behind": 0,
   "branch": "main",
@@ -82,18 +94,18 @@
     "current": null,
     "recent": []
   },
-  "generated_at": "2026-08-29T11:59:33.059427+00:00",
-  "head_sha": "18cd6579b2b85a047cc9fefc44dc738cbcd2be44",
+  "generated_at": "2026-08-29T12:03:34.004189+00:00",
+  "head_sha": "62490c9abd6203528beb7beb5bed92d151d66737",
   "last_verified_pass": {
-    "message": "WEAVER-K0.1: deterministic session kernel with durable publication",
+    "message": "WEAVER-K1: deterministic recon and context packet",
     "pass_id": null,
     "publication_status": null,
-    "sha": "18cd6579b2b85a047cc9fefc44dc738cbcd2be44",
+    "sha": "62490c9abd6203528beb7beb5bed92d151d66737",
     "source": "git_log",
     "status": null
   },
   "next_action": "awaiting human authorization",
-  "origin_sha": "18cd6579b2b85a047cc9fefc44dc738cbcd2be44",
+  "origin_sha": "62490c9abd6203528beb7beb5bed92d151d66737",
   "protected_boundaries": [
     "api/auth.py",
     "api/ (ownership / isolation)",
@@ -109,6 +121,10 @@
     "deployment (vercel/render)"
   ],
   "recent_lineage": [
+    {
+      "message": "WEAVER-K1: deterministic recon and context packet",
+      "sha": "62490c9abd6203528beb7beb5bed92d151d66737"
+    },
     {
       "message": "WEAVER-K0.1: deterministic session kernel with durable publication",
       "sha": "18cd6579b2b85a047cc9fefc44dc738cbcd2be44"
@@ -136,10 +152,6 @@
     {
       "message": "CONSOLIDATION PASS 09R: restore api/auth.py handle helpers",
       "sha": "802218e2245379030b21c33950c1ef55bb4a6413"
-    },
-    {
-      "message": "CONSOLIDATION PASS 09R: ReasoMate handle-based recipient discovery",
-      "sha": "3a85b4ca635b1ac81ee794baf39a99300327fde7"
     }
   ],
   "repository": {
@@ -147,15 +159,15 @@
     "behind": 0,
     "branch": "main",
     "divergent": false,
-    "head_sha": "18cd6579b2b85a047cc9fefc44dc738cbcd2be44",
-    "origin_sha": "18cd6579b2b85a047cc9fefc44dc738cbcd2be44",
+    "head_sha": "62490c9abd6203528beb7beb5bed92d151d66737",
+    "origin_sha": "62490c9abd6203528beb7beb5bed92d151d66737",
     "remote": "https://github.com/Arkadia-Oversoul-Prism/Arkadia.git",
     "working_tree_clean": false
   },
   "schema_version": "1.0.0",
   "stale_detection": {
-    "bound_head_sha": "18cd6579b2b85a047cc9fefc44dc738cbcd2be44",
-    "bound_origin_sha": "18cd6579b2b85a047cc9fefc44dc738cbcd2be44",
+    "bound_head_sha": "62490c9abd6203528beb7beb5bed92d151d66737",
+    "bound_origin_sha": "62490c9abd6203528beb7beb5bed92d151d66737",
     "instruction": "If HEAD or origin/main differs from bound_* fields, this packet is stale."
   },
   "topology": [

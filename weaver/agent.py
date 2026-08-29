@@ -5,6 +5,7 @@ import re
 
 from .fs import read_repo, write_file
 from .llm import call_llm
+from .provider import invoke_provider, ProviderRequest, ProviderOutcome
 from .logger import get_logger
 from .pass_spec import PassSpec, PassSpecError, assert_paths_authorized
 from .prompts import build_prompt
@@ -70,7 +71,18 @@ def run_authorized(
     prompt = build_prompt(task, scoped or files)
     model = provider or pass_spec.provider or "gemini"
     try:
-        response = call_llm(model, prompt)
+        # Prefer structured provider result (K2); never treat failure as success
+        pres = invoke_provider(ProviderRequest(provider=model, prompt=prompt))
+        if not pres.ok:
+            LOGGER.warning("Provider failed for task '%s': %s %s", task, pres.outcome, pres.error)
+            return SessionResult(
+                ok=False,
+                pass_id=pass_spec.pass_id,
+                stage="llm",
+                status="FAILED",
+                message=f"{pres.outcome.value}: {pres.error}",
+            )
+        response = pres.text
     except Exception as e:
         LOGGER.warning("LLM call failed for task '%s': %s", task, e)
         return SessionResult(

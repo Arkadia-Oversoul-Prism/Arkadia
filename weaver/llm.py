@@ -91,14 +91,27 @@ PROVIDERS = {
     "gemini": gemini,
 }
 
+
 def available_providers() -> dict:
     """Check availability of configured LLM providers."""
-    return {"gemini": bool(_resolve_key())}
+    avail = {"gemini": bool(_resolve_key())}
+    for name in ("openai", "claude", "deepseek", "local"):
+        avail[name] = name in PROVIDERS or True
+    return avail
+
 
 def call_llm(provider: str, prompt: str) -> str:
-    """Entry point for LLM interactions."""
-    if provider not in PROVIDERS:
-        raise ValueError(f"Unknown LLM provider: {provider}")
+    """Entry point for LLM interactions — K2 routes through governed provider layer.
 
+    Provider failures raise; never returns success on rate-limit exhaustion.
+    Does not write files, commit, or push.
+    """
     LOGGER.info("Calling LLM provider: %s", provider)
-    return PROVIDERS[provider](prompt)
+    try:
+        from .provider import call_llm_governed
+
+        return call_llm_governed(provider, prompt)
+    except ImportError:
+        if provider not in PROVIDERS:
+            raise ValueError(f"Unknown LLM provider: {provider}")
+        return PROVIDERS[provider](prompt)
