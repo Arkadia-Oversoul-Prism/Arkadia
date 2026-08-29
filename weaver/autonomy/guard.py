@@ -1,52 +1,39 @@
-"""
-Autonomy Guard — Cycle 9
-
-Hard constraints on autonomy activation.
-Kill-switch enabled by default.
-"""
+"""Autonomy Guard — Cycle 9 + WEAVER-K0 allow-list support."""
+from __future__ import annotations
 
 
 class AutonomyGuard:
-    """Guard that enforces autonomy constraints."""
-
     def __init__(self, config: dict):
-        """Initialize with autonomy contract."""
-        self.config = config
+        self.config = config or {}
 
     def allowed(self) -> bool:
-        """
-        Check if autonomy is allowed to act.
-
-        Returns False if:
-        - status is not "enabled"
-        - kill_switch default is True
-        """
         if self.config.get("status") != "enabled":
             return False
-
         if self.config.get("kill_switch", {}).get("default", True):
             return False
-
         return True
 
     def path_allowed(self, path: str) -> bool:
-        """
-        Check if path is allowed to be modified.
-
-        Returns False if path is in forbidden_paths.
-        """
-        for forbidden in self.config.get("forbidden_paths", []):
-            if path.startswith(forbidden):
+        norm = path.replace("\\", "/").lstrip("./")
+        for forbidden in self.config.get("forbidden_paths", []) or []:
+            f = str(forbidden).replace("\\", "/").lstrip("./")
+            if f and (norm == f or norm.startswith(f.rstrip("/") + "/") or norm.startswith(f)):
                 return False
+        allowed = self.config.get("allowed_paths") or []
+        if allowed:
+            for a in allowed:
+                a = str(a).replace("\\", "/").lstrip("./")
+                if not a:
+                    continue
+                if norm == a or norm.startswith(a.rstrip("/") + "/") or norm.startswith(a + "/"):
+                    return True
+                if a.endswith("/") and norm.startswith(a):
+                    return True
+            return False
         return True
 
     def check_conditions(self) -> dict:
-        """
-        Check all conditions for autonomy.
-
-        Returns status of each condition.
-        """
-        conditions = self.config.get("conditions", {})
+        conditions = self.config.get("conditions", {}) or {}
         return {
             "tests_must_pass": conditions.get("tests_must_pass", False),
             "proposal_reviewed": conditions.get("proposal_reviewed", False),
@@ -56,14 +43,25 @@ class AutonomyGuard:
         }
 
     def can_write_files(self, num_files: int, num_lines: int) -> bool:
-        """
-        Check if change volume is within limits.
-
-        Returns False if exceeds configured thresholds.
-        """
         conditions = self.check_conditions()
         if num_files > conditions["max_files_changed"]:
             return False
         if num_lines > conditions["max_lines_changed"]:
             return False
         return True
+
+    @classmethod
+    def from_pass_spec(cls, spec) -> "AutonomyGuard":
+        return cls(
+            {
+                "status": "enabled",
+                "kill_switch": {"default": False},
+                "forbidden_paths": list(getattr(spec, "forbidden_paths", None) or []),
+                "allowed_paths": list(getattr(spec, "allowed_paths", None) or []),
+                "conditions": {
+                    "tests_must_pass": True,
+                    "max_files_changed": 50,
+                    "max_lines_changed": 5000,
+                },
+            }
+        )

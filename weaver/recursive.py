@@ -30,8 +30,9 @@ class RecursiveEngine:
         "weaver.model_adapter",
     ]
 
-    def __init__(self, initial_task: str = "", enabled: bool | None = None):
+    def __init__(self, initial_task: str = "", enabled: bool | None = None, pass_spec=None):
         self.initial_task = initial_task
+        self.pass_spec = pass_spec
         self.enabled = (
             bool(enabled)
             if enabled is not None
@@ -85,7 +86,16 @@ class RecursiveEngine:
 
             task = f"{self.initial_task} [recursive step {step_index}]"
             self.logger.info("Running step %s: %s", step_index, task)
-            updated_files, commit_msg = agent_run(task, engine_cycle=step_index)
+            if self.pass_spec is None:
+                self.logger.error(
+                    "RecursiveEngine refused step %s: PassSpec required (WEAVER-K0.1)",
+                    step_index,
+                )
+                self.errors.append("PassSpec required")
+                return [], None
+            updated_files, commit_msg = agent_run(
+                task, engine_cycle=step_index, pass_spec=self.pass_spec
+            )
             if updated_files:
                 self.updates.extend(updated_files)
             if commit_msg:

@@ -25,7 +25,8 @@ def commit_and_push(msg: str = "Arkadia Code Weaver update",
                     meta: Dict[str, str] | None = None,
                     max_commit_size: int | None = None,
                     allowed_exts: list[str] | None = None,
-                    sign_commit: bool | None = None) -> bool:
+                    sign_commit: bool | None = None,
+                    push: bool = False) -> bool:
     """Commit and push with optional metadata and safety checks.
 
     - `meta` will be appended to the commit message in the form: " | key=value | key=value"
@@ -114,6 +115,30 @@ def commit_and_push(msg: str = "Arkadia Code Weaver update",
         LOGGER.warning("Git commit failed: %s", e)
         return False
     LOGGER.info("Committed changes: %s", full_msg)
+    if not push:
+        LOGGER.info("Push skipped (push=False); commit-only")
+        return True
+    try:
+        run(["git", "push"])
+        LOGGER.info("Pushed changes to origin")
+        return True
+    except subprocess.CalledProcessError:
+        LOGGER.exception("Git push failed")
+        return False
+
+
+def commit_only(msg: str = "Arkadia Code Weaver update",
+                paths: list[str] | None = None,
+                meta: Dict[str, str] | None = None,
+                **kwargs) -> bool:
+    """Commit without publishing."""
+    kwargs = dict(kwargs)
+    kwargs["push"] = False
+    return commit_and_push(msg, paths=paths, meta=meta, **kwargs)
+
+
+def push_current() -> bool:
+    """Publish current branch to origin. Requires explicit authorization."""
     try:
         run(["git", "push"])
         LOGGER.info("Pushed changes to origin")
