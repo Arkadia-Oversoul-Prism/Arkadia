@@ -65,10 +65,11 @@ def _pid(base: str, cs_id: str, files: list[dict[str, Any]]) -> str:
 
 
 def _unified_diff(path: str, before: str, after: str, operation: str) -> str:
-    """Minimal unified-diff style text (not applied)."""
+    """Line-local unified diff (not applied). MVP: never emit redesign-region hunks."""
+    import difflib
     if operation == "ADD":
         lines = [f"--- /dev/null", f"+++ b/{path}"]
-        for i, ln in enumerate(after.splitlines() or [""], 1):
+        for ln in after.splitlines() or [""]:
             lines.append(f"+{ln}")
         return "\n".join(lines) + "\n"
     if operation == "DELETE":
@@ -76,17 +77,12 @@ def _unified_diff(path: str, before: str, after: str, operation: str) -> str:
         for ln in before.splitlines():
             lines.append(f"-{ln}")
         return "\n".join(lines) + "\n"
-    # MODIFY
-    bl = before.splitlines()
-    al = after.splitlines()
-    lines = [f"--- a/{path}", f"+++ b/{path}", f"@@ redesign region @@"]
-    for ln in bl[:40]:
-        lines.append(f"-{ln}")
-    for ln in al[:40]:
-        lines.append(f"+{ln}")
-    if len(bl) > 40 or len(al) > 40:
-        lines.append("# ... truncated for review ...")
-    return "\n".join(lines) + "\n"
+    bl = before.splitlines(keepends=True)
+    al = after.splitlines(keepends=True)
+    diff = list(difflib.unified_diff(bl, al, fromfile=f"a/{path}", tofile=f"b/{path}", n=3, lineterm=""))
+    if not diff:
+        return f"--- a/{path}\n+++ b/{path}\n# no textual delta\n"
+    return "\n".join(line.rstrip("\n") for line in diff) + "\n"
 
 
 def synthesize_patch(

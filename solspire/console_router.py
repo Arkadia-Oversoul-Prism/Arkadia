@@ -979,4 +979,104 @@ async def project_knowledge_search(project_id: str, body: dict[str, Any],
 
 
 
+# WEAVER-MVP1 — governed project execution routes
+class WeaverPassSpecRequest(BaseModel):
+    patch: dict[str, Any]
+    pass_id: str | None = None
+    objective: str | None = None
+    allowed_paths: list[str] | None = None
+    required_tests: list[str] | None = None
+
+
+class WeaverApprovalRequest(BaseModel):
+    patch: dict[str, Any]
+    pass_spec: dict[str, Any]
+    approved: bool = True
+
+
+class WeaverExecuteRequest(BaseModel):
+    patch: dict[str, Any]
+    pass_spec: dict[str, Any]
+    approval: dict[str, Any]
+    run_k3: bool = False
+
+
+class WeaverReadinessRequest(BaseModel):
+    patch: dict[str, Any] | None = None
+    pass_spec: dict[str, Any] | None = None
+    approval: dict[str, Any] | None = None
+
+
+@router.post("/projects/{project_id}/weaver/execution/readiness")
+async def project_weaver_execution_readiness(
+    project_id: str,
+    body: WeaverReadinessRequest,
+    user: dict = Depends(require_project_owner),
+) -> dict[str, Any]:
+    from solspire.project_manager import get_project_manager
+    from solspire.weaver_bridge import project_execution_readiness
+    p = get_project_manager().load(project_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found")
+    pdata = p.to_dict() if hasattr(p, "to_dict") else dict(p.__dict__)
+    return project_execution_readiness(
+        pdata, body.patch, pass_spec=body.pass_spec, approval=body.approval
+    )
+
+
+@router.post("/projects/{project_id}/weaver/execution/pass-spec")
+async def project_weaver_bind_pass_spec(
+    project_id: str,
+    body: WeaverPassSpecRequest,
+    user: dict = Depends(require_project_owner),
+) -> dict[str, Any]:
+    from solspire.project_manager import get_project_manager
+    from solspire.weaver_bridge import project_bind_pass_spec
+    p = get_project_manager().load(project_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found")
+    pdata = p.to_dict() if hasattr(p, "to_dict") else dict(p.__dict__)
+    return project_bind_pass_spec(
+        pdata,
+        body.patch,
+        pass_id=body.pass_id,
+        objective=body.objective,
+        allowed_paths=body.allowed_paths,
+        required_tests=body.required_tests,
+    )
+
+
+@router.post("/projects/{project_id}/weaver/execution/approval")
+async def project_weaver_bind_approval(
+    project_id: str,
+    body: WeaverApprovalRequest,
+    user: dict = Depends(require_project_owner),
+) -> dict[str, Any]:
+    from solspire.project_manager import get_project_manager
+    from solspire.weaver_bridge import project_bind_patch_approval
+    p = get_project_manager().load(project_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found")
+    pdata = p.to_dict() if hasattr(p, "to_dict") else dict(p.__dict__)
+    return project_bind_patch_approval(pdata, body.patch, body.pass_spec, approved=body.approved)
+
+
+@router.post("/projects/{project_id}/weaver/execution/execute")
+async def project_weaver_execute(
+    project_id: str,
+    body: WeaverExecuteRequest,
+    user: dict = Depends(require_project_owner),
+) -> dict[str, Any]:
+    from solspire.project_manager import get_project_manager
+    from solspire.weaver_bridge import project_execute_governed
+    p = get_project_manager().load(project_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found")
+    pdata = p.to_dict() if hasattr(p, "to_dict") else dict(p.__dict__)
+    return project_execute_governed(
+        pdata, body.patch, body.pass_spec, body.approval, run_k3=bool(body.run_k3)
+    )
+
+
+
 __all__ = ["router"]

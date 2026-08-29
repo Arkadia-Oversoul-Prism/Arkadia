@@ -74,3 +74,80 @@ def project_validation(scenario_id: str | None = None, repo_root: str = ".") -> 
     if scenario_id:
         return run_scenario(scenario_id, repo_root=repo_root)
     return run_all_scenarios(repo_root=repo_root)
+
+
+# --- WEAVER-MVP1 governed execution surface ---
+
+def project_execution_readiness(
+    project: dict[str, Any],
+    patch: dict[str, Any] | None,
+    *,
+    pass_spec: dict[str, Any] | None = None,
+    approval: dict[str, Any] | None = None,
+    repo_root: str = ".",
+) -> dict[str, Any]:
+    from solspire.project_execution import evaluate_execution_state
+
+    state = evaluate_execution_state(
+        patch=patch, pass_spec=pass_spec, approval=approval, repo_root=repo_root
+    )
+    state["project_id"] = project.get("id")
+    return state
+
+
+def project_bind_pass_spec(
+    project: dict[str, Any],
+    patch: dict[str, Any],
+    *,
+    pass_id: str | None = None,
+    objective: str | None = None,
+    allowed_paths: list[str] | None = None,
+    required_tests: list[str] | None = None,
+    repo_root: str = ".",
+) -> dict[str, Any]:
+    from solspire.project_execution import build_pass_spec_for_patch, evaluate_execution_state
+
+    spec = build_pass_spec_for_patch(
+        project,
+        patch,
+        pass_id=pass_id,
+        objective=objective,
+        allowed_paths=allowed_paths,
+        required_tests=required_tests,
+        repo_root=repo_root,
+    )
+    readiness = evaluate_execution_state(patch=patch, pass_spec=spec, approval=None, repo_root=repo_root)
+    return {"pass_spec": spec, "readiness": readiness, "execution": "LOCKED"}
+
+
+def project_bind_patch_approval(
+    project: dict[str, Any],
+    patch: dict[str, Any],
+    pass_spec: dict[str, Any],
+    *,
+    approved: bool = True,
+    repo_root: str = ".",
+) -> dict[str, Any]:
+    from solspire.project_execution import build_patch_approval, evaluate_execution_state
+
+    approval = build_patch_approval(patch, pass_spec, approved=approved)
+    readiness = evaluate_execution_state(
+        patch=patch, pass_spec=pass_spec, approval=approval, repo_root=repo_root
+    )
+    return {"patch_approval": approval, "readiness": readiness}
+
+
+def project_execute_governed(
+    project: dict[str, Any],
+    patch: dict[str, Any],
+    pass_spec: dict[str, Any],
+    approval: dict[str, Any],
+    *,
+    repo_root: str = ".",
+    run_k3: bool = False,
+) -> dict[str, Any]:
+    from solspire.project_execution import execute_project_patch
+
+    return execute_project_patch(
+        project, patch, pass_spec, approval, repo_root=repo_root, run_k3=run_k3
+    )
