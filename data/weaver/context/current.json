@@ -86,6 +86,7 @@
     "tests/test_autonomy_guard.py",
     "tests/test_key_pool.py",
     "tests/test_weaver_k10.py",
+    "tests/test_weaver_k11.py",
     "tests/test_weaver_k2.py",
     "tests/test_weaver_k3.py",
     "tests/test_weaver_k5.py",
@@ -101,18 +102,18 @@
     "current": null,
     "recent": []
   },
-  "generated_at": "2026-08-29T12:42:45.597801+00:00",
-  "head_sha": "c7ff4badb260858494124fc3603782f1c2bf66f3",
+  "generated_at": "2026-08-29T12:45:52.965788+00:00",
+  "head_sha": "29fcc56b77e3c4d1bd3d5f5abdf39fa5cd3b911c",
   "last_verified_pass": {
-    "message": "WEAVER-K9: add evidence-bound engineering analysis and planning",
+    "message": "WEAVER-K10: add deep repository evidence and traceability",
     "pass_id": null,
     "publication_status": null,
-    "sha": "c7ff4badb260858494124fc3603782f1c2bf66f3",
+    "sha": "29fcc56b77e3c4d1bd3d5f5abdf39fa5cd3b911c",
     "source": "git_log",
     "status": null
   },
   "next_action": "awaiting human authorization",
-  "origin_sha": "c7ff4badb260858494124fc3603782f1c2bf66f3",
+  "origin_sha": "29fcc56b77e3c4d1bd3d5f5abdf39fa5cd3b911c",
   "protected_boundaries": [
     "api/auth.py",
     "api/ (ownership / isolation)",
@@ -128,6 +129,10 @@
     "deployment (vercel/render)"
   ],
   "recent_lineage": [
+    {
+      "message": "WEAVER-K10: add deep repository evidence and traceability",
+      "sha": "29fcc56b77e3c4d1bd3d5f5abdf39fa5cd3b911c"
+    },
     {
       "message": "WEAVER-K9: add evidence-bound engineering analysis and planning",
       "sha": "c7ff4badb260858494124fc3603782f1c2bf66f3"
@@ -155,10 +160,6 @@
     {
       "message": "WEAVER-K2: governed provider orchestration with Gemini key-pool",
       "sha": "67249aaa18f9461c7ed39fa38dc625062f77e5e8"
-    },
-    {
-      "message": "WEAVER-K1: deterministic recon and context packet",
-      "sha": "62490c9abd6203528beb7beb5bed92d151d66737"
     }
   ],
   "repository": {
@@ -166,15 +167,15 @@
     "behind": 0,
     "branch": "main",
     "divergent": false,
-    "head_sha": "c7ff4badb260858494124fc3603782f1c2bf66f3",
-    "origin_sha": "c7ff4badb260858494124fc3603782f1c2bf66f3",
+    "head_sha": "29fcc56b77e3c4d1bd3d5f5abdf39fa5cd3b911c",
+    "origin_sha": "29fcc56b77e3c4d1bd3d5f5abdf39fa5cd3b911c",
     "remote": "https://github.com/Arkadia-Oversoul-Prism/Arkadia.git",
     "working_tree_clean": false
   },
   "schema_version": "1.0.0",
   "stale_detection": {
-    "bound_head_sha": "c7ff4badb260858494124fc3603782f1c2bf66f3",
-    "bound_origin_sha": "c7ff4badb260858494124fc3603782f1c2bf66f3",
+    "bound_head_sha": "29fcc56b77e3c4d1bd3d5f5abdf39fa5cd3b911c",
+    "bound_origin_sha": "29fcc56b77e3c4d1bd3d5f5abdf39fa5cd3b911c",
     "instruction": "If HEAD or origin/main differs from bound_* fields, this packet is stale."
   },
   "topology": [
