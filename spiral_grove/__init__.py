@@ -5,6 +5,7 @@ from .models import (
     Evidence,
     Exercise,
     LearningPath,
+    LearningResource,
     LearnerCapabilityState,
 )
 
@@ -13,5 +14,6 @@ __all__ = [
     "Evidence",
     "Exercise",
     "LearningPath",
+    "LearningResource",
     "LearnerCapabilityState",
 ]
