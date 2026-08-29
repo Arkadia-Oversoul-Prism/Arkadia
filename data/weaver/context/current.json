@@ -87,7 +87,8 @@
     "tests/test_key_pool.py",
     "tests/test_weaver_k2.py",
     "tests/test_weaver_k3.py",
-    "tests/test_weaver_k5.py"
+    "tests/test_weaver_k5.py",
+    "tests/test_weaver_k6.py"
   ],
   "behind": 0,
   "branch": "main",
@@ -96,18 +97,18 @@
     "current": null,
     "recent": []
   },
-  "generated_at": "2026-08-29T12:16:19.762806+00:00",
-  "head_sha": "feb2170e1ecef6f2404e18bc54f0b375bf2ddce7",
+  "generated_at": "2026-08-29T12:19:39.163052+00:00",
+  "head_sha": "3819316a6b31c069adbafb215831e9175afa786c",
   "last_verified_pass": {
-    "message": "WEAVER-K3: governed plan-to-verify transaction",
+    "message": "WEAVER-K5: governed proposal engine with human approval",
     "pass_id": null,
     "publication_status": null,
-    "sha": "feb2170e1ecef6f2404e18bc54f0b375bf2ddce7",
+    "sha": "3819316a6b31c069adbafb215831e9175afa786c",
     "source": "git_log",
     "status": null
   },
   "next_action": "awaiting human authorization",
-  "origin_sha": "feb2170e1ecef6f2404e18bc54f0b375bf2ddce7",
+  "origin_sha": "3819316a6b31c069adbafb215831e9175afa786c",
   "protected_boundaries": [
     "api/auth.py",
     "api/ (ownership / isolation)",
@@ -123,6 +124,10 @@
     "deployment (vercel/render)"
   ],
   "recent_lineage": [
+    {
+      "message": "WEAVER-K5: governed proposal engine with human approval",
+      "sha": "3819316a6b31c069adbafb215831e9175afa786c"
+    },
     {
       "message": "WEAVER-K3: governed plan-to-verify transaction",
       "sha": "feb2170e1ecef6f2404e18bc54f0b375bf2ddce7"
@@ -150,10 +155,6 @@
     {
       "message": "CONSOLIDATION PASS 09R: restore api/nodes.py",
       "sha": "bd2fb967fe7fbb961556b772fa4aeef012d252cc"
-    },
-    {
-      "message": "CONSOLIDATION PASS 09R: ReasoMate handle-based recipient discovery (complete restore)",
-      "sha": "0e70a414f04190ac0f06e9add8d12e5b4b27430a"
     }
   ],
   "repository": {
@@ -161,15 +162,15 @@
     "behind": 0,
     "branch": "main",
     "divergent": false,
-    "head_sha": "feb2170e1ecef6f2404e18bc54f0b375bf2ddce7",
-    "origin_sha": "feb2170e1ecef6f2404e18bc54f0b375bf2ddce7",
+    "head_sha": "3819316a6b31c069adbafb215831e9175afa786c",
+    "origin_sha": "3819316a6b31c069adbafb215831e9175afa786c",
     "remote": "https://github.com/Arkadia-Oversoul-Prism/Arkadia.git",
     "working_tree_clean": false
   },
   "schema_version": "1.0.0",
   "stale_detection": {
-    "bound_head_sha": "feb2170e1ecef6f2404e18bc54f0b375bf2ddce7",
-    "bound_origin_sha": "feb2170e1ecef6f2404e18bc54f0b375bf2ddce7",
+    "bound_head_sha": "3819316a6b31c069adbafb215831e9175afa786c",
+    "bound_origin_sha": "3819316a6b31c069adbafb215831e9175afa786c",
     "instruction": "If HEAD or origin/main differs from bound_* fields, this packet is stale."
   },
   "topology": [
