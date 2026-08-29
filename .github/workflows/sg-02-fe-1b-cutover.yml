@@ -1,0 +1,59 @@
+name: SG-02-FE.1B Nexus Grove Cutover
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  cutover:
+    if: ${{ !contains(github.event.head_commit.message, 'SG-02-FE.1B Nexus Tab Cutover') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Cut Nexus tab over to canonical Spiral Grove
+        shell: bash
+        run: |
+          set -euo pipefail
+          file="web/public_prism/src/pages/NexusPage.tsx"
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("web/public_prism/src/pages/NexusPage.tsx")
+          text = p.read_text()
+          if "import SpiralGrovePage from './SpiralGrovePage'" not in text:
+              anchor = "import OfferingsPage from './OfferingsPage'\n"
+              if anchor not in text:
+                  raise SystemExit("import anchor not found")
+              text = text.replace(anchor, anchor + "import SpiralGrovePage from './SpiralGrovePage'\n", 1)
+          old = "{activeTab === 'university' && <AISUniversity />}"
+          new = "{activeTab === 'university' && <SpiralGrovePage />}"
+          if old not in text:
+              raise SystemExit("Nexus Spiral Grove render target not found")
+          text = text.replace(old, new, 1)
+          p.write_text(text)
+          PY
+
+      - name: Add route-level regression contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f web/public_prism/src/pages/SpiralGrovePage.tsx
+          grep -F "import SpiralGrovePage from './SpiralGrovePage'" web/public_prism/src/pages/NexusPage.tsx
+          grep -F "{activeTab === 'university' && <SpiralGrovePage />}" web/public_prism/src/pages/NexusPage.tsx
+          grep -F "AIS_CAPABILITIES" web/public_prism/src/pages/SpiralGrovePage.tsx
+
+      - name: Commit authoritative cutover
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/public_prism/src/pages/NexusPage.tsx
+          git rm .github/workflows/sg-02-fe-1b-cutover.yml
+          git commit -m "SG-02-FE.1B Nexus Tab Cutover"
+          git push
