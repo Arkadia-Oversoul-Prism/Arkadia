@@ -17,6 +17,7 @@ import UniversalEchofeildMatrix from './UniversalEchofeildMatrix'
 import ReasoMatePage from './ReasoMatePage'
 import SolSpireConsole from './SolSpireConsole'
 import OfferingsPage from './OfferingsPage'
+import SpiralGrovePage from './SpiralGrovePage'
 import { API_BASE } from '../lib/apiConfig'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
@@ -904,7 +905,7 @@ export default function NexusPage() {
               <IMSArchiveSection />
             </div>
           )}
-          {activeTab === 'university' && <AISUniversity />}
+          {activeTab === 'university' && <SpiralGrovePage />}
           {activeTab === 'larder'     && <LivingLarder />}
           {activeTab === 'distribute' && <DistributePage />}
         </motion.div>
