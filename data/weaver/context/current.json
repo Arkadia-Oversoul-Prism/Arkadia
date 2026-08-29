@@ -1,0 +1,232 @@
+{
+  "ahead": 0,
+  "architecture": {
+    "layer_names": {
+      "0": "presentation",
+      "1": "api",
+      "2": "runtime_core",
+      "3": "knowledge_identity_provider",
+      "4": "storage",
+      "5": "constitution"
+    },
+    "prefixes_by_layer": {
+      "api": [
+        "api"
+      ],
+      "constitution": [
+        "docs",
+        ".agents"
+      ],
+      "knowledge_identity_provider": [
+        "knowledge",
+        "api/auth.py",
+        "api/nodes.py",
+        "api/user_key_store.py",
+        "api/firebase_store.py",
+        "providers",
+        "api/key_pool.py",
+        "api/key_manager.py",
+        "api/provider_key_store.py"
+      ],
+      "presentation": [
+        "web",
+        "bot",
+        "arkadia-android",
+        "sonata-android",
+        "app",
+        "static"
+      ],
+      "runtime_core": [
+        "kernel",
+        "solspire"
+      ],
+      "storage": [
+        "data",
+        "vault"
+      ]
+    },
+    "source": "tests/architecture/LAYER_MAP.py",
+    "status": "ok"
+  },
+  "authorization": {
+    "note": "CONTEXT \u2260 AUTHORIZATION. This packet never grants a PassSpec.",
+    "pass_spec_required": true
+  },
+  "available_builds": [
+    {
+      "availability": "declared",
+      "build_command": "vite build",
+      "package_manager": "pnpm@10.26.1",
+      "surface": "web/public_prism"
+    },
+    {
+      "availability": "config_present",
+      "build_command": null,
+      "package_manager": null,
+      "surface": "vercel.json"
+    }
+  ],
+  "available_tests": [
+    "tests/architecture/test_layer_boundaries.py",
+    "tests/test_weaver_k0.py",
+    "tests/test_weaver_context.py",
+    "tests/test_recursive_init.py",
+    "tests/test_git_ops.py",
+    "tests/test_autonomy_guard.py",
+    "tests/test_key_pool.py"
+  ],
+  "behind": 0,
+  "branch": "main",
+  "checkpoint_state": {
+    "count": 0,
+    "current": null,
+    "recent": []
+  },
+  "generated_at": "2026-08-29T11:59:33.059427+00:00",
+  "head_sha": "18cd6579b2b85a047cc9fefc44dc738cbcd2be44",
+  "last_verified_pass": {
+    "message": "WEAVER-K0.1: deterministic session kernel with durable publication",
+    "pass_id": null,
+    "publication_status": null,
+    "sha": "18cd6579b2b85a047cc9fefc44dc738cbcd2be44",
+    "source": "git_log",
+    "status": null
+  },
+  "next_action": "awaiting human authorization",
+  "origin_sha": "18cd6579b2b85a047cc9fefc44dc738cbcd2be44",
+  "protected_boundaries": [
+    "api/auth.py",
+    "api/ (ownership / isolation)",
+    "providers/",
+    "api/key_pool.py",
+    "solspire/",
+    "ReasoMate / api/messages.py",
+    "Oracle",
+    "Firebase auth",
+    "arkadia-android/",
+    "sonata-android/",
+    "tests/architecture/",
+    "deployment (vercel/render)"
+  ],
+  "recent_lineage": [
+    {
+      "message": "WEAVER-K0.1: deterministic session kernel with durable publication",
+      "sha": "18cd6579b2b85a047cc9fefc44dc738cbcd2be44"
+    },
+    {
+      "message": "CONSOLIDATION PASS 09R: restore tests/test_reasomate_handles.py",
+      "sha": "790207d9d0297b88451bc5b51a7491ac3c4c00c2"
+    },
+    {
+      "message": "CONSOLIDATION PASS 09R: restore web/public_prism/src/pages/ReasoMatePage.tsx",
+      "sha": "7c728d22bfaa868d2f89f4434be24ef8aebf6a49"
+    },
+    {
+      "message": "CONSOLIDATION PASS 09R: restore api/nodes.py",
+      "sha": "bd2fb967fe7fbb961556b772fa4aeef012d252cc"
+    },
+    {
+      "message": "CONSOLIDATION PASS 09R: ReasoMate handle-based recipient discovery (complete restore)",
+      "sha": "0e70a414f04190ac0f06e9add8d12e5b4b27430a"
+    },
+    {
+      "message": "CONSOLIDATION PASS 09R: messages recipient_handle + peer_handle",
+      "sha": "12949d1775f4b57f1000e52f3a17cb296515b40d"
+    },
+    {
+      "message": "CONSOLIDATION PASS 09R: restore api/auth.py handle helpers",
+      "sha": "802218e2245379030b21c33950c1ef55bb4a6413"
+    },
+    {
+      "message": "CONSOLIDATION PASS 09R: ReasoMate handle-based recipient discovery",
+      "sha": "3a85b4ca635b1ac81ee794baf39a99300327fde7"
+    }
+  ],
+  "repository": {
+    "ahead": 0,
+    "behind": 0,
+    "branch": "main",
+    "divergent": false,
+    "head_sha": "18cd6579b2b85a047cc9fefc44dc738cbcd2be44",
+    "origin_sha": "18cd6579b2b85a047cc9fefc44dc738cbcd2be44",
+    "remote": "https://github.com/Arkadia-Oversoul-Prism/Arkadia.git",
+    "working_tree_clean": false
+  },
+  "schema_version": "1.0.0",
+  "stale_detection": {
+    "bound_head_sha": "18cd6579b2b85a047cc9fefc44dc738cbcd2be44",
+    "bound_origin_sha": "18cd6579b2b85a047cc9fefc44dc738cbcd2be44",
+    "instruction": "If HEAD or origin/main differs from bound_* fields, this packet is stale."
+  },
+  "topology": [
+    "api",
+    "kernel",
+    "providers",
+    "solspire",
+    "web/public_prism",
+    "data",
+    "vault",
+    "weaver",
+    "tests",
+    "arkadia-android",
+    "sonata-android",
+    "docs"
+  ],
+  "weaver": [
+    {
+      "id": "pass_spec",
+      "path": "weaver/pass_spec.py",
+      "role": "authorization object",
+      "status": "present"
+    },
+    {
+      "id": "session_kernel",
+      "path": "weaver/session_kernel.py",
+      "role": "lifecycle gates + publication",
+      "status": "present"
+    },
+    {
+      "id": "agent",
+      "path": "weaver/agent.py",
+      "role": "authorized modification path",
+      "status": "present"
+    },
+    {
+      "id": "autonomy_guard",
+      "path": "weaver/autonomy/guard.py",
+      "role": "scope / kill-switch",
+      "status": "present"
+    },
+    {
+      "id": "recursive_engine",
+      "path": "weaver/recursive.py",
+      "role": "bounded recursive steps",
+      "status": "present"
+    },
+    {
+      "id": "git_operations",
+      "path": "weaver/git_ops.py",
+      "role": "commit/push primitives",
+      "status": "present"
+    },
+    {
+      "id": "provider_dispatch",
+      "path": "weaver/llm.py",
+      "role": "LLM provider dispatch",
+      "status": "present"
+    },
+    {
+      "id": "checkpoint_system",
+      "path": "weaver/session_kernel.py",
+      "role": "durable checkpoints",
+      "status": "present"
+    },
+    {
+      "id": "recon",
+      "path": "weaver/recon.py",
+      "role": "deterministic reconnaissance",
+      "status": "present"
+    }
+  ],
+  "working_tree_clean": false
+}
