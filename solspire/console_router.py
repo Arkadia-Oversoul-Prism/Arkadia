@@ -807,4 +807,119 @@ def _count_by_status(execs: list[dict[str, Any]]) -> dict[str, int]:
     return counts
 
 
+
+# ── W4: Project Weaver (read-only bridge; project access ≠ mutation auth) ─────
+
+class WeaverAnalyzeRequest(BaseModel):
+    objective: str
+    affected_paths: list[str] | None = None
+    symbols: list[str] | None = None
+
+
+@router.get("/projects/{project_id}/weaver/capabilities")
+async def project_weaver_capabilities(project_id: str,
+                                      user: dict = Depends(require_project_owner)) -> dict[str, Any]:
+    from solspire.weaver_bridge import project_capabilities
+    return project_capabilities()
+
+
+@router.get("/projects/{project_id}/weaver/context")
+async def project_weaver_context_route(project_id: str,
+                                       user: dict = Depends(require_project_owner)) -> dict[str, Any]:
+    from solspire.project_manager import get_project_manager
+    from solspire.weaver_bridge import project_weaver_context
+    p = get_project_manager().load(project_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project_weaver_context(p.to_dict() if hasattr(p, "to_dict") else dict(p.__dict__))
+
+
+@router.post("/projects/{project_id}/weaver/analyze")
+async def project_weaver_analyze(project_id: str, body: WeaverAnalyzeRequest,
+                                 user: dict = Depends(require_project_owner)) -> dict[str, Any]:
+    """Read-only Weaver pipeline under project ownership guard.
+
+    Ownership grants *access* only. Never unlocks K15/K3.
+    """
+    from solspire.project_manager import get_project_manager
+    from solspire.weaver_bridge import project_analyze
+    from solspire.project_store import log_event
+
+    p = get_project_manager().load(project_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found")
+    pdata = p.to_dict() if hasattr(p, "to_dict") else dict(p.__dict__)
+    result = project_analyze(
+        pdata,
+        body.objective,
+        affected_paths=body.affected_paths,
+        symbols=body.symbols,
+    )
+    # Activity log is not authorization
+    try:
+        log_event(
+            project_id,
+            "weaver_analyze",
+            f"Weaver analyze: {(body.objective or '')[:80]}",
+            {
+                "executed": False,
+                "execution": "LOCKED",
+                "scope": (result.get("scope") or {}).get("status"),
+            },
+        )
+    except Exception:
+        pass
+    return result
+
+
+@router.get("/projects/{project_id}/weaver/validation")
+async def project_weaver_validation(project_id: str, scenario: str | None = None,
+                                    user: dict = Depends(require_project_owner)) -> dict[str, Any]:
+    from solspire.weaver_bridge import project_validation
+    return project_validation(scenario_id=scenario)
+
+
+@router.get("/projects/{project_id}/weaver/knowledge-summary")
+async def project_weaver_knowledge_summary(project_id: str,
+                                           user: dict = Depends(require_project_owner)) -> dict[str, Any]:
+    """Compose existing project store surfaces — no new stores."""
+    from solspire.project_store import (
+        list_memory,
+        list_files,
+        list_repositories,
+        list_tasks,
+        list_events,
+    )
+    mem = list_memory(project_id)
+    files = list_files(project_id)
+    repos = list_repositories(project_id)
+    tasks = list_tasks(project_id)
+    events = list_events(project_id)
+    return {
+        "project_id": project_id,
+        "knowledge_os": {
+            "memory_items": len(mem),
+            "files": len(files),
+            "repositories": len(repos),
+            "tasks": len(tasks),
+            "events": len(events),
+        },
+        "graph": {
+            "status": "NOT_A_SEPARATE_STORE",
+            "note": "No second knowledge graph introduced. Use existing project relations via store tables.",
+        },
+        "embeddings": {
+            "status": "NOT_A_SEPARATE_STORE",
+            "note": "No second embedding store introduced in W4.",
+        },
+        "authorization": {
+            "PassSpec": "NONE",
+            "PatchApproval": "NONE",
+            "Execution": "LOCKED",
+            "note": "Knowledge summary is read-only project metadata.",
+        },
+    }
+
+
+
 __all__ = ["router"]

@@ -20,7 +20,7 @@ interface Task { id: string; title: string; description: string; status: string;
 interface MemEntry { id: string; title: string; content: string; tags: string[]; created_at: number; updated_at: number; }
 interface PEvent { id: string; event_type: string; summary: string; created_at: number; }
 interface RunResult { ok: boolean; intent: string; plan: { steps: { tool: string; description: string }[] }; execution: { status: string; results: Record<string,unknown>[] }; elapsed_ms: number; }
-type ProjTab = 'overview'|'conversations'|'files'|'repos'|'tasks'|'workflows'|'memory'|'events'|'settings';
+type ProjTab = 'overview'|'weaver'|'conversations'|'files'|'repos'|'tasks'|'workflows'|'memory'|'events'|'settings';
 
 // ── API ───────────────────────────────────────────────────────────────────────
 
@@ -72,6 +72,91 @@ const STATUS_COLORS: Record<string, string> = { open: '#00D4AA', done: '#4CAF50'
 const EVENT_ICONS: Record<string, string> = { conversation_created: '💬', file_created: '📄', repo_linked: '⟁', task_created: '☐', memory_added: '∞', workflow_run: '⟐' };
 
 // ── Tab Sections ──────────────────────────────────────────────────────────────
+
+
+/** W4 — Project Weaver workspace (read-only). Project access ≠ execution auth. */
+function WeaverPanel({ project }: { project: Project }) {
+  const [objective, setObjective] = React.useState('');
+  const [paths, setPaths] = React.useState('weaver/execution.py');
+  const [result, setResult] = React.useState<any>(null);
+  const [caps, setCaps] = React.useState<any>(null);
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState('');
+  const base = `${ORACLE}/solspire/projects/${project.id}/weaver`;
+
+  React.useEffect(() => {
+    fetch(`${base}/capabilities`, { headers: { Authorization: `Bearer ${localStorage.getItem('arkadia_token') || ''}` } })
+      .then(r => r.json()).then(setCaps).catch(() => {});
+  }, [project.id]);
+
+  async function analyze() {
+    setBusy(true); setErr('');
+    try {
+      const r = await fetch(`${base}/analyze`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('arkadia_token') || ''}`,
+        },
+        body: JSON.stringify({
+          objective,
+          affected_paths: paths.split(/[\n,]/).map((s: string) => s.trim()).filter(Boolean),
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.detail || r.statusText);
+      setResult(data);
+    } catch (e: any) {
+      setErr(String(e.message || e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const auth = result?.authorization || { Execution: 'LOCKED', PassSpec: 'NONE', PatchApproval: 'NONE' };
+  return (
+    <div style={{ fontFamily: 'sans-serif', color: '#D4DFE8' }}>
+      <div style={{ marginBottom: 12, padding: 12, border: '1px solid rgba(0,212,170,0.2)', borderRadius: 8 }}>
+        <div style={{ fontSize: 11, letterSpacing: '0.12em', color: '#00D4AA', marginBottom: 6 }}>PROJECT WEAVER · READ-ONLY</div>
+        <div style={{ fontSize: 12, opacity: 0.7 }}>Project access ≠ PassSpec ≠ PatchApproval ≠ execution. Mutation path: K3 ONLY.</div>
+        <div style={{ marginTop: 8, fontSize: 12 }}>
+          Execution: <strong style={{ color: '#C9A84C' }}>{auth.Execution || 'LOCKED'}</strong>
+          {' · '}PassSpec: {auth.PassSpec || 'NONE'}
+          {' · '}Approval: {auth.PatchApproval || 'NONE'}
+        </div>
+      </div>
+      <textarea value={objective} onChange={e => setObjective(e.target.value)} placeholder="Engineering objective"
+        style={{ width: '100%', minHeight: 60, background: '#0a0b14', border: '1px solid rgba(0,212,170,0.25)', color: '#D4DFE8', padding: 8, borderRadius: 6 }} />
+      <textarea value={paths} onChange={e => setPaths(e.target.value)} placeholder="Affected paths (one per line)"
+        style={{ width: '100%', minHeight: 48, marginTop: 8, background: '#0a0b14', border: '1px solid rgba(0,212,170,0.25)', color: '#D4DFE8', padding: 8, borderRadius: 6, fontFamily: 'monospace', fontSize: 12 }} />
+      <button onClick={analyze} disabled={busy || !objective.trim()}
+        style={{ marginTop: 10, padding: '8px 14px', background: 'rgba(0,212,170,0.15)', border: '1px solid #00D4AA', color: '#00D4AA', borderRadius: 6, cursor: 'pointer' }}>
+        {busy ? 'Analyzing…' : 'ANALYZE (READ-ONLY)'}
+      </button>
+      {err && <div style={{ color: '#c44', marginTop: 8 }}>{err}</div>}
+      {result && (
+        <pre style={{ marginTop: 12, fontSize: 11, maxHeight: 360, overflow: 'auto', background: '#0a0b14', padding: 10, borderRadius: 6 }}>
+{JSON.stringify({
+  scope: result.scope,
+  authorization: result.authorization,
+  executed: result.executed,
+  plan_id: result.plan?.plan_id,
+  paths: result.plan?.affected_paths,
+  facts: (result.analysis?.facts || []).slice(0, 5),
+  unknowns: (result.analysis?.unknowns || []).slice(0, 3),
+  changeset_files: (result.changeset?.files || []).map((f: any) => f.path),
+}, null, 2)}
+        </pre>
+      )}
+      {caps && (
+        <div style={{ marginTop: 16, fontSize: 11, opacity: 0.8 }}>
+          Capabilities: {(caps.read_only_capabilities || []).join(', ')}
+          {caps.mutation_capabilities?.length ? ` · Mutation (gated): ${caps.mutation_capabilities.join(', ')}` : ''}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function Overview({ project, onTabChange }: { project: Project; onTabChange: (t: ProjTab) => void }) {
   const [events, setEvents] = useState<PEvent[]>([]);
@@ -752,6 +837,7 @@ function Settings({ project, onProjectUpdated, onArchive }: { project: Project; 
 
 const TABS: { id: ProjTab; label: string; sigil: string }[] = [
   { id: 'overview',       label: 'Overview',       sigil: '◈' },
+  { id: 'weaver',         label: 'Weaver',         sigil: '⟐' },
   { id: 'conversations',  label: 'Conversations',  sigil: '💬' },
   { id: 'files',          label: 'Files',          sigil: '📄' },
   { id: 'repos',          label: 'Repos',          sigil: '⟁' },
@@ -812,6 +898,7 @@ export default function ProjectDashboard({ project, onBack, onProjectUpdated }: 
       {/* Content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px', maxWidth: '880px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
         <AnimatePresence mode="wait">
+          {tab === 'weaver'        && <motion.div key="wv" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><WeaverPanel project={currentProject} /></motion.div>}
           {tab === 'overview'      && <motion.div key="ov" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><Overview project={currentProject} onTabChange={setTab} /></motion.div>}
           {tab === 'conversations' && <motion.div key="cv" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><Conversations project={currentProject} /></motion.div>}
           {tab === 'files'         && <motion.div key="fi" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><Files project={currentProject} /></motion.div>}

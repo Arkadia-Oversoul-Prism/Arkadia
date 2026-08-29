@@ -331,6 +331,20 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
         if path == "/api/last":
             self._send(200, _json_bytes(_LAST or {}), "application/json")
             return
+        if path == "/api/capabilities":
+            from .capabilities import capability_summary
+            self._send(200, _json_bytes(capability_summary()), "application/json")
+            return
+        if path == "/api/validation":
+            from .operator_validation import run_all_scenarios
+            qs = parse_qs(urlparse(self.path).query)
+            sid = (qs.get("scenario") or [None])[0]
+            if sid:
+                from .operator_validation import run_scenario
+                self._send(200, _json_bytes(run_scenario(sid)), "application/json")
+            else:
+                self._send(200, _json_bytes(run_all_scenarios()), "application/json")
+            return
         if path == "/api/proof":
             matrix = render_verification_matrix((_LAST or {}).get("verification_report"))
             self._send(200, _json_bytes({"matrix": matrix}), "application/json")
