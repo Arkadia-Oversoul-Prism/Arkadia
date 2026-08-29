@@ -17,6 +17,7 @@ from .continuation import ContinuityStatus, load_continuation
 from .pass_spec import PassSpec, path_in_allowlist, current_head, current_origin_main
 from .plan import Plan, validate_plan_against_spec, PlanError
 from .recon import build_context_packet, architecture_summary, topology, test_inventory
+from .evidence import evidence_for_analysis
 
 
 class AnalysisResultKind(str, Enum):
@@ -170,6 +171,21 @@ def analyze_objective(
     if weaver_root.is_dir():
         for p in sorted(weaver_root.glob("*.py")):
             relevant.append(str(p.relative_to(repo_root)).replace("\\", "/"))
+    # K10 evidence layer (read-only; does not authorize)
+    try:
+        k10 = evidence_for_analysis(repo_root, subject_hints=(affected_path_hints or ["weaver/analysis.py"])[:5])
+        facts.append(_fact(
+            f"K10 evidence index files={k10['index_summary']['file_count']} relations={k10['index_summary']['relation_count']} staleness={k10['index_summary']['staleness']}",
+            source="weaver/evidence.py",
+            commit_sha=head,
+        ))
+        analysis.recon = analysis.recon if analysis.recon else {}
+        # stash under recon later — set placeholder
+        _k10_blob = k10
+    except Exception as e:
+        unknowns.append(_unk(f"K10 evidence collection failed: {e}"))
+        _k10_blob = None
+
     analysis.recon = {
         "relevant_components": ["weaver control-plane"],
         "architecture_layers": arch.get("layer_names") or {},
@@ -177,6 +193,7 @@ def analyze_objective(
         "relevant_tests": [t for t in tests if "weaver" in t][:30],
         "relevant_history": (packet.get("recent_lineage") or [])[:5],
         "continuation_message": cont_msg,
+        "k10_evidence": _k10_blob,
     }
 
     constraints = {
