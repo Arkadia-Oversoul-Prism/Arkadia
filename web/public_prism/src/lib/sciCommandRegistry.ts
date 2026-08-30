@@ -21,6 +21,78 @@
  * SCI_DISCOVERY_WITHOUT_AUTHORITY
  */
 
+/**
+ * WEAVER-SCI-CONTRACT-01 - frozen surface ownership contract.
+ * Discovery is not ownership. Ownership is not authorization.
+ * SCI_REGISTRY_IS_DESCRIPTIVE_NOT_AUTHORIZING
+ */
+
+/** Canonical surface owners. Descriptive classification only. */
+export type SurfaceOwner =
+  | 'product'
+  | 'sci'
+  | 'solspire'
+  | 'weaver'
+  | 'knowledge'
+  | 'governance'
+  | 'system';
+
+/**
+ * Frozen contract: who owns what.
+ * Values are documentation for operators and tests - not runtime authority.
+ */
+export const SURFACE_CONTRACT = {
+  sci: {
+    owner: 'sci' as SurfaceOwner,
+    role: 'global operator command and discovery',
+    may: ['discover', 'orient', 'navigate', 'observe'],
+    mustNot: [
+      'authorize',
+      'mutate',
+      'createPassSpec',
+      'createPatchApproval',
+      'callK15',
+      'callK3',
+      'commit',
+      'push',
+      'ownProjectState',
+    ],
+  },
+  solspire: {
+    owner: 'solspire' as SurfaceOwner,
+    role: 'project workspace operating surface',
+    may: ['projectSelection', 'projectState', 'projectKnowledgeEntry', 'projectWeaverHost'],
+    mustNot: ['globalCommandShell', 'globalCapabilityRegistry', 'secondSci', 'secondAuthAuthority'],
+  },
+  weaver: {
+    owner: 'weaver' as SurfaceOwner,
+    role: 'project-scoped engineering workflow',
+    path: 'SCI -> SolSpire -> Project -> Weaver',
+    mutationGate: 'K15',
+    transactionBoundary: 'K3',
+    mustNot: ['globalProductNavigation', 'duplicateInsideSci'],
+  },
+  knowledge: {
+    owner: 'knowledge' as SurfaceOwner,
+    role: 'knowledge and context surface',
+    mustNot: ['authorization', 'execution'],
+  },
+  governance: {
+    owner: 'governance' as SurfaceOwner,
+    role: 'authorization boundary (backend-authoritative)',
+    chain: ['PassSpec', 'PatchApproval', 'K15', 'K3'],
+  },
+  product: {
+    owner: 'product' as SurfaceOwner,
+    role: 'public product experience',
+    examples: ['NovaNet', 'ReasoMate', 'Offerings', 'LivingGate'],
+    mustNot: ['operatorCommandRail', 'mergeWithSci'],
+  },
+} as const;
+
+/** Explicit invariant: registry metadata never grants authority. */
+export const SCI_REGISTRY_IS_DESCRIPTIVE_NOT_AUTHORIZING = true as const;
+
 export type SciAvailability =
   | 'AVAILABLE'
   | 'LIMITED'
