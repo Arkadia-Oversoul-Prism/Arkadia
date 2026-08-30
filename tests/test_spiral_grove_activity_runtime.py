@@ -12,6 +12,7 @@ SRC = ROOT / "web" / "public_prism" / "src"
 RUNTIME = SRC / "components" / "spiral-grove" / "ActivityRuntime.tsx"
 CHAMBER = SRC / "components" / "spiral-grove" / "CapabilityChamber.tsx"
 GROVE_PAGE = SRC / "pages" / "SpiralGrovePage.tsx"
+NEXUS_PAGE = SRC / "pages" / "NexusPage.tsx"
 CATALOG = SRC / "data" / "spiralGroveCatalog.ts"
 
 
@@ -80,10 +81,14 @@ def test_chamber_preserves_sg03_downstream_boundary() -> None:
     assert "createEvidence" not in chamber
 
 
-def test_spiral_grove_hides_only_the_duplicate_outer_header() -> None:
+def test_spiral_grove_uses_the_nexus_canonical_header() -> None:
     page = read(GROVE_PAGE)
-    assert "data-sg-duplicate-header" in page
-    assert "The Spiral Grove" in page
-    assert "ARKADIA / SPIRAL GROVE" in page
-    assert "candidate.style.display = 'none'" in page
-    assert "duplicate.style.display = ''" in page
+    nexus = read(NEXUS_PAGE)
+    assert "candidate.style.display = 'none'" not in page
+    assert "duplicate.style.display = ''" not in page
+    assert "data-sg-duplicate-header" not in page
+    assert "while (cursor?.parentElement" not in page
+    assert "activeTab === 'university' ? 'The Spiral Grove'" in nexus
+    assert "activeTab === 'university' && <SpiralGrovePage />" in nexus
+    assert "<h1" not in page
+    assert "The Spiral Grove" not in page
