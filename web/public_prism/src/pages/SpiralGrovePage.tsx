@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
+import CrystalGateway, { type GroveGatewayState } from '../components/spiral-grove/CrystalGateway'
 import {
   AIS_CAPABILITIES,
   GROVE_DOMAINS,
@@ -24,6 +25,18 @@ const STATUS_LABELS: Record<LearnerCapabilityStatus, string> = {
   PRACTICING: 'Practicing',
   DEMONSTRATED: 'Demonstrated',
   MASTERED: 'Mastered',
+}
+
+const DOMAIN_STATE_KEY = 'arkadia.spiral-grove.domain-state.v1'
+
+function readDomainState(): Record<string, GroveGatewayState> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(DOMAIN_STATE_KEY) || '{}')
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
 }
 
 function CapabilityCard({
@@ -128,12 +141,24 @@ export default function SpiralGrovePage() {
   const [activeDomain, setActiveDomain] = useState<string>('digital_intelligence')
   const [selectedId, setSelectedId] = useState(AIS_CAPABILITIES[0]?.id)
   const [states] = useState<LearnerCapabilityState[]>(INITIAL_LEARNER_STATES)
+  const [domainStates, setDomainStates] = useState<Record<string, GroveGatewayState>>(() => readDomainState())
 
   const domainCapabilities = useMemo(() => AIS_CAPABILITIES.filter(item => item.domain === activeDomain), [activeDomain])
   const selected = AIS_CAPABILITIES.find(item => item.id === selectedId) || domainCapabilities[0]
   const selectedState = states.find(item => item.capability_id === selected?.id) || INITIAL_LEARNER_STATES[0]
   const started = states.filter(item => item.status !== 'NOT_STARTED').length
   const demonstrated = states.filter(item => item.status === 'DEMONSTRATED' || item.status === 'MASTERED').length
+
+  const selectDomain = (domainId: string) => {
+    setActiveDomain(domainId)
+    const first = AIS_CAPABILITIES.find(item => item.domain === domainId)
+    if (first) setSelectedId(first.id)
+    const next = { ...domainStates, [domainId]: domainStates[domainId] === 'integrated' ? 'integrated' : 'exploring' as GroveGatewayState }
+    setDomainStates(next)
+    if (typeof window !== 'undefined') {
+      try { window.localStorage.setItem(DOMAIN_STATE_KEY, JSON.stringify(next)) } catch {}
+    }
+  }
 
   return (
     <div style={{ paddingBottom: 40 }} data-testid="spiral-grove">
@@ -160,9 +185,11 @@ export default function SpiralGrovePage() {
         </p>
       </div>
 
+      <CrystalGateway activeDomain={activeDomain} onSelectDomain={selectDomain} stateByDomain={domainStates} />
+
       <nav style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 5, marginBottom: 14 }} aria-label="A.I.S capability domains">
         {GROVE_DOMAINS.map(domain => (
-          <button key={domain.id} type="button" onClick={() => { setActiveDomain(domain.id); const first = AIS_CAPABILITIES.find(item => item.domain === domain.id); if (first) setSelectedId(first.id) }}
+          <button key={domain.id} type="button" onClick={() => selectDomain(domain.id)}
             style={{ flexShrink: 0, padding: '9px 11px', borderRadius: 9, cursor: 'pointer', background: activeDomain === domain.id ? `${domain.accent}12` : 'rgba(255,255,255,.02)', border: `1px solid ${activeDomain === domain.id ? `${domain.accent}45` : 'rgba(255,255,255,.06)'}`, color: activeDomain === domain.id ? domain.accent : C.muted, fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '.1em', textTransform: 'uppercase' }}>
             {domain.icon} {domain.label}
           </button>
