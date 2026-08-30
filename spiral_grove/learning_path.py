@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .models import LearningPath, LearnerCapabilityState, LearnerCapabilityStatus
-from .registry import CapabilityRegistry, UnknownCapabilityError
+from .models import LearningPath, LearnerCapabilityState
+from .registry import CapabilityRegistry
 
 
 class LearningPathEngineError(ValueError):
@@ -40,6 +40,7 @@ class LearningPathEngine:
         *,
         learner_state: LearnerCapabilityState,
         target_capability_id: str | None = None,
+        demonstrated_capability_ids: set[str] | None = None,
     ) -> LearningPathPlan:
         target_id = target_capability_id or learner_state.capability_id
         if learner_state.capability_id != target_id:
@@ -49,18 +50,14 @@ class LearningPathEngine:
 
         target = self._registry.get(target_id)
         graph = self._registry.graph()
-        demonstrated = set(learner_state.evidence_refs) if learner_state.status in {
-            LearnerCapabilityStatus.DEMONSTRATED,
-            LearnerCapabilityStatus.MASTERED,
-        } else set()
+        demonstrated = set(demonstrated_capability_ids or set())
+        if learner_state.demonstrated_level is not None:
+            demonstrated.add(learner_state.capability_id)
 
         prerequisites = graph.prerequisites_for(target.id)
-        prerequisite_ids = [item.id for item in prerequisites]
-
-        missing = [item for item in prerequisite_ids if item not in demonstrated]
+        missing = [item for item in prerequisites if item.id not in demonstrated]
         if missing:
-            next_capability_id = missing[0]
-            next_capability = self._registry.get(next_capability_id)
+            next_capability = missing[0]
             reason = f"Prerequisite first: {next_capability.name}."
             capability_ids = [next_capability.id, target.id]
         else:
@@ -81,7 +78,15 @@ class LearningPathEngine:
         )
         return LearningPathPlan(path=path, target_capability_id=target.id, reason=reason)
 
-    def next_capability(self, learner_state: LearnerCapabilityState) -> str:
+    def next_capability(
+        self,
+        learner_state: LearnerCapabilityState,
+        *,
+        demonstrated_capability_ids: set[str] | None = None,
+    ) -> str:
         """Return the next registry capability required by the learner state."""
-        plan = self.plan(learner_state=learner_state)
+        plan = self.plan(
+            learner_state=learner_state,
+            demonstrated_capability_ids=demonstrated_capability_ids,
+        )
         return plan.path.capability_ids[0]
