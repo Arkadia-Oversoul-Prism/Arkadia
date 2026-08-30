@@ -15,6 +15,21 @@ export interface AisCapabilityPortfolio {
   completedAt: string;
 }
 
+interface DiagnosticHandoff {
+  version: 1;
+  source: 'future-skills-lab';
+  identity: string;
+  capabilities: string[];
+  builds: string;
+  evidence: string;
+  projects: string;
+  offer: string;
+  credentials: string;
+  growth: string[];
+  researchSignal: string;
+  createdAt: string;
+}
+
 interface LivingGateProps {
   onAICComplete?: (seed: AisCapabilityPortfolio) => void;
   onEnterSpiralGrove?: () => void;
@@ -35,10 +50,35 @@ const STEPS: Array<{ key: StepKey; label: string; question: string; helper: stri
 
 const QUICK_CAPABILITIES = AIS_CAPABILITIES.map(capability => capability.name).slice(0, 18);
 const GROWTH_OPTIONS = GROVE_DOMAINS.map(domain => ({ id: domain.id, label: domain.label }));
+const HANDOFF_KEY = 'arkadia.ais.diagnostic-handoff.v1';
 
 const EMPTY: Omit<AisCapabilityPortfolio, 'version' | 'completedAt'> = {
   identity: '', capabilities: [], builds: '', evidence: '', projects: '', offer: '', credentials: '', growth: [],
 };
+
+function readDiagnosticHandoff(): DiagnosticHandoff | null {
+  try {
+    const raw = sessionStorage.getItem(HANDOFF_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as DiagnosticHandoff;
+    return parsed?.version === 1 && parsed?.source === 'future-skills-lab' ? parsed : null;
+  } catch { return null; }
+}
+
+function profileFromHandoff(handoff: DiagnosticHandoff | null): typeof EMPTY {
+  if (!handoff) return EMPTY;
+  const evidence = [handoff.evidence, handoff.researchSignal ? `Research approach: ${handoff.researchSignal}` : ''].filter(Boolean).join('\n\n');
+  return {
+    identity: handoff.identity,
+    capabilities: handoff.capabilities,
+    builds: handoff.builds,
+    evidence,
+    projects: handoff.projects,
+    offer: handoff.offer,
+    credentials: handoff.credentials,
+    growth: handoff.growth,
+  };
+}
 
 const fieldStyle: React.CSSProperties = {
   width: '100%', minHeight: 88, boxSizing: 'border-box', padding: '14px 15px',
@@ -77,9 +117,11 @@ function PortfolioSnapshot({ portfolio, onRetake, onGrove }: { portfolio: AisCap
 }
 
 export default function LivingGate({ onAICComplete, onEnterSpiralGrove }: LivingGateProps) {
+  const initialHandoff = readDiagnosticHandoff();
   const [index, setIndex] = useState(0);
-  const [profile, setProfile] = useState(EMPTY);
+  const [profile, setProfile] = useState(() => profileFromHandoff(initialHandoff));
   const [complete, setComplete] = useState(false);
+  const [handoffActive, setHandoffActive] = useState(Boolean(initialHandoff));
   const step = STEPS[index];
   const progress = Math.round(((index + 1) / STEPS.length) * 100);
   const selectedCapabilities = profile.capabilities;
@@ -96,13 +138,20 @@ export default function LivingGate({ onAICComplete, onEnterSpiralGrove }: Living
 
   const finish = () => {
     const portfolio: AisCapabilityPortfolio = { version: 1, ...profile, completedAt: new Date().toISOString() };
-    try { sessionStorage.setItem('arkadia.ais.capability-portfolio.v1', JSON.stringify(portfolio)); } catch {}
+    try {
+      sessionStorage.setItem('arkadia.ais.capability-portfolio.v1', JSON.stringify(portfolio));
+      sessionStorage.removeItem(HANDOFF_KEY);
+    } catch {}
     onAICComplete?.(portfolio);
     setComplete(true);
+    setHandoffActive(false);
   };
 
   const next = () => index === STEPS.length - 1 ? finish() : setIndex(value => value + 1);
-  const retake = () => { setProfile(EMPTY); setIndex(0); setComplete(false); };
+  const retake = () => {
+    try { sessionStorage.removeItem(HANDOFF_KEY); } catch {}
+    setProfile(EMPTY); setIndex(0); setComplete(false); setHandoffActive(false);
+  };
 
   if (complete) return <div className="relative w-full min-h-screen flex flex-col items-center px-5 py-8" style={{ background: '#0A0A0F' }}><div className="relative z-10 w-full"><PortfolioSnapshot portfolio={{ version: 1, ...profile, completedAt: new Date().toISOString() }} onRetake={retake} onGrove={onEnterSpiralGrove} /></div></div>;
 
@@ -113,7 +162,7 @@ export default function LivingGate({ onAICComplete, onEnterSpiralGrove }: Living
         <div><p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '.3em', textTransform: 'uppercase', color: 'rgba(0,212,170,.55)', margin: '0 0 5px' }}>Living Gate · A.I.S Diagnostic</p><h1 style={{ fontFamily: 'serif', fontSize: 29, fontWeight: 400, color: '#E8E8E8', margin: 0 }}>Build your capability profile.</h1></div>
         <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'rgba(232,232,232,.28)' }}>{index + 1}/{STEPS.length}</span>
       </div>
-      <p style={{ fontFamily: 'sans-serif', fontSize: 12, lineHeight: 1.65, color: 'rgba(232,232,232,.45)', margin: '0 0 13px' }}>Eight quick signals. A practical A.I.S Capability Portfolio. No long questionnaire, no certificate theatre.</p>
+      <p style={{ fontFamily: 'sans-serif', fontSize: 12, lineHeight: 1.65, color: 'rgba(232,232,232,.45)', margin: '0 0 13px' }}>{handoffActive ? 'Your Future Skills Lab work is already in the map. Fill the missing signals, then we will turn it into your A.I.S Capability Portfolio.' : 'Eight quick signals. A practical A.I.S Capability Portfolio. No long questionnaire, no certificate theatre.'}</p>
       <div style={{ height: 2, background: 'rgba(255,255,255,.06)', marginBottom: 24 }}><motion.div animate={{ width: `${progress}%` }} style={{ height: '100%', background: 'linear-gradient(90deg,#00D4AA,#C9A84C)' }} /></div>
       <AnimatePresence mode="wait">
         <motion.section key={step.key} initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: .24 }} style={{ padding: 18, background: 'rgba(14,17,32,.68)', border: '1px solid rgba(255,255,255,.07)', borderRadius: 13 }}>
