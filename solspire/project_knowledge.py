@@ -14,7 +14,7 @@ def _safe_list(fn, *args, default=None):
         return default if default is not None else []
 
 
-def build_knowledge_summary(project_id: str) -> dict[str, Any]:
+def build_knowledge_summary(project_id: str, embedding_provider=None) -> dict[str, Any]:
     from solspire.project_store import (
         list_memory,
         list_files,
@@ -23,6 +23,7 @@ def build_knowledge_summary(project_id: str) -> dict[str, Any]:
         list_events,
         list_conversations,
     )
+    from solspire.embedding_provider import get_embedding_provider
 
     mem = _safe_list(list_memory, project_id)
     files = _safe_list(list_files, project_id)
@@ -30,6 +31,7 @@ def build_knowledge_summary(project_id: str) -> dict[str, Any]:
     tasks = _safe_list(list_tasks, project_id)
     events = _safe_list(list_events, project_id)
     convs = _safe_list(list_conversations, project_id)
+    provider = embedding_provider or get_embedding_provider()
 
     return {
         "project_id": project_id,
@@ -83,16 +85,7 @@ def build_knowledge_summary(project_id: str) -> dict[str, Any]:
                 for t in (tasks or [])[:50]
             ],
         },
-        "embeddings": {
-            "status": "NOT_AVAILABLE",
-            "note": (
-                "No project-scoped embedding/vector store is attached to SolSpire "
-                "project_store. Global Knowledge OS embeddings (if any) are not "
-                "projected here to avoid cross-scope fabrication."
-            ),
-            "coverage": None,
-            "dimensions": None,
-        },
+        "embeddings": provider.describe(project_id=project_id),
         "authorization": {
             "PassSpec": "NONE",
             "PatchApproval": "NONE",
