@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "web" / "public_prism" / "src"
 RUNTIME = SRC / "components" / "spiral-grove" / "ActivityRuntime.tsx"
 CHAMBER = SRC / "components" / "spiral-grove" / "CapabilityChamber.tsx"
+GROVE_PAGE = SRC / "pages" / "SpiralGrovePage.tsx"
 CATALOG = SRC / "data" / "spiralGroveCatalog.ts"
 
 
@@ -77,3 +78,12 @@ def test_chamber_preserves_sg03_downstream_boundary() -> None:
     assert "Evidence submission, assessment, and capability-state updates remain separate downstream stages." in chamber
     assert "generateExercise" not in chamber
     assert "createEvidence" not in chamber
+
+
+def test_spiral_grove_hides_only_the_duplicate_outer_header() -> None:
+    page = read(GROVE_PAGE)
+    assert "data-sg-duplicate-header" in page
+    assert "The Spiral Grove" in page
+    assert "ARKADIA / SPIRAL GROVE" in page
+    assert "candidate.style.display = 'none'" in page
+    assert "duplicate.style.display = ''" in page
