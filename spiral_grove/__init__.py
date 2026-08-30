@@ -1,5 +1,11 @@
 """Spiral Grove — human capability-growth domain foundation."""
 
+from .learning_path import (
+    LearnerCapabilityMismatchError,
+    LearningPathEngine,
+    LearningPathEngineError,
+    LearningPathPlan,
+)
 from .models import (
     Capability,
     Evidence,
@@ -16,4 +22,8 @@ __all__ = [
     "LearningPath",
     "LearningResource",
     "LearnerCapabilityState",
+    "LearnerCapabilityMismatchError",
+    "LearningPathEngine",
+    "LearningPathEngineError",
+    "LearningPathPlan",
 ]
