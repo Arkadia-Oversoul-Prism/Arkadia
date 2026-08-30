@@ -1,7 +1,11 @@
 """SolSpire Console — ExecutionRuntime (Milestone 1).
 
-Manages the lifecycle of plan executions: execute, pause, resume, cancel.
-In-process for Milestone 1; Phase 2 swaps to a durable queue.
+Owns generic in-process workflow lifecycle only: execute, pause, resume,
+and cancel. It is not an engineering mutation engine. Engineering repository
+mutation belongs to the governed Weaver → K15 → K3 path.
+
+Tool dispatch is deliberately explicit and fail-closed. Unknown tool names do
+not silently fall through to an LLM invocation.
 
 Contract:
     runtime = ExecutionRuntime()
@@ -24,11 +28,11 @@ logger = logging.getLogger("solspire.execution_runtime")
 
 
 class ExecutionStatus(str, Enum):
-    PENDING   = "pending"
-    RUNNING   = "running"
-    PAUSED    = "paused"
+    PENDING = "pending"
+    RUNNING = "running"
+    PAUSED = "paused"
     COMPLETED = "completed"
-    FAILED    = "failed"
+    FAILED = "failed"
     CANCELLED = "cancelled"
 
 
@@ -100,20 +104,22 @@ class ExecutionRuntime:
             owner_uid=owner_uid,
         )
         pause_event = threading.Event()
-        pause_event.set()  # not paused initially
+        pause_event.set()
 
         with self._lock:
             self._executions[exec_id] = execution
             self._pause_events[exec_id] = pause_event
             self._cancel_flags[exec_id] = False
 
-        logger.info("ExecutionRuntime: starting execution %s (plan=%s, steps=%d)",
-                    exec_id, plan.id, len(plan.steps))
+        logger.info(
+            "ExecutionRuntime: starting execution %s (plan=%s, steps=%d)",
+            exec_id,
+            plan.id,
+            len(plan.steps),
+        )
 
         thread = threading.Thread(target=self._run, args=(exec_id,), daemon=True)
         thread.start()
-
-        # Wait briefly so the caller gets a running execution
         time.sleep(0.05)
         return self._executions[exec_id]
 
@@ -149,13 +155,12 @@ class ExecutionRuntime:
             self._cancel_flags[execution_id] = True
             ev = self._pause_events.get(execution_id)
             if ev:
-                ev.set()  # unblock if paused
+                ev.set()
         ex.status = ExecutionStatus.CANCELLED
         logger.info("ExecutionRuntime: cancelled %s", execution_id)
 
     def get(self, execution_id: str, owner_uid: str | None = None) -> Execution | None:
-        """Return an execution. When ``owner_uid`` is given, executions owned by
-        a different user (or legacy executions with no owner) are invisible."""
+        """Return an execution, enforcing owner visibility when supplied."""
         ex = self._executions.get(execution_id)
         if ex is None:
             return None
@@ -172,8 +177,11 @@ class ExecutionRuntime:
 
     def active_count(self) -> int:
         with self._lock:
-            return sum(1 for ex in self._executions.values()
-                       if ex.status in (ExecutionStatus.RUNNING, ExecutionStatus.PAUSED))
+            return sum(
+                1
+                for ex in self._executions.values()
+                if ex.status in (ExecutionStatus.RUNNING, ExecutionStatus.PAUSED)
+            )
 
     def _run(self, exec_id: str) -> None:
         ex = self._executions[exec_id]
@@ -181,7 +189,6 @@ class ExecutionRuntime:
 
         try:
             for i, step in enumerate(ex.plan.steps):
-                # Pause checkpoint
                 ev.wait(timeout=_STEP_TIMEOUT)
                 if self._cancel_flags.get(exec_id):
                     ex.status = ExecutionStatus.CANCELLED
@@ -194,7 +201,10 @@ class ExecutionRuntime:
                     ex.retries += 1
                     if ex.retries >= _MAX_RETRIES:
                         ex.status = ExecutionStatus.FAILED
-                        ex.error = f"Step {i} failed after {_MAX_RETRIES} retries: {step_result.get('error')}"
+                        ex.error = (
+                            f"Step {i} failed after {_MAX_RETRIES} retries: "
+                            f"{step_result.get('error')}"
+                        )
                         return
 
             ex.status = ExecutionStatus.COMPLETED
@@ -234,13 +244,22 @@ class ExecutionRuntime:
                     from solspire.project_manager import get_project_manager
                     p = get_project_manager().create(payload.get("name", "Unnamed"))
                     return {"step": idx, "tool": tool, "ok": True, "project": p.to_dict()}
-                case "llm" | _:
+                case "llm":
                     from solspire.provider_manager import get_manager
                     result = get_manager().invoke_model(
                         payload.get("prompt", step.get("description", "Complete this step.")),
                         payload.get("context", {}),
                     )
                     return {"step": idx, "tool": "llm", "ok": True, "result": result}
+                case _:
+                    return {
+                        "step": idx,
+                        "tool": tool,
+                        "ok": False,
+                        "status": "NOT_AVAILABLE",
+                        "error": f"Unknown execution tool '{tool}'",
+                        "mutation_path": "NONE",
+                    }
         except Exception as exc:
             logger.error("ExecutionRuntime: step %d error: %s", idx, exc)
             return {"step": idx, "tool": tool, "ok": False, "error": str(exc)}
