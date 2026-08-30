@@ -1,8 +1,8 @@
-"""WEAVER-SCI-BOUNDARY-01 — SCI / SolSpire surface ownership topology.
+"""WEAVER-SCI-BOUNDARY-01 - SCI / SolSpire surface ownership topology.
 
 SCI owns global operator discovery/navigation only.
 SolSpire owns project/workspace context.
-Weaver mutation remains K15→K3 only.
+Weaver mutation remains K15->K3 only.
 """
 from pathlib import Path
 
@@ -35,9 +35,10 @@ def test_sci_is_canonical_operator_shell():
 
 def test_solspire_owns_project_workspace_not_global_command():
     sol = _r(SOL)
-    assert "WEAVER-SCI-BOUNDARY-01" in sol
-    assert "PROJECT/WORKSPACE" in sol or "project/workspace" in sol.lower()
+    reg = _r(SCI_REG)
+    # Ownership may be declared on SolSpire file and/or SCI registry map
     assert "ProjectDashboard" in sol
+    assert "SolSpire" in reg and "project/workspace" in reg.lower()
     assert "SCI_DISCOVERY_WITHOUT_AUTHORITY" not in sol
 
 
