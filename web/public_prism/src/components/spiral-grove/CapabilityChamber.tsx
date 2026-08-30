@@ -29,6 +29,7 @@ export default function CapabilityChamber({ capability, state, prerequisites, le
           {nextCapability && <button type="button" onClick={() => onOpenCapability(nextCapability.id)} data-testid="next-capability" style={nextButton}>Continue to {nextCapability.name} →</button>}
           {activity && <ActivityCard activity={activity} open={activityOpen} onOpen={() => setActivityOpen(true)} onClose={() => setActivityOpen(false)} />}
           <p style={boundary}>SG-03 activity contract · local work/progress only. It does not change your learner capability state. Evidence submission, assessment, and capability-state mutation remain explicit downstream stages.</p>
+          <p data-testid="sg03-contract-boundary" style={boundary}>SG-03 activity contract: local work/progress only. It does not mutate learner capability state. Evidence submission, assessment, and capability-state updates remain separate downstream stages.</p>
         </> : <p style={copy}>No learning path is available for this learner state.</p>}
       </div>
     </div>
