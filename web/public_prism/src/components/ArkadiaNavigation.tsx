@@ -45,7 +45,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Home',         view: 'home',      sigil: 'H', sub: 'Field entry point',     color: '#C9A84C' },
       { label: 'Oracle',       view: 'commune',   sigil: 'O', sub: 'ARKANA - Pattern intelligence', color: '#00D4AA' },
-      { label: 'Living Gate',  view: 'gate',      sigil: '*', sub: 'Reset - IMS - AIC - 5-Minute', color: '#C9A84C' },
+      { label: 'Living Gate',  view: 'gate',      sigil: '*', sub: 'A.I.S diagnostic · capability onboarding', color: '#C9A84C' },
     ],
   },
   {
