@@ -6,11 +6,10 @@ these rules.
 """
 from __future__ import annotations
 
-import hashlib
 from typing import Any
 
-from .execution import PatchApproval, execute_patch, pass_spec_hash, patch_content_hash
-from .pass_spec import PassSpec, current_head, current_origin_main, path_in_allowlist
+from .execution import PatchApproval, pass_spec_hash, patch_content_hash
+from .pass_spec import PassSpec, current_head, path_in_allowlist
 
 
 def evaluate_patch_readiness(
@@ -193,7 +192,4 @@ __all__ = [
     "build_patch_approval",
     "build_pass_spec_for_patch",
     "evaluate_patch_readiness",
-    "execute_patch",
-    "pass_spec_hash",
-    "patch_content_hash",
 ]
