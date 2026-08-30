@@ -1,9 +1,13 @@
 /**
- * Spiral Command Interface (SCI) — MVP2-08 foundation
+ * Spiral Command Interface (SCI) - MVP2-08 foundation
  *
  * Operator discovery shell. Routes to existing surfaces.
  * Does NOT own authorization, mutation, PassSpec, PatchApproval, K15, or K3.
  * SCI_DISCOVERY_WITHOUT_AUTHORITY
+ *
+ * WEAVER-SCI-BOUNDARY-01: SCI owns global operator command navigation only.
+ * SolSpire owns project/workspace context. Weaver lives under project scope.
+ * SCI must not implement PassSpec, PatchApproval, K15, or K3.
  */
 import React, { useState } from 'react';
 import {
@@ -100,7 +104,7 @@ function CommandCard({ cmd, onNavigate }: { cmd: SciCommand; onNavigate: Navigat
             cursor: 'pointer',
           }}
         >
-          Open existing surface →
+          Open existing surface
         </button>
       )}
       {!cmd.routeView && cmd.availability !== 'AVAILABLE' && (
@@ -108,7 +112,7 @@ function CommandCard({ cmd, onNavigate }: { cmd: SciCommand; onNavigate: Navigat
           data-testid={`sci-na-${cmd.id}`}
           style={{ margin: 0, fontSize: 10, letterSpacing: '0.12em', color: C.dim, textTransform: 'uppercase' }}
         >
-          {cmd.availability} — metadata only · no parallel implementation
+          {cmd.availability} - metadata only - no parallel implementation
         </p>
       )}
     </div>
@@ -137,25 +141,28 @@ function OverviewPanel() {
           lineHeight: 1.55,
           margin: 0,
         }}
-      >{`SPIRAL COMMAND INTERFACE (discovery)
-                 |
-   +-------------+-------------+
-   |             |             |
- PRISM        SOLSPIRE       WEAVER
- Frontend    Projects/KO    Analysis->Plan->Patch
-   |             |             |
-   |        Knowledge OS       |
-   |             |             v
-   |             +------> Governance
-   |                         PassSpec
-   |                      PatchApproval
-   |                           K15
-   |                           K3
-   |                      Verification
+      >{`SCI (global operator shell)
+        |
+   +----+----+----+
+   |    |    |    |
+PROJECTS KNOWLEDGE SYSTEM
+   |
+SOLSPIRE (project workspace)
+   |
+   +-- Knowledge (project)
+   +-- Weaver (project-scoped)
+   +-- Tasks / objectives
+          |
+      GOVERNANCE
+          |
+       K15 -> K3
+          |
+      VERIFICATION
 
- EXISTING     PLANNED      NOT_AVAILABLE
- SCI routes to existing surfaces only.
- No SCI -> K3. No autonomous mutation.`}</pre>
+SCI routes to existing surfaces only.
+SolSpire owns project context. Weaver is project-scoped.
+No SCI -> K3. No autonomous mutation.
+SCI_DISCOVERY_WITHOUT_AUTHORITY`}</pre>
       <p style={{ marginTop: 16, fontSize: 11, color: C.dim }}>
         Invariant: <code style={{ color: C.teal }}>SCI_DISCOVERY_WITHOUT_AUTHORITY</code>
       </p>
@@ -170,7 +177,7 @@ function WeaverPanel({ onNavigate }: { onNavigate: Navigate }) {
       <h2 style={{ fontFamily: 'serif', fontSize: 20, color: C.teal, margin: '0 0 6px' }}>Weaver</h2>
       <p style={{ fontSize: 12, color: C.muted, margin: '0 0 14px', lineHeight: 1.55 }}>
         Lifecycle is displayed for operator orientation. Execution requires PassSpec + PatchApproval + K15.
-        SCI does not call K3 or run_transaction.
+        SCI does not call K3 or run_transaction. Weaver workbench lives under SolSpire project context.
       </p>
       <div style={{ marginBottom: 16 }}>
         <p style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.dim, margin: '0 0 8px' }}>
@@ -196,7 +203,7 @@ function WeaverPanel({ onNavigate }: { onNavigate: Navigate }) {
         <CommandCard key={c.id} cmd={c} onNavigate={onNavigate} />
       ))}
       <p style={{ fontSize: 11, color: C.dim, marginTop: 8 }}>
-        Open SolSpire → select a project → Weaver tab for the existing WeaverPanel binding.
+        Open SolSpire, select a project, then Weaver tab for the existing WeaverPanel binding.
       </p>
     </div>
   );
@@ -212,7 +219,7 @@ function DomainPanel({ domain, onNavigate }: { domain: SciDomain; onNavigate: Na
       <h2 style={{ fontFamily: 'serif', fontSize: 20, color: C.gold, margin: '0 0 12px' }}>{title}</h2>
       {cmds.length === 0 ? (
         <p data-testid={`sci-empty-${domain}`} style={{ color: C.dim, fontSize: 12 }}>
-          NOT_AVAILABLE — no registry entries for this domain yet.
+          NOT_AVAILABLE - no registry entries for this domain yet.
         </p>
       ) : (
         cmds.map((c) => <CommandCard key={c.id} cmd={c} onNavigate={onNavigate} />)
@@ -290,7 +297,7 @@ export default function SpiralCommandInterface({ onNavigate }: { onNavigate: Nav
         })}
         <div style={{ marginTop: 24, padding: '0 8px' }}>
           <p style={{ fontSize: 9, color: C.dim, letterSpacing: '0.1em', lineHeight: 1.5, margin: 0 }}>
-            SCI navigation ≠ authorization
+            SCI navigation is not authorization
           </p>
         </div>
       </nav>
@@ -299,7 +306,7 @@ export default function SpiralCommandInterface({ onNavigate }: { onNavigate: Nav
         <DomainPanel domain={active} onNavigate={onNavigate} />
         <div style={{ marginTop: 32, opacity: 0.35 }}>
           <p style={{ fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', margin: 0 }}>
-            Registry commands: {SCI_COMMANDS.length} · Descriptive only · No authority granted
+            Registry commands: {SCI_COMMANDS.length} - Descriptive only - No authority granted
           </p>
         </div>
       </main>
