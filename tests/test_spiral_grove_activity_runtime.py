@@ -23,6 +23,28 @@ def test_runtime_exists_and_is_explicitly_bounded() -> None:
     assert "mutate learner capability state" in runtime
 
 
+def test_runtime_persistence_uses_versioned_activity_scoped_records() -> None:
+    runtime = read(RUNTIME)
+    assert "STORAGE_VERSION = 1" in runtime
+    assert "type DraftRecord" in runtime
+    assert "type CompletionRecord" in runtime
+    assert "activity_id: string" in runtime
+    assert "activity_kind: LearningActivityKind" in runtime
+    assert "updated_at: string" in runtime
+    assert "completed_at: string" in runtime
+    assert "JSON.stringify(record)" in runtime
+
+
+def test_runtime_recovers_safely_from_invalid_persisted_state() -> None:
+    runtime = read(RUNTIME)
+    assert "try {" in runtime
+    assert "catch { return '' }" in runtime
+    assert "catch { return false }" in runtime
+    assert "record.version !== STORAGE_VERSION" in runtime
+    assert "record.activity_id !== activity.id" in runtime
+    assert "record.activity_kind !== activity.kind" in runtime
+
+
 def test_runtime_has_local_draft_and_completion_state() -> None:
     runtime = read(RUNTIME)
     assert "arkadia.spiral-grove.activity-runtime-draft.v1:" in runtime
@@ -30,6 +52,22 @@ def test_runtime_has_local_draft_and_completion_state() -> None:
     assert "activity-runtime-save" in runtime
     assert "activity-runtime-complete" in runtime
     assert "activity-runtime-reopen" in runtime
+    assert "writeDraft(draftKey, activity, draft)" in runtime
+    assert "writeCompletion(completeKey, activity)" in runtime
+
+
+def test_completion_requires_persisted_draft() -> None:
+    runtime = read(RUNTIME)
+    assert "if (!draft.trim()) return" in runtime
+    assert "const draftSaved = writeDraft(draftKey, activity, draft)" in runtime
+    assert "const completionSaved = draftSaved && writeCompletion(completeKey, activity)" in runtime
+
+
+def test_runtime_handles_storage_unavailability_without_claiming_completion() -> None:
+    runtime = read(RUNTIME)
+    assert "storageAvailable" in runtime
+    assert "Local storage unavailable" in runtime
+    assert "disabled={!draft.trim() || !storageAvailable}" in runtime
 
 
 def test_runtime_dispatches_all_eight_kinds_to_deterministic_renderers() -> None:
