@@ -23,4 +23,5 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -r requirements.txt
+      - run: python -m pip install pytest
       - run: pytest -q tests/test_solspire_r1_governance_convergence.py tests/test_weaver_mvp2_exec_binding.py
