@@ -12,8 +12,10 @@ from spiral_grove.registry import build_ais_capability_catalog
 
 
 ROOT = Path(__file__).resolve().parents[1]
-FRONTEND = ROOT / "web" / "public_prism" / "src" / "data" / "spiralGroveCatalog.ts"
-PAGE = ROOT / "web" / "public_prism" / "src" / "pages" / "SpiralGrovePage.tsx"
+SRC = ROOT / "web" / "public_prism" / "src"
+FRONTEND = SRC / "data" / "spiralGroveCatalog.ts"
+PAGE = SRC / "pages" / "SpiralGrovePage.tsx"
+GATEWAY = SRC / "components" / "spiral-grove" / "CrystalGateway.tsx"
 ARCHIVE = ROOT / "archive" / "frontend" / "spiral_grove" / "SpiralGrovePage.placeholder.tsx"
 
 
@@ -54,3 +56,37 @@ def test_placeholder_is_archived_not_deleted() -> None:
     assert ARCHIVE.exists()
     archived = ARCHIVE.read_text(encoding="utf-8")
     assert "Archived SG-02-FE placeholder" in archived
+
+
+def test_gateway_projects_the_same_domain_registry_used_by_grove() -> None:
+    gateway = GATEWAY.read_text(encoding="utf-8")
+    page = PAGE.read_text(encoding="utf-8")
+    assert "GROVE_DOMAINS" in gateway
+    assert "GROVE_DOMAINS" in page
+    assert "onSelectDomain" in gateway
+    assert "onSelectDomain={selectDomain}" in page
+
+
+def test_gateway_domains_are_the_five_ais_domains() -> None:
+    text = FRONTEND.read_text(encoding="utf-8")
+    for domain in (
+        "digital_intelligence",
+        "creative_technology",
+        "systems_thinking",
+        "human_development",
+        "ecological_agricultural",
+    ):
+        assert domain in text
+
+
+def test_gateway_persistence_is_exploration_only() -> None:
+    page = PAGE.read_text(encoding="utf-8")
+    assert "arkadia.spiral-grove.domain-state.v1" in page
+    assert "localStorage" in page
+    assert "GroveGatewayState" in page
+
+
+def test_learning_path_exercises_and_evidence_remain_downstream() -> None:
+    page = PAGE.read_text(encoding="utf-8")
+    assert "Ready for SG-03" in page
+    assert "Captured after work" in page
