@@ -8,39 +8,14 @@
 
 export type CapabilityStatus = 'DRAFT' | 'ACTIVE' | 'RETIRED'
 export type LearnerCapabilityStatus = 'NOT_STARTED' | 'EXPLORING' | 'PRACTICING' | 'DEMONSTRATED' | 'MASTERED'
+export type LearningActivityKind = 'orientation' | 'practice' | 'reflection' | 'project'
+export type LearningActivityStatus = 'available' | 'completed'
 
-export interface GroveCapability {
-  id: string
-  slug: string
-  name: string
-  description: string
-  domain: string
-  level: number
-  prerequisites: string[]
-  outcomes: string[]
-  status: CapabilityStatus
-}
-
-export interface LearnerCapabilityState {
-  learner_id: string
-  capability_id: string
-  status: LearnerCapabilityStatus
-  demonstrated_level: number | null
-  confidence: number | null
-  evidence_refs: string[]
-  last_assessed_at: string | null
-  next_recommended_action: string | null
-}
-
-export interface GroveLearningPathProjection {
-  id: string
-  name: string
-  audience: string
-  capability_ids: string[]
-  progression_rules: Record<string, string>
-  reason: string
-  next_capability_id: string
-}
+export interface GroveCapability { id: string; slug: string; name: string; description: string; domain: string; level: number; prerequisites: string[]; outcomes: string[]; status: CapabilityStatus }
+export interface LearnerCapabilityState { learner_id: string; capability_id: string; status: LearnerCapabilityStatus; demonstrated_level: number | null; confidence: number | null; evidence_refs: string[]; last_assessed_at: string | null; next_recommended_action: string | null }
+export interface GroveLearningPathProjection { id: string; name: string; audience: string; capability_ids: string[]; progression_rules: Record<string, string>; reason: string; next_capability_id: string }
+export interface GroveLearningActivity { id: string; path_id: string; capability_id: string; title: string; instruction: string; kind: LearningActivityKind; status: LearningActivityStatus; evidence_required: boolean }
+export interface GroveLearningPathActivityProjection { path_id: string; capability_id: string; activities: GroveLearningActivity[] }
 
 export const GROVE_DOMAINS = [
   { id: 'digital_intelligence', label: 'Digital Intelligence', icon: '◈', accent: '#00D4AA' },
@@ -86,69 +61,22 @@ const CAPABILITY_SEEDS: CapabilitySeed[] = [
   ['cap-sustainable-agriculture','sustainable-agriculture','Sustainable Agriculture','Design agricultural practices balancing productivity and ecological stewardship.','ecological_agricultural',3,['cap-soil-systems','cap-water-systems','cap-resource-management'],['design-sustainable-practices','evaluate-agricultural-tradeoffs']],
 ]
 
-export const AIS_CAPABILITIES: GroveCapability[] = CAPABILITY_SEEDS.map(([id, slug, name, description, domain, level, prerequisites, outcomes]) => ({
-  id, slug, name, description, domain, level, prerequisites, outcomes, status: 'ACTIVE',
-}))
-
-export const INITIAL_LEARNER_STATES: LearnerCapabilityState[] = AIS_CAPABILITIES.map(capability => ({
-  learner_id: 'local-learner',
-  capability_id: capability.id,
-  status: 'NOT_STARTED',
-  demonstrated_level: null,
-  confidence: null,
-  evidence_refs: [],
-  last_assessed_at: null,
-  next_recommended_action: capability.prerequisites.length ? 'Complete the prerequisite capabilities first.' : 'Begin an exploration exercise.',
-}))
+export const AIS_CAPABILITIES: GroveCapability[] = CAPABILITY_SEEDS.map(([id, slug, name, description, domain, level, prerequisites, outcomes]) => ({ id, slug, name, description, domain, level, prerequisites, outcomes, status: 'ACTIVE' }))
+export const INITIAL_LEARNER_STATES: LearnerCapabilityState[] = AIS_CAPABILITIES.map(capability => ({ learner_id: 'local-learner', capability_id: capability.id, status: 'NOT_STARTED', demonstrated_level: null, confidence: null, evidence_refs: [], last_assessed_at: null, next_recommended_action: capability.prerequisites.length ? 'Complete the prerequisite capabilities first.' : 'Begin an exploration exercise.' }))
 
 export function prerequisitesFor(capabilityId: string): GroveCapability[] {
-  const byId = new Map(AIS_CAPABILITIES.map(item => [item.id, item]))
-  const target = byId.get(capabilityId)
-  if (!target) return []
-  const result: GroveCapability[] = []
-  const seen = new Set<string>()
-  const visit = (id: string) => {
-    if (seen.has(id)) return
-    const capability = byId.get(id)
-    if (!capability) return
-    seen.add(id)
-    capability.prerequisites.forEach(visit)
-    if (id !== capabilityId) result.push(capability)
-  }
-  target.prerequisites.forEach(visit)
-  return result
+  const byId = new Map(AIS_CAPABILITIES.map(item => [item.id, item])); const target = byId.get(capabilityId); if (!target) return []
+  const result: GroveCapability[] = []; const seen = new Set<string>(); const visit = (id: string) => { if (seen.has(id)) return; const capability = byId.get(id); if (!capability) return; seen.add(id); capability.prerequisites.forEach(visit); if (id !== capabilityId) result.push(capability) }; target.prerequisites.forEach(visit); return result
 }
 
-/**
- * Frontend projection of the SG-03 planner contract.
- * Until a runtime API adapter is introduced, this mirrors only the deterministic
- * path shape and consumes the same registry projection. It does not generate
- * exercises/evidence or mutate learner state.
- */
-export function learningPathFor(
-  capabilityId: string,
-  learnerState: LearnerCapabilityState,
-  demonstratedCapabilityIds: Set<string> = new Set(),
-): GroveLearningPathProjection | null {
-  if (learnerState.capability_id !== capabilityId) return null
-  const target = AIS_CAPABILITIES.find(item => item.id === capabilityId)
-  if (!target) return null
-  const prerequisites = prerequisitesFor(capabilityId)
-  const missing = prerequisites.find(item => !demonstratedCapabilityIds.has(item.id))
-  const nextCapability = missing || target
-  const capabilityIds = missing ? [missing.id, target.id] : [target.id]
+export function learningPathFor(capabilityId: string, learnerState: LearnerCapabilityState, demonstratedCapabilityIds: Set<string> = new Set()): GroveLearningPathProjection | null {
+  if (learnerState.capability_id !== capabilityId) return null; const target = AIS_CAPABILITIES.find(item => item.id === capabilityId); if (!target) return null
+  const prerequisites = prerequisitesFor(capabilityId); const missing = prerequisites.find(item => !demonstratedCapabilityIds.has(item.id)); const nextCapability = missing || target; const capabilityIds = missing ? [missing.id, target.id] : [target.id]
+  return { id: `path-${learnerState.learner_id}-${target.id}-v1`, name: `${target.name} progression`, audience: 'learner', capability_ids: capabilityIds, progression_rules: { entry: 'learner_capability_state', completion: 'evidence_required', next_step: 'registry_prerequisite_or_target' }, reason: missing ? `Prerequisite first: ${missing.name}.` : `Continue developing ${target.name}.`, next_capability_id: nextCapability.id }
+}
 
-  return {
-    id: `path-${learnerState.learner_id}-${target.id}-v1`,
-    name: `${target.name} progression`,
-    audience: 'learner',
-    capability_ids: capabilityIds,
-    progression_rules: {
-      entry: 'learner_capability_state',
-      completion: 'evidence_required',
-      next_step: 'registry_prerequisite_or_target',
-    },
-    reason: missing ? `Prerequisite first: ${missing.name}.` : `Continue developing ${target.name}.`,
-    next_capability_id: nextCapability.id,
-  }
+/** UI projection of the explicit SG-03 activity contract. This supplies a stable activity surface; it does not autonomously generate exercises, create evidence, or mutate learner state. */
+export function learningActivitiesFor(path: GroveLearningPathProjection): GroveLearningPathActivityProjection {
+  const capabilityId = path.next_capability_id
+  return { path_id: path.id, capability_id: capabilityId, activities: [{ id: `activity-${path.id}-${capabilityId}-01`, path_id: path.id, capability_id: capabilityId, title: 'Capability orientation', instruction: 'Review the capability context and identify one concrete application.', kind: 'orientation', status: 'available', evidence_required: true }] }
 }
