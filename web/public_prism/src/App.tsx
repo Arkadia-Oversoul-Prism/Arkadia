@@ -197,6 +197,7 @@ function AppInner() {
               onGoToOfferings={() => handleNavigate('offerings')}
               onAICComplete={setAicSeed}
               onGoToReset={() => handleNavigate('reset')}
+              onEnterSpiralGrove={() => handleNavigate('grove')}
             />
           </motion.div>
         )}
@@ -261,6 +262,7 @@ function AppInner() {
               onEnterField={handleEnterField}
               onGoToOfferings={() => handleNavigate('offerings')}
               onAICComplete={setAicSeed}
+              onEnterSpiralGrove={() => handleNavigate('grove')}
               initialMode="aic"
             />
           </motion.div>
