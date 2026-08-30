@@ -235,7 +235,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
         </motion.p>
 
         <motion.h1 initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: 0.18 }}
-          style={{ fontFamily: '"Cinzel", serif', fontSize: '52px', letterSpacing: '0.18em', textAlign: 'center', color: '#C9A84C', textShadow: '0 0 50px rgba(201,168,76,0.40), 0 0 120px rgba(201,168,76,0.15)', marginBottom: '10px', lineHeight: 1 }}>
+          style={{ fontFamily: '\"Cinzel\", serif', fontSize: '52px', letterSpacing: '0.18em', textAlign: 'center', color: '#C9A84C', textShadow: '0 0 50px rgba(201,168,76,0.40), 0 0 120px rgba(201,168,76,0.15)', marginBottom: '10px', lineHeight: 1 }}>
           ARKADIA
         </motion.h1>
 
@@ -317,7 +317,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
           style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
           <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, transparent, rgba(0,212,170,0.25))' }} />
           <div style={{ width: '5px', height: '5px', border: '1px solid rgba(0,212,170,0.45)', transform: 'rotate(45deg)', backgroundColor: '#0C0D18' }} />
-          <span style={{ fontFamily: '"Cinzel", serif', fontSize: '8px', letterSpacing: '0.35em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.55)', whiteSpace: 'nowrap' }}>The Field</span>
+          <span style={{ fontFamily: '\"Cinzel\", serif', fontSize: '8px', letterSpacing: '0.35em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.55)', whiteSpace: 'nowrap' }}>The Field</span>
           <div style={{ width: '5px', height: '5px', border: '1px solid rgba(0,212,170,0.45)', transform: 'rotate(45deg)', backgroundColor: '#0C0D18' }} />
           <div style={{ flex: 1, height: '1px', background: 'linear-gradient(270deg, transparent, rgba(0,212,170,0.25))' }} />
         </motion.div>
@@ -431,7 +431,8 @@ function AppInner() {
 
   const handleNavigate = (v: View) => {
     if (v !== 'commune') setSoulPhrase(undefined);
-    setView(v);
+    // Compatibility alias: legacy 'nexus' View resolves to canonical 'novanet' hub
+    setView(v === 'nexus' ? 'novanet' : v);
   };
 
   // Redirect from login to home if already authenticated
@@ -474,12 +475,6 @@ function AppInner() {
         {view === 'reset' && (
           <motion.div key="reset" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
             <CoherenceReset />
-          </motion.div>
-        )}
-
-        {view === 'nexus' && (
-          <motion.div key="nexus" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
-            <NexusPage />
           </motion.div>
         )}
 
