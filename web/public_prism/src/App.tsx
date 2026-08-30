@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ArkadiaNavigation from './components/ArkadiaNavigation';
 import LivingGate from './pages/LivingGate';
+import AISCapabilityDiagnostic from './pages/AISCapabilityDiagnostic';
 import ArkanaCommune from './components/ArkanaCommune';
 import CoherenceReset from './pages/CoherenceReset';
 import AboutArkadia from './pages/AboutArkadia';
@@ -192,13 +193,7 @@ function AppInner() {
         )}
         {view === 'gate' && (
           <motion.div key="gate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}>
-            <LivingGate
-              onEnterField={handleEnterField}
-              onGoToOfferings={() => handleNavigate('offerings')}
-              onAICComplete={setAicSeed}
-              onGoToReset={() => handleNavigate('reset')}
-              onEnterSpiralGrove={() => handleNavigate('grove')}
-            />
+            <AISCapabilityDiagnostic onEnterSpiralGrove={() => handleNavigate('grove')} />
           </motion.div>
         )}
         {view === 'commune' && (
