@@ -1,0 +1,40 @@
+name: SG-02-FE.2-V
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/public_prism/**'
+      - 'tests/test_spiral_grove_frontend_projection.py'
+      - '.github/workflows/sg-02-fe-2-v.yml'
+  pull_request:
+    paths:
+      - 'web/public_prism/**'
+      - 'tests/test_spiral_grove_frontend_projection.py'
+      - '.github/workflows/sg-02-fe-2-v.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web/public_prism
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: pnpm
+          cache-dependency-path: web/public_prism/pnpm-lock.yaml
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm build
+      - name: Grove contracts
+        working-directory: .
+        run: python -m pytest tests/test_spiral_grove_frontend_projection.py -q
