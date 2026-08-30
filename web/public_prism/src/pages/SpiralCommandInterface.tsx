@@ -16,6 +16,8 @@ import {
   WEAVER_LIFECYCLE,
   WEAVER_STATE_LABELS,
   commandsForDomain,
+  hasBoundRoute,
+  navigationLabel,
   type SciDomain,
   type SciCommand,
 } from '../lib/sciCommandRegistry';
@@ -63,6 +65,7 @@ function availabilityColor(a: string): string {
 }
 
 function CommandCard({ cmd, onNavigate }: { cmd: SciCommand; onNavigate: Navigate }) {
+  const bound = hasBoundRoute(cmd);
   return (
     <div
       data-testid={`sci-command-${cmd.id}`}
@@ -78,15 +81,24 @@ function CommandCard({ cmd, onNavigate }: { cmd: SciCommand; onNavigate: Navigat
         <p style={{ margin: 0, fontFamily: 'sans-serif', fontSize: 13, color: C.text, fontWeight: 600 }}>
           {cmd.label}
         </p>
+        <Badge label={`owner:${cmd.owner}`} color={C.purple} />
         <Badge label={cmd.availability} color={availabilityColor(cmd.availability)} />
         <Badge label={cmd.authority} color={C.blue} />
-        {cmd.mutation && <Badge label="MUTATION" color={C.gold} />}
+        <Badge label={cmd.mutationClass} color={cmd.mutation ? C.gold : C.dim} />
       </div>
       <p style={{ margin: '0 0 8px', fontSize: 12, color: C.muted, lineHeight: 1.5 }}>{cmd.description}</p>
       {cmd.notes && (
-        <p style={{ margin: '0 0 10px', fontSize: 11, color: C.dim, lineHeight: 1.45 }}>{cmd.notes}</p>
+        <p style={{ margin: '0 0 8px', fontSize: 11, color: C.dim, lineHeight: 1.45 }}>{cmd.notes}</p>
       )}
-      {cmd.routeView && (
+      {cmd.limitations && (
+        <p
+          data-testid={`sci-limit-${cmd.id}`}
+          style={{ margin: '0 0 10px', fontSize: 11, color: C.gold, lineHeight: 1.45 }}
+        >
+          {cmd.limitations}
+        </p>
+      )}
+      {bound ? (
         <button
           type="button"
           data-testid={`sci-open-${cmd.id}`}
@@ -104,15 +116,14 @@ function CommandCard({ cmd, onNavigate }: { cmd: SciCommand; onNavigate: Navigat
             cursor: 'pointer',
           }}
         >
-          Open existing surface
+          {navigationLabel(cmd)}
         </button>
-      )}
-      {!cmd.routeView && cmd.availability !== 'AVAILABLE' && (
+      ) : (
         <p
-          data-testid={`sci-na-${cmd.id}`}
+          data-testid={`sci-unbound-${cmd.id}`}
           style={{ margin: 0, fontSize: 10, letterSpacing: '0.12em', color: C.dim, textTransform: 'uppercase' }}
         >
-          {cmd.availability} - metadata only - no parallel implementation
+          {navigationLabel(cmd)}
         </p>
       )}
     </div>
@@ -125,7 +136,7 @@ function OverviewPanel() {
       <h2 style={{ fontFamily: 'serif', fontSize: 22, color: C.gold, margin: '0 0 8px' }}>Spiral Command Interface</h2>
       <p style={{ fontSize: 12, color: C.muted, margin: '0 0 18px', lineHeight: 1.6 }}>
         Developer/operator discovery shell. Navigation is not authorization. Capability metadata is not authority.
-        Backend governance remains authoritative.
+        Backend governance remains authoritative. DISCOVERABLE != AVAILABLE != AUTHORIZED != EXECUTED != VERIFIED.
       </p>
       <pre
         data-testid="sci-system-map"
