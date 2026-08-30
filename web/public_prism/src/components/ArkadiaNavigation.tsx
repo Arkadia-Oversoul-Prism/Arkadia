@@ -131,7 +131,7 @@ function UserSection({ onNavigate, onClose }: { onNavigate: (v: View) => void; o
         {[
           { label: '◉ SolSpire', view: 'solspire' as View },
           { label: '✧ ReasoMate', view: 'reasomate' as View },
-          { label: '⬡ Echo Field', view: 'solspire' as View },
+          { label: '⬡ Echo Field', view: 'solspire' as View }, // canonical: SolSpire.field section
           { label: '◈ Encyclopedia', view: 'encyclopedia' as View },
           { label: '✦ Offerings', view: 'offerings' as View },
         ].map(item => (

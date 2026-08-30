@@ -9,6 +9,7 @@ import AboutArkadia from './pages/AboutArkadia';
 const DashboardView = lazy(() => import('./pages/DashboardView'));
 import NexusPage from './pages/NexusPage';
 import NexusSpiralCodex from './pages/NexusSpiralCodex';
+import SpiralCodexFeed from './pages/SpiralCodexFeed';
 import SpiralGrovePage from './pages/SpiralGrovePage';
 import LivingLarderPage from './pages/LivingLarderPage';
 import IMSArchivePage from './pages/IMSArchivePage';
@@ -490,13 +491,15 @@ function AppInner() {
 
         {view === 'spiral-codex' && (
           <motion.div key="spiral-codex" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}>
-            <SolSpireConsole onNavigate={handleNavigate} initialSection="field" />
+            {/* Canonical archive surface — NOT SolSpire.field / Echo Field */}
+            <SpiralCodexFeed onBack={() => handleNavigate('solspire')} />
           </motion.div>
         )}
 
         {view === 'loops' && (
-          <motion.div key="loops" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
-            <OpenLoopsPage />
+          <motion.div key="loops" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}>
+            {/* Compatibility entry → canonical SolSpire Ops/loops section */}
+            <SolSpireConsole onNavigate={handleNavigate} initialSection="loops" />
           </motion.div>
         )}
 
@@ -567,8 +570,9 @@ function AppInner() {
         )}
 
         {view === 'codex' && (
-          <motion.div key="codex" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
-            <PersonalCodex />
+          <motion.div key="codex" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}>
+            {/* Compatibility entry → canonical SolSpire Personal Codex section */}
+            <SolSpireConsole onNavigate={handleNavigate} initialSection="codex" />
           </motion.div>
         )}
 
@@ -593,7 +597,8 @@ function AppInner() {
 
         {view === 'knowledge-os' && (
           <motion.div key="knowledge-os" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
-            <KnowledgeOSPage />
+            {/* Compatibility entry → canonical SolSpire Knowledge section */}
+            <SolSpireConsole onNavigate={handleNavigate} initialSection="knowledge" />
           </motion.div>
         )}
 
@@ -605,12 +610,14 @@ function AppInner() {
 
         {view === 'personal-echofeild' && (
           <motion.div key="personal-echofeild" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+            {/* Alias → canonical Echo Field owner: SolSpire.field */}
             <SolSpireConsole onNavigate={handleNavigate} initialSection="field" />
           </motion.div>
         )}
 
         {view === 'echofeild-matrix' && (
           <motion.div key="echofeild-matrix" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+            {/* Alias → canonical Echo Field owner: SolSpire.field */}
             <SolSpireConsole onNavigate={handleNavigate} initialSection="field" />
           </motion.div>
         )}
