@@ -1,18 +1,21 @@
-"""WEAVER-MVP1 — Governed project execution surface.
+"""SolSpire project adapter for Weaver governed execution.
 
 PROJECT ACCESS ≠ PASSSPEC ≠ PATCHAPPROVAL ≠ EXECUTION
-Mutation route: project → weaver.execution.execute_patch (K15) → K3 only.
+
+This module intentionally contains no Weaver governance rules. It adapts
+project/workspace context to the canonical Weaver governance primitives and
+preserves the historical SolSpire API for callers.
 """
 from __future__ import annotations
 
 import hashlib
 from typing import Any
 
-from weaver.execution import (
-    PatchApproval,
-    execute_patch,
-    patch_content_hash,
-    pass_spec_hash,
+from weaver.execution import execute_patch, pass_spec_hash, patch_content_hash
+from weaver.governance import (
+    build_patch_approval as _weaver_build_patch_approval,
+    build_pass_spec_for_patch as _weaver_build_pass_spec_for_patch,
+    evaluate_patch_readiness as _weaver_evaluate_patch_readiness,
 )
 from weaver.pass_spec import PassSpec, current_head, current_origin_main
 
@@ -24,153 +27,10 @@ def evaluate_execution_state(
     approval: dict[str, Any] | None = None,
     repo_root: str = ".",
 ) -> dict[str, Any]:
-    auth = {
-        "project_access": "OWNER_VERIFIED_BY_CALLER",
-        "PassSpec": "NONE",
-        "PatchApproval": "NONE",
-        "Execution": "LOCKED",
-        "Mutation path": "K15 → K3 ONLY",
-        "note": "Project ownership is not authorization.",
-    }
-    if not patch:
-        return {
-            "state": "NO_PROPOSAL",
-            "execution": "LOCKED",
-            "k15_ready": False,
-            "lock_reasons": ["No proposed patch"],
-            "authorization": auth,
-        }
-    ph = patch_content_hash(patch)
-    if patch.get("status") in (
-        "STALE", "OUT_OF_SCOPE", "INVALID", "PATCH_BASE_MISMATCH", "PLAN_BINDING_MISMATCH",
-    ):
-        return {
-            "state": "BLOCKED",
-            "execution": "LOCKED",
-            "k15_ready": False,
-            "lock_reasons": [f"Patch status not executable: {patch.get('status')}"],
-            "authorization": auth,
-            "patch_hash": ph,
-            "patch_id": patch.get("patch_id"),
-        }
-    if not pass_spec:
-        return {
-            "state": "PASSSPEC_REQUIRED",
-            "execution": "LOCKED",
-            "k15_ready": False,
-            "lock_reasons": ["PassSpec missing"],
-            "authorization": auth,
-            "patch_hash": ph,
-            "patch_id": patch.get("patch_id"),
-        }
-    try:
-        spec = pass_spec if isinstance(pass_spec, PassSpec) else PassSpec.from_dict(pass_spec)
-        spec.validate_structure()
-    except Exception as e:
-        return {
-            "state": "PASSSPEC_REQUIRED",
-            "execution": "LOCKED",
-            "k15_ready": False,
-            "lock_reasons": [f"PassSpec invalid: {e}"],
-            "authorization": auth,
-            "patch_hash": ph,
-        }
-    auth = {**auth, "PassSpec": "BOUND"}
-    psh = pass_spec_hash(spec)
-    if not approval:
-        return {
-            "state": "PATCH_APPROVAL_REQUIRED",
-            "execution": "LOCKED",
-            "k15_ready": False,
-            "lock_reasons": ["PatchApproval missing"],
-            "authorization": {**auth, "PatchApproval": "NONE"},
-            "patch_hash": ph,
-            "pass_spec_hash": psh,
-            "patch_id": patch.get("patch_id"),
-        }
-    if str(approval.get("patch_hash") or "") != ph:
-        return {
-            "state": "BLOCKED",
-            "execution": "LOCKED",
-            "k15_ready": False,
-            "lock_reasons": ["Patch hash no longer matches approval"],
-            "authorization": {**auth, "PatchApproval": "INVALIDATED"},
-            "patch_hash": ph,
-            "pass_spec_hash": psh,
-        }
-    if str(approval.get("pass_spec_hash") or "") != psh:
-        return {
-            "state": "BLOCKED",
-            "execution": "LOCKED",
-            "k15_ready": False,
-            "lock_reasons": ["PassSpec hash no longer matches approval"],
-            "authorization": {**auth, "PatchApproval": "INVALIDATED"},
-            "patch_hash": ph,
-            "pass_spec_hash": psh,
-        }
-    if not bool(approval.get("approved", False)):
-        return {
-            "state": "PATCH_APPROVAL_REQUIRED",
-            "execution": "LOCKED",
-            "k15_ready": False,
-            "lock_reasons": ["PatchApproval.approved is false"],
-            "authorization": {**auth, "PatchApproval": "NONE"},
-            "patch_hash": ph,
-            "pass_spec_hash": psh,
-        }
-    auth = {**auth, "PatchApproval": "BOUND", "Execution": "K15_READY"}
-    # Scope: every proposed path must be in PassSpec allowlist (before K15_READY)
-    from weaver.pass_spec import path_in_allowlist
-    for path in sorted({f.get("path", "") for f in (patch.get("files") or []) if f.get("path")}):
-        if not path_in_allowlist(path, list(spec.allowed_paths or [])):
-            return {
-                "state": "BLOCKED",
-                "execution": "LOCKED",
-                "k15_ready": False,
-                "lock_reasons": [f"OUT_OF_SCOPE: {path}"],
-                "authorization": auth,
-                "patch_hash": ph,
-                "pass_spec_hash": psh,
-            }
-        for forbidden in (spec.forbidden_paths or []):
-            ff = str(forbidden).replace("\\", "/").lstrip("./")
-            norm = path.replace("\\", "/").lstrip("./")
-            if ff and (norm == ff or norm.startswith(ff.rstrip("/") + "/")):
-                return {
-                    "state": "BLOCKED",
-                    "execution": "LOCKED",
-                    "k15_ready": False,
-                    "lock_reasons": [f"forbidden path: {path}"],
-                    "authorization": auth,
-                    "patch_hash": ph,
-                    "pass_spec_hash": psh,
-                }
-    try:
-        head = current_head(repo_root)
-        if patch.get("base_head_sha") and patch.get("base_head_sha") != head:
-            return {
-                "state": "BLOCKED",
-                "execution": "LOCKED",
-                "k15_ready": False,
-                "lock_reasons": [f"HEAD drift: patch base {patch.get('base_head_sha')} != {head}"],
-                "authorization": auth,
-                "patch_hash": ph,
-                "pass_spec_hash": psh,
-            }
-    except Exception:
-        pass
-    return {
-        "state": "K15_READY",
-        "execution": "K15_READY",
-        "k15_ready": True,
-        "lock_reasons": [],
-        "authorization": auth,
-        "patch_hash": ph,
-        "pass_spec_hash": psh,
-        "patch_id": patch.get("patch_id"),
-        "plan_id": patch.get("plan_id"),
-        "plan_hash": patch.get("plan_content_hash"),
-    }
+    """Compatibility adapter; readiness semantics belong to Weaver."""
+    return _weaver_evaluate_patch_readiness(
+        patch=patch or {}, pass_spec=pass_spec, approval=approval, repo_root=repo_root
+    )
 
 
 def build_pass_spec_for_patch(
@@ -183,43 +43,29 @@ def build_pass_spec_for_patch(
     required_tests: list[str] | None = None,
     repo_root: str = ".",
 ) -> dict[str, Any]:
-    head = current_head(repo_root)
-    paths = sorted(
-        {
-            (f.get("path") or "").replace("\\", "/").lstrip("./")
-            for f in (patch.get("files") or [])
-            if f.get("path")
-        }
+    """Compatibility adapter; PassSpec construction semantics belong to Weaver."""
+    resolved_pass_id = pass_id or f"mvp1-{hashlib.sha256((patch.get('patch_id') or 'x').encode()).hexdigest()[:10]}"
+    resolved_objective = objective or str(
+        (patch.get("review") or {}).get("objective")
+        or project.get("name")
+        or "MVP governed execution"
     )
-    if allowed_paths is not None:
-        paths = [p.replace("\\", "/").lstrip("./") for p in allowed_paths]
-    spec = PassSpec(
-        pass_id=pass_id
-        or f"mvp1-{hashlib.sha256((patch.get('patch_id') or 'x').encode()).hexdigest()[:10]}",
-        objective=objective
-        or str((patch.get("review") or {}).get("objective") or project.get("name") or "MVP governed execution"),
-        base_sha=str(patch.get("base_head_sha") or head),
-        allowed_paths=paths,
-        forbidden_paths=[],
-        required_tests=list(required_tests or []),
-        required_builds=[],
-        non_goals=["autonomous execution", "second mutation path", "UI-as-authority"],
-        commit_required=False,
-        push_allowed=False,
-        publication_required=False,
-        human_approval_required=True,
-        checkpoint_required=True,
-        pass_type="engineering",
+    spec = _weaver_build_pass_spec_for_patch(
+        patch,
+        pass_id=resolved_pass_id,
+        objective=resolved_objective,
+        allowed_paths=allowed_paths,
+        required_tests=required_tests,
+        repo_root=repo_root,
     )
-    spec.validate_structure()
-    d = spec.to_dict()
-    d["pass_spec_hash"] = pass_spec_hash(spec)
-    d["bound_patch_id"] = patch.get("patch_id")
-    d["bound_patch_hash"] = patch_content_hash(patch)
-    d["project_id"] = project.get("id")
-    d["authorization_note"] = "PassSpec bound. PatchApproval still required. Execution LOCKED."
-    d["origin_sha"] = current_origin_main(repo_root)
-    return d
+    data = spec.to_dict()
+    data["pass_spec_hash"] = pass_spec_hash(spec)
+    data["bound_patch_id"] = patch.get("patch_id")
+    data["bound_patch_hash"] = patch_content_hash(patch)
+    data["project_id"] = project.get("id")
+    data["authorization_note"] = "PassSpec bound. PatchApproval still required. Execution LOCKED."
+    data["origin_sha"] = current_origin_main(repo_root)
+    return data
 
 
 def build_patch_approval(
@@ -228,22 +74,11 @@ def build_patch_approval(
     *,
     approved: bool = True,
 ) -> dict[str, Any]:
-    spec = pass_spec if isinstance(pass_spec, PassSpec) else PassSpec.from_dict(pass_spec)
-    psh = pass_spec_hash(spec)
-    ph = patch_content_hash(patch)
-    approval = PatchApproval(
-        patch_id=str(patch.get("patch_id") or ""),
-        patch_hash=ph,
-        plan_id=str(patch.get("plan_id") or ""),
-        plan_hash=str(patch.get("plan_content_hash") or ""),
-        base_head_sha=str(patch.get("base_head_sha") or ""),
-        base_origin_sha=patch.get("base_origin_sha"),
-        pass_spec_hash=psh,
-        approved=bool(approved),
-    )
-    d = approval.to_dict()
-    d["project_note"] = "Explicit human bind. Not ownership. Not knowledge. Not UI alone."
-    return d
+    """Compatibility adapter; PatchApproval binding semantics belong to Weaver."""
+    approval = _weaver_build_patch_approval(patch, pass_spec, approved=approved)
+    data = approval.to_dict()
+    data["project_note"] = "Explicit human bind. Not ownership. Not knowledge. Not UI alone."
+    return data
 
 
 def execute_project_patch(
@@ -255,6 +90,7 @@ def execute_project_patch(
     repo_root: str = ".",
     run_k3: bool = False,
 ) -> dict[str, Any]:
+    """Project adapter around the canonical Weaver K15 → K3 execution seam."""
     readiness = evaluate_execution_state(
         patch=patch, pass_spec=pass_spec, approval=approval, repo_root=repo_root
     )
@@ -272,7 +108,8 @@ def execute_project_patch(
             "project_id": project.get("id"),
             "mutation_path": "NONE — K15 not invoked",
         }
-    spec = PassSpec.from_dict(pass_spec) if not isinstance(pass_spec, PassSpec) else pass_spec
+
+    spec = pass_spec if isinstance(pass_spec, PassSpec) else PassSpec.from_dict(pass_spec)
     result = execute_patch(patch, spec, approval, repo_root=repo_root, run_k3=run_k3)
     rd = result.to_dict() if hasattr(result, "to_dict") else dict(result)
     final = rd.get("final_status") or "BLOCKED"
