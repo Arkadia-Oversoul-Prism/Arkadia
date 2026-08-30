@@ -8,13 +8,15 @@
 
 export type CapabilityStatus = 'DRAFT' | 'ACTIVE' | 'RETIRED'
 export type LearnerCapabilityStatus = 'NOT_STARTED' | 'EXPLORING' | 'PRACTICING' | 'DEMONSTRATED' | 'MASTERED'
-export type LearningActivityKind = 'orientation' | 'practice' | 'reflection' | 'project'
+export type LearningActivityKind = 'research' | 'writing' | 'build' | 'reflection' | 'presentation' | 'field' | 'creative' | 'collaborative'
 export type LearningActivityStatus = 'available' | 'completed'
+export type LearningWorkMode = 'notes' | 'artifact' | 'field_log' | 'presentation_plan' | 'creative_brief' | 'team_plan'
 
 export interface GroveCapability { id: string; slug: string; name: string; description: string; domain: string; level: number; prerequisites: string[]; outcomes: string[]; status: CapabilityStatus }
 export interface LearnerCapabilityState { learner_id: string; capability_id: string; status: LearnerCapabilityStatus; demonstrated_level: number | null; confidence: number | null; evidence_refs: string[]; last_assessed_at: string | null; next_recommended_action: string | null }
 export interface GroveLearningPathProjection { id: string; name: string; audience: string; capability_ids: string[]; progression_rules: Record<string, string>; reason: string; next_capability_id: string }
-export interface GroveLearningActivity { id: string; path_id: string; capability_id: string; title: string; instruction: string; kind: LearningActivityKind; status: LearningActivityStatus; evidence_required: boolean }
+export interface GroveLearningActivityWorkSurface { mode: LearningWorkMode; prompt_label: string; placeholder: string; artifact_type: string }
+export interface GroveLearningActivity { id: string; path_id: string; capability_id: string; title: string; instruction: string; kind: LearningActivityKind; status: LearningActivityStatus; evidence_required: boolean; estimated_minutes: number; deliverable: string; tools: string[]; work_surface: GroveLearningActivityWorkSurface }
 export interface GroveLearningPathActivityProjection { path_id: string; capability_id: string; activities: GroveLearningActivity[] }
 
 export const GROVE_DOMAINS = [
@@ -75,8 +77,29 @@ export function learningPathFor(capabilityId: string, learnerState: LearnerCapab
   return { id: `path-${learnerState.learner_id}-${target.id}-v1`, name: `${target.name} progression`, audience: 'learner', capability_ids: capabilityIds, progression_rules: { entry: 'learner_capability_state', completion: 'evidence_required', next_step: 'registry_prerequisite_or_target' }, reason: missing ? `Prerequisite first: ${missing.name}.` : `Continue developing ${target.name}.`, next_capability_id: nextCapability.id }
 }
 
-/** UI projection of the explicit SG-03 activity contract. This supplies a stable activity surface; it does not autonomously generate exercises, create evidence, or mutate learner state. */
+const ACTIVITY_BLUEPRINTS: Record<LearningActivityKind, Omit<GroveLearningActivity, 'id' | 'path_id' | 'capability_id' | 'title' | 'instruction'>> = {
+  research: { kind: 'research', status: 'available', evidence_required: true, estimated_minutes: 30, deliverable: 'A source-backed research brief.', tools: ['Knowledge OS', 'web/library sources'], work_surface: { mode: 'notes', prompt_label: 'Research notes', placeholder: 'Record your question, sources, claims, and what each source supports.', artifact_type: 'research brief' } },
+  writing: { kind: 'writing', status: 'available', evidence_required: true, estimated_minutes: 30, deliverable: 'A structured written draft.', tools: ['writing workspace'], work_surface: { mode: 'artifact', prompt_label: 'Draft', placeholder: 'Write the work here. Focus on structure, clarity, and revision.', artifact_type: 'written draft' } },
+  build: { kind: 'build', status: 'available', evidence_required: true, estimated_minutes: 45, deliverable: 'A working prototype or process design.', tools: ['chosen build tool'], work_surface: { mode: 'artifact', prompt_label: 'Build log', placeholder: 'Describe what you are building, the steps taken, decisions made, and what works.', artifact_type: 'prototype/build log' } },
+  reflection: { kind: 'reflection', status: 'available', evidence_required: false, estimated_minutes: 15, deliverable: 'A concise reflection.', tools: ['reflection workspace'], work_surface: { mode: 'notes', prompt_label: 'Reflection', placeholder: 'What did you notice, what changed in your thinking, and what will you do next?', artifact_type: 'reflection' } },
+  presentation: { kind: 'presentation', status: 'available', evidence_required: true, estimated_minutes: 30, deliverable: 'A presentation plan ready for live delivery.', tools: ['presentation tool'], work_surface: { mode: 'presentation_plan', prompt_label: 'Presentation plan', placeholder: 'Set out your opening, key points, evidence, audience, and closing.', artifact_type: 'presentation plan' } },
+  field: { kind: 'field', status: 'available', evidence_required: true, estimated_minutes: 45, deliverable: 'A documented field observation.', tools: ['field notebook/camera'], work_surface: { mode: 'field_log', prompt_label: 'Field log', placeholder: 'Record what you observed, where, when, measurements or details, and what you infer.', artifact_type: 'field log' } },
+  creative: { kind: 'creative', status: 'available', evidence_required: true, estimated_minutes: 45, deliverable: 'An original creative artifact.', tools: ['chosen creative tool'], work_surface: { mode: 'creative_brief', prompt_label: 'Creative workspace', placeholder: 'Define the concept, audience, creative choices, iterations, and what you produced.', artifact_type: 'creative artifact' } },
+  collaborative: { kind: 'collaborative', status: 'available', evidence_required: true, estimated_minutes: 45, deliverable: 'A team plan or shared artifact.', tools: ['shared workspace'], work_surface: { mode: 'team_plan', prompt_label: 'Team work log', placeholder: 'Record roles, shared decisions, contributions, unresolved questions, and the team output.', artifact_type: 'collaborative artifact' } },
+}
+
+function activityKindFor(capability: GroveCapability): LearningActivityKind {
+  if (capability.domain === 'digital_intelligence') return capability.id.includes('research') ? 'research' : capability.id.includes('no-code') || capability.id.includes('operations') ? 'build' : 'writing'
+  if (capability.domain === 'creative_technology') return capability.id.includes('writing') || capability.id.includes('storytelling') ? 'creative' : 'build'
+  if (capability.domain === 'systems_thinking') return capability.id.includes('pattern') ? 'research' : 'build'
+  if (capability.domain === 'human_development') return capability.id.includes('presentation') || capability.id.includes('communication') ? 'presentation' : capability.id.includes('collaborative') ? 'collaborative' : 'reflection'
+  return capability.id.includes('soil') || capability.id.includes('farm') || capability.id.includes('water') ? 'field' : 'research'
+}
+
+/** UI projection of the explicit SG-03 activity runtime contract. It supplies stable activity definitions; it does not autonomously generate exercises, create evidence, or mutate learner state. */
 export function learningActivitiesFor(path: GroveLearningPathProjection): GroveLearningPathActivityProjection {
-  const capabilityId = path.next_capability_id
-  return { path_id: path.id, capability_id: capabilityId, activities: [{ id: `activity-${path.id}-${capabilityId}-01`, path_id: path.id, capability_id: capabilityId, title: 'Capability orientation', instruction: 'Review the capability context and identify one concrete application.', kind: 'orientation', status: 'available', evidence_required: true }] }
+  const capabilityId = path.next_capability_id; const capability = AIS_CAPABILITIES.find(item => item.id === capabilityId)
+  if (!capability) return { path_id: path.id, capability_id: capabilityId, activities: [] }
+  const kind = activityKindFor(capability); const blueprint = ACTIVITY_BLUEPRINTS[kind]
+  return { path_id: path.id, capability_id: capabilityId, activities: [{ ...blueprint, id: `activity-${path.id}-${capabilityId}-01`, path_id: path.id, capability_id: capabilityId, title: `${capability.name}: ${kind} activity`, instruction: `Apply ${capability.name} through a ${kind} task. Produce the stated deliverable and keep a clear record of your process.` }] }
 }
