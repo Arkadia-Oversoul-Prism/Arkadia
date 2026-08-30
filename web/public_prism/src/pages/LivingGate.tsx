@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AIS_CAPABILITIES, GROVE_DOMAINS } from '../data/spiralGroveCatalog';
 import { useAuth } from '../contexts/AuthContext';
 import LoginPage from './LoginPage';
+import { API_BASE } from '../lib/apiConfig';
 
 export interface AisCapabilityPortfolio {
   version: 1;
@@ -59,6 +60,7 @@ const QUICK_CAPABILITIES = AIS_CAPABILITIES.map(capability => capability.name).s
 const GROWTH_OPTIONS = GROVE_DOMAINS.map(domain => ({ id: domain.id, label: domain.label }));
 const HANDOFF_KEY = 'arkadia.ais.diagnostic-handoff.v1';
 const PORTFOLIO_KEY = 'arkadia.ais.capability-portfolio.v1';
+const AIS_PROFILE_URL = `${API_BASE}/api/me/ais-profile`;
 
 const EMPTY: Omit<AisCapabilityPortfolio, 'version' | 'completedAt'> = {
   identity: '', capabilities: [], builds: '', evidence: '', projects: '', offer: '', credentials: '', growth: [],
@@ -153,7 +155,7 @@ export default function LivingGate({ onAICComplete, onEnterSpiralGrove }: Living
   const { user, isAuthenticated } = useAuth();
   const initialHandoff = readDiagnosticHandoff();
   const storedPortfolio = readStoredPortfolio();
-  const [index, setIndex] = useState(storedPortfolio ? 0 : 0);
+  const [index, setIndex] = useState(0);
   const [profile, setProfile] = useState(() => storedPortfolio ? { ...storedPortfolio, completedAt: undefined } as typeof EMPTY : profileFromHandoff(initialHandoff));
   const [complete, setComplete] = useState(Boolean(storedPortfolio));
   const [handoffActive, setHandoffActive] = useState(Boolean(initialHandoff));
@@ -171,14 +173,14 @@ export default function LivingGate({ onAICComplete, onEnterSpiralGrove }: Living
         const pending = readStoredPortfolio();
         const handoff = readDiagnosticHandoff();
         if (pending) {
-          await fetch('/api/me/ais-profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.idToken}` }, body: JSON.stringify({ kind: 'portfolio', profile: pending }) });
+          await fetch(AIS_PROFILE_URL, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.idToken}` }, body: JSON.stringify({ kind: 'portfolio', profile: pending }) });
           return;
         }
         if (handoff) {
-          await fetch('/api/me/ais-profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.idToken}` }, body: JSON.stringify({ kind: 'diagnostic_seed', profile: handoff }) });
+          await fetch(AIS_PROFILE_URL, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.idToken}` }, body: JSON.stringify({ kind: 'diagnostic_seed', profile: handoff }) });
           return;
         }
-        const res = await fetch('/api/me/ais-profile', { headers: { Authorization: `Bearer ${user.idToken}` } });
+        const res = await fetch(AIS_PROFILE_URL, { headers: { Authorization: `Bearer ${user.idToken}` } });
         if (!res.ok || cancelled) return;
         const data = await res.json() as { profile?: StoredAisProjection | null };
         if (data.profile && !cancelled) {
@@ -207,7 +209,7 @@ export default function LivingGate({ onAICComplete, onEnterSpiralGrove }: Living
     setComplete(true);
     setHandoffActive(false);
     if (isAuthenticated && user?.idToken) {
-      void fetch('/api/me/ais-profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.idToken}` }, body: JSON.stringify({ kind: 'portfolio', profile: portfolio }) });
+      void fetch(AIS_PROFILE_URL, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.idToken}` }, body: JSON.stringify({ kind: 'portfolio', profile: portfolio }) });
     }
   };
 
