@@ -32,6 +32,16 @@ export interface LearnerCapabilityState {
   next_recommended_action: string | null
 }
 
+export interface GroveLearningPathProjection {
+  id: string
+  name: string
+  audience: string
+  capability_ids: string[]
+  progression_rules: Record<string, string>
+  reason: string
+  next_capability_id: string
+}
+
 export const GROVE_DOMAINS = [
   { id: 'digital_intelligence', label: 'Digital Intelligence', icon: '◈', accent: '#00D4AA' },
   { id: 'creative_technology', label: 'Creative Technology', icon: '✦', accent: '#B08DE8' },
@@ -107,4 +117,38 @@ export function prerequisitesFor(capabilityId: string): GroveCapability[] {
   }
   target.prerequisites.forEach(visit)
   return result
+}
+
+/**
+ * Frontend projection of the SG-03 planner contract.
+ * Until a runtime API adapter is introduced, this mirrors only the deterministic
+ * path shape and consumes the same registry projection. It does not generate
+ * exercises/evidence or mutate learner state.
+ */
+export function learningPathFor(
+  capabilityId: string,
+  learnerState: LearnerCapabilityState,
+  demonstratedCapabilityIds: Set<string> = new Set(),
+): GroveLearningPathProjection | null {
+  if (learnerState.capability_id !== capabilityId) return null
+  const target = AIS_CAPABILITIES.find(item => item.id === capabilityId)
+  if (!target) return null
+  const prerequisites = prerequisitesFor(capabilityId)
+  const missing = prerequisites.find(item => !demonstratedCapabilityIds.has(item.id))
+  const nextCapability = missing || target
+  const capabilityIds = missing ? [missing.id, target.id] : [target.id]
+
+  return {
+    id: `path-${learnerState.learner_id}-${target.id}-v1`,
+    name: `${target.name} progression`,
+    audience: 'learner',
+    capability_ids: capabilityIds,
+    progression_rules: {
+      entry: 'learner_capability_state',
+      completion: 'evidence_required',
+      next_step: 'registry_prerequisite_or_target',
+    },
+    reason: missing ? `Prerequisite first: ${missing.name}.` : `Continue developing ${target.name}.`,
+    next_capability_id: nextCapability.id,
+  }
 }
