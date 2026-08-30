@@ -2,6 +2,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CHALLENGE = ROOT / "web/public_prism/src/pages/FutureSkillsChallenge.tsx"
+GATE = ROOT / "web/public_prism/src/pages/LivingGate.tsx"
 APP = ROOT / "web/public_prism/src/App.tsx"
 
 
@@ -25,6 +26,29 @@ def test_w6_completion_hands_off_to_ais_diagnostic():
     assert "onNavigate('gate')" in src
     assert "ChallengeState" in src
     assert "completedAt" in src
+    assert "arkadia.ais.diagnostic-handoff.v1" in src
+    assert "createDiagnosticHandoff" in src
+
+
+def test_w6_handoff_maps_practical_signals_without_persisting_identity():
+    src = CHALLENGE.read_text(encoding="utf-8")
+    assert "answers.solution" in src
+    assert "answers.proof" in src
+    assert "answers.problem" in src
+    assert "answers.value" in src
+    assert "researchSignal" in src
+    assert "firebase" not in src.lower()
+    assert "Knowledge OS" not in src
+
+
+def test_living_gate_hydrates_the_existing_profile_from_the_handoff():
+    src = GATE.read_text(encoding="utf-8")
+    assert "arkadia.ais.diagnostic-handoff.v1" in src
+    assert "readDiagnosticHandoff" in src
+    assert "profileFromHandoff" in src
+    assert "Research approach:" in src
+    assert "Fill the missing signals" in src
+    assert "sessionStorage.removeItem(HANDOFF_KEY)" in src
 
 
 def test_w6_is_not_a_second_profile_or_persistent_identity_system():
