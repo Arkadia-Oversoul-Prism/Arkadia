@@ -27,6 +27,10 @@ logger = logging.getLogger("arkadia.nodes")
 
 router = APIRouter()
 
+# A.I.S capability projection uses the same authenticated router boundary.
+from api.ais_profile import router as _ais_profile_router
+router.include_router(_ais_profile_router)
+
 _CODEX_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "personal_codices")
 
 # Injected capability seam (Pass 06): the only runtime datum the identity
@@ -63,13 +67,9 @@ async def get_sovereign_codex_public():
                 "ims_id":       n.get("ims_id"),
                 "status":       n.get("status", "unknown"),
                 "access_level": n.get("access_level", 0),
-                "node_key":     n.get("node_key"),
+                "node_key":    n.get("node_key"),
             })
 
-    # Tool count comes from kernel.tools, but the identity layer must be a
-    # leaf (ADR-015). The composition root injects the counter via
-    # configure_tools_counter(); without injection we keep the historical
-    # fallback (4), identical to the previous import-failure path.
     tools_count = 4
     if _tools_counter is not None:
         try:
@@ -105,7 +105,6 @@ async def get_user_by_handle(handle: str):
     if not profile:
         raise HTTPException(status_code=404, detail="User not found")
     return {"user": profile}
-
 
 
 @router.patch("/api/me")
@@ -166,10 +165,10 @@ async def list_nodes_public():
         if n.get("status") in ("active", "training"):
             safe.append({
                 "display_name": n["display_name"],
-                "role":         n["role"],
-                "role_sigil":   n.get("role_sigil", "◈"),
-                "ims_id":       n.get("ims_id"),
-                "status":       n.get("status"),
+                "role": n["role"],
+                "role_sigil": n.get("role_sigil", "◈"),
+                "ims_id": n.get("ims_id"),
+                "status": n.get("status"),
             })
     return {"nodes": safe, "count": len(safe)}
 
@@ -188,7 +187,7 @@ async def get_node_codex(node_key: str, user: dict = Depends(require_sovereign))
     """Return a node's Personal Codex — sovereign access only."""
     node = get_node_by_key(node_key)
     if not node:
-        raise HTTPException(status_code=404, detail=f"Node '{node_key}' not found")
+        raise HTTPException(status_code=404, detail=f"No node '{node_key}' found")
     codex = get_personal_codex(node_key)
     if not codex:
         raise HTTPException(
