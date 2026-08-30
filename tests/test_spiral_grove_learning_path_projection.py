@@ -20,15 +20,19 @@ def test_chamber_consumes_learning_path_projection() -> None:
     assert "GroveLearningPathProjection" in chamber
     assert "learningPath: GroveLearningPathProjection | null" in chamber
     assert "data-testid=\"learning-path-panel\"" in chamber
-    assert "learningPath.capability_ids.map" in chamber
+    assert "pathIds.map" in chamber
+    assert "learningPath?.capability_ids" in chamber
 
 
 def test_path_projection_preserves_sg03_boundary() -> None:
     catalog = CATALOG.read_text(encoding="utf-8")
+    chamber = CHAMBER.read_text(encoding="utf-8")
     assert "completion: 'evidence_required'" in catalog
-    assert "No exercise or evidence generation occurs here." in CHAMBER.read_text(encoding="utf-8")
-    assert "generateExercise" not in CHAMBER.read_text(encoding="utf-8")
-    assert "createEvidence" not in CHAMBER.read_text(encoding="utf-8")
+    assert "Evidence is separate." in chamber
+    assert "does not generate exercises" in chamber
+    assert "does not change your learner capability state" in chamber
+    assert "generateExercise" not in chamber
+    assert "createEvidence" not in chamber
 
 
 def test_path_projection_uses_existing_registry_capability_ids() -> None:
