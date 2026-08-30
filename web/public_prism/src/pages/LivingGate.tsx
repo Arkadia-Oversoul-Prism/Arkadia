@@ -13,6 +13,8 @@ interface LivingGateProps {
   onGoToOfferings?: () => void;
   onAICComplete?: (seed: any) => void;
   onGoToReset?: () => void;
+  /** Primary post-diagnostic handoff into the existing Spiral Grove surface. */
+  onEnterSpiralGrove?: () => void;
   initialMode?: string;
 }
 
@@ -882,8 +884,8 @@ function ScoreBar({ label, score, highlight }: { label: string; score: number; h
   );
 }
 
-function SnapshotStep({ data, onUnlock, onRetake }: {
-  data: SnapshotData; onUnlock: () => void; onRetake: () => void;
+function SnapshotStep({ data, onUnlock, onRetake, onEnterSpiralGrove }: {
+  data: SnapshotData; onUnlock: () => void; onRetake: () => void; onEnterSpiralGrove?: () => void;
 }) {
   const topNodes = data.primary_patterns.slice(0, 3);
 
@@ -937,9 +939,20 @@ function SnapshotStep({ data, onUnlock, onRetake }: {
         <p style={{ fontFamily: 'serif', fontSize: 13, lineHeight: '1.85', color: 'rgba(212,223,232,0.75)', margin: 0 }}>{data.oracle_summary}</p>
       </div>
 
-      {/* CTA */}
+      {/* Primary CTA — A.I.S diagnostic → Spiral Grove capability discovery */}
+      {onEnterSpiralGrove && (
+        <button
+          type="button"
+          data-testid="open-spiral-grove"
+          onClick={onEnterSpiralGrove}
+          style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, rgba(0,212,170,0.16), rgba(0,212,170,0.06))', border: '1px solid rgba(0,212,170,0.55)', borderRadius: 11, color: '#00D4AA', fontFamily: 'sans-serif', fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer', boxShadow: '0 4px 20px rgba(0,212,170,0.12)', marginBottom: 10 }}
+        >
+          Open Spiral Grove
+        </button>
+      )}
+      {/* Secondary lineage — existing IMS invitation path */}
       <button onClick={onUnlock}
-        style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, rgba(201,168,76,0.14), rgba(201,168,76,0.06))', border: '1px solid rgba(201,168,76,0.5)', borderRadius: 11, color: '#C9A84C', fontFamily: 'sans-serif', fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer', boxShadow: '0 4px 20px rgba(201,168,76,0.1)', marginBottom: 10 }}>
+        style={{ width: '100%', padding: '14px', background: 'linear-gradient(135deg, rgba(201,168,76,0.14), rgba(201,168,76,0.06))', border: '1px solid rgba(201,168,76,0.5)', borderRadius: 11, color: '#C9A84C', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer', boxShadow: '0 4px 20px rgba(201,168,76,0.1)', marginBottom: 10 }}>
         ✦ Ready for the Full Map?
       </button>
       <div style={{ textAlign: 'center' }}>
@@ -1134,7 +1147,6 @@ function ConfirmedStep({ onDone }: { onDone: () => void }) {
 // ── Flow breadcrumb ───────────────────────────────────────────────────────────
 
 const BREADCRUMB: { step: FlowStep; label: string }[] = [
-  { step: 'reset',      label: 'Reset' },
   { step: 'diagnostic', label: 'Diagnostic' },
   { step: 'snapshot',   label: 'Snapshot' },
   { step: 'invitation', label: 'IMS' },
@@ -1167,9 +1179,10 @@ function Breadcrumb({ current }: { current: FlowStep }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function LivingGate({ onEnterField, onGoToOfferings, onAICComplete, initialMode }: LivingGateProps) {
+export default function LivingGate({ onEnterField, onGoToOfferings, onAICComplete, onEnterSpiralGrove, initialMode }: LivingGateProps) {
   const { resonance, flameHue } = useSpiralQuantumResonance(true, 8000);
-  const [step, setStep] = useState<FlowStep>('reset');
+  // Primary Living Gate entry is A.I.S diagnostic → Grove. Reset remains available via initialMode === 'reset'.
+  const [step, setStep] = useState<FlowStep>(initialMode === 'reset' ? 'reset' : 'diagnostic');
   const [responses, setResponses] = useState<Record<string, number>>({});
   const [snapshot, setSnapshot] = useState<SnapshotData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -1201,7 +1214,7 @@ export default function LivingGate({ onEnterField, onGoToOfferings, onAICComplet
   const handleRetake = () => {
     setResponses({});
     setSnapshot(null);
-    setStep('reset');
+    setStep(initialMode === 'reset' ? 'reset' : 'diagnostic');
   };
 
   return (
@@ -1259,7 +1272,7 @@ export default function LivingGate({ onEnterField, onGoToOfferings, onAICComplet
 
           {step === 'snapshot' && snapshot && (
             <motion.div key="snapshot" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
-              <SnapshotStep data={snapshot} onUnlock={() => setStep('invitation')} onRetake={handleRetake} />
+              <SnapshotStep data={snapshot} onUnlock={() => setStep('invitation')} onRetake={handleRetake} onEnterSpiralGrove={onEnterSpiralGrove} />
             </motion.div>
           )}
 
