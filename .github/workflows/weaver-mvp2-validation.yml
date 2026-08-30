@@ -1,0 +1,23 @@
+name: Weaver MVP2 validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'solspire/**'
+      - 'weaver/**'
+      - 'tests/test_weaver_mvp2_05.py'
+      - '.github/workflows/weaver-mvp2-validation.yml'
+  workflow_dispatch:
+
+jobs:
+  mvp2-05:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements.txt
+      - run: pytest -q tests/test_weaver_mvp2_05.py
