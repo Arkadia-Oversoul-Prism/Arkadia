@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
+import ArkadiaLandingPage from '../pages/ArkadiaLandingPage';
 
 /**
  * WEAVER-SCI-BOUNDARY-01 - Product surface navigation (public/app entry).
@@ -143,7 +144,7 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
           <span style={{ fontFamily: 'serif', fontSize: 10, letterSpacing: '0.38em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.90)' }}>ARKADIA</span>
         </button>
         <AnimatePresence mode="wait">
-          <motion.span key={currentView} initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -3 }}
+          <motion.span key={currentView} initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -3 }}
             style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(232,232,232,0.62)', position: 'absolute', left: '50%', transform: 'translateX(-50%)', pointerEvents: 'none' }}>
             {currentLabel}
           </motion.span>
@@ -204,7 +205,7 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
           </motion.div>
         )}
       </AnimatePresence>
-      <div style={{ paddingTop: 52 }}>{children}</div>
+      <div style={{ paddingTop: 52 }}>{currentView === 'home' ? <ArkadiaLandingPage onNavigate={onNavigate} authenticated={isAuthenticated} /> : children}</div>
     </div>
   );
 };
