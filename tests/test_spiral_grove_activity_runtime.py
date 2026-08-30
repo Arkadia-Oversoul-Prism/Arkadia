@@ -1,10 +1,4 @@
-"""SG-04 Learning Activity Runtime contract tests.
-
-These tests intentionally validate the architectural boundary through the
-frontend projection. Runtime state is learner work only; evidence, assessment,
-and learner capability-state mutation remain downstream.
-"""
-
+"""SG-04 Learning Activity Runtime contract tests."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,7 +20,7 @@ def test_runtime_exists_and_is_explicitly_bounded() -> None:
     assert "localStorage" in runtime
     assert "activity-runtime" in runtime
     assert "does not submit evidence" in runtime
-    assert "does not" in runtime and "mutate learner capability state" in runtime
+    assert "mutate learner capability state" in runtime
 
 
 def test_runtime_has_local_draft_and_completion_state() -> None:
@@ -36,6 +30,15 @@ def test_runtime_has_local_draft_and_completion_state() -> None:
     assert "activity-runtime-save" in runtime
     assert "activity-runtime-complete" in runtime
     assert "activity-runtime-reopen" in runtime
+
+
+def test_runtime_dispatches_all_eight_kinds_to_deterministic_renderers() -> None:
+    runtime = read(RUNTIME)
+    renderers = ("ResearchSurface", "WritingSurface", "BuildSurface", "ReflectionSurface", "PresentationSurface", "FieldSurface", "CreativeSurface", "CollaborativeSurface")
+    for kind, renderer in zip(("research", "writing", "build", "reflection", "presentation", "field", "creative", "collaborative"), renderers):
+        assert f"case '{kind}': return <{renderer}" in runtime
+        assert f"function {renderer}" in runtime
+        assert f'data-testid="activity-surface-{kind}"' in runtime
 
 
 def test_runtime_is_mounted_by_the_capability_chamber() -> None:
@@ -48,16 +51,7 @@ def test_runtime_is_mounted_by_the_capability_chamber() -> None:
 
 def test_all_eight_activity_kinds_have_explicit_blueprints() -> None:
     catalog = read(CATALOG)
-    for kind in (
-        "research",
-        "writing",
-        "build",
-        "reflection",
-        "presentation",
-        "field",
-        "creative",
-        "collaborative",
-    ):
+    for kind in ("research", "writing", "build", "reflection", "presentation", "field", "creative", "collaborative"):
         assert f"{kind}: {{" in catalog
     assert "const ACTIVITY_BLUEPRINTS" in catalog
     assert "function activityKindFor" in catalog
@@ -67,10 +61,9 @@ def test_runtime_does_not_cross_the_evidence_boundary() -> None:
     runtime = read(RUNTIME)
     assert "createEvidence" not in runtime
     assert "submitEvidence" not in runtime
-    assert "assess" not in runtime
     assert "LearnerCapabilityState" not in runtime
-    assert "Evidence submission" in runtime
-    assert "assessment" in runtime
+    assert "perform assessment" in runtime
+    assert "mutate learner capability state" in runtime
 
 
 def test_chamber_preserves_sg03_downstream_boundary() -> None:
