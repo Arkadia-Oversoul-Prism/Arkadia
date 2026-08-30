@@ -85,6 +85,79 @@ def _unified_diff(path: str, before: str, after: str, operation: str) -> str:
     return "\n".join(line.rstrip("\n") for line in diff) + "\n"
 
 
+
+def _count_diff_lines(patch_text: str) -> dict[str, int]:
+    added = removed = 0
+    for ln in (patch_text or "").splitlines():
+        if ln.startswith("+++") or ln.startswith("---") or ln.startswith("@@"):
+            continue
+        if ln.startswith("+"):
+            added += 1
+        elif ln.startswith("-"):
+            removed += 1
+    return {"added": added, "removed": removed, "changed": added + removed}
+
+
+def _extract_docstring_text(objective: str) -> str | None:
+    """Pull quoted replacement text from a concrete docstring objective, if present."""
+    import re
+    o = objective or ""
+    m = re.search(
+        r"(?:to\s+say|to\s*:|as)\s+[\"']([^\"']{3,200})[\"']",
+        o,
+        re.IGNORECASE,
+    )
+    if m:
+        return m.group(1).strip()
+    m = re.search(r"[\"']([^\"']{8,200})[\"']", o)
+    if m and "docstring" in o.lower():
+        return m.group(1).strip()
+    return None
+
+
+def _objective_docstring_intent(objective: str) -> bool:
+    o = (objective or "").lower()
+    return "docstring" in o and any(
+        k in o for k in ("update", "clarify", "change", "set", "replace", "rewrite", "module")
+    )
+
+
+def _surgical_module_docstring(before: str, new_text: str) -> tuple[str, str]:
+    """Replace module docstring only. Returns (after, strategy)."""
+    import re
+    m = re.match(r'(?s)^(\s*)([ruRU]{0,2})("""|\'\'\')(.*?)(\3)(\s*)', before)
+    if not m:
+        after = f'"""{new_text}"""\n' + before
+        return after, "MODULE_DOCSTRING_INSERT"
+    prefix, flags, quote, _old, _q2, trail = (
+        m.group(1), m.group(2) or "", m.group(3), m.group(4), m.group(5), m.group(6)
+    )
+    replacement = f"{prefix}{flags}{quote}{new_text}{quote}{trail}"
+    after = replacement + before[m.end():]
+    return after, "MODULE_DOCSTRING_REPLACE"
+
+
+def _surgical_modify(
+    before: str,
+    *,
+    objective: str,
+    symbols: list[str],
+    impl: str,
+) -> tuple[str, str, str]:
+    """Attempt surgical after-state for MODIFY. Returns (after, strategy, fidelity)."""
+    if _objective_docstring_intent(objective):
+        new_text = _extract_docstring_text(objective)
+        if not new_text:
+            new_text = "Clarified module purpose for operator review."
+        after, strategy = _surgical_module_docstring(before, new_text)
+        return after, strategy, "HIGH"
+    marker = (
+        f"\n# [K14 PROPOSED] {impl[:200]}\n" if impl else "\n# [K14 PROPOSED] under-specified\n"
+    )
+    after = before + marker if before else marker
+    return after, "ANNOTATIVE_MARKER", "LIMITED"
+
+
 def synthesize_patch(
     changeset: ProposedChangeSet | dict[str, Any],
     *,
@@ -140,6 +213,8 @@ def synthesize_patch(
     base_mismatch = False
 
     for fe in sorted(file_entries, key=lambda x: x.get("path") or ""):
+        fe_strategy = None
+        fe_fidelity = None
         path = (fe.get("path") or "").replace("\\", "/").lstrip("./")
         op = fe.get("operation") or "MODIFY"
         symbols = list(fe.get("symbols_or_regions") or [])
@@ -180,11 +255,16 @@ def synthesize_patch(
                 under_specified = True
                 after = ""
         elif op == "MODIFY":
-            if not symbols and not impl:
+            if not symbols and not impl and not _objective_docstring_intent(str(cs_d.get("objective") or "")):
                 under_specified = True
-            # Annotative after-state for review (not applied): append design marker comment
-            marker = f"\n# [K14 PROPOSED] {impl[:200]}\n" if impl else "\n# [K14 PROPOSED] under-specified\n"
-            after = before + marker if before else marker
+            after, strategy, fidelity = _surgical_modify(
+                before,
+                objective=str(cs_d.get("objective") or ""),
+                symbols=symbols,
+                impl=impl,
+            )
+            fe_strategy = strategy
+            fe_fidelity = fidelity
         elif op == "DELETE":
             after = ""
 
@@ -194,8 +274,8 @@ def synthesize_patch(
             status = PatchStatus.PATCH_BASE_MISMATCH.value
 
         patch_text = _unified_diff(path, before, after, op)
-        patch_files.append(
-            {
+        line_stats = _count_diff_lines(patch_text)
+        entry = {
                 "path": path,
                 "operation": op,
                 "symbols_or_regions": sorted(symbols),
@@ -205,8 +285,12 @@ def synthesize_patch(
                 "evidence_refs": list(fe.get("evidence_refs") or [])[:5],
                 "plan_step": fe.get("plan_step") or "",
                 "claim_kinds": list(fe.get("claim_kinds") or []),
+                "line_stats": line_stats,
             }
-        )
+        if op == "MODIFY":
+            entry["synthesis_strategy"] = locals().get("fe_strategy") or "UNKNOWN"
+            entry["fidelity"] = locals().get("fe_fidelity") or "LIMITED"
+        patch_files.append(entry)
 
     if status == PatchStatus.PROPOSED.value and patch_files and not under_specified and not base_mismatch:
         status = PatchStatus.VALID.value
@@ -281,6 +365,26 @@ def synthesize_patch(
         "authorization": auth,
         "execution": execution,
         "EXECUTED": False,
+        "fidelity": (
+            "HIGH"
+            if patch_files and all((f.get("fidelity") == "HIGH") for f in patch_files if f.get("operation") == "MODIFY")
+            and any(f.get("operation") == "MODIFY" for f in patch_files)
+            else (
+                "LIMITED"
+                if any(f.get("fidelity") == "LIMITED" for f in patch_files)
+                else "UNKNOWN"
+            )
+        ),
+        "synthesis_strategies": {
+            f["path"]: f.get("synthesis_strategy") for f in patch_files if f.get("synthesis_strategy")
+        },
+        "line_stats": {f["path"]: f.get("line_stats") for f in patch_files},
+        "implementation_quality": (
+            "HIGH"
+            if patch_files and all((f.get("fidelity") == "HIGH") for f in patch_files if f.get("operation") == "MODIFY")
+            and any(f.get("operation") == "MODIFY" for f in patch_files)
+            else "LIMITED"
+        ),
     }
 
     pid = _pid(base_head, cs_id, patch_files)

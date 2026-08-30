@@ -315,6 +315,9 @@ def run_read_only_pipeline(
                 "operation": f.get("operation"),
                 "symbols": f.get("symbols_or_regions"),
                 "patch_text": (f.get("patch_text") or "")[:2000],
+                "line_stats": f.get("line_stats"),
+                "fidelity": f.get("fidelity"),
+                "synthesis_strategy": f.get("synthesis_strategy"),
             }
             for f in (patch.files or [])
         ],
@@ -324,9 +327,12 @@ def run_read_only_pipeline(
         "review": patch.review,
         "EXECUTED": False,
         "implementation_quality": (
-            "DESIGN-ONLY"
-            if (patch.status in ("PATCH_UNDER_SPECIFIED", "PROPOSED") and not path_hints)
-            else ("HUMAN-COMPLETE" if patch.status in ("VALID", "PROPOSED") else patch.status)
+            (patch.review or {}).get("implementation_quality")
+            or (
+                "DESIGN-ONLY"
+                if (patch.status in ("PATCH_UNDER_SPECIFIED", "PROPOSED") and not path_hints)
+                else ("HUMAN-COMPLETE" if patch.status in ("VALID", "PROPOSED") else patch.status)
+            )
         ),
     }
 
