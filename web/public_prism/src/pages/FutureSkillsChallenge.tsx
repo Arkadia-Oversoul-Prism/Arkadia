@@ -10,6 +10,21 @@ interface ChallengeState {
   completedAt?: string;
 }
 
+interface DiagnosticHandoff {
+  version: 1;
+  source: 'future-skills-lab';
+  identity: string;
+  capabilities: string[];
+  builds: string;
+  evidence: string;
+  projects: string;
+  offer: string;
+  credentials: string;
+  growth: string[];
+  researchSignal: string;
+  createdAt: string;
+}
+
 const PROMPTS = [
   { id: 'problem', eyebrow: '01 · THINK', title: 'Find the useful problem.', prompt: 'Choose a real person, business, community, or project. What problem could you help solve?', helper: 'Be specific. A small real problem is better than a grand imaginary one.' },
   { id: 'research', eyebrow: '02 · RESEARCH', title: 'Get signal before you build.', prompt: 'What do you need to find out before proposing a solution, and where would you look?', helper: 'Name the questions, sources, people, or tools you would use.' },
@@ -19,6 +34,7 @@ const PROMPTS = [
 ];
 
 const STORAGE_KEY = 'arkadia.ais.future-skills-challenge.v1';
+const HANDOFF_KEY = 'arkadia.ais.diagnostic-handoff.v1';
 const LIMIT_MS = 60 * 60 * 1000;
 
 function readState(): ChallengeState | null {
@@ -26,6 +42,23 @@ function readState(): ChallengeState | null {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) as ChallengeState : null;
   } catch { return null; }
+}
+
+function createDiagnosticHandoff(startedAt: string, answers: Record<string, string>): DiagnosticHandoff {
+  return {
+    version: 1,
+    source: 'future-skills-lab',
+    identity: '',
+    capabilities: [],
+    builds: answers.solution ?? '',
+    evidence: answers.proof ?? '',
+    projects: answers.problem ?? '',
+    offer: answers.value ?? '',
+    credentials: '',
+    growth: [],
+    researchSignal: answers.research ?? '',
+    createdAt: new Date().toISOString(),
+  };
 }
 
 export default function FutureSkillsChallenge({ onNavigate }: Props) {
@@ -68,7 +101,11 @@ export default function FutureSkillsChallenge({ onNavigate }: Props) {
     if (index === PROMPTS.length - 1) {
       const completedAt = new Date().toISOString();
       const state: ChallengeState = { version: 1, startedAt, answers, completedAt };
-      try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+      const handoff = createDiagnosticHandoff(startedAt, answers);
+      try {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        sessionStorage.setItem(HANDOFF_KEY, JSON.stringify(handoff));
+      } catch {}
       setComplete(true);
       return;
     }
@@ -76,7 +113,10 @@ export default function FutureSkillsChallenge({ onNavigate }: Props) {
   };
 
   const reset = () => {
-    try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
+    try {
+      sessionStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(HANDOFF_KEY);
+    } catch {}
     setStartedAt(''); setIndex(-1); setAnswers({}); setRemaining(LIMIT_MS); setComplete(false);
   };
 
@@ -87,11 +127,11 @@ export default function FutureSkillsChallenge({ onNavigate }: Props) {
         <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} style={{ maxWidth: 640, margin: '0 auto', padding: '30px 24px', background: 'rgba(14,17,32,.82)', border: '1px solid rgba(0,212,170,.2)', borderRadius: 18 }}>
           <p style={{ fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '.3em', textTransform: 'uppercase', color: 'rgba(0,212,170,.65)', margin: '0 0 10px' }}>Challenge complete</p>
           <h1 style={{ fontFamily: 'serif', fontWeight: 400, fontSize: 34, color: '#F0F0EE', margin: '0 0 12px' }}>You made the signal visible.</h1>
-          <p style={{ fontFamily: 'sans-serif', fontSize: 12, lineHeight: 1.75, color: 'rgba(232,232,232,.55)', margin: '0 0 22px' }}>Your work is saved locally for this session. The next step is to turn what you just demonstrated into your A.I.S Capability Portfolio.</p>
+          <p style={{ fontFamily: 'sans-serif', fontSize: 12, lineHeight: 1.75, color: 'rgba(232,232,232,.55)', margin: '0 0 22px' }}>Your challenge signals are ready to seed the A.I.S Diagnostic. We will carry the work forward so you only fill the gaps.</p>
           <div style={{ display: 'grid', gap: 7, marginBottom: 22 }}>
-            {PROMPTS.map((item, i) => <div key={item.id} style={{ padding: '11px 13px', border: '1px solid rgba(255,255,255,.06)', borderRadius: 9, background: 'rgba(255,255,255,.018)' }}><span style={{ fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '.15em', color: 'rgba(201,168,76,.55)' }}>{item.eyebrow}</span><p style={{ fontFamily: 'sans-serif', fontSize: 11, lineHeight: 1.5, color: 'rgba(232,232,232,.62)', margin: '4px 0 0' }}>{answers[item.id] || 'Completed'}</p></div>)}
+            {PROMPTS.map(item => <div key={item.id} style={{ padding: '11px 13px', border: '1px solid rgba(255,255,255,.06)', borderRadius: 9, background: 'rgba(255,255,255,.018)' }}><span style={{ fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '.15em', color: 'rgba(201,168,76,.55)' }}>{item.eyebrow}</span><p style={{ fontFamily: 'sans-serif', fontSize: 11, lineHeight: 1.5, color: 'rgba(232,232,232,.62)', margin: '4px 0 0' }}>{answers[item.id] || 'Completed'}</p></div>)}
           </div>
-          <button type="button" data-testid="challenge-to-diagnostic" onClick={() => onNavigate('gate')} style={{ width: '100%', padding: 15, background: 'linear-gradient(135deg,rgba(0,212,170,.18),rgba(0,212,170,.06))', border: '1px solid rgba(0,212,170,.55)', borderRadius: 10, color: '#00D4AA', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '.2em', textTransform: 'uppercase', cursor: 'pointer' }}>Build my free A.I.S capability profile →</button>
+          <button type="button" data-testid="challenge-to-diagnostic" onClick={() => onNavigate('gate')} style={{ width: '100%', padding: 15, background: 'linear-gradient(135deg,rgba(0,212,170,.18),rgba(0,212,170,.06))', border: '1px solid rgba(0,212,170,.55)', borderRadius: 10, color: '#00D4AA', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '.2em', textTransform: 'uppercase', cursor: 'pointer' }}>Let’s map what you can actually do →</button>
           <button type="button" onClick={reset} style={{ width: '100%', marginTop: 8, padding: 11, background: 'transparent', border: '0', color: 'rgba(232,232,232,.3)', fontFamily: 'sans-serif', fontSize: 9, cursor: 'pointer' }}>Run the challenge again</button>
         </motion.section>
       </div>
