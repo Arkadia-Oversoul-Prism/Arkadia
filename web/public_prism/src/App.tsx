@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ArkadiaNavigation from './components/ArkadiaNavigation';
 import LivingGate from './pages/LivingGate';
+import FutureSkillsChallenge from './pages/FutureSkillsChallenge';
 import ArkanaCommune from './components/ArkanaCommune';
 import CoherenceReset from './pages/CoherenceReset';
 import AboutArkadia from './pages/AboutArkadia';
@@ -48,7 +49,8 @@ type View =
   | 'knowledge-os'
   | 'reasomate'
   | 'personal-echofeild'
-  | 'echofeild-matrix';
+  | 'echofeild-matrix'
+  | 'challenge';
 
 function FieldPulse() {
   const [tick, setTick] = useState(0);
@@ -138,6 +140,7 @@ function Home({ onNavigate }: { onNavigate: (v: View) => void }) {
           <PortalDoor label="SolSpire Console" sub="Echo Field Matrix · Spiral Codex · Personal Codex · Projects · Knowledge" color="#C9A84C" sigil="o" onClick={() => onNavigate('solspire')} delay={1.14} />
           <PortalDoor label="SCI" sub="Spiral Command Interface · operator shell" color="#00D4AA" sigil="#" onClick={() => onNavigate('sci')} delay={1.15} />
           <PortalDoor label="ReasoMate" sub="Arkana messenger · continuous conversation" color="#6A9FD8" sigil="+" onClick={() => onNavigate('reasomate')} delay={1.16} />
+          <PortalDoor label="Future Skills Lab" sub="Free 60-minute practical capability challenge" color="#00D4AA" sigil="→" onClick={() => onNavigate('challenge')} delay={1.17} />
           <PortalDoor label="Offerings" sub="IMS Sessions · Products · AIC Diagnostic" color="#00D4AA" sigil="*" onClick={() => onNavigate('offerings')} delay={1.18} />
         </div>
         {!isAuthenticated && (
@@ -199,6 +202,11 @@ function AppInner() {
               onGoToReset={() => handleNavigate('reset')}
               onEnterSpiralGrove={() => handleNavigate('grove')}
             />
+          </motion.div>
+        )}
+        {view === 'challenge' && (
+          <motion.div key="challenge" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}>
+            <FutureSkillsChallenge onNavigate={handleNavigate} />
           </motion.div>
         )}
         {view === 'commune' && (
