@@ -4,12 +4,14 @@ import type { GroveCapability, GroveLearningActivity, GroveLearningPathActivityP
 
 const C = { teal: '#00D4AA', text: 'rgba(232,232,232,0.90)', muted: 'rgba(232,232,232,0.58)', dim: 'rgba(232,232,232,0.34)' }
 const ACTIVITY_DRAFT_PREFIX = 'arkadia.spiral-grove.activity-draft.v1:'
+const FALLBACK_SURFACE = { mode: 'notes' as const, prompt_label: 'Your work', placeholder: 'Start your work here…', artifact_type: 'draft' }
 interface Props { capability: GroveCapability; state: LearnerCapabilityState; prerequisites: GroveCapability[]; learningPath: GroveLearningPathProjection | null; activities: GroveLearningPathActivityProjection | null; onBack: () => void; onOpenCapability: (capabilityId: string) => void }
 
 export default function CapabilityChamber({ capability, state, prerequisites, learningPath, activities, onBack, onOpenCapability }: Props) {
-  const pathIds = learningPath?.capability_ids || []; const nextId = learningPath?.next_capability_id
+  const pathIds = Array.isArray(learningPath?.capability_ids) ? learningPath.capability_ids : []
+  const nextId = learningPath?.next_capability_id
   const nextCapability = nextId ? [capability, ...prerequisites].find(item => item.id === nextId) : undefined
-  const activity = activities?.activities[0]
+  const activity = activities?.activities?.[0] ?? null
   const [activityOpen, setActivityOpen] = useState(false)
   return <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} data-testid="capability-chamber" style={shell}>
     <div style={topbar}><button type="button" onClick={onBack} style={buttonStyle}>← Return to capability map</button><span style={badge}>Capability Chamber · L{capability.level}</span></div>
@@ -37,7 +39,7 @@ function ActivityCard({ activity, open, onOpen, onClose }: { activity: GroveLear
   const key = `${ACTIVITY_DRAFT_PREFIX}${activity.id}`; const [draft, setDraft] = useState(''); const [saved, setSaved] = useState(false)
   useEffect(() => { if (typeof window === 'undefined') return; try { setDraft(window.localStorage.getItem(key) || '') } catch {} }, [key])
   const saveDraft = () => { if (typeof window === 'undefined') return; try { window.localStorage.setItem(key, draft); setSaved(true); window.setTimeout(() => setSaved(false), 1800) } catch {} }
-  const surface = activity.work_surface
+  const surface = activity.work_surface ?? FALLBACK_SURFACE
   if (!open) return <div data-testid="learning-activity" style={activityCard}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}><span style={eyebrow}>Learning activity</span><span style={activityType}>{activity.kind}</span></div><h3 style={activityTitle}>{activity.title}</h3><p style={activityInstruction}>{activity.instruction}</p><div style={activityMeta}><span>{activity.estimated_minutes} min</span><span>{activity.deliverable}</span><span>{activity.evidence_required ? 'Evidence later' : 'Reflection only'}</span></div><button type="button" onClick={onOpen} data-testid="activity-action" style={actionButton}>Open {surface.mode.replaceAll('_', ' ')} surface →</button></div>
   return <div data-testid="learning-activity-work-surface" style={workSurface}><div style={workHeader}><div><p style={eyebrow}>{surface.mode.replaceAll('_', ' ')} surface</p><h3 style={activityTitle}>{activity.title}</h3></div><button type="button" onClick={onClose} style={buttonStyle}>Close</button></div><p style={activityInstruction}>{activity.instruction}</p><div style={surfaceMeta}><span>Deliverable: {activity.deliverable}</span><span>Tools: {activity.tools.join(' · ')}</span><span>Artifact: {surface.artifact_type}</span></div><label style={label} htmlFor="activity-draft">{surface.prompt_label}</label><textarea id="activity-draft" data-testid="activity-draft" value={draft} onChange={event => setDraft(event.target.value)} placeholder={surface.placeholder} style={textarea} /><div style={workActions}><button type="button" onClick={saveDraft} data-testid="save-activity-draft" style={saveButton}>{saved ? 'Saved locally ✓' : 'Save draft'}</button><span style={meta}>{draft.length} characters · local progress only</span></div><div data-testid="evidence-boundary" style={evidenceBoundary}><strong>Evidence is separate.</strong> This working draft is not an evidence submission. Assessment and learner capability-state updates require a future explicit downstream stage.</div></div>
 }
