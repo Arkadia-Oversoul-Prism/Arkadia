@@ -87,5 +87,5 @@ def test_gateway_persistence_is_exploration_only() -> None:
 
 def test_learning_path_exercises_and_evidence_remain_downstream() -> None:
     page = PAGE.read_text(encoding="utf-8")
-    assert "Ready for SG-03" in page
-    assert "Captured after work" in page
+    assert "Learning Path Engine" in page
+    assert "Exercises and evidence are not generated" in page
