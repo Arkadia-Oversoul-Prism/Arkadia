@@ -96,92 +96,9 @@ def build_knowledge_summary(project_id: str, embedding_provider=None) -> dict[st
 
 
 def build_derived_graph(project_id: str) -> dict[str, Any]:
-    """Derived graph from store tables — not a second authoritative graph DB."""
-    from solspire.project_store import (
-        list_memory,
-        list_files,
-        list_repositories,
-        list_tasks,
-        list_events,
-        list_conversations,
-    )
-
-    nodes: list[dict[str, Any]] = [
-        {
-            "id": f"project:{project_id}",
-            "type": "Project",
-            "label": project_id,
-            "classification": "SOURCE-BACKED",
-        }
-    ]
-    edges: list[dict[str, Any]] = []
-
-    def add_children(items: list, ntype: str, edge_type: str, label_key: str = "title"):
-        for it in items or []:
-            iid = it.get("id") or it.get("name")
-            if not iid:
-                continue
-            nid = f"{ntype.lower()}:{iid}"
-            label = it.get(label_key) or it.get("name") or it.get("repo") or str(iid)
-            nodes.append(
-                {
-                    "id": nid,
-                    "type": ntype,
-                    "label": label,
-                    "classification": "SOURCE-BACKED",
-                }
-            )
-            edges.append(
-                {
-                    "from": f"project:{project_id}",
-                    "to": nid,
-                    "type": edge_type,
-                    "classification": "SOURCE-BACKED",
-                    "provenance": "project_store",
-                }
-            )
-
-    add_children(list_repositories(project_id), "Repository", "CONTAINS", "label")
-    add_children(list_files(project_id), "File", "CONTAINS", "name")
-    add_children(list_memory(project_id), "Memory", "CONTAINS", "title")
-    add_children(list_tasks(project_id), "Task", "CONTAINS", "title")
-    add_children(list_conversations(project_id), "Conversation", "CONTAINS", "title")
-    for ev in list_events(project_id) or []:
-        eid = ev.get("id") or f"ev-{len(nodes)}"
-        nid = f"event:{eid}"
-        nodes.append(
-            {
-                "id": nid,
-                "type": "Event",
-                "label": (ev.get("summary") or ev.get("event_type") or "event")[:80],
-                "classification": "SOURCE-BACKED",
-            }
-        )
-        edges.append(
-            {
-                "from": f"project:{project_id}",
-                "to": nid,
-                "type": "ASSOCIATED_WITH",
-                "classification": "SOURCE-BACKED",
-                "provenance": "project_store.events",
-            }
-        )
-
-    return {
-        "project_id": project_id,
-        "kind": "DERIVED",
-        "note": (
-            "Derived from project_store tables. Not a second graph authority. "
-            "No fabricated semantic edges between unrelated entities."
-        ),
-        "nodes": nodes,
-        "edges": edges,
-        "counts": {"nodes": len(nodes), "edges": len(edges)},
-        "authorization": {
-            "Execution": "LOCKED",
-            "note": "Graph view is read-only. Not authorization.",
-        },
-    }
+    """Compatibility wrapper for the bounded semantic graph projection."""
+    from solspire.semantic_graph import build_bounded_semantic_graph
+    return build_bounded_semantic_graph(project_id)
 
 
 def build_project_context_for_weaver(project: dict[str, Any]) -> dict[str, Any]:
