@@ -19,6 +19,11 @@ GATEWAY = SRC / "components" / "spiral-grove" / "CrystalGateway.tsx"
 ARCHIVE = ROOT / "archive" / "frontend" / "spiral_grove" / "SpiralGrovePage.placeholder.tsx"
 
 
+def read_projected_ids() -> set[str]:
+    text = FRONTEND.read_text(encoding="utf-8")
+    return set(re.findall(r"'cap-[a-z0-9-]+'", text))
+
+
 def test_frontend_projection_exists_and_is_explicitly_registry_sourced() -> None:
     text = FRONTEND.read_text(encoding="utf-8")
     assert "spiral_grove.registry.build_ais_capability_catalog()" in text
@@ -27,22 +32,16 @@ def test_frontend_projection_exists_and_is_explicitly_registry_sourced() -> None
 
 def test_every_registry_capability_is_present_in_frontend_projection() -> None:
     registry = build_ais_capability_catalog()
-    text = FRONTEND.read_text(encoding="utf-8")
-
-    for capability in registry.active():
-        assert capability.id in text
-        assert capability.slug in text
-        assert capability.name in text
-        assert capability.domain in text
+    projected_ids = {value.strip("'") for value in read_projected_ids()}
+    registry_ids = {item.id for item in registry.active()}
+    assert projected_ids == registry_ids
 
 
 def test_frontend_projection_has_exactly_the_registry_capability_count() -> None:
-    registry = build_ais_capability_catalog()
-    text = FRONTEND.read_text(encoding="utf-8")
-    ids = re.findall(r"'cap-[a-z0-9-]+'", text)
-    projected_ids = {value.strip("'") for value in ids}
-    assert projected_ids >= {item.id for item in registry.active()}
-    assert len({item.id for item in registry.active()}) == 30
+    registry_ids = {item.id for item in build_ais_capability_catalog().active()}
+    projected_ids = {value.strip("'") for value in read_projected_ids()}
+    assert len(projected_ids) == len(registry_ids)
+    assert projected_ids == registry_ids
 
 
 def test_current_page_no_longer_uses_placeholder_ais_university() -> None:
