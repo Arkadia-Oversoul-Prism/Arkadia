@@ -3,6 +3,11 @@
 Translates a user request + intent type into an ordered Plan of steps.
 Uses Gemini when available; falls back to deterministic templates.
 
+R3 boundary:
+    Plans may describe general project workflow, but engineering repository
+    mutation is not a SolSpire ExecutionRuntime capability. Repository changes
+    must use the canonical Weaver K15 → K3 path.
+
 Contract:
     planner = Planner()
     plan = planner.create_plan("Create project Codex and clone the repo", IntentType.Project)
@@ -32,10 +37,8 @@ _TEMPLATES: dict[IntentType, list[dict[str, Any]]] = {
          "payload": {"prompt": "Create a brief project plan for: {request}"}},
     ],
     IntentType.Coding: [
-        {"tool": "llm", "description": "Write the requested code",
+        {"tool": "llm", "description": "Write the requested code as a proposal; do not mutate the repository",
          "payload": {"prompt": "Write code for: {request}"}},
-        {"tool": "fs_write", "description": "Save the code to a file",
-         "payload": {"path": "output/generated_code.py", "content": "{result}"}},
     ],
     IntentType.Research: [
         {"tool": "llm", "description": "Research the topic comprehensively",
@@ -50,7 +53,7 @@ _TEMPLATES: dict[IntentType, list[dict[str, Any]]] = {
          "payload": {"prompt": "Design an automation pipeline for: {request}"}},
     ],
     IntentType.Workflow: [
-        {"tool": "llm", "description": "Orchestrate the multi-step workflow",
+        {"tool": "llm", "description": "Orchestrate the multi-step workflow without repository mutation",
          "payload": {"prompt": "Create a detailed workflow plan for: {request}"}},
     ],
     IntentType.Memory: [
@@ -58,6 +61,13 @@ _TEMPLATES: dict[IntentType, list[dict[str, Any]]] = {
          "payload": {"prompt": "Process this memory request: {request}"}},
     ],
 }
+
+
+# Planner-visible tool surface intentionally excludes repository mutation.
+_PLANNER_TOOLS = (
+    "llm (LLM reasoning), fs_read, fs_list, github_repos, github_tree, "
+    "github_read, project_create"
+)
 
 
 def _extract_project_name(request: str) -> str:
@@ -110,13 +120,10 @@ class Planner:
     def _llm_plan(self, request: str, intent: IntentType) -> list[dict[str, Any]] | None:
         try:
             from solspire.provider_manager import get_manager
-            tools_hint = (
-                "Available tools: llm (LLM reasoning), fs_read, fs_write, fs_list, "
-                "github_repos, github_tree, github_read, project_create"
-            )
             prompt = (
                 f"You are a planner. Create a JSON plan for this {intent.value} request.\n"
-                f"{tools_hint}\n"
+                f"Available tools: {_PLANNER_TOOLS}\n"
+                f"Repository mutation is NOT available to this runtime. Do not emit fs_write, fs_delete, git_commit, github_commit, execute_patch, or other mutation tools.\n"
                 f"Request: {request}\n\n"
                 f"Respond ONLY with valid JSON: "
                 f'{{ "steps": [ {{ "tool": "tool_name", "description": "what this step does", "payload": {{}} }} ] }}\n'
