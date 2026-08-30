@@ -4,6 +4,21 @@
  * Descriptive UI metadata only.
  * Does NOT grant authorization, mutation rights, or execution authority.
  * Backend governance (PassSpec, PatchApproval, K15, K3) remains authoritative.
+ *
+ * SURFACE OWNERSHIP (WEAVER-SCI-BOUNDARY-01)
+ * -----------------------------------------
+ * SCI          owns: global operator navigation, discovery, capability metadata,
+ *                    domain selection, topology presentation. NOT authorization.
+ * SolSpire     owns: project/workspace operating context (via routeView solspire).
+ * Knowledge    owns: knowledge surfaces (via routeView knowledge-os / SolSpire).
+ * Weaver       owns: engineering workflow inside project context (WeaverPanel).
+ * Governance   owns: PassSpec / PatchApproval visibility (backend-authoritative).
+ * Execution    owns: K15 readiness display only - mutation path remains K15->K3.
+ * Verification owns: post-execution result visibility (backend-authoritative).
+ * System       owns: architecture health / registry presentation (descriptive).
+ *
+ * SCI REGISTRY != AUTHORIZATION
+ * SCI_DISCOVERY_WITHOUT_AUTHORITY
  */
 
 export type SciAvailability =
@@ -47,20 +62,17 @@ export interface SciCommand {
 
 /** Canonical SCI rail categories (discovery order). */
 export const SCI_CATEGORIES: { id: SciDomain; label: string; sigil: string }[] = [
-  { id: 'command', label: 'Overview', sigil: '⌘' },
-  { id: 'projects', label: 'Projects', sigil: '⚙' },
-  { id: 'knowledge', label: 'Knowledge', sigil: '◈' },
-  { id: 'weaver', label: 'Weaver', sigil: '⟐' },
-  { id: 'governance', label: 'Governance', sigil: '⚖' },
-  { id: 'execution', label: 'Execution', sigil: '▶' },
-  { id: 'verification', label: 'Verification', sigil: '✓' },
-  { id: 'system', label: 'System', sigil: '⬡' },
+  { id: 'command', label: 'Overview', sigil: 'C' },
+  { id: 'projects', label: 'Projects', sigil: 'P' },
+  { id: 'knowledge', label: 'Knowledge', sigil: 'K' },
+  { id: 'weaver', label: 'Weaver', sigil: 'W' },
+  { id: 'governance', label: 'Governance', sigil: 'G' },
+  { id: 'execution', label: 'Execution', sigil: 'E' },
+  { id: 'verification', label: 'Verification', sigil: 'V' },
+  { id: 'system', label: 'System', sigil: 'S' },
 ];
 
-/**
- * Lifecycle stages for Weaver (display only).
- * States must match existing Weaver vocabulary — do not invent new ones.
- */
+/** Lifecycle stages for Weaver (display only). Do not invent new ones. */
 export const WEAVER_LIFECYCLE = [
   'PROJECT',
   'KNOWLEDGE',
@@ -91,7 +103,7 @@ export const WEAVER_STATE_LABELS = [
   'NOT_AVAILABLE',
 ] as const;
 
-/** Descriptive command registry — no authority. */
+/** Descriptive command registry - no authority. */
 export const SCI_COMMANDS: SciCommand[] = [
   {
     id: 'sci.overview',
@@ -112,7 +124,7 @@ export const SCI_COMMANDS: SciCommand[] = [
     authority: 'AUTH',
     mutation: false,
     routeView: 'solspire',
-    notes: 'Routes to existing SolSpireConsole → ProjectDashboard.',
+    notes: 'Routes to existing SolSpireConsole -> ProjectDashboard.',
   },
   {
     id: 'sci.knowledge',
@@ -123,19 +135,19 @@ export const SCI_COMMANDS: SciCommand[] = [
     authority: 'AUTH',
     mutation: false,
     routeView: 'knowledge-os',
-    notes: 'Compatibility entry → SolSpire Knowledge section.',
+    notes: 'Compatibility entry -> SolSpire Knowledge section.',
   },
   {
     id: 'sci.weaver',
     label: 'Weaver Workbench',
-    description: 'Governed analysis → plan → patch → PassSpec → PatchApproval → K15 → K3 lifecycle.',
+    description: 'Governed analysis -> plan -> patch -> PassSpec -> PatchApproval -> K15 -> K3 lifecycle.',
     domain: 'weaver',
     availability: 'AVAILABLE',
     authority: 'MUTATION',
     mutation: true,
     routeView: 'solspire',
     notes:
-      'WeaverPanel lives inside ProjectDashboard. Mutation only via K15→K3. SCI does not call K3.',
+      'WeaverPanel lives inside ProjectDashboard. Mutation only via K15->K3. SCI does not call K3.',
   },
   {
     id: 'sci.governance',
