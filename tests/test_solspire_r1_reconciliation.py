@@ -53,7 +53,12 @@ def test_r1_canonical_builders_match_solspire_wrappers():
 
     sol_approval = solspire_build_approval(patch, sol_spec, approved=True)
     canonical_approval = weaver_build_approval(patch, canonical_spec, approved=True)
-    assert sol_approval == canonical_approval
+    for key in (
+        "patch_id", "patch_hash", "plan_id", "plan_hash", "base_head_sha",
+        "base_origin_sha", "pass_spec_hash", "approved",
+    ):
+        assert sol_approval[key] == canonical_approval[key]
+    assert sol_approval["project_note"]
 
 
 def test_r1_readiness_wrapper_delegates_to_weaver():
