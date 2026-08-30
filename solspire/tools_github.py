@@ -1,8 +1,8 @@
 """SolSpire Console — GitHub Tool (Milestone 1).
 
-Provides GitHub operations: list repos, get file tree, read file content.
-Uses GITHUB_TOKEN env var when available for higher rate limits.
-Does NOT execute git clone (no shell in the kernel) — uses GitHub REST API.
+Provides read-only GitHub operations: list repos, get file tree, read file content.
+Repository mutation is intentionally unavailable here. Governed repository
+mutation belongs exclusively to the canonical Weaver K15 → K3 path.
 """
 from __future__ import annotations
 
@@ -78,49 +78,22 @@ def read_file(owner: str, repo: str, path: str, branch: str = "main") -> dict[st
 
 def commit_file(owner: str, repo: str, path: str, content: str,
                 message: str, branch: str = "main") -> dict[str, Any]:
-    """Create or update a file via the GitHub Contents API.
+    """Legacy compatibility shim: repository mutation is permanently disabled.
 
-    Requires GITHUB_TOKEN with repo write scope.
-    Automatically fetches the current file SHA when updating an existing file.
+    The former implementation called the GitHub Contents API and could create
+    or update commits directly. That was an alternate mutation path outside
+    Weaver governance. Keep the symbol temporarily so older callers fail
+    closed with a truthful response rather than gaining a new mutation route.
     """
-    import base64
-    try:
-        contents_url = f"{_API}/repos/{owner}/{repo}/contents/{path}"
-        sha: str | None = None
-
-        # Fetch existing SHA (needed for update; absent for create)
-        existing = httpx.get(contents_url, headers=_headers(),
-                             params={"ref": branch}, timeout=_TIMEOUT)
-        if existing.status_code == 200:
-            sha = existing.json().get("sha")
-        elif existing.status_code not in (404,):
-            return {"ok": False, "error": f"GitHub {existing.status_code}: {existing.text[:200]}"}
-
-        encoded = base64.b64encode(content.encode()).decode()
-        payload: dict[str, Any] = {
-            "message": message or f"chore: update {path}",
-            "content": encoded,
-            "branch": branch,
-        }
-        if sha:
-            payload["sha"] = sha
-
-        resp = httpx.put(contents_url, headers=_headers(), json=payload, timeout=_TIMEOUT)
-        if resp.status_code not in (200, 201):
-            return {"ok": False, "error": f"GitHub {resp.status_code}: {resp.text[:300]}"}
-
-        action = "updated" if sha else "created"
-        return {
-            "ok": True,
-            "action": action,
-            "path": path,
-            "branch": branch,
-            "commit_sha": resp.json().get("commit", {}).get("sha", ""),
-            "html_url": resp.json().get("content", {}).get("html_url", ""),
-        }
-    except Exception as e:
-        logger.error("tools_github.commit_file error: %s", e)
-        return {"ok": False, "error": str(e)}
+    logger.warning(
+        "Blocked direct GitHub mutation attempt: %s/%s:%s@%s",
+        owner, repo, path, branch,
+    )
+    return {
+        "ok": False,
+        "code": "MUTATION_DISABLED",
+        "error": "Direct SolSpire GitHub mutation is disabled; use the canonical Weaver K15 → K3 path.",
+    }
 
 
 def get_repo_info(owner: str, repo: str) -> dict[str, Any]:

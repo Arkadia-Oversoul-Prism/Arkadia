@@ -1,0 +1,27 @@
+name: SolSpire R2 GitHub mutation closure
+
+on:
+  push:
+    branches:
+      - 'recon/solspire-r0'
+    paths:
+      - 'solspire/tools_github.py'
+      - 'tests/test_solspire_r2_github_mutation.py'
+      - 'docs/architecture/SOLSPIRE_RECONCILIATION_R2.md'
+      - '.github/workflows/solspire-r2-validation.yml'
+  workflow_dispatch:
+
+jobs:
+  r2-validation:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements.txt
+      - run: python -m pip install pytest
+      - run: pytest -q tests/test_solspire_r2_github_mutation.py

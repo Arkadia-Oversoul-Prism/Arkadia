@@ -4,10 +4,10 @@ Exposes all Milestone 1 kernel capabilities via clean REST endpoints.
 Mounted at /solspire in the main Oracle FastAPI app.
 
 Endpoints:
-  POST /solspire/run              — end-to-end: request → plan → execute → results
+  POST /solspire/run              — end-to-end intent → plan → execute
   GET  /solspire/providers        — list providers + active
   POST /solspire/providers/select — switch active provider
-  GET  /solspire/projects         — list all projects
+  GET  /solspire/projects         — list projects
   POST /solspire/projects         — create project
   GET  /solspire/projects/{id}    — load project
   POST /solspire/projects/{id}/archive
@@ -125,13 +125,12 @@ class SetFallbackRequest(BaseModel):
 
 # ── End-to-end run ─────────────────────────────────────────────────────────
 
-@router.post("/run")
-async def run_request(body: RunRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
-    """Route a natural language request through the full kernel pipeline."""
+def _execute_run(body: RunRequest, user: dict[str, Any]) -> dict[str, Any]:
+    """Single canonical SolSpire run pipeline (provider → classify → plan → validate → execute → wait)."""
     from solspire.provider_manager import get_manager
     from solspire.intent_router import get_router
     from solspire.planner import get_planner
-    from solspire.execution_runtime import get_runtime
+    from solspire.execution_runtime import get_runtime, ExecutionStatus
 
     started = time.time()
 
@@ -154,7 +153,6 @@ async def run_request(body: RunRequest, user: dict = Depends(require_auth)) -> d
     # Wait for completion (max 60s for Milestone 1 sync flow)
     deadline = time.time() + 60
     while time.time() < deadline:
-        from solspire.execution_runtime import ExecutionStatus
         if execution.status not in (ExecutionStatus.RUNNING, ExecutionStatus.PAUSED):
             break
         time.sleep(0.25)
@@ -168,6 +166,12 @@ async def run_request(body: RunRequest, user: dict = Depends(require_auth)) -> d
     }
 
 
+@router.post("/run")
+async def run_request(body: RunRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
+    """Route a natural language request through the full kernel pipeline."""
+    return _execute_run(body, user)
+
+
 # ── Providers ──────────────────────────────────────────────────────────────
 
 @router.get("/providers")
@@ -175,7 +179,6 @@ async def list_providers(user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.provider_manager import get_manager
     m = get_manager()
     return {"providers": m.list_providers(), "active": m.active_provider(), "token_usage": m.token_usage()}
-
 
 @router.post("/providers/select")
 async def select_provider(body: SelectProviderRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
@@ -192,21 +195,17 @@ async def select_provider(body: SelectProviderRequest, user: dict = Depends(requ
 @router.get("/projects")
 async def list_projects(status: str | None = None, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.project_manager import get_project_manager
-    # Only caller-owned projects; legacy NULL-owner projects stay hidden.
     projects = get_project_manager().list_projects(status=status, owner_uid=user["uid"])
     return {"projects": [p.to_dict() for p in projects], "count": len(projects)}
-
 
 @router.post("/projects")
 async def create_project(body: CreateProjectRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.project_manager import get_project_manager
     try:
-        # Owner is the authenticated uid — client-supplied ownership fields are ignored.
         p = get_project_manager().create(body.name, body.metadata, owner_uid=user["uid"])
         return {"ok": True, "project": p.to_dict()}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
 
 @router.get("/projects/{project_id}")
 async def get_project(project_id: str, user: dict = Depends(require_project_owner)) -> dict[str, Any]:
@@ -216,7 +215,6 @@ async def get_project(project_id: str, user: dict = Depends(require_project_owne
         return {"project": p.to_dict()}
     except KeyError:
         raise HTTPException(status_code=404, detail="Project not found")
-
 
 @router.post("/projects/{project_id}/archive")
 async def archive_project(project_id: str, user: dict = Depends(require_project_owner)) -> dict[str, Any]:
@@ -231,7 +229,7 @@ async def archive_project(project_id: str, user: dict = Depends(require_project_
 # ── Executions ─────────────────────────────────────────────────────────────
 
 def _owned_execution(execution_id: str, uid: str):
-    """Return the execution owned by uid, else 404 (no existence leak)."""
+    """Load an execution and enforce ownership. Raises 404 on miss or cross-owner."""
     from solspire.execution_runtime import get_runtime
     ex = get_runtime().get(execution_id, owner_uid=uid)
     if not ex:
@@ -246,12 +244,9 @@ async def list_executions(user: dict = Depends(require_auth)) -> dict[str, Any]:
     active = sum(1 for ex in execs if ex["status"] in ("running", "paused"))
     return {"executions": execs, "active": active}
 
-
 @router.get("/executions/{execution_id}")
 async def get_execution(execution_id: str, user: dict = Depends(require_auth)) -> dict[str, Any]:
-    ex = _owned_execution(execution_id, user["uid"])
-    return {"execution": ex.to_dict()}
-
+    return {"execution": _owned_execution(execution_id, user["uid"]).to_dict()}
 
 @router.post("/executions/{execution_id}/pause")
 async def pause_execution(execution_id: str, user: dict = Depends(require_auth)) -> dict[str, Any]:
@@ -263,7 +258,6 @@ async def pause_execution(execution_id: str, user: dict = Depends(require_auth))
     except (KeyError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-
 @router.post("/executions/{execution_id}/resume")
 async def resume_execution(execution_id: str, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.execution_runtime import get_runtime
@@ -273,7 +267,6 @@ async def resume_execution(execution_id: str, user: dict = Depends(require_auth)
         return {"ok": True, "status": "running"}
     except (KeyError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
-
 
 @router.post("/executions/{execution_id}/cancel")
 async def cancel_execution(execution_id: str, user: dict = Depends(require_auth)) -> dict[str, Any]:
@@ -286,23 +279,17 @@ async def cancel_execution(execution_id: str, user: dict = Depends(require_auth)
         raise HTTPException(status_code=404, detail=str(e))
 
 
-# ── File System Tools ──────────────────────────────────────────────────────
+# ── Filesystem tools ───────────────────────────────────────────────────────
 
 @router.post("/tools/fs/read")
 async def fs_read(body: FsReadRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
-    # Authenticated global tool: operates on the shared server workspace
-    # (tools_fs sandboxes paths to SOLSPIRE_WORKSPACE_ROOT), never on
-    # project-private rows. Project files live in the project store and are
-    # reachable only through the owner-guarded /projects/{id}/files routes.
     from solspire.tools_fs import read_file
     return read_file(body.path)
-
 
 @router.post("/tools/fs/write")
 async def fs_write(body: FsWriteRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.tools_fs import write_file
     return write_file(body.path, body.content)
-
 
 @router.post("/tools/fs/list")
 async def fs_list(body: FsListRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
@@ -310,30 +297,22 @@ async def fs_list(body: FsListRequest, user: dict = Depends(require_auth)) -> di
     return list_directory(body.path)
 
 
-# ── GitHub Tools ───────────────────────────────────────────────────────────
-
-# GitHub tool routes: `body.owner` is a GitHub org/user, NOT Arkadia
-# application ownership. These routes proxy the caller's intent to GitHub
-# using the server-configured credential; they never read or mutate
-# project-private state, so project ownership does not apply.
+# ── GitHub tools ───────────────────────────────────────────────────────────
 
 @router.post("/tools/github/repos")
 async def github_repos(body: GithubReposRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.tools_github import list_repos
     return list_repos(body.owner)
 
-
 @router.post("/tools/github/tree")
 async def github_tree(body: GithubTreeRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.tools_github import get_tree
     return get_tree(body.owner, body.repo, body.branch)
 
-
 @router.post("/tools/github/read")
 async def github_read(body: GithubReadRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.tools_github import read_file
     return read_file(body.owner, body.repo, body.path, body.branch)
-
 
 @router.post("/tools/github/commit")
 async def github_commit(body: GithubCommitRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
@@ -341,7 +320,7 @@ async def github_commit(body: GithubCommitRequest, user: dict = Depends(require_
     return commit_file(body.owner, body.repo, body.path, body.content, body.message, body.branch)
 
 
-# ── Provider Key Management ─────────────────────────────────────────────────
+# ── Provider key management ────────────────────────────────────────────────
 
 @router.get("/providers/keys")
 async def list_provider_keys(provider: str | None = None, user: dict = Depends(require_auth)) -> dict[str, Any]:
@@ -353,7 +332,6 @@ async def list_provider_keys(provider: str | None = None, user: dict = Depends(r
         "auto_fallback": m.get_auto_fallback(),
     }
 
-
 @router.post("/providers/keys")
 async def add_provider_key(body: AddKeyRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.provider_manager import get_manager
@@ -363,7 +341,6 @@ async def add_provider_key(body: AddKeyRequest, user: dict = Depends(require_aut
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-
 @router.delete("/providers/keys/{key_id}")
 async def delete_provider_key(key_id: str, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.provider_manager import get_manager
@@ -372,19 +349,16 @@ async def delete_provider_key(key_id: str, user: dict = Depends(require_auth)) -
         raise HTTPException(status_code=404, detail="Key not found")
     return {"ok": True}
 
-
 @router.post("/providers/keys/{key_id}/activate")
 async def activate_provider_key(key_id: str, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.provider_manager import get_manager
     m = get_manager()
     # Find provider for this key
-    all_keys = m.list_keys()
-    entry = next((k for k in all_keys if k["id"] == key_id), None)
+    entry = next((k for k in m.list_keys() if k["id"] == key_id), None)
     if not entry:
         raise HTTPException(status_code=404, detail="Key not found")
     ok = m.set_active_key(entry["provider"], key_id)
     return {"ok": ok}
-
 
 @router.post("/providers/model")
 async def set_provider_model(body: SetModelRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
@@ -394,7 +368,6 @@ async def set_provider_model(body: SetModelRequest, user: dict = Depends(require
         return {"ok": True, "provider": body.provider, "model": body.model}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
 
 @router.post("/providers/fallback")
 async def set_auto_fallback(body: SetFallbackRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
@@ -413,15 +386,13 @@ async def console_status(user: dict = Depends(require_auth)) -> dict[str, Any]:
 
     runtime = get_runtime()
     pm = get_manager()
-
-    # Caller-scoped counts — another user's projects/executions are invisible.
     projects = get_project_manager().list_projects(status="active", owner_uid=user["uid"])
     executions = runtime.list_executions(owner_uid=user["uid"])
 
     return {
         "version": {
             "console": "1.0",
-            "kernel":  "0.1",
+            "kernel": "0.1",
             "codex_app": "0.4",
             "publishing_app": "0.2",
             "research_app": "0.1",
@@ -431,9 +402,7 @@ async def console_status(user: dict = Depends(require_auth)) -> dict[str, Any]:
             "available": pm.list_providers(),
             "token_usage": pm.token_usage(),
         },
-        "projects": {
-            "active_count": len(projects),
-        },
+        "projects": {"active_count": len(projects)},
         "executions": {
             "total": len(executions),
             "active": sum(1 for ex in executions if ex["status"] in ("running", "paused")),
@@ -444,7 +413,7 @@ async def console_status(user: dict = Depends(require_auth)) -> dict[str, Any]:
     }
 
 
-# ── Project Sub-Resources ──────────────────────────────────────────────────────
+# ── Project detail endpoints ───────────────────────────────────────────────
 
 class UpdateProjectRequest(BaseModel):
     name: str | None = None
@@ -504,7 +473,9 @@ class ProjectRunRequest(BaseModel):
 @router.put("/projects/{project_id}")
 async def update_project(project_id: str, body: UpdateProjectRequest,
                          user: dict = Depends(require_project_owner)) -> dict[str, Any]:
-    import time, sqlite3, os
+    import time as _time
+    import sqlite3
+    import os
     db_path = os.environ.get("SOLSPIRE_PROJECTS_DB", "data/solspire_projects.db")
     fields, vals = [], []
     if body.name is not None:
@@ -519,14 +490,15 @@ async def update_project(project_id: str, body: UpdateProjectRequest,
         fields.append("metadata=?"); vals.append(json.dumps(p.metadata))
     if not fields:
         raise HTTPException(status_code=400, detail="Nothing to update")
-    fields.append("updated_at=?"); vals.append(time.time()); vals.append(project_id)
+    fields.append("updated_at=?"); vals.append(_time.time()); vals.append(project_id)
     with sqlite3.connect(db_path) as conn:
         conn.execute(f"UPDATE projects SET {', '.join(fields)} WHERE id=?", vals)
     return {"ok": True}
 
 
 @router.get("/projects/{project_id}/conversations")
-async def project_list_conversations(project_id: str, user: dict = Depends(require_project_owner)) -> dict[str, Any]:
+async def project_list_conversations(project_id: str,
+                                     user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import list_conversations
     items = list_conversations(project_id)
     return {"conversations": items, "count": len(items)}
@@ -555,7 +527,8 @@ async def project_append_message(project_id: str, conv_id: str, body: AppendMess
 
 
 @router.get("/projects/{project_id}/files")
-async def project_list_files(project_id: str, user: dict = Depends(require_project_owner)) -> dict[str, Any]:
+async def project_list_files(project_id: str,
+                             user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import list_files
     return {"files": list_files(project_id)}
 
@@ -596,19 +569,11 @@ async def project_delete_file(project_id: str, file_id: str,
 @router.post("/projects/{project_id}/files/upload")
 async def project_upload_file(project_id: str, request: Request,
                               user: dict = Depends(require_project_owner)) -> dict[str, Any]:
-    """Attach a real document (PDF/DOCX/TXT/MD/etc) to a SolSpire project.
-
-    Accepts multipart/form-data. Extracts text via the shared kernel.doc_extract
-    helper, stores the extracted text as a project file (so it is editable and
-    indexed inside the project), and ingests it into the Knowledge OS so the
-    project's documents flow through the personal knowledge graph.
-    """
     content_type = request.headers.get("content-type", "")
     if not content_type.startswith("multipart/form-data"):
         raise HTTPException(status_code=400, detail="Expected multipart/form-data")
     body = await request.body()
     boundary = content_type.split("boundary=")[-1].strip('"')
-
     file_name = "upload"
     raw: bytes = b""
     for part in body.split(("--" + boundary).encode()):
@@ -627,21 +592,14 @@ async def project_upload_file(project_id: str, request: Request,
                 import urllib.parse
                 file_name = urllib.parse.unquote(fm.group(1))
             raw = content
-
     if not raw:
         raise HTTPException(status_code=400, detail="No file provided")
-
     from kernel.doc_extract import extract_text, make_label
     extracted_text, mime_type = extract_text(file_name, raw)
     if not extracted_text.strip():
         raise HTTPException(status_code=400, detail="Could not extract any text from the uploaded file.")
-
     from solspire.project_store import create_file
     stored = create_file(project_id, file_name, extracted_text, mime_type)
-
-    # Also ingest into the Knowledge OS so the project document joins the graph.
-    # Pass 01R: ingest under the uploader's uid so the note is private —
-    # previously it was ingested with no owner, landing in the public corpus.
     try:
         from knowledge.pipeline import ingest
         ingest(
@@ -649,13 +607,13 @@ async def project_upload_file(project_id: str, request: Request,
             content=extracted_text,
             note_type="document",
             tags=["solspire", "project", "file", project_id],
-            auto_tag=True, auto_embed=True, auto_link=True,
+            auto_tag=True,
+            auto_embed=True,
+            auto_link=True,
             user_id=user["uid"],
         )
     except Exception:
-        # Knowledge OS ingestion is best-effort; the project file is still stored.
         pass
-
     return {
         "ok": True,
         "file": stored,
@@ -666,7 +624,8 @@ async def project_upload_file(project_id: str, request: Request,
 
 
 @router.get("/projects/{project_id}/repositories")
-async def project_list_repos(project_id: str, user: dict = Depends(require_project_owner)) -> dict[str, Any]:
+async def project_list_repos(project_id: str,
+                             user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import list_repositories
     return {"repositories": list_repositories(project_id)}
 
@@ -705,8 +664,14 @@ async def project_create_task(project_id: str, body: CreateTaskRequest,
 async def project_update_task(project_id: str, task_id: str, body: UpdateTaskRequest,
                               user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_store import update_task
-    return update_task(task_id, title=body.title, description=body.description,
-                       status=body.status, assigned_to=body.assigned_to, priority=body.priority)
+    return update_task(
+        task_id,
+        title=body.title,
+        description=body.description,
+        status=body.status,
+        assigned_to=body.assigned_to,
+        priority=body.priority,
+    )
 
 
 @router.delete("/projects/{project_id}/tasks/{task_id}")
@@ -759,44 +724,13 @@ async def project_list_events(project_id: str, event_type: str | None = None,
 async def project_run(project_id: str, body: RunRequest,
                       user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     """Run an intent in the context of a project — logs an event on completion."""
-    import time as _time
-    from solspire.provider_manager import get_manager
-    from solspire.intent_router import get_router
-    from solspire.planner import get_planner
-    from solspire.execution_runtime import get_runtime, ExecutionStatus
     from solspire.project_store import log_event
 
-    started = _time.time()
-    if body.provider:
-        try:
-            get_manager().select_provider(body.provider)
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-
-    intent = get_router().classify(body.request)
-    plan = get_planner().create_plan(body.request, intent)
-    if not get_planner().validate_plan(plan):
-        raise HTTPException(status_code=422, detail="Invalid plan")
-
-    execution = get_runtime().execute(plan, owner_uid=user["uid"])
-    deadline = _time.time() + 60
-    while _time.time() < deadline:
-        if execution.status not in (ExecutionStatus.RUNNING, ExecutionStatus.PAUSED):
-            break
-        _time.sleep(0.25)
-
-    elapsed = round((_time.time() - started) * 1000)
+    result = _execute_run(body, user)
     log_event(project_id, "workflow_run",
-              f"⟐ {intent.value}: {body.request[:80]}",
-              {"status": execution.status.value, "elapsed_ms": elapsed})
-
-    return {
-        "ok": execution.status.value == "completed",
-        "intent": intent.value,
-        "plan": plan.to_dict(),
-        "execution": execution.to_dict(),
-        "elapsed_ms": elapsed,
-    }
+              f"⟐ {result['intent']}: {body.request[:80]}",
+              {"status": result["execution"]["status"], "elapsed_ms": result["elapsed_ms"]})
+    return result
 
 
 def _count_by_status(execs: list[dict[str, Any]]) -> dict[str, int]:
@@ -837,36 +771,17 @@ async def project_weaver_context_route(project_id: str,
 @router.post("/projects/{project_id}/weaver/analyze")
 async def project_weaver_analyze(project_id: str, body: WeaverAnalyzeRequest,
                                  user: dict = Depends(require_project_owner)) -> dict[str, Any]:
-    """Read-only Weaver pipeline under project ownership guard.
-
-    Ownership grants *access* only. Never unlocks K15/K3.
-    """
     from solspire.project_manager import get_project_manager
     from solspire.weaver_bridge import project_analyze
     from solspire.project_store import log_event
-
     p = get_project_manager().load(project_id)
     if not p:
         raise HTTPException(status_code=404, detail="Project not found")
     pdata = p.to_dict() if hasattr(p, "to_dict") else dict(p.__dict__)
-    result = project_analyze(
-        pdata,
-        body.objective,
-        affected_paths=body.affected_paths,
-        symbols=body.symbols,
-    )
-    # Activity log is not authorization
+    result = project_analyze(pdata, body.objective, affected_paths=body.affected_paths, symbols=body.symbols)
     try:
-        log_event(
-            project_id,
-            "weaver_analyze",
-            f"Weaver analyze: {(body.objective or '')[:80]}",
-            {
-                "executed": False,
-                "execution": "LOCKED",
-                "scope": (result.get("scope") or {}).get("status"),
-            },
-        )
+        log_event(project_id, "weaver_analyze", f"Weaver analyze: {(body.objective or '')[:80]}",
+                  {"executed": False, "execution": "LOCKED", "scope": (result.get("scope") or {}).get("status")})
     except Exception:
         pass
     return result
@@ -882,14 +797,7 @@ async def project_weaver_validation(project_id: str, scenario: str | None = None
 @router.get("/projects/{project_id}/weaver/knowledge-summary")
 async def project_weaver_knowledge_summary(project_id: str,
                                            user: dict = Depends(require_project_owner)) -> dict[str, Any]:
-    """Compose existing project store surfaces — no new stores."""
-    from solspire.project_store import (
-        list_memory,
-        list_files,
-        list_repositories,
-        list_tasks,
-        list_events,
-    )
+    from solspire.project_store import list_memory, list_files, list_repositories, list_tasks, list_events
     mem = list_memory(project_id)
     files = list_files(project_id)
     repos = list_repositories(project_id)
@@ -921,8 +829,6 @@ async def project_weaver_knowledge_summary(project_id: str,
     }
 
 
-
-
 @router.get("/projects/{project_id}/knowledge")
 async def project_knowledge_os(project_id: str,
                                user: dict = Depends(require_project_owner)) -> dict[str, Any]:
@@ -942,32 +848,25 @@ async def project_knowledge_embeddings(project_id: str,
                                        user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_knowledge import build_knowledge_summary
     s = build_knowledge_summary(project_id)
-    return {
-        "project_id": project_id,
-        "embeddings": s.get("embeddings"),
-        "authorization": s.get("authorization"),
-    }
+    return {"project_id": project_id, "embeddings": s.get("embeddings"), "authorization": s.get("authorization")}
 
 
 @router.post("/projects/{project_id}/knowledge/search")
 async def project_knowledge_search(project_id: str, body: dict[str, Any],
                                    user: dict = Depends(require_project_owner)) -> dict[str, Any]:
-    """Keyword search over existing project store fields — not a vector DB."""
     from solspire.project_store import list_memory, list_files, list_tasks
     q = str((body or {}).get("q") or "").strip().lower()
     hits = []
     if not q:
         return {"project_id": project_id, "q": q, "hits": [], "note": "empty query"}
     for m in list_memory(project_id) or []:
-        blob = f"{m.get('title','')} {m.get('content','')}".lower()
-        if q in blob:
+        if q in f"{m.get('title','')} {m.get('content','')}".lower():
             hits.append({"type": "memory", "id": m.get("id"), "title": m.get("title"), "classification": "SOURCE-BACKED"})
     for f in list_files(project_id) or []:
         if q in str(f.get("name") or "").lower():
             hits.append({"type": "file", "id": f.get("id"), "name": f.get("name"), "classification": "SOURCE-BACKED"})
     for t in list_tasks(project_id) or []:
-        blob = f"{t.get('title','')} {t.get('description','')}".lower()
-        if q in blob:
+        if q in f"{t.get('title','')} {t.get('description','')}".lower():
             hits.append({"type": "task", "id": t.get("id"), "title": t.get("title"), "classification": "SOURCE-BACKED"})
     return {
         "project_id": project_id,
@@ -978,8 +877,6 @@ async def project_knowledge_search(project_id: str, body: dict[str, Any],
     }
 
 
-
-# WEAVER-MVP1 — governed project execution routes
 class WeaverPassSpecRequest(BaseModel):
     patch: dict[str, Any]
     pass_id: str | None = None
@@ -1008,28 +905,20 @@ class WeaverReadinessRequest(BaseModel):
 
 
 @router.post("/projects/{project_id}/weaver/execution/readiness")
-async def project_weaver_execution_readiness(
-    project_id: str,
-    body: WeaverReadinessRequest,
-    user: dict = Depends(require_project_owner),
-) -> dict[str, Any]:
+async def project_weaver_execution_readiness(project_id: str, body: WeaverReadinessRequest,
+                                             user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_manager import get_project_manager
     from solspire.weaver_bridge import project_execution_readiness
     p = get_project_manager().load(project_id)
     if not p:
         raise HTTPException(status_code=404, detail="Project not found")
     pdata = p.to_dict() if hasattr(p, "to_dict") else dict(p.__dict__)
-    return project_execution_readiness(
-        pdata, body.patch, pass_spec=body.pass_spec, approval=body.approval
-    )
+    return project_execution_readiness(pdata, body.patch, pass_spec=body.pass_spec, approval=body.approval)
 
 
 @router.post("/projects/{project_id}/weaver/execution/pass-spec")
-async def project_weaver_bind_pass_spec(
-    project_id: str,
-    body: WeaverPassSpecRequest,
-    user: dict = Depends(require_project_owner),
-) -> dict[str, Any]:
+async def project_weaver_bind_pass_spec(project_id: str, body: WeaverPassSpecRequest,
+                                        user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_manager import get_project_manager
     from solspire.weaver_bridge import project_bind_pass_spec
     p = get_project_manager().load(project_id)
@@ -1037,8 +926,7 @@ async def project_weaver_bind_pass_spec(
         raise HTTPException(status_code=404, detail="Project not found")
     pdata = p.to_dict() if hasattr(p, "to_dict") else dict(p.__dict__)
     return project_bind_pass_spec(
-        pdata,
-        body.patch,
+        pdata, body.patch,
         pass_id=body.pass_id,
         objective=body.objective,
         allowed_paths=body.allowed_paths,
@@ -1047,11 +935,8 @@ async def project_weaver_bind_pass_spec(
 
 
 @router.post("/projects/{project_id}/weaver/execution/approval")
-async def project_weaver_bind_approval(
-    project_id: str,
-    body: WeaverApprovalRequest,
-    user: dict = Depends(require_project_owner),
-) -> dict[str, Any]:
+async def project_weaver_bind_approval(project_id: str, body: WeaverApprovalRequest,
+                                       user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_manager import get_project_manager
     from solspire.weaver_bridge import project_bind_patch_approval
     p = get_project_manager().load(project_id)
@@ -1062,21 +947,15 @@ async def project_weaver_bind_approval(
 
 
 @router.post("/projects/{project_id}/weaver/execution/execute")
-async def project_weaver_execute(
-    project_id: str,
-    body: WeaverExecuteRequest,
-    user: dict = Depends(require_project_owner),
-) -> dict[str, Any]:
+async def project_weaver_execute(project_id: str, body: WeaverExecuteRequest,
+                                 user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_manager import get_project_manager
     from solspire.weaver_bridge import project_execute_governed
     p = get_project_manager().load(project_id)
     if not p:
         raise HTTPException(status_code=404, detail="Project not found")
     pdata = p.to_dict() if hasattr(p, "to_dict") else dict(p.__dict__)
-    return project_execute_governed(
-        pdata, body.patch, body.pass_spec, body.approval, run_k3=bool(body.run_k3)
-    )
-
+    return project_execute_governed(pdata, body.patch, body.pass_spec, body.approval, run_k3=bool(body.run_k3))
 
 
 __all__ = ["router"]
