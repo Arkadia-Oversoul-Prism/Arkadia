@@ -5,15 +5,19 @@ on:
     branches: [main]
     paths:
       - 'web/public_prism/**'
+      - 'spiral_grove/**'
       - 'tests/test_spiral_grove_frontend_projection.py'
       - 'tests/test_spiral_grove_chambers.py'
+      - 'tests/test_spiral_grove_learning_path.py'
       - 'requirements.txt'
       - '.github/workflows/sg-02-fe-2-v.yml'
   pull_request:
     paths:
       - 'web/public_prism/**'
+      - 'spiral_grove/**'
       - 'tests/test_spiral_grove_frontend_projection.py'
       - 'tests/test_spiral_grove_chambers.py'
+      - 'tests/test_spiral_grove_learning_path.py'
       - 'requirements.txt'
       - '.github/workflows/sg-02-fe-2-v.yml'
   workflow_dispatch:
@@ -53,4 +57,4 @@ jobs:
         run: python -m pip install pytest
       - name: Grove contracts
         working-directory: .
-        run: python -m pytest tests/test_spiral_grove_frontend_projection.py tests/test_spiral_grove_chambers.py -q
+        run: python -m pytest tests/test_spiral_grove_frontend_projection.py tests/test_spiral_grove_chambers.py tests/test_spiral_grove_learning_path.py -q
