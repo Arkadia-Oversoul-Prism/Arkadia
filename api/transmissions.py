@@ -6,8 +6,7 @@ Ownership model:
 - If a valid Firebase Bearer token is presented, the author is bound to the
   verified uid (client-supplied author identity is advisory only).
 - Anonymous posting stays possible for guests; such posts carry no owner.
-- Only the verified owner (uid) may delete a post; anonymous posts are not
-  deletable via the API.
+- Only the verified owner (uid) may edit or delete a post.
 - Content is intentionally public — private memory never becomes a
   transmission merely because it exists.
 """
@@ -26,7 +25,7 @@ DATA_FILE = os.path.join(DATA_DIR, "transmissions.json")
 
 try:
     from api.auth import get_current_user as _get_current_user
-except Exception:  # dev fallback — matches api/main.py's in-flight fallback
+except Exception:
     async def _get_current_user(request):  # type: ignore
         return None
 
@@ -51,10 +50,10 @@ def _author_block(body_author: dict | None, uid: str | None) -> dict:
     """Attach the verified uid when available; fall back to anonymous."""
     a = body_author or {}
     return {
-        "id":     uid or "anon",
-        "name":   (a.get("name") or "Anonymous").strip() or "Anonymous",
+        "id": uid or "anon",
+        "name": (a.get("name") or "Anonymous").strip() or "Anonymous",
         "avatar": (a.get("avatar") or "◈").strip() or "◈",
-        "role":   (a.get("role") or "Node").strip() or "Node",
+        "role": (a.get("role") or "Node").strip() or "Node",
     }
 
 
@@ -82,7 +81,7 @@ async def create_transmission(request: Request):
     post: dict = {
         "id": str(uuid.uuid4()),
         "author": _author_block(body.get("author"), uid),
-        "owner_uid": uid,  # ownership is server-verified only
+        "owner_uid": uid,
         "content": body["content"].strip(),
         "timestamp": int(time.time() * 1000),
         "reactions": {"heart": 0, "fire": 0, "star": 0, "mind": 0},
@@ -93,9 +92,38 @@ async def create_transmission(request: Request):
     posts.insert(0, post)
     _save(posts)
     logger.info("[TRANSMISSIONS] New post by %s (owner=%s): %s",
-                post['author'].get('name', '?'),
-                uid or 'anon', post['id'][:8])
+                post['author'].get('name', '?'), uid or 'anon', post['id'][:8])
     return {"transmission": post}
+
+
+@router.patch("/api/transmissions/{post_id}")
+async def edit_transmission(post_id: str, request: Request):
+    """Edit a public post, but only when the verified Firebase owner owns it."""
+    user = await _get_current_user(request)
+    uid = user.get("uid") if user else None
+    if not uid:
+        raise HTTPException(status_code=401, detail="authentication required")
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+    content = (body.get("content") or "").strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="content is required")
+    if len(content) > 12000:
+        raise HTTPException(status_code=400, detail="content is too long")
+
+    posts = _load()
+    target = next((p for p in posts if p.get("id") == post_id), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="post not found")
+    if target.get("owner_uid") != uid:
+        raise HTTPException(status_code=403, detail="only the author can edit this post")
+
+    target["content"] = content
+    target["edited_at"] = int(time.time() * 1000)
+    _save(posts)
+    return {"transmission": target}
 
 
 @router.post("/api/transmissions/{post_id}/react")
