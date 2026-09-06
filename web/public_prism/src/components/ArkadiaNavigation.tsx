@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import ArkadiaLandingPage from '../pages/ArkadiaLandingPage';
+import PrismInteriorShell from './PrismInteriorShell';
 
 /**
  * WEAVER-SCI-BOUNDARY-01 - Product surface navigation (public/app entry).
@@ -132,6 +133,7 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
   const { isAuthenticated } = useAuth();
   const currentLabel = VIEW_LABEL[currentView] ?? 'Arkadia';
   const handleNavigate = (v: View) => { onNavigate(v); setDrawerOpen(false); };
+  const interior = currentView !== 'home' && isAuthenticated;
   return (
     <div className="relative min-h-screen" style={{ backgroundColor: '#0C0D18' }}>
       <div className="fixed top-0 left-0 w-full h-px z-50 overflow-hidden">
@@ -205,7 +207,15 @@ const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, childr
           </motion.div>
         )}
       </AnimatePresence>
-      <div style={{ paddingTop: 52 }}>{currentView === 'home' ? <ArkadiaLandingPage onNavigate={onNavigate} authenticated={isAuthenticated} /> : children}</div>
+      <div style={{ paddingTop: 52 }}>
+        {currentView === 'home' ? (
+          <ArkadiaLandingPage onNavigate={onNavigate} authenticated={isAuthenticated} />
+        ) : interior ? (
+          <PrismInteriorShell currentView={currentView} onNavigate={onNavigate}>
+            {children}
+          </PrismInteriorShell>
+        ) : children}
+      </div>
     </div>
   );
 };
