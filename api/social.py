@@ -3,9 +3,10 @@
 One public identity projection, one Node directory, one ReasoMate conversation
 spine. This router creates no second identity or memory system.
 
-Public identity comes from the existing user profile store. Relationship context
-is derived from the existing ReasoMate message threads. Private Personal Codex,
-Knowledge OS memory, and Firebase UIDs never become public profile data.
+Public profile data comes from the existing user profile store. Relationship
+context is derived from the existing ReasoMate message threads. Firebase UIDs
+are internal identifiers and are returned only on authenticated social routes
+where the client needs them to address an existing thread.
 """
 from __future__ import annotations
 
@@ -19,16 +20,19 @@ from api.auth import require_auth, load_user_profile_store, normalize_handle, _p
 router = APIRouter(tags=["social"])
 
 
-def _profile(uid: str) -> dict[str, Any]:
+def _profile(uid: str, include_uid: bool = True) -> dict[str, Any]:
     stored = load_user_profile_store(uid)
     username = (stored.get("username") or "").strip()
-    return {
+    result: dict[str, Any] = {
         "username": username or None,
         "handle": f"@{username}" if username else None,
         "display_name": (stored.get("display_name") or "").strip() or (username or "Node"),
         "bio": (stored.get("bio") or "").strip()[:500] or None,
         "avatar_url": (stored.get("avatar_url") or "").strip() or None,
     }
+    if include_uid:
+        result["uid"] = uid
+    return result
 
 
 def _all_profiles() -> list[tuple[str, dict[str, Any]]]:
@@ -44,7 +48,7 @@ def _all_profiles() -> list[tuple[str, dict[str, Any]]]:
             continue
         stored = load_user_profile_store(uid)
         if stored:
-            profiles.append((uid, _profile(uid)))
+            profiles.append((uid, _profile(uid, include_uid=True)))
     return profiles
 
 
@@ -87,8 +91,7 @@ async def relationship_context(peer_uid: str, user: dict = Depends(require_auth)
     """Bounded shared-field context derived from the existing DM thread.
 
     Nothing is persisted here. The existing ReasoMate thread is the durable
-    relational memory. This route only projects it for the two participants and
-    strips internal UIDs before returning it to the client.
+    relational memory. This route projects it for the two participants.
     """
     from api.messages import _read_thread
 
@@ -112,7 +115,8 @@ async def relationship_context(peer_uid: str, user: dict = Depends(require_auth)
         },
         "messages": [
             {
-                "speaker": "me" if m.get("sender_uid") == me else "node",
+                "sender_uid": m.get("sender_uid"),
+                "recipient_uid": m.get("recipient_uid"),
                 "content": m.get("content"),
                 "timestamp": m.get("timestamp"),
             }
@@ -123,7 +127,6 @@ async def relationship_context(peer_uid: str, user: dict = Depends(require_auth)
 
 @router.get("/api/social/nodes/{uid}")
 async def get_discovered_node(uid: str, user: dict = Depends(require_auth)):
-    """Compatibility lookup. Public response contains no UID."""
     profile = load_user_profile_store(uid)
     if not profile or uid == user["uid"]:
         raise HTTPException(status_code=404, detail="Node not found")
