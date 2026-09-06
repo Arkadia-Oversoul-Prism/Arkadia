@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { apiRequest } from '../lib/apiClient'
 
 interface ArkDateData {
   ark_year: number
@@ -20,9 +21,6 @@ interface ArkDateData {
   }
 }
 
-const API_BASE =
-  import.meta.env.VITE_API_URL || ''
-
 interface Props {
   sovereignMode?: boolean
   compact?: boolean
@@ -38,8 +36,7 @@ export default function ArkDate({ sovereignMode = false, compact = false }: Prop
   useEffect(() => {
     let alive = true
     const load = () =>
-      fetch(`${API_BASE}/api/ark-date`)
-        .then(r => r.json())
+      apiRequest<ArkDateData>('/api/ark-date')
         .then(d => { if (alive) setData(d) })
         .catch(() => {})
     load()
@@ -76,13 +73,8 @@ export default function ArkDate({ sovereignMode = false, compact = false }: Prop
       <span
         title={tooltip}
         style={{
-          fontSize: '9px',
-          letterSpacing: '0.18em',
-          color: dim,
-          fontFamily: 'monospace',
-          cursor: 'default',
-          userSelect: 'none',
-          textTransform: 'uppercase',
+          fontSize: '9px', letterSpacing: '0.18em', color: dim,
+          fontFamily: 'monospace', cursor: 'default', userSelect: 'none', textTransform: 'uppercase',
         }}
       >
         ◎ ARK Y{data.ark_year} · D{data.total_ark_day} · {data.pulse}:{mm}:{ss}
@@ -93,51 +85,23 @@ export default function ArkDate({ sovereignMode = false, compact = false }: Prop
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-        <span style={{
-          fontSize: '8px',
-          letterSpacing: '0.35em',
-          color: dim,
-          textTransform: 'uppercase',
-          fontFamily: 'monospace',
-        }}>
+        <span style={{ fontSize: '8px', letterSpacing: '0.35em', color: dim, textTransform: 'uppercase', fontFamily: 'monospace' }}>
           ◎ ARK DATE
         </span>
         {data.sync.auto_sync_active && (
-          <span
-            title={`Auto-sync active · ${data.sync.refresh_count} ingestions`}
-            style={{
-              width: '5px', height: '5px', borderRadius: '50%',
-              background: accent, display: 'inline-block',
-              boxShadow: `0 0 4px ${accent}`,
-              animation: 'arkPulse 2.5s ease-in-out infinite',
-            }}
-          />
+          <span title={`Auto-sync active · ${data.sync.refresh_count} ingestions`} style={{
+            width: '5px', height: '5px', borderRadius: '50%', background: accent, display: 'inline-block',
+            boxShadow: `0 0 4px ${accent}`, animation: 'arkPulse 2.5s ease-in-out infinite',
+          }} />
         )}
       </div>
-      <div style={{
-        fontSize: '10px',
-        letterSpacing: '0.12em',
-        color: accent,
-        fontFamily: 'monospace',
-        textTransform: 'uppercase',
-      }}>
+      <div style={{ fontSize: '10px', letterSpacing: '0.12em', color: accent, fontFamily: 'monospace', textTransform: 'uppercase' }}>
         Year {data.ark_year} of {data.ark_total_years} · Day {data.total_ark_day} · {data.pulse}:{mm}:{ss}
       </div>
-      <div style={{
-        fontSize: '8px',
-        letterSpacing: '0.2em',
-        color: dim,
-        textTransform: 'uppercase',
-        fontFamily: 'monospace',
-      }}>
+      <div style={{ fontSize: '8px', letterSpacing: '0.2em', color: dim, textTransform: 'uppercase', fontFamily: 'monospace' }}>
         {data.ark_completion_pct}% of 8-year Ark
       </div>
-      <style>{`
-        @keyframes arkPulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50%       { opacity: 0.4; transform: scale(0.7); }
-        }
-      `}</style>
+      <style>{`@keyframes arkPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.7); } }`}</style>
     </div>
   )
 }
