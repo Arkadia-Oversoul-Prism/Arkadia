@@ -1,0 +1,46 @@
+name: _probe_render_source_location
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright
+        run: |
+          npm init -y
+          npm install playwright
+          npx playwright install --with-deps chromium
+      - name: Locate Render runtime error
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          (async()=>{
+            const browser = await chromium.launch({headless:true});
+            const page = await browser.newPage();
+            const errors=[];
+            page.on('pageerror', e => errors.push(String(e.stack||e.message)));
+            await page.goto('https://arkadia-prism-render-fixed.onrender.com/',{waitUntil:'networkidle',timeout:60000});
+            const scripts = await page.locator('script[src]').evaluateAll(xs=>xs.map(x=>x.src));
+            for (const src of scripts) {
+              const text = await (await fetch(src)).text();
+              const lines = text.split('\n');
+              for (const err of errors) {
+                const m = err.match(/:(\d+):(\d+)/);
+                if (!m) continue;
+                const line = Number(m[1]); const col = Number(m[2]);
+                const value = lines[line-1] || '';
+                console.log(`[asset] ${src}`);
+                console.log(`[location] line=${line} col=${col} lineLength=${value.length}`);
+                console.log(`[context] ${value.slice(Math.max(0,col-1200), Math.min(value.length,col+1200))}`);
+              }
+            }
+            console.log(`[errors] ${JSON.stringify(errors)}`);
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
