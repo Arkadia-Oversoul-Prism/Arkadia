@@ -37,7 +37,10 @@ function UserSection({ onNavigate, onClose }: { onNavigate: (v: View) => void; o
 }
 const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, children }) => {
   const [drawerOpen, setDrawerOpen] = useState(false); const { isAuthenticated } = useAuth(); const currentLabel = VIEW_LABEL[currentView] ?? 'Arkadia';
-  const handleNavigate = (v: View) => { onNavigate(v); setDrawerOpen(false); }; const interior = currentView !== 'home' && isAuthenticated;
+  const handleNavigate = (v: View) => { onNavigate(v); setDrawerOpen(false); };
+  // The Living Gate is the bridge between public Prism and the authenticated NovaNet interior.
+  // Keep its diagnostic/authentication journey on public chrome; NovaNet becomes the authenticated shell only after entry.
+  const interior = !['home', 'gate', 'login'].includes(currentView) && isAuthenticated;
   if (interior) return <PrismInteriorShell currentView={currentView} onNavigate={onNavigate}>{children}</PrismInteriorShell>;
   return <div className="relative min-h-screen" style={{ backgroundColor: '#0C0D18' }}>
     <div className="fixed top-0 left-0 w-full h-px z-50 overflow-hidden"><motion.div className="h-full w-1/2" style={{ background: 'linear-gradient(90deg, transparent, #C9A84C, transparent)' }} animate={{ x: ['-100%', '200%'] }} transition={{ duration: 4, repeat: Infinity, ease: 'linear' }} /></div>
