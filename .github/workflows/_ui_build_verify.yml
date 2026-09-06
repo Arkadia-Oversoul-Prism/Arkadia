@@ -1,0 +1,41 @@
+name: _ui_build_verify
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Frontend build
+        working-directory: web/public_prism
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+      - name: Functional surface assertions
+        shell: bash
+        run: |
+          grep -q "'overview'|'projects'|'commercial'" web/public_prism/src/App.tsx
+          grep -q "'/encyclopedia': 'encyclopedia'" web/public_prism/src/App.tsx
+          grep -q "'/spiral-codex': 'spiral-codex'" web/public_prism/src/App.tsx
+          grep -q "ProjectsWorkspace" web/public_prism/src/components/solspire/SolSpireExperience.tsx
+          grep -q "FilesWorkspace" web/public_prism/src/components/solspire/SolSpireExperience.tsx
+          grep -q "ConversationsWorkspace" web/public_prism/src/components/solspire/SolSpireExperience.tsx
+          grep -q "TasksWorkspace" web/public_prism/src/components/solspire/SolSpireExperience.tsx
+      - name: Remove verification workflow
+        shell: bash
+        run: |
+          rm .github/workflows/_ui_build_verify.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/_ui_build_verify.yml
+          git commit -m "chore: remove temporary UI build verification" || exit 0
+          git push
