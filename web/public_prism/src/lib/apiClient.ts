@@ -82,9 +82,28 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
     });
   }
 
-  // 204 is a successful no-content response and must not be parsed as JSON.
   if (response.status === 204 || !raw) return undefined as T;
   return payload as T;
+}
+
+/**
+ * Canonical Oracle transport for existing consumers that intentionally depend on
+ * native Response semantics (status/headers/body streaming). Base URL and bearer
+ * propagation remain owned here; consumers do not resolve either themselves.
+ */
+export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(options.headers);
+  if (authToken && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${authToken}`);
+  if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+
+  try {
+    return await fetch(`${API_BASE}${path}`, { ...options, headers });
+  } catch (error) {
+    throw new ApiError(error instanceof Error ? error.message : 'Oracle network request failed', {
+      kind: 'NETWORK_ERROR',
+      path,
+    });
+  }
 }
 
 export function apiPath(path: string): string { return `${API_BASE}${path}`; }
