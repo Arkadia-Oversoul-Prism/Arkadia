@@ -1,7 +1,9 @@
+import { apiFetch } from '../lib/apiClient';
+import { API_BASE as API_BASE_CONFIG } from '../lib/apiConfig';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+const API_BASE = (API_BASE_CONFIG ?? '').replace(/\/$/, '');
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -192,7 +194,7 @@ function Layer2({ answers, onChange, onBack, onNext }: { answers: Layer2Answers;
     setIsAnalyzing(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/ims/archetypal-analyze`, {
+      const res = await apiFetch(`/api/ims/archetypal-analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ responses: answers }),
@@ -490,7 +492,7 @@ export default function AICDiagnosticPage({ onGoToOfferings }: { onGoToOfferings
         layer4: l4,
         mbti_type: computeMBTI(),
       };
-      const res = await fetch(`${API_BASE}/api/ims/diagnostic`, {
+      const res = await apiFetch(`/api/ims/diagnostic`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

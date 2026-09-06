@@ -1,3 +1,4 @@
+import { API_BASE as API_BASE_CONFIG } from '../../lib/apiConfig';
 /**
  * Spiral Codex — live corpus browser, dashboard-embedded version.
  * Renders within the dashboard shell (no full-page wrapper, no back button).
@@ -32,7 +33,7 @@ function fmtChars(n: number) {
   return `${n}`
 }
 
-const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "")
+const BASE = (API_BASE_CONFIG ?? "").replace(/\/$/, "")
 
 export default function DashboardCodex() {
   const qc = useQueryClient()

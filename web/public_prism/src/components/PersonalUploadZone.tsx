@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/apiClient';
 /**
  * PersonalUploadZone — the PERSONAL document + note capture surface.
  *
@@ -39,7 +40,7 @@ export default function PersonalUploadZone({ onIngested }: { onIngested?: () => 
       fd.append('tags', 'personal,upload');
       const headers: Record<string, string> = {};
       if (user?.idToken) headers['Authorization'] = `Bearer ${user.idToken}`;
-      const res = await fetch(`${API_BASE}/api/personal/ingest-file`, { method: 'POST', body: fd, headers });
+      const res = await apiFetch(`/api/personal/ingest-file`, { method: 'POST', body: fd, headers });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || `${res.status}`);
       setStatus('success');
@@ -62,7 +63,7 @@ export default function PersonalUploadZone({ onIngested }: { onIngested?: () => 
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (user?.idToken) headers['Authorization'] = `Bearer ${user.idToken}`;
-      const res = await fetch(`${API_BASE}/api/personal/ingest-note`, {
+      const res = await apiFetch(`/api/personal/ingest-note`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ title: noteTitle.trim(), content: noteBody.trim(), note_type: noteType, tags: ['personal', 'capture'] }),

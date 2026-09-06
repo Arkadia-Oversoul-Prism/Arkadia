@@ -1,3 +1,5 @@
+import { apiFetch } from '../lib/apiClient';
+import { API_BASE as API_BASE_CONFIG } from '../lib/apiConfig';
 /**
  * OracleVoicePlayer — inline audio player for an Oracle message.
  * Edge TTS neural voices (primary) · Web Speech API (fallback)
@@ -15,7 +17,7 @@ import { voiceContext } from '../lib/voiceContext';
 import { voicePref } from '../lib/voicePref';
 
 // ─── constants ────────────────────────────────────────────────────────────────
-const API_BASE   = import.meta.env.VITE_API_URL || '';
+const API_BASE   = API_BASE_CONFIG || '';
 const SPEEDS     = [0.75, 1, 1.25, 1.5] as const;
 const RESUME_KEY = 'arkadia_voice_resume';
 
@@ -214,7 +216,7 @@ const OracleVoicePlayer: React.FC<OracleVoicePlayerProps> = ({
   // When ElevenLabs comes online, auto-promote to the aetheric Oracle voice
   // unless the user has already picked a specific voice.
   useEffect(() => {
-    fetch(`${API_BASE}/api/tts/status`)
+    apiFetch(`/api/tts/status`)
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (d?.engine) setEngine(d.engine as typeof engine);
@@ -236,7 +238,7 @@ const OracleVoicePlayer: React.FC<OracleVoicePlayerProps> = ({
   // ── Generate via Edge TTS ──────────────────────────────────────────────────
   const generateEdge = useCallback(async (plain: string): Promise<Blob | null> => {
     try {
-      const res = await fetch(`${API_BASE}/api/tts`, {
+      const res = await apiFetch(`/api/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: plain, speed, voice }),

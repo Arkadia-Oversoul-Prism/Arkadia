@@ -1,7 +1,9 @@
+import { apiRequest } from '../lib/apiClient';
+import { apiFetch } from '../lib/apiClient';
+import { API_BASE as API_BASE_CONFIG } from '../lib/apiConfig';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const ORACLE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -24,24 +26,11 @@ type ProjTab = 'overview'|'weaver'|'knowledge'|'conversations'|'files'|'repos'|'
 
 // ── API ───────────────────────────────────────────────────────────────────────
 
-// Pass 01R: /solspire now requires the Firebase ID token on every request.
-let authToken: string | null = null;
-export function setSolspireAuthToken(token: string | null) { authToken = token; }
-
-function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
-  const h = { ...extra };
-  if (authToken) h.Authorization = `Bearer ${authToken}`;
-  return h;
-}
-
 async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
-  const res = await fetch(`${ORACLE}${path}`, {
+  return apiRequest<T>(path, {
     method,
-    headers: authHeaders(body ? { 'Content-Type': 'application/json' } : {}),
-    body: body ? JSON.stringify(body) : undefined,
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`${res.status}: ${(await res.text()).slice(0, 200)}`);
-  return res.json();
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -88,23 +77,22 @@ function WeaverPanel({ project }: { project: Project }) {
   const [approval, setApproval] = React.useState<any>(null);
   const [readiness, setReadiness] = React.useState<any>(null);
   const [execResult, setExecResult] = React.useState<any>(null);
-  const base = `${ORACLE}/solspire/projects/${project.id}/weaver`;
+  const base = `/solspire/projects/${project.id}/weaver`;
   const execBase = `${base}/execution`;
-  const token = () => localStorage.getItem('arkadia_token') || '';
+  const token = () => '';
   const authHeaders = () => ({
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${token()}`,
   });
 
   React.useEffect(() => {
-    fetch(`${base}/capabilities`, { headers: { Authorization: `Bearer ${token()}` } })
+    apiFetch(`${base}/capabilities`, { headers: {} })
       .then(r => r.json()).then(setCaps).catch(() => {});
   }, [project.id]);
 
   async function analyze() {
     setBusy(true); setErr(''); setExecResult(null); setPassSpec(null); setApproval(null); setReadiness(null);
     try {
-      const r = await fetch(`${base}/analyze`, {
+      const r = await apiFetch(`${base}/analyze`, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({
@@ -133,7 +121,7 @@ function WeaverPanel({ project }: { project: Project }) {
     if (!result?.patch) { setErr('Analyze first to obtain a proposed patch'); return; }
     setBusy(true); setErr('');
     try {
-      const r = await fetch(`${execBase}/pass-spec`, {
+      const r = await apiFetch(`${execBase}/pass-spec`, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({
@@ -159,7 +147,7 @@ function WeaverPanel({ project }: { project: Project }) {
     if (!result?.patch || !passSpec) { setErr('PassSpec required before PatchApproval'); return; }
     setBusy(true); setErr('');
     try {
-      const r = await fetch(`${execBase}/approval`, {
+      const r = await apiFetch(`${execBase}/approval`, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({
@@ -184,7 +172,7 @@ function WeaverPanel({ project }: { project: Project }) {
     if (!result?.patch) return;
     setBusy(true); setErr('');
     try {
-      const r = await fetch(`${execBase}/readiness`, {
+      const r = await apiFetch(`${execBase}/readiness`, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({
@@ -214,7 +202,7 @@ function WeaverPanel({ project }: { project: Project }) {
     }
     setBusy(true); setErr('');
     try {
-      const r = await fetch(`${execBase}/execute`, {
+      const r = await apiFetch(`${execBase}/execute`, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({
@@ -383,16 +371,16 @@ function KnowledgePanel({ project }: { project: Project }) {
   const [q, setQ] = React.useState('');
   const [hits, setHits] = React.useState<any[]>([]);
   const base = `${ORACLE}/solspire/projects/${project.id}/knowledge`;
-  const token = () => localStorage.getItem('arkadia_token') || '';
+  const token = () => '';
   React.useEffect(() => {
-    const h = { Authorization: `Bearer ${token()}` };
+    const h = {};
     fetch(base, { headers: h }).then(r => r.json()).then(setData).catch(() => {});
-    fetch(`${base}/graph`, { headers: h }).then(r => r.json()).then(setGraph).catch(() => {});
-    fetch(`${base}/embeddings`, { headers: h }).then(r => r.json()).then(setEmb).catch(() => {});
+    apiFetch(`${base}/graph`, { headers: h }).then(r => r.json()).then(setGraph).catch(() => {});
+    apiFetch(`${base}/embeddings`, { headers: h }).then(r => r.json()).then(setEmb).catch(() => {});
   }, [project.id]);
   async function search() {
-    const r = await fetch(`${base}/search`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+    const r = await apiFetch(`${base}/search`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json',},
       body: JSON.stringify({ q }),
     });
     const d = await r.json();
@@ -611,7 +599,7 @@ function Files({ project }: { project: Project }) {
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await fetch(`${ORACLE}/solspire/projects/${project.id}/files/upload`, { method: 'POST', headers: authHeaders(), body: fd });
+      const res = await apiFetch(`/solspire/projects/${project.id}/files/upload`, { method: 'POST', headers: authHeaders(), body: fd });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || `${res.status}`);
       setUploadMsg({ ok: true, text: data.message || `'${file.name}' attached.` });

@@ -1,7 +1,9 @@
+import { apiFetch } from '../lib/apiClient';
+import { API_BASE as API_BASE_CONFIG } from '../lib/apiConfig';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+const API_BASE = (API_BASE_CONFIG ?? '').replace(/\/$/, '');
 
 // ── Statement data ─────────────────────────────────────────────────────────
 
@@ -453,7 +455,7 @@ export default function ArkadianPulse() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/pulse/analyze`, {
+      const res = await apiFetch(`/api/pulse/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ responses }),

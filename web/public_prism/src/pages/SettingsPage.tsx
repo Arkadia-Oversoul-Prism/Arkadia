@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/apiClient';
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { API_BASE } from "../lib/apiConfig";
@@ -218,7 +219,7 @@ export default function SettingsPage() {
 
   async function loadProviderKeys() {
     try {
-      const res = await fetch(`${API_BASE}/api/provider-keys`);
+      const res = await apiFetch(`/api/provider-keys`);
       if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();
       setProviderKeys(data.keys || []);
@@ -232,7 +233,7 @@ export default function SettingsPage() {
 
   async function loadTtsKeys() {
     try {
-      const res = await fetch(`${API_BASE}/api/tts/keys`);
+      const res = await apiFetch(`/api/tts/keys`);
       if (!res.ok) {
         const text = await res.text();
         throw new Error(`Failed to load TTS keys: ${res.status} ${text.slice(0, 100)}`);
@@ -254,7 +255,7 @@ export default function SettingsPage() {
 
   async function loadGeminiKeys() {
     try {
-      const res = await fetch(`${API_BASE}/api/keys`);
+      const res = await apiFetch(`/api/keys`);
       if (!res.ok) { setGeminiKeys([]); return; }
       const data = await res.json();
       setGeminiKeys(Array.isArray(data.keys) ? data.keys : []);
@@ -265,7 +266,7 @@ export default function SettingsPage() {
 
   async function loadPool() {
     try {
-      const res = await fetch(`${API_BASE}/api/keys/pool`);
+      const res = await apiFetch(`/api/keys/pool`);
       if (!res.ok) { setPool(null); return; }
       const data = await res.json();
       setPool(data);
@@ -280,7 +281,7 @@ export default function SettingsPage() {
     setGeminiError("");
     setGeminiSuccess("");
     try {
-      const res = await fetch(`${API_BASE}/api/keys`, {
+      const res = await apiFetch(`/api/keys`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: newGeminiKey.trim(), label: newGeminiLabel.trim() || undefined }),
@@ -304,7 +305,7 @@ export default function SettingsPage() {
   async function removeGeminiKey(id: string) {
     if (!confirm("Remove this Gemini key from the pool?")) return;
     try {
-      await fetch(`${API_BASE}/api/keys/${encodeURIComponent(id)}`, { method: "DELETE" });
+      await apiFetch(`/api/keys/${encodeURIComponent(id)}`, { method: "DELETE" });
       await Promise.all([loadGeminiKeys(), loadPool()]);
     } catch (e) {
       setGeminiError(e instanceof Error ? e.message : "Could not remove key");
@@ -313,7 +314,7 @@ export default function SettingsPage() {
 
   async function resetPool() {
     try {
-      await fetch(`${API_BASE}/api/keys/pool/reset`, { method: "POST" });
+      await apiFetch(`/api/keys/pool/reset`, { method: "POST" });
       await loadPool();
       setGeminiSuccess("Key pool cooldowns cleared.");
       setTimeout(() => setGeminiSuccess(""), 4000);
@@ -328,7 +329,7 @@ export default function SettingsPage() {
     setError("");
     setSuccess("");
     try {
-      const res = await fetch(`${API_BASE}/api/provider-keys`, {
+      const res = await apiFetch(`/api/provider-keys`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -354,14 +355,14 @@ export default function SettingsPage() {
 
   async function removeProviderKey(provider: string) {
     setError("");
-    await fetch(`${API_BASE}/api/provider-keys/${provider}`, { method: "DELETE" });
+    await apiFetch(`/api/provider-keys/${provider}`, { method: "DELETE" });
     setSuccess(`${PROVIDER_META[provider]?.label ?? provider} key removed.`);
     await loadProviderKeys();
   }
 
   async function resetProviderQuota(provider: string) {
     setError("");
-    await fetch(`${API_BASE}/api/provider-keys/${provider}/reset-quota`, { method: "PATCH" });
+    await apiFetch(`/api/provider-keys/${provider}/reset-quota`, { method: "PATCH" });
     setSuccess(`${PROVIDER_META[provider]?.label ?? provider} quota reset — key is active again.`);
     await loadProviderKeys();
   }
@@ -372,7 +373,7 @@ export default function SettingsPage() {
     setTtsError("");
     setTtsSuccess("");
     try {
-      const res = await fetch(`${API_BASE}/api/tts/keys`, {
+      const res = await apiFetch(`/api/tts/keys`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: newTtsKey.trim(), label: newTtsLabel.trim() || undefined }),
@@ -398,20 +399,20 @@ export default function SettingsPage() {
 
   async function activateTtsKey(id: string) {
     setTtsError("");
-    await fetch(`${API_BASE}/api/tts/keys/${id}/activate`, { method: "PATCH" });
+    await apiFetch(`/api/tts/keys/${id}/activate`, { method: "PATCH" });
     await loadTtsKeys();
     setTtsSuccess("Active TTS key switched.");
   }
 
   async function removeTtsKey(id: string) {
     setTtsError("");
-    await fetch(`${API_BASE}/api/tts/keys/${id}`, { method: "DELETE" });
+    await apiFetch(`/api/tts/keys/${id}`, { method: "DELETE" });
     await loadTtsKeys();
     setTtsSuccess("TTS Key removed.");
   }
 
   async function resetTtsQuota(id: string) {
-    await fetch(`${API_BASE}/api/tts/keys/${id}/reset-quota`, { method: "PATCH" });
+    await apiFetch(`/api/tts/keys/${id}/reset-quota`, { method: "PATCH" });
     await loadTtsKeys();
     setTtsSuccess("TTS Quota reset — key is active again.");
   }

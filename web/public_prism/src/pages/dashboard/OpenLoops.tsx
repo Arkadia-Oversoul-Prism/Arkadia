@@ -1,9 +1,11 @@
+import { apiFetch } from '../../lib/apiClient';
+import { API_BASE as API_BASE_CONFIG } from '../../lib/apiConfig';
 import React, { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { RefreshCw } from "lucide-react"
 import { COLORS, Card, Empty, ErrorBox } from "./ui"
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "")
+const API_BASE = (API_BASE_CONFIG || "").replace(/\/$/, "")
 
 interface Loop {
   id: string
@@ -30,7 +32,7 @@ interface OpenLoopsResponse {
 }
 
 async function fetchOpenLoops(): Promise<OpenLoopsResponse> {
-  const res = await fetch(`${API_BASE}/api/open-loops`)
+  const res = await apiFetch(`/api/open-loops`)
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.json()
 }

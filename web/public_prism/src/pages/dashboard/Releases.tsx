@@ -1,3 +1,5 @@
+import { apiFetch } from '../../lib/apiClient';
+import { API_BASE as API_BASE_CONFIG } from '../../lib/apiConfig';
 /**
  * Arkadia Distribution — Releases Dashboard Tab
  * Shows artist releases with status, artwork, and detail modal.
@@ -7,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { COLORS, Card, Empty, ErrorBox } from './ui'
 import { useAuth } from '../../contexts/AuthContext'
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+const API_BASE = (API_BASE_CONFIG ?? '').replace(/\/$/, '')
 
 interface Release {
   releaseId: string
@@ -63,8 +65,8 @@ function ReleaseModal({ release, onClose }: { release: Release; onClose: () => v
 
   useEffect(() => {
     if (release.status !== 'live') return
-    const headers: Record<string, string> = user?.idToken ? { Authorization: `Bearer ${user.idToken}` } : {}
-    fetch(`${API_BASE}/api/distribution/analytics/${release.releaseId}`, { headers })
+    const headers: Record<string, string> = user?.idToken ? {} : {}
+    apiFetch(`/api/distribution/analytics/${release.releaseId}`, { headers })
       .then(r => r.ok ? r.json() : null)
       .then(d => d?.analytics && setAnalytics(d.analytics))
       .catch(() => null)
@@ -190,8 +192,8 @@ export default function Releases() {
     setLoading(true)
     setError(null)
     try {
-      const headers: Record<string, string> = user?.idToken ? { Authorization: `Bearer ${user.idToken}` } : {}
-      const res = await fetch(`${API_BASE}/api/distribution/releases/${artistId}`, { headers })
+      const headers: Record<string, string> = user?.idToken ? {} : {}
+      const res = await apiFetch(`/api/distribution/releases/${artistId}`, { headers })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setReleases(data.releases ?? [])

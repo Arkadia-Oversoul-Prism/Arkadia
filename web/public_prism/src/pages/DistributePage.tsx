@@ -1,3 +1,5 @@
+import { apiFetch } from '../lib/apiClient';
+import { API_BASE as API_BASE_CONFIG } from '../lib/apiConfig';
 /**
  * Arkadia Distribution Module — /distribute
  * Sovereign music distribution: upload → covenant → submit → aggregator.
@@ -7,7 +9,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
+const API_BASE = (API_BASE_CONFIG ?? '').replace(/\/$/, '');
 
 const C = {
   bg:     '#0A0A0F',
@@ -167,7 +169,7 @@ export default function DistributePage() {
   const [aggResponse, setAggResponse] = useState<Record<string, unknown> | null>(null);
 
   const headers = (): Record<string, string> => {
-    if (user?.idToken) return { Authorization: `Bearer ${user.idToken}` };
+    if (user?.idToken) return {};
     return {};
   };
 
@@ -203,7 +205,7 @@ export default function DistributePage() {
       form.append('isrc', meta.isrc);
       form.append('upc', meta.upc);
 
-      const uploadRes = await fetch(`${API_BASE}/api/distribution/upload`, {
+      const uploadRes = await apiFetch(`/api/distribution/upload`, {
         method: 'POST',
         headers: headers(),
         body: form,
@@ -219,7 +221,7 @@ export default function DistributePage() {
       // Step 2: Sign covenant
       setProgressLabel('Signing covenant…');
       const artistId = user?.uid || meta.artistName.toLowerCase().replace(/\s+/g, '_');
-      const covenantRes = await fetch(`${API_BASE}/api/distribution/covenant/sign`, {
+      const covenantRes = await apiFetch(`/api/distribution/covenant/sign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...headers() },
         body: JSON.stringify({ releaseId: rid, artistId, signedTerms: true }),
@@ -233,7 +235,7 @@ export default function DistributePage() {
 
       // Step 3: Submit to aggregator
       setProgressLabel('Submitting to aggregator…');
-      const submitRes = await fetch(`${API_BASE}/api/distribution/submit`, {
+      const submitRes = await apiFetch(`/api/distribution/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...headers() },
         body: JSON.stringify({ releaseId: rid }),

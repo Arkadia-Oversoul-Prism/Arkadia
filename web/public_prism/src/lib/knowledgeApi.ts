@@ -1,3 +1,4 @@
+import { apiFetch } from './apiClient';
 /**
  * Arkadia Knowledge OS — Frontend API Client
  * All calls to /api/knowledge/* live here.
@@ -21,7 +22,7 @@ async function fetchJSON<T>(path: string, options?: RequestInit): Promise<T> {
   if (_authToken && !headers['Authorization']) {
     headers['Authorization'] = `Bearer ${_authToken}`;
   }
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await apiFetch(`${path}`, {
     ...options,
     headers,
   });

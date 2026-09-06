@@ -1,10 +1,12 @@
+import { apiFetch } from '../lib/apiClient';
+import { API_BASE as API_BASE_CONFIG } from '../lib/apiConfig';
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import MarkdownViewer from '../components/MarkdownViewer'
 import SocialMessenger from './SocialMessenger'
 import { formatToArkadiaMarkdown } from '../lib/arkadiaFormatter'
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+const API_BASE = (API_BASE_CONFIG ?? '').replace(/\/$/, '')
 const C = { teal: '#00D4AA', blue: '#6A9FD8', red: '#C84848', text: 'rgba(232,232,232,.9)', dim: 'rgba(232,232,232,.35)', card: 'rgba(14,17,32,.78)', border: 'rgba(106,159,216,.14)' }
 type Post = { id: string; owner_uid?: string; author: any; content: string; timestamp: number; edited_at?: number }
 const ago = (ts: number) => { const d = Date.now() - ts; if (d < 60000) return 'now'; if (d < 3600000) return `${Math.floor(d / 60000)}m`; if (d < 86400000) return `${Math.floor(d / 3600000)}h`; return `${Math.floor(d / 86400000)}d` }
@@ -17,7 +19,7 @@ function Composer({ token, profile, onCreated }: { token: string; profile: any; 
     if (!text.trim() || busy) return
     setBusy(true)
     try {
-      const response = await fetch(`${API_BASE}/api/transmissions`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ content: formatToArkadiaMarkdown(text), author: { name: profile?.display_name || 'Node', avatar: profile?.role_sigil || '◈', role: profile?.role || 'Node' } }) })
+      const response = await apiFetch(`/api/transmissions`, { method: 'POST', headers: { 'Content-Type': 'application/json',}, body: JSON.stringify({ content: formatToArkadiaMarkdown(text), author: { name: profile?.display_name || 'Node', avatar: profile?.role_sigil || '◈', role: profile?.role || 'Node' } }) })
       if (response.ok) { const data = await response.json(); onCreated(data.transmission); setText('') }
     } finally { setBusy(false) }
   }
@@ -33,7 +35,7 @@ function PostCard({ post, token, myUid, onChange }: { post: Post; token: string;
     if (!draft.trim() || busy) return
     setBusy(true)
     try {
-      const response = await fetch(`${API_BASE}/api/transmissions/${post.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ content: draft.trim() }) })
+      const response = await apiFetch(`/api/transmissions/${post.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json',}, body: JSON.stringify({ content: draft.trim() }) })
       if (response.ok) { const data = await response.json(); onChange(data.transmission); setEditing(false) }
     } finally { setBusy(false) }
   }
@@ -41,7 +43,7 @@ function PostCard({ post, token, myUid, onChange }: { post: Post; token: string;
     if (busy || !confirm('Delete this transmission?')) return
     setBusy(true)
     try {
-      const response = await fetch(`${API_BASE}/api/transmissions/${post.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      const response = await apiFetch(`/api/transmissions/${post.id}`, { method: 'DELETE', headers: {} })
       if (response.ok) onChange(null)
     } finally { setBusy(false) }
   }
@@ -53,7 +55,7 @@ export default function SocialFieldVerified() {
   const token = user?.idToken || ''
   const [mode, setMode] = useState<'field' | 'reasomate'>('field')
   const [posts, setPosts] = useState<Post[]>([])
-  useEffect(() => { fetch(`${API_BASE}/api/transmissions`).then(response => response.json()).then(data => setPosts(data.transmissions || [])).catch(() => {}) }, [])
+  useEffect(() => { apiFetch(`/api/transmissions`).then(response => response.json()).then(data => setPosts(data.transmissions || [])).catch(() => {}) }, [])
   if (!isAuthenticated) return <div style={{ padding: 40, textAlign: 'center', color: C.dim }}>Sign in to enter the Social Identity + ReasoMate Field.</div>
   return <div style={{ minHeight: 'calc(100vh - 80px)', color: C.text }}><header style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}><span style={{ color: C.blue, fontSize: 20 }}>◉</span><div><h2 style={{ margin: 0, fontFamily: 'Cinzel,serif', fontSize: 20 }}>The Social Field</h2><div style={{ color: C.dim, fontSize: 9 }}>One public identity · one governed relationship field</div></div><div style={{ marginLeft: 'auto', display: 'flex', gap: 5 }}><button onClick={() => setMode('field')} style={button(mode === 'field' ? C.teal : C.dim)}>NovaNet</button><button onClick={() => setMode('reasomate')} style={button(mode === 'reasomate' ? C.blue : C.dim)}>ReasoMate</button></div></header>{mode === 'field' ? <div style={{ maxWidth: 720, margin: '0 auto' }}><Composer token={token} profile={profile} onCreated={post => setPosts(current => [post, ...current])} />{posts.map(post => <PostCard key={post.id} post={post} token={token} myUid={profile?.uid || ''} onChange={next => setPosts(current => next ? current.map(item => item.id === next.id ? next : item) : current.filter(item => item.id !== post.id))} />)}</div> : <SocialMessenger />}</div>
 }

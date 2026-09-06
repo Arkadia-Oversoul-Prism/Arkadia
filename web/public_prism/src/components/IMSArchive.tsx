@@ -1,3 +1,4 @@
+import { API_BASE as API_BASE_CONFIG } from '../lib/apiConfig';
 /**
  * IMSArchive — canonical shared rendering of the Identity Mapping Session
  * archive. Consumed by NexusPage, IMSArchivePage, and ShereSanctuary so all
@@ -8,7 +9,7 @@ import React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { IMS_TIMELINE, IMS_IDENTITIES, buildImsUrl } from '../data/imsArchive'
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
+const API_BASE = (API_BASE_CONFIG ?? API_BASE_CONFIG ?? '').replace(/\/$/, '')
 
 const C = { text: '#E8E8E8', muted: 'rgba(232,232,232,0.65)', dim: 'rgba(232,232,232,0.4)', gold: '#C9A84C' }
 

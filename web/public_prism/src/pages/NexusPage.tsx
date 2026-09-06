@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/apiClient';
 /**
  * NexusPage — Unified Arkadia Intelligence Hub.
  *
@@ -179,7 +180,7 @@ export function LivingLarder() {
     if (!orderForm.name || !orderForm.phone || !orderForm.address) return
     setSubmitting(true); setOrderError(null)
     try {
-      const res = await fetch(`${API_BASE}/api/orders`, {
+      const res = await apiFetch(`/api/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -819,7 +820,7 @@ export default function NexusPage() {
   const activeTabMeta = TABS.find(t => t.id === activeTab)!
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/ark-date`)
+    apiFetch(`/api/ark-date`)
       .then(r => r.json())
       .then(setArk)
       .catch(() => {})

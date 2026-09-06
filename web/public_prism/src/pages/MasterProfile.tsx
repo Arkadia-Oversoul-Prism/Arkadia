@@ -107,7 +107,7 @@ export default function MasterProfile() {
       setLoading(true);
       try {
         const res = await fetch(`${API_BASE.replace(/\/$/, '')}/api/me/identity-spine`, {
-          headers: { Authorization: `Bearer ${user.idToken}` },
+          headers: {},
         });
         if (!res.ok) throw new Error('Unable to resolve your identity spine.');
         const data = await res.json() as { identity_spine?: IdentitySpine };

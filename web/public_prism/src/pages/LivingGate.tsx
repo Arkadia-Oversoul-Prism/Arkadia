@@ -173,14 +173,14 @@ export default function LivingGate({ onAICComplete, onEnterSpiralGrove }: Living
         const pending = readStoredPortfolio();
         const handoff = readDiagnosticHandoff();
         if (pending) {
-          await fetch(AIS_PROFILE_URL, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.idToken}` }, body: JSON.stringify({ kind: 'portfolio', profile: pending }) });
+          await fetch(AIS_PROFILE_URL, { method: 'PATCH', headers: { 'Content-Type': 'application/json',}, body: JSON.stringify({ kind: 'portfolio', profile: pending }) });
           return;
         }
         if (handoff) {
-          await fetch(AIS_PROFILE_URL, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.idToken}` }, body: JSON.stringify({ kind: 'diagnostic_seed', profile: handoff }) });
+          await fetch(AIS_PROFILE_URL, { method: 'PATCH', headers: { 'Content-Type': 'application/json',}, body: JSON.stringify({ kind: 'diagnostic_seed', profile: handoff }) });
           return;
         }
-        const res = await fetch(AIS_PROFILE_URL, { headers: { Authorization: `Bearer ${user.idToken}` } });
+        const res = await fetch(AIS_PROFILE_URL, { headers: {} });
         if (!res.ok || cancelled) return;
         const data = await res.json() as { profile?: StoredAisProjection | null };
         if (data.profile && !cancelled) {
@@ -209,7 +209,7 @@ export default function LivingGate({ onAICComplete, onEnterSpiralGrove }: Living
     setComplete(true);
     setHandoffActive(false);
     if (isAuthenticated && user?.idToken) {
-      void fetch(AIS_PROFILE_URL, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.idToken}` }, body: JSON.stringify({ kind: 'portfolio', profile: portfolio }) });
+      void fetch(AIS_PROFILE_URL, { method: 'PATCH', headers: { 'Content-Type': 'application/json',}, body: JSON.stringify({ kind: 'portfolio', profile: portfolio }) });
     }
   };
 

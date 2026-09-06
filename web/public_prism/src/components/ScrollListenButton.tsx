@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/apiClient';
 /**
  * ScrollListenButton — read-aloud for any scroll/note content.
  *
@@ -137,7 +138,7 @@ export default function ScrollListenButton({
 
     setGenerating(true);
     try {
-      const res = await fetch(`${API_BASE}/api/tts`, {
+      const res = await apiFetch(`/api/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: plain, speed: 1, voice: voiceKey }),

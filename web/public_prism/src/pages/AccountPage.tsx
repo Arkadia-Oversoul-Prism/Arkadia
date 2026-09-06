@@ -20,7 +20,7 @@ export default function AccountPage() {
     try {
       const res = await fetch(`${API_BASE.replace(/\/$/,'')}/api/me`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.idToken}` },
+        headers: { 'Content-Type': 'application/json',},
         body: JSON.stringify({ display_name: displayName.trim(), username: username.trim().replace(/^@/, ''), bio: bio.trim(), avatar_url: avatar.trim() }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.detail || 'Could not save profile');
@@ -35,7 +35,7 @@ export default function AccountPage() {
     setSaving(true); setMessage('');
     try {
       // Delete the server-owned profile first while the Firebase token is valid.
-      await fetch(`${API_BASE.replace(/\/$/,'')}/api/me`, { method: 'DELETE', headers: { Authorization: `Bearer ${user?.idToken || ''}` } }).catch(() => undefined);
+      await fetch(`${API_BASE.replace(/\/$/,'')}/api/me`, { method: 'DELETE', headers: {} }).catch(() => undefined);
       await deleteUser(auth.currentUser);
       await signOut();
     } catch (e: any) {

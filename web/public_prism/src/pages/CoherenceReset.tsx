@@ -1,7 +1,8 @@
+import { API_BASE as API_BASE_CONFIG } from '../lib/apiConfig';
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
-const API_BASE = import.meta.env.VITE_API_URL ?? ''
+const API_BASE = API_BASE_CONFIG ?? ''
 const AUDIO_SRC = `${API_BASE}/static/coherence-meditation.mp3`
 const TOTAL = 442 // 7:22
 

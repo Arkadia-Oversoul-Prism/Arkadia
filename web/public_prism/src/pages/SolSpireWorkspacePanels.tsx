@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/apiClient';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ORACLE } from '../lib/apiConfig';
@@ -10,7 +11,7 @@ function useWorkspaceRequest() {
   const { user } = useAuth();
   return useCallback(async function request<T>(path: string): Promise<T> {
     if (!user?.idToken) throw new Error('Authentication token unavailable. Please sign in again.');
-    const res = await fetch(`${ORACLE}${path}`, { headers: { Authorization: `Bearer ${user.idToken}` } });
+    const res = await apiFetch(`${path}`, { headers: {} });
     if (!res.ok) throw new Error(`${res.status}: ${(await res.text()).slice(0, 180)}`);
     return res.json();
   }, [user?.idToken]);

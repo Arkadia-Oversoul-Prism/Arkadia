@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/apiClient';
 /**
  * NexusSpiralCodex — Encyclopedia Galactica
  *
@@ -611,7 +612,7 @@ function ScrollUploadModal({ onClose }: { onClose: () => void }) {
       fd.append('file', file)
       fd.append('category', category)
       fd.append('description', description)
-      const res = await fetch(`${API_BASE}/api/codex/upload`, { method: 'POST', body: fd })
+      const res = await apiFetch(`/api/codex/upload`, { method: 'POST', body: fd })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.detail || `${res.status}`)
       setSuccessMsg(data.message || `'${file.name}' ingested into the public Spiral Codex.`)
@@ -625,7 +626,7 @@ function ScrollUploadModal({ onClose }: { onClose: () => void }) {
     if (!title.trim() || !content.trim()) return
     setLoading(true); setErr('')
     try {
-      const res = await fetch(`${API_BASE}/api/scrolls`, {
+      const res = await apiFetch(`/api/scrolls`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ label: title.trim(), content: content.trim(), category: textCategory, description }),

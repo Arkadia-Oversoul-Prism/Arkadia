@@ -1,3 +1,5 @@
+import { apiFetch } from '../lib/apiClient';
+import { API_BASE as API_BASE_CONFIG } from '../lib/apiConfig';
 /**
  * ArkanaCommune — Elite Chat Surface
  *
@@ -69,7 +71,7 @@ const HELP_TEXT = `**Arkana Commands**
 Or simply speak — Arkana reads the living corpus and responds.`;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const API_BASE    = (API_BASE_CFG || import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const API_BASE    = (API_BASE_CFG || API_BASE_CONFIG || '').replace(/\/$/, '');
 const STORAGE_KEY = 'arkadia_commune_thread';
 const TOKEN_KEY   = 'arkadia_sovereign_token';
 
@@ -341,11 +343,10 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
     setSaveHint('');
     try {
       const title = (body.split('\n').find(l => l.trim()) || 'Oracle exchange').slice(0, 120);
-      const res = await fetch(`${API_BASE}/api/personal/ingest-note`, {
+      const res = await apiFetch(`/api/personal/ingest-note`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${user.idToken}`,
         },
         body: JSON.stringify({
           title,
@@ -397,7 +398,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
     formData.append('category', 'COLLECTIVE');
     formData.append('description', `Uploaded via Oracle Chat: ${file.name}`);
 
-    const res = await fetch(`${API_BASE}/api/codex/upload`, {
+    const res = await apiFetch(`/api/codex/upload`, {
       method: 'POST',
       body: formData,
     });
@@ -484,7 +485,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
       setLoading(false); return;
     }
     try {
-      const res  = await fetch(`${API_BASE}/api/forge`, {
+      const res  = await apiFetch(`/api/forge`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ archetype: cmd.archetype, scene: cmd.scene, count: cmd.count, sovereign_token: sovereignToken.trim() }),
       });
@@ -505,7 +506,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
   // ── API: Codex ─────────────────────────────────────────────────────────────
   const sendCodexQuery = async (query: string) => {
     try {
-      const res  = await fetch(`${API_BASE}/api/oracle-context?query=${encodeURIComponent(query)}`);
+      const res  = await apiFetch(`/api/oracle-context?query=${encodeURIComponent(query)}`);
       const data = await res.json();
       const hits: Array<{ label: string; category: string }> = data.refs || [];
       const chars: number = data.context_chars || 0;
@@ -558,7 +559,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
       };
       if (sovereignToken.trim()) body.sovereign_token = sovereignToken.trim();
       
-      const res  = await fetch(`${API_BASE}/api/commune/resonance`, {
+      const res  = await apiFetch(`/api/commune/resonance`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
@@ -569,7 +570,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
       // If we have a file, upload it to the codex for future RAG
       if (attachment && attachment.content.length > 50) {
         try {
-          await fetch(`${API_BASE}/api/scrolls`, {
+          await apiFetch(`/api/scrolls`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
