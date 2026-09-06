@@ -83,7 +83,6 @@ def _author_block(body_author: dict | None, uid: str | None) -> dict:
 
 
 def _hydrate_post(post: dict) -> dict:
-    """Refresh public author presentation from the one canonical profile store."""
     owner = post.get("owner_uid")
     current = _profile_identity(owner)
     if not current:
@@ -119,7 +118,6 @@ async def create_transmission(request: Request):
     content = (body.get("content") or "").strip()
     if not content:
         raise HTTPException(status_code=400, detail="content is required")
-
     user = await _get_current_user(request)
     uid = user.get("uid") if user else None
     posts = _load()
@@ -130,9 +128,7 @@ async def create_transmission(request: Request):
         "content": content,
         "timestamp": int(time.time() * 1000),
         "reactions": {"heart": 0, "fire": 0, "star": 0, "mind": 0},
-        "comments": [],
-        "reposts": 0,
-        "resonance": 50,
+        "comments": [], "reposts": 0, "resonance": 50,
     }
     posts.insert(0, post)
     _save(posts)
@@ -154,7 +150,6 @@ async def edit_transmission(post_id: str, request: Request):
         raise HTTPException(status_code=400, detail="content is required")
     if len(content) > 12000:
         raise HTTPException(status_code=400, detail="content is too long")
-
     posts = _load()
     target = next((p for p in posts if p.get("id") == post_id), None)
     if not target:
@@ -196,13 +191,7 @@ async def comment_on_transmission(post_id: str, request: Request):
     user = await _get_current_user(request)
     uid = user.get("uid") if user else None
     posts = _load()
-    comment = {
-        "id": str(uuid.uuid4()),
-        "author": _author_block(body.get("author"), uid),
-        "owner_uid": uid,
-        "content": content,
-        "timestamp": int(time.time() * 1000),
-    }
+    comment = {"id": str(uuid.uuid4()), "author": _author_block(body.get("author"), uid), "owner_uid": uid, "content": content, "timestamp": int(time.time() * 1000)}
     for p in posts:
         if p["id"] == post_id:
             p.setdefault("comments", []).append(comment)
@@ -223,21 +212,25 @@ async def delete_transmission(post_id: str, request: Request):
         raise HTTPException(status_code=404, detail="post not found")
     if target.get("owner_uid") != uid:
         raise HTTPException(status_code=403, detail="only the author can delete this post")
-    posts = [p for p in posts if p["id"] != post_id]
-    _save(posts)
+    _save([p for p in posts if p["id"] != post_id])
     return {"deleted": post_id}
 
 
 @router.delete("/api/me")
 async def delete_my_server_profile(request: Request):
-    """Remove known server-owned social identity before Firebase deletion."""
+    """Remove known server-owned social identity and shared social artifacts.
+
+    Firebase account deletion remains the client authentication boundary. This
+    route removes the server-side profile, username reservation, authored
+    transmissions, and ReasoMate message threads owned by the account.
+    """
     user = await _get_current_user(request)
     uid = user.get("uid") if user else None
     if not uid:
         raise HTTPException(status_code=401, detail="authentication required")
 
     try:
-        from api.auth import _profiles_dir, _username_index_path, _load_username_index, _save_username_index, load_user_profile_store
+        from api.auth import _profiles_dir, _load_username_index, _save_username_index, load_user_profile_store
         profile = load_user_profile_store(uid) or {}
         username = (profile.get("username") or "").strip().lower()
         profile_path = os.path.join(_profiles_dir(), f"{uid}.json")
@@ -252,4 +245,23 @@ async def delete_my_server_profile(request: Request):
         logger.exception("[ACCOUNT] profile cleanup failed for %s", uid)
 
     _save([p for p in _load() if p.get("owner_uid") != uid])
+
+    # ReasoMate threads are the shared relational memory. Removing the account
+    # removes its server-side conversation threads too. No parallel memory store
+    # is introduced.
+    msg_dir = os.path.join(os.path.dirname(__file__), "..", "data", "messages")
+    try:
+        if os.path.isdir(msg_dir):
+            for name in os.listdir(msg_dir):
+                if not name.endswith(".jsonl"):
+                    continue
+                participants = name[:-6].split("__")
+                if uid in participants:
+                    try:
+                        os.remove(os.path.join(msg_dir, name))
+                    except OSError:
+                        logger.warning("[ACCOUNT] could not remove message thread %s", name)
+    except Exception:
+        logger.exception("[ACCOUNT] message cleanup failed for %s", uid)
+
     return {"deleted": True, "uid": uid}
