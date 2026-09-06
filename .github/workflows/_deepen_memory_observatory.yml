@@ -1,0 +1,90 @@
+name: _deepen_memory_observatory
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/_deepen_memory_observatory.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Connect workspace lenses to project machinery
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('web/public_prism/src/pages/ProjectDashboard.tsx')
+          s = p.read_text()
+          s = s.replace(
+              "type ProjTab = 'overview'|'weaver'|'knowledge'|'conversations'|'files'|'repos'|'tasks'|'workflows'|'memory'|'events'|'settings';",
+              "export type ProjTab = 'overview'|'weaver'|'knowledge'|'conversations'|'files'|'repos'|'tasks'|'workflows'|'memory'|'events'|'settings';"
+          )
+          p.write_text(s)
+
+          p = Path('web/public_prism/src/components/solspire/SolSpireExperience.tsx')
+          s = p.read_text()
+          s = s.replace(
+              "import type { Project } from '../../pages/ProjectDashboard';",
+              "import type { Project, ProjTab } from '../../pages/ProjectDashboard';"
+          )
+          s = s.replace(
+              "function LensContent({section,onOpenProject,onOpenWeaver}:{section:SolSpireLens;onOpenProject:(p:Project)=>void;onOpenWeaver:(p:Project)=>void})",
+              "function LensContent({section,onOpenProject,onOpenWeaver,onOpenProjectTab}:{section:SolSpireLens;onOpenProject:(p:Project)=>void;onOpenWeaver:(p:Project)=>void;onOpenProjectTab:(p:Project,tab:ProjTab)=>void})"
+          )
+          s = s.replace(
+              "if(section==='memory')return <WorkspaceCollection kind=\"memory\"/>; if(section==='weaver')",
+              "if(section==='memory')return <WorkspaceCollection kind=\"memory\" onOpenProject={p=>onOpenProjectTab(p,'memory')}/>; if(section==='weaver')"
+          )
+          s = s.replace(
+              "if(section==='observatory')return <Observatory/>;",
+              "if(section==='observatory')return <WorkspaceCollection kind=\"events\" onOpenProject={p=>onOpenProjectTab(p,'events')}/>;"
+          )
+          s = s.replace(
+              "const [section,setSection]=useState<SolSpireLens>(initialSection); const [project,setProject]=useState<Project|null>(null); const [projectTab,setProjectTab]=useState<'overview'|'weaver'>('overview');",
+              "const [section,setSection]=useState<SolSpireLens>(initialSection); const [project,setProject]=useState<Project|null>(null); const [projectTab,setProjectTab]=useState<ProjTab>('overview');"
+          )
+          s = s.replace(
+              "const openProject=(p:Project)=>{setProject(p);setProjectTab('overview');}; const openWeaver=(p:Project)=>{setProject(p);setProjectTab('weaver');};",
+              "const openProject=(p:Project)=>{setProject(p);setProjectTab('overview');}; const openProjectTab=(p:Project,tab:ProjTab)=>{setProject(p);setProjectTab(tab);}; const openWeaver=(p:Project)=>{openProjectTab(p,'weaver')};"
+          )
+          s = s.replace(
+              "<LensContent section={section} onOpenProject={openProject} onOpenWeaver={openWeaver}/>",
+              "<LensContent section={section} onOpenProject={openProject} onOpenWeaver={openWeaver} onOpenProjectTab={openProjectTab}/>",
+              1
+          )
+          p.write_text(s)
+
+          p = Path('web/public_prism/src/pages/SolSpireWorkspacePanels.tsx')
+          s = p.read_text()
+          s = s.replace(
+              "export function WorkspaceCollection({kind}:{kind:WorkspaceCollectionKind}){",
+              "export function WorkspaceCollection({kind,onOpenProject}:{kind:WorkspaceCollectionKind;onOpenProject?:(p:Project)=>void}){"
+          )
+          old = "const m=META[kind];useEffect(()=>{if(!projects.length)return;"
+          new = "const m=META[kind];const projectById=useMemo(()=>new Map(projects.map(p=>[p.id,p])),[projects]);useEffect(()=>{if(!projects.length)return;"
+          s = s.replace(old,new)
+          old = "{x.status&&<span style={{font:'8px ui-monospace,monospace',textTransform:'uppercase',color:`${m.color}88`}}>{x.status}</span>}</div></motion.article>)}</div>}"
+          new = "{x.status&&<span style={{font:'8px ui-monospace,monospace',textTransform:'uppercase',color:`${m.color}88`}}>{x.status}</span>}{onOpenProject&&projectById.get(x.project_id)&&<button onClick={()=>onOpenProject(projectById.get(x.project_id)!)} style={{marginLeft:8,border:`1px solid ${m.color}35`,background:`${m.color}0b`,color:m.color,borderRadius:7,padding:'6px 9px',font:'8px ui-monospace,monospace',letterSpacing:'.1em',textTransform:'uppercase',cursor:'pointer'}}>{kind==='memory'?'OPEN MEMORY':'OPEN OBSERVATORY'} →</button>}</div></motion.article>)}</div>}"
+          s = s.replace(old,new)
+          p.write_text(s)
+          PY
+      - name: Verify connections
+        run: |
+          grep -q "export type ProjTab" web/public_prism/src/pages/ProjectDashboard.tsx
+          grep -q "onOpenProjectTab" web/public_prism/src/components/solspire/SolSpireExperience.tsx
+          grep -q "OPEN MEMORY" web/public_prism/src/pages/SolSpireWorkspacePanels.tsx
+          grep -q "OPEN OBSERVATORY" web/public_prism/src/pages/SolSpireWorkspacePanels.tsx
+      - name: Commit source changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add web/public_prism/src/pages/ProjectDashboard.tsx web/public_prism/src/components/solspire/SolSpireExperience.tsx web/public_prism/src/pages/SolSpireWorkspacePanels.tsx
+          git commit -m 'ui: deepen Memory and Observatory workspace continuity'
+          git push
+      - name: Remove temporary workflow
+        run: |
+          git rm .github/workflows/_deepen_memory_observatory.yml
+          git commit -m 'chore: remove temporary memory observatory workflow'
+          git push
