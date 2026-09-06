@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { API_BASE } from '../lib/apiConfig';
 import LoginPage from './LoginPage';
-import LivingGate, { AisCapabilityPortfolio } from './LivingGate';
+import LivingGate from './LivingGate';
+import type { AisCapabilityPortfolio } from './LivingGate';
 
 interface NodeEntryProps {
   onEnterNovaNet: () => void;
