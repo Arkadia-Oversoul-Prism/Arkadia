@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ORACLE } from '../lib/apiConfig';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,12 +8,12 @@ export type WorkspaceCollectionKind = 'conversations' | 'tasks' | 'memory' | 'ev
 
 function useWorkspaceRequest() {
   const { user } = useAuth();
-  return async function request<T>(path: string): Promise<T> {
+  return useCallback(async function request<T>(path: string): Promise<T> {
     if (!user?.idToken) throw new Error('Authentication token unavailable. Please sign in again.');
     const res = await fetch(`${ORACLE}${path}`, { headers: { Authorization: `Bearer ${user.idToken}` } });
     if (!res.ok) throw new Error(`${res.status}: ${(await res.text()).slice(0, 180)}`);
     return res.json();
-  };
+  }, [user?.idToken]);
 }
 
 const C: React.CSSProperties = { background: 'rgba(16,18,31,.78)', border: '1px solid rgba(255,255,255,.07)', borderRadius: 16, padding: 18, boxShadow: '0 14px 40px rgba(0,0,0,.18)' };
@@ -23,7 +23,7 @@ const T: React.CSSProperties = { fontFamily: 'Georgia,serif', fontWeight: 400, c
 function useProjects() {
   const request = useWorkspaceRequest();
   const [projects,setProjects]=useState<Project[]>([]); const [error,setError]=useState<string|null>(null); const [loading,setLoading]=useState(true);
-  useEffect(()=>{let live=true;setLoading(true);request<{projects:Project[]}>('/solspire/projects').then(r=>{if(live)setProjects(r.projects||[])}).catch(e=>{if(live)setError(e.message||'Unable to load workspace')}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[request]);
+  useEffect(()=>{let live=true;setLoading(true);setError(null);request<{projects:Project[]}>('/solspire/projects').then(r=>{if(live)setProjects(r.projects||[])}).catch(e=>{if(live)setError(e.message||'Unable to load workspace')}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[request]);
   return {projects,error,loading};
 }
 
