@@ -10,7 +10,6 @@ conversation history rather than a parallel memory database.
 from __future__ import annotations
 
 import os
-import time
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -21,7 +20,6 @@ from api.auth import (
     normalize_handle,
     _profiles_dir,
 )
-from api.messages import _read_thread
 
 router = APIRouter(tags=["social"])
 
@@ -77,8 +75,6 @@ async def discover_nodes(q: str = "", limit: int = 40, user: dict = Depends(requ
 
 @router.get("/api/social/nodes/{uid}")
 async def get_discovered_node(uid: str, user: dict = Depends(require_auth)):
-    if uid == user["uid"]:
-        return {"node": _profile(uid)}
     profile = load_user_profile_store(uid)
     if not profile:
         raise HTTPException(status_code=404, detail="Node not found")
@@ -93,6 +89,8 @@ async def relationship_context(peer_uid: str, user: dict = Depends(require_auth)
     canonical conversation history that a user's companion can use when relating
     to the other Node and their companion.
     """
+    from api.messages import _read_thread
+
     me = user["uid"]
     peer = peer_uid.strip()
     if not peer or peer == me:
