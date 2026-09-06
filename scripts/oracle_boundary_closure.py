@@ -25,8 +25,6 @@ def strip_auth_headers(text: str) -> str:
 def migrate_file(path: Path, text: str) -> str:
     original = text
 
-    # Environment references are configuration concerns. Consumers may use the canonical
-    # resolved value for non-request assets, but never resolve their own Oracle base.
     if 'import.meta.env.VITE_API_BASE_URL' in text or 'import.meta.env.VITE_API_URL' in text:
         text = text.replace('import.meta.env.VITE_API_BASE_URL', 'API_BASE_CONFIG')
         text = text.replace('import.meta.env.VITE_API_URL', 'API_BASE_CONFIG')
@@ -34,13 +32,13 @@ def migrate_file(path: Path, text: str) -> str:
 
     needs_api_fetch = False
     replacements = [
-        (r'fetch\(`\$\{API_BASE\}([^`]*)`', r'apiFetch(`\1`'),),
-        (r'fetch\(`\$\{ORACLE\}([^`]*)`', r'apiFetch(`\1`'),),
-        (r'fetch\(API_BASE\s*\+\s*([\'\"`][^\n)]*)', r'apiFetch(\1'),),
-        (r'fetch\(([/\'\"`]api/[^\n)]*)', r'apiFetch(\1'),),
-        (r'fetch\(([/\'\"`]solspire/[^\n)]*)', r'apiFetch(\1'),),
-        (r'fetch\(([/\'\"`]oracle[^\n)]*)', r'apiFetch(\1'),),
-        (r'fetch\(([/\'\"`]status[^\n)]*)', r'apiFetch(\1'),),
+        (r'fetch\(`\$\{API_BASE\}([^`]*)`', r'apiFetch(`\1`)'),
+        (r'fetch\(`\$\{ORACLE\}([^`]*)`', r'apiFetch(`\1`)'),
+        (r'fetch\(API_BASE\s*\+\s*([\'\"`][^\n)]*)', r'apiFetch(\1)'),
+        (r'fetch\(([/\'\"`]api/[^\n)]*)', r'apiFetch(\1)'),
+        (r'fetch\(([/\'\"`]solspire/[^\n)]*)', r'apiFetch(\1)'),
+        (r'fetch\(([/\'\"`]oracle[^\n)]*)', r'apiFetch(\1)'),
+        (r'fetch\(([/\'\"`]status[^\n)]*)', r'apiFetch(\1)'),
     ]
     for pattern, replacement in replacements:
         new = re.sub(pattern, replacement, text)
@@ -54,14 +52,11 @@ def migrate_file(path: Path, text: str) -> str:
     text = strip_auth_headers(text)
     text = re.sub(r"localStorage\.getItem\(['\"]arkadia_token['\"]\)\s*\|\|\s*['\"]['\"]", "''", text)
     text = re.sub(r"localStorage\.getItem\(['\"]arkadia_token['\"]\)", "null", text)
-
-    return text if text != original else original
+    return text
 
 
 def migrate_project_dashboard(path: Path, text: str) -> str:
-    # Canonical API client for the project workbench's normal CRUD surface.
     text = ensure_import(text, "import { apiRequest } from '../lib/apiClient';")
-
     text = re.sub(
         r"\nconst ORACLE = \(import\.meta\.env\.VITE_API_BASE_URL \|\| 'http://localhost:8000'\)\.replace\(/\\/\$, ''\);\n",
         '\n',
@@ -69,7 +64,6 @@ def migrate_project_dashboard(path: Path, text: str) -> str:
         count=1,
     )
 
-    # Replace the legacy local helper. This preserves all existing callers and data shapes.
     legacy = re.search(r"// ── API ─+[\s\S]*?// ── Helpers ─+", text)
     if legacy:
         replacement = """// ── API ───────────────────────────────────────────────────────────────────────
@@ -110,7 +104,7 @@ for path in ROOT.rglob('*'):
     if path.suffix not in {'.ts', '.tsx'}:
         continue
     text = path.read_text()
-    if path == ROOT / 'lib' / 'apiClient.ts' or path == ROOT / 'lib' / 'apiConfig.ts':
+    if path in {ROOT / 'lib' / 'apiClient.ts', ROOT / 'lib' / 'apiConfig.ts'}:
         continue
     migrated = migrate_file(path, text)
     if path == ROOT / 'pages' / 'ProjectDashboard.tsx':
