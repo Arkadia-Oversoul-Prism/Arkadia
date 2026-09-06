@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import ArkadiaLandingPage from '../pages/ArkadiaLandingPage';
 import PrismInteriorShell from './PrismInteriorShell';
 
-type View = 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard' | 'nexus' | 'encyclopedia' | 'spiral-codex' | 'loops' | 'grove' | 'larder' | 'novanet' | 'ims' | 'distribute' | 'offerings' | 'aic' | 'pulse' | 'settings' | 'sci' | 'solspire' | 'knowledge-os' | 'reasomate' | 'personal-echofeild' | 'echofeild-matrix' | 'challenge';
+type View = 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard' | 'nexus' | 'encyclopedia' | 'spiral-codex' | 'loops' | 'grove' | 'larder' | 'novanet' | 'ims' | 'distribute' | 'offerings' | 'aic' | 'pulse' | 'settings' | 'account' | 'sci' | 'solspire' | 'knowledge-os' | 'reasomate' | 'personal-echofeild' | 'echofeild-matrix' | 'challenge';
 interface NavProps { currentView: View; onNavigate: (view: View) => void; children: React.ReactNode; }
 interface NavItem { label: string; view: View; sigil: string; sub: string; color: string }
 interface NavGroup { label: string; items: NavItem[] }
@@ -19,10 +19,11 @@ const NAV_GROUPS: NavGroup[] = [
     { label: 'About', view: 'about', sigil: 'A', sub: 'Zahrune Nova - Lineage', color: '#6A9FD8' },
     { label: 'SCI', view: 'sci', sigil: '#', sub: 'Spiral Command Interface - operator shell', color: '#00D4AA' },
     { label: 'Settings', view: 'settings', sigil: 'S', sub: 'API keys - Configuration', color: '#C9A84C' },
+    { label: 'Profile & Account', view: 'account', sigil: 'P', sub: 'Name · handle · bio · picture · account', color: '#00D4AA' },
   ] },
 ];
 const VIEW_LABEL: Partial<Record<View, string>> = {
-  home: 'Home', gate: 'Living Gate', commune: 'Oracle', reset: 'Field Reset', about: 'About', login: 'Node Login', codex: 'Personal Codex', dashboard: 'Dashboard', nexus: 'NovaNet', encyclopedia: 'Encyclopedia Galactica', 'spiral-codex': 'Spiral Codex', loops: 'Open Loops', grove: 'Spiral Grove', larder: 'Living Larder', novanet: 'NovaNet', ims: 'IMS Archive', distribute: 'Distribute', offerings: 'Offerings', aic: 'AIC Diagnostic', pulse: 'Arkadian Pulse', settings: 'Settings', sci: 'SCI', solspire: 'SolSpire Console', 'knowledge-os': 'Prism - Knowledge OS', reasomate: 'ReasoMate', 'personal-echofeild': 'Personal Echofeild', 'echofeild-matrix': 'Echofeild Crystal Matrix', challenge: 'Future Skills Lab',
+  home: 'Home', gate: 'Living Gate', commune: 'Oracle', reset: 'Field Reset', about: 'About', login: 'Node Login', codex: 'Personal Codex', dashboard: 'Dashboard', nexus: 'NovaNet', encyclopedia: 'Encyclopedia Galactica', 'spiral-codex': 'Spiral Codex', loops: 'Open Loops', grove: 'Spiral Grove', larder: 'Living Larder', novanet: 'NovaNet', ims: 'IMS Archive', distribute: 'Distribute', offerings: 'Offerings', aic: 'AIC Diagnostic', pulse: 'Arkadian Pulse', settings: 'Settings', account: 'Profile & Account', sci: 'SCI', solspire: 'SolSpire Console', 'knowledge-os': 'Prism - Knowledge OS', reasomate: 'ReasoMate', 'personal-echofeild': 'Personal Echofeild', 'echofeild-matrix': 'Echofeild Crystal Matrix', challenge: 'Future Skills Lab',
 };
 function UserSection({ onNavigate, onClose }: { onNavigate: (v: View) => void; onClose: () => void }) {
   const { user, profile, signOut, isAuthenticated } = useAuth();
@@ -31,15 +32,13 @@ function UserSection({ onNavigate, onClose }: { onNavigate: (v: View) => void; o
   const sigil = profile?.role_sigil || '*'; const accessColor = (profile?.access_level ?? 0) >= 3 ? '#C9A84C' : '#00D4AA';
   return <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
     <div style={{ padding: '14px 20px 10px', display: 'flex', alignItems: 'center', gap: 10 }}><div style={{ width: 32, height: 32, borderRadius: '50%', background: `${accessColor}12`, border: `1px solid ${accessColor}35`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ color: accessColor, fontSize: 13 }}>{sigil}</span></div><div style={{ flex: 1, overflow: 'hidden' }}><p style={{ fontFamily: 'sans-serif', fontSize: 11, color: accessColor, margin: '0 0 1px', fontWeight: 600 }}>{displayName}</p><p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(232,232,232,0.3)', margin: 0 }}>{profile?.role ?? user?.email}</p></div></div>
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, padding: '0 16px 10px' }}>{[{ label: 'SolSpire', view: 'solspire' as View }, { label: 'ReasoMate', view: 'reasomate' as View }, { label: 'Echo Field', view: 'solspire' as View }, { label: 'Encyclopedia', view: 'encyclopedia' as View }, { label: 'Offerings', view: 'offerings' as View }].map(item => <button key={item.label} onClick={() => { onNavigate(item.view); onClose(); }} style={{ padding: '8px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: 'rgba(232,232,232,0.45)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer' }}>{item.label}</button>)}</div>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, padding: '0 16px 10px' }}>{[{ label: 'Profile', view: 'account' as View }, { label: 'SolSpire', view: 'solspire' as View }, { label: 'ReasoMate', view: 'reasomate' as View }, { label: 'Echo Field', view: 'solspire' as View }, { label: 'Encyclopedia', view: 'encyclopedia' as View }, { label: 'Offerings', view: 'offerings' as View }].map(item => <button key={item.label} onClick={() => { onNavigate(item.view); onClose(); }} style={{ padding: '8px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: 'rgba(232,232,232,0.45)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer' }}>{item.label}</button>)}</div>
     <div style={{ padding: '0 16px 14px' }}><button onClick={() => { signOut(); onClose(); }} style={{ width: '100%', padding: '9px', background: 'rgba(232,82,70,0.04)', border: '1px solid rgba(232,82,70,0.14)', borderRadius: 8, color: 'rgba(232,82,70,0.45)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', cursor: 'pointer' }} data-testid="button-sign-out">Sign Out</button></div>
   </div>;
 }
 const ArkadiaNavigation: React.FC<NavProps> = ({ currentView, onNavigate, children }) => {
   const [drawerOpen, setDrawerOpen] = useState(false); const { isAuthenticated } = useAuth(); const currentLabel = VIEW_LABEL[currentView] ?? 'Arkadia';
   const handleNavigate = (v: View) => { onNavigate(v); setDrawerOpen(false); };
-  // The Living Gate is the bridge between public Prism and the authenticated NovaNet interior.
-  // Keep its diagnostic/authentication journey on public chrome; NovaNet becomes the authenticated shell only after entry.
   const interior = !['home', 'gate', 'login'].includes(currentView) && isAuthenticated;
   if (interior) return <PrismInteriorShell currentView={currentView} onNavigate={onNavigate}>{children}</PrismInteriorShell>;
   return <div className="relative min-h-screen" style={{ backgroundColor: '#0C0D18' }}>
