@@ -93,7 +93,8 @@ def test_governance_chain_unchanged_in_contract():
 
 def test_novanet_matrix_preserved():
     app = _r(APP)
-    assert "NexusPage" in app
+    # W3: App mounts NovaNet content; NexusPage + matrix implementations retained
+    assert "NovaNetPage" in app
     assert NEXUS.is_file() and MATRIX.is_file()
     assert "export default function UniversalEchofeildMatrix" in _r(MATRIX)
 

@@ -8,7 +8,6 @@ import ArkanaCommune from './components/ArkanaCommune';
 import CoherenceReset from './pages/CoherenceReset';
 import AboutArkadia from './pages/AboutArkadia';
 const DashboardView = lazy(() => import('./pages/DashboardView'));
-import NexusPage from './pages/NexusPage';
 import NexusSpiralCodex from './pages/NexusSpiralCodex';
 import SpiralCodexFeed from './pages/SpiralCodexFeed';
 import SpiralGrovePage from './pages/SpiralGrovePage';
@@ -251,7 +250,8 @@ function AppInner() {
         )}
         {view === 'novanet' && (
           <motion.div key="novanet" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}>
-            <NexusPage />
+            {/* W3: NovaNet content only — shell owns authenticated navigation; no nested Nexus tab rail */}
+            <NovaNetPage />
           </motion.div>
         )}
         {view === 'distribute' && (

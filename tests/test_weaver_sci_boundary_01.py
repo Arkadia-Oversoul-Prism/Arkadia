@@ -75,7 +75,8 @@ def test_product_nav_is_not_operator_authority():
 def test_novanet_and_matrix_preserved():
     app = _r(APP)
     assert "view === 'novanet'" in app
-    assert "NexusPage" in app
+    # W3: App mounts NovaNet content; NexusPage implementation remains on disk
+    assert "NovaNetPage" in app
     assert NEXUS.is_file()
     assert MATRIX.is_file()
     assert "export default function UniversalEchofeildMatrix" in _r(MATRIX)
