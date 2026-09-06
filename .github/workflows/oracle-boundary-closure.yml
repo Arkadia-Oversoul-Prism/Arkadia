@@ -16,153 +16,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-          cache-dependency-path: web/public_prism/pnpm-lock.yaml
-
-      - name: Enable pnpm
-        run: corepack enable
-
-      - name: Add canonical response-preserving API transport
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p = Path('web/public_prism/src/lib/apiClient.ts')
-          text = p.read_text()
-          marker = 'export function apiPath(path: string): string { return `${API_BASE}${path}`; }'
-          if 'export async function apiFetch(' not in text:
-              replacement = '''export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
-  const headers = new Headers(options.headers);
-  if (authToken && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${authToken}`);
-  if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
-
-  try {
-    return await fetch(`${API_BASE}${path}`, { ...options, headers });
-  } catch (error) {
-    throw new ApiError(error instanceof Error ? error.message : 'Oracle network request failed', {
-      kind: 'NETWORK_ERROR',
-      path,
-    });
-  }
-}
-
-'''+marker
-              if marker not in text:
-                  raise SystemExit('apiClient marker not found')
-              p.write_text(text.replace(marker, replacement))
-          PY
-
-      - name: Migrate active frontend Oracle consumers
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import re
-
-          ROOT = Path('web/public_prism/src')
-          skip = {ROOT / 'lib' / 'apiClient.ts', ROOT / 'lib' / 'apiConfig.ts'}
-
-          def rel_import(path: Path, target: str) -> str:
-              rel = Path(re.sub(r'^'+re.escape(str(ROOT))+'/', '', str(path.parent)))
-              base = Path('web/public_prism/src') / rel
-              target_path = Path('web/public_prism/src') / target
-              r = Path('.'+str(target_path.relative_to(base)).replace('\\','/'))
-              return str(r.with_suffix(''))
-
-          changed = []
-          for p in ROOT.rglob('*'):
-              if p.suffix not in {'.ts', '.tsx'} or p in skip:
-                  continue
-              text = p.read_text()
-              original = text
-
-              # Canonicalize direct environment reads. This leaves apiConfig.ts as the sole
-              # production configuration resolver; consumers receive the resolved value only
-              # when they need an asset URL, never for request transport.
-              if 'import.meta.env.VITE_API_BASE_URL' in text or 'import.meta.env.VITE_API_URL' in text:
-                  text = text.replace('import.meta.env.VITE_API_BASE_URL', 'API_BASE_CONFIG')
-                  text = text.replace('import.meta.env.VITE_API_URL', 'API_BASE_CONFIG')
-                  imp = f"import {{ API_BASE as API_BASE_CONFIG }} from '{rel_import(p, 'lib/apiConfig')}';"
-                  if 'API_BASE_CONFIG' not in original.split('\n', 30)[0:30] and imp not in text:
-                      text = imp + '\n' + text
-
-              # Route relative Oracle/API calls through the canonical client while preserving
-              # existing Response semantics. External HTTP(S) fetches are deliberately untouched.
-              api_import = f"import {{ apiFetch }} from '{rel_import(p, 'lib/apiClient')}';"
-              needs_api = False
-              patterns = [
-                  (r'fetch\(`\$\{API_BASE\}([^`]*)`', r'apiFetch(`\1`'),),
-                  (r'fetch\(`\$\{ORACLE\}([^`]*)`', r'apiFetch(`\1`'),),
-                  (r'fetch\(API_BASE\s*\+\s*([\'\"`][^\n)]*)', r'apiFetch(\1'),),
-                  (r'fetch\(([/\'\"`]api/[^\n)]*)', r'apiFetch(\1'),),
-                  (r'fetch\(([/\'\"`]solspire/[^\n)]*)', r'apiFetch(\1'),),
-                  (r'fetch\(([/\'\"`]oracle[^\n)]*)', r'apiFetch(\1'),),
-                  (r'fetch\(([/\'\"`]status[^\n)]*)', r'apiFetch(\1'),),
-              ]
-              for pat, repl in patterns:
-                  new = re.sub(pat, repl, text)
-                  if new != text:
-                      needs_api = True
-                      text = new
-
-              # Drop consumer-owned auth headers and token persistence reads. apiClient owns both.
-              text = re.sub(r'\s*Authorization\s*:\s*`Bearer \$\{[^}]+\}`\s*,?', '', text)
-              text = re.sub(r'\s*Authorization\s*:\s*[^,}\n]+,?', '', text)
-              text = text.replace("localStorage.getItem('arkadia_token') || ''", "''")
-              text = text.replace('localStorage.getItem("arkadia_token") || ""', '""')
-              text = text.replace("localStorage.getItem('arkadia_token')", "null")
-              text = text.replace('localStorage.getItem("arkadia_token")', 'null')
-
-              if needs_api and 'apiFetch' not in text.split('\n', 40)[0:40]:
-                  text = api_import + '\n' + text
-
-              if text != original:
-                  p.write_text(text)
-                  changed.append(str(p))
-
-          print('Changed files:')
-          for x in changed:
-              print(x)
-          PY
-
-      - name: Close ProjectDashboard's private transport boundary
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import re
-          p = Path('web/public_prism/src/pages/ProjectDashboard.tsx')
-          text = p.read_text()
-          original = text
-          if "import { apiRequest } from '../lib/apiClient';" not in text:
-              text = text.replace("import { motion, AnimatePresence } from 'framer-motion';\n", "import { motion, AnimatePresence } from 'framer-motion';\nimport { apiRequest } from '../lib/apiClient';\n", 1)
-          text = re.sub(r"\nconst ORACLE = \(import\.meta\.env\.VITE_API_BASE_URL \|\| 'http://localhost:8000'\)\.replace\(/\\\\/\$, ''\);\n", "\n", text, count=1)
-          # Replace the legacy local API helper with the canonical request boundary.
-          legacy = re.search(r"// ── API ──[\s\S]*?// ── Helpers ──", text)
-          if legacy:
-              block = "// ── API ───────────────────────────────────────────────────────────────────────\n\nasync function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {\n  return apiRequest<T>(path, {\n    method,\n    body: body === undefined ? undefined : JSON.stringify(body),\n  });\n}\n\n// ── Helpers ──"
-              text = text[:legacy.start()] + block + text[legacy.end():]
-          # WeaverPanel uses direct transport and must use the same canonical client.
-          text = text.replace("const base = `${ORACLE}/solspire/projects/${project.id}/weaver`;", "const base = `/solspire/projects/${project.id}/weaver`;")
-          text = re.sub(r"\n  const token = \(\) => localStorage\.getItem\('arkadia_token'\) \|\| '';\n  const authHeaders = \(\) => \(\{[\s\S]*?\n  \}\);\n", "\n", text, count=1)
-          text = text.replace("fetch(`${base}/capabilities`, { headers: { Authorization: `Bearer ${token()}` } })\n      .then(r => r.json()).then(setCaps).catch(() => {});", "apiRequest<any>(`${base}/capabilities`).then(setCaps).catch(() => {});")
-          # Convert Weaver POST blocks to apiRequest while retaining existing state/error semantics.
-          replacements = [
-            (r"const r = await fetch\(`\$\{base\}/analyze`, \{\n        method: 'POST',\n        headers: authHeaders\(\),\n        body: JSON\.stringify\((\{[\s\S]*?\n        \}\),\n      \}\);\n      const data = await r\.json\(\);\n      if \(!r\.ok\) throw new Error\(typeof data\.detail === 'string' \? data\.detail : r\.statusText\);", "const data = await apiRequest<any>(`${base}/analyze`, { method: 'POST', body: JSON.stringify(\\1) });"),
-            (r"const r = await fetch\(`\$\{execBase\}/pass-spec`, \{\n        method: 'POST',\n        headers: authHeaders\(\),\n        body: JSON\.stringify\((\{[\s\S]*?\n        \}\),\n      \}\);\n      const data = await r\.json\(\);\n      if \(!r\.ok\) throw new Error\(typeof data\.detail === 'string' \? data\.detail : r\.statusText\);", "const data = await apiRequest<any>(`${execBase}/pass-spec`, { method: 'POST', body: JSON.stringify(\\1) });"),
-            (r"const r = await fetch\(`\$\{execBase\}/approval`, \{\n        method: 'POST',\n        headers: authHeaders\(\),\n        body: JSON\.stringify\((\{[\s\S]*?\n        \}\),\n      \}\);\n      const data = await r\.json\(\);\n      if \(!r\.ok\) throw new Error\(typeof data\.detail === 'string' \? data\.detail : r\.statusText\);", "const data = await apiRequest<any>(`${execBase}/approval`, { method: 'POST', body: JSON.stringify(\\1) });"),
-            (r"const r = await fetch\(`\$\{execBase\}/readiness`, \{\n        method: 'POST',\n        headers: authHeaders\(\),\n        body: JSON\.stringify\((\{[\s\S]*?\n        \}\),\n      \}\);\n      const data = await r\.json\(\);\n      if \(!r\.ok\) throw new Error\(typeof data\.detail === 'string' \? data\.detail : r\.statusText\);", "const data = await apiRequest<any>(`${execBase}/readiness`, { method: 'POST', body: JSON.stringify(\\1) });"),
-            (r"const r = await fetch\(`\$\{execBase\}/execute`, \{\n        method: 'POST',\n        headers: authHeaders\(\),\n        body: JSON\.stringify\((\{[\s\S]*?\n        \}\),\n      \}\);\n      const data = await r\.json\(\);\n      if \(!r\.ok\) throw new Error\(typeof data\.detail === 'string' \? data\.detail : r\.statusText\);", "const data = await apiRequest<any>(`${execBase}/execute`, { method: 'POST', body: JSON.stringify(\\1) });"),
-          ]
-          for pat, repl in replacements:
-              text, n = re.subn(pat, repl, text, count=1)
-              if n == 0:
-                  print('WARN: Weaver pattern did not match:', pat[:60])
-          # Ensure no ProjectDashboard-local auth transport remains.
-          text = text.replace("Authorization: `Bearer ${authToken}`", "")
-          if text != original:
-              p.write_text(text)
-          PY
+      - name: Apply bounded codemod
+        run: python scripts/oracle_boundary_closure.py
 
       - name: Validate static closure
         run: |
@@ -170,7 +25,7 @@ jobs:
           echo '--- frontend env references ---'
           grep -RIn --include='*.ts' --include='*.tsx' -E 'VITE_API_URL|VITE_API_BASE_URL|localhost:8000|127\.0\.0\.1:8000' web/public_prism/src || true
           echo '--- frontend auth transport references ---'
-          grep -RIn --include='*.ts' --include='*.tsx' -E 'arkadia_token|Authorization:[[:space:]]*[`\"'"'"']?Bearer|Bearer \$\{' web/public_prism/src || true
+          grep -RIn --include='*.ts' --include='*.tsx' -E 'localStorage\.(getItem|setItem|removeItem)\([`\"'"'"']arkadia_token|Authorization:[[:space:]]*[`\"'"'"']?Bearer' web/public_prism/src || true
           if grep -RIn --include='*.ts' --include='*.tsx' -E 'VITE_API_URL|VITE_API_BASE_URL|localhost:8000|127\.0\.0\.1:8000' web/public_prism/src --exclude='apiConfig.ts'; then exit 1; fi
           if grep -RIn --include='*.ts' --include='*.tsx' -E 'localStorage\.(getItem|setItem|removeItem)\([`\"'"'"']arkadia_token|Authorization:[[:space:]]*[`\"'"'"']?Bearer' web/public_prism/src --exclude='apiClient.ts'; then exit 1; fi
           if grep -RIn --include='*.ts' --include='*.tsx' -E 'fetch\([[:space:]]*([`\"'"'"']/(api|solspire|oracle|status)|`\$\{(API_BASE|ORACLE)\})' web/public_prism/src; then exit 1; fi
@@ -178,6 +33,7 @@ jobs:
       - name: Build frontend
         working-directory: web/public_prism
         run: |
+          corepack enable
           pnpm install --frozen-lockfile
           pnpm build
 
@@ -185,7 +41,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          rm -f .github/workflows/oracle-boundary-closure.yml
-          git add web/public_prism/src .github/workflows/oracle-boundary-closure.yml
+          rm -f .github/workflows/oracle-boundary-closure.yml scripts/oracle_boundary_closure.py
+          git add -A
           git commit -m 'fix: oracle boundary closure codemod result'
           git push origin main
