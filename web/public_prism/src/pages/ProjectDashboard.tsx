@@ -1,6 +1,5 @@
 import { apiRequest } from '../lib/apiClient';
 import { apiFetch } from '../lib/apiClient';
-import { API_BASE as API_BASE_CONFIG } from '../lib/apiConfig';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 

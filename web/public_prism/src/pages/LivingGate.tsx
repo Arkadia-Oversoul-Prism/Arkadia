@@ -1,9 +1,9 @@
+import { apiFetch } from '../lib/apiClient';
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AIS_CAPABILITIES, GROVE_DOMAINS } from '../data/spiralGroveCatalog';
 import { useAuth } from '../contexts/AuthContext';
 import LoginPage from './LoginPage';
-import { API_BASE } from '../lib/apiConfig';
 
 export interface AisCapabilityPortfolio {
   version: 1;
@@ -60,7 +60,7 @@ const QUICK_CAPABILITIES = AIS_CAPABILITIES.map(capability => capability.name).s
 const GROWTH_OPTIONS = GROVE_DOMAINS.map(domain => ({ id: domain.id, label: domain.label }));
 const HANDOFF_KEY = 'arkadia.ais.diagnostic-handoff.v1';
 const PORTFOLIO_KEY = 'arkadia.ais.capability-portfolio.v1';
-const AIS_PROFILE_URL = `${API_BASE}/api/me/ais-profile`;
+const AIS_PROFILE_PATH = '/api/me/ais-profile';
 
 const EMPTY: Omit<AisCapabilityPortfolio, 'version' | 'completedAt'> = {
   identity: '', capabilities: [], builds: '', evidence: '', projects: '', offer: '', credentials: '', growth: [],
@@ -173,14 +173,14 @@ export default function LivingGate({ onAICComplete, onEnterSpiralGrove }: Living
         const pending = readStoredPortfolio();
         const handoff = readDiagnosticHandoff();
         if (pending) {
-          await fetch(AIS_PROFILE_URL, { method: 'PATCH', headers: { 'Content-Type': 'application/json',}, body: JSON.stringify({ kind: 'portfolio', profile: pending }) });
+          await apiFetch(AIS_PROFILE_PATH, { method: 'PATCH', headers: { 'Content-Type': 'application/json',}, body: JSON.stringify({ kind: 'portfolio', profile: pending }) });
           return;
         }
         if (handoff) {
-          await fetch(AIS_PROFILE_URL, { method: 'PATCH', headers: { 'Content-Type': 'application/json',}, body: JSON.stringify({ kind: 'diagnostic_seed', profile: handoff }) });
+          await apiFetch(AIS_PROFILE_PATH, { method: 'PATCH', headers: { 'Content-Type': 'application/json',}, body: JSON.stringify({ kind: 'diagnostic_seed', profile: handoff }) });
           return;
         }
-        const res = await fetch(AIS_PROFILE_URL, { headers: {} });
+        const res = await apiFetch(AIS_PROFILE_PATH, { headers: {} });
         if (!res.ok || cancelled) return;
         const data = await res.json() as { profile?: StoredAisProjection | null };
         if (data.profile && !cancelled) {
@@ -209,7 +209,7 @@ export default function LivingGate({ onAICComplete, onEnterSpiralGrove }: Living
     setComplete(true);
     setHandoffActive(false);
     if (isAuthenticated && user?.idToken) {
-      void fetch(AIS_PROFILE_URL, { method: 'PATCH', headers: { 'Content-Type': 'application/json',}, body: JSON.stringify({ kind: 'portfolio', profile: portfolio }) });
+      void apiFetch(AIS_PROFILE_PATH, { method: 'PATCH', headers: { 'Content-Type': 'application/json',}, body: JSON.stringify({ kind: 'portfolio', profile: portfolio }) });
     }
   };
 

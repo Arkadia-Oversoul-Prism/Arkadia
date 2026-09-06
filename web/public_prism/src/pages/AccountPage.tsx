@@ -1,8 +1,8 @@
+import { apiFetch } from '../lib/apiClient';
 import { useState } from 'react';
 import { deleteUser } from 'firebase/auth';
 import { useAuth } from '../contexts/AuthContext';
 import { auth } from '../lib/firebase';
-import { API_BASE } from '../lib/apiConfig';
 
 export default function AccountPage() {
   const { user, profile, refreshProfile, signOut } = useAuth();
@@ -18,7 +18,7 @@ export default function AccountPage() {
     if (!user?.idToken) return;
     setSaving(true); setMessage('');
     try {
-      const res = await fetch(`${API_BASE.replace(/\/$/,'')}/api/me`, {
+      const res = await apiFetch('/api/me', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json',},
         body: JSON.stringify({ display_name: displayName.trim(), username: username.trim().replace(/^@/, ''), bio: bio.trim(), avatar_url: avatar.trim() }),
@@ -35,7 +35,7 @@ export default function AccountPage() {
     setSaving(true); setMessage('');
     try {
       // Delete the server-owned profile first while the Firebase token is valid.
-      await fetch(`${API_BASE.replace(/\/$/,'')}/api/me`, { method: 'DELETE', headers: {} }).catch(() => undefined);
+      await apiFetch('/api/me', { method: 'DELETE', headers: {} }).catch(() => undefined);
       await deleteUser(auth.currentUser);
       await signOut();
     } catch (e: any) {

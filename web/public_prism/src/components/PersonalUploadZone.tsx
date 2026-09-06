@@ -38,9 +38,7 @@ export default function PersonalUploadZone({ onIngested }: { onIngested?: () => 
       fd.append('file', file);
       fd.append('note_type', 'document');
       fd.append('tags', 'personal,upload');
-      const headers: Record<string, string> = {};
-      if (user?.idToken) headers['Authorization'] = `Bearer ${user.idToken}`;
-      const res = await apiFetch(`/api/personal/ingest-file`, { method: 'POST', body: fd, headers });
+      const res = await apiFetch(`/api/personal/ingest-file`, { method: 'POST', body: fd });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || `${res.status}`);
       setStatus('success');

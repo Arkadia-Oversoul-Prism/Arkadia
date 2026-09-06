@@ -1,7 +1,7 @@
+import { apiFetch } from '../lib/apiClient';
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
-import { API_BASE } from '../lib/apiConfig';
 
 interface IdentitySpine {
   version: number;
@@ -106,7 +106,7 @@ export default function MasterProfile() {
     (async () => {
       setLoading(true);
       try {
-        const res = await fetch(`${API_BASE.replace(/\/$/, '')}/api/me/identity-spine`, {
+        const res = await apiFetch('/api/me/identity-spine', {
           headers: {},
         });
         if (!res.ok) throw new Error('Unable to resolve your identity spine.');

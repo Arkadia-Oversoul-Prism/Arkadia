@@ -1,4 +1,4 @@
-import { API_BASE as API_BASE_CONFIG } from '../../lib/apiConfig';
+import { apiFetch } from '../../lib/apiClient';
 /**
  * Spiral Codex — live corpus browser, dashboard-embedded version.
  * Renders within the dashboard shell (no full-page wrapper, no back button).
@@ -84,7 +84,7 @@ export default function DashboardCodex() {
     fd.append("category", "COLLECTIVE")
     fd.append("description", `Uploaded via Spiral Codex: ${file.name}`)
     try {
-      const res = await fetch(`${BASE}/api/codex/upload`, { method: "POST", body: fd })
+      const res = await apiFetch(`/api/codex/upload`, { method: "POST", body: fd })
       const d = await res.json()
       if (!res.ok) throw new Error(d.detail || `${res.status}`)
       setUploadMsg({ ok: true, text: d.message || `'${file.name}' ingested` })
