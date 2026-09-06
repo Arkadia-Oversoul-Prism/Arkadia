@@ -1,8 +1,8 @@
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 LAB = ROOT / "web/public_prism/src/pages/FutureSkillsChallenge.tsx"
+OFFERINGS = ROOT / "web/public_prism/src/pages/OfferingsPage.tsx"
 LIVING_GATE = ROOT / "web/public_prism/src/pages/LivingGate.tsx"
 
 
@@ -31,6 +31,13 @@ def test_w9_lab_and_diagnostic_share_the_same_handoff_contract():
     assert "HANDOFF_KEY = 'arkadia.ais.diagnostic-handoff.v1'" in gate
     assert "source === 'future-skills-lab'" in gate
     assert "profileFromHandoff(initialHandoff)" in gate
+
+
+def test_w9_lab_is_prominently_exposed_from_offerings():
+    source = OFFERINGS.read_text()
+    assert "Try the A.I.S Future Skills Lab." in source
+    assert 'data-testid="offerings-future-skills-lab"' in source
+    assert "onGoToChallenge" in source
 
 
 def test_w9_does_not_introduce_a_second_authentication_store():
