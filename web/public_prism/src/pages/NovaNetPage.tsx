@@ -1,2 +1,2 @@
 /** NovaNet public/social surface. */
-export { default } from './GovernedSocialField'
+export { default } from './SocialFieldStable'
