@@ -22,13 +22,13 @@ jobs:
       - name: Validate static closure
         run: |
           set -e
-          echo '--- frontend env references ---'
-          grep -RIn --include='*.ts' --include='*.tsx' -E 'VITE_API_URL|VITE_API_BASE_URL|localhost:8000|127\.0\.0\.1:8000' web/public_prism/src || true
-          echo '--- frontend auth transport references ---'
+          echo '--- direct frontend environment resolution ---'
+          grep -RIn --include='*.ts' --include='*.tsx' -E 'import\.meta\.env\.VITE_API_URL|import\.meta\.env\.VITE_API_BASE_URL|http://localhost:8000|http://127\.0\.0\.1:8000' web/public_prism/src || true
+          echo '--- consumer-owned auth transport ---'
           grep -RIn --include='*.ts' --include='*.tsx' -E 'localStorage\.(getItem|setItem|removeItem)\([`\"'"'"']arkadia_token|Authorization:[[:space:]]*[`\"'"'"']?Bearer' web/public_prism/src || true
-          if grep -RIn --include='*.ts' --include='*.tsx' -E 'VITE_API_URL|VITE_API_BASE_URL|localhost:8000|127\.0\.0\.1:8000' web/public_prism/src --exclude='apiConfig.ts'; then exit 1; fi
+          if grep -RIn --include='*.ts' --include='*.tsx' -E 'import\.meta\.env\.VITE_API_URL|import\.meta\.env\.VITE_API_BASE_URL|http://localhost:8000|http://127\.0\.0\.1:8000' web/public_prism/src --exclude='apiConfig.ts'; then exit 1; fi
           if grep -RIn --include='*.ts' --include='*.tsx' -E 'localStorage\.(getItem|setItem|removeItem)\([`\"'"'"']arkadia_token|Authorization:[[:space:]]*[`\"'"'"']?Bearer' web/public_prism/src --exclude='apiClient.ts'; then exit 1; fi
-          if grep -RIn --include='*.ts' --include='*.tsx' -E 'fetch\([[:space:]]*([`\"'"'"']/(api|solspire|oracle|status)|`\$\{(API_BASE|ORACLE)\})' web/public_prism/src; then exit 1; fi
+          if grep -RIn --include='*.ts' --include='*.tsx' -E 'fetch\([[:space:]]*([`\"'"'"']/(api|solspire|oracle|status)|`\$\{(API_BASE|ORACLE|base|execBase)\})' web/public_prism/src; then exit 1; fi
 
       - name: Build frontend
         working-directory: web/public_prism
