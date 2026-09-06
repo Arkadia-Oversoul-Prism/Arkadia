@@ -1,734 +1,141 @@
 /**
- * SolSpire Personal Console — Unified Intelligence & Operational Hub
+ * SolSpire Console
  *
- * One scrollable unified page. No fragmented tabs.
- * Single sidebar menu routes across all sections:
- *   Personal: Personal Codex · Open Loops
- *   Intelligence: Knowledge OS · Projects
- *   Operational Console: Overview · Goals · Releases · Jobs · Traces · Tools · System
+ * Canonical authenticated workspace for the private Arkadia system.
  *
- * Every section header carries a source/route indicator so the origin
- * of each data feed is explicit.
+ * Projects are workspace objects/folders, not a navigation container.
+ * The existing ProjectDashboard remains available only as a folder/thread
+ * surface when a user opens a project object from Files.
+ *
+ * Public Spiral Codex / Encyclopedia Galactica remains outside this private shell.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ORACLE } from '../lib/apiConfig';
 import { useAuth } from '../contexts/AuthContext';
-
-// ── Dashboard sub-components (direct import, no wrapper nav) ──────────────────
-import Overview   from './dashboard/Overview';
-import Jobs       from './dashboard/Jobs';
-import Goals      from './dashboard/Goals';
-import Traces     from './dashboard/Traces';
-import Tools      from './dashboard/Tools';
-import System     from './dashboard/System';
-import OpenLoops  from './dashboard/OpenLoops';
-import Releases   from './dashboard/Releases';
-
-// ── Other page components ─────────────────────────────────────────────────────
-import KnowledgeOSPage  from './knowledge/KnowledgeOSPage';
-import PersonalCodex    from './PersonalCodex';
+import { setSolspireAuthToken, ProjectDashboard, Project } from './ProjectDashboard';
+import Overview from './dashboard/Overview';
+import OpenLoops from './dashboard/OpenLoops';
+import Goals from './dashboard/Goals';
+import Releases from './dashboard/Releases';
+import Jobs from './dashboard/Jobs';
+import Traces from './dashboard/Traces';
+import Tools from './dashboard/Tools';
+import System from './dashboard/System';
+import KnowledgeOSPage from './knowledge/KnowledgeOSPage';
 import UniversalEchofeildMatrix from './UniversalEchofeildMatrix';
-import ProjectDashboard, { Project, setSolspireAuthToken } from './ProjectDashboard';
-import { CHAMBERS, ROMAN, loadChamberStates, ChamberState } from './ChamberView';
-import { getStatus, KnowledgeStatus } from '../lib/knowledgeApi';
+import SettingsPage from './SettingsPage';
+import { CommercialPanel, Observatory, WeaverSummary, WorkspaceCollection, WorkspaceFiles } from './SolSpireWorkspacePanels';
+import type { WorkspaceCollectionKind } from './SolSpireWorkspacePanels';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+export type SolSpireSection =
+  | 'overview' | 'commercial' | 'knowledge' | 'files'
+  | 'conversations' | 'tasks' | 'memory' | 'weaver' | 'observatory' | 'settings';
 
-type SolSection =
-  | 'field'
-  | 'codex' | 'loops' | 'knowledge' | 'projects'
-  | 'overview' | 'goals' | 'releases' | 'jobs' | 'traces' | 'tools' | 'system'
-  | 'encyclopedia';
+type LegacySection = SolSpireSection | 'field' | 'codex' | 'loops' | 'projects' | 'encyclopedia' | 'goals' | 'releases' | 'jobs' | 'traces' | 'tools' | 'system';
+type AppView = 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard' | 'nexus' | 'encyclopedia' | 'spiral-codex' | 'loops' | 'grove' | 'larder' | 'novanet' | 'ims' | 'distribute' | 'offerings' | 'aic' | 'pulse' | 'settings' | 'solspire' | 'knowledge-os' | 'reasomate' | 'personal-echofeild' | 'echofeild-matrix';
 
-interface NavItem {
-  id: SolSection;
-  label: string;
-  sigil: string;
-  color: string;
-  source: string;    // explicit data-source label
-  sub: string;
-}
-
-interface NavGroup {
-  label: string;
-  items: NavItem[];
-}
-
-const NAV_GROUPS: NavGroup[] = [
-  {
-    label: 'Field',
-    items: [
-      { id: 'field', label: 'Echo Field Matrix', sigil: '⬡', color: '#B08DE8', source: 'echofeild/', sub: 'Spiral Codex · Personal field · documents · projects' },
-    ],
-  },
-  {
-    label: 'Personal',
-    items: [
-      { id: 'codex',     label: 'Personal Codex',  sigil: '✦', color: '#C9A84C', source: 'vault/identity',  sub: 'Soul map · 90-day architecture · access lattice' },
-      { id: 'loops',     label: 'Open Loops',       sigil: '∞', color: '#C84848', source: 'ops/loops',       sub: 'Active tasks · unresolved threads' },
-    ],
-  },
-  {
-    label: 'Intelligence',
-    items: [
-      { id: 'knowledge',     label: 'Knowledge OS',        sigil: '◈', color: '#00D4AA', source: 'knowledge/', sub: 'Graph · timeline · search · corpus status' },
-      { id: 'encyclopedia',  label: 'Encyclopedia Galactica', sigil: '⬡', color: '#B08DE8', source: 'echoes/', sub: 'Civilizations · timelines · ontology · chapter progress' },
-      { id: 'projects',      label: 'Projects',            sigil: '⚙', color: '#C9A84C', source: 'solspire/projects', sub: 'Operational Console · catalogue & index' },
-    ],
-  },
-  {
-    label: 'Operational Console',
-    items: [
-      { id: 'overview',  label: 'Overview',         sigil: '◎', color: '#6A9FD8', source: 'ops/overview',    sub: 'System metrics · node status' },
-      { id: 'goals',     label: 'Goals',            sigil: '◉', color: '#B08DE8', source: 'ops/goals',       sub: 'Strategic objectives · milestones' },
-      { id: 'releases',  label: 'Releases',         sigil: '◐', color: '#00D4AA', source: 'ops/releases',    sub: 'Deployment versions · changelogs' },
-      { id: 'jobs',      label: 'Jobs',             sigil: '⚒', color: '#C9A84C', source: 'ops/jobs',        sub: 'Operational jobs · execution status' },
-      { id: 'traces',    label: 'Traces',           sigil: '⟐', color: '#6A9FD8', source: 'ops/traces',      sub: 'Debug logs · execution traces' },
-      { id: 'tools',     label: 'Tools',            sigil: '❖', color: '#B08DE8', source: 'ops/tools',       sub: 'Internal utilities · system functions' },
-      { id: 'system',    label: 'System',           sigil: '◆', color: '#00D4AA', source: 'ops/system',      sub: 'Worker threads · hardware metrics' },
-    ],
-  },
+const NAV: { id: SolSpireSection; label: string; sigil: string; color: string; sub: string }[] = [
+  { id: 'overview',       label: 'Overview',       sigil: '◎', color: '#6A9FD8', sub: 'Workspace orientation and operating state' },
+  { id: 'commercial',     label: 'Commercial',     sigil: '◈', color: '#C9A84C', sub: 'Market signals, opportunities, next decisions' },
+  { id: 'knowledge',      label: 'Knowledge',      sigil: '◉', color: '#00D4AA', sub: 'Knowledge OS, graph, corpus and routing' },
+  { id: 'files',          label: 'Files',          sigil: '◫', color: '#C9A84C', sub: 'Folders, projects, documents and media' },
+  { id: 'conversations',  label: 'Conversations',  sigil: '◌', color: '#6A9FD8', sub: 'All private project conversations' },
+  { id: 'tasks',          label: 'Tasks',          sigil: '☐', color: '#00D4AA', sub: 'Workspace-wide task state' },
+  { id: 'memory',         label: 'Memory',         sigil: '∞', color: '#B08DE8', sub: 'Project memory as one private view' },
+  { id: 'weaver',         label: 'Weaver',         sigil: '⚒', color: '#B08DE8', sub: 'Governed engineering workflow' },
+  { id: 'observatory',    label: 'Observatory',    sigil: '⟐', color: '#6A9FD8', sub: 'Events, traces and system activity' },
+  { id: 'settings',       label: 'Settings',       sigil: '◆', color: '#888', sub: 'Private workspace configuration' },
 ];
 
-const ALL_ITEMS: NavItem[] = NAV_GROUPS.flatMap(g => g.items);
-
-// ── API ───────────────────────────────────────────────────────────────────────
-
-// Pass 01R: /solspire now requires the Firebase ID token on every request.
-let consoleAuthToken: string | null = null;
-function setConsoleAuthToken(token: string | null) { consoleAuthToken = token; }
-
-async function apiFetch<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
-  const headers: Record<string, string> = body ? { 'Content-Type': 'application/json' } : {};
-  if (consoleAuthToken) headers.Authorization = `Bearer ${consoleAuthToken}`;
-  const res = await fetch(`${ORACLE}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) throw new Error(`${res.status}: ${(await res.text()).slice(0, 200)}`);
-  return res.json();
-}
-
-function fmtDate(ts: number) {
-  const diff = Date.now() - ts * 1000;
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  return new Date(ts * 1000).toLocaleDateString();
-}
-
-const STATUS_COLORS: Record<string, string> = {
-  active: '#00D4AA', paused: '#C9A84C', archived: '#888'
+const LEGACY_MAP: Record<string, SolSpireSection> = {
+  field: 'overview', codex: 'overview', loops: 'overview', projects: 'files', encyclopedia: 'knowledge',
+  goals: 'overview', releases: 'overview', jobs: 'observatory', traces: 'observatory', tools: 'observatory', system: 'observatory',
 };
 
-// ── Section header with source route badge ─────────────────────────────────────
-
-function SectionHeader({ item }: { item: NavItem }) {
+function Header({ item, onMenu }: { item: typeof NAV[number]; onMenu: () => void }) {
   return (
-    <div style={{ marginBottom: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-        <span style={{ color: item.color, fontSize: 16 }}>{item.sigil}</span>
-        <h2 style={{ fontFamily: '"Cinzel", serif', fontSize: 22, color: item.color, margin: 0, letterSpacing: '0.12em' }}>
-          {item.label.toUpperCase()}
-        </h2>
-        <span style={{
-          padding: '2px 8px',
-          background: `${item.color}10`,
-          border: `1px solid ${item.color}28`,
-          borderRadius: 12,
-          fontFamily: 'monospace',
-          fontSize: 9,
-          color: `${item.color}99`,
-          letterSpacing: '0.08em',
-        }}>
-          ⟐ {item.source}
-        </span>
+    <div style={{ padding: '13px 16px', borderBottom: '1px solid rgba(201,168,76,0.09)', background: 'rgba(9,10,22,0.96)', display: 'flex', alignItems: 'center', gap: 10, position: 'sticky', top: 52, zIndex: 20 }}>
+      <span style={{ color: item.color, fontSize: 15 }}>{item.sigil}</span>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontFamily: 'Cinzel,serif', fontSize: 13, letterSpacing: '0.1em', color: item.color }}>{item.label}</div>
+        <div style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(212,223,232,0.28)', marginTop: 2 }}>{item.sub}</div>
       </div>
-      <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(212,223,232,0.4)', margin: 0, letterSpacing: '0.04em' }}>
-        {item.sub}
-      </p>
-      <div style={{ height: 1, background: `linear-gradient(90deg, ${item.color}30, transparent)`, marginTop: 12 }} />
+      <button onClick={onMenu} style={{ border: 0, background: 'transparent', color: 'rgba(232,232,232,0.5)', fontSize: 18, cursor: 'pointer' }}>☰</button>
     </div>
   );
 }
 
-// ── Project Card ───────────────────────────────────────────────────────────────
-
-function ProjectCard({ project, onClick }: { project: Project; onClick: () => void }) {
-  const desc = (project.metadata?.description as string) || '';
-  const convCount = project.conversations?.length || 0;
+function Sidebar({ section, onSection }: { section: SolSpireSection; onSection: (s: SolSpireSection) => void }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-      onClick={onClick}
-      style={{ padding: 18, background: 'rgba(14,17,32,0.78)', border: '1px solid rgba(0,212,170,0.1)', borderRadius: 12, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 10, transition: 'border-color 0.18s', position: 'relative', overflow: 'hidden' }}
-      onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(0,212,170,0.3)')}
-      onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(0,212,170,0.1)')}
-    >
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${STATUS_COLORS[project.status] || '#888'}66, transparent)` }} />
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-        <h3 style={{ fontFamily: '"Cinzel",serif', fontSize: 15, color: '#C9A84C', margin: 0, flex: 1, lineHeight: 1.3 }}>{project.name}</h3>
-        <span style={{ padding: '2px 7px', borderRadius: 8, fontSize: 8, background: `${STATUS_COLORS[project.status] || '#888'}18`, color: STATUS_COLORS[project.status] || '#888', border: `1px solid ${STATUS_COLORS[project.status] || '#888'}33`, fontFamily: 'sans-serif', letterSpacing: '0.1em', textTransform: 'uppercase', flexShrink: 0 }}>
-          {project.status}
-        </span>
+    <aside style={{ width: 224, flexShrink: 0, borderRight: '1px solid rgba(201,168,76,0.08)', background: 'rgba(9,10,22,0.82)', padding: '22px 11px', position: 'sticky', top: 52, height: 'calc(100vh - 52px)', overflowY: 'auto' }}>
+      <div style={{ padding: '0 9px 17px', borderBottom: '1px solid rgba(201,168,76,0.08)', marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#C9A84C', boxShadow: '0 0 8px #C9A84C88' }} /><span style={{ fontFamily: 'Cinzel,serif', fontSize: 11, letterSpacing: '0.3em', color: '#C9A84C' }}>SOLSPIRE</span></div>
+        <div style={{ fontFamily: 'sans-serif', fontSize: 8.5, color: 'rgba(212,223,232,0.27)', marginTop: 5 }}>Private workspace · one surface</div>
       </div>
-      {desc && <p style={{ fontFamily: 'sans-serif', fontSize: 12, color: 'rgba(212,223,232,0.5)', margin: 0, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{desc}</p>}
-      <div style={{ display: 'flex', gap: 12, marginTop: 'auto' }}>
-        <span style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(212,223,232,0.3)' }}>Updated {fmtDate(project.updated_at)}</span>
-        {convCount > 0 && <span style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(0,212,170,0.4)' }}>💬 {convCount}</span>}
-      </div>
-    </motion.div>
+      {NAV.map(item => <button key={item.id} type="button" onClick={() => onSection(item.id)} style={{ width: '100%', border: `1px solid ${section === item.id ? item.color + '30' : 'transparent'}`, background: section === item.id ? `${item.color}0b` : 'transparent', borderRadius: 8, padding: '9px 8px', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', textAlign: 'left' }}><span style={{ color: section === item.id ? item.color : 'rgba(232,232,232,0.38)', width: 17, textAlign: 'center' }}>{item.sigil}</span><span style={{ fontFamily: 'sans-serif', fontSize: 10.5, color: section === item.id ? item.color : 'rgba(232,232,232,0.62)' }}>{item.label}</span></button>)}
+      <div style={{ marginTop: 14, padding: '10px 8px', borderTop: '1px solid rgba(0,212,170,0.07)', fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.3)' }}>◈ Authenticated · private</div>
+    </aside>
   );
 }
 
-// ── Projects view ──────────────────────────────────────────────────────────────
-
-function ProjectsView({ onOpenProject }: { onOpenProject: (p: Project) => void }) {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newDesc, setNewDesc] = useState('');
-  const [filter, setFilter] = useState<'all' | 'active' | 'archived'>('active');
-  const [searchQ, setSearchQ] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = () => {
-    setLoading(true);
-    setError(null);
-    apiFetch<{ projects: Project[] }>('/solspire/projects')
-      .then(r => { setProjects(r.projects); setLoading(false); })
-      .catch(err => { setError(err.message || 'Failed to connect'); setLoading(false); });
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const createProject = async () => {
-    if (!newName.trim()) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const r = await apiFetch<{ ok: boolean; project: Project }>('/solspire/projects', 'POST', {
-        name: newName, metadata: { description: newDesc },
-      });
-      setNewName(''); setNewDesc(''); setCreating(false);
-      if (r.project) {
-        onOpenProject(r.project);
-      } else {
-        // Created but no project returned — reload the list so it shows up.
-        load();
-      }
-    } catch (err: any) {
-      setError(err?.message || 'Failed to create project — check the SolSpire kernel connection.');
-      setLoading(false);
-      // Keep the form open + fields intact so the user can retry / edit.
-    }
-  };
-
-  const visible = projects.filter(p => {
-    if (filter !== 'all' && p.status !== filter) return false;
-    if (searchQ && !p.name.toLowerCase().includes(searchQ.toLowerCase())) return false;
-    return true;
-  });
-
-  return (
-    <div>
-      {/* Controls */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="Search projects…"
-          style={{ flex: '1 1 200px', padding: '9px 12px', background: 'rgba(14,17,32,0.8)', border: '1px solid rgba(0,212,170,0.15)', borderRadius: 8, color: 'rgba(212,223,232,0.8)', fontFamily: 'sans-serif', fontSize: 12, outline: 'none' }} />
-        <div style={{ display: 'flex', gap: 4 }}>
-          {(['active', 'all', 'archived'] as const).map(f => (
-            <button key={f} onClick={() => setFilter(f)}
-              style={{ padding: '7px 12px', borderRadius: 7, border: `1px solid ${filter === f ? '#00D4AA' : 'rgba(0,212,170,0.15)'}`, background: filter === f ? 'rgba(0,212,170,0.1)' : 'transparent', color: filter === f ? '#00D4AA' : 'rgba(212,223,232,0.4)', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-              {f}
-            </button>
-          ))}
-        </div>
-        <button onClick={() => setCreating(true)}
-          style={{ padding: '9px 18px', background: 'linear-gradient(135deg,rgba(201,168,76,0.15),rgba(201,168,76,0.07))', border: '1px solid rgba(201,168,76,0.35)', borderRadius: 8, color: '#C9A84C', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.18em', whiteSpace: 'nowrap' }}>
-          + New Project
-        </button>
-      </div>
-
-      {/* Create form */}
-      <AnimatePresence>
-        {creating && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-            style={{ overflow: 'hidden', marginBottom: 20 }}>
-            <div style={{ padding: 20, background: 'rgba(14,17,32,0.85)', border: '1px solid rgba(201,168,76,0.18)', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.55)', margin: 0 }}>New Project</p>
-              <input value={newName} onChange={e => setNewName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') createProject(); if (e.key === 'Escape') setCreating(false); }}
-                autoFocus placeholder="Project name…"
-                style={{ padding: '10px 14px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(201,168,76,0.25)', borderRadius: 8, color: 'rgba(212,223,232,0.9)', fontFamily: 'sans-serif', fontSize: 14, outline: 'none' }} />
-              <textarea value={newDesc} onChange={e => setNewDesc(e.target.value)} rows={2}
-                placeholder="Description (optional)…"
-                style={{ padding: '10px 14px', background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(201,168,76,0.15)', borderRadius: 8, color: 'rgba(212,223,232,0.8)', fontFamily: 'sans-serif', fontSize: 12, outline: 'none', resize: 'vertical' }} />
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={createProject} disabled={!newName.trim() || loading}
-                  style={{ padding: '8px 16px', background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.3)', borderRadius: 7, color: '#C9A84C', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.12em', opacity: (!newName.trim() || loading) ? 0.45 : 1 }}>
-                  {loading ? 'Creating…' : 'Create & Open →'}
-                </button>
-                <button onClick={() => { setCreating(false); setNewName(''); setNewDesc(''); setError(null); }}
-                  style={{ padding: '8px 14px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, color: 'rgba(212,223,232,0.4)', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: 10 }}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {error && (
-        <div style={{ padding: 16, background: 'rgba(200,72,72,0.08)', border: '1px solid rgba(200,72,72,0.25)', borderRadius: 8, marginBottom: 20 }}>
-          <p style={{ fontFamily: 'sans-serif', fontSize: 12, color: 'rgba(200,72,72,0.9)', margin: '0 0 8px' }}>⚠ Connection Error</p>
-          <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(212,223,232,0.5)', margin: 0 }}>{error}</p>
-          <p style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(212,223,232,0.3)', margin: '8px 0 0' }}>Backend: {ORACLE}</p>
-        </div>
-      )}
-
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: 60, color: 'rgba(212,223,232,0.25)', fontFamily: 'sans-serif', fontSize: 13 }}>
-          <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.2, repeat: Infinity }}>Loading projects…</motion.span>
-        </div>
-      ) : visible.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-          <p style={{ fontFamily: '"Cinzel",serif', fontSize: 28, color: 'rgba(201,168,76,0.2)', margin: '0 0 12px', letterSpacing: '0.1em' }}>◈</p>
-          <p style={{ fontFamily: 'sans-serif', fontSize: 14, color: 'rgba(212,223,232,0.25)', margin: '0 0 20px' }}>
-            {searchQ ? `No projects matching "${searchQ}"` : filter === 'archived' ? 'No archived projects' : 'No projects yet'}
-          </p>
-          {!searchQ && filter === 'active' && (
-            <button onClick={() => setCreating(true)}
-              style={{ padding: '10px 24px', background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.3)', borderRadius: 8, color: '#C9A84C', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: 11, letterSpacing: '0.15em' }}>
-              + Create Your First Project
-            </button>
-          )}
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-          {visible.map(p => <ProjectCard key={p.id} project={p} onClick={() => onOpenProject(p)} />)}
-        </div>
-      )}
-
-      <div style={{ marginTop: 40, paddingTop: 16, borderTop: '1px solid rgba(0,212,170,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <p style={{ fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(212,223,232,0.18)', margin: 0 }}>
-          SolSpire Kernel · {projects.filter(p => p.status === 'active').length} active projects
-        </p>
-        <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(212,223,232,0.18)', margin: 0 }}>source: solspire/projects</p>
-      </div>
+function OverviewSurface({ onOpenProject }: { onOpenProject: (p: Project) => void }) {
+  const [ops, setOps] = useState(false);
+  return <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div><Overview /></div>
+    <div style={{ padding: 14, background: 'rgba(176,141,232,0.04)', border: '1px solid rgba(176,141,232,0.1)', borderRadius: 12 }}>
+      <button type="button" onClick={() => setOps(v => !v)} style={{ width: '100%', background: 'transparent', border: 0, color: '#B08DE8', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', padding: 0, fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase' }}><span>Operational substrate</span><span>{ops ? '⌃' : '⌄'}</span></button>
+      {ops && <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 14 }}><OpenLoops /><Goals /><Releases /><Jobs onOpenTrace={(id: string) => { void id; }} /><Traces /><Tools /><System /></div>}
     </div>
-  );
+    <div style={{ padding: 14, background: 'rgba(176,141,232,0.04)', border: '1px solid rgba(176,141,232,0.1)', borderRadius: 12 }}><div style={{ fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(176,141,232,0.5)', marginBottom: 9 }}>Field substrate</div><UniversalEchofeildMatrix onNavigate={() => {}} /></div>
+  </div>;
 }
 
-// ── Encyclopedia Progress Section ─────────────────────────────────────────────
-
-function EncyclopediaProgress() {
-  const [states, setStates] = React.useState<Record<number, ChamberState>>(() => loadChamberStates());
-  const [kosStatus, setKosStatus] = React.useState<KnowledgeStatus | null>(null);
-  const [kosError, setKosError] = React.useState(false);
-
-  React.useEffect(() => {
-    getStatus()
-      .then(s => setKosStatus(s))
-      .catch(() => setKosError(true));
-  }, []);
-
-  const integrated = CHAMBERS.filter(c => states[c.num] === 'integrated').length;
-  const explored   = CHAMBERS.filter(c => states[c.num] === 'explored').length;
-  const dormant    = CHAMBERS.filter(c => !states[c.num] || states[c.num] === 'dormant').length;
-  const pct = Math.round(((integrated * 1 + explored * 0.5) / 12) * 100);
-
-  // Part groupings
-  const PARTS: { label: string; short: string; color: string; nums: number[] }[] = [
-    { label: 'The Forgotten Mother',  short: 'Part I',   color: '#B08DE8', nums: [1,2,3] },
-    { label: 'The Hidden Architect',  short: 'Part II',  color: '#6A9FD8', nums: [4,5,6] },
-    { label: 'The True Exodus',       short: 'Part III', color: '#00D4AA', nums: [7,8,9] },
-    { label: 'The Living Flame',      short: 'Part IV',  color: '#C9A84C', nums: [10,11,12] },
-  ];
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-
-      {/* ── Progress summary bar ── */}
-      <div style={{ padding: '18px 20px', background: 'rgba(14,17,32,0.7)', border: '1px solid rgba(176,141,232,0.12)', borderRadius: 12 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 10 }}>
-          <div>
-            <p style={{ fontFamily: '"Cinzel", serif', fontSize: 11, letterSpacing: '0.2em', color: 'rgba(176,141,232,0.55)', margin: '0 0 3px', textTransform: 'uppercase' }}>
-              Echoes of the Lost Aeons
-            </p>
-            <p style={{ fontFamily: '"Cinzel", serif', fontSize: 18, color: '#B08DE8', margin: 0, letterSpacing: '0.06em' }}>
-              {pct}% Integrated
-            </p>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <p style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(232,232,232,0.3)', margin: 0 }}>
-              {integrated} integrated · {explored} explored · {dormant} dormant
-            </p>
-            <p style={{ fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(232,232,232,0.2)', margin: '3px 0 0' }}>12 chambers total</p>
-          </div>
-        </div>
-        {/* Progress bar */}
-        <div style={{ height: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden' }}>
-          <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 1, ease: 'easeOut' }}
-            style={{ height: '100%', background: 'linear-gradient(90deg, #B08DE8, #6A9FD8)', borderRadius: 2 }} />
-        </div>
-        {/* Segment ticks */}
-        <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
-          {CHAMBERS.map(c => {
-            const s = states[c.num] ?? 'dormant';
-            return (
-              <div key={c.num} title={`${ROMAN[c.num-1]}: ${c.chapterTitle}`}
-                style={{ flex: 1, height: 6, borderRadius: 2,
-                  background: s === 'integrated' ? c.color : s === 'explored' ? `${c.color}60` : 'rgba(255,255,255,0.06)',
-                  transition: 'background 0.3s' }} />
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── Knowledge OS corpus stats (live) ── */}
-      <div style={{ padding: '16px 20px', background: 'rgba(14,17,32,0.6)', border: '1px solid rgba(0,212,170,0.1)', borderRadius: 12 }}>
-        <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.4)', margin: '0 0 12px' }}>
-          Knowledge OS · Corpus Status
-        </p>
-        {kosError ? (
-          <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(200,72,72,0.6)', margin: 0 }}>⚠ Cannot reach Knowledge OS — backend offline</p>
-        ) : kosStatus ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 10 }}>
-            {[
-              { label: 'Notes',      value: kosStatus.vault.notes,              color: '#00D4AA' },
-              { label: 'Projects',   value: kosStatus.vault.projects,           color: '#C9A84C' },
-              { label: 'Chunks',     value: kosStatus.vault.chunks,             color: '#6A9FD8' },
-              { label: 'Embeddings', value: kosStatus.vault.embeddings,         color: '#B08DE8' },
-              { label: 'Pending',    value: kosStatus.vault.pending_embeddings, color: '#C84848' },
-              { label: 'Graph Edges',value: kosStatus.graph.edges,              color: '#00D4AA' },
-              { label: 'Timeline',   value: kosStatus.timeline.events,          color: '#C9A84C' },
-            ].map(stat => (
-              <div key={stat.label} style={{ padding: '10px 12px', background: `${stat.color}08`, border: `1px solid ${stat.color}18`, borderRadius: 8 }}>
-                <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 18, fontWeight: 700, color: stat.color, margin: '0 0 3px' }}>{stat.value.toLocaleString()}</p>
-                <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(232,232,232,0.35)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{stat.label}</p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
-              style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(0,212,170,0.15)', borderTopColor: '#00D4AA' }} />
-            <span style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(232,232,232,0.3)' }}>Connecting to Knowledge OS…</span>
-          </div>
-        )}
-      </div>
-
-      {/* ── Chapter grid by part ── */}
-      {PARTS.map(part => (
-        <div key={part.short}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-            <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7.5, letterSpacing: '0.2em', textTransform: 'uppercase', color: `${part.color}55` }}>{part.short}</span>
-            <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${part.color}20, transparent)` }} />
-            <span style={{ fontFamily: 'sans-serif', fontSize: 10, color: `${part.color}50`, fontStyle: 'italic' }}>{part.label}</span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 8 }}>
-            {part.nums.map(num => {
-              const chamber = CHAMBERS.find(c => c.num === num)!;
-              const state   = states[num] ?? 'dormant';
-              const stateColor = state === 'integrated' ? chamber.color : state === 'explored' ? `${chamber.color}70` : 'rgba(255,255,255,0.15)';
-              return (
-                <div key={num} style={{ padding: '12px 14px', background: 'rgba(8,10,20,0.55)',
-                  border: `1px solid ${state !== 'dormant' ? chamber.color + '28' : 'rgba(255,255,255,0.05)'}`,
-                  borderLeft: `3px solid ${state !== 'dormant' ? chamber.color : 'rgba(255,255,255,0.08)'}`,
-                  borderRadius: '0 9px 9px 0', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                  <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1, color: state !== 'dormant' ? chamber.color : `${chamber.color}30` }}>{chamber.sigil}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6 }}>
-                      <p style={{ fontFamily: 'serif', fontSize: 12.5, color: state !== 'dormant' ? 'rgba(232,232,232,0.85)' : 'rgba(232,232,232,0.4)', margin: '0 0 3px', flex: 1 }}>{chamber.chapterTitle}</p>
-                      <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 7, letterSpacing: '0.1em', textTransform: 'uppercase', color: stateColor, flexShrink: 0 }}>
-                        {state === 'integrated' ? '✦' : state === 'explored' ? '◈' : '○'}
-                      </span>
-                    </div>
-                    <p style={{ fontFamily: 'sans-serif', fontSize: 9.5, color: 'rgba(232,232,232,0.2)', margin: 0, fontStyle: 'italic' }}>
-                      {ROMAN[num-1]} · {chamber.chamberName}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-
-      <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(232,232,232,0.15)', margin: '4px 0 0', textAlign: 'center' }}>
-        Reading progress stored locally · Open Crystal Tribune to explore chapters
-      </p>
-    </div>
-  );
-}
-
-// ── Sidebar nav item ──────────────────────────────────────────────────────────
-
-function SidebarItem({ item, active, onClick }: { item: NavItem; active: boolean; onClick: () => void }) {
-  return (
-    <button onClick={onClick} style={{
-      display: 'flex', alignItems: 'center', gap: 10,
-      width: '100%', padding: '9px 11px',
-      background: active ? `${item.color}0e` : 'transparent',
-      border: active ? `1px solid ${item.color}28` : '1px solid transparent',
-      borderRadius: 9, cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
-    }}>
-      <motion.span
-        animate={active ? { opacity: [0.6, 1, 0.6] } : {}}
-        transition={{ duration: 3, repeat: Infinity }}
-        style={{ fontSize: 12, flexShrink: 0, width: 18, textAlign: 'center', color: active ? item.color : 'rgba(232,232,232,0.42)' }}
-      >
-        {item.sigil}
-      </motion.span>
-      <div style={{ flex: 1, overflow: 'hidden' }}>
-        <p style={{ fontFamily: 'sans-serif', fontSize: 10.5, color: active ? item.color : 'rgba(232,232,232,0.72)', margin: 0, fontWeight: active ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {item.label}
-        </p>
-      </div>
-      {active && <motion.div layoutId="sol-active" style={{ width: 3, height: 3, borderRadius: '50%', background: item.color, flexShrink: 0 }} />}
-    </button>
-  );
-}
-
-// ── Main Console ──────────────────────────────────────────────────────────────
-
-type AppView = 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
-  | 'nexus' | 'encyclopedia' | 'spiral-codex' | 'loops' | 'grove' | 'larder' | 'novanet'
-  | 'ims' | 'distribute' | 'offerings' | 'aic' | 'pulse' | 'settings' | 'solspire'
-  | 'knowledge-os' | 'reasomate' | 'personal-echofeild' | 'echofeild-matrix';
-
-export default function SolSpireConsole({
-  onNavigate,
-  initialSection = 'field',
-}: {
-  onNavigate?: (v: AppView) => void;
-  initialSection?: SolSection;
-} = {}) {
-  const [section, setSection] = useState<SolSection>(initialSection);
-  const [openProject, setOpenProject] = useState<Project | null>(null);
-  const [traceJobId, setTraceJobId] = useState<string | null>(null);
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+export default function SolSpireConsole({ onNavigate, initialSection = 'overview' }: { onNavigate?: (v: AppView) => void; initialSection?: LegacySection } = {}) {
   const { isAuthenticated, user } = useAuth();
+  const initial = (LEGACY_MAP[initialSection] || initialSection) as SolSpireSection;
+  const [section, setSection] = useState<SolSpireSection>(initial);
+  const [mobileNav, setMobileNav] = useState(false);
+  const [openProject, setOpenProject] = useState<Project | null>(null);
 
-  // Propagate the Firebase ID token to both SolSpire fetch helpers.
   useEffect(() => {
-    const token = user?.idToken ?? null;
-    setConsoleAuthToken(token);
-    setSolspireAuthToken(token);
+    setSolspireAuthToken(user?.idToken ?? null);
   }, [user?.idToken]);
 
-  const activeItem = ALL_ITEMS.find(i => i.id === section) || ALL_ITEMS[0];
-
-  // If a project is open, render it full-screen
-  if (openProject) {
-    return (
-      <ProjectDashboard
-        project={openProject}
-        onBack={() => setOpenProject(null)}
-        onProjectUpdated={p => setOpenProject(p)}
-      />
-    );
+  if (!isAuthenticated) {
+    return <div style={{ minHeight: 'calc(100vh - 52px)', background: '#0A0B14', display: 'grid', placeItems: 'center', padding: 24 }}><div style={{ maxWidth: 520, textAlign: 'center', padding: 28, border: '1px solid rgba(201,168,76,0.15)', borderRadius: 14, background: 'rgba(14,17,32,0.8)' }}><div style={{ fontFamily: 'Cinzel,serif', color: '#C9A84C', letterSpacing: '0.18em', fontSize: 16 }}>SOLSPIRE</div><p style={{ fontFamily: 'sans-serif', color: 'rgba(212,223,232,0.42)', lineHeight: 1.6, fontSize: 12 }}>This is the private workspace. Sign in to enter the authenticated field.</p><button onClick={() => onNavigate?.('gate')} style={{ padding: '9px 16px', borderRadius: 7, border: '1px solid rgba(0,212,170,0.3)', background: 'rgba(0,212,170,0.08)', color: '#00D4AA', cursor: 'pointer' }}>Enter workspace</button></div></div>;
   }
 
-  const handleSection = (s: SolSection) => {
-    setSection(s);
-    setMobileNavOpen(false);
-  };
-
-  const SectionContent = () => (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={section}
-        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
-      >
-        {section !== 'field' && <SectionHeader item={activeItem} />}
-
-        {section === 'field'        && (
-          <UniversalEchofeildMatrix onNavigate={onNavigate || (() => {})} />
-        )}
-        {section === 'codex'        && <PersonalCodex />}
-        {section === 'loops'        && <OpenLoops />}
-        {section === 'knowledge'    && <KnowledgeOSPage />}
-        {section === 'encyclopedia' && <EncyclopediaProgress />}
-        {section === 'projects'     && (
-          <ProjectsView onOpenProject={p => setOpenProject(p)} />
-        )}
-        {section === 'overview'     && <Overview />}
-        {section === 'goals'        && <Goals />}
-        {section === 'releases'     && <Releases />}
-        {section === 'jobs'         && <Jobs onOpenTrace={(id: string) => { setTraceJobId(id); setSection('traces'); }} />}
-        {section === 'traces'       && <Traces openJobId={traceJobId} />}
-        {section === 'tools'        && <Tools />}
-        {section === 'system'       && <System />}
-      </motion.div>
-    </AnimatePresence>
-  );
-
-  const CONSOLE_CARDS: { id: SolSection; label: string; sigil: string; color: string }[] = [
-    { id: 'field', label: 'Echo Field', sigil: '⬡', color: '#B08DE8' },
-    { id: 'projects', label: 'Projects', sigil: '⚙', color: '#C9A84C' },
-    { id: 'knowledge', label: 'Knowledge', sigil: '◈', color: '#00D4AA' },
-    { id: 'codex', label: 'Personal Codex', sigil: '✦', color: '#C9A84C' },
-    { id: 'overview', label: 'Ops', sigil: '◎', color: '#6A9FD8' },
-  ];
-
-  const ConsoleCardStrip = () => (
-    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '12px 0 4px' }} data-testid="solspire-console-cards">
-      {CONSOLE_CARDS.map(c => {
-        const active = section === c.id;
-        return (
-          <button
-            key={c.id}
-            type="button"
-            data-testid={`solspire-card-${c.id}`}
-            onClick={() => handleSection(c.id)}
-            style={{
-              flex: '1 1 100px',
-              minWidth: 96,
-              maxWidth: 160,
-              padding: '12px 10px',
-              background: active ? `${c.color}14` : 'rgba(255,255,255,0.03)',
-              border: `1px solid ${active ? c.color + '45' : 'rgba(255,255,255,0.08)'}`,
-              borderRadius: 10,
-              cursor: 'pointer',
-              textAlign: 'left',
-            }}
-          >
-            <div style={{ fontSize: 16, color: active ? c.color : 'rgba(232,232,232,0.45)', marginBottom: 4 }}>{c.sigil}</div>
-            <div style={{ fontFamily: 'sans-serif', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: active ? c.color : 'rgba(232,232,232,0.55)' }}>{c.label}</div>
-          </button>
-        );
-      })}
-    </div>
-  );
-
-  return (
-    <div style={{ minHeight: 'calc(100vh - 52px)', background: '#0A0B14', position: 'relative' }} data-testid="solspire-console">
-      <div className="aurora-bg" />
-
-      {/* ── Mobile: collapsible menu strip ── */}
-      <div style={{ display: 'block' }} className="lg:hidden">
-        {/* Mobile header */}
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(201,168,76,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(10,11,20,0.95)', position: 'sticky', top: 52, zIndex: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ color: activeItem.color, fontSize: 14 }}>{activeItem.sigil}</span>
-            <p style={{ fontFamily: '"Cinzel", serif', fontSize: 13, color: activeItem.color, margin: 0, letterSpacing: '0.1em' }}>{activeItem.label}</p>
-            <span style={{ padding: '1px 6px', background: `${activeItem.color}10`, border: `1px solid ${activeItem.color}22`, borderRadius: 10, fontFamily: 'monospace', fontSize: 8, color: `${activeItem.color}88` }}>
-              {activeItem.source}
-            </span>
-          </div>
-          <button onClick={() => setMobileNavOpen(o => !o)} style={{ background: 'none', border: 'none', color: 'rgba(232,232,232,0.5)', cursor: 'pointer', fontSize: 18, padding: '4px 8px' }}>
-            {mobileNavOpen ? '✕' : '☰'}
-          </button>
-        </div>
-
-        {/* Mobile nav drawer */}
-        <AnimatePresence>
-          {mobileNavOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-              style={{ overflow: 'hidden', background: 'rgba(9,10,22,0.98)', borderBottom: '1px solid rgba(201,168,76,0.12)', position: 'sticky', top: 92, zIndex: 19 }}
-            >
-              <div style={{ padding: '10px 12px' }}>
-                {NAV_GROUPS.map(group => (
-                  <div key={group.label} style={{ marginBottom: 12 }}>
-                    <p style={{ fontFamily: 'sans-serif', fontSize: 7.5, letterSpacing: '0.38em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.45)', margin: '0 6px 6px' }}>{group.label}</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
-                      {group.items.map(item => (
-                        <button key={item.id} onClick={() => handleSection(item.id)} style={{
-                          padding: '8px 6px',
-                          background: section === item.id ? `${item.color}10` : 'transparent',
-                          border: `1px solid ${section === item.id ? item.color + '35' : 'rgba(255,255,255,0.07)'}`,
-                          borderRadius: 8, cursor: 'pointer', textAlign: 'center',
-                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-                        }}>
-                          <span style={{ fontSize: 13, color: section === item.id ? item.color : 'rgba(232,232,232,0.45)' }}>{item.sigil}</span>
-                          <span style={{ fontFamily: 'sans-serif', fontSize: 8.5, color: section === item.id ? item.color : 'rgba(232,232,232,0.5)', letterSpacing: '0.08em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{item.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Mobile content */}
-        <div style={{ padding: '12px 16px 60px', position: 'relative', zIndex: 10 }}>
-          <ConsoleCardStrip />
-          <SectionContent />
-        </div>
+  if (openProject) {
+    return <div style={{ minHeight: 'calc(100vh - 52px)', background: '#0A0B14', position: 'relative' }}>
+      <div style={{ padding: '11px 16px', borderBottom: '1px solid rgba(201,168,76,0.1)', background: 'rgba(9,10,22,0.95)', display: 'flex', alignItems: 'center', gap: 10, position: 'sticky', top: 52, zIndex: 30 }}>
+        <button type="button" onClick={() => setOpenProject(null)} style={{ border: '1px solid rgba(201,168,76,0.2)', background: 'rgba(201,168,76,0.06)', color: '#C9A84C', borderRadius: 7, padding: '7px 10px', cursor: 'pointer', fontSize: 9 }}>← Files</button>
+        <span style={{ fontFamily: 'Cinzel,serif', color: '#C9A84C', fontSize: 13 }}>📁 {openProject.name}</span>
+        <span style={{ fontFamily: 'sans-serif', fontSize: 8, color: 'rgba(212,223,232,0.25)', marginLeft: 'auto' }}>WORKSPACE THREAD</span>
       </div>
+      <ProjectDashboard project={openProject} onBack={() => setOpenProject(null)} onProjectUpdated={setOpenProject} />
+    </div>;
+  }
 
-      {/* ── Desktop: sidebar + content ── */}
-      <div style={{ display: 'none' }} className="lg:flex">
-        <aside style={{
-          width: 236, flexShrink: 0,
-          borderRight: '1px solid rgba(201,168,76,0.08)',
-          background: 'rgba(9,10,22,0.75)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          padding: '24px 12px',
-          display: 'flex', flexDirection: 'column', gap: 4,
-          position: 'sticky', top: 52, height: 'calc(100vh - 52px)', overflowY: 'auto',
-          zIndex: 10,
-        }}>
-          {/* Console header */}
-          <div style={{ padding: '0 8px 16px', borderBottom: '1px solid rgba(201,168,76,0.08)', marginBottom: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <div style={{ width: 6, height: 6, background: '#C9A84C', borderRadius: '50%', boxShadow: '0 0 8px #C9A84C88' }} />
-              <p style={{ fontFamily: '"Cinzel", serif', fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: '#C9A84C', margin: 0 }}>SOLSPIRE</p>
-            </div>
-            <p style={{ fontFamily: 'sans-serif', fontSize: 9, color: 'rgba(212,223,232,0.3)', margin: 0, letterSpacing: '0.06em' }}>Personal Console · All sources unified</p>
-          </div>
+  const item = NAV.find(n => n.id === section) || NAV[0];
+  const collection: WorkspaceCollectionKind | null = section === 'conversations' ? 'conversations' : section === 'tasks' ? 'tasks' : section === 'memory' ? 'memory' : null;
 
-          {/* Nav groups */}
-          {NAV_GROUPS.map(group => (
-            <div key={group.label} style={{ marginBottom: 14 }}>
-              <p style={{ fontFamily: 'sans-serif', fontSize: 7.5, letterSpacing: '0.4em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.45)', margin: '0 6px 5px' }}>
-                {group.label}
-              </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {group.items.map(item => (
-                  <SidebarItem key={item.id} item={item} active={section === item.id} onClick={() => handleSection(item.id)} />
-                ))}
-              </div>
-            </div>
-          ))}
+  const content = section === 'overview' ? <OverviewSurface onOpenProject={setOpenProject} />
+    : section === 'commercial' ? <CommercialPanel />
+    : section === 'knowledge' ? <KnowledgeOSPage />
+    : section === 'files' ? <WorkspaceFiles onOpenProject={setOpenProject} />
+    : collection ? <WorkspaceCollection kind={collection} />
+    : section === 'weaver' ? <WeaverSummary onOpenProject={setOpenProject} />
+    : section === 'observatory' ? <Observatory />
+    : <SettingsPage />;
 
-          {/* Auth indicator */}
-          {isAuthenticated && (
-            <div style={{ marginTop: 'auto', padding: '10px 8px', borderTop: '1px solid rgba(0,212,170,0.08)' }}>
-              <p style={{ fontFamily: 'sans-serif', fontSize: 8, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(0,212,170,0.35)', margin: 0 }}>
-                ◈ Node authenticated · full access
-              </p>
-            </div>
-          )}
-        </aside>
+  return <div data-testid="solspire-console" style={{ minHeight: 'calc(100vh - 52px)', background: '#0A0B14', position: 'relative' }}>
+    <div className="aurora-bg" />
+    <div className="solspire-mobile"><Header item={item} onMenu={() => setMobileNav(v => !v)} />{mobileNav && <div style={{ padding: 10, background: 'rgba(9,10,22,0.98)', borderBottom: '1px solid rgba(201,168,76,0.1)', position: 'sticky', top: 101, zIndex: 19 }}>{NAV.map(n => <button key={n.id} type="button" onClick={() => { setSection(n.id); setMobileNav(false); }} style={{ width: '100%', padding: 9, marginBottom: 3, borderRadius: 7, border: `1px solid ${section === n.id ? n.color + '30' : 'rgba(255,255,255,0.05)'}`, background: section === n.id ? `${n.color}0b` : 'transparent', color: section === n.id ? n.color : 'rgba(232,232,232,0.55)', textAlign: 'left', cursor: 'pointer' }}>{n.sigil} {n.label}</button>)}</div>}<main style={{ padding: '14px 16px 60px', position: 'relative', zIndex: 5 }}><SectionHeader item={item} />{content}</main></div>
+    <div className="solspire-desktop"><div style={{ display: 'flex', position: 'relative', zIndex: 5 }}><Sidebar section={section} onSection={setSection} /><main style={{ flex: 1, minWidth: 0, padding: '24px 28px 60px' }}><SectionHeader item={item} />{content}</main></div></div>
+    <style>{`@media (min-width:1024px){.solspire-mobile{display:none}.solspire-desktop{display:block}}@media (max-width:1023px){.solspire-mobile{display:block}.solspire-desktop{display:none}}`}</style>
+  </div>;
+}
 
-        {/* Main content */}
-        <main style={{ flex: 1, padding: '20px 28px 60px', overflowX: 'hidden', position: 'relative', zIndex: 10 }}>
-          <ConsoleCardStrip />
-          <SectionContent />
-        </main>
-      </div>
-
-      {/* Fallback for when neither responsive class applies — show sidebar layout inline */}
-      <style>{`
-        @media (min-width: 1024px) {
-          .lg\\:hidden { display: none !important; }
-          .lg\\:flex { display: flex !important; }
-        }
-        @media (max-width: 1023px) {
-          .lg\\:flex { display: none !important; }
-          .lg\\:hidden { display: block !important; }
-        }
-      `}</style>
-    </div>
-  );
+function SectionHeader({ item }: { item: typeof NAV[number] }) {
+  return <div style={{ marginBottom: 18 }}><div style={{ display: 'flex', alignItems: 'center', gap: 9 }}><span style={{ color: item.color, fontSize: 16 }}>{item.sigil}</span><h2 style={{ fontFamily: 'Cinzel,serif', fontSize: 21, color: item.color, margin: 0, letterSpacing: '0.11em' }}>{item.label.toUpperCase()}</h2></div><div style={{ marginTop: 5, fontFamily: 'sans-serif', fontSize: 10, color: 'rgba(212,223,232,0.3)' }}>{item.sub}</div><div style={{ height: 1, marginTop: 11, background: `linear-gradient(90deg,${item.color}28,transparent)` }} /></div>;
 }
