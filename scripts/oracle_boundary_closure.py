@@ -1,12 +1,16 @@
 from pathlib import Path
+import os
 import re
 
 ROOT = Path('web/public_prism/src')
 
 
 def import_path(path: Path, target: str) -> str:
-    rel = Path('.' + str((ROOT / target).relative_to(path.parent)).replace('\\', '/'))
-    return str(rel.with_suffix(''))
+    target_path = ROOT / target
+    rel = os.path.relpath(target_path, path.parent).replace('\\', '/')
+    if not rel.startswith('.'):
+        rel = './' + rel
+    return rel.rsplit('.', 1)[0] if rel.endswith('.ts') or rel.endswith('.tsx') else rel
 
 
 def ensure_import(text: str, statement: str) -> str:
@@ -24,7 +28,6 @@ def strip_auth_headers(text: str) -> str:
 
 def migrate_file(path: Path, text: str) -> str:
     original = text
-
     if 'import.meta.env.VITE_API_BASE_URL' in text or 'import.meta.env.VITE_API_URL' in text:
         text = text.replace('import.meta.env.VITE_API_BASE_URL', 'API_BASE_CONFIG')
         text = text.replace('import.meta.env.VITE_API_URL', 'API_BASE_CONFIG')
@@ -45,14 +48,13 @@ def migrate_file(path: Path, text: str) -> str:
         if new != text:
             needs_api_fetch = True
             text = new
-
     if needs_api_fetch:
         text = ensure_import(text, f"import {{ apiFetch }} from '{import_path(path, 'lib/apiClient')}';")
 
     text = strip_auth_headers(text)
     text = re.sub(r"localStorage\.getItem\(['\"]arkadia_token['\"]\)\s*\|\|\s*['\"]['\"]", "''", text)
     text = re.sub(r"localStorage\.getItem\(['\"]arkadia_token['\"]\)", "null", text)
-    return text
+    return text if text != original else original
 
 
 def migrate_project_dashboard(path: Path, text: str) -> str:
@@ -63,7 +65,6 @@ def migrate_project_dashboard(path: Path, text: str) -> str:
         text,
         count=1,
     )
-
     legacy = re.search(r"// ── API ─+[\s\S]*?// ── Helpers ─+", text)
     if legacy:
         replacement = """// ── API ───────────────────────────────────────────────────────────────────────
@@ -77,7 +78,6 @@ async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> 
 
 // ── Helpers ───────────────────────────────────────────────────────────────────"""
         text = text[:legacy.start()] + replacement + text[legacy.end():]
-
     text = text.replace(
         "const base = `${ORACLE}/solspire/projects/${project.id}/weaver`;",
         "const base = `/solspire/projects/${project.id}/weaver`;",
