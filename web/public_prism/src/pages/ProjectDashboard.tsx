@@ -2,6 +2,7 @@ import { apiRequest } from '../lib/apiClient';
 import { apiFetch } from '../lib/apiClient';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ProjectKnowledgeGraph from '../components/solspire/ProjectKnowledgeGraph';
 
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -395,12 +396,7 @@ function KnowledgePanel({ project }: { project: Project }) {
         </div>
       )}
       <div style={{ marginBottom: 8 }}>Embeddings: <strong>{emb?.embeddings?.status || data?.embeddings?.status || '—'}</strong></div>
-      {graph && (
-        <div style={{ marginBottom: 12 }}>
-          Graph (DERIVED): {graph.counts?.nodes} nodes / {graph.counts?.edges} edges
-          <pre style={{ fontSize: 10, maxHeight: 160, overflow: 'auto', background: '#0a0b14', padding: 8 }}>{JSON.stringify((graph.edges || []).slice(0, 12), null, 2)}</pre>
-        </div>
-      )}
+      {graph && <ProjectKnowledgeGraph projectId={project.id} />}
       <div style={{ display: 'flex', gap: 8 }}>
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Keyword search" style={{ flex: 1, background: '#0a0b14', border: '1px solid rgba(0,212,170,0.25)', color: '#D4DFE8', padding: 8, borderRadius: 6 }} />
         <button onClick={search} style={{ border: '1px solid #00D4AA', color: '#00D4AA', background: 'transparent', padding: '0 12px', borderRadius: 6 }}>Search</button>
