@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { apiRequest } from '../lib/apiClient'
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 const C = { teal: '#00D4AA', blue: '#6A9FD8', text: 'rgba(232,232,232,.9)', dim: 'rgba(232,232,232,.35)', border: 'rgba(106,159,216,.14)' }
 
 type Node = { username?: string | null; handle?: string | null; display_name: string; bio?: string | null; avatar_url?: string | null }
@@ -13,8 +13,7 @@ function Avatar({ node, size = 38 }: { node: Node; size?: number }) {
 }
 
 export default function SocialMessenger() {
-  const { profile, user } = useAuth()
-  const token = user?.idToken || ''
+  const { profile } = useAuth()
   const [nodes, setNodes] = useState<Node[]>([])
   const [query, setQuery] = useState('')
   const [active, setActive] = useState<Node | null>(null)
@@ -24,8 +23,8 @@ export default function SocialMessenger() {
   const [contextCount, setContextCount] = useState(0)
 
   const find = async () => {
-    const response = await fetch(`${API_BASE}/api/social/nodes?q=${encodeURIComponent(query)}`, { headers: { Authorization: `Bearer ${token}` } })
-    if (response.ok) setNodes((await response.json()).nodes || [])
+    const data = await apiRequest<{ nodes?: Node[] }>(`/api/social/nodes?q=${encodeURIComponent(query)}`)
+    setNodes(data.nodes || [])
   }
 
   useEffect(() => { find().catch(() => {}) }, [])
@@ -40,28 +39,27 @@ export default function SocialMessenger() {
   const send = async () => {
     const handle = (active?.username || active?.handle || '').replace(/^@/, '')
     if (!handle || !text.trim()) return
-    const response = await fetch(`${API_BASE}/api/messages`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ recipient_handle: handle, content: text.trim() }),
-    })
-    if (!response.ok) return
-    const data = await response.json()
-    setPeerUid(data.message.recipient_uid)
-    setMessages(current => [...current, data.message])
-    setText('')
+    try {
+      const data = await apiRequest<{ message: Message }>('/api/messages', {
+        method: 'POST',
+        body: JSON.stringify({ recipient_handle: handle, content: text.trim() }),
+      })
+      setPeerUid(data.message.recipient_uid)
+      setMessages(current => [...current, data.message])
+      setText('')
+    } catch { return }
   }
 
   useEffect(() => {
     if (!peerUid) return
     Promise.all([
-      fetch(`${API_BASE}/api/messages/thread/${peerUid}`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`${API_BASE}/api/relationships/${peerUid}/context`, { headers: { Authorization: `Bearer ${token}` } }),
-    ]).then(async ([threadResponse, contextResponse]) => {
-      if (threadResponse.ok) setMessages((await threadResponse.json()).messages || [])
-      if (contextResponse.ok) setContextCount((await contextResponse.json()).relationship?.interaction_count || 0)
+      apiRequest<{ messages?: Message[] }>(`/api/messages/thread/${peerUid}`),
+      apiRequest<{ relationship?: { interaction_count?: number } }>(`/api/relationships/${peerUid}/context`),
+    ]).then(([thread, context]) => {
+      setMessages(thread.messages || [])
+      setContextCount(context.relationship?.interaction_count || 0)
     }).catch(() => {})
-  }, [peerUid, token])
+  }, [peerUid])
 
   return <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,.7fr) minmax(280px,1.3fr)', minHeight: 520, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
     <section style={{ padding: 12, borderRight: `1px solid ${C.border}` }}>
