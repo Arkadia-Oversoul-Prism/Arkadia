@@ -15,8 +15,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from api.auth import require_auth, normalize_handle, resolve_uid_by_handle, load_user_profile_store
+from api.social import router as _social_router
 
 router = APIRouter(tags=["messages"])
+router.include_router(_social_router)
 
 _MSG_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "messages")
 
