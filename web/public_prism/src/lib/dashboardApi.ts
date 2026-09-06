@@ -1,40 +1,25 @@
 /**
  * Arkadia Dashboard — typed REST client for the FastAPI backend.
  *
- * In dev: calls flow through Vite's proxy (/api → :8000).
- * In prod: set VITE_API_BASE_URL in Vercel to your Render URL.
+ * All Oracle transport, base URL resolution, authentication and error
+ * classification are owned by the canonical apiClient boundary.
  */
 
-const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "")
+import { apiRequest } from './apiClient'
 
 async function request<T>(
   path: string,
   init?: RequestInit & { json?: unknown }
 ): Promise<T> {
-  const url = `${BASE}${path}`
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-    ...(init?.headers as Record<string, string> | undefined),
-  }
-  let body = init?.body
-  if (init?.json !== undefined) {
-    headers["Content-Type"] = "application/json"
-    body = JSON.stringify(init.json)
-  }
-  const res = await fetch(url, { ...init, headers, body })
-  const text = await res.text()
-  let data: unknown = null
-  if (text) {
-    try { data = JSON.parse(text) } catch { data = text }
-  }
-  if (!res.ok) {
-    const detail =
-      (data && typeof data === "object" && "detail" in (data as object) &&
-        (data as { detail: unknown }).detail) ||
-      `${res.status} ${res.statusText}`
-    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail))
-  }
-  return data as T
+  const { json, ...requestInit } = init ?? {}
+  return apiRequest<T>(path, {
+    ...requestInit,
+    headers: {
+      Accept: 'application/json',
+      ...(requestInit.headers as Record<string, string> | undefined),
+    },
+    body: json !== undefined ? JSON.stringify(json) : requestInit.body,
+  })
 }
 
 // ── Job types ─────────────────────────────────────────────────────────────────
@@ -146,8 +131,6 @@ export interface MetricsSnapshot {
   goals_active: number
 }
 
-// ── Corpus / Codex types ──────────────────────────────────────────────────────
-
 export interface HeartbeatResponse {
   status: string
   resonance: number
@@ -162,9 +145,7 @@ export interface SourceItem {
   branch?: string
 }
 
-export interface SourcesResponse {
-  sources: SourceItem[]
-}
+export interface SourcesResponse { sources: SourceItem[] }
 
 export interface ArkDateSync {
   auto_sync_active: boolean
@@ -239,7 +220,6 @@ export interface OpenLoopsResponse {
 // ── Endpoints ──────────────────────────────────────────────────────────────
 
 export const api = {
-  // Jobs
   listJobs: (status?: JobStatus, limit = 50) => {
     const q = new URLSearchParams()
     if (status) q.set("status", status)
@@ -247,53 +227,25 @@ export const api = {
     return request<JobsList>(`/api/jobs?${q.toString()}`)
   },
   getJob: (id: string) => request<Job>(`/api/job/${encodeURIComponent(id)}`),
-  getTrace: (id: string) =>
-    request<TraceResponse>(`/api/job/${encodeURIComponent(id)}/trace`),
-
-  // Goals
+  getTrace: (id: string) => request<TraceResponse>(`/api/job/${encodeURIComponent(id)}/trace`),
   listGoals: (status?: GoalStatus) => {
     const q = status ? `?status=${status}` : ""
     return request<{ goals: Goal[]; count: number }>(`/api/goals${q}`)
   },
-  createGoal: (payload: {
-    description: string
-    cadence_seconds?: number
-    max_runs_per_hour?: number
-    start_now?: boolean
-  }) =>
-    request<{ message: string; goal: Goal }>(`/api/goals`, {
-      method: "POST",
-      json: payload,
-    }),
+  createGoal: (payload: { description: string; cadence_seconds?: number; max_runs_per_hour?: number; start_now?: boolean }) =>
+    request<{ message: string; goal: Goal }>(`/api/goals`, { method: "POST", json: payload }),
   updateGoal: (id: string, fields: Partial<Pick<Goal, "description" | "status" | "cadence_seconds" | "max_runs_per_hour">>) =>
-    request<{ message: string; goal: Goal }>(`/api/goals/${encodeURIComponent(id)}`, {
-      method: "PATCH",
-      json: fields,
-    }),
+    request<{ message: string; goal: Goal }>(`/api/goals/${encodeURIComponent(id)}`, { method: "PATCH", json: fields }),
   deleteGoal: (id: string) =>
-    request<{ message: string; goal_id: string }>(`/api/goals/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-    }),
-
-  // Tools
+    request<{ message: string; goal_id: string }>(`/api/goals/${encodeURIComponent(id)}`, { method: "DELETE" }),
   listTools: () => request<{ tools: Tool[]; count: number }>(`/api/tools`),
-
-  // Metrics / system
   metrics: () => request<MetricsSnapshot>(`/api/metrics`),
-
-  // Plan (used in Tools playground)
   runPlan: (input: string) =>
-    request<{ success: boolean; summary: string; steps?: unknown[] }>(`/api/plan/run`, {
-      method: "POST",
-      json: { input },
-    }),
-
-  // ── Field Intelligence ──────────────────────────────────────────────────
+    request<{ success: boolean; summary: string; steps?: unknown[] }>(`/api/plan/run`, { method: "POST", json: { input } }),
   heartbeat: () => request<HeartbeatResponse>(`/api/heartbeat`),
   sources: () => request<SourcesResponse>(`/api/sources`),
   arkDate: () => request<ArkDateResponse>(`/api/ark-date`),
   codex: () => request<CodexResponse>(`/api/codex`),
   openLoops: () => request<OpenLoopsResponse>(`/api/open-loops`),
-  refreshCorpus: () =>
-    request<{ status: string }>(`/api/corpus/refresh`, { method: "POST" }),
+  refreshCorpus: () => request<{ status: string }>(`/api/corpus/refresh`, { method: "POST" }),
 }
