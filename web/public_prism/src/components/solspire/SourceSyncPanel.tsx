@@ -2,132 +2,24 @@ import React, { useEffect, useState } from 'react';
 import { API_BASE } from '../../lib/apiConfig';
 import { useAuth } from '../../contexts/AuthContext';
 
-type Source = {
-  name: string;
-  configured: boolean;
-  authenticated?: boolean;
-  live?: boolean;
-  repo?: string;
-  branch?: string;
+type Source={source:string;label:string;description:string;configured:boolean;status:string;last_sync?:string|null;last_sync_count?:number};
+const META:Record<string,{icon:string;color:string;fields:string[]}>={
+ github:{icon:'⟐',color:'#00D4AA',fields:['token','repository']},
+ gdrive:{icon:'◈',color:'#6A9FD8',fields:['folder_id','service_account_json','api_key']},
+ joplin:{icon:'◉',color:'#4CB3D4',fields:['url','token','notebook','tag']},
+ obsidian:{icon:'◆',color:'#B08DE8',fields:['url','token','vault_dir','tag']},
 };
+const PH:Record<string,Record<string,string>>={github:{token:'GitHub token',repository:'owner/repository (optional)'},gdrive:{folder_id:'Google Drive folder ID',service_account_json:'Service-account JSON for private Drive',api_key:'Google API key for public files'},joplin:{url:'Joplin URL (default http://localhost:41184)',token:'Joplin API token',notebook:'Notebook filter (optional)',tag:'Tag filter (optional)'},obsidian:{url:'Obsidian Local REST API URL',token:'Local REST API token',vault_dir:'Vault subdirectory (optional)',tag:'Tag filter (optional)'}};
 
-const META: Record<string, { label: string; icon: string; color: string; description: string; setup: string[] }> = {
-  github: {
-    label: 'GitHub', icon: '⟐', color: '#00D4AA',
-    description: 'Repository-backed corpus source already connected to Arkadia.',
-    setup: ['Repository and branch are controlled by the existing backend configuration.'],
-  },
-  gdrive: {
-    label: 'Google Drive', icon: '◈', color: '#6A9FD8',
-    description: 'Bring documents from a Drive folder into the existing corpus and Knowledge OS.',
-    setup: ['Create or choose a Drive folder.', 'For private Drive, use a Google service account and share the folder with it.', 'Configure the folder ID and credential on the Oracle/Render backend.'],
-  },
-  joplin: {
-    label: 'Joplin', icon: '◉', color: '#4CB3D4',
-    description: 'Sync notes from Joplin Desktop or a Joplin Server through its existing Data API source.',
-    setup: ['Enable Joplin Web Clipper service.', 'Copy the Joplin API token.', 'Configure the token and, for Joplin Server, the server URL on the Oracle/Render backend.'],
-  },
-  obsidian: {
-    label: 'Obsidian', icon: '◆', color: '#B08DE8',
-    description: 'Existing corpus adapter for an Obsidian vault.',
-    setup: ['Configure the vault path on the Oracle/Render backend.'],
-  },
-};
-
-export default function SourceSyncPanel() {
-  const { user } = useAuth();
-  const [sources, setSources] = useState<Source[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
-  const [expanded, setExpanded] = useState<string | null>(null);
-
-  async function load() {
-    try {
-      const res = await fetch(`${API_BASE}/api/sources`);
-      if (!res.ok) throw new Error(`Source status unavailable (${res.status})`);
-      const data = await res.json();
-      setSources(Array.isArray(data.sources) ? data.sources : []);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not read source status.');
-    } finally { setLoading(false); }
-  }
-
-  useEffect(() => { load(); }, []);
-
-  async function refresh() {
-    setRefreshing(true); setError(''); setMessage('');
-    try {
-      const headers: HeadersInit = user?.idToken ? { Authorization: `Bearer ${user.idToken}` } : {};
-      const res = await fetch(`${API_BASE}/api/corpus/refresh`, { method: 'POST', headers });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || `Refresh failed (${res.status})`);
-      setMessage(`Corpus refreshed · ${data.live ?? 0} live documents`);
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Corpus refresh failed.');
-    } finally { setRefreshing(false); }
-  }
-
-  const configured = sources.filter(s => s.configured).length;
-
-  return (
-    <section className="solspire-sync-panel">
-      <div className="solspire-sync-intro">
-        <div>
-          <div className="solspire-kicker">External sources · corpus bridge</div>
-          <h3>Bring the rest of your knowledge into SolSpire.</h3>
-          <p>
-            These are not new storage systems. They are existing corpus adapters that feed the same
-            Knowledge OS and searchable field. Configure a source once, then refresh the corpus to ingest it.
-          </p>
-        </div>
-        <div className="solspire-sync-summary">
-          <strong>{configured}/{sources.length || 4}</strong>
-          <span>sources configured</span>
-        </div>
-      </div>
-
-      {loading ? <div className="solspire-sync-state">Reading source configuration…</div> : (
-        <div className="solspire-source-list">
-          {sources.map(source => {
-            const m = META[source.name] || { label: source.name, icon: '○', color: '#C9A84C', description: 'Corpus source.', setup: [] };
-            const open = expanded === source.name;
-            return (
-              <article className={`solspire-source-card ${source.configured ? 'configured' : ''}`} key={source.name}>
-                <button className="solspire-source-head" type="button" onClick={() => setExpanded(open ? null : source.name)}>
-                  <span className="solspire-source-icon" style={{ color: m.color }}>{m.icon}</span>
-                  <span className="solspire-source-copy">
-                    <strong>{m.label}</strong>
-                    <small>{m.description}</small>
-                  </span>
-                  <span className={`solspire-source-status ${source.configured ? 'on' : ''}`}>
-                    <i /> {source.configured ? 'CONNECTED' : 'NOT CONNECTED'}
-                  </span>
-                  <span className="solspire-source-chevron">{open ? '−' : '+'}</span>
-                </button>
-                {open && <div className="solspire-source-detail">
-                  {source.name === 'github' && <div className="solspire-source-fact">{source.repo || 'Repository'} · {source.branch || 'main'}{source.authenticated ? ' · authenticated' : ''}</div>}
-                  <div className="solspire-kicker">Setup path</div>
-                  <ol>{m.setup.map((step, i) => <li key={i}>{step}</li>)}</ol>
-                  {!source.configured && source.name !== 'github' && (
-                    <div className="solspire-source-note">
-                      <strong>Important:</strong> SolSpire will not collect credentials into browser storage. These adapters currently read their configuration from the Oracle backend environment, so secrets stay server-side.
-                    </div>
-                  )}
-                  {source.configured && <div className="solspire-source-ready">✓ Source configuration detected. It will participate in the existing corpus refresh.</div>}
-                </div>}
-              </article>
-            );
-          })}
-        </div>
-      )}
-
-      <div className="solspire-sync-actions">
-        <button type="button" onClick={refresh} disabled={refreshing || loading}>{refreshing ? 'Refreshing corpus…' : '↻ Refresh corpus now'}</button>
-        <span>{message || error || 'Refresh is idempotent and uses the existing corpus + Knowledge OS pipeline.'}</span>
-      </div>
-    </section>
-  );
+export default function SourceSyncPanel(){
+ const {user}=useAuth(); const [sources,setSources]=useState<Source[]>([]); const [loading,setLoading]=useState(true); const [busy,setBusy]=useState<string|null>(null); const [expanded,setExpanded]=useState<string|null>(null); const [forms,setForms]=useState<Record<string,Record<string,string>>>({}); const [notice,setNotice]=useState(''); const [error,setError]=useState('');
+ const headers=()=>user?.idToken?{Authorization:`Bearer ${user.idToken}`}:{};
+ async function load(){try{const r=await fetch(`${API_BASE}/solspire/sources`,{headers:headers()});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.detail||`Source status unavailable (${r.status})`);setSources(d.sources||[]);}catch(e){setError(e instanceof Error?e.message:'Could not read sources.')}finally{setLoading(false)}}
+ useEffect(()=>{load()},[user?.idToken]);
+ const field=(s:string,k:string,v:string)=>setForms(p=>({...p,[s]:{...(p[s]||{}),[k]:v}}));
+ async function connect(s:Source){setBusy(s.source);setError('');setNotice('');try{const r=await fetch(`${API_BASE}/solspire/sources/${s.source}/connect`,{method:'POST',headers:{...headers(),'Content-Type':'application/json'},body:JSON.stringify(forms[s.source]||{})});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.detail||`Could not connect (${r.status})`);setNotice(`${s.label} connected. Credentials remain server-side.`);await load()}catch(e){setError(e instanceof Error?e.message:'Connection failed.')}finally{setBusy(null)}}
+ async function sync(s:Source){setBusy(s.source);setError('');setNotice('');try{const r=await fetch(`${API_BASE}/solspire/sources/${s.source}/sync`,{method:'POST',headers:headers()});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.detail||`Sync failed (${r.status})`);setNotice(`${s.label} synced · ${d.live??d.documents??0} live documents entered Knowledge OS.`);await load()}catch(e){setError(e instanceof Error?e.message:'Sync failed.')}finally{setBusy(null)}}
+ async function disconnect(s:Source){if(!confirm(`Disconnect ${s.label}? Stored credentials will be removed from the server.`))return;setBusy(s.source);try{const r=await fetch(`${API_BASE}/solspire/sources/${s.source}`,{method:'DELETE',headers:headers()});if(!r.ok)throw Error('Disconnect failed');setNotice(`${s.label} disconnected.`);await load()}catch(e){setError(e instanceof Error?e.message:'Disconnect failed.')}finally{setBusy(null)}}
+ const count=sources.filter(s=>s.configured).length;
+ return <section className="solspire-sync-panel"><div className="solspire-sync-intro"><div><div className="solspire-kicker">External sources · governed connection boundary</div><h3>Bring the rest of your knowledge into SolSpire.</h3><p>Connect sources without creating another database, graph, memory system, or file store. Sync flows through the existing CorpusManager and Knowledge OS pipeline.</p></div><div className="solspire-sync-summary"><strong>{count}/{sources.length||4}</strong><span>sources connected</span></div></div>{loading?<div className="solspire-sync-state">Reading source configuration…</div>:<div className="solspire-source-list">{sources.map(s=>{const m=META[s.source]||{icon:'○',color:'#C9A84C',fields:[]};const open=expanded===s.source;return <article className={`solspire-source-card ${s.configured?'configured':''}`} key={s.source}><button className="solspire-source-head" type="button" onClick={()=>setExpanded(open?null:s.source)}><span className="solspire-source-icon" style={{color:m.color}}>{m.icon}</span><span className="solspire-source-copy"><strong>{s.label}</strong><small>{s.description}</small></span><span className={`solspire-source-status ${s.configured?'on':''}`}><i/>{s.configured?'CONNECTED':'NOT CONNECTED'}</span><span className="solspire-source-chevron">{open?'−':'+'}</span></button>{open&&<div className="solspire-source-detail">{s.configured?<><div className="solspire-source-fact">{s.last_sync?`Last sync · ${new Date(s.last_sync).toLocaleString()} · ${s.last_sync_count||0} live documents`:'Connected · not synced yet'}</div><div className="solspire-source-actions"><button type="button" onClick={()=>sync(s)} disabled={busy===s.source}>{busy===s.source?'Syncing…':'↻ Sync now'}</button><button type="button" className="danger" onClick={()=>disconnect(s)} disabled={busy===s.source}>Disconnect</button></div></>:<><div className="solspire-kicker">Connection setup</div><div className="solspire-source-form">{m.fields.map(k=><textarea key={k} value={forms[s.source]?.[k]||''} onChange={e=>field(s.source,k,e.target.value)} placeholder={PH[s.source]?.[k]||k} rows={k==='service_account_json'?5:1} autoComplete="off"/>)}</div><p className="solspire-source-security">Secrets go only to the authenticated backend and are encrypted at rest. They are never returned to the browser.</p><button className="solspire-source-primary" type="button" onClick={()=>connect(s)} disabled={busy===s.source}>{busy===s.source?'Connecting…':`Connect ${s.label}`}</button></>}</div>}</article>})}</div>}{(notice||error)&&<div className={`solspire-sync-feedback ${error?'error':''}`}>{error||notice}</div>}<div className="solspire-sync-footer"><span>One ingestion path.</span><span>Source → CorpusManager → Knowledge OS → SolSpire.</span></div></section>;
 }
