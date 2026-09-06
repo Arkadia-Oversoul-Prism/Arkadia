@@ -1,5 +1,2 @@
-/**
- * ReasoMate — canonical social field entry point.
- * The field UI lives in ReasoMateField; this file preserves the existing route.
- */
-export { default } from './ReasoMateField'
+/** ReasoMate is the relationship view of the canonical Social Field. */
+export { default } from './SocialFieldPage'
