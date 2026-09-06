@@ -1,5 +1,7 @@
 name: _diagnose_blank_frontend
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
@@ -30,7 +32,6 @@ jobs:
             console.log(`[page] status=${response?.status()} url=${page.url()}`);
             console.log(`[body] ${((await page.locator('body').innerText()).slice(0,2000) || '<EMPTY>')}`);
             console.log(`[root children] ${await page.locator('#root').locator('> *').count()}`);
-            await page.screenshot({path:'/tmp/arkadia.png',fullPage:true});
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
