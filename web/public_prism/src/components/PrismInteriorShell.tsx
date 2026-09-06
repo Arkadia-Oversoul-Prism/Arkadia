@@ -6,7 +6,7 @@ type View = string;
 
 type Props = {
   currentView: View;
-  onNavigate: (view: View) => void;
+  onNavigate: (view: string) => void;
   children: React.ReactNode;
 };
 
@@ -114,6 +114,9 @@ function SurfaceButton({
 /**
  * Authenticated NovaNet / Nexus interior shell.
  * Presentation orientation only — identity from AuthContext; no mutation authority.
+ *
+ * This shell is the sole authenticated chrome. ArkadiaNavigation remains the
+ * public/product-entry shell, but must not visually compete with this interior.
  */
 export default function PrismInteriorShell({ currentView, onNavigate, children }: Props) {
   const { user, profile, codex, isAuthenticated } = useAuth();
@@ -129,15 +132,23 @@ export default function PrismInteriorShell({ currentView, onNavigate, children }
   const activePrimary = resolvePrimary(currentView);
 
   return (
-    <div data-testid="prism-interior-shell" style={{ minHeight: 'calc(100vh - 52px)' }}>
+    <div
+      data-testid="prism-interior-shell"
+      style={{
+        minHeight: '100vh',
+        marginTop: -52,
+        position: 'relative',
+        zIndex: 60,
+      }}
+    >
       <div
         style={{
           position: 'sticky',
-          top: 52,
+          top: 0,
           zIndex: 30,
           padding: '8px 14px 9px',
           borderBottom: '1px solid rgba(201,168,76,.10)',
-          background: 'rgba(8,9,17,.90)',
+          background: 'rgba(8,9,17,.94)',
           backdropFilter: 'blur(22px)',
           WebkitBackdropFilter: 'blur(22px)',
         }}
