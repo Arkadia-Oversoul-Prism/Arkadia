@@ -1,0 +1,61 @@
+name: Auth transport finalize
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: ${{ !contains(github.event.head_commit.message, 'auth transport closure result') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Remove secondary Knowledge auth owner
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          root = Path('web/public_prism/src')
+
+          p = root / 'lib/knowledgeApi.ts'
+          text = p.read_text(encoding='utf-8')
+          text = re.sub(r"\n/\*\* Optional Bearer token for user-scoped Knowledge OS reads/writes\. \*/\nlet _authToken: string \| null = null;\nexport function setKnowledgeAuthToken\(token: string \| null\) \{\n  _authToken = token;\n\}\n", '\n', text)
+          text = re.sub(r"\n  if \(_authToken && !headers\['Authorization'\]\) \{\n    headers\['Authorization'\] = `Bearer \$\{_authToken\}`;\n  \}", '', text)
+          p.write_text(text, encoding='utf-8')
+
+          for rel in ['pages/PersonalEchofeild.tsx', 'components/solspire/SolSpireExperience.tsx']:
+              p = root / rel
+              text = p.read_text(encoding='utf-8')
+              text = text.replace(', setKnowledgeAuthToken', '')
+              text = text.replace('setKnowledgeAuthToken,', '')
+              text = re.sub(r"\n\s*useEffect\(\(\) => \{\s*setKnowledgeAuthToken\(user\?\.idToken \?\? null\);\s*return \(\) => setKnowledgeAuthToken\(null\);\s*\}, \[user\?\.idToken\]\);", '', text)
+              text = re.sub(r"\n\s*useEffect\(\(\) => \{setKnowledgeAuthToken\(user\?\.idToken\?\?null\);\},\[user\?\.idToken\]\);", '', text)
+              p.write_text(text, encoding='utf-8')
+              print('updated', rel)
+      - name: Validate single authentication transport
+        shell: bash
+        run: |
+          set -e
+          if grep -RIn --include='*.ts' --include='*.tsx' 'setKnowledgeAuthToken' web/public_prism/src; then exit 1; fi
+          if grep -RIn --include='*.ts' --include='*.tsx' -E "localStorage\.(getItem|setItem|removeItem)\(['\"]arkadia_token['\"]\)" web/public_prism/src --exclude='apiClient.ts'; then exit 1; fi
+          if grep -RIn --include='*.ts' --include='*.tsx' -E 'Authorization[[:space:]]*:[[:space:]]*[^/]*Bearer' web/public_prism/src --exclude='apiClient.ts'; then exit 1; fi
+      - name: Build frontend
+        working-directory: web/public_prism
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm build
+      - name: Remove finalize workflow and commit
+        shell: bash
+        run: |
+          rm -f .github/workflows/_auth_transport_finalize.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix: auth transport closure result'
+          git push origin main
