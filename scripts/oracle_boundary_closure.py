@@ -54,13 +54,13 @@ def migrate_file(path: Path, text: str) -> str:
     text = strip_auth_headers(text)
     text = re.sub(r"localStorage\.getItem\(['\"]arkadia_token['\"]\)\s*\|\|\s*['\"]['\"]", "''", text)
     text = re.sub(r"localStorage\.getItem\(['\"]arkadia_token['\"]\)", "null", text)
-    return text if text != original else original
+    return text
 
 
 def migrate_project_dashboard(path: Path, text: str) -> str:
     text = ensure_import(text, "import { apiRequest } from '../lib/apiClient';")
     text = re.sub(
-        r"\nconst ORACLE = \(import\.meta\.env\.VITE_API_BASE_URL \|\| 'http://localhost:8000'\)\.replace\(/\\/\$, ''\);\n",
+        r"\nconst ORACLE = \(API_BASE_CONFIG \|\| 'http://localhost:8000'\)\.replace\(/\\/\$, ''\);\n",
         '\n',
         text,
         count=1,
