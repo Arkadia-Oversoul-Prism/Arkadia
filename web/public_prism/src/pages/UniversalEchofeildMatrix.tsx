@@ -1,67 +1,35 @@
 /**
- * Universal Echofeild Crystal Matrix
+ * Universal EchoField Crystal Matrix.
  *
- * Unified knowledge/identity field. Public canonical Scrolls and the
- * authenticated Personal Codex + EchoField remain views over their existing
- * data substrates. The Master Profile is the canonical identity cockpit at
- * the root of the personal side.
+ * Public Spiral Codex and authenticated Personal Codex · EchoField are two
+ * views over their existing substrates. The personal side has one canonical
+ * root: Master Profile / longitudinal identity spine.
  */
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SpiralCodexFeed from './SpiralCodexFeed';
-import PersonalEchofeild from './PersonalEchofeild';
 import MasterProfile from './MasterProfile';
 import { useAuth } from '../contexts/AuthContext';
 
-type View = 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
-  | 'nexus' | 'encyclopedia' | 'spiral-codex' | 'loops' | 'grove' | 'larder' | 'novanet'
-  | 'ims' | 'distribute' | 'offerings' | 'aic' | 'pulse' | 'settings' | 'solspire'
-  | 'knowledge-os' | 'reasomate' | 'personal-echofeild' | 'echofeild-matrix';
-
+type View = 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard' | 'nexus' | 'encyclopedia' | 'spiral-codex' | 'loops' | 'grove' | 'larder' | 'novanet' | 'ims' | 'distribute' | 'offerings' | 'aic' | 'pulse' | 'settings' | 'solspire' | 'knowledge-os' | 'reasomate' | 'personal-echofeild' | 'echofeild-matrix';
 type Mode = 'public' | 'personal';
 
 export default function UniversalEchofeildMatrix({ onNavigate }: { onNavigate: (v: View) => void }) {
   const { isAuthenticated } = useAuth();
-  const [mode, setMode] = useState<Mode>('public');
-
-  return (
-    <div style={{ minHeight: '60vh', background: 'transparent' }} data-testid="echofeild-matrix">
-      <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'rgba(6,7,13,0.88)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-          <div style={{ flexShrink: 0 }}>
-            <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8.5, letterSpacing: '0.28em', textTransform: 'uppercase', color: 'rgba(176,141,232,0.5)', margin: 0 }}>⬡ Universal Echofeild</p>
-            <h1 style={{ fontFamily: 'serif', fontSize: 19, fontWeight: 400, color: '#E8E8E8', margin: '2px 0 0', letterSpacing: '0.02em' }}>Crystal Matrix</h1>
-          </div>
-          <div style={{ flex: 1 }} />
-          <div style={{ display: 'flex', gap: 4, padding: 3, background: 'rgba(255,255,255,0.03)', borderRadius: 9, border: '1px solid rgba(255,255,255,0.05)' }}>
-            {(['public', 'personal'] as const).map(m => {
-              const active = mode === m;
-              const locked = m === 'personal' && !isAuthenticated;
-              const color = m === 'public' ? '#C9A84C' : '#00D4AA';
-              return (
-                <button key={m} onClick={() => setMode(m)} disabled={locked} style={{ padding: '8px 16px', borderRadius: 7, cursor: locked ? 'not-allowed' : 'pointer', background: active ? `${color}14` : 'transparent', border: 'none', fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: active ? color : 'rgba(232,232,232,0.4)', opacity: locked ? .55 : 1, transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span>{m === 'public' ? '◈' : '✦'}</span>
-                  {m === 'public' ? 'Spiral Codex Live' : 'Personal Codex · EchoField'}
-                  {locked && <span style={{ fontSize: 8, opacity: 0.6 }}>🔒</span>}
-                </button>
-              );
-            })}
-          </div>
+  const [mode, setMode] = useState<Mode>('personal');
+  return <div style={{ minHeight: '60vh', background: 'transparent' }} data-testid="echofeild-matrix">
+    <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'rgba(6,7,13,.88)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,.05)' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <div><p style={{ fontFamily: 'monospace', fontSize: 8.5, letterSpacing: '.28em', textTransform: 'uppercase', color: 'rgba(176,141,232,.5)', margin: 0 }}>⬡ Personal Field</p><h1 style={{ fontFamily: 'serif', fontSize: 19, fontWeight: 400, color: '#E8E8E8', margin: '2px 0 0' }}>Codex · EchoField</h1></div>
+        <div style={{ flex: 1 }} />
+        <div style={{ display: 'flex', gap: 4, padding: 3, background: 'rgba(255,255,255,.03)', borderRadius: 9, border: '1px solid rgba(255,255,255,.05)' }}>
+          <button onClick={() => setMode('public')} style={{ padding: '8px 16px', borderRadius: 7, cursor: 'pointer', background: mode === 'public' ? 'rgba(201,168,76,.08)' : 'transparent', border: 'none', fontFamily: 'monospace', fontSize: 9, letterSpacing: '.15em', textTransform: 'uppercase', color: mode === 'public' ? '#C9A84C' : 'rgba(232,232,232,.4)' }}>◈ Spiral Codex Live</button>
+          <button onClick={() => isAuthenticated && setMode('personal')} disabled={!isAuthenticated} style={{ padding: '8px 16px', borderRadius: 7, cursor: isAuthenticated ? 'pointer' : 'not-allowed', background: mode === 'personal' ? 'rgba(0,212,170,.1)' : 'transparent', border: 'none', fontFamily: 'monospace', fontSize: 9, letterSpacing: '.15em', textTransform: 'uppercase', color: mode === 'personal' ? '#00D4AA' : 'rgba(232,232,232,.4)', opacity: isAuthenticated ? 1 : .5 }}>✦ Personal Codex · EchoField</button>
         </div>
       </div>
-
-      <AnimatePresence mode="wait">
-        {mode === 'public' ? (
-          <motion.div key="public" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
-            <SpiralCodexFeed onBack={() => onNavigate('home')} />
-          </motion.div>
-        ) : (
-          <motion.div key="personal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
-            <MasterProfile />
-            <PersonalEchofeild onNavigate={onNavigate} />
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
-  );
+    <AnimatePresence mode="wait">
+      {mode === 'public' ? <motion.div key="public" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: .25 }}><SpiralCodexFeed onBack={() => onNavigate('home')} /></motion.div> : <motion.div key="personal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: .25 }}><MasterProfile /></motion.div>}
+    </AnimatePresence>
+  </div>;
 }
