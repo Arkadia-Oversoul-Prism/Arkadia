@@ -19,7 +19,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { ORACLE } from '../lib/apiConfig';
 import {
-  getPersonalField, getNotes, updateNote, deleteNote, setKnowledgeAuthToken,
+  getPersonalField, getNotes, updateNote, deleteNote,
   GraphNode, GraphEdge, TimelineEvent, Note,
 } from '../lib/knowledgeApi';
 import ScrollListenButton from '../components/ScrollListenButton';
@@ -75,8 +75,7 @@ export default function PersonalEchofeild({ onNavigate }: { onNavigate: (v: View
 
   // P0-E: attach Firebase ID token so Knowledge OS returns THIS user's scoped data
   useEffect(() => {
-    setKnowledgeAuthToken(user?.idToken ?? null);
-    return () => setKnowledgeAuthToken(null);
+    return () =>
   }, [user?.idToken]);
 
   useEffect(() => {
@@ -155,7 +154,6 @@ export default function PersonalEchofeild({ onNavigate }: { onNavigate: (v: View
       <PersonalUploadZone onIngested={() => {
         // refresh notes after capture without full page reload
         if (user?.idToken) {
-          setKnowledgeAuthToken(user.idToken);
           getNotes({ limit: 40 }).then(setNotes).catch(() => {});
         }
       }} />

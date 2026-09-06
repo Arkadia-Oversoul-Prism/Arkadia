@@ -8,20 +8,11 @@ import { API_BASE as API_BASE_CFG } from './apiConfig';
 
 const API_BASE = API_BASE_CFG.replace(/\/$/, '');
 
-/** Optional Bearer token for user-scoped Knowledge OS reads/writes. */
-let _authToken: string | null = null;
-export function setKnowledgeAuthToken(token: string | null) {
-  _authToken = token;
-}
-
 async function fetchJSON<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options?.headers as Record<string, string> || {}),
   };
-  if (_authToken && !headers['Authorization']) {
-    headers['Authorization'] = `Bearer ${_authToken}`;
-  }
   const res = await apiFetch(`${path}`, {
     ...options,
     headers,
