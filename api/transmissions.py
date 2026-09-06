@@ -190,3 +190,31 @@ async def delete_transmission(post_id: str, request: Request):
     posts = [p for p in posts if p["id"] != post_id]
     _save(posts)
     return {"deleted": post_id}
+
+
+@router.delete("/api/me")
+async def delete_my_server_profile(request: Request):
+    """Remove server-owned public profile and authored transmissions before Firebase deletion."""
+    user = await _get_current_user(request)
+    uid = user.get("uid") if user else None
+    if not uid:
+        raise HTTPException(status_code=401, detail="authentication required")
+
+    try:
+        from api.auth import _profiles_dir, _username_index_path, _load_username_index, _save_username_index, load_user_profile_store
+        profile = load_user_profile_store(uid) or {}
+        username = (profile.get("username") or "").strip().lower()
+        profile_path = os.path.join(_profiles_dir(), f"{uid}.json")
+        if os.path.exists(profile_path):
+            os.remove(profile_path)
+        if username:
+            index = _load_username_index()
+            if index.get(username) == uid:
+                index.pop(username, None)
+                _save_username_index(index)
+    except Exception:
+        logger.exception("[ACCOUNT] profile cleanup failed for %s", uid)
+
+    posts = [p for p in _load() if p.get("owner_uid") != uid]
+    _save(posts)
+    return {"deleted": True, "uid": uid}
