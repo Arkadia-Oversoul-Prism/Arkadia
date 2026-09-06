@@ -34,13 +34,13 @@ def migrate_file(path: Path, text: str) -> str:
 
     needs_api_fetch = False
     replacements = [
-        (r'fetch\(`\$\{API_BASE\}([^`]*)`', r'apiFetch(`\1`)'),
-        (r'fetch\(`\$\{ORACLE\}([^`]*)`', r'apiFetch(`\1`)'),
-        (r'fetch\(API_BASE\s*\+\s*([\'\"`][^\n)]*)', r'apiFetch(\1)'),
-        (r'fetch\(([/\'\"`]api/[^\n)]*)', r'apiFetch(\1)'),
-        (r'fetch\(([/\'\"`]solspire/[^\n)]*)', r'apiFetch(\1)'),
-        (r'fetch\(([/\'\"`]oracle[^\n)]*)', r'apiFetch(\1)'),
-        (r'fetch\(([/\'\"`]status[^\n)]*)', r'apiFetch(\1)'),
+        (r'fetch\(`\$\{API_BASE\}([^`]*)`', r'apiFetch(`\1`'),
+        (r'fetch\(`\$\{ORACLE\}([^`]*)`', r'apiFetch(`\1`'),
+        (r'fetch\(API_BASE\s*\+\s*([\'\"`][^\n)]*)', r'apiFetch(\1'),
+        (r'fetch\(([/\'\"`]api/[^\n)]*)', r'apiFetch(\1'),
+        (r'fetch\(([/\'\"`]solspire/[^\n)]*)', r'apiFetch(\1'),
+        (r'fetch\(([/\'\"`]oracle[^\n)]*)', r'apiFetch(\1'),
+        (r'fetch\(([/\'\"`]status[^\n)]*)', r'apiFetch(\1'),
     ]
     for pattern, replacement in replacements:
         new = re.sub(pattern, replacement, text)
@@ -58,14 +58,8 @@ def migrate_file(path: Path, text: str) -> str:
 
 def migrate_project_dashboard(path: Path, text: str) -> str:
     text = ensure_import(text, "import { apiRequest } from '../lib/apiClient';")
-    text = text.replace(
-        "const ORACLE = (API_BASE_CONFIG || 'http://localhost:8000').replace(/\\/$/, '');\n",
-        '',
-    )
-    text = text.replace(
-        "const ORACLE = (API_BASE_CONFIG || 'http://localhost:8000').replace(/\\/$/, '');",
-        '',
-    )
+    text = text.replace("const ORACLE = (API_BASE_CONFIG || 'http://localhost:8000').replace(/\\/$/, '');\n", '')
+    text = text.replace("const ORACLE = (API_BASE_CONFIG || 'http://localhost:8000').replace(/\\/$/, '');", '')
     legacy = re.search(r"// ── API ─+[\s\S]*?// ── Helpers ─+", text)
     if legacy:
         replacement = """// ── API ───────────────────────────────────────────────────────────────────────
@@ -79,20 +73,9 @@ async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> 
 
 // ── Helpers ───────────────────────────────────────────────────────────────────"""
         text = text[:legacy.start()] + replacement + text[legacy.end():]
-    text = text.replace(
-        "const base = `${ORACLE}/solspire/projects/${project.id}/weaver`;",
-        "const base = `/solspire/projects/${project.id}/weaver`;",
-    )
-    text = re.sub(
-        r"\n  const token = \(\) => localStorage\.getItem\('arkadia_token'\) \|\| '';\n  const authHeaders = \(\) => \(\{[\s\S]*?\n  \}\);\n",
-        '\n',
-        text,
-        count=1,
-    )
-    text = text.replace(
-        "fetch(`${base}/capabilities`, { headers: { Authorization: `Bearer ${token()}` } })",
-        "apiFetch(`${base}/capabilities`)",
-    )
+    text = text.replace("const base = `${ORACLE}/solspire/projects/${project.id}/weaver`;", "const base = `/solspire/projects/${project.id}/weaver`;")
+    text = re.sub(r"\n  const token = \(\) => localStorage\.getItem\('arkadia_token'\) \|\| '';\n  const authHeaders = \(\) => \(\{[\s\S]*?\n  \}\);\n", '\n', text, count=1)
+    text = text.replace("fetch(`${base}/capabilities`, { headers: { Authorization: `Bearer ${token()}` } })", "apiFetch(`${base}/capabilities`)")
     text = re.sub(r"fetch\(`(\$\{base\}|\$\{execBase\})", r"apiFetch(`\1", text)
     text = strip_auth_headers(text)
     text = text.replace("localStorage.getItem('arkadia_token') || ''", "''")
