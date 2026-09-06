@@ -1,0 +1,44 @@
+name: _mount_project_graph
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/_mount_project_graph.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Mount graph surface
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('web/public_prism/src/pages/ProjectDashboard.tsx')
+          s=p.read_text()
+          marker="import { motion, AnimatePresence } from 'framer-motion';\n"
+          s=s.replace(marker, marker+"import ProjectKnowledgeGraph from '../components/solspire/ProjectKnowledgeGraph';\n",1)
+          old="""      {graph && (\n        <div style={{ marginBottom: 12 }}>\n          Graph (DERIVED): {graph.counts?.nodes} nodes / {graph.counts?.edges} edges\n          <pre style={{ fontSize: 10, maxHeight: 160, overflow: 'auto', background: '#0a0b14', padding: 8 }}>{JSON.stringify((graph.edges || []).slice(0, 12), null, 2)}</pre>\n        </div>\n      )}"""
+          new="""      {graph && <ProjectKnowledgeGraph projectId={project.id} />}"""
+          if old not in s:
+              raise SystemExit('Knowledge graph mount target not found')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+      - name: Verify graph mount
+        run: |
+          grep -q "ProjectKnowledgeGraph" web/public_prism/src/pages/ProjectDashboard.tsx
+          test -f web/public_prism/src/components/solspire/ProjectKnowledgeGraph.tsx
+      - name: Commit source changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add web/public_prism/src/pages/ProjectDashboard.tsx web/public_prism/src/components/solspire/ProjectKnowledgeGraph.tsx
+          git commit -m 'ui: mount interactive project knowledge graph'
+          git push
+      - name: Remove temporary workflow
+        run: |
+          git rm .github/workflows/_mount_project_graph.yml
+          git commit -m 'chore: remove temporary project graph workflow'
+          git push
