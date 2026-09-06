@@ -39,7 +39,9 @@ def test_w8_anonymous_lab_state_can_cross_the_auth_boundary():
     assert "sessionStorage" in challenge
     assert "LoginPage" in gate
     assert "Create free Arkadia profile" in gate
-    assert "Authorization: `Bearer ${user.idToken}`" in gate
+    assert "apiFetch" in gate
+    assert "../lib/apiClient" in gate
+    assert "Authorization: `Bearer ${user.idToken}`" not in gate
 
 
 def test_w8_diagnostic_portfolio_is_attached_to_the_same_identity():
