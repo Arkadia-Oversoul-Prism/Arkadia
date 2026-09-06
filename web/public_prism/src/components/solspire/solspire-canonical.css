@@ -1,0 +1,128 @@
+/*
+ * SolSpire canonical UI consolidation
+ *
+ * This layer intentionally sits above the legacy visual rules. It does not
+ * replace the SolSpire language; it removes the remaining "stitched together"
+ * feel between the workspace shell, lenses, overlays and mobile navigation.
+ */
+
+.solspire-workspace {
+  --ss-gutter: clamp(16px, 3vw, 32px);
+  --ss-panel: rgba(16, 18, 31, .78);
+  --ss-panel-strong: rgba(18, 21, 34, .9);
+  --ss-line: rgba(255, 255, 255, .075);
+  --ss-soft: rgba(233, 231, 223, .42);
+  min-height: 100dvh;
+}
+
+.solspire-workspace ::selection { background: rgba(0, 212, 170, .22); color: #E9E7DF; }
+
+.solspire-canonical-header {
+  min-height: 58px;
+  padding-left: max(var(--ss-gutter), env(safe-area-inset-left));
+  padding-right: max(var(--ss-gutter), env(safe-area-inset-right));
+}
+
+.solspire-header-actions { min-width: 0; }
+.solspire-identity { max-width: min(24vw, 220px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.solspire-identity .solspire-online-dot { flex: 0 0 auto; }
+
+.solspire-body { min-height: calc(100dvh - 116px); }
+.solspire-sidebar { scrollbar-width: thin; scrollbar-color: rgba(201,168,76,.16) transparent; }
+.solspire-main { padding-left: var(--ss-gutter); padding-right: var(--ss-gutter); }
+
+.solspire-context-bar { position: sticky; top: 58px; z-index: 20; background: rgba(10,11,18,.72); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.solspire-context-bar > div { min-width: 0; overflow: hidden; }
+.solspire-context-bar .solspire-mono { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.solspire-lens-heading { min-height: 88px; }
+.solspire-content { max-width: 1120px; margin: 0 auto; }
+
+.solspire-object,
+.solspire-attention-note,
+.solspire-sync-panel,
+.solspire-search-panel,
+.solspire-arkana-panel {
+  border-color: var(--ss-line);
+}
+
+.solspire-object:focus-visible,
+.solspire-nav-button:focus-visible,
+.solspire-mobile-bottom button:focus-visible,
+.solspire-mobile-menu button:focus-visible,
+.solspire-context-bar button:focus-visible,
+.solspire-header-actions button:focus-visible {
+  outline: 2px solid rgba(0,212,170,.72);
+  outline-offset: 2px;
+}
+
+.solspire-mobile-bottom {
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  background: rgba(8,10,17,.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.solspire-mobile-bottom button { min-height: 54px; }
+.solspire-mobile-bottom button.active { color: #00D4AA; }
+
+.solspire-mobile-menu {
+  max-height: calc(100dvh - 72px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+.solspire-overlay { overscroll-behavior: contain; }
+.solspire-search-panel,
+.solspire-arkana-panel { overscroll-behavior: contain; }
+
+@media (max-width: 900px) {
+  .solspire-sidebar { width: 196px; }
+  .solspire-nav-button { padding: 9px 7px; gap: 8px; }
+  .solspire-nav-button small { display: none; }
+  .solspire-main { padding-left: 20px; padding-right: 20px; }
+  .solspire-identity { max-width: 150px; }
+}
+
+@media (max-width: 700px) {
+  .solspire-workspace { padding-top: 56px; }
+  .solspire-canonical-header { height: 56px; min-height: 56px; padding-left: 12px; padding-right: 12px; }
+  .solspire-brand { min-width: 0; }
+  .solspire-brand-sub { display: none; }
+  .solspire-header-actions { gap: 5px; }
+  .solspire-quiet-button span,
+  .solspire-arkana-button span,
+  .solspire-identity { display: none; }
+  .solspire-quiet-button,
+  .solspire-arkana-button { width: 34px; height: 34px; padding: 0; display: grid; place-items: center; }
+  .solspire-menu-button { width: 34px; height: 34px; }
+
+  .solspire-body { min-height: auto; display: block; }
+  .solspire-sidebar { display: none; }
+  .solspire-main { padding: 0 14px calc(86px + env(safe-area-inset-bottom)); }
+  .solspire-context-bar { top: 56px; min-height: 42px; gap: 8px; }
+  .solspire-context-bar > div { flex: 1; }
+  .solspire-context-bar button { max-width: 44%; text-align: right; line-height: 1.3; }
+  .solspire-lens-heading { min-height: 0; padding: 20px 0 14px; align-items: flex-start; }
+  .solspire-lens-heading h1 { font-size: 25px; }
+  .solspire-lens-actions { display: none; }
+  .solspire-content { padding-top: 16px; }
+
+  .solspire-project-context { top: 56px; padding: 8px 12px; }
+  .solspire-project-context > div strong { max-width: 55vw; }
+
+  .solspire-overlay { padding: max(66px, calc(56px + env(safe-area-inset-top))) 10px 10px; }
+  .solspire-search-panel,
+  .solspire-arkana-panel { max-height: calc(100dvh - 76px); border-radius: 14px; }
+  .solspire-search-panel { padding: 16px; }
+  .solspire-overlay-head h2 { font-size: 23px; }
+
+  .solspire-mobile-menu { top: 61px; right: 8px; width: min(340px, calc(100vw - 16px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .solspire-workspace *,
+  .solspire-workspace *::before,
+  .solspire-workspace *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+}
