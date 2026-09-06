@@ -27,7 +27,6 @@ def strip_auth_headers(text: str) -> str:
 
 
 def migrate_file(path: Path, text: str) -> str:
-    original = text
     if 'import.meta.env.VITE_API_BASE_URL' in text or 'import.meta.env.VITE_API_URL' in text:
         text = text.replace('import.meta.env.VITE_API_BASE_URL', 'API_BASE_CONFIG')
         text = text.replace('import.meta.env.VITE_API_URL', 'API_BASE_CONFIG')
@@ -59,11 +58,13 @@ def migrate_file(path: Path, text: str) -> str:
 
 def migrate_project_dashboard(path: Path, text: str) -> str:
     text = ensure_import(text, "import { apiRequest } from '../lib/apiClient';")
-    text = re.sub(
-        r"\nconst ORACLE = \(API_BASE_CONFIG \|\| 'http://localhost:8000'\)\.replace\(/\\/\$, ''\);\n",
-        '\n',
-        text,
-        count=1,
+    text = text.replace(
+        "const ORACLE = (API_BASE_CONFIG || 'http://localhost:8000').replace(/\\/$/, '');\n",
+        '',
+    )
+    text = text.replace(
+        "const ORACLE = (API_BASE_CONFIG || 'http://localhost:8000').replace(/\\/$/, '');",
+        '',
     )
     legacy = re.search(r"// ── API ─+[\s\S]*?// ── Helpers ─+", text)
     if legacy:
