@@ -1105,14 +1105,16 @@ interface Props {
   project: Project;
   onBack: () => void;
   onProjectUpdated: (p: Project) => void;
+  initialTab?: ProjTab;
 }
 
-export default function ProjectDashboard({ project, onBack, onProjectUpdated }: Props) {
-  const [tab, setTab] = useState<ProjTab>('overview');
+export default function ProjectDashboard({ project, onBack, onProjectUpdated, initialTab = 'overview' }: Props) {
+  const [tab, setTab] = useState<ProjTab>(initialTab);
   const [currentProject, setCurrentProject] = useState(project);
   const tabBarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setCurrentProject(project); }, [project]);
+  useEffect(() => { setTab(initialTab); }, [initialTab, project.id]);
 
   // Scroll active tab into view on mobile
   useEffect(() => {
