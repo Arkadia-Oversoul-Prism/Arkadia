@@ -1,0 +1,36 @@
+name: _diagnose_blank_frontend
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright
+        run: |
+          npm init -y
+          npm install playwright
+          npx playwright install --with-deps chromium
+      - name: Probe production
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          (async()=>{
+            const browser = await chromium.launch({headless:true});
+            const page = await browser.newPage();
+            page.on('console', m => console.log(`[console:${m.type()}] ${m.text()}`));
+            page.on('pageerror', e => console.log(`[pageerror] ${e.stack || e.message}`));
+            page.on('requestfailed', r => console.log(`[requestfailed] ${r.url()} :: ${r.failure()?.errorText}`));
+            const response = await page.goto('https://arkadia-prism.vercel.app/', {waitUntil:'networkidle', timeout:60000});
+            console.log(`[page] status=${response?.status()} url=${page.url()}`);
+            console.log(`[body] ${((await page.locator('body').innerText()).slice(0,2000) || '<EMPTY>')}`);
+            console.log(`[root children] ${await page.locator('#root').locator('> *').count()}`);
+            await page.screenshot({path:'/tmp/arkadia.png',fullPage:true});
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
