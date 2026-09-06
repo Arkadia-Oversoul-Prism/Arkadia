@@ -50,10 +50,19 @@ function classify(status: number): ApiFailureKind {
   return 'UNKNOWN';
 }
 
-export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+function prepareHeaders(options: RequestInit): Headers {
   const headers = new Headers(options.headers);
   if (authToken && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${authToken}`);
-  if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  // FormData must retain the browser-generated multipart boundary. Only assign
+  // JSON content type for ordinary request bodies that do not provide a type.
+  if (options.body && !headers.has('Content-Type') && !(options.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json');
+  }
+  return headers;
+}
+
+export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const headers = prepareHeaders(options);
 
   let response: Response;
   try {
@@ -92,9 +101,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
  * propagation remain owned here; consumers do not resolve either themselves.
  */
 export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
-  const headers = new Headers(options.headers);
-  if (authToken && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${authToken}`);
-  if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  const headers = prepareHeaders(options);
 
   try {
     return await fetch(`${API_BASE}${path}`, { ...options, headers });
