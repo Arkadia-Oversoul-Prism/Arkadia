@@ -24,6 +24,7 @@ import OfferingsPage from './pages/OfferingsPage';
 import AICDiagnosticPage from './pages/AICDiagnosticPage';
 import ArkadianPulse from './pages/ArkadianPulse';
 import SettingsPage from './pages/SettingsPage';
+import AccountPage from './pages/AccountPage';
 import SolSpireConsole from './pages/SolSpireConsole';
 import KnowledgeOSPage from './pages/knowledge/KnowledgeOSPage';
 import ReasoMatePage from './pages/ReasoMatePage';
@@ -33,7 +34,7 @@ import UniversalEchofeildMatrix from './pages/UniversalEchofeildMatrix';
 type View =
   | 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
   | 'nexus' | 'encyclopedia' | 'spiral-codex' | 'loops' | 'grove' | 'larder' | 'novanet'
-  | 'ims' | 'distribute' | 'offerings' | 'aic' | 'pulse' | 'settings' | 'sci' | 'solspire'
+  | 'ims' | 'distribute' | 'offerings' | 'aic' | 'pulse' | 'settings' | 'account' | 'sci' | 'solspire'
   | 'knowledge-os' | 'reasomate' | 'personal-echofeild' | 'echofeild-matrix' | 'challenge';
 
 function FieldPulse() {
@@ -76,8 +77,9 @@ function AppInner() {
     {view === 'about' && <motion.div key="about" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}><AboutArkadia /></motion.div>}
     {view === 'login' && <motion.div key="login" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}><NodeEntry onEnterNovaNet={() => handleNavigate('novanet')} onBack={() => handleNavigate('home')} onAICComplete={setAicSeed} /></motion.div>}
     {view === 'codex' && <motion.div key="codex" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}><SolSpireConsole onNavigate={handleNavigate} initialSection="codex" /></motion.div>}
-    {view === 'pulse' && <motion.div key="pulse" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}><ArkadianPulse /></motion.div>}
+    {view === 'pulse' && <motion.div key="pulse" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}><ArkadianPulse /></motion.div>}
     {view === 'settings' && <motion.div key="settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }} style={wrap}><SettingsPage /></motion.div>}
+    {view === 'account' && <motion.div key="account" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><AccountPage /></motion.div>}
     {view === 'sci' && <motion.div key="sci" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><SpiralCommandInterface onNavigate={handleNavigate} /></motion.div>}
     {view === 'solspire' && <motion.div key="solspire" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><SolSpireConsole onNavigate={handleNavigate} /></motion.div>}
     {view === 'knowledge-os' && <motion.div key="knowledge-os" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><SolSpireConsole onNavigate={handleNavigate} initialSection="knowledge" /></motion.div>}
