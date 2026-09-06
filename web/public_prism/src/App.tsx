@@ -38,7 +38,7 @@ function routeForView(view: View, section?: SolSpireLens): string {
   if (view === 'solspire') return section && section !== 'overview' ? `/solspire/${section}` : '/solspire';
   const routes: Partial<Record<View, string>> = {
     home: '/', gate: '/living-gate', commune: '/oracle', about: '/about', login: '/login',
-    novanet: '/nexus', ims: '/nexus/ims', grove: '/nexus/grove', larder: '/nexus/larder', distribute: '/nexus/distribution',
+    novanet: '/nexus', ims: '/nexus/ims', grove: '/nexus/grove', larder: '/nexus/larder', distribute: '/nexus/distribution', encyclopedia: '/encyclopedia', 'spiral-codex': '/spiral-codex',
     offerings: '/offerings', challenge: '/future-skills', reset: '/reset', pulse: '/pulse',
   };
   return routes[view] || '/';
@@ -66,7 +66,7 @@ function resolvePath(pathname: string): RouteState {
   const direct: Record<string, View> = {
     '/': 'home', '/home': 'home', '/living-gate': 'gate', '/gate': 'gate', '/oracle': 'commune', '/commune': 'commune',
     '/about': 'about', '/login': 'login', '/nexus': 'novanet', '/nexus/ims': 'ims', '/nexus/grove': 'grove', '/nexus/larder': 'larder',
-    '/nexus/distribution': 'distribute', '/offerings': 'offerings', '/future-skills': 'challenge', '/challenge': 'challenge',
+    '/nexus/distribution': 'distribute', '/encyclopedia': 'encyclopedia', '/spiral-codex': 'spiral-codex', '/offerings': 'offerings', '/future-skills': 'challenge', '/challenge': 'challenge',
     '/reset': 'reset', '/pulse': 'pulse',
   };
   const view = direct[path] || 'home';
