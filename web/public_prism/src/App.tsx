@@ -24,7 +24,7 @@ import ReasoMatePage from './pages/ReasoMatePage';
 import SpiralCommandInterface from './pages/SpiralCommandInterface';
 import UniversalEchofeildMatrix from './pages/UniversalEchofeildMatrix';
 
-type SolSpireLens = 'overview'|'commercial'|'knowledge'|'files'|'conversations'|'tasks'|'memory'|'weaver'|'observatory'|'settings';
+type SolSpireLens = 'overview'|'projects'|'commercial'|'knowledge'|'files'|'conversations'|'tasks'|'memory'|'weaver'|'observatory'|'settings';
 type View =
   | 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
   | 'nexus' | 'encyclopedia' | 'spiral-codex' | 'loops' | 'grove' | 'larder' | 'novanet'
@@ -32,7 +32,7 @@ type View =
   | 'knowledge-os' | 'reasomate' | 'personal-echofeild' | 'echofeild-matrix' | 'challenge';
 
 type RouteState = { view: View; section?: SolSpireLens; path: string };
-const SOLSPIRE_LENSES = new Set<SolSpireLens>(['overview','commercial','knowledge','files','conversations','tasks','memory','weaver','observatory','settings']);
+const SOLSPIRE_LENSES = new Set<SolSpireLens>(['overview','projects','commercial','knowledge','files','conversations','tasks','memory','weaver','observatory','settings']);
 
 function routeForView(view: View, section?: SolSpireLens): string {
   if (view === 'solspire') return section && section !== 'overview' ? `/solspire/${section}` : '/solspire';
@@ -52,12 +52,12 @@ function resolvePath(pathname: string): RouteState {
     return { view: 'solspire', section: candidate && SOLSPIRE_LENSES.has(candidate) ? candidate : 'overview', path: routeForView('solspire', candidate && SOLSPIRE_LENSES.has(candidate) ? candidate : 'overview') };
   }
   const compatibility: Record<string, { view: View; section?: SolSpireLens }> = {
-    '/codex': {view:'solspire',section:'knowledge'}, '/knowledge-os': {view:'solspire',section:'knowledge'}, '/spiral-codex': {view:'solspire',section:'knowledge'},
+    '/codex': {view:'solspire',section:'knowledge'}, '/knowledge-os': {view:'solspire',section:'knowledge'},
     '/loops': {view:'solspire',section:'tasks'}, '/dashboard': {view:'solspire',section:'overview'},
     '/personal-echofeild': {view:'solspire',section:'observatory'}, '/echofeild-matrix': {view:'solspire',section:'observatory'},
     '/settings': {view:'solspire',section:'settings'}, '/account': {view:'solspire',section:'settings'},
     '/sci': {view:'solspire',section:'weaver'}, '/reasomate': {view:'commune'},
-    '/encyclopedia': {view:'solspire',section:'knowledge'},
+    
   };
   if (compatibility[path]) {
     const target = compatibility[path];
@@ -111,7 +111,7 @@ function AppInner() {
     if (requested !== 'commune') setSoulPhrase(undefined);
     let next: RouteState = { view: requested, path: routeForView(requested) };
     if (requested === 'nexus') next = {view:'novanet',path:'/nexus'};
-    if (requested === 'knowledge-os' || requested === 'codex' || requested === 'spiral-codex' || requested === 'encyclopedia') next = {view:'solspire',section:'knowledge',path:'/solspire/knowledge'};
+    if (requested === 'knowledge-os' || requested === 'codex') next = {view:'solspire',section:'knowledge',path:'/solspire/knowledge'};
     if (requested === 'loops') next = {view:'solspire',section:'tasks',path:'/solspire/tasks'};
     if (requested === 'dashboard') next = {view:'solspire',section:'overview',path:'/solspire'};
     if (requested === 'personal-echofeild' || requested === 'echofeild-matrix') next = {view:'solspire',section:'observatory',path:'/solspire/observatory'};
