@@ -37,6 +37,12 @@ router = APIRouter()
 from api.ais_profile import router as _ais_profile_router
 router.include_router(_ais_profile_router)
 
+# Engineering Lab is an authenticated read-only intelligence seam. It is
+# included through this already-mounted composition router, avoiding a second
+# application/router hierarchy while preserving the Lab's own /api/lab prefix.
+from api.lab_routes import router as _lab_router
+router.include_router(_lab_router)
+
 _CODEX_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "personal_codices")
 
 _tools_counter = None
