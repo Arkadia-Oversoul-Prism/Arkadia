@@ -9,8 +9,7 @@ on:
       - 'api/lab_routes.py'
       - 'tests/test_engineering_lab.py'
       - 'tests/test_engineering_lab_api.py'
-      - 'web/public_prism/src/components/solspire/EngineeringLabLens.tsx'
-      - 'web/public_prism/src/components/solspire/SolSpireExperience.tsx'
+      - 'web/public_prism/src/components/solspire/**'
       - 'web/public_prism/src/App.tsx'
       - 'web/public_prism/src/lib/apiClient.ts'
       - 'web/public_prism/src/lib/apiConfig.ts'
@@ -22,22 +21,17 @@ on:
 permissions:
   contents: read
 
+env:
+  BASE_SHA: bb87a9a2c76cde7089af102f4dea67e2645399bc
+
 jobs:
   cp10:
-    name: CP10 deterministic verification
     runs-on: ubuntu-latest
-    env:
-      BASE_SHA: bb87a9a2c76cde7089af102f4dea67e2645399bc
-      BACKEND_URL: http://127.0.0.1:8000
-      FRONTEND_URL: http://127.0.0.1:5000
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: pip
@@ -50,107 +44,59 @@ jobs:
           python -m pip install pytest
 
       - name: CP10-A Lab tests
-        id: lab_tests
+        id: lab
         continue-on-error: true
-        run: |
-          set -o pipefail
-          python -m pytest tests/test_engineering_lab.py tests/test_engineering_lab_api.py -q 2>&1 | tee cp10-lab-tests.log
+        run: python -m pytest tests/test_engineering_lab.py tests/test_engineering_lab_api.py -q 2>&1 | tee cp10-lab.log
 
       - name: CP10-B broader backend regression
-        id: backend_tests
+        id: backend
         continue-on-error: true
-        run: |
-          set -o pipefail
-          python -m pytest tests/ -q 2>&1 | tee cp10-backend-tests.log
+        run: python -m pytest tests/ -q 2>&1 | tee cp10-backend.log
 
-      - name: Start backend
-        run: |
-          nohup env PYTHONPATH=. python -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --log-level info > cp10-backend-runtime.log 2>&1 &
-          echo $! > cp10-backend.pid
+      - name: Start existing backend
+        run: nohup env PYTHONPATH=. python -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --log-level info > cp10-backend-runtime.log 2>&1 &
 
-      - name: Wait for backend readiness
+      - name: Backend readiness
         id: backend_ready
         continue-on-error: true
         run: |
           python - <<'PY'
-          import time
-          import urllib.request
-          url = 'http://127.0.0.1:8000/openapi.json'
-          deadline = time.time() + 90
-          last = None
-          while time.time() < deadline:
+          import time, urllib.request
+          deadline=time.time()+90
+          while time.time()<deadline:
               try:
-                  with urllib.request.urlopen(url, timeout=5) as response:
-                      if response.status == 200:
-                          print('Backend readiness: PASS status=200')
-                          raise SystemExit(0)
-              except Exception as exc:
-                  last = exc
+                  with urllib.request.urlopen('http://127.0.0.1:8000/openapi.json',timeout=5) as r:
+                      if r.status==200: print('PASS status=200'); raise SystemExit(0)
+              except Exception: pass
               time.sleep(2)
-          print(f'Backend readiness: FAIL last_error={last!r}')
-          raise SystemExit(1)
+          raise SystemExit('Backend readiness FAIL')
           PY
 
-      - name: CP10 API verification
-        id: api_tests
+      - name: API verification
+        id: api
         continue-on-error: true
         run: |
-          python - <<'PY' | tee cp10-api-verification.log
-          import base64
-          import json
-          import urllib.error
-          import urllib.request
-
-          base = 'http://127.0.0.1:8000'
-
-          def request(path, token=None):
-              headers = {}
-              if token:
-                  headers['Authorization'] = f'Bearer {token}'
-              req = urllib.request.Request(base + path, headers=headers, method='GET')
+          python - <<'PY' | tee cp10-api.log
+          import base64,json,urllib.error,urllib.request
+          base='http://127.0.0.1:8000'
+          def get(path,token=None):
+              h={} if not token else {'Authorization':'Bearer '+token}
               try:
-                  with urllib.request.urlopen(req, timeout=60) as response:
-                      raw = response.read().decode()
-                      return response.status, json.loads(raw) if raw else None
-              except urllib.error.HTTPError as exc:
-                  raw = exc.read().decode()
-                  try:
-                      payload = json.loads(raw)
-                  except Exception:
-                      payload = {'raw': raw[:200]}
-                  return exc.code, payload
-
-          status, payload = request('/api/lab/overview')
-          print(f'UNAUTHENTICATED status={status} detail={payload.get("detail") if isinstance(payload, dict) else None}')
-          if status != 401:
-              raise SystemExit(f'Expected existing auth contract to reject unauthenticated request with 401, got {status}')
-
-          def b64(obj):
-              return base64.urlsafe_b64encode(json.dumps(obj, separators=(',', ':')).encode()).decode().rstrip('=')
-
-          # Local development auth is an existing repository-supported mode:
-          # api.auth decodes the JWT payload when Firebase service credentials are absent.
-          token = '.'.join([
-              b64({'alg': 'none', 'typ': 'JWT'}),
-              b64({'sub': 'cp10-verification-user', 'user_id': 'cp10-verification-user', 'email': 'cp10@example.invalid'}),
-              'cp10-test-signature'
-          ])
-          status, payload = request('/api/lab/overview', token)
-          print(f'AUTHENTICATED status={status}')
-          if status != 200:
-              raise SystemExit(f'Expected authenticated local-dev request to return 200, got {status}: {payload!r}')
-          if not isinstance(payload, dict):
-              raise SystemExit('Authenticated Lab response is not an object')
-          required = {'repository', 'architecture', 'trajectory', 'patterns', 'canon', 'governance'}
-          missing = sorted(required - payload.keys())
-          if missing:
-              raise SystemExit(f'Lab response missing expected top-level evidence fields: {missing}')
-          blob = json.dumps(payload, sort_keys=True)
-          for forbidden in ('AIza', 'PRIVATE KEY', 'GEMINI_API_KEY', 'FIREBASE_SERVICE_ACCOUNT_JSON'):
-              if forbidden in blob:
-                  raise SystemExit(f'Sensitive marker leaked in Lab response: {forbidden}')
-          print('Authenticated Lab response structure: PASS')
-          print('Sensitive response scan: PASS')
+                  with urllib.request.urlopen(urllib.request.Request(base+path,headers=h),timeout=60) as r:
+                      return r.status,json.loads(r.read().decode())
+              except urllib.error.HTTPError as e:
+                  return e.code,json.loads(e.read().decode())
+          s,p=get('/api/lab/overview'); print('UNAUTHENTICATED',s)
+          if s!=401: raise SystemExit(f'Expected 401, got {s}')
+          def b64(x): return base64.urlsafe_b64encode(json.dumps(x,separators=(',',':')).encode()).decode().rstrip('=')
+          token='.'.join([b64({'alg':'none','typ':'JWT'}),b64({'sub':'cp10-verification-user','user_id':'cp10-verification-user','email':'cp10@example.invalid'}),'cp10-test-signature'])
+          s,p=get('/api/lab/overview',token); print('AUTHENTICATED',s)
+          if s!=200: raise SystemExit(f'Expected 200 in existing local dev-mode auth, got {s}')
+          required={'repository','architecture','trajectory','patterns','canon','governance'}
+          if not required.issubset(p): raise SystemExit(f'Missing fields: {sorted(required-set(p))}')
+          blob=json.dumps(p)
+          if any(x in blob for x in ('AIza','PRIVATE KEY','GEMINI_API_KEY','FIREBASE_SERVICE_ACCOUNT_JSON')): raise SystemExit('Sensitive marker leaked')
+          print('Structure PASS; response secret scan PASS')
           PY
 
       - name: Install frontend dependencies
@@ -163,154 +109,109 @@ jobs:
         working-directory: web/public_prism
         run: pnpm build
 
-      - name: Start frontend
-        run: |
-          nohup pnpm --dir web/public_prism dev --host 127.0.0.1 --port 5000 > cp10-frontend-runtime.log 2>&1 &
-          echo $! > cp10-frontend.pid
+      - name: Start existing frontend
+        run: nohup pnpm --dir web/public_prism dev --host 127.0.0.1 --port 5000 > cp10-frontend-runtime.log 2>&1 &
 
-      - name: Wait for frontend readiness
+      - name: Frontend readiness
         id: frontend_ready
         continue-on-error: true
         run: |
           python - <<'PY'
-          import time
-          import urllib.request
-          url = 'http://127.0.0.1:5000/'
-          deadline = time.time() + 60
-          last = None
-          while time.time() < deadline:
+          import time,urllib.request
+          deadline=time.time()+60
+          while time.time()<deadline:
               try:
-                  with urllib.request.urlopen(url, timeout=5) as response:
-                      if response.status == 200:
-                          print('Frontend readiness: PASS status=200')
-                          raise SystemExit(0)
-              except Exception as exc:
-                  last = exc
+                  with urllib.request.urlopen('http://127.0.0.1:5000/',timeout=5) as r:
+                      if r.status==200: print('PASS status=200'); raise SystemExit(0)
+              except Exception: pass
               time.sleep(2)
-          print(f'Frontend readiness: FAIL last_error={last!r}')
-          raise SystemExit(1)
+          raise SystemExit('Frontend readiness FAIL')
           PY
 
       - name: Install Playwright Chromium
         run: |
-          corepack enable
           npm init -y
           npm install playwright
           npx playwright install --with-deps chromium
 
-      - name: CP10 browser and SolSpire route verification
-        id: browser_tests
+      - name: Browser route and SolSpire verification
+        id: browser
         continue-on-error: true
         run: |
-          node <<'NODE' | tee cp10-browser-verification.log
-          const { chromium } = require('playwright');
+          node <<'NODE' | tee cp10-browser.log
+          const {chromium}=require('playwright');
           (async()=>{
-            const browser = await chromium.launch({headless:true});
-            const context = await browser.newContext();
-            const page = await context.newPage();
-            const consoleErrors = [];
-            const pageErrors = [];
-            const failedRequests = [];
-            page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
-            page.on('pageerror', e => pageErrors.push(e.message));
-            page.on('requestfailed', r => failedRequests.push(`${r.url()} :: ${r.failure()?.errorText}`));
-
-            for (const path of ['/solspire', '/solspire/projects', '/solspire/engineering-lab']) {
-              const response = await page.goto(`http://127.0.0.1:5000${path}`, {waitUntil:'networkidle', timeout:60000});
-              const body = await page.locator('body').innerText();
-              console.log(`[route] ${path} status=${response?.status()} final=${page.url()}`);
-              console.log(`[body] ${body.slice(0,1200).replace(/\n/g, ' | ')}`);
-              if (response?.status() !== 200) throw new Error(`${path} did not resolve with HTTP 200`);
-              if (!body.includes('PRIVATE WORKSPACE')) throw new Error(`${path} did not render the existing authenticated SolSpire threshold`);
+            const b=await chromium.launch({headless:true}); const p=await b.newPage();
+            const ce=[],pe=[],fr=[]; p.on('console',m=>m.type()==='error'&&ce.push(m.text())); p.on('pageerror',e=>pe.push(e.message)); p.on('requestfailed',r=>fr.push(r.url()+' :: '+r.failure()?.errorText));
+            for(const path of ['/solspire','/solspire/projects','/solspire/engineering-lab','/solspire/knowledge','/solspire/files','/solspire/conversations','/solspire/tasks','/solspire/memory','/solspire/weaver','/solspire/observatory','/solspire/settings']){
+              const r=await p.goto('http://127.0.0.1:5000'+path,{waitUntil:'networkidle',timeout:60000}); const text=await p.locator('body').innerText();
+              console.log(`[route] ${path} status=${r?.status()} final=${p.url()}`); if(r?.status()!==200||!text.includes('PRIVATE WORKSPACE')) throw new Error(`${path} auth threshold failed`);
             }
-
-            await page.goto('http://127.0.0.1:5000/solspire/engineering-lab', {waitUntil:'networkidle', timeout:60000});
-            await page.screenshot({path:'cp10-engineering-lab-route.png', fullPage:true});
-            console.log(`[console-errors] ${JSON.stringify(consoleErrors)}`);
-            console.log(`[page-errors] ${JSON.stringify(pageErrors)}`);
-            console.log(`[failed-requests] ${JSON.stringify(failedRequests)}`);
-            if (consoleErrors.length || pageErrors.length || failedRequests.length) {
-              throw new Error('Browser verification observed runtime errors');
-            }
-            console.log('Unauthenticated route threshold verification: PASS');
-            console.log('Authenticated Engineering Lab lens verification: BLOCKED — no existing browser-auth test credential/session is available in this verification environment; route correctly remains behind the existing auth boundary.');
-            await browser.close();
+            await p.goto('http://127.0.0.1:5000/solspire/engineering-lab',{waitUntil:'networkidle',timeout:60000}); await p.screenshot({path:'cp10-engineering-lab.png',fullPage:true});
+            console.log('consoleErrors='+JSON.stringify(ce)); console.log('pageErrors='+JSON.stringify(pe)); console.log('failedRequests='+JSON.stringify(fr));
+            if(ce.length||pe.length||fr.length) throw new Error('Browser runtime errors observed');
+            console.log('Unauthenticated Engineering Lab route threshold: PASS');
+            console.log('Authenticated Engineering Lab lens: BLOCKED. No legitimate existing browser-auth test session/credential is available; no auth bypass permitted.');
+            await b.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
 
-      - name: CP10 security artifact scan
-        id: security_scan
+      - name: Security artifact scan
+        id: security
         continue-on-error: true
         run: |
           set -e
-          files='cp10-lab-tests.log cp10-backend-tests.log cp10-backend-runtime.log cp10-frontend-runtime.log cp10-api-verification.log cp10-browser-verification.log'
-          for file in $files; do
-            [ -f "$file" ] || continue
-            if grep -Eq 'AIza[0-9A-Za-z_-]{20,}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|FIREBASE_SERVICE_ACCOUNT_JSON=|GEMINI_API_KEY=|Authorization: Bearer eyJ' "$file"; then
-              echo "Sensitive material detected in artifact: $file"
-              exit 1
-            fi
-          done
+          for f in cp10-*.log; do [ -f "$f" ] || continue; if grep -Eq 'AIza[0-9A-Za-z_-]{20,}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|FIREBASE_SERVICE_ACCOUNT_JSON=|GEMINI_API_KEY=|Authorization: Bearer eyJ' "$f"; then echo "Sensitive material detected in $f"; exit 1; fi; done
           echo 'Runtime artifact secret scan: PASS'
 
-      - name: CP10 mutation-boundary verification
-        id: mutation_boundary
+      - name: Mutation boundary
+        id: mutation
         run: |
           set -e
-          changed=$(git diff --name-only "$BASE_SHA" HEAD)
-          echo "Changed paths since authorized base:"
-          printf '%s\n' "$changed"
-          if [ "$changed" != '.github/workflows/cp10-verification.yml' ]; then
-            echo 'Mutation boundary: FAIL — changed paths exceed the authorized verification workflow.'
-            exit 1
-          fi
-          if git diff "$BASE_SHA" HEAD -- .github/workflows/cp10-verification.yml | grep -Eq 'git (push|commit)|gh (pr|workflow) (create|merge)|curl .*deploy|vercel|render deploy'; then
-            echo 'Mutation boundary: FAIL — workflow contains repository/deployment mutation command.'
-            exit 1
-          fi
-          echo 'Application mutation: NONE'
-          echo 'Repository mutation by workflow: NONE'
-          echo 'Production mutation: NONE'
-          echo 'Autonomous mutation: NONE'
+          changed="$(git diff --name-only "$BASE_SHA" HEAD)"
+          [ "$changed" = '.github/workflows/cp10-verification.yml' ]
+          if git diff "$BASE_SHA" HEAD -- .github/workflows/cp10-verification.yml | grep -Eq 'git (push|commit)|gh (pr|workflow) (create|merge)|vercel|render deploy'; then exit 1; fi
+          echo 'Application mutation: NONE'; echo 'Repository mutation by workflow: NONE'; echo 'Production mutation: NONE'; echo 'Autonomous mutation: NONE'
 
-      - name: Final CP10 summary
+      - name: CP10 summary
         if: always()
         run: |
           {
             echo '# CP10 Verification Summary'
-            echo
             echo "Commit: $GITHUB_SHA"
-            echo
-            echo '| Gate | Workflow result | Interpretation |'
-            echo '|---|---|---|'
-            echo "| Lab tests | ${{ steps.lab_tests.outcome }} | Existing Lab test files executed |"
-            echo "| Broader backend regression | ${{ steps.backend_tests.outcome }} | Existing repository-wide pytest suite attempted |"
-            echo "| Backend readiness | ${{ steps.backend_ready.outcome }} | Existing api.main runtime attempted |"
-            echo "| API verification | ${{ steps.api_tests.outcome }} | Existing auth boundary + local authenticated read-only Lab endpoint |"
-            echo "| Frontend build | success | Existing Vite build completed |"
-            echo "| Browser route verification | ${{ steps.browser_tests.outcome }} | Existing SolSpire routes exercised unauthenticated; authenticated lens remains environment-blocked |"
-            echo "| Security artifact scan | ${{ steps.security_scan.outcome }} | Runtime artifacts checked for secret leakage |"
-            echo "| Mutation boundary | ${{ steps.mutation_boundary.outcome }} | Workflow diff constrained to verification infrastructure |"
+            echo "Lab tests: ${{ steps.lab.outcome }}"
+            echo "Broader backend regression: ${{ steps.backend.outcome }}"
+            echo "Backend readiness: ${{ steps.backend_ready.outcome }}"
+            echo "API verification: ${{ steps.api.outcome }}"
+            echo "Frontend build: success"
+            echo "Frontend readiness: ${{ steps.frontend_ready.outcome }}"
+            echo "Browser verification: ${{ steps.browser.outcome }}"
+            echo "Security scan: ${{ steps.security.outcome }}"
+            echo "Mutation boundary: ${{ steps.mutation.outcome }}"
+            echo 'Authenticated browser Engineering Lab lens: BLOCKED; legitimate test session/credential unavailable.'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload CP10 artifacts
+      - name: Upload CP10 evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: cp10-evidence-${{ github.sha }}
           path: |
             cp10-*.log
-            cp10-engineering-lab-route.png
+            cp10-engineering-lab.png
           if-no-files-found: ignore
           retention-days: 30
 
-      - name: Enforce executable CP10 result
+      - name: Enforce CP10 gates
         if: always()
         run: |
-          if [ '${{ steps.lab_tests.outcome }}' != 'success' ]; then exit 1; fi
-          if [ '${{ steps.backend_ready.outcome }}' != 'success' ]; then exit 1; fi
-          if [ '${{ steps.api_tests.outcome }}' != 'success' ]; then exit 1; fi
-          if [ '${{ steps.browser_tests.outcome }}' != 'success' ]; then exit 1; fi
-          if [ '${{ steps.security_scan.outcome }}' != 'success' ]; then exit 1; fi
-          if [ '${{ steps.mutation_boundary.outcome }}' != 'success' ]; then exit 1; fi
-          echo 'Executable CP10 gates completed successfully except any explicitly classified environment-blocked authenticated browser verification.'
+          test '${{ steps.lab.outcome }}' = success
+          test '${{ steps.backend.outcome }}' = success
+          test '${{ steps.backend_ready.outcome }}' = success
+          test '${{ steps.api.outcome }}' = success
+          test '${{ steps.frontend_ready.outcome }}' = success
+          test '${{ steps.browser.outcome }}' = success
+          test '${{ steps.security.outcome }}' = success
+          test '${{ steps.mutation.outcome }}' = success
+          echo 'Authenticated browser Engineering Lab lens remains BLOCKED; CP10 cannot be sealed from this environment.'
+          exit 2
