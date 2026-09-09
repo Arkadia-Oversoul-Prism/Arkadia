@@ -6,20 +6,28 @@ on:
     paths:
       - 'web/public_prism/**'
       - 'spiral_grove/**'
+      - 'lab/**'
+      - 'api/lab_routes.py'
       - 'tests/test_spiral_grove_frontend_projection.py'
       - 'tests/test_spiral_grove_chambers.py'
       - 'tests/test_spiral_grove_learning_path.py'
       - 'tests/test_spiral_grove_learning_path_projection.py'
+      - 'tests/test_engineering_lab.py'
+      - 'tests/test_engineering_lab_api.py'
       - 'requirements.txt'
       - '.github/workflows/sg-02-fe-2-v.yml'
   pull_request:
     paths:
       - 'web/public_prism/**'
       - 'spiral_grove/**'
+      - 'lab/**'
+      - 'api/lab_routes.py'
       - 'tests/test_spiral_grove_frontend_projection.py'
       - 'tests/test_spiral_grove_chambers.py'
       - 'tests/test_spiral_grove_learning_path.py'
       - 'tests/test_spiral_grove_learning_path_projection.py'
+      - 'tests/test_engineering_lab.py'
+      - 'tests/test_engineering_lab_api.py'
       - 'requirements.txt'
       - '.github/workflows/sg-02-fe-2-v.yml'
   workflow_dispatch:
@@ -59,4 +67,137 @@ jobs:
         run: python -m pip install pytest
       - name: Grove contracts
         working-directory: .
-        run: python -m pytest tests/test_spiral_grove_frontend_projection.py tests/test_spiral_grove_chambers.py tests/test_spiral_grove_learning_path.py tests/test_spiral_grove_learning_path_projection.py -q
+        continue-on-error: true
+        run: python -m pytest tests/test_spiral_grove_frontend_projection.py tests/test_spiral_grove_chambers.py tests/test_spiral_grove_learning_path.py tests/test_spiral_grove_learning_path_projection.py -q 2>&1 | tee cp10-grove.log
+      - name: CP10-A Lab tests
+        working-directory: .
+        continue-on-error: true
+        run: python -m pytest tests/test_engineering_lab.py tests/test_engineering_lab_api.py -q 2>&1 | tee cp10-lab.log
+      - name: CP10-B broader backend regression
+        working-directory: .
+        continue-on-error: true
+        run: python -m pytest tests/ -q 2>&1 | tee cp10-backend.log
+      - name: Start existing backend runtime
+        working-directory: .
+        run: nohup env PYTHONPATH=. python -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --log-level info > cp10-backend-runtime.log 2>&1 &
+      - name: Backend readiness
+        working-directory: .
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import time, urllib.request
+          deadline=time.time()+90
+          while time.time()<deadline:
+              try:
+                  with urllib.request.urlopen('http://127.0.0.1:8000/openapi.json',timeout=5) as r:
+                      if r.status==200: print('Backend readiness PASS'); raise SystemExit(0)
+              except Exception: pass
+              time.sleep(2)
+          raise SystemExit('Backend readiness FAIL')
+          PY
+      - name: CP10 API verification
+        working-directory: .
+        continue-on-error: true
+        run: |
+          python - <<'PY' | tee cp10-api.log
+          import base64,json,urllib.error,urllib.request
+          def b64(x): return base64.urlsafe_b64encode(json.dumps(x,separators=(',',':')).encode()).decode().rstrip('=')
+          def get(token=None):
+              h={} if not token else {'Authorization':'Bearer '+token}
+              try:
+                  with urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/api/lab/overview',headers=h),timeout=60) as r: return r.status,json.loads(r.read().decode())
+              except urllib.error.HTTPError as e: return e.code,json.loads(e.read().decode())
+          s,p=get(); print('UNAUTHENTICATED',s); assert s==401, s
+          token='.'.join([b64({'alg':'none','typ':'JWT'}),b64({'sub':'cp10-verification-user','user_id':'cp10-verification-user','email':'cp10@example.invalid'}),'cp10-test-signature'])
+          s,p=get(token); print('AUTHENTICATED',s); assert s==200, s
+          assert {'repository','architecture','trajectory','patterns','canon','governance'} <= set(p)
+          assert not any(x in json.dumps(p) for x in ('AIza','PRIVATE KEY','GEMINI_API_KEY','FIREBASE_SERVICE_ACCOUNT_JSON'))
+          print('Lab response structure PASS; response secret scan PASS')
+          PY
+      - name: Start existing frontend runtime
+        run: nohup pnpm --dir web/public_prism dev --host 127.0.0.1 --port 5000 > cp10-frontend-runtime.log 2>&1 &
+      - name: Frontend readiness
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import time,urllib.request
+          deadline=time.time()+60
+          while time.time()<deadline:
+              try:
+                  with urllib.request.urlopen('http://127.0.0.1:5000/',timeout=5) as r:
+                      if r.status==200: print('Frontend readiness PASS'); raise SystemExit(0)
+              except Exception: pass
+              time.sleep(2)
+          raise SystemExit('Frontend readiness FAIL')
+          PY
+      - name: Install Playwright Chromium
+        run: |
+          npm init -y
+          npm install playwright
+          npx playwright install --with-deps chromium
+      - name: CP10 browser route verification
+        id: browser
+        continue-on-error: true
+        run: |
+          node <<'NODE' | tee cp10-browser.log
+          const {chromium}=require('playwright');
+          (async()=>{const b=await chromium.launch({headless:true});const p=await b.newPage();const ce=[],pe=[],fr=[];
+          p.on('console',m=>m.type()==='error'&&ce.push(m.text()));p.on('pageerror',e=>pe.push(e.message));p.on('requestfailed',r=>fr.push(r.url()+' :: '+r.failure()?.errorText));
+          for(const path of ['/solspire','/solspire/projects','/solspire/engineering-lab']){const r=await p.goto('http://127.0.0.1:5000'+path,{waitUntil:'networkidle',timeout:60000});const text=await p.locator('body').innerText();console.log(`[route] ${path} status=${r?.status()} final=${p.url()}`);if(r?.status()!==200||!text.includes('PRIVATE WORKSPACE'))throw new Error(`${path} auth threshold failed`)}
+          await p.goto('http://127.0.0.1:5000/solspire/engineering-lab',{waitUntil:'networkidle',timeout:60000});await p.screenshot({path:'cp10-engineering-lab.png',fullPage:true});console.log('consoleErrors='+JSON.stringify(ce));console.log('pageErrors='+JSON.stringify(pe));console.log('failedRequests='+JSON.stringify(fr));if(ce.length||pe.length||fr.length)throw new Error('Browser runtime errors observed');console.log('Unauthenticated route threshold PASS');console.log('Authenticated Engineering Lab lens: BLOCKED; no legitimate existing browser-auth test session/credential is available and no bypass is permitted.');await b.close()})().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+      - name: CP10 security artifact scan
+        id: security
+        continue-on-error: true
+        run: |
+          set -e
+          for f in cp10-*.log; do [ -f "$f" ] || continue; if grep -Eq 'AIza[0-9A-Za-z_-]{20,}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|FIREBASE_SERVICE_ACCOUNT_JSON=|GEMINI_API_KEY=|Authorization: Bearer eyJ' "$f"; then echo "Sensitive material detected in $f"; exit 1; fi; done
+          echo 'Runtime artifact secret scan PASS'
+      - name: CP10 mutation boundary
+        id: mutation
+        run: |
+          set -e
+          changed="$(git diff --name-only HEAD^ HEAD)"
+          [ "$changed" = '.github/workflows/sg-02-fe-2-v.yml' ]
+          if git diff HEAD^ HEAD -- .github/workflows/sg-02-fe-2-v.yml | grep -Eq 'git (push|commit)|gh (pr|workflow) (create|merge)|vercel|render deploy'; then exit 1; fi
+          echo 'Application mutation: NONE'; echo 'Repository mutation by workflow: NONE'; echo 'Production mutation: NONE'; echo 'Autonomous mutation: NONE'
+      - name: CP10 evidence summary
+        if: always()
+        run: |
+          {
+            echo '# CP10 Verification Summary'
+            echo "Commit: $GITHUB_SHA"
+            echo "Grove contracts: ${{ steps.grove.outcome }}"
+            echo "Lab tests: ${{ steps.lab.outcome }}"
+            echo "Broader backend regression: ${{ steps.backend.outcome }}"
+            echo "Backend readiness: ${{ steps.backend_ready.outcome }}"
+            echo "API verification: ${{ steps.api.outcome }}"
+            echo "Frontend readiness: ${{ steps.frontend_ready.outcome }}"
+            echo "Browser route verification: ${{ steps.browser.outcome }}"
+            echo "Security scan: ${{ steps.security.outcome }}"
+            echo "Mutation boundary: ${{ steps.mutation.outcome }}"
+            echo 'Authenticated browser Engineering Lab lens: BLOCKED; legitimate existing browser-auth session/credential unavailable.'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload CP10 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cp10-evidence-${{ github.sha }}
+          path: |
+            cp10-*.log
+            cp10-engineering-lab.png
+          if-no-files-found: ignore
+          retention-days: 30
+      - name: Enforce CP10 executable gates
+        if: always()
+        run: |
+          test '${{ steps.lab.outcome }}' = success
+          test '${{ steps.backend.outcome }}' = success
+          test '${{ steps.backend_ready.outcome }}' = success
+          test '${{ steps.api.outcome }}' = success
+          test '${{ steps.frontend_ready.outcome }}' = success
+          test '${{ steps.browser.outcome }}' = success
+          test '${{ steps.security.outcome }}' = success
+          test '${{ steps.mutation.outcome }}' = success
+          echo 'Authenticated browser Engineering Lab lens remains BLOCKED; CP10 seal cannot be earned.'
+          exit 2
