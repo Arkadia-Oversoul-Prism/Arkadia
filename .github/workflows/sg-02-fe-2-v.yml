@@ -122,7 +122,8 @@ jobs:
           print('Lab response structure PASS; response secret scan PASS')
           PY
       - name: Start existing frontend runtime
-        run: nohup pnpm --dir web/public_prism dev --host 127.0.0.1 --port 5000 > cp10-frontend-runtime.log 2>&1 &
+        # Job default cwd is web/public_prism; do not nest --dir web/public_prism again.
+        run: nohup pnpm dev --host 127.0.0.1 --port 5000 > "${GITHUB_WORKSPACE}/cp10-frontend-runtime.log" 2>&1 &
       - name: Frontend readiness
         id: frontend_ready
         continue-on-error: true
