@@ -131,15 +131,24 @@ jobs:
           raise SystemExit('Frontend readiness FAIL')
           PY
       - name: Install Playwright Chromium
+        # Isolate from web/public_prism/package-lock.json (LOCKFILE-ORIGINATED
+        # package-firewall.replit.local resolved URLs). Install remains mandatory.
+        working-directory: ${{ runner.temp }}
         env:
-          # Force public npm for Playwright package + deps on GitHub-hosted runners.
-          # Avoid inherited package-firewall.replit.local (EAI_AGAIN) registry resolution.
           npm_config_registry: https://registry.npmjs.org/
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "0"
         run: |
+          set -e
+          PW_DIR="${RUNNER_TEMP}/cp10-playwright"
+          mkdir -p "$PW_DIR"
+          cd "$PW_DIR"
           npm init -y
           npm install playwright --registry=https://registry.npmjs.org/
           npx playwright install --with-deps chromium
+          # Export paths so mandatory browser verification can require('playwright')
+          # without using web/public_prism lockfile-resolved packages.
+          echo "NODE_PATH=${PW_DIR}/node_modules${NODE_PATH:+:$NODE_PATH}" >> "$GITHUB_ENV"
+          echo "PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}" >> "$GITHUB_ENV"
       - name: CP10 browser route verification
         id: browser
         continue-on-error: true
