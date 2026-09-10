@@ -251,28 +251,67 @@ jobs:
               await b.close();
               return;
             }
+
+            const redact=(s)=>String(s||'').replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g,'[REDACTED_JWT]').replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g,'[REDACTED_EMAIL]');
+            let phase='auth_start';
+            const dump=async(label)=>{
+              try{
+                const url=p.url();
+                const bodySnippet=redact((await p.locator('body').innerText()).slice(0,800));
+                console.log('[diag] phase='+phase+' label='+label+' url='+url);
+                console.log('[diag] bodySnippet='+JSON.stringify(bodySnippet));
+                console.log('[diag] consoleErrors='+JSON.stringify(ce.map(redact).slice(-20)));
+                console.log('[diag] pageErrors='+JSON.stringify(pe.map(redact).slice(-20)));
+                console.log('[diag] failedRequests='+JSON.stringify(fr.map(redact).slice(-30)));
+                const shot='cp10-auth-fail-'+label.replace(/[^a-z0-9_-]/gi,'_')+'.png';
+                await p.screenshot({path:shot,fullPage:true});
+                console.log('[diag] screenshot='+shot);
+              }catch(diagErr){console.log('[diag] dump_failed='+String(diagErr));}
+            };
+
             const envTxt=fs.readFileSync(credPath,'utf8');
             const email=(envTxt.match(/^CP10_FB_EMAIL=(.*)$/m)||[])[1];
             const password=(envTxt.match(/^CP10_FB_PASSWORD=(.*)$/m)||[])[1];
             if(!email||!password) throw new Error('Disposable identity file incomplete');
+            console.log('[phase] identity_loaded email_domain='+(email.split('@')[1]||'unknown'));
+
+            phase='navigate_login';
             await p.goto('http://127.0.0.1:5000/login',{waitUntil:'networkidle',timeout:60000});
+            console.log('[phase] login_page url='+p.url());
+            phase='fill_form';
             await p.getByTestId('tab-signin').click();
             await p.getByTestId('input-email-signin').fill(email);
             await p.getByTestId('input-password-signin').fill(password);
+            console.log('[phase] form_filled');
+            phase='submit_signin';
             await p.getByTestId('button-signin').click();
-            // Wait until SolSpire is reachable without PRIVATE WORKSPACE threshold
+            console.log('[phase] signin_clicked');
+            // Observe post-submit without forcing navigation yet
+            await p.waitForTimeout(4000);
+            phase='post_submit_observe';
+            console.log('[phase] post_submit url='+p.url());
+            await dump('post_submit');
+
+            phase='navigate_lab';
             await p.goto('http://127.0.0.1:5000/solspire/engineering-lab',{waitUntil:'networkidle',timeout:90000});
-            // Allow auth hydration
             for(let i=0;i<30;i++){
               const t=await p.locator('body').innerText();
-              if(!t.includes('PRIVATE WORKSPACE') && (t.includes('Engineering Lab')||t.includes('Deterministic observation')||t.includes('OBSERVED')||t.includes('System state'))) break;
+              if(!t.includes('PRIVATE WORKSPACE') && (t.includes('Engineering Lab')||t.includes('Deterministic observation')||t.includes('OBSERVED')||t.includes('System state'))) {
+                phase='hydrated_lab';
+                break;
+              }
+              phase='wait_hydration_'+i;
               await p.waitForTimeout(2000);
               await p.reload({waitUntil:'networkidle'});
             }
             const body=await p.locator('body').innerText();
             await p.screenshot({path:'cp10-engineering-lab-authenticated.png',fullPage:true});
-            if(body.includes('PRIVATE WORKSPACE')) throw new Error('Authenticated Lab lens FAIL: PRIVATE WORKSPACE still present');
+            if(body.includes('PRIVATE WORKSPACE')){
+              await dump('lab_still_private');
+              throw new Error('Authenticated Lab lens FAIL: PRIVATE WORKSPACE still present');
+            }
             if(!(body.includes('Engineering Lab')||body.includes('Deterministic observation')||body.includes('System state')||body.includes('OBSERVED'))){
+              await dump('lab_ui_missing');
               throw new Error('Authenticated Lab lens FAIL: expected Lab observation UI not found');
             }
             console.log('Authenticated Engineering Lab lens: PASS');
@@ -360,6 +399,8 @@ jobs:
           path: |
             cp10-*.log
             cp10-engineering-lab.png
+            cp10-engineering-lab-authenticated.png
+            cp10-auth-fail-*.png
           if-no-files-found: ignore
           retention-days: 30
       - name: Enforce CP10 executable gates
