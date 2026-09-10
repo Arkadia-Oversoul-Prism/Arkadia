@@ -1,6 +1,6 @@
 # Phase 2 Opening Record
 
-**Status:** OPENED — first gate only  
+**Status:** OPENING GATE CLOSED — PASS (see PHASE2_GATE_CLOSURE.md)  
 **Opened by:** explicit human command (2026-09-10)  
 **Phase 1:** remains **SEALED** (`docs/verification/PHASE1_CLOSURE.md`)  
 
@@ -75,3 +75,7 @@ Until steps 1–5 succeed: gate remains **NOT PASS**.
 | Human authorization | Required for credential provisioning and any harness change that exercises the gate |
 
 **Next actionable step (human):** provision legitimate CI browser-auth secrets, then authorize a bounded CP10 browser-step extension.
+
+---
+
+**Gate closure:** `docs/verification/PHASE2_GATE_CLOSURE.md` — PASS on CP10 run `34434094368` @ `79ed239`.
