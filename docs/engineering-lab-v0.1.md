@@ -87,6 +87,14 @@ Phase 1 does not introduce a new database or authoritative Lab store. The reposi
 - Documentation drift requires explicit comparable architecture declarations and is therefore conservative in v0.1.
 - Frontend route/component observability is primarily static and does not replace browser verification.
 
+## Phase 1 / CP10 acceptance (amendment)
+
+Canonical Phase 1 sealing criteria for the Engineering Lab CP10 path are defined in:
+
+`docs/verification/PHASE1_CP10_ACCEPTANCE_AMENDMENT.md`
+
+That document is an explicit **amendment** (Path B): authenticated **browser** verification of the Engineering Lab is **not** a Phase 1 seal gate; it is **deferred by acceptance criteria** to Phase 2 as the opening verification obligation. Executable CP10 gates remain required. BLOCKED must not be treated as PASS.
+
 ## Next phase
 
 Phase 2 may consume the Lab's evidence model for planning, but autonomous mutation, branch creation, code generation, PR creation, execution loops, durable checkpoints and deployment automation remain outside v0.1.
