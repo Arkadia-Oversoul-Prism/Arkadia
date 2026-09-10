@@ -120,3 +120,7 @@ This amendment does **not**:
 > Phase 1 seal requires the defined executable CP10 gates to pass. Authenticated browser verification of the Engineering Lab is not a Phase 1 sealing condition. It remains required evidence, but is explicitly deferred to Phase 2 and becomes its opening verification gate.
 >
 > BLOCKED does not become PASS. It becomes DEFERRED BY ACCEPTANCE CRITERIA.
+
+---
+
+**Closure record:** `docs/verification/PHASE1_CLOSURE.md` (seal chain and archive boundary).
