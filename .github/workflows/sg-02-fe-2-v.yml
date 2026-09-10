@@ -31,10 +31,34 @@ on:
       - 'requirements.txt'
       - '.github/workflows/sg-02-fe-2-v.yml'
   workflow_dispatch:
+    inputs:
+      vite_firebase_api_key:
+        description: "VITE_FIREBASE_API_KEY (Option 3 non-repo supply)"
+        required: false
+        default: ""
+      vite_firebase_auth_domain:
+        description: "VITE_FIREBASE_AUTH_DOMAIN"
+        required: false
+        default: ""
+      vite_firebase_project_id:
+        description: "VITE_FIREBASE_PROJECT_ID"
+        required: false
+        default: ""
+      vite_firebase_app_id:
+        description: "VITE_FIREBASE_APP_ID"
+        required: false
+        default: ""
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+    env:
+      # Option 3: workflow_dispatch inputs (empty on push/PR → auth browser gate stays deferred)
+      VITE_FIREBASE_API_KEY: ${{ github.event.inputs.vite_firebase_api_key || '' }}
+      VITE_FIREBASE_AUTH_DOMAIN: ${{ github.event.inputs.vite_firebase_auth_domain || '' }}
+      VITE_FIREBASE_PROJECT_ID: ${{ github.event.inputs.vite_firebase_project_id || '' }}
+      VITE_FIREBASE_APP_ID: ${{ github.event.inputs.vite_firebase_app_id || '' }}
+      FIREBASE_WEB_API_KEY: ${{ github.event.inputs.vite_firebase_api_key || '' }}
     defaults:
       run:
         working-directory: web/public_prism
@@ -158,17 +182,129 @@ jobs:
           # without using web/public_prism lockfile-resolved packages.
           echo "NODE_PATH=${PW_DIR}/node_modules${NODE_PATH:+:$NODE_PATH}" >> "$GITHUB_ENV"
           echo "PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}" >> "$GITHUB_ENV"
+      - name: CP10 provision disposable Firebase identity
+        id: fb_user
+        working-directory: .
+        continue-on-error: true
+        run: |
+          set -e
+          if [ -z "${VITE_FIREBASE_API_KEY}" ] || [ -z "${VITE_FIREBASE_AUTH_DOMAIN}" ] || [ -z "${VITE_FIREBASE_PROJECT_ID}" ] || [ -z "${VITE_FIREBASE_APP_ID}" ]; then
+            echo "Firebase web config not supplied via workflow_dispatch — authenticated browser gate remains DEFERRED."
+            echo "provisioned=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python - <<'PY'
+          import os, sys
+          sys.path.insert(0, ".")
+          from tests.production.firebase_harness import provision_user
+          u = provision_user(os.environ.get("GITHUB_RUN_ID", "cp10"), "cp10")
+          # Runner-only credential file (never upload; not tee'd to logs)
+          path = os.path.join(os.environ["RUNNER_TEMP"], "cp10-fb-user.env")
+          with open(path, "w", encoding="utf-8") as f:
+              f.write(f"CP10_FB_EMAIL={u.email}\n")
+              f.write(f"CP10_FB_PASSWORD={u._password}\n")
+              f.write(f"CP10_FB_UID={u.uid}\n")
+          print(f"provisioned uid={u.uid} email_domain={u.email.split('@')[-1]}")
+          PY
+          echo "provisioned=true" >> "$GITHUB_OUTPUT"
+          echo "cred_file=${RUNNER_TEMP}/cp10-fb-user.env" >> "$GITHUB_OUTPUT"
       - name: CP10 browser route verification
         id: browser
         continue-on-error: true
         run: |
           node <<'NODE' | tee cp10-browser.log
           const {chromium}=require('playwright');
-          (async()=>{const b=await chromium.launch({headless:true});const p=await b.newPage();const ce=[],pe=[],fr=[];
-          p.on('console',m=>m.type()==='error'&&ce.push(m.text()));p.on('pageerror',e=>pe.push(e.message));p.on('requestfailed',r=>fr.push(r.url()+' :: '+r.failure()?.errorText));
-          for(const path of ['/solspire','/solspire/projects','/solspire/engineering-lab']){const r=await p.goto('http://127.0.0.1:5000'+path,{waitUntil:'networkidle',timeout:60000});const text=await p.locator('body').innerText();console.log(`[route] ${path} status=${r?.status()} final=${p.url()}`);if(r?.status()!==200||!text.includes('PRIVATE WORKSPACE'))throw new Error(`${path} auth threshold failed`)}
-          await p.goto('http://127.0.0.1:5000/solspire/engineering-lab',{waitUntil:'networkidle',timeout:60000});await p.screenshot({path:'cp10-engineering-lab.png',fullPage:true});console.log('consoleErrors='+JSON.stringify(ce));console.log('pageErrors='+JSON.stringify(pe));console.log('failedRequests='+JSON.stringify(fr));if(ce.length||pe.length||fr.length)throw new Error('Browser runtime errors observed');console.log('Unauthenticated route threshold PASS');console.log('Authenticated Engineering Lab lens: BLOCKED; no legitimate existing browser-auth test session/credential is available and no bypass is permitted.');await b.close()})().catch(e=>{console.error(e);process.exit(1)});
+          const fs=require('fs');
+          const path=require('path');
+          (async()=>{
+            const b=await chromium.launch({headless:true});
+            const p=await b.newPage();
+            const ce=[],pe=[],fr=[];
+            p.on('console',m=>m.type()==='error'&&ce.push(m.text()));
+            p.on('pageerror',e=>pe.push(e.message));
+            p.on('requestfailed',r=>fr.push(r.url()+' :: '+r.failure()?.errorText));
+            for(const route of ['/solspire','/solspire/projects','/solspire/engineering-lab']){
+              const r=await p.goto('http://127.0.0.1:5000'+route,{waitUntil:'networkidle',timeout:60000});
+              const text=await p.locator('body').innerText();
+              console.log(`[route] ${route} status=${r?.status()} final=${p.url()}`);
+              if(r?.status()!==200||!text.includes('PRIVATE WORKSPACE')) throw new Error(`${route} auth threshold failed`);
+            }
+            await p.goto('http://127.0.0.1:5000/solspire/engineering-lab',{waitUntil:'networkidle',timeout:60000});
+            await p.screenshot({path:'cp10-engineering-lab.png',fullPage:true});
+            console.log('consoleErrors='+JSON.stringify(ce));
+            console.log('pageErrors='+JSON.stringify(pe));
+            console.log('failedRequests='+JSON.stringify(fr));
+            if(ce.length||pe.length||fr.length) throw new Error('Browser runtime errors observed');
+            console.log('Unauthenticated route threshold PASS');
+
+            const apiKey=process.env.VITE_FIREBASE_API_KEY||'';
+            const authDomain=process.env.VITE_FIREBASE_AUTH_DOMAIN||'';
+            const projectId=process.env.VITE_FIREBASE_PROJECT_ID||'';
+            const appId=process.env.VITE_FIREBASE_APP_ID||'';
+            const credPath=process.env.CP10_FB_CRED_FILE||'';
+            const canAuth=apiKey&&authDomain&&projectId&&appId&&credPath&&fs.existsSync(credPath);
+            if(!canAuth){
+              console.log('Authenticated Engineering Lab lens: DEFERRED BY ACCEPTANCE CRITERIA (Firebase web config or disposable identity not supplied for this run; not PASS).');
+              await b.close();
+              return;
+            }
+            const envTxt=fs.readFileSync(credPath,'utf8');
+            const email=(envTxt.match(/^CP10_FB_EMAIL=(.*)$/m)||[])[1];
+            const password=(envTxt.match(/^CP10_FB_PASSWORD=(.*)$/m)||[])[1];
+            if(!email||!password) throw new Error('Disposable identity file incomplete');
+            await p.goto('http://127.0.0.1:5000/login',{waitUntil:'networkidle',timeout:60000});
+            await p.getByTestId('tab-signin').click();
+            await p.getByTestId('input-email-signin').fill(email);
+            await p.getByTestId('input-password-signin').fill(password);
+            await p.getByTestId('button-signin').click();
+            // Wait until SolSpire is reachable without PRIVATE WORKSPACE threshold
+            await p.goto('http://127.0.0.1:5000/solspire/engineering-lab',{waitUntil:'networkidle',timeout:90000});
+            // Allow auth hydration
+            for(let i=0;i<30;i++){
+              const t=await p.locator('body').innerText();
+              if(!t.includes('PRIVATE WORKSPACE') && (t.includes('Engineering Lab')||t.includes('Deterministic observation')||t.includes('OBSERVED')||t.includes('System state'))) break;
+              await p.waitForTimeout(2000);
+              await p.reload({waitUntil:'networkidle'});
+            }
+            const body=await p.locator('body').innerText();
+            await p.screenshot({path:'cp10-engineering-lab-authenticated.png',fullPage:true});
+            if(body.includes('PRIVATE WORKSPACE')) throw new Error('Authenticated Lab lens FAIL: PRIVATE WORKSPACE still present');
+            if(!(body.includes('Engineering Lab')||body.includes('Deterministic observation')||body.includes('System state')||body.includes('OBSERVED'))){
+              throw new Error('Authenticated Lab lens FAIL: expected Lab observation UI not found');
+            }
+            console.log('Authenticated Engineering Lab lens: PASS');
+            await b.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
           NODE
+        env:
+          CP10_FB_CRED_FILE: ${{ steps.fb_user.outputs.cred_file }}
+      - name: CP10 cleanup disposable Firebase identity
+        if: always() && steps.fb_user.outputs.provisioned == 'true'
+        working-directory: .
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import os, sys
+          sys.path.insert(0, ".")
+          from tests.production.firebase_harness import DisposableUser, delete_user, refresh_id_token
+          path = os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), "cp10-fb-user.env")
+          if not os.path.isfile(path):
+              raise SystemExit(0)
+          vals = {}
+          for line in open(path, encoding="utf-8"):
+              line=line.strip()
+              if "=" in line:
+                  k,v=line.split("=",1); vals[k]=v
+          email=vals.get("CP10_FB_EMAIL"); password=vals.get("CP10_FB_PASSWORD"); uid=vals.get("CP10_FB_UID","")
+          if not email or not password:
+              raise SystemExit(0)
+          u = DisposableUser(email=email, uid=uid, _password=password, _id_token="", run_id="cp10")
+          refresh_id_token(u)
+          ok = delete_user(u)
+          print("cleanup_ok=" + str(bool(ok)))
+          try: os.remove(path)
+          except OSError: pass
+          PY
       - name: CP10 security artifact scan
         id: security
         continue-on-error: true
@@ -211,7 +347,7 @@ jobs:
             echo "Browser route verification: ${{ steps.browser.outcome }}"
             echo "Security scan: ${{ steps.security.outcome }}"
             echo "Mutation boundary: ${{ steps.mutation.outcome }}"
-            echo 'Authenticated browser Engineering Lab lens: DEFERRED BY ACCEPTANCE CRITERIA (Phase 2 opening gate; not PASS).'
+            echo "Authenticated browser Engineering Lab lens: see cp10-browser.log (PASS only if Firebase config supplied and assertions succeeded)."
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload CP10 evidence
         if: always()
@@ -236,6 +372,12 @@ jobs:
           test '${{ steps.mutation.outcome }}' = success
           # Path B: docs/verification/PHASE1_CP10_ACCEPTANCE_AMENDMENT.md
           # Authenticated browser Lab is not a Phase 1 seal gate.
-          echo 'Authenticated browser Engineering Lab lens: DEFERRED BY ACCEPTANCE CRITERIA (Phase 2 opening gate; not PASS).'
-          echo 'Executable CP10 gates: PASS — Phase 1 seal criteria (amended) satisfied for this run.'
+          if grep -q 'Authenticated Engineering Lab lens: PASS' cp10-browser.log 2>/dev/null; then
+            echo 'Authenticated browser Engineering Lab lens: PASS'
+          elif grep -q 'DEFERRED BY ACCEPTANCE CRITERIA' cp10-browser.log 2>/dev/null; then
+            echo 'Authenticated browser Engineering Lab lens: DEFERRED BY ACCEPTANCE CRITERIA (not PASS)'
+          else
+            echo 'Authenticated browser Engineering Lab lens: UNKNOWN (see cp10-browser.log)'
+          fi
+          echo 'Executable CP10 gates: PASS (browser step outcome success).'
           exit 0
