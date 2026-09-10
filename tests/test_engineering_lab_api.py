@@ -9,7 +9,10 @@ def test_lab_router_is_read_only_and_authenticated():
     route = routes["/api/lab/overview"]
     assert route.methods == {"GET"}
     assert router.dependencies
-    dependency_names = {getattr(dep.call, "__name__", "") for dep in router.dependencies}
+    dependency_names = {
+        getattr(getattr(dep, "dependency", None), "__name__", "")
+        for dep in router.dependencies
+    }
     assert "require_auth" in dependency_names
 
 
