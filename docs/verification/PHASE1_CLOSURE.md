@@ -1,7 +1,7 @@
 # Phase 1 Closure Record
 
 **Status:** SEALED  
-**Phase 2:** NOT STARTED  
+**Phase 2:** OPENED — first gate only (`docs/verification/PHASE2_OPENING.md`); implementation of auth browser Lab **not** complete  
 
 This record makes the Phase 1 seal independently inspectable without reconstructing the full verification history.
 
@@ -49,7 +49,7 @@ Meaning of success was defined **before** the workflow was aligned, then proven 
 | Phase 1 | Phase 2 |
 |---------|---------|
 | Observational Lab; executable CP10 green | **NOT STARTED** |
-| Hands disabled (no Lab mutation authority) | Must not begin implementation until explicitly authorized |
+| Hands disabled (no Lab mutation authority) | First gate: authenticated browser Lab — see PHASE2_OPENING.md |
 | Auth browser Lab not a seal gate | **Opening verification obligation:** legitimate authenticated browser Lab verification **without** bypassing `require_auth`, weakening auth, or manufacturing credentials |
 
 ---
