@@ -131,9 +131,15 @@ jobs:
           raise SystemExit('Frontend readiness FAIL')
           PY
       - name: Install Playwright Chromium
+        env:
+          # Force public npm for Playwright package + deps on GitHub-hosted runners.
+          # Avoid inherited package-firewall.replit.local (EAI_AGAIN) registry resolution.
+          npm_config_registry: https://registry.npmjs.org/
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "0"
         run: |
           npm init -y
-          npm install playwright
+          npm install playwright --registry=https://registry.npmjs.org/
           npx playwright install --with-deps chromium
       - name: CP10 browser route verification
         id: browser
