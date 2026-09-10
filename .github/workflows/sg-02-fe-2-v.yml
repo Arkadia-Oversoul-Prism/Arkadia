@@ -18,8 +18,12 @@ on:
       - 'tests/test_phase3_council.py'
       - 'lab/council/**'
       - 'lab/evolution/**'
+      - 'lab/execution/**'
+      - 'tests/test_phase5_governed_execution.py'
       - 'tests/test_phase4_evolution_planner.py'
       - 'lab/evolution/**'
+      - 'lab/execution/**'
+      - 'tests/test_phase5_governed_execution.py'
       - 'tests/test_phase4_evolution_planner.py'
       - 'requirements.txt'
       - '.github/workflows/sg-02-fe-2-v.yml'
@@ -129,6 +133,13 @@ jobs:
           set -e
           python -m pytest tests/test_phase4_evolution_planner.py -q
           echo "Phase 4 Evolution Planner fixtures PASS"
+      - name: Phase 5 Governed Execution dry-run fixtures
+        id: phase5_execution
+        working-directory: .
+        run: |
+          set -e
+          python -m pytest tests/test_phase5_governed_execution.py -q
+          echo "Phase 5 Governed Execution fixtures PASS"
       - name: Grove contracts
         working-directory: .
         continue-on-error: true
@@ -401,7 +412,7 @@ jobs:
           changed="$(git diff --name-only HEAD^ HEAD)"
           echo "Changed files since parent:"; echo "$changed"
           # Allow verification harness + Phase 3 council/self-test surfaces only.
-          allow='^[.]github/workflows/sg-02-fe-2-v[.]yml$|^lab/council/|^lab/evolution/|^tests/test_phase3_|^tests/test_phase4_|^docs/verification/PHASE'
+          allow='^[.]github/workflows/sg-02-fe-2-v[.]yml$|^lab/council/|^lab/evolution/|^lab/execution/|^tests/test_phase|^docs/verification/PHASE|^docs/verification/EV_'
           if echo "$changed" | grep -v '^$' | grep -vqE "$allow"; then
             echo "Unexpected non-harness paths in tip commit:"; echo "$changed"; exit 1
           fi
@@ -419,6 +430,7 @@ jobs:
             echo "Phase3 harness: ${{ steps.phase3_harness.outcome }}"
             echo "Phase3 council: ${{ steps.phase3_council.outcome }}"
             echo "Phase4 planner: ${{ steps.phase4_planner.outcome }}"
+            echo "Phase5 execution: ${{ steps.phase5_execution.outcome }}"
             echo "Grove contracts: ${{ steps.grove.outcome }}"
             echo "Lab tests: ${{ steps.lab.outcome }}"
             echo "Broader backend regression: ${{ steps.backend.outcome }}"
@@ -448,6 +460,7 @@ jobs:
           test '${{ steps.phase3_harness.outcome }}' = success
           test '${{ steps.phase3_council.outcome }}' = success
           test '${{ steps.phase4_planner.outcome }}' = success
+          test '${{ steps.phase5_execution.outcome }}' = success
           test '${{ steps.lab.outcome }}' = success
           test '${{ steps.backend.outcome }}' = success
           test '${{ steps.backend_ready.outcome }}' = success
