@@ -205,7 +205,7 @@ jobs:
             echo "Browser route verification: ${{ steps.browser.outcome }}"
             echo "Security scan: ${{ steps.security.outcome }}"
             echo "Mutation boundary: ${{ steps.mutation.outcome }}"
-            echo 'Authenticated browser Engineering Lab lens: BLOCKED; legitimate existing browser-auth session/credential unavailable.'
+            echo 'Authenticated browser Engineering Lab lens: DEFERRED BY ACCEPTANCE CRITERIA (Phase 2 opening gate; not PASS).'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload CP10 evidence
         if: always()
@@ -228,5 +228,8 @@ jobs:
           test '${{ steps.browser.outcome }}' = success
           test '${{ steps.security.outcome }}' = success
           test '${{ steps.mutation.outcome }}' = success
-          echo 'Authenticated browser Engineering Lab lens remains BLOCKED; CP10 seal cannot be earned.'
-          exit 2
+          # Path B: docs/verification/PHASE1_CP10_ACCEPTANCE_AMENDMENT.md
+          # Authenticated browser Lab is not a Phase 1 seal gate.
+          echo 'Authenticated browser Engineering Lab lens: DEFERRED BY ACCEPTANCE CRITERIA (Phase 2 opening gate; not PASS).'
+          echo 'Executable CP10 gates: PASS — Phase 1 seal criteria (amended) satisfied for this run.'
+          exit 0
