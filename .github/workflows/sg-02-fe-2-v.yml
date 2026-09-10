@@ -147,6 +147,13 @@ jobs:
           set -e
           python -m pytest tests/test_phase7_calibration.py -q
           echo "Phase 7 Calibration Loop deterministic gate PASS"
+      - name: Phase 8 Possibility Engine deterministic gate
+        id: phase8_possibility
+        working-directory: .
+        run: |
+          set -e
+          python -m pytest tests/test_phase8_possibility.py -q
+          echo "Phase 8 Possibility Engine deterministic gate PASS"
       - name: Grove contracts
         working-directory: .
         continue-on-error: true
@@ -397,7 +404,7 @@ jobs:
           git rev-parse --verify HEAD^ >/dev/null
           changed="$(git diff --name-only HEAD^ HEAD)"
           echo "Changed files since parent:"; echo "$changed"
-          allow='^[.]github/workflows/sg-02-fe-2-v[.]yml$|^lab/council/|^lab/evolution/|^lab/execution/|^lab/calibration/|^tests/test_phase|^docs/verification/PHASE|^docs/verification/EV_'
+          allow='^[.]github/workflows/sg-02-fe-2-v[.]yml$|^lab/council/|^lab/evolution/|^lab/execution/|^lab/calibration/|^lab/possibility/|^tests/test_phase|^docs/verification/PHASE|^docs/verification/EV_'
           if echo "$changed" | grep -v '^$' | grep -vqE "$allow"; then
             echo "Unexpected non-harness paths in tip commit:"; echo "$changed"; exit 1
           fi
@@ -416,6 +423,7 @@ jobs:
             echo "Phase4 planner: ${{ steps.phase4_planner.outcome }}"
             echo "Phase5 execution: ${{ steps.phase5_execution.outcome }}"
             echo "Phase7 calibration: ${{ steps.phase7_calibration.outcome }}"
+            echo "Phase8 possibility: ${{ steps.phase8_possibility.outcome }}"
             echo "Grove contracts: ${{ steps.grove.outcome }}"
             echo "Lab tests: ${{ steps.lab.outcome }}"
             echo "Broader backend regression: ${{ steps.backend.outcome }}"
@@ -447,6 +455,7 @@ jobs:
           test '${{ steps.phase4_planner.outcome }}' = success
           test '${{ steps.phase5_execution.outcome }}' = success
           test '${{ steps.phase7_calibration.outcome }}' = success
+          test '${{ steps.phase8_possibility.outcome }}' = success
           test '${{ steps.lab.outcome }}' = success
           test '${{ steps.backend.outcome }}' = success
           test '${{ steps.backend_ready.outcome }}' = success
