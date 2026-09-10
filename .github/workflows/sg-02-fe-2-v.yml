@@ -180,11 +180,15 @@ jobs:
           changed="$(git diff --name-only HEAD^ HEAD)"
           echo "Changed files since parent:"; echo "$changed"
           # Allow only the verification harness path in the tip commit surface.
-          echo "$changed" | grep -v '^$' | grep -vqE '^\.github/workflows/sg-02-fe-2-v\.yml$' && {
-            echo "Unexpected non-harness paths in tip commit:"; echo "$changed"; exit 1;
-          }
-          echo "$changed" | grep -qE '^\.github/workflows/sg-02-fe-2-v\.yml$'
-          if git diff HEAD^ HEAD -- .github/workflows/sg-02-fe-2-v.yml | grep -Eq 'git (push|commit)|gh (pr|workflow) (create|merge)|vercel|render deploy'; then exit 1; fi
+          # Use if/fi so set -e does not abort on intentional non-match from grep -v.
+          if echo "$changed" | grep -v '^$' | grep -vqE '^[.]github/workflows/sg-02-fe-2-v[.]yml$'; then
+            echo "Unexpected non-harness paths in tip commit:"; echo "$changed"; exit 1
+          fi
+          echo "$changed" | grep -qE '^[.]github/workflows/sg-02-fe-2-v[.]yml$'
+          # Scan diff for deploy/mutation commands; ignore this step's own pattern line.
+          if git diff HEAD^ HEAD -- .github/workflows/sg-02-fe-2-v.yml | grep -v 'grep -Eq' | grep -Eq '(^|[[:space:];|&])git[[:space:]]+(push|commit)|(^|[[:space:];|&])gh[[:space:]]+(pr|workflow)[[:space:]]+(create|merge)|vercel deploy|render deploy'; then
+            echo "Forbidden deploy/mutation command pattern in workflow diff"; exit 1
+          fi
           echo 'Application mutation: NONE'; echo 'Repository mutation by workflow: NONE'; echo 'Production mutation: NONE'; echo 'Autonomous mutation: NONE'
       - name: CP10 evidence summary
         if: always()
