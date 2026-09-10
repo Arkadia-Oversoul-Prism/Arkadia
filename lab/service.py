@@ -3,7 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .model import ANALYSIS_VERSION, COLLECTOR_VERSION, SCHEMA_VERSION, observed_now
+from . import ANALYSIS_VERSION, COLLECTOR_VERSION, SCHEMA_VERSION
+from .model import observed_now
 from .observatory.git import repository_state, commit_history
 from .observatory.repository import discover_files
 from .observatory.snapshot import module_map, route_map, deployment_map, execution_paths, security_observations
