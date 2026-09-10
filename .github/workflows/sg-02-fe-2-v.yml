@@ -212,6 +212,9 @@ jobs:
         id: browser
         continue-on-error: true
         run: |
+          # Sequence B: make Node exit code visible through the tee pipeline.
+          # Without pipefail, pipeline status is tee's (always 0) even when node exits 1.
+          set -o pipefail
           node <<'NODE' | tee cp10-browser.log
           const {chromium}=require('playwright');
           const fs=require('fs');
