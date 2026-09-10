@@ -33,11 +33,21 @@ def classify(expected_state: Mapping[str, Any], actual_state: Mapping[str, Any])
     if not mismatches:
         return CalibrationResult("SUCCESS", ())
 
-    # A regression is an unexpected loss or newly observed failure signal.
+    actual_status = str(actual.get("status", "")).upper()
+    if actual_status in {"FAILURE", "FAILED"}:
+        return CalibrationResult("FAILURE", mismatches)
+
     regression_keys = {
         key for key in mismatches
-        if (key not in actual) or (isinstance(actual.get(key), (int, float)) and isinstance(expected.get(key), (int, float)) and actual[key] < expected[key])
-        or "regression" in key.lower() or "failure" in key.lower() or "error" in key.lower()
+        if (key not in actual)
+        or (
+            isinstance(actual.get(key), (int, float))
+            and isinstance(expected.get(key), (int, float))
+            and actual[key] < expected[key]
+        )
+        or "regression" in key.lower()
+        or "failure" in key.lower()
+        or "error" in key.lower()
     }
     status = "REGRESSION" if regression_keys else "PARTIAL"
     return CalibrationResult(status, mismatches)
