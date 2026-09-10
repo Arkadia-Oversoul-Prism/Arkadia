@@ -5,6 +5,7 @@ from typing import Any
 
 def classify_commit(message: str, files: list[str]) -> tuple[str, float]:
     m=message.lower(); joined=" ".join(files).lower()
+    if m.startswith("fix:"): return "fix",0.85
     rules=[("security",("security","auth","credential","jwt")),("deployment",("deploy","render","vercel","workflow","docker")),("dependency",("depend","pnpm","npm","requirements")),("documentation",("docs","readme","adr","document")),("ui",("ui","tsx","css","frontend","navigation")),("architecture",("architecture","consolidat","layer","router","kernel")),("refactor",("refactor","reorganiz","cleanup")),("fix",("fix","bug","repair")),("feature",("feat","add","implement","introduc"))]
     for kind,terms in rules:
         if any(t in m or t in joined for t in terms): return kind,0.85
