@@ -1,0 +1,25 @@
+version: "1.0"
+contract: execution
+status: schema_only
+purpose: Define the common request vocabulary shared by distinct execution runtimes without merging them.
+principles:
+  - runtimes remain independently owned
+  - callers declare intent and requested capability
+  - execution authority is evaluated separately by the Authority Contract
+  - contract is observational and non-executing
+request:
+  required: [intent]
+  fields:
+    intent: {type: string}
+    subject: {type: string, nullable: true}
+    requested_capability: {type: string, nullable: true}
+    authority_context: {type: object, nullable: true}
+    mutation_requested: {type: boolean, default: false}
+    persistence_required: {type: boolean, default: false}
+    verification_required: {type: boolean, default: true}
+runtimes:
+  kernel: {role: deterministic_execution_and_jobs}
+  solspire: {role: project_console_runtime}
+  weaver: {role: governed_engineering_execution}
+required_observations: [runtime_selected, request_id, authority_context, result_status]
+forbidden: [implicit_authorization, hidden_runtime_switching, autonomous_execution]

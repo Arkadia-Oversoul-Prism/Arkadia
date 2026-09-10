@@ -1,0 +1,80 @@
+version: "1.0"
+generated_for: atlas_v1
+as_of: "2026-09-10"
+source_commit: 29b33022049016acb7d3a382ee32586102bc24b0
+components:
+  prism:
+    status: live
+    plane: presentation
+    evidence: [web/public_prism]
+  api:
+    status: live
+    plane: composition
+    evidence: [api/main.py]
+  kernel:
+    status: live
+    plane: execution
+    evidence: [kernel/execution.py, kernel/worker.py, kernel/jobs.py]
+  solspire:
+    status: live
+    plane: project_runtime
+    evidence: [solspire/console_router.py, solspire/execution_runtime.py]
+  weaver:
+    status: governed
+    plane: engineering
+    evidence: [weaver/pass_spec.py, weaver/execution.py, weaver/transaction.py]
+  knowledge:
+    status: live
+    plane: knowledge
+    evidence: [knowledge/context_engine.py, knowledge/pipeline.py, knowledge/db.py]
+  corpus:
+    status: wired
+    plane: ingestion
+    evidence: [corpus/manager.py]
+  providers:
+    status: partial
+    plane: intelligence
+    evidence: [providers/router.py, providers/base.py]
+  lab:
+    status: governed
+    plane: governance
+    evidence: [lab/service.py, lab/evolution, lab/decision, lab/binding]
+  arkana_rasa:
+    status: experimental
+    plane: experimental
+  sonata:
+    status: legacy
+    plane: legacy
+  sonata-android:
+    status: partial
+    plane: presentation
+  arkana_space:
+    status: partial
+    plane: experimental
+  engine:
+    status: unknown
+    plane: legacy
+  parsers:
+    status: unknown
+    plane: legacy
+  schemas:
+    status: unknown
+    plane: legacy
+  sanctum:
+    status: unknown
+    plane: legacy
+  static:
+    status: partial
+    plane: storage
+  openclaw:
+    status: wired
+    plane: interface
+  governance_autonomy:
+    status: blocked
+    plane: governance
+    evidence: [governance/autonomy.json]
+notes:
+  - Directory presence is not treated as proof of runtime liveness.
+  - Provider status remains partial because direct provider call sites remain.
+  - Weaver mutation capability exists, but Lab Phase 10 remains dry-run.
+  - Scheduled autonomy is disabled by governance configuration.

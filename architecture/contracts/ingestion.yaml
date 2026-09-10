@@ -1,0 +1,21 @@
+version: "1.0"
+contract: ingestion
+status: schema_only
+purpose: Separate source acquisition from contextual knowledge construction.
+flow:
+  - source
+  - corpus
+  - normalize
+  - knowledge_pipeline
+  - vault_graph_embeddings
+  - context_engine
+ownership:
+  corpus: source_acquisition_and_sync
+  knowledge_os: normalization_storage_indexing_and_context
+rules:
+  - corpus does not define contextual relevance
+  - knowledge_os does not silently acquire undeclared external sources
+  - provenance must survive normalization
+  - checksum_or_identity_based_deduplication should be preserved where available
+required_metadata: [source, provenance, ingestion_time, content_identity]
+forbidden: [silent_source_invention, provenance_loss, direct_context_injection_without_ingestion]

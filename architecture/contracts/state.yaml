@@ -1,0 +1,27 @@
+version: "1.0"
+contract: state
+status: schema_only
+purpose: Declare state ownership and prevent unrelated persistence mechanisms from being treated as one memory system.
+domains:
+  identity:
+    owner: identity_spine
+    purpose: user_identity
+  knowledge:
+    owner: knowledge_os
+    purpose: long_lived_context
+  execution:
+    owner: kernel_runtime
+    purpose: job_and_task_state
+  engineering:
+    owner: weaver
+    purpose: engineering_session_context
+  presentation:
+    owner: client
+    purpose: ephemeral_ui_state
+required_fields: [owner, purpose, authority, persistence, readers, writers, retention]
+constraints:
+  - every persistent state store belongs to exactly one declared domain
+  - cross_domain_reads must be explicit
+  - cross_domain_writes must be explicit and authorized
+  - no generic memory namespace may silently absorb domain state
+forbidden: [implicit_cross_domain_write, undeclared_state_store, hidden_memory_alias]
