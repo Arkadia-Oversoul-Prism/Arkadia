@@ -18,6 +18,7 @@ def _crash_worker(snapshot: str, ready: mp.Queue) -> None:
     import kernel.worker as worker
 
     store = JobStore(snapshot)
+    worker._store = store
     job = store.create({"type": "phase6_probe", "task_id": "EV-PHASE6-001"}, source="phase6-test")
 
     def slow_execute(_intent):
@@ -62,10 +63,9 @@ def test_kill_worker_resume_from_last_checkpoint(tmp_path: Path):
         assert job["execution"]["checkpoints"][-1]["name"] == "execution.started"
         assert job["execution"]["checkpoints"][-1]["data"]["resume_from"] is None
 
-        # A fresh worker can now claim the persisted task and receives the
-        # checkpoint marker in the canonical execution payload.
         import kernel.worker as worker
         observed: dict = {}
+        worker._store = recovered
 
         def resumed_execute(intent):
             observed["resume_from"] = intent["payload"]["_execution"]["resume_from"]
