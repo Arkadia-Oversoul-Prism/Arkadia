@@ -140,6 +140,13 @@ jobs:
           set -e
           python -m pytest tests/test_phase5_governed_execution.py -q
           echo "Phase 5 Governed Execution fixtures PASS"
+      - name: Phase 7 Calibration Loop deterministic gate
+        id: phase7_calibration
+        working-directory: .
+        run: |
+          set -e
+          python -m pytest tests/test_phase7_calibration.py -q
+          echo "Phase 7 Calibration Loop deterministic gate PASS"
       - name: Grove contracts
         working-directory: .
         continue-on-error: true
@@ -226,8 +233,6 @@ jobs:
           npm init -y
           npm install playwright --registry=https://registry.npmjs.org/
           npx playwright install --with-deps chromium
-          # Export paths so mandatory browser verification can require('playwright')
-          # without using web/public_prism lockfile-resolved packages.
           echo "NODE_PATH=${PW_DIR}/node_modules${NODE_PATH:+:$NODE_PATH}" >> "$GITHUB_ENV"
           echo "PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}" >> "$GITHUB_ENV"
       - name: CP10 provision disposable Firebase identity
@@ -246,7 +251,6 @@ jobs:
           sys.path.insert(0, ".")
           from tests.production.firebase_harness import provision_user
           u = provision_user(os.environ.get("GITHUB_RUN_ID", "cp10"), "cp10")
-          # Runner-only credential file (never upload; not tee'd to logs)
           path = os.path.join(os.environ["RUNNER_TEMP"], "cp10-fb-user.env")
           with open(path, "w", encoding="utf-8") as f:
               f.write(f"CP10_FB_EMAIL={u.email}\n")
@@ -260,8 +264,6 @@ jobs:
         id: browser
         continue-on-error: true
         run: |
-          # Sequence B: make Node exit code visible through the tee pipeline.
-          # Without pipefail, pipeline status is tee's (always 0) even when node exits 1.
           set -o pipefail
           node <<'NODE' | tee cp10-browser.log
           const {chromium}=require('playwright');
@@ -287,7 +289,6 @@ jobs:
             console.log('failedRequests='+JSON.stringify(fr));
             if(ce.length||pe.length||fr.length) throw new Error('Browser runtime errors observed');
             console.log('Unauthenticated route threshold PASS');
-
             const apiKey=process.env.VITE_FIREBASE_API_KEY||'';
             const authDomain=process.env.VITE_FIREBASE_AUTH_DOMAIN||'';
             const projectId=process.env.VITE_FIREBASE_PROJECT_ID||'';
@@ -299,7 +300,6 @@ jobs:
               await b.close();
               return;
             }
-
             const redact=(s)=>String(s||'').replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g,'[REDACTED_JWT]').replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g,'[REDACTED_EMAIL]');
             let phase='auth_start';
             const dump=async(label)=>{
@@ -316,13 +316,11 @@ jobs:
                 console.log('[diag] screenshot='+shot);
               }catch(diagErr){console.log('[diag] dump_failed='+String(diagErr));}
             };
-
             const envTxt=fs.readFileSync(credPath,'utf8');
             const email=(envTxt.match(/^CP10_FB_EMAIL=(.*)$/m)||[])[1];
             const password=(envTxt.match(/^CP10_FB_PASSWORD=(.*)$/m)||[])[1];
             if(!email||!password) throw new Error('Disposable identity file incomplete');
             console.log('[phase] identity_loaded email_domain='+(email.split('@')[1]||'unknown'));
-
             phase='navigate_login';
             await p.goto('http://127.0.0.1:5000/login',{waitUntil:'networkidle',timeout:60000});
             console.log('[phase] login_page url='+p.url());
@@ -334,34 +332,23 @@ jobs:
             phase='submit_signin';
             await p.getByTestId('button-signin').click();
             console.log('[phase] signin_clicked');
-            // Observe post-submit without forcing navigation yet
             await p.waitForTimeout(4000);
             phase='post_submit_observe';
             console.log('[phase] post_submit url='+p.url());
             await dump('post_submit');
-
             phase='navigate_lab';
             await p.goto('http://127.0.0.1:5000/solspire/engineering-lab',{waitUntil:'networkidle',timeout:90000});
             for(let i=0;i<30;i++){
               const t=await p.locator('body').innerText();
-              if(!t.includes('PRIVATE WORKSPACE') && (t.includes('Engineering Lab')||t.includes('Deterministic observation')||t.includes('OBSERVED')||t.includes('System state'))) {
-                phase='hydrated_lab';
-                break;
-              }
+              if(!t.includes('PRIVATE WORKSPACE') && (t.includes('Engineering Lab')||t.includes('Deterministic observation')||t.includes('OBSERVED')||t.includes('System state'))){ phase='hydrated_lab'; break; }
               phase='wait_hydration_'+i;
               await p.waitForTimeout(2000);
               await p.reload({waitUntil:'networkidle'});
             }
             const body=await p.locator('body').innerText();
             await p.screenshot({path:'cp10-engineering-lab-authenticated.png',fullPage:true});
-            if(body.includes('PRIVATE WORKSPACE')){
-              await dump('lab_still_private');
-              throw new Error('Authenticated Lab lens FAIL: PRIVATE WORKSPACE still present');
-            }
-            if(!(body.includes('Engineering Lab')||body.includes('Deterministic observation')||body.includes('System state')||body.includes('OBSERVED'))){
-              await dump('lab_ui_missing');
-              throw new Error('Authenticated Lab lens FAIL: expected Lab observation UI not found');
-            }
+            if(body.includes('PRIVATE WORKSPACE')){ await dump('lab_still_private'); throw new Error('Authenticated Lab lens FAIL: PRIVATE WORKSPACE still present'); }
+            if(!(body.includes('Engineering Lab')||body.includes('Deterministic observation')||body.includes('System state')||body.includes('OBSERVED'))){ await dump('lab_ui_missing'); throw new Error('Authenticated Lab lens FAIL: expected Lab observation UI not found'); }
             console.log('Authenticated Engineering Lab lens: PASS');
             await b.close();
           })().catch(e=>{console.error(e);process.exit(1)});
@@ -407,16 +394,13 @@ jobs:
         working-directory: .
         run: |
           set -e
-          # Parent must exist (fetch-depth >= 2). Fail clearly if not.
           git rev-parse --verify HEAD^ >/dev/null
           changed="$(git diff --name-only HEAD^ HEAD)"
           echo "Changed files since parent:"; echo "$changed"
-          # Allow verification harness + Phase 3 council/self-test surfaces only.
-          allow='^[.]github/workflows/sg-02-fe-2-v[.]yml$|^lab/council/|^lab/evolution/|^lab/execution/|^tests/test_phase|^docs/verification/PHASE|^docs/verification/EV_'
+          allow='^[.]github/workflows/sg-02-fe-2-v[.]yml$|^lab/council/|^lab/evolution/|^lab/execution/|^lab/calibration/|^tests/test_phase|^docs/verification/PHASE|^docs/verification/EV_'
           if echo "$changed" | grep -v '^$' | grep -vqE "$allow"; then
             echo "Unexpected non-harness paths in tip commit:"; echo "$changed"; exit 1
           fi
-          # Scan diff for deploy/mutation commands; ignore this step's own pattern line.
           if git diff HEAD^ HEAD -- .github/workflows/sg-02-fe-2-v.yml | grep -v 'grep -Eq' | grep -Eq '(^|[[:space:];|&])git[[:space:]]+(push|commit)|(^|[[:space:];|&])gh[[:space:]]+(pr|workflow)[[:space:]]+(create|merge)|vercel deploy|render deploy'; then
             echo "Forbidden deploy/mutation command pattern in workflow diff"; exit 1
           fi
@@ -431,6 +415,7 @@ jobs:
             echo "Phase3 council: ${{ steps.phase3_council.outcome }}"
             echo "Phase4 planner: ${{ steps.phase4_planner.outcome }}"
             echo "Phase5 execution: ${{ steps.phase5_execution.outcome }}"
+            echo "Phase7 calibration: ${{ steps.phase7_calibration.outcome }}"
             echo "Grove contracts: ${{ steps.grove.outcome }}"
             echo "Lab tests: ${{ steps.lab.outcome }}"
             echo "Broader backend regression: ${{ steps.backend.outcome }}"
@@ -461,6 +446,7 @@ jobs:
           test '${{ steps.phase3_council.outcome }}' = success
           test '${{ steps.phase4_planner.outcome }}' = success
           test '${{ steps.phase5_execution.outcome }}' = success
+          test '${{ steps.phase7_calibration.outcome }}' = success
           test '${{ steps.lab.outcome }}' = success
           test '${{ steps.backend.outcome }}' = success
           test '${{ steps.backend_ready.outcome }}' = success
@@ -469,8 +455,6 @@ jobs:
           test '${{ steps.browser.outcome }}' = success
           test '${{ steps.security.outcome }}' = success
           test '${{ steps.mutation.outcome }}' = success
-          # Path B: docs/verification/PHASE1_CP10_ACCEPTANCE_AMENDMENT.md
-          # Authenticated browser Lab is not a Phase 1 seal gate.
           if grep -q 'Authenticated Engineering Lab lens: PASS' cp10-browser.log 2>/dev/null; then
             echo 'Authenticated browser Engineering Lab lens: PASS'
           elif grep -q 'DEFERRED BY ACCEPTANCE CRITERIA' cp10-browser.log 2>/dev/null; then
