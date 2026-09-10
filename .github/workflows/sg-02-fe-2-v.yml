@@ -390,7 +390,7 @@ jobs:
           changed="$(git diff --name-only HEAD^ HEAD)"
           echo "Changed files since parent:"; echo "$changed"
           # Allow verification harness + Phase 3 council/self-test surfaces only.
-          allow='^[.]github/workflows/sg-02-fe-2-v[.]yml$|^lab/council/|^tests/test_phase3_|^docs/verification/PHASE3_'
+          allow='^[.]github/workflows/sg-02-fe-2-v[.]yml$|^lab/council/|^tests/test_phase3_|^docs/verification/PHASE3_|^docs/verification/PHASES_3_10_'
           if echo "$changed" | grep -v '^$' | grep -vqE "$allow"; then
             echo "Unexpected non-harness paths in tip commit:"; echo "$changed"; exit 1
           fi
