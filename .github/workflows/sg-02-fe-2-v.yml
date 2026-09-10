@@ -73,10 +73,12 @@ jobs:
         continue-on-error: true
         run: python -m pytest tests/test_spiral_grove_frontend_projection.py tests/test_spiral_grove_chambers.py tests/test_spiral_grove_learning_path.py tests/test_spiral_grove_learning_path_projection.py -q 2>&1 | tee cp10-grove.log
       - name: CP10-A Lab tests
+        id: lab
         working-directory: .
         continue-on-error: true
         run: python -m pytest tests/test_engineering_lab.py tests/test_engineering_lab_api.py -q 2>&1 | tee cp10-lab.log
       - name: CP10-B broader backend regression
+        id: backend
         working-directory: .
         continue-on-error: true
         run: python -m pytest tests/ -q 2>&1 | tee cp10-backend.log
@@ -84,6 +86,7 @@ jobs:
         working-directory: .
         run: nohup env PYTHONPATH=. python -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --log-level info > cp10-backend-runtime.log 2>&1 &
       - name: Backend readiness
+        id: backend_ready
         working-directory: .
         continue-on-error: true
         run: |
@@ -99,6 +102,7 @@ jobs:
           raise SystemExit('Backend readiness FAIL')
           PY
       - name: CP10 API verification
+        id: api
         working-directory: .
         continue-on-error: true
         run: |
@@ -120,6 +124,7 @@ jobs:
       - name: Start existing frontend runtime
         run: nohup pnpm --dir web/public_prism dev --host 127.0.0.1 --port 5000 > cp10-frontend-runtime.log 2>&1 &
       - name: Frontend readiness
+        id: frontend_ready
         continue-on-error: true
         run: |
           python - <<'PY'
