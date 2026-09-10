@@ -40,6 +40,9 @@ jobs:
         working-directory: web/public_prism
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Need parent commit for mutation-boundary HEAD^ checks (default depth=1 → exit 128).
+          fetch-depth: 2
       - uses: pnpm/action-setup@v4
         with:
           version: 10.26.1
@@ -169,10 +172,18 @@ jobs:
           echo 'Runtime artifact secret scan PASS'
       - name: CP10 mutation boundary
         id: mutation
+        working-directory: .
         run: |
           set -e
+          # Parent must exist (fetch-depth >= 2). Fail clearly if not.
+          git rev-parse --verify HEAD^ >/dev/null
           changed="$(git diff --name-only HEAD^ HEAD)"
-          [ "$changed" = '.github/workflows/sg-02-fe-2-v.yml' ]
+          echo "Changed files since parent:"; echo "$changed"
+          # Allow only the verification harness path in the tip commit surface.
+          echo "$changed" | grep -v '^$' | grep -vqE '^\.github/workflows/sg-02-fe-2-v\.yml$' && {
+            echo "Unexpected non-harness paths in tip commit:"; echo "$changed"; exit 1;
+          }
+          echo "$changed" | grep -qE '^\.github/workflows/sg-02-fe-2-v\.yml$'
           if git diff HEAD^ HEAD -- .github/workflows/sg-02-fe-2-v.yml | grep -Eq 'git (push|commit)|gh (pr|workflow) (create|merge)|vercel|render deploy'; then exit 1; fi
           echo 'Application mutation: NONE'; echo 'Repository mutation by workflow: NONE'; echo 'Production mutation: NONE'; echo 'Autonomous mutation: NONE'
       - name: CP10 evidence summary
