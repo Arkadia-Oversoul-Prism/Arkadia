@@ -19,6 +19,7 @@ arkadia_oracle.db
 data/api_keys.json
 data/provider_keys.json
 data/user_keys/
+data/ims_credentials_sealed.json
 
 # Cache files
 arkadia_cache.json
