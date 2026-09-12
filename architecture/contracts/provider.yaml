@@ -1,0 +1,20 @@
+version: "1.0"
+contract: provider
+status: schema_only
+purpose: Establish one observable vocabulary for multi-provider intelligence without claiming present convergence.
+request:
+  required: [messages]
+  fields:
+    messages: {type: array}
+    model: {type: string, nullable: true}
+    provider_hint: {type: string, nullable: true}
+    capabilities_required: {type: array, default: []}
+    fallback_allowed: {type: boolean, default: true}
+providers: [gemini, claude, gpt, deepseek, local]
+gateway_rules:
+  - provider selection must be observable
+  - direct provider calls are architectural exceptions until migrated
+  - fallback must be observable
+  - provider identity must be retained in telemetry
+required_observations: [provider_selected, route, fallback_used, result_status]
+forbidden: [silent_provider_switch, untracked_direct_provider_call, false_convergence_claim]

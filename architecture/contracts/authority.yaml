@@ -1,0 +1,35 @@
+version: "1.0"
+contract: authority
+status: schema_only
+purpose: Keep capability, eligibility, authorization, execution, verification, and publication distinct.
+chain:
+  - capability
+  - eligibility
+  - authorization
+  - execution
+  - verification
+  - publication
+invariant: capability_does_not_imply_authorization
+request:
+  required: [capability]
+  fields:
+    capability: {type: string}
+    authority_level: {type: integer}
+    human_approval: {type: boolean}
+    pass_spec: {type: object, nullable: true}
+    allowed_paths: {type: array, default: []}
+    expected_head: {type: string, nullable: true}
+    execution_authorized: {type: boolean, default: false}
+    publication_authorized: {type: boolean, default: false}
+rules:
+  - authorization must be explicit
+  - human approval is not inferred from capability existence
+  - execution must not occur when authorization is absent
+  - publication and deployment remain separate from mutation
+current_lab_boundary:
+  authority_ceiling: 2
+  phase10_mode: dry_run
+  merge: false
+  deploy: false
+  auto_execute: false
+forbidden: [implicit_authorization, authority_escalation, capability_to_authority_coercion]

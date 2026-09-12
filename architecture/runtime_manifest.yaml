@@ -1,0 +1,105 @@
+version: "1.1"
+generated_for: atlas_v1.1
+as_of: "2026-09-12"
+source_runtime_commit: 29b33022049016acb7d3a382ee32586102bc24b0
+control_plane_docs_branch: architecture/control-plane-contracts-v1
+components:
+  prism:
+    status: live
+    plane: presentation
+    evidence: [web/public_prism]
+  api:
+    status: live
+    plane: composition
+    evidence: [api/main.py]
+  kernel:
+    status: live
+    plane: execution
+    evidence: [kernel/execution.py, kernel/worker.py, kernel/jobs.py]
+  solspire:
+    status: live
+    plane: project_runtime
+    evidence: [solspire/console_router.py, solspire/execution_runtime.py]
+  weaver:
+    status: governed
+    plane: engineering
+    evidence: [weaver/pass_spec.py, weaver/execution.py, weaver/transaction.py]
+  knowledge:
+    status: live
+    plane: knowledge
+    evidence: [knowledge/context_engine.py, knowledge/pipeline.py, knowledge/db.py]
+  corpus:
+    status: wired
+    plane: ingestion
+    evidence: [corpus/manager.py]
+  providers:
+    status: partial
+    plane: intelligence
+    evidence: [providers/router.py, providers/base.py]
+  lab:
+    status: governed
+    plane: governance
+    evidence: [lab/service.py, lab/evolution, lab/decision, lab/binding]
+  arkana_rasa:
+    status: experimental
+    plane: experimental
+  sonata:
+    status: legacy
+    plane: legacy
+  sonata-android:
+    status: partial
+    plane: presentation
+  arkana_space:
+    status: partial
+    plane: experimental
+  engine:
+    status: unknown
+    plane: legacy
+  parsers:
+    status: unknown
+    plane: legacy
+  schemas:
+    status: unknown
+    plane: legacy
+  sanctum:
+    status: unknown
+    plane: legacy
+  static:
+    status: partial
+    plane: storage
+  openclaw:
+    status: wired
+    plane: interface
+  governance_autonomy:
+    status: blocked
+    plane: governance
+    evidence: [governance/autonomy.json]
+architecture_arc:
+  control_plane:
+    status: documented
+    scope: contract_and_observation
+    authority: none
+  provenance:
+    status: unresolved
+    current_r3_eligibility: not_established
+    primary_collision: CP102-G07
+    secondary_gaps: [G08, G09, G10, G11, G12, G13, G14, G15]
+    mechanism: unselected
+    implementation: none
+  chain: [CP-05, CP-10, CP-10.1, CP-10.2, CP-10.3, CP-10.4, CP-10.5, CP-10.6, CP-10.7, CP-10.8, CP-10.9]
+  cp_10_10: not_authored_frontier_open
+  permanent_distinctions:
+    - attestation_is_not_origination
+    - precedence_is_not_causation
+    - event_identity_dependence_is_not_causal_evidence
+  closed_false_solution_classes:
+    - attestation_only
+    - precedence_only
+    - identity_dependence_only
+notes:
+  - Directory presence is not treated as proof of runtime liveness.
+  - Provider status remains partial because direct provider call sites remain.
+  - Weaver mutation capability exists, but Lab Phase 10 remains bounded by its sealed Level 2 governance state.
+  - Scheduled autonomy is disabled by governance configuration.
+  - Provenance artifacts are archival and normative; they do not create authority.
+  - No provenance candidate has been selected or implemented.

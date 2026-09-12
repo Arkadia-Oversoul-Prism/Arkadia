@@ -1,0 +1,15 @@
+version: "1.0"
+contract: runtime_manifest
+status: schema_only
+purpose: Distinguish repository presence from runtime status and provide a machine-readable Atlas source.
+status_enum: [live, wired, partial, experimental, legacy, orphaned, unknown, governed, blocked]
+component_schema:
+  required: [status, plane]
+  optional: [entrypoints, evidence, owner, notes]
+planes: [presentation, composition, execution, project_runtime, engineering, intelligence, knowledge, ingestion, governance, storage, legacy, experimental]
+rules:
+  - repository_presence does not imply runtime_liveness
+  - status claims require evidence
+  - historical documentation alone cannot promote unknown to live
+  - governed and blocked are operational boundary states, not liveness claims
+forbidden: [status_inference_from_directory_presence_only, undocumented_live_claim]

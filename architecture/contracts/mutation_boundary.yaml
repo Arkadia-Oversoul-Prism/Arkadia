@@ -1,0 +1,22 @@
+version: "1.0"
+contract: mutation_boundary
+status: schema_only
+purpose: Preserve the distinction between Lab governance preparation and Weaver engineering mutation.
+flow:
+  lab:
+    capabilities: [observe, analyze, propose, recognize, decide, bind, k15_preflight]
+    mutation: false
+    mode: dry_run
+  weaver:
+    capabilities: [recon, analysis, proposal, pass_spec, k15, k3, verification, git]
+    mutation: governed
+boundary:
+  lab_to_weaver: governed_package
+  required_controls: [human_approval, pass_spec, allowed_paths, head_lineage, preflight, verification]
+  publication: separate_from_mutation
+  deployment: external_to_lab_phase10
+invariants:
+  - phase10_binding_does_not authorize autonomous mutation
+  - capability_in_weaver_does_not imply current_lab_authorization
+  - solspire_engineering_mutations_are_blocked_and_redirected_to_weaver
+forbidden: [lab_autonomous_mutation, implicit_weaver_invocation, mutation_without_pass_spec]

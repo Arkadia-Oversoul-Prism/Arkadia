@@ -1,0 +1,16 @@
+version: "1.0"
+contract: interface
+status: schema_only
+purpose: Make every external interface declare its canonical route and expose bypasses as explicit exceptions.
+interfaces:
+  prism: {kind: web, canonical_route: api}
+  android: {kind: mobile, canonical_route: api}
+  discord: {kind: bot, canonical_route: api}
+  telegram: {kind: bot, canonical_route: api}
+request_fields: [interface_id, canonical_route, auth_context, capability, fallback]
+rules:
+  - external interfaces should prefer the canonical API
+  - authentication context must survive interface crossing
+  - fallback routes must be declared and observable
+  - direct provider access is an exception, not a canonical interface
+forbidden: [silent_bypass, auth_context_loss, undeclared_fallback]
