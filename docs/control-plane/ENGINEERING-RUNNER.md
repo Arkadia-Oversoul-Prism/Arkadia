@@ -270,3 +270,20 @@ The Engineering Runner itself is NOT a specification artifact. It is infrastruct
 **Status:** BOOTSTRAP  
 **Authority:** Scheduler/Worker lifecycle only  
 **Modification:** Only to improve routing fidelity or worker interface; never to redefine trajectory, move scope, or acceptance criteria
+
+## Scheduler (GitHub Actions)
+
+Workflow: `.github/workflows/arkadia-engineering-scheduler.yml`
+
+- **Manual:** `workflow_dispatch` with `dry_run` (default `true`)
+- **Scheduled:** hourly cron `0 * * * *` (wake only; default dry-run)
+- **Concurrency:** group `arkadia-engineering-session`, `cancel-in-progress: false` (max one active session)
+- **Permissions:** `contents: read`, `actions: read` — no write, no merge, no deploy
+
+## Bootstrap modules
+
+- `weaver/engineering_router.py` — trajectory load + deterministic routing
+- `weaver/engineering_worker.py` — bounded session, stops at review
+- `weaver/execution_adapter.py` — provider-neutral; `NullExecutionAdapter` for orientation
+
+Live M01 mutation requires an approved non-null adapter and explicit non-dry-run dispatch after human acceptance of this bootstrap.
