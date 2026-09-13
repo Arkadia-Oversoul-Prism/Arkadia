@@ -11,6 +11,7 @@ Endpoints:
   POST /solspire/projects         — create project
   GET  /solspire/projects/{id}    — load project
   POST /solspire/projects/{id}/archive
+  GET  /solspire/workspace        — resolve canonical workspace for authenticated subject
   GET  /solspire/executions       — list executions
   GET  /solspire/executions/{id}  — get execution status
   POST /solspire/executions/{id}/pause
@@ -226,6 +227,29 @@ async def archive_project(project_id: str, user: dict = Depends(require_project_
         return {"ok": True}
     except KeyError:
         raise HTTPException(status_code=404, detail="Project not found")
+
+
+# ── Canonical SolSpire Workspace ────────────────────────────────────────────
+
+@router.get("/workspace")
+async def get_canonical_workspace(user: dict = Depends(require_auth)) -> dict[str, Any]:
+    """Resolve the single canonical workspace bound to the authenticated subject.
+
+    Resolution is idempotent: an existing workspace is returned unchanged;
+    otherwise the bounded canonical workspace is provisioned for the verified
+    Firebase uid. No client-supplied subject or authority fields are accepted.
+    """
+    from solspire.workspace_manager import get_workspace_manager
+    try:
+        workspace = get_workspace_manager().get_or_create(user["uid"])
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {
+        "workspace": workspace.to_dict(),
+        "canonical": True,
+        "subject_binding": "authenticated_firebase_uid",
+    }
 
 
 # ── Executions ─────────────────────────────────────────────────────────────
@@ -1076,7 +1100,6 @@ async def project_weaver_execute(
     return project_execute_governed(
         pdata, body.patch, body.pass_spec, body.approval, run_k3=bool(body.run_k3)
     )
-
 
 
 __all__ = ["router"]
