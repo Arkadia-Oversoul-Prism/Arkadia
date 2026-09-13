@@ -126,3 +126,21 @@
 @media (prefers-reduced-motion: reduce) {
   .solspire-workspace *,.solspire-workspace *::before,.solspire-workspace *::after { scroll-behavior:auto !important; transition-duration:.01ms !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; }
 }
+
+/* Navigation consolidation: one outer NovaNet layer, one inner Solariun bottom rail. */
+.solspire-canonical-header { position: sticky !important; top: 0 !important; }
+.solspire-workspace { padding-top: 0 !important; }
+.solspire-body { display: block !important; min-height: auto; }
+.solspire-sidebar { display: none !important; }
+.solspire-main { width: 100%; box-sizing: border-box; }
+.solspire-mobile-menu { display: none !important; }
+.solspire-menu-button { display: none !important; }
+.solspire-context-bar { top: 58px; }
+.solspire-project-context { top: 58px; }
+
+@media (max-width: 700px) {
+  .solspire-canonical-header { height: 56px; min-height: 56px; }
+  .solspire-context-bar { top: 56px; }
+  .solspire-project-context { top: 56px; }
+  .solspire-main { padding: 0 14px calc(86px + env(safe-area-inset-bottom)); }
+}
