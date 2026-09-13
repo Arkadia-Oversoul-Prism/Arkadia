@@ -119,4 +119,94 @@ async def list_feedback(proposal_id: str, user: dict = Depends(require_auth)) ->
     return {"feedback": [item.to_dict() for item in items], "count": len(items)}
 
 
+class DecisionRequest(BaseModel):
+    decision: str  # ACCEPTED | DECLINED | WITHDRAWN
+
+
+class PrepareExecutionRequest(BaseModel):
+    notes: str = ""
+
+
+@router.post("/{proposal_id}/decision")
+async def record_decision(
+    proposal_id: str,
+    body: DecisionRequest,
+    user: dict = Depends(require_auth),
+) -> dict[str, Any]:
+    """Human decision only. ACCEPTED does not authorize execution."""
+    try:
+        proposal = get_proposal_manager().record_decision(
+            proposal_id=proposal_id,
+            subject_ref=user["uid"],
+            decision=body.decision,
+        )
+    except ValueError as exc:
+        msg = str(exc)
+        if "not found" in msg.lower():
+            raise HTTPException(status_code=404, detail=msg) from exc
+        raise HTTPException(status_code=400, detail=msg) from exc
+    return {
+        "ok": True,
+        "proposal": proposal.to_dict(),
+        "boundary": {
+            "ACCEPTED_equals_AUTHORIZED": False,
+            "authorization_ref": proposal.authorization_ref,
+            "execution_authorized": False,
+        },
+    }
+
+
+@router.post("/{proposal_id}/prepare-execution")
+async def prepare_execution(
+    proposal_id: str,
+    body: PrepareExecutionRequest | None = None,
+    user: dict = Depends(require_auth),
+) -> dict[str, Any]:
+    """Create locked preparation package. Never invokes K15/K3."""
+    workspace = get_workspace_manager().get_for_subject(user["uid"])
+    if workspace is None:
+        raise HTTPException(status_code=409, detail="Canonical workspace not found")
+    payload = body or PrepareExecutionRequest()
+    try:
+        proposal, prep = get_proposal_manager().prepare_execution(
+            proposal_id=proposal_id,
+            subject_ref=user["uid"],
+            workspace_ref=workspace.id,
+            notes=payload.notes,
+        )
+    except ValueError as exc:
+        msg = str(exc)
+        if "not found" in msg.lower():
+            raise HTTPException(status_code=404, detail=msg) from exc
+        raise HTTPException(status_code=400, detail=msg) from exc
+    return {
+        "ok": True,
+        "proposal": proposal.to_dict(),
+        "preparation": prep.to_dict(),
+        "boundary": {
+            "execution_authorized": prep.execution_authorized,
+            "auto_merge": prep.auto_merge,
+            "auto_deploy": prep.auto_deploy,
+            "auto_execute": prep.auto_execute,
+            "pass_spec_ref": prep.pass_spec_ref,
+            "k15_ref": prep.k15_ref,
+            "k3_ref": prep.k3_ref,
+            "note": "PREPARED means ready for a future human authorization step, not authorized to mutate.",
+        },
+    }
+
+
+@router.get("/{proposal_id}/preparations")
+async def list_preparations(
+    proposal_id: str, user: dict = Depends(require_auth)
+) -> dict[str, Any]:
+    proposal = get_proposal_manager().get_proposal(proposal_id, user["uid"])
+    if proposal is None:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    items = get_proposal_manager().list_preparations(proposal_id, user["uid"])
+    return {"preparations": [item.to_dict() for item in items], "count": len(items)}
+
+
+
+
 __all__ = ["router"]

@@ -6,6 +6,7 @@ It does not create identity, authority, provenance, authorization, execution,
 memory authority, or an alternate K15 -> K3 mutation path.
 
 ACCEPTED ≠ AUTHORIZED. DECISION_PENDING ≠ DECISION MADE.
+PREPARATION ≠ PASS SPEC ≠ K15 ≠ K3. execution_authorized is always false in Move 8.
 """
 from __future__ import annotations
 
@@ -468,6 +469,232 @@ class ProposalManager:
             conn.close()
         return [_row_to_feedback(row) for row in rows]
 
+    def record_decision(
+        self,
+        *,
+        proposal_id: str,
+        subject_ref: str,
+        decision: str,
+    ) -> Proposal:
+        """Record human ACCEPTED / DECLINED / WITHDRAWN. Never authorizes execution."""
+        subject = (subject_ref or "").strip()
+        if not subject:
+            raise ValueError("subject_ref is required")
+        decision_u = (decision or "").strip().upper()
+        if decision_u not in {"ACCEPTED", "DECLINED", "WITHDRAWN"}:
+            raise ValueError("decision must be ACCEPTED, DECLINED, or WITHDRAWN")
+
+        proposal = self.get_proposal(proposal_id, subject)
+        if proposal is None:
+            raise ValueError("proposal not found")
+
+        now = time.time()
+        decision_id = str(uuid.uuid4())
+        conn = _db()
+        try:
+            conn.execute(
+                """
+                UPDATE proposals
+                SET proposal_status = ?, decision_ref = ?, updated_at = ?
+                WHERE proposal_id = ? AND subject_ref = ?
+                """,
+                (decision_u, decision_id, now, proposal_id, subject),
+            )
+            # Boundary: never touch authorization_ref or provenance_ref on decision.
+            conn.commit()
+        finally:
+            conn.close()
+
+        updated = self.get_proposal(proposal_id, subject)
+        assert updated is not None
+        assert updated.authorization_ref is None
+        assert updated.proposal_status == decision_u
+        return updated
+
+    def prepare_execution(
+        self,
+        *,
+        proposal_id: str,
+        subject_ref: str,
+        workspace_ref: str,
+        notes: str = "",
+    ) -> tuple[Proposal, "ExecutionPreparation"]:
+        """Create a locked preparation package. execution_authorized is always false."""
+        subject = (subject_ref or "").strip()
+        if not subject:
+            raise ValueError("subject_ref is required")
+        proposal = self.get_proposal(proposal_id, subject)
+        if proposal is None:
+            raise ValueError("proposal not found")
+        if proposal.workspace_ref != workspace_ref:
+            raise ValueError("workspace mismatch")
+        if proposal.proposal_status != "ACCEPTED":
+            raise ValueError("proposal must be ACCEPTED before execution preparation")
+
+        now = time.time()
+        prep = ExecutionPreparation(
+            preparation_id=str(uuid.uuid4()),
+            proposal_id=proposal.proposal_id,
+            proposal_version=proposal.proposal_version,
+            subject_ref=subject,
+            workspace_ref=workspace_ref,
+            status="PREPARED",
+            execution_authorized=False,
+            auto_merge=False,
+            auto_deploy=False,
+            auto_execute=False,
+            pass_spec_ref=None,
+            k15_ref=None,
+            k3_ref=None,
+            notes=notes or "",
+            schema_version="1",
+            created_at=now,
+        )
+
+        conn = _db()
+        try:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS execution_preparations (
+                    preparation_id TEXT PRIMARY KEY,
+                    proposal_id TEXT NOT NULL,
+                    proposal_version INTEGER NOT NULL,
+                    subject_ref TEXT NOT NULL,
+                    workspace_ref TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    execution_authorized INTEGER NOT NULL,
+                    auto_merge INTEGER NOT NULL,
+                    auto_deploy INTEGER NOT NULL,
+                    auto_execute INTEGER NOT NULL,
+                    pass_spec_ref TEXT,
+                    k15_ref TEXT,
+                    k3_ref TEXT,
+                    notes TEXT NOT NULL,
+                    schema_version TEXT NOT NULL,
+                    created_at REAL NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                """
+                INSERT INTO execution_preparations (
+                    preparation_id, proposal_id, proposal_version, subject_ref,
+                    workspace_ref, status, execution_authorized, auto_merge,
+                    auto_deploy, auto_execute, pass_spec_ref, k15_ref, k3_ref,
+                    notes, schema_version, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, 0, NULL, NULL, NULL, ?, ?, ?)
+                """,
+                (
+                    prep.preparation_id,
+                    prep.proposal_id,
+                    prep.proposal_version,
+                    prep.subject_ref,
+                    prep.workspace_ref,
+                    prep.status,
+                    prep.notes,
+                    prep.schema_version,
+                    prep.created_at,
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        # Proposal remains ACCEPTED; still not authorized.
+        assert proposal.authorization_ref is None
+        assert prep.execution_authorized is False
+        return proposal, prep
+
+    def list_preparations(
+        self, proposal_id: str, subject_ref: str
+    ) -> list["ExecutionPreparation"]:
+        conn = _db()
+        try:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS execution_preparations (
+                    preparation_id TEXT PRIMARY KEY,
+                    proposal_id TEXT NOT NULL,
+                    proposal_version INTEGER NOT NULL,
+                    subject_ref TEXT NOT NULL,
+                    workspace_ref TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    execution_authorized INTEGER NOT NULL,
+                    auto_merge INTEGER NOT NULL,
+                    auto_deploy INTEGER NOT NULL,
+                    auto_execute INTEGER NOT NULL,
+                    pass_spec_ref TEXT,
+                    k15_ref TEXT,
+                    k3_ref TEXT,
+                    notes TEXT NOT NULL,
+                    schema_version TEXT NOT NULL,
+                    created_at REAL NOT NULL
+                )
+                """
+            )
+            rows = conn.execute(
+                """
+                SELECT * FROM execution_preparations
+                WHERE proposal_id = ? AND subject_ref = ?
+                ORDER BY created_at ASC
+                """,
+                (proposal_id, subject_ref),
+            ).fetchall()
+        finally:
+            conn.close()
+        out: list[ExecutionPreparation] = []
+        for row in rows:
+            out.append(
+                ExecutionPreparation(
+                    preparation_id=row["preparation_id"],
+                    proposal_id=row["proposal_id"],
+                    proposal_version=int(row["proposal_version"]),
+                    subject_ref=row["subject_ref"],
+                    workspace_ref=row["workspace_ref"],
+                    status=row["status"],
+                    execution_authorized=bool(row["execution_authorized"]),
+                    auto_merge=bool(row["auto_merge"]),
+                    auto_deploy=bool(row["auto_deploy"]),
+                    auto_execute=bool(row["auto_execute"]),
+                    pass_spec_ref=row["pass_spec_ref"],
+                    k15_ref=row["k15_ref"],
+                    k3_ref=row["k3_ref"],
+                    notes=row["notes"] or "",
+                    schema_version=row["schema_version"],
+                    created_at=float(row["created_at"]),
+                )
+            )
+        return out
+
+
+
+
+
+
+@dataclass(frozen=True)
+class ExecutionPreparation:
+    """Dry-run preparation only. Never grants K15/K3 authority."""
+
+    preparation_id: str
+    proposal_id: str
+    proposal_version: int
+    subject_ref: str
+    workspace_ref: str
+    status: str
+    execution_authorized: bool
+    auto_merge: bool
+    auto_deploy: bool
+    auto_execute: bool
+    pass_spec_ref: str | None
+    k15_ref: str | None
+    k3_ref: str | None
+    notes: str
+    schema_version: str
+    created_at: float
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
 
 _MANAGER: ProposalManager | None = None
 
@@ -482,6 +709,7 @@ def get_proposal_manager() -> ProposalManager:
 __all__ = [
     "Proposal",
     "ProposalFeedback",
+    "ExecutionPreparation",
     "ProposalManager",
     "get_proposal_manager",
 ]

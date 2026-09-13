@@ -60,3 +60,51 @@ def test_empty_subject_rejected(tmp_path, monkeypatch):
         assert "subject" in str(exc).lower()
     else:
         raise AssertionError("empty subject must be rejected")
+
+
+def test_accepted_does_not_authorize(tmp_path, monkeypatch):
+    manager = _manager(tmp_path, monkeypatch)
+    proposal = manager.create_proposal(subject_ref="subject-a", workspace_ref="ws-a")
+    updated = manager.record_decision(
+        proposal_id=proposal.proposal_id,
+        subject_ref="subject-a",
+        decision="ACCEPTED",
+    )
+    assert updated.proposal_status == "ACCEPTED"
+    assert updated.authorization_ref is None
+    assert updated.decision_ref is not None
+
+
+def test_prepare_requires_accepted_and_stays_locked(tmp_path, monkeypatch):
+    manager = _manager(tmp_path, monkeypatch)
+    proposal = manager.create_proposal(subject_ref="subject-a", workspace_ref="ws-a")
+    try:
+        manager.prepare_execution(
+            proposal_id=proposal.proposal_id,
+            subject_ref="subject-a",
+            workspace_ref="ws-a",
+        )
+    except ValueError as exc:
+        assert "ACCEPTED" in str(exc)
+    else:
+        raise AssertionError("preparation before ACCEPTED must fail")
+
+    manager.record_decision(
+        proposal_id=proposal.proposal_id,
+        subject_ref="subject-a",
+        decision="ACCEPTED",
+    )
+    proposal2, prep = manager.prepare_execution(
+        proposal_id=proposal.proposal_id,
+        subject_ref="subject-a",
+        workspace_ref="ws-a",
+        notes="ready for later human auth",
+    )
+    assert prep.execution_authorized is False
+    assert prep.auto_merge is False
+    assert prep.auto_deploy is False
+    assert prep.auto_execute is False
+    assert prep.pass_spec_ref is None
+    assert prep.k15_ref is None
+    assert prep.k3_ref is None
+    assert proposal2.authorization_ref is None
