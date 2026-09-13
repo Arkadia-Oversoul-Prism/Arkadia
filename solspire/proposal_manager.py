@@ -453,6 +453,82 @@ class ProposalManager:
         assert updated.provenance_ref is None
         return updated, feedback
 
+
+    def record_human_decision(
+        self,
+        *,
+        proposal_id: str,
+        subject_ref: str,
+        decision: str,
+        note: str = "",
+    ) -> Proposal:
+        """Explicit human content decision. Never sets authorization_ref.
+
+        ACCEPTED ≠ AUTHORIZED. Feedback cannot call this path.
+        """
+        subject = (subject_ref or "").strip()
+        if not subject:
+            raise ValueError("subject_ref is required")
+        decision_u = (decision or "").strip().upper()
+        if decision_u not in {"ACCEPTED", "DECLINED", "WITHDRAWN"}:
+            raise ValueError("decision must be ACCEPTED, DECLINED, or WITHDRAWN")
+        proposal = self.get_proposal(proposal_id, subject)
+        if proposal is None:
+            raise ValueError("proposal not found")
+
+        now = time.time()
+        decision_id = str(uuid.uuid4())
+        conn = _db()
+        try:
+            conn.execute(
+                """
+                UPDATE proposals
+                SET proposal_status = ?, decision_ref = ?, updated_at = ?
+                WHERE proposal_id = ? AND subject_ref = ?
+                """,
+                (decision_u, decision_id, now, proposal_id, subject),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        updated = self.get_proposal(proposal_id, subject)
+        assert updated is not None
+        # Boundary: content decision does not authorize execution.
+        assert updated.authorization_ref == proposal.authorization_ref
+        return updated
+
+    def attach_authorization_ref(
+        self,
+        *,
+        proposal_id: str,
+        subject_ref: str,
+        authorization_ref: str,
+    ) -> Proposal:
+        """Pointer to a prep package only. Does not grant execution."""
+        subject = (subject_ref or "").strip()
+        proposal = self.get_proposal(proposal_id, subject)
+        if proposal is None:
+            raise ValueError("proposal not found")
+        if proposal.proposal_status != "ACCEPTED":
+            raise ValueError("authorization prep requires ACCEPTED proposal")
+        now = time.time()
+        conn = _db()
+        try:
+            conn.execute(
+                """
+                UPDATE proposals
+                SET authorization_ref = ?, updated_at = ?
+                WHERE proposal_id = ? AND subject_ref = ?
+                """,
+                (authorization_ref, now, proposal_id, subject),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        updated = self.get_proposal(proposal_id, subject)
+        assert updated is not None
+        return updated
+
     def list_feedback(self, proposal_id: str, subject_ref: str) -> list[ProposalFeedback]:
         conn = _db()
         try:
