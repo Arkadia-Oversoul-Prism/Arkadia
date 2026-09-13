@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '../../lib/apiClient';
+import { emitSolariunWorkEvent } from '../../lib/solariunApi';
 import type { Project } from '../../pages/ProjectDashboard';
 
 const C: React.CSSProperties = { background: 'rgba(16,18,31,.78)', border: '1px solid rgba(255,255,255,.07)', borderRadius: 16, padding: 18, boxShadow: '0 14px 40px rgba(0,0,0,.18)' };
@@ -20,8 +21,24 @@ export function FilesWorkspace({ onOpenProject }: { onOpenProject: (p: Project) 
   async function upload(file: File) {
     if (!project) { setMessage('Choose a project before uploading.'); setMessageError(true); return; }
     setBusy(true); setMessage(null); setMessageError(false);
-    try { const fd = new FormData(); fd.append('file', file); const r = await apiFetch(`/solspire/projects/${project.id}/files/upload`, { method: 'POST', body: fd }); const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d?.detail || `${r.status} ${r.statusText}`); setMessage(d?.message || `'${file.name}' attached and sent through the existing ingestion path.`); await reload(); }
-    catch (e) { setMessage(e instanceof Error ? e.message : 'Upload failed'); setMessageError(true); }
+    try {
+      const fd = new FormData(); fd.append('file', file);
+      const r = await apiFetch(`/solspire/projects/${project.id}/files/upload`, { method: 'POST', body: fd });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d?.detail || `${r.status} ${r.statusText}`);
+      setMessage(d?.message || `'${file.name}' attached and sent through the existing ingestion path.`);
+      try {
+        await emitSolariunWorkEvent({
+          event_type: 'FILE_UPLOADED',
+          work_ref: project.id,
+          scope_ref: project.id,
+          artifact_refs: [file.name],
+        });
+      } catch {
+        // The upload succeeded; continuity emission is best-effort and never blocks the action.
+      }
+      await reload();
+    } catch (e) { setMessage(e instanceof Error ? e.message : 'Upload failed'); setMessageError(true); }
     finally { setBusy(false); }
   }
   return <div style={{ display: 'grid', gap: 14 }}>
