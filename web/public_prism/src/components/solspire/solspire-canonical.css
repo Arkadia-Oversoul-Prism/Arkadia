@@ -72,6 +72,16 @@
 .solspire-mobile-bottom button:hover { background:rgba(106,159,216,.055); color:rgba(233,231,223,.72); }
 .solspire-mobile-bottom button.active { color:#00D4AA; background:rgba(0,212,170,.045); }
 
+/* Project interior alignment: the project is a deeper state of the same workspace. */
+.solspire-project-main { min-width:0; padding:0 var(--ss-gutter) calc(86px + env(safe-area-inset-bottom)); }
+.solspire-project-main .solspire-context-bar { margin:0 calc(-1 * var(--ss-gutter)); padding-left:var(--ss-gutter); padding-right:var(--ss-gutter); }
+.solspire-project-heading { max-width:1120px; min-height:92px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:18px; }
+.solspire-project-heading > div:first-child { display:flex; align-items:center; gap:12px; min-width:0; }
+.solspire-project-heading .solspire-lens-sigil { font-size:25px; flex:0 0 auto; }
+.solspire-project-heading h1 { margin:3px 0 0; font-size:clamp(24px,3vw,34px); line-height:1.08; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.solspire-project-heading-meta { flex:0 0 auto; padding:7px 9px; border:1px solid rgba(201,168,76,.15); border-radius:7px; color:rgba(201,168,76,.7); font:600 7px Inter,system-ui,sans-serif; letter-spacing:.13em; }
+.solspire-project-main > .solspire-divider { max-width:1120px; margin:0 auto 18px; }
+
 @media (max-width: 900px) {
   .solspire-sidebar { width: 196px; }
   .solspire-nav-button { padding: 9px 7px; gap: 8px; }
@@ -106,6 +116,11 @@
   .solspire-content { padding-top: 16px; }
   .solspire-project-context { top: 56px; padding: 8px 12px; }
   .solspire-project-context > div strong { max-width: 55vw; }
+  .solspire-project-main { padding:0 14px calc(86px + env(safe-area-inset-bottom)); }
+  .solspire-project-main .solspire-context-bar { margin:0 -14px; padding-left:14px; padding-right:14px; }
+  .solspire-project-heading { min-height:72px; }
+  .solspire-project-heading h1 { font-size:24px; max-width:68vw; }
+  .solspire-project-heading-meta { display:none; }
   .solspire-overlay { padding: max(66px, calc(56px + env(safe-area-inset-top))) 10px 10px; }
   .solspire-search-panel,.solspire-arkana-panel { max-height: calc(100dvh - 76px); border-radius: 14px; }
   .solspire-search-panel { padding: 16px; }
