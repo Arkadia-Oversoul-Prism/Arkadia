@@ -1,9 +1,9 @@
 /**
- * SolSpire Console
+ * Solariun Console
  *
- * Thin route adapter for the canonical authenticated SolSpire experience.
- * The experience owns the workspace chrome and object grammar; this file keeps
- * the existing App/router contract and authenticated identity boundary stable.
+ * Thin route adapter for the canonical authenticated personal workspace.
+ * SolSpire remains the underlying workspace substrate and future team/enterprise
+ * surface; this adapter keeps the existing App/router and identity boundary stable.
  */
 import React, { useLayoutEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,6 +17,6 @@ function resolveIdentity(user: ReturnType<typeof useAuth>['user']) { return user
 export default function SolSpireConsole({ onNavigate, initialSection = 'overview' }: { onNavigate?: (v: AppView) => void; initialSection?: LegacySection } = {}) {
   const { isAuthenticated, user } = useAuth();
   useLayoutEffect(() => { setApiAuthToken(user?.idToken ?? null); }, [user?.idToken]);
-  if (!isAuthenticated) return <div className="solspire-auth-threshold"><div className="solspire-auth-card"><div className="solspire-brand-name">SOLSPIRE</div><div className="solspire-kicker">PRIVATE WORKSPACE</div><p>Sign in to enter the authenticated contextual workspace.</p><button type="button" onClick={() => onNavigate?.('gate')}>Enter workspace</button></div></div>;
+  if (!isAuthenticated) return <div className="solspire-auth-threshold"><div className="solspire-auth-card"><div className="solspire-brand-name">SOLARIUN</div><div className="solspire-kicker">PERSONAL INTELLIGENCE WORKSPACE</div><p>Sign in to enter your authenticated contextual workspace.</p><button type="button" onClick={() => onNavigate?.('gate')}>Enter workspace</button></div></div>;
   return <SolSpireExperience identity={resolveIdentity(user)} initialSection={(LEGACY_MAP[initialSection] || initialSection) as SolSpireLens} onNavigate={onNavigate} />;
 }
