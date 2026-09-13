@@ -63,6 +63,15 @@
 .solspire-prism-rail .solspire-global-door-row strong { font-size:8px; }
 .solspire-prism-rail .solspire-global-door-row small { display:none; }
 
+/* Canonical bottom rail: the primary Solariun mobile workspace path. */
+.solspire-mobile-bottom { position:fixed; left:0; right:0; bottom:0; z-index:50; display:flex; align-items:stretch; gap:0; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; -webkit-overflow-scrolling:touch; border-top:1px solid rgba(255,255,255,.075); }
+.solspire-mobile-bottom::-webkit-scrollbar { display:none; }
+.solspire-mobile-bottom button { flex:0 0 78px; min-width:78px; min-height:58px; padding:7px 5px max(7px, env(safe-area-inset-bottom)); border:0; border-radius:0; background:transparent; color:rgba(233,231,223,.42); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; }
+.solspire-mobile-bottom button span { font-size:15px; line-height:1; }
+.solspire-mobile-bottom button small { font:600 7px Inter,system-ui,sans-serif; letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; }
+.solspire-mobile-bottom button:hover { background:rgba(106,159,216,.055); color:rgba(233,231,223,.72); }
+.solspire-mobile-bottom button.active { color:#00D4AA; background:rgba(0,212,170,.045); }
+
 @media (max-width: 900px) {
   .solspire-sidebar { width: 196px; }
   .solspire-nav-button { padding: 9px 7px; gap: 8px; }
