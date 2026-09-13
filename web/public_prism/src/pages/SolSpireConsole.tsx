@@ -9,6 +9,7 @@ import React, { useLayoutEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { setApiAuthToken } from '../lib/apiClient';
 import SolSpireExperience, { SolSpireLens } from '../components/solspire/SolSpireExperience';
+import SolariunHomeCockpit from '../components/solspire/SolariunHomeCockpit';
 
 type LegacySection = SolSpireLens | 'field' | 'codex' | 'loops' | 'projects' | 'encyclopedia' | 'goals' | 'releases' | 'jobs' | 'traces' | 'tools' | 'system';
 type AppView = 'home'|'gate'|'commune'|'reset'|'about'|'login'|'codex'|'dashboard'|'nexus'|'encyclopedia'|'spiral-codex'|'loops'|'grove'|'larder'|'novanet'|'ims'|'distribute'|'offerings'|'aic'|'pulse'|'settings'|'account'|'sci'|'solspire'|'knowledge-os'|'reasomate'|'personal-echofeild'|'echofeild-matrix';
@@ -18,5 +19,7 @@ export default function SolSpireConsole({ onNavigate, initialSection = 'overview
   const { isAuthenticated, user } = useAuth();
   useLayoutEffect(() => { setApiAuthToken(user?.idToken ?? null); }, [user?.idToken]);
   if (!isAuthenticated) return <div className="solspire-auth-threshold"><div className="solspire-auth-card"><div className="solspire-brand-name">SOLARIUN</div><div className="solspire-kicker">PERSONAL INTELLIGENCE WORKSPACE</div><p>Sign in to enter your authenticated contextual workspace.</p><button type="button" onClick={() => onNavigate?.('gate')}>Enter workspace</button></div></div>;
-  return <SolSpireExperience identity={resolveIdentity(user)} initialSection={(LEGACY_MAP[initialSection] || initialSection) as SolSpireLens} onNavigate={onNavigate} />;
+  const resolvedSection = (LEGACY_MAP[initialSection] || initialSection) as SolSpireLens;
+  if (resolvedSection === 'overview') return <div className="solspire-workspace"><SolariunHomeCockpit /></div>;
+  return <SolSpireExperience identity={resolveIdentity(user)} initialSection={resolvedSection} onNavigate={onNavigate} />;
 }
