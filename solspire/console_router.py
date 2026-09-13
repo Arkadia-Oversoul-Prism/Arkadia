@@ -39,6 +39,7 @@ from api.auth import require_auth
 from solspire.workevent_router import router as workevent_router
 from solspire.workload_router import router as workload_router
 from solspire.pulse_router import router as pulse_router
+from solspire.synthesis_router import router as synthesis_router
 
 # Pass 01R: every /solspire route requires a verified Firebase identity.
 # require_auth rejects unauthenticated requests before any handler runs.
@@ -48,11 +49,12 @@ router = APIRouter(
     dependencies=[Depends(require_auth)],
 )
 
-# Compose Move 2–5 surfaces as siblings under /solspire:
-# /workspace, /workevents, /workloads, /pulses
+# Compose Move 2–6 surfaces as siblings under /solspire:
+# /workspace, /workevents, /workloads, /pulses, /syntheses
 router.include_router(workevent_router)
 router.include_router(workload_router)
 router.include_router(pulse_router)
+router.include_router(synthesis_router)
 
 
 async def require_project_owner(project_id: str, user: dict = Depends(require_auth)) -> dict:
