@@ -2,7 +2,7 @@
 import React,{useLayoutEffect} from 'react';
 import {useAuth} from '../contexts/AuthContext';
 import {setApiAuthToken} from '../lib/apiClient';
-import SolSpireExperience,{SolSpireLens} from '../components/solspire/SolSpireExperienceV2';
+import SolSpireExperience,{SolSpireLens} from '../components/solspire/SolSpireExperience';
 type LegacySection=SolSpireLens|'field'|'codex'|'loops'|'projects'|'encyclopedia'|'goals'|'releases'|'jobs'|'traces'|'tools'|'system';
 type AppView='home'|'gate'|'commune'|'reset'|'about'|'login'|'codex'|'dashboard'|'nexus'|'encyclopedia'|'spiral-codex'|'loops'|'grove'|'larder'|'novanet'|'ims'|'distribute'|'offerings'|'aic'|'pulse'|'settings'|'account'|'sci'|'solspire'|'knowledge-os'|'reasomate'|'personal-echofeild'|'echofeild-matrix';
 const LEGACY_MAP:Record<string,SolSpireLens>={field:'overview',codex:'memory',loops:'tasks',projects:'projects',encyclopedia:'memory',goals:'overview',releases:'overview',jobs:'observatory',traces:'observatory',tools:'observatory',system:'settings'};
