@@ -1,9 +1,9 @@
 import { apiRequest } from './apiClient';
 
 /**
- * Typed read boundary for the Solariun Home cockpit.
- * These types intentionally describe the existing canonical read surfaces only.
- * No authorization, provenance, or mutation semantics live here.
+ * Typed read/write boundary for the Solariun Home cockpit.
+ * These types intentionally describe the existing canonical SolSpire surfaces only.
+ * Authorization and provenance semantics remain server-side.
  */
 export type SolariunRecord = Record<string, unknown>;
 
@@ -60,6 +60,7 @@ export interface SolariunProposal {
   requested_decision?: string;
   proposal_status?: string;
   status?: string;
+  decision_ref?: string;
   [key: string]: unknown;
 }
 
@@ -71,6 +72,28 @@ export interface SolariunWorkEventsResponse {
 }
 export interface SolariunSynthesisResponse { synthesis?: SolariunSynthesis; }
 export interface SolariunProposalsResponse { proposals?: SolariunProposal[]; }
+export interface SolariunWorkEventResponse { work_event?: SolariunWorkEvent; ok?: boolean; }
+
+export interface EmitSolariunWorkEventInput {
+  event_type: string;
+  occurred_at?: number;
+  event_version?: number;
+  work_ref?: string;
+  parent_event_ref?: string;
+  sequence_ref?: string;
+  scope_ref?: string;
+  actor_ref?: string;
+  artifact_refs?: string[];
+  state_before_ref?: string;
+  state_after_ref?: string;
+  decision_ref?: string;
+  witness_ref?: string;
+  status?: string;
+  supersedes_ref?: string;
+  reversal_of_ref?: string;
+  created_by_event?: string;
+  schema_version?: string;
+}
 
 export const getSolariunPulse = () =>
   apiRequest<SolariunPulseResponse>('/solspire/pulses/today');
@@ -86,3 +109,22 @@ export const getSolariunSynthesis = () =>
 
 export const getSolariunProposals = (limit = 20) =>
   apiRequest<SolariunProposalsResponse>(`/solspire/proposals?limit=${limit}`);
+
+export const emitSolariunWorkEvent = (input: EmitSolariunWorkEventInput) =>
+  apiRequest<SolariunWorkEventResponse>('/solspire/workevents', {
+    method: 'POST',
+    body: JSON.stringify({
+      occurred_at: input.occurred_at ?? Date.now() / 1000,
+      event_version: input.event_version ?? 1,
+      status: input.status ?? 'RECORDED',
+      schema_version: input.schema_version ?? '1',
+      artifact_refs: input.artifact_refs ?? [],
+      ...input,
+    }),
+  });
+
+export const recordSolariunProposalDecision = (proposalId: string, decision: 'ACCEPTED' | 'DECLINED' | 'WITHDRAWN') =>
+  apiRequest<{ ok?: boolean; proposal?: SolariunProposal }>(`/solspire/proposals/${proposalId}/decision`, {
+    method: 'POST',
+    body: JSON.stringify({ decision }),
+  });
