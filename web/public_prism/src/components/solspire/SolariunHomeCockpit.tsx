@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getSolariunPulse, getSolariunProposals, getSolariunSynthesis, getSolariunWorkEvents, getSolariunWorkload, SolariunPulse, SolariunProposal, SolariunSynthesis, SolariunWorkEvent, SolariunWorkload } from '../../lib/solariunApi';
+import { emitSolariunWorkEvent, getSolariunPulse, getSolariunProposals, getSolariunSynthesis, getSolariunWorkEvents, getSolariunWorkload, recordSolariunProposalDecision, SolariunPulse, SolariunProposal, SolariunSynthesis, SolariunWorkEvent, SolariunWorkload } from '../../lib/solariunApi';
 
 const GOLD = '#C9A84C';
 const TEAL = '#00D4AA';
@@ -22,6 +22,8 @@ export default function SolariunHomeCockpit() {
   const [proposals, setProposals] = useState<SolariunProposal[]>([]);
   const [state, setState] = useState<'loading' | 'ready' | 'partial'>('loading');
   const [errorCount, setErrorCount] = useState(0);
+  const [decisionBusy, setDecisionBusy] = useState<string | null>(null);
+  const [decisionNote, setDecisionNote] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -39,6 +41,34 @@ export default function SolariunHomeCockpit() {
   }, []);
 
   const openProposals = proposals.filter(p => ['DRAFT', 'PRESENTED', 'UNDER_REVIEW', 'REVISION_REQUESTED', 'REVISED', 'DECISION_PENDING'].includes(String(p.proposal_status ?? p.status)));
+
+  async function decide(proposal: SolariunProposal, decision: 'ACCEPTED' | 'DECLINED' | 'WITHDRAWN') {
+    const proposalId = String(proposal.proposal_id || '');
+    if (!proposalId) return;
+    setDecisionBusy(`${proposalId}:${decision}`);
+    setDecisionNote(null);
+    try {
+      const result = await recordSolariunProposalDecision(proposalId, decision);
+      const updated = result.proposal ?? { ...proposal, proposal_status: decision };
+      setProposals(current => current.map(item => item.proposal_id === proposalId ? { ...item, ...updated } : item));
+      try {
+        await emitSolariunWorkEvent({
+          event_type: 'PROPOSAL_DECISION',
+          work_ref: proposalId,
+          scope_ref: proposalId,
+          decision_ref: updated.decision_ref ? String(updated.decision_ref) : proposalId,
+          state_after_ref: decision,
+        });
+      } catch {
+        // Decision succeeded; continuity emission is best-effort.
+      }
+      setDecisionNote(`${decision} recorded. This does not authorize execution.`);
+    } catch (error) {
+      setDecisionNote(error instanceof Error ? error.message : 'Decision could not be recorded.');
+    } finally {
+      setDecisionBusy(null);
+    }
+  }
   const pulseData = pulse ?? {};
   const synthesisData = synthesis ?? {};
   const workloadData = workload ?? {};
@@ -57,7 +87,7 @@ export default function SolariunHomeCockpit() {
       <Card label="Continuity" accent={BLUE}>{events.length ? <div style={{ display: 'grid', gap: 12 }}>{events.slice(0, 6).map((event, i) => <div key={String(first(event.work_event_id, event.id, String(i)))} style={{ display: 'grid', gridTemplateColumns: '7px 1fr auto', gap: 10, alignItems: 'start' }}><span style={{ width: 7, height: 7, marginTop: 5, borderRadius: '50%', background: BLUE }} /><div><div style={{ fontSize: 12 }}>{text(first(event.event_type, event.type), 'WorkEvent')}</div><div style={{ color: MUTED, fontSize: 10, marginTop: 3 }}>{text(first(event.state_after_ref, event.work_ref, event.scope_ref), '')}</div></div><span style={{ color: MUTED, fontSize: 9, whiteSpace: 'nowrap' }}>{dateLabel(first(event.occurred_at, event.created_at))}</span></div>)}</div> : <div style={{ color: MUTED, fontSize: 12 }}>No recent WorkEvents recorded.</div>}</Card>
       <Card label="This week" accent={TEAL}><div style={{ fontFamily: 'serif', fontSize: 22, lineHeight: 1.25 }}>{text(first(synthesisData.summary, synthesisData.synthesis_summary), 'No current weekly synthesis recorded.')}</div><div style={{ color: MUTED, fontSize: 10, marginTop: 12 }}>{dateLabel(first(synthesisData.created_at, synthesisData.updated_at))}</div></Card>
     </div>
-    <Card label="Decisions" accent={GOLD}>{openProposals.length ? <div style={{ display: 'grid', gap: 10 }}>{openProposals.slice(0, 5).map((proposal, i) => <div key={String(first(proposal.proposal_id, String(i)))} style={{ display: 'grid', gap: 5, padding: '11px 0', borderBottom: i < Math.min(openProposals.length, 5) - 1 ? `1px solid ${BORDER}` : 'none' }}><div style={{ fontSize: 13 }}>{text(first(proposal.objective, proposal.requested_decision), 'Untitled proposal')}</div><div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, color: MUTED, fontSize: 10 }}><span>{text(first(proposal.proposal_status, proposal.status))}</span><span>{text(proposal.requested_decision, '')}</span></div></div>)}</div> : <div style={{ color: MUTED, fontSize: 12 }}>No proposals are currently awaiting attention.</div>}</Card>
+    <Card label="Decisions" accent={GOLD}>{openProposals.length ? <div style={{ display: 'grid', gap: 10 }}>{openProposals.slice(0, 5).map((proposal, i) => <div key={String(first(proposal.proposal_id, String(i)))} style={{ display: 'grid', gap: 8, padding: '11px 0', borderBottom: i < Math.min(openProposals.length, 5) - 1 ? `1px solid ${BORDER}` : 'none' }}><div style={{ fontSize: 13 }}>{text(first(proposal.objective, proposal.requested_decision), 'Untitled proposal')}</div><div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, color: MUTED, fontSize: 10 }}><span>{text(first(proposal.proposal_status, proposal.status))}</span><span>{text(proposal.requested_decision, '')}</span></div><div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>{(['ACCEPTED', 'DECLINED', 'WITHDRAWN'] as const).map(decision => <button key={decision} type="button" disabled={Boolean(decisionBusy)} onClick={() => void decide(proposal, decision)} style={{ borderRadius: 999, padding: '5px 9px', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: decisionBusy ? 'wait' : 'pointer', border: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.03)', color: GOLD }}>{decisionBusy === `${proposal.proposal_id}:${decision}` ? 'Recording…' : decision}</button>)}</div></div>)}</div> : <div style={{ color: MUTED, fontSize: 12 }}>No proposals are currently awaiting attention.</div>}{decisionNote && <div style={{ marginTop: 10, color: MUTED, fontSize: 11 }}>{decisionNote}</div>}</Card>
     <Card label="Next" accent={BLUE}><div style={{ display: 'grid', gap: 9 }}><div style={{ fontSize: 13 }}>Review the live state above and choose what deserves attention.</div><div style={{ color: MUTED, fontSize: 11 }}>Candidate actions are presented as context only. Nothing here authorizes execution or mutation.</div></div></Card>
   </div>;
 }
