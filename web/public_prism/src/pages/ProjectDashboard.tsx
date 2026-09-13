@@ -1,5 +1,6 @@
 import { apiRequest } from '../lib/apiClient';
 import { apiFetch } from '../lib/apiClient';
+import { ORACLE } from '../lib/apiConfig';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProjectKnowledgeGraph from '../components/solspire/ProjectKnowledgeGraph';
@@ -594,7 +595,7 @@ function Files({ project }: { project: Project }) {
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await apiFetch(`/solspire/projects/${project.id}/files/upload`, { method: 'POST', headers: authHeaders(), body: fd });
+      const res = await apiFetch(`/solspire/projects/${project.id}/files/upload`, { method: 'POST', body: fd });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || `${res.status}`);
       setUploadMsg({ ok: true, text: data.message || `'${file.name}' attached.` });

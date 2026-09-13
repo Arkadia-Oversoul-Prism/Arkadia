@@ -97,3 +97,7 @@
 @media (prefers-reduced-motion: reduce) {
   .solspire-workspace *,.solspire-workspace *::before,.solspire-workspace *::after { scroll-behavior:auto !important; transition-duration:.01ms !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; }
 }
+
+.solspire-prism-rail .solspire-global-door-row { display:flex; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; gap:8px; }
+.solspire-mobile-bottom { overflow-x:auto; -webkit-overflow-scrolling:touch; flex-wrap:nowrap; }
+.solspire-mobile-bottom button { flex-shrink:0; }
