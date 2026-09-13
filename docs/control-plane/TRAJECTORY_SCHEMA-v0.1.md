@@ -39,6 +39,7 @@ The following are normative:
 8. The worker may report evidence and propose changes but may not mutate trajectory.
 9. Historical trajectory records remain inspectable; changes are additive/versioned rather than silently overwritten.
 10. No trajectory field may grant merge, deployment, credential, authority, K15/K3, provenance, or WorkEvent modification capability.
+11. Trajectory governance decisions are distinct from AEAS execution authorization. A trajectory decision approves or rejects directional state; an AEAS authorization permits bounded execution.
 
 ## 2. TRAJECTORY LAYERS
 
@@ -98,13 +99,15 @@ trajectory:
   review_conditions: []
   provenance:
     authored_by: architect
-    authorization_record: AUTH-...
+    trajectory_decision: TRJDEC-...
     source_revision: <repository ref or canonical source>
     created_at_utc: <iso8601>
     supersedes: TRJ-... | null
 ```
 
 `direction` is the constitutional core of the record. `priorities`, `constraints`, and `non_goals` make that direction operationally inspectable without turning it into authorization.
+
+`trajectory_decision` is a trajectory-governance decision reference. It is not an AEAS execution authorization record.
 
 ## 4. TRAJECTORY NODE
 
@@ -128,7 +131,7 @@ trajectory_node:
     trajectory_id: TRJ-...
     version: N
     authored_by: architect
-    authorization_record: AUTH-...
+    trajectory_decision: TRJDEC-...
     created_at_utc: <iso8601>
 ```
 
@@ -161,7 +164,7 @@ constraint:
   type: architectural | security | scope | resource | timing | dependency
   statement: <constraint>
   enforcement: inspect | block | review
-  source: <canonical source or authorization record>
+  source: <canonical source or trajectory-governance decision>
 ```
 
 A constraint marked `block` is a planning boundary. It does not itself execute a block; the applicable governed component enforces it.
@@ -288,15 +291,17 @@ trajectory_proposal:
     required_from: architect
     decision: pending | approve | reject | revise
     decided_at_utc: <iso8601> | null
+    decision_ref: TRJDEC-... | null
+  applied_revision: TRJREV-... | null
 ```
 
-Only an architect decision can move a proposal into an approved trajectory change. `applied` means the architect-approved version has been recorded in the authoritative trajectory source; it does not mean implementation has been executed.
+Only an architect decision can move a proposal into an approved trajectory change. Approval of a proposal is not itself the authoritative trajectory state. `applied` is valid only when the architect-approved change has been recorded as a new authoritative trajectory revision and `applied_revision` points to that revision. It does not mean implementation has been executed.
 
 ## 12. VERSIONING AND IMMUTABILITY
 
 Trajectory is versioned constitutional state.
 
-A trajectory update creates a new version and records the predecessor. Historical versions remain readable.
+A trajectory update creates a new version and records the predecessor. Historical versions remain readable. Every authoritative version must be reconstructible from durable trajectory records without chat history, worker memory, model context, or runtime process state.
 
 ```yaml
 trajectory_revision:
@@ -306,12 +311,12 @@ trajectory_revision:
   to_version: N+1
   change_summary: <what changed>
   reason: <why>
-  authorization_record: AUTH-...
+  trajectory_decision: TRJDEC-...
   evidence: []
   created_at_utc: <iso8601>
 ```
 
-Silent in-place replacement is prohibited.
+The resulting revision is the authoritative recorded trajectory state for `to_version`. Silent in-place replacement is prohibited.
 
 ## 13. CONFLICT DETECTION
 
@@ -360,8 +365,9 @@ A valid trajectory representation must allow an auditor to answer:
 6. What is explicitly out of scope?
 7. Which missions derive from it?
 8. Which proposals seek to change it?
-9. Which authorization record permitted the current version?
+9. Which trajectory-governance decision authorized the current version?
 10. What evidence supports a proposed change?
+11. Which revision resulted from an approved proposal, where applicable?
 
 If these questions cannot be answered from durable records, the trajectory representation is incomplete.
 
@@ -379,6 +385,7 @@ The following equivalences are invalid:
 | Worker recommendation = constitutional decision | Evidence ≠ authority |
 | Successful execution = trajectory approval | Execution evidence ≠ directional approval |
 | Current task = future authorization | Present scope ≠ future scope |
+| Trajectory decision = AEAS authorization | Directional governance ≠ execution permission |
 
 ## 17. GOVERNANCE BOUNDARY
 
@@ -404,7 +411,9 @@ Trajectory Schema v0.1 is structurally acceptable when:
 - Missions reference trajectory without inheriting authorization.
 - Tasks reference trajectory and mission without inheriting authorization.
 - Proposals remain proposals until architect-approved and recorded.
+- An applied proposal points to the authoritative trajectory revision it produced.
 - Revisions preserve historical versions and predecessor relationships.
+- Every authoritative trajectory version is reconstructible from durable records.
 - Conflicts are inspectable and cannot be silently resolved by the Lab.
 - The schema contains no field that grants execution authority.
 - The schema introduces no persistence implementation, worker implementation, router implementation, scheduler implementation, or runtime mutation.
