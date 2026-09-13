@@ -13,6 +13,9 @@
   --ss-line: rgba(255, 255, 255, .075);
   --ss-soft: rgba(233, 231, 223, .42);
   min-height: 100dvh;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 .solspire-workspace ::selection { background: rgba(0, 212, 170, .22); color: #E9E7DF; }
 .solspire-canonical-header { min-height: 58px; padding-left: max(var(--ss-gutter), env(safe-area-inset-left)); padding-right: max(var(--ss-gutter), env(safe-area-inset-right)); }
@@ -21,12 +24,12 @@
 .solspire-identity .solspire-online-dot { flex: 0 0 auto; }
 .solspire-body { min-height: calc(100dvh - 116px); }
 .solspire-sidebar { scrollbar-width: thin; scrollbar-color: rgba(201,168,76,.16) transparent; }
-.solspire-main { padding-left: var(--ss-gutter); padding-right: var(--ss-gutter); }
+.solspire-main { padding-left: var(--ss-gutter); padding-right: var(--ss-gutter); min-width: 0; max-width: 100%; }
 .solspire-context-bar { position: sticky; top: 58px; z-index: 20; background: rgba(10,11,18,.72); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
 .solspire-context-bar > div { min-width: 0; overflow: hidden; }
 .solspire-context-bar .solspire-mono { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .solspire-lens-heading { min-height: 88px; }
-.solspire-content { max-width: 1120px; margin: 0 auto; }
+.solspire-content { max-width: 1120px; margin: 0 auto; min-width: 0; }
 .solspire-object,.solspire-attention-note,.solspire-sync-panel,.solspire-search-panel,.solspire-arkana-panel { border-color: var(--ss-line); }
 .solspire-object:focus-visible,.solspire-nav-button:focus-visible,.solspire-mobile-bottom button:focus-visible,.solspire-mobile-menu button:focus-visible,.solspire-context-bar button:focus-visible,.solspire-header-actions button:focus-visible,.solspire-global-door-row button:focus-visible,.solspire-prism-return:focus-visible { outline: 2px solid rgba(0,212,170,.72); outline-offset: 2px; }
 .solspire-mobile-bottom { padding-bottom: max(8px, env(safe-area-inset-bottom)); background: rgba(8,10,17,.96); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
@@ -53,15 +56,8 @@
 .solspire-context-actions { display:flex; align-items:center; gap:7px; flex-shrink:0; }
 .solspire-context-return { color:rgba(106,159,216,.72) !important; border-color:rgba(106,159,216,.15) !important; background:rgba(106,159,216,.035) !important; }
 
-/* Canonical Prism rail: one horizontal network layer above Solariun. */
-.solspire-prism-rail { margin:0; border-radius:0; border-left:0; border-right:0; border-top:0; padding:7px max(var(--ss-gutter), env(safe-area-inset-left)) 6px; background:rgba(8,10,18,.72); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); }
-.solspire-prism-rail .solspire-global-label { display:none; }
-.solspire-prism-rail .solspire-global-door-row { display:flex; flex-direction:row; flex-wrap:nowrap; gap:4px; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
-.solspire-prism-rail .solspire-global-door-row::-webkit-scrollbar { display:none; }
-.solspire-prism-rail .solspire-global-door-row button { width:auto; min-width:max-content; padding:7px 10px; border-radius:7px; gap:7px; white-space:nowrap; }
-.solspire-prism-rail .solspire-global-door-row button > span { width:auto; }
-.solspire-prism-rail .solspire-global-door-row strong { font-size:8px; }
-.solspire-prism-rail .solspire-global-door-row small { display:none; }
+/* Legacy SolSpire rail is no longer the outer Prism rail. NovaNet owns that layer. */
+.solspire-prism-rail { display:none !important; }
 
 /* Canonical bottom rail: the primary Solariun mobile workspace path. */
 .solspire-mobile-bottom { position:fixed; left:0; right:0; bottom:0; z-index:50; display:flex; align-items:stretch; gap:0; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; -webkit-overflow-scrolling:touch; border-top:1px solid rgba(255,255,255,.075); }
@@ -73,7 +69,7 @@
 .solspire-mobile-bottom button.active { color:#00D4AA; background:rgba(0,212,170,.045); }
 
 /* Project interior alignment: the project is a deeper state of the same workspace. */
-.solspire-project-main { min-width:0; padding:0 var(--ss-gutter) calc(86px + env(safe-area-inset-bottom)); }
+.solspire-project-main { min-width:0; max-width:100%; padding:0 var(--ss-gutter) calc(86px + env(safe-area-inset-bottom)); }
 .solspire-project-main .solspire-context-bar { margin:0 calc(-1 * var(--ss-gutter)); padding-left:var(--ss-gutter); padding-right:var(--ss-gutter); }
 .solspire-project-heading { max-width:1120px; min-height:92px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:18px; }
 .solspire-project-heading > div:first-child { display:flex; align-items:center; gap:12px; min-width:0; }
@@ -126,7 +122,6 @@
   .solspire-search-panel { padding: 16px; }
   .solspire-overlay-head h2 { font-size: 23px; }
   .solspire-mobile-menu { top: 61px; right: 8px; width: min(340px, calc(100vw - 16px)); }
-  .solspire-prism-rail { display:block; padding:7px 10px 6px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .solspire-workspace *,.solspire-workspace *::before,.solspire-workspace *::after { scroll-behavior:auto !important; transition-duration:.01ms !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; }
