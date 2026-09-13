@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from api.auth import require_auth
 from solspire.workspace_manager import get_workspace_manager
 from solspire.workevent_manager import get_workevent_manager
+from solspire.workload_router import router as workload_router
 
 router = APIRouter(
     prefix="/workevents",
@@ -78,6 +79,12 @@ async def get_workevent(work_event_id: str, user: dict = Depends(require_auth)) 
     if event is None:
         raise HTTPException(status_code=404, detail="WorkEvent not found")
     return {"work_event": event.to_dict()}
+
+
+# The console mounts this router at /solspire. Workload routes retain their
+# own /workloads prefix so they compose beside /workevents without changing
+# the WorkEvent endpoint paths or creating a second console composition root.
+router.routes.extend(workload_router.routes)
 
 
 __all__ = ["router"]
