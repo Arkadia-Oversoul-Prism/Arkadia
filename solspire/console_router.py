@@ -36,6 +36,8 @@ from pydantic import BaseModel
 
 from api.auth import require_auth
 
+from solspire.workevent_router import router as workevent_router
+
 # Pass 01R: every /solspire route requires a verified Firebase identity.
 # require_auth rejects unauthenticated requests before any handler runs.
 router = APIRouter(
@@ -43,6 +45,8 @@ router = APIRouter(
     tags=["SolSpire Console"],
     dependencies=[Depends(require_auth)],
 )
+
+router.include_router(workevent_router)
 
 
 async def require_project_owner(project_id: str, user: dict = Depends(require_auth)) -> dict:
