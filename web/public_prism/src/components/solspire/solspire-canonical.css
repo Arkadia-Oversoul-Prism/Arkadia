@@ -144,3 +144,6 @@
   .solspire-project-context { top: 56px; }
   .solspire-main { padding: 0 14px calc(86px + env(safe-area-inset-bottom)); }
 }
+
+/* NovaNet is the outer rail, not a competing sticky header. */
+[data-testid="novanet-primary-rail"] { position: relative !important; top: auto !important; }
