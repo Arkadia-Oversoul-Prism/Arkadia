@@ -1,4 +1,5 @@
 import { apiFetch } from '../lib/apiClient';
+import { emitSolariunWorkEvent } from '../lib/solariunApi';
 import { API_BASE as API_BASE_CONFIG } from '../lib/apiConfig';
 /**
  * ArkanaCommune — Elite Chat Surface
@@ -589,6 +590,16 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
         const next = [...prev, { role: 'arkana' as const, content: data.reply, resonance: data.resonance, session }];
         saveThread(next); return next;
       });
+      try {
+        await emitSolariunWorkEvent({
+          event_type: 'ORACLE_MESSAGE',
+          work_ref: String(body.session_id || 'oracle'),
+          scope_ref: 'oracle',
+          state_after_ref: session,
+        });
+      } catch {
+        // Oracle reply succeeded; continuity emission is best-effort.
+      }
     } catch (err: any) {
       setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: `The field is recalibrating. Try again.\n\n*(${err?.message || 'unknown'})*` }]; saveThread(next); return next; });
     } finally { setLoading(false); setAttachment(null); }
