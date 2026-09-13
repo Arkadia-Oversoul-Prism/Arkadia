@@ -1,0 +1,127 @@
+name: Arkadia Engineering Scheduler
+
+on:
+  # Manual wake: authorized human dispatch
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Orientation mode (no code changes)"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+  
+  # Scheduled wake: conservative cadence (hourly)
+  schedule:
+    - cron: "0 * * * *"
+
+concurrency:
+  # Single active engineering session enforced
+  group: arkadia-engineering-session
+  cancel-in-progress: false
+
+jobs:
+  engineering-scheduler:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    
+    outputs:
+      session_id: ${{ steps.session.outputs.id }}
+      next_move: ${{ steps.router.outputs.move }}
+      status: ${{ steps.router.outputs.status }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Establish repository SHA
+        id: sha
+        run: |
+          SHA=$(git rev-parse HEAD)
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+          echo "🔐 Repository SHA: ${SHA}"
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -q pyyaml pydantic gitpython
+      
+      - name: Generate session ID
+        id: session
+        run: |
+          python << 'EOF'
+          import time
+          import json
+          from pathlib import Path
+          
+          session_id = f"engineering-{int(time.time())}"
+          dry_run = "${{ github.event.inputs.dry_run }}" == "true" if "${{ github.event.inputs.dry_run }}" else True
+          
+          session = {
+              "session_id": session_id,
+              "triggered_at": time.time(),
+              "triggered_by": "${{ github.triggering_actor }}",
+              "workflow_run_id": "${{ github.run_id }}",
+              "repository_sha": "${{ steps.sha.outputs.sha }}",
+              "dry_run": dry_run,
+              "status": "INITIALIZED"
+          }
+          
+          print(f"::set-output name=id::{session_id}")
+          print(json.dumps(session, indent=2))
+          EOF
+      
+      - name: Invoke Engineering Runner (Router)
+        id: router
+        run: |
+          python << 'EOF'
+          import sys
+          import json
+          from pathlib import Path
+          
+          # Import runner components
+          sys.path.insert(0, str(Path.cwd()))
+          from weaver.engineering_router import EngineeringRouter
+          
+          router = EngineeringRouter(
+              repo_root=".",
+              session_id="${{ steps.session.outputs.id }}",
+              dry_run=${{ github.event.inputs.dry_run == 'true' if github.event.inputs.dry_run else True }}
+          )
+          
+          try:
+              result = router.run()
+              print(f"::set-output name=move::{result['next_move']['id']}")
+              print(f"::set-output name=status::{result['status']}")
+              print(json.dumps(result, indent=2))
+          except Exception as e:
+              print(f"::error::Router failed: {e}")
+              print(f"::set-output name=status::FAILED")
+              sys.exit(1)
+          EOF
+      
+      - name: Report session state
+        if: always()
+        run: |
+          echo "╔══════════════════════════════════════════════════════════════╗"
+          echo "║         ARKADIA ENGINEERING SESSION REPORT                   ║"
+          echo "╚══════════════════════════════════════════════════════════════╝"
+          echo ""
+          echo "Session ID:        ${{ steps.session.outputs.id }}"
+          echo "Repository SHA:    ${{ steps.sha.outputs.sha }}"
+          echo "Next Legal Move:   ${{ steps.router.outputs.move }}"
+          echo "Session Status:    ${{ steps.router.outputs.status }}"
+          echo "Trigger:           ${{ github.event_name }}"
+          echo "Actor:             ${{ github.triggering_actor }}"
+          echo ""
