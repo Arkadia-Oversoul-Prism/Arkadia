@@ -1,7 +1,7 @@
 # ARKADIA TRAJECTORY SCHEMA
 
 Specification ID: TRAJECTORY-SCHEMA-v0.1
-Status: DRAFT FOR REVIEW
+Status: FROZEN
 Parent: AEAS-v0.1.1
 Scope: Constitutional trajectory representation used by the Engineering Lab
 Authority Ceiling: Architect-authored trajectory only
@@ -431,7 +431,7 @@ Direction remains visible. Authority remains human.
 
 ---
 
-Status: DRAFT FOR REVIEW · TRAJECTORY-SCHEMA-v0.1
+Status: FROZEN · TRAJECTORY-SCHEMA-v0.1
 Parent: AEAS-v0.1.1
 Implementation: NOT AUTHORIZED
 K15/K3: UNTOUCHED
