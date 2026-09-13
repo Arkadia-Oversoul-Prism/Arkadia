@@ -1,7 +1,6 @@
 name: Arkadia Engineering Scheduler
 
 on:
-  # Manual wake: authorized human dispatch
   workflow_dispatch:
     inputs:
       dry_run:
@@ -12,13 +11,12 @@ on:
         options:
           - "true"
           - "false"
-  
-  # Scheduled wake: conservative cadence (hourly)
   schedule:
+    # Hourly wake signal — not an instruction to execute a specific move
     - cron: "0 * * * *"
 
 concurrency:
-  # Single active engineering session enforced
+  # max_active_moves: 1 — one engineering session at a time
   group: arkadia-engineering-session
   cancel-in-progress: false
 
@@ -28,100 +26,81 @@ jobs:
     permissions:
       contents: read
       actions: read
-    
-    outputs:
-      session_id: ${{ steps.session.outputs.id }}
-      next_move: ${{ steps.router.outputs.move }}
-      status: ${{ steps.router.outputs.status }}
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: Establish repository SHA
         id: sha
         run: |
           SHA=$(git rev-parse HEAD)
-          echo "sha=${SHA}" >> $GITHUB_OUTPUT
-          echo "🔐 Repository SHA: ${SHA}"
-      
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "Repository SHA: ${SHA}"
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -q pyyaml pydantic gitpython
-      
-      - name: Generate session ID
-        id: session
+          pip install -q pyyaml
+
+      - name: Session + Engineering Runner (dry-run default)
+        id: runner
+        env:
+          # schedule has no inputs — default dry_run true
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
         run: |
-          python << 'EOF'
-          import time
-          import json
+          set -e
+          SESSION="engineering-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          DRY_RUN=true
+          if [ "${INPUT_DRY_RUN}" = "false" ]; then DRY_RUN=false; fi
+          echo "session_id=${SESSION}" >> "$GITHUB_OUTPUT"
+          echo "dry_run=${DRY_RUN}" >> "$GITHUB_OUTPUT"
+          python - << PY
+          import json, os, sys
           from pathlib import Path
-          
-          session_id = f"engineering-{int(time.time())}"
-          dry_run = "${{ github.event.inputs.dry_run }}" == "true" if "${{ github.event.inputs.dry_run }}" else True
-          
-          session = {
-              "session_id": session_id,
-              "triggered_at": time.time(),
-              "triggered_by": "${{ github.triggering_actor }}",
-              "workflow_run_id": "${{ github.run_id }}",
-              "repository_sha": "${{ steps.sha.outputs.sha }}",
-              "dry_run": dry_run,
-              "status": "INITIALIZED"
-          }
-          
-          print(f"::set-output name=id::{session_id}")
-          print(json.dumps(session, indent=2))
-          EOF
-      
-      - name: Invoke Engineering Runner (Router)
-        id: router
-        run: |
-          python << 'EOF'
-          import sys
-          import json
-          from pathlib import Path
-          
-          # Import runner components
           sys.path.insert(0, str(Path.cwd()))
-          from weaver.engineering_router import EngineeringRouter
-          
-          router = EngineeringRouter(
-              repo_root=".",
-              session_id="${{ steps.session.outputs.id }}",
-              dry_run=${{ github.event.inputs.dry_run == 'true' if github.event.inputs.dry_run else True }}
-          )
-          
-          try:
-              result = router.run()
-              print(f"::set-output name=move::{result['next_move']['id']}")
-              print(f"::set-output name=status::{result['status']}")
-              print(json.dumps(result, indent=2))
-          except Exception as e:
-              print(f"::error::Router failed: {e}")
-              print(f"::set-output name=status::FAILED")
+          from weaver.engineering_worker import EngineeringWorker
+
+          dry = os.environ.get("INPUT_DRY_RUN", "true").lower() != "false"
+          session = f"engineering-{os.environ.get('GITHUB_RUN_ID','local')}-{os.environ.get('GITHUB_RUN_ATTEMPT','1')}"
+          worker = EngineeringWorker(repo_root=".", session_id=session, dry_run=dry)
+          result = worker.run()
+          Path("engineering-session-result.json").write_text(json.dumps(result, indent=2) + "\n")
+          move = (result.get("next_move") or {}).get("id") or "NONE"
+          print(f"::notice::status={result.get('status')} next_move={move}")
+          print(json.dumps(result, indent=2))
+          # Orientation failure → fail job; NO_LEGAL_MOVE is clean stop (success)
+          if result.get("status") == "FAILED":
               sys.exit(1)
-          EOF
-      
-      - name: Report session state
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write(f"status={result.get('status')}\n")
+              fh.write(f"move={move}\n")
+          PY
+
+      - name: Upload session evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engineering-session-${{ github.run_id }}
+          path: |
+            engineering-session-result.json
+            docs/control-plane/evidence/**
+          if-no-files-found: warn
+
+      - name: Session report
         if: always()
         run: |
-          echo "╔══════════════════════════════════════════════════════════════╗"
-          echo "║         ARKADIA ENGINEERING SESSION REPORT                   ║"
-          echo "╚══════════════════════════════════════════════════════════════╝"
-          echo ""
-          echo "Session ID:        ${{ steps.session.outputs.id }}"
-          echo "Repository SHA:    ${{ steps.sha.outputs.sha }}"
-          echo "Next Legal Move:   ${{ steps.router.outputs.move }}"
-          echo "Session Status:    ${{ steps.router.outputs.status }}"
-          echo "Trigger:           ${{ github.event_name }}"
-          echo "Actor:             ${{ github.triggering_actor }}"
-          echo ""
+          echo "=== ARKADIA ENGINEERING SESSION ==="
+          echo "SHA:    ${{ steps.sha.outputs.sha }}"
+          echo "Status: ${{ steps.runner.outputs.status }}"
+          echo "Move:   ${{ steps.runner.outputs.move }}"
+          echo "Trigger:${{ github.event_name }}"
+          echo "Merge:  FORBIDDEN"
+          echo "Deploy: FORBIDDEN"
