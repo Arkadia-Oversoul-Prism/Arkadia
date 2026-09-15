@@ -5,7 +5,14 @@ Move: M02 — reasomate-truth
 Packet: conversational-field
 Branch: `m02-reasomate-truth`
 Repository SHA at start: `13df5f75348c313acef88504cbfcd1ea474c8f3c`
-Status: **READY_FOR_REVIEW** (not accepted — human review remains mandatory)
+PR: #40
+Implementation SHA: `742b2d3f64a8ca13f48e07bd11231b41fdc4d51c`
+Merge SHA: `f3af072ae0d2f3a998cd9aa0528319046fa47983`
+Status: **ACCEPTED / COMPLETE** — see `docs/control-plane/M02-CLOSURE.md`
+
+> This artifact was written at `READY_FOR_REVIEW` and is preserved as written. The
+> sections below describe the state at review time. Post-merge outcomes, the CI
+> finding, and the closure basis are recorded in `M02-CLOSURE.md` and `ACCEPT.json`.
 
 ---
 
@@ -19,10 +26,11 @@ Status: **READY_FOR_REVIEW** (not accepted — human review remains mandatory)
 | Depends on | M01 — CLOSED / MERGED / ACCEPTED |
 | Authorizes M03 | **No** |
 
-No `ACCEPT.json` is written for this move. In this repository that file is the
+No `ACCEPT.json` was written **at review time**. In this repository that file is the
 *closure* marker (see `evidence/m01-persistence/ACCEPT.json`, written after merge).
-Acceptance requires human review, which has not occurred. Writing it here would
-misrepresent verification as acceptance.
+Acceptance requires human review and a merge; writing it during review would have
+misrepresented verification as acceptance. It was written after the merge, in the
+separate closure commit, per the M01 precedent.
 
 ---
 

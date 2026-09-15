@@ -1,0 +1,33 @@
+{
+  "move_id": "M02",
+  "status": "accepted",
+  "name": "reasomate-truth",
+  "trajectory": "ARKADIA-TRUTHFULNESS-01",
+  "pr": 40,
+  "implementation_sha": "742b2d3f64a8ca13f48e07bd11231b41fdc4d51c",
+  "merge_sha": "f3af072ae0d2f3a998cd9aa0528319046fa47983",
+  "base_branch": "main",
+  "base_sha_before_merge": "13df5f75348c313acef88504cbfcd1ea474c8f3c",
+  "merged": true,
+  "merged_at": "2026-09-15T22:44:08Z",
+  "human_review": "APPROVED",
+  "human_approval_note": "Architect: APPROVE M02 FOR MERGE. Approval covered the reviewed head; the Architect separately granted explicit authority to merge PR #40, which was then executed by the agent.",
+  "merge_authority": "explicit-architect-grant-to-agent",
+  "merge_executed_by": "WEAVER (OpenHands agent) under explicit Architect authority",
+  "verification": {
+    "focused_suite": "tests/test_m02_reasomate_truth.py",
+    "focused_result": "16 passed",
+    "full_suite_post_merge": "45 failed, 698 passed, 10 skipped",
+    "full_suite_baseline_pre_move": "45 failed, 682 passed, 10 skipped",
+    "regressions": 0,
+    "regression_detail": "Failing-test ID diff against baseline is empty. 16 tests added, all passing. The 45 failures and 2 collection errors are pre-existing and recorded as accepted in M01 closure.",
+    "merged_tree_matches_approved_head": true,
+    "boot_code": "api/main.py compiles clean",
+    "frontend_build": "pnpm build clean (7.29s, post-merge)",
+    "ci_validate": "failure — PRE-EXISTING, not an M02 regression. Steps 31 (CP10 mutation boundary) and 34 (Enforce CP10 executable gates) fail identically on main run 259 @ 06e7138 (unrelated file) and on main run 261 @ f3af072 (this merge). Cause: the mutation-boundary allow-list admits only lab/phase paths, so every frontend commit fails it. Measured streak: 20 consecutive failures (runs 242-261), broken by run 241 success @ 4796ecb459 on 2026-09-10T07:15:52Z; of 30 most recent runs, 22 failed and 8 succeeded. An earlier draft claimed 'all 25 most recent runs are red' and that the last green run predates the allow-list — both were wrong and are corrected in M02-CLOSURE.md section 5. main carries this red check at closure."
+  },
+  "evidence": "docs/control-plane/evidence/m02-reasomate/EVIDENCE.md",
+  "closure_record": "docs/control-plane/M02-CLOSURE.md",
+  "next_legal_move_at_closure": "M03",
+  "recorded_by": "WEAVER (OpenHands agent) on behalf of the Architect"
+}
