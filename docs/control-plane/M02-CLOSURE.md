@@ -107,13 +107,31 @@ This was investigated rather than assumed unrelated:
 |---|---|---|
 | 260 | `m02-reasomate-truth` | 31 `CP10 mutation boundary`, 34 `Enforce CP10 executable gates` |
 | 259 | `main` @ `06e7138` | **identical two steps** |
+| 261 | `main` @ `f3af072` (post-merge) | **identical two steps** |
 
 Same steps, same failure (`Unexpected non-harness paths in tip commit`), on `main`
 run 259 — triggered by `web/public_prism/src/components/solspire/solspire-canonical.css`,
 an unrelated file. The mutation-boundary step's allow-list admits only lab/phase paths
 (`^lab/...`, `^tests/test_phase`, `^docs/verification/PHASE...`), so **every** frontend
-commit fails it. All 25 most recent runs of that workflow are red; the last green run
-predates the current allow-list.
+commit fails it.
+
+**Streak, measured:** the workflow shows **20 consecutive failures** (runs 242–261),
+broken by **run 241, `success`, `main` @ `4796ecb459`, 2026-09-10T07:15:52Z**. Of the 30
+most recent runs, 22 failed and 8 succeeded.
+
+An earlier draft of this record claimed "all 25 most recent runs are red" and that "the
+last green run predates the current allow-list." **Both claims were wrong and are corrected
+here.** The accurate picture: the allow-list groundwork landed 2026-09-10T03:53
+(`5b3cdae1c2`, "ci(cp10): allow Phase 3 master-plan doc path in mutation boundary"), and
+the last green run is *later* that same morning at 07:15. The gate was therefore still
+satisfiable after the allow-list was introduced; it hardened into an unconditional
+frontend blocker afterwards as lab/phase-only commits stopped being what `main` received.
+The correction does not change the conclusion — the failure is pre-existing and not an M02
+regression — but the original numbers were overstated and must not stand.
+
+**Note: `main` is currently red.** Run 261 failed on `main` @ `f3af072` — the M02 merge
+commit itself. This is the same pre-existing gate, not a new failure, but it means the
+canonical branch carries a red `validate` check at M02 closure.
 
 **Assessment: pre-existing pipeline defect, not an M02 regression.** In the M02 run, every
 other gate passed — Phase 3 harness self-test, Phase 3/4/5/7/8/9/10 fixtures, and the

@@ -24,7 +24,7 @@
     "merged_tree_matches_approved_head": true,
     "boot_code": "api/main.py compiles clean",
     "frontend_build": "pnpm build clean (7.29s, post-merge)",
-    "ci_validate": "failure — PRE-EXISTING, not an M02 regression. Steps 31 (CP10 mutation boundary) and 34 (Enforce CP10 executable gates) fail identically on main run 259 @ 06e7138 with a different file. Cause: the mutation-boundary allow-list admits only lab/phase paths, so every frontend commit fails it. All 25 most recent runs of sg-02-fe-2-v.yml are red; the last green run predates the current allow-list."
+    "ci_validate": "failure — PRE-EXISTING, not an M02 regression. Steps 31 (CP10 mutation boundary) and 34 (Enforce CP10 executable gates) fail identically on main run 259 @ 06e7138 (unrelated file) and on main run 261 @ f3af072 (this merge). Cause: the mutation-boundary allow-list admits only lab/phase paths, so every frontend commit fails it. Measured streak: 20 consecutive failures (runs 242-261), broken by run 241 success @ 4796ecb459 on 2026-09-10T07:15:52Z; of 30 most recent runs, 22 failed and 8 succeeded. An earlier draft claimed 'all 25 most recent runs are red' and that the last green run predates the allow-list — both were wrong and are corrected in M02-CLOSURE.md section 5. main carries this red check at closure."
   },
   "evidence": "docs/control-plane/evidence/m02-reasomate/EVIDENCE.md",
   "closure_record": "docs/control-plane/M02-CLOSURE.md",
