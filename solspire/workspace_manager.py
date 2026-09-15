@@ -13,7 +13,9 @@ import time
 import uuid
 from dataclasses import asdict, dataclass
 
-_DB_PATH = os.environ.get("SOLSPIRE_PROJECTS_DB", "data/solspire_projects.db")
+_DB_PATH = os.environ.get("SOLSPIRE_PROJECTS_DB") or os.path.join(
+    os.environ.get("SOLSPIRE_DATA_DIR", "data"), "solspire_projects.db"
+)
 
 
 @dataclass(frozen=True)

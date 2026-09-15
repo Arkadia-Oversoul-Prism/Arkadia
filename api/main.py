@@ -184,6 +184,15 @@ async def lifespan(app: FastAPI):
     # ── TTS engine note ──────────────────────────────────────────────────
     logger.info("[TTS] Edge TTS neural engine active — no warmup needed.")
 
+    # ── M01 — SolSpire workspace durability ──────────────────────────────
+    # Ephemeral container FS loses the project corpus on redeploy; restore it
+    # from the durable store before serving. Additive only.
+    try:
+        from solspire.project_persistence import startup_restore
+        startup_restore()
+    except Exception as _m01e:
+        logger.warning(f"[M01] restore hook unavailable: {_m01e}")
+
     # ── Node registry init ───────────────────────────────────────────────
     try:
         from api.auth import _load_nodes as _ln

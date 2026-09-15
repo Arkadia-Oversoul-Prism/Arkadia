@@ -20,7 +20,9 @@ from typing import Any
 
 logger = logging.getLogger("solspire.project_manager")
 
-_DB_PATH = os.environ.get("SOLSPIRE_PROJECTS_DB", "data/solspire_projects.db")
+_DB_PATH = os.environ.get("SOLSPIRE_PROJECTS_DB") or os.path.join(
+    os.environ.get("SOLSPIRE_DATA_DIR", "data"), "solspire_projects.db"
+)
 
 
 @dataclass
@@ -39,11 +41,13 @@ class Project:
         return d
 
 
-def _db() -> sqlite3.Connection:
-    os.makedirs(os.path.dirname(_DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(_DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
+def ensure_projects_table(conn: sqlite3.Connection) -> None:
+    """Create the canonical ``projects`` table if absent.
+
+    Single source of truth for the corpus' root table: the store's migration
+    calls this too, so a cold start that only needs project tables does not
+    depend on the manager having run first.
+    """
     conn.execute("""
         CREATE TABLE IF NOT EXISTS projects (
             id           TEXT PRIMARY KEY,
@@ -62,6 +66,14 @@ def _db() -> sqlite3.Connection:
         conn.execute("ALTER TABLE projects ADD COLUMN owner_uid TEXT")
     except sqlite3.OperationalError:
         pass  # column already present
+
+
+def _db() -> sqlite3.Connection:
+    os.makedirs(os.path.dirname(_DB_PATH), exist_ok=True)
+    conn = sqlite3.connect(_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    ensure_projects_table(conn)
     conn.commit()
     return conn
 
@@ -91,6 +103,7 @@ class ProjectManager:
                  project.owner_uid),
             )
         logger.info("ProjectManager: created project '%s' id=%s", project.name, project.id)
+        _mirror_project(project.id)
         return project
 
     def load(self, project_id: str) -> Project:
@@ -109,6 +122,7 @@ class ProjectManager:
         if cur.rowcount == 0:
             raise KeyError(f"Project '{project_id}' not found")
         logger.info("ProjectManager: archived project id=%s", project_id)
+        _mirror_project(project_id)
 
     def list_projects(self, status: str | None = None, owner_uid: str | None = None) -> list[Project]:
         """List projects. When ``owner_uid`` is given, only that owner's
@@ -153,8 +167,27 @@ class ProjectManager:
             owner_uid=row["owner_uid"] if "owner_uid" in keys else None,
         )
 
+    def apply_fields(self, project_id: str, fields: list[str], vals: list[Any]) -> None:
+        """Apply a pre-built ``col=?`` field list to one project row.
+
+        Keeps project-row writes in a single canonical home so the durable
+        mirror is refreshed exactly once per mutation.
+        """
+        with _db() as conn:
+            conn.execute(f"UPDATE projects SET {', '.join(fields)} WHERE id=?", vals)
+        _mirror_project(project_id)
+
 
 _GLOBAL_PM = ProjectManager()
+
+
+def _mirror_project(project_id: str) -> None:
+    """Best-effort durable-corpus refresh; never fails the caller."""
+    try:
+        from solspire import project_persistence
+    except Exception:
+        return
+    project_persistence.mirror_project(project_id)
 
 
 def get_project_manager() -> ProjectManager:
