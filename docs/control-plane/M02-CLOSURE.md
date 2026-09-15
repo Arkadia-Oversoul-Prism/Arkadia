@@ -158,10 +158,19 @@ The closure marker is `docs/control-plane/evidence/m02-reasomate/ACCEPT.json` �
 existing `ACCEPT.json` mechanism that `weaver/engineering_router.py::_load_completion_index()`
 already reads. No new evidence architecture was created.
 
-**Landing pattern:** direct commit to `main`, following the M01 precedent exactly
-(`13df5f7` — closure record + `ACCEPT.json`, agent-authored, single parent). As M01 did,
-this closure **reads** the trajectory manifest to derive the next legal move and does not
-modify the manifest itself. Trajectory advancement remains a human act.
+**Landing pattern:** M01 landed its closure as a *direct commit to `main`* (`13df5f7`,
+no associated PR, single parent). **M02 could not follow that pattern**: the M02 execution
+boundary states "Never modify `main` directly", so closure was landed via **PR #41** instead
+(merge commit, two parents). Same content, different landing method — recorded here because
+the two closures differ on this point and the difference must not be silently elided.
+
+As M01 did, this closure **reads** the trajectory manifest to derive the next legal move and
+does not modify the manifest itself. Trajectory advancement remains a human act.
+
+**Mechanism check (performed, not assumed):** `_load_completion_index()` returns
+`{M01: accepted, M02: accepted}`, and `select_next_move()` then derives **M03** with no
+blockers. Removing `ACCEPT.json` reverts the derivation to **M02** — confirming the marker
+actually gates advancement rather than merely existing.
 
 ---
 
