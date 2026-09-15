@@ -5,32 +5,53 @@ All tables live in the same SQLite DB as projects (data/solspire_projects.db).
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
 import sqlite3
 import time
 import uuid
-from typing import Any
+from typing import Any, Iterator
 
 logger = logging.getLogger("solspire.project_store")
 
-_DB_PATH = os.environ.get("SOLSPIRE_PROJECTS_DB", "data/solspire_projects.db")
+_DB_PATH = os.environ.get("SOLSPIRE_PROJECTS_DB") or os.path.join(
+    os.environ.get("SOLSPIRE_DATA_DIR", "data"), "solspire_projects.db"
+)
 
 
 # ── DB init ───────────────────────────────────────────────────────────────────
 
-def _db() -> sqlite3.Connection:
-    os.makedirs(os.path.dirname(_DB_PATH), exist_ok=True)
+@contextlib.contextmanager
+def _db() -> Iterator[sqlite3.Connection]:
+    """Yield a migrated connection and always close it.
+
+    ``with sqlite3.connect(...)`` commits but never closes, so the previous
+    form leaked one connection per call. Every call site uses ``with _db()``,
+    so the commit/close lifecycle lives here.
+    """
+    os.makedirs(os.path.dirname(os.path.abspath(_DB_PATH)), exist_ok=True)
     conn = sqlite3.connect(_DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    _migrate(conn)
-    conn.commit()
-    return conn
+    try:
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        _migrate(conn)
+        conn.commit()
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def _migrate(conn: sqlite3.Connection) -> None:
+    # Root table first: the manager owns its DDL, and the corpus must be
+    # restorable on a cold start where only the store has been touched.
+    from solspire.project_manager import ensure_projects_table
+    ensure_projects_table(conn)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS project_conversations (
             id          TEXT PRIMARY KEY,
@@ -100,6 +121,64 @@ def _migrate(conn: sqlite3.Connection) -> None:
     """)
 
 
+# ── Durable-corpus mirror hooks (M01) ─────────────────────────────────────────
+#
+# Every mutation refreshes the durable mirror for its project. Imported lazily
+# to keep the dependency one-way (persistence → store) and make mirroring
+# strictly best-effort: a durable-store failure never fails the mutation.
+
+def _mirror_project(project_id: str) -> None:
+    try:
+        from solspire import project_persistence
+    except Exception:
+        return
+    project_persistence.mirror_project(project_id)
+
+
+def _mirror_child(table: str, child_id: str) -> None:
+    try:
+        from solspire import project_persistence
+    except Exception:
+        return
+    project_persistence.mirror_by_child(table, child_id)
+
+
+def _child_project_id(table: str, child_id: str) -> str:
+    """Resolve the owning project before a delete removes the row."""
+    with _db() as conn:
+        row = conn.execute(
+            f"SELECT project_id FROM {table} WHERE id=?", (child_id,)
+        ).fetchone()
+    return str(row["project_id"]) if row else ""
+
+
+def export_project_rows(project_id: str) -> dict[str, list[dict]]:
+    """Full-fidelity snapshot of a project's sub-resources, keyed by table.
+
+    Used only by the durability bridge. Reads the raw tables (not the trimmed
+    list_* projections) so a restore is lossless.
+    """
+    out: dict[str, list[dict]] = {}
+    with _db() as conn:
+        for table in (
+            "project_conversations", "project_files", "project_repositories",
+            "project_tasks", "project_memory", "project_events",
+        ):
+            rows = conn.execute(f"SELECT * FROM {table} WHERE project_id=?", (project_id,)).fetchall()
+            out[table] = [dict(r) for r in rows]
+    return out
+
+
+def project_id_for_child(table: str, child_id: str) -> str:
+    """Owning project for a sub-resource row; empty string when absent."""
+    if table not in {
+        "project_conversations", "project_files", "project_repositories",
+        "project_tasks", "project_memory", "project_events",
+    }:
+        return ""
+    return _child_project_id(table, child_id)
+
+
 # ── Event helper ──────────────────────────────────────────────────────────────
 
 def log_event(project_id: str, event_type: str, summary: str, data: dict | None = None) -> None:
@@ -108,6 +187,7 @@ def log_event(project_id: str, event_type: str, summary: str, data: dict | None 
             "INSERT INTO project_events (id, project_id, event_type, summary, data, created_at) VALUES (?,?,?,?,?,?)",
             (str(uuid.uuid4()), project_id, event_type, summary, json.dumps(data or {}), time.time()),
         )
+    _mirror_project(project_id)
 
 
 # ── Conversations ─────────────────────────────────────────────────────────────
@@ -130,6 +210,7 @@ def create_conversation(project_id: str, title: str) -> dict:
             (cid, project_id, title or "Untitled", "active", "[]", now, now)
         )
     log_event(project_id, "conversation_created", f"New conversation: {title}")
+    _mirror_project(project_id)
     return {"id": cid, "project_id": project_id, "title": title, "status": "active", "messages": [], "created_at": now, "updated_at": now}
 
 
@@ -148,6 +229,7 @@ def append_message(conv_id: str, role: str, content: str) -> dict:
         msgs.append({"role": role, "content": content, "ts": time.time()})
         conn.execute("UPDATE project_conversations SET messages=?,updated_at=? WHERE id=?",
                      (json.dumps(msgs), time.time(), conv_id))
+    _mirror_project(str(row["project_id"]))
     return {"ok": True}
 
 
@@ -155,6 +237,7 @@ def archive_conversation(conv_id: str) -> None:
     with _db() as conn:
         conn.execute("UPDATE project_conversations SET status='archived',updated_at=? WHERE id=?",
                      (time.time(), conv_id))
+    _mirror_child("project_conversations", conv_id)
 
 
 def _conv_row(r) -> dict:
@@ -183,6 +266,7 @@ def create_file(project_id: str, name: str, content: str, mime_type: str = "text
             (fid, project_id, name, content, mime_type, now, now)
         )
     log_event(project_id, "file_created", f"New file: {name}")
+    _mirror_project(project_id)
     return {"id": fid, "project_id": project_id, "name": name, "size": len(content), "mime_type": mime_type, "created_at": now, "updated_at": now}
 
 
@@ -204,12 +288,16 @@ def update_file(file_id: str, content: str, name: str | None = None) -> dict:
         else:
             conn.execute("UPDATE project_files SET content=?,updated_at=? WHERE id=?",
                          (content, time.time(), file_id))
+    _mirror_child("project_files", file_id)
     return {"ok": True}
 
 
 def delete_file(file_id: str) -> bool:
+    pid = _child_project_id("project_files", file_id)
     with _db() as conn:
         c = conn.execute("DELETE FROM project_files WHERE id=?", (file_id,))
+    if c.rowcount > 0:
+        _mirror_project(pid)
     return c.rowcount > 0
 
 
@@ -233,12 +321,16 @@ def link_repository(project_id: str, owner: str, repo: str, branch: str = "main"
             (rid, project_id, owner, repo, branch, label or f"{owner}/{repo}", now)
         )
     log_event(project_id, "repo_linked", f"Linked repo: {owner}/{repo}@{branch}")
+    _mirror_project(project_id)
     return {"id": rid, "project_id": project_id, "owner": owner, "repo": repo, "branch": branch, "label": label, "created_at": now}
 
 
 def unlink_repository(repo_id: str) -> bool:
+    pid = _child_project_id("project_repositories", repo_id)
     with _db() as conn:
         c = conn.execute("DELETE FROM project_repositories WHERE id=?", (repo_id,))
+    if c.rowcount > 0:
+        _mirror_project(pid)
     return c.rowcount > 0
 
 
@@ -269,6 +361,7 @@ def create_task(project_id: str, title: str, description: str = "",
             (tid, project_id, title, description, "open", assigned_to, priority, now, now)
         )
     log_event(project_id, "task_created", f"Task: {title}")
+    _mirror_project(project_id)
     return {"id": tid, "project_id": project_id, "title": title, "description": description,
             "status": "open", "assigned_to": assigned_to, "priority": priority,
             "created_at": now, "updated_at": now}
@@ -284,12 +377,16 @@ def update_task(task_id: str, **kwargs) -> dict:
     vals = list(fields.values()) + [task_id]
     with _db() as conn:
         conn.execute(f"UPDATE project_tasks SET {sets} WHERE id=?", vals)
+    _mirror_child("project_tasks", task_id)
     return {"ok": True}
 
 
 def delete_task(task_id: str) -> bool:
+    pid = _child_project_id("project_tasks", task_id)
     with _db() as conn:
         c = conn.execute("DELETE FROM project_tasks WHERE id=?", (task_id,))
+    if c.rowcount > 0:
+        _mirror_project(pid)
     return c.rowcount > 0
 
 
@@ -319,6 +416,7 @@ def add_memory(project_id: str, title: str, content: str, tags: list[str] | None
             (mid, project_id, title, content, json.dumps(tags or []), now, now)
         )
     log_event(project_id, "memory_added", f"Memory: {title}")
+    _mirror_project(project_id)
     return {"id": mid, "project_id": project_id, "title": title, "content": content,
             "tags": tags or [], "created_at": now, "updated_at": now}
 
@@ -334,12 +432,16 @@ def update_memory(mem_id: str, title: str | None = None, content: str | None = N
             (title or row["title"], content or row["content"],
              json.dumps(tags) if tags is not None else row["tags"], time.time(), mem_id)
         )
+    _mirror_child("project_memory", mem_id)
     return {"ok": True}
 
 
 def delete_memory(mem_id: str) -> bool:
+    pid = _child_project_id("project_memory", mem_id)
     with _db() as conn:
         c = conn.execute("DELETE FROM project_memory WHERE id=?", (mem_id,))
+    if c.rowcount > 0:
+        _mirror_project(pid)
     return c.rowcount > 0
 
 
@@ -373,6 +475,8 @@ def _evt_row(r) -> dict:
 
 
 __all__ = [
+    "export_project_rows",
+    "project_id_for_child",
     "log_event",
     "list_conversations", "create_conversation", "get_conversation", "append_message", "archive_conversation",
     "list_files", "create_file", "get_file", "update_file", "delete_file",

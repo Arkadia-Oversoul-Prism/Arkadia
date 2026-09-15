@@ -542,8 +542,8 @@ class ProjectRunRequest(BaseModel):
 @router.put("/projects/{project_id}")
 async def update_project(project_id: str, body: UpdateProjectRequest,
                          user: dict = Depends(require_project_owner)) -> dict[str, Any]:
-    import time, sqlite3, os
-    db_path = os.environ.get("SOLSPIRE_PROJECTS_DB", "data/solspire_projects.db")
+    import time
+    from solspire.project_manager import get_project_manager
     fields, vals = [], []
     if body.name is not None:
         fields.append("name=?"); vals.append(body.name.strip())
@@ -551,15 +551,13 @@ async def update_project(project_id: str, body: UpdateProjectRequest,
         fields.append("status=?"); vals.append(body.status)
     if body.description is not None:
         import json
-        from solspire.project_manager import get_project_manager
         p = get_project_manager().load(project_id)
         p.metadata["description"] = body.description
         fields.append("metadata=?"); vals.append(json.dumps(p.metadata))
     if not fields:
         raise HTTPException(status_code=400, detail="Nothing to update")
     fields.append("updated_at=?"); vals.append(time.time()); vals.append(project_id)
-    with sqlite3.connect(db_path) as conn:
-        conn.execute(f"UPDATE projects SET {', '.join(fields)} WHERE id=?", vals)
+    get_project_manager().apply_fields(project_id, fields, vals)
     return {"ok": True}
 
 

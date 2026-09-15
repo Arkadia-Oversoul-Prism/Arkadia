@@ -52,5 +52,9 @@ Thumbs.db
 arkadia-android/.gradle/
 arkadia-android/app/build/
 arkadia-android/gradlew
-docs/control-plane/evidence/**/
+# Session evidence: per-run generated reports are transient, but acceptance
+# records are durable review state that a later scheduler wake must be able to
+# reconstruct the trajectory from. Ignore the generated reports, not the tree.
+docs/control-plane/evidence/**/session-report.json
+docs/control-plane/evidence/**/WEAVER-ENGINEERING-RUN.md
 !docs/control-plane/evidence/README.md

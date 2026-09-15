@@ -16,7 +16,9 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any
 
-_DB_PATH = os.environ.get("SOLSPIRE_PROJECTS_DB", "data/solspire_projects.db")
+_DB_PATH = os.environ.get("SOLSPIRE_PROJECTS_DB") or os.path.join(
+    os.environ.get("SOLSPIRE_DATA_DIR", "data"), "solspire_projects.db"
+)
 _ALLOWED_STATUS = {
     "DRAFT",
     "RECORDED",
