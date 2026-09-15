@@ -50,10 +50,10 @@ function PostCard({ post, token, myUid, onChange }: { post: Post; token: string;
   return <article style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', marginBottom: 10 }}><div style={{ padding: 12, display: 'flex', alignItems: 'center', gap: 9 }}><div style={{ width: 34, height: 34, borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'rgba(0,212,170,.08)', color: C.teal }}>{post.author?.avatar || '◈'}</div><div style={{ flex: 1 }}><div style={{ color: C.text, fontSize: 12, fontWeight: 600 }}>{post.author?.name || 'Node'}</div><div style={{ color: C.dim, fontSize: 9 }}>{post.author?.role || 'Node'} · {ago(post.timestamp)}{post.edited_at ? ' · edited' : ''}</div></div>{own && <div style={{ display: 'flex', gap: 5 }}><button onClick={() => { setDraft(post.content); setEditing(value => !value) }} style={button(C.blue)}>Edit</button><button onClick={remove} disabled={busy} style={button(C.red, busy)}>Delete</button></div>}</div><div style={{ padding: '0 13px 13px' }}>{editing ? <><textarea value={draft} onChange={event => setDraft(event.target.value)} rows={5} style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(0,0,0,.2)', border: `1px solid ${C.blue}30`, borderRadius: 9, color: C.text, padding: 10 }} /><div style={{ display: 'flex', justifyContent: 'flex-end', gap: 5, marginTop: 6 }}><button onClick={() => setEditing(false)} style={button(C.dim)}>Cancel</button><button onClick={save} disabled={busy} style={button(C.teal, busy)}>Save</button></div></> : <MarkdownViewer content={post.content} compact />}</div></article>
 }
 
-export default function SocialFieldVerified() {
+export default function SocialFieldVerified({ initialMode = 'field' }: { initialMode?: 'field' | 'reasomate' } = {}) {
   const { isAuthenticated, profile, user } = useAuth()
   const token = user?.idToken || ''
-  const [mode, setMode] = useState<'field' | 'reasomate'>('field')
+  const [mode, setMode] = useState<'field' | 'reasomate'>(initialMode)
   const [posts, setPosts] = useState<Post[]>([])
   useEffect(() => { apiFetch(`/api/transmissions`).then(response => response.json()).then(data => setPosts(data.transmissions || [])).catch(() => {}) }, [])
   if (!isAuthenticated) return <div style={{ padding: 40, textAlign: 'center', color: C.dim }}>Sign in to enter the Social Identity + ReasoMate Field.</div>
