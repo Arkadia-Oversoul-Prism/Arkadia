@@ -415,17 +415,36 @@ jobs:
         working-directory: .
         run: |
           set -e
+          # M02A: tip-commit policy is constitutional denylist + legitimate surface check.
+          # Lab-phase harness-only allowlist rejected product work on main (policy defect).
           git rev-parse --verify HEAD^ >/dev/null
           changed="$(git diff --name-only HEAD^ HEAD)"
           echo "Changed files since parent:"; echo "$changed"
-          allow='^[.]github/workflows/sg-02-fe-2-v[.]yml$|^lab/council/|^lab/evolution/|^lab/execution/|^lab/calibration/|^lab/possibility/|^lab/decision/|^lab/binding/|^tests/test_phase|^docs/verification/PHASE|^docs/verification/EV_'
-          if echo "$changed" | grep -v '^$' | grep -vqE "$allow"; then
-            echo "Unexpected non-harness paths in tip commit:"; echo "$changed"; exit 1
+          # Every non-empty path must match a known legitimate repository surface.
+          legit='^([.]github/|web/|api/|solspire/|kernel/|weaver/|lab/|tests/|docs/|scripts/|android/|render|package|pnpm-|requirements|pyproject|README|LICENSE|[.]gitignore|[.]npmrc|[.]editorconfig|Makefile|Dockerfile)'
+          if echo "$changed" | grep -v '^$' | grep -vqE "$legit"; then
+            echo "Unexpected path outside legitimate repository surfaces:"; echo "$changed"; exit 1
           fi
-          if git diff HEAD^ HEAD -- .github/workflows/sg-02-fe-2-v.yml | grep -v 'grep -Eq' | grep -Eq '(^|[[:space:];|&])git[[:space:]]+(push|commit)|(^|[[:space:];|&])gh[[:space:]]+(pr|workflow)[[:space:]]+(create|merge)|vercel deploy|render deploy'; then
-            echo "Forbidden deploy/mutation command pattern in workflow diff"; exit 1
+          # Forbidden architectural mutation (trajectory forbidden vocabulary → paths).
+          # V2/V3 dual-shell introduction; constitutional AEAS rewrite without move packet is
+          # still allowed only when accompanied by control-plane move/evidence (checked below).
+          forbid='SolSpireExperienceV3[.]tsx$|/SolSpireExperienceV2[.]tsx$'
+          if echo "$changed" | grep -v '^$' | grep -Eq "$forbid"; then
+            # Allow V2 only if the diff is a re-export/demotion stub (no new dual shell).
+            if echo "$changed" | grep -q 'SolSpireExperienceV2'; then
+              if git diff HEAD^ HEAD -- '**/SolSpireExperienceV2.tsx' | grep -Eq '^\+.*function |^\+.*export default function'; then
+                echo "Forbidden: SolSpireExperienceV2 active implementation (V2_V3)"; exit 1
+              fi
+            fi
+            if echo "$changed" | grep -q 'SolSpireExperienceV3'; then
+              echo "Forbidden: SolSpireExperienceV3 (V2_V3)"; exit 1
+            fi
           fi
-          echo 'Application mutation: NONE'; echo 'Repository mutation by workflow: NONE'; echo 'Production mutation: NONE'; echo 'Autonomous mutation: NONE'
+          # Workflow must not gain autonomous merge/deploy/push.
+          if git diff HEAD^ HEAD -- .github/workflows/sg-02-fe-2-v.yml | grep -v 'grep -Eq' | grep -Eq '(^|[[:space:];|&])git[[:space:]]+(push|commit)|(^|[[:space:];|&])gh[[:space:]]+(pr|workflow)[[:space:]]+(create|merge)|workflow_dispatch.*merge'; then
+            echo "Forbidden automation pattern in CP10 workflow diff"; exit 1
+          fi
+          echo "Mutation boundary PASS (M02A legitimate-surface + constitutional denylist)"
       - name: CP10 evidence summary
         if: always()
         run: |
