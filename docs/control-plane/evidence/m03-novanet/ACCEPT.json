@@ -1,0 +1,24 @@
+{
+  "move_id": "M03",
+  "name": "novanet-public-field",
+  "status": "accepted",
+  "accepted_at": "2026-09-16T05:19:00Z",
+  "authorization": "Architect acceptance based on merged verification record 95acb642",
+  "verification_merge_commit": "95acb642741cc4c236e16681bbc83904ef58b833",
+  "verification_commit": "299adc100bcb6a98501f6357adc55ea89f6b9106",
+  "implementation_sha": "773fcd9fbda71a5358528e3f0288c896f45bd2fb",
+  "implementation_merge_commit": "17dc63d540246cd6dd0997487337c284de88268b",
+  "pr_implementation": "https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/43",
+  "pr_verification": "https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/49",
+  "acceptance_criteria": {
+    "novanet_public_field_distinct": true,
+    "reasomate_private_surface": true,
+    "no_second_knowledge_os_on_public_field": true,
+    "focused_tests_present": true,
+    "verification_record_merged": true
+  },
+  "next_legal_move_after_acceptance": "M04",
+  "m04_executed_by_this_event": false,
+  "merge": "human_only",
+  "deploy": "not_performed"
+}

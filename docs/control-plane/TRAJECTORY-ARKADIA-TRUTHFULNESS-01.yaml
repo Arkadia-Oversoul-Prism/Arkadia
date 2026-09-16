@@ -1,8 +1,10 @@
 trajectory:
   id: ARKADIA-TRUTHFULNESS-01
-  version: 4
+  version: 5
   status: authorized-for-review-gated-execution
-  objective: Turn the truthful Arkadia substrate into a coherent human experience while preserving human sovereignty, the canonical shell, shared runtime boundaries, Knowledge OS boundaries, and governed engineering execution.
+  objective: Turn the truthful Arkadia substrate into a coherent human experience
+    while preserving human sovereignty, the canonical shell, shared runtime boundaries,
+    Knowledge OS boundaries, and governed engineering execution.
   authority_level: 4
   execution_mode: dependency-aware-sequential
   max_active_moves: 1
@@ -14,141 +16,166 @@ trajectory:
     id: H02
     name: human-experience
     status: active
-    objective: Turn the coherent Arkadia substrate into a coherent daily human experience without architectural drift.
+    objective: Turn the coherent Arkadia substrate into a coherent daily human experience
+      without architectural drift.
   north_star:
-    statement: Arkadia exists to reduce the cognitive burden of living and building in a distributed intelligence world while preserving the human as the final source of meaning, authority, and decision.
+    statement: Arkadia exists to reduce the cognitive burden of living and building
+      in a distributed intelligence world while preserving the human as the final
+      source of meaning, authority, and decision.
     move_readiness_test:
-      - What human problem disappears?
-      - Which existing Arkadia surface becomes more truthful?
-      - Which existing substrate does it reuse?
-      - What new continuity does it create?
-      - What boundary must remain untouched?
-      - What observable evidence proves it works?
-    readiness_rule: A move is not ready for authorization unless all six questions are answerable clearly.
+    - What human problem disappears?
+    - Which existing Arkadia surface becomes more truthful?
+    - Which existing substrate does it reuse?
+    - What new continuity does it create?
+    - What boundary must remain untouched?
+    - What observable evidence proves it works?
+    readiness_rule: A move is not ready for authorization unless all six questions
+      are answerable clearly.
   capability_horizon:
-    - id: C01
-      name: know-me
-      capability: Identity + continuity
-    - id: C02
-      name: talk-with-me
-      capability: ReasoMate + Arkana
-    - id: C03
-      name: show-me-the-world
-      capability: NovaNet
-    - id: C04
-      name: help-me-work
-      capability: Solariun + Projects
-    - id: C05
-      name: help-me-remember
-      capability: Knowledge + Memory
-    - id: C06
-      name: help-me-create
-      capability: Files + tools + intelligence
-    - id: C07
-      name: help-me-act
-      capability: Tasks + governed execution
-    - id: C08
-      name: show-me-what-happened
-      capability: Activity + evidence
-    - id: C09
-      name: help-me-build
-      capability: Engineering Lab + Weaver
+  - id: C01
+    name: know-me
+    capability: Identity + continuity
+  - id: C02
+    name: talk-with-me
+    capability: ReasoMate + Arkana
+  - id: C03
+    name: show-me-the-world
+    capability: NovaNet
+  - id: C04
+    name: help-me-work
+    capability: Solariun + Projects
+  - id: C05
+    name: help-me-remember
+    capability: Knowledge + Memory
+  - id: C06
+    name: help-me-create
+    capability: Files + tools + intelligence
+  - id: C07
+    name: help-me-act
+    capability: Tasks + governed execution
+  - id: C08
+    name: show-me-what-happened
+    capability: Activity + evidence
+  - id: C09
+    name: help-me-build
+    capability: Engineering Lab + Weaver
   reconciliation:
     source_of_truth: Repository acceptance markers and merge history
-    rule: Merge evidence establishes landed code; ACCEPT.json establishes completion for routing. Never infer acceptance from merge alone.
+    rule: Merge evidence establishes landed code; ACCEPT.json establishes completion
+      for routing. Never infer acceptance from merge alone.
     reconciled_through: M09
-    repository_head: f9a68feb15e1253e06253bc54231292967b84a8e
+    repository_head: 95acb642741cc4c236e16681bbc83904ef58b833
     accepted_markers_verified:
-      - M01
-      - M02
-      - M02A
+    - M01
+    - M02
+    - M02A
+    - M03
     merged_without_repository_acceptance_marker:
-      - M03
-      - M04
-      - M05
-      - M06
-      - M07
-      - M08
-      - M09
-    note: These moves are landed in main, but their repository acceptance markers are not present in the inspected main tree. They must not be promoted to accepted/completed for router purposes without recorded acceptance evidence.
+    - M04
+    - M05
+    - M06
+    - M07
+    - M08
+    - M09
+    note: These moves are landed in main, but their repository acceptance markers
+      are not present in the inspected main tree. They must not be promoted to accepted/completed
+      for router purposes without recorded acceptance evidence.
+    m03_acceptance:
+      verification_merge: 95acb642741cc4c236e16681bbc83904ef58b833
+      implementation_merge: 17dc63d540246cd6dd0997487337c284de88268b
+      implementation_sha: 773fcd9fbda71a5358528e3f0288c896f45bd2fb
   forbidden:
-    - K15_K3
-    - provenance
-    - WorkEvent_semantics
-    - authority_redefinition
-    - V2_V3
-    - autonomous_architecture_mutation
-    - autonomous_merge
-    - autonomous_production_deploy
-  amendment_note: Architect trajectory reconciliation 2026-09-16. Version 4 preserves the canonical trajectory path and router contract while reconciling repository territory, adding the north-star test and capability horizon, and establishing Horizon II. No move is authorized by this version merely because it is described here.
+  - K15_K3
+  - provenance
+  - WorkEvent_semantics
+  - authority_redefinition
+  - V2_V3
+  - autonomous_architecture_mutation
+  - autonomous_merge
+  - autonomous_production_deploy
+  amendment_note: 'Architect trajectory reconciliation 2026-09-16. Version 4 preserves
+    the canonical trajectory path and router contract while reconciling repository
+    territory, adding the north-star test and capability horizon, and establishing
+    Horizon II. No move is authorized by this version merely because it is described
+    here. Architect 2026-09-16: Accept M03 based on verification record merge 95acb642.
+    ACCEPT.json written. M03 completed. Next legal move derives to M04. No M04 execution
+    in this event.'
 moves:
-  - id: M01
-    name: persistence-architecture
-    status: completed
-    depends_on: []
-    packet: sovereign-workspace
-    spec: docs/control-plane/moves/M01-persistence.md
-  - id: M02
-    name: reasomate-truth
-    status: completed
-    depends_on: [M01]
-    packet: conversational-field
-    spec: docs/control-plane/moves/M02-reasomate.md
-  - id: M02A
-    name: ci-gate-integrity
-    status: completed
-    depends_on: [M02]
-    packet: engineering-constitution
-    spec: docs/control-plane/moves/M02A-ci-gate-integrity.md
-  - id: M03
-    name: novanet-public-field
-    status: pending
-    depends_on: [M02A]
-    packet: conversational-field
-    spec: docs/control-plane/moves/M03-novanet.md
-  - id: M04
-    name: projects
-    status: pending
-    depends_on: [M01]
-    packet: personal-intelligence-workspace
-    spec: docs/control-plane/moves/M04-projects.md
-  - id: M05
-    name: files
-    status: pending
-    depends_on: [M04]
-    packet: personal-intelligence-workspace
-    spec: docs/control-plane/moves/M05-files.md
-  - id: M06
-    name: knowledge
-    status: pending
-    depends_on: [M05]
-    packet: personal-intelligence-workspace
-    spec: docs/control-plane/moves/M06-knowledge.md
-  - id: M07
-    name: aeas-freeze
-    status: pending
-    depends_on: []
-    packet: engineering-constitution
-    spec: docs/control-plane/moves/M07-aeas-freeze.md
-  - id: M08
-    name: trajectory-schema
-    status: pending
-    depends_on: [M07]
-    packet: engineering-constitution
-    spec: docs/control-plane/moves/M08-trajectory-schema.md
-  - id: M09
-    name: worker-contract
-    status: pending
-    depends_on: [M08]
-    packet: engineering-constitution
-    spec: docs/control-plane/moves/M09-worker-contract.md
+- id: M01
+  name: persistence-architecture
+  status: completed
+  depends_on: []
+  packet: sovereign-workspace
+  spec: docs/control-plane/moves/M01-persistence.md
+- id: M02
+  name: reasomate-truth
+  status: completed
+  depends_on:
+  - M01
+  packet: conversational-field
+  spec: docs/control-plane/moves/M02-reasomate.md
+- id: M02A
+  name: ci-gate-integrity
+  status: completed
+  depends_on:
+  - M02
+  packet: engineering-constitution
+  spec: docs/control-plane/moves/M02A-ci-gate-integrity.md
+- id: M03
+  name: novanet-public-field
+  status: completed
+  depends_on:
+  - M02A
+  packet: conversational-field
+  spec: docs/control-plane/moves/M03-novanet.md
+- id: M04
+  name: projects
+  status: pending
+  depends_on:
+  - M01
+  packet: personal-intelligence-workspace
+  spec: docs/control-plane/moves/M04-projects.md
+- id: M05
+  name: files
+  status: pending
+  depends_on:
+  - M04
+  packet: personal-intelligence-workspace
+  spec: docs/control-plane/moves/M05-files.md
+- id: M06
+  name: knowledge
+  status: pending
+  depends_on:
+  - M05
+  packet: personal-intelligence-workspace
+  spec: docs/control-plane/moves/M06-knowledge.md
+- id: M07
+  name: aeas-freeze
+  status: pending
+  depends_on: []
+  packet: engineering-constitution
+  spec: docs/control-plane/moves/M07-aeas-freeze.md
+- id: M08
+  name: trajectory-schema
+  status: pending
+  depends_on:
+  - M07
+  packet: engineering-constitution
+  spec: docs/control-plane/moves/M08-trajectory-schema.md
+- id: M09
+  name: worker-contract
+  status: pending
+  depends_on:
+  - M08
+  packet: engineering-constitution
+  spec: docs/control-plane/moves/M09-worker-contract.md
 routing_invariants:
-  - The first legal incomplete move is selected from repository state, not chat history.
-  - A move cannot advance until dependencies and acceptance gates are satisfied.
-  - Failed or revision-required moves remain the active move.
-  - The router never invents a move or expands scope.
-  - Authorization does not imply approval, merge, deployment, or acceptance.
-  - The trajectory carries direction; authorization carries authority.
-  - Merge evidence does not substitute for ACCEPT.json completion evidence.
-  - One active move at a time; every move stops at human review.
-  - Human sovereignty remains external to the recursive engineering loop.
+- The first legal incomplete move is selected from repository state, not chat history.
+- A move cannot advance until dependencies and acceptance gates are satisfied.
+- Failed or revision-required moves remain the active move.
+- The router never invents a move or expands scope.
+- Authorization does not imply approval, merge, deployment, or acceptance.
+- The trajectory carries direction; authorization carries authority.
+- Merge evidence does not substitute for ACCEPT.json completion evidence.
+- One active move at a time; every move stops at human review.
+- Human sovereignty remains external to the recursive engineering loop.

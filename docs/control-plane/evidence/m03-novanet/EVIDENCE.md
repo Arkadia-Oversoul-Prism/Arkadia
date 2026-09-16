@@ -20,3 +20,12 @@ NovaNet is the public social field; ReasoMate remains private; no Knowledge OS l
 - No M04+
 - No K15/K3, AEAS, provenance, WorkEvent semantic changes
 - No merge/deploy by automation
+
+## Architect acceptance (2026-09-16)
+
+- **Authority:** Architect — accept M03 based on merged verification record `95acb642`
+- **ACCEPT.json:** written
+- **Trajectory:** M03 → `completed` (version 5)
+- **Router expectation:** next legal move **M04**
+- **M04 execution:** not performed by this acceptance event
+- **Deploy:** not performed
