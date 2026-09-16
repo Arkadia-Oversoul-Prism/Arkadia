@@ -430,3 +430,117 @@
     opacity: .35;
   }
 }
+
+
+/* SOLARIUN-X02–X12 experience grammar
+ * Additive visual language over the canonical shell.
+ */
+.solariun-object-view { display: grid; gap: 10px; }
+.solariun-object-meta-row { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 6px; }
+.solariun-object-id { opacity: .55; }
+.solariun-relation-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.solspire-relation {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 212, 170, .18);
+  background: rgba(0, 212, 170, .05);
+  color: rgba(0, 212, 170, .78);
+  font: 8px/1.2 ui-monospace, monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.solariun-object-sheet {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  background: rgba(12, 14, 24, .92);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .28);
+}
+.solariun-object-sheet-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.solariun-object-sheet section { display: grid; gap: 8px; }
+.solariun-object-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.solariun-activity-stream { display: grid; gap: 10px; }
+.solariun-activity-empty { padding: 12px 0; }
+
+.solariun-weaver-lifecycle { display: grid; gap: 10px; }
+.solariun-weaver-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.solariun-weaver-steps li {
+  padding: 5px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(176, 141, 232, .16);
+  background: rgba(176, 141, 232, .04);
+  color: rgba(233, 231, 223, .42);
+  font: 8px/1.2 ui-monospace, monospace;
+  letter-spacing: .06em;
+}
+.solariun-weaver-steps li.is-current,
+.solariun-weaver-steps li[data-active='true'] {
+  border-color: rgba(176, 141, 232, .45);
+  background: rgba(176, 141, 232, .12);
+  color: #B08DE8;
+}
+
+/* X10 mobile spatial composition */
+.solariun-bottom-rail {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.solariun-bottom-rail button { flex: 0 0 auto; }
+
+@media (max-width: 700px) {
+  .solariun-object-sheet {
+    position: sticky;
+    bottom: 0;
+    max-height: min(78vh, 640px);
+    overflow: auto;
+    border-radius: 18px 18px 0 0;
+  }
+  .solariun-canvas[data-solariun-zoom='deep'] .solspire-project-main {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+}
+
+/* X12 motion + a11y polish */
+.solariun-reveal {
+  animation: solariun-reveal .34s ease-out both;
+}
+.solariun-focus-ring:focus-visible {
+  outline: 2px solid rgba(0, 212, 170, .72);
+  outline-offset: 2px;
+}
+@keyframes solariun-reveal {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .solariun-reveal { animation: none; }
+}
+
+.solariun-canvas .solspire-mobile-menu button:focus-visible,
+.solariun-canvas .solspire-nav-button:focus-visible,
+.solariun-canvas .solspire-quiet-button:focus-visible,
+.solariun-canvas .solspire-arkana-button:focus-visible {
+  outline: 2px solid rgba(0, 212, 170, .72);
+  outline-offset: 2px;
+}

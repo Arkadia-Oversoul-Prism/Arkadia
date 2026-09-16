@@ -73,7 +73,7 @@ export default function SolariunHomeCockpit() {
   const synthesisData = synthesis ?? {};
   const workloadData = workload ?? {};
 
-  return <div style={{ display: 'flex', flexDirection: 'column', gap: 18, width: '100%' }}>
+  return <div style={{ display: 'flex', flexDirection: 'column', gap: 18, width: '100%' }} data-solariun-field="overview" data-solariun-grammar="field-composition" aria-label="Solariun field — what matters now">
     <div style={{ padding: '4px 2px 6px' }}><div style={{ fontSize: 9, letterSpacing: '0.28em', textTransform: 'uppercase', color: TEAL }}>Solariun / Home</div><h2 style={{ margin: '7px 0 5px', fontFamily: 'serif', fontWeight: 500, fontSize: 'clamp(30px, 5vw, 46px)', lineHeight: 1.05 }}>Personal Intelligence Workspace</h2><p style={{ margin: 0, color: MUTED, fontSize: 13, maxWidth: 680 }}>One field for what changed, what is active, what persists, and what now asks for your attention.</p></div>
     {state === 'loading' && <Card label="Live field" accent={TEAL}><Loading label="Reading the sovereign workspace" /></Card>}
     {state !== 'loading' && errorCount > 0 && <div style={{ fontSize: 11, color: MUTED, padding: '0 2px' }}>Some live surfaces are quiet or unavailable. No placeholder data is being substituted.</div>}
