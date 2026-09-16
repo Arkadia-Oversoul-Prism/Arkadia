@@ -1,0 +1,55 @@
+{
+  "contract_id": "ARKADIA-WORKER-CONTRACT-v1",
+  "version": 1,
+  "authority": {
+    "source": "architect",
+    "worker_role": "subordinate_to_trajectory",
+    "merge": "human_only",
+    "deploy": "human_only"
+  },
+  "lifecycle": [
+    { "phase": "WAKE", "description": "Open bounded session from scheduler or manual dispatch", "resumable": false },
+    { "phase": "LOAD", "description": "Load trajectory, HEAD SHA, prior evidence", "resumable": true },
+    { "phase": "VALIDATE", "description": "Validate trajectory structure and session concurrency", "resumable": true },
+    { "phase": "ROUTE", "description": "Weaver selects first legal incomplete move", "resumable": true },
+    { "phase": "PLAN", "description": "Build bounded plan from move specification", "resumable": true },
+    { "phase": "EXECUTE", "description": "ExecutionAdapter runs within scope or dry-run refuses mutation", "resumable": true },
+    { "phase": "CHECKPOINT", "description": "Persist intermediate evidence when required", "resumable": true },
+    { "phase": "VERIFY", "description": "Run verification against acceptance criteria", "resumable": true },
+    { "phase": "REPORT", "description": "Emit machine and human reports", "resumable": false },
+    { "phase": "TERMINATE", "description": "Stop at human review boundary", "resumable": false }
+  ],
+  "session_states": [
+    "PROPOSED", "AUTHORIZED", "QUEUED", "RUNNING", "CHECKPOINTED",
+    "VERIFYING", "READY_FOR_REVIEW", "REVISION_REQUIRED", "BLOCKED",
+    "FAILED", "COMPLETED", "ABORTED", "EXPIRED"
+  ],
+  "prohibitions": [
+    "autonomous_merge",
+    "autonomous_deploy",
+    "trajectory_rewrite",
+    "invent_move",
+    "expand_scope",
+    "second_execution_architecture",
+    "collapse_authorized_into_running",
+    "collapse_completed_into_accepted"
+  ],
+  "evidence": {
+    "required_fields": [
+      "trajectory_id",
+      "move_id",
+      "repository_sha",
+      "session_id",
+      "status",
+      "dry_run",
+      "files_changed",
+      "tests",
+      "next_legal_move"
+    ]
+  },
+  "adapter": {
+    "interface": "weaver.execution_adapter.ExecutionAdapter",
+    "default": "NullExecutionAdapter",
+    "replaceable": true
+  }
+}

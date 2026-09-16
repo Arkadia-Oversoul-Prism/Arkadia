@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://arkadia.local/control-plane/worker.contract.schema.json",
+  "title": "Arkadia Engineering Worker Contract",
+  "description": "Inspectable lifecycle contract: Architect → Lab → Worker → Agent → Repository → Evidence → Human Review",
+  "type": "object",
+  "required": ["contract_id", "version", "authority", "lifecycle", "prohibitions", "evidence"],
+  "properties": {
+    "contract_id": { "type": "string", "const": "ARKADIA-WORKER-CONTRACT-v1" },
+    "version": { "type": "integer", "minimum": 1 },
+    "authority": {
+      "type": "object",
+      "required": ["source", "worker_role", "merge", "deploy"],
+      "properties": {
+        "source": { "type": "string", "const": "architect" },
+        "worker_role": { "type": "string", "const": "subordinate_to_trajectory" },
+        "merge": { "type": "string", "const": "human_only" },
+        "deploy": { "type": "string", "const": "human_only" }
+      }
+    },
+    "lifecycle": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "object",
+        "required": ["phase", "description"],
+        "properties": {
+          "phase": {
+            "type": "string",
+            "enum": [
+              "WAKE", "LOAD", "VALIDATE", "ROUTE", "PLAN",
+              "EXECUTE", "CHECKPOINT", "VERIFY", "REPORT", "TERMINATE"
+            ]
+          },
+          "description": { "type": "string" },
+          "resumable": { "type": "boolean" }
+        }
+      }
+    },
+    "session_states": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "PROPOSED", "AUTHORIZED", "QUEUED", "RUNNING", "CHECKPOINTED",
+          "VERIFYING", "READY_FOR_REVIEW", "REVISION_REQUIRED", "BLOCKED",
+          "FAILED", "COMPLETED", "ABORTED", "EXPIRED"
+        ]
+      }
+    },
+    "prohibitions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["required_fields"],
+      "properties": {
+        "required_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "adapter": {
+      "type": "object",
+      "properties": {
+        "interface": { "type": "string" },
+        "default": { "type": "string" },
+        "replaceable": { "type": "boolean" }
+      }
+    }
+  }
+}
