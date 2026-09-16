@@ -50,7 +50,12 @@ export default function ProjectsWorkspace({ onOpenProject }: { onOpenProject: (p
     }
   }
 
-  return <div style={{ display: 'grid', gap: 14 }}>
+  return <div data-testid="solariun-projects-workspace" style={{ display: 'grid', gap: 14 }}>
+    <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(201,168,76,.22)', background: 'rgba(201,168,76,.06)', fontSize: 11, color: 'rgba(233,231,223,.45)' }}>
+      <strong style={{ color: '#C9A84C' }}>ONE PROJECT MODEL</strong>
+      {' · '}
+      List and interior share the same SolSpire project store — no parallel project runtime.
+    </div>
     <section style={{ ...CARD, background: 'radial-gradient(circle at 88% 0%,rgba(201,168,76,.13),transparent 42%),rgba(16,18,31,.82)' }}>
       <div style={MONO}>SolSpire / Projects</div>
       <div style={{ display: 'flex', gap: 18, alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', marginTop: 6 }}>
@@ -69,7 +74,7 @@ export default function ProjectsWorkspace({ onOpenProject }: { onOpenProject: (p
     {loading && <div style={{ ...CARD, color: 'rgba(233,231,223,.32)' }}>Reading your project field…</div>}
     {!loading && !error && projects.length === 0 && <div style={{ ...CARD, textAlign: 'center', padding: '42px 20px' }}><div style={{ fontSize: 28, color: 'rgba(201,168,76,.22)' }}>◈</div><h3 style={{ margin: '9px 0 5px', font: '400 18px Georgia,serif', color: 'rgba(233,231,223,.62)' }}>No projects yet</h3><p style={{ margin: 0, font: '11px/1.6 Inter,system-ui,sans-serif', color: 'rgba(233,231,223,.32)' }}>Create a project above and the rest of the workspace can gather around it.</p></div>}
     {!loading && projects.map(project => <article key={project.id} style={{ ...CARD, padding: 0, overflow: 'hidden' }}>
-      <button type="button" onClick={() => onOpenProject(project)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: 18, border: 0, background: 'transparent', color: 'inherit', cursor: 'pointer', textAlign: 'left' }}>
+      <button type="button" data-testid="solariun-project-card" onClick={() => onOpenProject(project)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: 18, border: 0, background: 'transparent', color: 'inherit', cursor: 'pointer', textAlign: 'left' }}>
         <span style={{ width: 44, height: 44, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 13, background: 'rgba(201,168,76,.08)', border: '1px solid rgba(201,168,76,.18)', color: '#C9A84C', fontSize: 19 }}>◈</span>
         <span style={{ flex: 1, minWidth: 0 }}><strong style={{ display: 'block', font: '500 15px Georgia,serif', color: '#E9E7DF' }}>{project.name}</strong><span style={{ display: 'block', marginTop: 5, ...MONO, color: 'rgba(233,231,223,.28)' }}>{project.status} · updated {new Date((project.updated_at || 0) * 1000).toLocaleDateString()}</span></span>
         <span aria-hidden="true" style={{ color: '#C9A84C', fontSize: 18 }}>→</span>
