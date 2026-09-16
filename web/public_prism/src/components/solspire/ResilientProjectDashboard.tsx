@@ -1,7 +1,14 @@
 import React, { Component, lazy, Suspense } from 'react';
 import type { Project, ProjTab } from '../../pages/ProjectDashboard';
 
-const ProjectDashboard = lazy(() => import('../../pages/ProjectDashboard'));
+const ProjectDashboard = lazy(async () => {
+  // ProjectDashboard currently references the restored ProjectOverview surface without importing it.
+  // Bind that existing implementation before evaluating the dashboard module, without adding
+  // another project/overview system or changing backend semantics.
+  const { default: Overview } = await import('../../pages/ProjectOverview');
+  (globalThis as typeof globalThis & { Overview?: typeof Overview }).Overview = Overview;
+  return import('../../pages/ProjectDashboard');
+});
 
 interface Props {
   project: Project;
