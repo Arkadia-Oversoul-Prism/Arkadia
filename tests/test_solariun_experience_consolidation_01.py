@@ -30,10 +30,12 @@ def test_area_c_solspire_substrate_uses_existing_search_and_context_grammar():
     assert "Existing repository components + existing APIs" in src
 
 
-def test_area_d_spiral_command_remains_discovery_only():
-    src = APP.read_text() + FRAME.read_text()
+def test_area_d_spiral_command_is_bound_to_existing_sci_surface():
+    app = APP.read_text()
     sci = (ROOT / "web/public_prism/src/pages/SpiralCommandInterface.tsx").read_text()
-    assert 'surface="Spiral Command"' in src
+    assert 'surface="Spiral Command"' in app
+    assert "<SpiralCommandInterface" in app
+    assert "'/sci': {view:'sci'}" in app
     assert "SCI_DISCOVERY_WITHOUT_AUTHORITY" in sci
     assert "does not authorize" in sci.lower() or "not authorization" in sci.lower()
     assert "K15" in sci and "K3" in sci
