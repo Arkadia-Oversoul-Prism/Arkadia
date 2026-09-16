@@ -344,3 +344,89 @@
     border-bottom: none;
   }
 }
+
+
+/* SOLARIUN-X01 canvas foundation
+ * Additive only. Extends the existing SolSpire workspace shell.
+ * Does not introduce a parallel shell or fake objects.
+ */
+.solspire-workspace.solariun-canvas {
+  --solariun-env: #E9E7DF;
+  --solariun-object: rgba(233, 231, 223, .88);
+  --solariun-meta: rgba(233, 231, 223, .42);
+  --solariun-field-depth: radial-gradient(120% 80% at 50% -10%, rgba(106, 159, 216, .07), transparent 42%),
+    radial-gradient(90% 60% at 100% 0%, rgba(201, 168, 76, .05), transparent 38%),
+    linear-gradient(180deg, #0A0B12 0%, #080A11 48%, #07080F 100%);
+  --solariun-type-env: 600 clamp(22px, 3.2vw, 34px) / 1.15 Georgia, "Times New Roman", serif;
+  --solariun-type-object: 500 15px / 1.45 Inter, system-ui, sans-serif;
+  --solariun-type-meta: 8px / 1.4 ui-monospace, SFMono-Regular, monospace;
+  background: var(--solariun-field-depth);
+  color: var(--solariun-env);
+}
+
+.solariun-canvas [data-solariun-region="field"] {
+  position: relative;
+  isolation: isolate;
+}
+
+.solariun-canvas [data-solariun-region="field"]::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 120px;
+  background: linear-gradient(180deg, rgba(0, 212, 170, .035), transparent);
+  opacity: .55;
+  z-index: 0;
+}
+
+.solariun-canvas .solspire-content {
+  position: relative;
+  z-index: 1;
+}
+
+.solariun-canvas[data-solariun-zoom="field"] .solspire-content {
+  max-width: 1120px;
+}
+
+.solariun-canvas[data-solariun-zoom="focus"] .solspire-content,
+.solariun-canvas[data-solariun-zoom="deep"] .solspire-content {
+  max-width: 960px;
+}
+
+.solariun-type-env {
+  font: var(--solariun-type-env);
+  letter-spacing: .01em;
+  color: var(--solariun-env);
+}
+
+.solariun-type-object {
+  font: var(--solariun-type-object);
+  color: var(--solariun-object);
+}
+
+.solariun-type-meta {
+  font: var(--solariun-type-meta);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--solariun-meta);
+}
+
+.solariun-canvas .solspire-lens-heading h1 {
+  font: var(--solariun-type-env);
+}
+
+.solariun-canvas .solspire-kicker {
+  font: var(--solariun-type-meta);
+}
+
+.solariun-canvas:focus-within {
+  /* calm focus presence for keyboard users without neon flash */
+  box-shadow: inset 0 0 0 1px rgba(0, 212, 170, .08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .solariun-canvas [data-solariun-region="field"]::before {
+    opacity: .35;
+  }
+}
