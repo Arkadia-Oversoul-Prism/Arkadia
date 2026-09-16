@@ -1,6 +1,6 @@
 trajectory:
   id: ARKADIA-TRUTHFULNESS-01
-  version: 5
+  version: 6
   status: authorized-for-review-gated-execution
   objective: Turn the truthful Arkadia substrate into a coherent human experience
     while preserving human sovereignty, the canonical shell, shared runtime boundaries,
@@ -64,14 +64,14 @@ trajectory:
     rule: Merge evidence establishes landed code; ACCEPT.json establishes completion
       for routing. Never infer acceptance from merge alone.
     reconciled_through: M09
-    repository_head: 95acb642741cc4c236e16681bbc83904ef58b833
+    repository_head: 86a5301537f9f37a77e626a3ba80066cbf95b7d3
     accepted_markers_verified:
     - M01
     - M02
     - M02A
     - M03
-    merged_without_repository_acceptance_marker:
     - M04
+    merged_without_repository_acceptance_marker:
     - M05
     - M06
     - M07
@@ -84,6 +84,10 @@ trajectory:
       verification_merge: 95acb642741cc4c236e16681bbc83904ef58b833
       implementation_merge: 17dc63d540246cd6dd0997487337c284de88268b
       implementation_sha: 773fcd9fbda71a5358528e3f0288c896f45bd2fb
+    m04_acceptance:
+      verification_merge: 86a5301537f9f37a77e626a3ba80066cbf95b7d3
+      implementation_merge: 391b8057728fb4883701682bfc3d53267053705e
+      implementation_sha: 6615aaa88be1e65736593ad26c2160876bd5445b
   forbidden:
   - K15_K3
   - provenance
@@ -99,6 +103,8 @@ trajectory:
     Horizon II. No move is authorized by this version merely because it is described
     here. Architect 2026-09-16: Accept M03 based on verification record merge 95acb642.
     ACCEPT.json written. M03 completed. Next legal move derives to M04. No M04 execution
+    in this event. Architect 2026-09-16: Accept M04 based on verification merge 86a5301.
+    ACCEPT.json written. M04 completed. Next legal move derives to M05. No M05 execution
     in this event.'
 moves:
 - id: M01
@@ -130,7 +136,7 @@ moves:
   spec: docs/control-plane/moves/M03-novanet.md
 - id: M04
   name: projects
-  status: pending
+  status: completed
   depends_on:
   - M01
   packet: personal-intelligence-workspace

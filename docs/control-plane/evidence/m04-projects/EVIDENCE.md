@@ -17,3 +17,12 @@ One coherent project context aligned with SolSpire workspace architecture; no pa
 
 ## Out of scope
 M05 files expansion, M03 changes, K15/K3, new database, new project store
+
+## Architect acceptance (2026-09-16)
+
+- **Authority:** Architect — accept M04 based on merged verification record PR #50 (`86a5301`)
+- **ACCEPT.json:** written
+- **Trajectory:** M04 → `completed`
+- **Router expectation:** next legal move **M05**
+- **M05 execution:** not performed by this acceptance event
+- **Deploy:** not performed
