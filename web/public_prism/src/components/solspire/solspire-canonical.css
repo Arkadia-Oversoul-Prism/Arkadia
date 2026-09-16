@@ -344,3 +344,121 @@
     border-bottom: none;
   }
 }
+
+
+/* === SOLARIUN-X01 CANVAS FOUNDATION ===
+ * Obsidian spatial editorialism — tokens and field surface only.
+ * No fabricated objects, metrics, or activity.
+ */
+.solspire-workspace.solariun-canvas {
+  --solariun-bg-0: #07080f;
+  --solariun-bg-1: #0c0e18;
+  --solariun-bg-2: #121522;
+  --solariun-ink: #e9e7df;
+  --solariun-ink-soft: rgba(233, 231, 223, 0.55);
+  --solariun-ink-mute: rgba(233, 231, 223, 0.28);
+  --solariun-gold: #c9a84c;
+  --solariun-teal: #00d4aa;
+  --solariun-blue: #6a9fd8;
+  --solariun-line: rgba(255, 255, 255, 0.08);
+  --solariun-focus: rgba(0, 212, 170, 0.72);
+  --solariun-type-env: clamp(11px, 1.4vw, 13px);
+  --solariun-type-object: clamp(17px, 2.2vw, 22px);
+  --solariun-type-meta: 8px;
+  background:
+    radial-gradient(ellipse 90% 55% at 12% -10%, rgba(106, 159, 216, 0.07), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 92% 8%, rgba(201, 168, 76, 0.05), transparent 50%),
+    linear-gradient(180deg, var(--solariun-bg-1) 0%, var(--solariun-bg-0) 100%);
+  color: var(--solariun-ink);
+}
+
+.solariun-canvas .solariun-field {
+  position: relative;
+  isolation: isolate;
+}
+
+.solariun-canvas .solariun-field::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(255, 255, 255, 0.02), transparent 70%);
+  z-index: 0;
+}
+
+.solariun-canvas .solspire-content,
+.solariun-canvas .solariun-field > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Typography hierarchy: environment / object / metadata */
+.solariun-canvas .solspire-kicker,
+.solariun-canvas .solspire-brand-sub,
+.solariun-canvas .solspire-mono {
+  font-size: var(--solariun-type-meta);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--solariun-ink-mute);
+}
+
+.solariun-canvas .solspire-lens-heading h1,
+.solariun-canvas .solspire-brand-name {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--solariun-ink);
+}
+
+.solariun-canvas .solspire-lens-heading h1 {
+  font-size: var(--solariun-type-object);
+  margin: 0;
+}
+
+/* Focus / accessibility foundation */
+.solariun-canvas :focus-visible {
+  outline: 2px solid var(--solariun-focus);
+  outline-offset: 2px;
+}
+
+.solariun-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 10001;
+  padding: 10px 14px;
+  background: #0c0e18;
+  color: var(--solariun-teal, #00d4aa);
+  border: 1px solid rgba(0, 212, 170, 0.35);
+  border-radius: 8px;
+  font: 11px Inter, system-ui, sans-serif;
+}
+
+.solariun-skip-link:focus {
+  left: 12px;
+  top: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .solariun-canvas *,
+  .solariun-canvas *::before,
+  .solariun-canvas *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Calm density containers for later object grammar (structure only) */
+.solariun-canvas .solariun-spatial-slot {
+  border: 1px solid var(--solariun-line);
+  border-radius: 14px;
+  background: rgba(16, 18, 31, 0.55);
+}
+
+@media (max-width: 700px) {
+  .solariun-canvas .solspire-body {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+}
