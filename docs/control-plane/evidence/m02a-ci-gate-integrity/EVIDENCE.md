@@ -33,3 +33,12 @@
 ## Next legal move after acceptance
 
 M03 — NovaNet Public Field (not executed in this move)
+
+## Closure
+
+- **PR:** #42 merged by Architect
+- **Merge commit:** `634413e08d6bf16dd455f0c7f7751da4e863620c`
+- **ACCEPT.json:** written post-merge
+- **Trajectory:** M02A status → completed (version 3)
+- **Next legal move:** M03 — NovaNet Public Field
+- **M03 execution:** NOT started by this closure

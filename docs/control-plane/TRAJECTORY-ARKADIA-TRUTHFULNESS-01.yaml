@@ -1,12 +1,10 @@
 trajectory:
   id: ARKADIA-TRUTHFULNESS-01
-  version: 2
+  version: 3
   status: authorized-for-review-gated-execution
-  objective: >-
-    Close the structural gaps between Arkadia's declared architecture and
-    the running implementation while preserving human sovereignty, the
-    canonical shell, shared runtime boundaries, Knowledge OS boundaries,
-    and governed engineering execution.
+  objective: Close the structural gaps between Arkadia's declared architecture and
+    the running implementation while preserving human sovereignty, the canonical shell,
+    shared runtime boundaries, Knowledge OS boundaries, and governed engineering execution.
   authority_level: 4
   execution_mode: dependency-aware-sequential
   max_active_moves: 1
@@ -14,88 +12,90 @@ trajectory:
   merge: human_only
   production_deploy: human_only
   constitutional_changes: prohibited
-  forbidden: [K15_K3, provenance, WorkEvent_semantics, authority_redefinition, V2_V3]
-  amendment_note: >-
-    Architect 2026-09-16: Insert M02A (CI Gate Integrity) after M02 and before M03.
-    M01/M02 marked completed per repository ACCEPT evidence. M03 remains pending
-    and must not execute while M02A is incomplete.
-
+  forbidden:
+  - K15_K3
+  - provenance
+  - WorkEvent_semantics
+  - authority_redefinition
+  - V2_V3
+  amendment_note: 'Architect 2026-09-16: Insert M02A (CI Gate Integrity) after M02
+    and before M03. M01/M02 marked completed per repository ACCEPT evidence. M03 remains
+    pending and must not execute while M02A is incomplete. Architect merge of M02A
+    (PR #42, 634413e). M02A completed. Next legal move: M03.'
 moves:
-  - id: M01
-    name: persistence-architecture
-    status: completed
-    depends_on: []
-    packet: sovereign-workspace
-    spec: docs/control-plane/moves/M01-persistence.md
-
-  - id: M02
-    name: reasomate-truth
-    status: completed
-    depends_on: [M01]
-    packet: conversational-field
-    spec: docs/control-plane/moves/M02-reasomate.md
-
-  - id: M02A
-    name: ci-gate-integrity
-    status: pending
-    depends_on: [M02]
-    packet: engineering-constitution
-    spec: docs/control-plane/moves/M02A-ci-gate-integrity.md
-
-  - id: M03
-    name: novanet-public-field
-    status: pending
-    depends_on: [M02A]
-    packet: conversational-field
-    spec: docs/control-plane/moves/M03-novanet.md
-
-  - id: M04
-    name: projects
-    status: pending
-    depends_on: [M01]
-    packet: personal-intelligence-workspace
-    spec: docs/control-plane/moves/M04-projects.md
-
-  - id: M05
-    name: files
-    status: pending
-    depends_on: [M04]
-    packet: personal-intelligence-workspace
-    spec: docs/control-plane/moves/M05-files.md
-
-  - id: M06
-    name: knowledge
-    status: pending
-    depends_on: [M05]
-    packet: personal-intelligence-workspace
-    spec: docs/control-plane/moves/M06-knowledge.md
-
-  - id: M07
-    name: aeas-freeze
-    status: pending
-    depends_on: []
-    packet: engineering-constitution
-    spec: docs/control-plane/moves/M07-aeas-freeze.md
-
-  - id: M08
-    name: trajectory-schema
-    status: pending
-    depends_on: [M07]
-    packet: engineering-constitution
-    spec: docs/control-plane/moves/M08-trajectory-schema.md
-
-  - id: M09
-    name: worker-contract
-    status: pending
-    depends_on: [M08]
-    packet: engineering-constitution
-    spec: docs/control-plane/moves/M09-worker-contract.md
-
+- id: M01
+  name: persistence-architecture
+  status: completed
+  depends_on: []
+  packet: sovereign-workspace
+  spec: docs/control-plane/moves/M01-persistence.md
+- id: M02
+  name: reasomate-truth
+  status: completed
+  depends_on:
+  - M01
+  packet: conversational-field
+  spec: docs/control-plane/moves/M02-reasomate.md
+- id: M02A
+  name: ci-gate-integrity
+  status: completed
+  depends_on:
+  - M02
+  packet: engineering-constitution
+  spec: docs/control-plane/moves/M02A-ci-gate-integrity.md
+- id: M03
+  name: novanet-public-field
+  status: pending
+  depends_on:
+  - M02A
+  packet: conversational-field
+  spec: docs/control-plane/moves/M03-novanet.md
+- id: M04
+  name: projects
+  status: pending
+  depends_on:
+  - M01
+  packet: personal-intelligence-workspace
+  spec: docs/control-plane/moves/M04-projects.md
+- id: M05
+  name: files
+  status: pending
+  depends_on:
+  - M04
+  packet: personal-intelligence-workspace
+  spec: docs/control-plane/moves/M05-files.md
+- id: M06
+  name: knowledge
+  status: pending
+  depends_on:
+  - M05
+  packet: personal-intelligence-workspace
+  spec: docs/control-plane/moves/M06-knowledge.md
+- id: M07
+  name: aeas-freeze
+  status: pending
+  depends_on: []
+  packet: engineering-constitution
+  spec: docs/control-plane/moves/M07-aeas-freeze.md
+- id: M08
+  name: trajectory-schema
+  status: pending
+  depends_on:
+  - M07
+  packet: engineering-constitution
+  spec: docs/control-plane/moves/M08-trajectory-schema.md
+- id: M09
+  name: worker-contract
+  status: pending
+  depends_on:
+  - M08
+  packet: engineering-constitution
+  spec: docs/control-plane/moves/M09-worker-contract.md
 routing_invariants:
-  - The first legal incomplete move is selected from repository state, not chat history.
-  - A move cannot advance until dependencies and acceptance gates are satisfied.
-  - Failed or revision-required moves remain the active move.
-  - The router never invents a move or expands scope.
-  - Authorization does not imply approval, merge, deployment, or acceptance.
-  - The trajectory carries direction; authorization carries authority.
-  - M03 depends on M02A; CI Gate Integrity must close before NovaNet Public Field.
+- The first legal incomplete move is selected from repository state, not chat history.
+- A move cannot advance until dependencies and acceptance gates are satisfied.
+- Failed or revision-required moves remain the active move.
+- The router never invents a move or expands scope.
+- Authorization does not imply approval, merge, deployment, or acceptance.
+- The trajectory carries direction; authorization carries authority.
+- M03 depends on M02A; CI Gate Integrity must close before NovaNet Public Field.
