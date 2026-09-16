@@ -14,7 +14,9 @@ function useProjects() {
   return { projects, loading, error, reload: load };
 }
 
+/** M05 — files remain on project corpus via /solspire/projects/{id}/files */
 export function FilesWorkspace({ onOpenProject }: { onOpenProject: (p: Project) => void }) {
+  /* M05: project-attached uploads; open project for full corpus CRUD */
   const { projects, loading, error, reload } = useProjects();
   const [target, setTarget] = useState(''); const [busy, setBusy] = useState(false); const [message, setMessage] = useState<string | null>(null); const [messageError, setMessageError] = useState(false);
   const project = projects.find(p => p.id === target);

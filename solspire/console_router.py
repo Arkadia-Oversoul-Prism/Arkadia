@@ -629,6 +629,19 @@ async def project_delete_file(project_id: str, file_id: str,
     return {"ok": True}
 
 
+@router.post("/projects/{project_id}/files/{file_id}/copy")
+async def project_copy_file(project_id: str, file_id: str,
+                            user: dict = Depends(require_project_owner)) -> dict[str, Any]:
+    from solspire.project_store import get_file, copy_file
+    existing = get_file(file_id)
+    if not existing or existing.get("project_id") != project_id:
+        raise HTTPException(status_code=404, detail="File not found")
+    try:
+        return copy_file(file_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
 @router.post("/projects/{project_id}/files/upload")
 async def project_upload_file(project_id: str, request: Request,
                               user: dict = Depends(require_project_owner)) -> dict[str, Any]:
