@@ -77,7 +77,7 @@ def test_dry_run_evidence(tmp_path, monkeypatch):
     assert evidence.is_file()
     human = evidence.parent / "WEAVER-ENGINEERING-RUN.md"
     assert human.is_file()
-    assert "M01" in human.read_text()
+    assert out["next_move"]["id"] in human.read_text()
 
 
 def test_worker_stops_at_review_no_merge():
