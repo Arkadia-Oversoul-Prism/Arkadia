@@ -12,6 +12,7 @@ import SettingsPage from '../../pages/SettingsPage';
 import SourceSyncPanel from './SourceSyncPanel';
 import { CommercialPanel, WeaverSummary, WorkspaceCollection } from '../../pages/SolSpireWorkspacePanels';
 import { search as searchKnowledge } from '../../lib/knowledgeApi';
+import { apiFetch } from '../../lib/apiClient';
 import { useAuth } from '../../contexts/AuthContext';
 import EngineeringLabLens from './EngineeringLabLens';
 
@@ -64,7 +65,85 @@ const BOTTOM_NAV: NavItem[] = ['overview','projects','files','conversations','ta
 function MobileNav({section,onSection}:{section:SolSpireLens;onSection:(s:SolSpireLens)=>void}) { return <nav className="solspire-mobile-bottom" aria-label="Solariun primary navigation">{BOTTOM_NAV.map(n=><button key={n.id} type="button" className={section===n.id?'active':''} aria-current={section===n.id?'page':undefined} onClick={()=>onSection(n.id)}><span>{n.sigil}</span><small>{n.label}</small></button>)}</nav>; }
 function Sidebar({section,onSection}:{section:SolSpireLens;onSection:(s:SolSpireLens)=>void}) { return <aside className="solspire-sidebar" aria-label="Solariun navigation"><div className="solspire-sidebar-intro"><span className="solspire-online-dot"/><span>AUTHENTICATED FIELD</span><small>one surface · private</small></div>{NAV.map(n=><button key={n.id} type="button" className={`solspire-nav-button ${section===n.id?'active':''}`} aria-current={section===n.id?'page':undefined} style={{'--lens-accent':n.accent} as React.CSSProperties} onClick={()=>onSection(n.id)}><span>{n.sigil}</span><div><strong>{n.label}</strong><small>{n.question}</small></div></button>)}</aside>; }
 function ContextBar({lens,project,onArkana,onPrism}:{lens:NavItem;project?:Project|null;onArkana:()=>void;onPrism:()=>void}) { return <div className="solspire-context-bar"><div><span className="solspire-mono">ARKADIA / SOLARIUN / {lens.label.toUpperCase()}</span>{project&&<><span className="solspire-context-separator">/</span><strong>{project.name}</strong></>}</div><div className="solspire-context-actions"><button type="button" onClick={onPrism} className="solspire-context-return">← Prism / Nexus</button><button type="button" onClick={onArkana}>⌁ Ask Arkana {project?'about this context':'about this workspace'}</button></div></div>; }
-function SearchOverlay({onClose}:{onClose:()=>void}) { const {user}=useAuth(); const [query,setQuery]=useState(''); const [results,setResults]=useState<any[]>([]); const [loading,setLoading]=useState(false); const [error,setError]=useState<string|null>(null); useEffect(()=>{},[user?.idToken]); useEffect(()=>{if(!query.trim()){setResults([]);setError(null);return;}const timer=window.setTimeout(()=>{setLoading(true);setError(null);searchKnowledge(query.trim(),['semantic','fulltext','project','timeline'],12).then(r=>{const groups=['semantic','fulltext','project','timeline'];const flat=groups.flatMap(k=>(r as any)[k]||[]);const seen=new Set<string>();setResults(flat.filter((x:any)=>{const key=String(x.note_uuid||x.id||x.title||JSON.stringify(x));if(seen.has(key))return false;seen.add(key);return true;}));}).catch(e=>setError(e.message||'Search unavailable')).finally(()=>setLoading(false));},320);return()=>window.clearTimeout(timer)},[query]); return <div className="solspire-overlay" role="dialog" aria-modal="true" aria-label="Search Solariun"><div className="solspire-search-panel"><div className="solspire-overlay-head"><div><span className="solspire-kicker">Universal search</span><h2>Search Solariun</h2></div><button type="button" onClick={onClose} aria-label="Close search">×</button></div><input autoFocus value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search files, knowledge, conversations, tasks, memory…" />{loading&&<div className="solspire-search-state">Searching Knowledge OS…</div>}{error&&<div className="solspire-search-error">{error}</div>}{!loading&&query.trim()&&!results.length&&!error&&<div className="solspire-search-state">No matching objects found.</div>}<div className="solspire-search-results">{results.map((x:any,i:number)=><article key={`${x.note_uuid||x.id||i}`}><div className="solspire-kicker">{x.note_type||x.type||'KNOWLEDGE'}</div><h3>{x.title||x.name||'Untitled object'}</h3><p>{String(x.content||x.summary||'').slice(0,220)}</p><span>{x.note_uuid||x.id||''}</span></article>)}</div><div className="solspire-search-hint">Semantic and full-text search are backed by the existing Knowledge OS. No parallel search index is created here.</div></div></div>; }
+function SearchOverlay({onClose, project}:{onClose:()=>void; project?: Project|null}) {
+  /** P2 Universal Search — honest coverage: Knowledge OS + optional project corpus federation. No new index. */
+  const {user}=useAuth();
+  const [query,setQuery]=useState('');
+  const [results,setResults]=useState<any[]>([]);
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState<string|null>(null);
+  const [channels,setChannels]=useState<string[]>([]);
+  useEffect(()=>{},[user?.idToken]);
+  useEffect(()=>{
+    if(!query.trim()){setResults([]);setError(null);setChannels([]);return;}
+    const timer=window.setTimeout(async()=>{
+      setLoading(true);setError(null);
+      const q=query.trim().toLowerCase();
+      const used:string[]=['knowledge-os'];
+      try {
+        const r=await searchKnowledge(query.trim(),['semantic','fulltext','project','timeline'],12);
+        const groups=['semantic','fulltext','project','timeline'];
+        const flat=groups.flatMap(k=>(r as any)[k]||[]);
+        const seen=new Set<string>();
+        let items=flat.filter((x:any)=>{const key=String(x.note_uuid||x.id||x.title||JSON.stringify(x));if(seen.has(key))return false;seen.add(key);return true;}).map((x:any)=>({
+          ...x,
+          _channel:'knowledge-os',
+          _label:x.note_type||x.type||'KNOWLEDGE',
+        }));
+        if(project?.id){
+          used.push('project-corpus');
+          const [files,tasks,mem]=await Promise.all([
+            apiFetch(`/solspire/projects/${project.id}/files`).then(r=>r.json()).catch(()=>({files:[]})),
+            apiFetch(`/solspire/projects/${project.id}/tasks`).then(r=>r.json()).catch(()=>({tasks:[]})),
+            apiFetch(`/solspire/projects/${project.id}/memory`).then(r=>r.json()).catch(()=>({memory:[]})),
+          ]);
+          const match=(s:string)=>s.toLowerCase().includes(q);
+          for(const f of (files.files||[])){
+            if(match(String(f.name||''))) items.push({id:f.id,title:f.name,_label:'FILE',_channel:'project-corpus',summary:f.mime_type||''});
+          }
+          for(const task of (tasks.tasks||[])){
+            if(match(String(task.title||task.name||''))) items.push({id:task.id,title:task.title||task.name,_label:'TASK',_channel:'project-corpus',summary:task.status||''});
+          }
+          for(const mem of (mem.memory||mem.items||[])){
+            const text=String(mem.content||mem.body||mem.title||'');
+            if(match(text)||match(String(mem.title||''))) items.push({id:mem.id,title:mem.title||text.slice(0,48),_label:'MEMORY',_channel:'project-corpus',summary:text.slice(0,120)});
+          }
+        }
+        setChannels(used);
+        setResults(items);
+      } catch(e:any) {
+        setError(e.message||'Search unavailable');
+      } finally {
+        setLoading(false);
+      }
+    },320);
+    return()=>window.clearTimeout(timer);
+  },[query, project?.id]);
+  return <div className="solspire-overlay" role="dialog" aria-modal="true" aria-label="Search Solariun" data-testid="solariun-search-overlay">
+    <div className="solspire-search-panel">
+      <div className="solspire-overlay-head">
+        <div>
+          <span className="solspire-kicker">Federated search</span>
+          <h2>Search Solariun</h2>
+        </div>
+        <button type="button" onClick={onClose} aria-label="Close search">×</button>
+      </div>
+      <div data-testid="solariun-search-coverage" style={{margin:'0 0 10px',padding:'8px 10px',borderRadius:8,border:'1px solid rgba(0,212,170,0.2)',fontSize:10,color:'rgba(233,231,223,0.45)'}}>
+        <strong style={{color:'#00D4AA'}}>COVERAGE (honest)</strong>
+        {' · '}Knowledge OS channels always attempted
+        {project?.id ? ' · Project corpus (files/tasks/memory) filtered client-side when a project is open' : ' · Open a project to include project corpus'}
+        {' · '}No universal object index · Semantic may be unavailable
+      </div>
+      <input autoFocus value={query} onChange={e=>setQuery(e.target.value)} placeholder={project?.id ? 'Search knowledge + this project corpus…' : 'Search Knowledge OS…'} />
+      {loading&&<div className="solspire-search-state">Searching…</div>}
+      {error&&<div className="solspire-search-error">{error}</div>}
+      {!loading&&query.trim()&&!results.length&&!error&&<div className="solspire-search-state">No matching results in active channels.</div>}
+      <div className="solspire-search-results">{results.map((x:any,i:number)=><article key={`${x.note_uuid||x.id||i}`} data-search-channel={x._channel||'knowledge-os'}><div className="solspire-kicker">{x._label||x.note_type||x.type||'KNOWLEDGE'} · {x._channel||'knowledge-os'}</div><h3>{x.title||x.name||'Untitled'}</h3><p>{String(x.content||x.summary||'').slice(0,220)}</p><span>{x.note_uuid||x.id||''}</span></article>)}</div>
+      <div className="solspire-search-hint" data-testid="solariun-search-channels">Channels: {channels.join(', ')||'—'}. Not a parallel search database.</div>
+    </div>
+  </div>;
+}
+
 function ArkanaOverlay({context,pack,onClose}:{context:string;pack:{surface:string;projectName?:string|null;projectId?:string|null;authenticated:boolean};onClose:()=>void}) {
   /** P1.1 Bounded Arkana Context Pack — only fields the client already knows; not "Arkana knows everything". */
   const lines = [
@@ -108,7 +187,7 @@ export default function SolSpireExperience({identity='Authenticated node',initia
   const leavePrism=()=>{ if(onNavigate) onNavigate('novanet'); else window.history.pushState({},'', '/nexus'); window.dispatchEvent(new PopStateEvent('popstate')); };
   const navigateGlobal=(view:string)=>{setMore(false);if(onNavigate) onNavigate(view);else window.location.assign(view==='novanet'?'/nexus':`/${view}`)};
   const openProject=(p:Project)=>{setProject(p);setProjectTab('overview');}; const openProjectTab=(p:Project,tab:ProjTab)=>{setProject(p);setProjectTab(tab);}; const openWeaver=(p:Project)=>{openProjectTab(p,'weaver')};
-  if(project)return <div className="solspire-workspace"><GlobalDoors onNavigate={navigateGlobal}/><Header identity={identity} onSearch={()=>setSearch(true)} onArkana={()=>setArkana(true)} onMenu={()=>setMore(true)} onPrism={leavePrism}/><div className="solspire-project-context" data-testid="solariun-project-context" data-field-continuity="p0.1"><button type="button" onClick={()=>{setProject(null);setProjectTab('overview');setSection('projects')}}>← Projects</button><div><span className="solspire-kicker">PROJECT CONTEXT</span><strong>{project.name}</strong></div><span className="solspire-mono">field continuity · lens stays in project</span></div><main className="solspire-project-main solspire-object-sheet" data-testid="solariun-object-sheet"><ContextBar lens={{...lens,label:projectTab==='overview'?'Project':projectTab.charAt(0).toUpperCase()+projectTab.slice(1),question:'Project workspace context'}} project={project} onArkana={()=>setArkana(true)} onPrism={leavePrism}/><div className="solspire-project-heading"><div><span className="solspire-lens-sigil" style={{color:'#C9A84C'}}>◈</span><div><div className="solspire-kicker">PROJECT WORKSPACE</div><h1>{project.name}</h1></div></div><div className="solspire-project-heading-meta">{projectTab.toUpperCase()}</div></div><div className="solspire-divider"/><ProjectDashboard key={`${project.id}:${projectTab}`} project={project} initialTab={projectTab} onBack={()=>{setProject(null);setProjectTab('overview');setSection('projects')}} onProjectUpdated={setProject}/></main>{search&&<SearchOverlay onClose={()=>setSearch(false)}/>} {arkana&&<ArkanaOverlay context={context} pack={{authenticated:true,surface:project?`project:${projectTab}`:`lens:${section}`,projectName:project?.name||null,projectId:project?.id||null}} onClose={()=>setArkana(false)}/>} {more&&<div className="solspire-mobile-menu">{NAV.map(n=><button key={n.id} onClick={()=>{selectSection(n.id);setMore(false)}}>{n.sigil} <span>{n.label}</span><small>{n.question}</small></button>)}{NETWORK.map(n=><button key={n.view} onClick={()=>navigateGlobal(n.view)}>{n.sigil} <span>{n.label}</span><small>{n.sub}</small></button>)}</div>}<MobileNav section={section} onSection={selectSection}/></div>;
-  return <div className="solspire-workspace"><GlobalDoors onNavigate={navigateGlobal}/><Header identity={identity} onSearch={()=>setSearch(true)} onArkana={()=>setArkana(true)} onMenu={()=>setMore(true)} onPrism={leavePrism}/><div className="solspire-body"><Sidebar section={section} onSection={selectSection}/><main className="solspire-main"><ContextBar lens={lens} onArkana={()=>setArkana(true)} onPrism={leavePrism}/><div className="solspire-lens-heading"><div><span className="solspire-lens-sigil" style={{color:lens.accent}}>{lens.sigil}</span><div><div className="solspire-kicker">{lens.question}</div><h1>{lens.label}</h1></div></div><div className="solspire-lens-actions"><button type="button" onClick={()=>setSearch(true)}>⌕ Search</button><button type="button" onClick={()=>setArkana(true)}>⌁ Arkana</button></div></div><div className="solspire-divider"/><section className="solspire-content"><LensContent section={section} onOpenProject={openProject} onOpenWeaver={openWeaver} onOpenProjectTab={openProjectTab}/></section></main></div><MobileNav section={section} onSection={selectSection}/>{search&&<SearchOverlay onClose={()=>setSearch(false)}/>} {arkana&&<ArkanaOverlay context={context} pack={{authenticated:true,surface:project?`project:${projectTab}`:`lens:${section}`,projectName:project?.name||null,projectId:project?.id||null}} onClose={()=>setArkana(false)}/>} {more&&<div className="solspire-mobile-menu">{NAV.map(n=><button key={n.id} onClick={()=>{selectSection(n.id);setMore(false)}}>{n.sigil} <span>{n.label}</span><small>{n.question}</small></button>)}{NETWORK.map(n=><button key={n.view} onClick={()=>navigateGlobal(n.view)}>{n.sigil} <span>{n.label}</span><small>{n.sub}</small></button>)}</div>}</div>;
+  if(project)return <div className="solspire-workspace"><GlobalDoors onNavigate={navigateGlobal}/><Header identity={identity} onSearch={()=>setSearch(true)} onArkana={()=>setArkana(true)} onMenu={()=>setMore(true)} onPrism={leavePrism}/><div className="solspire-project-context" data-testid="solariun-project-context" data-field-continuity="p0.1"><button type="button" onClick={()=>{setProject(null);setProjectTab('overview');setSection('projects')}}>← Projects</button><div><span className="solspire-kicker">PROJECT CONTEXT</span><strong>{project.name}</strong></div><span className="solspire-mono">field continuity · lens stays in project</span></div><main className="solspire-project-main solspire-object-sheet" data-testid="solariun-object-sheet"><ContextBar lens={{...lens,label:projectTab==='overview'?'Project':projectTab.charAt(0).toUpperCase()+projectTab.slice(1),question:'Project workspace context'}} project={project} onArkana={()=>setArkana(true)} onPrism={leavePrism}/><div className="solspire-project-heading"><div><span className="solspire-lens-sigil" style={{color:'#C9A84C'}}>◈</span><div><div className="solspire-kicker">PROJECT WORKSPACE</div><h1>{project.name}</h1></div></div><div className="solspire-project-heading-meta">{projectTab.toUpperCase()}</div></div><div className="solspire-divider"/><ProjectDashboard key={`${project.id}:${projectTab}`} project={project} initialTab={projectTab} onBack={()=>{setProject(null);setProjectTab('overview');setSection('projects')}} onProjectUpdated={setProject}/></main>{search&&<SearchOverlay onClose={()=>setSearch(false)} project={project}/>} {arkana&&<ArkanaOverlay context={context} pack={{authenticated:true,surface:project?`project:${projectTab}`:`lens:${section}`,projectName:project?.name||null,projectId:project?.id||null}} onClose={()=>setArkana(false)}/>} {more&&<div className="solspire-mobile-menu">{NAV.map(n=><button key={n.id} onClick={()=>{selectSection(n.id);setMore(false)}}>{n.sigil} <span>{n.label}</span><small>{n.question}</small></button>)}{NETWORK.map(n=><button key={n.view} onClick={()=>navigateGlobal(n.view)}>{n.sigil} <span>{n.label}</span><small>{n.sub}</small></button>)}</div>}<MobileNav section={section} onSection={selectSection}/></div>;
+  return <div className="solspire-workspace"><GlobalDoors onNavigate={navigateGlobal}/><Header identity={identity} onSearch={()=>setSearch(true)} onArkana={()=>setArkana(true)} onMenu={()=>setMore(true)} onPrism={leavePrism}/><div className="solspire-body"><Sidebar section={section} onSection={selectSection}/><main className="solspire-main"><ContextBar lens={lens} onArkana={()=>setArkana(true)} onPrism={leavePrism}/><div className="solspire-lens-heading"><div><span className="solspire-lens-sigil" style={{color:lens.accent}}>{lens.sigil}</span><div><div className="solspire-kicker">{lens.question}</div><h1>{lens.label}</h1></div></div><div className="solspire-lens-actions"><button type="button" onClick={()=>setSearch(true)}>⌕ Search</button><button type="button" onClick={()=>setArkana(true)}>⌁ Arkana</button></div></div><div className="solspire-divider"/><section className="solspire-content"><LensContent section={section} onOpenProject={openProject} onOpenWeaver={openWeaver} onOpenProjectTab={openProjectTab}/></section></main></div><MobileNav section={section} onSection={selectSection}/>{search&&<SearchOverlay onClose={()=>setSearch(false)} project={project}/>} {arkana&&<ArkanaOverlay context={context} pack={{authenticated:true,surface:project?`project:${projectTab}`:`lens:${section}`,projectName:project?.name||null,projectId:project?.id||null}} onClose={()=>setArkana(false)}/>} {more&&<div className="solspire-mobile-menu">{NAV.map(n=><button key={n.id} onClick={()=>{selectSection(n.id);setMore(false)}}>{n.sigil} <span>{n.label}</span><small>{n.question}</small></button>)}{NETWORK.map(n=><button key={n.view} onClick={()=>navigateGlobal(n.view)}>{n.sigil} <span>{n.label}</span><small>{n.sub}</small></button>)}</div>}</div>;
 
 }
