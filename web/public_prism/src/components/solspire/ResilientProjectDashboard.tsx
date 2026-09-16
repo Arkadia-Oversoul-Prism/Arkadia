@@ -12,23 +12,28 @@ interface Props {
 
 interface State {
   failed: boolean;
+  error: Error | null;
 }
 
 class ProjectDashboardBoundary extends Component<Props, State> {
-  state: State = { failed: false };
+  state: State = { failed: false, error: null };
 
-  static getDerivedStateFromError(): State {
-    return { failed: true };
+  static getDerivedStateFromError(error: Error): State {
+    return { failed: true, error };
   }
 
-  componentDidCatch(error: Error) {
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
     if (typeof window !== 'undefined') {
-      console.error('[Solariun] project dashboard isolated failure', error);
+      console.error('[Solariun] project dashboard isolated failure', error, info.componentStack);
     }
   }
 
   render() {
     if (this.state.failed) {
+      const error = this.state.error;
+      const message = error?.message || 'Unknown client-side rendering exception';
+      const stack = error?.stack || '';
+
       return (
         <section
           data-testid="solariun-project-fallback"
@@ -43,19 +48,48 @@ class ProjectDashboardBoundary extends Component<Props, State> {
             background: 'rgba(8,10,18,0.52)',
           }}
         >
-          <div style={{ maxWidth: 520, textAlign: 'center' }}>
+          <div style={{ maxWidth: 620, width: '100%', textAlign: 'center' }}>
             <div style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.72)', marginBottom: 10 }}>
               Project surface isolated
             </div>
             <h2 style={{ margin: '0 0 8px', color: 'rgba(232,232,232,0.88)', fontSize: 18, fontWeight: 500 }}>
               {this.props.project.name}
             </h2>
-            <p style={{ margin: '0 auto 18px', maxWidth: 430, color: 'rgba(232,232,232,0.42)', fontSize: 12, lineHeight: 1.7 }}>
+            <p style={{ margin: '0 auto 18px', maxWidth: 520, color: 'rgba(232,232,232,0.42)', fontSize: 12, lineHeight: 1.7 }}>
               A secondary project surface failed to render. The project context remains available, and the failure has been isolated from the Solariun field.
             </p>
+
+            <div
+              data-testid="solariun-project-error-diagnostic"
+              style={{
+                margin: '0 auto 18px',
+                padding: '12px 14px',
+                textAlign: 'left',
+                borderRadius: 10,
+                border: '1px solid rgba(200,72,72,0.24)',
+                background: 'rgba(200,72,72,0.05)',
+                color: 'rgba(232,232,232,0.62)',
+                fontFamily: 'monospace',
+                fontSize: 11,
+                lineHeight: 1.6,
+                overflowWrap: 'anywhere',
+              }}
+            >
+              <div style={{ color: 'rgba(200,72,72,0.9)', letterSpacing: '0.12em', fontSize: 9, marginBottom: 6 }}>
+                CALIBRATION DIAGNOSTIC · CLIENT EXCEPTION
+              </div>
+              <div data-testid="solariun-project-error-message">{message}</div>
+              {stack && (
+                <details style={{ marginTop: 8 }}>
+                  <summary style={{ cursor: 'pointer', color: 'rgba(232,232,232,0.45)' }}>Show stack</summary>
+                  <pre style={{ margin: '8px 0 0', whiteSpace: 'pre-wrap', fontSize: 10, color: 'rgba(232,232,232,0.4)' }}>{stack}</pre>
+                </details>
+              )}
+            </div>
+
             <button
               type="button"
-              onClick={() => this.setState({ failed: false })}
+              onClick={() => this.setState({ failed: false, error: null })}
               style={{
                 padding: '9px 14px',
                 borderRadius: 8,
