@@ -330,3 +330,17 @@
   border-bottom:1px solid rgba(255,255,255,.12) !important;
   box-shadow:0 8px 24px rgba(0,0,0,.20) !important;
 }
+
+
+/* P1.2 Mobile Object Sheet — project interior as sheet over field on small screens */
+@media (max-width: 768px) {
+  .solspire-workspace .solspire-object-sheet {
+    border-radius: 16px 16px 0 0;
+    margin-top: 8px;
+    max-height: calc(100vh - 120px);
+    overflow: auto;
+    box-shadow: 0 -8px 32px rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-bottom: none;
+  }
+}
