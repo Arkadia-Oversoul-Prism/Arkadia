@@ -345,10 +345,84 @@ export default function SocialFieldVerified() {
         </div>
       </header>
 
+      {/* P0.4 persistent public/private mode chrome */}
+      <div
+        data-testid="novanet-mode-chrome"
+        role="tablist"
+        aria-label="NovaNet mode"
+        style={{
+          display: 'flex',
+          gap: 8,
+          marginBottom: 14,
+          padding: 6,
+          borderRadius: 12,
+          border: `1px solid ${C.border}`,
+          background: 'rgba(0,0,0,0.25)',
+        }}
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'field'}
+          data-testid="novanet-mode-public"
+          onClick={() => setMode('field')}
+          style={{
+            flex: 1,
+            padding: '10px 12px',
+            borderRadius: 10,
+            border: mode === 'field' ? `1px solid ${C.teal}` : '1px solid transparent',
+            background: mode === 'field' ? 'rgba(0,212,170,0.12)' : 'transparent',
+            color: mode === 'field' ? C.teal : C.dim,
+            cursor: 'pointer',
+            fontSize: 11,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase' as const,
+          }}
+        >
+          Public Field
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'reasomate'}
+          data-testid="novanet-mode-private"
+          onClick={() => setMode('reasomate')}
+          style={{
+            flex: 1,
+            padding: '10px 12px',
+            borderRadius: 10,
+            border: mode === 'reasomate' ? `1px solid ${C.gold}` : '1px solid transparent',
+            background: mode === 'reasomate' ? 'rgba(201,168,76,0.12)' : 'transparent',
+            color: mode === 'reasomate' ? C.gold : C.dim,
+            cursor: 'pointer',
+            fontSize: 11,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase' as const,
+          }}
+        >
+          Private Thread
+        </button>
+      </div>
       {mode === "field" ? (
         <PublicFeed canTransmit={canTransmit} profile={profile} />
       ) : (
         <div data-testid="novanet-private-reasomate-slot">
+          <div
+            data-testid="novanet-private-chrome"
+            style={{
+              marginBottom: 12,
+              padding: '10px 12px',
+              borderRadius: 10,
+              border: `1px solid rgba(201,168,76,0.28)`,
+              background: 'rgba(201,168,76,0.06)',
+              fontSize: 11,
+              color: C.dim,
+            }}
+          >
+            <strong style={{ color: C.gold }}>PRIVATE THREAD</strong>
+            {' · '}
+            ReasoMate — not the public field, not Knowledge OS, not transmissions.
+          </div>
           {!isAuthenticated ? (
             <div style={{ color: C.dim, padding: 24, textAlign: "center", fontSize: 13 }}>
               ReasoMate is private. Authenticate to open the messenger — it never posts to the public field.
