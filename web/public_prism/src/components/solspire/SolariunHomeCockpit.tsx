@@ -13,6 +13,7 @@ import {
   SolariunWorkEvent,
   SolariunWorkload,
 } from '../../lib/solariunApi';
+import { useAuth } from '../../contexts/AuthContext';
 
 const GOLD = '#C9A84C';
 const TEAL = '#00D4AA';
@@ -60,6 +61,7 @@ function StateObject({ label, title, body, accent = GOLD, meta }: { label: strin
 }
 
 export default function SolariunHomeCockpit() {
+  const { codex } = useAuth();
   const [pulse, setPulse] = useState<SolariunPulse | null>(null);
   const [workload, setWorkload] = useState<SolariunWorkload | null>(null);
   const [events, setEvents] = useState<SolariunWorkEvent[]>([]);
@@ -128,7 +130,6 @@ export default function SolariunHomeCockpit() {
   const pulseData = pulse ?? {};
   const workloadData = workload ?? {};
   const synthesisData = synthesis ?? {};
-  const pulseSummary = text(first(pulseData.state_summary, pulseData.summary), 'No daily pulse recorded.');
   const activeWorkTitle = text(first(workloadData.title, workloadData.display_name), 'No active workload recorded.');
   const activeWorkBody = text(workloadData.objective, 'No workload objective recorded.');
   const attention = first(pulseData.open_loops, pulseData.open_loop_summary, pulseData.loops);
@@ -157,6 +158,20 @@ export default function SolariunHomeCockpit() {
           {failureCount} live surface{failureCount === 1 ? '' : 's'} did not respond. No placeholder state has been substituted.
         </div>
       ) : null}
+
+      <FieldSection label="Identity context" accent={VIOLET}>
+        {codex ? (
+          <StateObject
+            label="PERSONAL CODEX"
+            title={text(codex.display_name, 'Authenticated node')}
+            body={text(codex.soul_function, 'No soul function recorded.')}
+            accent={VIOLET}
+            meta={text(codex.role, 'ROLE UNAVAILABLE')}
+          />
+        ) : (
+          <div style={{ color: MUTED, fontSize: 12 }}>Personal Codex unavailable for the current authenticated node.</div>
+        )}
+      </FieldSection>
 
       <FieldSection label="Attention" accent={TEAL}>
         {attention ? (
