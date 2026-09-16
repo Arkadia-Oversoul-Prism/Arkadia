@@ -1011,6 +1011,66 @@ function Memory({ project }: { project: Project }) {
   );
 }
 
+
+function EpistemicInspector({ project }: { project: Project }) {
+  /** P2 Provenance composition — labeled layers only; WorkEvent ≠ provenance proof. */
+  const [activity, setActivity] = useState<any[]>([]);
+  const [workevents, setWorkevents] = useState<any[]>([]);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const ev = await api<{ events: any[] }>(`/solspire/projects/${project.id}/events`);
+        if (!cancelled) setActivity(ev.events || []);
+      } catch (e: any) {
+        if (!cancelled) setErr(String(e.message || e));
+      }
+      try {
+        const r = await apiFetch(`/solspire/workevents?limit=20`);
+        const d = await r.json().catch(() => ({}));
+        if (!cancelled) setWorkevents(d.work_events || d.events || []);
+      } catch {
+        /* WorkEvent list may be unavailable — not a failure of activity layer */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [project.id]);
+  return (
+    <div data-testid="solariun-epistemic-inspector" style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+      <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(201,168,76,0.28)', background: 'rgba(201,168,76,0.06)', fontSize: 11, color: 'rgba(212,223,232,0.5)' }}>
+        <strong style={{ color: '#C9A84C' }}>EPISTEMIC LAYERS</strong>
+        {' · '}Activity ≠ WorkEvent continuity ≠ ACCEPT evidence ≠ patch hashes. This panel does <em>not</em> claim causal provenance proof.
+      </div>
+      <div data-epistemic="ACTIVITY" style={{ fontSize: 11 }}>
+        <div style={{ color: '#00D4AA', letterSpacing: '0.1em', marginBottom: 6 }}>ACTIVITY (project_events)</div>
+        {err && <div style={{ color: '#C84848' }}>{err}</div>}
+        {(activity.slice(0, 8)).map((e: any) => (
+          <div key={e.id} style={{ padding: '6px 0', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            <span style={{ color: '#C9A84C' }}>{e.event_type}</span>
+            {' · '}
+            {e.summary || e.message || e.id}
+          </div>
+        ))}
+        {!activity.length && !err && <div style={{ opacity: 0.4 }}>No project activity yet.</div>}
+      </div>
+      <div data-epistemic="CONTINUITY" style={{ fontSize: 11 }}>
+        <div style={{ color: '#6A9FD8', letterSpacing: '0.1em', marginBottom: 6 }}>CONTINUITY (WorkEvent — not proof)</div>
+        {(workevents.slice(0, 5)).map((w: any) => (
+          <div key={w.id || w.work_event_id} style={{ padding: '6px 0', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            {w.type || w.event_type || 'work_event'} · {w.summary || w.title || w.work_event_id || w.id}
+          </div>
+        ))}
+        {!workevents.length && <div style={{ opacity: 0.4 }}>No WorkEvents loaded (or none for workspace).</div>}
+      </div>
+      <div data-epistemic="EVIDENCE" style={{ fontSize: 11, opacity: 0.7 }}>
+        <div style={{ color: '#B08DE8', letterSpacing: '0.1em', marginBottom: 6 }}>EVIDENCE / HASH</div>
+        Control-plane ACCEPT and patch hashes live in repository evidence and governed execution results — not fabricated here.
+      </div>
+    </div>
+  );
+}
+
 function Events({ project }: { project: Project }) {
   /** P0.2 Activity Feed — existing project_events only; not provenance. */
   const [events, setEvents] = useState<PEvent[]>([]);
@@ -1186,7 +1246,7 @@ export default function ProjectDashboard({ project, onBack, onProjectUpdated, in
           {tab === 'tasks'         && <motion.div key="ta" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><Tasks project={currentProject} /></motion.div>}
           {tab === 'workflows'     && <motion.div key="wf" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><Workflows project={currentProject} /></motion.div>}
           {tab === 'memory'        && <motion.div key="me" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><Memory project={currentProject} /></motion.div>}
-          {tab === 'events'        && <motion.div key="ev" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><Events project={currentProject} /></motion.div>}
+          {tab === 'events'        && <motion.div key="ev" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><EpistemicInspector project={currentProject} /><Events project={currentProject} /></motion.div>}
           {tab === 'settings'      && <motion.div key="se" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><Settings project={currentProject} onProjectUpdated={handleProjectUpdated} onArchive={onBack} /></motion.div>}
         </AnimatePresence>
       </div>
