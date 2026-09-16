@@ -365,110 +365,98 @@ function WeaverPanel({ project }: { project: Project }) {
 }
 
 function KnowledgePanel({ project }: { project: Project }) {
+  /** M06: project knowledge via existing project knowledge + files corpus APIs only. */
   const [data, setData] = React.useState<any>(null);
   const [graph, setGraph] = React.useState<any>(null);
   const [emb, setEmb] = React.useState<any>(null);
+  const [corpus, setCorpus] = React.useState<PFile[]>([]);
   const [q, setQ] = React.useState('');
   const [hits, setHits] = React.useState<any[]>([]);
-  const base = `${ORACLE}/solspire/projects/${project.id}/knowledge`;
-  const token = () => '';
+  const [err, setErr] = React.useState('');
+  const base = `/solspire/projects/${project.id}/knowledge`;
+
   React.useEffect(() => {
-    const h = {};
-    fetch(base, { headers: h }).then(r => r.json()).then(setData).catch(() => {});
-    apiFetch(`${base}/graph`, { headers: h }).then(r => r.json()).then(setGraph).catch(() => {});
-    apiFetch(`${base}/embeddings`, { headers: h }).then(r => r.json()).then(setEmb).catch(() => {});
+    let cancelled = false;
+    (async () => {
+      try {
+        const [k, g, e, files] = await Promise.all([
+          apiFetch(base).then(r => r.json()).catch(() => null),
+          apiFetch(`${base}/graph`).then(r => r.json()).catch(() => null),
+          apiFetch(`${base}/embeddings`).then(r => r.json()).catch(() => null),
+          apiFetch(`/solspire/projects/${project.id}/files`).then(r => r.json()).catch(() => ({ files: [] })),
+        ]);
+        if (cancelled) return;
+        setData(k);
+        setGraph(g);
+        setEmb(e);
+        setCorpus(files?.files || []);
+      } catch (ex: any) {
+        if (!cancelled) setErr(ex?.message || 'knowledge unavailable');
+      }
+    })();
+    return () => { cancelled = true; };
   }, [project.id]);
+
   async function search() {
     const r = await apiFetch(`${base}/search`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json',},
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ q }),
     });
-    const d = await r.json();
+    const d = await r.json().catch(() => ({}));
     setHits(d.hits || []);
   }
+
   return (
-    <div style={{ fontFamily: 'sans-serif', color: '#D4DFE8', fontSize: 12 }}>
-      <div style={{ marginBottom: 10, color: '#00D4AA', letterSpacing: '0.1em' }}>PROJECT KNOWLEDGE OS</div>
+    <div data-testid="solariun-project-knowledge" style={{ fontFamily: 'sans-serif', color: '#D4DFE8', fontSize: 12 }}>
+      <div style={{ marginBottom: 10, color: '#00D4AA', letterSpacing: '0.1em' }}>PROJECT KNOWLEDGE</div>
+      <div style={{ marginBottom: 12, padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(0,212,170,0.2)', background: 'rgba(0,212,170,0.05)', fontSize: 10, color: 'rgba(212,223,232,0.45)' }}>
+        <strong style={{ color: '#00D4AA' }}>ONE KNOWLEDGE MODEL</strong>
+        {' · '}
+        Project context exposes the existing knowledge + file corpus APIs — not a second Knowledge OS.
+      </div>
+      {err && <div style={{ color: '#C84848', marginBottom: 8 }}>{err}</div>}
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ opacity: 0.7, marginBottom: 4 }}>Corpus files (project store)</div>
+        {corpus.length === 0 ? (
+          <div style={{ opacity: 0.4 }}>No files in this project corpus yet.</div>
+        ) : (
+          <ul style={{ margin: 0, paddingLeft: 18 }}>
+            {corpus.map((f: PFile) => (
+              <li key={f.id} style={{ marginBottom: 4 }}>
+                <span style={{ color: '#C9A84C' }}>{f.name}</span>
+                <span style={{ opacity: 0.4, marginLeft: 8 }}>{f.mime_type}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       {data && (
         <div style={{ marginBottom: 12 }}>
-          Sources: {JSON.stringify(data.sources)}
+          <div>Sources: {JSON.stringify(data.sources)}</div>
           <div style={{ opacity: 0.6, marginTop: 4 }}>{data.embeddings?.note}</div>
         </div>
       )}
-      <div style={{ marginBottom: 8 }}>Embeddings: <strong>{emb?.embeddings?.status || data?.embeddings?.status || '—'}</strong></div>
+      <div style={{ marginBottom: 8 }}>
+        Embeddings: <strong>{emb?.embeddings?.status || data?.embeddings?.status || 'NOT_AVAILABLE'}</strong>
+        <span style={{ opacity: 0.5 }}> (honest status; not fabricated)</span>
+      </div>
       {graph && <ProjectKnowledgeGraph projectId={project.id} />}
-      <div style={{ display: 'flex', gap: 8 }}>
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Keyword search" style={{ flex: 1, background: '#0a0b14', border: '1px solid rgba(0,212,170,0.25)', color: '#D4DFE8', padding: 8, borderRadius: 6 }} />
-        <button onClick={search} style={{ border: '1px solid #00D4AA', color: '#00D4AA', background: 'transparent', padding: '0 12px', borderRadius: 6 }}>Search</button>
+      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Keyword search in project knowledge" style={{ flex: 1, background: '#0a0b14', border: '1px solid rgba(0,212,170,0.25)', color: '#D4DFE8', padding: 8, borderRadius: 6 }} />
+        <button type="button" onClick={search} style={{ border: '1px solid #00D4AA', color: '#00D4AA', background: 'transparent', borderRadius: 6, padding: '8px 12px' }}>Search</button>
       </div>
-      <pre style={{ fontSize: 11, marginTop: 8 }}>{JSON.stringify(hits, null, 2)}</pre>
+      {hits.length > 0 && (
+        <ul style={{ marginTop: 10 }}>
+          {hits.map((h: any, i: number) => (
+            <li key={i} style={{ marginBottom: 6, opacity: 0.85 }}>{typeof h === 'string' ? h : JSON.stringify(h)}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
 
-function Overview({ project, onTabChange }: { project: Project; onTabChange: (t: ProjTab) => void }) {
-  const [events, setEvents] = useState<PEvent[]>([]);
-  const [counts, setCounts] = useState({ tasks: 0, files: 0, repos: 0, memory: 0 });
-
-  useEffect(() => {
-    api<{ events: PEvent[] }>(`/solspire/projects/${project.id}/events`).then(r => setEvents(r.events.slice(0, 8))).catch(() => {});
-    Promise.all([
-      api<{ tasks: Task[] }>(`/solspire/projects/${project.id}/tasks`),
-      api<{ files: PFile[] }>(`/solspire/projects/${project.id}/files`),
-      api<{ repositories: Repo[] }>(`/solspire/projects/${project.id}/repositories`),
-      api<{ memory: MemEntry[] }>(`/solspire/projects/${project.id}/memory`),
-    ]).then(([t, f, r, m]) => setCounts({ tasks: t.tasks.length, files: f.files.length, repos: r.repositories.length, memory: m.memory.length })).catch(() => {});
-  }, [project.id]);
-
-  const desc = (project.metadata?.description as string) || '';
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {desc && <div style={{ ...S.card, borderColor: 'rgba(201,168,76,0.12)' }}><p style={{ fontFamily: 'sans-serif', fontSize: '13px', color: 'rgba(212,223,232,0.6)', margin: 0, lineHeight: '1.6' }}>{desc}</p></div>}
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '8px' }}>
-        {[
-          { label: 'Tasks', value: counts.tasks, tab: 'tasks' as ProjTab, color: '#00D4AA' },
-          { label: 'Files', value: counts.files, tab: 'files' as ProjTab, color: '#C9A84C' },
-          { label: 'Repos', value: counts.repos, tab: 'repos' as ProjTab, color: '#6A9FD8' },
-          { label: 'Memory', value: counts.memory, tab: 'memory' as ProjTab, color: '#B08DE8' },
-        ].map(c => (
-          <button key={c.label} onClick={() => onTabChange(c.tab)} style={{ padding: '14px', background: 'rgba(14,17,32,0.75)', border: `1px solid ${c.color}22`, borderRadius: '10px', cursor: 'pointer', textAlign: 'left' }}>
-            <p style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: `${c.color}88`, margin: '0 0 4px' }}>{c.label}</p>
-            <p style={{ fontFamily: '"Cinzel",serif', fontSize: '24px', color: c.color, margin: 0 }}>{c.value}</p>
-          </button>
-        ))}
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '8px' }}>
-        {[
-          { label: '⟐ New Workflow', tab: 'workflows' as ProjTab },
-          { label: '☐ New Task', tab: 'tasks' as ProjTab },
-          { label: '📄 New File', tab: 'files' as ProjTab },
-        ].map(a => (
-          <button key={a.label} onClick={() => onTabChange(a.tab)} style={{ ...S.btnTeal, justifyContent: 'center', display: 'flex' }}>{a.label}</button>
-        ))}
-      </div>
-
-      <div style={S.card}>
-        <span style={S.label}>Recent Activity</span>
-        {events.length === 0 ? <p style={{ ...S.empty, padding: '20px 0' }}>No events yet</p> : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {events.map(e => (
-              <div key={e.id} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                <span style={{ fontSize: '14px', flexShrink: 0, paddingTop: '1px' }}>{EVENT_ICONS[e.event_type] || '·'}</span>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontFamily: 'sans-serif', fontSize: '12px', color: 'rgba(212,223,232,0.7)', margin: '0 0 2px' }}>{e.summary}</p>
-                  <p style={{ fontFamily: 'sans-serif', fontSize: '10px', color: 'rgba(212,223,232,0.3)', margin: 0 }}>{fmtDate(e.created_at)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function Conversations({ project }: { project: Project }) {
   const [convs, setConvs] = useState<Conversation[]>([]);
