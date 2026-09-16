@@ -589,12 +589,32 @@ function Files({ project }: { project: Project }) {
     load();
   }
 
+  async function renameFile(f: PFile) {
+    const next = window.prompt('Rename file', f.name);
+    if (!next || !next.trim() || next.trim() === f.name) return;
+    const full = await api<PFile>(`/solspire/projects/${project.id}/files/${f.id}`);
+    await api(`/solspire/projects/${project.id}/files/${f.id}`, 'PUT', { content: full.content || '', name: next.trim() });
+    load();
+  }
+
+  async function copyFile(f: PFile) {
+    await api(`/solspire/projects/${project.id}/files/${f.id}/copy`, 'POST', {});
+    load();
+  }
+
+  function shareRef(f: PFile) {
+    const ref = `project:${project.id}/file:${f.id}:${f.name}`;
+    if (navigator.clipboard?.writeText) void navigator.clipboard.writeText(ref);
+    window.alert(`Share reference (owner-scoped API, not a public link):\n${ref}`);
+  }
+
+
   async function uploadAttachment(file: File) {
     setUploading(true); setUploadMsg(null);
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await apiFetch(`/solspire/projects/${project.id}/files/upload`, { method: 'POST', headers: authHeaders(), body: fd });
+      const res = await apiFetch(`/solspire/projects/${project.id}/files/upload`, { method: 'POST', body: fd });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || `${res.status}`);
       setUploadMsg({ ok: true, text: data.message || `'${file.name}' attached.` });
@@ -620,7 +640,10 @@ function Files({ project }: { project: Project }) {
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div data-testid="solariun-project-files" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ fontSize: 10, color: 'rgba(212,223,232,0.35)' }}>
+        Project corpus · rename/copy/share-ref use existing store · cross-project Move remains deferred (not Copy+Delete)
+      </div>
       {/* Upload + create controls */}
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
         <input ref={fileInputRef} type="file" style={{ display: 'none' }}

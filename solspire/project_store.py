@@ -292,6 +292,15 @@ def update_file(file_id: str, content: str, name: str | None = None) -> dict:
     return {"ok": True}
 
 
+def copy_file(file_id: str, new_name: str | None = None) -> dict:
+    """Duplicate a file within the same project corpus (no parallel store)."""
+    src = get_file(file_id)
+    if not src:
+        raise ValueError("file not found")
+    name = new_name or f"{src['name']} (copy)"
+    return create_file(src["project_id"], name, src.get("content") or "", src.get("mime_type") or "text/plain")
+
+
 def delete_file(file_id: str) -> bool:
     pid = _child_project_id("project_files", file_id)
     with _db() as conn:
