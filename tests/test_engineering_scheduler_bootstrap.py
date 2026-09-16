@@ -43,13 +43,11 @@ def test_router_does_not_select_m02_while_m01_pending():
 
 def test_m02_blocked_until_m01_complete():
     data = yaml.safe_load(TRAJ.read_text())
-    # Force M01 done via completion index only
+    for m in data["moves"]:
+        m["status"] = "pending"
     move, _ = select_next_move(data, completion_index={"M01": "accepted"})
     assert move is not None
-    assert move["id"] == "M07" or move["id"] == "M02" or move["id"] == "M04"
-    # M02 depends on M01 — after M01 accepted, M02 is legal; M07 has no deps also pending
-    # First in list order among legal: M02 (after M01), M04 depends M01, M07 no deps
-    # Order in YAML: M01 done, M02 legal, should pick M02
+    # With M01 accepted via index, first legal is M02 (depends_on M01)
     assert move["id"] == "M02"
 
 
@@ -69,10 +67,10 @@ def test_no_legal_move_when_all_accepted():
 
 
 def test_dry_run_evidence(tmp_path, monkeypatch):
-    # run against real repo root for trajectory files
     r = EngineeringRouter(repo_root=ROOT, session_id="test-session-dry", dry_run=True)
     out = r.run()
     assert out["status"] == "READY_FOR_REVIEW"
+    assert out["next_move"] is not None
     assert out["next_move"]["id"] in ("M01", "M02A", "M07")
     assert out["dry_run"] is True
     evidence = Path(out["evidence_path"])
