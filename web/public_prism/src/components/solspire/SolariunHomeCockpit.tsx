@@ -1,18 +1,63 @@
-import React, { useEffect, useState } from 'react';
-import { emitSolariunWorkEvent, getSolariunPulse, getSolariunProposals, getSolariunSynthesis, getSolariunWorkEvents, getSolariunWorkload, recordSolariunProposalDecision, SolariunPulse, SolariunProposal, SolariunSynthesis, SolariunWorkEvent, SolariunWorkload } from '../../lib/solariunApi';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  emitSolariunWorkEvent,
+  getSolariunPulse,
+  getSolariunProposals,
+  getSolariunSynthesis,
+  getSolariunWorkEvents,
+  getSolariunWorkload,
+  recordSolariunProposalDecision,
+  SolariunPulse,
+  SolariunProposal,
+  SolariunSynthesis,
+  SolariunWorkEvent,
+  SolariunWorkload,
+} from '../../lib/solariunApi';
 
 const GOLD = '#C9A84C';
 const TEAL = '#00D4AA';
 const BLUE = '#6A9FD8';
-const MUTED = 'rgba(232,232,232,0.58)';
-const PANEL = 'rgba(255,255,255,0.035)';
-const BORDER = 'rgba(255,255,255,0.09)';
+const VIOLET = '#B08DE8';
+const MUTED = 'rgba(232,232,232,.54)';
+const BORDER = 'rgba(255,255,255,.075)';
 
-function first<T>(...values: Array<T | undefined | null | ''>): T | undefined { return values.find(v => v !== undefined && v !== null && v !== '') as T | undefined; }
-function text(value: unknown, fallback = 'No signal recorded.') { return typeof value === 'string' ? value : value == null ? fallback : String(value); }
-function dateLabel(value: string | number | undefined) { if (value == null) return ''; const n = typeof value === 'number' ? (value < 10000000000 ? value * 1000 : value) : Date.parse(value); if (!Number.isFinite(n)) return ''; return new Date(n).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
-function Card({ label, children, accent = GOLD, className = '' }: { label: string; children: React.ReactNode; accent?: string; className?: string }) { return <section className={className} style={{ background: PANEL, border: `1px solid ${BORDER}`, borderRadius: 18, padding: 18, minWidth: 0 }}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 12 }}><span style={{ fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: `${accent}cc` }}>{label}</span><span style={{ width: 6, height: 6, borderRadius: '50%', background: accent, opacity: 0.8 }} /></div>{children}</section>; }
-function Loading({ label }: { label: string }) { return <div style={{ color: MUTED, fontSize: 12 }}>{label}…</div>; }
+function first<T>(...values: Array<T | undefined | null | ''>): T | undefined {
+  return values.find(value => value !== undefined && value !== null && value !== '') as T | undefined;
+}
+
+function text(value: unknown, fallback = 'No signal recorded.') {
+  return typeof value === 'string' ? value : value == null ? fallback : String(value);
+}
+
+function dateLabel(value: string | number | undefined) {
+  if (value == null) return '';
+  const numeric = typeof value === 'number' ? (value < 10_000_000_000 ? value * 1000 : value) : Date.parse(value);
+  if (!Number.isFinite(numeric)) return '';
+  return new Date(numeric).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function FieldSection({ label, accent = GOLD, children }: { label: string; accent?: string; children: React.ReactNode }) {
+  return (
+    <section className="solariun-field-section" style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
+        <span style={{ color: `${accent}aa`, font: '600 8px/1.2 Inter,system-ui,sans-serif', letterSpacing: '.2em', textTransform: 'uppercase' }}>{label}</span>
+        <span aria-hidden="true" style={{ width: 5, height: 5, borderRadius: '50%', background: accent, opacity: .7 }} />
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function StateObject({ label, title, body, accent = GOLD, meta }: { label: string; title: string; body?: string; accent?: string; meta?: string }) {
+  return (
+    <article className="solspire-object" data-solariun-grammar="object" style={{ padding: 16 }}>
+      <div className="solspire-kicker" style={{ color: `${accent}aa` }}>{label}</div>
+      <h3 className="solspire-title" style={{ margin: '7px 0 0' }}>{title}</h3>
+      {body ? <p className="solspire-object-summary" style={{ margin: '7px 0 0' }}>{body}</p> : null}
+      {meta ? <div className="solspire-object-meta" style={{ marginTop: 11 }}>{meta}</div> : null}
+    </article>
+  );
+}
 
 export default function SolariunHomeCockpit() {
   const [pulse, setPulse] = useState<SolariunPulse | null>(null);
@@ -20,33 +65,43 @@ export default function SolariunHomeCockpit() {
   const [events, setEvents] = useState<SolariunWorkEvent[]>([]);
   const [synthesis, setSynthesis] = useState<SolariunSynthesis | null>(null);
   const [proposals, setProposals] = useState<SolariunProposal[]>([]);
-  const [state, setState] = useState<'loading' | 'ready' | 'partial'>('loading');
-  const [errorCount, setErrorCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [failureCount, setFailureCount] = useState(0);
   const [decisionBusy, setDecisionBusy] = useState<string | null>(null);
-  const [decisionNote, setDecisionNote] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
-    Promise.allSettled([getSolariunPulse(), getSolariunWorkload(), getSolariunWorkEvents(), getSolariunSynthesis(), getSolariunProposals()]).then(results => {
+    Promise.allSettled([
+      getSolariunPulse(),
+      getSolariunWorkload(),
+      getSolariunWorkEvents(),
+      getSolariunSynthesis(),
+      getSolariunProposals(),
+    ]).then(results => {
       if (!alive) return;
-      const failures = results.filter(r => r.status === 'rejected').length;
+      const failures = results.filter(result => result.status === 'rejected').length;
       if (results[0].status === 'fulfilled') setPulse(results[0].value.pulse ?? null);
       if (results[1].status === 'fulfilled') setWorkload(results[1].value.workload ?? null);
       if (results[2].status === 'fulfilled') setEvents(first(results[2].value.work_events, results[2].value.events) ?? []);
       if (results[3].status === 'fulfilled') setSynthesis(results[3].value.synthesis ?? null);
       if (results[4].status === 'fulfilled') setProposals(results[4].value.proposals ?? []);
-      setErrorCount(failures); setState(failures ? 'partial' : 'ready');
+      setFailureCount(failures);
+      setLoading(false);
     });
     return () => { alive = false; };
   }, []);
 
-  const openProposals = proposals.filter(p => ['DRAFT', 'PRESENTED', 'UNDER_REVIEW', 'REVISION_REQUESTED', 'REVISED', 'DECISION_PENDING'].includes(String(p.proposal_status ?? p.status)));
+  const openProposals = useMemo(() => proposals.filter(proposal => {
+    const status = String(proposal.proposal_status ?? proposal.status ?? '').toUpperCase();
+    return ['DRAFT', 'PRESENTED', 'UNDER_REVIEW', 'REVISION_REQUESTED', 'REVISED', 'DECISION_PENDING'].includes(status);
+  }), [proposals]);
 
   async function decide(proposal: SolariunProposal, decision: 'ACCEPTED' | 'DECLINED' | 'WITHDRAWN') {
     const proposalId = String(proposal.proposal_id || '');
     if (!proposalId) return;
     setDecisionBusy(`${proposalId}:${decision}`);
-    setDecisionNote(null);
+    setNotice(null);
     try {
       const result = await recordSolariunProposalDecision(proposalId, decision);
       const updated = result.proposal ?? { ...proposal, proposal_status: decision };
@@ -60,34 +115,143 @@ export default function SolariunHomeCockpit() {
           state_after_ref: decision,
         });
       } catch {
-        // Decision succeeded; continuity emission is best-effort.
+        // Decision remains authoritative; continuity emission is best-effort.
       }
-      setDecisionNote(`${decision} recorded. This does not authorize execution.`);
+      setNotice(`${decision} recorded. This does not authorize execution.`);
     } catch (error) {
-      setDecisionNote(error instanceof Error ? error.message : 'Decision could not be recorded.');
+      setNotice(error instanceof Error ? error.message : 'Decision could not be recorded.');
     } finally {
       setDecisionBusy(null);
     }
   }
-  const pulseData = pulse ?? {};
-  const synthesisData = synthesis ?? {};
-  const workloadData = workload ?? {};
 
-  return <div style={{ display: 'flex', flexDirection: 'column', gap: 18, width: '100%' }} data-solariun-field="overview" data-solariun-grammar="field-composition" aria-label="Solariun field — what matters now">
-    <div style={{ padding: '4px 2px 6px' }}><div style={{ fontSize: 9, letterSpacing: '0.28em', textTransform: 'uppercase', color: TEAL }}>Solariun / Home</div><h2 style={{ margin: '7px 0 5px', fontFamily: 'serif', fontWeight: 500, fontSize: 'clamp(30px, 5vw, 46px)', lineHeight: 1.05 }}>Personal Intelligence Workspace</h2><p style={{ margin: 0, color: MUTED, fontSize: 13, maxWidth: 680 }}>One field for what changed, what is active, what persists, and what now asks for your attention.</p></div>
-    {state === 'loading' && <Card label="Live field" accent={TEAL}><Loading label="Reading the sovereign workspace" /></Card>}
-    {state !== 'loading' && errorCount > 0 && <div style={{ fontSize: 11, color: MUTED, padding: '0 2px' }}>Some live surfaces are quiet or unavailable. No placeholder data is being substituted.</div>}
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 14 }}>
-      <Card label="Today" accent={TEAL}><div style={{ fontFamily: 'serif', fontSize: 22, lineHeight: 1.2 }}>{text(first(pulseData.state_summary, pulseData.summary), 'No daily pulse recorded.')}</div><div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 12, color: MUTED, fontSize: 11 }}><span>{text(first(pulseData.period), 'day')}</span>{first(pulseData.created_at, pulseData.updated_at, pulseData.occurred_at) && <span>{dateLabel(first(pulseData.created_at, pulseData.updated_at, pulseData.occurred_at))}</span>}</div></Card>
-      <Card label="Open loops" accent={BLUE}><div style={{ fontSize: 13, color: MUTED }}>{text(first(pulseData.open_loops, pulseData.open_loop_summary, pulseData.loops), 'No open-loop summary recorded.')}</div></Card>
-      <Card label="Current signal" accent={GOLD}><div style={{ fontSize: 13, lineHeight: 1.55 }}>{text(first(pulseData.current_signal, pulseData.signal, pulseData.signal_summary), 'No current signal recorded.')}</div></Card>
+  const pulseData = pulse ?? {};
+  const workloadData = workload ?? {};
+  const synthesisData = synthesis ?? {};
+  const pulseSummary = text(first(pulseData.state_summary, pulseData.summary), 'No daily pulse recorded.');
+  const activeWorkTitle = text(first(workloadData.title, workloadData.display_name), 'No active workload recorded.');
+  const activeWorkBody = text(workloadData.objective, 'No workload objective recorded.');
+  const attention = first(pulseData.open_loops, pulseData.open_loop_summary, pulseData.loops);
+
+  return (
+    <div
+      data-solariun-field="overview"
+      data-solariun-grammar="field-composition"
+      aria-label="Solariun field: what matters now"
+      style={{ display: 'grid', gap: 24, width: '100%' }}
+    >
+      <header style={{ padding: '10px 2px 6px' }}>
+        <div style={{ color: `${TEAL}aa`, font: '600 8px/1.2 Inter,system-ui,sans-serif', letterSpacing: '.24em', textTransform: 'uppercase' }}>SOLARIUN / FIELD</div>
+        <h2 style={{ margin: '9px 0 7px', font: '500 clamp(34px,5vw,58px)/1.02 Georgia,"Times New Roman",serif', color: '#E9E7DF' }}>What matters now?</h2>
+        <p style={{ margin: 0, maxWidth: 720, color: MUTED, font: '13px/1.65 Inter,system-ui,sans-serif' }}>
+          The field composes live workspace state. Values below are rendered only when the existing substrate returns them.
+        </p>
+      </header>
+
+      {loading ? (
+        <FieldSection label="Field state" accent={TEAL}><div style={{ color: MUTED, fontSize: 12 }}>Reading existing Solariun state…</div></FieldSection>
+      ) : null}
+
+      {!loading && failureCount > 0 ? (
+        <div role="status" style={{ color: MUTED, font: '11px/1.5 Inter,system-ui,sans-serif', padding: '9px 0' }}>
+          {failureCount} live surface{failureCount === 1 ? '' : 's'} did not respond. No placeholder state has been substituted.
+        </div>
+      ) : null}
+
+      <FieldSection label="Attention" accent={TEAL}>
+        {attention ? (
+          <StateObject label="OPEN LOOP" title={text(attention)} accent={TEAL} />
+        ) : (
+          <div style={{ color: MUTED, fontSize: 12 }}>No open-loop state is currently recorded.</div>
+        )}
+      </FieldSection>
+
+      <FieldSection label="Active world" accent={GOLD}>
+        {workload ? (
+          <div style={{ display: 'grid', gap: 12 }}>
+            <StateObject
+              label={text(first(workloadData.workload_type, workloadData.phase), 'WORKLOAD')}
+              title={activeWorkTitle}
+              body={activeWorkBody}
+              accent={GOLD}
+              meta={[first(workloadData.status), first(workloadData.updated_at, workloadData.created_at)].filter(Boolean).map(value => String(value)).join(' · ')}
+            />
+            <div style={{ color: MUTED, font: '10px/1.5 ui-monospace,SFMono-Regular,monospace' }}>
+              Workspace context is supplied by the existing workload substrate. No project identity is inferred here.
+            </div>
+          </div>
+        ) : (
+          <div style={{ color: MUTED, fontSize: 12 }}>No active workload is currently available.</div>
+        )}
+      </FieldSection>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,300px),1fr))', gap: 20 }}>
+        <FieldSection label="Current signal" accent={GOLD}>
+          <div style={{ color: '#E9E7DF', font: '500 18px/1.45 Georgia,serif' }}>
+            {text(first(pulseData.current_signal, pulseData.signal, pulseData.signal_summary), 'No current signal recorded.')}
+          </div>
+        </FieldSection>
+        <FieldSection label="Continuity" accent={BLUE}>
+          {events.length ? (
+            <div className="solariun-activity-stream">
+              {events.slice(0, 6).map((event, index) => (
+                <div key={String(first(event.work_event_id, event.id, index))} className="solspire-activity-item">
+                  <span className="solspire-activity-dot" />
+                  <div>
+                    <div className="solspire-kicker">{text(first(event.event_type, event.type), 'EVENT')}</div>
+                    <div className="solspire-activity-title">{text(first(event.state_after_ref, event.work_ref, event.scope_ref), 'Recorded activity')}</div>
+                  </div>
+                  <div className="solspire-activity-time">{dateLabel(first(event.occurred_at, event.created_at))}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ color: MUTED, fontSize: 12 }}>No recent activity events are currently recorded.</div>
+          )}
+        </FieldSection>
+      </div>
+
+      <FieldSection label="Synthesis" accent={VIOLET}>
+        <div style={{ color: '#E9E7DF', font: '500 20px/1.45 Georgia,serif' }}>
+          {text(first(synthesisData.summary, synthesisData.synthesis_summary), 'No current synthesis recorded.')}
+        </div>
+        {first(synthesisData.created_at, synthesisData.updated_at) ? (
+          <div style={{ marginTop: 8, color: MUTED, font: '9px ui-monospace,SFMono-Regular,monospace' }}>{dateLabel(first(synthesisData.created_at, synthesisData.updated_at))}</div>
+        ) : null}
+      </FieldSection>
+
+      <FieldSection label="Decisions" accent={GOLD}>
+        {openProposals.length ? (
+          <div style={{ display: 'grid', gap: 12 }}>
+            {openProposals.slice(0, 5).map(proposal => {
+              const proposalId = String(proposal.proposal_id || '');
+              const status = text(first(proposal.proposal_status, proposal.status), 'DECISION_PENDING');
+              return (
+                <article key={proposalId} className="solspire-object" style={{ padding: 15 }}>
+                  <div className="solspire-kicker">PROPOSAL · {status}</div>
+                  <h3 className="solspire-title">{text(first(proposal.objective, proposal.requested_decision), 'Untitled proposal')}</h3>
+                  <div className="solspire-object-actions" style={{ marginTop: 10 }}>
+                    {(['ACCEPTED', 'DECLINED', 'WITHDRAWN'] as const).map(decision => (
+                      <button
+                        key={decision}
+                        type="button"
+                        disabled={Boolean(decisionBusy)}
+                        onClick={() => void decide(proposal, decision)}
+                        style={{ border: `1px solid ${BORDER}`, borderRadius: 4, padding: '6px 9px', background: 'rgba(255,255,255,.025)', color: GOLD, font: '8px ui-monospace,SFMono-Regular,monospace', letterSpacing: '.08em', cursor: decisionBusy ? 'wait' : 'pointer' }}
+                      >
+                        {decisionBusy === `${proposalId}:${decision}` ? 'Recording…' : decision}
+                      </button>
+                    ))}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{ color: MUTED, fontSize: 12 }}>No proposals are currently awaiting attention.</div>
+        )}
+        {notice ? <div role="status" style={{ marginTop: 10, color: MUTED, fontSize: 11 }}>{notice}</div> : null}
+      </FieldSection>
     </div>
-    <Card label="Active work" accent={GOLD}>{workload ? <div style={{ display: 'grid', gap: 10 }}><div style={{ fontFamily: 'serif', fontSize: 24 }}>{text(first(workloadData.title, workloadData.display_name), 'Canonical workload')}</div><div style={{ color: MUTED, fontSize: 12 }}>{text(workloadData.objective)}</div><div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 2 }}>{[first(workloadData.status), first(workloadData.phase), first(workloadData.workload_type)].filter(Boolean).map((v, i) => <span key={`${v}-${i}`} style={{ border: `1px solid ${BORDER}`, borderRadius: 999, padding: '5px 9px', fontSize: 9, letterSpacing: '0.12em', color: i === 0 ? GOLD : MUTED }}>{String(v).replaceAll('_', ' ')}</span>)}</div><div style={{ color: MUTED, fontSize: 11, paddingTop: 4 }}>Barnabas · Eden Food Systems · R01 — Plateau Market Reconnaissance</div></div> : <div style={{ color: MUTED, fontSize: 12 }}>No canonical workload is currently available.</div>}</Card>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: 14 }}>
-      <Card label="Continuity" accent={BLUE}>{events.length ? <div style={{ display: 'grid', gap: 12 }}>{events.slice(0, 6).map((event, i) => <div key={String(first(event.work_event_id, event.id, String(i)))} style={{ display: 'grid', gridTemplateColumns: '7px 1fr auto', gap: 10, alignItems: 'start' }}><span style={{ width: 7, height: 7, marginTop: 5, borderRadius: '50%', background: BLUE }} /><div><div style={{ fontSize: 12 }}>{text(first(event.event_type, event.type), 'WorkEvent')}</div><div style={{ color: MUTED, fontSize: 10, marginTop: 3 }}>{text(first(event.state_after_ref, event.work_ref, event.scope_ref), '')}</div></div><span style={{ color: MUTED, fontSize: 9, whiteSpace: 'nowrap' }}>{dateLabel(first(event.occurred_at, event.created_at))}</span></div>)}</div> : <div style={{ color: MUTED, fontSize: 12 }}>No recent WorkEvents recorded.</div>}</Card>
-      <Card label="This week" accent={TEAL}><div style={{ fontFamily: 'serif', fontSize: 22, lineHeight: 1.25 }}>{text(first(synthesisData.summary, synthesisData.synthesis_summary), 'No current weekly synthesis recorded.')}</div><div style={{ color: MUTED, fontSize: 10, marginTop: 12 }}>{dateLabel(first(synthesisData.created_at, synthesisData.updated_at))}</div></Card>
-    </div>
-    <Card label="Decisions" accent={GOLD}>{openProposals.length ? <div style={{ display: 'grid', gap: 10 }}>{openProposals.slice(0, 5).map((proposal, i) => <div key={String(first(proposal.proposal_id, String(i)))} style={{ display: 'grid', gap: 8, padding: '11px 0', borderBottom: i < Math.min(openProposals.length, 5) - 1 ? `1px solid ${BORDER}` : 'none' }}><div style={{ fontSize: 13 }}>{text(first(proposal.objective, proposal.requested_decision), 'Untitled proposal')}</div><div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, color: MUTED, fontSize: 10 }}><span>{text(first(proposal.proposal_status, proposal.status))}</span><span>{text(proposal.requested_decision, '')}</span></div><div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>{(['ACCEPTED', 'DECLINED', 'WITHDRAWN'] as const).map(decision => <button key={decision} type="button" disabled={Boolean(decisionBusy)} onClick={() => void decide(proposal, decision)} style={{ borderRadius: 999, padding: '5px 9px', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: decisionBusy ? 'wait' : 'pointer', border: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.03)', color: GOLD }}>{decisionBusy === `${proposal.proposal_id}:${decision}` ? 'Recording…' : decision}</button>)}</div></div>)}</div> : <div style={{ color: MUTED, fontSize: 12 }}>No proposals are currently awaiting attention.</div>}{decisionNote && <div style={{ marginTop: 10, color: MUTED, fontSize: 11 }}>{decisionNote}</div>}</Card>
-    <Card label="Next" accent={BLUE}><div style={{ display: 'grid', gap: 9 }}><div style={{ fontSize: 13 }}>Review the live state above and choose what deserves attention.</div><div style={{ color: MUTED, fontSize: 11 }}>Candidate actions are presented as context only. Nothing here authorizes execution or mutation.</div></div></Card>
-  </div>;
+  );
 }
