@@ -245,11 +245,22 @@ function WeaverPanel({ project }: { project: Project }) {
         <div style={{ fontSize: 12, opacity: 0.75 }}>
           UI STATE ≠ AUTHORIZATION · PROJECT ACCESS ≠ PASSSPEC ≠ PATCH APPROVAL ≠ EXECUTION · Mutation: K15 → K3 ONLY
         </div>
-        <div style={{ marginTop: 8, fontSize: 12 }}>
-          Lifecycle: <strong style={{ color: '#C9A84C' }}>{lifecycle}</strong>
-          {' · '}Execution: <strong style={{ color: k15Ready ? '#00D4AA' : '#C9A84C' }}>{auth.Execution || 'LOCKED'}</strong>
-          {' · '}PassSpec: {auth.PassSpec || 'NONE'}
-          {' · '}Approval: {auth.PatchApproval || 'NONE'}
+        <div data-testid="solariun-governance-visibility" style={{ marginBottom: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(201,168,76,0.25)', background: 'rgba(201,168,76,0.06)', fontSize: 11, color: 'rgba(212,223,232,0.55)' }}>
+          <div style={{ letterSpacing: '0.08em', color: '#C9A84C', marginBottom: 6 }}>GOVERNANCE (display only · backend authoritative)</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
+            <span data-gov-stage="proposal">Proposal: <strong>{result?.patch ? 'PRESENT' : 'NONE'}</strong></span>
+            <span>≠</span>
+            <span data-gov-stage="approval">Approval: <strong>{auth.PatchApproval || 'NONE'}</strong></span>
+            <span>≠</span>
+            <span data-gov-stage="execution">Execution: <strong style={{ color: k15Ready ? '#00D4AA' : '#C9A84C' }}>{auth.Execution || 'LOCKED'}</strong></span>
+            <span>≠</span>
+            <span data-gov-stage="verified">Verified: <strong>{execResult?.verification || execResult?.status || 'NOT_RUN'}</strong></span>
+          </div>
+          <div style={{ fontSize: 10, opacity: 0.85 }}>
+            Lifecycle: <strong style={{ color: '#C9A84C' }}>{lifecycle}</strong>
+            {' · '}PassSpec: {auth.PassSpec || 'NONE'}
+            {' · '}UI does not authorize K15
+          </div>
         </div>
         {!k15Ready && (
           <div style={{ marginTop: 6, fontSize: 11, color: '#ca8' }}>
@@ -1001,6 +1012,7 @@ function Memory({ project }: { project: Project }) {
 }
 
 function Events({ project }: { project: Project }) {
+  /** P0.2 Activity Feed — existing project_events only; not provenance. */
   const [events, setEvents] = useState<PEvent[]>([]);
   const [filter, setFilter] = useState('');
 
@@ -1010,7 +1022,12 @@ function Events({ project }: { project: Project }) {
   const types = Array.from(new Set(events.map(e => e.event_type)));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div data-testid="solariun-activity-feed" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(0,212,170,0.22)', background: 'rgba(0,212,170,0.05)', fontSize: 11, color: 'rgba(212,223,232,0.5)' }}>
+        <strong style={{ color: '#00D4AA' }}>ACTIVITY FEED</strong>
+        {' · '}
+        Project events from existing store — <em>activity, not provenance</em>. WorkEvent ≠ proof.
+      </div>
       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
         <button onClick={() => setFilter('')} style={{ padding: '4px 10px', borderRadius: '15px', border: `1px solid ${!filter ? '#00D4AA' : 'rgba(0,212,170,0.2)'}`, background: !filter ? 'rgba(0,212,170,0.1)' : 'transparent', color: !filter ? '#00D4AA' : 'rgba(212,223,232,0.4)', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: '10px' }}>All</button>
         {types.map(t => (
@@ -1022,7 +1039,7 @@ function Events({ project }: { project: Project }) {
           <div style={{ position: 'absolute', left: '7px', top: 0, bottom: 0, width: '1px', background: 'rgba(0,212,170,0.1)' }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {events.map(e => (
-              <div key={e.id} style={{ position: 'relative' }}>
+              <div key={e.id} data-activity-type={e.event_type} data-testid="solariun-activity-item" style={{ position: 'relative' }}>
                 <div style={{ position: 'absolute', left: '-16px', top: '6px', width: '8px', height: '8px', borderRadius: '50%', background: '#0A0B14', border: '1px solid rgba(0,212,170,0.4)' }} />
                 <div style={S.card}>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
