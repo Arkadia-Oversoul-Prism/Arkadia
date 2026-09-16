@@ -41,7 +41,7 @@ function routeForView(view: View, section?: SolSpireLens): string {
     home: '/', gate: '/living-gate', commune: '/oracle', about: '/about', login: '/login',
     novanet: '/nexus', ims: '/nexus/ims', grove: '/nexus/grove', larder: '/nexus/larder', distribute: '/nexus/distribution', encyclopedia: '/encyclopedia', 'spiral-codex': '/spiral-codex',
     offerings: '/offerings', challenge: '/future-skills', reset: '/reset', pulse: '/pulse',
-    reasomate: '/reasomate',
+    reasomate: '/reasomate', sci: '/sci',
   };
   return routes[view] || '/';
 }
@@ -58,7 +58,7 @@ function resolvePath(pathname: string): RouteState {
     '/loops': {view:'solspire',section:'tasks'}, '/dashboard': {view:'solspire',section:'overview'},
     '/personal-echofeild': {view:'solspire',section:'observatory'}, '/echofeild-matrix': {view:'solspire',section:'observatory'},
     '/settings': {view:'solspire',section:'settings'}, '/account': {view:'solspire',section:'settings'},
-    '/sci': {view:'solspire',section:'weaver'},
+    '/sci': {view:'sci'},
   };
   if (compatibility[path]) {
     const target = compatibility[path];
@@ -68,7 +68,7 @@ function resolvePath(pathname: string): RouteState {
     '/': 'home', '/home': 'home', '/living-gate': 'gate', '/gate': 'gate', '/oracle': 'commune', '/commune': 'commune',
     '/about': 'about', '/login': 'login', '/nexus': 'novanet', '/nexus/ims': 'ims', '/nexus/grove': 'grove', '/nexus/larder': 'larder',
     '/nexus/distribution': 'distribute', '/encyclopedia': 'encyclopedia', '/spiral-codex': 'spiral-codex', '/offerings': 'offerings', '/future-skills': 'challenge', '/challenge': 'challenge',
-    '/reset': 'reset', '/pulse': 'pulse', '/reasomate': 'reasomate',
+    '/reset': 'reset', '/pulse': 'pulse', '/reasomate': 'reasomate', '/sci': 'sci',
   };
   const view = direct[path] || 'home';
   return {view, path: routeForView(view)};
@@ -117,7 +117,7 @@ function AppInner() {
     if (requested === 'dashboard') next = {view:'solspire',section:'overview',path:'/solspire'};
     if (requested === 'personal-echofeild' || requested === 'echofeild-matrix') next = {view:'solspire',section:'observatory',path:'/solspire/observatory'};
     if (requested === 'settings' || requested === 'account') next = {view:'solspire',section:'settings',path:'/solspire/settings'};
-    if (requested === 'sci') next = {view:'solspire',section:'weaver',path:'/solspire/weaver'};
+    if (requested === 'sci') next = {view:'sci',path:'/sci'};
     setView(next.view);
     setSolSpireSection(next.section || 'overview');
     if (window.location.pathname !== next.path) window.history.pushState({}, '', next.path);
