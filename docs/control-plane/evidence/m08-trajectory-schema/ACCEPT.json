@@ -1,0 +1,24 @@
+{
+  "move_id": "M08",
+  "name": "trajectory-schema",
+  "status": "accepted",
+  "accepted_at": "2026-09-16T06:00:13Z",
+  "authorization": "Architect acceptance of M05\u2013M09 based on merged verification record (PR #51)",
+  "verification_merge_commit": "0f36cbf926a098e847b57acbc6ef9147551256fc",
+  "verification_commit": "aaeff3b8e5098c5aac86deb2de235ea172d5e6b3",
+  "batch_verification_pr": "https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/51",
+  "implementation_sha": "c90f0b569a22b773b5ea90cf42e850f0f428b2a4",
+  "implementation_merge_commit": "ebc436cbecac4a5c5d4d9d2b1b71f28336678478",
+  "pr_implementation": "https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/46",
+  "acceptance_criteria": {
+    "schema_present": true,
+    "instance_parseable": true,
+    "docs_present": true,
+    "focused_tests_passed": true,
+    "verification_record_merged": true
+  },
+  "next_legal_move_after_acceptance": "M09",
+  "horizon_iii_declared": false,
+  "aeas_implementation_activated": false,
+  "deploy": "not_performed"
+}

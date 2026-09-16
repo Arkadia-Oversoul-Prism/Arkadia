@@ -1,6 +1,6 @@
 trajectory:
   id: ARKADIA-TRUTHFULNESS-01
-  version: 6
+  version: 7
   status: authorized-for-review-gated-execution
   objective: Turn the truthful Arkadia substrate into a coherent human experience
     while preserving human sovereignty, the canonical shell, shared runtime boundaries,
@@ -64,19 +64,19 @@ trajectory:
     rule: Merge evidence establishes landed code; ACCEPT.json establishes completion
       for routing. Never infer acceptance from merge alone.
     reconciled_through: M09
-    repository_head: 86a5301537f9f37a77e626a3ba80066cbf95b7d3
+    repository_head: 0f36cbf926a098e847b57acbc6ef9147551256fc
     accepted_markers_verified:
     - M01
     - M02
     - M02A
     - M03
     - M04
-    merged_without_repository_acceptance_marker:
     - M05
     - M06
     - M07
     - M08
     - M09
+    merged_without_repository_acceptance_marker: []
     note: These moves are landed in main, but their repository acceptance markers
       are not present in the inspected main tree. They must not be promoted to accepted/completed
       for router purposes without recorded acceptance evidence.
@@ -88,6 +88,15 @@ trajectory:
       verification_merge: 86a5301537f9f37a77e626a3ba80066cbf95b7d3
       implementation_merge: 391b8057728fb4883701682bfc3d53267053705e
       implementation_sha: 6615aaa88be1e65736593ad26c2160876bd5445b
+    m05_m09_acceptance:
+      verification_merge: 0f36cbf926a098e847b57acbc6ef9147551256fc
+      verification_pr: 51
+      moves:
+      - M05
+      - M06
+      - M07
+      - M08
+      - M09
   forbidden:
   - K15_K3
   - provenance
@@ -105,7 +114,9 @@ trajectory:
     ACCEPT.json written. M03 completed. Next legal move derives to M04. No M04 execution
     in this event. Architect 2026-09-16: Accept M04 based on verification merge 86a5301.
     ACCEPT.json written. M04 completed. Next legal move derives to M05. No M05 execution
-    in this event.'
+    in this event. Architect 2026-09-16: Accept M05–M09 based on verification merge
+    PR #51. ACCEPT.json written for each. All Truthfulness moves M01–M09 completed.
+    No AEAS activation. No deploy. No Horizon III declaration.'
 moves:
 - id: M01
   name: persistence-architecture
@@ -143,34 +154,34 @@ moves:
   spec: docs/control-plane/moves/M04-projects.md
 - id: M05
   name: files
-  status: pending
+  status: completed
   depends_on:
   - M04
   packet: personal-intelligence-workspace
   spec: docs/control-plane/moves/M05-files.md
 - id: M06
   name: knowledge
-  status: pending
+  status: completed
   depends_on:
   - M05
   packet: personal-intelligence-workspace
   spec: docs/control-plane/moves/M06-knowledge.md
 - id: M07
   name: aeas-freeze
-  status: pending
+  status: completed
   depends_on: []
   packet: engineering-constitution
   spec: docs/control-plane/moves/M07-aeas-freeze.md
 - id: M08
   name: trajectory-schema
-  status: pending
+  status: completed
   depends_on:
   - M07
   packet: engineering-constitution
   spec: docs/control-plane/moves/M08-trajectory-schema.md
 - id: M09
   name: worker-contract
-  status: pending
+  status: completed
   depends_on:
   - M08
   packet: engineering-constitution

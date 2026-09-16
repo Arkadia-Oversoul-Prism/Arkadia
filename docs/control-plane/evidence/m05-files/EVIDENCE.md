@@ -15,3 +15,12 @@ Complete project file surface on existing corpus (no parallel storage).
 
 ## Tests
 `tests/test_m05_files.py` — 5 passed
+
+
+## Architect acceptance (batch M05–M09)
+
+- Verification merge: `0f36cbf926a098e847b57acbc6ef9147551256fc` (PR #51)
+- ACCEPT.json written
+- Trajectory status → completed
+- Deploy: not performed
+- AEAS activation: not performed
