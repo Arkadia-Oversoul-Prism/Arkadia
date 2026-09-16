@@ -23,6 +23,7 @@ import SolSpireConsole from './pages/SolSpireConsole';
 import ReasoMatePage from './pages/ReasoMatePage';
 import SpiralCommandInterface from './pages/SpiralCommandInterface';
 import UniversalEchofeildMatrix from './pages/UniversalEchofeildMatrix';
+import ExperienceConsolidationFrame from './components/ExperienceConsolidationFrame';
 
 type SolSpireLens = 'overview'|'projects'|'commercial'|'knowledge'|'files'|'conversations'|'tasks'|'memory'|'weaver'|'observatory'|'engineering-lab'|'settings';
 type View =
@@ -132,8 +133,8 @@ function AppInner() {
     {view === 'spiral-codex' && <motion.div key="spiral-codex" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}><SpiralCodexFeed onBack={() => handleNavigate('solspire')} /></motion.div>}
     {view === 'grove' && <motion.div key="grove" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}><SpiralGrovePage /></motion.div>}
     {view === 'larder' && <motion.div key="larder" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}><LivingLarderPage /></motion.div>}
-    {view === 'ims' && <motion.div key="ims" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}><IMSArchivePage /></motion.div>}
-    {view === 'novanet' && <motion.div key="novanet" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}><NovaNetPage /></motion.div>}
+    {view === 'ims' && <motion.div key="ims" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}><IMSArchivePage /></motion.div>}
+    {view === 'novanet' && <motion.div key="novanet" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}><ExperienceConsolidationFrame surface="NovaNet" onNavigate={handleNavigate}><NovaNetPage /></ExperienceConsolidationFrame></motion.div>}
     {view === 'distribute' && <motion.div key="distribute" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}><DistributePage /></motion.div>}
     {view === 'offerings' && <motion.div key="offerings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}><OfferingsPage onGoToAIC={() => handleNavigate('gate')} onGoToChallenge={() => handleNavigate('challenge')} aicSeed={aicSeed} /></motion.div>}
     {view === 'aic' && <motion.div key="aic" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}><NodeEntry onEnterNovaNet={() => handleNavigate('novanet')} onGoToOfferings={() => handleNavigate('offerings')} onBack={() => handleNavigate('offerings')} onAICComplete={setAicSeed} /></motion.div>}
@@ -143,9 +144,9 @@ function AppInner() {
     {view === 'pulse' && <motion.div key="pulse" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}><ArkadianPulse /></motion.div>}
     {view === 'settings' && <motion.div key="settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }} style={wrap}><SolSpireConsole onNavigate={handleNavigate} initialSection="settings" /></motion.div>}
     {view === 'account' && <motion.div key="account" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><SolSpireConsole onNavigate={handleNavigate} initialSection="settings" /></motion.div>}
-    {view === 'sci' && <motion.div key="sci" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><SolSpireConsole onNavigate={handleNavigate} initialSection="weaver" /></motion.div>}
-    {view === 'solspire' && <motion.div key={`solspire-${solspireSection}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><SolSpireConsole onNavigate={handleNavigate} initialSection={solspireSection} /></motion.div>}
-    {view === 'knowledge-os' && <motion.div key="knowledge-os" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><SolSpireConsole onNavigate={handleNavigate} initialSection="knowledge" /></motion.div>}
+    {view === 'sci' && <motion.div key="sci" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><ExperienceConsolidationFrame surface="Spiral Command" onNavigate={handleNavigate}><SpiralCommandInterface onNavigate={handleNavigate} /></ExperienceConsolidationFrame></motion.div>}
+    {view === 'solspire' && <motion.div key={`solspire-${solspireSection}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><ExperienceConsolidationFrame surface="Solariun" onNavigate={handleNavigate}><SolSpireConsole onNavigate={handleNavigate} initialSection={solspireSection} /></ExperienceConsolidationFrame></motion.div>}
+    {view === 'knowledge-os' && <motion.div key="knowledge-os" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><ExperienceConsolidationFrame surface="Solariun" onNavigate={handleNavigate}><SolSpireConsole onNavigate={handleNavigate} initialSection="knowledge" /></ExperienceConsolidationFrame></motion.div>}
     {view === 'reasomate' && <motion.div key="reasomate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><ReasoMatePage /></motion.div>}
     {view === 'personal-echofeild' && <motion.div key="personal-echofeild" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><UniversalEchofeildMatrix onNavigate={handleNavigate} /></motion.div>}
     {view === 'echofeild-matrix' && <motion.div key="echofeild-matrix" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><UniversalEchofeildMatrix onNavigate={handleNavigate} /></motion.div>}
