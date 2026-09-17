@@ -1,0 +1,78 @@
+/* CAL-04 bounded Arcana Commune information-density calibration.
+ * Scoped to the existing Solariun overlay and prose renderer only.
+ * No conversation, persistence, API, or ontology changes.
+ */
+.solspire-arkana-panel {
+  padding: 14px;
+}
+
+.solspire-arkana-panel > .solspire-overlay-head {
+  margin-bottom: 8px;
+}
+
+.solspire-arkana-panel > .solspire-overlay-head h2 {
+  font-size: 22px;
+}
+
+.solspire-arkana-panel > div:last-child {
+  min-height: 360px;
+}
+
+.solspire-arkana-panel .arkadia-prose {
+  max-width: 68ch;
+  font-size: 12px;
+  line-height: 1.52;
+}
+
+.solspire-arkana-panel .arkadia-prose p,
+.solspire-arkana-panel .arkadia-prose ul,
+.solspire-arkana-panel .arkadia-prose ol,
+.solspire-arkana-panel .arkadia-prose blockquote,
+.solspire-arkana-panel .arkadia-prose pre,
+.solspire-arkana-panel .arkadia-prose table {
+  margin-top: 0.55rem;
+  margin-bottom: 0.55rem;
+}
+
+.solspire-arkana-panel .arkadia-prose h1,
+.solspire-arkana-panel .arkadia-prose h2,
+.solspire-arkana-panel .arkadia-prose h3,
+.solspire-arkana-panel .arkadia-prose h4 {
+  margin-top: 0.85rem;
+  margin-bottom: 0.35rem;
+  line-height: 1.18;
+}
+
+.solspire-arkana-panel .arkadia-prose h1 { font-size: 1.28rem; }
+.solspire-arkana-panel .arkadia-prose h2 { font-size: 1.16rem; }
+.solspire-arkana-panel .arkadia-prose h3 { font-size: 1.06rem; }
+.solspire-arkana-panel .arkadia-prose h4 { font-size: 0.98rem; }
+
+.solspire-arkana-panel .arkadia-prose li + li {
+  margin-top: 0.18rem;
+}
+
+.solspire-arkana-panel .arkadia-prose blockquote {
+  padding-left: 0.75rem;
+}
+
+.solspire-arkana-panel .arkadia-prose code,
+.solspire-arkana-panel .arkadia-prose pre {
+  font-size: 0.9em;
+}
+
+@media (max-width: 700px) {
+  .solspire-arkana-panel {
+    padding: 12px;
+  }
+
+  .solspire-arkana-panel .arkadia-prose {
+    max-width: none;
+    font-size: 11.5px;
+    line-height: 1.48;
+  }
+
+  .solspire-arkana-panel .arkadia-prose h1 { font-size: 1.18rem; }
+  .solspire-arkana-panel .arkadia-prose h2 { font-size: 1.08rem; }
+  .solspire-arkana-panel .arkadia-prose h3 { font-size: 1rem; }
+}
