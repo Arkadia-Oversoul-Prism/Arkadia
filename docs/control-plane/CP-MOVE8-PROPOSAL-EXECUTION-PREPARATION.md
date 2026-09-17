@@ -1,90 +1,78 @@
 # CP-MOVE8 — Proposal Execution Preparation
 
-**SCHEMA / NORMATIVE / TECHNOLOGY_NEUTRAL**
-
-No automatic K15 invocation, no K3 transaction, no merge, no deploy, no alternate mutation path.
-
-## Purpose
-
-Close the semantic gap between **human acceptance of a proposal** and **human-authorized execution**.
+**STATUS:** DESIGN + IMPLEMENTATION BOUNDARY
+**MODE:** Bounded preparation only, not K15/K3 execution
+**CANONICAL SURFACE:** `solspire.proposal_manager` + `solspire.proposal_router`
 
 > **ACCEPTED ≠ AUTHORIZED ≠ EXECUTED.**
 
-Move 7 proved feedback cannot manufacture authorization.  
-Move 8 provisions the next **preparation** layer only: explicit human decision on a proposal, and an optional **execution preparation package** that remains locked until a future, separately authorized PassSpec + K15 → K3 path exists and is invoked by the human.
+Move 8 closes the distinction between a human content decision and a future governed execution step without creating a second authorization or execution subsystem.
 
-## Distinctions
+## Boundary
 
-```
-ACCEPTED            ≠ AUTHORIZED
-DECLINED            ≠ WITHDRAWN
-DECISION            ≠ EXECUTION
-PREPARATION         ≠ PASS SPEC
-PREPARATION         ≠ PATCH APPROVAL
-PREPARATION         ≠ K15 INVOCATION
-PREPARATION         ≠ K3 TRANSACTION
-authorization_ref   ≠ PassSpec
-execution_authorized = false   (always, in this move)
-auto_merge          = false
-auto_deploy         = false
-auto_execute        = false
-```
+The canonical implementation on `main` provides:
 
-## Allowed state transitions (proposal)
+- `POST /proposals/{proposal_id}/decision` for an explicit human content decision.
+- `POST /proposals/{proposal_id}/prepare-execution` for bounded preparation.
+- `GET /proposals/{proposal_id}/preparations` for subject-bound inspection.
 
-From `UNDER_REVIEW` / `REVISION_REQUESTED` / `REVISED` / `DECISION_PENDING` / `PRESENTED`:
+A human decision may set `ACCEPTED`, `DECLINED`, or `WITHDRAWN`. It does not authorize execution and does not mutate `authorization_ref`.
 
-- Human records **ACCEPTED** or **DECLINED** (or **WITHDRAWN**) via authenticated decision endpoint.
-- Decision writes `decision_ref` (decision event id) and may set `proposal_status`.
-- Decision **must not** set `authorization_ref` to a live PassSpec.
-- Decision **must not** set `execution_authorized=true` anywhere.
+Execution preparation is only available for an `ACCEPTED` proposal. Preparation records remain non-executable and carry no PassSpec, K15, or K3 authority.
 
-## Execution preparation package
+## Hard boundary markers
 
-A preparation record may be created only for a proposal in `ACCEPTED` state, and only for the subject owner.
-
-Fields (vocabulary):
-
-```
-preparation_id
-proposal_id
-proposal_version
-subject_ref
-workspace_ref
-status: PREPARED | SUPERSEDED | WITHDRAWN
-execution_authorized: false   # fixed
-auto_merge: false             # fixed
-auto_deploy: false            # fixed
-auto_execute: false           # fixed
-pass_spec_ref: null           # Move 8 never binds PassSpec
-k15_ref: null
-k3_ref: null
-notes
-created_at
+```text
+execution_authorized = false
+auto_merge = false
+auto_deploy = false
+auto_execute = false
+pass_spec_ref = null
+k15_ref = null
+k3_ref = null
 ```
 
-**Status PREPARED means “ready for a future human authorization step,” not “authorized to mutate the repository.”**
+The preparation surface does not invoke K15 or K3, does not create a git commit or push, and does not grant merge or production authority.
 
-## Non-goals
+## Architectural reconciliation
 
-- No call into Weaver K15 execution
-- No call into K3 plan/implement/verify
-- No automatic PassSpec construction
-- No PatchApproval synthesis from ACCEPTED
-- No Barnabas data ingestion
-- No provenance frontier closure
+The original Move 8 branch introduced a separate `authorization_package_manager` and `authorization_packages` table. Current `main` already contains the canonical bounded execution-preparation substrate in `proposal_manager.py`. The reconciled branch therefore removes the duplicate persistence layer and keeps Move 8 on the existing proposal/workspace/API boundary.
 
-## Gate
+This preserves:
 
-Implementation requires Moves 0–7 closed as applicable and explicit human authorization for Move 8.
+- existing proposal persistence;
+- existing subject/workspace isolation;
+- existing canonical API routing;
+- existing human decision semantics;
+- existing K15/K3 boundary;
+- human merge and production authority.
 
-Verification must prove:
+## Verification gate
 
-1. Unauth → 401  
-2. Decision ACCEPTED does not populate authorization_ref with executable authority  
-3. Preparation always has execution_authorized=false  
-4. Cross-subject isolation  
-5. Prior surfaces intact  
-6. No K15/K3 code path invoked by these endpoints  
+Move 8 remains open until runtime evidence proves, at minimum:
 
-`AUTHORED → IMPLEMENTED → VERIFIED → MERGED`
+1. unauthenticated access is rejected;
+2. feedback cannot create `ACCEPTED`;
+3. explicit human decision can create `ACCEPTED` without execution authority;
+4. preparation requires `ACCEPTED`;
+5. preparation remains non-executable;
+6. subject/workspace isolation holds;
+7. prior canonical surfaces remain intact.
+
+Preview/build success is not production verification. No merge or production deployment is authorized by this document.
+
+## Closure
+
+```text
+HUMAN DECISION
+    ↓
+PREPARATION
+    ↓
+FUTURE EXPLICIT EXECUTION AUTHORIZATION
+    ↓
+K15
+    ↓
+K3
+```
+
+Only the human authorization gate can move the system beyond preparation.
