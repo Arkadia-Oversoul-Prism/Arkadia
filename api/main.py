@@ -314,6 +314,14 @@ try:
 except Exception as _ss_err:
     logger.warning(f"[SOLSPIRE] Console router mount skipped: {_ss_err}")
 
+# ── Arkana first-class thread router ─────────────────────────────────────────
+try:
+    from api.commune_threads import router as _commune_threads_router
+    app.include_router(_commune_threads_router)
+    logger.info("[ARKANA-THREADS] First-class thread router mounted")
+except Exception as _ctr_err:
+    logger.warning(f"[ARKANA-THREADS] Router mount skipped: {_ctr_err}")
+
 # ── Knowledge OS router ───────────────────────────────────────────────────────
 try:
     from api.knowledge_routes import router as _knowledge_router
