@@ -262,9 +262,9 @@ const ActionBtn: React.FC<{
 );
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-interface ArkanaProps { initialMessage?: string; }
+interface ArkanaProps { initialMessage?: string; projectId?: number; }
 
-const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
+const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId }) => {
   const { user, isAuthenticated } = useAuth();
   const [activeThreadId, setActiveThreadId] = useState<string>(() => {
     try { return localStorage.getItem(ACTIVE_THREAD_KEY) || createArkanaThreadId(); } catch { return createArkanaThreadId(); }
@@ -317,14 +317,14 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
       })
       .catch(() => {});
     return () => { live = false; };
-  }, [activeThreadId, isAuthenticated]);
+  }, [activeThreadId, isAuthenticated, projectId]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
     let live = true;
     (async () => {
       try {
-        const res = await apiFetch('/api/commune/threads');
+        const res = await apiFetch('/api/commune/threads' + (projectId != null ? '?project_id=' + projectId : ''));
         if (!res.ok) return;
         const data = await res.json();
         const listed = Array.isArray(data.threads) ? data.threads : [];
@@ -332,7 +332,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
         if (listed.length === 0) {
           const created = await apiFetch('/api/commune/threads', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: 'General conversation' }),
+            body: JSON.stringify({ title: projectId != null ? 'Project conversation' : 'General conversation', ...(projectId != null ? { project_id: projectId } : {}) }),
           });
           if (created.ok) {
             const d = await created.json(); const t = d?.thread;
@@ -345,7 +345,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
       } catch { /* local thread remains usable */ }
     })();
     return () => { live = false; };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, projectId]);
 
   const createNewThread = async () => {
     if (threadBusy) return;
@@ -354,7 +354,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
       if (isAuthenticated) {
         const res = await apiFetch('/api/commune/threads', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: 'New conversation' }),
+          body: JSON.stringify({ title: projectId != null ? 'New project conversation' : 'New conversation', ...(projectId != null ? { project_id: projectId } : {}) }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data?.thread?.uuid) throw new Error(data?.detail || 'Unable to create thread');
@@ -636,6 +636,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
         message: messageWithContext,
         timestamp: Date.now(),
         session_id: activeThreadId,
+        ...(projectId != null ? { project_id: projectId } : {}),
       };
       if (sovereignToken.trim()) body.sovereign_token = sovereignToken.trim();
       
