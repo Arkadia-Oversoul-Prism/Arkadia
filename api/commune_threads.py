@@ -79,8 +79,12 @@ async def list_arkana_thread_messages(thread_uuid: str, request: Request) -> dic
     messages: list[dict[str, Any]] = []
     for row in rows:
         content = row.get("content") or ""
-        prompt = content.split("## Prompt\n\n", 1)[1] if "## Prompt\\n\\n" in content else ""
-        response = prompt.split("\n\n## Response\n\n", 1) if prompt else []
+        prompt_marker = "## Prompt\n\n"
+        response_marker = "\n\n## Response\n\n"
+        if prompt_marker not in content:
+            continue
+        prompt = content.split(prompt_marker, 1)[1]
+        response = prompt.split(response_marker, 1) if response_marker in prompt else []
         if response:
             prompt, answer = response[0], response[1]
             messages.extend([
