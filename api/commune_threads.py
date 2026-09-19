@@ -62,3 +62,29 @@ async def get_arkana_thread(thread_uuid: str, request: Request) -> dict[str, Any
     if not row:
         raise HTTPException(status_code=404, detail="Thread not found")
     return {"thread": _public_thread(row)}
+
+
+@router.get("/{thread_uuid}/messages")
+async def list_arkana_thread_messages(thread_uuid: str, request: Request) -> dict[str, Any]:
+    from knowledge.vault import get_thread
+    from knowledge.db import execute
+    uid = await _user_id(request)
+    thread = get_thread(thread_uuid, user_id=uid)
+    if not thread:
+        raise HTTPException(status_code=404, detail="Thread not found")
+    rows = execute(
+        "SELECT content, created_at FROM notes WHERE thread_id = ? AND note_type = 'conversation' AND user_id = ? ORDER BY created_at ASC, id ASC",
+        (thread["id"], uid),
+    ) or []
+    messages: list[dict[str, Any]] = []
+    for row in rows:
+        content = row.get("content") or ""
+        prompt = content.split("## Prompt\\n\\n", 1)[1] if "## Prompt\\n\\n" in content else ""
+        response = prompt.split("\\n\\n## Response\\n\\n", 1) if prompt else []
+        if response:
+            prompt, answer = response[0], response[1]
+            messages.extend([
+                {"role": "user", "content": prompt, "created_at": row.get("created_at")},
+                {"role": "arkana", "content": answer, "created_at": row.get("created_at")},
+            ])
+    return {"messages": messages}
