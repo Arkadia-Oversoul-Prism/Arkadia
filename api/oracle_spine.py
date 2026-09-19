@@ -120,7 +120,6 @@ def archive_oracle_turn(user_input: str, response: str,
             provider=ORACLE_PROVIDER,
             persona=ARKANA_PERSONA,
             project_id=project_id,
-            project_id=project_id,
             thread_id=thread_id,
             user_id=uid,
         )
