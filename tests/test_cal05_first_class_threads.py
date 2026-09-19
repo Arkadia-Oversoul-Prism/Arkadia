@@ -16,3 +16,10 @@ def test_knowledge_os_thread_substrate_remains_canonical():
     assert 'CREATE TABLE IF NOT EXISTS threads' in src
     assert 'project_id' in src
     assert 'user_id' in src
+
+
+def test_commune_uses_first_class_thread_id():
+    src = (ROOT / "web/public_prism/src/components/ArkanaCommune.tsx").read_text()
+    assert "createArkanaThreadId" in src
+    assert "/api/commune/threads" in src
+    assert "session_id: activeThreadId" in src
