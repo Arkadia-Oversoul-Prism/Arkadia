@@ -302,8 +302,22 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
   // Canonical thread selection: local continuity backed by the Knowledge OS for authenticated users.
   useEffect(() => {
     try { localStorage.setItem(ACTIVE_THREAD_KEY, activeThreadId); } catch {}
-    setMessages(loadThread(activeThreadId));
-  }, [activeThreadId]);
+    const localMessages = loadThread(activeThreadId);
+    setMessages(localMessages);
+    if (!isAuthenticated) return;
+    let live = true;
+    apiFetch('/api/commune/threads/' + activeThreadId + '/messages')
+      .then(async r => r.ok ? r.json() : null)
+      .then(data => {
+        const remote = Array.isArray(data?.messages) ? data.messages : [];
+        if (live && remote.length > localMessages.length) {
+          setMessages(remote);
+          saveThread(activeThreadId, remote);
+        }
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [activeThreadId, isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
