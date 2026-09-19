@@ -62,6 +62,7 @@ def retrieve_arkana_context(message: str, session_id: str = "",
         package = assemble_context(
             message,
             thread_id=thread_id,
+            project_id=project_id,
             token_budget=token_budget,
             user_id=user_id or None,
         )
@@ -90,7 +91,7 @@ def build_memory_block(message: str, session_id: str = "",
                        user_id: str = "") -> tuple[str, dict]:
     """Return the provider-injectable retrieved-memory block + diagnostics."""
     text, meta = retrieve_arkana_context(
-        message, session_id, token_budget, user_id=user_id,
+        message, session_id, token_budget, user_id=user_id, project_id=project_id,
     )
     if not text or not text.strip():
         return "", meta
@@ -115,6 +116,7 @@ def archive_oracle_turn(user_input: str, response: str,
             response=response,
             provider=ORACLE_PROVIDER,
             persona=ARKANA_PERSONA,
+            project_id=project_id,
             thread_id=thread_id,
             user_id=uid,
         )
