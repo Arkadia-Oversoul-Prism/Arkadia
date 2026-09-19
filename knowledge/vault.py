@@ -380,6 +380,58 @@ def list_projects(user_id: Optional[str] = None) -> list[dict]:
 # longitudinal conversation regardless of which surface (Oracle Chat,
 # ReasoMate, NovaNet) initiated the turn.
 
+def create_thread(
+    title: str,
+    user_id: Optional[str] = None,
+    project_id: Optional[int] = None,
+    thread_uuid: Optional[str] = None,
+) -> dict:
+    """Create a first-class conversation thread in the canonical Knowledge OS."""
+    now = datetime.now(timezone.utc).isoformat()
+    uid = (user_id or "").strip() or None
+    tid = (thread_uuid or "").strip() or str(_uuid.uuid4())
+    execute(
+        "INSERT INTO threads (uuid, project_id, title, user_id, created_at, updated_at) VALUES (?,?,?,?,?,?)",
+        (tid, project_id, (title or "Untitled conversation")[:200], uid, now, now),
+    )
+    row = execute_one("SELECT * FROM threads WHERE id = ?", (last_insert_id(),))
+    return row or {}
+
+
+def list_threads(
+    user_id: Optional[str],
+    project_id: Optional[int] = None,
+) -> list[dict]:
+    """List threads owned by a user, optionally narrowed to one project."""
+    uid = (user_id or "").strip() or None
+    if not uid:
+        return []
+    if project_id is None:
+        rows = execute(
+            "SELECT * FROM threads WHERE user_id = ? ORDER BY updated_at DESC, id DESC",
+            (uid,),
+        )
+    else:
+        rows = execute(
+            "SELECT * FROM threads WHERE user_id = ? AND project_id = ? ORDER BY updated_at DESC, id DESC",
+            (uid, project_id),
+        )
+    return rows or []
+
+
+def get_thread(thread_uuid: str, user_id: Optional[str] = None) -> Optional[dict]:
+    """Read one first-class thread by UUID, enforcing private ownership."""
+    if not thread_uuid or not thread_uuid.strip():
+        return None
+    uid = (user_id or "").strip() or None
+    if uid:
+        return execute_one(
+            "SELECT * FROM threads WHERE uuid = ? AND user_id = ?",
+            (thread_uuid.strip(), uid),
+        )
+    return None
+
+
 def get_or_create_thread(
     session_id: str,
     title: Optional[str] = None,
