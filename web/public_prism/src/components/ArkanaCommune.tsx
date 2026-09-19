@@ -18,7 +18,7 @@ import remarkGfm from 'remark-gfm';
 import { Volume2, Square, Send, Trash2, Copy, Check, RotateCcw, Pencil, Paperclip, FileText, X, Bookmark } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { API_BASE as API_BASE_CFG } from '../lib/apiConfig';
-import { arkanaSessionId } from '../lib/arkanaSession';
+import { createArkanaThreadId } from '../lib/arkanaSession';
 import ArkDate from './ArkDate';
 import MarkdownViewer from './MarkdownViewer';
 import OracleVoicePlayer from './OracleVoicePlayer';
@@ -73,15 +73,19 @@ Or simply speak — Arkana reads the living corpus and responds.`;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const API_BASE    = (API_BASE_CFG || API_BASE_CONFIG || '').replace(/\/$/, '');
-const STORAGE_KEY = 'arkadia_commune_thread';
+const STORAGE_KEY_PREFIX = 'arkadia_commune_thread:';
+const ACTIVE_THREAD_KEY = 'arkadia_active_thread';
+const LEGACY_STORAGE_KEY = 'arkadia_commune_thread';
 const TOKEN_KEY   = 'arkadia_sovereign_token';
 
-const loadThread = (): Message[] => {
-  try { const r = localStorage.getItem(STORAGE_KEY); return r ? JSON.parse(r) : []; }
-  catch { return []; }
+const loadThread = (threadId: string): Message[] => {
+  try {
+    const r = localStorage.getItem(STORAGE_KEY_PREFIX + threadId) ?? (threadId === 'legacy' ? localStorage.getItem(LEGACY_STORAGE_KEY) : null);
+    return r ? JSON.parse(r) : [];
+  } catch { return []; }
 };
-const saveThread = (msgs: Message[]) => {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs)); } catch {}
+const saveThread = (threadId: string, msgs: Message[]) => {
+  try { localStorage.setItem(STORAGE_KEY_PREFIX + threadId, JSON.stringify(msgs)); } catch {}
 };
 const loadToken = (): string => localStorage.getItem(TOKEN_KEY) || '';
 const saveToken = (t: string) => {
@@ -262,7 +266,12 @@ interface ArkanaProps { initialMessage?: string; }
 
 const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
   const { user, isAuthenticated } = useAuth();
-  const [messages, setMessages]         = useState<Message[]>(() => loadThread());
+  const [activeThreadId, setActiveThreadId] = useState<string>(() => {
+    try { return localStorage.getItem(ACTIVE_THREAD_KEY) || createArkanaThreadId(); } catch { return createArkanaThreadId(); }
+  });
+  const [threads, setThreads] = useState<Array<{uuid:string; title:string; project_id:number|null}>>([]);
+  const [threadBusy, setThreadBusy] = useState(false);
+  const [messages, setMessages] = useState<Message[]>(() => loadThread(activeThreadId));
   const [savedIdx, setSavedIdx]         = useState<number | null>(null);
   const [saveBusy, setSaveBusy]         = useState(false);
   const [saveHint, setSaveHint]         = useState('');
@@ -289,6 +298,62 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
   const accent        = isSovereign ? '#C9A84C' : '#00D4AA';
   const accentFaint   = isSovereign ? 'rgba(201,168,76,0.12)' : 'rgba(0,212,170,0.1)';
   const accentBorder  = isSovereign ? 'rgba(201,168,76,0.18)' : 'rgba(0,212,170,0.16)';
+
+  // Canonical thread selection: local continuity backed by the Knowledge OS for authenticated users.
+  useEffect(() => {
+    try { localStorage.setItem(ACTIVE_THREAD_KEY, activeThreadId); } catch {}
+    setMessages(loadThread(activeThreadId));
+  }, [activeThreadId]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let live = true;
+    (async () => {
+      try {
+        const res = await apiFetch('/api/commune/threads');
+        if (!res.ok) return;
+        const data = await res.json();
+        const listed = Array.isArray(data.threads) ? data.threads : [];
+        if (!live) return;
+        if (listed.length === 0) {
+          const created = await apiFetch('/api/commune/threads', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: 'General conversation' }),
+          });
+          if (created.ok) {
+            const d = await created.json(); const t = d?.thread;
+            if (t?.uuid) { setThreads([t]); setActiveThreadId(t.uuid); }
+          }
+        } else {
+          setThreads(listed);
+          if (!listed.some((t: any) => t.uuid === activeThreadId)) setActiveThreadId(listed[0].uuid);
+        }
+      } catch { /* local thread remains usable */ }
+    })();
+    return () => { live = false; };
+  }, [isAuthenticated]);
+
+  const createNewThread = async () => {
+    if (threadBusy) return;
+    setThreadBusy(true);
+    try {
+      if (isAuthenticated) {
+        const res = await apiFetch('/api/commune/threads', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: 'New conversation' }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data?.thread?.uuid) throw new Error(data?.detail || 'Unable to create thread');
+        setThreads(prev => [data.thread, ...prev]);
+        setActiveThreadId(data.thread.uuid);
+      } else {
+        setActiveThreadId(createArkanaThreadId());
+      }
+      setInput('');
+    } catch (e) {
+      setSaveHint(e instanceof Error ? e.message : 'Unable to create thread');
+    } finally { setThreadBusy(false); }
+  };
 
   // Auto-scroll
   useEffect(() => {
@@ -448,7 +513,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
     if (!userMsg) return;
     setMessages(prev => {
       const next = prev.slice(0, arkanaIdx);
-      saveThread(next);
+      saveThread(activeThreadId, next);
       return next;
     });
     sendMessage(userMsg.content);
@@ -459,7 +524,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
     setInput(content);
     setMessages(prev => {
       const next = prev.slice(0, msgIdx);
-      saveThread(next);
+      saveThread(activeThreadId, next);
       return next;
     });
     taRef.current?.focus();
@@ -481,7 +546,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
     if (!sovereignToken.trim()) {
       setMessages(prev => {
         const next = [...prev, { role: 'arkana' as const, content: 'The Forge is sovereign-gated. Open the Gate ⟐ and present your token.' }];
-        saveThread(next); return next;
+        saveThread(activeThreadId, next); return next;
       });
       setLoading(false); return;
     }
@@ -493,14 +558,14 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
       const data = await res.json();
       if (!res.ok || data.status === 'failed') {
         const detail = data.detail || (data.errors?.[0]) || 'The Forge could not strike.';
-        setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: `⟐ Forge: ${detail}`, session: 'sovereign' }]; saveThread(next); return next; });
+        setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: `⟐ Forge: ${detail}`, session: 'sovereign' }]; saveThread(activeThreadId, next); return next; });
       } else {
         const images: string[] = data.images || [];
         const header = `⟐ **Forge — ${cmd.archetype}**${cmd.scene ? ` · *${cmd.scene}*` : ''}\n\n${images.length} image${images.length === 1 ? '' : 's'} forged and committed.`;
-        setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: header, session: 'sovereign', images }]; saveThread(next); return next; });
+        setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: header, session: 'sovereign', images }]; saveThread(activeThreadId, next); return next; });
       }
     } catch {
-      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: '⟐ Forge: the field could not reach the image plane. Try again.' }]; saveThread(next); return next; });
+      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: '⟐ Forge: the field could not reach the image plane. Try again.' }]; saveThread(activeThreadId, next); return next; });
     } finally { setLoading(false); }
   };
 
@@ -515,9 +580,9 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
       const reply = hits.length === 0
         ? `⟐ **Codex Probe** · *"${query}"*\n\nNo scrolls matched this query.`
         : `⟐ **Codex Probe** · *"${query}"*\n\nArkana is drawing from **${hits.length} scroll${hits.length === 1 ? '' : 's'}** (${chars.toLocaleString()} chars):\n\n${hits.map(r => `- ${catIcon[r.category] || '📄'} **${r.label}** · \`${r.category}\``).join('\n')}\n\nThis context is woven into the next Oracle response.`;
-      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: reply }]; saveThread(next); return next; });
+      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: reply }]; saveThread(activeThreadId, next); return next; });
     } catch {
-      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: '⟐ Codex: could not reach the corpus index.' }]; saveThread(next); return next; });
+      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: '⟐ Codex: could not reach the corpus index.' }]; saveThread(activeThreadId, next); return next; });
     } finally { setLoading(false); }
   };
 
@@ -532,11 +597,11 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
       attachment: attachment ? { name: attachment.name, type: attachment.type, size: attachment.size } : undefined,
     };
     
-    setMessages(prev => { const next = [...prev, userMsg]; saveThread(next); return next; });
+    setMessages(prev => { const next = [...prev, userMsg]; saveThread(activeThreadId, next); return next; });
     setLoading(true);
 
     if (isHelpCommand(text)) {
-      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: HELP_TEXT }]; saveThread(next); return next; });
+      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: HELP_TEXT }]; saveThread(activeThreadId, next); return next; });
       setLoading(false); setAttachment(null); return;
     }
     const forge = parseForgeCommand(text);
@@ -556,7 +621,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
       const body: Record<string, unknown> = {
         message: messageWithContext,
         timestamp: Date.now(),
-        session_id: arkanaSessionId(user?.uid, sovereignToken),
+        session_id: activeThreadId,
       };
       if (sovereignToken.trim()) body.sovereign_token = sovereignToken.trim();
       
@@ -588,7 +653,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
       
       setMessages(prev => {
         const next = [...prev, { role: 'arkana' as const, content: data.reply, resonance: data.resonance, session }];
-        saveThread(next); return next;
+        saveThread(activeThreadId, next); return next;
       });
       try {
         await emitSolariunWorkEvent({
@@ -601,7 +666,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
         // Oracle reply succeeded; continuity emission is best-effort.
       }
     } catch (err: any) {
-      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: `The field is recalibrating. Try again.\n\n*(${err?.message || 'unknown'})*` }]; saveThread(next); return next; });
+      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: `The field is recalibrating. Try again.\n\n*(${err?.message || 'unknown'})*` }]; saveThread(activeThreadId, next); return next; });
     } finally { setLoading(false); setAttachment(null); }
   };
 
@@ -616,7 +681,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
 
   const clearThread = () => {
     if (!window.confirm('Clear the entire thread?')) return;
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY_PREFIX + activeThreadId);
     setMessages([]);
     if (ttsOk) window.speechSynthesis.cancel();
     setSpeakingIdx(null);
@@ -624,6 +689,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
   };
 
   const lastSession  = messages.filter(m => m.role === 'arkana').slice(-1)[0]?.session ?? null;
+  const activeThreadTitle = threads.find(t => t.uuid === activeThreadId)?.title || 'Conversation';
   const displaySession = lastSession ?? (isSovereign ? 'sovereign' : 'guest');
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -676,6 +742,20 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
 
         {/* Right: controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <button onClick={createNewThread} disabled={threadBusy} title="New conversation" style={{
+            padding: '5px 9px', background: 'transparent', border: '1px solid rgba(255,255,255,0.07)',
+            borderRadius: 6, color: 'rgba(232,232,232,0.38)', cursor: threadBusy ? 'wait' : 'pointer',
+            fontFamily: 'monospace', fontSize: 8.5, letterSpacing: '0.12em', textTransform: 'uppercase'
+          }}>+ Chat</button>
+          {threads.length > 0 && (
+            <select aria-label="Conversation thread" value={activeThreadId} onChange={e => setActiveThreadId(e.target.value)} style={{
+              maxWidth: 150, padding: '5px 7px', background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.07)', borderRadius: 6, color: 'rgba(232,232,232,0.55)',
+              fontFamily: 'monospace', fontSize: 8.5
+            }}>
+              {threads.map(t => <option key={t.uuid} value={t.uuid}>{t.title}</option>)}
+            </select>
+          )}
           {messages.length > 0 && (
             <button
               onClick={clearThread}
@@ -703,7 +783,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
               }}
             />
             <span style={{ fontFamily: 'monospace', fontSize: 8.5, letterSpacing: '0.2em', textTransform: 'uppercase', color: isSovereign ? 'rgba(201,168,76,0.6)' : 'rgba(0,212,170,0.55)' }}>
-              {displaySession}
+              {activeThreadTitle}
             </span>
           </div>
 
