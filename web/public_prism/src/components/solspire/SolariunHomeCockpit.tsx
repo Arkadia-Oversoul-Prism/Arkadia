@@ -14,6 +14,7 @@ import {
   SolariunWorkload,
 } from '../../lib/solariunApi';
 import { useAuth } from '../../contexts/AuthContext';
+import { getPersonalField, PersonalField } from '../../lib/knowledgeApi';
 
 const GOLD = '#C9A84C';
 const TEAL = '#00D4AA';
@@ -67,6 +68,7 @@ export default function SolariunHomeCockpit() {
   const [events, setEvents] = useState<SolariunWorkEvent[]>([]);
   const [synthesis, setSynthesis] = useState<SolariunSynthesis | null>(null);
   const [proposals, setProposals] = useState<SolariunProposal[]>([]);
+  const [personalField, setPersonalField] = useState<PersonalField | null>(null);
   const [loading, setLoading] = useState(true);
   const [failureCount, setFailureCount] = useState(0);
   const [decisionBusy, setDecisionBusy] = useState<string | null>(null);
@@ -80,6 +82,7 @@ export default function SolariunHomeCockpit() {
       getSolariunWorkEvents(),
       getSolariunSynthesis(),
       getSolariunProposals(),
+      getPersonalField(),
     ]).then(results => {
       if (!alive) return;
       const failures = results.filter(result => result.status === 'rejected').length;
@@ -88,6 +91,7 @@ export default function SolariunHomeCockpit() {
       if (results[2].status === 'fulfilled') setEvents(first(results[2].value.work_events, results[2].value.events) ?? []);
       if (results[3].status === 'fulfilled') setSynthesis(results[3].value.synthesis ?? null);
       if (results[4].status === 'fulfilled') setProposals(results[4].value.proposals ?? []);
+      if (results[5].status === 'fulfilled') setPersonalField(results[5].value);
       setFailureCount(failures);
       setLoading(false);
     });
@@ -170,6 +174,33 @@ export default function SolariunHomeCockpit() {
           />
         ) : (
           <div style={{ color: MUTED, fontSize: 12 }}>Personal Codex unavailable for the current authenticated node.</div>
+        )}
+      </FieldSection>
+
+      <FieldSection label="Personal field" accent={VIOLET}>
+        {personalField ? (
+          <div style={{ display: 'grid', gap: 10 }}>
+            <div style={{ color: '#E9E7DF', font: '500 17px/1.45 Georgia,serif' }}>
+              {text(personalField.identity?.display_name, 'Authenticated node')}'s field is connected.
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <span className="solspire-relation">PROJECTS · {personalField.solspire_projects?.length ?? 0}</span>
+              <span className="solspire-relation">NOTES · {personalField.notes?.length ?? 0}</span>
+              <span className="solspire-relation">GRAPH · {personalField.graph?.nodes?.length ?? 0}</span>
+              <span className="solspire-relation">TIMELINE · {personalField.timeline?.length ?? 0}</span>
+            </div>
+            {personalField.graph?.nodes?.[0] ? (
+              <div style={{ color: MUTED, font: '11px/1.5 Inter,system-ui,sans-serif' }}>
+                Latest knowledge node: {text(personalField.graph.nodes[0].title, 'Untitled node')}
+              </div>
+            ) : (
+              <div style={{ color: MUTED, font: '11px/1.5 Inter,system-ui,sans-serif' }}>
+                No knowledge nodes are currently recorded in the personal field.
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ color: MUTED, fontSize: 12 }}>Personal field unavailable for the current authenticated node.</div>
         )}
       </FieldSection>
 
