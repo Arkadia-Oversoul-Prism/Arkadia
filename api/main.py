@@ -314,6 +314,14 @@ try:
 except Exception as _ss_err:
     logger.warning(f"[SOLSPIRE] Console router mount skipped: {_ss_err}")
 
+# ── Arkana first-class thread router ─────────────────────────────────────────
+try:
+    from api.commune_threads import router as _commune_threads_router
+    app.include_router(_commune_threads_router)
+    logger.info("[ARKANA-THREADS] First-class thread router mounted")
+except Exception as _ctr_err:
+    logger.warning(f"[ARKANA-THREADS] Router mount skipped: {_ctr_err}")
+
 # ── Knowledge OS router ───────────────────────────────────────────────────────
 try:
     from api.knowledge_routes import router as _knowledge_router
@@ -1044,6 +1052,7 @@ async def commune_resonance(request: Request):
     message    = body.get("message", "").strip()
     history    = body.get("history", [])
     session_id = body.get("session_id", "")
+    project_id = body.get("project_id")
 
     if not message:
         return JSONResponse(status_code=400, content={"error": "No message."})
@@ -1104,7 +1113,7 @@ async def commune_resonance(request: Request):
     try:
         from api.oracle_spine import build_memory_block
         memory_block, memory_meta = build_memory_block(
-            message, session_id, user_id=spine_user_id or "",
+            message, session_id, user_id=spine_user_id or "", project_id=project_id,
         )
     except Exception as _mce:
         logger.debug(f"[ORACLE] Knowledge OS memory retrieval skipped: {_mce}")
@@ -1228,7 +1237,7 @@ async def commune_resonance(request: Request):
         from api.oracle_spine import archive_oracle_turn
         threading.Thread(
             target=archive_oracle_turn,
-            args=(message, reply, session_id, spine_user_id or ""),
+            args=(message, reply, session_id, spine_user_id or "", project_id),
             daemon=True,
         ).start()
         resonance = round(0.7 + (len(reply) % 30) / 100, 3)
@@ -1238,7 +1247,7 @@ async def commune_resonance(request: Request):
             "patterns":  [],
             "rag_refs":  rag_refs,
             "rag_hits":  len(rag_refs),
-            "memory": {"session_id": session_id or None, "thread_id": memory_meta.get("thread_id"),
+            "memory": {"session_id": session_id or None, "thread_id": memory_meta.get("thread_id"), "project_id": project_id,
                        "user_id": spine_user_id or None,
                        "notes_retrieved": memory_meta.get("notes_retrieved", 0),
                        "source": memory_meta.get("source", "knowledge_os"), "injected": bool(memory_block)},
