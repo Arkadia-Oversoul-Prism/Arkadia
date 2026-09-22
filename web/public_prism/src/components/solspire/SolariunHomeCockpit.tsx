@@ -38,6 +38,26 @@ function dateLabel(value: string | number | undefined) {
   return new Date(numeric).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+type SurfaceState = 'LOADING' | 'LIVE' | 'EMPTY' | 'UNAVAILABLE' | 'FAILED';
+
+type SurfaceStatus = {
+  state: SurfaceState;
+  detail?: string;
+};
+
+function errorStatus(error: unknown, notFoundMeansEmpty = false): SurfaceStatus {
+  const detail = error instanceof Error ? error.message : String(error);
+  const match = detail.match(/\\b(4\\d\\d|5\\d\\d)\\b/);
+  const code = match ? Number(match[1]) : null;
+  if (code === 404 && notFoundMeansEmpty) return { state: 'EMPTY', detail };
+  if (code === 409) return { state: 'UNAVAILABLE', detail };
+  return { state: 'FAILED', detail };
+}
+
+function stateLabel(status: SurfaceStatus) {
+  return status.state;
+}
+
 function FieldSection({ label, accent = GOLD, children }: { label: string; accent?: string; children: React.ReactNode }) {
   return (
     <section className="solariun-field-section" style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 14 }}>
@@ -70,6 +90,13 @@ export default function SolariunHomeCockpit() {
   const [proposals, setProposals] = useState<SolariunProposal[]>([]);
   const [personalField, setPersonalField] = useState<PersonalField | null>(null);
   const [loading, setLoading] = useState(true);
+  const [surfaceStatus, setSurfaceStatus] = useState<Record<'pulse' | 'workload' | 'events' | 'synthesis' | 'proposals', SurfaceStatus>>({
+    pulse: { state: 'LOADING' },
+    workload: { state: 'LOADING' },
+    events: { state: 'LOADING' },
+    synthesis: { state: 'LOADING' },
+    proposals: { state: 'LOADING' },
+  });
   const [failureCount, setFailureCount] = useState(0);
   const [decisionBusy, setDecisionBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -86,12 +113,30 @@ export default function SolariunHomeCockpit() {
     ]).then(results => {
       if (!alive) return;
       const failures = results.filter(result => result.status === 'rejected').length;
+      const nextStatus = {
+        pulse: results[0].status === 'fulfilled'
+          ? (results[0].value.pulse ? { state: 'LIVE' as const } : { state: 'EMPTY' as const })
+          : errorStatus(results[0].reason, true),
+        workload: results[1].status === 'fulfilled'
+          ? (results[1].value.workload ? { state: 'LIVE' as const } : { state: 'EMPTY' as const })
+          : errorStatus(results[1].reason, true),
+        events: results[2].status === 'fulfilled'
+          ? ((first(results[2].value.work_events, results[2].value.events) ?? []).length ? { state: 'LIVE' as const } : { state: 'EMPTY' as const })
+          : errorStatus(results[2].reason),
+        synthesis: results[3].status === 'fulfilled'
+          ? (results[3].value.synthesis ? { state: 'LIVE' as const } : { state: 'EMPTY' as const })
+          : errorStatus(results[3].reason, true),
+        proposals: results[4].status === 'fulfilled'
+          ? ((results[4].value.proposals ?? []).length ? { state: 'LIVE' as const } : { state: 'EMPTY' as const })
+          : errorStatus(results[4].reason),
+      };
       if (results[0].status === 'fulfilled') setPulse(results[0].value.pulse ?? null);
       if (results[1].status === 'fulfilled') setWorkload(results[1].value.workload ?? null);
       if (results[2].status === 'fulfilled') setEvents(first(results[2].value.work_events, results[2].value.events) ?? []);
       if (results[3].status === 'fulfilled') setSynthesis(results[3].value.synthesis ?? null);
       if (results[4].status === 'fulfilled') setProposals(results[4].value.proposals ?? []);
       if (results[5].status === 'fulfilled') setPersonalField(results[5].value);
+      setSurfaceStatus(nextStatus);
       setFailureCount(failures);
       setLoading(false);
     });
@@ -157,9 +202,10 @@ export default function SolariunHomeCockpit() {
         <FieldSection label="Field state" accent={TEAL}><div style={{ color: MUTED, fontSize: 12 }}>Reading existing Solariun state…</div></FieldSection>
       ) : null}
 
-      {!loading && failureCount > 0 ? (
-        <div role="status" style={{ color: MUTED, font: '11px/1.5 Inter,system-ui,sans-serif', padding: '9px 0' }}>
-          {failureCount} live surface{failureCount === 1 ? '' : 's'} did not respond. No placeholder state has been substituted.
+      {!loading ? (
+        <div role="status" style={{ color: MUTED, font: '10px/1.5 Inter,system-ui,sans-serif', padding: '9px 0', letterSpacing: '.03em' }}>
+          Live-state diagnostics · {Object.values(surfaceStatus).map(status => stateLabel(status)).join(' · ')}
+          {failureCount > 0 ? ' · No placeholder state has been substituted.' : ''}
         </div>
       ) : null}
 
@@ -227,14 +273,25 @@ export default function SolariunHomeCockpit() {
             </div>
           </div>
         ) : (
-          <div style={{ color: MUTED, fontSize: 12 }}>No active workload is currently available.</div>
+          <div style={{ color: MUTED, fontSize: 12 }}>
+            {surfaceStatus.workload.state === 'EMPTY' ? 'No active workload is currently recorded.' :
+             surfaceStatus.workload.state === 'UNAVAILABLE' ? 'Canonical workspace is unavailable for the workload surface.' :
+             surfaceStatus.workload.state === 'FAILED' ? 'Workload surface failed to respond.' :
+             'Workload surface is not currently available.'}
+          </div>
         )}
       </FieldSection>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,300px),1fr))', gap: 20 }}>
         <FieldSection label="Current signal" accent={GOLD}>
           <div style={{ color: '#E9E7DF', font: '500 18px/1.45 Georgia,serif' }}>
-            {text(first(pulseData.current_signal, pulseData.signal, pulseData.signal_summary), 'No current signal recorded.')}
+            {surfaceStatus.pulse.state === 'LIVE'
+              ? text(first(pulseData.current_signal, pulseData.signal, pulseData.signal_summary), 'No current signal recorded.')
+              : surfaceStatus.pulse.state === 'EMPTY'
+                ? 'No current signal recorded.'
+                : surfaceStatus.pulse.state === 'UNAVAILABLE'
+                  ? 'Pulse surface unavailable for the current workspace.'
+                  : 'Pulse surface failed to respond.'}
           </div>
         </FieldSection>
         <FieldSection label="Continuity" accent={BLUE}>
@@ -252,14 +309,25 @@ export default function SolariunHomeCockpit() {
               ))}
             </div>
           ) : (
-            <div style={{ color: MUTED, fontSize: 12 }}>No recent activity events are currently recorded.</div>
+            <div style={{ color: MUTED, fontSize: 12 }}>
+              {surfaceStatus.events.state === 'EMPTY' ? 'No recent activity events are currently recorded.' :
+               surfaceStatus.events.state === 'UNAVAILABLE' ? 'WorkEvent surface unavailable for the current workspace.' :
+               surfaceStatus.events.state === 'FAILED' ? 'WorkEvent surface failed to respond.' :
+               'WorkEvent surface is not currently available.'}
+            </div>
           )}
         </FieldSection>
       </div>
 
       <FieldSection label="Synthesis" accent={VIOLET}>
         <div style={{ color: '#E9E7DF', font: '500 20px/1.45 Georgia,serif' }}>
-          {text(first(synthesisData.summary, synthesisData.synthesis_summary), 'No current synthesis recorded.')}
+          {surfaceStatus.synthesis.state === 'LIVE'
+            ? text(first(synthesisData.summary, synthesisData.synthesis_summary), 'No current synthesis recorded.')
+            : surfaceStatus.synthesis.state === 'EMPTY'
+              ? 'No current synthesis recorded.'
+              : surfaceStatus.synthesis.state === 'UNAVAILABLE'
+                ? 'Synthesis surface unavailable for the current workspace.'
+                : 'Synthesis surface failed to respond.'}
         </div>
         {first(synthesisData.created_at, synthesisData.updated_at) ? (
           <div style={{ marginTop: 8, color: MUTED, font: '9px ui-monospace,SFMono-Regular,monospace' }}>{dateLabel(first(synthesisData.created_at, synthesisData.updated_at))}</div>
@@ -294,7 +362,12 @@ export default function SolariunHomeCockpit() {
             })}
           </div>
         ) : (
-          <div style={{ color: MUTED, fontSize: 12 }}>No proposals are currently awaiting attention.</div>
+          <div style={{ color: MUTED, fontSize: 12 }}>
+            {surfaceStatus.proposals.state === 'EMPTY' ? 'No proposals are currently awaiting attention.' :
+             surfaceStatus.proposals.state === 'UNAVAILABLE' ? 'Proposal surface unavailable for the current workspace.' :
+             surfaceStatus.proposals.state === 'FAILED' ? 'Proposal surface failed to respond.' :
+             'Proposal surface is not currently available.'}
+          </div>
         )}
         {notice ? <div role="status" style={{ marginTop: 10, color: MUTED, fontSize: 11 }}>{notice}</div> : null}
       </FieldSection>
