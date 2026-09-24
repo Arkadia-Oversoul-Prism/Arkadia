@@ -15,6 +15,7 @@ import {
 } from '../../lib/solariunApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { getPersonalField, PersonalField } from '../../lib/knowledgeApi';
+import { ApiError } from '../../lib/apiClient';
 
 const GOLD = '#C9A84C';
 const TEAL = '#00D4AA';
@@ -46,12 +47,19 @@ type SurfaceStatus = {
 };
 
 function errorStatus(error: unknown, notFoundMeansEmpty = false): SurfaceStatus {
-  const detail = error instanceof Error ? error.message : String(error);
-  const match = detail.match(/\\b(4\\d\\d|5\\d\\d)\\b/);
-  const code = match ? Number(match[1]) : null;
+  const detail = error instanceof ApiError
+    ? `${error.kind} · ${error.status ?? 'NO_STATUS'} · ${error.path}${error.message ? ` · ${error.message}` : ''}`
+    : error instanceof Error
+      ? error.message
+      : String(error);
+  const code = error instanceof ApiError ? error.status : null;
   if (code === 404 && notFoundMeansEmpty) return { state: 'EMPTY', detail };
   if (code === 409) return { state: 'UNAVAILABLE', detail };
   return { state: 'FAILED', detail };
+}
+
+function diagnosticLabel(status: SurfaceStatus) {
+  return status.detail ? `${status.state} [${status.detail}]` : status.state;
 }
 
 function stateLabel(status: SurfaceStatus) {
@@ -204,7 +212,7 @@ export default function SolariunHomeCockpit() {
 
       {!loading ? (
         <div role="status" style={{ color: MUTED, font: '10px/1.5 Inter,system-ui,sans-serif', padding: '9px 0', letterSpacing: '.03em' }}>
-          Live-state diagnostics · {Object.values(surfaceStatus).map(status => stateLabel(status)).join(' · ')}
+          Live-state diagnostics · {Object.values(surfaceStatus).map(status => diagnosticLabel(status)).join(' · ')}
           {failureCount > 0 ? ' · No placeholder state has been substituted.' : ''}
         </div>
       ) : null}
