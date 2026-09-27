@@ -322,7 +322,7 @@ async def list_enterprise_attachments(enterprise_id: str, user: dict = Depends(r
     with _db() as conn:
         rows = conn.execute(
             """SELECT attachment_id, original_name, content_type, size_bytes,
-                      extraction_status, created_at
+                      extraction_status, extracted_text, created_at
                FROM enterprise_attachments
                WHERE enterprise_id=? AND owner_subject_ref=?
                ORDER BY created_at DESC""",
