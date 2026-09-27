@@ -20,6 +20,7 @@ import ArkadianPulse from './pages/ArkadianPulse';
 import SettingsPage from './pages/SettingsPage';
 import AccountPage from './pages/AccountPage';
 import SolSpireConsole from './pages/SolSpireConsole';
+import SolariunConsole from './pages/SolariunConsole';
 import ReasoMatePage from './pages/ReasoMatePage';
 import SpiralCommandInterface from './pages/SpiralCommandInterface';
 import UniversalEchofeildMatrix from './pages/UniversalEchofeildMatrix';
@@ -29,14 +30,15 @@ type SolSpireLens = 'overview'|'projects'|'commercial'|'knowledge'|'files'|'conv
 type View =
   | 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
   | 'nexus' | 'encyclopedia' | 'spiral-codex' | 'loops' | 'grove' | 'larder' | 'novanet'
-  | 'ims' | 'distribute' | 'offerings' | 'aic' | 'pulse' | 'settings' | 'account' | 'sci' | 'solspire'
+  | 'ims' | 'distribute' | 'offerings' | 'aic' | 'pulse' | 'settings' | 'account' | 'sci' | 'solariun' | 'solspire'
   | 'knowledge-os' | 'reasomate' | 'personal-echofeild' | 'echofeild-matrix' | 'challenge';
 
 type RouteState = { view: View; section?: SolSpireLens; path: string };
 const SOLSPIRE_LENSES = new Set<SolSpireLens>(['overview','projects','commercial','knowledge','files','conversations','tasks','memory','weaver','observatory','engineering-lab','settings']);
 
 function routeForView(view: View, section?: SolSpireLens): string {
-  if (view === 'solspire') return section && section !== 'overview' ? `/solspire/${section}` : '/solspire';
+  if (view === 'solariun') return section && section !== 'overview' ? `/solariun/${section}` : '/solariun';
+  if (view === 'solspire') return '/solspire';
   const routes: Partial<Record<View, string>> = {
     home: '/', gate: '/living-gate', commune: '/oracle', about: '/about', login: '/login',
     novanet: '/nexus', ims: '/nexus/ims', grove: '/nexus/grove', larder: '/nexus/larder', distribute: '/nexus/distribution', encyclopedia: '/encyclopedia', 'spiral-codex': '/spiral-codex',
@@ -48,16 +50,14 @@ function routeForView(view: View, section?: SolSpireLens): string {
 
 function resolvePath(pathname: string): RouteState {
   const path = pathname.replace(/\/+$/, '') || '/';
-  const solspire = path.match(/^\/solspire(?:\/([^/]+))?$/);
-  if (solspire) {
-    const candidate = solspire[1] as SolSpireLens | undefined;
-    return { view: 'solspire', section: candidate && SOLSPIRE_LENSES.has(candidate) ? candidate : 'overview', path: routeForView('solspire', candidate && SOLSPIRE_LENSES.has(candidate) ? candidate : 'overview') };
-  }
+  const solariun = path.match(/^\/solariun(?:\/([^/]+))?$/);
+  if (solariun) { const candidate = solariun[1] as SolSpireLens | undefined; return { view:'solariun', section:candidate && SOLSPIRE_LENSES.has(candidate)?candidate:'overview', path:routeForView('solariun',candidate && SOLSPIRE_LENSES.has(candidate)?candidate:'overview') }; }
+  if (path === '/solspire') return {view:'solspire',path:'/solspire'};
   const compatibility: Record<string, { view: View; section?: SolSpireLens }> = {
-    '/codex': {view:'solspire',section:'knowledge'}, '/knowledge-os': {view:'solspire',section:'knowledge'},
-    '/loops': {view:'solspire',section:'tasks'}, '/dashboard': {view:'solspire',section:'overview'},
-    '/personal-echofeild': {view:'solspire',section:'observatory'}, '/echofeild-matrix': {view:'solspire',section:'observatory'},
-    '/settings': {view:'solspire',section:'settings'}, '/account': {view:'solspire',section:'settings'},
+    '/codex': {view:'solariun',section:'knowledge'}, '/knowledge-os': {view:'solariun',section:'knowledge'},
+    '/loops': {view:'solariun',section:'tasks'}, '/dashboard': {view:'solariun',section:'overview'},
+    '/personal-echofeild': {view:'solariun',section:'observatory'}, '/echofeild-matrix': {view:'solariun',section:'observatory'},
+    '/settings': {view:'solariun',section:'settings'}, '/account': {view:'solariun',section:'settings'},
     '/sci': {view:'sci'},
   };
   if (compatibility[path]) {
@@ -140,13 +140,14 @@ function AppInner() {
     {view === 'aic' && <motion.div key="aic" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}><NodeEntry onEnterNovaNet={() => handleNavigate('novanet')} onGoToOfferings={() => handleNavigate('offerings')} onBack={() => handleNavigate('offerings')} onAICComplete={setAicSeed} /></motion.div>}
     {view === 'about' && <motion.div key="about" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}><AboutArkadia /></motion.div>}
     {view === 'login' && <motion.div key="login" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}><NodeEntry onEnterNovaNet={() => handleNavigate('novanet')} onGoToOfferings={() => handleNavigate('offerings')} onBack={() => handleNavigate('home')} onAICComplete={setAicSeed} /></motion.div>}
-    {view === 'codex' && <motion.div key="codex" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><SolSpireConsole onNavigate={handleNavigate} initialSection="knowledge" /></motion.div>}
+    {view === 'codex' && <motion.div key="codex" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><SolariunConsole onNavigate={handleNavigate} initialSection="knowledge" /></motion.div>}
     {view === 'pulse' && <motion.div key="pulse" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}><ArkadianPulse /></motion.div>}
-    {view === 'settings' && <motion.div key="settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }} style={wrap}><SolSpireConsole onNavigate={handleNavigate} initialSection="settings" /></motion.div>}
-    {view === 'account' && <motion.div key="account" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><SolSpireConsole onNavigate={handleNavigate} initialSection="settings" /></motion.div>}
+    {view === 'settings' && <motion.div key="settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }} style={wrap}><SolariunConsole onNavigate={handleNavigate} initialSection="settings" /></motion.div>}
+    {view === 'account' && <motion.div key="account" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><SolariunConsole onNavigate={handleNavigate} initialSection="settings" /></motion.div>}
     {view === 'sci' && <motion.div key="sci" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><ExperienceConsolidationFrame surface="Spiral Command" onNavigate={handleNavigate}><SpiralCommandInterface onNavigate={handleNavigate} /></ExperienceConsolidationFrame></motion.div>}
-    {view === 'solspire' && <motion.div key={`solspire-${solspireSection}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><ExperienceConsolidationFrame surface="Solariun" onNavigate={handleNavigate}><SolSpireConsole onNavigate={handleNavigate} initialSection={solspireSection} /></ExperienceConsolidationFrame></motion.div>}
-    {view === 'knowledge-os' && <motion.div key="knowledge-os" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><ExperienceConsolidationFrame surface="Solariun" onNavigate={handleNavigate}><SolSpireConsole onNavigate={handleNavigate} initialSection="knowledge" /></ExperienceConsolidationFrame></motion.div>}
+    {view === 'solariun' && <motion.div key={`solariun-${solspireSection}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><ExperienceConsolidationFrame surface="Solariun" onNavigate={handleNavigate}><SolariunConsole onNavigate={handleNavigate} initialSection={solspireSection} /></ExperienceConsolidationFrame></motion.div>}
+    {view === 'solspire' && <motion.div key="solspire-enterprise" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><ExperienceConsolidationFrame surface="SolSpire" onNavigate={handleNavigate}><SolSpireConsole onNavigate={handleNavigate} /></ExperienceConsolidationFrame></motion.div>}
+    {view === 'knowledge-os' && <motion.div key="knowledge-os" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><ExperienceConsolidationFrame surface="Solariun" onNavigate={handleNavigate}><SolariunConsole onNavigate={handleNavigate} initialSection="knowledge" /></ExperienceConsolidationFrame></motion.div>}
     {view === 'reasomate' && <motion.div key="reasomate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><ReasoMatePage /></motion.div>}
     {view === 'personal-echofeild' && <motion.div key="personal-echofeild" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><UniversalEchofeildMatrix onNavigate={handleNavigate} /></motion.div>}
     {view === 'echofeild-matrix' && <motion.div key="echofeild-matrix" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}><UniversalEchofeildMatrix onNavigate={handleNavigate} /></motion.div>}
