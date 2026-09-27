@@ -263,3 +263,63 @@
     padding: 6px 8px !important;
   }
 }
+
+
+/* U2: compact Arcana context pack. */
+.arkana-context-pack {
+  margin: 0 8px 8px;
+  padding: 7px 9px;
+  border: 1px solid rgba(0,212,170,.16);
+  border-radius: 8px;
+  background: rgba(0,212,170,.035);
+  color: rgba(233,231,223,.52);
+}
+
+.arkana-context-label {
+  margin-bottom: 5px;
+  color: rgba(0,212,170,.72);
+  font: 600 7px/1.2 Inter,system-ui,sans-serif;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+.arkana-context-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 7px;
+}
+
+.arkana-context-grid span {
+  padding: 2px 5px;
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 4px;
+  color: rgba(233,231,223,.48);
+  font: 7.5px/1.2 ui-monospace,SFMono-Regular,monospace;
+  letter-spacing: .03em;
+}
+
+.arkana-context-honesty {
+  margin-top: 5px;
+  color: rgba(233,231,223,.28);
+  font: 7px/1.25 Inter,system-ui,sans-serif;
+}
+
+@media (max-width: 700px) {
+  .arkana-context-pack {
+    margin: 0 4px 6px;
+    padding: 6px 7px;
+  }
+
+  .arkana-context-grid {
+    gap: 3px 5px;
+  }
+
+  .arkana-context-grid span {
+    font-size: 7px;
+  }
+
+  .arkana-context-honesty {
+    margin-top: 4px;
+    font-size: 6.5px;
+  }
+}
