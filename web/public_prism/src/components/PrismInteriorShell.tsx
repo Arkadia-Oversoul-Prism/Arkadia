@@ -7,7 +7,8 @@ type Props = { currentView: View; onNavigate: (view: View) => void; children: Re
 
 const PRIMARY = [
   { key: 'novanet', label: 'NovaNet', sub: 'Outer network', sigil: '◉', tone: '#6A9FD8' },
-  { key: 'solspire', label: 'SolSpire', sub: 'Workspace', sigil: '◈', tone: '#C9A84C' },
+  { key: 'solariun', label: 'Solariun', sub: 'Personal canvas', sigil: '◈', tone: '#B08DE8' },
+  { key: 'solspire', label: 'SolSpire', sub: 'Enterprise console', sigil: '▦', tone: '#C9A84C' },
   { key: 'commune', label: 'Oracle', sub: 'Think', sigil: '✧', tone: '#00D4AA' },
   { key: 'reasomate', label: 'ReasoMate', sub: 'Reasoning', sigil: '⌘', tone: '#B08DE8' },
   { key: 'encyclopedia', label: 'Encyclopedia', sub: 'Knowledge', sigil: '◇', tone: '#6A9FD8' },
@@ -24,7 +25,7 @@ const SECONDARY = [
 
 function activeSurfaceFor(v: View) {
   if (v === 'novanet') return 'novanet';
-  if (v === 'solspire' || v === 'loops' || v === 'codex' || v === 'personal-echofeild' || v === 'echofeild-matrix' || v === 'spiral-codex') return 'solspire';
+  if (v === 'solariun' || v === 'solspire' || v === 'loops' || v === 'codex' || v === 'personal-echofeild' || v === 'echofeild-matrix' || v === 'spiral-codex') return 'solspire';
   if (v === 'commune' || v === 'reasomate') return v === 'reasomate' ? 'reasomate' : 'commune';
   if (v === 'encyclopedia' || v === 'knowledge-os') return 'encyclopedia';
   if (v === 'offerings') return 'offerings';
