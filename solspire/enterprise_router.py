@@ -101,10 +101,10 @@ def _db() -> sqlite3.Connection:
         )
     """)
     conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_enterprise_owner ON enterprise_workspaces(owner_subject_ref, updated_at)"
+        "CREATE INDEX IF NOT EXISTS idx_enterprise_owner ON enterprise_organizations(owner_subject_ref, updated_at)"
     )
     conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_enterprise_workspace ON enterprise_workspaces(workspace_ref)"
+        "CREATE INDEX IF NOT EXISTS idx_enterprise_workspace ON enterprise_organizations(workspace_ref)"
     )
     conn.commit()
     return conn
@@ -138,7 +138,7 @@ def _decode(row: sqlite3.Row) -> Enterprise:
 
 def _get(conn: sqlite3.Connection, enterprise_id: str, subject_ref: str) -> Enterprise | None:
     row = conn.execute(
-        "SELECT * FROM enterprise_workspaces WHERE enterprise_id=? AND owner_subject_ref=?",
+        "SELECT * FROM enterprise_organizations WHERE enterprise_id=? AND owner_subject_ref=?",
         (enterprise_id, subject_ref),
     ).fetchone()
     return _decode(row) if row else None
@@ -154,7 +154,7 @@ class EnterpriseManager:
         name = display_name.strip() or "New Enterprise"
         with _db() as conn:
             conn.execute(
-                """INSERT INTO enterprise_workspaces
+                """INSERT INTO enterprise_organizations
                 (enterprise_id, owner_subject_ref, workspace_ref, display_name, legal_name,
                  lifecycle, onboarding_step, context_json, pilot_workload_json,
                  workstreams_json, members_json, operating_context_json, week_one_json,
@@ -167,7 +167,7 @@ class EnterpriseManager:
     def list(self, *, subject_ref: str) -> list[Enterprise]:
         with _db() as conn:
             rows = conn.execute(
-                "SELECT * FROM enterprise_workspaces WHERE owner_subject_ref=? ORDER BY updated_at DESC",
+                "SELECT * FROM enterprise_organizations WHERE owner_subject_ref=? ORDER BY updated_at DESC",
                 (subject_ref,),
             ).fetchall()
         return [_decode(row) for row in rows]
@@ -197,7 +197,7 @@ class EnterpriseManager:
             next_step = max(enterprise.onboarding_step, step)
             lifecycle = "READY_FOR_OPERATIONS" if step == 7 else "ONBOARDING"
             conn.execute(
-                f"""UPDATE enterprise_workspaces
+                f"""UPDATE enterprise_organizations
                     SET {column}=?, legal_name=?, display_name=?, onboarding_step=?,
                         lifecycle=?, updated_at=? WHERE enterprise_id=? AND owner_subject_ref=?""",
                 (encoded, legal_name, display_name, next_step, lifecycle, time.time(), enterprise_id, subject_ref),
@@ -211,7 +211,7 @@ class EnterpriseManager:
                 raise HTTPException(status_code=404, detail="Enterprise workspace not found")
             analyses = [*enterprise.analysis, item]
             conn.execute(
-                "UPDATE enterprise_workspaces SET analysis_json=?, updated_at=? WHERE enterprise_id=? AND owner_subject_ref=?",
+                "UPDATE enterprise_organizations SET analysis_json=?, updated_at=? WHERE enterprise_id=? AND owner_subject_ref=?",
                 (json.dumps(analyses, ensure_ascii=False), time.time(), enterprise_id, subject_ref),
             )
             return _get(conn, enterprise_id, subject_ref)  # type: ignore[return-value]
