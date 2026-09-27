@@ -112,11 +112,11 @@ function AppInner() {
     if (requested !== 'commune') setSoulPhrase(undefined);
     let next: RouteState = { view: requested, path: routeForView(requested) };
     if (requested === 'nexus') next = {view:'novanet',path:'/nexus'};
-    if (requested === 'knowledge-os' || requested === 'codex') next = {view:'solspire',section:'knowledge',path:'/solspire/knowledge'};
-    if (requested === 'loops') next = {view:'solspire',section:'tasks',path:'/solspire/tasks'};
-    if (requested === 'dashboard') next = {view:'solspire',section:'overview',path:'/solspire'};
-    if (requested === 'personal-echofeild' || requested === 'echofeild-matrix') next = {view:'solspire',section:'observatory',path:'/solspire/observatory'};
-    if (requested === 'settings' || requested === 'account') next = {view:'solspire',section:'settings',path:'/solspire/settings'};
+    if (requested === 'knowledge-os' || requested === 'codex') next = {view:'solariun',section:'knowledge',path:'/solariun/knowledge'};
+    if (requested === 'loops') next = {view:'solariun',section:'tasks',path:'/solariun/tasks'};
+    if (requested === 'dashboard') next = {view:'solariun',section:'overview',path:'/solariun'};
+    if (requested === 'personal-echofeild' || requested === 'echofeild-matrix') next = {view:'solariun',section:'observatory',path:'/solariun/observatory'};
+    if (requested === 'settings' || requested === 'account') next = {view:'solariun',section:'settings',path:'/solariun/settings'};
     if (requested === 'sci') next = {view:'sci',path:'/sci'};
     setView(next.view);
     setSolSpireSection(next.section || 'overview');
@@ -130,7 +130,7 @@ function AppInner() {
     {view === 'commune' && <motion.div key="commune" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.38 }}><ArkanaCommune initialMessage={soulPhrase} /></motion.div>}
     {view === 'reset' && <motion.div key="reset" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}><CoherenceReset /></motion.div>}
     {view === 'encyclopedia' && <motion.div key="encyclopedia" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}><NexusSpiralCodex initialMode="scrolls" /></motion.div>}
-    {view === 'spiral-codex' && <motion.div key="spiral-codex" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}><SpiralCodexFeed onBack={() => handleNavigate('solspire')} /></motion.div>}
+    {view === 'spiral-codex' && <motion.div key="spiral-codex" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}><SpiralCodexFeed onBack={() => handleNavigate('solariun')} /></motion.div>}
     {view === 'grove' && <motion.div key="grove" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}><SpiralGrovePage /></motion.div>}
     {view === 'larder' && <motion.div key="larder" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}><LivingLarderPage /></motion.div>}
     {view === 'ims' && <motion.div key="ims" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }} style={wrap}><IMSArchivePage /></motion.div>}
