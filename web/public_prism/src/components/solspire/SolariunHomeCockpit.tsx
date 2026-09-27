@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   emitSolariunWorkEvent,
+  getSolariunWorkspace,
   getSolariunPulse,
   getSolariunProposals,
   getSolariunSynthesis,
   getSolariunWorkEvents,
   getSolariunWorkload,
   recordSolariunProposalDecision,
+  SolariunWorkspace,
   SolariunPulse,
   SolariunProposal,
   SolariunSynthesis,
@@ -91,6 +93,8 @@ function StateObject({ label, title, body, accent = GOLD, meta }: { label: strin
 
 export default function SolariunHomeCockpit() {
   const { codex } = useAuth();
+  const [workspace, setWorkspace] = useState<SolariunWorkspace | null>(null);
+  const [workspaceStatus, setWorkspaceStatus] = useState<SurfaceStatus>({ state: 'LOADING' });
   const [pulse, setPulse] = useState<SolariunPulse | null>(null);
   const [workload, setWorkload] = useState<SolariunWorkload | null>(null);
   const [events, setEvents] = useState<SolariunWorkEvent[]>([]);
@@ -111,15 +115,18 @@ export default function SolariunHomeCockpit() {
 
   useEffect(() => {
     let alive = true;
-    Promise.allSettled([
-      getSolariunPulse(),
-      getSolariunWorkload(),
-      getSolariunWorkEvents(),
-      getSolariunSynthesis(),
-      getSolariunProposals(),
-      getPersonalField(),
-    ]).then(results => {
+
+    const readHomeSurfaces = async () => {
+      const results = await Promise.allSettled([
+        getSolariunPulse(),
+        getSolariunWorkload(),
+        getSolariunWorkEvents(),
+        getSolariunSynthesis(),
+        getSolariunProposals(),
+        getPersonalField(),
+      ]);
       if (!alive) return;
+
       const failures = results.filter(result => result.status === 'rejected').length;
       const nextStatus = {
         pulse: results[0].status === 'fulfilled'
@@ -138,6 +145,7 @@ export default function SolariunHomeCockpit() {
           ? ((results[4].value.proposals ?? []).length ? { state: 'LIVE' as const } : { state: 'EMPTY' as const })
           : errorStatus(results[4].reason),
       };
+
       if (results[0].status === 'fulfilled') setPulse(results[0].value.pulse ?? null);
       if (results[1].status === 'fulfilled') setWorkload(results[1].value.workload ?? null);
       if (results[2].status === 'fulfilled') setEvents(first(results[2].value.work_events, results[2].value.events) ?? []);
@@ -147,7 +155,34 @@ export default function SolariunHomeCockpit() {
       setSurfaceStatus(nextStatus);
       setFailureCount(failures);
       setLoading(false);
-    });
+    };
+
+    // R1/R2: resolve the canonical workspace first. The current backend endpoint
+    // is idempotent and provisions the bounded workspace for the verified subject.
+    // R3: only after bootstrap succeeds do the five Home reads run in parallel.
+    getSolariunWorkspace()
+      .then(result => {
+        if (!alive) return;
+        const resolved = result.workspace ?? null;
+        setWorkspace(resolved);
+        setWorkspaceStatus(resolved ? { state: 'LIVE' } : { state: 'EMPTY', detail: 'Canonical workspace response was empty' });
+        return readHomeSurfaces();
+      })
+      .catch(error => {
+        if (!alive) return;
+        setWorkspace(null);
+        setWorkspaceStatus(errorStatus(error));
+        setSurfaceStatus({
+          pulse: { state: 'UNAVAILABLE', detail: 'Workspace bootstrap failed' },
+          workload: { state: 'UNAVAILABLE', detail: 'Workspace bootstrap failed' },
+          events: { state: 'UNAVAILABLE', detail: 'Workspace bootstrap failed' },
+          synthesis: { state: 'UNAVAILABLE', detail: 'Workspace bootstrap failed' },
+          proposals: { state: 'UNAVAILABLE', detail: 'Workspace bootstrap failed' },
+        });
+        setFailureCount(5);
+        setLoading(false);
+      });
+
     return () => { alive = false; };
   }, []);
 
@@ -212,12 +247,29 @@ export default function SolariunHomeCockpit() {
 
       {!loading ? (
         <div role="status" style={{ color: MUTED, font: '10px/1.5 Inter,system-ui,sans-serif', padding: '9px 0', letterSpacing: '.03em' }}>
-          Live-state diagnostics · {Object.values(surfaceStatus).map(status => diagnosticLabel(status)).join(' · ')}
+          Workspace bootstrap · {stateLabel(workspaceStatus)}
+          {' · '}
+          {Object.values(surfaceStatus).map(status => stateLabel(status)).join(' · ')}
           {failureCount > 0 ? ' · No placeholder state has been substituted.' : ''}
         </div>
       ) : null}
 
       <FieldSection label="Identity context" accent={VIOLET}>
+        <div
+          data-solariun-workspace-state={workspaceStatus.state}
+          data-solariun-identity-alignment={
+            workspace && personalField?.identity?.uid
+              ? (workspace.canonical_subject_ref === personalField.identity.uid ? 'ALIGNED' : 'MISMATCH')
+              : 'UNKNOWN'
+          }
+          style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 9, color: MUTED, font: '9px/1.35 ui-monospace,SFMono-Regular,monospace', letterSpacing: '.06em', textTransform: 'uppercase' }}
+        >
+          <span>WORKSPACE · {workspaceStatus.state}</span>
+          {workspace?.workspace_type ? <span>· {workspace.workspace_type}</span> : null}
+          {workspace && personalField?.identity?.uid ? (
+            <span>· IDENTITY {workspace.canonical_subject_ref === personalField.identity.uid ? 'ALIGNED' : 'MISMATCH'}</span>
+          ) : null}
+        </div>
         {codex ? (
           <StateObject
             label="PERSONAL CODEX"
