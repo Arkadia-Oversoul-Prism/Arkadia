@@ -2,12 +2,15 @@ from pathlib import Path
 
 from solspire import enterprise_router
 from solspire import workspace_manager
+from solspire import pulse_manager, synthesis_manager
 
 
 def test_eden_bootstrap_is_idempotent_and_seeds_week1(monkeypatch, tmp_path: Path):
     db = tmp_path / "eden.db"
     monkeypatch.setattr(enterprise_router, "_DB_PATH", str(db))
     monkeypatch.setattr(workspace_manager, "_DB_PATH", str(db))
+    monkeypatch.setattr(pulse_manager, "_DB_PATH", str(db))
+    monkeypatch.setattr(synthesis_manager, "_DB_PATH", str(db))
     manager = enterprise_router.EdenEnterpriseManager()
 
     first = manager.bootstrap(subject_ref="test-subject")
