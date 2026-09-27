@@ -200,7 +200,7 @@ export default function PersonalEchofeild({ onNavigate }: { onNavigate: (v: View
           )}
           {activeProjects.map((p, i) => (
             <motion.div key={p.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.04, 0.3), duration: 0.25 }}
-              onClick={() => onNavigate('solspire')}
+              onClick={() => onNavigate('solariun')}
               style={{ cursor: 'pointer', padding: '18px 20px', background: 'rgba(0,212,170,0.03)', border: '1px solid rgba(0,212,170,0.12)',
                 borderRadius: 12, borderLeft: '3px solid rgba(0,212,170,0.4)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
@@ -253,7 +253,7 @@ export default function PersonalEchofeild({ onNavigate }: { onNavigate: (v: View
               </p>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 }}>
                 <button onClick={() => onNavigate('commune')} style={ctaBtn}>Open the Oracle</button>
-                <button onClick={() => onNavigate('solspire')} style={ctaBtn}>Create a project</button>
+                <button onClick={() => onNavigate('solariun')} style={ctaBtn}>Create a project</button>
               </div>
             </div>
           )}
