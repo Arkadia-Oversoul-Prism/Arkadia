@@ -46,7 +46,7 @@ const NAV: NavItem[] = [
 ];
 const NETWORK=[
   {view:'novanet',label:'Nexus Hub',sigil:'◉',sub:'Public field / hub'},
-  {view:'solspire',label:'Solariun',sigil:'◈',sub:'Private workspace'},
+  {view:'solariun',label:'Solariun',sigil:'◈',sub:'Personal canvas'},
   {view:'grove',label:'Spiral Grove',sigil:'✧',sub:'Learning grove'},
   {view:'spiral-command',label:'Spiral Command',sigil:'⌘',sub:'Governance / command'},
   {view:'spiral-codex',label:'Spiral Codex',sigil:'✦',sub:'Living transmissions'},
