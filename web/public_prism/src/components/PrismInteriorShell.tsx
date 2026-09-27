@@ -25,7 +25,9 @@ const SECONDARY = [
 
 function activeSurfaceFor(v: View) {
   if (v === 'novanet') return 'novanet';
-  if (v === 'solariun' || v === 'solspire' || v === 'loops' || v === 'codex' || v === 'personal-echofeild' || v === 'echofeild-matrix' || v === 'spiral-codex') return 'solspire';
+  if (v === 'solariun') return 'solariun';
+  if (v === 'solspire') return 'solspire';
+  if (v === 'loops' || v === 'codex' || v === 'personal-echofeild' || v === 'echofeild-matrix' || v === 'spiral-codex') return 'solariun';
   if (v === 'commune' || v === 'reasomate') return v === 'reasomate' ? 'reasomate' : 'commune';
   if (v === 'encyclopedia' || v === 'knowledge-os') return 'encyclopedia';
   if (v === 'offerings') return 'offerings';
