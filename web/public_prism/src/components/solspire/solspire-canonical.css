@@ -544,3 +544,52 @@
   outline: 2px solid rgba(0, 212, 170, .72);
   outline-offset: 2px;
 }
+
+/* Solariun Home field — mobile-first density calibration */
+.solariun-home-cockpit {
+  gap: 16px !important;
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+}
+.solariun-home-cockpit .solariun-field-section {
+  padding-top: 12px;
+}
+.solariun-home-cockpit .solspire-object {
+  padding: 12px 13px;
+}
+.solariun-home-cockpit .solspire-object-actions button {
+  min-height: 36px;
+  min-width: 72px;
+}
+@media (max-width: 700px) {
+  .solariun-home-cockpit {
+    gap: 12px !important;
+  }
+  .solariun-home-header h2 {
+    font-size: clamp(24px, 8vw, 34px) !important;
+    margin: 6px 0 4px !important;
+  }
+  .solariun-home-header p {
+    font-size: 11.5px !important;
+    line-height: 1.45 !important;
+  }
+  .solariun-home-cockpit .solariun-field-section {
+    padding-top: 10px !important;
+  }
+  .solariun-home-cockpit .solspire-object {
+    padding: 11px 12px !important;
+  }
+  .solariun-home-cockpit .solspire-title {
+    font-size: 15px !important;
+    line-height: 1.35 !important;
+  }
+}
+@media (max-width: 380px) {
+  .solariun-home-cockpit .solspire-object-actions {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 6px !important;
+  }
+  .solariun-home-cockpit .solspire-object-actions button {
+    width: 100%;
+  }
+}

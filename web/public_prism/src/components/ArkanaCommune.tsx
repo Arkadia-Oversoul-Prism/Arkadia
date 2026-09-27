@@ -226,7 +226,8 @@ const SovereignGate: React.FC<{ token: string; onSave: (t: string) => void; onCl
 // ─── Markdown renderer (full canvas with bolds, headers, italics, quotes, emoji) ────────────────────────────
 const MarkdownContent: React.FC<{ text: string; tone: 'user' | 'arkana' }> = ({ text, tone }) => (
   <div className={`arkadia-prose arkadia-prose-${tone}`}>
-    <MarkdownViewer content={text} compact />
+    {/* Scoped dense conversation presentation — does not mutate global MarkdownViewer default */}
+    <MarkdownViewer content={text} compact presentationMode="denseConversation" />
   </div>
 );
 

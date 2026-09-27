@@ -70,8 +70,8 @@ function stateLabel(status: SurfaceStatus) {
 
 function FieldSection({ label, accent = GOLD, children }: { label: string; accent?: string; children: React.ReactNode }) {
   return (
-    <section className="solariun-field-section" style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
+    <section className="solariun-field-section" style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 12 }}>
+      <div className="solariun-field-section-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
         <span style={{ color: `${accent}aa`, font: '600 8px/1.2 Inter,system-ui,sans-serif', letterSpacing: '.2em', textTransform: 'uppercase' }}>{label}</span>
         <span aria-hidden="true" style={{ width: 5, height: 5, borderRadius: '50%', background: accent, opacity: .7 }} />
       </div>
@@ -228,16 +228,18 @@ export default function SolariunHomeCockpit() {
 
   return (
     <div
+      className="solariun-home-cockpit"
+      data-testid="solariun-home-cockpit"
       data-solariun-field="overview"
       data-solariun-grammar="field-composition"
       aria-label="Solariun field: what matters now"
-      style={{ display: 'grid', gap: 24, width: '100%' }}
+      style={{ display: 'grid', gap: 18, width: '100%' }}
     >
-      <header style={{ padding: '10px 2px 6px' }}>
+      <header className="solariun-home-header" style={{ padding: '6px 2px 2px' }}>
         <div style={{ color: `${TEAL}aa`, font: '600 8px/1.2 Inter,system-ui,sans-serif', letterSpacing: '.24em', textTransform: 'uppercase' }}>SOLARIUN / FIELD</div>
-        <h2 style={{ margin: '9px 0 7px', font: '500 clamp(34px,5vw,58px)/1.02 Georgia,"Times New Roman",serif', color: '#E9E7DF' }}>What matters now?</h2>
-        <p style={{ margin: 0, maxWidth: 720, color: MUTED, font: '13px/1.65 Inter,system-ui,sans-serif' }}>
-          The field composes live workspace state. Values below are rendered only when the existing substrate returns them.
+        <h2 style={{ margin: '7px 0 5px', font: '500 clamp(26px,6vw,52px)/1.05 Georgia,"Times New Roman",serif', color: '#E9E7DF' }}>What matters now?</h2>
+        <p style={{ margin: 0, maxWidth: 720, color: MUTED, font: '12px/1.55 Inter,system-ui,sans-serif' }}>
+          Live workspace state only — no fabricated continuity.
         </p>
       </header>
 

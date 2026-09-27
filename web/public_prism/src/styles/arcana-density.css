@@ -323,3 +323,90 @@
     font-size: 6.5px;
   }
 }
+
+/* ── Experience calibration: mobile-first conversation ergonomics ───────────
+ * Composer safe-area, denser scroll region, readable touch targets.
+ * No second shell. No conversation model change.
+ */
+.arkana-conversation {
+  height: 100dvh;
+  max-height: 100dvh;
+}
+
+@supports (height: 100dvh) {
+  .arkana-conversation {
+    height: 100dvh;
+  }
+}
+
+.arkana-conversation .arkana-composer {
+  padding-bottom: max(10px, env(safe-area-inset-bottom)) !important;
+}
+
+.arkana-conversation .arkana-composer button {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.arkana-conversation .arkana-conversation-header button {
+  min-height: 36px;
+  min-width: 36px;
+}
+
+@media (max-width: 700px) {
+  .arkana-conversation {
+    height: 100dvh;
+  }
+
+  .arkana-conversation .arkana-conversation-header {
+    padding: 8px 12px !important;
+    gap: 8px !important;
+  }
+
+  .arkana-conversation .arkana-conversation-scroll {
+    padding: 10px 10px 14px !important;
+  }
+
+  .arkana-conversation .arkana-conversation-scroll > div {
+    max-width: none !important;
+  }
+
+  .arkana-conversation .arkana-user-bubble {
+    max-width: 88% !important;
+  }
+
+  .arkana-conversation .arkana-response {
+    padding-left: 8px !important;
+  }
+
+  .arkana-conversation .arkana-dense-renderer .arkadia-prose,
+  .arkana-conversation .arkadia-md-dense-conversation {
+    max-width: none !important;
+    font-size: 12px !important;
+  }
+
+  .arkana-conversation .arkana-composer {
+    padding: 10px 10px max(12px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .arkana-conversation .arkana-composer textarea,
+  .arkana-conversation .arkana-composer input {
+    font-size: 16px !important; /* prevent iOS zoom */
+  }
+
+  .arkana-conversation .arkana-message-toolbar {
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+  }
+
+  .arkana-conversation .arkana-message-toolbar button {
+    min-height: 32px;
+    padding: 4px 8px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .arkana-conversation .arkana-user-bubble {
+    max-width: 92% !important;
+  }
+}
