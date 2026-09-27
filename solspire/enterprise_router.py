@@ -80,7 +80,7 @@ def _db() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS enterprise_workspaces (
+        CREATE TABLE IF NOT EXISTS enterprise_organizations (
             enterprise_id TEXT PRIMARY KEY,
             owner_subject_ref TEXT NOT NULL,
             workspace_ref TEXT NOT NULL,
