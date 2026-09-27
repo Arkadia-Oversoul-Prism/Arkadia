@@ -11,6 +11,7 @@ import os
 import sqlite3
 import time
 import uuid
+from datetime import datetime, timezone
 from dataclasses import asdict, dataclass
 from typing import Any
 
@@ -227,7 +228,7 @@ class EdenEnterpriseManager:
 
         workload = get_workload_manager().get_for_subject(subject_ref, ws.id)
         pulse = get_pulse_manager().get_for_subject_date(
-            subject_ref, ws.id, __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m-%d")
+            subject_ref, ws.id, datetime.now(timezone.utc).strftime("%Y-%m-%d")
         )
         synthesis = get_synthesis_manager().get_current_week(subject_ref, ws.id)
 
