@@ -97,7 +97,7 @@ export default function EnterpriseConsole({onNavigate}:{onNavigate?:(v:any)=>voi
     </div>
     <div className="mobile-actions"><div className="mobile-actions-inner"><button className="secondary" style={secondary} disabled={busy} onClick={()=>void ask()}>✦ Ask Oracle</button><button style={secondary} disabled={busy||step===1} onClick={()=>{const n=Math.max(1,step-1);setStep(n);setData(enterprise[sectionForStep(n)]||{})}}>Back</button><button style={primary} disabled={busy} onClick={()=>void save(step<7)}>{busy?'Saving…':step<7?'Save & continue':'Save onboarding'}</button>{step===7&&<button style={secondary} disabled={busy} onClick={()=>void showDashboard()}>Dashboard</button>}</div></div>
    </>}
-   {error&&<div role="alert" style={{...card,padding:12,color:'#f0aaaa,fontSize:12}}>{error}</div>}
+   {error&&<div role="alert" style={{...card,padding:12,color:'#f0aaaa',fontSize:12}}>{error}</div>}
   </div>
  </main>
 }
