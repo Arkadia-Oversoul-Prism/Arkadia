@@ -17,8 +17,9 @@ def test_area_a_novanet_is_bound_to_shared_experience_shell():
 def test_area_b_solariun_workspace_is_bound_to_shared_experience_shell():
     src = APP.read_text()
     assert 'surface="Solariun"' in src
+    assert "<SolariunConsole" in src
+    assert "/solariun" in src
     assert "<SolSpireConsole" in src
-    assert "/solspire" in src
 
 
 def test_area_c_solspire_substrate_uses_existing_search_and_context_grammar():
