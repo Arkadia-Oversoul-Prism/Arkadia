@@ -710,6 +710,8 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId }) => 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div
+      className="arkana-conversation"
+      data-arkana-density="dense"
       style={{
         position: 'relative',
         display: 'flex',
@@ -722,6 +724,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId }) => 
 
       {/* ── Header ── */}
       <header
+        className="arkana-conversation-header"
         style={{
           flexShrink: 0,
           display: 'flex',
@@ -828,6 +831,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId }) => 
       {/* ── Messages ── */}
       <div
         ref={scrollRef}
+        className="arkana-conversation-scroll"
         style={{
           flex: 1,
           overflowY: 'auto',
@@ -873,6 +877,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId }) => 
               return (
                 <motion.div
                   key={i}
+                  className={`arkana-message arkana-message-${msg.role}`}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.24 }}
@@ -882,8 +887,8 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId }) => 
                 >
                   {isUser ? (
                     /* ── USER: compact right-aligned pill ── */
-                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                      <div style={{
+                    <div className="arkana-user-row" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <div className="arkana-user-bubble" style={{
                         maxWidth: '68%',
                         padding: '9px 14px',
                         borderRadius: '14px 14px 3px 14px',
@@ -906,9 +911,9 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId }) => 
                     </div>
                   ) : (
                     /* ── ARKANA: full-width canvas, no bubble ── */
-                    <div style={{ paddingTop: 8, paddingBottom: 6, borderLeft: `2px solid ${msgAccent}22`, paddingLeft: 14, marginLeft: 2 }}>
+                    <div className="arkana-response" style={{ paddingTop: 8, paddingBottom: 6, borderLeft: `2px solid ${msgAccent}22`, paddingLeft: 14, marginLeft: 2 }}>
                       {/* Label */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
+                      <div className="arkana-message-meta" style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
                         <div style={{ width: 14, height: '1px', background: msgAccent, opacity: 0.6 }} />
                         <span style={{
                           fontFamily: '"Cinzel", serif', fontSize: 8, letterSpacing: '0.28em',
@@ -925,7 +930,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId }) => 
                       </div>
 
                       {/* Full-width markdown — no bubble constraint = tables breathe */}
-                      <MarkdownContent text={msg.content} tone="arkana" />
+                      <div className="arkana-dense-renderer"><MarkdownContent text={msg.content} tone="arkana" /></div>
 
                       {/* Forge images */}
                       {msg.images && msg.images.length > 0 && (
@@ -952,7 +957,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId }) => 
                       </AnimatePresence>
 
                       {/* Thin separator after each Arkana response */}
-                      <div style={{ marginTop: 20, height: 1, background: isSov ? 'linear-gradient(90deg, rgba(201,168,76,0.22), rgba(201,168,76,0.06) 55%, transparent)' : 'linear-gradient(90deg, rgba(0,212,170,0.20), rgba(0,212,170,0.05) 55%, transparent)' }} />
+                      <div className="arkana-message-separator" style={{ marginTop: 20, height: 1, background: isSov ? 'linear-gradient(90deg, rgba(201,168,76,0.22), rgba(201,168,76,0.06) 55%, transparent)' : 'linear-gradient(90deg, rgba(0,212,170,0.20), rgba(0,212,170,0.05) 55%, transparent)' }} />
                     </div>
                   )}
 
@@ -960,6 +965,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId }) => 
                   <AnimatePresence>
                     {(!isUser || hoverIdx === i || speakingIdx === i || copiedIdx === i || voicePlayerIdx === i) && (
                       <motion.div
+                        className="arkana-message-toolbar"
                         initial={{ opacity: 0, y: 2 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0 }}
@@ -1040,6 +1046,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId }) => 
 
       {/* ── Composer ── */}
       <div
+        className="arkana-composer"
         style={{
           flexShrink: 0,
           padding: 'clamp(10px,2vw,16px) clamp(12px,3vw,22px)',

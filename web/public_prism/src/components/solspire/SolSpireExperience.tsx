@@ -147,20 +147,33 @@ function SearchOverlay({onClose, project}:{onClose:()=>void; project?: Project|n
 function ArkanaOverlay({context,pack,onClose}:{context:string;pack:{surface:string;projectName?:string|null;projectId?:string|null;authenticated:boolean};onClose:()=>void}) {
   /** P1.1 Bounded Arkana Context Pack — display-only context; the conversation remains the canonical persistent thread. */
   const lines = [
-    pack.authenticated ? 'Authenticated session: yes' : 'Authenticated session: unknown',
-    `Surface: ${pack.surface}`,
-    pack.projectName ? `Project: ${pack.projectName}` : 'Project: (none open)',
-    pack.projectId ? `Project id: ${pack.projectId}` : null,
-    'Files / knowledge / tasks: available via project APIs only when a project is open',
-    'Arkana receives no silent full-corpus dump',
+    pack.authenticated ? 'AUTHENTICATED' : 'AUTH UNKNOWN',
+    `SURFACE · ${pack.surface}`,
+    pack.projectName ? `PROJECT · ${pack.projectName}` : 'PROJECT · NONE',
+    pack.projectId ? `ID · ${pack.projectId}` : null,
+    'FILES / KNOWLEDGE / TASKS · PROJECT API',
+    'NO SILENT FULL-CORPUS DUMP',
   ].filter(Boolean) as string[];
-  return <div className="solspire-overlay" role="dialog" aria-modal="true" aria-label="Ask Arkana"><div className="solspire-arkana-panel"><div className="solspire-overlay-head"><div><div className="solspire-kicker">Persistent Arcana thread</div><h2>Arkana</h2><p>{context}</p></div><button type="button" onClick={onClose} aria-label="Close Arkana">×</button></div>
-    <div data-testid="solariun-arkana-context-pack" style={{margin:'0 16px 12px',padding:'10px 12px',borderRadius:10,border:'1px solid rgba(0,212,170,0.22)',background:'rgba(0,212,170,0.05)',fontSize:11,color:'rgba(233,231,223,0.5)'}}>
-      <strong style={{color:'#00D4AA'}}>CURRENT CONTEXT</strong>
-      <ul style={{margin:'8px 0 0',paddingLeft:18}}>{lines.map(l=><li key={l}>{l}</li>)}</ul>
-      <div style={{marginTop:8,opacity:0.75}}>Context is displayed here. It is not injected into the visible conversation as a synthetic user message.</div>
+  return <div className="solspire-overlay" role="dialog" aria-modal="true" aria-label="Ask Arkana">
+    <div className="solspire-arkana-panel">
+      <div className="solspire-overlay-head">
+        <div>
+          <div className="solspire-kicker">Persistent Arcana thread</div>
+          <h2>Arkana</h2>
+          <p>{context}</p>
+        </div>
+        <button type="button" onClick={onClose} aria-label="Close Arkana">×</button>
+      </div>
+      <div className="arkana-context-pack" data-testid="solariun-arkana-context-pack">
+        <div className="arkana-context-label">CURRENT CONTEXT</div>
+        <div className="arkana-context-grid">
+          {lines.map(line => <span key={line}>{line}</span>)}
+        </div>
+        <div className="arkana-context-honesty">Displayed context only · not injected into the visible conversation.</div>
+      </div>
+      <ArkanaCommune projectId={pack.projectId ? Number(pack.projectId) : undefined} />
     </div>
-    <ArkanaCommune projectId={pack.projectId ? Number(pack.projectId) : undefined} /></div></div>;
+  </div>;
 }
 class SolariunHomeBoundary extends React.Component<{children:React.ReactNode},{hasError:boolean}> {
   state = { hasError: false };
