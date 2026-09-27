@@ -7,6 +7,19 @@ import { apiRequest } from './apiClient';
  */
 export type SolariunRecord = Record<string, unknown>;
 
+export interface SolariunWorkspace {
+  id?: string;
+  workspace_type?: string;
+  canonical_subject_ref?: string;
+  display_name?: string;
+  lifecycle?: string;
+  created_at?: number;
+  updated_at?: number;
+  canonical?: boolean;
+  subject_binding?: string;
+  [key: string]: unknown;
+}
+
 export interface SolariunPulse {
   state_summary?: string;
   summary?: string;
@@ -64,6 +77,11 @@ export interface SolariunProposal {
   [key: string]: unknown;
 }
 
+export interface SolariunWorkspaceResponse {
+  workspace?: SolariunWorkspace;
+  canonical?: boolean;
+  subject_binding?: string;
+}
 export interface SolariunPulseResponse { pulse?: SolariunPulse; }
 export interface SolariunWorkloadResponse { workload?: SolariunWorkload; }
 export interface SolariunWorkEventsResponse {
@@ -94,6 +112,9 @@ export interface EmitSolariunWorkEventInput {
   created_by_event?: string;
   schema_version?: string;
 }
+
+export const getSolariunWorkspace = () =>
+  apiRequest<SolariunWorkspaceResponse>('/solspire/workspace');
 
 export const getSolariunPulse = () =>
   apiRequest<SolariunPulseResponse>('/solspire/pulses/today');
