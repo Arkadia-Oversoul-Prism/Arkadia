@@ -18,11 +18,12 @@ import uuid
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from api.auth import require_auth
 from solspire.workspace_manager import get_workspace_manager
+from kernel.doc_extract import extract_text
 
 _DB_PATH = os.environ.get("SOLSPIRE_PROJECTS_DB") or os.path.join(
     os.environ.get("SOLSPIRE_DATA_DIR", "data"), "solspire_projects.db"
@@ -105,6 +106,23 @@ def _db() -> sqlite3.Connection:
     )
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_enterprise_workspace ON enterprise_organizations(workspace_ref)"
+    )
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS enterprise_attachments (
+            attachment_id TEXT PRIMARY KEY,
+            enterprise_id TEXT NOT NULL,
+            owner_subject_ref TEXT NOT NULL,
+            original_name TEXT NOT NULL,
+            stored_path TEXT NOT NULL,
+            content_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+            size_bytes INTEGER NOT NULL DEFAULT 0,
+            extracted_text TEXT NOT NULL DEFAULT '',
+            extraction_status TEXT NOT NULL DEFAULT 'EXTRACTED',
+            created_at REAL NOT NULL
+        )
+    """)
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_enterprise_attachment_owner ON enterprise_attachments(enterprise_id, owner_subject_ref, created_at)"
     )
     conn.commit()
     return conn
@@ -296,6 +314,79 @@ async def save_enterprise_step(
 @router.get("/workspaces/{enterprise_id}/dashboard")
 async def get_enterprise_dashboard(enterprise_id: str, user: dict = Depends(require_auth)):
     return _MANAGER.dashboard(subject_ref=user["uid"], enterprise_id=enterprise_id)
+
+
+@router.get("/workspaces/{enterprise_id}/attachments")
+async def list_enterprise_attachments(enterprise_id: str, user: dict = Depends(require_auth)):
+    _MANAGER.get(subject_ref=user["uid"], enterprise_id=enterprise_id)
+    with _db() as conn:
+        rows = conn.execute(
+            """SELECT attachment_id, original_name, content_type, size_bytes,
+                      extraction_status, created_at
+               FROM enterprise_attachments
+               WHERE enterprise_id=? AND owner_subject_ref=?
+               ORDER BY created_at DESC""",
+            (enterprise_id, user["uid"]),
+        ).fetchall()
+    return {"attachments": [dict(row) for row in rows]}
+
+
+@router.post("/workspaces/{enterprise_id}/attachments")
+async def upload_enterprise_attachment(
+    enterprise_id: str,
+    request: Request,
+    user: dict = Depends(require_auth),
+):
+    _MANAGER.get(subject_ref=user["uid"], enterprise_id=enterprise_id)
+    form = await request.form()
+    upload = form.get("file")
+    if upload is None or not hasattr(upload, "filename"):
+        raise HTTPException(status_code=400, detail="Attach a file using the 'file' field")
+    raw = await upload.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="The attached file is empty")
+    if len(raw) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Enterprise attachments are limited to 50 MB per file")
+
+    filename = os.path.basename(str(upload.filename or "attachment"))
+    attachment_id = str(uuid.uuid4())
+    attachment_dir = os.path.join(
+        os.environ.get("SOLSPIRE_DATA_DIR", "data"),
+        "enterprise_attachments",
+        enterprise_id,
+    )
+    os.makedirs(attachment_dir, exist_ok=True)
+    stored_path = os.path.join(attachment_dir, attachment_id)
+    with open(stored_path, "wb") as handle:
+        handle.write(raw)
+
+    extracted, detected_type = extract_text(filename, raw)
+    content_type = str(getattr(upload, "content_type", None) or detected_type or "application/octet-stream")
+    extraction_status = "EXTRACTED" if extracted and not extracted.startswith("[") else "BINARY_OR_PARTIAL"
+
+    with _db() as conn:
+        conn.execute(
+            """INSERT INTO enterprise_attachments
+               (attachment_id, enterprise_id, owner_subject_ref, original_name,
+                stored_path, content_type, size_bytes, extracted_text,
+                extraction_status, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                attachment_id, enterprise_id, user["uid"], filename, stored_path,
+                content_type, len(raw), extracted[:120000], extraction_status, time.time()
+            ),
+        )
+
+    return {
+        "attachment": {
+            "attachment_id": attachment_id,
+            "original_name": filename,
+            "content_type": content_type,
+            "size_bytes": len(raw),
+            "extraction_status": extraction_status,
+            "extracted_text": extracted[:120000],
+        }
+    }
 
 
 @router.post("/workspaces/{enterprise_id}/analysis")
