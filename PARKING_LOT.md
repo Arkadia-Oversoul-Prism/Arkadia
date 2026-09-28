@@ -19,34 +19,6 @@ Priority: [low / medium / high]
 
 ## Open Items
 
-## Test runs write private material into the tracked-adjacent `vault/` tree
-
-Observed: Running `pytest tests/` from the repository root writes real note files
-into `vault/Ideas/` and `vault/Projects/`. On 2026-09-28 a full-suite run created
-35 untracked files, including synthetic private-boundary canary material
-(`ARKADIA_PRIVATE_CANARY_USER_A/B`, `SearchBoundaryQuartz7`, `PrivateBoundaryZephyr9`,
-`user_54267acf` + "secret plans"). `knowledge/vault.py` resolves `VAULT_ROOT = Path("vault")`
-relative to the process cwd, so the test does not sandbox its writes; the
-`test_isolation.py` module swaps `ARKADIA_DB_PATH` to a tempdir but the filesystem vault
-is unaffected.
-
-Impact: `vault/` is **not** covered by `.gitignore` (`*.db` is, which is why
-`data/runtime.db` is safe). Verified with `git check-ignore` and `git add --dry-run`:
-these files are stageable by any routine `git add -A` / `git commit -a`. A commit made
-without checking `git status` would fold synthetic private-vault material into the
-canonical tree — the exact failure mode corrected by hand at the end of the prior
-GATE-10 verification pass.
-
-File: `knowledge/vault.py:17` (`VAULT_ROOT`), writers in `tests/test_oracle_spine.py`
-and `tests/test_isolation.py` (vault-backed note creation); exposure boundary in `.gitignore`.
-Workstream: Workstream B follow-on (test-hygiene) — otherwise independent of the K-series.
-Priority: medium (high if any pass commits with `-a` ahead of review).
-
-*Not fixed here: this pass was a bounded verification run and `.gitignore` was outside its
-scope. Candidate fixes (each a separate bounded task): sandbox `VAULT_ROOT` to `tmp_path`
-via monkeypatch, and/or add `vault/*/2*.md` to `.gitignore` while keeping the tracked
-scaffold (`.gitkeep` + `vault/Templates/*` and `vault/Index/README.md`).*
-
 ## `api/main.py` exceeds its registered 2600-line budget
 
 Observed: `tests/architecture/test_layer_boundaries.py::test_api_main_line_count_within_budget`
@@ -73,4 +45,29 @@ Workstream: documentation reconciliation. Priority: low.
 
 ## Closed Items
 
-*(moved here when resolved, with resolution note)*
+## Test runs write private material into the tracked-adjacent `vault/` tree
+
+Observed: Running `pytest tests/` from the repository root wrote real note files
+into `vault/Ideas/` and `vault/Projects/` (35 untracked files after a full-suite run),
+including synthetic private-boundary canary material (`ARKADIA_PRIVATE_CANARY_USER_A/B`,
+`SearchBoundaryQuartz7`, `PrivateBoundaryZephyr9`, `user_54267acf` + "secret plans").
+`knowledge/vault.py` resolved `VAULT_ROOT = Path("vault")` relative to the process cwd,
+so tests did not sandbox their writes; `test_isolation.py` swapped `ARKADIA_DB_PATH` to a
+tempdir but the filesystem vault was unaffected. `vault/` is not gitignored, so the files
+were stageable by any routine `git add -A`.
+
+Resolved: 2026-09-28, branch `gate02/conftest-vault-sandbox`. A root `conftest.py` now
+redirects `ARKADIA_DB_PATH` and `VAULT_ROOT` to a throwaway directory in a session-scoped
+autouse fixture, before test modules are imported. Controlled A/B on the same commit
+(`e9257bf`), each run starting from a cleaned `vault/`: **35 files leaked without the
+fixture, 0 with it** (counted as `find vault -name '*.md' -not -path 'vault/Templates/*'
+-not -path 'vault/Index/*'`; the base figure is deterministic across runs), with an
+identical test outcome (842 passed / 51 failed / 12 skipped / 2 errors) and an identical
+failing-node-ID hash on both sides. `.gitignore` additionally gains `tests/_spine_test.db*`
+for SQLite WAL/SHM sidecars.
+
+Evidence: `docs/control-plane/evidence/workstream-b-vault-sandbox/EVIDENCE.md`.
+
+Defence-in-depth still available if desired: ignore patterns for `vault/*/2*.md` while
+keeping the tracked scaffold (`.gitkeep`, `vault/Templates/*`, `vault/Index/README.md`).
+Not applied — the fixture removes the cause rather than masking it.
