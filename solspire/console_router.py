@@ -588,8 +588,20 @@ async def project_archive_conversation(project_id: str, conv_id: str,
 @router.post("/projects/{project_id}/conversations/{conv_id}/messages")
 async def project_append_message(project_id: str, conv_id: str, body: AppendMessageRequest,
                                  user: dict = Depends(require_project_owner)) -> dict[str, Any]:
-    from solspire.project_store import append_message
-    return append_message(conv_id, body.role, body.content)
+    from solspire.conversation_bridge import (
+        ConversationBridgeError,
+        append_conversation_turn,
+    )
+    try:
+        return append_conversation_turn(
+            project_id=project_id,
+            conv_id=conv_id,
+            role=body.role,
+            content=body.content,
+            user_id=user["uid"],
+        )
+    except ConversationBridgeError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 
 @router.get("/projects/{project_id}/files")
