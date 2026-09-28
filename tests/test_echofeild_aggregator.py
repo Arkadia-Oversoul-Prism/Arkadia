@@ -23,8 +23,10 @@ import tempfile
 import pytest
 
 _tmpdir = tempfile.mkdtemp(prefix="arkadia_echofeild_")
-os.environ["ARKADIA_DB_PATH"] = os.path.join(_tmpdir, "test.db")
-os.environ["SOLSPIRE_PROJECTS_DB"] = os.path.join(_tmpdir, "solspire_projects.db")
+# Module constant instead of a module-level ``os.environ`` write: pytest imports
+# every module before running any test, so an import-time env override is still
+# in force while unrelated modules execute and cannot be undone by a teardown.
+_SOL_DB = os.path.join(_tmpdir, "solspire_projects.db")
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -102,8 +104,8 @@ def _counts() -> dict:
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(vault, "VAULT_ROOT", tmp_path / "vault")
     monkeypatch.setattr(messages_mod, "_MSG_DIR", str(tmp_path / "messages"))
-    monkeypatch.setattr(sol_pm, "_DB_PATH", os.environ["SOLSPIRE_PROJECTS_DB"])
-    monkeypatch.setattr(sol_store, "_DB_PATH", os.environ["SOLSPIRE_PROJECTS_DB"])
+    monkeypatch.setattr(sol_pm, "_DB_PATH", _SOL_DB)
+    monkeypatch.setattr(sol_store, "_DB_PATH", _SOL_DB)
     runtime = get_runtime()
     monkeypatch.setattr(runtime, "_executions", {})
     monkeypatch.setattr(runtime, "_pause_events", {})
@@ -353,7 +355,7 @@ def test_field_does_not_write_solspire_state(client):
     runtime = get_runtime()
     projects_before = sorted((p.id, p.name, p.status, p.owner_uid) for p in pm.list_projects())
     executions_before = dict(runtime._executions)
-    sol_db = os.environ["SOLSPIRE_PROJECTS_DB"]
+    sol_db = _SOL_DB
     rows_before = _solspire_db_rows(sol_db)
 
     r = client.get("/api/me/field", headers=_auth(USER_A))
