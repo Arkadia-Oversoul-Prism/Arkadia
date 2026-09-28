@@ -91,7 +91,13 @@ function StateObject({ label, title, body, accent = GOLD, meta }: { label: strin
   );
 }
 
-export default function SolariunHomeCockpit() {
+const THREAD_TARGETS: Array<{ id: 'weaver' | 'engineering-lab' | 'knowledge'; label: string; question: string; accent: string }> = [
+  { id: 'weaver', label: 'WEAVER · WHAT IS BEING WORKED ON', question: 'Project-scoped governed work. Opens the Weaver lens; the project thread is opened from Projects.', accent: VIOLET },
+  { id: 'engineering-lab', label: 'ENGINEERING LAB · HOW ARKADIA OBSERVES ITSELF', question: 'Substrate, governance ceiling and runtime execution state.', accent: TEAL },
+  { id: 'knowledge', label: 'KNOWLEDGE OS · WHAT IS KNOWN', question: 'Global memory and evidence substrate.', accent: TEAL },
+];
+
+export default function SolariunHomeCockpit({ onNavigate }: { onNavigate?: (target: 'weaver' | 'engineering-lab' | 'knowledge') => void } = {}) {
   const { codex } = useAuth();
   const [workspace, setWorkspace] = useState<SolariunWorkspace | null>(null);
   const [workspaceStatus, setWorkspaceStatus] = useState<SurfaceStatus>({ state: 'LOADING' });
@@ -432,6 +438,39 @@ export default function SolariunHomeCockpit() {
           </div>
         )}
         {notice ? <div role="status" style={{ marginTop: 10, color: MUTED, fontSize: 11 }}>{notice}</div> : null}
+      </FieldSection>
+
+      <FieldSection label="Follow the thread" accent={BLUE}>
+        <div style={{ color: MUTED, font: '11px/1.55 Inter,system-ui,sans-serif', marginBottom: 10 }}>
+          Arkadia holds this chain as one architecture. This lens is a projection of it, not a second source of truth.
+          Each destination below opens its own lens — the chain is not derived here and no transition is implied that the
+          substrate has not established.
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10, color: MUTED, font: '9px/1.4 ui-monospace,SFMono-Regular,monospace', letterSpacing: '.06em', textTransform: 'uppercase' }}>
+          <span>IDENTITY</span><span>→</span><span>WORKSPACE</span><span>→</span><span>EVENT</span><span>→</span>
+          <span>PROPOSAL</span><span>→</span><span>AUTHORITY</span><span>→</span><span>EXECUTION</span><span>→</span>
+          <span>EVIDENCE</span><span>→</span><span>KNOWLEDGE</span><span>→</span><span>VERIFICATION</span>
+        </div>
+        <div style={{ display: 'grid', gap: 8 }}>
+          {THREAD_TARGETS.map(target => (
+            <button
+              key={target.id}
+              type="button"
+              disabled={!onNavigate}
+              onClick={() => onNavigate?.(target.id)}
+              title={target.question}
+              style={{ textAlign: 'left', border: `1px solid ${BORDER}`, borderRadius: 4, padding: '10px 12px', background: 'rgba(255,255,255,.025)', color: target.accent, cursor: onNavigate ? 'pointer' : 'default', font: '600 9px/1.3 Inter,system-ui,sans-serif', letterSpacing: '.12em' }}
+            >
+              {target.label}
+              <span style={{ display: 'block', marginTop: 4, color: MUTED, font: '10px/1.45 Inter,system-ui,sans-serif', letterSpacing: 'normal' }}>{target.question}</span>
+            </button>
+          ))}
+        </div>
+        {!onNavigate ? (
+          <div style={{ marginTop: 8, color: MUTED, fontSize: 10 }}>
+            Thread navigation unavailable in this mount. No synthetic destination has been substituted.
+          </div>
+        ) : null}
       </FieldSection>
     </div>
   );
