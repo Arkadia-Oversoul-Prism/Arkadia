@@ -853,4 +853,12 @@ Unchanged: 49 failures across stale frontend-source assertions
 ### Authorization
 
 No merge. No push to `main`. No self-authorization. PR #99 remains READY FOR HUMAN MERGE.
-This pass opens a separate bounded PR for sovereign review.
+This pass opened separate bounded PR **#100** for sovereign review.
+
+### Next heartbeat
+
+- Anchor: PR #99 (READY FOR HUMAN MERGE) then PR #100.
+- Next bounded task: not yet cut. Candidates 1-3 above each need one sovereign
+  decision line before they can become bounded (canonical autonomy module? gate/ UI
+  fate? repair-tests vs restore-strings?).
+- Reconstruct from `main` @ origin, not from this ledger.
