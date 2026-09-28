@@ -59,6 +59,21 @@ def test_transition_contracts_and_reverse_walk(tmp_path, monkeypatch):
         authority_event_id=authority.id, scope={"objective": "verify supplier"},
         constraints={},
     )
+
+    unrelated_authority = store.authority_event(
+        subject="subject-a", actor="subject-a", authority_context="other",
+        action="AUTHORIZE", previous_state="PENDING", new_state="AUTHORIZED",
+        origin="human", authentication_context="authenticated_subject",
+    )
+    try:
+        store.authorize(
+            subject="subject-a", proposal_id=proposal.id,
+            authority_event_id=unrelated_authority.id, scope={}, constraints={},
+        )
+    except ValueError as exc:
+        assert "causally bound" in str(exc)
+    else:
+        raise AssertionError("unrelated authority must not authorize a proposal")
     attempt = store.execution_attempt(
         subject="subject-a", authorization_id=authorization.id,
         tool_channel="test", request_payload={"supplier": "A"},
