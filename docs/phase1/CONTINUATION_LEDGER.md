@@ -2,6 +2,102 @@
 
 ---
 
+## Pass — GATE-10 · CP10 mutation boundary (root narrative docs)
+
+**Session date:** 2026-09-28
+**Role:** Engineering Runtime (bounded execution pass — reconstruct, classify, fix, prove, persist)
+**Branch / PR:** `gate10/cp10-allowlist-root-docs` → **PR #105** (human-only merge)
+**BASE_MAIN at pass start:** `a26af408c269729a57d0a53c6ad39fcf0ca22fdf` (merge of PR #104)
+**Head at pass end:** `9717868b8`
+
+### Reconstruction correction (contract baseline was stale)
+
+The run contract declared `main := 6038989` with 804 passed / 54 failed / 12 skipped and
+architecture 9/10. **None of that matches live evidence.** `6038989` is not in the history of
+`origin/main`; live `main` is `a26af408`. Every comparison in this pass therefore uses a
+baseline measured live at pass start, not the contract's prose.
+
+| | passed | failed | skipped | errors | failing/error node sha256 |
+|---|---|---|---|---|---|
+| measured baseline @ `a26af408` | 903 | 49 | 12 | 2 | `256204af4082a70f062ed6004fd0c51c126a14262a072afdac9279ce158c3fca` |
+| after this change | 907 | 49 | 12 | 2 | `256204af…83fca` (**identical**) |
+
+Continuity with prior passes corroborates the measurement: the K5 pass recorded
+`49 failed / 899 passed / 10 skipped`, GATE-VAULT recorded `49 failed / 889 passed / 10 skipped`.
+The failure count has been **49 across all three passes** — the fingerprint is stable and this
+pass moved it by zero.
+
+### Finding — `main` is RED, and it is an allowlist omission
+
+`SG-02-FE.2-V` fails on canonical `main` at both `d48ad0e` (PR #97, EL-01..10) and `a26af408`
+(PR #104, Solariun thread navigation). Both are legitimate product work.
+
+```
+Unexpected path outside legitimate repository surfaces:
+AGENTS.md
+```
+
+The CP10 allowlist admitted only paths carrying a directory prefix. Root narrative docs
+(`AGENTS.md` et al.) matched nothing, so **any commit touching repository memory was rejected**.
+`AGENTS.md` was the sole offender in each rejected change set — the remainder was already
+legitimate. This is an allowlist omission, **not** a governance finding.
+
+A second source of truth (`scripts/cp10_mutation_boundary_policy.py`) already existed with an
+anti-drift guard from the earlier `enterprises/` recurrence — but the guard's corpus was too
+narrow to catch this repeat of the same bug class.
+
+### Bounded change
+
+- `scripts/cp10_mutation_boundary_policy.py` — add `[^/]+\.md$` to `LEGIT`.
+  Not a blanket `*.md` bypass: `re.match` anchors at the start and the pattern forbids `/`, so
+  only root-level files qualify. Nested paths still resolve through their directory prefix.
+- `.github/workflows/sg-02-fe-2-v.yml` — sync the inline `legit=` copy with the policy.
+- `tests/test_m02a_ci_gate_integrity.py` — widen the anti-drift guard corpus to root docs, the
+  real Solariun change set, and negatives (`vault/`, unknown dir).
+- `PARKING_LOT.md` — this workstream + unclassified baseline debt.
+- `docs/control-plane/evidence/gate10-cp10-allowlist-root-docs/EVIDENCE.md` — new.
+
+`api/main.py` untouched (2519/2600 lines). No authority, identity, or governance surface touched.
+No `REGISTERED_ARCHITECTURAL_DEBT` reclassified.
+
+### Verification
+
+- Rejected change set now **PASS** in both the policy *and* the workflow's own shell check
+  (`offenders-exit=0`); negatives still **rejected** (`vault/Ideas/x.md`, `secret-backdoor/bin/x`).
+- Self-check: this PR's own diff passes its own gate → `(True, 'PASS')`.
+- `pytest tests/test_m02a_ci_gate_integrity.py -q` → **18 passed** (14 pre-existing + 4 new).
+- `pytest tests/architecture -q` → **11/11**.
+- **CI: run `36479508791` → `validate = success`; step 31 `CP10 mutation boundary` = `success`**
+  — the exact step failing on `main`. Re-confirmed green at final head `9717868b8`.
+  Gate restored, not suppressed: `continue-on-error` semantics untouched, every verdict step
+  still enforced via `steps.<id>.outcome`.
+- `py_compile` clean on both changed Python files (no boot-code touched).
+
+### Baseline debt preserved (not fixed, not attributed)
+
+49 failures + 2 collection errors at `a26af408` are **pre-existing and unclassified**. Several
+look like stale assertions, but that is unverified. Filed in `PARKING_LOT.md` as a candidate
+standalone workstream; deliberately **not** folded into this gate.
+
+### Carried forward, NOT executed (authority boundary)
+
+- Open PRs `#71`, `#6`, `#5` — untouched, not evaluated for composability this pass.
+- Frontend `pnpm build` — not run (environment-blocked); `web/` untouched.
+
+### Authorization
+
+**Sovereign review and merge required.** No merge performed; no push to `main`; no force-push;
+no consequential external action. PR #105 is ready for sovereign merge.
+
+### Next heartbeat
+
+Reconstruct from live evidence. If #105 is merged, re-verify `SG-02-FE.2-V` green **on `main`**
+and advance to the next bounded gate. If not merged, do **not** open a second fix for this —
+continue the oldest open PR that maps to the current gate, or select the smallest valid task
+from the unclassified baseline debt workstream.
+
+---
+
 ## Session: GATE-VAULT — Independent re-verification + autonomy escalation
 
 **Session date:** 2026-09-28
