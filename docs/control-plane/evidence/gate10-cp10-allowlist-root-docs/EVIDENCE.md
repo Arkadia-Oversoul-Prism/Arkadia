@@ -5,7 +5,7 @@
 **BASE_MAIN:** `a26af408c269729a57d0a53c6ad39fcf0ca22fdf`
 ("Merge pull request #104 from Arkadia-Oversoul-Prism/solariun/thread-navigation-01")
 **Branch:** `gate10/cp10-allowlist-root-docs`
-**Status:** VERIFIED (fix proven against the exact failing change set; full-suite fingerprint unchanged)
+**Status:** VERIFIED — branch CI green (`validate = success`, step 31 `CP10 mutation boundary` = `success`, run `36479508791`); full-suite failure fingerprint byte-identical; architecture 11/11. Awaiting sovereign review and merge.
 
 ## 1. Repository binding (contract steps 01–02)
 
@@ -85,6 +85,14 @@ OFFENDER: secret-backdoor/bin/x
 **Targeted tests:** `pytest tests/test_m02a_ci_gate_integrity.py -q` → **18 passed** (14 pre-existing + 4 new).
 
 **Architecture fitness:** `pytest tests/architecture -q` → **11/11 passed** at BASE_MAIN *and* after the change. No `REGISTERED_ARCHITECTURAL_DEBT` touched.
+
+**CI confirmation (the decisive evidence).** Run
+[`36479508791`](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/36479508791) on
+`gate10/cp10-allowlist-root-docs` → **`validate = success`**, and specifically
+**step 31 `CP10 mutation boundary` → `success`** — the exact step that failed on `main` at
+`a26af40` and `d48ad0e`. No step in the job failed. The gate is restored, not suppressed:
+`continue-on-error` semantics are untouched and every verdict step remains enforced by
+`steps.<id>.outcome` (asserted by `test_continue_on_error_gates_are_still_enforced_by_outcome`).
 
 **Full-suite fingerprint — regression boundary held.** `api/main.py` untouched, so no boot-code
 compile gate is required; `py_compile` on both changed Python files passed regardless.

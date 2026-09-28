@@ -29,10 +29,11 @@ File: `.github/workflows/sg-02-fe-2-v.yml`, `scripts/cp10_mutation_boundary_poli
 Workstream: GATE-10 (governed execution) — CP10 gate integrity
 Priority: high
 
-_In flight:_ branch `gate10/cp10-allowlist-root-docs` (evidence
+_In flight:_ branch `gate10/cp10-allowlist-root-docs`, **PR #105** (evidence
 `docs/control-plane/evidence/gate10-cp10-allowlist-root-docs/EVIDENCE.md`) adds
 `[^/]+\.md$` to both the policy and the workflow's inline copy, and widens the existing
-anti-drift guard's corpus. Do not start a second fix for this.
+anti-drift guard's corpus. Branch CI is green — step 31 `CP10 mutation boundary` passes
+(run `36479508791`). Awaiting sovereign review and merge. Do not start a second fix for this.
 
 ## Baseline test debt at `a26af408` is unclassified (49 failures + 2 collection errors)
 
