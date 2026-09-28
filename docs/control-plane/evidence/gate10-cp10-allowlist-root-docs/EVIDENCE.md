@@ -86,12 +86,17 @@ OFFENDER: secret-backdoor/bin/x
 
 **Architecture fitness:** `pytest tests/architecture -q` → **11/11 passed** at BASE_MAIN *and* after the change. No `REGISTERED_ARCHITECTURAL_DEBT` touched.
 
-**CI confirmation (the decisive evidence).** Run
-[`36479508791`](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/36479508791) on
-`gate10/cp10-allowlist-root-docs` → **`validate = success`**, and specifically
-**step 31 `CP10 mutation boundary` → `success`** — the exact step that failed on `main` at
-`a26af40` and `d48ad0e`. No step in the job failed. The gate is restored, not suppressed:
-`continue-on-error` semantics are untouched and every verdict step remains enforced by
+**CI confirmation (the decisive evidence).** Before/after pair on the same workflow:
+
+| | run | head | result |
+|---|---|---|---|
+| `main` (before) | [`36476846137`](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/36476846137) | `a26af408` | **failure** |
+| this branch (after) | [`36480289928`](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/36480289928) | `370f442` | **success** |
+
+On the branch run, `validate = success` and specifically **step 31 `CP10 mutation boundary` →
+`success`** — the exact step that failed on `main`. No step in the job failed. Re-confirmed green
+at each of the branch's three heads (`3839d53`, `9717868`, `370f442`). The gate is restored, not
+suppressed: `continue-on-error` semantics are untouched and every verdict step remains enforced by
 `steps.<id>.outcome` (asserted by `test_continue_on_error_gates_are_still_enforced_by_outcome`).
 
 **Full-suite fingerprint — regression boundary held.** `api/main.py` untouched, so no boot-code
