@@ -410,3 +410,29 @@
     max-width: 92% !important;
   }
 }
+
+
+/* Phase 7 — Arcana mobile: conversation owns the viewport */
+@media (max-width: 700px) {
+  .arkana-conversation .arkana-conversation-header {
+    flex-wrap: wrap !important;
+    row-gap: 6px !important;
+    padding: 6px 10px !important;
+    min-height: 0 !important;
+  }
+  .arkana-conversation .arkana-conversation-header > div:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .arkana-conversation .arkana-conversation-header select {
+    max-width: 42vw !important;
+    font-size: 10px !important;
+  }
+  .arkana-conversation .arkana-conversation-scroll {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+  }
+  .arkana-conversation .arkana-composer {
+    padding: 8px 10px max(10px, env(safe-area-inset-bottom)) !important;
+  }
+}

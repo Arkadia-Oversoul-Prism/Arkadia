@@ -1241,14 +1241,35 @@ async def commune_resonance(request: Request):
             daemon=True,
         ).start()
         resonance = round(0.7 + (len(reply) % 30) / 100, 3)
+        # Identity contract for the client: never force the UI to invent "guest"
+        # when the request was authenticated. session_id remains the thread key;
+        # identity_kind describes the human subject of the turn.
+        sovereign_present = bool(
+            (body.get("sovereign_token") or body.get("sovereign_key") or "").strip()
+        )
+        if spine_user_id:
+            identity_kind = "authenticated"
+            session_kind = "authenticated"
+        elif sovereign_present:
+            identity_kind = "sovereign"
+            session_kind = "sovereign"
+        else:
+            identity_kind = "guest"
+            session_kind = "guest"
         return {
             "reply":     reply,
             "resonance": resonance,
             "patterns":  [],
             "rag_refs":  rag_refs,
             "rag_hits":  len(rag_refs),
+            # Explicit identity fields — Phase 1 conversation identity contract
+            "session": session_kind,
+            "session_id": session_id or None,
+            "identity_kind": identity_kind,
+            "user_id": spine_user_id or None,
             "memory": {"session_id": session_id or None, "thread_id": memory_meta.get("thread_id"), "project_id": project_id,
                        "user_id": spine_user_id or None,
+                       "identity_kind": identity_kind,
                        "notes_retrieved": memory_meta.get("notes_retrieved", 0),
                        "source": memory_meta.get("source", "knowledge_os"), "injected": bool(memory_block)},
         }

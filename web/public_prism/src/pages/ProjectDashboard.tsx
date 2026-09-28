@@ -322,20 +322,23 @@ function WeaverPanel({ project }: { project: Project }) {
             background: k15Ready ? 'rgba(201,168,76,0.12)' : 'transparent',
           }}
         >
-          EXECUTE (K15 PRECHECK)
+          K15 PRECHECK (NOT EXECUTE)
         </button>
       </div>
       {err && <div style={{ color: '#c44', marginTop: 8 }}>{err}</div>}
       {execResult && (
         <div style={{ marginTop: 12, padding: 10, border: '1px solid rgba(201,168,76,0.25)', borderRadius: 6, fontSize: 11 }}>
-          <div style={{ color: '#C9A84C' }}>EXECUTION RESULT (backend-authoritative)</div>
+          <div style={{ color: '#C9A84C' }}>K15 PRECHECK RESULT · NOT MUTATION · backend-authoritative</div>
+          <div style={{ opacity: 0.85, margin: '4px 0 8px' }}>
+            This control runs readiness only (run_k3=false). It does not apply patches or enter K3.
+          </div>
           <div>state: {String(execResult.state || '—')}</div>
           <div>execution.status: {String(execResult.execution?.status || '—')}</div>
           <div>execution.final_status: {String(execResult.execution?.final_status || '—')}</div>
           <div>verification: {String(execResult.verification?.status || 'NOT_RUN')}</div>
           <div>k15_ready: {String(execResult.k15_ready)}</div>
           <div style={{ opacity: 0.7, marginTop: 4 }}>
-            PROPOSED ≠ APPROVED ≠ EXECUTED ≠ VERIFIED · UI does not upgrade these states
+            ANALYZE → BIND PASSSPEC → BIND APPROVAL → K15 PRECHECK → (human authorize) → K3 EXECUTE → VERIFY
           </div>
         </div>
       )}

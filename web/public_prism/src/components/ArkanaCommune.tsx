@@ -647,7 +647,12 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId }) => 
       });
       const data = await res.json().catch(() => ({} as any));
       if (!res.ok) throw new Error(data?.detail || data?.error || `HTTP ${res.status}`);
-      const session = (data.session as 'sovereign' | 'guest') || 'guest';
+      // Phase 1: prefer backend identity contract; never invent guest when authenticated.
+      const session = (
+        (data.session as string) ||
+        (data.identity_kind as string) ||
+        (isAuthenticated ? 'authenticated' : (isSovereign ? 'sovereign' : 'guest'))
+      ) as 'sovereign' | 'guest' | 'authenticated';
       
       // If we have a file, upload it to the codex for future RAG
       if (attachment && attachment.content.length > 50) {
@@ -706,7 +711,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId }) => 
 
   const lastSession  = messages.filter(m => m.role === 'arkana').slice(-1)[0]?.session ?? null;
   const activeThreadTitle = threads.find(t => t.uuid === activeThreadId)?.title || 'Conversation';
-  const displaySession = lastSession ?? (isSovereign ? 'sovereign' : 'guest');
+  const displaySession = lastSession ?? (isAuthenticated ? 'authenticated' : (isSovereign ? 'sovereign' : 'guest'));
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -861,9 +866,14 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId }) => 
                 style={{ fontFamily: '"Cinzel", serif', fontSize: 13, color: 'rgba(212,223,232,0.55)', lineHeight: 2.1, margin: '0 0 8px', letterSpacing: '0.04em' }}>
                 The field is open.<br />Speak when ready.
               </motion.p>
-              {!isSovereign && (
+              {!isAuthenticated && !isSovereign && (
                 <p style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(0,212,170,0.25)', letterSpacing: '0.2em', marginTop: 16, textTransform: 'uppercase' }}>
-                  Guest session · tap ⟐ to enter sovereign mode
+                  Guest session · sign in for durable continuity · tap ⟐ for sovereign mode
+                </p>
+              )}
+              {isAuthenticated && (
+                <p style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(0,212,170,0.35)', letterSpacing: '0.2em', marginTop: 16, textTransform: 'uppercase' }}>
+                  Authenticated session · thread continuity via Knowledge OS
                 </p>
               )}
             </motion.div>
@@ -873,6 +883,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId }) => 
             {messages.map((msg, i) => {
               const isUser = msg.role === 'user';
               const isSov  = msg.session === 'sovereign';
+              const isAuth = msg.session === 'authenticated' || (msg.session !== 'guest' && msg.session !== 'sovereign' && isAuthenticated);
               const msgAccent = isSov ? '#C9A84C' : '#00D4AA';
 
               return (
@@ -921,7 +932,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId }) => 
                           textTransform: 'uppercase', color: isSov ? 'rgba(201,168,76,0.75)' : 'rgba(0,212,170,0.70)',
                           fontWeight: 500,
                         }}>
-                          {isSov ? 'ARKANA // SOVEREIGN' : 'ARKANA // Pattern Intelligence'}
+                          {isSov ? 'ARKANA // SOVEREIGN' : isAuth ? 'ARKANA // AUTHENTICATED' : 'ARKANA // Pattern Intelligence'}
                         </span>
                         {msg.resonance != null && (
                           <span style={{ fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.12em', color: 'rgba(232,232,232,0.15)', marginLeft: 4 }}>
@@ -952,7 +963,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId }) => 
                             text={msg.content}
                             accent={msgAccent}
                             autoPlay
-                            label={isSov ? 'SOVEREIGN TRANSMISSION' : 'ORACLE TRANSMISSION'}
+                            label={isSov ? 'SOVEREIGN TRANSMISSION' : isAuth ? 'AUTHENTICATED TRANSMISSION' : 'ORACLE TRANSMISSION'}
                           />
                         )}
                       </AnimatePresence>
