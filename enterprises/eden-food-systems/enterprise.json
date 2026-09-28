@@ -1,0 +1,22 @@
+{
+  "template": "eden-food-systems-pilot-cycle-01",
+  "display_name": "Eden Food Systems",
+  "pilot": {
+    "workload_id": "EDEN-PILOT-CYCLE-01",
+    "title": "₦1m Controlled Food Systems Pilot — Cycle 01",
+    "capital_ngn": 1000000,
+    "duration_weeks": 4,
+    "commodity_universe": ["Irish Potato", "Dry Onion", "Cabbage"]
+  },
+  "workstreams": [
+    {"id": "D01", "name": "Procurement & Commodity Operations", "budget_ngn": 500000},
+    {"id": "D02", "name": "Logistics & Distribution", "budget_ngn": 120000},
+    {"id": "D03", "name": "Packaging, Quality & Handling", "budget_ngn": 45000},
+    {"id": "D04", "name": "Marketing & Customer Acquisition", "budget_ngn": 75000},
+    {"id": "D05", "name": "Brand, Content & Customer Experience", "budget_ngn": 35000},
+    {"id": "D06", "name": "Digital Operations & Communications", "budget_ngn": 25000},
+    {"id": "D07", "name": "Operations Management & Finance", "budget_ngn": 130000}
+  ],
+  "reserve_ngn": 70000,
+  "instantiation": "POST /solspire/enterprise/workspaces/templates/eden-food-systems"
+}
