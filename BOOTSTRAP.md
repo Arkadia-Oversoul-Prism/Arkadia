@@ -5,7 +5,7 @@
 1. `.bootstrap/00_BOOT.md` — immutable rules, operating mode, thinking budget
 2. `.bootstrap/01_STATE.md` — current checkpoint and objective
 3. `.bootstrap/03_SCOPE.md` — what to touch, what to forbid, stop condition
-4. Run `pytest tests/architecture/ -v` — confirm 10/10
+4. Run `pytest tests/architecture/ -v` — confirm 11/11
 5. Implement. Verify once (`04_SUCCESS.md`). Stop.
 
 ## Reference (consult only if needed)

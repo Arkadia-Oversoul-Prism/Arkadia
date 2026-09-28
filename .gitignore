@@ -62,3 +62,11 @@ arkadia-android/gradlew
 docs/control-plane/evidence/**/session-report.json
 docs/control-plane/evidence/**/WEAVER-ENGINEERING-RUN.md
 !docs/control-plane/evidence/README.md
+
+# Knowledge OS private vault: generated runtime output must never be committed.
+# Tracked scaffolding (.gitkeep, Index/README.md, Templates/) is preserved.
+vault/**
+!vault/**/
+!vault/**/.gitkeep
+!vault/Index/README.md
+!vault/Templates/**
