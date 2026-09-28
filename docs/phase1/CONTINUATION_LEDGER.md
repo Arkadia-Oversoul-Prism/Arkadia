@@ -2,6 +2,79 @@
 
 ---
 
+## Session: Workstream B (test-hygiene) — Test-session vault sandbox
+
+**Session date:** 2026-09-28
+**Role:** Engineering Runtime (bounded execution pass)
+**Session type:** Test-hygiene fix — closes the item PR #92's ledger deferred
+**Branch / PR:** `gate02/conftest-vault-sandbox` → PR #95 (OPEN, not merged — human-only)
+**BASE_MAIN at pass start:** `e9257bf` (Merge PR #93, gate-01-canonical-authorship)
+**Head at pass end:** `267e8c9`
+
+### Reconstructed state (contract step 01–02)
+
+- `origin/main` = `e9257bf`, real commit; ancestry to the contract baseline `6038989`
+  verified via `git merge-base --is-ancestor` (the clone was shallow/`grafted`, so
+  `git fetch --deepen` was required first).
+- Credentials **writable**: `admin/maintain/push/pull/triage`. The contract's clause
+  treating `GITHUB_TOKEN` as read-only is currently inoperative — no workaround was used,
+  but the assumption no longer holds and should be refreshed.
+- **Contract baseline is stale.** Recorded `main := 6038989`, 804/54. Actual `main :=
+  e9257bf`, 842/51, because PRs #91 (GATE-10) and #93 (GATE-01) merged since. Not
+  attributed to this pass; documented instead.
+- PR #95 was **continued, not duplicated** — it already existed on this branch at
+  `bbaee7f`; this pass resumed it per contract step 03.
+
+### The defect (reproduced, not inferred)
+
+`knowledge/vault.py` resolves `VAULT_ROOT = Path("vault")` relative to process cwd.
+Running `pytest tests/` from the repo root writes real note files into `vault/Ideas/` and
+`vault/Projects/`, including synthetic private-boundary canary material. `vault/` is not
+gitignored, so a routine `git add -A` can fold synthetic private-vault material into canon.
+
+### Change
+
+Root `conftest.py` (49 lines): session-scoped autouse fixture redirecting
+`ARKADIA_DB_PATH` and `VAULT_ROOT` into a throwaway tempdir, applied before test-module
+collection. `.gitignore` gains `tests/_spine_test.db*` (SQLite WAL/SHM sidecars).
+`PARKING_LOT.md` item moved to Closed with resolution note. No test module was edited —
+the fixture covers modules that already self-sandbox as well as those that do not.
+
+### Verification
+
+- Controlled A/B, same commit `e9257bf`, one variable: **35 files leaked without the
+  fixture, 0 with it**, under a stated, reproducible counting convention; base figure is
+  deterministic across repeated runs.
+- Full suite, identical both sides, **same method**: 842 passed / 51 failed / 12 skipped /
+  2 collection errors. Sorted FAILED node-ID `sha256` **identical** both sides:
+  `1fc7a2d0b747b90ff03ea658669f5a57c1ec4ccbc324c935333c6ae5495c2502`. Nothing newly
+  failing, nothing repaired.
+- Architecture: 2 failed / 9 passed, unchanged (`test_no_layer_inversions`,
+  `test_api_main_line_count_within_budget` — both pre-existing, in `PARKING_LOT.md`).
+- `api/main.py` untouched, 2607 lines (its over-budget condition is pre-existing and is
+  the separate `gate07`/PR #94 workstream).
+- Re-verified on the committed head, not just the working tree.
+
+### Evidence hygiene — two self-corrections made in this pass
+
+Both were measurement errors in this pass's own evidence; neither changed the conclusion,
+and both are recorded rather than quietly fixed (Principle: reality overrides documentation).
+
+1. A first fingerprint digest `4f5fb969…` did not reproduce; it came from extracting the
+   failure set differently on each side. Canonical digest is now `1fc7a2d0…`, derived by
+   one method on both sides.
+2. The A/B control was first reported as **29** and the gap to 35 was explained away as a
+   counting convention. Re-measurement showed the base leaks 35 deterministically under
+   every convention tried, so 29 was simply a bad count. The rationalisation was withdrawn.
+
+### Next bounded task
+
+PR #95 awaits sovereign review/merge. Reconcile GATE-02..GATE-09 status (truncated in the
+source summary — not recoverable from prose; must be derived from live repo evidence).
+Track open PR #94 (`gate07/main-py-line-budget-restore`), PR #71, and recon PRs #6/#5.
+
+---
+
 ## Session: B0.5 — Baseline Integrity
 
 **Session date:** ARK Y1 · D116 (2026-07-24)  
