@@ -9,7 +9,7 @@ import re
 
 LEGIT = re.compile(
     r"^(\.github/|web/|api/|solspire/|kernel/|weaver/|lab/|tests/|docs/|scripts/|"
-    r"android/|render|package|pnpm-|requirements|pyproject|README|LICENSE|"
+    r"enterprises/|android/|render|package|pnpm-|requirements|pyproject|README|LICENSE|"
     r"\.gitignore|\.npmrc|\.editorconfig|Makefile|Dockerfile)"
 )
 FORBID_V3 = re.compile(r"SolSpireExperienceV3\.tsx$")
