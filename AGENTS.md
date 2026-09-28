@@ -188,3 +188,17 @@ authenticated node's private Knowledge OS vault — never the public scroll stor
   (`record_authorization` rejects non-`human` origin). Guard: `tests/test_engineering_lab_api.py`
   asserts no repository/authority mutation surface. Tests: `tests/test_engineering_lab_substrate.py`.
 - Evidence: `docs/control-plane/evidence/el-01-10-native-agent-execution-substrate/EVIDENCE.md`.
+
+## Architecture: composition-root router injection (ADR-014 Decision 4)
+- `api/nodes.py` is layer-3 **identity** (ADR-015) and must never import the layer-1
+  surface it is composed with (`api.ais_profile`, `api.lab_routes`). It exposes
+  `configure_routers(ais_profile_router, lab_router)`; the composition root `api/main.py`
+  injects them **before** `app.include_router(_nodes_router)` (FastAPI copies routes at
+  include time — order is load-bearing).
+- This mirrors the tools-counter pattern (`configure_tools_counter`, Pass 06). The literal
+  `router.include_router(_ais_profile_router)` is intentionally kept in `nodes.py` because
+  `tests/test_ais_w8_canonical_identity.py` asserts it.
+- Guard: `tests/test_nodes_composition_seam.py`. Do not "fix" a layer inversion by editing
+  `REGISTERED_ARCHITECTURAL_DEBT` unless deferral is genuinely required and justified by an
+  ADR — the freeze rule says fix the import. Reclassifying `api/nodes.py` to layer 1 changes
+  the orthogonal identity group and is constitutional (needs ADR).
