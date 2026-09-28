@@ -2,8 +2,15 @@
 
 **Workstream:** test-hygiene (standalone; explicitly *not* folded into an architectural gate)
 **Authority required:** none for classification. Repairs are separate bounded tasks (see §8).
+**PR:** #106 · branch `gate-hygiene/baseline-test-debt-classification-01`
+**BASE_MAIN:** `a26af408c269729a57d0a53c6ad39fcf0ca22fdf`
 **Status:** classification complete — every one of the 51 failing/error nodes is assigned a
 bucket with evidence. **No test, no source file, and no policy was modified.**
+
+> **Pass linkage (heartbeat continuity).** Pass 1 authored the classification; pass 2 (§7)
+> independently re-derived it and corrected the inaccuracies. PR #106 carries both.
+> PR #105 (`gate10/cp10-allowlist-root-docs`) is a **separate, non-overlapping workstream** —
+> verified: no file in #105's diff is touched here, and no file here is touched by #105.
 
 This pass exists because `PARKING_LOT.md` recorded the debt as *unclassified* and stated the
 explicit precondition: _"Classify by real defect vs stale assertion before repairing."_
