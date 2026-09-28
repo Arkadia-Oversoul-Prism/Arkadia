@@ -14,6 +14,10 @@ env/
 *.sqlite
 *.sqlite3
 arkadia_oracle.db
+# tests/test_oracle_spine.py names its scratch DB `_spine_test.db` directly in
+# tests/. The `*.db` rule covers the database file but not the `-wal`/`-shm`
+# sidecars SQLite leaves behind in WAL mode, so cover the whole family.
+tests/_spine_test.db*
 
 # API key stores (contain sensitive credentials — never commit)
 data/api_keys.json
