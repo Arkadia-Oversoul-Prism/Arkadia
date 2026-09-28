@@ -7,7 +7,7 @@
 **Session date:** 2026-09-28
 **Role:** Engineering Runtime (bounded execution pass)
 **Session type:** Hygiene hardening — closes the "New bounded finding (recorded, not executed)" from the gate02-07 session
-**Branch / PR:** `gate-vault/gitignore-hardening` → new PR (OPEN, draft — human-only merge)
+**Branch / PR:** `gate-vault/gitignore-hardening` → PR #99 (OPEN, clean, NOT draft — human-only merge)
 **BASE_MAIN at pass start:** `1d4ed03` (merge of PR #98)
 **Head at pass end:** branch head (see PR)
 
