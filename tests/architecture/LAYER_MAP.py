@@ -75,8 +75,9 @@ LAYER_MAP: dict[str, int] = {
     "solspire":             2,
     # Engineering Lab (native agent execution substrate, EL-01..EL-10). A
     # runtime-core subsystem: it holds bounded sandbox execution, the agent
-    # session/run state machine, and the Lab store. api(1) → lab(2) is the
-    # permitted downward direction (api.lab_routes / api.nodes consume it).
+    # session/run state machine, and the Lab store. The composition root
+    # (api/main.py) consumes it and injects its router into api.nodes, so the
+    # permitted direction is api(1) → lab(2).
     "lab":                  2,
 
     # Layer 1 — API Surface
