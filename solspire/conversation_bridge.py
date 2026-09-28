@@ -82,11 +82,9 @@ def append_conversation_turn(
             f"{content_value}"
         )
 
+        conversation_title = conversation.get("title") or "Project conversation"
         note = ingest(
-            title=(
-                f"{conversation.get("title") or "Project conversation"}"
-                f" · {role_value}"
-            )[:200],
+            title=f"{conversation_title} · {role_value}"[:200],
             content=note_content,
             note_type="conversation",
             thread_id=thread_id,
