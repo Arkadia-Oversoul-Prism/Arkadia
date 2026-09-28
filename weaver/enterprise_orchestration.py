@@ -336,6 +336,8 @@ class EnterpriseOrchestrationStore:
             raise ValueError("subject mismatch")
         if str(authority["action"]).upper() not in {"AUTHORIZE", "APPROVE_PROPOSAL"}:
             raise ValueError("authority event does not authorize proposal")
+        if authority["correlation_id"] != proposal["correlation_id"]:
+            raise ValueError("authority event is not causally bound to proposal")
         cid = correlation_id or proposal["correlation_id"]
         rid = _id("auth"); now = _now()
         row = Authorization(rid, subject, proposal_id, authority_event_id, scope, constraints, expires_at, now, cid)
