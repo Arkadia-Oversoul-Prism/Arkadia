@@ -1,1 +1,414 @@
-"""EDEN-OPS-02 — Team access, shared tasks, control-room projection.\n\nStacks on EDEN-OPS-01. Reuses eden_role_bindings with Firebase UID subjects.\nDoes not modify WorkEvent schema, K15→K3, api/auth.py internals, or LAYER_MAP.\n\nUID never leaves the server on member-facing payloads.\n"""\nfrom __future__ import annotations\n\nimport json\nimport os\nimport re\nimport sqlite3\nimport time\nimport uuid\nfrom dataclasses import asdict, dataclass\nfrom pathlib import Path\nfrom typing import Any, Callable\n\nfrom solspire.eden_ops import EDEN_DESKS, EdenOps\nfrom weaver.enterprise_orchestration import EnterpriseOrchestrationStore\n\n_DB_PATH = os.environ.get(\"SOLSPIRE_PROJECTS_DB\") or os.path.join(\n    os.environ.get(\"SOLSPIRE_DATA_DIR\", \"data\"), \"solspire_projects.db\"\n)\n\n_HANDLE_RE = re.compile(r\"^[a-z0-9][a-z0-9._-]{1,31}$\")\nTASK_STATUSES = {\"TODO\", \"DOING\", \"BLOCKED\", \"DONE\"}\n\n_resolve_uid: Callable[[str], str | None] | None = None\n_normalize_handle: Callable[[str | None], str] | None = None\n\n\ndef set_handle_resolvers(\n    normalize: Callable[[str | None], str] | None,\n    resolve: Callable[[str], str | None] | None,\n) -> None:\n    global _normalize_handle, _resolve_uid\n    _normalize_handle = normalize\n    _resolve_uid = resolve\n\n\ndef _default_normalize_handle(raw: str | None) -> str:\n    if raw is None:\n        raise ValueError(\"Handle is required\")\n    h = str(raw).strip()\n    if h.startswith(\"@\"):\n        h = h[1:]\n    h = h.lower().strip()\n    if not h or not _HANDLE_RE.match(h):\n        raise ValueError(\"Invalid handle format\")\n    return h\n\n\ndef normalize_handle(raw: str | None) -> str:\n    fn = _normalize_handle or _default_normalize_handle\n    return fn(raw)\n\n\ndef resolve_uid_by_handle(handle: str) -> str | None:\n    if _resolve_uid:\n        return _resolve_uid(handle)\n    try:\n        from api.auth import resolve_uid_by_handle as real  # type: ignore\n        return real(handle)\n    except Exception:\n        return None\n\n\ndef _now() -> float:\n    return time.time()\n\n\ndef _id(prefix: str) -> str:\n    return f\"{prefix}-{uuid.uuid4().hex}\"\n\n\ndef _db() -> sqlite3.Connection:\n    directory = os.path.dirname(_DB_PATH)\n    if directory:\n        os.makedirs(directory, exist_ok=True)\n    conn = sqlite3.connect(_DB_PATH)\n    conn.row_factory = sqlite3.Row\n    conn.execute(\"PRAGMA journal_mode=WAL\")\n    conn.execute(\"PRAGMA foreign_keys=ON\")\n    conn.executescript(\n        \"\"\"\n        CREATE TABLE IF NOT EXISTS eden_role_bindings (\n            id TEXT PRIMARY KEY,\n            enterprise_id TEXT NOT NULL,\n            subject TEXT NOT NULL,\n            human_name TEXT NOT NULL,\n            desk TEXT NOT NULL,\n            bound_at REAL NOT NULL,\n            unbound_at REAL,\n            UNIQUE(enterprise_id, subject, desk)\n        );\n        CREATE TABLE IF NOT EXISTS enterprise_tasks (\n            task_id TEXT PRIMARY KEY,\n            enterprise_id TEXT NOT NULL,\n            desk TEXT NOT NULL,\n            title TEXT NOT NULL,\n            status TEXT NOT NULL,\n            owner_subject TEXT,\n            day_ref TEXT,\n            seed_key TEXT,\n            evidence_note TEXT,\n            created_at REAL NOT NULL,\n            updated_at REAL NOT NULL,\n            updated_by TEXT,\n            UNIQUE(enterprise_id, seed_key)\n        );\n        CREATE INDEX IF NOT EXISTS idx_e02_bindings\n            ON eden_role_bindings(enterprise_id, subject, unbound_at);\n        CREATE INDEX IF NOT EXISTS idx_e02_tasks\n            ON enterprise_tasks(enterprise_id, desk, status);\n        \"\"\"\n    )\n    conn.commit()\n    return conn\n\n\n@dataclass(frozen=True)\nclass MemberPublic:\n    handle: str\n    human_name: str\n    desk: str\n\n    def to_dict(self) -> dict[str, Any]:\n        return asdict(self)\n\n\ndef is_active_member(*, enterprise_id: str, uid: str) -> bool:\n    if not uid or uid in {\"architect\", \"jessica\"}:\n        return False\n    with _db() as c:\n        row = c.execute(\n            \"SELECT 1 FROM eden_role_bindings \"\n            \"WHERE enterprise_id=? AND subject=? AND unbound_at IS NULL LIMIT 1\",\n            (enterprise_id, uid),\n        ).fetchone()\n    return row is not None\n\n\ndef can_access_enterprise(*, enterprise_id: str, caller_uid: str, owner_uid: str) -> bool:\n    if not caller_uid:\n        return False\n    if caller_uid == owner_uid:\n        return True\n    return is_active_member(enterprise_id=enterprise_id, uid=caller_uid)\n\n\ndef add_member_by_handle(\n    *, enterprise_id: str, owner_uid: str, caller_uid: str, handle: str, desk: str,\n    human_name: str | None = None,\n) -> MemberPublic:\n    if caller_uid != owner_uid:\n        raise PermissionError(\"only owner may add members\")\n    if desk not in EDEN_DESKS:\n        raise ValueError(f\"unknown desk: {desk}\")\n    canon = normalize_handle(handle)\n    uid = resolve_uid_by_handle(canon)\n    if not uid:\n        raise LookupError(\"unknown handle\")\n    name = (human_name or canon).strip() or canon\n    now = _now()\n    with _db() as c:\n        existing = c.execute(\n            \"SELECT id FROM eden_role_bindings \"\n            \"WHERE enterprise_id=? AND subject=? AND desk=? AND unbound_at IS NULL\",\n            (enterprise_id, uid, desk),\n        ).fetchone()\n        if existing:\n            return MemberPublic(handle=canon, human_name=name, desk=desk)\n        prior = c.execute(\n            \"SELECT id FROM eden_role_bindings WHERE enterprise_id=? AND subject=? AND desk=?\",\n            (enterprise_id, uid, desk),\n        ).fetchone()\n        if prior:\n            c.execute(\n                \"UPDATE eden_role_bindings SET unbound_at=NULL, human_name=?, bound_at=? WHERE id=?\",\n                (name, now, prior[\"id\"]),\n            )\n        else:\n            c.execute(\n                \"INSERT INTO eden_role_bindings VALUES (?,?,?,?,?,?,?)\",\n                (_id(\"bind\"), enterprise_id, uid, name, desk, now, None),\n            )\n    return MemberPublic(handle=canon, human_name=name, desk=desk)\n\n\ndef remove_member_desk(\n    *, enterprise_id: str, owner_uid: str, caller_uid: str, handle: str, desk: str,\n) -> None:\n    if caller_uid != owner_uid:\n        raise PermissionError(\"only owner may remove members\")\n    canon = normalize_handle(handle)\n    uid = resolve_uid_by_handle(canon)\n    if not uid:\n        raise LookupError(\"unknown handle\")\n    with _db() as c:\n        c.execute(\n            \"UPDATE eden_role_bindings SET unbound_at=? \"\n            \"WHERE enterprise_id=? AND subject=? AND desk=? AND unbound_at IS NULL\",\n            (_now(), enterprise_id, uid, desk),\n        )\n\n\ndef list_members_public(*, enterprise_id: str) -> list[MemberPublic]:\n    with _db() as c:\n        rows = c.execute(\n            \"SELECT subject, human_name, desk FROM eden_role_bindings \"\n            \"WHERE enterprise_id=? AND unbound_at IS NULL ORDER BY desk\",\n            (enterprise_id,),\n        ).fetchall()\n    out: list[MemberPublic] = []\n    for r in rows:\n        if r[\"subject\"] in {\"architect\", \"jessica\"}:\n            continue\n        out.append(MemberPublic(handle=\"member\", human_name=r[\"human_name\"], desk=r[\"desk\"]))\n    return out\n\n\ndef member_desks(*, enterprise_id: str, uid: str) -> list[str]:\n    with _db() as c:\n        rows = c.execute(\n            \"SELECT desk FROM eden_role_bindings \"\n            \"WHERE enterprise_id=? AND subject=? AND unbound_at IS NULL\",\n            (enterprise_id, uid),\n        ).fetchall()\n    return [r[\"desk\"] for r in rows]\n\n\n@dataclass\nclass Task:\n    task_id: str\n    enterprise_id: str\n    desk: str\n    title: str\n    status: str\n    owner_subject: str | None\n    day_ref: str | None\n    seed_key: str | None\n    evidence_note: str | None\n    created_at: float\n    updated_at: float\n    updated_by: str | None\n\n    def to_public_dict(self) -> dict[str, Any]:\n        return {\n            \"task_id\": self.task_id,\n            \"enterprise_id\": self.enterprise_id,\n            \"desk\": self.desk,\n            \"title\": self.title,\n            \"status\": self.status,\n            \"day_ref\": self.day_ref,\n            \"seed_key\": self.seed_key,\n            \"evidence_note\": self.evidence_note,\n            \"created_at\": self.created_at,\n            \"updated_at\": self.updated_at,\n        }\n\n\ndef _seed_path() -> Path:\n    return Path(__file__).resolve().parents[1] / \"enterprises\" / \"eden-food-systems\" / \"tasks.seed.json\"\n\n\ndef seed_tasks(*, enterprise_id: str) -> int:\n    path = _seed_path()\n    if not path.is_file():\n        return 0\n    data = json.loads(path.read_text(encoding=\"utf-8\"))\n    now = _now()\n    inserted = 0\n    with _db() as c:\n        for item in data:\n            seed_key = item[\"seed_key\"]\n            exists = c.execute(\n                \"SELECT 1 FROM enterprise_tasks WHERE enterprise_id=? AND seed_key=?\",\n                (enterprise_id, seed_key),\n            ).fetchone()\n            if exists:\n                continue\n            c.execute(\n                \"INSERT INTO enterprise_tasks VALUES (?,?,?,?,?,?,?,?,?,?,?,?)\",\n                (_id(\"task\"), enterprise_id, item[\"desk\"], item[\"title\"], \"TODO\", None,\n                 item.get(\"day_ref\"), seed_key, None, now, now, None),\n            )\n            inserted += 1\n    return inserted\n\n\ndef list_tasks(*, enterprise_id: str, desk: str | None = None) -> list[Task]:\n    with _db() as c:\n        if desk:\n            rows = c.execute(\n                \"SELECT * FROM enterprise_tasks WHERE enterprise_id=? AND desk=? ORDER BY day_ref, title\",\n                (enterprise_id, desk),\n            ).fetchall()\n        else:\n            rows = c.execute(\n                \"SELECT * FROM enterprise_tasks WHERE enterprise_id=? ORDER BY desk, day_ref, title\",\n                (enterprise_id,),\n            ).fetchall()\n    return [_row_task(r) for r in rows]\n\n\ndef _row_task(r: sqlite3.Row) -> Task:\n    return Task(\n        task_id=r[\"task_id\"], enterprise_id=r[\"enterprise_id\"], desk=r[\"desk\"],\n        title=r[\"title\"], status=r[\"status\"], owner_subject=r[\"owner_subject\"],\n        day_ref=r[\"day_ref\"], seed_key=r[\"seed_key\"], evidence_note=r[\"evidence_note\"],\n        created_at=r[\"created_at\"], updated_at=r[\"updated_at\"], updated_by=r[\"updated_by\"],\n    )\n\n\ndef update_task(\n    *, enterprise_id: str, task_id: str, caller_uid: str, owner_uid: str,\n    status: str | None = None, evidence_note: str | None = None, title: str | None = None,\n) -> Task:\n    with _db() as c:\n        row = c.execute(\n            \"SELECT * FROM enterprise_tasks WHERE enterprise_id=? AND task_id=?\",\n            (enterprise_id, task_id),\n        ).fetchone()\n        if not row:\n            raise LookupError(\"task not found\")\n        if caller_uid != owner_uid:\n            desks = member_desks(enterprise_id=enterprise_id, uid=caller_uid)\n            if row[\"desk\"] not in desks:\n                raise PermissionError(\"member may only update own-desk tasks\")\n        new_status = (status or row[\"status\"]).upper()\n        if new_status not in TASK_STATUSES:\n            raise ValueError(f\"invalid status: {new_status}\")\n        note = evidence_note if evidence_note is not None else row[\"evidence_note\"]\n        if new_status in {\"DONE\", \"BLOCKED\"} and not (note and str(note).strip()):\n            raise ValueError(f\"{new_status} requires non-empty evidence_note\")\n        new_title = title if title is not None else row[\"title\"]\n        now = _now()\n        c.execute(\n            \"UPDATE enterprise_tasks SET status=?, evidence_note=?, title=?, updated_at=?, updated_by=? WHERE task_id=?\",\n            (new_status, note, new_title, now, caller_uid, task_id),\n        )\n        updated = c.execute(\"SELECT * FROM enterprise_tasks WHERE task_id=?\", (task_id,)).fetchone()\n    return _row_task(updated)\n\n\ndef task_counts(*, enterprise_id: str) -> dict[str, Any]:\n    with _db() as c:\n        rows = c.execute(\n            \"SELECT desk, status, COUNT(*) AS n FROM enterprise_tasks WHERE enterprise_id=? GROUP BY desk, status\",\n            (enterprise_id,),\n        ).fetchall()\n    by_desk: dict[str, dict[str, int]] = {}\n    for r in rows:\n        by_desk.setdefault(r[\"desk\"], {})[r[\"status\"]] = r[\"n\"]\n    return by_desk\n\n\n@dataclass\nclass LabeledValue:\n    value: Any\n    state: str\n\n    def to_dict(self) -> dict[str, Any]:\n        return asdict(self)\n\n\ndef control_room(\n    *, enterprise_id: str, subject_for_projection: str,\n    store: EnterpriseOrchestrationStore | None = None,\n) -> dict[str, Any]:\n    ops = EdenOps(store=store or EnterpriseOrchestrationStore())\n    field = ops.project_field(subject=subject_for_projection, enterprise_id=enterprise_id)\n    members = list_members_public(enterprise_id=enterprise_id)\n    counts = task_counts(enterprise_id=enterprise_id)\n\n    def label_commercial(key: str) -> LabeledValue:\n        v = field.commercial.get(key, \"UNKNOWN\")\n        if v == \"UNKNOWN\":\n            return LabeledValue(value=\"UNKNOWN\", state=\"UNKNOWN\")\n        return LabeledValue(value=v, state=\"RECORDED\")\n\n    def label_capital(key: str) -> LabeledValue:\n        v = field.capital.get(key, \"UNKNOWN\")\n        if key == \"budget\":\n            return LabeledValue(value=v, state=\"ESTIMATED\")\n        if v == \"UNKNOWN\":\n            return LabeledValue(value=\"UNKNOWN\", state=\"UNKNOWN\")\n        return LabeledValue(value=v, state=\"RECORDED\")\n\n    return {\n        \"zones\": {\n            \"command\": {\n                \"enterprise_id\": enterprise_id,\n                \"cycle\": field.cycle,\n                \"bindings_count\": len(members),\n                \"weaver\": field.weaver_counters,\n            },\n            \"commercial\": {k: label_commercial(k).to_dict() for k in field.commercial},\n            \"money\": {k: label_capital(k).to_dict() for k in field.capital},\n            \"desks\": {\n                \"staffed\": list(EDEN_DESKS),\n                \"members\": [m.to_dict() for m in members],\n                \"reserve\": {\"label\": \"Contingency/Reserve\", \"role\": \"financial_control_only\"},\n            },\n            \"tasks\": {\"by_desk\": counts},\n            \"next_gate\": {\n                \"unknowns\": field.weaver_counters.get(\"unknowns\", 0),\n                \"awaiting_authority\": field.weaver_counters.get(\"awaiting_authority\", 0),\n                \"message\": \"Where evidence stops, the claim stops.\",\n            },\n        }\n    }\n
+"""EDEN-OPS-02 — Team access, shared tasks, control-room projection.
+
+Stacks on EDEN-OPS-01. Reuses eden_role_bindings with Firebase UID subjects.
+Does not modify WorkEvent schema, K15→K3, api/auth.py internals, or LAYER_MAP.
+
+UID never leaves the server on member-facing payloads.
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import sqlite3
+import time
+import uuid
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any, Callable
+
+from solspire.eden_ops import EDEN_DESKS, EdenOps
+from weaver.enterprise_orchestration import EnterpriseOrchestrationStore
+
+_DB_PATH = os.environ.get("SOLSPIRE_PROJECTS_DB") or os.path.join(
+    os.environ.get("SOLSPIRE_DATA_DIR", "data"), "solspire_projects.db"
+)
+
+_HANDLE_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{1,31}$")
+TASK_STATUSES = {"TODO", "DOING", "BLOCKED", "DONE"}
+
+_resolve_uid: Callable[[str], str | None] | None = None
+_normalize_handle: Callable[[str | None], str] | None = None
+
+
+def set_handle_resolvers(
+    normalize: Callable[[str | None], str] | None,
+    resolve: Callable[[str], str | None] | None,
+) -> None:
+    global _normalize_handle, _resolve_uid
+    _normalize_handle = normalize
+    _resolve_uid = resolve
+
+
+def _default_normalize_handle(raw: str | None) -> str:
+    if raw is None:
+        raise ValueError("Handle is required")
+    h = str(raw).strip()
+    if h.startswith("@"):
+        h = h[1:]
+    h = h.lower().strip()
+    if not h or not _HANDLE_RE.match(h):
+        raise ValueError("Invalid handle format")
+    return h
+
+
+def normalize_handle(raw: str | None) -> str:
+    fn = _normalize_handle or _default_normalize_handle
+    return fn(raw)
+
+
+def resolve_uid_by_handle(handle: str) -> str | None:
+    if _resolve_uid:
+        return _resolve_uid(handle)
+    try:
+        from api.auth import resolve_uid_by_handle as real  # type: ignore
+        return real(handle)
+    except Exception:
+        return None
+
+
+def _now() -> float:
+    return time.time()
+
+
+def _id(prefix: str) -> str:
+    return f"{prefix}-{uuid.uuid4().hex}"
+
+
+def _db() -> sqlite3.Connection:
+    directory = os.path.dirname(_DB_PATH)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+    conn = sqlite3.connect(_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys=ON")
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS eden_role_bindings (
+            id TEXT PRIMARY KEY,
+            enterprise_id TEXT NOT NULL,
+            subject TEXT NOT NULL,
+            human_name TEXT NOT NULL,
+            desk TEXT NOT NULL,
+            bound_at REAL NOT NULL,
+            unbound_at REAL,
+            UNIQUE(enterprise_id, subject, desk)
+        );
+        CREATE TABLE IF NOT EXISTS enterprise_tasks (
+            task_id TEXT PRIMARY KEY,
+            enterprise_id TEXT NOT NULL,
+            desk TEXT NOT NULL,
+            title TEXT NOT NULL,
+            status TEXT NOT NULL,
+            owner_subject TEXT,
+            day_ref TEXT,
+            seed_key TEXT,
+            evidence_note TEXT,
+            created_at REAL NOT NULL,
+            updated_at REAL NOT NULL,
+            updated_by TEXT,
+            UNIQUE(enterprise_id, seed_key)
+        );
+        CREATE INDEX IF NOT EXISTS idx_e02_bindings
+            ON eden_role_bindings(enterprise_id, subject, unbound_at);
+        CREATE INDEX IF NOT EXISTS idx_e02_tasks
+            ON enterprise_tasks(enterprise_id, desk, status);
+        """
+    )
+    conn.commit()
+    return conn
+
+
+@dataclass(frozen=True)
+class MemberPublic:
+    handle: str
+    human_name: str
+    desk: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def is_active_member(*, enterprise_id: str, uid: str) -> bool:
+    if not uid or uid in {"architect", "jessica"}:
+        return False
+    with _db() as c:
+        row = c.execute(
+            "SELECT 1 FROM eden_role_bindings "
+            "WHERE enterprise_id=? AND subject=? AND unbound_at IS NULL LIMIT 1",
+            (enterprise_id, uid),
+        ).fetchone()
+    return row is not None
+
+
+def can_access_enterprise(*, enterprise_id: str, caller_uid: str, owner_uid: str) -> bool:
+    if not caller_uid:
+        return False
+    if caller_uid == owner_uid:
+        return True
+    return is_active_member(enterprise_id=enterprise_id, uid=caller_uid)
+
+
+def add_member_by_handle(
+    *, enterprise_id: str, owner_uid: str, caller_uid: str, handle: str, desk: str,
+    human_name: str | None = None,
+) -> MemberPublic:
+    if caller_uid != owner_uid:
+        raise PermissionError("only owner may add members")
+    if desk not in EDEN_DESKS:
+        raise ValueError(f"unknown desk: {desk}")
+    canon = normalize_handle(handle)
+    uid = resolve_uid_by_handle(canon)
+    if not uid:
+        raise LookupError("unknown handle")
+    name = (human_name or canon).strip() or canon
+    now = _now()
+    with _db() as c:
+        existing = c.execute(
+            "SELECT id FROM eden_role_bindings "
+            "WHERE enterprise_id=? AND subject=? AND desk=? AND unbound_at IS NULL",
+            (enterprise_id, uid, desk),
+        ).fetchone()
+        if existing:
+            return MemberPublic(handle=canon, human_name=name, desk=desk)
+        prior = c.execute(
+            "SELECT id FROM eden_role_bindings WHERE enterprise_id=? AND subject=? AND desk=?",
+            (enterprise_id, uid, desk),
+        ).fetchone()
+        if prior:
+            c.execute(
+                "UPDATE eden_role_bindings SET unbound_at=NULL, human_name=?, bound_at=? WHERE id=?",
+                (name, now, prior["id"]),
+            )
+        else:
+            c.execute(
+                "INSERT INTO eden_role_bindings VALUES (?,?,?,?,?,?,?)",
+                (_id("bind"), enterprise_id, uid, name, desk, now, None),
+            )
+    return MemberPublic(handle=canon, human_name=name, desk=desk)
+
+
+def remove_member_desk(
+    *, enterprise_id: str, owner_uid: str, caller_uid: str, handle: str, desk: str,
+) -> None:
+    if caller_uid != owner_uid:
+        raise PermissionError("only owner may remove members")
+    canon = normalize_handle(handle)
+    uid = resolve_uid_by_handle(canon)
+    if not uid:
+        raise LookupError("unknown handle")
+    with _db() as c:
+        c.execute(
+            "UPDATE eden_role_bindings SET unbound_at=? "
+            "WHERE enterprise_id=? AND subject=? AND desk=? AND unbound_at IS NULL",
+            (_now(), enterprise_id, uid, desk),
+        )
+
+
+def list_members_public(*, enterprise_id: str) -> list[MemberPublic]:
+    with _db() as c:
+        rows = c.execute(
+            "SELECT subject, human_name, desk FROM eden_role_bindings "
+            "WHERE enterprise_id=? AND unbound_at IS NULL ORDER BY desk",
+            (enterprise_id,),
+        ).fetchall()
+    out: list[MemberPublic] = []
+    for r in rows:
+        if r["subject"] in {"architect", "jessica"}:
+            continue
+        out.append(MemberPublic(handle="member", human_name=r["human_name"], desk=r["desk"]))
+    return out
+
+
+def member_desks(*, enterprise_id: str, uid: str) -> list[str]:
+    with _db() as c:
+        rows = c.execute(
+            "SELECT desk FROM eden_role_bindings "
+            "WHERE enterprise_id=? AND subject=? AND unbound_at IS NULL",
+            (enterprise_id, uid),
+        ).fetchall()
+    return [r["desk"] for r in rows]
+
+
+@dataclass
+class Task:
+    task_id: str
+    enterprise_id: str
+    desk: str
+    title: str
+    status: str
+    owner_subject: str | None
+    day_ref: str | None
+    seed_key: str | None
+    evidence_note: str | None
+    created_at: float
+    updated_at: float
+    updated_by: str | None
+
+    def to_public_dict(self) -> dict[str, Any]:
+        return {
+            "task_id": self.task_id,
+            "enterprise_id": self.enterprise_id,
+            "desk": self.desk,
+            "title": self.title,
+            "status": self.status,
+            "day_ref": self.day_ref,
+            "seed_key": self.seed_key,
+            "evidence_note": self.evidence_note,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
+
+
+def _seed_path() -> Path:
+    return Path(__file__).resolve().parents[1] / "enterprises" / "eden-food-systems" / "tasks.seed.json"
+
+
+def seed_tasks(*, enterprise_id: str) -> int:
+    path = _seed_path()
+    if not path.is_file():
+        return 0
+    data = json.loads(path.read_text(encoding="utf-8"))
+    now = _now()
+    inserted = 0
+    with _db() as c:
+        for item in data:
+            seed_key = item["seed_key"]
+            exists = c.execute(
+                "SELECT 1 FROM enterprise_tasks WHERE enterprise_id=? AND seed_key=?",
+                (enterprise_id, seed_key),
+            ).fetchone()
+            if exists:
+                continue
+            c.execute(
+                "INSERT INTO enterprise_tasks VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                (_id("task"), enterprise_id, item["desk"], item["title"], "TODO", None,
+                 item.get("day_ref"), seed_key, None, now, now, None),
+            )
+            inserted += 1
+    return inserted
+
+
+def list_tasks(*, enterprise_id: str, desk: str | None = None) -> list[Task]:
+    with _db() as c:
+        if desk:
+            rows = c.execute(
+                "SELECT * FROM enterprise_tasks WHERE enterprise_id=? AND desk=? ORDER BY day_ref, title",
+                (enterprise_id, desk),
+            ).fetchall()
+        else:
+            rows = c.execute(
+                "SELECT * FROM enterprise_tasks WHERE enterprise_id=? ORDER BY desk, day_ref, title",
+                (enterprise_id,),
+            ).fetchall()
+    return [_row_task(r) for r in rows]
+
+
+def _row_task(r: sqlite3.Row) -> Task:
+    return Task(
+        task_id=r["task_id"], enterprise_id=r["enterprise_id"], desk=r["desk"],
+        title=r["title"], status=r["status"], owner_subject=r["owner_subject"],
+        day_ref=r["day_ref"], seed_key=r["seed_key"], evidence_note=r["evidence_note"],
+        created_at=r["created_at"], updated_at=r["updated_at"], updated_by=r["updated_by"],
+    )
+
+
+def update_task(
+    *, enterprise_id: str, task_id: str, caller_uid: str, owner_uid: str,
+    status: str | None = None, evidence_note: str | None = None, title: str | None = None,
+) -> Task:
+    with _db() as c:
+        row = c.execute(
+            "SELECT * FROM enterprise_tasks WHERE enterprise_id=? AND task_id=?",
+            (enterprise_id, task_id),
+        ).fetchone()
+        if not row:
+            raise LookupError("task not found")
+        if caller_uid != owner_uid:
+            desks = member_desks(enterprise_id=enterprise_id, uid=caller_uid)
+            if row["desk"] not in desks:
+                raise PermissionError("member may only update own-desk tasks")
+        new_status = (status or row["status"]).upper()
+        if new_status not in TASK_STATUSES:
+            raise ValueError(f"invalid status: {new_status}")
+        note = evidence_note if evidence_note is not None else row["evidence_note"]
+        if new_status in {"DONE", "BLOCKED"} and not (note and str(note).strip()):
+            raise ValueError(f"{new_status} requires non-empty evidence_note")
+        new_title = title if title is not None else row["title"]
+        now = _now()
+        c.execute(
+            "UPDATE enterprise_tasks SET status=?, evidence_note=?, title=?, updated_at=?, updated_by=? WHERE task_id=?",
+            (new_status, note, new_title, now, caller_uid, task_id),
+        )
+        updated = c.execute("SELECT * FROM enterprise_tasks WHERE task_id=?", (task_id,)).fetchone()
+    return _row_task(updated)
+
+
+def task_counts(*, enterprise_id: str) -> dict[str, Any]:
+    with _db() as c:
+        rows = c.execute(
+            "SELECT desk, status, COUNT(*) AS n FROM enterprise_tasks WHERE enterprise_id=? GROUP BY desk, status",
+            (enterprise_id,),
+        ).fetchall()
+    by_desk: dict[str, dict[str, int]] = {}
+    for r in rows:
+        by_desk.setdefault(r["desk"], {})[r["status"]] = r["n"]
+    return by_desk
+
+
+@dataclass
+class LabeledValue:
+    value: Any
+    state: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def control_room(
+    *, enterprise_id: str, subject_for_projection: str,
+    store: EnterpriseOrchestrationStore | None = None,
+) -> dict[str, Any]:
+    ops = EdenOps(store=store or EnterpriseOrchestrationStore())
+    field = ops.project_field(subject=subject_for_projection, enterprise_id=enterprise_id)
+    members = list_members_public(enterprise_id=enterprise_id)
+    counts = task_counts(enterprise_id=enterprise_id)
+
+    def label_commercial(key: str) -> LabeledValue:
+        v = field.commercial.get(key, "UNKNOWN")
+        if v == "UNKNOWN":
+            return LabeledValue(value="UNKNOWN", state="UNKNOWN")
+        return LabeledValue(value=v, state="RECORDED")
+
+    def label_capital(key: str) -> LabeledValue:
+        v = field.capital.get(key, "UNKNOWN")
+        if key == "budget":
+            return LabeledValue(value=v, state="ESTIMATED")
+        if v == "UNKNOWN":
+            return LabeledValue(value="UNKNOWN", state="UNKNOWN")
+        return LabeledValue(value=v, state="RECORDED")
+
+    return {
+        "zones": {
+            "command": {
+                "enterprise_id": enterprise_id,
+                "cycle": field.cycle,
+                "bindings_count": len(members),
+                "weaver": field.weaver_counters,
+            },
+            "commercial": {k: label_commercial(k).to_dict() for k in field.commercial},
+            "money": {k: label_capital(k).to_dict() for k in field.capital},
+            "desks": {
+                "staffed": list(EDEN_DESKS),
+                "members": [m.to_dict() for m in members],
+                "reserve": {"label": "Contingency/Reserve", "role": "financial_control_only"},
+            },
+            "tasks": {"by_desk": counts},
+            "next_gate": {
+                "unknowns": field.weaver_counters.get("unknowns", 0),
+                "awaiting_authority": field.weaver_counters.get("awaiting_authority", 0),
+                "message": "Where evidence stops, the claim stops.",
+            },
+        }
+    }
