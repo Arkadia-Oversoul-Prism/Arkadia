@@ -375,6 +375,43 @@ def control_room(
     members = list_members_public(enterprise_id=enterprise_id)
     counts = task_counts(enterprise_id=enterprise_id)
 
+    # Promote facts only from verified Evidence Records linked through the
+    # existing execution → authorization → proposal enterprise chain.
+    verified: list[dict[str, Any]] = []
+    try:
+        from weaver import enterprise_orchestration as ew
+        with ew._db() as c:
+            rows = c.execute(
+                """SELECT e.content_or_ref, v.claim, v.verdict
+                   FROM ew_evidence e
+                   JOIN ew_verifications v ON instr(v.evidence_refs, e.id) > 0
+                   JOIN ew_execution_attempts x ON x.id=e.execution_attempt_id
+                   JOIN ew_authorizations a ON a.id=x.authorization_id
+                   JOIN ew_proposals p ON p.id=a.proposal_id
+                  WHERE p.enterprise_id=? AND v.verdict='VERIFIED'
+                  ORDER BY v.verified_at DESC""",
+                (enterprise_id,),
+            ).fetchall()
+        for row in rows:
+            try:
+                content = json.loads(row["content_or_ref"])
+            except Exception:
+                content = {}
+            if isinstance(content, dict):
+                verified.append(content)
+
+        for content in verified:
+            if "price_ngn_per_kg" in content and field.commercial["buy_price"] == "UNKNOWN":
+                field.commercial["buy_price"] = f"₦{content['price_ngn_per_kg']}/kg"
+            for key in ("supplier", "commodity", "buyer", "route", "sell_price"):
+                if key in content and field.commercial.get(key) == "UNKNOWN":
+                    field.commercial[key] = str(content[key])
+            for key in ("committed", "spent", "recovered"):
+                if key in content and field.capital.get(key) == "UNKNOWN":
+                    field.capital[key] = str(content[key])
+    except Exception:
+        pass
+
     def label_commercial(key: str) -> LabeledValue:
         v = field.commercial.get(key, "UNKNOWN")
         if v == "UNKNOWN":
