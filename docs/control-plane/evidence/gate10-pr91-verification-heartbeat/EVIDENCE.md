@@ -56,6 +56,9 @@ No pre-existing failure fingerprint changed. No regression, no masked failure.
 | `Vercel Preview Comments` | success |
 | commit status `Vercel` | success |
 
+Re-fetched live during this pass via the check-runs and combined-status APIs on
+`d7bf69c` — not carried over from the prior pass's notes.
+
 ## Corroboration of the root cause from live main logs
 
 Run **`36399594533`** — `sg-02-fe-2-v.yml` on `push` to `main` @ `6038989`
