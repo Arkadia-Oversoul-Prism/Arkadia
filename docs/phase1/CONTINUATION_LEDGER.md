@@ -1034,3 +1034,68 @@ K5 explicitly names ADRs, but `knowledge/static_ingestion.py::_SOURCES` did not 
 ### Authorization
 
 Human review/merge remains required. This branch was rebased onto current `main` solely to restore mergeability after PR #100 landed. No baseline debt was folded into this pass.
+
+### Resolution
+
+Merged as PR #101 (`b5de25a`). The ADR half of the K5 coverage gap is closed on `main`.
+The open-loop half remained and was cut as its own bounded branch — see the pass below.
+
+
+---
+
+## Pass — K5 Static Ingestion · open-loop corpus coverage gap
+
+**Date:** 2026-09-28
+**Branch:** `gate-k/k5-open-loop-corpus-coverage`
+**Base:** `main` @ `e6f79f1` (merge of PR #102; `BASE_MAIN` for this pass)
+
+### Reconstruction correction
+
+The handed-down run context was stale. Live evidence on `origin/main`:
+
+- PR #99 (`gate-vault/gitignore-hardening`) is **closed + merged** — not the active PR.
+- PR #101 (`gate-k/k5-adr-static-ingestion`) is **closed + merged** (`b5de25a`) — K5 is
+  **not** awaiting merge.
+- PR #102 (`gate-verify/open-pr-composability`) is **closed + merged** (`e6f79f1`).
+- `origin/main` is `e6f79f1`, not `1d4ed03`.
+- Open PRs are now #71 plus stale drafts #3-#6 and #1/#2 — none maps to Workstream K.
+
+K5 is therefore **not** complete: the coverage gap named in K5's own wording includes
+open loops, and PR #101 closed only the ADR half.
+
+### Finding
+
+`data/oracle_store.json` open loops are records, not markdown, so no `root` + `glob`
+source could reach them. `_SOURCES` had no record source shape at all. The prior evidence
+frame ("`docs/recon/` + `docs/verification/` remain uncurated") was a markdown-curation
+question and did not cover this.
+
+### Bounded change
+
+- `knowledge/static_ingestion.py` — one record source (`kind="oracle_open_loops"`),
+  `_ORACLE_STORE_PATH` aligned with `kernel.oracle_store`, tolerant row reader, and
+  per-loop ingest. Record sources dispatch before the filesystem loop.
+- `tests/test_static_ingestion_sources.py` — six added tests (declared source, canonical
+  store alignment, tolerant read on missing/malformed store, content stability).
+- `docs/control-plane/evidence/k5-open-loop-corpus-coverage/EVIDENCE.md`.
+- Ingestion path unchanged: still one `pipeline.ingest()` per record (LAW I).
+- `api/main.py` untouched — 2519/2600 lines.
+
+### Verification
+
+- Isolated ingestion: **34 → 36** first pass; **0 new / 36 skipped** second pass
+  (`{ingested:36, skipped:0}` then `{ingested:0, skipped:36}`).
+- Exactly **2** `static:oracle_open_loops` rows; provider tally otherwise unmoved.
+- Full suite: **49 failed / 899 passed / 10 skipped / 2 errors**.
+- Failing/error node-id set identical (51 nodes) to the pass-start fingerprint.
+- Architecture gate: **11/11**. `py_compile`: clean.
+
+### Remaining K5 uncertainty (unchanged by this pass)
+
+`docs/recon/`, `docs/verification/`, and all non-`docs/*.md` markdown remain outside
+`_SOURCES`. Which documents belong in the Oracle's retrieval corpus is a sovereign
+curation call, not a mechanical ingestion fix.
+
+### Authorization
+
+Human review/merge remains required. No baseline debt folded in.
