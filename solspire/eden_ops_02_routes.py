@@ -7,16 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.auth import require_auth
 from solspire import eden_ops_02 as e02
-from solspire.enterprise_router import _MANAGER, _db
+from solspire.enterprise_router import _MANAGER
 
 
 def _owner_uid(enterprise_id: str) -> str | None:
-    with _db() as conn:
-        row = conn.execute(
-            "SELECT owner_subject_ref FROM enterprise_organizations WHERE enterprise_id=?",
-            (enterprise_id,),
-        ).fetchone()
-    return row["owner_subject_ref"] if row else None
+    return e02.owner_uid_for_enterprise(enterprise_id=enterprise_id)
 
 
 def _require_access(enterprise_id: str, caller_uid: str) -> str:
