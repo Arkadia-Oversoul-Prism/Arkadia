@@ -232,3 +232,21 @@ authenticated node's private Knowledge OS vault тАФ never the public scroll s
 - Full-suite reproducibility needs `pyyaml` and `PYTHONPATH=<repo>/archive/legacy_python`;
   with those the suite yields exactly the documented 2 collection errors (pre-existing:
   `test_autonomy.py` `load_autonomy_config`, `test_render_codex.py` `arkadia_drive_sync`).
+
+## CP10 mutation boundary — root narrative docs are legitimate (GATE-10)
+- `SG-02-FE.2-V` gates every PR *and* `main`. Its allowlist admits legitimate repository
+  surfaces; anything unmatched is reported as "Unexpected path outside legitimate repository
+  surfaces" and fails the job. Root narrative docs (`AGENTS.md`, `README.md`, `ROADMAP.md`, …)
+  were not admitted, so **any commit touching repository memory turned the gate red** — it
+  failed on `main` at `d48ad0e` and `a26af408` for exactly this reason, blocking nothing
+  legitimate and proving nothing about the commit it rejected.
+- The allowlist is written twice: `scripts/cp10_mutation_boundary_policy.py` (`LEGIT`) and the
+  inline `legit=` in `.github/workflows/sg-02-fe-2-v.yml`. **They must stay in sync** —
+  `tests/test_m02a_ci_gate_integrity.py` asserts it. Root docs are matched by `[^/]+\.md$`
+  (anchored, no `/`), so nested markdown still resolves through its directory prefix; do not
+  replace it with a blanket `.*\.md$`.
+- When this gate goes red, read the offending path list first: a path that is plainly
+  legitimate work means the allowlist is wrong, not the commit. Classify it as an allowlist
+  omission and fix the policy + workflow together — do not weaken the gate, and do not
+  reclassify `REGISTERED_ARCHITECTURAL_DEBT` to make it pass.
+
