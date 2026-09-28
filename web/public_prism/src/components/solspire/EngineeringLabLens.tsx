@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ApiError, apiRequest } from '../../lib/apiClient';
+import EngineeringLabRuntimeLens from './EngineeringLabRuntimeLens';
 
 type LabOverview = {
   schema_version?: string;
@@ -90,5 +91,7 @@ export default function EngineeringLabLens() {
     </div>
 
     {errors.length > 0 && <section className="solspire-object" style={{ padding: 16, borderColor: 'rgba(201,168,76,0.25)' }}><div className="solspire-kicker">Observation warnings</div>{errors.map((item, i) => <div key={i} style={{ marginTop: 8, fontSize: 11, color: 'rgba(232,232,232,0.6)' }}>{item.component || 'unknown'} · {item.status || 'unknown'} · {item.reason || 'reason unavailable'}</div>)}</section>}
+
+    <Section eyebrow="Runtime" title="What is running now"><EngineeringLabRuntimeLens /></Section>
   </div>;
 }

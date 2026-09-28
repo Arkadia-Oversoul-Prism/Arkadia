@@ -158,7 +158,7 @@ function ArkanaOverlay({context,pack,onClose}:{context:string;pack:{surface:stri
     <div className="solspire-arkana-panel">
       <div className="solspire-overlay-head">
         <div>
-          <div className="solspire-kicker">Persistent Arcana thread</div>
+          <div className="solspire-kicker">Persistent Arkana thread</div>
           <h2>Arkana</h2>
           <p>{context}</p>
         </div>

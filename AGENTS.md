@@ -172,3 +172,19 @@ authenticated node's private Knowledge OS vault — never the public scroll stor
 - Full diagnosis + verbatim patch: `docs/verification/P1-A_FINAL.md` §2.
 - Lesson: `python -m py_compile api/main.py` before every commit that touches boot code;
   Render boot failure (not deploy lag) is the first hypothesis when routes go stale.
+
+## Engineering Lab — native agent execution substrate (EL-01 → EL-10)
+- Package `lab/engineering_lab/` (layer 2, registered in `tests/architecture/LAYER_MAP.py`).
+  Gives the Lab governed *hands* without authority: bounded sandbox execution,
+  agent/session/run models, live event stream, durable store, provider-neutral model
+  gateway, artifact canvas, automations, Google adapters, Android projection, voice boundary.
+- API surface lives in `api/lab_routes.py` (prefix `/api/lab`, 23 routes), mounted via the
+  already-composed `api/nodes` router — **never** add to `api/main.py` (2600-line budget).
+- Persistence reuses the canonical shared SQLite DB (`data/solspire_projects.db`, env
+  `SOLSPIRE_PROJECTS_DB`) with new `el_*` tables. Identity is always the verified Firebase
+  uid (`subject_ref`); reads are owner-scoped.
+- Hard boundary: execution requires an `AUTHORIZED` session; every run stops at
+  `READY_FOR_REVIEW`. The substrate cannot merge, deploy, or originate authority
+  (`record_authorization` rejects non-`human` origin). Guard: `tests/test_engineering_lab_api.py`
+  asserts no repository/authority mutation surface. Tests: `tests/test_engineering_lab_substrate.py`.
+- Evidence: `docs/control-plane/evidence/el-01-10-native-agent-execution-substrate/EVIDENCE.md`.
