@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from api.auth import require_auth
 from solspire.workspace_manager import get_workspace_manager
 from solspire.workevent_manager import get_workevent_manager
+from solspire.activity_projection import project_activity_to_workspace
 
 router = APIRouter(
     prefix="/workevents",
@@ -68,6 +69,10 @@ async def list_workevents(
         raise HTTPException(status_code=409, detail="Canonical workspace not found")
     if workspace_ref and workspace_ref != workspace.id:
         raise HTTPException(status_code=404, detail="Workspace not found")
+    # Phase 3: derive canonical workspace activity from existing project events
+    # before reading the WorkEvent spine. This is idempotent and does not create
+    # a new activity store or grant any authorization.
+    project_activity_to_workspace(user["uid"], limit_per_project=limit)
     events = get_workevent_manager().list(user["uid"], workspace.id, limit)
     return {"work_events": [event.to_dict() for event in events], "count": len(events)}
 
