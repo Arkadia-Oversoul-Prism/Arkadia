@@ -2,6 +2,64 @@
 
 ---
 
+## Session: GATE-VAULT — Independent re-verification + autonomy escalation
+
+**Session date:** 2026-09-28
+**Role:** Engineering Runtime (bounded execution pass 2 — verify, classify, persist)
+**Branch / PR:** continues `gate-vault/gitignore-hardening` → PR #99 (unchanged, human-only merge)
+**BASE_MAIN at pass start:** `1d4ed03` (merge of PR #98)
+**Head at pass end:** `af0a04d` (unchanged — no mutation this pass)
+
+### Reconstructed state
+
+- `origin/main` = `1d4ed03`; `api/main.py` = 2519 lines (≤ 2600); `py_compile` OK.
+- PRs #94, #95, #97, #98 all **merged**; PR #99 is the **only** active bounded PR.
+- Gate-arch CLOSED/VERIFIED: `pytest tests/architecture -q` = **11/11**.
+- Parking-lot entries (`api/main.py` over budget, `tests/architecture` 9/11) are **stale**.
+
+### Work performed (verification only — no mutation)
+
+Every PR #99 claim was independently re-derived on a fresh checkout of `af0a04d`:
+
+| Claim | Independent result |
+|-------|--------------------|
+| Tracked `vault/` files newly ignored | **0** (all 14 still tracked) |
+| Canary `vault/Ideas/*.md` stageable | **No** — ignored at `.gitignore:68` |
+| `pytest tests/architecture -q` | **11 passed / 0 failed** |
+| Full suite | 889 passed / 49 failed / 10 skipped / 2 errors |
+| Fingerprint vs `main` @ `1d4ed03` | **byte-identical** (sha256 `1fd4db2b…`); 0 introduced, 0 resolved |
+| Local head == remote head | **yes** (`af0a04d`) |
+
+### Next bounded task — CLASSIFIED, NOT EXECUTED
+
+`tests/test_autonomy.py` collection error (`weaver.autonomy` no longer exports
+`load_autonomy_config`) was reconsidered and is **CONTRADICTED**, not hygiene debt:
+
+- `weaver/autonomy.py` is an autonomous commit engine (`run_scheduled_once` →
+  `RecursiveEngine`); `weaver/run_autonomy.py` is import-broken by the collision.
+- `weaver/autonomy/__init__.py` shadows it and states *"No execution hooks."*
+- `governance/autonomy.json`: `enabled:false`, `max_commits_per_run:0`, *"no autonomous
+  execution permitted."*
+
+Un-shadowing would repair/re-open an **autonomous mutation path**; deleting the test would
+waive coverage on that surface. Both sit under the authority-model / new-mutation-path hard
+stop. **Escalated to sovereign.** No code touched.
+
+### Carried-forward (do not restart)
+
+- **Baseline-debt workstream** (49 failures + 2 errors) is its own bounded workstream; the
+  failures span frontend/identity/grove surfaces and are not a safe single slice.
+  `tests/test_gate_status.py` / `tests/test_gate_serve_script.py` fail only because `gate/`
+  and root `index.html` do not exist in the checkout — likely environment/deploy-layout
+  dependent; needs its own precondition pass before any verdict.
+
+### Notification
+
+Glance posted to PR #99:
+https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/99#issuecomment-5872934047
+
+---
+
 ## Session: GATE-VAULT — Private-vault `.gitignore` hardening
 
 **Session date:** 2026-09-28
