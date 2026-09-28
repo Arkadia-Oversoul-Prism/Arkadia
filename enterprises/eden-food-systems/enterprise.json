@@ -1,0 +1,45 @@
+{
+  "enterprise_key": "eden-food-systems",
+  "display_name": "Eden Food Systems",
+  "legal_name": "",
+  "status": "ONBOARDING",
+  "pilot": {
+    "currency": "NGN",
+    "budget_total": 1000000,
+    "duration_weeks": 4,
+    "objective": "Execute one controlled, measurable commodity transaction while building the minimum repeatable operating infrastructure."
+  },
+  "identity": {
+    "motto": "From Source to Market.",
+    "owner_binding": "authenticated_firebase_uid",
+    "sovereign_architect_ref": "TO_BE_BOUND_AT_RUNTIME",
+    "authority_source": "Arkadia governance + authenticated subject",
+    "premium_entitlement": "NOT_DEFINED_IN_REPOSITORY"
+  },
+  "departments": [
+    {"id":"D01","name":"Procurement & Commodity Operations","budget":500000,"accountable":"procurement_lead"},
+    {"id":"D02","name":"Logistics & Distribution","budget":120000,"accountable":"logistics_lead"},
+    {"id":"D03","name":"Packaging, Quality & Handling","budget":45000,"accountable":"quality_handling_lead"},
+    {"id":"D04","name":"Marketing & Customer Acquisition","budget":75000,"accountable":"marketing_lead"},
+    {"id":"D05","name":"Brand, Content & Customer Experience","budget":35000,"accountable":"brand_cx_lead"},
+    {"id":"D06","name":"Digital Operations & Communications","budget":25000,"accountable":"digital_ops_lead"},
+    {"id":"D07","name":"Operations Management, Customer Care & Finance","budget":130000,"accountable":"chief_of_operations"},
+    {"id":"D08","name":"Contingency / Reserve","budget":70000,"accountable":"chief_of_operations"}
+  ],
+  "phases": [
+    {"id":"P01","name":"Commercial Confirmation"},
+    {"id":"P02","name":"Supplier / Buyer Lock"},
+    {"id":"P03","name":"Budget Lock"},
+    {"id":"P04","name":"Activation"},
+    {"id":"P05","name":"Procurement & Movement"},
+    {"id":"P06","name":"Delivery & Settlement"},
+    {"id":"P07","name":"Reconciliation"},
+    {"id":"P08","name":"Learning & Scale Decision"}
+  ],
+  "daily_cadence": {
+    "morning_standup": "08:30",
+    "midday_control": "12:30",
+    "daily_close": "17:30",
+    "dashboard_close": "19:00"
+  }
+}
