@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 
 from api.auth import require_auth
 from solspire.workspace_manager import get_workspace_manager
+from solspire import eden_ops_02 as e02
 from kernel.doc_extract import extract_text
 
 _DB_PATH = os.environ.get("SOLSPIRE_PROJECTS_DB") or os.path.join(
@@ -156,10 +157,17 @@ def _decode(row: sqlite3.Row) -> Enterprise:
 
 def _get(conn: sqlite3.Connection, enterprise_id: str, subject_ref: str) -> Enterprise | None:
     row = conn.execute(
-        "SELECT * FROM enterprise_organizations WHERE enterprise_id=? AND owner_subject_ref=?",
-        (enterprise_id, subject_ref),
+        "SELECT * FROM enterprise_organizations WHERE enterprise_id=?",
+        (enterprise_id,),
     ).fetchone()
-    return _decode(row) if row else None
+    if not row:
+        return None
+    owner = row["owner_subject_ref"]
+    if not e02.can_access_enterprise(
+        enterprise_id=enterprise_id, caller_uid=subject_ref, owner_uid=owner
+    ):
+        return None
+    return _decode(row)
 
 
 class EnterpriseManager:
@@ -185,10 +193,14 @@ class EnterpriseManager:
     def list(self, *, subject_ref: str) -> list[Enterprise]:
         with _db() as conn:
             rows = conn.execute(
-                "SELECT * FROM enterprise_organizations WHERE owner_subject_ref=? ORDER BY updated_at DESC",
-                (subject_ref,),
+                "SELECT * FROM enterprise_organizations ORDER BY updated_at DESC"
             ).fetchall()
-        return [_decode(row) for row in rows]
+        return [
+            _decode(row)
+            for row in rows
+            if row["owner_subject_ref"] == subject_ref
+            or e02.is_active_member(enterprise_id=row["enterprise_id"], uid=subject_ref)
+        ]
 
     def get(self, *, subject_ref: str, enterprise_id: str) -> Enterprise:
         with _db() as conn:
@@ -204,6 +216,8 @@ class EnterpriseManager:
             enterprise = _get(conn, enterprise_id, subject_ref)
             if not enterprise:
                 raise HTTPException(status_code=404, detail="Enterprise workspace not found")
+            if enterprise.owner_subject_ref != subject_ref:
+                raise HTTPException(status_code=403, detail="Owner only")
             column = (
                 "context_json", "pilot_workload_json", "workstreams_json",
                 "members_json", "operating_context_json", "week_one_json",
@@ -419,6 +433,8 @@ class EnterpriseManager:
             enterprise = _get(conn, enterprise_id, subject_ref)
             if not enterprise:
                 raise HTTPException(status_code=404, detail="Enterprise workspace not found")
+            if enterprise.owner_subject_ref != subject_ref:
+                raise HTTPException(status_code=403, detail="Owner only")
             analyses = [*enterprise.analysis, item]
             conn.execute(
                 "UPDATE enterprise_organizations SET analysis_json=?, updated_at=? WHERE enterprise_id=? AND owner_subject_ref=?",
@@ -504,12 +520,13 @@ async def instantiate_eden_food_systems(user: dict = Depends(require_auth)):
 
 @router.get("/workspaces")
 async def list_enterprises(user: dict = Depends(require_auth)):
-    return {"enterprises": [e.to_dict() for e in _MANAGER.list(subject_ref=user["uid"])]}
+    return {"enterprises": [e02.public_enterprise_payload(e.to_dict(), caller_uid=user["uid"]) for e in _MANAGER.list(subject_ref=user["uid"])]}
 
 
 @router.get("/workspaces/{enterprise_id}")
 async def get_enterprise(enterprise_id: str, user: dict = Depends(require_auth)):
-    return {"enterprise": _MANAGER.get(subject_ref=user["uid"], enterprise_id=enterprise_id).to_dict()}
+    enterprise = _MANAGER.get(subject_ref=user["uid"], enterprise_id=enterprise_id)
+    return {"enterprise": e02.public_enterprise_payload(enterprise.to_dict(), caller_uid=user["uid"])}
 
 
 @router.put("/workspaces/{enterprise_id}/steps/{step}")
@@ -527,12 +544,18 @@ async def save_enterprise_step(
 
 @router.get("/workspaces/{enterprise_id}/dashboard")
 async def get_enterprise_dashboard(enterprise_id: str, user: dict = Depends(require_auth)):
-    return _MANAGER.dashboard(subject_ref=user["uid"], enterprise_id=enterprise_id)
+    dashboard = _MANAGER.dashboard(subject_ref=user["uid"], enterprise_id=enterprise_id)
+    if e02.owner_uid_for_enterprise(enterprise_id=enterprise_id) != user["uid"]:
+        dashboard["control"]["members"] = [m.to_dict() for m in e02.list_members_public(enterprise_id=enterprise_id)]
+        dashboard.pop("ai_analysis", None)
+    return dashboard
 
 
 @router.get("/workspaces/{enterprise_id}/attachments")
 async def list_enterprise_attachments(enterprise_id: str, user: dict = Depends(require_auth)):
-    _MANAGER.get(subject_ref=user["uid"], enterprise_id=enterprise_id)
+    enterprise = _MANAGER.get(subject_ref=user["uid"], enterprise_id=enterprise_id)
+    if enterprise.owner_subject_ref != user["uid"]:
+        raise HTTPException(status_code=403, detail="Owner only")
     with _db() as conn:
         rows = conn.execute(
             """SELECT attachment_id, original_name, content_type, size_bytes,
@@ -551,7 +574,9 @@ async def upload_enterprise_attachment(
     request: Request,
     user: dict = Depends(require_auth),
 ):
-    _MANAGER.get(subject_ref=user["uid"], enterprise_id=enterprise_id)
+    enterprise = _MANAGER.get(subject_ref=user["uid"], enterprise_id=enterprise_id)
+    if enterprise.owner_subject_ref != user["uid"]:
+        raise HTTPException(status_code=403, detail="Owner only")
     form = await request.form()
     upload = form.get("file")
     if upload is None or not hasattr(upload, "filename"):
@@ -623,5 +648,8 @@ async def record_enterprise_analysis(
     )
     return {"enterprise": enterprise.to_dict(), "analysis": item}
 
+
+from solspire.eden_ops_02_routes import register_eden_ops_02_routes
+register_eden_ops_02_routes(router)
 
 __all__ = ["router", "EnterpriseManager", "STEP_NAMES"]
