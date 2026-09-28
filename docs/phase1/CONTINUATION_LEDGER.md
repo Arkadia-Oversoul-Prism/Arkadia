@@ -595,3 +595,38 @@ Oracle endpoint, or parallel social database was created.
   config dependency, not a code defect.
 - ReasoMate standalone routing and Encyclopedia/Codex duplicate-surface
   reconciliation remain.
+
+## Session: WEAVER heartbeat — main.py line-budget restoration (baseline debt, own bounded pass)
+
+Bounded task: restore `api/main.py` within its 2600-line architecture budget.
+Full evidence: `docs/control-plane/evidence/gate07-main-py-line-budget/EVIDENCE.md`.
+
+### Reconstruction (live, this pass)
+
+- `origin/main` = `e9257bf` (merge of PR #93). CREDENTIALS: token has push permission
+  (admin/maintain/push all true) — not a read-only hard stop.
+- Fingerprints (repo venv): `6038989` = 804/54/12/0 (matches contract baseline exactly);
+  `e9257bf` = 842/51/12/2. Set-diff base→head: **3 repaired, 0 new** (all attributable to
+  PR #91). No regressions from PR #93. Architecture 9 passed / 2 failed at **both** refs.
+- GATE-01..09 closed by PR #93. GATE-10 items landed via PRs #91/#92. Further GATE-10 work
+  touches K15/K3 → **excluded from this pass**, no authorization change attempted.
+- No active bounded PR. PR #71 is an explicitly non-mergeable experiment; #2/#1 stale.
+
+### Change
+
+- Added `api/loop_routes.py`; mounted it from the `api/main.py` composition root.
+  `api/main.py` 2607 → **2512** lines.
+
+### Verification
+
+- `py_compile api/main.py` OK; `py_compile api/loop_routes.py` OK (P1-A boot-code lesson applied).
+- `pytest tests/architecture -q` → 10 passed / 1 failed (was 9/2). Budget test now PASSES.
+- All six extracted routes present in `app.openapi()`.
+- Full suite 843/50/12/2: **0 new failures, 1 repaired**.
+
+### Next bounded task candidate (NOT executed)
+
+`api/nodes.py` layer inversion (2 violations). **CONTRADICTED**: fixing it collides with
+`tests/test_ais_w8_canonical_identity.py`, which *requires* the very
+`router.include_router(_ais_profile_router)` structure the architecture detector forbids.
+Needs a dedicated bounded pass (touches an identity-boundary test) — flagged for sovereign visibility.
