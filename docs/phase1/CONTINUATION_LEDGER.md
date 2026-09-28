@@ -8,7 +8,7 @@
 **Role:** Engineering Runtime (bounded execution pass — reconstruct, classify, fix, prove, persist)
 **Branch / PR:** `gate10/cp10-allowlist-root-docs` → **PR #105** (human-only merge)
 **BASE_MAIN at pass start:** `a26af408c269729a57d0a53c6ad39fcf0ca22fdf` (merge of PR #104)
-**Head at pass end:** `9717868b8`
+**Head at pass end:** `c21cef38c`
 
 ### Reconstruction correction (contract baseline was stale)
 
