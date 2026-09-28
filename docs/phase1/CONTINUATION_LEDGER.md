@@ -767,3 +767,72 @@ sovereign-authored identity content, not credential material.
 Sovereign merge decision on **#94 and #95** (prefer #95 first or together).
 No merge performed. No push to `main`. No self-authorization.
 
+
+## Pass — Open-PR composability verification (#99 × #100 × #101) · GATE-VERIFY
+
+**Type:** bounded verification (own branch/PR). **Branch:** `gate-verify/open-pr-composability`.
+**Base:** `main` @ `1d4ed0362aae88e2a5c7bfa8db90fb143f065964` (merge of PR #98) — BASE_MAIN.
+
+### Why this pass
+
+Three bounded PRs (#99, #100, #101) are simultaneously open on `main`, all touching
+`docs/phase1/CONTINUATION_LEDGER.md`. The prior #100 and #101 sessions each asserted
+their own ledger was conflict-free, but neither had tested the *pair*. The previous
+heartbeat attempted a set-diff of the three-way merge and was inconclusive. This pass
+resolves that with real Git merges and a measured combined-tree fingerprint.
+
+### Method
+
+Branches cut from BASE_MAIN; each merge performed as two `--no-ff` commits so the second
+merge is a true three-way merge. Full suite run on the combined tree with the same
+invocation as the baseline; failure ids captured with `grep -E '^(FAILED|ERROR)' | sort`
+and `diff`ed against the recorded baseline list.
+
+### Result — composable, order-independent
+
+- **Pairwise:** #99 × #100 CLEAN; #99 × #101 CLEAN; **#100 × #101 CONFLICT**.
+- The single conflict is `docs/phase1/CONTINUATION_LEDGER.md`, lines 911–1052, and is
+  **append-order only** — both PRs append a session at the tail; the blocks are adjacent,
+  not overlapping. There is no clashing content. Resolution: keep both blocks in commit
+  order. Applied and tested locally.
+- **Combined tree:** `py_compile api/main.py` OK; `tests/architecture` **11 passed**;
+  full suite **49 failed / 893 passed / 10 skipped / 2 errors**.
+- **Fingerprint:** byte-identical to baseline (`diff` → no output). **0 new, 0 repaired.**
+  The +4 passing delta is exactly and only PR #101's new
+  `tests/test_static_ingestion_sources.py` (15 passed on that branch with architecture).
+- **No vault leak:** 0 untracked files in `vault/` after the full combined run; all 14
+  tracked `vault/` files remain tracked and un-ignored (PR #99 both halves hold).
+- **Budget preserved:** `api/main.py` 2519 lines (PR #101 correctly did not touch it).
+
+### Prior-order hazard: now MOOT
+
+The #95 → #94 merge ordering recorded on `main` is **historical**. Both are merged;
+`#98` is HEAD. Do not carry that constraint forward.
+
+### Authoritative merge guidance for the sovereign
+
+**Order #99 → #100 → #101.** Any order is safe (no PR is unsafe alone), but this order
+requires no conflict resolution — #101 last absorbs the append. If #101 is merged first,
+GitHub will surface the same append conflict; resolve by keeping both session blocks.
+
+### Carried forward (recorded, NOT executed)
+
+1. **K5 is not complete.** `docs/recon/` (22) and `docs/verification/` (59) remain outside
+   `_SOURCES` — a corpus-curation decision for the sovereign. This pass does not change that.
+2. The two baseline collection errors and ~49 stale-assertion failures remain sovereign-gated
+   (repair-tests vs restore-strings). Untouched here.
+3. `api/nodes.py` ADR-015 layer inversion (`api.ais_profile`, `api.lab_routes`) remains
+   CONTRADICTED against `tests/test_ais_w8_canonical_identity.py`. Not executed.
+
+### Authorization
+
+No merge. No push to `main`. No self-authorization. **#99, #100, #101** remain open and
+ready for human merge. This pass opened a separate bounded evidence-only PR.
+
+### Next heartbeat
+
+- Anchor: the open-PR merge queue (#99 → #100 → #101), then reconstruct from `main` @ origin.
+- Next bounded task: not yet cut. K5 source curation and the stale-assertion decision each
+  need one sovereign line before they can become bounded.
+- Reconstruct from `main` @ origin, not from this ledger.
+
