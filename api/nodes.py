@@ -33,15 +33,23 @@ from api.auth import (
 logger = logging.getLogger("arkadia.nodes")
 router = APIRouter()
 
-# A.I.S capability projection uses the same authenticated router boundary.
-from api.ais_profile import router as _ais_profile_router
-router.include_router(_ais_profile_router)
+# A.I.S capability projection and the Engineering Lab are mounted through this
+# router as *sub-routers injected by the composition root*. api/nodes.py is
+# layer-3 identity and must not import the layer-1 surface it is composed with
+# (ADR-014 Decision 4), so the composition root calls configure_routers() before
+# mounting — exactly as it injects the tools counter via configure_tools_counter().
+# Without injection the sub-routers are absent; there is no direct import fallback.
+_ais_profile_router: APIRouter | None = None
+_lab_router: APIRouter | None = None
 
-# Engineering Lab is an authenticated read-only intelligence seam. It is
-# included through this already-mounted composition router, avoiding a second
-# application/router hierarchy while preserving the Lab's own /api/lab prefix.
-from api.lab_routes import router as _lab_router
-router.include_router(_lab_router)
+
+def configure_routers(ais_profile_router: APIRouter, lab_router: APIRouter) -> None:
+    """Inject compose-time sub-routers. Called once by the composition root."""
+    global _ais_profile_router, _lab_router
+    _ais_profile_router = ais_profile_router
+    _lab_router = lab_router
+    router.include_router(_ais_profile_router)
+    router.include_router(_lab_router)
 
 _CODEX_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "personal_codices")
 

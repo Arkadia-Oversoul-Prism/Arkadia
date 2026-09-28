@@ -276,9 +276,16 @@ except Exception as _rl_err:
 
 # ── Node registry router ──────────────────────────────────────────────────────
 try:
-    from api.nodes import router as _nodes_router
+    from api.nodes import router as _nodes_router, configure_routers as _configure_node_routers
+    # ADR-014 Decision 4: api/nodes.py is layer-3 identity and must not import
+    # the layer-1 surface it is composed with. The composition root injects the
+    # A.I.S profile and Engineering Lab sub-routers here, before mounting, since
+    # FastAPI copies routes at include time.
+    from api.ais_profile import router as _ais_profile_router
+    from api.lab_routes import router as _lab_router
+    _configure_node_routers(_ais_profile_router, _lab_router)
     app.include_router(_nodes_router)
-    logger.info("[NODES] Node registry router mounted")
+    logger.info("[NODES] Node registry router mounted (+ais_profile, +lab)")
 except Exception as _nr_err:
     logger.warning(f"[NODES] Router mount skipped: {_nr_err}")
 
