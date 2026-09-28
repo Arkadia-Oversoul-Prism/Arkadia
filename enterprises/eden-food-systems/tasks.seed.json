@@ -1,0 +1,16 @@
+[
+  {"seed_key": "W1-MON-PROC-01", "desk": "Procurement", "title": "Review R01/R02 market intelligence", "day_ref": "W1-MON"},
+  {"seed_key": "W1-MON-PROC-02", "desk": "Procurement", "title": "Reconfirm current commodity candidates", "day_ref": "W1-MON"},
+  {"seed_key": "W1-MON-PROC-03", "desk": "Procurement", "title": "Record source, buy price, destination, sell price, logistics, quality constraints", "day_ref": "W1-MON"},
+  {"seed_key": "W1-MON-PROC-04", "desk": "Procurement", "title": "Produce Commodity Candidate Register", "day_ref": "W1-MON"},
+  {"seed_key": "W1-MON-MKT-01", "desk": "Marketing", "title": "Define initial customer segments", "day_ref": "W1-MON"},
+  {"seed_key": "W1-MON-MKT-02", "desk": "Marketing", "title": "Identify first reachable buyer pools", "day_ref": "W1-MON"},
+  {"seed_key": "W1-MON-MKT-03", "desk": "Marketing", "title": "Draft demand-generation hypothesis and measurable test", "day_ref": "W1-MON"},
+  {"seed_key": "W1-MON-DIG-01", "desk": "Digital", "title": "Resolve canonical SolSpire workspace and Eden enterprise", "day_ref": "W1-MON"},
+  {"seed_key": "W1-MON-DIG-02", "desk": "Digital", "title": "Create pilot workload reference and shared data surface", "day_ref": "W1-MON"},
+  {"seed_key": "W1-MON-DIG-03", "desk": "Digital", "title": "Define dashboard data contract and naming convention", "day_ref": "W1-MON"},
+  {"seed_key": "W1-MON-FIN-01", "desk": "Operations/Finance", "title": "Load ₦1m budget allocation structure", "day_ref": "W1-MON"},
+  {"seed_key": "W1-MON-FIN-02", "desk": "Operations/Finance", "title": "Establish committed/spent/remaining fields as UNKNOWN until evidence", "day_ref": "W1-MON"},
+  {"seed_key": "W1-MON-FIN-03", "desk": "Operations/Finance", "title": "Define approval gates and expense evidence requirements", "day_ref": "W1-MON"},
+  {"seed_key": "W1-MON-FIN-04", "desk": "Operations/Finance", "title": "Create reconciliation ledger structure", "day_ref": "W1-MON"}
+]
