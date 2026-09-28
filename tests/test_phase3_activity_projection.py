@@ -5,10 +5,7 @@ from __future__ import annotations
 import sys
 from types import ModuleType
 
-from solspire.activity_projection import (
-    project_activity_to_workspace,
-    project_event_to_workevent,
-)
+import solspire.activity_projection as projection
 
 
 def _install_fakes(monkeypatch, *, existing=None):
@@ -33,14 +30,14 @@ def _install_fakes(monkeypatch, *, existing=None):
             return Event({"work_event_id": kwargs["work_event_id"], **kwargs})
 
     manager.get_workevent_manager = lambda: Manager()
-    monkeypatch.setitem(sys.modules, "solspire.workevent_manager", manager)
+    monkeypatch.setattr(projection, "get_workevent_manager", lambda: Manager())
     return calls
 
 
 def test_project_event_maps_to_recorded_workevent(monkeypatch):
     calls = _install_fakes(monkeypatch)
 
-    result = project_event_to_workevent(
+    result = projection.project_event_to_workevent(
         subject_uid="user-1",
         workspace_id="workspace-1",
         project_id="project-1",
@@ -64,7 +61,7 @@ def test_projection_is_idempotent(monkeypatch):
     existing = type("Existing", (), {"to_dict": lambda self: {"work_event_id": "project-event:event-1"}})()
     calls = _install_fakes(monkeypatch, existing=existing)
 
-    result = project_event_to_workevent(
+    result = projection.project_event_to_workevent(
         subject_uid="user-1",
         workspace_id="workspace-1",
         project_id="project-1",
@@ -83,7 +80,7 @@ def test_projection_is_idempotent(monkeypatch):
 def test_unknown_project_event_is_not_promoted(monkeypatch):
     calls = _install_fakes(monkeypatch)
 
-    result = project_event_to_workevent(
+    result = projection.project_event_to_workevent(
         subject_uid="user-1",
         workspace_id="workspace-1",
         project_id="project-1",
@@ -106,6 +103,7 @@ def test_projection_reports_unavailable_without_workspace(monkeypatch):
     )()
     monkeypatch.setitem(sys.modules, "solspire.workspace_manager", workspace_manager)
 
-    result = project_activity_to_workspace("user-1")
+    monkeypatch.setattr(projection, "get_workspace_manager", lambda: workspace_manager.get_workspace_manager())
+    result = projection.project_activity_to_workspace("user-1")
     assert result["status"] == "UNAVAILABLE"
     assert result["work_events_created"] == 0
