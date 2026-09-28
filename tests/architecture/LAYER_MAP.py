@@ -73,6 +73,11 @@ LAYER_MAP: dict[str, int] = {
     # primitives (Pass 01R/02R), so api(1) → solspire(2) is the correct
     # dependency direction.
     "solspire":             2,
+    # Engineering Lab (native agent execution substrate, EL-01..EL-10). A
+    # runtime-core subsystem: it holds bounded sandbox execution, the agent
+    # session/run state machine, and the Lab store. api(1) → lab(2) is the
+    # permitted downward direction (api.lab_routes / api.nodes consume it).
+    "lab":                  2,
 
     # Layer 1 — API Surface
     "api":                  1,   # catches all api/* not already assigned above
