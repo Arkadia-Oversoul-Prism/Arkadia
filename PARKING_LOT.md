@@ -19,31 +19,34 @@ Priority: [low / medium / high]
 
 ## Open Items
 
-## `api/main.py` exceeds its registered 2600-line budget
-
-Observed: `tests/architecture/test_layer_boundaries.py::test_api_main_line_count_within_budget`
-fails on canonical `main` @ `6038989`. `api/main.py` is 2607 lines against a budget of 2600
-(the test's own docstring still says "~2506 lines"). Pre-existing, identical on `main` and
-on PR #91's head — not introduced by PR #91, which does not touch `api/main.py`.
-
-File: `api/main.py`; gate in `tests/architecture/test_layer_boundaries.py:415`.
-Workstream: Phase 2 (api/main.py decomposition). Priority: medium.
-
-*Recorded only. The contract forbids fixing this while executing another gate.*
-
-## `tests/architecture` is 9/11, not the 10/10 stated in `.bootstrap/01_STATE.md`
-
-Observed: `python -m pytest tests/architecture -q` yields 2 failed / 9 passed on main
-(`test_no_layer_inversions`, `test_api_main_line_count_within_budget`). `.bootstrap/01_STATE.md`
-"Repository Health" claims 10/10, and the WEAVER contract baseline records 9/10. The prose
-disagrees with the code and with each other; the code is authoritative.
-
-File: `.bootstrap/01_STATE.md` (Repository Health section).
-Workstream: documentation reconciliation. Priority: low.
+_None._
 
 ---
 
 ## Closed Items
+
+## `api/main.py` exceeded its registered 2600-line budget
+
+Observed (2026-09-28): `tests/architecture/test_layer_boundaries.py::test_api_main_line_count_within_budget`
+failed on `main` @ `6038989` — `api/main.py` was 2607 lines against a 2600 budget.
+
+Resolved: 2026-09-28, PR #94 `gate07/main-py-line-budget-restore`. On `main` @ `1d4ed03`
+`api/main.py` is **2519/2600 lines** and the architecture gate is green. Closed after
+re-verification (`wc -l api/main.py` -> 2519).
+
+## `tests/architecture` count drift (prose said 10/10, suite had grown)
+
+Observed (2026-09-28): `tests/architecture` yielded 9/11 on `main` @ `6038989`
+(`test_no_layer_inversions`, `test_api_main_line_count_within_budget`), while
+`.bootstrap/01_STATE.md` claimed 10/10 and the WEAVER contract baseline recorded 9/10.
+The prose disagreed with the code and with itself.
+
+Resolved: 2026-09-28, PR #98 `gate-arch/nodes-layer-inversion-deinversion` fixed the layer
+inversion, and PR #94 restored the line budget — the gate is now **11/11** on
+`main` @ `1d4ed03`. The remaining stale prose (including an outdated spine-test count) was
+reconciled in the `state-honesty/doc-fitness-count-reconciliation` pass, which also added
+an explicit "derive live status from the repository, not this prose" banner to
+`CURRENT_STATE.md`.
 
 ## Test runs write private material into the tracked-adjacent `vault/` tree
 

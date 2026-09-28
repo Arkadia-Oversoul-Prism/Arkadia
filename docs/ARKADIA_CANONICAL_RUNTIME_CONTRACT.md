@@ -239,7 +239,7 @@ true. See `docs/checkpoints/CS1_conversational_spine.md` § CS1.1.
 
 | Suite | Result | Location |
 |---|---|---|
-| Architecture gate | 10/10 | `tests/architecture` |
+| Architecture gate | 11/11 | `tests/architecture` |
 | Spine continuity | 5/5 | `tests/test_oracle_spine.py` |
 | Production thread jump (Test 1) | PASS | live, `arkadia-kw64.onrender.com` |
 | assemble_context contract (Test 2) | PASS | live, identical `memory` across surfaces |

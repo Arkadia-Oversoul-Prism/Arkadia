@@ -11,7 +11,7 @@ Every agent session reads exactly these, in order:
 1. `BOOTSTRAP.md` — frozen rules, operating mode, thinking budget, immutable doc list
 2. `CURRENT_STATE.md` — current checkpoint, objective, scope, stop condition
 3. `ACTIVE_CONTEXT.md` — session scratchpad: files to create, files to read, stop condition
-4. `pytest tests/architecture/ -v` — verify 10/10
+4. `pytest tests/architecture/ -v` — verify all green (11 tests as of 2026-09-28)
 5. Implement. Verify once. Stop.
 
 ## True Current State (as of 2026-07-25)
