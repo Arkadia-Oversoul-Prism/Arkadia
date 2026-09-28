@@ -184,23 +184,16 @@ def test_retrieval_works_with_zero_embeddings_bm25_fallback():
     turn via BM25.
     """
     import knowledge.embeddings as emb
-    import knowledge.pipeline as pipe
-    import knowledge.context_engine as ctx
     # Force the offline condition: Gemini unavailable AND no embeddings stored.
-    # Patch every import binding site (embeddings, pipeline, context_engine) since
-    # each module imported embed_text by name at load time.
+    # Every consumer (pipeline, context_engine, search) resolves embed_text
+    # through the embeddings module at call time, so patching it here reaches
+    # all of them regardless of import order.
     orig_embed = emb.embed_text
     orig_store = emb.store_chunk_embedding
-    orig_pipe_embed = pipe.embed_text
-    orig_pipe_store = pipe.store_chunk_embedding
-    orig_ctx_embed = ctx.embed_text
     _none = lambda text, task_type="RETRIEVAL_QUERY": None
     _noop = lambda *a, **k: None
     emb.embed_text = _none
     emb.store_chunk_embedding = _noop
-    pipe.embed_text = _none
-    pipe.store_chunk_embedding = _noop
-    ctx.embed_text = _none
     try:
         from api.oracle_spine import archive_oracle_turn, build_memory_block
         # Purge any embeddings from prior tests so the JOIN truly returns [].
@@ -235,9 +228,6 @@ def test_retrieval_works_with_zero_embeddings_bm25_fallback():
     finally:
         emb.embed_text = orig_embed
         emb.store_chunk_embedding = orig_store
-        pipe.embed_text = orig_pipe_embed
-        pipe.store_chunk_embedding = orig_pipe_store
-        ctx.embed_text = orig_ctx_embed
 
 
 def test_private_boundary_user_id_scoping():
