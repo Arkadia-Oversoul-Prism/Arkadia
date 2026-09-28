@@ -202,3 +202,16 @@ authenticated node's private Knowledge OS vault — never the public scroll stor
   `REGISTERED_ARCHITECTURAL_DEBT` unless deferral is genuinely required and justified by an
   ADR — the freeze rule says fix the import. Reclassifying `api/nodes.py` to layer 1 changes
   the orthogonal identity group and is constitutional (needs ADR).
+
+## Repo hygiene — private vault is gitignored (GATE-VAULT)
+- `vault/` (Knowledge OS private vault runtime output) is gitignored via `vault/**`
+  with tracked scaffolding preserved (`!vault/**/`, `!vault/**/.gitkeep`,
+  `!vault/Index/README.md`, `!vault/Templates/**`). A generated vault note is no longer
+  stageable by `git add -A`; a force-add (`git add -f`) still works, so this is a
+  guardrail, not an authority boundary.
+- `conftest.py` sandboxes `vault/` for the *test* session; the gitignore rule covers the
+  *operator* path. If the vault layout gains new tracked scaffolding, add a negation or it
+  silently becomes un-ignored.
+- Full-suite reproducibility needs `pyyaml` and `PYTHONPATH=<repo>/archive/legacy_python`;
+  with those the suite yields exactly the documented 2 collection errors (pre-existing:
+  `test_autonomy.py` `load_autonomy_config`, `test_render_codex.py` `arkadia_drive_sync`).
