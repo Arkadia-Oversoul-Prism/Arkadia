@@ -703,3 +703,67 @@ Full evidence: `docs/control-plane/evidence/gate07-main-py-line-budget/EVIDENCE.
 `tests/test_ais_w8_canonical_identity.py`, which *requires* the very
 `router.include_router(_ais_profile_router)` structure the architecture detector forbids.
 Needs a dedicated bounded pass (touches an identity-boundary test) — flagged for sovereign visibility.
+
+---
+
+## Pass — WS-VERIFY-COMPOSE (PR #94 x PR #95 composability)
+
+**Type:** verification only. **No source change.** Branch: none (throwaway `combined`, not pushed).
+
+### Reconstructed state
+
+- `main` @ `e9257bf` (Merge PR #93). PRs #91/#92/#93 merged. No active bounded PR.
+- Open non-draft, base `main`: **#94** (`d3ead27`, line budget), **#95** (`194c765`, vault sandbox).
+- Baseline fingerprint `main` @ `e9257bf`: 842 passed / 51 failed / 12 skipped / 2 errors;
+  architecture 10/1.
+
+### Change
+
+None. Verification artifact added:
+`docs/control-plane/evidence/gate02-07-pr94-95-composability/EVIDENCE.md`.
+
+### Verification
+
+- Both heads merged onto `main` with real Git merges: **zero conflicts**, order-independent.
+- Combined fingerprint = **843 passed / 50 failed / 12 skipped / 2 errors**; architecture 10/1.
+  Set-diff vs base: **1 repaired, 0 new** (`test_api_main_line_count_within_budget` removed).
+- `py_compile api/main.py api/loop_routes.py` OK on the combined tree.
+
+### Correction to prior evidence (material)
+
+A prior pass recorded the vault count "stable at 14 before/after under PR #95". That
+measurement was taken in a **contaminated tree** (untracked vault output from an earlier
+unprotected run was already present). Re-measured cleanly:
+
+- **PR #94 alone** (no `conftest.py`): `vault/` 14 -> **48**, **34 files leaked**.
+- **#94 + #95 combined** (clean tree): `vault/` 14 -> **14**, **0 untracked**.
+
+=> **PR #95 is load-bearing for PR #94, not an independent nicety.** Merging #94 without
+#95 introduces a repeating test-time leak of private-vault-shaped content into the tracked
+`vault/` tree. Merge #95 first, or both in one window.
+
+### Remaining architecture failure
+
+`test_no_layer_inversions` - 2 ADR-015 violations in `api/nodes.py` (L3 -> L1:
+`api.ais_profile`, `api.lab_routes`). Identical at base / #94 / #95 / combined => baseline debt.
+**CONTRADICTED** as autonomous work: the only detector-satisfying fix is forbidden by
+`tests/test_ais_w8_canonical_identity.py:31`. Requires a sovereign decision. Not executed.
+
+### New bounded finding (recorded, not executed)
+
+`vault/` runtime output is **not gitignored**. `.gitignore` covers the credential stores but
+not `vault/`. `git check-ignore vault/Ideas/*.md` -> not ignored. A sweeping `git add -A`
+after a suite run would commit private personal-vault material. Proposal: hygiene-only
+gitignore hardening preserving tracked `.gitkeep` + `Templates/`.
+
+### Credential surface (recon)
+
+Credential stores untracked; no `.env` tracked; no secret-shaped strings in tracked files;
+`_safe_public_profile` does not project UID. `data/personal_codices/*.json` is tracked but is
+sovereign-authored identity content, not credential material.
+
+### Authorization
+
+Sovereign merge decision on **#94 and #95** (prefer #95 first or together).
+No merge performed. No push to `main`. No self-authorization.
+
