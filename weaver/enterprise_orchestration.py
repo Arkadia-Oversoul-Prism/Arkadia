@@ -21,8 +21,27 @@ _DB_PATH = os.environ.get("SOLSPIRE_PROJECTS_DB") or os.path.join(
 )
 
 VERIFICATION_VERDICTS = {"VERIFIED", "INSUFFICIENT", "CONTRADICTED"}
-PROPOSAL_STATUSES = {"PROPOSED", "AWAITING_AUTHORITY", "AUTHORIZED", "EXECUTION_READY", "COMPLETED", "REJECTED"}
+# Proposal lifecycle, reconstructed from the operating loop (GATE-09). The base
+# set is the operational branch used by the store today; the declared set adds
+# the pre-proposal and terminal states the loop requires. The union is exposed
+# so consumers validate against one vocabulary.
+PROPOSAL_STATUS_BASE = {"PROPOSED", "AWAITING_AUTHORITY", "AUTHORIZED", "EXECUTION_READY", "COMPLETED", "REJECTED"}
+PROPOSAL_STATUS_DECLARED = {"DRAFT", "EXPIRED", "SUPERSEDED"}
+PROPOSAL_STATUSES = PROPOSAL_STATUS_BASE | PROPOSAL_STATUS_DECLARED
 EXECUTION_STATUSES = {"PREPARED", "ATTEMPTED", "SUCCEEDED", "FAILED", "BLOCKED"}
+# Canonical operational transition vocabulary (GATE-05). Every operational event
+# must name itself from this set so an observer can reconstruct what happened
+# without hidden model reasoning. SUPPLIER_SIGNAL_INGESTED is retained because
+# existing Eden ingestion already emits it; it is a named alias of capture, not
+# a second vocabulary.
+OPERATIONAL_EVENT_TYPES = frozenset({
+    "INPUT_RECEIVED", "SOURCE_ATTRIBUTED", "CANONICALIZED", "KNOWLEDGE_UPDATED",
+    "ENTITY_LINKED", "UNCERTAINTY_DETECTED", "TOOL_SELECTED", "TOOL_EXECUTED",
+    "RESULT_RECEIVED", "PROPOSAL_GENERATED", "AUTHORIZATION_REQUIRED", "AUTHORIZED",
+    "EXECUTION_PREPARED", "EXECUTED", "EVIDENCE_RECEIVED", "VERIFIED", "RECALIBRATED",
+    "SUPPLIER_SIGNAL_INGESTED",
+})
+
 
 def _now() -> float:
     return time.time()
@@ -290,6 +309,9 @@ class EnterpriseOrchestrationStore:
                           payload: Any, workload_id: str | None = None,
                           workstream_id: str | None = None, caused_by_kind: str | None = None,
                           caused_by_id: str | None = None, correlation_id: str | None = None) -> OperationalEvent:
+        event_type = str(event_type).upper()
+        if event_type not in OPERATIONAL_EVENT_TYPES:
+            raise ValueError(f"unsupported operational event type: {event_type}")
         cid = correlation_id or self._correlation_for_any(caused_by_kind, caused_by_id)
         eid = _id("oe"); now = _now()
         row = OperationalEvent(eid, subject, enterprise_id, workload_id, workstream_id, event_type, payload, now, caused_by_kind, caused_by_id, cid)
@@ -417,6 +439,55 @@ class EnterpriseOrchestrationStore:
             r["caused_by_id"], r["correlation_id"]
         ) for r in rows]
 
+    def operational_state(self, *, subject: str, enterprise_id: str) -> dict[str, Any]:
+        """GATE-07: derive the explicit operational state of a loop.
+
+        A read-only projection over the append-only records, not a store of its
+        own. Each stage is reported independently: a PROPOSED proposal is never
+        reported as AUTHORIZED, and an execution is never reported as VERIFIED
+        unless a verification record exists. Missing evidence stays UNKNOWN.
+        """
+        stream = self.stream(subject=subject, enterprise_id=enterprise_id, limit=500)
+        with _db() as c:
+            proposals = c.execute(
+                "SELECT id, objective, status FROM ew_proposals WHERE subject=? AND enterprise_id=?",
+                (subject, enterprise_id),
+            ).fetchall()
+            attempts = c.execute(
+                """SELECT a.id, a.result_status FROM ew_execution_attempts a
+                   JOIN ew_authorizations z ON a.authorization_id = z.id
+                   JOIN ew_proposals p ON z.proposal_id = p.id
+                   WHERE a.subject=? AND p.enterprise_id=?""",
+                (subject, enterprise_id),
+            ).fetchall()
+            verifications = c.execute(
+                "SELECT id, claim, verdict FROM ew_verifications WHERE subject=?",
+                (subject,),
+            ).fetchall()
+        unknowns = [
+            e.payload for e in stream if e.event_type == "UNCERTAINTY_DETECTED"
+        ]
+        event_types = [e.event_type for e in stream]
+        return {
+            "subject": subject,
+            "enterprise_id": enterprise_id,
+            "observed": bool(stream),
+            "event_count": len(stream),
+            "last_event": event_types[-1] if event_types else None,
+            "event_types": event_types,
+            "proposals": {p["id"]: p["status"] for p in proposals},
+            "awaiting_authority": [
+                p["id"] for p in proposals if p["status"] in {"PROPOSED", "AWAITING_AUTHORITY"}
+            ],
+            "authorized": [p["id"] for p in proposals if p["status"] == "AUTHORIZED"],
+            "executions": {a["id"]: a["result_status"] for a in attempts},
+            "verified_claims": [
+                {"id": v["id"], "claim": v["claim"], "verdict": v["verdict"]}
+                for v in verifications if v["verdict"] == "VERIFIED"
+            ],
+            "unknowns": unknowns,
+        }
+
     def reverse_walk(self, *, subject: str, kind: str, record_id: str) -> dict[str, Any]:
         """Return the inspectable ancestry of a claim/record; never infers missing links."""
         kind = kind.upper()
@@ -463,6 +534,128 @@ class EnterpriseOrchestrationStore:
         roots = [r for r in rows if r["kind"] in root_kinds]
         return {"subject": subject, "claim_kind": kind, "claim_id": record_id,
                 "complete": bool(roots), "records": rows}
+
+    def forward_walk(self, *, subject: str, kind: str, record_id: str) -> dict[str, Any]:
+        """Trace forward from a root (source or authority) to its consequences.
+
+        Complement to reverse_walk: given a canonical record or authority event,
+        return every record derived from it by following stored foreign keys.
+        Never invents a link — a record absent from the store is not traversed.
+        """
+        kind = kind.upper()
+        rows: list[dict[str, Any]] = []
+        seen: set[tuple[str, str]] = set()
+
+        def record(k: str, rid: str | None) -> dict[str, Any] | None:
+            table = {
+                "CANONICAL_RECORD": "ew_canonical_records", "AUTHORITY_EVENT": "ew_authority_events",
+                "INTERPRETATION": "ew_interpretations", "KNOWLEDGE_MUTATION": "ew_knowledge_mutations",
+                "OPERATIONAL_EVENT": "ew_operational_events", "PROPOSAL": "ew_proposals",
+                "AUTHORIZATION": "ew_authorizations", "EXECUTION_ATTEMPT": "ew_execution_attempts",
+                "EVIDENCE": "ew_evidence", "VERIFICATION": "ew_verifications",
+            }.get(k)
+            if not table or not rid:
+                return None
+            row = self._row(table, rid)
+            if not row or row["subject"] != subject:
+                return None
+            return dict(row)
+
+        def visit(k: str, rid: str | None):
+            key = (k, rid)
+            if not rid or key in seen:
+                return
+            row = record(k, rid)
+            if row is None:
+                return
+            seen.add(key)
+            rows.append({"kind": k, "id": rid, "record": row})
+            if k == "CANONICAL_RECORD":
+                for r in self._rows_where("ew_interpretations", "canonical_record_id", rid, subject):
+                    visit("INTERPRETATION", r["id"])
+                for r in self._rows_where("ew_evidence", "source_ref", rid, subject):
+                    visit("EVIDENCE", r["id"])
+                for r in self._rows_where("ew_operational_events", "caused_by_id", rid, subject):
+                    visit("OPERATIONAL_EVENT", r["id"])
+            elif k == "AUTHORITY_EVENT":
+                for r in self._rows_where("ew_authorizations", "authority_event_id", rid, subject):
+                    visit("AUTHORIZATION", r["id"])
+                for r in self._rows_where("ew_knowledge_mutations", "caused_by_id", rid, subject):
+                    visit("KNOWLEDGE_MUTATION", r["id"])
+            elif k == "INTERPRETATION":
+                for r in self._rows_where("ew_knowledge_mutations", "caused_by_id", rid, subject):
+                    visit("KNOWLEDGE_MUTATION", r["id"])
+                for r in self._rows_where("ew_operational_events", "caused_by_id", rid, subject):
+                    visit("OPERATIONAL_EVENT", r["id"])
+            elif k == "PROPOSAL":
+                for r in self._rows_where("ew_authorizations", "proposal_id", rid, subject):
+                    visit("AUTHORIZATION", r["id"])
+                for r in self._rows_where("ew_operational_events", "caused_by_id", rid, subject):
+                    visit("OPERATIONAL_EVENT", r["id"])
+            elif k == "AUTHORIZATION":
+                for r in self._rows_where("ew_execution_attempts", "authorization_id", rid, subject):
+                    visit("EXECUTION_ATTEMPT", r["id"])
+            elif k == "EXECUTION_ATTEMPT":
+                for r in self._rows_where("ew_evidence", "execution_attempt_id", rid, subject):
+                    visit("EVIDENCE", r["id"])
+                for r in self._rows_where("ew_operational_events", "caused_by_id", rid, subject):
+                    visit("OPERATIONAL_EVENT", r["id"])
+            elif k == "EVIDENCE":
+                for v in self._all_rows("ew_verifications", subject):
+                    if rid in json.loads(v["evidence_refs"]):
+                        visit("VERIFICATION", v["id"])
+                for r in self._rows_where("ew_operational_events", "caused_by_id", rid, subject):
+                    visit("OPERATIONAL_EVENT", r["id"])
+
+        visit(kind, record_id)
+        return {"subject": subject, "root_kind": kind, "root_id": record_id,
+                "records": rows}
+
+    def explain_execution(self, *, subject: str, execution_attempt_id: str) -> dict[str, Any]:
+        """GATE-08: assemble the inspectable operational rationale for an attempt.
+
+        Reports what happened (attempt), under what authority (authorization and
+        its human authority event), for what objective/tool (proposal), and what
+        evidence resulted (evidence). Read-only projection over records that
+        already exist — it introduces no new mutation path.
+        """
+        attempt = self._row("ew_execution_attempts", execution_attempt_id)
+        if not attempt or attempt["subject"] != subject:
+            return {"subject": subject, "execution_attempt_id": execution_attempt_id,
+                    "complete": False, "reason": "UNKNOWN"}
+        auth = self._row("ew_authorizations", attempt["authorization_id"])
+        proposal = self._row("ew_proposals", auth["proposal_id"]) if auth else None
+        authority = self._row("ew_authority_events", auth["authority_event_id"]) if auth else None
+        evidence = self._rows_where("ew_evidence", "execution_attempt_id", execution_attempt_id, subject)
+        return {
+            "subject": subject,
+            "execution_attempt_id": execution_attempt_id,
+            "complete": bool(auth),
+            "objective": proposal["objective"] if proposal else None,
+            "proposed_tool_selections": json.loads(proposal["tool_selections"]) if proposal else [],
+            "required_authority": proposal["required_authority"] if proposal else None,
+            "tool_channel": attempt["tool_channel"],
+            "result_status": attempt["result_status"],
+            "authorization": None if not auth else {
+                "id": auth["id"], "scope": json.loads(auth["scope"]),
+                "constraints": json.loads(auth["constraints"]),
+            },
+            "authority_event": None if not authority else {
+                "id": authority["id"], "actor": authority["actor"], "action": authority["action"],
+                "origin": authority["origin"],
+            },
+            "evidence_refs": [e["id"] for e in evidence],
+        }
+
+    def _rows_where(self, table: str, column: str, value: Any, subject: str) -> list[Any]:
+        with _db() as c:
+            return c.execute(
+                f"SELECT * FROM {table} WHERE {column}=? AND subject=?", (value, subject)
+            ).fetchall()
+
+    def _all_rows(self, table: str, subject: str) -> list[Any]:
+        with _db() as c:
+            return c.execute(f"SELECT * FROM {table} WHERE subject=?", (subject,)).fetchall()
 
     def _row(self, table: str, rid: str | None):
         if not rid:
