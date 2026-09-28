@@ -59,6 +59,14 @@ _SOURCES: list[dict] = [
         "tags": ["creative", "static-corpus"],
         "source_provider": "static:creative",
     },
+    # Architecture Decision Records — named explicitly in the K5 objective
+    {
+        "root": _REPO_ROOT / "docs" / "adr",
+        "glob": "*.md",
+        "note_type": "document",
+        "tags": ["adr", "architecture", "static-corpus"],
+        "source_provider": "static:adr",
+    },
     # Vault notes already on disk (written by create_note but may predate ingestion)
     {
         "root": _REPO_ROOT / "vault",

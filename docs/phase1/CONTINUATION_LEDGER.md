@@ -1000,3 +1000,37 @@ This pass opened separate bounded PR **#100** for sovereign review.
   decision line before they can become bounded (canonical autonomy module? gate/ UI
   fate? repair-tests vs restore-strings?).
 - Reconstruct from `main` @ origin, not from this ledger.
+
+
+---
+
+## Pass — K5 Static Ingestion · ADR corpus coverage gap
+
+**Date:** 2026-09-28  
+**Branch:** `gate-k/k5-adr-static-ingestion`  
+**Base:** `main` @ `2d62a21` (current after PR #100)
+
+### Finding
+
+K5 explicitly names ADRs, but `knowledge/static_ingestion.py::_SOURCES` did not declare `docs/adr/`. The six ADRs were therefore outside every configured static-ingestion glob.
+
+### Bounded change
+
+- Added one `docs/adr/*.md` source with `source_provider="static:adr"`.
+- Added four boundary tests in `tests/test_static_ingestion_sources.py`.
+- Added an evidence record at `docs/control-plane/evidence/k5-adr-static-ingestion/EVIDENCE.md`.
+- No API, governance, authority, identity, pipeline, ontology, or execution surface changed.
+- K5 remains open because `docs/recon/` and `docs/verification/` remain deliberately uncurated.
+
+### Verification on the original K5 branch
+
+- Isolated ingestion: **28 → 34** first pass; **0 new / 34 skipped** second pass.
+- Six ADRs present under `static:adr`, exactly.
+- Full suite: **891 passed / 49 failed / 12 skipped / 2 errors**.
+- Baseline failing/error node-id set unchanged.
+- Architecture gate: **11/11**.
+- `py_compile`: clean.
+
+### Authorization
+
+Human review/merge remains required. This branch was rebased onto current `main` solely to restore mergeability after PR #100 landed. No baseline debt was folded into this pass.
