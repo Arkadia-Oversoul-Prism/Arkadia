@@ -45,7 +45,7 @@ that calls `knowledge/pipeline.ingest()` after the Oracle response is assembled.
 See `MISSION.md` for implementation sketch.
 
 ## Repository Health
-- Architecture fitness tests: **10/10**
+- Architecture fitness tests: **11/11**
 - Registered layer violations: 10 (LAYER_MAP.py — do not touch)
 - Registered circular imports: 3 (LAYER_MAP.py — do not touch)
 - Workflows (local Replit): failing (pre-existing — missing secrets)

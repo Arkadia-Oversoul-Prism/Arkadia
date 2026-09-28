@@ -905,3 +905,98 @@ sovereign-authored identity content, not credential material.
 Sovereign merge decision on **#94 and #95** (prefer #95 first or together).
 No merge performed. No push to `main`. No self-authorization.
 
+
+---
+
+## Session: STATE-HONESTY — canonical state reconciliation (2026-09-28)
+
+**Branch:** `state-honesty/doc-fitness-count-reconciliation`
+**Base:** `main` @ `1d4ed03` (PR #98 merged)
+
+### Live state reconstructed
+
+- `git log -1 origin/main` -> `1d4ed03`, real merge commit. Clone clean, remote writable.
+- `python -m pytest tests/architecture -q` -> **11 passed**. `wc -l api/main.py` -> **2519**.
+- `python -m pytest tests/test_oracle_spine.py -q` -> **7 passed**.
+- `gh pr list` -> #99 (`gate-vault/gitignore-hardening`) is the ONLY active bounded PR
+  (open, mergeable, CLEAN). PRs #1-#6 are stale respects from August; none map to the
+  current gate. #99 is the continuation anchor and was not duplicated.
+
+### Basis for this bounded task
+
+`PARKING_LOT.md` carried an OPEN item titled
+"`tests/architecture` is 9/11, not the 10/10 stated in `.bootstrap/01_STATE.md`",
+classified `Workstream: documentation reconciliation. Priority: low.` Its root causes
+were fixed by PR #94 (line budget) and PR #98 (layer inversion), but the item was never
+closed and the stale prose was never corrected. This pass closes it.
+
+### Change (documentation only)
+
+Reconciled stale architecture-gate counts and other drifted status prose across the
+canonical start-up and handoff surface:
+
+- `10/10` -> `11/11`: `.bootstrap/00_BOOT.md`, `.bootstrap/01_STATE.md`,
+  `.bootstrap/03_SCOPE.md`, `.bootstrap/04_SUCCESS.md`, `BOOTSTRAP.md`, `MISSION.md`,
+  `PROJECT_INDEX.md`, `REPOSITORY_SNAPSHOT.md`, `NEXT_AGENT.md`,
+  `docs/ARKADIA_CANONICAL_RUNTIME_CONTRACT.md`.
+- `NEXT_AGENT.md` spine count `5/5` / `4/4` -> `7/7` (matches a live run).
+- `CURRENT_STATE.md`: added an explicit banner marking the file a **historical archive**
+  and stating the canonical live values, so the next session is told to derive status
+  from the repository rather than this prose.
+- Kept-as-history: `.agents/memory/MEMORY.md`, `.agents/memory/b05-debt-registry.md`,
+  `.agents/memory/session-infrastructure.md` and `docs/checkpoints/*` — annotated as
+  point-in-time records rather than rewritten.
+- `PARKING_LOT.md`: closed the two resolved items (main.py budget; count drift) with
+  resolution provenance; Open Items now empty.
+
+### Verification
+
+- `python -m pytest tests/architecture -q` -> 11 passed (unchanged).
+- `python -m pytest tests/ -q --continue-on-collection-errors` -> 49 failed / 887 passed /
+  12 skipped / 2 errors — **identical to baseline**. Failing node-id set hash
+  `c0e772f2...abdee` unchanged before and after.
+- No `.py` file touched; therefore `py_compile api/main.py` is not implicated (run anyway:
+  clean). Committed on a dedicated branch only.
+
+### Baseline debt preserved (not fixed, not attributed)
+
+Unchanged: 49 failures across stale frontend-source assertions
+(`test_prism_pass_c_surface_ownership`, `test_ais_w2_living_gate_grove_handoff`,
+`test_weaver_sci_boundary_01`, `test_steward_filter`,
+`test_solariun_experience_consolidation_01`, `test_prism_interior_shell`,
+`test_weaver_w5`, `test_weaver_sci_contract_01`, `test_spiral_grove_registry`,
+`test_solspire_p1_experience_01`, `test_identity_spine_w1`, ...), plus
+`tests/test_agent_run.py::test_agent_run_writes_and_commits` (removed
+`weaver.agent.commit_and_push` symbol) and the `gate/` UI asset question.
+
+### Carried forward, NOT executed (authority boundary)
+
+1. **`weaver/autonomy.py` (module) vs `weaver/autonomy/` (package) name collision.**
+   Both added at Genesis (`9ab26fc`). `from weaver.autonomy import load_autonomy_config`
+   resolves to the package and raises `ImportError`; consequently `tests/test_autonomy.py`
+   is a collection error and `weaver/run_autonomy.py` is broken. The colliding package
+   (`guard.py`, `proposal_engine.py`) is the autonomy governance guard surface. Repair
+   requires choosing a canonical autonomy module — that touches an autonomous mutation
+   path, so it needs a sovereign decision. **CONTRADICTED as autonomous work.**
+2. **`gate/` UI surface.** `scripts/serve-gate.sh` serves `http://localhost:PORT/gate/`
+   and `tests/test_gate_status.py` expects a `gate/` directory, but `gate/` is absent on
+   `main` (only ever existed historically, e.g. `f6718b9`). Is the Gate UI deliberately
+   retired, relocated into `web/public_prism`, or lost? Needs sovereign articulation
+   before a bounded task can be cut.
+3. **Stale-assertion debt as its own workstream.** ~49 failures assert against frontend
+   source text that has since moved on (`SolSpireConsole` no longer contains
+   `ProjectDashboard`; `ArkadiaNavigation` no longer carries `WEAVER-SCI-BOUNDARY-01`).
+   Whether to repair the tests or restore the marked strings is a product decision.
+
+### Authorization
+
+No merge. No push to `main`. No self-authorization. PR #99 remains READY FOR HUMAN MERGE.
+This pass opened separate bounded PR **#100** for sovereign review.
+
+### Next heartbeat
+
+- Anchor: PR #99 (READY FOR HUMAN MERGE) then PR #100.
+- Next bounded task: not yet cut. Candidates 1-3 above each need one sovereign
+  decision line before they can become bounded (canonical autonomy module? gate/ UI
+  fate? repair-tests vs restore-strings?).
+- Reconstruct from `main` @ origin, not from this ledger.

@@ -39,7 +39,7 @@ Read `01_STATE.md` to confirm mode.
 2. The kernel must never import from api/. (ADR-015)
 3. Every commit leaves the repository deployable. (ADR-014)
 4. One checkpoint per session. Stop when the checkpoint is complete.
-5. Fitness tests must be 10/10 before any session is declared done.
+5. Fitness tests must be 11/11 before any session is declared done.
 6. If you discover something outside scope: park it, do not fix it.
 
 ---
