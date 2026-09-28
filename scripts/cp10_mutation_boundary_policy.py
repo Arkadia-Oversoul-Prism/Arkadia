@@ -7,10 +7,16 @@ from __future__ import annotations
 
 import re
 
+# Root-level narrative docs (`AGENTS.md`, `ROADMAP.md`, ...) are first-class
+# product surfaces: AGENTS.md is the repository's persistent agent memory and is
+# committed by ordinary work. Omitting them rejected the EL-01..10 substrate PR
+# (#97) and the Solariun thread-navigation PR (#104). `[^/]+[.]md$` admits only
+# top-level markdown — nested paths are covered by their own directory prefix,
+# and `vault/...` remains rejected.
 LEGIT = re.compile(
     r"^(\.github/|web/|api/|solspire/|kernel/|weaver/|lab/|tests/|docs/|scripts/|"
     r"enterprises/|android/|render|package|pnpm-|requirements|pyproject|README|LICENSE|"
-    r"\.gitignore|\.npmrc|\.editorconfig|Makefile|Dockerfile)"
+    r"\.gitignore|\.npmrc|\.editorconfig|Makefile|Dockerfile|[^/]+\.md$)"
 )
 FORBID_V3 = re.compile(r"SolSpireExperienceV3\.tsx$")
 FORBID_V2 = re.compile(r"SolSpireExperienceV2\.tsx$")

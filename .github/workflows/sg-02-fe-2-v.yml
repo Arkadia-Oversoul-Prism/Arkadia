@@ -435,7 +435,11 @@ jobs:
           # enterprises/ carries the live Eden commercial pilot (enterprise.json,
           # dashboard.schema.json, tasks.seed.json) seeded via the SolSpire enterprise
           # router — a product surface, not harness. Excluding it rejected EDEN-OPS-02.
-          legit='^([.]github/|web/|api/|solspire/|kernel/|weaver/|lab/|tests/|docs/|scripts/|enterprises/|android/|render|package|pnpm-|requirements|pyproject|README|LICENSE|[.]gitignore|[.]npmrc|[.]editorconfig|Makefile|Dockerfile)'
+          # [^/]+[.]md$ admits root-level narrative docs (AGENTS.md, ROADMAP.md, ...);
+          # omitting them rejected EL-01..10 (#97) and Solariun thread-nav (#104).
+          # Keep this in sync with scripts/cp10_mutation_boundary_policy.py —
+          # tests/test_m02a_ci_gate_integrity.py asserts the two agree.
+          legit='^([.]github/|web/|api/|solspire/|kernel/|weaver/|lab/|tests/|docs/|scripts/|enterprises/|android/|render|package|pnpm-|requirements|pyproject|README|LICENSE|[.]gitignore|[.]npmrc|[.]editorconfig|Makefile|Dockerfile|[^/]+[.]md$)'
           offenders="$(echo "$changed" | grep -v '^$' | grep -vE "$legit" || true)"
           if [ -n "$offenders" ]; then
             echo "Unexpected path outside legitimate repository surfaces:"; echo "$offenders"; exit 1

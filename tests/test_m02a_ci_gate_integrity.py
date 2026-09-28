@@ -141,6 +141,59 @@ def test_workflow_allowlist_agrees_with_policy_on_product_surfaces():
         assert policy_ok == workflow_ok, f"allowlist drift on {path}"
 
 
+# ---------------------------------------------------------------------------
+# Regression: root-level narrative docs are shipped product surfaces.
+# `AGENTS.md` is the repository's persistent agent memory and is committed by
+# ordinary work, but the allowlist only admitted paths with a directory prefix.
+# That rejected EL-01..10 (PR #97, merge d48ad0e) and Solariun thread-navigation
+# (PR #104, merge a26af40) on `main`, leaving the canonical branch's CP10 gate red.
+# ---------------------------------------------------------------------------
+_ROOT_DOCS = [
+    "AGENTS.md",
+    "CURRENT_STATE.md",
+    "NEXT_AGENT.md",
+    "PARKING_LOT.md",
+    "ROADMAP.md",
+]
+
+_SOLARIUN_THREAD_NAV_CHANGESET = [
+    "AGENTS.md",
+    "docs/control-plane/evidence/solariun-thread-calibration/EVIDENCE.md",
+    "tests/test_solariun_thread_navigation_01.py",
+    "web/public_prism/src/components/solspire/SolSpireExperience.tsx",
+    "web/public_prism/src/components/solspire/SolariunHomeCockpit.tsx",
+]
+
+
+def test_root_narrative_docs_are_legitimate():
+    ok, msg = evaluate_changed_paths(_ROOT_DOCS)
+    assert ok is True, msg
+
+
+def test_shipped_solariun_thread_nav_changeset_passes_policy():
+    """The exact change set that turned main's CP10 gate red."""
+    ok, msg = evaluate_changed_paths(_SOLARIUN_THREAD_NAV_CHANGESET)
+    assert ok is True, msg
+
+
+def test_nested_doc_paths_still_resolve_through_their_directory():
+    """Root-doc admission must not become a blanket `*.md` bypass."""
+    ok, _ = evaluate_changed_paths(["docs/control-plane/WEAVER-RUN-PROTOCOL.md"])
+    assert ok is True
+    # No directory prefix and not a top-level doc → still an unknown surface.
+    ok, msg = evaluate_changed_paths(["secret-backdoor/notes.md"])
+    assert ok is False, msg
+
+
+def test_workflow_allowlist_agrees_with_policy_on_root_docs():
+    expr = _workflow_legit_regex()
+    corpus = _ROOT_DOCS + _SOLARIUN_THREAD_NAV_CHANGESET + ["vault/Ideas/x.md", "secret-backdoor/bin/x"]
+    for path in corpus:
+        policy_ok, _ = evaluate_changed_paths([path])
+        workflow_ok = bool(re.match(expr, path))
+        assert policy_ok == workflow_ok, f"allowlist drift on {path}"
+
+
 def test_ci_does_not_assert_retired_private_workspace_marker():
     """The frontend no longer renders that marker, so a gate asserting it can never
     pass. Comment lines that reference the history are fine."""

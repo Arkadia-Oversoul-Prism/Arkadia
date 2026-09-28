@@ -19,7 +19,35 @@ Priority: [low / medium / high]
 
 ## Open Items
 
-_None._
+## CP10 mutation-boundary allowlist omits root narrative docs (CI red on `main`)
+
+Observed (2026-09-28): `SG-02-FE.2-V` is **red on canonical `main`** @ `a26af408` and on the
+preceding `d48ad0e`. The "CP10 mutation boundary" step rejected `AGENTS.md` as an
+"Unexpected path outside legitimate repository surfaces". Both merges (#97, #104) were
+legitimate product work; the allowlist simply never admitted top-level `*.md`.
+File: `.github/workflows/sg-02-fe-2-v.yml`, `scripts/cp10_mutation_boundary_policy.py`
+Workstream: GATE-10 (governed execution) — CP10 gate integrity
+Priority: high
+
+_In flight:_ branch `gate10/cp10-allowlist-root-docs` (evidence
+`docs/control-plane/evidence/gate10-cp10-allowlist-root-docs/EVIDENCE.md`) adds
+`[^/]+\.md$` to both the policy and the workflow's inline copy, and widens the existing
+anti-drift guard's corpus. Do not start a second fix for this.
+
+## Baseline test debt at `a26af408` is unclassified (49 failures + 2 collection errors)
+
+Observed (2026-09-28): full suite on `main` @ `a26af408` yields 49 failed / 903 passed /
+12 skipped / 2 errors; collection errors in `tests/test_autonomy.py` and
+`tests/test_render_codex.py`. Several failures look like stale assertions (e.g.
+`test_ais_capability_profile_onboarding`, `test_ais_w2_living_gate_grove_handoff`) rather
+than defects, but that is unverified. Fingerprint of all 51 failing/error nodes:
+`sha256=256204af4082a70f062ed6004fd0c51c126a14262a072afdac9279ce158c3fca`.
+File: `tests/` (repository-wide)
+Workstream: unassigned — candidate standalone test-hygiene workstream
+Priority: medium
+
+_Do not fold this into an unrelated architectural gate._ Classify by real defect vs stale
+assertion before repairing; the fingerprint above is the regression boundary to protect.
 
 ---
 
