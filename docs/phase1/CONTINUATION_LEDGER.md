@@ -1,7 +1,158 @@
 # Arkadia — Continuation Ledger
-# Arkadia — Continuation Ledger
 
 ---
+
+## Pass — GATE-10 · CP10 mutation boundary (continuation ledger H1 integrity)
+
+**Session date:** 2026-09-29
+**Role:** Engineering Runtime (bounded execution pass — reconstruct, classify, fix, prove, persist)
+**Branch / PR:** `gate10/ledger-h1-dedup` → new PR (human-only merge)
+**BASE_MAIN at pass start:** `02fe88c` (merge of PR #3, `recon/solspire-r0`)
+**Workstream continuity:** PR #117 (`gate10/cp10-trigger-parity`) merged at 04:13:14Z as merge
+commit `077f30a`; PR #118 (`gate10/cp10-allowlist-opportunity-radar`) is open but **empty and
+superseded** (see Findings B and C).
+
+### Reconstruction — the contract baseline was stale, and so was the previous pass
+
+Live evidence (`git fetch`, GitHub API) this pass:
+
+- `origin/main` = `02fe88c`; 1339 commits; the #113→#118 lineage is intact
+  (`760e7f9` → `4ad22cd` → `077f30a` → `ff80b8c` → `611f69e` → `02fe88c`). The previous pass's
+  *"origin/main `02fe88c` vs local `422eb20` — divergent lineage"* alarm was a misread of a
+  truncated `git log`; `422eb20` is an ancestor of `02fe88c`. There was no VCS anomaly.
+- The run contract's declared baseline (`main := 6038989`, 804/54/12, architecture 9/10) is
+  stale; every number below was measured live in this pass.
+
+### Finding A — the boundary's own surface carried a duplicate H1 (defect)
+
+`docs/phase1/CONTINUATION_LEDGER.md` on `main` opened with the H1
+`# Arkadia — Continuation Ledger` **twice** (lines 1–2). Attribution by history: `64f67bd` and
+all earlier revisions carry a single H1; `d904c26` (author `p`, the commit merged as PR #117)
+introduced the second. The CRLF-mismatch that blocked the file editor in the previous pass was
+real, so the fix is applied byte-safely (exact duplicate-line deletion, no re-encoding),
+producing a **1-line** diff.
+
+This is the same defect class the workstream exists to close: a surface the boundary judges must
+itself satisfy the invariant it enforces. Line 2 is removed.
+
+### Finding B — PR #118 is an empty, superseded PR (NOT a merge candidate)
+
+Live API: PR #118 `changed_files = 0`, `additions = 0`, `deletions = 0`, `mergeable = true`,
+base `077f30a`. Its stated objective was to admit the `opportunity_radar/` root to the CP10
+mutation-boundary allowlist — but `origin/main` already contains that admission in **both**
+places (`scripts/cp10_mutation_boundary_policy.py` `LEGIT`, and the mirrored inline `legit=` in
+`.github/workflows/sg-02-fe-2-v.yml`). Commit `64f67bd` landed it and the subsequent merge
+commits cancel the remainder, so the PR now proposes no change. It must be **closed, not
+merged**. This ledger records that so the next heartbeat does not re-adopt it as the active
+workstream.
+
+### Finding C — `security-secret-scan` is RED on `main` (pre-existing baseline debt)
+
+Workflow run `36521250235` on `02fe88c`: job `Full-history secret scan` → `failure`,
+`leaks found: 4`, referencing `tests/test_ais_w9_self_service_acquisition.py#L31` among others.
+This is a pre-existing fingerprint unrelated to this pass. Its remediation would require
+history rewrite, which the contract forbids. **Recorded, not fixed**; classified as its own
+future bounded workstream.
+
+
+**Scope correction (measured on this PR).** The same workflow on this PR reports the
+same job name — `Full-history secret scan` — and **passes** here (`completed success on PR head 4c5bd4d (run 36521677331, job 109255700755)`), while it
+**fails** on `push` to `main`. This is a scan-scope difference, not a contradiction:
+`gitleaks-action` scopes to the PR commit range on `pull_request` events and scans the
+whole log on `push`. So this PR passing means *this branch contains no leak*; it does
+**not** clear `main`. Finding C stands unchanged, and conversely this pass introduces no
+new secret-scan debt.
+
+### Verification (this pass)
+
+```
+python -m py_compile api/main.py                         -> OK (2519 lines, under 2600 budget)
+python -m pytest tests/architecture -q                   -> 11 passed
+python -m pytest tests/test_m02a_ci_gate_integrity.py -q -> 46 passed
+docs/phase1/CONTINUATION_LEDGER.md                       -> 1 deletion only (no content change)
+```
+
+The gate-integrity suite is the one that asserts every tracked path is admitted by the allowlist
+and that the workflow mirror agrees with the policy module. It passes on this head, so Finding B
+is safe to act on and Finding A introduces no boundary regression.
+
+### Next bounded task
+
+1. Human closes PR #118 as superseded (no merge).
+2. Human reviews and merges this PR (H1 dedup); K5 human review + merge remains pending.
+3. Proposed, not executed: reconcile the contract baseline block with live evidence (main SHA +
+   suite counts). This needs sovereign sign-off because the contract is a governance surface.
+
+### Measured baseline fingerprint (this head)
+
+Full suite, `--continue-on-collection-errors`, measured in this pass:
+
+```
+54 failed, 959 passed, 12 skipped, 2 errors  (105s)
+failing-count matches the run contract baseline -> zero new failures
+collection errors (pre-existing):  tests/test_autonomy.py, tests/test_render_codex.py
+```
+
+Exact failing set, persisted so a later pass can detect a fingerprint change rather
+than re-deriving it:
+
+```
+tests/test_agent_run.py::test_agent_run_writes_and_commits
+tests/test_ais_capability_profile_onboarding.py::test_home_is_offer_led_and_keeps_arkadia_entry_points
+tests/test_ais_w2_living_gate_grove_handoff.py::test_app_wires_grove_navigation
+tests/test_ais_w2_living_gate_grove_handoff.py::test_ims_lineage_preserved
+tests/test_ais_w2_living_gate_grove_handoff.py::test_living_gate_defaults_to_diagnostic_not_reset
+tests/test_ais_w2_living_gate_grove_handoff.py::test_no_firebase_persistence_in_gate
+tests/test_ais_w2_living_gate_grove_handoff.py::test_pulse_analyze_endpoint_preserved
+tests/test_ais_w2_living_gate_grove_handoff.py::test_spiral_grove_handoff_prop_and_cta
+tests/test_ais_w6_future_skills_challenge.py::test_w6_is_self_guided_and_timed
+tests/test_ais_w8_canonical_identity.py::test_w8_ais_projection_reuses_authenticated_uid
+tests/test_ais_w8_canonical_identity.py::test_w8_no_second_authentication_or_identity_store_is_created
+tests/test_engineering_scheduler_bootstrap.py::test_blocked_dependency_skips_move
+tests/test_engineering_scheduler_bootstrap.py::test_dry_run_evidence
+tests/test_gate_serve_script.py::test_root_index_redirect_and_script_exists
+tests/test_gate_status.py::test_gate_files_and_fetch_handling
+tests/test_identity_spine_w1.py::test_ais_profile_exposes_canonical_identity_spine
+tests/test_identity_spine_w1.py::test_node_entry_is_ais_signup_not_a_separate_diagnostic_route
+tests/test_m02_reasomate_truth.py::test_oracle_runtime_uses_the_shared_session_key
+tests/test_prism_interior_shell.py::test_authenticated_interior_uses_one_prism_shell
+tests/test_prism_interior_shell.py::test_shell_exposes_canonical_primary_surfaces
+tests/test_prism_interior_shell.py::test_shell_exposes_secondary_nexus_lenses
+tests/test_prism_pass_c_surface_ownership.py::test_codex_resolves_to_solspire_codex
+tests/test_prism_pass_c_surface_ownership.py::test_echo_field_aliases_resolve_to_solspire_field
+tests/test_prism_pass_c_surface_ownership.py::test_knowledge_os_resolves_to_solspire_knowledge
+tests/test_prism_pass_c_surface_ownership.py::test_loops_resolves_to_solspire_loops
+tests/test_prism_pass_c_surface_ownership.py::test_spiral_codex_not_solspire_field
+tests/test_prism_pass_c_surface_ownership.py::test_spiral_codex_uses_feed_component
+tests/test_solariun_experience_consolidation_01.py::test_area_c_solspire_substrate_uses_existing_search_and_context_grammar
+tests/test_solariun_experience_consolidation_01.py::test_preimplementation_map_is_present_and_bounded
+tests/test_solariun_experience_consolidation_01.py::test_responsive_composition_and_inspector_exist
+tests/test_solspire_p1_experience_01.py::test_p1_1_arkana_context_pack
+tests/test_solspire_p1_experience_01.py::test_p1_1_not_authorization
+tests/test_solspire_r1_governance_convergence.py::test_r1_solspire_builders_delegate_to_weaver
+tests/test_solspire_r1_governance_convergence.py::test_r1_weaver_governance_is_canonical
+tests/test_solspire_r2_github_mutation.py::test_legacy_commit_file_fails_closed_without_network_write
+tests/test_solspire_r3_execution_runtime.py::test_runtime_is_explicitly_non_governed_and_blocks_mutation_tools
+tests/test_spiral_grove_activity_runtime.py::test_chamber_preserves_sg03_downstream_boundary
+tests/test_spiral_grove_activity_runtime.py::test_runtime_dispatches_all_eight_kinds_to_deterministic_renderers
+tests/test_spiral_grove_activity_runtime.py::test_runtime_is_mounted_by_the_capability_chamber
+tests/test_spiral_grove_activity_runtime.py::test_spiral_grove_uses_the_nexus_canonical_header
+tests/test_spiral_grove_chambers.py::test_chamber_does_not_invoke_autonomous_generation_or_adjudication
+tests/test_spiral_grove_frontend_projection.py::test_activity_draft_persistence_is_local_and_not_evidence
+tests/test_spiral_grove_learning_path_projection.py::test_evidence_assessment_state_are_downstream
+tests/test_spiral_grove_registry.py::test_ais_catalog_supports_progressive_creative_workflow
+tests/test_spiral_grove_registry.py::test_registry_rejects_prerequisite_cycle
+tests/test_steward_filter.py::test_allows_mythic_with_action
+tests/test_steward_filter.py::test_blocks_identity_claims
+tests/test_steward_filter.py::test_compress_to_choices
+tests/test_weaver_mvp2_08.py::test_nexus_novanet_canonical_routing_intact
+tests/test_weaver_sci_boundary_01.py::test_nexus_novanet_alias_intact
+tests/test_weaver_sci_boundary_01.py::test_product_nav_is_not_operator_authority
+tests/test_weaver_sci_boundary_01.py::test_solspire_owns_project_workspace_not_global_command
+tests/test_weaver_sci_contract_01.py::test_nexus_novanet_alias_intact
+tests/test_weaver_sci_contract_01.py::test_solspire_is_workspace_not_second_sci
+```
+
 
 ## Pass — GATE-10 · CP10 mutation boundary (range evaluation + trigger-path coverage)
 
