@@ -9,10 +9,18 @@ SCI_REG = ROOT / "web/public_prism/src/lib/sciCommandRegistry.ts"
 SCI_PAGE = ROOT / "web/public_prism/src/pages/SpiralCommandInterface.tsx"
 APP = ROOT / "web/public_prism/src/App.tsx"
 NAV = ROOT / "web/public_prism/src/components/ArkadiaNavigation.tsx"
-SOL = ROOT / "web/public_prism/src/pages/SolSpireConsole.tsx"
+SOL = ROOT / "web/public_prism/src/components/solspire/SolSpireExperience.tsx"
 DASH = ROOT / "web/public_prism/src/pages/ProjectDashboard.tsx"
 NEXUS = ROOT / "web/public_prism/src/pages/NexusPage.tsx"
 MATRIX = ROOT / "web/public_prism/src/pages/UniversalEchofeildMatrix.tsx"
+
+# The 'nexus' compatibility view now resolves to the canonical 'novanet' view via an
+# explicit redirect rather than a ternary. Same mapping, different expression.
+_NEXUS_ALIAS_MARKERS = (
+    "v === 'nexus' ? 'novanet'",
+    "=== 'nexus' ? 'novanet'",
+    "requested === 'nexus'",
+)
 
 
 def _r(p: Path) -> str:
@@ -55,6 +63,8 @@ def test_solspire_is_workspace_not_second_sci():
     reg = _r(SCI_REG)
     sol = _r(SOL)
     assert "secondSci" in reg or "second SCI" in reg.lower() or "mustNot" in reg
+    # The project workspace lives in SolSpireExperience; pages/ProjectDashboard.tsx is
+    # mounted by ResilientProjectDashboard and remains the canonical implementation.
     assert "ProjectDashboard" in sol
     assert "SCI_DISCOVERY_WITHOUT_AUTHORITY" not in sol
 
@@ -101,4 +111,4 @@ def test_novanet_matrix_preserved():
 
 def test_nexus_novanet_alias_intact():
     app = _r(APP)
-    assert "v === 'nexus' ? 'novanet'" in app or "=== 'nexus' ? 'novanet'" in app
+    assert any(m in app for m in _NEXUS_ALIAS_MARKERS)

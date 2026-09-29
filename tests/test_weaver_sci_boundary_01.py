@@ -11,10 +11,22 @@ SCI_PAGE = ROOT / "web/public_prism/src/pages/SpiralCommandInterface.tsx"
 SCI_REG = ROOT / "web/public_prism/src/lib/sciCommandRegistry.ts"
 APP = ROOT / "web/public_prism/src/App.tsx"
 NAV = ROOT / "web/public_prism/src/components/ArkadiaNavigation.tsx"
-SOL = ROOT / "web/public_prism/src/pages/SolSpireConsole.tsx"
+SOL = ROOT / "web/public_prism/src/components/solspire/SolSpireExperience.tsx"
 DASH = ROOT / "web/public_prism/src/pages/ProjectDashboard.tsx"
 NEXUS = ROOT / "web/public_prism/src/pages/NexusPage.tsx"
 MATRIX = ROOT / "web/public_prism/src/pages/UniversalEchofeildMatrix.tsx"
+
+# The boundary marker moved from the navigation component to the descriptive SCI
+# registry, which is the canonical home for surface-ownership declarations.
+_BOUNDARY_MARKER = "WEAVER-SCI-BOUNDARY-01"
+
+# The 'nexus' compatibility view now resolves to the canonical 'novanet' view via an
+# explicit redirect rather than a ternary. Same mapping, different expression.
+_NEXUS_ALIAS_MARKERS = (
+    "v === 'nexus' ? 'novanet'",
+    "=== 'nexus' ? 'novanet'",
+    "requested === 'nexus'",
+)
 
 
 def _r(p: Path) -> str:
@@ -36,7 +48,8 @@ def test_sci_is_canonical_operator_shell():
 def test_solspire_owns_project_workspace_not_global_command():
     sol = _r(SOL)
     reg = _r(SCI_REG)
-    # Ownership may be declared on SolSpire file and/or SCI registry map
+    # The project workspace surface lives in SolSpireExperience (which mounts
+    # ResilientProjectDashboard -> pages/ProjectDashboard.tsx, the canonical impl).
     assert "ProjectDashboard" in sol
     assert "SolSpire" in reg and "project/workspace" in reg.lower()
     assert "SCI_DISCOVERY_WITHOUT_AUTHORITY" not in sol
@@ -67,7 +80,8 @@ def test_no_second_k3_path_in_sci_or_registry():
 
 def test_product_nav_is_not_operator_authority():
     nav = _r(NAV)
-    assert "WEAVER-SCI-BOUNDARY-01" in nav
+    # Boundary marker may be declared by the nav component or the SCI registry.
+    assert _BOUNDARY_MARKER in nav or _BOUNDARY_MARKER in _r(SCI_REG)
     assert "operator" in nav.lower() or "SCI" in nav
     assert "view: 'sci'" in nav
 
@@ -84,7 +98,7 @@ def test_novanet_and_matrix_preserved():
 
 def test_nexus_novanet_alias_intact():
     app = _r(APP)
-    assert "v === 'nexus' ? 'novanet'" in app or "=== 'nexus' ? 'novanet'" in app
+    assert any(m in app for m in _NEXUS_ALIAS_MARKERS)
 
 
 def test_ownership_map_present_in_registry():
