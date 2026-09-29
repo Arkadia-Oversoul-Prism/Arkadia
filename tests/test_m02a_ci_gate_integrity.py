@@ -639,6 +639,38 @@ def test_boundary_contract_surfaces_trigger_the_boundary():
             )
 
 
+def test_push_and_pull_request_filters_are_identical():
+    """Both filters must name the same surfaces.
+
+    The asymmetry is a masking hole, not a convenience: a surface the gate judges on
+    push but not on pull_request lets a PR introduce it unjudged, and CP10 then goes
+    red on main at the merge. That is exactly how PR #112 landed
+    tests/test_phase5_governed_execution.py against an already-red gate. Keeping the
+    two lists identical means a widening of one is always a widening of both.
+    """
+    triggers = _workflow_triggers()
+    push = set(triggers["push"]["paths"])
+    pull = set(triggers["pull_request"]["paths"])
+    assert push == pull, (
+        "push and pull_request trigger filters diverge; surfaces present in only "
+        f"one: {sorted(push ^ pull)}"
+    )
+
+
+def test_phase5_fixture_surface_triggers_the_boundary():
+    """Every dry-run fixture step the gate executes must also select the gate.
+
+    The workflow runs Phase 5 Governed Execution fixtures; if that test file is not
+    a trigger path, a change to the very fixture the step validates can reach main
+    without the boundary executing it.
+    """
+    triggers = _workflow_triggers()
+    for trigger in ("push", "pull_request"):
+        assert "tests/test_phase5_governed_execution.py" in triggers[trigger]["paths"], (
+            f"{trigger} runs the Phase 5 fixture step but does not trigger on its file"
+        )
+
+
 def test_every_trigger_path_is_admitted_by_the_policy():
     """A trigger path the allowlist rejects would make the gate structurally red.
 
