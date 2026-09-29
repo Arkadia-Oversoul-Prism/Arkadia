@@ -292,6 +292,24 @@ authenticated node's private Knowledge OS vault тАФ never the public scroll s
 
 
 
+## CI state reconstruction — `head_sha` needs the FULL sha (gate-hygiene)
+- The Actions API **silently succeeds with `total_count: 0`** when `?head_sha=` is given an
+  abbreviated SHA. It does not error, so the query looks like a valid "no runs" result. Always
+  pass the **full 40-char SHA**, or filter with `?branch=` instead, and read a `0` as *unproven*
+  rather than *absent*.
+- This produced a confidently-wrong "main `4164573` has 0 runs, so the merge was ungated" claim
+  in PR #129's first commit. With the full SHA, that commit has **5 runs** and the merge was in
+  fact gated by both CP10 (`sg-02-fe-2-v.yml`) and the full-history secret scan — both passed.
+  Corrected in `05dfbfe`; the ledger lesson is recorded at
+  `docs/control-plane/evidence/gate-hygiene-baseline-ledger-correction-01/WORKSTREAM_STATE.md`.
+- Workflow trigger reality (verify against `.github/workflows/*.yml`, not memory):
+  `sg-02-fe-2-v.yml` is **path-filtered** (`web/public_prism/**`, `spiral_grove/**`, `lab/**`,
+  `api/lab_routes.py`, named test files); `security-secret-scan.yml` runs on **every** `pull_request`
+  and on `push` to `main`; `solspire-r{1,2,3,4}-validation.yml` trigger only on `push` to
+  `recon/solspire-r0` (so they are genuinely inert for `main` — a real absence, unlike a bad query).
+- Prefer `gh pr view <n> --json mergeable,mergeStateStatus,headRefOid` for PR truth; prefer
+  `commits/<sha>/check-runs` for per-commit gate truth.
+
 ## AEAS Runtime Boundary Pulse — current open trajectory
 
 The current runtime-integrity boundary is explicitly:
