@@ -100,7 +100,9 @@ Test-only workstream. Never touch `api/main.py`, `LAYER_MAP.py`, ADRs, policy mo
 workflows, or governance files from here. Nothing merges without the sovereign.
 ## Pass record — 2026-09-29 (heartbeat, SH-02b follow-up)
 
-- **Reconstructed:** `main` = `a392b10`. PR #127 branch
+- **Reconstructed:** `origin/main` = `417d32d` (measured this pass via `git fetch --all --prune`
+  then `git rev-parse origin/main`; an earlier draft of this record said `a392b10`, which was
+  wrong — corrected against live evidence). PR #127 branch
   `gate-hygiene/baseline-stale-assertion-repair-surface-ownership-01` head was `3b338c0`,
   working tree held the 3 bounded files. `origin/sh02b` was confirmed equal to PR #127 head
   **before** pushing, so the push was a verified fast-forward, not a force.
