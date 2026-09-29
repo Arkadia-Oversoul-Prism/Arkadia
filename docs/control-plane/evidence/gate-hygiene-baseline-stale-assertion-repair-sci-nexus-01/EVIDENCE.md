@@ -156,3 +156,35 @@ passes.
 Test-hygiene only. No merge, no authorization, no identity-boundary change, no
 governance or architecture reinterpretation. The sovereign decides whether this
 becomes canonical.
+
+## Addendum — secret-scan remediation (Pass N+2)
+
+`Full-history secret scan` was RED on this PR. Root cause: the job scans a **range**
+(`gitleaks detect --no-merges --first-parent 9032193^..<head>`), so the finding stays red as
+long as the *ancestor commit that introduced the literal* — `a81d9ff` — is inside it. The
+earlier tip-side rewrite (`2928b0f`) could not have cleared it and is recorded as a
+**mis-diagnosis**. The repository carried no gitleaks config, so the gate ran unmodified
+defaults.
+
+Remediation: root `.gitleaks.toml` (`[extend] useDefault = true` + one `[allowlist]` entry,
+`regexTarget = "secret"`, anchored `[.]`-class regexes) and CP10 admission of
+`\.gitleaks\.toml$` to `LEGIT` — the judge had correctly rejected the new root path first.
+Unknown roots are still rejected.
+
+CI on `6d91594`: `Full-history secret scan` **pass** (run `36530652687`, log confirms
+`using existing gitleaks config .gitleaks.toml` then `no leaks found`); CP10 `SG-02-FE.2-V`
+**pass** (run `36530652609`). `tests/architecture` + `test_m02a_ci_gate_integrity.py`
+-> 60 passed (unchanged).
+
+Audit of the allowlist's reach: all 5 suppressed findings are the same non-secret namespace
+literal (`arkadia.ais.diagnostic-handoff.v1` / `arkadia.ais.capability-portfolio.v1`) at
+`WORKSTREAM_STATE.md:84`, `LivingGate.tsx:53`, `FutureSkillsChallenge.tsx:37`,
+`test_ais_w9_self_service_acquisition.py:30,31`. None is a credential; real tokens and
+non-allowlisted `generic-api-key` assignments are still caught.
+
+Recorded residual, not worked around: the unfiltered push-style whole-history scan still
+reports pre-existing `main` debt (Finding C). Clearing it needs a history rewrite, which is
+out of contract. The `Vercel` check is `fail` on a provider rate limit — external infra.
+
+**Authorization (addendum).** No merge, no authorization/identity/authority-model change, no
+new mutation or authorization path. HUMAN-MERGE-ONLY.
