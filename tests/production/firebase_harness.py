@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 # Public Firebase web config (embedded in frontend; not a secret)
-DEFAULT_FIREBASE_API_KEY = "AIzaSyDfu2qD5aONhw4KxOjHyE2a7VEf8cVrk9A"
+DEFAULT_FIREBASE_API_KEY = ""
 DEFAULT_FIREBASE_PROJECT_ID = "arkadia-2d4a7"
 DEFAULT_BASE_URL = "https://arkadia-kw64.onrender.com"
 
