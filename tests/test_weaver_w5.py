@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import base64
 import json
-import os
-import tempfile
+
+import pytest
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -59,15 +59,20 @@ def test_no_mutation_on_modules():
             assert not hasattr(mod, name)
 
 
-def test_http_knowledge_isolation():
-    tmp = tempfile.mkdtemp(prefix="w5_")
-    os.environ["SOLSPIRE_PROJECTS_DB"] = os.path.join(tmp, "db.sqlite")
-    os.environ.setdefault("SOLSPIRE_DATA_DIR", tmp)
+def test_http_knowledge_isolation(monkeypatch, tmp_path):
+    # Environment control lives here, not at import time: pytest imports every
+    # module before running any test, so an import-time override stays in force
+    # for the whole session and repoints the shared project DB for later modules.
+    db_path = str(tmp_path / "db.sqlite")
+    monkeypatch.setenv("SOLSPIRE_PROJECTS_DB", db_path)
+    monkeypatch.setenv("SOLSPIRE_DATA_DIR", str(tmp_path))
+
     import solspire.project_manager as pm_mod
     import solspire.project_store as store_mod
     from solspire.console_router import router
 
-    pm_mod._DB_PATH = store_mod._DB_PATH = os.environ["SOLSPIRE_PROJECTS_DB"]
+    monkeypatch.setattr(pm_mod, "_DB_PATH", db_path)
+    monkeypatch.setattr(store_mod, "_DB_PATH", db_path)
     app = FastAPI()
     app.include_router(router)
 
