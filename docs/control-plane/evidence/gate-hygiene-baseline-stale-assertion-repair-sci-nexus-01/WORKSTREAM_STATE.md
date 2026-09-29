@@ -45,6 +45,7 @@ Bucket counts at that pass: **STALE_ASSERTION 35**, **DRIFT 10**, **ENV/ARTIFACT
 | `SH-05` | fate of `test_gate_serve_script` / `test_gate_status` | ENV | sovereign call |
 | `SH-06` | should `steward_filter` stem-match `transcend*`? | STALE_ASSERTION | awaits product judgement |
 | `SH-07` | shared-session key in `ArkanaCommune.tsx` (`test_m02_reasomate_truth`) | DRIFT (high) | awaits architectural gate |
+| `F-01` | `test_no_firebase_persistence_in_gate` — `sessionStorage` proxy no longer measures its "no cloud persistence" intent (gate has 0 firebase refs; storage is ephemeral handoff) | DRIFT (proxy-invalidation) | **sovereign decision** — do not silently loosen |
 
 ## Next bounded task
 
@@ -52,16 +53,67 @@ Continue `SH-02`: the next batch of stale string assertions. Suggested dense gro
 (all pre-classified `STALE_ASSERTION`, all test-only):
 
 - `test_prism_pass_c_surface_ownership.py` (6 nodes)
-- `test_ais_w2_living_gate_grove_handoff.py` (6 nodes)
 - `test_solariun_experience_consolidation_01.py` (3 nodes)
 
 Unchanged rule: re-point the assertion at the surface that now owns the behaviour, and
 run a negative control proving the repaired assertion can still fail. Test-only edits;
 never touch `api/main.py`, `LAYER_MAP.py`, ADRs, or governance files from this workstream.
 
-## Open PRs
+### `test_prism_pass_c_surface_ownership.py` — needs a HELPER rewrite, not just string edits
 
-`0` at `67a660c` (PR #122 merged). This pass opens a new bounded PR.
+Its 6 nodes all fail at the same place: `_block(view)` (`:20-24`) matches
+`{view === '<v>' && (\(.*?\)\n\)}` against `App.tsx`, but `App.tsx` now resolves views via
+a `requested`/`next` mapping with an explicit redirect, so no such JSX block exists for
+`spiral-codex`, `personal-echofeild`, `knowledge-os`, `codex`, `loops`.
+This is a **parser-helper rewrite** with a materially larger blast radius than the batch-1
+string edits — treat it as its own bounded pass, and re-derive the assertion intent for each
+view from `App.tsx`'s real routing table rather than re-fitting the old regex.
+
+## ⚠ FINDING F-01 — `test_no_firebase_persistence_in_gate` is a PROXY-INVALIDATION, not a relocation
+
+`tests/test_ais_w2_living_gate_grove_handoff.py::test_no_firebase_persistence_in_gate`
+(`:74`) fires on the **negative** assertion `assert "sessionStorage" not in src` against
+`web/public_prism/src/pages/LivingGate.tsx`.
+
+**Verified against live source:**
+
+- `LivingGate.tsx` contains **zero** `firebase` / `firestore` references (`grep -c` → 0).
+  The test's *stated* intent — no cloud persistence, no silent identity creation in the
+  Living Gate — is therefore still satisfied.
+- The `sessionStorage` usage is deliberate, local and **ephemeral** (per-tab, cleared on
+  close): `HANDOFF_KEY = 'arkadia.ais.diagnostic-handoff.v1'`,
+  `PORTFOLIO_KEY = 'arkadia.ais.capability-portfolio.v1'` (`:61-62`), introduced by the AIS
+  feature commits `b822b95` → `c1073a4` → `f68cbf7`.
+
+**Why this was NOT repaired in this pass.** The assertion's *mechanism* (`sessionStorage`
+absent) no longer measures its *intent* (no cloud persistence). Repair requires rewriting a
+**negative guard** — i.e. choosing what the gate is still forbidden to do. That is a
+governance call about a persistence/identity boundary, not test hygiene. Silently loosening
+it is exactly the "weaken the gate to make it green" failure mode this repo has been burned
+by. Classify **DRIFT (needs product decision)**, hand to the sovereign, do not edit.
+
+**Proposed shape for the sovereign to approve** (not applied): replace the crude proxy with
+the actual intent — assert no `firebase`/`firestore` import and no durable cloud write in
+`LivingGate.tsx`, while explicitly permitting ephemeral same-tab handoff keys. Note the
+sibling assertion `"localStorage.setItem" not in src` currently **passes** and must not be
+disturbed.
+
+**Same family, same caution.** Among that file's other nodes, `test_ims_lineage_preserved`
+(`:88`) already passes; the remaining failures mix relocation (`'/api/pulse/analyze'`,
+`'Open Spiral Grove'`, `onEnterSpiralGrove={...}` in `App.tsx`) with a second negative guard
+(`test_no_firebase_persistence_in_gate`). Split the file: relocation nodes are safe `SH-02`
+work; negative guards go to the sovereign. Do **not** batch them.
+
+## Open PRs (at the end of this pass)
+
+- **#124** — this pass (`gate-hygiene/baseline-stale-assertion-repair-sci-nexus-01`),
+  READY_FOR_SOVEREIGN_MERGE.
+- **#123** — `aeas/frontend-seam-map`, **separate** diagnosis-only workstream. Not a duplicate
+  of this work. Note: it declares a files-changed surface including
+  `.github/workflows/`; if a PR ever modifies the CP10 workflow, **re-run the boundary judge
+  and `test_m02a_ci_gate_integrity.py`** — a new rejection path would trip the hard stop.
+
+This workstream took no new authority from either.
 
 ## Boundaries
 
