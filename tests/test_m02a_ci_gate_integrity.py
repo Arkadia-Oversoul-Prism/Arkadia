@@ -187,7 +187,12 @@ def test_nested_doc_paths_still_resolve_through_their_directory():
 
 def test_workflow_allowlist_agrees_with_policy_on_root_docs():
     expr = _workflow_legit_regex()
-    corpus = _ROOT_DOCS + _SOLARIUN_THREAD_NAV_CHANGESET + ["vault/Ideas/x.md", "secret-backdoor/bin/x"]
+    corpus = (
+        _ROOT_DOCS
+        + _SOLARIUN_THREAD_NAV_CHANGESET
+        + _OPPORTUNITY_RADAR_CHANGESET
+        + ["vault/Ideas/x.md", "secret-backdoor/bin/x"]
+    )
     for path in corpus:
         policy_ok, _ = evaluate_changed_paths([path])
         workflow_ok = bool(re.match(expr, path))
@@ -202,6 +207,54 @@ def test_workflow_allowlist_agrees_with_policy_on_root_docs():
 # is self-contradictory: it *triggers* on `spiral_grove/**` and `lab/**` while
 # rejecting `spiral_grove/` in its own allowlist. Pending PR #109 changes
 # `knowledge/static_ingestion.py`, which would have failed the same step.
+# ---------------------------------------------------------------------------
+# Regression: `opportunity_radar/` — the SAPZ capture MVP persisted state.
+# PR #110 merged `opportunity_radar/SAPZ_CAPTURE_STATE.md` while the allowlist was
+# still incomplete, so the CP10 step failed on that merge (run 36514924096, job
+# 109234968163: "Unexpected path outside legitimate repository surfaces" ->
+# opportunity_radar/SAPZ_CAPTURE_STATE.md). The gate then went green on the next
+# merge without the surface being admitted: it diffs HEAD against HEAD^, and a
+# merge commit whose first parent already contains the path reports no change, so
+# the offender can never reappear to fail. Masking is not resolution — a future
+# `opportunity_radar/` commit under a non-merge parent would redden `main` again.
+# ---------------------------------------------------------------------------
+_OPPORTUNITY_RADAR_CHANGESET = [
+    "opportunity_radar/SAPZ_CAPTURE_STATE.md",
+    "web/public_prism/src/pages/OpportunityRadarPage.tsx",
+    "web/public_prism/src/data/opportunityRadar.ts",
+]
+
+
+def test_opportunity_radar_surface_is_legitimate():
+    ok, msg = evaluate_changed_paths(["opportunity_radar/SAPZ_CAPTURE_STATE.md"])
+    assert ok is True, msg
+
+
+def test_shipped_opportunity_radar_changeset_passes_policy():
+    """The exact change set that failed main's CP10 gate on the #110 merge."""
+    ok, msg = evaluate_changed_paths(_OPPORTUNITY_RADAR_CHANGESET)
+    assert ok is True, msg
+
+
+def test_allowlist_admits_every_tracked_top_level_prefix():
+    """A tracked prefix the allowlist omits reddens main on the next real commit."""
+    # `vault/` is tracked only as scaffold and is deliberately outside the
+    # boundary (see test_personal_vault_surface_is_still_rejected); its full
+    # exclusion is asserted there, so it is not an omission this test flags.
+    prefixes = {
+        p.split("/", 1)[0]
+        for p in _tracked_paths()
+        if "/" in p and not p.startswith("vault/")
+    }
+    rejected = sorted(
+        prefix for prefix in prefixes if not evaluate_changed_paths([prefix + "/probe"])[0]
+    )
+    assert not rejected, (
+        "allowlist omits tracked top-level prefixes, so a non-merge commit "
+        "touching them fails CP10: " + ", ".join(rejected)
+    )
+
+
 # ---------------------------------------------------------------------------
 _OMITTED_SURFACE_CHANGESET = [
     "knowledge/static_ingestion.py",

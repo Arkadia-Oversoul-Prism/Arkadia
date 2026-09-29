@@ -1359,3 +1359,134 @@ EOF is expected. Suggest merge #105 first, then rebase #109. Recorded, not decid
 
 Human review/merge only. No consequential external action taken. No merge performed.
 
+
+---
+
+## GATE-10 · CP10 allowlist — pass 4 (`opportunity_radar/`)
+
+Reconstructed from live evidence this pass: `origin/main` = `973117e` (merge #107). PR #105 is
+**merged**; the CP10 gate is green on `main` only because it did not run — `validate` has no
+check-run on `973117e` (only `browser`), and the workflow's `push`/`pull_request` path filters do
+not include `opportunity_radar/**`.
+
+This pass closes the last tracked omission.
+
+### Finding — PR #110 was masked, not resolved
+
+`opportunity_radar/SAPZ_CAPTURE_STATE.md` was added by `ae740b8` and merged in #110 (`e345bfc`).
+That merge's `validate` check-run **failed** (`109234968163`, run `36514924096`) with
+`Unexpected path outside legitimate repository surfaces: opportunity_radar/SAPZ_CAPTURE_STATE.md`.
+
+The gate step diffs the tip commit against its **first parent only** (`git diff --name-only HEAD^
+HEAD`). On the merge commit, the first parent already carried the path, so the next merge (`e5e2e42`)
+reported no offenders and went green. The surface was never admitted — only hidden behind merge
+topology. The next non-merge commit to `opportunity_radar/` would redden `main` again.
+
+### Change (3 files)
+
+* `scripts/cp10_mutation_boundary_policy.py` — `opportunity_radar/` added to `LEGIT`; inventory
+  counts corrected 74/1393 → 75/1398.
+* `.github/workflows/sg-02-fe-2-v.yml` — mirrored `legit` literal kept byte-equivalent.
+* `tests/test_m02a_ci_gate_integrity.py` — 3 new guards, incl. a general
+  `test_allowlist_admits_every_tracked_top_level_prefix` so the omission class cannot silently recur.
+
+### Evidence
+
+* `tests/test_m02a_ci_gate_integrity.py`: 1 failed → **32 passed**.
+* `tests/architecture`: 11 passed (unchanged).
+* Exhaustive policy↔workflow equivalence: **0 drift / 1398 tracked paths**; adversarial paths
+  rejected by both; `opportunity_radar/x.md` admitted by both.
+* `py_compile` clean on changed Python; `api/main.py` untouched (under the 2600-line budget).
+* Grove contracts: 3 failed / 27 passed — reproduced identically on a clean `origin/main` worktree,
+  therefore **baseline debt, unattributed**.
+
+### Corollary finding — the ledger file itself is outside the allowlist
+
+`docs/phase1/CONTINUATION_LEDGER.md` is rejected by the allowlist on the current tree and is not in
+the tracked-surface guard's scope; it is admitted only by `[^/]+[.]md$` topology plus the tip-parent
+diff. Recorded, not fixed (scope).
+
+### Next bounded task (recommended, not started)
+
+1. Make the gate evaluate the **PR ranges** it is supposed to guard (all commits, or base..head),
+   not only the tip's first parent, so a masked offender cannot pass a subsequent merge. This is the
+   structural closure of the class found above.
+2. Independently: de-duplicate the CP10 policy so the workflow executes the tested module rather than
+   a hand-maintained regex copy (composability risk, §6 of the evidence record).
+3. Baseline debt (Grove 3 + full-suite remainder + 2 collection errors) remains an unstarted,
+   separately-classified candidate workstream (`PARKING_LOT.md`).
+
+### Merge-order hazard (unchanged)
+
+Both this branch and PR #109 append to `docs/phase1/CONTINUATION_LEDGER.md`; textual conflict at EOF
+is expected. Merge order is a human decision.
+
+### Authorization
+
+Human review/merge only. No consequential external action. No merge performed.
+
+
+---
+
+## Pass 4 — live `main` regression found and attributed (CP10 PR #111)
+
+Recorded during the pass-4 heartbeat after the branch was pushed. **No CP10 code changed in this
+addendum** — this is continuity/attribution evidence only, appended so the next heartbeat
+reconstructs from the ledger rather than from memory.
+
+### State at reconstruction
+
+* `origin/main` advanced twice during this pass: `973117e` → `d52c706` (#108) → `1b0e4694` (#71).
+* PR #111 base remained `973117e`; branch head is `bd6dfbb`.
+* PR #111 merge-commit run `36516068618`: `validate` **failed at step 13**, and steps 18–31 —
+  including `CP10 mutation boundary` and `Enforce CP10 executable gates` — were **skipped**.
+* `main` tip `1b0e4694` run `36516005407`: **fails at the same step 13**. Branch base `973117e`
+  (run `36515697762`) is green. So the red check is inherited from `main`, not produced here.
+
+### Root cause — merge #71 (comparative-exam-i authorization→execution)
+
+PR #71 changed exactly one path: `tests/test_phase5_governed_execution.py` (+171 lines). It added
+`test_comparative_exam_i_authorization_change_reaches_k15_before_k3`, whose control assertion (line
+194) compares the written fixture against `new_body = "MUTATED BY COMPARATIVE EXAMINATION I\n"` — a
+body carrying a **trailing newline**.
+
+`weaver/agent.py:110` parses provider output with `content_map[p] = content.strip()`; the provider
+contract (`weaver/autonomy.py:40`) appends `\n`, so the parser strips it and `weaver/fs.py::write_file`
+writes exactly the stripped bytes (`p.write_text(content)`). The file therefore reads back **without**
+the trailing `\n`, and the assertion fails. Reproduced deterministically against `origin/main` at
+`1b0e4694`: **1 failed / 5 passed**.
+
+The `strip()` is **load-bearing, not incidental**: `patch_content_hash` (`weaver/execution.py:60`)
+binds the approved `patch_text` bytes into the approval record, and the CP10/K3 path writes those
+exact bytes. Normalising the parser would make written content diverge from approved content — an
+ADR-level change to the authorization/effect coupling, made in the wrong layer of a red-`main`
+recovery. The bounded repair is on the **test**: assert against the approved `new_body.strip()`
+bytes, or drop the anchor.
+
+### Why it merged: third instance of the gate-dormancy class
+
+Under `on.pull_request.paths`, `tests/test_phase5_governed_execution.py` **is not listed** (it *is*
+listed under `on.push.paths` — the two lists are asymmetric, and the `pull_request` list is also
+missing the `tests/test_phase4_evolution_planner.py` / `lab/evolution/**` / `lab/execution/**`
+entries present in the `push` list). PR #71's head `5f4a040e` therefore shows **only**
+`Vercel Preview Comments: success`; no `validate` check-run exists for that branch, ever
+(branch run query returns total_count 0). It merged red.
+
+This is the **same class** as #107 (world_engine path omitted from both lists) and #110
+(`opportunity_radar/` omitted from the allowlist): *a gate that does not run on the change it is
+supposed to guard reports green by dormancy, not by passing.* #111 closes the allowlist half of the
+class; the trigger half is now proven to cause real `main` breakage.
+
+### Next bounded tasks (proposed, ordered — none started this pass)
+
+1. **Hotfix** (smallest, restores green `main`, unblocks #111): repair the trailing-newline assertion
+   in `tests/test_phase5_governed_execution.py` to assert the approved stripped bytes. Test-and-fixture
+   only; no production code, no authority path. Own branch/PR.
+2. **Trigger symmetry**: make `on.pull_request.paths` equal `on.push.paths`, plus a guard test
+   asserting the two lists match — the structural closure of the dormancy class.
+3. **Gate range**: evaluate the PR range rather than the tip's first parent (unchanged from pass 3).
+4. **Policy de-duplication** (workflow executes the tested module). Unchanged from pass 3.
+5. Baseline debt remains unstarted and separately classified (`PARKING_LOT.md`).
+
+**Rejected this pass:** normalising the provider-output parser (would decouple approval from effect,
+ADR-level); and fixing #71's test inside #111 (scope expansion on a red-`main` recovery, contract §05).
