@@ -59,6 +59,8 @@ LEGIT = re.compile(
     r"|railway\.json$|vercel\.json$|\.replit$|\.env\.example$"
     r"|render|package|pnpm-|requirements|pyproject|README|LICENSE"
     r"|\.gitignore|\.npmrc|\.editorconfig|Makefile|Dockerfile$"
+    # gitleaks config read by the full-history secret-scan gate (root-level)
+    r"|\.gitleaks\.toml$"
     # root-level markdown only ([^/] forbids nested paths)
     r"|[^/]+\.md$"
     r")"

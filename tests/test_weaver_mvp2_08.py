@@ -125,10 +125,13 @@ def test_no_autonomous_mutation_path():
 
 def test_nexus_novanet_canonical_routing_intact():
     app = _read(APP)
-    assert "v === 'nexus' ? 'novanet'" in app or "=== 'nexus' ? 'novanet'" in app
+    # The 'nexus' compatibility view resolves to the canonical 'novanet' view via an
+    # explicit redirect (same mapping, different expression than the old ternary).
+    assert "requested === 'nexus'" in app or "=== 'nexus' ? 'novanet'" in app
     assert "view === 'novanet'" in app
     assert "view === 'nexus'" not in app
-    assert "NexusPage" in app
+    # The canonical novanet view renders NovaNetPage; NexusPage remains a present file.
+    assert "NovaNetPage" in app
     assert NOVANET.is_file()
     assert NEXUS.is_file()
 

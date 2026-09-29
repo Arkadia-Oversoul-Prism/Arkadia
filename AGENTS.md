@@ -267,6 +267,29 @@ authenticated node's private Knowledge OS vault тАФ never the public scroll s
 - `api/main.py` is untouched by this workstream and stays under the 2600-line budget (2519).
   Run `python -m py_compile api/main.py` before committing anything that touches boot code.
 
+## Secret scan — the job scans a RANGE, not a tree (gate-hygiene)
+- `security-secret-scan` ("Full-history secret scan") runs
+  `gitleaks detect --no-merges --first-parent <base>^..<head>`, so a finding stays red as long
+  as the **ancestor commit that introduced the literal** is inside that range. Editing the tip
+  can never clear it; without force-push (forbidden here) the only compliant remedy is a
+  config-level distinction. A tip-side rewrite of such a literal is a mis-diagnosis — record it
+  as one rather than repeating it.
+- Root `.gitleaks.toml` (new, admitted to CP10 `LEGIT` as `\.gitleaks\.toml$`): `[extend]
+  useDefault = true` plus a single `[allowlist]` entry with `regexTarget = "secret"`. `secret`
+  scopes the pattern to the matched value, so surrounding prose can't widen the exemption
+  (`regexTarget = "line"` does *not* suppress). Prefer anchored `^…$` regexes using `[.]`
+  classes — no TOML escaping hazard, no prefix/suffix over-admission.
+- **gitleaks 8.24.3 reads the SINGULAR `[allowlist]` table.** The plural `[[allowlists]]`
+  array parses without error and is **silently ignored** — a fix that looks configured but does
+  nothing. Always prove the config is attributable with a negative control (move the file away;
+  the finding must come back).
+- Only ever allowlist a value you have read and verified is not a credential, one at a time,
+  with evidence. An unfiltered push-style whole-history scan legitimately still reports
+  pre-existing `main` debt (Finding C, ~16–21 hits across 5 non-secret namespace constants at
+  `WORKSTREAM_STATE.md:84`, `LivingGate.tsx:53`, `FutureSkillsChallenge.tsx:37`,
+  `test_ais_w9_self_service_acquisition.py:30,31`). That needs history rewrite — out of
+  contract. Do not "fix" it by broadening the allowlist; the gate's teeth are the point.
+
 
 
 ## AEAS Runtime Boundary Pulse — current open trajectory
