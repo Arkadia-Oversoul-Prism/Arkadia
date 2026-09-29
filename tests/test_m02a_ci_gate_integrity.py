@@ -110,11 +110,85 @@ _EDEN_OPS_02_CHANGESET = [
 ]
 
 
-def _workflow_legit_regex() -> str:
+def _mutation_step_code() -> str:
+    """The CP10 mutation step's shell with comment lines stripped."""
     text = _WORKFLOW.read_text(encoding="utf-8")
-    match = re.search(r"^\s*legit='([^']+)'", text, re.MULTILINE)
-    assert match, "mutation-boundary allowlist (legit=...) not found in workflow"
-    return match.group(1)
+    return "\n".join(
+        line for line in text.splitlines() if not line.lstrip().startswith(("//", "#"))
+    )
+
+
+def _run_judge(feed: str) -> tuple[int, str]:
+    """Run the policy CLI the workflow runs, over `feed` on stdin."""
+    import contextlib
+    import io
+
+    from scripts.cp10_mutation_boundary_policy import main
+
+    buf = io.StringIO()
+    import sys
+
+    real_stdin = sys.stdin
+    sys.stdin = io.StringIO(feed)
+    try:
+        with contextlib.redirect_stdout(buf):
+            rc = main(["--judge"])
+    finally:
+        sys.stdin = real_stdin
+    return rc, buf.getvalue()
+
+
+def test_mutation_boundary_delegates_the_allowlist_decision():
+    """The gate must decide through the tested module, not a regex beside it.
+
+    The workflow and the policy each carried a hand-maintained allowlist, and they
+    drifted: a surface admitted in the module was absent from the shell copy. The
+    gate then judged the shell's copy while the fitness tests proved the module's —
+    the proof and the executed decision could disagree.
+    """
+    code = _mutation_step_code()
+    assert "cp10_mutation_boundary_policy.py --judge" in code, (
+        "the CP10 step must delegate the allowlist verdict to the tested module"
+    )
+    assert "printf '%s\\n' \"$changed\"" in code, (
+        "the changed range must be the input to the delegated verdict"
+    )
+
+
+def test_workflow_carries_no_second_allowlist_copy():
+    text = _WORKFLOW.read_text(encoding="utf-8")
+    assert not re.search(r"^\s*legit='", text, re.MULTILINE), (
+        "the hand-maintained `legit=` regex is the drift defect; the policy module "
+        "is the single source of the boundary decision"
+    )
+    assert "offenders" not in _mutation_step_code(), (
+        "offender reporting must come from the policy module's verdict"
+    )
+
+
+def test_judge_cli_decision_matches_the_module_the_tests_import():
+    """The CLI the workflow runs must render the same verdict as the public API."""
+    for corpus, expected in (
+        (_EDEN_OPS_02_CHANGESET, True),
+        (_SOLARIUN_THREAD_NAV_CHANGESET, True),
+        (["vault/Ideas/x.md"], False),
+        (["secret-backdoor/bin/x"], False),
+    ):
+        policy_ok, _ = evaluate_changed_paths(corpus)
+        assert policy_ok is expected
+        rc, out = _run_judge("\n".join(corpus))
+        assert (rc == 0) is expected, out
+        if not expected:
+            assert "Unexpected path outside legitimate repository surfaces" in out
+
+
+def test_judge_cli_passes_an_empty_change_set():
+    rc, out = _run_judge("")
+    assert rc == 0, out
+
+
+# ---------------------------------------------------------------------------
+# Regression: root-level narrative docs are shipped product surfaces.
 
 
 def test_shipped_product_changeset_passes_policy():
@@ -130,15 +204,6 @@ def test_enterprise_seed_surface_is_legitimate():
 def test_personal_vault_surface_is_still_rejected():
     ok, _ = evaluate_changed_paths(["vault/Ideas/x.md"])
     assert ok is False
-
-
-def test_workflow_allowlist_agrees_with_policy_on_product_surfaces():
-    """The workflow's inline copy and the policy script must not drift apart."""
-    expr = _workflow_legit_regex()
-    for path in _EDEN_OPS_02_CHANGESET:
-        policy_ok, _ = evaluate_changed_paths([path])
-        workflow_ok = bool(re.match(expr, path))
-        assert policy_ok == workflow_ok, f"allowlist drift on {path}"
 
 
 # ---------------------------------------------------------------------------
@@ -185,18 +250,17 @@ def test_nested_doc_paths_still_resolve_through_their_directory():
     assert ok is False, msg
 
 
-def test_workflow_allowlist_agrees_with_policy_on_root_docs():
-    expr = _workflow_legit_regex()
+def test_workflow_delegation_admits_root_docs_and_still_rejects_unknown_roots():
     corpus = (
         _ROOT_DOCS
         + _SOLARIUN_THREAD_NAV_CHANGESET
         + _OPPORTUNITY_RADAR_CHANGESET
-        + ["vault/Ideas/x.md", "secret-backdoor/bin/x"]
     )
-    for path in corpus:
-        policy_ok, _ = evaluate_changed_paths([path])
-        workflow_ok = bool(re.match(expr, path))
-        assert policy_ok == workflow_ok, f"allowlist drift on {path}"
+    rc, out = _run_judge("\n".join(corpus))
+    assert rc == 0, out
+    for rejected in ("vault/Ideas/x.md", "secret-backdoor/bin/x"):
+        rc, out = _run_judge(rejected)
+        assert rc != 0, f"{rejected} must stay outside the boundary"
 
 
 # ---------------------------------------------------------------------------
@@ -307,19 +371,23 @@ def test_content_surface_admission_is_not_overbroad():
     assert ok is False
 
 
-def test_workflow_allowlist_agrees_with_policy_on_omitted_surfaces():
-    expr = _workflow_legit_regex()
+def test_delegated_verdict_admits_omitted_surfaces_and_rejects_lookalikes():
     corpus = _OMITTED_SURFACE_CHANGESET + [
+        "knowledge/static_ingestion.py",
+        "spiral_grove/learning_path.py",
+    ]
+    rc, out = _run_judge("\n".join(corpus))
+    assert rc == 0, out
+    # Prefix lookalikes and nested conftest.py are not admitted by the module.
+    for path in (
         "knowledge_evil/x.py",
         "spiral_grove_evil/x.py",
         "conftest_evil.py",
         ".knowledge/x.py",
         "somewhere/conftest.py",
-    ]
-    for path in corpus:
-        policy_ok, _ = evaluate_changed_paths([path])
-        workflow_ok = bool(re.match(expr, path))
-        assert policy_ok == workflow_ok, f"allowlist drift on {path}"
+    ):
+        rc, out = _run_judge(path)
+        assert rc != 0, f"{path} must stay outside the boundary"
 
 
 def test_ci_does_not_assert_retired_private_workspace_marker():
@@ -409,15 +477,22 @@ def test_allowlist_covers_every_tracked_surface():
     )
 
 
-def test_workflow_allowlist_agrees_with_policy_on_every_tracked_surface():
-    """The inline workflow mirror and the policy script must admit identically."""
-    expr = _workflow_legit_regex()
-    drift = [
-        path
-        for path in _tracked_paths()
-        if evaluate_changed_paths([path])[0] != bool(re.match(expr, path))
-    ]
-    assert not drift, f"workflow/policy allowlist drift on tracked paths: {drift[:20]}"
+def test_delegated_verdict_admits_every_tracked_surface():
+    """The gate runs on main; a tracked surface the module omits turns it red.
+
+    This is the same invariant as test_allowlist_covers_every_tracked_surface, but
+    through the CLI the workflow actually executes rather than the imported API, so
+    the delegated decision cannot diverge from the proven one.
+    """
+    rejected = []
+    for path in _tracked_paths():
+        rc, out = _run_judge(path)
+        if rc != 0:
+            rejected.append(f"{path}: {out.strip()}")
+    assert not rejected, (
+        "the delegated boundary omits surfaces this repository tracks, so the next "
+        "merge that touches them reddens the CP10 gate:\n" + "\n".join(rejected[:20])
+    )
 
 
 def test_vault_scaffold_is_admitted_but_generated_notes_are_not():
