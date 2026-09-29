@@ -13,6 +13,13 @@
   `BASE_MAIN = ee3fac1` in EVIDENCE.md was corrected in a follow-up commit (force-push forbidden).
 - **CI:** secret scan on the PR head = success. `SG-02-FE.2-V` (CP10) runs on `main` push and
   `pull_request` per `.github/workflows/sg-02-fe-2-v.yml`; locally delegated judge = PASS (exit 0).
+  **Correction (later heartbeat):** CP10 is **path-filtered** — it lists `web/public_prism/**`,
+  `spiral_grove/**`, `lab/**`, the `spiral_grove`/`engineering_lab`/`phase*` test files,
+  `scripts/cp10_mutation_boundary_policy.py`, `tests/test_m02a_ci_gate_integrity.py`,
+  `requirements.txt` and the workflow itself. A test-only change to
+  `tests/test_prism_pass_c_surface_ownership.py` is **not** in that set, so CP10 is *expected* to
+  be **absent** from PR #127's check list. Absence is not a gap and not evidence of bypass —
+  a path-filtered workflow does not run on unrelated paths. Do not re-open this as a finding.
 - **Local ref hygiene:** `gate-hygiene/prism-pass-c-helper-rewrite-01` is a stale, never-pushed
   local ref at `417d32d`. Not a competing PR; no duplicate work on the remote.
 - **Publication:** PR opened — sovereign review. No merge, no force-push, `main` untouched.
@@ -91,3 +98,27 @@ architectural decision, not a test edit.
 
 Test-only workstream. Never touch `api/main.py`, `LAYER_MAP.py`, ADRs, policy modules,
 workflows, or governance files from here. Nothing merges without the sovereign.
+## Pass record — 2026-09-29 (heartbeat, SH-02b follow-up)
+
+- **Reconstructed:** `main` = `a392b10`. PR #127 branch
+  `gate-hygiene/baseline-stale-assertion-repair-surface-ownership-01` head was `3b338c0`,
+  working tree held the 3 bounded files. `origin/sh02b` was confirmed equal to PR #127 head
+  **before** pushing, so the push was a verified fast-forward, not a force.
+- **Credential finding:** `GITHUB_TOKEN` is **unset** in this runtime; `github_token` and
+  `GITHUB_PERSONAL_ACCESS_TOKEN` are present and `gh` is authenticated as
+  `Arkadia-Oversoul-Prism` with `permissions.push = true`. The repo remote had been set to
+  `https://${GITHUB_TOKEN}@…`, which expanded to an **empty** credential and made `git push`
+  block on an interactive password prompt (the earlier "Cannot execute multiple commands at once"
+  symptom was a symptom of that hang, not a tooling fault). Fixed by pointing the remote at the
+  bare URL and using `gh auth setup-git`; **no token is embedded in the remote**. `git push` then
+  succeeded first try. Do not re-introduce a `${VAR}@github.com` remote URL.
+- **Correction shipped:** `157da8d` — two false claims in the `SH-02b` repair corrected
+  (`codex` → knowledge lens, not memory; `knowledge-os` *does* redirect, `SH-02c` withdrawn).
+  Controls NC-A/NC-B/NC-C each fire 1 failed with the mutation verified applied; restore green.
+- **Regression:** zero. Node set compared by name: A and B both 41 failing/error nodes, `diff`
+  empty; `39 failed / 991 passed / 13 skipped / 2 errors` both sides. Target file 9 passed;
+  architecture 11/11; protected set 71 passed; `py_compile api/main.py` OK (2519/2600).
+- **CI on new head:** `security-secret-scan` success; Vercel success; CP10 absent (expected —
+  path-filtered, see correction above).
+- **Publication:** PR #127 head updated `3b338c0 → 157da8d`, description corrected, glance
+  posted. **Sovereign merge pending. No merge, no force-push, `main` untouched.**
