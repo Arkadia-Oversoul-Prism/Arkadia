@@ -1359,3 +1359,69 @@ EOF is expected. Suggest merge #105 first, then rebase #109. Recorded, not decid
 
 Human review/merge only. No consequential external action taken. No merge performed.
 
+
+---
+
+## GATE-10 · CP10 allowlist — pass 4 (`opportunity_radar/`)
+
+Reconstructed from live evidence this pass: `origin/main` = `973117e` (merge #107). PR #105 is
+**merged**; the CP10 gate is green on `main` only because it did not run — `validate` has no
+check-run on `973117e` (only `browser`), and the workflow's `push`/`pull_request` path filters do
+not include `opportunity_radar/**`.
+
+This pass closes the last tracked omission.
+
+### Finding — PR #110 was masked, not resolved
+
+`opportunity_radar/SAPZ_CAPTURE_STATE.md` was added by `ae740b8` and merged in #110 (`e345bfc`).
+That merge's `validate` check-run **failed** (`109234968163`, run `36514924096`) with
+`Unexpected path outside legitimate repository surfaces: opportunity_radar/SAPZ_CAPTURE_STATE.md`.
+
+The gate step diffs the tip commit against its **first parent only** (`git diff --name-only HEAD^
+HEAD`). On the merge commit, the first parent already carried the path, so the next merge (`e5e2e42`)
+reported no offenders and went green. The surface was never admitted — only hidden behind merge
+topology. The next non-merge commit to `opportunity_radar/` would redden `main` again.
+
+### Change (3 files)
+
+* `scripts/cp10_mutation_boundary_policy.py` — `opportunity_radar/` added to `LEGIT`; inventory
+  counts corrected 74/1393 → 75/1398.
+* `.github/workflows/sg-02-fe-2-v.yml` — mirrored `legit` literal kept byte-equivalent.
+* `tests/test_m02a_ci_gate_integrity.py` — 3 new guards, incl. a general
+  `test_allowlist_admits_every_tracked_top_level_prefix` so the omission class cannot silently recur.
+
+### Evidence
+
+* `tests/test_m02a_ci_gate_integrity.py`: 1 failed → **32 passed**.
+* `tests/architecture`: 11 passed (unchanged).
+* Exhaustive policy↔workflow equivalence: **0 drift / 1398 tracked paths**; adversarial paths
+  rejected by both; `opportunity_radar/x.md` admitted by both.
+* `py_compile` clean on changed Python; `api/main.py` untouched (under the 2600-line budget).
+* Grove contracts: 3 failed / 27 passed — reproduced identically on a clean `origin/main` worktree,
+  therefore **baseline debt, unattributed**.
+
+### Corollary finding — the ledger file itself is outside the allowlist
+
+`docs/phase1/CONTINUATION_LEDGER.md` is rejected by the allowlist on the current tree and is not in
+the tracked-surface guard's scope; it is admitted only by `[^/]+[.]md$` topology plus the tip-parent
+diff. Recorded, not fixed (scope).
+
+### Next bounded task (recommended, not started)
+
+1. Make the gate evaluate the **PR ranges** it is supposed to guard (all commits, or base..head),
+   not only the tip's first parent, so a masked offender cannot pass a subsequent merge. This is the
+   structural closure of the class found above.
+2. Independently: de-duplicate the CP10 policy so the workflow executes the tested module rather than
+   a hand-maintained regex copy (composability risk, §6 of the evidence record).
+3. Baseline debt (Grove 3 + full-suite remainder + 2 collection errors) remains an unstarted,
+   separately-classified candidate workstream (`PARKING_LOT.md`).
+
+### Merge-order hazard (unchanged)
+
+Both this branch and PR #109 append to `docs/phase1/CONTINUATION_LEDGER.md`; textual conflict at EOF
+is expected. Merge order is a human decision.
+
+### Authorization
+
+Human review/merge only. No consequential external action. No merge performed.
+

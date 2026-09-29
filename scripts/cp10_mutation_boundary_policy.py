@@ -20,8 +20,9 @@ import re
 # deliberately top-level-only literals — they do not open nested paths.
 #
 # The true allowlist is the set of tracked repository surfaces: every top-level
-# entry in `git ls-tree -r HEAD` (74 entries, 1393 paths) is enumerated here or
-# admitted by the generic rules. An allowlist that omits a surface the repository
+# entry in `git ls-files` (75 entries, 1398 paths) is enumerated here or admitted
+# by the generic rules, and test_allowlist_covers_every_tracked_surface asserts
+# exactly that against the live tree. An allowlist that omits a surface the repository
 # tracks does not tighten the boundary — it reddens CI on the next unrelated merge
 # (this bug class recurred across EDEN-OPS-02, EL-01..10 #97, Solariun #104).
 # Constitutional limits live in the FORBID_V3/V2 stage and the unknown-root
@@ -34,6 +35,14 @@ LEGIT = re.compile(
     r"|enterprises/|knowledge/|spiral_grove/|android/|arkadia-android/|sonata-android/"
     r"|app/|architecture/|arkana_rasa/|arkana_space/|bot/|codex/|collective/"
     r"|corpus/|forge/|governance/|openclaw/|orchestration/|providers/|sanctum/|static/"
+    # opportunity_radar/ carries the SAPZ capture MVP persisted state
+    # (opportunity_radar/SAPZ_CAPTURE_STATE.md), merged via PR #110. It landed
+    # before this allowlist was completed, so CP10 was red on the #110 merge and
+    # green on the next one: the gate diffs only the tip commit's first parent,
+    # and a merge commit whose first parent already contains the path reports no
+    # change, so the offender never reappears to fail. That is masking, not
+    # resolution; the surface has to be enumerated, not inherited.
+    r"|opportunity_radar/"
     # runtime state, archive and asset trees the repository tracks
     r"|data/|archive/|artifacts/|attached_assets/|\"?attached_assets/"
     # vault/ tracks only its scaffold; generated notes stay outside the boundary
