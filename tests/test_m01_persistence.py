@@ -28,9 +28,6 @@ import tempfile
 import pytest
 
 _tmpdir = tempfile.mkdtemp(prefix="arkadia_m01_")
-_DB = os.path.join(_tmpdir, "solspire_projects.db")
-os.environ["SOLSPIRE_PROJECTS_DB"] = _DB
-os.environ["SOLSPIRE_DATA_DIR"] = _tmpdir
 
 import solspire.project_manager as pm_mod
 import solspire.project_persistence as pp_mod
@@ -122,13 +119,17 @@ def _corpus() -> dict:
 
 # ── A. Path + connection lifecycle ────────────────────────────────────────────
 
-def test_db_path_honours_data_dir_env():
+def test_db_path_honours_data_dir_env(monkeypatch):
     """The corpus path follows SOLSPIRE_DATA_DIR, not the process CWD."""
     import importlib
 
-    os.environ["SOLSPIRE_DATA_DIR"] = _tmpdir
-    fresh = importlib.reload(importlib.import_module("solspire.project_store"))
-    assert fresh._DB_PATH == os.path.join(_tmpdir, "solspire_projects.db")
+    with monkeypatch.context() as m:
+        m.setenv("SOLSPIRE_DATA_DIR", _tmpdir)
+        m.delenv("SOLSPIRE_PROJECTS_DB", raising=False)
+        fresh = importlib.reload(importlib.import_module("solspire.project_store"))
+        assert fresh._DB_PATH == os.path.join(_tmpdir, "solspire_projects.db")
+    # Re-bake from the ambient environment; the `_isolate` fixture re-points the
+    # store at a fresh DB for every subsequent test.
     importlib.reload(store_mod)
 
 

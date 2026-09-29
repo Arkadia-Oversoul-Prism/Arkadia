@@ -48,16 +48,19 @@ def test_project_context_does_not_authorize():
     assert out["project_context"]["project_id"] == "p1"
 
 
-def test_solspire_weaver_routes_owner_isolation():
+def test_solspire_weaver_routes_owner_isolation(monkeypatch):
     tmp = tempfile.mkdtemp(prefix="w4_sol_")
-    os.environ["SOLSPIRE_PROJECTS_DB"] = os.path.join(tmp, "db.sqlite")
-    os.environ.setdefault("SOLSPIRE_DATA_DIR", tmp)
+    # Scoped via monkeypatch: a leftover env override would retarget every later
+    # module that resolves its corpus path from the environment.
+    monkeypatch.setenv("SOLSPIRE_PROJECTS_DB", os.path.join(tmp, "db.sqlite"))
+    monkeypatch.setenv("SOLSPIRE_DATA_DIR", tmp)
 
     import solspire.project_manager as pm_mod
     import solspire.project_store as store_mod
     from solspire.console_router import router as solspire_router
 
-    pm_mod._DB_PATH = store_mod._DB_PATH = os.environ["SOLSPIRE_PROJECTS_DB"]
+    monkeypatch.setattr(pm_mod, "_DB_PATH", os.environ["SOLSPIRE_PROJECTS_DB"])
+    monkeypatch.setattr(store_mod, "_DB_PATH", os.environ["SOLSPIRE_PROJECTS_DB"])
     app = FastAPI()
     app.include_router(solspire_router)
 
