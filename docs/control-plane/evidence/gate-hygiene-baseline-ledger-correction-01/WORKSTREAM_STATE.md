@@ -21,7 +21,8 @@
   heartbeat queued *"repair SG-04 contradictory artifacts"*. That task is **not** a test-hygiene
   job — it is a frontend capability change on a CP10-fenced path, with an unresolved product
   choice. Escalated as `SH-08`; **not** executed. See Finding A.
-- **Publication:** PR opened — sovereign review. No merge, no force-push, `main` untouched.
+- **Publication:** PR **#129** → `gate-hygiene/baseline-ledger-correction-sg04-01` (commit `da01818`), **READY_FOR_SOVEREIGN_MERGE**. No merge, no force-push, `main` untouched. Glance comment posted on the PR (issue comment `5888647665`).
+- **Observation, not touched:** `.bootstrap/01_STATE.md` still advertises *Phase 1 / Workstream K / checkpoint K5*, which does not match the live GATE-10 control-plane workstream. Recorded here for the sovereign; **not** edited (governance-adjacent, outside this workstream's scope).
 
 ## Fingerprint (measured this pass, not remembered)
 
