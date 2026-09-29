@@ -34,18 +34,20 @@ and after.
 | provenance | merge of PR #131, `2026-09-29 16:03:23 +0100` |
 | local `main`/`origin/main`/`origin/HEAD` | all at `df7a99a` |
 | working tree | clean at branch point |
-| clone | **grafted** — `git log` reports `df7a99a` with **no parents** |
+| clone | **complete** — `df7a99a` has **two parents** (`94afda6`, `ddb30d0`); root `9ab26fc`; 1393 commits reachable. *Corrected in a later pass — see §11.* |
 
-The graft is load-bearing for two claims in the open ledger:
+> **Correction (later pass).** An earlier revision of this section recorded the clone as
+> **grafted** (`df7a99a` with no parents) and, on that basis, declared every
+> *"`X` is an ancestor of `df7a99a`"* claim **unverifiable**. **That premise was wrong**, and
+> the conclusions drawn from it are withdrawn. See §12 for the measurement. The two bullets
+> below are retained struck through only to keep the correction legible.
 
-- `git merge-base` against any older SHA is **vacuous**. Every open PR coincidentally reports
-  `base.sha == df7a99a` (GitHub computes against live `main`), and I verified each carrier
-  branch's recorded base equals `df7a99a` — but this was confirmed **per branch**, never
-  inferred from the grafted history.
-- The open ledger repeatedly reasons *"`X` is an ancestor of `df7a99a`"* (e.g. PR #139:
-  "`a26af408` is an ancestor of `df7a99a` — 149 commits apart"). **That statement cannot be
-  verified in this clone.** It is not contradicted, but it is unproven here. Recorded, not
-  relied upon.
+~~The graft is load-bearing for two claims in the open ledger:~~
+
+- ~~`git merge-base` against any older SHA is **vacuous**~~ — **false**: `git merge-base` is
+  well-defined here (`git merge-base a26af408 df7a99a` → `a26af408`).
+- ~~The open ledger repeatedly reasons *"`X` is an ancestor of `df7a99a`"* … **That statement
+  cannot be verified in this clone.**~~ — **false**: it is verifiable and it is **true**.
 
 ## 3. Method (reproducible)
 
@@ -242,7 +244,9 @@ separate workstream and is not opened here.
 | §5 `SH-08` narrowed to 4 nodes | **VERIFIED** | 4 `test_spiral_grove_activity_runtime.py` nodes red and absent from ledger |
 | `SH-08` re-mount decision | **BLOCKED** | product/UI decision on CP10-fenced path; out of scope |
 | PR merge ordering (§4.2) | **ESCALATED** | collision measured elsewhere; reordering is sovereign authority |
-| ancestor claims of the form "`X` is an ancestor of `df7a99a`" | **UNKNOWN** | grafted clone; not verifiable here |
+| clone completeness / ancestor claims "`X` is an ancestor of `df7a99a`" | **VERIFIED** (§11.1) | complete clone; `git merge-base --is-ancestor a26af408 df7a99a` → true; distance 149 |
+| `F-02` provenance (§11.2) | **VERIFIED** | red at root commit `9ab26fc`; both files byte-identical to genesis |
+| `74f5494` / `1b63994` / `06ad5f2` SG-04 mount claim (§11.3) | **VERIFIED** | mount=1/1/1 on branch, 0 on `main`; `06ad5f2` is an ancestor of `main` |
 | `vite build` | **BLOCKED** | environment (no npm registry access) |
 | full-suite fingerprint | **VERIFIED** | `32 failed / 1025 passed / 13 skipped / 2 collection errors` |
 
@@ -261,13 +265,122 @@ Documentation-only change ⇒ fingerprint must not move. It did not.
 1. The 19 "GREEN on `main`" attributions name the *likely* repair PR by batch grouping; the
    node membership (green vs red) is measured, the **attribution** is inferred from ledger
    metadata. Attribution does not affect the disposition.
-2. §5 corrects a historical-SHA measurement. The historical SHAs (`74f5494`, `1b63994`,
-   `06ad5f2`) are unverifiable in the grafted clone; only the live-tree reading is proven.
+2. ~~§5 corrects a historical-SHA measurement. The historical SHAs (`74f5494`, `1b63994`,
+   `06ad5f2`) are unverifiable in the grafted clone; only the live-tree reading is proven.~~
+   **Resolved — §11.** The clone is complete; the SHAs are verifiable and the claim reproduces.
 3. `#137`'s early-merge proposal (§4.2) is an optimisation, not a correctness claim.
-4. `F-02` (§4.3) is registered on reading alone; the three nodes were not bisected to confirm
-   which commit introduced the divergence.
+4. ~~`F-02` (§4.3) is registered on reading alone; the three nodes were not bisected to confirm
+   which commit introduced the divergence.~~ **Resolved — §11.** Bisected: red at the root commit.
 
-## 11. Authority
+## 11. Correction pass — two premises falsified, both uncertainties resolved
+
+A later heartbeat re-measured this PR's own load-bearing premises before doing anything else.
+Two were **wrong**, and the claims resting on them are withdrawn. The disposition in §4 is
+**unchanged** — neither correction moves a node between dispositions.
+
+### 11.1 The clone is **not** grafted — the `UNKNOWN` was a tooling artifact
+
+```bash
+git rev-list --count HEAD                       # 1393
+git log -1 --format='%P' df7a99a                # 94afda6… ddb30d0…   (two parents)
+git rev-list --max-parents=0 HEAD               # 9ab26fc  (root)
+git rev-parse --is-shallow-repository           # false
+cat .git/info/grafts                            # No such file or directory
+ls .git/objects/info/alternates                 # absent
+```
+
+The `df7a99a has no parents` reading that §2 recorded is **not reproducible in a plain
+clone of `main`**. No graft, no shallow boundary, no alternates. Whatever produced it, it was
+an artifact of that pass's inspection, not a property of the repository — and §2 generalised
+it into "every ancestor claim is unverifiable here", which was the error.
+
+Consequences, all now **measured rather than deferred**:
+
+```bash
+git merge-base --is-ancestor a26af408 df7a99a   # true
+git rev-list --count a26af408..df7a99a          # 149   — matches the ledger exactly
+git log -1 --format='%h %s' d48ad0e             # d48ad0e Merge pull request #97 …
+git merge-base --is-ancestor d48ad0e origin/main  # true
+git diff --name-only d48ad0e^1 d48ad0e | grep -v '^$' | wc -l   # 24
+git diff --name-only d48ad0e^1 d48ad0e | grep -v '^$' \
+  | python3 scripts/cp10_mutation_boundary_policy.py --judge   # PASS, exit 0
+```
+
+So the two claims §2 withdrew are **restored as verified**:
+
+- `a26af408` **is** an ancestor of `df7a99a`, 149 commits apart (PR #139's claim — true).
+- `d48ad0e` resolves, is the merge of PR #97, is an ancestor of `main`, and its 24-path diff
+  **passes** the current CP10 policy judge (`--judge` → exit 0). The AGENTS.md note that this
+  gate "failed on `main` at `d48ad0e`" reflects the *historical* allowlist, not current policy.
+  Both historical claims are now closed, not carried.
+
+Note: `d48ad0e` is a **merge commit**, so `git show d48ad0e` yields *no* paths (0, not 24) and a
+judge run fed from it would pass vacuously on an empty list. The diff must be taken against
+`d48ad0e^1`. Recorded because the vacuous form is a false-green trap for this gate.
+
+### 11.2 `F-02` is **older than the repository's history** — bisected, not inferred
+
+§10.4 left `F-02` "registered on reading alone". Bisected:
+
+```bash
+git log --all --oneline --follow -- weaver/filters/steward.py   # 9ab26fc  (root commit only)
+git log --all --oneline --follow -- tests/test_steward_filter.py # 9ab26fc  (root commit only)
+
+git show 9ab26fc:weaver/filters/steward.py       | sha256sum    # 17080e23… == live file
+git show 9ab26fc:tests/test_steward_filter.py    | sha256sum    # 4d7b2921… == live file
+
+git worktree add --detach /tmp/wt-root 9ab26fc
+python -m pytest tests/test_steward_filter.py -q   # 3 failed, 5 passed
+```
+
+`9ab26fc` is the **root commit**, and both files are byte-identical to it. The three nodes are
+**red at the root commit**, on a tree with no parents.
+
+This is the strongest possible answer to §10.4, and it **strengthens** the §4.3 disposition
+rather than altering it: `F-02` is not a divergence introduced by any commit. The filter and
+its test were authored together, contradictorily, at genesis, and have never been reconciled.
+There is no "which commit regressed it" to find — the question is void.
+
+Three genuine behaviour divergences (unchanged from §4.3, each re-confirmed on live `main`):
+
+| node | assertion | implementation |
+|---|---|---|
+| `test_blocks_identity_claims` | `"You have transcended"` → `None` | `forbidden_identity` lists `"transcendent"`, not `"transcended"` — substring miss |
+| `test_allows_mythic_with_action` | `"The field resonates. I will do this."` passes | Rule 4 (`strict=True`) blocks it: `mythic_count = 4 > len(text)/100 = 0.33`; Rule 3 never runs |
+| `test_compress_to_choices` | `"More noise" not in compressed` | `compress_to_choices` splits on `"\n"`, never on sentences — the whole input is one line |
+
+### 11.3 The three historical SG-04 SHAs resolve and the claim reproduces
+
+§10.2 called `74f5494`, `1b63994`, `06ad5f2` "unverifiable in the grafted clone". They resolve,
+and the mount claim that `SH-08`/§5 rests on **reproduces exactly**:
+
+```bash
+for c in 74f5494 1b63994 06ad5f2 origin/main; do
+  echo "$c mount=$(git show $c:web/public_prism/src/components/spiral-grove/CapabilityChamber.tsx | grep -c '<ActivityRuntime')"
+done
+# 74f5494 mount=1   1b63994 mount=1   06ad5f2 mount=1   origin/main mount=0
+```
+
+`06ad5f2` is an ancestor of `main` (the SG-04 branch was merged), and the mount is present on
+the branch and absent on `main`. §5's finding is therefore **independently corroborated**, and
+the `SH-08` premise is stronger than this PR originally claimed.
+
+### 11.4 What this changes
+
+| item | before | after |
+|---|---|---|
+| clone | "grafted"; ancestor claims **UNKNOWN** | **complete**; ancestor claims **verified** |
+| `a26af408` ancestry / `d48ad0e` CP10 | unproven, carried | **verified** (§11.1) |
+| `74f5494` / `1b63994` / `06ad5f2` | unverifiable | **resolved**; mount claim reproduces (§11.3) |
+| `F-02` provenance | "registered on reading alone" | **bisected** — red at the root commit (§11.2) |
+| §4 disposition (19 / 12 / 4 / 0) | — | **unchanged** |
+
+`F-02` and `SH-08` remain **sovereign/product decisions**. This pass did not act on either, and
+did not repair any green node. Baseline fingerprint re-measured this pass and **unchanged**:
+`32 failed / 1025 passed / 13 skipped / 2 errors`; `tests/architecture` **11/11**;
+`api/main.py` **2519 / 2600**, `py_compile` clean.
+
+## 12. Authority
 
 Human sovereign merges. This pass did **not** merge, push `main`, force-push, or make a
 product decision. It proposes `F-02` and a reduced `SH-08` scope for sovereign adjudication.

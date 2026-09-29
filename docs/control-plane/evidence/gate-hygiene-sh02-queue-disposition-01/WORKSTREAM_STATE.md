@@ -8,13 +8,36 @@ Supersedes the pass record at
 and the `SH-02` rows of
 `docs/control-plane/evidence/gate-hygiene-baseline-ledger-correction-01/WORKSTREAM_STATE.md`.
 
+## Pass record — 2026-09-29 (heartbeat, ~23:06Z) — correction pass, docs-only
+
+Continues the same PR (#140). Re-measured this PR’s **own** load-bearing premises before
+selecting work; **two were false** and are withdrawn. The §4 disposition is **unchanged**.
+
+- **Falsified premise 1 — “grafted clone”.** The clone is complete (§11.1). The derived
+  claim “every *X is an ancestor of `df7a99a`* sentence is UNKNOWN” was wrong and is
+  **replaced with verified measurements**: `a26af408` is an ancestor at distance 149;
+  `d48ad0e` resolves, is the PR #97 merge, and its 24-path diff **passes** the current CP10
+  policy judge. Both historical claims are now **closed, not carried**.
+- **Resolved uncertainty — `F-02` provenance (§11.2).** Bisected: red at the **root commit**
+  `9ab26fc`, both files byte-identical to genesis. Strongest available answer; it *strengthens*
+  the §4.3 disposition rather than changing it.
+- **Resolved uncertainty — historical SG-04 SHAs (§11.3).** `74f5494`/`1b63994`/`06ad5f2`
+  resolve; `mount=1` on each vs `mount=0` on `main`; `06ad5f2` is an ancestor of `main`.
+  §5’s `SH-08` premise is **independently corroborated**.
+- **Fingerprint re-measured, unchanged:** `32 failed / 1025 passed / 13 skipped / 2 errors`;
+  `tests/architecture` **11/11**; `api/main.py` **2519 / 2600**, `py_compile` clean.
+- **No new bounded task inside `SH-02`.** Queue remains exhausted (19 green / 12 carried by
+  open PRs / 4 decisions / 0 to batch). `F-02` and `SH-08` remain sovereign decisions.
+
 ## Pass record — 2026-09-29 (heartbeat, ~21:06Z)
 
 - **`BASE_MAIN` = `df7a99a067382401c00de5e7bbaaac0125ba2088`** (merge of PR #131). Local
   `main`, `origin/main`, `origin/HEAD` all agree; working tree clean.
-- **The clone is GRAFTED** (`df7a99a` has no parents). Consequences: `git merge-base` against
-  older SHAs is vacuous, and every open-ledger sentence of the form *"`X` is an ancestor of
-  `df7a99a`"* is **unverifiable here**. Confirmed per-branch, never inferred.
+- **The clone is COMPLETE, not grafted** — corrected in the hour-23:06Z pass; the earlier
+  “grafted” reading was a tooling artifact. `df7a99a` has two parents (`94afda6`,
+  `ddb30d0`); 1393 commits reachable; root `9ab26fc`; not shallow, no grafts, no
+  alternates. `git merge-base` is therefore well-defined, and *“`X` is an ancestor of
+  `df7a99a`”* is **verifiable and true** (`a26af408` → distance 149). EVIDENCE.md §11.1.
 - **Fingerprint:** `32 failed / 1025 passed / 13 skipped / 2 collection errors`;
   `tests/architecture` **11/11**; `api/main.py` **2519 / 2600**, `py_compile` clean;
   `vite build` environment-blocked.
@@ -58,6 +81,11 @@ intersected with the ledger's 35 `STALE_ASSERTION` rows and with four branch fin
   mythic-density blocking a passing action sentence; `compress_to_choices` splitting on `\n`
   only). The ledger's own `SH-06` called this "borderline: arguably a real content-hygiene
   hole" — this pass confirms it and folds `SH-06` into `F-02`.
+  **Bisected (hour-23:06Z pass):** `weaver/filters/steward.py` and `tests/test_steward_filter.py`
+  each have exactly one commit in all history — the root commit `9ab26fc` — and both are
+  byte-identical to it. The three nodes are red **at the root commit**, on a parentless tree.
+  `F-02` is not a regression introduced by any commit; the filter and its test were authored
+  together, contradictorily, at genesis. See EVIDENCE.md §11.2.
 
 ## Repair queue (`SH-*`)
 
