@@ -135,3 +135,22 @@ workflows, or governance files from here. Nothing merges without the sovereign.
 - **Final re-verification on `f43fae8`:** target file 9 passed; architecture 11/11;
   `py_compile api/main.py` OK (2519/2600); CP10 judge PASS (exit 0); full suite
   `39 failed / 991 passed / 13 skipped / 2 errors` = recorded fingerprint, **zero delta**.
+
+## Concurrent workstream observed (not this pass's scope)
+
+- **PR #128** `gate-l1.1-boundary-hardening` — *"GATE L1.1: harden the agent runtime mutation
+  boundary (git read-only policy + capability/authorization binding)"*, **DRAFT**, base `main`,
+  head `a196bc2`, created `2026-09-29T08:20Z` (after this pass began; **not authored by this
+  pass**). Files: `lab/engineering_lab/runtime.py`, `lab/engineering_lab/sandbox.py`,
+  `tests/test_engineering_lab_agent_loop.py`, two `docs/architecture/GATE-L1*.md`.
+- **Classification: SEPARATE WORKSTREAM — no HARD STOP triggered.** It is a proposal
+  (`isDraft: true`) and it *narrows* capability rather than creating authority: the new surface
+  is `effective_tools` plus `_capability_operations` / `_git_path_redirect` / `_git_subcommand`,
+  described as `capability ceiling ∩ agent tool envelope ∩ human authorization`, and the policy
+  gains `enforce_git_read_only=True`. It adds **no** new authority-originating or
+  authorization path (`record_authorization` is only *called* from tests, unchanged in
+  signature). K15/K3 explicitly untouched and AST-asserted.
+- **Not touched by this pass.** Different gate (`GATE L1.1`, Lab execution substrate) from this
+  PR's bounded test-hygiene task. No duplicate work, no competing branch, no shared files.
+  Left entirely alone — not reviewed, not merged, not modified. Flagged here only so the next
+  heartbeat reconstructs it from evidence instead of discovering it mid-pass.
