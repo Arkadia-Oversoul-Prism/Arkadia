@@ -3,6 +3,12 @@
 Manages the lifecycle of plan executions: execute, pause, resume, cancel.
 In-process for Milestone 1; Phase 2 swaps to a durable queue.
 
+R3 boundary:
+    ExecutionRuntime is a general project-workflow lifecycle substrate. It is
+    not a governance authority and cannot perform engineering repository
+    mutation. Governed repository mutation belongs exclusively to the
+    canonical Weaver K15 → K3 path.
+
 Contract:
     runtime = ExecutionRuntime()
     execution = runtime.execute(plan)
@@ -262,7 +268,7 @@ class ExecutionRuntime:
                     return {"step": idx, "tool": tool, **gh_read(payload.get("owner", ""), payload.get("repo", ""), payload.get("path", ""))}
                 case "project_create":
                     from solspire.project_manager import get_project_manager
-                    p = get_project_manager().create(payload.get("name", "Unnamed"))
+                    p = get_project_manager().create(payload.get("name", "Unnamed"), owner_uid=ex.owner_uid)
                     return {"step": idx, "tool": tool, "ok": True, "project": p.to_dict()}
                 case "llm" | _:
                     from solspire.provider_manager import get_manager
