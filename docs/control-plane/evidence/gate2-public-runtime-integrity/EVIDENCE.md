@@ -27,22 +27,59 @@ The full-history secret scan passed on Gate 1's GitHub Actions run 36517612969. 
 
 ### 4. Production deployment parity — OPEN
 
-The Vercel project has a READY production deployment for the pre-Gate-1 main commit `5e26d095...`. A current READY preview exists for the Gate 1 branch, but the merged Gate 1 commit has not been independently verified as the production deployment.
+A fresh Vercel deployment inventory was inspected on 2026-09-29.
 
-The available Vercel deployment history also shows the recent production deployment path was affected by the Free-plan deployment-rate limit. Therefore:
+The active production deployment observed is:
+
+- deployment: `dpl_29GGe1PAb3VPtcHntMsAzTtmMc39`
+- status: **READY**
+- target: **production**
+- production alias: `arkadia-prism.vercel.app`
+- source ref: `main`
+- source SHA: `5e26d0954157c81c2d0d919f5b6ea01943b7643d`
+
+Current Git main is `8f9d509ec4900408e13e15544192dba37fb08ff8`.
+
+Therefore production is confirmed reachable, but **not at current main**. The deployment boundary is now evidence-backed rather than inferred:
 
 - current Git main: **8f9d509...**
-- latest verified production deployment observed: **5e26d095...**
-- production parity with Gate 1: **UNKNOWN / NOT YET VERIFIED**
-- no production deployment is forced by this gate.
+- active production source: **5e26d095...**
+- parity with current main: **FAILED / OPEN**
+- no deployment or merge is claimed from this evidence pass.
 
-### 5. Frontend build — SUPPORTED, not independently rebuilt here
+A READY preview for the frontend calibration branch was also observed:
 
-The repository contains the canonical Vite/pnpm build configuration and prior evidence records successful frontend builds, but this gate did not claim a fresh local build. Existing repository guidance records the sandbox's registry/toolchain limitation.
+- deployment: `dpl_4nm8CG8DESAbiyG5WQSu5BBfv7ed`
+- source ref: `aeas/frontend-brand-calibration`
+- source SHA: `d9c5b74b13ba92b5b00b59d9b1130c138c589c58`
 
-### 6. Historical references — EXPECTED
+That preview is not production and does not establish main parity.
 
-Historical references to prior Render endpoints and earlier checkpoints remain in archive/recon material. They are not treated as current operational configuration. Active production configuration inspected here points to the current Render endpoint.
+### 5. Production route reachability — PASS, but not production-parity evidence
+
+The current production alias returned HTTP 200 for:
+
+- `/`
+- `/solariun`
+- `/solariun/opportunity-radar`
+- `/solspire`
+- `/api/health`
+
+These responses confirm route-level HTTP reachability. They do **not** prove that the deployed frontend corresponds to current main, nor do they prove browser-rendered UI correctness.
+
+### 6. Runtime error surface — PASS for selected window
+
+Vercel runtime-error aggregation for the project returned **no runtime errors in the selected 24-hour window** on 2026-09-29.
+
+This is bounded evidence only. It does not substitute for browser/UI verification.
+
+### 7. Frontend build — SUPPORTED, not independently rebuilt here
+
+The repository contains the canonical Vite/pnpm build configuration and prior evidence records successful frontend builds, but this gate did not claim a fresh local build.
+
+### 8. Historical references — EXPECTED
+
+Historical references to prior Render endpoints and earlier checkpoints remain in archive/recon material. They are not treated as current operational configuration.
 
 ## Gate 2 closure criteria
 
@@ -51,9 +88,15 @@ Historical references to prior Render endpoints and earlier checkpoints remain i
 3. Current production deployment is verified against current main. **OPEN**
 4. Public frontend route is verified against the current production build. **OPEN**
 5. No stale operational claim is promoted to current truth. **PASS**
+6. Production route reachability is evidenced. **PASS**
+7. Browser-rendered UI and console/runtime behavior are independently verified. **OPEN**
 
 ## Reviewer decision point
 
-Gate 2 is ready for review as a bounded evidence correction. It should not be called fully closed until production parity is independently verified.
+Gate 2 is now a precise runtime handoff rather than a vague deployment concern. Production is reachable and operationally quiet in the selected error window, but it is demonstrably behind current main.
 
-**DON'T KNOW IS ALLOWED. The deployment boundary is the unknown.**
+The next governed boundary is:
+
+**current main → authorized deployment → production verification → browser/UI evidence**
+
+**DON'T KNOW IS ALLOWED. The remaining unknown is now sharply bounded.**
