@@ -73,9 +73,30 @@ class SandboxPolicy:
     forbidden_paths: tuple[str, ...] = ()
     allow_network: bool = False
     command_allowlist: tuple[str, ...] = ()
+    #: When True, a ``git`` command may only use read-only subcommands (GATE L1).
+    #: An allow-listed binary does not by itself make a command safe: ``git``
+    #: with ``commit``/``reset``/``checkout`` mutates the repository. This closes
+    #: that path without weakening the binary allow-list.
+    enforce_git_read_only: bool = False
     default_timeout: float = 30.0
     max_output_bytes: int = 200_000
     max_file_bytes: int = 2_000_000
+
+
+#: Git subcommands that only observe repository state. Anything else — by
+#: default, not by enumeration — is treated as mutation and refused when
+#: ``enforce_git_read_only`` is set.
+READ_ONLY_GIT_SUBCOMMANDS: frozenset[str] = frozenset({
+    "status", "diff", "log", "show", "rev-parse", "rev-list", "ls-files",
+    "ls-tree", "describe", "blame", "shortlog", "whatchanged", "grep",
+    "cat-file", "name-rev", "for-each-ref", "show-ref", "verify-commit",
+    "verify-tag", "merge-base", "symbolic-ref", "var", "count-objects",
+})
+
+#: Git global options that take a following argument (e.g. ``-C <path>``).
+_GIT_OPTIONS_WITH_ARG: frozenset[str] = frozenset({
+    "-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env",
+})
 
 
 @dataclass
@@ -109,6 +130,32 @@ def _sanitised_env() -> dict[str, str]:
     # A bounded run never inherits a git credential helper configuration.
     env.setdefault("GIT_TERMINAL_PROMPT", "0")
     return env
+
+
+def _git_subcommand(argv: Sequence[str]) -> str:
+    """Extract the git subcommand, skipping global options and their arguments.
+
+    ``git -c user.email=x commit`` must resolve to ``commit``, not ``-c``.
+    """
+    i = 1
+    while i < len(argv):
+        token = argv[i]
+        if token in _GIT_OPTIONS_WITH_ARG:
+            i += 2
+            continue
+        if token.startswith("--") and "=" in token:
+            i += 1
+            continue
+        if token.startswith("--"):
+            # e.g. --no-pager / --version: a global flag without an argument.
+            i += 1
+            continue
+        if token.startswith("-"):
+            # A short global flag (e.g. -P). Assume no argument.
+            i += 1
+            continue
+        return token
+    return ""
 
 
 def _matches_any(rel: str, prefixes: Sequence[str]) -> bool:
@@ -235,6 +282,15 @@ class Sandbox:
             raise SandboxCommandDenied(
                 f"command '{binary}' not in allow-list {self.policy.command_allowlist}"
             )
+        if self.policy.enforce_git_read_only and binary == "git":
+            subcommand = _git_subcommand(argv)
+            if subcommand not in READ_ONLY_GIT_SUBCOMMANDS:
+                self._record("run", "git " + subcommand, False,
+                             {"reason": "git_mutation_denied"})
+                raise SandboxCommandDenied(
+                    f"git subcommand '{subcommand}' is not read-only; repository "
+                    "mutation must cross the governed boundary (PassSpec -> K15 -> K3)"
+                )
         workdir = self._resolve(cwd)
         timeout = timeout if timeout is not None else self.policy.default_timeout
         try:

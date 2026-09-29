@@ -22,7 +22,7 @@ recorded only when it is human-originated.
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from .contracts import (
@@ -105,6 +105,57 @@ class BoundedTask:
         }
 
 
+#: The sandbox operation token(s) each agent capability reaches. A capability
+#: that is absent (or not in the role ceiling) grants no operation of that kind.
+CAPABILITY_OPERATIONS: dict[str, tuple[str, ...]] = {
+    "READ": ("read", "list"),
+    "EDIT": ("read", "list"),
+    "RUN": ("run",),
+    "OBSERVE": ("git_status",),
+}
+
+#: Operation token -> the loop tool(s) that expose it. Read-only git
+#: observation (status and diff) share one authorization token.
+OPERATION_TOOLS: dict[str, tuple[str, ...]] = {
+    "list": ("filesystem.list",),
+    "read": ("filesystem.read",),
+    "run": ("terminal.run",),
+    "git_status": ("git.status", "git.diff"),
+}
+
+_ALL_LOOP_TOOLS: tuple[str, ...] = (
+    "filesystem.list", "filesystem.read", "terminal.run", "git.status", "git.diff",
+)
+
+
+def _capability_operations(capabilities: tuple[str, ...]) -> set[str]:
+    ops: set[str] = set()
+    for capability in capabilities:
+        ops.update(CAPABILITY_OPERATIONS.get(capability, ()))
+    return ops
+
+
+def effective_tools(
+    *,
+    capabilities: tuple[str, ...],
+    agent_tools: tuple[str, ...],
+    authorization_operations: set[str] | None,
+) -> tuple[str, ...]:
+    """Derive the effective tool set as the intersection of three layers.
+
+        capability ceiling ∩ agent tool envelope ∩ human authorization
+
+    ``authorization_operations`` of ``None`` means no authorization was linked;
+    callers must treat that as the empty set for a consequential run.
+    """
+    allowed = _capability_operations(capabilities) & set(agent_tools)
+    if authorization_operations is not None:
+        allowed &= authorization_operations
+    return tuple(
+        tool for op, tools in OPERATION_TOOLS.items() if op in allowed for tool in tools
+    )
+
+
 class EngineeringLabRuntime:
     """The native Arkadia Engineering Lab runtime.
 
@@ -147,7 +198,9 @@ class EngineeringLabRuntime:
             display_name=display_name or f"{role.title()} agent",
             capabilities=tuple(caps),
             tool_access=AgentToolAccess(
-                tools=("read", "list") + (("run",) if "RUN" in caps else ())
+                tools=("read", "list")
+                + (("run",) if "RUN" in caps else ())
+                + (("git_status",) if "OBSERVE" in caps else ())
                 + (("write",) if write_allowed else ()),
                 write_allowed=write_allowed,
             ),
@@ -308,7 +361,10 @@ class EngineeringLabRuntime:
             root=self._default_workspace_root(),
             write_allowed=task.requires_write and agent.get("tool_access", {}).get("write_allowed", False),
             command_allowlist=("git",),
+            enforce_git_read_only=True,
         )
+        if sandbox_policy is not None:
+            policy = replace(policy, enforce_git_read_only=True)
         try:
             sandbox = Sandbox(policy)
         except Exception as exc:
@@ -429,12 +485,32 @@ class EngineeringLabRuntime:
             )
         agent = self._find_agent(subject_ref, session["agent_id"])
         tool_access = agent.get("tool_access", {}) or {}
+        capabilities = tuple(agent.get("capabilities", ()))
+
+        # Effective tools = capability ceiling ∩ agent tool envelope ∩ human
+        # authorization. CAPABILITY is not AUTHORIZATION: the session must be
+        # AUTHORIZED above, its authorization record bounds the operations, and
+        # the sandbox policy is the final layer. A session with no linked
+        # authorization yields no tools.
+        authorization_ops: set[str] | None = None
+        if session.get("authorization_ref"):
+            auth = self._store.get_authorization(session["authorization_ref"], subject_ref)
+            if auth:
+                authorization_ops = set(auth.get("operations_allowed", ()))
+        effective = effective_tools(
+            capabilities=capabilities,
+            agent_tools=tuple(tool_access.get("tools") or ()),
+            authorization_operations=authorization_ops,
+        )
 
         policy = sandbox_policy or SandboxPolicy(
             root=self._default_workspace_root(),
             write_allowed=False,
             command_allowlist=("git",),
+            enforce_git_read_only=True,
         )
+        if sandbox_policy is not None:
+            policy = replace(policy, enforce_git_read_only=True)
         try:
             sandbox = Sandbox(policy)
         except Exception as exc:
@@ -450,14 +526,15 @@ class EngineeringLabRuntime:
         run = AgentRun(
             run_id, session_id, session["agent_id"], "RUNNING", objective, subject_ref,
             plan={"loop_stage": "MODEL", "objective": objective,
-                  "provider": provider, "model": model or "(selected)"},
+                  "provider": provider, "model": model or "(selected)",
+                  "effective_tools": list(effective)},
         )
         self._store.create_run(run)
         self._emit(subject_ref, session_id, "RUN_STARTED",
-                   {"objective": objective, "provider": provider}, run_id=run_id)
+                   {"objective": objective, "provider": provider,
+                    "effective_tools": list(effective)}, run_id=run_id)
 
-        registry = ToolRegistry(sandbox, granted=("filesystem.list", "filesystem.read",
-                                                  "terminal.run", "git.status", "git.diff"))
+        registry = ToolRegistry(sandbox, granted=effective)
         gateway = get_gateway()
         descriptor = gateway.describe(provider)
         selection = gateway.select(preferred=provider)
@@ -489,6 +566,7 @@ class EngineeringLabRuntime:
             timestamp_utc=utc_now(),
             provenance={"provider": provider, "model": descriptor.model,
                         "tool_count": len(registry.available()),
+                        "effective_tools": list(effective),
                         "mutating_tools": [t["name"] for t in registry.available() if t["mutating"]]},
         )
         self._store.save_evidence(evidence)
