@@ -2,6 +2,102 @@
 
 ---
 
+## Pass — GATE-10 · CP10 mutation boundary (root narrative docs)
+
+**Session date:** 2026-09-28
+**Role:** Engineering Runtime (bounded execution pass — reconstruct, classify, fix, prove, persist)
+**Branch / PR:** `gate10/cp10-allowlist-root-docs` → **PR #105** (human-only merge)
+**BASE_MAIN at pass start:** `a26af408c269729a57d0a53c6ad39fcf0ca22fdf` (merge of PR #104)
+**Head at pass end:** `c21cef38c`
+
+### Reconstruction correction (contract baseline was stale)
+
+The run contract declared `main := 6038989` with 804 passed / 54 failed / 12 skipped and
+architecture 9/10. **None of that matches live evidence.** `6038989` is not in the history of
+`origin/main`; live `main` is `a26af408`. Every comparison in this pass therefore uses a
+baseline measured live at pass start, not the contract's prose.
+
+| | passed | failed | skipped | errors | failing/error node sha256 |
+|---|---|---|---|---|---|
+| measured baseline @ `a26af408` | 903 | 49 | 12 | 2 | `256204af4082a70f062ed6004fd0c51c126a14262a072afdac9279ce158c3fca` |
+| after this change | 907 | 49 | 12 | 2 | `256204af…83fca` (**identical**) |
+
+Continuity with prior passes corroborates the measurement: the K5 pass recorded
+`49 failed / 899 passed / 10 skipped`, GATE-VAULT recorded `49 failed / 889 passed / 10 skipped`.
+The failure count has been **49 across all three passes** — the fingerprint is stable and this
+pass moved it by zero.
+
+### Finding — `main` is RED, and it is an allowlist omission
+
+`SG-02-FE.2-V` fails on canonical `main` at both `d48ad0e` (PR #97, EL-01..10) and `a26af408`
+(PR #104, Solariun thread navigation). Both are legitimate product work.
+
+```
+Unexpected path outside legitimate repository surfaces:
+AGENTS.md
+```
+
+The CP10 allowlist admitted only paths carrying a directory prefix. Root narrative docs
+(`AGENTS.md` et al.) matched nothing, so **any commit touching repository memory was rejected**.
+`AGENTS.md` was the sole offender in each rejected change set — the remainder was already
+legitimate. This is an allowlist omission, **not** a governance finding.
+
+A second source of truth (`scripts/cp10_mutation_boundary_policy.py`) already existed with an
+anti-drift guard from the earlier `enterprises/` recurrence — but the guard's corpus was too
+narrow to catch this repeat of the same bug class.
+
+### Bounded change
+
+- `scripts/cp10_mutation_boundary_policy.py` — add `[^/]+\.md$` to `LEGIT`.
+  Not a blanket `*.md` bypass: `re.match` anchors at the start and the pattern forbids `/`, so
+  only root-level files qualify. Nested paths still resolve through their directory prefix.
+- `.github/workflows/sg-02-fe-2-v.yml` — sync the inline `legit=` copy with the policy.
+- `tests/test_m02a_ci_gate_integrity.py` — widen the anti-drift guard corpus to root docs, the
+  real Solariun change set, and negatives (`vault/`, unknown dir).
+- `PARKING_LOT.md` — this workstream + unclassified baseline debt.
+- `docs/control-plane/evidence/gate10-cp10-allowlist-root-docs/EVIDENCE.md` — new.
+
+`api/main.py` untouched (2519/2600 lines). No authority, identity, or governance surface touched.
+No `REGISTERED_ARCHITECTURAL_DEBT` reclassified.
+
+### Verification
+
+- Rejected change set now **PASS** in both the policy *and* the workflow's own shell check
+  (`offenders-exit=0`); negatives still **rejected** (`vault/Ideas/x.md`, `secret-backdoor/bin/x`).
+- Self-check: this PR's own diff passes its own gate → `(True, 'PASS')`.
+- `pytest tests/test_m02a_ci_gate_integrity.py -q` → **18 passed** (14 pre-existing + 4 new).
+- `pytest tests/architecture -q` → **11/11**.
+- **CI: run `36479508791` → `validate = success`; step 31 `CP10 mutation boundary` = `success`**
+  — the exact step failing on `main`. Re-confirmed green at final head `9717868b8`.
+  Gate restored, not suppressed: `continue-on-error` semantics untouched, every verdict step
+  still enforced via `steps.<id>.outcome`.
+- `py_compile` clean on both changed Python files (no boot-code touched).
+
+### Baseline debt preserved (not fixed, not attributed)
+
+49 failures + 2 collection errors at `a26af408` are **pre-existing and unclassified**. Several
+look like stale assertions, but that is unverified. Filed in `PARKING_LOT.md` as a candidate
+standalone workstream; deliberately **not** folded into this gate.
+
+### Carried forward, NOT executed (authority boundary)
+
+- Open PRs `#71`, `#6`, `#5` — untouched, not evaluated for composability this pass.
+- Frontend `pnpm build` — not run (environment-blocked); `web/` untouched.
+
+### Authorization
+
+**Sovereign review and merge required.** No merge performed; no push to `main`; no force-push;
+no consequential external action. PR #105 is ready for sovereign merge.
+
+### Next heartbeat
+
+Reconstruct from live evidence. If #105 is merged, re-verify `SG-02-FE.2-V` green **on `main`**
+and advance to the next bounded gate. If not merged, do **not** open a second fix for this —
+continue the oldest open PR that maps to the current gate, or select the smallest valid task
+from the unclassified baseline debt workstream.
+
+---
+
 ## Session: GATE-VAULT — Independent re-verification + autonomy escalation
 
 **Session date:** 2026-09-28
@@ -1099,3 +1195,167 @@ curation call, not a mechanical ingestion fix.
 ### Authorization
 
 Human review/merge remains required. No baseline debt folded in.
+
+---
+
+## Continuation — GATE-10 · CP10 mutation boundary, pass 2 (allowlist completion)
+
+**Session date:** 2026-09-29
+**Role:** Engineering Runtime (hourly heartbeat — reconstruct, classify, fix, prove, persist)
+**Branch / PR:** `gate10/cp10-allowlist-root-docs` → **PR #105** (human-only merge, still OPEN)
+**BASE_MAIN at pass start:** `a26af408c269729a57d0a53c6ad39fcf0ca22fdf` (merge of PR #104)
+**Head at pass start:** `6a9eec9` · **Head at pass end:** `904b53e`
+
+### Why pass 2
+
+Pass 1 restored CP10 for the change sets already on `main`. Auditing the *open* PRs showed the
+allowlist was still an incomplete inventory of merged surfaces, so `main` would have gone red
+again on the next merge:
+
+- `knowledge/` — PR #109 changes `knowledge/static_ingestion.py`; the step rejects it.
+- `spiral_grove/` — **self-contradiction**: the workflow triggers on `spiral_grove/**` while its
+  own allowlist rejects `spiral_grove/__init__.py`.
+- `conftest.py` (root) — test-session root fixture.
+
+### Bounded change
+
+| file | change |
+|---|---|
+| `scripts/cp10_mutation_boundary_policy.py` | `LEGIT`: add `conftest\.py`, `knowledge/`, `spiral_grove/` |
+| `.github/workflows/sg-02-fe-2-v.yml` | sync inline `legit=` mirror |
+| `tests/test_m02a_ci_gate_integrity.py` | +6 tests (positives + lookalike negatives + drift) |
+| `docs/control-plane/evidence/gate10-cp10-allowlist-root-docs/EVIDENCE.md` | sections 6-7 |
+
+Anchoring kept: `conftest\.py` root-only; `knowledge/`, `spiral_grove/` directory-prefix.
+`vault/`, `secret-backdoor/`, `knowledge_evil/`, `.knowledge/`, `somewhere/conftest.py` still
+fail; `SolSpireExperienceV3.tsx` still forbidden by the separate `forbid` stage. `api/main.py`
+untouched (no boot-code compile gate required).
+
+### Verification
+
+- `m02a_ci_gate_integrity` + `tests/architecture` → **35 passed** (architecture 10/10).
+- Exact-CI bash simulation: PR #104 and PR #109 change sets FAIL → **PASS**; negatives still FAIL.
+- Full suite, this worktree vs baseline `a26af408`, same invocation:
+
+| | passed | failed | skipped | errors | failing-node fingerprint |
+|---|---|---|---|---|---|
+| baseline `a26af408` | 903 | 49 | 12 | 2 | `e1ed0b1ea635` |
+| after pass 2 | 913 | 49 | 12 | 2 | `e1ed0b1ea635` |
+
++10 passed = the new tests. Failing-node fingerprint **byte-identical**. No baseline debt
+touched, fixed, or newly attributed.
+
+- **CI on pushed head `904b53e`:** run `36509460181` → `SG-02-FE.2-V/validate = success`.
+  PR #105 checks all green; `mergeable=MERGEABLE`, `mergeStateStatus=CLEAN`.
+
+### Merge-order hazard (sovereign decision — not resolved here)
+
+`docs/phase1/CONTINUATION_LEDGER.md` is appended by **both** PR #105 and PR #109; they conflict
+textually. Suggested: merge #105 first, then rebase #109. Recorded, not decided.
+
+### Next bounded task
+
+`main` turns green only on the sovereign's merge — this branch cannot do it. Once #105 merges,
+re-run CP10 on `main` and triage #106–#109 (all currently `CLEAN`). Baseline debt
+(49 failures + 2 collection errors) remains an unstarted candidate workstream.
+
+### Authorization
+
+Human review/merge only. No consequential external action taken.
+
+---
+
+## PASS 3 — GATE-10 · CP10 mutation boundary (close the bug class)
+
+**Gate / workstream:** GATE-10 · CP10 (`SG-02-FE.2-V` mutation boundary) — continuation of PR #105.
+**Branch / PR:** `gate10/cp10-allowlist-root-docs` → **PR #105** (human-only merge, still OPEN)
+**BASE_MAIN at pass start:** `a26af408c269729a57d0a53c6ad39fcf0ca22fdf`
+**Head at pass start:** `f7e144a` · **Head at pass end:** `379fab1` (pushed)
+**Branch CI:** run `36514902623` @ `379fab1` — job `validate` **success**, all 34 gated steps pass,
+including step 31 `CP10 mutation boundary` and step 34 `Enforce CP10 executable gates`.
+
+### Why pass 3
+
+Passes 1 and 2 each added the surfaces that were *then* known to be missing. That is patching the
+symptom: the defect had already recurred three times (`enterprises/` EDEN-OPS-02, root narrative
+docs PR #97, root docs again PR #104) precisely because no test asserted the invariant. Pass 3
+replaces enumeration-by-symptom with **assertion-by-invariant**: every tracked path must be
+admitted, and the workflow mirror must agree with the policy script on all of them.
+
+### Bounded change
+
+| file | change |
+|---|---|
+| `scripts/cp10_mutation_boundary_policy.py` | `LEGIT` → complete inventory of tracked surfaces; explicit `vault/*` rejection branch |
+| `.github/workflows/sg-02-fe-2-v.yml` | sync the inline `legit=` mirror |
+| `tests/test_m02a_ci_gate_integrity.py` | +5 tests: tracked-inventory completeness, full-corpus drift, vault scaffold, lookalike negatives, V2/V3 `forbid` intact |
+| `docs/control-plane/evidence/gate10-cp10-allowlist-root-docs/EVIDENCE.md` | §6 pass 3, §7 composability risk; §5/§9/§10 heading renumber (fixes duplicate §6, missing §5) |
+
+Not touched: `api/main.py` (2519 lines, under the 2600 budget), `tests/architecture/LAYER_MAP.py`,
+`REGISTERED_ARCHITECTURAL_DEBT`, any authority/identity/governance surface, any `forbid` rule.
+
+### Boundary discipline (classification, not widening)
+
+The gate's teeth are the `forbid` stage (V2/V3 dual shells) and rejection of **unknown** roots — not
+scarcity of the admit-list. A gate that rejects a tracked surface reddens `main` on the next
+unrelated merge, which is the opposite of enforcement. Every newly enumerated surface was already
+tracked on `main`; no new class of path became reachable. `vault/` still admits only
+`Index/`, `Templates/`, `[A-Za-z]+/.gitkeep`; `V3.tsx`/`V2.tsx` still forbidden.
+
+### Verification
+
+- Completeness audit: **1394 tracked paths, 0 rejected**; vault scaffold 14/14 admitted;
+  8/8 lookalike negatives rejected (`knowledge_evil/`, `.knowledge/`, `spiral_grove_evil/`,
+  `conftest_evil.py`, `somewhere/conftest.py`, `vault/Ideas/2026-01-01.md`, `terraform/main.tf`,
+  `deploy.sh`).
+- `tests/test_m02a_ci_gate_integrity.py` → **29 passed** (was 24).
+- `tests/architecture` → **11 passed**.
+- `py_compile` clean on changed Python; workflow YAML parses (33 steps).
+- Full suite, this worktree vs. baseline `a26af408`, same invocation:
+
+| | passed | failed | skipped | errors | failing-node fingerprint |
+|---|---|---|---|---|---|
+| baseline `a26af408` | 903 | 49 | 12 | 2 | `e1ed0b1ea635` |
+| after pass 3 | 918 | 49 | 12 | 2 | `e1ed0b1ea635` |
+
++15 passed = the accumulated new tests (10 from passes 1–2, 5 from pass 3). Failing-node fingerprint
+**byte-identical** (`sha256` of sorted `FAILED` lines unchanged). No baseline debt touched, fixed,
+masked, or newly attributed.
+
+### Composability risk (recorded, deliberately not fixed here)
+
+The gate duplicates one policy across two files (workflow inline regexes + policy module) with only
+a test holding them together. Pass 3 narrows the divergence window (drift now checked against the
+full tracked corpus) but leaves the coupling. The structural fix — workflow invokes the tested
+policy module, shell literal retained as a mirror assertion — is the recommended next bounded task.
+It is **not** done in this pass: it changes how the gate executes, and execution semantics must not
+change while restoring a red `main` (contract §05: do not widen scope because it is convenient).
+
+### Merge-order hazard (unchanged from pass 2)
+
+`docs/phase1/CONTINUATION_LEDGER.md` is appended by both PR #105 and PR #109; textual conflict at
+EOF is expected. Suggest merge #105 first, then rebase #109. Recorded, not decided.
+
+### Pass 3 - branch CI evidence (recorded after push)
+
+* Branch head pushed: `379fab1` (pass 3) then `3a01df4` (CI-provenance + UTF-8 repair follow-up).
+* CI run `36514902623` @ `379fab1`: job `validate` **success**, all 34 gated steps pass, incl.
+  step 31 `CP10 mutation boundary` and step 34 `Enforce CP10 executable gates`.
+* CI run `36515066702` @ `3a01df4`: job `validate` **success**.
+* PR #105 `mergeable` = `clean`.
+* A follow-up commit repaired one non-UTF-8 byte (`0xd1`) accidentally written into `EVIDENCE.md`
+  by an earlier text edit; the file now decodes as UTF-8 (verified).
+* No change to the shipped policy, workflow, or tests in the follow-up - evidence/ledger text only.
+
+### Next bounded task
+
+1. Sovereign merges PR #105 → re-run CP10 on `main`, confirm green.
+2. Then (separate bounded branch/PR): de-duplicate the CP10 policy so the workflow executes the
+   tested module instead of a hand-maintained copy.
+3. Baseline debt (49 failures + 2 collection errors) remains an unstarted, separately-classified
+   candidate workstream (`PARKING_LOT.md`).
+
+### Authorization
+
+Human review/merge only. No consequential external action taken. No merge performed.
+

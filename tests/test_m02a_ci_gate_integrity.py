@@ -141,6 +141,132 @@ def test_workflow_allowlist_agrees_with_policy_on_product_surfaces():
         assert policy_ok == workflow_ok, f"allowlist drift on {path}"
 
 
+# ---------------------------------------------------------------------------
+# Regression: root-level narrative docs are shipped product surfaces.
+# `AGENTS.md` is the repository's persistent agent memory and is committed by
+# ordinary work, but the allowlist only admitted paths with a directory prefix.
+# That rejected EL-01..10 (PR #97, merge d48ad0e) and Solariun thread-navigation
+# (PR #104, merge a26af40) on `main`, leaving the canonical branch's CP10 gate red.
+# ---------------------------------------------------------------------------
+_ROOT_DOCS = [
+    "AGENTS.md",
+    "CURRENT_STATE.md",
+    "NEXT_AGENT.md",
+    "PARKING_LOT.md",
+    "ROADMAP.md",
+]
+
+_SOLARIUN_THREAD_NAV_CHANGESET = [
+    "AGENTS.md",
+    "docs/control-plane/evidence/solariun-thread-calibration/EVIDENCE.md",
+    "tests/test_solariun_thread_navigation_01.py",
+    "web/public_prism/src/components/solspire/SolSpireExperience.tsx",
+    "web/public_prism/src/components/solspire/SolariunHomeCockpit.tsx",
+]
+
+
+def test_root_narrative_docs_are_legitimate():
+    ok, msg = evaluate_changed_paths(_ROOT_DOCS)
+    assert ok is True, msg
+
+
+def test_shipped_solariun_thread_nav_changeset_passes_policy():
+    """The exact change set that turned main's CP10 gate red."""
+    ok, msg = evaluate_changed_paths(_SOLARIUN_THREAD_NAV_CHANGESET)
+    assert ok is True, msg
+
+
+def test_nested_doc_paths_still_resolve_through_their_directory():
+    """Root-doc admission must not become a blanket `*.md` bypass."""
+    ok, _ = evaluate_changed_paths(["docs/control-plane/WEAVER-RUN-PROTOCOL.md"])
+    assert ok is True
+    # No directory prefix and not a top-level doc → still an unknown surface.
+    ok, msg = evaluate_changed_paths(["secret-backdoor/notes.md"])
+    assert ok is False, msg
+
+
+def test_workflow_allowlist_agrees_with_policy_on_root_docs():
+    expr = _workflow_legit_regex()
+    corpus = _ROOT_DOCS + _SOLARIUN_THREAD_NAV_CHANGESET + ["vault/Ideas/x.md", "secret-backdoor/bin/x"]
+    for path in corpus:
+        policy_ok, _ = evaluate_changed_paths([path])
+        workflow_ok = bool(re.match(expr, path))
+        assert policy_ok == workflow_ok, f"allowlist drift on {path}"
+
+
+# ---------------------------------------------------------------------------
+# Regression: `knowledge/`, `spiral_grove/` and root `conftest.py`.
+# These are merged, active surfaces (GATE-01 canonical authorship, GATE-05
+# Knowledge OS, Spiral Grove SG-03) yet the allowlist only enumerated paths with
+# a directory prefix, so committing any of them turned `main` red. The workflow
+# is self-contradictory: it *triggers* on `spiral_grove/**` and `lab/**` while
+# rejecting `spiral_grove/` in its own allowlist. Pending PR #109 changes
+# `knowledge/static_ingestion.py`, which would have failed the same step.
+# ---------------------------------------------------------------------------
+_OMITTED_SURFACE_CHANGESET = [
+    "knowledge/static_ingestion.py",
+    "knowledge/vault.py",
+    "spiral_grove/learning_path.py",
+    "conftest.py",
+]
+
+
+def test_omitted_merged_surfaces_are_legitimate():
+    ok, msg = evaluate_changed_paths(_OMITTED_SURFACE_CHANGESET)
+    assert ok is True, msg
+
+
+def test_knowledge_os_surface_is_legitimate():
+    ok, msg = evaluate_changed_paths(["knowledge/context_engine.py"])
+    assert ok is True, msg
+
+
+def test_spiral_grove_surface_is_legitimate():
+    """The workflow triggers on spiral_grove/** so its allowlist must admit it."""
+    ok, msg = evaluate_changed_paths(["spiral_grove/__init__.py"])
+    assert ok is True, msg
+
+
+def test_root_conftest_is_legitimate():
+    ok, msg = evaluate_changed_paths(["conftest.py"])
+    assert ok is True, msg
+
+
+def test_content_surface_admission_is_not_overbroad():
+    """Admitting those surfaces must not weaken the boundary elsewhere."""
+    # Directory-prefix lookalikes are not content surfaces.
+    for path in [
+        "knowledge_evil/x.py",
+        "spiral_grove_evil/x.py",
+        "conftest_evil.py",
+        ".knowledge/x.py",
+    ]:
+        ok, msg = evaluate_changed_paths([path])
+        assert ok is False, f"{path} should still be rejected ({msg})"
+    # Personal vault and unknown roots remain rejected.
+    for path in ["vault/Ideas/x.md", "secret-backdoor/bin/x"]:
+        ok, _ = evaluate_changed_paths([path])
+        assert ok is False
+    # A nested `conftest.py` is not covered by the root-level literal.
+    ok, _ = evaluate_changed_paths(["somewhere/conftest.py"])
+    assert ok is False
+
+
+def test_workflow_allowlist_agrees_with_policy_on_omitted_surfaces():
+    expr = _workflow_legit_regex()
+    corpus = _OMITTED_SURFACE_CHANGESET + [
+        "knowledge_evil/x.py",
+        "spiral_grove_evil/x.py",
+        "conftest_evil.py",
+        ".knowledge/x.py",
+        "somewhere/conftest.py",
+    ]
+    for path in corpus:
+        policy_ok, _ = evaluate_changed_paths([path])
+        workflow_ok = bool(re.match(expr, path))
+        assert policy_ok == workflow_ok, f"allowlist drift on {path}"
+
+
 def test_ci_does_not_assert_retired_private_workspace_marker():
     """The frontend no longer renders that marker, so a gate asserting it can never
     pass. Comment lines that reference the history are fine."""
@@ -191,4 +317,91 @@ def test_continue_on_error_gates_are_still_enforced_by_outcome():
         assert s.get("continue-on-error") is not True, (
             f"enforcement step '{s.get('name')}' must be able to fail the job"
         )
+
+
+
+# ---------------------------------------------------------------------------
+# Completeness: the allowlist must be an inventory of what the repository
+# *actually* tracks — not a hand-picked subset. The defect above recurred three
+# times (EDEN-OPS-02, EL-01..10 #97, Solariun #104) because each fix patched the
+# current symptom instead of asserting the invariant. These tests close the bug
+# class: every tracked path must be admitted, and the workflow mirror must agree.
+# ---------------------------------------------------------------------------
+def _tracked_paths() -> list[str]:
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["git", "ls-files"], cwd=_ROOT, capture_output=True, text=True, check=True
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):  # pragma: no cover - no git
+        import pytest
+
+        pytest.skip("git unavailable to enumerate the tracked inventory")
+    return [line for line in out.splitlines() if line.strip()]
+
+
+def test_allowlist_covers_every_tracked_surface():
+    """The gate runs on main; a tracked surface the allowlist omits turns it red."""
+    rejected = []
+    for path in _tracked_paths():
+        ok, msg = evaluate_changed_paths([path])
+        if not ok:
+            rejected.append(f"{path}: {msg}")
+    assert not rejected, (
+        "the allowlist omits surfaces this repository tracks, so the next merge "
+        "that touches them reddens the CP10 gate:\n" + "\n".join(rejected[:20])
+    )
+
+
+def test_workflow_allowlist_agrees_with_policy_on_every_tracked_surface():
+    """The inline workflow mirror and the policy script must admit identically."""
+    expr = _workflow_legit_regex()
+    drift = [
+        path
+        for path in _tracked_paths()
+        if evaluate_changed_paths([path])[0] != bool(re.match(expr, path))
+    ]
+    assert not drift, f"workflow/policy allowlist drift on tracked paths: {drift[:20]}"
+
+
+def test_vault_scaffold_is_admitted_but_generated_notes_are_not():
+    """vault/ is the private Knowledge OS runtime output; only its scaffold is tracked."""
+    for path in [
+        "vault/Index/README.md",
+        "vault/Templates/conversation-template.md",
+        "vault/Ideas/.gitkeep",
+    ]:
+        ok, msg = evaluate_changed_paths([path])
+        assert ok is True, msg
+    ok, msg = evaluate_changed_paths(["vault/Ideas/2026-01-01.md"])
+    assert ok is False, "a generated vault note must stay outside the boundary"
+    assert "vault" in msg.lower(), "the rejection must name the vault boundary"
+
+
+def test_allowlist_rejects_unknown_lookalike_roots():
+    """Admitting more real surfaces must not admit lookalikes of them."""
+    for path in [
+        "knowledge_evil/x.py",
+        "spiral_grove_evil/x.py",
+        "conftest_evil.py",
+        ".knowledge/x.py",
+        "somewhere/conftest.py",
+        "EVIL/x.md",
+        "terraform/main.tf",
+        "deploy.sh",
+    ]:
+        ok, msg = evaluate_changed_paths([path])
+        assert ok is False, f"{path} should be rejected ({msg})"
+
+
+def test_workflow_still_forbids_constitutional_dual_shell():
+    """Breadth in the admit-list must not have softened the `forbid` stage."""
+    forbid = re.search(r"^\s*forbid='([^']+)'", _WORKFLOW.read_text(encoding="utf-8"), re.MULTILINE)
+    assert forbid, "the V2/V3 forbid stage must still exist in the workflow"
+    expr = forbid.group(1)
+    assert re.search(expr, "web/public_prism/src/components/solspire/SolSpireExperienceV3.tsx"), (
+        "the constitutional V3 dual shell must still be forbidden"
+    )
+    assert re.search(expr, "web/public_prism/src/components/solspire/SolSpireExperienceV2.tsx")
 
