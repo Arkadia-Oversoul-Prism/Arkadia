@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,7 +27,7 @@ def test_w8_ais_projection_reuses_authenticated_uid():
     src = AIS_PROFILE.read_text(encoding="utf-8")
     nodes = NODES.read_text(encoding="utf-8")
     assert "Depends(require_auth)" in src
-    assert 'load_user_profile_store(user["uid"])' in src
+    assert re.search(r"load_user_profile_store\(\s*user\[['\"]uid['\"]\]\s*\)", src)
     assert "_profiles_dir" in src
     assert "router.include_router(_ais_profile_router)" in nodes
     assert "/api/me/ais-profile" in src
@@ -59,4 +60,5 @@ def test_w8_no_second_authentication_or_identity_store_is_created():
     assert "createUserWithEmailAndPassword" not in gate
     assert "signInWithEmailAndPassword" not in gate
     assert "FIREBASE_SERVICE_ACCOUNT_JSON" not in gate
-    assert '"ais_capability_portfolio"' in ais
+    assert '"ais_capability_portfolio"' not in ais
+    assert re.search(r"['\"]ais_capability_portfolio['\"]", ais)
