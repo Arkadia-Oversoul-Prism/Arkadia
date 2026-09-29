@@ -398,6 +398,116 @@ class EngineeringLabRuntime:
 
     # -- EL-10: operational surface ------------------------------------------
 
+    def execute_agent_loop(
+        self,
+        *,
+        subject_ref: str,
+        session_id: str,
+        objective: str,
+        provider: str = "ollama",
+        model: str | None = None,
+        sandbox_policy: SandboxPolicy | None = None,
+        max_turns: int = 8,
+        require_human_on_terminate: bool = True,
+    ) -> dict[str, Any]:
+        """GATE L1: run the native agent loop inside a governed Lab session.
+
+        Read-only by construction: the granted tool set contains no mutation
+        tool, so the loop cannot edit, commit, or push. On termination the run
+        ends ``READY_FOR_REVIEW`` — never COMPLETED, never merged. Consequential
+        repository mutation is GATE L2 and must cross PassSpec -> K15 -> K3.
+        """
+        from .agent_loop import AgentLoop
+        from .gateway import get_gateway
+        from .tools import ToolRegistry
+
+        session = self.get_session(session_id, subject_ref)
+        if session["state"] not in ("AUTHORIZED", "QUEUED"):
+            raise BoundaryViolation(
+                f"session must be AUTHORIZED or QUEUED to execute "
+                f"(currently {session['state']}); SESSION != AUTHORIZATION"
+            )
+        agent = self._find_agent(subject_ref, session["agent_id"])
+        tool_access = agent.get("tool_access", {}) or {}
+
+        policy = sandbox_policy or SandboxPolicy(
+            root=self._default_workspace_root(),
+            write_allowed=False,
+            command_allowlist=("git",),
+        )
+        try:
+            sandbox = Sandbox(policy)
+        except Exception as exc:
+            run_id = f"RUN-{uuid.uuid4().hex[:12]}"
+            run = AgentRun(run_id, session_id, session["agent_id"], "BLOCKED",
+                           objective, subject_ref, plan={"loop_stage": "PLAN"})
+            self._store.create_run(run)
+            return self._finish(subject_ref, session_id, run_id, state="BLOCKED",
+                                result_state="BLOCKED", observations=[],
+                                summary=f"sandbox unavailable: {exc}")
+
+        run_id = f"RUN-{uuid.uuid4().hex[:12]}"
+        run = AgentRun(
+            run_id, session_id, session["agent_id"], "RUNNING", objective, subject_ref,
+            plan={"loop_stage": "MODEL", "objective": objective,
+                  "provider": provider, "model": model or "(selected)"},
+        )
+        self._store.create_run(run)
+        self._emit(subject_ref, session_id, "RUN_STARTED",
+                   {"objective": objective, "provider": provider}, run_id=run_id)
+
+        registry = ToolRegistry(sandbox, granted=("filesystem.list", "filesystem.read",
+                                                  "terminal.run", "git.status", "git.diff"))
+        gateway = get_gateway()
+        descriptor = gateway.describe(provider)
+        selection = gateway.select(preferred=provider)
+
+        def on_event(event_type: str, payload: dict[str, Any]) -> None:
+            self._emit(subject_ref, session_id, event_type, payload, run_id=run_id)
+
+        loop = AgentLoop(gateway=gateway, tools=registry, provider=provider,
+                         model=model or descriptor.model, max_turns=max_turns)
+        result = loop.run(objective=objective, on_event=on_event)
+
+        observations = [t.observation for t in result.turns if t.observation]
+        result_state = {
+            "DONE": "IMPLEMENTED",
+            "BLOCKED": "BLOCKED",
+            "ERROR": "BLOCKED",
+            "HUMAN_AUTHORIZATION_REQUIRED": "BLOCKED",
+        }.get(result.state, "BLOCKED")
+
+        evidence = EvidenceRecord(
+            evidence_id=f"EVD-{uuid.uuid4().hex[:12]}",
+            subject_ref=subject_ref,
+            workspace_ref=session["workspace_ref"],
+            run_ref=run_id,
+            state=result_state,
+            summary=f"agent loop terminated {result.state}: {result.reason or 'model completed'}",
+            detail={"loop": result.to_dict(), "model_selection": selection.to_dict(),
+                    "descriptor": descriptor.to_dict()},
+            timestamp_utc=utc_now(),
+            provenance={"provider": provider, "model": descriptor.model,
+                        "tool_count": len(registry.available()),
+                        "mutating_tools": [t["name"] for t in registry.available() if t["mutating"]]},
+        )
+        self._store.save_evidence(evidence)
+        self._emit(subject_ref, session_id, "EVIDENCE_RECORDED",
+                   {"evidence_id": evidence.evidence_id, "state": result_state}, run_id=run_id)
+
+        terminal_state = "READY_FOR_REVIEW" if result.state == "DONE" else "BLOCKED"
+        if require_human_on_terminate and result.state == "DONE":
+            self._emit(subject_ref, session_id, "AUTHORIZATION_REQUIRED",
+                       {"run_id": run_id, "reason": "loop terminated DONE"}, run_id=run_id)
+
+        return self._finish(
+            subject_ref, session_id, run_id,
+            state="VERIFYING" if terminal_state != "BLOCKED" else "BLOCKED",
+            result_state=result_state, observations=observations,
+            summary=f"agent loop {result.state}",
+            evidence_refs=(evidence.evidence_id,),
+        ) | {"loop_state": result.state, "turns": [t.to_dict() for t in result.turns]}
+
     def session_view(self, session_id: str, subject_ref: str) -> dict[str, Any]:
         """Full inspectable state of one session (EL-10 'what is happening')."""
         session = self.get_session(session_id, subject_ref)

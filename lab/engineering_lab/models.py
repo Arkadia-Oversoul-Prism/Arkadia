@@ -246,4 +246,11 @@ AGENT_EVENT_TYPES: tuple[str, ...] = (
     "BLOCKED",
     "HARD_STOP",
     "RUN_FINISHED",
+    # GATE L1: agent-loop telemetry. Additive; the substrate events above are
+    # unchanged. These carry a model turn, a tool intent, a tool observation,
+    # and the loop's per-turn decision onto the existing live event stream.
+    "MODEL_TURN",
+    "TOOL_INTENT",
+    "TOOL_OBSERVATION",
+    "AGENT_DECISION",
 )
