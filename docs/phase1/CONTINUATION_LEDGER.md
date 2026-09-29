@@ -1336,6 +1336,17 @@ change while restoring a red `main` (contract §05: do not widen scope because i
 `docs/phase1/CONTINUATION_LEDGER.md` is appended by both PR #105 and PR #109; textual conflict at
 EOF is expected. Suggest merge #105 first, then rebase #109. Recorded, not decided.
 
+### Pass 3 - branch CI evidence (recorded after push)
+
+* Branch head pushed: `379fab1` (pass 3) then `3a01df4` (CI-provenance + UTF-8 repair follow-up).
+* CI run `36514902623` @ `379fab1`: job `validate` **success**, all 34 gated steps pass, incl.
+  step 31 `CP10 mutation boundary` and step 34 `Enforce CP10 executable gates`.
+* CI run `36515066702` @ `3a01df4`: job `validate` **success**.
+* PR #105 `mergeable` = `clean`.
+* A follow-up commit repaired one non-UTF-8 byte (`0xd1`) accidentally written into `EVIDENCE.md`
+  by an earlier text edit; the file now decodes as UTF-8 (verified).
+* No change to the shipped policy, workflow, or tests in the follow-up - evidence/ledger text only.
+
 ### Next bounded task
 
 1. Sovereign merges PR #105 → re-run CP10 on `main`, confirm green.

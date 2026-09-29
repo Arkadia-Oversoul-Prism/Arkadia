@@ -37,7 +37,11 @@ Three passes, all on this one branch:
 3. **stop patching symptoms** — the allowlist is now a *complete inventory* of tracked surfaces
    (1394 paths, 0 rejected), with tests asserting the invariant against `git ls-files` and
    against the workflow mirror, plus lookalike negatives and a V2/V3 `forbid` assertion.
-Awaiting sovereign review and merge. **Do not start a second fix for this.**
+CI on the branch is **green** - run `36515066702` @ `3a01df4`, job `validate` = success, all 34
+gated steps pass including step 31 `CP10 mutation boundary` and step 34 `Enforce CP10 executable
+gates`. Awaiting sovereign review and merge. **Do not start a second fix for this.**
+Merge-order hazard: `docs/phase1/CONTINUATION_LEDGER.md` is appended by both #105 and #109 -
+textual conflict at EOF; suggest merge #105 first, then rebase #109. Sovereign decision.
 
 Composability risk recorded (EVIDENCE §7): the policy is duplicated in the workflow and the
 module, held together only by a test. Structural fix — workflow executes the tested module,
