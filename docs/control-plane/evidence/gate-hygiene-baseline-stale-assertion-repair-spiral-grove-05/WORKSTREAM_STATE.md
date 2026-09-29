@@ -67,6 +67,22 @@ Adjacent open work, not part of SH-02:
 Each requires a bounded scope, completion condition, evidence requirement, regression
 boundary, and authority boundary before execution.
 
+## CI applicability note (so a future pass does not misread this as missing evidence)
+
+`SG-02-FE.2-V`'s `validate` job is **path-filtered** (`push` + `pull_request` paths in
+`.github/workflows/sg-02-fe-2-v.yml`: `web/public_prism/**`, `spiral_grove/**`, `lab/**`,
+and specific test files). So:
+
+- PR #131 (this PR) touches `tests/test_spiral_grove_frontend_projection.py` and
+  `tests/test_spiral_grove_chambers.py`, which **are** in the filter → `validate` runs and
+  is green.
+- PR #132 (batch 4) touches only `tests/test_ais_w6_future_skills_challenge.py` plus docs,
+  which are **not** in the filter → no `validate` run is created. That absence is expected
+  behaviour, not a missing check.
+
+`security-secret-scan` has an unfiltered `pull_request` trigger, so it runs on every PR.
+
+
 ## Authority
 
 Human sovereign merge only. Never merge, never push `main`, never force-push.
