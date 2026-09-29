@@ -53,13 +53,16 @@ def test_frontend_execute_requires_backend_k15_ready():
 
 def test_frontend_uses_existing_execution_routes_only():
     text = dashboard_text()
-    for route in (
-        "/execution/pass-spec",
-        "/execution/approval",
-        "/execution/readiness",
-        "/execution",
+    # Routes are composed from execBase (= `${base}/execution`); the test must assert the
+    # same composition the product uses, not a literal the source never contained.
+    assert "execBase = `${base}/execution`" in text
+    for suffix in (
+        "/pass-spec",
+        "/approval",
+        "/readiness",
+        "/execute",
     ):
-        assert route in text
+        assert f"${{execBase}}{suffix}" in text
     assert "run_k3: false" in text
 
 

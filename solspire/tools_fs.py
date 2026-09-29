@@ -3,8 +3,11 @@
 Safe, sandboxed file system operations. All paths are restricted to the
 workspace root — no escaping outside the project directory.
 
-Workspace mutation is permitted only outside Git worktrees. Engineering
-repository mutation belongs to the governed Weaver → K15 → K3 path.
+Architecture boundary:
+    SolSpire may inspect its workspace here, but engineering mutation is
+    governed by Weaver → K15 → K3. This module therefore refuses direct
+    filesystem writes. Weaver has its own governed filesystem implementation
+    and does not depend on this module for mutation.
 """
 from __future__ import annotations
 
@@ -64,25 +67,19 @@ def read_file(path: str) -> dict[str, Any]:
 
 
 def write_file(path: str, content: str) -> dict[str, Any]:
-    try:
-        if len(content.encode("utf-8")) > _MAX_WRITE_BYTES:
-            return {"ok": False, "error": f"Content too large (max {_MAX_WRITE_BYTES} bytes)"}
-        target = _safe_path(path)
-        if _is_git_worktree(target):
-            return {
-                "ok": False,
-                "status": "BLOCKED",
-                "error": "Direct filesystem mutation inside a Git worktree is disabled in SolSpire; use the governed Weaver → K15 → K3 path.",
-                "mutation_path": "NONE",
-            }
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
-        return {"ok": True, "path": str(target.relative_to(_WORKSPACE)), "bytes_written": len(content.encode())}
-    except PermissionError as e:
-        return {"ok": False, "error": str(e)}
-    except Exception as e:
-        logger.error("tools_fs.write_file error: %s", e)
-        return {"ok": False, "error": str(e)}
+    """Refuse direct SolSpire filesystem mutation.
+
+    Engineering writes belong to Weaver's governed K15 → K3 transaction path.
+    Keeping this function as an explicit BLOCKED terminal path preserves the
+    legacy API surface without leaving a second mutation authority behind.
+    """
+    logger.warning("Blocked direct SolSpire filesystem write: %s", path)
+    return {
+        "ok": False,
+        "status": "BLOCKED",
+        "error": "Direct filesystem mutation is disabled; use the governed Weaver K15 → K3 path.",
+        "path": path,
+    }
 
 
 def list_directory(path: str = ".") -> dict[str, Any]:
@@ -112,26 +109,13 @@ def list_directory(path: str = ".") -> dict[str, Any]:
 
 
 def delete_file(path: str) -> dict[str, Any]:
-    try:
-        target = _safe_path(path)
-        if not target.exists():
-            return {"ok": False, "error": f"File not found: {path}"}
-        if not target.is_file():
-            return {"ok": False, "error": "Only files can be deleted via this tool"}
-        if _is_git_worktree(target):
-            return {
-                "ok": False,
-                "status": "BLOCKED",
-                "error": "Direct filesystem deletion inside a Git worktree is disabled in SolSpire; use the governed Weaver → K15 → K3 path.",
-                "mutation_path": "NONE",
-            }
-        target.unlink()
-        return {"ok": True, "path": path, "deleted": True}
-    except PermissionError as e:
-        return {"ok": False, "error": str(e)}
-    except Exception as e:
-        logger.error("tools_fs.delete_file error: %s", e)
-        return {"ok": False, "error": str(e)}
+    logger.warning("Blocked direct SolSpire filesystem delete: %s", path)
+    return {
+        "ok": False,
+        "status": "BLOCKED",
+        "error": "Direct filesystem mutation is disabled; use the governed Weaver K15 → K3 path.",
+        "path": path,
+    }
 
 
 __all__ = ["read_file", "write_file", "list_directory", "delete_file"]

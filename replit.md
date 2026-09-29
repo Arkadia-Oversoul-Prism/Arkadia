@@ -70,7 +70,7 @@ VITE_FIREBASE_STORAGE_BUCKET
 GEMINI_MODEL            — Override default model (default: gemini-2.0-flash)
 ARKADIA_DB_PATH         — Override SQLite db path (default: knowledge/arkadia.db)
 GITHUB_PERSONAL_ACCESS_TOKEN  — GitHub corpus integration
-SOVEREIGN_KEY           — Internal auth key (default: arkadia-forge-2026)
+SOVEREIGN_KEY           — Internal auth key; production value must come from deployment secret storage
 ```
 
 ### Bot-specific

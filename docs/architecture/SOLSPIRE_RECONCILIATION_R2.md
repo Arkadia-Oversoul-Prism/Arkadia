@@ -1,85 +1,46 @@
-# R2 — SolSpire Ground-Truth Reconciliation
+# R2 — SolSpire Direct GitHub Mutation Closure
 
-**Base:** `2f2caf00c5ac68c78e7bbdd8c2139e89908d1061` (R1)
-**Scope:** close direct SolSpire repository mutation paths
-**Status:** IMPLEMENTED / VALIDATION PENDING
+**Base:** `648fd025e5e70e2c1b389a393b2df36dd3119f83` (R1 validation workflow fix)
+**Branch:** `recon/solspire-r0`
 
 ## Objective
 
-Close the two concrete mutation bypasses identified by R0 without redesigning SolSpire or creating a new authority:
+Close the direct SolSpire GitHub repository mutation alternative identified by R0 while preserving legitimate read-only GitHub capabilities.
 
-1. direct GitHub Contents API repository mutation;
-2. direct filesystem mutation when the SolSpire workspace is a Git worktree.
+## Change
 
-## R2 changes
+`solspire/tools_github.py` no longer performs GitHub Contents API writes.
 
-### 1. Direct GitHub commit path disabled
+The former `commit_file()` implementation has been replaced by a fail-closed compatibility shim. It returns `MUTATION_DISABLED` and points callers to the canonical Weaver K15 → K3 path. The symbol is retained temporarily only so legacy callers cannot accidentally gain a new mutation route through an import failure or an unhandled network write.
 
-`solspire.tools_github.commit_file()` remains as a compatibility seam, but it no longer performs any HTTP write. It returns a truthful `NOT_AVAILABLE` result and explicitly points engineering mutation to the governed `Weaver → K15 → K3` path.
-
-The read/discovery operations remain available:
+The module's exported surface is explicitly read-only:
 
 - `list_repos`
 - `get_tree`
 - `read_file`
 - `get_repo_info`
 
-This preserves lineage and avoids a breaking import failure while removing the mutation capability itself.
+The legacy `/solspire/tools/github/commit` route therefore remains compatibility-visible for now, but its underlying mutation primitive is inert and cannot create or update GitHub commits.
 
-### 2. Filesystem repository boundary closed
+## Preserved contract
 
-`solspire.tools_fs` still permits ordinary workspace file operations, but `write_file()` and `delete_file()` now refuse mutation when the target lies inside a Git worktree detected under the SolSpire workspace root.
+- SolSpire does not authorize repository mutation.
+- Direct GitHub Contents API writes are unavailable from SolSpire.
+- K3 remains the sole repository mutation transaction path.
+- Read-only GitHub discovery and inspection remain available.
+- No frontend behavior is changed in R2.
+- No K17 semantics, autonomous mutation, autonomous commit/push, or second K3 path are introduced.
 
-This is deliberately a boundary check, not an authorization system. It prevents a generic SolSpire filesystem tool from becoming a second engineering repository mutation path.
+## Proofs added
 
-Read/list operations remain available.
+`tests/test_solspire_r2_github_mutation.py` proves:
 
-### 3. Tests
+1. `solspire.tools_github` contains no GitHub Contents API PUT implementation.
+2. The legacy `commit_file()` compatibility symbol fails closed without performing a network write.
+3. The exported GitHub tool surface is read-only.
 
-Added `tests/test_solspire_r2_mutation_boundaries.py` proving:
+## Validation
 
-- direct GitHub commit is fail-closed and performs no HTTP write;
-- ordinary non-repository workspace writes remain possible;
-- Git-worktree writes are blocked;
-- Git-worktree deletes are blocked;
-- GitHub read/discovery tools remain exported.
+R1's first workflow attempt failed because the validation workflow invoked `pytest` without installing it. The workflow was corrected in commit `648fd025e5e70e2c1b389a393b2df36dd3119f83`; its replacement run is queued and must be green before R1 is formally marked green.
 
-## Canonical mutation invariant
-
-```text
-Engineering repository mutation
-        │
-        ▼
-     Weaver
-        │
-   Governance
-        │
-       K15
-        │
-       K3
-```
-
-SolSpire's direct GitHub and Git-worktree filesystem tools are no longer alternate mutation paths.
-
-## Explicit non-goals
-
-R2 does not:
-
-- redesign `ExecutionRuntime`;
-- remove the SolSpire `/tools/github/commit` compatibility route;
-- introduce K17 semantics;
-- introduce a new authorization authority;
-- introduce autonomous mutation;
-- introduce autonomous commit/push;
-- modify the frontend;
-- change K15/K3 semantics.
-
-The `/tools/github/commit` route remains present for compatibility, but its underlying operation is deliberately disabled. A later cleanup may remove the dead route once callers and frontend dependencies are proven absent.
-
-## Validation status
-
-The deterministic R2 tests have been added. Runtime test execution is not claimed because the available repository workflow is configured for `main`, not this reconciliation branch. Merge remains gated on CI/test execution.
-
-## Exit condition
-
-R2 is complete when the direct GitHub mutation operation and Git-worktree filesystem mutation operation are both fail-closed, read/discovery surfaces remain intact, and architecture tests preserve those boundaries.
+R2 is intentionally limited to the direct GitHub mutation closure. The broader SolSpire execution runtime and other mutation-capable surfaces remain untouched for the later R3 boundary decision.

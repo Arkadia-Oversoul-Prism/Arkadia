@@ -1,0 +1,460 @@
+/*
+ * SOLARIUN-X01 -> X12 canonical recovery layer.
+ *
+ * This file is an experience repair layer, not a second shell. It restores the
+ * intended spatial grammar over the existing SolSpireExperience DOM and keeps
+ * the repository's existing data/API surfaces authoritative.
+ */
+
+.experience-repair-scope {
+  min-height: 100dvh;
+  width: 100%;
+  background: #07080d;
+}
+
+/* One field. The outer consolidation wrapper contributes no navigation. */
+.experience-repair-scope > .solspire-workspace {
+  min-height: 100dvh;
+  background:
+    radial-gradient(90% 55% at 50% -12%, rgba(106,159,216,.075), transparent 58%),
+    radial-gradient(55% 40% at 100% 8%, rgba(201,168,76,.035), transparent 62%),
+    linear-gradient(180deg, #090a10 0%, #07080d 58%, #06070c 100%) !important;
+}
+
+.experience-repair-scope .solspire-workspace::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+    linear-gradient(rgba(255,255,255,.012) 1px, transparent 1px);
+  background-size: 96px 96px;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,.35), transparent 72%);
+}
+
+/* Header = quiet coordinate, not a second application bar. */
+.experience-repair-scope .solspire-canonical-header {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 80 !important;
+  min-height: 48px !important;
+  height: 48px !important;
+  padding: 0 18px !important;
+  background: rgba(7,8,13,.78) !important;
+  border-bottom: 1px solid rgba(233,231,223,.055) !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(18px) saturate(115%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(115%) !important;
+}
+
+.experience-repair-scope .solspire-prism-return {
+  min-width: 30px !important;
+  width: 30px !important;
+  height: 30px !important;
+  padding: 0 !important;
+  justify-content: center !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: rgba(201,168,76,.78) !important;
+}
+.experience-repair-scope .solspire-prism-return strong,
+.experience-repair-scope .solspire-prism-return small {
+  display: none !important;
+}
+.experience-repair-scope .solspire-brand {
+  min-width: 0;
+  opacity: .78;
+}
+.experience-repair-scope .solspire-brand-name {
+  font-size: 10px !important;
+  letter-spacing: .22em !important;
+}
+.experience-repair-scope .solspire-brand-sub {
+  display: none !important;
+}
+.experience-repair-scope .solspire-header-actions {
+  gap: 5px !important;
+}
+.experience-repair-scope .solspire-header-actions button {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: rgba(233,231,223,.45) !important;
+  padding: 6px 7px !important;
+}
+.experience-repair-scope .solspire-header-actions button:hover,
+.experience-repair-scope .solspire-header-actions button:focus-visible {
+  color: #C9A84C !important;
+  background: rgba(201,168,76,.055) !important;
+}
+.experience-repair-scope .solspire-menu-button { display: none !important; }
+.experience-repair-scope .solspire-identity {
+  max-width: 180px !important;
+  font-size: 8px !important;
+  letter-spacing: .08em;
+  color: rgba(233,231,223,.32) !important;
+}
+
+/* The old Prism/global door strip must never compete with the Solariun field. */
+.experience-repair-scope .solspire-prism-rail,
+.experience-repair-scope .solspire-global-doors {
+  display: none !important;
+}
+
+/* Desktop: one quiet constellation spine. Mobile: one bottom instrument rail. */
+.experience-repair-scope .solspire-body {
+  display: block !important;
+  min-height: calc(100dvh - 48px) !important;
+  position: relative;
+  z-index: 1;
+}
+.experience-repair-scope .solspire-sidebar {
+  position: fixed !important;
+  left: 0 !important;
+  top: 48px !important;
+  bottom: 0 !important;
+  width: 68px !important;
+  height: auto !important;
+  max-height: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  padding: 18px 6px 20px !important;
+  gap: 5px !important;
+  background: rgba(6,7,12,.62) !important;
+  border-right: 1px solid rgba(233,231,223,.045) !important;
+  border-top: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+}
+.experience-repair-scope .solspire-sidebar-intro { display: none !important; }
+.experience-repair-scope .solspire-sidebar .solspire-nav-button {
+  position: relative !important;
+  flex: 0 0 52px !important;
+  width: 52px !important;
+  min-width: 52px !important;
+  min-height: 52px !important;
+  margin: 0 !important;
+  padding: 7px 3px !important;
+  border: 1px solid transparent !important;
+  border-radius: 12px !important;
+  background: transparent !important;
+  color: rgba(233,231,223,.34) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  text-align: center !important;
+}
+.experience-repair-scope .solspire-sidebar .solspire-nav-button:hover {
+  color: rgba(233,231,223,.82) !important;
+  background: rgba(255,255,255,.025) !important;
+  border-color: rgba(255,255,255,.055) !important;
+}
+.experience-repair-scope .solspire-sidebar .solspire-nav-button.active {
+  color: #C9A84C !important;
+  background: rgba(201,168,76,.065) !important;
+  border-color: rgba(201,168,76,.16) !important;
+  box-shadow: inset 2px 0 0 rgba(201,168,76,.7) !important;
+}
+.experience-repair-scope .solspire-sidebar .solspire-nav-button > span {
+  width: auto !important;
+  height: auto !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+}
+.experience-repair-scope .solspire-sidebar .solspire-nav-button strong {
+  max-width: 58px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  font: 600 6px/1.1 Inter,system-ui,sans-serif !important;
+  letter-spacing: .07em !important;
+  text-transform: uppercase !important;
+  color: currentColor !important;
+}
+.experience-repair-scope .solspire-sidebar .solspire-nav-button small { display: none !important; }
+
+.experience-repair-scope .solspire-main {
+  margin-left: 68px !important;
+  width: calc(100% - 68px) !important;
+  min-height: calc(100dvh - 48px) !important;
+  padding: 0 clamp(22px, 4vw, 64px) 48px !important;
+  box-sizing: border-box !important;
+}
+
+/* Context bar becomes the spatial coordinate line. */
+.experience-repair-scope .solspire-context-bar {
+  position: sticky !important;
+  top: 48px !important;
+  z-index: 50 !important;
+  min-height: 42px !important;
+  margin: 0 calc(-1 * clamp(22px, 4vw, 64px)) !important;
+  padding: 0 clamp(22px, 4vw, 64px) !important;
+  display: flex !important;
+  align-items: center !important;
+  background: rgba(7,8,13,.74) !important;
+  border-bottom: 1px solid rgba(233,231,223,.045) !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(16px) !important;
+}
+.experience-repair-scope .solspire-context-actions .solspire-context-return { display: none !important; }
+.experience-repair-scope .solspire-context-actions button:last-child {
+  border: 0 !important;
+  background: transparent !important;
+  color: rgba(0,212,170,.58) !important;
+  box-shadow: none !important;
+  font-size: 8px !important;
+}
+
+/* Field typography and calm density. */
+.experience-repair-scope .solspire-lens-heading {
+  max-width: 1180px !important;
+  min-height: 150px !important;
+  margin: 0 auto !important;
+  padding: 54px 0 28px !important;
+  align-items: flex-end !important;
+}
+.experience-repair-scope .solspire-lens-heading h1 {
+  font: 500 clamp(34px, 5vw, 58px)/1.02 Georgia,"Times New Roman",serif !important;
+  letter-spacing: -.015em !important;
+  color: #E9E7DF !important;
+}
+.experience-repair-scope .solspire-lens-heading .solspire-kicker {
+  margin-bottom: 8px !important;
+  color: rgba(201,168,76,.62) !important;
+}
+.experience-repair-scope .solspire-lens-sigil {
+  opacity: .7;
+  font-size: 28px !important;
+}
+.experience-repair-scope .solspire-content {
+  max-width: 1180px !important;
+  margin: 0 auto !important;
+}
+
+/* The field is a composition, not a pile of SaaS cards. */
+.experience-repair-scope .solspire-content > * {
+  animation: solariun-field-reveal .28s ease-out both;
+}
+.experience-repair-scope .solspire-object {
+  position: relative !important;
+  background: linear-gradient(150deg, rgba(18,20,29,.88), rgba(8,10,16,.82)) !important;
+  border: 1px solid rgba(233,231,223,.08) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 18px 50px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.025) !important;
+  transition: transform .22s ease, border-color .22s ease, background .22s ease !important;
+}
+.experience-repair-scope .solspire-object:hover {
+  transform: translateY(-2px) !important;
+  border-color: rgba(201,168,76,.24) !important;
+}
+.experience-repair-scope .solspire-object .solspire-title {
+  font: 500 21px/1.16 Georgia,"Times New Roman",serif !important;
+  letter-spacing: .005em;
+}
+.experience-repair-scope .solspire-object-meta,
+.experience-repair-scope .solspire-id {
+  font-family: ui-monospace,SFMono-Regular,monospace !important;
+  letter-spacing: .08em !important;
+}
+
+/* Project = focus world. Never let its content become an undifferentiated black slab. */
+.experience-repair-scope .solspire-project-main {
+  position: relative !important;
+  min-height: calc(100dvh - 90px) !important;
+  background:
+    radial-gradient(70% 40% at 55% 0%, rgba(201,168,76,.045), transparent 70%),
+    transparent !important;
+}
+.experience-repair-scope .solspire-project-context {
+  position: sticky !important;
+  top: 48px !important;
+  z-index: 55 !important;
+  display: grid !important;
+  grid-template-columns: auto minmax(0,1fr) auto !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-height: 44px !important;
+  padding: 0 clamp(22px, 4vw, 64px) !important;
+  margin: 0 calc(-1 * clamp(22px, 4vw, 64px)) !important;
+  background: rgba(7,8,13,.78) !important;
+  border-bottom: 1px solid rgba(233,231,223,.045) !important;
+  backdrop-filter: blur(16px) !important;
+}
+.experience-repair-scope .solspire-project-context > button {
+  border: 0 !important;
+  background: transparent !important;
+  color: rgba(201,168,76,.68) !important;
+  font: 8px ui-monospace,monospace !important;
+  letter-spacing: .08em !important;
+  cursor: pointer !important;
+}
+.experience-repair-scope .solspire-project-context strong {
+  display: block !important;
+  color: #E9E7DF !important;
+  font: 500 13px Georgia,serif !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.experience-repair-scope .solspire-project-main > .solspire-context-bar {
+  position: relative !important;
+  top: auto !important;
+  margin-left: calc(-1 * clamp(22px, 4vw, 64px)) !important;
+  margin-right: calc(-1 * clamp(22px, 4vw, 64px)) !important;
+}
+.experience-repair-scope .solspire-project-heading {
+  min-height: 170px !important;
+  max-width: 1180px !important;
+  padding: 42px 0 24px !important;
+}
+.experience-repair-scope .solspire-project-heading h1 {
+  font: 500 clamp(32px, 4.5vw, 54px)/1.03 Georgia,"Times New Roman",serif !important;
+  color: #E9E7DF !important;
+}
+.experience-repair-scope .solspire-project-heading-meta {
+  border-color: rgba(201,168,76,.18) !important;
+  color: rgba(201,168,76,.72) !important;
+  background: rgba(201,168,76,.035) !important;
+}
+.experience-repair-scope .solspire-project-main > .solspire-object-sheet {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Existing project tabs become contextual threads rather than page chrome. */
+.experience-repair-scope .solspire-project-main button {
+  font-family: Inter,system-ui,sans-serif;
+}
+.experience-repair-scope .solspire-project-main .solspire-tab,
+.experience-repair-scope .solspire-project-main [role="tab"] {
+  border-radius: 3px !important;
+}
+
+/* Activity and relationship grammar. */
+.experience-repair-scope .solspire-activity-item {
+  border-left: 1px solid rgba(106,159,216,.18) !important;
+  padding-left: 14px !important;
+}
+.experience-repair-scope .solspire-activity-dot {
+  box-shadow: 0 0 0 3px rgba(106,159,216,.05) !important;
+}
+.experience-repair-scope .solspire-relation {
+  border-radius: 3px !important;
+  background: rgba(0,212,170,.035) !important;
+  border-color: rgba(0,212,170,.13) !important;
+}
+
+/* Governance states are always visually distinct. */
+.experience-repair-scope [data-active="true"],
+.experience-repair-scope .is-current {
+  box-shadow: inset 2px 0 0 rgba(176,141,232,.82) !important;
+}
+
+/* Mobile is a different composition, not a shrunk desktop. */
+@media (max-width: 700px) {
+  .experience-repair-scope .solspire-canonical-header {
+    height: 52px !important;
+    min-height: 52px !important;
+    padding: 0 10px !important;
+  }
+  .experience-repair-scope .solspire-body { min-height: calc(100dvh - 52px) !important; }
+  .experience-repair-scope .solspire-sidebar {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: 82px !important;
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    padding: 5px 6px max(5px,env(safe-area-inset-bottom)) !important;
+    gap: 2px !important;
+    z-index: 100 !important;
+    background: rgba(7,8,13,.94) !important;
+    border-right: 0 !important;
+    border-top: 1px solid rgba(233,231,223,.08) !important;
+    backdrop-filter: blur(20px) !important;
+  }
+  .experience-repair-scope .solspire-sidebar .solspire-nav-button {
+    flex: 0 0 72px !important;
+    width: 72px !important;
+    min-width: 72px !important;
+    min-height: 62px !important;
+    border-radius: 8px !important;
+  }
+  .experience-repair-scope .solspire-sidebar .solspire-nav-button strong { font-size: 7px !important; }
+  .experience-repair-scope .solspire-main {
+    margin-left: 0 !important;
+    width: 100% !important;
+    min-height: calc(100dvh - 52px) !important;
+    padding: 0 14px calc(94px + env(safe-area-inset-bottom)) !important;
+  }
+  .experience-repair-scope .solspire-context-bar {
+    top: 52px !important;
+    margin-left: -14px !important;
+    margin-right: -14px !important;
+    padding: 0 14px !important;
+  }
+  .experience-repair-scope .solspire-lens-heading {
+    min-height: 125px !important;
+    padding: 42px 0 20px !important;
+  }
+  .experience-repair-scope .solspire-lens-heading h1 { font-size: 34px !important; }
+  .experience-repair-scope .solspire-project-context {
+    top: 52px !important;
+    grid-template-columns: auto minmax(0,1fr) !important;
+    padding: 0 14px !important;
+    margin-left: -14px !important;
+    margin-right: -14px !important;
+  }
+  .experience-repair-scope .solspire-project-context > .solspire-mono { display: none !important; }
+  .experience-repair-scope .solspire-project-main {
+    padding: 0 14px calc(94px + env(safe-area-inset-bottom)) !important;
+    margin: 0 -14px !important;
+  }
+  .experience-repair-scope .solspire-project-main > .solspire-context-bar {
+    margin-left: -14px !important;
+    margin-right: -14px !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+  .experience-repair-scope .solspire-project-heading {
+    min-height: 132px !important;
+    padding: 28px 14px 20px !important;
+  }
+  .experience-repair-scope .solspire-project-heading h1 { font-size: 32px !important; }
+  .experience-repair-scope .solspire-project-main .solspire-object-sheet {
+    max-height: none !important;
+    overflow: visible !important;
+    border-radius: 0 !important;
+    margin-top: 0 !important;
+    box-shadow: none !important;
+  }
+  .experience-repair-scope .solspire-object {
+    border-radius: 6px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .experience-repair-scope .solspire-content > * { animation: none !important; }
+  .experience-repair-scope .solspire-object { transition: none !important; }
+}
+
+@keyframes solariun-field-reveal {
+  from { opacity: .72; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

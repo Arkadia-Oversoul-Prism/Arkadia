@@ -1,19 +1,20 @@
-"""SolSpire project-execution adapter.
+"""SolSpire project adapter for Weaver governed execution.
 
-PROJECT ACCESS ≠ PASSSPEC ≠ PATCHAPPROVAL ≠ EXECUTION.
-Weaver owns engineering governance semantics; SolSpire supplies project
-context and preserves the project-facing response contract.
+PROJECT ACCESS ≠ PASSSPEC ≠ PATCHAPPROVAL ≠ EXECUTION
+
+This module intentionally contains no Weaver governance rules. It adapts
+project/workspace context to the canonical Weaver governance primitives and
+preserves the historical SolSpire API for callers.
 """
 from __future__ import annotations
 
 from typing import Any
 
-from weaver.execution import execute_patch, patch_content_hash
-from weaver.pass_spec import PassSpec
-from weaver.project_execution import (
-    build_pass_spec_for_patch as _weaver_build_pass_spec_for_patch,
+from weaver.execution import execute_patch, pass_spec_hash, patch_content_hash
+from weaver.governance import (
     build_patch_approval as _weaver_build_patch_approval,
-    evaluate_execution_state as _weaver_evaluate_execution_state,
+    build_pass_spec_for_patch as _weaver_build_pass_spec_for_patch,
+    evaluate_patch_readiness as _weaver_evaluate_patch_readiness,
 )
 
 
@@ -24,12 +25,9 @@ def evaluate_execution_state(
     approval: dict[str, Any] | None = None,
     repo_root: str = ".",
 ) -> dict[str, Any]:
-    """Project-facing adapter to canonical Weaver readiness semantics."""
-    return _weaver_evaluate_execution_state(
-        patch=patch,
-        pass_spec=pass_spec,
-        approval=approval,
-        repo_root=repo_root,
+    """Compatibility adapter; readiness semantics belong to Weaver."""
+    return _weaver_evaluate_patch_readiness(
+        patch=patch or {}, pass_spec=pass_spec, approval=approval, repo_root=repo_root
     )
 
 
@@ -43,19 +41,29 @@ def build_pass_spec_for_patch(
     required_tests: list[str] | None = None,
     repo_root: str = ".",
 ) -> dict[str, Any]:
-    """Project-facing PassSpec builder; engineering semantics live in Weaver."""
+    """Compatibility adapter; PassSpec construction semantics belong to Weaver."""
+    resolved_pass_id = pass_id or f"mvp1-{hashlib.sha256((patch.get('patch_id') or 'x').encode()).hexdigest()[:10]}"
+    resolved_objective = objective or str(
+        (patch.get("review") or {}).get("objective")
+        or project.get("name")
+        or "MVP governed execution"
+    )
     spec = _weaver_build_pass_spec_for_patch(
         patch,
-        pass_id=pass_id,
-        objective=objective
-        or str((patch.get("review") or {}).get("objective") or project.get("name") or "MVP governed execution"),
+        pass_id=resolved_pass_id,
+        objective=resolved_objective,
         allowed_paths=allowed_paths,
         required_tests=required_tests,
         repo_root=repo_root,
     )
-    spec["project_id"] = project.get("id")
-    spec["authorization_note"] = "PassSpec bound. PatchApproval still required. Execution LOCKED."
-    return spec
+    data = spec.to_dict()
+    data["pass_spec_hash"] = pass_spec_hash(spec)
+    data["bound_patch_id"] = patch.get("patch_id")
+    data["bound_patch_hash"] = patch_content_hash(patch)
+    data["project_id"] = project.get("id")
+    data["authorization_note"] = "PassSpec bound. PatchApproval still required. Execution LOCKED."
+    data["origin_sha"] = current_origin_main(repo_root)
+    return data
 
 
 def build_patch_approval(
@@ -64,10 +72,11 @@ def build_patch_approval(
     *,
     approved: bool = True,
 ) -> dict[str, Any]:
-    """Project-facing approval builder; binding semantics live in Weaver."""
+    """Compatibility adapter; PatchApproval binding semantics belong to Weaver."""
     approval = _weaver_build_patch_approval(patch, pass_spec, approved=approved)
-    approval["project_note"] = "Explicit human bind. Not ownership. Not knowledge. Not UI alone."
-    return approval
+    data = approval.to_dict()
+    data["project_note"] = "Explicit human bind. Not ownership. Not knowledge. Not UI alone."
+    return data
 
 
 def execute_project_patch(
@@ -79,7 +88,7 @@ def execute_project_patch(
     repo_root: str = ".",
     run_k3: bool = False,
 ) -> dict[str, Any]:
-    """Execute through canonical Weaver K15/K3 while preserving SolSpire's API shape."""
+    """Project adapter around the canonical Weaver K15 → K3 execution seam."""
     readiness = evaluate_execution_state(
         patch=patch,
         pass_spec=pass_spec,
@@ -101,14 +110,8 @@ def execute_project_patch(
             "mutation_path": "NONE — K15 not invoked",
         }
 
-    spec = PassSpec.from_dict(pass_spec) if not isinstance(pass_spec, PassSpec) else pass_spec
-    result = execute_patch(
-        patch,
-        spec,
-        approval,
-        repo_root=repo_root,
-        run_k3=run_k3,
-    )
+    spec = pass_spec if isinstance(pass_spec, PassSpec) else PassSpec.from_dict(pass_spec)
+    result = execute_patch(patch, spec, approval, repo_root=repo_root, run_k3=run_k3)
     rd = result.to_dict() if hasattr(result, "to_dict") else dict(result)
     final = rd.get("final_status") or "BLOCKED"
     ver = rd.get("verification") or {}

@@ -2,209 +2,176 @@
 """
 Arkadia IMS Auth Account Provisioner
 =====================================
-Creates Firebase Auth accounts for all active IMS node holders.
+Creates or rotates Firebase Auth accounts for active IMS node holders.
 
-Usage:
-  python scripts/create_ims_accounts.py
+Security boundary:
+  - No password is stored in source control.
+  - No credential document is written to disk.
+  - Passwords are supplied through the environment or generated in-memory.
+  - Generated passwords are printed once to stdout and must be captured by
+    the operator through an approved secret-handling channel.
 
 Requires:
-  FIREBASE_SERVICE_ACCOUNT_JSON env var (the full JSON contents of the service account)
-  OR FIREBASE_PROJECT_ID + GOOGLE_APPLICATION_CREDENTIALS
+  FIREBASE_SERVICE_ACCOUNT_JSON env var (full JSON contents)
+  OR GOOGLE_APPLICATION_CREDENTIALS / Firebase Admin credentials.
 
-Output:
-  Prints credentials to stdout. Save and distribute securely.
-  Also writes to data/ims_credentials_sealed.json (encrypted with node key — not plaintext).
+Optional:
+  ROTATE_EXISTING=1  Reset passwords for existing IMS accounts as well as
+                     creating missing accounts.
+  IMS_PASSWORD_<NODE_KEY>  Explicit password for a node when provisioning.
+                           Example: IMS_PASSWORD_ZAHRUNE.
+
+No credential artifact is persisted by this script.
 """
 
 import os
-import sys
 import json
-import hashlib
-import datetime
-
-# ── IMS Node Credential Definitions ──────────────────────────────────────────
+import secrets
+import string
 
 IMS_NODES = [
     {
-        "node_key":     "zahrune",
+        "node_key": "zahrune",
         "display_name": "Zahrune Nova · Divine Favour Yusuf",
-        "ims_id":       "IMS-004",
-        "email":        "zahrune@arkadia.nexus",
-        "password":     "ZahruneNova2026!",
-        "role":         "Sovereign Architect",
+        "ims_id": "IMS-004",
+        "email": "zahrune@arkadia.nexus",
+        "role": "Sovereign Architect",
         "access_level": 3,
     },
     {
-        "node_key":     "jessica",
+        "node_key": "jessica",
         "display_name": "Jessica Whites · Eos-Ryn",
-        "ims_id":       "IMS-003b",
-        "email":        "jessica@arkadia.nexus",
-        "password":     "EosRynHearth2026!",
-        "role":         "Heart Node",
+        "ims_id": "IMS-003b",
+        "email": "jessica@arkadia.nexus",
+        "role": "Heart Node",
         "access_level": 3,
     },
     {
-        "node_key":     "won",
+        "node_key": "won",
         "display_name": "Won John Chong",
-        "ims_id":       "IMS-002",
-        "email":        "won@arkadia.nexus",
-        "password":     "WonSilentArch2026!",
-        "role":         "Silent Architect",
+        "ims_id": "IMS-002",
+        "email": "won@arkadia.nexus",
+        "role": "Silent Architect",
         "access_level": 3,
     },
     {
-        "node_key":     "jay",
+        "node_key": "jay",
         "display_name": "Jay",
-        "ims_id":       "IMS-001",
-        "email":        "jay@arkadia.nexus",
-        "password":     "JayTerrasonic2026!",
-        "role":         "Terrasonic Root",
+        "ims_id": "IMS-001",
+        "email": "jay@arkadia.nexus",
+        "role": "Terrasonic Root",
         "access_level": 3,
     },
     {
-        "node_key":     "eden",
+        "node_key": "eden",
         "display_name": "Eden",
-        "ims_id":       "IMS-003a",
-        "email":        "eden@arkadia.nexus",
-        "password":     "EdenForge2026!",
-        "role":         "Sovereign Forge",
+        "ims_id": "IMS-003a",
+        "email": "eden@arkadia.nexus",
+        "role": "Sovereign Forge",
         "access_level": 3,
     },
 ]
 
+
+def generated_password(length: int = 24) -> str:
+    alphabet = string.ascii_letters + string.digits + "!@#$%^&*_-"
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+def password_for(node: dict) -> str:
+    """Resolve a password without ever persisting it."""
+    env_name = f"IMS_PASSWORD_{node['node_key'].upper()}"
+    supplied = os.environ.get(env_name, "").strip()
+    return supplied or generated_password()
+
+
 def try_firebase_admin():
-    """Attempt to create accounts using firebase-admin SDK."""
+    """Create or rotate Firebase accounts using Firebase Admin SDK."""
     try:
         import firebase_admin
         from firebase_admin import credentials, auth
 
         sa_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON", "")
-        if not sa_json:
-            print("[WARN] FIREBASE_SERVICE_ACCOUNT_JSON not set — skipping live account creation.")
-            return False
+        if sa_json:
+            cred = credentials.Certificate(json.loads(sa_json))
+            if not firebase_admin._apps:
+                firebase_admin.initialize_app(cred)
+        elif not firebase_admin._apps:
+            firebase_admin.initialize_app()
 
-        sa_data = json.loads(sa_json)
-        cred = credentials.Certificate(sa_data)
-
-        if not firebase_admin._apps:
-            firebase_admin.initialize_app(cred)
-
+        rotate_existing = os.environ.get("ROTATE_EXISTING", "").strip().lower() in {
+            "1", "true", "yes", "on"
+        }
         results = []
+
         for node in IMS_NODES:
+            password = password_for(node)
             try:
                 user = auth.get_user_by_email(node["email"])
-                print(f"  [EXISTS] {node['email']} — uid: {user.uid}")
-                results.append({"node_key": node["node_key"], "uid": user.uid, "email": node["email"], "status": "existing"})
+                if rotate_existing:
+                    auth.update_user(user.uid, password=password)
+                    print(f"[ROTATED] {node['email']} — uid: {user.uid} — one-time password: {password}")
+                    status = "rotated"
+                else:
+                    print(f"[EXISTS] {node['email']} — uid: {user.uid} — unchanged")
+                    status = "existing"
+                results.append({"node_key": node["node_key"], "uid": user.uid, "email": node["email"], "status": status})
             except auth.UserNotFoundError:
                 try:
                     user = auth.create_user(
                         email=node["email"],
-                        password=node["password"],
+                        password=password,
                         display_name=node["display_name"],
                     )
-                    print(f"  [CREATED] {node['email']} — uid: {user.uid}")
+                    print(f"[CREATED] {node['email']} — uid: {user.uid} — one-time password: {password}")
                     results.append({"node_key": node["node_key"], "uid": user.uid, "email": node["email"], "status": "created"})
-                except Exception as e:
-                    print(f"  [ERROR] {node['email']}: {e}")
-                    results.append({"node_key": node["node_key"], "email": node["email"], "status": "error", "error": str(e)})
+                except Exception as exc:
+                    print(f"[ERROR] {node['email']}: {exc}")
+                    results.append({"node_key": node["node_key"], "email": node["email"], "status": "error", "error": str(exc)})
 
         return results
 
     except ImportError:
-        print("[INFO] firebase-admin not installed. Run: pip install firebase-admin")
+        print("[ERROR] firebase-admin is not installed. Install it before provisioning.")
         return False
-    except Exception as e:
-        print(f"[ERROR] Firebase Admin initialization failed: {e}")
+    except Exception as exc:
+        print(f"[ERROR] Firebase Admin initialization failed: {exc}")
         return False
-
-
-def generate_credential_document():
-    """Generate the sealed credential document for distribution."""
-    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    
-    credentials_data = {
-        "_meta": {
-            "generated": now,
-            "system": "Arkadia Nexus — IMS Auth Provisioner",
-            "classification": "SEALED — DISTRIBUTE TO NODES INDIVIDUALLY",
-            "note": "Each node receives only their own credential entry. Do not share the full document.",
-        },
-        "credentials": []
-    }
-    
-    for node in IMS_NODES:
-        # Hash the password for storage (not plaintext in shared docs)
-        pw_hash = hashlib.sha256(node["password"].encode()).hexdigest()[:16]
-        credentials_data["credentials"].append({
-            "node_key":     node["node_key"],
-            "display_name": node["display_name"],
-            "ims_id":       node["ims_id"],
-            "email":        node["email"],
-            "password":     node["password"],  # plaintext — keep this file secure
-            "pw_hint":      f"...{node['password'][-4:]}",
-            "pw_hash_prefix": pw_hash,
-            "role":         node["role"],
-            "access_level": node["access_level"],
-            "login_url":    "https://arkadia-prism.vercel.app (Vercel) or via Replit preview",
-            "note":         "Use password mode on the login screen. Magic link requires email server.",
-        })
-    
-    return credentials_data
 
 
 def main():
     print("=" * 60)
     print("  ARKADIA IMS AUTH PROVISIONER")
-    print("  Arkadia Nexus · Identity Mapping Session Nodes")
+    print("  Credential boundary: external/in-memory only")
     print("=" * 60)
     print()
 
-    # Try live Firebase account creation
-    print("── Phase 1: Firebase Account Creation ─────────────────────")
-    firebase_results = try_firebase_admin()
-    
-    if firebase_results:
-        print(f"\n  {len([r for r in firebase_results if r['status'] == 'created'])} accounts created")
-        print(f"  {len([r for r in firebase_results if r['status'] == 'existing'])} accounts already existed")
-        print(f"  {len([r for r in firebase_results if r['status'] == 'error'])} errors\n")
-    else:
-        print("  Firebase Admin not available — credential document only.\n")
+    if not os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON") and not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+        print("[ERROR] Firebase Admin credentials are required; no account changes performed.")
+        raise SystemExit(1)
 
-    # Generate credential document
-    print("── Phase 2: Credential Document Generation ─────────────────")
-    cred_doc = generate_credential_document()
-    
-    # Write to data dir
-    os.makedirs("data", exist_ok=True)
-    output_path = "data/ims_credentials_sealed.json"
-    with open(output_path, "w") as f:
-        json.dump(cred_doc, f, indent=2)
-    print(f"  Credential document written to: {output_path}")
-    print()
+    results = try_firebase_admin()
+    if results is False:
+        raise SystemExit(1)
 
-    # Print summary table
-    print("── Credential Summary ────────────────────────────────────────")
-    print(f"  {'Node':<12} {'IMS':<10} {'Email':<30} {'Password'}")
-    print(f"  {'-'*12} {'-'*10} {'-'*30} {'-'*24}")
-    for node in IMS_NODES:
-        print(f"  {node['node_key']:<12} {node['ims_id']:<10} {node['email']:<30} {node['password']}")
+    created = sum(r["status"] == "created" for r in results)
+    rotated = sum(r["status"] == "rotated" for r in results)
+    existing = sum(r["status"] == "existing" for r in results)
+    errors = sum(r["status"] == "error" for r in results)
+
     print()
-    print("  IMPORTANT: Distribute credentials individually. Do not share this table publicly.")
+    print("── Result ───────────────────────────────────────────────────")
+    print(f"  Created: {created}")
+    print(f"  Rotated: {rotated}")
+    print(f"  Existing/unchanged: {existing}")
+    print(f"  Errors: {errors}")
     print()
-    print("── Login Instructions ────────────────────────────────────────")
-    print("  1. Navigate to the Arkadia Nexus (arkadia-prism.vercel.app or local preview)")
-    print("  2. Tap '🔐 Already a node? Enter your chamber' on the home screen")
-    print("  3. Select 'Password' mode on the login screen")
-    print("  4. Enter your email and password from the credential document above")
-    print("  5. If login fails, contact Zahrune Nova to reset or re-provision the account")
-    print()
-    print("  Note: If FIREBASE_SERVICE_ACCOUNT_JSON is set, re-run this script to create")
-    print("  the accounts live in Firebase. Otherwise, accounts must be created manually")
-    print("  via the Firebase Console (Authentication > Add user).")
-    print()
+    print("No credential file was written to disk.")
+    print("One-time passwords, when generated or rotated, were emitted only to stdout.")
     print("=" * 60)
-    print("  SEALED · IMS-004.DFY.RETURNTHATHOLDS · Arkadia Nexus")
-    print("=" * 60)
+
+    if errors:
+        raise SystemExit(2)
 
 
 if __name__ == "__main__":

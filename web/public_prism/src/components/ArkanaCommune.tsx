@@ -1,3 +1,6 @@
+import { apiFetch } from '../lib/apiClient';
+import { emitSolariunWorkEvent } from '../lib/solariunApi';
+import { API_BASE as API_BASE_CONFIG } from '../lib/apiConfig';
 /**
  * ArkanaCommune — Elite Chat Surface
  *
@@ -15,7 +18,7 @@ import remarkGfm from 'remark-gfm';
 import { Volume2, Square, Send, Trash2, Copy, Check, RotateCcw, Pencil, Paperclip, FileText, X, Bookmark } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { API_BASE as API_BASE_CFG } from '../lib/apiConfig';
-import { arkanaSessionId } from '../lib/arkanaSession';
+import { createArkanaThreadId } from '../lib/arkanaSession';
 import ArkDate from './ArkDate';
 import MarkdownViewer from './MarkdownViewer';
 import OracleVoicePlayer from './OracleVoicePlayer';
@@ -69,16 +72,20 @@ const HELP_TEXT = `**Arkana Commands**
 Or simply speak — Arkana reads the living corpus and responds.`;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const API_BASE    = (API_BASE_CFG || import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-const STORAGE_KEY = 'arkadia_commune_thread';
+const API_BASE    = (API_BASE_CFG || API_BASE_CONFIG || '').replace(/\/$/, '');
+const STORAGE_KEY_PREFIX = 'arkadia_commune_thread:';
+const ACTIVE_THREAD_KEY = 'arkadia_active_thread';
+const LEGACY_STORAGE_KEY = 'arkadia_commune_thread';
 const TOKEN_KEY   = 'arkadia_sovereign_token';
 
-const loadThread = (): Message[] => {
-  try { const r = localStorage.getItem(STORAGE_KEY); return r ? JSON.parse(r) : []; }
-  catch { return []; }
+const loadThread = (threadId: string): Message[] => {
+  try {
+    const r = localStorage.getItem(STORAGE_KEY_PREFIX + threadId) ?? (threadId === 'legacy' ? localStorage.getItem(LEGACY_STORAGE_KEY) : null);
+    return r ? JSON.parse(r) : [];
+  } catch { return []; }
 };
-const saveThread = (msgs: Message[]) => {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs)); } catch {}
+const saveThread = (threadId: string, msgs: Message[]) => {
+  try { localStorage.setItem(STORAGE_KEY_PREFIX + threadId, JSON.stringify(msgs)); } catch {}
 };
 const loadToken = (): string => localStorage.getItem(TOKEN_KEY) || '';
 const saveToken = (t: string) => {
@@ -219,7 +226,8 @@ const SovereignGate: React.FC<{ token: string; onSave: (t: string) => void; onCl
 // ─── Markdown renderer (full canvas with bolds, headers, italics, quotes, emoji) ────────────────────────────
 const MarkdownContent: React.FC<{ text: string; tone: 'user' | 'arkana' }> = ({ text, tone }) => (
   <div className={`arkadia-prose arkadia-prose-${tone}`}>
-    <MarkdownViewer content={text} compact />
+    {/* Scoped dense conversation presentation — does not mutate global MarkdownViewer default */}
+    <MarkdownViewer content={text} compact presentationMode="denseConversation" />
   </div>
 );
 
@@ -255,11 +263,16 @@ const ActionBtn: React.FC<{
 );
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-interface ArkanaProps { initialMessage?: string; }
+interface ArkanaProps { initialMessage?: string; projectId?: number; }
 
-const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
+const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId }) => {
   const { user, isAuthenticated } = useAuth();
-  const [messages, setMessages]         = useState<Message[]>(() => loadThread());
+  const [activeThreadId, setActiveThreadId] = useState<string>(() => {
+    try { return localStorage.getItem(ACTIVE_THREAD_KEY) || createArkanaThreadId(); } catch { return createArkanaThreadId(); }
+  });
+  const [threads, setThreads] = useState<Array<{uuid:string; title:string; project_id:number|null}>>([]);
+  const [threadBusy, setThreadBusy] = useState(false);
+  const [messages, setMessages] = useState<Message[]>(() => loadThread(activeThreadId));
   const [savedIdx, setSavedIdx]         = useState<number | null>(null);
   const [saveBusy, setSaveBusy]         = useState(false);
   const [saveHint, setSaveHint]         = useState('');
@@ -286,6 +299,76 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
   const accent        = isSovereign ? '#C9A84C' : '#00D4AA';
   const accentFaint   = isSovereign ? 'rgba(201,168,76,0.12)' : 'rgba(0,212,170,0.1)';
   const accentBorder  = isSovereign ? 'rgba(201,168,76,0.18)' : 'rgba(0,212,170,0.16)';
+
+  // Canonical thread selection: local continuity backed by the Knowledge OS for authenticated users.
+  useEffect(() => {
+    try { localStorage.setItem(ACTIVE_THREAD_KEY, activeThreadId); } catch {}
+    const localMessages = loadThread(activeThreadId);
+    setMessages(localMessages);
+    if (!isAuthenticated) return;
+    let live = true;
+    apiFetch('/api/commune/threads/' + activeThreadId + '/messages')
+      .then(async r => r.ok ? r.json() : null)
+      .then(data => {
+        const remote = Array.isArray(data?.messages) ? data.messages : [];
+        if (live && remote.length > localMessages.length) {
+          setMessages(remote);
+          saveThread(activeThreadId, remote);
+        }
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [activeThreadId, isAuthenticated, projectId]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let live = true;
+    (async () => {
+      try {
+        const res = await apiFetch('/api/commune/threads' + (projectId != null ? '?project_id=' + projectId : ''));
+        if (!res.ok) return;
+        const data = await res.json();
+        const listed = Array.isArray(data.threads) ? data.threads : [];
+        if (!live) return;
+        if (listed.length === 0) {
+          const created = await apiFetch('/api/commune/threads', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: projectId != null ? 'Project conversation' : 'General conversation', ...(projectId != null ? { project_id: projectId } : {}) }),
+          });
+          if (created.ok) {
+            const d = await created.json(); const t = d?.thread;
+            if (t?.uuid) { setThreads([t]); setActiveThreadId(t.uuid); }
+          }
+        } else {
+          setThreads(listed);
+          if (!listed.some((t: any) => t.uuid === activeThreadId)) setActiveThreadId(listed[0].uuid);
+        }
+      } catch { /* local thread remains usable */ }
+    })();
+    return () => { live = false; };
+  }, [isAuthenticated, projectId]);
+
+  const createNewThread = async () => {
+    if (threadBusy) return;
+    setThreadBusy(true);
+    try {
+      if (isAuthenticated) {
+        const res = await apiFetch('/api/commune/threads', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: projectId != null ? 'New project conversation' : 'New conversation', ...(projectId != null ? { project_id: projectId } : {}) }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data?.thread?.uuid) throw new Error(data?.detail || 'Unable to create thread');
+        setThreads(prev => [data.thread, ...prev]);
+        setActiveThreadId(data.thread.uuid);
+      } else {
+        setActiveThreadId(createArkanaThreadId());
+      }
+      setInput('');
+    } catch (e) {
+      setSaveHint(e instanceof Error ? e.message : 'Unable to create thread');
+    } finally { setThreadBusy(false); }
+  };
 
   // Auto-scroll
   useEffect(() => {
@@ -341,11 +424,10 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
     setSaveHint('');
     try {
       const title = (body.split('\n').find(l => l.trim()) || 'Oracle exchange').slice(0, 120);
-      const res = await fetch(`${API_BASE}/api/personal/ingest-note`, {
+      const res = await apiFetch(`/api/personal/ingest-note`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${user.idToken}`,
         },
         body: JSON.stringify({
           title,
@@ -397,7 +479,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
     formData.append('category', 'COLLECTIVE');
     formData.append('description', `Uploaded via Oracle Chat: ${file.name}`);
 
-    const res = await fetch(`${API_BASE}/api/codex/upload`, {
+    const res = await apiFetch(`/api/codex/upload`, {
       method: 'POST',
       body: formData,
     });
@@ -446,7 +528,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
     if (!userMsg) return;
     setMessages(prev => {
       const next = prev.slice(0, arkanaIdx);
-      saveThread(next);
+      saveThread(activeThreadId, next);
       return next;
     });
     sendMessage(userMsg.content);
@@ -457,7 +539,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
     setInput(content);
     setMessages(prev => {
       const next = prev.slice(0, msgIdx);
-      saveThread(next);
+      saveThread(activeThreadId, next);
       return next;
     });
     taRef.current?.focus();
@@ -479,33 +561,33 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
     if (!sovereignToken.trim()) {
       setMessages(prev => {
         const next = [...prev, { role: 'arkana' as const, content: 'The Forge is sovereign-gated. Open the Gate ⟐ and present your token.' }];
-        saveThread(next); return next;
+        saveThread(activeThreadId, next); return next;
       });
       setLoading(false); return;
     }
     try {
-      const res  = await fetch(`${API_BASE}/api/forge`, {
+      const res  = await apiFetch(`/api/forge`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ archetype: cmd.archetype, scene: cmd.scene, count: cmd.count, sovereign_token: sovereignToken.trim() }),
       });
       const data = await res.json();
       if (!res.ok || data.status === 'failed') {
         const detail = data.detail || (data.errors?.[0]) || 'The Forge could not strike.';
-        setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: `⟐ Forge: ${detail}`, session: 'sovereign' }]; saveThread(next); return next; });
+        setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: `⟐ Forge: ${detail}`, session: 'sovereign' }]; saveThread(activeThreadId, next); return next; });
       } else {
         const images: string[] = data.images || [];
         const header = `⟐ **Forge — ${cmd.archetype}**${cmd.scene ? ` · *${cmd.scene}*` : ''}\n\n${images.length} image${images.length === 1 ? '' : 's'} forged and committed.`;
-        setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: header, session: 'sovereign', images }]; saveThread(next); return next; });
+        setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: header, session: 'sovereign', images }]; saveThread(activeThreadId, next); return next; });
       }
     } catch {
-      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: '⟐ Forge: the field could not reach the image plane. Try again.' }]; saveThread(next); return next; });
+      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: '⟐ Forge: the field could not reach the image plane. Try again.' }]; saveThread(activeThreadId, next); return next; });
     } finally { setLoading(false); }
   };
 
   // ── API: Codex ─────────────────────────────────────────────────────────────
   const sendCodexQuery = async (query: string) => {
     try {
-      const res  = await fetch(`${API_BASE}/api/oracle-context?query=${encodeURIComponent(query)}`);
+      const res  = await apiFetch(`/api/oracle-context?query=${encodeURIComponent(query)}`);
       const data = await res.json();
       const hits: Array<{ label: string; category: string }> = data.refs || [];
       const chars: number = data.context_chars || 0;
@@ -513,9 +595,9 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
       const reply = hits.length === 0
         ? `⟐ **Codex Probe** · *"${query}"*\n\nNo scrolls matched this query.`
         : `⟐ **Codex Probe** · *"${query}"*\n\nArkana is drawing from **${hits.length} scroll${hits.length === 1 ? '' : 's'}** (${chars.toLocaleString()} chars):\n\n${hits.map(r => `- ${catIcon[r.category] || '📄'} **${r.label}** · \`${r.category}\``).join('\n')}\n\nThis context is woven into the next Oracle response.`;
-      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: reply }]; saveThread(next); return next; });
+      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: reply }]; saveThread(activeThreadId, next); return next; });
     } catch {
-      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: '⟐ Codex: could not reach the corpus index.' }]; saveThread(next); return next; });
+      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: '⟐ Codex: could not reach the corpus index.' }]; saveThread(activeThreadId, next); return next; });
     } finally { setLoading(false); }
   };
 
@@ -530,11 +612,11 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
       attachment: attachment ? { name: attachment.name, type: attachment.type, size: attachment.size } : undefined,
     };
     
-    setMessages(prev => { const next = [...prev, userMsg]; saveThread(next); return next; });
+    setMessages(prev => { const next = [...prev, userMsg]; saveThread(activeThreadId, next); return next; });
     setLoading(true);
 
     if (isHelpCommand(text)) {
-      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: HELP_TEXT }]; saveThread(next); return next; });
+      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: HELP_TEXT }]; saveThread(activeThreadId, next); return next; });
       setLoading(false); setAttachment(null); return;
     }
     const forge = parseForgeCommand(text);
@@ -554,11 +636,12 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
       const body: Record<string, unknown> = {
         message: messageWithContext,
         timestamp: Date.now(),
-        session_id: arkanaSessionId(user?.uid, sovereignToken),
+        session_id: activeThreadId,
+        ...(projectId != null ? { project_id: projectId } : {}),
       };
       if (sovereignToken.trim()) body.sovereign_token = sovereignToken.trim();
       
-      const res  = await fetch(`${API_BASE}/api/commune/resonance`, {
+      const res  = await apiFetch(`/api/commune/resonance`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
@@ -569,7 +652,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
       // If we have a file, upload it to the codex for future RAG
       if (attachment && attachment.content.length > 50) {
         try {
-          await fetch(`${API_BASE}/api/scrolls`, {
+          await apiFetch(`/api/scrolls`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -586,10 +669,20 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
       
       setMessages(prev => {
         const next = [...prev, { role: 'arkana' as const, content: data.reply, resonance: data.resonance, session }];
-        saveThread(next); return next;
+        saveThread(activeThreadId, next); return next;
       });
+      try {
+        await emitSolariunWorkEvent({
+          event_type: 'ORACLE_MESSAGE',
+          work_ref: String(body.session_id || 'oracle'),
+          scope_ref: 'oracle',
+          state_after_ref: session,
+        });
+      } catch {
+        // Oracle reply succeeded; continuity emission is best-effort.
+      }
     } catch (err: any) {
-      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: `The field is recalibrating. Try again.\n\n*(${err?.message || 'unknown'})*` }]; saveThread(next); return next; });
+      setMessages(prev => { const next = [...prev, { role: 'arkana' as const, content: `The field is recalibrating. Try again.\n\n*(${err?.message || 'unknown'})*` }]; saveThread(activeThreadId, next); return next; });
     } finally { setLoading(false); setAttachment(null); }
   };
 
@@ -604,7 +697,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
 
   const clearThread = () => {
     if (!window.confirm('Clear the entire thread?')) return;
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY_PREFIX + activeThreadId);
     setMessages([]);
     if (ttsOk) window.speechSynthesis.cancel();
     setSpeakingIdx(null);
@@ -612,11 +705,14 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
   };
 
   const lastSession  = messages.filter(m => m.role === 'arkana').slice(-1)[0]?.session ?? null;
+  const activeThreadTitle = threads.find(t => t.uuid === activeThreadId)?.title || 'Conversation';
   const displaySession = lastSession ?? (isSovereign ? 'sovereign' : 'guest');
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div
+      className="arkana-conversation"
+      data-arkana-density="dense"
       style={{
         position: 'relative',
         display: 'flex',
@@ -629,6 +725,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
 
       {/* ── Header ── */}
       <header
+        className="arkana-conversation-header"
         style={{
           flexShrink: 0,
           display: 'flex',
@@ -664,6 +761,20 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
 
         {/* Right: controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <button onClick={createNewThread} disabled={threadBusy} title="New conversation" style={{
+            padding: '5px 9px', background: 'transparent', border: '1px solid rgba(255,255,255,0.07)',
+            borderRadius: 6, color: 'rgba(232,232,232,0.38)', cursor: threadBusy ? 'wait' : 'pointer',
+            fontFamily: 'monospace', fontSize: 8.5, letterSpacing: '0.12em', textTransform: 'uppercase'
+          }}>+ Chat</button>
+          {threads.length > 0 && (
+            <select aria-label="Conversation thread" value={activeThreadId} onChange={e => setActiveThreadId(e.target.value)} style={{
+              maxWidth: 150, padding: '5px 7px', background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.07)', borderRadius: 6, color: 'rgba(232,232,232,0.55)',
+              fontFamily: 'monospace', fontSize: 8.5
+            }}>
+              {threads.map(t => <option key={t.uuid} value={t.uuid}>{t.title}</option>)}
+            </select>
+          )}
           {messages.length > 0 && (
             <button
               onClick={clearThread}
@@ -691,7 +802,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
               }}
             />
             <span style={{ fontFamily: 'monospace', fontSize: 8.5, letterSpacing: '0.2em', textTransform: 'uppercase', color: isSovereign ? 'rgba(201,168,76,0.6)' : 'rgba(0,212,170,0.55)' }}>
-              {displaySession}
+              {activeThreadTitle}
             </span>
           </div>
 
@@ -721,6 +832,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
       {/* ── Messages ── */}
       <div
         ref={scrollRef}
+        className="arkana-conversation-scroll"
         style={{
           flex: 1,
           overflowY: 'auto',
@@ -766,6 +878,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
               return (
                 <motion.div
                   key={i}
+                  className={`arkana-message arkana-message-${msg.role}`}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.24 }}
@@ -775,8 +888,8 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                 >
                   {isUser ? (
                     /* ── USER: compact right-aligned pill ── */
-                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                      <div style={{
+                    <div className="arkana-user-row" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <div className="arkana-user-bubble" style={{
                         maxWidth: '68%',
                         padding: '9px 14px',
                         borderRadius: '14px 14px 3px 14px',
@@ -799,9 +912,9 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                     </div>
                   ) : (
                     /* ── ARKANA: full-width canvas, no bubble ── */
-                    <div style={{ paddingTop: 8, paddingBottom: 6, borderLeft: `2px solid ${msgAccent}22`, paddingLeft: 14, marginLeft: 2 }}>
+                    <div className="arkana-response" style={{ paddingTop: 8, paddingBottom: 6, borderLeft: `2px solid ${msgAccent}22`, paddingLeft: 14, marginLeft: 2 }}>
                       {/* Label */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
+                      <div className="arkana-message-meta" style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
                         <div style={{ width: 14, height: '1px', background: msgAccent, opacity: 0.6 }} />
                         <span style={{
                           fontFamily: '"Cinzel", serif', fontSize: 8, letterSpacing: '0.28em',
@@ -818,7 +931,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                       </div>
 
                       {/* Full-width markdown — no bubble constraint = tables breathe */}
-                      <MarkdownContent text={msg.content} tone="arkana" />
+                      <div className="arkana-dense-renderer"><MarkdownContent text={msg.content} tone="arkana" /></div>
 
                       {/* Forge images */}
                       {msg.images && msg.images.length > 0 && (
@@ -845,7 +958,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                       </AnimatePresence>
 
                       {/* Thin separator after each Arkana response */}
-                      <div style={{ marginTop: 20, height: 1, background: isSov ? 'linear-gradient(90deg, rgba(201,168,76,0.22), rgba(201,168,76,0.06) 55%, transparent)' : 'linear-gradient(90deg, rgba(0,212,170,0.20), rgba(0,212,170,0.05) 55%, transparent)' }} />
+                      <div className="arkana-message-separator" style={{ marginTop: 20, height: 1, background: isSov ? 'linear-gradient(90deg, rgba(201,168,76,0.22), rgba(201,168,76,0.06) 55%, transparent)' : 'linear-gradient(90deg, rgba(0,212,170,0.20), rgba(0,212,170,0.05) 55%, transparent)' }} />
                     </div>
                   )}
 
@@ -853,6 +966,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
                   <AnimatePresence>
                     {(!isUser || hoverIdx === i || speakingIdx === i || copiedIdx === i || voicePlayerIdx === i) && (
                       <motion.div
+                        className="arkana-message-toolbar"
                         initial={{ opacity: 0, y: 2 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0 }}
@@ -933,6 +1047,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage }) => {
 
       {/* ── Composer ── */}
       <div
+        className="arkana-composer"
         style={{
           flexShrink: 0,
           padding: 'clamp(10px,2vw,16px) clamp(12px,3vw,22px)',

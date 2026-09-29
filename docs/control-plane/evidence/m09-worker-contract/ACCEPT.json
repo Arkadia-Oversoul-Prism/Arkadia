@@ -1,0 +1,25 @@
+{
+  "move_id": "M09",
+  "name": "worker-contract",
+  "status": "accepted",
+  "accepted_at": "2026-09-16T06:00:13Z",
+  "authorization": "Architect acceptance of M05\u2013M09 based on merged verification record (PR #51)",
+  "verification_merge_commit": "0f36cbf926a098e847b57acbc6ef9147551256fc",
+  "verification_commit": "aaeff3b8e5098c5aac86deb2de235ea172d5e6b3",
+  "batch_verification_pr": "https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/51",
+  "implementation_sha": "7fcb9a10a7d5e17c5c3060fd2c994b1012c85e33",
+  "implementation_merge_commit": "f9a68feb15e1253e06253bc54231292967b84a8e",
+  "pr_implementation": "https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/47",
+  "acceptance_criteria": {
+    "contract_docs_and_schema": true,
+    "lifecycle_wake_to_terminate": true,
+    "merge_deploy_human_only": true,
+    "worker_stops_at_review": true,
+    "focused_tests_passed": true,
+    "verification_record_merged": true
+  },
+  "next_legal_move_after_acceptance": null,
+  "horizon_iii_declared": false,
+  "aeas_implementation_activated": false,
+  "deploy": "not_performed"
+}

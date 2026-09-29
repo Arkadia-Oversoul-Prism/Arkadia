@@ -1,5 +1,11 @@
 # Current State
 > Moved to `.bootstrap/01_STATE.md`
+>
+> **Historical archive.** The checkpoint entries below are frozen records of what was
+> verified at the time they were written. They are NOT a live status readout.
+> Canonical values as of `main` @ `1d4ed03` (2026-09-28):
+> architecture gate **11/11**, `api/main.py` **2519/2600 lines**.
+> Derive live status from the repository and a test run, never from this prose.
 
 ## CS1 — Conversational Spine (Oracle/Arkana runtime) — COMPLETE
 

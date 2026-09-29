@@ -1,0 +1,44 @@
+name: Phase 6 — Persistent Execution Gate
+
+on:
+  pull_request:
+    paths:
+      - 'kernel/jobs.py'
+      - 'kernel/worker.py'
+      - 'lab/execution/persistence.py'
+      - 'tests/test_phase6_persistent_execution.py'
+      - '.github/workflows/phase6-persistent-execution.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'kernel/jobs.py'
+      - 'kernel/worker.py'
+      - 'lab/execution/persistence.py'
+      - 'tests/test_phase6_persistent_execution.py'
+      - '.github/workflows/phase6-persistent-execution.yml'
+
+jobs:
+  phase6:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install project dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Install test runner
+        run: python -m pip install pytest
+      - name: Phase 6 persistent execution gate
+        id: phase6_persistence
+        run: |
+          set -euo pipefail
+          python -m pytest tests/test_phase6_persistent_execution.py -q
+          echo "Phase 6 kill-worker → checkpoint → resume gate PASS"
+      - name: Phase 6 gate evidence
+        if: always()
+        run: |
+          echo "Gate: kill worker mid-task → durable checkpoint → fresh worker resumes"
+          echo "Constraint: existing JobStore/worker path only; no second queue architecture"

@@ -1,61 +1,95 @@
-# R3 — SolSpire Ground-Truth Reconciliation
+# R3 — SolSpire ExecutionRuntime Boundary
 
-**Base:** `ecb4e7fad1e43d2afafe1fb539f8440bb8f4d772` (R2)
-**Head:** `3c7686885530fff8cd5e432dfc7903bb60e27026`
-**Scope:** reconcile SolSpire `ExecutionRuntime` without inventing a second engineering execution engine
-**Status:** IMPLEMENTED / VALIDATION PENDING
+**Branch:** `recon/solspire-r0`
+**R3 scope:** ExecutionRuntime decision and constraint
+**Status:** IMPLEMENTED
+**Authority:** descriptive architecture record; not an authorization mechanism
 
-## Finding
+## Decision
 
-`solspire/execution_runtime.py` is not semantically equivalent to Weaver's governed engineering execution. It owns a separate generic in-process workflow lifecycle: execute, pause, resume, cancel, execution state, and retry accounting.
+Retain `solspire/execution_runtime.py` as a **general project-workflow lifecycle substrate**.
 
-That lifecycle is retained for now because no canonical Weaver equivalent was found in the inspected surface. R3 therefore does **not** pretend the two runtimes are interchangeable.
+It owns:
 
-The important boundary is instead made explicit: `ExecutionRuntime` is a generic SolSpire workflow coordinator, not an engineering repository mutation engine.
+- in-process execution lifecycle;
+- plan execution state;
+- pause / resume / cancel;
+- bounded retries;
+- tool dispatch for non-governed project workflow;
+- caller ownership propagation for project creation.
 
-## Surgical change
+It does **not** own:
 
-The previous dispatcher used a catch-all match arm:
+- PassSpec semantics;
+- PatchApproval semantics;
+- K15 readiness;
+- K3 transaction semantics;
+- repository authorization;
+- governed patch execution;
+- GitHub repository commits;
+- autonomous engineering mutation.
 
-`case "llm" | _:`
+## R3-01 — Mutation boundary
 
-That meant an unknown tool name silently became an LLM invocation. This was an accidental authority expansion and could turn an unrecognized engineering operation into model execution.
+ExecutionRuntime now fails closed for mutation-class tools including:
 
-R3 changes dispatch to:
+- `fs_write`
+- `fs_delete`
+- `github_commit`
+- `git_commit`
+- `repository_mutation`
+- `execute_patch`
 
-- explicitly recognize `llm`;
-- explicitly recognize the existing read/workspace/project operations;
-- fail closed with `NOT_AVAILABLE` for unknown tools;
-- report `mutation_path: NONE` for unknown operations.
+A blocked step returns `MUTATION_DISABLED` and explicitly directs engineering mutation to the canonical Weaver K15 → K3 path.
 
-No direct Weaver transaction is added to this runtime. No second K3 path is introduced.
+This is a runtime constraint, not a new authorization authority.
 
-## Ownership after R3
+## R3-02 — Planner convergence
 
-```text
-SolSpire ExecutionRuntime
-  ├── workflow lifecycle: execute / pause / resume / cancel
-  ├── read/workspace/project tool dispatch
-  └── explicit LLM invocation
+The SolSpire planner no longer advertises `fs_write` as an available runtime tool. Coding templates therefore produce a code proposal rather than writing into a workspace.
 
-Engineering repository execution
-  └── Weaver → Governance → K15 → K3
-```
+LLM planning is explicitly instructed not to emit repository mutation tools.
 
-## Tests
+## R3-03 — Ownership propagation
 
-`tests/test_solspire_r3_runtime_boundaries.py` proves:
+When the general runtime creates a project, it passes the authenticated execution owner's UID through to the project manager. The runtime therefore does not create an unowned project as a side effect of an authenticated workflow.
 
-- unknown tool names fail closed instead of falling through to LLM;
-- explicit LLM invocation remains functional;
-- the runtime does not import or invoke Weaver's transaction/execution mutation primitives directly.
+## Preserved capabilities
 
-## Explicitly deferred
+Read-only workflow operations remain available:
 
-R3 does not remove `ExecutionRuntime`, redesign its lifecycle, or migrate generic SolSpire workflow state into Weaver without a proven canonical owner and caller inventory.
+- `fs_read`
+- `fs_list`
+- `github_repos`
+- `github_tree`
+- `github_read`
+- `llm`
 
-Frontend integration remains deferred.
+`project_create` remains a legitimate SolSpire project-state operation and now preserves caller ownership.
 
-## Exit condition
+## Explicit non-goals
 
-The accidental catch-all execution path is removed and the runtime's ownership is explicit. Future consolidation can address lifecycle duplication only after identifying a real canonical owner rather than deleting a functioning compatibility surface by assumption.
+R3 does not:
+
+- introduce K17 semantics;
+- create a new authorization authority;
+- introduce autonomous mutation;
+- create a second K3 path;
+- remove the general execution lifecycle;
+- redesign the frontend;
+- collapse the duplicated `/run` routes;
+- redefine Knowledge ownership.
+
+## R3 invariant
+
+> **ExecutionRuntime may orchestrate general project workflow, but execution through it is never authorization for engineering repository mutation.**
+
+Engineering repository mutation remains exclusively governed by the Weaver → Governance → K15 → K3 path.
+
+## Verification target
+
+`tests/test_solspire_r3_execution_runtime.py` proves:
+
+1. mutation-class runtime steps fail closed;
+2. read-only workflow steps remain executable;
+3. authenticated owner context propagates through project creation.
