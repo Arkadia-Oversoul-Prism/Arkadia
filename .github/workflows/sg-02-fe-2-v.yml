@@ -21,10 +21,11 @@ on:
       - 'lab/execution/**'
       - 'tests/test_phase5_governed_execution.py'
       - 'tests/test_phase4_evolution_planner.py'
-      - 'lab/evolution/**'
-      - 'lab/execution/**'
-      - 'tests/test_phase5_governed_execution.py'
-      - 'tests/test_phase4_evolution_planner.py'
+      # The boundary's own contract surfaces: a change that rewrites the policy or
+      # its fitness tests must be judged by the boundary it rewrites, or the gate
+      # is self-exempt.
+      - 'scripts/cp10_mutation_boundary_policy.py'
+      - 'tests/test_m02a_ci_gate_integrity.py'
       - 'requirements.txt'
       - '.github/workflows/sg-02-fe-2-v.yml'
   pull_request:
@@ -42,6 +43,11 @@ on:
       - 'tests/test_phase3_harness_selftest.py'
       - 'tests/test_phase3_council.py'
       - 'lab/council/**'
+      # The boundary's own contract surfaces: a change that rewrites the policy or
+      # its fitness tests must be judged by the boundary it rewrites, or the gate
+      # is self-exempt.
+      - 'scripts/cp10_mutation_boundary_policy.py'
+      - 'tests/test_m02a_ci_gate_integrity.py'
       - 'requirements.txt'
       - '.github/workflows/sg-02-fe-2-v.yml'
   workflow_dispatch:
@@ -79,8 +85,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Need parent commit for mutation-boundary HEAD^ checks (default depth=1 → exit 128).
-          fetch-depth: 2
+          # The mutation-boundary range is the whole guarded change set
+          # (pull_request.base.sha, else the pushed-from commit), which can be
+          # arbitrarily far back; depth=2 only reached HEAD^ and silently
+          # narrowed a PR merge's range to the merge itself.
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 10.26.1
@@ -426,11 +435,28 @@ jobs:
         working-directory: .
         run: |
           set -e
-          # M02A: tip-commit policy is constitutional denylist + legitimate surface check.
+          # M02A: the boundary judges the whole guarded change set, not one commit.
           # Lab-phase harness-only allowlist rejected product work on main (policy defect).
-          git rev-parse --verify HEAD^ >/dev/null
-          changed="$(git diff --name-only HEAD^ HEAD)"
-          echo "Changed files since parent:"; echo "$changed"
+          #
+          # The range endpoint is chosen by the tested policy module, not re-derived
+          # here: pull_request.base.sha for a PR (the full PR range), push.before for
+          # a push, HEAD^ only as a last resort. Diffing HEAD^ alone judged only the
+          # tip commit: on a multi-commit PR a path added in an earlier commit showed
+          # no change and never failed (PR #110 ->
+          # opportunity_radar/SAPZ_CAPTURE_STATE.md).
+          range_lines="$(python scripts/cp10_mutation_boundary_policy.py --resolve-range)"
+          base="$(printf '%s\n' "$range_lines" | sed -n '1p')"
+          reason="$(printf '%s\n' "$range_lines" | sed -n '2p')"
+          if [ -z "$base" ]; then
+            echo "Mutation boundary FAIL: $reason"; exit 1
+          fi
+          if ! git rev-parse --verify --quiet "$base^{commit}" >/dev/null; then
+            echo "Mutation boundary FAIL: base ref '$base' ($reason) is not available in the checkout"
+            exit 1
+          fi
+          echo "Mutation-boundary range: $base..HEAD  [$reason]"
+          changed="$(git diff --name-only "$base" HEAD)"
+          echo "Changed files across the guarded range:"; echo "$changed"
           # Every non-empty path must match a known legitimate repository surface.
           # enterprises/ carries the live Eden commercial pilot (enterprise.json,
           # dashboard.schema.json, tasks.seed.json) seeded via the SolSpire enterprise
@@ -461,7 +487,7 @@ jobs:
           if echo "$changed" | grep -v '^$' | grep -Eq "$forbid"; then
             # Allow V2 only if the diff is a re-export/demotion stub (no new dual shell).
             if echo "$changed" | grep -q 'SolSpireExperienceV2'; then
-              if git diff HEAD^ HEAD -- '**/SolSpireExperienceV2.tsx' | grep -Eq '^\+.*function |^\+.*export default function'; then
+              if git diff "$base" HEAD -- '**/SolSpireExperienceV2.tsx' | grep -Eq '^\+.*function |^\+.*export default function'; then
                 echo "Forbidden: SolSpireExperienceV2 active implementation (V2_V3)"; exit 1
               fi
             fi
@@ -470,7 +496,7 @@ jobs:
             fi
           fi
           # Workflow must not gain autonomous merge/deploy/push.
-          if git diff HEAD^ HEAD -- .github/workflows/sg-02-fe-2-v.yml | grep -v 'grep -Eq' | grep -Eq '(^|[[:space:];|&])git[[:space:]]+(push|commit)|(^|[[:space:];|&])gh[[:space:]]+(pr|workflow)[[:space:]]+(create|merge)|workflow_dispatch.*merge'; then
+          if git diff "$base" HEAD -- .github/workflows/sg-02-fe-2-v.yml | grep -v 'grep -Eq' | grep -Eq '(^|[[:space:];|&])git[[:space:]]+(push|commit)|(^|[[:space:];|&])gh[[:space:]]+(pr|workflow)[[:space:]]+(create|merge)|workflow_dispatch.*merge'; then
             echo "Forbidden automation pattern in CP10 workflow diff"; exit 1
           fi
           echo "Mutation boundary PASS (M02A legitimate-surface + constitutional denylist)"
