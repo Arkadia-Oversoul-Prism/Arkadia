@@ -62,23 +62,43 @@ An `--emit-legit` mode (print `LEGIT.pattern` for a mirror assertion) was drafte
 pass and **removed before commit**: nothing consumed it and it was untested surface. The
 remaining change is the minimum that closes the drift defect.
 
-## 5. Baseline comparison and remaining uncertainty
+## 5. Baseline comparison (independently reproduced, not inherited)
+
+Both trees were run this pass in the same environment
+(`PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q`, excluding the two
+known collection-error modules) against a **pristine `origin/main` worktree**:
 
 | | `main` @ `02fe88c` | this branch |
 |---|---|---|
-| contract-recorded baseline | 804 / 54 / 12 / 2 collection errors @ `6038989` | — |
-| re-measured this pass | see EVIDENCE §5 note | pending full-suite completion |
-| `tests/architecture` | 11/11 (per prior classification record) | **60 passed** together with the M02A gate test |
+| passed / failed / skipped | **959 / 54 / 12** | **962 / 54 / 12** |
+| failure fingerprint (`sha256` of the sorted FAILED node ids) | `10619a7231ee50653ad33235b0c405fb38023d192bc23f999f15b494ad3753df` | `10619a7231ee50653ad33235b0c405fb38023d192bc23f999f15b494ad3753df` |
+| distinct failing test files | 40 | 40 |
+
+**The failure sets are byte-identical** (`diff` of the two sorted node-id lists is empty), so
+the fingerprint is unchanged: **zero new failures, zero repaired baseline debt**. Only the
+pass count moved, by exactly **+3** — the three M02A tests that replaced the old drift checks.
+No failing test couples to `cp10_mutation_boundary_policy.py` or `sg-02-fe-2-v.yml`
+(checked by grepping the failing files for both changed surfaces: no match), which is
+consistent with the identical fingerprint.
+
+The contract-recorded baseline (`804 passed / 54 failed / 12 skipped / 2 errors` @ `6038989`)
+is *not* directly comparable: `main` has advanced to `02fe88c` and the invocation differs (the
+two known collection-error modules are excluded here). The fingerprint is the attribution
+unit, and it is unchanged.
+
+CI on PR #120 head `acbf685`: **`validate` = success**, **Full-history secret scan = success**.
 
 Remaining uncertainty, stated rather than hidden:
 
-- The contract's recorded baseline (`804 passed / 54 failed / 12 skipped / 2 errors`) is
-  anchored at `6038989`; `origin/main` has since advanced to `02fe88c`, so counts are not
-  directly comparable. The **failure fingerprint**, not the count, is the attribution unit.
-- A full-suite run was started on this branch this pass and is the next heartbeat's
-  first reconstruction input; it is not claimed here as complete.
+- The 54 pre-existing failures are **baseline debt, recorded and not fixed** here, per the
+  contract's rule. They cluster in frontend source-string assertions
+  (`test_prism_pass_c_surface_ownership`, `test_ais_w2_living_gate_grove_handoff`,
+  `test_solariun_experience_consolidation_01`, `test_weaver_sci_*`) — the documented
+  convention in this repo, and unrelated to CP10.
 - The pre-existing `ModuleNotFoundError: No module named 'arkadia_drive_sync'` collection
   error and the `google.generativeai` deprecation warning are baseline debt, untouched.
+- No `pnpm build` was attempted: no npm registry access in this sandbox, so the frontend
+  build remains environment-blocked as recorded.
 
 ## 6. Authority boundary
 
