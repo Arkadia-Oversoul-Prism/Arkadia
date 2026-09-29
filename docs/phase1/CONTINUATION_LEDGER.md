@@ -1195,3 +1195,70 @@ curation call, not a mechanical ingestion fix.
 ### Authorization
 
 Human review/merge remains required. No baseline debt folded in.
+
+---
+
+## Continuation — GATE-10 · CP10 mutation boundary, pass 2 (allowlist completion)
+
+**Session date:** 2026-09-29
+**Role:** Engineering Runtime (hourly heartbeat — reconstruct, classify, fix, prove, persist)
+**Branch / PR:** `gate10/cp10-allowlist-root-docs` → **PR #105** (human-only merge, still OPEN)
+**BASE_MAIN at pass start:** `a26af408c269729a57d0a53c6ad39fcf0ca22fdf` (merge of PR #104)
+**Head at pass start:** `6a9eec9` · **Head at pass end:** `904b53e`
+
+### Why pass 2
+
+Pass 1 restored CP10 for the change sets already on `main`. Auditing the *open* PRs showed the
+allowlist was still an incomplete inventory of merged surfaces, so `main` would have gone red
+again on the next merge:
+
+- `knowledge/` — PR #109 changes `knowledge/static_ingestion.py`; the step rejects it.
+- `spiral_grove/` — **self-contradiction**: the workflow triggers on `spiral_grove/**` while its
+  own allowlist rejects `spiral_grove/__init__.py`.
+- `conftest.py` (root) — test-session root fixture.
+
+### Bounded change
+
+| file | change |
+|---|---|
+| `scripts/cp10_mutation_boundary_policy.py` | `LEGIT`: add `conftest\.py`, `knowledge/`, `spiral_grove/` |
+| `.github/workflows/sg-02-fe-2-v.yml` | sync inline `legit=` mirror |
+| `tests/test_m02a_ci_gate_integrity.py` | +6 tests (positives + lookalike negatives + drift) |
+| `docs/control-plane/evidence/gate10-cp10-allowlist-root-docs/EVIDENCE.md` | sections 6-7 |
+
+Anchoring kept: `conftest\.py` root-only; `knowledge/`, `spiral_grove/` directory-prefix.
+`vault/`, `secret-backdoor/`, `knowledge_evil/`, `.knowledge/`, `somewhere/conftest.py` still
+fail; `SolSpireExperienceV3.tsx` still forbidden by the separate `forbid` stage. `api/main.py`
+untouched (no boot-code compile gate required).
+
+### Verification
+
+- `m02a_ci_gate_integrity` + `tests/architecture` → **35 passed** (architecture 10/10).
+- Exact-CI bash simulation: PR #104 and PR #109 change sets FAIL → **PASS**; negatives still FAIL.
+- Full suite, this worktree vs baseline `a26af408`, same invocation:
+
+| | passed | failed | skipped | errors | failing-node fingerprint |
+|---|---|---|---|---|---|
+| baseline `a26af408` | 903 | 49 | 12 | 2 | `e1ed0b1ea635` |
+| after pass 2 | 913 | 49 | 12 | 2 | `e1ed0b1ea635` |
+
++10 passed = the new tests. Failing-node fingerprint **byte-identical**. No baseline debt
+touched, fixed, or newly attributed.
+
+- **CI on pushed head `904b53e`:** run `36509460181` → `SG-02-FE.2-V/validate = success`.
+  PR #105 checks all green; `mergeable=MERGEABLE`, `mergeStateStatus=CLEAN`.
+
+### Merge-order hazard (sovereign decision — not resolved here)
+
+`docs/phase1/CONTINUATION_LEDGER.md` is appended by **both** PR #105 and PR #109; they conflict
+textually. Suggested: merge #105 first, then rebase #109. Recorded, not decided.
+
+### Next bounded task
+
+`main` turns green only on the sovereign's merge — this branch cannot do it. Once #105 merges,
+re-run CP10 on `main` and triage #106–#109 (all currently `CLEAN`). Baseline debt
+(49 failures + 2 collection errors) remains an unstarted candidate workstream.
+
+### Authorization
+
+Human review/merge only. No consequential external action taken.
