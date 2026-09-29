@@ -1155,3 +1155,26 @@ projections keep their pre-fix checksum; they dedupe but are not migrated.
 ### Authorization
 
 Human review/merge remains required. No baseline debt folded in.
+
+### Credential finding (operational, for the next heartbeat)
+
+`GITHUB_TOKEN` and `GITHUB_PERSONAL_ACCESS_TOKEN` both return **401** for this repo.
+The `github_token` provider credential authenticates (200) and carries write scope —
+the branch push and PR creation succeeded with it. Earlier passes concluded
+"env GITHUB_TOKEN is read-only → HARD STOP". That conclusion was a misdiagnosis of a
+401: read-only and unauthenticated are different failures, and the write-capable
+credential was present the whole time. Verify *which* credential authenticates before
+declaring BLOCKED.
+
+### Pass state (persisted)
+
+- Active gate: Workstream K — Checkpoint K5 (Static Ingestion). Not closed.
+- Active PR: **#109** (`gate-k/k5-static-ingestion-idempotency`), status VERIFIED,
+  awaiting sovereign review + merge.
+- Other open PRs (#105–#108, #71, #6, #5, #4, #3, #2, #1) do not map to Workstream K.
+- Measured baseline at `a26af40`: **49F / 903P / 12S / 2E**, arch 11/11. 49 failing
+  node-ids recorded. The contract's stated baseline (`6038989`, 804P/54F, arch 9/10)
+  is stale and must not be used for attribution.
+- Next bounded task: none selected this pass. K5's remaining scope is sovereign
+  curation (`docs/recon/`, `docs/verification/`, non-`docs/*.md` markdown) — not
+  mechanically executable without human authority. Do not self-expand into it.
