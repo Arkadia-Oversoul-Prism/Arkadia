@@ -16,6 +16,10 @@
 - **Local ref hygiene:** `gate-hygiene/prism-pass-c-helper-rewrite-01` is a stale, never-pushed
   local ref at `417d32d`. Not a competing PR; no duplicate work on the remote.
 - **Publication:** PR opened — sovereign review. No merge, no force-push, `main` untouched.
+- **Frontend CI (not mine, not blocking the claim):** Vercel reports `failure` on main `417d32d`,
+  i.e. it was already red *before* this branch. It is `success` on `ee3fac1` and on this branch
+  head, because the Vercel status is per-commit and this diff contains no frontend file. Outside
+  this bounded task — recorded, not diagnosed further (would require frontend scope).
 
 ## Fingerprint (measured this pass, not remembered)
 
