@@ -3,8 +3,48 @@ import type { GroveLearningActivity, LearningActivityKind } from '../../data/spi
 
 const DRAFT_PREFIX = 'arkadia.spiral-grove.activity-runtime-draft.v1:'
 const COMPLETE_PREFIX = 'arkadia.spiral-grove.activity-runtime-complete.v1:'
+const STORAGE_VERSION = 1
+
+type DraftRecord = { version: number; activity_id: string; activity_kind: LearningActivityKind; value: string; updated_at: string }
+type CompletionRecord = { version: number; activity_id: string; completed: true; completed_at: string }
 
 export interface ActivityRuntimeProps { activity: GroveLearningActivity }
+
+function readDraft(key: string, activity: GroveLearningActivity): string {
+  if (typeof window === 'undefined') return ''
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) return ''
+    const record = JSON.parse(raw) as Partial<DraftRecord>
+    if (record.version !== STORAGE_VERSION || record.activity_id !== activity.id || record.activity_kind !== activity.kind || typeof record.value !== 'string') return ''
+    return record.value
+  } catch { return '' }
+}
+
+function readCompletion(key: string, activity: GroveLearningActivity): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) return false
+    const record = JSON.parse(raw) as Partial<CompletionRecord>
+    return record.version === STORAGE_VERSION && record.activity_id === activity.id && record.completed === true && typeof record.completed_at === 'string'
+  } catch { return false }
+}
+
+function writeDraft(key: string, activity: GroveLearningActivity, value: string): boolean {
+  if (typeof window === 'undefined') return false
+  try { const record: DraftRecord = { version: STORAGE_VERSION, activity_id: activity.id, activity_kind: activity.kind, value, updated_at: new Date().toISOString() }; window.localStorage.setItem(key, JSON.stringify(record)); return true } catch { return false }
+}
+
+function writeCompletion(key: string, activity: GroveLearningActivity): boolean {
+  if (typeof window === 'undefined') return false
+  try { const record: CompletionRecord = { version: STORAGE_VERSION, activity_id: activity.id, completed: true, completed_at: new Date().toISOString() }; window.localStorage.setItem(key, JSON.stringify(record)); return true } catch { return false }
+}
+
+function clearCompletion(key: string): boolean {
+  if (typeof window === 'undefined') return false
+  try { window.localStorage.removeItem(key); return true } catch { return false }
+}
 
 /**
  * SG-04 bounded learner-work runtime.
@@ -18,15 +58,17 @@ export default function ActivityRuntime({ activity }: ActivityRuntimeProps) {
   const [draft, setDraft] = useState('')
   const [saved, setSaved] = useState(false)
   const [completed, setCompleted] = useState(false)
+  const [storageAvailable, setStorageAvailable] = useState(true)
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    try { setDraft(window.localStorage.getItem(draftKey) || ''); setCompleted(window.localStorage.getItem(completeKey) === 'true') } catch {}
-  }, [draftKey, completeKey])
+    setDraft(readDraft(draftKey, activity))
+    setCompleted(readCompletion(completeKey, activity))
+    if (typeof window !== 'undefined') { try { const probe = `${DRAFT_PREFIX}__probe`; window.localStorage.setItem(probe, '1'); window.localStorage.removeItem(probe); setStorageAvailable(true) } catch { setStorageAvailable(false) } }
+  }, [draftKey, completeKey, activity])
 
-  const persistDraft = () => { if (typeof window === 'undefined') return; try { window.localStorage.setItem(draftKey, draft); setSaved(true); window.setTimeout(() => setSaved(false), 1800) } catch {} }
-  const markLocalComplete = () => { if (!draft.trim() || typeof window === 'undefined') return; try { window.localStorage.setItem(draftKey, draft); window.localStorage.setItem(completeKey, 'true'); setCompleted(true) } catch {} }
-  const clearLocalCompletion = () => { if (typeof window === 'undefined') return; try { window.localStorage.removeItem(completeKey); setCompleted(false) } catch {} }
+  const persistDraft = () => { const ok = writeDraft(draftKey, activity, draft); setSaved(ok); if (ok) window.setTimeout(() => setSaved(false), 1800) }
+  const markLocalComplete = () => { if (!draft.trim()) return; const draftSaved = writeDraft(draftKey, activity, draft); const completionSaved = draftSaved && writeCompletion(completeKey, activity); if (completionSaved) setCompleted(true); setSaved(draftSaved) }
+  const clearLocalCompletion = () => { if (clearCompletion(completeKey)) setCompleted(false) }
 
   return <div data-testid="activity-runtime" data-activity-kind={activity.kind} style={runtimeSurface}>
     <div data-testid="activity-runtime-header" style={header}>
@@ -37,8 +79,8 @@ export default function ActivityRuntime({ activity }: ActivityRuntimeProps) {
     <div data-testid="activity-runtime-metadata" style={metadata}><span>{activity.estimated_minutes} min</span><span>Deliverable: {activity.deliverable}</span><span>{activity.evidence_required ? 'Evidence later' : 'Reflection only'}</span></div>
     <ActivityWorkSurface activity={activity} value={draft} onChange={setDraft} />
     <div style={actions}>
-      <button type="button" onClick={persistDraft} data-testid="activity-runtime-save" style={primaryButton}>{saved ? 'Saved locally ✓' : 'Save draft'}</button>
-      {!completed ? <button type="button" onClick={markLocalComplete} disabled={!draft.trim()} data-testid="activity-runtime-complete" style={secondaryButton}>Mark work complete</button> : <button type="button" onClick={clearLocalCompletion} data-testid="activity-runtime-reopen" style={secondaryButton}>Reopen local work</button>}
+      <button type="button" onClick={persistDraft} disabled={!storageAvailable} data-testid="activity-runtime-save" style={primaryButton}>{!storageAvailable ? 'Local storage unavailable' : saved ? 'Saved locally ✓' : 'Save draft'}</button>
+      {!completed ? <button type="button" onClick={markLocalComplete} disabled={!draft.trim() || !storageAvailable} data-testid="activity-runtime-complete" style={secondaryButton}>Mark work complete</button> : <button type="button" onClick={clearLocalCompletion} data-testid="activity-runtime-reopen" style={secondaryButton}>Reopen local work</button>}
       <span style={meta}>{draft.length} characters · local runtime state only</span>
     </div>
     <div data-testid="activity-runtime-boundary" style={boundary}><strong>Runtime boundary.</strong> Local draft and completion only. This does not submit evidence, perform assessment, or mutate learner capability state.</div>
@@ -61,9 +103,7 @@ function ActivityWorkSurface({ activity, value, onChange }: { activity: GroveLea
 }
 
 type SurfaceProps = { value: string; onChange: (value: string) => void; label: string; placeholder: string }
-function Surface({ kind, value, onChange, label, placeholder, prompts }: SurfaceProps & { kind: LearningActivityKind; prompts: string[] }) {
-  return <div data-testid={`activity-surface-${kind}`}><label htmlFor={`activity-runtime-draft-${kind}`} style={labelStyle}>{label}</label><div style={promptRow}>{prompts.map(prompt => <span key={prompt} style={promptChip}>{prompt}</span>)}</div><textarea id={`activity-runtime-draft-${kind}`} data-testid={`activity-${kind}-workspace`} value={value} onChange={event => onChange(event.target.value)} placeholder={placeholder} style={textarea} /></div>
-}
+function Surface({ kind, value, onChange, label, placeholder, prompts }: SurfaceProps & { kind: LearningActivityKind; prompts: string[] }) { return <div data-testid={`activity-surface-${kind}`}><label htmlFor={`activity-runtime-draft-${kind}`} style={labelStyle}>{label}</label><div style={promptRow}>{prompts.map(prompt => <span key={prompt} style={promptChip}>{prompt}</span>)}</div><textarea id={`activity-runtime-draft-${kind}`} data-testid={`activity-${kind}-workspace`} value={value} onChange={event => onChange(event.target.value)} placeholder={placeholder} style={textarea} /></div> }
 function ResearchSurface(p: SurfaceProps) { return <Surface {...p} kind="research" prompts={['Question','Sources','Claims','Synthesis']} /> }
 function WritingSurface(p: SurfaceProps) { return <Surface {...p} kind="writing" prompts={['Draft','Structure','Revision']} /> }
 function BuildSurface(p: SurfaceProps) { return <Surface {...p} kind="build" prompts={['Goal','Steps','Decisions','Test']} /> }
