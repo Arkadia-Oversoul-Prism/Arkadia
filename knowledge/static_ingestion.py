@@ -14,7 +14,18 @@ Two source kinds are declared in `_SOURCES`:
     they cannot be reached by a markdown glob.
 
 LAW I: One pipeline. Ingest always calls pipeline.ingest().
-        Duplicate-detection in pipeline.ingest() makes this fully idempotent.
+
+Idempotency is checksum-scoped and therefore *per source*: the same bytes always
+dedupe, but two sources whose content differs only in incidental whitespace are
+two different checksums. Because a ``vault`` projection of a note is the note's
+content wrapped in frontmatter, file bodies are normalised with
+``_normalize_body`` so re-reading a projection yields the original checksum.
+
+What this does NOT and cannot fix: a note created from source A is still a real
+second object when source B *scans the same bytes*. In production cwd, note
+projections land in ``vault/`` — the ``static:vault`` scan root — so a
+first-pass ingestion can be re-read from the vault on a later pass. That is
+cross-source duplication driven by the ingestion order, not a normalisation bug.
 
 Called from api/main.py lifespan() — runs once at startup in a background thread.
 Never duplicates existing objects (checksum-based deduplication).
@@ -134,6 +145,19 @@ def _strip_frontmatter(text: str) -> tuple[str, str]:
     return "", text.strip()
 
 
+def _normalize_body(text: str) -> str:
+    """Canonicalise a note body for checksum-stable duplicate detection.
+
+    ``create_note`` persists ``frontmatter + content`` verbatim while
+    ``pipeline.ingest`` checksums ``content`` alone. A caller that appends a
+    trailing newline (or a blank line) before ingest therefore writes a file
+    whose re-read body never matches its own stored checksum, so re-reading that
+    file ingests a spurious duplicate. Trailing whitespace is presentation, not
+    content: strip it on both write and read so the round-trip converges.
+    """
+    return text.strip()
+
+
 def _title_from_path(path: Path) -> str:
     """Derive a human-readable title from the file path."""
     stem = path.stem.replace("_", " ").replace("-", " ").strip()
@@ -188,17 +212,18 @@ def _ingest_oracle_open_loops(source: dict) -> tuple[int, int, int]:
 
         status = str(loop.get("status") or "open").strip() or "open"
         updated = _iso(loop.get("updated_at") or loop.get("ts"))
+        content = _normalize_body(
+            f"Open loop\n"
+            f"ID: {loop_id or 'unidentified'}\n"
+            f"Loop: {text}\n"
+            f"Status: {status}\n"
+            f"Created: {_iso(loop.get('ts'))}\n"
+            f"Updated: {updated}"
+        )
         try:
             result = _ingest(
                 title=f"Open loop: {text}"[:200],
-                content=(
-                    f"Open loop\n"
-                    f"ID: {loop_id or 'unidentified'}\n"
-                    f"Loop: {text}\n"
-                    f"Status: {status}\n"
-                    f"Created: {_iso(loop.get('ts'))}\n"
-                    f"Updated: {updated}\n"
-                ),
+                content=content,
                 note_type=source["note_type"],
                 tags=source["tags"],
                 source_provider=source["source_provider"],
@@ -261,7 +286,7 @@ def run_static_ingestion() -> dict:
                 continue
 
             title_from_fm, body = _strip_frontmatter(raw)
-            content = body if body else raw
+            content = _normalize_body(body if body else raw)
             title   = title_from_fm or _title_from_path(path)
 
             try:
