@@ -318,3 +318,90 @@ def test_continue_on_error_gates_are_still_enforced_by_outcome():
             f"enforcement step '{s.get('name')}' must be able to fail the job"
         )
 
+
+
+# ---------------------------------------------------------------------------
+# Completeness: the allowlist must be an inventory of what the repository
+# *actually* tracks — not a hand-picked subset. The defect above recurred three
+# times (EDEN-OPS-02, EL-01..10 #97, Solariun #104) because each fix patched the
+# current symptom instead of asserting the invariant. These tests close the bug
+# class: every tracked path must be admitted, and the workflow mirror must agree.
+# ---------------------------------------------------------------------------
+def _tracked_paths() -> list[str]:
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["git", "ls-files"], cwd=_ROOT, capture_output=True, text=True, check=True
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):  # pragma: no cover - no git
+        import pytest
+
+        pytest.skip("git unavailable to enumerate the tracked inventory")
+    return [line for line in out.splitlines() if line.strip()]
+
+
+def test_allowlist_covers_every_tracked_surface():
+    """The gate runs on main; a tracked surface the allowlist omits turns it red."""
+    rejected = []
+    for path in _tracked_paths():
+        ok, msg = evaluate_changed_paths([path])
+        if not ok:
+            rejected.append(f"{path}: {msg}")
+    assert not rejected, (
+        "the allowlist omits surfaces this repository tracks, so the next merge "
+        "that touches them reddens the CP10 gate:\n" + "\n".join(rejected[:20])
+    )
+
+
+def test_workflow_allowlist_agrees_with_policy_on_every_tracked_surface():
+    """The inline workflow mirror and the policy script must admit identically."""
+    expr = _workflow_legit_regex()
+    drift = [
+        path
+        for path in _tracked_paths()
+        if evaluate_changed_paths([path])[0] != bool(re.match(expr, path))
+    ]
+    assert not drift, f"workflow/policy allowlist drift on tracked paths: {drift[:20]}"
+
+
+def test_vault_scaffold_is_admitted_but_generated_notes_are_not():
+    """vault/ is the private Knowledge OS runtime output; only its scaffold is tracked."""
+    for path in [
+        "vault/Index/README.md",
+        "vault/Templates/conversation-template.md",
+        "vault/Ideas/.gitkeep",
+    ]:
+        ok, msg = evaluate_changed_paths([path])
+        assert ok is True, msg
+    ok, msg = evaluate_changed_paths(["vault/Ideas/2026-01-01.md"])
+    assert ok is False, "a generated vault note must stay outside the boundary"
+    assert "vault" in msg.lower(), "the rejection must name the vault boundary"
+
+
+def test_allowlist_rejects_unknown_lookalike_roots():
+    """Admitting more real surfaces must not admit lookalikes of them."""
+    for path in [
+        "knowledge_evil/x.py",
+        "spiral_grove_evil/x.py",
+        "conftest_evil.py",
+        ".knowledge/x.py",
+        "somewhere/conftest.py",
+        "EVIL/x.md",
+        "terraform/main.tf",
+        "deploy.sh",
+    ]:
+        ok, msg = evaluate_changed_paths([path])
+        assert ok is False, f"{path} should be rejected ({msg})"
+
+
+def test_workflow_still_forbids_constitutional_dual_shell():
+    """Breadth in the admit-list must not have softened the `forbid` stage."""
+    forbid = re.search(r"^\s*forbid='([^']+)'", _WORKFLOW.read_text(encoding="utf-8"), re.MULTILINE)
+    assert forbid, "the V2/V3 forbid stage must still exist in the workflow"
+    expr = forbid.group(1)
+    assert re.search(expr, "web/public_prism/src/components/solspire/SolSpireExperienceV3.tsx"), (
+        "the constitutional V3 dual shell must still be forbidden"
+    )
+    assert re.search(expr, "web/public_prism/src/components/solspire/SolSpireExperienceV2.tsx")
+

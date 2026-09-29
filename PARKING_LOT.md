@@ -19,7 +19,7 @@ Priority: [low / medium / high]
 
 ## Open Items
 
-## CP10 mutation-boundary allowlist omits root narrative docs (CI red on `main`)
+## CP10 mutation-boundary allowlist is an incomplete inventory (CI red on `main`)
 
 Observed (2026-09-28): `SG-02-FE.2-V` is **red on canonical `main`** @ `a26af408` and on the
 preceding `d48ad0e`. The "CP10 mutation boundary" step rejected `AGENTS.md` as an
@@ -30,10 +30,19 @@ Workstream: GATE-10 (governed execution) — CP10 gate integrity
 Priority: high
 
 _In flight:_ branch `gate10/cp10-allowlist-root-docs`, **PR #105** (evidence
-`docs/control-plane/evidence/gate10-cp10-allowlist-root-docs/EVIDENCE.md`) adds
-`[^/]+\.md$` to both the policy and the workflow's inline copy, and widens the existing
-anti-drift guard's corpus. Branch CI is green — step 31 `CP10 mutation boundary` passes
-(run `36479508791`). Awaiting sovereign review and merge. Do not start a second fix for this.
+`docs/control-plane/evidence/gate10-cp10-allowlist-root-docs/EVIDENCE.md`).
+Three passes, all on this one branch:
+1. admit root `*.md`;
+2. admit `knowledge/`, `spiral_grove/`, root `conftest.py`;
+3. **stop patching symptoms** — the allowlist is now a *complete inventory* of tracked surfaces
+   (1394 paths, 0 rejected), with tests asserting the invariant against `git ls-files` and
+   against the workflow mirror, plus lookalike negatives and a V2/V3 `forbid` assertion.
+Awaiting sovereign review and merge. **Do not start a second fix for this.**
+
+Composability risk recorded (EVIDENCE §7): the policy is duplicated in the workflow and the
+module, held together only by a test. Structural fix — workflow executes the tested module,
+shell literal kept as a mirror assertion — is the recommended follow-on **separate** bounded PR.
+Do not fold it into #105; that would change gate execution semantics while restoring a red `main`.
 
 ## Baseline test debt at `a26af408` is unclassified (49 failures + 2 collection errors)
 

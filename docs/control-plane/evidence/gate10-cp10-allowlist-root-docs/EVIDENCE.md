@@ -110,7 +110,7 @@ compile gate is required; `py_compile` on both changed Python files passed regar
 Passed count rises by exactly 4 (the new tests); **failed/error fingerprint is byte-identical**.
 No baseline failure was fixed, masked, or newly attributed.
 
-## 6. Pass 2 — omitted merged surfaces (`knowledge/`, `spiral_grove/`, root `conftest.py`)
+## 5. Pass 2 — omitted merged surfaces (`knowledge/`, `spiral_grove/`, root `conftest.py`)
 
 Pass 1 restored the gate for the change sets already on `main`. Auditing the *open* PRs revealed the
 allowlist was still an incomplete inventory, so `main` would have gone red again on the very next
@@ -157,14 +157,87 @@ Passed rises by exactly 10 (the new tests); the failing-node fingerprint is **by
 that the workflow's inline copy and the policy script agree on the newly admitted surfaces **and**
 on the lookalike negatives. `tests/architecture` = 10/10.
 
-## 7. Merge-order hazard (recorded, not resolved here)
+## 6. Pass 3 — close the bug class: the allowlist becomes an inventory
+
+Passes 1 and 2 made the allowlist admit the surfaces known to be missing. Pass 3 stops patching
+symptoms and **asserts the invariant**: every path the repository actually tracks must be admitted,
+and the workflow's inline mirror must agree with the policy script on all of them.
+
+This defect class had already recurred three times — `enterprises/` (EDEN-OPS-02), root narrative
+docs (EL-01..10 PR #97), root docs again (Solariun PR #104) — because each fix enumerated the
+symptom rather than the invariant. The pass-3 tests would have caught all three on the PR that
+introduced each omission.
+
+**Principle.** The gate's teeth are the `forbid` stage (constitutional V2/V3 dual shells) and the
+rejection of **unknown** roots. Breadth in the admit-list is not a weakness: an inventory that
+omits a tracked surface does not tighten the boundary, it reddens `main` on the next unrelated
+merge. Boundary integrity is therefore enforced by *completeness plus negatives*, not by scarcity.
+
+**Completeness audit** (workflow's real `legit` regex vs. `git ls-files`):
+
+| | value |
+|---|---|
+| tracked paths | 1394 |
+| rejected by the completed allowlist | **0** |
+| vault scaffold admitted | 14/14 |
+| lookalike/negative probes rejected | 8/8 |
+
+**Negatives still rejected:** `knowledge_evil/x.py`, `.knowledge/x.py`, `spiral_grove_evil/x.py`,
+`conftest_evil.py`, `somewhere/conftest.py`, `vault/Ideas/2026-01-01.md`, `secret-backdoor/bin/x`,
+`terraform/main.tf`, `deploy.sh`, `EVIL/x.md`. `vault/` admits only `Index/`, `Templates/` and
+`[A-Za-z]+/.gitkeep` — generated notes stay outside. `SolSpireExperienceV3.tsx` / `V2` remain
+forbidden by the separate `forbid` stage, asserted by test.
+
+**Why the inventory grew substantially.** Auditing the tracked tree surfaced surfaces no pass had
+enumerated: `arkadia-android/`, `sonata-android/`, `app/`, `architecture/`, `arkana_rasa/`,
+`arkana_space/`, `bot/`, `codex/`, `collective/`, `corpus/`, `forge/`, `governance/`,
+`openclaw/`, `orchestration/`, `providers/`, `sanctum/`, `static/`, `data/`, `archive/`,
+`artifacts/`, `attached_assets/`, `.agents/`, `.bootstrap/`, `.replit_integration_files/`, and the
+root config files (`entrypoint.sh`, `firestore.rules`, `github_corpus.py`, `railway.json`,
+`vercel.json`, `.replit`, `.env.example`, `render.yaml`, `Dockerfile`). Every one was already
+tracked on `main` and would have failed the gate the moment it was next touched. This is a
+**classification** of existing surfaces, not a widening to new ones — no `forbid` rule was relaxed.
+
+**New tests** (+5) in `tests/test_m02a_ci_gate_integrity.py`:
+
+| test | asserts |
+|---|---|
+| `test_allowlist_covers_every_tracked_surface` | no tracked path is rejected |
+| `test_workflow_allowlist_agrees_with_policy_on_every_tracked_surface` | mirror/policy admit identically |
+| `test_vault_scaffold_is_admitted_but_generated_notes_are_not` | scaffold in, generated notes out |
+| `test_allowlist_rejects_unknown_lookalike_roots` | lookalikes still rejected |
+| `test_workflow_still_forbids_constitutional_dual_shell` | V2/V3 stay forbidden |
+
+**Regression boundary held** — full suite, this worktree vs. baseline `a26af408`, same invocation:
+
+| | passed | failed | skipped | errors | failing-node fingerprint |
+|---|---|---|---|---|---|
+| baseline `a26af408` | 903 | 49 | 12 | 2 | `e1ed0b1ea635` |
+| after pass 3 | 918 | 49 | 12 | 2 | `e1ed0b1ea635` |
+
+Passed rises by exactly 15 (the 10 accumulated new tests + 5 pass-3 tests); failed/skipped/errors
+unchanged; the failing-node fingerprint is **byte-identical**. `tests/architecture` = 11 passed.
+`py_compile` on changed Python is clean; `api/main.py` untouched (2519 lines, under the 2600 budget).
+
+## 7. Composability risk (recorded)
+
+The gate couples two copies of one policy: the inline `legit`/`forbid` regexes in
+`.github/workflows/sg-02-fe-2-v.yml` and `scripts/cp10_mutation_boundary_policy.py`. Nothing but a
+test forces them to agree, so an edit to one silently diverges from the other. Pass 3 narrows the
+window (the drift test now checks **every tracked path**, not a hand-picked sample) but does not
+remove the coupling. The structural fix — having the workflow invoke the tested policy module
+instead of duplicating its regexes, so the shell literal survives only as a mirror assertion — is
+the recommended next bounded task. It is deliberately **not** done here: it changes how the gate
+executes, and this pass must not alter execution semantics while restoring a red `main`.
+
+## 8. Merge-order hazard (recorded, not resolved here)
 
 `docs/phase1/CONTINUATION_LEDGER.md` is appended to by **both** this PR (+96 lines) and PR #109
 (+79 lines). They will conflict textually at the end of the file. Both branches are otherwise clean
 and pass CP10 under this policy. Resolution is a human merge decision — **merge this PR first**,
 then rebase #109 (or vice-versa) — not something this pass should decide unilaterally.
 
-## 8. Remaining uncertainty
+## 9. Remaining uncertainty
 
 - The baseline 49 failures + 2 collection errors (`tests/test_autonomy.py`,
   `tests/test_render_codex.py`) are pre-existing debt and are **not** addressed here. Several
@@ -176,6 +249,6 @@ then rebase #109 (or vice-versa) — not something this pass should decide unila
   `gate10/cp10-weaver-ci-gate-integrity` is already contained in `main` and was not reused to
   avoid assuming its intent.
 
-## 6. Authorization required
+## 10. Authorization required
 
 Sovereign review and merge only. This branch makes no consequential external action.

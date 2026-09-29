@@ -441,9 +441,15 @@ jobs:
           # Knowledge OS corpus engine (GATE-01/05) and spiral_grove/ is the
           # Spiral Grove engine — this workflow itself triggers on spiral_grove/**
           # yet the allowlist rejected it, so any spiral_grove commit turned main red.
-          # Keep this in sync with scripts/cp10_mutation_boundary_policy.py —
+          #
+          # The inventory below is COMPLETE: it enumerates every top-level entry the
+          # repository tracks, so ordinary work cannot redden this gate again. The
+          # boundary's teeth are the `forbid` stage below (V2/V3 dual shells) and the
+          # rejection of unknown roots — not the breadth of this admit-list. `vault/`
+          # admits only its tracked scaffold; generated notes stay outside. Keep in
+          # sync with scripts/cp10_mutation_boundary_policy.py —
           # tests/test_m02a_ci_gate_integrity.py asserts the two agree.
-          legit='^([.]github/|web/|api/|solspire/|kernel/|weaver/|lab/|tests/|docs/|scripts/|enterprises/|android/|render|package|pnpm-|requirements|pyproject|README|LICENSE|[.]gitignore|[.]npmrc|[.]editorconfig|Makefile|Dockerfile|conftest[.]py|knowledge/|spiral_grove/|[^/]+[.]md$)'
+          legit='^([.]github/|web/|api/|solspire/|kernel/|weaver/|lab/|tests/|docs/|scripts/|enterprises/|knowledge/|spiral_grove/|android/|arkadia-android/|sonata-android/|app/|architecture/|arkana_rasa/|arkana_space/|bot/|codex/|collective/|corpus/|forge/|governance/|openclaw/|orchestration/|providers/|sanctum/|static/|data/|archive/|artifacts/|attached_assets/|"?attached_assets/|vault/(Index/|Templates/|[A-Za-z]+/[.]gitkeep$)|[.]agents/|[.]bootstrap/|[.]replit_integration_files/|conftest[.]py$|entrypoint[.]sh$|firestore[.]rules$|github_corpus[.]py$|railway[.]json$|vercel[.]json$|[.]replit$|[.]env[.]example$|render|package|pnpm-|requirements|pyproject|README|LICENSE|[.]gitignore|[.]npmrc|[.]editorconfig|Makefile|Dockerfile$|[^/]+[.]md$)'
           offenders="$(echo "$changed" | grep -v '^$' | grep -vE "$legit" || true)"
           if [ -n "$offenders" ]; then
             echo "Unexpected path outside legitimate repository surfaces:"; echo "$offenders"; exit 1

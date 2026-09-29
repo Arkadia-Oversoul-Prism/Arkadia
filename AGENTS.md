@@ -233,20 +233,33 @@ authenticated node's private Knowledge OS vault тАФ never the public scroll s
   with those the suite yields exactly the documented 2 collection errors (pre-existing:
   `test_autonomy.py` `load_autonomy_config`, `test_render_codex.py` `arkadia_drive_sync`).
 
-## CP10 mutation boundary — root narrative docs are legitimate (GATE-10)
+## CP10 mutation boundary — the allowlist is an inventory, not a filter (GATE-10)
 - `SG-02-FE.2-V` gates every PR *and* `main`. Its allowlist admits legitimate repository
   surfaces; anything unmatched is reported as "Unexpected path outside legitimate repository
-  surfaces" and fails the job. Root narrative docs (`AGENTS.md`, `README.md`, `ROADMAP.md`, …)
-  were not admitted, so **any commit touching repository memory turned the gate red** — it
-  failed on `main` at `d48ad0e` and `a26af408` for exactly this reason, blocking nothing
-  legitimate and proving nothing about the commit it rejected.
+  surfaces" and fails the job. The allowlist was repeatedly an incomplete inventory of what the
+  repository actually tracks, so ordinary commits turned the gate red — it failed on `main` at
+  `d48ad0e` and `a26af408`. Omissions so far: root narrative docs (PR #97, #104), `conftest.py`,
+  `knowledge/` (#109), `spiral_grove/` (which this workflow itself triggers on — a gate that
+  rejects the branch it watches), and ~25 tracked trees nobody had enumerated.
+- **The invariant, not the list:** every path in `git ls-files` must be admitted, and the
+  workflow mirror must agree with the policy module on all of them.
+  `tests/test_m02a_ci_gate_integrity.py` asserts both against the live tracked corpus, so a new
+  omitted surface fails in CI instead of on `main`.
+- The gate's teeth are the `forbid` stage (constitutional `SolSpireExperienceV2/V3.tsx`) and the
+  rejection of **unknown** roots — not scarcity of the admit-list. Do **not** try to tighten the
+  boundary by removing surfaces the repository genuinely tracks; that only reddens `main`. Root
+  docs stay matched by `[^/]+\.md$` (anchored, no `/`), so nested markdown resolves through its
+  own directory prefix. `vault/` admits its tracked scaffold only (`Index/`, `Templates/`,
+  `[A-Za-z]+/.gitkeep`) — generated notes stay outside.
 - The allowlist is written twice: `scripts/cp10_mutation_boundary_policy.py` (`LEGIT`) and the
-  inline `legit=` in `.github/workflows/sg-02-fe-2-v.yml`. **They must stay in sync** —
-  `tests/test_m02a_ci_gate_integrity.py` asserts it. Root docs are matched by `[^/]+\.md$`
-  (anchored, no `/`), so nested markdown still resolves through its directory prefix; do not
-  replace it with a blanket `.*\.md$`.
+  inline `legit=` in `.github/workflows/sg-02-fe-2-v.yml`. **They must stay in sync** — the drift
+  test asserts it. The duplication itself is known composability risk: the recommended structural
+  fix is to have the workflow execute the tested policy module and keep the shell literal only as
+  a mirror assertion (see `docs/control-plane/evidence/gate10-cp10-allowlist-root-docs/EVIDENCE.md` §7).
 - When this gate goes red, read the offending path list first: a path that is plainly
   legitimate work means the allowlist is wrong, not the commit. Classify it as an allowlist
   omission and fix the policy + workflow together — do not weaken the gate, and do not
   reclassify `REGISTERED_ARCHITECTURAL_DEBT` to make it pass.
+- `api/main.py` is untouched by this workstream and stays under the 2600-line budget (2519).
+  Run `python -m py_compile api/main.py` before committing anything that touches boot code.
 
