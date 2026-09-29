@@ -127,4 +127,4 @@ def get_repo_info(owner: str, repo: str) -> dict[str, Any]:
         return {"ok": False, "error": str(e)}
 
 
-__all__ = ["list_repos", "get_tree", "read_file", "get_repo_info"]
+__all__ = ["list_repos", "get_tree", "read_file", "get_repo_info", "commit_file"]

@@ -30,6 +30,23 @@ def _safe_path(relative: str) -> Path:
     return p
 
 
+def _is_git_worktree(path: Path) -> bool:
+    """Return True when path is inside a Git worktree.
+
+    This is a mutation boundary, not a Git authorization mechanism. If the
+    SolSpire workspace happens to be a repository, direct filesystem writes
+    and deletes are refused so engineering mutation cannot bypass Weaver.
+    """
+    current = path if path.is_dir() else path.parent
+    workspace = _WORKSPACE
+    while True:
+        if (current / ".git").exists():
+            return True
+        if current == workspace or current.parent == current:
+            return False
+        current = current.parent
+
+
 def read_file(path: str) -> dict[str, Any]:
     try:
         target = _safe_path(path)
