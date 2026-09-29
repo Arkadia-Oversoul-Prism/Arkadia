@@ -1099,3 +1099,59 @@ curation call, not a mechanical ingestion fix.
 ### Authorization
 
 Human review/merge remains required. No baseline debt folded in.
+
+---
+
+## Pass — K5 Static Ingestion · vault-projection re-ingestion defect
+
+**Session type:** Workstream K — Knowledge OS Integration, Checkpoint K5
+**Branch:** `gate-k/k5-static-ingestion-idempotency`
+**Base:** `main` @ `a26af40` (`BASE_MAIN`, merge of PR #104)
+
+### What was wrong
+
+K5 reported itself idempotent. Under production cwd it was not. A 4-pass repro at
+repository root gave `33 → 35 → 35 → 35` — **two extra notes on pass 2**, both
+`static:oracle_open_loops` records arriving back through `static:vault`.
+
+Root cause: `pipeline.ingest()` dedupes on `sha256(content)`, but `_ingest_oracle_open_loops()`
+built content with a trailing newline while `_strip_frontmatter()` returns bodies
+stripped. The stored checksum and the re-read checksum therefore never agreed, so the
+projection re-ingested itself once. Proven: `a2ec82a3…` vs `397fc7ad…`, `equal? False`.
+
+The real defect was never `static:vault` — it was that a **write → re-read round trip was
+not a fixed point of the dedup key**. `vault/` merely made it visible, because it is both
+a K5 write target and a K5 scan root.
+
+### Bounded change
+
+- `knowledge/static_ingestion.py` — `_normalize_body()` (one definition of a note body:
+  `strip()`), applied on both the open-loop write path and the file read path, so legacy
+  projections converge instead of duplicating forever. Docstring now records the
+  irreducible cross-source boundary instead of implying total idempotency.
+- `tests/test_static_ingestion_idempotency.py` — 2 tests (round-trip fixed point),
+  private tempdir DB + vault.
+- `docs/control-plane/evidence/k5-static-ingestion-idempotency/EVIDENCE.md`.
+
+No new ingestion path; no API/governance/authority/identity/pipeline surface touched.
+`api/main.py` unmodified (`2519` lines).
+
+### Evidence
+
+- 3-pass production-fidelity repro now a true fixed point: `36 → 0/36 → 0/36 → 0/36`.
+- The production path itself, simulated: `static:vault` re-scanning all 36 on-disk
+  projections → `spurious re-ingested: 0`, `total_notes` unchanged. This is precisely
+  the case that previously produced `ingested=2`.
+- Scoped tests **12 passed**. Architecture gate **11/11**. `py_compile` clean.
+- Full suite at pass start: **49 failed / 903 passed / 12 skipped / 2 errors**
+  (node-id set unchanged by this pass).
+
+### Remaining K5 uncertainty
+
+Unchanged from the prior pass — `docs/recon/`, `docs/verification/`, and non-`docs/*.md`
+markdown remain outside `_SOURCES` (sovereign curation call). Added: pre-fix on-disk
+projections keep their pre-fix checksum; they dedupe but are not migrated.
+
+### Authorization
+
+Human review/merge remains required. No baseline debt folded in.
