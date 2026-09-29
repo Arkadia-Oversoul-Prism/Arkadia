@@ -147,6 +147,71 @@ Only after the audit:
 
 Prefer small compositional changes over wholesale rewrites.
 
+
+## Runtime evidence checkpoint · 2026-09-29
+
+Pass C has begun against the live production boundary.
+
+### Deployment parity
+
+Current production deployment:
+
+- deployment: `dpl_Dbpayf7GAsnrjpisk7BUn9Hef1R4`
+- production alias: `arkadia-prism.vercel.app`
+- source ref: `main`
+- source SHA: `422eb20abb8acfd0384c47b24156f9c5ce8e5dd8`
+- state: `READY`
+- target: `production`
+
+This deployment corresponds to the merge of Gate 2 / PR #114. The earlier Gate 2 production-parity failure is therefore no longer the current production state.
+
+### Route reachability
+
+The production alias is responding successfully for the inspected application routes:
+
+- `/`
+- `/solariun`
+- `/solariun/opportunity-radar`
+- `/solspire`
+
+The returned document is the Vite application shell with the Arkadia favicon, Arkadia/SolSpire title, viewport metadata, theme color, and the current JavaScript/CSS application assets.
+
+**Important boundary:** HTTP shell reachability is not browser-rendered UI verification. A successful HTML response proves route delivery, not that the client application mounted correctly, rendered the intended surface, or behaved correctly after hydration.
+
+### Runtime errors
+
+Vercel runtime-error aggregation for the selected 24-hour window reports:
+
+**No runtime errors found.**
+
+This is positive runtime evidence, but it does not replace browser console, hydration, interaction, responsive, accessibility, or visual evidence.
+
+### Browser verification state
+
+**STATUS: BLOCKED / UNKNOWN**
+
+The available Vercel integration can inspect deployment metadata, route responses, and runtime-error aggregation, but a browser automation runtime is not exposed in this execution environment. The local container also cannot resolve the public Vercel hostname directly.
+
+Therefore:
+
+- no claim is made about actual rendered visual hierarchy;
+- no claim is made about mobile layout;
+- no claim is made about client-side navigation;
+- no claim is made about console/hydration errors;
+- no claim is made about accessibility behavior;
+- no visual calibration change is being justified solely from source inspection.
+
+### Current evidence boundary
+
+`main SHA → production deployment SHA → HTTP route response → runtime-error aggregation` is now evidenced.
+
+The remaining browser boundary is:
+
+`HTTP response → hydrated UI → interaction/navigation → visual/mobile/accessibility observation`
+
+The next implementation decision should be made from that boundary, not guessed around it.
+
+
 ## Acceptance criteria
 
 Calibration is complete only when evidence shows:
