@@ -219,6 +219,10 @@ Passed rises by exactly 15 (the 10 accumulated new tests + 5 pass-3 tests); fail
 unchanged; the failing-node fingerprint is **byte-identical**. `tests/architecture` = 11 passed.
 `py_compile` on changed Python is clean; `api/main.py` untouched (2519 lines, under the 2600 budget).
 
+**CI on this branch is green** — run `36514902623` @ `379fab1`, job `validate` = success, all 34
+gated steps success, including step 31 `CP10 mutation boundary` and step 34 `Enforce CP10 executable
+gates`. The gate now passes on the very change set that previously failed it.
+
 ## 7. Composability risk (recorded)
 
 The gate couples two copies of one policy: the inline `legit`/`forbid` regexes in

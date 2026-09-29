@@ -1270,7 +1270,9 @@ Human review/merge only. No consequential external action taken.
 **Gate / workstream:** GATE-10 · CP10 (`SG-02-FE.2-V` mutation boundary) — continuation of PR #105.
 **Branch / PR:** `gate10/cp10-allowlist-root-docs` → **PR #105** (human-only merge, still OPEN)
 **BASE_MAIN at pass start:** `a26af408c269729a57d0a53c6ad39fcf0ca22fdf`
-**Head at pass start:** `f7e144a` · **Head at pass end:** see PR #105 head after push
+**Head at pass start:** `f7e144a` · **Head at pass end:** `379fab1` (pushed)
+**Branch CI:** run `36514902623` @ `379fab1` — job `validate` **success**, all 34 gated steps pass,
+including step 31 `CP10 mutation boundary` and step 34 `Enforce CP10 executable gates`.
 
 ### Why pass 3
 
