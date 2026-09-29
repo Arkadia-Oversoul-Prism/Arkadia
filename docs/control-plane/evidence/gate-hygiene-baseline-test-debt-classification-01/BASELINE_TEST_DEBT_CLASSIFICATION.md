@@ -542,6 +542,33 @@ boundary is still enforced by `test_ais_w5_evidence_capture.py` (`activity-draft
 `activity.evidence_required`) — which **passes** on the pre-SG-04 shape that main actually
 carries.
 
+### 11.2.1 Correction (SH-02e, measured on `main` @ `df7a99a`)
+
+The §11.2 table is a **proposal from the `4164573` measurement**, not a live inventory.
+Re-measured at `df7a99a`, all three `STALE_ASSERTION → CONTRADICTION` reclassifications are
+**already resolved and green**:
+
+| node | §11.2 proposed | measured at `df7a99a` |
+|---|---|---|
+| `test_spiral_grove_chambers.py::test_chamber_does_not_invoke_autonomous_generation_or_adjudication` | CONTRADICTION | **PASSES** |
+| `test_spiral_grove_learning_path_projection.py::test_evidence_assessment_state_are_downstream` | CONTRADICTION | **PASSES** |
+| `test_spiral_grove_frontend_projection.py::test_activity_draft_persistence_is_local_and_not_evidence` | CONTRADICTION | **PASSES** |
+
+This matters because the proposed remedy for those three rows was "align the test with the
+mounted runtime" — i.e. relax a boundary assertion. On the current shape the boundary
+assertions hold **as written**, so acting on the §11.2 remedy would replace passing
+boundary guards with weaker ones for no gain. That is a silent regression of the
+autonomous-generation / downstream-evidence boundary, not test hygiene.
+
+**Rule for the SG-04 escalation:** the ungreen SG-04 set is now exactly the four nodes in
+`tests/test_spiral_grove_activity_runtime.py`
+(`…is_mounted_by_the_capability_chamber`, `…chamber_preserves_sg03_downstream_boundary`,
+`…dispatches_all_eight_kinds_to_deterministic_renderers`,
+`…uses_the_nexus_canonical_header`). Repairing those requires choosing between two activity
+surfaces in `web/public_prism/**` — still a **frontend capability change**, outside the
+test-only boundary and CP10 path-filtered. The escalation stands; the §11.2 bucket list must
+be re-measured before it is acted on, and the three now-green nodes must **not** be touched.
+
 ### 11.3 Live-vs-ledger node drift (measured, `main` @ `4164573`)
 
 Measured fingerprint: **39 failed / 1018 passed / 13 skipped / 2 errors (41 nodes)**;
@@ -602,6 +629,53 @@ for c in 74f5494 1b63994 06ad5f2 origin/main; do
 done
 git worktree add /tmp/sg04wt 06ad5f2   # then run the SG-04 tests there
 ```
+
+### 11.6 SH-02e measured fingerprint and repair record (rows 1-2)
+
+Re-measured on `main` @ `df7a99a067382401c00de5e7bbaaac0125ba2088` (deepened history, 820
+commits):
+
+```
+30 failed, 1028 passed, 13 skipped, 2 errors  (108.28s)
+PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q \
+  -p no:cacheprovider --continue-on-collection-errors
+```
+
+`tests/architecture` **11/11**; `api/main.py` **2519 / 2600** lines; `py_compile` clean.
+
+**Attribution of the delta against §Appendix A's 51-row set** (`comm`, by node name):
+
+- **30 live failures, all 30 present in Appendix A** — no unexplained regression.
+- **21 Appendix A rows now pass**, including the two repaired here plus the
+  #128/#130/#131/#132 repair series and the §11.2.1 rows.
+- **8 live failures are absent from Appendix A**: the 4 `test_solspire_r{1,2,3}_*.py` nodes
+  already recorded in §11.3, and the 4 `test_spiral_grove_activity_runtime.py` nodes recorded
+  in §11.2/§11.2.1.
+- **Proven pre-existing, not regressions.** All 8 were executed against a `4164573` worktree
+  and fail there identically (`8 failed, 15 passed in 0.65s`). Appendix A's "cover the
+  baseline set exactly" claim is therefore **incomplete** — it under-counts the baseline set
+  by these 8 nodes. Recorded here rather than edited into Appendix A, which is a frozen
+  `a26af408`-era artefact whose additions §11.2/§11.3 already carry.
+
+**Rows repaired in this batch (both `STALE_ASSERTION`):**
+
+| # | node | repair | verification |
+|---|---|---|---|
+| 1 | `tests/test_agent_run.py` (was `::test_agent_run_writes_and_commits`) | Re-pinned from the superseded pre-K0.1 `task -> LLM -> write -> commit/push` flow onto the current kernel seams: fail-closed default entry point, `run_authorized` -> `SessionResult`, terminal commit through `weaver.session_kernel`, and no re-exposed `agent.commit_and_push` | FAILS on pristine `main` (`AttributeError`); PASSES after |
+| 2 | `tests/test_ais_capability_profile_onboarding.py::test_home_is_offer_led_and_keeps_arkadia_entry_points` | Replaced the removed `'Learn. Build. Prove. Launch.'` tagline with the live headline `'One intelligence. Four ways to work with it.'` (`ArkadiaLandingPage.tsx:64`); replaced the duplicate dead `button-home-ais-diagnostic` assertion with the live mount testid `arkadia-home-landing` (`:35`) | FAILS on pristine `main`; PASSES after |
+
+Both replaced symbols were confirmed **dead**, not merely relocated: `button-home-ais-diagnostic`
+and the old tagline appear nowhere in `web/` or `tests/` on current `main`, so the re-pin
+removes no live coverage. Node 1 was **renamed**, so its Appendix A name no longer resolves —
+the rename *is* the repair, since a node cannot keep asserting a symbol that no longer exists.
+
+**Open delta recorded, not fixed (authority boundary).** The pre-K0.1 node additionally
+asserted `engine_cycle` reached the commit as `meta['engine_cycle']`. The epoch is
+**structurally dropped at the kernel seam**: `weaver.session_kernel.finalize_session` is the
+only commit path, never receives `engine_cycle`, and passes `meta={"pass_id": ...}` only.
+Threading it through changes what the kernel records for governance, so it is **not** test
+hygiene. The re-pinned row pins the invariant (`meta.get("engine_cycle", 5) == 5`) rather than
+the absence, so a legitimate future fix greens it instead of reddening it.
 
 **Status:** IMPLEMENTED (corrected classification + measured live drift; no runtime claim
 made). **Authority:** documentation/evidence only — no merge, no authorization, no identity

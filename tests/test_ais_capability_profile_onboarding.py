@@ -37,9 +37,12 @@ def test_home_is_offer_led_and_keeps_arkadia_entry_points():
     landing = read("web/public_prism/src/pages/ArkadiaLandingPage.tsx")
     assert "ArkadiaLandingPage" in source
     assert "currentView === 'home'" in source
-    assert "Learn. Build. Prove. Launch." in landing
-    assert "button-home-ais-diagnostic" in landing
-    assert "button-home-ais-diagnostic" in landing
+    # SH-02 row 2 re-pin: the marketing tagline moved off the landing page.
+    # The surface is now offer-led, so the copy is pinned to the live headline;
+    # the two anchors it framed are still asserted below.
+    assert "One intelligence. Four ways to work with it." in landing
+    # The landing surface is still reachable and still its own mount point.
+    assert 'data-testid="arkadia-home-landing"' in landing
     assert "Spiral Grove" in landing
     assert "SolSpire" in landing
     assert "NovaNet" in landing
