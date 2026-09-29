@@ -27,6 +27,10 @@ EVENT_TYPES = {
     "graph_link",
     "search_query",
     "provider_call",
+    # GATE-01 capture boundary transitions
+    "source_registered",
+    "capture_recorded",
+    "capture_bound",
 }
 
 

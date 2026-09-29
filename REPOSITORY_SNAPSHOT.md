@@ -187,7 +187,7 @@ All ADRs frozen. See `02_DECISIONS.md` for the decisions extracted from them.
 ## Fitness Tests
 
 ```bash
-pytest tests/architecture/ -v    # must be 10/10 at all times
+pytest tests/architecture/ -v    # must be 11/11 at all times
 ```
 
 Tests:

@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "web", "python-3.12"]
+modules = ["python-3.12", "nodejs-20", "web"]
 [agent]
 expertMode = true
 stack = "FULLSTACK_JS"

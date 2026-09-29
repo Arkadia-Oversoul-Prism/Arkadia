@@ -1,11 +1,14 @@
 """SolSpire Console — GitHub Tool (Milestone 1).
 
-Provides GitHub read/discovery operations: list repos, get file tree, read
-file content. Repository mutation is deliberately unavailable here. Engineering
-repository mutation belongs to the governed Weaver → K15 → K3 path.
-
+Provides GitHub read operations: list repos, get file tree, read file content.
 Uses GITHUB_TOKEN env var when available for higher rate limits.
 Does NOT execute git clone (no shell in the kernel) — uses GitHub REST API.
+
+Architecture boundary:
+    SolSpire may inspect GitHub here, but repository mutation is governed by
+    Weaver → K15 → K3. The legacy Contents-API commit function remains as an
+    explicit BLOCKED terminal path so existing callers fail closed instead of
+    creating a second engineering mutation authority.
 """
 from __future__ import annotations
 
@@ -81,17 +84,17 @@ def read_file(owner: str, repo: str, path: str, branch: str = "main") -> dict[st
 
 def commit_file(owner: str, repo: str, path: str, content: str,
                 message: str, branch: str = "main") -> dict[str, Any]:
-    """Explicitly disabled: repository mutation is not a SolSpire capability.
+    """Refuse direct GitHub repository mutation.
 
-    This compatibility seam remains so older callers fail closed instead of
-    acquiring a new mutation path. Engineering repository mutation must use
-    the governed Weaver → K15 → K3 path.
+    Engineering changes must enter through Weaver's governed K15 → K3 path.
+    This function intentionally remains callable so legacy HTTP handlers fail
+    closed with a structured BLOCKED response rather than silently mutating.
     """
+    logger.warning("Blocked direct SolSpire GitHub commit: %s/%s@%s:%s", owner, repo, branch, path)
     return {
         "ok": False,
-        "status": "NOT_AVAILABLE",
-        "error": "Direct GitHub repository mutation is disabled in SolSpire; use the governed Weaver → K15 → K3 path.",
-        "mutation_path": "NONE",
+        "status": "BLOCKED",
+        "error": "Direct GitHub mutation is disabled; use the governed Weaver K15 → K3 path.",
         "owner": owner,
         "repo": repo,
         "path": path,

@@ -29,7 +29,9 @@ def test_knowledge_summary_structure():
 
 def test_derived_graph_provenance():
     g = build_derived_graph("p-x")
-    assert g["kind"] == "DERIVED"
+    # build_derived_graph is a compatibility wrapper for the bounded semantic
+    # graph projection, whose canonical kind is DERIVED_BOUNDED_SEMANTIC.
+    assert g["kind"] == "DERIVED_BOUNDED_SEMANTIC"
     assert g["nodes"][0]["type"] == "Project"
     assert all(e.get("classification") for e in g["edges"]) or g["edges"] == []
 
@@ -84,7 +86,7 @@ def test_http_knowledge_isolation():
         assert r.json()["embeddings"]["status"] == "NOT_AVAILABLE"
         r = c.get(f"/solspire/projects/{pid}/knowledge/graph", headers=headers("ua"))
         assert r.status_code == 200
-        assert r.json()["kind"] == "DERIVED"
+        assert r.json()["kind"] == "DERIVED_BOUNDED_SEMANTIC"
         r = c.get(f"/solspire/projects/{pid}/knowledge", headers=headers("ub"))
         assert r.status_code == 404
         r = c.post(

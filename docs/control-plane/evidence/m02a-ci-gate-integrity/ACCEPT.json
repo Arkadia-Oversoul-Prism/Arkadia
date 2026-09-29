@@ -1,0 +1,21 @@
+{
+  "move_id": "M02A",
+  "name": "ci-gate-integrity",
+  "status": "accepted",
+  "accepted_at": "2026-09-16T01:36:44Z",
+  "authorization": "Architect merge approval of PR #42",
+  "merge_commit": "634413e08d6bf16dd455f0c7f7751da4e863620c",
+  "implementation_sha": "26ac6823db3a505dd5ce0329809fa9a2e040b73e",
+  "pr": "https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/42",
+  "acceptance_criteria": {
+    "legitimate_product_paths_pass_policy": true,
+    "control_plane_paths_pass_policy": true,
+    "v3_dual_shell_blocked": true,
+    "active_v2_implementation_blocked": true,
+    "workflow_merge_deploy_scan_preserved": true,
+    "m03_not_executed": true
+  },
+  "next_legal_move": "M03",
+  "merge": "human_only",
+  "deploy": "not_performed"
+}

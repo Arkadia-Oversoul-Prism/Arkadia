@@ -184,6 +184,15 @@ async def lifespan(app: FastAPI):
     # ── TTS engine note ──────────────────────────────────────────────────
     logger.info("[TTS] Edge TTS neural engine active — no warmup needed.")
 
+    # ── M01 — SolSpire workspace durability ──────────────────────────────
+    # Ephemeral container FS loses the project corpus on redeploy; restore it
+    # from the durable store before serving. Additive only.
+    try:
+        from solspire.project_persistence import startup_restore
+        startup_restore()
+    except Exception as _m01e:
+        logger.warning(f"[M01] restore hook unavailable: {_m01e}")
+
     # ── Node registry init ───────────────────────────────────────────────
     try:
         from api.auth import _load_nodes as _ln
@@ -252,7 +261,7 @@ logger.info("[CORS] allowed origins: %s", _CORS_ORIGINS)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_CORS_ORIGINS,
-    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
     allow_credentials=True,
 )
@@ -267,9 +276,16 @@ except Exception as _rl_err:
 
 # ── Node registry router ──────────────────────────────────────────────────────
 try:
-    from api.nodes import router as _nodes_router
+    from api.nodes import router as _nodes_router, configure_routers as _configure_node_routers
+    # ADR-014 Decision 4: api/nodes.py is layer-3 identity and must not import
+    # the layer-1 surface it is composed with. The composition root injects the
+    # A.I.S profile and Engineering Lab sub-routers here, before mounting, since
+    # FastAPI copies routes at include time.
+    from api.ais_profile import router as _ais_profile_router
+    from api.lab_routes import router as _lab_router
+    _configure_node_routers(_ais_profile_router, _lab_router)
     app.include_router(_nodes_router)
-    logger.info("[NODES] Node registry router mounted")
+    logger.info("[NODES] Node registry router mounted (+ais_profile, +lab)")
 except Exception as _nr_err:
     logger.warning(f"[NODES] Router mount skipped: {_nr_err}")
 
@@ -304,6 +320,14 @@ try:
     logger.info("[SOLSPIRE] Console kernel router mounted at /solspire")
 except Exception as _ss_err:
     logger.warning(f"[SOLSPIRE] Console router mount skipped: {_ss_err}")
+
+# ── Arkana first-class thread router ─────────────────────────────────────────
+try:
+    from api.commune_threads import router as _commune_threads_router
+    app.include_router(_commune_threads_router)
+    logger.info("[ARKANA-THREADS] First-class thread router mounted")
+except Exception as _ctr_err:
+    logger.warning(f"[ARKANA-THREADS] Router mount skipped: {_ctr_err}")
 
 # ── Knowledge OS router ───────────────────────────────────────────────────────
 try:
@@ -1035,6 +1059,7 @@ async def commune_resonance(request: Request):
     message    = body.get("message", "").strip()
     history    = body.get("history", [])
     session_id = body.get("session_id", "")
+    project_id = body.get("project_id")
 
     if not message:
         return JSONResponse(status_code=400, content={"error": "No message."})
@@ -1095,7 +1120,7 @@ async def commune_resonance(request: Request):
     try:
         from api.oracle_spine import build_memory_block
         memory_block, memory_meta = build_memory_block(
-            message, session_id, user_id=spine_user_id or "",
+            message, session_id, user_id=spine_user_id or "", project_id=project_id,
         )
     except Exception as _mce:
         logger.debug(f"[ORACLE] Knowledge OS memory retrieval skipped: {_mce}")
@@ -1219,7 +1244,7 @@ async def commune_resonance(request: Request):
         from api.oracle_spine import archive_oracle_turn
         threading.Thread(
             target=archive_oracle_turn,
-            args=(message, reply, session_id, spine_user_id or ""),
+            args=(message, reply, session_id, spine_user_id or "", project_id),
             daemon=True,
         ).start()
         resonance = round(0.7 + (len(reply) % 30) / 100, 3)
@@ -1229,7 +1254,7 @@ async def commune_resonance(request: Request):
             "patterns":  [],
             "rag_refs":  rag_refs,
             "rag_hits":  len(rag_refs),
-            "memory": {"session_id": session_id or None, "thread_id": memory_meta.get("thread_id"),
+            "memory": {"session_id": session_id or None, "thread_id": memory_meta.get("thread_id"), "project_id": project_id,
                        "user_id": spine_user_id or None,
                        "notes_retrieved": memory_meta.get("notes_retrieved", 0),
                        "source": memory_meta.get("source", "knowledge_os"), "injected": bool(memory_block)},
@@ -1973,106 +1998,11 @@ def _goal_store():
     return get_store()
 
 
-# ── Jobs ─────────────────────────────────────────────────────────────────────
+# ── Phase 5-8 Kernel API Routes (Jobs + Goals) ──────────────
+# Extracted to api/loop_routes.py to hold the 2600-line budget on this file.
+from api.loop_routes import router as _loop_router
 
-@app.get("/api/jobs")
-async def list_jobs(status: str | None = None, limit: int = 100):
-    store = _job_store()
-    valid = {"pending", "running", "completed", "failed"}
-    s = status if status in valid else None
-    jobs = store.list(limit=limit, status=s)
-    return {"jobs": jobs, "stats": store.stats()}
-
-
-@app.post("/api/job/create")
-async def create_job(request: Request):
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
-    intent = body.get("intent") or body
-    if not isinstance(intent, dict):
-        raise HTTPException(status_code=400, detail="intent must be an object")
-    job = _job_store().create(intent, source=body.get("source", "api"))
-    return {"job_id": job["job_id"], "status": job["status"]}
-
-
-@app.get("/api/job/{job_id}")
-async def get_job(job_id: str):
-    job = _job_store().get(job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
-    return job
-
-
-@app.get("/api/job/{job_id}/trace")
-async def get_job_trace(job_id: str):
-    job = _job_store().get(job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
-    trace = job.get("trace")
-    if trace is None:
-        raise HTTPException(status_code=404, detail="No trace recorded for this job yet")
-    return {"job_id": job_id, "status": job.get("status"), "trace": trace}
-
-
-# ── Goals ─────────────────────────────────────────────────────────────────────
-
-@app.get("/api/goals")
-async def list_goals(status: str | None = None):
-    from kernel.goals import VALID_STATUSES
-    s = status if status in VALID_STATUSES else None
-    goals = _goal_store().list(status=s)
-    active_count = sum(1 for g in goals if g.get("status") == "active")
-    return {"goals": goals, "count": len(goals), "active": active_count}
-
-
-@app.post("/api/goals")
-async def create_goal(request: Request):
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
-    description = body.get("description", "").strip()
-    if not description:
-        raise HTTPException(status_code=400, detail="description is required")
-    try:
-        goal = _goal_store().create(
-            description,
-            cadence_seconds=float(body.get("cadence_seconds", 300)),
-            max_runs_per_hour=int(body.get("max_runs_per_hour", 6)),
-            start_now=bool(body.get("start_now", True)),
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    return {"message": "Goal created", "goal": goal}
-
-
-@app.patch("/api/goals/{goal_id}")
-async def update_goal(goal_id: str, request: Request):
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
-    allowed = {"description", "status", "cadence_seconds", "max_runs_per_hour"}
-    fields = {k: v for k, v in body.items() if k in allowed}
-    if not fields:
-        raise HTTPException(status_code=400, detail="No updatable fields provided")
-    try:
-        goal = _goal_store().update(goal_id, **fields)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    if goal is None:
-        raise HTTPException(status_code=404, detail=f"Goal {goal_id} not found")
-    return {"message": "Goal updated", "goal": goal}
-
-
-@app.delete("/api/goals/{goal_id}")
-async def delete_goal(goal_id: str):
-    deleted = _goal_store().delete(goal_id)
-    if not deleted:
-        raise HTTPException(status_code=404, detail=f"Goal {goal_id} not found")
-    return {"message": "Goal deleted", "goal_id": goal_id}
+app.include_router(_loop_router)
 
 
 # ── Tools ─────────────────────────────────────────────────────────────────────

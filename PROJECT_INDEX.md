@@ -110,7 +110,7 @@ tests/architecture/test_layer_boundaries.py   Fitness tests — DO NOT EDIT in B
 
 ## Tests
 ```
-tests/architecture/      Architecture fitness tests — 10/10 must pass at all times
+tests/architecture/      Architecture fitness tests — 11/11 must pass at all times
 tests/                   Unit tests — add alongside each new module
 ```
 

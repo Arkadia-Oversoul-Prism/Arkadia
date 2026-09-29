@@ -42,7 +42,7 @@ def test_semantic_graph_is_read_only_and_non_authoritative(monkeypatch):
     assert graph["authorization"]["PassSpec"] == "NONE"
     assert graph["authorization"]["PatchApproval"] == "NONE"
     assert graph["authorization"]["Execution"] == "LOCKED"
-    assert any("Not an authoritative graph store" in item for item in graph["limitations"])
+    assert any("not an authoritative graph store" in item for item in graph["limitations"])
 
 
 def test_malformed_event_data_does_not_create_inferred_edges(monkeypatch):

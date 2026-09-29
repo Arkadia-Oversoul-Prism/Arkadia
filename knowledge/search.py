@@ -23,9 +23,7 @@ def _notes_owner_sql(user_id: Optional[str], table_alias: str = "") -> tuple[str
 
 
 from knowledge.db import execute
-from knowledge.embeddings import (
-    embed_text, cosine_similarity, bm25_score, _tokenise, all_chunk_embeddings, all_chunks
-)
+from knowledge import embeddings as emb
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -80,8 +78,8 @@ def semantic_search(
     3. If embedding unavailable, fall back to BM25.
     Returns ranked list of {note_id, chunk_id, score, content, title}.
     """
-    query_vec = embed_text(query, task_type="RETRIEVAL_QUERY")
-    chunks = all_chunk_embeddings() if query_vec is not None else all_chunks()
+    query_vec = emb.embed_text(query, task_type="RETRIEVAL_QUERY")
+    chunks = emb.all_chunk_embeddings() if query_vec is not None else emb.all_chunks()
 
     if not chunks:
         return []
@@ -101,7 +99,7 @@ def semantic_search(
         for chunk in chunks:
             try:
                 chunk_vec = json.loads(chunk["vector"])
-                score = cosine_similarity(query_vec, chunk_vec)
+                score = emb.cosine_similarity(query_vec, chunk_vec)
                 scored.append({
                     "score": score,
                     "chunk_id": chunk["chunk_id"],
@@ -111,10 +109,10 @@ def semantic_search(
             except (TypeError, json.JSONDecodeError, ValueError):
                 continue
     else:
-        q_tokens = _tokenise(query)
+        q_tokens = emb._tokenise(query)
         for chunk in chunks:
-            doc_tokens = _tokenise(chunk["content"])
-            score = bm25_score(q_tokens, doc_tokens)
+            doc_tokens = emb._tokenise(chunk["content"])
+            score = emb.bm25_score(q_tokens, doc_tokens)
             if score > 0:
                 scored.append({
                     "score": score,

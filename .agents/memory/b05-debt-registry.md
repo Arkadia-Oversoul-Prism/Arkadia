@@ -53,5 +53,6 @@ All registered in `tests/architecture/LAYER_MAP.py`. All assigned to Workstream 
 
 ## B0.5 Exit State
 
-`pytest tests/architecture/ -v` → 10/10 passing.  
+`pytest tests/architecture/ -v` → 10/10 passing (at the time of this record; the
+suite has since grown to 11 tests — see `PARKING_LOT.md` closed item).  
 No implementation code changed. Baseline is frozen. B1 may begin.
