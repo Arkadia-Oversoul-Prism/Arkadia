@@ -8,7 +8,6 @@ preserves the historical SolSpire API for callers.
 """
 from __future__ import annotations
 
-import hashlib
 from typing import Any
 
 from weaver.execution import execute_patch, pass_spec_hash, patch_content_hash
@@ -17,7 +16,6 @@ from weaver.governance import (
     build_pass_spec_for_patch as _weaver_build_pass_spec_for_patch,
     evaluate_patch_readiness as _weaver_evaluate_patch_readiness,
 )
-from weaver.pass_spec import PassSpec, current_head, current_origin_main
 
 
 def evaluate_execution_state(
@@ -92,7 +90,10 @@ def execute_project_patch(
 ) -> dict[str, Any]:
     """Project adapter around the canonical Weaver K15 → K3 execution seam."""
     readiness = evaluate_execution_state(
-        patch=patch, pass_spec=pass_spec, approval=approval, repo_root=repo_root
+        patch=patch,
+        pass_spec=pass_spec,
+        approval=approval,
+        repo_root=repo_root,
     )
     if not readiness.get("k15_ready"):
         return {
@@ -115,16 +116,16 @@ def execute_project_patch(
     final = rd.get("final_status") or "BLOCKED"
     ver = rd.get("verification") or {}
     return {
-        "state": "K15_READY" if (not run_k3 and final == "BLOCKED") else (
-            "BLOCKED" if final == "BLOCKED" else "VERIFICATION_PENDING"
-        ),
+        "state": "K15_READY"
+        if (not run_k3 and final == "BLOCKED")
+        else ("BLOCKED" if final == "BLOCKED" else "VERIFICATION_PENDING"),
         "execution": {
             "status": "NOT_RUN" if not run_k3 else ("SUCCESS" if final != "BLOCKED" else "FAILED"),
             "final_status": final,
             "message": rd.get("message"),
-            "k15": "PRECHECKED" if (not run_k3 and "preflight" in str(rd.get("message") or "").lower()) else (
-                "REJECTED" if final == "BLOCKED" else "ACCEPTED"
-            ),
+            "k15": "PRECHECKED"
+            if (not run_k3 and "preflight" in str(rd.get("message") or "").lower())
+            else ("REJECTED" if final == "BLOCKED" else "ACCEPTED"),
             "k3": "NOT_INVOKED" if not run_k3 else ((rd.get("mutation") or {}).get("result") or "UNKNOWN"),
             "mutation": rd.get("mutation"),
             "preflight": rd.get("preflight"),
