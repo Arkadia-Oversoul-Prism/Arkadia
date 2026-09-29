@@ -1,70 +1,68 @@
-# R1 — SolSpire Ground-Truth Reconciliation
+# R1 — Weaver Governance Convergence
 
-**Base:** `549d25051e3155bc1315f67f6ab9fd24ff26af11` (R0)
-**Head:** `43e0147b6d28a54a8a15851df88644c49b065094`
-**Scope:** `solspire/project_execution.py` semantic convergence with Weaver
-**Status:** IMPLEMENTED / VALIDATION PENDING
+**Base checkpoint:** `57fb207842e45150c4f81545f6168d8e72a64d5e`
+**Branch:** `recon/solspire-r0`
+**Scope:** `solspire/project_execution.py` only, plus canonical Weaver governance extraction and tests.
 
 ## Objective
 
-Move the engineering governance semantics currently duplicated in SolSpire into a canonical Weaver-owned module without changing the public SolSpire project-execution API or introducing a new authority.
+Reconcile SolSpire's governed project execution adapter against the canonical Weaver execution/governance implementation without changing frontend behavior, introducing authority, or creating another mutation path.
 
-## Changes
+## Change
 
-### 1. Canonical Weaver semantics
+The duplicated governance semantics formerly implemented inside `solspire/project_execution.py` now live in `weaver/governance.py`:
 
-Added `weaver/project_execution.py` containing the canonical implementations for:
+- K15 readiness evaluation;
+- PassSpec construction;
+- PatchApproval binding.
 
-- execution readiness evaluation;
-- PassSpec construction for a proposed patch;
-- PatchApproval construction and exact binding.
+The existing canonical hashing and K15/K3 execution primitives remain in `weaver.execution`.
 
-The module uses the existing Weaver `PassSpec`, `PatchApproval`, hashing, path-scope, and repository-state primitives. It does not perform mutation.
+`solspire/project_execution.py` remains as a compatibility/project-context adapter. It now:
 
-### 2. SolSpire reduced to an adapter
+- derives project-specific defaults;
+- enriches canonical PassSpec/approval representations with project-facing metadata;
+- delegates readiness to Weaver;
+- delegates execution to `weaver.execution.execute_patch`.
 
-`solspire/project_execution.py` now delegates those semantic operations to Weaver.
+## Preserved contract
 
-SolSpire retains only project-facing concerns:
+- PROJECT ACCESS ≠ PASSSPEC ≠ PATCHAPPROVAL ≠ EXECUTION.
+- SolSpire does not authorize itself.
+- SolSpire does not implement K3.
+- K3 remains the sole mutation transaction path.
+- `run_k3=False` remains a non-mutating precheck mode.
+- Existing SolSpire function names and response shapes are preserved for compatibility.
 
-- supplying project context and project-derived default objective;
-- attaching project metadata to the returned PassSpec;
-- preserving the existing `project_note` / `authorization_note` response contract;
-- preserving the project execution response shape;
-- calling the existing canonical `weaver.execution.execute_patch` seam.
+## Proofs added
 
-The SolSpire module no longer constructs `PassSpec` or `PatchApproval`, performs path-scope checks, or reads repository HEAD/origin for readiness semantics itself.
+`tests/test_solspire_r1_governance_convergence.py` proves:
 
-### 3. Tests
+1. SolSpire readiness output delegates to canonical Weaver readiness.
+2. SolSpire PassSpec/approval builders match canonical Weaver objects for semantic fields.
+3. SolSpire no longer defines local `PassSpec(...)` or `PatchApproval(...)` constructors.
+4. SolSpire no longer defines local hash functions or path-authorization logic.
+5. Weaver exposes the canonical governance primitives.
+6. The SolSpire project execution adapter still reaches the K15 seam without invoking K3 in precheck mode.
 
-Added `tests/test_solspire_r1_reconciliation.py` covering:
+## Explicit non-goals
 
-- canonical Weaver builders vs SolSpire adapter parity;
-- preservation of SolSpire project metadata;
-- absence of duplicated governance constructors/checks in the SolSpire implementation;
-- continued use of the canonical Weaver `execute_patch` seam;
-- absence of direct `run_transaction` use in SolSpire.
+R1 does not:
 
-## Preserved behavior
-
-No frontend changes were made.
-
-No K15/K3 semantics were introduced or changed.
-
-No autonomous mutation, commit, push, or new authorization authority was introduced.
-
-Historical `solspire/project_execution.py` lineage remains in Git history; the file itself remains as the compatibility adapter rather than being deleted.
+- remove `solspire/project_execution.py`;
+- remove `solspire/weaver_bridge.py`;
+- change direct filesystem/GitHub mutation paths;
+- modify the frontend;
+- introduce K17 semantics;
+- introduce autonomous mutation;
+- introduce autonomous commit/push;
+- create a second K3 path;
+- create a new authorization authority.
 
 ## Validation status
 
-The repository connector does not expose arbitrary command execution, and the existing `weaver-mvp2-validation.yml` workflow is configured for pushes to `main`, not this reconciliation branch. Therefore local pytest execution could not be truthfully claimed at this checkpoint.
+The R1 test suite has been added and a branch-scoped validation workflow has been added. The available GitHub workflow-run interface did not report a run for the branch commit, so CI execution is **not claimed as passed** here. Code-level proof is captured in the test suite; runtime CI must be confirmed before treating R1 as green.
 
-The deterministic test suite has been added, and the branch diff has been inspected for scope. Merge to `main` should be gated on CI/test execution.
+## Next gate
 
-## R1 exit condition
-
-Semantic ownership has converged for PassSpec / PatchApproval construction and readiness evaluation:
-
-`SolSpire project context → Weaver project-execution semantics → canonical Weaver execution → K15 → K3`
-
-The remaining SolSpire execution-runtime and direct mutation-path questions remain explicitly deferred to R2/R3 and are not silently changed by R1.
+Do not proceed to frontend reconciliation. The next pass after a green R1 should be R2: close the direct repository mutation alternatives, starting with the SolSpire GitHub commit route, while preserving legitimate read-only/project workspace capabilities.

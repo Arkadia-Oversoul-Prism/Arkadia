@@ -1,8 +1,14 @@
 """SolSpire Console — GitHub Tool (Milestone 1).
 
-Provides GitHub operations: list repos, get file tree, read file content.
+Provides GitHub read operations: list repos, get file tree, read file content.
 Uses GITHUB_TOKEN env var when available for higher rate limits.
 Does NOT execute git clone (no shell in the kernel) — uses GitHub REST API.
+
+Architecture boundary:
+    SolSpire may inspect GitHub here, but repository mutation is governed by
+    Weaver → K15 → K3. The legacy Contents-API commit function remains as an
+    explicit BLOCKED terminal path so existing callers fail closed instead of
+    creating a second engineering mutation authority.
 """
 from __future__ import annotations
 
@@ -78,49 +84,22 @@ def read_file(owner: str, repo: str, path: str, branch: str = "main") -> dict[st
 
 def commit_file(owner: str, repo: str, path: str, content: str,
                 message: str, branch: str = "main") -> dict[str, Any]:
-    """Create or update a file via the GitHub Contents API.
+    """Refuse direct GitHub repository mutation.
 
-    Requires GITHUB_TOKEN with repo write scope.
-    Automatically fetches the current file SHA when updating an existing file.
+    Engineering changes must enter through Weaver's governed K15 → K3 path.
+    This function intentionally remains callable so legacy HTTP handlers fail
+    closed with a structured BLOCKED response rather than silently mutating.
     """
-    import base64
-    try:
-        contents_url = f"{_API}/repos/{owner}/{repo}/contents/{path}"
-        sha: str | None = None
-
-        # Fetch existing SHA (needed for update; absent for create)
-        existing = httpx.get(contents_url, headers=_headers(),
-                             params={"ref": branch}, timeout=_TIMEOUT)
-        if existing.status_code == 200:
-            sha = existing.json().get("sha")
-        elif existing.status_code not in (404,):
-            return {"ok": False, "error": f"GitHub {existing.status_code}: {existing.text[:200]}"}
-
-        encoded = base64.b64encode(content.encode()).decode()
-        payload: dict[str, Any] = {
-            "message": message or f"chore: update {path}",
-            "content": encoded,
-            "branch": branch,
-        }
-        if sha:
-            payload["sha"] = sha
-
-        resp = httpx.put(contents_url, headers=_headers(), json=payload, timeout=_TIMEOUT)
-        if resp.status_code not in (200, 201):
-            return {"ok": False, "error": f"GitHub {resp.status_code}: {resp.text[:300]}"}
-
-        action = "updated" if sha else "created"
-        return {
-            "ok": True,
-            "action": action,
-            "path": path,
-            "branch": branch,
-            "commit_sha": resp.json().get("commit", {}).get("sha", ""),
-            "html_url": resp.json().get("content", {}).get("html_url", ""),
-        }
-    except Exception as e:
-        logger.error("tools_github.commit_file error: %s", e)
-        return {"ok": False, "error": str(e)}
+    logger.warning("Blocked direct SolSpire GitHub commit: %s/%s@%s:%s", owner, repo, branch, path)
+    return {
+        "ok": False,
+        "status": "BLOCKED",
+        "error": "Direct GitHub mutation is disabled; use the governed Weaver K15 → K3 path.",
+        "owner": owner,
+        "repo": repo,
+        "path": path,
+        "branch": branch,
+    }
 
 
 def get_repo_info(owner: str, repo: str) -> dict[str, Any]:

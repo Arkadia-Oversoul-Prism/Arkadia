@@ -32,8 +32,7 @@ import uuid
 import pytest
 
 _tmpdir = tempfile.mkdtemp(prefix="arkadia_solspire_ownership_")
-os.environ["SOLSPIRE_PROJECTS_DB"] = os.path.join(_tmpdir, "solspire_projects.db")
-os.environ.setdefault("SOLSPIRE_DATA_DIR", _tmpdir)
+_SOL_DB = os.path.join(_tmpdir, "solspire_projects.db")
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -64,7 +63,7 @@ def _headers(uid: str) -> dict:
 def client():
     # Point both SolSpire stores at the temp DB regardless of import order.
     old_pm, old_store = pm_mod._DB_PATH, store_mod._DB_PATH
-    pm_mod._DB_PATH = store_mod._DB_PATH = os.environ["SOLSPIRE_PROJECTS_DB"]
+    pm_mod._DB_PATH = store_mod._DB_PATH = _SOL_DB
     app = FastAPI()
     app.include_router(solspire_router)
     with TestClient(app) as c:

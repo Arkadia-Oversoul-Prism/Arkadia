@@ -1,9 +1,11 @@
+import { apiFetch } from '../lib/apiClient';
+import { API_BASE as API_BASE_CONFIG } from '../lib/apiConfig';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MarkdownViewer from '../components/MarkdownViewer';
 import ScrollListenButton from '../components/ScrollListenButton';
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+const API_BASE = API_BASE_CONFIG || '';
 
 // Map category keys to display metadata
 const CATEGORY_META: Record<string, { label: string; color: string; icon: string }> = {
@@ -85,8 +87,8 @@ export default function SpiralCodexFeed({ onBack }: { onBack: () => void }) {
     setError(null);
     try {
       const [codexRes, catsRes] = await Promise.all([
-        fetch(`${API_BASE}/api/codex`),
-        fetch(`${API_BASE}/api/codex/categories`),
+        apiFetch(`/api/codex`),
+        apiFetch(`/api/codex/categories`),
       ]);
 
       if (!codexRes.ok) throw new Error(`API error: ${codexRes.status}`);
@@ -157,7 +159,7 @@ export default function SpiralCodexFeed({ onBack }: { onBack: () => void }) {
     formData.append('description', `Uploaded via Spiral Codex: ${file.name}`);
 
     try {
-      const res = await fetch(`${API_BASE}/api/codex/upload`, {
+      const res = await apiFetch(`/api/codex/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -194,7 +196,7 @@ export default function SpiralCodexFeed({ onBack }: { onBack: () => void }) {
     formData.append('description', `Uploaded via Spiral Codex: ${file.name}`);
 
     try {
-      const res = await fetch(`${API_BASE}/api/codex/upload`, {
+      const res = await apiFetch(`/api/codex/upload`, {
         method: 'POST',
         body: formData,
       });

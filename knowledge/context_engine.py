@@ -16,9 +16,7 @@ import json
 from typing import Optional
 
 from knowledge.db import execute
-from knowledge.embeddings import (
-    embed_text, cosine_similarity, all_chunk_embeddings, all_chunks, bm25_score, _tokenise
-)
+from knowledge import embeddings as emb
 from knowledge.graph import traverse
 
 # Approximate token budget for the context package sent to a provider.
@@ -70,15 +68,15 @@ def assemble_context(
     budget_used = 0
 
     # ── Step 1+2: Semantic search ──────────────────────────────────────────
-    query_vec = embed_text(query, task_type="RETRIEVAL_QUERY")
+    query_vec = emb.embed_text(query, task_type="RETRIEVAL_QUERY")
     # Local-first (LAW II): when the query embedding is unavailable (Gemini
     # offline/unconfigured), score raw chunks by BM25 instead of cosine.
-    # all_chunk_embeddings() JOINs chunks→embeddings and returns [] when 0
+    # emb.all_chunk_embeddings() JOINs chunks→embeddings and returns [] when 0
     # embeddings exist, which would otherwise make the BM25 fallback dead.
     if query_vec is not None:
-        all_chunks_local = all_chunk_embeddings()
+        all_chunks_local = emb.all_chunk_embeddings()
     else:
-        all_chunks_local = all_chunks()
+        all_chunks_local = emb.all_chunks()
 
     # Apply thread_id filter if provided — only retrieve chunks from that thread's notes
     if thread_id is not None:
@@ -106,16 +104,16 @@ def assemble_context(
         for chunk in all_chunks_local:
             try:
                 chunk_vec = json.loads(chunk["vector"])
-                score = cosine_similarity(query_vec, chunk_vec)
+                score = emb.cosine_similarity(query_vec, chunk_vec)
                 scored.append({**chunk, "score": score})
             except (TypeError, json.JSONDecodeError, ValueError):
                 continue
         scored.sort(key=lambda x: x["score"], reverse=True)
     elif all_chunks_local:
-        q_tokens = _tokenise(query)
+        q_tokens = emb._tokenise(query)
         for chunk in all_chunks_local:
-            doc_tokens = _tokenise(chunk["content"])
-            score = bm25_score(q_tokens, doc_tokens)
+            doc_tokens = emb._tokenise(chunk["content"])
+            score = emb.bm25_score(q_tokens, doc_tokens)
             if score > 0:
                 scored.append({**chunk, "score": score})
         scored.sort(key=lambda x: x["score"], reverse=True)

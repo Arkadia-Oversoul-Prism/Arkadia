@@ -1,4 +1,418 @@
 # Arkadia — Continuation Ledger
+# Arkadia — Continuation Ledger
+
+---
+
+## Pass — GATE-10 · CP10 mutation boundary (range evaluation + trigger-path coverage)
+
+**Session date:** 2026-09-29
+**Role:** Engineering Runtime (bounded execution pass — reconstruct, classify, fix, prove, persist)
+**Branch / PR:** `gate10/cp10-range-evaluation` → **PR #113** (human-only merge)
+**BASE_MAIN at pass start:** `8f9d509` (merge of PR #106)
+**Pass-3 correction:** #113 merged at 03:57:24Z with Pass 1 only; Pass 2 moved to
+`gate10/cp10-trigger-parity` off `760e7f9` (merge of #113), commit `40b8b1d`. All Pass-2
+numbers re-measured on that base and unchanged (46/941 vs main 47/938); only the base SHA
+is corrected. See EVIDENCE.md §Pass 3.
+**Head at pass start:** `9139039` (Pass 1, "judge the whole guarded range, not the tip commit")
+
+### Reconstruction correction (contract baseline is stale, again)
+
+The run contract declared `main := 6038989`, 804/54/12/2 and architecture 9/10.
+**None of that matches live evidence.** Live `main` is `8f9d509`; the full suite yields
+47 failed / 926 passed / 12 skipped / 2 collection errors; `tests/architecture` yields 11 passed.
+All comparisons below use a baseline measured live in this pass.
+
+### Finding A — the gate was RED on `main` because a fixture asserted an unachievable fixed point
+
+`tests/test_phase5_governed_execution.py::test_comparative_exam_i_authorization_change_reaches_k15_before_k3`
+failed on `main` (workflow run `36516287611`). Root cause is **test-side, not product-side**: the
+test declared `new_body = "MUTATED BY COMPARATIVE EXAMINATION I\n"` and asserted the on-disk file
+equals it, but the governed K3 write boundary normalises the provider payload (`weaver.agent`
+parses file blocks with `content.strip()`). A declared body ending in a newline is therefore
+physically unachievable. Reproduced against the real write path in a scratch repo:
+
+```
+declared after : 'MUTATED BY COMPARATIVE EXAMINATION I\n'
+actual on disk : 'MUTATED BY COMPARATIVE EXAMINATION I'
+EQUAL: False        k15_ready: True    k3: BLOCKED
+```
+
+`k15_ready` and the K15-before-K3 ordering were already satisfied. The K3 write path does **not**
+verify the object against the approved `after`, so this is not a silent-corruption channel — the
+declared content was simply unachievable. Ingested/executed byte-fidelity verification is a
+fast-follow **proposal**, not a claim made here.
+
+### Finding B — the gate did not execute on the surface it judges
+
+`.github/workflows/sg-02-fe-2-v.yml` judged `tests/test_phase5_governed_execution.py` on `push`
+but its `pull_request` filter **omitted that file** (and `lab/evolution/**`, `lab/execution/**`).
+A PR could therefore introduce the very fixture the gate validates without the gate executing —
+which is how PR #112 landed the file against an already-red gate.
+
+### Bounded change (4 files, on the existing branch — no duplicate workstream)
+
+| file | change |
+|---|---|
+| `tests/test_phase5_governed_execution.py` | declared `after` is now a fixed point of the boundary's own whitespace normalisation |
+| `.github/workflows/sg-02-fe-2-v.yml` | `pull_request` filter set equal to `push` (21 paths each) |
+| `tests/test_m02a_ci_gate_integrity.py` | +2 guards: filter parity (set equality) and Phase-5 fixture trigger coverage |
+| `docs/control-plane/evidence/m02a-cp10-range-evaluation/EVIDENCE.md` | §PASS 2 |
+
+The guard tests are proven **falsifiable** —
+
+```
+against the pre-fix workflow : 2 failed
+against the fixed workflow   : 2 passed
+```
+
+### Verification
+
+```
+tests/test_phase5_governed_execution.py + tests/test_m02a_ci_gate_integrity.py  -> 56 passed
+tests/architecture                                                             -> 11 passed
+python -m py_compile api/main.py                                               -> OK (2519, under budget)
+```
+
+Full suite, **failing-set diff rather than counts** (both sides measured on the same merged base):
+
+| | passed | failed | skipped | errors | failing-set sha256 |
+|---|---|---|---|---|---|
+| `origin/main` @ `8f9d509` | 926 | 47 | 12 | 2 | `fd31d8da57147183b8972aa79fe3fd32134d5d40e049d1f5e2041cfc7e8699e2` |
+| this branch | 941 | 46 | 12 | 2 | `06707122cffff0121b0d393aa5a9034687c4a104316aef1a462444745dcbeb0d` |
+
+```
+only failing on main   : tests/test_phase5_governed_execution.py::test_comparative_exam_i_authorization_change_reaches_k15_before_k3
+only failing on branch : (none)
+```
+
+**Zero new failures. One pre-existing failure fixed. +15 passed.** Re-measured after the
+Pass-3 rebase onto `760e7f9`: main 47 failed / 938 passed, branch 46 failed / 941 passed —
+same delta, same single fingerprint difference. The count decrease is
+*attributable*, not drift: the only fingerprint difference is the Finding-A test, which this
+change fixes. The standing contract baseline (804/54/12/2) is stale and should be re-pinned to
+`8f9d509` = 926/47/12/2.
+
+### Remaining uncertainty
+
+- Pass 2 is proven locally; the CP10 run for this branch has not yet been **observed** green in CI.
+- The new parity guard constrains the two filters to be *equal*, not to be *complete* — a surface
+  the gate executes but neither filter names remains possible. The Phase-5 case is covered
+  specifically; generalising to "every path a gate step reads must be a trigger path" is a
+  candidate bounded task, not executed here (NO SELF-EXPANSION).
+- `tests/test_weaver_sci_boundary_01.py` / `test_weaver_sci_contract_01.py` failures are
+  pre-existing on `main` and were **not** touched. They are their own bounded workstream.
+
+### Authority
+
+No merge by automation. No M03. No scope expansion. Sovereign merge required.
+
+---
+---
+
+## Pass — GATE-10 · CP10 mutation boundary (root narrative docs)
+
+**Session date:** 2026-09-28
+**Role:** Engineering Runtime (bounded execution pass — reconstruct, classify, fix, prove, persist)
+**Branch / PR:** `gate10/cp10-allowlist-root-docs` → **PR #105** (human-only merge)
+**BASE_MAIN at pass start:** `a26af408c269729a57d0a53c6ad39fcf0ca22fdf` (merge of PR #104)
+**Head at pass end:** `c21cef38c`
+
+### Reconstruction correction (contract baseline was stale)
+
+The run contract declared `main := 6038989` with 804 passed / 54 failed / 12 skipped and
+architecture 9/10. **None of that matches live evidence.** `6038989` is not in the history of
+`origin/main`; live `main` is `a26af408`. Every comparison in this pass therefore uses a
+baseline measured live at pass start, not the contract's prose.
+
+| | passed | failed | skipped | errors | failing/error node sha256 |
+|---|---|---|---|---|---|
+| measured baseline @ `a26af408` | 903 | 49 | 12 | 2 | `256204af4082a70f062ed6004fd0c51c126a14262a072afdac9279ce158c3fca` |
+| after this change | 907 | 49 | 12 | 2 | `256204af…83fca` (**identical**) |
+
+Continuity with prior passes corroborates the measurement: the K5 pass recorded
+`49 failed / 899 passed / 10 skipped`, GATE-VAULT recorded `49 failed / 889 passed / 10 skipped`.
+The failure count has been **49 across all three passes** — the fingerprint is stable and this
+pass moved it by zero.
+
+### Finding — `main` is RED, and it is an allowlist omission
+
+`SG-02-FE.2-V` fails on canonical `main` at both `d48ad0e` (PR #97, EL-01..10) and `a26af408`
+(PR #104, Solariun thread navigation). Both are legitimate product work.
+
+```
+Unexpected path outside legitimate repository surfaces:
+AGENTS.md
+```
+
+The CP10 allowlist admitted only paths carrying a directory prefix. Root narrative docs
+(`AGENTS.md` et al.) matched nothing, so **any commit touching repository memory was rejected**.
+`AGENTS.md` was the sole offender in each rejected change set — the remainder was already
+legitimate. This is an allowlist omission, **not** a governance finding.
+
+A second source of truth (`scripts/cp10_mutation_boundary_policy.py`) already existed with an
+anti-drift guard from the earlier `enterprises/` recurrence — but the guard's corpus was too
+narrow to catch this repeat of the same bug class.
+
+### Bounded change
+
+- `scripts/cp10_mutation_boundary_policy.py` — add `[^/]+\.md$` to `LEGIT`.
+  Not a blanket `*.md` bypass: `re.match` anchors at the start and the pattern forbids `/`, so
+  only root-level files qualify. Nested paths still resolve through their directory prefix.
+- `.github/workflows/sg-02-fe-2-v.yml` — sync the inline `legit=` copy with the policy.
+- `tests/test_m02a_ci_gate_integrity.py` — widen the anti-drift guard corpus to root docs, the
+  real Solariun change set, and negatives (`vault/`, unknown dir).
+- `PARKING_LOT.md` — this workstream + unclassified baseline debt.
+- `docs/control-plane/evidence/gate10-cp10-allowlist-root-docs/EVIDENCE.md` — new.
+
+`api/main.py` untouched (2519/2600 lines). No authority, identity, or governance surface touched.
+No `REGISTERED_ARCHITECTURAL_DEBT` reclassified.
+
+### Verification
+
+- Rejected change set now **PASS** in both the policy *and* the workflow's own shell check
+  (`offenders-exit=0`); negatives still **rejected** (`vault/Ideas/x.md`, `secret-backdoor/bin/x`).
+- Self-check: this PR's own diff passes its own gate → `(True, 'PASS')`.
+- `pytest tests/test_m02a_ci_gate_integrity.py -q` → **18 passed** (14 pre-existing + 4 new).
+- `pytest tests/architecture -q` → **11/11**.
+- **CI: run `36479508791` → `validate = success`; step 31 `CP10 mutation boundary` = `success`**
+  — the exact step failing on `main`. Re-confirmed green at final head `9717868b8`.
+  Gate restored, not suppressed: `continue-on-error` semantics untouched, every verdict step
+  still enforced via `steps.<id>.outcome`.
+- `py_compile` clean on both changed Python files (no boot-code touched).
+
+### Baseline debt preserved (not fixed, not attributed)
+
+49 failures + 2 collection errors at `a26af408` are **pre-existing and unclassified**. Several
+look like stale assertions, but that is unverified. Filed in `PARKING_LOT.md` as a candidate
+standalone workstream; deliberately **not** folded into this gate.
+
+### Carried forward, NOT executed (authority boundary)
+
+- Open PRs `#71`, `#6`, `#5` — untouched, not evaluated for composability this pass.
+- Frontend `pnpm build` — not run (environment-blocked); `web/` untouched.
+
+### Authorization
+
+**Sovereign review and merge required.** No merge performed; no push to `main`; no force-push;
+no consequential external action. PR #105 is ready for sovereign merge.
+
+### Next heartbeat
+
+Reconstruct from live evidence. If #105 is merged, re-verify `SG-02-FE.2-V` green **on `main`**
+and advance to the next bounded gate. If not merged, do **not** open a second fix for this —
+continue the oldest open PR that maps to the current gate, or select the smallest valid task
+from the unclassified baseline debt workstream.
+
+---
+
+## Session: GATE-VAULT — Independent re-verification + autonomy escalation
+
+**Session date:** 2026-09-28
+**Role:** Engineering Runtime (bounded execution pass 2 — verify, classify, persist)
+**Branch / PR:** continues `gate-vault/gitignore-hardening` → PR #99 (unchanged, human-only merge)
+**BASE_MAIN at pass start:** `1d4ed03` (merge of PR #98)
+**Head at pass end:** `af0a04d` (unchanged — no mutation this pass)
+
+### Reconstructed state
+
+- `origin/main` = `1d4ed03`; `api/main.py` = 2519 lines (≤ 2600); `py_compile` OK.
+- PRs #94, #95, #97, #98 all **merged**; PR #99 is the **only** active bounded PR.
+- Gate-arch CLOSED/VERIFIED: `pytest tests/architecture -q` = **11/11**.
+- Parking-lot entries (`api/main.py` over budget, `tests/architecture` 9/11) are **stale**.
+
+### Work performed (verification only — no mutation)
+
+Every PR #99 claim was independently re-derived on a fresh checkout of `af0a04d`:
+
+| Claim | Independent result |
+|-------|--------------------|
+| Tracked `vault/` files newly ignored | **0** (all 14 still tracked) |
+| Canary `vault/Ideas/*.md` stageable | **No** — ignored at `.gitignore:68` |
+| `pytest tests/architecture -q` | **11 passed / 0 failed** |
+| Full suite | 889 passed / 49 failed / 10 skipped / 2 errors |
+| Fingerprint vs `main` @ `1d4ed03` | **byte-identical** (sha256 `1fd4db2b…`); 0 introduced, 0 resolved |
+| Local head == remote head | **yes** (`af0a04d`) |
+
+### Next bounded task — CLASSIFIED, NOT EXECUTED
+
+`tests/test_autonomy.py` collection error (`weaver.autonomy` no longer exports
+`load_autonomy_config`) was reconsidered and is **CONTRADICTED**, not hygiene debt:
+
+- `weaver/autonomy.py` is an autonomous commit engine (`run_scheduled_once` →
+  `RecursiveEngine`); `weaver/run_autonomy.py` is import-broken by the collision.
+- `weaver/autonomy/__init__.py` shadows it and states *"No execution hooks."*
+- `governance/autonomy.json`: `enabled:false`, `max_commits_per_run:0`, *"no autonomous
+  execution permitted."*
+
+Un-shadowing would repair/re-open an **autonomous mutation path**; deleting the test would
+waive coverage on that surface. Both sit under the authority-model / new-mutation-path hard
+stop. **Escalated to sovereign.** No code touched.
+
+### Carried-forward (do not restart)
+
+- **Baseline-debt workstream** (49 failures + 2 errors) is its own bounded workstream; the
+  failures span frontend/identity/grove surfaces and are not a safe single slice.
+  `tests/test_gate_status.py` / `tests/test_gate_serve_script.py` fail only because `gate/`
+  and root `index.html` do not exist in the checkout — likely environment/deploy-layout
+  dependent; needs its own precondition pass before any verdict.
+
+### Notification
+
+Glance posted to PR #99:
+https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/99#issuecomment-5872934047
+
+---
+
+## Session: GATE-VAULT — Private-vault `.gitignore` hardening
+
+**Session date:** 2026-09-28
+**Role:** Engineering Runtime (bounded execution pass)
+**Session type:** Hygiene hardening — closes the "New bounded finding (recorded, not executed)" from the gate02-07 session
+**Branch / PR:** `gate-vault/gitignore-hardening` → PR #99 (OPEN, clean, NOT draft — human-only merge)
+**BASE_MAIN at pass start:** `1d4ed03` (merge of PR #98)
+**Head at pass end:** branch head (see PR)
+
+### Reconstructed state (contract steps 01–02)
+
+- `origin/main` = `1d4ed03` (`Merge pull request #98`); real commit; `py_compile api/main.py`
+  OK; `api/main.py` = **2519** lines (≤ 2600 budget).
+- **PR #98 was merged by the sovereign during this pass** (merged_at `2026-09-28T14:08:21Z`).
+  It is no longer open. The session's starting context described it as OPEN DRAFT — that was
+  **stale within the hour**; live evidence corrected it.
+- Gate-arch is now **CLOSED / VERIFIED**: `pytest tests/architecture -q` = **11 passed / 0 failed**
+  on `main` (was 10/1). The PR #98 claims were independently re-verified before merge:
+  full-suite set-diff vs the previous main showed **0 introduced, 1 resolved**
+  (`test_layer_boundaries.py::test_no_layer_inversions`); the canonical w8 fingerprint was
+  **byte-identical**; all five seam routes mounted (`/api/lab/overview`, `/api/me/ais-profile`,
+  `/api/me/identity-spine`, `/api/codex/personal`, `/api/nodes/public`).
+- **No active bounded PR exists.** Open PRs #1, #2 (created 2026-08-30, branch-only),
+  #71 (experiment), #3–#6 (SolSpire recon stack, draft) are pre-existing and unowned by this
+  workstream. Per contract step 03, continuity did not reset them; a separate bounded branch
+  was opened instead.
+
+### The defect (reproduced, not inferred)
+
+`vault/` (Knowledge OS private vault runtime output) was not covered by `.gitignore`.
+`git check-ignore -v vault/Ideas/foo.md` → not ignored; a canary note created under
+`vault/Ideas/` was **staged by `git add -A`**. A sweeping unattended add would fold
+private personal-vault material into canon. `conftest.py` already sandboxes the *test*
+path; this closes the *operator* path.
+
+### Change
+
+`.gitignore` (+7 lines, hygiene-only):
+
+```gitignore
+vault/**
+!vault/**/
+!vault/**/.gitkeep
+!vault/Index/README.md
+!vault/Templates/**
+```
+
+### Verification
+
+| Gate | Result |
+|------|--------|
+| Tracked `vault/` files newly ignored | **0** (all 14 still tracked) |
+| Canary note | **ignored**; `git add -A -n vault/` stages nothing |
+| `pytest tests/architecture -q` | **11 passed / 0 failed** |
+| Full suite | **49 failed / 887 passed / 12 skipped / 2 errors** |
+| Fingerprint vs `main` @ `1d4ed03` | **identical** (introduced: none, resolved: none) |
+
+Evidence: `docs/control-plane/evidence/gate-vault-gitignore-hardening/EVIDENCE.md`.
+
+### Environment note (reproducibility)
+
+The full suite needs `pyyaml` and `PYTHONPATH=<repo>/archive/legacy_python` for
+`test_m02a_ci_gate_integrity.py` / `test_engineering_scheduler_bootstrap.py` /
+`test_m08_trajectory_schema.py` / `test_render_codex.py` to *collect*. With those two
+provisions the suite runs with exactly the documented **2 collection errors**
+(`test_autonomy.py` — `load_autonomy_config` no longer exported by `weaver.autonomy`;
+`test_render_codex.py` — `arkadia_drive_sync` absent). Both are pre-existing.
+
+### Next bounded task (proposed, dependency-linked, not executed)
+
+- **Baseline-debt workstream.** 49 failures + 2 collection errors are pre-existing. The
+  `test_autonomy.py` collection error is a concrete, self-contained drift
+  (`weaver.autonomy` no longer exports `load_autonomy_config`). Bounded candidate: repair
+  the export or the stale test import — **but it is its own workstream**, per the contract's
+  baseline-debt rule; do not fold it into an unrelated gate.
+- The stale `tests/test_ais_w8_canonical_identity.py` assertions (2 failures, unchanged
+  before/after gate-arch) remain recorded debt, not silently fixed.
+
+---
+
+## Session: Workstream B (test-hygiene) — Test-session vault sandbox
+
+**Session date:** 2026-09-28
+**Role:** Engineering Runtime (bounded execution pass)
+**Session type:** Test-hygiene fix — closes the item PR #92's ledger deferred
+**Branch / PR:** `gate02/conftest-vault-sandbox` → PR #95 (OPEN, not merged — human-only)
+**BASE_MAIN at pass start:** `e9257bf` (Merge PR #93, gate-01-canonical-authorship)
+**Head at pass end:** `267e8c9`
+
+### Reconstructed state (contract step 01–02)
+
+- `origin/main` = `e9257bf`, real commit; ancestry to the contract baseline `6038989`
+  verified via `git merge-base --is-ancestor` (the clone was shallow/`grafted`, so
+  `git fetch --deepen` was required first).
+- Credentials **writable**: `admin/maintain/push/pull/triage`. The contract's clause
+  treating `GITHUB_TOKEN` as read-only is currently inoperative — no workaround was used,
+  but the assumption no longer holds and should be refreshed.
+- **Contract baseline is stale.** Recorded `main := 6038989`, 804/54. Actual `main :=
+  e9257bf`, 842/51, because PRs #91 (GATE-10) and #93 (GATE-01) merged since. Not
+  attributed to this pass; documented instead.
+- PR #95 was **continued, not duplicated** — it already existed on this branch at
+  `bbaee7f`; this pass resumed it per contract step 03.
+
+### The defect (reproduced, not inferred)
+
+`knowledge/vault.py` resolves `VAULT_ROOT = Path("vault")` relative to process cwd.
+Running `pytest tests/` from the repo root writes real note files into `vault/Ideas/` and
+`vault/Projects/`, including synthetic private-boundary canary material. `vault/` is not
+gitignored, so a routine `git add -A` can fold synthetic private-vault material into canon.
+
+### Change
+
+Root `conftest.py` (49 lines): session-scoped autouse fixture redirecting
+`ARKADIA_DB_PATH` and `VAULT_ROOT` into a throwaway tempdir, applied before test-module
+collection. `.gitignore` gains `tests/_spine_test.db*` (SQLite WAL/SHM sidecars).
+`PARKING_LOT.md` item moved to Closed with resolution note. No test module was edited —
+the fixture covers modules that already self-sandbox as well as those that do not.
+
+### Verification
+
+- Controlled A/B, same commit `e9257bf`, one variable: **35 files leaked without the
+  fixture, 0 with it**, under a stated, reproducible counting convention; base figure is
+  deterministic across repeated runs.
+- Full suite, identical both sides, **same method**: 842 passed / 51 failed / 12 skipped /
+  2 collection errors. Sorted FAILED node-ID `sha256` **identical** both sides:
+  `1fc7a2d0b747b90ff03ea658669f5a57c1ec4ccbc324c935333c6ae5495c2502`. Nothing newly
+  failing, nothing repaired.
+- Architecture: 2 failed / 9 passed, unchanged (`test_no_layer_inversions`,
+  `test_api_main_line_count_within_budget` — both pre-existing, in `PARKING_LOT.md`).
+- `api/main.py` untouched, 2607 lines (its over-budget condition is pre-existing and is
+  the separate `gate07`/PR #94 workstream).
+- Re-verified on the committed head, not just the working tree.
+
+### Evidence hygiene — two self-corrections made in this pass
+
+Both were measurement errors in this pass's own evidence; neither changed the conclusion,
+and both are recorded rather than quietly fixed (Principle: reality overrides documentation).
+
+1. A first fingerprint digest `4f5fb969…` did not reproduce; it came from extracting the
+   failure set differently on each side. Canonical digest is now `1fc7a2d0…`, derived by
+   one method on both sides.
+2. The A/B control was first reported as **29** and the gap to 35 was explained away as a
+   counting convention. Re-measurement showed the base leaks 35 deterministically under
+   every convention tried, so 29 was simply a bad count. The rationalisation was withdrawn.
+
+### Next bounded task
+
+PR #95 awaits sovereign review/merge. Reconcile GATE-02..GATE-09 status (truncated in the
+source summary — not recoverable from prose; must be derived from live repo evidence).
+Track open PR #94 (`gate07/main-py-line-budget-restore`), PR #71, and recon PRs #6/#5.
 
 ---
 
@@ -595,3 +1009,526 @@ Oracle endpoint, or parallel social database was created.
   config dependency, not a code defect.
 - ReasoMate standalone routing and Encyclopedia/Codex duplicate-surface
   reconciliation remain.
+
+## Session: WEAVER heartbeat — main.py line-budget restoration (baseline debt, own bounded pass)
+
+Bounded task: restore `api/main.py` within its 2600-line architecture budget.
+Full evidence: `docs/control-plane/evidence/gate07-main-py-line-budget/EVIDENCE.md`.
+
+### Reconstruction (live, this pass)
+
+- `origin/main` = `e9257bf` (merge of PR #93). CREDENTIALS: token has push permission
+  (admin/maintain/push all true) — not a read-only hard stop.
+- Fingerprints (repo venv): `6038989` = 804/54/12/0 (matches contract baseline exactly);
+  `e9257bf` = 842/51/12/2. Set-diff base→head: **3 repaired, 0 new** (all attributable to
+  PR #91). No regressions from PR #93. Architecture 9 passed / 2 failed at **both** refs.
+- GATE-01..09 closed by PR #93. GATE-10 items landed via PRs #91/#92. Further GATE-10 work
+  touches K15/K3 → **excluded from this pass**, no authorization change attempted.
+- No active bounded PR. PR #71 is an explicitly non-mergeable experiment; #2/#1 stale.
+
+### Change
+
+- Added `api/loop_routes.py`; mounted it from the `api/main.py` composition root.
+  `api/main.py` 2607 → **2512** lines.
+
+### Verification
+
+- `py_compile api/main.py` OK; `py_compile api/loop_routes.py` OK (P1-A boot-code lesson applied).
+- `pytest tests/architecture -q` → 10 passed / 1 failed (was 9/2). Budget test now PASSES.
+- All six extracted routes present in `app.openapi()`.
+- Full suite 843/50/12/2: **0 new failures, 1 repaired**.
+
+### Next bounded task candidate (NOT executed)
+
+`api/nodes.py` layer inversion (2 violations). **CONTRADICTED**: fixing it collides with
+`tests/test_ais_w8_canonical_identity.py`, which *requires* the very
+`router.include_router(_ais_profile_router)` structure the architecture detector forbids.
+Needs a dedicated bounded pass (touches an identity-boundary test) — flagged for sovereign visibility.
+
+---
+
+## Pass — WS-VERIFY-COMPOSE (PR #94 x PR #95 composability)
+
+**Type:** verification only. **No source change.** Branch: none (throwaway `combined`, not pushed).
+
+### Reconstructed state
+
+- `main` @ `e9257bf` (Merge PR #93). PRs #91/#92/#93 merged. No active bounded PR.
+- Open non-draft, base `main`: **#94** (`d3ead27`, line budget), **#95** (`194c765`, vault sandbox).
+- Baseline fingerprint `main` @ `e9257bf`: 842 passed / 51 failed / 12 skipped / 2 errors;
+  architecture 10/1.
+
+### Change
+
+None. Verification artifact added:
+`docs/control-plane/evidence/gate02-07-pr94-95-composability/EVIDENCE.md`.
+
+### Verification
+
+- Both heads merged onto `main` with real Git merges: **zero conflicts**, order-independent.
+- Combined fingerprint = **843 passed / 50 failed / 12 skipped / 2 errors**; architecture 10/1.
+  Set-diff vs base: **1 repaired, 0 new** (`test_api_main_line_count_within_budget` removed).
+- `py_compile api/main.py api/loop_routes.py` OK on the combined tree.
+
+### Correction to prior evidence (material)
+
+A prior pass recorded the vault count "stable at 14 before/after under PR #95". That
+measurement was taken in a **contaminated tree** (untracked vault output from an earlier
+unprotected run was already present). Re-measured cleanly:
+
+- **PR #94 alone** (no `conftest.py`): `vault/` 14 -> **48**, **34 files leaked**.
+- **#94 + #95 combined** (clean tree): `vault/` 14 -> **14**, **0 untracked**.
+
+=> **PR #95 is load-bearing for PR #94, not an independent nicety.** Merging #94 without
+#95 introduces a repeating test-time leak of private-vault-shaped content into the tracked
+`vault/` tree. Merge #95 first, or both in one window.
+
+### Remaining architecture failure
+
+`test_no_layer_inversions` - 2 ADR-015 violations in `api/nodes.py` (L3 -> L1:
+`api.ais_profile`, `api.lab_routes`). Identical at base / #94 / #95 / combined => baseline debt.
+**CONTRADICTED** as autonomous work: the only detector-satisfying fix is forbidden by
+`tests/test_ais_w8_canonical_identity.py:31`. Requires a sovereign decision. Not executed.
+
+### New bounded finding (recorded, not executed)
+
+`vault/` runtime output is **not gitignored**. `.gitignore` covers the credential stores but
+not `vault/`. `git check-ignore vault/Ideas/*.md` -> not ignored. A sweeping `git add -A`
+after a suite run would commit private personal-vault material. Proposal: hygiene-only
+gitignore hardening preserving tracked `.gitkeep` + `Templates/`.
+
+### Credential surface (recon)
+
+Credential stores untracked; no `.env` tracked; no secret-shaped strings in tracked files;
+`_safe_public_profile` does not project UID. `data/personal_codices/*.json` is tracked but is
+sovereign-authored identity content, not credential material.
+
+### Authorization
+
+Sovereign merge decision on **#94 and #95** (prefer #95 first or together).
+No merge performed. No push to `main`. No self-authorization.
+
+
+---
+
+## Session: STATE-HONESTY — canonical state reconciliation (2026-09-28)
+
+**Branch:** `state-honesty/doc-fitness-count-reconciliation`
+**Base:** `main` @ `1d4ed03` (PR #98 merged)
+
+### Live state reconstructed
+
+- `git log -1 origin/main` -> `1d4ed03`, real merge commit. Clone clean, remote writable.
+- `python -m pytest tests/architecture -q` -> **11 passed**. `wc -l api/main.py` -> **2519**.
+- `python -m pytest tests/test_oracle_spine.py -q` -> **7 passed**.
+- `gh pr list` -> #99 (`gate-vault/gitignore-hardening`) is the ONLY active bounded PR
+  (open, mergeable, CLEAN). PRs #1-#6 are stale respects from August; none map to the
+  current gate. #99 is the continuation anchor and was not duplicated.
+
+### Basis for this bounded task
+
+`PARKING_LOT.md` carried an OPEN item titled
+"`tests/architecture` is 9/11, not the 10/10 stated in `.bootstrap/01_STATE.md`",
+classified `Workstream: documentation reconciliation. Priority: low.` Its root causes
+were fixed by PR #94 (line budget) and PR #98 (layer inversion), but the item was never
+closed and the stale prose was never corrected. This pass closes it.
+
+### Change (documentation only)
+
+Reconciled stale architecture-gate counts and other drifted status prose across the
+canonical start-up and handoff surface:
+
+- `10/10` -> `11/11`: `.bootstrap/00_BOOT.md`, `.bootstrap/01_STATE.md`,
+  `.bootstrap/03_SCOPE.md`, `.bootstrap/04_SUCCESS.md`, `BOOTSTRAP.md`, `MISSION.md`,
+  `PROJECT_INDEX.md`, `REPOSITORY_SNAPSHOT.md`, `NEXT_AGENT.md`,
+  `docs/ARKADIA_CANONICAL_RUNTIME_CONTRACT.md`.
+- `NEXT_AGENT.md` spine count `5/5` / `4/4` -> `7/7` (matches a live run).
+- `CURRENT_STATE.md`: added an explicit banner marking the file a **historical archive**
+  and stating the canonical live values, so the next session is told to derive status
+  from the repository rather than this prose.
+- Kept-as-history: `.agents/memory/MEMORY.md`, `.agents/memory/b05-debt-registry.md`,
+  `.agents/memory/session-infrastructure.md` and `docs/checkpoints/*` — annotated as
+  point-in-time records rather than rewritten.
+- `PARKING_LOT.md`: closed the two resolved items (main.py budget; count drift) with
+  resolution provenance; Open Items now empty.
+
+### Verification
+
+- `python -m pytest tests/architecture -q` -> 11 passed (unchanged).
+- `python -m pytest tests/ -q --continue-on-collection-errors` -> 49 failed / 887 passed /
+  12 skipped / 2 errors — **identical to baseline**. Failing node-id set hash
+  `c0e772f2...abdee` unchanged before and after.
+- No `.py` file touched; therefore `py_compile api/main.py` is not implicated (run anyway:
+  clean). Committed on a dedicated branch only.
+
+### Baseline debt preserved (not fixed, not attributed)
+
+Unchanged: 49 failures across stale frontend-source assertions
+(`test_prism_pass_c_surface_ownership`, `test_ais_w2_living_gate_grove_handoff`,
+`test_weaver_sci_boundary_01`, `test_steward_filter`,
+`test_solariun_experience_consolidation_01`, `test_prism_interior_shell`,
+`test_weaver_w5`, `test_weaver_sci_contract_01`, `test_spiral_grove_registry`,
+`test_solspire_p1_experience_01`, `test_identity_spine_w1`, ...), plus
+`tests/test_agent_run.py::test_agent_run_writes_and_commits` (removed
+`weaver.agent.commit_and_push` symbol) and the `gate/` UI asset question.
+
+### Carried forward, NOT executed (authority boundary)
+
+1. **`weaver/autonomy.py` (module) vs `weaver/autonomy/` (package) name collision.**
+   Both added at Genesis (`9ab26fc`). `from weaver.autonomy import load_autonomy_config`
+   resolves to the package and raises `ImportError`; consequently `tests/test_autonomy.py`
+   is a collection error and `weaver/run_autonomy.py` is broken. The colliding package
+   (`guard.py`, `proposal_engine.py`) is the autonomy governance guard surface. Repair
+   requires choosing a canonical autonomy module — that touches an autonomous mutation
+   path, so it needs a sovereign decision. **CONTRADICTED as autonomous work.**
+2. **`gate/` UI surface.** `scripts/serve-gate.sh` serves `http://localhost:PORT/gate/`
+   and `tests/test_gate_status.py` expects a `gate/` directory, but `gate/` is absent on
+   `main` (only ever existed historically, e.g. `f6718b9`). Is the Gate UI deliberately
+   retired, relocated into `web/public_prism`, or lost? Needs sovereign articulation
+   before a bounded task can be cut.
+3. **Stale-assertion debt as its own workstream.** ~49 failures assert against frontend
+   source text that has since moved on (`SolSpireConsole` no longer contains
+   `ProjectDashboard`; `ArkadiaNavigation` no longer carries `WEAVER-SCI-BOUNDARY-01`).
+   Whether to repair the tests or restore the marked strings is a product decision.
+
+### Authorization
+
+No merge. No push to `main`. No self-authorization. PR #99 remains READY FOR HUMAN MERGE.
+This pass opened separate bounded PR **#100** for sovereign review.
+
+### Next heartbeat
+
+- Anchor: PR #99 (READY FOR HUMAN MERGE) then PR #100.
+- Next bounded task: not yet cut. Candidates 1-3 above each need one sovereign
+  decision line before they can become bounded (canonical autonomy module? gate/ UI
+  fate? repair-tests vs restore-strings?).
+- Reconstruct from `main` @ origin, not from this ledger.
+
+
+---
+
+## Pass — K5 Static Ingestion · ADR corpus coverage gap
+
+**Date:** 2026-09-28  
+**Branch:** `gate-k/k5-adr-static-ingestion`  
+**Base:** `main` @ `2d62a21` (current after PR #100)
+
+### Finding
+
+K5 explicitly names ADRs, but `knowledge/static_ingestion.py::_SOURCES` did not declare `docs/adr/`. The six ADRs were therefore outside every configured static-ingestion glob.
+
+### Bounded change
+
+- Added one `docs/adr/*.md` source with `source_provider="static:adr"`.
+- Added four boundary tests in `tests/test_static_ingestion_sources.py`.
+- Added an evidence record at `docs/control-plane/evidence/k5-adr-static-ingestion/EVIDENCE.md`.
+- No API, governance, authority, identity, pipeline, ontology, or execution surface changed.
+- K5 remains open because `docs/recon/` and `docs/verification/` remain deliberately uncurated.
+
+### Verification on the original K5 branch
+
+- Isolated ingestion: **28 → 34** first pass; **0 new / 34 skipped** second pass.
+- Six ADRs present under `static:adr`, exactly.
+- Full suite: **891 passed / 49 failed / 12 skipped / 2 errors**.
+- Baseline failing/error node-id set unchanged.
+- Architecture gate: **11/11**.
+- `py_compile`: clean.
+
+### Authorization
+
+Human review/merge remains required. This branch was rebased onto current `main` solely to restore mergeability after PR #100 landed. No baseline debt was folded into this pass.
+
+### Resolution
+
+Merged as PR #101 (`b5de25a`). The ADR half of the K5 coverage gap is closed on `main`.
+The open-loop half remained and was cut as its own bounded branch — see the pass below.
+
+
+---
+
+## Pass — K5 Static Ingestion · open-loop corpus coverage gap
+
+**Date:** 2026-09-28
+**Branch:** `gate-k/k5-open-loop-corpus-coverage`
+**Base:** `main` @ `e6f79f1` (merge of PR #102; `BASE_MAIN` for this pass)
+
+### Reconstruction correction
+
+The handed-down run context was stale. Live evidence on `origin/main`:
+
+- PR #99 (`gate-vault/gitignore-hardening`) is **closed + merged** — not the active PR.
+- PR #101 (`gate-k/k5-adr-static-ingestion`) is **closed + merged** (`b5de25a`) — K5 is
+  **not** awaiting merge.
+- PR #102 (`gate-verify/open-pr-composability`) is **closed + merged** (`e6f79f1`).
+- `origin/main` is `e6f79f1`, not `1d4ed03`.
+- Open PRs are now #71 plus stale drafts #3-#6 and #1/#2 — none maps to Workstream K.
+
+K5 is therefore **not** complete: the coverage gap named in K5's own wording includes
+open loops, and PR #101 closed only the ADR half.
+
+### Finding
+
+`data/oracle_store.json` open loops are records, not markdown, so no `root` + `glob`
+source could reach them. `_SOURCES` had no record source shape at all. The prior evidence
+frame ("`docs/recon/` + `docs/verification/` remain uncurated") was a markdown-curation
+question and did not cover this.
+
+### Bounded change
+
+- `knowledge/static_ingestion.py` — one record source (`kind="oracle_open_loops"`),
+  `_ORACLE_STORE_PATH` aligned with `kernel.oracle_store`, tolerant row reader, and
+  per-loop ingest. Record sources dispatch before the filesystem loop.
+- `tests/test_static_ingestion_sources.py` — six added tests (declared source, canonical
+  store alignment, tolerant read on missing/malformed store, content stability).
+- `docs/control-plane/evidence/k5-open-loop-corpus-coverage/EVIDENCE.md`.
+- Ingestion path unchanged: still one `pipeline.ingest()` per record (LAW I).
+- `api/main.py` untouched — 2519/2600 lines.
+
+### Verification
+
+- Isolated ingestion: **34 → 36** first pass; **0 new / 36 skipped** second pass
+  (`{ingested:36, skipped:0}` then `{ingested:0, skipped:36}`).
+- Exactly **2** `static:oracle_open_loops` rows; provider tally otherwise unmoved.
+- Full suite: **49 failed / 899 passed / 10 skipped / 2 errors**.
+- Failing/error node-id set identical (51 nodes) to the pass-start fingerprint.
+- Architecture gate: **11/11**. `py_compile`: clean.
+
+### Remaining K5 uncertainty (unchanged by this pass)
+
+`docs/recon/`, `docs/verification/`, and all non-`docs/*.md` markdown remain outside
+`_SOURCES`. Which documents belong in the Oracle's retrieval corpus is a sovereign
+curation call, not a mechanical ingestion fix.
+
+### Authorization
+
+Human review/merge remains required. No baseline debt folded in.
+
+---
+
+## Continuation — GATE-10 · CP10 mutation boundary, pass 2 (allowlist completion)
+
+**Session date:** 2026-09-29
+**Role:** Engineering Runtime (hourly heartbeat — reconstruct, classify, fix, prove, persist)
+**Branch / PR:** `gate10/cp10-allowlist-root-docs` → **PR #105** (human-only merge, still OPEN)
+**BASE_MAIN at pass start:** `a26af408c269729a57d0a53c6ad39fcf0ca22fdf` (merge of PR #104)
+**Head at pass start:** `6a9eec9` · **Head at pass end:** `904b53e`
+
+### Why pass 2
+
+Pass 1 restored CP10 for the change sets already on `main`. Auditing the *open* PRs showed the
+allowlist was still an incomplete inventory of merged surfaces, so `main` would have gone red
+again on the next merge:
+
+- `knowledge/` — PR #109 changes `knowledge/static_ingestion.py`; the step rejects it.
+- `spiral_grove/` — **self-contradiction**: the workflow triggers on `spiral_grove/**` while its
+  own allowlist rejects `spiral_grove/__init__.py`.
+- `conftest.py` (root) — test-session root fixture.
+
+### Bounded change
+
+| file | change |
+|---|---|
+| `scripts/cp10_mutation_boundary_policy.py` | `LEGIT`: add `conftest\.py`, `knowledge/`, `spiral_grove/` |
+| `.github/workflows/sg-02-fe-2-v.yml` | sync inline `legit=` mirror |
+| `tests/test_m02a_ci_gate_integrity.py` | +6 tests (positives + lookalike negatives + drift) |
+| `docs/control-plane/evidence/gate10-cp10-allowlist-root-docs/EVIDENCE.md` | sections 6-7 |
+
+Anchoring kept: `conftest\.py` root-only; `knowledge/`, `spiral_grove/` directory-prefix.
+`vault/`, `secret-backdoor/`, `knowledge_evil/`, `.knowledge/`, `somewhere/conftest.py` still
+fail; `SolSpireExperienceV3.tsx` still forbidden by the separate `forbid` stage. `api/main.py`
+untouched (no boot-code compile gate required).
+
+### Verification
+
+- `m02a_ci_gate_integrity` + `tests/architecture` → **35 passed** (architecture 10/10).
+- Exact-CI bash simulation: PR #104 and PR #109 change sets FAIL → **PASS**; negatives still FAIL.
+- Full suite, this worktree vs baseline `a26af408`, same invocation:
+
+| | passed | failed | skipped | errors | failing-node fingerprint |
+|---|---|---|---|---|---|
+| baseline `a26af408` | 903 | 49 | 12 | 2 | `e1ed0b1ea635` |
+| after pass 2 | 913 | 49 | 12 | 2 | `e1ed0b1ea635` |
+
++10 passed = the new tests. Failing-node fingerprint **byte-identical**. No baseline debt
+touched, fixed, or newly attributed.
+
+- **CI on pushed head `904b53e`:** run `36509460181` → `SG-02-FE.2-V/validate = success`.
+  PR #105 checks all green; `mergeable=MERGEABLE`, `mergeStateStatus=CLEAN`.
+
+### Merge-order hazard (sovereign decision — not resolved here)
+
+`docs/phase1/CONTINUATION_LEDGER.md` is appended by **both** PR #105 and PR #109; they conflict
+textually. Suggested: merge #105 first, then rebase #109. Recorded, not decided.
+
+### Next bounded task
+
+`main` turns green only on the sovereign's merge — this branch cannot do it. Once #105 merges,
+re-run CP10 on `main` and triage #106–#109 (all currently `CLEAN`). Baseline debt
+(49 failures + 2 collection errors) remains an unstarted candidate workstream.
+
+### Authorization
+
+Human review/merge only. No consequential external action taken.
+
+---
+
+## PASS 3 — GATE-10 · CP10 mutation boundary (close the bug class)
+
+**Gate / workstream:** GATE-10 · CP10 (`SG-02-FE.2-V` mutation boundary) — continuation of PR #105.
+**Branch / PR:** `gate10/cp10-allowlist-root-docs` → **PR #105** (human-only merge, still OPEN)
+**BASE_MAIN at pass start:** `a26af408c269729a57d0a53c6ad39fcf0ca22fdf`
+**Head at pass start:** `f7e144a` · **Head at pass end:** `379fab1` (pushed)
+**Branch CI:** run `36514902623` @ `379fab1` — job `validate` **success**, all 34 gated steps pass,
+including step 31 `CP10 mutation boundary` and step 34 `Enforce CP10 executable gates`.
+
+### Why pass 3
+
+Passes 1 and 2 each added the surfaces that were *then* known to be missing. That is patching the
+symptom: the defect had already recurred three times (`enterprises/` EDEN-OPS-02, root narrative
+docs PR #97, root docs again PR #104) precisely because no test asserted the invariant. Pass 3
+replaces enumeration-by-symptom with **assertion-by-invariant**: every tracked path must be
+admitted, and the workflow mirror must agree with the policy script on all of them.
+
+### Bounded change
+
+| file | change |
+|---|---|
+| `scripts/cp10_mutation_boundary_policy.py` | `LEGIT` → complete inventory of tracked surfaces; explicit `vault/*` rejection branch |
+| `.github/workflows/sg-02-fe-2-v.yml` | sync the inline `legit=` mirror |
+| `tests/test_m02a_ci_gate_integrity.py` | +5 tests: tracked-inventory completeness, full-corpus drift, vault scaffold, lookalike negatives, V2/V3 `forbid` intact |
+| `docs/control-plane/evidence/gate10-cp10-allowlist-root-docs/EVIDENCE.md` | §6 pass 3, §7 composability risk; §5/§9/§10 heading renumber (fixes duplicate §6, missing §5) |
+
+Not touched: `api/main.py` (2519 lines, under the 2600 budget), `tests/architecture/LAYER_MAP.py`,
+`REGISTERED_ARCHITECTURAL_DEBT`, any authority/identity/governance surface, any `forbid` rule.
+
+### Boundary discipline (classification, not widening)
+
+The gate's teeth are the `forbid` stage (V2/V3 dual shells) and rejection of **unknown** roots — not
+scarcity of the admit-list. A gate that rejects a tracked surface reddens `main` on the next
+unrelated merge, which is the opposite of enforcement. Every newly enumerated surface was already
+tracked on `main`; no new class of path became reachable. `vault/` still admits only
+`Index/`, `Templates/`, `[A-Za-z]+/.gitkeep`; `V3.tsx`/`V2.tsx` still forbidden.
+
+### Verification
+
+- Completeness audit: **1394 tracked paths, 0 rejected**; vault scaffold 14/14 admitted;
+  8/8 lookalike negatives rejected (`knowledge_evil/`, `.knowledge/`, `spiral_grove_evil/`,
+  `conftest_evil.py`, `somewhere/conftest.py`, `vault/Ideas/2026-01-01.md`, `terraform/main.tf`,
+  `deploy.sh`).
+- `tests/test_m02a_ci_gate_integrity.py` → **29 passed** (was 24).
+- `tests/architecture` → **11 passed**.
+- `py_compile` clean on changed Python; workflow YAML parses (33 steps).
+- Full suite, this worktree vs. baseline `a26af408`, same invocation:
+
+| | passed | failed | skipped | errors | failing-node fingerprint |
+|---|---|---|---|---|---|
+| baseline `a26af408` | 903 | 49 | 12 | 2 | `e1ed0b1ea635` |
+| after pass 3 | 918 | 49 | 12 | 2 | `e1ed0b1ea635` |
+
++15 passed = the accumulated new tests (10 from passes 1–2, 5 from pass 3). Failing-node fingerprint
+**byte-identical** (`sha256` of sorted `FAILED` lines unchanged). No baseline debt touched, fixed,
+masked, or newly attributed.
+
+### Composability risk (recorded, deliberately not fixed here)
+
+The gate duplicates one policy across two files (workflow inline regexes + policy module) with only
+a test holding them together. Pass 3 narrows the divergence window (drift now checked against the
+full tracked corpus) but leaves the coupling. The structural fix — workflow invokes the tested
+policy module, shell literal retained as a mirror assertion — is the recommended next bounded task.
+It is **not** done in this pass: it changes how the gate executes, and execution semantics must not
+change while restoring a red `main` (contract §05: do not widen scope because it is convenient).
+
+### Merge-order hazard (unchanged from pass 2)
+
+`docs/phase1/CONTINUATION_LEDGER.md` is appended by both PR #105 and PR #109; textual conflict at
+EOF is expected. Suggest merge #105 first, then rebase #109. Recorded, not decided.
+
+### Pass 3 - branch CI evidence (recorded after push)
+
+* Branch head pushed: `379fab1` (pass 3) then `3a01df4` (CI-provenance + UTF-8 repair follow-up).
+* CI run `36514902623` @ `379fab1`: job `validate` **success**, all 34 gated steps pass, incl.
+  step 31 `CP10 mutation boundary` and step 34 `Enforce CP10 executable gates`.
+* CI run `36515066702` @ `3a01df4`: job `validate` **success**.
+* PR #105 `mergeable` = `clean`.
+* A follow-up commit repaired one non-UTF-8 byte (`0xd1`) accidentally written into `EVIDENCE.md`
+  by an earlier text edit; the file now decodes as UTF-8 (verified).
+* No change to the shipped policy, workflow, or tests in the follow-up - evidence/ledger text only.
+
+### Next bounded task
+
+1. Sovereign merges PR #105 → re-run CP10 on `main`, confirm green.
+2. Then (separate bounded branch/PR): de-duplicate the CP10 policy so the workflow executes the
+   tested module instead of a hand-maintained copy.
+3. Baseline debt (49 failures + 2 collection errors) remains an unstarted, separately-classified
+   candidate workstream (`PARKING_LOT.md`).
+
+### Authorization
+
+Human review/merge only. No consequential external action taken. No merge performed.
+
+
+---
+
+## GATE-10 · CP10 allowlist — pass 4 (`opportunity_radar/`)
+
+Reconstructed from live evidence this pass: `origin/main` = `973117e` (merge #107). PR #105 is
+**merged**; the CP10 gate is green on `main` only because it did not run — `validate` has no
+check-run on `973117e` (only `browser`), and the workflow's `push`/`pull_request` path filters do
+not include `opportunity_radar/**`.
+
+This pass closes the last tracked omission.
+
+### Finding — PR #110 was masked, not resolved
+
+`opportunity_radar/SAPZ_CAPTURE_STATE.md` was added by `ae740b8` and merged in #110 (`e345bfc`).
+That merge's `validate` check-run **failed** (`109234968163`, run `36514924096`) with
+`Unexpected path outside legitimate repository surfaces: opportunity_radar/SAPZ_CAPTURE_STATE.md`.
+
+The gate step diffs the tip commit against its **first parent only** (`git diff --name-only HEAD^
+HEAD`). On the merge commit, the first parent already carried the path, so the next merge (`e5e2e42`)
+reported no offenders and went green. The surface was never admitted — only hidden behind merge
+topology. The next non-merge commit to `opportunity_radar/` would redden `main` again.
+
+### Change (3 files)
+
+* `scripts/cp10_mutation_boundary_policy.py` — `opportunity_radar/` added to `LEGIT`; inventory
+  counts corrected 74/1393 → 75/1398.
+* `.github/workflows/sg-02-fe-2-v.yml` — mirrored `legit` literal kept byte-equivalent.
+* `tests/test_m02a_ci_gate_integrity.py` — 3 new guards, incl. a general
+  `test_allowlist_admits_every_tracked_top_level_prefix` so the omission class cannot silently recur.
+
+### Evidence
+
+* `tests/test_m02a_ci_gate_integrity.py`: 1 failed → **32 passed**.
+* `tests/architecture`: 11 passed (unchanged).
+* Exhaustive policy↔workflow equivalence: **0 drift / 1398 tracked paths**; adversarial paths
+  rejected by both; `opportunity_radar/x.md` admitted by both.
+* `py_compile` clean on changed Python; `api/main.py` untouched (under the 2600-line budget).
+* Grove contracts: 3 failed / 27 passed — reproduced identically on a clean `origin/main` worktree,
+  therefore **baseline debt, unattributed**.
+
+### Corollary finding — the ledger file itself is outside the allowlist
+
+`docs/phase1/CONTINUATION_LEDGER.md` is rejected by the allowlist on the current tree and is not in
+the tracked-surface guard's scope; it is admitted only by `[^/]+[.]md$` topology plus the tip-parent
+diff. Recorded, not fixed (scope).
+
+### Next bounded task (recommended, not started)
+
+1. Make the gate evaluate the **PR ranges** it is supposed to guard (all commits, or base..head),
+   not only the tip's first parent, so a masked offender cannot pass a subsequent merge. This is the
+   structural closure of the class found above.
+2. Independently: de-duplicate the CP10 policy so the workflow executes the tested module rather than
+   a hand-maintained regex copy (composability risk, §6 of the evidence record).
+3. Baseline debt (Grove 3 + full-suite remainder + 2 collection errors) remains an unstarted,
+   separately-classified candidate workstream (`PARKING_LOT.md`).
+
+### Merge-order hazard (unchanged)
+
+Both this branch and PR #109 append to `docs/phase1/CONTINUATION_LEDGER.md`; textual conflict at EOF
+is expected. Merge order is a human decision.
+
+### Authorization
+
+Human review/merge only. No consequential external action. No merge performed.
+

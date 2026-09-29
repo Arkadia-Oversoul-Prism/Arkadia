@@ -179,6 +179,52 @@ CREATE TABLE IF NOT EXISTS personas (
 );
 
 -- ─────────────────────────────────────────────────────────────
+-- CAPTURE SOURCES  (canonical SOURCE identity — GATE-01)
+--
+-- A source is the canonical origin of an external fact. It is registered
+-- before any content is captured from it, so that every captured artifact
+-- can name where it came from. `fingerprint` enforces one identity per
+-- origin — re-registering the same origin returns the existing row.
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS capture_sources (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_uuid TEXT NOT NULL UNIQUE,
+    source_kind TEXT NOT NULL,                    -- message | document | url | api | manual | system
+    source_ref  TEXT,                             -- external identifier/URL when known — NULL = UNKNOWN
+    title       TEXT,
+    origin_meta TEXT NOT NULL DEFAULT '{}',       -- JSON — no inferred facts
+    fingerprint TEXT NOT NULL UNIQUE,             -- sha256(kind + ref + title) — identity, not content
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ─────────────────────────────────────────────────────────────
+-- CAPTURE RECORDS  (CAPTURE → CANONICAL RECORD → AUTHORSHIP → PROVENANCE)
+--
+-- One row per captured artifact. `source_id` is NOT NULL: a capture cannot
+-- exist without a registered source (SOURCE → CAPTURE is an enforced edge).
+-- `note_id` is the canonical record the capture produced. Authorship is
+-- declared explicitly and never inferred from the source.
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS capture_records (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    capture_uuid    TEXT NOT NULL UNIQUE,
+    source_id       INTEGER NOT NULL REFERENCES capture_sources(id) ON DELETE RESTRICT,
+    content_kind    TEXT NOT NULL DEFAULT 'unknown',  -- message | document | transcript | manual | system
+    raw_checksum    TEXT NOT NULL,                    -- sha256(raw content)
+    captured_by     TEXT,                             -- actor uid — NULL = UNKNOWN
+    captured_by_kind TEXT NOT NULL DEFAULT 'unknown', -- human | system | unknown
+    authored_by     TEXT,                             -- author of the durable fact — NULL = UNKNOWN
+    authored_by_kind TEXT NOT NULL DEFAULT 'unknown', -- human | system | unknown
+    capture_status  TEXT NOT NULL DEFAULT 'CAPTURED', -- CAPTURED | BOUND
+    note_id         INTEGER REFERENCES notes(id) ON DELETE SET NULL,  -- canonical record produced
+    captured_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_capture_source   ON capture_records(source_id);
+CREATE INDEX IF NOT EXISTS idx_capture_note     ON capture_records(note_id);
+CREATE INDEX IF NOT EXISTS idx_capture_authored ON capture_records(authored_by);
+
+-- ─────────────────────────────────────────────────────────────
 -- INDEXES for query performance
 -- ─────────────────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_notes_project    ON notes(project_id);

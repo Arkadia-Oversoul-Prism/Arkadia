@@ -1,0 +1,28 @@
+{
+  "move_id": "M01",
+  "status": "accepted",
+  "name": "persistence-architecture",
+  "trajectory": "ARKADIA-TRUTHFULNESS-01",
+  "pr": 39,
+  "implementation_sha": "332b9d82cf15102d3c29183e2a86aeda9bc21bcc",
+  "merge_sha": "167a1a1c56d23e7d3947203fa640fc506d6d471a",
+  "base_branch": "main",
+  "base_sha_before_merge": "0a4d79ee25a6723b0b4975d9c891db723e1be2bb",
+  "merged": true,
+  "merged_at": "2026-09-15T15:51:46Z",
+  "human_review": "APPROVED",
+  "human_approval_note": "Architect: M01 implementation is structurally sound and satisfies the defined acceptance boundary. APPROVED FOR MERGE.",
+  "verification": {
+    "focused_suite": "tests/test_m01_persistence.py",
+    "focused_result": "13 passed (in isolation)",
+    "full_suite_post_merge": "44 failed, 683 passed, 10 skipped",
+    "full_suite_baseline_pre_merge": "43 failed, 671 passed, 10 skipped",
+    "regressions": 1,
+    "regression_detail": "tests/test_m01_persistence.py::test_db_path_honours_data_dir_env fails under full-suite collection order (cross-module SOLSPIRE_PROJECTS_DB env leakage). Passes 13/13 in isolation.",
+    "boot_code": "api/main.py, api/firebase_store.py, solspire/project_persistence.py compile clean"
+  },
+  "evidence": "docs/control-plane/evidence/m01-persistence/EVIDENCE.md",
+  "closure_record": "docs/control-plane/M01-CLOSURE.md",
+  "next_legal_move_at_closure": "M02",
+  "recorded_by": "WEAVER (OpenHands agent) on behalf of the Architect"
+}

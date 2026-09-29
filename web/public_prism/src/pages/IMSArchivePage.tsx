@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { FieldBar } from './NexusPage'
 import { IMSArchiveSection, EncyclopediaGalacticaMatrix } from '../components/IMSArchive'
-
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+import { apiRequest } from '../lib/apiClient'
 
 interface ArkDateData {
   ark_year: number; ark_total_years: number; total_ark_day: number
@@ -13,7 +12,7 @@ interface ArkDateData {
 export default function IMSArchivePage() {
   const [ark, setArk] = useState<ArkDateData | null>(null)
   useEffect(() => {
-    fetch(`${API_BASE}/api/ark-date`).then(r => r.json()).then(setArk).catch(() => {})
+    apiRequest<ArkDateData>('/api/ark-date').then(setArk).catch(() => {})
   }, [])
 
   return (

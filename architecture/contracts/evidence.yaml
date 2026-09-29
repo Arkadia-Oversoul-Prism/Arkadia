@@ -1,0 +1,19 @@
+version: "1.0"
+contract: evidence
+status: schema_only
+purpose: Define the evidence hierarchy used to distinguish current executable truth from historical description.
+evidence_priority:
+  - current_code
+  - current_tests
+  - current_runtime
+  - current_config
+  - closure_record
+  - historical_documentation
+classes: [observed, corroborated, indicative, hypothesis]
+rules:
+  - claims must identify their evidence class
+  - stale documentation cannot override current executable evidence
+  - runtime claims require runtime evidence or explicit qualification
+  - Atlas statements must remain traceable to evidence
+required_claim_fields: [claim, evidence_class, source, observed_at, confidence]
+forbidden: [documentation_over_code, unsupported_live_claim, hidden_hypothesis_as_fact]
