@@ -1,7 +1,78 @@
 # Arkadia — Continuation Ledger
-# Arkadia — Continuation Ledger
 
 ---
+
+## Pass — GATE-10 · CP10 mutation boundary (continuation ledger H1 integrity)
+
+**Session date:** 2026-09-29
+**Role:** Engineering Runtime (bounded execution pass — reconstruct, classify, fix, prove, persist)
+**Branch / PR:** `gate10/ledger-h1-dedup` → new PR (human-only merge)
+**BASE_MAIN at pass start:** `02fe88c` (merge of PR #3, `recon/solspire-r0`)
+**Workstream continuity:** PR #117 (`gate10/cp10-trigger-parity`) merged at 04:13:14Z as merge
+commit `077f30a`; PR #118 (`gate10/cp10-allowlist-opportunity-radar`) is open but **empty and
+superseded** (see Findings B and C).
+
+### Reconstruction — the contract baseline was stale, and so was the previous pass
+
+Live evidence (`git fetch`, GitHub API) this pass:
+
+- `origin/main` = `02fe88c`; 1339 commits; the #113→#118 lineage is intact
+  (`760e7f9` → `4ad22cd` → `077f30a` → `ff80b8c` → `611f69e` → `02fe88c`). The previous pass's
+  *"origin/main `02fe88c` vs local `422eb20` — divergent lineage"* alarm was a misread of a
+  truncated `git log`; `422eb20` is an ancestor of `02fe88c`. There was no VCS anomaly.
+- The run contract's declared baseline (`main := 6038989`, 804/54/12, architecture 9/10) is
+  stale; every number below was measured live in this pass.
+
+### Finding A — the boundary's own surface carried a duplicate H1 (defect)
+
+`docs/phase1/CONTINUATION_LEDGER.md` on `main` opened with the H1
+`# Arkadia — Continuation Ledger` **twice** (lines 1–2). Attribution by history: `64f67bd` and
+all earlier revisions carry a single H1; `d904c26` (author `p`, the commit merged as PR #117)
+introduced the second. The CRLF-mismatch that blocked the file editor in the previous pass was
+real, so the fix is applied byte-safely (exact duplicate-line deletion, no re-encoding),
+producing a **1-line** diff.
+
+This is the same defect class the workstream exists to close: a surface the boundary judges must
+itself satisfy the invariant it enforces. Line 2 is removed.
+
+### Finding B — PR #118 is an empty, superseded PR (NOT a merge candidate)
+
+Live API: PR #118 `changed_files = 0`, `additions = 0`, `deletions = 0`, `mergeable = true`,
+base `077f30a`. Its stated objective was to admit the `opportunity_radar/` root to the CP10
+mutation-boundary allowlist — but `origin/main` already contains that admission in **both**
+places (`scripts/cp10_mutation_boundary_policy.py` `LEGIT`, and the mirrored inline `legit=` in
+`.github/workflows/sg-02-fe-2-v.yml`). Commit `64f67bd` landed it and the subsequent merge
+commits cancel the remainder, so the PR now proposes no change. It must be **closed, not
+merged**. This ledger records that so the next heartbeat does not re-adopt it as the active
+workstream.
+
+### Finding C — `security-secret-scan` is RED on `main` (pre-existing baseline debt)
+
+Workflow run `36521250235` on `02fe88c`: job `Full-history secret scan` → `failure`,
+`leaks found: 4`, referencing `tests/test_ais_w9_self_service_acquisition.py#L31` among others.
+This is a pre-existing fingerprint unrelated to this pass. Its remediation would require
+history rewrite, which the contract forbids. **Recorded, not fixed**; classified as its own
+future bounded workstream.
+
+### Verification (this pass)
+
+```
+python -m py_compile api/main.py                         -> OK (2519 lines, under 2600 budget)
+python -m pytest tests/architecture -q                   -> 11 passed
+python -m pytest tests/test_m02a_ci_gate_integrity.py -q -> 46 passed
+docs/phase1/CONTINUATION_LEDGER.md                       -> 1 deletion only (no content change)
+```
+
+The gate-integrity suite is the one that asserts every tracked path is admitted by the allowlist
+and that the workflow mirror agrees with the policy module. It passes on this head, so Finding B
+is safe to act on and Finding A introduces no boundary regression.
+
+### Next bounded task
+
+1. Human closes PR #118 as superseded (no merge).
+2. Human reviews and merges this PR (H1 dedup); K5 human review + merge remains pending.
+3. Proposed, not executed: reconcile the contract baseline block with live evidence (main SHA +
+   suite counts). This needs sovereign sign-off because the contract is a governance surface.
 
 ## Pass — GATE-10 · CP10 mutation boundary (range evaluation + trigger-path coverage)
 
