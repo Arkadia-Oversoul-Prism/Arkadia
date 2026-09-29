@@ -19,7 +19,7 @@ No secret values are recorded here, in issues, or in review comments.
 - Current-tree secret-shaped configuration: placeholders and environment references only in the inspected files.
 - Historical exposure: **CONFIRMED**.
 - Provider-side rotation/revocation: **UNKNOWN until independently evidenced**.
-- Full Git object-history scan: enforced by the repository workflow added with this gate, pending its first successful run.
+- Full Git object-history scan: **PASSED** on GitHub Actions run 36517612969.
 - Public-repository secret scanning: GitHub provides secret scanning for public repositories; repository-level push-protection configuration still requires independent settings verification. 
 
 ## Required remediation evidence
