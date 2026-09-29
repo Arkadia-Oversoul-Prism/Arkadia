@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -9,9 +10,9 @@ def read(path: str) -> str:
 
 def test_ais_profile_exposes_canonical_identity_spine():
     src = read("api/ais_profile.py")
-    assert '_SPINE_KEY = "identity_spine"' in src
-    assert '@router.get("/api/me/identity-spine")' in src
-    assert 'load_user_profile_store(user["uid"])' in src
+    assert re.search(r"_SPINE_KEY\s*=\s*['\"]identity_spine['\"]", src)
+    assert re.search(r"@router\.get\(\s*['\"]/api/me/identity-spine['\"]\s*\)", src)
+    assert re.search(r"load_user_profile_store\(\s*user\[['\"]uid['\"]\]\s*\)", src)
     assert 'relational_index' in src
     assert 'capability' in src
 
