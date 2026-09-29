@@ -5,6 +5,9 @@
 >
 > This supersedes the batch-1 state at
 > `docs/control-plane/evidence/gate-hygiene-baseline-stale-assertion-repair-sci-nexus-01/WORKSTREAM_STATE.md`.
+>
+> Per-pass heartbeat record: `HEARTBEAT.md` (same directory) — reconstruct, classify,
+> precondition corrections, negative controls, classification, credential boundary.
 
 ## Fingerprint (measured this pass, not remembered)
 
