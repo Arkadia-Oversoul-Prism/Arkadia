@@ -98,7 +98,8 @@ def test_activity_draft_persistence_is_local_and_not_evidence() -> None:
     chamber = CHAMBER.read_text(encoding="utf-8")
     assert "arkadia.spiral-grove.activity-draft.v1:" in chamber
     assert "localStorage" in chamber
-    assert "Evidence is separate." in chamber
+    assert re.search(r"Evidence submission, assessment, and capability-state "
+                     r"(?:mutation|updates) remain (?:explicit|separate explicit) downstream stages\.", chamber)
     assert "does not change your learner capability state" in chamber
 
 

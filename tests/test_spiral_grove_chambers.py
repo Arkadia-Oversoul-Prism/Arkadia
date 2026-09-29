@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,12 +33,21 @@ def test_chamber_exposes_required_operating_context():
 
 
 def test_chamber_does_not_invoke_autonomous_generation_or_adjudication():
+    """The chamber must not generate exercises or adjudicate evidence itself.
+
+    The boundary prose was reworded ("Evidence is separate." -> the SG-03
+    downstream-stages wording); the governance property is unchanged. Assert the
+    boundary by its machine-readable marker AND by requiring that the wording
+    still names evidence submission/assessment as a downstream stage, so the
+    assertion keeps teeth instead of pinning one paraphrase.
+    """
     chamber = read(CHAMBER)
     assert "SG-03 activity contract" in chamber
-    assert "Evidence is separate." in chamber
     assert "generateExercise" not in chamber
     assert "createEvidence" not in chamber
-    assert "mutate learner capability state" in chamber
+    assert re.search(r"mutate[s]? learner capability state", chamber)
+    assert re.search(r"Evidence submission, assessment, and capability-state "
+                     r"(?:mutation|updates) remain (?:explicit|separate explicit) downstream stages\.", chamber)
 
 
 def test_chamber_uses_typed_capability_and_learner_state():

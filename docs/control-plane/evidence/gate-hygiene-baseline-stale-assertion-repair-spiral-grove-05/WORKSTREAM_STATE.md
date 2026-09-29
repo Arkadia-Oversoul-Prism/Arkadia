@@ -1,0 +1,61 @@
+# WORKSTREAM_STATE — `gate-hygiene` / SH-02 (baseline STALE_ASSERTION migration)
+
+Reconstructed from live repository evidence, not memory. `main` @
+`4164573586860b9c7e04e1815bca4957559046a2`.
+
+## Workstream
+
+Repair baseline test failures whose failure fingerprint is a **stale source-level string
+assertion** (`STALE_ASSERTION`) against a reworded-but-intact governance property. Scope
+is test-only. It does **not** cover `DRIFT`, `SH-08` governance contradictions, or
+product-decision nodes.
+
+Classification source of truth:
+`docs/control-plane/evidence/gate-hygiene-baseline-test-debt-classification-01/BASELINE_TEST_DEBT_CLASSIFICATION.md`.
+
+## Baseline fingerprint at `main` @ `41645735`
+
+Baseline captured on a clean worktree at `main`, same interpreter and `PYTHONPATH`,
+ignoring the two documented collection-error modules (`test_autonomy.py`,
+`test_render_codex.py`):
+
+- full suite: **39 failed / 1018 passed / 13 skipped**
+- architecture: **11/11 passed** (the brief's "10/10" is stale; the suite has grown)
+- `vite build`: environment-blocked
+
+Node fingerprint: `/tmp/baseline_nodes_main.txt` derivation — 39 sorted `FAILED`/`ERROR`
+node ids. A new failure is attributed to new work only if its **node id** appears that was
+not present here.
+
+## Batch ledger
+
+| Batch | Branch | Nodes | State |
+| --- | --- | --- | --- |
+| — | merged PR #124 | SCI / nexus 6-node | **merged** |
+| — | merged PR #125 | Solariun consolidation 3-node | **merged** |
+| — | merged PR #127 | `test_prism_pass_c_surface_ownership.py` 13-18 | **merged** |
+| 3 | `gate-hygiene/baseline-stale-assertion-repair-identity-spine-03` | identity spine / `ais_profile` | **open PR #130**, green |
+| 4 | `gate-hygiene/baseline-stale-assertion-repair-future-skills-04` | `test_ais_w6_future_skills_challenge.py` (node 9) | branch @ `cefb2f5`, **no PR** |
+| d | `gate-hygiene/sh02d-prism-interior-shell` | `test_prism_interior_shell.py` (nodes 10-12) | branch @ `8d1c386`, **no PR** |
+| 5 | `gate-hygiene/baseline-stale-assertion-repair-spiral-grove-05` | `spiral_grove_{chambers,frontend_projection,learning_path_projection}` (nodes 24-26) | **this PR** |
+
+Adjacent open work, not part of SH-02:
+
+- PR #129 `gate-hygiene/baseline-ledger-correction-sg04-01` — ledger correction + drift
+  reconciliation; awaiting sovereign merge.
+
+## Next bounded tasks (proposed, not authorized)
+
+1. Publish or reconcile the two orphan branches in the batch ledger (batches 4 and d) —
+   they hold finished repairs with no PR, so no heartbeat can merge them.
+2. The un-rendered version-string assertions noted in the batch-5 evidence "Remaining
+   uncertainty" section (candidate SH-02 batch 6).
+3. Remaining `STALE_ASSERTION` clusters that are not owned by open work and are not
+   `SH-08` / `DRIFT` product decisions.
+
+Each requires a bounded scope, completion condition, evidence requirement, regression
+boundary, and authority boundary before execution.
+
+## Authority
+
+Human sovereign merge only. Never merge, never push `main`, never force-push.
