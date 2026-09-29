@@ -358,6 +358,8 @@ So `test_echo_field_aliases_resolve_to_solspire_field` asserts a mount that was 
 
 **Epistemic rule preserved:** *absence is valid state.* Never fabricate. Exact strings retained: `"No placeholder state has been substituted."`, `"No synthetic destination has been substituted."`
 
+**Continuity note — a prior pass of this workstream contributed to the density.** PR #104 (merged, `a26af408c269`) added the "Follow the thread" section now at `SolariunHomeCockpit.tsx:443`. It is architecturally honest (bounded to three destinations, no implied transition) but it is a **10th block on a 10-section Home** — it participates in S16. Gate C should treat it as a candidate for `PROGRESSIVE_DISCLOSURE`, not as an untouchable asset. Recorded here so the plan does not exempt its own prior output.
+
 ---
 
 ## 7. PROJECT CONTRACT
