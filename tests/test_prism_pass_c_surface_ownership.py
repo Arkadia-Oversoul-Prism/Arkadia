@@ -94,22 +94,42 @@ def test_nav_echo_field_opens_personal_echofeild():
 
 
 def test_knowledge_os_resolves_to_solariun_knowledge():
+    """`knowledge-os` is both a live mount and a redirect alias onto Solariun.
+
+    It shares one grouped `handleNavigate` rule with `codex`
+    (`requested === 'knowledge-os' || requested === 'codex'`), and additionally has a
+    `'/knowledge-os'` entry in the path table. Asserting the mount alone under-describes
+    the route — an earlier revision of this file claimed no redirect rule existed at all.
+    """
     block = _block("knowledge-os")
     assert "SolariunConsole" in block
     assert 'initialSection="knowledge"' in block
     assert "SolSpireConsole" not in block  # enterprise console is not the personal lens
     assert "KnowledgeOSPage" not in _app()  # not an independent mount
+    flat = re.sub(r"\s+", "", _redirect("knowledge-os"))
+    assert "view:'solariun'" in flat
+    assert "section:'knowledge'" in flat
 
 
-def test_codex_resolves_to_knowledge_memory_lens():
-    """Legacy `codex` no longer owns a separate knowledge mount.
+def test_codex_resolves_to_knowledge_lens():
+    """Legacy `codex` is rewritten onto Solariun's **knowledge** lens.
 
-    It mounts SolariunConsole and SolariunConsole maps codex -> memory, so the
-    legacy id lands on the project-memory lens rather than the global library.
+    `handleNavigate` maps `codex` -> `{view:'solariun', section:'knowledge'}`, and the
+    `codex` mount passes `initialSection="knowledge"`. `SolariunConsole` resolves that
+    through `LEGACY_MAP`, where `knowledge` is **not** a legacy key, so the value passes
+    through unchanged: codex lands on `knowledge`, never on `memory`.
+
+    `LEGACY_MAP` does carry a `codex:'memory'` row (pre-consolidation fallback). Asserting
+    that row exists is a declaration-inventory check — it does **not** describe codex's
+    route, and an earlier revision of this test wrongly claimed it did.
     """
-    assert "SolariunConsole" in _block("codex")
-    assert 'initialSection="knowledge"' in _block("codex")
-    assert re.search(r"codex:'memory'", SOLARIUN.read_text(encoding="utf-8"))
+    block = _block("codex")
+    assert "SolariunConsole" in block
+    assert 'initialSection="knowledge"' in block
+    flat = re.sub(r"\s+", "", _redirect("codex"))
+    assert "view:'solariun'" in flat
+    assert "section:'knowledge'" in flat
+    assert "codex:'memory'" in SOLARIUN.read_text(encoding="utf-8")
 
 
 def test_loops_resolves_to_solariun_tasks():

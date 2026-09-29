@@ -68,14 +68,14 @@ Bucket counts at that pass: **STALE_ASSERTION 35**, **DRIFT 10**, **ENV/ARTIFACT
 |---|---|---|---|
 | `SH-01` | `SOLSPIRE_PROJECTS_DB` env leak in `tests/test_echofeild_aggregator.py` | REAL_DEFECT | **already fixed on main** — do not re-do |
 | `SH-02` | migrate the 35 stale string assertions, in bounded batches | STALE_ASSERTION | **15 / 35 repaired** (batch 1: 6; batch 2: 3; batch 3 `SH-02b`: 6) |
-| `SH-02b` | `test_prism_pass_c_surface_ownership.py` (6 nodes) — helper rewrite, not string edits | STALE_ASSERTION | **done this pass**, PR open, sovereign merge pending |
+| `SH-02b` | `test_prism_pass_c_surface_ownership.py` (6 nodes) — helper rewrite, not string edits | STALE_ASSERTION | **done**, PR #127 open, sovereign merge pending. **Heartbeat follow-up (this pass):** two *false claims* in that repair corrected — `codex` routes to the **knowledge** lens, not `memory` (§3.4); `knowledge-os` **does** have a redirect rule (§4). Both nodes strengthened; `SH-02c` withdrawn |
 | `SH-03` | `"DERIVED"` vs `"DERIVED_BOUNDED_SEMANTIC"` contract split | DRIFT | awaits product decision |
 | `SH-04` | is `CapabilityRegistry` cycle detection reachable? | DRIFT | not started |
 | `SH-05` | fate of `test_gate_serve_script` / `test_gate_status` | ENV | sovereign call |
 | `SH-06` | should `steward_filter` stem-match `transcend*`? | STALE_ASSERTION | awaits product judgement |
 | `SH-07` | shared-session key in `ArkanaCommune.tsx` (`test_m02_reasomate_truth`) | DRIFT (high) | awaits architectural gate |
 | `F-01` | `test_no_firebase_persistence_in_gate` — `sessionStorage` proxy no longer measures its "no cloud persistence" intent (gate has 0 firebase refs; storage is ephemeral handoff) | DRIFT (proxy-invalidation) | **sovereign decision** — do not silently loosen |
-| `SH-02c` | `knowledge-os` legacy id has **no** redirect rule in `App.tsx` (mount-only). Possible dead id / DRIFT — see `SH-02b` EVIDENCE §4 | DRIFT (proposed) | not started — product decision |
+| `SH-02c` | ~~`knowledge-os` legacy id has **no** redirect rule in `App.tsx` (mount-only)~~ | ~~DRIFT (proposed)~~ | **WITHDRAWN — finding was false.** `knowledge-os` *does* have a grouped `handleNavigate` redirect rule (line 115) and a `'/knowledge-os'` path-table entry (line 57) beside its mount (line 150). The node under-asserted; corrected in `SH-02b`. No product decision needed |
 
 ## Next bounded task
 
