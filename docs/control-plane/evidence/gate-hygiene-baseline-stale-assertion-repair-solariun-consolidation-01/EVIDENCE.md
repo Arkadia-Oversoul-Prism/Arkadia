@@ -40,6 +40,20 @@ Files changed: `tests/test_solariun_experience_consolidation_01.py` **only** (+6
    → re-point Area C at the real owners and keep a **negative guard** that the frame
    wrapper does not regrow them (verified necessary: `5402553` "remove duplicate Solariun
    outer shell" deleted 147 lines from the frame — exactly this duplication).
+   This same staleness was independently flagged in
+   `docs/architecture/AEAS_FRONTEND_SCALPEL_PLAN.md:264`, which classified the node
+   "C / B" and required rewriting it to assert the architectural *invariant* rather than
+   obsolete prose.
+
+   **Two of the five old strings are deliberately dropped, not re-pointed.**
+   `Knowledge OS search only` and `Existing repository components + existing APIs` were
+   documentation prose; `grep -rn` finds neither anywhere under `web/public_prism/src` or
+   `docs/architecture` except this classification table. Asserting them would be
+   re-pinning the same prose drift in a new file. The bounded search/no-universal-index
+   *intent* is retained by asserting the live mechanisms (`searchKnowledge`,
+   `No universal object index`, `COVERAGE (honest)`). Likewise the literal
+   `ACTIVITY ≠ PROVENANCE` is re-expressed as its live form — the `ACTIVITY (project_events)`
+   layer token plus `provenance proof` as a distinct layer.
 
 2. **Frame is now a thin wrapper.** `experience-inspector` / `experience-context-bar`
    testids moved to the canonical surfaces
