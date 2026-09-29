@@ -73,7 +73,31 @@ Consequence, by role: `WEAVER` (`READ, OBSERVE, PROPOSE`) receives
 `filesystem.*` + read-only `git.*` and **no** `terminal.run`; `BUILDER`
 (`READ, EDIT, RUN, TEST, PROPOSE`) additionally receives `terminal.run`.
 
-### 3. K15/K3 untouched
+### 3. Closed terminal grammar (`sandbox.py`) — follow-up finding
+
+A second audit found that forcing `enforce_git_read_only` was insufficient:
+a caller could still supply `command_allowlist=("python",)` and reach mutation
+through `python -c "open(...).write(...)"`. `write_allowed=False` does not
+constrain subprocesses. Reproduced: `python -c` wrote `injected.txt`.
+
+- `SandboxPolicy.enforce_command_grammar`.
+- `L1_TERMINAL_BINARIES` — a closed set: `git`, `echo`, `pwd`, `true`, `false`.
+  Every member either takes no path argument or is separately constrained.
+- `Sandbox.run()` refuses any other binary before the caller allow-list is even
+  consulted, so a caller allow-list can only **narrow**, never **widen**.
+
+### 4. Git path-redirection rejection (`sandbox.py`) — follow-up finding
+
+`git -C <path>`, `--git-dir=<path>` and `--work-tree <path>` change where git
+operates; `_resolve()` never sees them. Reproduced: all three read a repository
+outside `policy.root`.
+
+- `_GIT_PATH_OPTIONS` = `{-C, --git-dir, --work-tree}`.
+- `_git_path_redirect()` detects them; `Sandbox.run()` refuses them.
+- `-c`/`--config-env` are config overrides, not paths, and are **not** refused
+  (verified by `test_git_config_override_is_not_treated_as_path_escape`).
+
+### 5. K15/K3 untouched
 
 No new mutation mechanism was introduced. The git guard only *narrows* the
 sandbox. L2 remains: agent proposal → PassSpec → K15 → PatchApproval → K3 →
@@ -81,7 +105,7 @@ mutation → WorkEvent/evidence.
 
 ## Evidence
 
-`tests/test_engineering_lab_agent_loop.py` — 33 passed, 1 skipped. New tests:
+`tests/test_engineering_lab_agent_loop.py` — 40 passed, 1 skipped. New tests:
 
 - `test_git_mutation_is_refused_through_terminal_run` — 11 parametrised
   mutation commands, each refused with repository state unchanged.
@@ -89,11 +113,18 @@ mutation → WorkEvent/evidence.
 - `test_git_read_only_guard_blocks_real_commit` — a commit that landed before
   the fix now raises `SandboxCommandDenied` and leaves `git log` unchanged.
 - `test_git_subcommand_parser_skips_global_options` — parser correctness.
+- `test_git_path_redirect_is_refused` — `-C`/`--git-dir`/`--work-tree` refused.
+- `test_git_config_override_is_not_treated_as_path_escape` — `-c` still allowed.
+- `test_caller_allowlist_cannot_widen_terminal_grammar` — `python`/`sh`/`rm`
+  injected via the allow-list are refused; no file is created.
+- `test_l1_terminal_binaries_still_run_under_grammar` — closed set works.
+- `test_runtime_forces_closed_grammar_on_caller_policy` — captures the policy
+  the runtime actually built and asserts both flags are set.
 - `test_weaver_ceiling_excludes_terminal_run` — capability bound.
 - `test_authorization_narrows_capability` — authorization bound.
 - `test_agent_loop_uses_git_read_only_policy_by_default` — runtime default.
 
-Regression: Lab + architecture = 92 passed, 1 skipped. Broader sweep failure
+Regression: Lab + architecture = 99 passed, 1 skipped. Broader sweep failure
 set is **identical to base `417d32d`** (11 pre-existing failures, none in
 `lab/`).
 

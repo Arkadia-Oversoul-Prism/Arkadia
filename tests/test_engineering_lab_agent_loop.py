@@ -444,6 +444,109 @@ def test_git_subcommand_parser_skips_global_options():
     assert _git_subcommand(["git"]) == ""
 
 
+# -- L1.1 follow-up: caller allow-list and git path redirection ---------------
+
+GIT_PATH_REDIRECT_COMMANDS = (
+    ["git", "-C", "/tmp/outside", "status"],
+    ["git", "--git-dir=/tmp/outside/.git", "status"],
+    ["git", "--work-tree", "/tmp/outside", "status"],
+)
+
+
+@pytest.mark.parametrize("argv", GIT_PATH_REDIRECT_COMMANDS)
+def test_git_path_redirect_is_refused(workspace, argv):
+    """Git path options must not escape the sandbox root (GATE L1.1)."""
+    from lab.engineering_lab.sandbox import SandboxCommandDenied
+
+    sandbox = Sandbox(SandboxPolicy(root=str(workspace), command_allowlist=("git",),
+                                    enforce_git_read_only=True, enforce_command_grammar=True))
+    with pytest.raises(SandboxCommandDenied):
+        sandbox.run(argv)
+
+
+def test_git_config_override_is_not_treated_as_path_escape(workspace):
+    """``-c`` is a config override, not a path redirect; it must not be denied."""
+    from lab.engineering_lab.sandbox import SandboxCommandDenied, _git_path_redirect
+
+    assert _git_path_redirect(["git", "-c", "core.pager=cat", "status"]) == ""
+    assert _git_path_redirect(["git", "--git-dir=/x", "status"]) == "--git-dir"
+    assert _git_path_redirect(["git", "-C", "/x", "status"]) == "-C"
+    sandbox = Sandbox(SandboxPolicy(root=str(workspace), command_allowlist=("git",),
+                                    enforce_git_read_only=True, enforce_command_grammar=True))
+    try:
+        sandbox.run(["git", "-c", "core.pager=cat", "status"])
+    except SandboxCommandDenied:  # pragma: no cover
+        pytest.fail("git -c is a config override and must not be denied")
+
+
+def test_caller_allowlist_cannot_widen_terminal_grammar(workspace):
+    """A caller-supplied allow-list must not reintroduce mutation (GATE L1.1)."""
+    from lab.engineering_lab.sandbox import SandboxCommandDenied
+
+    sandbox = Sandbox(SandboxPolicy(root=str(workspace), write_allowed=False,
+                                    command_allowlist=("python", "sh", "rm"),
+                                    enforce_git_read_only=True, enforce_command_grammar=True))
+    before = sorted(p.name for p in workspace.iterdir())
+    for argv in (["python", "-c", "open('injected.txt','w').write('x')"],
+                 ["sh", "-c", "echo x > injected.txt"],
+                 ["rm", "-rf", "."]):
+        with pytest.raises(SandboxCommandDenied):
+            sandbox.run(argv)
+    assert sorted(p.name for p in workspace.iterdir()) == before
+
+
+def test_l1_terminal_binaries_still_run_under_grammar(workspace):
+    sandbox = Sandbox(SandboxPolicy(root=str(workspace), write_allowed=False,
+                                    command_allowlist=("git", "echo", "pwd", "true"),
+                                    enforce_git_read_only=True, enforce_command_grammar=True))
+    for argv in (["echo", "hi"], ["pwd"], ["true"]):
+        assert sandbox.run(argv)["ok"] is True
+
+
+def test_runtime_forces_closed_grammar_on_caller_policy(
+    tmp_path, store, monkeypatch, workspace, gateway
+):
+    """Even when the caller supplies command_allowlist=('python','git'), the
+    runtime must force the closed grammar onto the effective policy."""
+    import lab.engineering_lab.runtime as runtime_mod
+    from lab.engineering_lab.sandbox import SandboxCommandDenied
+
+    runtime, _ = _runtime_fixture(tmp_path, store, monkeypatch, workspace)
+    gateway.register_adapter("ollama", ScriptedAdapter("ollama", KNOWN_SEQUENCE))
+    monkeypatch.setattr(gateway_mod, "get_gateway", lambda: gateway)
+
+    captured: list = []
+    real_sandbox = runtime_mod.Sandbox
+
+    class RecordingSandbox(real_sandbox):
+        def __init__(self, policy):
+            captured.append(policy)
+            super().__init__(policy)
+
+    monkeypatch.setattr(runtime_mod, "Sandbox", RecordingSandbox)
+
+    agent = runtime.register_agent(subject_ref="architect", role="BUILDER")
+    authorization = runtime.record_authorization(
+        subject_ref="architect", scope_ref="inspect",
+        operations_allowed=("list", "read", "run", "git_status"),
+    )
+    session = runtime.open_session(subject_ref="architect", agent_id=agent["agent_id"],
+                                   workspace_ref="arkadia", objective="inspect",
+                                   authorization_ref=authorization["authorization_id"])
+    runtime.execute_agent_loop(
+        subject_ref="architect", session_id=session["session_id"],
+        objective="inspect", provider="ollama", model="stub-model",
+        sandbox_policy=SandboxPolicy(root=str(workspace),
+                                     command_allowlist=("python", "git")),
+    )
+    assert captured, "the runtime must construct a sandbox"
+    effective = captured[0]
+    assert effective.enforce_command_grammar is True
+    assert effective.enforce_git_read_only is True
+    with pytest.raises(SandboxCommandDenied):
+        effective and real_sandbox(effective).run(["python", "-c", "print(1)"])
+
+
 def test_agent_loop_uses_git_read_only_policy_by_default(
     tmp_path, store, monkeypatch, workspace, gateway
 ):

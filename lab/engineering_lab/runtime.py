@@ -362,9 +362,11 @@ class EngineeringLabRuntime:
             write_allowed=task.requires_write and agent.get("tool_access", {}).get("write_allowed", False),
             command_allowlist=("git",),
             enforce_git_read_only=True,
+            enforce_command_grammar=True,
         )
         if sandbox_policy is not None:
-            policy = replace(policy, enforce_git_read_only=True)
+            policy = replace(policy, enforce_git_read_only=True,
+                             enforce_command_grammar=True)
         try:
             sandbox = Sandbox(policy)
         except Exception as exc:
@@ -508,9 +510,11 @@ class EngineeringLabRuntime:
             write_allowed=False,
             command_allowlist=("git",),
             enforce_git_read_only=True,
+            enforce_command_grammar=True,
         )
         if sandbox_policy is not None:
-            policy = replace(policy, enforce_git_read_only=True)
+            policy = replace(policy, enforce_git_read_only=True,
+                             enforce_command_grammar=True)
         try:
             sandbox = Sandbox(policy)
         except Exception as exc:

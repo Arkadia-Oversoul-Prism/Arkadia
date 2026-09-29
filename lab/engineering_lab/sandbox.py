@@ -78,9 +78,19 @@ class SandboxPolicy:
     #: with ``commit``/``reset``/``checkout`` mutates the repository. This closes
     #: that path without weakening the binary allow-list.
     enforce_git_read_only: bool = False
+    #: When True, only binaries in ``L1_TERMINAL_BINARIES`` may run, regardless
+    #: of ``command_allowlist``. A caller-supplied allow-list must not be able to
+    #: widen ``terminal.run`` into a mutation capability (e.g. ``python -c ...``).
+    enforce_command_grammar: bool = False
     default_timeout: float = 30.0
     max_output_bytes: int = 200_000
     max_file_bytes: int = 2_000_000
+
+
+#: The closed set of binaries the L1 terminal capability may execute. Every
+#: member either takes no path argument (``echo``/``pwd``/``true``/``false``) or
+#: is separately constrained (``git``). Nothing here can mutate the workspace.
+L1_TERMINAL_BINARIES: frozenset[str] = frozenset({"git", "echo", "pwd", "true", "false"})
 
 
 #: Git subcommands that only observe repository state. Anything else — by
@@ -97,6 +107,10 @@ READ_ONLY_GIT_SUBCOMMANDS: frozenset[str] = frozenset({
 _GIT_OPTIONS_WITH_ARG: frozenset[str] = frozenset({
     "-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env",
 })
+
+#: The subset of those options that redirect git at a filesystem path outside
+#: ``policy.root``. ``-c``/``--config-env`` are config overrides, not paths.
+_GIT_PATH_OPTIONS: frozenset[str] = frozenset({"-C", "--git-dir", "--work-tree"})
 
 
 @dataclass
@@ -130,6 +144,25 @@ def _sanitised_env() -> dict[str, str]:
     # A bounded run never inherits a git credential helper configuration.
     env.setdefault("GIT_TERMINAL_PROMPT", "0")
     return env
+
+
+def _git_path_redirect(argv: Sequence[str]) -> str:
+    """Return a git path-redirection option if present, else ``""``.
+
+    ``-C``, ``--git-dir``, ``--work-tree``, ``--namespace`` and ``--config-env``
+    change where git operates. The sandbox's ``_resolve`` never sees them, so
+    they would let a run read a repository outside ``policy.root``.
+    """
+    for token in argv[1:]:
+        name = token.split("=", 1)[0]
+        if name in _GIT_PATH_OPTIONS:
+            return name
+        if name in _GIT_OPTIONS_WITH_ARG:
+            continue
+        if token.startswith("-"):
+            continue
+        break
+    return ""
 
 
 def _git_subcommand(argv: Sequence[str]) -> str:
@@ -277,12 +310,27 @@ class Sandbox:
         if not argv:
             raise SandboxCommandDenied("empty command")
         binary = os.path.basename(argv[0])
+        if self.policy.enforce_command_grammar and binary not in L1_TERMINAL_BINARIES:
+            self._record("run", binary, False, {"reason": "binary_outside_l1_grammar"})
+            raise SandboxCommandDenied(
+                f"binary '{binary}' is not in the closed L1 terminal set "
+                f"{sorted(L1_TERMINAL_BINARIES)}; a caller allow-list cannot widen "
+                "the terminal into a mutation capability"
+            )
         if self.policy.command_allowlist and binary not in self.policy.command_allowlist:
             self._record("run", binary, False, {"reason": "not_allowlisted"})
             raise SandboxCommandDenied(
                 f"command '{binary}' not in allow-list {self.policy.command_allowlist}"
             )
         if self.policy.enforce_git_read_only and binary == "git":
+            redirect = _git_path_redirect(argv)
+            if redirect:
+                self._record("run", "git " + redirect, False,
+                             {"reason": "git_path_redirect_denied"})
+                raise SandboxCommandDenied(
+                    f"git path option '{redirect}' would escape the sandbox root; "
+                    "workspace confinement forbids it"
+                )
             subcommand = _git_subcommand(argv)
             if subcommand not in READ_ONLY_GIT_SUBCOMMANDS:
                 self._record("run", "git " + subcommand, False,
