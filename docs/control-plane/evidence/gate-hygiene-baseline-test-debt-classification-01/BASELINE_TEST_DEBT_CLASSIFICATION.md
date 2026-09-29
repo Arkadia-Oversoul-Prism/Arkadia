@@ -658,3 +658,26 @@ entry for `commune` - each fails exactly the node that asserts it.
 
 `SH-03`/`SH-04`/`SH-06`/`SH-07`/`F-01` were deliberately **not** touched: each needs a
 product or architectural decision, not a test edit.
+
+### Persisted state (for heartbeat reconstruction)
+
+| field | value |
+|---|---|
+| base main | `df7a99a067382401c00de5e7bbaaac0125ba2088` (Merge PR #131) |
+| branch | `gate-hygiene/sh02d-prism-interior-shell-rebase-01` |
+| PR | **#135** |
+| baseline fingerprint | `32F / 1025P / 13S / 2E` + 2 collection errors (`test_autonomy.py`, `test_render_codex.py`) |
+| post-repair fingerprint | `29F / 1028P / 13S / 2E` (+ same 2 errors) |
+| architecture | 11/11 |
+| status | IMPLEMENTED - merge is the sovereign's decision |
+
+Superseded sibling: PR **#134** (`gate-hygiene/sh02d-prism-interior-shell`, tip `8d1c386`) was
+closed on re-base. Its test repair is byte-identical to this one; its ledger copy carries a
+duplicate `## 9.` heading and a dry-run merge into current `main` fails with a content
+conflict on this very file (its `main` predates the §11 correction pass).
+
+Next bounded task: `SH-03` (`CapabilityChamber.tsx`) is the only remaining candidate that is a
+*contract-identifier* repair, but it is a merge **CONTRADICTION** per §11 and needs a product
+decision on the mount expectation before any re-pin. `SH-04`/`SH-06`/`SH-07`/`F-01` likewise
+need a decision. No second implementation, catalogue, or learner-state system may be created
+to satisfy any of them.
