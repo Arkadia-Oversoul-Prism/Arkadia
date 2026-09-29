@@ -35,9 +35,19 @@ not present here.
 | — | merged PR #125 | Solariun consolidation 3-node | **merged** |
 | — | merged PR #127 | `test_prism_pass_c_surface_ownership.py` 13-18 | **merged** |
 | 3 | `gate-hygiene/baseline-stale-assertion-repair-identity-spine-03` | identity spine / `ais_profile` | **open PR #130**, green |
-| 4 | `gate-hygiene/baseline-stale-assertion-repair-future-skills-04` | `test_ais_w6_future_skills_challenge.py` (node 9) | branch @ `cefb2f5`, **no PR** |
-| d | `gate-hygiene/sh02d-prism-interior-shell` | `test_prism_interior_shell.py` (nodes 10-12) | branch @ `8d1c386`, **no PR** |
-| 5 | `gate-hygiene/baseline-stale-assertion-repair-spiral-grove-05` | `spiral_grove_{chambers,frontend_projection,learning_path_projection}` (nodes 24-26) | **this PR** |
+| 4 | `gate-hygiene/baseline-stale-assertion-repair-future-skills-04` | `test_ais_w6_future_skills_challenge.py` (node 9) | **open PR #132** @ `cefb2f5`, green |
+| d | `gate-hygiene/sh02d-prism-interior-shell` | `test_prism_interior_shell.py` (nodes 10-12) | branch @ `8d1c386`, **no PR** — blocked, see below |
+| 5 | `gate-hygiene/baseline-stale-assertion-repair-spiral-grove-05` | `spiral_grove_{chambers,frontend_projection,learning_path_projection}` (nodes 24-26) | **this PR** (#131) |
+
+### Batch d is blocked on a rebase decision (not acted on)
+
+`gate-hygiene/sh02d-prism-interior-shell` (`8d1c386`) edits three files, one of which is
+`docs/control-plane/evidence/gate-hygiene-baseline-test-debt-classification-01/BASELINE_TEST_DEBT_CLASSIFICATION.md`.
+**PR #129 rewrites that same file by 321 lines** (`+321/-75` on a 137-line doc). Publishing
+batch d as-is would create a textual conflict with an open, green, sovereign-pending PR.
+This is a rebase/sequencing decision, not a test-hygiene edit, so it is **recorded and left
+unresolved** — publishing it is a separate bounded action that should follow #129's merge
+(or be rebased onto it).
 
 Adjacent open work, not part of SH-02:
 
@@ -46,8 +56,9 @@ Adjacent open work, not part of SH-02:
 
 ## Next bounded tasks (proposed, not authorized)
 
-1. Publish or reconcile the two orphan branches in the batch ledger (batches 4 and d) —
-   they hold finished repairs with no PR, so no heartbeat can merge them.
+1. Batch d (`gate-hygiene/sh02d-prism-interior-shell`, nodes 10-12) — publish **after**
+   PR #129 merges, or rebase it onto #129's ledger rewrite first. Blocked on that
+   sequencing decision; do not publish as-is.
 2. The un-rendered version-string assertions noted in the batch-5 evidence "Remaining
    uncertainty" section (candidate SH-02 batch 6).
 3. Remaining `STALE_ASSERTION` clusters that are not owned by open work and are not
