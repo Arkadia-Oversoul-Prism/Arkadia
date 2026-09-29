@@ -26,7 +26,7 @@ import SpiralCommandInterface from './pages/SpiralCommandInterface';
 import UniversalEchofeildMatrix from './pages/UniversalEchofeildMatrix';
 import ExperienceConsolidationFrame from './components/ExperienceConsolidationFrame';
 
-type SolSpireLens = 'overview'|'projects'|'commercial'|'knowledge'|'files'|'conversations'|'tasks'|'memory'|'weaver'|'observatory'|'engineering-lab'|'settings';
+type SolSpireLens = 'overview'|'projects'|'commercial'|'opportunity-radar'|'knowledge'|'files'|'conversations'|'tasks'|'memory'|'weaver'|'observatory'|'engineering-lab'|'settings';
 type View =
   | 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard'
   | 'nexus' | 'encyclopedia' | 'spiral-codex' | 'loops' | 'grove' | 'larder' | 'novanet'
@@ -34,7 +34,7 @@ type View =
   | 'knowledge-os' | 'reasomate' | 'personal-echofeild' | 'echofeild-matrix' | 'challenge';
 
 type RouteState = { view: View; section?: SolSpireLens; path: string };
-const SOLSPIRE_LENSES = new Set<SolSpireLens>(['overview','projects','commercial','knowledge','files','conversations','tasks','memory','weaver','observatory','engineering-lab','settings']);
+const SOLSPIRE_LENSES = new Set<SolSpireLens>(['overview','projects','commercial','opportunity-radar','knowledge','files','conversations','tasks','memory','weaver','observatory','engineering-lab','settings']);
 
 function routeForView(view: View, section?: SolSpireLens): string {
   if (view === 'solariun') return section && section !== 'overview' ? `/solariun/${section}` : '/solariun';
