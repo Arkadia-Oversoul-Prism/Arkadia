@@ -263,3 +263,74 @@ authenticated node's private Knowledge OS vault тАФ never the public scroll s
 - `api/main.py` is untouched by this workstream and stays under the 2600-line budget (2519).
   Run `python -m py_compile api/main.py` before committing anything that touches boot code.
 
+
+
+## AEAS Runtime Boundary Pulse — current open trajectory
+
+The current runtime-integrity boundary is explicitly:
+
+**current main → deployment → production verification → UI/runtime evidence**
+
+This boundary is a standing AEAS/Weaver trajectory item, not a one-time prose checkpoint.
+
+### Objective
+Continuously reconcile repository truth with the actually deployed and observed system. The Weaver must not promote static repository evidence into production truth without a deployment identity and runtime observation.
+
+### Hourly pulse protocol
+On each authorized AEAS/Weaver pulse, inspect this boundary in order:
+
+1. **CURRENT MAIN**
+   - Resolve the current `main` SHA.
+   - Record the exact commit SHA used as the source of the runtime claim.
+   - Detect whether the working/remote state has moved since the previous pulse.
+
+2. **DEPLOYMENT**
+   - Discover the current Vercel production deployment and its exact source commit SHA.
+   - If the deployment cannot be inspected because of connector/auth/rate-limit constraints, record the boundary as `UNKNOWN`, never infer parity.
+   - If a deploy is required and the current authorization permits deployment, deploy the exact current main revision.
+   - Do not force deployment when authorization, provider access, or rate limits are unresolved.
+   - Record deployment URL/ID, status, source SHA, build result, and relevant build errors.
+
+3. **PRODUCTION VERIFICATION**
+   - Verify the production URL resolves successfully.
+   - Inspect runtime logs/errors for the verified deployment.
+   - Check the critical public routes, including:
+     - `/`
+     - `/solariun/opportunity-radar`
+     - core SolSpire experience/navigation
+   - Verify that observed runtime state corresponds to the deployed revision.
+
+4. **UI/RUNTIME EVIDENCE**
+   - Use browser/runtime verification where available.
+   - Check page load, console/runtime errors, route transitions, visible architecture surfaces, and critical content.
+   - Verify Opportunity Radar rendered content against the repository capture state.
+   - Verify that private/personal data is not exposed through public surfaces.
+   - Capture exact evidence references, timestamps, deployment identity, route, and observed result.
+
+### Evidence states
+Every pulse must classify each boundary as one of:
+
+- **VERIFIED** — directly supported by current evidence.
+- **FAILED** — contradictory evidence exists.
+- **BLOCKED** — an actionable external boundary prevents verification or execution.
+- **UNKNOWN** — evidence is unavailable and no stronger claim is justified.
+- **STALE** — prior evidence no longer binds to current main/deployment state.
+
+Never convert `UNKNOWN`, `BLOCKED`, or `STALE` into `VERIFIED` through repetition.
+
+### Required convergence
+The pulse should continue from the first unresolved boundary rather than merely reporting it. If the boundary is buildable by Weaver, implement the smallest evidence-preserving change, test it, publish it through the governed workflow, and re-run the boundary. If it requires human/provider authorization, stop at that boundary and preserve the exact handoff.
+
+### Scope
+This trajectory may include deployment configuration, CI/CD, verification harnesses, browser checks, runtime evidence artifacts, and UI fixes required to establish the chain. It must not create a parallel runtime database or shadow memory system. Reuse the canonical Arkadia/Solariun substrate and evidence model.
+
+### Governance
+- **Human authority remains final.**
+- A Weaver pulse may inspect, diagnose, propose, implement, test, and prepare evidence only within its active authorization.
+- No pulse may self-authorize deployment, merge, production acceptance, architectural expansion, or closure.
+- **Specification ≠ implementation. Deployment ≠ verification. Verification ≠ acceptance.**
+- The closure target is not “deployment exists.” The closure target is a demonstrated chain:
+  **main SHA → deployment SHA → production response → UI/runtime observation → evidence artifact.**
+
+### Current known Gate 2 handoff
+Gate 2 is open on production parity. Current main was established at `8f9d509ec4900408e13e15544192dba37fb08ff8`. The existing evidence must not claim production parity until that SHA is tied to a production deployment and the resulting UI/runtime behavior is independently observed.
