@@ -8,7 +8,7 @@ APP = ROOT / "web/public_prism/src/App.tsx"
 
 def test_w6_is_self_guided_and_timed():
     src = CHALLENGE.read_text(encoding="utf-8")
-    assert "60-minute challenge" in src
+    assert "self-guided practical challenge" in src
     assert "LIMIT_MS = 60 * 60 * 1000" in src
     assert 'data-testid="challenge-timer"' in src
     assert "sessionStorage" in src
