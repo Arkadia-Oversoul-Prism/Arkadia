@@ -74,6 +74,77 @@ is safe to act on and Finding A introduces no boundary regression.
 3. Proposed, not executed: reconcile the contract baseline block with live evidence (main SHA +
    suite counts). This needs sovereign sign-off because the contract is a governance surface.
 
+### Measured baseline fingerprint (this head)
+
+Full suite, `--continue-on-collection-errors`, measured in this pass:
+
+```
+54 failed, 959 passed, 12 skipped, 2 errors  (105s)
+failing-count matches the run contract baseline -> zero new failures
+collection errors (pre-existing):  tests/test_autonomy.py, tests/test_render_codex.py
+```
+
+Exact failing set, persisted so a later pass can detect a fingerprint change rather
+than re-deriving it:
+
+```
+tests/test_agent_run.py::test_agent_run_writes_and_commits
+tests/test_ais_capability_profile_onboarding.py::test_home_is_offer_led_and_keeps_arkadia_entry_points
+tests/test_ais_w2_living_gate_grove_handoff.py::test_app_wires_grove_navigation
+tests/test_ais_w2_living_gate_grove_handoff.py::test_ims_lineage_preserved
+tests/test_ais_w2_living_gate_grove_handoff.py::test_living_gate_defaults_to_diagnostic_not_reset
+tests/test_ais_w2_living_gate_grove_handoff.py::test_no_firebase_persistence_in_gate
+tests/test_ais_w2_living_gate_grove_handoff.py::test_pulse_analyze_endpoint_preserved
+tests/test_ais_w2_living_gate_grove_handoff.py::test_spiral_grove_handoff_prop_and_cta
+tests/test_ais_w6_future_skills_challenge.py::test_w6_is_self_guided_and_timed
+tests/test_ais_w8_canonical_identity.py::test_w8_ais_projection_reuses_authenticated_uid
+tests/test_ais_w8_canonical_identity.py::test_w8_no_second_authentication_or_identity_store_is_created
+tests/test_engineering_scheduler_bootstrap.py::test_blocked_dependency_skips_move
+tests/test_engineering_scheduler_bootstrap.py::test_dry_run_evidence
+tests/test_gate_serve_script.py::test_root_index_redirect_and_script_exists
+tests/test_gate_status.py::test_gate_files_and_fetch_handling
+tests/test_identity_spine_w1.py::test_ais_profile_exposes_canonical_identity_spine
+tests/test_identity_spine_w1.py::test_node_entry_is_ais_signup_not_a_separate_diagnostic_route
+tests/test_m02_reasomate_truth.py::test_oracle_runtime_uses_the_shared_session_key
+tests/test_prism_interior_shell.py::test_authenticated_interior_uses_one_prism_shell
+tests/test_prism_interior_shell.py::test_shell_exposes_canonical_primary_surfaces
+tests/test_prism_interior_shell.py::test_shell_exposes_secondary_nexus_lenses
+tests/test_prism_pass_c_surface_ownership.py::test_codex_resolves_to_solspire_codex
+tests/test_prism_pass_c_surface_ownership.py::test_echo_field_aliases_resolve_to_solspire_field
+tests/test_prism_pass_c_surface_ownership.py::test_knowledge_os_resolves_to_solspire_knowledge
+tests/test_prism_pass_c_surface_ownership.py::test_loops_resolves_to_solspire_loops
+tests/test_prism_pass_c_surface_ownership.py::test_spiral_codex_not_solspire_field
+tests/test_prism_pass_c_surface_ownership.py::test_spiral_codex_uses_feed_component
+tests/test_solariun_experience_consolidation_01.py::test_area_c_solspire_substrate_uses_existing_search_and_context_grammar
+tests/test_solariun_experience_consolidation_01.py::test_preimplementation_map_is_present_and_bounded
+tests/test_solariun_experience_consolidation_01.py::test_responsive_composition_and_inspector_exist
+tests/test_solspire_p1_experience_01.py::test_p1_1_arkana_context_pack
+tests/test_solspire_p1_experience_01.py::test_p1_1_not_authorization
+tests/test_solspire_r1_governance_convergence.py::test_r1_solspire_builders_delegate_to_weaver
+tests/test_solspire_r1_governance_convergence.py::test_r1_weaver_governance_is_canonical
+tests/test_solspire_r2_github_mutation.py::test_legacy_commit_file_fails_closed_without_network_write
+tests/test_solspire_r3_execution_runtime.py::test_runtime_is_explicitly_non_governed_and_blocks_mutation_tools
+tests/test_spiral_grove_activity_runtime.py::test_chamber_preserves_sg03_downstream_boundary
+tests/test_spiral_grove_activity_runtime.py::test_runtime_dispatches_all_eight_kinds_to_deterministic_renderers
+tests/test_spiral_grove_activity_runtime.py::test_runtime_is_mounted_by_the_capability_chamber
+tests/test_spiral_grove_activity_runtime.py::test_spiral_grove_uses_the_nexus_canonical_header
+tests/test_spiral_grove_chambers.py::test_chamber_does_not_invoke_autonomous_generation_or_adjudication
+tests/test_spiral_grove_frontend_projection.py::test_activity_draft_persistence_is_local_and_not_evidence
+tests/test_spiral_grove_learning_path_projection.py::test_evidence_assessment_state_are_downstream
+tests/test_spiral_grove_registry.py::test_ais_catalog_supports_progressive_creative_workflow
+tests/test_spiral_grove_registry.py::test_registry_rejects_prerequisite_cycle
+tests/test_steward_filter.py::test_allows_mythic_with_action
+tests/test_steward_filter.py::test_blocks_identity_claims
+tests/test_steward_filter.py::test_compress_to_choices
+tests/test_weaver_mvp2_08.py::test_nexus_novanet_canonical_routing_intact
+tests/test_weaver_sci_boundary_01.py::test_nexus_novanet_alias_intact
+tests/test_weaver_sci_boundary_01.py::test_product_nav_is_not_operator_authority
+tests/test_weaver_sci_boundary_01.py::test_solspire_owns_project_workspace_not_global_command
+tests/test_weaver_sci_contract_01.py::test_nexus_novanet_alias_intact
+tests/test_weaver_sci_contract_01.py::test_solspire_is_workspace_not_second_sci
+```
+
+
 ## Pass — GATE-10 · CP10 mutation boundary (range evaluation + trigger-path coverage)
 
 **Session date:** 2026-09-29
