@@ -1,0 +1,74 @@
+# WORKSTREAM STATE — gate hygiene / baseline test debt
+
+> Persisted so the next hourly heartbeat reconstructs from evidence, not memory.
+> Reconstruct live state anyway (rule 14) — do not trust this file over the repository.
+>
+> Supersedes the batch-2 state at
+> `docs/control-plane/evidence/gate-hygiene-baseline-stale-assertion-repair-solariun-consolidation-01/WORKSTREAM_STATE.md`.
+
+## Fingerprint (measured this pass, not remembered)
+
+```
+main ee3fac1 (clean)          : 45 failed / 985 passed / 13 skipped / 2 errors   (47 nodes)
+main ee3fac1 + SH-02b         : 39 failed / 991 passed / 13 skipped / 2 errors   (41 nodes)
+  removed                     : 6 nodes, all in test_prism_pass_c_surface_ownership.py
+  added                       : none
+architecture                  : 11/11
+CP10 mutation boundary        : PASS (exit 0)
+py_compile api/main.py        : pass    (api/main.py = 2519 / 2600 lines)
+vite build                    : environment-blocked (no npm registry access)
+```
+
+The two suites were measured back-to-back on the same runner with the same
+`PYTHONPATH=<repo>/archive/legacy_python`, and the delta was attributed by **sorted node
+name**, not by count. The automation contract's `main := 6038989` /
+`804 passed / 12 skipped` / `architecture 9/10` figures are stale — always re-measure.
+
+## Node inventory (reproducible)
+
+```bash
+PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q \
+  -p no:cacheprovider --continue-on-collection-errors \
+  | grep -E '^(FAILED|ERROR) ' | sed 's/ - .*//' | sort
+```
+
+Compare the sorted node list against the baseline to attribute a delta by *name*, never by
+count alone — counts move when tests are added.
+
+## Classification ledger
+
+`docs/control-plane/evidence/gate-hygiene-baseline-test-debt-classification-01/BASELINE_TEST_DEBT_CLASSIFICATION.md`
+is the single source of truth for node→bucket assignment (51 nodes at `a26af408`).
+
+Bucket counts at that pass: **STALE_ASSERTION 35**, **DRIFT 10**, **ENV/ARTIFACT 2**,
+**REAL_DEFECT 1**, **COLLECTION_ERROR 2**.
+
+## Repair queue (`SH-*` — proposed, sovereign authorizes)
+
+| id | task | bucket | state |
+|---|---|---|---|
+| `SH-01` | `SOLSPIRE_PROJECTS_DB` env leak in `tests/test_echofeild_aggregator.py` | REAL_DEFECT | **already fixed on main** — do not re-do |
+| `SH-02` | migrate the 35 stale string assertions, in bounded batches | STALE_ASSERTION | **15 / 35 repaired** (batch 1: 6; batch 2: 3; batch 3 `SH-02b`: 6) |
+| `SH-02b` | `test_prism_pass_c_surface_ownership.py` (6 nodes) — helper rewrite, not string edits | STALE_ASSERTION | **done this pass**, PR open, sovereign merge pending |
+| `SH-03` | `"DERIVED"` vs `"DERIVED_BOUNDED_SEMANTIC"` contract split | DRIFT | awaits product decision |
+| `SH-04` | is `CapabilityRegistry` cycle detection reachable? | DRIFT | not started |
+| `SH-05` | fate of `test_gate_serve_script` / `test_gate_status` | ENV | sovereign call |
+| `SH-06` | should `steward_filter` stem-match `transcend*`? | STALE_ASSERTION | awaits product judgement |
+| `SH-07` | shared-session key in `ArkanaCommune.tsx` (`test_m02_reasomate_truth`) | DRIFT (high) | awaits architectural gate |
+| `F-01` | `test_no_firebase_persistence_in_gate` — `sessionStorage` proxy no longer measures its "no cloud persistence" intent (gate has 0 firebase refs; storage is ephemeral handoff) | DRIFT (proxy-invalidation) | **sovereign decision** — do not silently loosen |
+| `SH-02c` | `knowledge-os` legacy id has **no** redirect rule in `App.tsx` (mount-only). Possible dead id / DRIFT — see `SH-02b` EVIDENCE §4 | DRIFT (proposed) | not started — product decision |
+
+## Next bounded task
+
+`SH-02` next batch — the plain string-assertion rows still in the STALE_ASSERTION bucket
+(the dense remainder). `SH-02b` deliberately did **not** touch anything outside its one
+file. Rule unchanged: re-point the assertion at the surface that now owns the behaviour,
+and run a **negative control proving the repaired assertion can still fail** (see the
+`SH-02b` EVIDENCE §3.3 for the mutation-anchor technique — a control whose mutation does
+not actually apply is vacuous, and must be recorded as such rather than counted as proof).
+
+Do not start `SH-03`/`SH-04`/`SH-06`/`SH-07`/`F-01`/`SH-02c`: each needs a product or
+architectural decision, not a test edit.
+
+Test-only workstream. Never touch `api/main.py`, `LAYER_MAP.py`, ADRs, policy modules,
+workflows, or governance files from here. Nothing merges without the sovereign.
