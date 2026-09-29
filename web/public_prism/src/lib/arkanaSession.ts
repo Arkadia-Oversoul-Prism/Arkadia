@@ -53,3 +53,11 @@ export function getGuestSessionId(): string | null {
     return null;
   }
 }
+
+/** Create a new first-class Arkana thread identifier without changing the human session identity. */
+export function createArkanaThreadId(): string {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  } catch {}
+  return `thread-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}

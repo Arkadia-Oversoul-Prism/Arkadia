@@ -160,7 +160,7 @@ Nothing else outside checkpoint scope.
 After implementation, run once:
 
 ```bash
-pytest tests/architecture -q           # must be 10/10
+pytest tests/architecture -q           # must be 11/11
 pytest tests/ -q                       # must pass (pre-existing failures acceptable)
 ```
 
@@ -171,7 +171,7 @@ pytest tests/ -q                       # must pass (pre-existing failures accept
 At the end of this session:
 
 - ✅ Vault, ADRs, and structured docs are ingested into the Knowledge OS on startup
-- ✅ Architecture tests remain green (10/10)
+- ✅ Architecture tests remain green (11/11)
 - ✅ Startup time not materially increased (ingestion is background/daemon)
 - ✅ Pre-push checklist clean
 - ✅ One commit pushed

@@ -1,10 +1,12 @@
+import { apiFetch } from '../lib/apiClient';
+import { API_BASE as API_BASE_CONFIG } from '../lib/apiConfig';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ArkDate from './ArkDate';
 import MarkdownViewer from './MarkdownViewer';
 import { IMSArchiveSection } from './IMSArchive';
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+const API_BASE = API_BASE_CONFIG || '';
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -276,7 +278,7 @@ function CodexSection() {
   const [query, setQuery] = useState('');
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/codex`).then(r => r.json()).then(d => { setScrolls(d.scrolls || {}); setLoading(false); }).catch(() => setLoading(false));
+    apiFetch(`/api/codex`).then(r => r.json()).then(d => { setScrolls(d.scrolls || {}); setLoading(false); }).catch(() => setLoading(false));
   }, []);
 
   const allCats = Array.from(new Set(Object.values(scrolls).map(s => s.category))).sort();
@@ -342,7 +344,7 @@ export default function ShereSanctuary() {
   const mainRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const load = () => fetch(`${API_BASE}/api/ark-date`).then(r => r.json()).then(setArk).catch(() => {});
+    const load = () => apiFetch(`/api/ark-date`).then(r => r.json()).then(setArk).catch(() => {});
     load();
     const id = setInterval(load, 60_000);
     return () => clearInterval(id);

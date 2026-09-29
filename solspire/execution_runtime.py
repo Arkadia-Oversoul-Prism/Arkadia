@@ -15,6 +15,11 @@ Contract:
     runtime.pause(execution.id)
     runtime.resume(execution.id)
     runtime.cancel(execution.id)
+
+Architecture boundary:
+    This runtime may orchestrate read-only tools and non-engineering project
+    operations. Engineering mutation is governed exclusively by
+    Weaver → K15 → K3 and is therefore refused here.
 """
 from __future__ import annotations
 
@@ -84,14 +89,7 @@ class Execution:
 
 _MAX_RETRIES = 2
 _STEP_TIMEOUT = 30.0
-_BLOCKED_MUTATION_TOOLS = frozenset({
-    "fs_write",
-    "fs_delete",
-    "github_commit",
-    "git_commit",
-    "repository_mutation",
-    "execute_patch",
-})
+_ENGINEERING_MUTATION_TOOLS = frozenset({"fs_write", "github_commit", "git_commit", "git_push"})
 
 
 class ExecutionRuntime:
@@ -102,6 +100,24 @@ class ExecutionRuntime:
         self._lock = threading.Lock()
 
     def execute(self, plan: Plan, owner_uid: str | None = None) -> Execution:
+        """Start a SolSpire execution after rejecting engineering mutations.
+
+        The generic runtime remains available for read-only/non-engineering
+        workflows. Any engineering mutation tool is blocked before a worker
+        thread is created, forcing those changes through Weaver.
+        """
+        blocked = [
+            step.get("tool")
+            for step in plan.steps
+            if step.get("tool") in _ENGINEERING_MUTATION_TOOLS
+        ]
+        if blocked:
+            raise PermissionError(
+                "Engineering mutation is disabled in SolSpire ExecutionRuntime; "
+                "use the governed Weaver K15 → K3 path. "
+                f"Blocked tools: {', '.join(blocked)}"
+            )
+
         exec_id = str(uuid.uuid4())
         execution = Execution(
             id=exec_id,
@@ -224,13 +240,13 @@ class ExecutionRuntime:
         payload = step.get("payload", {})
         logger.debug("ExecutionRuntime: step %d tool=%s", idx, tool)
 
-        if tool in _BLOCKED_MUTATION_TOOLS:
+        if tool in _ENGINEERING_MUTATION_TOOLS:
             return {
                 "step": idx,
                 "tool": tool,
                 "ok": False,
-                "code": "MUTATION_DISABLED",
-                "error": "ExecutionRuntime cannot authorize or perform repository mutation; use the canonical Weaver K15 → K3 path.",
+                "status": "BLOCKED",
+                "error": "Engineering mutation is disabled in SolSpire ExecutionRuntime; use the governed Weaver K15 → K3 path.",
             }
 
         try:

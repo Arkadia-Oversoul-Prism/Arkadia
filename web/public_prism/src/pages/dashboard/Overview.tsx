@@ -1,3 +1,5 @@
+import { apiFetch } from '../../lib/apiClient';
+import { API_BASE as API_BASE_CONFIG } from '../../lib/apiConfig';
 /**
  * Arkadia Intelligence Overview
  * Pulls live data from all available backend endpoints and surfaces
@@ -534,7 +536,7 @@ const UPLOAD_CATEGORIES = [
 ]
 
 function ScrollUploadCard() {
-  const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ""
+  const API_BASE = API_BASE_CONFIG ?? ""
   const [label, setLabel]       = useState("")
   const [category, setCategory] = useState("COLLECTIVE")
   const [content, setContent]   = useState("")
@@ -563,7 +565,7 @@ function ScrollUploadCard() {
     if (!label.trim() || !content.trim()) { setErrMsg("Label and content are required."); setStatus("error"); return }
     setStatus("uploading"); setErrMsg("")
     try {
-      const res = await fetch(`${API_BASE}/api/scrolls`, {
+      const res = await apiFetch(`/api/scrolls`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ label: label.trim(), content: content.trim(), category, description: file ? `Uploaded via Dashboard: ${file.name}` : "Uploaded via Dashboard" }),

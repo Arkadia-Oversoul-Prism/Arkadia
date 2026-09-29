@@ -1,13 +1,18 @@
-"""Arkadia Node Registry API — /api/nodes, /api/me, /api/codex/personal.
+"""Arkadia Node Registry + public social identity API.
 
 Routes:
-  GET  /api/me                      — current user's profile (requires auth)
-  GET  /api/me/codex                — current user's Personal Codex
-  GET  /api/nodes                   — full node registry (sovereign only)
-  GET  /api/nodes/{node_key}        — single node profile (sovereign only)
-  GET  /api/nodes/{node_key}/codex  — node's Personal Codex (sovereign only)
-  POST /api/nodes/{node_key}/codex  — update/seed a node's Personal Codex (sovereign)
-  GET  /api/nodes/public            — public node list (names + roles, no PII)
+  GET  /api/me
+  PATCH /api/me
+  GET  /api/users/by-handle/{handle}
+  GET  /api/users/search?q=...
+  GET  /api/me/codex
+  GET  /api/codex/personal
+  GET  /api/nodes/public
+  GET  /api/nodes/... (sovereign registry/codex)
+
+Public social routes expose only deliberately public profile fields. Firebase
+UIDs, Personal Codex contents, and private memory remain outside the public
+field.
 """
 from __future__ import annotations
 
@@ -21,18 +26,33 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from api.auth import (
     get_current_user, require_auth, require_sovereign,
     get_node_by_key, get_personal_codex, _nodes_by_key,
+    load_user_profile_store, _profiles_dir, _load_username_index,
+    normalize_handle, public_profile_by_handle,
 )
 
 logger = logging.getLogger("arkadia.nodes")
-
 router = APIRouter()
+
+# A.I.S capability projection and the Engineering Lab are mounted through this
+# router as *sub-routers injected by the composition root*. api/nodes.py is
+# layer-3 identity and must not import the layer-1 surface it is composed with
+# (ADR-014 Decision 4), so the composition root calls configure_routers() before
+# mounting — exactly as it injects the tools counter via configure_tools_counter().
+# Without injection the sub-routers are absent; there is no direct import fallback.
+_ais_profile_router: APIRouter | None = None
+_lab_router: APIRouter | None = None
+
+
+def configure_routers(ais_profile_router: APIRouter, lab_router: APIRouter) -> None:
+    """Inject compose-time sub-routers. Called once by the composition root."""
+    global _ais_profile_router, _lab_router
+    _ais_profile_router = ais_profile_router
+    _lab_router = lab_router
+    router.include_router(_ais_profile_router)
+    router.include_router(_lab_router)
 
 _CODEX_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "personal_codices")
 
-# Injected capability seam (Pass 06): the only runtime datum the identity
-# layer needs from the kernel is the registered-tool count for
-# /api/codex/personal's system block. Wired by the composition root
-# (api/knowledge_routes.wire_downstream_seams); None = standalone fallback.
 _tools_counter = None
 
 
@@ -42,12 +62,28 @@ def configure_tools_counter(counter) -> None:
     _tools_counter = counter
 
 
-# ── /api/codex/personal — sovereign public endpoint ──────────────────────────
+def _safe_public_profile(uid: str, fallback_handle: str | None = None) -> dict[str, Any] | None:
+    """Return the public social identity projection for a user, never the UID."""
+    stored = load_user_profile_store(uid) or {}
+    raw = stored.get("username") or fallback_handle or ""
+    try:
+        handle = normalize_handle(raw)
+    except ValueError:
+        return None
+    return {
+        "username": handle,
+        "handle": handle,
+        "display_name": (stored.get("display_name") or "").strip() or handle,
+        "bio": (stored.get("bio") or "").strip()[:500] or None,
+        "avatar_url": (stored.get("avatar_url") or "").strip() or None,
+    }
+
+
+# ── /api/codex/personal ──────────────────────────────────────────────────────
 
 @router.get("/api/codex/personal")
 async def get_sovereign_codex_public():
-    """Public endpoint — sovereign personal codex + system state.
-    No auth required. Serves Zahrune's full identity architecture directly."""
+    """Legacy public sovereign codex surface."""
     node = get_node_by_key("zahrune")
     if not node:
         raise HTTPException(status_code=404, detail="Sovereign node not found")
@@ -58,18 +94,14 @@ async def get_sovereign_codex_public():
         if n.get("node_key") != "zahrune":
             collective.append({
                 "display_name": n["display_name"],
-                "role":         n["role"],
-                "role_sigil":   n.get("role_sigil", "◈"),
-                "ims_id":       n.get("ims_id"),
-                "status":       n.get("status", "unknown"),
+                "role": n["role"],
+                "role_sigil": n.get("role_sigil", "◈"),
+                "ims_id": n.get("ims_id"),
+                "status": n.get("status", "unknown"),
                 "access_level": n.get("access_level", 0),
-                "node_key":     n.get("node_key"),
+                "node_key": n.get("node_key"),
             })
 
-    # Tool count comes from kernel.tools, but the identity layer must be a
-    # leaf (ADR-015). The composition root injects the counter via
-    # configure_tools_counter(); without injection we keep the historical
-    # fallback (4), identical to the previous import-failure path.
     tools_count = 4
     if _tools_counter is not None:
         try:
@@ -78,39 +110,66 @@ async def get_sovereign_codex_public():
             pass
 
     return {
-        "node":       node,
-        "codex":      codex,
+        "node": node,
+        "codex": codex,
         "collective": collective,
-        "system":     {"tools_count": tools_count},
+        "system": {"tools_count": tools_count},
     }
 
 
-# ── /api/me ───────────────────────────────────────────────────────────────────
+# ── Authenticated identity ────────────────────────────────────────────────────
 
 @router.get("/api/me")
 async def get_me(user: dict = Depends(require_auth)):
-    """Return the authenticated user's profile."""
     return {"user": user}
 
 
 @router.get("/api/users/by-handle/{handle}")
 async def get_user_by_handle(handle: str):
-    """Public handle discovery — safe profile fields only; never returns UID."""
-    from api.auth import normalize_handle, public_profile_by_handle
+    """Public handle discovery. UID and private fields are never returned."""
     try:
-        normalize_handle(handle)
+        normalized = normalize_handle(handle)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid handle format")
-    profile = public_profile_by_handle(handle)
+    profile = public_profile_by_handle(normalized)
     if not profile:
         raise HTTPException(status_code=404, detail="User not found")
-    return {"user": profile}
+    # Keep the public projection deliberately explicit and include bio.
+    uid = _load_username_index().get(normalized)
+    safe = _safe_public_profile(uid, normalized) if uid else None
+    if not safe:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"user": safe}
 
+
+@router.get("/api/users/search")
+async def search_users(q: str = "", limit: int = 20):
+    """Public Node discovery by handle/name/bio. Never returns Firebase UIDs."""
+    query = (q or "").strip().lower().lstrip("@")
+    limit = max(1, min(int(limit), 50))
+    index = _load_username_index()
+    results: list[dict[str, Any]] = []
+    for handle, uid in index.items():
+        if query and query not in handle:
+            profile = load_user_profile_store(uid) or {}
+            haystack = " ".join([
+                str(profile.get("display_name") or ""),
+                str(profile.get("bio") or ""),
+            ]).lower()
+            if query not in haystack:
+                continue
+        safe = _safe_public_profile(uid, handle)
+        if safe:
+            results.append(safe)
+        if len(results) >= limit:
+            break
+    results.sort(key=lambda p: (p.get("display_name") or p.get("handle") or "").lower())
+    return {"users": results, "count": len(results)}
 
 
 @router.patch("/api/me")
 async def patch_me(request: Request, user: dict = Depends(require_auth)):
-    """P1-A: update user-owned product profile fields only."""
+    """Update only the authenticated user's public product profile."""
     from api.auth import save_user_profile_store, build_user_profile
     try:
         body = await request.json()
@@ -125,33 +184,29 @@ async def patch_me(request: Request, user: dict = Depends(require_auth)):
         save_user_profile_store(user["uid"], patch)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e) or "Invalid profile") from e
-    updated = build_user_profile(user["uid"], {"email": user.get("email"), "name": user.get("display_name")}, user.get("email", ""))
+    updated = build_user_profile(
+        user["uid"],
+        {"email": user.get("email"), "name": user.get("display_name")},
+        user.get("email", ""),
+    )
     return {"user": updated}
 
 
 @router.get("/api/me/codex")
 async def get_my_codex(user: dict = Depends(require_auth)):
-    """Return the authenticated user's Personal Codex."""
     node_key = user.get("node_key")
     if not node_key:
-        raise HTTPException(
-            status_code=404,
-            detail="No Personal Codex found — your IMS session has not been completed yet."
-        )
+        raise HTTPException(status_code=404, detail="No Personal Codex found — your IMS session has not been completed yet.")
     codex = get_personal_codex(node_key)
     if not codex:
-        raise HTTPException(
-            status_code=404,
-            detail="Personal Codex not yet seeded. Contact the Flamekeeper."
-        )
+        raise HTTPException(status_code=404, detail="Personal Codex not yet seeded. Contact the Flamekeeper.")
     return {"codex": codex, "node_key": node_key}
 
 
-# ── /api/nodes (sovereign) ────────────────────────────────────────────────────
+# ── Sovereign node registry ───────────────────────────────────────────────────
 
 @router.get("/api/nodes")
 async def list_nodes(user: dict = Depends(require_sovereign)):
-    """Full node registry — sovereign access only."""
     nodes = list(_nodes_by_key.values())
     for n in nodes:
         n["codex_available"] = (n.get("personal_codex_file") is not None)
@@ -160,23 +215,22 @@ async def list_nodes(user: dict = Depends(require_sovereign)):
 
 @router.get("/api/nodes/public")
 async def list_nodes_public():
-    """Public-safe node list — names and roles only, no PII or access details."""
+    """Legacy public node projection for registered/system nodes."""
     safe = []
     for n in _nodes_by_key.values():
         if n.get("status") in ("active", "training"):
             safe.append({
                 "display_name": n["display_name"],
-                "role":         n["role"],
-                "role_sigil":   n.get("role_sigil", "◈"),
-                "ims_id":       n.get("ims_id"),
-                "status":       n.get("status"),
+                "role": n["role"],
+                "role_sigil": n.get("role_sigil", "◈"),
+                "ims_id": n.get("ims_id"),
+                "status": n.get("status"),
             })
     return {"nodes": safe, "count": len(safe)}
 
 
 @router.get("/api/nodes/{node_key}")
 async def get_node(node_key: str, user: dict = Depends(require_sovereign)):
-    """Single node profile — sovereign access only."""
     node = get_node_by_key(node_key)
     if not node:
         raise HTTPException(status_code=404, detail=f"Node '{node_key}' not found")
@@ -185,26 +239,17 @@ async def get_node(node_key: str, user: dict = Depends(require_sovereign)):
 
 @router.get("/api/nodes/{node_key}/codex")
 async def get_node_codex(node_key: str, user: dict = Depends(require_sovereign)):
-    """Return a node's Personal Codex — sovereign access only."""
     node = get_node_by_key(node_key)
     if not node:
-        raise HTTPException(status_code=404, detail=f"Node '{node_key}' not found")
+        raise HTTPException(status_code=404, detail=f"No node '{node_key}' found")
     codex = get_personal_codex(node_key)
     if not codex:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No Personal Codex found for '{node_key}'"
-        )
+        raise HTTPException(status_code=404, detail=f"No Personal Codex found for '{node_key}'")
     return {"codex": codex, "node_key": node_key}
 
 
 @router.post("/api/nodes/{node_key}/codex")
-async def upsert_node_codex(
-    node_key: str,
-    request: Request,
-    user: dict = Depends(require_sovereign),
-):
-    """Seed or update a node's Personal Codex — sovereign access only."""
+async def upsert_node_codex(node_key: str, request: Request, user: dict = Depends(require_sovereign)):
     try:
         body = await request.json()
     except Exception:
@@ -212,7 +257,6 @@ async def upsert_node_codex(
 
     path = os.path.join(_CODEX_DIR, f"{node_key}.json")
     os.makedirs(_CODEX_DIR, exist_ok=True)
-
     existing: dict[str, Any] = {}
     if os.path.exists(path):
         try:
@@ -220,12 +264,9 @@ async def upsert_node_codex(
                 existing = json.load(f)
         except Exception:
             pass
-
     existing.update(body)
     existing["node_key"] = node_key
-
     with open(path, "w", encoding="utf-8") as f:
         json.dump(existing, f, indent=2, ensure_ascii=False)
-
     logger.info(f"[NODES] Codex upserted for node '{node_key}' by {user.get('node_key','?')}")
     return {"message": "Codex saved", "node_key": node_key}

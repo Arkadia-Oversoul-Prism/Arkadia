@@ -1,8 +1,14 @@
 """SolSpire Console — GitHub Tool (Milestone 1).
 
-Provides read-only GitHub operations: list repos, get file tree, read file content.
-Repository mutation is intentionally unavailable here. Governed repository
-mutation belongs exclusively to the canonical Weaver K15 → K3 path.
+Provides GitHub read operations: list repos, get file tree, read file content.
+Uses GITHUB_TOKEN env var when available for higher rate limits.
+Does NOT execute git clone (no shell in the kernel) — uses GitHub REST API.
+
+Architecture boundary:
+    SolSpire may inspect GitHub here, but repository mutation is governed by
+    Weaver → K15 → K3. The legacy Contents-API commit function remains as an
+    explicit BLOCKED terminal path so existing callers fail closed instead of
+    creating a second engineering mutation authority.
 """
 from __future__ import annotations
 
@@ -78,21 +84,21 @@ def read_file(owner: str, repo: str, path: str, branch: str = "main") -> dict[st
 
 def commit_file(owner: str, repo: str, path: str, content: str,
                 message: str, branch: str = "main") -> dict[str, Any]:
-    """Legacy compatibility shim: repository mutation is permanently disabled.
+    """Refuse direct GitHub repository mutation.
 
-    The former implementation called the GitHub Contents API and could create
-    or update commits directly. That was an alternate mutation path outside
-    Weaver governance. Keep the symbol temporarily so older callers fail
-    closed with a truthful response rather than gaining a new mutation route.
+    Engineering changes must enter through Weaver's governed K15 → K3 path.
+    This function intentionally remains callable so legacy HTTP handlers fail
+    closed with a structured BLOCKED response rather than silently mutating.
     """
-    logger.warning(
-        "Blocked direct GitHub mutation attempt: %s/%s:%s@%s",
-        owner, repo, path, branch,
-    )
+    logger.warning("Blocked direct SolSpire GitHub commit: %s/%s@%s:%s", owner, repo, branch, path)
     return {
         "ok": False,
-        "code": "MUTATION_DISABLED",
-        "error": "Direct SolSpire GitHub mutation is disabled; use the canonical Weaver K15 → K3 path.",
+        "status": "BLOCKED",
+        "error": "Direct GitHub mutation is disabled; use the governed Weaver K15 → K3 path.",
+        "owner": owner,
+        "repo": repo,
+        "path": path,
+        "branch": branch,
     }
 
 

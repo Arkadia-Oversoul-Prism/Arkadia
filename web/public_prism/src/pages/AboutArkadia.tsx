@@ -1,3 +1,5 @@
+import { apiFetch } from '../lib/apiClient';
+import { API_BASE as API_BASE_CONFIG } from '../lib/apiConfig';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -11,14 +13,14 @@ const SECTIONS: { key: Section; label: string; color: string }[] = [
   { key: 'mission', label: 'Mission', color: '#E88C6A' },
 ];
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+const API_BASE = API_BASE_CONFIG || '';
 
 export default function AboutArkadia() {
   const [section, setSection] = useState<Section>('sovereign');
   const [arkPos, setArkPos] = useState('loading…');
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/ark-date`)
+    apiFetch(`/api/ark-date`)
       .then(r => r.json())
       .then(d => setArkPos(`Y${d.ark_year} · D${d.total_ark_day}`))
       .catch(() => setArkPos('Y1 · D—'));

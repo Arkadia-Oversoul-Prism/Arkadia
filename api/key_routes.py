@@ -15,14 +15,11 @@ logger = logging.getLogger("arkadia")
 
 try:
     from api.auth import get_current_user as _get_current_user
-except Exception:  # dev fallback — matches api/main.py's in-flight fallback
+except Exception:
     async def _get_current_user(request):  # type: ignore
         return None
 
 router = APIRouter()
-
-
-# ── Legacy multi-key Gemini store ─────────────────────────────────────────────
 
 
 @router.get("/api/keys")
@@ -30,11 +27,9 @@ async def api_list_keys(request: Request):
     """List API keys for the authenticated user."""
     user = await _get_current_user(request)
     user_id = user.get("uid") if user else None
-
     if not user_id:
         from api.key_manager import list_keys
         return {"keys": list_keys()}
-
     from api.user_key_store import get_user_keys
     return {"keys": get_user_keys(user_id)}
 
@@ -46,22 +41,18 @@ async def api_add_key(request: Request):
         body = await request.json()
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON")
-
     key = (body.get("key") or "").strip()
     label = (body.get("label") or "").strip()
     if not key:
         raise HTTPException(status_code=400, detail="'key' is required")
-
     user = await _get_current_user(request)
     user_id = user.get("uid") if user else None
-
     if not user_id:
         try:
             from api.key_manager import add_key
             return add_key(key, label)
         except ValueError as e:
             raise HTTPException(status_code=409, detail=str(e))
-
     from api.user_key_store import add_user_key
     try:
         return add_user_key(user_id, key, label)
@@ -74,14 +65,12 @@ async def api_remove_key(key_id: str, request: Request):
     """Remove an API key for the authenticated user."""
     user = await _get_current_user(request)
     user_id = user.get("uid") if user else None
-
     if not user_id:
         from api.key_manager import remove_key
         ok = remove_key(key_id)
         if not ok:
             raise HTTPException(status_code=404, detail="Key not found")
         return {"deleted": key_id}
-
     from api.user_key_store import remove_user_key
     ok = remove_user_key(user_id, key_id)
     if not ok:
@@ -94,14 +83,12 @@ async def api_activate_key(key_id: str, request: Request):
     """Set the active API key for the authenticated user."""
     user = await _get_current_user(request)
     user_id = user.get("uid") if user else None
-
     if not user_id:
         from api.key_manager import set_active
         ok = set_active(key_id)
         if not ok:
             raise HTTPException(status_code=404, detail="Key not found")
         return {"active": key_id}
-
     from api.user_key_store import set_active_user_key
     ok = set_active_user_key(user_id, key_id)
     if not ok:
@@ -117,9 +104,6 @@ async def api_reset_quota(key_id: str):
     if not ok:
         raise HTTPException(status_code=404, detail="Key not found")
     return {"reset": key_id}
-
-
-# ── Multi-provider key store (gemini / openai / claude / deepseek) ────────────
 
 
 @router.get("/api/provider-keys")
@@ -152,7 +136,6 @@ async def api_set_provider_key(request: Request):
 
 @router.delete("/api/provider-keys/{provider}")
 async def api_remove_provider_key(provider: str):
-    """Remove the stored key for a provider."""
     from api.provider_key_store import remove_key
     ok = remove_key(provider)
     if not ok:
@@ -162,7 +145,6 @@ async def api_remove_provider_key(provider: str):
 
 @router.patch("/api/provider-keys/{provider}/reset-quota")
 async def api_reset_provider_quota(provider: str):
-    """Reset quota-hit flag for a provider's key."""
     from api.provider_key_store import reset_quota
     ok = reset_quota(provider)
     if not ok:
@@ -170,20 +152,12 @@ async def api_reset_provider_quota(provider: str):
     return {"provider": provider, "quota_reset": True}
 
 
-# ── Distributed Gemini Key Pool — status / reset ─────────────────────────────
-
-
 @router.get("/api/keys/pool")
 async def api_key_pool_status():
     """Report the live Gemini key pool: total / available / cooled keys."""
     from api.key_pool import pool_snapshot
     snap = pool_snapshot()
-    return {
-        "size": snap["size"],
-        "available": snap["available"],
-        "cooled": snap["cooled"],
-        "strategy": "round-robin (load-balanced) — concurrent callers spread across the pool",
-    }
+    return {"size": snap["size"], "available": snap["available"], "cooled": snap["cooled"], "strategy": "round-robin (load-balanced) — concurrent callers spread across the pool"}
 
 
 @router.post("/api/keys/pool/reset")
@@ -192,9 +166,6 @@ async def api_key_pool_reset():
     from api.key_pool import reset_all
     reset_all()
     return {"reset": True}
-
-
-# ── TTS key store (ElevenLabs) ────────────────────────────────────────────────
 
 
 @router.get("/api/tts/keys")
@@ -215,8 +186,7 @@ async def api_add_tts_key(request: Request):
         raise HTTPException(status_code=400, detail="'key' is required")
     try:
         from api.tts_key_manager import add_key
-        result = add_key(key, label)
-        return result
+        return add_key(key, label)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
 
@@ -246,3 +216,12 @@ async def api_reset_tts_quota(key_id: str):
     if not ok:
         raise HTTPException(status_code=404, detail="Key not found")
     return {"reset": key_id}
+
+
+# Source connections are mounted through this already-mounted router so the
+# composition root does not need a second API registration path.
+try:
+    from api.source_routes import router as _source_router
+    router.include_router(_source_router)
+except Exception as _source_err:
+    logger.warning("[SOURCES] Source connection router skipped: %s", _source_err)

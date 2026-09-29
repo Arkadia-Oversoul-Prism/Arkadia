@@ -11,6 +11,7 @@ Endpoints:
   POST /solspire/projects         — create project
   GET  /solspire/projects/{id}    — load project
   POST /solspire/projects/{id}/archive
+  GET  /solspire/workspace        — resolve canonical workspace for authenticated subject
   GET  /solspire/executions       — list executions
   GET  /solspire/executions/{id}  — get execution status
   POST /solspire/executions/{id}/pause
@@ -35,6 +36,13 @@ from pydantic import BaseModel
 
 from api.auth import require_auth
 
+from solspire.workevent_router import router as workevent_router
+from solspire.workload_router import router as workload_router
+from solspire.pulse_router import router as pulse_router
+from solspire.synthesis_router import router as synthesis_router
+from solspire.proposal_router import router as proposal_router
+from solspire.enterprise_router import router as enterprise_router
+
 # Pass 01R: every /solspire route requires a verified Firebase identity.
 # require_auth rejects unauthenticated requests before any handler runs.
 router = APIRouter(
@@ -42,6 +50,15 @@ router = APIRouter(
     tags=["SolSpire Console"],
     dependencies=[Depends(require_auth)],
 )
+
+# Compose Move 2–7 surfaces as siblings under /solspire:
+# /workspace, /workevents, /workloads, /pulses, /syntheses, /proposals
+router.include_router(workevent_router)
+router.include_router(workload_router)
+router.include_router(pulse_router)
+router.include_router(synthesis_router)
+router.include_router(proposal_router)
+router.include_router(enterprise_router)
 
 
 async def require_project_owner(project_id: str, user: dict = Depends(require_auth)) -> dict:
@@ -224,6 +241,29 @@ async def archive_project(project_id: str, user: dict = Depends(require_project_
         return {"ok": True}
     except KeyError:
         raise HTTPException(status_code=404, detail="Project not found")
+
+
+# ── Canonical SolSpire Workspace ────────────────────────────────────────────
+
+@router.get("/workspace")
+async def get_canonical_workspace(user: dict = Depends(require_auth)) -> dict[str, Any]:
+    """Resolve the single canonical workspace bound to the authenticated subject.
+
+    Resolution is idempotent: an existing workspace is returned unchanged;
+    otherwise the bounded canonical workspace is provisioned for the verified
+    Firebase uid. No client-supplied subject or authority fields are accepted.
+    """
+    from solspire.workspace_manager import get_workspace_manager
+    try:
+        workspace = get_workspace_manager().get_or_create(user["uid"])
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {
+        "workspace": workspace.to_dict(),
+        "canonical": True,
+        "subject_binding": "authenticated_firebase_uid",
+    }
 
 
 # ── Executions ─────────────────────────────────────────────────────────────
@@ -473,10 +513,8 @@ class ProjectRunRequest(BaseModel):
 @router.put("/projects/{project_id}")
 async def update_project(project_id: str, body: UpdateProjectRequest,
                          user: dict = Depends(require_project_owner)) -> dict[str, Any]:
-    import time as _time
-    import sqlite3
-    import os
-    db_path = os.environ.get("SOLSPIRE_PROJECTS_DB", "data/solspire_projects.db")
+    import time
+    from solspire.project_manager import get_project_manager
     fields, vals = [], []
     if body.name is not None:
         fields.append("name=?"); vals.append(body.name.strip())
@@ -484,15 +522,13 @@ async def update_project(project_id: str, body: UpdateProjectRequest,
         fields.append("status=?"); vals.append(body.status)
     if body.description is not None:
         import json
-        from solspire.project_manager import get_project_manager
         p = get_project_manager().load(project_id)
         p.metadata["description"] = body.description
         fields.append("metadata=?"); vals.append(json.dumps(p.metadata))
     if not fields:
         raise HTTPException(status_code=400, detail="Nothing to update")
-    fields.append("updated_at=?"); vals.append(_time.time()); vals.append(project_id)
-    with sqlite3.connect(db_path) as conn:
-        conn.execute(f"UPDATE projects SET {', '.join(fields)} WHERE id=?", vals)
+    fields.append("updated_at=?"); vals.append(time.time()); vals.append(project_id)
+    get_project_manager().apply_fields(project_id, fields, vals)
     return {"ok": True}
 
 
@@ -522,8 +558,20 @@ async def project_archive_conversation(project_id: str, conv_id: str,
 @router.post("/projects/{project_id}/conversations/{conv_id}/messages")
 async def project_append_message(project_id: str, conv_id: str, body: AppendMessageRequest,
                                  user: dict = Depends(require_project_owner)) -> dict[str, Any]:
-    from solspire.project_store import append_message
-    return append_message(conv_id, body.role, body.content)
+    from solspire.conversation_bridge import (
+        ConversationBridgeError,
+        append_conversation_turn,
+    )
+    try:
+        return append_conversation_turn(
+            project_id=project_id,
+            conv_id=conv_id,
+            role=body.role,
+            content=body.content,
+            user_id=user["uid"],
+        )
+    except ConversationBridgeError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 
 @router.get("/projects/{project_id}/files")
@@ -564,6 +612,19 @@ async def project_delete_file(project_id: str, file_id: str,
     if not delete_file(file_id):
         raise HTTPException(status_code=404, detail="File not found")
     return {"ok": True}
+
+
+@router.post("/projects/{project_id}/files/{file_id}/copy")
+async def project_copy_file(project_id: str, file_id: str,
+                            user: dict = Depends(require_project_owner)) -> dict[str, Any]:
+    from solspire.project_store import get_file, copy_file
+    existing = get_file(file_id)
+    if not existing or existing.get("project_id") != project_id:
+        raise HTTPException(status_code=404, detail="File not found")
+    try:
+        return copy_file(file_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.post("/projects/{project_id}/files/upload")
@@ -956,6 +1017,5 @@ async def project_weaver_execute(project_id: str, body: WeaverExecuteRequest,
         raise HTTPException(status_code=404, detail="Project not found")
     pdata = p.to_dict() if hasattr(p, "to_dict") else dict(p.__dict__)
     return project_execute_governed(pdata, body.patch, body.pass_spec, body.approval, run_k3=bool(body.run_k3))
-
 
 __all__ = ["router"]

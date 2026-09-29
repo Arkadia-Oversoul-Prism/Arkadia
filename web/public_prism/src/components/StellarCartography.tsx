@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/apiClient';
 /**
  * StellarCartography — the Encyclopedia Galactica living star-date header.
  *
@@ -67,7 +68,7 @@ const StellarCartography: React.FC = () => {
 
   useEffect(() => {
     let alive = true;
-    const load = () => fetch(`${API_BASE}/api/stellar-cartography`)
+    const load = () => apiFetch(`/api/stellar-cartography`)
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (alive && d) setData(d); })
       .catch(() => {});

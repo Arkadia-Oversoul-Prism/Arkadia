@@ -53,7 +53,7 @@ Any ADR or governance doc — not in scope (check 02_DECISIONS.md instead)
 
 ## Stop Condition
 `pytest tests/test_sqlite_schema.py` passes.
-`pytest tests/architecture/ -v` is still 10/10.
+`pytest tests/architecture/ -v` is still 11/11.
 `01_STATE.md` updated to reflect B1.1 complete, B1.2 ready.
 `04_SUCCESS.md` updated.
 `NEXT_AGENT.md` rewritten for B1.2.

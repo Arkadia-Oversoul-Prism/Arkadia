@@ -19,7 +19,7 @@ from knowledge import db
 from knowledge.db import execute, execute_one, last_insert_id
 from knowledge.vault import create_note, update_note, get_note, add_graph_edge
 from knowledge.relationship_types import RELATIONSHIP_TYPES
-from knowledge.embeddings import embed_text, store_chunk_embedding
+from knowledge import embeddings
 from knowledge import timeline as tl
 from knowledge import graph as kg
 
@@ -106,9 +106,9 @@ def embed_note_chunks(note_id: int) -> bool:
             success_count += 1
             continue
 
-        vector = embed_text(chunk["content"])
+        vector = embeddings.embed_text(chunk["content"])
         if vector:
-            store_chunk_embedding(chunk["id"], vector)
+            embeddings.store_chunk_embedding(chunk["id"], vector)
             success_count += 1
 
     status = "complete" if success_count == len(chunks) else (
