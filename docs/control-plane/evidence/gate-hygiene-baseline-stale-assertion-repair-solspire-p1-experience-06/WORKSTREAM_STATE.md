@@ -61,10 +61,11 @@ before/after fingerprint deltas, is `BASELINE_TEST_DEBT_CLASSIFICATION.md` **§1
 ## CI applicability note (so a future pass does not misread this as missing evidence)
 
 `SG-02-FE.2-V`'s `validate` job is **path-filtered** (see `.github/workflows/sg-02-fe-2-v.yml`).
-Batch **f** touches `tests/test_solspire_p1_experience_01.py` plus docs; confirm whether that
-path is inside the filter. If it is not, the absence of a `validate` run is expected
-behaviour, not a missing check. `security-secret-scan` has an unfiltered `pull_request`
-trigger, so it runs on every PR.
+Batch **f** touches `tests/test_solspire_p1_experience_01.py` plus docs, and that test file is
+**not** in the filter (the filter enumerates `spiral_grove`, `lab`, `cp10` policy, and specific
+named test files). So PR #137 produces **no** `validate` run — confirmed against the workflow
+file, and expected behaviour rather than a missing check. `security-secret-scan` has an
+unfiltered `pull_request` trigger and does run (green on #137), as do the Vercel checks.
 
 ## Next bounded tasks (proposed, not authorized)
 
