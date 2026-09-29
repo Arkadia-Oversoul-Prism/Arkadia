@@ -42,10 +42,13 @@ Verified against `ee3fac1`:
    path; a real-Ollama test skips cleanly when no endpoint is configured.
 2. **Native in `lab/`.** `AgentLoop` and `ToolRegistry` live in the existing
    substrate. OpenHands remains a future adapter, not the runtime's owner.
-3. **K15/K3 is the only mutation boundary.** The L1 tool set is read-only by
-   construction. No write / commit / push / PR tool exists. The loop cannot
-   reach `enterprise_orchestration`, K15, or K3 — enforced by an AST-based
-   coupling test. L2 connects proposals to the existing governed machinery.
+3. **K15/K3 is the only mutation boundary.** The L1 loop does not reach
+   `enterprise_orchestration`, K15, or K3 — enforced by an AST-based test.
+   *Correction (see GATE-L1.1):* the original claim that the tool set was
+   "read-only by construction" was **wrong**. `terminal.run` reached
+   `Sandbox.run`, which validated only the binary against the allow-list, so
+   `git commit`/`reset`/`branch`/`tag` executed. GATE-L1.1 adds a git
+   read-only subcommand policy and a negative-mutation test suite.
 4. **Browser deferred to L3.** `ToolRegistry` is the extension point; adding
    `browser.*` is a new spec, not an AgentLoop change. No Docker/Playwright in
    L1.
