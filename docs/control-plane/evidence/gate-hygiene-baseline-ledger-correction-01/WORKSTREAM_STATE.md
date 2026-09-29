@@ -11,12 +11,19 @@
 - **Reconstructed:** `origin/main` = `4164573586860b9c7e04e1815bca4957559046a2` (PR #128,
   `gate-l1.1-boundary-hardening`, merged). Working tree clean; **no open PRs** (verified via
   the PRs API, not assumed).
-- **CI:** `actions/runs?head_sha=4164573` → **0 runs**. Expected, not a gap: the only
-  workflows that could fire there are CP10 (path-filtered to `web/public_prism/**`,
-  `spiral_grove/**`, `lab/**` and named test files) and the secret scan; PR #128's paths are in
-  neither set. `solspire-r{1,2,3}-validation` trigger only on `push` to `recon/solspire-r0`
-  (last run `aed112b` / `611f69e`, 2026-09-29, **red**). `weaver-mvp2-validation` last ran on a
-  PR and passed.
+- **CI (queried with FULL 40-char SHAs — see the caution below):** `main @ 4164573` has
+  **5 runs**: `SG-02-FE.2-V` (push) **success**, `security-secret-scan` (push) **success**,
+  `_diagnose_blank_frontend` (push) **success**, Arkadia Genesis Agent ×2 (issue_comment,
+  skipped). PR #129 head `a44213f` has 2 checks, both **success** (`Full-history secret scan`,
+  `Vercel Preview Comments`); **no CP10 run**, because no changed path is in
+  `sg-02-fe-2-v.yml`'s filter — expected, not a bypass.
+  `solspire-r{1,2,3}-validation` trigger only on `push` to `recon/solspire-r0`
+  (last run `aed112b` / `611f69e`, 2026-09-29, **red**).
+- **CAUTION — a mistake this pass made and then corrected.** The first CI queries were made
+  with the **short** SHA `4164573`. GitHub's Actions API silently returns `total_count: 0` for
+  an unresolved short SHA — it does **not** error. That produced a confidently-wrong
+  "0 runs" claim in this branch's first commit. Always query with a **full 40-char SHA** (or
+  `?branch=`) and treat a `0` as *unproven*, not as *absence*.
 - **Corrected a prior mis-diagnosis, and stop-checked a bad instruction.** The previous
   heartbeat queued *"repair SG-04 contradictory artifacts"*. That task is **not** a test-hygiene
   job — it is a frontend capability change on a CP10-fenced path, with an unresolved product
@@ -30,7 +37,9 @@
 main 4164573                    : 39 failed / 1018 passed / 13 skipped / 2 errors   (41 nodes)
 main 4164573 + this correction  : identical (documentation-only change)
 architecture                    : 11/11
-CP10 mutation boundary          : this diff is outside the path filter (no CP10 run expected)
+CP10 mutation boundary (this diff) : outside the path filter -> no CP10 run (expected)
+CP10 SG-02-FE.2-V on main 4164573  : success
+secret scan on PR #129 head a44213f: success
 py_compile api/main.py          : pass    (api/main.py = 2519 / 2600 lines)
 vite build                      : environment-blocked (no npm registry access)
 ```

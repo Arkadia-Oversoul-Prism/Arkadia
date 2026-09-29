@@ -61,8 +61,10 @@ chamber-level inline surfaces. Two mutually exclusive expectations:
   break the other assertions that require the inline surface, so it also requires
   **choosing between two activity surfaces** — a product decision.
 - `web/public_prism/**` is inside the **CP10 boundary's path filter**
-  (`.github/workflows/sg-02-fe-2-v.yml:7,33`). Any edit there is judged by the mutation
-  boundary and would put this PR inside the CP10 workflow's trigger set.
+  (`.github/workflows/sg-02-fe-2-v.yml`), so any edit there is judged by the mutation
+  boundary — and is in fact *admitted* by prefix (`web/public_prism/**`). The boundary is
+  therefore **not** the blocker; the blockers are the product decision and the
+  environment-blocked frontend build below.
 - The gate would then also demand a **frontend build** as evidence, which is
   environment-blocked in this sandbox (no npm registry) — an unprovable claim, which the
   contract forbids (`NEVER DECLARE VERIFIED WITHOUT RUNTIME EVIDENCE`).

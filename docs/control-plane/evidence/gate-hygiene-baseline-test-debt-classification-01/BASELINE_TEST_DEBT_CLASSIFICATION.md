@@ -571,11 +571,18 @@ bounded work).
 
 ### 11.4 CI observation (derived, not assumed)
 
-`actions/runs?head_sha=4164573` → **0 runs**. The only workflows that could have fired on
-this merge are CP10 (`sg-02-fe-2-v.yml`) and `security-secret-scan.yml`; CP10 is
-path-filtered to `web/public_prism/**`, `spiral_grove/**`, `lab/**` and named test files, and
-this merge's changed paths are in neither set. **Absence of a run is expected here, and is
-not evidence of a bypass** — a path-filtered workflow does not run on unrelated paths.
+`actions/runs?head_sha=4164573586860b9c7e04e1815bca4957559046a2` → **5 runs**:
+`SG-02-FE.2-V` (push) **success**, `security-secret-scan` (push) **success**,
+`_diagnose_blank_frontend` (push) **success**, Arkadia Genesis Agent ×2 (issue_comment,
+skipped). So the merge *was* gated: both the CP10 mutation boundary and the full-history secret
+scan ran on it and passed.
+
+> **Correction of an earlier claim in this section.** A first query used the **short** SHA
+> `4164573` and reported **0 runs**. That was wrong, and the error was silent: the GitHub
+> Actions API returns `total_count: 0` for an unresolved short SHA instead of failing. Query
+> with a **full 40-char SHA** (or `?branch=`), and read `0` as *unproven*, never as *absence*.
+> `solspire-r1/r2/r3` are the genuinely inert ones — they trigger only on `push` to
+> `recon/solspire-r0`, a branch `main` never receives.
 `solspire-r1/r2/r3` last ran on `recon/solspire-r0` (`aed112b`, `611f69e`, 2026-09-29) and are
 red; `weaver-mvp2-validation` last ran on a `pull_request` and passed.
 
