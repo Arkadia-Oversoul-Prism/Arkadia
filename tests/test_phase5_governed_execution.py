@@ -150,7 +150,12 @@ def test_comparative_exam_i_authorization_change_reaches_k15_before_k3(monkeypat
         approval = build_patch_approval(patch, ps, approved=True)
         return patch, spec, ps, approval
 
-    new_body = "MUTATED BY COMPARATIVE EXAMINATION I\n"
+    # The governed K3 write boundary normalises leading/trailing whitespace of the
+    # provider payload (weaver.agent parses file blocks with content.strip()), so the
+    # approved `after` must be a fixed point of that normalisation. A declared body
+    # ending in "\n" can never be observed on disk, which made the control assertion
+    # below unfalsifiable and turned this gate red on every branch.
+    new_body = "MUTATED BY COMPARATIVE EXAMINATION I"
 
     def fake_invoke(req):
         return ProviderResult(
