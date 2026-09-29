@@ -130,6 +130,8 @@ Representative evidence:
   (`data-testid="solariun-arkana-context-pack"`), but the panel now renders the label
   `CURRENT CONTEXT`. So the Arkana context pack exists; the copy/packaging changed. Genuine
   copy drift, not an absent capability.
+  **REPAIRED `SH-02f` (22, 23).** Rewording commit pinned to `eebf39c6`; the pack and the
+  authority disclaimer are both intact. See §13.
 - `test_weaver_sci_boundary_01.py` (3), `test_weaver_sci_contract_01.py` (2),
   `test_weaver_mvp2_08.py` (1) ‚Äî the "nexus‚Üínovanet" family. The assertion looks for
   `v === 'nexus' ? 'novanet'`; `App.tsx:114` now reads
@@ -606,4 +608,123 @@ git worktree add /tmp/sg04wt 06ad5f2   # then run the SG-04 tests there
 **Status:** IMPLEMENTED (corrected classification + measured live drift; no runtime claim
 made). **Authority:** documentation/evidence only — no merge, no authorization, no identity
 or authority-model change, no new mutation or authorization path. Human-merge-only.
+
+## 13. Repair record - `SH-02f` (`tests/test_solspire_p1_experience_01.py`, rows 22-23)
+
+Rows 22/23 were repaired as batch `SH-02f`, on base `main` `df7a99a`. Both are
+`STALE_ASSERTION` in the §4 bucket — the case the bucket defines: a governance property that
+is intact, pinned by a literal that was reworded.
+
+**Rewording commit pinned.** The clone is shallow (`--depth 1`), so the history was resolved
+through the Contents API rather than `git log -S`. `'CONTEXT PACK (explicit)'` and
+`'Not an authorization authority'` both first appear in `d4f69a12` (P1.1 origin) and survive
+through `2c949ff4`. They are gone at `eebf39c6` (2026-09-16, *solariun: persist Arcana
+doorway and isolate project surface*) and in every revision after it. That single commit is
+the rewording, and it rewrote the panel rather than deleting it.
+
+| P1.1 property | retired literal | current expression | intact? |
+|---|---|---|---|
+| bounded context pack rendered | `CONTEXT PACK (explicit)` | `className="arkana-context-label"` + `CURRENT CONTEXT` | yes — same block, relabelled |
+| pack is a bounded object, not a string | `pack:{{` | `pack={{authenticated:true,surface:…,projectName:…,projectId:…}}` | yes |
+| pack is scoped to the authenticated surface | *(unasserted)* | `pack.authenticated`, `pack.surface` consumed in the panel | yes |
+| no silent corpus dump | *(unasserted)* | `NO SILENT FULL-CORPUS DUMP` pack line | yes |
+| claims context, never authority | `Not an authorization authority` | `Displayed context only · not injected into the visible conversation.` | yes |
+
+The authority property is the one worth stating plainly: the retired sentence and the
+sentence that replaced it are both disclaimers that the pack **confers no authority**. The
+replacement is narrower (it speaks about injection into the conversation) but it does not
+widen the boundary, and no authorization path is added. This repair asserts the property,
+not the prose.
+
+Two assertions were added beyond re-pointing, both closing vacuous passes rather than
+widening the test:
+
+- `assert "Not an authorization authority" not in src` — an anti-regression anchor. Without
+  it, the node could not distinguish "the disclosure was reworded" from "the literal
+  survived and the node is passing for the wrong reason".
+- Surface scoping via `_arkana_overlay_region(src)`. The P1.1 literals are now read from the
+  body of `ArkanaOverlay` only, so a matching string elsewhere in this 900-line file cannot
+  satisfy them. NC5 below proves the scoping.
+
+Anchoring note: all four remaining anchors (`data-testid`, `pack={{}`, `pack.authenticated`,
+`pack.surface`) continue to hold at the newest revision of this file (`6f84c186`), so the
+repair is not immediately re-staled by a later commit.
+
+### Verification (evidence, not assertion) - all figures re-measured at `df7a99a`
+
+| check | result |
+|---|---|
+| `pytest tests/test_solspire_p1_experience_01.py -q` | **5 passed** (was 3 passed / 2 failed) |
+| `pytest tests/architecture -q` | **11 passed** |
+| negative controls | **6 / 6 fired**, each on exactly the owning node |
+| full suite, migration stashed (clean `df7a99a`) | 32F / 1025P / 13S / 2E |
+| full suite, migration applied | **30F / 1027P / 13S / 2E** |
+| nodes resolved | exactly rows 22, 23 |
+| nodes added (regressions) | **none** (`comm -13` empty) |
+| collection errors | unchanged — `test_autonomy.py`, `test_render_codex.py` |
+
+Counts are compared by **node name**, not by count: the full suite is run with
+`--continue-on-collection-errors`, without which the two pre-existing collection errors abort
+the session and a "0 failed / 1.45s" run can be mistaken for a clean tree. That abort is a
+misreading trap and is recorded here so the next pass does not fall into it.
+
+Negative controls (each mutates `SolSpireExperience.tsx`, confirms the owning node fails,
+then restores; source re-checked with `git diff` as unmodified):
+
+| # | mutation | node that fired |
+|---|---|---|
+| 1 | remove the `NO SILENT FULL-CORPUS DUMP` pack line | `test_p1_1_arkana_context_pack` |
+| 2 | retire the `CURRENT CONTEXT` heading copy | `test_p1_1_arkana_context_pack` |
+| 3 | remove the display-only / no-injection disclosure | `test_p1_1_not_authorization` |
+| 4 | re-introduce the retired `Not an authorization authority` literal | `test_p1_1_not_authorization` (anti-regression anchor) |
+| 5 | remove the pack line **and** plant the literal outside `ArkanaOverlay` | `test_p1_1_arkana_context_pack` — scoping holds; the decoy does not satisfy it |
+| 6 | remove the `pack={{` wiring | `test_p1_1_arkana_context_pack` |
+
+### Explicit non-claims and exclusions
+
+- **No production or runtime claim.** This is a test-only repair. No frontend build was run;
+  `vite build` remains environment-blocked (no npm registry access), so the change is
+  inspection-verified plus pytest-verified, exactly as the sibling SH-02 batches are.
+- **SG-04 not touched.** `test_spiral_grove_activity_runtime.py` (4 nodes) and
+  `test_spiral_grove_registry.py` (2) remain a merge **CONTRADICTION** per §11.2 and need a
+  product decision on the mount expectation. Independently confirmed this pass: the §11.2
+  analysis holds, and the node the ledger once called a standalone repair
+  (`test_spiral_grove_uses_the_nexus_canonical_header`) is in fact a real unmet property — the
+  surface renders a plain `<h1>`, not the expected `data-testid="activity-surface-research"`.
+  The disputed §11.2 bucket therefore stands; no reclassification is made here.
+- **SolSpire R-series not touched.** `test_solspire_r1_governance_convergence.py` (2),
+  `test_solspire_r2_github_mutation.py` (1), `test_solspire_r3_execution_runtime.py` (1) assert
+  governance/mutation-path invariants. A `REAL_DEFECT` reclassification there is the
+  authority-model boundary that SH-08 owns; it is not a test-edit repair and is out of this
+  bucket.
+- **No duplicate work.** The 30 remaining failures all map to work already owned elsewhere: 6
+  to PR #133 (W2/Living Gate), 3 to PR #135 (`prism_interior_shell`), 2 to PR #136
+  (agent_run / capability onboarding), 6 to excluded SG-04, 4 to excluded SolSpire-R, and the
+  rest (`engineering_scheduler_bootstrap`, `gate_serve_script`, `gate_status`,
+  `identity_spine_w1`, `m02_reasomate_truth`, `steward_filter`) to other classes. No second
+  implementation, catalogue, or authority mechanism was created for any of them.
+
+### Persisted state (for heartbeat reconstruction)
+
+| field | value |
+|---|---|
+| base main | `df7a99a067382401c00de5e7bbaaac0125ba2088` |
+| branch | `gate-hygiene/sh02f-solspire-p1-experience-01-repair` |
+| PR | *(opened with this record)* |
+| baseline fingerprint (clean `df7a99a`) | `32F / 1025P / 13S / 2E` + 2 collection errors (`test_autonomy.py`, `test_render_codex.py`) |
+| post-repair fingerprint | `30F / 1027P / 13S / 2E` (+ same 2 errors) |
+| architecture | **11/11** (the prompt's recorded baseline of 9/10 is stale) |
+| rows repaired | 22, 23 (`test_p1_1_arkana_context_pack`, `test_p1_1_not_authorization`) |
+| status | IMPLEMENTED - merge is the sovereign's decision |
+
+Reconstruction cautions for the next heartbeat: `main` is `df7a99a`, not `6038989`
+(prompt baseline text) and not `4164573` (§11's base). The full suite needs
+`--continue-on-collection-errors` **and** `PYTHONPATH=<repo>/archive/legacy_python`. The
+`vite build` gate cannot run in this sandbox.
+
+Next bounded task: no further `STALE_ASSERTION` row in this file is both unowned and safely
+repairable test-only. Rows 22-23 close the Solariun copy-drift family. The remaining rows are
+either owned by an open PR or require a product/architectural decision (`SH-03` SG-04 mount
+expectation; `SH-08` SolSpire governance reclassification).
+
 
