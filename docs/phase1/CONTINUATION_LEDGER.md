@@ -54,6 +54,15 @@ This is a pre-existing fingerprint unrelated to this pass. Its remediation would
 history rewrite, which the contract forbids. **Recorded, not fixed**; classified as its own
 future bounded workstream.
 
+
+**Scope correction (measured on this PR).** The same workflow on this PR reports the
+same job name — `Full-history secret scan` — and **passes** here (`completed success on PR head 4c5bd4d (run 36521677331, job 109255700755)`), while it
+**fails** on `push` to `main`. This is a scan-scope difference, not a contradiction:
+`gitleaks-action` scopes to the PR commit range on `pull_request` events and scans the
+whole log on `push`. So this PR passing means *this branch contains no leak*; it does
+**not** clear `main`. Finding C stands unchanged, and conversely this pass introduces no
+new secret-scan debt.
+
 ### Verification (this pass)
 
 ```
