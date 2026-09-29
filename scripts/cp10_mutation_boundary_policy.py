@@ -26,8 +26,12 @@ import re
 # tracks does not tighten the boundary — it reddens CI on the next unrelated merge
 # (this bug class recurred across EDEN-OPS-02, EL-01..10 #97, Solariun #104).
 # Constitutional limits live in the FORBID_V3/V2 stage and the unknown-root
-# rejection, not in the breadth of this admit-list. Kept in sync with the workflow
-# mirror by tests/test_m02a_ci_gate_integrity.py.
+# rejection, not in the breadth of this admit-list.
+#
+# This module is the SINGLE source of the boundary decision: the CP10 workflow
+# executes `--judge` (and `--resolve-range`) instead of carrying its own copy of
+# the regex. A second hand-maintained copy was a composability defect — the gate
+# and the tests that prove it could disagree with the code that actually ran.
 LEGIT = re.compile(
     r"^("
     # engines, product and runtime surfaces
@@ -112,17 +116,41 @@ def evaluate_changed_paths(paths: list[str], *, v2_diff_adds_function: bool = Fa
     return True, "PASS"
 
 
-if __name__ == "__main__":
+def judge_paths(paths: list[str], *, v2_diff_adds_function: bool = False) -> int:
+    """Print the boundary verdict for ``paths``; return a process exit status.
+
+    Emitted for the CP10 workflow shell so the CI decision is made by exactly the
+    code `tests/test_m02a_ci_gate_integrity.py` proves, rather than by a regex
+    copy the shell maintains beside it (they had drifted before: a surface was
+    admitted in one and not the other).
+    """
+    ok, msg = evaluate_changed_paths(paths, v2_diff_adds_function=v2_diff_adds_function)
+    if ok:
+        print("Mutation boundary PASS (M02A legitimate-surface + constitutional denylist)")
+        return 0
+    print("Unexpected path outside legitimate repository surfaces:")
+    print(msg)
+    return 1
+
+
+def main(argv: list[str] | None = None) -> int:
     import json
     import os
     import sys
 
-    if len(sys.argv) > 1 and sys.argv[1] == "--resolve-range":
+    argv = list(sys.argv[1:] if argv is None else argv)
+
+    if argv and argv[0] == "--judge":
+        # Paths arrive on stdin, one per line (the workflow pipes `git diff
+        # --name-only`). No paths is a pass: an empty change set is bounded trivially.
+        return judge_paths([line.strip() for line in sys.stdin if line.strip()])
+
+    if argv and argv[0] == "--resolve-range":
         # Emitted for the CP10 workflow shell. Two lines, so the shell can read
         # them without a JSON parser:
         #   <base-ref>   (empty when undeterminable)
         #   <reason>
-        path = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("GITHUB_EVENT_PATH") or ""
+        path = argv[1] if len(argv) > 1 else os.environ.get("GITHUB_EVENT_PATH") or ""
         if path and os.path.exists(path):
             with open(path, encoding="utf-8") as handle:
                 event = json.load(handle)
@@ -131,8 +159,14 @@ if __name__ == "__main__":
         base, reason = resolve_range_endpoint(event, ref_exists=True)
         print(base or "")
         print(reason)
-        raise SystemExit(0)
+        return 0
 
-    ok, msg = evaluate_changed_paths(sys.argv[1:])
+    ok, msg = evaluate_changed_paths(argv)
     print(msg)
-    raise SystemExit(0 if ok else 1)
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    import sys
+
+    sys.exit(main())
