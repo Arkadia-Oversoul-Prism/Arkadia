@@ -153,6 +153,8 @@ class ModelGateway:
         }
         if registry:
             self._models.update(registry)
+        #: provider -> concrete inference adapter (GATE L1). Empty until bound.
+        self._adapters: dict[str, ModelAdapter] = {}
 
     def describe(self, provider: str) -> ModelDescriptor:
         if provider not in CONFIG_CLASSES:
@@ -251,6 +253,143 @@ class ModelGateway:
             "agent_providers": list(AGENT_PROVIDERS),
             "catalog": self.catalog(),
         }
+
+    # -- GATE L1: generation boundary ----------------------------------------
+
+    def register_adapter(self, provider: str, adapter: "ModelAdapter") -> None:
+        """Bind a provider to a concrete inference adapter."""
+        if provider not in CONFIG_CLASSES:
+            raise ValueError(f"unknown provider '{provider}'")
+        self._adapters[provider] = adapter
+
+    def generate(
+        self,
+        *,
+        provider: str,
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        **options: Any,
+    ) -> "ModelResponse":
+        """Run one inference turn against *provider*.
+
+        This is the first real call the gateway makes — previously it only
+        described models. If no adapter is bound the call fails closed with
+        ``ModelUnavailable`` rather than fabricating a response; the caller must
+        treat the run as blocked, never silently substitute output.
+        """
+        adapter = self._adapters.get(provider)
+        if adapter is None:
+            raise ModelUnavailable(
+                f"no inference adapter bound for provider '{provider}'; "
+                "the gateway describes models but cannot call them"
+            )
+        return adapter.generate(model=model, messages=messages, tools=tools, **options)
+
+
+class ModelUnavailable(RuntimeError):
+    """Raised when generation is requested but no adapter can serve it."""
+
+
+@dataclass
+class ModelResponse:
+    """One model turn. ``tool_calls`` empty means the model produced text only."""
+
+    provider: str
+    model: str
+    text: str = ""
+    tool_calls: list[dict[str, Any]] = field(default_factory=list)
+    finish_reason: str = "stop"
+    usage: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "provider": self.provider,
+            "model": self.model,
+            "text": self.text,
+            "tool_calls": self.tool_calls,
+            "finish_reason": self.finish_reason,
+            "usage": self.usage,
+        }
+
+
+class ModelAdapter:
+    """Inference adapter contract. Stateless; the loop owns no provider detail."""
+
+    provider: str = ""
+
+    def generate(
+        self,
+        *,
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        **options: Any,
+    ) -> ModelResponse:  # pragma: no cover - interface
+        raise NotImplementedError
+
+
+class OllamaAdapter(ModelAdapter):
+    """Local-first adapter against an Ollama/OpenAI-compatible endpoint.
+
+    Sends to ``/api/chat``. Network access is confined to the configured local
+    base URL; nothing here reaches a remote cloud provider.
+    """
+
+    provider = "ollama"
+
+    def __init__(self, base_url: str | None = None, timeout: float = 30.0) -> None:
+        self._base_url = (
+            base_url
+            or os.environ.get("OLLAMA_BASE_URL")
+            or os.environ.get("OLLAMA_HOST")
+            or "http://localhost:11434"
+        )
+        self._timeout = timeout
+
+    def generate(
+        self,
+        *,
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        **options: Any,
+    ) -> ModelResponse:
+        body: dict[str, Any] = {"model": model, "messages": messages, "stream": False}
+        if tools:
+            body["tools"] = tools
+        data = json.dumps(body).encode("utf-8")
+        req = urllib.request.Request(
+            self._base_url.rstrip("/") + "/api/chat",
+            data=data,
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:
+                payload = json.loads(resp.read().decode("utf-8"))
+        except Exception as exc:
+            raise ModelUnavailable(f"local inference call failed: {exc}") from exc
+
+        message = payload.get("message", {}) or {}
+        raw_calls = message.get("tool_calls") or []
+        tool_calls = [
+            {
+                "name": (call.get("function") or {}).get("name", ""),
+                "arguments": (call.get("function") or {}).get("arguments", {}) or {},
+            }
+            for call in raw_calls
+        ]
+        return ModelResponse(
+            provider=self.provider,
+            model=model,
+            text=message.get("content", "") or "",
+            tool_calls=tool_calls,
+            finish_reason=payload.get("done_reason", "stop"),
+            usage={
+                "prompt_eval_count": payload.get("prompt_eval_count"),
+                "eval_count": payload.get("eval_count"),
+            },
+        )
 
 
 _GLOBAL_GATEWAY: ModelGateway | None = None

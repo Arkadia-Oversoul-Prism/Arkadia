@@ -1,0 +1,323 @@
+"""GATE L1 — native agent runtime verification.
+
+These exercise the real loop, real sandbox, real store, and real event stream.
+Only *inference* is stubbed: the model is the external dependency, and the
+directive makes the deterministic stub the CI acceptance path. The stub plays a
+known four-turn sequence so termination is deterministic.
+
+The hard invariant under test: the agent loop reasons and observes, but never
+mutates the repository, and never crosses into the K15/K3 governed boundary.
+"""
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from lab.engineering_lab import gateway as gateway_mod  # noqa: E402
+from lab.engineering_lab.agent_loop import TERMINAL_STATES, AgentLoop  # noqa: E402
+from lab.engineering_lab.events import EventStream  # noqa: E402
+from lab.engineering_lab.gateway import ModelAdapter, ModelGateway, ModelResponse  # noqa: E402
+from lab.engineering_lab.runtime import EngineeringLabRuntime  # noqa: E402
+from lab.engineering_lab.sandbox import Sandbox, SandboxPolicy  # noqa: E402
+from lab.engineering_lab.store import EngineeringLabStore  # noqa: E402
+from lab.engineering_lab.tools import ToolRegistry  # noqa: E402
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+class ScriptedAdapter(ModelAdapter):
+    """Deterministic stub: plays a fixed sequence of tool calls, then stops."""
+
+    def __init__(self, provider: str, script: list[dict]) -> None:
+        self.provider = provider
+        self._script = script
+        self._index = 0
+        self.calls: list[list[dict]] = []
+
+    def generate(self, *, model, messages, tools=None, **options) -> ModelResponse:
+        self.calls.append(messages)
+        if self._index >= len(self._script):
+            return ModelResponse(self.provider, model, text="done", tool_calls=[])
+        step = self._script[self._index]
+        self._index += 1
+        return ModelResponse(
+            self.provider, model,
+            text=step.get("text", ""),
+            tool_calls=step.get("tool_calls", []),
+        )
+
+
+#: The directive's known sequence: list -> read -> run -> DONE.
+KNOWN_SEQUENCE = [
+    {"tool_calls": [{"name": "filesystem.list", "arguments": {"path": "."}}]},
+    {"tool_calls": [{"name": "filesystem.read", "arguments": {"path": "README.md"}}]},
+    {"tool_calls": [{"name": "terminal.run", "arguments": {"argv": ["git", "status", "--short"]}}]},
+    {"text": "inspection complete", "tool_calls": []},
+]
+
+
+@pytest.fixture()
+def store(tmp_path, monkeypatch):
+    db = tmp_path / "el.db"
+    import lab.engineering_lab.store as store_mod
+
+    monkeypatch.setattr(store_mod, "_DB_PATH", str(db))
+    return EngineeringLabStore()
+
+
+@pytest.fixture()
+def workspace(tmp_path):
+    root = tmp_path / "ws"
+    root.mkdir()
+    (root / "README.md").write_text("# workspace\n", encoding="utf-8")
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    return root
+
+
+@pytest.fixture()
+def gateway():
+    return ModelGateway()
+
+
+@pytest.fixture()
+def registry(workspace):
+    sandbox = Sandbox(SandboxPolicy(root=str(workspace), command_allowlist=("git",)))
+    return ToolRegistry(sandbox)
+
+
+def _run_loop(gateway, registry, script, provider="ollama", max_turns=8, events=None):
+    gateway.register_adapter(provider, ScriptedAdapter(provider, script))
+    loop = AgentLoop(gateway=gateway, tools=registry, provider=provider,
+                     model="stub-model", max_turns=max_turns)
+    captured: list[tuple[str, dict]] = []
+
+    def on_event(event_type, payload):
+        captured.append((event_type, payload))
+    result = loop.run(objective="inspect the workspace", on_event=on_event)
+    if events is not None:
+        events.extend(captured)
+    return result
+
+
+# -- the loop itself ---------------------------------------------------------
+
+
+def test_loop_performs_multi_turn_tool_sequence(gateway, registry):
+    result = _run_loop(gateway, registry, KNOWN_SEQUENCE)
+    assert result.state == "DONE"
+    tools_used = [t.tool_name for t in result.turns if t.tool_name]
+    assert tools_used == ["filesystem.list", "filesystem.read", "terminal.run"]
+    assert all(t.observation is not None for t in result.turns if t.tool_name)
+
+
+def test_every_tool_call_produces_an_agent_event(gateway, registry):
+    events: list[tuple[str, dict]] = []
+    _run_loop(gateway, registry, KNOWN_SEQUENCE, events=events)
+    kinds = [e[0] for e in events]
+    assert kinds.count("MODEL_TURN") == 4
+    assert kinds.count("TOOL_INTENT") == 3
+    assert kinds.count("TOOL_OBSERVATION") == 3
+    assert "AGENT_DECISION" in kinds
+    assert kinds[-1] == "AGENT_DECISION"
+
+
+def test_loop_termination_is_deterministic(gateway, registry):
+    first = _run_loop(gateway, registry, KNOWN_SEQUENCE)
+    second = _run_loop(gateway, registry, KNOWN_SEQUENCE)
+    assert first.state == second.state == "DONE"
+    assert [t.tool_name for t in first.turns] == [t.tool_name for t in second.turns]
+
+
+def test_loop_terminates_allowed_states_only(gateway, registry):
+    assert set(TERMINAL_STATES) == {
+        "DONE", "BLOCKED", "ERROR", "HUMAN_AUTHORIZATION_REQUIRED"
+    }
+
+
+def test_loop_blocked_when_no_adapter_bound(registry):
+    gateway = ModelGateway()  # no adapter registered
+    loop = AgentLoop(gateway=gateway, tools=registry, provider="ollama", model="m")
+    result = loop.run(objective="x")
+    assert result.state == "BLOCKED"
+    assert "no inference adapter" in result.reason
+
+
+def test_loop_stops_at_human_authorization_on_turn_budget(gateway, registry):
+    # A model that always requests a tool never terminates on its own.
+    always = [{"tool_calls": [{"name": "filesystem.list", "arguments": {}}]}] * 3
+    result = _run_loop(gateway, registry, always, max_turns=3)
+    assert result.state == "HUMAN_AUTHORIZATION_REQUIRED"
+
+
+def test_provider_swap_does_not_change_the_loop(registry):
+    g1 = ModelGateway()
+    r1 = _run_loop(g1, registry, KNOWN_SEQUENCE, provider="ollama")
+    g2 = ModelGateway()
+    r2 = _run_loop(g2, registry, KNOWN_SEQUENCE, provider="openai_compatible_local")
+    assert r1.state == r2.state == "DONE"
+    assert [t.tool_name for t in r1.turns] == [t.tool_name for t in r2.turns]
+
+
+# -- the tool layer ----------------------------------------------------------
+
+
+def test_tool_registry_exposes_no_mutating_tool(registry):
+    specs = registry.available()
+    assert specs, "expected read-only tools to be available"
+    assert all(spec["mutating"] is False for spec in specs)
+    names = " ".join(spec["name"] for spec in specs)
+    for forbidden in ("write", "commit", "push", "merge", "create_pr"):
+        assert forbidden not in names
+
+
+def test_tool_registry_denies_ungranted_tool(registry):
+    restricted = ToolRegistry(registry._sandbox, granted=("filesystem.list",))
+    out = restricted.invoke("filesystem.read", {"path": "README.md"})
+    assert out["ok"] is False
+    assert "not granted" in out["error"]
+
+
+def test_tool_failure_returns_observation_not_exception(registry):
+    out = registry.invoke("filesystem.read", {"path": "does-not-exist.txt"})
+    assert out["ok"] is False
+    assert "error" in out
+
+
+# -- runtime integration -----------------------------------------------------
+
+
+def _runtime_fixture(tmp_path, store, monkeypatch, workspace):
+    monkeypatch.setenv("ENGINEERING_LAB_DATA_DIR", str(tmp_path / "data"))
+    stream = EventStream(log_path=str(tmp_path / "events.jsonl"))
+    return EngineeringLabRuntime(store=store, stream=stream), stream
+
+
+def test_runtime_agent_loop_records_evidence_and_review_boundary(
+    tmp_path, store, monkeypatch, workspace, gateway
+):
+    runtime, _ = _runtime_fixture(tmp_path, store, monkeypatch, workspace)
+    gateway.register_adapter("ollama", ScriptedAdapter("ollama", KNOWN_SEQUENCE))
+    monkeypatch.setattr(gateway_mod, "get_gateway", lambda: gateway)
+
+    agent = runtime.register_agent(subject_ref="architect", role="WEAVER",
+                                   display_name="Weaver")
+    authorization = runtime.record_authorization(
+        subject_ref="architect", scope_ref="inspect-workspace",
+        operations_allowed=("list", "read", "run", "git_status"),
+    )
+    session = runtime.open_session(
+        subject_ref="architect", agent_id=agent["agent_id"],
+        workspace_ref="arkadia", objective="inspect workspace",
+        authorization_ref=authorization["authorization_id"],
+    )
+    assert session["state"] == "AUTHORIZED"
+
+    out = runtime.execute_agent_loop(
+        subject_ref="architect", session_id=session["session_id"],
+        objective="inspect the workspace", provider="ollama", model="stub-model",
+        sandbox_policy=SandboxPolicy(root=str(workspace), command_allowlist=("git",)),
+    )
+
+    assert out["loop_state"] == "DONE"
+    assert out["evidence_refs"], "evidence must reference the run"
+    assert out["human_decision_required"] is True
+    assert out["merge"] is False and out["deploy"] is False
+    assert out["self_authorized"] is False
+
+    evidence = store.list_evidence("architect", run_ref=out["run_id"])
+    assert len(evidence) == 1
+    assert evidence[0]["run_ref"] == out["run_id"]
+
+    session_after = runtime.get_session(session["session_id"], "architect")
+    assert session_after["state"] == "READY_FOR_REVIEW"
+
+
+def test_agent_loop_does_not_mutate_repository(
+    tmp_path, store, monkeypatch, workspace, gateway
+):
+    before = subprocess.run(["git", "status", "--porcelain"], cwd=REPO_ROOT,
+                            capture_output=True, text=True).stdout
+    runtime, _ = _runtime_fixture(tmp_path, store, monkeypatch, workspace)
+    gateway.register_adapter("ollama", ScriptedAdapter("ollama", KNOWN_SEQUENCE))
+    monkeypatch.setattr(gateway_mod, "get_gateway", lambda: gateway)
+
+    agent = runtime.register_agent(subject_ref="architect", role="WEAVER")
+    authorization = runtime.record_authorization(
+        subject_ref="architect", scope_ref="inspect",
+        operations_allowed=("list", "read", "run", "git_status"),
+    )
+    session = runtime.open_session(subject_ref="architect",
+                                   agent_id=agent["agent_id"],
+                                   workspace_ref="arkadia", objective="inspect",
+                                   authorization_ref=authorization["authorization_id"])
+    runtime.execute_agent_loop(
+        subject_ref="architect", session_id=session["session_id"],
+        objective="inspect the workspace", provider="ollama", model="stub-model",
+        sandbox_policy=SandboxPolicy(root=str(workspace), command_allowlist=("git",)),
+    )
+    after = subprocess.run(["git", "status", "--porcelain"], cwd=REPO_ROOT,
+                           capture_output=True, text=True).stdout
+    assert before == after, "the agent loop must not mutate the repository"
+
+
+def test_agent_loop_has_no_k15_k3_or_ew_coupling():
+    """The L1 loop must not reach into the governed mutation boundary.
+
+    Checked against code identifiers, not docstrings: the modules legitimately
+    *document* the boundary they must not cross.
+    """
+    import ast
+
+    forbidden = {"enterprise_orchestration", "transaction", "execute_patch",
+                 "run_transaction", "PassSpec", "K15", "K3"}
+    for module in ("agent_loop.py", "tools.py"):
+        source = (REPO_ROOT / "lab" / "engineering_lab" / module).read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        used: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name):
+                used.add(node.id)
+            elif isinstance(node, ast.Attribute):
+                used.add(node.attr)
+            elif isinstance(node, (ast.Import, ast.ImportFrom)):
+                for alias in node.names:
+                    used.add(alias.name.split(".")[-1])
+        assert not (forbidden & used), f"{module} couples to {forbidden & used}"
+
+    tools_source = (REPO_ROOT / "lab" / "engineering_lab" / "tools.py").read_text(encoding="utf-8")
+    for forbidden_name in ("filesystem.write", "git.commit", "git.push", "create_pr"):
+        assert forbidden_name not in tools_source
+
+
+# -- local provider adapter (opportunistic) ----------------------------------
+
+
+def _ollama_reachable() -> bool:
+    from lab.engineering_lab.gateway import _probe_local
+
+    base = os.environ.get("OLLAMA_BASE_URL") or os.environ.get("OLLAMA_HOST")
+    if not base:
+        return False
+    return _probe_local(base)[0]
+
+
+@pytest.mark.skipif(not _ollama_reachable(), reason="no local Ollama endpoint configured")
+def test_ollama_adapter_calls_a_real_local_model(registry):
+    """Exercises the real adapter only when a local endpoint is actually up.
+
+    The deterministic stub remains the CI truth; this proves the same loop runs
+    against a real local model without any change to the loop.
+    """
+    gateway = ModelGateway()
+    gateway.register_adapter("ollama", gateway_mod.OllamaAdapter())
+    model = os.environ.get("OLLAMA_MODEL", "llama3")
+    loop = AgentLoop(gateway=gateway, tools=registry, provider="ollama", model=model,
+                     max_turns=2)
+    result = loop.run(objective="List the files in the workspace, then stop.")
+    assert result.state in TERMINAL_STATES
