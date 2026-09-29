@@ -4,7 +4,8 @@
 - **Bounded task:** `SH-02b` — `tests/test_prism_pass_c_surface_ownership.py` (6 nodes),
   named as the next bounded task by
   `docs/control-plane/evidence/gate-hygiene-baseline-stale-assertion-repair-solariun-consolidation-01/WORKSTREAM_STATE.md`
-- **BASE_MAIN:** `ee3fac1baffe512f1d9462984f1d507d38cdfa7a`
+- **BASE_MAIN:** `417d32d6ccb6f0deb318b19028b828df5b1c1363` (see §1a — an earlier draft of this
+  file recorded `ee3fac1`, which was the batch-2 base; the correction is documented, not hidden)
 - **Branch:** `gate-hygiene/baseline-stale-assertion-repair-surface-ownership-01`
 - **Authority:** test-hygiene only. No source, policy, governance, or architecture mutation.
 - **Status:** IMPLEMENTED (targeted tests pass, protected regressions pass, negative controls
@@ -44,6 +45,35 @@ Surfaces the repair asserts, read from live source:
 - `web/public_prism/src/pages/SolariunConsole.tsx` — `LEGACY_MAP` (`codex:'memory'`,
   `loops:'tasks'`, `field:'overview'`); the `field` lens is retired and now maps to `overview`.
 - `web/public_prism/src/components/ArkadiaNavigation.tsx` — the six-anchor vertical drawer.
+
+## 1a. Base and attribution (corrected this pass)
+
+An earlier draft of this file recorded `BASE_MAIN = ee3fac1`. That was wrong: `ee3fac1` is
+the **batch-1** merge (PR #124); batch 2 landed as PR #125 on top of it. The repository checkout already contained
+that batch-2 merge
+(PR #125), so this branch was cut from `417d32d` (PR #126, GATE L1 native agent runtime) and
+`ee3fac1..417d32d` carries the batch-2 evidence and that lab runtime change. The correction
+is recorded here rather than force-pushed away (force-push is forbidden).
+
+Because PR #126 merged mid-pass, the endorsed baseline fingerprint was **re-measured at the
+true base** and the delta re-attributed, rather than reusing the earlier numbers:
+
+```
+base 417d32d (clean worktree) : 45 failed / 985 passed / 13 skipped / 2 errors   (47 nodes)
++ this repair (branch head)   : 39 failed / 991 passed / 13 skipped / 2 errors   (41 nodes)
+
+removed : the same 6 nodes as §3a, all in test_prism_pass_c_surface_ownership.py
+added   : (none)
+```
+
+The two independent measurements agree on both counts and node identity: re-measuring at the
+true base changes **nothing** about the claim, it only removes the possibility that the delta
+was inherited from a commit that landed between surfaces. None of this repair's target
+surfaces moved between `ee3fac1` and `417d32d`.
+
+Note also that a local branch `gate-hygiene/prism-pass-c-helper-rewrite-01` points at
+`417d32d` and was never pushed — it is a stale local ref, not a competing PR. No duplicate
+work exists on the remote.
 
 ## 2. The two mechanisms, kept distinct
 

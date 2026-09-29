@@ -6,11 +6,22 @@
 > Supersedes the batch-2 state at
 > `docs/control-plane/evidence/gate-hygiene-baseline-stale-assertion-repair-solariun-consolidation-01/WORKSTREAM_STATE.md`.
 
+## Pass record — 2026-09-29 (heartbeat)
+
+- **Reconstructed:** branch on `417d32d` (current main, PR #126); `git merge-base HEAD origin/main`
+  = `417d32d`. `ee3fac1` is batch-1 (PR #124), NOT the parent of this branch; the earlier
+  `BASE_MAIN = ee3fac1` in EVIDENCE.md was corrected in a follow-up commit (force-push forbidden).
+- **CI:** secret scan on the PR head = success. `SG-02-FE.2-V` (CP10) runs on `main` push and
+  `pull_request` per `.github/workflows/sg-02-fe-2-v.yml`; locally delegated judge = PASS (exit 0).
+- **Local ref hygiene:** `gate-hygiene/prism-pass-c-helper-rewrite-01` is a stale, never-pushed
+  local ref at `417d32d`. Not a competing PR; no duplicate work on the remote.
+- **Publication:** PR opened — sovereign review. No merge, no force-push, `main` untouched.
+
 ## Fingerprint (measured this pass, not remembered)
 
 ```
-main ee3fac1 (clean)          : 45 failed / 985 passed / 13 skipped / 2 errors   (47 nodes)
-main ee3fac1 + SH-02b         : 39 failed / 991 passed / 13 skipped / 2 errors   (41 nodes)
+main 417d32d (clean)          : 45 failed / 985 passed / 13 skipped / 2 errors   (47 nodes)
+main 417d32d + SH-02b         : 39 failed / 991 passed / 13 skipped / 2 errors   (41 nodes)
   removed                     : 6 nodes, all in test_prism_pass_c_surface_ownership.py
   added                       : none
 architecture                  : 11/11
@@ -18,6 +29,10 @@ CP10 mutation boundary        : PASS (exit 0)
 py_compile api/main.py        : pass    (api/main.py = 2519 / 2600 lines)
 vite build                    : environment-blocked (no npm registry access)
 ```
+
+`main` advanced mid-pass (`ee3fac1` -> `417d32d`, PR #126) and the endorsed fingerprint was
+re-measured at the new base rather than reused; see the EVIDENCE section 1a for why the
+recorded base was corrected. `417d32d` is the true parent of this branch.
 
 The two suites were measured back-to-back on the same runner with the same
 `PYTHONPATH=<repo>/archive/legacy_python`, and the delta was attributed by **sorted node
