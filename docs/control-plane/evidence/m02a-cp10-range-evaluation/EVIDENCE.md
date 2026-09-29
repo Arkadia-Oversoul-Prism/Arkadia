@@ -82,3 +82,89 @@ Baseline vs changed full suite: **identical failing set** (47 failed / 12 skippe
 ## Authority
 
 No merge by automation. No M03. Human merge required.
+
+---
+
+# PASS 2 — GATE-10 · the red gate and the unwatched surface
+
+Pass 1 made the boundary judge the whole guarded range. Pass 2 addresses why the
+*executed* gate was red on `main` (`36516287611`) and why a red gate could be merged
+onto `main` at all.
+
+## 1. The failure was a test-side fixed-point defect, not a product defect
+
+`tests/test_phase5_governed_execution.py` declared `new_body = "MUTATED BY
+COMPARATIVE EXAMINATION I\n"` and then asserted the on-disk file equals it. The
+governed K3 write boundary normalises the provider payload (`weaver.agent` parses
+file blocks with `content.strip()`), so a declared body ending in newline can never
+be observed. Reproduced against the real write path in a scratch repo:
+
+```
+declared after : 'MUTATED BY COMPARATIVE EXAMINATION I\n'
+actual on disk : 'MUTATED BY COMPARATIVE EXAMINATION I'
+EQUAL: False
+k15_ready: True   k3: BLOCKED
+```
+
+`k15_ready` and the K15-before-K3 ordering were already satisfied; only the
+unfalsifiable equality failed. The K3 write path does **not** verify the object
+against the approved `after`, so this is not a silent-corruption channel — the
+declared content was simply unachievable. The fix makes the declared body a fixed
+point of the boundary's own normalisation. Ingested/executed byte-fidelity
+verification is a *fast-follow proposal*, not a claim made here.
+
+## 2. The deeper defect: the gate did not run on the surface it judges
+
+`.github/workflows/sg-02-fe-2-v.yml` judged `tests/test_phase5_governed_execution.py`
+on `push` but its `pull_request` filter omitted that file (and `lab/evolution/**`,
+`lab/execution/**`). A PR could therefore introduce the very fixture the gate
+validates without the gate executing — which is how PR #112 landed it against an
+already-red gate.
+
+Fixed: the two filters are now identical (21 paths each). Guarded by two new tests
+in `tests/test_m02a_ci_gate_integrity.py`, proven falsifiable:
+
+```
+against the pre-fix workflow : 2 failed  (test_push_and_pull_request_filters_are_identical,
+                                          test_phase5_fixture_surface_triggers_the_boundary)
+against the fixed workflow   : 2 passed
+```
+
+`test_push_and_pull_request_filters_are_identical` asserts set equality, so a future
+widening of one filter is always a widening of both.
+
+## Verification (branch = origin/main merged with the Pass-1 branch)
+
+```
+python -m pytest -q tests/test_phase5_governed_execution.py \
+                    tests/test_m02a_ci_gate_integrity.py \
+                    tests/test_static_ingestion_idempotency.py   -> 52 passed
+python -m pytest -q tests/architecture                            -> 11 passed
+python -m py_compile api/main.py                                  -> OK (2519, under budget)
+```
+
+Full suite, failing-set diff rather than counts (same merged base both sides):
+
+```
+main   : 47 failed / 926 passed
+branch : 46 failed / 941 passed   (baseline was 47/926)
+only failing on main   : test_phase5_governed_execution.py::test_comparative_exam_i_authorization_change_reaches_k15_before_k3
+only failing on branch : (none)
+```
+
+Zero new failures; one pre-existing failure fixed; +15 passed from the Pass-1 test
+additions plus this fix. Note the standing `main` baseline in the contract
+(804/54/12/2) is stale against current `main` (6038989 -> 8f9d509).
+
+## Remaining uncertainty
+
+- Pass 2 is proven locally. The CP10 run for this branch has not been observed
+  executing yet; the workflow change must be confirmed green in CI.
+- `tests/test_m02a_ci_gate_integrity.py`'s new parity test constrains the two
+  filters to be equal, not to be *complete* — a surface the gate executes but neither
+  filter names is still possible; `test_phase5_fixture_surface_triggers_the_boundary`
+  covers the Phase 5 case specifically.
+
+## Authority
+
+No merge by automation. No M03. Human merge required.

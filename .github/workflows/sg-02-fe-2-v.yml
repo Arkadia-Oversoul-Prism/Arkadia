@@ -43,6 +43,15 @@ on:
       - 'tests/test_phase3_harness_selftest.py'
       - 'tests/test_phase3_council.py'
       - 'lab/council/**'
+      # These three are judged on push; they were absent from the pull_request
+      # filter, so a PR could introduce them without the boundary ever judging
+      # them and then redden main on merge (that is how PR #112 landed
+      # tests/test_phase5_governed_execution.py with CP10 already red). The two
+      # filters are kept identical by tests/test_m02a_ci_gate_integrity.py.
+      - 'lab/evolution/**'
+      - 'lab/execution/**'
+      - 'tests/test_phase5_governed_execution.py'
+      - 'tests/test_phase4_evolution_planner.py'
       # The boundary's own contract surfaces: a change that rewrites the policy or
       # its fitness tests must be judged by the boundary it rewrites, or the gate
       # is self-exempt.
