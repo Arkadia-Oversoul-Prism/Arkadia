@@ -110,7 +110,61 @@ compile gate is required; `py_compile` on both changed Python files passed regar
 Passed count rises by exactly 4 (the new tests); **failed/error fingerprint is byte-identical**.
 No baseline failure was fixed, masked, or newly attributed.
 
-## 5. Remaining uncertainty
+## 6. Pass 2 — omitted merged surfaces (`knowledge/`, `spiral_grove/`, root `conftest.py`)
+
+Pass 1 restored the gate for the change sets already on `main`. Auditing the *open* PRs revealed the
+allowlist was still an incomplete inventory, so `main` would have gone red again on the very next
+merge:
+
+| surface | rejected | evidence |
+|---|---|---|
+| `knowledge/` | yes | PR #109 changes `knowledge/static_ingestion.py`; step prints `Unexpected path outside legitimate surfaces` |
+| `spiral_grove/` | yes | **self-contradiction**: the workflow triggers on `spiral_grove/**`, yet its own allowlist rejects `spiral_grove/__init__.py` |
+| `conftest.py` (root) | yes | root test-session fixture; committed by ordinary work |
+| `AGENTS.md` | yes | (pass 1 — already on `main`) |
+
+`knowledge/` is the Knowledge OS corpus engine (GATE-01 canonical authorship, GATE-05) and
+`spiral_grove/` is the Spiral Grove engine (SG-03). Both are tracked, active, and merged into `main`.
+A gate that rejects the branch it is written to watch is unsound, not strict.
+
+**Change** — two literals added to the single shared allowlist and its workflow mirror:
+`conftest\.py` (root-only: `somewhere/conftest.py` still fails) and `knowledge/`, `spiral_grove/`
+(directory-prefix anchored, so `knowledge_evil/` and `.knowledge/` still fail).
+
+**Exact-CI simulation** (the real `grep -vE "$legit"` from the workflow, not a re-implementation):
+
+| changeset | before | after |
+|---|---|---|
+| `main` tip = PR #104 change set | FAIL | PASS |
+| PR #109 change set | FAIL | PASS |
+| `spiral_grove/learning_path.py` | FAIL | PASS |
+| root `conftest.py` | FAIL | PASS |
+| `secret-backdoor/bin/x`, `vault/Ideas/x.md` | FAIL | **still FAIL** |
+| `knowledge_evil/x.py`, `.knowledge/x.py`, `somewhere/conftest.py` | FAIL | **still FAIL** |
+| `SolSpireExperienceV3.tsx` | forbidden stage | **still forbidden** (separate `forbid` stage) |
+
+**Regression boundary held.** Full suite, this worktree vs. baseline `a26af408`, same invocation:
+
+| | passed | failed | skipped | errors | failing/error fingerprint |
+|---|---|---|---|---|---|
+| baseline `a26af408` | 903 | 49 | 12 | 2 | `e1ed0b1ea635` |
+| after pass 2 | 913 | 49 | 12 | 2 | `e1ed0b1ea635` |
+
+Passed rises by exactly 10 (the new tests); the failing-node fingerprint is **byte-identical**
+(`diff` of sorted `FAILED` lines is empty). No baseline debt fixed or newly attributed.
+
+`tests/test_m02a_ci_gate_integrity.py` gained 6 tests locking this in, including a drift assertion
+that the workflow's inline copy and the policy script agree on the newly admitted surfaces **and**
+on the lookalike negatives. `tests/architecture` = 10/10.
+
+## 7. Merge-order hazard (recorded, not resolved here)
+
+`docs/phase1/CONTINUATION_LEDGER.md` is appended to by **both** this PR (+96 lines) and PR #109
+(+79 lines). They will conflict textually at the end of the file. Both branches are otherwise clean
+and pass CP10 under this policy. Resolution is a human merge decision — **merge this PR first**,
+then rebase #109 (or vice-versa) — not something this pass should decide unilaterally.
+
+## 8. Remaining uncertainty
 
 - The baseline 49 failures + 2 collection errors (`tests/test_autonomy.py`,
   `tests/test_render_codex.py`) are pre-existing debt and are **not** addressed here. Several

@@ -437,9 +437,13 @@ jobs:
           # router — a product surface, not harness. Excluding it rejected EDEN-OPS-02.
           # [^/]+[.]md$ admits root-level narrative docs (AGENTS.md, ROADMAP.md, ...);
           # omitting them rejected EL-01..10 (#97) and Solariun thread-nav (#104).
+          # conftest.py is the root test-session fixture. knowledge/ is the
+          # Knowledge OS corpus engine (GATE-01/05) and spiral_grove/ is the
+          # Spiral Grove engine — this workflow itself triggers on spiral_grove/**
+          # yet the allowlist rejected it, so any spiral_grove commit turned main red.
           # Keep this in sync with scripts/cp10_mutation_boundary_policy.py —
           # tests/test_m02a_ci_gate_integrity.py asserts the two agree.
-          legit='^([.]github/|web/|api/|solspire/|kernel/|weaver/|lab/|tests/|docs/|scripts/|enterprises/|android/|render|package|pnpm-|requirements|pyproject|README|LICENSE|[.]gitignore|[.]npmrc|[.]editorconfig|Makefile|Dockerfile|[^/]+[.]md$)'
+          legit='^([.]github/|web/|api/|solspire/|kernel/|weaver/|lab/|tests/|docs/|scripts/|enterprises/|android/|render|package|pnpm-|requirements|pyproject|README|LICENSE|[.]gitignore|[.]npmrc|[.]editorconfig|Makefile|Dockerfile|conftest[.]py|knowledge/|spiral_grove/|[^/]+[.]md$)'
           offenders="$(echo "$changed" | grep -v '^$' | grep -vE "$legit" || true)"
           if [ -n "$offenders" ]; then
             echo "Unexpected path outside legitimate repository surfaces:"; echo "$offenders"; exit 1

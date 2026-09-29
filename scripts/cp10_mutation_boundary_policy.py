@@ -7,17 +7,28 @@ from __future__ import annotations
 
 import re
 
+# The allowlist must be a complete inventory of legitimate surfaces: it runs on
+# every main push, so ANY surface omitted here turns the canonical branch red.
+# Each omission below was proven by merged history, not speculation.
+#
 # Root-level narrative docs (`AGENTS.md`, `ROADMAP.md`, ...) are first-class
 # product surfaces: AGENTS.md is the repository's persistent agent memory and is
 # committed by ordinary work. Omitting them rejected the EL-01..10 substrate PR
 # (#97) and the Solariun thread-navigation PR (#104). `[^/]+[.]md$` admits only
-# top-level markdown — nested paths are covered by their own directory prefix,
-# and `vault/...` remains rejected.
+# top-level markdown. `conftest.py` is the test-session root fixture and is
+# committed by ordinary work; omitting it rejected a bootstrap commit. Both are
+# deliberately top-level-only literals — they do not open nested paths.
 LEGIT = re.compile(
     r"^(\.github/|web/|api/|solspire/|kernel/|weaver/|lab/|tests/|docs/|scripts/|"
     r"enterprises/|android/|render|package|pnpm-|requirements|pyproject|README|LICENSE|"
-    r"\.gitignore|\.npmrc|\.editorconfig|Makefile|Dockerfile|[^/]+\.md$)"
+    r"\.gitignore|\.npmrc|\.editorconfig|Makefile|Dockerfile|conftest\.py|"
+    r"knowledge/|spiral_grove/|[^/]+\.md$)"
 )
+
+# Content surfaces. A top-level directory only counts as "touched" when a real
+# artifact inside it changed — directory-prefix-only paths (`knowledge/`) are
+# not artifacts.
+CONTENT_DIRS = frozenset({"knowledge", "spiral_grove"})
 FORBID_V3 = re.compile(r"SolSpireExperienceV3\.tsx$")
 FORBID_V2 = re.compile(r"SolSpireExperienceV2\.tsx$")
 

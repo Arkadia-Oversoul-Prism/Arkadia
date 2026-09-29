@@ -194,6 +194,79 @@ def test_workflow_allowlist_agrees_with_policy_on_root_docs():
         assert policy_ok == workflow_ok, f"allowlist drift on {path}"
 
 
+# ---------------------------------------------------------------------------
+# Regression: `knowledge/`, `spiral_grove/` and root `conftest.py`.
+# These are merged, active surfaces (GATE-01 canonical authorship, GATE-05
+# Knowledge OS, Spiral Grove SG-03) yet the allowlist only enumerated paths with
+# a directory prefix, so committing any of them turned `main` red. The workflow
+# is self-contradictory: it *triggers* on `spiral_grove/**` and `lab/**` while
+# rejecting `spiral_grove/` in its own allowlist. Pending PR #109 changes
+# `knowledge/static_ingestion.py`, which would have failed the same step.
+# ---------------------------------------------------------------------------
+_OMITTED_SURFACE_CHANGESET = [
+    "knowledge/static_ingestion.py",
+    "knowledge/vault.py",
+    "spiral_grove/learning_path.py",
+    "conftest.py",
+]
+
+
+def test_omitted_merged_surfaces_are_legitimate():
+    ok, msg = evaluate_changed_paths(_OMITTED_SURFACE_CHANGESET)
+    assert ok is True, msg
+
+
+def test_knowledge_os_surface_is_legitimate():
+    ok, msg = evaluate_changed_paths(["knowledge/context_engine.py"])
+    assert ok is True, msg
+
+
+def test_spiral_grove_surface_is_legitimate():
+    """The workflow triggers on spiral_grove/** so its allowlist must admit it."""
+    ok, msg = evaluate_changed_paths(["spiral_grove/__init__.py"])
+    assert ok is True, msg
+
+
+def test_root_conftest_is_legitimate():
+    ok, msg = evaluate_changed_paths(["conftest.py"])
+    assert ok is True, msg
+
+
+def test_content_surface_admission_is_not_overbroad():
+    """Admitting those surfaces must not weaken the boundary elsewhere."""
+    # Directory-prefix lookalikes are not content surfaces.
+    for path in [
+        "knowledge_evil/x.py",
+        "spiral_grove_evil/x.py",
+        "conftest_evil.py",
+        ".knowledge/x.py",
+    ]:
+        ok, msg = evaluate_changed_paths([path])
+        assert ok is False, f"{path} should still be rejected ({msg})"
+    # Personal vault and unknown roots remain rejected.
+    for path in ["vault/Ideas/x.md", "secret-backdoor/bin/x"]:
+        ok, _ = evaluate_changed_paths([path])
+        assert ok is False
+    # A nested `conftest.py` is not covered by the root-level literal.
+    ok, _ = evaluate_changed_paths(["somewhere/conftest.py"])
+    assert ok is False
+
+
+def test_workflow_allowlist_agrees_with_policy_on_omitted_surfaces():
+    expr = _workflow_legit_regex()
+    corpus = _OMITTED_SURFACE_CHANGESET + [
+        "knowledge_evil/x.py",
+        "spiral_grove_evil/x.py",
+        "conftest_evil.py",
+        ".knowledge/x.py",
+        "somewhere/conftest.py",
+    ]
+    for path in corpus:
+        policy_ok, _ = evaluate_changed_paths([path])
+        workflow_ok = bool(re.match(expr, path))
+        assert policy_ok == workflow_ok, f"allowlist drift on {path}"
+
+
 def test_ci_does_not_assert_retired_private_workspace_marker():
     """The frontend no longer renders that marker, so a gate asserting it can never
     pass. Comment lines that reference the history are fine."""
