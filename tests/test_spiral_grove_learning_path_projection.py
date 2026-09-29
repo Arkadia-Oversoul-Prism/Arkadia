@@ -1,5 +1,6 @@
 """Frontend projection contracts for SG-03 path and activity runtime consumption."""
 
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -53,6 +54,7 @@ def test_evidence_assessment_state_are_downstream() -> None:
     catalog = read(CATALOG)
     chamber = read(CHAMBER)
     assert "completion: 'evidence_required'" in catalog
-    assert "Evidence submission, assessment, and capability-state updates remain separate downstream stages." in chamber
+    assert re.search(r"Evidence submission, assessment, and capability-state "
+                     r"(?:mutation|updates) remain (?:explicit|separate explicit) downstream stages\.", chamber)
     assert "generateExercise" not in chamber
     assert "createEvidence" not in chamber
