@@ -120,7 +120,18 @@ workflows, or governance files from here. Nothing merges without the sovereign.
 - **Regression:** zero. Node set compared by name: A and B both 41 failing/error nodes, `diff`
   empty; `39 failed / 991 passed / 13 skipped / 2 errors` both sides. Target file 9 passed;
   architecture 11/11; protected set 71 passed; `py_compile api/main.py` OK (2519/2600).
-- **CI on new head:** `security-secret-scan` success; Vercel success; CP10 absent (expected —
-  path-filtered, see correction above).
-- **Publication:** PR #127 head updated `3b338c0 → 157da8d`, description corrected, glance
-  posted. **Sovereign merge pending. No merge, no force-push, `main` untouched.**
+- **CI on new head:** `security-secret-scan` success. CP10 absent (expected — path-filtered, see
+  correction above). **Vercel: `fail` — "Deployment rate limited — retry in 24 hours"**
+  (`upgradeToPro=build-rate-limit`). This is an **external provider quota boundary**, not a build
+  or code failure: the same branch head reported Vercel `success` minutes earlier, and this diff
+  contains **no frontend file**. Classified **BLOCKED (provider quota)** at that boundary —
+  deliberately *not* `FAILED`, because no evidence contradicts the code. It does not gate this
+  bounded test-only claim, and it cannot be retried inside the 24h window. Do not record it as a
+  regression, and do not chase it with frontend scope.
+- **Publication:** PR #127 head advanced `3b338c0 → 157da8d → c0ab595 → f43fae8` (the latter two
+  are ledger corrections: CP10 path-filter note, credential note, and `BASE_MAIN` corrected to
+  `417d32d`). Description corrected; glance posted. Working tree clean.
+  **Sovereign merge pending. No merge, no force-push, `main` untouched.**
+- **Final re-verification on `f43fae8`:** target file 9 passed; architecture 11/11;
+  `py_compile api/main.py` OK (2519/2600); CP10 judge PASS (exit 0); full suite
+  `39 failed / 991 passed / 13 skipped / 2 errors` = recorded fingerprint, **zero delta**.
