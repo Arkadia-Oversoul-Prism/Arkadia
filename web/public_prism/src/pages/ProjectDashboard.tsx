@@ -1,7 +1,9 @@
+import { apiRequest } from '../lib/apiClient';
+import { apiFetch } from '../lib/apiClient';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ProjectKnowledgeGraph from '../components/solspire/ProjectKnowledgeGraph';
 
-const ORACLE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -20,28 +22,15 @@ interface Task { id: string; title: string; description: string; status: string;
 interface MemEntry { id: string; title: string; content: string; tags: string[]; created_at: number; updated_at: number; }
 interface PEvent { id: string; event_type: string; summary: string; created_at: number; }
 interface RunResult { ok: boolean; intent: string; plan: { steps: { tool: string; description: string }[] }; execution: { status: string; results: Record<string,unknown>[] }; elapsed_ms: number; }
-type ProjTab = 'overview'|'weaver'|'knowledge'|'conversations'|'files'|'repos'|'tasks'|'workflows'|'memory'|'events'|'settings';
+export type ProjTab = 'overview'|'weaver'|'knowledge'|'conversations'|'files'|'repos'|'tasks'|'workflows'|'memory'|'events'|'settings';
 
 // ── API ───────────────────────────────────────────────────────────────────────
 
-// Pass 01R: /solspire now requires the Firebase ID token on every request.
-let authToken: string | null = null;
-export function setSolspireAuthToken(token: string | null) { authToken = token; }
-
-function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
-  const h = { ...extra };
-  if (authToken) h.Authorization = `Bearer ${authToken}`;
-  return h;
-}
-
 async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
-  const res = await fetch(`${ORACLE}${path}`, {
+  return apiRequest<T>(path, {
     method,
-    headers: authHeaders(body ? { 'Content-Type': 'application/json' } : {}),
-    body: body ? JSON.stringify(body) : undefined,
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`${res.status}: ${(await res.text()).slice(0, 200)}`);
-  return res.json();
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -74,7 +63,9 @@ const EVENT_ICONS: Record<string, string> = { conversation_created: '💬', file
 // ── Tab Sections ──────────────────────────────────────────────────────────────
 
 
-/** W5 — Project Weaver workbench (read-only). Project access ≠ execution auth. */
+/** MVP2-01 — Project Weaver workbench bound to governed execution API.
+ * UI state ≠ authorization. Frontend may only call existing project execution routes.
+ */
 function WeaverPanel({ project }: { project: Project }) {
   const [objective, setObjective] = React.useState('');
   const [paths, setPaths] = React.useState('weaver/execution.py');
@@ -82,20 +73,28 @@ function WeaverPanel({ project }: { project: Project }) {
   const [caps, setCaps] = React.useState<any>(null);
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState('');
-  const base = `${ORACLE}/solspire/projects/${project.id}/weaver`;
-  const token = () => localStorage.getItem('arkadia_token') || '';
+  const [passSpec, setPassSpec] = React.useState<any>(null);
+  const [approval, setApproval] = React.useState<any>(null);
+  const [readiness, setReadiness] = React.useState<any>(null);
+  const [execResult, setExecResult] = React.useState<any>(null);
+  const base = `/solspire/projects/${project.id}/weaver`;
+  const execBase = `${base}/execution`;
+  const token = () => '';
+  const authHeaders = () => ({
+    'Content-Type': 'application/json',
+  });
 
   React.useEffect(() => {
-    fetch(`${base}/capabilities`, { headers: { Authorization: `Bearer ${token()}` } })
+    apiFetch(`${base}/capabilities`, { headers: {} })
       .then(r => r.json()).then(setCaps).catch(() => {});
   }, [project.id]);
 
   async function analyze() {
-    setBusy(true); setErr('');
+    setBusy(true); setErr(''); setExecResult(null); setPassSpec(null); setApproval(null); setReadiness(null);
     try {
-      const r = await fetch(`${base}/analyze`, {
+      const r = await apiFetch(`${base}/analyze`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+        headers: authHeaders(),
         body: JSON.stringify({
           objective,
           affected_paths: paths.split(/[\n,]/).map((s: string) => s.trim()).filter(Boolean),
@@ -104,6 +103,13 @@ function WeaverPanel({ project }: { project: Project }) {
       const data = await r.json();
       if (!r.ok) throw new Error(typeof data.detail === 'string' ? data.detail : r.statusText);
       setResult(data);
+      // Derive initial readiness from analyze authorization only (backend remains authoritative)
+      setReadiness({
+        state: data?.patch ? 'PASSSPEC_REQUIRED' : 'NO_PROPOSAL',
+        k15_ready: false,
+        lock_reasons: ['PassSpec required — bind via backend'],
+        authorization: data?.authorization || { Execution: 'LOCKED', PassSpec: 'NONE', PatchApproval: 'NONE' },
+      });
     } catch (e: any) {
       setErr(String(e.message || e));
     } finally {
@@ -111,21 +117,168 @@ function WeaverPanel({ project }: { project: Project }) {
     }
   }
 
-  const auth = result?.authorization || { Execution: 'LOCKED', PassSpec: 'NONE', PatchApproval: 'NONE' };
+  async function bindPassSpec() {
+    if (!result?.patch) { setErr('Analyze first to obtain a proposed patch'); return; }
+    setBusy(true); setErr('');
+    try {
+      const r = await apiFetch(`${execBase}/pass-spec`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          patch: result.patch,
+          objective: objective || undefined,
+          allowed_paths: paths.split(/[\n,]/).map((s: string) => s.trim()).filter(Boolean),
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(typeof data.detail === 'string' ? data.detail : r.statusText);
+      setPassSpec(data.pass_spec || data);
+      setReadiness(data.readiness || data);
+      setApproval(null);
+      setExecResult(null);
+    } catch (e: any) {
+      setErr(String(e.message || e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function bindApproval() {
+    if (!result?.patch || !passSpec) { setErr('PassSpec required before PatchApproval'); return; }
+    setBusy(true); setErr('');
+    try {
+      const r = await apiFetch(`${execBase}/approval`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          patch: result.patch,
+          pass_spec: passSpec,
+          approved: true,
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(typeof data.detail === 'string' ? data.detail : r.statusText);
+      setApproval(data.patch_approval || data);
+      setReadiness(data.readiness || data);
+      setExecResult(null);
+    } catch (e: any) {
+      setErr(String(e.message || e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function refreshReadiness() {
+    if (!result?.patch) return;
+    setBusy(true); setErr('');
+    try {
+      const r = await apiFetch(`${execBase}/readiness`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          patch: result.patch,
+          pass_spec: passSpec || undefined,
+          approval: approval || undefined,
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(typeof data.detail === 'string' ? data.detail : r.statusText);
+      setReadiness(data);
+    } catch (e: any) {
+      setErr(String(e.message || e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function executeGoverned() {
+    if (!result?.patch || !passSpec || !approval) {
+      setErr('PassSpec and PatchApproval required — backend remains authoritative');
+      return;
+    }
+    if (!readiness?.k15_ready) {
+      setErr('Backend does not report K15_READY');
+      return;
+    }
+    setBusy(true); setErr('');
+    try {
+      const r = await apiFetch(`${execBase}/execute`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          patch: result.patch,
+          pass_spec: passSpec,
+          approval: approval,
+          run_k3: false,
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(typeof data.detail === 'string' ? data.detail : r.statusText);
+      setExecResult(data);
+      if (data.readiness) setReadiness(data.readiness);
+      else if (data.state) setReadiness({ ...readiness, state: data.state, k15_ready: data.k15_ready });
+    } catch (e: any) {
+      setErr(String(e.message || e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const auth = readiness?.authorization
+    || result?.authorization
+    || { Execution: 'LOCKED', PassSpec: 'NONE', PatchApproval: 'NONE' };
+  const lifecycle = readiness?.state
+    || (result?.patch ? 'PASSSPEC_REQUIRED' : 'NO_PROPOSAL');
+  const lockReasons: string[] = Array.isArray(readiness?.lock_reasons)
+    ? readiness.lock_reasons
+    : [];
+  const k15Ready = Boolean(readiness?.k15_ready);
   const scope = result?.scope || {};
   const an = result?.analysis || {};
+
   return (
     <div style={{ fontFamily: 'sans-serif', color: '#D4DFE8' }}>
       <div style={{ marginBottom: 12, padding: 12, border: '1px solid rgba(0,212,170,0.2)', borderRadius: 8 }}>
-        <div style={{ fontSize: 11, letterSpacing: '0.12em', color: '#00D4AA', marginBottom: 6 }}>PROJECT ENGINEERING WORKBENCH · READ-ONLY</div>
+        <div style={{ fontSize: 11, letterSpacing: '0.12em', color: '#00D4AA', marginBottom: 6 }}>
+          PROJECT ENGINEERING WORKBENCH · GOVERNED EXECUTION BINDING
+        </div>
         <div style={{ fontSize: 12, opacity: 0.75 }}>
-          PROJECT ACCESS ≠ PASSSPEC ≠ PATCH APPROVAL ≠ EXECUTION · Mutation: K3 ONLY via K15
+          UI STATE ≠ AUTHORIZATION · PROJECT ACCESS ≠ PASSSPEC ≠ PATCH APPROVAL ≠ EXECUTION · Mutation: K15 → K3 ONLY
         </div>
-        <div style={{ marginTop: 8, fontSize: 12 }}>
-          Execution: <strong style={{ color: '#C9A84C' }}>{auth.Execution || 'LOCKED'}</strong>
-          {' · '}PassSpec: {auth.PassSpec || 'NONE'}
-          {' · '}Approval: {auth.PatchApproval || 'NONE'}
+        <div data-testid="solariun-governance-visibility" style={{ marginBottom: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(201,168,76,0.25)', background: 'rgba(201,168,76,0.06)', fontSize: 11, color: 'rgba(212,223,232,0.55)' }}>
+          <div style={{ letterSpacing: '0.08em', color: '#C9A84C', marginBottom: 6 }}>GOVERNANCE (display only · backend authoritative)</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
+            <span data-gov-stage="proposal">Proposal: <strong>{result?.patch ? 'PRESENT' : 'NONE'}</strong></span>
+            <span>≠</span>
+            <span data-gov-stage="approval">Approval: <strong>{auth.PatchApproval || 'NONE'}</strong></span>
+            <span>≠</span>
+            <span data-gov-stage="execution">Execution: <strong style={{ color: k15Ready ? '#00D4AA' : '#C9A84C' }}>{auth.Execution || 'LOCKED'}</strong></span>
+            <span>≠</span>
+            <span data-gov-stage="verified">Verified: <strong>{execResult?.verification || execResult?.status || 'NOT_RUN'}</strong></span>
+          </div>
+          <div style={{ fontSize: 10, opacity: 0.85 }}>
+            Lifecycle: <strong style={{ color: '#C9A84C' }}>{lifecycle}</strong>
+            {' · '}PassSpec: {auth.PassSpec || 'NONE'}
+            {' · '}UI does not authorize K15
+          </div>
         </div>
+        {!k15Ready && (
+          <div style={{ marginTop: 6, fontSize: 11, color: '#ca8' }}>
+            Execution locked
+            {lockReasons.length
+              ? lockReasons.map((reason: string, i: number) => (
+                  <div key={i}>Reason: {reason}</div>
+                ))
+              : <div>Reason unavailable from backend</div>}
+          </div>
+        )}
+        {passSpec?.pass_spec_hash && (
+          <div style={{ marginTop: 6, fontSize: 10, fontFamily: 'monospace', opacity: 0.7 }}>
+            pass_spec_hash: {String(passSpec.pass_spec_hash).slice(0, 16)}…
+            {approval?.patch_hash ? ` · patch_hash: ${String(approval.patch_hash).slice(0, 16)}…` : ''}
+            {approval?.pass_spec_hash ? ` · approval.pass_spec_hash: ${String(approval.pass_spec_hash).slice(0, 16)}…` : ''}
+          </div>
+        )}
         {result?.project_context?.knowledge && (
           <div style={{ marginTop: 6, fontSize: 11, opacity: 0.7 }}>
             Context sources: {JSON.stringify(result.project_context.knowledge)}
@@ -138,17 +291,54 @@ function WeaverPanel({ project }: { project: Project }) {
       <div style={{ fontSize: 11, color: 'rgba(212,223,232,0.5)', margin: '10px 0 4px' }}>SCOPE — affected paths (optional)</div>
       <textarea value={paths} onChange={e => setPaths(e.target.value)} placeholder="weaver/execution.py"
         style={{ width: '100%', minHeight: 48, background: '#0a0b14', border: '1px solid rgba(0,212,170,0.25)', color: '#D4DFE8', padding: 8, borderRadius: 6, fontFamily: 'monospace', fontSize: 12 }} />
-      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
         <button onClick={analyze} disabled={busy || !objective.trim()}
           style={{ padding: '8px 14px', background: 'rgba(0,212,170,0.15)', border: '1px solid #00D4AA', color: '#00D4AA', borderRadius: 6, cursor: 'pointer' }}>
-          {busy ? 'Analyzing…' : 'ANALYZE (READ-ONLY)'}
+          {busy ? 'Working…' : 'ANALYZE (READ-ONLY)'}
         </button>
-        <button disabled title="Requires PassSpec + PatchApproval via K15→K3"
-          style={{ padding: '8px 14px', opacity: 0.4, border: '1px solid #666', color: '#888', borderRadius: 6 }}>
-          BUILD / EXECUTE (LOCKED)
+        <button onClick={bindPassSpec} disabled={busy || !result?.patch}
+          style={{ padding: '8px 14px', background: 'rgba(106,159,216,0.12)', border: '1px solid #6A9FD8', color: '#6A9FD8', borderRadius: 6, cursor: result?.patch ? 'pointer' : 'not-allowed', opacity: result?.patch ? 1 : 0.45 }}>
+          BIND PASSSPEC
+        </button>
+        <button onClick={bindApproval} disabled={busy || !passSpec}
+          style={{ padding: '8px 14px', background: 'rgba(176,141,232,0.12)', border: '1px solid #B08DE8', color: '#B08DE8', borderRadius: 6, cursor: passSpec ? 'pointer' : 'not-allowed', opacity: passSpec ? 1 : 0.45 }}>
+          BIND PATCH APPROVAL
+        </button>
+        <button onClick={refreshReadiness} disabled={busy || !result?.patch}
+          style={{ padding: '8px 14px', border: '1px solid #666', color: '#aaa', borderRadius: 6, cursor: result?.patch ? 'pointer' : 'not-allowed', opacity: result?.patch ? 1 : 0.45 }}>
+          REFRESH READINESS
+        </button>
+        <button
+          onClick={executeGoverned}
+          disabled={busy || !k15Ready}
+          title={k15Ready ? 'Human-triggered execute via project execution → K15 (run_k3=false precheck)' : 'Requires backend K15_READY'}
+          style={{
+            padding: '8px 14px',
+            border: `1px solid ${k15Ready ? '#C9A84C' : '#666'}`,
+            color: k15Ready ? '#C9A84C' : '#888',
+            borderRadius: 6,
+            cursor: k15Ready ? 'pointer' : 'not-allowed',
+            opacity: k15Ready ? 1 : 0.4,
+            background: k15Ready ? 'rgba(201,168,76,0.12)' : 'transparent',
+          }}
+        >
+          EXECUTE (K15 PRECHECK)
         </button>
       </div>
       {err && <div style={{ color: '#c44', marginTop: 8 }}>{err}</div>}
+      {execResult && (
+        <div style={{ marginTop: 12, padding: 10, border: '1px solid rgba(201,168,76,0.25)', borderRadius: 6, fontSize: 11 }}>
+          <div style={{ color: '#C9A84C' }}>EXECUTION RESULT (backend-authoritative)</div>
+          <div>state: {String(execResult.state || '—')}</div>
+          <div>execution.status: {String(execResult.execution?.status || '—')}</div>
+          <div>execution.final_status: {String(execResult.execution?.final_status || '—')}</div>
+          <div>verification: {String(execResult.verification?.status || 'NOT_RUN')}</div>
+          <div>k15_ready: {String(execResult.k15_ready)}</div>
+          <div style={{ opacity: 0.7, marginTop: 4 }}>
+            PROPOSED ≠ APPROVED ≠ EXECUTED ≠ VERIFIED · UI does not upgrade these states
+          </div>
+        </div>
+      )}
       {result && (
         <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
           <div style={{ padding: 10, border: '1px solid rgba(0,212,170,0.12)', borderRadius: 6 }}>
@@ -186,115 +376,98 @@ function WeaverPanel({ project }: { project: Project }) {
 }
 
 function KnowledgePanel({ project }: { project: Project }) {
+  /** M06: project knowledge via existing project knowledge + files corpus APIs only. */
   const [data, setData] = React.useState<any>(null);
   const [graph, setGraph] = React.useState<any>(null);
   const [emb, setEmb] = React.useState<any>(null);
+  const [corpus, setCorpus] = React.useState<PFile[]>([]);
   const [q, setQ] = React.useState('');
   const [hits, setHits] = React.useState<any[]>([]);
-  const base = `${ORACLE}/solspire/projects/${project.id}/knowledge`;
-  const token = () => localStorage.getItem('arkadia_token') || '';
+  const [err, setErr] = React.useState('');
+  const base = `/solspire/projects/${project.id}/knowledge`;
+
   React.useEffect(() => {
-    const h = { Authorization: `Bearer ${token()}` };
-    fetch(base, { headers: h }).then(r => r.json()).then(setData).catch(() => {});
-    fetch(`${base}/graph`, { headers: h }).then(r => r.json()).then(setGraph).catch(() => {});
-    fetch(`${base}/embeddings`, { headers: h }).then(r => r.json()).then(setEmb).catch(() => {});
+    let cancelled = false;
+    (async () => {
+      try {
+        const [k, g, e, files] = await Promise.all([
+          apiFetch(base).then(r => r.json()).catch(() => null),
+          apiFetch(`${base}/graph`).then(r => r.json()).catch(() => null),
+          apiFetch(`${base}/embeddings`).then(r => r.json()).catch(() => null),
+          apiFetch(`/solspire/projects/${project.id}/files`).then(r => r.json()).catch(() => ({ files: [] })),
+        ]);
+        if (cancelled) return;
+        setData(k);
+        setGraph(g);
+        setEmb(e);
+        setCorpus(files?.files || []);
+      } catch (ex: any) {
+        if (!cancelled) setErr(ex?.message || 'knowledge unavailable');
+      }
+    })();
+    return () => { cancelled = true; };
   }, [project.id]);
+
   async function search() {
-    const r = await fetch(`${base}/search`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+    const r = await apiFetch(`${base}/search`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ q }),
     });
-    const d = await r.json();
+    const d = await r.json().catch(() => ({}));
     setHits(d.hits || []);
   }
+
   return (
-    <div style={{ fontFamily: 'sans-serif', color: '#D4DFE8', fontSize: 12 }}>
-      <div style={{ marginBottom: 10, color: '#00D4AA', letterSpacing: '0.1em' }}>PROJECT KNOWLEDGE OS</div>
+    <div data-testid="solariun-project-knowledge" style={{ fontFamily: 'sans-serif', color: '#D4DFE8', fontSize: 12 }}>
+      <div style={{ marginBottom: 10, color: '#00D4AA', letterSpacing: '0.1em' }}>PROJECT KNOWLEDGE</div>
+      <div style={{ marginBottom: 12, padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(0,212,170,0.2)', background: 'rgba(0,212,170,0.05)', fontSize: 10, color: 'rgba(212,223,232,0.45)' }}>
+        <strong style={{ color: '#00D4AA' }}>ONE KNOWLEDGE MODEL</strong>
+        {' · '}
+        Project context exposes the existing knowledge + file corpus APIs — not a second Knowledge OS.
+      </div>
+      {err && <div style={{ color: '#C84848', marginBottom: 8 }}>{err}</div>}
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ opacity: 0.7, marginBottom: 4 }}>Corpus files (project store)</div>
+        {corpus.length === 0 ? (
+          <div style={{ opacity: 0.4 }}>No files in this project corpus yet.</div>
+        ) : (
+          <ul style={{ margin: 0, paddingLeft: 18 }}>
+            {corpus.map((f: PFile) => (
+              <li key={f.id} style={{ marginBottom: 4 }}>
+                <span style={{ color: '#C9A84C' }}>{f.name}</span>
+                <span style={{ opacity: 0.4, marginLeft: 8 }}>{f.mime_type}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       {data && (
         <div style={{ marginBottom: 12 }}>
-          Sources: {JSON.stringify(data.sources)}
+          <div>Sources: {JSON.stringify(data.sources)}</div>
           <div style={{ opacity: 0.6, marginTop: 4 }}>{data.embeddings?.note}</div>
         </div>
       )}
-      <div style={{ marginBottom: 8 }}>Embeddings: <strong>{emb?.embeddings?.status || data?.embeddings?.status || '—'}</strong></div>
-      {graph && (
-        <div style={{ marginBottom: 12 }}>
-          Graph (DERIVED): {graph.counts?.nodes} nodes / {graph.counts?.edges} edges
-          <pre style={{ fontSize: 10, maxHeight: 160, overflow: 'auto', background: '#0a0b14', padding: 8 }}>{JSON.stringify((graph.edges || []).slice(0, 12), null, 2)}</pre>
-        </div>
+      <div style={{ marginBottom: 8 }}>
+        Embeddings: <strong>{emb?.embeddings?.status || data?.embeddings?.status || 'NOT_AVAILABLE'}</strong>
+        <span style={{ opacity: 0.5 }}> (honest status; not fabricated)</span>
+      </div>
+      {graph && <ProjectKnowledgeGraph projectId={project.id} />}
+      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Keyword search in project knowledge" style={{ flex: 1, background: '#0a0b14', border: '1px solid rgba(0,212,170,0.25)', color: '#D4DFE8', padding: 8, borderRadius: 6 }} />
+        <button type="button" onClick={search} style={{ border: '1px solid #00D4AA', color: '#00D4AA', background: 'transparent', borderRadius: 6, padding: '8px 12px' }}>Search</button>
+      </div>
+      {hits.length > 0 && (
+        <ul style={{ marginTop: 10 }}>
+          {hits.map((h: any, i: number) => (
+            <li key={i} style={{ marginBottom: 6, opacity: 0.85 }}>{typeof h === 'string' ? h : JSON.stringify(h)}</li>
+          ))}
+        </ul>
       )}
-      <div style={{ display: 'flex', gap: 8 }}>
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Keyword search" style={{ flex: 1, background: '#0a0b14', border: '1px solid rgba(0,212,170,0.25)', color: '#D4DFE8', padding: 8, borderRadius: 6 }} />
-        <button onClick={search} style={{ border: '1px solid #00D4AA', color: '#00D4AA', background: 'transparent', padding: '0 12px', borderRadius: 6 }}>Search</button>
-      </div>
-      <pre style={{ fontSize: 11, marginTop: 8 }}>{JSON.stringify(hits, null, 2)}</pre>
     </div>
   );
 }
 
-function Overview({ project, onTabChange }: { project: Project; onTabChange: (t: ProjTab) => void }) {
-  const [events, setEvents] = useState<PEvent[]>([]);
-  const [counts, setCounts] = useState({ tasks: 0, files: 0, repos: 0, memory: 0 });
-
-  useEffect(() => {
-    api<{ events: PEvent[] }>(`/solspire/projects/${project.id}/events`).then(r => setEvents(r.events.slice(0, 8))).catch(() => {});
-    Promise.all([
-      api<{ tasks: Task[] }>(`/solspire/projects/${project.id}/tasks`),
-      api<{ files: PFile[] }>(`/solspire/projects/${project.id}/files`),
-      api<{ repositories: Repo[] }>(`/solspire/projects/${project.id}/repositories`),
-      api<{ memory: MemEntry[] }>(`/solspire/projects/${project.id}/memory`),
-    ]).then(([t, f, r, m]) => setCounts({ tasks: t.tasks.length, files: f.files.length, repos: r.repositories.length, memory: m.memory.length })).catch(() => {});
-  }, [project.id]);
-
-  const desc = (project.metadata?.description as string) || '';
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {desc && <div style={{ ...S.card, borderColor: 'rgba(201,168,76,0.12)' }}><p style={{ fontFamily: 'sans-serif', fontSize: '13px', color: 'rgba(212,223,232,0.6)', margin: 0, lineHeight: '1.6' }}>{desc}</p></div>}
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '8px' }}>
-        {[
-          { label: 'Tasks', value: counts.tasks, tab: 'tasks' as ProjTab, color: '#00D4AA' },
-          { label: 'Files', value: counts.files, tab: 'files' as ProjTab, color: '#C9A84C' },
-          { label: 'Repos', value: counts.repos, tab: 'repos' as ProjTab, color: '#6A9FD8' },
-          { label: 'Memory', value: counts.memory, tab: 'memory' as ProjTab, color: '#B08DE8' },
-        ].map(c => (
-          <button key={c.label} onClick={() => onTabChange(c.tab)} style={{ padding: '14px', background: 'rgba(14,17,32,0.75)', border: `1px solid ${c.color}22`, borderRadius: '10px', cursor: 'pointer', textAlign: 'left' }}>
-            <p style={{ fontFamily: 'sans-serif', fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: `${c.color}88`, margin: '0 0 4px' }}>{c.label}</p>
-            <p style={{ fontFamily: '"Cinzel",serif', fontSize: '24px', color: c.color, margin: 0 }}>{c.value}</p>
-          </button>
-        ))}
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '8px' }}>
-        {[
-          { label: '⟐ New Workflow', tab: 'workflows' as ProjTab },
-          { label: '☐ New Task', tab: 'tasks' as ProjTab },
-          { label: '📄 New File', tab: 'files' as ProjTab },
-        ].map(a => (
-          <button key={a.label} onClick={() => onTabChange(a.tab)} style={{ ...S.btnTeal, justifyContent: 'center', display: 'flex' }}>{a.label}</button>
-        ))}
-      </div>
-
-      <div style={S.card}>
-        <span style={S.label}>Recent Activity</span>
-        {events.length === 0 ? <p style={{ ...S.empty, padding: '20px 0' }}>No events yet</p> : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {events.map(e => (
-              <div key={e.id} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                <span style={{ fontSize: '14px', flexShrink: 0, paddingTop: '1px' }}>{EVENT_ICONS[e.event_type] || '·'}</span>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontFamily: 'sans-serif', fontSize: '12px', color: 'rgba(212,223,232,0.7)', margin: '0 0 2px' }}>{e.summary}</p>
-                  <p style={{ fontFamily: 'sans-serif', fontSize: '10px', color: 'rgba(212,223,232,0.3)', margin: 0 }}>{fmtDate(e.created_at)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function Conversations({ project }: { project: Project }) {
   const [convs, setConvs] = useState<Conversation[]>([]);
@@ -415,12 +588,32 @@ function Files({ project }: { project: Project }) {
     load();
   }
 
+  async function renameFile(f: PFile) {
+    const next = window.prompt('Rename file', f.name);
+    if (!next || !next.trim() || next.trim() === f.name) return;
+    const full = await api<PFile>(`/solspire/projects/${project.id}/files/${f.id}`);
+    await api(`/solspire/projects/${project.id}/files/${f.id}`, 'PUT', { content: full.content || '', name: next.trim() });
+    load();
+  }
+
+  async function copyFile(f: PFile) {
+    await api(`/solspire/projects/${project.id}/files/${f.id}/copy`, 'POST', {});
+    load();
+  }
+
+  function shareRef(f: PFile) {
+    const ref = `project:${project.id}/file:${f.id}:${f.name}`;
+    if (navigator.clipboard?.writeText) void navigator.clipboard.writeText(ref);
+    window.alert(`Share reference (owner-scoped API, not a public link):\n${ref}`);
+  }
+
+
   async function uploadAttachment(file: File) {
     setUploading(true); setUploadMsg(null);
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await fetch(`${ORACLE}/solspire/projects/${project.id}/files/upload`, { method: 'POST', headers: authHeaders(), body: fd });
+      const res = await apiFetch(`/solspire/projects/${project.id}/files/upload`, { method: 'POST', body: fd });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || `${res.status}`);
       setUploadMsg({ ok: true, text: data.message || `'${file.name}' attached.` });
@@ -446,7 +639,10 @@ function Files({ project }: { project: Project }) {
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div data-testid="solariun-project-files" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ fontSize: 10, color: 'rgba(212,223,232,0.35)' }}>
+        Project corpus · rename/copy/share-ref use existing store · cross-project Move remains deferred (not Copy+Delete)
+      </div>
       {/* Upload + create controls */}
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
         <input ref={fileInputRef} type="file" style={{ display: 'none' }}
@@ -815,7 +1011,68 @@ function Memory({ project }: { project: Project }) {
   );
 }
 
+
+function EpistemicInspector({ project }: { project: Project }) {
+  /** P2 Provenance composition — labeled layers only; WorkEvent ≠ provenance proof. */
+  const [activity, setActivity] = useState<any[]>([]);
+  const [workevents, setWorkevents] = useState<any[]>([]);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const ev = await api<{ events: any[] }>(`/solspire/projects/${project.id}/events`);
+        if (!cancelled) setActivity(ev.events || []);
+      } catch (e: any) {
+        if (!cancelled) setErr(String(e.message || e));
+      }
+      try {
+        const r = await apiFetch(`/solspire/workevents?limit=20`);
+        const d = await r.json().catch(() => ({}));
+        if (!cancelled) setWorkevents(d.work_events || d.events || []);
+      } catch {
+        /* WorkEvent list may be unavailable — not a failure of activity layer */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [project.id]);
+  return (
+    <div data-testid="solariun-epistemic-inspector" style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+      <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(201,168,76,0.28)', background: 'rgba(201,168,76,0.06)', fontSize: 11, color: 'rgba(212,223,232,0.5)' }}>
+        <strong style={{ color: '#C9A84C' }}>EPISTEMIC LAYERS</strong>
+        {' · '}Activity ≠ WorkEvent continuity ≠ ACCEPT evidence ≠ patch hashes. This panel does <em>not</em> claim causal provenance proof.
+      </div>
+      <div data-epistemic="ACTIVITY" style={{ fontSize: 11 }}>
+        <div style={{ color: '#00D4AA', letterSpacing: '0.1em', marginBottom: 6 }}>ACTIVITY (project_events)</div>
+        {err && <div style={{ color: '#C84848' }}>{err}</div>}
+        {(activity.slice(0, 8)).map((e: any) => (
+          <div key={e.id} style={{ padding: '6px 0', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            <span style={{ color: '#C9A84C' }}>{e.event_type}</span>
+            {' · '}
+            {e.summary || e.message || e.id}
+          </div>
+        ))}
+        {!activity.length && !err && <div style={{ opacity: 0.4 }}>No project activity yet.</div>}
+      </div>
+      <div data-epistemic="CONTINUITY" style={{ fontSize: 11 }}>
+        <div style={{ color: '#6A9FD8', letterSpacing: '0.1em', marginBottom: 6 }}>CONTINUITY (WorkEvent — not proof)</div>
+        {(workevents.slice(0, 5)).map((w: any) => (
+          <div key={w.id || w.work_event_id} style={{ padding: '6px 0', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            {w.type || w.event_type || 'work_event'} · {w.summary || w.title || w.work_event_id || w.id}
+          </div>
+        ))}
+        {!workevents.length && <div style={{ opacity: 0.4 }}>No WorkEvents loaded (or none for workspace).</div>}
+      </div>
+      <div data-epistemic="EVIDENCE" style={{ fontSize: 11, opacity: 0.7 }}>
+        <div style={{ color: '#B08DE8', letterSpacing: '0.1em', marginBottom: 6 }}>EVIDENCE / HASH</div>
+        Control-plane ACCEPT and patch hashes live in repository evidence and governed execution results — not fabricated here.
+      </div>
+    </div>
+  );
+}
+
 function Events({ project }: { project: Project }) {
+  /** P0.2 Activity Feed — existing project_events only; not provenance. */
   const [events, setEvents] = useState<PEvent[]>([]);
   const [filter, setFilter] = useState('');
 
@@ -825,7 +1082,12 @@ function Events({ project }: { project: Project }) {
   const types = Array.from(new Set(events.map(e => e.event_type)));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div data-testid="solariun-activity-feed" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(0,212,170,0.22)', background: 'rgba(0,212,170,0.05)', fontSize: 11, color: 'rgba(212,223,232,0.5)' }}>
+        <strong style={{ color: '#00D4AA' }}>ACTIVITY FEED</strong>
+        {' · '}
+        Project events from existing store — <em>activity, not provenance</em>. WorkEvent ≠ proof.
+      </div>
       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
         <button onClick={() => setFilter('')} style={{ padding: '4px 10px', borderRadius: '15px', border: `1px solid ${!filter ? '#00D4AA' : 'rgba(0,212,170,0.2)'}`, background: !filter ? 'rgba(0,212,170,0.1)' : 'transparent', color: !filter ? '#00D4AA' : 'rgba(212,223,232,0.4)', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: '10px' }}>All</button>
         {types.map(t => (
@@ -837,7 +1099,7 @@ function Events({ project }: { project: Project }) {
           <div style={{ position: 'absolute', left: '7px', top: 0, bottom: 0, width: '1px', background: 'rgba(0,212,170,0.1)' }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {events.map(e => (
-              <div key={e.id} style={{ position: 'relative' }}>
+              <div key={e.id} data-activity-type={e.event_type} data-testid="solariun-activity-item" style={{ position: 'relative' }}>
                 <div style={{ position: 'absolute', left: '-16px', top: '6px', width: '8px', height: '8px', borderRadius: '50%', background: '#0A0B14', border: '1px solid rgba(0,212,170,0.4)' }} />
                 <div style={S.card}>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
@@ -927,14 +1189,16 @@ interface Props {
   project: Project;
   onBack: () => void;
   onProjectUpdated: (p: Project) => void;
+  initialTab?: ProjTab;
 }
 
-export default function ProjectDashboard({ project, onBack, onProjectUpdated }: Props) {
-  const [tab, setTab] = useState<ProjTab>('overview');
+export default function ProjectDashboard({ project, onBack, onProjectUpdated, initialTab = 'overview' }: Props) {
+  const [tab, setTab] = useState<ProjTab>(initialTab);
   const [currentProject, setCurrentProject] = useState(project);
   const tabBarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setCurrentProject(project); }, [project]);
+  useEffect(() => { setTab(initialTab); }, [initialTab, project.id]);
 
   // Scroll active tab into view on mobile
   useEffect(() => {
@@ -982,7 +1246,7 @@ export default function ProjectDashboard({ project, onBack, onProjectUpdated }: 
           {tab === 'tasks'         && <motion.div key="ta" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><Tasks project={currentProject} /></motion.div>}
           {tab === 'workflows'     && <motion.div key="wf" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><Workflows project={currentProject} /></motion.div>}
           {tab === 'memory'        && <motion.div key="me" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><Memory project={currentProject} /></motion.div>}
-          {tab === 'events'        && <motion.div key="ev" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><Events project={currentProject} /></motion.div>}
+          {tab === 'events'        && <motion.div key="ev" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><EpistemicInspector project={currentProject} /><Events project={currentProject} /></motion.div>}
           {tab === 'settings'      && <motion.div key="se" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><Settings project={currentProject} onProjectUpdated={handleProjectUpdated} onArchive={onBack} /></motion.div>}
         </AnimatePresence>
       </div>

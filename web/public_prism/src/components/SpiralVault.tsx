@@ -1,7 +1,9 @@
+import { apiFetch } from '../lib/apiClient';
+import { API_BASE as API_BASE_CONFIG } from '../lib/apiConfig';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+const API_BASE = API_BASE_CONFIG || '';
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -179,7 +181,7 @@ const ScrollCard: React.FC<{
     if (!confirm(`Remove "${scroll.label}" from the codex?`)) return;
     setDeleting(true);
     try {
-      await fetch(`${API_BASE}/api/scrolls/${encodeURIComponent(scroll.id)}`, { method: 'DELETE' });
+      await apiFetch(`/api/scrolls/${encodeURIComponent(scroll.id)}`, { method: 'DELETE' });
       onDelete?.(scroll.id);
     } catch { setDeleting(false); }
   };
@@ -346,7 +348,7 @@ const ComposeBox: React.FC<{ onCommit: (scroll: Scroll) => void }> = ({ onCommit
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${API_BASE}/api/scrolls`, {
+      const res = await apiFetch(`/api/scrolls`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ label: label.trim(), content: content.trim(), category, description: description.trim() }),
@@ -545,9 +547,9 @@ const SpiralVault: React.FC = () => {
     setLoading(true); setError(false);
     try {
       const [codexRes, hbRes, srcRes] = await Promise.allSettled([
-        fetch(`${API_BASE}/api/codex`).then(r => r.json()),
-        fetch(`${API_BASE}/api/heartbeat`).then(r => r.json()),
-        fetch(`${API_BASE}/api/sources`).then(r => r.json()),
+        apiFetch(`/api/codex`).then(r => r.json()),
+        apiFetch(`/api/heartbeat`).then(r => r.json()),
+        apiFetch(`/api/sources`).then(r => r.json()),
       ]);
       if (codexRes.status === 'fulfilled') setCodex(codexRes.value);
       else setError(true);
@@ -562,7 +564,7 @@ const SpiralVault: React.FC = () => {
   const handleRefresh = async () => {
     setRefreshing(true); setRefreshMsg('');
     try {
-      await fetch(`${API_BASE}/api/corpus/refresh`, { method: 'POST' });
+      await apiFetch(`/api/corpus/refresh`, { method: 'POST' });
       setRefreshMsg('Re-syncing… refresh in a moment.');
       setTimeout(() => { loadAll(); setRefreshMsg(''); }, 6000);
     } catch { setRefreshMsg('Refresh failed. Try again.'); }

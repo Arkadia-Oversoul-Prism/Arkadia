@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Eden Food Systems Master Dashboard",
+  "type": "object",
+  "required": ["enterprise", "control", "commercial", "finance", "operations", "evidence"],
+  "properties": {
+    "enterprise": {
+      "type": "object",
+      "required": ["enterprise_key", "display_name", "lifecycle", "workspace_ref", "owner_subject_ref"],
+      "properties": {
+        "enterprise_key": {"type":"string"},
+        "display_name": {"type":"string"},
+        "lifecycle": {"type":"string"},
+        "workspace_ref": {"type":"string"},
+        "owner_subject_ref": {"type":"string"},
+        "week": {"type":"integer"},
+        "day": {"type":"integer"}
+      }
+    },
+    "control": {
+      "type": "object",
+      "properties": {
+        "pilot_status": {"type":"string"},
+        "current_phase": {"type":"string"},
+        "next_gate": {"type":"string"},
+        "blockers": {"type":"array","items":{"type":"string"}},
+        "decisions_required": {"type":"array","items":{"type":"string"}}
+      }
+    },
+    "commercial": {
+      "type": "object",
+      "properties": {
+        "commodity": {"type":"string"},
+        "quantity": {"type":"number"},
+        "source": {"type":"string"},
+        "buyer": {"type":"string"},
+        "destination": {"type":"string"},
+        "buy_price": {"type":"number"},
+        "sell_price": {"type":"number"},
+        "landed_cost_estimate": {"type":"number"},
+        "contribution_estimate": {"type":"number"}
+      }
+    },
+    "finance": {
+      "type": "object",
+      "properties": {
+        "opening_capital": {"type":"number"},
+        "committed": {"type":"number"},
+        "spent": {"type":"number"},
+        "remaining": {"type":"number"},
+        "revenue": {"type":"number"},
+        "recovered": {"type":"number"},
+        "actual_contribution": {"type":"number"}
+      }
+    },
+    "operations": {
+      "type": "object",
+      "properties": {
+        "supplier": {"$ref":"#/$defs/status"},
+        "buyer": {"$ref":"#/$defs/status"},
+        "quality": {"$ref":"#/$defs/status"},
+        "packaging": {"$ref":"#/$defs/status"},
+        "transport": {"$ref":"#/$defs/status"},
+        "marketing": {"$ref":"#/$defs/status"},
+        "customer_care": {"$ref":"#/$defs/status"},
+        "finance": {"$ref":"#/$defs/status"},
+        "transaction_state": {"type":"string"}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "recorded_events": {"type":"integer"},
+        "supporting_artifacts": {"type":"integer"},
+        "unknown_fields": {"type":"integer"},
+        "last_event_at": {"type":["string","null"]}
+      }
+    }
+  },
+  "$defs": {
+    "status": {
+      "type": "object",
+      "required": ["state"],
+      "properties": {
+        "state": {"type":"string","enum":["GREEN","AMBER","RED","UNKNOWN"]},
+        "reason": {"type":"string"},
+        "evidence_refs": {"type":"array","items":{"type":"string"}}
+      }
+    }
+  }
+}

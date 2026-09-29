@@ -14,7 +14,7 @@
 - [Phase 1 Analysis](phase1-analysis.md) — all deliverables written + ADR-014/015 Accepted; implementation approved 2026-07-24.
 - [Architecture Steward Framework](architecture-steward.md) — elevated role adopted at Phase 1 implementation inflection; session start/end checklists, change budget, commit rules.
 - [Strategic Roadmap](roadmap-notes.md) — phase sequence (0→5) with dependency rationale; Architecture Freeze v1.0 criteria; CI enforcement milestone.
-- [B0.5 Debt Registry](b05-debt-registry.md) — baseline frozen; 10 layer violations + 3 circular import cycles registered; test direction bug fixed; 10/10 fitness tests passing. B1 may begin.
+- [B0.5 Debt Registry](b05-debt-registry.md) — baseline frozen; 10 layer violations + 3 circular import cycles registered; test direction bug fixed; fitness tests passing (count has since grown to 11). B1 may begin.
 - [Session Infrastructure](session-infrastructure.md) — .bootstrap/ dir (00–04) + REPOSITORY_SNAPSHOT + PARKING_LOT + NEXT_AGENT; startup = read 3 files + pytest + implement one checkpoint + stop.
 - [NovaNet Product Slice 1](novanet-slice1.md) — transmissions API added (api/transmissions.py), NovaNet feed wired to real API, ReasoMate oracle fixed to /api/commune/resonance with localStorage persistence, Spiral Codex separated as own nav destination.
 - [Frontend Hub Architecture](frontend-hub-architecture.md) — Nexus + SolSpire are THE hubs; never fragment into standalone nav items. Crystal Matrix lives in NexusSpiralCodex. ReasoMate lives in NovaNet. Read before any frontend structural work.

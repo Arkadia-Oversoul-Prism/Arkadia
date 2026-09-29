@@ -9,8 +9,8 @@
 | K3-A — Canonical Ontology | **COMPLETE** |
 | K3-B — Operational Graph | **COMPLETE** |
 | K3-C — Semantic Enrichment | **COMPLETE** |
-| Architecture tests | **10/10 PASSING** |
-| Spine continuity tests | **5/5 PASSING** (`tests/test_oracle_spine.py`) |
+| Architecture tests | **11/11 PASSING** (reconciled 2026-09-28) |
+| Spine continuity tests | **7/7 PASSING** (`tests/test_oracle_spine.py`) |
 | Production proof (Gate A) | **PASSING** — thread jump verified on arkadia-kw64.onrender.com |
 | Frontend typecheck | **PASSING** (changed files, zero errors) |
 | Ontology | **FROZEN** — do not modify `node_types.py` or `relationship_types.py` |
@@ -60,8 +60,8 @@ inside CS2.
 
 1. Read `MISSION.md`
 2. Read `CURRENT_STATE.md`
-3. Run `python3 -m pytest tests/architecture -q` — confirm **10/10**
-4. Run `python3 -m pytest tests/test_oracle_spine.py -q` — confirm **4/4**
+3. Run `python3 -m pytest tests/architecture -q` — confirm **11/11**
+4. Run `python3 -m pytest tests/test_oracle_spine.py -q` — confirm **7/7**
 5. Implement next checkpoint
 6. Update `CURRENT_STATE.md`, `NEXT_AGENT.md`, `docs/phase1/CONTINUATION_LEDGER.md`
 7. Commit and push

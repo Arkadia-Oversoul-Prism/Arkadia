@@ -1,0 +1,106 @@
+name: Arkadia Engineering Scheduler
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Orientation mode (no code changes)"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+  schedule:
+    # Hourly wake signal — not an instruction to execute a specific move
+    - cron: "0 * * * *"
+
+concurrency:
+  # max_active_moves: 1 — one engineering session at a time
+  group: arkadia-engineering-session
+  cancel-in-progress: false
+
+jobs:
+  engineering-scheduler:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Establish repository SHA
+        id: sha
+        run: |
+          SHA=$(git rev-parse HEAD)
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "Repository SHA: ${SHA}"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -q pyyaml
+
+      - name: Session + Engineering Runner (dry-run default)
+        id: runner
+        env:
+          # schedule has no inputs — default dry_run true
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
+        run: |
+          set -e
+          SESSION="engineering-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          DRY_RUN=true
+          if [ "${INPUT_DRY_RUN}" = "false" ]; then DRY_RUN=false; fi
+          echo "session_id=${SESSION}" >> "$GITHUB_OUTPUT"
+          echo "dry_run=${DRY_RUN}" >> "$GITHUB_OUTPUT"
+          python - << PY
+          import json, os, sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path.cwd()))
+          from weaver.engineering_worker import EngineeringWorker
+
+          dry = os.environ.get("INPUT_DRY_RUN", "true").lower() != "false"
+          session = f"engineering-{os.environ.get('GITHUB_RUN_ID','local')}-{os.environ.get('GITHUB_RUN_ATTEMPT','1')}"
+          worker = EngineeringWorker(repo_root=".", session_id=session, dry_run=dry)
+          result = worker.run()
+          Path("engineering-session-result.json").write_text(json.dumps(result, indent=2) + "\n")
+          move = (result.get("next_move") or {}).get("id") or "NONE"
+          print(f"::notice::status={result.get('status')} next_move={move}")
+          print(json.dumps(result, indent=2))
+          # Orientation failure → fail job; NO_LEGAL_MOVE is clean stop (success)
+          if result.get("status") == "FAILED":
+              sys.exit(1)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write(f"status={result.get('status')}\n")
+              fh.write(f"move={move}\n")
+          PY
+
+      - name: Upload session evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engineering-session-${{ github.run_id }}
+          path: |
+            engineering-session-result.json
+            docs/control-plane/evidence/**
+          if-no-files-found: warn
+
+      - name: Session report
+        if: always()
+        run: |
+          echo "=== ARKADIA ENGINEERING SESSION ==="
+          echo "SHA:    ${{ steps.sha.outputs.sha }}"
+          echo "Status: ${{ steps.runner.outputs.status }}"
+          echo "Move:   ${{ steps.runner.outputs.move }}"
+          echo "Trigger:${{ github.event_name }}"
+          echo "Merge:  FORBIDDEN"
+          echo "Deploy: FORBIDDEN"

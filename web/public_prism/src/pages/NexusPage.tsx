@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/apiClient';
 /**
  * NexusPage — Unified Arkadia Intelligence Hub.
  *
@@ -179,7 +180,7 @@ export function LivingLarder() {
     if (!orderForm.name || !orderForm.phone || !orderForm.address) return
     setSubmitting(true); setOrderError(null)
     try {
-      const res = await fetch(`${API_BASE}/api/orders`, {
+      const res = await apiFetch(`/api/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -616,7 +617,7 @@ function EncyclopediaGalacticaMatrix() {
 type NexusTab = 'novanet' | 'echofeild' | 'reasomate' | 'solspire' | 'offerings' | 'ims' | 'encyclopedia' | 'university' | 'larder' | 'distribute'
 
 const TABS: { id: NexusTab; label: string; sigil: string; color: string; sub: string }[] = [
-  { id: 'novanet',      label: 'NovaNet',              sigil: '◉',  color: '#6A9FD8', sub: 'Public Feed · ReasoMate messenger · Stellar Cartography' },
+  { id: 'novanet',      label: 'NovaNet',              sigil: '◉',  color: '#6A9FD8', sub: 'Public Feed · Stellar Cartography' },
   { id: 'echofeild',    label: 'Echofeild Matrix',     sigil: '⬡',  color: '#B08DE8', sub: 'Crystal Matrix · public + personal · unified field' },
   { id: 'reasomate',    label: 'ReasoMate',            sigil: '✧',  color: '#6A9FD8', sub: 'Arkana messenger · continuous conversation' },
   { id: 'solspire',     label: 'SolSpire',             sigil: '◉',  color: '#C9A84C', sub: 'Personal Codex · Knowledge OS · Operational Console' },
@@ -819,7 +820,7 @@ export default function NexusPage() {
   const activeTabMeta = TABS.find(t => t.id === activeTab)!
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/ark-date`)
+    apiFetch(`/api/ark-date`)
       .then(r => r.json())
       .then(setArk)
       .catch(() => {})

@@ -11,7 +11,7 @@
 - [ ] Schema matches `docs/phase1/SQLITE_JOB_QUEUE_DESIGN.md` exactly
 - [ ] WAL mode enabled in `create_tables()`
 - [ ] `tests/test_sqlite_schema.py` exists and passes
-- [ ] `pytest tests/architecture/ -v` → 10/10 (no regressions)
+- [ ] `pytest tests/architecture/ -v` → 11/11 (no regressions)
 - [ ] No new layer violations introduced
 - [ ] `data/runtime.db` is NOT committed (runtime state, not source)
 - [ ] `01_STATE.md` updated: B1.1 complete, B1.2 ready

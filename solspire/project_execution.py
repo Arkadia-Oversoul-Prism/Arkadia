@@ -119,6 +119,32 @@ def evaluate_execution_state(
             "pass_spec_hash": psh,
         }
     auth = {**auth, "PatchApproval": "BOUND", "Execution": "K15_READY"}
+    # Scope: every proposed path must be in PassSpec allowlist (before K15_READY)
+    from weaver.pass_spec import path_in_allowlist
+    for path in sorted({f.get("path", "") for f in (patch.get("files") or []) if f.get("path")}):
+        if not path_in_allowlist(path, list(spec.allowed_paths or [])):
+            return {
+                "state": "BLOCKED",
+                "execution": "LOCKED",
+                "k15_ready": False,
+                "lock_reasons": [f"OUT_OF_SCOPE: {path}"],
+                "authorization": auth,
+                "patch_hash": ph,
+                "pass_spec_hash": psh,
+            }
+        for forbidden in (spec.forbidden_paths or []):
+            ff = str(forbidden).replace("\\", "/").lstrip("./")
+            norm = path.replace("\\", "/").lstrip("./")
+            if ff and (norm == ff or norm.startswith(ff.rstrip("/") + "/")):
+                return {
+                    "state": "BLOCKED",
+                    "execution": "LOCKED",
+                    "k15_ready": False,
+                    "lock_reasons": [f"forbidden path: {path}"],
+                    "authorization": auth,
+                    "patch_hash": ph,
+                    "pass_spec_hash": psh,
+                }
     try:
         head = current_head(repo_root)
         if patch.get("base_head_sha") and patch.get("base_head_sha") != head:

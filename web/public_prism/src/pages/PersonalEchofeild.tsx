@@ -19,7 +19,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { ORACLE } from '../lib/apiConfig';
 import {
-  getPersonalField, getNotes, updateNote, deleteNote, setKnowledgeAuthToken,
+  getPersonalField, getNotes, updateNote, deleteNote,
   GraphNode, GraphEdge, TimelineEvent, Note,
 } from '../lib/knowledgeApi';
 import ScrollListenButton from '../components/ScrollListenButton';
@@ -75,8 +75,7 @@ export default function PersonalEchofeild({ onNavigate }: { onNavigate: (v: View
 
   // P0-E: attach Firebase ID token so Knowledge OS returns THIS user's scoped data
   useEffect(() => {
-    setKnowledgeAuthToken(user?.idToken ?? null);
-    return () => setKnowledgeAuthToken(null);
+    return () =>
   }, [user?.idToken]);
 
   useEffect(() => {
@@ -155,7 +154,6 @@ export default function PersonalEchofeild({ onNavigate }: { onNavigate: (v: View
       <PersonalUploadZone onIngested={() => {
         // refresh notes after capture without full page reload
         if (user?.idToken) {
-          setKnowledgeAuthToken(user.idToken);
           getNotes({ limit: 40 }).then(setNotes).catch(() => {});
         }
       }} />
@@ -202,7 +200,7 @@ export default function PersonalEchofeild({ onNavigate }: { onNavigate: (v: View
           )}
           {activeProjects.map((p, i) => (
             <motion.div key={p.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.04, 0.3), duration: 0.25 }}
-              onClick={() => onNavigate('solspire')}
+              onClick={() => onNavigate('solariun')}
               style={{ cursor: 'pointer', padding: '18px 20px', background: 'rgba(0,212,170,0.03)', border: '1px solid rgba(0,212,170,0.12)',
                 borderRadius: 12, borderLeft: '3px solid rgba(0,212,170,0.4)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
@@ -255,7 +253,7 @@ export default function PersonalEchofeild({ onNavigate }: { onNavigate: (v: View
               </p>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 }}>
                 <button onClick={() => onNavigate('commune')} style={ctaBtn}>Open the Oracle</button>
-                <button onClick={() => onNavigate('solspire')} style={ctaBtn}>Create a project</button>
+                <button onClick={() => onNavigate('solariun')} style={ctaBtn}>Create a project</button>
               </div>
             </div>
           )}

@@ -1,0 +1,39 @@
+name: Weaver MVP2 validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'solspire/**'
+      - 'weaver/**'
+      - 'web/public_prism/src/pages/ProjectDashboard.tsx'
+      - 'tests/test_weaver_mvp2_05.py'
+      - 'tests/test_weaver_mvp2_07.py'
+      - '.github/workflows/weaver-mvp2-validation.yml'
+  # The gate previously ran only on push to main, so it could never block a
+  # broken PR — it could only report after the merge was already canonical.
+  pull_request:
+    paths:
+      - 'solspire/**'
+      - 'weaver/**'
+      - 'web/public_prism/src/pages/ProjectDashboard.tsx'
+      - 'tests/test_weaver_mvp2_05.py'
+      - 'tests/test_weaver_mvp2_07.py'
+      - '.github/workflows/weaver-mvp2-validation.yml'
+  workflow_dispatch:
+
+jobs:
+  mvp2-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements.txt
+      # pytest is not a runtime dependency, so every workflow that runs tests
+      # installs it explicitly. This gate omitted it and therefore failed with
+      # exit 127 ("pytest: command not found") without ever executing a test.
+      - run: python -m pip install pytest
+      - run: python -m pytest -q tests/test_weaver_mvp2_05.py tests/test_weaver_mvp2_07.py

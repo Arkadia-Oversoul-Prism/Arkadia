@@ -1,0 +1,24 @@
+{
+  "move_id": "M05",
+  "name": "files",
+  "status": "accepted",
+  "accepted_at": "2026-09-16T06:00:13Z",
+  "authorization": "Architect acceptance of M05\u2013M09 based on merged verification record (PR #51)",
+  "verification_merge_commit": "0f36cbf926a098e847b57acbc6ef9147551256fc",
+  "verification_commit": "aaeff3b8e5098c5aac86deb2de235ea172d5e6b3",
+  "batch_verification_pr": "https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/51",
+  "implementation_sha": "5305585831c74ceecd2c8ce82f5a755450245d38",
+  "implementation_merge_commit": "cd3dbf990d09fd0d89b7ae2dda471ea57585b3eb",
+  "pr_implementation": "https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/45",
+  "acceptance_criteria": {
+    "project_corpus_only": true,
+    "rename_copy_share_ref": true,
+    "cross_project_move_deferred": true,
+    "focused_tests_passed": true,
+    "verification_record_merged": true
+  },
+  "next_legal_move_after_acceptance": "M06",
+  "horizon_iii_declared": false,
+  "aeas_implementation_activated": false,
+  "deploy": "not_performed"
+}
