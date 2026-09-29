@@ -43,6 +43,8 @@ def test_area_c_solspire_substrate_uses_existing_search_and_context_grammar():
     frame = FRAME.read_text()
 
     assert "searchKnowledge" in solspire  # existing Knowledge OS client, reused
+    # ...and it is *the shared client*, not a same-named local substitute.
+    assert "lib/knowledgeApi" in solspire
     assert "No universal object index" in solspire
     assert "COVERAGE (honest)" in solspire
     # ACTIVITY is named as its own epistemic layer, explicitly not provenance proof.
@@ -109,3 +111,17 @@ def test_preimplementation_map_is_present_and_bounded():
     assert "human_only" in merge_line
     assert "human_only" in deploy_line
 
+# LOG-BINDING GUARD: each epistemic log layer must be bound to the real shared
+# substrate — the Solariun log calls the shared Knowledge OS client, and the project
+# inspector reads the canonical project-events + work-events endpoints. An import
+# alias or an unrelated same-named local would still satisfy a whole-module substring
+# check, so this node inspects the live call sites themselves.
+def test_log_binding_uses_shared_substrate():
+    solspire_lines = SOLSPIRE.read_text().splitlines()
+    assert any("lib/knowledgeApi" in line for line in solspire_lines)
+    assert any("await searchKnowledge(" in line for line in solspire_lines)
+
+    dashboard = DASHBOARD.read_text()
+    assert "projects/${project.id}/events" in dashboard  # ACTIVITY layer
+    assert "/solspire/workevents" in dashboard  # CONTINUITY layer
+    assert "work_events" in dashboard

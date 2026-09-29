@@ -11,6 +11,7 @@
 ```
 main ee3fac1  (test reverted) : 48 failed / 968 passed / 12 skipped / 2 errors   (50 nodes)
 main ee3fac1  + this repair   : 45 failed / 971 passed / 12 skipped / 2 errors   (47 nodes)
+  + binding-guard node (§3.4)  : 45 failed / 972 passed / 12 skipped / 2 errors   (48 nodes)
 architecture                  : 11/11
 gate integrity + architecture : 60 passed
 py_compile api/main.py        : pass    (api/main.py = 2519 / 2600 lines)
