@@ -38,10 +38,11 @@ LEGIT = re.compile(
     # opportunity_radar/ carries the SAPZ capture MVP persisted state
     # (opportunity_radar/SAPZ_CAPTURE_STATE.md), merged via PR #110. It landed
     # before this allowlist was completed, so CP10 was red on the #110 merge and
-    # green on the next one: the gate diffs only the tip commit's first parent,
+    # green on the next one: the gate diffed only the tip commit's first parent,
     # and a merge commit whose first parent already contains the path reports no
-    # change, so the offender never reappears to fail. That is masking, not
-    # resolution; the surface has to be enumerated, not inherited.
+    # change, so the offender never reappeared to fail. That masking is closed
+    # separately by resolve_range_endpoint(), which judges base..HEAD; the surface
+    # still has to be enumerated, not inherited.
     r"|opportunity_radar/"
     # runtime state, archive and asset trees the repository tracks
     r"|data/|archive/|artifacts/|attached_assets/|\"?attached_assets/"
@@ -60,6 +61,37 @@ LEGIT = re.compile(
 )
 FORBID_V3 = re.compile(r"SolSpireExperienceV3\.tsx$")
 FORBID_V2 = re.compile(r"SolSpireExperienceV2\.tsx$")
+
+
+def resolve_range_endpoint(
+    event: dict, *, ref_exists: bool = True
+) -> tuple[str | None, str]:
+    """Return ``(base_ref, reason)`` for the commit range a CP10 run must judge.
+
+    The gate historically diffed ``HEAD^ HEAD``. A pull-request run executes on the
+    PR's head commit, so that range judges only the *last* commit of the PR: a path
+    the allowlist does not admit that was added in an earlier PR commit reports no
+    change and never fails (PR #110 would have landed
+    ``opportunity_radar/SAPZ_CAPTURE_STATE.md`` this way on an allowlist that
+    rejected it). Diffing ``base..HEAD`` judges the whole pull-request range, so a
+    masked offender cannot pass.
+
+    ``(None, reason)`` means "no range could be determined"; callers must treat
+    that as a gate failure rather than silently passing, because a boundary that
+    cannot see the change set cannot bound it.
+    """
+    event = event or {}
+    base = ((event.get("pull_request") or {}).get("base") or {}).get("sha")
+    if base:
+        return base, "pull_request.base.sha (full PR range)"
+    before = event.get("before")
+    if before and set(before) != {"0"}:
+        return before, "push.before (full push range)"
+    if ref_exists:
+        # No event range (e.g. workflow_dispatch, replay): fall back to this
+        # commit's parent, which is the pre-existing single-commit behaviour.
+        return "HEAD^", "fallback HEAD^ (no event range supplied)"
+    return None, "cannot determine a base commit for the mutation-boundary range"
 
 
 def evaluate_changed_paths(paths: list[str], *, v2_diff_adds_function: bool = False) -> tuple[bool, str]:
@@ -81,7 +113,25 @@ def evaluate_changed_paths(paths: list[str], *, v2_diff_adds_function: bool = Fa
 
 
 if __name__ == "__main__":
+    import json
+    import os
     import sys
+
+    if len(sys.argv) > 1 and sys.argv[1] == "--resolve-range":
+        # Emitted for the CP10 workflow shell. Two lines, so the shell can read
+        # them without a JSON parser:
+        #   <base-ref>   (empty when undeterminable)
+        #   <reason>
+        path = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("GITHUB_EVENT_PATH") or ""
+        if path and os.path.exists(path):
+            with open(path, encoding="utf-8") as handle:
+                event = json.load(handle)
+        else:
+            event = {}
+        base, reason = resolve_range_endpoint(event, ref_exists=True)
+        print(base or "")
+        print(reason)
+        raise SystemExit(0)
 
     ok, msg = evaluate_changed_paths(sys.argv[1:])
     print(msg)

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import yaml
 
-from scripts.cp10_mutation_boundary_policy import evaluate_changed_paths
+from scripts.cp10_mutation_boundary_policy import evaluate_changed_paths, resolve_range_endpoint
 
 _ROOT = Path(__file__).resolve().parents[1]
 _WORKFLOW = _ROOT / ".github/workflows/sg-02-fe-2-v.yml"
@@ -213,10 +213,12 @@ def test_workflow_allowlist_agrees_with_policy_on_root_docs():
 # still incomplete, so the CP10 step failed on that merge (run 36514924096, job
 # 109234968163: "Unexpected path outside legitimate repository surfaces" ->
 # opportunity_radar/SAPZ_CAPTURE_STATE.md). The gate then went green on the next
-# merge without the surface being admitted: it diffs HEAD against HEAD^, and a
+# merge without the surface being admitted: it diffed HEAD against HEAD^, and a
 # merge commit whose first parent already contains the path reports no change, so
-# the offender can never reappear to fail. Masking is not resolution — a future
+# the offender could never reappear to fail. Masking is not resolution — a future
 # `opportunity_radar/` commit under a non-merge parent would redden `main` again.
+# The range itself is now judged correctly (base..HEAD, see resolve_range_endpoint),
+# so the surface must stay enumerated rather than relying on that masking.
 # ---------------------------------------------------------------------------
 _OPPORTUNITY_RADAR_CHANGESET = [
     "opportunity_radar/SAPZ_CAPTURE_STATE.md",
@@ -457,4 +459,233 @@ def test_workflow_still_forbids_constitutional_dual_shell():
         "the constitutional V3 dual shell must still be forbidden"
     )
     assert re.search(expr, "web/public_prism/src/components/solspire/SolSpireExperienceV2.tsx")
+
+
+# ---------------------------------------------------------------------------
+# Range evaluation: the boundary must judge the whole guarded change set.
+# Diffing `HEAD^ HEAD` inspects only the tip commit, so a multi-commit PR's
+# earlier commits are never judged — an offender added in the first commit and
+# followed by any unrelated commit reports no change and can never fail
+# (masking, not resolution; PR #110 -> opportunity_radar/SAPZ_CAPTURE_STATE.md).
+# The range endpoint is now chosen by the tested policy module and the workflow
+# diffs `base..HEAD`.
+# ---------------------------------------------------------------------------
+def test_range_endpoint_uses_pull_request_base():
+    base, reason = resolve_range_endpoint({"pull_request": {"base": {"sha": "b" * 40}}})
+    assert base == "b" * 40
+    assert "pull_request" in reason
+
+
+def test_range_endpoint_prefers_pull_request_over_push_before():
+    """A PR event carries no usable `before`; the base SHA is the true range."""
+    base, _ = resolve_range_endpoint(
+        {"pull_request": {"base": {"sha": "b" * 40}}, "before": "c" * 40}
+    )
+    assert base == "b" * 40
+
+
+def test_range_endpoint_uses_push_before():
+    base, reason = resolve_range_endpoint({"before": "a" * 40})
+    assert base == "a" * 40
+    assert "push" in reason
+
+
+def test_range_endpoint_rejects_all_zero_push_before():
+    """A branch-creation push reports an all-zero `before`; HEAD^ is the fallback."""
+    base, reason = resolve_range_endpoint({"before": "0" * 40}, ref_exists=True)
+    assert base == "HEAD^"
+    assert "fallback" in reason
+
+
+def test_range_endpoint_falls_back_to_head_parent():
+    base, _ = resolve_range_endpoint({}, ref_exists=True)
+    assert base == "HEAD^"
+
+
+def test_range_endpoint_is_undeterminable_without_parent():
+    """No event range and no parent must NOT silently pass — the caller fails."""
+    base, reason = resolve_range_endpoint({}, ref_exists=False)
+    assert base is None
+    assert "cannot determine" in reason
+
+
+def test_single_tip_diff_masks_a_multi_commit_pr_offender():
+    """The masking defect, reproduced with real git objects.
+
+    A PR run executes on the head commit, so `HEAD^ HEAD` inspects only the PR's
+    *last* commit. A path admitted nowhere — added in an earlier PR commit — shows
+    no change there and can never fail, however many commits follow it. That is
+    exactly how PR #110 would have landed `opportunity_radar/SAPZ_CAPTURE_STATE.md`
+    on an allowlist that rejected it. The range base..HEAD sees the offender.
+    """
+    import os
+    import subprocess
+    import tempfile
+
+    offender = "opportunity_radar/SAPZ_CAPTURE_STATE.md"
+    with tempfile.TemporaryDirectory() as tmp:
+        def git(*args: str) -> str:
+            return subprocess.run(
+                ["git", *args], cwd=tmp, capture_output=True, text=True, check=True,
+                env={
+                    "PATH": os.environ.get("PATH", ""),
+                    "GIT_AUTHOR_NAME": "cp10",
+                    "GIT_AUTHOR_EMAIL": "cp10@example.invalid",
+                    "GIT_COMMITTER_NAME": "cp10",
+                    "GIT_COMMITTER_EMAIL": "cp10@example.invalid",
+                },
+            ).stdout
+
+        git("init", "-q", "-b", "main")
+        with open(os.path.join(tmp, "base.txt"), "w", encoding="utf-8") as fh:
+            fh.write("base\n")
+        git("add", "-A")
+        git("commit", "-qm", "base commit")
+        base = git("rev-parse", "HEAD").strip()
+
+        git("checkout", "-qb", "pr")
+        os.makedirs(os.path.join(tmp, "opportunity_radar"))
+        with open(os.path.join(tmp, offender), "w", encoding="utf-8") as fh:
+            fh.write("offender\n")
+        git("add", "-A")
+        git("commit", "-qm", "PR commit 1: adds a surface admitted nowhere")
+        with open(os.path.join(tmp, "followup.txt"), "w", encoding="utf-8") as fh:
+            fh.write("follow-up\n")
+        git("add", "-A")
+        git("commit", "-qm", "PR commit 2: unrelated change")
+
+        tip_only = [
+            p for p in git("diff", "--name-only", "HEAD^", "HEAD").splitlines() if p.strip()
+        ]
+        full_range = [
+            p for p in git("diff", "--name-only", base, "HEAD").splitlines() if p.strip()
+        ]
+        assert offender not in tip_only, "the single-tip range is expected to mask the offender"
+        assert offender in full_range, "base..HEAD must expose the offender"
+
+        # And the gate's own policy rejects it, so exposure is not cosmetic.
+        ok, msg = evaluate_changed_paths(full_range)
+        assert ok is False, f"the exposed offender must be rejected ({msg})"
+
+
+def test_workflow_diffs_the_resolved_range_not_head_parent():
+    """The workflow must diff the resolved base, and must fail closed if it cannot."""
+    text = _WORKFLOW.read_text(encoding="utf-8")
+    code = "\n".join(
+        line for line in text.splitlines() if not line.lstrip().startswith(("//", "#"))
+    )
+    assert 'changed="$(git diff --name-only "$base" HEAD)"' in code, (
+        "the mutation boundary must diff the resolved range base..HEAD"
+    )
+    assert 'changed="$(git diff --name-only HEAD^ HEAD)"' not in code, (
+        "the boundary must not diff only the tip commit's first parent"
+    )
+    # Fail closed when no range can be determined.
+    assert "Mutation boundary FAIL" in code
+    # The range endpoint comes from the tested policy module, not a hand-rolled copy.
+    assert "cp10_mutation_boundary_policy.py --resolve-range" in code
+
+
+def test_workflow_forbid_diffs_use_the_resolved_range():
+    text = _WORKFLOW.read_text(encoding="utf-8")
+    code = "\n".join(
+        line for line in text.splitlines() if not line.lstrip().startswith(("//", "#"))
+    )
+    assert 'git diff "$base" HEAD --' in code
+    assert "git diff HEAD^ HEAD --" not in code, (
+        "the V2/V3 and workflow-automation forbid diffs must use the guarded range"
+    )
+
+
+def test_checkout_fetches_the_full_history_for_range_resolution():
+    """depth=1 only reaches HEAD^; the resolved base can be arbitrarily far back."""
+    workflow = yaml.safe_load(_WORKFLOW.read_text(encoding="utf-8"))
+    steps = workflow["jobs"]["validate"]["steps"]
+    checkout = next(s for s in steps if str(s.get("uses", "")).startswith("actions/checkout"))
+    assert checkout["with"]["fetch-depth"] == 0, (
+        "a shallow checkout cannot resolve pull_request.base.sha, so the boundary "
+        "would fail closed on every PR instead of judging the range"
+    )
+
+
+
+
+# ---------------------------------------------------------------------------
+# Trigger coverage: the boundary's own contract surfaces must invoke the boundary.
+# The `mutation` step is unconditional, so a path absent from the trigger filter is
+# a path never judged — a PR that rewrites
+# `scripts/cp10_mutation_boundary_policy.py` or its fitness tests previously
+# produced no CP10 check-run at all.
+# ---------------------------------------------------------------------------
+_BOUNDARY_CONTRACT_SURFACES = [
+    "scripts/cp10_mutation_boundary_policy.py",
+    "tests/test_m02a_ci_gate_integrity.py",
+]
+
+
+def _workflow_triggers() -> dict:
+    workflow = yaml.safe_load(_WORKFLOW.read_text(encoding="utf-8"))
+    return workflow[True] if True in workflow else workflow["on"]
+
+
+def test_boundary_contract_surfaces_trigger_the_boundary():
+    triggers = _workflow_triggers()
+    for trigger in ("push", "pull_request"):
+        paths = triggers[trigger]["paths"]
+        for surface in _BOUNDARY_CONTRACT_SURFACES:
+            assert surface in paths, (
+                f"{trigger} must run CP10 when {surface} changes; otherwise the "
+                "boundary can be rewritten without being judged"
+            )
+
+
+def test_push_and_pull_request_filters_are_identical():
+    """Both filters must name the same surfaces.
+
+    The asymmetry is a masking hole, not a convenience: a surface the gate judges on
+    push but not on pull_request lets a PR introduce it unjudged, and CP10 then goes
+    red on main at the merge. That is exactly how PR #112 landed
+    tests/test_phase5_governed_execution.py against an already-red gate. Keeping the
+    two lists identical means a widening of one is always a widening of both.
+    """
+    triggers = _workflow_triggers()
+    push = set(triggers["push"]["paths"])
+    pull = set(triggers["pull_request"]["paths"])
+    assert push == pull, (
+        "push and pull_request trigger filters diverge; surfaces present in only "
+        f"one: {sorted(push ^ pull)}"
+    )
+
+
+def test_phase5_fixture_surface_triggers_the_boundary():
+    """Every dry-run fixture step the gate executes must also select the gate.
+
+    The workflow runs Phase 5 Governed Execution fixtures; if that test file is not
+    a trigger path, a change to the very fixture the step validates can reach main
+    without the boundary executing it.
+    """
+    triggers = _workflow_triggers()
+    for trigger in ("push", "pull_request"):
+        assert "tests/test_phase5_governed_execution.py" in triggers[trigger]["paths"], (
+            f"{trigger} runs the Phase 5 fixture step but does not trigger on its file"
+        )
+
+
+def test_every_trigger_path_is_admitted_by_the_policy():
+    """A trigger path the allowlist rejects would make the gate structurally red.
+
+    The filter is written twice (push + pull_request); both must stay admissible so
+    that widening the trigger set cannot introduce a permanent failure.
+    """
+    triggers = _workflow_triggers()
+    for trigger in ("push", "pull_request"):
+        for pattern in triggers[trigger]["paths"]:
+            probe = pattern.replace("**", "x").replace("*", "x")
+            if probe.endswith("/"):
+                probe += "x"
+            ok, msg = evaluate_changed_paths([probe])
+            assert ok is True, (
+                f"trigger pattern {pattern!r} ({trigger}) resolves to {probe!r}, "
+                f"which the boundary rejects: {msg}"
+            )
 
