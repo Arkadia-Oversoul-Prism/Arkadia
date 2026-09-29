@@ -74,8 +74,9 @@ Bucket counts at that pass: **STALE_ASSERTION 35**, **DRIFT 10**, **ENV/ARTIFACT
 | id | task | bucket | state |
 |---|---|---|---|
 | `SH-01` | `SOLSPIRE_PROJECTS_DB` env leak in `tests/test_echofeild_aggregator.py` | REAL_DEFECT | **already fixed on main** — do not re-do |
-| `SH-02` | migrate the 35 stale string assertions, in bounded batches | STALE_ASSERTION | **15 / 35 repaired** (batch 1: 6; batch 2: 3; batch 3 `SH-02b`: 6) |
+| `SH-02` | migrate the 35 stale string assertions, in bounded batches | STALE_ASSERTION | **18 / 35 repaired** (batch 1: 6; batch 2: 3; batch 3 `SH-02b`: 6; batch 4 `SH-02d`: 3) |
 | `SH-02b` | `test_prism_pass_c_surface_ownership.py` (6 nodes) — helper rewrite, not string edits | STALE_ASSERTION | **done**, PR #127 open, sovereign merge pending. **Heartbeat follow-up (this pass):** two *false claims* in that repair corrected — `codex` routes to the **knowledge** lens, not `memory` (§3.4); `knowledge-os` **does** have a redirect rule (§4). Both nodes strengthened; `SH-02c` withdrawn |
+| `SH-02d` | `test_prism_interior_shell.py` (3 nodes) — shell topology assertions | STALE_ASSERTION | **done**, this pass. Re-pointed at the surviving NovaNet `data-testid` rail + lens disclosure invariants and repaired a **vacuous-pass** hole (`sci` matched `science`); `PRIMARY`/`SECONDARY` now parsed, not substring-matched. Docstring prose `"Same identity · same context · same backend"` was never a component literal — replaced by the structure that delivers it. 4/4 negative controls applied and fired |
 | `SH-03` | `"DERIVED"` vs `"DERIVED_BOUNDED_SEMANTIC"` contract split | DRIFT | awaits product decision |
 | `SH-04` | is `CapabilityRegistry` cycle detection reachable? | DRIFT | not started |
 | `SH-05` | fate of `test_gate_serve_script` / `test_gate_status` | ENV | sovereign call |
@@ -87,11 +88,16 @@ Bucket counts at that pass: **STALE_ASSERTION 35**, **DRIFT 10**, **ENV/ARTIFACT
 ## Next bounded task
 
 `SH-02` next batch — the plain string-assertion rows still in the STALE_ASSERTION bucket
-(the dense remainder). `SH-02b` deliberately did **not** touch anything outside its one
-file. Rule unchanged: re-point the assertion at the surface that now owns the behaviour,
-and run a **negative control proving the repaired assertion can still fail** (see the
-`SH-02b` EVIDENCE §3.3 for the mutation-anchor technique — a control whose mutation does
-not actually apply is vacuous, and must be recorded as such rather than counted as proof).
+(the dense remainder: 18 of 35 repaired as of `SH-02d`). Rule unchanged: re-point the
+assertion at the surface that now owns the behaviour, and run a **negative control proving
+the repaired assertion can still fail** (see the `SH-02b` EVIDENCE §3.3 for the
+mutation-anchor technique — a control whose mutation does not actually apply is vacuous,
+and must be recorded as such rather than counted as proof).
+
+When repairing a node, also check whether the *old* assertion could have passed for the
+wrong reason. `SH-02d` found `sci` in `assert "'sci' in shell"` matching `science`: the
+node was green-by-accident on any file containing that substring. A repair that only
+re-points a string without closing that hole under-asserts.
 
 Do not start `SH-03`/`SH-04`/`SH-06`/`SH-07`/`F-01`/`SH-02c`: each needs a product or
 architectural decision, not a test edit.

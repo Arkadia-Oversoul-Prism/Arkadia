@@ -100,6 +100,7 @@ Representative evidence:
 - `test_prism_interior_shell.py` (3) — asserts `'Same identity · same context · same
   backend'` and `data-testid="prism-secondary-toggle"`. `grep` finds the former nowhere in
   `web/public_prism/src`; the shell now renders `ExperienceConsolidationFrame`.
+  **REPAIRED `SH-02d` (§9).**
 - `test_ais_w2_living_gate_grove_handoff.py` (6) — five are copy/regex drift in
   `pages/LivingGate.tsx`: the test pins an exact `useState<FlowStep>(initialMode === 'reset'
   ? 'reset' : 'diagnostic')` expression that no longer matches, requires `'Open Spiral Grove'`
@@ -436,3 +437,43 @@ PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q \
 | 50 | `tests/test_autonomy.py` | ERROR | COLLECTION_ERROR |
 | 51 | `tests/test_render_codex.py` | ERROR | COLLECTION_ERROR |
 
+## 9. Repair record - `SH-02d` (`tests/test_prism_interior_shell.py`, rows 10-12)
+
+Rows 10/11/12 were repaired as batch `SH-02d`. The three nodes were re-pointed at the
+NovaNet primary rail and secondary lens surfaces that `PrismInteriorShell` now owns, and
+the `testid="prism-secondary-toggle"` expectation was dropped: that disclosure control is
+now expressed as `aria-expanded={lensesOpen}` on the lens group and carries no `testid` in
+the component. No product capability is absent - this is the bucket's definition.
+
+Two things beyond a plain re-point:
+
+- **Vacuous pass closed.** `test_shell_exposes_canonical_primary_surfaces` asserted
+  `"'sci' in shell"`. `sci` is a substring of `science`, so the node could pass on any
+  shell file mentioning that word regardless of whether a `sci` surface existed. The
+  repaired node parses the `PRIMARY` rail and requires each key to be resolvable by
+  `activeSurfaceFor`.
+- **Prose that was never a literal.** A fourth failing assertion expected
+  `"Same identity / same context / same backend"` in the component. That sentence is the
+  node's own docstring - the invariant it names, not a string the shell ever rendered.
+  The repaired node asserts the structure that actually delivers the invariant
+  (`useAuth` + `data-testid="identity-persistence"` + `PrismInteriorShell` mounted inside
+  `ArkadiaNavigation`).
+
+Verification (evidence, not assertion):
+
+| check | result |
+|---|---|
+| `pytest tests/test_prism_interior_shell.py -q` | 5 passed |
+| `pytest tests/architecture -q` | 11 passed |
+| negative controls (mutation anchor confirmed applied) | 4 / 4 fired |
+| full suite vs clean `main` `4164573` | 39F/1020P/11S/2E -> **36F/1023P/11S/2E** |
+| nodes added (regressions) | **none** |
+| nodes removed (by name) | exactly rows 10, 11, 12 |
+
+The negative controls mutate the shell and confirm each repaired node still owns its
+invariant: drop the primary rail `testid`, the lens `aria-expanded`/`setLensesOpen`
+disclosure pair, the identity-persistence `testid`, or the `activeSurfaceFor` resolver
+entry for `commune` - each fails exactly the node that asserts it.
+
+`SH-03`/`SH-04`/`SH-06`/`SH-07`/`F-01` were deliberately **not** touched: each needs a
+product or architectural decision, not a test edit.
