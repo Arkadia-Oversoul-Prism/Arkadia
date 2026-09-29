@@ -81,9 +81,9 @@ view from `App.tsx`'s real routing table rather than re-fitting the old regex.
   The test's *stated* intent — no cloud persistence, no silent identity creation in the
   Living Gate — is therefore still satisfied.
 - The `sessionStorage` usage is deliberate, local and **ephemeral** (per-tab, cleared on
-  close): `HANDOFF_KEY = 'arkadia.ais.diagnostic-handoff.v1'`,
-  `PORTFOLIO_KEY = 'arkadia.ais.capability-portfolio.v1'` (`:61-62`), introduced by the AIS
-  feature commits `b822b95` → `c1073a4` → `f68cbf7`.
+  close): the session-scoped `HANDOFF_KEY` / `PORTFOLIO_KEY` namespace constants (`:61-62`,
+  values `arkadia.ais.diagnostic-handoff.v1` / `arkadia.ais.capability-portfolio.v1`),
+  introduced by the AIS feature commits `b822b95` → `c1073a4` → `f68cbf7`.
 
 **Why this was NOT repaired in this pass.** The assertion's *mechanism* (`sessionStorage`
 absent) no longer measures its *intent* (no cloud persistence). Repair requires rewriting a
@@ -120,3 +120,45 @@ This workstream took no new authority from either.
 Test-hygiene workstream holds **no** authority over merge, authorization, identity,
 authority-model, or constitutional architecture. It must not create a second mutation or
 authorization path (`examples: CP10 boundary judge`, `APS`/`ASI` status surfaces).
+
+## Pass N+1 — secret-scan remediation (false-positive de-risk)
+
+**Trigger.** `Full-history secret scan` (`.github/workflows/security-secret-scan.yml`,
+`gitleaks-action@v3`) failed on run `36526464261` at commit `a81d9ff`. Reporting identity:
+RuleID `generic-api-key`, entropy `3.801378`, secret redacted.
+
+**Finding.** The finding pointed at **this file**, line 84 — the F-01 evidence quote, not at
+any source file. It was a **false positive**: the flagged text was the prose fragment
+reproducing the `HANDOFF_KEY` assignment from the canonical source — a namespace identifier,
+carrying no credential material.
+
+**Root cause of the miss.** The scan is **range-scoped**, not whole-history:
+`gitleaks detect --log-opts="--no-merges --first-parent <merge-base>^..<head>"`. The same
+namespace literal already lives on `main` in
+`web/public_prism/src/pages/LivingGate.tsx` and `FutureSkillsChallenge.tsx`, and has done so
+since the AIS commits (`b822b95`, 2026-08-30); it never trips the gate because those ranges
+were scanned before the literal existed in a diff gitleaks re-inspected. The new evidence doc
+therefore re-introduced a *known-benign* literal into a freshly-scanned range. The gate is
+not wrong — this doc was the first pass to feed it an assignment-shaped literal in a new
+commit.
+
+**Remediation (reversible, evidence-preserving).** Rewrote the sentence to name the
+constants and their provenance without reproducing the assignment form. The F-01 finding,
+the quoted intent, and the sovereign handoff are unchanged — only the literal's formatting.
+The literal itself remains canonical in the cited source files; it is deliberately **not**
+being edited, allowlisted, or suppressed (that would be weakening the gate).
+
+**Verification.**
+
+- `gitleaks dir` over the changed evidence directory -> clean (exit 0), same detector and
+  rule set as the failing job.
+- Architectural + CP10 fitness: `tests/architecture` + `test_m02a_ci_gate_integrity.py`
+  -> **60 passed**, unchanged from the batch-1 baseline (no regression, no newly-omitted
+  CP10 surface; no new tracked path introduced).
+- `python -m py_compile api/main.py` -> OK (boot code untouched; P1-A guard observed).
+- CI re-run on the pushed revision is the binding evidence.
+
+**Uncertainty.** The full-range job result can only be confirmed by the CI run on the new
+revision; local `gitleaks dir` is a strong but not identical reproduction (it scans the
+working tree, the job scans the commit range). No further literals of this shape were found
+in this pass's evidence directory.
