@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import type { GroveCapability, GroveLearningActivity, GroveLearningPathActivityProjection, GroveLearningPathProjection, LearnerCapabilityState } from '../../data/spiralGroveCatalog'
+import ActivityRuntime from './ActivityRuntime'
 
 const C = { teal: '#00D4AA', text: 'rgba(232,232,232,0.90)', muted: 'rgba(232,232,232,0.58)', dim: 'rgba(232,232,232,0.34)' }
 const ACTIVITY_DRAFT_PREFIX = 'arkadia.spiral-grove.activity-draft.v1:'
@@ -83,7 +84,6 @@ const activityType: React.CSSProperties = { fontFamily: 'sans-serif', fontSize: 
 const activityTitle: React.CSSProperties = { fontFamily: 'serif', fontWeight: 400, fontSize: 20, color: C.text, margin: '5px 0 6px' }
 const activityInstruction: React.CSSProperties = { fontFamily: 'sans-serif', fontSize: 11, lineHeight: 1.65, color: C.muted, margin: 0 }
 const activityMeta: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 10, fontFamily: 'sans-serif', fontSize: 8, color: C.dim, textTransform: 'uppercase', letterSpacing: '.08em' }
-const surfaceMeta: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4, marginTop: 12, fontFamily: 'sans-serif', fontSize: 8, lineHeight: 1.5, color: C.dim }
 const actionButton: React.CSSProperties = { marginTop: 12, width: '100%', padding: '10px 11px', borderRadius: 8, cursor: 'pointer', background: 'rgba(0,212,170,.08)', border: '1px solid rgba(0,212,170,.24)', color: C.teal, fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '.08em', textAlign: 'left' }
 const workSurface: React.CSSProperties = { marginTop: 14, padding: 16, borderRadius: 11, background: 'rgba(0,212,170,.035)', border: '1px solid rgba(0,212,170,.18)' }
 const workHeader: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }
