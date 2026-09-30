@@ -19,6 +19,11 @@ arkadia_oracle.db
 # sidecars SQLite leaves behind in WAL mode, so cover the whole family.
 tests/_spine_test.db*
 
+# The canonical SolSpire store is an untracked runtime database in WAL mode, so a
+# test session that reaches it leaves `-wal`/`-shm` siblings that `*.db` misses.
+# `tests/test_repo_hygiene_gitignore.py` pins the whole family.
+data/solspire_projects.db*
+
 # API key stores (contain sensitive credentials — never commit)
 data/api_keys.json
 data/provider_keys.json
