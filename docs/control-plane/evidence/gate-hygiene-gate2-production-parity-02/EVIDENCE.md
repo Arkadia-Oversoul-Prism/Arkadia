@@ -269,3 +269,118 @@ displaced the SG-04 mount.
 makes it a real product regression rather than a stale assertion — but repairing the mount
 is a product change outside Gate-2 hygiene scope. It stays classified
 `gate-hygiene` / SH-02, Gate GATE-01, and remains open.
+
+## 10. Pass 3 — source-lineage closure, and a durable observation harness
+
+Pass 2 (§8.3) bounded the divergence window for `web/public_prism/src/` against the **newest**
+deployment only. This pass closes it for **every** candidate deployment, and makes the whole
+Gate-2 observation reproducible instead of prose.
+
+### 10.1 The closure argument
+
+`git log -1 -- web/public_prism/ ':!web/public_prism/dist'` resolves the last commit that
+touched **any** frontend build input — not just `src/`, so config and lockfiles are included:
+
+```
+b377a01a53553fcafdec319851b9c4f8edd8a8d2   2026-09-29 05:18:57 +0100
+Merge pull request #2 .../sg-04-3-persistence-hardening
+```
+
+Every one of the **12** Production deployments on record (`sha` from the deployments API) is a
+**descendant** of `b377a01`:
+
+| deployment SHA | created_at | descendant of `b377a01` |
+| --- | --- | --- |
+| `002b189dd95e` | 2026-09-30T01:23:16Z | YES |
+| `bf93a931c903` | 2026-09-30T01:22:46Z | YES |
+| `ecb86f7ec264` | 2026-09-30T01:22:17Z | YES |
+| `1b2ba50e85f9` | 2026-09-30T01:21:57Z | YES |
+| `f9828ce99250` | 2026-09-30T01:16:13Z | YES |
+| `bcf30d62d7bf` | 2026-09-30T01:14:44Z | YES |
+| `c2029223fc45` | 2026-09-30T01:14:22Z | YES |
+| `b37a54212eda` | 2026-09-30T01:13:54Z | YES |
+| `df7a99a06738` | 2026-09-29T15:03:52Z | YES |
+| `94afda68f8d3` | 2026-09-29T15:03:23Z | YES |
+| `e209b1b8f192` | 2026-09-29T15:03:00Z | YES |
+| `3f78b335d6dd` | 2026-09-29T15:01:26Z | YES |
+
+**Consequence.** All twelve candidates compile *byte-identical frontend source*. The deployed
+artifact therefore **cannot** discriminate between them. This does not make alias→SHA
+observable — it remains `UNKNOWN` as a Vercel fact — but it makes the ambiguity **immaterial to
+source lineage**: whichever of the twelve the alias is serving, it is serving `b377a01`'s
+frontend, and `b377a01` is an ancestor of `002b189`. The `build ↔ source lineage` claim does
+not depend on resolving it.
+
+This is strictly stronger than §8.3, which could only exclude divergence *after* the newest
+deployment. It is also the reason the alias→SHA question must **not** be chased further: no
+amount of artifact inspection can resolve it, and resolving it would not change the
+classification. Stated so a future pass does not re-spend effort here.
+
+### 10.2 Why the artifact cannot carry the binding — provider detail
+
+The deployment-specific host is published on the deployment **status**, not on the deployment
+record:
+
+- `GET /repos/.../deployments/6749238709` → `environment_url: null`
+- `GET /repos/.../deployments/6749238709/statuses` →
+  `environment_url: https://arkadia-prism-ey2ozd5u4-arkadia-prism.vercel.app`
+
+The hostname segment (`ey2ozd5u4`) is a provider-generated hash, **not** derivable from the
+deployment id. A pass that constructs the URL as `arkadia-prism-{id}-…vercel.app` gets HTTP
+404 and would misread it as "deployment missing". Recorded here because that exact mistake was
+made and corrected within this pass.
+
+### 10.3 Durable observation harness
+
+Gate-2 observation was previously a manual sequence repeated each heartbeat. It is now one
+read-only command:
+
+```
+python scripts/gate2_production_observation.py          # human-readable glance
+python scripts/gate2_production_observation.py --json   # machine-readable
+```
+
+`scripts/gate2_production_observation.py` holds no Vercel credential, performs no mutation,
+uses only the standard library, and never prints a token. It re-derives every link from live
+evidence and prints the boundary classification. Two properties matter for trust:
+
+- **The marker list is checked against source every run.** A literal that no longer exists in
+  `web/public_prism/src/` is reported as a `stale_list` entry rather than silently counting 0
+  and looking like a regression.
+- **It asserts the closure argument, not just the marker set.** `source_lineage_closed` is
+  computed from live git ancestry, so the §10.1 claim is re-proven each run.
+
+Live output this pass:
+
+```
+main SHA                : 002b189dd95e41c9b4f4cca33d08b4121453d289
+newest Production deploy: 002b189dd95e  id=6749238709  2026-09-30T01:23:16Z
+  ref == sha == main    : True
+alias https://arkadia-prism.vercel.app/ -> HTTP 200 (x-vercel-cache: HIT, age: 11010)
+  manifest: assets/index-C2whHMVB.css, assets/index-CHFFyuSc.js
+  deployment-specific URL -> HTTP 302 (SSO redirect)
+local build marker set matches deployed: True
+all 12 candidate Production SHAs are descendants of b377a01: True
+SG-04: in source True / in deployed artifact 0  => REGRESSION: True
+```
+
+### 10.4 Boundary classification after Pass 3
+
+| Link | Pass 1 | Pass 2 | Pass 3 |
+| --- | --- | --- | --- |
+| main SHA | VERIFIED | VERIFIED | VERIFIED |
+| deployment SHA == main | VERIFIED | VERIFIED | VERIFIED |
+| deployment build observation | BLOCKED | BLOCKED | **BLOCKED** (provider boundary, unchanged) |
+| build↔source lineage | UNKNOWN | VERIFIED (newest only) | **VERIFIED (all 12 candidates, §10.1)** |
+| route resolves | UNKNOWN | VERIFIED from source | VERIFIED |
+| alias→SHA binding | UNKNOWN | UNKNOWN | **UNKNOWN — and immaterial (§10.1)** |
+| browser-rendered UI correctness | UNKNOWN | UNKNOWN | UNKNOWN |
+| production acceptance | not claimed | not claimed | not claimed |
+
+Gate 2 remains open. The remaining links need a Vercel credential, a protection relaxation, or
+a third-party browser observation — §6 is unchanged. No repetition of this pass converts them.
+
+**Note on the `BLOCKED` link.** It is deliberately left `BLOCKED`, not downgraded. The
+divergence argument removes the *consequence* of not observing the deployment-specific URL; it
+does not make the observation happen. Collapsing it to `VERIFIED` on the strength of §10.1
+would be exactly the substitution the contract forbids.

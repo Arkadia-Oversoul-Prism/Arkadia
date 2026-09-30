@@ -10,7 +10,7 @@ Branch head at pass start: `002b189dd95e` (branched clean from main)
 | WS | Branch / PR | State |
 | --- | --- | --- |
 | SH-05 gate-artifact provenance | `gate-hygiene/sh05-gate-artifact-provenance-01`, PR #142 | EXHAUSTED — see §3 |
-| Gate-2 production parity | `gate-hygiene/gate2-production-parity-02` (this branch), PR #143 | PARTIAL — deployment identity + build↔source lineage VERIFIED; provider observation still BLOCKED |
+| Gate-2 production parity | `gate-hygiene/gate2-production-parity-02` (this branch), PR #143 | PARTIAL — deployment identity + build↔source lineage VERIFIED (now for **all 12** candidate SHAs, closure arg §10.1); provider observation still BLOCKED; alias→SHA UNKNOWN and immaterial; observation now reproducible via `scripts/gate2_production_observation.py` |
 
 ## 1. Baseline fingerprint recorded at pass start
 
