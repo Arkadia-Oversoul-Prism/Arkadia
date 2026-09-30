@@ -16,6 +16,9 @@ Rebuilt from evidence, not memory. Supersedes the prior pass's recorded figures 
 
 1. **`tests/test_k4_response_provenance.py` has 6 tests, not 13.** Measured: `6 passed`.
    The "13 passed" figure in the prior pass record was wrong. No test was deleted.
+   *Reconciliation:* 13 is the count for `test_k4_response_provenance.py` **plus**
+   `test_oracle_spine.py` run together (6 + 7 = 13). The figure is a two-file aggregate
+   reported as a single-file count. Both are green; the file itself contains 6 tests.
 2. **The `/tmp` guard failure was a harness path artifact, not a guard defect.**
    `REPO_ROOT = parents[1]` resolves outside the repository when the guard runs from `/tmp`.
    Executed in place, #152's guard passes 2/2 on `main`. The guard is not a merge hazard.
