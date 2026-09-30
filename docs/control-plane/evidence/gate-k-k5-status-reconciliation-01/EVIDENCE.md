@@ -4,6 +4,8 @@
 **Date:** 2026-09-30
 **BASE_MAIN:** `002b189dd95e41c9b4f4cca33d08b4121453d289`
 (`Merge pull request #141 from Arkadia-Oversoul-Prism/gate-hygiene/f02-steward-filter-provenance-01`, 2026-09-30 02:22:31 +0100)
+**Branch commit:** `694b73db23a4a7f9530c8d6c165d66aeab8042e3`
+**PR:** #146 → `main`
 **Authority:** documentation/state reconciliation only. No implementation code changed.
 No merge, no push to `main`, no force-push, no self-authorization.
 
