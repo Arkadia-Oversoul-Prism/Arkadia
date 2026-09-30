@@ -59,17 +59,31 @@ PORT=8080
 
 ## 🌐 **API Endpoints**
 
-Once deployed, your system will have these endpoints:
+The table below is the **canonical deployed surface**, verified against `api.main:app`
+(the app `entrypoint.sh` serves). The earlier revision of this section listed a legacy
+route set (`/health`, `/status`, `/oracle`, `/threads`, `/arkadia/corpus`) that no longer
+exists on this app and returns `404` on the live deployment.
 
-- `GET /` - Web interface
-- `GET /health` - Health check
-- `GET /status` - System status
-- `GET /arkadia/corpus` - Google Drive corpus
-- `GET /arkadia/refresh` - Refresh corpus
-- `POST /oracle` - Chat with Arkana
-- `GET /threads` - User threads
-- `POST /threads` - Create thread
-- `GET /threads/{id}/messages` - Thread messages
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/` | Liveness banner (`Arkadia Mind is breathing.`) |
+| `GET` | `/api/heartbeat` | Health check — canonical; used by `railway.json` |
+| `POST` | `/api/commune/resonance` | Oracle / ReasoMate chat |
+| `GET`, `POST` | `/api/commune/threads` | List / create conversation threads |
+| `GET` | `/api/commune/threads/{thread_uuid}` | Thread metadata |
+| `GET` | `/api/commune/threads/{thread_uuid}/messages` | Thread messages |
+| `GET` | `/api/oracle-context` | Oracle context snapshot |
+| `POST` | `/api/corpus/refresh` | Refresh the corpus |
+| `GET` | `/api/codex` | Spiral Codex scrolls |
+| `GET`, `POST` | `/api/scrolls` | List / write public scrolls |
+| `GET` | `/api/stellar-cartography` | Encyclopedia Galactica star date |
+
+Interactive API reference: `GET /docs` (and `GET /openapi.json`). These are FastAPI's own
+documentation routes and are deliberately absent from the OpenAPI schema, so they are not
+listed in the table above.
+
+> The `openclaw/` gateway is a **separate** service with its own `render.yaml` and its own
+> `GET /health`; it is not this backend and is not covered by the table above.
 
 ## 🎮 **Testing the System**
 
@@ -81,14 +95,14 @@ Visit your deployed URL and try these messages:
 
 ### **CLI Console:**
 ```bash
-python arkadia_console.py
+python archive/legacy_python/arkadia_console.py
 # Commands: tree, preview <file>, refresh, ask <question>, status, exit
 ```
 
 ### **API Testing:**
 ```bash
-curl https://your-app.onrender.com/health
-curl https://your-app.onrender.com/status
+curl https://your-app.onrender.com/
+curl https://your-app.onrender.com/api/heartbeat
 ```
 
 ## 🔮 **System Features**
