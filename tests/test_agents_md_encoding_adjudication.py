@@ -7,6 +7,7 @@ must reproduce the file's own last clean revision byte-for-byte.
 """
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -117,8 +118,24 @@ def test_whole_file_decode_is_destructive():
         text.encode("cp866")
 
 
-def test_recover_is_decidable_on_the_live_file():
+def test_recover_is_decidable_on_the_corrupted_live_file():
+    """The adjudication, scoped to the revision it was made about.
+
+    ``main``'s AGENTS.md carries the mojibake, so recovery is decidable and the
+    recovered text relates to the clean oracle by insertions only. This test
+    asserts what is true *while the repair is still unmerged*.
+
+    It is deliberately not the whole story: once PR #150 merges, this same file
+    is already clean and the correct verdict changes (see
+    ``test_live_file_verdict_matches_its_state``). An adjudication that assumed
+    its own repair would never land is the defect this pair exists to prevent.
+    """
     text = AGENTS_MD.read_text(encoding="utf-8")
+    if cyrillic_count(text) == 0:
+        pytest.skip(
+            "AGENTS.md on this revision is already repaired — the corrupted-main "
+            "adjudication does not bind here (see test_live_file_verdict_matches_its_state)"
+        )
     oracle = subprocess.run(
         ["git", "-C", str(ROOT), "show", f"{ORACLE_REV}:AGENTS.md"],
         capture_output=True,
@@ -137,14 +154,61 @@ def test_recover_is_decidable_on_the_live_file():
     assert result["oracle_cyrillic"] == 0
 
 
-def test_recovered_text_equals_the_repaired_tip():
-    """Recovery must reproduce the already-clean tip written to pr150.
+def test_live_file_verdict_matches_its_state():
+    """The verdict must follow the working tree, not a remembered verdict.
+
+    Order-dependent either way:
+
+    * corrupted ``main`` (PR #150 unmerged): recovery is decidable, exit 0;
+    * repaired ``main`` (PR #150 merged): nothing to recover, exit 1.
+
+    The two live-file tests are written as complementary branches so that both
+    merge orders of #150 and #151 keep the suite green. Exactly one branch runs
+    on any given revision; the other states its reason and skips.
+    """
+    text = AGENTS_MD.read_text(encoding="utf-8")
+    repaired = cyrillic_count(text) == 0
+    proc = _run_cli()
+    if repaired:
+        assert proc.returncode == 1, proc.stdout + proc.stderr
+        assert "0 -> 0" in proc.stdout
+    else:
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        assert "reproduced=True" in proc.stdout
+    assert AGENTS_MD.read_text(encoding="utf-8") == text, "the audit must not mutate the tree"
+
+
+def test_cli_does_not_claim_clean_without_an_oracle(tmp_path):
+    """An unproven "already clean" is reported as unproven, never as a verdict.
+
+    The oracle is looked up as ``<rev>:<path>``, so it exists only for a path the
+    repository actually tracks. For a clean file the repository does not track —
+    a scratch file, a deleted path, a ``fetch-depth: 1`` checkout that cannot
+    resolve the revision — "clean" and "never verified" are indistinguishable
+    from the bytes alone. Exit 2 keeps the distinction; only a resolvable oracle
+    licenses exit 1.
+    """
+    porcelain = tmp_path / "AGENTS.md"
+    porcelain.write_text("perfectly ordinary text\n", encoding="utf-8")
+    proc = _run_cli("--path", str(porcelain))
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert "KeyError" not in proc.stderr, proc.stderr
+    # the summary must not dress an unproven clean file up as a verified one
+    assert "decidable            False" in proc.stdout
+
+
+def test_recovered_text_equals_the_pinned_repaired_tip():
+    """Recovery must reproduce the reviewed-and-clean PR #150 head.
 
     This is what makes the adjudication decidable rather than merely plausible:
     the transform applied to ``main`` lands exactly on the version of the file
-    that a human already reviewed as clean.
+    that a human already reviewed as clean. The tip is pinned to an immutable
+    commit, so the reference survives the PR being merged and its branch
+    deleted.
     """
     text = AGENTS_MD.read_text(encoding="utf-8")
+    if cyrillic_count(text) == 0:
+        pytest.skip("AGENTS.md on this revision is already repaired — nothing to recover")
     recovered, _ = recover(text)
     tip = subprocess.run(
         ["git", "-C", str(ROOT), "show", f"{RECOVERED_TIP_REV}:AGENTS.md"],
@@ -228,17 +292,20 @@ def test_cli_summarises_the_oracle_without_crashing():
 
     The keys printed here were once renamed out from under the report, so the
     CLI raised ``KeyError`` after already claiming the repair decidable. Only an
-    end-to-end invocation catches that — the audit function returns fine.
+    end-to-end invocation catches that — the audit function returns fine. The
+    printed numbers are cross-checked against ``--json`` so the summary cannot
+    drift from the machine-readable result in either working-tree state.
     """
     proc = _run_cli()
-    assert proc.returncode == 0, proc.stderr
-    assert "insertions-only" in proc.stdout
-    assert "reproduced=True" in proc.stdout
-    assert "KeyError" not in proc.stderr
+    assert "KeyError" not in proc.stderr, proc.stderr
+    assert proc.returncode in (0, 1), proc.stdout + proc.stderr
 
+    machine = _run_cli("--json")
+    assert machine.returncode == proc.returncode, machine.stdout + machine.stderr
+    result = json.loads(machine.stdout)
+    assert f"Cyrillic             {result['cyrillic_before']} -> {result['cyrillic_after']}" in proc.stdout
+    assert f"  lines                {result['lines']}" in proc.stdout
+    if result["oracle_checked"]:
+        assert "insertions-only" in proc.stdout
+        assert f"reproduced={result['oracle_reproduced']}" in proc.stdout
 
-def test_cli_exits_one_on_an_already_clean_file(tmp_path):
-    clean = tmp_path / "AGENTS.md"
-    clean.write_text("perfectly ordinary text\n", encoding="utf-8")
-    proc = _run_cli("--path", str(clean))
-    assert proc.returncode == 1, proc.stdout + proc.stderr

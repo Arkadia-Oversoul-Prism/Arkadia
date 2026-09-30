@@ -46,7 +46,9 @@ Usage
     python scripts/agents_md_encoding_audit.py [--path AGENTS.md] [--json]
 
 Exits 0 when the recovered text is verified against the byte oracle, 1 when the
-input is already clean (nothing to recover), 2 when recovery is not decidable.
+input is already clean and the oracle was consulted to confirm it, 2 when
+recovery is not decidable (including an already-clean file on a clone that
+cannot resolve the oracle, where "clean" would be an unproven verdict).
 
 No third-party imports, no network, no mutation.
 """
@@ -69,9 +71,12 @@ ORACLE_REV = "6c43218a48a4"
 CORRUPTION_COMMIT = "e0dde9ad9c5e"
 CORRUPT_CODEC = "cp866"
 
-# Revision of the already-clean tip (pr150). Recovery of ``main`` must equal its
-# prefix, which is what makes the adjudication decidable rather than plausible.
-RECOVERED_TIP_REV = "pr150"
+# Immutable revision of the already-clean repaired tip (PR #150 head). Recovery
+# of ``main`` must equal its prefix, which is what makes the adjudication
+# decidable rather than plausible. Pinned to a commit, never a branch: after
+# PR #150 merges, the branch ``pr150`` is deleted by the hosting platform and a
+# branch name would resolve to nothing (or, worse, to something else).
+RECOVERED_TIP_REV = "03fe21fef66e78e66e6f5406b9c4a0ed8f68c4e9"
 
 CYRILLIC = (0x0400, 0x04FF)
 CRUFT = (0x0080, 0x024F)  # Latin-1 supplement + Latin Extended-A/B
@@ -215,9 +220,18 @@ def audit(text: str, oracle: str | None) -> dict:
     if oracle is not None:
         result["cruft_delta_vs_oracle"] = result["cruft_after"] - result["oracle_cruft"]
         no_new_cruft = result["cruft_delta_vs_oracle"] == 0
-    else:
+        result["decidable_basis"] = "oracle"
+    elif result["corrupted_lines"] > 0:
         result["cruft_delta_vs_oracle"] = None
         no_new_cruft = result["cruft_after"] <= result["cruft_before"]
+        result["decidable_basis"] = "cruft-decrease"
+    else:
+        # Nothing to repair and no oracle to compare against. A clean file and a
+        # file whose repair was never verified are the same bytes, so no claim
+        # about it is decidable.
+        result["cruft_delta_vs_oracle"] = None
+        no_new_cruft = True
+        result["decidable_basis"] = "none"
 
     result["decidable"] = bool(
         line_count_preserved
@@ -226,6 +240,7 @@ def audit(text: str, oracle: str | None) -> dict:
         and result["cyrillic_after"] == 0
         and no_new_cruft
         and result.get("oracle_reproduced", True)
+        and result["decidable_basis"] != "none"
     )
     result["recovered_text_sha256"] = hashlib.sha256(recovered.encode("utf-8")).hexdigest()
     return result
@@ -285,7 +300,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  decidable            {result['decidable']}")
         print(f"  recovered sha256     {result['recovered_text_sha256']}")
 
-    if result["cyrillic_before"] == 0 and result["corrupted_lines"] == 0:
+    # 1 signals "already clean, and the oracle confirms it". That verdict needs
+    # the oracle: without one a clean file is indistinguishable from a file whose
+    # repair was never verified, and audit() marks that undecidable (exit 2).
+    already_clean = result["cyrillic_before"] == 0 and result["corrupted_lines"] == 0
+    if already_clean and result["oracle_checked"]:
         return 1
     return 0 if result["decidable"] else 2
 
