@@ -481,6 +481,14 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   `--since=<deploy time>` window, which only excludes divergence *after* one deployment.
   Recorded so a future pass does not re-spend effort trying to extract a binding the build
   cannot carry.
+- **Marker counts are convention-dependent — always name the convention.** The minified
+  bundle is a handful of enormous lines, so `grep -c` (*matching lines*) and an
+  occurrence-counting harness disagree for the same marker on the same artifact:
+  `solspire-object-summary` is **3 lines / 6 occurrences**, `opportunity-radar` **2 / 4**.
+  Both are correct. Only the **presence/absence contrast** is load-bearing (marker present
+  vs. pre-change control absent); magnitudes are reproducibility detail. Do not read a
+  count difference between two evidence sections as drift — Pass 2 recorded line counts and
+  Pass 3 records occurrences, and reconciling them took a re-download of the deployed asset.
 - **The production alias is readable but does not close the chain by itself.** Vercel
   assigns the alias to the newest Production deployment — that is provider behaviour, not an
   observation, so alias→SHA stays `UNKNOWN` unless the deployment URL can be read.
