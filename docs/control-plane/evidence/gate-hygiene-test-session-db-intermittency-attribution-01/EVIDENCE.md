@@ -159,11 +159,11 @@ required; no merge performed by this pass.**
 
 ## 7. Remaining uncertainty
 
-- The race was not directly caught in the act this pass (20, 20, 20, 20 across four runs).
-  The attribution rests on the sidecar-visibility experiment, which is deterministic and
-  order-independent. A 21-failure reproduction would strengthen it further.
+- ~~The race was not caught in the act.~~ **Resolved** — the flip was observed in a later
+  pulse (§4, run B). Attribution is now reproduced rather than inferred. Residual caveat:
+  the flip is still a *race*, so a given run may report either count; the observation
+  confirms the mechanism, not a guarantee of catching it on demand.
+- PR #143 §2 should be updated to point at this attribution — a one-line evidence edit on
+  PR #143. **Not done here** — it would widen scope across PRs; recorded for the sovereign.
 - Whether `data/solspire_projects.db` is intentionally tracked is not asserted here; on
   `main` it is untracked-and-ignored, and `data/solspire_projects.db*` preserves that.
-- PR #143 §2 should be updated to point at this attribution so the two records agree.
-  That is a one-line evidence edit on PR #143 — **not performed in this pass** (it would
-  widen scope across PRs); recorded for the sovereign.
