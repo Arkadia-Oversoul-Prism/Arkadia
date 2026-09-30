@@ -13,6 +13,9 @@
 | Gate B | **CLOSED** |
 | K2 — Oracle Conversation Archival | **COMPLETE** |
 | K1 — Corpus Document Ingestion | **COMPLETE** |
+| K5 — Static Ingestion | **COMPLETE** — `knowledge/static_ingestion.py`, lifespan-wired, 12 tests |
+| K3 — Context Engine Wiring | **COMPLETE** — K3-A/B/C checkpointed; `assemble_context` consumed by `api/oracle_spine.py` |
+| K4 — Response Provenance | **NEXT** |
 | Deployment | STABLE — do not revisit unless a checkpoint requires it |
 
 ---
@@ -31,13 +34,17 @@ Either in the Vercel dashboard under Environment Variables, or by updating `.env
 
 ## Mission
 
-**Workstream K — Checkpoint K5: Static Ingestion**
+**Workstream K — Checkpoint K4: Response Provenance**
 
-K2 and K1 are complete. The Knowledge OS now receives:
+K2, K1, K5 and K3 are complete. The Knowledge OS now receives:
 - Every Oracle conversation (K2)
 - Every corpus document on upload, creation, and refresh (K1)
+- Static repository knowledge — vault notes, ADRs, open loops, structured docs (K5)
+- Context assembly over the populated graph, via the shared spine (K3)
 
-K5 connects the remaining static knowledge that already exists in the repository but has never been ingested: the vault notes, ADRs, open loops, and any other structured markdown in `docs/`. This completes the initial Knowledge OS population and ensures SolSpire Console has a meaningful corpus from day one.
+K4 makes what the Oracle already retrieves *visible*. `knowledge/context_engine.assemble_context()` returns note UUIDs alongside the text chunks it selects, but the Oracle response discards them — the user sees a confident answer with no way to tell which archived knowledge produced it. K4 surfaces those identities as a `sources` array so answers become citable.
+
+> **Status reconciliation (2026-09-30):** this file previously instructed the next agent to implement K5. K5 had already shipped on `main` across `606510f`, `4ca0442`, `0852068`, `31818e3`. The record is backfilled at `docs/checkpoints/K5_static_ingestion.md` and the status table above now reflects verified state.
 
 ---
 
@@ -79,27 +86,51 @@ Do not rebuild any of these.
 
 ---
 
-## Objective: K5 — Static Ingestion
+## Objective: K4 — Response Provenance
 
-**The gap:** The vault, ADRs, open-loop documents, and other structured markdown files in `docs/` contain critical Arkadia knowledge that has never been ingested into the Knowledge OS. SolSpire Console's graph and search will be sparse until this static corpus is seeded.
+**The gap:** The Oracle answers from retrieved knowledge but never says which knowledge.
+`assemble_context()` already returns the note identities it used; the Oracle response
+shape drops them, so every answer is uncitable and unverifiable by the reader.
 
-**The fix:** A one-time startup ingestion pass that reads static markdown files from known paths and calls `knowledge/pipeline.ingest()` for each. Idempotent — duplicate-detection prevents re-ingestion on restart.
+**The fix:** Propagate the retrieved note identities out of the spine and into the Oracle
+response as a `sources` array, then render them in the UI.
 
 **Files to read before writing any code:**
 
 ```
-knowledge/pipeline.py     — ingest() signature (already known)
-api/main.py               — lifespan() or startup hook — best place to add one-time pass
-docs/                     — survey which subdirectories contain ingestable knowledge
-knowledge/vault/          — if it exists, this is the primary vault source
+knowledge/context_engine.py   — assemble_context() return shape; where note UUIDs live
+api/oracle_spine.py           — retrieve_arkana_context() / build_memory_block() — the
+                                seam where the context package is already in hand
+api/main.py                   — /api/commune/resonance response shape (additive only)
+web/public_prism/src/components/ArkanaCommune.tsx  — render "Based on: ..." citations
 ```
 
 **Implementation approach** (verify against actual code before writing):
 
-In the FastAPI `lifespan()` startup block (already exists in `api/main.py`), add a daemon thread that walks known static paths and calls `_ingest_to_knowledge_os()` for each file. Runs once at startup. Duplicate-detection inside `pipeline.ingest()` makes restarts safe.
+`api/oracle_spine.py` already receives the full context package from
+`assemble_context()`. Extract the note identities there into the existing diagnostics
+dict (`meta`) rather than re-querying — one seam, no second retrieval path. Then thread
+that through the Oracle response and render conditionally in the UI.
 
 **Standing question — ask before every code change:**
 > What is the smallest connection that unlocks the existing Knowledge Layer without increasing maintenance?
+
+**Verified starting state:** no Oracle response path currently returns a `sources`
+array. `api/oracle_spine.py` reports only `notes_retrieved` (a count) and `source` (a
+provenance label) — identities are available but not propagated.
+
+**Explicitly out of scope for K4 (recorded, not fixed):**
+
+1. `static:spiral_codex` points at `static/**/*.md`, which matches zero files — `static/`
+   holds only HTML/JS/CSS assets.
+2. `static:docs` uses a non-recursive `*.md` glob, so ~274 of 290 markdown files under
+   `docs/` (incl. `docs/control-plane/` ×126, `docs/recon/` ×22) are not ingested. Not
+   test-pinned — no test references `static:docs`. It is a **corpus-curation** decision
+   reserved to the sovereign, per
+   `docs/control-plane/evidence/k5-open-loop-corpus-coverage/EVIDENCE.md` §6.
+3. K5 uses `note_type="task"` for open loops where the design sketch said `"event"`.
+
+Each is a candidate for its own bounded workstream; none is in K4's scope.
 
 ---
 
@@ -145,9 +176,9 @@ Update only:
 
 ```
 MISSION.md                                      (rewrite for next checkpoint)
-.bootstrap/01_STATE.md                          (mark K5 complete, set K3 as next)
-NEXT_AGENT.md                                   (rewrite for K3)
-docs/checkpoints/K5_static_ingestion.md        (checkpoint record)
+.bootstrap/01_STATE.md                          (mark K4 complete, set next)
+NEXT_AGENT.md                                   (rewrite for next checkpoint)
+docs/checkpoints/K4_response_provenance.md     (checkpoint record)
 docs/phase1/CONTINUATION_LEDGER.md             (session record — at session end)
 ```
 
