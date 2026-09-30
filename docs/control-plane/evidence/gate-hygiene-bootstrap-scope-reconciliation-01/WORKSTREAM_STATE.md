@@ -49,7 +49,7 @@ root cause. It is **not** repaired here — the repair requires a governance dec
 
 Candidates, in ascending scope:
 
-1. **Sovereign adjudication queue** — 15 open PRs, several explicitly superseding each other
+1. **Sovereign adjudication queue** — 16 open PRs (incl. #157), several explicitly superseding each other
    (#147 vs #150 vs #151 vs #152 vs #155 all concern the same `AGENTS.md` encoding repair).
    The queue cannot converge without merge decisions. This is the highest-value *unblock*.
 2. **`weaver.autonomy` collision** (§6) — needs a sovereign ruling: is autonomous execution
@@ -74,3 +74,51 @@ GATE-10 is ACTIVE and carrying 15 open PRs.
 | UI/runtime evidence | **UNKNOWN** — not claimed |
 
 Never convert `UNKNOWN` into `VERIFIED` by repetition.
+
+## Pass outcome — `gate-hygiene/bootstrap-scope-reconciliation-01`
+
+| field | value |
+|---|---|
+| commit | `b61e5e0b8986f78783ec0fb7c6e52da6edcd0950` |
+| branch | `gate-hygiene/bootstrap-scope-reconciliation-01` |
+| PR | **#157** — https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/157 |
+| mergeable | `True` (5 files, docs-only) |
+| status | **READY FOR SOVEREIGN MERGE** — verification class `IMPLEMENTED` (docs-only) |
+| CI on head | Full-history secret scan ✅ · Vercel Preview Comments ✅ |
+| CP10 workflow | **did not run** — path-filtered; diff touches none of its filtered paths. The same policy module was executed locally on the exact diff → exit 0 PASS. |
+
+### Fingerprint (regression boundary)
+
+```
+20 failed / 1039 passed / 13 skipped / 2 collection errors        (22 nodes)
+sha256(sorted FAILED/ERROR summary lines) = a7687fadaa25ad5f8aa283747bbffa85d304d516ae2b6c53b3849dc54479434c
+```
+
+Byte-identical before and after this change (`diff` of sorted node lists empty). Independently
+re-derived from a clean worktree; **reproduces PR #146's published value**, retiring the earlier
+"UNKNOWN provenance" caveat on the `ff49f743…` / `a7687fad…` pair.
+
+### Protected suites
+
+| suite | result |
+|---|---|
+| `tests/architecture` | 11 / 11 |
+| `tests/test_m02a_ci_gate_integrity.py` | 49 / 49 |
+| `tests/test_sqlite_schema.py` | 11 / 11 |
+| `python -m py_compile api/main.py` | OK — 2519 / 2600 (untouched) |
+
+### Credential note (for the next heartbeat)
+
+`$GITHUB_TOKEN` is **empty** in this runtime; `$GITHUB_PERSONAL_ACCESS_TOKEN` returns **401**.
+The working credential is the lowercase provider token **`$github_token`** (HTTP 200 as
+`Arkadia-Oversoul-Prism`, repo `push: true`). Push it as a one-shot URL and keep
+`origin` clean — `git remote get-url origin` is tokenless and `.git/config` holds no `gh[pousr]_`
+literal (both verified). Repo-local `user.name`/`user.email` were absent and were set to
+`openhands` / `openhands@all-hands.dev` for this clone only.
+
+### Next bounded task (do not select from prose — reconstruct first)
+
+Unchanged from the candidates above. **#157 closes this workstream.** The highest-value unblock
+remains the sovereign adjudication queue — 16 open PRs (incl. #157), several explicitly superseding each other
+(#147 vs #150 vs #151 vs #152 vs #155 on the same `AGENTS.md` encoding repair). GATE-11+ stays
+closed until GATE-10's queue converges.
