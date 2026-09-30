@@ -1,15 +1,15 @@
-# Baseline Test Debt Classification ‚Äî `main` @ `a26af408`
+# Baseline Test Debt Classification â€šÃ„Ã® `main` @ `a26af408`
 
 **Workstream:** test-hygiene (standalone; explicitly *not* folded into an architectural gate)
-**Authority required:** none for classification. Repairs are separate bounded tasks (see ¬ß8).
-**PR:** #106 ¬∑ branch `gate-hygiene/baseline-test-debt-classification-01`
+**Authority required:** none for classification. Repairs are separate bounded tasks (see Â¬ÃŸ8).
+**PR:** #106 Â¬âˆ‘ branch `gate-hygiene/baseline-test-debt-classification-01`
 **BASE_MAIN:** `a26af408c269729a57d0a53c6ad39fcf0ca22fdf`
-**Status:** classification complete ‚Äî every one of the 51 failing/error nodes is assigned a
+**Status:** classification complete â€šÃ„Ã® every one of the 51 failing/error nodes is assigned a
 bucket with evidence. **No test, no source file, and no policy was modified.**
 
-> **Pass linkage (heartbeat continuity).** Pass 1 authored the classification; pass 2 (¬ß7)
+> **Pass linkage (heartbeat continuity).** Pass 1 authored the classification; pass 2 (Â¬ÃŸ7)
 > independently re-derived it and corrected the inaccuracies. PR #106 carries both.
-> PR #105 (`gate10/cp10-allowlist-root-docs`) is a **separate, non-overlapping workstream** ‚Äî
+> PR #105 (`gate10/cp10-allowlist-root-docs`) is a **separate, non-overlapping workstream** â€šÃ„Ã®
 > verified: no file in #105's diff is touched here, and no file here is touched by #105.
 
 This pass exists because `PARKING_LOT.md` recorded the debt as *unclassified* and stated the
@@ -21,15 +21,15 @@ This document is that classification.
 | | value |
 |---|---|
 | ref | `main` @ `a26af408c269729a57d0a53c6ad39fcf0ca22fdf` |
-| passed / failed / skipped / errors | **903 / 49 / 12 / 2** (invocation: `PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q`; see ¬ß5 for the environment this number depends on) |
+| passed / failed / skipped / errors | **903 / 49 / 12 / 2** (invocation: `PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q`; see Â¬ÃŸ5 for the environment this number depends on) |
 | architecture fitness (`pytest tests/architecture -q`) | **11/11 passed** |
-| `api/main.py` | 2519 lines (budget 2600 ‚Äî untouched) |
+| `api/main.py` | 2519 lines (budget 2600 â€šÃ„Ã® untouched) |
 | failing/error node fingerprint | `sha256 = 256204af4082a70f062ed6004fd0c51c126a14262a072afdac9279ce158c3fca` |
 
 The fingerprint in `PARKING_LOT.md` was reproduced byte-for-byte from the 51
 `FAILED`/`ERROR` node ids joined by `\n` with a trailing newline. The same 51 ids were
 reproduced again from a second independent full-suite run (`--tb=line`), so the baseline is
-stable, not flaky. The suite is **order-independent at this level** ‚Äî see ¬ß5.
+stable, not flaky. The suite is **order-independent at this level** â€šÃ„Ã® see Â¬ÃŸ5.
 
 ## 2. Method
 
@@ -40,14 +40,14 @@ below is backed by a command that can be re-run.
 
 Buckets:
 
-- **STALE_ASSERTION** ‚Äî the implementation moved and the test still asserts a literal string
+- **STALE_ASSERTION** â€šÃ„Ã® the implementation moved and the test still asserts a literal string
   (or symbol) that no longer exists. No user-facing capability is absent.
-- **REAL_DEFECT** ‚Äî implementation and assertion disagree and the implementation is the
+- **REAL_DEFECT** â€šÃ„Ã® implementation and assertion disagree and the implementation is the
   side that is wrong; a genuine product/test-isolation behaviour is broken.
-- **DRIFT** ‚Äî a canonical contract identifier changed; both sides are internally consistent.
+- **DRIFT** â€šÃ„Ã® a canonical contract identifier changed; both sides are internally consistent.
   Needs a product decision, not a mechanical edit.
-- **ENV / ARTIFACT** ‚Äî the test depends on something outside the repository working tree.
-- **COLLECTION_ERROR** ‚Äî the module cannot be imported at all.
+- **ENV / ARTIFACT** â€šÃ„Ã® the test depends on something outside the repository working tree.
+- **COLLECTION_ERROR** â€šÃ„Ã® the module cannot be imported at all.
 
 ## 3. Bucket summary
 
@@ -65,16 +65,16 @@ missing, none extra), not counted by hand.
 
 **The headline result:** the parked hypothesis ("several look like stale assertions rather
 than defects") is **confirmed but understated**. 69% are stale assertions, and **90%** are
-either stale assertions or contract drift ‚Äî i.e. **the tests are behind the code, not the
+either stale assertions or contract drift â€šÃ„Ã® i.e. **the tests are behind the code, not the
 code behind the tests.** Exactly **one** node is a real defect.
 
 ## 4. Findings by bucket
 
-### 4.1 STALE_ASSERTION ‚Äî 35 nodes
+### 4.1 STALE_ASSERTION â€šÃ„Ã® 35 nodes
 
-> **Verification-status note (added in the verification pass, ¬ß4.6).** The buckets were
+> **Verification-status note (added in the verification pass, Â¬ÃŸ4.6).** The buckets were
 > assigned by reading assertion text and grepping for the literal. The verification pass
-> re-ran the specific nodes in ¬ß4.1‚Äì¬ß4.3 and confirmed the failure fingerprints, which is the
+> re-ran the specific nodes in Â¬ÃŸ4.1â€šÃ„Ã¬Â¬ÃŸ4.3 and confirmed the failure fingerprints, which is the
 > strongest evidence available without a frontend build. For `test_prism_pass_c_surface_ownership.py`
 > specifically, the mechanism recorded below is **not confirmed**: the module contains no
 > helper and no call site containing the string `view block not found`; that string only
@@ -91,48 +91,50 @@ behaviour.
 
 Representative evidence:
 
-- `test_prism_pass_c_surface_ownership.py` (6 nodes) ‚Äî asserts `"view block not found for
+- `test_prism_pass_c_surface_ownership.py` (6 nodes) â€šÃ„Ã® asserts `"view block not found for
   <surface>"` for `spiral-codex`, `personal-echofeild`, `knowledge-os`, `codex`, `loops`.
   `web/public_prism/src/App.tsx:32` still declares all of those in the `View` union, but the
   render blocks were consolidated; the test's regex for a per-view block no longer matches.
-- `test_ais_capability_profile_onboarding.py:40` ‚Äî asserts `'Learn. Build. Prove. Launch.'`;
-  the component now renders `...ONE SYSTEM ¬∑ MANY SURFACES ¬∑ ONE CONTINUOUS FIELD`.
-- `test_prism_interior_shell.py` (3) ‚Äî asserts `'Same identity ¬∑ same context ¬∑ same
+- `test_ais_capability_profile_onboarding.py:40` â€šÃ„Ã® asserts `'Learn. Build. Prove. Launch.'`;
+  the component now renders `...ONE SYSTEM Â¬âˆ‘ MANY SURFACES Â¬âˆ‘ ONE CONTINUOUS FIELD`.
+- `test_prism_interior_shell.py` (3) â€šÃ„Ã® asserts `'Same identity Â¬âˆ‘ same context Â¬âˆ‘ same
   backend'` and `data-testid="prism-secondary-toggle"`. `grep` finds the former nowhere in
   `web/public_prism/src`; the shell now renders `ExperienceConsolidationFrame`.
-  **REPAIRED `SH-02d` (�12).**
-- `test_ais_w2_living_gate_grove_handoff.py` (6) ‚Äî five are copy/regex drift in
+  **REPAIRED `SH-02d` (§12).**
+- `test_ais_w2_living_gate_grove_handoff.py` (6) â€šÃ„Ã® five are copy/regex drift in
   `pages/LivingGate.tsx`: the test pins an exact `useState<FlowStep>(initialMode === 'reset'
   ? 'reset' : 'diagnostic')` expression that no longer matches, requires `'Open Spiral Grove'`
   and `'invitation'` copy, and requires the literal `'/api/pulse/analyze'`. **The endpoint is
-  preserved** ‚Äî `api/pulse.py:272` still defines `@router.post("/api/pulse/analyze")`; the
+  preserved** â€šÃ„Ã® `api/pulse.py:272` still defines `@router.post("/api/pulse/analyze")`; the
   component now calls it through the canonical client (`lib/apiClient` `apiFetch`), so only
   the call-site string is stale. The sixth node,
   `test_no_firebase_persistence_in_gate`, fails on `assert "sessionStorage" not in src`;
   `LivingGate.tsx:61-80,207,218` uses `sessionStorage` for a transient, tab-scoped
   diagnostic handoff (`arkadia.ais.diagnostic-handoff.v1`). **No Firebase and no durable
-  persistence was added** ‚Äî the assertion is simply broader than its stated intent. See the
+  persistence was added** â€šÃ„Ã® the assertion is simply broader than its stated intent. See the
   borderline note below.
 - `test_spiral_grove_chambers.py`, `test_spiral_grove_frontend_projection.py`,
-  `test_spiral_grove_learning_path_projection.py` ‚Äî all three target `web/public_prism/src/components/spiral-grove/CapabilityChamber.tsx` and assert the copy
+  `test_spiral_grove_learning_path_projection.py` â€šÃ„Ã® all three target `web/public_prism/src/components/spiral-grove/CapabilityChamber.tsx` and assert the copy
   `'Evidence is separate.'` / `'Evidence submission, assessment, ...'` which the current
   `CapabilityChamber.tsx` and fail solely on the copy string `'Evidence is separate.'` / `'Evidence submission, assessment, and capability-state updates remain separate downstream stages.'` (`grep -c` -> 0). **The governance properties those tests exist to protect are intact.** Verified present in the file: `'SG-03 activity contract'` (2), `'mutate learner capability state'` (1), `prerequisites: GroveCapability[]`, `GroveCapability`, `LearnerCapabilityState`; verified **absent**: `generateExercise` (0) and `createEvidence` (0). The chamber still does not autonomously generate or adjudicate - only the prose was reworded. Re-pinning the copy restores these without weakening the boundary.
 
-  > **CORRECTED — see §11.** This classification is **wrong in causal direction**. The SG-04
+  > **CORRECTED â€” see Â§11.** This classification is **wrong in causal direction**. The SG-04
   > expectations were never satisfied by this surface at any revision, and the merge
   > `1363c65` (PR #1, `sg-04-learning-activity-runtime`) resolved the conflict in favour of
   > the **older** content. The nodes are therefore a merge **CONTRADICTION**, not
   > stale-assertion drift, and the *mount* expectations need a product decision before any
   > repair. Do not re-pin the copy in isolation.
-- `test_solspire_p1_experience_01.py` (2) ‚Äî asserts `'CONTEXT PACK (explicit)'` and
+- `test_solspire_p1_experience_01.py` (2) â€šÃ„Ã® asserts `'CONTEXT PACK (explicit)'` and
   `'Not an authorization authority'` in
   `web/public_prism/src/components/solspire/SolSpireExperience.tsx`. Both literals are
-  **absent** (`grep -c` ‚Üí 0). The testid the test also checks *is* still present
+  **absent** (`grep -c` â€šÃœÃ­ 0). The testid the test also checks *is* still present
   (`data-testid="solariun-arkana-context-pack"`), but the panel now renders the label
   `CURRENT CONTEXT`. So the Arkana context pack exists; the copy/packaging changed. Genuine
   copy drift, not an absent capability.
+  **REPAIRED `SH-02f` (22, 23).** Rewording commit pinned to `eebf39c6`; the pack and the
+  authority disclaimer are both intact. See Â§13.
 - `test_weaver_sci_boundary_01.py` (3), `test_weaver_sci_contract_01.py` (2),
-  `test_weaver_mvp2_08.py` (1) ‚Äî the "nexus‚Üínovanet" family. The assertion looks for
+  `test_weaver_mvp2_08.py` (1) â€šÃ„Ã® the "nexusâ€šÃœÃ­novanet" family. The assertion looks for
   `v === 'nexus' ? 'novanet'`; `App.tsx:114` now reads
   `if (requested === 'nexus') next = {view:'novanet',path:'/nexus'}`. Same intent, different
   expression. The same family also asserts `'ProjectDashboard'` inside
@@ -140,25 +142,25 @@ Representative evidence:
   (`return <EnterpriseConsole {...props}/>`), and the project workspace moved into
   `SolSpireExperience.tsx` (which mounts `ResilientProjectDashboard`). `ProjectDashboard`
   itself still exists at `pages/ProjectDashboard.tsx` and is asserted successfully there by
-  `test_m04_projects.py` ‚Äî so the surface is intact and only the assertion's location
+  `test_m04_projects.py` â€šÃ„Ã® so the surface is intact and only the assertion's location
   assumption is stale.
-- `test_solariun_experience_consolidation_01.py` (3) ‚Äî asserts `'searchKnowledge'` and
+- `test_solariun_experience_consolidation_01.py` (3) â€šÃ„Ã® asserts `'searchKnowledge'` and
   `data-testid="experience-inspector"` in `ExperienceConsolidationFrame.tsx`, which now
   renders only `data-experience-surface`; and asserts `'Merge: human_only'` in the
   consolidation map, which is not present.
 - `test_ais_w6_future_skills_challenge.py`, `test_ais_w8_canonical_identity.py` (2),
-  `test_identity_spine_w1.py` (2), `test_solspire_p1_experience_01.py` ‚Äî same copy/symbol
+  `test_identity_spine_w1.py` (2), `test_solspire_p1_experience_01.py` â€šÃ„Ã® same copy/symbol
   drift in `.tsx` and in the identity-seed module (asserting `_SPINE_KEY = "identity_spine"`
   and `'"ais_capability_portfolio"'` against a module that now emits `'identity_spine'` as a
   dict key).
-- `test_steward_filter.py` (3) ‚Äî asserts `steward_filter("You have transcended") is None`
+- `test_steward_filter.py` (3) â€šÃ„Ã® asserts `steward_filter("You have transcended") is None`
   while `weaver/filters/steward.py` forbids `"transcendent"`, not `"transcended"`; and
   `compress_to_choices` no longer drops the `'More noise'` sentence. Borderline: the
-  stem-matching gap is arguably a real content-hygiene hole. Logged as `SH-06` in ¬ß8 with a
+  stem-matching gap is arguably a real content-hygiene hole. Logged as `SH-06` in Â¬ÃŸ8 with a
   product judgement, not auto-repaired.
 - `test_ais_capability_profile_onboarding.py` (1 node, counted above).
 
-### 4.2 DRIFT ‚Äî canonical contract identifier changed ‚Äî 11 nodes
+### 4.2 DRIFT â€šÃ„Ã® canonical contract identifier changed â€šÃ„Ã® 11 nodes
 
 These are **not** copy drift. A canonical machine-readable identifier changed, and the
 identifier is asserted consistently across several tests while the code emits a different,
@@ -168,7 +170,7 @@ self-consistent value. Fixing them is a product/contract decision, not a test ed
   (2 nodes, incl. the `/solspire/projects/{id}/knowledge/graph` route) assert
   `kind == "DERIVED"`; `solspire/semantic_graph.py:112` emits
   `"DERIVED_BOUNDED_SEMANTIC"`, and `tests/test_weaver_mvp2_05.py:24` asserts the **new**
-  value. Two tests in the same suite encode opposite contracts ‚Äî the identifier was
+  value. Two tests in the same suite encode opposite contracts â€šÃ„Ã® the identifier was
   deliberately widened (W5) and these two were not migrated.
 - `test_spiral_grove_registry.py::test_ais_catalog_supports_progressive_creative_workflow`
   asserts prerequisites `["cap-ai-prompt-engineering", "cap-digital-intelligence",
@@ -177,35 +179,35 @@ self-consistent value. Fixing them is a product/contract decision, not a test ed
 - `test_spiral_grove_registry.py::test_registry_rejects_prerequisite_cycle` expects
   `CapabilityCycleError`; `registry.py:118` raises `UnknownCapabilityError` first because it
   validates membership before cycles. Whether cycle detection is still reachable is
-  unverified ‚Äî flagged as `SH-04` in ¬ß8 (and RESOLVED in the verification pass).
+  unverified â€šÃ„Ã® flagged as `SH-04` in Â¬ÃŸ8 (and RESOLVED in the verification pass).
 - `test_m02_reasomate_truth.py::test_oracle_runtime_uses_the_shared_session_key` asserts
   `"arkanaSessionId"` in `components/ArkanaCommune.tsx`. `grep -c` returns **0**. The
-  requirement ‚Äî Oracle and ReasoMate keying one longitudinal thread on a shared session id ‚Äî
+  requirement â€šÃ„Ã® Oracle and ReasoMate keying one longitudinal thread on a shared session id â€šÃ„Ã®
   is **genuinely not satisfied by that symbol**; the test is a correct assertion against a
   capability that is currently absent. Grouped under DRIFT because the requirement is
   architectural, not a copy string.
-- `test_engineering_scheduler_bootstrap.py::test_dry_run_evidence` ‚Äî `EngineeringRouter.run()`
+- `test_engineering_scheduler_bootstrap.py::test_dry_run_evidence` â€šÃ„Ã® `EngineeringRouter.run()`
   returns `NO_LEGAL_MOVE` instead of `READY_FOR_REVIEW`, and
   `::test_blocked_dependency_skips_move` then hits `TypeError: 'NoneType' object is not
   subscriptable` because `select_next_move` returns `None`. The scheduler finds no legal move
-  in the checked-in trajectory ‚Äî the trajectory and the scheduler have drifted apart.
+  in the checked-in trajectory â€šÃ„Ã® the trajectory and the scheduler have drifted apart.
 - `test_ais_w8_canonical_identity.py` (2) and `test_identity_spine_w1.py` (2) counted here
-  overlap ¬ß4.1; they assert canonical symbol names (`load_user_profile_store(user["uid"])`)
+  overlap Â¬ÃŸ4.1; they assert canonical symbol names (`load_user_profile_store(user["uid"])`)
   that the current spine module does not expose. Canonical-identity surface is W8 territory
-  and requires identity-boundary care ‚Äî **not** touched by this pass.
+  and requires identity-boundary care â€šÃ„Ã® **not** touched by this pass.
 
-### 4.3 ENV / ARTIFACT ‚Äî 2 nodes
+### 4.3 ENV / ARTIFACT â€šÃ„Ã® 2 nodes
 
-- `test_gate_serve_script.py::test_root_index_redirect_and_script_exists` ‚Äî asserts
+- `test_gate_serve_script.py::test_root_index_redirect_and_script_exists` â€šÃ„Ã® asserts
   `Path('index.html').exists()` relative to CWD.
-- `test_gate_status.py::test_gate_files_and_fetch_handling` ‚Äî asserts `Path('gate/index.html')`.
+- `test_gate_status.py::test_gate_files_and_fetch_handling` â€šÃ„Ã® asserts `Path('gate/index.html')`.
 - Neither `index.html` nor `gate/` exists at the repository root. They exist only under
   `static/index.html` and `archive/legacy_frontend/gate/index.html`. `conftest.py` does not
   `chdir`. These tests reference a served-artifact layout that is not in the tree.
 
-### 4.4 REAL_DEFECT ‚Äî 1 node
+### 4.4 REAL_DEFECT â€šÃ„Ã® 1 node
 
-- `test_m01_persistence.py::test_db_path_honours_data_dir_env` ‚Äî **test-isolation defect,
+- `test_m01_persistence.py::test_db_path_honours_data_dir_env` â€šÃ„Ã® **test-isolation defect,
   reproduced and root-caused.**
 
   It passes in isolation (**13/13**) and fails in the full suite:
@@ -224,19 +226,19 @@ self-consistent value. Fixing them is a product/contract decision, not a test ed
   ```
   pytest tests/test_echofeild_aggregator.py \
          tests/test_m01_persistence.py::test_db_path_honours_data_dir_env -q
-  ‚Üí 1 failed, 15 passed
+  â€šÃœÃ­ 1 failed, 15 passed
   ```
 
   This is a real defect in the **test substrate**, not in product code. It is the only node
   in the baseline whose pass/fail depends on test execution order, which means the recorded
-  fingerprint is only valid for the full-suite invocation ‚Äî a second reason to repair it.
+  fingerprint is only valid for the full-suite invocation â€šÃ„Ã® a second reason to repair it.
 
-### 4.5 COLLECTION_ERROR ‚Äî 2 nodes
+### 4.5 COLLECTION_ERROR â€šÃ„Ã® 2 nodes
 
 Both are the documented, pre-existing collection errors and are unchanged by this pass:
 
-- `tests/test_autonomy.py` ‚Äî `load_autonomy_config` is not importable.
-- `tests/test_render_codex.py` ‚Äî imports `archive/legacy_python/codex_brain.py`, which imports
+- `tests/test_autonomy.py` â€šÃ„Ã® `load_autonomy_config` is not importable.
+- `tests/test_render_codex.py` â€šÃ„Ã® imports `archive/legacy_python/codex_brain.py`, which imports
   `arkadia_drive_sync` (absent). `AGENTS.md` records this as expected when
   `PYTHONPATH=<repo>/archive/legacy_python` is set.
 
@@ -251,7 +253,7 @@ pass opened the target files and checked the *properties each test exists to pro
 | grove chambers / frontend_projection / learning_path_projection | `'Evidence is separate.'` copy | `SG-03 activity contract`, `mutate learner capability state`, `prerequisites: GroveCapability[]`, `LearnerCapabilityState` | `generateExercise`, `createEvidence` |
 | w2 living_gate (pulse node) | literal `'/api/pulse/analyze'` in the component | endpoint `@router.post("/api/pulse/analyze")` at `api/pulse.py:272`, called via `lib/apiClient` | - |
 | w2 living_gate (`sessionStorage` node) | `assert "sessionStorage" not in src` | no Firebase added; handoff is tab-scoped and cleared (`LivingGate.tsx:207,218`) | durable/local persistence |
-| solariun consolidation (`Merge: human_only`) | literal `Merge: human_only` in the frame component | **corrected target:** `docs/architecture/SOLARIUN_EXPERIENCE_CONSOLIDATION_01_MAP.md` carries `**Merge:** human_only`, `**Deploy:** human_only`, `Human authority remains above all display/navigation surfaces`, `Discovery ‚âÝ authorization` (U+2260) | no `human_only` literal in any `.tsx` |
+| solariun consolidation (`Merge: human_only`) | literal `Merge: human_only` in the frame component | **corrected target:** `docs/architecture/SOLARIUN_EXPERIENCE_CONSOLIDATION_01_MAP.md` carries `**Merge:** human_only`, `**Deploy:** human_only`, `Human authority remains above all display/navigation surfaces`, `Discovery â€šÃ¢Ã authorization` (U+2260) | no `human_only` literal in any `.tsx` |
 | solariun consolidation (frame) | `searchKnowledge` et al. in the frame | `SearchOverlay`, `ContextBar`, `ArkanaOverlay`, `searchKnowledge` in canonical owner `SolSpireExperience.tsx` | - |
 
 **Conclusion:** no governance invariant was found broken. Every one of these is copy,
@@ -274,22 +276,22 @@ small bounded cleanup candidate (see section 8).
 
 ## 5. Regression boundary
 
-- Fingerprint `256204af‚Ä¶83fca` is reproduced and **must remain unchanged** by any future
+- Fingerprint `256204afâ€šÃ„Â¶83fca` is reproduced and **must remain unchanged** by any future
   hygiene pass except where that pass explicitly claims the node.
-- **Environment-dependent baseline (verification pass).** The fingerprint `256204af‚Ä¶83fca` is
+- **Environment-dependent baseline (verification pass).** The fingerprint `256204afâ€šÃ„Â¶83fca` is
   the fingerprint of *this invocation environment* only. The suite's outcome depends on which
   optional deps are importable: `tests/test_m08_trajectory_schema.py:38` and
   `tests/test_m09_worker_contract.py:55` gate on `pytest.importorskip("jsonschema")`. Confirmed
   by direct run with `jsonschema` absent (`9 passed, 2 skipped`), and `jsonschema` **is** absent
   from this environment, so 2 of the 12 skips are dependency-gated. Install `jsonschema` and the
   pass/skip split changes, so the recorded counts and fingerprint are not portable unless the
-  invocation is pinned (as amended in ¬ß1).
+  invocation is pinned (as amended in Â¬ÃŸ1).
 - **`test_prism_pass_c_surface_ownership.py` must not be attributed to a helper.** The module
   has no call site referencing `view block not found`; the string exists only as the f-string
   text of an `assert m, ...`. The 6 "nodes" are the `@pytest.mark.parametrize` case ids
   Python generates from the f-string, not greppable source lines.
 - Architecture fitness is **11/11** and no `REGISTERED_ARCHITECTURAL_DEBT` was touched.
-- Working tree after two full-suite runs: **0 untracked files, 0 files under `vault/`** ‚Äî
+- Working tree after two full-suite runs: **0 untracked files, 0 files under `vault/`** â€šÃ„Ã®
   the GATE-VAULT guardrail (`vault/**` gitignored, `conftest.py` sandbox) is holding.
 - `api/main.py` was not touched; no boot-code `py_compile` gate was required.
 
@@ -298,12 +300,12 @@ small bounded cleanup candidate (see section 8).
 > **Resolved in the verification pass:** the two items below that were open questions in the
 > first draft are now answered; the answers are stated inline and the item is resolved.
 
-- `test_registry_rejects_prerequisite_cycle` ‚Äî **RESOLVED: no defect, and the name is
-  misleading.** Cycle detection *is* reachable: `CapabilityRegistry([cap-a‚Üícap-a])` (a
-  self-prerequisite) raises `CapabilityCycleError`. The test's two-node a‚Üîb case raises
+- `test_registry_rejects_prerequisite_cycle` â€šÃ„Ã® **RESOLVED: no defect, and the name is
+  misleading.** Cycle detection *is* reachable: `CapabilityRegistry([cap-aâ€šÃœÃ­cap-a])` (a
+  self-prerequisite) raises `CapabilityCycleError`. The test's two-node aâ€šÃœÃ®b case raises
   `UnknownCapabilityError('cap-b')` only because `ReferenceValidator._validate_references`
   runs the membership loop to completion before the first `graph_validate_cycle` call, and
-  registration is incremental ‚Äî `cap-b` is not yet a member when `cap-a` is registered. The
+  registration is incremental â€šÃ„Ã® `cap-b` is not yet a member when `cap-a` is registered. The
   test asserts `pytest.raises(CapabilityCycleError)`, which is *not* a superclass of
   `UnknownCapabilityError`, so the test is genuinely wrong about ordering, not about cycles.
   No dead code; the library already exposes the correct exception.
@@ -311,9 +313,9 @@ small bounded cleanup candidate (see section 8).
   *transitive* prerequisite closure of `cap-ai-creative-workflows` to be exactly
   `[cap-ai-prompt-engineering, cap-digital-intelligence, cap-content-systems]`. The registry
   correctly returns `[cap-digital-intelligence, cap-ai-prompt-engineering, cap-content-systems]`
-  ‚Äî a set-correct answer in a different order, asserting list equality. This is an ordering
+  â€šÃ„Ã® a set-correct answer in a different order, asserting list equality. This is an ordering
   brittleness, not a capability regression.
-- `test_steward_filter.py` ‚Äî the `"transcended"` vs `"transcendent"` gap is a plausible real
+- `test_steward_filter.py` â€šÃ„Ã® the `"transcended"` vs `"transcendent"` gap is a plausible real
   content-hygiene hole rather than pure copy drift. Requires a product judgement. **Still open.**
 - The `.tsx` stale assertions were classified from the assertion text plus a targeted `grep`
   for the literal, not by rendering the components. No frontend build was run
@@ -333,12 +335,12 @@ Corrections and additions made in this pass (all in place above):
 
 | # | Claim as first written | Verified reality | Where corrected |
 |---|---|---|---|
-| C1 | fingerprint treated as a portable contract | environment-dependent ‚Äî `jsonschema` gated skips | ¬ß1, ¬ß5 |
-| C2 | `test_prism_pass_c_surface_ownership.py` asserts a `"view block not found"` helper per surface | no such call site exists; string is only an f-string message; the 6 nodes are parametrize case ids | ¬ß4.1, ¬ß5 |
-| C3 | `test_registry_rejects_prerequisite_cycle` ‚Äî cycle detection may be dead code | not dead; reachable via self-prerequisite; the test's a‚Üîb case fails on validation *ordering* | ¬ß6 |
-| C4 | `Merge: human_only` asserted in the frame `.tsx` | no `human_only` literal in any `.tsx`; the assertion target is `SOLARIUN_EXPERIENCE_CONSOLIDATION_01_MAP.md`, and the map uses `Discovery ‚âÝ authorization` (U+2260) not `!=` | ¬ß4.6 table |
-| C5 | (new) registry transitive-closure ordering brittleness | `cap-ai-creative-workflows` closure is set-correct but order-differs | ¬ß6 |
-| C6 | (refinement) dead CSS `experience-inspector` = "7 rules" | 8 rule blocks total ‚Äî 7 base selectors (`.css:72‚Äì86`) plus 1 responsive override (`.css:121`); "7" counts the base block only, which is defensible | ¬ß4.6 prose |
+| C1 | fingerprint treated as a portable contract | environment-dependent â€šÃ„Ã® `jsonschema` gated skips | Â¬ÃŸ1, Â¬ÃŸ5 |
+| C2 | `test_prism_pass_c_surface_ownership.py` asserts a `"view block not found"` helper per surface | no such call site exists; string is only an f-string message; the 6 nodes are parametrize case ids | Â¬ÃŸ4.1, Â¬ÃŸ5 |
+| C3 | `test_registry_rejects_prerequisite_cycle` â€šÃ„Ã® cycle detection may be dead code | not dead; reachable via self-prerequisite; the test's aâ€šÃœÃ®b case fails on validation *ordering* | Â¬ÃŸ6 |
+| C4 | `Merge: human_only` asserted in the frame `.tsx` | no `human_only` literal in any `.tsx`; the assertion target is `SOLARIUN_EXPERIENCE_CONSOLIDATION_01_MAP.md`, and the map uses `Discovery â€šÃ¢Ã authorization` (U+2260) not `!=` | Â¬ÃŸ4.6 table |
+| C5 | (new) registry transitive-closure ordering brittleness | `cap-ai-creative-workflows` closure is set-correct but order-differs | Â¬ÃŸ6 |
+| C6 | (refinement) dead CSS `experience-inspector` = "7 rules" | 8 rule blocks total â€šÃ„Ã® 7 base selectors (`.css:72â€šÃ„Ã¬86`) plus 1 responsive override (`.css:121`); "7" counts the base block only, which is defensible | Â¬ÃŸ4.6 prose |
 
 Nothing in this pass changes a bucket verdict. No test, source, or policy file was modified;
 the only file touched is this evidence document.
@@ -356,18 +358,18 @@ None is authorised by this pass.
 | `SH-04` | Verify whether `CapabilityRegistry` cycle detection is reachable. | DRIFT | medium | none |
 | `SH-05` | Decide the fate of `test_gate_serve_script` / `test_gate_status` (repair the path, or retire the tests as archival). | ENV | low | sovereign call |
 | `SH-06` | Decide whether `steward_filter` should stem-match `transcend*`. | STALE_ASSERTION | medium | product judgement |
-| `SH-07` | Migrate `test_m02_reasomate_truth::test_oracle_runtime_uses_the_shared_session_key` ‚Äî the shared-session requirement is genuinely unmet in `ArkanaCommune.tsx`. | DRIFT | **high** | architectural gate |
+| `SH-07` | Migrate `test_m02_reasomate_truth::test_oracle_runtime_uses_the_shared_session_key` â€šÃ„Ã® the shared-session requirement is genuinely unmet in `ArkanaCommune.tsx`. | DRIFT | **high** | architectural gate |
 
 **Recommended first:** `SH-01`. It is a one-line test-hygiene fix, it removes the only
 order-dependent node, and it makes the baseline fingerprint reproducible under any
-invocation order ‚Äî which every later hygiene task depends on.
+invocation order â€šÃ„Ã® which every later hygiene task depends on.
 
 ## 9. Deliberate non-edit: `PARKING_LOT.md` is left untouched
 
 `PARKING_LOT.md` is the natural home for the status change on the parked item
-("unclassified" ‚Üí classified). It is **intentionally not modified here.**
+("unclassified" â€šÃœÃ­ classified). It is **intentionally not modified here.**
 
-Open PR **#105** rewrites the same `## Open Items` anchor ‚Äî it replaces `_None._` with the
+Open PR **#105** rewrites the same `## Open Items` anchor â€šÃ„Ã® it replaces `_None._` with the
 CP10 and baseline-debt entries. Editing that anchor on this branch would guarantee a textual
 conflict in a file the sovereign must merge by hand, for zero engineering benefit.
 
@@ -377,9 +379,9 @@ document. Until then this evidence file is the single source of truth for the cl
 ## 10. Authorization
 
 Classification only. No merge, no authorization, no identity-boundary change. The sovereign
-decides which of `SH-01`‚Ä¶`SH-07` become canonical work.
+decides which of `SH-01`â€šÃ„Â¶`SH-07` become canonical work.
 
-## Appendix A ‚Äî complete node-to-bucket map
+## Appendix A â€šÃ„Ã® complete node-to-bucket map
 
 All **51** baseline nodes, assigned programmatically from the run output and
 asserted to cover the baseline set exactly (no hand transcription).
@@ -447,20 +449,20 @@ PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q \
 
 ---
 
-## 11. Correction pass — SG-04 merge CONTRADICTION and live-vs-ledger drift
+## 11. Correction pass â€” SG-04 merge CONTRADICTION and live-vs-ledger drift
 
 **Pass type:** documentation/evidence correction only. No test, source, policy, workflow, or
 governance file is modified by this section.
 **Reconstructed at:** `main` @ `4164573586860b9c7e04e1815bca4957559046a2` (PR #128).
-**Supersedes for SG-04:** §4.1's SG-04 paragraph above (left in place, annotated in-line).
+**Supersedes for SG-04:** Â§4.1's SG-04 paragraph above (left in place, annotated in-line).
 
-### 11.1 Why §4.1's SG-04 classification is wrong
+### 11.1 Why Â§4.1's SG-04 classification is wrong
 
-§4.1 read the SG-04 nodes as ordinary stale-assertion drift ("the implementation moved and
+Â§4.1 read the SG-04 nodes as ordinary stale-assertion drift ("the implementation moved and
 the test still asserts a literal string that no longer exists"). Two independent checks
 contradict that reading.
 
-**(a) The tests' "inline work surface" expectations were never implemented — not by the
+**(a) The tests' "inline work surface" expectations were never implemented â€” not by the
 current file, and not by any revision of it:**
 
 `test_spiral_grove_chambers.py:55` and `test_spiral_grove_frontend_projection.py:94` both
@@ -476,8 +478,8 @@ git log --format=%h -- $C | while read c; do
 done
 ```
 
-returns `ff80b8c`, `44e1c99`, `70568eb`, `b8aca42`, `b9aafc1`, `cfb73b6`, `012ef5e` — all
-**SG-03 / AIS** revisions that predate SG-04 — and **never** the SG-04 revisions `74f5494`,
+returns `ff80b8c`, `44e1c99`, `70568eb`, `b8aca42`, `b9aafc1`, `cfb73b6`, `012ef5e` â€” all
+**SG-03 / AIS** revisions that predate SG-04 â€” and **never** the SG-04 revisions `74f5494`,
 `1b63994`, `06ad5f2`, nor current `main`. The SG-04 commits did the opposite: they *removed*
 the inline card in favour of a mounted `<ActivityRuntime/>`:
 
@@ -488,27 +490,27 @@ done
 # 74f5494 mount=1   1b63994 mount=1   06ad5f2 mount=1   main mount=0
 ```
 
-So the "inline surface" assertions (§4.1's `STALE_ASSERTION`) and the "runtime is mounted"
+So the "inline surface" assertions (Â§4.1's `STALE_ASSERTION`) and the "runtime is mounted"
 assertions (`tests/test_spiral_grove_activity_runtime.py`, also failing) **cannot both pass
 against any single revision in this repository's history.** This is not drift; it is two
 mutually exclusive expectations.
 
-**(b) The SG-04 branch tip `06ad5f2` was itself red — the merge did not regress a green
+**(b) The SG-04 branch tip `06ad5f2` was itself red â€” the merge did not regress a green
 branch.** Measured in a worktree at the branch tip (`git worktree add /tmp/sg04wt 06ad5f2`):
 `7 failed, 25 passed` on the SG-04 test set. The mechanism is a conflict resolution that
 kept the wrong side:
 
 | revision | `CapabilityChamber.tsx` blob |
 |---|---|
-| `077f30a` — main before the SG-04 merge | `5c78fcbc…` |
-| `4c50fb4` — SG-04 branch, merge of main | `cef5a593…` (mount present, 36 insertions) |
-| `ff80b8c` — merge of `4c50fb4` + main | `0cde2f78…` |
-| `origin/main` @ `4164573` | `0cde2f78…` — **identical to `ff80b8c`** |
+| `077f30a` â€” main before the SG-04 merge | `5c78fcbcâ€¦` |
+| `4c50fb4` â€” SG-04 branch, merge of main | `cef5a593â€¦` (mount present, 36 insertions) |
+| `ff80b8c` â€” merge of `4c50fb4` + main | `0cde2f78â€¦` |
+| `origin/main` @ `4164573` | `0cde2f78â€¦` â€” **identical to `ff80b8c`** |
 
 `ff80b8c` is a commit **on main's own history**, and its content is what shipped. Its
 `CapabilityChamber.tsx` carries the legacy `<ActivityCard/>` + inline draft capture
 (the `ACTIVITY_DRAFT_PREFIX` declaration is present, with **zero** uses) and **drops** the
-`<ActivityRuntime/>` mount — i.e. the merge took main's side and discarded the branch's
+`<ActivityRuntime/>` mount â€” i.e. the merge took main's side and discarded the branch's
 integration for this file. `ActivityRuntime.tsx` survived, but nothing renders it.
 
 **Also under-implemented on the SG-04 side, independent of any merge:**
@@ -520,54 +522,54 @@ never had a passing state.
 **Verdict.** The seven currently-failing SG-04 nodes are a **merge CONTRADICTION**:
 the merged artefact does not satisfy its own suite, the suite is internally
 mutually-exclusive, and part of it was never implemented. Repairing it requires choosing
-between two activity surfaces — and the TDD-native reading (green the assertions as written)
+between two activity surfaces â€” and the TDD-native reading (green the assertions as written)
 points at a **frontend capability change** in `web/public_prism/**`, which is outside this
 workstream's test-only boundary and is CP10 path-filtered (`sg-02-fe-2-v.yml`). It is
 therefore **escalated, not auto-repaired**. Bucket reclassification proposed below.
 
 ### 11.2 Proposed bucket reclassification (nodes present today)
 
-| node | §4.1 bucket | proposed | reason |
+| node | Â§4.1 bucket | proposed | reason |
 |---|---|---|---|
-| `test_spiral_grove_activity_runtime.py::test_runtime_is_mounted_by_the_capability_chamber` | — (file absent at `a26af408`) | CONTRADICTION | merge dropped the mount |
-| `…::test_chamber_preserves_sg03_downstream_boundary` | — | CONTRADICTION | same merge, same file |
-| `…::test_runtime_dispatches_all_eight_kinds_to_deterministic_renderers` | — | REAL_DEFECT | `activity-surface-*` never implemented |
-| `…::test_spiral_grove_uses_the_nexus_canonical_header` | — | STALE_ASSERTION | copy/header relocation — safe standalone repair |
+| `test_spiral_grove_activity_runtime.py::test_runtime_is_mounted_by_the_capability_chamber` | â€” (file absent at `a26af408`) | CONTRADICTION | merge dropped the mount |
+| `â€¦::test_chamber_preserves_sg03_downstream_boundary` | â€” | CONTRADICTION | same merge, same file |
+| `â€¦::test_runtime_dispatches_all_eight_kinds_to_deterministic_renderers` | â€” | REAL_DEFECT | `activity-surface-*` never implemented |
+| `â€¦::test_spiral_grove_uses_the_nexus_canonical_header` | â€” | STALE_ASSERTION | copy/header relocation â€” safe standalone repair |
 | `test_spiral_grove_chambers.py::test_chamber_does_not_invoke_autonomous_generation_or_adjudication` | STALE_ASSERTION | CONTRADICTION | inline `'Evidence is separate.'` vs mounted runtime |
 | `test_spiral_grove_frontend_projection.py::test_activity_draft_persistence_is_local_and_not_evidence` | STALE_ASSERTION | CONTRADICTION | inline surface expected, runtime mounted |
-| `test_spiral_grove_learning_path_projection.py::test_evidence_assessment_state_are_downstream` | — | CONTRADICTION | inline surface expected, runtime mounted |
+| `test_spiral_grove_learning_path_projection.py::test_evidence_assessment_state_are_downstream` | â€” | CONTRADICTION | inline surface expected, runtime mounted |
 
 Governance invariant unchanged: the chamber still does not autonomously generate or
 adjudicate (`generateExercise` / `createEvidence` both absent), and the SG-03 downstream
 boundary is still enforced by `test_ais_w5_evidence_capture.py` (`activity-draft.v1`,
-`activity.evidence_required`) — which **passes** on the pre-SG-04 shape that main actually
+`activity.evidence_required`) â€” which **passes** on the pre-SG-04 shape that main actually
 carries.
 
 ### 11.2.1 Correction (SH-02e, measured on `main` @ `df7a99a`)
 
-The §11.2 table is a **proposal from the `4164573` measurement**, not a live inventory.
-Re-measured at `df7a99a`, all three `STALE_ASSERTION → CONTRADICTION` reclassifications are
+The Â§11.2 table is a **proposal from the `4164573` measurement**, not a live inventory.
+Re-measured at `df7a99a`, all three `STALE_ASSERTION â†’ CONTRADICTION` reclassifications are
 **already resolved and green**:
 
-| node | §11.2 proposed | measured at `df7a99a` |
+| node | Â§11.2 proposed | measured at `df7a99a` |
 |---|---|---|
 | `test_spiral_grove_chambers.py::test_chamber_does_not_invoke_autonomous_generation_or_adjudication` | CONTRADICTION | **PASSES** |
 | `test_spiral_grove_learning_path_projection.py::test_evidence_assessment_state_are_downstream` | CONTRADICTION | **PASSES** |
 | `test_spiral_grove_frontend_projection.py::test_activity_draft_persistence_is_local_and_not_evidence` | CONTRADICTION | **PASSES** |
 
 This matters because the proposed remedy for those three rows was "align the test with the
-mounted runtime" — i.e. relax a boundary assertion. On the current shape the boundary
-assertions hold **as written**, so acting on the §11.2 remedy would replace passing
+mounted runtime" â€” i.e. relax a boundary assertion. On the current shape the boundary
+assertions hold **as written**, so acting on the Â§11.2 remedy would replace passing
 boundary guards with weaker ones for no gain. That is a silent regression of the
 autonomous-generation / downstream-evidence boundary, not test hygiene.
 
 **Rule for the SG-04 escalation:** the ungreen SG-04 set is now exactly the four nodes in
 `tests/test_spiral_grove_activity_runtime.py`
-(`…is_mounted_by_the_capability_chamber`, `…chamber_preserves_sg03_downstream_boundary`,
-`…dispatches_all_eight_kinds_to_deterministic_renderers`,
-`…uses_the_nexus_canonical_header`). Repairing those requires choosing between two activity
-surfaces in `web/public_prism/**` — still a **frontend capability change**, outside the
-test-only boundary and CP10 path-filtered. The escalation stands; the §11.2 bucket list must
+(`â€¦is_mounted_by_the_capability_chamber`, `â€¦chamber_preserves_sg03_downstream_boundary`,
+`â€¦dispatches_all_eight_kinds_to_deterministic_renderers`,
+`â€¦uses_the_nexus_canonical_header`). Repairing those requires choosing between two activity
+surfaces in `web/public_prism/**` â€” still a **frontend capability change**, outside the
+test-only boundary and CP10 path-filtered. The escalation stands; the Â§11.2 bucket list must
 be re-measured before it is acted on, and the three now-green nodes must **not** be touched.
 
 ### 11.3 Live-vs-ledger node drift (measured, `main` @ `4164573`)
@@ -575,20 +577,20 @@ be re-measured before it is acted on, and the three now-green nodes must **not**
 Measured fingerprint: **39 failed / 1018 passed / 13 skipped / 2 errors (41 nodes)**;
 `tests/architecture` **11/11**; `api/main.py` 2519 / 2600 lines.
 
-Diffing the live node list against §Appendix A's 51 rows (`comm`, by node **name**):
+Diffing the live node list against Â§Appendix A's 51 rows (`comm`, by node **name**):
 
-**18 ledger nodes now pass** — repaired by PRs #104→#128, plus `test_weaver_w5.py` ×2,
-`test_prism_pass_c_surface_ownership.py` ×6 (SH-02b), and
-`test_solariun_experience_consolidation_01.py` ×3.
+**18 ledger nodes now pass** â€” repaired by PRs #104â†’#128, plus `test_weaver_w5.py` Ã—2,
+`test_prism_pass_c_surface_ownership.py` Ã—6 (SH-02b), and
+`test_solariun_experience_consolidation_01.py` Ã—3.
 
-**4 live nodes absent from the ledger** (their suites post-date `a26af408`) — all fail
+**4 live nodes absent from the ledger** (their suites post-date `a26af408`) â€” all fail
 against `main`:
 
 | node | observed failure | classification |
 |---|---|---|
-| `test_solspire_r1_governance_convergence.py::test_r1_solspire_builders_delegate_to_weaver` | `AssertionError: 'mvp1-50c0ee9b89' == 'mvp1-r1-patch'` — `pass_id` not delegated | **REAL_DEFECT** |
-| `…::test_r1_weaver_governance_is_canonical` | `'execute_patch'` absent from `weaver/governance.py` | **REAL_DEFECT** |
-| `test_solspire_r2_github_mutation.py::test_legacy_commit_file_fails_closed_without_network_write` | `KeyError: 'code'` — `gh.commit_file` returns no `code` key | **REAL_DEFECT** (fail-closed **works**; error contract drifted) |
+| `test_solspire_r1_governance_convergence.py::test_r1_solspire_builders_delegate_to_weaver` | `AssertionError: 'mvp1-50c0ee9b89' == 'mvp1-r1-patch'` â€” `pass_id` not delegated | **REAL_DEFECT** |
+| `â€¦::test_r1_weaver_governance_is_canonical` | `'execute_patch'` absent from `weaver/governance.py` | **REAL_DEFECT** |
+| `test_solspire_r2_github_mutation.py::test_legacy_commit_file_fails_closed_without_network_write` | `KeyError: 'code'` â€” `gh.commit_file` returns no `code` key | **REAL_DEFECT** (fail-closed **works**; error contract drifted) |
 | `test_solspire_r3_execution_runtime.py::test_runtime_is_explicitly_non_governed_and_blocks_mutation_tools` | `PermissionError` raised synchronously; test expects a result dict with `code == "MUTATION_DISABLED"` | **REAL_DEFECT** (boundary holds; contract of *how* it refuses drifted) |
 
 These are three `recon/solspire-r0` forked-recon **file copies** whose workflows trigger only
@@ -599,9 +601,9 @@ bounded work).
 
 ### 11.4 CI observation (derived, not assumed)
 
-`actions/runs?head_sha=4164573586860b9c7e04e1815bca4957559046a2` → **5 runs**:
+`actions/runs?head_sha=4164573586860b9c7e04e1815bca4957559046a2` â†’ **5 runs**:
 `SG-02-FE.2-V` (push) **success**, `security-secret-scan` (push) **success**,
-`_diagnose_blank_frontend` (push) **success**, Arkadia Genesis Agent ×2 (issue_comment,
+`_diagnose_blank_frontend` (push) **success**, Arkadia Genesis Agent Ã—2 (issue_comment,
 skipped). So the merge *was* gated: both the CP10 mutation boundary and the full-history secret
 scan ran on it and passed.
 
@@ -609,7 +611,7 @@ scan ran on it and passed.
 > `4164573` and reported **0 runs**. That was wrong, and the error was silent: the GitHub
 > Actions API returns `total_count: 0` for an unresolved short SHA instead of failing. Query
 > with a **full 40-char SHA** (or `?branch=`), and read `0` as *unproven*, never as *absence*.
-> `solspire-r1/r2/r3` are the genuinely inert ones — they trigger only on `push` to
+> `solspire-r1/r2/r3` are the genuinely inert ones â€” they trigger only on `push` to
 > `recon/solspire-r0`, a branch `main` never receives.
 `solspire-r1/r2/r3` last ran on `recon/solspire-r0` (`aed112b`, `611f69e`, 2026-09-29) and are
 red; `weaver-mvp2-validation` last ran on a `pull_request` and passed.
@@ -644,19 +646,19 @@ PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q \
 
 `tests/architecture` **11/11**; `api/main.py` **2519 / 2600** lines; `py_compile` clean.
 
-**Attribution of the delta against §Appendix A's 51-row set** (`comm`, by node name):
+**Attribution of the delta against Â§Appendix A's 51-row set** (`comm`, by node name):
 
-- **30 live failures, all 30 present in Appendix A** — no unexplained regression.
+- **30 live failures, all 30 present in Appendix A** â€” no unexplained regression.
 - **21 Appendix A rows now pass**, including the two repaired here plus the
-  #128/#130/#131/#132 repair series and the §11.2.1 rows.
+  #128/#130/#131/#132 repair series and the Â§11.2.1 rows.
 - **8 live failures are absent from Appendix A**: the 4 `test_solspire_r{1,2,3}_*.py` nodes
-  already recorded in §11.3, and the 4 `test_spiral_grove_activity_runtime.py` nodes recorded
-  in §11.2/§11.2.1.
+  already recorded in Â§11.3, and the 4 `test_spiral_grove_activity_runtime.py` nodes recorded
+  in Â§11.2/Â§11.2.1.
 - **Proven pre-existing, not regressions.** All 8 were executed against a `4164573` worktree
   and fail there identically (`8 failed, 15 passed in 0.65s`). Appendix A's "cover the
-  baseline set exactly" claim is therefore **incomplete** — it under-counts the baseline set
+  baseline set exactly" claim is therefore **incomplete** â€” it under-counts the baseline set
   by these 8 nodes. Recorded here rather than edited into Appendix A, which is a frozen
-  `a26af408`-era artefact whose additions §11.2/§11.3 already carry.
+  `a26af408`-era artefact whose additions Â§11.2/Â§11.3 already carry.
 
 **Rows repaired in this batch (both `STALE_ASSERTION`):**
 
@@ -667,7 +669,7 @@ PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q \
 
 Both replaced symbols were confirmed **dead**, not merely relocated: `button-home-ais-diagnostic`
 and the old tagline appear nowhere in `web/` or `tests/` on current `main`, so the re-pin
-removes no live coverage. Node 1 was **renamed**, so its Appendix A name no longer resolves —
+removes no live coverage. Node 1 was **renamed**, so its Appendix A name no longer resolves â€”
 the rename *is* the repair, since a node cannot keep asserting a symbol that no longer exists.
 
 **Open delta recorded, not fixed (authority boundary).** The pre-K0.1 node additionally
@@ -679,13 +681,13 @@ hygiene. The re-pinned row pins the invariant (`meta.get("engine_cycle", 5) == 5
 the absence, so a legitimate future fix greens it instead of reddening it.
 
 **Status:** IMPLEMENTED (corrected classification + measured live drift; no runtime claim
-made). **Authority:** documentation/evidence only — no merge, no authorization, no identity
+made). **Authority:** documentation/evidence only â€” no merge, no authorization, no identity
 or authority-model change, no new mutation or authorization path. Human-merge-only.
 
 ## 12. Repair record - `SH-02d` (`tests/test_prism_interior_shell.py`, rows 10-12)
 
-> Section renumbered from `9` on re-base: `main` has since added its own §9 and §11, and the
-> append captured from the original branch would have produced two §9 headings. Base for
+> Section renumbered from `9` on re-base: `main` has since added its own Â§9 and Â§11, and the
+> append captured from the original branch would have produced two Â§9 headings. Base for
 > every number in this section is `main` `df7a99a`, re-measured here - the original branch
 > measured against `4164573` and its counts no longer bind.
 
@@ -718,7 +720,7 @@ Verification (evidence, not assertion) - all figures independently re-measured a
 | negative controls (mutation anchor confirmed applied) | 4 / 4 fired |
 | full suite vs clean `main` `df7a99a` | 32F/1025P/13S/2E -> **29F/1028P/13S/2E** |
 | nodes added (regressions) | **none** (`comm -13` empty) |
-| nodes removed (by name) | exactly rows 10, 11, 12 (3 nodes, Δ = -3) |
+| nodes removed (by name) | exactly rows 10, 11, 12 (3 nodes, Î” = -3) |
 
 Counts are compared by **node name**, not by count: the base run was repeated three times
 and yields an identical node set each time. One earlier baseline run reported `33 failed`
@@ -748,10 +750,10 @@ product or architectural decision, not a test edit.
 Superseded sibling: PR **#134** (`gate-hygiene/sh02d-prism-interior-shell`, tip `8d1c386`) was
 closed on re-base. Its test repair is byte-identical to this one; its ledger copy carries a
 duplicate `## 9.` heading and a dry-run merge into current `main` fails with a content
-conflict on this very file (its `main` predates the �11 correction pass).
+conflict on this very file (its `main` predates the §11 correction pass).
 
 Next bounded task: `SH-03` (`CapabilityChamber.tsx`) is the only remaining candidate that is a
-*contract-identifier* repair, but it is a merge **CONTRADICTION** per �11 and needs a product
+*contract-identifier* repair, but it is a merge **CONTRADICTION** per §11 and needs a product
 decision on the mount expectation before any re-pin. `SH-04`/`SH-06`/`SH-07`/`F-01` likewise
 need a decision. No second implementation, catalogue, or learner-state system may be created
 to satisfy any of them.
