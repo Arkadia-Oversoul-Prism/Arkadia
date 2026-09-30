@@ -100,6 +100,7 @@ Representative evidence:
 - `test_prism_interior_shell.py` (3) ‚Äî asserts `'Same identity ¬∑ same context ¬∑ same
   backend'` and `data-testid="prism-secondary-toggle"`. `grep` finds the former nowhere in
   `web/public_prism/src`; the shell now renders `ExperienceConsolidationFrame`.
+  **REPAIRED `SH-02d` (�12).**
 - `test_ais_w2_living_gate_grove_handoff.py` (6) ‚Äî five are copy/regex drift in
   `pages/LivingGate.tsx`: the test pins an exact `useState<FlowStep>(initialMode === 'reset'
   ? 'reset' : 'diagnostic')` expression that no longer matches, requires `'Open Spiral Grove'`
@@ -607,3 +608,76 @@ git worktree add /tmp/sg04wt 06ad5f2   # then run the SG-04 tests there
 made). **Authority:** documentation/evidence only — no merge, no authorization, no identity
 or authority-model change, no new mutation or authorization path. Human-merge-only.
 
+## 12. Repair record - `SH-02d` (`tests/test_prism_interior_shell.py`, rows 10-12)
+
+> Section renumbered from `9` on re-base: `main` has since added its own §9 and §11, and the
+> append captured from the original branch would have produced two §9 headings. Base for
+> every number in this section is `main` `df7a99a`, re-measured here - the original branch
+> measured against `4164573` and its counts no longer bind.
+
+Rows 10/11/12 were repaired as batch `SH-02d`. The three nodes were re-pointed at the
+NovaNet primary rail and secondary lens surfaces that `PrismInteriorShell` now owns, and
+the `testid="prism-secondary-toggle"` expectation was dropped: that disclosure control is
+now expressed as `aria-expanded={lensesOpen}` on the lens group and carries no `testid` in
+the component. No product capability is absent - this is the bucket's definition.
+
+Two things beyond a plain re-point:
+
+- **Vacuous pass closed.** `test_shell_exposes_canonical_primary_surfaces` asserted
+  `"'sci' in shell"`. `sci` is a substring of `science`, so the node could pass on any
+  shell file mentioning that word regardless of whether a `sci` surface existed. The
+  repaired node parses the `PRIMARY` rail and requires each key to be resolvable by
+  `activeSurfaceFor`.
+- **Prose that was never a literal.** A fourth failing assertion expected
+  `"Same identity / same context / same backend"` in the component. That sentence is the
+  node's own docstring - the invariant it names, not a string the shell ever rendered.
+  The repaired node asserts the structure that actually delivers the invariant
+  (`useAuth` + `data-testid="identity-persistence"` + `PrismInteriorShell` mounted inside
+  `ArkadiaNavigation`).
+
+Verification (evidence, not assertion) - all figures independently re-measured at `df7a99a`:
+
+| check | result |
+|---|---|
+| `pytest tests/test_prism_interior_shell.py -q` | 5 passed (was 0 passed / 3 failed) |
+| `pytest tests/architecture -q` | 11 passed |
+| negative controls (mutation anchor confirmed applied) | 4 / 4 fired |
+| full suite vs clean `main` `df7a99a` | 32F/1025P/13S/2E -> **29F/1028P/13S/2E** |
+| nodes added (regressions) | **none** (`comm -13` empty) |
+| nodes removed (by name) | exactly rows 10, 11, 12 (3 nodes, Δ = -3) |
+
+Counts are compared by **node name**, not by count: the base run was repeated three times
+and yields an identical node set each time. One earlier baseline run reported `33 failed`
+against the same tree - a single unreproduced flake, not attributable to this change and
+not present in any of the three node-name captures.
+
+The negative controls mutate the shell and confirm each repaired node still owns its
+invariant: drop the primary rail `testid`, the lens `aria-expanded`/`setLensesOpen`
+disclosure pair, the identity-persistence `testid`, or the `activeSurfaceFor` resolver
+entry for `commune` - each fails exactly the node that asserts it.
+
+`SH-03`/`SH-04`/`SH-06`/`SH-07`/`F-01` were deliberately **not** touched: each needs a
+product or architectural decision, not a test edit.
+
+### Persisted state (for heartbeat reconstruction)
+
+| field | value |
+|---|---|
+| base main | `df7a99a067382401c00de5e7bbaaac0125ba2088` (Merge PR #131) |
+| branch | `gate-hygiene/sh02d-prism-interior-shell-rebase-01` |
+| PR | **#135** |
+| baseline fingerprint | `32F / 1025P / 13S / 2E` + 2 collection errors (`test_autonomy.py`, `test_render_codex.py`) |
+| post-repair fingerprint | `29F / 1028P / 13S / 2E` (+ same 2 errors) |
+| architecture | 11/11 |
+| status | IMPLEMENTED - merge is the sovereign's decision |
+
+Superseded sibling: PR **#134** (`gate-hygiene/sh02d-prism-interior-shell`, tip `8d1c386`) was
+closed on re-base. Its test repair is byte-identical to this one; its ledger copy carries a
+duplicate `## 9.` heading and a dry-run merge into current `main` fails with a content
+conflict on this very file (its `main` predates the �11 correction pass).
+
+Next bounded task: `SH-03` (`CapabilityChamber.tsx`) is the only remaining candidate that is a
+*contract-identifier* repair, but it is a merge **CONTRADICTION** per �11 and needs a product
+decision on the mount expectation before any re-pin. `SH-04`/`SH-06`/`SH-07`/`F-01` likewise
+need a decision. No second implementation, catalogue, or learner-state system may be created
+to satisfy any of them.
