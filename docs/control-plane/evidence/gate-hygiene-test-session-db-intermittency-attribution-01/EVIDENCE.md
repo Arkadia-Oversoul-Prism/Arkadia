@@ -4,6 +4,12 @@
 > The one-line fix already exists on PR #144. This pass supplies the mechanism that
 > explains the intermittency PR #143 observed but could not attribute.
 
+> **Addendum — later re-verification pass.** A subsequent heartbeat re-ran the suite and
+> **observed the flip itself** (20 → 21), failing the single predicted node with the sidecar
+> paths visible in the assertion text. §4 records that observation; the attribution below is
+> unchanged, only strengthened from inferred to reproduced. Two citation defects in this
+> document (`tests/conftest.py` → root `conftest.py`) were also corrected in that pass.
+
 ## 1. Bounded objective
 
 Attribute the intermittent full-suite node
@@ -25,7 +31,8 @@ required — no merge, no push to `main`.
   not a boundary violation", **cause not identified**, proposed as its own workstream.
 - **PR #144** (`gate-hygiene/test-session-db-isolation-01`, head `09521d2`) adds
   `.gitignore:25 data/solspire_projects.db*` and `_sandbox_solspire_store()`
-  (`tests/conftest.py:70`) to stop the full suite materializing the canonical SolSpire store.
+  (`conftest.py:70` — repo root; no `tests/conftest.py` exists) to stop the full suite
+  materializing the canonical SolSpire store.
 
 ## 3. Root cause — the canonical store's SQLite sidecars
 
@@ -89,14 +96,42 @@ the pollution is order-dependent rather than deterministic.
 | full suite ×2, clean tree | `main` `002b189` | `20 failed / 1041 passed / 11 skipped / 2 errors` (both runs identical) |
 | full suite, pre-existing canonical store | `main` `002b189` | `20 failed / 1047 passed / 11 skipped / 2 errors` — **+6 passes, 0 new failures** |
 | full suite, clean tree | PR #144 `09521d2` | `20 failed / 1047 passed / 11 skipped / 2 errors`; **canonical store NOT created** |
+| full suite, clean tree (re-run, later pass) | `main` `002b189` | `20 failed / 1039 passed / 13 skipped / 2 errors` |
+| **full suite, clean tree — FLIP OBSERVED** | `main` `002b189` | **`21 failed`** / 1038 passed / 13 skipped / 2 errors |
+| full suite, clean tree | PR #144 `09521d2` | `20 failed` / 1045 passed / 13 skipped / 2 errors |
 | `tests/architecture` | `main` `002b189` | **11 passed** |
 | `python -m py_compile api/main.py` | `main` `002b189` | OK, 2519 lines (within the 2600 budget) |
 
-The 20 failures are **identical in name and count** across all four full-suite runs; the
-delta between the first two rows is a *pass-count* delta from ambient store state, not a
-failure delta. No run this pass reproduced 21 — the flip is order-dependent by nature; the
-mechanism is proven by the sidecar visibility experiment above, which does not depend on
-catching the race.
+The 20 failures are **identical in name and count** across every non-flipped full-suite run. The
+`passed + failed` total is constant at **1059** across the 20- and 21-failure runs, which is the
+signature of a single node flipping rather than tests being added or lost.
+
+### Live reproduction of the flip — the exact predicted node (new this pass)
+
+The flip was caught directly. Run 3 reported `20 failed`; run 4, same tree, same SHA, minutes
+later on a clean start, reported `21 failed`. The failing-node sets differ by **exactly one**
+node — the guard itself:
+
+```
+$ diff <run3 failing-node set> <run4 failing-node set>
+> tests/test_engineering_lab_agent_loop.py::test_agent_loop_does_not_mutate_repository
+```
+
+and that node's failure text is the sidecars, verbatim:
+
+```
+E       AssertionError: the agent loop must not mutate the repository
+E       assert ' M docs/cont...ects.db-wal\n' == ' M docs/cont...EVIDENCE.md\n'
+E         + ?? data/solspire_projects.db-shm
+E         + ?? data/solspire_projects.db-wal
+tests/test_engineering_lab_agent_loop.py:338: AssertionError
+```
+
+The guard's `before` snapshot already contained a `data/solspire_projects.db-wal` entry that the
+`after` snapshot did not — i.e. an *unrelated* test created the sidecar inside the guard's window.
+This closes the gap §4 previously had to leave open ("no run this pass reproduced 21"): the race
+is not merely inferred from visibility, it is now observed flipping the single predicted node.
+The node remains **absent from all three PR #144 runs and all three non-flipped main runs**.
 
 ## 5. Classification
 
@@ -115,7 +150,7 @@ All three open PRs are `MERGEABLE` / `CLEAN` against `main @ 002b189`, heads unc
 |---|---|---|---|
 | #142 | `59fbb531` | SH-05 gate-artifact provenance — docs only | none |
 | #143 | `7d79f38` | Gate-2 production parity — `AGENTS.md`, evidence, `scripts/gate2_backend_observation.py` | none |
-| #144 | `09521d2` | `.gitignore` + `tests/conftest.py` | none |
+| #144 | `09521d2` | `.gitignore` + `conftest.py` (repo root) | none |
 
 No file overlap between the three diffs — they are independently mergeable. **#144 is the
 highest-value merge for suite reliability** because it removes the guard's exposure to
