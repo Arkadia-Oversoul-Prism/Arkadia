@@ -19,7 +19,18 @@
   Contract rule 11 directs non-consequential follow-on work to a **separate bounded
   branch**; that is this branch. No duplicate of #143's work; its harness is reused
   as an oracle (§ below) rather than reimplemented.
-- **Publication:** PR opened — sovereign review. No merge, no force-push, `main` untouched.
+- **Publication:** PR **#154** opened (`gate-hygiene/production-health-route-provenance-01` →
+  `main`), body + glance comment posted. `draft=false`, `mergeable=MERGEABLE`,
+  `mergeStateStatus=CLEAN`, head `ebae6675`. Sovereign review; no merge, no force-push,
+  `main` untouched.
+- **CI on `ebae6675bdf472d82ccd484c23b50e574e8a33bf` (full SHA — see the abbreviated-SHA
+  trap below):** `security-secret-scan` → **success**. `Vercel Preview Comments` → success.
+  CP10 `sg-02-fe-2-v` did **not** run, and that is a *verified real absence*: its trigger is
+  path-filtered to `web/public_prism/**`, `spiral_grove/**`, `lab/**`, `api/lab_routes.py`
+  and named `tests/test_*` files — none match this change set (`api/main.py` +
+  `tests/test_production_health_route.py` + evidence docs). The boundary was therefore
+  verified **locally** with the same policy module CI executes
+  (`scripts/cp10_mutation_boundary_policy.py --judge` → PASS, exit 0).
 
 ## Fingerprint (measured this pass, not remembered)
 
