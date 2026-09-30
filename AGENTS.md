@@ -389,12 +389,26 @@ Gate 2 is open on production parity. Current main was established at `8f9d509ec4
   At main `002b189` this yielded deployment `6749238709` with
   **`ref == sha == 002b189dd95e...`** — i.e. Vercel deploys on the ref, so the record
   names the source SHA exactly. `commits/<sha>/status` also shows `Vercel / success`.
-- **The deployment-specific URL is behind Vercel Deployment Protection (SSO).**
-  `https://arkadia-prism-<id>-arkadia-prism.vercel.app` returns **302 → vercel.com/login**.
-  Its build output is not anonymously observable. This is the boundary that keeps Gate 2
-  open: `BLOCKED` on provider auth, not on repository work. Closing it needs a Vercel
+- **The deployment-specific URL is behind Vercel Deployment Protection (SSO).** The correct
+  host is **`environment_url` from `/deployments/<id>/statuses`** — at `002b189` that is
+  `https://arkadia-prism-ey2ozd5u4-arkadia-prism.vercel.app`, which returns **302 →
+  vercel.com/sso**. Do **not** build the URL from the deployment id: `environment_url` is
+  `null` on the deployment *record*, and the hostname segment (`ey2ozd5u4`) is a
+  provider-generated hash, not the id. Constructing `arkadia-prism-<id>-…vercel.app` yields
+  HTTP **404** and reads as "deployment missing" — a mis-diagnosis made and corrected in the
+  Pass 3 run. Its build output is not anonymously observable. This is the boundary that keeps
+  Gate 2 open: `BLOCKED` on provider auth, not on repository work. Closing it needs a Vercel
   credential, Deployment Protection relaxed, or a runtime observation from someone who has
   access. **Repeating the pass cannot convert BLOCKED/UNKNOWN into VERIFIED.**
+- **The alias→SHA binding is UNKNOWN *and immaterial* — do not chase it.** `git log -1 --
+  web/public_prism/ ':!web/public_prism/dist'` gives the last commit touching *any* frontend
+  build input (`b377a01`, 2026-09-29). **All 12** Production deployments on record are its
+  descendants, so all twelve compile byte-identical frontend source and the artifact
+  **cannot** discriminate between them. The alias→SHA fact stays unobservable, but
+  build↔source lineage does not depend on it. This is strictly stronger than a
+  `--since=<deploy time>` window, which only excludes divergence *after* one deployment.
+  Recorded so a future pass does not re-spend effort trying to extract a binding the build
+  cannot carry.
 - **The production alias is readable but does not close the chain by itself.** Vercel
   assigns the alias to the newest Production deployment — that is provider behaviour, not an
   observation, so alias→SHA stays `UNKNOWN` unless the deployment URL can be read.
@@ -429,8 +443,16 @@ Gate 2 is open on production parity. Current main was established at `8f9d509ec4
 - `web/public_prism/dist/` is **tracked but stale** — a build output in version control that
   drifts on every local build and is env-dependent. Do not commit a locally rebuilt copy;
   revert stray `dist/` modifications before staging (they are not your change).
+- **Gate-2 observation is now one read-only command — use it instead of repeating the manual
+  sequence.** `python scripts/gate2_production_observation.py` (add `--json` for machine
+  output). Stdlib-only, no Vercel credential, no mutation, never prints a token. It
+  re-derives every link from live evidence and prints the boundary classification. Two
+  trust properties: it **checks the marker list against source every run** (a literal gone
+  from `web/public_prism/src/` is reported as `stale_list` rather than counting 0 and
+  masquerading as a regression), and it **re-proves the ancestry closure** in §10.1 via live
+  `git merge-base --is-ancestor`. Run it before making any Gate-2 claim.
 - Evidence: `docs/control-plane/evidence/gate-hygiene-gate2-production-parity-02/`
-  (PR #143).
+  (PR #143; Pass 3 = §10, closure argument + harness).
 
 ## Test-suite fingerprint is UNSTABLE on main (attribute by name, not count)
 
