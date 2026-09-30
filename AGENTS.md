@@ -478,3 +478,20 @@ Gate 2 is open on production parity. Current main was established at `8f9d509ec4
   main carries ~20, the delta being the steward-filter carrier merged as `002b189`.
 - `python -m py_compile api/main.py` before committing boot-code changes; budget 2600
   (currently 2519).
+
+## Editing AGENTS.md — the diff lies about appends (gate-hygiene)
+- PR #143 showed *182 insertions / 83 deletions* for what was really a **pure append**
+  (`difflib.SequenceMatcher(autojunk=False)`: 58 equal-length `replace` blocks + one
+  99-line `insert`, zero `delete`). Every `replace` block had equal length on both sides
+  and became equal once non-ASCII was stripped — i.e. **83 pre-existing lines had only
+  their non-ASCII characters rewritten**. A tool that round-trips the file through a lossy
+  text pipeline does this silently; the line count grows, so it reads as "added content".
+- The corrupting transform is **LOSSY**: 13 distinct chars in `main` fall outside
+  `cp1252`, so `cp1250`/`iso8859_2`/`cp1251`/`mac_latin2`/`cp1254`/`cp1257`/`iso8859_4`/
+  `cp437`/`latin_1` all fail to reverse it. **Do not attempt a decode-based repair.** Take
+  the pre-existing region verbatim from `main` and append only the genuinely new lines.
+- Diagnose with the skeleton test, not the diff stat: `strip_non_ascii(a) == strip_non_ascii(b)`
+  over equal line counts ⇒ encoding-only change. That is the proof that wording is intact.
+- `main`'s own `AGENTS.md` already carries pre-existing mojibake (32× `тАФ`, 24× `тЖТ`).
+  Preserve it verbatim; repairing it is a separate bounded workstream, not incidental work.
+- Full write-up: `docs/control-plane/evidence/gate-hygiene-gate2-production-parity-02/AGENTS_ENCODING_REPAIR.md`.
