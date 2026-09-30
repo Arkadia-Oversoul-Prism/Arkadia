@@ -472,7 +472,28 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   observation, so alias→SHA stays `UNKNOWN` unless the deployment URL can be read.
 - **Asset-hash comparison is NOT a parity oracle, in either direction.** Build output is
   env-dependent: injecting `VITE_API_BASE_URL` changes the emitted hash with no source
-  change. A mismatch is not divergence; a match is not parity.
+  change. A mismatch is not divergence; a match is not parity. (Observed: deployed bundle
+  is 84,551 bytes larger than a clean local build of the same SHA.)
+- **Marker-set comparison IS a valid lineage oracle — use this instead of hashes.** Pick
+  string literals unique to a source file that must survive minification (testids, storage
+  keys, distinctive prose — they are runtime data, not identifiers), then fixed-string
+  `grep` them in the deployed asset. Include a **pre-change control** string that must be
+  absent. At `002b189` the deployed asset and a clean local build matched on **every**
+  marker and count, while the pre-SG-03 wording was absent from both — and
+  `git log -- web/public_prism/src/ --since=<deploy time>` showed zero commits, closing the
+  divergence window. Marker sets are robust to env injection; hashes are not.
+- **Verify a route from source, not from an HTTP status.** `App.tsx:51 resolvePath()`
+  matches `^/solariun(?:/([^/]+))?$` and accepts the segment only when
+  `SOLSPIRE_LENSES.has(candidate)`; `/solariun/opportunity-radar` is therefore a real lens
+  route. Because `vercel.json` rewrites everything to `/index.html`, a 200 proves nothing —
+  read the router. Marker `opportunity-radar` is present in the deployed bundle.
+- **`ActivityRuntime` (SG-04) is absent from the production bundle, not just from the test
+  assertions.** `activity-runtime-draft.v1:` → 0 occurrences in the deployed asset while
+  every SG-03 marker → 1. The SG-03 chamber rewrite displaced the SG-04 mount and that
+  carried to production. `tests/test_spiral_grove_activity_runtime.py` is **4F/8P** while
+  `tests/test_spiral_grove_chambers.py` is green. This is a real product regression
+  (tracked `gate-hygiene` / SH-02, Gate GATE-01), not a stale assertion — do not reclassify
+  it as stale. Not yet fixed: the repair is a product change outside Gate-2 hygiene scope.
 - **HTTP 200 on any route is not application correctness.** Root `vercel.json` rewrites
   `/(.*)` → `/index.html`, so a route that never existed (e.g. `/api/health`, per
   `git log -S`) returns `200 text/html` identically to any nonexistent path. Prior

@@ -10,7 +10,7 @@ Branch head at pass start: `002b189dd95e` (branched clean from main)
 | WS | Branch / PR | State |
 | --- | --- | --- |
 | SH-05 gate-artifact provenance | `gate-hygiene/sh05-gate-artifact-provenance-01`, PR #142 | EXHAUSTED — see §3 |
-| Gate-2 production parity | `gate-hygiene/gate2-production-parity-02` (this branch) | PARTIAL — deployment identity VERIFIED, observation BLOCKED |
+| Gate-2 production parity | `gate-hygiene/gate2-production-parity-02` (this branch), PR #143 | PARTIAL — deployment identity + build↔source lineage VERIFIED; provider observation still BLOCKED |
 
 ## 1. Baseline fingerprint recorded at pass start
 
@@ -128,9 +128,42 @@ this change set.
 Reconstruct from live evidence. The Gate-2 chain is now:
 
 ```
-main SHA ✓ → deployment SHA ✓ → deployment observation ✗ BLOCKED → alias binding ? → UI/runtime ? → acceptance (human)
+main SHA ✓ → deployment SHA ✓ → build↔source lineage ✓ → route resolution ✓
+  → deployment observation ✗ BLOCKED → alias binding ? → UI/runtime ? → acceptance (human)
 ```
 
 Resume at the first unresolved link. If no Vercel credential has been supplied, the
 observation link stays BLOCKED and no further Gate-2 progress is possible — proceed with
 P-2 instead.
+
+## 7. Pass 2 update (same branch, same PR)
+
+Full detail in `EVIDENCE.md` §8–§9. Summary:
+
+- **New VERIFIED link: build↔source lineage.** The deployed asset carries discriminating
+  source-string markers from current main (`separate explicit downstream stages`,
+  `activity-draft.v1:`, `learning-activity-work-surface`, `sg03-contract-boundary`,
+  `solspire-object-summary`, `opportunity-radar`), and a clean local build of `002b189`
+  matches it **on every marker and count**. The pre-SG-03 control string is absent from
+  both. `git log` shows **zero** commits under `web/public_prism/src/` since the production
+  deployment was created (`2026-09-30T00:23:16Z`), so there is no divergence window.
+- **New VERIFIED link: route resolution.** `/solariun/opportunity-radar` resolves via
+  `App.tsx:51 resolvePath()` against `SOLSPIRE_LENSES`; the lens registry is present in the
+  deployed bundle. This is a source-level proof, not a browser observation.
+- **Unchanged BLOCKED:** deployment-specific build observation (Vercel SSO) and the
+  alias→SHA binding. These need the provider credential in §6 — no repetition closes them.
+- **Fingerprint this pass:** architecture 11/11, gate integrity 49/49, full suite
+  **20 failed / 1039 passed / 13 skipped / 2 collection errors**, `py_compile` OK,
+  `api/main.py` 2519 lines. Stable at the low end of pass 1's `20–21`; no new regression.
+- **SG-04 (`ActivityRuntime`) is now bound to the deployed artifact**, not just to the test
+  file: `activity-runtime-draft.v1:` is absent from the production bundle while every SG-03
+  marker is present. That upgrades it from "possibly stale assertion" to **real product
+  regression carried to production**. Still deliberately unfixed here — it is a product
+  change outside Gate-2 hygiene scope. Tracked under `gate-hygiene` / SH-02, Gate GATE-01.
+
+### Standing caution (re-affirmed, now with a workaround)
+
+Hash comparison is not a parity oracle — the deployed bundle is 84,551 bytes larger than a
+clean local build because Vercel injects env vars at build time. **Marker-set comparison is**
+robust to that injection and is the oracle to use for future lineage checks. Do not fall
+back to hash equality.
