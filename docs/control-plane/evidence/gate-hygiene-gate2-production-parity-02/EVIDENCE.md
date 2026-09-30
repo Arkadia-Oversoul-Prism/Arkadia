@@ -185,6 +185,16 @@ A clean local build of `002b189` (`pnpm build`, assets `index-C2whHMVB.css` /
 `index-xiYlcBh3.js`, 1,941,274 bytes) tested **identically on every marker** — same
 presence set, same counts.
 
+**Count convention (read this before comparing against §10).** The counts above are
+`grep -c` — *matching lines*, not occurrences. The minified bundle is a handful of very
+long lines, so a marker repeated on one line counts once here and several times in the
+occurrence-counting harness in §10. The two sets are consistent, not divergent:
+`solspire-object-summary` is **3 lines / 6 occurrences** and `opportunity-radar` is
+**2 lines / 4 occurrences**. Only the presence/absence contrast is load-bearing (a marker
+that must be present vs. the pre-SG-03 control that must be absent); the magnitudes are
+reported for reproducibility, so a future pass must not read a count difference between
+these two sections as evidence of drift.
+
 ### 8.3 What this does and does not establish
 
 **Does establish.** The production deployment serves a build whose source is at or after

@@ -1,4 +1,4 @@
-# Arkadia тАФ Agent Memory
+# Arkadia čéąÉąż Agent Memory
 
 ## Architecture overview
 - **Backend**: `api/main.py` (FastAPI, 2600+ lines). Endpoints: `/api/commune/resonance`
@@ -9,26 +9,26 @@
   Global `SonataBar` mounted once in `App.tsx`. Oracle Chat = `components/ArkanaCommune.tsx`
   (full canvas: `MarkdownViewer` + `OracleVoicePlayer` per message). ReasoMate = `pages/ReasoMatePage.tsx`.
 - **Key stores** (3 separate JSON files in `data/`):
-  - `api/key_manager.py` тЖТ `data/api_keys.json` (multi Gemini keys, rotation on 429)
-  - `api/provider_key_store.py` тЖТ `data/provider_keys.json` (one key/provider: gemini/openai/claude/deepseek)
-  - `api/tts_key_manager.py` тЖТ `data/tts_keys.json` (multi TTS/ElevenLabs keys)
-  - `api/user_key_store.py` тЖТ Firestore (per-user keys) with in-memory fallback
-- **TTS**: `kernel/tts.py`. Priority: ElevenLabs (needs key) тЖТ Edge TTS (free) тЖТ Piper.
-  ElevenLabs key resolver: `ELEVENLABS_API_KEY` env тЖТ `tts_key_manager`. Rotate on 429.
-- **Oracle spine**: `api/oracle_spine.py` тАФ shared by Oracle Chat, ReasoMate, NovaNet.
+  - `api/key_manager.py` čéą¢ąó `data/api_keys.json` (multi Gemini keys, rotation on 429)
+  - `api/provider_key_store.py` čéą¢ąó `data/provider_keys.json` (one key/provider: gemini/openai/claude/deepseek)
+  - `api/tts_key_manager.py` čéą¢ąó `data/tts_keys.json` (multi TTS/ElevenLabs keys)
+  - `api/user_key_store.py` čéą¢ąó Firestore (per-user keys) with in-memory fallback
+- **TTS**: `kernel/tts.py`. Priority: ElevenLabs (needs key) čéą¢ąó Edge TTS (free) čéą¢ąó Piper.
+  ElevenLabs key resolver: `ELEVENLABS_API_KEY` env čéą¢ąó `tts_key_manager`. Rotate on 429.
+- **Oracle spine**: `api/oracle_spine.py` čéąÉąż shared by Oracle Chat, ReasoMate, NovaNet.
   ONE INTELLIGENCE SPINE, MANY INTERFACES. Memory via `knowledge/context_engine.py`.
 - **Gemini call**: `api/main.py::_gemini_chat` iterates `GEMINI_MODELS` on 429 but does
   NOT rotate keys. SolSpire (`solspire/provider_manager.py`) does key rotation independently.
 
 ## Key conventions
 - Frontend API base: import from `lib/apiConfig.ts` (`API_BASE`). Many older files use
-  `import.meta.env.VITE_API_URL` тАФ that's a stale path; `apiConfig` is canonical.
+  `import.meta.env.VITE_API_URL` čéąÉąż that's a stale path; `apiConfig` is canonical.
 - Markdown rendering: `components/MarkdownViewer.tsx` (react-markdown + remark-gfm).
 - Voice: `components/OracleVoicePlayer.tsx` publishes to `lib/voiceContext.ts`;
   `components/SonataBar.tsx` subscribes + drives `lib/audioManager.ts` (singleton audio el).
   Cache via `lib/audioCache.ts` (IndexedDB).
-- Architectural debt is tracked in `tests/architecture/LAYER_MAP.py` тАФ kernelтЖТapi and
-  providersтЖТapi imports are REGISTERED DEBT (allowed but flagged). Do not add new ones
+- Architectural debt is tracked in `tests/architecture/LAYER_MAP.py` čéąÉąż kernelčéą¢ąóapi and
+  providersčéą¢ąóapi imports are REGISTERED DEBT (allowed but flagged). Do not add new ones
   without registering.
 
 ## Build/test
@@ -39,18 +39,18 @@
 ## Voice/TTS notes
 - `OracleVoicePlayer` defaults voice to the GLOBAL `voicePref` (lib/voicePref.ts,
   persists to localStorage `arkadia_voice_pref`). Switching voice in any player
-  updates the pref everywhere тАФ OracleVoicePlayer, ScrollListenButton, and the
+  updates the pref everywhere čéąÉąż OracleVoicePlayer, ScrollListenButton, and the
   SonataBar all subscribe. On first ElevenLabs activation it auto-promotes to
   the aetheric "Aetheria" voice.
 - **Aetheria** (`kernel/tts.py` VOICES["aetheria"]) is the dedicated Oracle
   voice: emotional depth + calming resonance. ElevenLabs voice_settings are
   tuned per-voice via `_voice_settings()`: aetheria uses stability 0.32, style
   0.48 (more variation + expressiveness); standard voices use 0.45 / 0.10.
-  Aetheria is marked `requires_elevenlabs` тАФ without a key it falls back to
-  Edge TTS Aria (robotic) and the UI flags it with ЁЯФТ.
+  Aetheria is marked `requires_elevenlabs` čéąÉąż without a key it falls back to
+  Edge TTS Aria (robotic) and the UI flags it with ąüą»ążąó.
 - ElevenLabs is only attempted if `ELEVENLABS_API_KEY` env OR `tts_key_manager`
-  has a key. If you hear a robotic voice, no ElevenLabs key is configured тАФ
-  add one in Settings тЖТ TTS Keys and the engine switches automatically.
+  has a key. If you hear a robotic voice, no ElevenLabs key is configured čéąÉąż
+  add one in Settings čéą¢ąó TTS Keys and the engine switches automatically.
 - Voice switching UI: `OracleVoicePlayer` has "Change voice" dropdown;
   `ScrollListenButton` has a compact voice-name dropdown next to the Listen
   button on every scroll surface. Both persist globally.
@@ -63,24 +63,24 @@
   `report_success(key)` clears the cooldown. `pool_snapshot()`/`reset_all()` power the
   Settings UI. Key sources (union): `provider_key_store["gemini"]` + `key_manager` +
   `GEMINI_API_KEY`/`GOOGLE_API_KEY` env.
-- **CRITICAL**: `report_failure` must NOT call `acquire_key()` (non-reentrant lock тЖТ
+- **CRITICAL**: `report_failure` must NOT call `acquire_key()` (non-reentrant lock čéą¢ąó
   deadlock). It calls `_acquire_key_locked()` instead. A deadlock here was found+fixed
   via `tests/test_key_pool.py`.
 - Routing: `_gemini_chat`, `/commune/resonance`, CEO chat, and `solspire/provider_manager`
   all go through `key_pool.acquire_key()`. SolSpire falls back to local candidates only if
   the pool module is unavailable (older deploys).
-- `api/tts_key_manager.get_active_key()` is now round-robin too тАФ concurrent "Read aloud"
+- `api/tts_key_manager.get_active_key()` is now round-robin too čéąÉąż concurrent "Read aloud"
   requests distribute across all ElevenLabs keys rather than pinning one active key.
 
 ## Read-aloud (Listen) rollout
-- `components/ScrollListenButton.tsx` тАФ reusable read-aloud for any scroll/note content.
+- `components/ScrollListenButton.tsx` čéąÉąż reusable read-aloud for any scroll/note content.
   Uses the SAME audio infra as Oracle Chat (`audioManager` + `voiceContext` + `audioCache`)
   so the global `SonataBar` surfaces everywhere. Strips markdown before TTS.
 - Wired into: `ReasoMatePage` (OracleVoicePlayer per Arkana reply + MarkdownViewer),
   `SpiralCodexFeed`, `NexusSpiralCodex`, `PersonalCodex` (soul function),
   `PersonalEchofeild` (captures), `ChamberView` (chapter verses + excerpt).
 - `ReasoMatePage` now renders Arkana replies through `MarkdownViewer` (canvas display),
-  not raw markdown тАФ matches Oracle Chat.
+  not raw markdown čéąÉąż matches Oracle Chat.
 
 ## Settings (multi-key)
 - `SettingsPage` has a "Gemini Key Pool" section using the legacy `/api/keys` multi-key
@@ -88,73 +88,73 @@
   keys use `/api/tts/keys` (already existed). Add 3+ of each so the pools never exhaust.
 
 ## NovaNet = Nexus Hub unification + navigation restructure
-- **NovaNet IS the Nexus Hub** тАФ not separate pages. `novanet` route renders `NexusPage`,
+- **NovaNet IS the Nexus Hub** čéąÉąż not separate pages. `novanet` route renders `NexusPage`,
   which hosts every surface as a tab: NovaNet (social feed + Stellar Cartography header),
   Echofeild Matrix, ReasoMate, SolSpire, Offerings, IMS, Encyclopedia, Grove, Larder,
   Distribute. The old standalone `nexus` view aliases the same hub.
-- **Personal Echofeild IS the Personal Codex** тАФ not separate pages.
+- **Personal Echofeild IS the Personal Codex** čéąÉąż not separate pages.
   `PersonalEchofeild` renders `<PersonalCodex />` as its identity layer, then appends the
   living projects + knowledge-graph feed + Crystal Matrix aggregation stats below it. The
-  `UniversalEchofeildMatrix` tabs both halves (public Spiral Codex тЖФ personal Echofeild)
-  over the same data substrate тАФ one spine, two windows.
-- **Echofeild тЖТ echoes endpoint тЖТ SolSpire/KnowledgeOS via Crystal Matrix**: `/api/echoes`
+  `UniversalEchofeildMatrix` tabs both halves (public Spiral Codex čéą¢ąż personal Echofeild)
+  over the same data substrate čéąÉąż one spine, two windows.
+- **Echofeild čéą¢ąó echoes endpoint čéą¢ąó SolSpire/KnowledgeOS via Crystal Matrix**: `/api/echoes`
   returns public + personal scroll entries tagged with resonance scores + Crystal-Matrix
   metadata (dimensions: resonance, priority, preference, personalisation). Both halves of
   the Echofeild feed through this single pipe so the SolSpire console and Knowledge OS
   consume one stream. Personal entries are injected client-side (auth-gated Knowledge OS
-  graph + SolSpire projects) тАФ the endpoint holds no private data server-side.
-- **Navigation**: vertical drawer (`ArkadiaNavigation`) reduced to the six anchors only тАФ
+  graph + SolSpire projects) čéąÉąż the endpoint holds no private data server-side.
+- **Navigation**: vertical drawer (`ArkadiaNavigation`) reduced to the six anchors only čéąÉąż
   Home, Oracle, Living Gate, NovaNet, About, Settings. There is **no** second global
   horizontal nav bar; the Nexus hub's own tab strip (inside Novanet/NexusPage) IS the
   horizontal navigation. Personal Codex was removed from the vertical drawer (it is reached
   via the Personal Echofeild / SolSpire inside the hub).
 
 ## Stellar Cartography (Encyclopedia Galactica living star date)
-- `kernel/stellar.py` тАФ pure-python celestial readout, decoupled from `api.main` (no
+- `kernel/stellar.py` čéąÉąż pure-python celestial readout, decoupled from `api.main` (no
   httpx/fastapi import) so it loads standalone and in tests. Exposed at
   `/api/stellar-cartography`.
 - Returns: Ark Date, Schumann resonance (7 bands + dominant), lunar phase (illumination +
   glyph + folk name), planetary sky / "bone report" (simplified mean-longitude ephemeris for
-  Sun/Moon/Mercury/Venus/Mars/Jupiter/Saturn тЖТ zodiac), cosmic weather (solar wind, Kp
+  Sun/Moon/Mercury/Venus/Mars/Jupiter/Saturn čéą¢ąó zodiac), cosmic weather (solar wind, Kp
   index, geomagnetic pressure + mood), Oversoul blind-pull Oracle transmission (rotated by
   Ark Day so each day has its own), and the Encyclopedia Galactica volume index.
 - `components/StellarCartography.tsx` renders the readout (always-on primary readout +
   expandable full atlas) with a `ScrollListenButton` on the Oversoul transmission. Mounted
   at the top of `NovaNetPage` AND as the Encyclopedia Galactica header in
   `NexusSpiralCodex` (replacing the minimal ark-date + lunar chip there).
-- Replaces the minimal "Ark Y1 ┬╖ D140" phrase with a full encyclopedia galactica readout.
+- Replaces the minimal "Ark Y1 Ōö¼ŌĢ¢ D140" phrase with a full encyclopedia galactica readout.
 - Tests: `tests/test_stellar_cartography.py` (10 tests).
 
-## Document upload тАФ public vs personal (separate fields)
+## Document upload čéąÉąż public vs personal (separate fields)
 
 Two distinct upload fields. **Public** uploads go to the shared Spiral Codex
 corpus (visible to all readers + Arkana RAG). **Personal** uploads go to the
-authenticated node's private Knowledge OS vault тАФ never the public scroll store.
+authenticated node's private Knowledge OS vault čéąÉąż never the public scroll store.
 
-- `kernel/doc_extract.py` тАФ shared text-extraction helper
+- `kernel/doc_extract.py` čéąÉąż shared text-extraction helper
   (`extract_text(file_name, raw) -> (text, mime_type)`) for PDF/DOCX/TXT/MD/HTML/JSON.
   Used by all three upload routes so extraction logic is not duplicated. Tests:
   `tests/test_doc_extract.py` (12 tests).
 - **PUBLIC** routes (in `api/main.py`):
-  - `POST /api/codex/upload` тАФ multipart file тЖТ extracts text тЖТ stores as a PUBLIC
+  - `POST /api/codex/upload` čéąÉąż multipart file čéą¢ąó extracts text čéą¢ąó stores as a PUBLIC
     direct scroll in the Spiral Codex (`direct_scrolls.json`).
-  - `POST /api/scrolls` тАФ text/markdown scroll тЖТ PUBLIC direct scroll.
-  - `DELETE /api/scrolls/{id}` / `GET /api/scrolls` тАФ manage public scrolls.
-  - UI: `NexusSpiralCodex` `ScrollUploadModal` тАФ two modes ("Upload document" +
+  - `POST /api/scrolls` čéąÉąż text/markdown scroll čéą¢ąó PUBLIC direct scroll.
+  - `DELETE /api/scrolls/{id}` / `GET /api/scrolls` čéąÉąż manage public scrolls.
+  - UI: `NexusSpiralCodex` `ScrollUploadModal` čéąÉąż two modes ("Upload document" +
     "Write scroll"), clearly labeled "PUBLIC corpus". Lives on the Encyclopedia
     Galactica / Spiral Codex.
 - **PERSONAL** routes (in `api/main.py`):
-  - `POST /api/personal/ingest-file` тАФ multipart file тЖТ extracts text тЖТ ingests
+  - `POST /api/personal/ingest-file` čéąÉąż multipart file čéą¢ąó extracts text čéą¢ąó ingests
     through `knowledge.pipeline.ingest` into the private vault (embeddings, graph,
     timeline). No public scroll write.
-  - `POST /api/personal/ingest-note` тАФ quick text capture тЖТ private vault.
-  - UI: `components/PersonalUploadZone.tsx` тАФ file dropzone + quick-capture
+  - `POST /api/personal/ingest-note` čéąÉąż quick text capture čéą¢ąó private vault.
+  - UI: `components/PersonalUploadZone.tsx` čéąÉąż file dropzone + quick-capture
     textarea, mounted in `PersonalEchofeild`. Labeled "private Knowledge OS vault".
 - **SolSpire project file attachments** (`solspire/console_router.py`):
-  - `POST /solspire/projects/{id}/files/upload` тАФ multipart file тЖТ extracts text тЖТ
+  - `POST /solspire/projects/{id}/files/upload` čéąÉąż multipart file čéą¢ąó extracts text čéą¢ąó
     stored as an editable project file (`project_files` table) AND best-effort
     ingested into the Knowledge OS graph. UI: `ProjectDashboard` Files tab has an
-    "тмЖ Attach file" button (PDF/DOCX/TXT/MD) alongside the existing "+ New file"
+    "čéą╝ą¢ Attach file" button (PDF/DOCX/TXT/MD) alongside the existing "+ New file"
     markdown editor.
 - **Project creation** (`SolSpireConsole.tsx` `createProject`) now wraps the
   POST in try/catch and surfaces a visible error + keeps the form open so a
@@ -164,22 +164,22 @@ authenticated node's private Knowledge OS vault тАФ never the public scroll s
 ## P1-A production recovery (2026-08-25)
 - `cd24bb1` shipped a **SyntaxError** in `api/main.py` (line ~312): the ReasoMate
   messages-router mount was nested inside the Knowledge OS `try:` block, leaving the outer
-  `try` with no `except`. Every Render deploy of `cd24bb1`+ failed at boot тЖТ production
+  `try` with no `except`. Every Render deploy of `cd24bb1`+ failed at boot čéą¢ąó production
   pinned to the last healthy pre-P1-A image. Misdiagnosed earlier as "deployment lag".
 - Fix in commit `63c3a65` (two clean try/except blocks), pushed to `main` (`f0fdf72`).
   NOTE: the env GITHUB_TOKEN is read-only for this repo (git push + Contents API all 403);
-  a user-supplied `ghp_тАж` PAT with Contents:write was needed to push.
-- Full diagnosis + verbatim patch: `docs/verification/P1-A_FINAL.md` ┬з2.
+  a user-supplied `ghp_čéąÉąČ` PAT with Contents:write was needed to push.
+- Full diagnosis + verbatim patch: `docs/verification/P1-A_FINAL.md` Ōö¼ąĘ2.
 - Lesson: `python -m py_compile api/main.py` before every commit that touches boot code;
   Render boot failure (not deploy lag) is the first hypothesis when routes go stale.
 
-## Engineering Lab тАФ native agent execution substrate (EL-01 тЖТ EL-10)
+## Engineering Lab čéąÉąż native agent execution substrate (EL-01 čéą¢ąó EL-10)
 - Package `lab/engineering_lab/` (layer 2, registered in `tests/architecture/LAYER_MAP.py`).
   Gives the Lab governed *hands* without authority: bounded sandbox execution,
   agent/session/run models, live event stream, durable store, provider-neutral model
   gateway, artifact canvas, automations, Google adapters, Android projection, voice boundary.
 - API surface lives in `api/lab_routes.py` (prefix `/api/lab`, 23 routes), mounted via the
-  already-composed `api/nodes` router тАФ **never** add to `api/main.py` (2600-line budget).
+  already-composed `api/nodes` router čéąÉąż **never** add to `api/main.py` (2600-line budget).
 - Persistence reuses the canonical shared SQLite DB (`data/solspire_projects.db`, env
   `SOLSPIRE_PROJECTS_DB`) with new `el_*` tables. Identity is always the verified Firebase
   uid (`subject_ref`); reads are owner-scoped.
@@ -194,33 +194,33 @@ authenticated node's private Knowledge OS vault тАФ never the public scroll s
   surface it is composed with (`api.ais_profile`, `api.lab_routes`). It exposes
   `configure_routers(ais_profile_router, lab_router)`; the composition root `api/main.py`
   injects them **before** `app.include_router(_nodes_router)` (FastAPI copies routes at
-  include time тАФ order is load-bearing).
+  include time čéąÉąż order is load-bearing).
 - This mirrors the tools-counter pattern (`configure_tools_counter`, Pass 06). The literal
   `router.include_router(_ais_profile_router)` is intentionally kept in `nodes.py` because
   `tests/test_ais_w8_canonical_identity.py` asserts it.
 - Guard: `tests/test_nodes_composition_seam.py`. Do not "fix" a layer inversion by editing
   `REGISTERED_ARCHITECTURAL_DEBT` unless deferral is genuinely required and justified by an
-  ADR тАФ the freeze rule says fix the import. Reclassifying `api/nodes.py` to layer 1 changes
+  ADR čéąÉąż the freeze rule says fix the import. Reclassifying `api/nodes.py` to layer 1 changes
   the orthogonal identity group and is constitutional (needs ADR).
 
 ## Experience composition: the Solariun thread (SOLARIUN-THREAD-01)
-- The chain `identity → workspace → event → proposal → authority → execution → evidence →
-  knowledge → verification` is held by the backend, but the UI historically presented it as
+- The chain `identity ŌåÆ workspace ŌåÆ event ŌåÆ proposal ŌåÆ authority ŌåÆ execution ŌåÆ evidence ŌåÆ
+  knowledge ŌåÆ verification` is held by the backend, but the UI historically presented it as
   unlinked panels. `SolariunHomeCockpit` now takes a bounded
   `onNavigate?: (t: 'weaver'|'engineering-lab'|'knowledge') => void` and renders "Follow the
   thread"; `SolSpireExperience.LensContent` passes `onThreadTarget={selectSection}` (existing
-  lens state — no new router, no `View` union change). Guard:
+  lens state ŌĆö no new router, no `View` union change). Guard:
   `tests/test_solariun_thread_navigation_01.py`.
 - Known gaps (do not fake them): Weaver is project-scoped only; enterprise state
   (`/solspire/enterprise/workspaces`) is reachable only from `EnterpriseConsole`, not Home;
-  Lab and Weaver share no identifier. A workspace-level proposal→run→evidence thread needs a
+  Lab and Weaver share no identifier. A workspace-level proposalŌåÆrunŌåÆevidence thread needs a
   backend identifier that does not yet exist at that scope.
 - Frontend tests in this repo are largely **source-level string assertions** against `.tsx`
   files (`tests/test_solariun_*.py`, `test_solspire_*`, `test_prism_pass_c_*`); follow that
   convention. `vite build` is environment-blocked (no npm registry access), so changes are
   inspection-verified only unless the sandbox has `node_modules`.
 
-## Repo hygiene тАФ private vault is gitignored (GATE-VAULT)
+## Repo hygiene čéąÉąż private vault is gitignored (GATE-VAULT)
 - `vault/` (Knowledge OS private vault runtime output) is gitignored via `vault/**`
   with tracked scaffolding preserved (`!vault/**/`, `!vault/**/.gitkeep`,
   `!vault/Index/README.md`, `!vault/Templates/**`). A generated vault note is no longer
@@ -233,88 +233,88 @@ authenticated node's private Knowledge OS vault тАФ never the public scroll s
   with those the suite yields exactly the documented 2 collection errors (pre-existing:
   `test_autonomy.py` `load_autonomy_config`, `test_render_codex.py` `arkadia_drive_sync`).
 
-## CP10 mutation boundary — the allowlist is an inventory, not a filter (GATE-10)
+## CP10 mutation boundary ŌĆö the allowlist is an inventory, not a filter (GATE-10)
 - `SG-02-FE.2-V` gates every PR *and* `main`. Its allowlist admits legitimate repository
   surfaces; anything unmatched is reported as "Unexpected path outside legitimate repository
   surfaces" and fails the job. The allowlist was repeatedly an incomplete inventory of what the
-  repository actually tracks, so ordinary commits turned the gate red — it failed on `main` at
+  repository actually tracks, so ordinary commits turned the gate red ŌĆö it failed on `main` at
   `d48ad0e` and `a26af408`. Omissions so far: root narrative docs (PR #97, #104), `conftest.py`,
-  `knowledge/` (#109), `spiral_grove/` (which this workflow itself triggers on — a gate that
+  `knowledge/` (#109), `spiral_grove/` (which this workflow itself triggers on ŌĆö a gate that
   rejects the branch it watches), and ~25 tracked trees nobody had enumerated.
 - **The invariant, not the list:** every path in `git ls-files` must be admitted by the policy
   module. `tests/test_m02a_ci_gate_integrity.py` asserts this against the live tracked corpus, so
-  a new omitted surface fails in CI instead of on `main`. (A second invariant — that a workflow
-  mirror agreed with the policy module — no longer applies; the mirror is gone.)
+  a new omitted surface fails in CI instead of on `main`. (A second invariant ŌĆö that a workflow
+  mirror agreed with the policy module ŌĆö no longer applies; the mirror is gone.)
 - The gate's teeth are the `forbid` stage (constitutional `SolSpireExperienceV2/V3.tsx`) and the
-  rejection of **unknown** roots — not scarcity of the admit-list. Do **not** try to tighten the
+  rejection of **unknown** roots ŌĆö not scarcity of the admit-list. Do **not** try to tighten the
   boundary by removing surfaces the repository genuinely tracks; that only reddens `main`. Root
   docs stay matched by `[^/]+\.md$` (anchored, no `/`), so nested markdown resolves through its
   own directory prefix. `vault/` admits its tracked scaffold only (`Index/`, `Templates/`,
-  `[A-Za-z]+/.gitkeep`) — generated notes stay outside.
+  `[A-Za-z]+/.gitkeep`) ŌĆö generated notes stay outside.
 - **The allowlist is written once.** `scripts/cp10_mutation_boundary_policy.py` (`LEGIT`) is the
   only copy; the workflow pipes `git diff --name-only` into
   `python scripts/cp10_mutation_boundary_policy.py --judge` and fails on a non-zero exit. The
   gate therefore executes the same code the fitness tests prove. (It used to keep a second,
   inline `legit=` regex in `sg-02-fe-2-v.yml`; the two had drifted, so the executed decision and
   the proven decision could disagree. That duplication was removed in the
-  `gate10/cp10-delegated-boundary-judge` pass — see
+  `gate10/cp10-delegated-boundary-judge` pass ŌĆö see
   `docs/control-plane/evidence/gate10-cp10-delegated-boundary-judge/EVIDENCE.md`. Do not
   reintroduce a shell-side copy: `tests/test_m02a_ci_gate_integrity.py` asserts its absence.)
 - When this gate goes red, read the offending path list first: a path that is plainly
   legitimate work means the allowlist is wrong, not the commit. Classify it as an allowlist
-  omission and fix the policy + workflow together — do not weaken the gate, and do not
+  omission and fix the policy + workflow together ŌĆö do not weaken the gate, and do not
   reclassify `REGISTERED_ARCHITECTURAL_DEBT` to make it pass.
 - `api/main.py` is untouched by this workstream and stays under the 2600-line budget (2519).
   Run `python -m py_compile api/main.py` before committing anything that touches boot code.
 
-## Secret scan — the job scans a RANGE, not a tree (gate-hygiene)
+## Secret scan ŌĆö the job scans a RANGE, not a tree (gate-hygiene)
 - `security-secret-scan` ("Full-history secret scan") runs
   `gitleaks detect --no-merges --first-parent <base>^..<head>`, so a finding stays red as long
   as the **ancestor commit that introduced the literal** is inside that range. Editing the tip
   can never clear it; without force-push (forbidden here) the only compliant remedy is a
-  config-level distinction. A tip-side rewrite of such a literal is a mis-diagnosis — record it
+  config-level distinction. A tip-side rewrite of such a literal is a mis-diagnosis ŌĆö record it
   as one rather than repeating it.
 - Root `.gitleaks.toml` (new, admitted to CP10 `LEGIT` as `\.gitleaks\.toml$`): `[extend]
   useDefault = true` plus a single `[allowlist]` entry with `regexTarget = "secret"`. `secret`
   scopes the pattern to the matched value, so surrounding prose can't widen the exemption
-  (`regexTarget = "line"` does *not* suppress). Prefer anchored `^…$` regexes using `[.]`
-  classes — no TOML escaping hazard, no prefix/suffix over-admission.
+  (`regexTarget = "line"` does *not* suppress). Prefer anchored `^ŌĆ”$` regexes using `[.]`
+  classes ŌĆö no TOML escaping hazard, no prefix/suffix over-admission.
 - **gitleaks 8.24.3 reads the SINGULAR `[allowlist]` table.** The plural `[[allowlists]]`
-  array parses without error and is **silently ignored** — a fix that looks configured but does
+  array parses without error and is **silently ignored** ŌĆö a fix that looks configured but does
   nothing. Always prove the config is attributable with a negative control (move the file away;
   the finding must come back).
 - Only ever allowlist a value you have read and verified is not a credential, one at a time,
   with evidence. An unfiltered push-style whole-history scan legitimately still reports
-  pre-existing `main` debt (Finding C, ~16–21 hits across 5 non-secret namespace constants at
+  pre-existing `main` debt (Finding C, ~16ŌĆō21 hits across 5 non-secret namespace constants at
   `WORKSTREAM_STATE.md:84`, `LivingGate.tsx:53`, `FutureSkillsChallenge.tsx:37`,
-  `test_ais_w9_self_service_acquisition.py:30,31`). That needs history rewrite — out of
+  `test_ais_w9_self_service_acquisition.py:30,31`). That needs history rewrite ŌĆö out of
   contract. Do not "fix" it by broadening the allowlist; the gate's teeth are the point.
 
 
 
-## CI state reconstruction — `head_sha` needs the FULL sha (gate-hygiene)
+## CI state reconstruction ŌĆö `head_sha` needs the FULL sha (gate-hygiene)
 - The Actions API **silently succeeds with `total_count: 0`** when `?head_sha=` is given an
   abbreviated SHA. It does not error, so the query looks like a valid "no runs" result. Always
   pass the **full 40-char SHA**, or filter with `?branch=` instead, and read a `0` as *unproven*
   rather than *absent*.
 - This produced a confidently-wrong "main `4164573` has 0 runs, so the merge was ungated" claim
   in PR #129's first commit. With the full SHA, that commit has **5 runs** and the merge was in
-  fact gated by both CP10 (`sg-02-fe-2-v.yml`) and the full-history secret scan — both passed.
+  fact gated by both CP10 (`sg-02-fe-2-v.yml`) and the full-history secret scan ŌĆö both passed.
   Corrected in `05dfbfe`; the ledger lesson is recorded at
   `docs/control-plane/evidence/gate-hygiene-baseline-ledger-correction-01/WORKSTREAM_STATE.md`.
 - Workflow trigger reality (verify against `.github/workflows/*.yml`, not memory):
   `sg-02-fe-2-v.yml` is **path-filtered** (`web/public_prism/**`, `spiral_grove/**`, `lab/**`,
   `api/lab_routes.py`, named test files); `security-secret-scan.yml` runs on **every** `pull_request`
   and on `push` to `main`; `solspire-r{1,2,3,4}-validation.yml` trigger only on `push` to
-  `recon/solspire-r0` (so they are genuinely inert for `main` — a real absence, unlike a bad query).
+  `recon/solspire-r0` (so they are genuinely inert for `main` ŌĆö a real absence, unlike a bad query).
 - Prefer `gh pr view <n> --json mergeable,mergeStateStatus,headRefOid` for PR truth; prefer
   `commits/<sha>/check-runs` for per-commit gate truth.
 
-## AEAS Runtime Boundary Pulse — current open trajectory
+## AEAS Runtime Boundary Pulse ŌĆö current open trajectory
 
 The current runtime-integrity boundary is explicitly:
 
-**current main → deployment → production verification → UI/runtime evidence**
+**current main ŌåÆ deployment ŌåÆ production verification ŌåÆ UI/runtime evidence**
 
 This boundary is a standing AEAS/Weaver trajectory item, not a one-time prose checkpoint.
 
@@ -355,11 +355,11 @@ On each authorized AEAS/Weaver pulse, inspect this boundary in order:
 ### Evidence states
 Every pulse must classify each boundary as one of:
 
-- **VERIFIED** — directly supported by current evidence.
-- **FAILED** — contradictory evidence exists.
-- **BLOCKED** — an actionable external boundary prevents verification or execution.
-- **UNKNOWN** — evidence is unavailable and no stronger claim is justified.
-- **STALE** — prior evidence no longer binds to current main/deployment state.
+- **VERIFIED** ŌĆö directly supported by current evidence.
+- **FAILED** ŌĆö contradictory evidence exists.
+- **BLOCKED** ŌĆö an actionable external boundary prevents verification or execution.
+- **UNKNOWN** ŌĆö evidence is unavailable and no stronger claim is justified.
+- **STALE** ŌĆö prior evidence no longer binds to current main/deployment state.
 
 Never convert `UNKNOWN`, `BLOCKED`, or `STALE` into `VERIFIED` through repetition.
 
@@ -373,86 +373,94 @@ This trajectory may include deployment configuration, CI/CD, verification harnes
 - **Human authority remains final.**
 - A Weaver pulse may inspect, diagnose, propose, implement, test, and prepare evidence only within its active authorization.
 - No pulse may self-authorize deployment, merge, production acceptance, architectural expansion, or closure.
-- **Specification ≠ implementation. Deployment ≠ verification. Verification ≠ acceptance.**
-- The closure target is not “deployment exists.” The closure target is a demonstrated chain:
-  **main SHA → deployment SHA → production response → UI/runtime observation → evidence artifact.**
+- **Specification ŌēĀ implementation. Deployment ŌēĀ verification. Verification ŌēĀ acceptance.**
+- The closure target is not ŌĆ£deployment exists.ŌĆØ The closure target is a demonstrated chain:
+  **main SHA ŌåÆ deployment SHA ŌåÆ production response ŌåÆ UI/runtime observation ŌåÆ evidence artifact.**
 
 ### Current known Gate 2 handoff
 Gate 2 is open on production parity. Current main was established at `8f9d509ec4900408e13e15544192dba37fb08ff8`. The existing evidence must not claim production parity until that SHA is tied to a production deployment and the resulting UI/runtime behavior is independently observed.
 
-## Gate 2 production parity — deployment identity RESOLVED, observation BLOCKED (2026-09-30)
+## Gate 2 production parity ŌĆö deployment identity RESOLVED, observation BLOCKED (2026-09-30)
 
-- **The main→deployment link exists and is queryable.** Do not re-derive it from prose or
+- **The mainŌåÆdeployment link exists and is queryable.** Do not re-derive it from prose or
   guess it from Vercel's UI:
   `GET /repos/.../deployments?environment=production` then
   `GET /repos/.../deployments/<id>/statuses`. The status carries `environment_url`.
   At main `002b189` this yielded deployment `6749238709` with
-  **`ref == sha == 002b189dd95e...`** — i.e. Vercel deploys on the ref, so the record
+  **`ref == sha == 002b189dd95e...`** ŌĆö i.e. Vercel deploys on the ref, so the record
   names the source SHA exactly. `commits/<sha>/status` also shows `Vercel / success`.
 - **The deployment-specific URL is behind Vercel Deployment Protection (SSO).** The correct
-  host is **`environment_url` from `/deployments/<id>/statuses`** — at `002b189` that is
-  `https://arkadia-prism-ey2ozd5u4-arkadia-prism.vercel.app`, which returns **302 →
+  host is **`environment_url` from `/deployments/<id>/statuses`** ŌĆö at `002b189` that is
+  `https://arkadia-prism-ey2ozd5u4-arkadia-prism.vercel.app`, which returns **302 ŌåÆ
   vercel.com/sso**. Do **not** build the URL from the deployment id: `environment_url` is
   `null` on the deployment *record*, and the hostname segment (`ey2ozd5u4`) is a
-  provider-generated hash, not the id. Constructing `arkadia-prism-<id>-…vercel.app` yields
-  HTTP **404** and reads as "deployment missing" — a mis-diagnosis made and corrected in the
+  provider-generated hash, not the id. Constructing `arkadia-prism-<id>-ŌĆ”vercel.app` yields
+  HTTP **404** and reads as "deployment missing" ŌĆö a mis-diagnosis made and corrected in the
   Pass 3 run. Its build output is not anonymously observable. This is the boundary that keeps
   Gate 2 open: `BLOCKED` on provider auth, not on repository work. Closing it needs a Vercel
   credential, Deployment Protection relaxed, or a runtime observation from someone who has
   access. **Repeating the pass cannot convert BLOCKED/UNKNOWN into VERIFIED.**
-- **The alias→SHA binding is UNKNOWN *and immaterial* — do not chase it.** `git log -1 --
+- **The aliasŌåÆSHA binding is UNKNOWN *and immaterial* ŌĆö do not chase it.** `git log -1 --
   web/public_prism/ ':!web/public_prism/dist'` gives the last commit touching *any* frontend
   build input (`b377a01`, 2026-09-29). **All 12** Production deployments on record are its
   descendants, so all twelve compile byte-identical frontend source and the artifact
-  **cannot** discriminate between them. The alias→SHA fact stays unobservable, but
-  build↔source lineage does not depend on it. This is strictly stronger than a
+  **cannot** discriminate between them. The aliasŌåÆSHA fact stays unobservable, but
+  buildŌåösource lineage does not depend on it. This is strictly stronger than a
   `--since=<deploy time>` window, which only excludes divergence *after* one deployment.
   Recorded so a future pass does not re-spend effort trying to extract a binding the build
   cannot carry.
+- **Marker counts are convention-dependent — always name the convention.** The minified
+  bundle is a handful of enormous lines, so `grep -c` (*matching lines*) and an
+  occurrence-counting harness disagree for the same marker on the same artifact:
+  `solspire-object-summary` is **3 lines / 6 occurrences**, `opportunity-radar` **2 / 4**.
+  Both are correct. Only the **presence/absence contrast** is load-bearing (marker present
+  vs. pre-change control absent); magnitudes are reproducibility detail. Do not read a
+  count difference between two evidence sections as drift — Pass 2 recorded line counts and
+  Pass 3 records occurrences, and reconciling them took a re-download of the deployed asset.
 - **The production alias is readable but does not close the chain by itself.** Vercel
-  assigns the alias to the newest Production deployment — that is provider behaviour, not an
-  observation, so alias→SHA stays `UNKNOWN` unless the deployment URL can be read.
+  assigns the alias to the newest Production deployment ŌĆö that is provider behaviour, not an
+  observation, so aliasŌåÆSHA stays `UNKNOWN` unless the deployment URL can be read.
 - **Asset-hash comparison is NOT a parity oracle, in either direction.** Build output is
   env-dependent: injecting `VITE_API_BASE_URL` changes the emitted hash with no source
   change. A mismatch is not divergence; a match is not parity. (Observed: deployed bundle
   is 84,551 bytes larger than a clean local build of the same SHA.)
-- **Marker-set comparison IS a valid lineage oracle — use this instead of hashes.** Pick
+- **Marker-set comparison IS a valid lineage oracle ŌĆö use this instead of hashes.** Pick
   string literals unique to a source file that must survive minification (testids, storage
-  keys, distinctive prose — they are runtime data, not identifiers), then fixed-string
+  keys, distinctive prose ŌĆö they are runtime data, not identifiers), then fixed-string
   `grep` them in the deployed asset. Include a **pre-change control** string that must be
   absent. At `002b189` the deployed asset and a clean local build matched on **every**
-  marker and count, while the pre-SG-03 wording was absent from both — and
+  marker and count, while the pre-SG-03 wording was absent from both ŌĆö and
   `git log -- web/public_prism/src/ --since=<deploy time>` showed zero commits, closing the
   divergence window. Marker sets are robust to env injection; hashes are not.
 - **Verify a route from source, not from an HTTP status.** `App.tsx:51 resolvePath()`
   matches `^/solariun(?:/([^/]+))?$` and accepts the segment only when
   `SOLSPIRE_LENSES.has(candidate)`; `/solariun/opportunity-radar` is therefore a real lens
-  route. Because `vercel.json` rewrites everything to `/index.html`, a 200 proves nothing —
+  route. Because `vercel.json` rewrites everything to `/index.html`, a 200 proves nothing ŌĆö
   read the router. Marker `opportunity-radar` is present in the deployed bundle.
 - **`ActivityRuntime` (SG-04) is absent from the production bundle, not just from the test
-  assertions.** `activity-runtime-draft.v1:` → 0 occurrences in the deployed asset while
-  every SG-03 marker → 1. The SG-03 chamber rewrite displaced the SG-04 mount and that
+  assertions.** `activity-runtime-draft.v1:` ŌåÆ 0 occurrences in the deployed asset while
+  every SG-03 marker ŌåÆ 1. The SG-03 chamber rewrite displaced the SG-04 mount and that
   carried to production. `tests/test_spiral_grove_activity_runtime.py` is **4F/8P** while
   `tests/test_spiral_grove_chambers.py` is green. This is a real product regression
-  (tracked `gate-hygiene` / SH-02, Gate GATE-01), not a stale assertion — do not reclassify
+  (tracked `gate-hygiene` / SH-02, Gate GATE-01), not a stale assertion ŌĆö do not reclassify
   it as stale. Not yet fixed: the repair is a product change outside Gate-2 hygiene scope.
 - **HTTP 200 on any route is not application correctness.** Root `vercel.json` rewrites
-  `/(.*)` → `/index.html`, so a route that never existed (e.g. `/api/health`, per
+  `/(.*)` ŌåÆ `/index.html`, so a route that never existed (e.g. `/api/health`, per
   `git log -S`) returns `200 text/html` identically to any nonexistent path. Prior
   route-reachability results must be read with this caveat.
-- `web/public_prism/dist/` is **tracked but stale** — a build output in version control that
+- `web/public_prism/dist/` is **tracked but stale** ŌĆö a build output in version control that
   drifts on every local build and is env-dependent. Do not commit a locally rebuilt copy;
   revert stray `dist/` modifications before staging (they are not your change).
-- **Gate-2 observation is now one read-only command — use it instead of repeating the manual
+- **Gate-2 observation is now one read-only command ŌĆö use it instead of repeating the manual
   sequence.** `python scripts/gate2_production_observation.py` (add `--json` for machine
   output). Stdlib-only, no Vercel credential, no mutation, never prints a token. It
   re-derives every link from live evidence and prints the boundary classification. Two
   trust properties: it **checks the marker list against source every run** (a literal gone
   from `web/public_prism/src/` is reported as `stale_list` rather than counting 0 and
-  masquerading as a regression), and it **re-proves the ancestry closure** in §10.1 via live
+  masquerading as a regression), and it **re-proves the ancestry closure** in ┬¦10.1 via live
   `git merge-base --is-ancestor`. Run it before making any Gate-2 claim.
 - Evidence: `docs/control-plane/evidence/gate-hygiene-gate2-production-parity-02/`
-  (PR #143; Pass 3 = §10, closure argument + harness).
+  (PR #143; Pass 3 = ┬¦10, closure argument + harness).
 
 ## Test-suite fingerprint is UNSTABLE on main (attribute by name, not count)
 
@@ -460,13 +468,13 @@ Gate 2 is open on production parity. Current main was established at `8f9d509ec4
   is **intermittent under the full suite** and passes 8/8 in isolation. It snapshots
   **global** `git status --porcelain` on `REPO_ROOT` around `execute_agent_loop`, so *any*
   other test's repository write fails it. Cross-test contamination, **not** a boundary
-  violation — do not "fix" the substrate for it.
+  violation ŌĆö do not "fix" the substrate for it.
 - Consequence: full-suite counts on the same SHA alternate (observed 20 vs 21 failures
-  across four runs). **Never attribute a regression from a count delta alone** — diff the
+  across four runs). **Never attribute a regression from a count delta alone** ŌĆö diff the
   failure *names*.
 - Current main baseline (measured, not prose): architecture **11/11** (not 9/10);
   full suite **~20F / ~1039P / 13S / 2 collection errors**. The contract's older
-  `804p/54f` fingerprint does not reproduce — base `df7a99a` carried 32 failures, current
+  `804p/54f` fingerprint does not reproduce ŌĆö base `df7a99a` carried 32 failures, current
   main carries ~20, the delta being the steward-filter carrier merged as `002b189`.
 - `python -m py_compile api/main.py` before committing boot-code changes; budget 2600
   (currently 2519).
