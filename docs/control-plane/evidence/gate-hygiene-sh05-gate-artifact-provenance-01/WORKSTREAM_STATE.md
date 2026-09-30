@@ -7,11 +7,29 @@ Persisted so the next heartbeat reconstructs from evidence, not memory.
 | field | value |
 |---|---|
 | clock | HOURLY (one bounded pass) |
-| base main | `df7a99a067382401c00de5e7bbaaac0125ba2088` |
+| base main (pass 1) | `df7a99a067382401c00de5e7bbaaac0125ba2088` |
+| base main (pass 2, verification) | `002b189dd95e41c9b4f4cca33d08b4121453d289` |
 | branch | `gate-hygiene/sh05-gate-artifact-provenance-01` |
-| classification | `IMPLEMENTED` (evidence-only) |
+| classification | `VERIFIED` (evidence-only; claims independently reproduced — see `VERIFICATION.md`) |
 | authority required | merge only; `SH-05` disposition is sovereign |
-| changed files | 2 new markdown artifacts — no test / source / workflow / governance file |
+| changed files | 3 new markdown artifacts — no test / source / workflow / governance file |
+
+## Pass 2 — independent verification (2026-09-30)
+
+`VERIFICATION.md` re-derives every load-bearing claim in `EVIDENCE.md` from the full clone rather
+than on reading: Genesis control `3 passed`; row 47 regression at `377cdb3^` (`3 passed`) and row
+48 at `f6718b9^` (`1 failed, 2 passed`); all 5 blobs byte-identical to Genesis; `serve-gate.sh`
+stale. The baseline was **re-measured from scratch** in a worktree at `df7a99a`
+(`32F / 1025P / 13S / 2E`, reproducing the documented figure exactly) and reconciled node-by-node
+against `main` tip: **12 rows retired by merged carriers, 0 new failures**.
+
+Merge safety was **proved, not assumed**: `git diff main..head` renders this PR as reverting ~2400
+lines of carrier work, but that is a stale-base artifact (the PR is based on `df7a99a`). A
+simulated three-way merge onto `002b189` yields **+317 / −0, two files, no `tests/` path**, with
+all carrier evidence intact.
+
+**Queue status changed this pass:** carriers **#133/#135/#136/#137 have all merged**. The `SH-02`
+queue is **closed**; `SH-05` is the **only** open PR in the repository.
 
 ## Established this pass
 
@@ -74,14 +92,20 @@ repairs are opposite product answers, so neither was taken inside a hygiene pass
   Do not attribute the difference to new work — the recorded fingerprint drifted.
 - The task context framed the active item as the `#141` vs `#138` contradiction. That is
   **settled** (#141 correct) and awaits only a sovereign merge.
+- **Ledger rows 43–44 vs the `SH-04` narrative.** The ledger text records `SH-04` as
+  `RESOLVED — no defect` (cycle detection is ordered after membership validation, so
+  `UnknownCapabilityError` legitimately precedes `CapabilityCycleError`), yet rows 43–44 still
+  read `DRIFT` and both `test_spiral_grove_registry.py` nodes are still red on `main`. The
+  resolution is not reflected in the row bucket. Ledger-ownership task, not a hygiene edit.
 
 ## Next bounded task
 
 **None inside `gate-hygiene`** until the queue drains or a decision lands.
 
-1. **Merge sequencing (sovereign).** Carriers #133/#135/#136/#137 retire 12 rows; `#138`, `#139`,
-   `#140`, `#141` are evidence-only. PR #139 measured that **every** ordering of #135/#136/#137
-   conflicts on the shared ledger and `#137` must be last. Flagged, not acted on.
+1. **Merge sequencing (sovereign).** ~~Carriers #133/#135/#136/#137 retire 12 rows~~ — **all four
+   merged**; the sequencing risk PR #139 flagged is discharged and the 12 rows are retired on
+   `main`. `#138`, `#139`, `#140`, `#141` are evidence-only and also merged. **Nothing left to
+   sequence.** PR #142 (`SH-05`) is now the only open PR.
 2. **`SH-05` (sovereign).** Decide the Gate UI's fate, then `SH-05a` (retire) or `SH-05b`
    (restore) becomes a bounded hygiene task.
 3. **`F-02` (sovereign/product).** `transcend*` stem-match; Rule 4 vs Rule 3 precedence;
