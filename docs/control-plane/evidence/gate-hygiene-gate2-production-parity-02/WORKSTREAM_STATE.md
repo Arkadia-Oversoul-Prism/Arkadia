@@ -10,7 +10,7 @@ Branch head at pass start: `002b189dd95e` (branched clean from main)
 | WS | Branch / PR | State |
 | --- | --- | --- |
 | SH-05 gate-artifact provenance | `gate-hygiene/sh05-gate-artifact-provenance-01`, PR #142 | EXHAUSTED — see §3 |
-| Gate-2 production parity | `gate-hygiene/gate2-production-parity-02` (this branch), PR #143 | PARTIAL — deployment identity + build↔source lineage VERIFIED (all 12 candidate SHAs, closure arg §10.1); **browser-rendered UI OBSERVED** (§8, 6/6 routes); provider observation still BLOCKED; alias→SHA UNKNOWN and immaterial. Two durable harnesses: `scripts/gate2_production_observation.py`, `scripts/gate2_browser_observation.py` |
+| Gate-2 production parity | `gate-hygiene/gate2-production-parity-02` (this branch), PR #143 | PARTIAL — deployment identity + build↔source lineage VERIFIED (all 12 candidate SHAs, closure arg §10.1); **browser-rendered UI OBSERVED** (§11, 6/6 routes); **backend runtime VERIFIED + discriminating** (§12); provider build observation still BLOCKED; `main → backend deployment identity` UNKNOWN. Three durable harnesses: `scripts/gate2_production_observation.py`, `scripts/gate2_browser_observation.py`, `scripts/gate2_backend_observation.py` |
 
 ## 1. Baseline fingerprint recorded at pass start
 
@@ -219,3 +219,49 @@ Gate 2's remaining links are provider-bound or immaterial. Unless a Vercel crede
 supplied, do **not** re-run Gate-2 parity — the browser link is now closed and the rest cannot
 move by repetition. Resume at PR #142 / #144 triage, or take up SH-06 if authorized.
 
+## 5. Pass 5 (this heartbeat) — backend runtime link closed
+
+The Render service is the actual application runtime and had never been observed. It is
+anonymously reachable, so the link `main SHA -> backend deployment -> backend runtime
+observation` is testable where the Vercel build-output link is not (that one stays BLOCKED
+on the provider credential).
+
+New harness: `scripts/gate2_backend_observation.py` (read-only, stdlib-only, no credential).
+New fitness tests: `tests/test_gate2_backend_observation.py` — **18 passed**.
+
+Observed on `002b189dd95e`: `/openapi.json` HTTP 200, title `Arkadia Mind — Cycle 11`,
+**274 operations**, digest `d1797f9c…e30b`. Liveness floor 200/200/200 for `/`,
+`/api/stellar-cartography`, `/api/tts/status`. All four required prefixes present
+(`/api/commune`, `/api/stellar-cartography`, `/api/tts`, `/api/echoes`).
+
+**The oracle's discrimination was measured, not assumed.** Against negative control
+`2525811` the signature differs (`846748380cde…`), giving 2 distinct signatures ⇒
+`discriminating: true`; deployed == main exactly. This is the property the frontend
+marker-set oracle could not demonstrate, and it is why §12 reports `VERIFIED` rather than
+`VERIFIED (undiscriminating)`. `cd24bb1` (P1-A boot-broken) failed to import and was
+**excluded**, not counted as discrimination.
+
+**Harness defect found and fixed during this pass:** the required-prefix check read paths
+out of signature rows with `split(" ", 1)[1]`, retaining the ` :: summary` suffix, so every
+prefix looked absent while the harness's own probe returned 200. Fixed to `split(" ", 2)[1]`
+with a regression test. The negative control exposed it; the happy path would not have.
+
+### Regression boundary for this pass
+
+| Suite | main `002b189` | branch `97b37d2`+ |
+| --- | --- | --- |
+| `pytest tests/architecture -q` | 11 passed | **11 passed** |
+| `pytest tests/ -q --continue-on-collection-errors` | 20 failed / 1039 passed / 13 skipped / 2 errors | **20 failed / 1071 passed / 13 skipped / 2 errors** |
+| failing-test **names** | 22 rows | **identical (diff empty)** |
+| `python -m py_compile api/main.py` | OK | OK |
+
+Passed count rose by exactly the 32 new gate2 tests; the failure fingerprint is
+byte-identical, so **no failure is attributable to this pass**.
+
+### Next heartbeat (revised)
+
+Do **not** re-run Gate-2 parity: the frontend browser link (§11) and the backend runtime
+link (§12) are both closed, and the two remaining links are provider-bound
+(`BLOCKED`, needs the Vercel credential in §6) or non-identifying (Render publishes no
+deploy-commit record). Repetition cannot move either. Resume at PR #142 / #144 triage, or
+take up SH-06 if authorized. **Parity is still NOT claimed; acceptance is the sovereign's.**
