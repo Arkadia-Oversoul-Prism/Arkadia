@@ -10,7 +10,7 @@ Branch head at pass start: `002b189dd95e` (branched clean from main)
 | WS | Branch / PR | State |
 | --- | --- | --- |
 | SH-05 gate-artifact provenance | `gate-hygiene/sh05-gate-artifact-provenance-01`, PR #142 | EXHAUSTED — see §3 |
-| Gate-2 production parity | `gate-hygiene/gate2-production-parity-02` (this branch), PR #143 | PARTIAL — deployment identity + build↔source lineage VERIFIED (now for **all 12** candidate SHAs, closure arg §10.1); provider observation still BLOCKED; alias→SHA UNKNOWN and immaterial; observation now reproducible via `scripts/gate2_production_observation.py` |
+| Gate-2 production parity | `gate-hygiene/gate2-production-parity-02` (this branch), PR #143 | PARTIAL — deployment identity + build↔source lineage VERIFIED (all 12 candidate SHAs, closure arg §10.1); **browser-rendered UI OBSERVED** (§8, 6/6 routes); provider observation still BLOCKED; alias→SHA UNKNOWN and immaterial. Two durable harnesses: `scripts/gate2_production_observation.py`, `scripts/gate2_browser_observation.py` |
 
 ## 1. Baseline fingerprint recorded at pass start
 
@@ -167,3 +167,55 @@ Hash comparison is not a parity oracle — the deployed bundle is 84,551 bytes l
 clean local build because Vercel injects env vars at build time. **Marker-set comparison is**
 robust to that injection and is the oracle to use for future lineage checks. Do not fall
 back to hash equality.
+
+## 8. Pass 4 update (same branch, same PR) — browser-rendered UI OBSERVED
+
+Full detail in `EVIDENCE.md` §11. Summary:
+
+- **New link closed: browser-rendered UI correctness, `UNKNOWN` → `OBSERVED`.** Passes 1–3
+  observed the *served* surface; a 200 plus a matching asset marker proves the bundle was
+  served, not that the app mounted or rendered. This pass drove a real headless browser
+  (Playwright/Chromium) against the live alias and asserted **source-verified text anchors**
+  on six routes: `/`, `/oracle`, `/nexus`, `/solariun`, `/solspire`, `/spiral-codex`.
+  **All six OBSERVED**, `pageErrors` 0, `failedRequests` 0 on every route.
+- **Strongest single result:** `/spiral-codex` rendered **104,036 characters** of body text
+  — proof of *data-bound* rendering, not merely app mount. A shell that mounted but failed to
+  load data renders a few hundred characters. Cross-checked: 285 real scrolls.
+- **New durable harness:** `scripts/gate2_browser_observation.py` (read-only, stdlib-only
+  Python; holds no credential; exit 0 = all OBSERVED, 1 = FAILED, 2 = BLOCKED when the
+  browser dependency is absent — never silently passed). It re-verifies every anchor against
+  the frontend source each run and reports removed literals as `stale_anchors`.
+- **New tests:** `tests/test_gate2_browser_observation.py` — **14 passed**. Includes negative
+  controls (missing anchor, non-200, `pageerror`, failed request, unexpected console error
+  each fail) and a read-only assertion (no `Authorization`, no mutating HTTP verbs, no
+  `git push`/`git commit`).
+- **`/novanet` is not a registered route.** `App.tsx:69` registers `nexus`. An earlier probe
+  in this workstream used `/novanet` and would have been misread as a broken route had the
+  source not been checked first. Do not repeat it.
+- **Console error on `/spiral-codex`: diagnosed, scoped, expected-benign.** The 404 is on
+  `GET /api/codex/categories`, called by `SpiralCodexFeed.tsx:91`. **No handler for that route
+  exists anywhere in the repository** — it is a frontend↔backend contract mismatch, not an
+  outage. The caller degrades gracefully (`catsRes.ok ? … : { categories: [] }`), so the page
+  renders fully. Exempted as `EXPECTED_BENIGN` and recorded as *informational*; the exemption
+  is keyed to that one route and a test proves an unrelated 404 still fails.
+  **Note for future passes:** the browser puts the URL in `location()`, *not* in
+  `message.text()`. Matching on message text alone cannot identify this error — that mistake
+  was made and corrected within this pass.
+- **Still BLOCKED / UNKNOWN (unchanged, not re-spent):** deployment-specific build
+  observation (Vercel SSO; needs the credential in §6) and alias→SHA binding (immaterial per
+  §10.1 — do not chase it). **Parity is still NOT claimed; acceptance is the sovereign's.**
+
+### Open bounded item surfaced by this pass (SH-06 candidate, NOT authorized)
+
+`/api/codex/categories` is called by the frontend and does not exist in the backend. Today it
+fails softly. Fixing it is a product/API change outside Gate-2 hygiene scope, so it is
+recorded and **not** executed. Bounded options: implement the route, or remove the call and
+let the page use an empty category set explicitly. Either way it needs its own gate and its
+own authority.
+
+### Next heartbeat
+
+Gate 2's remaining links are provider-bound or immaterial. Unless a Vercel credential has been
+supplied, do **not** re-run Gate-2 parity — the browser link is now closed and the rest cannot
+move by repetition. Resume at PR #142 / #144 triage, or take up SH-06 if authorized.
+

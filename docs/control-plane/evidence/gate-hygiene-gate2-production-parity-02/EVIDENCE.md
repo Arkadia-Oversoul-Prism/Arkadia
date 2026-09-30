@@ -394,3 +394,142 @@ a third-party browser observation — §6 is unchanged. No repetition of this pa
 divergence argument removes the *consequence* of not observing the deployment-specific URL; it
 does not make the observation happen. Collapsing it to `VERIFIED` on the strength of §10.1
 would be exactly the substitution the contract forbids.
+
+## 11. Pass 4 — browser-rendered UI observation: UNKNOWN → OBSERVED
+
+Passes 1–3 left exactly one link classified `UNKNOWN` that is *closable by this run*:
+**browser-rendered UI correctness**. Pass 3 observed the *served* surface (HTTP status,
+marker lineage, alias binding). A 200 with a matching asset marker proves the bundle was
+served; it does not prove the app mounted, the router resolved, or the data-bound surfaces
+rendered. This pass closes that gap with a real headless browser against the live alias.
+
+The other `UNKNOWN` link — alias→SHA binding — stays `UNKNOWN` and is **not** pursued
+(§10.1: it is immaterial to source lineage and unresolvable by artifact inspection). The
+`BLOCKED` deployment-observation link is untouched.
+
+### 11.1 Method — source-verified text anchors, not screenshots
+
+A screenshot is not a durable oracle: it cannot be diffed, re-run, or reviewed in a PR. The
+oracle used here is **text anchors rendered into the DOM**, each of which is a lowercase
+ASCII substring of a literal that exists in `web/public_prism/src`.
+
+Three properties were required before an anchor was accepted:
+
+1. **Source-verified.** The harness re-reads the frontend tree every run and reports any
+   anchor that no longer exists as `stale_anchors`. A removed literal fails loudly instead
+   of silently matching nothing. Proven by
+   `tests/test_gate2_browser_observation.py::test_every_anchor_still_exists_in_frontend_source`.
+2. **Case-insensitive.** Deployed text is uppercased by CSS, so case-sensitive matching
+   would produce false failures. Proven by `test_anchors_are_lowercase_ascii`.
+3. **ASCII-only.** Non-ASCII punctuation (the em/en dashes that appear in Arkadia's display
+   strings) does not survive a naive substring match. Proven by the same test.
+
+### 11.2 Anchors and provenance
+
+| Route | Anchor (lowercase ASCII) | Provenance |
+| --- | --- | --- |
+| `/` | `become one continuous field` | `ArkadiaLandingPage.tsx` |
+| `/oracle` | `pattern intelligence`, `guest session` | `ArkanaCommune.tsx:757` |
+| `/nexus` | `private reasomate remains separate` | `SocialFieldVerified.tsx:325` |
+| `/solariun` | `enter solariun` | `SolariunConsole.tsx` |
+| `/solspire` | `enter the enterprise layer` | `EnterpriseConsole.tsx:70` |
+| `/spiral-codex` | `living archive of arkadia` | `SpiralCodexFeed.tsx:248` |
+
+`/nexus` is the canonical route — `App.tsx:69` registers `nexus`; `/novanet` is **not** a
+registered path. An earlier probe in this workstream used `/novanet` and would have been
+misread as a broken route had the source not been checked first. Recorded so a future pass
+does not repeat it.
+
+### 11.3 Result — all six routes rendered
+
+```
+alias: https://arkadia-prism.vercel.app
+  /                OBSERVED  status=200 bodyLen=1918
+  /oracle          OBSERVED  status=200 bodyLen=179
+  /nexus           OBSERVED  status=200 bodyLen=426
+  /solariun        OBSERVED  status=200 bodyLen=115
+  /solspire        OBSERVED  status=200 bodyLen=200
+  /spiral-codex    OBSERVED  status=200 bodyLen=104036
+      - expected-benign console noise: ['/api/codex/categories']
+browser-rendered UI: OBSERVED
+```
+
+`/spiral-codex` returning **104,036 characters of rendered body text** is the strongest
+single result: it is proof of **data-bound rendering**, not merely app mount. A shell that
+mounted but failed to load data would render a few hundred characters. (Cross-checked in
+this workstream: the page renders 285 real scrolls.)
+
+All six routes: `pageErrors` 0, `failedRequests` 0.
+
+### 11.4 The one console error — diagnosed, expected-benign, and scoped
+
+`/spiral-codex` emits exactly one console error. The browser reports it as
+`Failed to load resource: the server responded with a status of 404 ()` — **the URL is not in
+the message text**, it is only in `location()`. Matching on `message.text()` alone therefore
+does not identify it; the first run of this harness mis-classified it as an unexpected error
+for that reason. The harness now matches on `text + location.url`, which is what made the
+diagnosis attributable.
+
+Diagnosed cause: `GET /api/codex/categories` → **404**.
+
+- The caller is `web/public_prism/src/pages/SpiralCodexFeed.tsx:91`
+  (`apiFetch('/api/codex/categories')`).
+- **No handler for this route exists anywhere in this repository.** The codex routes that do
+  exist are `/api/codex` (`api/main.py:821`), `/api/codex/github-tree` (`:1648`),
+  `/api/codex/upload` (`:1659`), and `/api/codex/personal` + `/api/me/codex`
+  (`api/nodes.py`). There is no `categories` route.
+- This is a **frontend↔backend contract mismatch**, not a backend outage: the backend is
+  alive (root 200, `/api/tts/status` 200) and the route genuinely is not implemented.
+- The caller degrades gracefully — `const catsData = catsRes.ok ? await catsRes.json() :
+  { categories: [] };` — so the page renders fully, which §11.3 confirms.
+
+Classified **EXPECTED_BENIGN** and recorded as *informational*, not as a failure. The
+exemption is keyed to this one route string, and the harness test
+`test_benign_exemption_does_not_mask_a_different_404` proves it is scoped: an unrelated 404
+on the same host still fails. Without that control the exemption would be a blanket
+suppression of every 404, which is exactly the "looks configured but does nothing" failure
+mode this workstream has hit before.
+
+The underlying mismatch is **not fixed here** — it is a product/API change outside Gate-2
+hygiene scope. It is recorded as an open bounded item (SH-06 candidate) so it is not lost.
+
+### 11.5 Harness teeth
+
+`tests/test_gate2_browser_observation.py` — **14 passed**. It does not require a browser; it
+proves the decision logic and the read-only property:
+
+- anchor integrity (not stale, lowercase ASCII, provenance present, critical routes covered);
+- negative controls: missing anchor, non-200, `pageerror`, failed request, and unexpected
+  console error each produce `FAILED`;
+- the benign exemption fires on the understood route and **does not** mask a different 404;
+- `test_harness_is_read_only_and_credential_free` asserts the script contains no
+  `Authorization` header and no `POST`/`PUT`/`PATCH`/`DELETE` and no `git push`/`git commit`.
+
+### 11.6 Boundary classification after Pass 4
+
+| Link | Pass 1 | Pass 2 | Pass 3 | Pass 4 |
+| --- | --- | --- | --- | --- |
+| main SHA | VERIFIED | VERIFIED | VERIFIED | VERIFIED |
+| deployment SHA == main | VERIFIED | VERIFIED | VERIFIED | VERIFIED |
+| deployment build observation | BLOCKED | BLOCKED | BLOCKED | **BLOCKED** (unchanged) |
+| build↔source lineage | UNKNOWN | VERIFIED (newest) | VERIFIED (all 12) | VERIFIED |
+| route resolves | UNKNOWN | source | source | **source + rendered** |
+| alias→SHA binding | UNKNOWN | UNKNOWN | UNKNOWN (immaterial) | **UNKNOWN** (immaterial, not pursued) |
+| **browser-rendered UI correctness** | UNKNOWN | UNKNOWN | UNKNOWN | **OBSERVED** |
+| production acceptance | not claimed | not claimed | not claimed | **not claimed** |
+
+**Parity is still NOT claimed.** What changed is that the last *self-closable* link moved
+from `UNKNOWN` to `OBSERVED` against live production. The remaining non-`VERIFIED` links are:
+the provider-bound deployment observation (`BLOCKED`, needs a Vercel credential per §6) and
+the alias→SHA binding (`UNKNOWN`, immaterial per §10.1). Acceptance remains the sovereign's.
+
+### 11.7 Reproduction
+
+```
+python scripts/gate2_browser_observation.py --node-path <NODE_PATH with playwright>
+```
+
+Read-only, stdlib-only Python driving Playwright/Chromium. Holds no credential. Exits `0`
+only when every route is `OBSERVED`, `1` on any `FAILED`, and `2` when the browser dependency
+is unavailable (classified `BLOCKED`, never silently passed).
+
