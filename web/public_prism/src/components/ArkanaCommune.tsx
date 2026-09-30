@@ -24,12 +24,21 @@ import MarkdownViewer from './MarkdownViewer';
 import OracleVoicePlayer from './OracleVoicePlayer';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+interface SourceRef {
+  id: string;
+  title: string;
+  type: string;
+  via: 'note' | 'graph';
+  excerpt?: string;
+}
+
 interface Message {
   role: 'user' | 'arkana';
   content: string;
   resonance?: number;
   session?: string;
   images?: string[];
+  sources?: SourceRef[];
   attachment?: { name: string; type: string; size: number } | null;
 }
 
@@ -668,7 +677,8 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId }) => 
       }
       
       setMessages(prev => {
-        const next = [...prev, { role: 'arkana' as const, content: data.reply, resonance: data.resonance, session }];
+        const sources = Array.isArray(data.sources) ? (data.sources as SourceRef[]) : undefined;
+        const next = [...prev, { role: 'arkana' as const, content: data.reply, resonance: data.resonance, session, sources }];
         saveThread(activeThreadId, next); return next;
       });
       try {
@@ -956,6 +966,30 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId }) => 
                           />
                         )}
                       </AnimatePresence>
+
+                      {/* Response provenance — the notes actually injected into this turn */}
+                      {msg.sources && msg.sources.length > 0 && (
+                        <div className="arkana-provenance" style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <span style={{
+                            fontFamily: '"Cinzel", serif', fontSize: 7.5, letterSpacing: '0.26em',
+                            textTransform: 'uppercase', color: 'rgba(232,232,232,0.30)',
+                          }}>
+                            Based on
+                          </span>
+                          {msg.sources.map(s => (
+                            <div key={s.id} title={s.excerpt || s.title}
+                                 style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                              <span style={{ color: msgAccent, opacity: 0.5, fontSize: 8, lineHeight: 1.5 }}>◆</span>
+                              <span style={{ fontFamily: 'monospace', fontSize: 9.5, color: 'rgba(232,232,232,0.55)' }}>
+                                {s.title}
+                              </span>
+                              <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(232,232,232,0.22)' }}>
+                                {s.type}{s.via === 'graph' ? ' · linked' : ''}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Thin separator after each Arkana response */}
                       <div className="arkana-message-separator" style={{ marginTop: 20, height: 1, background: isSov ? 'linear-gradient(90deg, rgba(201,168,76,0.22), rgba(201,168,76,0.06) 55%, transparent)' : 'linear-gradient(90deg, rgba(0,212,170,0.20), rgba(0,212,170,0.05) 55%, transparent)' }} />

@@ -69,11 +69,71 @@ def retrieve_arkana_context(message: str, session_id: str = "",
         )
         block = format_context_for_provider(package)
         meta["notes_retrieved"] = len(package.get("relevant_notes", []))
+        # Retained so the caller can cite exactly what was injected (K4).
+        # Underscore-prefixed: internal, never serialised into the response.
+        meta["_context_package"] = package
         return block, meta
     except Exception as e:
         logger.warning(f"[SPINE] context retrieval failed: {e}")
         meta["source"] = "knowledge_os_error"
         return "", meta
+
+
+_EXCERPT_CHARS = 240
+
+
+def _excerpt(text: str) -> str:
+    collapsed = " ".join((text or "").split())
+    if len(collapsed) <= _EXCERPT_CHARS:
+        return collapsed
+    return collapsed[:_EXCERPT_CHARS].rstrip() + "…"
+
+
+def build_sources(context_package: Optional[dict], limit: int = 6) -> list[dict]:
+    """Derive the citable source list from the context package that was injected.
+
+    Provenance invariant: a source is emitted ONLY if its note was actually part
+    of the retrieved context handed to the provider. The Oracle cannot cite a
+    note it did not retrieve, and an empty/absent package yields no citations —
+    citations are evidence of retrieval, never decoration.
+
+    Each entry carries the note's stable UUID so the citation survives rename
+    and is inspectable against the Knowledge OS graph.
+    """
+    if not context_package:
+        return []
+    sources: list[dict] = []
+    seen: set[str] = set()
+
+    for note in context_package.get("relevant_notes", []) or []:
+        uid = note.get("uuid") or note.get("id")
+        if not uid or uid in seen:
+            continue
+        seen.add(uid)
+        chunks = note.get("relevant_chunks") or []
+        sources.append({
+            "id": uid,
+            "title": note.get("title") or "Untitled",
+            "type": note.get("note_type") or "note",
+            "via": "note",
+            "excerpt": _excerpt(chunks[0] if chunks else ""),
+        })
+
+    for expansion in context_package.get("graph_expansions", []) or []:
+        node = expansion.get("note") or {}
+        uid = node.get("uuid") or node.get("id")
+        if not uid or uid in seen:
+            continue
+        seen.add(uid)
+        sources.append({
+            "id": uid,
+            "title": node.get("title") or "Untitled",
+            "type": node.get("note_type") or "note",
+            "via": "graph",
+            "excerpt": "",
+        })
+
+    return sources[:limit]
 
 
 _MEMORY_HEADER = (
