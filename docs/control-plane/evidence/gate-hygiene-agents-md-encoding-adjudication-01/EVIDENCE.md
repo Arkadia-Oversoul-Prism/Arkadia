@@ -63,7 +63,9 @@ recovered bytes**: the adjudication proves it is additive, not that it is well w
 
 ## 4. Verification
 
-- `tests/test_agents_md_encoding_adjudication.py` — 16/16 passed
+- `tests/test_agents_md_encoding_adjudication.py` — 17/17 passed on the corrupted tree;
+  15 passed / 2 skipped on a synthetic `#150`+`#151` merge (see §9). (Pass 1 recorded
+  16/16; the merge-safety correction in §9 changed the test set.)
 - `tests/architecture` — 11/11 passed
 - CP10 mutation boundary judge — PASS (`--judge` exit 0)
 - commit `4bad447` check-runs — `Vercel Preview Comments` success, `Full-history secret scan` success
@@ -95,3 +97,56 @@ per the contract it is neither silently fixed nor attributed here.
 
 Sovereign decision: **merge PR #150**, **close PR #147 as superseded**, then decide PR #151
 (adjudication evidence). No merge, closure, or production action was taken by this pass.
+
+## 9. Merge-safety correction (pass 2)
+
+The pass-1 adjudication asserted a verdict about the working tree while encoding the tree
+state it was written against: two live-file tests treated "`main` is corrupted" as a premise.
+PR #150 repairs `AGENTS.md`, so on merge those assertions fail. An adjudication branch that
+only holds on the pre-repair tree cannot be merged after the repair it endorses — the same
+claim-outrunning-its-evidence defect the branch was written to expose.
+
+Corrections, and why each is needed:
+
+- **Oracle pin.** `RECOVERED_TIP_REV` now names the immutable commit `03fe21f` rather than
+  the branch `pr150`. GitHub deletes a PR branch on merge, so pinning a branch name would
+  leave the oracle unresolvable exactly when the queue lands — exit 2, not a verified claim.
+- **Clean-without-oracle is not decidable.** `audit()` sets `decidable=False`
+  (`decidable_basis="none"`) when a file shows no corruption and no oracle was consulted.
+  A clean file and a never-verified repair are the same bytes; the bytes cannot separate them.
+- **Exit-code semantics.** `2` (not `1`) in that case. `1` now means "clean and
+  oracle-verified" and is a real positive claim; `0` means a recovery was verified against
+  the byte oracle.
+- **State-scoped tests.** `test_recover_is_decidable_on_the_corrupted_live_file` asserts the
+  corrupted tree and skips once repaired; `test_live_file_verdict_matches_its_state` covers
+  both states so exactly one branch runs on any revision. The end-to-end CLI test (which
+  guards a real `KeyError`-class defect) is retained and made order-robust.
+
+Verification of both merge orders:
+
+| scenario | how | result |
+|---|---|---|
+| corrupted `main` | `pr151` as-is | **17 passed** |
+| `#150` + `#151` merged | synthetic `git merge-tree pr151 pr150` worktree | **15 passed / 2 skipped** |
+
+Whether GitHub's own merge of #150 into `main` then #151 is byte-identical to the local
+`merge-tree` was **not** established — that is a platform-level observation this pass did
+not have. The monotonic status of the two is reasoned, not measured; recorded as such.
+
+## 10. Correction — #143 also carries an unadjudicated `AGENTS.md`
+
+Pass 1 adjudicated only #147 against #150. `#143`
+(`gate-hygiene/gate2-production-parity-02`) **also** edits `AGENTS.md` (265 changed lines →
+sha256 `08e2af0d`), which is a third, distinct repair. Content hashes:
+
+| revision | `AGENTS.md` sha256 |
+|---|---|
+| `main` | `57bf37f9` (corrupted) |
+| `#143` | `08e2af0d` |
+| `#147` | `2ccde4c5` |
+| `#150` | `a7ef8002` (byte-oracle recovered) |
+
+#143 is the GATE-2 parent, so it is the most consequential of the three branches, and its
+encoding repair is not the verified one. Merging it as-is lands an unadjudicated `AGENTS.md`.
+Before merge, its encoding must be adjudicated against the same byte oracle, or its
+`AGENTS.md` hunk dropped in favour of #150's. Recorded as the next bounded task; not started.

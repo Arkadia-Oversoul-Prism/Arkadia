@@ -63,3 +63,67 @@ evidence alone.
 - Do not fix the 20 baseline failures here; PRs #148 and #149 own that debt.
 - Do not re-open or re-litigate the encoding verdict; it is byte-decidable and now recorded.
 - Do not merge, close, or push to `main`.
+
+---
+
+## Pass 2 — merge-safety correction (subsequent heartbeat)
+
+The pass-1 suite was green only on the tree it was written against. It asserted
+"`main` is corrupted" as a *premise*, then adjudicated on top of it. PR #150 repairs
+`AGENTS.md`, so merging it first turns those assertions red — the adjudication would
+have broken the tree it exists to bless, and the queue could not be merged in either
+order without a repair afterwards.
+
+This is the same defect class the adjudication itself was written to catch: a claim
+that outruns its own evidence. It is recorded here rather than quietly patched.
+
+Fixed on this branch:
+
+- oracle pin `pr150` -> `03fe21f` (immutable commit; a merged branch is deleted, so the
+  ref would dangle).
+- `audit()` reports `decidable=False` for a clean file with no oracle (`decidable_basis`
+  `"none"`): a clean file and a never-verified repair are identical bytes.
+- CLI exit `2` (not `1`) in that case; exit `1` now means "clean **and** oracle-verified".
+- live-file tests are state-scoped; `test_live_file_verdict_matches_its_state` covers
+  both trees so exactly one branch runs per revision.
+
+### Verification (both merge orders)
+
+| scenario | how | result |
+|---|---|---|
+| corrupted `main` | `pr151` as-is | **17 passed** |
+| `#150` + `#151` merged | synthetic `git merge-tree pr151 pr150` worktree | **15 passed / 2 skipped** |
+
+The 2 skips are the corrupted-tree assertions, which correctly do not bind on a repaired
+tree. Regression boundary: no production module, no `api/main.py`, no `AGENTS.md` change.
+
+### Effect on the queue
+
+PR #151 is now independent of merge order with #150. The sovereign may merge **either
+first** without a red suite. The queue adjudication itself is unchanged:
+
+| PR | verdict |
+|---|---|
+| #150 | **merge** — correct cp866 repair |
+| #147 | **close as superseded** (it also edits `AGENTS.md`, so #150 and #147 conflict) |
+| #143 | parent GATE-2 branch; its `AGENTS.md` edit is a *third*, different repair — see below |
+| #152 | test-only (fingerprint guard); independent |
+
+### Correction to a pass-1 omission
+
+Pass 1 compared only #147 against #150. `#143` also modifies `AGENTS.md` (265 changed
+lines) and produces a **third distinct** content hash:
+
+| revision | `AGENTS.md` sha256 |
+|---|---|
+| `main` | `57bf37f9` (corrupted) |
+| `#143` | `08e2af0d` |
+| `#147` | `2ccde4c5` |
+| `#150` | `a7ef8002` (byte-oracle recovered) |
+
+#143 is the GATE-2 parent carrying the production-parity work, so it is the most
+consequential branch of the three, and its repair is not the verified one. Merging #143
+as-is lands a fourth, unadjudicated `AGENTS.md`. Its encoding must be adjudicated against
+the same byte oracle before merge, or the `AGENTS.md` hunk must be dropped from it in
+favour of #150's. This is the next bounded task; it is not started here.
+
