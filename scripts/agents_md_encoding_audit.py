@@ -46,9 +46,15 @@ Usage
     python scripts/agents_md_encoding_audit.py [--path AGENTS.md] [--json]
 
 Exits 0 when the recovered text is verified against the byte oracle, 1 when the
-input is already clean and the oracle was consulted to confirm it, 2 when
-recovery is not decidable (including an already-clean file on a clone that
-cannot resolve the oracle, where "clean" would be an unproven verdict).
+input is already clean and the oracle **corroborates** it — consulted, and no
+oracle line replaced or deleted — and 2 when recovery is not decidable. A file
+can be free of mojibake and still diverge from the oracle, and reporting that as
+verified-clean is the mis-diagnosis exit 1 exists to prevent; the absence of
+Cyrillic is not on its own a clean bill of health.
+
+``--shadow`` additionally handles the second corruption class: text that carries
+one *further* outer re-encode pass on top of the CP866 defect. See
+``audit_shadow`` for why the codec is proved rather than asserted.
 
 No third-party imports, no network, no mutation.
 """
@@ -160,6 +166,70 @@ def show_rev(rev: str, path: str) -> str | None:
     return proc.stdout.decode("utf-8")
 
 
+SHADOW_CODEC = "cp775"
+
+
+def heal_shadow(text: str, codec: str = SHADOW_CODEC) -> tuple[str, int]:
+    """Undo a second, outer re-encode pass over already-corrupted text.
+
+    A different defect from the one this module was written for, and reached by
+    a different route: UTF-8 bytes re-read through ``codec`` rather than CP866.
+    Where the CP866 pass yields Cyrillic, this one yields Latin Extended-A, so
+    the Cyrillic test does not see it. Returns the healed text and the number of
+    lines actually changed; a line whose inverse transform fails — including a
+    genuine line that is not ``codec``-encodable — is left byte-identical.
+    """
+    out: list[str] = []
+    changed = 0
+    for line in text.split("\n"):
+        try:
+            candidate = line.encode(codec).decode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            out.append(line)
+            continue
+        out.append(candidate)
+        if candidate != line:
+            changed += 1
+    return "\n".join(out), changed
+
+
+def audit_shadow(text: str, oracle: str | None) -> tuple[dict, str]:
+    """Adjudicate text that carries an outer codec pass on top of the CP866 defect.
+
+    The codec is **proved, not asserted**: the heal is accepted only when the
+    healed text then satisfies the same byte-oracle test used for the single-pass
+    repair. A wrong codec cannot produce oracle-reproducing text, so the oracle
+    decides the transform and no codec table has to be trusted — the same reason
+    ``RECOVERED_TIP_REV`` is pinned to a revision rather than a branch.
+    """
+    healed, changed = heal_shadow(text)
+    result = audit(healed, oracle)
+    result["shadow_codec"] = SHADOW_CODEC
+    result["shadow_lines_healed"] = changed
+    result["shadow_adjudicated"] = bool(
+        changed > 0
+        and result["cyrillic_after"] == 0
+        and result.get("oracle_reproduced", False)
+    )
+    return result, healed
+
+
+def exit_code(result: dict) -> int:
+    """CLI exit status for an audit result.
+
+    Exit 1 is a positive claim and needs positive evidence: the oracle must have
+    been consulted *and* must corroborate the file. A mojibake-free file that
+    replaces or deletes oracle lines has not been shown to be the recovered text,
+    so it takes exit 2 like any other undecided input.
+    """
+    already_clean = result["cyrillic_before"] == 0 and result["corrupted_lines"] == 0
+    if already_clean and result.get("oracle_checked") and result.get("oracle_reproduced"):
+        return 1
+    if result.get("shadow_adjudicated"):
+        return 0
+    return 0 if result["decidable"] else 2
+
+
 def audit(text: str, oracle: str | None) -> dict:
     recovered, repaired = recover(text)
     lines = text.split("\n")
@@ -251,6 +321,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--path", default="AGENTS.md")
     parser.add_argument("--json", action="store_true")
     parser.add_argument(
+        "--shadow",
+        action="store_true",
+        help="additionally undo an outer codec pass before auditing (see audit_shadow)",
+    )
+    parser.add_argument(
         "--emit-recovered",
         metavar="OUT",
         help="write the recovered text to OUT (does not modify the working tree)",
@@ -270,12 +345,19 @@ def main(argv: list[str] | None = None) -> int:
     ).returncode == 0:
         oracle = show_rev(ORACLE_REV, args.path)
 
-    result = audit(text, oracle)
+    if args.shadow:
+        result, healed = audit_shadow(text, oracle)
+        if args.emit_recovered:
+            # Emit the fully repaired text, not the intermediate shadow heal: the
+            # file that is handed to a branch must be the end state.
+            Path(args.emit_recovered).write_text(recover(healed)[0], encoding="utf-8")
+            result["emitted"] = args.emit_recovered
+    else:
+        result = audit(text, oracle)
+        if args.emit_recovered:
+            Path(args.emit_recovered).write_text(recover(text)[0], encoding="utf-8")
+            result["emitted"] = args.emit_recovered
     result["path"] = args.path
-
-    if args.emit_recovered:
-        Path(args.emit_recovered).write_text(recover(text)[0], encoding="utf-8")
-        result["emitted"] = args.emit_recovered
 
     if args.json:
         print(json.dumps(result, indent=2))
@@ -298,15 +380,14 @@ def main(argv: list[str] | None = None) -> int:
             if result["oracle_alterations"]:
                 print(f"    first alteration: {result['oracle_alterations'][0]}")
         print(f"  decidable            {result['decidable']}")
+        if result.get("shadow_codec"):
+            print(
+                f"  shadow {result['shadow_codec']}      lines_healed={result['shadow_lines_healed']} "
+                f"adjudicated={result['shadow_adjudicated']}"
+            )
         print(f"  recovered sha256     {result['recovered_text_sha256']}")
 
-    # 1 signals "already clean, and the oracle confirms it". That verdict needs
-    # the oracle: without one a clean file is indistinguishable from a file whose
-    # repair was never verified, and audit() marks that undecidable (exit 2).
-    already_clean = result["cyrillic_before"] == 0 and result["corrupted_lines"] == 0
-    if already_clean and result["oracle_checked"]:
-        return 1
-    return 0 if result["decidable"] else 2
+    return exit_code(result)
 
 
 if __name__ == "__main__":

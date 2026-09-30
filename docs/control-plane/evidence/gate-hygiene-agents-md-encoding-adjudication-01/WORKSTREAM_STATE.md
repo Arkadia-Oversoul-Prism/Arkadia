@@ -125,5 +125,25 @@ lines) and produces a **third distinct** content hash:
 consequential branch of the three, and its repair is not the verified one. Merging #143
 as-is lands a fourth, unadjudicated `AGENTS.md`. Its encoding must be adjudicated against
 the same byte oracle before merge, or the `AGENTS.md` hunk must be dropped from it in
-favour of #150's. This is the next bounded task; it is not started here.
+favour of #150's.
+
+**Pass 3: discharged.** #143's `AGENTS.md` is adjudicated — a third corruption class (CP775
+outer pass, Cyrillic 0 / Latin-1-Ext 594, not the CP866 class). Two-stage heal →
+`af67aad45631d130d1c352efdea75a20e16cb829a3620d527c07e31f2772415f`, `oracle_reproduced=True`,
+`oracle_alterations=[]`. Sound but disjunct from #150's `a7ef8002`; treat #143's `AGENTS.md`
+hunk as **superseded by #150's** rather than merging both rewrites. Full detail in
+`EVIDENCE.md` §11. Instrument gained `--shadow`/`audit_shadow`/`heal_shadow` (codec named by
+the oracle, not preference). Tests: 23 passed on corrupted `main`; 21 passed / 2 skipped on
+the synthetic #150+#151 merge. Fingerprint unchanged (1060 passed both trees; the single
+failing-set delta is the order-sensitive `test_engineering_lab_agent_loop` flake). No merge.
+
+Revised queue verdicts, all still human-only:
+
+| PR | verdict |
+|---|---|
+| #150 | **merge** — canonical cp866 recovery (`a7ef8002`) |
+| #143 | **merge after dropping its `AGENTS.md` hunk** (superseded by #150) |
+| #147 | **close as superseded** — Cyrillic 188, never healed |
+| #152 | test-only fingerprint guard; independent |
+| #151 | this branch — adjudication instrument + evidence |
 

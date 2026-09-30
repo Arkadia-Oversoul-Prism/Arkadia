@@ -7,6 +7,7 @@ must reproduce the file's own last clean revision byte-for-byte.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -18,15 +19,28 @@ from scripts.agents_md_encoding_audit import (
     CORRUPTION_COMMIT,
     ORACLE_REV,
     RECOVERED_TIP_REV,
+    SHADOW_CODEC,
     audit,
+    audit_shadow,
     corrupt,
     cyrillic_count,
+    exit_code,
+    heal_shadow,
     recover,
     try_recover_line,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
 AGENTS_MD = ROOT / "AGENTS.md"
+
+# PR #143 head. Pinned to an immutable commit, not the branch name: a branch is
+# deleted when its PR merges, and this reference must outlive the queue.
+GATE2_PARENT_REV = "7d79f38bd520a99637785db80bbe786192900d6d"
+# sha256 of that revision's AGENTS.md after the two-stage repair. Recomputed by
+# the test, so the evidence document cannot claim a digest the bytes deny.
+GATE2_PARENT_REPAIRED_SHA256 = (
+    "af67aad45631d130d1c352efdea75a20e16cb829a3620d527c07e31f2772415f"
+)
 
 # Build every corrupt literal from a codepoint, never by pasting the bytes: a
 # pasted literal is itself mojibake and an editor/round-trip can rewrite it.
@@ -308,4 +322,170 @@ def test_cli_summarises_the_oracle_without_crashing():
     if result["oracle_checked"]:
         assert "insertions-only" in proc.stdout
         assert f"reproduced={result['oracle_reproduced']}" in proc.stdout
+
+
+# --- the second corruption class (outer codec pass) -------------------------
+
+
+def shadow(text: str) -> str:
+    """UTF-8 bytes reinterpreted through ``SHADOW_CODEC`` — the outer pass."""
+    return text.encode("utf-8").decode(SHADOW_CODEC)
+
+
+def test_shadow_heal_inverts_the_outer_pass_on_clean_text():
+    """The outer pass is reachable from clean text and exactly reversible.
+
+    Its domain is the codec's own repertoire, not "lines that look wrong": a line
+    is shadow-corrupted when re-reading it *through the codec* yields valid UTF-8.
+    An em dash is outside CP775's repertoire, so a line carrying one cannot be
+    shadow-corrupted and is left alone — which is why this pass is invisible to
+    the Cyrillic test and needed its own instrument.
+    """
+    for original in [f"a {chr(0x00F6)} b", f"{chr(0x00B7)} middot", "plain ascii", ""]:
+        shadowed = shadow(original)
+        healed, _ = heal_shadow(shadowed)
+        assert healed == original, original
+    # a line the codec cannot represent is left byte-identical, never mangled
+    for outside in [f"a {EM_DASH} b", f"genuine {chr(0x0100)} line"]:
+        healed, changed = heal_shadow(outside)
+        assert healed == outside
+        assert changed == 0
+
+
+def test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec():
+    """A wrong codec cannot reproduce the oracle, so the oracle names the codec.
+
+    This is the property that lets ``--shadow`` exist without trusting a codec
+    table: the heal is accepted only when the text it produces then satisfies the
+    byte-oracle test. Every other candidate codec is rejected *by the oracle*,
+    not by a hardcoded preference.
+    """
+    text = _rev("AGENTS.md", GATE2_PARENT_REV)
+    oracle = _rev("AGENTS.md", ORACLE_REV)
+    result, healed = audit_shadow(text, oracle)
+    assert result["shadow_adjudicated"] is True
+    assert result["shadow_lines_healed"] > 0
+    assert result["oracle_reproduced"] is True
+    # the outer pass is not the class audit() decides on its own
+    assert audit(text, oracle)["decidable"] is False
+
+    reproducing = []
+    for codec in ["cp775", "cp437", "cp850", "cp866", "latin-1"]:
+        candidate, _ = heal_shadow(text, codec=codec)
+        if audit(candidate, oracle)["oracle_reproduced"]:
+            reproducing.append(codec)
+    assert reproducing == [SHADOW_CODEC], reproducing
+
+
+def test_gate2_parent_agents_md_repair_is_byte_identical_to_the_pipeline():
+    """#143's ``AGENTS.md`` is adjudicated: one shadow heal then the CP866 repair.
+
+    The digested value is recomputed from the pinned revision, so the claim in
+    the evidence document is re-derivable rather than asserted.
+    """
+    text = _rev("AGENTS.md", GATE2_PARENT_REV)
+    if text is None:
+        pytest.skip(f"gate-2 parent {GATE2_PARENT_REV} unavailable in this clone")
+    oracle = _rev("AGENTS.md", ORACLE_REV)
+    healed, changed = heal_shadow(text)
+    assert changed > 0
+    assert healed.startswith(_rev("AGENTS.md", "origin/main")), "the cp775 undo restores main's bytes"
+    assert cyrillic_count(healed) == cyrillic_count(_rev("AGENTS.md", "origin/main")), (
+        "the outer heal must not touch the inner CP866 class — that is recover()'s job"
+    )
+    repaired, _ = recover(healed)
+    assert hashlib.sha256(repaired.encode("utf-8")).hexdigest() == GATE2_PARENT_REPAIRED_SHA256
+    result = audit(repaired, oracle)
+    assert result["oracle_reproduced"] is True
+    assert result["oracle_alterations"] == []
+
+
+def test_exit_code_does_not_call_a_divergent_clean_file_verified():
+    """A mojibake-free file that alters oracle lines is not "clean and verified".
+
+    Exit 1 is the adjudication's positive claim. A file can lose its Cyrillic and
+    still replace oracle content; collapsing that into exit 1 would report the
+    defect class this whole instrument exists to catch. Only a corroborating
+    oracle licenses exit 1 — anything else is exit 2.
+    """
+    oracle = _rev("AGENTS.md", ORACLE_REV)
+    assert oracle is not None
+
+    assert exit_code(audit("nothing wrong here\n", oracle=None)) == 2, "no oracle → unproven"
+
+    # clean, oracle present, but it replaces an oracle line
+    divergent = oracle.replace("Arkadia", "Arcadia", 1)
+    assert divergent != oracle, "the fixture must actually diverge"
+    result = audit(divergent, oracle)
+    assert result["cyrillic_before"] == 0 and result["corrupted_lines"] == 0
+    assert result["oracle_reproduced"] is False
+    assert result["oracle_alterations"], "a replaced oracle line must be reported"
+    assert exit_code(result) == 2
+
+    # a file whose recovery is actually performed earns exit 0
+    live = AGENTS_MD.read_text(encoding="utf-8")
+    corrupted = live if cyrillic_count(live) else _rev("AGENTS.md", "origin/main")
+    assert exit_code(audit(corrupted, oracle)) == 0
+
+    # ...and the recovered text, now clean and oracle-corroborated, earns exit 1.
+    # Exit 1 is "clean and verified", not "a repair was needed" — the two are
+    # different claims and must not be collapsed into one code.
+    recovered, _ = recover(corrupted)
+    assert exit_code(audit(recovered, oracle)) == 1
+
+
+def _rev(path: str, rev: str) -> str | None:
+    proc = subprocess.run(
+        ["git", "-C", str(ROOT), "show", f"{rev}:{path}"], capture_output=True
+    )
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.decode("utf-8")
+
+
+def test_cli_shadow_emits_the_end_state_not_the_intermediate_heal(tmp_path):
+    """``--shadow --emit-recovered`` must write the finished file.
+
+    The intermediate shadow heal still carries the CP866 defect, so writing it
+    would hand a branch a file that looks repaired by the flag it was produced
+    with and is not. The emitted bytes are therefore checked against the same
+    two-stage pipeline the adjudication defines, and against the Cyrillic test.
+
+    The oracle is resolved as ``<rev>:--path``, so a scratch path has none and
+    the run is necessarily undecided (exit 2). That is the documented behaviour,
+    not a defect: the emitted bytes are still the end state, which is the
+    property under test here.
+    """
+    source = _rev("AGENTS.md", GATE2_PARENT_REV)
+    if source is None:
+        pytest.skip(f"gate-2 parent {GATE2_PARENT_REV} unavailable in this clone")
+    scratch = tmp_path / "AGENTS.md"
+    scratch.write_text(source, encoding="utf-8")
+    out = tmp_path / "healed.md"
+
+    proc = _run_cli("--path", str(scratch), "--shadow", "--emit-recovered", str(out))
+    assert "KeyError" not in proc.stderr, proc.stderr
+    assert proc.returncode == 2, "a scratch path cannot resolve an oracle"
+    assert out.exists(), proc.stdout + proc.stderr
+    emitted = out.read_text(encoding="utf-8")
+    assert cyrillic_count(emitted) == 0, "the emitted file must be fully repaired"
+    assert hashlib.sha256(emitted.encode("utf-8")).hexdigest() == GATE2_PARENT_REPAIRED_SHA256
+    assert "shadow cp775" in proc.stdout, proc.stdout
+
+
+def test_shadow_heal_is_a_no_op_when_there_is_no_outer_pass():
+    """Without an outer pass there is nothing for ``--shadow`` to do.
+
+    An already-repaired file must not be "healed" into something else by a flag
+    that is exercised unconditionally: the transform is skipped per line when the
+    inverse does not hold, so the heal returns the input unchanged and the
+    adjudication declines to claim it (``shadow_adjudicated`` False).
+    """
+    oracle = _rev("AGENTS.md", ORACLE_REV)
+    if oracle is None:
+        pytest.skip(f"oracle {ORACLE_REV} unavailable in this clone")
+    result, healed = audit_shadow(oracle, oracle)
+    assert healed == oracle, "the heal must not alter text with no outer pass"
+    assert result["shadow_lines_healed"] == 0
+    assert result["shadow_adjudicated"] is False
 

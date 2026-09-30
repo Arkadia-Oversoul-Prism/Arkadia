@@ -150,3 +150,79 @@ sha256 `08e2af0d`), which is a third, distinct repair. Content hashes:
 encoding repair is not the verified one. Merging it as-is lands an unadjudicated `AGENTS.md`.
 Before merge, its encoding must be adjudicated against the same byte oracle, or its
 `AGENTS.md` hunk dropped in favour of #150's. Recorded as the next bounded task; not started.
+
+## 11. Pass 3 — #143's `AGENTS.md` adjudicated
+
+The bounded task named in §10 is now discharged. `--shadow` was added to the instrument so
+the outer codec pass is healable, and #143 was adjudicated against the same byte oracle.
+
+### The third corruption class
+
+`#143`'s `AGENTS.md` (`08e2af0d`) is not byte-oracle-canonical, but it is **not** the CP866
+class either. Measured bytes, recomputed independently of the instrument:
+
+| revision | sha256 | bytes | lines | Cyrillic | Latin-1/Ext | non-ASCII |
+|---|---|---|---|---|---|---|
+| `main` (corrupted) | `57bf37f9` | - | - | 182 | 2 | 263 |
+| `#143` | `08e2af0d` | 35811 | 481 | **0** | **594** | 601 |
+| `#147` | `2ccde4c5` | 36650 | 481 | 188 | 4 | 274 |
+| `#150` (oracle) | `a7ef8002` | 29528 | 481 | 0 | 3 | 122 |
+
+`#143` moved the text *out* of the Cyrillic band (188->0 on its base) and *into* Latin-1/Ext
+(594). Its `AGENTS.md` SAT-repairs and encoding-heals CP775-interpreted bytes. That is why
+the CP866-only pass-1 instrument returned `decidable=False` on it - the class is genuinely
+different, not a worse instance of the same one.
+
+### Adjudication result
+
+Two-stage repair - `heal_shadow(cp775)` then `recover()` - on `7d79f38b:AGENTS.md`:
+
+- cyrillic 182 -> 0; non-ASCII 263 -> 140
+- `oracle_reproduced = True`, `oracle_alterations = []`
+- recovered sha256 `af67aad45631d130d1c352efdea75a20e16cb829a3620d527c07e31f2772415f`
+
+**The codec is named by the oracle, not by preference.** Of `cp775`, `cp437`, `cp850`,
+`cp866`, `latin-1`, only `cp775` reproduces the oracle (asserted in
+`test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec`). A wrong codec cannot
+reproduce the oracle, which is what licenses `--shadow` to exist without a trusted codec
+table. The digested value is recomputed from the pinned revision inside
+`test_gate2_parent_agents_md_repair_is_byte_identical_to_the_pipeline`, so this document
+cannot assert a digest the bytes deny.
+
+### Consequence for the queue
+
+`#143`'s repair is sound *and disjunct from* the canonical recovery: it lands 481 lines of
+two-stage-healed text where `#150` lands 481 lines of the oracle's own bytes. Both reduce to
+the oracle, so either can be adjudicated - but they are not the same artifact, and merging
+both would leave a second rewrite of the same file. `#150`'s `a7ef8002` remains the
+canonical repair (it is the recovered tip, not a parallel derivation); `#143`'s `AGENTS.md`
+hunk should be taken as superseded by it. `#147`'s `2ccde4c5` (Cyrillic 188 - never healed)
+remains the defective one.
+
+### Verification, both merge orders
+
+| scenario | how | result |
+|---|---|---|
+| corrupted `main` | this branch as-is | **23 passed** |
+| `#150` + `#151` merged | synthetic `git merge-tree` worktree, pass-3 files | **21 passed / 2 skipped** |
+
+Both skips are the corrupted-tree assertions declining to bind on an already-repaired tree.
+
+### Regression fingerprint (unchanged)
+
+Full suite, identical flags (`--ignore` the two pre-existing collection errors):
+
+| tree | result |
+|---|---|
+| `main` | 1060 passed / 21 failed / 15 skipped |
+| `#150` + `#151` + pass 3 | 1060 passed / 20 failed / 15 skipped |
+
+The failing sets are identical apart from
+`test_engineering_lab_agent_loop.py::test_agent_loop_does_not_mutate_repository`, which
+passes **in isolation on both trees**. It is order/dirty-tree sensitive, and this change
+touches neither that module nor any dependency of it. Recorded as flake, not regression.
+
+### Authority
+
+No merge performed. The queue adjudication is complete; every merge in it remains
+human-only.
