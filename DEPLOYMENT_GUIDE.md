@@ -82,6 +82,11 @@ Interactive API reference: `GET /docs` (and `GET /openapi.json`). These are Fast
 documentation routes and are deliberately absent from the OpenAPI schema, so they are not
 listed in the table above.
 
+`GET /health` is **not** served by this app on the current revision — it returns `404`.
+The path is still referenced by `api/rate_limit.EXEMPT_PREFIXES` and by operator uptime
+monitors, and PR #154 restores it as a projection of `/api/heartbeat` rather than as a
+second liveness authority. Until that merges, probe `/api/heartbeat`.
+
 > The `openclaw/` gateway is a **separate** service with its own `render.yaml` and its own
 > `GET /health`; it is not this backend and is not covered by the table above.
 
