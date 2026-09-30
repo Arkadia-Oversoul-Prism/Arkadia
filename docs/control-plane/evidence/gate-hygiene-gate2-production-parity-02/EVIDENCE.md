@@ -533,3 +533,109 @@ Read-only, stdlib-only Python driving Playwright/Chromium. Holds no credential. 
 only when every route is `OBSERVED`, `1` on any `FAILED`, and `2` when the browser dependency
 is unavailable (classified `BLOCKED`, never silently passed).
 
+## 12. Pass 5 — backend runtime observation: the third link of the chain
+
+Passes 2–4 closed the chain on the *frontend*: the Vercel bundle's marker-set lineage
+(§8, §10) and browser-rendered UI on six routes (§11). The Render service — the actual
+application runtime, the Oracle spine, the TTS boundary, the API surface — had not been
+observed at all. It is reachable without a credential, so the link
+
+```
+main SHA -> backend deployment -> backend runtime observation
+```
+
+is testable where the Vercel build-output link is not.
+
+### 12.1 What was observed
+
+| Observation | Value |
+| --- | --- |
+| main SHA | `002b189dd95e41c9b4f4cca33d08b4121453d289` (merge of #141, 2026-09-30 02:22:31 +0100) |
+| backend host | `https://arkadia-kw64.onrender.com` |
+| `/openapi.json` | HTTP 200, title `Arkadia Mind — Cycle 11`, version `0.1.0` |
+| operations | 274 |
+| schema digest | `d1797f9c38b5d707d0c7558de20aaa4d888954cd241e753ee4cb2c862b74e30b` |
+
+Liveness floor — every probe answered anonymously with HTTP 200:
+
+| Probe | Status | Bytes |
+| --- | --- | --- |
+| `/` | 200 | 40 |
+| `/api/stellar-cartography` | 200 | 3786 |
+| `/api/tts/status` | 200 | 284 |
+
+Required prefixes, each carrying the feature that introduced it, were all present:
+`/api/commune` (Oracle/ReasoMate chat spine), `/api/stellar-cartography`
+(`kernel/stellar.py`), `/api/tts` (`kernel/tts.py`), `/api/echoes` (Echofeild →
+SolSpire/Knowledge OS pipe). Missing: none.
+
+### 12.2 Oracle power is measured, not assumed
+
+A route-set oracle only changes when a route is added, removed, or re-pathed. Most
+revisions in this repository differ only in handler bodies, so the oracle is expected to
+be *undiscriminating* across them — and equality under an undiscriminating oracle is not
+evidence of lineage.
+
+This pass therefore measures discrimination against a negative control drawn from the
+same repository. The previous pass recorded that the route-decorator count moved across
+older revisions (`9ab26fc` 2 → `d3ead27` 149 → `d48ad0e` 171 → `df7a99a` 171 → `002b189`
+171), so `2525811` was used as a candidate expected to differ.
+
+| Revision | Signature digest |
+| --- | --- |
+| `main:002b189dd95e` | `d1797f9c…e30b` |
+| `cand:df7a99a06738` | `d1797f9c…e30b` |
+| `cand:2525811` | `846748380cde21badef4…` |
+
+Distinct signatures: **2** ⇒ `discriminating: true`. The deployed schema is byte-identical
+to `main`'s and to `df7a99a`'s, and is *separated* from `2525811`. That is the property the
+frontend marker-set oracle could not demonstrate, and it is why this result is reported as
+`VERIFIED` rather than `VERIFIED (undiscriminating)`.
+
+`cd24bb1` — the P1-A boot-broken commit — failed to import and was **excluded** from the
+comparison rather than counted as a distinct signature. A revision that cannot boot must
+not be allowed to manufacture discrimination.
+
+### 12.3 A defect found in this harness, and fixed
+
+The first live run reported `/api/stellar-cartography` as a missing required prefix while
+its own liveness probe returned HTTP 200 — a self-contradiction inside one report. The
+cause: the prefix check read paths out of signature rows (`METHOD path :: summary :: tags`)
+using `split(" ", 1)[1]`, which retains the ` :: summary` suffix, so *every* prefix looked
+absent. Fixed to `split(" ", 2)[1]`, with a regression test
+(`test_required_prefix_check_parses_paths_out_of_signature_rows`).
+
+Recorded because the failure mode is instructive: the check failed *closed* (loudly wrong)
+rather than *open* (silently passing), and it was the negative control — not the happy
+path — that exposed it.
+
+### 12.4 Boundary classification after this pass
+
+| Link | After pass 5 |
+| --- | --- |
+| current main resolved | **VERIFIED** — `002b189dd95e41c9b4f4cca33d08b4121453d289` |
+| main → backend deployment identity | **UNKNOWN** — Render publishes no source SHA and no route exposes the deploy commit |
+| backend runtime observation | **VERIFIED** |
+| backend ↔ source lineage | **VERIFIED** — route-set oracle, discriminating (§12.2) |
+| Vercel build observation | **BLOCKED** (unchanged — provider credential, §6) |
+| Vercel build ↔ source lineage | **VERIFIED** (unchanged, §10) |
+| browser-rendered UI | **OBSERVED** (unchanged, §11) |
+| production acceptance | **NOT CLAIMED** (human authority) |
+
+**Parity is still not claimed.** This pass closes the backend runtime link and adds the
+discrimination the earlier oracle lacked. The one remaining self-closable gap is
+`main → backend deployment identity`: Render exposes no deploy-commit record through any
+surface reachable here, so that link stays `UNKNOWN` and is not inferred from schema
+equality — equality is consistent with the deployed commit, it does not *identify* it.
+
+### 12.5 Reproduction
+
+```
+python scripts/gate2_backend_observation.py --compare 2525811
+python scripts/gate2_backend_observation.py --json --compare <rev> ...
+python -m pytest tests/test_gate2_backend_observation.py -q   # 18 passed
+```
+
+Read-only, standard library only, holds no credential, performs no mutation. Import of a
+candidate revision happens in a subprocess from a detached worktree, so the caller's
+checkout is never disturbed and a non-importable revision is reported rather than fatal.
