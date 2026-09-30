@@ -38,6 +38,22 @@ the alphabet-subset test — not invertibility — is the discriminator.
 Merge-order constraint: #147's base is #143's head, so #147 must not merge before #143 — and
 on the merits #147 should be superseded by #150.
 
+## Linkage
+
+- **PR:** #152 — `https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/152`
+- **Branch:** `gate-hygiene/agents-md-repair-fingerprint-01`
+- **Head:** `3240e8593474fd929c31cf9260cd80c85b1b65e3`
+- **BASE_MAIN:** `002b189dd95e41c9b4f4cca33d08b4121453d289`
+- **Status:** IMPLEMENTED — CI green (secret scan pass, Vercel pass)
+- **Authority:** merge remains HUMAN_SOVEREIGN
+
+## Next bounded task
+
+The repair itself, once a human merges #150. This workstream's guard then runs against the
+merged tree and must continue to pass. No further mutation is proposed by this pass —
+the remaining work is authorization, not engineering.
+
+
 ## This pass
 
 - Branch: `gate-hygiene/agents-md-repair-fingerprint-01`
