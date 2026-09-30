@@ -116,3 +116,57 @@ Evidence: `docs/control-plane/evidence/workstream-b-vault-sandbox/EVIDENCE.md`.
 Defence-in-depth still available if desired: ignore patterns for `vault/*/2*.md` while
 keeping the tracked scaffold (`.gitkeep`, `vault/Templates/*`, `vault/Index/README.md`).
 Not applied — the fixture removes the cause rather than masking it.
+
+## `weaver.autonomy` is two objects under one name — the module is shadowed and unreachable
+
+Discovered: 2026-09-30, pass `gate-hygiene/bootstrap-scope-reconciliation-01`. Filed, not
+repaired — the repair is a governance decision, not a bug fix.
+
+`weaver/autonomy.py` (a module) and `weaver/autonomy/` (a package) both exist. Python
+resolves `weaver.autonomy` to the **package**, so the module is shadowed and cannot be
+imported by its dotted name. Two live consumers import from the shadowed module and both
+fail:
+
+- `tests/test_autonomy.py:2` → `ImportError: cannot import name 'load_autonomy_config' from
+  'weaver.autonomy'` (one of the two collection errors in the baseline fingerprint)
+- `weaver/run_autonomy.py:3` → same import path, same failure
+
+The two objects disagree about what autonomy *is*. The package's `__init__.py` declares
+`__status__ = "disabled"` and "Guards and proposal engine only. **No execution hooks.**"
+The module it shadows is exactly an execution hook: `run_scheduled_once()` drives
+`RecursiveEngine` and commits through `git_ops.last_commit_messages()`.
+
+So the repair is not mechanical. Choosing the package as canonical means autonomous
+execution is not reachable — consistent with `__status__ = "disabled"`, but it strands
+`tests/test_autonomy.py` and `weaver/run_autonomy.py`. Choosing the module as canonical
+means autonomous execution *is* reachable and the package's declaration is wrong — which is
+an authority-model question (who may originate an autonomous commit?) and is reserved to the
+sovereign.
+
+**Awaiting:** a sovereign ruling on which object is canonical. Until then
+`tests/test_autonomy.py` stays a collection error and `weaver/run_autonomy.py` stays broken.
+
+Evidence: `docs/control-plane/evidence/gate-hygiene-bootstrap-scope-reconciliation-01/EVIDENCE.md` §6.
+
+## Spiral Grove registry: declared prerequisite order ≠ returned order; cycle guard red on `main`
+
+Discovered: 2026-09-30, pass `gate-hygiene/bootstrap-scope-reconciliation-01`. Filed, not
+repaired — the repair is a product/contract decision on a CP10-fenced path.
+
+`test_spiral_grove_registry.py::test_ais_catalog_supports_progressive_creative_workflow` is
+classified `DRIFT`. Measured at `002b189`: the registry declares
+`cap-ai-creative-workflows → [cap-ai-prompt-engineering, cap-digital-intelligence,
+cap-content-systems]`, while the graph returns
+`[cap-digital-intelligence, cap-ai-prompt-engineering, cap-content-systems]` — i.e. it
+topologically sorts rather than preserving declaration order. The same module's non-catalog
+fixture passes (`test_registry_reports_ready_prerequisites` green), and
+`test_registry_rejects_prerequisite_cycle` is red on `main`, so the catalog contains a cycle
+or self-edge that the guard detects only on the catalog path.
+
+A topological order is a defensible contract for a *learning path* and a contradiction for a
+*declaration-order* contract. `SH-02`'s disposition pass already excluded these nodes ("the
+behaviour itself is in question"); the ledger class is `DRIFT`.
+
+**Awaiting:** a ruling on which contract the Spiral Grove registry means.
+
+Evidence: `docs/control-plane/evidence/gate-hygiene-bootstrap-scope-reconciliation-01/EVIDENCE.md` §8.
