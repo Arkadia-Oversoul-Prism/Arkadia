@@ -379,3 +379,51 @@ This trajectory may include deployment configuration, CI/CD, verification harnes
 
 ### Current known Gate 2 handoff
 Gate 2 is open on production parity. Current main was established at `8f9d509ec4900408e13e15544192dba37fb08ff8`. The existing evidence must not claim production parity until that SHA is tied to a production deployment and the resulting UI/runtime behavior is independently observed.
+
+## Gate 2 production parity — deployment identity RESOLVED, observation BLOCKED (2026-09-30)
+
+- **The main→deployment link exists and is queryable.** Do not re-derive it from prose or
+  guess it from Vercel's UI:
+  `GET /repos/.../deployments?environment=production` then
+  `GET /repos/.../deployments/<id>/statuses`. The status carries `environment_url`.
+  At main `002b189` this yielded deployment `6749238709` with
+  **`ref == sha == 002b189dd95e...`** — i.e. Vercel deploys on the ref, so the record
+  names the source SHA exactly. `commits/<sha>/status` also shows `Vercel / success`.
+- **The deployment-specific URL is behind Vercel Deployment Protection (SSO).**
+  `https://arkadia-prism-<id>-arkadia-prism.vercel.app` returns **302 → vercel.com/login**.
+  Its build output is not anonymously observable. This is the boundary that keeps Gate 2
+  open: `BLOCKED` on provider auth, not on repository work. Closing it needs a Vercel
+  credential, Deployment Protection relaxed, or a runtime observation from someone who has
+  access. **Repeating the pass cannot convert BLOCKED/UNKNOWN into VERIFIED.**
+- **The production alias is readable but does not close the chain by itself.** Vercel
+  assigns the alias to the newest Production deployment — that is provider behaviour, not an
+  observation, so alias→SHA stays `UNKNOWN` unless the deployment URL can be read.
+- **Asset-hash comparison is NOT a parity oracle, in either direction.** Build output is
+  env-dependent: injecting `VITE_API_BASE_URL` changes the emitted hash with no source
+  change. A mismatch is not divergence; a match is not parity.
+- **HTTP 200 on any route is not application correctness.** Root `vercel.json` rewrites
+  `/(.*)` → `/index.html`, so a route that never existed (e.g. `/api/health`, per
+  `git log -S`) returns `200 text/html` identically to any nonexistent path. Prior
+  route-reachability results must be read with this caveat.
+- `web/public_prism/dist/` is **tracked but stale** — a build output in version control that
+  drifts on every local build and is env-dependent. Do not commit a locally rebuilt copy;
+  revert stray `dist/` modifications before staging (they are not your change).
+- Evidence: `docs/control-plane/evidence/gate-hygiene-gate2-production-parity-02/`
+  (PR #143).
+
+## Test-suite fingerprint is UNSTABLE on main (attribute by name, not count)
+
+- `tests/test_engineering_lab_agent_loop.py::test_agent_loop_does_not_mutate_repository`
+  is **intermittent under the full suite** and passes 8/8 in isolation. It snapshots
+  **global** `git status --porcelain` on `REPO_ROOT` around `execute_agent_loop`, so *any*
+  other test's repository write fails it. Cross-test contamination, **not** a boundary
+  violation — do not "fix" the substrate for it.
+- Consequence: full-suite counts on the same SHA alternate (observed 20 vs 21 failures
+  across four runs). **Never attribute a regression from a count delta alone** — diff the
+  failure *names*.
+- Current main baseline (measured, not prose): architecture **11/11** (not 9/10);
+  full suite **~20F / ~1039P / 13S / 2 collection errors**. The contract's older
+  `804p/54f` fingerprint does not reproduce — base `df7a99a` carried 32 failures, current
+  main carries ~20, the delta being the steward-filter carrier merged as `002b189`.
+- `python -m py_compile api/main.py` before committing boot-code changes; budget 2600
+  (currently 2519).
