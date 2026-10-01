@@ -216,3 +216,26 @@ def test_enterprise_interpretation_requires_canonical_capture_projection(tmp_pat
     )
     assert interpretation.canonical_record_id == canonical.id
     assert canonical.capture_ref is not None
+
+
+def test_canonical_forward_walk_reaches_operational_evidence(tmp_path, monkeypatch):
+    store = _store(tmp_path, monkeypatch)
+    import knowledge.db as kdb
+    kdb._DB_PATH = tmp_path / "knowledge.db"
+    kdb._local.conn = None
+
+    result = simulate_eden_supplier_path(
+        store, subject="architect", enterprise_id="eden-forward"
+    )
+    walk = store.forward_walk(
+        subject="architect",
+        kind="CANONICAL_RECORD",
+        record_id=result["canonical"].id,
+    )
+    kinds = {r["kind"] for r in walk["records"]}
+
+    assert result["canonical"].capture_ref is not None
+    assert {
+        "CANONICAL_RECORD", "INTERPRETATION", "PROPOSAL",
+        "AUTHORIZATION", "EXECUTION_ATTEMPT", "EVIDENCE", "VERIFICATION",
+    } <= kinds
