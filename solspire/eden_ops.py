@@ -291,6 +291,8 @@ class EdenOps:
                 recommended_actions=["verify_price"],
                 required_authority="human",
                 tool_selections=["supplier_verification"],
+                caused_by_kind="INTERPRETATION",
+                caused_by_id=interpretation.id,
                 correlation_id=canonical.correlation_id,
             )
         return {
