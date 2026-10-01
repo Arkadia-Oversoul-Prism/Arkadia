@@ -65,3 +65,14 @@ python-docx
 python-multipart
 requests
 uvicorn[standard]
+
+# cryptography is a direct, module-scope import of api/source_connections.py
+# (Fernet for source credentials encrypted at rest). It was previously present
+# only transitively through pdfminer.six, so an environment that omitted
+# pdfminer.six silently dropped the /solspire/sources router -- the app still
+# booted, because api/key_routes.py swallows the ImportError. The gate2 backend
+# observation then compared a route set missing four operations against
+# production and could not distinguish an environment gap from a source
+# divergence. Declared explicitly so the dependency is a contract, not a
+# coincidence of the dependency graph.
+cryptography
