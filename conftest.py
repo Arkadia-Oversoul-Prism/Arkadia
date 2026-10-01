@@ -13,10 +13,27 @@ commit can fold synthetic private-vault material into canon.
 
 This fixture closes that gap once, for every test module, without editing the
 modules that already sandbox themselves.
+
+The same shape of gap exists for the canonical SolSpire store. Thirteen modules
+(`solspire/*.py`, `weaver/enterprise_orchestration.py`,
+`lab/engineering_lab/store.py`) each snapshot
+
+    _DB_PATH = os.environ.get("SOLSPIRE_PROJECTS_DB") or os.path.join(
+        os.environ.get("SOLSPIRE_DATA_DIR", "data"), "solspire_projects.db"
+    )
+
+at *import* time. A test that patches only the two or three copies it happens to
+import therefore leaves the rest writing to the repository's real
+`data/solspire_projects.db` — a silent leak, because those tests still pass.
+`test_eden_solspire_01_instantiation.py` and `test_enterprise_onboarding.py`
+were both leaking this way. Patching thirteen module constants per test would be
+permanently fragile: a fourteenth module added later reopens the hole. Rebinding
+every copy once, at session scope, closes the class rather than the instances.
 """
 from __future__ import annotations
 
 import os
+import sys
 import tempfile
 
 import pytest
@@ -46,4 +63,28 @@ def _sandbox_knowledge_runtime():
     vault_root = _vault.Path(os.path.join(_SESSION_STATE, "vault"))
     _vault.VAULT_ROOT = vault_root
     knowledge.VAULT_ROOT = vault_root
+    yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _sandbox_solspire_store():
+    """Point every module-level copy of the canonical store path at a throwaway DB.
+
+    Rebinds the imported module constants directly rather than relying on the env
+    var: the constants were already snapshotted at import time by the time this
+    runs. Modules imported later inherit `SOLSPIRE_PROJECTS_DB` from the
+    environment, so both the already-imported and not-yet-imported cases are
+    covered.
+    """
+    db_path = os.path.join(_SESSION_STATE, "solspire_projects.db")
+    # Forced, not setdefault: a later import must agree with the rebinds below.
+    os.environ["SOLSPIRE_PROJECTS_DB"] = db_path
+
+    for module in list(sys.modules.values()):
+        if module is None:
+            continue
+        current = getattr(module, "_DB_PATH", None)
+        if isinstance(current, str) and os.path.basename(current) == "solspire_projects.db":
+            module._DB_PATH = db_path
+
     yield
