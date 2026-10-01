@@ -1248,12 +1248,14 @@ async def commune_resonance(request: Request):
             daemon=True,
         ).start()
         resonance = round(0.7 + (len(reply) % 30) / 100, 3)
+        from api.oracle_spine import build_sources
         return {
             "reply":     reply,
             "resonance": resonance,
             "patterns":  [],
             "rag_refs":  rag_refs,
             "rag_hits":  len(rag_refs),
+            "sources":   build_sources(memory_meta.get("_context_package")),
             "memory": {"session_id": session_id or None, "thread_id": memory_meta.get("thread_id"), "project_id": project_id,
                        "user_id": spine_user_id or None,
                        "notes_retrieved": memory_meta.get("notes_retrieved", 0),
