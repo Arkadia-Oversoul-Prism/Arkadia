@@ -818,6 +818,8 @@ def simulate_eden_supplier_path(store: EnterpriseOrchestrationStore, *, subject:
         recommended_actions=["verify supplier price", "do not commit funds"],
         required_authority="human",
         tool_selections=["supplier_verification"],
+        caused_by_kind="INTERPRETATION", caused_by_id=interpretation.id,
+        correlation_id=interpretation.correlation_id,
     )
     authority = store.authority_event(
         subject=subject, actor=subject, authority_context="Eden Cycle 01",
