@@ -31,3 +31,24 @@ enterprise operational records → inferred provenance.
 ## Causal chain closure
 
 Enterprise proposals may carry `caused_by_kind/caused_by_id`, and the Eden path binds the verification proposal to its interpretation. Reverse/forward walks therefore preserve the causal path from the captured source through interpretation, proposal, authority, authorization, execution, evidence, and verification without treating correlation IDs as causal proof.
+
+
+## Evidence-side closure
+
+The lineage surface is now bidirectional without creating a second provenance store.
+
+**Forward acceptance path**
+
+`CANONICAL_RECORD` → `INTERPRETATION` → `PROPOSAL` → `AUTHORIZATION` → `EXECUTION_ATTEMPT` → `EVIDENCE` → `VERIFICATION`
+
+A forward walk rooted at a captured canonical record must reach the resulting verification when those records exist. The canonical record retains `capture_ref` and the capture checksum remains equal to the canonical payload hash.
+
+**Reverse acceptance path**
+
+`VERIFICATION` → `EVIDENCE` → `EXECUTION_ATTEMPT` → `AUTHORIZATION` → `PROPOSAL` → `INTERPRETATION` → `CANONICAL_RECORD` → `CAPTURE` → `SOURCE`
+
+The reverse walk resolves `capture_ref` through the existing read-only GATE-01 provenance function. It exposes the captured checksum, source identity, source reference, authorship state, and capture metadata. It does not infer authorship.
+
+For canonical roots, `complete=true` now means the operational ancestry reaches both a GATE-01 capture and its registered source. Missing capture provenance therefore cannot be silently treated as complete lineage.
+
+This is a read-only projection over existing records. No second provenance authority, graph store, or mutation path is introduced.
