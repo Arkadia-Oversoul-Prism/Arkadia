@@ -180,7 +180,7 @@ def find_duplicates(content: str) -> Optional[dict]:
 # Main pipeline entry point
 # ─────────────────────────────────────────────────────────────────────────────
 
-def ingest(
+def _ingest_core(
     title: str,
     content: str,
     note_type: str = "note",
@@ -195,18 +195,7 @@ def ingest(
     auto_embed: bool = True,
     auto_link: bool = True,
 ) -> dict:
-    """
-    Full knowledge pipeline:
-    1. Duplicate check
-    2. Create note (Markdown + SQLite)
-    3. Auto-tag extraction
-    4. Chunk text
-    5. Embed chunks
-    6. Auto-link to related notes
-    7. Timeline record
-    Returns the created note dict.
-    """
-
+    """Canonical note-write pipeline after SOURCE → CAPTURE has completed."""
     # ── 1. Duplicate detection ───────────────────────────────────────────────
     dupe = find_duplicates(content)
     if dupe:
@@ -220,7 +209,7 @@ def ingest(
             if t not in final_tags:
                 final_tags.append(t)
 
-    # ── 3. Create note ───────────────────────────────────────────────────────
+    # ── 3. Create note ────────────────────────────────────────────────────────
     note = create_note(
         title=title,
         content=content,
@@ -235,10 +224,10 @@ def ingest(
     )
     note_id = note["id"]
 
-    # ── 4. Persist tags ──────────────────────────────────────────────────────
+    # ── 4. Persist tags ───────────────────────────────────────────────────────
     upsert_tags(note_id, final_tags)
 
-    # ── 5. Chunk ─────────────────────────────────────────────────────────────
+    # ── 5. Chunk ──────────────────────────────────────────────────────────────
     chunks = chunk_text(content)
     store_chunks(note_id, chunks)
 
@@ -246,13 +235,12 @@ def ingest(
     if auto_embed:
         embed_note_chunks(note_id)
 
-    # ── 7. Semantic enrichment (replaces simple tag-only auto-link) ──────────
+    # ── 7. Semantic enrichment ────────────────────────────────────────────────
     if auto_link and note_id:
         try:
             from knowledge.enrichment import schedule_enrichment
             schedule_enrichment(note_id)
         except Exception:
-            # Fall back to the original tag-similarity heuristic if enrichment unavailable
             candidate_rows = execute(
                 "SELECT DISTINCT n.id FROM notes n JOIN note_tags nt ON nt.note_id = n.id "
                 "JOIN tags t ON t.id = nt.tag_id WHERE t.name IN ({}) AND n.id != ? LIMIT 20".format(
@@ -285,6 +273,99 @@ def ingest(
     return {**note, "chunks_created": len(chunks), "tags_applied": final_tags}
 
 
+def ingest(
+    title: str,
+    content: str,
+    note_type: str = "note",
+    project_id: Optional[int] = None,
+    thread_id: Optional[int] = None,
+    participants: Optional[list[str]] = None,
+    tags: Optional[list[str]] = None,
+    links: Optional[list[str]] = None,
+    source_provider: Optional[str] = None,
+    user_id: Optional[str] = None,
+    auto_tag: bool = True,
+    auto_embed: bool = True,
+    auto_link: bool = True,
+    capture_source_kind: Optional[str] = None,
+    capture_source_ref: Optional[str] = None,
+    capture_source_title: Optional[str] = None,
+    captured_by: Optional[str] = "knowledge.pipeline",
+    captured_by_kind: str = "system",
+    authored_by: Optional[str] = None,
+    authored_by_kind: str = "unknown",
+) -> dict:
+    """Shared ingress: SOURCE → CAPTURE → canonical Knowledge OS note.
+
+    Every normal knowledge-ingestion call crosses the existing GATE-01 capture
+    boundary before note creation. Existing callers remain source-compatible;
+    callers may supply explicit source/actor metadata when it is actually known.
+    """
+    from knowledge import capture as cap
+
+    kind_by_note_type = {
+        "conversation": "message",
+        "document": "document",
+        "scroll": "document",
+        "task": "system",
+        "note": "system",
+    }
+    source_kind = capture_source_kind or kind_by_note_type.get(note_type, "system")
+    source_ref = capture_source_ref or source_provider or f"pipeline:{note_type}"
+    source_title = capture_source_title or title
+
+    source = cap.register_source(
+        source_kind=source_kind,
+        source_ref=source_ref,
+        title=source_title,
+    )
+    capture_record = cap.capture(
+        source_uuid=source["source_uuid"],
+        raw_content=content,
+        content_kind=(
+            "message" if note_type == "conversation"
+            else "document" if note_type in {"document", "scroll"}
+            else "system"
+        ),
+        captured_by=captured_by,
+        captured_by_kind=captured_by_kind,
+        authored_by=authored_by,
+        authored_by_kind=authored_by_kind,
+    )
+
+    result = _ingest_core(
+        title=title,
+        content=content,
+        note_type=note_type,
+        project_id=project_id,
+        thread_id=thread_id,
+        participants=participants,
+        tags=tags,
+        links=links,
+        source_provider=source_provider,
+        user_id=user_id,
+        auto_tag=auto_tag,
+        auto_embed=auto_embed,
+        auto_link=auto_link,
+    )
+
+    note_id = (
+        (result.get("existing") or {}).get("id")
+        if result.get("duplicate")
+        else result.get("id")
+    )
+    if note_id is not None:
+        capture_record = cap.bind_capture_to_note(
+            capture_uuid=capture_record["capture_uuid"],
+            note_id=note_id,
+        )
+
+    return {
+        **result,
+        "capture": cap.provenance_for_capture(capture_record["capture_uuid"]),
+    }
+
+
 def ingest_conversation(
     prompt: str,
     response: str,
@@ -296,18 +377,13 @@ def ingest_conversation(
 ) -> dict:
     """
     Convenience wrapper: ingest a full conversation exchange as a knowledge note.
-    Records both prompt and response as timeline events, then ingests the combined content.
-    LAW: Conversations become structured knowledge. Nothing is discarded.
+    The raw exchange crosses the shared capture boundary before operational
+    prompt/response timeline events are emitted.
     """
-    # Timeline: record the exchange
-    tl.record("prompt", {"prompt": prompt[:500]}, project_id=project_id, provider=provider, persona=persona)
-    tl.record("response", {"response": response[:1000]}, project_id=project_id, provider=provider, persona=persona)
-
-    # Build note content
     content = f"## Prompt\n\n{prompt}\n\n## Response\n\n{response}"
     title = prompt[:80] + ("…" if len(prompt) > 80 else "")
 
-    return ingest(
+    result = ingest(
         title=title,
         content=content,
         note_type="conversation",
@@ -316,3 +392,21 @@ def ingest_conversation(
         source_provider=provider,
         user_id=user_id,
     )
+
+    # Operational continuity remains distinct from provenance and authorship.
+    tl.record(
+        "prompt",
+        {"prompt": prompt[:500]},
+        project_id=project_id,
+        provider=provider,
+        persona=persona,
+    )
+    tl.record(
+        "response",
+        {"response": response[:1000]},
+        project_id=project_id,
+        provider=provider,
+        persona=persona,
+    )
+
+    return result
