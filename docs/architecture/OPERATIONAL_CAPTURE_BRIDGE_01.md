@@ -26,3 +26,8 @@ GATE-01 provenance → enterprise operational chain
 not
 
 enterprise operational records → inferred provenance.
+
+
+## Causal chain closure
+
+Enterprise proposals may carry `caused_by_kind/caused_by_id`, and the Eden path binds the verification proposal to its interpretation. Reverse/forward walks therefore preserve the causal path from the captured source through interpretation, proposal, authority, authorization, execution, evidence, and verification without treating correlation IDs as causal proof.
