@@ -1,0 +1,27 @@
+diff --git a/DEPLOYMENT_GUIDE.md b/DEPLOYMENT_GUIDE.md
+index dd17939..0a0e57e 100644
+--- a/DEPLOYMENT_GUIDE.md
++++ b/DEPLOYMENT_GUIDE.md
+@@ -68,6 +68,7 @@ exists on this app and returns `404` on the live deployment.
+ |---|---|---|
+ | `GET` | `/` | Liveness banner (`Arkadia Mind is breathing.`) |
+ | `GET` | `/api/heartbeat` | Health check — canonical; used by `railway.json` |
++| `GET` | `/health` | Liveness projection of `/api/heartbeat` (deployment contract path) |
+ | `POST` | `/api/commune/resonance` | Oracle / ReasoMate chat |
+ | `GET`, `POST` | `/api/commune/threads` | List / create conversation threads |
+ | `GET` | `/api/commune/threads/{thread_uuid}` | Thread metadata |
+@@ -82,10 +83,10 @@ Interactive API reference: `GET /docs` (and `GET /openapi.json`). These are Fast
+ documentation routes and are deliberately absent from the OpenAPI schema, so they are not
+ listed in the table above.
+ 
+-`GET /health` is **not** served by this app on the current revision — it returns `404`.
+-The path is still referenced by `api/rate_limit.EXEMPT_PREFIXES` and by operator uptime
+-monitors, and PR #154 restores it as a projection of `/api/heartbeat` rather than as a
+-second liveness authority. Until that merges, probe `/api/heartbeat`.
++`GET /health` is served as a projection of `/api/heartbeat` (never a second liveness
++authority): its status is read from `heartbeat()`, so the two endpoints cannot disagree.
++The path is also referenced by `api/rate_limit.EXEMPT_PREFIXES` and by operator uptime
++monitors.
+ 
+ > The `openclaw/` gateway is a **separate** service with its own `render.yaml` and its own
+ > `GET /health`; it is not this backend and is not covered by the table above.
