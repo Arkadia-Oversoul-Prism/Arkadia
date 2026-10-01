@@ -194,3 +194,42 @@ def test_context_package_stays_internal_to_the_meta_dict():
     from api.oracle_spine import retrieve_arkana_context
     meta = retrieve_arkana_context("nothing archived here", "k4-internal-003")[1]
     assert all(not k.startswith("_") for k in meta) or "_context_package" in meta
+
+
+def test_response_source_preserves_capture_provenance():
+    from api.oracle_spine import build_sources
+
+    package = {
+        "relevant_notes": [{
+            "uuid": "note-1",
+            "title": "Captured source",
+            "note_type": "document",
+            "relevant_chunks": ["evidence"],
+            "provenance": {
+                "capture_uuid": "cap-1",
+                "raw_checksum": "abc123",
+                "authored_by": None,
+                "source": {"kind": "document", "ref": "test:origin"},
+            },
+        }],
+        "graph_expansions": [],
+    }
+    sources = build_sources(package)
+    assert sources[0]["provenance"]["capture_uuid"] == "cap-1"
+    assert sources[0]["provenance"]["source"]["ref"] == "test:origin"
+
+
+def test_response_source_without_provenance_remains_unknown():
+    from api.oracle_spine import build_sources
+
+    package = {
+        "relevant_notes": [{
+            "uuid": "note-unknown",
+            "title": "Legacy",
+            "note_type": "note",
+            "relevant_chunks": [],
+        }],
+        "graph_expansions": [],
+    }
+    sources = build_sources(package)
+    assert sources[0]["provenance"] == {"state": "UNKNOWN"}
