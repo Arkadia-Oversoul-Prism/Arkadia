@@ -379,3 +379,188 @@ it. The mount question remains the blocking one and still requires sovereign aut
 ---
 
 *This evidence artifact was created by an AI agent (OpenHands) on behalf of the human sovereign.*
+
+---
+
+## Addendum A — independent re-verification of pass 2 (third pass)
+
+**Type:** bounded evidence pass. **No source, test, or governance change.** Two evidence files.
+**Base:** `main` @ `002b189dd95e41c9b4f4cca33d08b4121453d289` (unchanged).
+**Verified head:** `3171ac28e6b2172cb067479185d20ba0faf1870a` (pass 2).
+
+Every figure below was re-derived from a fresh clone, live GitHub API reads, a fresh local build
+of `main`, and direct HTTP reads of production. Nothing was inherited from pass 1 or pass 2.
+
+### A.1 Pass-2's central correction — reproduced exactly
+
+The pass-2 claim that the `replaceAll` "defect class" is a `lib`-target artifact is **confirmed
+byte-for-byte**. Re-running pass 1 §2.3's own command at three targets:
+
+```
+--target es2020  ->  3 × TS2551 + 2 × TS2304   (5 errors, 3 classes)
+--target es2021  ->  0 × TS2551 + 2 × TS2304   (2 errors, 2 classes)
+--target esnext  ->  0 × TS2551 + 2 × TS2304   (2 errors, 2 classes)
+```
+
+The surviving two, at their exact compiler columns:
+
+```
+(51,3):   error TS2304: Cannot find name 'useEffect'.
+(56,377): error TS2304: Cannot find name 'surfaceMeta'.
+```
+
+**`--target es2021` and `--target esnext` both yield exactly 2 errors.** The `replaceAll` class
+does not exist. The end-of-line column argument is also confirmed directly: the three reported
+columns (83, 685, 142) are each the **last** `replaceAll` occurrence on lines 25, 55, 56, and
+each line holds exactly one `replaceAll`. Pass-2's diagnosis and remedy are correct.
+
+### A.2 Correction to §2.3's severity note — item-level, and it strengthens pass 2
+
+Pass-2 (§6.2) calls §2.3's severity note "contradicted by the shipped artifact" and cites the
+bundle's 5 `.replaceAll(` sites. **The direction of the correction is right; its magnitude is
+understated.** The shipped sites are not merely "some replaceAll calls on `string`" — they are
+*exactly* the chamber's five.
+
+| | source `CapabilityChamber.tsx` | shipped bundle (production ≡ fresh) |
+|---|---|---|
+| `replaceAll(` call sites | **5** | **5** |
+
+The five source sites and the five bundle sites correspond 1:1, and all five operate on
+`string`/template-literal values. The correct statement is therefore stronger than pass-2's:
+**the artifact contains precisely the same five call sites §2.3 flagged, all of them
+string-valued, all shipping un-transpiled.** There is no compatibility defect at any severity —
+not "5 un-transpiled calls somewhere", but "the flagged calls themselves ship and resolve".
+This *widens* the gap between §2.3's note and reality; it does not change the conclusion.
+
+Also confirmed: the bundle contains **zero** `replaceAll` sites attributable to the
+tree-shaken-out `ActivityRuntime`, consistent with §3.1.
+
+### A.3 New finding — the committed build output is stale (not previously recorded)
+
+Neither pass recorded this. On `main`, three bundle identities exist, and they do not agree:
+
+| artifact | bundle ref | bytes | status |
+|---|---|---|---|
+| **committed** `web/public_prism/dist/index.html` | `index-CStL2fKK.js` | — | **tracked, never built from current source** |
+| **fresh build of `main`** | `index-xiYlcBh3.js` | 1 941 274 | reproducible |
+| **production** (Vercel) | `index-CHFFyuSc.js` | 2 025 825 | live |
+
+- The committed `dist/index.html` is **byte-identical to a fresh build except for the bundle
+  hash** — i.e. it is a genuine past build output, tracked in git.
+- The bundle it references, `index-CStL2fKK.js`, **is not committed and is not buildable** —
+  `git log --all` for that path is empty; a clean `vite build` produces `index-xiYlcBh3.js`.
+- Production serves `index-CHFFyuSc.js`, which corresponds to **neither** the committed nor the
+  fresh-built bundle.
+
+**Interpretation, stated at its true strength.** Vercel's `vercel.json` sets
+`outputDirectory: web/public_prism/dist` with no `buildCommand`, so **Vercel builds from source
+at deploy time** and does not serve the committed `dist/`. That means the stale committed
+`dist/index.html` is **inert with respect to production** — it is not a second mutation path and
+it does not affect the deployed artifact. What it *is* is a tracked build-output file whose
+referenced asset cannot be regenerated from the repository — a provenance inconsistency, not a
+runtime defect.
+
+**What this does and does not change:**
+
+- It does **not** weaken §3 or §3.3. The source-side defect claim is unaffected: the free
+  `useEffect` identifier and the free `surfaceMeta` identifier are present in production and in
+  a fresh build of `main` alike (§A.4), and production still matches the bytes #163 described.
+- It does **not** establish that production is stale. Production differs from a fresh build,
+  and the cause of that difference is **not determined by this pass** — see A.5.
+- It is a **new, unowned** hygiene item. It is *not* a bounded repair here, and this pass does
+  not touch it. Recorded for the sovereign as a candidate workstream, per the contract's
+  NO SELF-EXPANSION rule.
+
+### A.4 Defect markers — production and fresh build agree on every one
+
+| marker | production | fresh build of `main` |
+|---|---|---|
+| bare `useEffect(` (free call) | **1** | **1** |
+| global `useEffect` decl | **0** | **0** |
+| `.useEffect(` property calls | **93** | **93** |
+| `'activity-surface-'` | **0** | **0** |
+| `'activity-runtime-draft'` | **0** | **0** |
+| `'learning-activity-work-surface'` | **1** | **1** |
+| `'sg03-contract-boundary'` | **1** | **1** |
+| `'spiral-grove'` | **4** | **4** |
+| free `surfaceMeta` | **1** | **1** |
+| `'evidence-capture'` | **3** | **3** |
+| `.replaceAll(` | **5** | **5** |
+
+Every §3.1, §3.2 and §11 marker is **confirmed on both artifacts**. The §3.3 conclusion — that
+the defect is source-side and the deployed artifact matches `main` faithfully *in every
+defect-relevant respect* — stands.
+
+The lone bare call, re-located independently:
+
+```js
+,[b,v]=x.useState(""),[w,S]=x.useState(!1);useEffect(()=>{if(!(typeof window>"u"))try{u(window.localStorage.getItem(o)||"")
+```
+
+The bundle's 104 `useEffect` tokens reconcile completely with no residue:
+`93` property calls + `1` bare call + `4` object-literal keys + `1` assignment + `5` alias
+references (`x.useEffect` / `N2.useEffect` / `O1.useEffect` in the `useLayoutEffect` fallbacks)
+= **104**. No unresolved global declaration exists; the one bare call has no binding.
+
+### A.5 Item-level corrections to this pass's own predecessors
+
+1. **§3.3's phrase "matches `main` faithfully" needs one qualifier.** Production's bundle is
+   **84 551 bytes larger** than a fresh build of `main` (2 025 825 vs 1 941 274), while every
+   defect-relevant marker agrees. "Faithfully" is verified **at the marker level**, not at the
+   byte level. The cause of the size delta is **`UNKNOWN`** to this pass and is not promoted.
+2. **§7's CI table row `Vercel — pass`** is correct but was **unverifiable via `check-runs`.**
+   The Vercel deployment is a **commit status**, not a check-run. On head `3171ac28…`:
+   `check-runs total_count = 2` (`Vercel Preview Comments`, `Full-history secret scan`), and
+   `combined status = success` with one status, `Vercel = success`. The table should be read as
+   2 check-runs + 1 commit status. §7's head `fd9d04dda7b1` yields the **identical** result, so
+   the row is accurate for both heads.
+3. **§4's test-attribution table is confirmed at item level**, with one line-number precision
+   note: the four pytest-reported assertion lines (`:73`, `:85`, `:110`, `:115`) are exact, and
+   the function definitions sit at `:82`, `:107`, `:115` per source. §4's mapping of each failing
+   assertion to its file (chamber mount / `ActivityRuntime.tsx` / chamber copy /
+   `SpiralGrovePage.tsx`) is correct in all four rows. The `:115` collision between the header
+   test's **definition** line and §4's cited **assertion** line is benign — §4 cites the
+   pytest-reported assertion line, which is the right one.
+4. **Duplicate `## 6` heading** exists in the pass-2 file (one at §6 "Adjacent claims", one at
+   §6 "Correction — the replaceAll defect class"). Cosmetic; not corrected here to keep this
+   pass's diff additive.
+
+### A.6 Adjacent claims re-verified
+
+| claim | result |
+|---|---|
+| `"/health"` absent from `api/main.py` | **confirmed** — 0 occurrences |
+| `scripts/cp10_mutation_boundary_policy.py` present | **confirmed** — 8461 bytes |
+| `api/main.py` budget | **confirmed** — 2519 / 2600, `py_compile` OK |
+| `CapabilityChamber.tsx` blob `0cde2f782f1c…` | **confirmed** — `0cde2f782f1c17d6269334b2d4c56c166485d06e` |
+| `<ActivityRuntime` render absent | **confirmed** — 0 occurrences |
+| SG-03 boundary strings / `generateExercise` / `createEvidence` | **confirmed** — 2 / 0 / 0 in chamber |
+| open PR count | **confirmed** — 23 (`142 … 163 165`); drain arithmetic reconciles to 20 |
+| PR #165 shape | **confirmed** — `OPEN`, `draft=false`, `mergeable=true`, 2 files, +536/−0, docs-only |
+| branch diff vs `main` | **confirmed** — docs-only, 2 files, 536 insertions |
+
+### A.7 Classification
+
+- **`VERIFIED`** — pass-2's `lib`-target correction (§A.1), the two surviving defects, every
+  defect marker on both artifacts (§A.4), and all §5/§6/§11 adjacent claims (§A.6).
+- **`VERIFIED` with item-level correction** — §2.3's severity note (§A.2: the 5 shipped
+  `replaceAll` sites *are* the flagged ones, so the note is contradicted more strongly than
+  recorded); §7's Vercel row (§A.5.2: commit status, not check-run).
+- **`NEW`** — stale committed `dist/index.html` (§A.3). Inert with respect to production;
+  provenance inconsistency only. **Unowned; requires its own bounded authorization.**
+- **`UNKNOWN`** — the cause of the production/fresh bundle size delta (§A.5.1); the
+  browser-rendered symptom (unchanged from pass 1/2 — no browser runtime in this sandbox).
+- **`NOT CLAIMED`** — production acceptance. Human authority.
+
+### A.8 Boundary honesty
+
+- No source, test, governance, or deployment change. Two evidence files only.
+- No merge, no push to `main`, no force-push, no reclassification of baseline debt.
+- `CapabilityChamber.tsx` is **not** repaired here — the mount question remains a design change
+  requiring sovereign authorization, exactly as pass 2 concluded.
+- The stale-`dist` finding is **recorded, not acted on** — discovery does not authorize
+  execution.
+
+---
+
+*This addendum was created by an AI agent (OpenHands) on behalf of the human sovereign.*

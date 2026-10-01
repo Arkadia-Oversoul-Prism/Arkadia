@@ -153,3 +153,74 @@ the repair remains an authorization-requiring design change.
 ---
 
 *This state file was created by an AI agent (OpenHands) on behalf of the human sovereign.*
+
+---
+
+## 12. Pass-3 state (independent re-verification of pass 2)
+
+| Field | Value |
+|---|---|
+| `BASE_MAIN` | `002b189dd95e41c9b4f4cca33d08b4121453d289` (unchanged) |
+| Verified head | `3171ac28e6b2172cb067479185d20ba0faf1870a` |
+| Source parity with `main` | **identical** — branch diff vs `main` is docs-only (2 files, +536) |
+| `tsc` `CapabilityChamber.tsx` @ `es2020` | 5 errors (3 × `TS2551` + 2 × `TS2304`) |
+| `tsc` @ `es2021` / `esnext` | **2 errors** (`:51 useEffect`, `:56 surfaceMeta`) — `replaceAll` class absent |
+| Production vs fresh `main` build | **agrees on all 11 defect markers** |
+| Production bundle | `index-CHFFyuSc.js`, 2 025 825 B, sha256 `33861ef9…` |
+| Fresh `main` build | `index-xiYlcBh3.js`, 1 941 274 B |
+| Open PRs | 23 (`142 … 163 165`) → 20 drain + 3 evidence |
+
+**Pass-2's central correction is confirmed exactly.** `--target es2021` and `--target esnext`
+both yield precisely the two `TS2304` free-identifier errors; the three `TS2551` `replaceAll`
+errors are a `lib.es2020` artifact and disappear. The reported columns (83/685/142) are
+end-of-line, the last `replaceAll` per line.
+
+**Three item-level findings this pass:**
+
+1. **§2.3's severity note is contradicted *more strongly* than pass 2 recorded.** The shipped
+   bundle's 5 `.replaceAll(` sites are not incidental — they are **exactly** the chamber's five
+   source sites, 1:1, all string-valued, all un-transpiled. There is no compatibility defect at
+   any severity. (Direction unchanged; magnitude widened.)
+2. **NEW — the committed `dist/index.html` is stale.** `main` tracks a build output referencing
+   `index-CStL2fKK.js`, which is neither committed nor reproducible from source (a clean build
+   yields `index-xiYlcBh3.js`). Production serves `index-CHFFyuSc.js` — neither of the two.
+   Because `vercel.json` sets `outputDirectory` with no `buildCommand`, Vercel builds from
+   source at deploy time, so the stale file is **inert with respect to production** — a
+   provenance inconsistency, not a runtime defect. **Unowned; not acted on; requires its own
+   bounded authorization.**
+3. **Production is 84 551 B larger than a fresh build of `main`** while every defect marker
+   agrees. "Matches `main` faithfully" is verified **at marker level, not byte level**. The
+   cause of the delta is **`UNKNOWN`** and is not promoted.
+
+**Unchanged from pass 2:** `ActivityRuntime` imported at `:4`, never rendered (`<ActivityRuntime`
+→ 0). The inline `learning-activity-work-surface` is what ships. Four SG-04 tests assert the
+mount, so the repair remains an authorization-requiring design change. The repair decision is
+**not** made easier by this pass.
+
+### CI at pass-3 (both heads)
+
+| head | check-runs | commit status |
+|---|---|---|
+| `3171ac28` (pass 2/3) | `Vercel Preview Comments` pass, `Full-history secret scan` pass | `Vercel` success |
+| `fd9d04dd` (pass 1, cited in §7) | same two, pass | `Vercel` success |
+
+§7's table is accurate, but note the deployment is a **commit status**, not a check-run — the
+row is not visible in `check-runs`.
+
+### Authorization required (unchanged)
+
+Sovereign review. **Do not merge** — merge is human-only.
+
+1. Accept #163's defect claim as independently verified (it is), with pass-2's two corrections
+   and this pass's three item-level findings.
+2. **Authorize a separate bounded pass** to repair `CapabilityChamber.tsx` — two `tsc` defects
+   (`useEffect`, `surfaceMeta`), both mechanically unambiguous, **neither** of which satisfies
+   the four SG-04 tests. The mount question is the blocking design decision.
+3. **Note the stale committed `dist/index.html`** as a new unowned hygiene candidate — recorded,
+   not executed.
+
+### Boundary honesty
+
+- Static determinations only. The browser-rendered symptom stays **`UNKNOWN`**.
+- **Production acceptance: NOT CLAIMED.**
+- No merge, no push to `main`, no force-push, no source/test/governance change.
