@@ -797,6 +797,16 @@ async def heartbeat():
     return {"status": "radiant", "resonance": 0.99}
 
 
+@app.get("/health")
+async def health():
+    # Projection of the canonical /api/heartbeat liveness signal, not a second
+    # liveness path: the status is read from heartbeat() so the two endpoints
+    # cannot disagree. /health exists because the deployment contract already
+    # points at it — api/rate_limit.EXEMPT_PREFIXES exempts "/health", and
+    # DEPLOYMENT_GUIDE.md directs operators to probe it.
+    return {"status": (await heartbeat())["status"], "path": "/health"}
+
+
 @app.get("/api/sources")
 async def sources():
     cached = _cache.get("scrolls") or {}
