@@ -35,6 +35,9 @@ def test_transition_contracts_and_reverse_walk(tmp_path, monkeypatch):
         recommended_actions=["verify"],
         required_authority="human",
         tool_selections=["supplier_verification"],
+        caused_by_kind="INTERPRETATION",
+        caused_by_id=interpretation.id,
+        correlation_id=interpretation.correlation_id,
     )
 
     try:
@@ -102,7 +105,7 @@ def test_transition_contracts_and_reverse_walk(tmp_path, monkeypatch):
 
     assert walk["complete"] is True
     assert {"VERIFICATION", "EVIDENCE", "EXECUTION_ATTEMPT", "AUTHORIZATION",
-            "PROPOSAL", "AUTHORITY_EVENT"} <= kinds
+            "PROPOSAL", "AUTHORITY_EVENT", "INTERPRETATION", "CANONICAL_RECORD"} <= kinds
     assert "WORK_EVENT" not in kinds
 
 
@@ -118,7 +121,7 @@ def test_eden_simulated_path_preserves_unknown_until_evidence(tmp_path, monkeypa
         subject="architect", kind="VERIFICATION", record_id=result["verification"].id
     )
     assert walk["complete"] is True
-    assert any(r["kind"] == "CANONICAL_RECORD" for r in walk["records"]) is False
+    assert any(r["kind"] == "CANONICAL_RECORD" for r in walk["records"]) is True
     # The verified price claim is sourced from a simulated execution response,
     # while the original supplier message deliberately left price UNKNOWN.
     assert result["canonical"].raw_payload["message"].endswith("price not confirmed.")
