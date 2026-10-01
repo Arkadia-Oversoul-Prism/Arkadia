@@ -12,6 +12,52 @@ from typing import Optional
 from knowledge.db import execute, execute_one
 from knowledge.relationship_types import RELATIONSHIP_TYPES, RELATIONSHIP_TYPES_SET
 
+
+def _attach_provenance(nodes: list[dict]) -> list[dict]:
+    """Attach read-only GATE-01 provenance to graph nodes without creating graph nodes."""
+    if not nodes:
+        return nodes
+    ids = [n["id"] for n in nodes]
+    phs = ",".join("?" * len(ids))
+    rows = execute(
+        f"""
+        SELECT c.note_id, c.capture_uuid, c.raw_checksum, c.capture_status,
+               c.captured_at, c.captured_by, c.captured_by_kind,
+               c.authored_by, c.authored_by_kind,
+               s.source_uuid, s.source_kind, s.source_ref, s.title AS source_title
+        FROM capture_records c
+        JOIN capture_sources s ON s.id = c.source_id
+        WHERE c.note_id IN ({phs})
+        ORDER BY c.id DESC
+        """,
+        tuple(ids),
+    )
+    by_note = {}
+    for row in rows:
+        by_note.setdefault(row["note_id"], row)
+    for node in nodes:
+        row = by_note.get(node["id"])
+        if row:
+            node["provenance"] = {
+                "capture_uuid": row["capture_uuid"],
+                "raw_checksum": row["raw_checksum"],
+                "capture_status": row["capture_status"],
+                "captured_at": row["captured_at"],
+                "captured_by": row["captured_by"],
+                "captured_by_kind": row["captured_by_kind"],
+                "authored_by": row["authored_by"],
+                "authored_by_kind": row["authored_by_kind"],
+                "source": {
+                    "source_uuid": row["source_uuid"],
+                    "kind": row["source_kind"],
+                    "ref": row["source_ref"],
+                    "title": row["source_title"],
+                },
+            }
+        else:
+            node["provenance"] = {"state": "UNKNOWN"}
+    return nodes
+
 def accessible_note_ids(user_id: Optional[str] = None) -> set[int]:
     if user_id:
         rows = execute("SELECT id FROM notes WHERE user_id = ? OR user_id IS NULL", (user_id,))
@@ -171,7 +217,7 @@ def full_graph_export(user_id: Optional[str] = None) -> dict:
         f"WHERE source_note_id IN ({phs}) AND target_note_id IN ({phs})",
         tuple(list(allowed) + list(allowed)),
     )
-    return {"nodes": nodes, "edges": edges}
+    return {"nodes": _attach_provenance(nodes), "edges": edges}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
