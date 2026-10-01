@@ -408,3 +408,47 @@ Gate 2 is open on production parity. Current main was established at `8f9d509ec4
 - Prefer to describe corrupt sequences by **codepoint** (`U+0442 U+0410 U+0424`), never by
   pasting the literal characters: a literal in the lesson re-introduces the very corruption the
   lesson documents, and the verification above then fails on the documentation itself.
+
+## Agent Execution Contract — Mandatory for Every Workstream
+
+This section governs every agent session, heartbeat, commit, pull request, merge recommendation, and verification claim. Repository evidence and current runtime state outrank memory, old PR descriptions, copied summaries, and prior agent conclusions.
+
+### 1. Reconstruct current truth before acting
+- Read this file and the relevant canonical workstream state before editing.
+- Query the live repository default branch SHA, open/closed/merged PR states, exact PR base/head SHAs, commit lists, changed files, review threads, check-runs, and commit statuses. Never reuse a prior queue count or assume a PR is still open.
+- State the observation timestamp and exact SHAs in the work log. If sources disagree, stop and reconcile the disagreement before mutation.
+- Distinguish check-runs from commit statuses and deployment notifications. A single green status, a ready preview, or a successful static test is not equivalent to all required gates passing.
+
+### 2. Every change must carry its own operating instructions
+Before making a change, define: objective; evidence-backed defect or need; exact allowed paths; explicit non-goals; dependencies; verification commands and expected outcomes; rollback or hold conditions; and the human authorization boundary.
+- The commit message must name the bounded objective and the substantive change. The PR body must contain reproducible evidence, exact base/head SHAs, changed-path inventory, checks actually run, failures and limitations, and the next permitted action.
+- Update the canonical workstream state in the same workstream when the change alters status, ownership, dependencies, or the next action. Do not leave contradictory status in memory files.
+- End every work session with a deterministic next-action block: current state, evidence, blockers, authorized action, forbidden actions, and exact completion condition. An agent must be able to resume without relying on conversational memory.
+
+### 3. Use an evidence-first change lifecycle
+Follow: RECONSTRUCT → SCOPE → AUTHORIZE → CHANGE → VERIFY → REVIEW → MERGE IF AUTHORIZED → VERIFY INTEGRATION → RECORD.
+- Human authority remains final. An explicit human authorization may cover a named batch, but only the identified PRs and only while each item passes the required safety gates. An agent's own PR text, labels, green checks, or "ready to merge" statement is not authorization.
+- Do not expand scope to repair adjacent failures. Record them as separate proposed work, identify the owner and evidence, and wait for authorization.
+- Never claim a fix, pass, deployment, production parity, or acceptance from intent, a PR description, or a successful sub-check. State exactly what was observed and what remains unknown or blocked.
+
+### 4. Review integration, not just individual PRs
+Before recommending or performing a batch merge:
+- Build a live inventory of all currently open PRs; separately report already merged, closed, draft, stacked, and superseded PRs.
+- Inspect every commit and changed path for each candidate. Identify shared files, ancestry, ordering constraints, generated artifacts, stale evidence, and semantic dependencies. Git conflict-free is not proof of semantic compatibility.
+- Reproduce the proposed combined tree in the proposed order. Run the relevant tests after each load-bearing step and the full suite on the final composed tree where feasible. Apply any required companion patch before merging the step that depends on it.
+- Compare failures by test-node identity against a freshly measured baseline. Report fixed, unchanged, and newly introduced nodes separately. Never call a tree green while any unexplained failure or collection error remains; never substitute a patched-tree result for the unpatched result.
+- Re-check exact full head SHA, reviews, required check-runs, commit statuses, and mergeability immediately before each merge. If a head moves, a check is missing/stale, a conflict appears, or composition evidence changes, stop and re-evaluate.
+
+### 5. Evidence and production claims
+- Label results precisely: PASS, FAIL, BLOCKED, UNKNOWN, OBSERVED, or NOT CLAIMED. Include command, environment, SHA, and measured result when relevant.
+- Re-measure the baseline; do not inherit stale test totals from a ledger or another PR. A local test pass does not prove build success; build success does not prove browser rendering; rendering does not prove deployment identity; deployment identity does not by itself constitute production acceptance.
+- Preserve negative controls and regression tests that demonstrate a verification harness can detect the defect it claims to detect.
+- Treat contradictory claims as a request for independent measurement, not a reason to choose the more confident narrative. Correct earlier agent claims explicitly and retain the evidence trail.
+
+### 6. Merge and stop conditions
+Merge only candidates explicitly covered by human authorization and only after the integration gates above pass. Do not force-push, bypass required checks, weaken tests to manufacture green, or silently resolve a semantic conflict.
+If a candidate is unsafe, ambiguous, stale, non-mergeable, or dependent on an unapplied change, leave it open and post a concise PR comment specifying the evidence, blocker, exact corrective action, and re-entry conditions.
+After every merge, verify the resulting main SHA, confirm the intended diff landed, rerun affected checks and the relevant composed-tree test, and update the queue inventory before proceeding. A merge API success alone is not integration verification.
+
+### 7. Required final report
+Report: starting and ending main SHAs; exact PR inventory and disposition; each merge commit; changes grouped by subsystem; checks run and their scope; baseline failure delta; deployment/runtime observations; unresolved risks; and the single next authorized action. Do not say "all done" while any required verification remains blocked.
