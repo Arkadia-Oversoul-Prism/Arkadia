@@ -3,6 +3,7 @@
 Pass: `gate-hygiene/queue-greenness-composition-01`
 Date: 2026-10-01 (UTC)
 Base main: `002b189dd95e41c9b4f4cca33d08b4121453d289`
+PR: **#159** (`gate-hygiene/queue-greenness-composition-01`)
 Status: **READY FOR SOVEREIGN REVIEW** — evidence + one apply-verified, unapplied patch.
 Authority: no merge, no push to `main`, no force-push. Human-only merge.
 
