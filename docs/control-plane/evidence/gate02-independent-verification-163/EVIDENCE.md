@@ -552,14 +552,97 @@ references (`x.useEffect` / `N2.useEffect` / `O1.useEffect` in the `useLayoutEff
   browser-rendered symptom (unchanged from pass 1/2 — no browser runtime in this sandbox).
 - **`NOT CLAIMED`** — production acceptance. Human authority.
 
-### A.8 Boundary honesty
+## Appendix B — Pass 4: item-level decomposition of the SG-04 cluster
 
-- No source, test, governance, or deployment change. Two evidence files only.
-- No merge, no push to `main`, no force-push, no reclassification of baseline debt.
-- `CapabilityChamber.tsx` is **not** repaired here — the mount question remains a design change
-  requiring sovereign authorization, exactly as pass 2 concluded.
-- The stale-`dist` finding is **recorded, not acted on** — discovery does not authorize
-  execution.
+The predecessor document `gate-hygiene-sg04-canonical-header-merge-regression-01` classifies the
+four SG-04 failures as a **"cluster-level merge-loss"** (its §5.4 and §6) and attributes the
+`:107` failure to the **absence** of the SG-03 downstream-boundary literal. Pass 4 tested that
+classification at the byte level. **One of its two premises is falsified.**
+
+### B.1 The `:107` premise is falsified — the literal is duplicated, not absent
+
+The predecessor's §6 table lists "SG-03 downstream-boundary literal" as **absent** on `main`.
+It is not absent. `CapabilityChamber.tsx` on `main` carries the boundary paragraph **twice**:
+
+| # | chamber copy (verbatim) |
+|---|---|
+| 1 | `Evidence submission, assessment, and capability-state mutation remain explicit downstream stages.` |
+| 2 | `Evidence submission, assessment, and capability-state updates remain separate explicit downstream stages.` |
+
+The node asserts a **third** string that matches neither:
+
+```
+tests/test_spiral_grove_activity_runtime.py:110
+assert "Evidence submission, assessment, and capability-state updates remain separate downstream stages." in chamber
+```
+
+Copy 2 is the asserted sentence with the single word **`explicit`** removed — a **near-miss
+rewording**, not a deleted property. The word `explicit` is present in both surviving copies, so
+the governance property (SG-03 work surface does not cross the evidence boundary) is **enforced
+twice over** on `main`. The assertion fails only because it is a byte-exact literal rather than a
+property check.
+
+Consequence for classification: `:107` is **not** merge-loss. It is a **literal near-miss against
+a duplicated property**. Whether it should be repaired by reword (test-side) or by converging the
+two chamber copies (source-side) is a **judgement call, not a mechanical repair** — see B.4.
+
+### B.2 The other three nodes survive the predecessor's classification
+
+| node | line | classification | evidence |
+|---|---|---|---|
+| `::test_runtime_is_mounted_by_the_capability_chamber` | `:82` | **CONFIRMED merge-loss** | `<ActivityRuntime` count in chamber = **0**; sole reference is `import ActivityRuntime from './ActivityRuntime'` at `:4` — a dangling import |
+| `::test_runtime_dispatches_all_eight_kinds_to_deterministic_renderers` | `:110` | **CONFIRMED assertion-form defect** | `ActivityRuntime.tsx:106` emits `` data-testid={`activity-surface-${kind}`} ``; the test demands the *expanded* literal `data-testid="activity-surface-research"`. The property holds; the assertion does not match its own template. |
+| `::test_spiral_grove_uses_the_nexus_canonical_header` | `:115` | **CONFIRMED merge regression** | `SpiralGrovePage.tsx` contains exactly **1** `<h1`; assertion demands 0. Both Nexus anchors (`:888` heading, `:909` mount) are satisfied. |
+
+Corroboration that the chamber mount was **lost rather than deliberately relocated**: the eight
+named renderers `ResearchSurface`, `WritingSurface`, `BuildSurface`, `ReflectionSurface`,
+`PresentationSurface`, `FieldSurface`, `CreativeSurface`, `CollaborativeSurface` are all present
+in `ActivityRuntime.tsx`, and the `switch (activity.kind)` dispatch is intact — the runtime is
+complete but **unreachable**. 8 of the file's 12 nodes pass.
+
+### B.3 Static/dynamic split (new precision)
+
+The cluster is **not** four instances of one defect class. It splits cleanly:
+
+| class | nodes | count | character |
+|---|---|---|---|
+| **STATIC / test-side** | `:107` (near-miss literal), `:110` (assertion form) | 2 | no rendered-behaviour change required |
+| **DYNAMIC / source-side** | `:82` (mount), `:115` (header ownership) | 2 | both change rendered UI structure |
+
+This split matters because it is **different from the predecessor's premise** (4/4 merge-loss)
+and **different from pass 2/3's premise** (2 `tsc` defects, neither of which satisfies any SG-04
+node). Neither predecessor distinguished the static half from the dynamic half.
+
+### B.4 New finding: the `:115` repair has a *test-internal* inconsistency
+
+`:115` asserts **two opposite things about the same file**:
+
+```
+assert "<h1" not in page          # SpiralGrovePage must have NO header
+assert "The Spiral Grove" not in page   # SpiralGrovePage must NOT contain the string at all
+```
+
+`SpiralGrovePage.tsx` is mounted at **two** locations, only one of which supplies a heading
+(`App.tsx:134` for `view === 'grove'`; `NexusPage.tsx:888` for `activeTab === 'university'`).
+Satisfying the assertion **strips the `<h1>` on the `grove` route**; restoring the header
+**duplicates it** under `university`. This confirms the predecessor's §4 tension and adds one
+item: the assertion's own second clause forbids the string `"The Spiral Grove"` from appearing in
+the page file **even as a label, title, or accessibility string** — so no conditional-render
+repair can satisfy it. **`:115` cannot be satisfied by any source change that keeps the `grove`
+route headed.** It requires either a source change *plus* an assertion change, or the sovereign
+accepting a headless `grove` route. Both are product decisions.
+
+### B.5 Boundary honesty
+
+- **No source, test, governance, or deployment change.** Evidence files only.
+- **No merge, no push to `main`, no force-push, no reclassification of baseline debt.**
+- The predecessor's `:82` / `:110` / `:115` classifications are **confirmed**; its `:107`
+  classification is **falsified** and corrected above. This is a correction *of* a sibling
+  evidence document, not a weakening of any gate.
+- No node is repaired here. The two static nodes are plausibly inside the `gate-hygiene`
+  test-only envelope; the two dynamic nodes are not.
+- **Static determinations only.** No deployment identity, no browser observation. The
+  browser-rendered symptom remains **`UNKNOWN`**; production parity is **not claimed**.
 
 ---
 

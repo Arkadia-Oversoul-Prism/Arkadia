@@ -224,3 +224,61 @@ Sovereign review. **Do not merge** — merge is human-only.
 - Static determinations only. The browser-rendered symptom stays **`UNKNOWN`**.
 - **Production acceptance: NOT CLAIMED.**
 - No merge, no push to `main`, no force-push, no source/test/governance change.
+
+---
+
+## 13. Pass-4 state (item-level decomposition of the SG-04 cluster)
+
+Reconstruction this pass: `git fetch --all --prune`; `origin/main` = `002b189`; PR #165 branch
+tip = `10a06ff` (4 commits ahead of `main`). Working tree clean at start; all work on
+`gate02/independent-verification-163`.
+
+### Baseline fingerprint — independently reproduced
+
+Full suite (`PYTHONPATH=<repo>/archive/legacy_python`, `--continue-on-collection-errors`):
+
+| metric | value |
+|---|---|
+| result | **20 failed / 1041 passed / 11 skipped / 2 errors** in 108.97s |
+| failing+error node list | 22 lines, `sha256 = a7687fad...4434c` |
+| architecture (`tests/architecture`) | **11 passed / 0 failed** |
+| `py_compile api/main.py` | **OK** — 2519 lines, under the 2600 budget |
+
+The `a7687fad...` node-id fingerprint **reproduces the value derived independently by PR #146**,
+using a different run and a different harness. Two independent derivations agreeing on a 22-line
+node-id hash is the strongest baseline evidence this workstream has produced.
+
+This **supersedes the contract's stale `6038989` / 804P / 54F / 12S baseline**, which predates
+B0.5 and is no longer accurate for `main`. Recorded, not "fixed".
+
+### What pass 4 established
+
+1. **`:107` is falsified as merge-loss.** `CapabilityChamber.tsx` on `main` carries the SG-03
+   downstream-boundary paragraph **twice**; the asserted sentence is copy 2 with the word
+   `explicit` removed. The property is enforced twice; only the byte-exact literal misses. The
+   predecessor's §6 row ("literal absent") is wrong.
+2. **`:82`, `:110`, `:115` confirmed.** `:82` = mount genuinely absent (`<ActivityRuntime` count
+   0, import dangling at `:4`). `:110` = assertion demands an expanded literal while
+   `ActivityRuntime.tsx:106` emits a template. `:115` = page has 1 `<h1`, assertion demands 0.
+3. **New split: 2 static / 2 dynamic.** `:107` + `:110` need no rendered-behaviour change;
+   `:82` + `:115` both change rendered UI structure. Neither predecessor made this distinction.
+4. **New finding on `:115`.** Its second clause (`"The Spiral Grove" not in page`) forbids the
+   string from appearing in the page file *at all*, so **no conditional-render repair can
+   satisfy it**. `:115` needs a source change *plus* an assertion change, or a sovereign-accepted
+   headless `grove` route.
+
+### Next bounded task (proposed, not authorized)
+
+- **T-1 (static, `gate-hygiene` envelope).** Repair `:107` and `:110` test-side: `:107` reword to
+  the surviving copy, `:110` align to the emitted template. No source change, no UI change.
+  Regression boundary: 22-node fingerprint must shrink by exactly 2 and gain no new nodes.
+- **T-2 (dynamic, requires SG-04 workstream + sovereign).** `:82` mount + `:115` header ownership.
+  Blocked on the product decision recorded in the predecessor's §4 and this pass's §B.4.
+
+### Boundary honesty
+
+- Static determinations only. Browser-rendered symptom stays **`UNKNOWN`**.
+- **Production acceptance: NOT CLAIMED.**
+- No merge, no push to `main`, no force-push, no source/test/governance change.
+- `CapabilityChamber.tsx` remains **unrepaired**.
+
