@@ -96,7 +96,8 @@ def _db() -> sqlite3.Connection:
         objective TEXT NOT NULL, rationale TEXT NOT NULL,
         recommended_actions TEXT NOT NULL, required_authority TEXT NOT NULL,
         tool_selections TEXT NOT NULL, status TEXT NOT NULL,
-        created_at REAL NOT NULL, correlation_id TEXT NOT NULL
+        created_at REAL NOT NULL, correlation_id TEXT NOT NULL,
+        caused_by_kind TEXT, caused_by_id TEXT
     );
     CREATE TABLE IF NOT EXISTS ew_authorizations (
         id TEXT PRIMARY KEY, subject TEXT NOT NULL, proposal_id TEXT NOT NULL,
@@ -129,6 +130,11 @@ def _db() -> sqlite3.Connection:
     columns = {row[1] for row in conn.execute("PRAGMA table_info(ew_canonical_records)")}
     if "capture_ref" not in columns:
         conn.execute("ALTER TABLE ew_canonical_records ADD COLUMN capture_ref TEXT")
+    proposal_columns = {row[1] for row in conn.execute("PRAGMA table_info(ew_proposals)")}
+    if "caused_by_kind" not in proposal_columns:
+        conn.execute("ALTER TABLE ew_proposals ADD COLUMN caused_by_kind TEXT")
+    if "caused_by_id" not in proposal_columns:
+        conn.execute("ALTER TABLE ew_proposals ADD COLUMN caused_by_id TEXT")
     conn.commit()
     return conn
 
@@ -214,6 +220,8 @@ class Proposal:
     status: str
     created_at: float
     correlation_id: str
+    caused_by_kind: str | None = None
+    caused_by_id: str | None = None
     def to_dict(self): return asdict(self)
 
 @dataclass(frozen=True)
@@ -368,16 +376,53 @@ class EnterpriseOrchestrationStore:
                       (eid, subject, enterprise_id, workload_id, workstream_id, event_type, _json(payload), now, caused_by_kind, caused_by_id, cid))
         return row
 
-    def proposal(self, *, subject: str, enterprise_id: str, objective: str, rationale: str,
-                 recommended_actions: list[Any], required_authority: str,
-                 tool_selections: list[Any], correlation_id: str | None = None) -> Proposal:
-        rid = _id("prop"); cid = correlation_id or _id("corr"); now = _now()
-        row = Proposal(rid, subject, enterprise_id, objective, rationale, recommended_actions,
-                       required_authority, tool_selections, "PROPOSED", now, cid)
+    def proposal(
+        self,
+        *,
+        subject: str,
+        enterprise_id: str,
+        objective: str,
+        rationale: str,
+        recommended_actions: list[Any],
+        required_authority: str,
+        tool_selections: list[Any],
+        caused_by_kind: str | None = None,
+        caused_by_id: str | None = None,
+        correlation_id: str | None = None,
+    ) -> Proposal:
+        if caused_by_kind is not None:
+            caused_by_kind = str(caused_by_kind).upper()
+            if caused_by_kind not in {"CANONICAL_RECORD", "INTERPRETATION", "OPERATIONAL_EVENT"}:
+                raise ValueError("unsupported proposal cause")
+            if not caused_by_id:
+                raise ValueError("proposal cause id is required")
+            table = {
+                "CANONICAL_RECORD": "ew_canonical_records",
+                "INTERPRETATION": "ew_interpretations",
+                "OPERATIONAL_EVENT": "ew_operational_events",
+            }[caused_by_kind]
+            if not self._exists(table, caused_by_id):
+                raise ValueError(f"{caused_by_kind} cause does not exist")
+        rid = _id("prop")
+        cid = correlation_id or self._correlation_for_any(caused_by_kind, caused_by_id) or _id("corr")
+        now = _now()
+        row = Proposal(
+            rid, subject, enterprise_id, objective, rationale, recommended_actions,
+            required_authority, tool_selections, "PROPOSED", now, cid,
+            caused_by_kind, caused_by_id,
+        )
         with _db() as c:
-            c.execute("INSERT INTO ew_proposals VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                      (rid, subject, enterprise_id, objective, rationale, _json(recommended_actions),
-                       required_authority, _json(tool_selections), "PROPOSED", now, cid))
+            c.execute(
+                "INSERT INTO ew_proposals "
+                "(id, subject, enterprise_id, objective, rationale, recommended_actions, "
+                "required_authority, tool_selections, status, created_at, correlation_id, caused_by_kind, caused_by_id) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    rid, subject, enterprise_id, objective, rationale,
+                    _json(recommended_actions), required_authority, _json(tool_selections),
+                    "PROPOSED", now, cid, caused_by_kind, caused_by_id,
+                ),
+            )
         return row
 
     def authority_event(self, *, subject: str, actor: str, authority_context: str,
@@ -569,6 +614,9 @@ class EnterpriseOrchestrationStore:
                     visit("CANONICAL_RECORD", row["source_ref"])
             elif k == "EXECUTION_ATTEMPT":
                 visit("AUTHORIZATION", row["authorization_id"])
+            elif k == "PROPOSAL":
+                if row["caused_by_kind"] and row["caused_by_id"]:
+                    visit(row["caused_by_kind"], row["caused_by_id"])
             elif k == "AUTHORIZATION":
                 visit("PROPOSAL", row["proposal_id"]); visit("AUTHORITY_EVENT", row["authority_event_id"])
             elif k == "INTERPRETATION":
@@ -636,6 +684,10 @@ class EnterpriseOrchestrationStore:
                 for r in self._rows_where("ew_operational_events", "caused_by_id", rid, subject):
                     visit("OPERATIONAL_EVENT", r["id"])
             elif k == "PROPOSAL":
+                cause_kind = row.get("caused_by_kind")
+                cause_id = row.get("caused_by_id")
+                if cause_kind and cause_id:
+                    visit(cause_kind, cause_id)
                 for r in self._rows_where("ew_authorizations", "proposal_id", rid, subject):
                     visit("AUTHORIZATION", r["id"])
                 for r in self._rows_where("ew_operational_events", "caused_by_id", rid, subject):
