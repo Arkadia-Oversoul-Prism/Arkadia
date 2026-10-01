@@ -18,6 +18,7 @@ from typing import Optional
 from knowledge.db import execute
 from knowledge import embeddings as emb
 from knowledge.graph import traverse
+from knowledge import capture as cap
 
 # Approximate token budget for the context package sent to a provider.
 # 4 chars ≈ 1 token (conservative estimate)
@@ -148,6 +149,9 @@ def assemble_context(
             if nid in notes_by_id:
                 n = dict(notes_by_id[nid])
                 n["relevant_chunks"] = note_chunks.get(nid, [])
+                # Read-only GATE-01 provenance follows the canonical note into
+                # context; UNKNOWN remains explicit for legacy notes.
+                n["provenance"] = cap.provenance_for_note(nid)
                 relevant_notes.append(n)
 
     context["relevant_notes"] = relevant_notes
