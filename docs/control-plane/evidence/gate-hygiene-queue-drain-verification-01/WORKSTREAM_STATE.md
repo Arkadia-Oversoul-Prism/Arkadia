@@ -128,3 +128,61 @@ repair at #154), **plus**:
 
 Browser-rendered UI correctness remains **BLOCKED** (no browser runtime). Production
 acceptance is **not** claimed.
+
+---
+
+# PASS 03 — `gate-hygiene/queue-drain-verification-03`
+
+Date: 2026-10-01 (UTC) · Base: `002b189` · Addendum: `EVIDENCE_ADDENDUM_03.md`
+
+Corrects the mechanism recorded in Addendum 02 §2.1. No source, test, or governance change.
+
+## Correction — 02 §2.1's mechanism is falsified
+
+02 §2.1 claimed the missing `useEffect` binding "did not throw" because `useEffect` is a
+React global. Measured against the deployed artifact:
+
+- **No global binding exists.** `(globalThis|window|self).useEffect` → **0 matches**;
+  declaration forms → **0 matches**. The lone `useEffect=` hit is a property assignment
+  inside React's internals shim (`st.useEffect=function(e,t){...}`), a local binding that is
+  never exported to a global.
+- **The minifier proves the absence.** The bundle holds **92** `x.useEffect(` calls and
+  exactly **1** bare `useEffect(` call. A resolvable global would have been resolved and
+  emitted like its siblings; a lone bare reference is the signature of a free identifier.
+- **React 18 has no UMD hooks namespace.** The project pins `react ^18.3.1`; the
+  `React.useEffect` global form is React 16/17 UMD.
+
+Corrected label: **`ReferenceError: useEffect is not defined`** on render — not silent.
+
+## New — the crash is interaction-gated, not latent-forever
+
+`CapabilityChamber` is rendered behind `{chamberOpen && selected ? ... : ...}`, and
+`chamberOpen` initialises **`false`**. It flips only via `openCapability(...)`, wired to the
+capability cards and the "Start here →" button. The `useEffect` call is in the component body
+(`CapabilityChamber.tsx:51`), so it fires on **mount**:
+
+| trigger | outcome |
+|---|---|
+| load `/spiral-grove` | latent (chamber not mounted) |
+| open any capability chamber | **render throws `ReferenceError`** |
+
+The throw is a **static** determination (no binding in the artifact). The rendered symptom is
+**not** observed — no browser runtime in this sandbox. That half stays `UNKNOWN`.
+
+This is the same gate that hides #163 §7's dropped `<ActivityRuntime>` render.
+
+## Preconditions re-verified
+
+`tests/architecture` **11 passed** · `py_compile api/main.py` **OK** · `api/main.py`
+**2519 / 2600** · bundle `sha256 33861ef9…`, **2 025 825 bytes** — reproduces 02 §1 exactly.
+
+## Next bounded task
+
+Unchanged sovereign action list (merge #150; do not merge #143; close #147; apply the health
+repair at #154). The `CapabilityChamber.tsx` repair — **import `useEffect` + restore the
+`<ActivityRuntime>` render** — remains a **separate bounded task requiring authorisation**,
+owned by no PR in the queue. This pass raises its severity from *inert* to
+*interaction-reachable*, which strengthens the case for authorising it.
+
+Browser-rendered UI correctness remains **BLOCKED** (no browser runtime). Production
+acceptance is **not** claimed.
