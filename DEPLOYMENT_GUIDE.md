@@ -68,6 +68,7 @@ exists on this app and returns `404` on the live deployment.
 |---|---|---|
 | `GET` | `/` | Liveness banner (`Arkadia Mind is breathing.`) |
 | `GET` | `/api/heartbeat` | Health check — canonical; used by `railway.json` |
+| `GET` | `/health` | Liveness projection of `/api/heartbeat` (deployment contract path) |
 | `POST` | `/api/commune/resonance` | Oracle / ReasoMate chat |
 | `GET`, `POST` | `/api/commune/threads` | List / create conversation threads |
 | `GET` | `/api/commune/threads/{thread_uuid}` | Thread metadata |
