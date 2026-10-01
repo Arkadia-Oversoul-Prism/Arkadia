@@ -25,6 +25,7 @@ os.environ["ARKADIA_DB_PATH"] = os.path.join(_tmpdir, "knowledge.db")
 import knowledge.db as db
 import knowledge.vault as vault
 from knowledge import capture as cap
+from knowledge import pipeline
 
 
 @pytest.fixture(autouse=True)
@@ -230,3 +231,73 @@ def test_capture_boundary_transitions_are_recorded():
     rows = db.execute("SELECT event_type FROM timeline")
     types = {r["event_type"] for r in rows}
     assert {"source_registered", "capture_recorded", "capture_bound"} <= types
+
+
+# ── SHARED INGRESS BOUNDARY ──────────────────────────────────────────────────
+
+def test_pipeline_ingest_crosses_capture_before_canonical_note_creation():
+    result = pipeline.ingest(
+        title="Ingress proof",
+        content="The capture boundary precedes canonicalization.",
+        note_type="document",
+        source_provider="test:shared-ingress",
+        auto_tag=False,
+        auto_embed=False,
+        auto_link=False,
+    )
+    assert result["id"] is not None
+    assert result["capture"]["source"]["source_ref"] == "test:shared-ingress"
+    assert result["capture"]["state"] == "BOUND"
+    assert result["capture"]["authorship"]["declared"] is False
+
+    rows = db.execute(
+        "SELECT event_type FROM timeline ORDER BY id"
+    )
+    types = [row["event_type"] for row in rows]
+    assert types.index("capture_recorded") < types.index("knowledge_created")
+
+
+def test_pipeline_ingest_preserves_explicit_authorship_without_inference():
+    result = pipeline.ingest(
+        title="Declared author",
+        content="This author was explicitly declared.",
+        note_type="document",
+        source_provider="test:author",
+        authored_by="human-author-1",
+        authored_by_kind="human",
+        auto_tag=False,
+        auto_embed=False,
+        auto_link=False,
+    )
+    assert result["capture"]["authorship"]["authored_by"] == "human-author-1"
+    assert result["capture"]["authorship"]["declared"] is True
+
+
+def test_pipeline_duplicate_still_binds_a_new_capture_to_existing_note():
+    first = pipeline.ingest(
+        title="Duplicate boundary",
+        content="Same canonical content.",
+        note_type="document",
+        source_provider="test:duplicate",
+        auto_tag=False,
+        auto_embed=False,
+        auto_link=False,
+    )
+    second = pipeline.ingest(
+        title="Different title",
+        content="Same canonical content.",
+        note_type="document",
+        source_provider="test:duplicate",
+        auto_tag=False,
+        auto_embed=False,
+        auto_link=False,
+    )
+    assert second["duplicate"] is True
+    assert second["existing"]["id"] == first["id"]
+    assert second["capture"]["state"] == "BOUND"
+    bound = db.execute(
+        "SELECT note_id FROM capture_records WHERE raw_checksum = ?",
+        (hashlib.sha256("Same canonical content.".encode()).hexdigest(),),
+    )
+    assert len(bound) == 2
+    assert all(row["note_id"] == first["id"] for row in bound)

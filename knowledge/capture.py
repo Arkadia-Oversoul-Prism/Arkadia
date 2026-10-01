@@ -326,7 +326,9 @@ def capture_and_ingest(
     # lower-level boundary that must not create an import cycle.
     from knowledge import pipeline
 
-    result = pipeline.ingest(
+    # The boundary has already captured this artifact. Continue through the
+    # existing canonical note-write path without recapturing it.
+    result = pipeline._ingest_core(
         title=title,
         content=raw_content,
         note_type=note_type,
