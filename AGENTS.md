@@ -291,7 +291,6 @@ authenticated node's private Knowledge OS vault — never the public scroll stor
   contract. Do not "fix" it by broadening the allowlist; the gate's teeth are the point.
 
 
-
 ## CI state reconstruction — `head_sha` needs the FULL sha (gate-hygiene)
 - The Actions API **silently succeeds with `total_count: 0`** when `?head_sha=` is given an
   abbreviated SHA. It does not error, so the query looks like a valid "no runs" result. Always
@@ -602,4 +601,3 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   ``data-testid={`activity-surface-${kind}`}``; the property holds, the assertion does not
   match its own template. (2) the test demands a **near-miss** of the actual copy.
   When a source-level assertion fails, read the source literal before assuming a code bug.
-
