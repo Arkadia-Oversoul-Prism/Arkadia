@@ -35,17 +35,21 @@ def test_graph_node_exposes_canonical_capture_provenance():
         note_type="document",
         user_id=None,
     )
-    source = cap.register_source("document", "test:lineage", "Lineage source")
+    source = cap.register_source(
+        source_kind="document", source_ref="test:lineage", title="Lineage source"
+    )
     capture = cap.capture(
-        source["source_uuid"],
-        "raw lineage content",
+        source_uuid=source["source_uuid"],
+        raw_content="raw lineage content",
         content_kind="document",
         captured_by="system:test",
         captured_by_kind="system",
         authored_by=None,
         authored_by_kind="unknown",
     )
-    cap.bind_capture_to_note(capture["capture_uuid"], note["id"])
+    cap.bind_capture_to_note(
+        capture_uuid=capture["capture_uuid"], note_id=note["id"]
+    )
 
     exported = full_graph_export(user_id=None)
     node = next(n for n in exported["nodes"] if n["id"] == note["id"])
@@ -54,7 +58,7 @@ def test_graph_node_exposes_canonical_capture_provenance():
     assert node["provenance"]["raw_checksum"] == hashlib.sha256(
         b"raw lineage content"
     ).hexdigest()
-    assert node["provenance"]["authored_by"] is None
+    assert node["provenance"]["authorship"]["authored_by"] is None
     assert node["provenance"]["source"]["source_ref"] == "test:lineage"
 
 
@@ -79,15 +83,19 @@ def test_traversal_preserves_provenance_projection():
         note_type="document",
         user_id=None,
     )
-    source = cap.register_source("document", "test:traverse", "Traverse source")
+    source = cap.register_source(
+        source_kind="document", source_ref="test:traverse", title="Traverse source"
+    )
     capture = cap.capture(
-        source["source_uuid"],
-        "captured",
+        source_uuid=source["source_uuid"],
+        raw_content="captured",
         content_kind="document",
         captured_by="system:test",
         captured_by_kind="system",
     )
-    cap.bind_capture_to_note(capture["capture_uuid"], note["id"])
+    cap.bind_capture_to_note(
+        capture_uuid=capture["capture_uuid"], note_id=note["id"]
+    )
 
     traversed = traverse(note["id"], max_depth=1, user_id=None)
     node = next(n for n in traversed["nodes"] if n["id"] == note["id"])
