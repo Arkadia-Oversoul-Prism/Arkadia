@@ -59,17 +59,39 @@ PORT=8080
 
 ## 🌐 **API Endpoints**
 
-Once deployed, your system will have these endpoints:
+The table below is the **canonical repository app surface**, verified against `api.main:app`
+(the app `entrypoint.sh` serves). It describes the current source contract, not an assertion
+that every route is already present on the deployed runtime. Deployment identity and a live
+probe are required before claiming runtime parity. The earlier revision listed legacy routes
+that were absent from this app when they were measured.
 
-- `GET /` - Web interface
-- `GET /health` - Health check
-- `GET /status` - System status
-- `GET /arkadia/corpus` - Google Drive corpus
-- `GET /arkadia/refresh` - Refresh corpus
-- `POST /oracle` - Chat with Arkana
-- `GET /threads` - User threads
-- `POST /threads` - Create thread
-- `GET /threads/{id}/messages` - Thread messages
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/` | Liveness banner (`Arkadia Mind is breathing.`) |
+| `GET` | `/api/heartbeat` | Health check — canonical; used by `railway.json` |
+| `GET` | `/health` | Liveness projection of `/api/heartbeat` (deployment contract path) |
+| `POST` | `/api/commune/resonance` | Oracle / ReasoMate chat |
+| `GET`, `POST` | `/api/commune/threads` | List / create conversation threads |
+| `GET` | `/api/commune/threads/{thread_uuid}` | Thread metadata |
+| `GET` | `/api/commune/threads/{thread_uuid}/messages` | Thread messages |
+| `GET` | `/api/oracle-context` | Oracle context snapshot |
+| `POST` | `/api/corpus/refresh` | Refresh the corpus |
+| `GET` | `/api/codex` | Spiral Codex scrolls |
+| `GET`, `POST` | `/api/scrolls` | List / write public scrolls |
+| `GET` | `/api/stellar-cartography` | Encyclopedia Galactica star date |
+
+Interactive API reference: `GET /docs` (and `GET /openapi.json`). These are FastAPI's own
+documentation routes and are deliberately absent from the OpenAPI schema, so they are not
+listed in the table above.
+
+PR #154 has added `GET /health` to the current repository source as a projection of
+`/api/heartbeat`, rather than as a second liveness authority. The prior live measurement
+returned `404` before that change. Re-probe the deployed backend after its deployment and
+verify the deployed revision before claiming the route is live in production. Until that
+runtime check passes, `/api/heartbeat` remains the previously observed canonical probe.
+
+> The `openclaw/` gateway is a **separate** service with its own `render.yaml` and its own
+> `GET /health`; it is not this backend and is not covered by the table above.
 
 ## 🎮 **Testing the System**
 
@@ -81,14 +103,14 @@ Visit your deployed URL and try these messages:
 
 ### **CLI Console:**
 ```bash
-python arkadia_console.py
+python archive/legacy_python/arkadia_console.py
 # Commands: tree, preview <file>, refresh, ask <question>, status, exit
 ```
 
 ### **API Testing:**
 ```bash
-curl https://your-app.onrender.com/health
-curl https://your-app.onrender.com/status
+curl https://your-app.onrender.com/
+curl https://your-app.onrender.com/api/heartbeat
 ```
 
 ## 🔮 **System Features**
