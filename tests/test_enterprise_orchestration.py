@@ -127,6 +127,34 @@ def test_eden_simulated_path_preserves_unknown_until_evidence(tmp_path, monkeypa
     assert result["canonical"].raw_payload["message"].endswith("price not confirmed.")
 
 
+def test_verification_reverse_walk_reaches_gate01_source(tmp_path, monkeypatch):
+    store = _store(tmp_path, monkeypatch)
+    import knowledge.db as kdb
+    kdb._DB_PATH = tmp_path / "knowledge.db"
+    kdb._local.conn = None
+    from knowledge import capture as cap
+
+    result = simulate_eden_supplier_path(
+        store, subject="architect", enterprise_id="eden-origin"
+    )
+    walk = store.reverse_walk(
+        subject="architect", kind="VERIFICATION", record_id=result["verification"].id
+    )
+    by_kind = {r["kind"]: r for r in walk["records"]}
+
+    assert walk["complete"] is True
+    assert walk["origin_complete"] is True
+    assert {"VERIFICATION", "EVIDENCE", "EXECUTION_ATTEMPT", "AUTHORIZATION",
+            "PROPOSAL", "AUTHORITY_EVENT", "INTERPRETATION",
+            "CANONICAL_RECORD", "CAPTURE", "SOURCE"} <= set(by_kind)
+    capture = by_kind["CAPTURE"]["record"]
+    canonical = by_kind["CANONICAL_RECORD"]["record"]
+    assert capture["capture_uuid"] == canonical["capture_ref"]
+    assert capture["raw_checksum"] == canonical["payload_hash"]
+    assert capture["source"]["source_uuid"] == by_kind["SOURCE"]["id"]
+    assert cap.provenance_for_capture(canonical["capture_ref"])["source"]["source_uuid"] == by_kind["SOURCE"]["id"]
+
+
 def test_human_authority_event_is_distinct_from_workevent(tmp_path, monkeypatch):
     store = _store(tmp_path, monkeypatch)
     authority = store.authority_event(
