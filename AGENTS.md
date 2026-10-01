@@ -452,3 +452,101 @@ After every merge, verify the resulting main SHA, confirm the intended diff land
 
 ### 7. Required final report
 Report: starting and ending main SHAs; exact PR inventory and disposition; each merge commit; changes grouped by subsystem; checks run and their scope; baseline failure delta; deployment/runtime observations; unresolved risks; and the single next authorized action. Do not say "all done" while any required verification remains blocked.
+
+## Gate 2 production parity — deployment identity RESOLVED, observation BLOCKED (2026-09-30)
+- **The main→deployment link exists and is queryable.** Do not re-derive it from prose or
+  guess it from Vercel's UI:
+  `GET /repos/.../deployments?environment=production` then
+  `GET /repos/.../deployments/<id>/statuses`. The status carries `environment_url`.
+  At main `002b189` this yielded deployment `6749238709` with
+  **`ref == sha == 002b189dd95e...`** — i.e. Vercel deploys on the ref, so the record
+  names the source SHA exactly. `commits/<sha>/status` also shows `Vercel / success`.
+- **The deployment-specific URL is behind Vercel Deployment Protection (SSO).** The correct
+  host is **`environment_url` from `/deployments/<id>/statuses`** — at `002b189` that is
+  `https://arkadia-prism-ey2ozd5u4-arkadia-prism.vercel.app`, which returns **302 →
+  vercel.com/sso**. Do **not** build the URL from the deployment id: `environment_url` is
+  `null` on the deployment *record*, and the hostname segment (`ey2ozd5u4`) is a
+  provider-generated hash, not the id. Constructing `arkadia-prism-<id>-…vercel.app` yields
+  HTTP **404** and reads as "deployment missing" — a mis-diagnosis made and corrected in the
+  Pass 3 run. Its build output is not anonymously observable. This is the boundary that keeps
+  Gate 2 open: `BLOCKED` on provider auth, not on repository work. Closing it needs a Vercel
+  credential, Deployment Protection relaxed, or a runtime observation from someone who has
+  access. **Repeating the pass cannot convert BLOCKED/UNKNOWN into VERIFIED.**
+- **The alias→SHA binding is UNKNOWN *and immaterial* — do not chase it.** `git log -1 --
+  web/public_prism/ ':!web/public_prism/dist'` gives the last commit touching *any* frontend
+  build input (`b377a01`, 2026-09-29). **All 12** Production deployments on record are its
+  descendants, so all twelve compile byte-identical frontend source and the artifact
+  **cannot** discriminate between them. The alias→SHA fact stays unobservable, but
+  build↔source lineage does not depend on it. This is strictly stronger than a
+  `--since=<deploy time>` window, which only excludes divergence *after* one deployment.
+  Recorded so a future pass does not re-spend effort trying to extract a binding the build
+  cannot carry.
+- **Marker counts are convention-dependent — always name the convention.** The minified
+  bundle is a handful of enormous lines, so `grep -c` (*matching lines*) and an
+  occurrence-counting harness disagree for the same marker on the same artifact:
+  `solspire-object-summary` is **3 lines / 6 occurrences**, `opportunity-radar` **2 / 4**.
+  Both are correct. Only the **presence/absence contrast** is load-bearing (marker present
+  vs. pre-change control absent); magnitudes are reproducibility detail. Do not read a
+  count difference between two evidence sections as drift — Pass 2 recorded line counts and
+  Pass 3 records occurrences, and reconciling them took a re-download of the deployed asset.
+- **The production alias is readable but does not close the chain by itself.** Vercel
+  assigns the alias to the newest Production deployment — that is provider behaviour, not an
+  observation, so alias→SHA stays `UNKNOWN` unless the deployment URL can be read.
+- **Asset-hash comparison is NOT a parity oracle, in either direction.** Build output is
+  env-dependent: injecting `VITE_API_BASE_URL` changes the emitted hash with no source
+  change. A mismatch is not divergence; a match is not parity. (Observed: deployed bundle
+  is 84,551 bytes larger than a clean local build of the same SHA.)
+- **Marker-set comparison IS a valid lineage oracle — use this instead of hashes.** Pick
+  string literals unique to a source file that must survive minification (testids, storage
+  keys, distinctive prose — they are runtime data, not identifiers), then fixed-string
+  `grep` them in the deployed asset. Include a **pre-change control** string that must be
+  absent. At `002b189` the deployed asset and a clean local build matched on **every**
+  marker and count, while the pre-SG-03 wording was absent from both — and
+  `git log -- web/public_prism/src/ --since=<deploy time>` showed zero commits, closing the
+  divergence window. Marker sets are robust to env injection; hashes are not.
+- **Verify a route from source, not from an HTTP status.** `App.tsx:51 resolvePath()`
+  matches `^/solariun(?:/([^/]+))?$` and accepts the segment only when
+  `SOLSPIRE_LENSES.has(candidate)`; `/solariun/opportunity-radar` is therefore a real lens
+  route. Because `vercel.json` rewrites everything to `/index.html`, a 200 proves nothing —
+  read the router. Marker `opportunity-radar` is present in the deployed bundle.
+- **`ActivityRuntime` (SG-04) is absent from the production bundle, not just from the test
+  assertions.** `activity-runtime-draft.v1:` → 0 occurrences in the deployed asset while
+  every SG-03 marker → 1. The SG-03 chamber rewrite displaced the SG-04 mount and that
+  carried to production. `tests/test_spiral_grove_activity_runtime.py` is **4F/8P** while
+  `tests/test_spiral_grove_chambers.py` is green. This is a real product regression
+  (tracked `gate-hygiene` / SH-02, Gate GATE-01), not a stale assertion — do not reclassify
+  it as stale. Not yet fixed: the repair is a product change outside Gate-2 hygiene scope.
+- **HTTP 200 on any route is not application correctness.** Root `vercel.json` rewrites
+  `/(.*)` → `/index.html`, so a route that never existed (e.g. `/api/health`, per
+  `git log -S`) returns `200 text/html` identically to any nonexistent path. Prior
+  route-reachability results must be read with this caveat.
+- `web/public_prism/dist/` is **tracked but stale** — a build output in version control that
+  drifts on every local build and is env-dependent. Do not commit a locally rebuilt copy;
+  revert stray `dist/` modifications before staging (they are not your change).
+- **Gate-2 observation is now one read-only command — use it instead of repeating the manual
+  sequence.** `python scripts/gate2_production_observation.py` (add `--json` for machine
+  output). Stdlib-only, no Vercel credential, no mutation, never prints a token. It
+  re-derives every link from live evidence and prints the boundary classification. Two
+  trust properties: it **checks the marker list against source every run** (a literal gone
+  from `web/public_prism/src/` is reported as `stale_list` rather than counting 0 and
+  masquerading as a regression), and it **re-proves the ancestry closure** in §10.1 via live
+  `git merge-base --is-ancestor`. Run it before making any Gate-2 claim.
+- Evidence: `docs/control-plane/evidence/gate-hygiene-gate2-production-parity-02/`
+  (PR #143).
+
+  (PR #143; Pass 3 = §10, closure argument + harness).
+## Test-suite fingerprint is UNSTABLE on main (attribute by name, not count)
+- `tests/test_engineering_lab_agent_loop.py::test_agent_loop_does_not_mutate_repository`
+  is **intermittent under the full suite** and passes 8/8 in isolation. It snapshots
+  **global** `git status --porcelain` on `REPO_ROOT` around `execute_agent_loop`, so *any*
+  other test's repository write fails it. Cross-test contamination, **not** a boundary
+  violation — do not "fix" the substrate for it.
+- Consequence: full-suite counts on the same SHA alternate (observed 20 vs 21 failures
+  across four runs). **Never attribute a regression from a count delta alone** — diff the
+  failure *names*.
+- Current main baseline (measured, not prose): architecture **11/11** (not 9/10);
+  full suite **~20F / ~1039P / 13S / 2 collection errors**. The contract's older
+  `804p/54f` fingerprint does not reproduce — base `df7a99a` carried 32 failures, current
+  main carries ~20, the delta being the steward-filter carrier merged as `002b189`.
+- `python -m py_compile api/main.py` before committing boot-code changes; budget 2600
+  (currently 2519).
