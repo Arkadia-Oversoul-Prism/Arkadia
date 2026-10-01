@@ -639,3 +639,105 @@ python -m pytest tests/test_gate2_backend_observation.py -q   # 18 passed
 Read-only, standard library only, holds no credential, performs no mutation. Import of a
 candidate revision happens in a subprocess from a detached worktree, so the caller's
 checkout is never disturbed and a non-importable revision is reported rather than fatal.
+
+---
+
+## 13. Pass 5 — branch reconciliation onto `09dd339`; prior claims re-measured
+
+This branch was opened against `002b189`. `main` advanced to
+`09dd339fc78b102f4eee1c232928639b60568bb2` (PR #156) while it was open, and the branch
+became `CONFLICTING`/`DIRTY`. Passes 1–4 above were measured against `002b189`; their
+boundary tables therefore do **not** automatically bind to the reconciled head. This section
+records what was re-measured rather than carried forward.
+
+**Rebase:** `git rebase origin/main`, pushed `--force-with-lease` (never plain `--force`).
+One conflict, in `AGENTS.md`, where `main` had independently landed an encoding repair for
+the same region. Resolved by normalising this branch's side through the cp866 pipeline — not
+by a blanket `ours`/`theirs`. `main`'s repair is preserved verbatim; no superseded repair
+reintroduced; no evidence or governance content discarded. Post-rebase: `0` Cyrillic
+characters, `0` lines of `main`'s `AGENTS.md` missing, no duplicated sections.
+
+### 13.1 Re-measured boundaries
+
+| Boundary | Passes 1–4 (`002b189`) | Pass 5 (`09dd339`) |
+| --- | --- | --- |
+| current main resolved | VERIFIED | **VERIFIED** — `09dd339` |
+| main → deployment identity | VERIFIED | **VERIFIED** — newest prod deployment `sha == main` |
+| deployment build output observed | BLOCKED (SSO) | **BLOCKED** (unchanged, provider boundary) |
+| alias reachable | VERIFIED | **VERIFIED** — HTTP 200 |
+| alias → deployment SHA binding | UNKNOWN | **UNKNOWN** |
+| build ↔ source lineage | VERIFIED | **UNKNOWN** — see §13.2 |
+| browser-rendered UI correctness | OBSERVED | **BLOCKED** — see §13.3 |
+| backend runtime observation | VERIFIED | **VERIFIED** — see §13.4 |
+| production acceptance | NOT CLAIMED | **NOT CLAIMED** (human authority) |
+
+### 13.2 build ↔ source lineage does not re-close at the new head
+
+`last_build_input_commit` is now `4a9281be6b9a` (`Add Oracle response provenance`,
+2026-10-01 16:18), which is **newer than the production deployment being inspected**
+(`09dd339`, 2026-10-01 15:22). Not all candidate production SHAs are descendants of it, so
+source-lineage closure is `false`.
+
+The §8/§10 conclusion was sound *at `002b189`*, where every candidate shared the last
+build-input commit. It does not transfer to `09dd339`, because the frontend source changed
+after the deployment was produced. Recorded as `UNKNOWN`; not carried forward as `VERIFIED`.
+
+### 13.3 browser link — BLOCKED in this sandbox, not converted to a pass
+
+`playwright` is not installed, so `gate2_browser_observation.py` returns exit `2` with
+`browser-rendered UI: BLOCKED`. Recorded as `BLOCKED`. The §11 anchors were independently
+re-verified against the frontend tree, so the anchor list is not stale — the *instrument* is
+missing, not the *anchor*. §11's `OBSERVED` result remains a real observation from when the
+browser was available; it simply is not reproduced here.
+
+### 13.4 backend link — a `CONTRADICTED` that was environmental
+
+The first Pass 5 run reported `CONTRADICTED`, with four `/solspire/sources/*` routes present
+only in the deployment. This was **not** a source divergence. The mount in `api/key_routes.py`
+wraps the import in `try/except` and logs a warning, and `cryptography` was absent from this
+sandbox, so `api/source_routes.py` failed to import locally. After installing `cryptography`:
+
+```
+ROUTE-SET ORACLE
+  main:09dd339fc78b        359677ac7fa906d7e952
+  distinct signatures: 1  => discriminating: False
+
+  backend runtime observation      VERIFIED (undiscriminating)
+  backend <-> source lineage       VERIFIED (undiscriminating) -- route-set oracle
+```
+
+The local route set then matches the deployment exactly. Worth recording as a harness
+property: a conditional mount can make a *local* environment deficit look like a deployed
+divergence, and the oracle's own classification is what caught it. The
+`main → backend deployment identity` link remains `UNKNOWN` — Render publishes no deploy
+commit, and schema equality is consistent with the deployed commit without identifying it.
+
+### 13.5 An observation on the deployed artifact, outside the parity chain
+
+The production alias serves a bundle containing the **unrepaired** CapabilityChamber state —
+the live counterpart of the defect addressed by PR #166:
+
+```
+GET https://arkadia-prism.vercel.app/assets/index-teAQHdtX.js   (825,082 bytes)
+  "surfaceMeta" present            1   <- unresolved global; main declares it nowhere
+  "activity-runtime-draft" present 0   <- ActivityRuntime absent from the artifact
+```
+
+`main` declares `surfaceMeta` nowhere, so the minifier emits the identifier verbatim; a
+declared `const` is renamed and disappears. Same discriminator used to verify #166.
+
+This is an **observation**, not a parity claim. The alias→SHA binding is unobserved, the
+deployment build output is `BLOCKED`, and this section does not convert either.
+
+### 13.6 Reproduction
+
+```
+python scripts/gate2_production_observation.py
+python scripts/gate2_backend_observation.py
+python scripts/gate2_browser_observation.py     # exit 2 if playwright absent
+python -m pytest tests/test_gate2_production_observation.py \
+                 tests/test_gate2_backend_observation.py \
+                 tests/test_gate2_browser_observation.py -q
+```
+
+Read-only; standard library only; holds no credential; performs no mutation.
