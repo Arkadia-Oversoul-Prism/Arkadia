@@ -117,6 +117,7 @@ def build_sources(context_package: Optional[dict], limit: int = 6) -> list[dict]
             "type": note.get("note_type") or "note",
             "via": "note",
             "excerpt": _excerpt(chunks[0] if chunks else ""),
+            "provenance": note.get("provenance") or {"state": "UNKNOWN"},
         })
 
     for expansion in context_package.get("graph_expansions", []) or []:
@@ -131,6 +132,7 @@ def build_sources(context_package: Optional[dict], limit: int = 6) -> list[dict]
             "type": node.get("note_type") or "note",
             "via": "graph",
             "excerpt": "",
+            "provenance": node.get("provenance") or {"state": "UNKNOWN"},
         })
 
     return sources[:limit]
