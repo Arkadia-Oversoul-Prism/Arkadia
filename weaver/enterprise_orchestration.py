@@ -582,10 +582,26 @@ class EnterpriseOrchestrationStore:
         }
 
     def reverse_walk(self, *, subject: str, kind: str, record_id: str) -> dict[str, Any]:
-        """Return the inspectable ancestry of a claim/record; never infers missing links."""
+        """Return inspectable ancestry through operational records and GATE-01 origin."""
         kind = kind.upper()
         rows: list[dict[str, Any]] = []
         seen: set[tuple[str, str]] = set()
+
+        def visit_origin(capture_ref: str | None):
+            if not capture_ref or ("CAPTURE", capture_ref) in seen:
+                return
+            from knowledge import capture as cap
+            provenance = cap.provenance_for_capture(capture_ref)
+            if provenance.get("unknown"):
+                return
+            seen.add(("CAPTURE", capture_ref))
+            rows.append({"kind": "CAPTURE", "id": capture_ref, "record": provenance})
+            source = provenance.get("source") or {}
+            source_uuid = source.get("source_uuid")
+            if source_uuid and ("SOURCE", source_uuid) not in seen:
+                seen.add(("SOURCE", source_uuid))
+                rows.append({"kind": "SOURCE", "id": source_uuid, "record": source})
+
         def visit(k: str, rid: str | None):
             if not rid or (k, rid) in seen:
                 return
@@ -621,15 +637,24 @@ class EnterpriseOrchestrationStore:
                 visit("PROPOSAL", row["proposal_id"]); visit("AUTHORITY_EVENT", row["authority_event_id"])
             elif k == "INTERPRETATION":
                 visit("CANONICAL_RECORD", row["canonical_record_id"])
+            elif k == "CANONICAL_RECORD":
+                visit_origin(row["capture_ref"])
             elif k == "KNOWLEDGE_MUTATION":
                 visit(row["caused_by_kind"], row["caused_by_id"])
             elif k == "OPERATIONAL_EVENT":
                 visit(row["caused_by_kind"], row["caused_by_id"])
+
         visit(kind, record_id)
         root_kinds = {"CANONICAL_RECORD", "AUTHORITY_EVENT"}
         roots = [r for r in rows if r["kind"] in root_kinds]
-        return {"subject": subject, "claim_kind": kind, "claim_id": record_id,
-                "complete": bool(roots), "records": rows}
+        origin_required = any(r["kind"] == "CANONICAL_RECORD" for r in roots)
+        origin_complete = any(r["kind"] == "CAPTURE" for r in rows) and any(r["kind"] == "SOURCE" for r in rows)
+        return {
+            "subject": subject, "claim_kind": kind, "claim_id": record_id,
+            "complete": bool(roots) and (not origin_required or origin_complete),
+            "origin_complete": origin_complete if origin_required else None,
+            "records": rows,
+        }
 
     def forward_walk(self, *, subject: str, kind: str, record_id: str) -> dict[str, Any]:
         """Trace forward from a root (source or authority) to its consequences.
