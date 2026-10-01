@@ -291,7 +291,6 @@ authenticated node's private Knowledge OS vault — never the public scroll stor
   contract. Do not "fix" it by broadening the allowlist; the gate's teeth are the point.
 
 
-
 ## CI state reconstruction — `head_sha` needs the FULL sha (gate-hygiene)
 - The Actions API **silently succeeds with `total_count: 0`** when `?head_sha=` is given an
   abbreviated SHA. It does not error, so the query looks like a valid "no runs" result. Always
@@ -550,3 +549,55 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   main carries ~20, the delta being the steward-filter carrier merged as `002b189`.
 - `python -m py_compile api/main.py` before committing boot-code changes; budget 2600
   (currently 2519).
+## Merge-loss forensics — a merge can invent a state present in neither parent
+- A hand-resolved merge is not "one side or the other." `ff80b8c` took the inline
+  work-surface from its **second** parent (`5c78fcb`) but the import line from its **first**
+  (`cef5a59`), producing `CapabilityChamber.tsx` in a state that existed in *neither* parent:
+  a dangling `import ActivityRuntime` (imported, never rendered), a dropped `useEffect`
+  binding, and a dropped `surfaceMeta` anchor.
+- **Diagnosis procedure that works:** compare the merge against **both** parents token by
+  token (`git show <merge>^1:<p>`, `^2:<p>`, `<merge>:<p>`). Never compare against only the
+  first parent — that is exactly the diff that hid the defect. A "hybrid" reading (some
+  tokens from parent 1, some from parent 2) is the signature of an un-recompiled resolution.
+- **Repair is mechanically determined when the loss is real:** if the repaired blob equals
+  the merge's own discarded parent blob (`git diff <merge>^2 -- <p>` is empty), the change is
+  *loss restoration*, not design. Say so — it removes the need for a design argument and
+  bounds review. Prefer this over reconstructing intent by hand.
+- **Do not attribute every failure near a merge to merge-loss.** In this case
+  `test_chamber_preserves_sg03_downstream_boundary` was *not* merge-loss: the demanded
+  literal (`...updates remain separate downstream stages.`) is absent in **every** revision
+  including the coherent pre-merge one — the file contains two *near-miss* variants
+  (`...mutation remain explicit downstream stages`,
+  `...updates remain separate explicit downstream stages`). Check the literal against the
+  coherent revision before blaming the merge; otherwise you build an unfalsifiable "repair
+  didn't work" signal. `:110` was a test-side literal defect.
+- **Prove no regression with the failing-node *set*, not the counts.** Counts vary by
+  environment (this sandbox: 761 passed / 48 failed / 27 errors vs the contract baseline's
+  804 / 54 / 2 collection errors — a dependency delta, not a regression). Normalise to the
+  sorted `FAILED`/`ERROR` node list and compare `sha256`; the environment-independent claim
+  is "no node-set delta," and it holds even when the absolute baseline does not match.
+
+## Contradicting PRs: resolve by measurement, not argument
+- Two PRs asserting opposite designs for one file can both be **wrong about the conflict**.
+  Here `main`, `#163` head, and `#165` head all resolved `CapabilityChamber.tsx` to the *same
+  blob*; zero of the 23 open PRs modified it. Before adjudicating a "conflict," hash the
+  revisions and query `GET /pulls/{n}/files` across all open PRs — there may be no conflict
+  at all.
+- Resolve the *design* question empirically: find which test files pin each variant, then
+  build the competing variant faithfully and measure. A faithful "restore the mount" variant
+  here moved failures 4 → 6 — it satisfied its own mount test while breaking the downstream-
+  boundary and draft-persistence pins. The inline design is canonical.
+- **A cited test that does not exist is a non-reproducible citation — record it, don't
+  reconcile it.** `#165` pass 4 cited `test_spiral_grove_boundary_is_enforced`; `git grep`
+  over its head tree, over `main`, and over its own evidence returned 0 matches. Treat such a
+  fingerprint as untrusted until re-derived.
+- Do **not** "fix" the competing PR's premise by widening scope. The four remaining SG-04
+  failures are test-side defects; repairing them is a separate bounded workstream.
+
+## Test-side literal pins are a recurring defect class in this repo
+- Frontend/SG tests are source-level string assertions. Two failure modes recur:
+  (1) the test demands an **expanded** literal while the source emits a **template** —
+  e.g. test wants `data-testid="activity-surface-research"`, `ActivityRuntime.tsx` emits
+  ``data-testid={`activity-surface-${kind}`}``; the property holds, the assertion does not
+  match its own template. (2) the test demands a **near-miss** of the actual copy.
+  When a source-level assertion fails, read the source literal before assuming a code bug.
