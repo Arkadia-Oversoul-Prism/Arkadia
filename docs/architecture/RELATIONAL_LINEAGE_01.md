@@ -23,3 +23,5 @@ canonical note
   └─ relationships → existing note-to-note graph edges
 
 External sources remain represented by GATE-01 capture records rather than fabricated graph nodes.
+
+Conversation captures additionally use the existing `replies_to` relationship to connect the current exchange to the immediately preceding exchange in the same thread. This makes conversation nodes participate in the relational graph without treating chronology as authorship.
