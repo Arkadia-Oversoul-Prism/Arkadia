@@ -166,7 +166,10 @@ def test_execution_success_requires_evidence(tmp_path, monkeypatch):
 
 def test_enterprise_canonical_record_crosses_gate01_capture(tmp_path, monkeypatch):
     store = _store(tmp_path, monkeypatch)
+    import knowledge.db as kdb
     from knowledge import capture as cap
+    kdb._DB_PATH = tmp_path / "knowledge.db"
+    kdb._local.conn = None
     from knowledge.db import get_connection
 
     payload = {"message": "captured before interpretation", "enterprise_id": "eden"}
