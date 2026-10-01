@@ -162,3 +162,48 @@ def test_execution_success_requires_evidence(tmp_path, monkeypatch):
         assert "EvidenceRecord" in str(exc)
     else:
         raise AssertionError("execution cannot self-assert success")
+
+
+def test_enterprise_canonical_record_crosses_gate01_capture(tmp_path, monkeypatch):
+    store = _store(tmp_path, monkeypatch)
+    from knowledge import capture as cap
+    from knowledge.db import get_connection
+
+    payload = {"message": "captured before interpretation", "enterprise_id": "eden"}
+    canonical = store.canonical_record(
+        subject="subject-a",
+        source_channel="human_entry",
+        raw_payload=payload,
+        ingested_by="subject-a",
+    )
+
+    assert canonical.capture_ref is not None
+    provenance = cap.provenance_for_capture(canonical.capture_ref)
+    assert provenance["raw_checksum"] == canonical.payload_hash
+    assert provenance["authorship"]["declared"] is False
+
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT capture_uuid, note_id FROM capture_records WHERE capture_uuid = ?",
+        (canonical.capture_ref,),
+    ).fetchone()
+    assert row is not None
+    assert row["note_id"] is None
+
+
+def test_enterprise_interpretation_requires_canonical_capture_projection(tmp_path, monkeypatch):
+    store = _store(tmp_path, monkeypatch)
+    canonical = store.canonical_record(
+        subject="subject-a",
+        source_channel="supplier",
+        raw_payload={"message": "source"},
+        ingested_by="test",
+    )
+    interpretation = store.interpretation(
+        subject="subject-a",
+        canonical_record_id=canonical.id,
+        interpreter="test",
+        interpretation={"state": "UNKNOWN"},
+    )
+    assert interpretation.canonical_record_id == canonical.id
+    assert canonical.capture_ref is not None
