@@ -393,6 +393,21 @@ def ingest_conversation(
         user_id=user_id,
     )
 
+    # Conversation nodes participate in the existing canonical graph. The current
+    # exchange replies to the immediately preceding conversation note in the same
+    # thread. This is structural sequence, not authorship inference.
+    if thread_id and result.get("id") is not None:
+        previous = execute_one(
+            "SELECT id FROM notes WHERE thread_id = ? AND note_type = 'conversation' "
+            "AND id != ? ORDER BY created_at DESC, id DESC LIMIT 1",
+            (thread_id, result["id"]),
+        )
+        if previous:
+            try:
+                add_graph_edge(result["id"], previous["id"], "replies_to")
+            except Exception:
+                pass
+
     # Operational continuity remains distinct from provenance and authorship.
     tl.record(
         "prompt",
