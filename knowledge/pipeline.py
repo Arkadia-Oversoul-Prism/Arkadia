@@ -377,18 +377,13 @@ def ingest_conversation(
 ) -> dict:
     """
     Convenience wrapper: ingest a full conversation exchange as a knowledge note.
-    Records both prompt and response as timeline events, then ingests the combined content.
-    LAW: Conversations become structured knowledge. Nothing is discarded.
+    The raw exchange crosses the shared capture boundary before operational
+    prompt/response timeline events are emitted.
     """
-    # Timeline: record the exchange
-    tl.record("prompt", {"prompt": prompt[:500]}, project_id=project_id, provider=provider, persona=persona)
-    tl.record("response", {"response": response[:1000]}, project_id=project_id, provider=provider, persona=persona)
-
-    # Build note content
     content = f"## Prompt\n\n{prompt}\n\n## Response\n\n{response}"
     title = prompt[:80] + ("…" if len(prompt) > 80 else "")
 
-    return ingest(
+    result = ingest(
         title=title,
         content=content,
         note_type="conversation",
@@ -397,3 +392,21 @@ def ingest_conversation(
         source_provider=provider,
         user_id=user_id,
     )
+
+    # Operational continuity remains distinct from provenance and authorship.
+    tl.record(
+        "prompt",
+        {"prompt": prompt[:500]},
+        project_id=project_id,
+        provider=provider,
+        persona=persona,
+    )
+    tl.record(
+        "response",
+        {"response": response[:1000]},
+        project_id=project_id,
+        provider=provider,
+        persona=persona,
+    )
+
+    return result
