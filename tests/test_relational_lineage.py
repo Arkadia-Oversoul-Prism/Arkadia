@@ -92,3 +92,28 @@ def test_traversal_preserves_provenance_projection():
     traversed = traverse(note["id"], max_depth=1, user_id=None)
     node = next(n for n in traversed["nodes"] if n["id"] == note["id"])
     assert node["provenance"]["capture_uuid"] == capture["capture_uuid"]
+
+
+def test_conversation_ingress_adds_existing_replies_to_edge():
+    _reset()
+    from knowledge.pipeline import ingest_conversation
+    from knowledge.graph import get_edges
+
+    first = ingest_conversation(
+        prompt="first prompt",
+        response="first response",
+        provider="test",
+        thread_id=77,
+    )
+    second = ingest_conversation(
+        prompt="second prompt",
+        response="second response",
+        provider="test",
+        thread_id=77,
+    )
+
+    edges = get_edges(second["id"], direction="outbound")
+    assert any(
+        e["target_note_id"] == first["id"] and e["relationship"] == "replies_to"
+        for e in edges
+    )
