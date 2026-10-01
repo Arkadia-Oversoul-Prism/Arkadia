@@ -64,7 +64,7 @@ def _db() -> sqlite3.Connection:
     CREATE TABLE IF NOT EXISTS ew_canonical_records (
         id TEXT PRIMARY KEY, subject TEXT NOT NULL, source_channel TEXT NOT NULL,
         raw_payload TEXT, payload_hash TEXT NOT NULL, received_at REAL NOT NULL,
-        ingested_by TEXT NOT NULL, correlation_id TEXT NOT NULL
+        ingested_by TEXT NOT NULL, correlation_id TEXT NOT NULL, capture_ref TEXT
     );
     CREATE TABLE IF NOT EXISTS ew_authority_events (
         id TEXT PRIMARY KEY, subject TEXT NOT NULL, actor TEXT NOT NULL,
@@ -126,6 +126,9 @@ def _db() -> sqlite3.Connection:
     CREATE INDEX IF NOT EXISTS idx_ew_ops_stream ON ew_operational_events(subject, enterprise_id, timestamp);
     CREATE INDEX IF NOT EXISTS idx_ew_verifications_subject ON ew_verifications(subject, verified_at);
     """)
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(ew_canonical_records)")}
+    if "capture_ref" not in columns:
+        conn.execute("ALTER TABLE ew_canonical_records ADD COLUMN capture_ref TEXT")
     conn.commit()
     return conn
 
@@ -139,6 +142,7 @@ class CanonicalRecord:
     received_at: float
     ingested_by: str
     correlation_id: str
+    capture_ref: str | None = None
     def to_dict(self): return asdict(self)
 
 @dataclass(frozen=True)
@@ -264,15 +268,59 @@ class VerificationRecord:
 class EnterpriseOrchestrationStore:
     """Append-only canonical operational store with explicit transition gates."""
 
-    def canonical_record(self, *, subject: str, source_channel: str, raw_payload: Any,
-                         ingested_by: str, correlation_id: str | None = None) -> CanonicalRecord:
+    def canonical_record(
+        self,
+        *,
+        subject: str,
+        source_channel: str,
+        raw_payload: Any,
+        ingested_by: str,
+        correlation_id: str | None = None,
+        source_kind: str = "message",
+        source_ref: str | None = None,
+        authored_by: str | None = None,
+        authored_by_kind: str = "unknown",
+        ingested_by_kind: str = "unknown",
+    ) -> CanonicalRecord:
+        """Create an operational canonical projection only after GATE-01 capture."""
+        from knowledge import capture as cap
+
         cid = correlation_id or _id("corr")
+        raw_text = _json(raw_payload)
+        source = cap.register_source(
+            source_kind=source_kind,
+            source_ref=source_ref or f"{source_channel}:{subject}",
+            title=source_channel,
+        )
+        captured = cap.capture(
+            source_uuid=source["source_uuid"],
+            raw_content=raw_text,
+            content_kind="message",
+            captured_by=ingested_by or None,
+            captured_by_kind=ingested_by_kind,
+            authored_by=authored_by,
+            authored_by_kind=authored_by_kind,
+        )
+
         rid = _id("cr")
-        payload_hash = hashlib.sha256(_json(raw_payload).encode()).hexdigest()
-        record = CanonicalRecord(rid, subject, source_channel, raw_payload, payload_hash, _now(), ingested_by, cid)
+        payload_hash = hashlib.sha256(raw_text.encode()).hexdigest()
+        if payload_hash != captured["raw_checksum"]:
+            raise ValueError("GATE-01 capture checksum does not match canonical payload")
+
+        record = CanonicalRecord(
+            rid, subject, source_channel, raw_payload, payload_hash,
+            _now(), ingested_by, cid, captured["capture_uuid"]
+        )
         with _db() as c:
-            c.execute("INSERT INTO ew_canonical_records VALUES (?,?,?,?,?,?,?,?)",
-                      (rid, subject, source_channel, _json(raw_payload), payload_hash, record.received_at, ingested_by, cid))
+            c.execute(
+                "INSERT INTO ew_canonical_records "
+                "(id, subject, source_channel, raw_payload, payload_hash, received_at, ingested_by, correlation_id, capture_ref) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (
+                    rid, subject, source_channel, raw_text, payload_hash,
+                    record.received_at, ingested_by, cid, captured["capture_uuid"],
+                ),
+            )
         return record
 
     def interpretation(self, *, subject: str, canonical_record_id: str, interpreter: str,
