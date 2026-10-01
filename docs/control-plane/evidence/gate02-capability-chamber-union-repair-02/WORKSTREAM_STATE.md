@@ -2,21 +2,35 @@
 
 **Status:** IMPLEMENTED - awaiting human merge
 **BASE_MAIN:** `47e4128b1d1416a9417d9bb33db18a3d269f0200`
+**REBASED_ONTO:** `3e1cd007c93fcfe5a73fb3dc81fd65644b06306f`
 **Branch:** `gate02/capability-chamber-union-repair-02`
 **Authority:** human merge only. No merge / no push to `main` / no force-push performed.
 
 ## Measured facts
 
 ```
+# measured at first pass (base 47e4128)
 old main 0fe6d0d  full suite : 20 failed / 1121 passed / 15 skipped / 1 error
 new main 47e4128  full suite : 20 failed / 1121 passed / 15 skipped / 1 error
-union    this br  full suite : 17 failed / 1124 passed / 15 skipped / 1 error
-
+union    @47e4128 full suite : 17 failed / 1124 passed / 15 skipped / 1 error
 failing-node set: 0fe6d0d vs 47e4128 : IDENTICAL  (comm both directions empty)
 failing-node set: 47e4128 vs union   : 3 FIXED / 0 NEW
 
-sha256(new-main nodes) : 5d8a25ea26638eceba3d5ac7ccfb7d4a194e643bd6b03c21f4815b7a93b1bd14
-sha256(union nodes)    : 2867517d338844492e4895eb9be1aa89b95c9e7f2836b2769c1eb9275c762d96
+# RE-MEASURED after rebase onto the current tip (main moved 47e4128..3e1cd00)
+main 3e1cd00     full suite : 22 failed / 1125 passed / 15 skipped / 1 error
+union rebased    full suite : 19 failed / 1128 passed / 15 skipped / 1 error
+failing-node set: 3e1cd00 vs union   : 3 FIXED / 0 NEW
+
+sha256(nodes 3e1cd00) : 32a2b51bffa8210079f31d3d25e72741fbd605f1c15677a518b9923334d695aa
+sha256(nodes union)   : 0a64965140978cc2e588fd0a446a18a661168cc6f3538a1dabb356e3c3162f29
+
+# main moved 47e4128..3e1cd00 with NO overlap on the two repaired files,
+# but it introduced 2 NEW failures of its own (see EVIDENCE.md 10b):
+#   tests/test_relational_lineage.py::test_graph_node_exposes_canonical_capture_provenance
+#   tests/test_relational_lineage.py::test_traversal_preserves_provenance_projection
+#   TypeError: register_source() takes 0 positional arguments but 3 were given
+#   knowledge/capture.py:78 is keyword-only; test_relational_lineage.py:38,82 call positionally.
+#   Owned by the #173 workstream. NOT repaired here (scope).
 
 architecture : 11 passed
 py_compile api/main.py : OK

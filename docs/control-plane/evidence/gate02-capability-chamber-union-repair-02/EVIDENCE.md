@@ -3,6 +3,7 @@
 **Pass:** gate02 / bounded repair 02
 **Date:** 2026-10-01
 **BASE_MAIN:** `47e4128b1d1416a9417d9bb33db18a3d269f0200` (PR #166 merged)
+**REBASED_ONTO:** `3e1cd007c93fcfe5a73fb3dc81fd65644b06306f` (PR #169 + #173 merged after #166)
 **Branch:** `gate02/capability-chamber-union-repair-02`
 **Authority required:** human merge only. No merge, no push to `main`, no force-push performed.
 
@@ -139,6 +140,49 @@ that would be scope expansion. It needs its own bounded workstream.
 ## 10. Full-suite delta
 
 Recorded in the PR comment for this pass, and in `WORKSTREAM_STATE.md`.
+
+## 10b. Re-measured after rebase onto `3e1cd00`
+
+`main` advanced `47e4128..3e1cd00` (PR #169 canonical ingress, PR #173 relational
+lineage) after this repair was first measured. Those commits touch `knowledge/*`,
+`docs/architecture/*` and two new test files — **no overlap** with the two Spiral Grove
+files here. The branch was rebased onto `3e1cd00` and every figure below was re-measured
+against the new tip rather than inherited.
+
+| Tree | failed | passed | skipped | errors |
+|---|---|---|---|---|
+| `main` `3e1cd00` | 22 | 1125 | 15 | 1 |
+| this branch (rebased) | **19** | **1128** | 15 | 1 |
+
+Node delta by identity, `3e1cd00` -> branch: **3 FIXED / 0 NEW**
+
+```
+sha256(failing nodes, 3e1cd00) = 32a2b51bffa8210079f31d3d25e72741fbd605f1c15677a518b9923334d695aa
+sha256(failing nodes, branch)  = 0a64965140978cc2e588fd0a446a18a661168cc6f3538a1dabb356e3c3162f29
+```
+
+Blobs remain pinned exactly: `CapabilityChamber.tsx` = `20f58649…`,
+`SpiralGrovePage.tsx` = `be992d63…`.
+
+### New defect observed on `main` (NOT this workstream — recorded, not fixed)
+
+`47e4128..3e1cd00` introduced **two** failing nodes that were not failing before:
+
+- `tests/test_relational_lineage.py::test_graph_node_exposes_canonical_capture_provenance`
+- `tests/test_relational_lineage.py::test_traversal_preserves_provenance_projection`
+
+```
+TypeError: register_source() takes 0 positional arguments but 3 were given
+```
+
+`knowledge/capture.py:78` declares `def register_source(*, source_kind, source_ref=None,
+title=None, origin_meta=None)` — **keyword-only**. `tests/test_relational_lineage.py:38,82`
+call it positionally: `cap.register_source("document", "test:lineage", "Lineage source")`.
+The shipped test cannot call the shipped function. Deterministic; reproduces in isolation
+(2 failed / 1 passed). Classified as **new `main` debt from PR #173**, owned by that
+workstream. Not repaired here — that would be scope expansion under GATE-02.
+
+---
 
 ## 11. Authority boundary
 
