@@ -267,3 +267,4 @@ def test_canonical_forward_walk_reaches_operational_evidence(tmp_path, monkeypat
         "CANONICAL_RECORD", "INTERPRETATION", "PROPOSAL",
         "AUTHORIZATION", "EXECUTION_ATTEMPT", "EVIDENCE", "VERIFICATION",
     } <= kinds
+    assert walk["records"][-1]["kind"] == "VERIFICATION"
