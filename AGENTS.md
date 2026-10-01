@@ -1,4 +1,4 @@
-# Arkadia тАФ Agent Memory
+# Arkadia — Agent Memory
 
 ## Architecture overview
 - **Backend**: `api/main.py` (FastAPI, 2600+ lines). Endpoints: `/api/commune/resonance`
@@ -9,26 +9,26 @@
   Global `SonataBar` mounted once in `App.tsx`. Oracle Chat = `components/ArkanaCommune.tsx`
   (full canvas: `MarkdownViewer` + `OracleVoicePlayer` per message). ReasoMate = `pages/ReasoMatePage.tsx`.
 - **Key stores** (3 separate JSON files in `data/`):
-  - `api/key_manager.py` тЖТ `data/api_keys.json` (multi Gemini keys, rotation on 429)
-  - `api/provider_key_store.py` тЖТ `data/provider_keys.json` (one key/provider: gemini/openai/claude/deepseek)
-  - `api/tts_key_manager.py` тЖТ `data/tts_keys.json` (multi TTS/ElevenLabs keys)
-  - `api/user_key_store.py` тЖТ Firestore (per-user keys) with in-memory fallback
-- **TTS**: `kernel/tts.py`. Priority: ElevenLabs (needs key) тЖТ Edge TTS (free) тЖТ Piper.
-  ElevenLabs key resolver: `ELEVENLABS_API_KEY` env тЖТ `tts_key_manager`. Rotate on 429.
-- **Oracle spine**: `api/oracle_spine.py` тАФ shared by Oracle Chat, ReasoMate, NovaNet.
+  - `api/key_manager.py` → `data/api_keys.json` (multi Gemini keys, rotation on 429)
+  - `api/provider_key_store.py` → `data/provider_keys.json` (one key/provider: gemini/openai/claude/deepseek)
+  - `api/tts_key_manager.py` → `data/tts_keys.json` (multi TTS/ElevenLabs keys)
+  - `api/user_key_store.py` → Firestore (per-user keys) with in-memory fallback
+- **TTS**: `kernel/tts.py`. Priority: ElevenLabs (needs key) → Edge TTS (free) → Piper.
+  ElevenLabs key resolver: `ELEVENLABS_API_KEY` env → `tts_key_manager`. Rotate on 429.
+- **Oracle spine**: `api/oracle_spine.py` — shared by Oracle Chat, ReasoMate, NovaNet.
   ONE INTELLIGENCE SPINE, MANY INTERFACES. Memory via `knowledge/context_engine.py`.
 - **Gemini call**: `api/main.py::_gemini_chat` iterates `GEMINI_MODELS` on 429 but does
   NOT rotate keys. SolSpire (`solspire/provider_manager.py`) does key rotation independently.
 
 ## Key conventions
 - Frontend API base: import from `lib/apiConfig.ts` (`API_BASE`). Many older files use
-  `import.meta.env.VITE_API_URL` тАФ that's a stale path; `apiConfig` is canonical.
+  `import.meta.env.VITE_API_URL` — that's a stale path; `apiConfig` is canonical.
 - Markdown rendering: `components/MarkdownViewer.tsx` (react-markdown + remark-gfm).
 - Voice: `components/OracleVoicePlayer.tsx` publishes to `lib/voiceContext.ts`;
   `components/SonataBar.tsx` subscribes + drives `lib/audioManager.ts` (singleton audio el).
   Cache via `lib/audioCache.ts` (IndexedDB).
-- Architectural debt is tracked in `tests/architecture/LAYER_MAP.py` тАФ kernelтЖТapi and
-  providersтЖТapi imports are REGISTERED DEBT (allowed but flagged). Do not add new ones
+- Architectural debt is tracked in `tests/architecture/LAYER_MAP.py` — kernel→api and
+  providers→api imports are REGISTERED DEBT (allowed but flagged). Do not add new ones
   without registering.
 
 ## Build/test
@@ -39,18 +39,18 @@
 ## Voice/TTS notes
 - `OracleVoicePlayer` defaults voice to the GLOBAL `voicePref` (lib/voicePref.ts,
   persists to localStorage `arkadia_voice_pref`). Switching voice in any player
-  updates the pref everywhere тАФ OracleVoicePlayer, ScrollListenButton, and the
+  updates the pref everywhere — OracleVoicePlayer, ScrollListenButton, and the
   SonataBar all subscribe. On first ElevenLabs activation it auto-promotes to
   the aetheric "Aetheria" voice.
 - **Aetheria** (`kernel/tts.py` VOICES["aetheria"]) is the dedicated Oracle
   voice: emotional depth + calming resonance. ElevenLabs voice_settings are
   tuned per-voice via `_voice_settings()`: aetheria uses stability 0.32, style
   0.48 (more variation + expressiveness); standard voices use 0.45 / 0.10.
-  Aetheria is marked `requires_elevenlabs` тАФ without a key it falls back to
-  Edge TTS Aria (robotic) and the UI flags it with ЁЯФТ.
+  Aetheria is marked `requires_elevenlabs` — without a key it falls back to
+  Edge TTS Aria (robotic) and the UI flags it with 🔒.
 - ElevenLabs is only attempted if `ELEVENLABS_API_KEY` env OR `tts_key_manager`
-  has a key. If you hear a robotic voice, no ElevenLabs key is configured тАФ
-  add one in Settings тЖТ TTS Keys and the engine switches automatically.
+  has a key. If you hear a robotic voice, no ElevenLabs key is configured —
+  add one in Settings → TTS Keys and the engine switches automatically.
 - Voice switching UI: `OracleVoicePlayer` has "Change voice" dropdown;
   `ScrollListenButton` has a compact voice-name dropdown next to the Listen
   button on every scroll surface. Both persist globally.
@@ -63,24 +63,24 @@
   `report_success(key)` clears the cooldown. `pool_snapshot()`/`reset_all()` power the
   Settings UI. Key sources (union): `provider_key_store["gemini"]` + `key_manager` +
   `GEMINI_API_KEY`/`GOOGLE_API_KEY` env.
-- **CRITICAL**: `report_failure` must NOT call `acquire_key()` (non-reentrant lock тЖТ
+- **CRITICAL**: `report_failure` must NOT call `acquire_key()` (non-reentrant lock →
   deadlock). It calls `_acquire_key_locked()` instead. A deadlock here was found+fixed
   via `tests/test_key_pool.py`.
 - Routing: `_gemini_chat`, `/commune/resonance`, CEO chat, and `solspire/provider_manager`
   all go through `key_pool.acquire_key()`. SolSpire falls back to local candidates only if
   the pool module is unavailable (older deploys).
-- `api/tts_key_manager.get_active_key()` is now round-robin too тАФ concurrent "Read aloud"
+- `api/tts_key_manager.get_active_key()` is now round-robin too — concurrent "Read aloud"
   requests distribute across all ElevenLabs keys rather than pinning one active key.
 
 ## Read-aloud (Listen) rollout
-- `components/ScrollListenButton.tsx` тАФ reusable read-aloud for any scroll/note content.
+- `components/ScrollListenButton.tsx` — reusable read-aloud for any scroll/note content.
   Uses the SAME audio infra as Oracle Chat (`audioManager` + `voiceContext` + `audioCache`)
   so the global `SonataBar` surfaces everywhere. Strips markdown before TTS.
 - Wired into: `ReasoMatePage` (OracleVoicePlayer per Arkana reply + MarkdownViewer),
   `SpiralCodexFeed`, `NexusSpiralCodex`, `PersonalCodex` (soul function),
   `PersonalEchofeild` (captures), `ChamberView` (chapter verses + excerpt).
 - `ReasoMatePage` now renders Arkana replies through `MarkdownViewer` (canvas display),
-  not raw markdown тАФ matches Oracle Chat.
+  not raw markdown — matches Oracle Chat.
 
 ## Settings (multi-key)
 - `SettingsPage` has a "Gemini Key Pool" section using the legacy `/api/keys` multi-key
@@ -88,73 +88,73 @@
   keys use `/api/tts/keys` (already existed). Add 3+ of each so the pools never exhaust.
 
 ## NovaNet = Nexus Hub unification + navigation restructure
-- **NovaNet IS the Nexus Hub** тАФ not separate pages. `novanet` route renders `NexusPage`,
+- **NovaNet IS the Nexus Hub** — not separate pages. `novanet` route renders `NexusPage`,
   which hosts every surface as a tab: NovaNet (social feed + Stellar Cartography header),
   Echofeild Matrix, ReasoMate, SolSpire, Offerings, IMS, Encyclopedia, Grove, Larder,
   Distribute. The old standalone `nexus` view aliases the same hub.
-- **Personal Echofeild IS the Personal Codex** тАФ not separate pages.
+- **Personal Echofeild IS the Personal Codex** — not separate pages.
   `PersonalEchofeild` renders `<PersonalCodex />` as its identity layer, then appends the
   living projects + knowledge-graph feed + Crystal Matrix aggregation stats below it. The
-  `UniversalEchofeildMatrix` tabs both halves (public Spiral Codex тЖФ personal Echofeild)
-  over the same data substrate тАФ one spine, two windows.
-- **Echofeild тЖТ echoes endpoint тЖТ SolSpire/KnowledgeOS via Crystal Matrix**: `/api/echoes`
+  `UniversalEchofeildMatrix` tabs both halves (public Spiral Codex ↔ personal Echofeild)
+  over the same data substrate — one spine, two windows.
+- **Echofeild → echoes endpoint → SolSpire/KnowledgeOS via Crystal Matrix**: `/api/echoes`
   returns public + personal scroll entries tagged with resonance scores + Crystal-Matrix
   metadata (dimensions: resonance, priority, preference, personalisation). Both halves of
   the Echofeild feed through this single pipe so the SolSpire console and Knowledge OS
   consume one stream. Personal entries are injected client-side (auth-gated Knowledge OS
-  graph + SolSpire projects) тАФ the endpoint holds no private data server-side.
-- **Navigation**: vertical drawer (`ArkadiaNavigation`) reduced to the six anchors only тАФ
+  graph + SolSpire projects) — the endpoint holds no private data server-side.
+- **Navigation**: vertical drawer (`ArkadiaNavigation`) reduced to the six anchors only —
   Home, Oracle, Living Gate, NovaNet, About, Settings. There is **no** second global
   horizontal nav bar; the Nexus hub's own tab strip (inside Novanet/NexusPage) IS the
   horizontal navigation. Personal Codex was removed from the vertical drawer (it is reached
   via the Personal Echofeild / SolSpire inside the hub).
 
 ## Stellar Cartography (Encyclopedia Galactica living star date)
-- `kernel/stellar.py` тАФ pure-python celestial readout, decoupled from `api.main` (no
+- `kernel/stellar.py` — pure-python celestial readout, decoupled from `api.main` (no
   httpx/fastapi import) so it loads standalone and in tests. Exposed at
   `/api/stellar-cartography`.
 - Returns: Ark Date, Schumann resonance (7 bands + dominant), lunar phase (illumination +
   glyph + folk name), planetary sky / "bone report" (simplified mean-longitude ephemeris for
-  Sun/Moon/Mercury/Venus/Mars/Jupiter/Saturn тЖТ zodiac), cosmic weather (solar wind, Kp
+  Sun/Moon/Mercury/Venus/Mars/Jupiter/Saturn → zodiac), cosmic weather (solar wind, Kp
   index, geomagnetic pressure + mood), Oversoul blind-pull Oracle transmission (rotated by
   Ark Day so each day has its own), and the Encyclopedia Galactica volume index.
 - `components/StellarCartography.tsx` renders the readout (always-on primary readout +
   expandable full atlas) with a `ScrollListenButton` on the Oversoul transmission. Mounted
   at the top of `NovaNetPage` AND as the Encyclopedia Galactica header in
   `NexusSpiralCodex` (replacing the minimal ark-date + lunar chip there).
-- Replaces the minimal "Ark Y1 ┬╖ D140" phrase with a full encyclopedia galactica readout.
+- Replaces the minimal "Ark Y1 · D140" phrase with a full encyclopedia galactica readout.
 - Tests: `tests/test_stellar_cartography.py` (10 tests).
 
-## Document upload тАФ public vs personal (separate fields)
+## Document upload — public vs personal (separate fields)
 
 Two distinct upload fields. **Public** uploads go to the shared Spiral Codex
 corpus (visible to all readers + Arkana RAG). **Personal** uploads go to the
-authenticated node's private Knowledge OS vault тАФ never the public scroll store.
+authenticated node's private Knowledge OS vault — never the public scroll store.
 
-- `kernel/doc_extract.py` тАФ shared text-extraction helper
+- `kernel/doc_extract.py` — shared text-extraction helper
   (`extract_text(file_name, raw) -> (text, mime_type)`) for PDF/DOCX/TXT/MD/HTML/JSON.
   Used by all three upload routes so extraction logic is not duplicated. Tests:
   `tests/test_doc_extract.py` (12 tests).
 - **PUBLIC** routes (in `api/main.py`):
-  - `POST /api/codex/upload` тАФ multipart file тЖТ extracts text тЖТ stores as a PUBLIC
+  - `POST /api/codex/upload` — multipart file → extracts text → stores as a PUBLIC
     direct scroll in the Spiral Codex (`direct_scrolls.json`).
-  - `POST /api/scrolls` тАФ text/markdown scroll тЖТ PUBLIC direct scroll.
-  - `DELETE /api/scrolls/{id}` / `GET /api/scrolls` тАФ manage public scrolls.
-  - UI: `NexusSpiralCodex` `ScrollUploadModal` тАФ two modes ("Upload document" +
+  - `POST /api/scrolls` — text/markdown scroll → PUBLIC direct scroll.
+  - `DELETE /api/scrolls/{id}` / `GET /api/scrolls` — manage public scrolls.
+  - UI: `NexusSpiralCodex` `ScrollUploadModal` — two modes ("Upload document" +
     "Write scroll"), clearly labeled "PUBLIC corpus". Lives on the Encyclopedia
     Galactica / Spiral Codex.
 - **PERSONAL** routes (in `api/main.py`):
-  - `POST /api/personal/ingest-file` тАФ multipart file тЖТ extracts text тЖТ ingests
+  - `POST /api/personal/ingest-file` — multipart file → extracts text → ingests
     through `knowledge.pipeline.ingest` into the private vault (embeddings, graph,
     timeline). No public scroll write.
-  - `POST /api/personal/ingest-note` тАФ quick text capture тЖТ private vault.
-  - UI: `components/PersonalUploadZone.tsx` тАФ file dropzone + quick-capture
+  - `POST /api/personal/ingest-note` — quick text capture → private vault.
+  - UI: `components/PersonalUploadZone.tsx` — file dropzone + quick-capture
     textarea, mounted in `PersonalEchofeild`. Labeled "private Knowledge OS vault".
 - **SolSpire project file attachments** (`solspire/console_router.py`):
-  - `POST /solspire/projects/{id}/files/upload` тАФ multipart file тЖТ extracts text тЖТ
+  - `POST /solspire/projects/{id}/files/upload` — multipart file → extracts text →
     stored as an editable project file (`project_files` table) AND best-effort
     ingested into the Knowledge OS graph. UI: `ProjectDashboard` Files tab has an
-    "тмЖ Attach file" button (PDF/DOCX/TXT/MD) alongside the existing "+ New file"
+    "⬆ Attach file" button (PDF/DOCX/TXT/MD) alongside the existing "+ New file"
     markdown editor.
 - **Project creation** (`SolSpireConsole.tsx` `createProject`) now wraps the
   POST in try/catch and surfaces a visible error + keeps the form open so a
@@ -164,22 +164,22 @@ authenticated node's private Knowledge OS vault тАФ never the public scroll s
 ## P1-A production recovery (2026-08-25)
 - `cd24bb1` shipped a **SyntaxError** in `api/main.py` (line ~312): the ReasoMate
   messages-router mount was nested inside the Knowledge OS `try:` block, leaving the outer
-  `try` with no `except`. Every Render deploy of `cd24bb1`+ failed at boot тЖТ production
+  `try` with no `except`. Every Render deploy of `cd24bb1`+ failed at boot → production
   pinned to the last healthy pre-P1-A image. Misdiagnosed earlier as "deployment lag".
 - Fix in commit `63c3a65` (two clean try/except blocks), pushed to `main` (`f0fdf72`).
   NOTE: the env GITHUB_TOKEN is read-only for this repo (git push + Contents API all 403);
-  a user-supplied `ghp_тАж` PAT with Contents:write was needed to push.
-- Full diagnosis + verbatim patch: `docs/verification/P1-A_FINAL.md` ┬з2.
+  a user-supplied `ghp_…` PAT with Contents:write was needed to push.
+- Full diagnosis + verbatim patch: `docs/verification/P1-A_FINAL.md` §2.
 - Lesson: `python -m py_compile api/main.py` before every commit that touches boot code;
   Render boot failure (not deploy lag) is the first hypothesis when routes go stale.
 
-## Engineering Lab тАФ native agent execution substrate (EL-01 тЖТ EL-10)
+## Engineering Lab — native agent execution substrate (EL-01 → EL-10)
 - Package `lab/engineering_lab/` (layer 2, registered in `tests/architecture/LAYER_MAP.py`).
   Gives the Lab governed *hands* without authority: bounded sandbox execution,
   agent/session/run models, live event stream, durable store, provider-neutral model
   gateway, artifact canvas, automations, Google adapters, Android projection, voice boundary.
 - API surface lives in `api/lab_routes.py` (prefix `/api/lab`, 23 routes), mounted via the
-  already-composed `api/nodes` router тАФ **never** add to `api/main.py` (2600-line budget).
+  already-composed `api/nodes` router — **never** add to `api/main.py` (2600-line budget).
 - Persistence reuses the canonical shared SQLite DB (`data/solspire_projects.db`, env
   `SOLSPIRE_PROJECTS_DB`) with new `el_*` tables. Identity is always the verified Firebase
   uid (`subject_ref`); reads are owner-scoped.
@@ -194,13 +194,13 @@ authenticated node's private Knowledge OS vault тАФ never the public scroll s
   surface it is composed with (`api.ais_profile`, `api.lab_routes`). It exposes
   `configure_routers(ais_profile_router, lab_router)`; the composition root `api/main.py`
   injects them **before** `app.include_router(_nodes_router)` (FastAPI copies routes at
-  include time тАФ order is load-bearing).
+  include time — order is load-bearing).
 - This mirrors the tools-counter pattern (`configure_tools_counter`, Pass 06). The literal
   `router.include_router(_ais_profile_router)` is intentionally kept in `nodes.py` because
   `tests/test_ais_w8_canonical_identity.py` asserts it.
 - Guard: `tests/test_nodes_composition_seam.py`. Do not "fix" a layer inversion by editing
   `REGISTERED_ARCHITECTURAL_DEBT` unless deferral is genuinely required and justified by an
-  ADR тАФ the freeze rule says fix the import. Reclassifying `api/nodes.py` to layer 1 changes
+  ADR — the freeze rule says fix the import. Reclassifying `api/nodes.py` to layer 1 changes
   the orthogonal identity group and is constitutional (needs ADR).
 
 ## Experience composition: the Solariun thread (SOLARIUN-THREAD-01)
@@ -220,7 +220,7 @@ authenticated node's private Knowledge OS vault тАФ never the public scroll s
   convention. `vite build` is environment-blocked (no npm registry access), so changes are
   inspection-verified only unless the sandbox has `node_modules`.
 
-## Repo hygiene тАФ private vault is gitignored (GATE-VAULT)
+## Repo hygiene — private vault is gitignored (GATE-VAULT)
 - `vault/` (Knowledge OS private vault runtime output) is gitignored via `vault/**`
   with tracked scaffolding preserved (`!vault/**/`, `!vault/**/.gitkeep`,
   `!vault/Index/README.md`, `!vault/Templates/**`). A generated vault note is no longer
@@ -379,3 +379,32 @@ This trajectory may include deployment configuration, CI/CD, verification harnes
 
 ### Current known Gate 2 handoff
 Gate 2 is open on production parity. Current main was established at `8f9d509ec4900408e13e15544192dba37fb08ff8`. The existing evidence must not claim production parity until that SHA is tied to a production deployment and the resulting UI/runtime behavior is independently observed.
+
+## AGENTS.md encoding corruption — the codec is cp866, and it is recoverable (gate-hygiene)
+- `main`'s `AGENTS.md` carries **179 pre-existing mojibake characters** across **50 lines**:
+  `U+0442 U+0410 U+0424` where `—` (U+2014) belongs, `U+0442 U+0416 U+0422` where `→` (U+2192)
+  belongs, and similar Cyrillic look-alike sequences for emoji. PR #147 concluded a
+  decode-based repair was a **dead end** after sweeping `cp1250, iso8859_2, cp1251, mac_latin2,
+  cp1254, cp1257, iso8859_4, cp437, latin_1` — that sweep **omitted `cp866`**, which is the
+  correct codec. Its head therefore *preserves* `main`'s 179 corrupted characters (it restores
+  the region "verbatim from `main`") and adds 9 more: **188** in a PR titled "repair encoding
+  corruption". Repairing `main` and leaving the count non-zero is not a repair.
+- The transform is **UTF-8 bytes decoded as cp866**, applied **line-wise**:
+  `line.encode('cp866').decode('utf-8')`. Apply it **only to lines that are fully
+  cp866-decodable** (50 of them here); the other **33** non-ASCII lines carry genuine `—`/`→`/`§`
+  and must be left byte-identical. A whole-file `bytes.decode('cp866')` is wrong — it destroys
+  the genuine characters and *increases* the Cyrillic count.
+- **Decidability, not a candidate list.** Test the invariant rather than a remembered table:
+  the repair is correct iff `corrupt(repair(x)) == x` **on the corrupted domain** (the
+  pure-mojibake lines) *and* the untouched lines are byte-identical. 0 of the 12 distinct
+  non-ASCII codepoints in the corrupted region fall outside cp866. The earlier "13 characters
+  fall outside cp1252" observation was true but irrelevant — cp866 is the codec, not cp1252.
+- **Oracle:** the repair reproduces the last clean revision byte-exactly —
+  `repaired[:205] == 6c43218a4:AGENTS.md[:205]`. 50 lines repaired, 332 untouched, line count
+  preserved (382), mojibake 179 → 0.
+- Verify with:
+  `python -c "t=open('AGENTS.md',encoding='utf-8').read(); print(sum(1 for c in t if '\u0400'<=c<='\u04ff'))"`
+  → must print `0`. A repair PR that still reports a non-zero count has not repaired anything.
+- Prefer to describe corrupt sequences by **codepoint** (`U+0442 U+0410 U+0424`), never by
+  pasting the literal characters: a literal in the lesson re-introduces the very corruption the
+  lesson documents, and the verification above then fails on the documentation itself.
