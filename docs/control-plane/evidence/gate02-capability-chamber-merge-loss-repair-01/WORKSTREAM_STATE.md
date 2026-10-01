@@ -68,6 +68,20 @@ environment delta, measured on `main` directly. Only the **relative** claim is m
 2. `vite build` unverifiable in this environment.
 3. #165's pass-4 fingerprint should be re-derived before being trusted.
 
+## PR linkage
+
+```
+PR                : #166  https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/166
+branch            : gate02/capability-chamber-merge-loss-repair-01
+base              : main
+head              : e1ea4f957006
+commits           : 2978dbb (repair + evidence), e1ea4f9 (AGENTS.md forensics)
+mergeable         : True    mergeable_state: clean
+CI on head        : validate PASS · Full-history secret scan PASS · Vercel Preview PASS
+glance comment    : #issuecomment-5933433773
+status            : READY_FOR_SOVEREIGN_MERGE
+```
+
 ## Standing boundary
 
 `main` SHA → deployment SHA → production response → UI/runtime observation → evidence
