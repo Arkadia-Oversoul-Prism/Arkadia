@@ -19,7 +19,7 @@ export default defineConfig({
           "vendor-motion": ["framer-motion"],
           "vendor-recharts": ["recharts"],
           "vendor-d3": ["d3"],
-          "vendor-firebase": ["firebase"],
+          "vendor-firebase": ["firebase/app", "firebase/auth", "firebase/firestore"],
         },
       },
     },
