@@ -196,6 +196,9 @@ def test_enterprise_canonical_record_crosses_gate01_capture(tmp_path, monkeypatc
 
 def test_enterprise_interpretation_requires_canonical_capture_projection(tmp_path, monkeypatch):
     store = _store(tmp_path, monkeypatch)
+    import knowledge.db as kdb
+    kdb._DB_PATH = tmp_path / "knowledge.db"
+    kdb._local.conn = None
     canonical = store.canonical_record(
         subject="subject-a",
         source_channel="supplier",
