@@ -552,6 +552,19 @@ references (`x.useEffect` / `N2.useEffect` / `O1.useEffect` in the `useLayoutEff
   browser-rendered symptom (unchanged from pass 1/2 — no browser runtime in this sandbox).
 - **`NOT CLAIMED`** — production acceptance. Human authority.
 
+### A.8 Boundary honesty
+
+- No source, test, governance, or deployment change. Two evidence files only.
+- No merge, no push to `main`, no force-push, no reclassification of baseline debt.
+- `CapabilityChamber.tsx` is **not** repaired here — the mount question remains a design change
+  requiring sovereign authorization, exactly as pass 2 concluded.
+- The stale-`dist` finding is **recorded, not acted on** — discovery does not authorize
+  execution.
+
+---
+
+*This addendum was created by an AI agent (OpenHands) on behalf of the human sovereign.*
+
 ## Appendix B — Pass 4: item-level decomposition of the SG-04 cluster
 
 The predecessor document `gate-hygiene-sg04-canonical-header-merge-regression-01` classifies the
