@@ -35,6 +35,9 @@ def test_transition_contracts_and_reverse_walk(tmp_path, monkeypatch):
         recommended_actions=["verify"],
         required_authority="human",
         tool_selections=["supplier_verification"],
+        caused_by_kind="INTERPRETATION",
+        caused_by_id=interpretation.id,
+        correlation_id=interpretation.correlation_id,
     )
 
     try:
@@ -102,7 +105,7 @@ def test_transition_contracts_and_reverse_walk(tmp_path, monkeypatch):
 
     assert walk["complete"] is True
     assert {"VERIFICATION", "EVIDENCE", "EXECUTION_ATTEMPT", "AUTHORIZATION",
-            "PROPOSAL", "AUTHORITY_EVENT"} <= kinds
+            "PROPOSAL", "AUTHORITY_EVENT", "INTERPRETATION", "CANONICAL_RECORD"} <= kinds
     assert "WORK_EVENT" not in kinds
 
 
@@ -118,10 +121,38 @@ def test_eden_simulated_path_preserves_unknown_until_evidence(tmp_path, monkeypa
         subject="architect", kind="VERIFICATION", record_id=result["verification"].id
     )
     assert walk["complete"] is True
-    assert any(r["kind"] == "CANONICAL_RECORD" for r in walk["records"]) is False
+    assert any(r["kind"] == "CANONICAL_RECORD" for r in walk["records"]) is True
     # The verified price claim is sourced from a simulated execution response,
     # while the original supplier message deliberately left price UNKNOWN.
     assert result["canonical"].raw_payload["message"].endswith("price not confirmed.")
+
+
+def test_verification_reverse_walk_reaches_gate01_source(tmp_path, monkeypatch):
+    store = _store(tmp_path, monkeypatch)
+    import knowledge.db as kdb
+    kdb._DB_PATH = tmp_path / "knowledge.db"
+    kdb._local.conn = None
+    from knowledge import capture as cap
+
+    result = simulate_eden_supplier_path(
+        store, subject="architect", enterprise_id="eden-origin"
+    )
+    walk = store.reverse_walk(
+        subject="architect", kind="VERIFICATION", record_id=result["verification"].id
+    )
+    by_kind = {r["kind"]: r for r in walk["records"]}
+
+    assert walk["complete"] is True
+    assert walk["origin_complete"] is True
+    assert {"VERIFICATION", "EVIDENCE", "EXECUTION_ATTEMPT", "AUTHORIZATION",
+            "PROPOSAL", "AUTHORITY_EVENT", "INTERPRETATION",
+            "CANONICAL_RECORD", "CAPTURE", "SOURCE"} <= set(by_kind)
+    capture = by_kind["CAPTURE"]["record"]
+    canonical = by_kind["CANONICAL_RECORD"]["record"]
+    assert capture["capture_uuid"] == canonical["capture_ref"]
+    assert capture["raw_checksum"] == canonical["payload_hash"]
+    assert capture["source"]["source_uuid"] == by_kind["SOURCE"]["id"]
+    assert cap.provenance_for_capture(canonical["capture_ref"])["source"]["source_uuid"] == by_kind["SOURCE"]["id"]
 
 
 def test_human_authority_event_is_distinct_from_workevent(tmp_path, monkeypatch):
@@ -162,3 +193,78 @@ def test_execution_success_requires_evidence(tmp_path, monkeypatch):
         assert "EvidenceRecord" in str(exc)
     else:
         raise AssertionError("execution cannot self-assert success")
+
+
+def test_enterprise_canonical_record_crosses_gate01_capture(tmp_path, monkeypatch):
+    store = _store(tmp_path, monkeypatch)
+    import knowledge.db as kdb
+    from knowledge import capture as cap
+    kdb._DB_PATH = tmp_path / "knowledge.db"
+    kdb._local.conn = None
+    from knowledge.db import get_connection
+
+    payload = {"message": "captured before interpretation", "enterprise_id": "eden"}
+    canonical = store.canonical_record(
+        subject="subject-a",
+        source_channel="human_entry",
+        raw_payload=payload,
+        ingested_by="subject-a",
+    )
+
+    assert canonical.capture_ref is not None
+    provenance = cap.provenance_for_capture(canonical.capture_ref)
+    assert provenance["raw_checksum"] == canonical.payload_hash
+    assert provenance["authorship"]["declared"] is False
+
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT capture_uuid, note_id FROM capture_records WHERE capture_uuid = ?",
+        (canonical.capture_ref,),
+    ).fetchone()
+    assert row is not None
+    assert row["note_id"] is None
+
+
+def test_enterprise_interpretation_requires_canonical_capture_projection(tmp_path, monkeypatch):
+    store = _store(tmp_path, monkeypatch)
+    import knowledge.db as kdb
+    kdb._DB_PATH = tmp_path / "knowledge.db"
+    kdb._local.conn = None
+    canonical = store.canonical_record(
+        subject="subject-a",
+        source_channel="supplier",
+        raw_payload={"message": "source"},
+        ingested_by="test",
+    )
+    interpretation = store.interpretation(
+        subject="subject-a",
+        canonical_record_id=canonical.id,
+        interpreter="test",
+        interpretation={"state": "UNKNOWN"},
+    )
+    assert interpretation.canonical_record_id == canonical.id
+    assert canonical.capture_ref is not None
+
+
+def test_canonical_forward_walk_reaches_operational_evidence(tmp_path, monkeypatch):
+    store = _store(tmp_path, monkeypatch)
+    import knowledge.db as kdb
+    kdb._DB_PATH = tmp_path / "knowledge.db"
+    kdb._local.conn = None
+
+    result = simulate_eden_supplier_path(
+        store, subject="architect", enterprise_id="eden-forward"
+    )
+    walk = store.forward_walk(
+        subject="architect",
+        kind="CANONICAL_RECORD",
+        record_id=result["canonical"].id,
+    )
+    kinds = {r["kind"] for r in walk["records"]}
+
+    assert result["canonical"].capture_ref is not None
+    assert {
+        "CANONICAL_RECORD", "INTERPRETATION", "PROPOSAL",
+        "AUTHORIZATION", "EXECUTION_ATTEMPT", "EVIDENCE", "VERIFICATION",
+    } <= kinds
+    assert walk["records"][-1]["kind"] == "VERIFICATION"

@@ -64,7 +64,7 @@ def _db() -> sqlite3.Connection:
     CREATE TABLE IF NOT EXISTS ew_canonical_records (
         id TEXT PRIMARY KEY, subject TEXT NOT NULL, source_channel TEXT NOT NULL,
         raw_payload TEXT, payload_hash TEXT NOT NULL, received_at REAL NOT NULL,
-        ingested_by TEXT NOT NULL, correlation_id TEXT NOT NULL
+        ingested_by TEXT NOT NULL, correlation_id TEXT NOT NULL, capture_ref TEXT
     );
     CREATE TABLE IF NOT EXISTS ew_authority_events (
         id TEXT PRIMARY KEY, subject TEXT NOT NULL, actor TEXT NOT NULL,
@@ -96,7 +96,8 @@ def _db() -> sqlite3.Connection:
         objective TEXT NOT NULL, rationale TEXT NOT NULL,
         recommended_actions TEXT NOT NULL, required_authority TEXT NOT NULL,
         tool_selections TEXT NOT NULL, status TEXT NOT NULL,
-        created_at REAL NOT NULL, correlation_id TEXT NOT NULL
+        created_at REAL NOT NULL, correlation_id TEXT NOT NULL,
+        caused_by_kind TEXT, caused_by_id TEXT
     );
     CREATE TABLE IF NOT EXISTS ew_authorizations (
         id TEXT PRIMARY KEY, subject TEXT NOT NULL, proposal_id TEXT NOT NULL,
@@ -126,6 +127,14 @@ def _db() -> sqlite3.Connection:
     CREATE INDEX IF NOT EXISTS idx_ew_ops_stream ON ew_operational_events(subject, enterprise_id, timestamp);
     CREATE INDEX IF NOT EXISTS idx_ew_verifications_subject ON ew_verifications(subject, verified_at);
     """)
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(ew_canonical_records)")}
+    if "capture_ref" not in columns:
+        conn.execute("ALTER TABLE ew_canonical_records ADD COLUMN capture_ref TEXT")
+    proposal_columns = {row[1] for row in conn.execute("PRAGMA table_info(ew_proposals)")}
+    if "caused_by_kind" not in proposal_columns:
+        conn.execute("ALTER TABLE ew_proposals ADD COLUMN caused_by_kind TEXT")
+    if "caused_by_id" not in proposal_columns:
+        conn.execute("ALTER TABLE ew_proposals ADD COLUMN caused_by_id TEXT")
     conn.commit()
     return conn
 
@@ -139,6 +148,7 @@ class CanonicalRecord:
     received_at: float
     ingested_by: str
     correlation_id: str
+    capture_ref: str | None = None
     def to_dict(self): return asdict(self)
 
 @dataclass(frozen=True)
@@ -210,6 +220,8 @@ class Proposal:
     status: str
     created_at: float
     correlation_id: str
+    caused_by_kind: str | None = None
+    caused_by_id: str | None = None
     def to_dict(self): return asdict(self)
 
 @dataclass(frozen=True)
@@ -264,15 +276,59 @@ class VerificationRecord:
 class EnterpriseOrchestrationStore:
     """Append-only canonical operational store with explicit transition gates."""
 
-    def canonical_record(self, *, subject: str, source_channel: str, raw_payload: Any,
-                         ingested_by: str, correlation_id: str | None = None) -> CanonicalRecord:
+    def canonical_record(
+        self,
+        *,
+        subject: str,
+        source_channel: str,
+        raw_payload: Any,
+        ingested_by: str,
+        correlation_id: str | None = None,
+        source_kind: str = "message",
+        source_ref: str | None = None,
+        authored_by: str | None = None,
+        authored_by_kind: str = "unknown",
+        ingested_by_kind: str = "unknown",
+    ) -> CanonicalRecord:
+        """Create an operational canonical projection only after GATE-01 capture."""
+        from knowledge import capture as cap
+
         cid = correlation_id or _id("corr")
+        raw_text = _json(raw_payload)
+        source = cap.register_source(
+            source_kind=source_kind,
+            source_ref=source_ref or f"{source_channel}:{subject}",
+            title=source_channel,
+        )
+        captured = cap.capture(
+            source_uuid=source["source_uuid"],
+            raw_content=raw_text,
+            content_kind="message",
+            captured_by=ingested_by or None,
+            captured_by_kind=ingested_by_kind,
+            authored_by=authored_by,
+            authored_by_kind=authored_by_kind,
+        )
+
         rid = _id("cr")
-        payload_hash = hashlib.sha256(_json(raw_payload).encode()).hexdigest()
-        record = CanonicalRecord(rid, subject, source_channel, raw_payload, payload_hash, _now(), ingested_by, cid)
+        payload_hash = hashlib.sha256(raw_text.encode()).hexdigest()
+        if payload_hash != captured["raw_checksum"]:
+            raise ValueError("GATE-01 capture checksum does not match canonical payload")
+
+        record = CanonicalRecord(
+            rid, subject, source_channel, raw_payload, payload_hash,
+            _now(), ingested_by, cid, captured["capture_uuid"]
+        )
         with _db() as c:
-            c.execute("INSERT INTO ew_canonical_records VALUES (?,?,?,?,?,?,?,?)",
-                      (rid, subject, source_channel, _json(raw_payload), payload_hash, record.received_at, ingested_by, cid))
+            c.execute(
+                "INSERT INTO ew_canonical_records "
+                "(id, subject, source_channel, raw_payload, payload_hash, received_at, ingested_by, correlation_id, capture_ref) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (
+                    rid, subject, source_channel, raw_text, payload_hash,
+                    record.received_at, ingested_by, cid, captured["capture_uuid"],
+                ),
+            )
         return record
 
     def interpretation(self, *, subject: str, canonical_record_id: str, interpreter: str,
@@ -320,16 +376,53 @@ class EnterpriseOrchestrationStore:
                       (eid, subject, enterprise_id, workload_id, workstream_id, event_type, _json(payload), now, caused_by_kind, caused_by_id, cid))
         return row
 
-    def proposal(self, *, subject: str, enterprise_id: str, objective: str, rationale: str,
-                 recommended_actions: list[Any], required_authority: str,
-                 tool_selections: list[Any], correlation_id: str | None = None) -> Proposal:
-        rid = _id("prop"); cid = correlation_id or _id("corr"); now = _now()
-        row = Proposal(rid, subject, enterprise_id, objective, rationale, recommended_actions,
-                       required_authority, tool_selections, "PROPOSED", now, cid)
+    def proposal(
+        self,
+        *,
+        subject: str,
+        enterprise_id: str,
+        objective: str,
+        rationale: str,
+        recommended_actions: list[Any],
+        required_authority: str,
+        tool_selections: list[Any],
+        caused_by_kind: str | None = None,
+        caused_by_id: str | None = None,
+        correlation_id: str | None = None,
+    ) -> Proposal:
+        if caused_by_kind is not None:
+            caused_by_kind = str(caused_by_kind).upper()
+            if caused_by_kind not in {"CANONICAL_RECORD", "INTERPRETATION", "OPERATIONAL_EVENT"}:
+                raise ValueError("unsupported proposal cause")
+            if not caused_by_id:
+                raise ValueError("proposal cause id is required")
+            table = {
+                "CANONICAL_RECORD": "ew_canonical_records",
+                "INTERPRETATION": "ew_interpretations",
+                "OPERATIONAL_EVENT": "ew_operational_events",
+            }[caused_by_kind]
+            if not self._exists(table, caused_by_id):
+                raise ValueError(f"{caused_by_kind} cause does not exist")
+        rid = _id("prop")
+        cid = correlation_id or self._correlation_for_any(caused_by_kind, caused_by_id) or _id("corr")
+        now = _now()
+        row = Proposal(
+            rid, subject, enterprise_id, objective, rationale, recommended_actions,
+            required_authority, tool_selections, "PROPOSED", now, cid,
+            caused_by_kind, caused_by_id,
+        )
         with _db() as c:
-            c.execute("INSERT INTO ew_proposals VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                      (rid, subject, enterprise_id, objective, rationale, _json(recommended_actions),
-                       required_authority, _json(tool_selections), "PROPOSED", now, cid))
+            c.execute(
+                "INSERT INTO ew_proposals "
+                "(id, subject, enterprise_id, objective, rationale, recommended_actions, "
+                "required_authority, tool_selections, status, created_at, correlation_id, caused_by_kind, caused_by_id) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    rid, subject, enterprise_id, objective, rationale,
+                    _json(recommended_actions), required_authority, _json(tool_selections),
+                    "PROPOSED", now, cid, caused_by_kind, caused_by_id,
+                ),
+            )
         return row
 
     def authority_event(self, *, subject: str, actor: str, authority_context: str,
@@ -489,10 +582,26 @@ class EnterpriseOrchestrationStore:
         }
 
     def reverse_walk(self, *, subject: str, kind: str, record_id: str) -> dict[str, Any]:
-        """Return the inspectable ancestry of a claim/record; never infers missing links."""
+        """Return inspectable ancestry through operational records and GATE-01 origin."""
         kind = kind.upper()
         rows: list[dict[str, Any]] = []
         seen: set[tuple[str, str]] = set()
+
+        def visit_origin(capture_ref: str | None):
+            if not capture_ref or ("CAPTURE", capture_ref) in seen:
+                return
+            from knowledge import capture as cap
+            provenance = cap.provenance_for_capture(capture_ref)
+            if provenance.get("unknown"):
+                return
+            seen.add(("CAPTURE", capture_ref))
+            rows.append({"kind": "CAPTURE", "id": capture_ref, "record": provenance})
+            source = provenance.get("source") or {}
+            source_uuid = source.get("source_uuid")
+            if source_uuid and ("SOURCE", source_uuid) not in seen:
+                seen.add(("SOURCE", source_uuid))
+                rows.append({"kind": "SOURCE", "id": source_uuid, "record": source})
+
         def visit(k: str, rid: str | None):
             if not rid or (k, rid) in seen:
                 return
@@ -521,19 +630,31 @@ class EnterpriseOrchestrationStore:
                     visit("CANONICAL_RECORD", row["source_ref"])
             elif k == "EXECUTION_ATTEMPT":
                 visit("AUTHORIZATION", row["authorization_id"])
+            elif k == "PROPOSAL":
+                if row["caused_by_kind"] and row["caused_by_id"]:
+                    visit(row["caused_by_kind"], row["caused_by_id"])
             elif k == "AUTHORIZATION":
                 visit("PROPOSAL", row["proposal_id"]); visit("AUTHORITY_EVENT", row["authority_event_id"])
             elif k == "INTERPRETATION":
                 visit("CANONICAL_RECORD", row["canonical_record_id"])
+            elif k == "CANONICAL_RECORD":
+                visit_origin(row["capture_ref"])
             elif k == "KNOWLEDGE_MUTATION":
                 visit(row["caused_by_kind"], row["caused_by_id"])
             elif k == "OPERATIONAL_EVENT":
                 visit(row["caused_by_kind"], row["caused_by_id"])
+
         visit(kind, record_id)
         root_kinds = {"CANONICAL_RECORD", "AUTHORITY_EVENT"}
         roots = [r for r in rows if r["kind"] in root_kinds]
-        return {"subject": subject, "claim_kind": kind, "claim_id": record_id,
-                "complete": bool(roots), "records": rows}
+        origin_required = any(r["kind"] == "CANONICAL_RECORD" for r in roots)
+        origin_complete = any(r["kind"] == "CAPTURE" for r in rows) and any(r["kind"] == "SOURCE" for r in rows)
+        return {
+            "subject": subject, "claim_kind": kind, "claim_id": record_id,
+            "complete": bool(roots) and (not origin_required or origin_complete),
+            "origin_complete": origin_complete if origin_required else None,
+            "records": rows,
+        }
 
     def forward_walk(self, *, subject: str, kind: str, record_id: str) -> dict[str, Any]:
         """Trace forward from a root (source or authority) to its consequences.
@@ -588,6 +709,10 @@ class EnterpriseOrchestrationStore:
                 for r in self._rows_where("ew_operational_events", "caused_by_id", rid, subject):
                     visit("OPERATIONAL_EVENT", r["id"])
             elif k == "PROPOSAL":
+                cause_kind = row.get("caused_by_kind")
+                cause_id = row.get("caused_by_id")
+                if cause_kind and cause_id:
+                    visit(cause_kind, cause_id)
                 for r in self._rows_where("ew_authorizations", "proposal_id", rid, subject):
                     visit("AUTHORIZATION", r["id"])
                 for r in self._rows_where("ew_operational_events", "caused_by_id", rid, subject):
@@ -718,6 +843,8 @@ def simulate_eden_supplier_path(store: EnterpriseOrchestrationStore, *, subject:
         recommended_actions=["verify supplier price", "do not commit funds"],
         required_authority="human",
         tool_selections=["supplier_verification"],
+        caused_by_kind="INTERPRETATION", caused_by_id=interpretation.id,
+        correlation_id=interpretation.correlation_id,
     )
     authority = store.authority_event(
         subject=subject, actor=subject, authority_context="Eden Cycle 01",
