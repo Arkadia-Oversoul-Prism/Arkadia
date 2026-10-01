@@ -108,9 +108,47 @@ Sovereign review. **Do not merge** — merge is human-only.
 
 ## 10. Next bounded task
 
-`CapabilityChamber.tsx` repair — a single file, three defect classes, six `tsc` errors, four
-baseline tests asserting the invariant. Requires its own authorization (product decision, not
-hygiene).
+`CapabilityChamber.tsx` repair — a single file, four baseline tests asserting the mount
+invariant. Requires its own authorization (product decision, not hygiene).
+
+**Revised in pass 2** (see §11): the defect inventory is **two** `tsc` errors in **two** classes,
+not six errors in three classes. The three `replaceAll` errors were an artifact of the
+`--target es2020` flag used to run `tsc`, not defects. The surviving two (`useEffect`,
+`surfaceMeta`) are both real free identifiers and both mechanically unambiguous to repair — but
+they are **not** what the four SG-04 tests assert, and repairing them does not satisfy those
+tests.
+
+---
+
+## 11. Pass-2 state (independent verification, second pass)
+
+| Field | Value |
+|---|---|
+| `BASE_MAIN` | `002b189` |
+| Branch head | `gate02/independent-verification-163` |
+| Source parity with `main` | **identical** — branch diff vs `main` is docs-only (2 files) |
+| Full suite fingerprint | `20 failed / 1039 passed / 13 skipped / 2 errors` — matches baseline exactly |
+| Architecture tests | 11 passed |
+| Fresh `vite build` of `main` | succeeds, 6.78s, bundle `index-xiYlcBh3.js` |
+| Bundle forensics | fresh build ≡ production on every marker: `sg03-contract-boundary` 1/1, `learning-activity-work-surface` 1/1, bare `surfaceMeta` 1/1, `evidence-capture` 3/3, `.replaceAll(` 5/5 |
+| Defect inventory (corrected) | 2 errors / 2 classes in `CapabilityChamber.tsx` |
+| Repair classification | **not a safe bounded repair** — mount is a design change |
+
+**Two material corrections this pass:**
+
+1. **The `replaceAll` defect class does not exist.** `replaceAll` is ES2021; the §2.3 command
+   used `--target es2020`, which resolves `lib.es2020` and makes *every* `replaceAll` — on
+   `string` as much as on a union — a `TS2551`. The reported columns (83, 685, 142) are
+   end-of-line, i.e. the last call per line. At `--target es2021`/`esnext` all three vanish.
+   The production bundle ships 5 `.replaceAll(` sites un-transpiled, so the "undefined
+   behaviour below ES2021" severity note is contradicted by the artifact itself.
+2. **`PersonalEchofeild.tsx` `TS1109` is reachability-limited, not a repo-wide blocker.** The
+   file has no production `src/` importers; excluding it the whole tree yields 38 errors across
+   20 files, of which `CapabilityChamber.tsx` contributes exactly 2.
+
+**Unchanged:** `ActivityRuntime` is imported at `:4` and never rendered (`<ActivityRuntime` → 0).
+The inline `learning-activity-work-surface` is what ships. Four SG-04 tests assert the mount, so
+the repair remains an authorization-requiring design change.
 
 ---
 

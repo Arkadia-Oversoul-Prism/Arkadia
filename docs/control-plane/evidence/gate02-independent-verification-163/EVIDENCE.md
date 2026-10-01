@@ -322,4 +322,60 @@ four) and the defect inventory in §2.3 (three defect classes, not two).
 
 ---
 
+## 6. Correction — the `replaceAll` "defect class" is a lib-target artifact (pass 2)
+
+§2.3 above reports "six errors, three distinct defect classes". That count is **wrong**, and the
+error is caused by the command §2.3 itself records: `--target es2020`.
+
+`String.prototype.replaceAll` is defined in `lib.es2021.string.d.ts`. At `--target es2020` the
+compiler resolves `lib.es2020`, where `replaceAll` does not exist — so **every** `replaceAll`
+call in the tree becomes `TS2551`, on `string` exactly as much as on a string-literal union.
+Re-running the *identical* command at a higher target removes all three:
+
+```
+--target es2020  ->  3 × TS2551 + 2 × TS2304   (five errors, three classes)
+--target es2021  ->  0 × TS2551 + 2 × TS2304   (two errors, two classes)
+--target esnext  ->  0 × TS2551 + 2 × TS2304   (two errors, two classes)
+```
+
+The line numbers in the `es2020` run are a direct tell: `(25,83)`, `(55,685)`, `(56,142)` —
+column 83, 685 and 142 are **end-of-line**, i.e. the last `replaceAll` on each line, not the
+first. `LearnerCapabilityStatus` has nothing to do with it; the compiler simply reports the
+last such call per line.
+
+**The three `replaceAll` errors are therefore not defects.** Two consequences, both material:
+
+1. **The real defect inventory in `CapabilityChamber.tsx` is two, not three**, and both are
+   genuine:
+   - `TS2304: Cannot find name 'useEffect'` (`:51`) — line 4 imports only `{ useState }` from
+     `react`; the chamber calls `useEffect` at line 51. A real free identifier.
+   - `TS2304: Cannot find name 'surfaceMeta'` (`:56`) — `surfaceMeta` is referenced once and
+     defined nowhere. A real free identifier.
+2. **§2.3's severity note is contradicted by the shipped artifact.** It argues that below
+   `ES2021` `replaceAll` is "undefined behaviour" and that the fix is a **compatibility**
+   concern. The production bundle contains **5** `.replaceAll(` call sites and ships them
+   un-transpiled; the call resolves at runtime on any engine meeting the build's baseline.
+   There is no compatibility defect to repair.
+
+### Why this matters for the repair decision (§10 of `WORKSTREAM_STATE.md`)
+
+The two surviving defects are mechanically unambiguous — `useEffect` needs to join the existing
+`react` import, and `surfaceMeta` is a dangling reference in a live render path. Neither
+requires a product decision. But the **wider repair is still not a safe bounded repair**, for a
+reason independent of the miscount:
+
+`ActivityRuntime` is imported at `CapabilityChamber.tsx:4` and **never rendered** (`grep -c
+'<ActivityRuntime'` → `0`). The chamber's inline work surface (`learning-activity-work-surface`,
+with `evidenceBoundary` / `submitEvidence` / sessionStorage evidence capture) is the surface that
+actually renders today, and it is the one the production bundle contains. Re-mounting
+`ActivityRuntime` as §4's test demands would place **two** work surfaces in the same render path
+with two storage schemas and two completion models. That is a design change, not a bounded
+repair, and it is what four SG-04 tests assert.
+
+**Net:** the miscount does not make the repair safe. It does make two of the three "defect
+classes" vanish, which *reduces* the stated justification for the repair rather than supporting
+it. The mount question remains the blocking one and still requires sovereign authorization.
+
+---
+
 *This evidence artifact was created by an AI agent (OpenHands) on behalf of the human sovereign.*
