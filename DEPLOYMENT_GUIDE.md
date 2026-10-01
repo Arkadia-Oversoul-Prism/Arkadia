@@ -59,10 +59,11 @@ PORT=8080
 
 ## 🌐 **API Endpoints**
 
-The table below is the **canonical deployed surface**, verified against `api.main:app`
-(the app `entrypoint.sh` serves). The earlier revision of this section listed a legacy
-route set (`/health`, `/status`, `/oracle`, `/threads`, `/arkadia/corpus`) that no longer
-exists on this app and returns `404` on the live deployment.
+The table below is the **canonical repository app surface**, verified against `api.main:app`
+(the app `entrypoint.sh` serves). It describes the current source contract, not an assertion
+that every route is already present on the deployed runtime. Deployment identity and a live
+probe are required before claiming runtime parity. The earlier revision listed legacy routes
+that were absent from this app when they were measured.
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -83,10 +84,11 @@ Interactive API reference: `GET /docs` (and `GET /openapi.json`). These are Fast
 documentation routes and are deliberately absent from the OpenAPI schema, so they are not
 listed in the table above.
 
-`GET /health` is **not** served by this app on the current revision — it returns `404`.
-The path is still referenced by `api/rate_limit.EXEMPT_PREFIXES` and by operator uptime
-monitors, and PR #154 restores it as a projection of `/api/heartbeat` rather than as a
-second liveness authority. Until that merges, probe `/api/heartbeat`.
+PR #154 has added `GET /health` to the current repository source as a projection of
+`/api/heartbeat`, rather than as a second liveness authority. The prior live measurement
+returned `404` before that change. Re-probe the deployed backend after its deployment and
+verify the deployed revision before claiming the route is live in production. Until that
+runtime check passes, `/api/heartbeat` remains the previously observed canonical probe.
 
 > The `openclaw/` gateway is a **separate** service with its own `render.yaml` and its own
 > `GET /health`; it is not this backend and is not covered by the table above.
