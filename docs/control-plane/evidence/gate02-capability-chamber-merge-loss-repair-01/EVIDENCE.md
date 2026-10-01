@@ -1,3 +1,32 @@
+> # ⚠️ PASS 04 CORRECTION — READ THIS FIRST
+>
+> This artifact was merged to `main` via PR #166 (`47e4128`). **The merge landed the
+> wrong chamber variant, and the numbers below do not describe what is on `main`.**
+>
+> What actually happened: PR #166 was squash-merged from a head that pointed at the
+> branch's **oldest** head (`0ebb9c4`, chamber blob `5c78fcbcd`), not the branch's final
+> state (`6786763`, chamber blob `20f58649`). The merged commit `47e4128` is
+> **single-parent** (`0fe6d0d` only) and touched just 4 files. Neither `8000a81` (the
+> repair) nor `d90ed58` (Pass 02 evidence) is an ancestor of `main`.
+>
+> Consequences on `main` `47e4128`:
+> - `CapabilityChamber.tsx` = `5c78fcbcd` — **no** `ActivityRuntime` import, **no** mount,
+>   **no** SG-03 boundary literal.
+> - `SpiralGrovePage.tsx` — the Nexus canonical header change from `8000a81` **did not
+>   land**.
+> - Measured full suite: **20 failed / 1121 passed / 1 error** — byte-identical failing-node
+>   set to `main` `0fe6d0d` (`comm` diff empty). PR #166 produced a **net-zero** delta.
+>
+> **The numbers in this file are Pass 02's, measured on the pre-merge branch tree. They
+> were never true of `main`, and they are not true now.** Do not cite them.
+>
+> The corrected repair is on branch `gate02/capability-chamber-union-repair-02`
+> (see `docs/control-plane/evidence/gate02-capability-chamber-union-repair-02/EVIDENCE.md`).
+> It restores the union chamber `20f58649` **and** the `SpiralGrovePage` canonical header
+> `be992d63`, measured at **1 failed / 29 passed** on the SG suite (the single remaining
+> failure is pre-existing `main` debt) and **17 failed / 1124 passed** on the full suite
+> (3 fixed, 0 new).
+
 # GATE-02 — CapabilityChamber merge-loss repair (bounded)
 
 **Pass:** gate02 / bounded repair 01
