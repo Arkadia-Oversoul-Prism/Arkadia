@@ -249,7 +249,46 @@ independently records the `CapabilityChamber` dead import at `:4` — consistent
 
 ---
 
-## 6. Boundary honesty
+## 6. The 20-PR drain set — arithmetic independently confirmed
+
+Live `gh pr list --state open` at the time of this pass:
+
+```
+23 open:  142 143 144 145 146 147 148 149 150 151 152 153 154 155 156 157 158 159 160 161
+          162 163 165
+```
+
+Removing #162 (evidence), #163 (evidence), and #165 (this pass's evidence) leaves the **20
+drain PRs** #163 enumerates — and the arithmetic reconciles exactly:
+
+| component | PRs | count |
+|---|---|---|
+| the 18-PR clean sequence | 142 144 145 146 148 149 150 151 152 153 154 155 156 157 158 159 160 161 | 18 |
+| the two conflict-carrying PRs | 143, 147 | 2 |
+| **drain total** | | **20** |
+| non-drain evidence PRs open at #163's head | 162, 163 | 2 |
+| **open at #163's head** | | **22** ✔ |
+
+**The 20-PR drain claim is arithmetically verified** against live repository state. (#165 is
+this pass's own PR and is correctly excluded from the drain.)
+
+## 7. CI state at this pass's head
+
+`gh pr checks 165` at head `fd9d04dda7b11cb45d9c2a4ffa96615470aafb3c`:
+
+| check | result |
+|---|---|
+| `Full-history secret scan` | **pass** (11s) |
+| `Vercel` | **pass** — deployment completed |
+| `Vercel Preview Comments` | **pass** |
+
+PR #165: `OPEN`, `draft=false`, `mergeable=MERGEABLE`, `mergeStateStatus=CLEAN`.
+
+Consistent with #163 Addendum 02's correction: the gate names that actually run here are
+`Full-history secret scan` and `Vercel Preview Comments` — **not** `sg-02-fe-2-v.yml`, which is
+path-filtered and correctly did not trigger on an evidence-only diff (§5).
+
+## 8. Boundary honesty
 
 - **Static determination only.** The `useEffect` / `surfaceMeta` `ReferenceError`-on-render is
   established from the deployed bundle and from a fresh build of `main`. The **rendered
@@ -261,7 +300,7 @@ independently records the `CapabilityChamber` dead import at `:4` — consistent
   re-run; the full composition replay is #163's own evidence and is not independently
   reproduced here.
 
-## 7. What this pass does not do
+## 9. What this pass does not do
 
 - It does **not** merge, push to `main`, or force-push.
 - It does **not** edit `AGENTS.md`, any test, any source file, or any governance surface.
@@ -270,7 +309,7 @@ independently records the `CapabilityChamber` dead import at `:4` — consistent
 - It does **not** reclassify any baseline failure, and it **does not** attribute any of the 20
   failures to the drain set.
 
-## 8. Classification
+## 10. Classification
 
 **`VERIFIED`** for #163's source-side defect claim, in full: the render is absent, the blob
 matches, the deployed artifact matches the claim byte-for-byte, and the free-identifier

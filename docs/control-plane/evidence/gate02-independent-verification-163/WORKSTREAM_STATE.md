@@ -69,11 +69,25 @@ assertions sharing one test file.
 **Neither correction weakens #163's conclusion.** All four are genuine pre-existing baseline
 debt, correctly excluded from drain-set attribution.
 
-## 5. Evidence
+## 5. The 20-PR drain set — arithmetic confirmed
+
+Live `gh pr list --state open` at this pass: **23 open**
+(`142 143 144 145 146 147 148 149 150 151 152 153 154 155 156 157 158 159 160 161 162 163 165`).
+Subtracting the three evidence PRs (#162, #163, #165) leaves **20 drain PRs** =
+18 clean (142 144 145 146 148 149 150 151 152 153 154 155 156 157 158 159 160 161)
++ 2 conflict-carrying (143, 147). Reconciles to 22 open at #163's head. **Confirmed.**
+
+## 6. CI at this pass's head
+
+`Full-history secret scan` **pass**, `Vercel` **pass**, `Vercel Preview Comments` **pass**.
+PR #165 `OPEN`, `draft=false`, `MERGEABLE`, `CLEAN`. Note `sg-02-fe-2-v.yml` correctly did
+**not** trigger on an evidence-only diff — it is path-filtered.
+
+## 7. Evidence
 
 - `docs/control-plane/evidence/gate02-independent-verification-163/EVIDENCE.md`
 
-## 6. Authorization required
+## 8. Authorization required
 
 Sovereign review. **Do not merge** — merge is human-only.
 
@@ -83,7 +97,7 @@ Sovereign review. **Do not merge** — merge is human-only.
    defect classes, not two. Owned by no PR in the drain queue; all 22 queue heads carry
    `main`'s blob `0cde2f782f1c`, so merging the queue will not fix it.
 
-## 7. Boundary honesty
+## 9. Boundary honesty
 
 - The `ReferenceError`-on-render is a **static** determination (artifact + fresh build). The
   **rendered symptom is not observed** — no browser runtime in this sandbox. That half stays
@@ -92,7 +106,7 @@ Sovereign review. **Do not merge** — merge is human-only.
   replayed.
 - **Production acceptance: NOT CLAIMED.**
 
-## 8. Next bounded task
+## 10. Next bounded task
 
 `CapabilityChamber.tsx` repair — a single file, three defect classes, six `tsc` errors, four
 baseline tests asserting the invariant. Requires its own authorization (product decision, not
