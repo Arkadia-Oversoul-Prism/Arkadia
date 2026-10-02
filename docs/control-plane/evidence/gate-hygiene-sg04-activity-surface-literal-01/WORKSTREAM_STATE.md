@@ -76,15 +76,37 @@ expected behaviour, not a missing check. The boundary is still exercised directl
 `security-secret-scan` has an unfiltered `pull_request` trigger and runs on every PR.
 `provider-routing` triggers on `weaver/**` only — untouched here.
 
+## Pass 2 — PR opened, main advancement reconciled
+
+- **PR:** #185 (`gate-hygiene/sg04-activity-surface-literal-01` → `main`), opened at head
+  `271cea7` against `main` `3d4df9e`.
+- **Main advanced mid-pass:** `3d4df9e` → `de38cde` (PR #184, "console: dedicated Vercel
+  project"). Touched only `web/console/README.md` + `web/console/vercel.json`; no test or
+  workflow references `web/console`, so the intervening commit is test-inert.
+- **Reconciliation without force-push** (force-push is forbidden by the contract): merged
+  `origin/main` into the branch → head `e9e6168`. The merge tree
+  (`47a9d48d9175fff0a4118ef881cf4efc8430d44a`) is **byte-identical to a clean rebase tree**,
+  and the commit patch is byte-identical (`sha256 8953e833…`), so no semantic resolution
+  occurred — this is `3d4df9e..de38cde` + the unchanged bounded change.
+- **Diff vs new `main`:** exactly the 3 intended paths (1 test file + 2 evidence files).
+- **CI on `e9e6168`:** `Full-history secret scan` success, `Vercel` success,
+  `Vercel Preview Comments` success. `mergeable: true` against `de38cde`. `SG-02-FE.2-V`
+  correctly not created (path-filtered, test file not in filter) — see CI note above.
+- **Gates re-run at the reconciled head:** `test_spiral_grove_activity_runtime.py` +
+  `tests/architecture` + `test_m02a_ci_gate_integrity.py` → **74 passed**; `py_compile`
+  `api/main.py`/`weaver/agent.py` OK; `api/main.py` 2571/2600; CP10 judge PASS (rc=0).
+
 ## Deterministic next-action block
 
-- **Current state:** repair implemented, verified, evidence committed on the branch; PR open.
-- **Evidence:** `EVIDENCE.md` (fingerprint table, negative controls, classification lineage).
+- **Current state:** repair implemented, verified, evidence committed, pushed; PR #185 open
+  and mergeable at head `e9e6168` against `main` `de38cde`; all applicable CI green.
+- **Evidence:** `EVIDENCE.md` (fingerprint table, negative controls, classification lineage);
+  this file (reconciliation record above).
 - **Blockers:** none for this bounded task. `vite build` remains environment-blocked.
-- **Authorized action:** none pending — open PR, request sovereign review.
+- **Authorized action:** none pending — PR is READY FOR SOVEREIGN MERGE; request review.
 - **Forbidden:** merge, force-push, push to `main`, scope expansion into the next-tasks list
   above, or touching the three sibling SG-04 nodes that are already green.
-- **Completion condition:** this PR merges, then the node is re-measured absent on the new
+- **Completion condition:** PR #185 merges, then the node is re-measured absent on the new
   `main`.
 
 ## Authority
