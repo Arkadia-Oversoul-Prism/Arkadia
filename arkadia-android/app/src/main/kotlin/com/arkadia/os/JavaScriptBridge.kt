@@ -17,7 +17,7 @@ class JavaScriptBridge(
     @JavascriptInterface fun isAndroid(): Boolean = true
     @JavascriptInterface fun getVersion(): String = "1.1.0"
     @JavascriptInterface fun getArkadiaUrl(): String = prefs.arkadiaUrl
-    @JavascriptInterface fun getApiBaseUrl(): String = "https://arkadia-kw64.onrender.com"
+    @JavascriptInterface fun getApiBaseUrl(): String = prefs.arkadiaUrl
     @JavascriptInterface fun getDeviceInfo(): String =
         "{\"model\":\"" + Build.MODEL + "\",\"sdk\":" + Build.VERSION.SDK_INT + ",\"brand\":\"" + Build.BRAND + "\"}"
     @JavascriptInterface fun speakText(text: String) { tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "arkadia_tts") }
