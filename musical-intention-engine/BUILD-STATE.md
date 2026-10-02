@@ -141,3 +141,53 @@ Repair: PR on branch `mie/mvp-01-android-test-dependency-01` adds `junit = "4.13
 version catalog and `testImplementation(libs.junit)` to the app module. The APK artifact for
 the current tree remains unproven until that PR is merged and a new workflow run completes —
 this document must not claim APK readiness for `886759f` on the strength of `37007483734`.
+
+## Pitch-detection defect · 2026-10-02 (measured on PR #214, run `37036927785`)
+
+Declaring the JUnit dependency let `MieMusicalInterpreterTest.kt` **compile and run** for the
+first time. It then **failed**, exposing a real product defect the compile error had masked:
+
+```
+MieMusicalInterpreterTest > sustained440HzToneProducesMelodyCandidate FAILED
+    java.lang.AssertionError at MieMusicalInterpreterTest.kt:22
+1 test completed, 1 failed
+> Task :app:testDebugUnitTest FAILED
+```
+
+Line 22 asserts `result.pitchHz in 430f..450f`. Measured behaviour of
+`MieMusicalInterpreter.estimatePitch` on synthetic tones (algorithm replicated exactly in
+Python; `lag` in samples at 16 kHz):
+
+| Input | Reported | True | Cause |
+|---|---|---|---|
+| 440 Hz | 146.8 Hz | 440 Hz | `bestLag = 109` ≈ 3 periods |
+| 220 Hz | 73.4 Hz | 220 Hz | ≈ 3 periods |
+| 880 Hz | 80.0 Hz | 880 Hz | ≈ 11 periods |
+| 110 Hz | 110.3 Hz | 110 Hz | correct (lag 145 is the only peak in range) |
+
+The search kept the **largest** lag whose correlation exceeded the running best. A periodic
+signal correlates strongly at *every* multiple of its period, so the global maximum is
+frequently a subharmonic, not the fundamental. This is the classic autocorrelation
+octave/subharmonic error, not a fixture artefact.
+
+Repair: `estimatePitch` now takes the **first local maximum within `PEAK_RATIO` (0.85) of the
+global peak** — the smallest lag that nearly matches — with parabolic sub-sample interpolation
+for resolution finer than one sample. Measured after the change (same replication):
+
+| Input | Before | After |
+|---|---|---|
+| 440 Hz | 146.8 Hz | 440.0 Hz |
+| 220 Hz | 73.4 Hz | 220.0 Hz |
+| 880 Hz | 80.0 Hz | 888.9 Hz |
+| 110 Hz | 110.3 Hz | 110.0 Hz |
+| 440 Hz + harmonics | 146.8 Hz | 440.0 Hz |
+| 440 Hz + noise | 146.8 Hz | 440.1 Hz |
+| white noise | — | no pitch (rhythm candidate) |
+| silence | — | no pitch (ambiguous) |
+
+Boundary of the design: `maxLag = SAMPLE_RATE / 55` = 290 samples caps the detectable range at
+~55 Hz; 1320 Hz sits above the `SAMPLE_RATE / 1000` ceiling for a *different* reason and was
+never in range. Both limits are pre-existing and unchanged.
+
+Two regression tests were added: `lowerTonesAreNotReportedAsSubharmonics` (110/220/440/880 Hz
+within ±3%) and `broadbandNoiseIsNotAMelodyCandidate` (negative control).

@@ -22,6 +22,7 @@ object MieMusicalInterpreter {
     private const val FRAME = 2048
     private const val MIN_LAG = 16
     private const val MAX_LAG = 800
+    private const val PEAK_RATIO = 0.85f
 
     fun interpret(file: File): MieInterpretation {
         val samples = readPcm16(file)
@@ -91,8 +92,7 @@ object MieMusicalInterpreter {
 
         val minLag = max(MIN_LAG, SAMPLE_RATE / 1000)
         val maxLag = minOf(MAX_LAG, SAMPLE_RATE / 55)
-        var bestLag = -1
-        var bestCorr = 0f
+        val correlations = FloatArray(maxLag + 2)
 
         for (lag in minLag..maxLag) {
             var dot = 0.0
@@ -107,16 +107,31 @@ object MieMusicalInterpreter {
                 b += y * y
                 i++
             }
-            if (a > 0 && b > 0) {
-                val corr = (dot / sqrt(a * b)).toFloat()
-                if (corr > bestCorr) {
-                    bestCorr = corr
-                    bestLag = lag
-                }
-            }
+            correlations[lag] = if (a > 0 && b > 0) (dot / sqrt(a * b)).toFloat() else -1f
         }
 
-        if (bestLag <= 0 || bestCorr < 0.35f) return null
-        return (SAMPLE_RATE.toFloat() / bestLag) to bestCorr
+        val peak = (minLag..maxLag).maxOf { correlations[it] }
+        if (peak < 0.35f) return null
+
+        // A periodic signal correlates strongly at every multiple of its period, so the global
+        // maximum is often a subharmonic (a 440 Hz tone peaks at lag 109 = 3 periods). Take the
+        // first local maximum within PEAK_RATIO of the peak instead: the smallest lag that nearly
+        // matches is the true fundamental.
+        val threshold = peak * PEAK_RATIO
+        for (lag in minLag..maxLag) {
+            if (correlations[lag] < threshold) continue
+            if (correlations[lag] < correlations[lag - 1]) continue
+            if (correlations[lag] < correlations[lag + 1]) continue
+            val left = correlations[lag - 1]
+            val right = correlations[lag + 1]
+            val denominator = left - 2f * correlations[lag] + right
+            val delta = if (denominator != 0f) {
+                (0.5f * (left - right) / denominator).coerceIn(-0.5f, 0.5f)
+            } else {
+                0f
+            }
+            return (SAMPLE_RATE.toFloat() / (lag + delta)) to correlations[lag]
+        }
+        return null
     }
 }

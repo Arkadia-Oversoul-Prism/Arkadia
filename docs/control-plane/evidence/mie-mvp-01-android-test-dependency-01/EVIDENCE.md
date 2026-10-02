@@ -97,3 +97,86 @@ That result is the completion condition for this pass and is reported in the PR 
 No merge, no push to `main`, no force-push. The APK/CI boundary and the real-device
 boundary (mic permission flow, capture reliability, playback, pitch accuracy, TTMI/TTCS/ITS)
 remain open and are **not** claimed here. Merge authority rests with the sovereign.
+
+---
+
+## 7. Follow-on defect: the dependency repair unmasked a pitch-detection bug
+
+**Measured on this PR's own workflow run `37036927785` (`pull_request`, 2026-10-02T16:52:52Z).**
+
+The dependency change did what it was scoped to do — the unit test compiled and executed for
+the first time — and then **failed**, exposing a real product defect:
+
+```
+MieMusicalInterpreterTest > sustained440HzToneProducesMelodyCandidate FAILED
+    java.lang.AssertionError at MieMusicalInterpreterTest.kt:22
+1 test completed, 1 failed
+> Task :app:testDebugUnitTest FAILED
+Caused by: ...MarkedVerificationException: There were failing tests.
+```
+
+`testDebugUnitTest` is red for a *product* reason now, not a build-configuration reason. The
+missing dependency had been masking a failing assertion.
+
+### 7.1 Root cause (measured, not inferred)
+
+`MieMusicalInterpreter.estimatePitch` kept the lag with the highest correlation, scanning from
+the smallest lag upward and replacing the incumbent on `corr > bestCorr`. Because a periodic
+signal correlates strongly at **every multiple of its period**, the global maximum is often a
+subharmonic. Replicating the algorithm exactly (Python, same frame/lag arithmetic, same
+int16 wrap and `/32768f` normalisation) reproduces the failure and shows it is systematic:
+
+| Synthetic input | Reported | True |
+|---|---|---|
+| 440 Hz, 1500 ms | 146.8 Hz (`lag = 109` ≈ 3 periods) | 440 Hz |
+| 220 Hz, 1500 ms | 73.4 Hz | 220 Hz |
+| 880 Hz, 1500 ms | 80.0 Hz | 880 Hz |
+| 110 Hz, 1500 ms | 110.3 Hz | 110 Hz |
+
+110 Hz passed only because its first peak (lag 145) is the sole in-range peak; above that the
+error is near-universal. This is the classic autocorrelation octave/subharmonic error.
+
+### 7.2 Repair
+
+`estimatePitch` now computes the correlation curve once, finds the global peak, and returns the
+**first local maximum within `PEAK_RATIO = 0.85` of that peak** — the smallest lag that nearly
+matches — with parabolic interpolation on the three samples around the peak for sub-sample
+resolution. `sqrt` import and the 0.35 voicing floor are unchanged.
+
+Measured before/after with the same replication:
+
+| Input | Before | After |
+|---|---|---|
+| 440 Hz | 146.8 Hz | 440.0 Hz |
+| 220 Hz | 73.4 Hz | 220.0 Hz |
+| 880 Hz | 80.0 Hz | 888.9 Hz |
+| 110 Hz | 110.3 Hz | 110.0 Hz |
+| 440 Hz + harmonics (1, .5, .33) | 146.8 Hz | 440.0 Hz |
+| 220 Hz + harmonics (1, .7, .5, .3) | 73.4 Hz | 220.0 Hz |
+| 440 Hz + uniform noise 0.1 | 146.8 Hz | 440.1 Hz |
+| white noise | (no pitch) | no pitch → `rhythm_or_percussive_candidate` |
+| silence | (no pitch) | no pitch → `ambiguous` |
+
+The 0.35 voicing floor still rejects noise: on white noise the maximum correlation is well
+below it, so no pitch is emitted and the negative control holds.
+
+### 7.3 Regression tests added
+
+| Test | Purpose |
+|---|---|
+| `lowerTonesAreNotReportedAsSubharmonics` | 110/220/440/880 Hz within ±3% — fails on the old code at all but 110 Hz |
+| `broadbandNoiseIsNotAMelodyCandidate` | negative control: noise must not classify as melody |
+
+### 7.4 Design limits, recorded rather than fixed
+
+`maxLag = SAMPLE_RATE / 55` = 290 samples caps detection at ≈55 Hz, and `minLag` bounds it at
+≈1000 Hz. Both are pre-existing constants and are unchanged by this repair; the ~890 Hz result
+for an 880 Hz input reflects one-sample lag quantisation that the parabolic interpolation only
+partly recovers. Widening either limit is a separate, evidence-driven decision.
+
+### 7.5 Status
+
+Gate 02 ("Interpretation") was marked CI VERIFIED on a revision where the interpretation test
+could not compile, so no assertion had ever run. It is corrected to **CI PENDING / DEVICE
+PENDING** in `GATES.md`. A green `testDebugUnitTest` on the post-repair tree is the completion
+condition for the CI half; the device half stays with the sovereign.

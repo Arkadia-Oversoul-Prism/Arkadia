@@ -33,3 +33,17 @@ Status while the repair PR is open:
 
 Gates 04–10 are unchanged. CI VERIFIED may be re-asserted only after a workflow run on the
 post-repair tree succeeds; the device boundary remains the binding one regardless.
+
+## Gate 02 correction · 2026-10-02 (PR #214, run `37036927785`)
+
+Gate 02's "CI VERIFIED" was never sound: at the revision it rested on, the interpretation unit
+test did not compile, so no interpretation assertion had ever executed. Once the test ran it
+failed, and measurement showed `MieMusicalInterpreter` reported a subharmonic for every tone
+above ~150 Hz (440 Hz → 146.8 Hz). Gate 02 was therefore **not** verified at any point.
+
+| Gate | Boundary | Status after repair | Note |
+|---|---|---|---|
+| 02 | Interpretation | CI PENDING / DEVICE PENDING | subharmonic defect repaired; awaiting a green run |
+
+The repair and its regression tests are on PR #214. Gate 02 may be marked CI VERIFIED only
+after that run succeeds; the device boundary remains binding regardless.
