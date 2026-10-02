@@ -8,9 +8,10 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 from .logger import get_logger
+from .routing import RoutingMetadata, select_task_provider
 
 LOGGER = get_logger()
 
@@ -21,6 +22,7 @@ class ProviderOutcome(str, Enum):
     AUTH_FAILURE = "AUTH_FAILURE"
     PROVIDER_UNAVAILABLE = "PROVIDER_UNAVAILABLE"
     INVALID_REQUEST = "INVALID_REQUEST"
+    INVALID_RESPONSE = "INVALID_RESPONSE"
     TIMEOUT = "TIMEOUT"
     CONFIGURATION_ERROR = "CONFIGURATION_ERROR"
     UNKNOWN_FAILURE = "UNKNOWN_FAILURE"
@@ -28,10 +30,16 @@ class ProviderOutcome(str, Enum):
 
 @dataclass
 class ProviderRequest:
-    provider: str
-    prompt: str
+    # "auto" activates the additive routing policy. Named providers retain
+    # explicit-provider semantics and are never silently rerouted.
+    provider: str = "auto"
+    prompt: str = ""
     model: str | None = None
     max_key_attempts: int = 4
+    task_type: str = "general"
+    required_capabilities: tuple[str, ...] = ("chat",)
+    routing_policy: str = "auto"
+    queue_load: Mapping[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -54,7 +62,6 @@ def _mask_secrets(msg: str) -> str:
 
     if not msg:
         return msg
-    # redact query keys and long hex/base64-ish secrets
     msg = re.sub(r"(key=)([A-Za-z0-9_\-]{8,})", r"\1***", msg, flags=re.I)
     msg = re.sub(r"\b(AIza[0-9A-Za-z\-_]{10,})\b", "***", msg)
     msg = re.sub(r"\b(sk-[A-Za-z0-9]{10,})\b", "***", msg)
@@ -65,41 +72,96 @@ def list_available_providers() -> list[str]:
     return ["gemini", "openai", "claude", "deepseek", "local"]
 
 
+def _route(req: ProviderRequest) -> tuple[str | None, dict[str, Any]]:
+    requested = (req.provider or "auto").strip().lower()
+    if requested != "auto":
+        return requested, {"routing": "explicit", "requested_provider": requested}
+
+    selected = select_task_provider(
+        RoutingMetadata(
+            task_type=req.task_type,
+            required_capabilities=tuple(req.required_capabilities or ("chat",)),
+            routing_policy=req.routing_policy,
+            queue_load=req.queue_load,
+        )
+    )
+    if selected is None:
+        return None, {
+            "routing": "auto",
+            "requested_provider": "auto",
+            "routing_reason": "no eligible authenticated provider",
+        }
+    return selected.name, {
+        "routing": "auto",
+        "requested_provider": "auto",
+        "routing_reason": "capability/task-affinity/queue-load policy",
+    }
+
+
 def invoke_provider(req: ProviderRequest) -> ProviderResult:
     """Dispatch a model call. Never mutates the repository."""
-    name = (req.provider or "gemini").strip().lower()
-    if name not in list_available_providers():
+    requested = (req.provider or "auto").strip().lower()
+    if requested != "auto" and requested not in list_available_providers():
         return ProviderResult(
             outcome=ProviderOutcome.CONFIGURATION_ERROR,
-            provider=name,
-            error=f"unknown provider: {name}",
+            provider=requested,
+            error=f"unknown provider: {requested}",
         )
     if not (req.prompt or "").strip():
         return ProviderResult(
             outcome=ProviderOutcome.INVALID_REQUEST,
-            provider=name,
+            provider=requested,
             error="empty prompt",
         )
 
-    if name == "gemini":
-        return _invoke_gemini(req)
-    # Other providers: reuse weaver.llm call path without key pool
-    try:
-        from . import llm as llm_mod
+    name, route_meta = _route(req)
+    if not name:
+        return ProviderResult(
+            outcome=ProviderOutcome.PROVIDER_UNAVAILABLE,
+            provider="",
+            error="no eligible authenticated provider",
+            meta=route_meta,
+        )
 
-        fn = getattr(llm_mod, name, None)
-        if not callable(fn):
+    # Gemini deliberately retains the K2 key-pool path. Routing changes which
+    # provider is selected, not how Gemini credentials are acquired/rotated.
+    if name == "gemini":
+        result = _invoke_gemini(req)
+        result.meta.update(route_meta)
+        return result
+
+    # All other providers are dispatched through the canonical provider
+    # registry, eliminating the old weaver.llm callable-name dependency.
+    try:
+        from providers.base import ProviderMessage
+        from providers.router import get_provider
+
+        adapter = get_provider(name)
+        if adapter is None or not adapter.authenticate():
             return ProviderResult(
                 outcome=ProviderOutcome.PROVIDER_UNAVAILABLE,
                 provider=name,
-                error=f"provider function missing: {name}",
+                error=f"provider unavailable: {name}",
+                meta=route_meta,
             )
-        text = fn(req.prompt)
+
+        messages = [ProviderMessage("user", req.prompt)]
+        response = adapter.send(messages, max_tokens=2048)
+        text = (response.content or "").strip()
+        if not text:
+            return ProviderResult(
+                outcome=ProviderOutcome.INVALID_RESPONSE,
+                provider=name,
+                attempts=1,
+                error="provider returned empty response",
+                meta=route_meta,
+            )
         return ProviderResult(
             outcome=ProviderOutcome.SUCCESS,
-            text=text or "",
+            text=response.content,
             provider=name,
             attempts=1,
+            meta={**route_meta, "model": response.model},
         )
     except Exception as e:
         return ProviderResult(
@@ -107,6 +169,7 @@ def invoke_provider(req: ProviderRequest) -> ProviderResult:
             provider=name,
             error=_mask_secrets(str(e)),
             attempts=1,
+            meta=route_meta,
         )
 
 
@@ -115,7 +178,7 @@ def _invoke_gemini(req: ProviderRequest) -> ProviderResult:
     import time
     import requests
 
-    MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
+    MODEL = req.model or os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
     BASE_URL = "https://generativelanguage.googleapis.com/v1"
     TIMEOUT = int(os.environ.get("WEAVER_PROVIDER_TIMEOUT", "180"))
 
@@ -192,6 +255,8 @@ def _invoke_gemini(req: ProviderRequest) -> ProviderResult:
             try:
                 data = r.json()
                 text = data["candidates"][0]["content"]["parts"][0]["text"]
+                if not str(text).strip():
+                    raise ValueError("empty response")
             except Exception:
                 last_error = "malformed response"
                 continue
@@ -202,7 +267,7 @@ def _invoke_gemini(req: ProviderRequest) -> ProviderResult:
                     pass
             return ProviderResult(
                 outcome=ProviderOutcome.SUCCESS,
-                text=text or "",
+                text=text,
                 provider="gemini",
                 attempts=attempts,
             )
@@ -237,7 +302,6 @@ def _invoke_gemini(req: ProviderRequest) -> ProviderResult:
             except Exception:
                 pass
 
-    # exhausted
     outcome = ProviderOutcome.RATE_LIMITED if "rate" in last_error else ProviderOutcome.PROVIDER_UNAVAILABLE
     return ProviderResult(
         outcome=outcome,

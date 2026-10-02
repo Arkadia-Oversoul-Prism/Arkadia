@@ -72,7 +72,7 @@ def run_authorized(
     model = provider or pass_spec.provider or "gemini"
     try:
         # Prefer structured provider result (K2); never treat failure as success
-        pres = invoke_provider(ProviderRequest(provider=model, prompt=prompt))
+        pres = invoke_provider(\n            ProviderRequest(\n                provider=model,\n                prompt=prompt,\n                task_type=pass_spec.pass_type,\n                required_capabilities=("chat",),\n            )\n        )
         if not pres.ok:
             LOGGER.warning("Provider failed for task '%s': %s %s", task, pres.outcome, pres.error)
             return SessionResult(
