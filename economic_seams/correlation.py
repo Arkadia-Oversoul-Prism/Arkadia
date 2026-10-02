@@ -2,10 +2,9 @@ from __future__ import annotations
 
 """Evidence-gated seam correlation.
 
-This module deliberately separates a source signal from a verified opportunity.
-It does not infer demand, prices, counterparties, or legal eligibility from prose.
-Promotion is deterministic and requires independently sourced evidence classes
-plus explicit, human-reviewable transaction facts.
+A lead is not a verified opportunity. Independent corroboration is counted by
+registered provider identity, not URL, snapshot, or content hash. API callers
+cannot promote their own evidence by submitting reviewer booleans.
 """
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
@@ -15,14 +14,8 @@ import json
 
 
 REQUIRED_FACTS = (
-    "demand",
-    "supply",
-    "price_basis",
-    "costs",
-    "capital_requirement",
-    "counterparty",
-    "execution_path",
-    "failure_conditions",
+    "demand", "supply", "price_basis", "costs", "capital_requirement",
+    "counterparty", "execution_path", "failure_conditions",
 )
 VERIFIED_STATUS = "VERIFIED_CANDIDATE"
 CANDIDATE_STATUS = "CANDIDATE_SEAM"
@@ -41,9 +34,8 @@ class Evidence:
     independently_verified: bool = False
 
     def identity(self) -> str:
-        """Stable identity prevents copied observations counting as independent."""
-        material = "|".join((self.source_id, self.source_url, self.content_hash))
-        return hashlib.sha256(material.encode("utf-8")).hexdigest()
+        """Provider identity, deliberately stable across URLs and snapshots."""
+        return self.source_id.strip().lower()
 
 
 @dataclass(frozen=True)
@@ -59,50 +51,46 @@ class TransactionFacts:
     legal_basis: str = ""
     why_spread_exists: str = ""
     human_eligibility_review: bool = False
+    reviewer_uid: str = ""
+    reviewed_at: str = ""
 
 
-def assess_seam(
-    *,
-    title: str,
-    seam_type: str,
-    evidence: Iterable[Evidence],
-    facts: TransactionFacts,
-) -> dict:
-    """Return an explainable assessment; never fabricate missing facts."""
+def assess_seam(*, title: str, seam_type: str, evidence: Iterable[Evidence],
+                facts: TransactionFacts) -> dict:
+    """Return a transparent assessment without fabricating missing facts."""
     items = list(evidence)
-    # Count evidence classes only where source identities differ. Reposts,
-    # duplicate URLs, and repeated snapshots cannot create independence.
-    independent_by_class: dict[str, set[str]] = {}
-    evidence_ids: list[str] = []
+    evidence_ids = list(dict.fromkeys(item.evidence_id for item in items))
+    source_classes = {item.source_class.strip().upper() for item in items if item.source_class.strip()}
+    source_ids = {item.identity() for item in items if item.identity()}
+    # Each provider can support only the source class registered for this
+    # observation. Reposts or different pages from one provider never add a
+    # second independent source.
+    class_providers: dict[str, set[str]] = {}
     for item in items:
-        evidence_ids.append(item.evidence_id)
-        independent_by_class.setdefault(item.source_class, set()).add(item.identity())
-    independent_classes = {
-        cls for cls, identities in independent_by_class.items()
-        if identities and len(identities) >= 1
-    }
-    # Two classes are necessary, and each class must be represented by a
-    # distinct source identity. Cross-class copies of the same source are not
-    # independent evidence.
-    distinct_sources = {item.identity() for item in items}
-    missing = [key for key in REQUIRED_FACTS if not getattr(facts, key).strip()]
+        if item.source_class.strip() and item.identity():
+            class_providers.setdefault(item.source_class.strip().upper(), set()).add(item.identity())
+    independent = len(source_ids) >= 2 and len(source_classes) >= 2
+    missing = [key for key in REQUIRED_FACTS if not str(getattr(facts, key)).strip()]
     if not facts.legal_basis.strip():
         missing.append("legal_basis")
     if not facts.why_spread_exists.strip():
         missing.append("why_spread_exists")
-    independent = len(independent_classes) >= 2 and len(distinct_sources) >= 2
-    legal_reviewed = bool(facts.human_eligibility_review and facts.legal_basis.strip())
-    verified = independent and not missing and legal_reviewed and all(
-        item.independently_verified for item in items
-    ) and len(items) >= 2
+    legal_reviewed = bool(
+        facts.human_eligibility_review and facts.legal_basis.strip()
+        and facts.reviewer_uid.strip() and facts.reviewed_at.strip()
+    )
+    verified = (
+        independent and not missing and legal_reviewed and len(items) >= 2
+        and all(item.independently_verified for item in items)
+    )
     status = VERIFIED_STATUS if verified else CANDIDATE_STATUS if independent else "LEAD"
     blockers = []
     if not independent:
-        blockers.append("Requires at least two independent evidence classes and distinct source identities.")
+        blockers.append("Requires at least two registered provider identities across at least two evidence classes.")
     if missing:
         blockers.append("Missing transaction facts: " + ", ".join(missing) + ".")
     if not legal_reviewed:
-        blockers.append("Legal basis and eligibility require explicit human review.")
+        blockers.append("Auditable human eligibility review is incomplete (reviewer identity and timestamp required).")
     unverified = [item.evidence_id for item in items if not item.independently_verified]
     if unverified:
         blockers.append("Evidence not independently verified: " + ", ".join(unverified) + ".")
@@ -110,9 +98,9 @@ def assess_seam(
         "title": title,
         "seam_type": seam_type,
         "status": status,
-        "evidence_ids": list(dict.fromkeys(evidence_ids)),
-        "evidence_classes": sorted(independent_classes),
-        "independent_source_count": len(distinct_sources),
+        "evidence_ids": evidence_ids,
+        "evidence_classes": sorted(source_classes),
+        "independent_source_count": len(source_ids),
         "facts": asdict(facts),
         "missing_facts": missing,
         "blockers": blockers,
@@ -132,16 +120,11 @@ def persist_assessment(connection, assessment: dict) -> str:
             evidence_level, rationale, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
-            opportunity_id,
-            assessment["title"],
-            assessment["seam_type"],
-            assessment["status"],
-            assessment["facts"].get("legal_basis", ""),
+            opportunity_id, assessment["title"], assessment["seam_type"],
+            assessment["status"], assessment["facts"].get("legal_basis", ""),
             json.dumps(assessment["evidence_ids"]),
             "INDEPENDENTLY_VERIFIED" if assessment["verified"] else "UNVERIFIED",
-            raw,
-            now,
-            now,
+            raw, now, now,
         ),
     )
     return opportunity_id
