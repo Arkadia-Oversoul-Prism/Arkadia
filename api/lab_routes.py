@@ -403,3 +403,43 @@ async def pr_state(number: int) -> dict:
         return {"state": "UNAVAILABLE", "detail": f"http {exc.code}", "pr": None}
     except Exception as exc:  # pragma: no cover - network dependent
         return {"state": "UNAVAILABLE", "detail": str(exc), "pr": None}
+
+
+# -- EL-01: native read-only model/tool loop ---------------------------------
+
+class AgentLoopBody(BaseModel):
+    objective: str
+    provider: str = "ollama"
+    model: str | None = None
+    max_turns: int = 6
+
+
+@router.post("/engineering/sessions/{session_id}/run-agent")
+async def run_agent_loop(
+    session_id: str, body: AgentLoopBody, user: dict = Depends(require_auth)
+) -> dict:
+    """Run the native agent loop inside an already human-authorized session.
+
+    The runtime intersects role capabilities, agent tool envelope, and the
+    linked human authorization. L1 terminal grammar is forced read-only. This
+    route cannot edit the repository, merge, or deploy.
+    """
+    if not body.objective.strip():
+        raise HTTPException(status_code=400, detail="objective is required")
+    if body.max_turns < 1 or body.max_turns > 8:
+        raise HTTPException(status_code=400, detail="max_turns must be between 1 and 8")
+    try:
+        return get_runtime().execute_agent_loop(
+            subject_ref=user["uid"],
+            session_id=session_id,
+            objective=body.objective.strip(),
+            provider=body.provider,
+            model=body.model,
+            max_turns=body.max_turns,
+        )
+    except KeyError:
+        raise HTTPException(status_code=404, detail="session not found")
+    except BoundaryViolation as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
