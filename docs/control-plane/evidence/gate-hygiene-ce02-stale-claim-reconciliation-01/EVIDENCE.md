@@ -356,3 +356,20 @@ sharply: the single remaining red context, `Vercel - console`, is **also red on 
 so it is pre-existing main debt and is not attributable to this docs-only PR. Recorded because
 section 11's "the same two contexts fail on both" is true of `0ff0da0` but not of `2c38647`; a
 claim left standing here would be the same class of stale assertion CE-02 exists to correct.
+
+### 11b. Head-advance caveat (why no SHA here is "the final head")
+
+Every commit on this branch is docs-only and therefore re-triggers the Vercel check suite, so
+the branch head advances each time this evidence is published. Naming a "final head" inside
+committed evidence is self-defeating: the act of recording it moves it. The stable statements
+are therefore the content-level ones, and they are what a reviewer should rely on:
+
+- The changed path set is `AGENTS.md` plus this evidence directory — **no Vercel project input**.
+- `Vercel - console` is red on `main` `0c8a9f6` **and** on this branch head -> pre-existing
+  `main` debt, not attributable.
+- `arkadia-prism` is red on `main` `0c8a9f6` but **green** on this branch head.
+- `Full-history secret scan` and `Vercel Preview Comments` are green on this branch head.
+
+Sections 11 and 11a name the head at which each reading was taken; read them as dated
+observations, not as a pointer to the branch tip. `gh pr view 206 --json headRefOid` is the
+authoritative current head.
