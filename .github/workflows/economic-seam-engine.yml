@@ -1,0 +1,29 @@
+name: economic-seam-engine
+
+on:
+  pull_request:
+    paths:
+      - 'economic_seams/**'
+      - 'api/economic_seam_routes.py'
+      - 'tests/test_economic_seam_engine.py'
+      - '.github/workflows/economic-seam-engine.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'economic_seams/**'
+      - 'api/economic_seam_routes.py'
+      - 'tests/test_economic_seam_engine.py'
+      - '.github/workflows/economic-seam-engine.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements.txt
+      - run: python -m pip install pytest
+      - run: pytest -q tests/test_economic_seam_engine.py
