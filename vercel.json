@@ -1,7 +1,7 @@
 {
-  "installCommand": "cd web/public_prism && pnpm install --frozen-lockfile",
-  "buildCommand": "cd web/public_prism && pnpm run build",
-  "outputDirectory": "web/public_prism/dist",
+  "installCommand": "cd web/console && pnpm install --frozen-lockfile",
+  "buildCommand": "cd web/console && pnpm run build",
+  "outputDirectory": "web/console/dist",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
