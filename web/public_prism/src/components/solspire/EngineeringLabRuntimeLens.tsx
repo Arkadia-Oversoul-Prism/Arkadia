@@ -55,9 +55,9 @@ export default function EngineeringLabRuntimeLens() {
     } catch (err) {
       const kind = err instanceof ApiError ? err.kind : 'UNKNOWN';
       setError(`${kind}: ${err instanceof Error ? err.message : 'unknown failure'}`);
-      if (!data || showLoading) setState('UNAVAILABLE');
+      if (showLoading) setState('UNAVAILABLE');
     }
-  }, [data]);
+  }, []);
 
   useEffect(() => { void load(); }, [load]);
   const refreshOverview = useCallback(async () => { await load(false); }, [load]);
