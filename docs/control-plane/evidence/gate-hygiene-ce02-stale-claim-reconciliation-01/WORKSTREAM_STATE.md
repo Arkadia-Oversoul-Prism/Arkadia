@@ -39,10 +39,12 @@ recorded in `AGENTS.md` so it is not re-derived next pass.
 
 ## Blockers
 
-None for this pass. CI on head `842b3e0`: both gate check-runs green (`Vercel Preview Comments`,
-`Full-history secret scan`). The red `Vercel – console` **commit status is pre-existing on
-`main` `0c8a9f6`** (where `Vercel – arkadia-prism` is red too) and is not attributable to this
-docs-only PR. See `EVIDENCE.md` §9.
+None for this pass. Final head `1415bdf` (base `main` `0c8a9f6`), 3 changed paths, docs-only.
+Live on the pushed head: `Full-history secret scan` check-run **success**; the commit status is
+**identical to `main`'s** (the same two Vercel contexts fail on both), so the red status is
+pre-existing `main` debt and not attributable to this PR — `mergeable_state: unstable` reflects
+that, not a conflict (`mergeable: true`). Fingerprint re-measured on the pushed tree:
+`a59453b8…`, 21 nodes — unchanged. See `EVIDENCE.md` §9 and §11.
 
 ## Not in scope / not re-litigated
 
