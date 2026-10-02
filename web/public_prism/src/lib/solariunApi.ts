@@ -113,6 +113,16 @@ export interface EmitSolariunWorkEventInput {
   schema_version?: string;
 }
 
+export interface SovereignFieldResponse {
+  field?: Record<string, unknown>;
+  buyer_recon?: Array<Record<string, unknown>>;
+  status_lanes?: string[];
+  truthfulness?: Record<string, string>;
+}
+
+export const getSovereignField = () =>
+  apiRequest<SovereignFieldResponse>('/solspire/enterprise/sovereign-field');
+
 export const getSolariunWorkspace = () =>
   apiRequest<SolariunWorkspaceResponse>('/solspire/workspace');
 
