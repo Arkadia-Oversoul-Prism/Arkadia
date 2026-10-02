@@ -124,6 +124,34 @@ not as a claim about #206.
 
 ---
 
+## 3.1 Cause of the stale deploy: Vercel build rate limit (new this pass)
+
+`STALE` above is not a mystery and not an unmerged-main defect. The commit
+statuses on **both** this PR's head and current `main` carry:
+
+```
+Vercel – arkadia-prism   failure   Deployment rate limited — retry in 24 hours.
+Vercel – console         failure   Deployment rate limited — retry in 24 hours.
+```
+
+Same description, same timestamp class, on `main` and on this branch. A
+Vercel-side build quota is exhausted, so no deployment has been produced since
+`57e67c534ff6` (06:06Z) while `main` advanced to `2b167e4f41ca` (13:01Z).
+
+Consequences, recorded precisely:
+
+- The stale deployment is a **provider-quota boundary**, not a repository fault.
+  The remedy is not in this repository.
+- `main -> deployment identity` is `STALE` **and** the cause is known. It should
+  not be re-derived as an unexplained drift on the next pass.
+- The `Vercel` commit status is red on `main` too, so it is not a required check
+  this PR is uniquely failing. It is reported rather than worked around.
+- Do **not** attempt a redeploy to clear it: the quota message says retry in 24
+  hours, and deployment is a consequential external action outside this pass's
+  authority regardless.
+
+---
+
 ## 4. Tests
 
 | Command | Result |

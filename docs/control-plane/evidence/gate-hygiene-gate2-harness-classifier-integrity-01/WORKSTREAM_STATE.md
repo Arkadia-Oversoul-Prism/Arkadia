@@ -15,7 +15,8 @@ PR: #211
 | changed paths | `scripts/gate2_production_observation.py`, `tests/test_gate2_production_observation.py` (new), `docs/control-plane/evidence/gate-hygiene-gate2-harness-classifier-integrity-01/` (new) |
 | product code | none |
 | `api/main.py` | untouched (budget irrelevant to this pass) |
-| CI | `Full-history secret scan` success on `dea69251ee8b`. CP10 (`sg-02-fe-2-v.yml`) is path-filtered and these paths are outside its trigger list, so it does not run here — expected, not a skip of a required check. |
+| CI | `Full-history secret scan` success on every pushed head. CP10 (`sg-02-fe-2-v.yml`) is path-filtered and these paths are outside its trigger list, so it does not run here — expected, not a skip of a required check. |
+| Vercel status | `failure` — "Deployment rate limited — retry in 24 hours" — **identical on `main`**. Provider build-quota boundary, not a PR defect; do not redeploy to clear it. |
 
 ## Boundary as re-derived this pass
 
@@ -40,9 +41,13 @@ VERIFIED forward.
 The `STALE` identity finding makes the deployment question concrete and safe to
 state: **main has moved past the newest Production deployment**, so any Gate-2
 runtime claim against `2b167e4f41ca` is unsupported until a deploy carries it.
-Establishing a fresh deployment requires Vercel access — a provider-authority
-boundary, not repository work. The next pass should record this as the Gate-2
-handoff rather than re-running observation.
+The cause is now identified — a Vercel build rate limit (status: "retry in 24
+hours") is blocking *all* deployments, on `main` as well as on PR heads — so
+establishing a fresh deployment is a **provider-quota boundary, not repository
+work**. The next pass should record this as the Gate-2 handoff and wait for the
+quota window (or a provider credential) rather than re-running observation.
+Repeating the observation cannot move `STALE` to `VERIFIED` while the quota
+blocks the deploy.
 
 ## Not done here, deliberately
 
