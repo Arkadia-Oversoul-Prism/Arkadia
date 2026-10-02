@@ -31,6 +31,14 @@ SOURCES = [
     Source("sec", "Securities and Exchange Commission Nigeria", "sec.gov.ng", "https://sec.gov.ng/", "CAPITAL_MARKETS", "Investments and Securities Act 2025 and SEC rules"),
     Source("cbn", "Central Bank of Nigeria", "cbn.gov.ng", "https://www.cbn.gov.ng/", "FINANCE", "CBN Act, banking/payment regulations and applicable circulars"),
     Source("niser", "Nigerian Institute of Social and Economic Research", "niser.gov.ng", "https://niser.gov.ng/v2/niser-economic-intelligence-report-2026/", "MACRO", "Public economic research; not itself a transaction authorization"),
+    Source("worldbank_procurement", "World Bank Procurement Notices", "worldbank.org", "https://projects.worldbank.org/en/projects-operations/procurement", "DONOR_PROCUREMENT", "World Bank procurement framework and project procurement rules"),
+    Source("afdb_procurement", "African Development Bank Current Solicitations", "afdb.org", "https://www.afdb.org/en/about-us/corporate-procurement/procurement-notices/current-solicitations", "DONOR_PROCUREMENT", "AfDB procurement framework and solicitation rules"),
+    Source("afdb_trade_finance", "African Development Bank Trade Finance Program", "afdb.org", "https://www.afdb.org/en/topics-and-sectors/initiatives-partnerships/trade-finance-program", "TRADE_FINANCE", "AfDB Trade Finance Program instruments and eligibility rules"),
+    Source("ifc_trade_finance", "IFC Global Supply Chain Finance", "ifc.org", "https://www.ifc.org/en/what-we-do/sector-expertise/trade-and-supply-chain-finance/global-supply-chain-finance", "TRADE_FINANCE", "IFC Global Supply Chain Finance program terms and partner-bank structures"),
+    Source("ngx_disclosures", "Nigerian Exchange Disclosures", "ngxgroup.com", "https://ngxgroup.com/exchange/trade/investor-protection-education/x-compliance-report/", "PUBLIC_FILINGS", "NGX Listing Rules and issuer disclosure requirements"),
+    Source("cbn_fx", "CBN Exchange Rates", "cbn.gov.ng", "https://www.cbn.gov.ng/rates/ExchRateByCurrency.html", "FX", "CBN official foreign-exchange market rate publication"),
+    Source("nepc_prices", "NEPC Indicative Market Prices", "nepc.gov.ng", "https://nepc.gov.ng/indicative-market-prices/", "COMMODITY_PRICES", "NEPC published indicative export commodity market prices"),
+    Source("carbon_registry", "Carbon Registry", "carbonregistry.com", "https://www.carbonregistry.com/project-registration", "CARBON", "Registry terms and applicable carbon-market rules; project eligibility remains to be verified"),
 ]
 
 KEYWORDS = {
