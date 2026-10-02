@@ -8,6 +8,7 @@ on:
       - 'tests/test_economic_seam_engine.py'
       - 'tests/test_economic_seam_correlation.py'
       - 'tests/test_nocopo_adapter.py'
+      - 'tests/test_market_data.py'
       - '.github/workflows/economic-seam-engine.yml'
   push:
     branches: [main]
@@ -17,6 +18,7 @@ on:
       - 'tests/test_economic_seam_engine.py'
       - 'tests/test_economic_seam_correlation.py'
       - 'tests/test_nocopo_adapter.py'
+      - 'tests/test_market_data.py'
       - '.github/workflows/economic-seam-engine.yml'
 
 jobs:
@@ -30,4 +32,4 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -r requirements.txt
       - run: python -m pip install pytest
-      - run: pytest -q tests/test_economic_seam_engine.py tests/test_economic_seam_correlation.py tests/test_nocopo_adapter.py
+      - run: pytest -q tests/test_economic_seam_engine.py tests/test_economic_seam_correlation.py tests/test_nocopo_adapter.py tests/test_market_data.py
