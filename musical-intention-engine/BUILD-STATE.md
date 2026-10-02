@@ -191,3 +191,13 @@ never in range. Both limits are pre-existing and unchanged.
 
 Two regression tests were added: `lowerTonesAreNotReportedAsSubharmonics` (110/220/440/880 Hz
 within ±3%) and `broadbandNoiseIsNotAMelodyCandidate` (negative control).
+
+### CI VERIFIED · measured at `66420ef`
+
+Run `37038160736` (`pull_request`, `2026-10-02T17:03:49Z`) on head `66420ef` is **SUCCESS**:
+`testDebugUnitTest` → `BUILD SUCCESSFUL in 1m 29s`, then `assembleDebug` →
+`BUILD SUCCESSFUL in 26s`, then debug-APK upload. All three interpretation tests pass.
+
+The CI half of the MIE Gate 01–03 boundary is therefore restored on the current tree. The
+device half is untouched by this result: no physical-device capture, playback, or pitch
+observation has been made, and CI cannot make one.

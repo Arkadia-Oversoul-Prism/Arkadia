@@ -180,3 +180,21 @@ Gate 02 ("Interpretation") was marked CI VERIFIED on a revision where the interp
 could not compile, so no assertion had ever run. It is corrected to **CI PENDING / DEVICE
 PENDING** in `GATES.md`. A green `testDebugUnitTest` on the post-repair tree is the completion
 condition for the CI half; the device half stays with the sovereign.
+
+### 7.6 Completion condition met
+
+Run `37038160736` (`pull_request`, `2026-10-02T17:03:49Z`, `success`) on head
+`66420ef0a63e595ab30a72297e489bc4611ad066`:
+
+```
+> Task :app:testDebugUnitTest
+BUILD SUCCESSFUL in 1m 29s      (assembleDebug: BUILD SUCCESSFUL in 26s)
+```
+
+Status: **VERIFIED for the CI half.** `testDebugUnitTest` and `assembleDebug` both pass and
+the debug APK uploads. All three interpretation tests execute and pass. Gate 02 is re-marked
+CI VERIFIED / DEVICE PENDING.
+
+What this does **not** prove, stated explicitly: nothing about a physical device. No mic
+capture, no playback, no real-world pitch accuracy has been observed. The device boundary is
+the binding one and rests with the sovereign.

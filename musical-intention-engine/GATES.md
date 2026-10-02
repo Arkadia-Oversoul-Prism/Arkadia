@@ -43,7 +43,23 @@ above ~150 Hz (440 Hz → 146.8 Hz). Gate 02 was therefore **not** verified at a
 
 | Gate | Boundary | Status after repair | Note |
 |---|---|---|---|
-| 02 | Interpretation | CI PENDING / DEVICE PENDING | subharmonic defect repaired; awaiting a green run |
+| 02 | Interpretation | CI VERIFIED / DEVICE PENDING | subharmonic defect repaired; 3 tests green in run `37038160736` |
 
 The repair and its regression tests are on PR #214. Gate 02 may be marked CI VERIFIED only
 after that run succeeds; the device boundary remains binding regardless.
+
+### CI VERIFIED · measured at `66420ef`
+
+Run `37038160736` (`pull_request`, `2026-10-02T17:03:49Z`, `success`) on head `66420ef`:
+
+```
+> Task :app:testDebugUnitTest
+BUILD SUCCESSFUL in 1m 29s
+```
+
+All three interpretation tests pass — `sustained440HzToneProducesMelodyCandidate`,
+`lowerTonesAreNotReportedAsSubharmonics`, `broadbandNoiseIsNotAMelodyCandidate`. This is a
+narrower claim than the superseded gate 01–03 row above: it verifies **interpretation** on a
+tree where the interpretation test actually executes. Gates 01 and 03 ride on the same run's
+APK build, which also succeeded, but neither has an independent assertion of its own; they
+remain DEVICE PENDING.
