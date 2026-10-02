@@ -157,17 +157,20 @@ def _scan_nocopo(c, source):
 
 def _scan_market_reference(c, source):
     """Persist parsed CBN FX / NEPC price rows as unclassified observations."""
-    from economic_seams.market_data import normalize_market_tables
-    response = requests.get(source.url, timeout=25, headers={"User-Agent": "Arkadia-Economic-Seam-Engine/1.0"})
-    response.raise_for_status()
-    rows = normalize_market_tables(response.text, source_id=source.id, source_url=response.url)
+    from economic_seams.market_data import fetch_nepc_price_rows, normalize_market_tables
+    if source.id == "nepc_prices":
+        rows = fetch_nepc_price_rows(requests, source.url)
+    else:
+        response = requests.get(source.url, timeout=25, headers={"User-Agent": "Arkadia-Economic-Seam-Engine/1.0"})
+        response.raise_for_status()
+        rows = normalize_market_tables(response.text, source_id=source.id, source_url=response.url)
     if not rows:
         raise ValueError("No parseable market reference rows found; source layout may have changed")
     for row in rows:
         raw = json.dumps(row, sort_keys=True, separators=(",", ":"))
         digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
         oid = hashlib.sha256(f"{source.id}:{digest}".encode("utf-8")).hexdigest()[:24]
-        labels = " / ".join(row.get("labels", []))
+        labels = " / ".join(row.get("labels", []) or [row.get("commodity_unit_heading", ""), row.get("state", "")])
         c.execute("INSERT OR REPLACE INTO observations VALUES (?,?,?,?,?,?,?,?,?,?)",
                   (oid, source.id, response.url, f"{source.name}: {labels[:160]}", None, _now(), digest, raw[:1800], source.legal_basis, "UNCLASSIFIED_REFERENCE_ROW"))
     return rows
