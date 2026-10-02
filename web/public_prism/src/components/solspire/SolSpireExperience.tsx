@@ -6,7 +6,6 @@ import ResilientProjectDashboard from './ResilientProjectDashboard';
 import type { Project, ProjTab } from '../../pages/ProjectDashboard';
 import ProjectsWorkspace from './ProjectsWorkspace';
 import { FilesWorkspace, ConversationsWorkspace, TasksWorkspace } from './WorkspaceActionSurfaces';
-import SolariunHomeCockpit from './SolariunHomeCockpit';
 import SolariunInteractionCanvas from './SolariunInteractionCanvas';
 import KnowledgeOSPage from '../../pages/knowledge/KnowledgeOSPage';
 import SettingsPage from '../../pages/SettingsPage';
