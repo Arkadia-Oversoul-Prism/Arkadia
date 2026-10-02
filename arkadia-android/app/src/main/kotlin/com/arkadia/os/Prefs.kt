@@ -9,7 +9,7 @@ class Prefs(context: Context) {
         context.applicationContext.getSharedPreferences("arkadia_prefs", Context.MODE_PRIVATE)
 
     var arkadiaUrl: String
-        get() = sp.getString(KEY_URL, "") ?: ""
+        get() = (sp.getString(KEY_URL, DEFAULT_URL) ?: DEFAULT_URL).ifBlank { DEFAULT_URL }
         set(v) = sp.edit().putString(KEY_URL, v.trimEnd('/')).apply()
 
     var apiUrl: String

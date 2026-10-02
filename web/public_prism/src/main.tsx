@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
 import "./index.css";
 import "./styles/arkana-density.css";
+import "./styles/android-mobile.css";
 
 // Single shared client. Sensible defaults for an operational dashboard:
 // don't refetch on focus (polling already handles freshness), retry once,

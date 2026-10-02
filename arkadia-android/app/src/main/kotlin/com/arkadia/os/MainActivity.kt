@@ -36,10 +36,11 @@ class MainActivity : AppCompatActivity() {
     private fun setupWebView() {
         binding.webView.settings.apply {
             javaScriptEnabled = true; domStorageEnabled = true; databaseEnabled = true
+            useWideViewPort = true; loadWithOverviewMode = false; textZoom = 100
             allowFileAccess = true; allowContentAccess = true
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             cacheMode = WebSettings.LOAD_DEFAULT
-            userAgentString = userAgentString + " ArkadiaOS/1.1"
+            userAgentString = userAgentString + " ArkadiaOS/1.2"
             setSupportZoom(false); builtInZoomControls = false
         }
         binding.webView.addJavascriptInterface(bridge, "ArkadiaAndroid")
