@@ -76,7 +76,9 @@ def test_runtime_dispatches_all_eight_kinds_to_deterministic_renderers() -> None
     for kind, renderer in zip(("research", "writing", "build", "reflection", "presentation", "field", "creative", "collaborative"), renderers):
         assert f"case '{kind}': return <{renderer}" in runtime
         assert f"function {renderer}" in runtime
-        assert f'data-testid="activity-surface-{kind}"' in runtime
+        # The shared Surface emits the testid from a template; the kind is bound by each renderer.
+        assert 'data-testid={`activity-surface-${kind}`}' in runtime
+        assert f'kind="{kind}"' in runtime
 
 
 def test_runtime_is_mounted_by_the_capability_chamber() -> None:
