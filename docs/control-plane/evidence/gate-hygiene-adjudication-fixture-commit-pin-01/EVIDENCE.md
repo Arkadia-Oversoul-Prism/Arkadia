@@ -73,12 +73,15 @@ FAILED → PASS. With both PRs applied, the file would report 21 passed / 2 skip
 
 ## 5. Relationship to the other gate-hygiene PRs
 
-- **#215** (`baseline-node-depth-stability-01`) — edits the *evidence document text* only; does
-  not touch this node. No conflict.
+- **#215** (`baseline-node-depth-stability-01`) — touches this same file
+  (`test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec`, ~line 361) with a
+  non-overlapping hunk; auto-merges clean. Does not touch this node.
 - **#216** (`superseded-fingerprint-origin-01`) — edits `tests/test_baseline_fingerprint.py`
-  and docs. No shared file, no conflict.
+  and docs. Different file; no conflict.
 - **#217** (`live-file-fixture-revision-pin-01`) — repairs the *sibling* node. Same file, but
   non-overlapping hunk and different assertion. Git-clean; semantically complementary.
+- Composed tree (#215 + #217 + this PR) merges cleanly and yields
+  `tests/test_agents_md_encoding_adjudication.py -q` → **21 passed, 2 skipped, 0 failed**.
 
 This pass deliberately does not duplicate #217's repair, edit the sibling hunk, or touch any
 fingerprint record. It completes the file's fixture pinning for the node no open PR covers.
