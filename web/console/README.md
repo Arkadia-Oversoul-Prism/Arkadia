@@ -54,3 +54,25 @@ that is not production-verified renders as **unverified**, never as settled.
 Standing non-claims (Render UNVERIFIED, Flamekeeper UNPROVISIONED,
 AUTHORITY-CLOSURE-01 PRE-PRODUCTION, NOT DEPLOYED) render persistently in the
 shell. They are not dismissible.
+
+## Deployment (separate Vercel project)
+
+This is a **nested** Vite app. The root `vercel.json` serves `web/public_prism`,
+so the console needs its **own** Vercel project rooted here. `vercel.json` in this
+directory pins the contract:
+
+| Setting | Value |
+|---|---|
+| Root Directory | `web/console` |
+| Framework Preset | Vite |
+| Install Command | `npm ci` |
+| Build Command | `npm run build` (`tsc -b && vite build`) |
+| Output Directory | `dist` |
+| Rewrite | `/(.*)` → `/index.html` (SPA routes) |
+
+The rewrite is required: `/inspector`, `/work`, `/authority`, and
+`/boundary/:id` are client-side routes and would 404 without it.
+
+`src/api/client.ts` reads `VITE_API_BASE` at build time (default `""`). Set
+`VITE_API_BASE` to the backend origin in the project's environment variables if
+the API is not same-origin.
