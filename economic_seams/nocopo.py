@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 import gzip
 import json
 import os
-from typing import Any, Iterable
+from typing import Any
 from urllib.parse import urlparse
 
 import requests
@@ -65,9 +65,7 @@ def normalize_record(record: dict[str, Any], *, now: datetime | None = None) -> 
     plausible_future_deadline = bool(
         parsed_end and now < parsed_end <= now + timedelta(days=MAX_FUTURE_DAYS)
     )
-    active = tender_status in {"active", "planned"} and (
-        not parsed_end or plausible_future_deadline
-    )
+    active = tender_status in {"active", "planned"} and plausible_future_deadline
     award_values = [_amount(a.get("value")) for a in awards if isinstance(a, dict)]
     contract_values = [_amount(c.get("value")) for c in contracts if isinstance(c, dict)]
     return {
@@ -86,6 +84,7 @@ def normalize_record(record: dict[str, Any], *, now: datetime | None = None) -> 
             flag for flag, condition in (
                 ("missing_ocid", not _text(record.get("ocid"))),
                 ("missing_tender_title", not title),
+                ("missing_tender_end_date", not bool(end_date)),
                 ("unparseable_tender_end_date", bool(end_date) and parsed_end is None),
                 ("implausible_or_out_of_window_tender_end_date", bool(parsed_end) and not plausible_future_deadline),
             ) if condition
