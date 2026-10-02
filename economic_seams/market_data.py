@@ -95,3 +95,102 @@ def normalize_market_tables(html: str, *, source_id: str, source_url: str) -> li
                 "interpretation": "UNCLASSIFIED_REFERENCE_ROW",
             })
     return observations
+
+
+class _LinkParser(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.links = []
+        self._href = None
+        self._text = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() == "a":
+            self._href = dict(attrs).get("href")
+            self._text = []
+
+    def handle_data(self, data):
+        if self._href is not None:
+            self._text.append(data)
+
+    def handle_endtag(self, tag):
+        if tag.lower() == "a" and self._href is not None:
+            self.links.append((self._href, re.sub(r"\\s+", " ", "".join(self._text)).strip()))
+            self._href = None
+            self._text = []
+
+
+_NIGERIAN_STATES = {
+    "ABIA", "ADAMAWA", "AKWA IBOM", "ANAMBRA", "BAUCHI", "BAYELSA", "BENUE",
+    "BORNO", "CROSS RIVER", "DELTA", "EBONYI", "EDO", "EKITI", "ENUGU", "FCT",
+    "GOMBE", "IMO", "JIGAWA", "KADUNA", "KANO", "KATSINA", "KEBBI", "KOGI",
+    "KWARA", "LAGOS", "NASARAWA", "NIGER", "OGUN", "ONDO", "OSUN", "OYO",
+    "PLATEAU", "RIVERS", "SOKOTO", "TARABA", "YOBE", "ZAMFARA",
+}
+
+
+def parse_nepc_pdf_text(text: str, *, source_url: str) -> list[dict[str, Any]]:
+    """Extract auditable state/commodity price lines without guessing columns."""
+    rows = []
+    commodity = ""
+    for line_number, raw_line in enumerate((text or "").splitlines(), start=1):
+        line = re.sub(r"\\s+", " ", raw_line).strip()
+        if not line:
+            continue
+        upper = line.upper()
+        if ("UNIT:" in upper or "UNIT :" in upper) and len(line) < 180:
+            commodity = line
+            continue
+        if upper in _NIGERIAN_STATES and not re.search(r"₦|\\d", line):
+            continue
+        state_match = re.match(r"^([A-Z][A-Z ]{1,24})\\s+(?=₦|N/A)", upper)
+        values = re.findall(r"₦\\s*[\\d,]+(?:\\.\\d{1,2})?|\\bN/A\\b", line, flags=re.I)
+        if state_match and values:
+            state = state_match.group(1).strip()
+            if state in _NIGERIAN_STATES and not state.startswith("%"):
+                rows.append({
+                    "source_id": "nepc_prices",
+                    "source_url": source_url,
+                    "line_number": line_number,
+                    "commodity_unit_heading": commodity,
+                    "state": state,
+                    "reported_values": [re.sub(r"\\s+", " ", value).strip() for value in values],
+                    "raw_line": line[:1200],
+                    "interpretation": "INDICATIVE_LOCAL_PRICE_ROW",
+                })
+    return rows
+
+
+def fetch_nepc_price_rows(session, page_url: str, timeout: int = 25) -> list[dict[str, Any]]:
+    """Resolve the latest official NEPC local-price PDF and extract its text."""
+    from io import BytesIO
+    from urllib.parse import urljoin, urlparse
+    from pdfminer.high_level import extract_text
+
+    page = session.get(page_url, timeout=timeout, headers={"User-Agent": "Arkadia-Economic-Seam-Engine/1.0"})
+    page.raise_for_status()
+    parser = _LinkParser()
+    parser.feed(page.text)
+    parser.close()
+    candidates = []
+    for href, label in parser.links:
+        target = urljoin(page.url, href or "")
+        parsed = urlparse(target)
+        if (parsed.scheme == "https" and parsed.hostname == "nepc.gov.ng"
+                and parsed.path.lower().endswith(".pdf")
+                and "local commodity price" in label.lower()):
+            candidates.append(target)
+    if not candidates:
+        raise ValueError("No official NEPC local commodity price PDF link found")
+    # Page order is newest first. Do not invent a date from the URL.
+    pdf_url = candidates[0]
+    response = session.get(pdf_url, timeout=timeout, headers={"User-Agent": "Arkadia-Economic-Seam-Engine/1.0"})
+    response.raise_for_status()
+    payload = response.content
+    if not payload.startswith(b"%PDF-") or len(payload) > 20 * 1024 * 1024:
+        raise ValueError("NEPC price document is not a valid bounded PDF")
+    extracted = extract_text(BytesIO(payload))
+    rows = parse_nepc_pdf_text(extracted, source_url=response.url)
+    if not rows:
+        raise ValueError("NEPC PDF yielded no recognizable state price rows")
+    return rows
