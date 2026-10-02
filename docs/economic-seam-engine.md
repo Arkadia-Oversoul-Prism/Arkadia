@@ -14,7 +14,7 @@ Evidence-first economic reconnaissance for procurement, incentives, energy, petr
 The engine runs inside the existing long-lived FastAPI process. Default cadence is 30 minutes via ECONOMIC_SEAM_INTERVAL_SECONDS. POST /api/economic-seams/scan forces a sovereign scan. Authenticated users can read status and opportunities.
 
 ## Source boundary
-NOCOPO/BPP, NIPC, NERC, NCC, NUPRC, NMDPRA, SEC, CBN and NISER are wired to official/public endpoints. Carbon registries, donor procurement, exchange feeds, public-company filings, commodity prices and cross-border FX/settlement feeds remain configuration-gated until an authoritative endpoint is validated. The engine never invents a feed URL.
+The engine currently scans official/public endpoints for NOCOPO/BPP, NIPC, NERC, NCC, NUPRC, NMDPRA, SEC, CBN, NISER, World Bank procurement, AfDB procurement and trade finance, IFC trade finance, NGX disclosures, CBN FX rates, NEPC indicative commodity prices and a public carbon-registry feed. The engine never invents a feed URL. Cross-border settlement feeds and any registry requiring authentication remain gated until an authoritative endpoint is validated.
 
 ## Promotion path
 Future promotion from LEAD to VERIFIED_CANDIDATE must require at least two independent evidence classes plus explicit eligibility, transaction economics and counterparty verification.
