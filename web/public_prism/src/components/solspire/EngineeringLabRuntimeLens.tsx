@@ -87,6 +87,18 @@ export default function EngineeringLabRuntimeLens() {
 
   useEffect(() => { void load(); }, [load]);
 
+  const refreshOverview = useCallback(async () => {
+    try {
+      const overview = await apiRequest<EngineOverview>('/api/lab/engineering/overview');
+      setData(overview);
+      setError('');
+      setState('LIVE');
+    } catch (err) {
+      const kind = err instanceof ApiError ? err.kind : 'UNKNOWN';
+      setError(`${kind}: ${err instanceof Error ? err.message : 'unknown failure'}`);
+    }
+  }, []);
+
   if (state === 'LOADING') {
     return <div data-testid="engineering-lab-runtime-lens">The Engineering Lab is reconstructing runtime state…</div>;
   }
@@ -105,7 +117,7 @@ export default function EngineeringLabRuntimeLens() {
 
   return (
     <div data-testid="engineering-lab-runtime-lens" data-solariun-grammar="operational-surface">
-      <EngineeringLabWorkspace onChanged={() => { void load(); }} />
+      <EngineeringLabWorkspace onChanged={() => { void refreshOverview(); }} />
       <Card title="C09 Canonical Loop">
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {data.loop.map((stage) => (
