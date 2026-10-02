@@ -106,19 +106,76 @@ def _detect(c, source, oid, excerpt):
         created.append(raw_id)
     return created
 
+def _scan_nocopo(c, source):
+    """Persist structured OCDS records and create leads only for plausible active tenders."""
+    from economic_seams.nocopo import fetch_records
+    records = fetch_records()
+    created = []
+    for record in records:
+        serialized = json.dumps(record, sort_keys=True, separators=(",", ":"))
+        content_hash = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+        ocid = record.get("ocid") or content_hash[:20]
+        oid = hashlib.sha256(f"{source.id}:{ocid}:{content_hash}".encode()).hexdigest()[:24]
+        excerpt = serialized[:1800]
+        c.execute(
+            "INSERT OR REPLACE INTO observations VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (oid, source.id, record.get("source_url") or source.url,
+             record.get("title") or f"NOCOPO contracting process {ocid}",
+             record.get("tender_end_date") or None, _now(), content_hash, excerpt,
+             source.legal_basis, "STRUCTURED_SOURCE"),
+        )
+        if not record.get("active_tender_lead"):
+            continue
+        raw_id = hashlib.sha256(f"{source.id}:{ocid}:active-tender".encode()).hexdigest()[:20]
+        rationale = (
+            "Structured NOCOPO/OCDS snapshot contains a tender marked active/planned "
+            "with a plausible deadline window. This is a lead, not proof that the tender "
+            "remains open or that the operator is eligible. Recheck the primary notice, "
+            "documents, deadline, qualification criteria and legal basis before action. "
+            f"Snapshot: {record.get('source_snapshot')}. Quality flags: "
+            f"{', '.join(record.get('quality_flags') or []) or 'none'}."
+        )
+        existing = c.execute("SELECT id FROM opportunities WHERE id=?", (raw_id,)).fetchone()
+        if existing:
+            c.execute(
+                """UPDATE opportunities SET title=?, status='LEAD', legal_basis=?,
+                   evidence_ids=?, evidence_level='STRUCTURED_SOURCE', rationale=?, updated_at=?
+                   WHERE id=?""",
+                (record.get("title") or f"NOCOPO tender {ocid}", source.legal_basis,
+                 json.dumps([oid]), rationale, _now(), raw_id),
+            )
+        else:
+            c.execute(
+                "INSERT INTO opportunities VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (raw_id, record.get("title") or f"NOCOPO tender {ocid}", "procurement",
+                 "LEAD", source.legal_basis, json.dumps([oid]), "STRUCTURED_SOURCE",
+                 rationale, _now(), _now()),
+            )
+            created.append(raw_id)
+    return records, created
+
+
 def scan_once():
     c = _db(); counts = {}; created = []
     for source in SOURCES:
         if not source.enabled: continue
         try:
-            url, text = _fetch(source)
-            oid = _upsert_observation(c, source, url, text)
-            created += _detect(c, source, oid, _excerpt(text))
-            c.execute("INSERT OR REPLACE INTO source_runs VALUES (?,?,?,?,?)", (source.id, _now(), "ok", 1, None))
+            if source.id == "nocopo":
+                records, source_created = _scan_nocopo(c, source)
+                created.extend(source_created)
+                c.execute("INSERT OR REPLACE INTO source_runs VALUES (?,?,?,?,?)",
+                          (source.id, _now(), "ok", len(records), None))
+            else:
+                url, text = _fetch(source)
+                oid = _upsert_observation(c, source, url, text)
+                created += _detect(c, source, oid, _excerpt(text))
+                c.execute("INSERT OR REPLACE INTO source_runs VALUES (?,?,?,?,?)",
+                          (source.id, _now(), "ok", 1, None))
             counts[source.id] = "ok"
         except Exception as exc:
             logger.warning("[SEAM] %s failed: %s", source.id, exc)
-            c.execute("INSERT OR REPLACE INTO source_runs VALUES (?,?,?,?,?)", (source.id, _now(), "error", 0, str(exc)[:500]))
+            c.execute("INSERT OR REPLACE INTO source_runs VALUES (?,?,?,?,?)",
+                      (source.id, _now(), "error", 0, str(exc)[:500]))
             counts[source.id] = "error"
     c.commit(); c.close()
     return {"scanned_at": _now(), "sources": counts, "new_opportunities": created, "count": len(created)}
