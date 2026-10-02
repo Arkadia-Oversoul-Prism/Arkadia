@@ -19,6 +19,19 @@ does not initiate execution. Submitted evidence verification flags are forcibly 
 to false by the API. A review action is stamped with the authenticated subject and
 server time, but that stamp does not itself verify the underlying evidence.
 
+## Structured NOCOPO adapter
+The NOCOPO source now reads the Open Contracting Partnership's published 2026 OCDS
+JSONL gzip snapshot by default. Override only with `NOCOPO_OCDS_URL` pointing to an
+approved HTTPS data host. The adapter bounds compressed/decompressed size and record
+count, parses each JSONL record, normalizes OCID/buyer/tender/deadline/value fields,
+and persists records as structured observations. It creates a `LEAD` only when the
+record marks the tender active/planned and its date is not implausibly far in the
+future. Each lead instructs the operator to recheck the primary notice and documents.
+This is a periodically refreshed snapshot, not a real-time tender API. Missing,
+invalid, historical, or implausible dates are not promoted to active tender leads.
+OCDS publisher data quality is imperfect, so the adapter retains quality flags and
+does not infer eligibility, supplier fit, contract profitability, or current status.
+
 ## Promotion gates
 - `LEAD`: fewer than two registered provider identities across at least two evidence classes.
 - `CANDIDATE_SEAM`: at least two provider identities and two evidence classes, but one or more verification gates remain open.
@@ -39,16 +52,16 @@ support, not source quality. The scanner's keyword layer never marks evidence as
 independently verified.
 
 ## Source boundary and current limitations
-The scanner currently visits public endpoints for NOCOPO/BPP, NIPC, NERC, NCC, NUPRC,
-NMDPRA, SEC, CBN, NISER, World Bank procurement, AfDB procurement and trade finance,
-IFC trade finance, NGX disclosures, CBN FX rates, NEPC indicative commodity prices and
-a public carbon-registry feed. The carbon feed is not a verified Nigerian statutory
-registry and must not be treated as proof of Nigerian project eligibility.
+The registry includes NOCOPO/BPP structured procurement records plus public landing-page
+snapshots for NIPC, NERC, NCC, NUPRC, NMDPRA, SEC, CBN, NISER, World Bank procurement,
+AfDB procurement and trade finance, IFC trade finance, NGX disclosures, CBN FX rates,
+NEPC indicative commodity prices and a public carbon-registry feed. Those non-NOCOPO
+sources are not yet all parsed as structured datasets. The carbon feed is not a verified
+Nigerian statutory registry and must not be treated as proof of Nigerian eligibility.
 
-The current scanner still snapshots landing pages rather than parsing individual
-NOCOPO tender records, FX time series, commodity prices or company filing events.
-Consequently it must not claim that it produces ten verified opportunities per day.
-Source-specific adapters and a reviewer workflow are still required.
+The NOCOPO adapter currently uses a yearly bulk snapshot; other sources still require
+source-specific structured adapters and a reviewer workflow. Consequently the engine
+must not claim that it produces ten verified opportunities per day.
 
 This deterministic gate is decision support, not legal advice, a credit decision,
 investment advice, or a guarantee of execution. Human reviewers must verify current law,
