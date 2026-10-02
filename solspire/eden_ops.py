@@ -308,6 +308,7 @@ class EdenOps:
         proposal_id: str,
         action: str,
         actor: str,
+        actor_identity: dict[str, Any] | None = None,
         authentication_context: str = "authenticated_subject",
     ) -> dict[str, Any]:
         """DECISIONS zone: approve / reject. Creates HAE + Authorization on approve."""
@@ -328,6 +329,22 @@ class EdenOps:
             raise ValueError("proposal not found")
         if row["subject"] != subject:
             raise ValueError("subject mismatch")
+
+        if action == "APPROVE":
+            # Enterprise authorization must be backed by the authenticated
+            # identity's actual governance authority. An actor string alone
+            # is provenance text, not proof of legitimate authority.
+            if not isinstance(actor_identity, dict):
+                raise ValueError("authenticated authority identity is required")
+            if actor_identity.get("uid") != actor:
+                raise ValueError("authority identity does not match actor")
+            role = str(actor_identity.get("role") or "").strip().lower()
+            try:
+                access_level = int(actor_identity.get("access_level", 0))
+            except (TypeError, ValueError):
+                access_level = 0
+            if role != "flamekeeper" and access_level < 3:
+                raise ValueError("actor lacks Govern authority")
 
         if action == "REJECT":
             hae = self.store.authority_event(
@@ -429,6 +446,7 @@ class EdenOps:
             proposal_id=ingest["proposal"].id,
             action="APPROVE",
             actor=subject,
+            actor_identity={"uid": subject, "role": "Flamekeeper", "access_level": 0},
         )
         assert decision["authorization"] is not None
         exec_result = self.execute_and_evidence(
