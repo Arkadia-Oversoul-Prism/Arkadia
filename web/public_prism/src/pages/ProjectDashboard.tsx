@@ -97,8 +97,7 @@ function WeaverPanel({ project }: { project: Project }) {
         headers: authHeaders(),
         body: JSON.stringify({
           objective,
-          affected_paths: paths.split(/[
-,]/).map((s: string) => s.trim()).filter(Boolean),
+          affected_paths: paths.split(/[,\n]/).map((s: string) => s.trim()).filter(Boolean),
         }),
       });
       const data = await r.json();
