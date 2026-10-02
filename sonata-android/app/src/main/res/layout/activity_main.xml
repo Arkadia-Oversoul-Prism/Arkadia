@@ -213,7 +213,7 @@
             android:textColor="@color/bg_dark"
             android:layout_marginBottom="24dp" />
 
-        <!-- Settings -->
+        <!-- Musical Intention Engine -->\n        <Button\n            android:id="@+id/btnMakeSomething"\n            style="@style/Widget.MaterialComponents.Button"\n            android:layout_width="match_parent"\n            android:layout_height="64dp"\n            android:text="MAKE SOMETHING"\n            android:textSize="15sp"\n            android:letterSpacing="0.12"\n            android:backgroundTint="@color/accent_teal"\n            android:textColor="@color/bg_dark"\n            android:layout_marginBottom="12dp" />\n\n        <!-- Settings -->
         <Button
             android:id="@+id/btnSettings"
             style="@style/Widget.MaterialComponents.Button.TextButton"

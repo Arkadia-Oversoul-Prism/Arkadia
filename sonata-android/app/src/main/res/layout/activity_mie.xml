@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_dark"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="MUSICAL INTENTION ENGINE · GATE 02"
+            android:textColor="@color/text_dim"
+            android:textSize="10sp"
+            android:letterSpacing="0.18"
+            android:fontFamily="monospace"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="10dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Make&#10;something."
+            android:textColor="@color/text_primary"
+            android:textSize="46sp"
+            android:textStyle="bold"
+            android:lineSpacingExtra="-4dp"
+            android:layout_marginBottom="10dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Capture a musical thought before it evaporates."
+            android:textColor="@color/text_dim"
+            android:textSize="18sp"
+            android:lineSpacingExtra="4dp"
+            android:layout_marginBottom="26dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/captureButton"
+            android:layout_width="match_parent"
+            android:layout_height="260dp"
+            android:text="Hold to capture"
+            android:textColor="@color/bg_dark"
+            android:textSize="25sp"
+            android:textStyle="bold"
+            android:backgroundTint="@color/text_primary"
+            app:cornerRadius="40dp"
+            android:layout_marginBottom="18dp" />
+
+        <TextView
+            android:id="@+id/status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_input"
+            android:padding="16dp"
+            android:text="Ready. Hold the button and make something."
+            android:textColor="@color/text_dim"
+            android:textSize="13sp"
+            android:layout_marginBottom="14dp" />
+
+        <LinearLayout
+            android:id="@+id/objectCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_input"
+            android:padding="18dp"
+            android:visibility="gone"
+            android:layout_marginBottom="14dp">
+
+            <TextView
+                android:id="@+id/objectType"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="MUSICAL OBJECT"
+                android:textColor="@color/accent_teal"
+                android:textSize="11sp"
+                android:letterSpacing="0.15"
+                android:fontFamily="monospace"
+                android:layout_marginBottom="6dp" />
+
+            <TextView
+                android:id="@+id/objectDetail"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                android:layout_marginBottom="10dp" />
+
+            <TextView
+                android:id="@+id/objectJson"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_dim"
+                android:textSize="10sp"
+                android:fontFamily="monospace"
+                android:textIsSelectable="true" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/playButton"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:text="PLAY ORIGINAL"
+            android:enabled="false"
+            android:textColor="@color/text_primary"
+            android:layout_marginBottom="10dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/keepButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="54dp"
+                android:layout_weight="1"
+                android:text="KEEP"
+                android:enabled="false"
+                android:textColor="@color/text_primary"
+                android:layout_marginEnd="6dp" />
+
+            <Button
+                android:id="@+id/changeButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="54dp"
+                android:layout_weight="1"
+                android:text="CHANGE"
+                android:enabled="false"
+                android:textColor="@color/text_primary"
+                android:layout_marginStart="6dp" />
+        </LinearLayout>
+
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

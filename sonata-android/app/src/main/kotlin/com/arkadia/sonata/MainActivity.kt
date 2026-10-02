@@ -166,7 +166,7 @@ class MainActivity : AppCompatActivity() {
             updateUi()
         }
 
-        binding.btnSettings.setOnClickListener {
+        binding.btnMakeSomething.setOnClickListener {\n            startActivity(Intent(this, MieActivity::class.java))\n        }\n\n        binding.btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
 
