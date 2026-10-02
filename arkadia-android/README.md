@@ -122,3 +122,7 @@ Main branch also builds a release APK (signed if secrets are configured).
 | `INTERNET` | Load the Arkadia frontend + API calls |
 | `POST_NOTIFICATIONS` | Future: Oracle push notifications |
 | `VIBRATE` | Haptic feedback via JS bridge |
+
+
+## Bundled Prism runtime
+The APK packages the exact Prism production build and serves it through AndroidX WebViewAssetLoader. The shell does not require a live frontend deployment to render the UI; backend access remains explicitly configured by the user.
