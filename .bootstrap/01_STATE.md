@@ -13,7 +13,13 @@ Phase 1 — Runtime Stabilization
 K — Knowledge OS Integration (active)
 
 ## Checkpoint
-**K4 — Response Provenance** (READY TO BEGIN)
+**Workstream K — COMPLETE.** No K6 exists in the design doc.
+
+> Reconciled 2026-10-02 (Weaver pass `gate-k/k4-status-reconciliation`). K4 was recorded
+> here as "READY TO BEGIN" while it had in fact already shipped on `main` via PR #153
+> (`4a9281b`) — implementation, spine seam, frontend render, and 6 passing tests all
+> present. Record backfilled at `docs/checkpoints/K4_response_provenance.md`. This is the
+> same staleness class K5 carried; both are now closed, and every K checkpoint has a record.
 
 > Reconciled 2026-09-30 (Weaver pass `gate-k/k5-status-reconciliation`). K5 was recorded
 > here as "READY TO BEGIN" while it had in fact already shipped on `main` across
@@ -38,6 +44,9 @@ K — Knowledge OS Integration (active)
 - ✅ K1 — Corpus Document Ingestion: all three corpus entry points wired to _ingest_to_knowledge_os()
 - ✅ K5 — Static Ingestion: `knowledge/static_ingestion.py` + lifespan wiring (`api/main.py` 206-207)
   + 12 tests; idempotent (run 2 ingests 0). Record: `docs/checkpoints/K5_static_ingestion.md`
+- ✅ K4 — Response Provenance: `build_sources()` in `api/oracle_spine.py`, `sources` on the
+  Oracle response, `SourceRef[]` render in `ArkanaCommune.tsx`; 6 tests. Record:
+  `docs/checkpoints/K4_response_provenance.md`
 - ✅ K3-A/B/C — Canonical Ontology / Operational Graph / Semantic Enrichment: implemented and
   checkpointed; `assemble_context` is consumed by `api/oracle_spine.py` and `api/knowledge_routes.py`
   (K3-C "Context Engine Wiring" is satisfied at the spine)
@@ -46,46 +55,58 @@ K — Knowledge OS Integration (active)
 - 🟡 `web/public_prism/.env.production` — `VITE_API_URL` must be updated to `https://arkadia-kw64.onrender.com` in Vercel dashboard before next frontend deploy
 
 ### Next Checkpoint
-**K4 — Response Provenance**
+**None — Workstream K is COMPLETE.** K1, K2, K3, K4 and K5 are all shipped and all now
+carry a checkpoint record (`docs/checkpoints/`). The design doc
+`docs/recon/KNOWLEDGE_OS_EVOLUTION.md` names no K6.
 
-Make Oracle responses citable. `knowledge/context_engine.assemble_context()` already
-returns note UUIDs alongside text chunks; surface them as a `sources` array on the Oracle
-response and render "Based on: ..." in the UI.
+### Recommended next bounded task (NOT started)
+**CS2 — Reusable conversational UI.** Extract the proven Oracle Chat capabilities into a
+reusable conversational component boundary so every surface inherits one canonical chat
+shell over the shared spine. Deferred (not discarded) in `NEXT_AGENT.md`.
 
-Verified absent on `main`: no Oracle response path returns a `sources` array. The spine
-(`api/oracle_spine.py`) builds a context block and a diagnostics dict (`notes_retrieved`,
-`source`) but does not propagate note identities to the client.
+This is a **product scope expansion** relative to Workstream K. Naming it here is a
+recommendation, not an authorization; beginning it requires a sovereign decision.
 
-Files touched: `api/main.py` (response shape) · `web/public_prism/src/components/ArkanaCommune.tsx` (render sources)
-Exit: Oracle response includes a `sources` list; frontend shows citations
-Risk: Low — additive to response shape; frontend renders conditionally
-
-See `docs/recon/KNOWLEDGE_OS_EVOLUTION.md` → section "K4" for the full sketch.
+Standing non-K candidates awaiting a sovereign ruling or a separate bounded workstream
+(see `PARKING_LOT.md`): `weaver.autonomy` module/package shadowing (authority model);
+Spiral Grove registry declaration-order vs topological-order contract; baseline test debt.
 
 ## Repository Health
 - Architecture fitness tests: **11/11**
 - Full suite (`PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q
-  --continue-on-collection-errors`): **20 failed / 1039 passed / 13 skipped / 2 collection
-  errors** (22 failing/error nodes). Classified baseline debt — see
+  --continue-on-collection-errors`): **20 failed / 1240 passed / 17 skipped / 1 error**
+  (21 failing/error nodes) — re-measured 2026-10-02 on `main` @ `64cbe74`.
+  Classified baseline debt — see
   `docs/control-plane/evidence/gate-hygiene-baseline-test-debt-classification-01/`.
   The 49 → 20 failure reduction since `a26af408` is fully explained by the merged SH-02
   stale-assertion repair PRs (#124–#137).
 - Baseline fingerprint (derivation published so it is reproducible):
   `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `a7687fadaa25ad5f8aa283747bbffa85d304d516ae2b6c53b3849dc54479434c`
-  > An earlier revision of this file carried `d7ff35b2…687036` with no documented
-  > derivation; that value could not be reproduced from the node list. The node *set* and
-  > counts were consistent, so only the hash was unverifiable. Corrected 2026-09-30.
+  `a59453b8a1e5a02899f469cf6ea7db9b5eaae658050261e1405c394cb0f3cf6f`
+  > Supersedes `a7687fad…` (recorded 2026-09-30 at an earlier `main`). The node set moved
+  > from 22 to 21 nodes between the two measurements; the delta is not attributable to this
+  > docs-only pass. An even earlier revision carried `d7ff35b2…687036` with no documented
+  > derivation; that value could not be reproduced from the node list.
+  > The **passed** count also moved (1039 → 1240) and the error count (2 → 1) versus that
+  > same earlier measurement. Both are explained by the 42 commits between `002b189` and
+  > `64cbe74`: 20 new test files were added (+4049 test lines), and `00271b2` repaired the
+  > `test_render_codex` collection error. Neither is drift in the *failing* node set, which
+  > is the only thing a regression is attributed from.
 - Registered layer violations: 10 (LAYER_MAP.py — do not touch)
 - Registered circular imports: 3 (LAYER_MAP.py — do not touch)
 - Workflows (local Replit): failing (pre-existing — missing secrets)
 - Production: LIVE at https://arkadia-kw64.onrender.com
 
 ## Blocked By
-Nothing. (The Vercel env var is cosmetic — does not block K4.)
+Nothing blocking repository work. (The Vercel env var is cosmetic.)
 
-## Next Checkpoints After K4
+Gate-2 production parity remains **BLOCKED on provider auth** — the deployment-specific URL
+is behind Vercel Deployment Protection. That is an external boundary, not a repository task;
+see `docs/control-plane/evidence/gate-hygiene-gate2-production-parity-02/`.
+
+## Workstream K Final State
 - ~~K1 — Corpus Document Ingestion~~ (complete)
+- ~~K2 — Oracle Conversation Archival~~ (complete)
+- ~~K3 — Canonical Ontology / Operational Graph / Semantic Enrichment~~ (complete)
+- ~~K4 — Response Provenance~~ (complete — record backfilled 2026-10-02)
 - ~~K5 — Static Ingestion~~ (complete)
-- ~~K3 — Context Engine Wiring~~ (complete)
-- K4 — Response Provenance (next)

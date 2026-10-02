@@ -15,7 +15,8 @@
 | K1 — Corpus Document Ingestion | **COMPLETE** |
 | K5 — Static Ingestion | **COMPLETE** — `knowledge/static_ingestion.py`, lifespan-wired, 12 tests |
 | K3 — Context Engine Wiring | **COMPLETE** — K3-A/B/C checkpointed; `assemble_context` consumed by `api/oracle_spine.py` |
-| K4 — Response Provenance | **NEXT** |
+| K4 — Response Provenance | **COMPLETE** — PR #153 (`4a9281b`); 6 tests; record backfilled |
+| Workstream K | **COMPLETE** — no K6 exists in the design doc |
 | Deployment | STABLE — do not revisit unless a checkpoint requires it |
 
 ---
@@ -34,17 +35,25 @@ Either in the Vercel dashboard under Environment Variables, or by updating `.env
 
 ## Mission
 
-**Workstream K — Checkpoint K4: Response Provenance**
+**Workstream K is COMPLETE. Select the next workstream — that is a sovereign decision.**
 
-K2, K1, K5 and K3 are complete. The Knowledge OS now receives:
+K2, K1, K5, K3 and K4 are all shipped. The Knowledge OS now receives:
 - Every Oracle conversation (K2)
 - Every corpus document on upload, creation, and refresh (K1)
 - Static repository knowledge — vault notes, ADRs, open loops, structured docs (K5)
 - Context assembly over the populated graph, via the shared spine (K3)
+- The retrieved note identities, surfaced as citable `sources` on the Oracle response (K4)
 
-K4 makes what the Oracle already retrieves *visible*. `knowledge/context_engine.assemble_context()` returns note UUIDs alongside the text chunks it selects, but the Oracle response discards them — the user sees a confident answer with no way to tell which archived knowledge produced it. K4 surfaces those identities as a `sources` array so answers become citable.
+Every K checkpoint now carries a record under `docs/checkpoints/`.
 
-> **Status reconciliation (2026-09-30):** this file previously instructed the next agent to implement K5. K5 had already shipped on `main` across `606510f`, `4ca0442`, `0852068`, `31818e3`. The record is backfilled at `docs/checkpoints/K5_static_ingestion.md` and the status table above now reflects verified state.
+> **Status reconciliation (2026-10-02, pass `gate-k/k4-status-reconciliation`):** this file
+> previously reported **K4 as NEXT** while K4 had already shipped on `main` via PR #153
+> (`4a9281b`). The record is backfilled at `docs/checkpoints/K4_response_provenance.md` and
+> the status table above now reflects verified state. This is the same staleness class that
+> K5 carried until 2026-09-30; both are now closed.
+>
+> **Superseded note (2026-09-30):** this file previously instructed the next agent to
+> implement K5. K5 had already shipped across `606510f`, `4ca0442`, `0852068`, `31818e3`.
 
 ---
 
@@ -54,7 +63,7 @@ Read only:
 
 1. `MISSION.md` (this file)
 2. `.bootstrap/01_STATE.md`
-3. `docs/recon/KNOWLEDGE_OS_EVOLUTION.md` → section "K5" only
+3. `docs/recon/KNOWLEDGE_OS_EVOLUTION.md` → section "K4" only
 
 Then run:
 
@@ -77,6 +86,7 @@ Assume these are facts. Do not re-verify them.
 - Architecture governance is frozen.
 - K2 complete: Oracle turns archived to `knowledge/arkadia.db` via `_archive_oracle_turn()` in `api/main.py`.
 - K1 complete: All three corpus ingestion entry points (`/api/scrolls`, `/api/codex/upload`, `/api/corpus/refresh`) now fire `_ingest_to_knowledge_os()` in background threads after saving.
+- K4 complete: `build_sources()` in `api/oracle_spine.py` derives citations from the context package that was actually injected; `sources` is on the Oracle response; `ArkanaCommune.tsx` renders them conditionally. Provenance is a view of the retrieval that already happened — never a second query.
 - `knowledge/pipeline.py` — `ingest()` is the entry point; duplicate-detection makes it idempotent.
 - `knowledge/context_engine.py` — `assemble_context()` is the retrieval entry point.
 - Semantic search, knowledge graph, timeline, and embeddings all exist.
@@ -86,40 +96,36 @@ Do not rebuild any of these.
 
 ---
 
-## Objective: K4 — Response Provenance
+## Recommended Next Workstream — CS2: Reusable conversational UI
 
-**The gap:** The Oracle answers from retrieved knowledge but never says which knowledge.
-`assemble_context()` already returns the note identities it used; the Oracle response
-shape drops them, so every answer is uncitable and unverifiable by the reader.
+**This is a recommendation, not an authorization. Beginning it requires a sovereign
+decision**, because it is a product scope expansion beyond the (now complete) Workstream K.
 
-**The fix:** Propagate the retrieved note identities out of the spine and into the Oracle
-response as a `sources` array, then render them in the UI.
+The Oracle Chat UI is the reference interaction experience and must be preserved, not
+rebuilt. CS2 extracts and generalises its proven capabilities (TTX, canvas/full-display,
+rich response presentation, response controls) into a reusable conversational component
+boundary so all surfaces inherit ONE canonical chat shell over the same spine.
 
-**Files to read before writing any code:**
+Do NOT flatten to a generic chat box; do NOT rebuild the Oracle UI from scratch.
 
-```
-knowledge/context_engine.py   — assemble_context() return shape; where note UUIDs live
-api/oracle_spine.py           — retrieve_arkana_context() / build_memory_block() — the
-                                seam where the context package is already in hand
-api/main.py                   — /api/commune/resonance response shape (additive only)
-web/public_prism/src/components/ArkanaCommune.tsx  — render "Based on: ..." citations
-```
+Out of scope for CS2 (later checkpoints): NovaNet localStorage→server message persistence,
+ReasoMate standalone routing, Encyclopedia/Codex duplicate-surface reconciliation,
+NovaNet sample-data removal.
 
-**Implementation approach** (verify against actual code before writing):
+### Standing candidates that require a sovereign ruling first
 
-`api/oracle_spine.py` already receives the full context package from
-`assemble_context()`. Extract the note identities there into the existing diagnostics
-dict (`meta`) rather than re-querying — one seam, no second retrieval path. Then thread
-that through the Oracle response and render conditionally in the UI.
+These are recorded in `PARKING_LOT.md` and **must not** be silently folded into another
+workstream:
 
-**Standing question — ask before every code change:**
-> What is the smallest connection that unlocks the existing Knowledge Layer without increasing maintenance?
+1. `weaver.autonomy` module/package shadowing — which object is canonical is an
+   **authority-model** question, and therefore sovereign.
+2. Spiral Grove registry declaration-order vs topological-order contract — which contract
+   the registry means is a design ruling.
+3. Baseline test debt — separately classified; see Repository Health below.
 
-**Verified starting state:** no Oracle response path currently returns a `sources`
-array. `api/oracle_spine.py` reports only `notes_retrieved` (a count) and `source` (a
-provenance label) — identities are available but not propagated.
+---
 
-**Explicitly out of scope for K4 (recorded, not fixed):**
+## Open items recorded, not fixed (from the K5 pass)
 
 1. `static:spiral_codex` points at `static/**/*.md`, which matches zero files — `static/`
    holds only HTML/JS/CSS assets.
@@ -130,7 +136,7 @@ provenance label) — identities are available but not propagated.
    `docs/control-plane/evidence/k5-open-loop-corpus-coverage/EVIDENCE.md` §6.
 3. K5 uses `note_type="task"` for open loops where the design sketch said `"event"`.
 
-Each is a candidate for its own bounded workstream; none is in K4's scope.
+Each is a candidate for its own bounded workstream.
 
 ---
 
@@ -168,6 +174,20 @@ If any were introduced by this checkpoint: resolve them or record them explicitl
 
 ---
 
+## Repository Health (re-measured 2026-10-02, `main` @ `64cbe74`)
+
+- Architecture fitness tests: **11/11**
+- Full suite: **20 failed / 1240 passed / 17 skipped / 1 error** (21 failing/error nodes).
+  Classified baseline debt — not attributable to new work unless the node *set* changes.
+- Baseline fingerprint:
+  `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
+  `a59453b8a1e5a02899f469cf6ea7db9b5eaae658050261e1405c394cb0f3cf6f`
+- Gate-2 production parity: **BLOCKED on provider auth** (Vercel Deployment Protection).
+  External boundary, not a repository task. Do not re-run the pass expecting a different
+  classification.
+
+---
+
 ## Deliverables
 
 Exactly one checkpoint. Exactly one commit. Exactly one push.
@@ -175,10 +195,10 @@ Exactly one checkpoint. Exactly one commit. Exactly one push.
 Update only:
 
 ```
-MISSION.md                                      (rewrite for next checkpoint)
-.bootstrap/01_STATE.md                          (mark K4 complete, set next)
-NEXT_AGENT.md                                   (rewrite for next checkpoint)
-docs/checkpoints/K4_response_provenance.md     (checkpoint record)
+MISSION.md                                      (rewrite for next workstream)
+.bootstrap/01_STATE.md                          (reflect current position)
+NEXT_AGENT.md                                   (rewrite for next workstream)
+docs/checkpoints/<checkpoint>.md               (checkpoint record)
 docs/phase1/CONTINUATION_LEDGER.md             (session record — at session end)
 ```
 
@@ -192,7 +212,7 @@ After implementation, run once:
 
 ```bash
 pytest tests/architecture -q           # must be 11/11
-pytest tests/ -q                       # must pass (pre-existing failures acceptable)
+pytest tests/ -q                       # pre-existing failures acceptable; node set must not grow
 ```
 
 ---
@@ -201,11 +221,11 @@ pytest tests/ -q                       # must pass (pre-existing failures accept
 
 At the end of this session:
 
-- ✅ Vault, ADRs, and structured docs are ingested into the Knowledge OS on startup
+- ✅ Workstream K status reflects verified state — every K checkpoint recorded
 - ✅ Architecture tests remain green (11/11)
-- ✅ Startup time not materially increased (ingestion is background/daemon)
+- ✅ Baseline failure node *set* unchanged (counts alone are not the oracle)
 - ✅ Pre-push checklist clean
 - ✅ One commit pushed
-- ✅ MISSION.md rewritten for the next checkpoint (K3)
+- ✅ MISSION.md rewritten for the next workstream, with the sovereign decision named
 
 Then stop immediately.
