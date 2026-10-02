@@ -1183,7 +1183,7 @@ const TABS: { id: ProjTab; label: string; sigil: string }[] = [
   { id: 'memory',         label: 'Memory',         sigil: '∞' },
   { id: 'events',         label: 'Events',         sigil: '◎' },
   { id: 'settings',       label: 'Settings',       sigil: '⚙' },
-];
+];\n\nconst PRIMARY_TABS: ProjTab[] = ['overview','conversations','files','tasks','weaver'];
 
 interface Props {
   project: Project;
@@ -1193,7 +1193,7 @@ interface Props {
 }
 
 export default function ProjectDashboard({ project, onBack, onProjectUpdated, initialTab = 'overview' }: Props) {
-  const [tab, setTab] = useState<ProjTab>(initialTab);
+  const [tab, setTab] = useState<ProjTab>(initialTab);\n  const [moreTabs, setMoreTabs] = useState(false);
   const [currentProject, setCurrentProject] = useState(project);
   const tabBarRef = useRef<HTMLDivElement>(null);
 
@@ -1225,14 +1225,24 @@ export default function ProjectDashboard({ project, onBack, onProjectUpdated, in
         <button onClick={() => setTab('settings')} style={{ background: 'none', border: 'none', color: 'rgba(212,223,232,0.3)', cursor: 'pointer', fontSize: '16px', padding: '4px' }}>⚙</button>
       </div>
 
-      {/* Tab Bar */}
-      <div ref={tabBarRef} style={{ display: 'flex', overflowX: 'auto', borderBottom: '1px solid rgba(0,212,170,0.08)', background: 'rgba(10,11,20,0.9)', padding: '0 8px', scrollbarWidth: 'none', flexShrink: 0, WebkitOverflowScrolling: 'touch' as unknown as string }}>
-        {TABS.map(t => (
-          <button key={t.id} data-active={tab === t.id} onClick={() => setTab(t.id)} style={{ padding: '10px 14px', background: 'none', border: 'none', borderBottom: `2px solid ${tab === t.id ? '#00D4AA' : 'transparent'}`, color: tab === t.id ? '#00D4AA' : 'rgba(212,223,232,0.4)', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', whiteSpace: 'nowrap', transition: 'all 0.15s', flexShrink: 0 }}>
+      {/* Primary project navigation. Secondary tools stay one click away. */}
+      <div ref={tabBarRef} style={{ display: 'flex', overflowX: 'auto', borderBottom: '1px solid rgba(0,212,170,0.08)', background: 'rgba(10,11,20,0.9)', padding: '0 8px', scrollbarWidth: 'none', flexShrink: 0 }}>
+        {TABS.filter(t => PRIMARY_TABS.includes(t.id)).map(t => (
+          <button key={t.id} data-active={tab === t.id} onClick={() => { setTab(t.id); setMoreTabs(false); }} style={{ padding: '10px 13px', background: 'none', border: 'none', borderBottom: `2px solid ${tab === t.id ? '#00D4AA' : 'transparent'}`, color: tab === t.id ? '#00D4AA' : 'rgba(212,223,232,0.4)', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.10em', textTransform: 'uppercase', whiteSpace: 'nowrap', flexShrink: 0 }}>
             <span style={{ marginRight: '4px' }}>{t.sigil}</span>{t.label}
           </button>
         ))}
+        <button type="button" onClick={() => setMoreTabs(value => !value)} aria-expanded={moreTabs} style={{ padding: '10px 13px', background: moreTabs ? 'rgba(255,255,255,.04)' : 'none', border: 'none', color: 'rgba(212,223,232,.38)', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '.10em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>More · {TABS.filter(t => !PRIMARY_TABS.includes(t.id)).length}</button>
       </div>
+      {moreTabs && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px 12px', background: 'rgba(10,11,20,.96)', borderBottom: '1px solid rgba(255,255,255,.06)' }}>
+          {TABS.filter(t => !PRIMARY_TABS.includes(t.id)).map(t => (
+            <button key={t.id} type="button" onClick={() => { setTab(t.id); setMoreTabs(false); }} style={{ padding: '7px 10px', borderRadius: 8, border: `1px solid ${tab === t.id ? 'rgba(0,212,170,.35)' : 'rgba(255,255,255,.08)'}`, background: tab === t.id ? 'rgba(0,212,170,.08)' : 'rgba(255,255,255,.02)', color: tab === t.id ? '#00D4AA' : 'rgba(212,223,232,.48)', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: '9px', textTransform: 'uppercase' }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px', maxWidth: '880px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
