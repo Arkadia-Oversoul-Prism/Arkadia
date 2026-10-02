@@ -54,3 +54,8 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.androidx.cardview)
 }
+
+
+// The CI build populates src/main/assets/prism from the exact frontend build.
+// Keep the Android project self-contained at package time without introducing a
+// second frontend implementation.
