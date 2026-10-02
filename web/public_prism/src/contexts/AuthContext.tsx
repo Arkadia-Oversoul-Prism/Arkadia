@@ -50,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<NodeProfile | null>(null);
   const [codex, setCodex] = useState<PersonalCodex | null>(null);
   const [identitySpine, setIdentitySpine] = useState<IdentitySpine | null>(null);
+  const [sovereignField, setSovereignField] = useState<SovereignField | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
   const [identityState, setIdentityState] = useState<IdentityHydrationState>('unauthenticated');
