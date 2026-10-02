@@ -9,18 +9,23 @@ class Prefs(context: Context) {
         context.applicationContext.getSharedPreferences("arkadia_prefs", Context.MODE_PRIVATE)
 
     var arkadiaUrl: String
-        get()  = sp.getString(KEY_URL, "") ?: ""
+        get() = sp.getString(KEY_URL, "") ?: ""
         set(v) = sp.edit().putString(KEY_URL, v.trimEnd('/')).apply()
 
+    var apiUrl: String
+        get() = sp.getString(KEY_API_URL, DEFAULT_API_URL) ?: DEFAULT_API_URL
+        set(v) = sp.edit().putString(KEY_API_URL, v.trimEnd('/')).apply()
+
     var showAddressBar: Boolean
-        get()  = sp.getBoolean(KEY_ADDRESS_BAR, false)
+        get() = sp.getBoolean(KEY_ADDRESS_BAR, false)
         set(v) = sp.edit().putBoolean(KEY_ADDRESS_BAR, v).apply()
 
     companion object {
         private const val KEY_URL         = "arkadia_url"
+        private const val KEY_API_URL     = "api_url"
         private const val KEY_ADDRESS_BAR = "show_address_bar"
 
-        // Production Prism frontend; overridable at runtime in Settings
         const val DEFAULT_URL = "https://arkadia-prism.vercel.app"
+        const val DEFAULT_API_URL = "https://arkadia-kw64.onrender.com"
     }
 }
