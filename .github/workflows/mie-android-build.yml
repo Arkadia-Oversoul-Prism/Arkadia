@@ -1,0 +1,48 @@
+name: Build MIE Android MVP
+
+on:
+  push:
+    branches: [main, "feature/**"]
+    paths:
+      - "sonata-android/**"
+      - "musical-intention-engine/**"
+      - ".github/workflows/mie-android-build.yml"
+  pull_request:
+    paths:
+      - "sonata-android/**"
+      - "musical-intention-engine/**"
+      - ".github/workflows/mie-android-build.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build MIE / Sonata debug APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: gradle
+
+      - name: Make Gradle executable
+        run: chmod +x sonata-android/gradlew
+
+      - name: Unit tests
+        working-directory: sonata-android
+        run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
+
+      - name: Build debug APK
+        working-directory: sonata-android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mie-mvp-01-debug-${{ github.sha }}
+          path: sonata-android/app/build/outputs/apk/debug/*.apk
+          retention-days: 14

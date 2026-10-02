@@ -15,20 +15,20 @@ import com.arkadia.sonata.databinding.ActivityMainBinding
 import com.google.android.material.snackbar.Snackbar
 
 class MainActivity : AppCompatActivity() {
-
     private lateinit var binding: ActivityMainBinding
     private lateinit var prefs: Prefs
-
     private var speechService: SpeechService? = null
+
     private val conn = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
             speechService = (binder as SpeechService.LocalBinder).getService()
-            speechService?.onStart    = { updateUi() }
-            speechService?.onPause    = { updateUi() }
-            speechService?.onResume   = { updateUi() }
+            speechService?.onStart = { updateUi() }
+            speechService?.onPause = { updateUi() }
+            speechService?.onResume = { updateUi() }
             speechService?.onComplete = { updateUi(); stopProgressUpdater() }
-            speechService?.onError    = { msg -> 
-                updateUi(); stopProgressUpdater()
+            speechService?.onError = { msg ->
+                updateUi()
+                stopProgressUpdater()
                 Snackbar.make(binding.root, msg, Snackbar.LENGTH_LONG).show()
             }
         }
@@ -57,14 +57,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ── Lifecycle ──────────────────────────────────────────────────────────
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        prefs   = Prefs(this)
+        prefs = Prefs(this)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
         setupSpeedSeekBar()
         setupPlaybackControls()
         setupButtons()
@@ -92,14 +89,11 @@ class MainActivity : AppCompatActivity() {
         progressHandler.removeCallbacks(progressRunnable)
     }
 
-    // ── UI setup ──────────────────────────────────────────────────────────
-
     private fun setupSpeedSeekBar() {
         val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
-        binding.seekSpeed.max      = speeds.size - 1
+        binding.seekSpeed.max = speeds.size - 1
         binding.seekSpeed.progress = speeds.indexOfFirst { it == prefs.speed }.coerceAtLeast(2)
         updateSpeedLabel(prefs.speed)
-
         binding.seekSpeed.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
                 val s = speeds[progress]
@@ -112,7 +106,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateSpeedLabel(speed: Float) {
-        binding.tvSpeedLabel.text = "${speed}×"
+        binding.tvSpeedLabel.text = speed.toString() + "×"
     }
 
     private fun setupPlaybackControls() {
@@ -132,8 +126,6 @@ class MainActivity : AppCompatActivity() {
                 Snackbar.make(binding.root, "Enter some text to speak", Snackbar.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-
-            // Check if API key is configured
             if (!prefs.hasElevenLabsKey() && prefs.edgeTtsUrl.isBlank()) {
                 Snackbar.make(binding.root, "Configure ElevenLabs key in Settings first", Snackbar.LENGTH_LONG)
                     .setAction("Settings") {
@@ -141,10 +133,9 @@ class MainActivity : AppCompatActivity() {
                     }.show()
                 return@setOnClickListener
             }
-
             val intent = Intent(this, SpeechService::class.java).apply {
                 action = SpeechService.ACTION_SPEAK
-                putExtra(SpeechService.EXTRA_TEXT,  text)
+                putExtra(SpeechService.EXTRA_TEXT, text)
                 putExtra(SpeechService.EXTRA_LABEL, "Sonata Reader")
             }
             startForegroundService(intent)
@@ -154,7 +145,7 @@ class MainActivity : AppCompatActivity() {
             speechService?.let { svc ->
                 when {
                     svc.isPlaying -> { svc.pause(); updateUi() }
-                    svc.isPausedState -> { svc.resume(); updateUi() }
+                    svc.isPaused -> { svc.resume(); updateUi() }
                     else -> binding.btnSpeak.callOnClick()
                 }
             } ?: binding.btnSpeak.callOnClick()
@@ -164,6 +155,10 @@ class MainActivity : AppCompatActivity() {
             speechService?.stop()
             stopProgressUpdater()
             updateUi()
+        }
+
+        binding.btnMakeSomething.setOnClickListener {
+            startActivity(Intent(this, MieActivity::class.java))
         }
 
         binding.btnSettings.setOnClickListener {
@@ -208,28 +203,20 @@ class MainActivity : AppCompatActivity() {
     private fun updateUi() {
         runOnUiThread {
             val playing = speechService?.isPlaying == true
-            val paused = speechService?.isPausedState == true
+            val paused = speechService?.isPaused == true
             val active = playing || paused
-
-            // Update play/pause button
             binding.btnPlayPause.text = when {
                 playing -> "⏸"
                 paused -> "▶"
                 else -> "▶"
             }
-
-            // Show/hide playback bar
             binding.playbackBar.visibility = if (active) android.view.View.VISIBLE else android.view.View.GONE
-
-            // Progress bar
             if (playing) {
                 startProgressUpdater()
             } else if (!paused) {
                 stopProgressUpdater()
                 binding.seekProgress.progress = 0
             }
-
-            // Disable speak button while playing
             binding.btnSpeak.isEnabled = !playing
         }
     }

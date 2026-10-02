@@ -324,6 +324,7 @@ class TtsEngine(
 
         androidTts?.apply {
             setSpeechRate(prefs.speed)
+            setPitch(prefs.pitch)
             setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) { listener?.onStart() }
                 override fun onDone(utteranceId: String?) {
