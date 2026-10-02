@@ -97,7 +97,8 @@ function WeaverPanel({ project }: { project: Project }) {
         headers: authHeaders(),
         body: JSON.stringify({
           objective,
-          affected_paths: paths.split(/[\n,]/).map((s: string) => s.trim()).filter(Boolean),
+          affected_paths: paths.split(/[
+,]/).map((s: string) => s.trim()).filter(Boolean),
         }),
       });
       const data = await r.json();
@@ -127,7 +128,8 @@ function WeaverPanel({ project }: { project: Project }) {
         body: JSON.stringify({
           patch: result.patch,
           objective: objective || undefined,
-          allowed_paths: paths.split(/[\n,]/).map((s: string) => s.trim()).filter(Boolean),
+          allowed_paths: paths.split(/[
+,]/).map((s: string) => s.trim()).filter(Boolean),
         }),
       });
       const data = await r.json();
@@ -604,7 +606,8 @@ function Files({ project }: { project: Project }) {
   function shareRef(f: PFile) {
     const ref = `project:${project.id}/file:${f.id}:${f.name}`;
     if (navigator.clipboard?.writeText) void navigator.clipboard.writeText(ref);
-    window.alert(`Share reference (owner-scoped API, not a public link):\n${ref}`);
+    window.alert(`Share reference (owner-scoped API, not a public link):
+${ref}`);
   }
 
 
@@ -892,7 +895,9 @@ function Workflows({ project }: { project: Project }) {
       </div>
       <textarea value={request} onChange={e => setRequest(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) run(); }}
-        placeholder={`Issue a command in the context of "${project.name}"…\n\n⌘↵ to execute`}
+        placeholder={`Issue a command in the context of "${project.name}"…
+
+⌘↵ to execute`}
         rows={5} style={S.textarea} />
       <div style={{ display: 'flex', gap: '8px' }}>
         <button onClick={run} disabled={loading || !request.trim()}
@@ -931,7 +936,8 @@ function Workflows({ project }: { project: Project }) {
                   <div key={i} style={{ marginBottom: i < result.execution.results.length - 1 ? '10px' : 0 }}>
                     <p style={{ fontFamily: 'sans-serif', fontSize: '9px', color: 'rgba(212,223,232,0.35)', margin: '0 0 4px' }}>Step {(r.step as number) + 1} · {String(r.tool)}</p>
                     <pre style={{ fontFamily: 'monospace', fontSize: '12px', color: 'rgba(212,223,232,0.75)', background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '6px', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '280px', overflowY: 'auto' }}>
-                      {text.slice(0, 2500)}{text.length > 2500 ? '\n[…truncated]' : ''}
+                      {text.slice(0, 2500)}{text.length > 2500 ? '
+[…truncated]' : ''}
                     </pre>
                   </div>
                 );
@@ -1185,6 +1191,8 @@ const TABS: { id: ProjTab; label: string; sigil: string }[] = [
   { id: 'settings',       label: 'Settings',       sigil: '⚙' },
 ];
 
+const PRIMARY_TABS: ProjTab[] = ['overview','conversations','files','tasks','weaver'];
+
 interface Props {
   project: Project;
   onBack: () => void;
@@ -1194,6 +1202,7 @@ interface Props {
 
 export default function ProjectDashboard({ project, onBack, onProjectUpdated, initialTab = 'overview' }: Props) {
   const [tab, setTab] = useState<ProjTab>(initialTab);
+  const [moreTabs, setMoreTabs] = useState(false);
   const [currentProject, setCurrentProject] = useState(project);
   const tabBarRef = useRef<HTMLDivElement>(null);
 
@@ -1225,14 +1234,24 @@ export default function ProjectDashboard({ project, onBack, onProjectUpdated, in
         <button onClick={() => setTab('settings')} style={{ background: 'none', border: 'none', color: 'rgba(212,223,232,0.3)', cursor: 'pointer', fontSize: '16px', padding: '4px' }}>⚙</button>
       </div>
 
-      {/* Tab Bar */}
-      <div ref={tabBarRef} style={{ display: 'flex', overflowX: 'auto', borderBottom: '1px solid rgba(0,212,170,0.08)', background: 'rgba(10,11,20,0.9)', padding: '0 8px', scrollbarWidth: 'none', flexShrink: 0, WebkitOverflowScrolling: 'touch' as unknown as string }}>
-        {TABS.map(t => (
-          <button key={t.id} data-active={tab === t.id} onClick={() => setTab(t.id)} style={{ padding: '10px 14px', background: 'none', border: 'none', borderBottom: `2px solid ${tab === t.id ? '#00D4AA' : 'transparent'}`, color: tab === t.id ? '#00D4AA' : 'rgba(212,223,232,0.4)', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', whiteSpace: 'nowrap', transition: 'all 0.15s', flexShrink: 0 }}>
+      {/* Primary project navigation. Secondary tools stay one click away. */}
+      <div ref={tabBarRef} style={{ display: 'flex', overflowX: 'auto', borderBottom: '1px solid rgba(0,212,170,0.08)', background: 'rgba(10,11,20,0.9)', padding: '0 8px', scrollbarWidth: 'none', flexShrink: 0 }}>
+        {TABS.filter(t => PRIMARY_TABS.includes(t.id)).map(t => (
+          <button key={t.id} data-active={tab === t.id} onClick={() => { setTab(t.id); setMoreTabs(false); }} style={{ padding: '10px 13px', background: 'none', border: 'none', borderBottom: `2px solid ${tab === t.id ? '#00D4AA' : 'transparent'}`, color: tab === t.id ? '#00D4AA' : 'rgba(212,223,232,0.4)', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '0.10em', textTransform: 'uppercase', whiteSpace: 'nowrap', flexShrink: 0 }}>
             <span style={{ marginRight: '4px' }}>{t.sigil}</span>{t.label}
           </button>
         ))}
+        <button type="button" onClick={() => setMoreTabs(value => !value)} aria-expanded={moreTabs} style={{ padding: '10px 13px', background: moreTabs ? 'rgba(255,255,255,.04)' : 'none', border: 'none', color: 'rgba(212,223,232,.38)', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: '10px', letterSpacing: '.10em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>More · {TABS.filter(t => !PRIMARY_TABS.includes(t.id)).length}</button>
       </div>
+      {moreTabs && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px 12px', background: 'rgba(10,11,20,.96)', borderBottom: '1px solid rgba(255,255,255,.06)' }}>
+          {TABS.filter(t => !PRIMARY_TABS.includes(t.id)).map(t => (
+            <button key={t.id} type="button" onClick={() => { setTab(t.id); setMoreTabs(false); }} style={{ padding: '7px 10px', borderRadius: 8, border: `1px solid ${tab === t.id ? 'rgba(0,212,170,.35)' : 'rgba(255,255,255,.08)'}`, background: tab === t.id ? 'rgba(0,212,170,.08)' : 'rgba(255,255,255,.02)', color: tab === t.id ? '#00D4AA' : 'rgba(212,223,232,.48)', cursor: 'pointer', fontFamily: 'sans-serif', fontSize: '9px', textTransform: 'uppercase' }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px', maxWidth: '880px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>

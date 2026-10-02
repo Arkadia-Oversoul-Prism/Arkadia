@@ -6,7 +6,7 @@ import ResilientProjectDashboard from './ResilientProjectDashboard';
 import type { Project, ProjTab } from '../../pages/ProjectDashboard';
 import ProjectsWorkspace from './ProjectsWorkspace';
 import { FilesWorkspace, ConversationsWorkspace, TasksWorkspace } from './WorkspaceActionSurfaces';
-import SolariunHomeCockpit from './SolariunHomeCockpit';
+import SolariunInteractionCanvas from './SolariunInteractionCanvas';
 import KnowledgeOSPage from '../../pages/knowledge/KnowledgeOSPage';
 import SettingsPage from '../../pages/SettingsPage';
 import SourceSyncPanel from './SourceSyncPanel';
@@ -33,26 +33,16 @@ const PROJECT_LENS_TO_TAB: Partial<Record<SolSpireLens, ProjTab>> = {
 
 const NAV: NavItem[] = [
   {id:'overview',label:'Home',sigil:'◎',accent:'#6A9FD8',question:'What matters now?'},
-  {id:'projects',label:'Projects',sigil:'◈',accent:'#C9A84C',question:'What am I building?'},
-  {id:'commercial',label:'Commercial',sigil:'◇',accent:'#C9A84C',question:'Where is value emerging?'},
-  {id:'opportunity-radar',label:'Radar',sigil:'⌁',accent:'#C9A84C',question:'Where is economic movement?'},
-  {id:'knowledge',label:'Knowledge',sigil:'◉',accent:'#00D4AA',question:'What does the system know?'},
-  {id:'files',label:'Files',sigil:'◫',accent:'#C9A84C',question:'What exists?'},
-  {id:'conversations',label:'Conversations',sigil:'◌',accent:'#6A9FD8',question:'What am I thinking through?'},
-  {id:'tasks',label:'Tasks',sigil:'□',accent:'#00D4AA',question:'What commitments are active?'},
-  {id:'memory',label:'Memory',sigil:'∞',accent:'#B08DE8',question:'What persists?'},
-  {id:'weaver',label:'Weaver',sigil:'⚒',accent:'#B08DE8',question:'What is being worked on?'},
-  {id:'observatory',label:'Activity',sigil:'⟐',accent:'#6A9FD8',question:'What happened?'},
-  {id:'engineering-lab',label:'Engineering Lab',sigil:'⌬',accent:'#00D4AA',question:'How is Arkadia observing itself?'},
-  {id:'settings',label:'Settings',sigil:'◆',accent:'#9A9AA2',question:'How does the environment behave?'},
+  {id:'projects',label:'Projects',sigil:'◈',accent:'#C9A84C',question:'What are you building?'},
+  {id:'knowledge',label:'Knowledge',sigil:'◉',accent:'#00D4AA',question:'What do you want to remember?'},
+  {id:'weaver',label:'Work',sigil:'⚒',accent:'#B08DE8',question:'What is being worked on?'},
+  {id:'engineering-lab',label:'Engineering Lab',sigil:'⌬',accent:'#00D4AA',question:'How is Arkadia doing?'},
+  {id:'settings',label:'Settings',sigil:'◆',accent:'#9A9AA2',question:'Keep the workspace simple.'},
 ];
 const NETWORK=[
-  {view:'novanet',label:'Nexus Hub',sigil:'◉',sub:'Public field / hub'},
-  {view:'solariun',label:'Solariun',sigil:'◈',sub:'Personal canvas'},
-  {view:'grove',label:'Spiral Grove',sigil:'✧',sub:'Learning grove'},
-  {view:'spiral-command',label:'Spiral Command',sigil:'⌘',sub:'Governance / command'},
-  {view:'spiral-codex',label:'Spiral Codex',sigil:'✦',sub:'Living transmissions'},
-  {view:'personal-echofeild',label:'Echofeild',sigil:'◎',sub:'Personal field'},
+  {view:'novanet',label:'NovaNet',sigil:'◉',sub:'Public field'},
+  {view:'solariun',label:'Solariun',sigil:'◈',sub:'Personal workspace'},
+  {view:'solspire',label:'SolSpire',sigil:'▦',sub:'Team workspace'},
 ] as const;
 
 export type SolSpireObject = { id:string; type:string; title:string; summary?:string; status?:string; projectId?:string; source?:string; updatedAt?:string|number };
@@ -63,7 +53,7 @@ export function ActivityItem({type,title,context,time,id}:{type:string;title:str
 
 function Header({identity,onSearch,onArkana,onMenu,onPrism}:{identity:string;onSearch:()=>void;onArkana:()=>void;onMenu:()=>void;onPrism:()=>void}) { return <header className="solspire-canonical-header"><button type="button" className="solspire-prism-return" onClick={onPrism} aria-label="Return to Arkadia Prism"><span>◈</span><strong>ARKADIA PRISM</strong><small>RETURN TO NEXUS</small></button><div className="solspire-brand"><span className="solspire-mark">◈</span><div><div className="solspire-brand-name">SOLARIUN</div><div className="solspire-brand-sub">personal intelligence workspace</div></div></div><div className="solspire-header-actions"><button type="button" className="solspire-quiet-button" onClick={onSearch} aria-label="Search Solariun">⌕ <span>Search</span></button><button type="button" className="solspire-arkana-button" onClick={onArkana} aria-label="Ask Arkana">⌁ <span>Ask Arkana</span></button><button type="button" className="solspire-menu-button" onClick={onMenu} aria-label="Open Solariun navigation">☰</button><div className="solspire-identity"><span className="solspire-online-dot"/><span className="solspire-identity-copy"><small>AUTHENTICATED NODE</small><strong>{identity}</strong></span></div></div></header>; }
 function GlobalDoors({onNavigate}:{onNavigate:(view:string)=>void}) { return <section className="solspire-global-doors solspire-prism-rail" aria-label="Arkadia Prism horizontal navigation"><div className="solspire-global-label"><span>ARKADIA PRISM</span><small>NEXUS → SOLARIUN → FIELD</small></div><div className="solspire-global-door-row">{NETWORK.map(item=><button key={item.view} type="button" onClick={()=>onNavigate(item.view)} title={item.sub}><span>{item.sigil}</span><div><strong>{item.label}</strong><small>{item.sub}</small></div></button>)}</div></section>; }
-const BOTTOM_NAV: NavItem[] = ['overview','projects','files','conversations','tasks','memory','observatory','commercial','opportunity-radar','settings'].map(id=>NAV.find(n=>n.id===id)!).filter(Boolean);
+const BOTTOM_NAV: NavItem[] = NAV;
 function MobileNav({section,onSection}:{section:SolSpireLens;onSection:(s:SolSpireLens)=>void}) { return <nav className="solspire-mobile-bottom solariun-bottom-rail" aria-label="Solariun primary navigation">{BOTTOM_NAV.map(n=><button key={n.id} type="button" className={section===n.id?'active':''} aria-current={section===n.id?'page':undefined} onClick={()=>onSection(n.id)}><span>{n.sigil}</span><small>{n.label}</small></button>)}</nav>; }
 function Sidebar({section,onSection}:{section:SolSpireLens;onSection:(s:SolSpireLens)=>void}) { return <aside className="solspire-sidebar" aria-label="Solariun navigation"><div className="solspire-sidebar-intro"><span className="solspire-online-dot"/><span>AUTHENTICATED FIELD</span><small>one surface · private</small></div>{NAV.map(n=><button key={n.id} type="button" className={`solspire-nav-button ${section===n.id?'active':''}`} aria-current={section===n.id?'page':undefined} style={{'--lens-accent':n.accent} as React.CSSProperties} onClick={()=>onSection(n.id)}><span>{n.sigil}</span><div><strong>{n.label}</strong><small>{n.question}</small></div></button>)}</aside>; }
 function ContextBar({lens,project,onArkana,onPrism}:{lens:NavItem;project?:Project|null;onArkana:()=>void;onPrism:()=>void}) { return <div className="solspire-context-bar"><div><span className="solspire-mono">ARKADIA / SOLARIUN / {lens.label.toUpperCase()}</span>{project&&<><span className="solspire-context-separator">/</span><strong>{project.name}</strong></>}</div><div className="solspire-context-actions"><button type="button" onClick={onPrism} className="solspire-context-return">← Prism / Nexus</button><button type="button" onClick={onArkana}>⌁ Ask Arkana {project?'about this context':'about this workspace'}</button></div></div>; }
@@ -187,11 +177,11 @@ class SolariunHomeBoundary extends React.Component<{children:React.ReactNode},{h
   }
 }
 
-function LensContent({section,onOpenProject,onOpenWeaver,onOpenProjectTab,onThreadTarget}:{section:SolSpireLens;onOpenProject:(p:Project)=>void;onOpenWeaver:(p:Project)=>void;onOpenProjectTab:(p:Project,tab:ProjTab)=>void;onThreadTarget:(s:SolSpireLens)=>void}) { if(section==='opportunity-radar')return <OpportunityRadarPage/>; if(section==='overview')return <SolariunHomeBoundary><SolariunHomeCockpit onNavigate={onThreadTarget}/></SolariunHomeBoundary>; if(section==='projects')return <ProjectsWorkspace onOpenProject={onOpenProject}/>; if(section==='commercial')return <CommercialPanel/>; if(section==='knowledge')return <div data-testid="solariun-knowledge-library-mode"><div style={{marginBottom:12,padding:'10px 12px',borderRadius:10,border:'1px solid rgba(0,212,170,0.22)',background:'rgba(0,212,170,0.05)',fontSize:11,color:'rgba(233,231,223,0.45)'}}><strong style={{color:'#00D4AA'}}>GLOBAL KNOWLEDGE LIBRARY</strong>{' · '}System-wide Knowledge OS — not the active project corpus. Open a project and use Project → Knowledge for project-scoped sources.</div><KnowledgeOSPage/></div>; if(section==='files')return <FilesWorkspace onOpenProject={onOpenProject}/>; if(section==='conversations')return <ConversationsWorkspace onOpenProject={onOpenProject}/>; if(section==='tasks')return <TasksWorkspace onOpenProject={onOpenProject}/>; if(section==='memory')return <WorkspaceCollection kind="memory" onOpenProject={p=>onOpenProjectTab(p,'memory')}/>; if(section==='weaver')return <WeaverSummary onOpenProject={onOpenWeaver}/>; if(section==='observatory')return <WorkspaceCollection kind="events" onOpenProject={p=>onOpenProjectTab(p,'events')}/>; if(section==='engineering-lab')return <EngineeringLabLens/>; return <><SettingsPage/><SourceSyncPanel/></>; }
+function LensContent({section,onOpenProject,onOpenWeaver,onOpenProjectTab,onThreadTarget}:{section:SolSpireLens;onOpenProject:(p:Project)=>void;onOpenWeaver:(p:Project)=>void;onOpenProjectTab:(p:Project,tab:ProjTab)=>void;onThreadTarget:(s:SolSpireLens)=>void}) { if(section==='opportunity-radar')return <OpportunityRadarPage/>; if(section==='overview')return <SolariunHomeBoundary><SolariunInteractionCanvas onNavigate={target=>{ if(target==='commune'){ window.dispatchEvent(new CustomEvent('arkadia:open-arkana')); return; } onThreadTarget(target as any); }}/></SolariunHomeBoundary>; if(section==='projects')return <ProjectsWorkspace onOpenProject={onOpenProject}/>; if(section==='commercial')return <CommercialPanel/>; if(section==='knowledge')return <div data-testid="solariun-knowledge-library-mode"><div style={{marginBottom:12,padding:'10px 12px',borderRadius:10,border:'1px solid rgba(0,212,170,0.22)',background:'rgba(0,212,170,0.05)',fontSize:11,color:'rgba(233,231,223,0.45)'}}><strong style={{color:'#00D4AA'}}>GLOBAL KNOWLEDGE LIBRARY</strong>{' · '}System-wide Knowledge OS — not the active project corpus. Open a project and use Project → Knowledge for project-scoped sources.</div><KnowledgeOSPage/></div>; if(section==='files')return <FilesWorkspace onOpenProject={onOpenProject}/>; if(section==='conversations')return <ConversationsWorkspace onOpenProject={onOpenProject}/>; if(section==='tasks')return <TasksWorkspace onOpenProject={onOpenProject}/>; if(section==='memory')return <WorkspaceCollection kind="memory" onOpenProject={p=>onOpenProjectTab(p,'memory')}/>; if(section==='weaver')return <WeaverSummary onOpenProject={onOpenWeaver}/>; if(section==='observatory')return <WorkspaceCollection kind="events" onOpenProject={p=>onOpenProjectTab(p,'events')}/>; if(section==='engineering-lab')return <EngineeringLabLens/>; return <><SettingsPage/><SourceSyncPanel/></>; }
 
 export default function SolSpireExperience({identity='Authenticated node',initialSection='overview',onNavigate}:{identity?:string;initialSection?:SolSpireLens;onNavigate?:(view:string)=>void}) { const [section,setSection]=useState<SolSpireLens>(initialSection); const [project,setProject]=useState<Project|null>(null); const [projectTab,setProjectTab]=useState<ProjTab>('overview'); const [search,setSearch]=useState(false); const [arkana,setArkana]=useState(false); const [more,setMore]=useState(false); const lens=useMemo(()=>NAV.find(n=>n.id===section)||NAV[0],[section]); const context=project?`${project.name} project context · files, conversations, tasks, memory, knowledge and governed Weaver work`:`${lens.label} lens · authenticated Solariun workspace state`;
   useEffect(()=>{setSection(initialSection);setProject(null);},[initialSection]);
-  useEffect(()=>{const onKeyDown=(event:KeyboardEvent)=>{if(event.key==='Escape'){setSearch(false);setArkana(false);setMore(false)}};window.addEventListener('keydown',onKeyDown);return()=>window.removeEventListener('keydown',onKeyDown)},[]);
+  useEffect(()=>{const onKeyDown=(event:KeyboardEvent)=>{if(event.key==='Escape'){setSearch(false);setArkana(false);setMore(false)}};const onOpenArkana=()=>setArkana(true);window.addEventListener('keydown',onKeyDown);window.addEventListener('arkadia:open-arkana',onOpenArkana);return()=>{window.removeEventListener('keydown',onKeyDown);window.removeEventListener('arkadia:open-arkana',onOpenArkana)}},[]);
   const selectSection=(next:SolSpireLens)=>{
     setMore(false);
     const path=next==='overview'?'/solspire':`/solspire/${next}`;

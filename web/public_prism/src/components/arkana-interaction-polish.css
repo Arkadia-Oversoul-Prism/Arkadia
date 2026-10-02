@@ -1,0 +1,17 @@
+/* Focused interaction polish for both Oracle and project-scoped Arkana. */
+.arkana-conversation{background:radial-gradient(circle at 50% -10%,rgba(0,212,170,.055),transparent 42%),#0b0d17!important}
+.arkana-conversation-header{border-bottom:1px solid rgba(255,255,255,.07)!important;background:rgba(11,13,23,.82)!important;backdrop-filter:blur(18px)!important}
+.arkana-conversation-header h1,.arkana-conversation-header h2{letter-spacing:-.02em!important}
+.arkana-conversation-scroll{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.12) transparent}
+.arkana-message{max-width:820px!important}
+.arkana-user-bubble{border-radius:18px 18px 5px 18px!important;background:rgba(201,168,76,.08)!important;border-color:rgba(201,168,76,.18)!important;box-shadow:none!important}
+.arkana-response{border-left:0!important;padding-left:4px!important}
+.arkana-dense-renderer{font-size:14px!important;line-height:1.72!important;color:rgba(233,231,223,.76)}
+.arkana-dense-renderer h1,.arkana-dense-renderer h2,.arkana-dense-renderer h3{font-family:Georgia,serif;font-weight:400;color:#E9E7DF}
+.arkana-message-meta{opacity:.65}
+.arkana-message-toolbar{opacity:.65}
+.arkana-composer{background:rgba(10,12,21,.96)!important;border-top-color:rgba(255,255,255,.08)!important}
+.arkana-composer textarea{background:rgba(255,255,255,.035)!important;border-color:rgba(255,255,255,.10)!important;border-radius:16px!important;min-height:48px!important}
+.arkana-composer textarea:focus{border-color:rgba(0,212,170,.35)!important;box-shadow:0 0 0 3px rgba(0,212,170,.055)!important}
+.arkana-composer button{border-radius:14px!important}
+@media(max-width:700px){.arkana-dense-renderer{font-size:13.5px!important}.arkana-message{max-width:100%!important}.arkana-conversation-header{padding-inline:14px!important}}
