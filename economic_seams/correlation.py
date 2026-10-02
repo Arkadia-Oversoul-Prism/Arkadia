@@ -19,7 +19,16 @@ REQUIRED_FACTS = (
 )
 VERIFIED_STATUS = "VERIFIED_CANDIDATE"
 CANDIDATE_STATUS = "CANDIDATE_SEAM"
-\n# Canonical provider identities. A URL or content hash is never an identity.\n# New providers must be registered here before they can satisfy independence.\nREGISTERED_PROVIDER_IDENTITIES = {\n    "portal", "prices", "nocopo", "nipc", "nerc", "ncc", "nuprc",\n    "nmdpra", "sec", "cbn", "niser", "worldbank_procurement",\n    "afdb_procurement", "afdb_trade_finance", "ifc_trade_finance",\n    "ngx_disclosures", "cbn_fx", "nepc_prices", "carbon_registry",\n}\n
+
+# Canonical provider identities. A URL or content hash is never an identity.
+# New providers must be registered here before they can satisfy independence.
+REGISTERED_PROVIDER_IDENTITIES = {
+    "portal", "prices", "nocopo", "nipc", "nerc", "ncc", "nuprc",
+    "nmdpra", "sec", "cbn", "niser", "worldbank_procurement",
+    "afdb_procurement", "afdb_trade_finance", "ifc_trade_finance",
+    "ngx_disclosures", "cbn_fx", "nepc_prices", "carbon_registry",
+}
+
 
 @dataclass(frozen=True)
 class Evidence:
@@ -68,7 +77,8 @@ def assess_seam(*, title: str, seam_type: str, evidence: Iterable[Evidence],
     class_providers: dict[str, set[str]] = {}
     for item in items:
         if item.source_class.strip() and item.identity():
-            if item.identity() in REGISTERED_PROVIDER_IDENTITIES:\n                class_providers.setdefault(item.source_class.strip().upper(), set()).add(item.identity())
+            if item.identity() in REGISTERED_PROVIDER_IDENTITIES:
+                class_providers.setdefault(item.source_class.strip().upper(), set()).add(item.identity())
     independent = len(source_ids) >= 2 and len(source_classes) >= 2
     missing = [key for key in REQUIRED_FACTS if not str(getattr(facts, key)).strip()]
     if not facts.legal_basis.strip():
