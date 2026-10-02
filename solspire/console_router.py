@@ -42,6 +42,7 @@ from solspire.pulse_router import router as pulse_router
 from solspire.synthesis_router import router as synthesis_router
 from solspire.proposal_router import router as proposal_router
 from solspire.enterprise_router import router as enterprise_router
+from solspire.buyer_recon_router import router as buyer_recon_router
 
 # Pass 01R: every /solspire route requires a verified Firebase identity.
 # require_auth rejects unauthenticated requests before any handler runs.
@@ -59,6 +60,7 @@ router.include_router(pulse_router)
 router.include_router(synthesis_router)
 router.include_router(proposal_router)
 router.include_router(enterprise_router)
+router.include_router(buyer_recon_router)
 
 
 async def require_project_owner(project_id: str, user: dict = Depends(require_auth)) -> dict:
