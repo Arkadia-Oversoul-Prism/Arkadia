@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 from api.auth import require_auth, require_sovereign
 from economic_seams.engine import get_status, list_opportunities, scan_once
-from economic_seams.correlation import Evidence, TransactionFacts, assess_seam, persist_assessment
+from economic_seams.correlation import Evidence, TransactionFacts, assess_seam, cap_public_assessment, persist_assessment
 
 router = APIRouter(prefix="/api/economic-seams", tags=["economic-seams"])
 
@@ -54,6 +54,7 @@ async def assess(request: Request, user: dict = Depends(require_sovereign)):
         if not title or not seam_type or not evidence:
             raise ValueError("title, seam_type and at least one evidence record are required")
         result = assess_seam(title=title, seam_type=seam_type, evidence=evidence, facts=facts)
+        result = cap_public_assessment(result)
         from economic_seams.engine import _db
         connection = _db()
         try:
