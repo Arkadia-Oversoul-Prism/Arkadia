@@ -1,0 +1,59 @@
+# WORKSTREAM STATE — gate-hygiene / baseline-fingerprint-reproducibility-01
+
+Pass: `gate-hygiene/baseline-fingerprint-reproducibility-01`
+Date: 2026-10-02 (UTC)
+Base main: `702b63ae633180034d1a36aa68b090541af6dae3`
+Branch head: `e66bb231c1dd3c15fd4f92dfe8fe678f1b7a215a`
+PR: #203
+
+## Active workstreams
+
+| WS | Branch / PR | State |
+| --- | --- | --- |
+| baseline fingerprint reproducibility | `gate-hygiene/baseline-fingerprint-reproducibility-01`, PR #203 | IMPLEMENTED — derivation resolved and made executable; no regression; awaiting sovereign merge |
+| Gate-2 production parity | `gate-hygiene/gate2-production-parity-02`, PR #143 | BLOCKED on provider auth (unchanged by this pass) |
+
+## 1. Baseline fingerprint recorded at pass start
+
+Measured on `702b63ae` in this environment.
+
+| Suite | Result |
+| --- | --- |
+| `python -m pytest tests/architecture -q` | **11 passed / 0 failed** |
+| `python -m pytest tests/ -q --continue-on-collection-errors` | **20 failed / 1242 passed / 17 skipped / 1 error** |
+| `python -m py_compile api/main.py` | OK |
+| `api/main.py` line count | 2571 (budget 2600) |
+
+Failing/error node set: **21 nodes**.
+
+| convention | sha256 |
+| --- | --- |
+| outcomes `"<OUTCOME> <nodeid>"` | `a59453b8a1e5a02899f469cf6ea7db9b5eaae658050261e1405c394cb0f3cf6f` |
+| node set `"<nodeid>"` | `9a35c8122188e272ec5769d7a8f5cdba6160b4f2f1fba8a840019a487c1bcc22` |
+
+Both are reproduced by `python scripts/baseline_fingerprint.py <pytest-log>`. The
+node set is byte-identical at `64cbe74`, `481afa1` and `702b63ae`, so
+`64cbe74 → 481afa1` is confirmed regression-free.
+
+The passed count reads 1240 or 1242 on the same tree depending on ordering — the
+documented order-dependent
+`test_engineering_lab_agent_loop.py::test_agent_loop_does_not_mutate_repository`.
+Attribute regressions from the failing/error node set only, never from the passed count.
+
+## 2. Closed this pass
+
+The recorded fingerprints `a7687fad…`, `d7ff35b2…687036` and `a59453b8…` were
+non-reproducible. Resolved: the documented derivation named the node-set convention
+while the value used the outcomes convention, and ids had been captured from `pytest -q`
+output including the terminal-width-truncated assertion reason. 210 derivations were
+tested; exactly one reproduces `a59453b8…`.
+
+## 3. Next bounded task (not started — separate pass)
+
+`test_autonomy.py` collection error (`load_autonomy_config`) — the error node in the
+baseline set. It is classified debt; repairing it is its own bounded workstream, not
+part of this pass.
+
+## 4. Authority boundary
+
+Sovereign merge authority. No merge performed; no push to `main`.
