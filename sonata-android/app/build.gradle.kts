@@ -56,4 +56,9 @@ dependencies {
     implementation(libs.androidx.media)
     // CardView — used by overlay_player.xml
     implementation(libs.androidx.cardview)
+
+    // Local JVM unit tests (src/test) — MieMusicalInterpreterTest resolves
+    // org.junit.* from here. The module previously declared no test deps, so
+    // `testDebugUnitTest` failed to compile and blocked the APK build.
+    testImplementation(libs.junit)
 }
