@@ -12,6 +12,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { apiRequest, ApiError } from '../../lib/apiClient';
+import EngineeringLabWorkspace from './EngineeringLabWorkspace';
 
 type EngineOverview = {
   sessions: Array<{
@@ -104,6 +105,7 @@ export default function EngineeringLabRuntimeLens() {
 
   return (
     <div data-testid="engineering-lab-runtime-lens" data-solariun-grammar="operational-surface">
+      <EngineeringLabWorkspace onChanged={() => { void load(); }} />
       <Card title="C09 Canonical Loop">
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {data.loop.map((stage) => (
