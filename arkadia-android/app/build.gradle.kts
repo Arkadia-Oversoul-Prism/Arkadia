@@ -54,3 +54,19 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.androidx.cardview)
 }
+
+
+// Package the exact Prism frontend into the APK during CI/builds. The Android shell
+// therefore does not need a live frontend deployment to render the Lab.
+tasks.register<Exec>("bundlePrismFrontend") {
+    workingDir(rootProject.projectDir.parentFile.resolve("web/public_prism"))
+    commandLine("bash", "-lc", "corepack enable && pnpm install --frozen-lockfile && VITE_ANDROID_BUNDLE=1 pnpm build && rm -rf ../../arkadia-android/app/src/main/assets/prism && mkdir -p ../../arkadia-android/app/src/main/assets/prism && cp -R dist/. ../../arkadia-android/app/src/main/assets/prism/")
+}
+
+tasks.named("preBuild") {
+    dependsOn("bundlePrismFrontend")
+}
+
+// The build produces the bundled Prism assets above.
+// Keep the Android project self-contained at package time without introducing a
+// second frontend implementation.

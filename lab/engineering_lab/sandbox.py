@@ -136,9 +136,15 @@ class SandboxEvent:
 def _sanitised_env() -> dict[str, str]:
     """Return a minimal environment with secret-bearing variables removed."""
     env: dict[str, str] = {}
+    git_path_overrides = {
+        "GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_CONFIG", "GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM",
+        "GIT_CEILING_DIRECTORIES", "GIT_DISCOVERY_ACROSS_FILESYSTEM",
+    }
     for key, value in os.environ.items():
         upper = key.upper()
-        if any(marker in upper for marker in _SECRET_ENV_MARKERS):
+        if upper in git_path_overrides or any(marker in upper for marker in _SECRET_ENV_MARKERS):
             continue
         env[key] = value
     # A bounded run never inherits a git credential helper configuration.
@@ -155,6 +161,8 @@ def _git_path_redirect(argv: Sequence[str]) -> str:
     """
     for token in argv[1:]:
         name = token.split("=", 1)[0]
+        if token.startswith("-C") and token != "-C":
+            return "-C"
         if name in _GIT_PATH_OPTIONS:
             return name
         if name in _GIT_OPTIONS_WITH_ARG:

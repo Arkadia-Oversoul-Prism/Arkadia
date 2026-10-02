@@ -243,6 +243,31 @@ class EngineeringLabStore:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def attach_authorization(
+        self, session_id: str, subject_ref: str, authorization_ref: str
+    ) -> dict[str, Any]:
+        """Bind a same-subject, session-scoped human authorization to a proposed session."""
+        session = self.get_session(session_id, subject_ref)
+        if session is None:
+            raise KeyError(f"session '{session_id}' not found for subject")
+        if session["state"] != "PROPOSED":
+            raise ValueError("authorization can only be attached to a PROPOSED session")
+        authorization = self.get_authorization(authorization_ref, subject_ref)
+        if authorization is None:
+            raise ValueError("authorization not found for subject")
+        if authorization.get("scope_ref") != session_id:
+            raise ValueError("authorization scope does not match session")
+        now = utc_now()
+        with _db() as conn:
+            conn.execute(
+                "UPDATE el_sessions SET authorization_ref = ?, updated_at = ?"
+                " WHERE session_id = ? AND subject_ref = ? AND state = 'PROPOSED'",
+                (authorization_ref, now, session_id, subject_ref),
+            )
+        updated = self.get_session(session_id, subject_ref)
+        assert updated is not None
+        return updated
+
     def transition_session(
         self, session_id: str, subject_ref: str, target: str
     ) -> dict[str, Any]:
