@@ -48,11 +48,17 @@ export const ROLES: RoleSpec[] = [
 
 /**
  * Current state of governing authority. The *declared* Govern role is unseated,
- * but the enforcement layer also admits the sovereign tier — see
+ * but the enforcement layer admits the sovereign tier — see
  * authorityState().statement. This is why the console does not claim approvals
  * can never be decided.
  */
 export const GOVERNING_AUTHORITY: AuthorityProvision = "UNPROVISIONED";
+
+/** The provisioned sovereign principals (access_level >= 3). F.2 / F.4. */
+export const PROVISIONED_SOVEREIGNS = [
+  { node_key: "zahrune", role: "Sovereign Architect", access_level: 3 },
+  { node_key: "jessica", role: "Heart Node / Dyadic Partner", access_level: 3 },
+] as const;
 
 /** The operations that require a Govern principal. */
 export const AUTHORITY_GATED_OPERATIONS = [
@@ -97,8 +103,10 @@ export function authorityState(): AuthorityState {
     statement:
       "GOVERNING AUTHORITY: the declared Flamekeeper role is UNPROVISIONED, but the " +
       "enforcement layer also accepts the sovereign tier (access_level >= 3), which " +
-      "existing node principals occupy. Approvals are therefore decidable by a sovereign " +
-      "principal — the declared/enforced gap is an unresolved boundary.",
+      "existing node principals occupy — now two provisioned principals (zahrune, " +
+      "jessica). Approvals are decidable by a sovereign principal, and distinct-authority " +
+      "governance across two principals is demonstrated (F.4). The declared/enforced gap " +
+      "is an unresolved boundary.",
     constraint: "No automatic provisioning permitted.",
   };
 }

@@ -1,4 +1,4 @@
-import { ROLES, authorityState } from "../lib/authority";
+import { ROLES, authorityState, PROVISIONED_SOVEREIGNS } from "../lib/authority";
 import { APPROVAL_NOT_EXECUTION } from "../data/approvalNotExecution";
 import { Card, Chip, Pill } from "../components/ui";
 
@@ -58,6 +58,32 @@ export function Authority() {
             </li>
           ))}
         </ul>
+        <div className="subhead mt">Provisioned sovereign principals (F.2 / F.4)</div>
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>node_key</th>
+                <th>Role</th>
+                <th>access_level</th>
+              </tr>
+            </thead>
+            <tbody>
+              {PROVISIONED_SOVEREIGNS.map((s) => (
+                <tr key={s.node_key}>
+                  <td className="mono tiny">{s.node_key}</td>
+                  <td className="tiny">{s.role}</td>
+                  <td className="mono tiny">{s.access_level}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="tiny faint">
+          Two distinct principals, each bound by an admin-set <span className="mono">node_key</span>{" "}
+          claim. Distinct-authority governance across them is demonstrated; self-approval is
+          prohibited for both.
+        </p>
         <div className="prior-collapse">
           <span className="subhead" style={{ margin: 0 }}>
             Unresolved boundary

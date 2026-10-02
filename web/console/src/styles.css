@@ -118,6 +118,10 @@ body {
 .standing-preproduction .standing-head { color: var(--preproduction); }
 .standing-undeployed { border-top-color: var(--undeployed); }
 .standing-undeployed .standing-head { color: var(--undeployed); }
+.standing-verified { border-top-color: var(--enforced); }
+.standing-verified .standing-head { color: var(--enforced); }
+.standing-partial { border-top-color: var(--declared); }
+.standing-partial .standing-head { color: var(--declared); }
 
 .page { padding: 22px; overflow: auto; }
 
@@ -207,6 +211,21 @@ body {
 .edge-arrow { color: var(--enforced); }
 .edge-arrow.feedback { color: var(--preproduction); }
 .edge-feedback { flex-direction: column; align-items: flex-start; gap: 1px; }
+
+/* Per-edge witnessed status. A contradicted edge must never render as a
+   causal arrow: the glyph itself changes, not just its colour. */
+.edge-contradicted .edge-arrow { color: var(--err); }
+.edge-contradicted .edge-line { color: var(--faint); text-decoration: line-through; }
+.edge-unresolved .edge-arrow { color: var(--unverified); }
+.edge-status { font-size: 10px; letter-spacing: 0.06em; padding: 1px 6px; border-radius: 6px; }
+.edge-status.demonstrated { color: var(--enforced); background: rgba(63, 208, 160, 0.12); }
+.edge-status.contradicted { color: var(--err); background: rgba(255, 107, 127, 0.12); }
+.edge-status.unresolved { color: var(--unverified); background: rgba(224, 179, 76, 0.12); }
+.edge-witness { font-size: 10px; color: var(--faint); }
+
+/* The spine connector between stages carries the status of the edge it draws. */
+.spine-edge.contradicted { background: var(--err); opacity: 0.55; }
+.spine-edge.unresolved { background: var(--unverified); opacity: 0.55; }
 
 /* ── Boundary inspector ────────────────────────────────────────────────── */
 .evidence-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }

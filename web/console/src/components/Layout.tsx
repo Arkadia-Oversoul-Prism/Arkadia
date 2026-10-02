@@ -62,7 +62,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <header className="topbar">
           <h1>{titleFor(location.pathname)}</h1>
           <div className="spacer" />
-          <span className="topbar-meta tiny mono">verified-boundary-01</span>
+          <span className="topbar-meta tiny mono">ae847dd · reconciled</span>
         </header>
 
         {/* Standing non-claims: first-class, persistent, never dismissed. */}

@@ -108,3 +108,21 @@ export function isFullyProven(p: Posture): boolean {
   const d = p.deployment;
   return d.implemented && d.tested && d.deployed && d.productionVerified;
 }
+
+/**
+ * The witnessed status of a specific TRANSITION (an edge), distinct from the
+ * posture of the stages it joins. A stage can be PRODUCTION-VERIFIED while the
+ * edge leaving it is CONTRADICTED — the console must never infer an edge from
+ * the health of its endpoints.
+ *
+ * Source: console-runtime-reconciliation-01.md (F.1–F.4 + PR #180).
+ */
+export type EdgeStatus = "DEMONSTRATED" | "CONTRADICTED" | "UNRESOLVED";
+
+export type EdgeStatusTone = "demonstrated" | "contradicted" | "unresolved";
+
+export function edgeStatusTone(s: EdgeStatus): EdgeStatusTone {
+  if (s === "DEMONSTRATED") return "demonstrated";
+  if (s === "CONTRADICTED") return "contradicted";
+  return "unresolved";
+}
