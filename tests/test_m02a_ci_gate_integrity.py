@@ -330,6 +330,62 @@ def test_shipped_reconciliation_changeset_passes_policy():
     assert ok is True, msg
 
 
+# ---------------------------------------------------------------------------
+# Regression: `economic_seams/` — the provider-neutral economic seam engine.
+# Merged to main while the allowlist omitted the tree, so the CP10 gate rejected
+# the merge that introduced it: commit 39cd05e touches only
+# `economic_seams/correlation.py` and is judged FAIL by the policy CLI the
+# workflow runs. The completeness invariant above caught it on main (three
+# fitness tests red); a later non-merge commit touching the tree reddens the gate
+# for the same reason, so the surface is enumerated rather than left to be
+# inherited by masking.
+# ---------------------------------------------------------------------------
+_ECONOMIC_SEAMS_CHANGESET = [
+    "economic_seams/__init__.py",
+    "economic_seams/correlation.py",
+    "economic_seams/engine.py",
+    "economic_seams/market_data.py",
+    "economic_seams/nocopo.py",
+]
+
+
+def test_economic_seams_surface_is_legitimate():
+    ok, msg = evaluate_changed_paths(["economic_seams/correlation.py"])
+    assert ok is True, msg
+
+
+def test_shipped_economic_seams_changeset_passes_policy():
+    """The exact change set that reddened the CP10 gate on the 39cd05e commit."""
+    ok, msg = evaluate_changed_paths(_ECONOMIC_SEAMS_CHANGESET)
+    assert ok is True, msg
+
+
+# ---------------------------------------------------------------------------
+# Regression: `musical-intention-engine/` — the MIE control-plane corpus
+# (constitution, field recon, interaction canvas, musical-object spec, prototype
+# loop, decisions, experiments, research) that issue #209's MVP build reads from.
+# Same omission class as `economic_seams/`: tracked, omitted, three fitness tests
+# red on main.
+# ---------------------------------------------------------------------------
+_MUSICAL_INTENTION_ENGINE_CHANGESET = [
+    "musical-intention-engine/00-CONSTITUTION.md",
+    "musical-intention-engine/03-MUSICAL-OBJECT-SPEC.md",
+    "musical-intention-engine/OPENHANDS-MVP-01.md",
+    "musical-intention-engine/06-EXPERIMENTS/EXP-001.md",
+]
+
+
+def test_musical_intention_engine_surface_is_legitimate():
+    ok, msg = evaluate_changed_paths(["musical-intention-engine/00-CONSTITUTION.md"])
+    assert ok is True, msg
+
+
+def test_shipped_musical_intention_engine_changeset_passes_policy():
+    """The corpus surface issue #209's bounded build commits against."""
+    ok, msg = evaluate_changed_paths(_MUSICAL_INTENTION_ENGINE_CHANGESET)
+    assert ok is True, msg
+
+
 def test_allowlist_admits_every_tracked_top_level_prefix():
     """A tracked prefix the allowlist omits reddens main on the next real commit."""
     # `vault/` is tracked only as scaffold and is deliberately outside the
@@ -551,6 +607,10 @@ def test_allowlist_rejects_unknown_lookalike_roots():
         "EVIL/x.md",
         "terraform/main.tf",
         "deploy.sh",
+        # lookalikes of the surfaces admitted by this change
+        "economic_seams_evil/x.py",
+        "musical-intention-engine_evil/x.md",
+        "musical_intention_engine/x.md",
     ]:
         ok, msg = evaluate_changed_paths([path])
         assert ok is False, f"{path} should be rejected ({msg})"
