@@ -1,9 +1,80 @@
-import React from 'react';
-import {radarTargets,insertionBrief} from '../data/opportunityRadar';
-export default function OpportunityRadarPage(){const w1=radarTargets.filter(t=>t.id.startsWith('W1')),w2=radarTargets.filter(t=>t.id.startsWith('W2'));return <div style={{display:'grid',gap:18}}>
-<section className="solspire-object" style={{cursor:'default'}}><div className="solspire-kicker">OPPORTUNITY RADAR · SAPZ CAPTURE</div><h2 className="solspire-title">NPCO/SAPZ/25/2005</h2><p className="solspire-object-summary">Capture state persists in the Arkadia repository. Deadline: 30 Oct 2026 · 16:00 WAT. Bidder status remains unknown until directly verified.</p></section>
-<section><div className="solspire-kicker" style={{color:'#00D4AA',marginBottom:8}}>WAVE 1 · CONTACT</div><div style={{display:'grid',gap:12}}>{w1.map(t=><Target key={t.id} t={t}/>)}</div></section>
-<section><div className="solspire-kicker" style={{color:'#6A9FD8',marginBottom:8}}>WAVE 2 · QUEUED</div><div style={{display:'grid',gap:12}}>{w2.map(t=><Target key={t.id} t={t}/>)}</div></section>
-<section className="solspire-object" style={{cursor:'default'}}><div className="solspire-kicker" style={{color:'#00D4AA'}}>1-PAGE INSERTION BRIEF</div><h3 className="solspire-title">{insertionBrief.title}</h3><p className="solspire-object-summary">{insertionBrief.problem}</p><p className="solspire-object-summary"><strong>Proposition:</strong> {insertionBrief.proposition}</p>{insertionBrief.contributions.map(x=><div key={x} style={{fontSize:12,color:'rgba(232,232,232,.58)',marginTop:6}}>• {x}</div>)}<div style={{marginTop:14,paddingTop:12,borderTop:'1px solid rgba(255,255,255,.08)'}}><div className="solspire-kicker">HONEST BOUNDARY</div>{insertionBrief.boundaries.map(x=><div key={x} style={{fontSize:11,color:'rgba(232,232,232,.45)',marginTop:5}}>• {x}</div>)}</div></section>
-</div>}
-function Target({t}:{t:typeof radarTargets[number]}){return <article className="solspire-object" style={{cursor:'default'}}><div className="solspire-kicker">{t.id} · {t.state}</div><h3 className="solspire-title">{t.name}</h3><p className="solspire-object-summary">{t.signal}</p><div style={{display:'grid',gap:6,fontSize:11,color:'rgba(232,232,232,.52)'}}><div><b>Doorway:</b> {t.doorway}</div>{t.contact&&<div><b>Technical:</b> {t.contact}</div>}{t.email&&<div><b>Email:</b> <a href={`mailto:${t.email}`} style={{color:'#00D4AA'}}>{t.email}</a></div>}{t.phone&&<div><b>Phone:</b> <a href={`tel:${t.phone.replace(/[^+\\d]/g,'')}`} style={{color:'#00D4AA'}}>{t.phone}</a></div>}<div><b>Fit:</b> {t.fit}</div><div><b>Lowest-friction entry:</b> {t.entry}</div><div><b>RFP participation:</b> {t.bidStatus}</div></div></article>}
+import React, { useEffect, useState } from 'react';
+import { apiFetch } from '../lib/apiClient';
+
+type Entry = {
+  id:string; prospect:string; location:string; commodity:string; quantity:string; buyer_price:string;
+  delivery_point:string; delivery_window:string; supplier:string; landed_cost:string;
+  evidence_status:string; why_this_prospect:string; status:string;
+};
+
+const columns = ['UNCONTACTED','CONTACTED','CONVERSATION','REQUIREMENT_CAPTURED','PRICE_CONFIRMED','BUYER_COMMITMENT','SUPPLIER_CONFIRMED','ECONOMICS_CLOSED','READY_TO_EXECUTE','EXECUTED','SETTLED'];
+
+export default function OpportunityRadarPage(){
+  const [entries,setEntries]=useState<Entry[]>([]);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState('');
+  const [prospect,setProspect]=useState('');
+  const [location,setLocation]=useState('');
+  const [commodity,setCommodity]=useState('');
+
+  async function load(){
+    setLoading(true);
+    try {
+      const r=await apiFetch('/solspire/buyer-recon');
+      const data=await r.json();
+      if(!r.ok) throw new Error(data?.detail||r.statusText);
+      setEntries(data.entries||[]);
+    } catch(e:any){ setError(String(e.message||e)); }
+    finally{ setLoading(false); }
+  }
+  useEffect(()=>{ load(); },[]);
+
+  async function add(){
+    if(!prospect.trim()) return;
+    const r=await apiFetch('/solspire/buyer-recon/entries',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prospect,location,commodity,status:'UNCONTACTED',evidence_status:'NONE'})});
+    const data=await r.json();
+    if(!r.ok){setError(data?.detail||r.statusText);return;}
+    setEntries(prev=>[data.entry,...prev]); setProspect(''); setLocation(''); setCommodity('');
+  }
+
+  async function advance(entry:Entry){
+    const i=columns.indexOf(entry.status);
+    if(i<0 || i>=columns.length-1) return;
+    const r=await apiFetch('/solspire/buyer-recon/entries/'+entry.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:columns[i+1]})});
+    const data=await r.json();
+    if(!r.ok){setError(data?.detail||r.statusText);return;}
+    setEntries(prev=>prev.map(x=>x.id===entry.id?data.entry:x));
+  }
+
+  return <div style={{display:'grid',gap:16}} data-testid="eden-buyer-recon-board">
+    <section className="solspire-object" style={{cursor:'default'}}>
+      <div className="solspire-kicker">PRIVATE FIELD · EDEN DEMAND ACQUISITION</div>
+      <h2 className="solspire-title">Buyer Recon Board</h2>
+      <p className="solspire-object-summary">Persistent in the authenticated SolSpire workspace. Every session resolves the same board from sovereign identity. Reconnaissance does not authorize execution.</p>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:12}}>
+        <input value={prospect} onChange={e=>setProspect(e.target.value)} placeholder="Buyer / prospect" style={input}/>
+        <input value={location} onChange={e=>setLocation(e.target.value)} placeholder="Location" style={input}/>
+        <input value={commodity} onChange={e=>setCommodity(e.target.value)} placeholder="Commodity" style={input}/>
+        <button onClick={add} style={button}>ADD PROSPECT</button>
+      </div>
+      {error&&<div style={{marginTop:10,color:'#C84848',fontSize:11}}>{error}</div>}
+    </section>
+    {loading ? <div className="solspire-object-summary">Loading persistent field…</div> :
+      entries.length===0 ? <section className="solspire-object" style={{cursor:'default'}}><div className="solspire-kicker">EMPTY BY DESIGN</div><h3 className="solspire-title">No buyer evidence captured yet.</h3><p className="solspire-object-summary">The board is live and persistent. Nothing is promoted into the transaction system until evidence exists.</p></section> :
+      <section style={{display:'grid',gap:10}}>{entries.map(e=><article key={e.id} className="solspire-object" style={{cursor:'default'}}>
+        <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'start'}}>
+          <div><div className="solspire-kicker">{e.status} · {e.evidence_status}</div><h3 className="solspire-title">{e.prospect}</h3></div>
+          <button onClick={()=>advance(e)} disabled={e.status==='SETTLED'} style={button}>{e.status==='SETTLED'?'CLOSED':'ADVANCE'}</button>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:8,fontSize:11,color:'rgba(232,232,232,.58)',marginTop:8}}>
+          <div><b>Location:</b> {e.location||'UNKNOWN'}</div><div><b>Commodity:</b> {e.commodity||'UNKNOWN'}</div>
+          <div><b>Quantity:</b> {e.quantity}</div><div><b>Buyer price:</b> {e.buyer_price}</div>
+          <div><b>Delivery:</b> {e.delivery_point}</div><div><b>Window:</b> {e.delivery_window}</div>
+          <div><b>Supplier:</b> {e.supplier}</div><div><b>Landed:</b> {e.landed_cost}</div>
+        </div>
+        {e.why_this_prospect&&<p className="solspire-object-summary" style={{marginTop:10}}>{e.why_this_prospect}</p>}
+      </article>)}</section>}
+  </div>
+}
+const input:React.CSSProperties={flex:'1 1 160px',padding:'9px 11px',background:'rgba(0,0,0,.3)',border:'1px solid rgba(0,212,170,.18)',borderRadius:7,color:'#D4DFE8',fontSize:12};
+const button:React.CSSProperties={padding:'8px 12px',background:'rgba(0,212,170,.08)',border:'1px solid rgba(0,212,170,.28)',borderRadius:7,color:'#00D4AA',cursor:'pointer',fontSize:10,letterSpacing:'.1em'};
