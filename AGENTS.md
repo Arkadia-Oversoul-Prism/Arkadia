@@ -635,3 +635,36 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   ``data-testid={`activity-surface-${kind}`}``; the property holds, the assertion does not
   match its own template. (2) the test demands a **near-miss** of the actual copy.
   When a source-level assertion fails, read the source literal before assuming a code bug.
+
+## MIE MVP-01 — a green CI claim is scoped to the revision that produced it (gate-hygiene)
+- `musical-intention-engine/BUILD-STATE.md` cited run `37007483734` (`a336ec30`) as "Kotlin unit
+  tests: SUCCESS" while `MieMusicalInterpreterTest.kt` **did not exist** at that revision — it
+  arrived four hours later in `bd98696`. The run was real; the conclusion was not transferable.
+  A CI result is evidence about one tree. Check the test file is in the run's tree before
+  promoting its conclusion onto the current one.
+- The same document marked **Gate 02 "CI VERIFIED"** on a revision where the interpretation test
+  could not compile, so no assertion had ever executed. A job that *runs* `testDebugUnitTest` is
+  not evidence that any test *ran*: the MIE workflow compiles tests before `assembleDebug`, so a
+  test-compilation failure reddens the job and suppresses the APK artifact too.
+- **Test dependencies can be absent from a repository's entire history, not merely the tip.**
+  `MieMusicalInterpreterTest.kt` imports `org.junit.*`, yet
+  `grep -rn junit sonata-android --include=*.kts --include=*.toml --include=*.gradle` was empty
+  and `git log --all -- sonata-android/gradle/libs.versions.toml` never contained JUnit. Prefer
+  the history-wide query over a tip-only look before concluding "it used to work".
+- **A copy-paste PR body is a real review hazard.** PR #214's description was byte-identical to
+  PR #213's (`39153c6b…`, same md5). A reviewer opening #214 would have read a CP10 allowlist
+  proposal against an Android diff and merged on the strength of the wrong evidence. When a PR
+  body and its diff disagree, treat the body as unproven and rewrite it from the diff.
+
+## Autocorrelation pitch detection — the subharmonic trap (MIE)
+- Keeping the lag of the **global** correlation maximum reports a subharmonic, because a periodic
+  signal correlates strongly at every multiple of its period. Measured on the MIE interpreter:
+  440 Hz -> 146.8 Hz (`lag = 109` ~ 3 periods), 220 Hz -> 73.4 Hz, 880 Hz -> 80.0 Hz. 110 Hz
+  passed only because its first peak was the sole in-range one — a passing case can hide the
+  defect.
+- The repair is to return the **first local maximum within `PEAK_RATIO` (0.85) of the global
+  peak** — the smallest lag that nearly matches — plus parabolic sub-sample interpolation.
+- This class of defect is invisible to a single-tone test. A regression suite needs a
+  **negative control** (white noise must yield no pitch, not a spurious one) and a
+  harmonic-rich case, or the "fix" can be tuned to the one frequency under test.
+
