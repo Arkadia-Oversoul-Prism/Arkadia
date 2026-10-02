@@ -1,9 +1,10 @@
 # UPSTREAM CAUSAL CONTINUITY 01
 
-Status: FORENSIC FINDINGS FROZEN
+Status: FORENSIC FINDINGS FROZEN + MEASUREMENT UPDATE
 Evidence base: `a3045dd1f4ed5b488ca2c770919a8851f1434928`
 Preservation branch: `reconciliation/verified-boundary-01-recovered`
 Investigation branch: `reconciliation/upstream-causal-continuity-01`
+Implementation head inspected: `dc873ed1b33cc0875cce7461d8b14eb57087a051`
 Mutation scope: investigation branch only
 Merge: NO
 Deployment: NO
@@ -72,10 +73,10 @@ For approval:
 
 `EdenOps.decide_proposal`
 -> reads `ew_proposals`
+-> validates supplied `actor_identity` for APPROVE
 -> creates `ew_authority_events`
 -> calls `EnterpriseOrchestrationStore.authorize`
--> creates `ew_authorizations`
--> proposal status becomes `AUTHORIZED`.
+-> creates `ew_authorizations`.
 
 Then:
 
@@ -97,7 +98,7 @@ The existing reverse/forward walk therefore has real persisted joins for this sp
 
 | Boundary | Persisted relationship | Classification |
 |---|---|---|
-| identity -> authority event | authority event stores `actor` as TEXT; no identity FK | correlation / attribution, not identity join |
+| identity -> authority event | authority event stores `actor` as TEXT; no identity FK | attribution with new enforcement at decision boundary, not identity join |
 | proposal -> authority event | shared `correlation_id`; no FK from proposal to authority event | causal correlation, not FK |
 | proposal -> authorization | `ew_authorizations.proposal_id` FK | explicit join |
 | authority event -> authorization | `ew_authorizations.authority_event_id` FK | explicit join |
@@ -111,19 +112,31 @@ The existing reverse/forward walk therefore has real persisted joins for this sp
 
 ### IDENTITY -> AUTHORITY
 
-**Result: UNRESOLVED / first upstream enforcement gap.**
+**Measurement result: enforcement added and source-inspected; runtime test evidence pending.**
 
-The enterprise authority event records `actor`, `subject`, `authentication_context`, and authority metadata, but does not resolve `actor` against the authenticated identity/authority model.
+The inspected implementation at `dc873ed1...` now requires, for enterprise APPROVE:
 
-More importantly, `EdenOps.decide_proposal` accepts an arbitrary `actor` string and directly creates the human authority event. It does not call the API governance predicate `_has_govern_authority`, `require_sovereign`, or another identity-backed authority check.
+- an `actor_identity` mapping
+- `actor_identity["uid"] == actor`
+- role `Flamekeeper` OR numeric `access_level >= 3`
 
-Therefore the enterprise store can persist an authority event whose actor is merely a supplied string. The subsequent `authorize` call verifies subject match, action type, and causal correlation, but not whether the actor actually possessed the authority to issue the event.
+The check occurs before creation of the authority event and authorization. The unauthorized test then asserts both durable tables remain at zero.
 
-This is a measured separation between **authority evidence** and **authority enforcement**, not evidence that the enterprise chain is entirely ungoverned.
+The authorized control test supplies a Flamekeeper identity and asserts one authority event and one authorization.
+
+This changes the implementation boundary from the previously observed condition, where an arbitrary actor string could reach authority-event creation, to an identity-bearing caller check.
+
+**However, the negative test has not been independently executed in the observed CI run. Therefore the enforcement is source-inspected, not yet runtime-verified.**
+
+The enterprise tables still do not carry a foreign key to the Firebase identity/profile store. The remaining relational classification is therefore:
+
+- identity -> decision-time authority predicate: **implemented in code, runtime verification pending**
+- identity -> persisted authority event: **attribution/correlation, not FK**
+- authority event -> authorization: **explicit FK**
 
 ### AUTHORITY -> AUTHORIZATION
 
-**Result: PERSISTED AND GATED, but authority legitimacy is inherited from the caller that created the authority event.**
+**Result: PERSISTED AND GATED.**
 
 `authorize` requires:
 
@@ -137,7 +150,7 @@ It then creates an authorization with foreign keys to both proposal and authorit
 
 Existing tests already prove the negative case for an unrelated authority event: causal mismatch is rejected.
 
-The missing condition is upstream legitimacy of the authority event itself.
+The new implementation adds an upstream authority predicate before authority-event creation. Its mutation resistance has not yet been measured.
 
 ### PROPOSAL -> APPROVAL / AUTHORIZATION
 
@@ -147,9 +160,13 @@ The enterprise loop has a persisted proposal -> authority event -> authorization
 
 The API approval surface has an independent in-memory approval record.
 
-No durable relation was found that converts the API approval decision into the enterprise `ew_authorizations` record or `ew_authority_events` record.
+The new API test exercises request -> approve and then counts enterprise records. Its expected finding is zero `ew_authorizations` and zero `ew_authority_events`.
 
-Thus the statement "an API approval authorizes the enterprise execution chain" would currently be an inference and must not be recorded as fact.
+This demonstrates the intended cross-surface discontinuity if the test executes successfully.
+
+**Runtime execution of this test is pending.**
+
+Thus the statement "an API approval authorizes the enterprise execution chain" remains an inference and must not be recorded as fact.
 
 ### APPROVAL -> EXECUTION
 
@@ -159,86 +176,99 @@ The enterprise execution path is separately authorization-bound through `authori
 
 These are therefore distinct execution authorization mechanisms, not one proven end-to-end spine.
 
-## Existing negative/mutation evidence reused
+## Mutation / negative-test inspection
 
-No mutation was applied to the preservation branch.
+The new upstream test file contains three tests:
 
-Existing evidence already demonstrates that the tests bite at several downstream boundaries:
+1. unauthorized identity cannot create authority or authorization
+2. authorized identity can create authority and authorization
+3. API approval does not create enterprise authorization
+
+**Important finding: the new upstream test file does not contain an actual mutation test.**
+
+It tests the intended behavior of the added authority predicate, but it does not deliberately remove/bypass that predicate and prove the test fails.
+
+Therefore:
+
+- unauthorized test presence: **YES**
+- unauthorized test source logic inspected: **YES**
+- unauthorized test runtime execution: **NOT YET VERIFIED**
+- mutation of the new predicate and expected test failure: **NOT YET MEASURED**
+
+Existing mutation evidence from the preserved Gates 01–04 remains valid:
 
 - Gate 01 authority mutation caused authority tests to fail.
 - Gate 02 execution-to-WorkEvent mutation was rejected by the boundary tests.
 - Gate 03 evidence/WorkEvent collapse mutation was rejected.
 - Gate 04 evidence auto-verification mutation was rejected.
-- Enterprise authorization rejects an unrelated authority event through correlation mismatch.
-- Enterprise execution rejects missing authorization.
-- Enterprise execution refuses a self-asserted SUCCEEDED result without evidence.
 
-These establish that the preserved boundary tests are not merely descriptive labels.
+Those are downstream/preserved mutation measurements. They do not substitute for a mutation test specifically targeting the new upstream identity-authority predicate.
 
-## Smallest new evidence required
+## CI evidence
 
-The smallest useful new negative test is not another downstream gate. It should target the measured upstream gap:
+For implementation head `dc873ed1b33cc0875cce7461d8b14eb57087a051`:
 
-1. Create a proposal.
-2. Invoke the enterprise decision path with a caller/actor that lacks Govern authority.
-3. Assert that no `ew_authority_events` or `ew_authorizations` record is created.
-4. Control case: an authority-bearing identity may create the authority event and authorization.
-5. Mutation check: removing the authority predicate from the proposed implementation should make the negative test fail.
+- `security-secret-scan` run `36958546349`: COMPLETED / SUCCESS.
+- `Weaver MVP2 validation` run `36958546338`: COMPLETED / SUCCESS.
+- The Weaver validation job executed only:
+  `tests/test_weaver_mvp2_05.py`
+  and
+  `tests/test_weaver_mvp2_07.py`.
+- The upstream test file `tests/test_upstream_causal_continuity_01.py` was not included in that workflow command.
 
-A second minimal test should establish the cross-surface separation:
+Therefore the successful CI run is **not evidence that the three new upstream tests passed**.
 
-1. Create an API approval through `/api/approvals/request`.
-2. Approve it through the governed API route.
-3. Assert that no `ew_authorizations` record appears unless an explicit bridge exists.
+The combined status also reports the Vercel context as success, but that is not a test result for this forensic boundary.
 
-These tests should be added only on a successor implementation branch after this finding is reviewed.
+No new upstream test failures are claimed because those tests have not executed in the observed CI evidence.
 
-## Test execution status
+## Resulting graph classification
 
-The preserved baseline is known from the recovery record:
+Current truthful graph:
 
-- 91 boundary tests passed.
-- Console typecheck/build passed.
-- Full-suite failure set matched pristine base.
+IDENTITY
+-> AUTHORITY: **IMPLEMENTED DECISION-TIME ENFORCEMENT, RUNTIME VERIFICATION PENDING; NO PERSISTED IDENTITY FK**
 
-For this investigation, the GitHub connector available in this session provides repository inspection and Git operations but no local test runner or workflow-dispatch operation. Therefore no new test execution is claimed here.
+AUTHORITY
+-> AUTHORIZATION: **PERSISTED JOIN; AUTHORITY LEGITIMACY NOW CODE-GATED, RUNTIME VERIFICATION PENDING**
 
-No new test failures are claimed because no new tests were executed.
+PROPOSAL
+-> AUTHORIZATION: **PERSISTED JOIN**
 
-## Verdict
+AUTHORIZATION
+-> EXECUTION: **PERSISTED JOIN**
 
-The preserved Gates 01–05 remain intact.
+EXECUTION
+-> EVIDENCE: **PERSISTED JOIN**
 
-The upstream enterprise chain is substantially real and relational from:
+EVIDENCE
+-> VERIFICATION: **REFERENCE-BASED, NOT FK**
 
-PROPOSAL -> AUTHORIZATION -> EXECUTION -> EVIDENCE
+VERIFICATION
+-> REVIEW: **PRESERVED GATE 05 BOUNDARY**
 
-and from:
+API APPROVAL
+-> ENTERPRISE AUTHORIZATION: **ABSENT JOIN, RUNTIME TEST PENDING**
 
-AUTHORITY EVENT -> AUTHORIZATION.
+API APPROVAL
+-> ENTERPRISE AUTHORITY EVENT: **ABSENT JOIN**
 
-The first unproven upstream causal boundary is:
+The full chain is therefore still **not a single proven causal spine**.
 
-IDENTITY -> LEGITIMATE AUTHORITY EVENT.
+## Decision on the next measurement
 
-The principal technical reason is that enterprise `EdenOps.decide_proposal` accepts an actor string and creates an authority event without consulting the authenticated identity's Govern authority.
+**Do not advance to another causal boundary yet.**
 
-A second discontinuity exists between the independent API approval surface and the enterprise authorization store.
+The current evidence gap is validation of the measurement we just introduced, not discovery of a new downstream relationship.
 
-Therefore the full statement
+The next authorized measurement should therefore be:
 
-IDENTITY -> AUTHORITY -> AUTHORIZATION -> EXECUTION -> EVIDENCE -> VERIFICATION -> REVIEW
+1. execute the three upstream tests against the investigation head;
+2. run the relevant preserved regression set;
+3. perform a mutation specifically removing/bypassing the new identity-authority predicate and confirm the unauthorized test fails;
+4. confirm the API approval test's zero enterprise-record result;
+5. then freeze the resulting runtime evidence.
 
-is not yet a single proven causal spine.
-
-The truthful current classification is:
-
-IDENTITY -> AUTHORITY: UNRESOLVED
-AUTHORITY -> AUTHORIZATION: PERSISTED JOIN, upstream legitimacy unresolved
-PROPOSAL -> AUTHORIZATION: PERSISTED JOIN
-AUTHORIZATION -> EXECUTION: PERSISTED JOIN
-EXECUTION -> EVIDENCE: PERSISTED JOIN
-EVIDENCE -> VERIFICATION: reference-based, not FK
-VERIFICATION -> REVIEW: preserved Gate 05 boundary
+Only after those measurements are complete should the graph advance.
 
 No merge. No deployment. Preservation branch unchanged.
