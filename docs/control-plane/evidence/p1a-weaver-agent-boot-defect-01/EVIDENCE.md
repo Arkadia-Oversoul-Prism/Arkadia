@@ -111,7 +111,40 @@ naming because they are allowlist/governance debt rather than product debt:
 - `tests/test_spiral_grove_activity_runtime.py::test_runtime_dispatches_all_eight_kinds_to_deterministic_renderers`
   — the known SG-04 `ActivityRuntime` regression (see `AGENTS.md`, Gate GATE-01).
 
-## 6. Authority
+## 6. CI — `provider-routing` is structurally red (pre-existing, NOT this change)
+
+`.github/workflows/provider-routing.yml` is path-filtered on `weaver/**`, so this PR
+triggers it. Step outcomes for run `36965216062`:
+
+| step | result |
+|---|---|
+| 6 Targeted K2 and key-pool regressions | **success** |
+| 7 Relevant architecture regression | **success** |
+| 8 Broader test suite (`pytest tests/ -q`) | **failure** |
+
+Step 8 fails on the **pre-existing** `tests/test_autonomy.py` collection error — the same
+error `AGENTS.md` records as baseline debt:
+
+```
+ImportError: cannot import name 'load_autonomy_config' from 'weaver.autonomy'
+```
+
+`weaver/autonomy.py` (the module defining `load_autonomy_config`) and
+`weaver/autonomy/__init__.py` (the package shadowing it) were **both added in the same
+genesis commit `9ab26fc`**, long before #177. The package directory wins the import, so
+`weaver.autonomy` resolves to the `__init__.py` that lacks the name. This is repository
+debt, not a regression from this repair.
+
+Because step 8 runs the suite **without** `--continue-on-collection-errors`, that single
+collection error aborts the whole run — so `provider-routing` is red on any branch touching
+`weaver/**`, independently of this change. The steps that actually exercise this repair
+(K2/key-pool, architecture) both pass.
+
+Fixing this is a **separate bounded workstream** (the module/package shadowing is a
+`weaver/` structural question, and the workflow's bare full-suite step is a governance
+question). It is recorded here, not patched around.
+
+## 7. Authority
 
 No merge, no push to `main`, no force-push. Human-only merge. This pass changes no
 authority, identity, K15/K3 governance, or mutation path.
