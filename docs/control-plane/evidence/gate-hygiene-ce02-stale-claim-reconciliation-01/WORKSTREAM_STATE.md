@@ -39,12 +39,14 @@ recorded in `AGENTS.md` so it is not re-derived next pass.
 
 ## Blockers
 
-None for this pass. Final head `1415bdf` (base `main` `0c8a9f6`), 3 changed paths, docs-only.
-Live on the pushed head: `Full-history secret scan` check-run **success**; the commit status is
-**identical to `main`'s** (the same two Vercel contexts fail on both), so the red status is
-pre-existing `main` debt and not attributable to this PR — `mergeable_state: unstable` reflects
-that, not a conflict (`mergeable: true`). Fingerprint re-measured on the pushed tree:
-`a59453b8…`, 21 nodes — unchanged. See `EVIDENCE.md` §9 and §11.
+None for this pass. Final head `2c38647` (base `main` `0c8a9f6`), 3 changed paths, docs-only.
+Live on the pushed head: both check-runs green (`Vercel Preview Comments`,
+`Full-history secret scan`); commit status `Vercel – console` **failure**,
+`Vercel – arkadia-prism` **success**. The one remaining red context is also red on `main`
+`0c8a9f6`, so it is pre-existing `main` debt and not attributable to this docs-only PR —
+`mergeable_state: unstable` reflects that, not a conflict (`mergeable: true`). Fingerprint
+re-measured on the pushed tree: `a59453b8…`, 21 nodes — unchanged. See `EVIDENCE.md` §9, §11,
+§11a.
 
 ## Not in scope / not re-litigated
 

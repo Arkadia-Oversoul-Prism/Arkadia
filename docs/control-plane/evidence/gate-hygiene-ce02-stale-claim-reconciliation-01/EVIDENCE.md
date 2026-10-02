@@ -332,3 +332,27 @@ python scripts/cp10_mutation_boundary_policy.py --judge    -> PASS
 
 Fingerprint **unchanged** from baseline. Authority: **READY_FOR_SOVEREIGN_MERGE**, human-only
 merge. No merge, no push to main, no force-push, no self-authorization, no scope expansion.
+
+### 11a. Refinement: final head `2c38647` status re-read
+
+A later push (`1415bdf..2c38647`, same docs-only path set) moved the head again, so section 11's
+status block is bound to a superseded head. Re-read on the current head:
+
+```
+commits/2c38647/check-runs  -> total_count 2
+    Vercel Preview Comments     completed  success
+    Full-history secret scan    completed  success
+commits/2c38647/status      -> state failure
+    Vercel - console            failure
+    Vercel - arkadia-prism      success
+commits/0c8a9f6/status      -> state failure   (main)
+    Vercel - console            failure
+    Vercel - arkadia-prism      failure
+```
+
+This refines section 11 rather than confirming it: on this head `arkadia-prism` **succeeds**, so
+the contexts do *not* fail pairwise. The load-bearing fact is unchanged and is stated more
+sharply: the single remaining red context, `Vercel - console`, is **also red on main `0c8a9f6`**,
+so it is pre-existing main debt and is not attributable to this docs-only PR. Recorded because
+section 11's "the same two contexts fail on both" is true of `0ff0da0` but not of `2c38647`; a
+claim left standing here would be the same class of stale assertion CE-02 exists to correct.
