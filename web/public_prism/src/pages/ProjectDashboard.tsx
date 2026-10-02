@@ -97,8 +97,7 @@ function WeaverPanel({ project }: { project: Project }) {
         headers: authHeaders(),
         body: JSON.stringify({
           objective,
-          affected_paths: paths.split(/[
-,]/).map((s: string) => s.trim()).filter(Boolean),
+          affected_paths: paths.split(/[\n,]/).map((s: string) => s.trim()).filter(Boolean),
         }),
       });
       const data = await r.json();
@@ -128,8 +127,7 @@ function WeaverPanel({ project }: { project: Project }) {
         body: JSON.stringify({
           patch: result.patch,
           objective: objective || undefined,
-          allowed_paths: paths.split(/[
-,]/).map((s: string) => s.trim()).filter(Boolean),
+          allowed_paths: paths.split(/[\n,]/).map((s: string) => s.trim()).filter(Boolean),
         }),
       });
       const data = await r.json();
@@ -606,8 +604,7 @@ function Files({ project }: { project: Project }) {
   function shareRef(f: PFile) {
     const ref = `project:${project.id}/file:${f.id}:${f.name}`;
     if (navigator.clipboard?.writeText) void navigator.clipboard.writeText(ref);
-    window.alert(`Share reference (owner-scoped API, not a public link):
-${ref}`);
+    window.alert(`Share reference (owner-scoped API, not a public link):\n${ref}`);
   }
 
 
@@ -895,9 +892,7 @@ function Workflows({ project }: { project: Project }) {
       </div>
       <textarea value={request} onChange={e => setRequest(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) run(); }}
-        placeholder={`Issue a command in the context of "${project.name}"…
-
-⌘↵ to execute`}
+        placeholder={`Issue a command in the context of "${project.name}"…\n\n⌘↵ to execute`}
         rows={5} style={S.textarea} />
       <div style={{ display: 'flex', gap: '8px' }}>
         <button onClick={run} disabled={loading || !request.trim()}
@@ -936,8 +931,7 @@ function Workflows({ project }: { project: Project }) {
                   <div key={i} style={{ marginBottom: i < result.execution.results.length - 1 ? '10px' : 0 }}>
                     <p style={{ fontFamily: 'sans-serif', fontSize: '9px', color: 'rgba(212,223,232,0.35)', margin: '0 0 4px' }}>Step {(r.step as number) + 1} · {String(r.tool)}</p>
                     <pre style={{ fontFamily: 'monospace', fontSize: '12px', color: 'rgba(212,223,232,0.75)', background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '6px', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '280px', overflowY: 'auto' }}>
-                      {text.slice(0, 2500)}{text.length > 2500 ? '
-[…truncated]' : ''}
+                      {text.slice(0, 2500)}{text.length > 2500 ? '\n[…truncated]' : ''}
                     </pre>
                   </div>
                 );
