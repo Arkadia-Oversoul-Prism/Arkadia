@@ -4,6 +4,7 @@ from __future__ import annotations
 from weaver.provider import (
     ProviderOutcome,
     ProviderRequest,
+    ProviderResult,
     invoke_provider,
     list_available_providers,
     _mask_secrets,
