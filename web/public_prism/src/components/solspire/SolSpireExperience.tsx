@@ -192,7 +192,7 @@ function LensContent({section,onOpenProject,onOpenWeaver,onOpenProjectTab,onThre
 
 export default function SolSpireExperience({identity='Authenticated node',initialSection='overview',onNavigate}:{identity?:string;initialSection?:SolSpireLens;onNavigate?:(view:string)=>void}) { const [section,setSection]=useState<SolSpireLens>(initialSection); const [project,setProject]=useState<Project|null>(null); const [projectTab,setProjectTab]=useState<ProjTab>('overview'); const [search,setSearch]=useState(false); const [arkana,setArkana]=useState(false); const [more,setMore]=useState(false); const lens=useMemo(()=>NAV.find(n=>n.id===section)||NAV[0],[section]); const context=project?`${project.name} project context · files, conversations, tasks, memory, knowledge and governed Weaver work`:`${lens.label} lens · authenticated Solariun workspace state`;
   useEffect(()=>{setSection(initialSection);setProject(null);},[initialSection]);
-  useEffect(()=>{const onKeyDown=(event:KeyboardEvent)=>{if(event.key==='Escape'){setSearch(false);setArkana(false);setMore(false)}};window.addEventListener('keydown',onKeyDown);return()=>window.removeEventListener('keydown',onKeyDown)},[]);
+  useEffect(()=>{const onKeyDown=(event:KeyboardEvent)=>{if(event.key==='Escape'){setSearch(false);setArkana(false);setMore(false)}};const onOpenArkana=()=>setArkana(true);window.addEventListener('keydown',onKeyDown);window.addEventListener('arkadia:open-arkana',onOpenArkana);return()=>{window.removeEventListener('keydown',onKeyDown);window.removeEventListener('arkadia:open-arkana',onOpenArkana)}},[]);
   const selectSection=(next:SolSpireLens)=>{
     setMore(false);
     const path=next==='overview'?'/solspire':`/solspire/${next}`;
