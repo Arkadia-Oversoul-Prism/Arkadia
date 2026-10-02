@@ -131,13 +131,13 @@ export default function SolariunHomeCockpit({ onNavigate }: { onNavigate?: (targ
         getSolariunSynthesis(),
         getSolariunProposals(),
         getPersonalField(),
-        ...(isSovereign ? [getSovereignField()] : []),
       ]);
       if (!alive) return;
 
       const failures = results.filter(result => result.status === 'rejected').length;
-      // Resolving this endpoint on sovereign session bootstrap idempotently instantiates
-      // the persistent field. Its state remains server-side and subject-bound.
+      // Sovereign session bootstrap is resolved separately so the existing Home
+      // surface tuple remains type-stable. Its state remains server-side and subject-bound.
+      if (isSovereign) void getSovereignField().catch(() => {});
       const nextStatus = {
         pulse: results[0].status === 'fulfilled'
           ? (results[0].value.pulse ? { state: 'LIVE' as const } : { state: 'EMPTY' as const })
