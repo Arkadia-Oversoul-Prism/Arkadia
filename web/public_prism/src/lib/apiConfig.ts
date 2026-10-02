@@ -5,7 +5,7 @@ function androidApiBase(): { present: boolean; value: string } {
   const bridge = (window as Window & { ArkadiaAndroid?: { getApiBaseUrl?: () => string } }).ArkadiaAndroid;
   if (!bridge?.getApiBaseUrl) return { present: false, value: '' };
   try {
-    return { present: true, value: bridge.getApiBaseUrl()?.replace(/\\/$/, '') || '' };
+    return { present: true, value: bridge.getApiBaseUrl()?.replace(/\/$/, '') || '' };
   } catch { return { present: true, value: '' }; }
 }
 
@@ -16,9 +16,9 @@ if (nativeApi.present) {
   // the app must not silently fall back to an unverified deployment.
   _safeUrl = nativeApi.value;
 } else if (import.meta.env.DEV) {
-  _safeUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\\/$/, '') ?? '';
+  _safeUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '';
 } else {
-  const raw = (import.meta.env.VITE_API_BASE_URL || RENDER_URL).replace(/\\/$/, '');
+  const raw = (import.meta.env.VITE_API_BASE_URL || RENDER_URL).replace(/\/$/, '');
   _safeUrl = raw.startsWith('http') ? raw : RENDER_URL;
 }
 export const API_BASE_URL = _safeUrl;
