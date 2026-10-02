@@ -18,10 +18,10 @@ data class MieMusicalObject(
 ) {
     fun toJson(): String {
         fun esc(value: String): String =
-            value.replace("\\", "\\\\").replace(""", "\\"")
+            value.replace("\\", "\\\\").replace("\"", "\\\"")
         val pitch = detectedPitchHz?.let { String.format(Locale.US, "%.2f", it) } ?: "null"
         val midi = detectedMidi?.let { String.format(Locale.US, "%.2f", it) } ?: "null"
-        val parent = parentId?.let { """ + esc(it) + """ } ?: "null"
+        val parent = parentId?.let { "\"" + esc(it) + "\"" } ?: "null"
         return "{\n" +
             "  \"id\":\"" + esc(id) + "\",\n" +
             "  \"source\":\"" + esc(sourcePath) + "\",\n" +

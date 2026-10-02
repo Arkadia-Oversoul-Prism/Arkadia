@@ -74,7 +74,7 @@ The implementation currently preserves source audio and records interpretation c
 
 The original screenshot proves that the earlier prototype captured audio on a phone. It does **not** prove that the source implementation is present in the current Prism branch. That implementation was not found, so this pass records the absence instead of inventing provenance.
 
-## Next causal step
+## Build verification note\n\nThe first CI build exposed repository-level Kotlin/manifest drift in the existing Sonata surface in addition to the new MIE files. The current pass is repairing those concrete compile blockers rather than weakening the test. The MIE boundary remains unchanged.\n\n## Next causal step
 
 Build and install the APK, then run EXP-002 on a real Android phone:
 

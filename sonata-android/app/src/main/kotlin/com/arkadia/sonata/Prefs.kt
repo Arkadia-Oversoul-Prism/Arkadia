@@ -67,10 +67,10 @@ class Prefs(context: Context) {
         private const val KEY_EL_K1  = "el_key_1"
         private const val KEY_EL_K2  = "el_key_2"
         private const val KEY_EL_VOICE = "el_voice"
-        private const val KEY_SPEED  = "speed"
+        private const val KEY_SPEED  = "speed"\n        private const val KEY_PITCH  = "pitch"
         private const val KEY_EDGE_TTS_URL = "edge_tts_url"
         private const val KEY_AUTO_READ = "auto_read"
         private const val KEY_USE_EL  = "use_elevenlabs"
-        private const val KEY_PREFER_EL = "prefer_elevenlabs"
+        private const val KEY_PREFER_EL = "prefer_elevenlabs"\n        private const val KEY_PREFER_EDGE = "prefer_edge_tts"
     }
 }

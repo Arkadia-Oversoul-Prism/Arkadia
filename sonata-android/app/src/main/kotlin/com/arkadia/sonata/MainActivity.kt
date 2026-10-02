@@ -154,7 +154,7 @@ class MainActivity : AppCompatActivity() {
             speechService?.let { svc ->
                 when {
                     svc.isPlaying -> { svc.pause(); updateUi() }
-                    svc.isPausedState -> { svc.resume(); updateUi() }
+                    svc.isPaused -> { svc.resume(); updateUi() }
                     else -> binding.btnSpeak.callOnClick()
                 }
             } ?: binding.btnSpeak.callOnClick()
@@ -166,7 +166,11 @@ class MainActivity : AppCompatActivity() {
             updateUi()
         }
 
-        binding.btnMakeSomething.setOnClickListener {\n            startActivity(Intent(this, MieActivity::class.java))\n        }\n\n        binding.btnSettings.setOnClickListener {
+        binding.btnMakeSomething.setOnClickListener {
+            startActivity(Intent(this, MieActivity::class.java))
+        }
+
+        binding.btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
 
@@ -208,7 +212,7 @@ class MainActivity : AppCompatActivity() {
     private fun updateUi() {
         runOnUiThread {
             val playing = speechService?.isPlaying == true
-            val paused = speechService?.isPausedState == true
+            val paused = speechService?.isPaused == true
             val active = playing || paused
 
             // Update play/pause button
