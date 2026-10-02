@@ -296,3 +296,39 @@ python -m pytest tests/test_spiral_grove_activity_runtime.py -q
   -> 12 passed
 git ls-files web/public_prism/dist | wc -l  -> 0
 ```
+
+## 11. Pass 2 publication disposition (2026-10-02)
+
+Head `0ff0da0f41847ec6a0cdea93a36b83cdb2cf407f`; base `main`
+`0c8a9f6276354fc2eb8c9a3da805d0878946abc7`. The pass-2 corrections (section 10) are committed
+and pushed to the PR branch (`b0bdf40..0ff0da0`, fast-forward, no force-push).
+
+Live CI on the new head, re-derived after push:
+
+```
+commits/0ff0da0/check-runs  -> total_count 1
+    Full-history secret scan    completed  success
+commits/0ff0da0/status      -> state failure
+    Vercel - console            failure
+    Vercel - arkadia-prism      failure
+commits/0c8a9f6/status      -> state failure   (main, same 2 contexts, both failure)
+```
+
+The head commit status is **identical to main's**: the same two Vercel contexts fail on both.
+Since this branch changes only `AGENTS.md` and this evidence directory - no Vercel project
+input - the red status is **pre-existing main debt, not attributable** to this PR, and
+`mergeable_state: unstable` reflects it rather than a conflict (`mergeable: true`).
+
+Pass-2 head re-verification (run on the pass-2 tree before commit):
+
+```
+python -m pytest tests/architecture -q                     -> 11 passed
+python -m pytest tests/ -q --continue-on-collection-errors -> 20F / 1252P / 17S / 1E
+python scripts/baseline_fingerprint.py                     -> a59453b8... / 9a35c812... (21 nodes)
+python scripts/agents_md_encoding_audit.py                 -> alterations=0, exit 1
+python -m py_compile api/main.py                           -> clean
+python scripts/cp10_mutation_boundary_policy.py --judge    -> PASS
+```
+
+Fingerprint **unchanged** from baseline. Authority: **READY_FOR_SOVEREIGN_MERGE**, human-only
+merge. No merge, no push to main, no force-push, no self-authorization, no scope expansion.
