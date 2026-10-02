@@ -55,28 +55,41 @@ Standing non-claims (Render UNVERIFIED, Flamekeeper UNPROVISIONED,
 AUTHORITY-CLOSURE-01 PRE-PRODUCTION, NOT DEPLOYED) render persistently in the
 shell. They are not dismissible.
 
-## Deployment (root Vercel project — Option B)
+## Deployment (Vercel) — and the Root Directory requirement
 
-This is a **nested** Vite app. The root `vercel.json` is repointed here, so the
-repository's Vercel project now builds and serves the console. `vercel.json` in
-this directory mirrors that contract (for reference / a dedicated project):
+This is a **nested** Vite app. The repository's Vercel project currently serves
+`web/public_prism`; to serve the console instead (Option B) the project's **Root
+Directory** must be repointed — see below.
+
+### The blocking setting: Root Directory
+
+Vercel's project **Root Directory** is set to `web/public_prism`. When Root
+Directory is set, Vercel uses the `vercel.json` **inside that directory**
+(`web/public_prism/vercel.json`) and **ignores the repository-root `vercel.json`**.
+Consequence, measured: commits that change only the root `vercel.json` (e.g. the
+repoint in #186) advance the production deployment but do **not** change what is
+served — `arkadia-prism.vercel.app` still returns `web/public_prism`'s bundle.
+
+To serve the console, set, in Vercel → Project → Settings → Build & Development:
 
 | Setting | Value |
 |---|---|
-| Root Directory | repository root (root `vercel.json` builds `web/console`) |
+| Root Directory | `web/console` |
 | Framework Preset | Vite |
 | Install Command | `pnpm install --frozen-lockfile` |
 | Build Command | `pnpm run build` (`tsc -b && vite build`) |
-| Output Directory | `web/console/dist` |
+| Output Directory | `dist` (relative to the Root Directory) |
 | Rewrite | `/(.*)` → `/index.html` (SPA routes) |
 
-pnpm, not npm: the repository moved Vercel installs to pnpm because npm's CLI
-crashed on Vercel (`npm/cli#8404`). `pnpm-lock.yaml` is committed here to match.
+`vercel.json` in this directory pins the same contract once Root Directory is
+`web/console`. `pnpm`, not npm: the repository moved Vercel installs to pnpm
+because npm's CLI crashed on Vercel (`npm/cli#8404`); `pnpm-lock.yaml` is
+committed here to match.
 
 The rewrite is required: `/inspector`, `/work`, `/authority`, and
 `/boundary/:id` are client-side routes and would 404 without it.
 
-Note: repointing the root project **replaces** the previous `web/public_prism`
+Note: repointing the Root Directory **replaces** the previous `web/public_prism`
 surface at `arkadia-prism.vercel.app`; that app is no longer served there.
 
 `src/api/client.ts` reads `VITE_API_BASE` at build time (default `""`). Set
