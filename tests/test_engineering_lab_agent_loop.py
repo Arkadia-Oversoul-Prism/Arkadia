@@ -448,6 +448,8 @@ def test_git_subcommand_parser_skips_global_options():
 
 GIT_PATH_REDIRECT_COMMANDS = (
     ["git", "-C", "/tmp/outside", "status"],
+    ["git", "-C/tmp/outside", "status"],
+    ["git", "-C../outside", "status"],
     ["git", "--git-dir=/tmp/outside/.git", "status"],
     ["git", "--work-tree", "/tmp/outside", "status"],
 )
@@ -598,3 +600,16 @@ def test_ollama_adapter_calls_a_real_local_model(registry):
                      max_turns=2)
     result = loop.run(objective="List the files in the workspace, then stop.")
     assert result.state in TERMINAL_STATES
+
+
+def test_git_path_overrides_are_removed_from_sandbox_environment(monkeypatch):
+    """Ambient Git path overrides must not redirect a sandbox outside its root."""
+    from lab.engineering_lab.sandbox import _sanitised_env
+
+    monkeypatch.setenv("GIT_DIR", "/tmp/outside/.git")
+    monkeypatch.setenv("GIT_WORK_TREE", "/tmp/outside")
+    monkeypatch.setenv("GIT_INDEX_FILE", "/tmp/outside/index")
+    env = _sanitised_env()
+    assert "GIT_DIR" not in env
+    assert "GIT_WORK_TREE" not in env
+    assert "GIT_INDEX_FILE" not in env
