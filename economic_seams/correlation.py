@@ -19,7 +19,7 @@ REQUIRED_FACTS = (
 )
 VERIFIED_STATUS = "VERIFIED_CANDIDATE"
 CANDIDATE_STATUS = "CANDIDATE_SEAM"
-\n# Canonical provider identities. A URL or content hash is never an identity.\n# New providers must be registered here before they can satisfy independence.\nREGISTERED_PROVIDER_IDENTITIES = {\n    "portal", "prices", "nocopo", "cbn_fx", "nepc_prices",\n}\n
+\n# Canonical provider identities. A URL or content hash is never an identity.\n# New providers must be registered here before they can satisfy independence.\nREGISTERED_PROVIDER_IDENTITIES = {\n    "portal", "prices", "nocopo", "nipc", "nerc", "ncc", "nuprc",\n    "nmdpra", "sec", "cbn", "niser", "worldbank_procurement",\n    "afdb_procurement", "afdb_trade_finance", "ifc_trade_finance",\n    "ngx_disclosures", "cbn_fx", "nepc_prices", "carbon_registry",\n}\n
 
 @dataclass(frozen=True)
 class Evidence:
