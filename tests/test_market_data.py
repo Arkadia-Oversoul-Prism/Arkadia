@@ -36,7 +36,7 @@ def test_parses_nepc_price_rows_with_commodity_and_state_context():
     from economic_seams.market_data import parse_nepc_pdf_text
 
     rows = parse_nepc_pdf_text(
-        "ONIONS (UNIT:50KG PER BAG)\\nSTATES\\nKATSINA ₦ 58,000.00 ₦ 58,000.00 ₦ 60,000.00 ₦ 60,000.00\\n% PER WEEK 0% 0% 0% 0%",
+        "ONIONS (UNIT:50KG PER BAG)\nSTATES\nKATSINA ₦ 58,000.00 ₦ 58,000.00 ₦ 60,000.00 ₦ 60,000.00\n% PER WEEK 0% 0% 0% 0%",
         source_url="https://nepc.gov.ng/cms/wp-content/uploads/2026/08/example.pdf",
     )
     assert len(rows) == 1
@@ -49,7 +49,7 @@ def test_nepc_price_parser_does_not_infer_from_percent_summary():
     from economic_seams.market_data import parse_nepc_pdf_text
 
     rows = parse_nepc_pdf_text(
-        "ONIONS (UNIT:50KG PER BAG)\\n% PER WEEK 0% 0% 0% 0%",
+        "ONIONS (UNIT:50KG PER BAG)\n% PER WEEK 0% 0% 0% 0%",
         source_url="https://nepc.gov.ng/example.pdf",
     )
     assert rows == []
