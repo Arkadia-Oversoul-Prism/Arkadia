@@ -116,3 +116,28 @@ This proves build integrity. It does not prove physical-device behavior.
 **PENDING HUMAN DEVICE RUN**
 
 The APK is ready for installation. The next observation must come from the target Android phone, not from CI.
+
+## CI evidence reconciliation · 2026-10-02 (measured at `886759f`)
+
+The run cited above (`37007483734`, commit `a336ec30`, `2026-10-02T12:34:23Z`) is a real
+SUCCESS, but its scope is narrower than the section implies. Measured, not inferred:
+
+- `MieMusicalInterpreterTest.kt` did **not exist** at `a336ec30`. It was added later by
+  `bd98696` (`2026-10-02T16:30:30Z`) — four hours after that run. "Kotlin unit tests:
+  SUCCESS" therefore describes a tree in which the unit test was absent, and does not
+  describe the current tree.
+- `sonata-android/app/build.gradle.kts` declared **no** `testImplementation` dependency and
+  `sonata-android/gradle/libs.versions.toml` had **no** JUnit entry — in all of history, not
+  merely at the tip. `MieMusicalInterpreterTest.kt` imports `org.junit.Assert.*` and
+  `org.junit.Test`, so `./gradlew testDebugUnitTest` cannot compile on the current tree.
+- Consequence: the **Build MIE Android MVP** workflow is **FAILURE** on current `main`
+  (`886759f`). The Gate 01/02/03 "CI VERIFIED" wording above is superseded for the current
+  tree; it holds only for the pre-`bd98696` revision that the run actually measured.
+
+The APK-build step itself was green at `a336ec30`; the red is the test-compile step, which
+predates nothing — it is a missing declaration, not a regression introduced by MIE work.
+
+Repair: PR on branch `mie/mvp-01-android-test-dependency-01` adds `junit = "4.13.2"` to the
+version catalog and `testImplementation(libs.junit)` to the app module. The APK artifact for
+the current tree remains unproven until that PR is merged and a new workflow run completes —
+this document must not claim APK readiness for `886759f` on the strength of `37007483734`.
