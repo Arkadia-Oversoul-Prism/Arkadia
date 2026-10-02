@@ -6,9 +6,14 @@ Route paths and response shapes are unchanged.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
-router = APIRouter(tags=["Kernel Loop"])
+from api.auth import require_auth
+
+#: Every route on this router mutates or exposes kernel-loop state: the job
+#: queue executes tools, and the goal scheduler starts recurring runs. None of
+#: it is public, so the whole router requires authentication.
+router = APIRouter(tags=["Kernel Loop"], dependencies=[Depends(require_auth)])
 
 
 def _job_store():
