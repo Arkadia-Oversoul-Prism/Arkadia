@@ -2,6 +2,8 @@
 
 Observation time: 2026-10-02T12:0xZ
 Base main: `2b167e4f41ca87699db33a28c76f03550db66847`
+Branch head: `dea69251ee8bbb66d3323f909c2d411ffc6d52da`
+PR: #211
 
 ## Current state
 
@@ -12,6 +14,7 @@ Base main: `2b167e4f41ca87699db33a28c76f03550db66847`
 | changed paths | `scripts/gate2_production_observation.py`, `tests/test_gate2_production_observation.py` (new), `docs/control-plane/evidence/gate-hygiene-gate2-harness-classifier-integrity-01/` (new) |
 | product code | none |
 | `api/main.py` | untouched (budget irrelevant to this pass) |
+| CI | `Full-history secret scan` success on `dea69251ee8b`. CP10 (`sg-02-fe-2-v.yml`) is path-filtered and these paths are outside its trigger list, so it does not run here — expected, not a skip of a required check. |
 
 ## Boundary as re-derived this pass
 

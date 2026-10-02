@@ -3,7 +3,8 @@
 Workstream: `gate-hygiene/gate2-harness-classifier-integrity-01`
 Gate: GATE-02 (production parity observation)
 Base main: `2b167e4f41ca87699db33a28c76f03550db66847`
-Branch head: _filled at PR open_
+Branch head: `dea69251ee8bbb66d3323f909c2d411ffc6d52da`
+PR: #211 (open, not draft, mergeable)
 
 Status: **IMPLEMENTED** (docs + harness + tests; no runtime acceptance claimed)
 
