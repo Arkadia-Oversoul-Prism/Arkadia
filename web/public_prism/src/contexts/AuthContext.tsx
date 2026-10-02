@@ -6,7 +6,9 @@ import { apiRequest, ApiError, setApiAuthToken } from '../lib/apiClient';
 export interface ArkadiaUser { uid: string; email: string | null; displayName: string | null; idToken: string; }
 export interface NodeProfile { uid: string; email: string; node_key: string | null; display_name: string; username?: string | null; bio?: string | null; avatar_url?: string | null; role: string; role_sigil: string; ims_id: string | null; access_level: number; status: string; access_tools: string[]; profile_complete?: boolean; }
 export interface PersonalCodex { node_key: string; display_name: string; role: string; soul_function: string; name_decode?: Record<string, string>; shadow_states?: string[]; soul_gifts?: string[]; open_loops?: Array<{ id: string; loop: string; status: string; priority: number }>; access_tools?: string[]; access_level?: number; [key: string]: unknown; }
-export interface SovereignField { field_id: string; subject_ref: string; workspace_ref: string; schema_version: number; field_kind: string; surfaces: Record<string, unknown>; created_at: number; updated_at: number; buyer_recon?: Array<Record<string, unknown>>; }\n\nexport interface IdentitySpine { version: number; identity: { uid: string; canonical_name: string; preferred_name: string; username?: string | null; role: string; role_sigil: string; ims_id?: string | null }; seed: { created_at?: string | null; sigil?: string; phrase?: string | null; symbols?: string[]; source?: string | null }; orientation: { current_intent?: string; direction?: string; interests?: string[]; values?: string[] }; capability: { baseline: Record<string, unknown>; evidence_count: number; development_events: Array<Record<string, unknown>>; last_assessed_at?: string | null }; relationship: { preferred_ai_role?: string | null; communication_preference?: string | null; collaboration_preference?: string | null }; relational_index: { version: number; status: string; score?: number | null; confidence: number; dimensions: Record<string, number | null>; observations: string[]; last_evaluated_at?: string | null }; symbolic: { seed_phrase?: string | null; seed_symbols: string[]; sigil_seed: string; resonance_signature?: string | null }; continuity: { projections: string[]; ims?: string | null; encyclopedia?: string; codex?: string; echofield?: string }; provenance: { ais_version?: number | null; seed_created_at?: string | null; last_reconciled_at?: string | null; schema_version: number }; }
+export interface SovereignField { field_id: string; subject_ref: string; workspace_ref: string; schema_version: number; field_kind: string; surfaces: Record<string, unknown>; created_at: number; updated_at: number; buyer_recon?: Array<Record<string, unknown>>; }
+
+export interface IdentitySpine { version: number; identity: { uid: string; canonical_name: string; preferred_name: string; username?: string | null; role: string; role_sigil: string; ims_id?: string | null }; seed: { created_at?: string | null; sigil?: string; phrase?: string | null; symbols?: string[]; source?: string | null }; orientation: { current_intent?: string; direction?: string; interests?: string[]; values?: string[] }; capability: { baseline: Record<string, unknown>; evidence_count: number; development_events: Array<Record<string, unknown>>; last_assessed_at?: string | null }; relationship: { preferred_ai_role?: string | null; communication_preference?: string | null; collaboration_preference?: string | null }; relational_index: { version: number; status: string; score?: number | null; confidence: number; dimensions: Record<string, number | null>; observations: string[]; last_evaluated_at?: string | null }; symbolic: { seed_phrase?: string | null; seed_symbols: string[]; sigil_seed: string; resonance_signature?: string | null }; continuity: { projections: string[]; ims?: string | null; encyclopedia?: string; codex?: string; echofield?: string }; provenance: { ais_version?: number | null; seed_created_at?: string | null; last_reconciled_at?: string | null; schema_version: number }; }
 
 export type IdentityHydrationState = 'unauthenticated' | 'loading' | 'ready' | 'degraded' | 'auth-error' | 'backend-unavailable';
 
@@ -102,7 +104,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIdentitySpine(null);
     }
 
-    try {\n      const data = await apiRequest<{ field?: SovereignField }>('/enterprise/sovereign-field');\n      setSovereignField(data.field ?? null);\n    } catch (fieldError) {\n      // Non-sovereign identities receive 403 by design; that is not a hydration failure.\n      if (fieldError instanceof ApiError && fieldError.status === 403) {\n        setSovereignField(null);\n      } else {\n        degraded = true;\n        lastError = fieldError;\n        setSovereignField(null);\n      }\n    }\n\n    if (degraded) {
+    try {
+      const data = await apiRequest<{ field?: SovereignField }>('/enterprise/sovereign-field');
+      setSovereignField(data.field ?? null);
+    } catch (fieldError) {
+      // Non-sovereign identities receive 403 by design; that is not a hydration failure.
+      if (fieldError instanceof ApiError && fieldError.status === 403) {
+        setSovereignField(null);
+      } else {
+        degraded = true;
+        lastError = fieldError;
+        setSovereignField(null);
+      }
+    }
+
+    if (degraded) {
       setIdentityState(lastError instanceof ApiError && lastError.kind === 'NETWORK_ERROR' ? 'backend-unavailable' : 'degraded');
       setIdentityError(readableIdentityError(lastError));
     } else {
