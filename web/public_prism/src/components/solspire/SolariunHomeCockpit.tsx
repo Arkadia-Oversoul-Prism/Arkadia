@@ -14,6 +14,7 @@ import {
   SolariunSynthesis,
   SolariunWorkEvent,
   SolariunWorkload,
+  getSovereignField,
 } from '../../lib/solariunApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { getPersonalField, PersonalField } from '../../lib/knowledgeApi';
@@ -98,7 +99,7 @@ const THREAD_TARGETS: Array<{ id: 'weaver' | 'engineering-lab' | 'knowledge'; la
 ];
 
 export default function SolariunHomeCockpit({ onNavigate }: { onNavigate?: (target: 'weaver' | 'engineering-lab' | 'knowledge') => void } = {}) {
-  const { codex } = useAuth();
+  const { codex, isSovereign } = useAuth();
   const [workspace, setWorkspace] = useState<SolariunWorkspace | null>(null);
   const [workspaceStatus, setWorkspaceStatus] = useState<SurfaceStatus>({ state: 'LOADING' });
   const [pulse, setPulse] = useState<SolariunPulse | null>(null);
@@ -134,6 +135,9 @@ export default function SolariunHomeCockpit({ onNavigate }: { onNavigate?: (targ
       if (!alive) return;
 
       const failures = results.filter(result => result.status === 'rejected').length;
+      // Sovereign session bootstrap is resolved separately so the existing Home
+      // surface tuple remains type-stable. Its state remains server-side and subject-bound.
+      if (isSovereign) void getSovereignField().catch(() => {});
       const nextStatus = {
         pulse: results[0].status === 'fulfilled'
           ? (results[0].value.pulse ? { state: 'LIVE' as const } : { state: 'EMPTY' as const })
@@ -190,7 +194,7 @@ export default function SolariunHomeCockpit({ onNavigate }: { onNavigate?: (targ
       });
 
     return () => { alive = false; };
-  }, []);
+  }, [isSovereign]);
 
   const openProposals = useMemo(() => proposals.filter(proposal => {
     const status = String(proposal.proposal_status ?? proposal.status ?? '').toUpperCase();
