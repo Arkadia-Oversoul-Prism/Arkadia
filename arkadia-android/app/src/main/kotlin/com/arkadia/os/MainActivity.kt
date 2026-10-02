@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.os.Bundle
 import android.view.View
 import android.webkit.*
+import androidx.webkit.WebViewAssetLoader
 import androidx.appcompat.app.AppCompatActivity
 import com.arkadia.os.databinding.ActivityMainBinding
 
@@ -15,7 +16,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var bridge: JavaScriptBridge
     companion object {
         const val EXTRA_PROCESS_TEXT = "extra_process_text"
-        private const val BUNDLED_URL = "file:///android_asset/prism/index.html"
+        private const val BUNDLED_URL = "https://appassets.androidplatform.net/assets/prism/index.html"
     }
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,8 +43,17 @@ class MainActivity : AppCompatActivity() {
             setSupportZoom(false); builtInZoomControls = false
         }
         binding.webView.addJavascriptInterface(bridge, "ArkadiaAndroid")
+        val assetLoader = WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
+            .build()
         binding.webView.setBackgroundColor(Color.parseColor("#0A0A0F"))
         binding.webView.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                return assetLoader.shouldInterceptRequest(request.url) ?: super.shouldInterceptRequest(view, request)
+            }
+            override fun shouldInterceptRequest(view: WebView, url: String): WebResourceResponse? {
+                return assetLoader.shouldInterceptRequest(android.net.Uri.parse(url)) ?: super.shouldInterceptRequest(view, url)
+            }
             override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
                 binding.progressBar.visibility = View.VISIBLE; binding.errorLayout.visibility = View.GONE
             }
