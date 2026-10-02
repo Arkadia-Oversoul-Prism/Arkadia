@@ -39,6 +39,7 @@ ALLOWED_MUTATION_ENDPOINTS = {
     "/api/lab/engineering/sessions",
     "/api/lab/engineering/sessions/{session_id}/authorize",
     "/api/lab/engineering/sessions/{session_id}/execute",
+    "/api/lab/engineering/sessions/{session_id}/run-agent",
     "/api/lab/engineering/sessions/{session_id}/transition",
     "/api/lab/engineering/automations",
     "/api/lab/engineering/automations/{automation_id}/state",
@@ -88,3 +89,14 @@ def test_lab_has_no_merge_or_deploy_operation():
     assert "production_deploy" in FORBIDDEN_OPERATIONS
     assert "MERGE" in HUMAN_ONLY
     assert "PRODUCTION_DEPLOY" in HUMAN_ONLY
+
+
+def test_agent_loop_route_is_authenticated_and_bounded():
+    routes = {route.path: route for route in router.routes}
+    path = "/api/lab/engineering/sessions/{session_id}/run-agent"
+    assert path in routes
+    route = routes[path]
+    assert route.methods == {"POST"}
+    assert route.dependencies or router.dependencies
+    from api.lab_routes import AgentLoopBody
+    assert AgentLoopBody(objective="inspect", max_turns=1).max_turns == 1
