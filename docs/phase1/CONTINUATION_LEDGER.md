@@ -1683,3 +1683,99 @@ is expected. Merge order is a human decision.
 
 Human review/merge only. No consequential external action. No merge performed.
 
+---
+
+## Pass — Workstream K status reconciliation (K4 shipped; workstream closed)
+
+**Session date:** 2026-10-02
+**Role:** Engineering Runtime (hourly heartbeat — reconstruct, classify, prove, persist)
+**Branch / PR:** `gate-k/k4-status-reconciliation` → new PR (human-only merge)
+**BASE_MAIN at pass start:** `64cbe74d03f84ae72a1acee0fdc99d40c8f167b3`
+**Head at pass start:** `64cbe74` · **Head at pass end:** recorded in the PR
+
+### Why this pass
+
+The bounded task was a status reconciliation: three state docs (`.bootstrap/01_STATE.md`,
+`MISSION.md`, `NEXT_AGENT.md`) still named **K4 — Response Provenance** as "READY TO
+BEGIN" / "NEXT" after K4 had in fact already shipped on `main`. This is the same
+staleness class K5 carried until 2026-09-30.
+
+### K4 status — resolved from live evidence, not prose
+
+K4 is **COMPLETE**, verified on `main` @ `64cbe74`:
+
+| Seam | Location |
+|---|---|
+| `build_sources(context_package, limit=6)` | `api/oracle_spine.py:92` |
+| context package stashed on `meta["_context_package"]` | `api/oracle_spine.py:74` |
+| `"sources": build_sources(memory_meta.get("_context_package"))` | `api/main.py:1280` |
+| conditional `SourceRef[]` render | `web/public_prism/src/components/ArkanaCommune.tsx` |
+| provenance invariant | `tests/test_k4_response_provenance.py` |
+
+- `pytest tests/test_k4_response_provenance.py -q` → **6 passed**
+- `pytest tests/test_oracle_spine.py -q` → **7 passed**
+- `pytest tests/architecture -q` → **11 passed** (unchanged)
+
+The K4 checkpoint record was backfilled at `docs/checkpoints/K4_response_provenance.md`
+(the record required by `MISSION.md` §Deliverables had never been produced).
+
+### K4 label divergence — resolved
+
+`CURRENT_STATE.md:135` names "Next session: K4 — Relational Intelligence / Trust Telemetry".
+That is **not** the Workstream K K4. `CURRENT_STATE.md` is explicitly a historical archive
+(`main` @ `1d4ed03`, 2026-09-28) whose frozen entries carry an older, CS-era label. The
+canonical Workstream K definition of K4 is **Response Provenance**, per
+`docs/recon/KNOWLEDGE_OS_EVOLUTION.md` §K4 and the K3-A/B/C checkpoint records. The
+archive is not rewritten by this pass — no live status is derived from it.
+
+### True next checkpoint after K4
+
+**None. Workstream K is COMPLETE.** `docs/recon/KNOWLEDGE_OS_EVOLUTION.md` names no K6;
+K1, K2, K3, K4 and K5 are all shipped and all now carry a checkpoint record.
+
+The named successor is **CS2 — Reusable conversational UI** (deferred, not discarded). It is
+a *product* scope expansion relative to Workstream K, so it is a **recommendation requiring
+a sovereign decision**, not an authorized next task. Standing non-K candidates requiring a
+ruling are recorded in `PARKING_LOT.md` (`weaver.autonomy` shadowing; Spiral Grove registry
+ordering contract; baseline test debt).
+
+### PR #191 — already closed (superseded), no action taken
+
+`gate-hygiene/repair-pr189-newline-deescape-01`, base `main`, state **CLOSED** at
+2026-10-02T07:52:03Z, `mergedAt: null`, `mergeCommit: null` — closed unmerged and
+superseded by the merge of #189 (`6d5f722`). No repository action was required or taken.
+
+### Bounded change
+
+| file | change |
+|---|---|
+| `.bootstrap/01_STATE.md` | Workstream K marked COMPLETE; K4 recorded as shipped; next checkpoint = none |
+| `MISSION.md` | status table + mission rewritten; K4 reconciliation note |
+| `NEXT_AGENT.md` | K4 marked COMPLETE; next-workstream recommendation |
+| `docs/checkpoints/K4_response_provenance.md` | new — backfilled checkpoint record |
+| `docs/phase1/CONTINUATION_LEDGER.md` | this session record |
+
+No implementation code was changed. No test, architecture, governance, authority, identity,
+or mutation-path surface was touched.
+
+### Verification
+
+- Full suite (`PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q
+  --continue-on-collection-errors`) → **20 failed / 1240 passed / 17 skipped / 1 error**
+  (21 failing/error nodes) — **identical to the baseline recorded at pass start**.
+- Baseline fingerprint independently reproduced from the measured node list:
+  `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
+  `a59453b8a1e5a02899f469cf6ea7db9b5eaae658050261e1405c394cb0f3cf6f`
+- `pytest tests/architecture -q` → **11 passed** (unchanged).
+- No regression attributable to this pass — it is docs-only.
+
+### Authorization
+
+Human review/merge only. No merge performed. No consequential external action.
+
+### Next bounded task (recommended, not started)
+
+1. **CS2 — Reusable conversational UI** — requires a sovereign decision (scope expansion).
+2. `weaver.autonomy` module/package shadowing — requires a sovereign ruling (authority model).
+3. Spiral Grove registry declaration-order vs topological-order contract — requires a ruling.
+4. Baseline test debt — separately classified; must not be folded into an unrelated gate.
