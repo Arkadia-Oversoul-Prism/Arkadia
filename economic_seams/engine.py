@@ -155,6 +155,23 @@ def _scan_nocopo(c, source):
     return records, created
 
 
+def _scan_market_reference(c, source):
+    """Persist parsed CBN FX / NEPC price rows as unclassified observations."""
+    from economic_seams.market_data import normalize_market_tables
+    response = requests.get(source.url, timeout=25, headers={"User-Agent": "Arkadia-Economic-Seam-Engine/1.0"})
+    response.raise_for_status()
+    rows = normalize_market_tables(response.text, source_id=source.id, source_url=response.url)
+    if not rows:
+        raise ValueError("No parseable market reference rows found; source layout may have changed")
+    for row in rows:
+        raw = json.dumps(row, sort_keys=True, separators=(",", ":"))
+        digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+        oid = hashlib.sha256(f"{source.id}:{digest}".encode("utf-8")).hexdigest()[:24]
+        labels = " / ".join(row.get("labels", []))
+        c.execute("INSERT OR REPLACE INTO observations VALUES (?,?,?,?,?,?,?,?,?,?)",
+                  (oid, source.id, response.url, f"{source.name}: {labels[:160]}", None, _now(), digest, raw[:1800], source.legal_basis, "UNCLASSIFIED_REFERENCE_ROW"))
+    return rows
+
 def scan_once():
     c = _db(); counts = {}; created = []
     for source in SOURCES:
@@ -163,14 +180,16 @@ def scan_once():
             if source.id == "nocopo":
                 records, source_created = _scan_nocopo(c, source)
                 created.extend(source_created)
-                c.execute("INSERT OR REPLACE INTO source_runs VALUES (?,?,?,?,?)",
-                          (source.id, _now(), "ok", len(records), None))
+                item_count = len(records)
+            elif source.id in {"cbn_fx", "nepc_prices"}:
+                item_count = len(_scan_market_reference(c, source))
             else:
                 url, text = _fetch(source)
                 oid = _upsert_observation(c, source, url, text)
                 created += _detect(c, source, oid, _excerpt(text))
-                c.execute("INSERT OR REPLACE INTO source_runs VALUES (?,?,?,?,?)",
-                          (source.id, _now(), "ok", 1, None))
+                item_count = 1
+            c.execute("INSERT OR REPLACE INTO source_runs VALUES (?,?,?,?,?)",
+                      (source.id, _now(), "ok", item_count, None))
             counts[source.id] = "ok"
         except Exception as exc:
             logger.warning("[SEAM] %s failed: %s", source.id, exc)
