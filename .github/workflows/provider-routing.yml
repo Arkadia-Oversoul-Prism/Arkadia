@@ -1,0 +1,33 @@
+name: Provider Routing Verification
+
+on:
+  pull_request:
+    paths:
+      - "weaver/**"
+      - "providers/**"
+      - "tests/test_weaver_k2.py"
+      - "tests/test_key_pool.py"
+      - "docs/verification/PROVIDER-ROUTING-AUDIT-BASELINE.md"
+  workflow_dispatch:
+
+jobs:
+  provider-routing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install pytest
+      - name: Targeted K2 and key-pool regressions
+        run: |
+          python -m pytest tests/test_weaver_k2.py tests/test_key_pool.py -q
+      - name: Relevant architecture regression
+        run: |
+          python -m pytest tests/architecture -q
+      - name: Broader test suite
+        run: |
+          python -m pytest tests/ -q
