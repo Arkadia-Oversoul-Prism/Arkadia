@@ -204,7 +204,36 @@ The invariant is recorded in `AGENTS.md` itself so a future pass does not repeat
 - The 20 pre-existing failures are unattributed by this pass; they are baseline debt.
 - CE-01 awaits the sovereign autonomy-shape decision; it is deliberately left red.
 
-## 9. Authority boundary
+## 9. PR / CI state reconstruction (live, `2026-10-02`)
+
+Derived from the GitHub API with the ambient `github_token` (`repo` 200; perms
+`admin`/`maintain`/`push`/`triage`/`pull` all true). `GITHUB_PERSONAL_ACCESS_TOKEN` returns
+401 and was not used.
+
+| item | value |
+|---|---|
+| `main` HEAD | `0c8a9f6276354fc2eb8c9a3da805d0878946abc7` (agrees with local `origin/main`) |
+| open PRs | **1** — this PR (#206); **0** before it |
+| merged, last 15 | #205 #204 #203 #202 #201 #200 #199 #198 #197 #196 #195 #194 #193 #192 … |
+
+CI on this PR's head `d42463163…`:
+
+```
+check-runs (2):  Vercel Preview Comments      completed success
+                 Full-history secret scan     completed success
+commit status:   Vercel – arkadia-prism       success
+                 Vercel – console             failure   (state: failure)
+```
+
+**The `Vercel – console` failure is pre-existing and not attributable to this PR.** `main`
+`0c8a9f6` carries the *same* failing context, plus `Vercel – arkadia-prism` failing there too
+(that one is `success` on this head). This PR touches no Vercel project input — it changes
+`AGENTS.md` and adds one evidence directory — so it cannot affect either project's build. Both
+gate check-runs that do apply are green.
+
+---
+
+## 10. Authority boundary
 
 Docs-only. No merge, no push to `main`, no force-push, no self-authorization, no identity or
 authority-model change, no new mutation/authorization path, no scope expansion.
