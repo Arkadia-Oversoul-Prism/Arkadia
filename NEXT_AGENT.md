@@ -110,9 +110,17 @@ reconciliation, NovaNet sample-data removal.
 
 Re-measured 2026-10-02 on `main` @ `64cbe74`:
 
-- Full suite: **20 failed / 1240 passed / 17 skipped / 1 error** (21 failing/error nodes)
+- Full suite: **20 failed / 1240 passed / 17 skipped / 1 error** in a clone that carries the
+  pinned PR-head revision `7d79f38…`; **19 failed / 1 error** (20 nodes) in a plain CI
+  checkout, because `test_gate2_parent_agents_md_repair_is_byte_identical_to_the_pipeline`
+  skips there. The clone-depth-stable recorded set is **20 nodes**
+  (`tests/fixtures/baseline_node_set.txt`).
 - Fingerprint `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `a59453b8a1e5a02899f469cf6ea7db9b5eaae658050261e1405c394cb0f3cf6f`
+  `a578a766c09c949c620c9d324248659812d215d3d1e875a0c25b42adb8912aa1`
+  (node set `8036fc06…`; recorded nodes in `tests/fixtures/baseline_node_set.txt`). Earlier
+  published pairs (`a59453b8…`, `9a35c812…`, `4d84e7eb…`, `da2ec262…`) are **not
+  reproducible** across clone depths — do not reuse them. See
+  `docs/control-plane/evidence/gate-hygiene-baseline-fingerprint-reconciliation-01/`.
 
 Counts are environment-sensitive and at least one node
 (`test_engineering_lab_agent_loop.py::test_agent_loop_does_not_mutate_repository`) is
