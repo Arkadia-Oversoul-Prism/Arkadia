@@ -55,11 +55,31 @@ while the value used the outcomes convention, and ids had been captured from `py
 output including the terminal-width-truncated assertion reason. 210 derivations were
 tested; exactly one reproduces `a59453b8…`.
 
-## 3. Next bounded task (not started — separate pass)
+## 3. Next bounded task (classified, not started — separate pass)
 
-`test_autonomy.py` collection error (`load_autonomy_config`) — the error node in the
-baseline set. It is classified debt; repairing it is its own bounded workstream, not
-part of this pass.
+`tests/test_autonomy.py` is the single collection **error** node in the baseline set.
+Root cause, measured:
+
+```
+ImportError: cannot import name 'load_autonomy_config' from 'weaver.autonomy'
+```
+
+Both a module and a package exist and are tracked:
+
+| path | contents |
+| --- | --- |
+| `weaver/autonomy.py` | defines `load_autonomy_config`, `validate_autonomy_config`, `run_scheduled_once` |
+| `weaver/autonomy/__init__.py` | docstring + `__version__`/`__cycle__`/`__status__` only |
+
+The package **shadows** the module (packages win over same-named modules in the same
+directory), so the import can never resolve. The duplication is Genesis-era
+(`9ab26fc`, `18cd657`), i.e. pre-existing baseline debt, not introduced by this pass.
+
+Not repaired here, deliberately: `weaver/autonomy` is a governance-adjacent surface
+(conditional autonomy, guards, proposal engine) and the choice between deleting the
+stale module and folding its functions into the package is an architectural decision.
+It needs its own bounded workstream with an explicit decision on which artifact is
+canonical. Recorded so the next pass starts from a diagnosis rather than a bare name.
 
 ## 4. Authority boundary
 
