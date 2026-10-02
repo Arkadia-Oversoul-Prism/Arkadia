@@ -19,7 +19,7 @@ REQUIRED_FACTS = (
 )
 VERIFIED_STATUS = "VERIFIED_CANDIDATE"
 CANDIDATE_STATUS = "CANDIDATE_SEAM"
-
+\n# Canonical provider identities. A URL or content hash is never an identity.\n# New providers must be registered here before they can satisfy independence.\nREGISTERED_PROVIDER_IDENTITIES = {\n    "portal", "prices", "nocopo", "cbn_fx", "nepc_prices",\n}\n
 
 @dataclass(frozen=True)
 class Evidence:
@@ -61,14 +61,14 @@ def assess_seam(*, title: str, seam_type: str, evidence: Iterable[Evidence],
     items = list(evidence)
     evidence_ids = list(dict.fromkeys(item.evidence_id for item in items))
     source_classes = {item.source_class.strip().upper() for item in items if item.source_class.strip()}
-    source_ids = {item.identity() for item in items if item.identity()}
+    source_ids = {item.identity() for item in items if item.identity() in REGISTERED_PROVIDER_IDENTITIES}
     # Each provider can support only the source class registered for this
     # observation. Reposts or different pages from one provider never add a
     # second independent source.
     class_providers: dict[str, set[str]] = {}
     for item in items:
         if item.source_class.strip() and item.identity():
-            class_providers.setdefault(item.source_class.strip().upper(), set()).add(item.identity())
+            if item.identity() in REGISTERED_PROVIDER_IDENTITIES:\n                class_providers.setdefault(item.source_class.strip().upper(), set()).add(item.identity())
     independent = len(source_ids) >= 2 and len(source_classes) >= 2
     missing = [key for key in REQUIRED_FACTS if not str(getattr(facts, key)).strip()]
     if not facts.legal_basis.strip():
