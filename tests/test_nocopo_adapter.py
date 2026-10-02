@@ -70,3 +70,14 @@ def test_missing_deadline_is_not_actionable():
     }, now=NOW)
     assert item["active_tender_lead"] is False
     assert "missing_tender_end_date" in item["quality_flags"]
+
+
+def test_default_url_matches_official_ocp_2026_publication():
+    from economic_seams.nocopo import DEFAULT_URL
+    assert DEFAULT_URL == "https://data.open-contracting.org/en/publication/64/download?name=2026.jsonl.gz"
+
+
+def test_fetch_rejects_unapproved_nocopo_host():
+    from economic_seams.nocopo import fetch_records
+    with pytest.raises(ValueError, match="approved HTTPS"):
+        fetch_records(url="https://example.com/nocopo.jsonl.gz")
