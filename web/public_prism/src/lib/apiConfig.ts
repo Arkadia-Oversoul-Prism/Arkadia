@@ -1,35 +1,24 @@
-/**
- * Centralized API configuration.
- * All components should import from here instead of using their own ORACLE/API_BASE.
- *
- * Dev mode:  uses '' (relative URLs) — Vite proxy forwards /api/* to localhost:8000
- * Prod mode: uses VITE_API_BASE_URL → VITE_API_URL → Render fallback
- */
-
-// The Render backend URL - production fallback only
 const RENDER_URL = 'https://arkadia-kw64.onrender.com';
 
-let _safeUrl: string;
-
-if (import.meta.env.DEV) {
-  // In development, always use relative URLs so the Vite proxy
-  // (vite.config.ts: /api → http://localhost:8000) routes calls to the
-  // local Oracle Temple. This ensures settings, key management, and all
-  // API calls hit the local backend — not the Render deployment.
-  _safeUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '';
-} else {
-  // In production, resolve from env vars with Render as final fallback.
-  // Note: VITE_API_URL is intentionally excluded here — .env.production may
-  // contain a stale value from a previous deployment. Use VITE_API_BASE_URL
-  // (set in the Vercel dashboard) to override, or the RENDER_URL constant.
-  const raw = (
-    import.meta.env.VITE_API_BASE_URL ||
-    RENDER_URL
-  ).replace(/\/$/, '');
-  _safeUrl = raw.startsWith('http') ? raw : RENDER_URL;
+function androidApiBase(): string | null {
+  if (typeof window === 'undefined') return null;
+  const bridge = (window as Window & { ArkadiaAndroid?: { getApiBaseUrl?: () => string } }).ArkadiaAndroid;
+  try {
+    const value = bridge?.getApiBaseUrl?.();
+    return value?.replace(/\/$/, '') || null;
+  } catch { return null; }
 }
 
-// Named exports for the API base URL
+let _safeUrl: string;
+const nativeApi = androidApiBase();
+if (nativeApi) {
+  _safeUrl = nativeApi;
+} else if (import.meta.env.DEV) {
+  _safeUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '';
+} else {
+  const raw = (import.meta.env.VITE_API_BASE_URL || RENDER_URL).replace(/\/$/, '');
+  _safeUrl = raw.startsWith('http') ? raw : RENDER_URL;
+}
 export const API_BASE_URL = _safeUrl;
-export const API_BASE = _safeUrl;      // Alias for backwards compatibility
+export const API_BASE = _safeUrl;
 export const ORACLE = _safeUrl;
