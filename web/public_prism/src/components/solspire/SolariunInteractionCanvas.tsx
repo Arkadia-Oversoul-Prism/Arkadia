@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import './interaction-canvas.css';
 import { getSolariunPulse, getSolariunWorkload } from '../../lib/solariunApi';
 
 type Props = { onNavigate?: (target: string) => void };
