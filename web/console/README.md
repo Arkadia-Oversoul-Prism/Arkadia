@@ -1,4 +1,4 @@
-# Arkadia Reconciled Console (`web/console/`)
+# Arkadia Console (`web/console/`)
 
 The operator console **derived** from three sources — not a redesign:
 
