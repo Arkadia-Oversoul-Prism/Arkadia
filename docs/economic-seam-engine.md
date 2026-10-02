@@ -78,6 +78,9 @@ line number. It does not infer the exact weekly column mapping from PDF text ord
 page/PDF layout that yields no parseable rows is recorded as a source error rather than a
 successful empty scan.
 
+
+Comparability is fail-closed. A market observation is eligible for cross-source comparison only when commodity specification, unit, geography, period and quote basis are all explicit and equal. CBN FX rows require an explicit observation date, currency, unit and quote basis; NEPC PDF rows with multiple period columns remain raw until a reviewer maps the exact period. No spread is calculated from column position, page order, or a numeric value alone.
+
 These observations are not yet comparable transaction quotes. Before any spread analysis,
 the next layer must normalize effective date, currency, unit, commodity specification,
 location, quote side, taxes, transport, fees, settlement and source freshness. The parser
