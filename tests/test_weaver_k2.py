@@ -262,13 +262,10 @@ def test_auto_routing_unavailable_provider(monkeypatch):
 def test_explicit_provider_is_not_silently_rerouted(monkeypatch):
     import weaver.provider as prov
 
-    called = {"n": 0}
+    def forbidden_auto_route(*args, **kwargs):
+        raise AssertionError("explicit providers must not invoke auto routing")
 
-    def fail_route(req):
-        called["n"] += 1
-        return ("local", {"routing": "auto"})
-
-    monkeypatch.setattr(prov, "_route", fail_route)
+    monkeypatch.setattr("weaver.routing.select_task_provider", forbidden_auto_route)
     monkeypatch.setattr(
         prov,
         "_invoke_gemini",
@@ -283,7 +280,6 @@ def test_explicit_provider_is_not_silently_rerouted(monkeypatch):
     )
     assert result.ok
     assert result.provider == "gemini"
-
 
 def test_invalid_registry_response_is_not_success(monkeypatch):
     import weaver.provider as prov
