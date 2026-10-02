@@ -53,3 +53,42 @@ def test_nepc_price_parser_does_not_infer_from_percent_summary():
         source_url="https://nepc.gov.ng/example.pdf",
     )
     assert rows == []
+
+
+def test_market_comparability_requires_all_dimensions_to_align():
+    from economic_seams.market_data import comparable_market_observations
+    base = {
+        "commodity": "ONIONS",
+        "unit": "50KG PER BAG",
+        "location": "KATSINA",
+        "period": "2026-W35",
+        "quote_basis": "INDICATIVE_LOCAL_PRICE",
+    }
+    assert comparable_market_observations(base, dict(base))
+    mismatch = dict(base, period="2026-W36")
+    assert not comparable_market_observations(base, mismatch)
+
+
+def test_nepc_normalization_refuses_unmapped_pdf_columns():
+    from economic_seams.market_data import normalize_nepc_price_row
+    row = {
+        "source_url": "https://nepc.gov.ng/example.pdf",
+        "commodity_unit_heading": "ONIONS (UNIT:50KG PER BAG)",
+        "state": "KATSINA",
+        "reported_values": ["₦ 58,000.00", "₦ 60,000.00"],
+    }
+    import pytest
+    with pytest.raises(ValueError, match="multiple period"):
+        normalize_nepc_price_row(row, period="2026-W35", unit="50KG PER BAG")
+
+
+def test_cbn_normalization_requires_explicit_quote_context():
+    from economic_seams.market_data import normalize_cbn_fx_row
+    row = {
+        "source_url": "https://www.cbn.gov.ng/rates/ExchRateByCurrency.html",
+        "numeric_values": ["1500.25"],
+    }
+    import pytest
+    with pytest.raises(ValueError, match="date"):
+        normalize_cbn_fx_row(row, observed_date="", quote_basis="NFEM reference",
+                             currency="USD")
