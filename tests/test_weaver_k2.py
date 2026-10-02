@@ -189,3 +189,147 @@ def test_agent_provider_failure_no_commit(monkeypatch):
     assert res.ok is False
     assert res.stage == "llm"
     assert res.status == "FAILED"
+
+
+def test_task_routing_prefers_lower_queue_load(monkeypatch):
+    from weaver.routing import RoutingMetadata, select_task_provider
+
+    class FakeProvider:
+        def __init__(self, name, caps=("chat",)):
+            self.name = name
+            self._caps = list(caps)
+
+        def authenticate(self):
+            return True
+
+        def capabilities(self):
+            return self._caps
+
+    providers = {
+        "gemini": FakeProvider("gemini"),
+        "deepseek": FakeProvider("deepseek"),
+        "local": FakeProvider("local"),
+    }
+    monkeypatch.setattr("weaver.routing.get_provider", lambda name: providers.get(name))
+    selected = select_task_provider(
+        RoutingMetadata(
+            task_type="coding",
+            required_capabilities=("chat",),
+            queue_load={"deepseek": 5, "local": 1, "gemini": 9},
+        )
+    )
+    assert selected.name == "local"
+
+
+def test_task_routing_requires_capabilities(monkeypatch):
+    from weaver.routing import RoutingMetadata, select_task_provider
+
+    class FakeProvider:
+        def __init__(self, name, caps):
+            self.name, self._caps = name, caps
+
+        def authenticate(self):
+            return True
+
+        def capabilities(self):
+            return self._caps
+
+    providers = {
+        "gemini": FakeProvider("gemini", ["chat"]),
+        "claude": FakeProvider("claude", ["chat", "vision"]),
+        "deepseek": FakeProvider("deepseek", ["chat"]),
+        "local": FakeProvider("local", ["chat"]),
+        "gpt": FakeProvider("gpt", ["chat"]),
+    }
+    monkeypatch.setattr("weaver.routing.get_provider", lambda name: providers.get(name))
+    selected = select_task_provider(
+        RoutingMetadata(task_type="vision", required_capabilities=("vision",))
+    )
+    assert selected.name == "claude"
+
+
+def test_auto_routing_unavailable_provider(monkeypatch):
+    import weaver.provider as prov
+
+    monkeypatch.setattr(prov, "_route", lambda req: (None, {"routing": "auto"}))
+    result = prov.invoke_provider(
+        ProviderRequest(provider="auto", prompt="hello", task_type="general")
+    )
+    assert result.outcome == ProviderOutcome.PROVIDER_UNAVAILABLE
+    assert not result.ok
+
+
+def test_explicit_provider_is_not_silently_rerouted(monkeypatch):
+    import weaver.provider as prov
+
+    called = {"n": 0}
+
+    def fail_route(req):
+        called["n"] += 1
+        return ("local", {"routing": "auto"})
+
+    monkeypatch.setattr(prov, "_route", fail_route)
+    monkeypatch.setattr(
+        prov,
+        "_invoke_gemini",
+        lambda req: ProviderResult(
+            outcome=ProviderOutcome.SUCCESS,
+            text="gemini",
+            provider="gemini",
+        ),
+    )
+    result = prov.invoke_provider(
+        ProviderRequest(provider="gemini", prompt="hello")
+    )
+    assert result.ok
+    assert result.provider == "gemini"
+
+
+def test_invalid_registry_response_is_not_success(monkeypatch):
+    import weaver.provider as prov
+
+    class FakeResponse:
+        content = "   "
+        model = "fake-model"
+
+    class FakeProvider:
+        name = "deepseek"
+
+        def authenticate(self):
+            return True
+
+        def send(self, *args, **kwargs):
+            return FakeResponse()
+
+    monkeypatch.setattr("providers.router.get_provider", lambda name: FakeProvider())
+    result = prov.invoke_provider(
+        ProviderRequest(provider="deepseek", prompt="hello")
+    )
+    assert result.outcome == ProviderOutcome.INVALID_RESPONSE
+    assert not result.ok
+
+
+def test_registry_provider_success_is_governed_result(monkeypatch):
+    import weaver.provider as prov
+
+    class FakeResponse:
+        content = "registry-ok"
+        model = "fake-model"
+
+    class FakeProvider:
+        name = "deepseek"
+
+        def authenticate(self):
+            return True
+
+        def send(self, *args, **kwargs):
+            return FakeResponse()
+
+    monkeypatch.setattr("providers.router.get_provider", lambda name: FakeProvider())
+    result = prov.invoke_provider(
+        ProviderRequest(provider="deepseek", prompt="hello")
+    )
+    assert result.ok
+    assert result.provider == "deepseek"
+    assert result.text == "registry-ok"
+    assert result.meta["routing"] == "explicit"
