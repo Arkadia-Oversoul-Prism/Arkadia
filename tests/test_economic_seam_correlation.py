@@ -97,3 +97,16 @@ def test_review_boolean_without_auditable_identity_does_not_verify():
     )
     assert result["status"] == "CANDIDATE_SEAM"
     assert not result["verified"]
+
+
+def test_public_api_assessment_is_capped_even_if_internal_gate_is_satisfied():
+    from economic_seams.correlation import cap_public_assessment
+    assessment = {
+        "status": "VERIFIED_CANDIDATE",
+        "verified": True,
+        "blockers": [],
+    }
+    result = cap_public_assessment(assessment)
+    assert result["status"] == "CANDIDATE_SEAM"
+    assert result["verified"] is False
+    assert "source-backed review workflow" in result["blockers"][0]
