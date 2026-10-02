@@ -28,5 +28,10 @@ description = "AIS session-scoped storage key namespace constants (identifiers, 
 regexTarget = "secret"
 regexes = [
   '''^arkadia[.]ais[.]diagnostic-handoff[.]v1$''',
-  '''^arkadia[.]ais[.]capability-portfolio[.]v1$''',
+  '''^arkadia[.]ais[.]capability-portfolio[.]v1
+]
+'',
+  '''^EXAVITQu4vr4xnSDxMaL
+]
+'', # Public ElevenLabs voice identifier used as a default voice ID, not a credential.
 ]
