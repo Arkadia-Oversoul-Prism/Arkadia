@@ -239,3 +239,60 @@ Docs-only. No merge, no push to `main`, no force-push, no self-authorization, no
 authority-model change, no new mutation/authorization path, no scope expansion.
 
 **READY_FOR_SOVEREIGN_MERGE.** Human-only merge.
+
+---
+
+## Pass 2 — correction pass (this run), measured at `0c8a9f6` / head `b0bdf40`
+
+The Pass-1 corrections were themselves re-derived against live evidence. Three of them were
+found to be **imprecise or stale**, and are corrected here (all as insertions-only over oracle
+`6c43218a48a4`, so `oracle_alterations == []` and `test_live_file_verdict_matches_its_state`
+still sees exit 1).
+
+### C1. SG-04 repair carrier mis-attributed
+
+Pass 1 credited the `CapabilityChamber.tsx` source repair to **PR #185**. It is **PR #174**.
+
+- `git show adf3df2:web/public_prism/src/components/spiral-grove/CapabilityChamber.tsx` -> contains
+  the `ActivityRuntime` import and render. So the source mount is restored at `adf3df2`
+  (PR #174), not later.
+- PR #185 (merge `52973d99...`) is **test-only**: it repairs the expanded-literal pin in
+  `tests/test_spiral_grove_activity_runtime.py` (test wanted an expanded `data-testid`, source
+  emits a template literal `activity-surface-${kind}`).
+- `tests/test_spiral_grove_activity_runtime.py` at `0c8a9f6` = **12 passed**.
+- Residual uncertainty: the intermediate counts (1F/11P at #185 head, 4F/8P pre-#174) were
+  reconstructed from commit messages in the evidence trail, not re-executed against those
+  historical trees. The load-bearing claim - source repaired by #174, test-only by #185, 12
+  passed now - is directly measured.
+
+### C2. Reproducibility command incomplete
+
+A **bare** `python -m pytest tests/` at `0c8a9f6` *interrupts* at the CE-01 collection error
+(exit 2, `1 skipped, 1 error in ~1.3s`) and never reaches the suite. The documented full-suite
+result requires `--continue-on-collection-errors`. `pyyaml` +
+`PYTHONPATH=<repo>/archive/legacy_python` still required. `AGENTS.md` now records the flag.
+
+### C3. `dist/` is untracked, not "tracked but stale"
+
+`git ls-files web/public_prism/dist` -> **0** paths at `0c8a9f6`; `web/public_prism/.gitignore`
+covers `dist/`. The historical tracking is real (41 commits touched it, last deletion `4366c55`,
+2026-10-01) but does not bind the current revision. `AGENTS.md` corrected.
+
+### C4. Pre-existing node set (unchanged, for attribution)
+
+The branch changes **no** source, test, governance, or boot file - only `AGENTS.md` and this
+evidence directory. The 21-node full-suite set (20F + 1E) and the
+`tests/test_agents_md_encoding_adjudication.py` 2F/17P/4S fingerprint are therefore identical
+to `main`; any delta in this run is environmental, not introduced.
+
+### Verification commands (this pass)
+
+```
+python scripts/agents_md_encoding_audit.py
+  -> insertions-only inserted=420 alterations=0 reproduced=True ; exit 1 (clean + corroborated)
+python -m pytest tests/test_agents_md_encoding_adjudication.py -q
+  -> 2 failed, 17 passed, 4 skipped   (identical to main: docs-only change)
+python -m pytest tests/test_spiral_grove_activity_runtime.py -q
+  -> 12 passed
+git ls-files web/public_prism/dist | wc -l  -> 0
+```

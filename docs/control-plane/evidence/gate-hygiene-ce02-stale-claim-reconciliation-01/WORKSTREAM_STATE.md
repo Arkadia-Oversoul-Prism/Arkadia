@@ -9,9 +9,15 @@
 Three stale narrative claims in `AGENTS.md` corrected against live evidence:
 
 1. `vite build` — "environment-blocked" → **runnable** (3441 modules, exit 0).
-2. SG-04 `ActivityRuntime` — "absent / not yet fixed" → **repaired in source** (PR #185,
-   `52973d99`; 12 passed; marker present in build).
+2. SG-04 `ActivityRuntime` — "absent / not yet fixed" → **repaired in source** (PR #174,
+   `adf3df29`; 12 passed; marker present in build).
 3. "two collection errors" → **one** (`test_autonomy.py` only; `test_render_codex.py` absent).
+4. **Pass 2 (this correction):** four further claims re-derived and corrected — the SG-04
+   repair carrier was mis-attributed to PR #185 (test-only) when the source repair is PR #174;
+   the reproducibility command omitted `--continue-on-collection-errors` (a bare `pytest tests/`
+   interrupts at the collection error and under-reports); `dist/` is **untracked**, not
+   "tracked but stale"; and the intermediate SG-04 counts are flagged as reconstructed, not
+   re-executed.
 
 ## Method (load-bearing)
 

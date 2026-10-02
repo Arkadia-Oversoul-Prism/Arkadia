@@ -238,6 +238,10 @@ authenticated node's private Knowledge OS vault — never the public scroll stor
   exist (only the non-collected `tests/render_codex_probe.py`, renamed by `00271b2`). The
   remaining error is the CE-01 `weaver.autonomy` module-vs-package collision, reserved to the
   sovereign; the count above is superseded by this measurement.
+- Also measured at `0c8a9f6`: the reproducibility command above is incomplete — a **bare**
+  `pytest tests/` *interrupts* at the collection error (exit 2) and under-reports the run
+  (`1 skipped, 1 error in ~1.3s`). Add `--continue-on-collection-errors` to reach the
+  documented 20F / 1252P / 17S / 1E. The `pyyaml` + `PYTHONPATH` requirements still hold.
 
 ## CP10 mutation boundary — the allowlist is an inventory, not a filter (GATE-10)
 - `SG-02-FE.2-V` gates every PR *and* `main`. Its allowlist admits legitimate repository
@@ -534,18 +538,24 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
 - **`ActivityRuntime` (SG-04) absence was real for its revision and is repaired in source.**
   The historical observation stands: `activity-runtime-draft.v1:` → 0 occurrences in the
   deployed asset while every SG-03 marker → 1; the SG-03 chamber rewrite had displaced the
-  SG-04 mount. Repaired by PR #185 (merge `52973d9987…`): `CapabilityChamber.tsx` imports and
-  renders `ActivityRuntime`, and `tests/test_spiral_grove_activity_runtime.py` is **12 passed**
-  (was 4F/8P). Production parity still requires a post-#185 deployment — this is a
-  repository-source claim only, not a production-parity claim. Do not reclassify the
-  historical observation as stale.
+  SG-04 mount. Repaired in **source** by PR #174 (merge `adf3df29…`), not by PR #185:
+  `CapabilityChamber.tsx` imports and renders `ActivityRuntime` from `adf3df2` onward
+  (`git show adf3df2:…/CapabilityChamber.tsx` → import + render present), restoring the mount
+  the PR #166 squash (`47e4128`) had dropped. PR #185 (merge `52973d99…`) is **test-only** — it
+  repairs the expanded-literal pin in `tests/test_spiral_grove_activity_runtime.py`, which is
+  now **12 passed** (was 1F/11P at its head, 4F/8P before the source repair). Production parity
+  still requires a post-#174 deployment — this is a repository-source claim only, not a
+  production-parity claim. Do not reclassify the historical observation as stale.
 - **HTTP 200 on any route is not application correctness.** Root `vercel.json` rewrites
   `/(.*)` → `/index.html`, so a route that never existed (e.g. `/api/health`, per
   `git log -S`) returns `200 text/html` identically to any nonexistent path. Prior
   route-reachability results must be read with this caveat.
-- `web/public_prism/dist/` is **tracked but stale** — a build output in version control that
-  drifts on every local build and is env-dependent. Do not commit a locally rebuilt copy;
-  revert stray `dist/` modifications before staging (they are not your change).
+- `web/public_prism/dist/` is **untracked** (`git ls-files web/public_prism/dist` → 0 paths;
+  `web/public_prism/.gitignore` covers `dist/`). It *was* tracked historically — 41 commits
+  touched it, the last deletion being `4366c55` (2026-10-01) — so the earlier "tracked but
+  stale" wording is superseded by this measurement at `0c8a9f6`. A local build therefore leaves
+  a clean tree; do not `git add` a build output, and revert a stray `dist/` modification if one
+  appears on an older revision (it is not your change).
 - **Gate-2 observation is now one read-only command — use it instead of repeating the manual
   sequence.** `python scripts/gate2_production_observation.py` (add `--json` for machine
   output). Stdlib-only, no Vercel credential, no mutation, never prints a token. It
