@@ -2,7 +2,8 @@
 
 Observation time: 2026-10-02T12:0xZ
 Base main: `2b167e4f41ca87699db33a28c76f03550db66847`
-Branch head: `dea69251ee8bbb66d3323f909c2d411ffc6d52da`
+Branch: `gate-hygiene/gate2-harness-classifier-integrity-01`
+  substantive commit `dea69251ee8b`; head advances with persistence commits
 PR: #211
 
 ## Current state

@@ -3,8 +3,10 @@
 Workstream: `gate-hygiene/gate2-harness-classifier-integrity-01`
 Gate: GATE-02 (production parity observation)
 Base main: `2b167e4f41ca87699db33a28c76f03550db66847`
-Branch head: `879b983e4686360ab96fba1451a749a3d9ab019d`
-  (substantive commit `dea69251ee8b`; head adds only PR-linkage persistence)
+Branch: `gate-hygiene/gate2-harness-classifier-integrity-01`
+  substantive commit `dea69251ee8b` (script + tests)
+  the branch head advances with each evidence-persistence commit; resolve it
+  live via the PR rather than from this line
 PR: #211 (open, not draft, mergeable)
 
 Status: **IMPLEMENTED** (docs + harness + tests; no runtime acceptance claimed)
