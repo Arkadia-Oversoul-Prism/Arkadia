@@ -110,3 +110,18 @@ def test_public_api_assessment_is_capped_even_if_internal_gate_is_satisfied():
     assert result["status"] == "CANDIDATE_SEAM"
     assert result["verified"] is False
     assert "source-backed review workflow" in result["blockers"][0]
+
+
+def test_unknown_provider_identity_cannot_satisfy_independence():
+    from economic_seams.correlation import Evidence
+    unknown = Evidence(
+        evidence_id="e3", source_id="unregistered-provider", source_class="price",
+        source_url="https://unregistered.example/data", content_hash="hash",
+        observed_at="2026-10-02T00:00:00+00:00", fact_key="price", fact_value="observed",
+        independently_verified=True,
+    )
+    known = ev("e4", "portal", "procurement", verified=True)
+    result = assess_seam(title="Example", seam_type="trade",
+                         evidence=[known, unknown], facts=complete_facts())
+    assert result["independent_source_count"] == 1
+    assert result["status"] == "LEAD"
