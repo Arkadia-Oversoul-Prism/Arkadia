@@ -181,7 +181,10 @@ If any were introduced by this checkpoint: resolve them or record them explicitl
   Classified baseline debt — not attributable to new work unless the node *set* changes.
 - Baseline fingerprint:
   `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `a59453b8a1e5a02899f469cf6ea7db9b5eaae658050261e1405c394cb0f3cf6f`
+  `4d84e7eb2524d4a5a952405f6df8017398ce21cca44aec6d04fbb523d577c6a7`
+  (node-set fingerprint `da2ec262…`). The previously published `a59453b8…` is **not
+  reproducible** — see
+  `docs/control-plane/evidence/gate-hygiene-baseline-fingerprint-reconciliation-01/`.
 - Gate-2 production parity: **BLOCKED on provider auth** (Vercel Deployment Protection).
   External boundary, not a repository task. Do not re-run the pass expecting a different
   classification.

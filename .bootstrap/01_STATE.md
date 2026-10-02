@@ -84,26 +84,28 @@ Spiral Grove registry declaration-order vs topological-order contract; baseline 
   `python scripts/baseline_fingerprint.py <pytest log>` prints both values below and is
   covered by `tests/test_baseline_fingerprint.py`.
   - outcomes (canonical): `sha256("\n".join(sorted("FAILED|ERROR <nodeid>")) + "\n")` =
-    `a59453b8a1e5a02899f469cf6ea7db9b5eaae658050261e1405c394cb0f3cf6f`
+    `4d84e7eb2524d4a5a952405f6df8017398ce21cca44aec6d04fbb523d577c6a7`
   - node set: `sha256("\n".join(sorted("<nodeid>")) + "\n")` =
-    `9a35c8122188e272ec5769d7a8f5cdba6160b4f2f1fba8a840019a487c1bcc22`
-  > **Correction 2026-10-02** (`gate-hygiene/baseline-fingerprint-reproducibility-01`).
-  > `a59453b8…` was published with the derivation `sha256("\n".join(sorted(FAILED/ERROR
-  > node ids)) + "\n")`, which reads as the node-set derivation and does **not** reproduce
-  > it (that derivation gives `9a35c812…`). The value is `"<OUTCOME> <nodeid>"` lines, and
-  > the ids had been taken from `pytest -q` output **including** the assertion reason,
-  > which pytest truncates to the terminal width — so the same node set hashed differently
-  > at 120 vs 80 columns. `a7687fad…` and `d7ff35b2…687036` were non-reproducible for the
-  > same reason. All three are superseded by the two values above.
-  > **No regression.** The failing/error node set is byte-identical at `64cbe74`,
-  > `481afa1` and `702b63ae` (21 nodes; both fingerprints match at all three revisions),
-  > so the `64cbe74` → `702b63ae` movement is a docs/count change only. The passed count
-  > moves 1240 → 1242 between two measurements of the *same* tree because
+    `da2ec2620d09988e75702b6444ee8ee6ba5ded8bc067aac6c4e149245c27de71`
+  - The recorded node set is `tests/fixtures/baseline_node_set.txt` (21 nodes); the two
+    values above are what the script prints for it.
+  > **Correction 2026-10-02** (`gate-hygiene/baseline-fingerprint-reconciliation-01`).
+  > `gate-hygiene/baseline-fingerprint-reproducibility-01` (PR #203) set out to make the
+  > fingerprint reproducible and merged `scripts/baseline_fingerprint.py`, but the pair it
+  > published (`a59453b8…` / `9a35c812…`) is **not reproducible by that script or by any
+  > other derivation** — running the merged script on the same 21 nodes at the same
+  > revision prints `4d84e7eb…` / `da2ec262…`. The two values above are the reproducible
+  > pair; `a59453b8…` and `9a35c812…` are superseded and must not be republished.
+  > `tests/test_baseline_fingerprint.py` now runs the recorded node set through the
+  > extractor and requires every document that publishes a fingerprint to carry the
+  > canonical value, with a negative control proving the superseded values do not
+  > reproduce. Evidence:
+  > `docs/control-plane/evidence/gate-hygiene-baseline-fingerprint-reconciliation-01/`.
+  > **No regression.** The failing/error node set is byte-identical at `702b63ae` and
+  > `2b167e4` (21 nodes; both fingerprints match), so the intervening commits changed no
+  > failure node. The passed count moves between runs of the *same* tree because
   > `tests/test_engineering_lab_agent_loop.py::test_agent_loop_does_not_mutate_repository`
   > is order-dependent (documented in `AGENTS.md`); it is not a failure-node change.
-  > The 1039 → 1240 passed movement versus the earlier `002b189` measurement is explained
-  > by the 42 intervening commits (20 new test files, +4049 test lines) and `00271b2`
-  > repairing the `test_render_codex` collection error.
 - Registered layer violations: 10 (LAYER_MAP.py — do not touch)
 - Registered circular imports: 3 (LAYER_MAP.py — do not touch)
 - Workflows (local Replit): failing (pre-existing — missing secrets)

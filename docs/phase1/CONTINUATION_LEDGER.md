@@ -1765,7 +1765,11 @@ or mutation-path surface was touched.
   (21 failing/error nodes) — **identical to the baseline recorded at pass start**.
 - Baseline fingerprint independently reproduced from the measured node list:
   `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `a59453b8a1e5a02899f469cf6ea7db9b5eaae658050261e1405c394cb0f3cf6f`
+  `4d84e7eb2524d4a5a952405f6df8017398ce21cca44aec6d04fbb523d577c6a7`
+  > **Correction 2026-10-02**: the `a59453b8…` recorded here was **not reproducible** —
+  > neither by the derivation printed beside it nor by `scripts/baseline_fingerprint.py`,
+  > which prints `4d84e7eb…` for the same 21 nodes. See
+  > `docs/control-plane/evidence/gate-hygiene-baseline-fingerprint-reconciliation-01/`.
 - `pytest tests/architecture -q` → **11 passed** (unchanged).
 - No regression attributable to this pass — it is docs-only.
 

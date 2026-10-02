@@ -112,7 +112,11 @@ Re-measured 2026-10-02 on `main` @ `64cbe74`:
 
 - Full suite: **20 failed / 1240 passed / 17 skipped / 1 error** (21 failing/error nodes)
 - Fingerprint `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `a59453b8a1e5a02899f469cf6ea7db9b5eaae658050261e1405c394cb0f3cf6f`
+  `4d84e7eb2524d4a5a952405f6df8017398ce21cca44aec6d04fbb523d577c6a7`
+  (node set `da2ec262…`; recorded nodes in `tests/fixtures/baseline_node_set.txt`). The
+  earlier published `a59453b8…` is **not reproducible** by any derivation — do not reuse
+  it. See
+  `docs/control-plane/evidence/gate-hygiene-baseline-fingerprint-reconciliation-01/`.
 
 Counts are environment-sensitive and at least one node
 (`test_engineering_lab_agent_loop.py::test_agent_loop_does_not_mutate_repository`) is

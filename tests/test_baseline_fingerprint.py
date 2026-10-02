@@ -150,3 +150,86 @@ def test_non_outcome_lines_are_ignored(tmp_path, line):
     log = _write(tmp_path, line + "\n")
     outcomes, ids = baseline_fingerprint.extract(str(log))
     assert outcomes == [] and ids == []
+
+
+# --- Live node set and published-value agreement ---------------------------
+#
+# The tests above pin the *derivation* with synthetic input. They cannot catch a
+# published value that is internally inconsistent, because the published value is
+# never fed back through the derivation. These tests close that gap: they run the
+# real recorded baseline node set through the extractor and require the repository's
+# published fingerprint to equal the result.
+#
+# History this guards: `.bootstrap/01_STATE.md` published `a59453b8…`/`9a35c812…`,
+# but neither is reproducible from the derivation printed beside it (or from any
+# other convention), and `scripts/baseline_fingerprint.py` — merged specifically to
+# make the value reproducible — prints `4d84e7eb…`/`da2ec262…` for the same nodes at
+# the same revision. See
+# `docs/control-plane/evidence/gate-hygiene-baseline-fingerprint-reconciliation-01/`.
+
+LIVE_NODE_SET = REPO_ROOT / "tests" / "fixtures" / "baseline_node_set.txt"
+
+# Canonical values: `scripts/baseline_fingerprint.py` run on LIVE_NODE_SET.
+CANONICAL_OUTCOMES_FINGERPRINT = (
+    "4d84e7eb2524d4a5a952405f6df8017398ce21cca44aec6d04fbb523d577c6a7"
+)
+CANONICAL_IDS_FINGERPRINT = (
+    "da2ec2620d09988e75702b6444ee8ee6ba5ded8bc067aac6c4e149245c27de71"
+)
+
+# Values that were published but are not reproducible. They must not reappear in
+# the repository docs: the doc-agreement test below fails if either is found.
+SUPERSEDED_OUTCOMES_FINGERPRINT = (
+    "a59453b8a1e5a02899f469cf6ea7db9b5eaae658050261e1405c394cb0f3cf6f"
+)
+SUPERSEDED_IDS_FINGERPRINT = (
+    "9a35c8122188e272ec5769d7a8f5cdba6160b4f2f1fba8a840019a487c1bcc22"
+)
+
+# Documents that publish a baseline fingerprint and must agree with the canonical
+# value. MISSION.md / NEXT_AGENT.md / the ledger are read by the next agent, so a
+# stale value there propagates the defect rather than recording it.
+FINGERPRINT_DOCS = [
+    ".bootstrap/01_STATE.md",
+    "MISSION.md",
+    "NEXT_AGENT.md",
+    "docs/phase1/CONTINUATION_LEDGER.md",
+]
+
+
+def test_live_node_set_reproduces_the_canonical_fingerprint():
+    """The recorded 21-node baseline set must hash to the published canonical value."""
+    outcomes, ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
+    assert len(ids) == 21
+    assert sum(1 for o in outcomes if o.startswith("FAILED")) == 20
+    assert sum(1 for o in outcomes if o.startswith("ERROR")) == 1
+    assert baseline_fingerprint.fingerprint(outcomes) == CANONICAL_OUTCOMES_FINGERPRINT
+    assert baseline_fingerprint.fingerprint(ids) == CANONICAL_IDS_FINGERPRINT
+
+
+def test_superseded_fingerprints_are_not_reproducible():
+    """Negative control: the old published values must NOT be reproducible, so the
+    doc-agreement test cannot be satisfied by accident. A convention that happened to
+    yield the superseded value would mean the correction was wrong."""
+    outcomes, ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
+    assert baseline_fingerprint.fingerprint(outcomes) != SUPERSEDED_OUTCOMES_FINGERPRINT
+    assert baseline_fingerprint.fingerprint(ids) != SUPERSEDED_IDS_FINGERPRINT
+    # And no "reason included" / "unsorted" variant lands on them either.
+    assert (
+        hashlib.sha256(("\n".join(sorted(ids)).encode())).hexdigest()
+        != SUPERSEDED_IDS_FINGERPRINT
+    )
+
+
+@pytest.mark.parametrize("doc", FINGERPRINT_DOCS)
+def test_published_docs_carry_the_canonical_fingerprint(doc):
+    text = (REPO_ROOT / doc).read_text(encoding="utf-8")
+    assert SUPERSEDED_OUTCOMES_FINGERPRINT not in text, (
+        f"{doc} still publishes the non-reproducible outcomes fingerprint"
+    )
+    assert SUPERSEDED_IDS_FINGERPRINT not in text, (
+        f"{doc} still publishes the non-reproducible node-set fingerprint"
+    )
+    assert CANONICAL_OUTCOMES_FINGERPRINT in text, (
+        f"{doc} does not publish the canonical outcomes fingerprint"
+    )
