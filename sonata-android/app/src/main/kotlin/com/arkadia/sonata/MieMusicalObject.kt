@@ -17,7 +17,8 @@ data class MieMusicalObject(
     val parentId: String? = null
 ) {
     fun toJson(): String {
-        fun esc(value: String) = value.replace("\\", "\\\\").replace(""", "\\"")
+        fun esc(value: String): String =
+            value.replace("\\", "\\\\").replace(""", "\\"")
         val pitch = detectedPitchHz?.let { String.format(Locale.US, "%.2f", it) } ?: "null"
         val midi = detectedMidi?.let { String.format(Locale.US, "%.2f", it) } ?: "null"
         val parent = parentId?.let { """ + esc(it) + """ } ?: "null"
