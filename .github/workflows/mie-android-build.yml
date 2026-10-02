@@ -32,6 +32,10 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x sonata-android/gradlew
 
+      - name: Unit tests
+        working-directory: sonata-android
+        run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
+
       - name: Build debug APK
         working-directory: sonata-android
         run: ./gradlew assembleDebug --no-daemon --stacktrace
