@@ -17,7 +17,7 @@ import urllib.request
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from api.auth import require_auth
 from lab import build_overview
@@ -162,6 +162,7 @@ async def authorize_session(
             operations_allowed=tuple(body.operations_allowed),
             duration_minutes=body.duration_minutes,
         )
+        get_store().attach_authorization(session_id, user["uid"], auth["authorization_id"])
         if session["state"] == "PROPOSED":
             runtime.transition(session_id, user["uid"], "AUTHORIZED")
         return {"authorization": auth, "session": runtime.get_session(session_id, user["uid"])}
@@ -411,7 +412,7 @@ class AgentLoopBody(BaseModel):
     objective: str
     provider: str = "ollama"
     model: str | None = None
-    max_turns: int = 6
+    max_turns: int = Field(default=6, ge=1, le=8)
 
 
 @router.post("/engineering/sessions/{session_id}/run-agent")
