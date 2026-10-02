@@ -105,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const data = await apiRequest<{ field?: SovereignField }>('/enterprise/sovereign-field');
+      const data = await apiRequest<{ field?: SovereignField }>('/solspire/enterprise/sovereign-field');
       setSovereignField(data.field ?? null);
     } catch (fieldError) {
       // Non-sovereign identities receive 403 by design; that is not a hydration failure.
