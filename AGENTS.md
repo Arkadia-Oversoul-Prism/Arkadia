@@ -583,6 +583,23 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   main carries ~20, the delta being the steward-filter carrier merged as `002b189`.
 - `python -m py_compile api/main.py` before committing boot-code changes; budget 2600
   (currently 2519).
+- **Superseded fingerprints have an explained origin — they are not "unreproducible".**
+  The pair `a59453b8…` (outcomes) / `9a35c812…` (ids) equals the recorded **20-node**
+  baseline set **plus** its depth-dependent *sibling*
+  `tests/test_agents_md_encoding_adjudication.py::test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec`.
+  That node dereferences the `GATE2_PARENT_REV` read **unconditionally**, so without the
+  PR-head revision `7d79f38…` it **errors** (`AttributeError`) rather than skipping — a bare
+  clone's live 21-node run hashes to exactly that pair, while the recorded 20 nodes hash to
+  the canonical `a578a766…` / `8036fc06…`. (`AGENTS.md` itself recorded `a59453b8…` as a
+  21-node fingerprint — the earlier "not reproducible by any convention" verdict was a
+  measurement gap, not a true UNKNOWN.) The pair stays **superseded** (clone-depth
+  dependent), but its origin is now guarded by
+  `tests/test_baseline_fingerprint.py::test_superseded_values_are_the_recorded_set_plus_its_sibling`
+  and explained in `docs/control-plane/evidence/gate-hygiene-superseded-fingerprint-origin-01/`.
+  The two excluded nodes' own assertion defects (both pin `7d79f38…` and mis-handle its
+  absence) remain a **separate proposed workstream** — do not "fix" them inside a
+  fingerprint workstream.
+
 ## Merge-loss forensics — a merge can invent a state present in neither parent
 - A hand-resolved merge is not "one side or the other." `ff80b8c` took the inline
   work-surface from its **second** parent (`5c78fcb`) but the import line from its **first**
