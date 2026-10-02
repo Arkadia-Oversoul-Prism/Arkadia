@@ -217,8 +217,10 @@ authenticated node's private Knowledge OS vault — never the public scroll stor
   backend identifier that does not yet exist at that scope.
 - Frontend tests in this repo are largely **source-level string assertions** against `.tsx`
   files (`tests/test_solariun_*.py`, `test_solspire_*`, `test_prism_pass_c_*`); follow that
-  convention. `vite build` is environment-blocked (no npm registry access), so changes are
-  inspection-verified only unless the sandbox has `node_modules`.
+  convention. The npm registry is reachable and a clean install + build succeeds here
+  (`corepack pnpm install && corepack pnpm build`, node 24 / pnpm 10.26); attempt it and
+  report the measured result. `pnpm`'s activation symlink can hit `EACCES` — `corepack pnpm`
+  is the working invocation. Build output lands in untracked `dist/`.
 
 ## Repo hygiene — private vault is gitignored (GATE-VAULT)
 - `vault/` (Knowledge OS private vault runtime output) is gitignored via `vault/**`
@@ -232,6 +234,14 @@ authenticated node's private Knowledge OS vault — never the public scroll stor
 - Full-suite reproducibility needs `pyyaml` and `PYTHONPATH=<repo>/archive/legacy_python`;
   with those the suite yields exactly the documented 2 collection errors (pre-existing:
   `test_autonomy.py` `load_autonomy_config`, `test_render_codex.py` `arkadia_drive_sync`).
+- Measured at `0c8a9f6`: **1** collection error, not 2 — `tests/test_render_codex.py` does not
+  exist (only the non-collected `tests/render_codex_probe.py`, renamed by `00271b2`). The
+  remaining error is the CE-01 `weaver.autonomy` module-vs-package collision, reserved to the
+  sovereign; the count above is superseded by this measurement.
+- Also measured at `0c8a9f6`: the reproducibility command above is incomplete — a **bare**
+  `pytest tests/` *interrupts* at the collection error (exit 2) and under-reports the run
+  (`1 skipped, 1 error in ~1.3s`). Add `--continue-on-collection-errors` to reach the
+  documented 20F / 1252P / 17S / 1E. The `pyyaml` + `PYTHONPATH` requirements still hold.
 
 ## CP10 mutation boundary — the allowlist is an inventory, not a filter (GATE-10)
 - `SG-02-FE.2-V` gates every PR *and* `main`. Its allowlist admits legitimate repository
@@ -407,6 +417,23 @@ Gate 2 is open on production parity. Current main was established at `8f9d509ec4
 - Prefer to describe corrupt sequences by **codepoint** (`U+0442 U+0410 U+0424`), never by
   pasting the literal characters: a literal in the lesson re-introduces the very corruption the
   lesson documents, and the verification above then fails on the documentation itself.
+- **The live file is under a standing insertion-only constraint — editing it in place is a
+  regression, not a neutral edit.** `scripts/agents_md_encoding_audit.py` (oracle
+  `6c43218a48a4`, the last clean revision) audits the *working tree* and asserts the recovered
+  text relates to the oracle by **insertions only** (`oracle_alterations == []`). Rewriting a
+  line that the oracle already contains yields `alterations=1` → `decidable=False` → exit 2,
+  which breaks `test_live_file_verdict_matches_its_state` and
+  `test_cli_summarises_the_oracle_without_crashing` (2 new failures) even though the bytes are
+  clean and `cyrillic == 0`. Proven: an in-place rewrite of the reproducibility sentence moved
+  `tests/test_agents_md_encoding_adjudication.py` from 2F/17P to 4F/15P and the full-suite
+  fingerprint from `a59453b8…` (21 nodes) to `f1c7c0c3…` (23 nodes).
+- **To change text an oracle line carries, append a correction — never rewrite the line.**
+  Stale claims that sit on oracle lines get a dated "measured at `<sha>`: … supersedes the
+  above" insertion instead. Lines added *after* the oracle are not constrained. Verify with
+  `python scripts/agents_md_encoding_audit.py` → `alterations=0`, `oracle_reproduced=True`,
+  **exit 1** — the clean-and-oracle-corroborated status, not a failure. Exit 2 is the
+  divergent/undecided one; exit 0 is a successful mojibake *recovery*. Then re-derive the
+  fingerprint with `scripts/baseline_fingerprint.py`; the node set must be unchanged.
 
 ## Agent Execution Contract — Mandatory for Every Workstream
 
@@ -508,20 +535,27 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   `SOLSPIRE_LENSES.has(candidate)`; `/solariun/opportunity-radar` is therefore a real lens
   route. Because `vercel.json` rewrites everything to `/index.html`, a 200 proves nothing —
   read the router. Marker `opportunity-radar` is present in the deployed bundle.
-- **`ActivityRuntime` (SG-04) is absent from the production bundle, not just from the test
-  assertions.** `activity-runtime-draft.v1:` → 0 occurrences in the deployed asset while
-  every SG-03 marker → 1. The SG-03 chamber rewrite displaced the SG-04 mount and that
-  carried to production. `tests/test_spiral_grove_activity_runtime.py` is **4F/8P** while
-  `tests/test_spiral_grove_chambers.py` is green. This is a real product regression
-  (tracked `gate-hygiene` / SH-02, Gate GATE-01), not a stale assertion — do not reclassify
-  it as stale. Not yet fixed: the repair is a product change outside Gate-2 hygiene scope.
+- **`ActivityRuntime` (SG-04) absence was real for its revision and is repaired in source.**
+  The historical observation stands: `activity-runtime-draft.v1:` → 0 occurrences in the
+  deployed asset while every SG-03 marker → 1; the SG-03 chamber rewrite had displaced the
+  SG-04 mount. Repaired in **source** by PR #174 (merge `adf3df29…`), not by PR #185:
+  `CapabilityChamber.tsx` imports and renders `ActivityRuntime` from `adf3df2` onward
+  (`git show adf3df2:…/CapabilityChamber.tsx` → import + render present), restoring the mount
+  the PR #166 squash (`47e4128`) had dropped. PR #185 (merge `52973d99…`) is **test-only** — it
+  repairs the expanded-literal pin in `tests/test_spiral_grove_activity_runtime.py`, which is
+  now **12 passed** (was 1F/11P at its head, 4F/8P before the source repair). Production parity
+  still requires a post-#174 deployment — this is a repository-source claim only, not a
+  production-parity claim. Do not reclassify the historical observation as stale.
 - **HTTP 200 on any route is not application correctness.** Root `vercel.json` rewrites
   `/(.*)` → `/index.html`, so a route that never existed (e.g. `/api/health`, per
   `git log -S`) returns `200 text/html` identically to any nonexistent path. Prior
   route-reachability results must be read with this caveat.
-- `web/public_prism/dist/` is **tracked but stale** — a build output in version control that
-  drifts on every local build and is env-dependent. Do not commit a locally rebuilt copy;
-  revert stray `dist/` modifications before staging (they are not your change).
+- `web/public_prism/dist/` is **untracked** (`git ls-files web/public_prism/dist` → 0 paths;
+  `web/public_prism/.gitignore` covers `dist/`). It *was* tracked historically — 41 commits
+  touched it, the last deletion being `4366c55` (2026-10-01) — so the earlier "tracked but
+  stale" wording is superseded by this measurement at `0c8a9f6`. A local build therefore leaves
+  a clean tree; do not `git add` a build output, and revert a stray `dist/` modification if one
+  appears on an older revision (it is not your change).
 - **Gate-2 observation is now one read-only command — use it instead of repeating the manual
   sequence.** `python scripts/gate2_production_observation.py` (add `--json` for machine
   output). Stdlib-only, no Vercel credential, no mutation, never prints a token. It
