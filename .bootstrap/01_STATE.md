@@ -75,7 +75,9 @@ Spiral Grove registry declaration-order vs topological-order contract; baseline 
 - Architecture fitness tests: **11/11**
 - Full suite (`PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q
   --continue-on-collection-errors`): **20 failed / 1242 passed / 17 skipped / 1 error**
-  (21 failing/error nodes) — re-measured 2026-10-02 on `main` @ `702b63ae`.
+  (21 failing/error nodes in a clone carrying `7d79f38…`; 20 nodes — `19 failed / 1 error` —
+  in a plain CI checkout, where `test_gate2_parent_agents_md_repair_is_byte_identical_to_the_pipeline`
+  skips) — re-measured 2026-10-02 on `main` @ `702b63ae`.
   Classified baseline debt — see
   `docs/control-plane/evidence/gate-hygiene-baseline-test-debt-classification-01/`.
   The 49 → 20 failure reduction since `a26af408` is fully explained by the merged SH-02
@@ -84,26 +86,35 @@ Spiral Grove registry declaration-order vs topological-order contract; baseline 
   `python scripts/baseline_fingerprint.py <pytest log>` prints both values below and is
   covered by `tests/test_baseline_fingerprint.py`.
   - outcomes (canonical): `sha256("\n".join(sorted("FAILED|ERROR <nodeid>")) + "\n")` =
-    `4d84e7eb2524d4a5a952405f6df8017398ce21cca44aec6d04fbb523d577c6a7`
+    `a578a766c09c949c620c9d324248659812d215d3d1e875a0c25b42adb8912aa1`
   - node set: `sha256("\n".join(sorted("<nodeid>")) + "\n")` =
-    `da2ec2620d09988e75702b6444ee8ee6ba5ded8bc067aac6c4e149245c27de71`
-  - The recorded node set is `tests/fixtures/baseline_node_set.txt` (21 nodes); the two
+    `8036fc0692eb0358f037adb2cf9e2b234db1f41a4586ca0162f4e52350cfa713`
+  - The recorded node set is `tests/fixtures/baseline_node_set.txt` (20 nodes); the two
     values above are what the script prints for it.
   > **Correction 2026-10-02** (`gate-hygiene/baseline-fingerprint-reconciliation-01`).
   > `gate-hygiene/baseline-fingerprint-reproducibility-01` (PR #203) set out to make the
   > fingerprint reproducible and merged `scripts/baseline_fingerprint.py`, but the pair it
   > published (`a59453b8…` / `9a35c812…`) is **not reproducible by that script or by any
-  > other derivation** — running the merged script on the same 21 nodes at the same
-  > revision prints `4d84e7eb…` / `da2ec262…`. The two values above are the reproducible
-  > pair; `a59453b8…` and `9a35c812…` are superseded and must not be republished.
+  > other derivation**. The first reconciliation pass then published `4d84e7eb…` /
+  > `da2ec262…`, which *was* reproducible — but only in a clone that contained the PR-head
+  > revision `7d79f38…`, because the recorded set held a node that skips when that revision
+  > is absent (`test_gate2_parent_agents_md_repair_is_byte_identical_to_the_pipeline`). The
+  > value therefore encoded **clone depth**, not the repository's debt, and a CI checkout —
+  > which does not fetch PR-head revisions — derived the older, differently-shaped set.
+  > The recorded set now excludes that node (20 nodes) and the values above are stable
+  > across clone depths. All three earlier pairs (`a59453b8…`, `9a35c812…`, `4d84e7eb…`,
+  > `da2ec262…`) are superseded and must not be republished.
   > `tests/test_baseline_fingerprint.py` now runs the recorded node set through the
   > extractor and requires every document that publishes a fingerprint to carry the
   > canonical value, with a negative control proving the superseded values do not
-  > reproduce. Evidence:
+  > reproduce, and a guard that the clone-depth-dependent node never re-enters the set.
+  > Evidence:
   > `docs/control-plane/evidence/gate-hygiene-baseline-fingerprint-reconciliation-01/`.
-  > **No regression.** The failing/error node set is byte-identical at `702b63ae` and
-  > `2b167e4` (21 nodes; both fingerprints match), so the intervening commits changed no
-  > failure node. The passed count moves between runs of the *same* tree because
+  > **No regression.** The clone-depth-stable failing/error node set is unchanged at
+  > `2b167e4` — 20 nodes, `19 failed / 1 error` — with the pinned PR-head revision present
+  > and absent alike; the one node that moved between the two clones is the depth-dependent
+  > node now excluded from the recorded set. The passed count moves between runs of the
+  > *same* tree because
   > `tests/test_engineering_lab_agent_loop.py::test_agent_loop_does_not_mutate_repository`
   > is order-dependent (documented in `AGENTS.md`); it is not a failure-node change.
 - Registered layer violations: 10 (LAYER_MAP.py — do not touch)

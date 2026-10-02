@@ -177,13 +177,17 @@ If any were introduced by this checkpoint: resolve them or record them explicitl
 ## Repository Health (re-measured 2026-10-02, `main` @ `64cbe74`)
 
 - Architecture fitness tests: **11/11**
-- Full suite: **20 failed / 1240 passed / 17 skipped / 1 error** (21 failing/error nodes).
+- Full suite: **20 failed / 1240 passed / 17 skipped / 1 error** in a clone that carries the
+  pinned PR-head revision `7d79f38…`; **19 failed / 1 error** (20 nodes) in a plain CI
+  checkout. The clone-depth-stable recorded set is **20 nodes**
+  (`tests/fixtures/baseline_node_set.txt`).
   Classified baseline debt — not attributable to new work unless the node *set* changes.
 - Baseline fingerprint:
   `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `4d84e7eb2524d4a5a952405f6df8017398ce21cca44aec6d04fbb523d577c6a7`
-  (node-set fingerprint `da2ec262…`). The previously published `a59453b8…` is **not
-  reproducible** — see
+  `a578a766c09c949c620c9d324248659812d215d3d1e875a0c25b42adb8912aa1`
+  (node-set fingerprint `8036fc06…`). The previously published pairs (`a59453b8…`,
+  `9a35c812…`, `4d84e7eb…`, `da2ec262…`) are **not reproducible** across clone depths —
+  see
   `docs/control-plane/evidence/gate-hygiene-baseline-fingerprint-reconciliation-01/`.
 - Gate-2 production parity: **BLOCKED on provider auth** (Vercel Deployment Protection).
   External boundary, not a repository task. Do not re-run the pass expecting a different
