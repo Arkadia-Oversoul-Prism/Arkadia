@@ -33,7 +33,10 @@ recorded in `AGENTS.md` so it is not re-derived next pass.
 
 ## Blockers
 
-None for this pass.
+None for this pass. CI on head `842b3e0`: both gate check-runs green (`Vercel Preview Comments`,
+`Full-history secret scan`). The red `Vercel – console` **commit status is pre-existing on
+`main` `0c8a9f6`** (where `Vercel – arkadia-prism` is red too) and is not attributable to this
+docs-only PR. See `EVIDENCE.md` §9.
 
 ## Not in scope / not re-litigated
 
