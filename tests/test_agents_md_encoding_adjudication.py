@@ -387,10 +387,18 @@ def test_gate2_parent_agents_md_repair_is_byte_identical_to_the_pipeline():
     if text is None:
         pytest.skip(f"gate-2 parent {GATE2_PARENT_REV} unavailable in this clone")
     oracle = _rev("AGENTS.md", ORACLE_REV)
+    # Read the corruption off the pinned revision that carried it, not off the
+    # moving branch `origin/main`: `main` is now repaired, so "origin/main is
+    # corrupt" is a premise that expires with the very repair this instrument
+    # guards. `healed` is a superset of the corrupt text the file grew from, so
+    # it must still start with that revision's bytes.
+    corrupted_main = _rev("AGENTS.md", CORRUPTION_COMMIT)
+    if corrupted_main is None or cyrillic_count(corrupted_main) == 0:
+        pytest.skip(f"pinned corrupt revision {CORRUPTION_COMMIT} unavailable in this clone")
     healed, changed = heal_shadow(text)
     assert changed > 0
-    assert healed.startswith(_rev("AGENTS.md", "origin/main")), "the cp775 undo restores main's bytes"
-    assert cyrillic_count(healed) == cyrillic_count(_rev("AGENTS.md", "origin/main")), (
+    assert healed.startswith(corrupted_main), "the cp775 undo restores the pinned corrupt bytes"
+    assert cyrillic_count(healed) == cyrillic_count(corrupted_main), (
         "the outer heal must not touch the inner CP866 class — that is recover()'s job"
     )
     repaired, _ = recover(healed)
