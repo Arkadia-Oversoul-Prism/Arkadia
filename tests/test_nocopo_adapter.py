@@ -61,3 +61,12 @@ def test_parses_gzip_jsonl():
 def test_rejects_malformed_jsonl():
     with pytest.raises(ValueError, match="Malformed NOCOPO JSONL"):
         parse_jsonl_gzip(gzip.compress(b"{bad json"), now=NOW)
+
+
+def test_missing_deadline_is_not_actionable():
+    item = normalize_record({
+        "ocid": "ocds-gyl66f-no-deadline",
+        "tender": {"title": "Tender without deadline", "status": "active"},
+    }, now=NOW)
+    assert item["active_tender_lead"] is False
+    assert "missing_tender_end_date" in item["quality_flags"]
