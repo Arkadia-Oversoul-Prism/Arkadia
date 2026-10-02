@@ -59,6 +59,15 @@ which **skips** when that revision is absent, so:
 | carries `7d79f38…` (interactive checkout, PR ref fetched) | FAILED | 21 nodes → `4d84e7eb…` / `da2ec262…` |
 | does not carry it (CI checkout, `actions/checkout` without PR refs) | SKIPPED | 20 nodes → `a578a766…` / `8036fc06…` |
 
+The split is **not** caused by CI's fetch depth: `sg-02-fe-2-v.yml` checks out with
+`fetch-depth: 0`. It is caused by the revision being reachable from **no ref at all** —
+`git branch -r --contains 7d79f38…` and `git for-each-ref --contains 7d79f38…` are both
+empty, and `git merge-base --is-ancestor 7d79f38… origin/main` exits non-zero. A checkout
+that fetches refs therefore cannot contain it regardless of depth, while an interactive
+clone that once fetched the PR ref does. Verified in this clone: the node reports
+`SKIPPED`, and `grep -E "^(FAILED|ERROR) " <live log>` yields **21** lines, of which the
+depth-dependent node is the only one absent from the 20-node recorded set.
+
 The value therefore encoded **clone depth**, not the repository's test debt — the same
 defect class this workstream exists to remove, one layer down. CI is the authority for a
 gate-hygiene fingerprint, so the recorded set must be depth-stable. The node is now
