@@ -128,3 +128,15 @@ def persist_assessment(connection, assessment: dict) -> str:
         ),
     )
     return opportunity_id
+
+
+def cap_public_assessment(assessment: dict) -> dict:
+    """Defense-in-depth: public submissions can never self-promote to verified."""
+    result = dict(assessment)
+    if result.get("verified"):
+        result["verified"] = False
+        result["status"] = CANDIDATE_STATUS
+        blockers = list(result.get("blockers") or [])
+        blockers.append("Public API assessments require a source-backed review workflow before VERIFIED_CANDIDATE.")
+        result["blockers"] = blockers
+    return result
