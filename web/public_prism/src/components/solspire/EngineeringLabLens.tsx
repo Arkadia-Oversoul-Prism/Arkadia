@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ApiError, apiRequest } from '../../lib/apiClient';
-import EngineeringLabRunning nowLens from './EngineeringLabRunning nowLens';
+import EngineeringLabRuntimeLens from './EngineeringLabRunning nowLens';
 
 type LabOverview = {
   schema_version?: string;
