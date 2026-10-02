@@ -934,8 +934,7 @@ function Workflows({ project }: { project: Project }) {
                   <div key={i} style={{ marginBottom: i < result.execution.results.length - 1 ? '10px' : 0 }}>
                     <p style={{ fontFamily: 'sans-serif', fontSize: '9px', color: 'rgba(212,223,232,0.35)', margin: '0 0 4px' }}>Step {(r.step as number) + 1} · {String(r.tool)}</p>
                     <pre style={{ fontFamily: 'monospace', fontSize: '12px', color: 'rgba(212,223,232,0.75)', background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '6px', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '280px', overflowY: 'auto' }}>
-                      {text.slice(0, 2500)}{text.length > 2500 ? '
-[…truncated]' : ''}
+                      {text.slice(0, 2500)}{text.length > 2500 ? '\n[…truncated]' : ''}
                     </pre>
                   </div>
                 );
