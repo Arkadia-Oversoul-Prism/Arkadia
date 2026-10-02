@@ -28,17 +28,16 @@ def complete_facts(**overrides):
         legal_basis="applicable procurement and commercial contract terms reviewed",
         why_spread_exists="supplier payment terms and buyer settlement timing differ",
         human_eligibility_review=True,
+        reviewer_uid="sovereign-test-user",
+        reviewed_at="2026-10-02T00:00:00+00:00",
     )
     values.update(overrides)
     return TransactionFacts(**values)
 
 
 def test_single_source_remains_lead():
-    result = assess_seam(
-        title="Example", seam_type="procurement",
-        evidence=[ev("e1", "portal", "procurement")],
-        facts=complete_facts(),
-    )
+    result = assess_seam(title="Example", seam_type="procurement",
+                         evidence=[ev("e1", "portal", "procurement")], facts=complete_facts())
     assert result["status"] == "LEAD"
     assert not result["verified"]
 
@@ -53,17 +52,18 @@ def test_two_classes_with_missing_facts_are_not_verified():
     assert "counterparty" in result["missing_facts"]
 
 
-def test_duplicate_source_cannot_fake_independence():
+def test_duplicate_provider_cannot_fake_independence_with_new_url_or_class():
     first = ev("e1", "portal", "procurement")
     repost = Evidence(
         evidence_id="e2", source_id="portal", source_class="price",
-        source_url=first.source_url, content_hash=first.content_hash,
-        observed_at=first.observed_at, fact_key="price", fact_value="same copy",
+        source_url="https://portal.example/another-page", content_hash="different-hash",
+        observed_at=first.observed_at, fact_key="price", fact_value="new page",
         independently_verified=True,
     )
     result = assess_seam(title="Example", seam_type="trade",
                          evidence=[first, repost], facts=complete_facts())
     assert result["status"] == "LEAD"
+    assert result["independent_source_count"] == 1
     assert not result["verified"]
 
 
@@ -84,6 +84,16 @@ def test_unverified_evidence_blocks_promotion():
         evidence=[ev("e1", "portal", "procurement", verified=False),
                   ev("e2", "prices", "price", verified=True)],
         facts=complete_facts(),
+    )
+    assert result["status"] == "CANDIDATE_SEAM"
+    assert not result["verified"]
+
+
+def test_review_boolean_without_auditable_identity_does_not_verify():
+    result = assess_seam(
+        title="Example", seam_type="trade",
+        evidence=[ev("e1", "portal", "procurement"), ev("e2", "prices", "price")],
+        facts=complete_facts(reviewer_uid="", reviewed_at=""),
     )
     assert result["status"] == "CANDIDATE_SEAM"
     assert not result["verified"]
