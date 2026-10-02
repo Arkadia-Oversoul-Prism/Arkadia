@@ -100,3 +100,9 @@ def test_agent_loop_route_is_authenticated_and_bounded():
     assert route.dependencies or router.dependencies
     from api.lab_routes import AgentLoopBody
     assert AgentLoopBody(objective="inspect", max_turns=1).max_turns == 1
+    try:
+        AgentLoopBody(objective="inspect", max_turns=9)
+    except Exception:
+        pass
+    else:
+        raise AssertionError("max_turns above 8 must be rejected by request validation")
