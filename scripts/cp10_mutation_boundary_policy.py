@@ -48,6 +48,15 @@ LEGIT = re.compile(
     # separately by resolve_range_endpoint(), which judges base..HEAD; the surface
     # still has to be enumerated, not inherited.
     r"|opportunity_radar/"
+    # reconciliation/ carries the upstream causal-continuity forensic record
+    # (reconciliation/UPSTREAM-CAUSAL-CONTINUITY-01.md), merged via PR #180. It is a
+    # first-class control-plane artifact, not a scratch surface, so it is enumerated
+    # rather than left to the generic rules. Omitting it rejected the very PR that
+    # merged it and left three fitness tests red on main
+    # (test_allowlist_admits_every_tracked_top_level_prefix,
+    # test_allowlist_covers_every_tracked_surface,
+    # test_delegated_verdict_admits_every_tracked_surface).
+    r"|reconciliation/"
     # runtime state, archive and asset trees the repository tracks
     r"|data/|archive/|artifacts/|attached_assets/|\"?attached_assets/"
     # vault/ tracks only its scaffold; generated notes stay outside the boundary

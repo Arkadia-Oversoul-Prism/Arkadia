@@ -302,6 +302,34 @@ def test_shipped_opportunity_radar_changeset_passes_policy():
     assert ok is True, msg
 
 
+# ---------------------------------------------------------------------------
+# Regression: `reconciliation/` — the upstream causal-continuity forensic record.
+# PR #180 merged `reconciliation/UPSTREAM-CAUSAL-CONTINUITY-01.md` while the
+# allowlist was still incomplete, so the surface was rejected by the very gate that
+# judged the merge. The completeness invariant above caught it on main: the tracked
+# path is the only one of 1579 the module rejects, and three fitness tests were red
+# (`test_allowlist_admits_every_tracked_top_level_prefix`,
+# `test_allowlist_covers_every_tracked_surface`,
+# `test_delegated_verdict_admits_every_tracked_surface`). A later non-merge commit
+# touching `reconciliation/` would redden the CP10 gate on main for the same reason,
+# so the surface is enumerated rather than left to be inherited by masking.
+# ---------------------------------------------------------------------------
+_RECONCILIATION_CHANGESET = [
+    "reconciliation/UPSTREAM-CAUSAL-CONTINUITY-01.md",
+]
+
+
+def test_reconciliation_surface_is_legitimate():
+    ok, msg = evaluate_changed_paths(["reconciliation/UPSTREAM-CAUSAL-CONTINUITY-01.md"])
+    assert ok is True, msg
+
+
+def test_shipped_reconciliation_changeset_passes_policy():
+    """The exact change set that left the CP10 fitness tests red on the #180 merge."""
+    ok, msg = evaluate_changed_paths(_RECONCILIATION_CHANGESET)
+    assert ok is True, msg
+
+
 def test_allowlist_admits_every_tracked_top_level_prefix():
     """A tracked prefix the allowlist omits reddens main on the next real commit."""
     # `vault/` is tracked only as scaffold and is deliberately outside the
@@ -359,6 +387,7 @@ def test_content_surface_admission_is_not_overbroad():
         "spiral_grove_evil/x.py",
         "conftest_evil.py",
         ".knowledge/x.py",
+        "reconciliation_evil/x.md",
     ]:
         ok, msg = evaluate_changed_paths([path])
         assert ok is False, f"{path} should still be rejected ({msg})"
@@ -375,6 +404,7 @@ def test_delegated_verdict_admits_omitted_surfaces_and_rejects_lookalikes():
     corpus = _OMITTED_SURFACE_CHANGESET + [
         "knowledge/static_ingestion.py",
         "spiral_grove/learning_path.py",
+        "reconciliation/UPSTREAM-CAUSAL-CONTINUITY-01.md",
     ]
     rc, out = _run_judge("\n".join(corpus))
     assert rc == 0, out
@@ -385,6 +415,7 @@ def test_delegated_verdict_admits_omitted_surfaces_and_rejects_lookalikes():
         "conftest_evil.py",
         ".knowledge/x.py",
         "somewhere/conftest.py",
+        "reconciliation_evil/x.md",
     ):
         rc, out = _run_judge(path)
         assert rc != 0, f"{path} must stay outside the boundary"
