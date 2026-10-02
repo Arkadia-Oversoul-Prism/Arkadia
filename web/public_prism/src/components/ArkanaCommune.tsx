@@ -1,3 +1,4 @@
+import './arkana-interaction-polish.css';
 import { apiFetch } from '../lib/apiClient';
 import { emitSolariunWorkEvent } from '../lib/solariunApi';
 import { API_BASE as API_BASE_CONFIG } from '../lib/apiConfig';
