@@ -21,9 +21,16 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from api.auth import require_auth
+from api.auth import require_auth, require_sovereign
 from solspire.workspace_manager import get_workspace_manager
 from solspire import eden_ops_02 as e02
+from solspire.sovereign_field import (
+    BUYER_STATUSES,
+    create_buyer_candidate,
+    ensure_field,
+    list_buyer_recon,
+    update_buyer_candidate,
+)
 from kernel.doc_extract import extract_text
 
 _DB_PATH = os.environ.get("SOLSPIRE_PROJECTS_DB") or os.path.join(
@@ -549,6 +556,46 @@ async def get_enterprise_dashboard(enterprise_id: str, user: dict = Depends(requ
         dashboard["control"]["members"] = [m.to_dict() for m in e02.list_members_public(enterprise_id=enterprise_id)]
         dashboard.pop("ai_analysis", None)
     return dashboard
+
+
+@router.get("/sovereign-field")
+async def get_sovereign_field(user: dict = Depends(require_sovereign)):
+    """Resolve the persistent sovereign field for this authenticated sovereign."""
+    field = ensure_field(user["uid"])
+    return {
+        "field": field,
+        "buyer_recon": list_buyer_recon(user["uid"]),
+        "status_lanes": list(BUYER_STATUSES),
+        "truthfulness": {
+            "identity": "Firebase uid is the canonical subject boundary.",
+            "authority": "Sovereign access permits this field; it does not authorize transactions.",
+            "unknown_policy": "Unverified commercial facts remain UNKNOWN.",
+        },
+    }
+
+
+@router.post("/sovereign-field/buyer-recon")
+async def add_sovereign_buyer_candidate(body: dict[str, Any], user: dict = Depends(require_sovereign)):
+    try:
+        candidate = create_buyer_candidate(user["uid"], body)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"candidate": candidate}
+
+
+@router.patch("/sovereign-field/buyer-recon/{candidate_id}")
+async def edit_sovereign_buyer_candidate(
+    candidate_id: str,
+    body: dict[str, Any],
+    user: dict = Depends(require_sovereign),
+):
+    try:
+        candidate = update_buyer_candidate(user["uid"], candidate_id, body)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"candidate": candidate}
 
 
 @router.get("/workspaces/{enterprise_id}/attachments")
