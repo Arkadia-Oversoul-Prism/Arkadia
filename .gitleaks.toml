@@ -1,37 +1,19 @@
 # Gitleaks configuration.
 #
-# Purpose: record *proven non-secret* literals that the default rule set reports, so the
-# `Full-history secret scan` gate (.github/workflows/security-secret-scan.yml) can tell them
-# apart from real credentials. This is deliberately NOT a path exclusion, NOT a rule disable,
-# and NOT a broad pattern: an arbitrary credential-shaped string anywhere in the repository
-# still fails the gate.
+# Purpose: record proven non-secret literals that the default rule set reports, so the
+# Full-history secret scan can distinguish them from real credentials. This is not a
+# path exclusion, rule disable, or broad pattern.
 #
 # Adding an entry requires recorded evidence that the literal is not a credential.
-# See docs/control-plane/evidence/gate-hygiene-baseline-stale-assertion-repair-sci-nexus-01/WORKSTREAM_STATE.md
-#
-# NOTE: gitleaks 8.24.3 reads the *singular* `[allowlist]` table. The plural `[[allowlists]]`
-# array form is silently ignored by this version - a config that looks correct but has no
-# effect. Keep this table singular.
 
 [extend]
 useDefault = true
 
 [allowlist]
-description = "AIS session-scoped storage key namespace constants (identifiers, not credentials)"
-# sessionStorage key *names* declared in web/public_prism/src/pages/LivingGate.tsx and
-# FutureSkillsChallenge.tsx since the AIS feature commits (b822b95, c1073a4, f68cbf7).
-# They are canonical on main and carry no credential material. They match `generic-api-key`
-# only because they are written in the assignment form `KEY = '<value>'`.
-#
-# regexTarget = "secret" scopes the pattern to the *matched secret value*, not the
-# surrounding line, so the prose around a quotation cannot widen the exemption.
+description = "Known non-secret identifiers"
 regexTarget = "secret"
 regexes = [
   '''^arkadia[.]ais[.]diagnostic-handoff[.]v1$''',
-  '''^arkadia[.]ais[.]capability-portfolio[.]v1
-]
-'',
-  '''^EXAVITQu4vr4xnSDxMaL
-]
-'', # Public ElevenLabs voice identifier used as a default voice ID, not a credential.
+  '''^arkadia[.]ais[.]capability-portfolio[.]v1$''',
+  '''^EXAVITQu4vr4xnSDxMaL$''',
 ]
