@@ -39,14 +39,20 @@ recorded in `AGENTS.md` so it is not re-derived next pass.
 
 ## Blockers
 
-None for this pass. Final head `2c38647` (base `main` `0c8a9f6`), 3 changed paths, docs-only.
-Live on the pushed head: both check-runs green (`Vercel Preview Comments`,
-`Full-history secret scan`); commit status `Vercel – console` **failure**,
-`Vercel – arkadia-prism` **success**. The one remaining red context is also red on `main`
-`0c8a9f6`, so it is pre-existing `main` debt and not attributable to this docs-only PR —
-`mergeable_state: unstable` reflects that, not a conflict (`mergeable: true`). Fingerprint
-re-measured on the pushed tree: `a59453b8…`, 21 nodes — unchanged. See `EVIDENCE.md` §9, §11,
-§11a.
+None for this pass. 3 changed paths, docs-only (`AGENTS.md` + this evidence directory).
+Stable content-level facts (do not depend on the branch tip; see `EVIDENCE.md` §11b):
+
+- Changed path set contains **no Vercel project input**, so neither Vercel context can be
+  attributed to this PR.
+- `Vercel – console` is red on `main` `0c8a9f6` **and** on this branch head → pre-existing
+  `main` debt.
+- `arkadia-prism` is red on `main` `0c8a9f6` but green on the head where the reading was taken
+  (§11a, head `2c38647`).
+- `Full-history secret scan` green; `Vercel Preview Comments` green.
+
+`mergeable: true` / `mergeable_state: unstable` — the unstable state reflects the
+non-required red context, not a conflict. Fingerprint re-measured on the pushed tree:
+`a59453b8…`, 21 nodes — unchanged. CP10 mutation boundary judge: PASS.
 
 ## Not in scope / not re-litigated
 
