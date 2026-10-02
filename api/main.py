@@ -12,7 +12,7 @@ import threading
 import uuid as _uuid_mod
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -23,7 +23,11 @@ import os as _os
 # startup error — the server must not run with authentication silently disabled.
 # In development, a failure disables personal context but allows the app to run.
 try:
-    from api.auth import get_current_user as _get_current_user, get_personal_codex as _get_personal_codex
+    from api.auth import (
+        get_current_user as _get_current_user,
+        get_personal_codex as _get_personal_codex,
+        require_auth as _require_auth,
+    )
     _AUTH_AVAILABLE = True
 except Exception as _ae:
     if _os.environ.get("ENVIRONMENT", "").strip().lower() == "production":
@@ -37,6 +41,10 @@ except Exception as _ae:
     _AUTH_AVAILABLE = False
     async def _get_current_user(request): return None  # type: ignore
     def _get_personal_codex(nk): return None  # type: ignore
+    async def _require_auth(request):  # type: ignore
+        # Fail closed: a route that depends on authentication must never run
+        # unauthenticated merely because the auth module failed to import.
+        raise HTTPException(status_code=503, detail="Authentication unavailable")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("arkadia")
@@ -379,6 +387,10 @@ from api.approval_routes import (
     APPROVAL_LOCK as _APPROVAL_LOCK,
     PENDING_APPROVALS as _PENDING_APPROVALS,
 )
+
+# ── Plan execution router (Phase 2 extraction) ──────────────────────────
+from api.plan_routes import router as _plan_router
+app.include_router(_plan_router)
 
 # ── Static file serving (IMS HTML documents, forge images, etc.) ─────────────
 _static_dir = _os.path.join(_os.path.dirname(__file__), "..", "static")
@@ -2133,8 +2145,27 @@ async def tts_status():
     }
 
 
+def _approval_is_valid(approval: dict, tool_name: str, user: dict) -> bool:
+    """True iff *approval* records an approved decision for this tool, by this
+    subject, that has not already been consumed.
+
+    Approval is a distinct check from authentication: an authenticated caller
+    still cannot execute an approval-gated tool until a recorded approval exists.
+    """
+    if not approval or approval.get("status") != "approved":
+        return False
+    if approval.get("tool_name") != tool_name:
+        return False
+    if approval.get("consumed_at"):
+        return False
+    # Require an exact subject match: an approval with no recorded subject (e.g.
+    # one queued before subject scoping existed) is never spendable.
+    subject = approval.get("subject_ref")
+    return subject is not None and subject == user.get("uid")
+
+
 @app.get("/api/tools")
-async def list_tools_endpoint():
+async def list_tools_endpoint(user: dict = Depends(_require_auth)):
     try:
         import kernel.tools as _tools  # ensures built-ins are registered
         tools = _tools.list_tools()
@@ -2145,51 +2176,56 @@ async def list_tools_endpoint():
 
 
 @app.post("/api/tools/{tool_name}/run")
-async def run_tool_endpoint(tool_name: str, request: Request):
+async def run_tool_endpoint(
+    tool_name: str, request: Request, user: dict = Depends(_require_auth)
+):
+    """Execute a registered tool.
+
+    Authentication (`Depends(require_auth)`) establishes *who* is calling; for a
+    tool declaring `requires_approval` the caller must additionally present a
+    recorded, unconsumed, same-subject approval reference.
+    """
     try:
         body = await request.json()
     except Exception:
         body = {}
     payload = body.get("payload", body)
+
+    import kernel.tools as _tools
+    tool = _tools.get_tool(tool_name)
+    if tool is None:
+        raise HTTPException(status_code=404, detail=f"Tool '{tool_name}' not found")
+
+    if getattr(tool, "requires_approval", False):
+        approval_id = (body.get("approval_id") or "").strip()
+        if not approval_id:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f"Tool '{tool_name}' requires approval. Queue one via "
+                    f"POST /api/approvals/request, obtain a human decision, then "
+                    f"re-run with approval_id."
+                ),
+            )
+        with _APPROVAL_LOCK:
+            approval = _PENDING_APPROVALS.get(approval_id)
+            if not _approval_is_valid(approval, tool_name, user):
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Approval '{approval_id}' is not valid for tool '{tool_name}'.",
+                )
+            # Consume the approval so a single decision authorizes a single run.
+            approval["consumed_at"] = _now_iso()
+            approval["consumed_by"] = user.get("uid")
+
     try:
-        import kernel.tools as _tools
-        tool = _tools.get_tool(tool_name)
-        if tool is None:
-            raise HTTPException(status_code=404, detail=f"Tool '{tool_name}' not found")
         result = tool.run(payload)
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     return result
 
 
-# ── Plan / execute ────────────────────────────────────────────────────────────
-
-@app.post("/api/plan/run")
-async def run_plan(request: Request):
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
-    user_input = body.get("input", "").strip()
-    if not user_input:
-        raise HTTPException(status_code=400, detail="input is required")
-    try:
-        from kernel.planner import plan_or_fallback
-        from kernel.execution import execute_plan
-        plan = plan_or_fallback(user_input)
-        result = execute_plan(plan)
-        return {
-            "success":  bool(result.get("success")),
-            "summary":  result.get("summary", ""),
-            "steps":    result.get("steps", []),
-            "plan":     plan,
-        }
-    except Exception as e:
-        logger.exception("[PLAN/RUN] Error")
-        raise HTTPException(status_code=500, detail=str(e))
-
+# ── Plan / execute — router extracted to api/plan_routes.py (2600-line budget) ──
 
 # ── Metrics ────────────────────────────────────────────────────────────────────
 
@@ -2219,7 +2255,7 @@ async def get_metrics():
 # ── Agent Spawn — OpenClaw / external trigger entry point ─────────────────────
 
 @app.post("/api/agent/spawn")
-async def agent_spawn(request: Request):
+async def agent_spawn(request: Request, user: dict = Depends(_require_auth)):
     """Universal on-demand agent spawn endpoint.
 
     Accepts an intent + optional context from any external trigger:
@@ -2360,7 +2396,7 @@ async def agent_spawn(request: Request):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @app.post("/api/ceo/chat")
-async def ceo_chat(request: Request):
+async def ceo_chat(request: Request, user: dict = Depends(_require_auth)):
     """CEO chat endpoint — Gemini with full tool awareness + approval gating."""
     try:
         body = await request.json()
@@ -2502,6 +2538,10 @@ Always speak directly, intelligently and sovereignly. You remember context from 
                         "status": "pending",
                         "created_at": _now_iso(),
                         "decided_at": None,
+                        "subject_ref": user.get("uid"),
+                        "decided_by": None,
+                        "consumed_at": None,
+                        "consumed_by": None,
                     }
                 pending_approvals.append({
                     "approval_id": appr_id,
