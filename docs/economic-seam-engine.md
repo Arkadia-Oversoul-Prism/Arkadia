@@ -68,3 +68,15 @@ investment advice, or a guarantee of execution. Human reviewers must verify curr
 eligibility, counterparty identity, price validity, taxes, logistics, settlement, and
 licensing before any execution decision. No trading, bidding, financing application,
 or money movement is initiated by this module.
+
+## Structured market-reference adapters
+The CBN FX reference page and NEPC indicative commodity price page are now parsed into
+raw, unclassified reference-row observations. The parser preserves labels, numeric cells,
+page URL and table/row coordinates rather than guessing quote direction, units, commodity
+grade, date validity or whether a rate is executable. A changed page layout that yields no
+parseable rows is recorded as a source error instead of a successful empty scan.
+
+These observations are not yet comparable transaction quotes. Before any spread analysis,
+the next layer must normalize effective date, currency, unit, commodity specification,
+location, quote side, taxes, transport, fees, settlement and source freshness. The parser
+does not create opportunities from market rows on its own.
