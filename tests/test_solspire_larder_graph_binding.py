@@ -44,7 +44,29 @@ def test_arkana_context_includes_only_explicitly_bound_larder_snapshot(monkeypat
     })
     monkeypatch.setattr(project_store, "list_events", lambda pid, limit=100: [event])
     monkeypatch.setattr("solspire.workspace_manager.get_workspace_manager",
-                        lambda: type("WorkspaceManager", (), {"get_for_subject": lambda self, uid: None})())
+                        lambda: type("WorkspaceManager", (), {
+                            "get_for_subject": lambda self, uid: type("Workspace", (), {
+                                "id": "workspace-owner",
+                                "to_dict": lambda self: {"id": "workspace-owner"},
+                            })()
+                        })())
+    monkeypatch.setattr("solspire.pulse_manager.get_pulse_manager",
+                        lambda: type("PulseManager", (), {
+                            "get_for_subject_date": lambda self, *args: None
+                        })())
+    witnessed = type("WorkEvent", (), {
+        "event_type": "LIVING_LARDER_ORDER_BOUND",
+        "scope_ref": "project-1", "work_ref": "project-1",
+        "artifact_refs": ["living-larder-order:LL-123"],
+        "to_dict": lambda self: {
+            "event_type": self.event_type, "scope_ref": self.scope_ref,
+            "work_ref": self.work_ref, "artifact_refs": self.artifact_refs,
+        },
+    })()
+    monkeypatch.setattr("solspire.workevent_manager.get_workevent_manager",
+                        lambda: type("WorkEventManager", (), {
+                            "list": lambda self, *args: [witnessed]
+                        })())
 
     context = project_knowledge.build_project_context_for_weaver({
         "id": "project-1", "name": "Eden", "owner_uid": "owner-1"
