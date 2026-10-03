@@ -51,8 +51,9 @@ def build_container_argv(
     Caller must prepare it from a trusted snapshot and validate its diff before
     any canonical-store write.
     """
-    if not image or image.startswith("-") or any(ch.isspace() for ch in image):
-        raise BoundaryError("a pinned, valid container image is required")
+    import re
+    if not re.fullmatch(r".+@sha256:[0-9a-fA-F]{64}", image or ""):
+        raise BoundaryError("container image must be pinned by immutable SHA-256 digest")
     if not command or any(not isinstance(arg, str) or "\x00" in arg for arg in command):
         raise BoundaryError("command must be a non-empty argv sequence")
     if pids_limit < 1:
@@ -70,7 +71,8 @@ def build_container_argv(
         raise BoundaryError("working directory must be a directory")
     container_workdir = "/workspace" if relative_workdir == "." else f"/workspace/{relative_workdir}"
     return [
-        runtime, "run", "--rm", "--network=none", "--read-only",
+        runtime, "run", "--rm", "--label", f"arkadia.solspire.execution-id={execution_id or uuid.uuid4().hex}",
+        "--network=none", "--read-only",
         "--cap-drop=ALL", "--security-opt=no-new-privileges:true",
         "--pids-limit", str(pids_limit), "--memory", memory,
         "--cpus", cpus, "--user", "65532:65532",
