@@ -20,12 +20,17 @@ import re
 # deliberately top-level-only literals — they do not open nested paths.
 #
 # The true allowlist is the set of tracked repository surfaces: every top-level
-# entry in `git ls-files` (1726 paths at the arkadia-console-android merge) is
-# enumerated here or admitted by the generic rules, and
+# entry in `git ls-files` is enumerated here or admitted by the generic rules, and
 # test_allowlist_covers_every_tracked_surface asserts exactly that against the live
 # tree. An allowlist that omits a surface the repository
 # tracks does not tighten the boundary — it reddens CI on the next unrelated merge
 # (this bug class recurred across EDEN-OPS-02, EL-01..10 #97, Solariun #104).
+#
+# The path count is a point-in-time reading, not part of the invariant, so it is
+# not pinned here — it drifts on every merge and a stale figure reads as a claim.
+# Measured for reference: 1726 at `d798811` (the revision whose baseline the
+# fitness fixture records), 1727 at the console-merge revision `cc95487`, 1732 on
+# `main` at `357fbd8` (2026-10-03). Verified by `git ls-tree -r --name-only <sha>`.
 # Constitutional limits live in the FORBID_V3/V2 stage and the unknown-root
 # rejection, not in the breadth of this admit-list.
 #

@@ -123,3 +123,64 @@ Each is a candidate **separate** branch/PR; none is a dependency of the CP10 rep
 
 Read-only measurement plus a classification record. No test repaired in this
 artifact; no merge; no push to `main`. Human authority is required to merge.
+
+## 8. Integration re-measurement after the CP10 repair (2026-10-03)
+
+PR #240 merged as `444d5cd` (2026-10-03T17:45:33Z). `main` then advanced through
+#241 `f206e77`, #242 `7f2d265`, #244 `357fbd8`. Re-measured on `main` @ `357fbd8`
+(clean worktree, `PYTHONPATH=archive/legacy_python`, `--continue-on-collection-errors`):
+
+| | value |
+|---|---|
+| result | **24 failed, 1367 passed, 19 skipped, 1 error** |
+| failing/error node set | **25** |
+| architecture + CP10 fitness | **66 passed** (`tests/architecture` + `test_m02a_ci_gate_integrity.py`) |
+| CP10 judge | `git ls-files \| python scripts/cp10_mutation_boundary_policy.py --judge` -> **RC 0**, PASS |
+| `py_compile api/main.py` | OK (2582 lines, budget 2600) |
+
+**Node-set delta from the branch measurement (28 -> 25): exactly the three
+`test_m02a_ci_gate_integrity.py` nodes repaired here; nothing added.** The CP10
+allowlist is verified integrated on `main`: the judge admits all **1732** tracked
+paths and the three fitness nodes pass there.
+
+The three repaired nodes are still listed in `tests/fixtures/baseline_node_set.txt`
+and now pass, so the fixture is stale by them — §4.5 is confirmed on `main`, not
+only on the branch.
+
+### 8.1 Node-set vs the recorded fixture
+
+`tests/fixtures/baseline_node_set.txt` (18 entries, written at `d798811`) is a
+historical baseline, not a live oracle. The current 25-node set splits against it:
+
+- **14** fixture entries still failing;
+- **4** fixture entries now passing (stale): `test_agents_md_encoding_adjudication::
+  test_exit_code_does_not_call_a_divergent_clean_file_verified`, plus the three
+  named in §4.5 (`test_authority_api_enterprise_boundary`,
+  `test_upstream_causal_continuity_01`, `test_solariun_thread_navigation_01`);
+- **11** failing nodes absent from the fixture — none introduced by this repair
+  (all present at `cc95487`, before the CP10 change): `test_steward_filter` x3,
+  `test_solspire_project_instantiation_ui` x3, `test_spiral_grove_registry` x2,
+  `test_solspire_p1_experience_01` x2, `test_evidence_verification_boundary`,
+  `test_verification_review_boundary`, `test_workevent_evidence_boundary`,
+  `test_solspire_project_execution_service`, `test_solspire_project_templates`,
+  and the `test_autonomy.py` collection ERROR.
+
+Refreshing the fixture is **not** done here; it is workstream 3 in §6.
+
+### 8.2 Withdrawn claims from this pass
+
+Two claims made during this pass were **wrong and are withdrawn**:
+
+1. "The CP10 gate is path-filtered and does not run on `arkadia-console-android/**`
+   changes." `sg-02-fe-2-v.yml` does not filter on console paths, so a console-only
+   merge such as `444d5cd` is **skipped, not passed** by that workflow. The console
+   is covered by its own build gate, `.github/workflows/arkadia-console-android.yml`
+   (`gradle assembleDebug`, triggers on `arkadia-console-android/**` for both
+   `pull_request` and `push: main`). CP10 is exercised on console merges transitively:
+   its trigger list includes `scripts/cp10_mutation_boundary_policy.py` and
+   `tests/test_m02a_ci_gate_integrity.py`.
+2. "`arkadia-console-android/` was first tracked by PR #237 (`cc95487`)." Measured:
+   the tree first appears on `main` at `8806f38`, an ancestor of `cc95487`; the
+   allowlist's own prose (PRs #233/#234/#235) is accurate. Path counts are `d798811`
+   **1726** and `cc95487` **1727**, so `main`'s "1726 at the console merge" is
+   correct for the revision the fixture was written at.
