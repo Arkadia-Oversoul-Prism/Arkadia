@@ -1,6 +1,7 @@
 package com.arkadia.os
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
@@ -47,6 +48,7 @@ class MainActivity : AppCompatActivity() {
         header.addView(label("SOLARIUN", 18f, gold, true), LinearLayout.LayoutParams(0, -2, 1f))
         header.addView(button("ARKANA") { ask() })
         header.addView(button("CAPTURE") { captureNote() })
+        header.addView(button("⚙") { startActivity(Intent(this, SettingsActivity::class.java)) })
         root.addView(header)
         val scroll = ScrollView(this)
         content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), 0, dp(16), dp(32)) }
