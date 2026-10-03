@@ -126,3 +126,7 @@ Main branch also builds a release APK (signed if secrets are configured).
 
 ## Bundled Prism runtime
 The APK packages the exact Prism production build and serves it through AndroidX WebViewAssetLoader. The shell does not require a live frontend deployment to render the UI; backend access remains explicitly configured by the user.
+
+
+## Native Console build
+The Android product surface is now the native Console. Prism web assets are not bundled by the Console build.
