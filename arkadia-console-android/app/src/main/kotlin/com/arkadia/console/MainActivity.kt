@@ -37,22 +37,71 @@ class MainActivity:AppCompatActivity(){
     private var activeVoice:Pair<String,File>?=null
     private var activeCamera:Pair<String,File>?=null
 
-    override fun onCreate(state:Bundle?){super.onCreate(state);setContentView(R.layout.activity_main)
-        connection=findViewById(R.id.connection);objectList=findViewById(R.id.objectList);detailType=findViewById(R.id.detailType);detailTitle=findViewById(R.id.detailTitle);detailSummary=findViewById(R.id.detailSummary);detailState=findViewById(R.id.detailState);actionRow=findViewById(R.id.actionRow)
+    override fun onCreate(state:Bundle?){
+        super.onCreate(state)
+        if(identity==null){
+            showAuthScreen("Firebase is not configured in this APK.")
+        }else if(identity.currentUser==null){
+            showAuthScreen()
+        }else{
+            showMainScreen()
+        }
+    }
+
+    private fun bindMainViews(){
+        connection=findViewById(R.id.connection)
+        objectList=findViewById(R.id.objectList)
+        detailType=findViewById(R.id.detailType)
+        detailTitle=findViewById(R.id.detailTitle)
+        detailSummary=findViewById(R.id.detailSummary)
+        detailState=findViewById(R.id.detailState)
+        actionRow=findViewById(R.id.actionRow)
         findViewById<Button>(R.id.fieldButton).setOnClickListener{mode("FIELD")}
         findViewById<Button>(R.id.focusButton).setOnClickListener{mode("FOCUS")}
         findViewById<Button>(R.id.deepButton).setOnClickListener{mode("DEEP")}
         findViewById<Button>(R.id.captureButton).setOnClickListener{capture()}
         findViewById<Button>(R.id.askButton).setOnClickListener{ask()}
         findViewById<Button>(R.id.verifyButton).setOnClickListener{load()}
-        connection.setOnClickListener{connect()}
         findViewById<TextView>(R.id.eyebrow).setOnClickListener{authDialog()}
-        if(prefs.getString("api_base","").isNullOrBlank())connect() else load()
-        if (identity == null) Toast.makeText(this, "Native Firebase is not configured for this build.", Toast.LENGTH_LONG).show()
     }
-    private fun connect(){
-        val base=EditText(this).apply{hint="https://your-oracle.example";setText(prefs.getString("api_base",""));inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI}
-        AlertDialog.Builder(this).setTitle("Oracle connection").setMessage("Set the explicit Oracle base URL. Arkadia Console does not silently fall back to another backend.").setView(base).setNegativeButton("Cancel",null).setPositiveButton("Connect"){_,_->prefs.edit().putString("api_base",base.text.toString().trim()).apply();load()}.show()
+
+    private fun showMainScreen(){
+        setContentView(R.layout.activity_main)
+        bindMainViews()
+        connection.text="● LIVE · "+(identity?.currentUser?.email ?: "NO IDENTITY")
+        load()
+    }
+
+    private fun showAuthScreen(error:String?=null){
+        setContentView(R.layout.activity_auth)
+        val email=findViewById<EditText>(R.id.authEmail)
+        val password=findViewById<EditText>(R.id.authPassword)
+        val message=findViewById<TextView>(R.id.authMessage)
+        if(error!=null) message.text=error
+        findViewById<Button>(R.id.signInButton).setOnClickListener{
+            authenticate(email.text.toString(),password.text.toString(),false)
+        }
+        findViewById<Button>(R.id.registerButton).setOnClickListener{
+            authenticate(email.text.toString(),password.text.toString(),true)
+        }
+    }
+
+    private fun authenticate(email:String,password:String,register:Boolean){
+        if(email.isBlank() || password.isBlank()){
+            Toast.makeText(this,"Email and password are required.",Toast.LENGTH_SHORT).show()
+            return
+        }
+        lifecycleScope.launch{
+            runCatching{
+                if(register) identity?.register(email,password) ?: error("Firebase is not configured")
+                else identity?.signIn(email,password) ?: error("Firebase is not configured")
+            }.onSuccess{
+                Toast.makeText(this@MainActivity,if(register)"Firebase identity created." else "Firebase identity established.",Toast.LENGTH_SHORT).show()
+                showMainScreen()
+            }.onFailure{
+                Toast.makeText(this@MainActivity,(if(register)"Registration failed: " else "Sign-in failed: ")+it.message,Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     private fun authDialog(){
@@ -63,7 +112,7 @@ class MainActivity:AppCompatActivity(){
         val signed=identity?.currentUser
         val dialog=AlertDialog.Builder(this).setTitle(if(signed!=null) "Firebase identity" else "Firebase sign in").setView(box)
         if(signed!=null){
-            dialog.setMessage(signed.email ?: signed.uid).setNegativeButton("Sign out"){_,_->identity?.signOut();load()}.setPositiveButton("Close",null)
+            dialog.setMessage(signed.email ?: signed.uid).setNegativeButton("Sign out"){_,_->identity?.signOut();showAuthScreen()}.setPositiveButton("Close",null)
         }else{
             dialog.setNegativeButton("Cancel",null)
             dialog.setPositiveButton("Sign in"){_,_->lifecycleScope.launch{runCatching{identity?.signIn(email.text.toString(),password.text.toString()) ?: error("Firebase not configured")}.onSuccess{Toast.makeText(this@MainActivity,"Firebase identity established.",Toast.LENGTH_SHORT).show();load()}.onFailure{Toast.makeText(this@MainActivity,"Firebase sign-in failed: "+it.message,Toast.LENGTH_LONG).show()}}}
