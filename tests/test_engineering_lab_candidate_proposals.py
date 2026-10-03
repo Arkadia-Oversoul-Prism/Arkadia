@@ -11,7 +11,7 @@ def test_candidate_proposal_never_writes_the_disposable_file(tmp_path):
     target = tmp_path / "README.md"
     target.write_text("canonical snapshot", encoding="utf-8")
     sandbox = Sandbox(SandboxPolicy(
-        root=str(tmp_path), write_allowed=True, allowed_paths=("README.md",),
+        root=str(tmp_path), write_allowed=False, candidate_proposals_allowed=True, allowed_paths=("README.md",),
         command_allowlist=("echo",),
     ))
     proposal = sandbox.propose_edit("README.md", "agent suggestion", rationale="clarify the contract")
@@ -24,7 +24,7 @@ def test_candidate_proposal_never_writes_the_disposable_file(tmp_path):
 def test_candidate_proposal_requires_existing_allowlisted_path(tmp_path):
     (tmp_path / "README.md").write_text("before", encoding="utf-8")
     sandbox = Sandbox(SandboxPolicy(
-        root=str(tmp_path), write_allowed=True, allowed_paths=("README.md",),
+        root=str(tmp_path), write_allowed=False, candidate_proposals_allowed=True, allowed_paths=("README.md",),
     ))
     with pytest.raises(SandboxWriteDenied):
         sandbox.propose_edit("../secret.txt", "no")
