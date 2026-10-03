@@ -171,6 +171,33 @@ def test_non_outcome_lines_are_ignored(tmp_path, line):
 
 LIVE_NODE_SET = REPO_ROOT / "tests" / "fixtures" / "baseline_node_set.txt"
 
+# The recorded set *before* `gate-hygiene/stale-gate-fixture-retirement-01` retired the two
+# nodes asserting the archived root `gate/` + `index.html` surface. `a59453b8…`/`9a35c812…`
+# are this set plus the depth-dependent sibling below — they are not "unreproducible", and
+# keeping the era-correct set lets the origin stay proved after the retirement.
+SUPERSEDED_NODE_SET = (
+    REPO_ROOT / "tests" / "fixtures" / "superseded_baseline_node_set.txt"
+)
+
+# The two nodes retired by `gate-hygiene/stale-gate-fixture-retirement-01`. They asserted a
+# root `gate/` directory and root `index.html` redirect that `f6718b9` / `377cdb3` archived
+# (the surface survives only under `archive/legacy_frontend/gate/`). The guard below fails if
+# either re-enters the recorded set, so a future merge cannot silently restore the stale
+# expectation while the fixture stays trimmed.
+RETIRED_NODES = (
+    "tests/test_gate_serve_script.py::test_root_index_redirect_and_script_exists",
+    "tests/test_gate_status.py::test_gate_files_and_fetch_handling",
+)
+
+# The *sibling* depth-dependent node. It dereferences the `GATE2_PARENT_REV` read
+# unconditionally, so it crashes (AttributeError) instead of skipping when `7d79f38…` is
+# absent. It is likewise excluded from the recorded set — a live CI-shaped run reports it,
+# so the recorded set is the *stable* debt, one node short of a bare clone's live run.
+CLONE_DEPENDENT_SIBLING_NODE = (
+    "tests/test_agents_md_encoding_adjudication.py"
+    "::test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec"
+)
+
 # A node whose outcome depends on whether this clone contains the PR-head revision
 # pinned by `tests/test_agents_md_encoding_adjudication.py` (`GATE2_PARENT_REV`). It
 # is *not* part of the recorded set: including it made the fingerprint a function of
@@ -194,16 +221,18 @@ CANONICAL_IDS_FINGERPRINT = (
     "2bc35996b21de6529ffffab63446c8bd7295c388e841a2807101d189eaf7da01"
 )
 
-# Values that were published but are not reproducible from the recorded set. They must
-# not reappear in the repository docs: the doc-agreement test below fails if either is
+# Values that were published but do not describe the recorded set. They must not
+# reappear in the repository docs: the doc-agreement test below fails if either is
 # found.
 #
-# `a59453b8…`/`9a35c812…` were never derivable by any convention. `4d84e7eb…`/
-# `da2ec262…` *were* reproducible, but only in a clone that contained the PR-head
-# revision `7d79f38…` — i.e. the value encoded clone depth, not the repository's debt.
-# `a578a766…`/`8036fc06…` were the canonical pair for the 20-node recorded set before
-# the two archived-surface nodes were retired. All three pairs are superseded by the
-# clone-depth-stable canonical value above.
+# `a59453b8…`/`9a35c812…` are the *era-correct* 20-node set plus its depth-dependent
+# sibling node (proved by `test_superseded_values_are_the_superseded_set_plus_its_sibling`),
+# i.e. a live bare-clone run — not the depth-stable recorded debt, and not
+# "unreproducible". `4d84e7eb…`/`da2ec262…` were reproducible only in a clone that
+# contained the PR-head revision `7d79f38…`. `a578a766…`/`8036fc06…` were the canonical
+# pair for the 20-node recorded set before the two archived-surface nodes were retired
+# 2026-10-03 by `gate-hygiene/stale-gate-fixture-retirement-01`. All three pairs are
+# superseded by the clone-depth-stable canonical value above.
 SUPERSEDED_OUTCOMES_FINGERPRINTS = (
     "a59453b8a1e5a02899f469cf6ea7db9b5eaae658050261e1405c394cb0f3cf6f",
     "4d84e7eb2524d4a5a952405f6df8017398ce21cca44aec6d04fbb523d577c6a7",
@@ -249,10 +278,48 @@ def test_recorded_set_excludes_the_clone_depth_dependent_node():
     assert CLONE_DEPTH_DEPENDENT_NODE not in ids
 
 
+def test_recorded_set_excludes_the_retired_archived_surface_nodes():
+    """The two retired nodes asserted a surface `f6718b9` / `377cdb3` archived.
+
+    They are the repository's stale expectation, not its debt, so they must stay out of the
+    recorded set. The guard keeps a future merge from restoring the stale literal while the
+    fixture stays trimmed — the mirror image of the clone-depth guard above.
+    """
+    _, ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
+    for retired in RETIRED_NODES:
+        assert retired not in ids
+
+
+def test_superseded_values_are_the_superseded_set_plus_its_sibling():
+    """`a59453b8…`/`9a35c812…` are the *era-correct* 20-node set plus its depth-dependent
+    sibling — not "unreproducible by any convention".
+
+    A bare clone (CI) reports the sibling — it crashes with AttributeError instead of
+    skipping — so its live run is the recorded set plus that node. Deriving the value from
+    `SUPERSEDED_NODE_SET` (the set as it stood before the retirement) rather than from the
+    current 18-node set keeps this origin proved after `gate-hygiene/
+    stale-gate-fixture-retirement-01` trimmed the two archived-surface nodes. Both values are
+    still *superseded* — the sibling is clone-depth dependent and must not be republished.
+    """
+    outcomes, ids = baseline_fingerprint.extract(str(SUPERSEDED_NODE_SET))
+    assert CLONE_DEPENDENT_SIBLING_NODE not in ids
+    assert baseline_fingerprint.fingerprint(
+        sorted(outcomes + [f"FAILED {CLONE_DEPENDENT_SIBLING_NODE}"])
+    ) == SUPERSEDED_OUTCOMES_FINGERPRINTS[0]
+    assert baseline_fingerprint.fingerprint(
+        sorted(ids + [CLONE_DEPENDENT_SIBLING_NODE])
+    ) == SUPERSEDED_IDS_FINGERPRINTS[0]
+
+
 def test_superseded_fingerprints_are_not_reproducible():
-    """Negative control: the old published values must NOT be reproducible, so the
+    """Negative control: the recorded set must NOT hash to a superseded value, so the
     doc-agreement test cannot be satisfied by accident. A convention that happened to
-    yield a superseded value would mean the correction was wrong."""
+    yield a superseded value would mean the correction was wrong.
+
+    Note the distinction from `test_superseded_values_are_the_superseded_set_plus_its_sibling`:
+    a superseded value *is* reproducible — from the era-correct set plus a depth-dependent
+    node. What must never hold is the recorded set alone reproducing one.
+    """
     outcomes, ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
     outcomes_fp = baseline_fingerprint.fingerprint(outcomes)
     ids_fp = baseline_fingerprint.fingerprint(ids)
@@ -268,11 +335,11 @@ def test_published_docs_carry_the_canonical_fingerprint(doc):
     text = (REPO_ROOT / doc).read_text(encoding="utf-8")
     for superseded in SUPERSEDED_OUTCOMES_FINGERPRINTS:
         assert superseded not in text, (
-            f"{doc} still publishes the non-reproducible outcomes fingerprint {superseded}"
+            f"{doc} still publishes the superseded outcomes fingerprint {superseded}"
         )
     for superseded in SUPERSEDED_IDS_FINGERPRINTS:
         assert superseded not in text, (
-            f"{doc} still publishes the non-reproducible node-set fingerprint {superseded}"
+            f"{doc} still publishes the superseded node-set fingerprint {superseded}"
         )
     assert CANONICAL_OUTCOMES_FINGERPRINT in text, (
         f"{doc} does not publish the canonical outcomes fingerprint"
