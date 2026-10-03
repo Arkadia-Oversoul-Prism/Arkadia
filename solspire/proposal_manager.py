@@ -513,6 +513,51 @@ class ProposalManager:
         assert updated.proposal_status == decision_u
         return updated
 
+    def bind_authorization(
+        self,
+        *,
+        proposal_id: str,
+        subject_ref: str,
+        authorization_ref: str,
+    ) -> Proposal:
+        """Bind an external canonical authorization to this proposal.
+
+        This is a reference only. It does not create authorization and never
+        changes ACCEPTED into an implicit execution permission.
+        """
+        subject = (subject_ref or "").strip()
+        auth = (authorization_ref or "").strip()
+        if not subject or not auth:
+            raise ValueError("subject_ref and authorization_ref are required")
+        proposal = self.get_proposal(proposal_id, subject)
+        if proposal is None:
+            raise ValueError("proposal not found")
+        if proposal.authorization_ref:
+            raise ValueError("proposal is already authorized")
+        if proposal.proposal_status != "ACCEPTED":
+            raise ValueError("proposal must be ACCEPTED before authorization binding")
+
+        now = time.time()
+        conn = _db()
+        try:
+            conn.execute(
+                """
+                UPDATE proposals
+                SET authorization_ref = ?, updated_at = ?
+                WHERE proposal_id = ? AND subject_ref = ?
+                """,
+                (auth, now, proposal_id, subject),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        updated = self.get_proposal(proposal_id, subject)
+        assert updated is not None
+        assert updated.authorization_ref == auth
+        assert updated.proposal_status == "ACCEPTED"
+        return updated
+
     def prepare_execution(
         self,
         *,
