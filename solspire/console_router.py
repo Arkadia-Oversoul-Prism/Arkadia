@@ -236,6 +236,84 @@ async def create_project(body: CreateProjectRequest, user: dict = Depends(requir
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.post("/projects/instantiate-eden")
+async def instantiate_eden_project(user: dict = Depends(require_auth)) -> dict[str, Any]:
+    """Idempotently instantiate Eden for the authenticated sovereign owner.
+
+    The endpoint is deliberately owner-bound: the authenticated Firebase uid
+    is the project owner. It creates no alternate Eden database and delegates
+    operational behavior to the generic project runtime.
+    """
+    import json
+    from solspire.project_manager import get_project_manager
+    from solspire.project_store import list_files, list_memory, list_tasks
+    from solspire.project_templates import instantiate_project_metadata
+    from solspire.eden_seed import EDEN_SEED_VERSION, seed_eden_project
+
+    pm = get_project_manager()
+    owned = pm.list_projects(owner_uid=user["uid"])
+    eden = next(
+        (
+            p for p in owned
+            if p.name.strip().lower() == "eden food systems"
+            and (p.metadata or {}).get("project_runtime", {}).get("template_id") == "eden-food-systems"
+        ),
+        None,
+    )
+    created = False
+    if eden is None:
+        metadata = instantiate_project_metadata(
+            "eden-food-systems",
+            {
+                "description": "Eden Food Systems — From Source to Market.",
+                "sovereign_role": "Zahrune ID",
+                "seed_version": EDEN_SEED_VERSION,
+            },
+        )
+        eden = pm.create("Eden Food Systems", metadata, owner_uid=user["uid"])
+        created = True
+
+    runtime = dict((eden.metadata or {}).get("project_runtime") or {})
+    seed_version = (eden.metadata or {}).get("seed_version")
+    seeded = seed_version == EDEN_SEED_VERSION
+
+    if not seeded:
+        seed_result = seed_eden_project(eden.id)
+        updated_metadata = dict(eden.metadata or {})
+        updated_metadata["seed_version"] = EDEN_SEED_VERSION
+        updated_metadata["seed_result"] = seed_result
+        pm.apply_fields(
+            eden.id,
+            ["metadata=?", "updated_at=?"],
+            [json.dumps(updated_metadata), __import__("time").time(), eden.id],
+        )
+        eden = pm.load(eden.id)
+    else:
+        seed_result = (eden.metadata or {}).get("seed_result") or {
+            "seed_version": EDEN_SEED_VERSION,
+            "files": len(list_files(eden.id)),
+            "memory": len(list_memory(eden.id)),
+            "tasks": len(list_tasks(eden.id)),
+        }
+
+    return {
+        "ok": True,
+        "created": created,
+        "project": eden.to_dict(),
+        "seed": seed_result,
+        "owner_binding": {
+            "owner_uid": user["uid"],
+            "authority": "authenticated sovereign account",
+        },
+        "runtime": runtime,
+        "operating_model": {
+            "weaver": "generic project-level runtime",
+            "arkana": "generic project-scoped conversational interface",
+            "domain": "living_larder projection; live capability remains separately verified",
+        },
+    }
+
+
 @router.get("/projects/{project_id}")
 async def get_project(project_id: str, user: dict = Depends(require_project_owner)) -> dict[str, Any]:
     from solspire.project_manager import get_project_manager
