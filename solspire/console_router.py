@@ -685,7 +685,6 @@ async def bind_living_larder_order(
 ) -> dict[str, Any]:
     """Explicitly bind an existing Larder order to this project; never auto-associate."""
     import json
-    import os
     import time
     from pathlib import Path
     from solspire.project_store import log_event
@@ -694,7 +693,7 @@ async def bind_living_larder_order(
     workspace = get_workspace_manager().get_for_subject(user["uid"])
     if workspace is None:
         raise HTTPException(status_code=409, detail="Canonical workspace missing; refusing unrecorded domain binding")
-    order_path = Path(os.environ.get("LIVING_LARDER_ORDERS_FILE", "data/orders.json"))
+    order_path = Path("data/orders.json")
     try:
         raw = json.loads(order_path.read_text(encoding="utf-8"))
         orders = raw if isinstance(raw, list) else raw.get("items", [])
