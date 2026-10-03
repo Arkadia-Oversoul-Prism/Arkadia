@@ -53,7 +53,21 @@ The implementation currently preserves source audio and records interpretation c
 
 ## Current gate
 
-**MVP-GATE-02: BASIC PHYSICAL-DEVICE PATH VERIFIED; MUSICAL-VALIDITY CHECKS REMAIN OPEN**
+**MVP-GATE-03: MUSICAL MEMORY IMPLEMENTED; PHYSICAL-DEVICE MEMORY VERIFICATION OPEN**
+
+The next implementation boundary is now present:
+- every capture remains an actual WAV file under the app-local MIE capture directory
+- every capture has a stable MusicalObject UUID
+- each capture has a companion machine-readable JSON object
+- a local session index persists across app restarts
+- multiple captures are listed in history
+- any existing capture can be selected and played
+- raw Hz and MIDI remain preserved
+- MIDI is projected into a human-readable note name without replacing the raw measurement
+- raw JSON remains inspectable but is no longer the primary presentation
+- transformation remains explicitly gated
+
+The local session is intentionally small and device-local. No cloud synchronization or destructive replacement is introduced at this gate.
 
 ## Commits
 
@@ -62,6 +76,10 @@ The implementation currently preserves source audio and records interpretation c
 - `a336ec30` — compile reconciliation / TTS source normalization
 - `bd986965` — deterministic musical interpretation regression test
 - `3e74e2fc` — record interpreter regression and device boundary
+- `79afe896` — add human-readable musical note projection
+- `31efa5e8` — add local musical session persistence
+- `21f08355` — add capture history and multi-take playback
+- `5ae5665a` — expose Gate 03 musical memory UI
 
 ## CI evidence · 2026-10-02
 
@@ -94,6 +112,20 @@ Tester-submitted observations:
 - TTMI / TTCS / interaction count: **UNKNOWN**
 
 **Conclusion:** the basic APK path has now been exercised on a physical Android device according to the tester. This is a meaningful smoke-test milestone. It is not evidence that pitch detection is accurate or that every part of MVP-GATE-02 has passed.
+
+## Gate 03 physical-device verification
+
+After the current CI run completes, install the resulting APK and verify:
+
+1. Record at least three captures in one session.
+2. Confirm all three remain visible in history.
+3. Play an older capture after recording a newer one.
+4. Force-close and reopen the app; confirm the session history remains.
+5. Confirm each capture has a readable WAV file and companion JSON.
+6. Confirm a steady pitch shows both a note name and its raw Hz value.
+7. Confirm selecting a history item restores its human-readable object view.
+
+A failed missing-file/history case is a real Gate 03 failure, not an UNKNOWN to be silently converted into PASS.
 
 ## Next causal step
 
