@@ -171,8 +171,9 @@ def _migrate(conn: sqlite3.Connection) -> None:
         # Additive migration for sessions created before project-scoped canvas.
         try:
             conn.execute("ALTER TABLE el_sessions ADD COLUMN project_ref TEXT")
-        except sqlite3.OperationalError:
-            pass  # column already exists
+        except sqlite3.OperationalError as exc:
+            if "duplicate column name: project_ref" not in str(exc).lower():
+                raise
 
 
 class EngineeringLabStore:
