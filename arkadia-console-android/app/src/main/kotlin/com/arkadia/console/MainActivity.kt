@@ -39,9 +39,10 @@ class MainActivity:AppCompatActivity(){
 
     override fun onCreate(state:Bundle?){
         super.onCreate(state)
-        if(identity==null){
+        val firebase=identity
+        if(firebase==null){
             showAuthScreen("Firebase is not configured in this APK.")
-        }else if(identity.currentUser==null){
+        }else if(firebase.currentUser==null){
             showAuthScreen()
         }else{
             showMainScreen()
@@ -120,7 +121,15 @@ class MainActivity:AppCompatActivity(){
         }
         dialog.show()
     }
-    private fun load(){if(prefs.getString("api_base","").isNullOrBlank()){connect();return};connection.text="● READING";lifecycleScope.launch{snap=repo.snapshot();connection.text=if(snap.live)"● LIVE · "+(identity?.currentUser?.email ?: "NO IDENTITY") else "● UNAVAILABLE";render();if(!snap.live)Toast.makeText(this@MainActivity,snap.message?:"Oracle unavailable",Toast.LENGTH_LONG).show()}}
+    private fun load(){
+        connection.text="● READING"
+        lifecycleScope.launch{
+            snap=repo.snapshot()
+            connection.text=if(snap.live)"● LIVE · "+(identity?.currentUser?.email ?: "NO IDENTITY") else "● UNAVAILABLE"
+            render()
+            if(!snap.live)Toast.makeText(this@MainActivity,snap.message?:"Oracle unavailable",Toast.LENGTH_LONG).show()
+        }
+    }
     private fun render(){
         objectList.removeAllViews()
         if(snap.objects.isEmpty()){objectList.addView(TextView(this).apply{text="The field has no readable objects yet. This is not an invented empty state.";setTextColor(getColor(R.color.arkadia_muted));textSize=14f;setPadding(12,24,12,24)})}
