@@ -16,6 +16,13 @@ def test_runner_refuses_host_fallback_when_runtime_missing(monkeypatch, tmp_path
                      command=("/bin/true",))
 
 
+def test_project_execution_preflight_refuses_missing_runtime(monkeypatch):
+    from solspire.project_execution_service import assert_container_runtime_ready
+    monkeypatch.setattr("solspire.project_execution_service.shutil.which", lambda _: None)
+    with pytest.raises(BoundaryError, match="refusing project execution"):
+        assert_container_runtime_ready(image="agent@sha256:" + "a" * 64)
+
+
 def test_container_image_must_be_digest_pinned(tmp_path):
     with pytest.raises(BoundaryError, match="immutable sha256 digest"):
         execute_container_command(workspace=str(tmp_path), command=["true"],
