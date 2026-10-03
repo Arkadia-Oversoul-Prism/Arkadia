@@ -13,8 +13,8 @@
 .canvas-live-dot.partial i{background:#C9A84C}
 .canvas-live-dot.unavailable i{background:#D66A6A}
 .living-canvas-modes{display:flex;gap:5px;align-items:center;margin:4px 0 10px;padding:4px;width:max-content;border:1px solid rgba(255,255,255,.06);border-radius:999px;background:rgba(255,255,255,.018)}
-.living-canvas-modes span{padding:7px 10px;border-radius:999px;font:700 8px ui-monospace,SFMono-Regular,monospace;letter-spacing:.12em;color:rgba(233,231,223,.28)}
-.living-canvas-modes span.active{background:rgba(0,212,170,.08);color:#00D4AA}
+.living-canvas-modes button{border:0;padding:7px 10px;border-radius:999px;background:transparent;font:700 8px ui-monospace,SFMono-Regular,monospace;letter-spacing:.12em;color:rgba(233,231,223,.28);cursor:pointer}
+.living-canvas-modes button.active{background:rgba(0,212,170,.08);color:#00D4AA}
 .living-canvas-modes small{margin-left:5px;font:8px Inter,system-ui,sans-serif;letter-spacing:0;color:rgba(233,231,223,.28)}
 .living-field{position:relative;min-height:490px;overflow:hidden;border:1px solid rgba(255,255,255,.075);border-radius:26px;background:radial-gradient(circle at 50% 48%,rgba(0,212,170,.055),transparent 24%),radial-gradient(circle at 25% 18%,rgba(201,168,76,.045),transparent 28%),rgba(8,10,20,.68);box-shadow:inset 0 1px 0 rgba(255,255,255,.025),0 25px 70px rgba(0,0,0,.18)}
 .living-field:before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);background-size:48px 48px;mask-image:radial-gradient(circle at center,#000,transparent 78%);pointer-events:none}
@@ -66,3 +66,7 @@
   .field-object:nth-of-type(n+7){display:none}
   .living-canvas-modes small{display:none}
 }
+
+.living-field-mode-focus .field-object:not(.is-selected){opacity:.28;filter:saturate(.45);transform:translate(-50%,-50%) scale(.88)}
+.living-field-mode-deep .field-object:not(.is-selected){opacity:.18;filter:saturate(.25);transform:translate(-50%,-50%) scale(.82)}
+.living-field-mode-focus .field-object.is-selected,.living-field-mode-deep .field-object.is-selected{z-index:6;transform:translate(-50%,-50%) scale(1.08);}
