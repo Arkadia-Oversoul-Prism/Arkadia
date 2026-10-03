@@ -186,13 +186,11 @@ If any were introduced by this checkpoint: resolve them or record them explicitl
   Classified baseline debt — not attributable to new work unless the node *set* changes.
 - Baseline fingerprint:
   `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `a578a766c09c949c620c9d324248659812d215d3d1e875a0c25b42adb8912aa1`
-  (node-set fingerprint `8036fc06…`). The previously published pairs (`a59453b8…`,
-  `9a35c812…`, `4d84e7eb…`, `da2ec262…`) are superseded and not clone-depth-stable.
-  `a59453b8…`/`9a35c812…` are **not** "unreproducible": they are the recorded set **plus**
-  its depth-dependent sibling `test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec`
-  (a bare clone's live run) — origin explained 2026-10-02 by
-  `gate-hygiene/superseded-fingerprint-origin-01`. See
+  `6c7bf8218fd1e0ae9bc970653e98c18b3a78b69a5c4920dac9f4747c033e4648`
+  (node-set fingerprint `2bc35996…`). Earlier published pairs (`a59453b8…`, `9a35c812…`,
+  `4d84e7eb…`, `da2ec262…`) are superseded and not clone-depth-stable — do not reuse them.
+  `a578a766…`/`8036fc06…` were superseded 2026-10-03 by `6c7bf821…`/`2bc35996…` when the
+  two archived-surface gate nodes were retired. See
   `docs/control-plane/evidence/gate-hygiene-baseline-fingerprint-reconciliation-01/`.
 - Gate-2 production parity: **BLOCKED on provider auth** (Vercel Deployment Protection).
   External boundary, not a repository task. Do not re-run the pass expecting a different
