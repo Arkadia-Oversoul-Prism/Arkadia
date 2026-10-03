@@ -105,14 +105,22 @@
                 android:textIsSelectable="true" />
         </LinearLayout>
 
-        <Button
-            android:id="@+id/playButton"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        <TextView
             android:layout_width="match_parent"
-            android:layout_height="54dp"
-            android:text="PLAY ORIGINAL"
-            android:enabled="false"
-            android:textColor="@color/text_primary"
+            android:layout_height="wrap_content"
+            android:text="MEMORY · PLAYBACK"
+            android:textColor="@color/text_dim"
+            android:textSize="10sp"
+            android:letterSpacing="0.16"
+            android:fontFamily="monospace"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Every remembered sound has its own controls."
+            android:textColor="@color/text_dim"
+            android:textSize="13sp"
             android:layout_marginBottom="10dp" />
 
         <TextView
