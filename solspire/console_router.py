@@ -627,12 +627,15 @@ async def preview_project_patch(
     from solspire.project_execution_boundary import BoundaryError, safe_relative_path
     from solspire.project_execution_service import canonical_base_digest, candidate_patch_digest
     from solspire.project_store import list_files
-    observed = canonical_base_digest(project_id)
-    if observed != body.expected_base_digest:
-        raise HTTPException(status_code=409, detail="Canonical base changed; refresh the candidate review")
-    names = {str(row.get("name") or "") for row in list_files(project_id)}
-    allowed = {safe_relative_path(path) for path in body.allowed_paths}
-    paths = [safe_relative_path(str(change.get("path") or "")) for change in body.changes]
+    try:
+        observed = canonical_base_digest(project_id)
+        if observed != body.expected_base_digest:
+            raise HTTPException(status_code=409, detail="Canonical base changed; refresh the candidate review")
+        names = {str(row.get("name") or "") for row in list_files(project_id)}
+        allowed = {safe_relative_path(path) for path in body.allowed_paths}
+        paths = [safe_relative_path(str(change.get("path") or "")) for change in body.changes]
+    except BoundaryError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not paths or any(path not in allowed or path not in names for path in paths):
         raise HTTPException(status_code=400, detail="Patch paths must be existing canonical files inside the explicit allowlist")
     digest = candidate_patch_digest([{"path": path, "content": change.get("content", "")}
