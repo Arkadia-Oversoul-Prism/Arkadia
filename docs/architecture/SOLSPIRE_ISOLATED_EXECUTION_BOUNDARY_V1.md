@@ -4,7 +4,7 @@
 
 Project-scoped Engineering Lab sessions materialize a unique disposable copy of the canonical project files. Snapshot creation is bracketed by canonical base digests; if the canonical store changes during materialization, the run is refused. The canonical project-store directory is never mounted into a container.
 
-Project terminal operations route through the configured Docker-compatible OCI runtime using argv-only execution. The configured image must be pinned by immutable SHA-256 digest. If the runtime or image configuration is missing, execution fails closed with no host-command fallback.
+Project terminal operations route through the configured Docker-compatible OCI runtime using argv-only execution. Before a project session starts, the service verifies the daemon, inspects the exact SHA-256-pinned image and runs a hardened `/bin/true` smoke container. The configured image must be pinned by immutable SHA-256 digest. If any probe fails, execution fails closed with no host-command fallback.
 
 Container defaults:
 - `--network=none`
