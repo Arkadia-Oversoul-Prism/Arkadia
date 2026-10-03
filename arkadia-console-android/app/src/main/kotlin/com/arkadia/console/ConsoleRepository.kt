@@ -11,7 +11,7 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 data class FieldObject(val id:String,val type:String,val title:String,val summary:String,val state:String,val source:String,val authorizationId:String?=null)
-data class Proposal(val id:String,val objective:String,val status:String)
+data class Proposal(val id:String,val objective:String,val status:String,val authorizationId:String?=null)
 data class FieldSnapshot(val objects:List<FieldObject>,val proposals:List<Proposal>,val eventCount:Int,val live:Boolean,val message:String?=null)
 
 class ConsoleRepository(private val baseUrl:()->String, private val token:suspend ()->String?) {
@@ -49,10 +49,10 @@ class ConsoleRepository(private val baseUrl:()->String, private val token:suspen
             work?.let{objects+=FieldObject("workload","WORK",s(it,"title","display_name").ifBlank{"Current work"},s(it,"objective","phase").ifBlank{"Workload is present in the canonical field."},s(it,"status","phase").ifBlank{"UNKNOWN"},"/solspire/workloads")}
             syn?.let{objects+=FieldObject("synthesis","KNOWLEDGE","Current synthesis",s(it,"summary","synthesis_summary").ifBlank{"Synthesis exists but has no summary."},"DERIVED","/solspire/syntheses/current")}
             val proposals=mutableListOf<Proposal>()
-            pj?.optJSONArray("proposals")?.let{arr->for(i in 0 until arr.length()){val x=arr.optJSONObject(i)?:continue;proposals+=Proposal(s(x,"proposal_id","id").ifBlank{"proposal-"+i},s(x,"objective","requested_decision").ifBlank{"Proposal"},s(x,"proposal_status","status").ifBlank{"UNKNOWN"})}}
+            pj?.optJSONArray("proposals")?.let{arr->for(i in 0 until arr.length()){val x=arr.optJSONObject(i)?:continue;proposals+=Proposal(s(x,"proposal_id","id").ifBlank{"proposal-"+i},s(x,"objective","requested_decision").ifBlank{"Proposal"},s(x,"proposal_status","status").ifBlank{"UNKNOWN"},s(x,"authorization_ref").ifBlank{null})}}
             proposals.take(8).forEach{x->
                 val source=pj?.optJSONArray("proposals")?.let{arr->(0 until arr.length()).asSequence().mapNotNull{arr.optJSONObject(it)}.firstOrNull{candidate->s(candidate,"proposal_id","id")==x.id}}
-                objects+=FieldObject(x.id,"PROPOSAL",x.objective,"Human decision surface. Decision is not execution.",x.status,"/solspire/proposals/"+x.id+"/decision",source?.let{candidate->s(candidate,"authorization_ref").ifBlank{null}})
+                objects+=FieldObject(x.id,"PROPOSAL",x.objective,"Human decision surface. Decision is not execution.",x.status,"/solspire/proposals/"+x.id+"/decision",x.authorizationId)
             }
             val events=ej?.let{it.optJSONArray("work_events")?.length()?:it.optJSONArray("events")?.length()?:0}?:0
             FieldSnapshot(objects,proposals,events,true)
