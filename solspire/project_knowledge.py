@@ -105,13 +105,46 @@ def build_project_context_for_weaver(project: dict[str, Any]) -> dict[str, Any]:
     """Read-only context envelope. Never authorization."""
     pid = project.get("id")
     summary = build_knowledge_summary(pid) if pid else {}
+    owner_uid = project.get("owner_uid") or project.get("owner")
+    continuity: dict[str, Any] = {"workspace": None, "daily_pulse": None, "work_events": [],
+                                  "binding_state": {"daily_pulse": "UNKNOWN", "workevents": "UNKNOWN"}}
+    graph = {}
+    if pid:
+        try:
+            from datetime import datetime, timezone
+            from solspire.workspace_manager import get_workspace_manager
+            from solspire.pulse_manager import get_pulse_manager
+            from solspire.workevent_manager import get_workevent_manager
+            workspace = get_workspace_manager().get_for_subject(str(owner_uid or ""))
+            continuity["workspace"] = workspace.to_dict() if workspace else None
+            if workspace:
+                pulse = get_pulse_manager().get_for_subject_date(
+                    str(owner_uid), workspace.id, datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+                events = [e.to_dict() for e in get_workevent_manager().list(str(owner_uid), workspace.id, 100)
+                          if e.scope_ref == pid or e.work_ref == pid]
+                continuity["daily_pulse"] = pulse.to_dict() if pulse else None
+                continuity["work_events"] = events[:50]
+                continuity["binding_state"] = {
+                    "daily_pulse": "SUBJECT_WORKSPACE_BOUND" if pulse else "UNKNOWN",
+                    "workevents": "PROJECT_SCOPED_MATCHES" if events else "UNKNOWN",
+                }
+        except Exception as exc:
+            continuity["binding_state"] = {"daily_pulse": "UNAVAILABLE",
+                                           "workevents": "UNAVAILABLE",
+                                           "detail": f"{type(exc).__name__}: {exc}"}
+        try:
+            graph = build_derived_graph(pid)
+        except Exception as exc:
+            graph = {"state": "UNAVAILABLE", "detail": f"{type(exc).__name__}: {exc}"}
     return {
         "project_id": pid,
         "project_name": project.get("name"),
-        "owner": project.get("owner_uid") or project.get("owner"),
+        "owner": owner_uid,
         "status": project.get("status"),
         "knowledge": summary.get("sources"),
         "repositories": (summary.get("items") or {}).get("repositories"),
+        "knowledge_graph": graph,
+        "continuity": continuity,
         "memory_note": "Memory listed in knowledge OS is OPERATOR_CONTEXT, not FACT.",
         "embeddings": summary.get("embeddings"),
         "authorization": {
