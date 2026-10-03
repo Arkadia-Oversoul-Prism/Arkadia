@@ -117,14 +117,11 @@ Re-measured 2026-10-02 on `main` @ `64cbe74`:
   clone-depth-stable recorded set is **18 nodes**
   (`tests/fixtures/baseline_node_set.txt`).
 - Fingerprint `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `a578a766c09c949c620c9d324248659812d215d3d1e875a0c25b42adb8912aa1`
-  (node set `8036fc06…`; recorded nodes in `tests/fixtures/baseline_node_set.txt`). Earlier
+  `6c7bf8218fd1e0ae9bc970653e98c18b3a78b69a5c4920dac9f4747c033e4648`
+  (node set `2bc35996…`; recorded nodes in `tests/fixtures/baseline_node_set.txt`). Earlier
   published pairs (`a59453b8…`, `9a35c812…`, `4d84e7eb…`, `da2ec262…`) are superseded and
-  not clone-depth-stable — do not reuse them. `a59453b8…`/`9a35c812…` are the recorded set
-  **plus** its depth-dependent sibling
-  `test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec` (a bare clone's live run),
-  not "unreproducible" — origin explained 2026-10-02 by
-  `gate-hygiene/superseded-fingerprint-origin-01`. See
+  not clone-depth-stable — do not reuse them. `a578a766…`/`8036fc06…` were superseded
+  2026-10-03 by `6c7bf821…`/`2bc35996…`. See
   `docs/control-plane/evidence/gate-hygiene-baseline-fingerprint-reconciliation-01/`.
 
 Counts are environment-sensitive and at least one node
