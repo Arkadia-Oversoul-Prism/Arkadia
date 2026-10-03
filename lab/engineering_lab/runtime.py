@@ -109,7 +109,7 @@ class BoundedTask:
 #: that is absent (or not in the role ceiling) grants no operation of that kind.
 CAPABILITY_OPERATIONS: dict[str, tuple[str, ...]] = {
     "READ": ("read", "list"),
-    "EDIT": ("read", "list"),
+    "EDIT": ("read", "list", "candidate_write"),
     "RUN": ("run",),
     "OBSERVE": ("git_status",),
 }
@@ -119,12 +119,14 @@ CAPABILITY_OPERATIONS: dict[str, tuple[str, ...]] = {
 OPERATION_TOOLS: dict[str, tuple[str, ...]] = {
     "list": ("filesystem.list",),
     "read": ("filesystem.read",),
+    "candidate_write": ("filesystem.propose_edit",),
     "run": ("terminal.run",),
     "git_status": ("git.status", "git.diff"),
 }
 
 _ALL_LOOP_TOOLS: tuple[str, ...] = (
-    "filesystem.list", "filesystem.read", "terminal.run", "git.status", "git.diff",
+    "filesystem.list", "filesystem.read", "filesystem.propose_edit",
+    "terminal.run", "git.status", "git.diff",
 )
 
 
@@ -199,6 +201,7 @@ class EngineeringLabRuntime:
             capabilities=tuple(caps),
             tool_access=AgentToolAccess(
                 tools=("read", "list")
+                + (("candidate_write",) if "EDIT" in caps else ())
                 + (("run",) if "RUN" in caps else ())
                 + (("git_status",) if "OBSERVE" in caps else ())
                 + (("write",) if write_allowed else ()),
