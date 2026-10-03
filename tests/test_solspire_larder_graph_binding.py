@@ -75,3 +75,23 @@ def test_arkana_context_includes_only_explicitly_bound_larder_snapshot(monkeypat
     assert context["living_larder"]["orders"][0]["order_id"] == "LL-123"
     assert context["living_larder"]["orders"][0]["total"] == 4200
     assert context["continuity"]["binding_state"]["daily_pulse"] == "UNKNOWN"
+
+
+
+def test_knowledge_os_distinguishes_unavailable_source_from_empty_source(monkeypatch):
+    monkeypatch.setattr(project_store, "list_memory",
+                        lambda pid: (_ for _ in ()).throw(RuntimeError("memory store unavailable")))
+    monkeypatch.setattr(project_store, "list_files", lambda pid: [])
+    monkeypatch.setattr(project_store, "list_repositories", lambda pid: [])
+    monkeypatch.setattr(project_store, "list_tasks", lambda pid: [])
+    monkeypatch.setattr(project_store, "list_events", lambda pid: [])
+    monkeypatch.setattr(project_store, "list_conversations", lambda pid: [])
+
+    class Embeddings:
+        def describe(self, project_id):
+            return {"state": "UNCONFIGURED", "project_id": project_id}
+
+    summary = project_knowledge.build_knowledge_summary("project-1", embedding_provider=Embeddings())
+    assert summary["sources"]["memory"] == 0
+    assert summary["source_health"]["state"] == "PARTIAL"
+    assert "memory" in summary["source_health"]["errors"]
