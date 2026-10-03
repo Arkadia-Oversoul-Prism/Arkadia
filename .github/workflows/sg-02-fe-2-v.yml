@@ -205,6 +205,7 @@ jobs:
             tests/test_engineering_lab_candidate_proposals.py \
             tests/test_solspire_integration_health.py \
             tests/test_solspire_larder_graph_binding.py \
+            tests/test_solspire_project_instantiation_ui.py \
             -q 2>&1 | tee solspire-runtime-integration.log
       - name: CP10-B broader backend regression
         id: backend
