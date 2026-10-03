@@ -173,7 +173,6 @@ def build_project_context_for_weaver(project: dict[str, Any]) -> dict[str, Any]:
                           if e.scope_ref == pid or e.work_ref == pid]
                 continuity["daily_pulse"] = pulse.to_dict() if pulse else None
                 continuity["work_events"] = events[:50]
-                continuity["work_events"] = events[:50]
                 continuity["binding_state"] = {
                     "daily_pulse": "AVAILABLE" if pulse else "UNKNOWN",
                     "workevents": "AVAILABLE" if events else "UNKNOWN",
