@@ -50,7 +50,10 @@ class ConsoleRepository(private val baseUrl:()->String, private val token:suspen
             syn?.let{objects+=FieldObject("synthesis","KNOWLEDGE","Current synthesis",s(it,"summary","synthesis_summary").ifBlank{"Synthesis exists but has no summary."},"DERIVED","/solspire/syntheses/current")}
             val proposals=mutableListOf<Proposal>()
             pj?.optJSONArray("proposals")?.let{arr->for(i in 0 until arr.length()){val x=arr.optJSONObject(i)?:continue;proposals+=Proposal(s(x,"proposal_id","id").ifBlank{"proposal-"+i},s(x,"objective","requested_decision").ifBlank{"Proposal"},s(x,"proposal_status","status").ifBlank{"UNKNOWN"})}}
-            proposals.take(8).forEach{x->objects+=FieldObject(x.id,"PROPOSAL",x.objective,"Human decision surface. Decision is not execution.",x.status,"/solspire/proposals/"+x.id+"/decision",s(x,"authorization_ref").ifBlank{null})}
+            proposals.take(8).forEach{x->
+                val source=pj?.optJSONArray("proposals")?.let{arr->(0 until arr.length()).asSequence().mapNotNull{arr.optJSONObject(it)}.firstOrNull{candidate->s(candidate,"proposal_id","id")==x.id}}
+                objects+=FieldObject(x.id,"PROPOSAL",x.objective,"Human decision surface. Decision is not execution.",x.status,"/solspire/proposals/"+x.id+"/decision",source?.let{candidate->s(candidate,"authorization_ref").ifBlank{null}})
+            }
             val events=ej?.let{it.optJSONArray("work_events")?.length()?:it.optJSONArray("events")?.length()?:0}?:0
             FieldSnapshot(objects,proposals,events,true)
         }catch(e:Exception){FieldSnapshot(emptyList(),emptyList(),0,false,e.message?:"Oracle unreachable")}
