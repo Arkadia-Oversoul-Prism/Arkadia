@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="arkadia_bg">#090B10</color>
+    <color name="arkadia_panel">#11151D</color>
+    <color name="arkadia_panel_2">#171C25</color>
+    <color name="arkadia_text">#F3F5F7</color>
+    <color name="arkadia_muted">#8E99A8</color>
+    <color name="arkadia_accent">#D9FF73</color>
+    <color name="arkadia_line">#27303B</color>
+</resources>
