@@ -1,0 +1,58 @@
+name: SolSpire project execution boundary
+
+on:
+  pull_request:
+    paths:
+      - "solspire/project_execution_boundary.py"
+      - "solspire/project_execution_service.py"
+      - "solspire/project_store.py"
+      - "solspire/integration_health.py"
+      - "solspire/console_router.py"
+      - "api/lab_routes.py"
+      - "lab/engineering_lab/**"
+      - "tests/solspire/**"
+      - "tests/test_solspire_project_execution_service.py"
+      - "tests/test_solspire_integration_health.py"
+      - "tests/test_engineering_lab_candidate_proposals.py"
+      - ".github/workflows/solspire-project-execution.yml"
+  workflow_dispatch:
+
+jobs:
+  boundary:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pytest
+      - name: Unit and contract gates
+        run: |
+          python -m pytest -q             tests/solspire/test_project_execution_boundary.py             tests/solspire/test_live_container_execution.py             tests/test_solspire_project_execution_service.py             tests/test_solspire_integration_health.py             tests/test_engineering_lab_candidate_proposals.py
+      - name: Pull immutable acceptance image
+        run: |
+          set -euo pipefail
+          docker pull alpine:3.20.10
+          IMAGE="$(docker image inspect --format '{{index .RepoDigests 0}}' alpine:3.20.10)"
+          case "$IMAGE" in
+            *@sha256:????????????????????????????????????????????????????????????????) ;;
+            *) echo "Could not resolve an immutable image digest"; exit 1 ;;
+          esac
+          echo "SOLSPIRE_TEST_AGENT_IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          echo "Using $IMAGE"
+      - name: Live OCI acceptance gate
+        run: |
+          set -euo pipefail
+          python -m pytest -q -m live_container tests/solspire/test_live_container_execution.py
+      - name: Integration health contract gate
+        run: |
+          set -euo pipefail
+          python -m pytest -q tests/test_solspire_integration_health.py

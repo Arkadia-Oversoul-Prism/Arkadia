@@ -109,7 +109,8 @@ class BoundedTask:
 #: that is absent (or not in the role ceiling) grants no operation of that kind.
 CAPABILITY_OPERATIONS: dict[str, tuple[str, ...]] = {
     "READ": ("read", "list"),
-    "EDIT": ("read", "list"),
+    "EDIT": ("read", "list", "candidate_write"),
+    "PROPOSE": ("candidate_write",),
     "RUN": ("run",),
     "OBSERVE": ("git_status",),
 }
@@ -119,12 +120,14 @@ CAPABILITY_OPERATIONS: dict[str, tuple[str, ...]] = {
 OPERATION_TOOLS: dict[str, tuple[str, ...]] = {
     "list": ("filesystem.list",),
     "read": ("filesystem.read",),
+    "candidate_write": ("filesystem.propose_edit",),
     "run": ("terminal.run",),
     "git_status": ("git.status", "git.diff"),
 }
 
 _ALL_LOOP_TOOLS: tuple[str, ...] = (
-    "filesystem.list", "filesystem.read", "terminal.run", "git.status", "git.diff",
+    "filesystem.list", "filesystem.read", "filesystem.propose_edit",
+    "terminal.run", "git.status", "git.diff",
 )
 
 
@@ -199,6 +202,7 @@ class EngineeringLabRuntime:
             capabilities=tuple(caps),
             tool_access=AgentToolAccess(
                 tools=("read", "list")
+                + (("candidate_write",) if ("EDIT" in caps or "PROPOSE" in caps) else ())
                 + (("run",) if "RUN" in caps else ())
                 + (("git_status",) if "OBSERVE" in caps else ())
                 + (("write",) if write_allowed else ()),
@@ -221,6 +225,7 @@ class EngineeringLabRuntime:
         agent_id: str,
         objective: str,
         repository_ref: str | None = None,
+        project_ref: str | None = None,
         authorization_ref: str | None = None,
     ) -> dict[str, Any]:
         """Open a bounded session.
@@ -249,6 +254,7 @@ class EngineeringLabRuntime:
             state=state,
             objective=objective,
             repository_ref=repository_ref,
+            project_ref=project_ref,
             authorization_ref=resolved_auth,
         )
         self._store.create_session(session)
@@ -289,6 +295,10 @@ class EngineeringLabRuntime:
             "created_at": utc_now(),
         }
         return self._store.record_authorization(record, subject_ref)
+
+    def get_authorization(self, authorization_ref: str, subject_ref: str) -> dict[str, Any] | None:
+        """Resolve an authorization only for its subject; callers must verify its scope."""
+        return self._store.get_authorization(authorization_ref, subject_ref)
 
     def get_session(self, session_id: str, subject_ref: str) -> dict[str, Any]:
         session = self._store.get_session(session_id, subject_ref)

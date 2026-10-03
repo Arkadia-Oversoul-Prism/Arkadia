@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/arkadia_bg">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="18dp"
+        android:paddingBottom="12dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/eyebrow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ARKADIA CONSOLE"
+                android:textColor="@color/arkadia_accent"
+                android:textStyle="bold"
+                android:textSize="12sp"
+                android:letterSpacing="0.12"/>
+            <TextView
+                android:id="@+id/title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Living Field"
+                android:textColor="@color/arkadia_text"
+                android:textStyle="bold"
+                android:textSize="28sp"/>
+        </LinearLayout>
+        <TextView
+            android:id="@+id/connection"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="● OFFLINE"
+            android:textColor="@color/arkadia_muted"
+            android:textSize="11sp"/>
+    </LinearLayout>
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/fieldButton" android:layout_width="wrap_content" android:layout_height="42dp" android:text="FIELD"/>
+            <Button android:id="@+id/focusButton" android:layout_width="wrap_content" android:layout_height="42dp" android:text="FOCUS"/>
+            <Button android:id="@+id/deepButton" android:layout_width="wrap_content" android:layout_height="42dp" android:text="DEEP"/>
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <ScrollView
+        android:id="@+id/scroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+        <LinearLayout
+            android:id="@+id/field"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:id="@+id/fieldHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Your field. Live canonical state, not a second database."
+                android:textColor="@color/arkadia_muted"
+                android:textSize="14sp"
+                android:paddingBottom="12dp"/>
+
+            <LinearLayout android:id="@+id/objectList" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
+
+            <LinearLayout
+                android:id="@+id/detailPanel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="18dp"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_panel">
+                <TextView android:id="@+id/detailType" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/arkadia_accent" android:textSize="11sp"/>
+                <TextView android:id="@+id/detailTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/arkadia_text" android:textStyle="bold" android:textSize="22sp" android:paddingTop="5dp"/>
+                <TextView android:id="@+id/detailSummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/arkadia_muted" android:textSize="14sp" android:paddingTop="8dp"/>
+                <TextView android:id="@+id/detailState" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/arkadia_text" android:textSize="13sp" android:paddingTop="12dp"/>
+                <LinearLayout android:id="@+id/actionRow" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingTop="12dp"/>
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="12dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+        <Button android:id="@+id/captureButton" android:layout_width="0dp" android:layout_height="52dp" android:layout_weight="1" android:text="CAPTURE"/>
+        <Space android:layout_width="8dp" android:layout_height="1dp"/>
+        <Button android:id="@+id/askButton" android:layout_width="0dp" android:layout_height="52dp" android:layout_weight="1" android:text="ASK ARKANA"/>
+        <Space android:layout_width="8dp" android:layout_height="1dp"/>
+        <Button android:id="@+id/verifyButton" android:layout_width="0dp" android:layout_height="52dp" android:layout_weight="1" android:text="VERIFY"/>
+    </LinearLayout>
+</LinearLayout>
