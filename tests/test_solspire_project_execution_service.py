@@ -36,7 +36,7 @@ def test_timed_out_container_is_targeted_for_forced_cleanup(monkeypatch, tmp_pat
         if argv[1] == "run":
             raise subprocess.TimeoutExpired(cmd=argv, timeout=kwargs.get("timeout", 1))
         if argv[1] == "ps":
-            return SimpleNamespace(returncode=0, stdout="container-test-id\\n", stderr="")
+            return SimpleNamespace(returncode=0, stdout="container-test-id ", stderr="")
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(boundary.subprocess, "run", fake_run)
