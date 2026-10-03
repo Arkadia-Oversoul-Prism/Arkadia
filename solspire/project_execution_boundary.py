@@ -1,9 +1,8 @@
 """Fail-closed container boundary for project-scoped agent work.
 
-This module builds a hardened OCI-container invocation and keeps agent writes
-inside an ephemeral working copy. It deliberately does not persist workspace
-changes to the canonical SolSpire project store. Persistence must be a separate,
-explicitly authorized patch-application step.
+This module builds a hardened OCI-container invocation for a disposable project
+copy. Agent edit proposals do not mutate that copy or the canonical project store.
+Canonical persistence is a separate, explicitly authorized patch-application step.
 
 The host must provide a trusted Docker-compatible runtime. This module does not
 claim that a container is a VM or a complete defense against a compromised host.
