@@ -589,6 +589,129 @@ async def project_runtime_context(
     }
 
 
+# ── Governed project execution, integrations and domain bindings ────────────
+
+class CandidatePatchReviewRequest(BaseModel):
+    expected_base_digest: str
+    changes: list[dict[str, str]]
+    allowed_paths: list[str]
+
+
+class ApplyReviewedPatchRequest(CandidatePatchReviewRequest):
+    approved_patch_digest: str
+    work_ref: str | None = None
+
+
+@router.post("/projects/{project_id}/patches/preview")
+async def preview_project_patch(
+    project_id: str, body: CandidatePatchReviewRequest,
+    user: dict = Depends(require_project_owner),
+) -> dict[str, Any]:
+    from solspire.project_execution_boundary import BoundaryError, safe_relative_path
+    from solspire.project_execution_service import canonical_base_digest, candidate_patch_digest
+    from solspire.project_store import list_files
+    observed = canonical_base_digest(project_id)
+    if observed != body.expected_base_digest:
+        raise HTTPException(status_code=409, detail="Canonical base changed; refresh the candidate review")
+    names = {str(row.get("name") or "") for row in list_files(project_id)}
+    allowed = {safe_relative_path(path) for path in body.allowed_paths}
+    paths = [safe_relative_path(str(change.get("path") or "")) for change in body.changes]
+    if not paths or any(path not in allowed or path not in names for path in paths):
+        raise HTTPException(status_code=400, detail="Patch paths must be existing canonical files inside the explicit allowlist")
+    digest = candidate_patch_digest([{"path": path, "content": change.get("content", "")}
+                                     for path, change in zip(paths, body.changes)])
+    return {"project_id": project_id, "base_digest": observed,
+            "candidate_patch_digest": digest, "changed_paths": paths,
+            "requires_explicit_human_approval": True,
+            "persistence": "NOT_APPLIED"}
+
+
+@router.post("/projects/{project_id}/patches/apply")
+async def apply_project_patch(
+    project_id: str, body: ApplyReviewedPatchRequest,
+    user: dict = Depends(require_project_owner),
+) -> dict[str, Any]:
+    from solspire.project_execution_boundary import BoundaryError
+    from solspire.project_execution_service import apply_reviewed_project_patch
+    try:
+        return apply_reviewed_project_patch(
+            subject_uid=user["uid"], project_id=project_id,
+            expected_base_digest=body.expected_base_digest,
+            approved_patch_digest=body.approved_patch_digest,
+            changes=body.changes, allowed_paths=body.allowed_paths,
+            work_ref=body.work_ref,
+        )
+    except BoundaryError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except (ValueError, KeyError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/projects/{project_id}/integration-health")
+async def project_integration_health_route(
+    project_id: str, user: dict = Depends(require_project_owner),
+) -> dict[str, Any]:
+    from solspire.project_manager import get_project_manager
+    from solspire.integration_health import project_integration_health
+    project = get_project_manager().load(project_id)
+    return project_integration_health(subject_uid=user["uid"], project=project.to_dict())
+
+
+@router.post("/projects/{project_id}/living-larder/orders/{order_id}/bind")
+async def bind_living_larder_order(
+    project_id: str, order_id: str,
+    user: dict = Depends(require_project_owner),
+) -> dict[str, Any]:
+    """Explicitly bind an existing Larder order to this project; never auto-associate."""
+    import json
+    import os
+    import time
+    from pathlib import Path
+    from solspire.project_store import log_event
+    from solspire.workspace_manager import get_workspace_manager
+    from solspire.workevent_manager import get_workevent_manager
+    workspace = get_workspace_manager().get_for_subject(user["uid"])
+    if workspace is None:
+        raise HTTPException(status_code=409, detail="Canonical workspace missing; refusing unrecorded domain binding")
+    order_path = Path(os.environ.get("LIVING_LARDER_ORDERS_FILE", "data/orders.json"))
+    try:
+        raw = json.loads(order_path.read_text(encoding="utf-8"))
+        orders = raw if isinstance(raw, list) else raw.get("items", [])
+    except FileNotFoundError:
+        raise HTTPException(status_code=503, detail="Living Larder order store unavailable")
+    except (OSError, ValueError, AttributeError) as exc:
+        raise HTTPException(status_code=503, detail=f"Living Larder order store unreadable: {exc}")
+    order = next((item for item in orders if str(item.get("order_id") or "") == order_id), None)
+    if not order:
+        raise HTTPException(status_code=404, detail="Living Larder order not found")
+    snapshot = {
+        "order_id": order_id,
+        "status": str(order.get("status") or "UNKNOWN"),
+        "created_at": order.get("created_at"),
+        "subtotal": order.get("subtotal"),
+        "delivery_fee": order.get("delivery_fee"),
+        "total": order.get("total"),
+        "item_count": len(order.get("items") or []),
+        "source": "living_larder_orders",
+    }
+    from hashlib import sha256
+    snapshot_digest = sha256(json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    log_event(project_id, "living_larder_order_bound",
+              f"Living Larder order explicitly bound: {order_id}",
+              {**snapshot, "snapshot_digest": snapshot_digest, "bound_by": user["uid"]})
+    event = get_workevent_manager().create(
+        subject_ref=user["uid"], workspace_ref=workspace.id,
+        event_type="LIVING_LARDER_ORDER_BOUND", occurred_at=time.time(),
+        work_ref=project_id, scope_ref=project_id, actor_ref=user["uid"],
+        artifact_refs=[f"living-larder-order:{order_id}"],
+        state_after_ref=f"sha256:{snapshot_digest}",
+        decision_ref=f"human-project-binding:{project_id}:{order_id}",
+        witness_ref=f"sha256:{snapshot_digest}", status="RECORDED",
+    )
+    return {"ok": True, "project_id": project_id, "order": snapshot,
+            "snapshot_digest": snapshot_digest, "work_event": event.to_dict()}
+
+
 # ── Status ─────────────────────────────────────────────────────────────────
 
 @router.get("/status")
