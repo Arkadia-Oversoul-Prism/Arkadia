@@ -95,7 +95,7 @@ export default function ProjectOverview({ project, onTabChange }: OverviewProps)
             ].map(([label, state]) => (
               <div key={String(label)} style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
                 <div style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(212,223,232,0.38)' }}>{label}</div>
-                <div style={{ marginTop: 5, fontSize: 10, color: state === 'not_configured' || String(state).includes('requires_live') ? '#C9A84C' : '#00D4AA' }}>{runtimeStatus(state)}</div>
+                <div style={{ marginTop: 5, fontSize: 10, color: !state || state === 'not_configured' || String(state).includes('requires_live') ? '#C9A84C' : '#00D4AA' }}>{runtimeStatus(state)}</div>
               </div>
             ))}
           </div>
