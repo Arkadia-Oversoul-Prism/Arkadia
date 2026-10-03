@@ -19,6 +19,7 @@ import java.io.File
 import java.util.UUID
 
 class MainActivity : AppCompatActivity() {
+    companion object { const val EXTRA_PROCESS_TEXT = "extra_process_text" }
     private lateinit var prefs: Prefs
     private lateinit var api: ConsoleApi
     private lateinit var content: LinearLayout
