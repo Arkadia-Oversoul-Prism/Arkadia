@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
 from typing import Any
 
 
@@ -77,14 +78,36 @@ def project_integration_health(*, subject_uid: str, project: dict[str, Any]) -> 
     image = os.environ.get("SOLSPIRE_AGENT_IMAGE", "")
     runtime_name = os.environ.get("SOLSPIRE_CONTAINER_RUNTIME", "docker")
     runtime = shutil.which(runtime_name)
-    image_pinned = "@sha256:" in image and len(image.rsplit("@sha256:", 1)[-1]) == 64
+    image_digest = image.rsplit("@sha256:", 1)[-1] if "@sha256:" in image else ""
+    image_pinned = len(image_digest) == 64 and all(ch in "0123456789abcdef" for ch in image_digest.lower())
+    runtime_live = False
+    image_present = False
+    runtime_error = None
+    if runtime and image_pinned:
+        try:
+            info = subprocess.run([runtime, "info"], shell=False, capture_output=True,
+                                  text=True, timeout=5, check=False)
+            runtime_live = info.returncode == 0
+            if not runtime_live:
+                runtime_error = (info.stderr or info.stdout or "runtime info failed")[:500]
+            else:
+                inspected = subprocess.run([runtime, "image", "inspect", image],
+                                           shell=False, capture_output=True, text=True,
+                                           timeout=5, check=False)
+                image_present = inspected.returncode == 0
+                if not image_present:
+                    runtime_error = (inspected.stderr or inspected.stdout or "configured image not present")[:500]
+        except Exception as exc:
+            runtime_error = f"{type(exc).__name__}: {exc}"
+    ready = bool(runtime and image_pinned and runtime_live and image_present)
     results["isolated_execution"] = {
         "capability": "isolated_execution",
-        "state": "AVAILABLE" if runtime and image_pinned else "UNAVAILABLE",
-        "detail": {"runtime_found": bool(runtime), "image_digest_pinned": image_pinned,
+        "state": "AVAILABLE" if ready else "UNAVAILABLE",
+        "detail": {"runtime_found": bool(runtime), "runtime_live": runtime_live,
+                   "image_digest_pinned": image_pinned, "image_present": image_present,
                    "runtime_name": runtime_name,
-                   "reason": None if runtime and image_pinned else
-                   "container runtime or immutable SHA-256 image configuration is missing"},
+                   "reason": None if ready else runtime_error or
+                   "container runtime, live daemon, immutable image digest, or local image is missing"},
     }
     larder_detail = results["living_larder"].get("detail")
     larder_bound = isinstance(larder_detail, dict) and larder_detail.get("binding_state") == "PROJECT_BOUND"
