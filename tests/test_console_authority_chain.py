@@ -180,51 +180,60 @@ def test_console_dispatch_uses_authorized_repository_root(tmp_path, monkeypatch)
     else:
         raise AssertionError("authorized repository root was not enforced")
 
-def test_console_execute_route_dispatches_weaver_and_records_real_evidence(tmp_path, monkeypatch):
+def test_console_proposal_authorization_weaver_evidence_chain(tmp_path, monkeypatch):
     import asyncio
+    import solspire.proposal_manager as pm
+    import solspire.workspace_manager as wm
     import weaver.enterprise_orchestration as ew
-    from solspire.console_authority_router import create_execution_attempt, ExecutionRequest
+    from solspire.console_authority_router import (
+        authorize_proposal,
+        create_execution_attempt,
+        AuthorizationRequest,
+        ExecutionRequest,
+    )
 
-    db = str(tmp_path / "console-execute-route.db")
+    db = str(tmp_path / "console-full-chain.db")
+    monkeypatch.setattr(pm, "_DB_PATH", db)
+    monkeypatch.setattr(wm, "_DB_PATH", db)
     monkeypatch.setattr(ew, "_DB_PATH", db)
-    subject = "firebase-console-route-execution"
-    store = ew.EnterpriseOrchestrationStore()
-    proposal = store.proposal(
-        subject=subject,
-        enterprise_id="workspace-console-route",
+
+    subject = "firebase-console-full-chain"
+    workspace = wm.WorkspaceManager().get_or_create(subject)
+    proposal = pm.ProposalManager().create_proposal(
+        subject_ref=subject,
+        workspace_ref=workspace.id,
         objective="Inspect the authorized test workspace",
-        rationale="Exercise the real Console execution route",
-        recommended_actions=["list"],
-        required_authority="human",
-        tool_selections=["filesystem.list"],
-        correlation_id="console-route-execution-1",
+        scope="Read-only Console execution proof",
+        requested_decision="inspect_workspace",
     )
-    authority_event = store.authority_event(
-        subject=subject,
-        actor=subject,
-        authority_context="workspace-console-route",
-        action="APPROVE_PROPOSAL",
-        previous_state="AWAITING_AUTHORITY",
-        new_state="AUTHORIZED",
-        origin="human",
-        authentication_context="firebase_id_token",
-        correlation_id=proposal.correlation_id,
-    )
-    authorization = store.authorize(
-        subject=subject,
-        proposal_id=proposal.id,
-        authority_event_id=authority_event.id,
-        scope={"tools": ["filesystem.list"]},
-        constraints={
-            "read_only": True,
-            "repository_root": str(tmp_path),
-            "network": False,
-        },
+    pm.ProposalManager().record_decision(
+        proposal_id=proposal.proposal_id,
+        subject_ref=subject,
+        decision="ACCEPTED",
     )
 
-    result = asyncio.run(
+    authorized = asyncio.run(
+        authorize_proposal(
+            proposal.proposal_id,
+            AuthorizationRequest(
+                scope={"tools": ["filesystem.list"]},
+                constraints={
+                    "read_only": True,
+                    "repository_root": str(tmp_path),
+                    "network": False,
+                },
+            ),
+            user={"uid": subject, "role": "Flamekeeper", "access_level": 1},
+        )
+    )
+    authorization_id = authorized["authorization"]["id"]
+    assert authorized["human_authority_event"]["action"] == "APPROVE_PROPOSAL"
+    assert authorized["execution_authorized"] is True
+    assert authorized["solariun_proposal"]["authorization_ref"] == authorization_id
+
+    executed = asyncio.run(
         create_execution_attempt(
-            authorization.id,
+            authorization_id,
             ExecutionRequest(
                 tool_channel="filesystem.list",
                 request_payload={"path": "."},
@@ -233,10 +242,9 @@ def test_console_execute_route_dispatches_weaver_and_records_real_evidence(tmp_p
         )
     )
 
-    assert result["ok"] is True
-    assert result["execution"]["tool_channel"] == "filesystem.list"
-    assert result["execution_attempt"]["result_status"] == "SUCCEEDED"
-    evidence = result["evidence"]
-    assert evidence["execution_attempt_id"] == result["execution_attempt"]["id"]
+    assert executed["ok"] is True
+    assert executed["execution"]["tool_channel"] == "filesystem.list"
+    assert executed["execution_attempt"]["result_status"] == "SUCCEEDED"
+    evidence = executed["evidence"]
+    assert evidence["execution_attempt_id"] == executed["execution_attempt"]["id"]
     assert evidence["evidence_type"] == "weaver_execution"
-
