@@ -295,6 +295,10 @@ class EngineeringLabRuntime:
         }
         return self._store.record_authorization(record, subject_ref)
 
+    def get_authorization(self, authorization_ref: str, subject_ref: str) -> dict[str, Any] | None:
+        """Resolve an authorization only for its subject; callers must verify its scope."""
+        return self._store.get_authorization(authorization_ref, subject_ref)
+
     def get_session(self, session_id: str, subject_ref: str) -> dict[str, Any]:
         session = self._store.get_session(session_id, subject_ref)
         if session is None:
