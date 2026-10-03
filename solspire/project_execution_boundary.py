@@ -41,6 +41,7 @@ def build_container_argv(
     memory: str = "512m",
     cpus: str = "1.0",
     pids_limit: int = 128,
+    working_directory: str = ".",
 ) -> list[str]:
     """Build an OCI invocation with no network and a disposable workspace.
 
@@ -57,13 +58,22 @@ def build_container_argv(
     root = Path(workspace).resolve(strict=True)
     if not root.is_dir() or root.is_symlink():
         raise BoundaryError("workspace must resolve to a real directory")
+    relative_workdir = safe_relative_path(working_directory) if working_directory != "." else "."
+    target_workdir = root if relative_workdir == "." else (root / relative_workdir).resolve(strict=True)
+    try:
+        target_workdir.relative_to(root)
+    except ValueError as exc:
+        raise BoundaryError("working directory escapes workspace") from exc
+    if not target_workdir.is_dir():
+        raise BoundaryError("working directory must be a directory")
+    container_workdir = "/workspace" if relative_workdir == "." else f"/workspace/{relative_workdir}"
     return [
         runtime, "run", "--rm", "--network=none", "--read-only",
         "--cap-drop=ALL", "--security-opt=no-new-privileges:true",
         "--pids-limit", str(pids_limit), "--memory", memory,
         "--cpus", cpus, "--user", "65532:65532",
         "--mount", f"type=bind,src={root},dst=/workspace,rw",
-        "--workdir", "/workspace", "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
+        "--workdir", container_workdir, "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
         image, *command,
     ]
 
@@ -71,6 +81,7 @@ def build_container_argv(
 def run_isolated(
     *, image: str, workspace: str | Path, command: Sequence[str],
     timeout_seconds: int = 60, runtime: str = "docker",
+    working_directory: str = ".",
 ) -> subprocess.CompletedProcess[str]:
     """Execute without a shell; fail closed when the container runtime is absent."""
     if timeout_seconds < 1 or timeout_seconds > 900:
@@ -80,6 +91,7 @@ def run_isolated(
         raise BoundaryError("container runtime unavailable; refusing host execution")
     argv = build_container_argv(
         image=image, workspace=workspace, command=command, runtime=executable,
+        working_directory=working_directory,
     )
     return subprocess.run(
         argv, shell=False, check=False, capture_output=True, text=True,
