@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="@color/arkadia_bg">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center_vertical"
+        android:orientation="vertical"
+        android:padding="28dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ARKADIA CONSOLE"
+            android:textColor="@color/arkadia_accent"
+            android:textStyle="bold"
+            android:textSize="12sp"
+            android:letterSpacing="0.12"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Enter the field."
+            android:textColor="@color/arkadia_text"
+            android:textStyle="bold"
+            android:textSize="32sp"
+            android:paddingTop="6dp"/>
+
+        <TextView
+            android:id="@+id/authMessage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Sign in with your Arkadia Firebase identity. The Console will use the verified identity to reach Oracle."
+            android:textColor="@color/arkadia_muted"
+            android:textSize="14sp"
+            android:paddingTop="10dp"
+            android:paddingBottom="22dp"/>
+
+        <EditText
+            android:id="@+id/authEmail"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:hint="Email"
+            android:inputType="textEmailAddress"
+            android:textColor="@color/arkadia_text"
+            android:textColorHint="@color/arkadia_muted"/>
+
+        <EditText
+            android:id="@+id/authPassword"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:hint="Password"
+            android:inputType="textPassword"
+            android:textColor="@color/arkadia_text"
+            android:textColorHint="@color/arkadia_muted"
+            android:layout_marginTop="10dp"/>
+
+        <Button
+            android:id="@+id/signInButton"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:text="SIGN IN"
+            android:layout_marginTop="22dp"/>
+
+        <Button
+            android:id="@+id/registerButton"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:text="CREATE ACCOUNT"
+            android:layout_marginTop="8dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Oracle: arkadia-kw64.onrender.com"
+            android:textColor="@color/arkadia_muted"
+            android:textSize="11sp"
+            android:gravity="center"
+            android:paddingTop="28dp"/>
+    </LinearLayout>
+</ScrollView>

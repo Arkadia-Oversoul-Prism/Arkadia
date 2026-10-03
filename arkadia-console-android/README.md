@@ -13,7 +13,7 @@ At build time provide the public Firebase application configuration through Grad
 - firebaseAppId / FIREBASE_APP_ID
 - firebaseGcmSenderId / FIREBASE_GCM_SENDER_ID (optional)
 
-The signed-in Firebase user supplies the ID token to Oracle. Oracle verifies that token server-side. The Console therefore keeps identity at the native Firebase boundary and authority at the server boundary.
+The app opens on a native Firebase sign-in / account-creation screen. The signed-in Firebase user supplies the ID token to Oracle. Oracle verifies that token server-side. The Console therefore keeps identity at the native Firebase boundary and authority at the server boundary.
 
 ## Governed action chain
 
@@ -38,7 +38,7 @@ No step invents the next step's evidence.
 
 ## Backend
 
-The Oracle base URL remains explicit and configurable. There is no silent fallback.
+The native Console is pinned to the live Oracle endpoint `https://arkadia-kw64.onrender.com`. There is no backend URL prompt and no silent fallback. Changing the endpoint is a code-level deployment change, not a per-device setting.
 
 The Android app owns device interaction, Firebase session handling, touch/capture surfaces and transport. Canonical identity, authority, execution records, evidence and verification remain server-side.
 
