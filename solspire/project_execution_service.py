@@ -167,6 +167,52 @@ def collect_candidate_patch(*, project_id: str, workspace: str,
     }
 
 
+def collect_agent_candidate_patch(*, project_id: str, base_digest: str,
+                                  turns: list[dict[str, Any]],
+                                  allowed_paths: list[str] | tuple[str, ...]) -> dict[str, Any]:
+    """Extract explicit agent edit proposals from inspectable loop turns, without writing files."""
+    canonical = _canonical_files(project_id)
+    names = {str(row.get("name") or "") for row in canonical}
+    allowed = {safe_relative_path(path) for path in allowed_paths}
+    changes: list[dict[str, str]] = []
+    rejected: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for turn in turns or []:
+        if turn.get("tool_name") != "filesystem.propose_edit":
+            continue
+        observation = turn.get("observation") or {}
+        proposal = observation.get("proposal") or {}
+        raw_path = str(proposal.get("path") or (turn.get("tool_arguments") or {}).get("path") or "")
+        try:
+            path = safe_relative_path(raw_path)
+        except BoundaryError:
+            rejected.append({"path": raw_path, "reason": "unsafe_path"})
+            continue
+        content = proposal.get("content")
+        if not observation.get("ok") or not isinstance(content, str):
+            rejected.append({"path": path, "reason": "proposal_not_accepted"})
+            continue
+        if path not in allowed or path not in names:
+            rejected.append({"path": path, "reason": "outside_existing_project_allowlist"})
+            continue
+        if path in seen:
+            rejected.append({"path": path, "reason": "duplicate_proposal_requires_reconciliation"})
+            changes = [item for item in changes if item["path"] != path]
+            continue
+        seen.add(path)
+        changes.append({"path": path, "content": content})
+    return {
+        "project_id": project_id,
+        "base_digest": base_digest,
+        "candidate_patch_digest": candidate_patch_digest(changes),
+        "changes": changes,
+        "changed_paths": [change["path"] for change in changes],
+        "rejected_proposals": rejected,
+        "requires_human_review": bool(changes),
+        "persistence": "NOT_APPLIED",
+    }
+
+
 def apply_reviewed_project_patch(*, subject_uid: str, project_id: str,
                                  expected_base_digest: str, approved_patch_digest: str,
                                  changes: list[dict[str, str]],
@@ -239,4 +285,4 @@ def apply_reviewed_project_patch(*, subject_uid: str, project_id: str,
 
 
 __all__ = ["apply_reviewed_project_patch", "assert_container_runtime_ready", "candidate_patch_digest", "canonical_base_digest",
-           "collect_candidate_patch", "create_disposable_workspace", "execute_container_command"]
+           "collect_agent_candidate_patch", "collect_candidate_patch", "create_disposable_workspace", "execute_container_command"]
