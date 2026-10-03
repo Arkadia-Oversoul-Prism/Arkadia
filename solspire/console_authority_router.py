@@ -277,7 +277,7 @@ async def verify_execution(
             subject=user["uid"],
             claim=body.claim,
             evidence_refs=body.evidence_refs,
-            verifier=body.verifier,
+            verifier=f"firebase:{user['uid']}",
             verdict=body.verdict,
         )
     except ValueError as exc:
