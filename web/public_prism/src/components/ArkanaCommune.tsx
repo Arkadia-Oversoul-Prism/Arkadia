@@ -282,6 +282,8 @@ export interface ArkanaProjectContext {
   files: Array<{ name: string; mime_type: string }>;
   memories: Array<{ title: string; content: string; tags: string[] }>;
   activity: Array<{ event_type: string; summary: string }>;
+  workflows: Array<{ title: string; status: string; description: string }>;
+  knowledge_graph: { state: string; entities: number | null; relationships: number | null };
   unavailable_sources: string[];
 }
 
