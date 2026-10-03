@@ -54,6 +54,34 @@ K — Knowledge OS Integration (active)
 ### Pending (manual — user action)
 - 🟡 `web/public_prism/.env.production` — `VITE_API_URL` must be updated to `https://arkadia-kw64.onrender.com` in Vercel dashboard before next frontend deploy
 
+### Active bounded PR (Phase 1 — Runtime Stabilization)
+**PR #240** — `gate10/cp10-allowlist-arkadia-console-android` → `main`.
+Head `3a28b79` (2026-10-03). **READY FOR SOVEREIGN MERGE** — not merged, not pushed to main.
+
+- **Defect (real, repository-owned):** the CP10 mutation boundary (`SG-02-FE.2-V`) rejected
+  **18 of 1726** tracked paths at `d798811`, all under the single top-level prefix
+  `arkadia-console-android/`. That reddened three `test_m02a_ci_gate_integrity.py` nodes on
+  `main`. This is the recurring allowlist-omission class `AGENTS.md` records: a plainly
+  legitimate tracked surface means the allowlist is wrong, not the commit.
+- **Fix:** one `LEGIT` alternation admitting `arkadia-console-android/`. Denylist and
+  unknown-root rejection untouched — the gate is not weakened.
+- **Evidence:** `docs/control-plane/evidence/gate10-cp10-allowlist-arkadia-console-android/EVIDENCE.md`
+  and `docs/control-plane/evidence/phase1-runtime-stabilization-01/EVIDENCE.md`.
+- **Measured:** `tests/test_m02a_ci_gate_integrity.py` 55 passed; `tests/architecture`
+  11 passed; CP10 workflow `success` at both branch heads; node set 31 → 28 (exactly the
+  three gate-integrity nodes, zero new failing nodes). `py_compile api/main.py` OK (2582).
+- **Provider note:** `Vercel – console` / `Vercel – arkadia-prism` are failing on **every**
+  open PR (#237/#238/#239/#240) with "Deployment rate limited — retry in 24 hours". That is
+  a provider-side build rate limit, not a code regression.
+
+### Phase 1 baseline classification (recorded 2026-10-03)
+All **28** failing/erroring nodes at `3a28b79` are classified in
+`docs/control-plane/evidence/phase1-runtime-stabilization-01/EVIDENCE.md`:
+3 repaired by PR #240, 10 test-side literal/regex defects, 3 `AGENTS.md`
+encoding-adjudication nodes, 12 recorded pre-existing debt, 3 stale fixture entries now
+passing. **Attribute deltas by node set, never by counts** — the passed count is
+order-dependent via `test_agent_loop_does_not_mutate_repository`.
+
 ### Next Checkpoint
 **None — Workstream K is COMPLETE.** K1, K2, K3, K4 and K5 are all shipped and all now
 carry a checkpoint record (`docs/checkpoints/`). The design doc
