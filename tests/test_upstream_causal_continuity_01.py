@@ -30,6 +30,11 @@ def _ops(tmp_path, monkeypatch):
     monkeypatch.setattr(eden_mod, "_DB_PATH", db)
     monkeypatch.setattr(ew_mod, "_DB_PATH", db)
     store = EnterpriseOrchestrationStore()
+    # Instantiating the store is not what creates the schema; the first store
+    # operation is. Materialize it up front so a later raw sqlite3 probe of an
+    # unbootstrapped table measures the invariant, not an absent-schema error.
+    with ew_mod._db():
+        pass
     return EdenOps(store=store), db
 
 
@@ -93,6 +98,11 @@ def test_api_approval_does_not_create_enterprise_authorization(tmp_path, monkeyp
 
     db = str(tmp_path / "api-approval.db")
     monkeypatch.setattr(ew, "_DB_PATH", db)
+    # Materialize the schema (the store constructor does not) so the probes
+    # below measure "no authorization/authority record was created", which is
+    # the actual claim, rather than "no table exists yet".
+    with ew._db():
+        pass
     EnterpriseOrchestrationStore()
 
     current = {"uid": "requester", "role": "Guest", "access_level": 0}
