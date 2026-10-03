@@ -195,6 +195,17 @@ jobs:
         working-directory: .
         continue-on-error: true
         run: python -m pytest tests/test_engineering_lab.py tests/test_engineering_lab_api.py -q 2>&1 | tee cp10-lab.log
+      - name: SolSpire isolated runtime and integration contract tests
+        id: solspire_runtime
+        working-directory: .
+        run: |
+          set -o pipefail
+          python -m pytest \
+            tests/test_solspire_project_execution_service.py \
+            tests/test_engineering_lab_candidate_proposals.py \
+            tests/test_solspire_integration_health.py \
+            tests/test_solspire_larder_graph_binding.py \
+            -q 2>&1 | tee solspire-runtime-integration.log
       - name: CP10-B broader backend regression
         id: backend
         working-directory: .
