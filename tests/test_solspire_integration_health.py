@@ -49,6 +49,7 @@ def test_integration_health_requires_live_probes_and_explicit_larder_binding(mon
     assert result["contract"] == "solspire.integration-health.v1"
     assert result["all_required_available"] is True
     assert result["capabilities"]["living_larder"]["detail"]["binding_state"] == "PROJECT_BOUND"
+    assert result["capabilities"]["isolated_execution"]["detail"]["smoke_test_passed"] is True
 
 
 def test_integration_health_does_not_infer_larder_binding(monkeypatch):
