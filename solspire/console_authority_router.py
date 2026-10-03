@@ -186,6 +186,14 @@ async def create_execution_attempt(
             tool_channel=body.tool_channel,
             request_payload=body.request_payload,
         )
+        # The adapter completes the canonical attempt after recording evidence.
+        # Refresh the returned object so the response reports persisted state,
+        # not the stale ATTEMPTED object created before dispatch.
+        completed_attempt = store.complete_execution_attempt(
+            subject=user["uid"],
+            execution_attempt_id=attempt.id,
+            result_status=result["execution"]["status"],
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except PermissionError as exc:
@@ -194,7 +202,7 @@ async def create_execution_attempt(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {
         "ok": result["ok"],
-        "execution_attempt": attempt.to_dict(),
+        "execution_attempt": completed_attempt.to_dict(),
         "execution": result["execution"],
         "evidence": result["evidence"],
         "boundary": "Tool dispatch is real. Verification remains a separate human act.",
