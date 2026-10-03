@@ -60,10 +60,10 @@ class MieActivity : AppCompatActivity() {
             }
         }
 
-        binding.keepButton.setOnClickListener {
-            showStatus("Capture is already saved locally in this MIE session.")
+        binding.keepButton.setOnClickListener { keepSelectedResult() }
+        binding.changeButton.setOnClickListener {
+            if (selectedObject?.transformation == null) transformSelectedCapture() else reviseSelectedResult()
         }
-        binding.changeButton.setOnClickListener { transformSelectedCapture() }
     }
 
     private fun beginCapture() {
@@ -125,12 +125,18 @@ class MieActivity : AppCompatActivity() {
             String.format("%.2fs · pitch %s · confidence %.0f%%",
                 objectModel.durationMs / 1000f, pitch, objectModel.confidence * 100f)
         binding.objectJson.text = objectModel.toJson()
-        binding.keepButton.isEnabled = true
+        val isResult = objectModel.transformation != null
+        binding.keepButton.isEnabled = isResult
         binding.changeButton.isEnabled = true
+        binding.keepButton.text = if (objectModel.loopDecision == "kept") "KEPT ✓" else "KEEP RESULT"
+        binding.changeButton.text = when {
+            !isResult -> "CHANGE"
+            objectModel.loopDecision == "revised" -> "REVISED ✓"
+            else -> "REVISE"
+        }
         lastCapture = file
         selectedObject = objectModel
-        binding.changeButton.text = if (objectModel.transformation == null) "OCTAVE UP" else "DERIVED"
-        showStatus(if (objectModel.transformation == null) "Saved as capture ${objectModel.id.take(8)}. Original audio preserved." else "Derived from ${objectModel.parentId?.take(8) ?: "source"}. Original preserved.")
+        showStatus(if (objectModel.transformation == null) "Saved as capture ${objectModel.id.take(8)}. Original audio preserved." else "Result ready. Compare it with the original, then keep or revise.")
     }
 
     private fun renderHistory() {
@@ -154,6 +160,7 @@ class MieActivity : AppCompatActivity() {
                 String.format("%.1f Hz", it)
             } ?: "pitch unknown"
             val kind = if (objectModel.transformation == null) "ORIGINAL" else "DERIVED · OCTAVE UP"
+            val decision = objectModel.loopDecision?.uppercase()?.let { " · $it" } ?: ""
             val card = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(14.dp(), 10.dp(), 14.dp(), 10.dp())
@@ -161,7 +168,7 @@ class MieActivity : AppCompatActivity() {
             }
 
             val label = Button(this).apply {
-                text = (index + 1).toString() + ". " + kind + "\n" + note + " · " + String.format("%.2fs", objectModel.durationMs / 1000f)
+                text = (index + 1).toString() + ". " + kind + decision + "\n" + note + " · " + String.format("%.2fs", objectModel.durationMs / 1000f)
                 isAllCaps = false
                 setOnClickListener {
                     if (!file.exists()) {
@@ -245,6 +252,41 @@ class MieActivity : AppCompatActivity() {
                 runOnUiThread { showStatus("Transformation failed: " + (error.message ?: "unknown error")) }
             }
         }.start()
+    }
+
+    private fun keepSelectedResult() {
+        val selected = selectedObject
+        if (selected == null || selected.transformation == null) {
+            showStatus("Create a changed result before keeping it.")
+            return
+        }
+        val kept = selected.copy(loopDecision = "kept")
+        sessionStore.updateCapture(kept)
+        selectedObject = kept
+        lastCapture = File(kept.sourcePath)
+        renderObject(lastCapture!!, kept)
+        renderHistory()
+        showStatus("Kept result ${kept.id.take(8)}. Original remains recoverable.")
+    }
+
+    private fun reviseSelectedResult() {
+        val selected = selectedObject
+        if (selected == null || selected.transformation == null || selected.parentId == null) {
+            showStatus("Select a changed result to revise it.")
+            return
+        }
+        val revised = selected.copy(loopDecision = "revised")
+        sessionStore.updateCapture(revised)
+        val parent = sessionStore.current().captures.firstOrNull { it.id == revised.parentId }
+        if (parent == null) {
+            showStatus("Original parent ${revised.parentId.take(8)} is unavailable.")
+            return
+        }
+        selectedObject = parent
+        lastCapture = File(parent.sourcePath)
+        renderObject(lastCapture!!, parent)
+        renderHistory()
+        showStatus("Result revised. Original restored for another change.")
     }
 
     private fun playCapture(file: File, play: Button, pause: Button, repeat: Button, preserveRepeat: Boolean = false) {
