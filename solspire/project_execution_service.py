@@ -40,6 +40,17 @@ def create_disposable_workspace(subject_uid: str, project_id: str) -> dict[str, 
     base_before = canonical_base_digest(project_id)
     try:
         snapshot = prepare_project_workspace(subject_uid, project_id, base_root=temp_base)
+        root = Path(snapshot["root"]).resolve(strict=True)
+        # The container runs as UID 65532. Make only this disposable copy writable
+        # to that unprivileged identity; canonical project storage is untouched.
+        root.chmod(0o777)
+        for child in root.rglob("*"):
+            if child.is_symlink():
+                raise BoundaryError("symlinks are not allowed in disposable project snapshots")
+            if child.is_dir():
+                child.chmod(0o777)
+            elif child.is_file():
+                child.chmod(0o666)
         base_after = canonical_base_digest(project_id)
         if base_before != base_after:
             raise BoundaryError("canonical project changed while the disposable snapshot was being created")
