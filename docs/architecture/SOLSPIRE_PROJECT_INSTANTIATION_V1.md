@@ -31,7 +31,10 @@ Initial templates:
   a domain module that still requires live capability verification.
 
 The server owns `project_runtime`; clients cannot override it through supplied
-metadata. Other metadata remains project data. Unknown template IDs are rejected.
+metadata. Its capability list is explicitly a target list, not a live-capability
+claim. Weaver and Arkana binding states are named; sandbox and Living Larder
+remain separately classified. Other metadata remains project data. Unknown
+template IDs are rejected.
 
 ## Runtime contract
 
