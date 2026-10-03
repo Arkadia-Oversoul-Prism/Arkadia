@@ -70,6 +70,7 @@ function proposalActionKinds(proposal: SolariunProposal): SolariunActionKind[] {
 export default function SolariunInteractionCanvas({ onNavigate }: Props) {
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mode, setMode] = useState<'FIELD' | 'FOCUS' | 'DEEP'>('FIELD');
   const [decisionBusy, setDecisionBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -276,12 +277,14 @@ export default function SolariunInteractionCanvas({ onNavigate }: Props) {
       </header>
 
       <div className="living-canvas-modes" role="tablist" aria-label="Solariun field depth">
-        <span className="active">FIELD <small>What matters?</small></span>
-        <span>FOCUS <small>Select an object</small></span>
-        <span>DEEP <small>Inspect provenance</small></span>
+        {(['FIELD', 'FOCUS', 'DEEP'] as const).map(next => (
+          <button key={next} type="button" className={mode === next ? 'active' : undefined} onClick={() => setMode(next)} role="tab" aria-selected={mode === next}>
+            {next} <small>{next === 'FIELD' ? 'What matters?' : next === 'FOCUS' ? 'What am I working on?' : 'Inspect provenance'}</small>
+          </button>
+        ))}
       </div>
 
-      <section className="living-field" aria-label="Living semantic field">
+      <section className={`living-field living-field-mode-${mode.toLowerCase()}`} aria-label={`Living semantic field / ${mode}`}>
         <div className="field-orbit field-orbit-a" />
         <div className="field-orbit field-orbit-b" />
         {objects.map((object, index) => {
@@ -295,7 +298,7 @@ export default function SolariunInteractionCanvas({ onNavigate }: Props) {
               key={object.id}
               className={className}
               style={{ '--field-offset': offset, '--field-index': index } as React.CSSProperties}
-              onClick={() => setSelectedId(object.id)}
+              onClick={() => { setSelectedId(object.id); setMode('FOCUS'); }}
               aria-pressed={selectedState}
               data-solariun-object-type={object.type}
               data-solariun-visual={visual}
