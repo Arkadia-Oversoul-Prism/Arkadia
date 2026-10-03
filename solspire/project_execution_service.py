@@ -137,7 +137,7 @@ def apply_reviewed_project_patch(*, subject_uid: str, project_id: str,
     can be updated in this operation; additions/deletions need a separate
     governed operation. All checks occur before the first canonical write.
     """
-    from solspire.project_store import update_file
+    from solspire.project_store import apply_reviewed_file_patch
     from solspire.workspace_manager import get_workspace_manager
     from solspire.workevent_manager import get_workevent_manager
 
@@ -176,8 +176,10 @@ def apply_reviewed_project_patch(*, subject_uid: str, project_id: str,
     if canonical_base_digest(project_id) != expected_base_digest:
         raise BoundaryError("canonical base changed during review; refresh approval")
 
-    for row, content in normalized:
-        update_file(row["id"], content, name=row["name"])
+    apply_reviewed_file_patch(project_id, [
+        {"id": row["id"], "name": row["name"], "content": content}
+        for row, content in normalized
+    ])
 
     event = get_workevent_manager().create(
         subject_ref=subject_uid, workspace_ref=workspace.id,
