@@ -46,6 +46,8 @@ def test_project_canvas_uses_existing_lab_runtime_and_project_scope():
     assert "project_ref: project.id" in canvas
     assert "Authorize read-only run" in canvas
     assert "write_allowed: false" in canvas
+    assert "role: 'WEAVER'" in canvas
+    assert "capabilities: ['READ', 'OBSERVE', 'PROPOSE']" in canvas
     assert "def _project_canvas_policy" in routes
     assert "prepare_project_workspace(subject_uid, project_id)" in routes
     assert "project_ref TEXT" in store
