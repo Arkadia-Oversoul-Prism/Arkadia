@@ -247,7 +247,7 @@ class MieActivity : AppCompatActivity() {
         }.start()
     }
 
-    private fun playCapture(file: File, play: Button, pause: Button, repeat: Button) {
+    private fun playCapture(file: File, play: Button, pause: Button, repeat: Button, preserveRepeat: Boolean = false) {
         if (!file.exists()) {
             showStatus("This capture's audio file is missing.")
             return
@@ -265,7 +265,7 @@ class MieActivity : AppCompatActivity() {
             return
         }
 
-        stopPlayback()
+        stopPlayback(resetRepeat = !preserveRepeat)
         playingFile = file
         playingButton = play
         pauseButton = pause
@@ -319,7 +319,7 @@ class MieActivity : AppCompatActivity() {
         if (playingFile?.absolutePath != file.absolutePath || mediaPlayer == null) {
             repeatPlayback = true
             repeat.text = "REPEAT ✓"
-            playCapture(file, play, pause, repeat)
+            playCapture(file, play, pause, repeat, preserveRepeat = true)
             return
         }
         repeatPlayback = !repeatPlayback
@@ -327,7 +327,7 @@ class MieActivity : AppCompatActivity() {
         showStatus(if (repeatPlayback) "Repeat enabled." else "Repeat disabled.")
     }
 
-    private fun stopPlayback() {
+    private fun stopPlayback(resetRepeat: Boolean = true) {
         mediaPlayer?.let {
             runCatching { if (it.isPlaying) it.stop() }
             it.release()
@@ -341,7 +341,7 @@ class MieActivity : AppCompatActivity() {
         playingButton = null
         pauseButton = null
         repeatButton = null
-        repeatPlayback = false
+        if (resetRepeat) repeatPlayback = false
     }
 
     private fun Int.dp(): Int = (this * resources.displayMetrics.density).roundToInt()
