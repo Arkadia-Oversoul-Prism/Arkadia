@@ -87,7 +87,7 @@ def instantiate_project_metadata(
         "runtime": {
             "operational_engine": {"name": "weaver", "state": "project_routes_present"},
             "conversation_interface": {"name": "arkana", "state": "bounded_project_context"},
-            "sandbox": {"required": True, "state": "not_configured"},
+            "sandbox": {"required": True, "state": "read_only_snapshot_v0_1"},
         },
         "governance": {
             "project_scope_required": True,
