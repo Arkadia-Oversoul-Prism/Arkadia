@@ -116,7 +116,7 @@ class MieActivity : AppCompatActivity() {
 
     private fun renderObject(file: File, objectModel: MieMusicalObject) {
         binding.objectCard.visibility = View.VISIBLE
-        binding.objectType.text = objectModel.humanType().uppercase()
+        binding.objectType.text = if (objectModel.transformation == null) "ORIGINAL · ${objectModel.humanType().uppercase()}" else "DERIVED · OCTAVE UP"
         val pitch = objectModel.detectedPitchHz?.let { hz ->
             val note = objectModel.noteName()
             if (note != null) "$note · ${String.format("%.1f Hz", hz)}" else String.format("%.1f Hz", hz)
