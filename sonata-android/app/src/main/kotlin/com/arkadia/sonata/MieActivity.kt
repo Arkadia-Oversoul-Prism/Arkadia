@@ -15,6 +15,7 @@ import java.io.File
 class MieActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMieBinding
     private lateinit var recorder: MieAudioRecorder
+    private lateinit var sessionStore: MieSessionStore
     private var mediaPlayer: MediaPlayer? = null
     private var captureStartedAt = 0L
     private var lastCapture: File? = null
@@ -30,6 +31,8 @@ class MieActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         recorder = MieAudioRecorder(File(filesDir, "mie/captures"))
+        sessionStore = MieSessionStore(this)
+        renderHistory()
         binding.captureButton.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
@@ -50,10 +53,10 @@ class MieActivity : AppCompatActivity() {
 
         binding.playButton.setOnClickListener { playLastCapture() }
         binding.keepButton.setOnClickListener {
-            showStatus("Kept locally. The original remains preserved for the next transformation pass.")
+            showStatus("Capture is already saved locally in this MIE session.")
         }
         binding.changeButton.setOnClickListener {
-            showStatus("Change is the next experimental boundary. Original capture remains preserved.")
+            showStatus("Transformation remains gated. Original capture is preserved.")
         }
     }
 
@@ -100,14 +103,18 @@ class MieActivity : AppCompatActivity() {
                 detectedMidi = interpretation.midi
             )
             File(file.parentFile, objectModel.id + ".json").writeText(objectModel.toJson())
-            runOnUiThread { renderObject(file, objectModel) }
+            sessionStore.addCapture(objectModel)
+            runOnUiThread { renderObject(file, objectModel); renderHistory() }
         }.start()
     }
 
     private fun renderObject(file: File, objectModel: MieMusicalObject) {
         binding.objectCard.visibility = View.VISIBLE
-        binding.objectType.text = objectModel.inputType.replace('_', ' ').uppercase()
-        val pitch = objectModel.detectedPitchHz?.let { String.format("%.1f Hz", it) } ?: "not detected"
+        binding.objectType.text = objectModel.humanType().uppercase()
+        val pitch = objectModel.detectedPitchHz?.let { hz ->
+            val note = objectModel.noteName()
+            if (note != null) "$note · ${String.format("%.1f Hz", hz)}" else String.format("%.1f Hz", hz)
+        } ?: "not detected"
         binding.objectDetail.text =
             String.format("%.2fs · pitch %s · confidence %.0f%%",
                 objectModel.durationMs / 1000f, pitch, objectModel.confidence * 100f)
@@ -116,7 +123,7 @@ class MieActivity : AppCompatActivity() {
         binding.keepButton.isEnabled = true
         binding.changeButton.isEnabled = true
         lastCapture = file
-        showStatus("Musical object materialized. Original audio preserved.")
+        showStatus("Saved as capture ${objectModel.id.take(8)}. Original audio preserved.")
     }
 
     private fun playLastCapture() {
