@@ -663,6 +663,10 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, proje
   // ── API: Oracle ────────────────────────────────────────────────────────────
   const sendMessage = async (text: string) => {
     if (!text.trim() && !attachment) return;
+    if (isAuthenticated && projectContextId && !projectContext) {
+      setSaveHint('Project context is still loading. Wait for the context status to resolve before sending.');
+      return;
+    }
     
     const displayText = text.trim() || (attachment ? `[Attached: ${attachment.name}]` : '');
     const userMsg: Message = { 
