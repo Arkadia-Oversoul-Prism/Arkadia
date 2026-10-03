@@ -7,7 +7,6 @@ import android.net.Uri
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.text.InputType
-import android.view.ViewGroup
 import androidx.core.content.FileProvider
 import android.media.MediaRecorder
 import java.io.File
@@ -168,9 +167,9 @@ class MainActivity:AppCompatActivity(){
         val tool=EditText(this).apply{hint="Weaver tool channel";setText("git.status");isEnabled=false}
         val payload=EditText(this).apply{hint="Optional tool payload JSON";minLines=3;setText("{}")}
         box.addView(tool);box.addView(payload)
-        AlertDialog.Builder(this).setTitle("Governed execution attempt").setMessage("This records ATTEMPTED only. It does not invent success or evidence.").setView(box)
+        AlertDialog.Builder(this).setTitle("Governed Weaver execution").setMessage("This dispatches the already-authorized read-only tool through Weaver. The observed result becomes evidence; verification remains your separate act.").setView(box)
             .setNegativeButton("Cancel",null)
-            .setPositiveButton("Record attempt"){_,_->lifecycleScope.launch{
+            .setPositiveButton("EXECUTE"){_,_->lifecycleScope.launch{
                 val response=runCatching{repo.createExecutionAttempt(auth,tool.text.toString().trim(),runCatching{org.json.JSONObject(payload.text.toString())}.getOrElse{org.json.JSONObject().put("description",payload.text.toString())})}.getOrElse{null}
                 if(response==null) Toast.makeText(this@MainActivity,"Execution failed: request was not dispatched.",Toast.LENGTH_LONG).show()
                 else executionEvidenceDialog(response,obj)
