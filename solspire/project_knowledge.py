@@ -112,7 +112,17 @@ def build_derived_graph(project_id: str) -> dict[str, Any]:
 def build_project_context_for_weaver(project: dict[str, Any]) -> dict[str, Any]:
     """Read-only context envelope. Never authorization."""
     pid = project.get("id")
-    summary = build_knowledge_summary(pid) if pid else {}
+    try:
+        summary = build_knowledge_summary(pid) if pid else {}
+    except Exception as exc:
+        summary = {
+            "project_id": pid, "sources": {}, "items": {},
+            "embeddings": {"state": "UNAVAILABLE"},
+            "source_health": {
+                "state": "UNAVAILABLE",
+                "errors": {"summary": f"{type(exc).__name__}: {exc}"},
+            },
+        }
     owner_uid = project.get("owner_uid") or project.get("owner")
     continuity: dict[str, Any] = {"workspace": None, "daily_pulse": None, "work_events": [],
                                   "binding_state": {"daily_pulse": "UNKNOWN", "workevents": "UNKNOWN"}}
