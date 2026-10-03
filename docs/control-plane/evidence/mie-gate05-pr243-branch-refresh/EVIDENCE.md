@@ -54,6 +54,32 @@ Branch-only content is unchanged by the merge — the refresh introduces **no** 
 change loop. `git diff` between the PR head tree and the refreshed tree touches only
 `sonata-android/gradle/libs.versions.toml` (1 deletion).
 
+## Measured outcome (post-refresh)
+
+Refreshed head `8cf28367fbf2a103def2e828024acc181b5b5b55`; PR base `357fbd8`. The `push`-event
+Android run that previously failed on the duplicate alias now succeeds on the refreshed head.
+
+| Run | Event | Result | Before refresh |
+|---|---|---|---|
+| 37144173474 | `push` | **success** | 37142267190 `failure` (`junit previously defined at line 16`) |
+| 37144174132 | `pull_request` | success | 37142270132 success |
+| 37144174123 | `pull_request` `security-secret-scan` | success | success |
+| 37144173462 | `push` `Build APKs` | see PR | pre-existing / path-unrelated |
+
+Full suite on the refreshed tree (`python -m pytest tests/ -q --continue-on-collection-errors`):
+**23 failed / 1368 passed / 19 skipped / 1 error** → 24 failing+error nodes,
+`sha256 b1750f96344a34194e6e83e82974518bb34438c69846d4a22736d22e9fca2dc1`.
+PR #245 measured `main` @ `357fbd8` at 25 nodes; this tree is a **subset** of that set, the
+difference being the order-dependent `test_agent_loop_does_not_mutate_repository` node. No
+new failing node is introduced by this refresh.
+
+Architecture fitness: `python -m pytest tests/architecture -q` → **11 passed**.
+CP10 judge on the PR diff → **PASS** (`Mutation boundary PASS`).
+`python -m py_compile api/main.py` → OK (2582 / 2600 budget).
+
+Android verification is **environment-blocked locally** (no JDK present); the CI Android runs
+above are the evidence source, not a local build.
+
 ## Scope / non-goals
 
 - In scope: branch refresh + this evidence record.
