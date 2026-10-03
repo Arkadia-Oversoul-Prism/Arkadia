@@ -21,7 +21,7 @@ _MAX_TOTAL_BYTES = 10_000_000
 def _safe_relative_name(name: str) -> PurePosixPath | None:
     raw = (name or "").replace("\\", "/").strip()
     path = PurePosixPath(raw)
-    if not raw or path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+    if not raw or not path.parts or path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
         return None
     if any(":" in part for part in path.parts):
         return None
