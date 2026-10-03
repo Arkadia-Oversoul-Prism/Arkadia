@@ -10,7 +10,8 @@ from typing import Any
 def _probe(name: str, fn) -> dict[str, Any]:
     try:
         detail = fn()
-        return {"capability": name, "state": "AVAILABLE", "detail": detail}
+        state = detail.get("binding_state") if isinstance(detail, dict) else None
+        return {"capability": name, "state": state if state == "UNBOUND" else "AVAILABLE", "detail": detail}
     except Exception as exc:
         return {"capability": name, "state": "UNAVAILABLE",
                 "detail": f"{type(exc).__name__}: {exc}"}
