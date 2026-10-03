@@ -1773,6 +1773,13 @@ or mutation-path surface was touched.
   > without it), so it encoded clone depth rather than debt. The recorded set now excludes
   > that node and the canonical value is `a578a766…` (node set `8036fc06…`). See
   > `docs/control-plane/evidence/gate-hygiene-baseline-fingerprint-reconciliation-01/`.
+  > **Correction 2, same date**: "not reproducible" above is itself wrong for `a59453b8…`.
+  > It reproduces exactly as the recorded set **plus** the depth-dependent *sibling*
+  > `test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec` — a bare clone's live
+  > 21-node run. It stays superseded (clone-depth dependent), but its origin is explained,
+  > not UNKNOWN. Guarded by
+  > `tests/test_baseline_fingerprint.py::test_superseded_values_are_the_recorded_set_plus_its_sibling`;
+  > see `docs/control-plane/evidence/gate-hygiene-superseded-fingerprint-origin-01/`.
 - `pytest tests/architecture -q` → **11 passed** (unchanged).
 - No regression attributable to this pass — it is docs-only.
 

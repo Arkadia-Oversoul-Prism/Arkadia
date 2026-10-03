@@ -583,6 +583,23 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   main carries ~20, the delta being the steward-filter carrier merged as `002b189`.
 - `python -m py_compile api/main.py` before committing boot-code changes; budget 2600
   (currently 2519).
+- **Superseded fingerprints have an explained origin — they are not "unreproducible".**
+  The pair `a59453b8…` (outcomes) / `9a35c812…` (ids) equals the recorded **20-node**
+  baseline set **plus** its depth-dependent *sibling*
+  `tests/test_agents_md_encoding_adjudication.py::test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec`.
+  That node dereferences the `GATE2_PARENT_REV` read **unconditionally**, so without the
+  PR-head revision `7d79f38…` it **errors** (`AttributeError`) rather than skipping — a bare
+  clone's live 21-node run hashes to exactly that pair, while the recorded 20 nodes hash to
+  the canonical `a578a766…` / `8036fc06…`. (`AGENTS.md` itself recorded `a59453b8…` as a
+  21-node fingerprint — the earlier "not reproducible by any convention" verdict was a
+  measurement gap, not a true UNKNOWN.) The pair stays **superseded** (clone-depth
+  dependent), but its origin is now guarded by
+  `tests/test_baseline_fingerprint.py::test_superseded_values_are_the_recorded_set_plus_its_sibling`
+  and explained in `docs/control-plane/evidence/gate-hygiene-superseded-fingerprint-origin-01/`.
+  The two excluded nodes' own assertion defects (both pin `7d79f38…` and mis-handle its
+  absence) remain a **separate proposed workstream** — do not "fix" them inside a
+  fingerprint workstream.
+
 ## Merge-loss forensics — a merge can invent a state present in neither parent
 - A hand-resolved merge is not "one side or the other." `ff80b8c` took the inline
   work-surface from its **second** parent (`5c78fcb`) but the import line from its **first**
@@ -669,52 +686,25 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   harmonic-rich case, or the "fix" can be tuned to the one frequency under test.
 
 
-
-## Baseline failing-node set is CLONE-DEPTH-DEPENDENT; the composed set is not (gate-hygiene)
-- The full-suite baseline on `main` is not a single number **or** a single node set: it depends
-  on whether the clone carries the PR-head refs. This automation's clone has 216
-  `refs/remotes/pr/*`, so revision `7d79f38` is resolvable (`git cat-file -t` -> `commit`); a
-  `git clone --single-branch` does not, and `git cat-file -t 7d79f38` -> `fatal: could not get
-  object info`. The adjudication module's failure set moves accordingly:
-  `test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec` is **PASS** refs-present /
-  **FAILED** CI-like; `test_gate2_parent_agents_md_repair_is_byte_identical_to_the_pipeline` is
-  **FAILED** refs-present / **SKIPPED** CI-like; `test_exit_code_does_not_call_a_divergent_clean_file_verified`
-  is **FAILED** in both. Measured at `main 162f574`: baseline 20F in **both** regimes, but the
-  failing-node *identities* differ.
-- **The composed failing-node set is regime-INVARIANT.** Composing the open cluster
-  (#215-#219, order-insensitive, git-clean at every step) yields 18F/1308P (CI-like) and
-  18F/1311P (refs-present) with the **same** sorted FAILED/ERROR node set
-  (`sha256 c9ffdb6216c70314`), and **all three** adjudication nodes green in **both** regimes.
-  Newly-failing nodes: **0**. This is the environment-independent claim to make — attribute by
-  node set of the *composed* tree, not of `main`.
-- **`origin/main` is a moving branch; never pin a fixture to it.** `test_gate2_parent...` fails
-  refs-present because its fixture dereferences `origin/main`, whose `AGENTS.md` is now repaired
-  (`cyrillic == 0`), so `assert healed.startswith(_rev("AGENTS.md", "origin/main"))` no longer
-  holds. A test that compares against a *moving branch* is an active expiry, not a latent one.
-- **`Vercel - console` is a pre-existing fail on every open PR** (a separate Vercel project,
-  `dpl_... --logs`), and #215 is also `Vercel - arkadia-prism` rate-limited. It is **not**
-  caused by any PR in the cluster; do not diagnose it as a regression. The workstream gate
-  (`Full-history secret scan`) passes. Fixing it is a separate bounded workstream.
-- Evidence: `docs/control-plane/evidence/gate-hygiene-open-pr-queue-merge-order-map-01/EVIDENCE_PASS3.md`
-  (PR #219, head `c894442`). Supersedes the "environment-independent" wording of Pass 2.
-
-## Clone-depth section: the Pass-3 "refs-present" figures did not reproduce (gate-hygiene, pass 4)
-- The section above ("Baseline failing-node set is CLONE-DEPTH-DEPENDENT") records a
-  `refs-present` regime with **216** `refs/remotes/pr/*` and a baseline of **20F / 1308P /
-  1 error**. Measured at `main 162f574` in the automation's own clone during pass 4, that
-  column does **not** reproduce: the clone carries **5** PR refs
-  (`refs/heads/pr/215..219` + `refs/remotes/pr/215..219`), `git cat-file -t 7d79f38` ->
-  `fatal: Not a valid object name`, and the baseline full suite is **60F / 836P / 45 errors**
-  (58F / 848P / 43 errors with `requests` installed).
-- **Correction (measured at `162f574`, pass 4):** the Pass-3 `refs-present` absolute counts
-  (`20F`, composed set `c9ffdb6216c70314`) are **unreproduced** and must not be cited as a
-  regime fingerprint. What holds in this clone: baseline 105-node set -> composed
-  103-node set, **fixed 2, newly-failing 0**, identical with `requests` installed (101 -> 99).
-  The defensible claim is the composed **delta** — baseline minus the two adjudication nodes,
-  plus zero — not an absolute refs-present count.
-- The **45 collection errors are a dependency delta, not a regression**: they are
-  `ModuleNotFoundError: No module named 'requests'`, present equally on `main` and on the
-  composed tree, and cleared equally on both by installing `requests`. Never attribute them
-  to the open-PR cluster.
-- Evidence: `docs/control-plane/evidence/gate-hygiene-open-pr-queue-merge-order-map-01/EVIDENCE_PASS4.md`.
-
+## Lazy schema materialization — a fixture that constructs a store has not created its schema (gate-hygiene)
+- `EnterpriseOrchestrationStore()` does **not** create `data/*.db` or its tables; the
+  constructor only resolves `_DB_PATH`. The schema is materialized lazily by the first
+  store *operation* (`weaver/enterprise_orchestration.py::_db()` runs the
+  `CREATE TABLE IF NOT EXISTS …` script). A test that only *constructs* the store and then
+  probes a table with a raw `sqlite3.connect(db)` measures an **uninitialized database**,
+  not the invariant it claims.
+- Observed on `tests/test_upstream_causal_continuity_01.py::test_api_approval_does_not_create_enterprise_authorization`:
+  `sqlite3.OperationalError: no such table: ew_authorizations`, raised before any boundary
+  assertion. `os.path.exists(db)` was `False` right after `EnterpriseOrchestrationStore()`.
+- **Repair is test-side and mechanical:** call `with ew._db(): pass` in the fixture so the
+  schema exists before the probe; the probe then returns `0` and the assertion is real.
+  Repaired in PR #228 (merge pending human authority).
+- When a raw-SQL test fails on a missing table, read the fixture first: a store that was
+  constructed but never *used* leaves no schema. Do not "fix" it by adding schema DDL to the
+  production constructor — the lazy materialization is the intended design.
+- Full-history vs shallow clone changes the *node set*: `test_agents_md_encoding_adjudication.py`
+  adds `test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec` on a shallow clone
+  (oracle-revision access), so its live fingerprint differs from the recorded
+  `tests/fixtures/baseline_node_set.txt`. Attribute that delta to clone depth / PR #215, not
+  to a regression. Measured at `162f574b`: main 20F/1306P (`a59453b8…`), branch 19F/1307P
+  (`b45c0753…`) — a `-1/+0` node delta that is exactly the repaired node.
