@@ -25,3 +25,7 @@ jobs:
         with:
           gradle-version: "8.2"
       - run: gradle assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arkadia-console-debug-apk
+          path: arkadia-console-android/app/build/outputs/apk/debug/*.apk
