@@ -76,6 +76,56 @@ def candidate_patch_digest(changes: list[dict[str, str]]) -> str:
                                      separators=(",", ":")).encode()).hexdigest()
 
 
+def collect_candidate_patch(*, project_id: str, workspace: str,
+                           base_digest: str) -> dict[str, Any]:
+    """Compare an execution copy with canonical files and return review-only edits."""
+    from solspire.project_execution_boundary import safe_relative_path
+    canonical = _canonical_files(project_id)
+    by_name = {str(row.get("name") or ""): row for row in canonical}
+    root = Path(workspace).resolve(strict=True)
+    changes: list[dict[str, str]] = []
+    rejected_paths: list[str] = []
+    observed_paths: set[str] = set()
+    for path in sorted(root.rglob("*")):
+        if path.is_symlink():
+            rejected_paths.append(str(path.relative_to(root)))
+            continue
+        if not path.is_file():
+            continue
+        relative = str(path.relative_to(root)).replace("\\", "/")
+        if relative.startswith(".git/") or relative == ".git":
+            continue
+        try:
+            name = safe_relative_path(relative)
+        except BoundaryError:
+            rejected_paths.append(relative)
+            continue
+        observed_paths.add(name)
+        if name not in by_name:
+            rejected_paths.append(name)
+            continue
+        if path.stat().st_size > 2_000_000:
+            rejected_paths.append(name)
+            continue
+        content = path.read_text(encoding="utf-8")
+        if content != str(by_name[name].get("content") or ""):
+            changes.append({"path": name, "content": content})
+    for name in by_name:
+        if name not in observed_paths:
+            rejected_paths.append(name + " (deleted)")
+    digest = candidate_patch_digest(changes)
+    return {
+        "project_id": project_id,
+        "base_digest": base_digest,
+        "candidate_patch_digest": digest,
+        "changes": changes,
+        "changed_paths": [change["path"] for change in changes],
+        "rejected_paths": sorted(set(rejected_paths)),
+        "requires_human_review": bool(changes),
+        "persistence": "NOT_APPLIED",
+    }
+
+
 def apply_reviewed_project_patch(*, subject_uid: str, project_id: str,
                                  expected_base_digest: str, approved_patch_digest: str,
                                  changes: list[dict[str, str]],
@@ -146,4 +196,4 @@ def apply_reviewed_project_patch(*, subject_uid: str, project_id: str,
 
 
 __all__ = ["apply_reviewed_project_patch", "candidate_patch_digest", "canonical_base_digest",
-           "create_disposable_workspace", "execute_container_command"]
+           "collect_candidate_patch", "create_disposable_workspace", "execute_container_command"]
