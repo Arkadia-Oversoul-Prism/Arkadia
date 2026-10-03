@@ -15,8 +15,8 @@ def test_enterprise_is_the_default_template():
     assert profile["id"] == "enterprise"
     assert metadata["purpose"] == "research"
     assert metadata["project_runtime"]["template_id"] == "enterprise"
-    assert metadata["project_runtime"]["runtime"]["operational_engine"] == "weaver"
-    assert metadata["project_runtime"]["runtime"]["conversation_interface"] == "arkana"
+    assert metadata["project_runtime"]["runtime"]["operational_engine"]["name"] == "weaver"
+    assert metadata["project_runtime"]["runtime"]["conversation_interface"]["name"] == "arkana"
 
 
 def test_eden_template_declares_living_larder_without_claiming_it_is_live():
@@ -32,9 +32,9 @@ def test_eden_template_declares_living_larder_without_claiming_it_is_live():
 
 def test_template_catalog_returns_independent_copies():
     first = list_project_templates()
-    first[0]["capabilities"].append("unapproved-capability")
+    first[0]["capability_targets"].append("unapproved-capability")
 
-    assert "unapproved-capability" not in resolve_project_template("enterprise")["capabilities"]
+    assert "unapproved-capability" not in resolve_project_template("enterprise")["capability_targets"]
 
 
 def test_unknown_template_is_rejected():
