@@ -49,7 +49,13 @@ def test_cockpit_degrades_truthfully_without_a_handler():
 
 def test_shell_wires_home_to_lens_selection():
     src = EXP.read_text(encoding="utf-8")
-    assert "<SolariunHomeCockpit onNavigate={onThreadTarget}/>" in src
+    # The Home mount was superseded by SolariunInteractionCanvas (sovereign merge #189,
+    # "chore: remove superseded Solariun home import"); SolariunHomeCockpit is dead code.
+    # The handoff invariant is unchanged: the canvas' onNavigate target is routed to the
+    # canonical lens selector, and the handler is typed to the lens union — not a new
+    # surface. A non-lens target (e.g. 'commune') must be intercepted before selection.
+    assert "<SolariunInteractionCanvas onNavigate={target=>{" in src
+    assert "onThreadTarget(target as any)" in src
     assert "onThreadTarget={selectSection}" in src
     # The handler must be typed to the canonical lens union, not a new surface.
     assert "onThreadTarget:(s:SolSpireLens)=>void" in src
