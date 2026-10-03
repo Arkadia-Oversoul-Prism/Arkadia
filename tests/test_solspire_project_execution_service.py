@@ -28,7 +28,6 @@ def test_candidate_digest_changes_when_any_reviewed_content_changes():
     assert one != two
 
 
-@pytest.mark.integration
 def test_actual_oci_runtime_hardens_process_and_mount(tmp_path):
     """Live OCI acceptance test using a pinned minimal test image by default."""
     image = os.environ.get(
