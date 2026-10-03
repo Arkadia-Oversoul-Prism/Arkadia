@@ -74,6 +74,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
                 state TEXT NOT NULL,
                 objective TEXT NOT NULL DEFAULT '',
                 repository_ref TEXT,
+                project_ref TEXT,
                 authorization_ref TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
