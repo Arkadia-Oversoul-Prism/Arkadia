@@ -46,7 +46,10 @@ def project_integration_health(*, subject_uid: str, project: dict[str, Any]) -> 
         graph = build_derived_graph(project_id)
         if summary.get("project_id") != project_id or graph.get("project_id") != project_id:
             raise RuntimeError("Knowledge OS returned a mismatched project")
+        if (summary.get("source_health") or {}).get("state") == "PARTIAL":
+            raise RuntimeError(f"Knowledge OS sources unavailable: {(summary.get('source_health') or {}).get('errors')}")
         return {"sources": summary.get("sources", {}),
+                "source_health": summary.get("source_health", {"state": "UNKNOWN"}),
                 "graph_counts": graph.get("counts", {}),
                 "graph_kind": graph.get("kind")}
 
