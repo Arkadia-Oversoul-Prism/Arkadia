@@ -68,6 +68,7 @@ def prepare_project_workspace(
     from solspire.project_store import get_file, list_files
 
     seeded: list[str] = []
+    seen_paths: set[str] = set()
     skipped: list[dict[str, str]] = []
     total_bytes = 0
     records = list_files(pid)[:_MAX_FILES]
@@ -78,6 +79,11 @@ def prepare_project_workspace(
         if not file_id or relative is None:
             skipped.append({"name": name or "(unnamed)", "reason": "unsafe_or_missing_name"})
             continue
+        relative_name = str(relative)
+        if relative_name in seen_paths:
+            skipped.append({"name": name, "reason": "duplicate_workspace_path"})
+            continue
+        seen_paths.add(relative_name)
         file_record = get_file(file_id)
         if not file_record or file_record.get("project_id") != pid:
             skipped.append({"name": name, "reason": "canonical_file_unavailable"})
