@@ -143,9 +143,11 @@ function ArkanaOverlay({context,pack,onClose}:{context:string;pack:{surface:stri
   /** P1.1: fetch a bounded project snapshot through existing owner-scoped APIs and inject it into project-scoped Arkana turns. */
   const [projectContext, setProjectContext] = useState<ArkanaProjectContext | null>(null);
   const [contextState, setContextState] = useState<'idle'|'loading'|'ready'|'partial'|'auth-required'>('idle');
-  const projectProfile = (pack.projectMetadata?.project_runtime && typeof pack.projectMetadata.project_runtime === 'object')
-    ? pack.projectMetadata.project_runtime as Record<string, unknown>
-    : null;
+  const projectProfile = useMemo(() => (
+    pack.projectMetadata?.project_runtime && typeof pack.projectMetadata.project_runtime === 'object'
+      ? pack.projectMetadata.project_runtime as Record<string, unknown>
+      : null
+  ), [pack.projectMetadata]);
 
   useEffect(() => {
     let live = true;
@@ -213,7 +215,7 @@ function ArkanaOverlay({context,pack,onClose}:{context:string;pack:{surface:stri
       setContextState(unavailable_sources.length ? 'partial' : 'ready');
     });
     return () => { live = false; };
-  }, [pack.projectId, pack.projectName, pack.authenticated, projectProfile?.template_id]);
+  }, [pack.projectId, pack.projectName, pack.authenticated, projectProfile]);
 
   const lines = [
     pack.authenticated ? 'AUTHENTICATED' : 'AUTH REQUIRED',
