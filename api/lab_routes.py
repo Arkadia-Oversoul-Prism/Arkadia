@@ -438,7 +438,15 @@ def _project_canvas_policy(session: dict, subject_uid: str) -> SandboxPolicy:
     if not project_id:
         raise HTTPException(status_code=400, detail="Project binding missing")
     from solspire.project_manager import get_project_manager
-    from solspire.project_execution_service import create_disposable_workspace
+    from solspire.project_execution_service import (
+        assert_container_runtime_ready, create_disposable_workspace,
+    )
+    image = os.environ.get("SOLSPIRE_AGENT_IMAGE", "")
+    runtime_name = os.environ.get("SOLSPIRE_CONTAINER_RUNTIME", "docker")
+    try:
+        assert_container_runtime_ready(image=image, runtime=runtime_name)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"isolated project runtime unavailable: {exc}") from exc
     try:
         project = get_project_manager().load(project_id)
     except KeyError:
