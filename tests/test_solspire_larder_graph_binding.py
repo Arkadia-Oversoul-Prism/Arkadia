@@ -25,6 +25,8 @@ def test_explicit_larder_binding_becomes_source_backed_graph_edge(monkeypatch):
     assert order["type"] == "LivingLarderOrder"
     assert edge["evidence_id"] == "event-1"
     assert edge["classification"] == "SOURCE-BACKED"
+    assert any(e["from"] == "project:project-1" and e["to"] == "event:event-1"
+               and e["type"] == "HAS_EVENT" for e in graph["edges"])
 
 
 def test_arkana_context_includes_only_explicitly_bound_larder_snapshot(monkeypatch):
