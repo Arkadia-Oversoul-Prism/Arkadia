@@ -89,6 +89,14 @@ class ConsoleRepository(private val baseUrl:()->String, private val token:suspen
         r.optJSONObject("verification")?.optString("id") ?: error("Verification was not returned")
     }
 
+    suspend fun syncCapture(record:CaptureRecord):Boolean=withContext(Dispatchers.IO){
+        val body=JSONObject().apply{
+            put("capture_id",record.id);put("kind",record.kind);put("mime_type",record.mimeType)
+            put("size_bytes",record.sizeBytes);put("sha256",record.sha256);put("captured_at",record.capturedAt)
+        }.toString()
+        request("/solspire/authority/captures","POST",body).optBoolean("reconciled",false)
+    }
+
     suspend fun decide(id:String,decision:String):String{
         request("/solspire/proposals/"+java.net.URLEncoder.encode(id,"UTF-8")+"/decision","POST",JSONObject().put("decision",decision).toString())
         return "Decision recorded. Weaver execution remains separately governed."
