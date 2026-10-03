@@ -43,19 +43,20 @@ data class MieMusicalObject(
             .put("detected_pitch_hz", detectedPitchHz)
             .put("detected_midi", detectedMidi)
 
+        val provenance = JSONObject()
+            .put("parent_id", parentId)
+            .put("transformation", transformation)
+            .put("created_at_epoch_ms", createdAtEpochMs)
+        if (loopDecision != null) {
+            provenance.put("loop_decision", loopDecision)
+        }
+
         return JSONObject()
             .put("id", id)
             .put("source", sourcePath)
             .put("duration_ms", durationMs)
             .put("interpretation", interpretation)
-            .put(
-                "provenance",
-                JSONObject()
-                    .put("parent_id", parentId)
-                    .put("transformation", transformation)
-                    .put("loop_decision", loopDecision)
-                    .put("created_at_epoch_ms", createdAtEpochMs)
-            )
+            .put("provenance", provenance)
             .toString(2)
     }
 }
