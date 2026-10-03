@@ -17,6 +17,7 @@ from solspire.proposal_manager import get_proposal_manager
 from solspire.workspace_manager import get_workspace_manager
 from solspire.eden_ops import EdenOps
 from weaver.enterprise_orchestration import EnterpriseOrchestrationStore
+from weaver.console_adapter import WeaverConsoleAdapter
 
 router = APIRouter(prefix="/authority", tags=["Arkadia Console Authority"])
 
@@ -102,6 +103,12 @@ async def authorize_proposal(
     )
     # The enterprise proposal owns the causal chain; the SolSpire proposal
     # carries only a reference back to the resulting authorization.
+    scope = body.scope or {"tools": ["git.status"]}
+    constraints = body.constraints or {
+        "read_only": True,
+        "repository_root": ".",
+        "network": False,
+    }
     result = EdenOps(store).decide_proposal(
         subject=user["uid"],
         proposal_id=enterprise.id,
@@ -109,6 +116,8 @@ async def authorize_proposal(
         actor=user["uid"],
         actor_identity=identity,
         authentication_context="firebase_id_token",
+        authorization_scope=scope,
+        authorization_constraints=constraints,
     )
     authorization = result["authorization"]
     manager.bind_authorization(
@@ -154,12 +163,26 @@ async def create_execution_attempt(
             request_payload=body.request_payload,
             result_status="ATTEMPTED",
         )
+        adapter = WeaverConsoleAdapter(store=store)
+        result = adapter.dispatch(
+            subject=user["uid"],
+            authorization_id=authorization_id,
+            execution_attempt_id=attempt.id,
+            tool_channel=body.tool_channel,
+            request_payload=body.request_payload,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {
-        "ok": True,
+        "ok": result["ok"],
         "execution_attempt": attempt.to_dict(),
-        "boundary": "ATTEMPTED is not SUCCEEDED. Evidence is required before success.",
+        "execution": result["execution"],
+        "evidence": result["evidence"],
+        "boundary": "Tool dispatch is real. Verification remains a separate human act.",
     }
 
 
