@@ -4,7 +4,6 @@ from solspire.integration_health import project_integration_health
 
 
 def test_integration_health_requires_live_probes_and_explicit_larder_binding(monkeypatch):
-    from lab.engineering_lab.runtime import get_runtime
     from solspire import project_knowledge, project_store
     from types import SimpleNamespace
 
@@ -66,6 +65,8 @@ def test_integration_health_does_not_infer_larder_binding(monkeypatch):
         "project_id": pid, "kind": "DERIVED_BOUNDED_SEMANTIC", "counts": {"nodes": 0, "edges": 0}
     })
     monkeypatch.setattr(project_store, "list_events", lambda pid, limit=500: [])
+    monkeypatch.setattr("solspire.workspace_manager.get_workspace_manager", lambda:
+                        SimpleNamespace(get_for_subject=lambda uid: None))
     monkeypatch.setenv("SOLSPIRE_AGENT_IMAGE", "registry.example/agent@sha256:" + "a" * 64)
     monkeypatch.setattr("solspire.integration_health.shutil.which", lambda runtime: "/usr/bin/docker")
     monkeypatch.setattr("solspire.integration_health.subprocess.run", lambda *args, **kwargs:
