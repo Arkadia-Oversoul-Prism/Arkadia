@@ -35,6 +35,7 @@ def test_actual_oci_runtime_hardens_process_and_mount(tmp_path):
     runtime = os.environ.get("SOLSPIRE_CONTAINER_RUNTIME", "docker")
     if not shutil.which(runtime) or "@sha256:" not in image or len(image.rsplit("@sha256:", 1)[-1]) != 64:
         pytest.skip("requires an installed container runtime and SOLSPIRE_TEST_AGENT_IMAGE pinned by sha256")
+    tmp_path.chmod(0o777)
     result = run_isolated(
         image=image, workspace=tmp_path,
         command=("/bin/sh", "-c", "id -u; test ! -w /etc; touch /workspace/runtime-probe"),
