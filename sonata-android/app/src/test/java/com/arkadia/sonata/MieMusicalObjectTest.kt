@@ -21,21 +21,21 @@ class MieMusicalObjectTest {
 
     @Test
     fun keepDecisionIsInspectable() {
-        val json = objectModel("kept").toJson()
-        assertTrue(json.contains("\"loop_decision\": \"kept\""))
-        assertTrue(json.contains("\"parent_id\": \"parent-001\""))
-        assertTrue(json.contains("\"transformation\": \"octave_up\""))
+        val provenance = org.json.JSONObject(objectModel("kept").toJson()).getJSONObject("provenance")
+        assertEquals("kept", provenance.getString("loop_decision"))
+        assertEquals("parent-001", provenance.getString("parent_id"))
+        assertEquals("octave_up", provenance.getString("transformation"))
     }
 
     @Test
     fun reviseDecisionIsInspectable() {
-        val json = objectModel("revised").toJson()
-        assertTrue(json.contains("\"loop_decision\": \"revised\""))
+        val provenance = org.json.JSONObject(objectModel("revised").toJson()).getJSONObject("provenance")
+        assertEquals("revised", provenance.getString("loop_decision"))
     }
 
     @Test
     fun undecidedResultRemainsUndecided() {
-        val json = objectModel(null).toJson()
-        assertEquals(null, org.json.JSONObject(json).getJSONObject("provenance").optString("loop_decision", null))
+        val provenance = org.json.JSONObject(objectModel(null).toJson()).getJSONObject("provenance")
+        assertTrue(!provenance.has("loop_decision"))
     }
 }
