@@ -163,39 +163,28 @@ function ArkanaOverlay({context,pack,onClose}:{context:string;pack:{surface:stri
       return () => { live = false; };
     }
     setContextState('loading');
-    const read = async (name: string, path: string, key: string) => {
+    const readRuntimeContext = async () => {
       try {
-        const response = await apiFetch(path, { headers: {} });
+        const response = await apiFetch(`/solspire/projects/${pack.projectId}/runtime-context`, { headers: {} });
         const data = await response.json().catch(() => ({}));
-        if (!response.ok || !Array.isArray(data?.[key])) return { name, rows: [], ok: false };
-        return { name, rows: data[key] as any[], ok: true };
+        if (!response.ok) return null;
+        return data;
       } catch {
-        return { name, rows: [], ok: false };
+        return null;
       }
     };
-    const readKnowledgeGraph = async () => {
-      try {
-        const response = await apiFetch(`/solspire/projects/${pack.projectId}/knowledge/graph`, { headers: {} });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) return { name: 'knowledge_graph', rows: [], ok: false, graph: { state: 'unavailable', entities: null, relationships: null } };
-        const graph = data?.graph || data;
-        const nodes = Array.isArray(graph?.nodes) ? graph.nodes : (Array.isArray(graph?.entities) ? graph.entities : null);
-        const edges = Array.isArray(graph?.edges) ? graph.edges : (Array.isArray(graph?.relationships) ? graph.relationships : null);
-        return { name: 'knowledge_graph', rows: [], ok: true, graph: { state: 'available', entities: nodes ? nodes.length : null, relationships: edges ? edges.length : null } };
-      } catch {
-        return { name: 'knowledge_graph', rows: [], ok: false, graph: { state: 'unavailable', entities: null, relationships: null } };
-      }
-    };
-    void Promise.all([
-      read('tasks', `/solspire/projects/${pack.projectId}/tasks`, 'tasks'),
-      read('files', `/solspire/projects/${pack.projectId}/files`, 'files'),
-      read('memory', `/solspire/projects/${pack.projectId}/memory`, 'memory'),
-      read('activity', `/solspire/projects/${pack.projectId}/events`, 'events'),
-      read('workflows', `/solspire/projects/${pack.projectId}/workflows`, 'workflows'),
-      readKnowledgeGraph(),
-    ]).then(results => {
+    void readRuntimeContext().then(data => {
       if (!live) return;
-      const byName = Object.fromEntries(results.map(result => [result.name, result]));
+      const projectStore = data?.project_store || {};
+      const controlPlane = data?.control_plane || {};
+      const unavailable_sources = Object.entries(data?.binding_state || {})
+        .filter(([, state]) => state === 'UNKNOWN')
+        .map(([name]) => name);
+      const tasksRows = Array.isArray(projectStore.tasks) ? projectStore.tasks : [];
+      const filesRows = Array.isArray(projectStore.files) ? projectStore.files : [];
+      const memoryRows = Array.isArray(projectStore.memory) ? projectStore.memory : [];
+      const eventRows = Array.isArray(projectStore.events) ? projectStore.events : [];
+      const workflowRows = Array.isArray(projectStore.workflows) ? projectStore.workflows : [];
       const tasks = byName.tasks.rows.slice(0, 8).map((row: any) => ({
         title: String(row.title || 'Untitled task'),
         status: String(row.status || 'UNKNOWN'),
