@@ -36,13 +36,11 @@ def canonical_base_digest(project_id: str) -> str:
 def create_disposable_workspace(subject_uid: str, project_id: str) -> dict[str, Any]:
     """Create a fresh per-execution copy, never exposing the canonical store path."""
     from solspire.project_canvas import prepare_project_workspace
-    snapshot = prepare_project_workspace(subject_uid, project_id)
-    temp_root = Path(tempfile.mkdtemp(prefix="arkadia-solspire-run-")).resolve()
-    source = Path(snapshot["root"]).resolve()
-    shutil.copytree(source, temp_root, dirs_exist_ok=True, symlinks=False)
+    temp_base = Path(tempfile.mkdtemp(prefix="arkadia-solspire-run-")).resolve()
+    snapshot = prepare_project_workspace(subject_uid, project_id, base_root=temp_base)
     return {
         **snapshot,
-        "root": str(temp_root),
+        "cleanup_root": str(temp_base),
         "canonical_base_digest": canonical_base_digest(project_id),
         "disposable": True,
     }
