@@ -109,7 +109,33 @@ def build_project_context_for_weaver(project: dict[str, Any]) -> dict[str, Any]:
     continuity: dict[str, Any] = {"workspace": None, "daily_pulse": None, "work_events": [],
                                   "binding_state": {"daily_pulse": "UNKNOWN", "workevents": "UNKNOWN"}}
     graph = {}
+    project_event_context: list[dict[str, Any]] = []
+    larder_orders: list[dict[str, Any]] = []
     if pid:
+        try:
+            import json
+            from solspire.project_store import list_events
+            for event in list_events(pid, limit=100):
+                project_event_context.append({
+                    "id": event.get("id"), "event_type": event.get("event_type"),
+                    "summary": event.get("summary"), "created_at": event.get("created_at"),
+                    "provenance": "SOURCE-BACKED",
+                })
+                if event.get("event_type") == "living_larder_order_bound":
+                    raw = event.get("data") or {}
+                    data = json.loads(raw) if isinstance(raw, str) else raw
+                    if isinstance(data, dict) and data.get("order_id"):
+                        larder_orders.append({
+                            "order_id": data.get("order_id"), "status": data.get("status", "UNKNOWN"),
+                            "created_at": data.get("created_at"), "subtotal": data.get("subtotal"),
+                            "delivery_fee": data.get("delivery_fee"), "total": data.get("total"),
+                            "item_count": data.get("item_count"), "currency": "NGN",
+                            "snapshot_digest": data.get("snapshot_digest"),
+                            "provenance": "SOURCE-BACKED",
+                        })
+        except Exception:
+            project_event_context = []
+            larder_orders = []
         try:
             from datetime import datetime, timezone
             from solspire.workspace_manager import get_workspace_manager
@@ -144,6 +170,12 @@ def build_project_context_for_weaver(project: dict[str, Any]) -> dict[str, Any]:
         "knowledge": summary.get("sources"),
         "repositories": (summary.get("items") or {}).get("repositories"),
         "knowledge_graph": graph,
+        "project_events": project_event_context[:100],
+        "living_larder": {
+            "binding_state": "PROJECT_BOUND" if larder_orders else "UNKNOWN",
+            "orders": larder_orders[:100],
+            "note": "Only explicitly bound source records are shown; no transaction is inferred.",
+        },
         "continuity": continuity,
         "memory_note": "Memory listed in knowledge OS is OPERATOR_CONTEXT, not FACT.",
         "embeddings": summary.get("embeddings"),
