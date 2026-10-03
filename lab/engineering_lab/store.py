@@ -167,6 +167,11 @@ def _migrate(conn: sqlite3.Connection) -> None:
                 ON el_authorizations (scope_ref);
             """
         )
+        # Additive migration for sessions created before project-scoped canvas.
+        try:
+            conn.execute("ALTER TABLE el_sessions ADD COLUMN project_ref TEXT")
+        except sqlite3.OperationalError:
+            pass  # column already exists
 
 
 class EngineeringLabStore:
@@ -209,8 +214,8 @@ class EngineeringLabStore:
             conn.execute(
                 "INSERT INTO el_sessions"
                 " (session_id, subject_ref, workspace_ref, agent_id, state,"
-                "  objective, repository_ref, authorization_ref, created_at, updated_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "  objective, repository_ref, project_ref, authorization_ref, created_at, updated_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     payload["session_id"],
                     payload["subject_ref"],
@@ -219,6 +224,7 @@ class EngineeringLabStore:
                     payload["state"],
                     payload.get("objective", ""),
                     payload.get("repository_ref"),
+                    payload.get("project_ref"),
                     payload.get("authorization_ref"),
                     payload["created_at"],
                     payload["updated_at"],
