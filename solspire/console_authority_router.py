@@ -50,7 +50,7 @@ class CaptureRequest(BaseModel):
     size_bytes: int
     sha256: str
     captured_at: str
-    content_base64: str
+    content_base64: str | None = None
 
 
 class VerificationRequest(BaseModel):
@@ -233,22 +233,17 @@ async def sync_capture(
     """Reconcile one durable native capture into the canonical field."""
     if body.size_bytes < 0 or body.size_bytes > 6 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="capture exceeds 6 MiB sync limit")
-    try:
-        raw = base64.b64decode(body.content_base64, validate=True)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail="invalid capture encoding") from exc
-    if len(raw) != body.size_bytes:
-        raise HTTPException(status_code=400, detail="capture size mismatch")
-    digest = hashlib.sha256(raw).hexdigest()
-    if digest != body.sha256:
-        raise HTTPException(status_code=400, detail="capture digest mismatch")
-    safe_id = "".join(ch for ch in body.capture_id if ch.isalnum() or ch in "-_")[:80]
-    if not safe_id:
-        raise HTTPException(status_code=400, detail="capture_id required")
-    root = Path(os.environ.get("SOLSPIRE_DATA_DIR", "data")) / "console_captures" / user["uid"]
-    root.mkdir(parents=True, exist_ok=True)
-    target = root / safe_id
-    target.write_bytes(raw)
+    raw = None
+    if body.content_base64:
+        try:
+            raw = base64.b64decode(body.content_base64, validate=True)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail="invalid capture encoding") from exc
+        if len(raw) != body.size_bytes:
+            raise HTTPException(status_code=400, detail="capture size mismatch")
+        digest = hashlib.sha256(raw).hexdigest()
+        if digest != body.sha256:
+            raise HTTPException(status_code=400, detail="capture digest mismatch")
     workspace = get_workspace_manager().get_for_subject(user["uid"])
     if workspace is None:
         raise HTTPException(status_code=409, detail="Canonical workspace not found")
@@ -259,13 +254,13 @@ async def sync_capture(
         event_type="CONSOLE_CAPTURE",
         occurred_at=time(),
         actor_ref=user["uid"],
-        artifact_refs=[f"console-capture:{user['uid']}:{safe_id}"],
+        artifact_refs=[f"console-capture:{user['uid']}:{safe_id}" if raw is not None else f"device-local-capture:{user['uid']}:{safe_id}"],
         status="RECORDED",
     )
     return {
         "ok": True,
         "capture_id": safe_id,
-        "artifact_ref": f"console-capture:{user['uid']}:{safe_id}",
+        "artifact_ref": f"console-capture:{user['uid']}:{safe_id}" if raw is not None else f"device-local-capture:{user['uid']}:{safe_id}",
         "work_event": event.to_dict(),
         "reconciled": True,
     }
