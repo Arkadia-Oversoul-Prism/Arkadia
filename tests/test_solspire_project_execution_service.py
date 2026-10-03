@@ -30,11 +30,16 @@ def test_candidate_digest_changes_when_any_reviewed_content_changes():
 
 @pytest.mark.integration
 def test_actual_oci_runtime_hardens_process_and_mount(tmp_path):
-    """Live OCI acceptance test. Configure a digest-pinned image in CI to execute it."""
-    image = os.environ.get("SOLSPIRE_TEST_AGENT_IMAGE", "")
+    """Live OCI acceptance test using a pinned minimal test image by default."""
+    image = os.environ.get(
+        "SOLSPIRE_TEST_AGENT_IMAGE",
+        "ghcr.io/containerd/busybox:1.36@sha256:907ca53d7e2947e849b839b1cd258c98fd3916c60f2e6e70c30edbf741ab6754",
+    )
     runtime = os.environ.get("SOLSPIRE_CONTAINER_RUNTIME", "docker")
-    if not shutil.which(runtime) or "@sha256:" not in image or len(image.rsplit("@sha256:", 1)[-1]) != 64:
-        pytest.skip("requires an installed container runtime and SOLSPIRE_TEST_AGENT_IMAGE pinned by sha256")
+    if not shutil.which(runtime):
+        pytest.skip("requires an installed Docker-compatible container runtime")
+    if "@sha256:" not in image or len(image.rsplit("@sha256:", 1)[-1]) != 64:
+        pytest.fail("SOLSPIRE_TEST_AGENT_IMAGE must be pinned by sha256")
     tmp_path.chmod(0o777)
     result = run_isolated(
         image=image, workspace=tmp_path,
