@@ -173,11 +173,26 @@ function ArkanaOverlay({context,pack,onClose}:{context:string;pack:{surface:stri
         return { name, rows: [], ok: false };
       }
     };
+    const readKnowledgeGraph = async () => {
+      try {
+        const response = await apiFetch(`/solspire/projects/${pack.projectId}/knowledge/graph`, { headers: {} });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) return { name: 'knowledge_graph', rows: [], ok: false, graph: { state: 'unavailable', entities: null, relationships: null } };
+        const graph = data?.graph || data;
+        const nodes = Array.isArray(graph?.nodes) ? graph.nodes : (Array.isArray(graph?.entities) ? graph.entities : null);
+        const edges = Array.isArray(graph?.edges) ? graph.edges : (Array.isArray(graph?.relationships) ? graph.relationships : null);
+        return { name: 'knowledge_graph', rows: [], ok: true, graph: { state: 'available', entities: nodes ? nodes.length : null, relationships: edges ? edges.length : null } };
+      } catch {
+        return { name: 'knowledge_graph', rows: [], ok: false, graph: { state: 'unavailable', entities: null, relationships: null } };
+      }
+    };
     void Promise.all([
       read('tasks', `/solspire/projects/${pack.projectId}/tasks`, 'tasks'),
       read('files', `/solspire/projects/${pack.projectId}/files`, 'files'),
       read('memory', `/solspire/projects/${pack.projectId}/memory`, 'memory'),
       read('activity', `/solspire/projects/${pack.projectId}/events`, 'events'),
+      read('workflows', `/solspire/projects/${pack.projectId}/workflows`, 'workflows'),
+      readKnowledgeGraph(),
     ]).then(results => {
       if (!live) return;
       const byName = Object.fromEntries(results.map(result => [result.name, result]));
@@ -201,6 +216,12 @@ function ArkanaOverlay({context,pack,onClose}:{context:string;pack:{surface:stri
         event_type: String(row.event_type || 'project_event'),
         summary: String(row.summary || '').slice(0, 240),
       }));
+      const workflows = byName.workflows.rows.slice(0, 8).map((row: any) => ({
+        title: String(row.title || row.name || 'Untitled workflow'),
+        status: String(row.status || 'UNKNOWN'),
+        description: String(row.description || '').slice(0, 240),
+      }));
+      const knowledge_graph = byName.knowledge_graph.graph;
       const unavailable_sources = results.filter(result => !result.ok).map(result => result.name);
       setProjectContext({
         project_id: pack.projectId!,
@@ -211,6 +232,8 @@ function ArkanaOverlay({context,pack,onClose}:{context:string;pack:{surface:stri
         files,
         memories,
         activity,
+        workflows,
+        knowledge_graph,
         unavailable_sources,
       });
       setContextState(unavailable_sources.length ? 'partial' : 'ready');
@@ -225,7 +248,8 @@ function ArkanaOverlay({context,pack,onClose}:{context:string;pack:{surface:stri
     pack.projectId ? `ID · ${pack.projectId}` : null,
     projectProfile?.template_id ? `TEMPLATE · ${String(projectProfile.template_id)}` : null,
     `PROJECT DATA · ${contextState.toUpperCase()}`,
-    projectContext ? `TASKS ${projectContext.tasks.length} · FILES ${projectContext.files.length} · MEMORY ${projectContext.memories.length} · ACTIVITY ${projectContext.activity.length}` : null,
+    projectContext ? `TASKS ${projectContext.tasks.length} · FILES ${projectContext.files.length} · MEMORY ${projectContext.memories.length} · ACTIVITY ${projectContext.activity.length} · WORKFLOWS ${projectContext.workflows.length}` : null,
+    projectContext ? `KNOWLEDGE GRAPH · ${projectContext.knowledge_graph.state.toUpperCase()} · ENTITIES ${projectContext.knowledge_graph.entities ?? 'UNKNOWN'} · RELATIONSHIPS ${projectContext.knowledge_graph.relationships ?? 'UNKNOWN'}` : null,
     projectContext?.unavailable_sources.length ? `UNAVAILABLE · ${projectContext.unavailable_sources.join(', ')}` : null,
     'BOUNDED PROJECT SNAPSHOT · NO FULL-CORPUS DUMP',
   ].filter(Boolean) as string[];
