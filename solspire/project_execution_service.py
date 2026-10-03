@@ -71,7 +71,7 @@ def execute_container_command(*, workspace: str, command: list[str], image: str,
 
 
 def apply_reviewed_project_patch(*, subject_uid: str, project_id: str,
-                                 expected_base_digest: str, approved: bool,
+                                 expected_base_digest: str, approved_patch_digest: str,
                                  changes: list[dict[str, str]],
                                  allowed_paths: list[str],
                                  work_ref: str | None = None) -> dict[str, Any]:
@@ -92,7 +92,7 @@ def apply_reviewed_project_patch(*, subject_uid: str, project_id: str,
         raise BoundaryError("canonical workspace missing; refusing patch without WorkEvent evidence binding")
     paths = [str(change.get("path") or "") for change in changes]
     accepted = require_reviewed_patch(
-        approved=approved, expected_base_digest=expected_base_digest,
+        approved=bool(approved_patch_digest), expected_base_digest=expected_base_digest,
         observed_base_digest=observed, changed_paths=paths,
         allowed_paths=allowed_paths,
     )
@@ -115,6 +115,8 @@ def apply_reviewed_project_patch(*, subject_uid: str, project_id: str,
         [{"path": path, "content": content} for path, (_, content) in zip(accepted, normalized)],
         ensure_ascii=False, sort_keys=True, separators=(",", ":")
     ).encode()).hexdigest()
+    if not approved_patch_digest or approved_patch_digest != patch_digest:
+        raise BoundaryError("human approval must match the exact candidate patch digest")
     # Recheck immediately before mutation to reject stale reviews.
     if canonical_base_digest(project_id) != expected_base_digest:
         raise BoundaryError("canonical base changed during review; refresh approval")
