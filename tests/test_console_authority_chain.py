@@ -118,3 +118,64 @@ def test_console_authorized_tool_dispatch_records_automatic_evidence(tmp_path, m
         result_status="SUCCEEDED",
     )
     assert completed.result_status == "SUCCEEDED"
+
+
+def test_console_dispatch_uses_authorized_repository_root(tmp_path, monkeypatch):
+    import weaver.enterprise_orchestration as ew
+    from weaver.console_adapter import WeaverConsoleAdapter
+
+    db = str(tmp_path / "root-binding.db")
+    monkeypatch.setattr(ew, "_DB_PATH", db)
+    store = ew.EnterpriseOrchestrationStore()
+    allowed = tmp_path / "allowed"
+    other = tmp_path / "other"
+    allowed.mkdir()
+    other.mkdir()
+    (allowed / "authorized.txt").write_text("inside", encoding="utf-8")
+    (other / "unbound.txt").write_text("outside", encoding="utf-8")
+
+    subject = "firebase-root-binding"
+    proposal = store.proposal(
+        subject=subject, enterprise_id="workspace-root",
+        objective="Read authorized workspace", rationale="Console boundary",
+        recommended_actions=["read"], required_authority="human",
+        tool_selections=["filesystem.read"], correlation_id="root-binding-1",
+    )
+    hae = store.authority_event(
+        subject=subject, actor=subject, authority_context="workspace-root",
+        action="APPROVE_PROPOSAL", previous_state="AWAITING_AUTHORITY",
+        new_state="AUTHORIZED", origin="human",
+        authentication_context="firebase_id_token",
+        correlation_id=proposal.correlation_id,
+    )
+    auth = store.authorize(
+        subject=subject, proposal_id=proposal.id,
+        authority_event_id=hae.id, scope={"tools": ["filesystem.read"]},
+        constraints={"read_only": True, "repository_root": str(allowed), "network": False},
+    )
+    attempt = store.execution_attempt(
+        subject=subject, authorization_id=auth.id,
+        tool_channel="filesystem.read", request_payload={"path": "authorized.txt"},
+    )
+    result = WeaverConsoleAdapter(store=store, repo_root=str(other)).dispatch(
+        subject=subject, authorization_id=auth.id,
+        execution_attempt_id=attempt.id, tool_channel="filesystem.read",
+        request_payload={"path": "authorized.txt"},
+    )
+    assert result["ok"] is True
+    assert result["execution"]["observed"]["content"] == "inside"
+
+    outside = store.execution_attempt(
+        subject=subject, authorization_id=auth.id,
+        tool_channel="filesystem.read", request_payload={"path": "../other/unbound.txt"},
+    )
+    try:
+        WeaverConsoleAdapter(store=store, repo_root=str(other)).dispatch(
+            subject=subject, authorization_id=auth.id,
+            execution_attempt_id=outside.id, tool_channel="filesystem.read",
+            request_payload={"path": "../other/unbound.txt"},
+        )
+    except RuntimeError as exc:
+        assert "sandbox" in str(exc).lower() or "outside" in str(exc).lower()
+    else:
+        raise AssertionError("authorized repository root was not enforced")

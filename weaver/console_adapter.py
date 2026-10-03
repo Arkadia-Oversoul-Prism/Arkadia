@@ -37,10 +37,10 @@ class WeaverConsoleAdapter:
         self.store = store
         self.repo_root = repo_root
 
-    def _sandbox(self) -> Sandbox:
+    def _sandbox(self, *, root: str) -> Sandbox:
         return Sandbox(
             SandboxPolicy(
-                root=self.repo_root,
+                root=root,
                 write_allowed=False,
                 command_allowlist=("git",),
                 enforce_git_read_only=True,
@@ -73,7 +73,16 @@ class WeaverConsoleAdapter:
                 f"tool '{tool}' is outside the human authorization scope"
             )
 
-        sandbox = self._sandbox()
+        constraints = auth.constraints if isinstance(auth.constraints, dict) else {}
+        if constraints.get("read_only") is not True:
+            raise PermissionError("Console Weaver execution requires a read-only authorization constraint")
+        if constraints.get("network") not in (False, None):
+            raise PermissionError("Console Weaver execution refuses network-enabled authorization")
+        authorized_root = str(constraints.get("repository_root") or self.repo_root).strip()
+        if not authorized_root:
+            raise PermissionError("Console Weaver execution requires a bounded repository root")
+
+        sandbox = self._sandbox(root=authorized_root)
         try:
             if tool == "filesystem.read":
                 target = str(request_payload.get("path") or "")
