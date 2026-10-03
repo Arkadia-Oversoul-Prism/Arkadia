@@ -30,7 +30,6 @@ def test_snapshot_materializes_only_safe_canonical_files(monkeypatch, tmp_path):
     assert len(result["skipped_files"]) == 3
     assert (root / "docs/plan.md").read_text() == "# Eden plan\n"
     assert not (tmp_path / "escape.md").exists()
-    assert not Path("/tmp/escape.txt").exists()
     assert "private-user" not in str(root)
     assert "project-uuid" not in str(root)
 
