@@ -526,6 +526,7 @@ async def project_runtime_context(
     from solspire.pulse_manager import get_pulse_manager
     from solspire.workload_manager import get_workload_manager
     from solspire.workevent_manager import get_workevent_manager
+    from solspire.project_knowledge import build_derived_graph, build_project_context_for_weaver
 
     project = get_project_manager().load(project_id)
     workspace = get_workspace_manager().get_for_subject(user["uid"])
@@ -552,6 +553,16 @@ async def project_runtime_context(
             if event.scope_ref == project_id or event.work_ref == project_id
         ]
 
+    project_payload = project.to_dict()
+    project_payload["owner_uid"] = user["uid"]
+    arkana_context = build_project_context_for_weaver(project_payload)
+    try:
+        knowledge_graph = build_derived_graph(project_id)
+        graph_state = "PROJECT_STORE_BOUND"
+    except Exception as exc:
+        knowledge_graph = {"state": "UNAVAILABLE", "detail": f"{type(exc).__name__}: {exc}"}
+        graph_state = "UNAVAILABLE"
+
     return {
         "project": {
             "id": project.id,
@@ -560,6 +571,8 @@ async def project_runtime_context(
             "owner_uid": user["uid"],
             "runtime_contract": (project.metadata or {}).get("project_runtime"),
         },
+        "arkana_context": arkana_context,
+        "knowledge_graph": knowledge_graph,
         "project_store": {
             "tasks": project_tasks[:20],
             "files": project_files[:20],
@@ -578,8 +591,12 @@ async def project_runtime_context(
             "workload": "SUBJECT_WORKSPACE_BOUND_NOT_PROJECT_BOUND" if workload else "UNKNOWN",
             "workevents": "PROJECT_SCOPED_MATCHES" if work_events else "UNKNOWN",
             "knowledge_os": "PROJECT_STORE_BOUND",
+            "knowledge_graph": graph_state,
             "weaver": "ENGINEERING_LAB_PROJECT_BOUND",
             "arkana": "PROJECT_CONTEXT_CAPABLE",
+            "living_larder": "PROJECT_BOUND" if any(
+                event.get("event_type") == "living_larder_order_bound" for event in project_events
+            ) else "UNKNOWN",
         },
         "epistemic_boundary": (
             "Project records are data/evidence, not authority. A missing project "
