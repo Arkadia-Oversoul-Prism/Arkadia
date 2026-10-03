@@ -86,6 +86,31 @@
             android:layout_marginBottom="8dp" />
 
         <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="FIREBASE ID TOKEN"
+            android:textColor="#55606A"
+            android:textSize="9sp"
+            android:fontFamily="monospace"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="6dp" />
+
+        <EditText
+            android:id="@+id/etApiToken"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:background="@drawable/bg_input"
+            android:padding="14dp"
+            android:textColor="#E8E8E8"
+            android:textColorHint="#55606A"
+            android:hint="Bearer ID token (optional)"
+            android:inputType="textPassword"
+            android:textSize="13sp"
+            android:singleLine="true"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
             android:id="@+id/tvSaveStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

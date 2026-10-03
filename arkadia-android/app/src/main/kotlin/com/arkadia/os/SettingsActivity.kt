@@ -28,17 +28,20 @@ class SettingsActivity : AppCompatActivity() {
 
         binding.etArkadiaUrl.setText(prefs.arkadiaUrl)
         binding.etApiUrl.setText(prefs.apiUrl)
+        binding.etApiToken.setText(prefs.apiToken)
 
         binding.btnSaveUrl.setOnClickListener {
             val url = binding.etArkadiaUrl.text?.toString()?.trim() ?: ""
             prefs.arkadiaUrl = url
             prefs.apiUrl = binding.etApiUrl.text?.toString()?.trim() ?: Prefs.DEFAULT_API_URL
+            prefs.apiToken = binding.etApiToken.text?.toString()?.trim() ?: ""
             binding.tvSaveStatus.text = "Saved ✓"
         }
 
         binding.btnEmulator.setOnClickListener {
             binding.etArkadiaUrl.setText(Prefs.DEFAULT_URL)
             binding.etApiUrl.setText(Prefs.DEFAULT_API_URL)
+            binding.etApiToken.setText("")
         }
 
         binding.etArkadiaUrl.addTextChangedListener(object : TextWatcher {
