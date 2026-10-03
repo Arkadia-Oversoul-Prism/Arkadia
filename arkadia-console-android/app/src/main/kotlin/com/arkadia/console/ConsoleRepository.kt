@@ -14,7 +14,7 @@ data class FieldObject(val id:String,val type:String,val title:String,val summar
 data class Proposal(val id:String,val objective:String,val status:String)
 data class FieldSnapshot(val objects:List<FieldObject>,val proposals:List<Proposal>,val eventCount:Int,val live:Boolean,val message:String?=null)
 
-class ConsoleRepository(private val baseUrl:()->String, private val token:()->String?) {
+class ConsoleRepository(private val baseUrl:()->String, private val token:suspend ()->String?) {
     private val client=OkHttpClient.Builder().connectTimeout(15,TimeUnit.SECONDS).readTimeout(45,TimeUnit.SECONDS).build()
     private val json="application/json; charset=utf-8".toMediaType()
     private suspend fun request(path:String,method:String="GET",body:String?=null):JSONObject=withContext(Dispatchers.IO){
