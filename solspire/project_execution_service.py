@@ -70,6 +70,14 @@ def execute_container_command(*, workspace: str, command: list[str], image: str,
             "runtime": runtime, "container_image": image, "network": "disabled"}
 
 
+def candidate_patch_digest(changes: list[dict[str, str]]) -> str:
+    """Digest the exact ordered candidate patch the human reviews."""
+    payload = [{"path": str(change.get("path") or ""),
+                "content": change.get("content", "")} for change in changes]
+    return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True,
+                                     separators=(",", ":")).encode()).hexdigest()
+
+
 def apply_reviewed_project_patch(*, subject_uid: str, project_id: str,
                                  expected_base_digest: str, approved_patch_digest: str,
                                  changes: list[dict[str, str]],
@@ -111,10 +119,9 @@ def apply_reviewed_project_patch(*, subject_uid: str, project_id: str,
             raise BoundaryError(f"patch content must be text: {path}")
         normalized.append((by_name[path], content))
 
-    patch_digest = hashlib.sha256(json.dumps(
-        [{"path": path, "content": content} for path, (_, content) in zip(accepted, normalized)],
-        ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    ).encode()).hexdigest()
+    patch_digest = candidate_patch_digest(
+        [{"path": path, "content": content} for path, (_, content) in zip(accepted, normalized)]
+    )
     if not approved_patch_digest or approved_patch_digest != patch_digest:
         raise BoundaryError("human approval must match the exact candidate patch digest")
     # Recheck immediately before mutation to reject stale reviews.
@@ -140,5 +147,5 @@ def apply_reviewed_project_patch(*, subject_uid: str, project_id: str,
             "canonical_base_digest": canonical_base_digest(project_id)}
 
 
-__all__ = ["apply_reviewed_project_patch", "canonical_base_digest",
+__all__ = ["apply_reviewed_project_patch", "candidate_patch_digest", "canonical_base_digest",
            "create_disposable_workspace", "execute_container_command"]
