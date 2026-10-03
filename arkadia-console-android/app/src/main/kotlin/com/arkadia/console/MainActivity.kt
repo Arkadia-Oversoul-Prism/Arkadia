@@ -76,10 +76,62 @@ NaN
         }
         selected?.let{focus(it)}?:run{detailType.text="FIELD";detailTitle.text="Nothing selected";detailSummary.text="Tap an object to enter FOCUS. DEEP keeps canonical source and state visible.";detailState.text="CAN ≠ MAY ≠ DID";actionRow.removeAllViews()}
     }
-    private fun focus(obj:FieldObject){selected=obj;detailType.text=obj.type+"  •  "+obj.source;detailTitle.text=obj.title;detailSummary.text=obj.summary;detailState.text="STATE: "+obj.state+"\nCAN ≠ MAY ≠ DID\nDisplay does not authorize execution.";actionRow.removeAllViews()
-        if(obj.type=="PROPOSAL"){addAction("ACCEPT"){decide(obj.id,"ACCEPTED")};addAction("DECLINE"){decide(obj.id,"DECLINED")};addAction("WITHDRAW"){decide(obj.id,"WITHDRAWN")}}
+    private fun focus(obj:FieldObject){selected=obj;detailType.text=obj.type+"  •  "+obj.source;detailTitle.text=obj.title;detailSummary.text=obj.summary;detailState.text="STATE: "+obj.state+"\nCAN ≠ MAY ≠ DID\n"+if(obj.authorizationId!=null)"AUTHORIZATION: "+obj.authorizationId else "AUTHORIZATION: NONE";actionRow.removeAllViews()
+        if(obj.type=="PROPOSAL"){
+            if(obj.state=="ACCEPTED" && obj.authorizationId==null) addAction("AUTHORIZE"){authorize(obj.id)}
+            else if(obj.authorizationId==null) addAction("ACCEPT"){decide(obj.id,"ACCEPTED")}
+            addAction("DECLINE"){decide(obj.id,"DECLINED")}
+            if(obj.authorizationId!=null){
+                addAction("EXECUTION ATTEMPT"){execution(obj)}
+            }
+        }
         if(obj.type=="SIGNAL"||obj.type=="WORK"||obj.type=="KNOWLEDGE")addAction("ASK ARKANA"){ask("Interrogate this "+obj.type+": "+obj.title+"\n"+obj.summary)}
     }
+    private fun authorize(id:String){
+        lifecycleScope.launch{
+            val result=runCatching{repo.authorize(id)}.getOrElse{"Authorization failed: "+it.message}
+            Toast.makeText(this@MainActivity,if(result.startsWith("Authorization failed"))result else "HumanAuthorityEvent → Authorization recorded.",Toast.LENGTH_LONG).show()
+            load()
+        }
+    }
+
+    private fun execution(obj:FieldObject){
+        val auth=obj.authorizationId ?: return
+        val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(24,8,24,0)}
+        val tool=EditText(this).apply{hint="Weaver tool channel";setText("console")}
+        val payload=EditText(this).apply{hint="What is being attempted?";minLines=3}
+        box.addView(tool);box.addView(payload)
+        AlertDialog.Builder(this).setTitle("Governed execution attempt").setMessage("This records ATTEMPTED only. It does not invent success or evidence.").setView(box)
+            .setNegativeButton("Cancel",null)
+            .setPositiveButton("Record attempt"){_,_->lifecycleScope.launch{
+                val id=runCatching{repo.createExecutionAttempt(auth,tool.text.toString().trim(),org.json.JSONObject().put("description",payload.text.toString()))}.getOrElse{"Execution attempt failed: "+it.message}
+                if(id.startsWith("Execution attempt failed")) Toast.makeText(this@MainActivity,id,Toast.LENGTH_LONG).show()
+                else evidenceDialog(id,obj)
+            }}.show()
+    }
+
+    private fun evidenceDialog(executionId:String,obj:FieldObject){
+        val input=EditText(this).apply{hint="Observed result / evidence";minLines=4}
+        AlertDialog.Builder(this).setTitle("Record evidence").setMessage("Only record what actually happened. Evidence does not equal verification.").setView(input)
+            .setNegativeButton("Cancel",null)
+            .setPositiveButton("Record evidence"){_,_->lifecycleScope.launch{
+                val id=runCatching{repo.recordEvidence(executionId,"console_observation",input.text.toString())}.getOrElse{"Evidence failed: "+it.message}
+                if(id.startsWith("Evidence failed")) Toast.makeText(this@MainActivity,id,Toast.LENGTH_LONG).show()
+                else verifyDialog(id,obj)
+            }}.show()
+    }
+
+    private fun verifyDialog(evidenceId:String,obj:FieldObject){
+        val input=EditText(this).apply{hint="Claim to verify";setText(obj.title);minLines=3}
+        AlertDialog.Builder(this).setTitle("Verify evidence").setMessage("Verification is a separate human-visible record.").setView(input)
+            .setNegativeButton("Cancel",null)
+            .setPositiveButton("Verify"){_,_->lifecycleScope.launch{
+                val id=runCatching{repo.verify(input.text.toString(),"$evidenceId","VERIFIED")}.getOrElse{"Verification failed: "+it.message}
+                Toast.makeText(this@MainActivity,if(id.startsWith("Verification failed"))id else "Evidence → Verification recorded.",Toast.LENGTH_LONG).show()
+                load()
+            }}.show()
+    }
+
     private fun addAction(label:String,action:()->Unit){actionRow.addView(Button(this).apply{text=label;setOnClickListener{action()}})}
     private fun decide(id:String,d:String){lifecycleScope.launch{val msg=runCatching{repo.decide(id,d)}.getOrElse{it.message?:"Decision failed"};Toast.makeText(this@MainActivity,msg,Toast.LENGTH_LONG).show();load()}}
     private fun ask(prefill:String=""){val input=EditText(this).apply{hint="Ask Arkana about what is selected or happening.";setText(prefill);minLines=3};AlertDialog.Builder(this).setTitle("Arkana").setView(input).setNegativeButton("Cancel",null).setPositiveButton("Ask"){_,_->val q=input.text.toString().trim();if(q.isNotBlank())lifecycleScope.launch{val a=runCatching{repo.askArkana(q)}.getOrElse{"Arkana unavailable: "+it.message};AlertDialog.Builder(this@MainActivity).setTitle("Arkana").setMessage(a).setPositiveButton("Close",null).show()}}.show()}
