@@ -8,6 +8,10 @@ Firebase identity is the only subject/actor source accepted by this boundary.
 from __future__ import annotations
 
 from typing import Any
+import base64
+import hashlib
+import os
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -36,6 +40,16 @@ class EvidenceRequest(BaseModel):
     evidence_type: str
     content_or_ref: Any
     source_ref: str | None = None
+
+
+class CaptureRequest(BaseModel):
+    capture_id: str
+    kind: str
+    mime_type: str
+    size_bytes: int
+    sha256: str
+    captured_at: str
+    content_base64: str
 
 
 class VerificationRequest(BaseModel):
@@ -207,6 +221,55 @@ async def record_execution_evidence(
         "ok": True,
         "evidence": evidence.to_dict(),
         "boundary": "Evidence exists independently. Verification is still required.",
+    }
+
+
+@router.post("/captures")
+async def sync_capture(
+    body: CaptureRequest,
+    user: dict[str, Any] = Depends(require_auth),
+) -> dict[str, Any]:
+    """Reconcile one durable native capture into the canonical field."""
+    if body.size_bytes < 0 or body.size_bytes > 6 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="capture exceeds 6 MiB sync limit")
+    try:
+        raw = base64.b64decode(body.content_base64, validate=True)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="invalid capture encoding") from exc
+    if len(raw) != body.size_bytes:
+        raise HTTPException(status_code=400, detail="capture size mismatch")
+    digest = hashlib.sha256(raw).hexdigest()
+    if digest != body.sha256:
+        raise HTTPException(status_code=400, detail="capture digest mismatch")
+    safe_id = "".join(ch for ch in body.capture_id if ch.isalnum() or ch in "-_")[:80]
+    if not safe_id:
+        raise HTTPException(status_code=400, detail="capture_id required")
+    root = Path(os.environ.get("SOLSPIRE_DATA_DIR", "data")) / "console_captures" / user["uid"]
+    root.mkdir(parents=True, exist_ok=True)
+    target = root / safe_id
+    target.write_bytes(raw)
+    store = EnterpriseOrchestrationStore()
+    event = store.operational_event(
+        subject=user["uid"],
+        enterprise_id="solariun",
+        event_type="INPUT_RECEIVED",
+        payload={
+            "capture_id": safe_id,
+            "kind": body.kind,
+            "mime_type": body.mime_type,
+            "size_bytes": body.size_bytes,
+            "sha256": body.sha256,
+            "captured_at": body.captured_at,
+            "artifact_ref": f"console-capture:{user['uid']}:{safe_id}",
+        },
+        correlation_id=f"console-capture:{safe_id}",
+    )
+    return {
+        "ok": True,
+        "capture_id": safe_id,
+        "artifact_ref": f"console-capture:{user['uid']}:{safe_id}",
+        "work_event": event.to_dict(),
+        "reconciled": True,
     }
 
 
