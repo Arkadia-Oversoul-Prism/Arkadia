@@ -150,3 +150,162 @@ def test_non_outcome_lines_are_ignored(tmp_path, line):
     log = _write(tmp_path, line + "\n")
     outcomes, ids = baseline_fingerprint.extract(str(log))
     assert outcomes == [] and ids == []
+
+
+# --- Live node set and published-value agreement ---------------------------
+#
+# The tests above pin the *derivation* with synthetic input. They cannot catch a
+# published value that is internally inconsistent, because the published value is
+# never fed back through the derivation. These tests close that gap: they run the
+# real recorded baseline node set through the extractor and require the repository's
+# published fingerprint to equal the result.
+#
+# History this guards: `.bootstrap/01_STATE.md` published `a59453b8…`/`9a35c812…`.
+# A reconciliation pass recorded those as "unreproducible by any convention" — that was
+# wrong. They are exactly the fingerprints of the recorded set **plus** its depth-dependent
+# sibling `test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec` (see
+# `CLONE_DEPENDENT_SIBLING_NODE` below, and
+# `test_superseded_values_are_the_recorded_set_plus_its_sibling`).
+# `scripts/baseline_fingerprint.py` also produced `4d84e7eb…`/
+# `da2ec262…` for a recorded set that held `test_gate2_parent_…` — reproducible only in a
+# clone that carried the PR-head revision `7d79f38…`, because that node skips when the
+# revision is absent. The canonical value is now derived from a set that excludes both
+# depth-dependent nodes, so the value is stable across clone depths. See
+# `docs/control-plane/evidence/gate-hygiene-superseded-fingerprint-origin-01/`.
+
+LIVE_NODE_SET = REPO_ROOT / "tests" / "fixtures" / "baseline_node_set.txt"
+
+# A node whose outcome depends on whether this clone contains the PR-head revision
+# pinned by `tests/test_agents_md_encoding_adjudication.py` (`GATE2_PARENT_REV`). It
+# is *not* part of the recorded set: including it made the fingerprint a function of
+# clone depth rather than of the repository's debt. The guard below fails if it ever
+# comes back.
+CLONE_DEPTH_DEPENDENT_NODE = (
+    "tests/test_agents_md_encoding_adjudication.py"
+    "::test_gate2_parent_agents_md_repair_is_byte_identical_to_the_pipeline"
+)
+
+# The *sibling* depth-dependent node in the same file. It dereferences the `GATE2_PARENT_REV`
+# read unconditionally, so it crashes (AttributeError) instead of skipping when `7d79f38…` is
+# absent. It is likewise excluded from the recorded set — a live CI-shaped run reports it, so
+# the recorded set is the *stable* debt, one node short of a bare clone's live run.
+CLONE_DEPENDENT_SIBLING_NODE = (
+    "tests/test_agents_md_encoding_adjudication.py"
+    "::test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec"
+)
+
+# Canonical values: `scripts/baseline_fingerprint.py` run on LIVE_NODE_SET.
+CANONICAL_OUTCOMES_FINGERPRINT = (
+    "a578a766c09c949c620c9d324248659812d215d3d1e875a0c25b42adb8912aa1"
+)
+CANONICAL_IDS_FINGERPRINT = (
+    "8036fc0692eb0358f037adb2cf9e2b234db1f41a4586ca0162f4e52350cfa713"
+)
+
+# Values that were published but do not describe the recorded set. They must not reappear
+# in the repository docs: the doc-agreement test below fails if either is found.
+#
+# `a59453b8…`/`9a35c812…` are the fingerprints of the recorded set **plus** the
+# depth-dependent sibling node (proved by
+# `test_superseded_values_are_the_recorded_set_plus_its_sibling`), i.e. a live bare-clone
+# run — not the depth-stable recorded debt.
+# `4d84e7eb…`/`da2ec262…` were reproducible only in a clone that contained the PR-head
+# revision `7d79f38…`. Both pairs are superseded by the clone-depth-stable canonical value
+# above.
+SUPERSEDED_OUTCOMES_FINGERPRINTS = (
+    "a59453b8a1e5a02899f469cf6ea7db9b5eaae658050261e1405c394cb0f3cf6f",
+    "4d84e7eb2524d4a5a952405f6df8017398ce21cca44aec6d04fbb523d577c6a7",
+)
+SUPERSEDED_IDS_FINGERPRINTS = (
+    "9a35c8122188e272ec5769d7a8f5cdba6160b4f2f1fba8a840019a487c1bcc22",
+    "da2ec2620d09988e75702b6444ee8ee6ba5ded8bc067aac6c4e149245c27de71",
+)
+
+# Documents that publish a baseline fingerprint and must agree with the canonical
+# value. MISSION.md / NEXT_AGENT.md / the ledger are read by the next agent, so a
+# stale value there propagates the defect rather than recording it.
+FINGERPRINT_DOCS = [
+    ".bootstrap/01_STATE.md",
+    "MISSION.md",
+    "NEXT_AGENT.md",
+    "docs/phase1/CONTINUATION_LEDGER.md",
+]
+
+
+def test_live_node_set_reproduces_the_canonical_fingerprint():
+    """The recorded baseline set must hash to the published canonical value."""
+    outcomes, ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
+    assert len(ids) == 20
+    assert sum(1 for o in outcomes if o.startswith("FAILED")) == 19
+    assert sum(1 for o in outcomes if o.startswith("ERROR")) == 1
+    assert baseline_fingerprint.fingerprint(outcomes) == CANONICAL_OUTCOMES_FINGERPRINT
+    assert baseline_fingerprint.fingerprint(ids) == CANONICAL_IDS_FINGERPRINT
+
+
+def test_recorded_set_excludes_the_clone_depth_dependent_node():
+    """The recorded set must not depend on clone depth.
+
+    `test_gate2_parent_agents_md_repair_is_byte_identical_to_the_pipeline` skips when
+    the PR-head revision it pins is absent, so its outcome differs between a shallow
+    clone and one that carries that revision. Recording it made the fingerprint a
+    function of the clone rather than of the repository's debt, which is the same
+    defect class this reconciliation exists to remove.
+    """
+    _, ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
+    assert CLONE_DEPTH_DEPENDENT_NODE not in ids
+
+
+def test_superseded_values_are_the_recorded_set_plus_its_sibling():
+    """The values the repo recorded as "unreproducible by any convention" *are* reproducible:
+    they are the recorded set plus its depth-dependent sibling node.
+
+    This is the corrected origin of `a59453b8…`/`9a35c812…`. A bare clone (CI) reports the
+    sibling — it crashes with AttributeError instead of skipping — so its live run is the
+    recorded set plus that node, and that run hashes to exactly the value the docs declared
+    unreproducible. Both are still *superseded* (the sibling is clone-depth dependent and must
+    not be republished), but the reason is "the recorded set plus a depth-dependent node", not
+    "no convention reproduces it".
+    """
+    outcomes, ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
+    assert CLONE_DEPENDENT_SIBLING_NODE not in ids
+    assert baseline_fingerprint.fingerprint(
+        sorted(outcomes + [f"FAILED {CLONE_DEPENDENT_SIBLING_NODE}"])
+    ) == SUPERSEDED_OUTCOMES_FINGERPRINTS[0]
+    assert baseline_fingerprint.fingerprint(
+        sorted(ids + [CLONE_DEPENDENT_SIBLING_NODE])
+    ) == SUPERSEDED_IDS_FINGERPRINTS[0]
+
+
+def test_superseded_fingerprints_are_not_reproducible():
+    """Negative control: the recorded set must NOT hash to a superseded value, so the
+    doc-agreement test cannot be satisfied by accident. A convention that happened to
+    yield a superseded value would mean the correction was wrong.
+
+    Note the distinction from `test_superseded_values_are_the_recorded_set_plus_its_sibling`:
+    a superseded value *is* reproducible — from the recorded set plus a depth-dependent node.
+    What must never hold is the recorded set alone reproducing one.
+    """
+    outcomes, ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
+    outcomes_fp = baseline_fingerprint.fingerprint(outcomes)
+    ids_fp = baseline_fingerprint.fingerprint(ids)
+    assert outcomes_fp not in SUPERSEDED_OUTCOMES_FINGERPRINTS
+    assert ids_fp not in SUPERSEDED_IDS_FINGERPRINTS
+    # And no "reason included" / "unsorted" variant lands on them either.
+    unsorted_ids_fp = hashlib.sha256(("\n".join(sorted(ids)).encode())).hexdigest()
+    assert unsorted_ids_fp not in SUPERSEDED_IDS_FINGERPRINTS
+
+
+@pytest.mark.parametrize("doc", FINGERPRINT_DOCS)
+def test_published_docs_carry_the_canonical_fingerprint(doc):
+    text = (REPO_ROOT / doc).read_text(encoding="utf-8")
+    for superseded in SUPERSEDED_OUTCOMES_FINGERPRINTS:
+        assert superseded not in text, (
+            f"{doc} still publishes the superseded outcomes fingerprint {superseded}"
+        )
+    for superseded in SUPERSEDED_IDS_FINGERPRINTS:
+        assert superseded not in text, (
+            f"{doc} still publishes the superseded node-set fingerprint {superseded}"
+        )
+    assert CANONICAL_OUTCOMES_FINGERPRINT in text, (
+        f"{doc} does not publish the canonical outcomes fingerprint"
+    )

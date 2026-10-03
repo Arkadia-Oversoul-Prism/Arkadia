@@ -1765,7 +1765,21 @@ or mutation-path surface was touched.
   (21 failing/error nodes) — **identical to the baseline recorded at pass start**.
 - Baseline fingerprint independently reproduced from the measured node list:
   `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `a59453b8a1e5a02899f469cf6ea7db9b5eaae658050261e1405c394cb0f3cf6f`
+  `a578a766c09c949c620c9d324248659812d215d3d1e875a0c25b42adb8912aa1`
+  > **Correction 2026-10-02**: the `a59453b8…` recorded here was **not reproducible** —
+  > neither by the derivation printed beside it nor by `scripts/baseline_fingerprint.py`.
+  > The first reconciliation pass published `4d84e7eb…`, which reproduced only in a clone
+  > containing the PR-head revision `7d79f38…` (the recorded set held a node that skips
+  > without it), so it encoded clone depth rather than debt. The recorded set now excludes
+  > that node and the canonical value is `a578a766…` (node set `8036fc06…`). See
+  > `docs/control-plane/evidence/gate-hygiene-baseline-fingerprint-reconciliation-01/`.
+  > **Correction 2, same date**: "not reproducible" above is itself wrong for `a59453b8…`.
+  > It reproduces exactly as the recorded set **plus** the depth-dependent *sibling*
+  > `test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec` — a bare clone's live
+  > 21-node run. It stays superseded (clone-depth dependent), but its origin is explained,
+  > not UNKNOWN. Guarded by
+  > `tests/test_baseline_fingerprint.py::test_superseded_values_are_the_recorded_set_plus_its_sibling`;
+  > see `docs/control-plane/evidence/gate-hygiene-superseded-fingerprint-origin-01/`.
 - `pytest tests/architecture -q` → **11 passed** (unchanged).
 - No regression attributable to this pass — it is docs-only.
 

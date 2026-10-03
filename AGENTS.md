@@ -217,8 +217,10 @@ authenticated node's private Knowledge OS vault — never the public scroll stor
   backend identifier that does not yet exist at that scope.
 - Frontend tests in this repo are largely **source-level string assertions** against `.tsx`
   files (`tests/test_solariun_*.py`, `test_solspire_*`, `test_prism_pass_c_*`); follow that
-  convention. `vite build` is environment-blocked (no npm registry access), so changes are
-  inspection-verified only unless the sandbox has `node_modules`.
+  convention. The npm registry is reachable and a clean install + build succeeds here
+  (`corepack pnpm install && corepack pnpm build`, node 24 / pnpm 10.26); attempt it and
+  report the measured result. `pnpm`'s activation symlink can hit `EACCES` — `corepack pnpm`
+  is the working invocation. Build output lands in untracked `dist/`.
 
 ## Repo hygiene — private vault is gitignored (GATE-VAULT)
 - `vault/` (Knowledge OS private vault runtime output) is gitignored via `vault/**`
@@ -232,6 +234,14 @@ authenticated node's private Knowledge OS vault — never the public scroll stor
 - Full-suite reproducibility needs `pyyaml` and `PYTHONPATH=<repo>/archive/legacy_python`;
   with those the suite yields exactly the documented 2 collection errors (pre-existing:
   `test_autonomy.py` `load_autonomy_config`, `test_render_codex.py` `arkadia_drive_sync`).
+- Measured at `0c8a9f6`: **1** collection error, not 2 — `tests/test_render_codex.py` does not
+  exist (only the non-collected `tests/render_codex_probe.py`, renamed by `00271b2`). The
+  remaining error is the CE-01 `weaver.autonomy` module-vs-package collision, reserved to the
+  sovereign; the count above is superseded by this measurement.
+- Also measured at `0c8a9f6`: the reproducibility command above is incomplete — a **bare**
+  `pytest tests/` *interrupts* at the collection error (exit 2) and under-reports the run
+  (`1 skipped, 1 error in ~1.3s`). Add `--continue-on-collection-errors` to reach the
+  documented 20F / 1252P / 17S / 1E. The `pyyaml` + `PYTHONPATH` requirements still hold.
 
 ## CP10 mutation boundary — the allowlist is an inventory, not a filter (GATE-10)
 - `SG-02-FE.2-V` gates every PR *and* `main`. Its allowlist admits legitimate repository
@@ -407,6 +417,23 @@ Gate 2 is open on production parity. Current main was established at `8f9d509ec4
 - Prefer to describe corrupt sequences by **codepoint** (`U+0442 U+0410 U+0424`), never by
   pasting the literal characters: a literal in the lesson re-introduces the very corruption the
   lesson documents, and the verification above then fails on the documentation itself.
+- **The live file is under a standing insertion-only constraint — editing it in place is a
+  regression, not a neutral edit.** `scripts/agents_md_encoding_audit.py` (oracle
+  `6c43218a48a4`, the last clean revision) audits the *working tree* and asserts the recovered
+  text relates to the oracle by **insertions only** (`oracle_alterations == []`). Rewriting a
+  line that the oracle already contains yields `alterations=1` → `decidable=False` → exit 2,
+  which breaks `test_live_file_verdict_matches_its_state` and
+  `test_cli_summarises_the_oracle_without_crashing` (2 new failures) even though the bytes are
+  clean and `cyrillic == 0`. Proven: an in-place rewrite of the reproducibility sentence moved
+  `tests/test_agents_md_encoding_adjudication.py` from 2F/17P to 4F/15P and the full-suite
+  fingerprint from `a59453b8…` (21 nodes) to `f1c7c0c3…` (23 nodes).
+- **To change text an oracle line carries, append a correction — never rewrite the line.**
+  Stale claims that sit on oracle lines get a dated "measured at `<sha>`: … supersedes the
+  above" insertion instead. Lines added *after* the oracle are not constrained. Verify with
+  `python scripts/agents_md_encoding_audit.py` → `alterations=0`, `oracle_reproduced=True`,
+  **exit 1** — the clean-and-oracle-corroborated status, not a failure. Exit 2 is the
+  divergent/undecided one; exit 0 is a successful mojibake *recovery*. Then re-derive the
+  fingerprint with `scripts/baseline_fingerprint.py`; the node set must be unchanged.
 
 ## Agent Execution Contract — Mandatory for Every Workstream
 
@@ -508,20 +535,27 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   `SOLSPIRE_LENSES.has(candidate)`; `/solariun/opportunity-radar` is therefore a real lens
   route. Because `vercel.json` rewrites everything to `/index.html`, a 200 proves nothing —
   read the router. Marker `opportunity-radar` is present in the deployed bundle.
-- **`ActivityRuntime` (SG-04) is absent from the production bundle, not just from the test
-  assertions.** `activity-runtime-draft.v1:` → 0 occurrences in the deployed asset while
-  every SG-03 marker → 1. The SG-03 chamber rewrite displaced the SG-04 mount and that
-  carried to production. `tests/test_spiral_grove_activity_runtime.py` is **4F/8P** while
-  `tests/test_spiral_grove_chambers.py` is green. This is a real product regression
-  (tracked `gate-hygiene` / SH-02, Gate GATE-01), not a stale assertion — do not reclassify
-  it as stale. Not yet fixed: the repair is a product change outside Gate-2 hygiene scope.
+- **`ActivityRuntime` (SG-04) absence was real for its revision and is repaired in source.**
+  The historical observation stands: `activity-runtime-draft.v1:` → 0 occurrences in the
+  deployed asset while every SG-03 marker → 1; the SG-03 chamber rewrite had displaced the
+  SG-04 mount. Repaired in **source** by PR #174 (merge `adf3df29…`), not by PR #185:
+  `CapabilityChamber.tsx` imports and renders `ActivityRuntime` from `adf3df2` onward
+  (`git show adf3df2:…/CapabilityChamber.tsx` → import + render present), restoring the mount
+  the PR #166 squash (`47e4128`) had dropped. PR #185 (merge `52973d99…`) is **test-only** — it
+  repairs the expanded-literal pin in `tests/test_spiral_grove_activity_runtime.py`, which is
+  now **12 passed** (was 1F/11P at its head, 4F/8P before the source repair). Production parity
+  still requires a post-#174 deployment — this is a repository-source claim only, not a
+  production-parity claim. Do not reclassify the historical observation as stale.
 - **HTTP 200 on any route is not application correctness.** Root `vercel.json` rewrites
   `/(.*)` → `/index.html`, so a route that never existed (e.g. `/api/health`, per
   `git log -S`) returns `200 text/html` identically to any nonexistent path. Prior
   route-reachability results must be read with this caveat.
-- `web/public_prism/dist/` is **tracked but stale** — a build output in version control that
-  drifts on every local build and is env-dependent. Do not commit a locally rebuilt copy;
-  revert stray `dist/` modifications before staging (they are not your change).
+- `web/public_prism/dist/` is **untracked** (`git ls-files web/public_prism/dist` → 0 paths;
+  `web/public_prism/.gitignore` covers `dist/`). It *was* tracked historically — 41 commits
+  touched it, the last deletion being `4366c55` (2026-10-01) — so the earlier "tracked but
+  stale" wording is superseded by this measurement at `0c8a9f6`. A local build therefore leaves
+  a clean tree; do not `git add` a build output, and revert a stray `dist/` modification if one
+  appears on an older revision (it is not your change).
 - **Gate-2 observation is now one read-only command — use it instead of repeating the manual
   sequence.** `python scripts/gate2_production_observation.py` (add `--json` for machine
   output). Stdlib-only, no Vercel credential, no mutation, never prints a token. It
@@ -549,6 +583,23 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   main carries ~20, the delta being the steward-filter carrier merged as `002b189`.
 - `python -m py_compile api/main.py` before committing boot-code changes; budget 2600
   (currently 2519).
+- **Superseded fingerprints have an explained origin — they are not "unreproducible".**
+  The pair `a59453b8…` (outcomes) / `9a35c812…` (ids) equals the recorded **20-node**
+  baseline set **plus** its depth-dependent *sibling*
+  `tests/test_agents_md_encoding_adjudication.py::test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec`.
+  That node dereferences the `GATE2_PARENT_REV` read **unconditionally**, so without the
+  PR-head revision `7d79f38…` it **errors** (`AttributeError`) rather than skipping — a bare
+  clone's live 21-node run hashes to exactly that pair, while the recorded 20 nodes hash to
+  the canonical `a578a766…` / `8036fc06…`. (`AGENTS.md` itself recorded `a59453b8…` as a
+  21-node fingerprint — the earlier "not reproducible by any convention" verdict was a
+  measurement gap, not a true UNKNOWN.) The pair stays **superseded** (clone-depth
+  dependent), but its origin is now guarded by
+  `tests/test_baseline_fingerprint.py::test_superseded_values_are_the_recorded_set_plus_its_sibling`
+  and explained in `docs/control-plane/evidence/gate-hygiene-superseded-fingerprint-origin-01/`.
+  The two excluded nodes' own assertion defects (both pin `7d79f38…` and mis-handle its
+  absence) remain a **separate proposed workstream** — do not "fix" them inside a
+  fingerprint workstream.
+
 ## Merge-loss forensics — a merge can invent a state present in neither parent
 - A hand-resolved merge is not "one side or the other." `ff80b8c` took the inline
   work-surface from its **second** parent (`5c78fcb`) but the import line from its **first**
@@ -601,3 +652,59 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   ``data-testid={`activity-surface-${kind}`}``; the property holds, the assertion does not
   match its own template. (2) the test demands a **near-miss** of the actual copy.
   When a source-level assertion fails, read the source literal before assuming a code bug.
+
+## MIE MVP-01 — a green CI claim is scoped to the revision that produced it (gate-hygiene)
+- `musical-intention-engine/BUILD-STATE.md` cited run `37007483734` (`a336ec30`) as "Kotlin unit
+  tests: SUCCESS" while `MieMusicalInterpreterTest.kt` **did not exist** at that revision — it
+  arrived four hours later in `bd98696`. The run was real; the conclusion was not transferable.
+  A CI result is evidence about one tree. Check the test file is in the run's tree before
+  promoting its conclusion onto the current one.
+- The same document marked **Gate 02 "CI VERIFIED"** on a revision where the interpretation test
+  could not compile, so no assertion had ever executed. A job that *runs* `testDebugUnitTest` is
+  not evidence that any test *ran*: the MIE workflow compiles tests before `assembleDebug`, so a
+  test-compilation failure reddens the job and suppresses the APK artifact too.
+- **Test dependencies can be absent from a repository's entire history, not merely the tip.**
+  `MieMusicalInterpreterTest.kt` imports `org.junit.*`, yet
+  `grep -rn junit sonata-android --include=*.kts --include=*.toml --include=*.gradle` was empty
+  and `git log --all -- sonata-android/gradle/libs.versions.toml` never contained JUnit. Prefer
+  the history-wide query over a tip-only look before concluding "it used to work".
+- **A copy-paste PR body is a real review hazard.** PR #214's description was byte-identical to
+  PR #213's (`39153c6b…`, same md5). A reviewer opening #214 would have read a CP10 allowlist
+  proposal against an Android diff and merged on the strength of the wrong evidence. When a PR
+  body and its diff disagree, treat the body as unproven and rewrite it from the diff.
+
+## Autocorrelation pitch detection — the subharmonic trap (MIE)
+- Keeping the lag of the **global** correlation maximum reports a subharmonic, because a periodic
+  signal correlates strongly at every multiple of its period. Measured on the MIE interpreter:
+  440 Hz -> 146.8 Hz (`lag = 109` ~ 3 periods), 220 Hz -> 73.4 Hz, 880 Hz -> 80.0 Hz. 110 Hz
+  passed only because its first peak was the sole in-range one — a passing case can hide the
+  defect.
+- The repair is to return the **first local maximum within `PEAK_RATIO` (0.85) of the global
+  peak** — the smallest lag that nearly matches — plus parabolic sub-sample interpolation.
+- This class of defect is invisible to a single-tone test. A regression suite needs a
+  **negative control** (white noise must yield no pitch, not a spurious one) and a
+  harmonic-rich case, or the "fix" can be tuned to the one frequency under test.
+
+
+## Lazy schema materialization — a fixture that constructs a store has not created its schema (gate-hygiene)
+- `EnterpriseOrchestrationStore()` does **not** create `data/*.db` or its tables; the
+  constructor only resolves `_DB_PATH`. The schema is materialized lazily by the first
+  store *operation* (`weaver/enterprise_orchestration.py::_db()` runs the
+  `CREATE TABLE IF NOT EXISTS …` script). A test that only *constructs* the store and then
+  probes a table with a raw `sqlite3.connect(db)` measures an **uninitialized database**,
+  not the invariant it claims.
+- Observed on `tests/test_upstream_causal_continuity_01.py::test_api_approval_does_not_create_enterprise_authorization`:
+  `sqlite3.OperationalError: no such table: ew_authorizations`, raised before any boundary
+  assertion. `os.path.exists(db)` was `False` right after `EnterpriseOrchestrationStore()`.
+- **Repair is test-side and mechanical:** call `with ew._db(): pass` in the fixture so the
+  schema exists before the probe; the probe then returns `0` and the assertion is real.
+  Repaired in PR #228 (merge pending human authority).
+- When a raw-SQL test fails on a missing table, read the fixture first: a store that was
+  constructed but never *used* leaves no schema. Do not "fix" it by adding schema DDL to the
+  production constructor — the lazy materialization is the intended design.
+- Full-history vs shallow clone changes the *node set*: `test_agents_md_encoding_adjudication.py`
+  adds `test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec` on a shallow clone
+  (oracle-revision access), so its live fingerprint differs from the recorded
+  `tests/fixtures/baseline_node_set.txt`. Attribute that delta to clone depth / PR #215, not
+  to a regression. Measured at `162f574b`: main 20F/1306P (`a59453b8…`), branch 19F/1307P
+  (`b45c0753…`) — a `-1/+0` node delta that is exactly the repaired node.

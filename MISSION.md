@@ -177,11 +177,21 @@ If any were introduced by this checkpoint: resolve them or record them explicitl
 ## Repository Health (re-measured 2026-10-02, `main` @ `64cbe74`)
 
 - Architecture fitness tests: **11/11**
-- Full suite: **20 failed / 1240 passed / 17 skipped / 1 error** (21 failing/error nodes).
+- Full suite: **20 failed / 1240 passed / 17 skipped / 1 error** in a clone that carries the
+  pinned PR-head revision `7d79f38…`; **19 failed / 1 error** (20 nodes) in a plain CI
+  checkout. The clone-depth-stable recorded set is **20 nodes**
+  (`tests/fixtures/baseline_node_set.txt`).
   Classified baseline debt — not attributable to new work unless the node *set* changes.
 - Baseline fingerprint:
   `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `a59453b8a1e5a02899f469cf6ea7db9b5eaae658050261e1405c394cb0f3cf6f`
+  `a578a766c09c949c620c9d324248659812d215d3d1e875a0c25b42adb8912aa1`
+  (node-set fingerprint `8036fc06…`). The previously published pairs (`a59453b8…`,
+  `9a35c812…`, `4d84e7eb…`, `da2ec262…`) are superseded and not clone-depth-stable.
+  `a59453b8…`/`9a35c812…` are **not** "unreproducible": they are the recorded set **plus**
+  its depth-dependent sibling `test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec`
+  (a bare clone's live run) — origin explained 2026-10-02 by
+  `gate-hygiene/superseded-fingerprint-origin-01`. See
+  `docs/control-plane/evidence/gate-hygiene-baseline-fingerprint-reconciliation-01/`.
 - Gate-2 production parity: **BLOCKED on provider auth** (Vercel Deployment Protection).
   External boundary, not a repository task. Do not re-run the pass expecting a different
   classification.

@@ -215,6 +215,13 @@ async def lifespan(app: FastAPI):
         schedule_static_ingestion()
     except Exception as _k5e:
         logger.warning(f"[K5] Static ingestion could not be scheduled: {_k5e}")
+    # ── Economic Seam Engine (evidence-first background reconnaissance) ──
+    try:
+        from economic_seams.engine import start as start_economic_seam_engine
+        start_economic_seam_engine()
+        logger.info("[SEAM] Economic Seam Engine online")
+    except Exception as _see:
+        logger.warning(f"[SEAM] Startup pass skipped: {_see}")
     # ── K3-C Enrichment + embedding completion passes (background) ───────
     try:
         from knowledge.embedding_queue import schedule_embedding_pass
@@ -2027,6 +2034,10 @@ def _goal_store():
 from api.loop_routes import router as _loop_router
 
 app.include_router(_loop_router)
+
+# ── Economic Seam Engine ────────────────────────────────────────────────
+from api.economic_seam_routes import router as _economic_seam_router
+app.include_router(_economic_seam_router)
 
 
 # ── Tools ─────────────────────────────────────────────────────────────────────

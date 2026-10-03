@@ -111,6 +111,60 @@ def is_ancestor(ancestor: str, descendant: str) -> bool:
     )
 
 
+def production_deployments(payload, limit: int) -> list[dict]:
+    """Filter a ``/deployments`` response to Production records.
+
+    ``environment`` is capitalized in the record; the query parameter is not.
+    A record is accepted only when it names a full 40-char source SHA, so a
+    truncated or absent ``sha`` cannot be compared as if it were identity.
+    """
+    if not isinstance(payload, list):
+        return []
+    out = []
+    for d in payload:
+        if not isinstance(d, dict) or d.get("environment") != "Production":
+            continue
+        sha = d.get("sha") or ""
+        if not re.fullmatch(r"[0-9a-f]{40}", sha):
+            continue
+        out.append(d)
+    return out[:limit]
+
+
+def classify_deployment_identity(main_sha: str, prod: list[dict]) -> str:
+    """Is the newest Production deployment's source SHA the current main?
+
+    The question is *whether the deploy names main*, not *whether a deploy
+    exists*. Deployments on record are older than main whenever main has moved
+    since the last successful production build, so a false answer is the normal
+    state and must read as a stale deploy -- not as a missing link.
+    """
+    if not prod:
+        return "UNKNOWN"
+    return "VERIFIED" if prod[0].get("sha") == main_sha else "STALE"
+
+
+def lineage_closed(closure: list[dict]) -> bool:
+    """True only when every candidate was checked *and* is a descendant."""
+    return bool(closure) and all(c.get("descendant_of_last_build_input") for c in closure)
+
+
+def classify_source_lineage(closure: list[dict], stale: list[str], prod: list[dict]) -> str:
+    """Do all candidate deployments compile identical frontend source?
+
+    "Closed" means every candidate is a descendant of the last commit that
+    touched a frontend build input -- so the artifact cannot discriminate
+    between them, and the alias->SHA question is immaterial to *source*
+    lineage. A candidate that does not exist locally cannot be checked and
+    therefore cannot close the argument.
+    """
+    if not prod or not closure or any(c.get("descendant_of_last_build_input") is None for c in closure):
+        return "UNKNOWN"
+    if lineage_closed(closure) and not stale:
+        return "VERIFIED (marker set matches, source closed)"
+    return "UNKNOWN"
+
+
 def api(path: str, token: str | None):
     req = urllib.request.Request(
         f"https://api.github.com/repos/{REPO}{path}",
@@ -216,10 +270,8 @@ def main() -> int:
         report["deployments_error"] = deps["__error__"]
         prod = []
     else:
-        prod = [d for d in deps if d.get("environment") == "Production"]
-        report["boundaries"]["main -> deployment identity"] = (
-            "VERIFIED" if prod and prod[0].get("sha") == main_sha else "UNKNOWN"
-        )
+        prod = production_deployments(deps, args.limit)
+        report["boundaries"]["main -> deployment identity"] = classify_deployment_identity(main_sha, prod)
     report["production_deployments"] = [
         {"id": d["id"], "sha": d["sha"], "created_at": d["created_at"], "ref": d.get("ref")} for d in prod
     ]
@@ -299,9 +351,19 @@ def main() -> int:
     report["last_build_input_commit"] = {"sha": last_sha, "date": last_date, "subject": last_subject}
     closure = []
     for d in prod:
-        closure.append({"sha": d["sha"], "descendant_of_last_build_input": is_ancestor(last_sha, d["sha"])})
+        sha = d["sha"]
+        # A candidate that is not in the local object store cannot be tested;
+        # record that as unproven (None) rather than False, so a missing object
+        # is not silently read as "diverged" or as "closed".
+        checked = subprocess.run(
+            ["git", "cat-file", "-e", f"{sha}^{{commit}}"], capture_output=True, cwd=repo_root()
+        ).returncode == 0
+        closure.append({
+            "sha": sha,
+            "descendant_of_last_build_input": is_ancestor(last_sha, sha) if checked else None,
+        })
     report["source_lineage_closure"] = closure
-    all_closure = bool(closure) and all(c["descendant_of_last_build_input"] for c in closure)
+    all_closure = lineage_closed(closure)
     report["source_lineage_closed"] = all_closure
 
     # If every candidate compiles identical frontend source, the artifact cannot
@@ -309,9 +371,7 @@ def main() -> int:
     report["boundaries"]["alias -> deployment SHA binding"] = (
         "UNKNOWN (immaterial: all candidates share frontend source)" if all_closure else "UNKNOWN"
     )
-    report["boundaries"]["build <-> source lineage"] = (
-        "VERIFIED (marker set matches, source closed)" if all_closure and not stale else "UNKNOWN"
-    )
+    report["boundaries"]["build <-> source lineage"] = classify_source_lineage(closure, stale, prod)
     report["boundaries"]["browser-rendered UI correctness"] = "UNKNOWN"
     report["boundaries"]["production acceptance"] = "NOT CLAIMED (human authority)"
 
@@ -325,7 +385,8 @@ def main() -> int:
     print(f"main SHA                : {main_sha}")
     if prod:
         print(f"newest Production deploy: {prod[0]['sha'][:12]}  id={prod[0]['id']}  {prod[0]['created_at']}")
-        print(f"  ref == sha == main    : {prod[0].get('ref') == main_sha}")
+        print(f"  deploy SHA == main    : {prod[0].get('sha') == main_sha}"
+              + ("" if prod[0].get("sha") == main_sha else "  (deploy predates main -> STALE)"))
     else:
         print(f"newest Production deploy: UNAVAILABLE {report.get('deployments_error', '')}")
     print()
@@ -359,6 +420,9 @@ def main() -> int:
     print(f"  last commit touching a frontend build input: {last_sha[:12]}  {last_date}")
     print(f"    {last_subject}")
     print(f"  all {len(closure)} candidate Production SHAs are its descendants: {all_closure}")
+    unchecked = [c["sha"][:12] for c in closure if c.get("descendant_of_last_build_input") is None]
+    if unchecked:
+        print(f"  !! {len(unchecked)} candidate SHA(s) not in local object store, unproven: {unchecked}")
     if all_closure:
         print("  => every candidate compiles byte-identical frontend source;")
         print("     the artifact cannot discriminate between them, so alias->SHA")
