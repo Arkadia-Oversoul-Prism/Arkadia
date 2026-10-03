@@ -8,6 +8,7 @@ const SURFACES = [
   { to: "/inspector", label: "Boundary Inspector", index: "02", sub: "forensic" },
   { to: "/work", label: "Work / Consequence", index: "03", sub: "operational" },
   { to: "/authority", label: "Authority", index: "04", sub: "sovereign control" },
+  { to: "/mie-lab", label: "Musical Intention Engine", index: "05", sub: "Gate 04 · visual lab" },
 ];
 
 const TITLES: Record<string, string> = {
@@ -15,6 +16,7 @@ const TITLES: Record<string, string> = {
   "/inspector": "02 · Boundary Inspector",
   "/work": "03 · Work / Consequence",
   "/authority": "04 · Authority",
+  "/mie-lab": "05 · Musical Intention Engine · Web Lab",
 };
 
 function titleFor(path: string): string {
