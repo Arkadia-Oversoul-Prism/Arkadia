@@ -136,6 +136,7 @@ class MieActivity : AppCompatActivity() {
         }
         lastCapture = file
         selectedObject = objectModel
+        binding.changeButton.text = if (isResult) "REVISE" else "OCTAVE UP"
         showStatus(if (objectModel.transformation == null) "Saved as capture ${objectModel.id.take(8)}. Original audio preserved." else "Result ready. Compare it with the original, then keep or revise.")
     }
 
