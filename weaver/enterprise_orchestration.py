@@ -369,6 +369,34 @@ class EnterpriseOrchestrationStore:
             c.execute("UPDATE ew_proposals SET status='AUTHORIZED' WHERE id=?", (proposal_id,))
         return row
 
+    def authorization(self, *, subject: str, authorization_id: str) -> Authorization:
+        row = self._row("ew_authorizations", authorization_id)
+        if not row or row["subject"] != subject:
+            raise ValueError("valid matching authorization required")
+        return Authorization(
+            row["id"], row["subject"], row["proposal_id"], row["authority_event_id"],
+            json.loads(row["scope"]), json.loads(row["constraints"]), row["expires_at"],
+            row["granted_at"], row["correlation_id"],
+        )
+
+    def complete_execution_attempt(self, *, subject: str, execution_attempt_id: str,
+                                   result_status: str) -> ExecutionAttempt:
+        status = str(result_status).upper()
+        if status not in {"SUCCEEDED", "FAILED", "BLOCKED"}:
+            raise ValueError(f"unsupported terminal execution status: {status}")
+        row = self._row("ew_execution_attempts", execution_attempt_id)
+        if not row or row["subject"] != subject:
+            raise ValueError("matching execution attempt required")
+        with _db() as c:
+            c.execute("UPDATE ew_execution_attempts SET result_status=? WHERE id=?",
+                      (status, execution_attempt_id))
+        row = self._row("ew_execution_attempts", execution_attempt_id)
+        return ExecutionAttempt(
+            row["id"], row["subject"], row["authorization_id"], row["tool_channel"],
+            json.loads(row["request_payload"]), row["attempted_at"], row["result_status"],
+            row["correlation_id"],
+        )
+
     def execution_attempt(self, *, subject: str, authorization_id: str, tool_channel: str,
                           request_payload: Any, result_status: str = "ATTEMPTED",
                           correlation_id: str | None = None) -> ExecutionAttempt:
