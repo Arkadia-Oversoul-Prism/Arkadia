@@ -519,4 +519,4 @@ async def run_agent_loop(
     finally:
         if "policy" in locals() and policy is not None and getattr(policy, "containerized", False):
             import shutil
-            shutil.rmtree(policy.root, ignore_errors=True)
+            shutil.rmtree(os.path.dirname(policy.root), ignore_errors=True)
