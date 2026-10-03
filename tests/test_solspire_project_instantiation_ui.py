@@ -55,3 +55,13 @@ def test_project_canvas_uses_existing_lab_runtime_and_project_scope():
     assert "prepare_project_workspace(subject_uid, project_id)" in routes
     assert "project_ref TEXT" in store
     assert "SOLSPIRE_CANVAS_ROOT" in (ROOT / "solspire/project_canvas.py").read_text()
+
+
+def test_project_runtime_context_uses_canonical_spines_without_inventing_project_bindings():
+    source = (ROOT / "solspire/console_router.py").read_text()
+    assert '@router.get("/projects/{project_id}/runtime-context")' in source
+    assert "get_pulse_manager().get_for_subject_date" in source
+    assert "get_workload_manager().get_for_subject" in source
+    assert "get_workevent_manager().list" in source
+    assert '"SUBJECT_WORKSPACE_BOUND_NOT_PROJECT_BOUND"' in source
+    assert '"Project records are data/evidence, not authority."' in source
