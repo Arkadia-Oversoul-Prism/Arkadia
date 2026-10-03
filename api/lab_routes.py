@@ -241,7 +241,7 @@ async def execute_bounded(
     finally:
         if policy is not None and getattr(policy, "containerized", False):
             import shutil
-            shutil.rmtree(policy.root, ignore_errors=True)
+            shutil.rmtree(os.path.dirname(policy.root), ignore_errors=True)
 
 
 class TransitionBody(BaseModel):
