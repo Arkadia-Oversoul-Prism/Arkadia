@@ -190,7 +190,7 @@ def build_project_context_for_weaver(project: dict[str, Any]) -> dict[str, Any]:
             graph = {"state": "UNAVAILABLE", "detail": f"{type(exc).__name__}: {exc}"}
     witnessed_larder_ids = {
         str(ref).removeprefix("living-larder-order:")
-        for event in continuity.get("work_events", [])
+        for event in (continuity.get("work_events") or [])
         if event.get("event_type") == "LIVING_LARDER_ORDER_BOUND"
         for ref in event.get("artifact_refs", [])
         if str(ref).startswith("living-larder-order:")
