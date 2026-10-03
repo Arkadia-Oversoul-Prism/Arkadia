@@ -30,6 +30,8 @@ def test_integration_health_requires_live_probes_and_explicit_larder_binding(mon
     monkeypatch.setenv("SOLSPIRE_AGENT_IMAGE", "registry.example/agent@sha256:" + "a" * 64)
     monkeypatch.setenv("SOLSPIRE_CONTAINER_RUNTIME", "docker")
     monkeypatch.setattr("solspire.integration_health.shutil.which", lambda runtime: "/usr/bin/docker")
+    monkeypatch.setattr("solspire.integration_health.subprocess.run", lambda *args, **kwargs:
+                        SimpleNamespace(returncode=0, stdout="ok", stderr=""))
 
     result = project_integration_health(
         subject_uid="owner-1", project={"id": "project-1", "owner_uid": "owner-1"}
