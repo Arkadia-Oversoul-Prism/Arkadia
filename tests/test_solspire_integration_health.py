@@ -27,6 +27,14 @@ def test_integration_health_requires_live_probes_and_explicit_larder_binding(mon
          "data": {"order_id": "LL-TEST", "status": "pending", "total": 1000,
                   "source": "living_larder_orders"}}
     ])
+    monkeypatch.setattr("solspire.workspace_manager.get_workspace_manager", lambda:
+                        SimpleNamespace(get_for_subject=lambda uid: SimpleNamespace(id="workspace-owner")))
+    monkeypatch.setattr("solspire.workevent_manager.get_workevent_manager", lambda:
+                        SimpleNamespace(list=lambda uid, workspace_ref, limit: [
+                            SimpleNamespace(event_type="LIVING_LARDER_ORDER_BOUND",
+                                            scope_ref="project-1", work_ref="project-1",
+                                            artifact_refs=["living-larder-order:LL-TEST"])
+                        ]))
     monkeypatch.setenv("SOLSPIRE_AGENT_IMAGE", "registry.example/agent@sha256:" + "a" * 64)
     monkeypatch.setenv("SOLSPIRE_CONTAINER_RUNTIME", "docker")
     monkeypatch.setattr("solspire.integration_health.shutil.which", lambda runtime: "/usr/bin/docker")
