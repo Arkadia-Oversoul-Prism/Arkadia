@@ -2,7 +2,7 @@ name: Build APKs
 
 on:
   push:
-    branches: [main, "feature/**"]
+    branches: [main, "feature/**", "feat/**"]
     paths:
       - "arkadia-android/**"
       - ".github/workflows/build-apk.yml"
