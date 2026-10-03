@@ -95,6 +95,10 @@ export default function ProjectAgenticCanvas({ project }: { project: Project }) 
         max_turns: 6,
       });
       setResult(data);
+      try {
+        const observed = await request<{ session: LabSession }>(`/api/lab/engineering/sessions/${session.session_id}`);
+        if (observed.session) setSession(observed.session);
+      } catch { /* the run result remains visible even if refresh fails */ }
       setNotice('Run returned. Inspect the actual observations and evidence below; a run is not human acceptance.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Agent run failed');
