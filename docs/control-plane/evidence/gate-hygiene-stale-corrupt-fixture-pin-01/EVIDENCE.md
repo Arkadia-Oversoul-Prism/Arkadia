@@ -146,3 +146,47 @@ git fetch <repo> <head>:refs/tmp/n && git merge refs/tmp/n
 python -m pytest tests/test_agents_md_encoding_adjudication.py -q
 # guard needs PYTHONPATH=<repo>/archive/legacy_python (pyyaml + legacy modules)
 ```
+
+## 11. Pass 8 — the §2 shallow-clone dependency is closed (bounded)
+
+§2 deferred the `--depth=1` dependency: on a genuinely shallow checkout
+`CORRUPTION_COMMIT` (`e0dde9ad`) and `ORACLE_REV` (`6c43218a`) are absent, the
+skip guards never ran because `_rev()` was dereferenced before them, and the file
+reported **5 failed**. This pass removes that failure mode without weakening any
+assertion that a full clone can exercise.
+
+Measured on the true `--depth=1` acquisition shape (PR #221 head `49103d4`,
+combined with this pass's change):
+
+| tree | full clone | `--depth=1` shallow clone |
+|---|---|---|
+| before this pass (`49103d4`) | 21 passed, 2 skipped | **5 failed, 13 passed, 5 skipped** |
+| after this pass | **21 passed, 2 skipped** | **0 failed, 13 passed, 10 skipped** |
+
+The five nodes and their guards:
+
+- `test_live_file_verdict_matches_its_state` — skips when AGENTS.md is clean but
+  the oracle is unresolvable (the CLI legitimately returns 2, "unproven").
+- `test_corruption_origin_is_re_derivable` — the no-history branch now *skips*
+  instead of asserting `first_corrupt is not None`; the pinned-commit ancestor
+  claim is a property of full history and is not weakened.
+- `test_cli_summarises_the_oracle_without_crashing` — guarded on `ORACLE_REV`.
+- `test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec` — guarded on
+  `GATE2_PARENT_REV`/`ORACLE_REV` (this is §2's residual node).
+- `test_exit_code_does_not_call_a_divergent_clean_file_verified` — guarded on
+  `ORACLE_REV`/`CORRUPTION_COMMIT`.
+
+New helper `_history_available(*revs)` / `_require_history(*revs)` performs a
+read-only `git rev-parse --is-shallow-repository` fast path, then a per-rev
+`git cat-file -e` probe. No network fetch, no write.
+
+**Regression boundary.** In a full clone the file is byte-for-byte green at the
+same 21P/2S; architecture fitness is **11 passed** (unchanged). No assertion was
+deleted; a skip always names the revision it could not resolve. The guards are
+`git`-object probes, so a full clone still executes every original assertion.
+
+This is a test-side guard in `tests/test_agents_md_encoding_adjudication.py`
+only — no boot code, no `AGENTS.md` rewrite, no architecture-debt change. The
+§2 `7d79f38` reachability defect for *non-shallow* CI clones remains a separate
+bounded item (it needs the pinned revision made reachable, not a guard).
+
