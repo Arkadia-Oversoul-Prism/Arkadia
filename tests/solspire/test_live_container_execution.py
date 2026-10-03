@@ -17,6 +17,7 @@ def test_live_oci_runtime_executes_only_inside_hardened_workspace(tmp_path):
     assert_container_runtime_ready(image=image, runtime=os.environ.get("SOLSPIRE_CONTAINER_RUNTIME", "docker"))
     workspace = tmp_path / "workspace"
     workspace.mkdir()
+    workspace.chmod(0o777)
     (workspace / "canonical.txt").write_text("unchanged", encoding="utf-8")
 
     result = run_isolated(
