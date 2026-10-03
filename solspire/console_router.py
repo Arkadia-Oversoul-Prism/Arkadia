@@ -92,6 +92,7 @@ class SelectProviderRequest(BaseModel):
 
 class CreateProjectRequest(BaseModel):
     name: str
+    template_id: str = "enterprise"
     metadata: dict[str, Any] = {}
 
 class FsReadRequest(BaseModel):
@@ -211,6 +212,13 @@ async def select_provider(body: SelectProviderRequest, user: dict = Depends(requ
 
 # ── Projects ───────────────────────────────────────────────────────────────
 
+@router.get("/project-templates")
+async def get_project_templates(user: dict = Depends(require_auth)) -> dict[str, Any]:
+    """Expose server-owned project templates without granting runtime authority."""
+    from solspire.project_templates import list_project_templates
+    return {"templates": list_project_templates()}
+
+
 @router.get("/projects")
 async def list_projects(status: str | None = None, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.project_manager import get_project_manager
@@ -220,8 +228,10 @@ async def list_projects(status: str | None = None, user: dict = Depends(require_
 @router.post("/projects")
 async def create_project(body: CreateProjectRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.project_manager import get_project_manager
+    from solspire.project_templates import instantiate_project_metadata
     try:
-        p = get_project_manager().create(body.name, body.metadata, owner_uid=user["uid"])
+        metadata = instantiate_project_metadata(body.template_id, body.metadata)
+        p = get_project_manager().create(body.name, metadata, owner_uid=user["uid"])
         return {"ok": True, "project": p.to_dict()}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
