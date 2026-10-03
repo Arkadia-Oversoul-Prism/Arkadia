@@ -97,3 +97,29 @@ def test_knowledge_os_distinguishes_unavailable_source_from_empty_source(monkeyp
     assert summary["sources"]["memory"] == 0
     assert summary["source_health"]["state"] == "PARTIAL"
     assert "memory" in summary["source_health"]["errors"]
+
+def test_arkana_context_does_not_turn_unavailable_sources_into_empty_data(monkeypatch):
+    monkeypatch.setattr(project_knowledge, "build_knowledge_summary", lambda pid: {
+        "project_id": pid,
+        "sources": {"memory": 0, "files": 0},
+        "items": {"repositories": []},
+        "embeddings": {"state": "UNAVAILABLE"},
+        "source_health": {"state": "PARTIAL", "errors": {"memory": "RuntimeError: unavailable"}},
+    })
+    monkeypatch.setattr(project_store, "list_events",
+                        lambda pid, limit=100: (_ for _ in ()).throw(RuntimeError("event store unavailable")))
+    monkeypatch.setattr("solspire.workspace_manager.get_workspace_manager",
+                        lambda: (_ for _ in ()).throw(RuntimeError("workspace unavailable")))
+
+    context = project_knowledge.build_project_context_for_weaver({
+        "id": "project-1", "name": "Eden", "owner_uid": "owner-1"
+    })
+
+    assert context["knowledge"] is None
+    assert context["repositories"] is None
+    assert context["knowledge_source_health"]["state"] == "PARTIAL"
+    assert context["project_events"] is None
+    assert context["project_events_state"] == "UNAVAILABLE"
+    assert context["continuity"]["work_events"] is None
+    assert context["continuity"]["binding_state"]["workevents"] == "UNAVAILABLE"
+    assert context["living_larder"]["orders"] is None
