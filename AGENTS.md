@@ -668,3 +668,32 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   **negative control** (white noise must yield no pitch, not a spurious one) and a
   harmonic-rich case, or the "fix" can be tuned to the one frequency under test.
 
+
+
+## Baseline failing-node set is CLONE-DEPTH-DEPENDENT; the composed set is not (gate-hygiene)
+- The full-suite baseline on `main` is not a single number **or** a single node set: it depends
+  on whether the clone carries the PR-head refs. This automation's clone has 216
+  `refs/remotes/pr/*`, so revision `7d79f38` is resolvable (`git cat-file -t` -> `commit`); a
+  `git clone --single-branch` does not, and `git cat-file -t 7d79f38` -> `fatal: could not get
+  object info`. The adjudication module's failure set moves accordingly:
+  `test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec` is **PASS** refs-present /
+  **FAILED** CI-like; `test_gate2_parent_agents_md_repair_is_byte_identical_to_the_pipeline` is
+  **FAILED** refs-present / **SKIPPED** CI-like; `test_exit_code_does_not_call_a_divergent_clean_file_verified`
+  is **FAILED** in both. Measured at `main 162f574`: baseline 20F in **both** regimes, but the
+  failing-node *identities* differ.
+- **The composed failing-node set is regime-INVARIANT.** Composing the open cluster
+  (#215-#219, order-insensitive, git-clean at every step) yields 18F/1308P (CI-like) and
+  18F/1311P (refs-present) with the **same** sorted FAILED/ERROR node set
+  (`sha256 c9ffdb6216c70314`), and **all three** adjudication nodes green in **both** regimes.
+  Newly-failing nodes: **0**. This is the environment-independent claim to make — attribute by
+  node set of the *composed* tree, not of `main`.
+- **`origin/main` is a moving branch; never pin a fixture to it.** `test_gate2_parent...` fails
+  refs-present because its fixture dereferences `origin/main`, whose `AGENTS.md` is now repaired
+  (`cyrillic == 0`), so `assert healed.startswith(_rev("AGENTS.md", "origin/main"))` no longer
+  holds. A test that compares against a *moving branch* is an active expiry, not a latent one.
+- **`Vercel - console` is a pre-existing fail on every open PR** (a separate Vercel project,
+  `dpl_... --logs`), and #215 is also `Vercel - arkadia-prism` rate-limited. It is **not**
+  caused by any PR in the cluster; do not diagnose it as a regression. The workstream gate
+  (`Full-history secret scan`) passes. Fixing it is a separate bounded workstream.
+- Evidence: `docs/control-plane/evidence/gate-hygiene-open-pr-queue-merge-order-map-01/EVIDENCE_PASS3.md`
+  (PR #219, head `c894442`). Supersedes the "environment-independent" wording of Pass 2.
