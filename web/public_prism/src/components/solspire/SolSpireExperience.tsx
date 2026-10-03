@@ -29,6 +29,7 @@ const PROJECT_LENS_TO_TAB: Partial<Record<SolSpireLens, ProjTab>> = {
   memory: 'memory',
   knowledge: 'knowledge',
   weaver: 'weaver',
+  canvas: 'canvas',
   observatory: 'events',
 };
 
