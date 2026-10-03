@@ -1,44 +1,65 @@
 # SolSpire Isolated Project Execution Boundary v1
 
-## Scope of this slice
+## Execution boundary
 
-This change adds a fail-closed OCI invocation builder and a reviewed-patch gate. It is a boundary primitive, not yet a claim that every Engineering Lab execution route has been migrated to it.
+Project-scoped Engineering Lab sessions materialize a unique disposable copy of the canonical project files. Snapshot creation is bracketed by canonical base digests; if the canonical store changes during materialization, the run is refused. The canonical project-store directory is never mounted into a container.
 
-## Container policy
+Project terminal operations route through the configured Docker-compatible OCI runtime using argv-only execution. The configured image must be pinned by immutable SHA-256 digest. If the runtime or image configuration is missing, execution fails closed with no host-command fallback.
 
-- Container runtime missing: refuse execution; never fall back to host execution.
-- Network: disabled by default (`--network=none`).
-- Container root filesystem: read-only.
-- Linux capabilities: all dropped; no-new-privileges enabled.
-- Process identity: unprivileged UID/GID.
-- Resource limits: memory, CPU, process count, temporary filesystem, and execution timeout.
-- Invocation: argv-only, no shell interpolation.
-- Workspace: caller must supply a disposable copy of the canonical project snapshot. Never mount the canonical project-store directory as the writable workspace.
+Container defaults:
+- `--network=none`
+- read-only container root filesystem
+- all Linux capabilities dropped
+- no-new-privileges
+- unprivileged UID/GID 65532:65532
+- CPU, memory, process-count and timeout limits
+- bounded writable mount only for the disposable project snapshot
+- `/tmp` mounted as no-exec, no-suid tmpfs
+- shell-free host process invocation
 
-## Persistence contract
+The L1 terminal grammar remains closed to its existing allowlisted commands, and git commands remain read-only. Filesystem candidate writes can only target seeded canonical file paths allowed by the active runtime authorization. New files and deletions are surfaced as rejected candidate paths, not applied automatically.
 
-Container output is a candidate patch, not canonical project state. Before persistence, the application must:
+## Candidate and canonical persistence
 
-1. compute the candidate diff and changed-path set;
-2. validate paths and the project-specific allowlist;
-3. compare the canonical base digest to the digest reviewed by the human;
-4. require explicit human approval for the exact patch;
-5. persist through the existing canonical project file API, not by writing directly to the project database;
-6. append a WorkEvent with patch digest, approver identity, affected paths, and result.
+After a project-scoped agent loop, the API compares the disposable workspace against the canonical snapshot and returns a candidate patch, its base digest, its exact patch digest, changed paths, rejected paths, and `persistence: NOT_APPLIED`.
 
-The included `require_reviewed_patch` helper enforces approval, freshness, and path allowlisting. It does not itself write canonical files. No agent output may bypass this gate.
+Canonical persistence is a separate owner-authenticated action:
+1. Preview validates the expected base digest, existing canonical paths and explicit allowlist.
+2. The human reviews the exact candidate content and receives a deterministic patch digest.
+3. Apply requires the same base digest, the same exact patch digest and the explicit allowed-path set.
+4. The canonical project store validates all file bindings and applies existing-file updates atomically in one transaction.
+5. A WorkEvent records the authenticated approver, project scope, changed file references, base/result digests and patch digest.
+
+A stale base, unapproved digest, path outside the allowlist, missing canonical workspace, duplicate path, or non-existing file fails closed. This first version supports updates to existing text files only. Creating and deleting canonical files remain separate governed operations.
+
+Endpoints:
+- `POST /solspire/projects/{project_id}/patches/preview`
+- `POST /solspire/projects/{project_id}/patches/apply`
+- `POST /api/lab/engineering/sessions/{session_id}/run-agent` returns candidate-only edits for project sessions.
+
+## Arkana, continuity and Knowledge OS
+
+The owner-scoped project runtime context composes the existing canonical project store with Daily Pulse, project-matching WorkEvents, the bounded semantic knowledge graph and Arkana's project context. These are read-only context/evidence, not authority. Missing pulse or WorkEvent project bindings remain `UNKNOWN`; they are not synthesized from project existence.
+
+## Live integration health and Living Larder
+
+`GET /solspire/projects/{project_id}/integration-health` exercises local capability paths for Weaver, Arkana and Knowledge OS, verifies the container runtime/image configuration, and reports Living Larder as `PROJECT_BOUND` only when an order was explicitly bound to that project.
+
+`POST /solspire/projects/{project_id}/living-larder/orders/{order_id}/bind` verifies the order exists in the configured Living Larder order store and records a bounded financial snapshot in project events plus a WorkEvent. It deliberately excludes customer details. No historical order is auto-associated with a project.
+
+A configured capability is not proof of a successful probe. `AVAILABLE`, `UNAVAILABLE`, and `UNBOUND` have distinct meanings. Integration health never grants execution or patch approval.
 
 ## Threat-model boundary
 
-An OCI container is not a virtual machine and does not protect against a compromised host kernel or malicious container runtime. Production deployment must pin images by immutable digest, apply host-level seccomp/AppArmor/SELinux policy where available, enforce quotas, and verify that the selected runtime honors all requested flags. The image string accepted by the helper should be digest-pinned by production configuration and deployment policy.
+An OCI container is not a virtual machine and does not defend against a compromised host kernel or malicious container runtime. Production still requires a trusted hardened host, seccomp/AppArmor/SELinux policy where available, quotas, immutable image verification, and deployment-level testing. The API route must not be considered production-isolated until the live runtime acceptance test passes in the target environment.
 
 ## Verification
 
-Unit tests cover network-disabled defaults, read-only root filesystem, dropped capabilities, no-new-privileges, unprivileged execution, resource limits, path traversal rejection, human approval, stale-base rejection, and patch allowlisting.
+Tests cover argv hardening, no-host-fallback behavior, digest pinning, exact patch digest approval, canonical base freshness, atomic canonical file updates, WorkEvent evidence, candidate-only workspace diffs, explicit Living Larder binding, and integration-health truthfulness. A live OCI acceptance test is included and runs only when a container runtime and `SOLSPIRE_TEST_AGENT_IMAGE` pinned by SHA-256 are configured.
 
-## Explicitly not claimed
+## Current limitations
 
-- Engineering Lab routes are not yet all wired to call `run_isolated`.
-- No production container runtime has been probed by this change.
-- Candidate patches are not yet automatically applied to canonical project files.
-- No live deployment or production isolation claim is made by adding these primitives alone.
+- The live OCI acceptance test has not yet been confirmed to run in this environment.
+- CI must be inspected after the final branch commit; absence of workflow runs is not a green result.
+- No production deployment or end-to-end production isolation claim is made here.
+- Patch application currently updates existing canonical text files only; new-file/deletion workflows remain out of scope.
