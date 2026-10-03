@@ -49,13 +49,21 @@ authenticated UID; template metadata cannot grant access.
 
 ## Bounded implementation status
 
-This slice establishes the server-owned template contract and project-creation
-surface. It does not yet implement a new sandbox runtime, change Weaver's
-execution authority, bind Living Larder records, or automatically include Daily
-Pulse, WorkEvent or Knowledge OS graph results in Arkana's context. The current
-bounded context includes project tasks, file names, memory entries and activity
-events; unavailable sources remain visible. Broader graph and execution seams
-require separate verified work and acceptance tests.
+This slice establishes the server-owned template contract, project
+creation surface, bounded Arkana context, and a project-scoped read-only canvas
+that reuses the existing Engineering Lab session, authorization, sandbox and
+evidence spine. Canvas sessions store `project_ref` on the existing session
+model, verify the project owner, and materialize only canonical project files
+under a server-derived root. A human must authorize the session before a model
+run. Writes, network access and client-supplied sandbox roots are refused.
+
+This is a filesystem-confined, read-only sandbox, not an OS/container isolation
+boundary. It does not yet persist agent-generated workspace changes into
+canonical project files, automatically include Daily Pulse/WorkEvent/Knowledge
+Graph results in Arkana's context, or bind Living Larder transaction records.
+The current bounded Arkana context includes project tasks, file names, memory
+entries and activity events; unavailable sources remain visible. Those next
+seams require separate verification and acceptance tests.
 
 ## Verification
 
