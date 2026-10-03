@@ -1,7 +1,7 @@
 package com.arkadia.sonata
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class MieMusicalObjectTest {
@@ -20,22 +20,22 @@ class MieMusicalObjectTest {
     )
 
     @Test
-    fun keepDecisionIsInspectable() {
-        val provenance = org.json.JSONObject(objectModel("kept").toJson()).getJSONObject("provenance")
-        assertEquals("kept", provenance.getString("loop_decision"))
-        assertEquals("parent-001", provenance.getString("parent_id"))
-        assertEquals("octave_up", provenance.getString("transformation"))
+    fun keepDecisionIsRepresentedOnTheResultObject() {
+        val result = objectModel("kept")
+        assertEquals("kept", result.loopDecision)
+        assertEquals("parent-001", result.parentId)
+        assertEquals("octave_up", result.transformation)
     }
 
     @Test
-    fun reviseDecisionIsInspectable() {
-        val provenance = org.json.JSONObject(objectModel("revised").toJson()).getJSONObject("provenance")
-        assertEquals("revised", provenance.getString("loop_decision"))
+    fun reviseDecisionIsRepresentedOnTheResultObject() {
+        val result = objectModel("revised")
+        assertEquals("revised", result.loopDecision)
+        assertEquals("parent-001", result.parentId)
     }
 
     @Test
     fun undecidedResultRemainsUndecided() {
-        val provenance = org.json.JSONObject(objectModel(null).toJson()).getJSONObject("provenance")
-        assertTrue(!provenance.has("loop_decision"))
+        assertNull(objectModel(null).loopDecision)
     }
 }
