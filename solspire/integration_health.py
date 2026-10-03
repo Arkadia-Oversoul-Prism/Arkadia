@@ -7,6 +7,22 @@ import subprocess
 from typing import Any
 
 
+def _load_larder_orders() -> list[dict[str, Any]]:
+    """Read the same canonical JSON order store used by the Living Larder API."""
+    import json
+    from pathlib import Path
+    path = Path("data/orders.json")
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise RuntimeError("Living Larder order store is unavailable: data/orders.json is missing") from exc
+    except (OSError, ValueError) as exc:
+        raise RuntimeError(f"Living Larder order store is unreadable: {exc}") from exc
+    if not isinstance(raw, list):
+        raise RuntimeError("Living Larder order store has an invalid top-level shape")
+    return [item for item in raw if isinstance(item, dict) and item.get("order_id")]
+
+
 def _probe(name: str, fn) -> dict[str, Any]:
     try:
         detail = fn()
@@ -59,6 +75,8 @@ def project_integration_health(*, subject_uid: str, project: dict[str, Any]) -> 
         from solspire.workevent_manager import get_workevent_manager
         import json
         events = list_events(project_id, limit=500)
+        larder_orders_live = _load_larder_orders()
+        live_order_ids = {str(item["order_id"]) for item in larder_orders_live}
         workspace = get_workspace_manager().get_for_subject(subject_uid)
         if workspace is None:
             return {"binding_state": "UNBOUND", "bound_order_count": 0,
@@ -82,8 +100,11 @@ def project_integration_health(*, subject_uid: str, project: dict[str, Any]) -> 
             if not isinstance(data, dict) or not data.get("order_id"):
                 continue
             order_id = str(data["order_id"])
+            if order_id not in live_order_ids:
+                missing_witnesses.append(order_id + " (missing from live Larder store)")
+                continue
             if order_id not in witnessed:
-                missing_witnesses.append(order_id)
+                missing_witnesses.append(order_id + " (missing WorkEvent evidence)")
                 continue
             bindings.append({"order_id": order_id, "status": data.get("status"),
                              "total": data.get("total"), "currency": "NGN",
