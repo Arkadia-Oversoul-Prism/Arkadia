@@ -54,7 +54,7 @@ export default function ProjectAgenticCanvas({ project }: { project: Project }) 
       const agent = await request<{ agent_id: string }>('/api/lab/engineering/agents', {
         role: 'WEAVER',
         display_name: `${project.name} · Weaver COO`,
-        capabilities: ['READ', 'OBSERVE', 'PROPOSE'],
+        capabilities: ['READ', 'PROPOSE'],
         write_allowed: false,
       });
       const created = await request<LabSession>('/api/lab/engineering/sessions', {
@@ -75,11 +75,11 @@ export default function ProjectAgenticCanvas({ project }: { project: Project }) 
     setBusy(true); setError(''); setNotice('');
     try {
       const data = await request<{ session: LabSession }>(`/api/lab/engineering/sessions/${session.session_id}/authorize`, {
-        operations_allowed: ['read', 'list', 'git_status', 'git.diff'],
+        operations_allowed: ['read', 'list'],
         duration_minutes: 60,
       });
       setSession(data.session);
-      setNotice('Human authorization recorded for read/list and read-only Git observation. Terminal execution, filesystem writes and network access remain disabled.');
+      setNotice('Human authorization recorded for read/list only. Terminal execution, filesystem writes and network access remain disabled.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Authorization failed');
     } finally { setBusy(false); }
@@ -113,7 +113,7 @@ export default function ProjectAgenticCanvas({ project }: { project: Project }) 
       <div style={{ fontSize: 9, letterSpacing: '.2em', textTransform: 'uppercase', color: '#B08DE8' }}>SolSpire · Agentic Canvas</div>
       <h3 style={{ margin: '7px 0', font: '400 24px Georgia,serif', color: '#E9E7DF' }}>{project.name}</h3>
       <p style={{ margin: 0, maxWidth: 680, fontSize: 11, lineHeight: 1.7, color: 'rgba(212,223,232,.55)' }}>
-        A project-bound Weaver COO session using the existing Engineering Lab runtime. It snapshots canonical project files into a server-managed workspace and exposes read/list plus read-only Git observation. This is not a container boundary; terminal execution, writes, network access, merge and deployment are disabled.
+        A project-bound Weaver COO session using the existing Engineering Lab runtime. It snapshots canonical project files into a server-managed workspace and exposes read/list only. This is not a container boundary; terminal execution, writes, network access, merge and deployment are disabled.
       </p>
     </section>
 
