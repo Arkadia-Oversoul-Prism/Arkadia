@@ -8,6 +8,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from solspire.project_execution_boundary import BoundaryError, require_reviewed_patch, safe_relative_path
+
 from solspire.project_execution_boundary import BoundaryError, require_reviewed_patch
 
 
@@ -123,7 +125,6 @@ def candidate_patch_digest(changes: list[dict[str, str]]) -> str:
 def collect_candidate_patch(*, project_id: str, workspace: str,
                            base_digest: str) -> dict[str, Any]:
     """Compare an execution copy with canonical files and return review-only edits."""
-    from solspire.project_execution_boundary import safe_relative_path
     canonical = _canonical_files(project_id)
     by_name = {str(row.get("name") or ""): row for row in canonical}
     root = Path(workspace).resolve(strict=True)
