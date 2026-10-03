@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from api.auth import require_auth
 from solspire.proposal_manager import get_proposal_manager
 from solspire.workspace_manager import get_workspace_manager
+from solspire.workevent_manager import get_workevent_manager
 from solspire.eden_ops import EdenOps
 from weaver.enterprise_orchestration import EnterpriseOrchestrationStore
 from weaver.console_adapter import WeaverConsoleAdapter
@@ -248,21 +249,18 @@ async def sync_capture(
     root.mkdir(parents=True, exist_ok=True)
     target = root / safe_id
     target.write_bytes(raw)
-    store = EnterpriseOrchestrationStore()
-    event = store.operational_event(
-        subject=user["uid"],
-        enterprise_id="solariun",
-        event_type="INPUT_RECEIVED",
-        payload={
-            "capture_id": safe_id,
-            "kind": body.kind,
-            "mime_type": body.mime_type,
-            "size_bytes": body.size_bytes,
-            "sha256": body.sha256,
-            "captured_at": body.captured_at,
-            "artifact_ref": f"console-capture:{user['uid']}:{safe_id}",
-        },
-        correlation_id=f"console-capture:{safe_id}",
+    workspace = get_workspace_manager().get_for_subject(user["uid"])
+    if workspace is None:
+        raise HTTPException(status_code=409, detail="Canonical workspace not found")
+    from time import time
+    event = get_workevent_manager().create(
+        subject_ref=user["uid"],
+        workspace_ref=workspace.id,
+        event_type="CONSOLE_CAPTURE",
+        occurred_at=time(),
+        actor_ref=user["uid"],
+        artifact_refs=[f"console-capture:{user['uid']}:{safe_id}"],
+        status="RECORDED",
     )
     return {
         "ok": True,
