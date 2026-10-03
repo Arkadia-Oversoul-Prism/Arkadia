@@ -294,4 +294,3 @@ class MainActivity:AppCompatActivity(){
         render()
     }
 }
-}
