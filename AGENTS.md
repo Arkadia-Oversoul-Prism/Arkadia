@@ -697,3 +697,24 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   (`Full-history secret scan`) passes. Fixing it is a separate bounded workstream.
 - Evidence: `docs/control-plane/evidence/gate-hygiene-open-pr-queue-merge-order-map-01/EVIDENCE_PASS3.md`
   (PR #219, head `c894442`). Supersedes the "environment-independent" wording of Pass 2.
+
+## Clone-depth section: the Pass-3 "refs-present" figures did not reproduce (gate-hygiene, pass 4)
+- The section above ("Baseline failing-node set is CLONE-DEPTH-DEPENDENT") records a
+  `refs-present` regime with **216** `refs/remotes/pr/*` and a baseline of **20F / 1308P /
+  1 error**. Measured at `main 162f574` in the automation's own clone during pass 4, that
+  column does **not** reproduce: the clone carries **5** PR refs
+  (`refs/heads/pr/215..219` + `refs/remotes/pr/215..219`), `git cat-file -t 7d79f38` ->
+  `fatal: Not a valid object name`, and the baseline full suite is **60F / 836P / 45 errors**
+  (58F / 848P / 43 errors with `requests` installed).
+- **Correction (measured at `162f574`, pass 4):** the Pass-3 `refs-present` absolute counts
+  (`20F`, composed set `c9ffdb6216c70314`) are **unreproduced** and must not be cited as a
+  regime fingerprint. What holds in this clone: baseline 105-node set -> composed
+  103-node set, **fixed 2, newly-failing 0**, identical with `requests` installed (101 -> 99).
+  The defensible claim is the composed **delta** — baseline minus the two adjudication nodes,
+  plus zero — not an absolute refs-present count.
+- The **45 collection errors are a dependency delta, not a regression**: they are
+  `ModuleNotFoundError: No module named 'requests'`, present equally on `main` and on the
+  composed tree, and cleared equally on both by installing `requests`. Never attribute them
+  to the open-PR cluster.
+- Evidence: `docs/control-plane/evidence/gate-hygiene-open-pr-queue-merge-order-map-01/EVIDENCE_PASS4.md`.
+
