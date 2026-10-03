@@ -98,38 +98,46 @@ NaN
     private fun execution(obj:FieldObject){
         val auth=obj.authorizationId ?: return
         val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(24,8,24,0)}
-        val tool=EditText(this).apply{hint="Weaver tool channel";setText("console")}
-        val payload=EditText(this).apply{hint="What is being attempted?";minLines=3}
+        val tool=EditText(this).apply{hint="Weaver tool channel";setText("git.status");isEnabled=false}
+        val payload=EditText(this).apply{hint="Optional tool payload JSON";minLines=3;setText("{}")}
         box.addView(tool);box.addView(payload)
         AlertDialog.Builder(this).setTitle("Governed execution attempt").setMessage("This records ATTEMPTED only. It does not invent success or evidence.").setView(box)
             .setNegativeButton("Cancel",null)
             .setPositiveButton("Record attempt"){_,_->lifecycleScope.launch{
-                val id=runCatching{repo.createExecutionAttempt(auth,tool.text.toString().trim(),org.json.JSONObject().put("description",payload.text.toString()))}.getOrElse{"Execution attempt failed: "+it.message}
-                if(id.startsWith("Execution attempt failed")) Toast.makeText(this@MainActivity,id,Toast.LENGTH_LONG).show()
-                else evidenceDialog(id,obj)
+                val response=runCatching{repo.createExecutionAttempt(auth,tool.text.toString().trim(),runCatching{org.json.JSONObject(payload.text.toString())}.getOrElse{org.json.JSONObject().put("description",payload.text.toString())})}.getOrElse{null}
+                if(response==null) Toast.makeText(this@MainActivity,"Execution failed: request was not dispatched.",Toast.LENGTH_LONG).show()
+                else executionEvidenceDialog(response,obj)
             }}.show()
     }
 
-    private fun evidenceDialog(executionId:String,obj:FieldObject){
-        val input=EditText(this).apply{hint="Observed result / evidence";minLines=4}
-        AlertDialog.Builder(this).setTitle("Record evidence").setMessage("Only record what actually happened. Evidence does not equal verification.").setView(input)
-            .setNegativeButton("Cancel",null)
-            .setPositiveButton("Record evidence"){_,_->lifecycleScope.launch{
-                val id=runCatching{repo.recordEvidence(executionId,"console_observation",input.text.toString())}.getOrElse{"Evidence failed: "+it.message}
-                if(id.startsWith("Evidence failed")) Toast.makeText(this@MainActivity,id,Toast.LENGTH_LONG).show()
-                else verifyDialog(id,obj)
-            }}.show()
+    private fun executionEvidenceDialog(response:org.json.JSONObject,obj:FieldObject){
+        val attempt=response.optJSONObject("execution_attempt")
+        val execution=response.optJSONObject("execution")
+        val evidence=response.optJSONObject("evidence")
+        val evidenceId=evidence?.optString("id").orEmpty()
+        val observed=execution?.optString("observed").orEmpty().ifBlank{execution?.toString().orEmpty()}
+        val message="Execution: "+(execution?.optString("status")?:"UNKNOWN")+"\\n\\nObserved evidence:\\n"+observed+"\\n\\nEvidence ID: "+evidenceId
+        val dialog=AlertDialog.Builder(this).setTitle("Evidence inspector").setMessage(message)
+            .setNegativeButton("Close",null)
+        if(evidenceId.isNotBlank()) dialog.setPositiveButton("VERIFY"){_,_->verifyDialog(evidenceId,obj)}
+        dialog.show()
     }
 
     private fun verifyDialog(evidenceId:String,obj:FieldObject){
         val input=EditText(this).apply{hint="Claim to verify";setText(obj.title);minLines=3}
-        AlertDialog.Builder(this).setTitle("Verify evidence").setMessage("Verification is a separate human-visible record.").setView(input)
-            .setNegativeButton("Cancel",null)
-            .setPositiveButton("Verify"){_,_->lifecycleScope.launch{
-                val id=runCatching{repo.verify(input.text.toString(),"$evidenceId","VERIFIED")}.getOrElse{"Verification failed: "+it.message}
-                Toast.makeText(this@MainActivity,if(id.startsWith("Verification failed"))id else "Evidence → Verification recorded.",Toast.LENGTH_LONG).show()
-                load()
-            }}.show()
+        AlertDialog.Builder(this).setTitle("Human verification").setMessage("Choose the verdict. Evidence is observed by Weaver; verification remains yours.").setView(input)
+            .setNegativeButton("INSUFFICIENT"){_,_->submitVerification(evidenceId,input.text.toString(),"INSUFFICIENT")}
+            .setNeutralButton("CONTRADICTED"){_,_->submitVerification(evidenceId,input.text.toString(),"CONTRADICTED")}
+            .setPositiveButton("VERIFIED"){_,_->submitVerification(evidenceId,input.text.toString(),"VERIFIED")}
+            .show()
+    }
+
+    private fun submitVerification(evidenceId:String,claim:String,verdict:String){
+        lifecycleScope.launch{
+            val id=runCatching{repo.verify(claim,evidenceId,verdict)}.getOrElse{"Verification failed: "+it.message}
+            Toast.makeText(this@MainActivity,if(id.startsWith("Verification failed"))id else "Evidence → "+verdict+" recorded.",Toast.LENGTH_LONG).show()
+            load()
+        }
     }
 
     private fun addAction(label:String,action:()->Unit){actionRow.addView(Button(this).apply{text=label;setOnClickListener{action()}})}
