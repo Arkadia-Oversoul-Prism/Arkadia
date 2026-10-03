@@ -278,9 +278,10 @@ class MieActivity : AppCompatActivity() {
         }
         val revised = selected.copy(loopDecision = "revised")
         sessionStore.updateCapture(revised)
-        val parent = sessionStore.current().captures.firstOrNull { it.id == revised.parentId }
+        val parentId = revised.parentId ?: return
+        val parent = sessionStore.current().captures.firstOrNull { it.id == parentId }
         if (parent == null) {
-            showStatus("Original parent ${revised.parentId.take(8)} is unavailable.")
+            showStatus("Original parent ${parentId.take(8)} is unavailable.")
             return
         }
         selectedObject = parent
