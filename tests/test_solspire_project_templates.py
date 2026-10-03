@@ -24,10 +24,10 @@ def test_eden_template_declares_living_larder_without_claiming_it_is_live():
     runtime = metadata["project_runtime"]
 
     assert runtime["template_id"] == "eden-food-systems"
-    assert "living_larder" in runtime["capabilities"]
+    assert "living_larder" in runtime["requested_capabilities"]
     assert runtime["domain"]["module"] == "living_larder"
     assert runtime["domain"]["state"] == "requires_live_capability_verification"
-    assert runtime["runtime"]["sandbox_state"] == "not_configured"
+    assert runtime["runtime"]["sandbox"]["state"] == "not_configured"
 
 
 def test_template_catalog_returns_independent_copies():
