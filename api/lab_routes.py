@@ -230,13 +230,18 @@ async def execute_bounded(
                 write_allowed=body.requires_write,
                 command_allowlist=tuple(body.command_allowlist),
             )
-        return get_runtime().execute_bounded_task(
+        result = get_runtime().execute_bounded_task(
             subject_ref=user["uid"], session_id=session_id, task=task, sandbox_policy=policy
         )
+        return result
     except KeyError:
         raise HTTPException(status_code=404, detail="session not found")
     except (ValueError, BoundaryViolation) as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    finally:
+        if policy is not None and getattr(policy, "containerized", False):
+            import shutil
+            shutil.rmtree(policy.root, ignore_errors=True)
 
 
 class TransitionBody(BaseModel):
@@ -433,14 +438,14 @@ def _project_canvas_policy(session: dict, subject_uid: str) -> SandboxPolicy:
     if not project_id:
         raise HTTPException(status_code=400, detail="Project binding missing")
     from solspire.project_manager import get_project_manager
-    from solspire.project_canvas import prepare_project_workspace
+    from solspire.project_execution_service import create_disposable_workspace
     try:
         project = get_project_manager().load(project_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Project not found")
     if (project.owner_uid or "").strip() != subject_uid:
         raise HTTPException(status_code=404, detail="Project not found")
-    snapshot = prepare_project_workspace(subject_uid, project_id)
+    snapshot = create_disposable_workspace(subject_uid, project_id)
     return SandboxPolicy(
         root=snapshot["root"],
         write_allowed=False,
@@ -450,6 +455,9 @@ def _project_canvas_policy(session: dict, subject_uid: str) -> SandboxPolicy:
         command_allowlist=("git", "echo", "pwd", "true", "false"),
         enforce_git_read_only=True,
         enforce_command_grammar=True,
+        containerized=True,
+        container_image=os.environ.get("SOLSPIRE_AGENT_IMAGE"),
+        container_runtime=os.environ.get("SOLSPIRE_CONTAINER_RUNTIME", "docker"),
     )
 
 
@@ -495,3 +503,7 @@ async def run_agent_loop(
         raise HTTPException(status_code=409, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    finally:
+        if "policy" in locals() and policy is not None and getattr(policy, "containerized", False):
+            import shutil
+            shutil.rmtree(policy.root, ignore_errors=True)
