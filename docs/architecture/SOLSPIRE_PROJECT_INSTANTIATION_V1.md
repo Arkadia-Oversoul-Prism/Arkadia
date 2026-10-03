@@ -55,7 +55,8 @@ that reuses the existing Engineering Lab session, authorization, sandbox and
 evidence spine. Canvas sessions store `project_ref` on the existing session
 model, verify the project owner, and materialize only canonical project files
 under a server-derived root. A human must authorize the session before a model
-run. Writes, network access and client-supplied sandbox roots are refused.
+run. Weaver is limited to read/list tools; writes, terminal execution, network
+access and client-supplied sandbox roots are refused.
 
 This is a filesystem-confined, read-only sandbox, not an OS/container isolation
 boundary. It does not yet persist agent-generated workspace changes into
