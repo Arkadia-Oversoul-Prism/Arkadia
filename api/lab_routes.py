@@ -441,18 +441,18 @@ def _project_canvas_policy(session: dict, subject_uid: str) -> SandboxPolicy:
     from solspire.project_execution_service import (
         assert_container_runtime_ready, create_disposable_workspace,
     )
-    image = os.environ.get("SOLSPIRE_AGENT_IMAGE", "")
-    runtime_name = os.environ.get("SOLSPIRE_CONTAINER_RUNTIME", "docker")
-    try:
-        assert_container_runtime_ready(image=image, runtime=runtime_name)
-    except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"isolated project runtime unavailable: {exc}") from exc
     try:
         project = get_project_manager().load(project_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Project not found")
     if (project.owner_uid or "").strip() != subject_uid:
         raise HTTPException(status_code=404, detail="Project not found")
+    image = os.environ.get("SOLSPIRE_AGENT_IMAGE", "")
+    runtime_name = os.environ.get("SOLSPIRE_CONTAINER_RUNTIME", "docker")
+    try:
+        assert_container_runtime_ready(image=image, runtime=runtime_name)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"isolated project runtime unavailable: {exc}") from exc
     snapshot = create_disposable_workspace(subject_uid, project_id)
     return SandboxPolicy(
         root=snapshot["root"],
