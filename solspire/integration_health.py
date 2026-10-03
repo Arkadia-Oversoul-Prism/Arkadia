@@ -1,7 +1,6 @@
 """Live, owner-scoped capability probes. Configuration is not proof of operation."""
 from __future__ import annotations
 
-import importlib.util
 import os
 import shutil
 from typing import Any
@@ -87,6 +86,8 @@ def project_integration_health(*, subject_uid: str, project: dict[str, Any]) -> 
                    "reason": None if runtime and image_pinned else
                    "container runtime or immutable SHA-256 image configuration is missing"},
     }
+    larder_detail = results["living_larder"].get("detail")
+    larder_bound = isinstance(larder_detail, dict) and larder_detail.get("binding_state") == "PROJECT_BOUND"
     return {
         "contract": "solspire.integration-health.v1",
         "project_id": project_id,
@@ -94,7 +95,7 @@ def project_integration_health(*, subject_uid: str, project: dict[str, Any]) -> 
         "capabilities": results,
         "all_required_available": all(results[k]["state"] == "AVAILABLE"
                                       for k in ("weaver", "arkana", "knowledge_os", "isolated_execution"))
-                                      and results["living_larder"].get("detail", {}).get("binding_state") == "PROJECT_BOUND",
+                                      and larder_bound,
         "semantics": {
             "AVAILABLE": "the probe exercised the capability path successfully",
             "UNAVAILABLE": "the probe failed or required runtime/configuration is missing",
