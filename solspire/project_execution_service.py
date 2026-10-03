@@ -10,9 +10,6 @@ from typing import Any
 
 from solspire.project_execution_boundary import BoundaryError, require_reviewed_patch, safe_relative_path
 
-from solspire.project_execution_boundary import BoundaryError, require_reviewed_patch
-
-
 def _canonical_files(project_id: str) -> list[dict[str, Any]]:
     from solspire.project_store import get_file, list_files
     rows = []
@@ -39,7 +36,6 @@ def assert_container_runtime_ready(*, image: str, runtime: str = "docker") -> di
     """Require a live OCI daemon and the exact configured digest-pinned image."""
     import re
     import subprocess
-    from solspire.project_execution_boundary import BoundaryError
     if not re.fullmatch(r".+@sha256:[0-9a-fA-F]{64}", image or ""):
         raise BoundaryError("SOLSPIRE_AGENT_IMAGE must be pinned by immutable SHA-256 digest")
     executable = shutil.which(runtime)
