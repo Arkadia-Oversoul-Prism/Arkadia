@@ -296,6 +296,9 @@ interface ArkanaProps {
 const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, projectContextId, projectName, projectContext }) => {
   const { user, isAuthenticated } = useAuth();
   const threadStorageKey = projectContextId ? `${ACTIVE_THREAD_KEY}:project:${projectContextId}` : ACTIVE_THREAD_KEY;
+  const [hasStoredProjectThread] = useState(() => {
+    try { return Boolean(projectContextId && localStorage.getItem(threadStorageKey)); } catch { return false; }
+  });
   const [activeThreadId, setActiveThreadId] = useState<string>(() => {
     try { return localStorage.getItem(threadStorageKey) || createArkanaThreadId(); } catch { return createArkanaThreadId(); }
   });
@@ -356,7 +359,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, proje
       try {
         if (projectContextId) {
           const savedThread = (() => { try { return localStorage.getItem(threadStorageKey); } catch { return null; } })();
-          if (savedThread) {
+          if (hasStoredProjectThread && savedThread) {
             if (live) {
               setThreads([{ uuid: savedThread, title: `${projectName || 'Project'} · Arkana`, project_id: null }]);
               setActiveThreadId(savedThread);
@@ -397,7 +400,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, proje
       } catch { /* local thread remains usable */ }
     })();
     return () => { live = false; };
-  }, [isAuthenticated, projectId, projectContextId, projectName, threadStorageKey]);
+  }, [isAuthenticated, projectId, projectContextId, projectName, threadStorageKey, hasStoredProjectThread]);
 
   const createNewThread = async () => {
     if (threadBusy) return;
@@ -691,7 +694,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, proje
           JSON.stringify(projectContext),
           '[USER REQUEST]',
           messageWithContext,
-        ].join('\\n\\n');
+        ].join('\n\n');
       }
       if (attachment?.content) {
         messageWithContext += `\n\n[ATTACHED FILE: ${attachment.name}]\n${attachment.content}`;
