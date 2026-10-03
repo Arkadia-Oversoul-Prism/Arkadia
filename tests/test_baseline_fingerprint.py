@@ -182,11 +182,16 @@ CLONE_DEPTH_DEPENDENT_NODE = (
 )
 
 # Canonical values: `scripts/baseline_fingerprint.py` run on LIVE_NODE_SET.
+# Superseded 2026-10-03 by `gate-hygiene/stale-gate-fixture-retirement-01`, which
+# retired the two nodes asserting the archived root `gate/` + `index.html` surface
+# (removed from the tree by `f6718b9` / `377cdb3`, present only under
+# `archive/legacy_frontend/gate/`). The recorded set is now 18 nodes. The previous
+# pair is retained in SUPERSEDED_* below.
 CANONICAL_OUTCOMES_FINGERPRINT = (
-    "a578a766c09c949c620c9d324248659812d215d3d1e875a0c25b42adb8912aa1"
+    "6c7bf8218fd1e0ae9bc970653e98c18b3a78b69a5c4920dac9f4747c033e4648"
 )
 CANONICAL_IDS_FINGERPRINT = (
-    "8036fc0692eb0358f037adb2cf9e2b234db1f41a4586ca0162f4e52350cfa713"
+    "2bc35996b21de6529ffffab63446c8bd7295c388e841a2807101d189eaf7da01"
 )
 
 # Values that were published but are not reproducible from the recorded set. They must
@@ -196,14 +201,18 @@ CANONICAL_IDS_FINGERPRINT = (
 # `a59453b8…`/`9a35c812…` were never derivable by any convention. `4d84e7eb…`/
 # `da2ec262…` *were* reproducible, but only in a clone that contained the PR-head
 # revision `7d79f38…` — i.e. the value encoded clone depth, not the repository's debt.
-# Both pairs are superseded by the clone-depth-stable canonical value above.
+# `a578a766…`/`8036fc06…` were the canonical pair for the 20-node recorded set before
+# the two archived-surface nodes were retired. All three pairs are superseded by the
+# clone-depth-stable canonical value above.
 SUPERSEDED_OUTCOMES_FINGERPRINTS = (
     "a59453b8a1e5a02899f469cf6ea7db9b5eaae658050261e1405c394cb0f3cf6f",
     "4d84e7eb2524d4a5a952405f6df8017398ce21cca44aec6d04fbb523d577c6a7",
+    "a578a766c09c949c620c9d324248659812d215d3d1e875a0c25b42adb8912aa1",
 )
 SUPERSEDED_IDS_FINGERPRINTS = (
     "9a35c8122188e272ec5769d7a8f5cdba6160b4f2f1fba8a840019a487c1bcc22",
     "da2ec2620d09988e75702b6444ee8ee6ba5ded8bc067aac6c4e149245c27de71",
+    "8036fc0692eb0358f037adb2cf9e2b234db1f41a4586ca0162f4e52350cfa713",
 )
 
 # Documents that publish a baseline fingerprint and must agree with the canonical
@@ -220,8 +229,8 @@ FINGERPRINT_DOCS = [
 def test_live_node_set_reproduces_the_canonical_fingerprint():
     """The recorded baseline set must hash to the published canonical value."""
     outcomes, ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
-    assert len(ids) == 20
-    assert sum(1 for o in outcomes if o.startswith("FAILED")) == 19
+    assert len(ids) == 18
+    assert sum(1 for o in outcomes if o.startswith("FAILED")) == 17
     assert sum(1 for o in outcomes if o.startswith("ERROR")) == 1
     assert baseline_fingerprint.fingerprint(outcomes) == CANONICAL_OUTCOMES_FINGERPRINT
     assert baseline_fingerprint.fingerprint(ids) == CANONICAL_IDS_FINGERPRINT
