@@ -216,9 +216,11 @@ async def execute_bounded(
             acceptance=tuple(body.acceptance),
             requires_write=body.requires_write,
         )
-        session = get_runtime().get_session(session_id, user["uid"])
+        runtime = get_runtime()
+        session = runtime.get_session(session_id, user["uid"])
         policy = None
         if session.get("project_ref"):
+            _require_session_scoped_project_authorization(runtime, session, session_id, user["uid"])
             if body.requires_write or body.sandbox_root:
                 raise HTTPException(status_code=409, detail="Project canvas v0.1 is read-only; its sandbox root is server-managed")
             if any(operation.kind not in {"read", "list"} for operation in task.operations):
@@ -230,7 +232,7 @@ async def execute_bounded(
                 write_allowed=body.requires_write,
                 command_allowlist=tuple(body.command_allowlist),
             )
-        result = get_runtime().execute_bounded_task(
+        result = runtime.execute_bounded_task(
             subject_ref=user["uid"], session_id=session_id, task=task, sandbox_policy=policy
         )
         return result
@@ -432,6 +434,20 @@ async def pr_state(number: int) -> dict:
         return {"state": "UNAVAILABLE", "detail": str(exc), "pr": None}
 
 
+def _require_session_scoped_project_authorization(
+    runtime, session: dict, session_id: str, subject_uid: str
+) -> None:
+    """Project execution may use only an authorization bound to this exact session."""
+    if not session.get("project_ref"):
+        return
+    authorization_ref = session.get("authorization_ref")
+    if not authorization_ref:
+        raise HTTPException(status_code=403, detail="Project execution requires explicit session-scoped human authorization")
+    authorization = runtime.get_authorization(authorization_ref, subject_uid)
+    if not authorization or authorization.get("scope_ref") != session_id:
+        raise HTTPException(status_code=403, detail="Authorization scope does not match this project session")
+
+
 def _project_canvas_policy(session: dict, subject_uid: str) -> SandboxPolicy:
     """Resolve a project-owned snapshot; never accept a client-supplied root."""
     project_id = str(session.get("project_ref") or "")
@@ -500,6 +516,8 @@ async def run_agent_loop(
     try:
         runtime = get_runtime()
         session = runtime.get_session(session_id, user["uid"])
+        if session.get("project_ref"):
+            _require_session_scoped_project_authorization(runtime, session, session_id, user["uid"])
         policy = _project_canvas_policy(session, user["uid"]) if session.get("project_ref") else None
         result = runtime.execute_agent_loop(
             subject_ref=user["uid"],
