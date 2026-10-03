@@ -89,35 +89,42 @@ async def test_api_approval_does_not_create_enterprise_authorization_without_exp
     store = ew.EnterpriseOrchestrationStore()
     proposal = _proposal(store)
 
-    class NoEnterpriseBridgeTool:
-        def run(self, payload):
-            assert payload["proposal_id"] == proposal.id
-            return {"accepted": True}
-
-    monkeypatch.setattr(
-        "kernel.tools.get_tool",
-        lambda name: NoEnterpriseBridgeTool() if name == "enterprise_proposal_review" else None,
-    )
+    # The reconciled boundary (reconciliation/verified-boundary-01) moved
+    # authority from the route signature onto the authenticated principal and
+    # made it a precondition of the EdenOps approval itself. This test measures
+    # the same fact under that model: deciding an approval is a governance act,
+    # but it stays separate from the enterprise authorization record. The
+    # decision must come from a *distinct* principal (self-approval is refused),
+    # so the requester and the approver differ.
+    requester = {"uid": "requester", "role": "Guest", "access_level": 0}
+    approver = {"uid": "sovereign", "role": "Flamekeeper", "access_level": 0}
 
     approval_id = approvals.queue_approval(
         "enterprise_proposal_review",
         {"proposal_id": proposal.id},
         "Approve enterprise proposal",
+        subject_ref=requester["uid"],
     )
 
-    result = await approvals.api_approve(approval_id)
+    result = await approvals.api_approve(approval_id, user=approver)
 
     assert result["status"] == "approved"
     assert _count(db, "ew_authority_events") == 0
     assert _count(db, "ew_authorizations") == 0
 
     # Explicitly document the bridge boundary: EdenOps is the known path that
-    # creates the enterprise authority + authorization pair.
+    # creates the enterprise authority + authorization pair, and it requires
+    # the authenticated identity's governance authority.
     bridged = eden_ops.EdenOps(store=store).decide_proposal(
         subject="authorized-subject",
         proposal_id=proposal.id,
         action="APPROVE",
         actor="authorized-subject",
+        actor_identity={
+            "uid": "authorized-subject",
+            "role": "Flamekeeper",
+            "access_level": 0,
+        },
     )
     assert bridged["authorization"] is not None
     assert _count(db, "ew_authorizations") == 1

@@ -76,3 +76,10 @@ uvicorn[standard]
 # divergence. Declared explicitly so the dependency is a contract, not a
 # coincidence of the dependency graph.
 cryptography
+
+# pytest-asyncio drives the async test modules (e.g. the API→enterprise
+# authorization boundary in tests/test_authority_api_enterprise_boundary.py).
+# CI installs pytest but not this plugin, so an async test collected without it
+# is never awaited and asserts nothing -- a test that cannot fail is not
+# coverage. Declared explicitly so the async boundary is actually exercised.
+pytest-asyncio
