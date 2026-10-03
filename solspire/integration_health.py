@@ -128,6 +128,7 @@ def project_integration_health(*, subject_uid: str, project: dict[str, Any]) -> 
     image_pinned = len(image_digest) == 64 and all(ch in "0123456789abcdef" for ch in image_digest.lower())
     runtime_live = False
     image_present = False
+    smoke_test_passed = False
     runtime_error = None
     if runtime and image_pinned:
         try:
@@ -143,15 +144,26 @@ def project_integration_health(*, subject_uid: str, project: dict[str, Any]) -> 
                 image_present = inspected.returncode == 0
                 if not image_present:
                     runtime_error = (inspected.stderr or inspected.stdout or "configured image not present")[:500]
+                else:
+                    smoke = subprocess.run(
+                        [runtime, "run", "--rm", "--network=none", "--read-only",
+                         "--cap-drop=ALL", "--security-opt=no-new-privileges:true",
+                         "--pids-limit", "16", "--memory", "64m", "--cpus", "0.25",
+                         "--user", "65532:65532", "--entrypoint", "/bin/true", image],
+                        shell=False, capture_output=True, text=True, timeout=10, check=False,
+                    )
+                    smoke_test_passed = smoke.returncode == 0
+                    if not smoke_test_passed:
+                        runtime_error = (smoke.stderr or smoke.stdout or "isolated container smoke test failed")[:500]
         except Exception as exc:
             runtime_error = f"{type(exc).__name__}: {exc}"
-    ready = bool(runtime and image_pinned and runtime_live and image_present)
+    ready = bool(runtime and image_pinned and runtime_live and image_present and smoke_test_passed)
     results["isolated_execution"] = {
         "capability": "isolated_execution",
         "state": "AVAILABLE" if ready else "UNAVAILABLE",
         "detail": {"runtime_found": bool(runtime), "runtime_live": runtime_live,
                    "image_digest_pinned": image_pinned, "image_present": image_present,
-                   "runtime_name": runtime_name,
+                   "smoke_test_passed": smoke_test_passed, "runtime_name": runtime_name,
                    "reason": None if ready else runtime_error or
                    "container runtime, live daemon, immutable image digest, or local image is missing"},
     }
