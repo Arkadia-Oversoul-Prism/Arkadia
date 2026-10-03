@@ -51,3 +51,46 @@ def test_snapshot_refresh_removes_stale_files(monkeypatch, tmp_path):
     assert second["root"] == first["root"]
     assert not (root / "one.txt").exists()
     assert (root / "two.txt").read_text() == "two"
+
+def test_existing_lab_session_schema_migrates_project_ref_additively(monkeypatch, tmp_path):
+    import sqlite3
+
+    from lab.engineering_lab import store as store_module
+    from lab.engineering_lab.models import AgentSession
+
+    database = tmp_path / "lab.sqlite"
+    connection = sqlite3.connect(database)
+    connection.execute(
+        """CREATE TABLE el_sessions (
+            session_id TEXT PRIMARY KEY,
+            subject_ref TEXT NOT NULL,
+            workspace_ref TEXT NOT NULL,
+            agent_id TEXT NOT NULL,
+            state TEXT NOT NULL,
+            objective TEXT NOT NULL DEFAULT '',
+            repository_ref TEXT,
+            authorization_ref TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )"""
+    )
+    connection.commit()
+    connection.close()
+    monkeypatch.setattr(store_module, "_DB_PATH", str(database))
+
+    store = store_module.EngineeringLabStore()
+    assert store.list_sessions("subject-a") == []
+    session = AgentSession(
+        session_id="SES-project-test",
+        subject_ref="subject-a",
+        workspace_ref="workspace-a",
+        agent_id="AGT-project-test",
+        state="PROPOSED",
+        objective="inspect project files",
+        project_ref="project-a",
+    )
+    store.create_session(session)
+
+    stored = store.get_session("SES-project-test", "subject-a")
+    assert stored is not None
+    assert stored["project_ref"] == "project-a"
