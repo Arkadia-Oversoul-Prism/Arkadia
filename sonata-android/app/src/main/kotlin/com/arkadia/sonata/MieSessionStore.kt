@@ -29,6 +29,14 @@ class MieSessionStore(context: Context) {
         save()
     }
 
+    fun updateCapture(objectModel: MieMusicalObject) {
+        val index = session.captures.indexOfFirst { it.id == objectModel.id }
+        if (index >= 0) {
+            session.captures[index] = objectModel
+            save()
+        }
+    }
+
     fun save() {
         val captures = JSONArray()
         session.captures.forEach { captures.put(JSONObject(it.toJson())) }
@@ -65,7 +73,8 @@ class MieSessionStore(context: Context) {
                     detectedMidi = interpretation.optDouble("detected_midi", Double.NaN).let { if (it.isNaN()) null else it.toFloat() },
                     createdAtEpochMs = provenance.optLong("created_at_epoch_ms", System.currentTimeMillis()),
                     parentId = provenance.optString("parent_id").takeIf { it.isNotBlank() && it != "null" },
-                    transformation = provenance.optString("transformation").takeIf { it.isNotBlank() && it != "null" }
+                    transformation = provenance.optString("transformation").takeIf { it.isNotBlank() && it != "null" },
+                    loopDecision = provenance.optString("loop_decision").takeIf { it.isNotBlank() && it != "null" }
                 )
             }
             MieSession(
