@@ -139,14 +139,14 @@ class MainActivity:AppCompatActivity(){
             card.addView(TextView(this).apply{text=obj.type+"  •  "+obj.state;setTextColor(getColor(R.color.arkadia_accent));textSize=11f})
             card.addView(TextView(this).apply{text=obj.title;setTextColor(getColor(R.color.arkadia_text));textSize=18f;setTypeface(typeface,android.graphics.Typeface.BOLD)})
             card.addView(TextView(this).apply{text=obj.summary;setTextColor(getColor(R.color.arkadia_muted));textSize=13f;setPadding(0,6,0,0)})
-            if(currentMode=="DEEP") card.addView(TextView(this).apply{text="SOURCE  "+obj.source+"\\nID  "+obj.id;setTextColor(getColor(R.color.arkadia_muted));textSize=11f;setPadding(0,8,0,0)})
+            if(currentMode=="DEEP") card.addView(TextView(this).apply{text="SOURCE  "+obj.source+"\nID  "+obj.id;setTextColor(getColor(R.color.arkadia_muted));textSize=11f;setPadding(0,8,0,0)})
             card.alpha=when{currentMode=="FIELD"->1f;selected?.id==obj.id->1f;currentMode=="FOCUS"->0.28f;else->0.14f}
             card.setOnClickListener{focus(obj)}
             objectList.addView(card,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,0,0,10)})
         }
         selected?.let{focus(it)}?:run{detailType.text="FIELD";detailTitle.text="Nothing selected";detailSummary.text="Tap an object to enter FOCUS. DEEP keeps canonical source and state visible.";detailState.text="CAN ≠ MAY ≠ DID";actionRow.removeAllViews()}
     }
-    private fun focus(obj:FieldObject){selected=obj;detailType.text=obj.type+"  •  "+obj.source;detailTitle.text=obj.title;detailSummary.text=if(currentMode=="DEEP") obj.summary+"\\n\\nCANONICAL SOURCE: "+obj.source+"\\nOBJECT ID: "+obj.id else obj.summary;detailState.text="STATE: "+obj.state+"\nCAN ≠ MAY ≠ DID\n"+if(obj.authorizationId!=null)"AUTHORIZATION: "+obj.authorizationId else "AUTHORIZATION: NONE";actionRow.removeAllViews()
+    private fun focus(obj:FieldObject){selected=obj;detailType.text=obj.type+"  •  "+obj.source;detailTitle.text=obj.title;detailSummary.text=if(currentMode=="DEEP") obj.summary+"\n\nCANONICAL SOURCE: "+obj.source+"\nOBJECT ID: "+obj.id else obj.summary;detailState.text="STATE: "+obj.state+"\nCAN ≠ MAY ≠ DID\n"+if(obj.authorizationId!=null)"AUTHORIZATION: "+obj.authorizationId else "AUTHORIZATION: NONE";actionRow.removeAllViews()
         if(obj.type=="PROPOSAL"){
             if(obj.state=="ACCEPTED" && obj.authorizationId==null) addAction("AUTHORIZE"){authorize(obj.id)}
             else if(obj.authorizationId==null) addAction("ACCEPT"){decide(obj.id,"ACCEPTED")}
@@ -186,7 +186,7 @@ class MainActivity:AppCompatActivity(){
         val evidence=response.optJSONObject("evidence")
         val evidenceId=evidence?.optString("id").orEmpty()
         val observed=execution?.optString("observed").orEmpty().ifBlank{execution?.toString().orEmpty()}
-        val message="Execution: "+(execution?.optString("status")?:"UNKNOWN")+"\\n\\nObserved evidence:\\n"+observed+"\\n\\nEvidence ID: "+evidenceId
+        val message="Execution: "+(execution?.optString("status")?:"UNKNOWN")+"\n\nObserved evidence:\n"+observed+"\n\nEvidence ID: "+evidenceId
         val dialog=AlertDialog.Builder(this).setTitle("Evidence inspector").setMessage(message)
             .setNegativeButton("Close",null)
         if(evidenceId.isNotBlank()) dialog.setPositiveButton("VERIFY"){_,_->verifyDialog(evidenceId,obj)}
@@ -293,4 +293,5 @@ class MainActivity:AppCompatActivity(){
         findViewById<Button>(R.id.deepButton).text=if(currentMode=="DEEP")"• DEEP" else "DEEP"
         render()
     }
-}}
+}
+}
