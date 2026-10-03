@@ -55,7 +55,7 @@ An OCI container is not a virtual machine and does not defend against a compromi
 
 ## Verification
 
-Tests cover argv hardening, no-host-fallback behavior, digest pinning, exact patch digest approval, canonical base freshness, atomic canonical file updates, WorkEvent evidence, candidate-only workspace diffs, explicit Living Larder binding, and integration-health truthfulness. A live OCI acceptance test is included and runs only when a container runtime and `SOLSPIRE_TEST_AGENT_IMAGE` pinned by SHA-256 are configured.
+Tests cover argv hardening, no-host-fallback behavior, digest pinning, exact patch digest approval, canonical base freshness, atomic canonical file updates, WorkEvent evidence, candidate-only workspace diffs, explicit Living Larder binding, and integration-health truthfulness. A live OCI acceptance test is included and uses a SHA-256-pinned minimal BusyBox image by default (overridable with `SOLSPIRE_TEST_AGENT_IMAGE`). It skips only when a Docker-compatible runtime is unavailable.
 
 ## Current limitations
 
