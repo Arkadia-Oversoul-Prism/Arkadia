@@ -8,7 +8,7 @@ interface ProjectTemplate {
   description: string;
   default_name: string;
   version: string;
-  capabilities: string[];
+  capability_targets: string[];
   domain_module: string | null;
   domain_status: string;
 }
