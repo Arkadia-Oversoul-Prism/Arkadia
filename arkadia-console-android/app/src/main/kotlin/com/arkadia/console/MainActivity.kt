@@ -141,7 +141,7 @@ class MainActivity:AppCompatActivity(){
             card.addView(TextView(this).apply{text=obj.summary;setTextColor(getColor(R.color.arkadia_muted));textSize=13f;setPadding(0,6,0,0)})
             if(currentMode=="DEEP") card.addView(TextView(this).apply{text="SOURCE  "+obj.source+"\nID  "+obj.id;setTextColor(getColor(R.color.arkadia_muted));textSize=11f;setPadding(0,8,0,0)})
             card.alpha=when{currentMode=="FIELD"->1f;selected?.id==obj.id->1f;currentMode=="FOCUS"->0.28f;else->0.14f}
-            card.setOnClickListener{focus(obj)}
+            card.setOnClickListener{focus(obj);if(currentMode!="FIELD")render()}
             objectList.addView(card,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,0,0,10)})
         }
         selected?.let{focus(it)}?:run{detailType.text="FIELD";detailTitle.text="Nothing selected";detailSummary.text="Tap an object to enter FOCUS. DEEP keeps canonical source and state visible.";detailState.text="CAN ≠ MAY ≠ DID";actionRow.removeAllViews()}
