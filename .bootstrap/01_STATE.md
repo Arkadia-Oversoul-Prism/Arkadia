@@ -104,6 +104,20 @@ Spiral Grove registry declaration-order vs topological-order contract; baseline 
   > The recorded set now excludes that node (20 nodes) and the values above are stable
   > across clone depths. All three earlier pairs (`a59453b8…`, `9a35c812…`, `4d84e7eb…`,
   > `da2ec262…`) are superseded and must not be republished.
+  > **Correction 2026-10-02** (`gate-hygiene/superseded-fingerprint-origin-01`). The claim
+  > above that `a59453b8…` / `9a35c812…` are "not reproducible by any convention" is
+  > **wrong**. They reproduce exactly as the recorded 20-node set **plus** the
+  > depth-dependent *sibling* node
+  > `test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec` — i.e. a bare CI clone's
+  > live run. Both values remain **superseded** (the sibling's outcome depends on whether the
+  > clone carries `7d79f38…`, so the pair is clone-depth dependent and must not be
+  > republished), but their origin is now **explained**, not UNKNOWN. Measured on
+  > `162f574b05`: a bare clone's live 21-node run hashes to `a59453b8…` / `9a35c812…`, and the
+  > recorded set plus the sibling reproduces both byte-exactly.
+  > `tests/test_baseline_fingerprint.py` now proves this
+  > (`test_superseded_values_are_the_recorded_set_plus_its_sibling`), so the explanation cannot
+  > silently regress. Evidence:
+  > `docs/control-plane/evidence/gate-hygiene-superseded-fingerprint-origin-01/`.
   > `tests/test_baseline_fingerprint.py` now runs the recorded node set through the
   > extractor and requires every document that publishes a fingerprint to carry the
   > canonical value, with a negative control proving the superseded values do not
