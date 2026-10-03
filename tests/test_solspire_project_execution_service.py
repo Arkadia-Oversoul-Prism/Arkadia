@@ -43,3 +43,66 @@ def test_actual_oci_runtime_hardens_process_and_mount(tmp_path):
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip().splitlines()[0] == "65532"
     assert (tmp_path / "runtime-probe").is_file()
+
+
+def test_reviewed_patch_updates_canonical_store_and_records_workevent(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from solspire import project_store
+    from solspire.project_execution_service import (
+        apply_reviewed_project_patch, canonical_base_digest,
+    )
+
+    monkeypatch.setattr(project_store, "_DB_PATH", str(tmp_path / "projects.db"))
+    file_row = project_store.create_file("project-1", "README.md", "before")
+    base = canonical_base_digest("project-1")
+    changes = [{"path": "README.md", "content": "after"}]
+    digest = candidate_patch_digest(changes)
+    captured = {}
+
+    class WorkspaceManager:
+        def get_for_subject(self, uid):
+            return SimpleNamespace(id="workspace-owner")
+
+    class WorkEventManager:
+        def create(self, **kwargs):
+            captured.update(kwargs)
+            return SimpleNamespace(to_dict=lambda: {"event_type": kwargs["event_type"],
+                                                    "actor_ref": kwargs["actor_ref"]})
+
+    monkeypatch.setattr("solspire.workspace_manager.get_workspace_manager", lambda: WorkspaceManager())
+    monkeypatch.setattr("solspire.workevent_manager.get_workevent_manager", lambda: WorkEventManager())
+    result = apply_reviewed_project_patch(
+        subject_uid="owner-1", project_id="project-1",
+        expected_base_digest=base, approved_patch_digest=digest,
+        changes=changes, allowed_paths=["README.md"],
+    )
+    assert project_store.get_file(file_row["id"])["content"] == "after"
+    assert result["approved_by"] == "owner-1"
+    assert result["work_event"]["event_type"] == "PROJECT_PATCH_APPLIED"
+    assert captured["witness_ref"] == f"sha256:{digest}"
+
+
+def test_reviewed_patch_rejects_digest_mismatch_before_canonical_write(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from solspire import project_store
+    from solspire.project_execution_service import (
+        apply_reviewed_project_patch, canonical_base_digest,
+    )
+
+    monkeypatch.setattr(project_store, "_DB_PATH", str(tmp_path / "projects.db"))
+    file_row = project_store.create_file("project-2", "README.md", "before")
+
+    class WorkspaceManager:
+        def get_for_subject(self, uid):
+            return SimpleNamespace(id="workspace-owner")
+
+    monkeypatch.setattr("solspire.workspace_manager.get_workspace_manager", lambda: WorkspaceManager())
+    with pytest.raises(BoundaryError, match="exact candidate patch digest"):
+        apply_reviewed_project_patch(
+            subject_uid="owner-1", project_id="project-2",
+            expected_base_digest=canonical_base_digest("project-2"),
+            approved_patch_digest="wrong",
+            changes=[{"path": "README.md", "content": "after"}],
+            allowed_paths=["README.md"],
+        )
+    assert project_store.get_file(file_row["id"])["content"] == "before"
