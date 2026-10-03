@@ -110,10 +110,11 @@ reconciliation, NovaNet sample-data removal.
 
 Re-measured 2026-10-02 on `main` @ `64cbe74`:
 
-- Full suite: **20 failed / 1240 passed / 17 skipped / 1 error** in a clone that carries the
-  pinned PR-head revision `7d79f38…`; **19 failed / 1 error** (20 nodes) in a plain CI
-  checkout, because `test_gate2_parent_agents_md_repair_is_byte_identical_to_the_pipeline`
-  skips there. The clone-depth-stable recorded set is **20 nodes**
+- Full suite: **18 failed / 1304 passed / 18 skipped / 1 error** — re-measured 2026-10-03 on
+  `gate-hygiene/stale-gate-fixture-retirement-01` (main `162f574`). A plain CI checkout
+  reports **19 failing/error nodes** (the recorded set plus the clone-depth-dependent
+  sibling `test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec`); the
+  clone-depth-stable recorded set is **18 nodes**
   (`tests/fixtures/baseline_node_set.txt`).
 - Fingerprint `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
   `a578a766c09c949c620c9d324248659812d215d3d1e875a0c25b42adb8912aa1`

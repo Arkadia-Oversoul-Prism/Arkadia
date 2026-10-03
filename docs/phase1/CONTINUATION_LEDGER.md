@@ -1763,15 +1763,20 @@ or mutation-path surface was touched.
 - Full suite (`PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q
   --continue-on-collection-errors`) → **20 failed / 1240 passed / 17 skipped / 1 error**
   (21 failing/error nodes) — **identical to the baseline recorded at pass start**.
+  > **Superseded 2026-10-03** (`gate-hygiene/stale-gate-fixture-retirement-01`): the two
+  > archived-surface gate nodes were retired, so the recorded set is 18 nodes and the
+  > canonical pair is `6c7bf821…` / `2bc35996…`. The counts above describe the superseded
+  > 20-node set.
 - Baseline fingerprint independently reproduced from the measured node list:
   `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `a578a766c09c949c620c9d324248659812d215d3d1e875a0c25b42adb8912aa1`
+  `6c7bf8218fd1e0ae9bc970653e98c18b3a78b69a5c4920dac9f4747c033e4648`
   > **Correction 2026-10-02**: the `a59453b8…` recorded here was **not reproducible** —
   > neither by the derivation printed beside it nor by `scripts/baseline_fingerprint.py`.
   > The first reconciliation pass published `4d84e7eb…`, which reproduced only in a clone
   > containing the PR-head revision `7d79f38…` (the recorded set held a node that skips
   > without it), so it encoded clone depth rather than debt. The recorded set now excludes
-  > that node and the canonical value is `a578a766…` (node set `8036fc06…`). See
+  > that node; the canonical value is now `6c7bf821…` (node set `2bc35996…`), superseding
+  > `a578a766…`/`8036fc06…` after the archived-surface nodes were retired. See
   > `docs/control-plane/evidence/gate-hygiene-baseline-fingerprint-reconciliation-01/`.
   > **Correction 2, same date**: "not reproducible" above is itself wrong for `a59453b8…`.
   > It reproduces exactly as the recorded set **plus** the depth-dependent *sibling*

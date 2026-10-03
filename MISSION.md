@@ -177,9 +177,11 @@ If any were introduced by this checkpoint: resolve them or record them explicitl
 ## Repository Health (re-measured 2026-10-02, `main` @ `64cbe74`)
 
 - Architecture fitness tests: **11/11**
-- Full suite: **20 failed / 1240 passed / 17 skipped / 1 error** in a clone that carries the
-  pinned PR-head revision `7d79f38…`; **19 failed / 1 error** (20 nodes) in a plain CI
-  checkout. The clone-depth-stable recorded set is **20 nodes**
+- Full suite: **18 failed / 1304 passed / 18 skipped / 1 error** — re-measured 2026-10-03 on
+  `gate-hygiene/stale-gate-fixture-retirement-01` (main `162f574`). A plain CI checkout
+  reports **19 failing/error nodes** (the recorded set plus the clone-depth-dependent
+  sibling `test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec`); the
+  clone-depth-stable recorded set is **18 nodes**
   (`tests/fixtures/baseline_node_set.txt`).
   Classified baseline debt — not attributable to new work unless the node *set* changes.
 - Baseline fingerprint:

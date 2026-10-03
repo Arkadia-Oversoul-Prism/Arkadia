@@ -175,6 +175,33 @@ def test_non_outcome_lines_are_ignored(tmp_path, line):
 
 LIVE_NODE_SET = REPO_ROOT / "tests" / "fixtures" / "baseline_node_set.txt"
 
+# The recorded set *before* `gate-hygiene/stale-gate-fixture-retirement-01` retired the two
+# nodes asserting the archived root `gate/` + `index.html` surface. `a59453b8…`/`9a35c812…`
+# are this set plus the depth-dependent sibling below — they are not "unreproducible", and
+# keeping the era-correct set lets the origin stay proved after the retirement.
+SUPERSEDED_NODE_SET = (
+    REPO_ROOT / "tests" / "fixtures" / "superseded_baseline_node_set.txt"
+)
+
+# The two nodes retired by `gate-hygiene/stale-gate-fixture-retirement-01`. They asserted a
+# root `gate/` directory and root `index.html` redirect that `f6718b9` / `377cdb3` archived
+# (the surface survives only under `archive/legacy_frontend/gate/`). The guard below fails if
+# either re-enters the recorded set, so a future merge cannot silently restore the stale
+# expectation while the fixture stays trimmed.
+RETIRED_NODES = (
+    "tests/test_gate_serve_script.py::test_root_index_redirect_and_script_exists",
+    "tests/test_gate_status.py::test_gate_files_and_fetch_handling",
+)
+
+# The *sibling* depth-dependent node. It dereferences the `GATE2_PARENT_REV` read
+# unconditionally, so it crashes (AttributeError) instead of skipping when `7d79f38…` is
+# absent. It is likewise excluded from the recorded set — a live CI-shaped run reports it,
+# so the recorded set is the *stable* debt, one node short of a bare clone's live run.
+CLONE_DEPENDENT_SIBLING_NODE = (
+    "tests/test_agents_md_encoding_adjudication.py"
+    "::test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec"
+)
+
 # A node whose outcome depends on whether this clone contains the PR-head revision
 # pinned by `tests/test_agents_md_encoding_adjudication.py` (`GATE2_PARENT_REV`). It
 # is *not* part of the recorded set: including it made the fingerprint a function of
@@ -195,11 +222,16 @@ CLONE_DEPENDENT_SIBLING_NODE = (
 )
 
 # Canonical values: `scripts/baseline_fingerprint.py` run on LIVE_NODE_SET.
+# Superseded 2026-10-03 by `gate-hygiene/stale-gate-fixture-retirement-01`, which
+# retired the two nodes asserting the archived root `gate/` + `index.html` surface
+# (removed from the tree by `f6718b9` / `377cdb3`, present only under
+# `archive/legacy_frontend/gate/`). The recorded set is now 18 nodes. The previous
+# pair is retained in SUPERSEDED_* below.
 CANONICAL_OUTCOMES_FINGERPRINT = (
-    "a578a766c09c949c620c9d324248659812d215d3d1e875a0c25b42adb8912aa1"
+    "6c7bf8218fd1e0ae9bc970653e98c18b3a78b69a5c4920dac9f4747c033e4648"
 )
 CANONICAL_IDS_FINGERPRINT = (
-    "8036fc0692eb0358f037adb2cf9e2b234db1f41a4586ca0162f4e52350cfa713"
+    "2bc35996b21de6529ffffab63446c8bd7295c388e841a2807101d189eaf7da01"
 )
 
 # Values that were published but do not describe the recorded set. They must not reappear
@@ -215,10 +247,12 @@ CANONICAL_IDS_FINGERPRINT = (
 SUPERSEDED_OUTCOMES_FINGERPRINTS = (
     "a59453b8a1e5a02899f469cf6ea7db9b5eaae658050261e1405c394cb0f3cf6f",
     "4d84e7eb2524d4a5a952405f6df8017398ce21cca44aec6d04fbb523d577c6a7",
+    "a578a766c09c949c620c9d324248659812d215d3d1e875a0c25b42adb8912aa1",
 )
 SUPERSEDED_IDS_FINGERPRINTS = (
     "9a35c8122188e272ec5769d7a8f5cdba6160b4f2f1fba8a840019a487c1bcc22",
     "da2ec2620d09988e75702b6444ee8ee6ba5ded8bc067aac6c4e149245c27de71",
+    "8036fc0692eb0358f037adb2cf9e2b234db1f41a4586ca0162f4e52350cfa713",
 )
 
 # Documents that publish a baseline fingerprint and must agree with the canonical
@@ -235,8 +269,8 @@ FINGERPRINT_DOCS = [
 def test_live_node_set_reproduces_the_canonical_fingerprint():
     """The recorded baseline set must hash to the published canonical value."""
     outcomes, ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
-    assert len(ids) == 20
-    assert sum(1 for o in outcomes if o.startswith("FAILED")) == 19
+    assert len(ids) == 18
+    assert sum(1 for o in outcomes if o.startswith("FAILED")) == 17
     assert sum(1 for o in outcomes if o.startswith("ERROR")) == 1
     assert baseline_fingerprint.fingerprint(outcomes) == CANONICAL_OUTCOMES_FINGERPRINT
     assert baseline_fingerprint.fingerprint(ids) == CANONICAL_IDS_FINGERPRINT

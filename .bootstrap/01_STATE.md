@@ -74,10 +74,13 @@ Spiral Grove registry declaration-order vs topological-order contract; baseline 
 ## Repository Health
 - Architecture fitness tests: **11/11**
 - Full suite (`PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q
-  --continue-on-collection-errors`): **20 failed / 1242 passed / 17 skipped / 1 error**
-  (21 failing/error nodes in a clone carrying `7d79f38…`; 20 nodes — `19 failed / 1 error` —
-  in a plain CI checkout, where `test_gate2_parent_agents_md_repair_is_byte_identical_to_the_pipeline`
-  skips) — re-measured 2026-10-02 on `main` @ `702b63ae`.
+  --continue-on-collection-errors`): **18 failed / 1304 passed / 18 skipped / 1 error** —
+  re-measured 2026-10-03 on `gate-hygiene/stale-gate-fixture-retirement-01` (main
+  `162f574`), after retiring the two archived-surface gate nodes. A plain CI checkout
+  reports **19 failing/error nodes**: the recorded 18-node set plus the
+  clone-depth-dependent sibling
+  `test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec`, which errors when the
+  PR-head revision `7d79f38…` is absent.
   Classified baseline debt — see
   `docs/control-plane/evidence/gate-hygiene-baseline-test-debt-classification-01/`.
   The 49 → 20 failure reduction since `a26af408` is fully explained by the merged SH-02
@@ -86,10 +89,10 @@ Spiral Grove registry declaration-order vs topological-order contract; baseline 
   `python scripts/baseline_fingerprint.py <pytest log>` prints both values below and is
   covered by `tests/test_baseline_fingerprint.py`.
   - outcomes (canonical): `sha256("\n".join(sorted("FAILED|ERROR <nodeid>")) + "\n")` =
-    `a578a766c09c949c620c9d324248659812d215d3d1e875a0c25b42adb8912aa1`
+    `6c7bf8218fd1e0ae9bc970653e98c18b3a78b69a5c4920dac9f4747c033e4648`
   - node set: `sha256("\n".join(sorted("<nodeid>")) + "\n")` =
-    `8036fc0692eb0358f037adb2cf9e2b234db1f41a4586ca0162f4e52350cfa713`
-  - The recorded node set is `tests/fixtures/baseline_node_set.txt` (20 nodes); the two
+    `2bc35996b21de6529ffffab63446c8bd7295c388e841a2807101d189eaf7da01`
+  - The recorded node set is `tests/fixtures/baseline_node_set.txt` (18 nodes); the two
     values above are what the script prints for it.
   > **Correction 2026-10-02** (`gate-hygiene/baseline-fingerprint-reconciliation-01`).
   > `gate-hygiene/baseline-fingerprint-reproducibility-01` (PR #203) set out to make the
@@ -101,7 +104,7 @@ Spiral Grove registry declaration-order vs topological-order contract; baseline 
   > is absent (`test_gate2_parent_agents_md_repair_is_byte_identical_to_the_pipeline`). The
   > value therefore encoded **clone depth**, not the repository's debt, and a CI checkout —
   > which does not fetch PR-head revisions — derived the older, differently-shaped set.
-  > The recorded set now excludes that node (20 nodes) and the values above are stable
+  > The recorded set now excludes that node (18 nodes) and the values above are stable
   > across clone depths. All three earlier pairs (`a59453b8…`, `9a35c812…`, `4d84e7eb…`,
   > `da2ec262…`) are superseded and must not be republished.
   > **Correction 2026-10-02** (`gate-hygiene/superseded-fingerprint-origin-01`). The claim
@@ -122,10 +125,14 @@ Spiral Grove registry declaration-order vs topological-order contract; baseline 
   > extractor and requires every document that publishes a fingerprint to carry the
   > canonical value, with a negative control proving the superseded values do not
   > reproduce, and a guard that the clone-depth-dependent node never re-enters the set.
+  > **Superseded 2026-10-03** (`gate-hygiene/stale-gate-fixture-retirement-01`): the two
+  > nodes asserting the root `gate/` + `index.html` surface (archived by `f6718b9`) were
+  > retired, so the recorded set is 18 nodes and the canonical pair is
+  > `6c7bf821…` / `2bc35996…`.
   > Evidence:
   > `docs/control-plane/evidence/gate-hygiene-baseline-fingerprint-reconciliation-01/`.
   > **No regression.** The clone-depth-stable failing/error node set is unchanged at
-  > `2b167e4` — 20 nodes, `19 failed / 1 error` — with the pinned PR-head revision present
+  > `2b167e4` — 18 nodes, `17 failed / 1 error` — with the pinned PR-head revision present
   > and absent alike; the one node that moved between the two clones is the depth-dependent
   > node now excluded from the recorded set. The passed count moves between runs of the
   > *same* tree because
