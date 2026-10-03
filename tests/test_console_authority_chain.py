@@ -8,6 +8,7 @@ def test_console_authorization_creates_canonical_chain(tmp_path, monkeypatch):
     import solspire.workspace_manager as wm
     import weaver.enterprise_orchestration as ew
     from solspire.console_authority_router import authorize_proposal, AuthorizationRequest
+    from weaver.console_adapter import WeaverConsoleAdapter
 
     db = str(tmp_path / "console.db")
     monkeypatch.setattr(pm, "_DB_PATH", db)
@@ -32,7 +33,10 @@ def test_console_authorization_creates_canonical_chain(tmp_path, monkeypatch):
     result = asyncio.run(
         authorize_proposal(
             proposal.proposal_id,
-            AuthorizationRequest(scope={"objective": proposal.objective}),
+            AuthorizationRequest(
+                scope={"tools": ["filesystem.list"]},
+                constraints={"read_only": True, "repository_root": str(tmp_path), "network": False},
+            ),
             user={"uid": subject, "role": "Flamekeeper", "access_level": 1},
         )
     )
@@ -70,3 +74,47 @@ def test_console_authorization_creates_canonical_chain(tmp_path, monkeypatch):
     assert attempt.result_status == "ATTEMPTED"
     assert evidence.execution_attempt_id == attempt.id
     assert verification.evidence_refs == [evidence.id]
+
+
+def test_console_authorized_tool_dispatch_records_automatic_evidence(tmp_path, monkeypatch):
+    import solspire.workspace_manager as wm
+    import weaver.enterprise_orchestration as ew
+    from weaver.console_adapter import WeaverConsoleAdapter
+
+    db = str(tmp_path / "dispatch.db")
+    monkeypatch.setattr(wm, "_DB_PATH", db)
+    monkeypatch.setattr(ew, "_DB_PATH", db)
+    store = ew.EnterpriseOrchestrationStore()
+    proposal = store.proposal(
+        subject="firebase-uid-dispatch", enterprise_id="workspace-1",
+        objective="Inspect bounded workspace", rationale="Console proof",
+        recommended_actions=["list"], required_authority="human",
+        tool_selections=["filesystem.list"], correlation_id="console-dispatch-1",
+    )
+    hae = store.authority_event(
+        subject="firebase-uid-dispatch", actor="firebase-uid-dispatch",
+        authority_context="workspace-1", action="APPROVE_PROPOSAL",
+        previous_state="AWAITING_AUTHORITY", new_state="AUTHORIZED", origin="human",
+        authentication_context="firebase_id_token", correlation_id=proposal.correlation_id,
+    )
+    auth = store.authorize(
+        subject="firebase-uid-dispatch", proposal_id=proposal.id,
+        authority_event_id=hae.id, scope={"tools": ["filesystem.list"]},
+        constraints={"read_only": True, "repository_root": str(tmp_path), "network": False},
+    )
+    attempt = store.execution_attempt(
+        subject="firebase-uid-dispatch", authorization_id=auth.id,
+        tool_channel="filesystem.list", request_payload={"path": "."},
+    )
+    result = WeaverConsoleAdapter(store=store, repo_root=str(tmp_path)).dispatch(
+        subject="firebase-uid-dispatch", authorization_id=auth.id,
+        execution_attempt_id=attempt.id, tool_channel="filesystem.list",
+        request_payload={"path": "."},
+    )
+    assert result["ok"] is True
+    assert result["evidence"]["execution_attempt_id"] == attempt.id
+    completed = store.complete_execution_attempt(
+        subject="firebase-uid-dispatch", execution_attempt_id=attempt.id,
+        result_status="SUCCEEDED",
+    )
+    assert completed.result_status == "SUCCEEDED"
