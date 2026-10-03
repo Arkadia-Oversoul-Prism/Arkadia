@@ -22,6 +22,7 @@ Design invariants:
 
 from __future__ import annotations
 
+import hashlib
 import os
 import subprocess
 from dataclasses import dataclass, field
@@ -279,6 +280,32 @@ class Sandbox:
         text = path.read_text(encoding="utf-8", errors="replace")
         self._record("read", rel, True, {"bytes": len(text)})
         return text
+
+    def propose_edit(self, rel: str, content: str, *, rationale: str = "") -> dict[str, Any]:
+        """Return a candidate replacement without modifying even the disposable file."""
+        self._check_write_allowed(rel)
+        path = self._resolve(rel)
+        if not path.is_file():
+            self._record("propose_edit", rel, False, {"reason": "existing_file_required"})
+            raise SandboxWriteDenied("candidate edits may target existing files only")
+        if not isinstance(content, str) or len(content.encode("utf-8")) > self.policy.max_file_bytes:
+            self._record("propose_edit", rel, False, {"reason": "content_invalid_or_too_large"})
+            raise SandboxWriteDenied("candidate content must be bounded UTF-8 text")
+        current = path.read_bytes()
+        proposal = {
+            "path": rel,
+            "content": content,
+            "rationale": rationale[:2000],
+            "base_file_digest": hashlib.sha256(current).hexdigest(),
+            "candidate_file_digest": hashlib.sha256(content.encode("utf-8")).hexdigest(),
+        }
+        self._record("propose_edit", rel, True, {
+            "base_file_digest": proposal["base_file_digest"],
+            "candidate_file_digest": proposal["candidate_file_digest"],
+            "bytes": len(content.encode("utf-8")),
+            "persistence": "NOT_APPLIED",
+        })
+        return proposal
 
     def list(self, rel: str = ".") -> list[dict[str, Any]]:
         path = self._resolve(rel)
