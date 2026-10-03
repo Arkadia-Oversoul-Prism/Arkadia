@@ -76,7 +76,7 @@ def build_container_argv(
         "--cap-drop=ALL", "--security-opt=no-new-privileges:true",
         "--pids-limit", str(pids_limit), "--memory", memory,
         "--cpus", cpus, "--user", "65532:65532",
-        "--mount", f"type=bind,src={root},dst=/workspace,rw",
+        "--mount", f"type=bind,src={root},dst=/workspace",
         "--workdir", container_workdir, "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
         image, *command,
     ]
