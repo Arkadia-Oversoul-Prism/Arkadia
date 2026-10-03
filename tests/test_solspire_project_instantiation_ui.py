@@ -27,6 +27,9 @@ def test_arkana_injects_bounded_project_context_and_scopes_threads():
     assert "unavailable_sources" in overlay
     assert "/solspire/projects/${pack.projectId}/tasks" in overlay
     assert "/solspire/projects/${pack.projectId}/memory" in overlay
+    assert "/solspire/projects/${pack.projectId}/workflows" in overlay
+    assert "/solspire/projects/${pack.projectId}/knowledge/graph" in overlay
+    assert "knowledge_graph" in source
     assert "Number(project.id)" not in overlay
 
 
