@@ -89,6 +89,7 @@ class SandboxPolicy:
     containerized: bool = False
     container_image: str | None = None
     container_runtime: str = "docker"
+    canonical_base_digest: str | None = None
 
 
 #: The closed set of binaries the L1 terminal capability may execute. Every
