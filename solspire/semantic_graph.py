@@ -86,6 +86,15 @@ def build_bounded_semantic_graph(project_id: str) -> dict[str, Any]:
                 "id": target, "type": "LivingLarderOrder", "label": order_id,
                 "classification": "SOURCE-BACKED",
             })
+            project_edge = (f"project:{project_id}", source, "HAS_EVENT")
+            if project_edge not in seen:
+                seen.add(project_edge)
+                edges.append({
+                    "from": f"project:{project_id}", "to": source, "type": "HAS_EVENT",
+                    "classification": "SOURCE-BACKED",
+                    "provenance": "project_store.events.project_id",
+                    "evidence_id": event_id,
+                })
             edge_key = (source, target, "BINDS")
             if edge_key not in seen:
                 seen.add(edge_key)
