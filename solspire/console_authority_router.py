@@ -244,6 +244,16 @@ async def sync_capture(
         digest = hashlib.sha256(raw).hexdigest()
         if digest != body.sha256:
             raise HTTPException(status_code=400, detail="capture digest mismatch")
+    safe_id = "".join(ch for ch in body.capture_id if ch.isalnum() or ch in "-_")[:80]
+    if not safe_id:
+        raise HTTPException(status_code=400, detail="capture_id required")
+    # A metadata-only capture (no bytes) is a device-local record: it must not
+    # claim server-side content.
+    artifact_ref = (
+        f"console-capture:{user['uid']}:{safe_id}"
+        if raw is not None
+        else f"device-local-capture:{user['uid']}:{safe_id}"
+    )
     workspace = get_workspace_manager().get_for_subject(user["uid"])
     if workspace is None:
         raise HTTPException(status_code=409, detail="Canonical workspace not found")
@@ -254,13 +264,13 @@ async def sync_capture(
         event_type="CONSOLE_CAPTURE",
         occurred_at=time(),
         actor_ref=user["uid"],
-        artifact_refs=[f"console-capture:{user['uid']}:{safe_id}" if raw is not None else f"device-local-capture:{user['uid']}:{safe_id}"],
+        artifact_refs=[artifact_ref],
         status="RECORDED",
     )
     return {
         "ok": True,
         "capture_id": safe_id,
-        "artifact_ref": f"console-capture:{user['uid']}:{safe_id}" if raw is not None else f"device-local-capture:{user['uid']}:{safe_id}",
+        "artifact_ref": artifact_ref,
         "work_event": event.to_dict(),
         "reconciled": True,
     }
