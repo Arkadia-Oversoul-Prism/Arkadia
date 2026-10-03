@@ -428,6 +428,89 @@ async def set_auto_fallback(body: SetFallbackRequest, user: dict = Depends(requi
     return {"ok": True, "auto_fallback": body.enabled}
 
 
+# ── Project runtime context -------------------------------------------------
+@router.get("/projects/{project_id}/runtime-context")
+async def project_runtime_context(
+    project_id: str,
+    user: dict = Depends(require_project_owner),
+) -> dict[str, Any]:
+    """Return the canonical, bounded control-plane context for a project.
+
+    This is a projection, not a second memory/event/task system. Project-owned
+    records come from project_store; Daily Pulse, Workload, and WorkEvents are
+    reported from their existing SolSpire spines with their actual binding
+    state. Missing project bindings remain UNKNOWN instead of being inferred.
+    """
+    from datetime import datetime, timezone
+    from solspire.project_manager import get_project_manager
+    from solspire.project_store import list_events, list_files, list_memory, list_repositories, list_tasks
+    from solspire.workspace_manager import get_workspace_manager
+    from solspire.pulse_manager import get_pulse_manager
+    from solspire.workload_manager import get_workload_manager
+    from solspire.workevent_manager import get_workevent_manager
+
+    project = get_project_manager().load(project_id)
+    workspace = get_workspace_manager().get_for_subject(user["uid"])
+
+    project_events = list_events(project_id, limit=20)
+    project_tasks = list_tasks(project_id)
+    project_files = list_files(project_id)
+    project_memory = list_memory(project_id)
+    project_repositories = list_repositories(project_id)
+
+    pulse = None
+    workload = None
+    work_events: list[dict[str, Any]] = []
+    if workspace is not None:
+        pulse = get_pulse_manager().get_for_subject_date(
+            user["uid"],
+            workspace.id,
+            datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        )
+        workload = get_workload_manager().get_for_subject(user["uid"], workspace.id)
+        work_events = [
+            event.to_dict()
+            for event in get_workevent_manager().list(user["uid"], workspace.id, 100)
+            if event.scope_ref == project_id or event.work_ref == project_id
+        ]
+
+    return {
+        "project": {
+            "id": project.id,
+            "name": project.name,
+            "status": project.status,
+            "owner_uid": user["uid"],
+            "runtime_contract": (project.metadata or {}).get("project_runtime"),
+        },
+        "project_store": {
+            "tasks": project_tasks[:20],
+            "files": project_files[:20],
+            "memory": project_memory[:20],
+            "events": project_events[:20],
+            "repositories": project_repositories[:20],
+        },
+        "control_plane": {
+            "workspace": workspace.to_dict() if workspace else None,
+            "daily_pulse": pulse.to_dict() if pulse else None,
+            "workload": workload.to_dict() if workload else None,
+            "work_events": work_events[:50],
+        },
+        "binding_state": {
+            "daily_pulse": "SUBJECT_WORKSPACE_BOUND" if pulse else "UNKNOWN",
+            "workload": "SUBJECT_WORKSPACE_BOUND_NOT_PROJECT_BOUND" if workload else "UNKNOWN",
+            "workevents": "PROJECT_SCOPED_MATCHES" if work_events else "UNKNOWN",
+            "knowledge_os": "PROJECT_STORE_BOUND",
+            "weaver": "ENGINEERING_LAB_PROJECT_BOUND",
+            "arkana": "PROJECT_CONTEXT_CAPABLE",
+        },
+        "epistemic_boundary": (
+            "Project records are data/evidence, not authority. A missing project "
+            "binding is UNKNOWN; this endpoint does not infer one."
+        ),
+        "retrieved_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
 # ── Status ─────────────────────────────────────────────────────────────────
 
 @router.get("/status")
