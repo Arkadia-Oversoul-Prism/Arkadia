@@ -179,3 +179,64 @@ def test_console_dispatch_uses_authorized_repository_root(tmp_path, monkeypatch)
         assert "sandbox" in str(exc).lower() or "outside" in str(exc).lower()
     else:
         raise AssertionError("authorized repository root was not enforced")
+
+def test_console_execute_route_dispatches_weaver_and_records_real_evidence(tmp_path, monkeypatch):
+    import asyncio
+    import weaver.enterprise_orchestration as ew
+    from solspire.console_authority_router import create_execution_attempt, ExecutionRequest
+
+    db = str(tmp_path / "console-execute-route.db")
+    monkeypatch.setattr(ew, "_DB_PATH", db)
+    subject = "firebase-console-route-execution"
+    store = ew.EnterpriseOrchestrationStore()
+    proposal = store.proposal(
+        subject=subject,
+        enterprise_id="workspace-console-route",
+        objective="Inspect the authorized test workspace",
+        rationale="Exercise the real Console execution route",
+        recommended_actions=["list"],
+        required_authority="human",
+        tool_selections=["filesystem.list"],
+        correlation_id="console-route-execution-1",
+    )
+    authority_event = store.authority_event(
+        subject=subject,
+        actor=subject,
+        authority_context="workspace-console-route",
+        action="APPROVE_PROPOSAL",
+        previous_state="AWAITING_AUTHORITY",
+        new_state="AUTHORIZED",
+        origin="human",
+        authentication_context="firebase_id_token",
+        correlation_id=proposal.correlation_id,
+    )
+    authorization = store.authorize(
+        subject=subject,
+        proposal_id=proposal.id,
+        authority_event_id=authority_event.id,
+        scope={"tools": ["filesystem.list"]},
+        constraints={
+            "read_only": True,
+            "repository_root": str(tmp_path),
+            "network": False,
+        },
+    )
+
+    result = asyncio.run(
+        create_execution_attempt(
+            authorization.id,
+            ExecutionRequest(
+                tool_channel="filesystem.list",
+                request_payload={"path": "."},
+            ),
+            user={"uid": subject},
+        )
+    )
+
+    assert result["ok"] is True
+    assert result["execution"]["tool_channel"] == "filesystem.list"
+    assert result["execution_attempt"]["result_status"] == "SUCCEEDED"
+    evidence = result["evidence"]
+    assert evidence["execution_attempt_id"] == result["execution_attempt"]["id"]
+    assert evidence["evidence_type"] == "weaver_execution"
+
