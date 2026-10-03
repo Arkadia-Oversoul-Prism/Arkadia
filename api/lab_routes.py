@@ -456,9 +456,10 @@ def _project_canvas_policy(session: dict, subject_uid: str) -> SandboxPolicy:
     snapshot = create_disposable_workspace(subject_uid, project_id)
     return SandboxPolicy(
         root=snapshot["root"],
-        # Writes may create a candidate only in this disposable copy. The runtime
-        # still intersects this policy with the human authorization envelope.
-        write_allowed=True,
+        # Candidate proposals never write to the workspace; the runtime still
+        # intersects this capability with explicit human authorization.
+        write_allowed=False,
+        candidate_proposals_allowed=True,
         allowed_paths=tuple(snapshot["seeded_files"]),
         forbidden_paths=(".git",),
         allow_network=False,
