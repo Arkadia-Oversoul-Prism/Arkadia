@@ -110,6 +110,7 @@ class BoundedTask:
 CAPABILITY_OPERATIONS: dict[str, tuple[str, ...]] = {
     "READ": ("read", "list"),
     "EDIT": ("read", "list", "candidate_write"),
+    "PROPOSE": ("candidate_write",),
     "RUN": ("run",),
     "OBSERVE": ("git_status",),
 }
@@ -201,7 +202,7 @@ class EngineeringLabRuntime:
             capabilities=tuple(caps),
             tool_access=AgentToolAccess(
                 tools=("read", "list")
-                + (("candidate_write",) if "EDIT" in caps else ())
+                + (("candidate_write",) if ("EDIT" in caps or "PROPOSE" in caps) else ())
                 + (("run",) if "RUN" in caps else ())
                 + (("git_status",) if "OBSERVE" in caps else ())
                 + (("write",) if write_allowed else ()),
