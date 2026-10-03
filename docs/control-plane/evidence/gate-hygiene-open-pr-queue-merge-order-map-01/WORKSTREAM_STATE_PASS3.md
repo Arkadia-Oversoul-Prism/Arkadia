@@ -61,3 +61,21 @@ The gate that matters for this workstream, **`Full-history secret scan`, passes*
 (run `37086762826`). `Vercel – arkadia-prism` preview deployment also completed. Do **not**
 re-diagnose `Vercel – console` as a regression of this cluster; if it needs fixing it is a
 separate bounded workstream (Vercel project configuration, not repository source).
+
+## Branch-head verification (head `9aadc33`, refs-present regime)
+
+The `AGENTS.md` persistence append is **zero-regression**, proven by node-set identity, not counts:
+
+- full suite on branch head: **20F / 1308P / 15S / 1 error** (125s)
+- normalised FAILED/ERROR node-set `sha256 = 4d84e7eb2524d4a5...` -- **byte-identical** to the
+  `main 162f574` refs-present baseline (`/tmp/main_nodes.txt`). Delta: **0 nodes**.
+- (The `-q` message-truncation makes the raw text lines differ -- `FAILED ...` vs `FAILED ... - Assert...` --
+  so normalise with `sed` before hashing. A raw `sha256sum` of the un-normalised
+  lists differs and would read as a false delta.)
+- `AGENTS.md` audit: `alterations=0`, `oracle_reproduced=True`, `cyrillic == 0`, exit 1.
+- Composability re-proved after the append: `git merge prhead216` onto this head is **clean**
+  (#216 inserts at `AGENTS.md:583`, this append is at the tail -- disjoint).
+
+## Persisted to AGENTS.md (insertion-only)
+A new section records the clone-depth regime split, the moving-`origin/main` fixture defect, and
+the pre-existing `Vercel - console` blocker, superseding Pass 2s environment-independent wording.
