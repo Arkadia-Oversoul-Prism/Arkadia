@@ -583,6 +583,23 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   main carries ~20, the delta being the steward-filter carrier merged as `002b189`.
 - `python -m py_compile api/main.py` before committing boot-code changes; budget 2600
   (currently 2519).
+- **Superseded fingerprints have an explained origin — they are not "unreproducible".**
+  The pair `a59453b8…` (outcomes) / `9a35c812…` (ids) equals the recorded **20-node**
+  baseline set **plus** its depth-dependent *sibling*
+  `tests/test_agents_md_encoding_adjudication.py::test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec`.
+  That node dereferences the `GATE2_PARENT_REV` read **unconditionally**, so without the
+  PR-head revision `7d79f38…` it **errors** (`AttributeError`) rather than skipping — a bare
+  clone's live 21-node run hashes to exactly that pair, while the recorded 20 nodes hash to
+  the canonical `a578a766…` / `8036fc06…`. (`AGENTS.md` itself recorded `a59453b8…` as a
+  21-node fingerprint — the earlier "not reproducible by any convention" verdict was a
+  measurement gap, not a true UNKNOWN.) The pair stays **superseded** (clone-depth
+  dependent), but its origin is now guarded by
+  `tests/test_baseline_fingerprint.py::test_superseded_values_are_the_recorded_set_plus_its_sibling`
+  and explained in `docs/control-plane/evidence/gate-hygiene-superseded-fingerprint-origin-01/`.
+  The two excluded nodes' own assertion defects (both pin `7d79f38…` and mis-handle its
+  absence) remain a **separate proposed workstream** — do not "fix" them inside a
+  fingerprint workstream.
+
 ## Merge-loss forensics — a merge can invent a state present in neither parent
 - A hand-resolved merge is not "one side or the other." `ff80b8c` took the inline
   work-surface from its **second** parent (`5c78fcb`) but the import line from its **first**
@@ -668,3 +685,26 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   **negative control** (white noise must yield no pitch, not a spurious one) and a
   harmonic-rich case, or the "fix" can be tuned to the one frequency under test.
 
+
+## Lazy schema materialization — a fixture that constructs a store has not created its schema (gate-hygiene)
+- `EnterpriseOrchestrationStore()` does **not** create `data/*.db` or its tables; the
+  constructor only resolves `_DB_PATH`. The schema is materialized lazily by the first
+  store *operation* (`weaver/enterprise_orchestration.py::_db()` runs the
+  `CREATE TABLE IF NOT EXISTS …` script). A test that only *constructs* the store and then
+  probes a table with a raw `sqlite3.connect(db)` measures an **uninitialized database**,
+  not the invariant it claims.
+- Observed on `tests/test_upstream_causal_continuity_01.py::test_api_approval_does_not_create_enterprise_authorization`:
+  `sqlite3.OperationalError: no such table: ew_authorizations`, raised before any boundary
+  assertion. `os.path.exists(db)` was `False` right after `EnterpriseOrchestrationStore()`.
+- **Repair is test-side and mechanical:** call `with ew._db(): pass` in the fixture so the
+  schema exists before the probe; the probe then returns `0` and the assertion is real.
+  Repaired in PR #228 (merge pending human authority).
+- When a raw-SQL test fails on a missing table, read the fixture first: a store that was
+  constructed but never *used* leaves no schema. Do not "fix" it by adding schema DDL to the
+  production constructor — the lazy materialization is the intended design.
+- Full-history vs shallow clone changes the *node set*: `test_agents_md_encoding_adjudication.py`
+  adds `test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec` on a shallow clone
+  (oracle-revision access), so its live fingerprint differs from the recorded
+  `tests/fixtures/baseline_node_set.txt`. Attribute that delta to clone depth / PR #215, not
+  to a regression. Measured at `162f574b`: main 20F/1306P (`a59453b8…`), branch 19F/1307P
+  (`b45c0753…`) — a `-1/+0` node delta that is exactly the repaired node.
