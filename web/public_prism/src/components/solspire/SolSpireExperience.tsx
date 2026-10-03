@@ -185,47 +185,53 @@ function ArkanaOverlay({context,pack,onClose}:{context:string;pack:{surface:stri
       const memoryRows = Array.isArray(projectStore.memory) ? projectStore.memory : [];
       const eventRows = Array.isArray(projectStore.events) ? projectStore.events : [];
       const workflowRows = Array.isArray(projectStore.workflows) ? projectStore.workflows : [];
-      const tasks = byName.tasks.rows.slice(0, 8).map((row: any) => ({
+      const tasks = tasksRows.slice(0, 8).map((row: any) => ({
         title: String(row.title || 'Untitled task'),
         status: String(row.status || 'UNKNOWN'),
         assigned_to: String(row.assigned_to || ''),
         priority: String(row.priority || 'normal'),
         description: String(row.description || '').slice(0, 240),
       }));
-      const files = byName.files.rows.slice(0, 8).map((row: any) => ({
+      const files = filesRows.slice(0, 8).map((row: any) => ({
         name: String(row.name || 'Untitled file'),
         mime_type: String(row.mime_type || 'unknown'),
       }));
-      const memories = byName.memory.rows.slice(0, 8).map((row: any) => ({
+      const memories = memoryRows.slice(0, 8).map((row: any) => ({
         title: String(row.title || 'Untitled memory'),
         content: String(row.content || '').slice(0, 320),
         tags: Array.isArray(row.tags) ? row.tags.slice(0, 12).map(String) : [],
       }));
-      const activity = byName.activity.rows.slice(0, 8).map((row: any) => ({
+      const activity = eventRows.slice(0, 8).map((row: any) => ({
         event_type: String(row.event_type || 'project_event'),
         summary: String(row.summary || '').slice(0, 240),
       }));
-      const workflows = byName.workflows.rows.slice(0, 8).map((row: any) => ({
+      const workflows = workflowRows.slice(0, 8).map((row: any) => ({
         title: String(row.title || row.name || 'Untitled workflow'),
         status: String(row.status || 'UNKNOWN'),
         description: String(row.description || '').slice(0, 240),
       }));
-      const knowledge_graph = byName.knowledge_graph.graph;
-      const unavailable_sources = results.filter(result => !result.ok).map(result => result.name);
+      const knowledge_graph = {
+        state: 'unavailable' as const,
+        entities: null,
+        relationships: null,
+      };
+      const contextUnavailable = data
+        ? unavailable_sources.concat(['knowledge_graph', ...(workflowRows.length ? [] : ['workflows'])])
+        : ['runtime_context'];
       setProjectContext({
         project_id: pack.projectId!,
         project_name: pack.projectName || 'Unnamed project',
         project_profile: projectProfile,
-        retrieved_at: new Date().toISOString(),
+        retrieved_at: String(data?.retrieved_at || new Date().toISOString()),
         tasks,
         files,
         memories,
         activity,
         workflows,
         knowledge_graph,
-        unavailable_sources,
+        unavailable_sources: Array.from(new Set(contextUnavailable)),
       });
-      setContextState(unavailable_sources.length ? 'partial' : 'ready');
+      setContextState(contextUnavailable.length ? 'partial' : 'ready');
     });
     return () => { live = false; };
   }, [pack.projectId, pack.projectName, pack.authenticated, projectProfile]);
