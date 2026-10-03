@@ -197,6 +197,7 @@ def build_project_context_for_weaver(project: dict[str, Any]) -> dict[str, Any]:
         "owner": owner_uid,
         "status": project.get("status"),
         "knowledge": summary.get("sources"),
+        "knowledge_source_health": summary.get("source_health", {"state": "UNKNOWN"}),
         "repositories": (summary.get("items") or {}).get("repositories"),
         "knowledge_graph": graph,
         "project_events": project_event_context[:100],
