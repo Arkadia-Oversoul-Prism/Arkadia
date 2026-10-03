@@ -45,6 +45,24 @@ export default function ProjectsWorkspace({ onOpenProject }: { onOpenProject: (p
 
   useEffect(() => { void load(); }, [load]);
 
+  async function instantiateEden() {
+    setCreating(true); setCreateError(null);
+    try {
+      const response = await apiFetch('/solspire/projects/instantiate-eden', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.detail || (response.status + ' ' + response.statusText));
+      const project = data.project as Project;
+      setProjects(current => [project, ...current.filter(item => item.id !== project.id)]);
+      setCreating(false);
+      onOpenProject(project);
+    } catch (e) {
+      setCreateError(e instanceof Error ? e.message : 'Eden instantiation failed');
+      setCreating(false);
+    }
+  }
+
   async function createProject(event: React.FormEvent) {
     event.preventDefault();
     const trimmed = name.trim();
@@ -81,6 +99,15 @@ export default function ProjectsWorkspace({ onOpenProject }: { onOpenProject: (p
         <div><h2 style={{ margin: 0, font: '400 29px Georgia,serif', color: '#E9E7DF' }}>Projects</h2><p style={{ margin: '8px 0 0', maxWidth: 690, font: '12px/1.65 Inter,system-ui,sans-serif', color: 'rgba(233,231,223,.46)' }}>Projects are the organizing context for files, knowledge, conversations, tasks, memory and governed Weaver work.</p></div>
         <span style={{ ...MONO, color: 'rgba(0,212,170,.55)' }}>{loading ? 'READING' : `${projects.length} PROJECT${projects.length === 1 ? '' : 'S'}`}</span>
       </div>
+    </section>
+
+    <section style={{ ...CARD, display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', borderColor: 'rgba(0,212,170,.18)', background: 'rgba(0,212,170,.035)' }}>
+      <div>
+        <div style={MONO}>Sovereign instantiation</div>
+        <strong style={{ display: 'block', marginTop: 5, font: '500 17px Georgia,serif', color: '#E9E7DF' }}>Eden Food Systems</strong>
+        <span style={{ display: 'block', marginTop: 4, font: '11px/1.5 Inter,system-ui,sans-serif', color: 'rgba(233,231,223,.42)' }}>Create or resume the Eden project under this authenticated sovereign account and populate its canonical substrate.</span>
+      </div>
+      <button type="button" onClick={() => void instantiateEden()} disabled={creating} style={{ padding: '10px 16px', borderRadius: 9, border: '1px solid rgba(0,212,170,.32)', background: 'rgba(0,212,170,.08)', color: '#00D4AA', font: '9px ui-monospace,monospace', letterSpacing: '.14em', textTransform: 'uppercase', cursor: creating ? 'wait' : 'pointer' }}>{creating ? 'Instantiating…' : 'Instantiate Eden'}</button>
     </section>
 
     <form onSubmit={createProject} style={{ ...CARD, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
