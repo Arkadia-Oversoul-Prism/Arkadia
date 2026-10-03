@@ -91,6 +91,7 @@ class SandboxPolicy:
     container_image: str | None = None
     container_runtime: str = "docker"
     canonical_base_digest: str | None = None
+    candidate_proposals_allowed: bool = False
 
 
 #: The closed set of binaries the L1 terminal capability may execute. Every
@@ -283,7 +284,12 @@ class Sandbox:
 
     def propose_edit(self, rel: str, content: str, *, rationale: str = "") -> dict[str, Any]:
         """Return a candidate replacement without modifying even the disposable file."""
-        self._check_write_allowed(rel)
+        if not self.policy.candidate_proposals_allowed:
+            raise SandboxWriteDenied("candidate proposals require an explicitly enabled project review boundary")
+        if self.policy.forbidden_paths and _matches_any(rel, self.policy.forbidden_paths):
+            raise SandboxWriteDenied("candidate proposal path is forbidden")
+        if not self.policy.allowed_paths or not _matches_any(rel, self.policy.allowed_paths):
+            raise SandboxWriteDenied("candidate proposal path is outside the explicit allow-list")
         path = self._resolve(rel)
         if not path.is_file():
             self._record("propose_edit", rel, False, {"reason": "existing_file_required"})
