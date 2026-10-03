@@ -51,8 +51,8 @@ class MainActivity:AppCompatActivity(){
         if (identity == null) Toast.makeText(this, "Native Firebase is not configured for this build.", Toast.LENGTH_LONG).show()
     }
     private fun connect(){
-        val base=EditText(this).apply{hint="https://your-oracle.example";setText(prefs.getString("api_base",""))}
-NaN
+        val base=EditText(this).apply{hint="https://your-oracle.example";setText(prefs.getString("api_base",""));inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI}
+        AlertDialog.Builder(this).setTitle("Oracle connection").setMessage("Set the explicit Oracle base URL. Arkadia Console does not silently fall back to another backend.").setView(base).setNegativeButton("Cancel",null).setPositiveButton("Connect"){_,_->prefs.edit().putString("api_base",base.text.toString().trim()).apply();load()}.show()
     }
 
     private fun authDialog(){
