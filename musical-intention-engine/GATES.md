@@ -3,11 +3,11 @@
 | Gate | Boundary | Current status | Required evidence |
 |---|---|---|---|
 | 00 | Reconnaissance | COMPLETE | verified build state |
-| 01 | Capture | CI VERIFIED / DEVICE PENDING | reliable Android capture/replay |
-| 02 | Interpretation | CI VERIFIED / DEVICE PENDING | type + confidence + evidence |
-| 03 | Materialization | CI VERIFIED / DEVICE PENDING | inspectable MusicalObject |
-| 04 | Transformation | NOT STARTED | one meaningful reversible change |
-| 05 | Change loop | NOT STARTED | repeatable compare/keep/revise |
+| 01 | Capture | DEVICE VERIFIED | reliable Android capture/replay |
+| 02 | Interpretation | DEVICE OBSERVED | type + confidence + evidence |
+| 03 | Materialization | DEVICE VERIFIED | inspectable MusicalObject |
+| 04 | Transformation | DEVICE VERIFIED / CLOSED | one meaningful reversible change |
+| 05 | Change loop | IMPLEMENTED / DEVICE PENDING | repeatable compare/keep/revise |
 | 06 | Continuity | NOT STARTED | ancestry back to original |
 | 07 | Mobile instrument | NOT STARTED | real-device usability |
 | 08 | Measurement | NOT STARTED | TTMI/TTCS/ITS/IP/RC/DWM protocol |
@@ -63,3 +63,22 @@ narrower claim than the superseded gate 01–03 row above: it verifies **interpr
 tree where the interpretation test actually executes. Gates 01 and 03 ride on the same run's
 APK build, which also succeeded, but neither has an independent assertion of its own; they
 remain DEVICE PENDING.
+
+
+## Gate 04 closure · 2026-10-03
+
+Human physical-device verification confirmed Gate 04 repeat playback behavior across two captures.
+Repeat began playback, restarted automatically at completion, repeated again, stopped when toggled off,
+and did not inherit state when switching to another capture. Gate 04 is closed.
+
+## Gate 05 implementation · 2026-10-03
+
+Implemented the smallest explicit change loop around the existing octave-up transformation:
+
+`CAPTURE → OBJECT → CHANGE → RESULT → COMPARE → KEEP/REVISE`
+
+The result now exposes explicit KEEP RESULT and REVISE actions. Keep records
+`loop_decision=kept) while preserving the original. Revise records
+`loop_decision=revised` and restores the parent original as the active object so another
+change can be attempted. Decisions are persisted in MusicalObject provenance and covered by
+unit tests. Physical-device verification remains pending.
