@@ -2,10 +2,15 @@ package com.arkadia.console
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.text.InputType
 import android.view.ViewGroup
+import androidx.core.content.FileProvider
+import android.media.MediaRecorder
+import java.io.File
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -27,6 +32,10 @@ class MainActivity:AppCompatActivity(){
     private lateinit var actionRow:LinearLayout
     private var snap=FieldSnapshot(emptyList(),emptyList(),0,false)
     private var selected:FieldObject?=null
+    private val captures by lazy{CaptureStore(this)}
+    private var recorder:MediaRecorder?=null
+    private var activeVoice:Pair<String,File>?=null
+    private var activeCamera:Pair<String,File>?=null
 
     override fun onCreate(state:Bundle?){super.onCreate(state);setContentView(R.layout.activity_main)
         connection=findViewById(R.id.connection);objectList=findViewById(R.id.objectList);detailType=findViewById(R.id.detailType);detailTitle=findViewById(R.id.detailTitle);detailSummary=findViewById(R.id.detailSummary);detailState=findViewById(R.id.detailState);actionRow=findViewById(R.id.actionRow)
@@ -143,6 +152,77 @@ NaN
     private fun addAction(label:String,action:()->Unit){actionRow.addView(Button(this).apply{text=label;setOnClickListener{action()}})}
     private fun decide(id:String,d:String){lifecycleScope.launch{val msg=runCatching{repo.decide(id,d)}.getOrElse{it.message?:"Decision failed"};Toast.makeText(this@MainActivity,msg,Toast.LENGTH_LONG).show();load()}}
     private fun ask(prefill:String=""){val input=EditText(this).apply{hint="Ask Arkana about what is selected or happening.";setText(prefill);minLines=3};AlertDialog.Builder(this).setTitle("Arkana").setView(input).setNegativeButton("Cancel",null).setPositiveButton("Ask"){_,_->val q=input.text.toString().trim();if(q.isNotBlank())lifecycleScope.launch{val a=runCatching{repo.askArkana(q)}.getOrElse{"Arkana unavailable: "+it.message};AlertDialog.Builder(this@MainActivity).setTitle("Arkana").setMessage(a).setPositiveButton("Close",null).show()}}.show()}
-    private fun capture(){if(ContextCompat.checkSelfPermission(this,Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){ActivityCompat.requestPermissions(this,arrayOf(Manifest.permission.RECORD_AUDIO),410);Toast.makeText(this,"Microphone permission requested. Native voice capture is next in the capture gate.",Toast.LENGTH_SHORT).show();return};val input=EditText(this).apply{hint="What did reality say? Record the observation, not an invented interpretation.";minLines=3};AlertDialog.Builder(this).setTitle("Capture reality").setView(input).setNegativeButton("Cancel",null).setPositiveButton("Record"){_,_->val q=input.text.toString().trim();if(q.isNotBlank())lifecycleScope.launch{val m=runCatching{repo.recordEvent(q)}.getOrElse{"Capture failed: "+it.message};Toast.makeText(this@MainActivity,m,Toast.LENGTH_LONG).show();load()}}.show()}
+    private fun capture(){
+        val labels=arrayOf("VOICE","CAMERA","FILE","OBSERVATION")
+        AlertDialog.Builder(this).setTitle("Capture reality").setItems(labels){_,which->when(which){0->voiceCapture();1->cameraCapture();2->fileCapture();3->observationCapture()}}.show()
+    }
+
+    private fun voiceCapture(){
+        if(ContextCompat.checkSelfPermission(this,Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
+            ActivityCompat.requestPermissions(this,arrayOf(Manifest.permission.RECORD_AUDIO),410)
+            return
+        }
+        val pair=captures.newFile("m4a");activeVoice=pair
+        try{
+            recorder=MediaRecorder(this).apply{
+                setAudioSource(MediaRecorder.AudioSource.MIC)
+                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                setOutputFile(pair.second.absolutePath)
+                prepare();start()
+            }
+            AlertDialog.Builder(this).setTitle("Recording voice").setMessage("Reality capture is live. Stop when the observation is complete.")
+                .setNegativeButton("Cancel"){_,_->stopVoice(false)}
+                .setPositiveButton("Stop & save"){_,_->stopVoice(true)}.show()
+        }catch(e:Exception){stopVoice(false);Toast.makeText(this,"Voice capture failed: "+e.message,Toast.LENGTH_LONG).show()}
+    }
+
+    private fun stopVoice(save:Boolean){
+        val pair=activeVoice
+        runCatching{recorder?.stop()}
+        recorder?.release();recorder=null;activeVoice=null
+        if(save && pair!=null && pair.second.exists() && pair.second.length()>0){
+            val record=captures.record(pair.first,"voice",pair.second,"audio/mp4")
+            Toast.makeText(this,"Captured "+record.id+" • "+record.sizeBytes+" bytes",Toast.LENGTH_LONG).show()
+        }else pair?.second?.delete()
+    }
+
+    private fun cameraCapture(){
+        if(ContextCompat.checkSelfPermission(this,Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED){ActivityCompat.requestPermissions(this,arrayOf(Manifest.permission.CAMERA),411);return}
+        val pair=captures.newFile("jpg");activeCamera=pair
+        val uri=FileProvider.getUriForFile(this,packageName+".fileprovider",pair.second)
+        startActivityForResult(Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE).apply{putExtra(android.provider.MediaStore.EXTRA_OUTPUT,uri);addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)},501)
+    }
+
+    private fun fileCapture(){
+        startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply{type="*/*";addCategory(Intent.CATEGORY_OPENABLE)},502)
+    }
+
+    private fun observationCapture(){
+        val input=EditText(this).apply{hint="What did reality say? Record the observation, not an invented interpretation.";minLines=3}
+        AlertDialog.Builder(this).setTitle("Capture observation").setView(input).setNegativeButton("Cancel",null).setPositiveButton("Record"){_,_->
+            val text=input.text.toString().trim();if(text.isNotBlank())lifecycleScope.launch{val m=runCatching{repo.recordEvent(text)}.getOrElse{"Capture sync failed: "+it.message};Toast.makeText(this@MainActivity,m,Toast.LENGTH_LONG).show()}
+        }.show()
+    }
+
+    override fun onActivityResult(requestCode:Int,resultCode:Int,data:Intent?){
+        super.onActivityResult(requestCode,resultCode,data)
+        if(requestCode==501){
+            val pair=activeCamera;activeCamera=null
+            if(resultCode==RESULT_OK && pair!=null && pair.second.exists()){
+                val record=captures.record(pair.first,"camera",pair.second,"image/jpeg")
+                Toast.makeText(this,"Captured "+record.id+" • "+record.sha256.take(12)+"…",Toast.LENGTH_LONG).show()
+            }else pair?.second?.delete()
+        }else if(requestCode==502 && resultCode==RESULT_OK && data?.data!=null){
+            val uri=data.data!!;val (id,_)=captures.newFile("bin")
+            lifecycleScope.launch{runCatching{captures.copyUri(id,uri,contentResolver.getType(uri) ?: "application/octet-stream",extensionFor(uri))}.onSuccess{Toast.makeText(this@MainActivity,"Captured "+it.id+" • "+it.sizeBytes+" bytes",Toast.LENGTH_LONG).show()}.onFailure{Toast.makeText(this@MainActivity,"File capture failed: "+it.message,Toast.LENGTH_LONG).show()}}
+        }
+    }
+
+    private fun extensionFor(uri:Uri):String{
+        val mime=contentResolver.getType(uri).orEmpty()
+        return when{mime.contains("jpeg")||mime.contains("jpg")->"jpg";mime.contains("png")->"png";mime.contains("pdf")->"pdf";mime.contains("audio")->"m4a";mime.contains("video")->"mp4";else->"bin"}
+    }
+
     private fun mode(m:String){findViewById<TextView>(R.id.fieldHint).text=when(m){"FOCUS"->"FOCUS: selected object first. The rest of the field recedes.";"DEEP"->"DEEP: inspect source, state and governed actions. Display remains non-authoritative.";else->"FIELD: what matters now. Live canonical state, not a second database."}}
 }
