@@ -27,7 +27,7 @@ def test_eden_template_declares_living_larder_without_claiming_it_is_live():
     assert "living_larder" in runtime["requested_capabilities"]
     assert runtime["domain"]["module"] == "living_larder"
     assert runtime["domain"]["state"] == "requires_live_capability_verification"
-    assert runtime["runtime"]["sandbox"]["state"] == "not_configured"
+    assert runtime["runtime"]["sandbox"]["state"] == "read_only_snapshot_v0_1"
 
 
 def test_template_catalog_returns_independent_copies():
