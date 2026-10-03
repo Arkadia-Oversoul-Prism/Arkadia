@@ -62,6 +62,27 @@ class ConsoleRepository(private val baseUrl:()->String, private val token:suspen
         }.toString()
         request("/api/knowledge/providers/send","POST",body).optString("content").ifBlank{"Arkana returned no content."}
     }
+    suspend fun authorize(proposalId:String):String=withContext(Dispatchers.IO){
+        val r=request("/solspire/authority/proposals/"+java.net.URLEncoder.encode(proposalId,"UTF-8")+"/authorize","POST","{}")
+        val auth=r.optJSONObject("authorization")
+        auth?.optString("id") ?: error("Authorization was not returned")
+    }
+
+    suspend fun createExecutionAttempt(authorizationId:String, toolChannel:String, payload:org.json.JSONObject):String=withContext(Dispatchers.IO){
+        val r=request("/solspire/authority/authorizations/"+java.net.URLEncoder.encode(authorizationId,"UTF-8")+"/execute","POST",org.json.JSONObject().put("tool_channel",toolChannel).put("request_payload",payload).toString())
+        r.optJSONObject("execution_attempt")?.optString("id") ?: error("Execution attempt was not returned")
+    }
+
+    suspend fun recordEvidence(executionId:String, evidenceType:String, content:String):String=withContext(Dispatchers.IO){
+        val r=request("/solspire/authority/executions/"+java.net.URLEncoder.encode(executionId,"UTF-8")+"/evidence","POST",org.json.JSONObject().put("evidence_type",evidenceType).put("content_or_ref",content).toString())
+        r.optJSONObject("evidence")?.optString("id") ?: error("Evidence was not returned")
+    }
+
+    suspend fun verify(claim:String,evidenceId:String,verdict:String):String=withContext(Dispatchers.IO){
+        val r=request("/solspire/authority/verification","POST",org.json.JSONObject().put("claim",claim).put("evidence_refs",org.json.JSONArray().put(evidenceId)).put("verdict",verdict).toString())
+        r.optJSONObject("verification")?.optString("id") ?: error("Verification was not returned")
+    }
+
     suspend fun decide(id:String,decision:String):String{
         request("/solspire/proposals/"+java.net.URLEncoder.encode(id,"UTF-8")+"/decision","POST",JSONObject().put("decision",decision).toString())
         return "Decision recorded. Weaver execution remains separately governed."
