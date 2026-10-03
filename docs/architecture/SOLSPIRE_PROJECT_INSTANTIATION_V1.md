@@ -63,8 +63,9 @@ boundary. It does not yet persist agent-generated workspace changes into
 canonical project files, automatically include Daily Pulse/WorkEvent/Knowledge
 Graph results in Arkana's context, or bind Living Larder transaction records.
 The current bounded Arkana context includes project tasks, file names, memory
-entries and activity events; unavailable sources remain visible. Those next
-seams require separate verification and acceptance tests.
+entries, activity events, workflow summaries and a knowledge-graph count
+projection; unavailable sources remain visible. The next seams require separate
+verification and acceptance tests.
 
 ## Verification
 
