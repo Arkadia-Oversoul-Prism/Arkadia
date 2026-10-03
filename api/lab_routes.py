@@ -510,13 +510,17 @@ async def run_agent_loop(
             max_turns=body.max_turns,
         )
         if policy is not None and session.get("project_ref"):
-            from solspire.project_execution_service import collect_candidate_patch
-            candidate = collect_candidate_patch(
-                project_id=str(session["project_ref"]), workspace=policy.root,
+            from solspire.project_execution_service import collect_agent_candidate_patch
+            turns = result.get("turns", []) if isinstance(result, dict) else []
+            candidate = collect_agent_candidate_patch(
+                project_id=str(session["project_ref"]),
                 base_digest=str(policy.canonical_base_digest or ""),
+                turns=turns, allowed_paths=policy.allowed_paths,
             )
             if isinstance(result, dict):
                 result["candidate_patch"] = candidate
+            else:
+                result = {"execution": result, "candidate_patch": candidate}
         return result
     except KeyError:
         raise HTTPException(status_code=404, detail="session not found")
