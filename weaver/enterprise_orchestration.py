@@ -446,6 +446,14 @@ class EnterpriseOrchestrationStore:
         missing = [ref for ref in evidence_refs if not self._exists("ew_evidence", ref)]
         if missing:
             raise ValueError(f"verification evidence missing: {missing}")
+        with _db() as c:
+            rows = c.execute(
+                "SELECT id, subject FROM ew_evidence WHERE id IN (%s)" % ",".join("?" for _ in evidence_refs),
+                tuple(evidence_refs),
+            ).fetchall()
+        foreign = [row["id"] for row in rows if row["subject"] != subject]
+        if foreign:
+            raise ValueError(f"verification evidence subject mismatch: {foreign}")
         rid = _id("vr"); now = _now()
         cid = correlation_id or self._correlation_for("ew_evidence", evidence_refs[0])
         row = VerificationRecord(rid, subject, claim, evidence_refs, verdict, now, verifier, cid)
