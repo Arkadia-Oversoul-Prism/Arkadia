@@ -77,7 +77,7 @@ LEGIT = re.compile(
     # agent/operator scaffolding
     r"|\.agents/|\.bootstrap/|\.replit_integration_files/"
     # root-level files (exact where a prefix would over-admit)
-    r"|conftest\.py$|entrypoint\.sh$|firestore\.rules$|github_corpus\.py$"
+    r"|conftest\.py$|pytest\.ini$|entrypoint\.sh$|firestore\.rules$|github_corpus\.py$"
     r"|railway\.json$|vercel\.json$|\.replit$|\.env\.example$"
     r"|render|package|pnpm-|requirements|pyproject|README|LICENSE"
     r"|\.gitignore|\.npmrc|\.editorconfig|Makefile|Dockerfile$"
