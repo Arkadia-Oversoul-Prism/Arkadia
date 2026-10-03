@@ -28,6 +28,13 @@ android {
     }
 
     buildFeatures { buildConfig = true }
+
+    defaultConfig {
+        buildConfigField("String", "FIREBASE_API_KEY", "\"" + (project.findProperty("firebaseApiKey") ?: System.getenv("FIREBASE_API_KEY") ?: "") + "\"")
+        buildConfigField("String", "FIREBASE_PROJECT_ID", "\"" + (project.findProperty("firebaseProjectId") ?: System.getenv("FIREBASE_PROJECT_ID") ?: "") + "\"")
+        buildConfigField("String", "FIREBASE_APP_ID", "\"" + (project.findProperty("firebaseAppId") ?: System.getenv("FIREBASE_APP_ID") ?: "") + "\"")
+        buildConfigField("String", "FIREBASE_GCM_SENDER_ID", "\"" + (project.findProperty("firebaseGcmSenderId") ?: System.getenv("FIREBASE_GCM_SENDER_ID") ?: "") + "\"")
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -40,6 +47,9 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+    implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
+    implementation("com.google.firebase:firebase-auth")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     testImplementation("junit:junit:4.13.2")
 }
