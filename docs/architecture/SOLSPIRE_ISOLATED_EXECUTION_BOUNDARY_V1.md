@@ -17,7 +17,7 @@ Container defaults:
 - `/tmp` mounted as no-exec, no-suid tmpfs
 - shell-free host process invocation
 
-The L1 terminal grammar remains closed to its existing allowlisted commands, and git commands remain read-only. The new `filesystem.propose_edit` tool returns replacement text for an existing seeded project file without writing even to the disposable workspace. It is exposed only when the agent has EDIT capability and the human authorization explicitly includes `candidate_write`. New files and deletions are not accepted by this first patch flow.
+The L1 terminal grammar remains closed to its existing allowlisted commands, and git commands remain read-only. The new `filesystem.propose_edit` tool returns replacement text for an existing seeded project file without writing even to the disposable workspace. It is exposed only when the agent has EDIT or PROPOSE capability and the human authorization explicitly includes `candidate_write`. New files and deletions are not accepted by this first patch flow.
 
 ## Candidate and canonical persistence
 
