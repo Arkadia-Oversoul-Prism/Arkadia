@@ -7,10 +7,12 @@ from __future__ import annotations
 from typing import Any
 
 
-def _safe_list(fn, *args, default=None):
+def _safe_list(fn, *args, default=None, errors=None, source=None):
     try:
         return fn(*args)
-    except Exception:
+    except Exception as exc:
+        if errors is not None and source:
+            errors[source] = f"{type(exc).__name__}: {exc}"
         return default if default is not None else []
 
 
@@ -25,16 +27,22 @@ def build_knowledge_summary(project_id: str, embedding_provider=None) -> dict[st
     )
     from solspire.embedding_provider import get_embedding_provider
 
-    mem = _safe_list(list_memory, project_id)
-    files = _safe_list(list_files, project_id)
-    repos = _safe_list(list_repositories, project_id)
-    tasks = _safe_list(list_tasks, project_id)
-    events = _safe_list(list_events, project_id)
-    convs = _safe_list(list_conversations, project_id)
+    source_errors: dict[str, str] = {}
+    mem = _safe_list(list_memory, project_id, errors=source_errors, source="memory")
+    files = _safe_list(list_files, project_id, errors=source_errors, source="files")
+    repos = _safe_list(list_repositories, project_id, errors=source_errors, source="repositories")
+    tasks = _safe_list(list_tasks, project_id, errors=source_errors, source="tasks")
+    events = _safe_list(list_events, project_id, errors=source_errors, source="events")
+    convs = _safe_list(list_conversations, project_id, errors=source_errors, source="conversations")
     provider = embedding_provider or get_embedding_provider()
 
     return {
         "project_id": project_id,
+        "source_health": {
+            "state": "PARTIAL" if source_errors else "AVAILABLE",
+            "errors": source_errors,
+            "empty_means": "zero returned rows only when state is AVAILABLE",
+        },
         "sources": {
             "memory": len(mem),
             "files": len(files),
