@@ -16,7 +16,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="MUSICAL INTENTION ENGINE · GATE 02"
+            android:text="MUSICAL INTENTION ENGINE · GATE 03"
             android:textColor="@color/text_dim"
             android:textSize="10sp"
             android:letterSpacing="0.18"
@@ -27,7 +27,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Make&#10;something."
+            android:text="Remember&#10;what you make."
             android:textColor="@color/text_primary"
             android:textSize="46sp"
             android:textStyle="bold"
@@ -37,7 +37,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Capture a musical thought before it evaporates."
+            android:text="Capture musical thoughts, keep them, and return to them."
             android:textColor="@color/text_dim"
             android:textSize="18sp"
             android:lineSpacingExtra="4dp"
@@ -46,7 +46,7 @@
         <com.google.android.material.button.MaterialButton
             android:id="@+id/captureButton"
             android:layout_width="match_parent"
-            android:layout_height="260dp"
+            android:layout_height="220dp"
             android:text="Hold to capture"
             android:textColor="@color/bg_dark"
             android:textSize="25sp"
@@ -115,6 +115,23 @@
             android:textColor="@color/text_primary"
             android:layout_marginBottom="10dp" />
 
+        <TextView
+            android:id="@+id/historyCount"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="0 capture(s) in this session"
+            android:textColor="@color/text_dim"
+            android:textSize="11sp"
+            android:fontFamily="monospace"
+            android:layout_marginBottom="8dp" />
+
+        <LinearLayout
+            android:id="@+id/historyList"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="18dp" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -126,7 +143,7 @@
                 android:layout_width="0dp"
                 android:layout_height="54dp"
                 android:layout_weight="1"
-                android:text="KEEP"
+                android:text="SAVED"
                 android:enabled="false"
                 android:textColor="@color/text_primary"
                 android:layout_marginEnd="6dp" />

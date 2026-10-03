@@ -2,6 +2,7 @@ package com.arkadia.sonata
 
 import org.json.JSONObject
 import java.util.UUID
+import kotlin.math.roundToInt
 
 data class MieMusicalObject(
     val id: String = UUID.randomUUID().toString(),
@@ -16,6 +17,21 @@ data class MieMusicalObject(
     val createdAtEpochMs: Long = System.currentTimeMillis(),
     val parentId: String? = null
 ) {
+    fun noteName(): String? {
+        val midi = detectedMidi ?: return null
+        if (!midi.isFinite()) return null
+        val rounded = midi.roundToInt()
+        if (rounded !in 0..127) return null
+        val names = arrayOf("C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B")
+        return names[rounded % 12] + (rounded / 12 - 1)
+    }
+
+    fun humanType(): String = when (inputType) {
+        "melody_candidate" -> "Melody candidate"
+        "rhythm_or_percussive_candidate" -> "Percussive candidate"
+        else -> "Uncertain musical input"
+    }
+
     fun toJson(): String {
         val interpretation = JSONObject()
             .put("type", inputType)
