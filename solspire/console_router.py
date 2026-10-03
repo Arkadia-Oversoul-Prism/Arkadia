@@ -92,6 +92,7 @@ class SelectProviderRequest(BaseModel):
 
 class CreateProjectRequest(BaseModel):
     name: str
+    template_id: str = "enterprise"
     metadata: dict[str, Any] = {}
 
 class FsReadRequest(BaseModel):
@@ -211,6 +212,13 @@ async def select_provider(body: SelectProviderRequest, user: dict = Depends(requ
 
 # ── Projects ───────────────────────────────────────────────────────────────
 
+@router.get("/project-templates")
+async def get_project_templates(user: dict = Depends(require_auth)) -> dict[str, Any]:
+    """Expose server-owned project templates without granting runtime authority."""
+    from solspire.project_templates import list_project_templates
+    return {"templates": list_project_templates()}
+
+
 @router.get("/projects")
 async def list_projects(status: str | None = None, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.project_manager import get_project_manager
@@ -220,11 +228,91 @@ async def list_projects(status: str | None = None, user: dict = Depends(require_
 @router.post("/projects")
 async def create_project(body: CreateProjectRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
     from solspire.project_manager import get_project_manager
+    from solspire.project_templates import instantiate_project_metadata
     try:
-        p = get_project_manager().create(body.name, body.metadata, owner_uid=user["uid"])
+        metadata = instantiate_project_metadata(body.template_id, body.metadata)
+        p = get_project_manager().create(body.name, metadata, owner_uid=user["uid"])
         return {"ok": True, "project": p.to_dict()}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/projects/instantiate-eden")
+async def instantiate_eden_project(user: dict = Depends(require_auth)) -> dict[str, Any]:
+    """Idempotently instantiate Eden for the authenticated sovereign owner.
+
+    The endpoint is deliberately owner-bound: the authenticated Firebase uid
+    is the project owner. It creates no alternate Eden database and delegates
+    operational behavior to the generic project runtime.
+    """
+    import json
+    from solspire.project_manager import get_project_manager
+    from solspire.project_store import list_files, list_memory, list_tasks
+    from solspire.project_templates import instantiate_project_metadata
+    from solspire.eden_seed import EDEN_SEED_VERSION, seed_eden_project
+
+    pm = get_project_manager()
+    owned = pm.list_projects(owner_uid=user["uid"])
+    eden = next(
+        (
+            p for p in owned
+            if p.name.strip().lower() == "eden food systems"
+            and (p.metadata or {}).get("project_runtime", {}).get("template_id") == "eden-food-systems"
+        ),
+        None,
+    )
+    created = False
+    if eden is None:
+        metadata = instantiate_project_metadata(
+            "eden-food-systems",
+            {
+                "description": "Eden Food Systems — From Source to Market.",
+                "sovereign_role": "Zahrune ID",
+                "seed_version": EDEN_SEED_VERSION,
+            },
+        )
+        eden = pm.create("Eden Food Systems", metadata, owner_uid=user["uid"])
+        created = True
+
+    runtime = dict((eden.metadata or {}).get("project_runtime") or {})
+    seed_version = (eden.metadata or {}).get("seed_version")
+    seeded = seed_version == EDEN_SEED_VERSION
+
+    if not seeded:
+        seed_result = seed_eden_project(eden.id)
+        updated_metadata = dict(eden.metadata or {})
+        updated_metadata["seed_version"] = EDEN_SEED_VERSION
+        updated_metadata["seed_result"] = seed_result
+        pm.apply_fields(
+            eden.id,
+            ["metadata=?", "updated_at=?"],
+            [json.dumps(updated_metadata), __import__("time").time(), eden.id],
+        )
+        eden = pm.load(eden.id)
+    else:
+        seed_result = (eden.metadata or {}).get("seed_result") or {
+            "seed_version": EDEN_SEED_VERSION,
+            "files": len(list_files(eden.id)),
+            "memory": len(list_memory(eden.id)),
+            "tasks": len(list_tasks(eden.id)),
+        }
+
+    return {
+        "ok": True,
+        "created": created,
+        "project": eden.to_dict(),
+        "seed": seed_result,
+        "owner_binding": {
+            "owner_uid": user["uid"],
+            "authority": "authenticated sovereign account",
+        },
+        "runtime": runtime,
+        "operating_model": {
+            "weaver": "generic project-level runtime",
+            "arkana": "generic project-scoped conversational interface",
+            "domain": "living_larder projection; live capability remains separately verified",
+        },
+    }
+
 
 @router.get("/projects/{project_id}")
 async def get_project(project_id: str, user: dict = Depends(require_project_owner)) -> dict[str, Any]:
@@ -416,6 +504,89 @@ async def set_auto_fallback(body: SetFallbackRequest, user: dict = Depends(requi
     from solspire.provider_manager import get_manager
     get_manager().set_auto_fallback(body.enabled)
     return {"ok": True, "auto_fallback": body.enabled}
+
+
+# ── Project runtime context -------------------------------------------------
+@router.get("/projects/{project_id}/runtime-context")
+async def project_runtime_context(
+    project_id: str,
+    user: dict = Depends(require_project_owner),
+) -> dict[str, Any]:
+    """Return the canonical, bounded control-plane context for a project.
+
+    This is a projection, not a second memory/event/task system. Project-owned
+    records come from project_store; Daily Pulse, Workload, and WorkEvents are
+    reported from their existing SolSpire spines with their actual binding
+    state. Missing project bindings remain UNKNOWN instead of being inferred.
+    """
+    from datetime import datetime, timezone
+    from solspire.project_manager import get_project_manager
+    from solspire.project_store import list_events, list_files, list_memory, list_repositories, list_tasks
+    from solspire.workspace_manager import get_workspace_manager
+    from solspire.pulse_manager import get_pulse_manager
+    from solspire.workload_manager import get_workload_manager
+    from solspire.workevent_manager import get_workevent_manager
+
+    project = get_project_manager().load(project_id)
+    workspace = get_workspace_manager().get_for_subject(user["uid"])
+
+    project_events = list_events(project_id, limit=20)
+    project_tasks = list_tasks(project_id)
+    project_files = list_files(project_id)
+    project_memory = list_memory(project_id)
+    project_repositories = list_repositories(project_id)
+
+    pulse = None
+    workload = None
+    work_events: list[dict[str, Any]] = []
+    if workspace is not None:
+        pulse = get_pulse_manager().get_for_subject_date(
+            user["uid"],
+            workspace.id,
+            datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        )
+        workload = get_workload_manager().get_for_subject(user["uid"], workspace.id)
+        work_events = [
+            event.to_dict()
+            for event in get_workevent_manager().list(user["uid"], workspace.id, 100)
+            if event.scope_ref == project_id or event.work_ref == project_id
+        ]
+
+    return {
+        "project": {
+            "id": project.id,
+            "name": project.name,
+            "status": project.status,
+            "owner_uid": user["uid"],
+            "runtime_contract": (project.metadata or {}).get("project_runtime"),
+        },
+        "project_store": {
+            "tasks": project_tasks[:20],
+            "files": project_files[:20],
+            "memory": project_memory[:20],
+            "events": project_events[:20],
+            "repositories": project_repositories[:20],
+        },
+        "control_plane": {
+            "workspace": workspace.to_dict() if workspace else None,
+            "daily_pulse": pulse.to_dict() if pulse else None,
+            "workload": workload.to_dict() if workload else None,
+            "work_events": work_events[:50],
+        },
+        "binding_state": {
+            "daily_pulse": "SUBJECT_WORKSPACE_BOUND" if pulse else "UNKNOWN",
+            "workload": "SUBJECT_WORKSPACE_BOUND_NOT_PROJECT_BOUND" if workload else "UNKNOWN",
+            "workevents": "PROJECT_SCOPED_MATCHES" if work_events else "UNKNOWN",
+            "knowledge_os": "PROJECT_STORE_BOUND",
+            "weaver": "ENGINEERING_LAB_PROJECT_BOUND",
+            "arkana": "PROJECT_CONTEXT_CAPABLE",
+        },
+        "epistemic_boundary": (
+            "Project records are data/evidence, not authority. A missing project "
+            "binding is UNKNOWN; this endpoint does not infer one."
+        ),
+        "retrieved_at": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 # ── Status ─────────────────────────────────────────────────────────────────

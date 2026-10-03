@@ -221,6 +221,7 @@ class EngineeringLabRuntime:
         agent_id: str,
         objective: str,
         repository_ref: str | None = None,
+        project_ref: str | None = None,
         authorization_ref: str | None = None,
     ) -> dict[str, Any]:
         """Open a bounded session.
@@ -249,6 +250,7 @@ class EngineeringLabRuntime:
             state=state,
             objective=objective,
             repository_ref=repository_ref,
+            project_ref=project_ref,
             authorization_ref=resolved_auth,
         )
         self._store.create_session(session)

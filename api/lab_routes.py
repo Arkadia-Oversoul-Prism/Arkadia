@@ -112,11 +112,24 @@ class SessionCreate(BaseModel):
     agent_id: str
     objective: str = ""
     repository_ref: str | None = None
+    project_ref: str | None = None
     authorization_ref: str | None = None
 
 
 @router.post("/engineering/sessions")
 async def open_session(body: SessionCreate, user: dict = Depends(require_auth)) -> dict:
+    if body.project_ref:
+        from solspire.project_manager import get_project_manager
+        from solspire.workspace_manager import get_workspace_manager
+        try:
+            project = get_project_manager().load(body.project_ref)
+        except KeyError:
+            raise HTTPException(status_code=404, detail="Project not found")
+        if (project.owner_uid or "").strip() != user["uid"]:
+            raise HTTPException(status_code=404, detail="Project not found")
+        workspace = get_workspace_manager().get_for_subject(user["uid"])
+        if workspace is None or workspace.id != body.workspace_ref:
+            raise HTTPException(status_code=409, detail="Canonical workspace binding mismatch")
     try:
         return get_runtime().open_session(
             subject_ref=user["uid"],
@@ -124,6 +137,7 @@ async def open_session(body: SessionCreate, user: dict = Depends(require_auth)) 
             agent_id=body.agent_id,
             objective=body.objective,
             repository_ref=body.repository_ref,
+            project_ref=body.project_ref,
             authorization_ref=body.authorization_ref,
         )
     except (ValueError, BoundaryViolation, KeyError) as exc:
@@ -202,8 +216,15 @@ async def execute_bounded(
             acceptance=tuple(body.acceptance),
             requires_write=body.requires_write,
         )
+        session = get_runtime().get_session(session_id, user["uid"])
         policy = None
-        if body.sandbox_root:
+        if session.get("project_ref"):
+            if body.requires_write or body.sandbox_root:
+                raise HTTPException(status_code=409, detail="Project canvas v0.1 is read-only; its sandbox root is server-managed")
+            if any(operation.kind not in {"read", "list"} for operation in task.operations):
+                raise HTTPException(status_code=409, detail="Project canvas v0.1 direct operations are read/list only; use the authorized Weaver loop for read-only Git observation")
+            policy = _project_canvas_policy(session, user["uid"])
+        elif body.sandbox_root:
             policy = SandboxPolicy(
                 root=body.sandbox_root,
                 write_allowed=body.requires_write,
@@ -406,6 +427,32 @@ async def pr_state(number: int) -> dict:
         return {"state": "UNAVAILABLE", "detail": str(exc), "pr": None}
 
 
+def _project_canvas_policy(session: dict, subject_uid: str) -> SandboxPolicy:
+    """Resolve a project-owned snapshot; never accept a client-supplied root."""
+    project_id = str(session.get("project_ref") or "")
+    if not project_id:
+        raise HTTPException(status_code=400, detail="Project binding missing")
+    from solspire.project_manager import get_project_manager
+    from solspire.project_canvas import prepare_project_workspace
+    try:
+        project = get_project_manager().load(project_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if (project.owner_uid or "").strip() != subject_uid:
+        raise HTTPException(status_code=404, detail="Project not found")
+    snapshot = prepare_project_workspace(subject_uid, project_id)
+    return SandboxPolicy(
+        root=snapshot["root"],
+        write_allowed=False,
+        allowed_paths=(),
+        forbidden_paths=(".git",),
+        allow_network=False,
+        command_allowlist=("git", "echo", "pwd", "true", "false"),
+        enforce_git_read_only=True,
+        enforce_command_grammar=True,
+    )
+
+
 # -- EL-01: native read-only model/tool loop ---------------------------------
 
 class AgentLoopBody(BaseModel):
@@ -430,12 +477,16 @@ async def run_agent_loop(
     if body.max_turns < 1 or body.max_turns > 8:
         raise HTTPException(status_code=400, detail="max_turns must be between 1 and 8")
     try:
-        return get_runtime().execute_agent_loop(
+        runtime = get_runtime()
+        session = runtime.get_session(session_id, user["uid"])
+        policy = _project_canvas_policy(session, user["uid"]) if session.get("project_ref") else None
+        return runtime.execute_agent_loop(
             subject_ref=user["uid"],
             session_id=session_id,
             objective=body.objective.strip(),
             provider=body.provider,
             model=body.model,
+            sandbox_policy=policy,
             max_turns=body.max_turns,
         )
     except KeyError:

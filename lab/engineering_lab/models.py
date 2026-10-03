@@ -147,6 +147,7 @@ class AgentSession:
     state: str
     objective: str = ""
     repository_ref: str | None = None
+    project_ref: str | None = None
     authorization_ref: str | None = None
     created_at: str = field(default_factory=utc_now)
     updated_at: str = field(default_factory=utc_now)
@@ -161,6 +162,7 @@ class AgentSession:
             "state": self.state,
             "objective": self.objective,
             "repository_ref": self.repository_ref,
+            "project_ref": self.project_ref,
             "authorization_ref": self.authorization_ref,
             "created_at": self.created_at,
             "updated_at": self.updated_at,

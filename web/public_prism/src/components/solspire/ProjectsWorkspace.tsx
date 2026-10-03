@@ -2,6 +2,17 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '../../lib/apiClient';
 import type { Project } from '../../pages/ProjectDashboard';
 
+interface ProjectTemplate {
+  id: string;
+  name: string;
+  description: string;
+  default_name: string;
+  version: string;
+  capability_targets: string[];
+  domain_module: string | null;
+  domain_status: string;
+}
+
 const CARD: React.CSSProperties = { background: 'rgba(16,18,31,.78)', border: '1px solid rgba(255,255,255,.07)', borderRadius: 16, padding: 18, boxShadow: '0 14px 40px rgba(0,0,0,.18)' };
 const MONO: React.CSSProperties = { fontFamily: 'ui-monospace,SFMono-Regular,monospace', fontSize: 8, letterSpacing: '.18em', textTransform: 'uppercase', color: 'rgba(201,168,76,.58)' };
 
@@ -11,7 +22,10 @@ export default function ProjectsWorkspace({ onOpenProject }: { onOpenProject: (p
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
+  const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
+  const [templateId, setTemplateId] = useState('enterprise');
   const [createError, setCreateError] = useState<string | null>(null);
+  const selectedTemplate = templates.find(template => template.id === templateId);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -20,12 +34,34 @@ export default function ProjectsWorkspace({ onOpenProject }: { onOpenProject: (p
       const data = await response.json();
       if (!response.ok) throw new Error(data?.detail || `${response.status} ${response.statusText}`);
       setProjects(data.projects || []);
+      const templateResponse = await apiFetch('/solspire/project-templates', { headers: {} });
+      const templateData = await templateResponse.json();
+      if (!templateResponse.ok) throw new Error(templateData?.detail || 'Unable to load project templates');
+      setTemplates(templateData.templates || []);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unable to load projects');
     } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  async function instantiateEden() {
+    setCreating(true); setCreateError(null);
+    try {
+      const response = await apiFetch('/solspire/projects/instantiate-eden', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.detail || (response.status + ' ' + response.statusText));
+      const project = data.project as Project;
+      setProjects(current => [project, ...current.filter(item => item.id !== project.id)]);
+      setCreating(false);
+      onOpenProject(project);
+    } catch (e) {
+      setCreateError(e instanceof Error ? e.message : 'Eden instantiation failed');
+      setCreating(false);
+    }
+  }
 
   async function createProject(event: React.FormEvent) {
     event.preventDefault();
@@ -35,13 +71,14 @@ export default function ProjectsWorkspace({ onOpenProject }: { onOpenProject: (p
     try {
       const response = await apiFetch('/solspire/projects', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: trimmed, metadata: {} }),
+        body: JSON.stringify({ name: trimmed, template_id: templateId, metadata: {} }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.detail || `${response.status} ${response.statusText}`);
       const project = data.project as Project;
       setProjects(current => [project, ...current]);
       setName('');
+      setTemplateId('enterprise');
       setCreating(false);
       onOpenProject(project);
     } catch (e) {
@@ -64,9 +101,28 @@ export default function ProjectsWorkspace({ onOpenProject }: { onOpenProject: (p
       </div>
     </section>
 
+    <section style={{ ...CARD, display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', borderColor: 'rgba(0,212,170,.18)', background: 'rgba(0,212,170,.035)' }}>
+      <div>
+        <div style={MONO}>Sovereign instantiation</div>
+        <strong style={{ display: 'block', marginTop: 5, font: '500 17px Georgia,serif', color: '#E9E7DF' }}>Eden Food Systems</strong>
+        <span style={{ display: 'block', marginTop: 4, font: '11px/1.5 Inter,system-ui,sans-serif', color: 'rgba(233,231,223,.42)' }}>Create or resume the Eden project under this authenticated sovereign account and populate its canonical substrate.</span>
+      </div>
+      <button type="button" onClick={() => void instantiateEden()} disabled={creating} style={{ padding: '10px 16px', borderRadius: 9, border: '1px solid rgba(0,212,170,.32)', background: 'rgba(0,212,170,.08)', color: '#00D4AA', font: '9px ui-monospace,monospace', letterSpacing: '.14em', textTransform: 'uppercase', cursor: creating ? 'wait' : 'pointer' }}>{creating ? 'Instantiating…' : 'Instantiate Eden'}</button>
+    </section>
+
     <form onSubmit={createProject} style={{ ...CARD, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+      <select aria-label="Project template" value={templateId} onChange={event => {
+        const nextId = event.target.value;
+        const nextTemplate = templates.find(template => template.id === nextId);
+        const previousDefault = selectedTemplate?.default_name || '';
+        setTemplateId(nextId);
+        if (!name.trim() || name.trim() === previousDefault) setName(nextTemplate?.default_name || '');
+      }} disabled={creating || templates.length === 0} style={{ flex: '1 1 220px', minWidth: 0, padding: '11px 13px', background: 'rgba(0,0,0,.28)', border: '1px solid rgba(201,168,76,.2)', borderRadius: 9, color: '#E9E7DF', outline: 'none' }}>
+        {templates.map(template => <option key={template.id} value={template.id}>{template.name}</option>)}
+      </select>
       <input aria-label="New project name" value={name} onChange={e => setName(e.target.value)} placeholder="Name a new project…" style={{ flex: '1 1 260px', minWidth: 0, padding: '11px 13px', background: 'rgba(0,0,0,.28)', border: '1px solid rgba(201,168,76,.2)', borderRadius: 9, color: '#E9E7DF', outline: 'none' }} />
-      <button type="submit" disabled={creating} style={{ padding: '10px 16px', borderRadius: 9, border: '1px solid rgba(201,168,76,.34)', background: 'rgba(201,168,76,.09)', color: '#C9A84C', font: '9px ui-monospace,monospace', letterSpacing: '.16em', textTransform: 'uppercase', cursor: creating ? 'wait' : 'pointer' }}>{creating ? 'Creating…' : 'Create project'}</button>
+      <button type="submit" disabled={creating || templates.length === 0} style={{ padding: '10px 16px', borderRadius: 9, border: '1px solid rgba(201,168,76,.34)', background: 'rgba(201,168,76,.09)', color: '#C9A84C', font: '9px ui-monospace,monospace', letterSpacing: '.16em', textTransform: 'uppercase', cursor: creating ? 'wait' : 'pointer' }}>{creating ? 'Creating…' : 'Create project'}</button>
+      {selectedTemplate && <div style={{ flexBasis: '100%', font: '11px/1.6 Inter,system-ui,sans-serif', color: 'rgba(233,231,223,.42)' }}>{selectedTemplate.description} {selectedTemplate.domain_module && `Domain module: ${selectedTemplate.domain_module}. Runtime integration is verified separately.`}</div>}
       {createError && <div role="alert" style={{ flexBasis: '100%', font: '11px Inter,system-ui,sans-serif', color: '#E85246' }}>{createError}</div>}
     </form>
 
