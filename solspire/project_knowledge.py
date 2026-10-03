@@ -166,6 +166,23 @@ def build_project_context_for_weaver(project: dict[str, Any]) -> dict[str, Any]:
             graph = build_derived_graph(pid)
         except Exception as exc:
             graph = {"state": "UNAVAILABLE", "detail": f"{type(exc).__name__}: {exc}"}
+    witnessed_larder_ids = {
+        str(ref).removeprefix("living-larder-order:")
+        for event in continuity.get("work_events", [])
+        if event.get("event_type") == "LIVING_LARDER_ORDER_BOUND"
+        for ref in event.get("artifact_refs", [])
+        if str(ref).startswith("living-larder-order:")
+    }
+    unwitnessed_larder_ids = [str(order["order_id"]) for order in larder_orders
+                              if str(order["order_id"]) not in witnessed_larder_ids]
+    larder_orders = [order for order in larder_orders
+                     if str(order["order_id"]) in witnessed_larder_ids]
+    larder_state = (
+        "UNAVAILABLE"
+        if project_event_state == "UNAVAILABLE"
+        or continuity.get("binding_state", {}).get("workevents") == "UNAVAILABLE"
+        else "PROJECT_BOUND" if larder_orders else "UNKNOWN"
+    )
     return {
         "project_id": pid,
         "project_name": project.get("name"),
@@ -177,10 +194,10 @@ def build_project_context_for_weaver(project: dict[str, Any]) -> dict[str, Any]:
         "project_events": project_event_context[:100],
         "project_events_state": project_event_state,
         "living_larder": {
-            "binding_state": ("UNAVAILABLE" if project_event_state == "UNAVAILABLE"
-                              else "PROJECT_BOUND" if larder_orders else "UNKNOWN"),
+            "binding_state": larder_state,
             "orders": larder_orders[:100],
-            "note": "Only explicitly bound source records are shown; no transaction is inferred.",
+            "unwitnessed_order_ids": unwitnessed_larder_ids,
+            "note": "Only explicitly bound source records with matching WorkEvent evidence are shown; no transaction is inferred.",
         },
         "continuity": continuity,
         "memory_note": "Memory listed in knowledge OS is OPERATOR_CONTEXT, not FACT.",
