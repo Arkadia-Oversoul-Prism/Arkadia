@@ -60,6 +60,8 @@ def test_integration_health_does_not_infer_larder_binding(monkeypatch):
     monkeypatch.setattr(project_store, "list_events", lambda pid, limit=500: [])
     monkeypatch.setenv("SOLSPIRE_AGENT_IMAGE", "registry.example/agent@sha256:" + "a" * 64)
     monkeypatch.setattr("solspire.integration_health.shutil.which", lambda runtime: "/usr/bin/docker")
+    monkeypatch.setattr("solspire.integration_health.subprocess.run", lambda *args, **kwargs:
+                        SimpleNamespace(returncode=0, stdout="ok", stderr=""))
 
     result = project_integration_health(
         subject_uid="owner-1", project={"id": "project-1", "owner_uid": "owner-1"}
