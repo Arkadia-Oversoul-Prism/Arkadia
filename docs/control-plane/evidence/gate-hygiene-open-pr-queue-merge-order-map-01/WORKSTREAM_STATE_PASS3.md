@@ -48,3 +48,16 @@ The baseline (`main`) failing-node set is **clone-depth-dependent**; the compose
 
 Sovereign merge of the five-PR cluster. No further repository work is authorized inside this
 workstream; a separate bounded pass would be required for any of the pre-existing baseline debt.
+
+## Blocker note — why every PR reads `UNSTABLE` (measured 2026-10-03)
+
+All five PRs are `MERGEABLE` + `UNSTABLE` **solely** because of the pre-existing
+**`Vercel – console` fail** check (a separate Vercel project, `dpl_… --logs`). It fails
+identically on #215, #216, #217 and #218 — i.e. it is **not** caused by any of the five
+diffs, and #219 is evidence-only (two markdown files). #215 additionally shows
+`Vercel – arkadia-prism` **rate limited — retry in 24 hours**.
+
+The gate that matters for this workstream, **`Full-history secret scan`, passes** on #219
+(run `37086762826`). `Vercel – arkadia-prism` preview deployment also completed. Do **not**
+re-diagnose `Vercel – console` as a regression of this cluster; if it needs fixing it is a
+separate bounded workstream (Vercel project configuration, not repository source).
