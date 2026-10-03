@@ -488,6 +488,13 @@ class Sandbox:
             "root": str(self.root),
             "policy": {
                 "write_allowed": self.policy.write_allowed,
+                "candidate_proposals_allowed": self.policy.candidate_proposals_allowed,
+                "containerized": self.policy.containerized,
+                "container_image_digest_pinned": bool(
+                    self.policy.container_image and "@sha256:" in self.policy.container_image
+                    and len(self.policy.container_image.rsplit("@sha256:", 1)[-1]) == 64
+                ),
+                "canonical_base_digest": self.policy.canonical_base_digest,
                 "allow_network": self.policy.allow_network,
                 "command_allowlist": list(self.policy.command_allowlist),
                 "allowed_paths": list(self.policy.allowed_paths),
