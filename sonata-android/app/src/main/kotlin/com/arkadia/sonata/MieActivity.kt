@@ -21,6 +21,7 @@ class MieActivity : AppCompatActivity() {
     private var mediaPlayer: MediaPlayer? = null
     private var captureStartedAt = 0L
     private var lastCapture: File? = null
+    private var selectedObject: MieMusicalObject? = null
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -57,9 +58,7 @@ class MieActivity : AppCompatActivity() {
         binding.keepButton.setOnClickListener {
             showStatus("Capture is already saved locally in this MIE session.")
         }
-        binding.changeButton.setOnClickListener {
-            showStatus("Transformation remains gated. Original capture is preserved.")
-        }
+        binding.changeButton.setOnClickListener { transformSelectedCapture() }
     }
 
     private fun beginCapture() {
@@ -125,7 +124,9 @@ class MieActivity : AppCompatActivity() {
         binding.keepButton.isEnabled = true
         binding.changeButton.isEnabled = true
         lastCapture = file
-        showStatus("Saved as capture ${objectModel.id.take(8)}. Original audio preserved.")
+        selectedObject = objectModel
+        binding.changeButton.text = if (objectModel.transformation == null) "OCTAVE UP" else "TRANSFORMED"
+        showStatus(if (objectModel.transformation == null) "Saved as capture ${objectModel.id.take(8)}. Original audio preserved." else "Derived from ${objectModel.parentId?.take(8) ?: "source"}. Original preserved.")
     }
 
     private fun renderHistory() {
@@ -158,6 +159,7 @@ class MieActivity : AppCompatActivity() {
                         return@setOnClickListener
                     }
                     lastCapture = file
+                    selectedObject = objectModel
                     renderObject(file, objectModel)
                     showStatus("Selected capture ${objectModel.id.take(8)}.")
                 }
@@ -167,6 +169,43 @@ class MieActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { bottomMargin = 8 })
         }
+    }
+
+    private fun transformSelectedCapture() {
+        val source = selectedObject
+        val sourceFile = lastCapture
+        if (source == null || sourceFile == null || !sourceFile.exists()) {
+            showStatus("Select a saved capture before transforming it.")
+            return
+        }
+        if (source.transformation != null) {
+            showStatus("This capture is already a derived transformation. Select an original capture.")
+            return
+        }
+
+        showStatus("Creating octave-up derivative…")
+        Thread {
+            runCatching {
+                val output = File(sourceFile.parentFile, "mie-" + System.currentTimeMillis() + "-octave-up.wav")
+                MieAudioTransformer.octaveUp(sourceFile, output)
+                val derived = source.copy(
+                    id = java.util.UUID.randomUUID().toString(),
+                    sourcePath = output.absolutePath,
+                    durationMs = recorder.durationMs(output),
+                    parentId = source.id,
+                    transformation = "octave_up"
+                )
+                File(output.parentFile, derived.id + ".json").writeText(derived.toJson())
+                sessionStore.addCapture(derived)
+                runOnUiThread {
+                    renderObject(output, derived)
+                    renderHistory()
+                    showStatus("Created octave-up derivative " + derived.id.take(8) + " from " + source.id.take(8) + ". Original preserved.")
+                }
+            }.onFailure { error ->
+                runOnUiThread { showStatus("Transformation failed: " + (error.message ?: "unknown error")) }
+            }
+        }.start()
     }
 
     private fun playLastCapture() {

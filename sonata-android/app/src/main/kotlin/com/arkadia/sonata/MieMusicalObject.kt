@@ -15,7 +15,8 @@ data class MieMusicalObject(
     val detectedPitchHz: Float?,
     val detectedMidi: Float?,
     val createdAtEpochMs: Long = System.currentTimeMillis(),
-    val parentId: String? = null
+    val parentId: String? = null,
+    val transformation: String? = null
 ) {
     fun noteName(): String? {
         val midi = detectedMidi ?: return null
@@ -50,6 +51,7 @@ data class MieMusicalObject(
                 "provenance",
                 JSONObject()
                     .put("parent_id", parentId)
+                    .put("transformation", transformation)
                     .put("created_at_epoch_ms", createdAtEpochMs)
             )
             .toString(2)

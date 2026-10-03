@@ -64,7 +64,8 @@ class MieSessionStore(context: Context) {
                     detectedPitchHz = interpretation.optDouble("detected_pitch_hz", Double.NaN).let { if (it.isNaN()) null else it.toFloat() },
                     detectedMidi = interpretation.optDouble("detected_midi", Double.NaN).let { if (it.isNaN()) null else it.toFloat() },
                     createdAtEpochMs = provenance.optLong("created_at_epoch_ms", System.currentTimeMillis()),
-                    parentId = provenance.optString("parent_id").takeIf { it.isNotBlank() && it != "null" }
+                    parentId = provenance.optString("parent_id").takeIf { it.isNotBlank() && it != "null" },
+                    transformation = provenance.optString("transformation").takeIf { it.isNotBlank() && it != "null" }
                 )
             }
             MieSession(
