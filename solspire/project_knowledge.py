@@ -110,12 +110,15 @@ def build_project_context_for_weaver(project: dict[str, Any]) -> dict[str, Any]:
                                   "binding_state": {"daily_pulse": "UNKNOWN", "workevents": "UNKNOWN"}}
     graph = {}
     project_event_context: list[dict[str, Any]] = []
+    project_event_state = "UNKNOWN"
     larder_orders: list[dict[str, Any]] = []
     if pid:
         try:
             import json
             from solspire.project_store import list_events
-            for event in list_events(pid, limit=100):
+            source_events = list_events(pid, limit=100)
+            project_event_state = "PROJECT_STORE_BOUND"
+            for event in source_events:
                 project_event_context.append({
                     "id": event.get("id"), "event_type": event.get("event_type"),
                     "summary": event.get("summary"), "created_at": event.get("created_at"),
@@ -133,7 +136,8 @@ def build_project_context_for_weaver(project: dict[str, Any]) -> dict[str, Any]:
                             "snapshot_digest": data.get("snapshot_digest"),
                             "provenance": "SOURCE-BACKED",
                         })
-        except Exception:
+        except Exception as exc:
+            project_event_state = "UNAVAILABLE"
             project_event_context = []
             larder_orders = []
         try:
@@ -171,8 +175,10 @@ def build_project_context_for_weaver(project: dict[str, Any]) -> dict[str, Any]:
         "repositories": (summary.get("items") or {}).get("repositories"),
         "knowledge_graph": graph,
         "project_events": project_event_context[:100],
+        "project_events_state": project_event_state,
         "living_larder": {
-            "binding_state": "PROJECT_BOUND" if larder_orders else "UNKNOWN",
+            "binding_state": ("UNAVAILABLE" if project_event_state == "UNAVAILABLE"
+                              else "PROJECT_BOUND" if larder_orders else "UNKNOWN"),
             "orders": larder_orders[:100],
             "note": "Only explicitly bound source records are shown; no transaction is inferred.",
         },
