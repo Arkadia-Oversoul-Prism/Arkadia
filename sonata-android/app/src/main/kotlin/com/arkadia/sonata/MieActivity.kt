@@ -9,6 +9,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
+import kotlin.math.roundToInt
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.arkadia.sonata.databinding.ActivityMieBinding
@@ -22,6 +23,11 @@ class MieActivity : AppCompatActivity() {
     private var captureStartedAt = 0L
     private var lastCapture: File? = null
     private var selectedObject: MieMusicalObject? = null
+    private var playingFile: File? = null
+    private var playingButton: Button? = null
+    private var pauseButton: Button? = null
+    private var repeatButton: Button? = null
+    private var repeatPlayback = false
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -54,7 +60,6 @@ class MieActivity : AppCompatActivity() {
             }
         }
 
-        binding.playButton.setOnClickListener { playLastCapture() }
         binding.keepButton.setOnClickListener {
             showStatus("Capture is already saved locally in this MIE session.")
         }
@@ -120,18 +125,17 @@ class MieActivity : AppCompatActivity() {
             String.format("%.2fs · pitch %s · confidence %.0f%%",
                 objectModel.durationMs / 1000f, pitch, objectModel.confidence * 100f)
         binding.objectJson.text = objectModel.toJson()
-        binding.playButton.isEnabled = true
         binding.keepButton.isEnabled = true
         binding.changeButton.isEnabled = true
         lastCapture = file
         selectedObject = objectModel
-        binding.changeButton.text = if (objectModel.transformation == null) "OCTAVE UP" else "TRANSFORMED"
+        binding.changeButton.text = if (objectModel.transformation == null) "OCTAVE UP" else "DERIVED"
         showStatus(if (objectModel.transformation == null) "Saved as capture ${objectModel.id.take(8)}. Original audio preserved." else "Derived from ${objectModel.parentId?.take(8) ?: "source"}. Original preserved.")
     }
 
     private fun renderHistory() {
         val captures = sessionStore.current().captures
-        binding.historyCount.text = "${captures.size} capture(s) in this session"
+        binding.historyCount.text = captures.size.toString() + " capture(s) in this session"
         binding.historyList.removeAllViews()
 
         if (captures.isEmpty()) {
@@ -149,25 +153,60 @@ class MieActivity : AppCompatActivity() {
             val note = objectModel.noteName() ?: objectModel.detectedPitchHz?.let {
                 String.format("%.1f Hz", it)
             } ?: "pitch unknown"
-            val type = objectModel.humanType()
-            val entry = Button(this).apply {
-                text = "${index + 1}. ${type.replaceFirstChar { it.uppercase() }} · $note"
+            val kind = if (objectModel.transformation == null) "ORIGINAL" else "DERIVED · OCTAVE UP"
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(14.dp(), 10.dp(), 14.dp(), 10.dp())
+                setBackgroundResource(R.drawable.bg_input)
+            }
+
+            val label = Button(this).apply {
+                text = (index + 1).toString() + ". " + kind + "\n" + note + " · " + String.format("%.2fs", objectModel.durationMs / 1000f)
                 isAllCaps = false
                 setOnClickListener {
                     if (!file.exists()) {
-                        showStatus("Capture ${objectModel.id.take(8)} is missing its audio file.")
+                        showStatus("Capture " + objectModel.id.take(8) + " is missing its audio file.")
                         return@setOnClickListener
                     }
                     lastCapture = file
                     selectedObject = objectModel
                     renderObject(file, objectModel)
-                    showStatus("Selected capture ${objectModel.id.take(8)}.")
+                    showStatus("Selected " + kind.lowercase() + " " + objectModel.id.take(8) + ".")
                 }
             }
-            binding.historyList.addView(entry, LinearLayout.LayoutParams(
+            card.addView(label)
+
+            val controls = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+            }
+            val play = Button(this).apply {
+                text = "PLAY"
+                isAllCaps = false
+                isEnabled = file.exists()
+            }
+            val pause = Button(this).apply {
+                text = "PAUSE"
+                isAllCaps = false
+                isEnabled = false
+            }
+            val repeat = Button(this).apply {
+                text = "REPEAT"
+                isAllCaps = false
+                isEnabled = file.exists()
+            }
+            play.setOnClickListener { playCapture(file, play, pause, repeat) }
+            pause.setOnClickListener { pauseOrResume(file, play, pause, repeat) }
+            repeat.setOnClickListener { toggleRepeat(file, play, pause, repeat) }
+
+            controls.addView(play, LinearLayout.LayoutParams(0, 48.dp(), 1f))
+            controls.addView(pause, LinearLayout.LayoutParams(0, 48.dp(), 1f))
+            controls.addView(repeat, LinearLayout.LayoutParams(0, 48.dp(), 1f))
+            card.addView(controls)
+
+            binding.historyList.addView(card, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { bottomMargin = 8 })
+            ).apply { bottomMargin = 10.dp() })
         }
     }
 
@@ -208,20 +247,40 @@ class MieActivity : AppCompatActivity() {
         }.start()
     }
 
-    private fun playLastCapture() {
-        val file = lastCapture ?: recorder.lastFile ?: return
-        playCapture(file)
-    }
-
-    private fun playCapture(file: File) {
+    private fun playCapture(file: File, play: Button, pause: Button, repeat: Button) {
         if (!file.exists()) {
             showStatus("This capture's audio file is missing.")
             return
         }
+
+        if (playingFile?.absolutePath == file.absolutePath && mediaPlayer != null) {
+            mediaPlayer?.let { player ->
+                if (!player.isPlaying) {
+                    player.start()
+                    pause.text = "PAUSE"
+                    pause.isEnabled = true
+                    play.text = "PLAYING"
+                }
+            }
+            return
+        }
+
         stopPlayback()
+        playingFile = file
+        playingButton = play
+        pauseButton = pause
+        repeatButton = repeat
+
         mediaPlayer = MediaPlayer().apply {
             setDataSource(file.absolutePath)
-            setOnCompletionListener { stopPlayback() }
+            setOnCompletionListener {
+                if (repeatPlayback && playingFile?.absolutePath == file.absolutePath) {
+                    seekTo(0)
+                    start()
+                } else {
+                    stopPlayback()
+                }
+            }
             setOnErrorListener { _, _, _ ->
                 showStatus("Playback failed for this capture.")
                 stopPlayback()
@@ -230,8 +289,42 @@ class MieActivity : AppCompatActivity() {
             prepare()
             start()
         }
-        binding.playButton.text = "STOP"
-        showStatus("Playing original capture.")
+        play.text = "PLAYING"
+        pause.isEnabled = true
+        repeat.isEnabled = true
+        showStatus("Playing " + file.name + ".")
+    }
+
+    private fun pauseOrResume(file: File, play: Button, pause: Button, repeat: Button) {
+        if (playingFile?.absolutePath != file.absolutePath || mediaPlayer == null) {
+            playCapture(file, play, pause, repeat)
+            return
+        }
+        mediaPlayer?.let { player ->
+            if (player.isPlaying) {
+                player.pause()
+                pause.text = "RESUME"
+                play.text = "PLAY"
+                showStatus("Paused " + file.name + ".")
+            } else {
+                player.start()
+                pause.text = "PAUSE"
+                play.text = "PLAYING"
+                showStatus("Resumed " + file.name + ".")
+            }
+        }
+    }
+
+    private fun toggleRepeat(file: File, play: Button, pause: Button, repeat: Button) {
+        if (playingFile?.absolutePath != file.absolutePath || mediaPlayer == null) {
+            repeatPlayback = true
+            repeat.text = "REPEAT ✓"
+            playCapture(file, play, pause, repeat)
+            return
+        }
+        repeatPlayback = !repeatPlayback
+        repeat.text = if (repeatPlayback) "REPEAT ✓" else "REPEAT"
+        showStatus(if (repeatPlayback) "Repeat enabled." else "Repeat disabled.")
     }
 
     private fun stopPlayback() {
@@ -240,8 +333,18 @@ class MieActivity : AppCompatActivity() {
             it.release()
         }
         mediaPlayer = null
-        binding.playButton.text = "PLAY ORIGINAL"
+        playingFile = null
+        playingButton?.text = "PLAY"
+        pauseButton?.text = "PAUSE"
+        pauseButton?.isEnabled = false
+        repeatButton?.text = "REPEAT"
+        playingButton = null
+        pauseButton = null
+        repeatButton = null
+        repeatPlayback = false
     }
+
+    private fun Int.dp(): Int = (this * resources.displayMetrics.density).roundToInt()
 
     private fun showStatus(message: String) {
         runOnUiThread { binding.status.text = message }
