@@ -16,3 +16,15 @@ def test_projects_ui_uses_server_owned_template_catalog():
     assert 'aria-label="Project template"' in source
     assert "template_id: templateId" in source
     assert "runtime integration is verified separately" in source
+
+
+def test_arkana_injects_bounded_project_context_and_scopes_threads():
+    source = (ROOT / "web/public_prism/src/components/ArkanaCommune.tsx").read_text()
+    overlay = (ROOT / "web/public_prism/src/components/solspire/SolSpireExperience.tsx").read_text()
+    assert "projectContextId" in source
+    assert "ACTIVE_THREAD_KEY}:project:" in source
+    assert "[ARKADIA PROJECT CONTEXT SNAPSHOT" in source
+    assert "unavailable_sources" in overlay
+    assert "/solspire/projects/${pack.projectId}/tasks" in overlay
+    assert "/solspire/projects/${pack.projectId}/memory" in overlay
+    assert "Number(project.id)" not in overlay
