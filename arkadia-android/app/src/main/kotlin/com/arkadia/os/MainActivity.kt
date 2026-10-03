@@ -9,6 +9,7 @@ import android.media.MediaRecorder
 import android.os.Bundle
 import android.view.Gravity
 import android.widget.*
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -121,7 +122,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun ask() {
-        val input = EditText(this).apply { hint = "Ask Arkana…"; setTextColor(text); setHintTextColor(muted); minLines = 3 }
+        val input = EditText(this).apply { hint = "Ask Arkana…"; setTextColor(this@MainActivity.text); setHintTextColor(muted); minLines = 3 }
         AlertDialog.Builder(this).setTitle("ARKANA").setMessage("Interrogate the intelligence layer. Where evidence stops, the claim stops.")
             .setView(input).setNegativeButton("CLOSE", null).setPositiveButton("ASK") { _, _ ->
                 val q = input.text.toString().trim()
@@ -174,7 +175,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun navButton(title: String, active: Boolean, action: () -> Unit) = button(title) { action() }.apply { alpha = if (active) 1f else 0.65f }
-    private fun button(title: String, action: () -> Unit) = Button(this).apply { text = title; textSize = 10f; setTextColor(if (title == "ACCEPT") accent else text); setOnClickListener { action() } }
+    private fun button(title: String, action: () -> Unit) = Button(this).apply { text = title; textSize = 10f; setTextColor(if (title == "ACCEPT") accent else this@MainActivity.text); setOnClickListener { action() } }
     private fun label(value: String, size: Float, color: Int, bold: Boolean) = TextView(this).apply { text = value; textSize = size; setTextColor(color); typeface = Typeface.create(Typeface.MONOSPACE, if (bold) Typeface.BOLD else Typeface.NORMAL) }
     private fun margin(l: Int, t: Int, r: Int, b: Int) = LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(l), dp(t), dp(r), dp(b)) }
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
