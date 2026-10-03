@@ -184,3 +184,27 @@ Two claims made during this pass were **wrong and are withdrawn**:
    allowlist's own prose (PRs #233/#234/#235) is accurate. Path counts are `d798811`
    **1726** and `cc95487` **1727**, so `main`'s "1726 at the console merge" is
    correct for the revision the fixture was written at.
+
+## 9. PR #245 integration evidence (branch `gate10/persist-phase1-runtime-state-01`)
+
+Head `17bf337`. Measured 2026-10-03.
+
+- `validate` (CP10 `sg-02-fe-2-v.yml`) — **pass**, 1m31s. The policy file is inside the
+  workflow's path filter, so the delegated judge ran on this PR's diff and returned RC 0.
+- `Full-history secret scan` — **pass**, 11s.
+- `Vercel – arkadia-prism` — **pass** (preview built).
+- `Vercel – console` — **fail**, "Deployment rate limited — retry in 24 hours." This is
+  **not** attributable to this PR: the same failure is present on `main`'s merged tip
+  `357fbd8` and on `f206e77`, `7f2d265`, `444d5cd`. Provider-side build rate limit.
+  This PR touches **no** `arkadia-console-android/` path, so the console gate
+  (`arkadia-console-android.yml`, path-filtered to `arkadia-console-android/**`) does not
+  run for it at all.
+
+Changed paths (three): `.bootstrap/01_STATE.md`,
+`docs/control-plane/evidence/phase1-runtime-stabilization-01/EVIDENCE.md`,
+`scripts/cp10_mutation_boundary_policy.py` (comment-only).
+
+## 10. Authority boundary (this pass)
+
+Read-only measurement plus in-repo state persistence on a dedicated branch. No test
+repaired, no merge, no push to `main`. Human authority is required to merge.
