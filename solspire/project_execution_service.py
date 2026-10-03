@@ -37,13 +37,22 @@ def create_disposable_workspace(subject_uid: str, project_id: str) -> dict[str, 
     """Create a fresh per-execution copy, never exposing the canonical store path."""
     from solspire.project_canvas import prepare_project_workspace
     temp_base = Path(tempfile.mkdtemp(prefix="arkadia-solspire-run-")).resolve()
-    snapshot = prepare_project_workspace(subject_uid, project_id, base_root=temp_base)
-    return {
-        **snapshot,
-        "cleanup_root": str(temp_base),
-        "canonical_base_digest": canonical_base_digest(project_id),
-        "disposable": True,
-    }
+    base_before = canonical_base_digest(project_id)
+    try:
+        snapshot = prepare_project_workspace(subject_uid, project_id, base_root=temp_base)
+        base_after = canonical_base_digest(project_id)
+        if base_before != base_after:
+            raise BoundaryError("canonical project changed while the disposable snapshot was being created")
+        return {
+            **snapshot,
+            "cleanup_root": str(temp_base),
+            "canonical_base_digest": base_before,
+            "disposable": True,
+        }
+    except Exception:
+        import shutil
+        shutil.rmtree(temp_base, ignore_errors=True)
+        raise
 
 
 def execute_container_command(*, workspace: str, command: list[str], image: str,
