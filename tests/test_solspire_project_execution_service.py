@@ -23,6 +23,35 @@ def test_project_execution_preflight_refuses_missing_runtime(monkeypatch):
         assert_container_runtime_ready(image="agent@sha256:" + "a" * 64)
 
 
+def test_timed_out_container_is_targeted_for_forced_cleanup(monkeypatch, tmp_path):
+    import subprocess
+    from types import SimpleNamespace
+    from solspire import project_execution_boundary as boundary
+
+    monkeypatch.setattr(boundary.shutil, "which", lambda _: "/usr/bin/docker")
+    calls = []
+
+    def fake_run(argv, **kwargs):
+        calls.append(list(argv))
+        if argv[1] == "run":
+            raise subprocess.TimeoutExpired(cmd=argv, timeout=kwargs.get("timeout", 1))
+        if argv[1] == "ps":
+            return SimpleNamespace(returncode=0, stdout="container-test-id\\n", stderr="")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(boundary.subprocess, "run", fake_run)
+    with pytest.raises(BoundaryError, match="timed out"):
+        boundary.run_isolated(
+            image="agent@sha256:" + "a" * 64, workspace=tmp_path,
+            command=("true",), timeout_seconds=1,
+        )
+    run_argv = next(argv for argv in calls if len(argv) > 1 and argv[1] == "run")
+    assert "--network=none" in run_argv
+    assert "--read-only" in run_argv
+    assert "--label" in run_argv
+    assert any(argv[1:3] == ["rm", "-f"] and argv[-1] == "container-test-id" for argv in calls)
+
+
 def test_container_image_must_be_digest_pinned(tmp_path):
     with pytest.raises(BoundaryError, match="immutable sha256 digest"):
         execute_container_command(workspace=str(tmp_path), command=["true"],
