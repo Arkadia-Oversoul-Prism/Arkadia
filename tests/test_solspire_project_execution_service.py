@@ -106,3 +106,27 @@ def test_reviewed_patch_rejects_digest_mismatch_before_canonical_write(monkeypat
             allowed_paths=["README.md"],
         )
     assert project_store.get_file(file_row["id"])["content"] == "before"
+
+
+def test_disposable_workspace_changes_are_candidate_only(monkeypatch, tmp_path):
+    from solspire import project_store
+    from solspire.project_execution_service import (
+        canonical_base_digest, collect_candidate_patch,
+    )
+
+    monkeypatch.setattr(project_store, "_DB_PATH", str(tmp_path / "projects.db"))
+    file_row = project_store.create_file("project-3", "README.md", "canonical")
+    base = canonical_base_digest("project-3")
+    workspace = tmp_path / "disposable"
+    workspace.mkdir()
+    (workspace / "README.md").write_text("candidate", encoding="utf-8")
+    (workspace / "new.txt").write_text("not-allowed", encoding="utf-8")
+
+    candidate = collect_candidate_patch(
+        project_id="project-3", workspace=str(workspace), base_digest=base
+    )
+    assert candidate["changed_paths"] == ["README.md"]
+    assert candidate["persistence"] == "NOT_APPLIED"
+    assert candidate["requires_human_review"] is True
+    assert "new.txt" in candidate["rejected_paths"]
+    assert project_store.get_file(file_row["id"])["content"] == "canonical"
