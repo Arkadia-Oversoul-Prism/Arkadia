@@ -361,6 +361,8 @@ def test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec():
     not by a hardcoded preference.
     """
     text = _rev("AGENTS.md", GATE2_PARENT_REV)
+    if text is None:
+        pytest.skip(f"gate-2 parent {GATE2_PARENT_REV} unavailable in this clone")
     oracle = _rev("AGENTS.md", ORACLE_REV)
     result, healed = audit_shadow(text, oracle)
     assert result["shadow_adjudicated"] is True
