@@ -78,7 +78,14 @@ Implemented the smallest explicit change loop around the existing octave-up tran
 `CAPTURE → OBJECT → CHANGE → RESULT → COMPARE → KEEP/REVISE`
 
 The result now exposes explicit KEEP RESULT and REVISE actions. Keep records
-`loop_decision=kept) while preserving the original. Revise records
+`loop_decision=kept` while preserving the original. Revise records
 `loop_decision=revised` and restores the parent original as the active object so another
 change can be attempted. Decisions are persisted in MusicalObject provenance and covered by
 unit tests. Physical-device verification remains pending.
+
+
+### Gate 05 CI verification · 2026-10-03
+
+Workflow run 37142127800 (run #86) completed successfully on head
+`3de223c6a3d87de4d805eeaea4388a4ae3ea9f60`. Security scan also passed.
+The debug APK artifact was produced successfully. Physical Gate 05 verification remains pending.
