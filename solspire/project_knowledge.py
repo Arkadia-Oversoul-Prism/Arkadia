@@ -175,8 +175,8 @@ def build_project_context_for_weaver(project: dict[str, Any]) -> dict[str, Any]:
                 continuity["work_events"] = events[:50]
                 continuity["work_events"] = events[:50]
                 continuity["binding_state"] = {
-                    "daily_pulse": "AVAILABLE" if pulse else "EMPTY",
-                    "workevents": "AVAILABLE" if events else "EMPTY",
+                    "daily_pulse": "AVAILABLE" if pulse else "UNKNOWN",
+                    "workevents": "AVAILABLE" if events else "UNKNOWN",
                 }
         except Exception as exc:
             continuity["daily_pulse"] = None
