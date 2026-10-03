@@ -594,8 +594,9 @@ async def project_runtime_context(
             "knowledge_graph": graph_state,
             "weaver": "ENGINEERING_LAB_PROJECT_BOUND",
             "arkana": "PROJECT_CONTEXT_CAPABLE",
-            "living_larder": "PROJECT_BOUND" if any(
-                event.get("event_type") == "living_larder_order_bound" for event in project_events
+            "living_larder": "PROJECT_BOUND" if (
+                any(event.get("event_type") == "living_larder_order_bound" for event in project_events)
+                and any(event.get("event_type") == "LIVING_LARDER_ORDER_BOUND" for event in work_events)
             ) else "UNKNOWN",
         },
         "epistemic_boundary": (
