@@ -30,6 +30,7 @@ class MainActivity:AppCompatActivity(){
     private lateinit var actionRow:LinearLayout
     private var snap=FieldSnapshot(emptyList(),emptyList(),0,false)
     private var selected:FieldObject?=null
+    private var currentMode="FIELD"
     private val captures by lazy{CaptureStore(this)}
     private var recorder:MediaRecorder?=null
     private var activeVoice:Pair<String,File>?=null
@@ -67,6 +68,7 @@ class MainActivity:AppCompatActivity(){
     private fun showMainScreen(){
         setContentView(R.layout.activity_main)
         bindMainViews()
+        mode("FIELD")
         connection.text="● LIVE · "+(identity?.currentUser?.email ?: "NO IDENTITY")
         load()
     }
@@ -131,17 +133,20 @@ class MainActivity:AppCompatActivity(){
     private fun render(){
         objectList.removeAllViews()
         if(snap.objects.isEmpty()){objectList.addView(TextView(this).apply{text="The field has no readable objects yet. This is not an invented empty state.";setTextColor(getColor(R.color.arkadia_muted));textSize=14f;setPadding(12,24,12,24)})}
-        snap.objects.forEach{obj->
+        val orderedObjects=if(currentMode!="FIELD" && selected!=null) snap.objects.sortedBy{if(it.id==selected?.id)0 else 1} else snap.objects
+        orderedObjects.forEach{obj->
             val card=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,16,18,16);setBackgroundResource(R.drawable.bg_panel)}
             card.addView(TextView(this).apply{text=obj.type+"  •  "+obj.state;setTextColor(getColor(R.color.arkadia_accent));textSize=11f})
             card.addView(TextView(this).apply{text=obj.title;setTextColor(getColor(R.color.arkadia_text));textSize=18f;setTypeface(typeface,android.graphics.Typeface.BOLD)})
             card.addView(TextView(this).apply{text=obj.summary;setTextColor(getColor(R.color.arkadia_muted));textSize=13f;setPadding(0,6,0,0)})
+            if(currentMode=="DEEP") card.addView(TextView(this).apply{text="SOURCE  "+obj.source+"\\nID  "+obj.id;setTextColor(getColor(R.color.arkadia_muted));textSize=11f;setPadding(0,8,0,0)})
+            card.alpha=when{currentMode=="FIELD"->1f;selected?.id==obj.id->1f;currentMode=="FOCUS"->0.28f;else->0.14f}
             card.setOnClickListener{focus(obj)}
             objectList.addView(card,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,0,0,10)})
         }
         selected?.let{focus(it)}?:run{detailType.text="FIELD";detailTitle.text="Nothing selected";detailSummary.text="Tap an object to enter FOCUS. DEEP keeps canonical source and state visible.";detailState.text="CAN ≠ MAY ≠ DID";actionRow.removeAllViews()}
     }
-    private fun focus(obj:FieldObject){selected=obj;detailType.text=obj.type+"  •  "+obj.source;detailTitle.text=obj.title;detailSummary.text=obj.summary;detailState.text="STATE: "+obj.state+"\nCAN ≠ MAY ≠ DID\n"+if(obj.authorizationId!=null)"AUTHORIZATION: "+obj.authorizationId else "AUTHORIZATION: NONE";actionRow.removeAllViews()
+    private fun focus(obj:FieldObject){selected=obj;detailType.text=obj.type+"  •  "+obj.source;detailTitle.text=obj.title;detailSummary.text=if(currentMode=="DEEP") obj.summary+"\\n\\nCANONICAL SOURCE: "+obj.source+"\\nOBJECT ID: "+obj.id else obj.summary;detailState.text="STATE: "+obj.state+"\nCAN ≠ MAY ≠ DID\n"+if(obj.authorizationId!=null)"AUTHORIZATION: "+obj.authorizationId else "AUTHORIZATION: NONE";actionRow.removeAllViews()
         if(obj.type=="PROPOSAL"){
             if(obj.state=="ACCEPTED" && obj.authorizationId==null) addAction("AUTHORIZE"){authorize(obj.id)}
             else if(obj.authorizationId==null) addAction("ACCEPT"){decide(obj.id,"ACCEPTED")}
@@ -280,5 +285,12 @@ class MainActivity:AppCompatActivity(){
         return when{mime.contains("jpeg")||mime.contains("jpg")->"jpg";mime.contains("png")->"png";mime.contains("pdf")->"pdf";mime.contains("audio")->"m4a";mime.contains("video")->"mp4";else->"bin"}
     }
 
-    private fun mode(m:String){findViewById<TextView>(R.id.fieldHint).text=when(m){"FOCUS"->"FOCUS: selected object first. The rest of the field recedes.";"DEEP"->"DEEP: inspect source, state and governed actions. Display remains non-authoritative.";else->"FIELD: what matters now. Live canonical state, not a second database."}}
-}
+    private fun mode(m:String){
+        currentMode=when(m){"FOCUS","DEEP"->m;else->"FIELD"}
+        findViewById<TextView>(R.id.fieldHint).text=when(currentMode){"FOCUS"->"FOCUS: selected object first. The rest of the field recedes.";"DEEP"->"DEEP: inspect source, state and governed actions. Display remains non-authoritative.";else->"FIELD: what matters now. Live canonical state, not a second database."}
+        findViewById<Button>(R.id.fieldButton).text=if(currentMode=="FIELD")"• FIELD" else "FIELD"
+        findViewById<Button>(R.id.focusButton).text=if(currentMode=="FOCUS")"• FOCUS" else "FOCUS"
+        findViewById<Button>(R.id.deepButton).text=if(currentMode=="DEEP")"• DEEP" else "DEEP"
+        render()
+    }
+}}
