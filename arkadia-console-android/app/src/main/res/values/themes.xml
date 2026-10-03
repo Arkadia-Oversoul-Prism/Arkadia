@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ArkadiaConsole" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@color/arkadia_bg</item>
+        <item name="android:navigationBarColor">@color/arkadia_bg</item>
+        <item name="colorAccent">@color/arkadia_accent</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>

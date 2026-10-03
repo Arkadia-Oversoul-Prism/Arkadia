@@ -310,6 +310,8 @@ class EdenOps:
         actor: str,
         actor_identity: dict[str, Any] | None = None,
         authentication_context: str = "authenticated_subject",
+        authorization_scope: dict[str, Any] | None = None,
+        authorization_constraints: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """DECISIONS zone: approve / reject. Creates HAE + Authorization on approve."""
         action = action.upper()
@@ -380,8 +382,8 @@ class EdenOps:
             subject=subject,
             proposal_id=proposal_id,
             authority_event_id=hae.id,
-            scope={"objective": row["objective"]},
-            constraints={},
+            scope=authorization_scope or {"objective": row["objective"]},
+            constraints=authorization_constraints or {},
             correlation_id=row["correlation_id"],
         )
         return {"authority_event": hae, "authorization": auth, "status": "AUTHORIZED"}
