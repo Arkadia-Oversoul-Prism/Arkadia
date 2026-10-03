@@ -13,7 +13,7 @@ data, not product-specific branches.
 - Existing `projects` row and its `metadata` field.
 - Existing project files, conversations, tasks, memory and activity events.
 - Existing project-scoped Weaver endpoints and governed engineering execution.
-- Existing Arkana conversation surface and explicit project-context pack.
+- Existing Arkana conversation surface and explicit project-context pack. This slice now fetches a bounded snapshot of project tasks, files, memory and activity through owner-scoped APIs and injects it into project-scoped Arkana turns; project threads use a project-specific local thread key.
 - Existing Daily Pulse, WorkEvent, workload, evidence and Knowledge OS routes.
 
 No second project database, task system, memory store or event spine is introduced.
@@ -48,9 +48,11 @@ authenticated UID; template metadata cannot grant access.
 
 This slice establishes the server-owned template contract and project-creation
 surface. It does not yet implement a new sandbox runtime, change Weaver's
-execution authority, bind Living Larder records, or claim that Arkana's context
-is automatically injected into every conversation. Those require separate
-verified seams and acceptance tests.
+execution authority, bind Living Larder records, or automatically include Daily
+Pulse, WorkEvent or Knowledge OS graph results in Arkana's context. The current
+bounded context includes project tasks, file names, memory entries and activity
+events; unavailable sources remain visible. Broader graph and execution seams
+require separate verified work and acceptance tests.
 
 ## Verification
 
