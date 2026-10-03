@@ -33,6 +33,30 @@ def canonical_base_digest(project_id: str) -> str:
                                      separators=(",", ":")).encode()).hexdigest()
 
 
+def assert_container_runtime_ready(*, image: str, runtime: str = "docker") -> dict[str, str]:
+    """Require a live OCI daemon and the exact configured digest-pinned image."""
+    import re
+    import subprocess
+    from solspire.project_execution_boundary import BoundaryError
+    if not re.fullmatch(r".+@sha256:[0-9a-fA-F]{64}", image or ""):
+        raise BoundaryError("SOLSPIRE_AGENT_IMAGE must be pinned by immutable SHA-256 digest")
+    executable = shutil.which(runtime)
+    if not executable:
+        raise BoundaryError("container runtime unavailable; refusing project execution")
+    try:
+        info = subprocess.run([executable, "info"], shell=False, capture_output=True,
+                              text=True, timeout=5, check=False)
+        if info.returncode != 0:
+            raise BoundaryError("container runtime daemon is unavailable")
+        inspected = subprocess.run([executable, "image", "inspect", image], shell=False,
+                                   capture_output=True, text=True, timeout=5, check=False)
+        if inspected.returncode != 0:
+            raise BoundaryError("configured digest-pinned agent image is not present in the runtime")
+    except subprocess.TimeoutExpired as exc:
+        raise BoundaryError("container runtime probe timed out") from exc
+    return {"runtime": executable, "image": image, "state": "READY"}
+
+
 def create_disposable_workspace(subject_uid: str, project_id: str) -> dict[str, Any]:
     """Create a fresh per-execution copy, never exposing the canonical store path."""
     from solspire.project_canvas import prepare_project_workspace
@@ -217,5 +241,5 @@ def apply_reviewed_project_patch(*, subject_uid: str, project_id: str,
             "canonical_base_digest": canonical_base_digest(project_id)}
 
 
-__all__ = ["apply_reviewed_project_patch", "candidate_patch_digest", "canonical_base_digest",
+__all__ = ["apply_reviewed_project_patch", "assert_container_runtime_ready", "candidate_patch_digest", "canonical_base_digest",
            "collect_candidate_patch", "create_disposable_workspace", "execute_container_command"]
