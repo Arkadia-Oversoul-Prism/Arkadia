@@ -66,14 +66,17 @@ class ConsoleRepository(private val baseUrl:()->String, private val token:suspen
         request("/api/knowledge/providers/send","POST",body).optString("content").ifBlank{"Arkana returned no content."}
     }
     suspend fun authorize(proposalId:String):String=withContext(Dispatchers.IO){
-        val r=request("/solspire/authority/proposals/"+java.net.URLEncoder.encode(proposalId,"UTF-8")+"/authorize","POST","{}")
+        val r=request("/solspire/authority/proposals/"+java.net.URLEncoder.encode(proposalId,"UTF-8")+"/authorize","POST",JSONObject().apply{
+            put("scope",JSONObject().put("tools",JSONArray().put("git.status")))
+            put("constraints",JSONObject().put("read_only",true).put("repository_root",".").put("network",false))
+        }.toString())
         val auth=r.optJSONObject("authorization")
         auth?.optString("id") ?: error("Authorization was not returned")
     }
 
-    suspend fun createExecutionAttempt(authorizationId:String, toolChannel:String, payload:org.json.JSONObject):String=withContext(Dispatchers.IO){
+    suspend fun createExecutionAttempt(authorizationId:String, toolChannel:String, payload:org.json.JSONObject):JSONObject=withContext(Dispatchers.IO){
         val r=request("/solspire/authority/authorizations/"+java.net.URLEncoder.encode(authorizationId,"UTF-8")+"/execute","POST",org.json.JSONObject().put("tool_channel",toolChannel).put("request_payload",payload).toString())
-        r.optJSONObject("execution_attempt")?.optString("id") ?: error("Execution attempt was not returned")
+        r
     }
 
     suspend fun recordEvidence(executionId:String, evidenceType:String, content:String):String=withContext(Dispatchers.IO){
