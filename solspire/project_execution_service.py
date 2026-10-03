@@ -50,9 +50,19 @@ def assert_container_runtime_ready(*, image: str, runtime: str = "docker") -> di
                                    capture_output=True, text=True, timeout=5, check=False)
         if inspected.returncode != 0:
             raise BoundaryError("configured digest-pinned agent image is not present in the runtime")
+        smoke = subprocess.run(
+            [executable, "run", "--rm", "--network=none", "--read-only",
+             "--cap-drop=ALL", "--security-opt=no-new-privileges:true",
+             "--pids-limit", "16", "--memory", "64m", "--cpus", "0.25",
+             "--user", "65532:65532", "--entrypoint", "/bin/true", image],
+            shell=False, capture_output=True, text=True, timeout=10, check=False,
+        )
+        if smoke.returncode != 0:
+            raise BoundaryError("configured agent image failed the isolated container smoke test")
     except subprocess.TimeoutExpired as exc:
         raise BoundaryError("container runtime probe timed out") from exc
-    return {"runtime": executable, "image": image, "state": "READY"}
+    return {"runtime": executable, "image": image, "state": "READY",
+            "smoke_test": "PASSED"}
 
 
 def create_disposable_workspace(subject_uid: str, project_id: str) -> dict[str, Any]:
