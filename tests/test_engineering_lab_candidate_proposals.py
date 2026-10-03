@@ -59,3 +59,26 @@ def test_agent_proposals_become_candidate_patch_without_persistence(monkeypatch,
     assert result["persistence"] == "NOT_APPLIED"
     assert result["requires_human_review"] is True
     assert project_store.get_file(file_row["id"])["content"] == "before"
+
+
+
+def test_project_execution_rejects_authorization_borrowed_from_another_session():
+    from fastapi import HTTPException
+    from api.lab_routes import _require_session_scoped_project_authorization
+
+    class Runtime:
+        def __init__(self, scope):
+            self.scope = scope
+
+        def get_authorization(self, authorization_ref, subject_uid):
+            return {"authorization_id": authorization_ref, "scope_ref": self.scope}
+
+    session = {"project_ref": "project-1", "authorization_ref": "AUTH-1"}
+    with pytest.raises(HTTPException) as exc:
+        _require_session_scoped_project_authorization(
+            Runtime("different-session"), session, "session-1", "owner-1"
+        )
+    assert exc.value.status_code == 403
+    _require_session_scoped_project_authorization(
+        Runtime("session-1"), session, "session-1", "owner-1"
+    )
