@@ -19,9 +19,8 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 
 class MainActivity:AppCompatActivity(){
-    private val prefs by lazy{getSharedPreferences("arkadia_console",Context.MODE_PRIVATE)}
-    private val identity by lazy { FirebaseIdentity.initialize(this) }
-    private val repo by lazy{ConsoleRepository({prefs.getString("api_base","")?:""},{ identity?.idToken(false) }) }
+        private val identity by lazy { FirebaseIdentity.initialize(this) }
+    private val repo by lazy{ConsoleRepository({"https://arkadia-kw64.onrender.com"},{ identity?.idToken(false) }) }
     private lateinit var connection:TextView
     private lateinit var objectList:LinearLayout
     private lateinit var detailType:TextView
