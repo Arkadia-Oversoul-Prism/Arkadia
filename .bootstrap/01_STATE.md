@@ -184,3 +184,81 @@ see `docs/control-plane/evidence/gate-hygiene-gate2-production-parity-02/`.
 - ~~K3 — Canonical Ontology / Operational Graph / Semantic Enrichment~~ (complete)
 - ~~K4 — Response Provenance~~ (complete — record backfilled 2026-10-02)
 - ~~K5 — Static Ingestion~~ (complete)
+
+---
+
+## Phase 1 PERSIST — re-measured on `main` @ `357fbd8` (2026-10-03, Weaver pass `gate10/persist-phase1-runtime-state-01`)
+
+Recorded so the next heartbeat reconstructs from evidence rather than memory.
+
+**BASE_MAIN** = `357fbd83001924e909979fbaebdedbd991a2aadb`
+(`Merge pull request #244`, 2026-10-03T17:54:44Z). Worktree clean, on a dedicated
+branch off `origin/main`. PR #240 is **MERGED** by the sovereign as `444d5cd`
+(2026-10-03T17:45:33Z, head `981870e`); `main` then advanced #241 `f206e77`,
+#242 `7f2d265`, #244 `357fbd8`.
+
+### Integration verified
+
+- **CP10 allowlist repair is integrated on `main`.** `git ls-files | python
+  scripts/cp10_mutation_boundary_policy.py --judge` → **RC 0**, PASS, admitting all
+  **1732** tracked paths at `357fbd8`.
+- `tests/architecture` + `tests/test_m02a_ci_gate_integrity.py` → **66 passed**
+  (architecture alone 11/11).
+- `python -m py_compile api/main.py` → OK. `api/main.py` is **2582** lines against the
+  hard **2600** budget — 18 lines of headroom; treat as a protected surface.
+- CI on `357fbd8`: `build`, `browser`, `Full-history secret scan` all `success`.
+  CP10 (`sg-02-fe-2-v.yml`) `success` at `444d5cd` and at every PR #240 head.
+
+### Baseline re-measured (this supersedes the `162f574` line in Repository Health)
+
+`PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q
+--continue-on-collection-errors` on `main` @ `357fbd8`:
+
+| | value |
+|---|---|
+| result | **24 failed / 1367 passed / 19 skipped / 1 error** |
+| failing+error node set | **25** |
+
+**Delta from the PR #240 branch measurement: 28 → 25, exactly the three
+`test_m02a_ci_gate_integrity.py` nodes the repair fixed; zero new failing nodes.**
+The repair's own completion condition is met on `main`.
+
+The 25-node set splits against `tests/fixtures/baseline_node_set.txt` (18 entries,
+written at `d798811`) as: 14 still failing, 4 now passing (stale fixture entries),
+11 absent from the fixture but all present at `cc95487` — pre-existing, not from this
+repair. Classifications are in
+`docs/control-plane/evidence/phase1-runtime-stabilization-01/EVIDENCE.md` §8.
+
+### Fact corrections recorded this pass
+
+Two claims were measured and **withdrawn** (detail in the EVIDENCE §8.2):
+
+1. CP10 is **not** path-filtered for console work — `sg-02-fe-2-v.yml` does not list
+   `arkadia-console-android/**`, so a console-only merge such as `444d5cd` is
+   **skipped** by it, not passed. The console has its own gate,
+   `.github/workflows/arkadia-console-android.yml` (`gradle assembleDebug`).
+2. `arkadia-console-android/` was **not** first tracked by #237 (`cc95487`): the tree
+   first appears at `8806f38`, an ancestor. Path counts `d798811` = **1726**,
+   `cc95487` = **1727**, `main` @ `357fbd8` = **1732**. `main`'s "1726 at the console
+   merge" is correct for the revision the fixture records; the policy comment no longer
+   pins a count (a point-in-time reading is not part of the invariant).
+
+### Open PRs (live)
+
+- **#243** — `feature/mie-mvp-01`, head `813eaed`, base `main`, state OPEN,
+  mergeability **UNSTABLE**. MIE Gate 05 change loop. **Not this workstream** — no
+  action taken here; it does not touch Phase 1 runtime stabilization.
+
+### Next bounded task
+
+**Unchanged:** CS2 — Reusable conversational UI (recommended, **not authorized**;
+requires a sovereign decision). The four candidate workstreams in
+`phase1-runtime-stabilization-01/EVIDENCE.md` §6 also stand as separate bounded
+branches: frontend literal pins (10 nodes), boundary regex false positives, baseline
+node-set reconciliation (stale entries + 11 unrecorded nodes), and the sovereign-reserved
+`weaver.autonomy` collection ERROR.
+
+### Authority boundary
+
+Read-only measurement plus in-repo state persistence on a dedicated branch. No test
+repaired, no merge, no push to `main`. Human authority is required to merge.
