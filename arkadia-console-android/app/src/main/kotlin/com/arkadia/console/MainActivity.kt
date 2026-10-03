@@ -16,7 +16,8 @@ import kotlinx.coroutines.launch
 
 class MainActivity:AppCompatActivity(){
     private val prefs by lazy{getSharedPreferences("arkadia_console",Context.MODE_PRIVATE)}
-    private val repo by lazy{ConsoleRepository({prefs.getString("api_base","")?:""},{prefs.getString("token","")})}
+    private val identity by lazy { FirebaseIdentity.initialize(this) }
+    private val repo by lazy{ConsoleRepository({prefs.getString("api_base","")?:""},{ identity?.idToken(false) }) }
     private lateinit var connection:TextView
     private lateinit var objectList:LinearLayout
     private lateinit var detailType:TextView
@@ -36,16 +37,32 @@ class MainActivity:AppCompatActivity(){
         findViewById<Button>(R.id.askButton).setOnClickListener{ask()}
         findViewById<Button>(R.id.verifyButton).setOnClickListener{load()}
         connection.setOnClickListener{connect()}
+        findViewById<TextView>(R.id.eyebrow).setOnClickListener{authDialog()}
         if(prefs.getString("api_base","").isNullOrBlank())connect() else load()
+        if (identity == null) Toast.makeText(this, "Native Firebase is not configured for this build.", Toast.LENGTH_LONG).show()
     }
     private fun connect(){
-        val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(32,8,32,0)}
         val base=EditText(this).apply{hint="https://your-oracle.example";setText(prefs.getString("api_base",""))}
-        val token=EditText(this).apply{hint="Firebase ID token / bearer token";setText(prefs.getString("token",""));inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD}
-        box.addView(base);box.addView(token)
-        AlertDialog.Builder(this).setTitle("Connect Arkadia Console").setMessage("The native console owns backend routing. It will not silently fall back to an unverified deployment.").setView(box).setNegativeButton("Cancel",null).setPositiveButton("Connect"){_,_->prefs.edit().putString("api_base",base.text.toString().trimEnd('/')).putString("token",token.text.toString()).apply();load()}.show()
+NaN
     }
-    private fun load(){if(prefs.getString("api_base","").isNullOrBlank()){connect();return};connection.text="● READING";lifecycleScope.launch{snap=repo.snapshot();connection.text=if(snap.live)"● LIVE" else "● UNAVAILABLE";render();if(!snap.live)Toast.makeText(this@MainActivity,snap.message?:"Oracle unavailable",Toast.LENGTH_LONG).show()}}
+
+    private fun authDialog(){
+        val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(32,8,32,0)}
+        val email=EditText(this).apply{hint="Email";inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS}
+        val password=EditText(this).apply{hint="Password";inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD}
+        box.addView(email);box.addView(password)
+        val signed=identity?.currentUser
+        val dialog=AlertDialog.Builder(this).setTitle(if(signed!=null) "Firebase identity" else "Firebase sign in").setView(box)
+        if(signed!=null){
+            dialog.setMessage(signed.email ?: signed.uid).setNegativeButton("Sign out"){_,_->identity?.signOut();load()}.setPositiveButton("Close",null)
+        }else{
+            dialog.setNegativeButton("Cancel",null)
+            dialog.setPositiveButton("Sign in"){_,_->lifecycleScope.launch{runCatching{identity?.signIn(email.text.toString(),password.text.toString()) ?: error("Firebase not configured")}.onSuccess{Toast.makeText(this@MainActivity,"Firebase identity established.",Toast.LENGTH_SHORT).show();load()}.onFailure{Toast.makeText(this@MainActivity,"Firebase sign-in failed: "+it.message,Toast.LENGTH_LONG).show()}}}
+            dialog.setNeutralButton("Register"){_,_->lifecycleScope.launch{runCatching{identity?.register(email.text.toString(),password.text.toString()) ?: error("Firebase not configured")}.onSuccess{Toast.makeText(this@MainActivity,"Firebase identity created.",Toast.LENGTH_SHORT).show();load()}.onFailure{Toast.makeText(this@MainActivity,"Firebase registration failed: "+it.message,Toast.LENGTH_LONG).show()}}}
+        }
+        dialog.show()
+    }
+    private fun load(){if(prefs.getString("api_base","").isNullOrBlank()){connect();return};connection.text="● READING";lifecycleScope.launch{snap=repo.snapshot();connection.text=if(snap.live)"● LIVE · "+(identity?.currentUser?.email ?: "NO IDENTITY") else "● UNAVAILABLE";render();if(!snap.live)Toast.makeText(this@MainActivity,snap.message?:"Oracle unavailable",Toast.LENGTH_LONG).show()}}
     private fun render(){
         objectList.removeAllViews()
         if(snap.objects.isEmpty()){objectList.addView(TextView(this).apply{text="The field has no readable objects yet. This is not an invented empty state.";setTextColor(getColor(R.color.arkadia_muted));textSize=14f;setPadding(12,24,12,24)})}
