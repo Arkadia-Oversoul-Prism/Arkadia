@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import uuid
 from pathlib import Path, PurePosixPath
 from typing import Sequence
 
@@ -42,6 +43,7 @@ def build_container_argv(
     cpus: str = "1.0",
     pids_limit: int = 128,
     working_directory: str = ".",
+    execution_id: str | None = None,
 ) -> list[str]:
     """Build an OCI invocation with no network and a disposable workspace.
 
@@ -89,15 +91,32 @@ def run_isolated(
     executable = shutil.which(runtime)
     if not executable:
         raise BoundaryError("container runtime unavailable; refusing host execution")
+    execution_id = uuid.uuid4().hex
     argv = build_container_argv(
         image=image, workspace=workspace, command=command, runtime=executable,
-        working_directory=working_directory,
+        working_directory=working_directory, execution_id=execution_id,
     )
-    return subprocess.run(
-        argv, shell=False, check=False, capture_output=True, text=True,
-        timeout=timeout_seconds, env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"),
-                                     "LANG": "C.UTF-8"},
-    )
+    try:
+        return subprocess.run(
+            argv, shell=False, check=False, capture_output=True, text=True,
+            timeout=timeout_seconds, env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+                                         "LANG": "C.UTF-8"},
+        )
+    except subprocess.TimeoutExpired as exc:
+        # Killing the client process does not guarantee the container stopped.
+        # Find only this invocation by its random label, then forcibly remove it.
+        label = f"arkadia.solspire.execution-id={execution_id}"
+        try:
+            listed = subprocess.run(
+                [executable, "ps", "-aq", "--filter", f"label={label}"],
+                shell=False, capture_output=True, text=True, timeout=5, check=False,
+            )
+            for container_id in (listed.stdout or "").split():
+                subprocess.run([executable, "rm", "-f", container_id], shell=False,
+                               capture_output=True, text=True, timeout=5, check=False)
+        except Exception:
+            pass
+        raise BoundaryError("isolated command timed out; container cleanup was attempted") from exc
 
 
 def require_reviewed_patch(*, approved: bool, expected_base_digest: str,
