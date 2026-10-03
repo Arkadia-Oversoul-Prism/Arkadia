@@ -14,3 +14,9 @@ Two repeat-playback tests passed:
 3. Switching playback between captures did not inherit the previous capture's repeat state.
 
 Result: MVP-GATE-04 repeat behavior physically verified.
+
+
+## Gate 05 Build · 2026-10-03
+
+CI passed on workflow run 37142127800 (run #86), head `3de223c6a3d87de4d805eeaea4388a4ae3ea9f60`.
+Debug APK artifact produced successfully. Physical Gate 05 verification is the next boundary.
