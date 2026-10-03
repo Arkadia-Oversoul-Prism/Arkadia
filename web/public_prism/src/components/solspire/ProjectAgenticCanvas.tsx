@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { apiFetch } from '../lib/apiClient';
+import { apiFetch } from '../../lib/apiClient';
 import type { Project } from './ProjectDashboard';
 
 interface LabSession {
