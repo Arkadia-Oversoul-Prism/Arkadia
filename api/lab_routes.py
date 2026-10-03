@@ -448,8 +448,10 @@ def _project_canvas_policy(session: dict, subject_uid: str) -> SandboxPolicy:
     snapshot = create_disposable_workspace(subject_uid, project_id)
     return SandboxPolicy(
         root=snapshot["root"],
-        write_allowed=False,
-        allowed_paths=(),
+        # Writes may create a candidate only in this disposable copy. The runtime
+        # still intersects this policy with the human authorization envelope.
+        write_allowed=True,
+        allowed_paths=tuple(snapshot["seeded_files"]),
         forbidden_paths=(".git",),
         allow_network=False,
         command_allowlist=("git", "echo", "pwd", "true", "false"),
@@ -458,6 +460,7 @@ def _project_canvas_policy(session: dict, subject_uid: str) -> SandboxPolicy:
         containerized=True,
         container_image=os.environ.get("SOLSPIRE_AGENT_IMAGE"),
         container_runtime=os.environ.get("SOLSPIRE_CONTAINER_RUNTIME", "docker"),
+        canonical_base_digest=snapshot["canonical_base_digest"],
     )
 
 
@@ -484,11 +487,12 @@ async def run_agent_loop(
         raise HTTPException(status_code=400, detail="objective is required")
     if body.max_turns < 1 or body.max_turns > 8:
         raise HTTPException(status_code=400, detail="max_turns must be between 1 and 8")
+    policy = None
     try:
         runtime = get_runtime()
         session = runtime.get_session(session_id, user["uid"])
         policy = _project_canvas_policy(session, user["uid"]) if session.get("project_ref") else None
-        return runtime.execute_agent_loop(
+        result = runtime.execute_agent_loop(
             subject_ref=user["uid"],
             session_id=session_id,
             objective=body.objective.strip(),
@@ -497,6 +501,15 @@ async def run_agent_loop(
             sandbox_policy=policy,
             max_turns=body.max_turns,
         )
+        if policy is not None and session.get("project_ref"):
+            from solspire.project_execution_service import collect_candidate_patch
+            candidate = collect_candidate_patch(
+                project_id=str(session["project_ref"]), workspace=policy.root,
+                base_digest=str(policy.canonical_base_digest or ""),
+            )
+            if isinstance(result, dict):
+                result["candidate_patch"] = candidate
+        return result
     except KeyError:
         raise HTTPException(status_code=404, detail="session not found")
     except BoundaryViolation as exc:
