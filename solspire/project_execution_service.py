@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import mimetypes
 import shutil
 import tempfile
 from pathlib import Path
@@ -61,6 +60,8 @@ def execute_container_command(*, workspace: str, command: list[str], image: str,
         working.relative_to(root)
     except ValueError as exc:
         raise BoundaryError("working directory escapes disposable workspace") from exc
+    if "@sha256:" not in image or len(image.rsplit("@sha256:", 1)[-1]) != 64:
+        raise BoundaryError("container image must be pinned by immutable sha256 digest")
     result = run_isolated(image=image, workspace=root, command=command,
                           timeout_seconds=timeout_seconds, runtime=runtime,
                           working_directory=rel)
@@ -86,6 +87,9 @@ def apply_reviewed_project_patch(*, subject_uid: str, project_id: str,
 
     current = _canonical_files(project_id)
     observed = canonical_base_digest(project_id)
+    workspace = get_workspace_manager().get_for_subject(subject_uid)
+    if workspace is None:
+        raise BoundaryError("canonical workspace missing; refusing patch without WorkEvent evidence binding")
     paths = [str(change.get("path") or "") for change in changes]
     accepted = require_reviewed_patch(
         approved=approved, expected_base_digest=expected_base_digest,
@@ -118,10 +122,6 @@ def apply_reviewed_project_patch(*, subject_uid: str, project_id: str,
     for row, content in normalized:
         update_file(row["id"], content, name=row["name"])
 
-    workspace = get_workspace_manager().get_for_subject(subject_uid)
-    if workspace is None:
-        # Do not fabricate a WorkEvent binding. Surface the missing spine clearly.
-        raise BoundaryError("canonical workspace missing; patch written but WorkEvent evidence could not be bound")
     event = get_workevent_manager().create(
         subject_ref=subject_uid, workspace_ref=workspace.id,
         event_type="PROJECT_PATCH_APPLIED", occurred_at=__import__("time").time(),
