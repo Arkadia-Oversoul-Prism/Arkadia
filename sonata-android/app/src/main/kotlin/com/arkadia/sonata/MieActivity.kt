@@ -7,6 +7,8 @@ import android.os.Bundle
 import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
+import android.widget.Button
+import android.widget.LinearLayout
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.arkadia.sonata.databinding.ActivityMieBinding
@@ -126,8 +128,57 @@ class MieActivity : AppCompatActivity() {
         showStatus("Saved as capture ${objectModel.id.take(8)}. Original audio preserved.")
     }
 
+    private fun renderHistory() {
+        val captures = sessionStore.current().captures
+        binding.historyCount.text = "${captures.size} capture(s) in this session"
+        binding.historyList.removeAllViews()
+
+        if (captures.isEmpty()) {
+            val empty = Button(this).apply {
+                text = "No captures yet. Your next idea will appear here."
+                isAllCaps = false
+                isEnabled = false
+            }
+            binding.historyList.addView(empty)
+            return
+        }
+
+        captures.forEachIndexed { index, objectModel ->
+            val file = File(objectModel.sourcePath)
+            val note = objectModel.noteName() ?: objectModel.detectedPitchHz?.let {
+                String.format("%.1f Hz", it)
+            } ?: "pitch unknown"
+            val type = objectModel.humanType()
+            val entry = Button(this).apply {
+                text = "${index + 1}. ${type.replaceFirstChar { it.uppercase() }} · $note"
+                isAllCaps = false
+                setOnClickListener {
+                    if (!file.exists()) {
+                        showStatus("Capture ${objectModel.id.take(8)} is missing its audio file.")
+                        return@setOnClickListener
+                    }
+                    lastCapture = file
+                    renderObject(file, objectModel)
+                    showStatus("Selected capture ${objectModel.id.take(8)}.")
+                }
+            }
+            binding.historyList.addView(entry, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 8 })
+        }
+    }
+
     private fun playLastCapture() {
         val file = lastCapture ?: recorder.lastFile ?: return
+        playCapture(file)
+    }
+
+    private fun playCapture(file: File) {
+        if (!file.exists()) {
+            showStatus("This capture's audio file is missing.")
+            return
+        }
         stopPlayback()
         mediaPlayer = MediaPlayer().apply {
             setDataSource(file.absolutePath)
