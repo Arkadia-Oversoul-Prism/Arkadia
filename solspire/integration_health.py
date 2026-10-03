@@ -52,24 +52,46 @@ def project_integration_health(*, subject_uid: str, project: dict[str, Any]) -> 
 
     def probe_larder():
         from solspire.project_store import list_events
+        from solspire.workspace_manager import get_workspace_manager
+        from solspire.workevent_manager import get_workevent_manager
         import json
         events = list_events(project_id, limit=500)
+        workspace = get_workspace_manager().get_for_subject(subject_uid)
+        if workspace is None:
+            return {"binding_state": "UNBOUND", "bound_order_count": 0,
+                    "detail": "Canonical workspace is missing; WorkEvent evidence cannot be verified."}
+        work_events = get_workevent_manager().list(subject_uid, workspace.id, 500)
+        witnessed = {
+            str(ref).removeprefix("living-larder-order:")
+            for work_event in work_events
+            if work_event.event_type == "LIVING_LARDER_ORDER_BOUND"
+            and (work_event.scope_ref == project_id or work_event.work_ref == project_id)
+            for ref in work_event.artifact_refs
+            if str(ref).startswith("living-larder-order:")
+        }
         bindings = []
+        missing_witnesses = []
         for event in events:
-            kind = str(event.get("event_type") or "")
-            if kind != "living_larder_order_bound":
+            if str(event.get("event_type") or "") != "living_larder_order_bound":
                 continue
             raw = event.get("data") or {}
             data = json.loads(raw) if isinstance(raw, str) else raw
-            if isinstance(data, dict) and data.get("order_id"):
-                bindings.append({"order_id": data["order_id"], "status": data.get("status"),
-                                 "total": data.get("total"), "currency": "NGN",
-                                 "source": data.get("source", "living_larder_orders")})
+            if not isinstance(data, dict) or not data.get("order_id"):
+                continue
+            order_id = str(data["order_id"])
+            if order_id not in witnessed:
+                missing_witnesses.append(order_id)
+                continue
+            bindings.append({"order_id": order_id, "status": data.get("status"),
+                             "total": data.get("total"), "currency": "NGN",
+                             "source": data.get("source", "living_larder_orders"),
+                             "workevent_evidence": "VERIFIED"})
         if not bindings:
             return {"binding_state": "UNBOUND", "bound_order_count": 0,
-                    "detail": "No Living Larder order has been explicitly bound to this project."}
+                    "missing_workevent_evidence": missing_witnesses,
+                    "detail": "No Living Larder order has both a project binding and matching WorkEvent evidence."}
         return {"binding_state": "PROJECT_BOUND", "bound_order_count": len(bindings),
-                "orders": bindings[:100]}
+                "orders": bindings[:100], "missing_workevent_evidence": missing_witnesses}
 
     results["weaver"] = _probe("weaver", probe_weaver)
     results["arkana"] = _probe("arkana", probe_arkana)
