@@ -432,7 +432,11 @@ def test_exit_code_does_not_call_a_divergent_clean_file_verified():
 
     # a file whose recovery is actually performed earns exit 0
     live = AGENTS_MD.read_text(encoding="utf-8")
-    corrupted = live if cyrillic_count(live) else _rev("AGENTS.md", "origin/main")
+    corrupted = live if cyrillic_count(live) else _rev("AGENTS.md", CORRUPTION_COMMIT)
+    assert corrupted is not None and cyrillic_count(corrupted) > 0, (
+        f"no corrupted fixture resolvable ({CORRUPTION_COMMIT}); the adjudication "
+        "cannot be exercised on this clone"
+    )
     assert exit_code(audit(corrupted, oracle)) == 0
 
     # ...and the recovered text, now clean and oracle-corroborated, earns exit 1.
