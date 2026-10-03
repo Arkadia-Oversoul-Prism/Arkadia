@@ -61,6 +61,22 @@ def _specs() -> dict[str, ToolSpec]:
                 "required": ["path"],
             },
         ),
+        "filesystem.propose_edit": ToolSpec(
+            name="filesystem.propose_edit",
+            kind="proposal",
+            description="Propose replacement text for an existing allowed project file. This does not write or persist the file; the result is a review-only candidate.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "content": {"type": "string"},
+                    "rationale": {"type": "string"},
+                },
+                "required": ["path", "content"],
+            },
+            requires=("candidate_write",),
+            mutating=False,
+        ),
         "terminal.run": ToolSpec(
             name="terminal.run",
             kind="run",
@@ -135,6 +151,13 @@ class ToolRegistry:
             if name == "filesystem.read":
                 content = self._sandbox.read(arguments["path"])
                 return {"tool": name, "ok": True, "content": content}
+            if name == "filesystem.propose_edit":
+                proposal = self._sandbox.propose_edit(
+                    arguments["path"], arguments["content"],
+                    rationale=str(arguments.get("rationale") or ""),
+                )
+                return {"tool": name, "ok": True, "proposal": proposal,
+                        "persistence": "NOT_APPLIED"}
             if name == "terminal.run":
                 argv = list(arguments.get("argv") or [])
                 result = self._sandbox.run(argv)

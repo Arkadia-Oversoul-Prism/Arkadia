@@ -8,6 +8,7 @@ def test_project_template_endpoint_is_part_of_canonical_solspire_router():
     source = (ROOT / "solspire/console_router.py").read_text()
     assert '@router.get("/project-templates")' in source
     assert "instantiate_project_metadata(body.template_id, body.metadata)" in source
+    assert "health = project_integration_health" in source
 
 
 def test_projects_ui_uses_server_owned_template_catalog():
@@ -52,7 +53,7 @@ def test_project_canvas_uses_existing_lab_runtime_and_project_scope():
     assert "role: 'WEAVER'" in canvas
     assert "capabilities: ['READ', 'PROPOSE']" in canvas
     assert "def _project_canvas_policy" in routes
-    assert "prepare_project_workspace(subject_uid, project_id)" in routes
+    assert "create_disposable_workspace(subject_uid, project_id)" in routes
     assert "project_ref TEXT" in store
     assert "SOLSPIRE_CANVAS_ROOT" in (ROOT / "solspire/project_canvas.py").read_text()
 

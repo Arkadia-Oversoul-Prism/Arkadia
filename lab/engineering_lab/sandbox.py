@@ -22,6 +22,7 @@ Design invariants:
 
 from __future__ import annotations
 
+import hashlib
 import os
 import subprocess
 from dataclasses import dataclass, field
@@ -85,6 +86,12 @@ class SandboxPolicy:
     default_timeout: float = 30.0
     max_output_bytes: int = 200_000
     max_file_bytes: int = 2_000_000
+    #: Project sessions must use the container boundary; missing image fails closed.
+    containerized: bool = False
+    container_image: str | None = None
+    container_runtime: str = "docker"
+    canonical_base_digest: str | None = None
+    candidate_proposals_allowed: bool = False
 
 
 #: The closed set of binaries the L1 terminal capability may execute. Every
@@ -275,6 +282,37 @@ class Sandbox:
         self._record("read", rel, True, {"bytes": len(text)})
         return text
 
+    def propose_edit(self, rel: str, content: str, *, rationale: str = "") -> dict[str, Any]:
+        """Return a candidate replacement without modifying even the disposable file."""
+        if not self.policy.candidate_proposals_allowed:
+            raise SandboxWriteDenied("candidate proposals require an explicitly enabled project review boundary")
+        if self.policy.forbidden_paths and _matches_any(rel, self.policy.forbidden_paths):
+            raise SandboxWriteDenied("candidate proposal path is forbidden")
+        if not self.policy.allowed_paths or not _matches_any(rel, self.policy.allowed_paths):
+            raise SandboxWriteDenied("candidate proposal path is outside the explicit allow-list")
+        path = self._resolve(rel)
+        if not path.is_file():
+            self._record("propose_edit", rel, False, {"reason": "existing_file_required"})
+            raise SandboxWriteDenied("candidate edits may target existing files only")
+        if not isinstance(content, str) or len(content.encode("utf-8")) > self.policy.max_file_bytes:
+            self._record("propose_edit", rel, False, {"reason": "content_invalid_or_too_large"})
+            raise SandboxWriteDenied("candidate content must be bounded UTF-8 text")
+        current = path.read_bytes()
+        proposal = {
+            "path": rel,
+            "content": content,
+            "rationale": rationale[:2000],
+            "base_file_digest": hashlib.sha256(current).hexdigest(),
+            "candidate_file_digest": hashlib.sha256(content.encode("utf-8")).hexdigest(),
+        }
+        self._record("propose_edit", rel, True, {
+            "base_file_digest": proposal["base_file_digest"],
+            "candidate_file_digest": proposal["candidate_file_digest"],
+            "bytes": len(content.encode("utf-8")),
+            "persistence": "NOT_APPLIED",
+        })
+        return proposal
+
     def list(self, rel: str = ".") -> list[dict[str, Any]]:
         path = self._resolve(rel)
         if not path.is_dir():
@@ -349,6 +387,24 @@ class Sandbox:
                 )
         workdir = self._resolve(cwd)
         timeout = timeout if timeout is not None else self.policy.default_timeout
+        if self.policy.containerized:
+            if not self.policy.container_image:
+                self._record("run", binary, False, {"reason": "container_image_unconfigured"})
+                raise SandboxCommandDenied("project execution requires SOLSPIRE_AGENT_IMAGE pinned by immutable digest")
+            try:
+                from solspire.project_execution_service import execute_container_command
+                result = execute_container_command(
+                    workspace=str(self.root), command=list(argv),
+                    image=self.policy.container_image, runtime=self.policy.container_runtime,
+                    timeout_seconds=max(1, min(900, int(timeout))), cwd=cwd,
+                )
+            except Exception as exc:
+                self._record("run", binary, False, {"reason": "container_boundary_failed", "detail": str(exc)})
+                raise SandboxCommandDenied(f"isolated container execution refused: {exc}") from exc
+            result.update({"binary": binary, "argv": list(argv), "truncated": False})
+            self._record("run", binary, bool(result.get("ok")),
+                         {"returncode": result.get("returncode"), "containerized": True})
+            return result
         try:
             proc = subprocess.run(
                 list(argv),
@@ -432,6 +488,13 @@ class Sandbox:
             "root": str(self.root),
             "policy": {
                 "write_allowed": self.policy.write_allowed,
+                "candidate_proposals_allowed": self.policy.candidate_proposals_allowed,
+                "containerized": self.policy.containerized,
+                "container_image_digest_pinned": bool(
+                    self.policy.container_image and "@sha256:" in self.policy.container_image
+                    and len(self.policy.container_image.rsplit("@sha256:", 1)[-1]) == 64
+                ),
+                "canonical_base_digest": self.policy.canonical_base_digest,
                 "allow_network": self.policy.allow_network,
                 "command_allowlist": list(self.policy.command_allowlist),
                 "allowed_paths": list(self.policy.allowed_paths),

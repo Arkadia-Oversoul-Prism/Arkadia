@@ -85,9 +85,14 @@ def instantiate_project_metadata(
         "template_version": template["version"],
         "requested_capabilities": list(template["capability_targets"]),
         "runtime": {
-            "operational_engine": {"name": "weaver", "state": "project_routes_present"},
-            "conversation_interface": {"name": "arkana", "state": "bounded_project_context"},
-            "sandbox": {"required": True, "state": "read_only_snapshot_v0_1"},
+            "operational_engine": {"name": "weaver", "state": "requires_live_probe"},
+            "conversation_interface": {"name": "arkana", "state": "requires_live_probe"},
+            "sandbox": {"required": True, "state": "disposable_container_candidate_patch_v1"},
+        },
+        "verification": {
+            "contract": "solspire.integration-health.v1",
+            "endpoint": "/solspire/projects/{project_id}/integration-health",
+            "template_configuration_is_not_live_proof": True,
         },
         "governance": {
             "project_scope_required": True,

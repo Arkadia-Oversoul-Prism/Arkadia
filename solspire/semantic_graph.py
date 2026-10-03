@@ -73,6 +73,37 @@ def build_bounded_semantic_graph(project_id: str) -> dict[str, Any]:
         if not isinstance(data, dict):
             continue
         event_id = event.get("id")
+        if event.get("event_type") == "living_larder_order_bound" and data.get("order_id") and event_id:
+            order_id = str(data["order_id"])
+            source = f"event:{event_id}"
+            target = f"living_larder_order:{order_id}"
+            nodes.setdefault(source, {
+                "id": source, "type": "Event",
+                "label": event.get("summary") or "Living Larder order binding",
+                "classification": "SOURCE-BACKED",
+            })
+            nodes.setdefault(target, {
+                "id": target, "type": "LivingLarderOrder", "label": order_id,
+                "classification": "SOURCE-BACKED",
+            })
+            project_edge = (f"project:{project_id}", source, "HAS_EVENT")
+            if project_edge not in seen:
+                seen.add(project_edge)
+                edges.append({
+                    "from": f"project:{project_id}", "to": source, "type": "HAS_EVENT",
+                    "classification": "SOURCE-BACKED",
+                    "provenance": "project_store.events.project_id",
+                    "evidence_id": event_id,
+                })
+            edge_key = (source, target, "BINDS")
+            if edge_key not in seen:
+                seen.add(edge_key)
+                edges.append({
+                    "from": source, "to": target, "type": "BINDS",
+                    "classification": "SOURCE-BACKED",
+                    "provenance": "project_store.events.data",
+                    "evidence_id": event_id,
+                })
         for key, kind in _REF_KEYS.items():
             target_id = data.get(key)
             if not target_id:

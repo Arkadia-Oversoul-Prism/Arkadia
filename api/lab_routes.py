@@ -216,9 +216,11 @@ async def execute_bounded(
             acceptance=tuple(body.acceptance),
             requires_write=body.requires_write,
         )
-        session = get_runtime().get_session(session_id, user["uid"])
+        runtime = get_runtime()
+        session = runtime.get_session(session_id, user["uid"])
         policy = None
         if session.get("project_ref"):
+            _require_session_scoped_project_authorization(runtime, session, session_id, user["uid"])
             if body.requires_write or body.sandbox_root:
                 raise HTTPException(status_code=409, detail="Project canvas v0.1 is read-only; its sandbox root is server-managed")
             if any(operation.kind not in {"read", "list"} for operation in task.operations):
@@ -230,13 +232,18 @@ async def execute_bounded(
                 write_allowed=body.requires_write,
                 command_allowlist=tuple(body.command_allowlist),
             )
-        return get_runtime().execute_bounded_task(
+        result = runtime.execute_bounded_task(
             subject_ref=user["uid"], session_id=session_id, task=task, sandbox_policy=policy
         )
+        return result
     except KeyError:
         raise HTTPException(status_code=404, detail="session not found")
     except (ValueError, BoundaryViolation) as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    finally:
+        if policy is not None and getattr(policy, "containerized", False):
+            import shutil
+            shutil.rmtree(os.path.dirname(policy.root), ignore_errors=True)
 
 
 class TransitionBody(BaseModel):
@@ -427,29 +434,58 @@ async def pr_state(number: int) -> dict:
         return {"state": "UNAVAILABLE", "detail": str(exc), "pr": None}
 
 
+def _require_session_scoped_project_authorization(
+    runtime, session: dict, session_id: str, subject_uid: str
+) -> None:
+    """Project execution may use only an authorization bound to this exact session."""
+    if not session.get("project_ref"):
+        return
+    authorization_ref = session.get("authorization_ref")
+    if not authorization_ref:
+        raise HTTPException(status_code=403, detail="Project execution requires explicit session-scoped human authorization")
+    authorization = runtime.get_authorization(authorization_ref, subject_uid)
+    if not authorization or authorization.get("scope_ref") != session_id:
+        raise HTTPException(status_code=403, detail="Authorization scope does not match this project session")
+
+
 def _project_canvas_policy(session: dict, subject_uid: str) -> SandboxPolicy:
     """Resolve a project-owned snapshot; never accept a client-supplied root."""
     project_id = str(session.get("project_ref") or "")
     if not project_id:
         raise HTTPException(status_code=400, detail="Project binding missing")
     from solspire.project_manager import get_project_manager
-    from solspire.project_canvas import prepare_project_workspace
+    from solspire.project_execution_service import (
+        assert_container_runtime_ready, create_disposable_workspace,
+    )
     try:
         project = get_project_manager().load(project_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Project not found")
     if (project.owner_uid or "").strip() != subject_uid:
         raise HTTPException(status_code=404, detail="Project not found")
-    snapshot = prepare_project_workspace(subject_uid, project_id)
+    image = os.environ.get("SOLSPIRE_AGENT_IMAGE", "")
+    runtime_name = os.environ.get("SOLSPIRE_CONTAINER_RUNTIME", "docker")
+    try:
+        assert_container_runtime_ready(image=image, runtime=runtime_name)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"isolated project runtime unavailable: {exc}") from exc
+    snapshot = create_disposable_workspace(subject_uid, project_id)
     return SandboxPolicy(
         root=snapshot["root"],
+        # Candidate proposals never write to the workspace; the runtime still
+        # intersects this capability with explicit human authorization.
         write_allowed=False,
-        allowed_paths=(),
+        candidate_proposals_allowed=True,
+        allowed_paths=tuple(snapshot["seeded_files"]),
         forbidden_paths=(".git",),
         allow_network=False,
         command_allowlist=("git", "echo", "pwd", "true", "false"),
         enforce_git_read_only=True,
         enforce_command_grammar=True,
+        containerized=True,
+        container_image=os.environ.get("SOLSPIRE_AGENT_IMAGE"),
+        container_runtime=os.environ.get("SOLSPIRE_CONTAINER_RUNTIME", "docker"),
+        canonical_base_digest=snapshot["canonical_base_digest"],
     )
 
 
@@ -476,11 +512,14 @@ async def run_agent_loop(
         raise HTTPException(status_code=400, detail="objective is required")
     if body.max_turns < 1 or body.max_turns > 8:
         raise HTTPException(status_code=400, detail="max_turns must be between 1 and 8")
+    policy = None
     try:
         runtime = get_runtime()
         session = runtime.get_session(session_id, user["uid"])
+        if session.get("project_ref"):
+            _require_session_scoped_project_authorization(runtime, session, session_id, user["uid"])
         policy = _project_canvas_policy(session, user["uid"]) if session.get("project_ref") else None
-        return runtime.execute_agent_loop(
+        result = runtime.execute_agent_loop(
             subject_ref=user["uid"],
             session_id=session_id,
             objective=body.objective.strip(),
@@ -489,9 +528,26 @@ async def run_agent_loop(
             sandbox_policy=policy,
             max_turns=body.max_turns,
         )
+        if policy is not None and session.get("project_ref"):
+            from solspire.project_execution_service import collect_agent_candidate_patch
+            turns = result.get("turns", []) if isinstance(result, dict) else []
+            candidate = collect_agent_candidate_patch(
+                project_id=str(session["project_ref"]),
+                base_digest=str(policy.canonical_base_digest or ""),
+                turns=turns, allowed_paths=policy.allowed_paths,
+            )
+            if isinstance(result, dict):
+                result["candidate_patch"] = candidate
+            else:
+                result = {"execution": result, "candidate_patch": candidate}
+        return result
     except KeyError:
         raise HTTPException(status_code=404, detail="session not found")
     except BoundaryViolation as exc:
         raise HTTPException(status_code=409, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    finally:
+        if "policy" in locals() and policy is not None and getattr(policy, "containerized", False):
+            import shutil
+            shutil.rmtree(os.path.dirname(policy.root), ignore_errors=True)

@@ -292,6 +292,53 @@ def update_file(file_id: str, content: str, name: str | None = None) -> dict:
     return {"ok": True}
 
 
+def apply_reviewed_file_patch(project_id: str, updates: list[dict[str, str]]) -> dict[str, Any]:
+    """Atomically update existing canonical files after upstream review gates pass.
+
+    This is a canonical project_store operation: every file must already belong
+    to project_id, paths must be unique, and the entire update set commits or
+    rolls back as one SQLite transaction. It never creates or deletes files.
+    """
+    project_id = str(project_id or "").strip()
+    if not project_id or not updates:
+        raise ValueError("project_id and a non-empty patch are required")
+    seen_ids: set[str] = set()
+    seen_names: set[str] = set()
+    normalized: list[tuple[str, str, str]] = []
+    for update in updates:
+        file_id = str(update.get("id") or "").strip()
+        name = str(update.get("name") or "").strip()
+        content = update.get("content")
+        if not file_id or not name or not isinstance(content, str):
+            raise ValueError("each patch update requires an existing file id, name and text content")
+        if file_id in seen_ids or name in seen_names:
+            raise ValueError("patch contains duplicate file IDs or paths")
+        seen_ids.add(file_id); seen_names.add(name)
+        normalized.append((file_id, name, content))
+    now = time.time()
+    with _db() as conn:
+        for file_id, name, _ in normalized:
+            row = conn.execute(
+                "SELECT project_id,name FROM project_files WHERE id=?", (file_id,)
+            ).fetchone()
+            if not row or row["project_id"] != project_id or row["name"] != name:
+                raise ValueError(f"canonical file binding changed for {name}; refresh review")
+        for file_id, name, content in normalized:
+            cursor = conn.execute(
+                "UPDATE project_files SET content=?,updated_at=? WHERE id=? AND project_id=? AND name=?",
+                (content, now, file_id, project_id, name),
+            )
+            if cursor.rowcount != 1:
+                raise ValueError(f"canonical file update did not apply uniquely: {name}")
+    log_event(project_id, "reviewed_patch_applied",
+              f"Reviewed patch applied to {len(normalized)} canonical file(s)",
+              {"paths": [name for _, name, _ in normalized]})
+    _mirror_project(project_id)
+    return {"ok": True, "project_id": project_id,
+            "changed_paths": [name for _, name, _ in normalized],
+            "updated_at": now}
+
+
 def copy_file(file_id: str, new_name: str | None = None) -> dict:
     """Duplicate a file within the same project corpus (no parallel store)."""
     src = get_file(file_id)
