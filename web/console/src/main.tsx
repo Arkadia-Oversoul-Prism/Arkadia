@@ -9,6 +9,7 @@ import { BoundaryView } from "./surfaces/BoundaryView";
 import { WorkConsequence } from "./surfaces/WorkConsequence";
 import { Authority } from "./surfaces/Authority";
 import "./styles.css";
+import { MieLab } from "./surfaces/MieLab";
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
         <Route path="/boundary/:id" element={<BoundaryView />} />
         <Route path="/work" element={<WorkConsequence />} />
         <Route path="/authority" element={<Authority />} />
+        <Route path="/mie-lab" element={<MieLab />} />
         <Route path="*" element={<Spine />} />
       </Routes>
     </Layout>
