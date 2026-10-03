@@ -232,7 +232,9 @@ async def create_project(body: CreateProjectRequest, user: dict = Depends(requir
     try:
         metadata = instantiate_project_metadata(body.template_id, body.metadata)
         p = get_project_manager().create(body.name, metadata, owner_uid=user["uid"])
-        return {"ok": True, "project": p.to_dict()}
+        from solspire.integration_health import project_integration_health
+        health = project_integration_health(subject_uid=user["uid"], project=p.to_dict())
+        return {"ok": True, "project": p.to_dict(), "integration_health": health}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -296,11 +298,14 @@ async def instantiate_eden_project(user: dict = Depends(require_auth)) -> dict[s
             "tasks": len(list_tasks(eden.id)),
         }
 
+    from solspire.integration_health import project_integration_health
+    health = project_integration_health(subject_uid=user["uid"], project=eden.to_dict())
     return {
         "ok": True,
         "created": created,
         "project": eden.to_dict(),
         "seed": seed_result,
+        "integration_health": health,
         "owner_binding": {
             "owner_uid": user["uid"],
             "authority": "authenticated sovereign account",
