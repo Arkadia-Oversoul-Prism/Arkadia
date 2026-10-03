@@ -52,9 +52,9 @@ export default function ProjectAgenticCanvas({ project }: { project: Project }) 
     try {
       const workspace = await request<{ workspace: { id: string } }>('/solspire/workspace');
       const agent = await request<{ agent_id: string }>('/api/lab/engineering/agents', {
-        role: 'BUILDER',
-        display_name: `${project.name} · Bounded Canvas Worker`,
-        capabilities: ['READ', 'RUN'],
+        role: 'WEAVER',
+        display_name: `${project.name} · Weaver COO`,
+        capabilities: ['READ', 'OBSERVE', 'PROPOSE'],
         write_allowed: false,
       });
       const created = await request<LabSession>('/api/lab/engineering/sessions', {
@@ -75,11 +75,11 @@ export default function ProjectAgenticCanvas({ project }: { project: Project }) 
     setBusy(true); setError(''); setNotice('');
     try {
       const data = await request<{ session: LabSession }>(`/api/lab/engineering/sessions/${session.session_id}/authorize`, {
-        operations_allowed: ['read', 'list', 'run'],
+        operations_allowed: ['read', 'list', 'git_status', 'git.diff'],
         duration_minutes: 60,
       });
       setSession(data.session);
-      setNotice('Human authorization recorded for read/list and the closed read-only terminal grammar. Filesystem writes and network access remain disabled.');
+      setNotice('Human authorization recorded for read/list and read-only Git observation. Terminal execution, filesystem writes and network access remain disabled.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Authorization failed');
     } finally { setBusy(false); }
@@ -113,7 +113,7 @@ export default function ProjectAgenticCanvas({ project }: { project: Project }) 
       <div style={{ fontSize: 9, letterSpacing: '.2em', textTransform: 'uppercase', color: '#B08DE8' }}>SolSpire · Agentic Canvas</div>
       <h3 style={{ margin: '7px 0', font: '400 24px Georgia,serif', color: '#E9E7DF' }}>{project.name}</h3>
       <p style={{ margin: 0, maxWidth: 680, fontSize: 11, lineHeight: 1.7, color: 'rgba(212,223,232,.55)' }}>
-        A project-bound session using the existing Engineering Lab runtime. It snapshots canonical project files into a server-managed workspace and runs with a closed, read-only command grammar. This is not a container boundary; no writes, network access, merge or deployment are enabled.
+        A project-bound Weaver COO session using the existing Engineering Lab runtime. It snapshots canonical project files into a server-managed workspace and exposes read/list plus read-only Git observation. This is not a container boundary; terminal execution, writes, network access, merge and deployment are disabled.
       </p>
     </section>
 
@@ -140,7 +140,7 @@ export default function ProjectAgenticCanvas({ project }: { project: Project }) 
 
     <section style={{ ...CARD, display: 'grid', gap: 8 }}>
       <div style={{ fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase', color: 'rgba(201,168,76,.6)' }}>Execution boundary</div>
-      {['Project ownership checked against the authenticated UID','Workspace root derived by the server from subject + project','Only canonical project files are materialized, with path and size limits','Human authorization required before an agent run','Filesystem writes and network access disabled in v0.1','Run evidence is reviewable; execution does not imply acceptance'].map(item => <div key={item} style={{ display: 'flex', gap: 8, fontSize: 10, lineHeight: 1.5, color: 'rgba(212,223,232,.58)' }}><span style={{ color: '#00D4AA' }}>•</span>{item}</div>)}
+      {['Project ownership checked against the authenticated UID','Workspace root derived by the server from subject + project','Only canonical project files are materialized, with path and size limits','Human authorization required before an agent run','Terminal execution, filesystem writes and network access disabled in v0.1','Run evidence is reviewable; execution does not imply acceptance'].map(item => <div key={item} style={{ display: 'flex', gap: 8, fontSize: 10, lineHeight: 1.5, color: 'rgba(212,223,232,.58)' }}><span style={{ color: '#00D4AA' }}>•</span>{item}</div>)}
     </section>
 
     {result && <section style={{ ...CARD, display: 'grid', gap: 8 }}>
