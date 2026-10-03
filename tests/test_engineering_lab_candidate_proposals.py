@@ -40,6 +40,11 @@ def test_human_authorization_must_include_candidate_write():
                                    authorization_operations={"read", "list", "candidate_write"})
     assert "filesystem.propose_edit" not in without
     assert "filesystem.propose_edit" in with_approval
+    propose_only = effective_tools(
+        capabilities=("PROPOSE",), agent_tools=tools,
+        authorization_operations={"candidate_write"},
+    )
+    assert propose_only == ("filesystem.propose_edit",)
 
 
 def test_agent_proposals_become_candidate_patch_without_persistence(monkeypatch, tmp_path):
