@@ -36,3 +36,17 @@ def test_project_overview_surfaces_runtime_status_without_claiming_all_modules_a
     assert "Requested capabilities are targets" in source
     assert "runtimeBindings.sandbox?.state" in source
     assert "onTabChange('weaver')" in source
+
+def test_project_canvas_uses_existing_lab_runtime_and_project_scope():
+    dashboard = (ROOT / "web/public_prism/src/pages/ProjectDashboard.tsx").read_text()
+    canvas = (ROOT / "web/public_prism/src/components/solspire/ProjectAgenticCanvas.tsx").read_text()
+    routes = (ROOT / "api/lab_routes.py").read_text()
+    store = (ROOT / "lab/engineering_lab/store.py").read_text()
+    assert "'canvas'" in dashboard
+    assert "project_ref: project.id" in canvas
+    assert "Authorize read-only run" in canvas
+    assert "write_allowed: false" in canvas
+    assert "def _project_canvas_policy" in routes
+    assert "prepare_project_workspace(subject_uid, project_id)" in routes
+    assert "project_ref TEXT" in store
+    assert "SOLSPIRE_CANVAS_ROOT" in (ROOT / "solspire/project_canvas.py").read_text()
