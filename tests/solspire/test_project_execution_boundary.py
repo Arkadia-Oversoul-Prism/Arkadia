@@ -12,7 +12,7 @@ from solspire.project_execution_boundary import (
 
 def test_container_defaults_deny_network_and_harden_process(tmp_path):
     argv = build_container_argv(
-        image="registry.example/arkadia-agent@sha256=" + "a" * 64,
+        image="registry.example/arkadia-agent@sha256:" + "a" * 64,
         workspace=tmp_path,
         command=("/usr/bin/python", "-c", "print('ok')"),
     )
