@@ -33,8 +33,10 @@ export function MieLab() {
     setPaused(null);
   }
 
-  function play(capture: Capture) {
+  function play(capture: Capture, preserveRepeat = false) {
+    const armedRepeat = repeat;
     stopAll();
+    if (preserveRepeat && armedRepeat) setRepeat(armedRepeat); else setRepeat(null);
     const AudioCtx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (AudioCtx) {
       const ctx = new AudioCtx();
@@ -53,7 +55,7 @@ export function MieLab() {
     setPaused(null);
     timer.current = window.setTimeout(() => {
       setPlaying((current) => current === capture.id ? null : current);
-      if (repeat === capture.id) play(capture);
+      if (repeat === capture.id) play(capture, true);
     }, 420);
   }
 
@@ -70,7 +72,7 @@ export function MieLab() {
   function toggleRepeat(capture: Capture) {
     const next = repeat === capture.id ? null : capture.id;
     setRepeat(next);
-    if (next && playing !== capture.id) play(capture);
+    if (next && playing !== capture.id) play(capture, true);
   }
 
   function octaveUp(source: Capture) {
