@@ -85,6 +85,10 @@ class SandboxPolicy:
     default_timeout: float = 30.0
     max_output_bytes: int = 200_000
     max_file_bytes: int = 2_000_000
+    #: Project sessions must use the container boundary; missing image fails closed.
+    containerized: bool = False
+    container_image: str | None = None
+    container_runtime: str = "docker"
 
 
 #: The closed set of binaries the L1 terminal capability may execute. Every
@@ -349,6 +353,24 @@ class Sandbox:
                 )
         workdir = self._resolve(cwd)
         timeout = timeout if timeout is not None else self.policy.default_timeout
+        if self.policy.containerized:
+            if not self.policy.container_image:
+                self._record("run", binary, False, {"reason": "container_image_unconfigured"})
+                raise SandboxCommandDenied("project execution requires SOLSPIRE_AGENT_IMAGE pinned by immutable digest")
+            try:
+                from solspire.project_execution_service import execute_container_command
+                result = execute_container_command(
+                    workspace=str(self.root), command=list(argv),
+                    image=self.policy.container_image, runtime=self.policy.container_runtime,
+                    timeout_seconds=max(1, min(900, int(timeout))), cwd=cwd,
+                )
+            except Exception as exc:
+                self._record("run", binary, False, {"reason": "container_boundary_failed", "detail": str(exc)})
+                raise SandboxCommandDenied(f"isolated container execution refused: {exc}") from exc
+            result.update({"binary": binary, "argv": list(argv), "truncated": False})
+            self._record("run", binary, bool(result.get("ok")),
+                         {"returncode": result.get("returncode"), "containerized": True})
+            return result
         try:
             proc = subprocess.run(
                 list(argv),
