@@ -124,10 +124,10 @@ def build_project_context_for_weaver(project: dict[str, Any]) -> dict[str, Any]:
             },
         }
     owner_uid = project.get("owner_uid") or project.get("owner")
-    continuity: dict[str, Any] = {"workspace": None, "daily_pulse": None, "work_events": [],
+    continuity: dict[str, Any] = {"workspace": None, "daily_pulse": None, "work_events": None,
                                   "binding_state": {"daily_pulse": "UNKNOWN", "workevents": "UNKNOWN"}}
     graph = {}
-    project_event_context: list[dict[str, Any]] = []
+    project_event_context: list[dict[str, Any]] | None = None
     project_event_state = "UNKNOWN"
     larder_orders: list[dict[str, Any]] = []
     if pid:
@@ -135,7 +135,8 @@ def build_project_context_for_weaver(project: dict[str, Any]) -> dict[str, Any]:
             import json
             from solspire.project_store import list_events
             source_events = list_events(pid, limit=100)
-            project_event_state = "PROJECT_STORE_BOUND"
+            project_event_state = "AVAILABLE"
+            project_event_context = []
             for event in source_events:
                 project_event_context.append({
                     "id": event.get("id"), "event_type": event.get("event_type"),
@@ -156,7 +157,7 @@ def build_project_context_for_weaver(project: dict[str, Any]) -> dict[str, Any]:
                         })
         except Exception as exc:
             project_event_state = "UNAVAILABLE"
-            project_event_context = []
+            project_event_context = None
             larder_orders = []
         try:
             from datetime import datetime, timezone
@@ -172,11 +173,14 @@ def build_project_context_for_weaver(project: dict[str, Any]) -> dict[str, Any]:
                           if e.scope_ref == pid or e.work_ref == pid]
                 continuity["daily_pulse"] = pulse.to_dict() if pulse else None
                 continuity["work_events"] = events[:50]
+                continuity["work_events"] = events[:50]
                 continuity["binding_state"] = {
-                    "daily_pulse": "SUBJECT_WORKSPACE_BOUND" if pulse else "UNKNOWN",
-                    "workevents": "PROJECT_SCOPED_MATCHES" if events else "UNKNOWN",
+                    "daily_pulse": "AVAILABLE" if pulse else "EMPTY",
+                    "workevents": "AVAILABLE" if events else "EMPTY",
                 }
         except Exception as exc:
+            continuity["daily_pulse"] = None
+            continuity["work_events"] = None
             continuity["binding_state"] = {"daily_pulse": "UNAVAILABLE",
                                            "workevents": "UNAVAILABLE",
                                            "detail": f"{type(exc).__name__}: {exc}"}
@@ -206,15 +210,20 @@ def build_project_context_for_weaver(project: dict[str, Any]) -> dict[str, Any]:
         "project_name": project.get("name"),
         "owner": owner_uid,
         "status": project.get("status"),
-        "knowledge": summary.get("sources"),
+        "knowledge": (summary.get("sources")
+                      if (summary.get("source_health") or {}).get("state") == "AVAILABLE"
+                      else None),
         "knowledge_source_health": summary.get("source_health", {"state": "UNKNOWN"}),
-        "repositories": (summary.get("items") or {}).get("repositories"),
+        "repositories": ((summary.get("items") or {}).get("repositories")
+                         if (summary.get("source_health") or {}).get("state") == "AVAILABLE"
+                         else None),
         "knowledge_graph": graph,
-        "project_events": project_event_context[:100],
+        "project_events": (project_event_context[:100]
+                           if project_event_context is not None else None),
         "project_events_state": project_event_state,
         "living_larder": {
             "binding_state": larder_state,
-            "orders": larder_orders[:100],
+            "orders": larder_orders[:100] if project_event_state != "UNAVAILABLE" else None,
             "unwitnessed_order_ids": unwitnessed_larder_ids,
             "note": "Only explicitly bound source records with matching WorkEvent evidence are shown; no transaction is inferred.",
         },
