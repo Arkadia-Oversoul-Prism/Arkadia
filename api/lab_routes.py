@@ -221,8 +221,8 @@ async def execute_bounded(
         if session.get("project_ref"):
             if body.requires_write or body.sandbox_root:
                 raise HTTPException(status_code=409, detail="Project canvas v0.1 is read-only; its sandbox root is server-managed")
-            if any(operation.kind == "write" for operation in task.operations):
-                raise HTTPException(status_code=409, detail="Project canvas v0.1 does not permit filesystem writes")
+            if any(operation.kind not in {"read", "list"} for operation in task.operations):
+                raise HTTPException(status_code=409, detail="Project canvas v0.1 direct operations are read/list only; use the authorized Weaver loop for read-only Git observation")
             policy = _project_canvas_policy(session, user["uid"])
         elif body.sandbox_root:
             policy = SandboxPolicy(
