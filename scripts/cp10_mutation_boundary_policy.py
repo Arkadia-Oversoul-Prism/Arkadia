@@ -20,9 +20,10 @@ import re
 # deliberately top-level-only literals — they do not open nested paths.
 #
 # The true allowlist is the set of tracked repository surfaces: every top-level
-# entry in `git ls-files` (83 entries, 1645 paths at 886759f) is enumerated here or
-# admitted by the generic rules, and test_allowlist_covers_every_tracked_surface
-# asserts exactly that against the live tree. An allowlist that omits a surface the repository
+# entry in `git ls-files` (1726 paths at the arkadia-console-android merge) is
+# enumerated here or admitted by the generic rules, and
+# test_allowlist_covers_every_tracked_surface asserts exactly that against the live
+# tree. An allowlist that omits a surface the repository
 # tracks does not tighten the boundary — it reddens CI on the next unrelated merge
 # (this bug class recurred across EDEN-OPS-02, EL-01..10 #97, Solariun #104).
 # Constitutional limits live in the FORBID_V3/V2 stage and the unknown-root
@@ -37,6 +38,15 @@ LEGIT = re.compile(
     # engines, product and runtime surfaces
     r"\.github/|web/|api/|solspire/|kernel/|weaver/|lab/|tests/|docs/|scripts/"
     r"|enterprises/|knowledge/|spiral_grove/|android/|arkadia-android/|sonata-android/"
+    # arkadia-console-android/ is the native Arkadia Console Android project, merged
+    # to main via PRs #233/#234/#235. It was tracked while this allowlist still
+    # omitted it, so the CP10 gate rejected the merge that introduced it and left
+    # three fitness tests red on main (test_allowlist_admits_every_tracked_top_level_prefix,
+    # test_allowlist_covers_every_tracked_surface,
+    # test_delegated_verdict_admits_every_tracked_surface). It is a first-class
+    # product surface (Kotlin sources, Gradle build, resources), not scratch space,
+    # so it is enumerated rather than left to the generic rules.
+    r"|arkadia-console-android/"
     r"|app/|architecture/|arkana_rasa/|arkana_space/|bot/|codex/|collective/"
     r"|corpus/|forge/|governance/|openclaw/|orchestration/|providers/|sanctum/|static/"
     # opportunity_radar/ carries the SAPZ capture MVP persisted state
