@@ -28,3 +28,11 @@ def test_arkana_injects_bounded_project_context_and_scopes_threads():
     assert "/solspire/projects/${pack.projectId}/tasks" in overlay
     assert "/solspire/projects/${pack.projectId}/memory" in overlay
     assert "Number(project.id)" not in overlay
+
+
+def test_project_overview_surfaces_runtime_status_without_claiming_all_modules_are_live():
+    source = (ROOT / "web/public_prism/src/pages/ProjectOverview.tsx").read_text()
+    assert 'data-testid="solariun-project-runtime"' in source
+    assert "Requested capabilities are targets" in source
+    assert "runtimeBindings.sandbox?.state" in source
+    assert "onTabChange('weaver')" in source
