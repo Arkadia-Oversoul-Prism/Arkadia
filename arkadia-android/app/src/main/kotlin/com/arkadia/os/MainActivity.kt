@@ -38,6 +38,24 @@ class MainActivity : AppCompatActivity() {
         api = ConsoleApi(prefs)
         buildShell()
         refresh()
+        handleProcessText(intent)
+    }
+
+    /** Text selected in another app via PROCESS_TEXT is captured into the WorkEvent spine. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleProcessText(intent)
+    }
+
+    private fun handleProcessText(intent: Intent?) {
+        val selected = intent?.getStringExtra(EXTRA_PROCESS_TEXT)?.trim()
+        if (!selected.isNullOrBlank()) {
+            lifecycleScope.launch {
+                runCatching { api.emitCapture("Selected text", selected) }
+                    .onSuccess { toast("Selected text captured.") }
+                    .onFailure { toast(it.message ?: "Capture failed") }
+            }
+        }
     }
 
     private fun buildShell() {
@@ -138,7 +156,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun captureNote() {
-        val input = EditText(this).apply { hint = "What happened?"; setTextColor(text); setHintTextColor(muted); minLines = 4 }
+        val input = EditText(this).apply { hint = "What happened?"; setTextColor(this@MainActivity.text); setHintTextColor(muted); minLines = 4 }
         AlertDialog.Builder(this).setTitle("CAPTURE REALITY").setMessage("Capture first. Interpretation can follow.")
             .setView(input).setNegativeButton("CLOSE", null).setPositiveButton("RECORD") { _, _ ->
                 val note = input.text.toString().trim()
@@ -180,4 +198,8 @@ class MainActivity : AppCompatActivity() {
     private fun margin(l: Int, t: Int, r: Int, b: Int) = LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(l), dp(t), dp(r), dp(b)) }
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_SHORT).show()
+
+    companion object {
+        const val EXTRA_PROCESS_TEXT = "com.arkadia.os.PROCESS_TEXT"
+    }
 }

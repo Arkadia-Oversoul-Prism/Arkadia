@@ -64,6 +64,7 @@ class ConsoleApi(private val prefs: Prefs) {
             if (artifactRef != null) refs.put(artifactRef)
             val body = JSONObject()
                 .put("event_type", "CAPTURED")
+                .put("occurred_at", System.currentTimeMillis() / 1000.0)
                 .put("status", "RECORDED")
                 .put("schema_version", "1")
                 .put("artifact_refs", refs)
