@@ -13,6 +13,10 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0"
+        buildConfigField("String", "FIREBASE_API_KEY", "\"" + (project.findProperty("firebaseApiKey") ?: System.getenv("FIREBASE_API_KEY") ?: "") + "\"")
+        buildConfigField("String", "FIREBASE_PROJECT_ID", "\"" + (project.findProperty("firebaseProjectId") ?: System.getenv("FIREBASE_PROJECT_ID") ?: "") + "\"")
+        buildConfigField("String", "FIREBASE_APP_ID", "\"" + (project.findProperty("firebaseAppId") ?: System.getenv("FIREBASE_APP_ID") ?: "") + "\"")
+        buildConfigField("String", "FIREBASE_GCM_SENDER_ID", "\"" + (project.findProperty("firebaseGcmSenderId") ?: System.getenv("FIREBASE_GCM_SENDER_ID") ?: "") + "\"")
     }
 
     buildTypes {
@@ -29,12 +33,6 @@ android {
 
     buildFeatures { buildConfig = true }
 
-    defaultConfig {
-        buildConfigField("String", "FIREBASE_API_KEY", "\"" + (project.findProperty("firebaseApiKey") ?: System.getenv("FIREBASE_API_KEY") ?: "") + "\"")
-        buildConfigField("String", "FIREBASE_PROJECT_ID", "\"" + (project.findProperty("firebaseProjectId") ?: System.getenv("FIREBASE_PROJECT_ID") ?: "") + "\"")
-        buildConfigField("String", "FIREBASE_APP_ID", "\"" + (project.findProperty("firebaseAppId") ?: System.getenv("FIREBASE_APP_ID") ?: "") + "\"")
-        buildConfigField("String", "FIREBASE_GCM_SENDER_ID", "\"" + (project.findProperty("firebaseGcmSenderId") ?: System.getenv("FIREBASE_GCM_SENDER_ID") ?: "") + "\"")
-    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
