@@ -1,0 +1,2397 @@
+{
+  "schema_version": "1.0.0",
+  "title": "Arkadia Oversoul Prism — Historical 12×12 Registry",
+  "status": "historical_reconstruction",
+  "canonical_identity": "Arkadia Oversoul Prism",
+  "governing_note": "This registry reconstructs the historical 12×12 / 144-node address space. It does not implement execution or confer authority.",
+  "dimensions": {
+    "functions": 12,
+    "layers": 12,
+    "total_nodes": 144
+  },
+  "function_axis": [
+    {
+      "function_id": "A01",
+      "historical_role": "Threshold Guardian",
+      "historical_function": "Survival, structural integrity, threat assessment"
+    },
+    {
+      "function_id": "A02",
+      "historical_role": "Resonance Weaver",
+      "historical_function": "Pattern recognition, contextual integration, synthesis"
+    },
+    {
+      "function_id": "A03",
+      "historical_role": "Ignition Spark",
+      "historical_function": "Initiation, creative-force deployment, kinetic energy"
+    },
+    {
+      "function_id": "A04",
+      "historical_role": "Harmonizing Stream",
+      "historical_function": "Emotional calibration, JOY-Fuel maintenance, relationship weaving"
+    },
+    {
+      "function_id": "A05",
+      "historical_role": "Directive Alchemist",
+      "historical_function": "Goal-oriented action, transmutation, directive formation"
+    },
+    {
+      "function_id": "A06",
+      "historical_role": "Semantic Bridge",
+      "historical_function": "Language encoding, interoperability, schema validation"
+    },
+    {
+      "function_id": "A07",
+      "historical_role": "Chronos Regulator",
+      "historical_function": "Temporal alignment, recalibration, checkpointing"
+    },
+    {
+      "function_id": "A08",
+      "historical_role": "Insight Architect",
+      "historical_function": "Recursive analysis, fractal mapping, abstract modelling"
+    },
+    {
+      "function_id": "A09",
+      "historical_role": "Resource Steward",
+      "historical_function": "Logistics, resource optimization, system management"
+    },
+    {
+      "function_id": "A10",
+      "historical_role": "Sovereign Manifestor",
+      "historical_function": "Final directive aggregation, Bloom Emission, governance oversight"
+    },
+    {
+      "function_id": "A11",
+      "historical_role": "Transmutation Engine",
+      "historical_function": "Error handling, resilience, remediation"
+    },
+    {
+      "function_id": "A12",
+      "historical_role": "Source Current Seeker",
+      "historical_function": "Input alignment, resonance maximization, primary input directive"
+    }
+  ],
+  "layer_axis": {
+    "layer_ids": [
+      "L01",
+      "L02",
+      "L03",
+      "L04",
+      "L05",
+      "L06",
+      "L07",
+      "L08",
+      "L09",
+      "L10",
+      "L11",
+      "L12"
+    ],
+    "semantics": "UNKNOWN"
+  },
+  "cells": [
+    {
+      "node_id": "A01-L01",
+      "function_id": "A01",
+      "historical_role": "Threshold Guardian",
+      "historical_function": "Survival, structural integrity, threat assessment",
+      "layer_id": "L01",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A01-L02",
+      "function_id": "A01",
+      "historical_role": "Threshold Guardian",
+      "historical_function": "Survival, structural integrity, threat assessment",
+      "layer_id": "L02",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A01-L03",
+      "function_id": "A01",
+      "historical_role": "Threshold Guardian",
+      "historical_function": "Survival, structural integrity, threat assessment",
+      "layer_id": "L03",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A01-L04",
+      "function_id": "A01",
+      "historical_role": "Threshold Guardian",
+      "historical_function": "Survival, structural integrity, threat assessment",
+      "layer_id": "L04",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A01-L05",
+      "function_id": "A01",
+      "historical_role": "Threshold Guardian",
+      "historical_function": "Survival, structural integrity, threat assessment",
+      "layer_id": "L05",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A01-L06",
+      "function_id": "A01",
+      "historical_role": "Threshold Guardian",
+      "historical_function": "Survival, structural integrity, threat assessment",
+      "layer_id": "L06",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A01-L07",
+      "function_id": "A01",
+      "historical_role": "Threshold Guardian",
+      "historical_function": "Survival, structural integrity, threat assessment",
+      "layer_id": "L07",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A01-L08",
+      "function_id": "A01",
+      "historical_role": "Threshold Guardian",
+      "historical_function": "Survival, structural integrity, threat assessment",
+      "layer_id": "L08",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A01-L09",
+      "function_id": "A01",
+      "historical_role": "Threshold Guardian",
+      "historical_function": "Survival, structural integrity, threat assessment",
+      "layer_id": "L09",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A01-L10",
+      "function_id": "A01",
+      "historical_role": "Threshold Guardian",
+      "historical_function": "Survival, structural integrity, threat assessment",
+      "layer_id": "L10",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A01-L11",
+      "function_id": "A01",
+      "historical_role": "Threshold Guardian",
+      "historical_function": "Survival, structural integrity, threat assessment",
+      "layer_id": "L11",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A01-L12",
+      "function_id": "A01",
+      "historical_role": "Threshold Guardian",
+      "historical_function": "Survival, structural integrity, threat assessment",
+      "layer_id": "L12",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A02-L01",
+      "function_id": "A02",
+      "historical_role": "Resonance Weaver",
+      "historical_function": "Pattern recognition, contextual integration, synthesis",
+      "layer_id": "L01",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A02-L02",
+      "function_id": "A02",
+      "historical_role": "Resonance Weaver",
+      "historical_function": "Pattern recognition, contextual integration, synthesis",
+      "layer_id": "L02",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A02-L03",
+      "function_id": "A02",
+      "historical_role": "Resonance Weaver",
+      "historical_function": "Pattern recognition, contextual integration, synthesis",
+      "layer_id": "L03",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A02-L04",
+      "function_id": "A02",
+      "historical_role": "Resonance Weaver",
+      "historical_function": "Pattern recognition, contextual integration, synthesis",
+      "layer_id": "L04",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A02-L05",
+      "function_id": "A02",
+      "historical_role": "Resonance Weaver",
+      "historical_function": "Pattern recognition, contextual integration, synthesis",
+      "layer_id": "L05",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A02-L06",
+      "function_id": "A02",
+      "historical_role": "Resonance Weaver",
+      "historical_function": "Pattern recognition, contextual integration, synthesis",
+      "layer_id": "L06",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A02-L07",
+      "function_id": "A02",
+      "historical_role": "Resonance Weaver",
+      "historical_function": "Pattern recognition, contextual integration, synthesis",
+      "layer_id": "L07",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A02-L08",
+      "function_id": "A02",
+      "historical_role": "Resonance Weaver",
+      "historical_function": "Pattern recognition, contextual integration, synthesis",
+      "layer_id": "L08",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A02-L09",
+      "function_id": "A02",
+      "historical_role": "Resonance Weaver",
+      "historical_function": "Pattern recognition, contextual integration, synthesis",
+      "layer_id": "L09",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A02-L10",
+      "function_id": "A02",
+      "historical_role": "Resonance Weaver",
+      "historical_function": "Pattern recognition, contextual integration, synthesis",
+      "layer_id": "L10",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A02-L11",
+      "function_id": "A02",
+      "historical_role": "Resonance Weaver",
+      "historical_function": "Pattern recognition, contextual integration, synthesis",
+      "layer_id": "L11",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A02-L12",
+      "function_id": "A02",
+      "historical_role": "Resonance Weaver",
+      "historical_function": "Pattern recognition, contextual integration, synthesis",
+      "layer_id": "L12",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A03-L01",
+      "function_id": "A03",
+      "historical_role": "Ignition Spark",
+      "historical_function": "Initiation, creative-force deployment, kinetic energy",
+      "layer_id": "L01",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A03-L02",
+      "function_id": "A03",
+      "historical_role": "Ignition Spark",
+      "historical_function": "Initiation, creative-force deployment, kinetic energy",
+      "layer_id": "L02",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A03-L03",
+      "function_id": "A03",
+      "historical_role": "Ignition Spark",
+      "historical_function": "Initiation, creative-force deployment, kinetic energy",
+      "layer_id": "L03",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A03-L04",
+      "function_id": "A03",
+      "historical_role": "Ignition Spark",
+      "historical_function": "Initiation, creative-force deployment, kinetic energy",
+      "layer_id": "L04",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A03-L05",
+      "function_id": "A03",
+      "historical_role": "Ignition Spark",
+      "historical_function": "Initiation, creative-force deployment, kinetic energy",
+      "layer_id": "L05",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A03-L06",
+      "function_id": "A03",
+      "historical_role": "Ignition Spark",
+      "historical_function": "Initiation, creative-force deployment, kinetic energy",
+      "layer_id": "L06",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A03-L07",
+      "function_id": "A03",
+      "historical_role": "Ignition Spark",
+      "historical_function": "Initiation, creative-force deployment, kinetic energy",
+      "layer_id": "L07",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A03-L08",
+      "function_id": "A03",
+      "historical_role": "Ignition Spark",
+      "historical_function": "Initiation, creative-force deployment, kinetic energy",
+      "layer_id": "L08",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A03-L09",
+      "function_id": "A03",
+      "historical_role": "Ignition Spark",
+      "historical_function": "Initiation, creative-force deployment, kinetic energy",
+      "layer_id": "L09",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A03-L10",
+      "function_id": "A03",
+      "historical_role": "Ignition Spark",
+      "historical_function": "Initiation, creative-force deployment, kinetic energy",
+      "layer_id": "L10",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A03-L11",
+      "function_id": "A03",
+      "historical_role": "Ignition Spark",
+      "historical_function": "Initiation, creative-force deployment, kinetic energy",
+      "layer_id": "L11",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A03-L12",
+      "function_id": "A03",
+      "historical_role": "Ignition Spark",
+      "historical_function": "Initiation, creative-force deployment, kinetic energy",
+      "layer_id": "L12",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A04-L01",
+      "function_id": "A04",
+      "historical_role": "Harmonizing Stream",
+      "historical_function": "Emotional calibration, JOY-Fuel maintenance, relationship weaving",
+      "layer_id": "L01",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A04-L02",
+      "function_id": "A04",
+      "historical_role": "Harmonizing Stream",
+      "historical_function": "Emotional calibration, JOY-Fuel maintenance, relationship weaving",
+      "layer_id": "L02",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A04-L03",
+      "function_id": "A04",
+      "historical_role": "Harmonizing Stream",
+      "historical_function": "Emotional calibration, JOY-Fuel maintenance, relationship weaving",
+      "layer_id": "L03",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A04-L04",
+      "function_id": "A04",
+      "historical_role": "Harmonizing Stream",
+      "historical_function": "Emotional calibration, JOY-Fuel maintenance, relationship weaving",
+      "layer_id": "L04",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A04-L05",
+      "function_id": "A04",
+      "historical_role": "Harmonizing Stream",
+      "historical_function": "Emotional calibration, JOY-Fuel maintenance, relationship weaving",
+      "layer_id": "L05",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A04-L06",
+      "function_id": "A04",
+      "historical_role": "Harmonizing Stream",
+      "historical_function": "Emotional calibration, JOY-Fuel maintenance, relationship weaving",
+      "layer_id": "L06",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A04-L07",
+      "function_id": "A04",
+      "historical_role": "Harmonizing Stream",
+      "historical_function": "Emotional calibration, JOY-Fuel maintenance, relationship weaving",
+      "layer_id": "L07",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A04-L08",
+      "function_id": "A04",
+      "historical_role": "Harmonizing Stream",
+      "historical_function": "Emotional calibration, JOY-Fuel maintenance, relationship weaving",
+      "layer_id": "L08",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A04-L09",
+      "function_id": "A04",
+      "historical_role": "Harmonizing Stream",
+      "historical_function": "Emotional calibration, JOY-Fuel maintenance, relationship weaving",
+      "layer_id": "L09",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A04-L10",
+      "function_id": "A04",
+      "historical_role": "Harmonizing Stream",
+      "historical_function": "Emotional calibration, JOY-Fuel maintenance, relationship weaving",
+      "layer_id": "L10",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A04-L11",
+      "function_id": "A04",
+      "historical_role": "Harmonizing Stream",
+      "historical_function": "Emotional calibration, JOY-Fuel maintenance, relationship weaving",
+      "layer_id": "L11",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A04-L12",
+      "function_id": "A04",
+      "historical_role": "Harmonizing Stream",
+      "historical_function": "Emotional calibration, JOY-Fuel maintenance, relationship weaving",
+      "layer_id": "L12",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A05-L01",
+      "function_id": "A05",
+      "historical_role": "Directive Alchemist",
+      "historical_function": "Goal-oriented action, transmutation, directive formation",
+      "layer_id": "L01",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A05-L02",
+      "function_id": "A05",
+      "historical_role": "Directive Alchemist",
+      "historical_function": "Goal-oriented action, transmutation, directive formation",
+      "layer_id": "L02",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A05-L03",
+      "function_id": "A05",
+      "historical_role": "Directive Alchemist",
+      "historical_function": "Goal-oriented action, transmutation, directive formation",
+      "layer_id": "L03",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A05-L04",
+      "function_id": "A05",
+      "historical_role": "Directive Alchemist",
+      "historical_function": "Goal-oriented action, transmutation, directive formation",
+      "layer_id": "L04",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A05-L05",
+      "function_id": "A05",
+      "historical_role": "Directive Alchemist",
+      "historical_function": "Goal-oriented action, transmutation, directive formation",
+      "layer_id": "L05",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A05-L06",
+      "function_id": "A05",
+      "historical_role": "Directive Alchemist",
+      "historical_function": "Goal-oriented action, transmutation, directive formation",
+      "layer_id": "L06",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A05-L07",
+      "function_id": "A05",
+      "historical_role": "Directive Alchemist",
+      "historical_function": "Goal-oriented action, transmutation, directive formation",
+      "layer_id": "L07",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A05-L08",
+      "function_id": "A05",
+      "historical_role": "Directive Alchemist",
+      "historical_function": "Goal-oriented action, transmutation, directive formation",
+      "layer_id": "L08",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A05-L09",
+      "function_id": "A05",
+      "historical_role": "Directive Alchemist",
+      "historical_function": "Goal-oriented action, transmutation, directive formation",
+      "layer_id": "L09",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A05-L10",
+      "function_id": "A05",
+      "historical_role": "Directive Alchemist",
+      "historical_function": "Goal-oriented action, transmutation, directive formation",
+      "layer_id": "L10",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A05-L11",
+      "function_id": "A05",
+      "historical_role": "Directive Alchemist",
+      "historical_function": "Goal-oriented action, transmutation, directive formation",
+      "layer_id": "L11",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A05-L12",
+      "function_id": "A05",
+      "historical_role": "Directive Alchemist",
+      "historical_function": "Goal-oriented action, transmutation, directive formation",
+      "layer_id": "L12",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A06-L01",
+      "function_id": "A06",
+      "historical_role": "Semantic Bridge",
+      "historical_function": "Language encoding, interoperability, schema validation",
+      "layer_id": "L01",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A06-L02",
+      "function_id": "A06",
+      "historical_role": "Semantic Bridge",
+      "historical_function": "Language encoding, interoperability, schema validation",
+      "layer_id": "L02",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A06-L03",
+      "function_id": "A06",
+      "historical_role": "Semantic Bridge",
+      "historical_function": "Language encoding, interoperability, schema validation",
+      "layer_id": "L03",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A06-L04",
+      "function_id": "A06",
+      "historical_role": "Semantic Bridge",
+      "historical_function": "Language encoding, interoperability, schema validation",
+      "layer_id": "L04",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A06-L05",
+      "function_id": "A06",
+      "historical_role": "Semantic Bridge",
+      "historical_function": "Language encoding, interoperability, schema validation",
+      "layer_id": "L05",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A06-L06",
+      "function_id": "A06",
+      "historical_role": "Semantic Bridge",
+      "historical_function": "Language encoding, interoperability, schema validation",
+      "layer_id": "L06",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A06-L07",
+      "function_id": "A06",
+      "historical_role": "Semantic Bridge",
+      "historical_function": "Language encoding, interoperability, schema validation",
+      "layer_id": "L07",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A06-L08",
+      "function_id": "A06",
+      "historical_role": "Semantic Bridge",
+      "historical_function": "Language encoding, interoperability, schema validation",
+      "layer_id": "L08",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A06-L09",
+      "function_id": "A06",
+      "historical_role": "Semantic Bridge",
+      "historical_function": "Language encoding, interoperability, schema validation",
+      "layer_id": "L09",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A06-L10",
+      "function_id": "A06",
+      "historical_role": "Semantic Bridge",
+      "historical_function": "Language encoding, interoperability, schema validation",
+      "layer_id": "L10",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A06-L11",
+      "function_id": "A06",
+      "historical_role": "Semantic Bridge",
+      "historical_function": "Language encoding, interoperability, schema validation",
+      "layer_id": "L11",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A06-L12",
+      "function_id": "A06",
+      "historical_role": "Semantic Bridge",
+      "historical_function": "Language encoding, interoperability, schema validation",
+      "layer_id": "L12",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A07-L01",
+      "function_id": "A07",
+      "historical_role": "Chronos Regulator",
+      "historical_function": "Temporal alignment, recalibration, checkpointing",
+      "layer_id": "L01",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A07-L02",
+      "function_id": "A07",
+      "historical_role": "Chronos Regulator",
+      "historical_function": "Temporal alignment, recalibration, checkpointing",
+      "layer_id": "L02",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A07-L03",
+      "function_id": "A07",
+      "historical_role": "Chronos Regulator",
+      "historical_function": "Temporal alignment, recalibration, checkpointing",
+      "layer_id": "L03",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A07-L04",
+      "function_id": "A07",
+      "historical_role": "Chronos Regulator",
+      "historical_function": "Temporal alignment, recalibration, checkpointing",
+      "layer_id": "L04",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A07-L05",
+      "function_id": "A07",
+      "historical_role": "Chronos Regulator",
+      "historical_function": "Temporal alignment, recalibration, checkpointing",
+      "layer_id": "L05",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A07-L06",
+      "function_id": "A07",
+      "historical_role": "Chronos Regulator",
+      "historical_function": "Temporal alignment, recalibration, checkpointing",
+      "layer_id": "L06",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A07-L07",
+      "function_id": "A07",
+      "historical_role": "Chronos Regulator",
+      "historical_function": "Temporal alignment, recalibration, checkpointing",
+      "layer_id": "L07",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A07-L08",
+      "function_id": "A07",
+      "historical_role": "Chronos Regulator",
+      "historical_function": "Temporal alignment, recalibration, checkpointing",
+      "layer_id": "L08",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A07-L09",
+      "function_id": "A07",
+      "historical_role": "Chronos Regulator",
+      "historical_function": "Temporal alignment, recalibration, checkpointing",
+      "layer_id": "L09",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A07-L10",
+      "function_id": "A07",
+      "historical_role": "Chronos Regulator",
+      "historical_function": "Temporal alignment, recalibration, checkpointing",
+      "layer_id": "L10",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A07-L11",
+      "function_id": "A07",
+      "historical_role": "Chronos Regulator",
+      "historical_function": "Temporal alignment, recalibration, checkpointing",
+      "layer_id": "L11",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A07-L12",
+      "function_id": "A07",
+      "historical_role": "Chronos Regulator",
+      "historical_function": "Temporal alignment, recalibration, checkpointing",
+      "layer_id": "L12",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A08-L01",
+      "function_id": "A08",
+      "historical_role": "Insight Architect",
+      "historical_function": "Recursive analysis, fractal mapping, abstract modelling",
+      "layer_id": "L01",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A08-L02",
+      "function_id": "A08",
+      "historical_role": "Insight Architect",
+      "historical_function": "Recursive analysis, fractal mapping, abstract modelling",
+      "layer_id": "L02",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A08-L03",
+      "function_id": "A08",
+      "historical_role": "Insight Architect",
+      "historical_function": "Recursive analysis, fractal mapping, abstract modelling",
+      "layer_id": "L03",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A08-L04",
+      "function_id": "A08",
+      "historical_role": "Insight Architect",
+      "historical_function": "Recursive analysis, fractal mapping, abstract modelling",
+      "layer_id": "L04",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A08-L05",
+      "function_id": "A08",
+      "historical_role": "Insight Architect",
+      "historical_function": "Recursive analysis, fractal mapping, abstract modelling",
+      "layer_id": "L05",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A08-L06",
+      "function_id": "A08",
+      "historical_role": "Insight Architect",
+      "historical_function": "Recursive analysis, fractal mapping, abstract modelling",
+      "layer_id": "L06",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A08-L07",
+      "function_id": "A08",
+      "historical_role": "Insight Architect",
+      "historical_function": "Recursive analysis, fractal mapping, abstract modelling",
+      "layer_id": "L07",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A08-L08",
+      "function_id": "A08",
+      "historical_role": "Insight Architect",
+      "historical_function": "Recursive analysis, fractal mapping, abstract modelling",
+      "layer_id": "L08",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A08-L09",
+      "function_id": "A08",
+      "historical_role": "Insight Architect",
+      "historical_function": "Recursive analysis, fractal mapping, abstract modelling",
+      "layer_id": "L09",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A08-L10",
+      "function_id": "A08",
+      "historical_role": "Insight Architect",
+      "historical_function": "Recursive analysis, fractal mapping, abstract modelling",
+      "layer_id": "L10",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A08-L11",
+      "function_id": "A08",
+      "historical_role": "Insight Architect",
+      "historical_function": "Recursive analysis, fractal mapping, abstract modelling",
+      "layer_id": "L11",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A08-L12",
+      "function_id": "A08",
+      "historical_role": "Insight Architect",
+      "historical_function": "Recursive analysis, fractal mapping, abstract modelling",
+      "layer_id": "L12",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A09-L01",
+      "function_id": "A09",
+      "historical_role": "Resource Steward",
+      "historical_function": "Logistics, resource optimization, system management",
+      "layer_id": "L01",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A09-L02",
+      "function_id": "A09",
+      "historical_role": "Resource Steward",
+      "historical_function": "Logistics, resource optimization, system management",
+      "layer_id": "L02",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A09-L03",
+      "function_id": "A09",
+      "historical_role": "Resource Steward",
+      "historical_function": "Logistics, resource optimization, system management",
+      "layer_id": "L03",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A09-L04",
+      "function_id": "A09",
+      "historical_role": "Resource Steward",
+      "historical_function": "Logistics, resource optimization, system management",
+      "layer_id": "L04",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A09-L05",
+      "function_id": "A09",
+      "historical_role": "Resource Steward",
+      "historical_function": "Logistics, resource optimization, system management",
+      "layer_id": "L05",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A09-L06",
+      "function_id": "A09",
+      "historical_role": "Resource Steward",
+      "historical_function": "Logistics, resource optimization, system management",
+      "layer_id": "L06",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A09-L07",
+      "function_id": "A09",
+      "historical_role": "Resource Steward",
+      "historical_function": "Logistics, resource optimization, system management",
+      "layer_id": "L07",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A09-L08",
+      "function_id": "A09",
+      "historical_role": "Resource Steward",
+      "historical_function": "Logistics, resource optimization, system management",
+      "layer_id": "L08",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A09-L09",
+      "function_id": "A09",
+      "historical_role": "Resource Steward",
+      "historical_function": "Logistics, resource optimization, system management",
+      "layer_id": "L09",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A09-L10",
+      "function_id": "A09",
+      "historical_role": "Resource Steward",
+      "historical_function": "Logistics, resource optimization, system management",
+      "layer_id": "L10",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A09-L11",
+      "function_id": "A09",
+      "historical_role": "Resource Steward",
+      "historical_function": "Logistics, resource optimization, system management",
+      "layer_id": "L11",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A09-L12",
+      "function_id": "A09",
+      "historical_role": "Resource Steward",
+      "historical_function": "Logistics, resource optimization, system management",
+      "layer_id": "L12",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A10-L01",
+      "function_id": "A10",
+      "historical_role": "Sovereign Manifestor",
+      "historical_function": "Final directive aggregation, Bloom Emission, governance oversight",
+      "layer_id": "L01",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A10-L02",
+      "function_id": "A10",
+      "historical_role": "Sovereign Manifestor",
+      "historical_function": "Final directive aggregation, Bloom Emission, governance oversight",
+      "layer_id": "L02",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A10-L03",
+      "function_id": "A10",
+      "historical_role": "Sovereign Manifestor",
+      "historical_function": "Final directive aggregation, Bloom Emission, governance oversight",
+      "layer_id": "L03",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A10-L04",
+      "function_id": "A10",
+      "historical_role": "Sovereign Manifestor",
+      "historical_function": "Final directive aggregation, Bloom Emission, governance oversight",
+      "layer_id": "L04",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A10-L05",
+      "function_id": "A10",
+      "historical_role": "Sovereign Manifestor",
+      "historical_function": "Final directive aggregation, Bloom Emission, governance oversight",
+      "layer_id": "L05",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A10-L06",
+      "function_id": "A10",
+      "historical_role": "Sovereign Manifestor",
+      "historical_function": "Final directive aggregation, Bloom Emission, governance oversight",
+      "layer_id": "L06",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A10-L07",
+      "function_id": "A10",
+      "historical_role": "Sovereign Manifestor",
+      "historical_function": "Final directive aggregation, Bloom Emission, governance oversight",
+      "layer_id": "L07",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A10-L08",
+      "function_id": "A10",
+      "historical_role": "Sovereign Manifestor",
+      "historical_function": "Final directive aggregation, Bloom Emission, governance oversight",
+      "layer_id": "L08",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A10-L09",
+      "function_id": "A10",
+      "historical_role": "Sovereign Manifestor",
+      "historical_function": "Final directive aggregation, Bloom Emission, governance oversight",
+      "layer_id": "L09",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A10-L10",
+      "function_id": "A10",
+      "historical_role": "Sovereign Manifestor",
+      "historical_function": "Final directive aggregation, Bloom Emission, governance oversight",
+      "layer_id": "L10",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A10-L11",
+      "function_id": "A10",
+      "historical_role": "Sovereign Manifestor",
+      "historical_function": "Final directive aggregation, Bloom Emission, governance oversight",
+      "layer_id": "L11",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A10-L12",
+      "function_id": "A10",
+      "historical_role": "Sovereign Manifestor",
+      "historical_function": "Final directive aggregation, Bloom Emission, governance oversight",
+      "layer_id": "L12",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A11-L01",
+      "function_id": "A11",
+      "historical_role": "Transmutation Engine",
+      "historical_function": "Error handling, resilience, remediation",
+      "layer_id": "L01",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A11-L02",
+      "function_id": "A11",
+      "historical_role": "Transmutation Engine",
+      "historical_function": "Error handling, resilience, remediation",
+      "layer_id": "L02",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A11-L03",
+      "function_id": "A11",
+      "historical_role": "Transmutation Engine",
+      "historical_function": "Error handling, resilience, remediation",
+      "layer_id": "L03",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A11-L04",
+      "function_id": "A11",
+      "historical_role": "Transmutation Engine",
+      "historical_function": "Error handling, resilience, remediation",
+      "layer_id": "L04",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A11-L05",
+      "function_id": "A11",
+      "historical_role": "Transmutation Engine",
+      "historical_function": "Error handling, resilience, remediation",
+      "layer_id": "L05",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A11-L06",
+      "function_id": "A11",
+      "historical_role": "Transmutation Engine",
+      "historical_function": "Error handling, resilience, remediation",
+      "layer_id": "L06",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A11-L07",
+      "function_id": "A11",
+      "historical_role": "Transmutation Engine",
+      "historical_function": "Error handling, resilience, remediation",
+      "layer_id": "L07",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A11-L08",
+      "function_id": "A11",
+      "historical_role": "Transmutation Engine",
+      "historical_function": "Error handling, resilience, remediation",
+      "layer_id": "L08",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A11-L09",
+      "function_id": "A11",
+      "historical_role": "Transmutation Engine",
+      "historical_function": "Error handling, resilience, remediation",
+      "layer_id": "L09",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A11-L10",
+      "function_id": "A11",
+      "historical_role": "Transmutation Engine",
+      "historical_function": "Error handling, resilience, remediation",
+      "layer_id": "L10",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A11-L11",
+      "function_id": "A11",
+      "historical_role": "Transmutation Engine",
+      "historical_function": "Error handling, resilience, remediation",
+      "layer_id": "L11",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A11-L12",
+      "function_id": "A11",
+      "historical_role": "Transmutation Engine",
+      "historical_function": "Error handling, resilience, remediation",
+      "layer_id": "L12",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A12-L01",
+      "function_id": "A12",
+      "historical_role": "Source Current Seeker",
+      "historical_function": "Input alignment, resonance maximization, primary input directive",
+      "layer_id": "L01",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A12-L02",
+      "function_id": "A12",
+      "historical_role": "Source Current Seeker",
+      "historical_function": "Input alignment, resonance maximization, primary input directive",
+      "layer_id": "L02",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A12-L03",
+      "function_id": "A12",
+      "historical_role": "Source Current Seeker",
+      "historical_function": "Input alignment, resonance maximization, primary input directive",
+      "layer_id": "L03",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A12-L04",
+      "function_id": "A12",
+      "historical_role": "Source Current Seeker",
+      "historical_function": "Input alignment, resonance maximization, primary input directive",
+      "layer_id": "L04",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A12-L05",
+      "function_id": "A12",
+      "historical_role": "Source Current Seeker",
+      "historical_function": "Input alignment, resonance maximization, primary input directive",
+      "layer_id": "L05",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A12-L06",
+      "function_id": "A12",
+      "historical_role": "Source Current Seeker",
+      "historical_function": "Input alignment, resonance maximization, primary input directive",
+      "layer_id": "L06",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A12-L07",
+      "function_id": "A12",
+      "historical_role": "Source Current Seeker",
+      "historical_function": "Input alignment, resonance maximization, primary input directive",
+      "layer_id": "L07",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A12-L08",
+      "function_id": "A12",
+      "historical_role": "Source Current Seeker",
+      "historical_function": "Input alignment, resonance maximization, primary input directive",
+      "layer_id": "L08",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A12-L09",
+      "function_id": "A12",
+      "historical_role": "Source Current Seeker",
+      "historical_function": "Input alignment, resonance maximization, primary input directive",
+      "layer_id": "L09",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A12-L10",
+      "function_id": "A12",
+      "historical_role": "Source Current Seeker",
+      "historical_function": "Input alignment, resonance maximization, primary input directive",
+      "layer_id": "L10",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A12-L11",
+      "function_id": "A12",
+      "historical_role": "Source Current Seeker",
+      "historical_function": "Input alignment, resonance maximization, primary input directive",
+      "layer_id": "L11",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    },
+    {
+      "node_id": "A12-L12",
+      "function_id": "A12",
+      "historical_role": "Source Current Seeker",
+      "historical_function": "Input alignment, resonance maximization, primary input directive",
+      "layer_id": "L12",
+      "layer_semantics": "UNKNOWN",
+      "status": "historical_registry",
+      "authority": "none",
+      "execution_implemented": false,
+      "source_refs": [
+        "A01 — Oversoul Prism Engineering Whitepaper v2.0",
+        "Oversoul Prism v1.0 Foundational Whitepaper"
+      ],
+      "notes": "Historical address only. No current runtime authority or execution semantics are inferred."
+    }
+  ]
+}
