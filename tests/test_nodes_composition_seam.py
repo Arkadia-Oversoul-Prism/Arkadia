@@ -53,6 +53,29 @@ def test_injected_sub_routers_serve_through_nodes_router():
         assert status in (401, 403), f"{path} leaked past auth with {status}"
 
 
+def test_configure_routers_is_idempotent():
+    """Re-entry must not double-include the injected sub-routers.
+
+    ``api.nodes.router`` is a module-level singleton and ``include_router``
+    mutates it, so a second call used to append the injected sub-routers again.
+    The composed ``app`` then emitted a duplicate-operation-ID warning for every
+    injected operation (5 ais + 24 lab) whenever ``app.openapi()`` was built
+    after the extra call. The composition root calls this once; the seam must be
+    safe to invoke more than once regardless.
+    """
+    from api.ais_profile import router as ais_router
+    from api.lab_routes import router as lab_router
+
+    nodes.configure_routers(ais_router, lab_router)
+    wired = len(nodes.router.routes)
+    nodes.configure_routers(ais_router, lab_router)
+    nodes.configure_routers(ais_router, lab_router)
+    assert len(nodes.router.routes) == wired
+
+    markers = [r for r in nodes.router.routes if type(r).__name__ == "_IncludedRouter"]
+    assert len(markers) == 2, f"expected exactly 2 injected sub-routers, got {len(markers)}"
+
+
 def test_without_injection_no_sub_router_routes_are_exposed():
     """Truthfulness: absent injection there are no fabricated sub-routes."""
     from fastapi import APIRouter
