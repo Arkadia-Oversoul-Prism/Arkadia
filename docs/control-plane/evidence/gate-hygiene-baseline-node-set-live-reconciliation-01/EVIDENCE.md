@@ -107,10 +107,10 @@ the script without failing CI:
 
 | gate | command | measured |
 |---|---|---|
-| fingerprint tests | `python -m pytest tests/test_baseline_fingerprint.py -q` | **24 passed** (22 before; +2 controls) |
+| fingerprint tests | `python -m pytest tests/test_baseline_fingerprint.py -q` | **24 passed** (19 before; +5) |
 | architecture | `python -m pytest tests/architecture -q` | **11 passed** (11/11) |
 | full suite (this branch) | `... tests/ -q --continue-on-collection-errors -rEf` | **9F / 1419P / 20S / 1E**, node set `9a54f5b4…` |
-| regression boundary | node-set vs `main` | **identical** (10 nodes); `+2 passed` is exactly the two new tests |
+| regression boundary | node-set vs `main` | **identical** (10 nodes); `+5 passed` is exactly the 19 -> 24 test addition |
 | `api/main.py` | `wc -l` + `python -m py_compile` | **2582 / 2600**, compiles OK (untouched) |
 | CP10 mutation boundary | `git ls-files \| python scripts/cp10_mutation_boundary_policy.py --judge` | `Mutation boundary PASS`, rc 0 |
 | superseded pair | `python scripts/baseline_fingerprint.py tests/fixtures/superseded_baseline_node_set_18.txt` | `6c7bf821…` / `2bc35996…` (as documented) |
@@ -120,7 +120,7 @@ the script without failing CI:
 | file | change |
 |---|---|
 | `scripts/baseline_fingerprint.py` | `summary_counts()` + summary/parse mismatch guard in `extract()`; duration-anchored summary regex |
-| `tests/test_baseline_fingerprint.py` | +2 controls (negative/positive) for the guard; archival-fixture tests for the superseded 18-node set |
+| `tests/test_baseline_fingerprint.py` | 19 -> 24 tests: two guard controls (negative/positive) plus archival-fixture tests for the superseded 18-node set |
 | `tests/fixtures/baseline_node_set.txt` | reduced 18 -> 10 nodes to the live set |
 | `tests/fixtures/superseded_baseline_node_set_18.txt` | **added** — era-correct archival set |
 | `MISSION.md`, `NEXT_AGENT.md`, `.bootstrap/01_STATE.md`, `docs/phase1/CONTINUATION_LEDGER.md` | Repository Health / fingerprint sections reconciled to the measured pair; prior measurements marked superseded |

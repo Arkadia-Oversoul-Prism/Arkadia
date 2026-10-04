@@ -10,10 +10,10 @@
 | full suite (branch) | 9F / 1419P / 20S / 1E (~125s) |
 | failure node-set sha256 | `9a54f5b478d1135f27ab9e54d95706f03eae1ceb5d4c1f3ae075bffc4208ab38` (outcomes) / `124bfdfd078fe878fe7c9de358ba271e977c4f7b73909b9d7d016b9ae9c1e87f` (ids) |
 | superseded pair (18 nodes) | `6c7bf821…` / `2bc35996…`, reproducible from `tests/fixtures/superseded_baseline_node_set_18.txt` |
-| fingerprint tests | 24 passed (+2 controls for the guard) |
+| fingerprint tests | 24 passed (19 before; +5: two guard controls + archival-fixture tests) |
 | `api/main.py` | untouched, compiles, 2582 / 2600 |
 | CP10 mutation boundary | PASS (rc 0) |
-| regression | node set identical to `main`; `+2 passed` = the new tests |
+| regression | node set identical to `main`; `+5 passed` = 19 -> 24 in the fingerprint file |
 | status | **VERIFIED** (reconciliation + fail-closed guard with negative control) |
 | authorization | sovereign merge only |
 
