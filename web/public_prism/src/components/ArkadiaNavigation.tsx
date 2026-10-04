@@ -11,13 +11,13 @@ interface NavGroup { label: string; items: NavItem[] }
 const NAV_GROUPS: NavGroup[] = [
   { label: 'Field', items: [
     { label: 'Home', view: 'home', sigil: 'H', sub: 'Field entry point', color: '#C9A84C' },
-    { label: 'Oracle', view: 'commune', sigil: 'O', sub: 'ARKANA - Pattern intelligence', color: '#00D4AA' },
+    { label: 'Arkana', view: 'commune', sigil: 'O', sub: 'Conversational intelligence · Prism expression', color: '#00D4AA' },
     { label: 'Living Gate', view: 'gate', sigil: '*', sub: 'A.I.S diagnostic · capability onboarding', color: '#C9A84C' },
   ] },
   { label: 'Nexus', items: [{ label: 'NovaNet', view: 'novanet', sigil: 'N', sub: 'The Nexus Hub - unified field', color: '#6A9FD8' }] },
   { label: 'Workspaces', items: [
-    { label: 'Solariun', view: 'solariun', sigil: '◈', sub: 'Personal intelligence canvas', color: '#B08DE8' },
-    { label: 'SolSpire', view: 'solspire', sigil: '▦', sub: 'Enterprise operating console', color: '#C9A84C' },
+    { label: 'Solariun', view: 'solariun', sigil: '◈', sub: 'Personal Prism workspace', color: '#B08DE8' },
+    { label: 'SolSpire', view: 'solspire', sigil: '▦', sub: 'Enterprise Prism workspace', color: '#C9A84C' },
   ] },
   { label: 'System', items: [
     { label: 'About', view: 'about', sigil: 'A', sub: 'Zahrune Nova - Lineage', color: '#6A9FD8' },
@@ -27,7 +27,7 @@ const NAV_GROUPS: NavGroup[] = [
   ] },
 ];
 const VIEW_LABEL: Partial<Record<View, string>> = {
-  home: 'Home', gate: 'Living Gate', commune: 'Oracle', reset: 'Field Reset', about: 'About', login: 'Node Login', codex: 'Personal Codex', dashboard: 'Dashboard', nexus: 'NovaNet', encyclopedia: 'Encyclopedia Galactica', 'spiral-codex': 'Spiral Codex', loops: 'Open Loops', grove: 'Spiral Grove', larder: 'Living Larder', novanet: 'NovaNet', ims: 'IMS Archive', distribute: 'Distribute', offerings: 'Offerings', aic: 'AIC Diagnostic', pulse: 'Arkadian Pulse', settings: 'Settings', account: 'Profile & Account', sci: 'SCI', solariun: 'Solariun', solspire: 'SolSpire Enterprise', 'knowledge-os': 'Prism - Knowledge OS', reasomate: 'ReasoMate', 'personal-echofeild': 'Personal Echofeild', 'echofeild-matrix': 'Echofeild Crystal Matrix', challenge: 'Future Skills Lab',
+  home: 'Home', gate: 'Living Gate', commune: 'Arkana', reset: 'Field Reset', about: 'About', login: 'Node Login', codex: 'Personal Codex', dashboard: 'Dashboard', nexus: 'NovaNet', encyclopedia: 'Encyclopedia Galactica', 'spiral-codex': 'Spiral Codex', loops: 'Open Loops', grove: 'Spiral Grove', larder: 'Living Larder', novanet: 'NovaNet', ims: 'IMS Archive', distribute: 'Distribute', offerings: 'Offerings', aic: 'AIC Diagnostic', pulse: 'Arkadian Pulse', settings: 'Settings', account: 'Profile & Account', sci: 'SCI', solariun: 'Solariun', solspire: 'SolSpire · Enterprise operations', 'knowledge-os': 'Knowledge OS · Prism continuity', reasomate: 'ReasoMate', 'personal-echofeild': 'Personal Echofeild', 'echofeild-matrix': 'Echofeild Crystal Matrix', challenge: 'Future Skills Lab',
 };
 function UserSection({ onNavigate, onClose }: { onNavigate: (v: View) => void; onClose: () => void }) {
   const { user, profile, signOut, isAuthenticated } = useAuth();

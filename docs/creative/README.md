@@ -1,5 +1,12 @@
 # Arkadia Creative Systems
 
+> **Prism identity:** Creative expression layer. It is part of the **Arkadia Oversoul Prism**, not a separate Arkadia intelligence, authority path, or competing source of truth.
+>
+> **Canonical principle:** One human-governed intelligence architecture. Many expressions. One coherent substrate.
+>
+> **Authority boundary:** Capability does not confer authority. Human authority remains the decision boundary, and implementation claims must remain bounded by evidence.
+
+
 This directory contains the creative language frameworks used within the Arkadia ecosystem.
 
 These systems translate Arkadia’s symbolic philosophy into practical tools for writing, music creation, spoken word, and narrative design.

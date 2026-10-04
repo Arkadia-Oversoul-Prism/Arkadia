@@ -1,5 +1,12 @@
 # Arkadia Console (`web/console/`)
 
+> **Prism identity:** Operational and governance inspection surface. It is part of the **Arkadia Oversoul Prism**, not a separate Arkadia intelligence, authority path, or competing source of truth.
+>
+> **Canonical principle:** One human-governed intelligence architecture. Many expressions. One coherent substrate.
+>
+> **Authority boundary:** Capability does not confer authority. Human authority remains the decision boundary, and implementation claims must remain bounded by evidence.
+
+
 The operator console **derived** from three sources — not a redesign:
 
 1. the existing Arkadia UI (`web/public_prism`) — what Arkadia intended to communicate;

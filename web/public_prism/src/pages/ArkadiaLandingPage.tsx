@@ -6,10 +6,10 @@ interface Props { onNavigate: (view: string) => void; authenticated?: boolean }
 type Surface = { key: string; label: string; eyebrow: string; body: string; view: string; sigil: string; tone: string };
 
 const surfaces: Surface[] = [
-  { key: 'oracle', label: 'Oracle', eyebrow: 'THINK', body: 'A living conversation with Arkana for reasoning, reflection, pattern finding and decisions.', view: 'commune', sigil: '✧', tone: '#00D4AA' },
-  { key: 'knowledge', label: 'Knowledge OS', eyebrow: 'REMEMBER', body: 'Your knowledge layer for notes, sources, relationships, search and context that can move with you.', view: 'knowledge-os', sigil: '◈', tone: '#6A9FD8' },
-  { key: 'solspire', label: 'SolSpire', eyebrow: 'BUILD', body: 'A private workspace where projects, files, tasks, codex and the living field meet.', view: 'solspire', sigil: '◉', tone: '#C9A84C' },
-  { key: 'sci', label: 'Spiral Command Interface', eyebrow: 'COMMAND', body: 'The operator view for seeing the system, discovering its paths and moving through its architecture.', view: 'sci', sigil: '⌘', tone: '#B08DE8' },
+  { key: 'oracle', label: 'Arkana', eyebrow: 'THINK', body: 'Conversational intelligence of the Prism for reasoning, reflection, pattern finding and decisions.', view: 'commune', sigil: '✧', tone: '#00D4AA' },
+  { key: 'knowledge', label: 'Knowledge OS', eyebrow: 'REMEMBER', body: 'The Prism continuity substrate for notes, sources, relationships, search and context.', view: 'knowledge-os', sigil: '◈', tone: '#6A9FD8' },
+  { key: 'solspire', label: 'SolSpire', eyebrow: 'BUILD', body: 'The Prism enterprise surface where projects, files, tasks, work and governed execution meet.', view: 'solspire', sigil: '◉', tone: '#C9A84C' },
+  { key: 'sci', label: 'Weaver', eyebrow: 'ORCHESTRATE', body: 'The governed orchestration surface for moving authorized work through the Prism.', view: 'sci', sigil: '⌘', tone: '#B08DE8' },
 ];
 
 const lenses = ['ReasoMate', 'Echo Field', 'Spiral Codex', 'Encyclopedia Galactica', 'Spiral Grove', 'Living Larder'];
@@ -51,7 +51,7 @@ export default function ArkadiaLandingPage({ onNavigate, authenticated }: Props)
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 9, flexWrap: 'wrap' }}>
             <button type="button" onClick={() => onNavigate(authenticated ? 'solspire' : 'login')} style={{ padding: '13px 20px', background: 'linear-gradient(135deg, rgba(201,168,76,.16), rgba(0,212,170,.07))', border: '1px solid rgba(201,168,76,.38)', borderRadius: 10, color: '#C9A84C', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '.2em', textTransform: 'uppercase', cursor: 'pointer' }}>{authenticated ? 'Enter your field' : 'Enter Arkadia'}</button>
-            <button type="button" onClick={() => onNavigate('commune')} style={{ padding: '13px 20px', background: 'rgba(255,255,255,.018)', border: '1px solid rgba(255,255,255,.11)', borderRadius: 10, color: 'rgba(232,232,232,.62)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '.2em', textTransform: 'uppercase', cursor: 'pointer' }}>Meet Arkana ↗</button>
+            <button type="button" onClick={() => onNavigate('commune')} style={{ padding: '13px 20px', background: 'rgba(255,255,255,.018)', border: '1px solid rgba(255,255,255,.11)', borderRadius: 10, color: 'rgba(232,232,232,.62)', fontFamily: 'sans-serif', fontSize: 9, letterSpacing: '.2em', textTransform: 'uppercase', cursor: 'pointer' }}>Enter Arkana ↗</button>
           </div>
         </header>
 
@@ -61,7 +61,7 @@ export default function ArkadiaLandingPage({ onNavigate, authenticated }: Props)
             <div style={{ height: 1, flex: 1, background: 'rgba(201,168,76,.09)' }} />
           </div>
           <div style={{ padding: '27px 24px', background: 'linear-gradient(135deg, rgba(15,20,34,.88), rgba(9,12,22,.66))', border: '1px solid rgba(201,168,76,.14)', borderRadius: 19 }}>
-            <h2 style={{ fontFamily: 'serif', fontWeight: 400, fontSize: 'clamp(27px,6vw,42px)', lineHeight: 1.1, color: 'rgba(245,245,242,.93)', margin: '0 0 15px', maxWidth: 700 }}>One intelligence. Four ways to work with it.</h2>
+            <h2 style={{ fontFamily: 'serif', fontWeight: 400, fontSize: 'clamp(27px,6vw,42px)', lineHeight: 1.1, color: 'rgba(245,245,242,.93)', margin: '0 0 15px', maxWidth: 700 }}>One Prism. Many ways to work with it.</h2>
             <p style={{ fontFamily: 'sans-serif', fontSize: 12, lineHeight: 1.85, color: 'rgba(232,232,232,.42)', maxWidth: 720, margin: 0 }}>Conversation becomes context. Context becomes memory. Memory becomes knowledge. Knowledge becomes action. Arkadia keeps those layers connected instead of asking you to rebuild the same context in every application.</p>
           </div>
         </section>
@@ -75,7 +75,7 @@ export default function ArkadiaLandingPage({ onNavigate, authenticated }: Props)
         <section style={{ marginBottom: 62 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 17 }}><span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '.26em', color: 'rgba(106,159,216,.55)' }}>02 / THE FIELD</span><div style={{ height: 1, flex: 1, background: 'rgba(106,159,216,.09)' }} /></div>
           <div style={{ padding: '25px 24px', border: '1px solid rgba(106,159,216,.13)', borderRadius: 18, background: 'rgba(10,15,27,.58)' }}>
-            <p style={{ fontFamily: 'serif', fontSize: 21, lineHeight: 1.55, color: 'rgba(245,245,242,.75)', margin: '0 0 24px', maxWidth: 760 }}>The products are surfaces. The field underneath is the product.</p>
+            <p style={{ fontFamily: 'serif', fontSize: 21, lineHeight: 1.55, color: 'rgba(245,245,242,.75)', margin: '0 0 24px', maxWidth: 760 }}>The surfaces are expressions. The Prism underneath keeps the system coherent.</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>{lenses.map((lens, i) => <span key={lens} style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,.06)', background: 'rgba(255,255,255,.018)', fontFamily: 'sans-serif', fontSize: 8.5, letterSpacing: '.13em', textTransform: 'uppercase', color: i % 2 ? 'rgba(176,141,232,.62)' : 'rgba(106,159,216,.58)' }}>{lens}</span>)}</div>
           </div>
         </section>
