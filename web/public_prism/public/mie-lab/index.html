@@ -3,35 +3,116 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#0C0D18">
+<meta name="theme-color" content="#0b0c12">
 <title>ARKADIA · Musical Intention Engine</title>
 <style>
-:root{color-scheme:dark;--bg:#0C0D18;--panel:rgba(14,17,32,.82);--gold:#C9A84C;--teal:#00D4AA;--violet:#B08DE8;--text:#E8E8E8}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0%,rgba(201,168,76,.08),transparent 35%),var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}
-.shell{max-width:1120px;margin:auto;padding:28px 16px 70px}.top{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;flex-wrap:wrap;border:1px solid rgba(201,168,76,.16);background:var(--panel);border-radius:14px;padding:20px}.eyebrow,.label{font-size:9px;letter-spacing:.24em;text-transform:uppercase}.eyebrow{color:var(--teal)}h1{font-family:Georgia,serif;font-weight:400;color:var(--gold);font-size:34px;margin:9px 0}.copy{max-width:700px;color:rgba(232,232,232,.56);font-size:13px;line-height:1.6;margin:0}.badge{border:1px solid rgba(0,212,170,.25);color:var(--teal);border-radius:10px;padding:10px;font-size:9px;letter-spacing:.15em}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:14px}.panel{border:1px solid rgba(201,168,76,.16);background:var(--panel);border-radius:14px;padding:18px}.label{color:rgba(201,168,76,.72)}button{border:1px solid rgba(232,232,232,.12);background:rgba(255,255,255,.035);color:rgba(232,232,232,.8);border-radius:9px;padding:9px 12px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer}button:hover{border-color:rgba(0,212,170,.35);color:var(--teal)}.capture{margin-top:16px;color:var(--teal)}.stats{display:flex;gap:28px;margin-top:18px}.stat strong{display:block;font-size:24px}.stat span{font-size:9px;letter-spacing:.12em;color:rgba(232,232,232,.4)}.hero{margin-top:14px;padding:16px;border-radius:11px;background:rgba(0,0,0,.16);border:1px solid rgba(255,255,255,.06)}.kind{font-size:9px;letter-spacing:.17em;color:var(--teal)}.kind.derived{color:var(--violet)}.note{font:48px Georgia,serif;margin:4px 0}.meta{font-size:12px;color:rgba(232,232,232,.5)}.actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.history{margin-top:14px;display:grid;gap:8px}.item{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:13px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);border-radius:10px}.item.selected{border-color:rgba(0,212,170,.25);background:rgba(0,212,170,.05)}.item strong{display:block;font-size:12px;margin-top:3px}.item span{font-size:10px;color:rgba(232,232,232,.45)}.controls{display:flex;gap:5px}details{margin-top:14px;color:rgba(232,232,232,.5);font-size:10px}pre{overflow:auto;padding:12px;background:rgba(0,0,0,.2);border-radius:8px}@media(max-width:560px){h1{font-size:28px}.item{grid-template-columns:1fr}.controls{justify-content:flex-start}}
+:root{color-scheme:dark;--bg:#0b0c12;--surface:#11131b;--surface2:#171a23;--line:#292d38;--text:#f1f1ee;--dim:#9296a2;--muted:#626773;--accent:#d7d7d2;--teal:#56d6c2;--violet:#b59ae9;--gold:#c9a84c}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{padding:0 0 72px}.shell{width:min(760px,100%);margin:auto;padding:28px 20px 0}
+.eyebrow{font:10px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;margin:12px 0 12px}
+h1{font:700 43px/.94 Inter,ui-sans-serif,sans-serif;letter-spacing:-.045em;margin:0 0 14px;max-width:500px}
+.lede{font-size:16px;line-height:1.55;color:var(--dim);max-width:610px;margin:0 0 24px}
+.gates{display:flex;gap:6px;overflow:auto;padding:2px 0 18px;scrollbar-width:none}.gates::-webkit-scrollbar{display:none}
+.gate{flex:0 0 auto;border:1px solid var(--line);border-radius:999px;padding:7px 10px;font:9px ui-monospace,monospace;letter-spacing:.1em;color:var(--muted)}
+.gate.done{color:var(--teal);border-color:#254a45}.gate.current{color:var(--text);border-color:#696c74;background:#191b22}
+.capture-wrap{margin:2px 0 16px}.capture{width:100%;height:210px;border:0;border-radius:38px;background:#eeeef0;color:#101116;font-size:24px;font-weight:750;letter-spacing:-.02em;box-shadow:none;cursor:pointer;touch-action:none}
+.capture:active,.capture.recording{background:#d7d7d7;transform:scale(.995)}.capture.recording{color:#222}.capture .small{display:block;font:10px ui-monospace,monospace;letter-spacing:.14em;margin-top:10px;opacity:.5}
+.status{background:#15171f;border:1px solid var(--line);border-radius:9px;padding:15px 16px;color:var(--dim);font-size:13px;line-height:1.45;margin-bottom:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:18px;margin-bottom:14px}.card.hidden{display:none}
+.kicker{font:10px ui-monospace,monospace;letter-spacing:.16em;color:var(--teal);text-transform:uppercase;margin-bottom:8px}.kicker.derived{color:var(--violet)}
+.object-title{font-size:22px;font-weight:650;letter-spacing:-.025em;margin:0 0 8px}.detail{font-size:14px;color:var(--dim);line-height:1.5}
+.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:14px}.actions.two{grid-template-columns:repeat(2,1fr)}
+button.action{min-height:46px;background:transparent;border:1px solid #353943;color:#d9d9d6;border-radius:7px;font:10px ui-monospace,monospace;letter-spacing:.1em;cursor:pointer}button.action:hover{border-color:#686d78;color:#fff}button.action:disabled{opacity:.35;cursor:not-allowed}
+.section-title{font:10px ui-monospace,monospace;letter-spacing:.17em;color:var(--muted);text-transform:uppercase;margin:18px 0 8px}.section-copy{font-size:13px;color:var(--dim);margin:0 0 10px}
+.history-count{font:10px ui-monospace,monospace;color:var(--muted);margin:0 0 9px}
+.history{display:grid;gap:10px}.item{border:1px solid var(--line);border-radius:9px;background:#11131a;padding:12px}.item.selected{border-color:#3d7169;background:#131b1b}
+.item-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;cursor:pointer}.item-kind{font:9px ui-monospace,monospace;letter-spacing:.15em;color:var(--teal);margin-bottom:4px}.item-kind.derived{color:var(--violet)}
+.item-name{font-size:13px;font-weight:650}.item-meta{font-size:11px;color:var(--muted);margin-top:4px}.item-controls{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:10px}.item-controls button{min-height:38px;font:9px ui-monospace,monospace;letter-spacing:.08em;background:#181a21;color:#bbbdb9;border:1px solid #30343e;border-radius:6px;cursor:pointer}.item-controls button.active{border-color:#4d8279;color:var(--teal)}
+.lineage{margin-top:10px;padding-top:10px;border-top:1px solid #292c34;font:10px/1.55 ui-monospace,monospace;color:var(--muted)}
+.decision{display:inline-block;margin-left:5px;font:8px ui-monospace,monospace;letter-spacing:.08em;color:var(--gold);border:1px solid #5b4e2b;border-radius:999px;padding:3px 6px}
+.raw{margin-top:14px;border-top:1px solid #292c34;padding-top:12px}.raw summary{cursor:pointer;font:9px ui-monospace,monospace;letter-spacing:.12em;color:var(--muted)}pre{white-space:pre-wrap;overflow:auto;background:#0b0d12;border-radius:7px;padding:12px;color:#9ea4ae;font:10px/1.5 ui-monospace,monospace}
+.footer-note{color:#4f535e;font:9px/1.6 ui-monospace,monospace;margin-top:22px;text-transform:uppercase;letter-spacing:.08em}
+@media(max-width:520px){.shell{padding:22px 16px 0}h1{font-size:38px}.capture{height:185px}.actions{grid-template-columns:1fr 1fr 1fr}.item-head{display:block}.item-head>.item-meta{padding-right:4px}}
 </style>
 </head>
 <body>
-<div class="shell">
-<header class="top"><div><div class="eyebrow">MUSICAL INTENTION ENGINE · PRISM UI</div><h1>Make the sound rememberable.</h1><p class="copy">Gate 05 visual proving ground. Capture an idea, change it, compare the result, then keep or revise. Native Android remains the execution authority.</p></div><div class="badge">GATE 05 · CHANGE LOOP</div></header>
-<div class="grid">
-<section class="panel"><div class="label">01 · Memory</div><button class="capture" onclick="addCapture()">+ Capture</button><div class="stats"><div class="stat"><strong id="originals">1</strong><span>ORIGINALS</span></div><div class="stat"><strong id="count">2</strong><span>REMEMBERED OBJECTS</span></div></div><p class="copy" style="margin-top:20px">Browser playback uses deterministic tones for rapid interface testing. Microphone capture, filesystem persistence, and native playback remain Android responsibilities.</p></section>
-<section class="panel"><div class="label">02 · Selected Object</div><div class="hero"><div id="kind" class="kind">ORIGINAL</div><div id="note" class="note">A4</div><div id="meta" class="meta">440.0 Hz · CAPTURE 001</div><div id="lineage" class="meta" style="margin-top:9px"></div></div><div class="actions"><button onclick="play()">▶ Play</button><button onclick="pause()">⏸ Pause</button><button onclick="repeat()">↻ Repeat</button><button id="octave" onclick="octave()">↗ Octave Up</button></div><details><summary>INSPECT RAW JSON</summary><pre id="json"></pre></details></section>
-</div>
-<section class="panel" style="margin-top:14px"><div class="label">03 · Memory / Playback</div><div id="history" class="history"></div></section>
-</div>
+<main class="shell">
+  <div class="eyebrow">MUSICAL INTENTION ENGINE · PRISM</div>
+  <h1>Remember what you make.</h1>
+  <p class="lede">Capture a thought, change it, compare the result, then keep or revise.</p>
+
+  <nav class="gates" aria-label="MIE progression">
+    <span class="gate done">01 · CAPTURE</span>
+    <span class="gate done">02 · OBJECT</span>
+    <span class="gate done">03 · MEMORY</span>
+    <span class="gate done">04 · TRANSFORM</span>
+    <span class="gate current">05 · CHANGE LOOP</span>
+  </nav>
+
+  <section class="capture-wrap">
+    <button id="capture" class="capture">
+      <span id="captureText">Hold to capture</span>
+      <span class="small">PRESS · MAKE A SOUND · RELEASE</span>
+    </button>
+  </section>
+
+  <div id="status" class="status">Ready. Hold the button and make something.</div>
+
+  <section id="objectCard" class="card hidden">
+    <div id="objectKind" class="kicker">MUSICAL OBJECT</div>
+    <div id="objectTitle" class="object-title">A4</div>
+    <div id="objectDetail" class="detail"></div>
+    <div id="lineage" class="lineage"></div>
+    <div class="actions">
+      <button id="playSelected" class="action">PLAY</button>
+      <button id="pauseSelected" class="action">PAUSE</button>
+      <button id="repeatSelected" class="action">REPEAT</button>
+    </div>
+    <div class="actions two">
+      <button id="keep" class="action" disabled>KEEP RESULT</button>
+      <button id="change" class="action" disabled>OCTAVE UP</button>
+    </div>
+    <details class="raw">
+      <summary>INSPECT RAW JSON</summary>
+      <pre id="json"></pre>
+    </details>
+  </section>
+
+  <section>
+    <div class="section-title">MEMORY · PLAYBACK</div>
+    <p class="section-copy">Every remembered sound has its own controls.</p>
+    <div id="historyCount" class="history-count">0 capture(s) in this session</div>
+    <div id="history" class="history"></div>
+  </section>
+
+  <div class="footer-note">Web Lab = interface proving ground · Android = execution authority · human decides what stays</div>
+</main>
+
 <script>
-let captures=[{id:'capture-001',kind:'original',label:'CAPTURE 001',note:'A4',hz:440},{id:'capture-001-derivative',kind:'derived',label:'CAPTURE 001 · OCTAVE UP',note:'A5',hz:880,parentId:'capture-001',transformation:'octave_up'}];
-let selected=captures[0],timer=null,repeatState=null;
+const state={captures:[],selectedId:null,playingId:null,repeatId:null,timer:null,audio:null,recording:false,recordStarted:0};
 const $=id=>document.getElementById(id);
-function render(){ $('originals').textContent=captures.filter(c=>c.kind==='original').length;$('count').textContent=captures.length;$('kind').textContent=selected.kind==='derived'?'DERIVED · OCTAVE UP':'ORIGINAL';$('kind').className='kind '+(selected.kind==='derived'?'derived':'');$('note').textContent=selected.note;$('meta').textContent=selected.hz.toFixed(1)+' Hz · '+selected.label;$('lineage').textContent=selected.parentId?'PARENT '+selected.parentId.slice(0,16)+' · '+selected.transformation:'';$('json').textContent=JSON.stringify(selected,null,2);$('octave').disabled=selected.kind==='derived';$('history').innerHTML=captures.map(c=>'<article class="item '+(c.id===selected.id?'selected':'')+'" onclick="selectBy(\''+c.id+'\')"><div><div class="kind '+(c.kind==='derived'?'derived':'')+'">'+(c.kind==='derived'?'DERIVED':'ORIGINAL')+'</div><strong>'+c.label+'</strong><span>'+c.note+' · '+c.hz.toFixed(1)+' Hz'+(c.parentId?' · parent '+c.parentId.slice(0,10):'')+'</span></div><div class="controls"><button onclick="event.stopPropagation();playId(\''+c.id+'\')">▶</button><button onclick="event.stopPropagation();pauseId(\''+c.id+'\')">⏸</button><button onclick="event.stopPropagation();toggleRepeat(\''+c.id+'\')">↻</button></div></article>').join('');}
-function selectBy(id){selected=captures.find(c=>c.id===id)||selected;render()}
-function tone(c){try{let C=window.AudioContext||window.webkitAudioContext;if(!C)return;let x=new C,o=x.createOscillator(),g=x.createGain();o.frequency.value=c.hz;o.type='sine';g.gain.value=.035;o.connect(g).connect(x.destination);o.start();o.stop(x.currentTime+.35);setTimeout(()=>x.close(),500)}catch(e){}}
-function play(){playId(selected.id)}function playId(id){let c=captures.find(x=>x.id===id);if(!c)return;selected=c;clearTimeout(timer);tone(c);render();timer=setTimeout(()=>{if(repeatState===c.id)playId(c.id)},420)}
-function pause(){clearTimeout(timer)}function pauseId(id){clearTimeout(timer);selected=captures.find(x=>x.id===id)||selected;render()}
-function repeat(){toggleRepeat(selected.id)}function toggleRepeat(id){repeatState=repeatState===id?null:id;selected=captures.find(x=>x.id===id)||selected;render();if(repeatState)playId(id)}
-function octave(){if(selected.kind==='derived')return;let d={id:crypto.randomUUID(),kind:'derived',label:selected.label+' · OCTAVE UP',note:'A5',hz:selected.hz*2,parentId:selected.id,transformation:'octave_up'};captures.push(d);selected=d;render()}
-function addCapture(){let n=captures.filter(c=>c.kind==='original').length+1;let d={id:crypto.randomUUID(),kind:'original',label:'CAPTURE '+String(n).padStart(3,'0'),note:'A4',hz:440};captures.push(d);selected=d;render()}
-render();
+const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2);
+function original(n){return{id:uid(),kind:"original",label:"CAPTURE "+String(n).padStart(3,"0"),note:"A4",hz:440,durationMs:0,inputType:"melody_candidate",confidence:.8,rms:.12,zeroCrossingRate:.08,createdAtEpochMs:Date.now(),parentId:null,transformation:null,loopDecision:null}}
+function seed(){const a=original(1);a.id="capture-001";const d={...a,id:"capture-001-derivative",kind:"derived",label:"CAPTURE 001 · OCTAVE UP",note:"A5",hz:880,parentId:a.id,transformation:"octave_up",durationMs:500};state.captures=[d,a];state.selectedId=a.id}
+function selected(){return state.captures.find(c=>c.id===state.selectedId)||null}
+function clearTimer(){if(state.timer){clearTimeout(state.timer);state.timer=null}}
+function stopAudio(resetRepeat=true){clearTimer();if(state.audio){try{state.audio.osc.stop()}catch(e){}try{state.audio.ctx.close()}catch(e){}state.audio=null}state.playingId=null;if(resetRepeat)state.repeatId=null}
+function play(id){const c=state.captures.find(x=>x.id===id);if(!c)return;stopAudio(false);state.selectedId=id;state.playingId=id;render();try{const C=window.AudioContext||window.webkitAudioContext;const ctx=new C(),osc=ctx.createOscillator(),gain=ctx.createGain();osc.type="sine";osc.frequency.value=c.hz;gain.gain.value=.045;osc.connect(gain).connect(ctx.destination);osc.start();state.audio={ctx,osc};state.timer=setTimeout(()=>{if(state.repeatId===id){play(id)}else{stopAudio(false);render()}},Math.max(350,Math.min(1500,c.durationMs||650)));}catch(e){status("Browser audio is unavailable. The native APK remains authoritative for real playback.")}}
+function pause(id){if(state.playingId!==id){play(id);return}clearTimer();if(state.audio){try{state.audio.osc.stop()}catch(e){}try{state.audio.ctx.close()}catch(e){}}state.audio=null;state.playingId=null;render();status("Paused "+labelFor(id)+".")}
+function toggleRepeat(id){state.repeatId=state.repeatId===id?null:id;state.selectedId=id;render();if(state.repeatId){play(id);status("Repeat enabled for "+labelFor(id)+".")}else status("Repeat disabled.")}
+function labelFor(id){const c=state.captures.find(x=>x.id===id);return c?c.label:"capture"}
+function status(t){$("status").textContent=t}
+function select(id){state.selectedId=id;render();status("Selected "+labelFor(id)+".")}
+function transform(){const c=selected();if(!c)return;if(c.kind==="derived"){status("This capture is already a derived transformation. Select an original capture.");return}const d={...c,id:uid(),kind:"derived",label:c.label+" · OCTAVE UP",note:noteForHz(c.hz*2),hz:c.hz*2,parentId:c.id,transformation:"octave_up",durationMs:Math.max(1,Math.round((c.durationMs||650)/2)),loopDecision:null,createdAtEpochMs:Date.now()};state.captures.unshift(d);state.selectedId=d.id;stopAudio();render();status("Created octave-up derivative. Original audio remains preserved. Compare it, then keep or revise.")}
+function keep(){const c=selected();if(!c||c.kind!=="derived"){status("Create a changed result before keeping it.");return}c.loopDecision="kept";render();status("Kept result "+c.id.slice(0,8)+". Original remains recoverable.")}
+function revise(){const c=selected();if(!c||c.kind!=="derived"||!c.parentId){status("Select a changed result to revise it.");return}c.loopDecision="revised";state.selectedId=c.parentId;stopAudio();render();status("Result revised. Original restored for another change.")}
+function noteForHz(hz){const names=["C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B"];const m=69+12*Math.log2(hz/440);const r=Math.round(m);return names[((r%12)+12)%12]+(Math.floor(r/12)-1)}
+function captureStart(e){e.preventDefault();if(state.recording)return;state.recording=true;state.recordStarted=Date.now();$("capture").classList.add("recording");$("captureText").textContent="Release to finish";stopAudio();status("Listening…");$("objectCard").classList.remove("hidden");$("objectKind").textContent="CAPTURING…";$("objectKind").className="kicker";$("objectTitle").textContent="Listening";$("objectDetail").textContent="Making a musical object…")}
+function captureEnd(e){e&&e.preventDefault();if(!state.recording)return;state.recording=false;$("capture").classList.remove("recording");$("captureText").textContent="Hold to capture";const elapsed=Date.now()-state.recordStarted;const n=state.captures.filter(x=>x.kind==="original").length+1;const c=original(n);c.durationMs=elapsed;c.hz=440;c.note="A4";c.confidence=.8;c.id=uid();state.captures.unshift(c);state.selectedId=c.id;render();status("Captured in "+(elapsed/1000).toFixed(1)+"s. Interpreting…");setTimeout(()=>status("Saved as capture "+c.id.slice(0,8)+". Original audio preserved."),220)}
+function render(){const c=selected();$("historyCount").textContent=state.captures.length+" capture(s) in this session";if(c){$("objectCard").classList.remove("hidden");const derived=c.kind==="derived";$("objectKind").textContent=derived?"DERIVED · OCTAVE UP":"ORIGINAL · "+(c.inputType==="melody_candidate"?"MELODY CANDIDATE":"UNCERTAIN MUSICAL INPUT");$("objectKind").className="kicker"+(derived?" derived":"");$("objectTitle").textContent=c.note||"Pitch unknown";const pitch=c.hz?c.hz.toFixed(1)+" Hz":"not detected";$("objectDetail").textContent=(c.durationMs/1000).toFixed(2)+"s · pitch "+pitch+" · confidence "+Math.round((c.confidence||0)*100)+"%";$("lineage").textContent=derived?"PARENT "+c.parentId.slice(0,16)+" · "+c.transformation+(c.loopDecision?" · DECISION "+c.loopDecision.toUpperCase():""):"Stable object ID "+c.id.slice(0,16)+" · original audio preserved";$("json").textContent=JSON.stringify(c,null,2);$("keep").disabled=!derived;$("keep").textContent=c.loopDecision==="kept"?"KEPT ✓":"KEEP RESULT";$("change").disabled=false;$("change").textContent=derived?(c.loopDecision==="revised"?"REVISED ✓":"REVISE"):"OCTAVE UP";$("playSelected").textContent=state.playingId===c.id?"PLAYING":"PLAY";$("pauseSelected").textContent=state.playingId===c.id?"PAUSE":"PAUSE";$("repeatSelected").textContent=state.repeatId===c.id?"REPEAT ✓":"REPEAT";$("repeatSelected").classList.toggle("active",state.repeatId===c.id)}else $("objectCard").classList.add("hidden");$("history").innerHTML=state.captures.map((x,i)=>{const d=x.kind==="derived";const dec=x.loopDecision?'<span class="decision">'+x.loopDecision.toUpperCase()+'</span>':'';return '<article class="item '+(x.id===state.selectedId?"selected":"")+'"><div class="item-head" data-select="'+x.id+'"><div><div class="item-kind '+(d?"derived":"")+'">'+(d?"DERIVED · OCTAVE UP":"ORIGINAL")+dec+'</div><div class="item-name">'+x.label+'</div><div class="item-meta">'+(x.note||"pitch unknown")+" · "+x.hz.toFixed(1)+" Hz · "+(x.durationMs/1000).toFixed(2)+"s"+(x.parentId?" · parent "+x.parentId.slice(0,10):"")+'</div></div></div><div class="item-controls"><button data-play="'+x.id+'">'+(state.playingId===x.id?"PLAYING":"PLAY")+'</button><button data-pause="'+x.id+'">PAUSE</button><button class="'+(state.repeatId===x.id?"active":"")+'" data-repeat="'+x.id+'">'+(state.repeatId===x.id?"REPEAT ✓":"REPEAT")+'</button></div></article>'}).join("");document.querySelectorAll("[data-select]").forEach(el=>el.onclick=()=>select(el.dataset.select));document.querySelectorAll("[data-play]").forEach(el=>el.onclick=()=>play(el.dataset.play));document.querySelectorAll("[data-pause]").forEach(el=>el.onclick=()=>pause(el.dataset.pause));document.querySelectorAll("[data-repeat]").forEach(el=>el.onclick=()=>toggleRepeat(el.dataset.repeat))}
+$("capture").addEventListener("pointerdown",captureStart);$("capture").addEventListener("pointerup",captureEnd);$("capture").addEventListener("pointercancel",captureEnd);$("capture").addEventListener("pointerleave",e=>{if(state.recording&&e.pointerType==="mouse")captureEnd(e)});
+$("playSelected").onclick=()=>{const c=selected();if(c)play(c.id)};$("pauseSelected").onclick=()=>{const c=selected();if(c)pause(c.id)};$("repeatSelected").onclick=()=>{const c=selected();if(c)toggleRepeat(c.id)};$("keep").onclick=keep;$("change").onclick=()=>{const c=selected();if(c&&c.kind==="derived")revise();else transform()};
+seed();render();
 </script>
-</body></html>
+</body>
+</html>
