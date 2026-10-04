@@ -86,7 +86,12 @@ class CapabilityRegistry:
         self._capabilities[capability.id] = capability
         self._slugs[capability.slug] = capability.id
         try:
-            self._validate_references()
+            # Cycle check only: an incremental registration may legitimately
+            # precede a prerequisite's own registration, so a full reference
+            # check here would reject the missing-yet-expected case and, worse,
+            # abort batch construction before a cycle spanning two
+            # not-yet-complete capabilities can be seen.
+            self._validate_cycles()
         except Exception:
             self._capabilities.pop(capability.id, None)
             self._slugs.pop(capability.slug, None)
@@ -116,8 +121,26 @@ class CapabilityRegistry:
             for prerequisite_id in capability.prerequisites:
                 if prerequisite_id not in self._capabilities:
                     raise UnknownCapabilityError(prerequisite_id)
-        for capability in self._capabilities.values():
-            self.graph_validate_cycle(capability.id)
+        self._validate_cycles()
+
+    def _validate_cycles(self) -> None:
+        """Reject a prerequisite cycle among the registered capabilities.
+
+        Prerequisites that are not registered are treated as leaves rather than
+        missing references, so this is safe to call while a catalog is still
+        being assembled incrementally.
+        """
+        remaining = dict(self._capabilities)
+        while remaining:
+            resolvable = [
+                capability_id
+                for capability_id, capability in remaining.items()
+                if all(prerequisite not in remaining for prerequisite in capability.prerequisites)
+            ]
+            if not resolvable:
+                raise CapabilityCycleError(next(iter(remaining)))
+            for capability_id in resolvable:
+                del remaining[capability_id]
 
     def graph_validate_cycle(self, capability_id: str) -> None:
         graph = CapabilityGraph(dict(self._capabilities))
