@@ -94,7 +94,44 @@ snapshots global `git status`), so attribution uses the sorted failing/error **n
 neither `tests/fixtures/baseline_node_set.txt` nor `tests/fixtures/superseded_baseline_node_set.txt`,
 so this repair cannot move the canonical fingerprint.
 
-## 6. Authority boundary
+## 6. CI attribution (observed, not assumed)
+
+This branch trips the `provider-routing` workflow, whose `pull_request` trigger is
+**path-filtered on `weaver/**`** — the directory the repair lives in. Its failure is
+therefore *caused by the trigger*, not by the change, and must be attributed before merge:
+
+```
+$ gh run list --workflow provider-routing.yml --limit 12
+failure  gate-hygiene/weaver-echofield-resolver-import-repair-01   (this branch)
+failure  gate-hygiene/weaver-echofield-resolver-import-repair-01   (this branch)
+failure  feat/weaver-exec-01-console-boundary
+failure  feat/arkadia-console-android   (x8 — this branch became main @357fbd8)
+```
+
+**Every run in the workflow's history failed**, including the eight on
+`feat/arkadia-console-android`, which merged as PR #240 and *is* `main @357fbd8`. The job is
+permanently red pre-existing debt. Its log is the pre-existing `weaver.autonomy`
+module/package collision:
+
+```
+tests/test_autonomy.py:2: from weaver.autonomy import load_autonomy_config
+E   ImportError: cannot import name 'load_autonomy_config' from 'weaver.autonomy'
+ERROR tests/test_autonomy.py
+!!!!! Interrupted: 1 error during collection !!!!!
+```
+
+That is the same single collection error measured in §5 on the **stashed** baseline, so this
+branch introduces no CI delta. The job also runs a bare `pytest tests/`, which *interrupts* at
+the collection error and never reaches the wider suite — so it cannot see the new tests
+either way. Fixing the `weaver.autonomy` collision is a separate, sovereign-reserved
+workstream (AGENTS.md: "reserved to the sovereign"); it is **not** repaired here.
+
+`Vercel – console` fails on this branch and on the test-only PR #249 alike, while PRs
+#248/#245 report `Deployment rate limited — retry in 24 hours` — a provider-side condition,
+not a code condition. `Full-history secret scan`, `mvp2-validation`, and
+`Vercel – arkadia-prism` all pass.
+
+## 7. Authority boundary
 
 Repository-source change only. No merge, no push to `main`, no authority-path change, no
 production or runtime claim. The four pre-existing HTTP-boundary failures are **not**
