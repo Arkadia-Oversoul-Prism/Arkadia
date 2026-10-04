@@ -152,7 +152,7 @@ class MieActivity : AppCompatActivity() {
         binding.historyCount.text = captures.size.toString() + " active · " + deleted.size.toString() + " in trash"
         binding.historyList.removeAllViews()
 
-        if (captures.isEmpty()) {
+        if (captures.isEmpty() && deleted.isEmpty()) {
             val empty = Button(this).apply {
                 text = "No captures yet. Your next idea will appear here."
                 isAllCaps = false
