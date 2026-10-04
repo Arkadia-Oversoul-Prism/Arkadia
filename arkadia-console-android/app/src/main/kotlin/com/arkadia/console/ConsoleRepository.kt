@@ -14,6 +14,8 @@ data class FieldObject(val id:String,val type:String,val title:String,val summar
 data class Proposal(val id:String,val objective:String,val status:String,val authorizationId:String?=null)
 data class FieldSnapshot(val objects:List<FieldObject>,val proposals:List<Proposal>,val eventCount:Int,val live:Boolean,val message:String?=null)
 
+data class PersonalProject(val id:String,val name:String,val status:String,val fileCount:Int,val taskCount:Int,val memoryCount:Int,val repositoryCount:Int)
+
 class ConsoleRepository(private val baseUrl:()->String, private val token:suspend ()->String?) {
     private val client=OkHttpClient.Builder().connectTimeout(15,TimeUnit.SECONDS).readTimeout(45,TimeUnit.SECONDS).build()
     private val json="application/json; charset=utf-8".toMediaType()
@@ -43,11 +45,40 @@ class ConsoleRepository(private val baseUrl:()->String, private val token:suspen
             val syn=runCatching{request("/solspire/syntheses/current")}.getOrNull()?.optJSONObject("synthesis")
             val pj=runCatching{request("/solspire/proposals?limit=20")}.getOrNull()
             val ej=runCatching{request("/solspire/workevents?limit=8")}.getOrNull()
+            val projectsJson=runCatching{request("/solspire/projects")}.getOrNull()
             val objects=mutableListOf<FieldObject>()
             w?.let{objects+=FieldObject("workspace","WORLD",s(it,"display_name").ifBlank{"Solariun World"},s(it,"workspace_type","subject_binding").ifBlank{"Canonical workspace"},s(it,"lifecycle").ifBlank{"LIVE"},"/solspire/workspace")}
             p?.let{objects+=FieldObject("pulse","SIGNAL","Today's signal",s(it,"current_signal","signal","summary","state_summary").ifBlank{"No current signal recorded."},"LIVE","/solspire/pulses/today")}
             work?.let{objects+=FieldObject("workload","WORK",s(it,"title","display_name").ifBlank{"Current work"},s(it,"objective","phase").ifBlank{"Workload is present in the canonical field."},s(it,"status","phase").ifBlank{"UNKNOWN"},"/solspire/workloads")}
             syn?.let{objects+=FieldObject("synthesis","KNOWLEDGE","Current synthesis",s(it,"summary","synthesis_summary").ifBlank{"Synthesis exists but has no summary."},"DERIVED","/solspire/syntheses/current")}
+            projectsJson?.optJSONArray("projects")?.let{arr->
+                for(i in 0 until arr.length()){
+                    val x=arr.optJSONObject(i)?:continue
+                    val id=s(x,"id").ifBlank{"project-"+i}
+                    val name=s(x,"name").ifBlank{"Personal project"}
+                    val status=s(x,"status").ifBlank{"UNKNOWN"}
+                    val knowledge=runCatching{request("/solspire/projects/"+java.net.URLEncoder.encode(id,"UTF-8")+"/weaver/knowledge-summary")}.getOrNull()
+                    val sources=knowledge?.optJSONObject("knowledge_os")
+                    val fileCount=sources?.optInt("files",0)?:0
+                    val taskCount=sources?.optInt("tasks",0)?:0
+                    val memoryCount=sources?.optInt("memory_items",0)?:0
+                    val repoCount=sources?.optInt("repositories",0)?:0
+                    objects+=FieldObject("project:"+id,"PROJECT",name,"Personal canonical project • files: "+fileCount+" • tasks: "+taskCount+" • memory: "+memoryCount+" • repos: "+repoCount,status,"/solspire/projects/"+id)
+                    val detailed=runCatching{request("/solspire/projects/"+java.net.URLEncoder.encode(id,"UTF-8")+"/knowledge")}.getOrNull()
+                    detailed?.optJSONObject("source_health")?.let{health->
+                        if(health.optString("state")=="AVAILABLE"){
+                            detailed.optJSONObject("items")?.optJSONArray("files")?.let{files->
+                                for(j in 0 until minOf(files.length(),50)){
+                                    val file=files.optJSONObject(j)?:continue
+                                    val fid=s(file,"id").ifBlank{"file-"+j}
+                                    val fn=s(file,"name").ifBlank{"Untitled file"}
+                                    objects+=FieldObject("file:"+fid,"FILE",fn,"Project file • "+name,"SOURCE-BACKED","/solspire/projects/"+id+"/knowledge")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             val proposals=mutableListOf<Proposal>()
             pj?.optJSONArray("proposals")?.let{arr->for(i in 0 until arr.length()){val x=arr.optJSONObject(i)?:continue;proposals+=Proposal(s(x,"proposal_id","id").ifBlank{"proposal-"+i},s(x,"objective","requested_decision").ifBlank{"Proposal"},s(x,"proposal_status","status").ifBlank{"UNKNOWN"},s(x,"authorization_ref").ifBlank{null})}}
             proposals.take(8).forEach{x->
