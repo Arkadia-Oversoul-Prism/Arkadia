@@ -758,6 +758,24 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, proje
         const next = [...prev, { role: 'arkana' as const, content: data.reply, resonance: data.resonance, session, sources }];
         saveThread(activeThreadId, next); return next;
       });
+      // Arcana owns conversational naming. The first successful turn gets a semantic title.
+      if (isAuthenticated && (activeThreadTitle === 'Conversation' || activeThreadTitle === 'New Arkana conversation')) {
+        const semanticTitle = semanticThreadTitle(displayText);
+        try {
+          const titleRes = await apiFetch(`/api/commune/threads/${activeThreadId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: semanticTitle }),
+          });
+          const titleData = await titleRes.json().catch(() => ({}));
+          if (titleRes.ok && titleData?.thread) {
+            setThreads(prev => prev.map(t => t.uuid === activeThreadId ? titleData.thread : t));
+          }
+        } catch {
+          // Naming failure never blocks the successful conversation turn.
+        }
+      }
+
       try {
         await emitSolariunWorkEvent({
           event_type: 'ORACLE_MESSAGE',
