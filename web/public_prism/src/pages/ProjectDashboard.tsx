@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProjectKnowledgeGraph from '../components/solspire/ProjectKnowledgeGraph';
 import ProjectAgenticCanvas from '../components/solspire/ProjectAgenticCanvas';
+import ProjectOpportunityRadar from '../components/solspire/ProjectOpportunityRadar';
 
 
 // ── Types ─────────────────────────────────────────────────────────────────────
