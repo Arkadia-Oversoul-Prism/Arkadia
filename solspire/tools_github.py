@@ -94,6 +94,8 @@ def commit_file(owner: str, repo: str, path: str, content: str,
     return {
         "ok": False,
         "status": "BLOCKED",
+        # Stable machine-readable refusal code, per SOLSPIRE_RECONCILIATION_R2.
+        "code": "MUTATION_DISABLED",
         "error": "Direct GitHub mutation is disabled; use the governed Weaver K15 → K3 path.",
         "owner": owner,
         "repo": repo,
