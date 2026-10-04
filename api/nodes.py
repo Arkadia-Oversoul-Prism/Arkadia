@@ -41,15 +41,26 @@ router = APIRouter()
 # Without injection the sub-routers are absent; there is no direct import fallback.
 _ais_profile_router: APIRouter | None = None
 _lab_router: APIRouter | None = None
+_routers_configured: bool = False
 
 
 def configure_routers(ais_profile_router: APIRouter, lab_router: APIRouter) -> None:
-    """Inject compose-time sub-routers. Called once by the composition root."""
-    global _ais_profile_router, _lab_router
+    """Inject compose-time sub-routers. Called once by the composition root.
+
+    Idempotent by construction: ``router`` is a module-level singleton and
+    ``include_router`` mutates it, so a second call would double-include the
+    injected sub-routers and make ``app.openapi()`` emit a duplicate-operation-ID
+    warning for every injected operation. Re-entry after a successful wiring is
+    therefore a no-op.
+    """
+    global _ais_profile_router, _lab_router, _routers_configured
+    if _routers_configured:
+        return
     _ais_profile_router = ais_profile_router
     _lab_router = lab_router
     router.include_router(_ais_profile_router)
     router.include_router(_lab_router)
+    _routers_configured = True
 
 _CODEX_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "personal_codices")
 
