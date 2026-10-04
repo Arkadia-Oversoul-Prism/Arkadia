@@ -32,6 +32,7 @@ from __future__ import annotations
 import inspect
 import json
 import pathlib
+import re
 
 import weaver.enterprise_orchestration as eo
 import weaver.verification as ver
@@ -39,6 +40,53 @@ import weaver.workbench_view as wv
 
 _BACKEND_ROOTS = ("weaver", "solspire", "api", "kernel", "knowledge", "governance")
 _EXCLUDE = ("/.venv/", "/node_modules/", "/web/", "/tests/", "__pycache__")
+
+# A route *path segment* equal to ``review``/``reviews`` — matched as a whole
+# segment, never as a substring. Matching the substring ``review`` inside the
+# raw decorator line flags unrelated paths such as ``/patches/preview``, which
+# is not a Review surface; the segment match is the boundary that was intended.
+_REVIEW_SEGMENTS = frozenset({"review", "reviews"})
+_ROUTE_PATH = re.compile(r"""["'](/[^"']*)["']""")
+
+
+def _review_path_segments(decorator_line: str) -> list[str]:
+    """Return the review/reviews path segments a route decorator declares.
+
+    The route path is read from the decorator's string literal and split on
+    ``/``; only a segment *equal to* ``review`` or ``reviews`` counts. A word
+    that merely contains the substring (``preview``) does not.
+    """
+    match = _ROUTE_PATH.search(decorator_line)
+    if match is None:
+        return []
+    return [
+        segment
+        for segment in match.group(1).split("/")
+        if segment.lower() in _REVIEW_SEGMENTS
+    ]
+
+
+def _enumerate_review_routes() -> tuple[int, list[str]]:
+    """Enumerate backend route decorators and any that expose a review path.
+
+    Returns ``(route_count, review_routes)``. Shared by the boundary assertion
+    and its negative control so both exercise the same detector.
+    """
+    route_count = 0
+    review_routes: list[str] = []
+    for top in ("api", "solspire"):
+        base = pathlib.Path(top)
+        if not base.exists():
+            continue
+        for path in base.rglob("*.py"):
+            for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+                stripped = line.strip()
+                if not (stripped.startswith(("@router.", "@app.")) and "(" in stripped):
+                    continue
+                route_count += 1
+                if _review_path_segments(stripped):
+                    review_routes.append(f"{path}: {stripped}")
+    return route_count, review_routes
 
 
 def _all_backend_source() -> str:
@@ -205,21 +253,21 @@ def test_verification_exists_without_any_review(tmp_path, monkeypatch):
 
 def test_no_http_surface_exposes_review_as_a_first_class_record():
     # Q9: no HTTP route exposes review as a first-class record. Enumerated from
-    # the route-decorator sources, matching the Gate 04 route check.
-    route_sources = []
-    for top in ("api", "solspire"):
-        base = pathlib.Path(top)
-        if base.exists():
-            route_sources.extend(base.rglob("*.py"))
-
-    route_count = 0
-    review_routes = []
-    for path in route_sources:
-        for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
-            s = line.strip()
-            if s.startswith(("@router.", "@app.")) and "(" in s:
-                route_count += 1
-                if "review" in s.lower():
-                    review_routes.append(f"{path}: {s}")
+    # the route-decorator sources, matching the Gate 04 route check — but the
+    # route path is matched by whole segment, not by the substring ``review``
+    # (which flags ``/patches/preview``).
+    route_count, review_routes = _enumerate_review_routes()
     assert route_count > 0, "expected route decorators"
     assert not review_routes, f"review route exists: {review_routes}"
+
+
+def test_review_route_detector_matches_the_resource_not_a_substring():
+    # Negative control for the boundary above: the detector must catch a real
+    # review route and must NOT flag a path that merely contains the substring.
+    # Without this, a detector that never matches anything would make the
+    # boundary assertion vacuously green.
+    assert _review_path_segments('@router.post("/review")') == ["review"]
+    assert _review_path_segments('@router.get("/projects/{id}/reviews")') == ["reviews"]
+    assert _review_path_segments('@router.post("/reviews/{review_id}/decide")') == ["reviews"]
+    assert _review_path_segments('@router.post("/projects/{project_id}/patches/preview")') == []
+    assert _review_path_segments('@router.post("/authorizations/{authorization_id}/execute")') == []
