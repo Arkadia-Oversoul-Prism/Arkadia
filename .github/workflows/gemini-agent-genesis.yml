@@ -12,8 +12,10 @@ jobs:
   weaver_evolution:
     if: contains(github.event.comment.body, '/weaver') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    # Read-only: this job runs on untrusted trigger text and must never hold a
+    # token that can write to the repository.
     permissions:
-      contents: write
+      contents: read
 
     steps:
       - name: Checkout Repository
@@ -34,22 +36,19 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           PYTHONPATH: .
+          # The trigger text is untrusted (any commenter supplies it). It is passed
+          # through the environment and never interpolated into the `run:` block:
+          # `${{ }}` is substituted before bash parses the script, so a comment
+          # containing `$(...)` would otherwise execute as a command.
+          WEAVER_TASK_INPUT: ${{ github.event.comment.body || github.event.inputs.task }}
         run: |
-          # Extracting task from comment or manual input
-          TASK_INPUT="${{ github.event.comment.body || github.event.inputs.task }}"
-          # Clean the /weaver prefix if it exists
-          CLEAN_TASK=$(echo "$TASK_INPUT" | sed 's/\/weaver //g')
-          
-          echo "Initiating Weaver with Task: $CLEAN_TASK"
-          
-          # We call your weaver.py script directly as a CLI
-          python3 weaver.py "$CLEAN_TASK" --recursive --enabled
+          set -euo pipefail
+          CLEAN_TASK="$(printf '%s' "$WEAVER_TASK_INPUT" | sed 's|/weaver ||g')"
 
-      - name: Push Evolution to Main
-        run: |
-          git config --global user.name "Arkadia-Weaver-Agent"
-          git config --global user.email "weaver@arkadia.ai"
-          git add .
-          git diff-index --quiet HEAD || git commit -m "arkadia: recursive evolution cycle complete"
-          git push origin main
-          
+          echo "Initiating Weaver with Task: $CLEAN_TASK"
+
+          # Canonical governed entrypoint. The previous `python3 weaver.py
+          # --recursive --enabled` referenced a file that is not in this
+          # repository, so the step always failed. The workbench is read-only by
+          # default and cannot originate authority.
+          python3 -m weaver.workbench recon --objective "$CLEAN_TASK"
