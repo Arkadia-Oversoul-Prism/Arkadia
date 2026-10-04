@@ -309,9 +309,6 @@ interface ArkanaProps {
 const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, projectContextId, projectName, projectContext }) => {
   const { user, isAuthenticated } = useAuth();
   const threadStorageKey = projectContextId ? `${ACTIVE_THREAD_KEY}:project:${projectContextId}` : ACTIVE_THREAD_KEY;
-  const [hasStoredProjectThread] = useState(() => {
-    try { return Boolean(projectContextId && localStorage.getItem(threadStorageKey)); } catch { return false; }
-  });
   const [activeThreadId, setActiveThreadId] = useState<string>(() => {
     try { return localStorage.getItem(threadStorageKey) || createArkanaThreadId(); } catch { return createArkanaThreadId(); }
   });
@@ -415,7 +412,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, proje
       } catch { /* local thread remains usable */ }
     })();
     return () => { live = false; };
-  }, [isAuthenticated, projectId, projectContextId, projectName, threadStorageKey, hasStoredProjectThread]);
+  }, [isAuthenticated, projectId, projectContextId, projectName, threadStorageKey ]);
 
   const createNewThread = async () => {
     if (threadBusy) return;
