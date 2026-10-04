@@ -381,7 +381,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, proje
           }
           const created = await apiFetch('/api/commune/threads', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: `${projectName || 'Project'} · Arkana` }),
+            body: JSON.stringify({ title: "New Arkana conversation", ...(projectContextId ? { project_id: Number(projectContextId) } : {}) }),
           });
           const data = await created.json().catch(() => ({}));
           const thread = data?.thread;
@@ -400,7 +400,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, proje
         if (listed.length === 0) {
           const created = await apiFetch('/api/commune/threads', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: projectId != null ? 'Project conversation' : 'General conversation', ...(projectId != null ? { project_id: projectId } : {}) }),
+            body: JSON.stringify({ title: "New Arkana conversation", ...(projectId != null ? { project_id: projectId } : {}) }),
           });
           if (created.ok) {
             const d = await created.json(); const t = d?.thread;
@@ -723,7 +723,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, proje
         message: messageWithContext,
         timestamp: Date.now(),
         session_id: activeThreadId,
-        ...(projectId != null ? { project_id: projectId } : {}),
+        ...(projectId != null ? { project_id: projectId } : projectContextId ? { project_id: Number(projectContextId) } : {}),
       };
       if (sovereignToken.trim()) body.sovereign_token = sovereignToken.trim();
       
