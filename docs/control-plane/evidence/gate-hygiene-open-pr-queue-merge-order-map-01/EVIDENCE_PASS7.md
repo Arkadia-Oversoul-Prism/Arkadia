@@ -37,8 +37,22 @@ Every changed path for every PR, pairwise-intersected. **Zero overlap** across a
 | #264 | 4 | `api/nodes.py`, `docs/control-plane/evidence/gate-hygiene-nodes-configure-routers-idempotency-01/{EVIDENCE,WORKSTREAM_STATE}.md`, `tests/test_nodes_composition_seam.py` |
 | #265 | 11 | `.bootstrap/01_STATE.md`, `AGENTS.md`, `MISSION.md`, `NEXT_AGENT.md`, `docs/control-plane/evidence/gate-hygiene-baseline-node-set-live-reconciliation-01/{EVIDENCE,WORKSTREAM_STATE}.md`, `docs/phase1/CONTINUATION_LEDGER.md`, `scripts/baseline_fingerprint.py`, `tests/fixtures/baseline_node_set.txt`, `tests/fixtures/superseded_baseline_node_set_18.txt`, `tests/test_baseline_fingerprint.py` |
 
-`comm -12` over each pair returned empty. Each PR owns a disjoint evidence directory. The
-only files touched by more than one PR are none.
+`comm -12` over each pair returned empty. Each PR owns a disjoint evidence directory. No file
+is touched by more than one of the four PRs.
+
+### 2.1 `AGENTS.md` is a contended surface (caution for future passes)
+
+`AGENTS.md` is edited by **#265 alone** within this cluster — but its hunk is an **append at the
+file tail** (`@@ -752,3 +752,30 @@`). Any later PR that also appends a section to the tail of
+`AGENTS.md` will therefore **conflict with #265** even though the two changes are unrelated in
+meaning. This pass hit that boundary directly: a candidate `AGENTS.md` lesson was drafted for
+this PR, then reverted, because adding it would have made #266 overlap #265 and **invalidated
+the zero-overlap premise of this very proof**.
+
+Consequence for the queue: a tail-append to `AGENTS.md` is **not** independent work while #265
+is open. It must either be rebased *after* #265 merges, or written to a non-tail location. The
+`AGENTS.md` insertion-only constraint (oracle `6c43218a48a4`) is unaffected — it holds for any
+appended region — but the *merge-order* dependency is real and must be declared.
 
 ## 3. Composition proof (order-insensitivity)
 
