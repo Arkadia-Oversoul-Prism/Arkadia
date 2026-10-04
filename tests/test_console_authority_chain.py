@@ -120,6 +120,80 @@ def test_console_authorized_tool_dispatch_records_automatic_evidence(tmp_path, m
     assert completed.result_status == "SUCCEEDED"
 
 
+def test_console_capture_reconciles_metadata_only_and_sanitises_capture_id(tmp_path, monkeypatch):
+    """The native Console syncs metadata-only captures via /authority/captures.
+
+    A device-local capture carries no bytes, so the endpoint must record a
+    device-local artifact ref (never claim server-side content) and must return
+    a sanitised capture id. Regression guard: an earlier revision dropped the id
+    sanitisation while keeping its four uses, so every call raised
+    ``NameError: name 'safe_id' is not defined`` (500) — the endpoint the Android
+    Console calls on every capture.
+    """
+    import solspire.workspace_manager as wm
+    import solspire.workevent_manager as wem
+    from solspire.console_authority_router import sync_capture, CaptureRequest
+
+    db = str(tmp_path / "capture.db")
+    monkeypatch.setattr(wm, "_DB_PATH", db)
+    monkeypatch.setattr(wem, "_DB_PATH", db)
+    subject = "firebase-uid-capture"
+    wm.WorkspaceManager().get_or_create(subject)
+
+    result = asyncio.run(
+        sync_capture(
+            CaptureRequest(
+                capture_id="cap/../weird id",
+                kind="note",
+                mime_type="text/plain",
+                size_bytes=0,
+                sha256="0" * 64,
+                captured_at="2026-10-03T00:00:00Z",
+            ),
+            user={"uid": subject, "role": "Flamekeeper", "access_level": 1},
+        )
+    )
+
+    assert result["ok"] is True
+    assert result["reconciled"] is True
+    assert result["capture_id"] == "capweirdid"
+    assert result["artifact_ref"] == f"device-local-capture:{subject}:capweirdid"
+    assert result["work_event"]["artifact_refs"] == [result["artifact_ref"]]
+    assert result["work_event"]["event_type"] == "CONSOLE_CAPTURE"
+
+
+def test_console_capture_rejects_empty_capture_id(tmp_path, monkeypatch):
+    import solspire.workspace_manager as wm
+    import solspire.workevent_manager as wem
+    from fastapi import HTTPException
+    from solspire.console_authority_router import sync_capture, CaptureRequest
+
+    db = str(tmp_path / "capture-empty.db")
+    monkeypatch.setattr(wm, "_DB_PATH", db)
+    monkeypatch.setattr(wem, "_DB_PATH", db)
+    subject = "firebase-uid-capture-empty"
+    wm.WorkspaceManager().get_or_create(subject)
+
+    try:
+        asyncio.run(
+            sync_capture(
+                CaptureRequest(
+                    capture_id="///",
+                    kind="note",
+                    mime_type="text/plain",
+                    size_bytes=0,
+                    sha256="0" * 64,
+                    captured_at="2026-10-03T00:00:00Z",
+                ),
+                user={"uid": subject, "role": "Flamekeeper", "access_level": 1},
+            )
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 400
+    else:
+        raise AssertionError("empty sanitised capture_id must be rejected")
+
+
 def test_console_dispatch_uses_authorized_repository_root(tmp_path, monkeypatch):
     import weaver.enterprise_orchestration as ew
     from weaver.console_adapter import WeaverConsoleAdapter
