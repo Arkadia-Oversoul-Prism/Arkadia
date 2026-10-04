@@ -8,7 +8,7 @@ const SURFACES = [
   { to: "/inspector", label: "Boundary Inspector", index: "02", sub: "forensic" },
   { to: "/work", label: "Work / Consequence", index: "03", sub: "operational" },
   { to: "/authority", label: "Authority", index: "04", sub: "sovereign control" },
-  { to: "/mie-lab", label: "Musical Intention Engine", index: "05", sub: "Gate 04 · visual lab" },
+  { to: "/mie-lab", label: "Musical Intention Engine", index: "05", sub: "Gate 05 · visual lab" },
 ];
 
 const TITLES: Record<string, string> = {
