@@ -708,3 +708,47 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   `tests/fixtures/baseline_node_set.txt`. Attribute that delta to clone depth / PR #215, not
   to a regression. Measured at `162f574b`: main 20F/1306P (`a59453b8…`), branch 19F/1307P
   (`b45c0753…`) — a `-1/+0` node delta that is exactly the repaired node.
+
+## Workflow trigger injection — `${{ }}` is substituted before the shell parses (gate-hygiene)
+- `.github/workflows/gemini-agent-genesis.yml` (`weaver_evolution`) ran on `issue_comment` and
+  interpolated `${{ github.event.comment.body || github.event.inputs.task }}` **inside a `run:`
+  block**, under `permissions: contents: write`. GitHub expands `${{ }}` before bash parses the
+  script, so any commenter posting a `/weaver` comment could append shell metacharacters and
+  execute commands with a write token and `GEMINI_API_KEY` in the environment. This is the class
+  **ADR-013 §1** closed for the runtime shell tool; it was still open at the CI boundary.
+- **The observable symptom was an ordinary CI failure, which is why it went unnoticed.** The real
+  trigger was the benign multi-line engineering glance (comment `5974892742` on PR #250). The
+  interpolated multi-line glance became the script body and the step died at `exit 126`
+  (`run 37164268026` / job `111323865208`) because `python3 weaver.py` named a file that is not in
+  the repository — `git log --all -- weaver.py` shows only `9ab26fc` / `377cdb3` ("fix stale URLs,
+  **archive legacy Python**"). A dead entrypoint was hiding a live injection.
+- **Repair pattern, in order of importance:** (1) drop `contents: write` → `read` when the job only
+  reads; (2) pass untrusted event text through `env:` and reference the variable *quoted* — never
+  interpolate `github.event.*.{body,title}` into `run:`; (3) point the step at a real governed
+  entrypoint. `python3 -m weaver.workbench recon` is the canonical one: read-only by default,
+  cannot originate authority, and its state machine stops at `awaiting human authorization`.
+  `weaver/__main__.py` and `weaver/cli.py` do **not** exist — do not invent an entrypoint.
+- **The workflow also pushed directly to `main`** (`git add . && git commit && git push origin main`).
+  Removed. A comment-triggered job must not carry a self-merge path; this is a repository-source
+  claim, not a production observation.
+- **Guard:** `tests/test_workflow_injection_boundary.py` (22 tests) is parametrized over **every**
+  `.github/workflows/*.yml`, so a new workflow interpolating untrusted event text into `run:` fails
+  CI rather than shipping. It carries a **negative control** (`test_detector_flags_the_vulnerable_form`)
+  that feeds the detector the pre-fix line and asserts it is reported — the detector cannot be
+  disarmed by rewriting the workflow without failing that control.
+- Measured at `357fbd83` / rebased onto `73b65bac`: failure node-set sha256
+  `762a38ae2f38b0025395e547a8627ce8e99f7d2599dfe0fe5c30b518e5b092ee` (24 nodes) on both sides —
+  zero regression; the `+22 passed` is exactly the new file. Evidence:
+  `docs/control-plane/evidence/security-gemini-agent-genesis-injection-01/`.
+- **Baseline fingerprints for one SHA genuinely disagree across measurements.** At `357fbd83`,
+  PR #254's body records `57453143…` (29 nodes) while this environment measures `762a38ae…`
+  (24 nodes); `tests/fixtures/baseline_node_set.txt` records yet a third (18 nodes, with
+  `test_upstream_causal_continuity_01` present and `test_solspire_project_instantiation_ui`
+  absent). The clone is **not** shallow (`git rev-parse --is-shallow-repository` → false, 1983
+  commits) and pyyaml is installed, so the delta is neither of the two documented causes. Do not
+  treat a fingerprint mismatch with a PR body as a regression: re-measure the same tree locally,
+  compare **node identity**, and state which measurement is yours.
+- Independently verified PR #254 in this environment: its head fixes exactly
+  `tests/test_solspire_r2_github_mutation.py::test_legacy_commit_file_fails_closed_without_network_write`
+  and introduces nothing new (23 nodes vs 24 on `main`). Its documented `+2` in
+  `solspire/tools_github.py` is the `"code": "MUTATION_DISABLED"` refusal field.
