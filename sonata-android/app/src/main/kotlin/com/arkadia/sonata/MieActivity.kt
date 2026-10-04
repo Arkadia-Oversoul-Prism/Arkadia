@@ -8,7 +8,9 @@ import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
+import android.app.AlertDialog
 import kotlin.math.roundToInt
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -42,6 +44,8 @@ class MieActivity : AppCompatActivity() {
         recorder = MieAudioRecorder(File(filesDir, "mie/captures"))
         sessionStore = MieSessionStore(this)
         renderHistory()
+        binding.undoButton.setOnClickListener { undoAction() }
+        binding.redoButton.setOnClickListener { redoAction() }
         binding.captureButton.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
@@ -116,7 +120,8 @@ class MieActivity : AppCompatActivity() {
 
     private fun renderObject(file: File, objectModel: MieMusicalObject) {
         binding.objectCard.visibility = View.VISIBLE
-        binding.objectType.text = if (objectModel.transformation == null) "ORIGINAL · ${objectModel.humanType().uppercase()}" else "DERIVED · OCTAVE UP"
+        val namePrefix = objectModel.displayName?.let { "$" + "it · " } ?: ""
+        binding.objectType.text = namePrefix + if (objectModel.transformation == null) "ORIGINAL · ${objectModel.humanType().uppercase()}" else "DERIVED · OCTAVE UP"
         val pitch = objectModel.detectedPitchHz?.let { hz ->
             val note = objectModel.noteName()
             if (note != null) "$note · ${String.format("%.1f Hz", hz)}" else String.format("%.1f Hz", hz)
@@ -141,8 +146,9 @@ class MieActivity : AppCompatActivity() {
     }
 
     private fun renderHistory() {
-        val captures = sessionStore.current().captures
-        binding.historyCount.text = captures.size.toString() + " capture(s) in this session"
+        val captures = sessionStore.activeCaptures()
+        val deleted = sessionStore.deletedCaptures()
+        binding.historyCount.text = captures.size.toString() + " active · " + deleted.size.toString() + " in trash"
         binding.historyList.removeAllViews()
 
         if (captures.isEmpty()) {
@@ -161,7 +167,8 @@ class MieActivity : AppCompatActivity() {
                 String.format("%.1f Hz", it)
             } ?: "pitch unknown"
             val kind = if (objectModel.transformation == null) "ORIGINAL" else "DERIVED · OCTAVE UP"
-            val decision = objectModel.loopDecision?.uppercase()?.let { " · $it" } ?: ""
+            val decision = objectModel.loopDecision?.uppercase()?.let { " · $" + "it" } ?: ""
+            val name = objectModel.displayName?.let { " · $" + "it" } ?: ""
             val card = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(14.dp(), 10.dp(), 14.dp(), 10.dp())
@@ -169,7 +176,7 @@ class MieActivity : AppCompatActivity() {
             }
 
             val label = Button(this).apply {
-                text = (index + 1).toString() + ". " + kind + decision + "\n" + note + " · " + String.format("%.2fs", objectModel.durationMs / 1000f)
+                text = (index + 1).toString() + ". " + kind + decision + name + "\n" + note + " · " + String.format("%.2fs", objectModel.durationMs / 1000f)
                 isAllCaps = false
                 setOnClickListener {
                     if (!file.exists()) {
@@ -211,10 +218,110 @@ class MieActivity : AppCompatActivity() {
             controls.addView(repeat, LinearLayout.LayoutParams(0, 48.dp(), 1f))
             card.addView(controls)
 
+            val editControls = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            val clone = Button(this).apply { text = "CLONE"; isAllCaps = false }
+            val rename = Button(this).apply { text = "RENAME"; isAllCaps = false }
+            val delete = Button(this).apply { text = "DELETE"; isAllCaps = false }
+            clone.setOnClickListener { cloneCapture(objectModel) }
+            rename.setOnClickListener { renameCapture(objectModel) }
+            delete.setOnClickListener { deleteCapture(objectModel) }
+            editControls.addView(clone, LinearLayout.LayoutParams(0, 44.dp(), 1f))
+            editControls.addView(rename, LinearLayout.LayoutParams(0, 44.dp(), 1f))
+            editControls.addView(delete, LinearLayout.LayoutParams(0, 44.dp(), 1f))
+            card.addView(editControls)
+
             binding.historyList.addView(card, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { bottomMargin = 10.dp() })
+        }
+    }
+
+    private fun undoAction() {
+        stopPlayback()
+        if (sessionStore.undo()) {
+            selectedObject = null
+            lastCapture = null
+            binding.objectCard.visibility = View.GONE
+            renderHistory()
+            showStatus("Undid the last object change.")
+        }
+    }
+
+    private fun redoAction() {
+        stopPlayback()
+        if (sessionStore.redo()) {
+            selectedObject = null
+            lastCapture = null
+            binding.objectCard.visibility = View.GONE
+            renderHistory()
+            showStatus("Redid the object change.")
+        }
+    }
+
+    private fun cloneCapture(objectModel: MieMusicalObject) {
+        val source = File(objectModel.sourcePath)
+        if (!source.exists()) {
+            showStatus("This capture's audio file is missing.")
+            return
+        }
+        runCatching {
+            val cloneId = java.util.UUID.randomUUID().toString()
+            val output = File(source.parentFile, "mie-" + cloneId + "-clone.wav")
+            source.copyTo(output)
+            val clone = sessionStore.cloneCapture(objectModel, output.absolutePath)
+            File(output.parentFile, clone.id + ".json").writeText(clone.toJson())
+            selectedObject = clone
+            lastCapture = output
+            renderObject(output, clone)
+            renderHistory()
+            showStatus("Cloned " + objectModel.id.take(8) + " as " + clone.id.take(8) + ". The clone is independent.")
+        }.onFailure { showStatus("Clone failed: " + (it.message ?: "unknown error")) }
+    }
+
+    private fun renameCapture(objectModel: MieMusicalObject) {
+        val input = EditText(this).apply {
+            setText(objectModel.displayName ?: "")
+            hint = "Object name"
+            setSingleLine(true)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Rename musical object")
+            .setView(input)
+            .setNegativeButton("CANCEL", null)
+            .setPositiveButton("SAVE") { _, _ ->
+                val name = input.text?.toString()
+                if (sessionStore.renameCapture(objectModel.id, name)) {
+                    val updated = sessionStore.current().captures.firstOrNull { it.id == objectModel.id }
+                    if (updated != null) {
+                        selectedObject = updated
+                        lastCapture = File(updated.sourcePath)
+                        renderObject(lastCapture!!, updated)
+                    }
+                    renderHistory()
+                    showStatus("Object renamed.")
+                }
+            }
+            .show()
+    }
+
+    private fun deleteCapture(objectModel: MieMusicalObject) {
+        if (sessionStore.deleteCapture(objectModel.id)) {
+            if (selectedObject?.id == objectModel.id) {
+                selectedObject = null
+                lastCapture = null
+                binding.objectCard.visibility = View.GONE
+            }
+            stopPlayback()
+            renderHistory()
+            showStatus("Moved " + objectModel.id.take(8) + " to trash. It can be restored.")
+        }
+    }
+
+    private fun restoreCapture(objectModel: MieMusicalObject) {
+        if (sessionStore.restoreCapture(objectModel.id)) {
+            renderHistory()
+            showStatus("Restored " + objectModel.id.take(8) + ".")
         }
     }
 
