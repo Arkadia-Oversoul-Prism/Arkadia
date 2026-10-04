@@ -28,13 +28,13 @@ h1{font:700 46px/.91 Inter,ui-sans-serif,sans-serif;letter-spacing:-.045em;margi
 </head>
 <body>
 <main class="shell">
-  <div class="eyebrow">MUSICAL INTENTION ENGINE · GATE 03</div>
+  <div class="eyebrow">MUSICAL INTENTION ENGINE · GATE 06</div>
   <h1>Remember
 what you make.</h1>
-  <p class="lede">Capture musical thoughts, keep them, and return to them.</p>
+  <p class="lede">Shape a remembered sound. Undo, redo, clone, rename, delete, restore.</p>
 
   <button id="capture" class="capture">Hold to capture</button>
-  <div id="status" class="status">Ready. Hold the button and make something.</div>
+  <div class="bottom"><button id="undo" disabled>UNDO</button><button id="redo" disabled>REDO</button></div><div id="status" class="status">Ready. Hold the button and make something.</div>
 
   <section id="objectCard" class="card hidden">
     <div id="objectType" class="kicker">MUSICAL OBJECT</div>
@@ -57,10 +57,10 @@ what you make.</h1>
 
 <script>
 const SAMPLE_RATE=16000, FRAME=2048, MIN_LAG=16, MAX_LAG=800, PEAK_RATIO=.85;
-const state={captures:[],selectedId:null,playingId:null,repeatId:null,audio:null,recording:false,startedAt:0,ctx:null,source:null,processor:null,chunks:[]};
+const state={captures:[],selectedId:null,playingId:null,repeatId:null,audio:null,recording:false,startedAt:0,ctx:null,source:null,processor:null,chunks:[],undo:[],redo:[]};
 const $=id=>document.getElementById(id);
 const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2);
-const dbp=indexedDB.open("mie-gate-04",1);
+const dbp=indexedDB.open("mie-gate-06",1);
 let db;
 dbp.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains("captures"))d.createObjectStore("captures",{keyPath:"id"});};
 dbp.onsuccess=async e=>{db=e.target.result;await load();render();};
@@ -68,6 +68,11 @@ function tx(mode){return db.transaction("captures",mode).objectStore("captures")
 function put(c){return new Promise((res,rej)=>{const r=tx("readwrite").put(c);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
 function getAll(){return new Promise((res,rej)=>{const r=tx("readonly").getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 function status(t){$("status").textContent=t}
+function snapshot(){return state.captures.map(c=>({...c}))}
+function checkpoint(){state.undo.push(snapshot());if(state.undo.length>50)state.undo.shift();state.redo=[]}
+function syncDb(){return new Promise((res,rej)=>{const t=db.transaction("captures","readwrite"),s=t.objectStore("captures");s.clear();for(const c of state.captures)s.put(c);t.oncomplete=()=>res();t.onerror=()=>rej(t.error)})}
+async function undo(){if(!state.undo.length)return;state.redo.push(snapshot());state.captures=state.undo.pop();await syncDb();state.selectedId=null;render();status("Undid the last object change.")}
+async function redo(){if(!state.redo.length)return;state.undo.push(snapshot());state.captures=state.redo.pop();await syncDb();state.selectedId=null;render();status("Redid the object change.")}
 function selected(){return state.captures.find(c=>c.id===state.selectedId)||null}
 function midiNote(m){if(m==null||!Number.isFinite(m))return null;const r=Math.round(m);if(r<0||r>127)return null;return["C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B"][r%12]+(Math.floor(r/12)-1)}
 function interpretation(samples){
@@ -99,8 +104,8 @@ function stopPlayback(reset=true){if(state.audio){state.audio.pause();state.audi
 function toggleRepeat(c){if(state.repeatId===c.id){state.repeatId=null;status("Repeat disabled.")}else{state.repeatId=c.id;play(c,true);status("Repeat enabled.")}render()}
 async function transform(){const c=selected();if(!c||c.transformation){status("Select an original saved capture before transforming it.");return}status("Creating octave-up derivative…");const s=await readWav(c.blob),out=new Float32Array(Math.max(1,Math.floor(s.length/2)));for(let i=0;i<out.length;i++)out[i]=s[i*2];const id=uid(),blob=wav(out),d={...c,id,source:"browser://mie/"+id+".wav",durationMs:Math.floor(out.length/SAMPLE_RATE*1000),parentId:c.id,transformation:"octave_up",createdAtEpochMs:Date.now(),loopDecision:null,blob};await put(d);state.captures.unshift(d);state.selectedId=id;render();status("Created octave-up derivative "+id.slice(0,8)+" from "+c.id.slice(0,8)+". Original preserved.")}
 async function load(){state.captures=(await getAll()).sort((a,b)=>b.createdAtEpochMs-a.createdAtEpochMs);if(state.captures[0])state.selectedId=state.captures[0].id}
-function objectJson(c){return JSON.stringify({id:c.id,source:c.source,duration_ms:c.durationMs,interpretation:{type:c.inputType,confidence:c.confidence,rms:c.rms,zero_crossing_rate:c.zeroCrossingRate,detected_pitch_hz:c.detectedPitchHz,detected_midi:c.detectedMidi},provenance:{parent_id:c.parentId,transformation:c.transformation,created_at_epoch_ms:c.createdAtEpochMs}},null,2)}
-function renderObject(c){$("objectCard").classList.remove("hidden");const derived=!!c.transformation;$("objectType").textContent=derived?"DERIVED · OCTAVE UP":"ORIGINAL · "+(c.inputType==="melody_candidate"?"MELODY CANDIDATE":c.inputType==="rhythm_or_percussive_candidate"?"PERCUSSIVE CANDIDATE":"UNCERTAIN MUSICAL INPUT");const pitch=c.detectedPitchHz?((midiNote(c.detectedMidi)||"")+" · "+c.detectedPitchHz.toFixed(1)+" Hz"):"not detected";$("objectDetail").textContent=(c.durationMs/1000).toFixed(2)+"s · pitch "+pitch+" · confidence "+Math.round(c.confidence*100)+"%";$("objectJson").textContent=objectJson(c);$("saved").disabled=false;$("change").disabled=false;$("change").textContent=derived?"DERIVED":"OCTAVE UP"}
+function objectJson(c){return JSON.stringify({id:c.id,source:c.source,duration_ms:c.durationMs,interpretation:{type:c.inputType,confidence:c.confidence,rms:c.rms,zero_crossing_rate:c.zeroCrossingRate,detected_pitch_hz:c.detectedPitchHz,detected_midi:c.detectedMidi},provenance:{parent_id:c.parentId,transformation:c.transformation,created_at_epoch_ms:c.createdAtEpochMs,loop_decision:c.loopDecision,display_name:c.displayName,cloned_from_id:c.clonedFromId,deleted_at_epoch_ms:c.deletedAtEpochMs}},null,2)}
+function renderObject(c){$("objectCard").classList.remove("hidden");const derived=!!c.transformation;$("objectType").textContent=(c.displayName?c.displayName+" · ":"")+(derived?"DERIVED · OCTAVE UP":"ORIGINAL · "+(c.inputType==="melody_candidate"?"MELODY CANDIDATE":c.inputType==="rhythm_or_percussive_candidate"?"PERCUSSIVE CANDIDATE":"UNCERTAIN MUSICAL INPUT"));const pitch=c.detectedPitchHz?((midiNote(c.detectedMidi)||"")+" · "+c.detectedPitchHz.toFixed(1)+" Hz"):"not detected";$("objectDetail").textContent=(c.durationMs/1000).toFixed(2)+"s · pitch "+pitch+" · confidence "+Math.round(c.confidence*100)+"%";$("objectJson").textContent=objectJson(c);$("saved").disabled=!derived;$("saved").textContent=c.loopDecision==="kept"?"KEPT ✓":"KEEP RESULT";$("change").disabled=false;$("change").textContent=derived?(c.loopDecision==="revised"?"REVISED ✓":"REVISE"):"OCTAVE UP"}
 function render(){const c=selected();if(c)renderObject(c);else $("objectCard").classList.add("hidden");$("historyCount").textContent=state.captures.length+" capture(s) in this session";$("history").innerHTML=state.captures.map((x,i)=>{const d=!!x.transformation;return '<article class="item"><button class="item-label" data-select="'+x.id+'">'+(i+1)+'. '+(d?"DERIVED · OCTAVE UP":"ORIGINAL")+'\n'+(midiNote(x.detectedMidi)||"pitch unknown")+" · "+(x.detectedPitchHz?x.detectedPitchHz.toFixed(1)+" Hz":"not detected")+" · "+(x.durationMs/1000).toFixed(2)+"s"+'</button><div class="item-controls"><button data-play="'+x.id+'">PLAY</button><button data-pause="'+x.id+'">PAUSE</button><button class="'+(state.repeatId===x.id?"active":"")+'" data-repeat="'+x.id+'">'+(state.repeatId===x.id?"REPEAT ✓":"REPEAT")+'</button></div></article>'}).join("");document.querySelectorAll("[data-select]").forEach(b=>b.onclick=()=>{const c=state.captures.find(x=>x.id===b.dataset.select);state.selectedId=c.id;render();status("Selected "+(c.transformation?"derived":"original")+" "+c.id.slice(0,8)+".")});document.querySelectorAll("[data-play]").forEach(b=>b.onclick=()=>play(state.captures.find(x=>x.id===b.dataset.play)));document.querySelectorAll("[data-pause]").forEach(b=>b.dataset.pause=b.dataset.pause);document.querySelectorAll("[data-pause]").forEach(b=>b.onclick=()=>{const c=state.captures.find(x=>x.id===b.dataset.pause);if(state.playingId===c?.id&&state.audio){state.audio.pause();state.playingId=null;render();status("Paused "+c.source.split("/").pop()+".")}else if(c){play(c);status("Resumed "+c.source.split("/").pop()+".")}});document.querySelectorAll("[data-repeat]").forEach(b=>b.onclick=()=>toggleRepeat(state.captures.find(x=>x.id===b.dataset.repeat)))}
 $("capture").addEventListener("pointerdown",startCapture);$("capture").addEventListener("pointerup",finishCapture);$("capture").addEventListener("pointercancel",finishCapture);$("saved").onclick=()=>{const c=selected();if(c)status("Capture is already saved locally in this MIE session.")};$("change").onclick=transform;
 window.addEventListener("beforeunload",()=>stopPlayback());
