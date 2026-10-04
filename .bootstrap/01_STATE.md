@@ -102,25 +102,30 @@ Spiral Grove registry declaration-order vs topological-order contract; baseline 
 ## Repository Health
 - Architecture fitness tests: **11/11**
 - Full suite (`PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q
-  --continue-on-collection-errors`): **18 failed / 1304 passed / 18 skipped / 1 error** —
-  re-measured 2026-10-03 on `gate-hygiene/stale-gate-fixture-retirement-01` (main
-  `162f574`), after retiring the two archived-surface gate nodes. A plain CI checkout
-  reports **19 failing/error nodes**: the recorded 18-node set plus the
-  clone-depth-dependent sibling
+  --continue-on-collection-errors`): **9 failed / 1414 passed / 20 skipped / 1 error** —
+  re-measured 2026-10-04 on `main` `1b7c089` (live reconciliation), **10 failing/error
+  nodes**. The recorded set is those 10 nodes; 8 of the prior 18 entries had been repaired
+  by later merges while the fixture kept carrying them as debt. A plain CI checkout
+  additionally reports the clone-depth-dependent sibling
   `test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec`, which errors when the
   PR-head revision `7d79f38…` is absent.
   Classified baseline debt — see
   `docs/control-plane/evidence/gate-hygiene-baseline-test-debt-classification-01/`.
   The 49 → 20 failure reduction since `a26af408` is fully explained by the merged SH-02
   stale-assertion repair PRs (#124–#137).
+  > **Superseded 2026-10-03 measurement** (`gate-hygiene/stale-gate-fixture-retirement-01`,
+  > main `162f574`): **18 failed / 1304 passed / 18 skipped / 1 error**, recorded set 18
+  > nodes, after retiring the two archived-surface gate nodes. Retained as history; do not
+  > republish as current health. Evidence:
+  > `docs/control-plane/evidence/gate-hygiene-baseline-node-set-live-reconciliation-01/`.
 - Baseline fingerprint — derivation is **executable and pinned**, not prose:
   `python scripts/baseline_fingerprint.py <pytest log>` prints both values below and is
   covered by `tests/test_baseline_fingerprint.py`.
   - outcomes (canonical): `sha256("\n".join(sorted("FAILED|ERROR <nodeid>")) + "\n")` =
-    `6c7bf8218fd1e0ae9bc970653e98c18b3a78b69a5c4920dac9f4747c033e4648`
+    `9a54f5b478d1135f27ab9e54d95706f03eae1ceb5d4c1f3ae075bffc4208ab38`
   - node set: `sha256("\n".join(sorted("<nodeid>")) + "\n")` =
-    `2bc35996b21de6529ffffab63446c8bd7295c388e841a2807101d189eaf7da01`
-  - The recorded node set is `tests/fixtures/baseline_node_set.txt` (18 nodes); the two
+    `124bfdfd078fe878fe7c9de358ba271e977c4f7b73909b9d7d016b9ae9c1e87f`
+  - The recorded node set is `tests/fixtures/baseline_node_set.txt` (10 nodes); the two
     values above are what the script prints for it.
   > **Correction 2026-10-02** (`gate-hygiene/baseline-fingerprint-reconciliation-01`).
   > `gate-hygiene/baseline-fingerprint-reproducibility-01` (PR #203) set out to make the
@@ -159,6 +164,13 @@ Spiral Grove registry declaration-order vs topological-order contract; baseline 
   > `6c7bf821…` / `2bc35996…`.
   > Evidence:
   > `docs/control-plane/evidence/gate-hygiene-baseline-fingerprint-reconciliation-01/`.
+  > **Superseded 2026-10-04** (`gate-hygiene/baseline-node-set-live-reconciliation-01`): a
+  > live full-suite run on main `1b7c089` reported **9 failed / 1414 passed / 20 skipped /
+  > 1 error** (10 failing/error nodes), and **8 of the 18 recorded entries now pass** — they
+  > had been repaired by later merges while the fixture kept carrying them as debt. The
+  > recorded set is now the **10** nodes a live run actually reports; the superseded pair is
+  > retained in `tests/fixtures/superseded_baseline_node_set_18.txt`. Evidence:
+  > `docs/control-plane/evidence/gate-hygiene-baseline-node-set-live-reconciliation-01/`.
   > **No regression.** The clone-depth-stable failing/error node set is unchanged at
   > `2b167e4` — 18 nodes, `17 failed / 1 error` — with the pinned PR-head revision present
   > and absent alike; the one node that moved between the two clones is the depth-dependent

@@ -108,21 +108,18 @@ reconciliation, NovaNet sample-data removal.
 
 ## Baseline debt — attribute by node name, not by count
 
-Re-measured 2026-10-02 on `main` @ `64cbe74`:
+Re-measured 2026-10-04 on `main` @ `1b7c089`:
 
-- Full suite: **18 failed / 1304 passed / 18 skipped / 1 error** — re-measured 2026-10-03 on
-  `gate-hygiene/stale-gate-fixture-retirement-01` (main `162f574`). A plain CI checkout
-  reports **19 failing/error nodes** (the recorded set plus the clone-depth-dependent
-  sibling `test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec`); the
-  clone-depth-stable recorded set is **18 nodes**
-  (`tests/fixtures/baseline_node_set.txt`).
+- Full suite: **9 failed / 1414 passed / 20 skipped / 1 error**. The recorded set is the
+  **10 failing/error nodes** a live run reports (`tests/fixtures/baseline_node_set.txt`);
+  8 entries previously recorded as debt now pass and were removed, their origin kept in
+  `tests/fixtures/superseded_baseline_node_set_18.txt`.
 - Fingerprint `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `6c7bf8218fd1e0ae9bc970653e98c18b3a78b69a5c4920dac9f4747c033e4648`
-  (node set `2bc35996…`; recorded nodes in `tests/fixtures/baseline_node_set.txt`). Earlier
-  published pairs (`a59453b8…`, `9a35c812…`, `4d84e7eb…`, `da2ec262…`) are superseded and
-  not clone-depth-stable — do not reuse them. `a578a766…`/`8036fc06…` were superseded
-  2026-10-03 by `6c7bf821…`/`2bc35996…`. See
-  `docs/control-plane/evidence/gate-hygiene-baseline-fingerprint-reconciliation-01/`.
+  `9a54f5b478d1135f27ab9e54d95706f03eae1ceb5d4c1f3ae075bffc4208ab38`
+  (node set `124bfdfd…`; recorded nodes in `tests/fixtures/baseline_node_set.txt`). Earlier
+  published pairs (`a59453b8…`, `9a35c812…`, `4d84e7eb…`, `da2ec262…`, and
+  `6c7bf821…`/`2bc35996…`) are superseded — do not reuse them. See
+  `docs/control-plane/evidence/gate-hygiene-baseline-node-set-live-reconciliation-01/`.
 
 Counts are environment-sensitive and at least one node
 (`test_engineering_lab_agent_loop.py::test_agent_loop_does_not_mutate_repository`) is
