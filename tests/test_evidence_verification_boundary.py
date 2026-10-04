@@ -20,8 +20,9 @@ Findings, measured not assumed:
    resolves its evidence, and ``forward_walk(EVIDENCE)`` resolves its
    verification — but forward traversal fabricates nothing when no verification
    exists.
-7. Both records are readable over HTTP only as a control-room projection; no
-   route creates or lists them as first-class records.
+7. The Console authority bridge exposes authenticated first-class evidence and
+   verification routes; the control-room projection remains a separate read
+   surface, and enterprise lineage traversal is not exposed over HTTP.
 
 No relationship is created or repaired to demonstrate the boundary. The
 asymmetry (evidence without verification) is the finding.
