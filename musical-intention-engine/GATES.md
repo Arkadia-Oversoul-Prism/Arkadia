@@ -8,7 +8,7 @@
 | 03 | Materialization | DEVICE VERIFIED | inspectable MusicalObject |
 | 04 | Transformation | DEVICE VERIFIED / CLOSED | one meaningful reversible change |
 | 05 | Change loop | IMPLEMENTED / DEVICE PENDING | repeatable compare/keep/revise |
-| 06 | Continuity | NOT STARTED | ancestry back to original |
+| 06 | Object control | IMPLEMENTED / DEVICE PENDING | undo/redo/delete/restore/clone/rename |
 | 07 | Mobile instrument | NOT STARTED | real-device usability |
 | 08 | Measurement | NOT STARTED | TTMI/TTCS/ITS/IP/RC/DWM protocol |
 | 09 | Experiment run | NOT STARTED | hum/tap/speak/repeat evidence |
@@ -89,3 +89,27 @@ unit tests. Physical-device verification remains pending.
 Workflow run 37142127800 (run #86) completed successfully on head
 `3de223c6a3d87de4d805eeaea4388a4ae3ea9f60`. Security scan also passed.
 The debug APK artifact was produced successfully. Physical Gate 05 verification remains pending.
+
+
+## Gate 06 implementation · 2026-10-05
+
+Gate 06 establishes explicit human control over remembered musical objects:
+
+`UNDO → REDO → CLONE → RENAME → DELETE → RESTORE`
+
+The native Android implementation uses immutable audio files plus mutable MusicalObject provenance. Delete is a recoverable soft-delete, clone creates a new identity and copies the source audio, rename persists a human-readable display name, and undo/redo restore object-list state without rewriting audio.
+
+The gate is intentionally device-verifiable. Physical verification must demonstrate:
+
+1. capture and select an object;
+2. clone it and confirm a new independent object appears;
+3. rename the clone and confirm the name persists;
+4. delete the clone and confirm it moves to trash;
+5. restore it and confirm it returns to active history;
+6. undo the restore and confirm the object returns to trash;
+7. redo the restore and confirm it returns to active history;
+8. delete the clone again, then undo and confirm it returns;
+9. redo and confirm deletion;
+10. restart the app and confirm active objects, deleted objects, names, clone provenance, and original audio remain intact.
+
+Physical-device verification remains pending.
