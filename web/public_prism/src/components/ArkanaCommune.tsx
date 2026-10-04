@@ -63,6 +63,17 @@ function parseCodexCommand(text: string): string | null {
   return (m[1] || '').trim() || 'arkadia spiral codex';
 }
 
+function semanticThreadTitle(prompt: string): string {
+  const cleaned = prompt.replace(/\[[^\]]+\]/g, ' ').replace(/https?:\/\/\S+/g, ' ').replace(/[`*_#>]/g, ' ').replace(/\s+/g, ' ').trim();
+  const stop = new Set(['the','a','an','and','or','but','for','to','of','in','on','with','from','this','that','these','those','is','are','be','as','into','about','how','what','why','can','could','should','would','i','we','you','me','my','our','your','please','need','want','now','help','make','build','create']);
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  const meaningful = words.filter(w => !stop.has(w.toLowerCase().replace(/[^a-z0-9-]/gi, '')));
+  const seed = (meaningful.length >= 3 ? meaningful : words).slice(0, 8);
+  const title = seed.join(' ').replace(/^[\s,:;.-]+|[\s,:;.-]+$/g, '');
+  if (!title) return 'New Arkana conversation';
+  return title.charAt(0).toUpperCase() + title.slice(1).slice(0, 78);
+}
+
 function isHelpCommand(text: string): boolean {
   const t = text.trim().replace(/^[⟐/]\s*/, '').toLowerCase();
   return t === 'help' || t === '?' || t === 'commands';
