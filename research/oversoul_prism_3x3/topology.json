@@ -1,0 +1,43 @@
+{
+  "schema_version": "0.1.0",
+  "status": "research_prototype",
+  "canonical_identity": "Arkadia Oversoul Prism",
+  "authority": "none",
+  "production": false,
+  "purpose": "Bounded 3x3 topology experiment only",
+  "dimensions": {"functions": 3, "layers": 3, "nodes": 9},
+  "functions": [
+    {"id":"A01","historical_role":"Threshold Guardian"},
+    {"id":"A02","historical_role":"Resonance Weaver"},
+    {"id":"A03","historical_role":"Ignition Spark"}
+  ],
+  "layers": [
+    {"id":"L01","context_granularity":"broadest / planetary","confidence":"confirmed"},
+    {"id":"L02","context_granularity":"more granular than L01","confidence":"confirmed_order_only"},
+    {"id":"L03","context_granularity":"deepest within this slice","confidence":"confirmed_order_only"}
+  ],
+  "nodes": [
+    {"node_id":"A01-L01","function_id":"A01","layer_id":"L01"},
+    {"node_id":"A01-L02","function_id":"A01","layer_id":"L02"},
+    {"node_id":"A01-L03","function_id":"A01","layer_id":"L03"},
+    {"node_id":"A02-L01","function_id":"A02","layer_id":"L01"},
+    {"node_id":"A02-L02","function_id":"A02","layer_id":"L02"},
+    {"node_id":"A02-L03","function_id":"A02","layer_id":"L03"},
+    {"node_id":"A03-L01","function_id":"A03","layer_id":"L01"},
+    {"node_id":"A03-L02","function_id":"A03","layer_id":"L02"},
+    {"node_id":"A03-L03","function_id":"A03","layer_id":"L03"}
+  ],
+  "edges": [
+    ["A01-L01","A01-L02"],["A01-L02","A01-L03"],
+    ["A02-L01","A02-L02"],["A02-L02","A02-L03"],
+    ["A03-L01","A03-L02"],["A03-L02","A03-L03"]
+  ],
+  "excluded_edges": "Cross-function topology is UNKNOWN and deliberately not implemented.",
+  "execution": {
+    "llm": false,
+    "external_side_effects": false,
+    "authorization": "none",
+    "work_event": false,
+    "production_route": false
+  }
+}
