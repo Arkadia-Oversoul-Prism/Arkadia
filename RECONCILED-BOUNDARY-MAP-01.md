@@ -507,3 +507,37 @@ artifact.** Console design is a separate workstream
 (`RECONCILED-CONSOLE-ARCHITECTURE-01`), derived from this verified model plus the
 existing Arkadia UI plus the independently derived backend console — not from a
 UI-plus-UI redesign.
+
+
+---
+
+## Sovereign adjudication · 2026-10-04 · Console evidence and verification routes
+
+**Disposition: Option A selected by the human sovereign.** The authenticated
+SolSpire Console authority bridge is an intended first-class surface for
+recording execution evidence and verification. The earlier Gate-03/Gate-04
+statement that no HTTP route exposes these records is superseded for the
+Console authority bridge; it must not be repeated as a current-state claim.
+
+The intended routes are:
+
+- `POST /solspire/authority/executions/{execution_id}/evidence`: append an
+  evidence record bound to the authenticated subject and execution attempt.
+- `POST /solspire/authority/verification`: append a separate verification
+  record referencing existing evidence. The server derives verifier identity
+  from the authenticated Firebase UID; caller-supplied verifier labels are not
+  authoritative.
+- The enterprise `forward_walk` / `reverse_walk` lineage traversal remains
+  unexposed over HTTP. First-class evidence/verification writes do not imply
+  that graph traversal is exposed.
+
+This ruling changes the route-surface classification, not the meaning of the
+records. Authentication establishes identity; authorization establishes
+permission; evidence records a claim about an execution; verification remains a
+separate act. A route's existence alone does not prove an execution succeeded,
+that its evidence is sufficient, or that a verification is correct. The store's
+subject/attempt/evidence referential checks and the route's authentication
+boundary remain required.
+
+**Verification status:** repository contract/tests only. Production deployment
+and end-to-end runtime behavior remain unverified until separately probed.

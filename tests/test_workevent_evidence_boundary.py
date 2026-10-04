@@ -7,8 +7,9 @@ WorkEvent -> Evidence join?
 The result is an ABSENCE, recorded not repaired. A WorkEvent carries only opaque
 reference fields; runtime evidence binds to an *execution attempt* in the
 ARK-WEAVER-01 enterprise chain (a different spine from the SolSpire WorkEvent
-spine); and no field or table on either side joins the two. No HTTP route
-exposes evidence or verification as first-class records.
+spine); and no field or table on either side joins the two. The Console
+authority bridge exposes evidence and verification as first-class records;
+enterprise lineage traversal remains unexposed.
 """
 from __future__ import annotations
 
@@ -207,22 +208,14 @@ def test_verification_references_evidence_not_a_workevent(tmp_path, monkeypatch)
         raise AssertionError("verify() must not accept a WorkEvent reference")
 
 
-def test_no_http_route_exposes_evidence_verification_or_the_enterprise_walk():
-    paths: list[str] = []
-    for src in _ROUTE_SOURCES:
-        text = src.read_text(encoding="utf-8")
-        for line in text.splitlines():
-            stripped = line.strip()
-            if stripped.startswith(("@router.", "@app.")) and "(" in stripped:
-                paths.append(stripped)
+def test_console_exposes_evidence_verification_but_not_enterprise_walk():
+    # Option A recognizes the two first-class Console routes.
+    authority = pathlib.Path("solspire/console_authority_router.py").read_text(encoding="utf-8")
+    assert '@router.post("/executions/{execution_id}/evidence")' in authority
+    assert '@router.post("/verification")' in authority
 
-    joined = "\n".join(paths).lower()
-    assert paths, "expected to find route decorators"
-    assert "evidence" not in joined
-    assert "verif" not in joined
-    assert "forward_walk" not in joined and "reverse_walk" not in joined
-
-    # The enterprise walk functions have no HTTP caller anywhere in the routers.
+    # The richer graph traversal remains intentionally unexposed over HTTP.
     for src in _ROUTE_SOURCES:
-        assert "forward_walk" not in src.read_text(encoding="utf-8")
-        assert "reverse_walk" not in src.read_text(encoding="utf-8")
+        source = src.read_text(encoding="utf-8")
+        assert "forward_walk" not in source
+        assert "reverse_walk" not in source
