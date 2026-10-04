@@ -422,10 +422,8 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, proje
         const res = await apiFetch('/api/commune/threads', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            title: projectContextId
-              ? `${projectName || 'Project'} · New Arkana conversation`
-              : (projectId != null ? 'New project conversation' : 'New conversation'),
-            ...(!projectContextId && projectId != null ? { project_id: projectId } : {}),
+            title: 'New Arkana conversation',
+            ...(projectContextId ? { project_id: Number(projectContextId) } : projectId != null ? { project_id: projectId } : {}),
           }),
         });
         const data = await res.json().catch(() => ({}));
