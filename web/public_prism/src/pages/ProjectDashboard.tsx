@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProjectKnowledgeGraph from '../components/solspire/ProjectKnowledgeGraph';
 import ProjectAgenticCanvas from '../components/solspire/ProjectAgenticCanvas';
-import ArcanaWeaverCanvas from '../components/solspire/ArcanaWeaverCanvas';
+import ArkanaWeaverCanvas from '../components/solspire/ArkanaWeaverCanvas';
 
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -1178,7 +1178,7 @@ function Settings({ project, onProjectUpdated, onArchive }: { project: Project; 
 
 const TABS: { id: ProjTab; label: string; sigil: string }[] = [
   { id: 'overview',       label: 'Overview',       sigil: '◈' },
-  { id: 'weaver',         label: 'Arcana Weaver',  sigil: '⌁' },
+  { id: 'weaver',         label: 'Arkana Weaver',  sigil: '⌁' },
   { id: 'knowledge',      label: 'Knowledge',      sigil: '◈' },
   { id: 'conversations',  label: 'Conversations',  sigil: '💬' },
   { id: 'files',          label: 'Files',          sigil: '📄' },
@@ -1256,7 +1256,7 @@ export default function ProjectDashboard({ project, onBack, onProjectUpdated, in
       <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px', maxWidth: '880px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
         <AnimatePresence mode="wait">
           {tab === 'knowledge'     && <motion.div key="kn" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><KnowledgePanel project={currentProject} /></motion.div>}
-          {(tab === 'weaver' || tab === 'canvas') && <motion.div key="arcana-weaver" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} style={{ maxWidth: '1500px', margin: '0 auto', width: '100%' }}><ArcanaWeaverCanvas project={currentProject} /></motion.div>}
+          {(tab === 'weaver' || tab === 'canvas') && <motion.div key="arcana-weaver" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} style={{ maxWidth: '1500px', margin: '0 auto', width: '100%' }}><ArkanaWeaverCanvas project={currentProject} /></motion.div>}
           {tab === 'overview'      && <motion.div key="ov" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><Overview project={currentProject} onTabChange={setTab} /></motion.div>}
           {tab === 'conversations' && <motion.div key="cv" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><Conversations project={currentProject} /></motion.div>}
           {tab === 'files'         && <motion.div key="fi" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><Files project={currentProject} /></motion.div>}
