@@ -81,6 +81,25 @@ def build_container_argv(
     ]
 
 
+def _container_runtime_available(executable: str, runtime: str) -> bool:
+    """True when the runtime CLI can actually reach its daemon.
+
+    `shutil.which` finds the client binary only. A host with the client installed
+    but no running daemon (or no socket) fails later, inside the container call,
+    as an opaque process error. Probing here lets callers skip instead.
+    """
+    probe = [executable, "info"] if runtime == "docker" else [executable, "version"]
+    try:
+        result = subprocess.run(
+            probe, shell=False, check=False, capture_output=True, text=True,
+            timeout=10, env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+                             "LANG": "C.UTF-8"},
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0
+
+
 def run_isolated(
     *, image: str, workspace: str | Path, command: Sequence[str],
     timeout_seconds: int = 60, runtime: str = "docker",
@@ -92,6 +111,8 @@ def run_isolated(
     executable = shutil.which(runtime)
     if not executable:
         raise BoundaryError("container runtime unavailable; refusing host execution")
+    if not _container_runtime_available(executable, runtime):
+        raise BoundaryError("container runtime daemon unavailable; refusing host execution")
     execution_id = uuid.uuid4().hex
     argv = build_container_argv(
         image=image, workspace=workspace, command=command, runtime=executable,

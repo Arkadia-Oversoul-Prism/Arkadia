@@ -64,15 +64,34 @@ def test_candidate_digest_changes_when_any_reviewed_content_changes():
     assert one != two
 
 
+def test_daemon_probe_does_not_treat_a_client_without_a_daemon_as_ready(monkeypatch):
+    """Negative control: the probe must reject a reachable CLI with no daemon."""
+    from types import SimpleNamespace
+    from solspire import project_execution_boundary as boundary
+
+    monkeypatch.setattr(boundary.shutil, "which", lambda _: "/usr/bin/docker")
+    monkeypatch.setattr(
+        boundary.subprocess, "run",
+        lambda *a, **k: SimpleNamespace(returncode=1, stdout="", stderr="Cannot connect to the Docker daemon"),
+    )
+    assert boundary._container_runtime_available("/usr/bin/docker", "docker") is False
+    with pytest.raises(BoundaryError, match="daemon unavailable"):
+        boundary.run_isolated(image="agent@sha256:" + "a" * 64, workspace="/tmp",
+                              command=("/bin/true",))
+
+
 def test_actual_oci_runtime_hardens_process_and_mount(tmp_path):
     """Live OCI acceptance test using a pinned minimal test image by default."""
+    from solspire.project_execution_boundary import _container_runtime_available
+
     image = os.environ.get(
         "SOLSPIRE_TEST_AGENT_IMAGE",
         "ghcr.io/containerd/busybox:1.36@sha256:907ca53d7e2947e849b839b1cd258c98fd3916c60f2e6e70c30edbf741ab6754",
     )
     runtime = os.environ.get("SOLSPIRE_CONTAINER_RUNTIME", "docker")
-    if not shutil.which(runtime):
-        pytest.skip("requires an installed Docker-compatible container runtime")
+    executable = shutil.which(runtime)
+    if not executable or not _container_runtime_available(executable, runtime):
+        pytest.skip("requires a Docker-compatible runtime with a reachable daemon")
     if "@sha256:" not in image or len(image.rsplit("@sha256:", 1)[-1]) != 64:
         pytest.fail("SOLSPIRE_TEST_AGENT_IMAGE must be pinned by sha256")
     tmp_path.chmod(0o777)
