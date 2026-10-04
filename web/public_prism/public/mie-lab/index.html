@@ -6,113 +6,104 @@
 <meta name="theme-color" content="#0b0c12">
 <title>ARKADIA · Musical Intention Engine</title>
 <style>
-:root{color-scheme:dark;--bg:#0b0c12;--surface:#11131b;--surface2:#171a23;--line:#292d38;--text:#f1f1ee;--dim:#9296a2;--muted:#626773;--accent:#d7d7d2;--teal:#56d6c2;--violet:#b59ae9;--gold:#c9a84c}
+:root{color-scheme:dark;--bg:#0b0c12;--surface:#11131b;--line:#292d38;--text:#f1f1ee;--dim:#9296a2;--muted:#626773;--teal:#56d6c2}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-body{padding:0 0 72px}.shell{width:min(760px,100%);margin:auto;padding:28px 20px 0}
-.eyebrow{font:10px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;margin:12px 0 12px}
-h1{font:700 43px/.94 Inter,ui-sans-serif,sans-serif;letter-spacing:-.045em;margin:0 0 14px;max-width:500px}
-.lede{font-size:16px;line-height:1.55;color:var(--dim);max-width:610px;margin:0 0 24px}
-.gates{display:flex;gap:6px;overflow:auto;padding:2px 0 18px;scrollbar-width:none}.gates::-webkit-scrollbar{display:none}
-.gate{flex:0 0 auto;border:1px solid var(--line);border-radius:999px;padding:7px 10px;font:9px ui-monospace,monospace;letter-spacing:.1em;color:var(--muted)}
-.gate.done{color:var(--teal);border-color:#254a45}.gate.current{color:var(--text);border-color:#696c74;background:#191b22}
-.capture-wrap{margin:2px 0 16px}.capture{width:100%;height:210px;border:0;border-radius:38px;background:#eeeef0;color:#101116;font-size:24px;font-weight:750;letter-spacing:-.02em;box-shadow:none;cursor:pointer;touch-action:none}
-.capture:active,.capture.recording{background:#d7d7d7;transform:scale(.995)}.capture.recording{color:#222}.capture .small{display:block;font:10px ui-monospace,monospace;letter-spacing:.14em;margin-top:10px;opacity:.5}
-.status{background:#15171f;border:1px solid var(--line);border-radius:9px;padding:15px 16px;color:var(--dim);font-size:13px;line-height:1.45;margin-bottom:14px}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:18px;margin-bottom:14px}.card.hidden{display:none}
-.kicker{font:10px ui-monospace,monospace;letter-spacing:.16em;color:var(--teal);text-transform:uppercase;margin-bottom:8px}.kicker.derived{color:var(--violet)}
-.object-title{font-size:22px;font-weight:650;letter-spacing:-.025em;margin:0 0 8px}.detail{font-size:14px;color:var(--dim);line-height:1.5}
-.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:14px}.actions.two{grid-template-columns:repeat(2,1fr)}
-button.action{min-height:46px;background:transparent;border:1px solid #353943;color:#d9d9d6;border-radius:7px;font:10px ui-monospace,monospace;letter-spacing:.1em;cursor:pointer}button.action:hover{border-color:#686d78;color:#fff}button.action:disabled{opacity:.35;cursor:not-allowed}
-.section-title{font:10px ui-monospace,monospace;letter-spacing:.17em;color:var(--muted);text-transform:uppercase;margin:18px 0 8px}.section-copy{font-size:13px;color:var(--dim);margin:0 0 10px}
-.history-count{font:10px ui-monospace,monospace;color:var(--muted);margin:0 0 9px}
-.history{display:grid;gap:10px}.item{border:1px solid var(--line);border-radius:9px;background:#11131a;padding:12px}.item.selected{border-color:#3d7169;background:#131b1b}
-.item-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;cursor:pointer}.item-kind{font:9px ui-monospace,monospace;letter-spacing:.15em;color:var(--teal);margin-bottom:4px}.item-kind.derived{color:var(--violet)}
-.item-name{font-size:13px;font-weight:650}.item-meta{font-size:11px;color:var(--muted);margin-top:4px}.item-controls{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:10px}.item-controls button{min-height:38px;font:9px ui-monospace,monospace;letter-spacing:.08em;background:#181a21;color:#bbbdb9;border:1px solid #30343e;border-radius:6px;cursor:pointer}.item-controls button.active{border-color:#4d8279;color:var(--teal)}
-.lineage{margin-top:10px;padding-top:10px;border-top:1px solid #292c34;font:10px/1.55 ui-monospace,monospace;color:var(--muted)}
-.decision{display:inline-block;margin-left:5px;font:8px ui-monospace,monospace;letter-spacing:.08em;color:var(--gold);border:1px solid #5b4e2b;border-radius:999px;padding:3px 6px}
-.raw{margin-top:14px;border-top:1px solid #292c34;padding-top:12px}.raw summary{cursor:pointer;font:9px ui-monospace,monospace;letter-spacing:.12em;color:var(--muted)}pre{white-space:pre-wrap;overflow:auto;background:#0b0d12;border-radius:7px;padding:12px;color:#9ea4ae;font:10px/1.5 ui-monospace,monospace}
-.footer-note{color:#4f535e;font:9px/1.6 ui-monospace,monospace;margin-top:22px;text-transform:uppercase;letter-spacing:.08em}
-@media(max-width:520px){.shell{padding:22px 16px 0}h1{font-size:38px}.capture{height:185px}.actions{grid-template-columns:1fr 1fr 1fr}.item-head{display:block}.item-head>.item-meta{padding-right:4px}}
+body{padding:0 0 72px}.shell{width:min(760px,100%);margin:auto;padding:24px}
+.eyebrow{font:10px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.18em;color:var(--dim);margin:12px 0 10px}
+h1{font:700 46px/.91 Inter,ui-sans-serif,sans-serif;letter-spacing:-.045em;margin:0 0 10px;white-space:pre-line}
+.lede{font-size:18px;line-height:1.55;color:var(--dim);margin:0 0 26px}
+.capture{width:100%;height:220px;border:0;border-radius:40px;background:var(--text);color:var(--bg);font-size:25px;font-weight:750;cursor:pointer;touch-action:none;margin-bottom:18px}
+.capture.recording{background:#d7d7d7;transform:scale(.995)}
+.status{background:#15171f;border:1px solid var(--line);border-radius:9px;padding:16px;color:var(--dim);font-size:13px;line-height:1.45;margin-bottom:14px}
+.card{background:#11131b;border:1px solid var(--line);border-radius:9px;padding:18px;margin-bottom:14px}.hidden{display:none}
+.kicker{font:11px ui-monospace,monospace;letter-spacing:.15em;color:var(--teal);margin-bottom:6px}
+.detail{font-size:15px;line-height:1.5;margin-bottom:10px}.json{font:10px/1.5 ui-monospace,monospace;color:var(--dim);white-space:pre-wrap;overflow:auto}
+.section-title{font:10px ui-monospace,monospace;letter-spacing:.16em;color:var(--dim);margin:0 0 8px}
+.section-copy{font-size:13px;color:var(--dim);margin:0 0 10px}.count{font:11px ui-monospace,monospace;color:var(--dim);margin-bottom:8px}
+.history{display:grid;gap:10px}.item{background:#11131b;border:1px solid var(--line);border-radius:9px;padding:10px 14px}.item-label{width:100%;border:0;background:transparent;color:var(--text);text-align:left;font:13px/1.35 Inter,sans-serif;padding:0 0 8px;cursor:pointer}.item-controls{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}.item-controls button,.bottom button{min-height:48px;background:transparent;border:1px solid #353943;color:#d9d9d6;border-radius:7px;font:10px ui-monospace,monospace;letter-spacing:.08em;cursor:pointer}.item-controls button:disabled,.bottom button:disabled{opacity:.35;cursor:not-allowed}.item-controls button.active{border-color:#4d8279;color:var(--teal)}
+.bottom{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}.bottom button{height:54px}
+.note{color:#4f535e;font:9px/1.6 ui-monospace,monospace;margin-top:22px;text-transform:uppercase;letter-spacing:.08em}
+@media(max-width:520px){.shell{padding:22px 16px}h1{font-size:42px}}
 </style>
 </head>
 <body>
 <main class="shell">
-  <div class="eyebrow">MUSICAL INTENTION ENGINE · PRISM</div>
-  <h1>Remember what you make.</h1>
-  <p class="lede">Capture a thought, change it, compare the result, then keep or revise.</p>
+  <div class="eyebrow">MUSICAL INTENTION ENGINE · GATE 03</div>
+  <h1>Remember
+what you make.</h1>
+  <p class="lede">Capture musical thoughts, keep them, and return to them.</p>
 
-  <nav class="gates" aria-label="MIE progression">
-    <span class="gate done">01 · CAPTURE</span>
-    <span class="gate done">02 · OBJECT</span>
-    <span class="gate done">03 · MEMORY</span>
-    <span class="gate done">04 · TRANSFORM</span>
-    <span class="gate current">05 · CHANGE LOOP</span>
-  </nav>
-
-  <section class="capture-wrap">
-    <button id="capture" class="capture">
-      <span id="captureText">Hold to capture</span>
-      <span class="small">PRESS · MAKE A SOUND · RELEASE</span>
-    </button>
-  </section>
-
+  <button id="capture" class="capture">Hold to capture</button>
   <div id="status" class="status">Ready. Hold the button and make something.</div>
 
   <section id="objectCard" class="card hidden">
-    <div id="objectKind" class="kicker">MUSICAL OBJECT</div>
-    <div id="objectTitle" class="object-title">A4</div>
+    <div id="objectType" class="kicker">MUSICAL OBJECT</div>
     <div id="objectDetail" class="detail"></div>
-    <div id="lineage" class="lineage"></div>
-    <div class="actions">
-      <button id="playSelected" class="action">PLAY</button>
-      <button id="pauseSelected" class="action">PAUSE</button>
-      <button id="repeatSelected" class="action">REPEAT</button>
-    </div>
-    <div class="actions two">
-      <button id="keep" class="action" disabled>KEEP RESULT</button>
-      <button id="change" class="action" disabled>OCTAVE UP</button>
-    </div>
-    <details class="raw">
-      <summary>INSPECT RAW JSON</summary>
-      <pre id="json"></pre>
-    </details>
+    <pre id="objectJson" class="json"></pre>
   </section>
 
-  <section>
-    <div class="section-title">MEMORY · PLAYBACK</div>
-    <p class="section-copy">Every remembered sound has its own controls.</p>
-    <div id="historyCount" class="history-count">0 capture(s) in this session</div>
-    <div id="history" class="history"></div>
-  </section>
+  <div class="section-title">MEMORY · PLAYBACK</div>
+  <p class="section-copy">Every remembered sound has its own controls.</p>
+  <div id="historyCount" class="count">0 capture(s) in this session</div>
+  <div id="history" class="history"></div>
 
-  <div class="footer-note">Web Lab = interface proving ground · Android = execution authority · human decides what stays</div>
+  <div class="bottom">
+    <button id="saved" disabled>SAVED</button>
+    <button id="change" disabled>CHANGE</button>
+  </div>
+
+  <div class="note">Web Lab mirrors the native MIE trajectory. Browser execution is a proving ground; Android remains execution authority.</div>
 </main>
 
 <script>
-const state={captures:[],selectedId:null,playingId:null,repeatId:null,timer:null,audio:null,recording:false,recordStarted:0};
+const SAMPLE_RATE=16000, FRAME=2048, MIN_LAG=16, MAX_LAG=800, PEAK_RATIO=.85;
+const state={captures:[],selectedId:null,playingId:null,repeatId:null,audio:null,recording:false,startedAt:0,ctx:null,source:null,processor:null,chunks:[]};
 const $=id=>document.getElementById(id);
 const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2);
-function original(n){return{id:uid(),kind:"original",label:"CAPTURE "+String(n).padStart(3,"0"),note:"A4",hz:440,durationMs:0,inputType:"melody_candidate",confidence:.8,rms:.12,zeroCrossingRate:.08,createdAtEpochMs:Date.now(),parentId:null,transformation:null,loopDecision:null}}
-function seed(){const a=original(1);a.id="capture-001";const d={...a,id:"capture-001-derivative",kind:"derived",label:"CAPTURE 001 · OCTAVE UP",note:"A5",hz:880,parentId:a.id,transformation:"octave_up",durationMs:500};state.captures=[d,a];state.selectedId=a.id}
-function selected(){return state.captures.find(c=>c.id===state.selectedId)||null}
-function clearTimer(){if(state.timer){clearTimeout(state.timer);state.timer=null}}
-function stopAudio(resetRepeat=true){clearTimer();if(state.audio){try{state.audio.osc.stop()}catch(e){}try{state.audio.ctx.close()}catch(e){}state.audio=null}state.playingId=null;if(resetRepeat)state.repeatId=null}
-function play(id){const c=state.captures.find(x=>x.id===id);if(!c)return;stopAudio(false);state.selectedId=id;state.playingId=id;render();try{const C=window.AudioContext||window.webkitAudioContext;const ctx=new C(),osc=ctx.createOscillator(),gain=ctx.createGain();osc.type="sine";osc.frequency.value=c.hz;gain.gain.value=.045;osc.connect(gain).connect(ctx.destination);osc.start();state.audio={ctx,osc};state.timer=setTimeout(()=>{if(state.repeatId===id){play(id)}else{stopAudio(false);render()}},Math.max(350,Math.min(1500,c.durationMs||650)));}catch(e){status("Browser audio is unavailable. The native APK remains authoritative for real playback.")}}
-function pause(id){if(state.playingId!==id){play(id);return}clearTimer();if(state.audio){try{state.audio.osc.stop()}catch(e){}try{state.audio.ctx.close()}catch(e){}}state.audio=null;state.playingId=null;render();status("Paused "+labelFor(id)+".")}
-function toggleRepeat(id){state.repeatId=state.repeatId===id?null:id;state.selectedId=id;render();if(state.repeatId){play(id);status("Repeat enabled for "+labelFor(id)+".")}else status("Repeat disabled.")}
-function labelFor(id){const c=state.captures.find(x=>x.id===id);return c?c.label:"capture"}
+const dbp=indexedDB.open("mie-gate-04",1);
+let db;
+dbp.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains("captures"))d.createObjectStore("captures",{keyPath:"id"});};
+dbp.onsuccess=async e=>{db=e.target.result;await load();render();};
+function tx(mode){return db.transaction("captures",mode).objectStore("captures")}
+function put(c){return new Promise((res,rej)=>{const r=tx("readwrite").put(c);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
+function getAll(){return new Promise((res,rej)=>{const r=tx("readonly").getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 function status(t){$("status").textContent=t}
-function select(id){state.selectedId=id;render();status("Selected "+labelFor(id)+".")}
-function transform(){const c=selected();if(!c)return;if(c.kind==="derived"){status("This capture is already a derived transformation. Select an original capture.");return}const d={...c,id:uid(),kind:"derived",label:c.label+" · OCTAVE UP",note:noteForHz(c.hz*2),hz:c.hz*2,parentId:c.id,transformation:"octave_up",durationMs:Math.max(1,Math.round((c.durationMs||650)/2)),loopDecision:null,createdAtEpochMs:Date.now()};state.captures.unshift(d);state.selectedId=d.id;stopAudio();render();status("Created octave-up derivative. Original audio remains preserved. Compare it, then keep or revise.")}
-function keep(){const c=selected();if(!c||c.kind!=="derived"){status("Create a changed result before keeping it.");return}c.loopDecision="kept";render();status("Kept result "+c.id.slice(0,8)+". Original remains recoverable.")}
-function revise(){const c=selected();if(!c||c.kind!=="derived"||!c.parentId){status("Select a changed result to revise it.");return}c.loopDecision="revised";state.selectedId=c.parentId;stopAudio();render();status("Result revised. Original restored for another change.")}
-function noteForHz(hz){const names=["C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B"];const m=69+12*Math.log2(hz/440);const r=Math.round(m);return names[((r%12)+12)%12]+(Math.floor(r/12)-1)}
-function captureStart(e){e.preventDefault();if(state.recording)return;state.recording=true;state.recordStarted=Date.now();$("capture").classList.add("recording");$("captureText").textContent="Release to finish";stopAudio();status("Listening…");$("objectCard").classList.remove("hidden");$("objectKind").textContent="CAPTURING…";$("objectKind").className="kicker";$("objectTitle").textContent="Listening";$("objectDetail").textContent="Making a musical object…")}
-function captureEnd(e){e&&e.preventDefault();if(!state.recording)return;state.recording=false;$("capture").classList.remove("recording");$("captureText").textContent="Hold to capture";const elapsed=Date.now()-state.recordStarted;const n=state.captures.filter(x=>x.kind==="original").length+1;const c=original(n);c.durationMs=elapsed;c.hz=440;c.note="A4";c.confidence=.8;c.id=uid();state.captures.unshift(c);state.selectedId=c.id;render();status("Captured in "+(elapsed/1000).toFixed(1)+"s. Interpreting…");setTimeout(()=>status("Saved as capture "+c.id.slice(0,8)+". Original audio preserved."),220)}
-function render(){const c=selected();$("historyCount").textContent=state.captures.length+" capture(s) in this session";if(c){$("objectCard").classList.remove("hidden");const derived=c.kind==="derived";$("objectKind").textContent=derived?"DERIVED · OCTAVE UP":"ORIGINAL · "+(c.inputType==="melody_candidate"?"MELODY CANDIDATE":"UNCERTAIN MUSICAL INPUT");$("objectKind").className="kicker"+(derived?" derived":"");$("objectTitle").textContent=c.note||"Pitch unknown";const pitch=c.hz?c.hz.toFixed(1)+" Hz":"not detected";$("objectDetail").textContent=(c.durationMs/1000).toFixed(2)+"s · pitch "+pitch+" · confidence "+Math.round((c.confidence||0)*100)+"%";$("lineage").textContent=derived?"PARENT "+c.parentId.slice(0,16)+" · "+c.transformation+(c.loopDecision?" · DECISION "+c.loopDecision.toUpperCase():""):"Stable object ID "+c.id.slice(0,16)+" · original audio preserved";$("json").textContent=JSON.stringify(c,null,2);$("keep").disabled=!derived;$("keep").textContent=c.loopDecision==="kept"?"KEPT ✓":"KEEP RESULT";$("change").disabled=false;$("change").textContent=derived?(c.loopDecision==="revised"?"REVISED ✓":"REVISE"):"OCTAVE UP";$("playSelected").textContent=state.playingId===c.id?"PLAYING":"PLAY";$("pauseSelected").textContent=state.playingId===c.id?"PAUSE":"PAUSE";$("repeatSelected").textContent=state.repeatId===c.id?"REPEAT ✓":"REPEAT";$("repeatSelected").classList.toggle("active",state.repeatId===c.id)}else $("objectCard").classList.add("hidden");$("history").innerHTML=state.captures.map((x,i)=>{const d=x.kind==="derived";const dec=x.loopDecision?'<span class="decision">'+x.loopDecision.toUpperCase()+'</span>':'';return '<article class="item '+(x.id===state.selectedId?"selected":"")+'"><div class="item-head" data-select="'+x.id+'"><div><div class="item-kind '+(d?"derived":"")+'">'+(d?"DERIVED · OCTAVE UP":"ORIGINAL")+dec+'</div><div class="item-name">'+x.label+'</div><div class="item-meta">'+(x.note||"pitch unknown")+" · "+x.hz.toFixed(1)+" Hz · "+(x.durationMs/1000).toFixed(2)+"s"+(x.parentId?" · parent "+x.parentId.slice(0,10):"")+'</div></div></div><div class="item-controls"><button data-play="'+x.id+'">'+(state.playingId===x.id?"PLAYING":"PLAY")+'</button><button data-pause="'+x.id+'">PAUSE</button><button class="'+(state.repeatId===x.id?"active":"")+'" data-repeat="'+x.id+'">'+(state.repeatId===x.id?"REPEAT ✓":"REPEAT")+'</button></div></article>'}).join("");document.querySelectorAll("[data-select]").forEach(el=>el.onclick=()=>select(el.dataset.select));document.querySelectorAll("[data-play]").forEach(el=>el.onclick=()=>play(el.dataset.play));document.querySelectorAll("[data-pause]").forEach(el=>el.onclick=()=>pause(el.dataset.pause));document.querySelectorAll("[data-repeat]").forEach(el=>el.onclick=()=>toggleRepeat(el.dataset.repeat))}
-$("capture").addEventListener("pointerdown",captureStart);$("capture").addEventListener("pointerup",captureEnd);$("capture").addEventListener("pointercancel",captureEnd);$("capture").addEventListener("pointerleave",e=>{if(state.recording&&e.pointerType==="mouse")captureEnd(e)});
-$("playSelected").onclick=()=>{const c=selected();if(c)play(c.id)};$("pauseSelected").onclick=()=>{const c=selected();if(c)pause(c.id)};$("repeatSelected").onclick=()=>{const c=selected();if(c)toggleRepeat(c.id)};$("keep").onclick=keep;$("change").onclick=()=>{const c=selected();if(c&&c.kind==="derived")revise();else transform()};
-seed();render();
+function selected(){return state.captures.find(c=>c.id===state.selectedId)||null}
+function midiNote(m){if(m==null||!Number.isFinite(m))return null;const r=Math.round(m);if(r<0||r>127)return null;return["C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B"][r%12]+(Math.floor(r/12)-1)}
+function interpretation(samples){
+ if(!samples.length)return{inputType:"ambiguous",confidence:0,rms:0,zeroCrossingRate:0,pitchHz:null,detectedMidi:null};
+ let sum=0,cross=0;for(let i=0;i<samples.length;i++){sum+=samples[i]*samples[i];if(i&&((samples[i-1]>=0)!=(samples[i]>=0)))cross++}
+ const rms=Math.sqrt(sum/samples.length),zcr=cross/Math.max(1,samples.length-1),p=[],cs=[],step=FRAME/2;
+ for(let off=0;off+FRAME<=samples.length&&p.length<8;off+=step){const e=estimatePitch(samples.subarray(off,off+FRAME));if(e){p.push(e[0]);cs.push(e[1])}}
+ const pitch=p.length>=2?[...p].sort((a,b)=>a-b)[Math.floor(p.length/2)]:null;
+ const pc=cs.length?cs.reduce((a,b)=>a+b,0)/cs.length:0;
+ const possible=Math.max(1,Math.min(8,Math.floor(Math.max(0,samples.length-FRAME)/step)+1)),vr=p.length/possible;
+ let type="ambiguous",confidence=.25;if(pitch!==null&&vr>=.35&&pc>=.45){type="melody_candidate";confidence=Math.max(0,Math.min(1,.55*pc+.45*vr))}
+ else if(rms>.025&&zcr>=.035){type="rhythm_or_percussive_candidate";confidence=Math.max(0,Math.min(.8,.35+(Math.min(zcr,.2)/.2)*.45))}
+ return{inputType:type,confidence,rms,zeroCrossingRate:zcr,pitchHz:pitch,detectedMidi:pitch?69+12*Math.log2(pitch/440):null}
+}
+function estimatePitch(frame){
+ let e=0;for(const x of frame)e+=x*x;e=Math.sqrt(e/frame.length);if(e<.015)return null;
+ const min=Math.max(MIN_LAG,Math.floor(SAMPLE_RATE/1000)),max=Math.min(MAX_LAG,Math.floor(SAMPLE_RATE/55));let peak=-1,best=0,cor=[];
+ for(let lag=min;lag<=max;lag++){let dot=0,a=0,b=0;for(let i=0;i+lag<frame.length;i++){const x=frame[i],y=frame[i+lag];dot+=x*y;a+=x*x;b+=y*y}cor[lag]=a>0&&b>0?dot/Math.sqrt(a*b):-1;if(cor[lag]>peak)peak=cor[lag]}
+ if(peak<.35)return null;const threshold=peak*PEAK_RATIO;
+ for(let lag=min;lag<=max;lag++){if(cor[lag]<threshold||cor[lag]<cor[lag-1]||cor[lag]<cor[lag+1])continue;const l=cor[lag-1],r=cor[lag+1],den=l-2*cor[lag]+r,delta=den?(Math.max(-.5,Math.min(.5,.5*(l-r)/den))):0;return[SAMPLE_RATE/(lag+delta),cor[lag]]}return null
+}
+function wav(samples){
+ const buf=new ArrayBuffer(44+samples.length*2),v=new DataView(buf);const w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};w(0,"RIFF");v.setUint32(4,36+samples.length*2,true);w(8,"WAVE");w(12,"fmt ");v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,SAMPLE_RATE,true);v.setUint32(28,SAMPLE_RATE*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,"data");v.setUint32(40,samples.length*2,true);for(let i=0;i<samples.length;i++){const s=Math.max(-1,Math.min(1,samples[i]));v.setInt16(44+i*2,s<0?s*32768:s*32767,true)}return new Blob([buf],{type:"audio/wav"})}
+function readWav(blob){return blob.arrayBuffer().then(b=>{const v=new DataView(b),n=v.getUint32(40,true)/2,a=new Float32Array(n);for(let i=0;i<n;i++)a[i]=v.getInt16(44+i*2,true)/32768;return a})}
+async function startCapture(e){e.preventDefault();if(state.recording)return;try{const C=window.AudioContext||window.webkitAudioContext;state.ctx=new C({sampleRate:SAMPLE_RATE});const stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:false,noiseSuppression:false,autoGainControl:false}});state.source=state.ctx.createMediaStreamSource(stream);state.processor=state.ctx.createScriptProcessor(4096,1,1);state.chunks=[];state.processor.onaudioprocess=e=>state.chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));state.source.connect(state.processor);state.processor.connect(state.ctx.destination);state.stream=stream;state.recording=true;state.startedAt=performance.now();$("capture").classList.add("recording");$("capture").textContent="Release to finish";status("Listening…")}catch(err){status("Capture could not start. Check microphone access and retry.")}}
+async function finishCapture(e){e&&e.preventDefault();if(!state.recording)return;state.recording=false;$("capture").classList.remove("recording");$("capture").textContent="Hold to capture";try{state.processor.disconnect();state.source.disconnect();state.stream.getTracks().forEach(t=>t.stop());await state.ctx.close()}catch(_){}const total=state.chunks.reduce((n,c)=>n+c.length,0),samples=new Float32Array(total);let at=0;for(const c of state.chunks){samples.set(c,at);at+=c.length}const duration=Math.round(total/SAMPLE_RATE*1000);status("Captured in "+(duration/1000).toFixed(1)+"s. Interpreting…");const x=interpretation(samples),id=uid(),blob=wav(samples),c={id,source:"browser://mie/"+id+".wav",durationMs:duration,inputType:x.inputType,confidence:x.confidence,rms:x.rms,zeroCrossingRate:x.zeroCrossingRate,detectedPitchHz:x.pitchHz,detectedMidi:x.detectedMidi,createdAtEpochMs:Date.now(),parentId:null,transformation:null,loopDecision:null,blob};await put(c);state.captures.unshift(c);state.selectedId=id;render();status("Saved as capture "+id.slice(0,8)+". Original audio preserved.")}
+function play(c){if(!c?.blob)return;stopPlayback(false);state.selectedId=c.id;state.playingId=c.id;const a=new Audio(URL.createObjectURL(c.blob));a.onended=()=>{if(state.repeatId===c.id){a.currentTime=0;a.play()}else{state.playingId=null;render()}};a.play();state.audio=a;render();status("Playing "+c.source.split("/").pop()+".")}
+function stopPlayback(reset=true){if(state.audio){state.audio.pause();state.audio=null}state.playingId=null;if(reset)state.repeatId=null}
+function toggleRepeat(c){if(state.repeatId===c.id){state.repeatId=null;status("Repeat disabled.")}else{state.repeatId=c.id;play(c);status("Repeat enabled.")}render()}
+async function transform(){const c=selected();if(!c||c.transformation){status("Select an original saved capture before transforming it.");return}status("Creating octave-up derivative…");const s=await readWav(c.blob),out=new Float32Array(Math.max(1,Math.floor(s.length/2)));for(let i=0;i<out.length;i++)out[i]=s[i*2];const id=uid(),blob=wav(out),d={...c,id,source:"browser://mie/"+id+".wav",durationMs:Math.floor(out.length/SAMPLE_RATE*1000),parentId:c.id,transformation:"octave_up",createdAtEpochMs:Date.now(),loopDecision:null,blob};await put(d);state.captures.unshift(d);state.selectedId=id;render();status("Created octave-up derivative "+id.slice(0,8)+" from "+c.id.slice(0,8)+". Original preserved.")}
+async function load(){state.captures=(await getAll()).sort((a,b)=>b.createdAtEpochMs-a.createdAtEpochMs);if(state.captures[0])state.selectedId=state.captures[0].id}
+function objectJson(c){return JSON.stringify({id:c.id,source:c.source,duration_ms:c.durationMs,interpretation:{type:c.inputType,confidence:c.confidence,rms:c.rms,zero_crossing_rate:c.zeroCrossingRate,detected_pitch_hz:c.detectedPitchHz,detected_midi:c.detectedMidi},provenance:{parent_id:c.parentId,transformation:c.transformation,created_at_epoch_ms:c.createdAtEpochMs}},null,2)}
+function renderObject(c){$("objectCard").classList.remove("hidden");const derived=!!c.transformation;$("objectType").textContent=derived?"DERIVED · OCTAVE UP":"ORIGINAL · "+(c.inputType==="melody_candidate"?"MELODY CANDIDATE":c.inputType==="rhythm_or_percussive_candidate"?"PERCUSSIVE CANDIDATE":"UNCERTAIN MUSICAL INPUT");const pitch=c.detectedPitchHz?((midiNote(c.detectedMidi)||"")+" · "+c.detectedPitchHz.toFixed(1)+" Hz"):"not detected";$("objectDetail").textContent=(c.durationMs/1000).toFixed(2)+"s · pitch "+pitch+" · confidence "+Math.round(c.confidence*100)+"%";$("objectJson").textContent=objectJson(c);$("saved").disabled=false;$("change").disabled=false;$("change").textContent=derived?"DERIVED":"OCTAVE UP"}
+function render(){const c=selected();if(c)renderObject(c);else $("objectCard").classList.add("hidden");$("historyCount").textContent=state.captures.length+" capture(s) in this session";$("history").innerHTML=state.captures.map((x,i)=>{const d=!!x.transformation;return '<article class="item"><button class="item-label" data-select="'+x.id+'">'+(i+1)+'. '+(d?"DERIVED · OCTAVE UP":"ORIGINAL")+'\n'+(midiNote(x.detectedMidi)||"pitch unknown")+" · "+(x.detectedPitchHz?x.detectedPitchHz.toFixed(1)+" Hz":"not detected")+" · "+(x.durationMs/1000).toFixed(2)+"s"+'</button><div class="item-controls"><button data-play="'+x.id+'">PLAY</button><button data-pause="'+x.id+'">PAUSE</button><button class="'+(state.repeatId===x.id?"active":"")+'" data-repeat="'+x.id+'">'+(state.repeatId===x.id?"REPEAT ✓":"REPEAT")+'</button></div></article>'}).join("");document.querySelectorAll("[data-select]").forEach(b=>b.onclick=()=>{const c=state.captures.find(x=>x.id===b.dataset.select);state.selectedId=c.id;render();status("Selected "+(c.transformation?"derived":"original")+" "+c.id.slice(0,8)+".")});document.querySelectorAll("[data-play]").forEach(b=>b.onclick=()=>play(state.captures.find(x=>x.id===b.dataset.play)));document.querySelectorAll("[data-pause]").forEach(b=>b.onclick=()=>{stopPlayback(false);render();status("Playback paused.")});document.querySelectorAll("[data-repeat]").forEach(b=>b.onclick=()=>toggleRepeat(state.captures.find(x=>x.id===b.dataset.repeat)))}
+$("capture").addEventListener("pointerdown",startCapture);$("capture").addEventListener("pointerup",finishCapture);$("capture").addEventListener("pointercancel",finishCapture);$("saved").onclick=()=>{const c=selected();if(c)status("Capture is already saved locally in this MIE session.")};$("change").onclick=transform;
+window.addEventListener("beforeunload",()=>stopPlayback());
 </script>
 </body>
 </html>
