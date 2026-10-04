@@ -10,6 +10,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.TextView
 import android.app.AlertDialog
 import kotlin.math.roundToInt
 import androidx.activity.result.contract.ActivityResultContracts
@@ -120,7 +121,7 @@ class MieActivity : AppCompatActivity() {
 
     private fun renderObject(file: File, objectModel: MieMusicalObject) {
         binding.objectCard.visibility = View.VISIBLE
-        val namePrefix = objectModel.displayName?.let { "$" + "it · " } ?: ""
+        val namePrefix = objectModel.displayName?.let { "${it} · " } ?: ""
         binding.objectType.text = namePrefix + if (objectModel.transformation == null) "ORIGINAL · ${objectModel.humanType().uppercase()}" else "DERIVED · OCTAVE UP"
         val pitch = objectModel.detectedPitchHz?.let { hz ->
             val note = objectModel.noteName()
@@ -167,8 +168,8 @@ class MieActivity : AppCompatActivity() {
                 String.format("%.1f Hz", it)
             } ?: "pitch unknown"
             val kind = if (objectModel.transformation == null) "ORIGINAL" else "DERIVED · OCTAVE UP"
-            val decision = objectModel.loopDecision?.uppercase()?.let { " · $" + "it" } ?: ""
-            val name = objectModel.displayName?.let { " · $" + "it" } ?: ""
+            val decision = objectModel.loopDecision?.uppercase()?.let { " · ${it}" } ?: ""
+            val name = objectModel.displayName?.let { " · ${it}" } ?: ""
             val card = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(14.dp(), 10.dp(), 14.dp(), 10.dp())
