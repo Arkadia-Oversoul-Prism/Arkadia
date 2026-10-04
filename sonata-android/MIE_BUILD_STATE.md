@@ -20,3 +20,19 @@ Result: MVP-GATE-04 repeat behavior physically verified.
 
 CI passed on workflow run 37142127800 (run #86), head `3de223c6a3d87de4d805eeaea4388a4ae3ea9f60`.
 Debug APK artifact produced successfully. Physical Gate 05 verification is the next boundary.
+
+
+## Gate 06 Build · 2026-10-05
+
+Native Gate 06 implementation is present on `feature/mie-gate-06-object-control`.
+
+Scope:
+- undo / redo object-list state;
+- clone with new object identity and copied audio;
+- persistent human-readable rename;
+- recoverable delete / restore;
+- persisted clone and deletion provenance;
+- per-object management controls;
+- device-verifiable evidence protocol recorded in `musical-intention-engine/GATES.md`.
+
+CI/build and physical-device verification remain pending.
