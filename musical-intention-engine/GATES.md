@@ -113,3 +113,18 @@ The gate is intentionally device-verifiable. Physical verification must demonstr
 10. restart the app and confirm active objects, deleted objects, names, clone provenance, and original audio remain intact.
 
 Physical-device verification remains pending.
+
+
+## Web Lab reconciliation · 2026-10-05
+
+The Web Lab was updated after the native Gate 06 implementation to mirror the native object-control boundary:
+
+- undo / redo;
+- clone with independent identity;
+- rename;
+- soft delete / restore;
+- persistent object-control provenance;
+- Gate 05 keep / revise behavior retained;
+- per-object playback and repeat retained.
+
+Browser execution remains a proving ground. Android remains the execution authority.
