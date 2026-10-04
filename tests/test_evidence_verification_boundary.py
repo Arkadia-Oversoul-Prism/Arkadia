@@ -207,32 +207,27 @@ def test_evidence_and_verification_records_are_append_only():
         assert f"DELETE FROM {table}" not in src, f"{table} must not be deleted"
 
 
-def test_no_http_route_creates_evidence_or_verification():
-    for src in _ROUTE_SOURCES:
-        text = src.read_text(encoding="utf-8")
-        assert ".evidence(" not in text, f"{src} creates evidence over HTTP"
-        assert ".verify(" not in text, f"{src} creates a verification over HTTP"
-
-    paths: list[str] = []
-    for src in _ROUTE_SOURCES:
-        for line in src.read_text(encoding="utf-8").splitlines():
-            stripped = line.strip()
-            if stripped.startswith(("@router.", "@app.")) and "(" in stripped:
-                paths.append(stripped.lower())
-    joined = "\n".join(paths)
-    assert "evidence" not in joined
-    assert "verif" not in joined
+def test_console_authority_routes_expose_evidence_and_verification_separately():
+    # Sovereign Option A: these are intended first-class Console authority routes.
+    authority_path = pathlib.Path("solspire/console_authority_router.py")
+    authority = authority_path.read_text(encoding="utf-8")
+    assert '@router.post("/executions/{execution_id}/evidence")' in authority
+    assert '@router.post("/verification")' in authority
+    assert "user: dict[str, Any] = Depends(require_auth)" in authority
+    # Verification identity is server-derived from Firebase, not the request label.
+    assert 'verifier=f"firebase:{user[\'uid\']}"' in authority
+    assert "store.evidence(" in authority
+    assert "store.verify(" in authority
 
 
-def test_evidence_and_verification_are_http_readable_only_as_a_projection():
-    # The control-room projection joins evidence to verification and to the
-    # execution chain (the HTTP-readable layer).
+def test_evidence_and_verification_are_http_readable_through_console_and_projection():
+    # The control-room projection joins evidence to verification and the execution chain.
     eden = pathlib.Path("solspire/eden_ops_02.py").read_text(encoding="utf-8")
     assert "ew_evidence" in eden and "ew_verifications" in eden
     assert "JOIN ew_execution_attempts" in eden
     assert "instr(v.evidence_refs, e.id)" in eden
 
-    # But the route that serves it exposes no evidence/verification endpoint.
+    # The projection remains a distinct read surface; lineage walk is not exposed.
     routes = pathlib.Path("solspire/eden_ops_02_routes.py").read_text(encoding="utf-8")
     assert "control-room" in routes
     assert "@router.get(\"/evidence" not in routes
