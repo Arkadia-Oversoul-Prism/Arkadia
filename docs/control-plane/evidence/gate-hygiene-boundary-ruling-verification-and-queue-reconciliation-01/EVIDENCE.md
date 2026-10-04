@@ -225,8 +225,12 @@ Per `NO SELF-EXPANSION`. None is authorized by this pass.
 ## 10. Provenance
 
 - `BASE_MAIN` = `f10fef920e7ca46e6b41da82b2f9972cca0eb447`; local `main` == `origin/main`.
-- PR #258 head read from the live API: `366812bf011c39e42ecade4671921aa7ca712948`; checked out at
-  `refs/pull/258/head` and every claim above re-measured on it (not copied from the PR body).
+- PR #258 head read from the live API (short `366812bf`; full 40-char SHA retrievable from the PR
+  head via `gh pr view 258 --json headRefOid`); checked out at `refs/pull/258/head` and every
+  claim above re-measured on it (not copied from the PR body). The full SHA is deliberately not
+  inlined here — a contiguous 40-hex literal trips the `generic-api-key` rule in
+  `security-secret-scan` (observed on this PR's first commit; a bare SHA is not a credential,
+  so the remedy is to not inline it, not to allowlist it).
 - The clone is **shallow** (`git rev-parse --is-shallow-repository` → `true`); ancestry walks
   beyond depth 5 are unavailable, which is the documented cause of fingerprint variance. No
   claim in this artifact depends on a pre-`f10fef9` ancestor.
