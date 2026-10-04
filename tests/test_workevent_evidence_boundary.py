@@ -7,8 +7,9 @@ WorkEvent -> Evidence join?
 The result is an ABSENCE, recorded not repaired. A WorkEvent carries only opaque
 reference fields; runtime evidence binds to an *execution attempt* in the
 ARK-WEAVER-01 enterprise chain (a different spine from the SolSpire WorkEvent
-spine); and no field or table on either side joins the two. No HTTP route
-exposes evidence or verification as first-class records.
+spine); and no field or table on either side joins the two. The Console
+authority bridge exposes evidence and verification as first-class records;
+enterprise lineage traversal remains unexposed.
 """
 from __future__ import annotations
 
