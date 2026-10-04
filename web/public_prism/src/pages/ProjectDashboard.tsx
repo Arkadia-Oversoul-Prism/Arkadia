@@ -1179,7 +1179,6 @@ function Settings({ project, onProjectUpdated, onArchive }: { project: Project; 
 const TABS: { id: ProjTab; label: string; sigil: string }[] = [
   { id: 'overview',       label: 'Overview',       sigil: '◈' },
   { id: 'weaver',         label: 'Arcana Weaver',  sigil: '⌁' },
-  { id: 'canvas',         label: 'Arcana Weaver',  sigil: '⌁' },
   { id: 'knowledge',      label: 'Knowledge',      sigil: '◈' },
   { id: 'conversations',  label: 'Conversations',  sigil: '💬' },
   { id: 'files',          label: 'Files',          sigil: '📄' },
