@@ -174,24 +174,21 @@ If any were introduced by this checkpoint: resolve them or record them explicitl
 
 ---
 
-## Repository Health (re-measured 2026-10-02, `main` @ `64cbe74`)
+## Repository Health (re-measured 2026-10-04, `main` @ `1b7c089`)
 
 - Architecture fitness tests: **11/11**
-- Full suite: **18 failed / 1304 passed / 18 skipped / 1 error** — re-measured 2026-10-03 on
-  `gate-hygiene/stale-gate-fixture-retirement-01` (main `162f574`). A plain CI checkout
-  reports **19 failing/error nodes** (the recorded set plus the clone-depth-dependent
-  sibling `test_shadow_adjudication_is_proved_by_the_oracle_not_the_codec`); the
-  clone-depth-stable recorded set is **18 nodes**
-  (`tests/fixtures/baseline_node_set.txt`).
+- Full suite: **9 failed / 1414 passed / 20 skipped / 1 error**. The recorded set is the
+  **10 failing/error nodes** a live run reports (`tests/fixtures/baseline_node_set.txt`);
+  8 entries previously recorded as debt now pass and were removed, their origin kept in
+  `tests/fixtures/superseded_baseline_node_set_18.txt`.
   Classified baseline debt — not attributable to new work unless the node *set* changes.
 - Baseline fingerprint:
   `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `6c7bf8218fd1e0ae9bc970653e98c18b3a78b69a5c4920dac9f4747c033e4648`
-  (node-set fingerprint `2bc35996…`). Earlier published pairs (`a59453b8…`, `9a35c812…`,
-  `4d84e7eb…`, `da2ec262…`) are superseded and not clone-depth-stable — do not reuse them.
-  `a578a766…`/`8036fc06…` were superseded 2026-10-03 by `6c7bf821…`/`2bc35996…` when the
-  two archived-surface gate nodes were retired. See
-  `docs/control-plane/evidence/gate-hygiene-baseline-fingerprint-reconciliation-01/`.
+  `9a54f5b478d1135f27ab9e54d95706f03eae1ceb5d4c1f3ae075bffc4208ab38`
+  (node-set fingerprint `124bfdfd…`). Earlier published pairs (`a59453b8…`, `9a35c812…`,
+  `4d84e7eb…`, `da2ec262…`, `a578a766…`/`8036fc06…`, and `6c7bf821…`/`2bc35996…` when the
+  two archived-surface gate nodes were retired) are superseded — do not reuse them. See
+  `docs/control-plane/evidence/gate-hygiene-baseline-node-set-live-reconciliation-01/`.
 - Gate-2 production parity: **BLOCKED on provider auth** (Vercel Deployment Protection).
   External boundary, not a repository task. Do not re-run the pass expecting a different
   classification.

@@ -152,6 +152,37 @@ def test_non_outcome_lines_are_ignored(tmp_path, line):
     assert outcomes == [] and ids == []
 
 
+def test_log_missing_an_error_line_is_rejected_not_under_reported(tmp_path):
+    """A log whose summary counts exceed its outcome lines must fail closed.
+
+    pytest omits ERROR summary lines under `-rf`, so a collection error is invisible to
+    the line-based extractor: the run *looks* complete while the fingerprint describes a
+    subset of the debt. This is a negative control for the guard — it feeds the exact
+    shape `-rf` produces and asserts the extractor refuses it rather than hashing a
+    short node set.
+    """
+    log = _write(
+        tmp_path,
+        "FAILED tests/a.py::t - AssertionError\n"
+        "9 failed, 1417 passed, 20 skipped, 1 error in 126.64s (0:02:06)\n",
+    )
+    with pytest.raises(ValueError, match="Re-run with `-rEf`"):
+        baseline_fingerprint.extract(str(log))
+
+
+def test_complete_log_is_accepted(tmp_path):
+    """The positive control: matching counts parse without error."""
+    log = _write(
+        tmp_path,
+        "FAILED tests/a.py::t - AssertionError\n"
+        "ERROR tests/b.py\n"
+        "1 failed, 1 error in 3.20s\n",
+    )
+    outcomes, ids = baseline_fingerprint.extract(str(log))
+    assert outcomes == ["ERROR tests/b.py", "FAILED tests/a.py::t"]
+    assert ids == ["tests/a.py::t", "tests/b.py"]
+
+
 # --- Live node set and published-value agreement ---------------------------
 #
 # The tests above pin the *derivation* with synthetic input. They cannot catch a
@@ -177,6 +208,13 @@ LIVE_NODE_SET = REPO_ROOT / "tests" / "fixtures" / "baseline_node_set.txt"
 # keeping the era-correct set lets the origin stay proved after the retirement.
 SUPERSEDED_NODE_SET = (
     REPO_ROOT / "tests" / "fixtures" / "superseded_baseline_node_set.txt"
+)
+
+# The 18-node set that was canonical 2026-10-03 → 2026-10-04, before the live
+# reconciliation removed the 8 entries a live run reports as passing. Retained so the
+# superseded pair stays reproducible from an era-correct set rather than only from prose.
+SUPERSEDED_18_NODE_SET = (
+    REPO_ROOT / "tests" / "fixtures" / "superseded_baseline_node_set_18.txt"
 )
 
 # The two nodes retired by `gate-hygiene/stale-gate-fixture-retirement-01`. They asserted a
@@ -209,16 +247,17 @@ CLONE_DEPTH_DEPENDENT_NODE = (
 )
 
 # Canonical values: `scripts/baseline_fingerprint.py` run on LIVE_NODE_SET.
-# Superseded 2026-10-03 by `gate-hygiene/stale-gate-fixture-retirement-01`, which
-# retired the two nodes asserting the archived root `gate/` + `index.html` surface
-# (removed from the tree by `f6718b9` / `377cdb3`, present only under
-# `archive/legacy_frontend/gate/`). The recorded set is now 18 nodes. The previous
-# pair is retained in SUPERSEDED_* below.
+# Superseded 2026-10-04 by `gate-hygiene/baseline-node-set-live-reconciliation-01`,
+# which reconciled the recorded set with a live full-suite measurement: 8 of the 18
+# recorded entries had been *repaired* by later merges and now pass, so carrying them
+# as debt over-reported the repository's debt — the mirror of the stale-expectation
+# defect this file already guards against. The recorded set is now the 10 nodes a live
+# run actually reports. The prior 18-node pair is retained in SUPERSEDED_* below.
 CANONICAL_OUTCOMES_FINGERPRINT = (
-    "6c7bf8218fd1e0ae9bc970653e98c18b3a78b69a5c4920dac9f4747c033e4648"
+    "9a54f5b478d1135f27ab9e54d95706f03eae1ceb5d4c1f3ae075bffc4208ab38"
 )
 CANONICAL_IDS_FINGERPRINT = (
-    "2bc35996b21de6529ffffab63446c8bd7295c388e841a2807101d189eaf7da01"
+    "124bfdfd078fe878fe7c9de358ba271e977c4f7b73909b9d7d016b9ae9c1e87f"
 )
 
 # Values that were published but do not describe the recorded set. They must not
@@ -231,17 +270,21 @@ CANONICAL_IDS_FINGERPRINT = (
 # "unreproducible". `4d84e7eb…`/`da2ec262…` were reproducible only in a clone that
 # contained the PR-head revision `7d79f38…`. `a578a766…`/`8036fc06…` were the canonical
 # pair for the 20-node recorded set before the two archived-surface nodes were retired
-# 2026-10-03 by `gate-hygiene/stale-gate-fixture-retirement-01`. All three pairs are
-# superseded by the clone-depth-stable canonical value above.
+# 2026-10-03 by `gate-hygiene/stale-gate-fixture-retirement-01`. All four pairs are
+# superseded by the live-reconciled canonical value above.
 SUPERSEDED_OUTCOMES_FINGERPRINTS = (
     "a59453b8a1e5a02899f469cf6ea7db9b5eaae658050261e1405c394cb0f3cf6f",
     "4d84e7eb2524d4a5a952405f6df8017398ce21cca44aec6d04fbb523d577c6a7",
     "a578a766c09c949c620c9d324248659812d215d3d1e875a0c25b42adb8912aa1",
+    # Canonical for the 18-node recorded set, 2026-10-03 → 2026-10-04. Superseded by
+    # the live reconciliation that removed the 8 entries a live run reports as passing.
+    "6c7bf8218fd1e0ae9bc970653e98c18b3a78b69a5c4920dac9f4747c033e4648",
 )
 SUPERSEDED_IDS_FINGERPRINTS = (
     "9a35c8122188e272ec5769d7a8f5cdba6160b4f2f1fba8a840019a487c1bcc22",
     "da2ec2620d09988e75702b6444ee8ee6ba5ded8bc067aac6c4e149245c27de71",
     "8036fc0692eb0358f037adb2cf9e2b234db1f41a4586ca0162f4e52350cfa713",
+    "2bc35996b21de6529ffffab63446c8bd7295c388e841a2807101d189eaf7da01",
 )
 
 # Documents that publish a baseline fingerprint and must agree with the canonical
@@ -255,11 +298,27 @@ FINGERPRINT_DOCS = [
 ]
 
 
+# Nodes the reconciliation removed because a live full-suite run reports them as
+# *passing*. They were repaired by later merges while the fixture kept carrying them as
+# debt. Listing them here lets the guard below fail if one is ever re-recorded: the
+# recorded set must describe the repository's live debt, not its history.
+LIVE_RED_SHOULD_NOT_PASS_NODES = (
+    "tests/test_agents_md_encoding_adjudication.py::test_exit_code_does_not_call_a_divergent_clean_file_verified",
+    "tests/test_authority_api_enterprise_boundary.py::test_api_approval_does_not_create_enterprise_authorization_without_explicit_bridge",
+    "tests/test_authority_api_enterprise_boundary.py::test_authorized_identity_is_the_control_case_and_creates_both_records",
+    "tests/test_solariun_thread_navigation_01.py::test_shell_wires_home_to_lens_selection",
+    "tests/test_solspire_r2_github_mutation.py::test_legacy_commit_file_fails_closed_without_network_write",
+    "tests/test_spiral_grove_registry.py::test_ais_catalog_supports_progressive_creative_workflow",
+    "tests/test_spiral_grove_registry.py::test_registry_rejects_prerequisite_cycle",
+    "tests/test_upstream_causal_continuity_01.py::test_api_approval_does_not_create_enterprise_authorization",
+)
+
+
 def test_live_node_set_reproduces_the_canonical_fingerprint():
     """The recorded baseline set must hash to the published canonical value."""
     outcomes, ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
-    assert len(ids) == 18
-    assert sum(1 for o in outcomes if o.startswith("FAILED")) == 17
+    assert len(ids) == 10
+    assert sum(1 for o in outcomes if o.startswith("FAILED")) == 9
     assert sum(1 for o in outcomes if o.startswith("ERROR")) == 1
     assert baseline_fingerprint.fingerprint(outcomes) == CANONICAL_OUTCOMES_FINGERPRINT
     assert baseline_fingerprint.fingerprint(ids) == CANONICAL_IDS_FINGERPRINT
@@ -288,6 +347,45 @@ def test_recorded_set_excludes_the_retired_archived_surface_nodes():
     _, ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
     for retired in RETIRED_NODES:
         assert retired not in ids
+
+
+def test_recorded_set_excludes_the_live_reconciled_repairs():
+    """Nodes a live run reports as *passing* must not be carried as recorded debt.
+
+    Eight entries were repaired by later merges while the fixture kept listing them. Keeping
+    them made the recorded debt over-report — the repository's history, not its live state —
+    which is the same defect class as the retired-archived-surface guard above. This fails if
+    any of the eight is re-recorded.
+    """
+    _, ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
+    for repaired in LIVE_RED_SHOULD_NOT_PASS_NODES:
+        assert repaired not in ids
+
+
+def test_superseded_18_node_set_reproduces_the_superseded_pair():
+    """The archival fixture must hash to the superseded 18-node pair.
+
+    `tests/fixtures/superseded_baseline_node_set_18.txt` is the only in-repo artifact
+    that carries the pre-reconciliation 18-node debt. Without this guard the file could
+    be edited or deleted while `SUPERSEDED_OUTCOMES_FINGERPRINTS` still cites the value,
+    making the supersession unreproducible from the repository alone.
+    """
+    outcomes, ids = baseline_fingerprint.extract(str(SUPERSEDED_18_NODE_SET))
+    assert len(ids) == 18
+    assert baseline_fingerprint.fingerprint(outcomes) == SUPERSEDED_OUTCOMES_FINGERPRINTS[3]
+    assert baseline_fingerprint.fingerprint(ids) == SUPERSEDED_IDS_FINGERPRINTS[3]
+
+
+def test_live_node_set_is_a_proper_subset_of_the_superseded_18_node_set():
+    """Every recorded node must have been in the prior 18-node set.
+
+    The reconciliation only *removed* entries a live run reports as passing; it did not
+    invent debt. A node in the live set but absent from the 18-node set would mean a new
+    failure was silently absorbed into the baseline instead of being attributed.
+    """
+    _, live_ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
+    _, prior_ids = baseline_fingerprint.extract(str(SUPERSEDED_18_NODE_SET))
+    assert set(live_ids) <= set(prior_ids)
 
 
 def test_superseded_values_are_the_superseded_set_plus_its_sibling():
