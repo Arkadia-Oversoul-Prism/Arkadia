@@ -66,6 +66,11 @@ def test_authorized_identity_is_the_control_case_and_creates_both_records(
         proposal_id=proposal.id,
         action="APPROVE",
         actor="authorized-subject",
+        actor_identity={
+            "uid": "authorized-subject",
+            "role": "Flamekeeper",
+            "access_level": 0,
+        },
     )
 
     assert result["status"] == "AUTHORIZED"
