@@ -16,6 +16,9 @@
 | `api/main.py` | untouched, compiles, 2582 / 2600 |
 | CP10 mutation boundary | PASS (rc 0) |
 | regression | node set identical to `main`; `+5 passed` = 19 -> 24 in the fingerprint file |
+| check-runs (head) | `Full-history secret scan` success; `Vercel Preview Comments` success |
+| commit status (head) | `Vercel – arkadia-prism` **success**; `Vercel – console` **failure** — **pre-existing on base `1b7c089`**, which fails the same context (`?upgradeToPro=build-rate-limit`); not attributable to this PR (docs + fixture + script only) |
+| required checks | UNKNOWN — `GET /branches/main/protection` returns 403 for this token |
 | status | **VERIFIED** (reconciliation + fail-closed guard with negative control) |
 | authorization | sovereign merge only |
 
