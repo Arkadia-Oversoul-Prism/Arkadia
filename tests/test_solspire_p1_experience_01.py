@@ -40,8 +40,13 @@ def test_p1_1_arkana_context_pack():
     # ...and the pack is built from the authenticated surface scope only.
     assert "pack.authenticated" in region
     assert "pack.surface" in region
-    # Bounded context, stated honestly rather than in absolute terms.
-    assert "NO SILENT FULL-CORPUS DUMP" in region
+    # Bounded context, stated honestly rather than in absolute terms. The literal
+    # ``NO SILENT FULL-CORPUS DUMP`` was retired in ``357fbd8``; the panel's own
+    # honesty disclosure is the surface that carries the bounded-context claim now.
+    honesty = re.search(r'<div className="arkana-context-honesty">(.*?)</div>', region, re.S)
+    assert honesty, "Arkana context-pack honesty disclosure not found"
+    assert "bounded context" in honesty.group(1)
+    assert "Missing sources remain visible" in honesty.group(1)
 
 
 def test_p1_1_not_authorization():
@@ -54,8 +59,8 @@ def test_p1_1_not_authorization():
     src = EXP.read_text()
     assert "Not an authorization authority" not in src
     region = _arkana_overlay_region(src)
-    assert "Displayed context only" in region
-    assert "not injected into the visible conversation" in region
+    assert "bounded context" in region
+    assert "injected into each Arkana turn" in region
 
 
 def test_p1_2_object_sheet():

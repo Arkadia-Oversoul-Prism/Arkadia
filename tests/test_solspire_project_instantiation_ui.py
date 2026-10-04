@@ -16,7 +16,7 @@ def test_projects_ui_uses_server_owned_template_catalog():
     assert "apiFetch('/solspire/project-templates'" in source
     assert 'aria-label="Project template"' in source
     assert "template_id: templateId" in source
-    assert "runtime integration is verified separately" in source
+    assert "Runtime integration is verified separately." in source
 
 
 def test_arkana_injects_bounded_project_context_and_scopes_threads():
@@ -26,12 +26,24 @@ def test_arkana_injects_bounded_project_context_and_scopes_threads():
     assert "ACTIVE_THREAD_KEY}:project:" in source
     assert "[ARKADIA PROJECT CONTEXT SNAPSHOT" in source
     assert "unavailable_sources" in overlay
-    assert "/solspire/projects/${pack.projectId}/tasks" in overlay
-    assert "/solspire/projects/${pack.projectId}/memory" in overlay
-    assert "/solspire/projects/${pack.projectId}/workflows" in overlay
-    assert "/solspire/projects/${pack.projectId}/knowledge/graph" in overlay
-    assert "knowledge_graph" in source
+    # The overlay reads one bounded runtime-context document and derives its
+    # per-surface availability from it; the project-scoped endpoints live on the
+    # surfaces that own them, not inlined as literals in the overlay.
+    assert "/solspire/projects/${pack.projectId}/runtime-context" in overlay
+    assert "knowledge_graph" in overlay
     assert "Number(project.id)" not in overlay
+
+    # The project-scoped reads the pack claims are wired on their own surfaces.
+    assert "/solspire/projects/${projectId}/knowledge/graph" in (
+        ROOT / "web/public_prism/src/components/solspire/ProjectKnowledgeGraph.tsx"
+    ).read_text()
+    action_surfaces = (
+        ROOT / "web/public_prism/src/components/solspire/WorkspaceActionSurfaces.tsx"
+    ).read_text()
+    assert "/solspire/projects/${project.id}/tasks" in action_surfaces
+    assert "/solspire/projects/${project.id}/memory" in (
+        ROOT / "web/public_prism/src/pages/ProjectDashboard.tsx"
+    ).read_text()
 
 
 def test_project_overview_surfaces_runtime_status_without_claiming_all_modules_are_live():
@@ -65,4 +77,4 @@ def test_project_runtime_context_uses_canonical_spines_without_inventing_project
     assert "get_workload_manager().get_for_subject" in source
     assert "get_workevent_manager().list" in source
     assert '"SUBJECT_WORKSPACE_BOUND_NOT_PROJECT_BOUND"' in source
-    assert '"Project records are data/evidence, not authority."' in source
+    assert "Project records are data/evidence, not authority." in source
