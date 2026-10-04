@@ -8,8 +8,10 @@
 | change set | fingerprint script + tests + fixture (18 -> 10 + archival) + health docs |
 | architecture | 11/11 |
 | full suite (branch) | 9F / 1419P / 20S / 1E (~125s) |
-| failure node-set sha256 | `9a54f5b478d1135f27ab9e54d95706f03eae1ceb5d4c1f3ae075bffc4208ab38` (outcomes) / `124bfdfd078fe878fe7c9de358ba271e977c4f7b73909b9d7d016b9ae9c1e87f` (ids) |
-| superseded pair (18 nodes) | `6c7bf821…` / `2bc35996…`, reproducible from `tests/fixtures/superseded_baseline_node_set_18.txt` |
+| full suite (base `1b7c089`) | 9F / 1414P / 20S / 1E — paired control; `+5 passed` = 19 -> 24 in the fingerprint file |
+| failure node-set sha256 | `9a54f5b478d1135f27ab9e54d95706f03eae1ceb5d4c1f3ae075bffc4208ab38` (outcomes) / `124bfdfd078fe878fe7c9de358ba271e977c4f7b73909b9d7d016b9ae9c1e87f` (ids) — **identical on base and head** |
+| superseded pair (18 nodes) | `6c7bf8218fd1e0ae9bc970653e98c18b3a78b69a5c4920dac9f4747c033e4648` / `2bc35996b21de6529ffffab63446c8bd7295c388e841a2807101d189eaf7da01`, reproduced from `tests/fixtures/superseded_baseline_node_set_18.txt` |
+| live fixture pair | reproduces `9a54f5b4…` / `124bfdfd…` from `tests/fixtures/baseline_node_set.txt` (10 nodes) |
 | fingerprint tests | 24 passed (19 before; +5: two guard controls + archival-fixture tests) |
 | `api/main.py` | untouched, compiles, 2582 / 2600 |
 | CP10 mutation boundary | PASS (rc 0) |
