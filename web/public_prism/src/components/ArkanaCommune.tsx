@@ -371,27 +371,29 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, proje
     (async () => {
       try {
         if (projectContextId) {
-          const savedThread = (() => { try { return localStorage.getItem(threadStorageKey); } catch { return null; } })();
-          if (hasStoredProjectThread && savedThread) {
-            if (live) {
-              setThreads([{ uuid: savedThread, title: `${projectName || 'Project'} · Arkana`, project_id: null }]);
-              setActiveThreadId(savedThread);
+          const projectNumericId = Number(projectContextId);
+          const res = await apiFetch(`/api/commune/threads?project_id=${encodeURIComponent(String(projectNumericId))}`);
+          if (!res.ok) return;
+          const data = await res.json();
+          const listed = Array.isArray(data.threads) ? data.threads : [];
+          if (!live) return;
+          if (listed.length === 0) {
+            const created = await apiFetch('/api/commune/threads', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ title: "New Arkana conversation", project_id: projectNumericId }),
+            });
+            const createdData = await created.json().catch(() => ({}));
+            const thread = createdData?.thread;
+            if (created.ok && thread?.uuid && live) {
+              setThreads([thread]);
+              setActiveThreadId(thread.uuid);
             }
-            return;
-          }
-          const created = await apiFetch('/api/commune/threads', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: "New Arkana conversation", ...(projectContextId ? { project_id: Number(projectContextId) } : {}) }),
-          });
-          const data = await created.json().catch(() => ({}));
-          const thread = data?.thread;
-          if (created.ok && thread?.uuid && live) {
-            setThreads([thread]);
-            setActiveThreadId(thread.uuid);
+          } else {
+            setThreads(listed);
+            if (!listed.some((t: any) => t.uuid === activeThreadId)) setActiveThreadId(listed[0].uuid);
           }
           return;
         }
-
         const res = await apiFetch('/api/commune/threads' + (projectId != null ? '?project_id=' + projectId : ''));
         if (!res.ok) return;
         const data = await res.json();
