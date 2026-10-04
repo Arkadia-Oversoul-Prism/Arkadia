@@ -187,6 +187,16 @@ Re-derived from the deployments API (full 40-char SHAs; never `?head_sha=` abbre
   2 (production acceptance remains a sovereign act) and it must not be promoted to parity
   without a read of the deployment-specific URL (protected by Vercel SSO).
 
+- **Caution for the next pass — the `?environment=production` filter is exact-match and misses
+  the current deploy.** `fa1b40787544` is labelled `Production – arkadia-prism` /
+  `Production – console` (project-suffixed), so
+  `GET /deployments?environment=production` returns only older, unsuffixed entries
+  (top: `57e67c534ff6`, 2026-10-02) and **`?sha=fa1b40787544` returns 0 rows**. The correct
+  current-production query is `GET /deployments?per_page=10` (unfiltered) and read the newest
+  `Production – *` rows; their statuses resolve via `/deployments/<id>/statuses` —
+  `6838852040` (`fa1b4078`, arkadia-prism) = **success**, `6838848273` (console) = **failure**.
+  Do not conclude "no production deploy" from the filtered 0-row result.
+
 ### 9.4 Classification of this addendum
 
 **VERIFIED (reconciliation)** — reproduced measurements, a pinned clone-depth explanation for
