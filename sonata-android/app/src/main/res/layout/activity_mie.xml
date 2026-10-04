@@ -16,7 +16,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="MUSICAL INTENTION ENGINE · GATE 03"
+            android:text="MUSICAL INTENTION ENGINE · GATE 05"
             android:textColor="@color/text_dim"
             android:textSize="10sp"
             android:letterSpacing="0.18"
@@ -37,7 +37,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Capture musical thoughts, keep them, and return to them."
+            android:text="Capture a thought, change it, compare the result, then keep or revise."
             android:textColor="@color/text_dim"
             android:textSize="18sp"
             android:lineSpacingExtra="4dp"
@@ -151,7 +151,7 @@
                 android:layout_width="0dp"
                 android:layout_height="54dp"
                 android:layout_weight="1"
-                android:text="SAVED"
+                android:text="KEEP RESULT"
                 android:enabled="false"
                 android:textColor="@color/text_primary"
                 android:layout_marginEnd="6dp" />
@@ -162,7 +162,7 @@
                 android:layout_width="0dp"
                 android:layout_height="54dp"
                 android:layout_weight="1"
-                android:text="CHANGE"
+                android:text="OCTAVE UP"
                 android:enabled="false"
                 android:textColor="@color/text_primary"
                 android:layout_marginStart="6dp" />
