@@ -35,6 +35,14 @@ REPO = "Arkadia-Oversoul-Prism/Arkadia"
 ALIAS = "https://arkadia-prism.vercel.app/"
 BUILD_INPUTS = ["web/public_prism/", ":!web/public_prism/dist"]
 
+# A Production record is labelled `Production`, `Production – arkadia-prism`, or
+# `Production – console`. An exact-equality test admitted only the bare form, so
+# once Vercel began suffixing the project name the harness matched *no*
+# production deployments and reported the link as stale while a current
+# deployment existed. Match the production prefix exactly -- anchored, so a
+# `Preview – ...` record cannot be admitted -- and never by equality.
+PRODUCTION_ENVIRONMENT_RE = re.compile(r"^Production\b")
+
 # literal -> (provenance, expected_in_source, discriminates)
 MARKERS: dict[str, tuple[str, bool, str]] = {
     "separate explicit downstream stages": (
@@ -114,15 +122,20 @@ def is_ancestor(ancestor: str, descendant: str) -> bool:
 def production_deployments(payload, limit: int) -> list[dict]:
     """Filter a ``/deployments`` response to Production records.
 
-    ``environment`` is capitalized in the record; the query parameter is not.
-    A record is accepted only when it names a full 40-char source SHA, so a
-    truncated or absent ``sha`` cannot be compared as if it were identity.
+    ``environment`` in a record is capitalized and may carry a project suffix
+    (``Production – arkadia-prism``), so it is matched on the production prefix
+    rather than by equality: an equality test admits only the bare form and
+    silently drops the rest. A record is accepted only when it names a full
+    40-char source SHA, so a truncated or absent ``sha`` cannot be compared as
+    if it were identity.
     """
     if not isinstance(payload, list):
         return []
     out = []
     for d in payload:
-        if not isinstance(d, dict) or d.get("environment") != "Production":
+        if not isinstance(d, dict) or not isinstance(d.get("environment"), str):
+            continue
+        if not PRODUCTION_ENVIRONMENT_RE.match(d["environment"]):
             continue
         sha = d.get("sha") or ""
         if not re.fullmatch(r"[0-9a-f]{40}", sha):
@@ -264,7 +277,11 @@ def main() -> int:
     report["boundaries"]["current main resolved"] = "VERIFIED" if re.fullmatch(r"[0-9a-f]{40}", main_sha) else "UNKNOWN"
 
     # ---- link 2: deployment identity ----------------------------------------
-    deps = api(f"/deployments?environment=Production&per_page={args.limit}", token)
+    # Fetch UNFILTERED. The server-side `?environment=Production` predicate
+    # matches the bare label only and returns a different (older) cohort than the
+    # project-suffixed `Production – arkadia-prism` records, so a filtered query
+    # can never see the newest Production deployment. Filter client-side.
+    deps = api(f"/deployments?per_page={max(args.limit * 5, 50)}", token)
     if isinstance(deps, dict) and "__error__" in deps:
         report["boundaries"]["main -> deployment identity"] = "BLOCKED"
         report["deployments_error"] = deps["__error__"]

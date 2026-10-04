@@ -5,7 +5,7 @@ Source-level and pure-function tests, following the convention of
 running the script; what is proven here is that the harness cannot report a
 stronger boundary than its evidence supports.
 
-Three defects this pins, all measured on the live run of 2026-10-02:
+Defects this pins, all measured on the live run of 2026-10-02:
 
 1. ``environment=Production`` filters out every record, because the query
    parameter is case-insensitive while the record field is capitalized. The
@@ -16,6 +16,14 @@ Three defects this pins, all measured on the live run of 2026-10-02:
    are different states and only one of them is true.
 3. The ``build <-> source lineage`` boundary was computed from a second copy of
    the closure predicate, so it could disagree with the printed closure.
+
+A fourth defect, measured on the live run of 2026-10-04: the record label gained
+a project suffix (``Production – arkadia-prism``) and neither the equality
+filter nor the server-side ``?environment=Production`` query predicate matches
+it. The harness saw *no* production deployments and reported the link as
+``UNKNOWN`` -- the absent state -- while a newer production deployment existed.
+The label is now matched on an anchored production prefix, and the fetch is
+unfiltered so the query predicate cannot reintroduce the omission.
 """
 
 from pathlib import Path
@@ -51,6 +59,24 @@ def test_capitalized_environment_is_admitted():
 
 def test_other_environments_are_excluded():
     payload = [_dep(MAIN, "Production"), _dep(OTHER, "Preview"), _dep(OTHER, "staging")]
+    assert [d["sha"] for d in production_deployments(payload, 12)] == [MAIN]
+
+
+def test_project_suffixed_production_labels_are_admitted():
+    """Vercel suffixes the project name: ``Production – arkadia-prism``. An
+    equality test on the bare form drops these, so once the suffix appeared the
+    harness matched no production deployments at all -- a stale-deploy reading
+    for a repository that was in fact deployed."""
+    labels = ["Production – arkadia-prism", "Production – console"]
+    payload = [_dep(MAIN, lab) for lab in labels]
+    assert [d["sha"] for d in production_deployments(payload, 12)] == [MAIN, MAIN]
+
+
+def test_suffixed_preview_label_is_not_admitted():
+    """The prefix match must stay anchored: ``Preview – arkadia-prism`` is a
+    preview, not a production deployment. This is the negative control for the
+    suffix fix -- it fails if the regex is loosened to a substring search."""
+    payload = [_dep(OTHER, "Preview – arkadia-prism"), _dep(MAIN, "Production – arkadia-prism")]
     assert [d["sha"] for d in production_deployments(payload, 12)] == [MAIN]
 
 
@@ -143,3 +169,16 @@ def test_classifier_is_a_single_source_of_truth():
     src = _SCRIPT.read_text(encoding="utf-8")
     assert 'report["boundaries"]["build <-> source lineage"] = classify_source_lineage(' in src
     assert 'report["boundaries"]["main -> deployment identity"] = classify_deployment_identity(' in src
+
+
+def test_deployments_are_fetched_unfiltered():
+    """The server-side ``?environment=Production`` predicate drops the
+    project-suffixed labels and returns an older cohort, so it cannot see the
+    newest Production deployment. The fetch is therefore unfiltered and the
+    filtering is done client-side by the tested predicate. Pinned because a
+    reintroduced query filter is invisible -- it reads as 'no production
+    deployments', i.e. the very stale/absent ambiguity this harness exists to
+    separate."""
+    src = _SCRIPT.read_text(encoding="utf-8")
+    assert "/deployments?environment=" not in src
+    assert "/deployments?per_page=" in src
