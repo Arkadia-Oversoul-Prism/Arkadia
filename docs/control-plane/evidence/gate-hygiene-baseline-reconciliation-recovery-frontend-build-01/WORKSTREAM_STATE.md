@@ -7,14 +7,28 @@
 | objective | re-measure live baseline on `main`; recover one stale environment claim (`vite build`) with evidence; confirm the hygiene envelope is exhausted |
 | change set | this evidence dir only (no source/test/policy change) |
 | architecture | 11/11 |
-| full suite (this environment) | 9F / 1414P / 20S / 1E |
-| failure node-set sha256 | `00b3984e7ad487f1c36e1449429834cdf398f5dde8d4591f4079942c180af48b` |
+| full suite (Pass 1 clone) | 9F / 1414P / 20S / 1E |
+| full suite (Pass 2 clone, see EVIDENCE §9.2) | **10F / 1416P / 17S / 1E** — 9 classified + 1 clone-depth node |
+| failure node-set sha256 (Pass 2) | `6ca42572174af4550f35c33d5101467aa5ddb2de514a304f861036b067dc72c5` |
+| failure node-set sha256 (Pass 1) | `00b3984e7ad487f1c36e1449429834cdf398f5dde8d4591f4079942c180af48b` |
 | frontend build | **now runnable** here — `corepack pnpm install` + `corepack pnpm build` exit 0 (supersedes `environment-blocked`) |
-| AGENTS.md encoding audit | `Cyrillic 0`, `reproduced=True`, `alterations=0`, exit 1 |
+| AGENTS.md encoding audit | `Cyrillic 0`, `reproduced=True`, `alterations=0`, exit 1 (requires oracle `6c43218a48a4` fetched) |
 | CP10 mutation boundary | PASS (RC 0) |
 | api/main.py | untouched, compiles, 2582 / 2600 |
-| status | **VERIFIED** (reconciliation) |
+| Vercel on `main` `1b7c089f` | `failure` = **provider rate limit** ("retry in 24 hours"), NOT a build failure |
+| production deploy | `fa1b40787544` arkadia-prism `success`; 5 commits behind main; those 5 = docs+tests only → frontend source-identical |
+| status | **VERIFIED** (reconciliation + independent re-measurement, EVIDENCE §9) |
 | authorization | sovereign merge only |
+
+## Count-delta attribution (Pass 1 → Pass 2)
+
+The 9→10 failure delta is **clone depth**, not a regression. The depth-1 clone cannot resolve
+`tests/test_agents_md_encoding_adjudication.py`'s pinned revisions (`ORACLE_REV`
+`6c43218a48a4`, `CORRUPTION_COMMIT` `e0dde9ad9c5e`, `GATE2_PARENT_REV` `7d79f38bd520…`).
+Fetching them collapses 4 extra failures to 1 residual (`test_corruption_origin_is_re_derivable`,
+which needs full `git log -- AGENTS.md` history). No node in Pass 1's 9-failure set is absent in
+Pass 2, and no new non-clone-depth failure appears. **Fetch the three revisions before comparing
+counts.**
 
 ## Open queue (all need a decision — none executed)
 
@@ -32,12 +46,16 @@
 
 ## Next bounded task (deterministic resume block)
 
-- **State**: baseline reconciled and recorded; hygiene envelope exhausted.
-- **Evidence**: `EVIDENCE.md` in this dir (sections 2-4).
-- **Blockers**: every remaining node requires product/architectural/sovereign input.
+- **State**: baseline reconciled and recorded; independent re-measurement recorded (EVIDENCE §9);
+  hygiene envelope exhausted; production deploy boundary characterized.
+- **Evidence**: `EVIDENCE.md` in this dir (sections 2-4, §9 addendum).
+- **Blockers**: every remaining node requires product/architectural/sovereign input. Separately,
+  the current-`main` Vercel status is `BLOCKED` on a **provider build rate limit**; it is not a
+  repository action.
 - **Authorized action**: sovereign review of this evidence PR -> merge. Then a *separately
   authorized* product/architecture workstream may take `SH-06` (steward filter policy) or
-  `SH-03` (DERIVED contract) as its own bounded task.
+  `SH-03` (DERIVED contract) as its own bounded task. The Gate-2 deployment boundary should be
+  re-pulsed after the rate limit expires, using `scripts/gate2_production_observation.py`.
 - **Forbidden**: merging, pushing to `main`, widening this PR, "fixing" any classified failure
   by editing a test literal without a decision.
 - **Completion condition**: this PR merged -> next heartbeat reconstructs from live evidence.
