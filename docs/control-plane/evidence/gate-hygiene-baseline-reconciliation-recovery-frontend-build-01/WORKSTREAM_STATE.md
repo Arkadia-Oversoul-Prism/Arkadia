@@ -59,3 +59,21 @@ counts.**
 - **Forbidden**: merging, pushing to `main`, widening this PR, "fixing" any classified failure
   by editing a test literal without a decision.
 - **Completion condition**: this PR merged -> next heartbeat reconstructs from live evidence.
+
+## Pass 3 (2026-10-04) - duplicate-Operation-ID warning characterized
+
+- **Change**: EVIDENCE §10 only (this file + EVIDENCE.md). No source/test/policy file touched;
+  `git diff --numstat` = 1 file, +87, -0.
+- **Finding**: the 29 duplicate-Operation-ID warnings are NOT a lab-routes defect (EVIDENCE §5
+  attribution is CONTRADICTED). They are test-order-dependent: the seam test mutates the
+  module-level `api.nodes.router` singleton via `configure_routers` (non-idempotent,
+  `include_router` kept literal by ADR-014 D4 / `test_ais_w8_canonical_identity.py`); the health
+  test then calls `app.openapi()` on the already-composed app. 29 = 5 ais_profile + 24 lab_routes.
+- **Route integrity verified**: `GET /api/lab/overview` on `api.main.app` -> 401 (mounted once);
+  `app.openapi()` -> 258 paths / 298 ops / 0 duplicate ids. No route missing or shadowed.
+- **Architecture gate re-measured**: `tests/architecture` -> **11 passed**.
+- **Classified as** CONTRADICTED (of §5) / VERIFIED (of new mechanism).
+- **Next bounded task (NEW, separate authorization)**: test-isolation hardening - either make
+  `configure_routers` idempotent or have the seam test use a fresh `APIRouter`. NOT executed here;
+  it changes a test/layer-3 module and needs normal review. Not in this PR's scope.
+- **Blockers**: unchanged from the block above; Gate-2 deployment URL still Vercel-SSO-blocked.

@@ -205,3 +205,90 @@ sovereign review → merge. No merge, no push to `main`.
 
 _Independent re-measurement and addendum written by an AI agent (OpenHands) on behalf of the
 sovereign._
+
+---
+
+## 10. ADDENDUM — root cause of the duplicate-Operation-ID warning (Pass 3, 2026-10-04)
+
+This pass makes **no source, test, or policy change**; the only file touched is this evidence
+doc. It supersedes section 5's classification of the duplicate OpenAPI Operation IDs.
+
+### 10.1 Superseded attribution
+
+Section 5 recorded: *"`api/main.py` duplicate OpenAPI Operation IDs ... — lab-routes contract,
+not this pass."* That is **wrong on the mechanism**, and this addendum corrects it against a
+controlled reproduction. The warning is a **test-order-dependent artifact** of
+`api.nodes.configure_routers` mutating a module-level singleton; it is **not** a static defect
+in `api/lab_routes.py`, and `api/lab_routes.py` is not the thing to change.
+
+### 10.2 The ordering fact (reproduced)
+
+```
+pytest tests/test_nodes_composition_seam.py tests/test_production_health_route.py -q  ->  29 warnings
+pytest tests/test_production_health_route.py tests/test_nodes_composition_seam.py -q  ->   0 warnings
+```
+
+The 29 = **5 (`api/ais_profile.py`) + 24 (`api/lab_routes.py`)**, i.e. every operation of
+both injected sub-routers is reported, once each. A defect local to `lab_routes.py` would
+not also report all 5 `ais_profile` operations; the boundary of the set is the injection seam,
+not either file.
+
+### 10.3 Mechanism (pinned with an isolated repro)
+
+1. `tests/test_nodes_composition_seam.py::test_injected_sub_routers_serve_through_nodes_router`
+   calls `nodes.configure_routers(ais_router, lab_router)` — the module-level pair
+   `api.nodes.router`, a process-wide singleton, is mutated.
+2. `tests/test_production_health_route.py` imports `api.main.app` (which already ran
+   `configure_routers` at composition) and calls `app.openapi()`.
+3. `api/nodes.py` (ADR-014 Decision 4) keeps the literal
+   `router.include_router(_ais_profile_router)` / `router.include_router(_lab_router)` inside
+   `configure_routers` — **not idempotent** when called twice on the same router.
+   `tests/test_ais_w8_canonical_identity.py` asserts that literal, so the non-idempotency
+   cannot be removed without a separate, authorization-requiring change.
+4. FastAPI's openapi generator's own **message** is "Duplicate Operation ID id for function f",
+   but `config.openapi_duplicate_operation_ids` (FastAPI 0.142.2) only *warns*; the emitted
+   schema still de-duplicates by path, so a read of `app.openapi()` returns a schema with
+   **0** duplicate operation IDs. The warning and the schema therefore disagree: the warning
+   says a duplicate exists, the schema says none does.
+
+Isolated repro (`python -W ignore` around the seam action, then `app.openapi()`):
+
+```
+dup warnings after TestClient(local) : 0
+dup warnings after app.openapi()     : 29
+schema duplicate op ids              : 0
+```
+
+### 10.4 Why this is a real, if narrow, test-isolation issue
+
+Warnings are not failures, and this contamination does not corrupt any assertion in either
+test (the composed app's routes/schema are correct; see §10.5). But it is the **same class**
+already recorded for `test_engineering_lab_agent_loop` (a test that mutates global state and
+is order-sensitive). A future pass that greps `-W error` or asserts a warning-free run would
+fail for a reason unrelated to the code under test. Recorded here so the next heartbeat does
+not mis-attribute it to `api/lab_routes.py`.
+
+### 10.5 Route integrity is unaffected — verified
+
+The production app is correct; the contamination is confined to double-inclusion:
+
+- `GET /api/lab/overview` on `api.main.app` -> **401** (mounted once, authenticated).
+- `app.openapi()["paths"]` -> **258 paths / 298 ops**, **0** duplicate operation IDs.
+- Injecting twice grows `api.nodes.router.routes` 11 -> 13 -> 15, but the composed app still
+  yields one schema entry per path. No route is missing and none is shadowed.
+
+### 10.6 Classification and disposition
+
+**CONTRADICTED (of §5's attribution) / VERIFIED (of the new mechanism).** Recommended
+disposition: a **separate** bounded workstream — *test-isolation hardening* — that either
+(a) makes `configure_routers` idempotent (guarded by a router-identity check) and re-anchors
+the `test_ais_w8_canonical_identity.py` literal, or (b) has the seam test exercise injection
+against a fresh, non-singleton `APIRouter` instead of the shared `api.nodes.router` singleton.
+Either option changes a test or a layer-3 module and therefore requires the normal review
+boundary; it is **out of scope** for this evidence-only PR and is **not** executed here.
+
+The Gate-2 harness was re-pulsed in this pass and the repository-side chain is unchanged from
+§9.3; the deployment-specific URL still resolves to the Vercel SSO boundary
+(`BLOCKED` on provider auth), so Gate 2 stays open.
+
+_Additional addendum written by an AI agent (OpenHands) on behalf of the sovereign._
