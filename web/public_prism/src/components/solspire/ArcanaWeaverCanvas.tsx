@@ -8,13 +8,13 @@ import './arcana-weaver.css';
 type Props = { project: Project };
 
 /**
- * Arcana Weaver: one project-scoped interaction surface combining
+ * Arkana Weaver: one project-scoped interaction surface combining
  * Solariun field projection, Arkana's canonical LLM runtime, and
  * the existing governed Weaver agent workbench.
  *
  * This composes existing systems. It does not create execution authority.
  */
-export default function ArcanaWeaverCanvas({ project }: Props) {
+export default function ArkanaWeaverCanvas({ project }: Props) {
   return (
     <div data-testid="arcana-weaver-canvas" className="arcana-weaver-canvas">
       <section className="arcana-weaver-pane arcana-weaver-pane--field" aria-label="Solariun field">
@@ -40,7 +40,7 @@ export default function ArcanaWeaverCanvas({ project }: Props) {
           <ArkanaCommune
             projectContextId={project.id}
             projectName={project.name}
-            initialMessage={'You are operating inside the Arcana Weaver for ' + project.name + '. Treat the project as the active context. You may inspect, reason, retrieve and propose through the existing Arkadia runtime, but never imply that a proposal is authorization or that execution occurred unless the governed backend records it.'}
+            initialMessage={'You are operating inside the Arkana Weaver for ' + project.name + '. Treat the project as the active context. You may inspect, reason, retrieve and propose through the existing Arkadia runtime, but never imply that a proposal is authorization or that execution occurred unless the governed backend records it.'}
           />
         </div>
       </section>
