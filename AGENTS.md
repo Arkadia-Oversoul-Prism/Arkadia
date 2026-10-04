@@ -752,3 +752,30 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   `tests/test_solspire_r2_github_mutation.py::test_legacy_commit_file_fails_closed_without_network_write`
   and introduces nothing new (23 nodes vs 24 on `main`). Its documented `+2` in
   `solspire/tools_github.py` is the `"code": "MUTATION_DISABLED"` refusal field.
+
+## Baseline fingerprint — a recorded node set drifts, and `-rf` hides errors (gate-hygiene)
+- `tests/fixtures/baseline_node_set.txt` recorded **18** nodes while a live full-suite run on
+  `main` `1b7c089` reports **10**. Eight recorded entries had been repaired by later merges yet
+  stayed in the fixture as debt, so the "canonical" fingerprint described debt that no longer
+  existed. All 8 were verified passing in isolation (17 passed) before removal — the reduction
+  is measurement-backed, not a clone-depth artifact. The era-correct set is retained as
+  `tests/fixtures/superseded_baseline_node_set_18.txt` (it still hashes to the superseded pair
+  `6c7bf821…`/`2bc35996…`), so the prior values stay reproducible rather than deleted.
+- **The documented evidence command used `-rf`, which suppresses pytest's `ERROR` summary
+  lines.** pytest's default is `-r fE`; `-rf` alone prints only `FAILED` lines, so a collection
+  error is invisible to a line-based extractor. Same run, same tree: `-rf` -> **9** nodes
+  (`7d1bf895…`), `-rEf` -> **10** nodes (`9a54f5b4…`). The subset fingerprint looked
+  well-formed. `scripts/baseline_fingerprint.py::extract` now raises `ValueError` when the
+  summary reports more failures/errors than the log carries `FAILED`/`ERROR` lines, and
+  `summary_counts()` anchors on the trailing `in <n>s` duration (optional `(H:MM:SS)` suffix)
+  so a synthetic fragment is not mistaken for a summary. Always run the full suite with
+  `-rEf`; a fingerprint derived from `-rf` is a **subset**, not a baseline.
+- **The load-bearing invariant is the failing/error node SET, not the counts.** Passed counts
+  move with how many tests are present (`1414` on `main` vs `1419` with two new controls);
+  only the sorted `FAILED`/`ERROR` node list is stable. Compare node identity, never totals.
+- Two tests pin the guard so it cannot be disarmed by editing the workflow or the script
+  without reddening CI: a **negative control** feeding the exact `-rf` shape (must raise) and a
+  **positive control** (must parse). Canonical pair at `1b7c089`:
+  `9a54f5b478d1135f27ab9e54d95706f03eae1ceb5d4c1f3ae075bffc4208ab38` /
+  `124bfdfd078fe878fe7c9de358ba271e977c4f7b73909b9d7d016b9ae9c1e87f`.
+
