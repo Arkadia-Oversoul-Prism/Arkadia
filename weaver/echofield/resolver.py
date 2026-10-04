@@ -6,7 +6,7 @@ No invented bridges, only clarity.
 """
 
 from enum import Enum
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 
 class ConflictRule(Enum):
