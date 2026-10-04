@@ -253,3 +253,72 @@ def test_console_dispatch_uses_authorized_repository_root(tmp_path, monkeypatch)
         assert "sandbox" in str(exc).lower() or "outside" in str(exc).lower()
     else:
         raise AssertionError("authorized repository root was not enforced")
+
+def test_console_proposal_authorization_weaver_evidence_chain(tmp_path, monkeypatch):
+    import asyncio
+    import solspire.proposal_manager as pm
+    import solspire.workspace_manager as wm
+    import weaver.enterprise_orchestration as ew
+    from solspire.console_authority_router import (
+        authorize_proposal,
+        create_execution_attempt,
+        AuthorizationRequest,
+        ExecutionRequest,
+    )
+
+    db = str(tmp_path / "console-full-chain.db")
+    monkeypatch.setattr(pm, "_DB_PATH", db)
+    monkeypatch.setattr(wm, "_DB_PATH", db)
+    monkeypatch.setattr(ew, "_DB_PATH", db)
+
+    subject = "firebase-console-full-chain"
+    workspace = wm.WorkspaceManager().get_or_create(subject)
+    proposal = pm.ProposalManager().create_proposal(
+        subject_ref=subject,
+        workspace_ref=workspace.id,
+        objective="Inspect the authorized test workspace",
+        scope="Read-only Console execution proof",
+        requested_decision="inspect_workspace",
+    )
+    pm.ProposalManager().record_decision(
+        proposal_id=proposal.proposal_id,
+        subject_ref=subject,
+        decision="ACCEPTED",
+    )
+
+    authorized = asyncio.run(
+        authorize_proposal(
+            proposal.proposal_id,
+            AuthorizationRequest(
+                scope={"tools": ["filesystem.list"]},
+                constraints={
+                    "read_only": True,
+                    "repository_root": str(tmp_path),
+                    "network": False,
+                },
+            ),
+            user={"uid": subject, "role": "Flamekeeper", "access_level": 1},
+        )
+    )
+    authorization_id = authorized["authorization"]["id"]
+    assert authorized["human_authority_event"]["action"] == "APPROVE_PROPOSAL"
+    assert authorized["execution_authorized"] is True
+    assert authorized["solariun_proposal"]["authorization_ref"] == authorization_id
+
+    executed = asyncio.run(
+        create_execution_attempt(
+            authorization_id,
+            ExecutionRequest(
+                tool_channel="filesystem.list",
+                request_payload={"path": "."},
+            ),
+            user={"uid": subject},
+        )
+    )
+
+    assert executed["ok"] is True
+    assert executed["execution"]["tool_channel"] == "filesystem.list"
+    assert executed["execution_attempt"]["result_status"] == "SUCCEEDED"
+    evidence = executed["evidence"]
+    assert evidence["execution_attempt_id"] == executed["execution_attempt"]["id"]
+    assert evidence["evidence_type"] == "weaver_execution"
