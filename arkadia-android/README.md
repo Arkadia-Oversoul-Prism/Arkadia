@@ -1,5 +1,12 @@
 # Arkadia OS — Android
 
+> **Prism identity:** Mobile Prism projection surface. It is part of the **Arkadia Oversoul Prism**, not a separate Arkadia intelligence, authority path, or competing source of truth.
+>
+> **Canonical principle:** One human-governed intelligence architecture. Many expressions. One coherent substrate.
+>
+> **Authority boundary:** Capability does not confer authority. Human authority remains the decision boundary, and implementation claims must remain bounded by evidence.
+
+
 Native Android shell for the full Arkadia Knowledge Operating System.
 
 Loads the **Prism** React frontend in a full-screen WebView — all Oracle Temple routes,
