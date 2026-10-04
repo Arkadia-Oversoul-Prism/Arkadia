@@ -359,6 +359,7 @@ None is authorised by this pass.
 | `SH-05` | Decide the fate of `test_gate_serve_script` / `test_gate_status` (repair the path, or retire the tests as archival). | ENV | low | sovereign call |
 | `SH-06` | Decide whether `steward_filter` should stem-match `transcend*`. | STALE_ASSERTION | medium | product judgement |
 | `SH-07` | Migrate `test_m02_reasomate_truth::test_oracle_runtime_uses_the_shared_session_key` â€šÃ„Ã® the shared-session requirement is genuinely unmet in `ArkanaCommune.tsx`. | DRIFT | **high** | architectural gate |
+| `SH-08` | Repair `test_authority_api_enterprise_boundary.py::test_authorized_identity_is_the_control_case_and_creates_both_records` â€šÃ„Ã® the module contract (authenticated `actor_identity` required, `eden_ops.py:340`) is implemented and already repaired in the sibling `test_upstream_causal_continuity_01.py`; pass `actor_identity={"uid": "authorized-subject", "role": "Flamekeeper", "access_level": 0}` on the control-case call. Test-only, no product decision. (Added by `gate-hygiene-boundary-ruling-verification-and-queue-reconciliation-01`.) | STALE_ASSERTION | low | none |
 
 **Recommended first:** `SH-01`. It is a one-line test-hygiene fix, it removes the only
 order-dependent node, and it makes the baseline fingerprint reproducible under any
