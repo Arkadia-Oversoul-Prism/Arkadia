@@ -61,3 +61,31 @@ Reconstruct from live evidence first (contract §14). Dependency order:
    (its blocker is now discharged) and **#246**.
 2. Execute **`SH-08`** as its own bounded, test-only PR (no product decision required).
 3. Do **not** re-open a boundary-contradiction repair: #258 is it.
+
+---
+
+## Reconciliation addendum — state moved during this pass (heartbeat, 2026-10-04)
+
+The contract's final rule is that the next heartbeat reconstructs from live evidence; a state
+change that arrives *during* a pass must be recorded, not assumed away. Between this pass's
+`BASE_MAIN` and its close, the sovereign acted:
+
+- **#258 MERGED** at `ddc08f8` (`governance: recognize Console evidence and verification routes`).
+  This confirms the Option-A ruling this pass independently verified — the merge *is* the
+  sovereign's acceptance, and it is the evidence, not a merge recommendation by this agent.
+- **#252 CLOSED** (superseded), **#257 CLOSED**. The blocker this pass answered is discharged and
+  the queue item is retired, exactly as §11 of the pass recommended.
+- **#259 CLOSED**, superseded by **#260** (clean single-commit rebuild; secret-scan green).
+
+`origin/main` advanced `f10fef9 -> ddc08f8`; the only changed files are the ruling's own surface
+(workflow, two boundary tests, the map, and its evidence) — **none overlap this PR's docs-only
+set**, so this PR remains mergeable against the new base.
+
+The ruling's merge also produced `RECONCILED-BOUNDARY-MAP-01.md`, which corroborates three of
+this pass's independent findings (Option A; controls preserved; control-room stays a separate
+read surface). Independent agreement — not copied — is the useful signal; record it as such.
+
+**Superseding the "next bounded task" above:** items (1) are done. The queue is now `#260`
+(this pass, docs-only) and `#246` (independent console presentation). `SH-08` remains the next
+genuine bounded engineering task on its own test-only PR.
+
