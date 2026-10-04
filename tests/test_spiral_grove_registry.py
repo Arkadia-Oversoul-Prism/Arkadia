@@ -115,10 +115,21 @@ def test_ais_catalog_has_ai_prompt_engineering_dependency() -> None:
 
 def test_ais_catalog_supports_progressive_creative_workflow() -> None:
     registry = build_ais_capability_catalog()
-    prerequisites = registry.graph().prerequisites_for("cap-ai-creative-workflows")
+    prerequisites = [
+        item.id for item in registry.graph().prerequisites_for("cap-ai-creative-workflows")
+    ]
 
-    assert [item.id for item in prerequisites] == [
+    # The graph is a diamond: both branches hang off the shared root and are
+    # unordered relative to each other, so any dependency-first order is valid.
+    assert set(prerequisites) == {
         "cap-ai-prompt-engineering",
         "cap-digital-intelligence",
         "cap-content-systems",
-    ]
+    }
+    # The order that *is* load-bearing: the shared root precedes its dependents.
+    assert prerequisites.index("cap-digital-intelligence") < prerequisites.index(
+        "cap-ai-prompt-engineering"
+    )
+    assert prerequisites.index("cap-digital-intelligence") < prerequisites.index(
+        "cap-content-systems"
+    )
