@@ -9,6 +9,13 @@ on:
       - 'web/public_prism/src/pages/ProjectDashboard.tsx'
       - 'tests/test_weaver_mvp2_05.py'
       - 'tests/test_weaver_mvp2_07.py'
+      - 'tests/test_evidence_verification_boundary.py'
+      - 'tests/test_workevent_evidence_boundary.py'
+      - 'tests/test_verification_review_boundary.py'
+      - 'tests/test_execution_workevent_boundary.py'
+      - 'tests/test_authority_boundary.py'
+      - 'weaver/enterprise_orchestration.py'
+      - 'RECONCILED-BOUNDARY-MAP-01.md'
       - '.github/workflows/weaver-mvp2-validation.yml'
   # The gate previously ran only on push to main, so it could never block a
   # broken PR — it could only report after the merge was already canonical.
@@ -19,6 +26,13 @@ on:
       - 'web/public_prism/src/pages/ProjectDashboard.tsx'
       - 'tests/test_weaver_mvp2_05.py'
       - 'tests/test_weaver_mvp2_07.py'
+      - 'tests/test_evidence_verification_boundary.py'
+      - 'tests/test_workevent_evidence_boundary.py'
+      - 'tests/test_verification_review_boundary.py'
+      - 'tests/test_execution_workevent_boundary.py'
+      - 'tests/test_authority_boundary.py'
+      - 'weaver/enterprise_orchestration.py'
+      - 'RECONCILED-BOUNDARY-MAP-01.md'
       - '.github/workflows/weaver-mvp2-validation.yml'
   workflow_dispatch:
 
@@ -36,4 +50,13 @@ jobs:
       # installs it explicitly. This gate omitted it and therefore failed with
       # exit 127 ("pytest: command not found") without ever executing a test.
       - run: python -m pip install pytest
-      - run: python -m pytest -q tests/test_weaver_mvp2_05.py tests/test_weaver_mvp2_07.py
+      - name: Weaver MVP2 and authority-boundary regressions
+        run: >-
+          python -m pytest -q
+          tests/test_weaver_mvp2_05.py
+          tests/test_weaver_mvp2_07.py
+          tests/test_evidence_verification_boundary.py
+          tests/test_workevent_evidence_boundary.py
+          tests/test_verification_review_boundary.py
+          tests/test_execution_workevent_boundary.py
+          tests/test_authority_boundary.py
