@@ -6,7 +6,7 @@
 - MERGED_MAIN: `296d741b838a33c18f25cbd898dea3792c23cc9b` (#262–#266 merged)
 - LIVE_MAIN: `ca67b006e57c0247d1db0f9d337ed34cc0a51cce`
 - Branch: `gate-hygiene/post-merge-verification-05` @ `ca67b006e57c`
-- PR: **#269** (evidence-only)
+- PR: **#271** (evidence-only)
 - Classification: `VERIFIED` (repository work) — evidence only, no source/test/policy change
 
 ## Evidence
@@ -33,11 +33,26 @@
   *is* `last_build_input_commit()`, and a commit is not a strict ancestor of itself, so
   closure is `False`. Corrected over-claim, not a regression.
 
+## Open PR inventory at live main
+
+| PR | Head | Base | Mergeable | Scope |
+| --- | --- | --- | --- | --- |
+| #271 | `gate-hygiene/post-merge-verification-05` | `ca67b006` | (this PR) | evidence only, 2 files |
+| #270 | `feat/project-opportunity-radar` | `ca67b006` | — | feature, not inspected by this pass |
+| #268 | `feat/console-complete-build` | `296d741b` | true | docs only (`+100`) |
+| #267 | `gate-hygiene/independent-queue-verification-04` | `296d741b` | true | evidence only (`+230`) |
+
+PR numbers **#269 and #270 were consumed by concurrent automation runs** between the
+start of this pass and PR creation, so this pass's evidence PR is **#271**, not #269.
+Recorded so a later pass does not treat the gap as a missing artifact.
+
 ## Authorized action (next bounded task)
 
-- Sovereign review + merge of **#267** (queue-verification evidence) and **#269** (this
-  post-merge evidence). Both `mergeable=true`, bases are ancestors of live main.
+- Sovereign review + merge of **#267** (queue-verification evidence) and **#271** (this
+  post-merge evidence). Both `mergeable=true`; #267's base `296d741b` is an ancestor of
+  live main.
 - Sovereign review of **#268** (Console overnight-build doc, `mergeable=true`).
+- **#270** is a feature PR outside this pass's scope and was not verified here.
 
 ## Forbidden actions this pass
 
@@ -56,5 +71,5 @@
 
 ## Completion condition
 
-Sovereign merges #267/#268/#269 → next heartbeat re-derives the fingerprint from live
+Sovereign merges #267/#268/#271 → next heartbeat re-derives the fingerprint from live
 evidence and confirms the node set is unchanged apart from new guard nodes.
