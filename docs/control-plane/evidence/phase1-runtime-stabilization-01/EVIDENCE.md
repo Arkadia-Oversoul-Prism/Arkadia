@@ -61,14 +61,16 @@ own template or copy. Measured samples:
 | `test_solspire_project_templates.py::test_eden_template_declares_living_larder_without_claiming_it_is_live` | literal pin on template copy |
 | `test_solspire_p1_experience_01.py::test_p1_1_arkana_context_pack` / `::test_p1_1_not_authorization` | literal pins on the P1 context pack |
 | `test_solspire_project_execution_service.py::test_actual_oci_runtime_hardens_process_and_mount` | literal pin |
-| `test_evidence_verification_boundary.py::test_no_http_route_creates_evidence_or_verification` | regex matches the substring `ution_id}/evidence"` inside an unrelated path — **false positive**, not a new HTTP mutation path |
+| `test_evidence_verification_boundary.py::test_console_authority_routes_expose_evidence_and_verification_separately` | **superseded boundary assumption**: the intended Console authority routes are present; Option A ruling recorded in `RECONCILED-BOUNDARY-MAP-01.md` |
 | `test_verification_review_boundary.py::test_no_http_surface_exposes_review_as_a_first_class_record` | regex matched `patches/preview`, not a review route — **false positive** |
-| `test_workevent_evidence_boundary.py::test_no_http_route_exposes_evidence_verification_or_the_enterprise_walk` | boundary literal |
+| `test_workevent_evidence_boundary.py::test_console_exposes_evidence_verification_but_not_enterprise_walk` | **superseded boundary assumption**: first-class evidence/verification routes are intended; enterprise walk remains unexposed |
 
-**Class:** test-side defect. Note explicitly: the boundary tests here are **not**
-evidence of a new evidence/authorization mutation path. The `evidence(...)` calls in
-`solspire/console_authority_router.py` are pre-existing and reachable only through
-the governed route; the failing assertions are regex/literal mismatches.
+**Class:** mixed. The review/preview match is a test-side false positive. The two
+evidence/verification nodes encoded an obsolete route-absence assumption. Under
+the sovereign's 2026-10-04 Option A ruling, the Console authority bridge is an
+intended first-class surface; those tests now assert the declared route contract
+and preserve the separate requirement that enterprise lineage traversal remain
+unexposed. This does not by itself establish production verification.
 
 ### 4.3 `AGENTS.md` encoding adjudication (3 nodes) — known constraint
 
