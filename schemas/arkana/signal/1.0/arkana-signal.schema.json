@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "arkadia://schemas/arkana/signal/1.0",
+  "title": "Arkana Signal Object",
+  "description": "Canonical evidence envelope for incoming Arkana signals. Source evidence and derived interpretation remain distinct.",
+  "type": "object",
+  "required": ["schema", "schema_version", "id", "session_id", "created_at", "source", "raw", "streams", "interpretation", "provenance", "integrity"],
+  "properties": {
+    "schema": { "const": "arkana.signal" },
+    "schema_version": { "const": "1.0" },
+    "id": { "type": "string", "minLength": 1 },
+    "session_id": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "source": {
+      "type": "object",
+      "required": ["type", "modality"],
+      "properties": {
+        "type": { "type": "string" },
+        "modality": { "type": "string", "enum": ["audio", "text", "vision", "file", "tool_result", "system_event", "device_event", "application_state"] },
+        "format": { "type": ["string", "null"] },
+        "duration_ms": { "type": ["integer", "null"], "minimum": 0 }
+      },
+      "additionalProperties": true
+    },
+    "raw": {
+      "type": "object",
+      "required": ["asset_ref"],
+      "properties": {
+        "asset_ref": { "type": ["string", "null"] },
+        "sha256": { "type": ["string", "null"] },
+        "sample_rate": { "type": ["integer", "null"], "minimum": 1 },
+        "channels": { "type": ["integer", "null"], "minimum": 1 }
+      },
+      "additionalProperties": true
+    },
+    "streams": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "interpretation": {
+      "type": "object",
+      "properties": {
+        "transcript": { "type": ["object", "null"] },
+        "intent_candidates": { "type": "array", "items": { "$ref": "#/$defs/candidate" } },
+        "entities": { "type": "array", "items": { "type": "object" } },
+        "references": { "type": "array", "items": { "$ref": "#/$defs/candidate" } },
+        "confidence": { "type": "object", "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 } }
+      },
+      "additionalProperties": true
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "candidate_refs": { "type": "array", "items": { "$ref": "#/$defs/candidate" } },
+        "context_refs": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["derived_from"],
+      "properties": {
+        "derived_from": { "type": "array", "items": { "type": "string" } },
+        "processor": { "type": ["string", "null"] },
+        "processor_version": { "type": ["string", "null"] },
+        "model": { "type": ["string", "null"] },
+        "model_version": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "integrity": {
+      "type": "object",
+      "required": ["raw_preserved", "interpretation_is_derived"],
+      "properties": {
+        "raw_preserved": { "type": "boolean" },
+        "interpretation_is_derived": { "type": "boolean", "const": true }
+      },
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "candidate": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": { "type": "string", "enum": ["candidate", "unknown", "resolved", "uncertain_derived_signal"] },
+        "value": {},
+        "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "ref": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
