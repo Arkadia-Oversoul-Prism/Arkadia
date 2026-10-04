@@ -24,7 +24,7 @@ interface Task { id: string; title: string; description: string; status: string;
 interface MemEntry { id: string; title: string; content: string; tags: string[]; created_at: number; updated_at: number; }
 interface PEvent { id: string; event_type: string; summary: string; created_at: number; }
 interface RunResult { ok: boolean; intent: string; plan: { steps: { tool: string; description: string }[] }; execution: { status: string; results: Record<string,unknown>[] }; elapsed_ms: number; }
-export type ProjTab = 'overview'|'weaver'|'canvas'|'knowledge'|'conversations'|'files'|'repos'|'tasks'|'workflows'|'memory'|'events'|'settings';
+export type ProjTab = 'overview'|'opportunity-radar'|'weaver'|'canvas'|'knowledge'|'conversations'|'files'|'repos'|'tasks'|'workflows'|'memory'|'events'|'settings';
 
 // ── API ───────────────────────────────────────────────────────────────────────
 
@@ -1178,6 +1178,7 @@ function Settings({ project, onProjectUpdated, onArchive }: { project: Project; 
 
 const TABS: { id: ProjTab; label: string; sigil: string }[] = [
   { id: 'overview',       label: 'Overview',       sigil: '◈' },
+  { id: 'opportunity-radar', label: 'Opportunity Radar', sigil: '◌' },
   { id: 'weaver',         label: 'Weaver',         sigil: '⟐' },
   { id: 'canvas',         label: 'Canvas',         sigil: '⌘' },
   { id: 'knowledge',      label: 'Knowledge',      sigil: '◈' },
@@ -1191,7 +1192,7 @@ const TABS: { id: ProjTab; label: string; sigil: string }[] = [
   { id: 'settings',       label: 'Settings',       sigil: '⚙' },
 ];
 
-const PRIMARY_TABS: ProjTab[] = ['overview','conversations','files','tasks','weaver','canvas'];
+const PRIMARY_TABS: ProjTab[] = ['overview','opportunity-radar','conversations','files','tasks','weaver','canvas'];
 
 interface Props {
   project: Project;
