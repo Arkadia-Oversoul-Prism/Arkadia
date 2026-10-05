@@ -49,6 +49,8 @@ LEGIT = re.compile(
     # exactly three rejected tracked paths, all under alxai/). It is a first-class
     # product surface, not scratch space, so it is enumerated explicitly.
     r"\.github/|web/|api/|solspire/|kernel/|weaver/|lab/|tests/|docs/|scripts/|alxai/"
+    # google_workspace/ is the Weaver Google Workspace Attention Bus Apps Script surface introduced by PR #311.
+    r"|google_workspace/"
     r"|enterprises/|knowledge/|spiral_grove/|android/|arkadia-android/|sonata-android/"
     # arkadia-console-android/ is the native Arkadia Console Android project, merged
     # to main via PRs #233/#234/#235. It was tracked while this allowlist still
