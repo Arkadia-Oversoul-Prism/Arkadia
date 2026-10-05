@@ -16,7 +16,7 @@ Branch: `gate-hygiene/scheduler-trajectory-conformance-01`
 | 7 | `python -m pytest tests/ -q -rEf --continue-on-collection-errors` | no node-set delta | **identical fingerprint** (117 nodes both sides) |
 | 8 | router decision on fixed trajectory | not `FAILED` | **`NO_LEGAL_MOVE`**, exit 0 |
 | 9 | collected-node diff, `main` vs branch | +16 guard | **+19** — the 16 guard nodes **plus 3** |
-| 10 | CI on head `5fee1bc`: `Arkadia Engineering Scheduler` + `security-secret-scan` | green | **both completed/success, attempt 1**; step 6 guard ran, step 7 session skipped |
+| 10 | CI on the branch: `Arkadia Engineering Scheduler` + `security-secret-scan` | green | **success on every head** (`5fee1bc` `37379373120`, `ac5e4d5` `37379631218`); step 6 guard ran, step 7 session skipped |
 
 ### Item 4 corrected (measurement supersedes the earlier figures)
 
@@ -47,11 +47,16 @@ a `tests/architecture/**` path — that surface is covered by `provider-routing.
 
 ### Item 10 — CI-liveness observed on the current head (not inferred)
 
-GitHub created `pull_request` runs for head `5fee1bc` and both completed green on the first
-attempt: `Arkadia Engineering Scheduler` run `37379373120` and `security-secret-scan` run
-`37379373062`. The scheduler job's step 6 *Trajectory-routing conformance guard* is `success`
+GitHub created `pull_request` runs for every head and both workflows completed green on the
+first attempt each time (`5fee1bc`: `37379373120` / `37379373062`; `ac5e4d5`: `37379631218` /
+`37379631232`). The scheduler job's step 6 *Trajectory-routing conformance guard* is `success`
 and step 7 *Session + Engineering Runner* is `skipped`. This is the load-bearing observation:
 the guard executes in CI on a `pull_request`, and a PR is never routed as a live session.
+
+A `pull_request` path filter is evaluated against the **whole PR diff**, not the pushed commit,
+so a docs-only follow-up still re-triggers the scheduler. Measured directly: the docs-only
+commit `ac5e4d5` produced run `37379631218`. The governing run is therefore the one for the
+current head; read it rather than carrying an earlier head's green forward.
 
 ## Fingerprints
 

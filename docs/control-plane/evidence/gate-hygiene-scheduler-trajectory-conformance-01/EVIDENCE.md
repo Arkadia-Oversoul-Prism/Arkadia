@@ -176,20 +176,26 @@ a **passing job**, not by intent:
   `success` on attempt 3. It is recorded here so a future pass does not re-derive a
   contradicted "BLOCKED on runner outage" classification from the cancelled attempt alone.
 
-### CI state on the current head `5fee1bc` (measured, clean)
+### CI state — measured, and it re-triggers on every push
 
-Re-measured after the evidence-correction commit, which supersedes the attempt-3 narrative
-for the *current* head:
+Both triggered workflows run on **every** push to this branch, and both have been green on
+every head observed:
 
-| workflow | event | status | attempt | run |
-|---|---|---|---|---|
-| Arkadia Engineering Scheduler | `pull_request` | completed/**success** | 1 | `37379373120` |
-| security-secret-scan | `pull_request` | completed/**success** | 1 | `37379373062` |
+| head | Arkadia Engineering Scheduler | security-secret-scan |
+|---|---|---|
+| `f179d2b` | `37370596340` success (attempt 3; attempt 1 was a cancelled runner-acquisition) | `37370596359` success |
+| `5fee1bc` | `37379373120` success (attempt 1) | `37379373062` success |
+| `ac5e4d5` | `37379631218` success (attempt 1) | `37379631232` success |
 
-On `5fee1bc` the scheduler job succeeded on **attempt 1** — no cancellation, no retry. Job
-steps: step 6 *Trajectory-routing conformance guard* → `success`; step 7 *Session + Engineering
-Runner* → `skipped`. The earlier `cancelled` attempt belongs to `f179d2b` only and was a
-transient hosted-runner acquisition failure; it is not a property of the guard or the workflow.
+In each scheduler run the job is `completed/success`, step 6 *Trajectory-routing conformance
+guard* is `success`, and step 7 *Session + Engineering Runner* is `skipped`.
+
+An earlier version of this section asserted that a docs-only follow-up would not re-trigger the
+scheduler, because `docs/control-plane/evidence/**` is absent from the workflow's `pull_request`
+path filter. **That was wrong and is superseded:** a `pull_request` path filter is evaluated
+against the whole PR diff, so the docs-only commit `ac5e4d5` did produce `37379631218`. The
+correct statement is that every push to this branch re-triggers the guard, so the governing
+evidence is the run for the *current* head and must be re-read each pass.
 
 `Vercel – arkadia-prism` succeeds on the head; `Vercel – console` fails with a provider build
 error and also fails on `main` (`451e41a`, *"Deployment rate limited"*), so it is pre-existing
