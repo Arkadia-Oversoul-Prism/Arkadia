@@ -205,6 +205,7 @@ def validate_delta(delta: StateDelta, state: PrismState) -> None:
         raise ValueError("delta references an unknown historical node")
     if delta.as_dict()["authority"] != "none":
         raise ValueError("research delta cannot carry authority")
+    _reject_authority_fields(delta.changes)
 
 def replay(addresses: list[NodeAddress], state: PrismState) -> tuple[PrismState, tuple[StateDelta, ...]]:
     current = state
