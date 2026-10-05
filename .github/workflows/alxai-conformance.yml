@@ -2,7 +2,7 @@ name: AL-XAI-04 Conformance
 
 on:
   push:
-    branches: ["feat/alxai-04-state-sync", "feat/alxai-04-reconciliation"]
+    branches: ["feat/alxai-04-state-sync", "feat/alxai-04-reconciliation", "feat/alxai-04-adjudication"]
   pull_request:
     paths:
       - "alxai/**"
