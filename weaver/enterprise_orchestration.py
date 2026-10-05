@@ -52,6 +52,18 @@ def _id(prefix: str) -> str:
 def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
+
+def _scope_contains(accepted: Any, requested: Any) -> bool:
+    """Return True only when requested authority is wholly bounded by accepted scope."""
+    if isinstance(accepted, dict) and isinstance(requested, dict):
+        return all(
+            key in accepted and _scope_contains(accepted[key], value)
+            for key, value in requested.items()
+        )
+    if isinstance(accepted, list) and isinstance(requested, list):
+        return all(any(_scope_contains(allowed, item) for allowed in accepted) for item in requested)
+    return accepted == requested
+
 def _db() -> sqlite3.Connection:
     directory = os.path.dirname(_DB_PATH)
     if directory:
@@ -449,8 +461,13 @@ class EnterpriseOrchestrationStore:
                 raise ValueError("matching acceptance required")
             if acceptance["verification_id"] == "":
                 raise ValueError("acceptance verification reference required")
+            if acceptance["accepted_result_ref"] != proposal_id:
+                raise ValueError("acceptance does not correspond to this proposal")
             if acceptance["correlation_id"] != proposal["correlation_id"]:
                 raise ValueError("acceptance is not causally bound to proposal")
+            accepted_scope = json.loads(acceptance["authorization_scope"])
+            if not _scope_contains(accepted_scope, scope):
+                raise ValueError("authorization scope exceeds accepted scope")
         cid = correlation_id or proposal["correlation_id"]
         rid = _id("auth"); now = _now()
         row = Authorization(rid, subject, proposal_id, authority_event_id, acceptance_id, scope, constraints, expires_at, now, cid)
@@ -587,6 +604,11 @@ class EnterpriseOrchestrationStore:
             raise ValueError("acceptance requires explicit context")
         if not authorization_scope:
             raise ValueError("acceptance requires explicit bounded scope")
+        proposal = self._row("ew_proposals", accepted_result_ref)
+        if not proposal or proposal["subject"] != subject:
+            raise ValueError("accepted result must reference a matching proposal")
+        if proposal["correlation_id"] != verification["correlation_id"]:
+            raise ValueError("accepted result is not causally bound to verification")
         cid = correlation_id or verification["correlation_id"]
         rid = _id("accept"); now = _now()
         row = AcceptanceRecord(rid, subject, verification_id, accepted_result_ref,
@@ -636,6 +658,19 @@ class EnterpriseOrchestrationStore:
             raise ValueError("completion requires an explicit condition")
         if not supporting_evidence_refs:
             raise ValueError("completion requires supporting evidence")
+        from solspire.workevent_manager import get_workevent_manager
+        work_event = get_workevent_manager().get(work_event_id, subject)
+        if work_event is None:
+            raise ValueError("matching WorkEvent required before completion")
+        evidence_rows = []
+        for evidence_id in supporting_evidence_refs:
+            evidence = self._row("ew_evidence", evidence_id)
+            if not evidence or evidence["subject"] != subject:
+                raise ValueError("completion evidence must exist for the same subject")
+            evidence_rows.append(evidence)
+        execution_ref = getattr(work_event, "execution_attempt_ref", None)
+        if execution_ref and any(row["execution_attempt_id"] != execution_ref for row in evidence_rows):
+            raise ValueError("completion evidence must be causally linked to the WorkEvent execution")
         cid = correlation_id or review["correlation_id"]
         rid = _id("complete"); now = _now()
         row = CompletionRecord(rid, subject, work_event_id, review_id, condition,
@@ -644,6 +679,17 @@ class EnterpriseOrchestrationStore:
             c.execute("INSERT INTO ew_completions VALUES (?,?,?,?,?,?,?,?,?)",
                       (rid, subject, work_event_id, review_id, condition,
                        _json(supporting_evidence_refs), now, "COMPLETED", cid))
+        return row
+
+    def _production_authority(self, subject: str, actor: str, context_ref: str):
+        with _db() as c:
+            row = c.execute(
+                "SELECT * FROM ew_authority_events WHERE subject=? AND actor=? AND authority_context=? "
+                "AND action IN ('ACCEPT_PRODUCTION','APPROVE_PRODUCTION') ORDER BY timestamp DESC LIMIT 1",
+                (subject, actor, context_ref),
+            ).fetchone()
+        if not row:
+            raise ValueError("production acceptance requires a matching production authority event")
         return row
 
     def production_acceptance(self, *, subject: str, completion_id: str,
@@ -658,6 +704,7 @@ class EnterpriseOrchestrationStore:
             raise ValueError("production acceptance requires explicit authority")
         if not context_ref.strip():
             raise ValueError("production acceptance requires explicit context")
+        self._production_authority(subject, accepting_authority, context_ref)
         cid = correlation_id or completion["correlation_id"]
         rid = _id("prodaccept"); now = _now()
         row = ProductionAcceptanceRecord(rid, subject, completion_id,
