@@ -322,3 +322,70 @@ def test_console_proposal_authorization_weaver_evidence_chain(tmp_path, monkeypa
     evidence = executed["evidence"]
     assert evidence["execution_attempt_id"] == executed["execution_attempt"]["id"]
     assert evidence["evidence_type"] == "weaver_execution"
+
+
+def test_console_capture_retry_is_idempotent(tmp_path, monkeypatch):
+    import solspire.workspace_manager as wm
+    import solspire.workevent_manager as wem
+    from solspire.console_authority_router import sync_capture, CaptureRequest
+
+    db = str(tmp_path / "capture-idempotent.db")
+    monkeypatch.setattr(wm, "_DB_PATH", db)
+    monkeypatch.setattr(wem, "_DB_PATH", db)
+    subject = "firebase-uid-capture-idempotent"
+    wm.WorkspaceManager().get_or_create(subject)
+
+    request = CaptureRequest(
+        capture_id="CAP-RETRY-001",
+        kind="note",
+        mime_type="text/plain",
+        size_bytes=0,
+        sha256="0" * 64,
+        captured_at="2026-10-05T00:00:00Z",
+    )
+    first = asyncio.run(sync_capture(request, user={"uid": subject}))
+    second = asyncio.run(sync_capture(request, user={"uid": subject}))
+
+    assert first["work_event"]["work_event_id"] == second["work_event"]["work_event_id"]
+    assert first["idempotent_replay"] is False
+    assert second["idempotent_replay"] is True
+    assert len(wem.get_workevent_manager().list(subject)) == 1
+
+
+def test_console_capture_retry_conflict_is_deterministic(tmp_path, monkeypatch):
+    import solspire.workspace_manager as wm
+    import solspire.workevent_manager as wem
+    from fastapi import HTTPException
+    from solspire.console_authority_router import sync_capture, CaptureRequest
+
+    db = str(tmp_path / "capture-conflict.db")
+    monkeypatch.setattr(wm, "_DB_PATH", db)
+    monkeypatch.setattr(wem, "_DB_PATH", db)
+    subject = "firebase-uid-capture-conflict"
+    wm.WorkspaceManager().get_or_create(subject)
+
+    base = dict(
+        capture_id="CAP-CONFLICT-001",
+        kind="note",
+        mime_type="text/plain",
+        size_bytes=0,
+        captured_at="2026-10-05T00:00:00Z",
+    )
+    first = asyncio.run(sync_capture(
+        CaptureRequest(**base, sha256="0" * 64),
+        user={"uid": subject},
+    ))
+    assert first["reconciled"] is True
+
+    try:
+        asyncio.run(sync_capture(
+            CaptureRequest(**base, sha256="1" * 64),
+            user={"uid": subject},
+        ))
+    except HTTPException as exc:
+        assert exc.status_code == 409
+        assert "different capture content or metadata" in str(exc.detail)
+    else:
+        raise AssertionError("capture id reuse with a different digest must conflict")
+
+    assert len(wem.get_workevent_manager().list(subject)) == 1

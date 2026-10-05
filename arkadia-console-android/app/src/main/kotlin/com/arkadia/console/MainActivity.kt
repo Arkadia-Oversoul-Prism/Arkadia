@@ -72,7 +72,10 @@ class MainActivity:AppCompatActivity(){
         mode("FIELD")
         connection.text="● LIVE · "+(identity?.currentUser?.email ?: "NO IDENTITY")
         registerAttentionPush()
-        load()
+        lifecycleScope.launch {
+            repo.reconcilePendingCaptures(captures)
+            load()
+        }
     }
 
     private fun registerAttentionPush(){
@@ -285,11 +288,13 @@ class MainActivity:AppCompatActivity(){
             val pair=activeCamera;activeCamera=null
             if(resultCode==RESULT_OK && pair!=null && pair.second.exists()){
                 val record=captures.record(pair.first,"camera",pair.second,"image/jpeg")
-                Toast.makeText(this,"Captured "+record.id+" • "+record.sha256.take(12)+"…",Toast.LENGTH_LONG).show()
+                Toast.makeText(this,"Captured "+record.id+" • "+record.sha256.take(12)+"… • PENDING_SYNC",Toast.LENGTH_LONG).show()
+                lifecycleScope.launch { repo.reconcilePendingCaptures(captures) }
             }else pair?.second?.delete()
         }else if(requestCode==502 && resultCode==RESULT_OK && data?.data!=null){
             val uri=data.data!!;val (id,_)=captures.newFile("bin")
-            lifecycleScope.launch{runCatching{captures.copyUri(id,uri,contentResolver.getType(uri) ?: "application/octet-stream",extensionFor(uri))}.onSuccess{Toast.makeText(this@MainActivity,"Captured "+it.id+" • "+it.sizeBytes+" bytes",Toast.LENGTH_LONG).show()}.onFailure{Toast.makeText(this@MainActivity,"File capture failed: "+it.message,Toast.LENGTH_LONG).show()}}
+            lifecycleScope.launch{runCatching{captures.copyUri(id,uri,contentResolver.getType(uri) ?: "application/octet-stream",extensionFor(uri))}.onSuccess{Toast.makeText(this@MainActivity,"Captured "+it.id+" • "+it.sizeBytes+" bytes • PENDING_SYNC",Toast.LENGTH_LONG).show()
+                lifecycleScope.launch { repo.reconcilePendingCaptures(captures) }}.onFailure{Toast.makeText(this@MainActivity,"File capture failed: "+it.message,Toast.LENGTH_LONG).show()}}
         }
     }
 

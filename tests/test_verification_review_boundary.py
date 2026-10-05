@@ -125,7 +125,7 @@ def test_enterprise_verification_has_a_durable_id_and_is_persisted(tmp_path, mon
     assert store._row("ew_verifications", verification.id) is not None
 
 
-def test_enterprise_verification_creates_no_review_record(tmp_path, monkeypatch):
+def test_enterprise_verification_does_not_auto_create_review_record(tmp_path, monkeypatch):
     monkeypatch.setattr(eo, "_DB_PATH", str(tmp_path / "orchestration.db"))
     store = eo.EnterpriseOrchestrationStore()
     canonical = store.canonical_record(
@@ -137,32 +137,27 @@ def test_enterprise_verification_creates_no_review_record(tmp_path, monkeypatch)
     store.verify(
         subject="operator", claim="x", evidence_refs=[evidence.id], verifier="t", verdict="VERIFIED"
     )
-
-    # Creating a verification creates, references and triggers no Review (Q3).
     import sqlite3
-
     conn = sqlite3.connect(eo._DB_PATH)
     try:
         tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")]
+        review_rows = conn.execute("SELECT COUNT(*) FROM ew_reviews").fetchone()[0]
     finally:
         conn.close()
-    assert not any("review" in t.lower() for t in tables), f"a review table exists: {tables}"
+    assert "ew_reviews" in tables
+    assert review_rows == 0
 
 
-def test_enterprise_chain_has_no_review_concept():
-    # The enterprise store source contains no review vocabulary at all (Q4, Q10).
+def test_enterprise_chain_has_explicit_review_concept():
     src = inspect.getsource(eo)
-    assert "review" not in src.lower()
-
-    # The traversal's record kinds include VERIFICATION and exclude REVIEW.
+    assert "class ReviewRecord" in src
+    assert "CREATE TABLE IF NOT EXISTS ew_reviews" in src
+    assert "def review(" in src
+    assert "work_event_id" in src
+    assert "review_id" in src
     kinds = set(__import__("re").findall(r'"([A-Z_]+)": "ew_[a-z_]+"', src))
     assert "VERIFICATION" in kinds
-    assert "REVIEW" not in kinds
 
-
-# ---------------------------------------------------------------------------
-# The weaver verification domain
-# ---------------------------------------------------------------------------
 
 def test_weaver_verification_is_in_memory_and_not_persisted():
     # VerificationReport is a dataclass with to_dict(); nothing persists it (Q1, Q2).
@@ -206,21 +201,17 @@ def test_weaver_review_is_a_stage_label_not_a_record():
 # The absence, globally
 # ---------------------------------------------------------------------------
 
-def test_no_review_record_type_or_table_exists_anywhere_in_the_backend():
-    # Q4, Q5, Q6: there is no Review record, so no durable verification -> review
-    # relationship can exist, and no Review can exist without a verification.
+def test_review_record_and_table_exist_as_a_distinct_backend_transition():
     src = _all_backend_source()
     lowered = src.lower()
-    assert "class review" not in lowered
-    assert "ew_review" not in lowered
-    assert "review_id" not in lowered
-    assert "reviewrecord" not in lowered
-    # No SQL table named review.
-    assert "create table" not in lowered or "review" not in lowered.split("create table", 1)[1][:200]
+    assert "class reviewrecord" in lowered
+    assert "ew_reviews" in lowered
+    assert "review_id" in lowered
+    assert "class verificationrecord" in lowered
+    assert "ew_verifications" in lowered
 
 
-def test_verification_exists_without_any_review(tmp_path, monkeypatch):
-    # Q7: verification can exist with no review — in fact, that is the only case.
+def test_verification_can_exist_before_explicit_review(tmp_path, monkeypatch):
     monkeypatch.setattr(eo, "_DB_PATH", str(tmp_path / "orchestration.db"))
     store = eo.EnterpriseOrchestrationStore()
     canonical = store.canonical_record(
@@ -232,23 +223,15 @@ def test_verification_exists_without_any_review(tmp_path, monkeypatch):
     verification = store.verify(
         subject="operator", claim="x", evidence_refs=[evidence.id], verifier="t", verdict="VERIFIED"
     )
-
-    # A verification stands alone; the forward walk reaches no review (Q6).
-    forward = store.forward_walk(
-        subject="operator", kind="VERIFICATION", record_id=verification.id
-    )
+    forward = store.forward_walk(subject="operator", kind="VERIFICATION", record_id=verification.id)
     assert all(r["kind"] != "REVIEW" for r in forward["records"])
-    assert "REVIEW" not in json.dumps(forward)
-
-    # And no review row was created alongside the verification (Q6).
     import sqlite3
-
     conn = sqlite3.connect(eo._DB_PATH)
     try:
-        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")]
+        review_rows = conn.execute("SELECT COUNT(*) FROM ew_reviews").fetchone()[0]
     finally:
         conn.close()
-    assert not any("review" in t.lower() for t in tables)
+    assert review_rows == 0
 
 
 def test_no_http_surface_exposes_review_as_a_first_class_record():
