@@ -114,16 +114,21 @@ def test_no_table_joins_a_workevent_to_evidence_or_verification(tmp_path, monkey
 
     import solspire.workevent_manager as wem
 
-    for name, sql in _table_sql(wem._DB_PATH):
-        lowered = sql.lower()
-        if "work_event" in lowered:
-            # The WorkEvent table itself references no evidence or verification.
-            assert "evidence" not in lowered
-            assert "verification" not in lowered
-        if "evidence" in lowered or "verification" in lowered:
-            # Conversely, no evidence/verification table references a WorkEvent.
-            assert "work_event" not in lowered
+    tables = dict(_table_sql(wem._DB_PATH))
+    workevent_sql = tables.get("work_events", "").lower()
+    evidence_sql = tables.get("ew_evidence", "").lower()
+    verification_sql = tables.get("ew_verifications", "").lower()
 
+    # The WorkEvent table itself references neither evidence nor verification.
+    assert "evidence" not in workevent_sql
+    assert "verification" not in workevent_sql
+
+    # Evidence and verification remain separate records and do not reference
+    # the WorkEvent spine. Other governance tables may legitimately mention
+    # WorkEvents or supporting evidence because those are later explicit
+    # transition boundaries, not WorkEvent -> Evidence/Verification joins.
+    assert "work_event" not in evidence_sql
+    assert "work_event" not in verification_sql
 
 def test_workevent_and_evidence_are_created_by_disjoint_modules(tmp_path, monkeypatch):
     manager, store = _both(tmp_path, monkeypatch)

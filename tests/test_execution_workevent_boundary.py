@@ -1,4 +1,4 @@
-"""Verified boundary — EXECUTION ≠ WORK EVENT (Arkadia-native, Expansion Gate 02).
+"""Verified boundary — execution and WorkEvent remain distinct, with a Weaver causal bridge.
 
 Two independent records exist on this substrate, and they are **not** joined:
 
@@ -219,14 +219,13 @@ def test_workevent_is_created_only_through_its_own_router(client, as_user):
     assert _workevent_count() == 1
 
 
-def test_workevent_model_has_no_execution_or_job_reference_field():
-    """The absence of a join is structural: the model has no execution field."""
+def test_workevent_model_has_explicit_execution_causal_reference():
+    """The bridge is explicit and does not collapse WorkEvent into authorization."""
     fields = set(_wem.WorkEvent.__dataclass_fields__.keys())
+    assert "execution_attempt_ref" in fields
     for forbidden in ("job_id", "task_id", "execution_ref", "approval_id"):
-        assert forbidden not in fields, f"WorkEvent unexpectedly carries {forbidden}"
-    # It has generic reference slots, but nothing that names an execution.
-    assert "work_ref" in fields  # a free-form ref, unpopulated by the execution path
-
+        assert forbidden not in fields
+    assert "work_ref" in fields
 
 def test_execution_path_never_imports_the_workevent_spine():
     """No execution module constructs a WorkEvent — verified against source."""
