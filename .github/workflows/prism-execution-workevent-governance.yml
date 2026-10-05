@@ -38,6 +38,7 @@ jobs:
             tests/test_prism_execution_workevent_governance.py \
             tests/test_execution_workevent_boundary.py
       - name: Existing WorkEvent and Weaver authorization regressions
+        if: always()
         run: |
           python -m pytest -q \
             tests/test_workevent_evidence_boundary.py \
