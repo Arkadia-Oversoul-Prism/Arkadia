@@ -98,34 +98,75 @@ be merged until the review-record boundary is reconciled.
 
 ## CI verification (post-push, observed)
 
-Branch `gate-hygiene/ci-gate-trigger-coverage-01`, head
-`2e3661a1b4141809a9ad120ff19aaf68e81dac5f`, PR #300. Runs observed 2026-10-05.
+Two observations were taken; `main` moved between them and the second supersedes the
+first. Both are recorded because the movement itself is the finding.
+
+### Observation 1 — base `4550531`
+
+Head `2e3661a1b4`. `provider-routing` **failed at the `Relevant architecture regression`
+step** (`Broader test suite` skipped), on exactly one node:
+`tests/architecture/test_layer_boundaries.py::test_api_main_line_count_within_budget`
+(`api/main.py` = 2805 lines, budget 2600).
+
+Pre-existing, not introduced: `pytest tests/architecture -q -rEf` yielded
+`1 failed, 10 passed` with the *identical* node on both `main` @ `4550531` and this
+branch; this PR touches no `api/main.py`.
+
+### Observation 2 — base `41bbce3` (current)
+
+`main` advanced to `41bbce3` during the pass (`#298` `alxai-conformance.yml` merged;
+`#297` boot-syntax boundary). The branch was merged up (merge commit `879ff20`), not
+rebased — no force-push. **Every precondition was re-derived**, and the result changed:
 
 | Check-run | Result |
 |---|---|
 | `provider-routing` | **failure** |
 | `Full-history secret scan` | success |
 
-The `provider-routing` job failed at its **`Relevant architecture regression`** step
-(`Broader test suite` skipped). The single failure is
-`tests/architecture/test_layer_boundaries.py::test_api_main_line_count_within_budget`
-— `api/main.py has grown to 2805 lines (budget: 2600)`.
+| Workflow step | Result |
+|---|---|
+| Targeted K2 and key-pool regressions | success (23 passed) |
+| **Relevant architecture regression** | **success (11 passed)** |
+| Broader test suite | **failure** |
 
-**This is pre-existing debt, not a regression from this branch.** Re-measured directly:
-`pytest tests/architecture -q -rEf` yields `1 failed, 10 passed` with the *identical*
-failing node on both `main` @ `4550531` and this branch. No file touched by this PR
-affects `api/main.py` (`git diff origin/main` = 4 paths, none of them `api/main.py`).
+The architecture debt **is repaired on current `main`** (`api/main.py` = **2594** lines,
+under the 2600 budget) — by a route other than PR #296, which is still open. The
+architecture step this pass repaired the trigger for now **runs and passes**.
 
-Note the trigger asymmetry this branch repairs is visible in the failure itself: the
-job runs the architecture suite but its pre-fix filter named neither
-`tests/architecture/**` nor its own file. **The fix works** — a change to
-`tests/architecture/**` now selects this gate.
+The remaining failure is the **CE-01 `weaver.autonomy` module-vs-package collision**:
+`ImportError: cannot import name 'load_autonomy_config' from 'weaver.autonomy'
+(weaver/autonomy/__init__.py)` — `ERROR tests/test_autonomy.py`, exiting code 2. This is
+the collection error the repository already documents as **reserved to the sovereign**.
 
-Consequence recorded for the sovereign: this branch cannot be green while `main` is
-baseline-red on the same node. Green requires PR #296 (`api/main.py` decomposition) to
-land first, or an explicit decision to accept the gate as red-by-inheritance. The
-failure is **unchanged**, not introduced.
+Verified pre-existing: `pytest tests/test_autonomy.py -q` errors **identically** on both
+`main` @ `41bbce3` and this branch. It is reached by the workflow's last step only because
+that step is a bare `pytest tests/ -q`, which a collection error interrupts. That step is
+deliberately **not** modified here (out of scope; the CE-01 reserve).
+
+### Regression — zero node-set delta (measured at `41bbce3`)
+
+```
+python -m pytest tests/ -q -rEf --continue-on-collection-errors
+→ branch: 18 failed / 1467 passed / 22 skipped / 1 error
+→ main:   18 failed / 1467 passed / 22 skipped / 1 error
+
+outcomes fingerprint  bb4e08ea7d4865ef4ee3db2d45e10234a162fc9b40884344f1efd6d9fc06f5d7
+ids fingerprint       a422b7a7de0a7c45a1b9c9c6d1dc7bdc2e62dc9fedeaf84e8401ed8e7033b64d
+```
+
+Both fingerprints are **identical between `main` and this branch** (19 nodes). The
+comparison is by failing-node **identity**, not counts. The changed paths are 4 files,
+none of which any failing node exercises.
+
+### The generic test survived the main movement
+
+`tests/test_ci_gate_trigger_coverage.py` re-run after merging `41bbce3`: **36 passed**
+(up from 33 — the parametrization is derived from the live workflow set, so `#298`'s new
+`alxai-conformance.yml` was audited automatically and passes the invariant). This is the
+test doing the job it was written for: a new workflow cannot arrive unjudged.
 
 ## Next authorized action
 
-Sovereign review and merge of this branch. No further work begins inside this PR.
+Sovereign review and merge of this branch. It is green except for the CE-01 collection
+error noted above, which is pre-existing on `main` and reserved. No further work begins
+inside this PR.
