@@ -66,6 +66,9 @@ arkadia-android/gradlew
 # reconstruct the trajectory from. Ignore the generated reports, not the tree.
 docs/control-plane/evidence/**/session-report.json
 docs/control-plane/evidence/**/WEAVER-ENGINEERING-RUN.md
+# The attention outbox is a local relay appended to on every worker run; it is
+# runtime output, not review state, so `git add -A` must not stage it.
+docs/control-plane/evidence/**/attention-events.jsonl
 !docs/control-plane/evidence/README.md
 
 # Knowledge OS private vault: generated runtime output must never be committed.
