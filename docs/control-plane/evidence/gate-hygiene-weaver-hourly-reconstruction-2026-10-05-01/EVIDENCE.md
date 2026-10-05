@@ -656,3 +656,107 @@ pass cannot convert `STALE`/`BLOCKED`/`UNKNOWN` into `VERIFIED`.
 - **Forbidden for the next pass:** merging anything; touching the sovereign-reserved governance
   failures; re-opening a duplicate budget PR; synthesizing a fingerprint without the
   dependency-complete environment **or** without stating clone depth.
+
+## 10. Seventh pass — integration composition of #308 + #311 (new finding)
+
+Observation timestamp: **2026-10-05T11:05Z** (session clock). `BASE_MAIN` unchanged at
+`ccbec4061d66ff6a13dba16b3d2c24b124132102`; no merge; no push; no production code touched.
+
+### 10.1 Base re-verified
+
+- `main` @ `ccbec40`; local HEAD == origin/main; 0 ahead / 0 behind; working tree clean.
+- `api/main.py` = **2602** lines (budget **2600**) — defect unchanged, still carried solely by #308.
+- `python -m py_compile api/main.py` → OK.
+- `git ls-files | python scripts/cp10_mutation_boundary_policy.py --judge` → **exit 0 (PASS)**.
+- `pytest tests/architecture -q` → **1 failed, 10 passed** (the budget node only).
+- `pytest tests/test_m02a_ci_gate_integrity.py -q` on `main` → **60 passed** (so any m02a failure
+  below is attributable to a candidate, not to `main`).
+- Full suite `python -m pytest tests/ -q -rEf --continue-on-collection-errors` →
+  **17 failed, 1485 passed, 20 skipped, 1 error**; node set **18 nodes**, sha256
+  `ffd491e3ac10d08f55e3522859a43313743cd77fe51a40c0c0076391d9f64824`.
+  This reproduces the sixth pass **byte-identically** on a **full** (unshallowed) clone.
+
+### 10.2 PR inventory correction (live, `state=open`)
+
+The sixth pass (§9) still listed **7** open PRs including #310. A live query at `ccbec40` returns
+**6**; #310 merged as commit `ccbec40` itself ("admit alxai/ to the CP10 mutation boundary"), so it
+is no longer open. Open: **#306, #307, #308, #309, #311, #312** (this record).
+
+Stacking: **#309** base=`main` (mergeable), **#311** base=`feat/weaver-console-completion-trajectory`
+— i.e. #311 is **stacked directly on #309's head branch**, not on `main`. Any integration analysis
+of #311 must compose it with #309 in that order.
+
+### 10.3 New integration finding — `api/main.py` composes, but CP10 does not
+
+Both **#308** (`api/main.py` +4−179, extracting `ceo_chat_routes.py`) and **#311**
+(`api/main.py` +5, mounting `api.google_workspace_routes`) edit `api/main.py` in disjoint regions
+(#311 at ~line 373, near the top lifespan mounts; #308 removes the CEO-chat handlers). Composed in
+the reachable order **main → #308 → #311** in a scratch worktree (`443aeda2`):
+
+| measurement | result |
+|---|---|
+| textual merge conflicts | **none** (both merges clean) |
+| `api/main.py` after both | **2432** lines ≤ **2600** — budget holds |
+| `py_compile api/main.py` + workspace routes | OK |
+| `pytest tests/architecture -q` | **11 passed** (budget defect cleared by #308) |
+| **CP10 judge over composed `git ls-files`** | **exit 1 — FAIL** |
+| `pytest tests/test_m02a_ci_gate_integrity.py -q` composed | **3 failed, 57 passed** |
+
+CP10 rejects two paths: `google_workspace/Code.gs`, `google_workspace/appsscript.json`. #311
+introduces a **new tracked top-level prefix `google_workspace/`** that is absent from
+`LEGIT` in `scripts/cp10_mutation_boundary_policy.py`. The failing nodes are exactly:
+
+- `test_allowlist_admits_every_tracked_top_level_prefix`
+- `test_allowlist_covers_every_tracked_surface`
+- `test_delegated_verdict_admits_every_tracked_surface`
+
+**Reachability — this is a real gate, not theoretical.** `.github/workflows/sg-02-fe-2-v.yml`
+triggers on `pull_request.paths` including `api/**` (and `tests/**`); #311 touches `api/main.py`,
+so the CP10 gate is expected to run on #311 **and on `main` after it merges**. This is the same
+GATE-10 omission class the repository has already recorded four times (`alxai/`, `knowledge/`,
+`spiral_grove/`, root docs) — and #310 (`ccbec40`) is the immediately preceding instance of it.
+
+**Consequence for the queue:** #311 is currently `mergeable=True`, meaning GitHub reports no
+*textual* conflict, yet merging it would red `main`'s CP10 gate. This is precisely the
+"git conflict-free is not proof of semantic compatibility" case. #311 needs a **companion CP10
+allowlist change** (admit `google_workspace/`) *before* it is safe to merge, or the allowlist
+omission will be repaired in a follow-up.
+
+### 10.4 Runtime proof of #308 re-confirmed
+
+`from api.main import app` + `TestClient` on the composed #308 tree:
+`POST /api/ceo/chat` → **401** (routed, auth-gated exactly as on `main`), against
+`POST /api/commune/resonance` → **400**. The magnitude-179 removal of `api/main.py` changes no
+observable route behaviour — the extraction is a pure relocation.
+
+### 10.5 Classification
+
+| item | class |
+|---|---|
+| `main` @ `ccbec40` resolved | **VERIFIED** |
+| #308 fixes the budget defect, no regression | **VERIFIED** (independent, current base) |
+| #308 + #311 `api/main.py` budget composes (2432) | **VERIFIED** |
+| #311 introduces a CP10 allowlist omission | **VERIFIED** (judge exit 1 + 3 failing nodes, runnable gate) |
+| #311 safe to merge as-is | **CONTRADICTED** (needs companion CP10 admission) |
+| Gate-2 deployment parity | **STALE / BLOCKED** (unchanged; provider boundary) |
+| production acceptance | **NOT CLAIMED** (human authority) |
+
+### 10.6 Next authorized action
+
+1. **Sovereign review + merge of PR #308** — the sole remaining repository-owned gate defect on
+   `main` (`api/main.py` 2602 > 2600). Build `main` → #308 → #311 and expect the budget to hold at
+   **2432**.
+2. **PR #311 requires a companion CP10 admission of `google_workspace/`** before merge. This is a
+   bounded, pre-authorized gate-hygiene change in the established `gateNN/<slug>` form:
+   add `google_workspace/` to `LEGIT`, extend the fitness coverage, verify
+   `python scripts/cp10_mutation_boundary_policy.py --judge` → exit 0 over a tree containing
+   `google_workspace/`, and confirm `test_m02a_ci_gate_integrity.py` → 60 passed. Do **not** merge
+   #311 without it.
+3. Re-measure after #308 lands: `pytest tests/architecture` (expect **11/11**), `py_compile`
+   (OK), CP10 judge (exit 0), full-suite node set (expect **17 nodes**).
+
+**Forbidden for the next pass:** merging anything; pushing to `main`; touching the
+sovereign-reserved governance failures (`test_verification_review_boundary`,
+`test_agents_md_encoding_adjudication`, `test_steward_filter`, `weaver/autonomy`); re-opening a
+duplicate budget PR; weakening the CP10 gate by removing a genuinely-tracked surface; synthesizing
+a fingerprint without the dependency-complete environment **or** without stating clone depth.
