@@ -8,7 +8,15 @@ See docs/control-plane/WORKER_CONTRACT.md.
 from __future__ import annotations
 
 from typing import Any
+import json
+import os
+import urllib.request
 
+from weaver.attention_bus import (
+    JsonlAttentionOutbox,
+    build_engineering_attention_event,
+    classify_event,
+)
 from weaver.engineering_router import EngineeringRouter
 from weaver.execution_adapter import ExecutionAdapter, ExecutionRequest, NullExecutionAdapter
 
@@ -48,7 +56,7 @@ class EngineeringWorker:
 
         if route.get("status") in ("FAILED", "NO_LEGAL_MOVE", "BLOCKED"):
             phases_completed.extend(["REPORT", "TERMINATE"])
-            return {
+            result = {
                 **route,
                 "contract_id": CONTRACT_ID,
                 "lifecycle_phases": list(LIFECYCLE_PHASES),
@@ -58,6 +66,7 @@ class EngineeringWorker:
                 "deploy": False,
                 "continues_to_next_move": False,
             }
+            return self._record_attention(result)
 
         move = route.get("next_move") or {}
         plan = route.get("plan") or {}
@@ -71,7 +80,7 @@ class EngineeringWorker:
             )
         )
         phases_completed.extend(["CHECKPOINT", "VERIFY", "REPORT", "TERMINATE"])
-        return {
+        result = {
             **route,
             "contract_id": CONTRACT_ID,
             "lifecycle_phases": list(LIFECYCLE_PHASES),
@@ -87,3 +96,46 @@ class EngineeringWorker:
             "deploy": False,
             "continues_to_next_move": False,
         }
+        return self._record_attention(result)
+
+    def _record_attention(self, result: dict[str, Any]) -> dict[str, Any]:
+        """Record a downstream attention event; never changes execution authority."""
+        event = build_engineering_attention_event(result)
+        plan = classify_event(event)
+        outbox = JsonlAttentionOutbox(
+            self.router.repo_root / "docs/control-plane/evidence/attention-events.jsonl"
+        )
+        recorded = outbox.append(event, plan)
+        result["attention_event"] = event.to_dict()
+        result["attention_delivery_plan"] = plan.to_dict()
+        result["attention_outbox_recorded"] = recorded
+
+        delivery_url = os.environ.get("ARKADIA_ATTENTION_DELIVERY_URL", "").strip()
+        sovereign_key = os.environ.get("SOVEREIGN_KEY", "").strip()
+        owner_uid = os.environ.get("ARKADIA_ATTENTION_OWNER_UID", "").strip()
+        if delivery_url and sovereign_key and owner_uid:
+            try:
+                payload = {**event.to_dict(), "user_id": owner_uid}
+                request = urllib.request.Request(
+                    delivery_url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    method="POST",
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-Arkadia-Sovereign-Key": sovereign_key,
+                    },
+                )
+                with urllib.request.urlopen(request, timeout=20) as response:
+                    delivery = json.loads(response.read().decode("utf-8"))
+                result["attention_delivery"] = delivery
+            except Exception as exc:
+                result["attention_delivery"] = {
+                    "status": "FAILED",
+                    "error": str(exc)[:500],
+                }
+        else:
+            result["attention_delivery"] = {
+                "status": "NOT_CONFIGURED",
+                "reason": "ARKADIA_ATTENTION_DELIVERY_URL/SOVEREIGN_KEY/ARKADIA_ATTENTION_OWNER_UID not configured",
+            }
+        return result
