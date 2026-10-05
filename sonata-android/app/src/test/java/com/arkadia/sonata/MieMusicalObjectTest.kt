@@ -38,4 +38,18 @@ class MieMusicalObjectTest {
     fun undecidedResultRemainsUndecided() {
         assertNull(objectModel(null).loopDecision)
     }
+
+    @Test
+    fun cloneProvenanceAndNameSurviveJson() {
+        val result = objectModel(null).copy(displayName = "Idea A", clonedFromId = "source-001")
+        val json = result.toJson()
+        assertEquals("Idea A", org.json.JSONObject(json).getJSONObject("provenance").getString("display_name"))
+        assertEquals("source-001", org.json.JSONObject(json).getJSONObject("provenance").getString("cloned_from_id"))
+    }
+
+    @Test
+    fun deletedObjectCarriesDeletionTimestamp() {
+        val result = objectModel(null).copy(deletedAtEpochMs = 1234L)
+        assertEquals(1234L, result.deletedAtEpochMs)
+    }
 }

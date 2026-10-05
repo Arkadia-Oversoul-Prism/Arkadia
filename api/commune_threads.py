@@ -54,6 +54,24 @@ async def create_arkana_thread(request: Request) -> dict[str, Any]:
     return _public_thread(create_thread(title=title, user_id=uid, project_id=project_id))
 
 
+@router.patch("/{thread_uuid}")
+async def rename_arkana_thread(thread_uuid: str, request: Request) -> dict[str, Any]:
+    """Rename a canonical Arkana thread. Titles are system-owned, not user-authored."""
+    from knowledge.vault import get_thread
+    from knowledge.db import execute
+    uid = await _user_id(request)
+    thread = get_thread(thread_uuid, user_id=uid)
+    if not thread:
+        raise HTTPException(status_code=404, detail="Thread not found")
+    body = await request.json()
+    title = str(body.get("title") or "").strip()[:120]
+    if not title:
+        raise HTTPException(status_code=400, detail="A semantic title is required")
+    execute("UPDATE threads SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?", (title, thread["id"], uid))
+    updated = get_thread(thread_uuid, user_id=uid)
+    return {"thread": _public_thread(updated or thread)}
+
+
 @router.get("/{thread_uuid}")
 async def get_arkana_thread(thread_uuid: str, request: Request) -> dict[str, Any]:
     from knowledge.vault import get_thread
