@@ -5,6 +5,8 @@ authority, prove correctness, mark completion, or perform production acceptance.
 """
 from __future__ import annotations
 
+import sqlite3
+
 from solspire.workevent_manager import WorkEvent, get_workevent_manager
 from weaver.enterprise_orchestration import EnterpriseOrchestrationStore, ExecutionAttempt
 
@@ -62,7 +64,7 @@ def capture_execution_workevent(
             witness_ref=execution.id,
             status="RECORDED",
         )
-    except ValueError:
+    except (ValueError, sqlite3.IntegrityError):
         # A concurrent retry may win the unique execution_attempt_ref insert.
         existing = workevents.get_by_execution_attempt(execution_attempt_id, subject)
         if existing is not None:
