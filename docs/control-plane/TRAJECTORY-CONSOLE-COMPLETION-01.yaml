@@ -12,10 +12,10 @@ trajectory:
   entry_frontier:
     current_gate: G12
     reason: G12 implementation is the active repository frontier; G11 remains a prerequisite boundary and must not be silently reopened unless fresh evidence shows it is required for the selected move.
-    current_pr: 307
-    current_pr_status: open-draft
-    current_head: dda2061e884abe200f6c7b7035caff6cf1eb8cc8
-    current_base: b79d7ef7ef9a80c11a53e695a59a9540ab082478
+    current_pr: null
+    current_pr_status: merged-acceptance-pending
+    current_head: 542ec5ac999b6570f082641d361e0df82d82e5d6
+    current_base: 31e924d8a94c28b8da2d9bacb87485b3ab03bf2f
   governance:
     forbidden:
       - identity
@@ -30,15 +30,15 @@ trajectory:
   moves:
     - id: G12-A
       name: canonical-capture-reconciliation
-      status: in_progress
+      status: merged_acceptance_pending
       depends_on: []
       packet: console-offline-sync
       spec: docs/control-plane/moves/G12-A-capture-reconciliation.md
-      existing_pr: 307
+      existing_pr: 315
       completion_rule: Human review/merge plus repository acceptance evidence.
     - id: G12-B
       name: durable-offline-queue-state-machine
-      status: pending
+      status: in_progress
       depends_on:
         - G12-A
       packet: console-offline-sync
@@ -46,7 +46,8 @@ trajectory:
       completion_rule: Restart durability and acknowledgement-loss replay are verified; acceptance remains human-gated.
     - id: G12-C
       name: network-triggered-reconciliation
-      status: pending
+      status: merged_acceptance_pending
+      existing_pr: 316
       depends_on:
         - G12-B
       packet: console-offline-sync
