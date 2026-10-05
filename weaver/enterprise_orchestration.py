@@ -100,7 +100,7 @@ def _db() -> sqlite3.Connection:
     );
     CREATE TABLE IF NOT EXISTS ew_authorizations (
         id TEXT PRIMARY KEY, subject TEXT NOT NULL, proposal_id TEXT NOT NULL,
-        authority_event_id TEXT NOT NULL, scope TEXT NOT NULL, constraints TEXT NOT NULL,
+        authority_event_id TEXT NOT NULL, acceptance_id TEXT, scope TEXT NOT NULL, constraints TEXT NOT NULL,
         expires_at REAL, granted_at REAL NOT NULL, correlation_id TEXT NOT NULL,
         FOREIGN KEY(proposal_id) REFERENCES ew_proposals(id),
         FOREIGN KEY(authority_event_id) REFERENCES ew_authority_events(id)
@@ -123,6 +123,9 @@ def _db() -> sqlite3.Connection:
         evidence_refs TEXT NOT NULL, verdict TEXT NOT NULL, verified_at REAL NOT NULL,
         verifier TEXT NOT NULL, correlation_id TEXT NOT NULL
     );
+    auth_columns = {row["name"] for row in conn.execute("PRAGMA table_info(ew_authorizations)").fetchall()}
+    if "acceptance_id" not in auth_columns:
+        conn.execute("ALTER TABLE ew_authorizations ADD COLUMN acceptance_id TEXT")
     CREATE INDEX IF NOT EXISTS idx_ew_ops_stream ON ew_operational_events(subject, enterprise_id, timestamp);
     CREATE TABLE IF NOT EXISTS ew_acceptances (
         id TEXT PRIMARY KEY, subject TEXT NOT NULL, verification_id TEXT NOT NULL,
@@ -244,6 +247,7 @@ class Authorization:
     subject: str
     proposal_id: str
     authority_event_id: str
+    acceptance_id: str | None
     scope: Any
     constraints: Any
     expires_at: float | None
@@ -427,6 +431,7 @@ class EnterpriseOrchestrationStore:
 
     def authorize(self, *, subject: str, proposal_id: str, authority_event_id: str,
                   scope: Any, constraints: Any, expires_at: float | None = None,
+                  acceptance_id: str | None = None,
                   correlation_id: str | None = None) -> Authorization:
         proposal = self._row("ew_proposals", proposal_id)
         authority = self._row("ew_authority_events", authority_event_id)
@@ -438,12 +443,21 @@ class EnterpriseOrchestrationStore:
             raise ValueError("authority event does not authorize proposal")
         if authority["correlation_id"] != proposal["correlation_id"]:
             raise ValueError("authority event is not causally bound to proposal")
+        if acceptance_id:
+            acceptance = self._row("ew_acceptances", acceptance_id)
+            if not acceptance or acceptance["subject"] != subject:
+                raise ValueError("matching acceptance required")
+            if acceptance["verification_id"] == "":
+                raise ValueError("acceptance verification reference required")
+            if acceptance["correlation_id"] != proposal["correlation_id"]:
+                raise ValueError("acceptance is not causally bound to proposal")
         cid = correlation_id or proposal["correlation_id"]
         rid = _id("auth"); now = _now()
-        row = Authorization(rid, subject, proposal_id, authority_event_id, scope, constraints, expires_at, now, cid)
+        row = Authorization(rid, subject, proposal_id, authority_event_id, acceptance_id, scope, constraints, expires_at, now, cid)
         with _db() as c:
-            c.execute("INSERT INTO ew_authorizations VALUES (?,?,?,?,?,?,?,?,?)",
-                      (rid, subject, proposal_id, authority_event_id, _json(scope), _json(constraints), expires_at, now, cid))
+            c.execute("INSERT INTO ew_authorizations VALUES (?,?,?,?,?,?,?,?,?,?)",
+                      (rid, subject, proposal_id, authority_event_id, acceptance_id,
+                       _json(scope), _json(constraints), expires_at, now, cid))
             c.execute("UPDATE ew_proposals SET status='AUTHORIZED' WHERE id=?", (proposal_id,))
         return row
 
@@ -453,7 +467,7 @@ class EnterpriseOrchestrationStore:
             raise ValueError("valid matching authorization required")
         return Authorization(
             row["id"], row["subject"], row["proposal_id"], row["authority_event_id"],
-            json.loads(row["scope"]), json.loads(row["constraints"]), row["expires_at"],
+            row["acceptance_id"], json.loads(row["scope"]), json.loads(row["constraints"]), row["expires_at"],
             row["granted_at"], row["correlation_id"],
         )
 
