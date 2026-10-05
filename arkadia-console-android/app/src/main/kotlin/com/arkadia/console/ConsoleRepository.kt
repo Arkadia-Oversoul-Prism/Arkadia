@@ -37,6 +37,12 @@ class ConsoleRepository(private val baseUrl:()->String, private val token:suspen
         for(k in keys)if(o.has(k)&&!o.isNull(k)){val v=o.optString(k);if(v.isNotBlank())return v}
         return ""
     }
+    suspend fun registerPushToken(fcmToken:String):Boolean=withContext(Dispatchers.IO){
+        val body=JSONObject().put("token",fcmToken).put("platform","android").toString()
+        request("/api/google-workspace/push/device","POST",body)
+        true
+    }
+
     suspend fun snapshot():FieldSnapshot=withContext(Dispatchers.IO){
         try{
             val w=runCatching{request("/solspire/workspace")}.getOrNull()?.optJSONObject("workspace")
