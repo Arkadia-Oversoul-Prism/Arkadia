@@ -1079,6 +1079,143 @@ def _ingest_to_knowledge_os(title: str, content: str, source: str = "corpus", ex
         pass  # Never block the caller
 
 
+@app.post("/api/arkana/signal/ingest")
+async def arkana_signal_ingest(request: Request):
+    """ARKANA SIGNAL GATE 01: preserve one audio event and derive structured evidence."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    audio_b64 = (body.get("audio_base64") or "").strip()
+    mime_type = (body.get("mime_type") or "audio/webm").strip()
+    signal_id = (body.get("signal_id") or ("sig_" + str(_uuid_mod.uuid4()))).strip()
+    session_id = (body.get("session_id") or ("session_" + str(_uuid_mod.uuid4()))).strip()
+    duration_ms = body.get("duration_ms")
+    client_streams = body.get("streams") or {}
+    client_hash = (body.get("sha256") or "").strip() or None
+
+    if not audio_b64:
+        raise HTTPException(status_code=400, detail="audio_base64 is required")
+    if len(audio_b64) > 12_000_000:
+        raise HTTPException(status_code=413, detail="Audio payload too large for Gate 01 inline capture")
+
+    try:
+        raw_bytes = base64.b64decode(audio_b64, validate=True)
+    except Exception:
+        raise HTTPException(status_code=400, detail="audio_base64 is not valid base64")
+    raw_hash = hashlib.sha256(raw_bytes).hexdigest()
+
+    active_key = None
+    try:
+        node_user = await _get_current_user(request)
+        uid = node_user.get("uid") if node_user else None
+        if uid:
+            from api.user_key_store import get_active_key_for_user
+            active_key = get_active_key_for_user(uid)
+    except Exception:
+        pass
+    if not active_key:
+        try:
+            from api.key_pool import acquire_key
+            active_key = acquire_key() or GOOGLE_API_KEY
+        except Exception:
+            active_key = GOOGLE_API_KEY
+    if not active_key:
+        raise HTTPException(status_code=503, detail="No Gemini API key configured")
+
+    prompt = """Analyze this audio for ARKANA SIGNAL GATE 01. Return JSON only.
+Do not infer a factual emotional state or personality trait about the speaker.
+Keep uncertain acoustic/prosodic observations explicitly uncertain.
+Return exactly these top-level keys:
+transcript, transcript_confidence, language, speech_segments, intent_candidates,
+entities, references, prosody, acoustic.
+Use null/unknown rather than inventing values. intent_candidates and references
+must remain candidates unless the audio itself clearly resolves them.
+For prosody, report observable/estimated properties such as speech_rate,
+pauses, emphasis, pitch_contour, energy_contour and mark confidence/status.
+For acoustic, report observable properties such as duration_ms, energy_rms,
+peak_amplitude when available. Do not claim emotion as fact."""
+
+    model = "gemini-3.8-flash"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={active_key}"
+    payload = {
+        "contents": [{
+            "role": "user",
+            "parts": [
+                {"text": prompt},
+                {"inline_data": {"mime_type": mime_type, "data": audio_b64}},
+            ],
+        }],
+        "generationConfig": {
+            "temperature": 0.1,
+            "responseMimeType": "application/json",
+            "maxOutputTokens": 1800,
+        },
+    }
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(url, json=payload)
+        resp.raise_for_status()
+        data = resp.json()
+        text_out = data["candidates"][0]["content"]["parts"][0]["text"]
+        derived = json.loads(text_out)
+    except Exception as e:
+        logger.exception("[ARKANA-SIGNAL] multimodal derivation failed")
+        raise HTTPException(status_code=502, detail=f"Signal interpretation failed: {e}")
+
+    now = _now_iso()
+    signal = {
+        "schema": "arkana.signal",
+        "schema_version": "1.0",
+        "id": signal_id,
+        "session_id": session_id,
+        "created_at": now,
+        "source": {
+            "type": "microphone",
+            "modality": "audio",
+            "format": mime_type,
+            "duration_ms": duration_ms,
+        },
+        "raw": {
+            "asset_ref": f"client://indexeddb/arkana-signal/{signal_id}",
+            "sha256": raw_hash,
+            "client_sha256": client_hash,
+            "inline_forwarded_for_inference": True,
+        },
+        "streams": {
+            "speech": {"segments": derived.get("speech_segments", [])},
+            "prosody": derived.get("prosody") or {},
+            "acoustic": {**(derived.get("acoustic") or {}), "client": client_streams},
+            "timing": {"duration_ms": duration_ms},
+            "language": {"value": derived.get("language")},
+        },
+        "interpretation": {
+            "transcript": {
+                "text": derived.get("transcript"),
+                "confidence": derived.get("transcript_confidence"),
+                "status": "derived",
+            },
+            "intent_candidates": derived.get("intent_candidates") or [],
+            "entities": derived.get("entities") or [],
+            "references": derived.get("references") or [],
+            "confidence": {"transcript": derived.get("transcript_confidence")},
+        },
+        "provenance": {
+            "derived_from": [signal_id],
+            "processor": "arkana-signal-gate-01",
+            "processor_version": "1.0",
+            "model": model,
+            "model_version": "current",
+        },
+        "integrity": {
+            "raw_preserved": True,
+            "interpretation_is_derived": True,
+        },
+    }
+    return {"signal": signal, "raw_audio_forwarded": True}
+
+
 @app.post("/api/commune/resonance")
 async def commune_resonance(request: Request):
     try:
