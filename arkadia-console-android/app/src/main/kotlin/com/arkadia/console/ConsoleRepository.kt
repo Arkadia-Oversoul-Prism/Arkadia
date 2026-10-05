@@ -134,6 +134,31 @@ class ConsoleRepository(private val baseUrl:()->String, private val token:suspen
         request("/solspire/authority/captures","POST",body).optBoolean("reconciled",false)
     }
 
+    suspend fun reconcilePendingCaptures(store:CaptureStore):Int=withContext(Dispatchers.IO){
+        var synced=0
+        for(record in store.pending()){
+            store.transition(record.id,CaptureSyncState.SYNCING)
+            try{
+                if(syncCapture(record)){
+                    store.transition(record.id,CaptureSyncState.SYNCED)
+                    synced++
+                }else{
+                    store.transition(record.id,CaptureSyncState.RETRYABLE_FAILURE,"Server did not reconcile capture")
+                }
+            }catch(e:Exception){
+                val message=e.message ?: "Capture reconciliation failed"
+                val conflict=message.contains("409") ||
+                    message.contains("different capture content or metadata",ignoreCase=true)
+                store.transition(
+                    record.id,
+                    if(conflict) CaptureSyncState.CONFLICT else CaptureSyncState.RETRYABLE_FAILURE,
+                    message
+                )
+            }
+        }
+        synced
+    }
+
     suspend fun decide(id:String,decision:String):String{
         request("/solspire/proposals/"+java.net.URLEncoder.encode(id,"UTF-8")+"/decision","POST",JSONObject().put("decision",decision).toString())
         return "Decision recorded. Weaver execution remains separately governed."
