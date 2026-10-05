@@ -5,7 +5,7 @@ from typing import Literal
 
 from .protocol import (
     ALXModel, Claim, DIRECT_MODES, Evidence, Event, Decision, State, Status,
-    _claim_key, _parse_dt,
+    _claim_key, _parse_dt, digest,
 )
 
 class Reconciliation(ALXModel):
@@ -140,3 +140,63 @@ def reconcile_states(base: State, left: State, right: State, *, reconciliation_i
 def _canon(value):
     import json
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+class Adjudication(ALXModel):
+    adjudication_id: str
+    reconciliation_id: str
+    decision_maker: str
+    scope: str
+    selected_claim_id: str
+    rejected_claim_ids: list[str] = []
+    evidence_refs: list[str] = []
+    authorized_actions: list[str] = []
+    decided_at: datetime
+    rationale: str
+    status: Literal["ACCEPTED", "REJECTED", "UNKNOWN"] = "ACCEPTED"
+    certificate_digest: str | None = None
+
+    def with_certificate(self) -> "Adjudication":
+        raw = self.model_copy(update={"certificate_digest": None})
+        return raw.model_copy(update={"certificate_digest": digest(raw.model_dump(mode="json", exclude={"certificate_digest"}))})
+
+
+def apply_adjudication(state: State, adjudication: Adjudication) -> State:
+    if adjudication.status != "ACCEPTED":
+        raise ValueError("only ACCEPTED adjudications may alter a state")
+    if adjudication.certificate_digest != digest(adjudication.model_dump(mode="json", exclude={"certificate_digest"})):
+        raise ValueError("adjudication certificate digest mismatch")
+    ids = {c.claim_id for c in state.claims}
+    if adjudication.selected_claim_id not in ids:
+        raise ValueError("selected claim does not exist in state")
+    if not set(adjudication.rejected_claim_ids).issubset(ids):
+        raise ValueError("rejected claim does not exist in state")
+    if adjudication.selected_claim_id in adjudication.rejected_claim_ids:
+        raise ValueError("selected claim cannot also be rejected")
+
+    selected = next(c for c in state.claims if c.claim_id == adjudication.selected_claim_id)
+    updated = []
+    for claim in state.claims:
+        if claim.claim_id == adjudication.selected_claim_id:
+            updated.append(claim.model_copy(update={"status": Status.ACTIVE}))
+        elif claim.claim_id in adjudication.rejected_claim_ids:
+            updated.append(claim.model_copy(update={"status": Status.SUPERSEDED}))
+        else:
+            updated.append(claim)
+    conflict_prefix = f"RECONCILIATION:{adjudication.reconciliation_id}:"
+    remaining_conflicts = [x for x in state.conflicts if not x.startswith(conflict_prefix)]
+    remaining_conflicts.append(f"ADJUDICATED:{adjudication.adjudication_id}:{adjudication.selected_claim_id}")
+    return State(
+        state_id=f"STATE-ADJ-{adjudication.adjudication_id}",
+        parent_state_id=state.state_id,
+        protocol_version=state.protocol_version,
+        created_at=adjudication.decided_at,
+        claims=sorted(updated, key=lambda x: x.claim_id),
+        evidence=state.evidence,
+        events=state.events,
+        decisions=state.decisions,
+        conflicts=remaining_conflicts,
+        unknowns=state.unknowns,
+        capabilities=state.capabilities,
+        source_registry=state.source_registry,
+    ).with_root()
