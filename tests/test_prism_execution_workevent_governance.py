@@ -189,12 +189,30 @@ def test_governance_records_require_the_previous_boundary(stores):
         verdict="ACCEPTED",
         findings={"observed": True},
     )
+    evidence = store.evidence(
+        subject="human-1",
+        execution_attempt_id="exec-x",
+        evidence_type="EXECUTION_RESULT",
+        content_or_ref={"status": "SUCCEEDED"},
+        source_ref=None,
+    )
     completion = store.completion(
         subject="human-1",
         work_event_id=event.work_event_id,
         review_id=review.id,
         condition="observable transition satisfies the declared outcome",
-        supporting_evidence_refs=["exec-x"],
+        supporting_evidence_refs=[evidence.id],
+    )
+    store.authority_event(
+        subject="human-1",
+        actor="human-1",
+        authority_context="workspace-1",
+        action="APPROVE_PRODUCTION",
+        previous_state="COMPLETED",
+        new_state="PRODUCTION_ACCEPTED",
+        origin="human",
+        authentication_context="firebase",
+        correlation_id=completion.correlation_id,
     )
     production = store.production_acceptance(
         subject="human-1",
@@ -206,6 +224,144 @@ def test_governance_records_require_the_previous_boundary(stores):
     assert completion.review_id == review.id
     assert production.completion_id == completion.id
     assert production.status == "ACCEPTED"
+
+
+def test_acceptance_must_correspond_to_verified_proposal_and_scope(stores):
+    store, _ = stores
+    proposal, acceptance, authority = _proposal_and_acceptance(store)
+
+    with pytest.raises(ValueError, match="acceptance does not correspond"):
+        store.authorize(
+            subject="human-1", proposal_id="wrong-proposal", authority_event_id=authority.id,
+            acceptance_id=acceptance.id, scope={"tools": ["test-tool"]}, constraints={},
+        )
+
+    with pytest.raises(ValueError, match="exceeds accepted scope"):
+        store.authorize(
+            subject="human-1", proposal_id=proposal.id, authority_event_id=authority.id,
+            acceptance_id=acceptance.id, scope={"tools": ["test-tool", "extra-tool"]},
+            constraints={},
+        )
+
+
+def test_acceptance_rejects_verified_result_from_different_proposal(stores):
+    store, _ = stores
+    _, acceptance, _ = _proposal_and_acceptance(store)
+    other = store.proposal(
+        subject="human-1", enterprise_id="workspace-1", objective="other",
+        rationale="other", recommended_actions=["other"], required_authority="human",
+        tool_selections=["other-tool"], correlation_id="different-correlation",
+    )
+    authority = store.authority_event(
+        subject="human-1", actor="human-1", authority_context="workspace-1",
+        action="AUTHORIZE", previous_state="ACCEPTED", new_state="AUTHORIZED",
+        origin="human", authentication_context="firebase",
+        correlation_id=other.correlation_id,
+    )
+    with pytest.raises(ValueError, match="acceptance does not correspond"):
+        store.authorize(
+            subject="human-1", proposal_id=other.id, authority_event_id=authority.id,
+            acceptance_id=acceptance.id, scope={"tools": ["test-tool"]}, constraints={},
+        )
+
+
+def test_completion_requires_existing_subject_valid_causal_evidence(stores):
+    store, manager = stores
+    event = manager.create(
+        subject_ref="human-1", workspace_ref="workspace-1",
+        event_type="EXECUTION_SUCCEEDED", occurred_at=1.0,
+        execution_attempt_ref="exec-causal",
+    )
+    review = store.review(
+        subject="human-1", work_event_id=event.work_event_id,
+        reviewer="reviewer-1", verdict="ACCEPTED", findings={},
+    )
+    with pytest.raises(ValueError, match="completion evidence must exist"):
+        store.completion(
+            subject="human-1", work_event_id=event.work_event_id, review_id=review.id,
+            condition="done", supporting_evidence_refs=["missing-evidence"],
+        )
+
+    foreign = store.evidence(
+        subject="human-2", execution_attempt_id="exec-causal",
+        evidence_type="RESULT", content_or_ref={"status": "SUCCEEDED"},
+    )
+    with pytest.raises(ValueError, match="completion evidence must exist"):
+        store.completion(
+            subject="human-1", work_event_id=event.work_event_id, review_id=review.id,
+            condition="done", supporting_evidence_refs=[foreign.id],
+        )
+
+    unrelated = store.evidence(
+        subject="human-1", execution_attempt_id="other-execution",
+        evidence_type="RESULT", content_or_ref={"status": "SUCCEEDED"},
+    )
+    with pytest.raises(ValueError, match="causally linked"):
+        store.completion(
+            subject="human-1", work_event_id=event.work_event_id, review_id=review.id,
+            condition="done", supporting_evidence_refs=[unrelated.id],
+        )
+
+
+def test_production_acceptance_requires_real_production_authority(stores):
+    store, manager = stores
+    event = manager.create(
+        subject_ref="human-1", workspace_ref="workspace-1",
+        event_type="EXECUTION_SUCCEEDED", occurred_at=1.0,
+        execution_attempt_ref="exec-prod",
+    )
+    review = store.review(
+        subject="human-1", work_event_id=event.work_event_id,
+        reviewer="reviewer-1", verdict="ACCEPTED", findings={},
+    )
+    evidence = store.evidence(
+        subject="human-1", execution_attempt_id="exec-prod",
+        evidence_type="RESULT", content_or_ref={"status": "SUCCEEDED"},
+    )
+    completion = store.completion(
+        subject="human-1", work_event_id=event.work_event_id, review_id=review.id,
+        condition="done", supporting_evidence_refs=[evidence.id],
+    )
+    with pytest.raises(ValueError, match="matching production authority"):
+        store.production_acceptance(
+            subject="human-1", completion_id=completion.id,
+            accepting_authority="human-1", context_ref="workspace-1",
+        )
+
+
+def test_orphan_terminal_execution_is_retryable_when_workevent_capture_fails(stores, monkeypatch):
+    store, manager = stores
+    proposal, acceptance, authority = _proposal_and_acceptance(store)
+    authorization = store.authorize(
+        subject="human-1", proposal_id=proposal.id, authority_event_id=authority.id,
+        acceptance_id=acceptance.id, scope={"tools": ["test-tool"]}, constraints={},
+    )
+    attempt = store.execution_attempt(
+        subject="human-1", authorization_id=authorization.id,
+        tool_channel="test-tool", request_payload={},
+    )
+
+    import weaver.execution_workevent_bridge as bridge
+    original = bridge.capture_execution_workevent
+    def fail_bridge(**kwargs):
+        raise RuntimeError("bridge unavailable")
+    monkeypatch.setattr(bridge, "capture_execution_workevent", fail_bridge)
+    with pytest.raises(RuntimeError, match="bridge unavailable"):
+        store.complete_execution_attempt(
+            subject="human-1", execution_attempt_id=attempt.id, result_status="SUCCEEDED",
+        )
+
+    persisted = store._row("ew_execution_attempts", attempt.id)
+    assert persisted["result_status"] == "SUCCEEDED"
+    assert manager.get_by_execution_attempt(attempt.id, "human-1") is None
+
+    monkeypatch.setattr(bridge, "capture_execution_workevent", original)
+    event = bridge.capture_execution_workevent(
+        store=store, subject="human-1", execution_attempt_id=attempt.id,
+        workspace_ref="workspace-1",
+    )
+    assert event.execution_attempt_ref == attempt.id
+
 
 def test_workevent_schema_migrates_legacy_table(tmp_path, monkeypatch):
     import sqlite3
