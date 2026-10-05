@@ -36,6 +36,7 @@ class WorkEvent:
     subject_ref: str
     workspace_ref: str
     work_ref: str | None
+    execution_attempt_ref: str | None
     parent_event_ref: str | None
     sequence_ref: str | None
     scope_ref: str | None
@@ -75,6 +76,7 @@ def _db() -> sqlite3.Connection:
             subject_ref TEXT NOT NULL,
             workspace_ref TEXT NOT NULL,
             work_ref TEXT,
+            execution_attempt_ref TEXT,
             parent_event_ref TEXT,
             sequence_ref TEXT,
             scope_ref TEXT,
@@ -91,6 +93,12 @@ def _db() -> sqlite3.Connection:
             schema_version TEXT NOT NULL
         )
         """
+    )
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(work_events)").fetchall()}
+    if "execution_attempt_ref" not in columns:
+        conn.execute("ALTER TABLE work_events ADD COLUMN execution_attempt_ref TEXT")
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_work_events_execution_attempt ON work_events(execution_attempt_ref) WHERE execution_attempt_ref IS NOT NULL"
     )
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_work_events_subject ON work_events(subject_ref, recorded_at)"
@@ -115,6 +123,7 @@ class WorkEventManager:
         effective_from: float | None = None,
         effective_until: float | None = None,
         work_ref: str | None = None,
+        execution_attempt_ref: str | None = None,
         parent_event_ref: str | None = None,
         sequence_ref: str | None = None,
         scope_ref: str | None = None,
@@ -187,7 +196,7 @@ class WorkEventManager:
                     INSERT INTO work_events (
                         work_event_id, event_type, event_version, occurred_at, recorded_at,
                         effective_from, effective_until, subject_ref, workspace_ref, work_ref,
-                        parent_event_ref, sequence_ref, scope_ref, actor_ref, artifact_refs,
+                        execution_attempt_ref, parent_event_ref, sequence_ref, scope_ref, actor_ref, artifact_refs,
                         state_before_ref, state_after_ref, decision_ref, witness_ref, status,
                         supersedes_ref, reversal_of_ref, created_by_event, schema_version
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -196,7 +205,7 @@ class WorkEventManager:
                         event.work_event_id, event.event_type, event.event_version,
                         event.occurred_at, event.recorded_at, event.effective_from,
                         event.effective_until, event.subject_ref, event.workspace_ref,
-                        event.work_ref, event.parent_event_ref, event.sequence_ref,
+                        event.work_ref, event.execution_attempt_ref, event.parent_event_ref, event.sequence_ref,
                         event.scope_ref, event.actor_ref, json.dumps(event.artifact_refs),
                         event.state_before_ref, event.state_after_ref, event.decision_ref,
                         event.witness_ref, event.status, event.supersedes_ref,
@@ -206,6 +215,14 @@ class WorkEventManager:
             except sqlite3.IntegrityError as exc:
                 raise ValueError("WorkEvent identity already exists") from exc
         return event
+
+    def get_by_execution_attempt(self, execution_attempt_ref: str, subject_ref: str) -> WorkEvent | None:
+        with _db() as conn:
+            row = conn.execute(
+                "SELECT * FROM work_events WHERE execution_attempt_ref=? AND subject_ref=?",
+                ((execution_attempt_ref or "").strip(), (subject_ref or "").strip()),
+            ).fetchone()
+        return self._from_row(row) if row else None
 
     def get(self, work_event_id: str, subject_ref: str) -> WorkEvent | None:
         with _db() as conn:
