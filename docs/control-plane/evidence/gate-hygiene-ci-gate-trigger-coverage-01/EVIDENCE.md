@@ -96,6 +96,36 @@ be merged until the review-record boundary is reconciled.
 - CP10 allowlist omits `research/**` (from #290) → 3 CP10 fitness failures on
   `main`. A bounded allowlist workstream, not fixed here.
 
+## CI verification (post-push, observed)
+
+Branch `gate-hygiene/ci-gate-trigger-coverage-01`, head
+`2e3661a1b4141809a9ad120ff19aaf68e81dac5f`, PR #300. Runs observed 2026-10-05.
+
+| Check-run | Result |
+|---|---|
+| `provider-routing` | **failure** |
+| `Full-history secret scan` | success |
+
+The `provider-routing` job failed at its **`Relevant architecture regression`** step
+(`Broader test suite` skipped). The single failure is
+`tests/architecture/test_layer_boundaries.py::test_api_main_line_count_within_budget`
+— `api/main.py has grown to 2805 lines (budget: 2600)`.
+
+**This is pre-existing debt, not a regression from this branch.** Re-measured directly:
+`pytest tests/architecture -q -rEf` yields `1 failed, 10 passed` with the *identical*
+failing node on both `main` @ `4550531` and this branch. No file touched by this PR
+affects `api/main.py` (`git diff origin/main` = 4 paths, none of them `api/main.py`).
+
+Note the trigger asymmetry this branch repairs is visible in the failure itself: the
+job runs the architecture suite but its pre-fix filter named neither
+`tests/architecture/**` nor its own file. **The fix works** — a change to
+`tests/architecture/**` now selects this gate.
+
+Consequence recorded for the sovereign: this branch cannot be green while `main` is
+baseline-red on the same node. Green requires PR #296 (`api/main.py` decomposition) to
+land first, or an explicit decision to accept the gate as red-by-inheritance. The
+failure is **unchanged**, not introduced.
+
 ## Next authorized action
 
 Sovereign review and merge of this branch. No further work begins inside this PR.
