@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Arkana Signal Gate 01</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,sans-serif;background:#0a0d12;color:#e7edf2}
+body{margin:0;background:radial-gradient(circle at 50% 0,#102329 0,#0a0d12 45%);min-height:100vh}
+main{max-width:900px;margin:0 auto;padding:32px 18px 70px}
+h1{font-size:28px;margin:0 0 6px;letter-spacing:.03em}
+.sub{color:#8ea1ad;margin-bottom:26px}
+.card{background:#10161cdd;border:1px solid #203039;border-radius:16px;padding:18px;margin:14px 0;box-shadow:0 16px 50px #0005}
+button{border:1px solid #2b4d58;background:#11242b;color:#c9f4ff;border-radius:10px;padding:11px 15px;font-weight:700;cursor:pointer}
+button.record{font-size:16px;padding:14px 20px;border-color:#00d4aa55}
+button.record.live{background:#3b1616;border-color:#e86f6f;color:#ffd7d7}
+button:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.status{font-family:monospace;font-size:12px;color:#77d8c1}
+pre{white-space:pre-wrap;word-break:break-word;font:12px/1.55 ui-monospace,monospace;color:#b9c8d1;max-height:520px;overflow:auto}
+.reply{font-size:16px;line-height:1.65;color:#edf5f7}
+.badge{display:inline-block;border:1px solid #2a424d;border-radius:999px;padding:4px 8px;font:10px ui-monospace;color:#8fb7c3;margin-right:5px}
+small{color:#71828c}
+</style>
+</head>
+<body>
+<main>
+  <h1>ARKANA SIGNAL GATE 01</h1>
+  <div class="sub">Raw audio → Signal Object → multimodal Arkana → generated voice</div>
+
+  <section class="card">
+    <div class="row">
+      <button id="record" class="record">● Capture</button>
+      <button id="playRaw" disabled>▶ Raw capture</button>
+      <span id="status" class="status">READY</span>
+    </div>
+    <p><small>The original recording is retained locally in IndexedDB. It is forwarded inline only for this gate's interpretation and response operation.</small></p>
+  </section>
+
+  <section class="card">
+    <div><span class="badge">SOURCE</span><span class="badge">DERIVED</span><span class="badge">CANDIDATES</span><span class="badge">PROVENANCE</span></div>
+    <pre id="signal">{}</pre>
+  </section>
+
+  <section class="card">
+    <div class="row"><button id="respond" disabled>Ask Arkana from this signal</button><button id="speak" disabled>▶ Generated voice</button></div>
+    <p id="reply" class="reply">No response yet.</p>
+    <pre id="generation">{}</pre>
+  </section>
+</main>
+<script>
+const API_BASE = '';
+const DB='arkana-signal-gate-01';
+let db, recorder, chunks=[], blob=null, rawUrl=null, signal=null, responseAudio=null, stream=null, startedAt=0;
+
+function $(id){return document.getElementById(id)}
+function setStatus(s){$('status').textContent=s}
+function uid(prefix){return prefix+'_'+crypto.randomUUID()}
+function openDb(){
+  return new Promise((resolve,reject)=>{
+    const r=indexedDB.open(DB,1);
+    r.onupgradeneeded=()=>r.result.createObjectStore('signals',{keyPath:'id'});
+    r.onsuccess=()=>{db=r.result;resolve(db)};
+    r.onerror=()=>reject(r.error);
+  })
+}
+function putRaw(id,b){
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction('signals','readwrite');tx.objectStore('signals').put({id,blob:b,createdAt:new Date().toISOString()});
+    tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
+  })
+}
+async function toBase64(b){
+  const buf=await b.arrayBuffer();let bytes=new Uint8Array(buf),binary='';
+  const step=0x8000;for(let i=0;i<bytes.length;i+=step)binary+=String.fromCharCode(...bytes.subarray(i,i+step));
+  return btoa(binary);
+}
+async function analyseClient(b,duration){
+  try{
+    const ac=new AudioContext(), arr=await b.arrayBuffer(), decoded=await ac.decodeAudioData(arr.slice(0));
+    let sum=0,count=0,peak=0;
+    for(let c=0;c<decoded.numberOfChannels;c++){
+      const data=decoded.getChannelData(c);
+      for(let i=0;i<data.length;i+=Math.max(1,Math.floor(data.length/20000))){
+        const x=Math.abs(data[i]);sum+=x*x;peak=Math.max(peak,x);count++;
+      }
+    }
+    await ac.close();
+    return {duration_ms:Math.round(duration),energy_rms:count?Math.sqrt(sum/count):null,peak_amplitude:peak};
+  }catch{return {duration_ms:Math.round(duration),energy_rms:null,peak_amplitude:null}}
+}
+$('record').onclick=async()=>{
+  if(recorder&&recorder.state==='recording'){recorder.stop();return}
+  if(!navigator.mediaDevices?.getUserMedia){setStatus('MICROPHONE_UNAVAILABLE');return}
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    const mime=MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':'audio/webm';
+    recorder=new MediaRecorder(stream,{mimeType:mime});chunks=[];startedAt=performance.now();
+    recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+    recorder.onstop=async()=>{
+      blob=new Blob(chunks,{type:mime.split(';')[0]});stream.getTracks().forEach(t=>t.stop());
+      $('record').textContent='● Capture';$('record').classList.remove('live');
+      const duration=performance.now()-startedAt;
+      const id=uid('sig');await putRaw(id,blob);
+      rawUrl&&URL.revokeObjectURL(rawUrl);rawUrl=URL.createObjectURL(blob);
+      $('playRaw').disabled=false;
+      setStatus('CAPTURED · DERIVING');
+      const b64=await toBase64(blob), client=await analyseClient(blob,duration);
+      const hashBuf=await crypto.subtle.digest('SHA-256',await blob.arrayBuffer());
+      const hash=Array.from(new Uint8Array(hashBuf)).map(x=>x.toString(16).padStart(2,'0')).join('');
+      const res=await fetch(API_BASE+'/api/arkana/signal/ingest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        signal_id:id,session_id:localStorage.getItem('arkana_signal_session')||(localStorage.setItem('arkana_signal_session',uid('session')),localStorage.getItem('arkana_signal_session')),
+        audio_base64:b64,mime_type:blob.type,duration_ms:Math.round(duration),sha256:hash,streams:{acoustic:{client}}
+      })});
+      if(!res.ok){setStatus('DERIVATION_FAILED');$('signal').textContent=await res.text();return}
+      signal=(await res.json()).signal;
+      $('signal').textContent=JSON.stringify(signal,null,2);
+      $('respond').disabled=false;setStatus('SIGNAL_READY');
+    };
+    recorder.start();$('record').textContent='■ Stop capture';$('record').classList.add('live');setStatus('CAPTURING');
+  }catch(e){setStatus('MICROPHONE_DENIED');console.error(e)}
+};
+$('playRaw').onclick=()=>{if(rawUrl)new Audio(rawUrl).play()}
+$('respond').onclick=async()=>{
+  if(!signal||!blob)return;
+  $('respond').disabled=true;setStatus('ARKANA_REASONING');
+  try{
+    const b64=await toBase64(blob);
+    const res=await fetch(API_BASE+'/api/arkana/signal/respond',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({signal,audio_base64:b64,mime_type:blob.type})});
+    if(!res.ok)throw new Error(await res.text());
+    const data=await res.json();const gen=data.response;
+    $('reply').textContent=gen.text;$('generation').textContent=JSON.stringify(gen,null,2);
+    const tts=await fetch(API_BASE+'/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:gen.text,voice:'aria',speed:1})});
+    if(!tts.ok)throw new Error('TTS '+await tts.text());
+    responseAudio=URL.createObjectURL(await tts.blob());$('speak').disabled=false;setStatus('RESPONSE_READY');
+  }catch(e){setStatus('RESPONSE_FAILED');$('reply').textContent=String(e)}
+  finally{$('respond').disabled=false}
+};
+$('speak').onclick=()=>{if(responseAudio)new Audio(responseAudio).play()}
+openDb().catch(()=>setStatus('INDEXEDDB_UNAVAILABLE'));
+</script>
+</body>
+</html>
