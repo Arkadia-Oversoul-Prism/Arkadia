@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://arkadia-prism.local/schemas/sequential-build-envelope.schema.json",
+  "title": "Arkadia Sequential Build Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol",
+    "protocol_version",
+    "build_id",
+    "parent_build",
+    "base_commit",
+    "objective",
+    "scope",
+    "transition",
+    "invariants",
+    "proof",
+    "status",
+    "failures",
+    "unknowns"
+  ],
+  "properties": {
+    "protocol": {
+      "const": "ARKADIA-SEQUENTIAL-BUILD"
+    },
+    "protocol_version": {
+      "const": "1.0"
+    },
+    "build_id": {
+      "type": "string",
+      "pattern": "^[A-Z0-9][A-Z0-9._-]{1,63}$"
+    },
+    "parent_build": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "base_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{7,64}$"
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "scope_ref",
+        "repository_ref"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "project",
+            "repository"
+          ]
+        },
+        "scope_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "repository_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "project_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_state_root",
+        "output_state_root",
+        "delta_ref",
+        "changed_paths",
+        "external_side_effects"
+      ],
+      "properties": {
+        "input_state_root": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{64}$"
+        },
+        "output_state_root": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{64}$"
+        },
+        "delta_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "changed_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "external_side_effects": {
+          "const": false
+        }
+      }
+    },
+    "invariants": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._-]{1,63}$"
+      }
+    },
+    "proof": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "invariant",
+          "result",
+          "evidence_refs",
+          "observation"
+        ],
+        "properties": {
+          "invariant": {
+            "type": "string"
+          },
+          "result": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "UNKNOWN"
+            ]
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "observation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        }
+      }
+    },
+    "status": {
+      "enum": [
+        "IMPLEMENTATION_PENDING",
+        "IMPLEMENTED",
+        "VERIFYING",
+        "VERIFIED",
+        "BLOCKED"
+      ]
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "unknowns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "handoff": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "next_build": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "next_input_root": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-fA-F]{64}$"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}
