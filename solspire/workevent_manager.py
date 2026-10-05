@@ -173,6 +173,7 @@ class WorkEventManager:
             subject_ref=subject_ref,
             workspace_ref=workspace_ref,
             work_ref=(work_ref or None),
+            execution_attempt_ref=(execution_attempt_ref or None),
             parent_event_ref=(parent_event_ref or None),
             sequence_ref=(sequence_ref or None),
             scope_ref=(scope_ref or None),
