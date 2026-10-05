@@ -832,3 +832,125 @@ sovereign-reserved failures (`test_verification_review_boundary`,
 `test_agents_md_encoding_adjudication`, `test_steward_filter`, `weaver/autonomy`); re-opening a
 duplicate budget or CP10 PR; weakening the CP10 gate; synthesizing a fingerprint without the
 dependency-complete environment or without stating clone depth.
+
+
+## 12. Ninth pass — 2026-10-05T13:0xZ (independent re-verification on a fresh clone; full-stack composition)
+
+Observation timestamp: **2026-10-05T13:06Z** (session clock). Fresh full clone (2134 commits,
+`git rev-parse --is-shallow-repository` → **false**). No merge; no push to `main`; no production
+code touched. `BASE_MAIN` = `ccbec4061d66ff6a13dba16b3d2c24b124132102`.
+
+### 12.1 Base re-verified
+
+- `main` @ `ccbec40`; local HEAD == origin/main; working tree clean; `git fetch --all --prune` OK.
+- `api/main.py` = **2602** lines (budget **2600**) — defect unchanged, carried solely by #308.
+- `python -m py_compile api/main.py` → OK.
+- `git ls-files | python scripts/cp10_mutation_boundary_policy.py --judge` → **exit 0 (PASS)**.
+- `pytest tests/test_m02a_ci_gate_integrity.py -q` on `main` → **60 passed**.
+
+### 12.2 Live open-PR inventory (7, live `GET /pulls?state=open`)
+
+`#306` (`feat/oversoul-prism-9cell-conformance`), `#307` (`feat/console-g12-idempotent-capture-sync`,
+**draft**), `#308` (`gate-hygiene/api-main-budget-ceo-chat-extraction-01`), `#309`
+(`feat/weaver-console-completion-trajectory`), `#311` (`feat/weaver-attention-bus-google-workspace`,
+base = `feat/weaver-console-completion-trajectory` — **stacked on #309**), `#312` (this record),
+`#313` (`gate-hygiene/cp10-admit-google-workspace-surface-01`). This matches pass 8; no new PRs,
+no merges since pass 8.
+
+### 12.3 Baseline reproduced byte-identically
+
+Full suite `python -m pytest tests/ -q -rEf --continue-on-collection-errors`, dependency-complete
+environment (`yaml`, repo `requirements.txt`, `PYTHONPATH=<repo>/archive/legacy_python`) on a
+**full** clone:
+
+| tree | result | nodes | outcomes fingerprint |
+| --- | --- | --- | --- |
+| `main` `ccbec406` | 17F / 1485P / 20S / 1E | **18** | `ffd491e3ac10d08f55e3522859a43313743cd77fe51a40c0c0076391d9f64824` |
+
+This reproduces pass 8's `main` result. The 18th node is
+`tests/architecture/test_layer_boundaries.py::test_api_main_line_count_within_budget`.
+
+### 12.4 New this pass — full-stack composition `main → #308 → #309 → #311 → #313`
+
+Pass 7/8 composed `#308 + #311` only. #311's base is **#309's head branch**, so a complete
+integration proof must include #309. Composed in a scratch worktree (`ccbec40` detached, merges
+applied in that order), with `git config user.email/name` set locally so the merge commits could be
+created:
+
+| step | result | `api/main.py` |
+| --- | --- | --- |
+| `main` → `#308` (`81c9d9d55`) | clean | 2427 |
+| → `#309` (`d667a81b2`) | clean | 2427 |
+| → `#311` (`692f9cb4e`) | clean | 2432 |
+| → `#313` (`e612ad4f3`) | clean | 2432 |
+
+Gate measurements on the composed tree:
+
+| measurement | result |
+| --- | --- |
+| textual merge conflicts | **none** (all four merges clean) |
+| `api/main.py` after all four | **2432** ≤ **2600** — budget holds |
+| `py_compile api/main.py` | OK |
+| composed tree's **own** policy, `--judge` over `git ls-files` | **exit 0 (PASS)** |
+| negative control: **`main`'s** policy vs the composed tree | **exit 1 (FAIL)** on `google_workspace/Code.gs` |
+| `pytest tests/architecture tests/test_m02a_ci_gate_integrity.py -q` | **75 passed** |
+| full suite `-rEf --continue-on-collection-errors` | **16F / 1496P / 20S / 1E** → **17 nodes** |
+| composed node set vs `main` node set | **exactly one removed** — the budget node; **zero regression** |
+
+The negative control is load-bearing: `main`'s unpatched policy rejects the composed tree, while
+the tree's own (post-#313) policy admits it. This proves #313 is necessary *and* sufficient for the
+CP10 gate over the composed tree, and that the judge is not self-satisfying.
+
+CP10 teeth retained on the composed tree (each must be rejected): `SolSpireExperienceV3.tsx`,
+`secret-backdoor/bin/x`, `google_workspace_evil/x.gs`, `somewhere/conftest.py` → all **exit 1**.
+
+### 12.5 Runtime proof of the extraction on the composed tree
+
+`from api.main import app` + `TestClient`: `POST /api/ceo/chat` → **401** (routed, auth-gated), and
+the composed stack logs `[GOOGLE-WORKSPACE] OAuth + Tasks + Keep + Studio + FCM bridge mounted` —
+#308's CEO-chat relocation and #311's workspace mount coexist with no observable route regression.
+
+### 12.6 PR #308 branch attribution — a diff-convention note
+
+`git diff --stat <main> <#308-head>` shows ~12 files, but the merge base is `44f5fe38`
+(#303), so that diff includes **main-side drift** (`#310`'s alxai admission, `#304`'s
+`research/oversoul_prism_144/`). `git diff --stat <merge-base> <#308-head>` — the true branch-only
+change — is **5 files**: `api/ceo_chat_routes.py` (+218), `api/main.py` (−183 net),
+`tests/test_tool_execution_perimeter.py`, and two evidence docs. Attribute a PR's surface with
+`merge-base..head`, not `main..head`.
+
+### 12.7 Gate-2 production boundary (re-derived, unchanged)
+
+`python scripts/gate2_production_observation.py`: current `main` **VERIFIED**; `main → deployment
+identity` **BLOCKED** (Vercel Deployment Protection / provider auth); deployment build output
+**UNKNOWN**; alias reachable **VERIFIED**; alias→SHA binding **UNKNOWN**; build↔source lineage
+**UNKNOWN**; browser-rendered UI correctness **UNKNOWN**; production acceptance **NOT CLAIMED**.
+Per the repository's own rule, repetition cannot convert `BLOCKED`/`UNKNOWN` into `VERIFIED`.
+
+### 12.8 Classification (delta from pass 8)
+
+| item | class |
+| --- | --- |
+| `main` @ `ccbec406` resolved; baseline reproduced | **VERIFIED** |
+| #308 fixes the budget defect, no regression (independent, current base) | **VERIFIED** |
+| #308 + #309 + #311 + #313 compose textually; budget holds at 2432 | **VERIFIED** |
+| full stack passes architecture + m02a (75P) and CP10 (exit 0) | **VERIFIED** |
+| full-stack node set == `main` node set minus the budget node | **VERIFIED** (zero regression) |
+| #311 safe to merge **without** #313 | **CONTRADICTED** (negative control exit 1) |
+| Gate-2 deployment parity | **STALE / BLOCKED** (provider boundary, unchanged) |
+| production acceptance | **NOT CLAIMED** (human authority) |
+
+### 12.9 Next authorized action
+
+1. **Sovereign review + merge of #313**, then **#311** (companion first or together); #309 must
+   land before #311 (its base).
+2. **Sovereign review + merge of #308** — the only remaining repository-owned gate defect on
+   `main` (`api/main.py` 2602 > 2600).
+3. Re-measure after merges: `pytest tests/architecture` (expect **11/11**), `py_compile` (OK),
+   CP10 judge (exit 0), full-suite node set (expect **17 nodes**, unchanged).
+
+**Forbidden for the next pass:** merging anything; pushing to `main`; touching the
+sovereign-reserved failures (`test_verification_review_boundary`,
+`test_agents_md_encoding_adjudication`, `test_steward_filter`, `weaver/autonomy`); re-opening a
+duplicate budget or CP10 PR; weakening the CP10 gate; synthesizing a fingerprint without the
+dependency-complete environment or without stating clone depth.
