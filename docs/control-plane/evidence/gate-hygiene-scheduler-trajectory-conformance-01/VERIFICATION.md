@@ -16,6 +16,7 @@ Branch: `gate-hygiene/scheduler-trajectory-conformance-01`
 | 7 | `python -m pytest tests/ -q -rEf --continue-on-collection-errors` | no node-set delta | **identical fingerprint** (117 nodes both sides) |
 | 8 | router decision on fixed trajectory | not `FAILED` | **`NO_LEGAL_MOVE`**, exit 0 |
 | 9 | collected-node diff, `main` vs branch | +16 guard | **+19** — the 16 guard nodes **plus 3** |
+| 10 | CI on head `5fee1bc`: `Arkadia Engineering Scheduler` + `security-secret-scan` | green | **both completed/success, attempt 1**; step 6 guard ran, step 7 session skipped |
 
 ### Item 4 corrected (measurement supersedes the earlier figures)
 
@@ -43,6 +44,14 @@ So the scheduler is now judged by a guard this workstream did not author, on top
 guard. `tests/architecture` is **not** run by this workflow, so
 `test_architecture_fitness_is_selected_by_the_surfaces_it_judges` correctly does not require
 a `tests/architecture/**` path — that surface is covered by `provider-routing.yml`.
+
+### Item 10 — CI-liveness observed on the current head (not inferred)
+
+GitHub created `pull_request` runs for head `5fee1bc` and both completed green on the first
+attempt: `Arkadia Engineering Scheduler` run `37379373120` and `security-secret-scan` run
+`37379373062`. The scheduler job's step 6 *Trajectory-routing conformance guard* is `success`
+and step 7 *Session + Engineering Runner* is `skipped`. This is the load-bearing observation:
+the guard executes in CI on a `pull_request`, and a PR is never routed as a live session.
 
 ## Fingerprints
 

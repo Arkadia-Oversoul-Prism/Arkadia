@@ -176,6 +176,26 @@ a **passing job**, not by intent:
   `success` on attempt 3. It is recorded here so a future pass does not re-derive a
   contradicted "BLOCKED on runner outage" classification from the cancelled attempt alone.
 
+### CI state on the current head `5fee1bc` (measured, clean)
+
+Re-measured after the evidence-correction commit, which supersedes the attempt-3 narrative
+for the *current* head:
+
+| workflow | event | status | attempt | run |
+|---|---|---|---|---|
+| Arkadia Engineering Scheduler | `pull_request` | completed/**success** | 1 | `37379373120` |
+| security-secret-scan | `pull_request` | completed/**success** | 1 | `37379373062` |
+
+On `5fee1bc` the scheduler job succeeded on **attempt 1** — no cancellation, no retry. Job
+steps: step 6 *Trajectory-routing conformance guard* → `success`; step 7 *Session + Engineering
+Runner* → `skipped`. The earlier `cancelled` attempt belongs to `f179d2b` only and was a
+transient hosted-runner acquisition failure; it is not a property of the guard or the workflow.
+
+`Vercel – arkadia-prism` succeeds on the head; `Vercel – console` fails with a provider build
+error and also fails on `main` (`451e41a`, *"Deployment rate limited"*), so it is pre-existing
+and not attributable to this PR. `CP10 / sg-02-fe-2-v` is path-filtered and not triggered by
+this diff; the boundary policy module judged the changed paths **PASS** locally.
+
 Classification: **OBSERVED (green)** for the guard's CI-liveness on this branch head. This is
 a CI observation, not a production-parity or acceptance claim — merge and deploy remain
 human-only.

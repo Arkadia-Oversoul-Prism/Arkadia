@@ -10,7 +10,7 @@ Reconstructed: 2026-10-05 · BASE_MAIN `451e41a30fcbff4a65326e897a84818cc623b769
 | canonical clone | `main`, ancestry intact, `origin/main` = `451e41a` (#317) |
 | active workstream | gate-hygiene — hourly bounded-execution loop integrity |
 | this pass | scheduler trajectory conformance fix + guard, and closure of the guard's CI-inert gap |
-| PR | #319 (base `main`), OPEN, MERGEABLE |
+| PR | #319 (base `main`), OPEN, MERGEABLE, head `5fee1bc`, CLEAN |
 | frontier | G12-A `merged_acceptance_pending` → worker returns `NO_LEGAL_MOVE` (truthful) |
 
 ## Defect and fix (measured)
@@ -55,28 +55,53 @@ installed environment) is the authority for those nodes.
 
 | check | result | attribution |
 |---|---|---|
-| engineering-scheduler (`pull_request`) | **success** | run `37370596340`, `run_attempt` 3; step 6 guard ran+passed, step 7 session **skipped** — CI-live proof |
+| engineering-scheduler (`pull_request`) | **success** | run `37379373120` on head `5fee1bc`, **attempt 1**; step 6 guard ran+passed, step 7 session **skipped** — CI-live proof |
 | Vercel – arkadia-prism | success | deployment completed on the branch head |
 | Vercel – console | fail | provider build error ("Deployment has failed"); also fails on `main` (`451e41a`: "Deployment rate limited") — pre-existing, not attributable to this PR |
-| Full-history secret scan | **success** | `pull_request` run at 20:34:35Z completed/success (same second as the scheduler run) |
+| Full-history secret scan | **success** | run `37379373062` on head `5fee1bc`, attempt 1 |
 | CP10 / sg-02-fe-2-v | not triggered | path filter did not match this diff |
 
-**CI-live proof for the guard (OBSERVED, green):** on head `f179d2b` GitHub created a
-`pull_request` run of `Arkadia Engineering Scheduler` (`run 37370596340`, event
-`pull_request`, created `2026-10-05T20:34:35Z`). Before the follow-on this workflow had no
-`pull_request` trigger, so that run could not exist. The `engineering-scheduler` job is
-**completed/success** on `run_attempt` 3 (completed `2026-10-05T21:24:16Z): step 6,
-*Trajectory-routing conformance guard*, ran and passed; step 7, *Session + Engineering
-Runner*, was **skipped**, proving the PR never routes as a live session. An earlier attempt
-was `cancelled` ("not acquired by Runner of type hosted") — a transient hosted-runner
-acquisition failure, superseded by the success on attempt 3. Classification: **OBSERVED
-(green)** for CI-liveness on this head; merge remains human-only.
+**CI-live proof for the guard (OBSERVED, green):** on head `5fee1bc` GitHub created a
+`pull_request` run of `Arkadia Engineering Scheduler` (`run 37379373120`, attempt 1) that is
+**completed/success**: step 6 *Trajectory-routing conformance guard* ran and passed, step 7
+*Session + Engineering Runner* was **skipped**, proving a PR is never routed as a live
+session. `security-secret-scan` (`37379373062`) is also completed/success on the same head.
+Before the follow-on the workflow had no `pull_request` trigger, so no such run could exist.
+An earlier `cancelled` attempt belongs to `f179d2b` (`run 37370596340`, *"not acquired by
+Runner of type hosted"*) and was a transient hosted-runner acquisition failure; it was
+superseded by that run's attempt-3 success and is not a property of the guard or workflow.
+Classification: **OBSERVED (green)** for CI-liveness on this head; merge remains human-only.
+
+**Scope of this observation — it binds to head `5fee1bc`, and that is sufficient here.**
+The scheduler workflow's `pull_request` path filter covers the workflow file,
+`weaver/engineering_router.py`, `weaver/engineering_worker.py`, `docs/control-plane/trajectory.schema.json`,
+`docs/control-plane/TRAJECTORY-*.yaml`, and `tests/test_scheduler_trajectory_conformance.py` — **not**
+`docs/control-plane/evidence/**`. The commit that adds this paragraph touches only evidence docs,
+so it creates no new scheduler run; `security-secret-scan` runs on every `pull_request` and does.
+
+This does **not** make the observation stale, and the reason is checkable rather than assumed:
+the guard judges a specific set of surfaces, and the follow-up diff changes none of them.
+Verify with
+
+```
+git diff --name-only 5fee1bc..<tip>          # only docs/control-plane/evidence/... paths
+git diff --stat 5fee1bc..<tip> -- \
+  .github/workflows/arkadia-engineering-scheduler.yml \
+  weaver/engineering_router.py weaver/engineering_worker.py \
+  docs/control-plane/trajectory.schema.json 'docs/control-plane/TRAJECTORY-*.yaml' \
+  tests/test_scheduler_trajectory_conformance.py   # empty
+```
+
+An empty second diff means the tree the guard judged at `5fee1bc` is byte-identical at the tip,
+so the green run remains the governing evidence for the PR. If a future commit touches any of
+those surfaces, the `5fee1bc` run becomes `STALE` for it and a fresh run is required.
 
 ## Next bounded task
 
-Sovereign review of #319 (human-only merge). On merge, the next heartbeat
-reconstructs `main` and the console frontier stays at G12-A acceptance — that
-remains sovereign authority, not an engineering move.
+#319 is **READY FOR SOVEREIGN MERGE**: both triggered checks green on head `5fee1bc`,
+mergeable/CLEAN, evidence corrected to measured reality, zero regression. The only permitted
+next action is human review + merge; no agent merges. On merge, the next heartbeat reconstructs
+`main` and the console frontier stays at G12-A acceptance (sovereign authority).
 
 ## Proposed, not executed
 
