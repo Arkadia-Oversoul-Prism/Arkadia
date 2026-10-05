@@ -15,6 +15,10 @@ def digest(value: object) -> str:
     return sha256(payload).hexdigest()
 
 
+def immutable_digest(record: dict) -> str:
+    return digest({k: v for k, v in record.items() if k != "event_digest"})
+
+
 def create_work_event(execution: dict) -> dict:
     if execution.get("status") != "EXECUTED":
         raise ValueError("WorkEvent requires observed execution")
@@ -26,7 +30,7 @@ def create_work_event(execution: dict) -> dict:
         "review_state": "REVIEW_PENDING",
         "authority_created": False,
     }
-    event["event_digest"] = digest(event)
+    event["event_digest"] = immutable_digest(event)
     return event
 
 
@@ -111,11 +115,13 @@ def run() -> None:
 
     # Execution does not imply completion.
     assert event["completion_state"] == "UNKNOWN"
+    assert immutable_digest(event) == original_digest
 
     # Review is a separate record.
     review = review_work_event(event, "ACCEPTED", "HUMAN-REVIEWER")
     reviewed = deepcopy(event)
     reviewed["review_state"] = "REVIEWED"
+    assert review["work_event_digest"] == original_digest
 
     # Completion requires an explicit condition and observation.
     completed = complete_work_event(
@@ -147,7 +153,7 @@ def run() -> None:
         "HUMAN-REVIEWER",
     )
     assert amendment["prior_work_event_digest"] == original_digest
-    assert digest(event) == original_digest
+    assert immutable_digest(event) == original_digest
 
     print("PASS: execution does not imply completion")
     print("PASS: review is a separate record")
