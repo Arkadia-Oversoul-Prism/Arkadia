@@ -27,7 +27,7 @@ def test_delta_chain_is_strict():
     assert result.state_root == deltas[-1].result_root
 
 from .substrate import (
-    BranchResult,
+    BranchResult, StateDelta,
     assert_non_governing,
     reconcile_branches,
     replay_branch,
@@ -128,3 +128,18 @@ def test_reconciliation_does_not_create_authority_from_branch_content():
     assert_non_governing(merged)
     assert "authorization_id" not in merged.as_dict()
     assert "authority" not in merged.as_dict()
+
+
+def test_forged_delta_cannot_smuggle_authority():
+    genesis = PrismState(claims={"probe.fact": "seed"})
+    forged = StateDelta(
+        base_root=genesis.state_root,
+        result_root=genesis.state_root,
+        node_id="A01-L01",
+        changes={"authority": "human", "authorization_id": "AUTH-001"},
+    )
+    try:
+        validate_delta(forged, genesis)
+        assert False, "forged authority delta must fail closed"
+    except ValueError as exc:
+        assert "authority" in str(exc)
