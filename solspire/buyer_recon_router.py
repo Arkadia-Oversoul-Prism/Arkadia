@@ -11,11 +11,24 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 
-from api.auth import require_auth, require_project_owner
+from api.auth import require_auth
 from solspire.workspace_manager import get_workspace_manager
 from solspire.buyer_recon import STATUSES, get_buyer_recon_manager
 
 router = APIRouter(prefix="/buyer-recon", tags=["Eden Buyer Recon"])
+
+
+async def require_project_owner(project_id: str, user: dict = Depends(require_auth)) -> dict:
+    """Resolve the project and enforce ownership from the authenticated Firebase uid."""
+    from solspire.project_manager import get_project_manager
+    try:
+        project = get_project_manager().load(project_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+    owner = (project.owner_uid or "").strip()
+    if not owner or owner != user["uid"]:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return user
 
 
 class BuyerReconEntryInput(BaseModel):
