@@ -628,6 +628,33 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   sorted `FAILED`/`ERROR` node list and compare `sha256`; the environment-independent claim
   is "no node-set delta," and it holds even when the absolute baseline does not match.
 
+## Open-PR budget composition — measure the PR's *own* file, and correct stale citations
+- When a branch is suspected of breaching the `api/main.py` 2600-line budget, measure
+  **that branch's own blob**, not a commit on `main`. `git show <branch>:api/main.py | wc -l`
+  (or the Contents API at `?ref=<branch>`) is the only correct source. A figure quoted for a
+  PR can silently be a `main` commit: the Arkana Signal Gate 02 branch was recorded as 2719
+  lines, but 2719 is `main` @ `71cbcb8` (the Gate 01 commit) — the live tip `2d0970a`
+  measures **2894**. Re-measure before repeating a number.
+- To test whether two open PRs compose, apply the other PR's patch onto this one and
+  measure the composed file: `git worktree add --detach /tmp/wt <this-branch-sha>` then
+  `git apply --3way` the other PR's `api/main.py` diff. A clean apply proves *no textual
+  conflict*; it does **not** prove the composed tree passes the gate. Measured: this
+  branch 2594 (PASS), branch + #293 = **2683** (FAIL). Report both facts separately.
+- **A stale citation is a defect to correct, not to reconcile.** When a PR body or commit
+  message carries a superseded measurement, fix it in place (evidence doc + PR body) and
+  say which measurement supersedes it. Leaving it standing is what makes the next pass
+  re-derive a number that was already wrong.
+- **`git push` in this sandbox needs the `gh` credential helper explicitly.** The ambient
+  env tokens are unusable (empty `GITHUB_TOKEN`, `GITHUB_PERSONAL_ACCESS_TOKEN` → 401), and
+  the remote URL's embedded credential is stripped, so a bare `git push` blocks on an
+  interactive username prompt. Configure once per clone:
+  `git config credential.helper '!gh auth git-credential'` and push with
+  `GIT_TERMINAL_PROMPT=0` so a missing credential fails fast instead of hanging. The ambient
+  `gh` session is valid and has push rights; the env tokens are not a substitute.
+- `Vercel – arkadia-prism` / `Vercel – console` are **failure on `main` itself** (measured at
+  `4550531`), so a Vercel failure on any PR is not attributable to that PR. Classify it as
+  pre-existing and say so, rather than reporting it as a new red gate.
+
 ## Contradicting PRs: resolve by measurement, not argument
 - Two PRs asserting opposite designs for one file can both be **wrong about the conflict**.
   Here `main`, `#163` head, and `#165` head all resolved `CapabilityChamber.tsx` to the *same
