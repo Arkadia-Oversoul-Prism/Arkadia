@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 import hashlib
 import json
@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-ALXAI_VERSION = "04.1"
+ALXAI_VERSION = "04.2"
 
 
 def _canon(value: Any) -> str:
@@ -20,37 +20,25 @@ def digest(value: Any) -> str:
 
 
 class ObservationMode(str, Enum):
-    DIRECT_API = "DIRECT_API"
-    DIRECT_UI = "DIRECT_UI"
-    DIRECT_FILE = "DIRECT_FILE"
-    DIRECT_RUNTIME = "DIRECT_RUNTIME"
-    DIRECT_DATABASE = "DIRECT_DATABASE"
-    DIRECT_HUMAN_REPORT = "DIRECT_HUMAN_REPORT"
-    INHERITED_PACKET = "INHERITED_PACKET"
-    INHERITED_STATE = "INHERITED_STATE"
-    RELAYED_EVIDENCE = "RELAYED_EVIDENCE"
-    DERIVED = "DERIVED"
-    INFERRED = "INFERRED"
-    HYPOTHESIZED = "HYPOTHESIZED"
-    UNKNOWN = "UNKNOWN"
+    DIRECT_API = "DIRECT_API"; DIRECT_UI = "DIRECT_UI"; DIRECT_FILE = "DIRECT_FILE"
+    DIRECT_RUNTIME = "DIRECT_RUNTIME"; DIRECT_DATABASE = "DIRECT_DATABASE"; DIRECT_HUMAN_REPORT = "DIRECT_HUMAN_REPORT"
+    INHERITED_PACKET = "INHERITED_PACKET"; INHERITED_STATE = "INHERITED_STATE"; RELAYED_EVIDENCE = "RELAYED_EVIDENCE"
+    DERIVED = "DERIVED"; INFERRED = "INFERRED"; HYPOTHESIZED = "HYPOTHESIZED"; UNKNOWN = "UNKNOWN"
 
 
 class EpistemicClass(str, Enum):
-    OBSERVED_FACT = "OBSERVED_FACT"
-    REPORTED_FACT = "REPORTED_FACT"
-    DERIVED_FACT = "DERIVED_FACT"
-    INFERENCE = "INFERENCE"
-    HYPOTHESIS = "HYPOTHESIS"
-    DECISION = "DECISION"
-    UNKNOWN = "UNKNOWN"
-    CONFLICTED = "CONFLICTED"
+    OBSERVED_FACT = "OBSERVED_FACT"; REPORTED_FACT = "REPORTED_FACT"; DERIVED_FACT = "DERIVED_FACT"
+    INFERENCE = "INFERENCE"; HYPOTHESIS = "HYPOTHESIS"; DECISION = "DECISION"; UNKNOWN = "UNKNOWN"; CONFLICTED = "CONFLICTED"
 
 
 class Status(str, Enum):
-    ACTIVE = "ACTIVE"
-    SUPERSEDED = "SUPERSEDED"
-    UNKNOWN = "UNKNOWN"
-    CONFLICTED = "CONFLICTED"
+    ACTIVE = "ACTIVE"; SUPERSEDED = "SUPERSEDED"; UNKNOWN = "UNKNOWN"; CONFLICTED = "CONFLICTED"
+
+
+DIRECT_MODES = {
+    ObservationMode.DIRECT_API, ObservationMode.DIRECT_UI, ObservationMode.DIRECT_FILE,
+    ObservationMode.DIRECT_RUNTIME, ObservationMode.DIRECT_DATABASE, ObservationMode.DIRECT_HUMAN_REPORT,
+}
 
 
 class ALXModel(BaseModel):
@@ -158,8 +146,7 @@ class State(ALXModel):
     state_digest: str | None = None
 
     def canonical_payload(self) -> dict[str, Any]:
-        data = self.model_dump(mode="json", exclude={"state_digest"})
-        return data
+        return self.model_dump(mode="json", exclude={"state_digest"})
 
     def with_root(self) -> "State":
         raw = self.model_copy(update={"state_digest": None})
@@ -200,14 +187,8 @@ def create_delta(*, parent: State, contributor_node: str, created_at: datetime, 
     if resulting_state.parent_state_id != parent.state_id:
         raise ValueError("resulting state must point to parent state")
     delta_id = kwargs.pop("delta_id", f"DELTA-{resulting_state.state_id}")
-    return Delta(
-        delta_id=delta_id,
-        parent_state_id=parent.state_id,
-        resulting_state_id=resulting_state.state_id,
-        created_at=created_at,
-        contributor_node=contributor_node,
-        **kwargs,
-    ).with_digest()
+    return Delta(delta_id=delta_id, parent_state_id=parent.state_id, resulting_state_id=resulting_state.state_id,
+                 created_at=created_at, contributor_node=contributor_node, **kwargs).with_digest()
 
 
 def apply_delta(parent: State, delta: Delta) -> State:
@@ -221,24 +202,15 @@ def apply_delta(parent: State, delta: Delta) -> State:
     for cid in delta.claims_superseded:
         if cid in claims:
             claims[cid] = claims[cid].model_copy(update={"status": Status.SUPERSEDED})
-    evidence = {e.evidence_id: e for e in parent.evidence}
-    evidence.update({e.evidence_id: e for e in delta.evidence_added})
-    events = {e.event_id: e for e in parent.events}
-    events.update({e.event_id: e for e in delta.events_added})
-    decisions = {d.decision_id: d for d in parent.decisions}
-    decisions.update({d.decision_id: d for d in delta.decisions_added})
-    result = State(
-        state_id=delta.resulting_state_id,
-        parent_state_id=parent.state_id,
-        protocol_version=parent.protocol_version,
-        created_at=delta.created_at,
-        claims=list(claims.values()), evidence=list(evidence.values()),
-        events=list(events.values()), decisions=list(decisions.values()),
-        conflicts=parent.conflicts + delta.conflicts_added,
-        unknowns=parent.unknowns + delta.unknowns_added,
-        capabilities=delta.capability_changes or parent.capabilities,
-        source_registry=parent.source_registry,
-    )
+    evidence = {e.evidence_id: e for e in parent.evidence}; evidence.update({e.evidence_id: e for e in delta.evidence_added})
+    events = {e.event_id: e for e in parent.events}; events.update({e.event_id: e for e in delta.events_added})
+    decisions = {d.decision_id: d for d in parent.decisions}; decisions.update({d.decision_id: d for d in delta.decisions_added})
+    result = State(state_id=delta.resulting_state_id, parent_state_id=parent.state_id, protocol_version=parent.protocol_version,
+                   created_at=delta.created_at, claims=list(claims.values()), evidence=list(evidence.values()),
+                   events=list(events.values()), decisions=list(decisions.values()),
+                   conflicts=list(dict.fromkeys(parent.conflicts + delta.conflicts_added)),
+                   unknowns=list(dict.fromkeys(parent.unknowns + delta.unknowns_added)),
+                   capabilities=delta.capability_changes or parent.capabilities, source_registry=parent.source_registry)
     return result.with_root()
 
 
@@ -246,41 +218,53 @@ def _claim_key(c: Claim) -> tuple[str, str, str, str]:
     return (c.subject, c.predicate, _canon(c.object), c.scope)
 
 
-def validate_packet(packet: dict[str, Any]) -> dict[str, Any]:
-    errors: list[str] = []
-    warnings: list[str] = []
-    try:
-        state = State.model_validate(packet.get("state"))
-    except Exception as exc:
-        return {"status": "INVALID", "errors": [f"state: {exc}"], "warnings": []}
-    if state.state_digest != digest(state.canonical_payload()):
-        errors.append("state integrity digest mismatch")
+def _parse_dt(value: str | datetime | None) -> datetime | None:
+    if value is None: return None
+    dt = value if isinstance(value, datetime) else datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def validate_packet(packet: dict[str, Any], *, now: datetime | None = None) -> dict[str, Any]:
+    errors: list[str] = []; warnings: list[str] = []; now = _parse_dt(now) or datetime.now(timezone.utc)
+    try: state = State.model_validate(packet.get("state"))
+    except Exception as exc: return {"status": "INVALID", "errors": [f"state: {exc}"], "warnings": []}
+    if state.state_digest != digest(state.canonical_payload()): errors.append("state integrity digest mismatch")
     claim_ids = [c.claim_id for c in state.claims]
-    if len(claim_ids) != len(set(claim_ids)):
-        errors.append("duplicate claim_id")
     evidence_ids = {e.evidence_id for e in state.evidence}
+    if len(claim_ids) != len(set(claim_ids)): errors.append("duplicate claim_id")
     for c in state.claims:
         missing = set(c.evidence_refs) - evidence_ids
-        if missing:
-            errors.append(f"claim {c.claim_id} references missing evidence: {sorted(missing)}")
+        if missing: errors.append(f"claim {c.claim_id} references missing evidence: {sorted(missing)}")
         if c.observation_mode in {ObservationMode.INFERRED, ObservationMode.HYPOTHESIZED} and c.epistemic_class == EpistemicClass.OBSERVED_FACT:
             errors.append(f"claim {c.claim_id}: inference/hypothesis cannot be OBSERVED_FACT")
-    # Packet-level future metadata is a warning/error boundary, not a rewrite of source timestamps.
+        if c.valid_from and c.valid_until and c.valid_until < c.valid_from:
+            errors.append(f"claim {c.claim_id}: valid_until precedes valid_from")
+        if c.observed_at and c.valid_from and c.observed_at < c.valid_from:
+            warnings.append(f"claim {c.claim_id}: observation precedes validity interval")
+        if c.observed_at and c.observed_at > now:
+            errors.append(f"claim {c.claim_id}: observed_at is in the future")
     packet_created = packet.get("created_at")
     if packet_created:
         try:
-            pdt = datetime.fromisoformat(packet_created.replace("Z", "+00:00"))
-            if pdt > datetime.now(pdt.tzinfo):
-                errors.append("packet metadata created_at is in the future")
-        except ValueError:
-            errors.append("packet created_at is not ISO-8601")
+            if _parse_dt(packet_created) > now: errors.append("packet metadata created_at is in the future")
+        except ValueError: errors.append("packet created_at is not ISO-8601")
     keys: dict[tuple[str,str,str,str], list[Claim]] = {}
-    for c in state.claims:
-        keys.setdefault(_claim_key(c), []).append(c)
+    for c in state.claims: keys.setdefault(_claim_key(c), []).append(c)
     for key, claims in keys.items():
-        direct = [c for c in claims if c.observation_mode in {ObservationMode.DIRECT_API, ObservationMode.DIRECT_UI, ObservationMode.DIRECT_FILE, ObservationMode.DIRECT_RUNTIME, ObservationMode.DIRECT_DATABASE, ObservationMode.DIRECT_HUMAN_REPORT}]
-        if len(direct) > 1 and len({c.object.__repr__() for c in direct}) > 1:
+        direct = [c for c in claims if c.observation_mode in DIRECT_MODES]
+        if len(direct) > 1 and len({_canon(c.object) for c in direct}) > 1:
             errors.append(f"conflicting direct observations for {key}")
-    if state.parent_state_id is None and state.state_id != "STATE-000":
-        warnings.append("non-genesis state has no parent_state_id")
-    return {"status": "INVALID" if errors else ("VALID_WITH_WARNINGS" if warnings else "VALID"), "errors": errors, "warnings": warnings}
+    # Supersession must be explicit and historical claims remain addressable.
+    ids = {c.claim_id for c in state.claims}
+    for c in state.claims:
+        missing_superseded = set(c.supersedes) - ids
+        if missing_superseded: errors.append(f"claim {c.claim_id}: supersedes missing claims {sorted(missing_superseded)}")
+        for old in c.supersedes:
+            if old == c.claim_id: errors.append(f"claim {c.claim_id}: cannot supersede itself")
+    # Event and decision evidence references are also referentially checked.
+    for obj in [*state.events, *state.decisions]:
+        for ref in obj.evidence_refs:
+            if ref not in evidence_ids: errors.append(f"{obj.__class__.__name__} {obj.event_id if hasattr(obj,'event_id') else obj.decision_id} references missing evidence {ref}")
+    if state.parent_state_id is None and state.state_id != "STATE-000": warnings.append("non-genesis state has no parent_state_id")
+    status = "INVALID" if errors else ("VALID_WITH_WARNINGS" if warnings else "VALID")
+    return {"status": status, "errors": errors, "warnings": warnings}
