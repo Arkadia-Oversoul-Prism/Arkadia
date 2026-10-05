@@ -31,6 +31,7 @@ def _proposal_and_acceptance(store):
         subject="human-1",
         evidence_type="RESULT",
         content_or_ref={"claim": "bounded execution is eligible"},
+        source_ref="test-fixture://verified-claim",
         correlation_id="corr-prism-1",
     )
     verification = store.verify(
@@ -164,7 +165,7 @@ def test_workevent_capture_does_not_mark_completion(stores):
 
 def test_governance_records_require_the_previous_boundary(stores):
     store, manager = stores
-    with pytest.raises(ValueError, match="VERIFIED"):
+    with pytest.raises(ValueError, match="matching verification"):
         store.acceptance(
             subject="human-1",
             verification_id="missing",
