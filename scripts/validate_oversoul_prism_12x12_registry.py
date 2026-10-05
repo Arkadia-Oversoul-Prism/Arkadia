@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-REGISTRY = Path(__file__).with_name("oversoul_prism_12x12_registry.json")
+REGISTRY = Path(__file__).parents[1] / "docs" / "architecture" / "oversoul_prism_12x12_registry.json"
 
 EXPECTED_ROLES = {
     "A01": "Threshold Guardian",
