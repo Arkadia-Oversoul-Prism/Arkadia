@@ -309,9 +309,12 @@ def test_tool_and_approval_routes_declare_require_auth():
     """Pin the boundary at the source level so a future edit cannot silently
     drop the dependency."""
     import api.main as _m
-    for fn in (_m.list_tools_endpoint, _m.run_tool_endpoint,
-               _m.agent_spawn, _m.ceo_chat):
+    for fn in (_m.list_tools_endpoint, _m.run_tool_endpoint, _m.agent_spawn):
         params = inspect.signature(fn).parameters
         assert "user" in params, f"{fn.__name__} does not declare an auth dependency"
+    # Phase C CEO chat moved to api/ceo_chat_routes.py (api/main.py budget); the
+    # boundary is pinned on the module that now owns the route.
+    import api.ceo_chat_routes as _c
+    assert "user" in inspect.signature(_c.ceo_chat).parameters
     import api.plan_routes as _p
     assert "user" in inspect.signature(_p.run_plan).parameters
