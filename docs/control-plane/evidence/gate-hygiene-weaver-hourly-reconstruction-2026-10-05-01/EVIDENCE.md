@@ -320,3 +320,132 @@ unaffected.
   (expect the composed 17-node set to shrink toward the baseline as each merge lands).
 - Forbidden for the next pass: merging anything; touching the sovereign-reserved governance
   failures in §5; re-opening a duplicate budget/allowlist PR.
+
+## 7. Fourth pass — 2026-10-05T08:2xZ (main moved; #310 merged)
+
+Observation timestamp: **2026-10-05T08:2xZ** (session clock). `git fetch --all --prune` performed.
+
+### 7.1 `BASE_MAIN` moved — the prior pass's merge recommendations are now partially satisfied
+
+`BASE_MAIN` := `ccbec4061d66ff6a13dba16b3d2c24b124132102` ("gate-hygiene: admit alxai/ to the CP10
+mutation boundary (#310)"). The prior passes recorded `dc6d1563`; **PR #310 was merged by the
+sovereign at `2026-10-05T07:13:22Z`** (merge commit `ccbec40`). So the §5.4/§6.5 "merge #310 first"
+step is **done**, and the reconstruction below re-derives every downstream measurement against the
+new base rather than inheriting the old numbers.
+
+History check: `dc6d1563` → `ccbec40` is a single merge (#310). No other `main` commit landed.
+
+### 7.2 Open-PR inventory (live `GET /pulls?state=open` at `ccbec40`): **6**
+
+| PR | branch | base | role |
+|----|--------|------|------|
+| #306 | `feat/oversoul-prism-9cell-conformance` | `main` | research-only harness |
+| #307 | `feat/console-g12-idempotent-capture-sync` | `main` | **draft** |
+| #308 | `gate-hygiene/api-main-budget-ceo-chat-extraction-01` | `main` | **fix for the one remaining measured gate defect** |
+| #309 | `feat/weaver-console-completion-trajectory` | `main` | independent |
+| #311 | `feat/weaver-attention-bus-google-workspace` | `feat/weaver-console-completion-trajectory` | **stacked on #309** |
+| #312 | this record | `main` | self (documentation only) |
+
+#310 is **absent** (merged). The count is 6, down from 7.
+
+### 7.3 Dependency-complete baseline on the new `main` @ `ccbec40`
+
+Environment: Python 3.13.15, `fastapi`/`httpx`/`pydantic`/`requests`/`python-multipart`/`pyyaml`
+installed, `PYTHONPATH=<repo>/archive/legacy_python`, `pytest 9.1.1`.
+
+```
+python -m pytest tests/ -q -rEf --continue-on-collection-errors
+→ 17 failed, 1485 passed, 20 skipped, 1 error in 133.77s
+```
+
+Failing/error node set: **18 nodes**, sha256
+`ffd491e3ac10d08f55e3522859a43313743cd77fe51a40c0c0076391d9f64824`
+(`grep -E "^(FAILED|ERROR) " | sed 's/ - .*//' | sort -u`).
+
+**Delta vs §6's main baseline (`dc6d1563`, 21 nodes): −3 nodes, all `test_m02a_ci_gate_integrity.py`
+×3** — exactly the CP10 integrity nodes #310 repairs. This is the first measured confirmation that
+#310's merge **closed** its target defect on `main`, not merely on its branch:
+
+| check | `dc6d1563` (before #310) | `ccbec40` (after #310) |
+|---|---|---|
+| `git ls-files \| scripts/cp10_mutation_boundary_policy.py --judge` | exit 1 (rejects `alxai/*`) | **exit 0 — Mutation boundary PASS** |
+| `test_m02a_ci_gate_integrity.py` nodes in full-suite failure set | 3 | **0** |
+
+Remaining `main` gate debt: `tests/architecture/test_layer_boundaries.py::test_api_main_line_count_within_budget`
+— `api/main.py` = **2602** (> 2600). `python -m py_compile api/main.py` → OK (no boot-break).
+`pytest tests/architecture -q` → **1 failed / 10 passed**. This is the sole repository-owned defect
+the two fix-PRs targeted that is still open, and it is fully covered by PR #308.
+
+### 7.4 PR #308 re-verified against the **new** base (integration, not isolation)
+
+The prior passes verified #308 at its own head (`base = 44f5fe3`) and separately on a composed tree
+that did not include #310's merge commit. Because `main` has moved, the composed tree was rebuilt:
+
+```
+git worktree add --detach /tmp/wt308b ccbec40
+git -c user.name=openhands -c user.email=openhands@all-hands.dev merge --no-edit origin/pr308
+```
+
+Merge **rc=0, no conflict**; merged head lands `api/ceo_chat_routes.py` (new) + `api/main.py`
+(modified) + `tests/test_tool_execution_perimeter.py` + evidence docs. Measurements on the composed
+tree:
+
+| check | main `ccbec40` | composed (`ccbec40` + #308) |
+|---|---|---|
+| `wc -l api/main.py` | **2602** (over budget) | **2427** (≤ 2600) |
+| `python -m py_compile api/main.py api/ceo_chat_routes.py` | OK | **OK** |
+| `pytest tests/architecture tests/test_tool_execution_perimeter.py -q` | 1F / 41P | **42 passed** |
+| `git ls-files \| scripts/cp10_mutation_boundary_policy.py --judge` | exit 0 | **exit 0** |
+| full suite (`-q -rEf --continue-on-collection-errors`) | 17F / 1485P / 20S / 1E | **16F / 1486P / 20S / 1E** |
+
+Failing/error node set on the composed tree: **17 nodes**, sha256
+`a5df9a25e3cfefd7ce90aa7966a751ffc53acb3e2efa5dd65bdf240223bd2287` — **byte-identical to §6's
+composed-node hash**, reproducing across a moved base.
+
+Set delta (`main` → composed):
+
+| | nodes |
+|---|---|
+| on `main`, absent in composed | `test_api_main_line_count_within_budget` |
+| in composed, absent on `main` | **(none)** |
+
+The composed tree repairs the **one** remaining gate node and introduces **zero** new failures. The
+composed tree differs from `main` only by #308 (and, structurally, by #310's merge commit already in
+`main`).
+
+### 7.5 Gate-2 production boundary — re-classified against the new `main`
+
+`python scripts/gate2_production_observation.py` (read-only, no Vercel credential):
+
+| boundary | classification |
+|---|---|
+| current main resolved | **VERIFIED** (`ccbec40`) |
+| main → deployment identity | **STALE** (deployed SHA predates `ccbec40`) |
+| deployment build output observed | **BLOCKED** (deployment-specific URL 302 → Vercel SSO) |
+| alias reachable (`arkadia-prism.vercel.app`) | **VERIFIED** (HTTP 200) |
+| alias → deployment SHA binding | **UNKNOWN** |
+| build ↔ source lineage | **UNKNOWN** |
+| production acceptance | **NOT CLAIMED** (human authority) |
+
+No change in the boundary's *kind*: #310's merge advanced `main`, so any prior deployment-parity
+observation is `STALE` by construction. The blocking constraint remains a Vercel credential /
+Deployment-Protection relaxation — a provider boundary, not repository work. Repeating the
+observation cannot convert `STALE`/`BLOCKED` into `VERIFIED`.
+
+### 7.6 Pass summary
+
+- `BASE_MAIN` advanced `dc6d1563` → **`ccbec40`** (#310 merged by the sovereign).
+- The CP10 mutation-boundary defect is **closed on `main`** (judge exit 1 → 0; 3 integrity nodes
+  gone), verified by measurement, not by the merge event.
+- The **only** remaining repository-owned gate defect is the `api/main.py` budget (2602 > 2600).
+- **PR #308 restores it** on the new base: 2602 → 2427, architecture+perimeter 42 passed, CP10
+  exit 0, composed node set exactly `−1 / +0`, and the composed-node hash reproduces §6's value
+  across the moved base.
+- No merge performed; `BASE_MAIN` untouched; the only mutation is this record.
+- **Next authorized action (supersedes §6.5):** sovereign review + merge of **PR #308**. After it
+  lands, re-measure `pytest tests/architecture` (expect **11/11**), `python -m py_compile api/main.py`
+  (expect OK), `scripts/cp10_mutation_boundary_policy.py --judge` (expect exit 0), and re-derive the
+  full-suite node set (expect **17 nodes**).
+- Forbidden for the next pass: merging anything; touching the sovereign-reserved governance
+  failures (§5); re-opening a duplicate budget PR; synthesizing a fingerprint without the
+  dependency-complete environment.
