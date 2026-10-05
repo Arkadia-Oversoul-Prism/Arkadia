@@ -1581,7 +1581,12 @@ async def commune_resonance(request: Request):
     msgs = list(history[-10:]) + [{"role": "user", "content": message}]
 
     try:
-        if signal:\n            reply = await _gemini_signal_chat(msgs, system, signal, signal_audio_b64, signal_mime_type, api_key=active_key)\n        else:\n            reply = await _gemini_chat(msgs, system, api_key=active_key)
+        if signal:
+            reply = await _gemini_signal_chat(
+                msgs, system, signal, signal_audio_b64, signal_mime_type, api_key=active_key
+            )
+        else:
+            reply = await _gemini_chat(msgs, system, api_key=active_key)
         from api.oracle_spine import archive_oracle_turn
         threading.Thread(
             target=archive_oracle_turn,
