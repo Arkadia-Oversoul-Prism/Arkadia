@@ -95,6 +95,8 @@ Or simply speak — Arkana reads the living corpus and responds.`;
 // ─── Constants ────────────────────────────────────────────────────────────────
 const API_BASE    = (API_BASE_CFG || API_BASE_CONFIG || '').replace(/\/$/, '');
 const STORAGE_KEY_PREFIX = 'arkadia_commune_thread:';
+const MAX_LOCAL_THREAD_MESSAGES = 80;
+const MAX_LOCAL_THREAD_BYTES = 1500000;
 const ACTIVE_THREAD_KEY = 'arkadia_active_thread';
 const LEGACY_STORAGE_KEY = 'arkadia_commune_thread';
 const TOKEN_KEY   = 'arkadia_sovereign_token';
@@ -102,11 +104,17 @@ const TOKEN_KEY   = 'arkadia_sovereign_token';
 const loadThread = (threadId: string): Message[] => {
   try {
     const r = localStorage.getItem(STORAGE_KEY_PREFIX + threadId) ?? (threadId === 'legacy' ? localStorage.getItem(LEGACY_STORAGE_KEY) : null);
-    return r ? JSON.parse(r) : [];
+    if (!r || r.length > MAX_LOCAL_THREAD_BYTES) return [];
+    const parsed = JSON.parse(r);
+    return Array.isArray(parsed) ? parsed.slice(-MAX_LOCAL_THREAD_MESSAGES) : [];
   } catch { return []; }
 };
 const saveThread = (threadId: string, msgs: Message[]) => {
-  try { localStorage.setItem(STORAGE_KEY_PREFIX + threadId, JSON.stringify(msgs)); } catch {}
+  try {
+    const bounded = msgs.slice(-MAX_LOCAL_THREAD_MESSAGES);
+    const encoded = JSON.stringify(bounded);
+    if (encoded.length <= MAX_LOCAL_THREAD_BYTES) localStorage.setItem(STORAGE_KEY_PREFIX + threadId, encoded);
+  } catch {}
 };
 const loadToken = (): string => localStorage.getItem(TOKEN_KEY) || '';
 const saveToken = (t: string) => {
@@ -819,7 +827,9 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, proje
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
-        height: 'calc(100vh - 57px)',
+        height: '100%',
+        minHeight: 0,
+        maxHeight: '100%',
         width: '100%',
         background: 'transparent',
       }}

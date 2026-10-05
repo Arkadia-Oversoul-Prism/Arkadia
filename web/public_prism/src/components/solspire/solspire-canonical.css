@@ -36,7 +36,36 @@
 .solspire-mobile-bottom button { min-height: 54px; }
 .solspire-mobile-bottom button.active { color: #00D4AA; }
 .solspire-mobile-menu { max-height: calc(100dvh - 72px); overflow: auto; overscroll-behavior: contain; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
-.solspire-overlay { overscroll-behavior: contain; }
+.solspire-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 66px 16px 16px;
+  background: rgba(4, 6, 12, .72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.solspire-arkana-panel {
+  width: min(1120px, 100%);
+  max-height: calc(100dvh - 82px);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.solspire-arkana-panel > .arkana-conversation {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto !important;
+  max-height: none !important;
+}
 .solspire-search-panel,.solspire-arkana-panel { overscroll-behavior: contain; }
 
 .solspire-prism-return { display:flex; align-items:center; gap:8px; min-width:160px; padding:7px 10px; border:1px solid rgba(201,168,76,.18); border-radius:9px; background:rgba(201,168,76,.035); color:#C9A84C; cursor:pointer; text-align:left; }
