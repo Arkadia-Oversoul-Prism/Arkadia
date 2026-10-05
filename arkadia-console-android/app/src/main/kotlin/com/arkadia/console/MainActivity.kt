@@ -17,10 +17,11 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity:AppCompatActivity(){
         private val identity by lazy { FirebaseIdentity.initialize(this) }
-    private val repo by lazy{ConsoleRepository({"https://arkadia-kw64.onrender.com"},{ identity?.idToken(false) }) }
+    private val repo by lazy{ConsoleRepository({BuildConfig.ORACLE_BASE_URL},{ identity?.idToken(false) }) }
     private lateinit var connection:TextView
     private lateinit var objectList:LinearLayout
     private lateinit var detailType:TextView
@@ -70,7 +71,19 @@ class MainActivity:AppCompatActivity(){
         bindMainViews()
         mode("FIELD")
         connection.text="● LIVE · "+(identity?.currentUser?.email ?: "NO IDENTITY")
+        registerAttentionPush()
         load()
+    }
+
+    private fun registerAttentionPush(){
+        if(android.os.Build.VERSION.SDK_INT>=33 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED){
+            ActivityCompat.requestPermissions(this,arrayOf(Manifest.permission.POST_NOTIFICATIONS),9101)
+        }
+        FirebaseMessaging.getInstance().token.addOnSuccessListener{token->
+            lifecycleScope.launch{ runCatching{repo.registerPushToken(token)} }
+        }
     }
 
     private fun showAuthScreen(error:String?=null){
