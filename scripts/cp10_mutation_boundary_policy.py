@@ -41,7 +41,14 @@ import re
 LEGIT = re.compile(
     r"^("
     # engines, product and runtime surfaces
-    r"\.github/|web/|api/|solspire/|kernel/|weaver/|lab/|tests/|docs/|scripts/"
+    # alxai/ is the AL-XAI-04 deterministic reconciliation engine
+    # (__init__, protocol, reconcile), merged to main via PR #298 and consumed by
+    # tests/conformance/test_alxai04.py. Same omission class: tracked while this
+    # allowlist still omitted it, so three fitness tests were red on main and the
+    # CP10 gate would reject the next ordinary commit touching the tree (measured:
+    # exactly three rejected tracked paths, all under alxai/). It is a first-class
+    # product surface, not scratch space, so it is enumerated explicitly.
+    r"\.github/|web/|api/|solspire/|kernel/|weaver/|lab/|tests/|docs/|scripts/|alxai/"
     r"|enterprises/|knowledge/|spiral_grove/|android/|arkadia-android/|sonata-android/"
     # arkadia-console-android/ is the native Arkadia Console Android project, merged
     # to main via PRs #233/#234/#235. It was tracked while this allowlist still
