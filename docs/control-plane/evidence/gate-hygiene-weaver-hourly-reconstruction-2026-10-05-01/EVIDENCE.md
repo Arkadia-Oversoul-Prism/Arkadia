@@ -954,3 +954,178 @@ sovereign-reserved failures (`test_verification_review_boundary`,
 `test_agents_md_encoding_adjudication`, `test_steward_filter`, `weaver/autonomy`); re-opening a
 duplicate budget or CP10 PR; weakening the CP10 gate; synthesizing a fingerprint without the
 dependency-complete environment or without stating clone depth.
+
+---
+
+## 13. Tenth pass — 2026-10-05T14:1xZ (fresh clone; PR #311 config defect isolated)
+
+Read-only heartbeat. `BASE_MAIN` is unchanged at `ccbec4061d66ff6a13dba16b3d2c24b124132102`
+("gate-hygiene: admit alxai/ to the CP10 mutation boundary (#310)"). The clone was
+re-provisioned (shallow -> `git fetch --unshallow`, 2134 commits) and the missing core
+dependencies (`requests`, `fastapi`, `pydantic`, `httpx`, `python-multipart`, `beautifulsoup4`,
+`python-docx`, `pdfminer.six`) were installed, so this pass re-measures on a
+**dependency-complete** environment rather than inheriting a fingerprint.
+
+### 13.1 Baseline reproduced byte-exactly
+
+```
+python -m pytest tests/ -q -rEf --continue-on-collection-errors   (PYTHONPATH=archive/legacy_python)
+  => 17 failed, 1485 passed, 20 skipped, 1 error in 131.33s
+python scripts/baseline_fingerprint.py <log> --json
+  outcomes: ffd491e3ac10d08f55e3522859a43313743cd77fe51a40c0c0076391d9f64824
+  ids:      d127b9840fabaa57ca6cdd97ed9d2d2cfb4887a521293c53529a5e74fd8516b2
+  nodes: 18 (17 FAILED + 1 ERROR = tests/test_autonomy.py, the CE-01 collision)
+```
+
+The `outcomes` fingerprint equals the value recorded in section 12 — the main baseline is
+reproducible on an independent, dependency-complete checkout. Protected-surface measurements
+also re-confirmed on `main` `ccbec406`:
+
+```
+python -m pytest tests/architecture -q                 => 1 failed, 10 passed
+    FAILED tests/architecture/test_layer_boundaries.py::test_api_main_line_count_within_budget
+      assert 2602 <= 2600        (api/main.py = 2602 lines)
+python -m py_compile api/main.py                       => OK
+git ls-files | python scripts/cp10_mutation_boundary_policy.py --judge  => PASS (exit 0)
+python -m pytest tests/test_ci_gate_trigger_coverage.py tests/test_m02a_ci_gate_integrity.py -q
+                                                       => 99 passed
+```
+
+### 13.2 NEW FINDING — PR #311 carries an invalid `.gitleaks.toml` (detection regression)
+
+The rerun's `Full-history secret scan` is **red on PR #311 only** (all other open PRs: pass).
+The failure is not a leak — it is a **config-load failure**, and it introduces a *new* class of
+defect because the same PR changes the detector's own input file:
+
+```
+run 37276189956 / job 111653620770
+  DBG using existing gitleaks config .gitleaks.toml from `(--source)/.gitleaks.toml`
+  FTL unable to load gitleaks config, err: While parsing config:
+      toml: array elements must be separated by commas
+  ##[error]ERROR: Unexpected exit code [1]
+```
+
+`.gitleaks.toml` is one of the files PR #311 changes. The branch's blob is **invalid TOML**:
+
+```
+$ git show pr311:.gitleaks.toml | sed -n '16,23p'
+  '''^EXAVITQu4vr4xnSDxMaL
+]
+'',
+  '''^AIzaSyDfu2qD5aONhw4KxOjHyE2a7VEf8cVrk9A
+]
+'',
+```
+
+Two regex entries were written with a literal newline plus a stray `]` inserted mid-string.
+Reproduced deterministically with the stdlib parser (negative control = the same file on
+`main`):
+
+```
+python -c "import tomllib; tomllib.load(open('<blob>','rb'))"
+  main  (ccbec406:.gitleaks.toml)  -> PARSE OK
+  pr311 (the branch blob)          -> PARSE ERROR: Unclosed array (at line 21, column 6)
+```
+
+Two consequences, both material:
+
+1. **The branch cannot be scanned.** gitleaks aborts before reading any diff, so the secret
+   scan outcome for PR #311 is **UNKNOWN**, not "clean". A PR that ships an unparseable
+   detector config must not be merged on a green-by-absence reading.
+2. **The malformed file attempts to allowlist a Google-API-key-format literal.** The second
+   broken entry is `^AIzaSyDfu2qD5aONhw4KxOjHyE2a7VEf8cVrk9A$` — the same literal that
+   already exists on `main` at `arkadia-console-android/app/build.gradle.kts:16` (a public
+   Firebase Android config value; `git log -S` shows it entered via `ede6bd3`). `main`'s
+   `.gitleaks.toml` deliberately does **not** allowlist it. PR #311 would add an exemption
+   for a credential-shaped literal — the exact thing the repository's own rule forbids
+   ("only ever allowlist a value you have read and verified is not a credential"). Whether
+   the intended literal is "known non-secret" is a question for the sovereign, not a
+   self-service config edit inside a feature PR.
+
+**No test guards this.** `grep -rn "gitleaks" tests/ scripts/` and
+`grep -rn "tomllib" tests/ scripts/` both return **0** matches, so a malformed root
+`.gitleaks.toml` reaches CI unjudged. This is the bounded workstream the gitleaks lesson
+implies but that has not yet been implemented.
+
+### 13.3 Gate-2 production boundary — `main -> deployment identity` now VERIFIED
+
+`python scripts/gate2_production_observation.py` on `ccbec406` re-derives the chain and shows
+a **state advance** relative to section 12.7:
+
+```
+newest Production deploy: ccbec4061d66  id=6861308000  createdAt=2026-10-05T14:13:42Z
+  deploy SHA == main    : True
+alias https://arkadia-prism.vercel.app/ -> HTTP 200 (x-vercel-cache: HIT)
+markers deployed: 15 total; every expected >0 marker present; pre-change control
+  ("separate downstream stages") = 0 as expected; stale_list = []
+SG-04: in_source True, in deployed artifact 1, regression False
+
+current main resolved              VERIFIED
+main -> deployment identity        VERIFIED      (was BLOCKED in section 12.7)
+deployment build output observed   BLOCKED       (deployment URL 302 -> vercel SSO)
+alias -> deployment SHA binding    UNKNOWN
+build <-> source lineage           UNKNOWN       (source_lineage_closed = False)
+browser-rendered UI correctness    UNKNOWN
+production acceptance              NOT CLAIMED
+```
+
+The repository-owned part of Gate 2 — a Production deployment at the current `main` SHA,
+with marker-set lineage matching — is now established. The residual boundary is purely
+provider-side (`environment_url` behind Vercel Deployment Protection) and remains
+`BLOCKED`/`UNKNOWN`. Per the standing rule, repetition does not upgrade these.
+
+### 13.4 Open-PR CI matrix (live, 2026-10-05 14:1xZ)
+
+| PR | head | failing checks | note |
+|----|------|----------------|------|
+| #306 | `ddc1a1b3` | none (Vercel rate-limited only) | draft=false |
+| #307 | `dda2061e` | `mvp2-validation` | **draft=true** |
+| #308 | `81c9d9d5` | none (Vercel only) | budget fix |
+| #309 | `d667a81b` | `mvp2-validation`, `provider-routing` | |
+| #311 | `692f9cb4` | **`Full-history secret scan`**, `mvp2-validation`, `provider-routing` | section 13.2 |
+| #312 | `3cf74889` | none (Vercel console only) | this record |
+| #313 | `e612ad4f` | `validate` pass; Vercel console only | CP10 companion for #311 |
+
+### 13.5 Classification (delta from section 12.8)
+
+| item | class |
+| --- | --- |
+| `main` @ `ccbec406` resolved; baseline reproduced byte-exactly | **VERIFIED** |
+| architecture 1F/10P, `api/main.py` 2602, `py_compile` OK, CP10 exit 0 | **VERIFIED** |
+| PR #311 `.gitleaks.toml` invalid TOML -> secret scan cannot run | **VERIFIED** (reproduced locally) |
+| PR #311 adds a Google-key-format allowlist literal not on `main` | **VERIFIED** (content); intent **UNKNOWN** |
+| no test guards the root `.gitleaks.toml` | **VERIFIED** |
+| Gate-2 `main -> deployment identity` (deploy `6861308000` == `ccbec406`) | **VERIFIED** |
+| Gate-2 deployment build output / alias->SHA / browser UI / acceptance | **BLOCKED / UNKNOWN / NOT CLAIMED** |
+| #308/#309/#311/#313 composition | **CARRIED** (verified in section 12; not re-run this pass) |
+
+### 13.6 Proposed bounded work (NOT authorized, NOT executed)
+
+1. **`gate-hygiene/pr311-gitleaks-toml-repair-01`** — the smallest coherent fix is a branch
+   correction on #311 itself (repair the two broken regex entries to single-line, each with
+   recorded evidence that the literal is not a credential — e.g. the public Firebase Android
+   config — or drop the exemption). This is owned by the #311 author, not by this record.
+2. **`gate-hygiene/gitleaks-config-guard-01`** — add a stdlib-only test asserting the root
+   `.gitleaks.toml` parses (`tomllib`) and that every `regexes` entry is a single-line
+   anchored pattern, with a **negative control** feeding the exact malformed bytes so the
+   guard cannot be disarmed. This closes the unguarded surface section 13.2 identifies.
+
+Neither is within this pass's documentation-only scope; both are recorded for sovereign
+authorization.
+
+### 13.7 Next authorized action
+
+1. **Sovereign decision on PR #311** — do **not** merge until the `.gitleaks.toml` defect is
+   repaired on the branch and its secret scan reports a real (non-`UNKNOWN`) outcome. #309
+   must land before #311 (its base). #313 remains the CP10 companion for #311.
+2. **Sovereign review + merge of #313**; **#308** remains the only repository-owned gate
+   defect on `main` (`api/main.py` 2602 > 2600).
+3. Re-measure after merges: `pytest tests/architecture` (expect **11/11**), `py_compile` (OK),
+   CP10 judge (exit 0), full-suite node set (expect **17 nodes** / `ffd491e3...`, unchanged).
+
+**Forbidden for the next pass:** merging anything; pushing to `main`; touching the
+sovereign-reserved failures (`test_verification_review_boundary`,
+`test_agents_md_encoding_adjudication`, `test_steward_filter`, `weaver/autonomy`); re-opening a
+duplicate budget or CP10 PR; weakening the CP10 gate; **allowlisting a credential-shaped
+literal**; synthesizing a fingerprint without the dependency-complete environment or without
+stating clone depth.
