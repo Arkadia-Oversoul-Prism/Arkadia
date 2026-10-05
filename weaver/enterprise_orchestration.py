@@ -486,11 +486,27 @@ class EnterpriseOrchestrationStore:
             c.execute("UPDATE ew_execution_attempts SET result_status=? WHERE id=?",
                       (status, execution_attempt_id))
         row = self._row("ew_execution_attempts", execution_attempt_id)
-        return ExecutionAttempt(
+        attempt = ExecutionAttempt(
             row["id"], row["subject"], row["authorization_id"], row["tool_channel"],
             json.loads(row["request_payload"]), row["attempted_at"], row["result_status"],
             row["correlation_id"],
         )
+
+        # Terminal Weaver lifecycle transition automatically records the causal
+        # SolSpire WorkEvent. The bridge is observational only: it grants no
+        # authority and does not imply review, completion, or production acceptance.
+        authorization = self._row("ew_authorizations", row["authorization_id"])
+        proposal = self._row("ew_proposals", authorization["proposal_id"]) if authorization else None
+        if not proposal or proposal["subject"] != subject:
+            raise ValueError("matching proposal required to resolve WorkEvent workspace")
+        from weaver.execution_workevent_bridge import capture_execution_workevent
+        capture_execution_workevent(
+            store=self,
+            subject=subject,
+            execution_attempt_id=attempt.id,
+            workspace_ref=proposal["enterprise_id"],
+        )
+        return attempt
 
     def execution_attempt(self, *, subject: str, authorization_id: str, tool_channel: str,
                           request_payload: Any, result_status: str = "ATTEMPTED",
