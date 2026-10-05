@@ -92,7 +92,6 @@ from datetime import date as _date
 ARK_EPOCH = datetime(2026, 3, 31, 0, 0, 0, tzinfo=timezone.utc)
 ARK_DURATION_YEARS = 8
 
-
 def _ark_date() -> dict:
     """Compute the living Ark Date — the Oracle's true temporal memory coordinate.
 
@@ -134,7 +133,6 @@ def _ark_date() -> dict:
         "linear_note":         "linear time is sideways memory context alignment scaffold",
     }
 
-
 # ── Auto-sync state ───────────────────────────────────────────────────────────
 _sync_state: dict = {
     "running":          False,
@@ -142,7 +140,6 @@ _sync_state: dict = {
     "last_ark_date":    None,
     "last_scroll_count": 0,
 }
-
 
 async def _background_corpus_sync() -> None:
     """Self-evolution daemon: re-indexes the living corpus every 30 minutes,
@@ -804,6 +801,9 @@ async def _gemini_chat(messages: list[dict], system: str, api_key: str | None = 
     return None
 
 
+from api.arkana_signal_commune import gemini_signal_chat as _gemini_signal_chat
+
+
 # ── ROUTES ────────────────────────────────────────────────────────────────────
 
 @app.get("/")
@@ -1101,6 +1101,9 @@ async def commune_resonance(request: Request):
     history    = body.get("history", [])
     session_id = body.get("session_id", "")
     project_id = body.get("project_id")
+    signal = body.get("signal") if isinstance(body.get("signal"), dict) else None
+    signal_audio_b64 = (body.get("audio_base64") or "").strip() or None
+    signal_mime_type = (body.get("mime_type") or "audio/webm").strip()
 
     if not message:
         return JSONResponse(status_code=400, content={"error": "No message."})
@@ -1281,7 +1284,12 @@ async def commune_resonance(request: Request):
     msgs = list(history[-10:]) + [{"role": "user", "content": message}]
 
     try:
-        reply     = await _gemini_chat(msgs, system, api_key=active_key)
+        if signal:
+            reply = await _gemini_signal_chat(
+                msgs, system, signal, signal_audio_b64, signal_mime_type, api_key=active_key
+            )
+        else:
+            reply = await _gemini_chat(msgs, system, api_key=active_key)
         from api.oracle_spine import archive_oracle_turn
         threading.Thread(
             target=archive_oracle_turn,
