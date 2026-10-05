@@ -175,13 +175,20 @@ def test_governance_records_require_the_previous_boundary(stores):
             context_ref="workspace-1",
         )
 
-    event = manager.create(
-        subject_ref="human-1",
-        workspace_ref="workspace-1",
-        event_type="EXECUTION_SUCCEEDED",
-        occurred_at=1.0,
-        execution_attempt_ref="exec-x",
+    proposal, acceptance, authority = _proposal_and_acceptance(store)
+    authorization = store.authorize(
+        subject="human-1", proposal_id=proposal.id, authority_event_id=authority.id,
+        acceptance_id=acceptance.id, scope={"tools": ["test-tool"]}, constraints={},
     )
+    attempt = store.execution_attempt(
+        subject="human-1", authorization_id=authorization.id,
+        tool_channel="test-tool", request_payload={},
+    )
+    store.complete_execution_attempt(
+        subject="human-1", execution_attempt_id=attempt.id, result_status="SUCCEEDED",
+    )
+    event = manager.get_by_execution_attempt(attempt.id, "human-1")
+    assert event is not None
     review = store.review(
         subject="human-1",
         work_event_id=event.work_event_id,
