@@ -5,8 +5,6 @@ authority, prove correctness, mark completion, or perform production acceptance.
 """
 from __future__ import annotations
 
-from typing import Any
-
 from solspire.workevent_manager import WorkEvent, get_workevent_manager
 from weaver.enterprise_orchestration import EnterpriseOrchestrationStore, ExecutionAttempt
 
@@ -50,18 +48,18 @@ def capture_execution_workevent(
     try:
         return workevents.create(
             subject_ref=subject,
-        workspace_ref=workspace_ref,
-        event_type=event_type,
-        occurred_at=execution.attempted_at,
-        work_ref=execution.id,
-        execution_attempt_ref=execution.id,
-        scope_ref=execution.authorization_id,
-        actor_ref=actor_ref or subject,
-        artifact_refs=[execution.id],
-        state_before_ref=state_before_ref,
-        state_after_ref=status,
-        decision_ref=execution.authorization_id,
-        witness_ref=execution.id,
+            workspace_ref=workspace_ref,
+            event_type=event_type,
+            occurred_at=execution.attempted_at,
+            work_ref=execution.id,
+            execution_attempt_ref=execution.id,
+            scope_ref=execution.authorization_id,
+            actor_ref=actor_ref or subject,
+            artifact_refs=[execution.id],
+            state_before_ref=state_before_ref,
+            state_after_ref=status,
+            decision_ref=execution.authorization_id,
+            witness_ref=execution.id,
             status="RECORDED",
         )
     except ValueError:
