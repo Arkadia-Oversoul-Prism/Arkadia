@@ -199,7 +199,7 @@ class WorkEventManager:
                         execution_attempt_ref, parent_event_ref, sequence_ref, scope_ref, actor_ref, artifact_refs,
                         state_before_ref, state_after_ref, decision_ref, witness_ref, status,
                         supersedes_ref, reversal_of_ref, created_by_event, schema_version
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         event.work_event_id, event.event_type, event.event_version,
