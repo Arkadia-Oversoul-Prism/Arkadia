@@ -131,3 +131,30 @@ part of this bounded task.
 * The extraction reduces `api/main.py` but the 2600 budget remains a hard ceiling that
   the Arkana Signal workstream keeps pressing against; Phase 2 decomposition is the
   durable remedy, and it is a separate, larger workstream.
+
+## 10. Full-suite fingerprint, environment-independent (measured 2026-10-05)
+
+Measured with `PYTHONPATH=archive/legacy_python python -m pytest tests/ -q -rEf
+--continue-on-collection-errors` on two trees in the same environment:
+
+| tree | result | outcomes fingerprint | ids fingerprint |
+|---|---|---|---|
+| `main` @ `4550531` | 14F / 1418P / 20S / 1E (15 nodes) | `4b8a609c1f766afd9d60a349b8a835ea35d4c4df30a06a2d6ce9b173f79072d8` | `c6fc30ebe95babf78953219d42e4cda3b3740046d12913ba0cb0cf6a85fa9787` |
+| this branch @ `ae0864b` | 13F / 1419P / 20S / 1E (14 nodes) | `14eed8eb11249a3f08cb24fabd9bb44f0a28b8cd83394bc09bf34abaa0135103` | `3d09dc8f855ceb7d852ea26eca8368e217120f4d17ea5e285d2907a334ccf9de` |
+
+Node-set delta (`comm` over the sorted `FAILED`/`ERROR` node lists):
+
+* **new** (branch-only): *(none)*
+* **fixed** (main-only): `tests/architecture/test_layer_boundaries.py::test_api_main_line_count_within_budget`
+
+Exactly one node repaired, zero introduced. This is the load-bearing claim — absolute
+counts are environment-dependent (`AGENTS.md` → *Test-suite fingerprint is UNSTABLE on
+main*); the failing/error **node set** is not.
+
+The 13 remaining branch failures are pre-existing debt, byte-identical in node identity
+to `main`: `test_agents_md_encoding_adjudication.py`, `test_engineering_lab_agent_loop.py`,
+`test_m02a_ci_gate_integrity.py` (×3), `test_repository_snapshot.py`,
+`test_solspire_r2_github_mutation.py`, `test_spiral_grove_activity_runtime.py`,
+`test_spiral_grove_capability_chamber.py` (×2), `test_spiral_grove_draft_persistence.py`,
+`test_steward_filter.py` (×2), plus the `test_autonomy` collection error.
+
