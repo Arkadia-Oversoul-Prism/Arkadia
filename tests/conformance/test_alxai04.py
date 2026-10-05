@@ -301,4 +301,62 @@ def test_adjudication_requires_explicit_human_certificate_and_preserves_history(
     except ValueError as exc:
         assert "certificate" in str(exc)
 
+def test_adjudication_cannot_expand_bound_actions_or_scope():
+    base = create_state(parent_state_id=None, created_at=T0, state_id="STATE-000")
+    ea = evidence("E-BOUND-A", "CHATGPT", ObservationMode.DIRECT_API, locator="a")
+    eb = evidence("E-BOUND-B", "GROK", ObservationMode.DIRECT_API, locator="b")
+    ca = Claim(
+        claim_id="C-BOUND-A", subject="repo", predicate="head", object="sha-A",
+        scope="repo.head", source_authority="GitHub", observation_mode=ObservationMode.DIRECT_API,
+        epistemic_class=EpistemicClass.OBSERVED_FACT, observed_at=T0, evidence_refs=["E-BOUND-A"],
+    )
+    cb = ca.model_copy(update={"claim_id": "C-BOUND-B", "object": "sha-B", "evidence_refs": ["E-BOUND-B"]})
+    authority = Decision(
+        decision_id="AUTH-BOUND", decision_maker="HUMAN:AUTH-02", decision_scope="repo.head",
+        question="Choose repo head", decision="Choose C-BOUND-B", evidence_refs=["E-BOUND-B"],
+        authorized_actions=["supersede:C-BOUND-A"], decided_at=T0, status="ACCEPTED",
+    )
+    base = base.model_copy(update={"decisions": [authority]}).with_root()
+    conflicted, rec = reconcile_states(
+        base, branch_state(base, "STATE-BOUND-L", [ca], [ea]),
+        branch_state(base, "STATE-BOUND-R", [cb], [eb]),
+        reconciliation_id="R-BOUND", created_at=T0,
+    )
+    cert = Adjudication(
+        adjudication_id="ADJ-BOUND", reconciliation_id="R-BOUND",
+        decision_maker="HUMAN:AUTH-02", scope="repo.head",
+        selected_claim_id="C-BOUND-B", rejected_claim_ids=["C-BOUND-A"],
+        evidence_refs=["E-BOUND-B"], authorized_actions=["supersede:C-BOUND-A"],
+        decided_at=T0, rationale="bounded decision",
+        authority_binding=AuthorityBinding(
+            authority_id="HUMAN:AUTH-02", authority_record_id="AUTH-BOUND",
+            authority_record_digest=digest(authority.model_dump(mode="json")),
+            authority_scope="repo.head", granted_actions=["supersede:C-BOUND-A"], issued_at=T0,
+        ),
+    ).with_certificate()
+
+    assert cert.can_authorize(
+        action="supersede:C-BOUND-A", subject_scope="repo.head", state=conflicted, now=T0
+    )
+    assert not cert.can_authorize(
+        action="publish:external", subject_scope="repo.head", state=conflicted, now=T0
+    )
+    assert not cert.can_authorize(
+        action="supersede:C-BOUND-A", subject_scope="production", state=conflicted, now=T0
+    )
+
+    expanded_action = cert.model_copy(update={"authorized_actions": ["publish:external"]})
+    try:
+        expanded_action._verify_authority_binding(conflicted, now=T0)
+        assert False, "expanded action must be rejected"
+    except ValueError as exc:
+        assert "outside bound authority grant" in str(exc)
+
+    expanded_scope = cert.model_copy(update={"scope": "production"})
+    try:
+        expanded_scope._verify_authority_binding(conflicted, now=T0)
+        assert False, "expanded scope must be rejected"
+    except ValueError as exc:
+        assert "exactly match" in str(exc)
+
 # authority-boundary conformance
