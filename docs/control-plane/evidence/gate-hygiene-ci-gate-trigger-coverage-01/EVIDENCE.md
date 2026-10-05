@@ -98,6 +98,23 @@ be merged until the review-record boundary is reconciled.
 
 ## CI verification (post-push, observed)
 
+Two observations were taken; `main` moved between them, and this section is corrected
+rather than merely appended to, because the earlier text is now **false on current
+`main`**.
+
+> **Correction, 2026-10-05, measured at `main` = `3f61cf2e` (post-merge).** The
+> observation-1 text below is **superseded in full**. At the time it was written it was
+> true; it is no longer true on `main`. Verified now: `api/main.py` is **2594** lines
+> (under the 2600 budget), `tests/architecture` is **11/11 on both `main` and the branch**,
+> and `tests/test_ci_gate_trigger_coverage.py` is **39/39 on `main`**. The debt it records
+> was repaired on `main` by a route other than PR #296 (which remains open). The claim
+> *"green requires PR #296 to land first"* is **withdrawn**. The only workflow step that
+> still fails is the broader full-suite step, on the pre-existing CE-01 `weaver.autonomy`
+> collection error — which errors identically on `main` and the branch and is reserved to
+> the sovereign.
+
+### Observation 1 — base `4550531` (superseded, retained as the record)
+
 Branch `gate-hygiene/ci-gate-trigger-coverage-01`, head
 `2e3661a1b4141809a9ad120ff19aaf68e81dac5f`, PR #300. Runs observed 2026-10-05.
 
@@ -126,6 +143,51 @@ baseline-red on the same node. Green requires PR #296 (`api/main.py` decompositi
 land first, or an explicit decision to accept the gate as red-by-inheritance. The
 failure is **unchanged**, not introduced.
 
+### Observation 2 — base `41bbce3`
+
+The branch was merged up to `41bbce3` (merge commit `879ff20`) — merged, not rebased; no
+force-push. `main` advanced again to `3f61cf2e` when this PR merged. Re-derived results:
+
+| Workflow step (run `37260354586`) | Result |
+|---|---|
+| Targeted K2 and key-pool regressions | success (23 passed) |
+| **Relevant architecture regression** | **success (11 passed)** |
+| Broader test suite | **failure** — CE-01, pre-existing |
+
+The broader-step failure is the **CE-01 `weaver.autonomy` module-vs-package collision**:
+`ImportError: cannot import name 'load_autonomy_config' from 'weaver.autonomy'
+(weaver/autonomy/__init__.py)` → `ERROR tests/test_autonomy.py`, exit code 2. It is reached
+by the last step only because that step is a bare `pytest tests/ -q`, which a collection
+error interrupts. That step is deliberately **not** modified here (out of scope; CE-01
+reserve). Verified identical on `main` and the branch:
+`pytest tests/test_autonomy.py -q` errors the same way on both.
+
+### Regression — zero node-set delta (measured at `41bbce3`)
+
+```
+python -m pytest tests/ -q -rEf --continue-on-collection-errors
+→ branch: 18 failed / 1467 passed / 22 skipped / 1 error
+→ main:   18 failed / 1467 passed / 22 skipped / 1 error
+
+outcomes fingerprint  bb4e08ea7d4865ef4ee3db2d45e10234a162fc9b40884344f1efd6d9fc06f5d7
+ids fingerprint       a422b7a7de0a7c45a1b9c9c6d1dc7bdc2e62dc9fedeaf84e8401ed8e7033b64d
+```
+
+Both fingerprints are **identical between `main` and this branch** (19 nodes). The
+comparison is by failing-node **identity**, not counts.
+
+### Post-merge integration verification (at `main` = `3f61cf2e`)
+
+The merged change was verified on the merged tree, not only on the PR head:
+
+- `tests/test_ci_gate_trigger_coverage.py` → **39 passed** (parametrization grows with the
+  live workflow set; it now audits `prism-execution-workevent-governance.yml`, added by
+  `#290`/`#299`, and that workflow passes the invariant).
+- `tests/architecture` → **11 passed**.
+- Intended paths landed in `3f61cf2e` (`provider-routing.yml`, the test,
+  the evidence doc, `.bootstrap/01_STATE.md`), alongside the `#290` WorkEvent commits.
+
 ## Next authorized action
 
-Sovereign review and merge of this branch. No further work begins inside this PR.
+Merged. This correction is the only remaining work under this workstream. No further
+work begins inside the merged change.
