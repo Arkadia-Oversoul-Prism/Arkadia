@@ -779,3 +779,41 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   `9a54f5b478d1135f27ab9e54d95706f03eae1ceb5d4c1f3ae075bffc4208ab38` /
   `124bfdfd078fe878fe7c9de358ba271e977c4f7b73909b9d7d016b9ae9c1e87f`.
 
+## A green CI job can execute ZERO tests - read the step log, not the conclusion (gate-hygiene)
+- `sg-02-fe-2-v.yml` step 21 (`CP10-B broader backend regression`, `python -m pytest tests/ -q`)
+  is `continue-on-error: true`, so its step `outcome` is `failure`. Step 35
+  (`Enforce CP10 executable gates`) tests it with `test '${{ steps.backend.outcome }}' = success`
+  - but **`steps.<id>.outcome` is not available inside a `run:` block**; GitHub exposes it only
+  to a step's `if:`. The CI log prints every one of those 16 assertions as the *literal string*
+  `test 'success' = success`, because with `continue-on-error: true` the step's conclusion is
+  `success` and the substitution is a constant. The enforcement step is **self-satisfying** and
+  cannot fail for any outcome. A `run:`-block guard must read `steps.<id>.conclusion`, or the
+  decision must move to an `if:`.
+- **A collection error makes the suite exit 0 while running nothing.** `weaver/autonomy` is a
+  *tracked package* (`__init__.py` + `guard.py` + `proposal_engine.py`, `__status__ = "disabled"`)
+  and `weaver/autonomy.py` is a *tracked module* (91 lines) that actually defines
+  `load_autonomy_config` / `validate_autonomy_config` / `run_scheduled_once`. `import weaver.autonomy`
+  resolves to the **package**, so `tests/test_autonomy.py:2` raises
+  `ImportError: cannot import name 'load_autonomy_config'`. Because this is not the first error,
+  pytest **interrupts the whole session**: the CI log reads `Interrupted: 1 error during collection`
+  and `1 skipped, 1 error in 2.96s`. A `passed|failed` grep over that log returns **0** - the full
+  suite ran no tests, yet the job is green. This is the CE-01 module-vs-package collision reserved
+  to the sovereign; do not "fix" it inside an unrelated workstream.
+- **Consequence worth stating plainly:** `tests/architecture` is executed by exactly one workflow,
+  `provider-routing.yml`, path-filtered to `weaver/**` / `providers/**` / two named test files / one
+  doc. A commit touching only `api/main.py` runs the architecture suite **nowhere**, so the
+  2600-line budget (`test_api_main_line_count_within_budget`, `main` @ `4550531` = **2805**) is a
+  repository convention, not a gate. Add `--continue-on-collection-errors` before trusting any
+  full-suite CI count.
+- **The mutation boundary is a different story - it has teeth.** Step 32 runs
+  `scripts/cp10_mutation_boundary_policy.py`, the same module the fitness tests prove, and
+  `sg-02-fe-2-v.yml` lists that script and `tests/test_m02a_ci_gate_integrity.py` as trigger paths,
+  so a PR that rewrites the boundary is judged by the boundary it rewrites. Verified on PR #295
+  (head `fda0091`): 35/35 steps success including step 32, and the branch touches both trigger paths.
+- **A frozen schema that nothing validates against is not a contract.** `schemas/arkana/signal/1.0/`
+  was admitted to `LEGIT` but `grep -rn "arkana-signal.schema.json" tests/ scripts/ api/` returns 0
+  producer/consumer references, so the merged ARK-01 route (`/api/arkana/signal/ingest`) emits
+  `arkana.signal` objects that fail its own contract for ordinary model output - candidates without
+  the required `status`, and `null` written into the `number`-only `interpretation.confidence` map
+  (`$defs.candidate` allows `null` confidence, the top-level map does not). Pin the producer with a
+  conformance test, including a negative control per violation, or the schema is decoration.
