@@ -68,14 +68,24 @@ Full suite, `-q -rEf --continue-on-collection-errors`, this environment:
 | tree | passed | failed | skipped | errors | failing/error nodes | outcomes fp | ids fp |
 |---|---|---|---|---|---|---|---|
 | main `451e41a` | 1005 | 69 | 20 | 48 | 117 | `f33d69df…` | `6dde9f16…` |
-| branch | 1015 | 69 | 20 | 48 | 117 | `f33d69df…` | `6dde9f16…` |
+| branch `f179d2b` | 1024 | 69 | 20 | 48 | 117 | `f33d69df…` | `6dde9f16…` |
 
-- **Zero regression:** identical outcomes fingerprint and identical failure-node *set*
-  (`only in main: []`, `only in branch: []`). The `+10 passed` is exactly the new guard.
-- `tests/architecture`: **11 passed** (main's own baseline).
-- `python -m py_compile api/main.py`: **OK**; `api/main.py` **untouched** (budget unchanged).
-- Baseline debt (69F / 48E) is **pre-existing main debt, recorded not fixed** — it is not
-  attributable to this change (fingerprint unchanged).
+Both trees were measured **in this same environment** (base main in a detached worktree at
+`451e41a`), so the delta is attributable to the branch, not to a dependency difference.
+
+- **Zero regression:** identical failure/error-node **set** on both trees
+  (`only in main: []`, `only in branch: []`; `sha256` of the sorted node list =
+  `f33d69df…` on both). Baseline debt (69F / 48E) is **pre-existing main debt, recorded not
+  fixed** — it is not attributable to this change.
+- **The `+19 passed` is explained, not assumed.** Collected nodes: `main` 1093, branch
+  1112. The 19 new nodes are the 16 guard nodes **plus 3** parametrizations of the
+  pre-existing `tests/test_ci_gate_trigger_coverage.py` that the new `pull_request` trigger
+  now selects for this workflow — all 3 pass (VERIFICATION.md item 9). Earlier `+10` / `+15`
+  figures (recorded before later follow-ons) are superseded by this measurement.
+- `tests/architecture`: **11 passed** (main's own baseline; this workflow does not run it —
+  `provider-routing.yml` does).
+- `python -m py_compile api/main.py`: **OK**; `api/main.py` **untouched** (2432 lines, within
+  the 2600 budget).
 
 ## 5. Non-goals / proposed (NOT executed)
 
@@ -136,12 +146,39 @@ deploy path is added.
 
 ### Measured
 
-- Guard suite: **12 passed** (10 before this follow-on).
+- Guard suite: **16 passed** (10 before the CI-live follow-on; 12 after the trigger/step
+  addition, before the two PR-safety invariant tests).
 - Negative control: stripping the `pull_request` block from the workflow →
   `test_scheduler_workflow_selects_this_guard` **FAILS** with the "runs nowhere" message;
-  restoring it → **12 passed**. The detector detects the defect it claims to detect.
-- `tests/test_ci_gate_trigger_coverage.py` 39 passed; `tests/test_engineering_scheduler_bootstrap.py`
+  restoring it → **16 passed**. The detector detects the defect it claims to detect.
+- `tests/test_ci_gate_trigger_coverage.py` 42 passed; `tests/test_engineering_scheduler_bootstrap.py`
   and `tests/test_m08_trajectory_schema.py` unchanged and passing.
+
+### CI-live proof (OBSERVED — green on the branch head)
+
+The claim "the guard is CI-live" is a claim about *trigger selection*, and it is now proved by
+a **passing job**, not by intent:
+
+- On the branch head `f179d2b`, GitHub created a **`pull_request` run of
+  `Arkadia Engineering Scheduler`** (`run 37370596340`, event `pull_request`, created
+  `2026-10-05T20:34:35Z`). Before the follow-on this workflow had no `pull_request` trigger,
+  so no such run could exist. The trigger selects the workflow.
+- The `engineering-scheduler` job is **`completed` / `success`** (`run_attempt` 3, completed
+  `2026-10-05T21:24:16Z`). Step 6, *Trajectory-routing conformance guard*, ran and passed —
+  the guard is executed in CI, not merely present in the tree. Step 7, *Session + Engineering
+  Runner*, was **`skipped`**, proving the `github.event_name != 'pull_request'` gate holds: a
+  PR is never routed as a live engineering session.
+- The `security-secret-scan` `pull_request` run created at the same second
+  (`run 37370596359`) is also `completed` / `success`.
+- An **earlier attempt** of the scheduler run was `cancelled` with the annotation *"The job was
+  not acquired by Runner of type hosted even after multiple attempts"*. That was a transient
+  GitHub-hosted **runner-acquisition** failure, now superseded: the same run object reached
+  `success` on attempt 3. It is recorded here so a future pass does not re-derive a
+  contradicted "BLOCKED on runner outage" classification from the cancelled attempt alone.
+
+Classification: **OBSERVED (green)** for the guard's CI-liveness on this branch head. This is
+a CI observation, not a production-parity or acceptance claim — merge and deploy remain
+human-only.
 
 ### Blast-radius note (PROPOSED, not executed)
 

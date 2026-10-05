@@ -139,3 +139,94 @@ def test_scheduler_workflow_executes_the_guard():
     assert "pytest tests/test_scheduler_trajectory_conformance.py" in text, (
         "scheduler workflow does not execute the trajectory-routing guard"
     )
+
+
+# --- PR-safety invariants for the scheduler workflow -------------------------------
+#
+# The follow-on gave the scheduler a `pull_request` trigger, which widened the
+# workflow's blast radius. The two safety properties the workflow documents in
+# comments must be enforced, not merely stated: the token stays read-only, and a PR
+# is never routed as a live engineering session. Each property has a pure detector
+# with a negative control, so the guard cannot be disarmed by editing the workflow
+# without reddening a control.
+
+
+def _non_read_scopes(perms) -> set[str]:
+    """Scopes that grant more than read. An unset token defaults to write."""
+    if not isinstance(perms, dict):
+        return {"<unset: defaults to write>"}
+    return {f"{key}: {value}" for key, value in perms.items() if value != "read"}
+
+
+def _session_steps(workflow):
+    for job in (workflow.get("jobs") or {}).values():
+        if not isinstance(job, dict):
+            continue
+        for step in job.get("steps") or []:
+            if "EngineeringWorker" in (step.get("run") or ""):
+                yield step
+
+
+def _ungated_session_steps(workflow) -> list:
+    return [
+        step
+        for step in _session_steps(workflow)
+        if step.get("if") != "github.event_name != 'pull_request'"
+    ]
+
+
+def test_scheduler_pr_trigger_holds_a_read_only_token():
+    """A `pull_request`-triggered job must not hold a write token."""
+    workflow = yaml.safe_load(SCHEDULER_WORKFLOW.read_text(encoding="utf-8"))
+    for job_name, job in (workflow.get("jobs") or {}).items():
+        assert not _non_read_scopes(job.get("permissions")), (
+            f"job {job_name!r} holds a non-read token but the workflow runs on "
+            f"pull_request; a PR-triggered job must stay read-only"
+        )
+
+
+def test_scheduler_session_is_not_routed_on_pull_request():
+    """The EngineeringWorker must never run for a `pull_request` event."""
+    workflow = yaml.safe_load(SCHEDULER_WORKFLOW.read_text(encoding="utf-8"))
+    steps = list(_session_steps(workflow))
+    assert len(steps) == 1, "expected exactly one session step to gate"
+    assert not _ungated_session_steps(workflow), (
+        "the session step is not gated to non-pull_request events; a PR could be "
+        "routed as a live engineering session"
+    )
+
+
+def test_negative_control_read_only_detector_flags_write():
+    assert _non_read_scopes({"contents": "write"}) == {"contents: write"}
+    assert _non_read_scopes(None)  # unset defaults to write
+    assert _non_read_scopes({"contents": "read", "actions": "read"}) == set()
+
+
+def test_negative_control_session_gate_detector_flags_ungated():
+    ungated = {
+        "jobs": {
+            "engineering-scheduler": {
+                "steps": [
+                    {
+                        "name": "Session",
+                        "run": "from weaver.engineering_worker import EngineeringWorker",
+                    }
+                ]
+            }
+        }
+    }
+    assert _ungated_session_steps(ungated), "detector failed to flag an ungated session"
+    gated = {
+        "jobs": {
+            "engineering-scheduler": {
+                "steps": [
+                    {
+                        "name": "Session",
+                        "if": "github.event_name != 'pull_request'",
+                        "run": "from weaver.engineering_worker import EngineeringWorker",
+                    }
+                ]
+            }
+        }
+    }
+    assert not _ungated_session_steps(gated)
