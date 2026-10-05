@@ -265,6 +265,7 @@ class WorkEventManager:
             subject_ref=row["subject_ref"],
             workspace_ref=row["workspace_ref"],
             work_ref=row["work_ref"],
+            execution_attempt_ref=row["execution_attempt_ref"],
             parent_event_ref=row["parent_event_ref"],
             sequence_ref=row["sequence_ref"],
             scope_ref=row["scope_ref"],
