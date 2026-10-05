@@ -47,8 +47,9 @@ def capture_execution_workevent(
         row["correlation_id"],
     )
     event_type = f"EXECUTION_{status}"
-    return workevents.create(
-        subject_ref=subject,
+    try:
+        return workevents.create(
+            subject_ref=subject,
         workspace_ref=workspace_ref,
         event_type=event_type,
         occurred_at=execution.attempted_at,
@@ -61,8 +62,14 @@ def capture_execution_workevent(
         state_after_ref=status,
         decision_ref=execution.authorization_id,
         witness_ref=execution.id,
-        status="RECORDED",
-    )
+            status="RECORDED",
+        )
+    except ValueError:
+        # A concurrent retry may win the unique execution_attempt_ref insert.
+        existing = workevents.get_by_execution_attempt(execution_attempt_id, subject)
+        if existing is not None:
+            return existing
+        raise
 
 
 __all__ = ["capture_execution_workevent"]
