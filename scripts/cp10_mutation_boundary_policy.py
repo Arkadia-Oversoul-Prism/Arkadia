@@ -85,6 +85,21 @@ LEGIT = re.compile(
     # decisions, experiments, research) that issue #209's MVP build reads from.
     # Same omission class: tracked, omitted, three fitness tests red on main.
     r"|musical-intention-engine/"
+    # research/ is the control-plane research corpus (Oversoul Prism lattice
+    # reconstruction, node transformation, convergence, conflict, verification,
+    # resolution, acceptance), merged to main via PRs #277-#288. It was tracked
+    # while this allowlist still omitted it, so three fitness tests were red on
+    # main and the CP10 gate would reject the next ordinary commit touching the
+    # tree (measured at ebe09a6: 15 offenders under research/). It is a
+    # first-class control-plane artifact, not scratch space, so it is enumerated
+    # rather than left to the generic rules.
+    r"|research/"
+    # schemas/ carries the versioned public wire contracts (currently
+    # schemas/arkana/signal/1.0/arkana-signal.schema.json, merged via PR #286
+    # "ARCH-01: define Arkana Signal Fabric v1"). Same omission class: tracked,
+    # omitted, three fitness tests red on main. A published contract is a
+    # first-class product surface, so it is enumerated explicitly.
+    r"|schemas/"
     # runtime state, archive and asset trees the repository tracks
     r"|data/|archive/|artifacts/|attached_assets/|\"?attached_assets/"
     # vault/ tracks only its scaffold; generated notes stay outside the boundary

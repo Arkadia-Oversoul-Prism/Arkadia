@@ -18,6 +18,19 @@ from solspire.buyer_recon import STATUSES, get_buyer_recon_manager
 router = APIRouter(prefix="/buyer-recon", tags=["Eden Buyer Recon"])
 
 
+async def require_project_owner(project_id: str, user: dict = Depends(require_auth)) -> dict:
+    """Resolve the project and enforce ownership from the authenticated Firebase uid."""
+    from solspire.project_manager import get_project_manager
+    try:
+        project = get_project_manager().load(project_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+    owner = (project.owner_uid or "").strip()
+    if not owner or owner != user["uid"]:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return user
+
+
 class BuyerReconEntryInput(BaseModel):
     model_config = ConfigDict(extra="allow")
     prospect: str
@@ -58,6 +71,14 @@ class BuyerReconEntryPatch(BaseModel):
 def _board(user: dict[str, Any]):
     workspace = get_workspace_manager().get_or_create(user["uid"])
     return get_buyer_recon_manager().get_or_create(workspace.id, user["uid"])
+
+
+def _project_board(project_id: str, user: dict[str, Any]):
+    # Ownership is enforced by the dependency before this function runs.
+    workspace = get_workspace_manager().get_or_create(user["uid"])
+    return get_buyer_recon_manager().get_or_create(
+        f"{workspace.id}:project:{project_id}", user["uid"]
+    )
 
 
 @router.get("")
@@ -103,6 +124,64 @@ async def update_buyer_recon_entry(
         )
     except KeyError:
         raise HTTPException(status_code=404, detail="Buyer recon entry not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"entry": entry.to_dict()}
+
+
+@router.get("/projects/{project_id}")
+async def get_project_buyer_recon(
+    project_id: str, user: dict = Depends(require_project_owner)
+) -> dict[str, Any]:
+    board = _project_board(project_id, user)
+    entries = get_buyer_recon_manager().list_entries(board.id, user["uid"])
+    return {
+        "board": board.to_dict(),
+        "project_id": project_id,
+        "entries": [e.to_dict() for e in entries],
+        "statuses": list(STATUSES),
+        "persistence": {
+            "scope": "project",
+            "subject_binding": "authenticated_firebase_uid",
+            "project_binding": True,
+            "instantiated": True,
+        },
+        "authority": {
+            "reconnaissance_only": True,
+            "execution_authority": "NONE",
+            "budget_authority": "NONE",
+        },
+    }
+
+
+@router.post("/projects/{project_id}/entries", status_code=201)
+async def create_project_buyer_recon_entry(
+    project_id: str, body: BuyerReconEntryInput, user: dict = Depends(require_project_owner)
+) -> dict[str, Any]:
+    board = _project_board(project_id, user)
+    try:
+        entry = get_buyer_recon_manager().create_entry(board, body.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"entry": entry.to_dict()}
+
+
+@router.patch("/projects/{project_id}/entries/{entry_id}")
+async def update_project_buyer_recon_entry(
+    project_id: str, entry_id: str, body: BuyerReconEntryPatch,
+    user: dict = Depends(require_project_owner)
+) -> dict[str, Any]:
+    board = _project_board(project_id, user)
+    try:
+        # The manager's subject binding plus project-specific board keeps records
+        # isolated even though entries share the canonical SQLite store.
+        entry = get_buyer_recon_manager().update_entry(
+            entry_id, user["uid"], body.model_dump(exclude_unset=True)
+        )
+        if entry.board_id != board.id:
+            raise KeyError(entry_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project buyer recon entry not found")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {"entry": entry.to_dict()}

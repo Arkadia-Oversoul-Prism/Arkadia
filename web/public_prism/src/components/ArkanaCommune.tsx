@@ -63,6 +63,17 @@ function parseCodexCommand(text: string): string | null {
   return (m[1] || '').trim() || 'arkadia spiral codex';
 }
 
+function semanticThreadTitle(prompt: string): string {
+  const cleaned = prompt.replace(/\[[^\]]+\]/g, ' ').replace(/https?:\/\/\S+/g, ' ').replace(/[`*_#>]/g, ' ').replace(/\s+/g, ' ').trim();
+  const stop = new Set(['the','a','an','and','or','but','for','to','of','in','on','with','from','this','that','these','those','is','are','be','as','into','about','how','what','why','can','could','should','would','i','we','you','me','my','our','your','please','need','want','now','help','make','build','create']);
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  const meaningful = words.filter(w => !stop.has(w.toLowerCase().replace(/[^a-z0-9-]/gi, '')));
+  const seed = (meaningful.length >= 3 ? meaningful : words).slice(0, 8);
+  const title = seed.join(' ').replace(/^[\s,:;.-]+|[\s,:;.-]+$/g, '');
+  if (!title) return 'New Arkana conversation';
+  return title.charAt(0).toUpperCase() + title.slice(1).slice(0, 78);
+}
+
 function isHelpCommand(text: string): boolean {
   const t = text.trim().replace(/^[⟐/]\s*/, '').toLowerCase();
   return t === 'help' || t === '?' || t === 'commands';
@@ -298,9 +309,6 @@ interface ArkanaProps {
 const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, projectContextId, projectName, projectContext }) => {
   const { user, isAuthenticated } = useAuth();
   const threadStorageKey = projectContextId ? `${ACTIVE_THREAD_KEY}:project:${projectContextId}` : ACTIVE_THREAD_KEY;
-  const [hasStoredProjectThread] = useState(() => {
-    try { return Boolean(projectContextId && localStorage.getItem(threadStorageKey)); } catch { return false; }
-  });
   const [activeThreadId, setActiveThreadId] = useState<string>(() => {
     try { return localStorage.getItem(threadStorageKey) || createArkanaThreadId(); } catch { return createArkanaThreadId(); }
   });
@@ -360,27 +368,29 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, proje
     (async () => {
       try {
         if (projectContextId) {
-          const savedThread = (() => { try { return localStorage.getItem(threadStorageKey); } catch { return null; } })();
-          if (hasStoredProjectThread && savedThread) {
-            if (live) {
-              setThreads([{ uuid: savedThread, title: `${projectName || 'Project'} · Arkana`, project_id: null }]);
-              setActiveThreadId(savedThread);
+          const projectNumericId = Number(projectContextId);
+          const res = await apiFetch(`/api/commune/threads?project_id=${encodeURIComponent(String(projectNumericId))}`);
+          if (!res.ok) return;
+          const data = await res.json();
+          const listed = Array.isArray(data.threads) ? data.threads : [];
+          if (!live) return;
+          if (listed.length === 0) {
+            const created = await apiFetch('/api/commune/threads', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ title: "New Arkana conversation", project_id: projectNumericId }),
+            });
+            const createdData = await created.json().catch(() => ({}));
+            const thread = createdData?.thread;
+            if (created.ok && thread?.uuid && live) {
+              setThreads([thread]);
+              setActiveThreadId(thread.uuid);
             }
-            return;
-          }
-          const created = await apiFetch('/api/commune/threads', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: `${projectName || 'Project'} · Arkana` }),
-          });
-          const data = await created.json().catch(() => ({}));
-          const thread = data?.thread;
-          if (created.ok && thread?.uuid && live) {
-            setThreads([thread]);
-            setActiveThreadId(thread.uuid);
+          } else {
+            setThreads(listed);
+            if (!listed.some((t: any) => t.uuid === activeThreadId)) setActiveThreadId(listed[0].uuid);
           }
           return;
         }
-
         const res = await apiFetch('/api/commune/threads' + (projectId != null ? '?project_id=' + projectId : ''));
         if (!res.ok) return;
         const data = await res.json();
@@ -389,7 +399,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, proje
         if (listed.length === 0) {
           const created = await apiFetch('/api/commune/threads', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: projectId != null ? 'Project conversation' : 'General conversation', ...(projectId != null ? { project_id: projectId } : {}) }),
+            body: JSON.stringify({ title: "New Arkana conversation", ...(projectId != null ? { project_id: projectId } : {}) }),
           });
           if (created.ok) {
             const d = await created.json(); const t = d?.thread;
@@ -402,7 +412,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, proje
       } catch { /* local thread remains usable */ }
     })();
     return () => { live = false; };
-  }, [isAuthenticated, projectId, projectContextId, projectName, threadStorageKey, hasStoredProjectThread]);
+  }, [isAuthenticated, projectId, projectContextId, projectName, threadStorageKey ]);
 
   const createNewThread = async () => {
     if (threadBusy) return;
@@ -412,10 +422,8 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, proje
         const res = await apiFetch('/api/commune/threads', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            title: projectContextId
-              ? `${projectName || 'Project'} · New Arkana conversation`
-              : (projectId != null ? 'New project conversation' : 'New conversation'),
-            ...(!projectContextId && projectId != null ? { project_id: projectId } : {}),
+            title: 'New Arkana conversation',
+            ...(projectContextId ? { project_id: Number(projectContextId) } : projectId != null ? { project_id: projectId } : {}),
           }),
         });
         const data = await res.json().catch(() => ({}));
@@ -712,7 +720,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, proje
         message: messageWithContext,
         timestamp: Date.now(),
         session_id: activeThreadId,
-        ...(projectId != null ? { project_id: projectId } : {}),
+        ...(projectId != null ? { project_id: projectId } : projectContextId ? { project_id: Number(projectContextId) } : {}),
       };
       if (sovereignToken.trim()) body.sovereign_token = sovereignToken.trim();
       
@@ -747,6 +755,24 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, proje
         const next = [...prev, { role: 'arkana' as const, content: data.reply, resonance: data.resonance, session, sources }];
         saveThread(activeThreadId, next); return next;
       });
+      // Arcana owns conversational naming. The first successful turn gets a semantic title.
+      if (isAuthenticated && (activeThreadTitle === 'Conversation' || activeThreadTitle === 'New Arkana conversation')) {
+        const semanticTitle = semanticThreadTitle(displayText);
+        try {
+          const titleRes = await apiFetch(`/api/commune/threads/${activeThreadId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: semanticTitle }),
+          });
+          const titleData = await titleRes.json().catch(() => ({}));
+          if (titleRes.ok && titleData?.thread) {
+            setThreads(prev => prev.map(t => t.uuid === activeThreadId ? titleData.thread : t));
+          }
+        } catch {
+          // Naming failure never blocks the successful conversation turn.
+        }
+      }
+
       try {
         await emitSolariunWorkEvent({
           event_type: 'ORACLE_MESSAGE',
