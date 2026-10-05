@@ -1,0 +1,75 @@
+schema:
+  id: ARKADIA_ATTENTION_EVENT_V1
+  version: 1
+  purpose: "Governed translation of canonical Arkadia state changes into human-facing delivery intents."
+
+invariants:
+  canonical_state: "Arkadia remains the source of truth."
+  downstream_only: true
+  evidence_is_not_authority: true
+  delivery_is_not_execution: true
+  completion_is_not_authorization: true
+  one_event_per_occurrence: true
+  idempotency_key: event_id
+  human_authority_boundary_preserved: true
+
+channels:
+  tasks:
+    semantic: "ACT"
+    role: "human action surface"
+    provider: "Google Tasks"
+  keep:
+    semantic: "KNOW"
+    role: "human-readable response feed"
+    provider: "Google Keep or Workspace Studio flow"
+  push:
+    semantic: "NOTICE"
+    role: "interruptive attention surface"
+    provider: "future governed push adapter"
+  workspace_studio:
+    semantic: "ROUTE"
+    role: "Google Workspace workflow trigger"
+    provider: "Google Workspace Studio"
+
+event:
+  required:
+    - event_id
+    - event_type
+    - source
+    - subject
+    - severity
+    - created_at
+  optional:
+    - previous_state
+    - current_state
+    - claim
+    - evidence_refs
+    - action_required
+    - human_authority_required
+  delivery:
+    - task_delivery
+    - keep_delivery
+    - push_delivery
+    - workspace_studio_delivery
+
+routing:
+  high_salience:
+    push: true
+    keep: true
+  human_authority_required:
+    tasks: true
+    keep: true
+    push: true
+  routine_state_change:
+    keep: true
+    push: false
+  autonomous_consequential_action:
+    allowed: false
+
+forbidden:
+  - "Google surface becomes canonical state."
+  - "Task completion becomes authorization."
+  - "Keep content becomes evidence."
+  - "Push delivery becomes proof of receipt."
+  - "Attention event authorizes execution."
+  - "Workspace Studio flow silently widens Arkadia authority."
