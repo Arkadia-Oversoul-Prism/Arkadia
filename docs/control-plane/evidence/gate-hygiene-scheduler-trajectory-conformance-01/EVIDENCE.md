@@ -96,3 +96,59 @@ Full suite, `-q -rEf --continue-on-collection-errors`, this environment:
 
 Human-only merge and human-only deploy. No production-parity claim is made: this is a
 repository-source fix plus a regression guard, not a runtime observation.
+
+## 7. Follow-on within this workstream: the guard was CI-inert (measured, then fixed)
+
+The guard added in §3 stated the invariant but **no workflow executed it**. Measured on the
+PR head before this follow-on:
+
+- `grep -rn "test_scheduler_trajectory_conformance" .github/workflows/` → only the
+  `ARKADIA_ENGINEERING_TRAJECTORY` line matched (a substring coincidence); no `pytest`
+  invocation. The guard ran nowhere.
+- `.github/workflows/arkadia-engineering-scheduler.yml` had **no `pull_request` trigger**
+  (only `workflow_dispatch` + `schedule`), so a PR that introduced the structural slip
+  would merge with the guard unexecuted and the hourly session would fail closed again.
+- The pre-existing generalised guard `tests/test_ci_gate_trigger_coverage.py` (39 passed on
+  `main`) does **not** catch this class: it only judges workflows that *already run pytest*,
+  and the scheduler is selected by `schedule`/`workflow_dispatch`, not by path filters.
+
+A guard no workflow executes is decoration. This is the same defect class the workstream
+exists to close — the invariant was asserted but not enforced.
+
+### Fix
+
+1. Added a path-filtered `pull_request` trigger to the scheduler workflow selecting the
+   surfaces the guard judges: the workflow itself, `weaver/engineering_router.py`,
+   `weaver/engineering_worker.py`, `docs/control-plane/trajectory.schema.json`,
+   `docs/control-plane/TRAJECTORY-*.yaml`, and the guard test.
+2. Added a `Trajectory-routing conformance guard` step that runs the guard on **every**
+   event. On `pull_request` it judges before merge; on the hourly `schedule` it also proves
+   the workflow still selects the guard. The runner step is now gated to
+   `github.event_name != 'pull_request'` so a PR is never routed as a session.
+3. Added two self-selection assertions to the guard:
+   `test_scheduler_workflow_selects_this_guard` (the `pull_request` paths filter names the
+   test file) and `test_scheduler_workflow_executes_the_guard` (a step actually runs it).
+   Because the guard step runs on the schedule too, **removing the trigger fails the next
+   hourly session** instead of silently disabling the guard.
+
+The workflow remains `permissions: contents: read` / `actions: read`; no merge, push, or
+deploy path is added.
+
+### Measured
+
+- Guard suite: **12 passed** (10 before this follow-on).
+- Negative control: stripping the `pull_request` block from the workflow →
+  `test_scheduler_workflow_selects_this_guard` **FAILS** with the "runs nowhere" message;
+  restoring it → **12 passed**. The detector detects the defect it claims to detect.
+- `tests/test_ci_gate_trigger_coverage.py` 39 passed; `tests/test_engineering_scheduler_bootstrap.py`
+  and `tests/test_m08_trajectory_schema.py` unchanged and passing.
+
+### Blast-radius note (PROPOSED, not executed)
+
+Generalising `tests/test_ci_gate_trigger_coverage.py` to "a workflow that runs pytest must
+name every test file it runs in its own path filter" is **not** safe today. Measured:
+`sg-02-fe-2-v.yml` names 9 test files absent from its filter and
+`prism-execution-workevent-governance.yml` names 4 — but `sg-02-fe-2-v.yml`'s backend step
+is `continue-on-error: true` and both workflows currently fail or never run on `main`. The
+documented rule is that a gate must stop being baseline-red before its blast radius is
+expanded. Recorded as a separate bounded workstream; **not** performed here.

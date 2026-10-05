@@ -9,8 +9,8 @@ Reconstructed: 2026-10-05 · BASE_MAIN `451e41a30fcbff4a65326e897a84818cc623b769
 |---|---|
 | canonical clone | `main`, ancestry intact, `origin/main` = `451e41a` (#317) |
 | active workstream | gate-hygiene — hourly bounded-execution loop integrity |
-| this pass | scheduler↔trajectory structural conformance fix + guard |
-| PR | #319 (base `main`, head `b0a431f8…`), OPEN, MERGEABLE |
+| this pass | scheduler trajectory conformance fix + guard, and closure of the guard's CI-inert gap |
+| PR | #319 (base `main`), OPEN, MERGEABLE |
 | frontier | G12-A `merged_acceptance_pending` → worker returns `NO_LEGAL_MOVE` (truthful) |
 
 ## Defect and fix (measured)
@@ -20,11 +20,22 @@ Reconstructed: 2026-10-05 · BASE_MAIN `451e41a30fcbff4a65326e897a84818cc623b769
 | trajectory structure | `moves` nested under `trajectory:` | `moves` top-level |
 | router result | `ValueError: invalid trajectory structure` | routing decision |
 | worker status / exit | `FAILED` / 1 | `NO_LEGAL_MOVE` / 0 |
-| guard tests | 4 failed / 6 passed | **10 passed** |
+| guard tests | 4 failed / 6 passed | **12 passed** |
+| guard reachability | no workflow executed it (CI-inert) | `pull_request` trigger + step on every event |
+
+## Guard reachability (follow-on, measured)
+
+The §3 guard was CI-inert: a grep of `.github/workflows/` found no `pytest` invocation of
+`tests/test_scheduler_trajectory_conformance.py`, and the scheduler workflow had no
+`pull_request` trigger. Fixed by adding a path-filtered `pull_request` trigger plus a guard
+step that runs on every event, plus two self-selection assertions. Negative control: removing
+the trigger makes `test_scheduler_workflow_selects_this_guard` FAIL; restoring it gives 12
+passed. The runner step is gated to `github.event_name != 'pull_request'`, so a PR is never
+routed as a session.
 
 ## Test / baseline fingerprint at this pass
 
-- `tests/test_scheduler_trajectory_conformance.py` — **10 passed** (negative control 4F pre-fix)
+- `tests/test_scheduler_trajectory_conformance.py` — **12 passed** (negative control 4F pre-fix)
 - `tests/architecture` — **11 passed** (main's own baseline)
 - `python -m py_compile api/main.py` — OK; `api/main.py` untouched
 - CP10 boundary judge on changed paths — **PASS** (exit 0)

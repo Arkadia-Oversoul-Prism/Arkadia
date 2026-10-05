@@ -14,6 +14,18 @@ on:
   schedule:
     # Hourly wake signal — not an instruction to execute a specific move
     - cron: "0 7-17 * * *"
+  pull_request:
+    # The trajectory-routing conformance guard judges the surfaces below. Without
+    # this trigger the guard is selected only by nothing and runs nowhere, so the
+    # structural slip it detects reaches main unjudged and the hourly session
+    # fails closed again. Read-only: no merge, deploy, or push.
+    paths:
+      - ".github/workflows/arkadia-engineering-scheduler.yml"
+      - "weaver/engineering_router.py"
+      - "weaver/engineering_worker.py"
+      - "docs/control-plane/trajectory.schema.json"
+      - "docs/control-plane/TRAJECTORY-*.yaml"
+      - "tests/test_scheduler_trajectory_conformance.py"
 
 concurrency:
   # max_active_moves: 1 — one engineering session at a time
@@ -48,9 +60,17 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -q pyyaml
+          pip install -q pyyaml pytest
+
+      - name: Trajectory-routing conformance guard
+        # Runs on every event. On pull_request it judges the surfaces in the paths
+        # filter before merge; on the hourly schedule it also proves this workflow
+        # still selects the guard, so removing the trigger fails the next session
+        # rather than silently disabling the guard.
+        run: python -m pytest tests/test_scheduler_trajectory_conformance.py -q
 
       - name: Session + Engineering Runner (dry-run default)
+        if: github.event_name != 'pull_request'
         id: runner
         env:
           # schedule has no inputs — default dry_run true

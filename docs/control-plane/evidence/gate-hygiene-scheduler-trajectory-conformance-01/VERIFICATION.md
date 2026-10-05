@@ -7,12 +7,14 @@ Branch: `gate-hygiene/scheduler-trajectory-conformance-01`
 
 | # | Command | Expected | Observed |
 |---|---|---|---|
-| 1 | `python -m pytest tests/test_scheduler_trajectory_conformance.py -q` | pass | **10 passed** |
+| 1 | `python -m pytest tests/test_scheduler_trajectory_conformance.py -q` | pass | **12 passed** |
 | 2 | same, against pre-fix artifact (`git show HEAD:…`) | fail | **4 failed, 6 passed** (negative control) |
-| 3 | `python -m pytest tests/architecture -q` | 11/11 | **11 passed** |
-| 4 | `python -m py_compile api/main.py` | OK | **OK** |
-| 5 | `python -m pytest tests/ -q -rEf --continue-on-collection-errors` | no node-set delta | **identical fingerprint** |
-| 6 | router decision on fixed trajectory | not `FAILED` | **`NO_LEGAL_MOVE`**, exit 0 |
+| 3 | guard with the workflow's `pull_request` block removed | fail | **1 failed** (`test_scheduler_workflow_selects_this_guard`); restored → 12 passed |
+| 4 | `python -m pytest tests/test_ci_gate_trigger_coverage.py tests/test_engineering_scheduler_bootstrap.py tests/test_m08_trajectory_schema.py -q` | pass | **70 passed, 1 skipped** |
+| 5 | `python -m pytest tests/architecture -q` | 11/11 | **11 passed** |
+| 6 | `python -m py_compile api/main.py` | OK | **OK** |
+| 7 | `python -m pytest tests/ -q -rEf --continue-on-collection-errors` | no node-set delta | **identical fingerprint** |
+| 8 | router decision on fixed trajectory | not `FAILED` | **`NO_LEGAL_MOVE`**, exit 0 |
 
 ## Fingerprints
 

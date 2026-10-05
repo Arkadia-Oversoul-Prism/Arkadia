@@ -108,3 +108,34 @@ def test_negative_control_nested_moves_is_rejected(tmp_path: Path):
     )
     with pytest.raises(ValueError, match="invalid trajectory structure"):
         _load_yaml(nested)
+
+
+def test_scheduler_workflow_selects_this_guard():
+    """The guard must be selected by the workflow it protects.
+
+    A guard no workflow executes is decoration: the structural slip it detects
+    reaches `main` unjudged. The workflow's `pull_request` paths filter must name
+    this test file. The guard step itself runs on every event, so removing the
+    trigger fails the next hourly session instead of silently disabling the guard.
+    """
+    workflow = yaml.safe_load(SCHEDULER_WORKFLOW.read_text(encoding="utf-8"))
+    # PyYAML parses the bare key `on` as the boolean True.
+    trigger = workflow.get(True, workflow.get("on"))
+    assert isinstance(trigger, dict) and "pull_request" in trigger, (
+        "scheduler workflow has no pull_request trigger; the trajectory-routing "
+        "conformance guard would run nowhere and a structural slip would reach "
+        "main unjudged"
+    )
+    paths = (trigger.get("pull_request") or {}).get("paths") or []
+    assert "tests/test_scheduler_trajectory_conformance.py" in paths, (
+        "the scheduler workflow does not select this guard in its pull_request "
+        "paths filter"
+    )
+
+
+def test_scheduler_workflow_executes_the_guard():
+    """The guard must be executed by a step, not merely triggered."""
+    text = SCHEDULER_WORKFLOW.read_text(encoding="utf-8")
+    assert "pytest tests/test_scheduler_trajectory_conformance.py" in text, (
+        "scheduler workflow does not execute the trajectory-routing guard"
+    )
