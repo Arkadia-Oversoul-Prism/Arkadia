@@ -288,3 +288,5 @@ def test_adjudication_requires_explicit_human_certificate_and_preserves_history(
         assert False, "tampered adjudication certificate must be rejected"
     except ValueError as exc:
         assert "certificate" in str(exc)
+
+# authority-boundary conformance
