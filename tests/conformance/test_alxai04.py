@@ -250,3 +250,41 @@ def test_reconcile_newer_direct_observation_supersedes_older_when_no_authority()
     assert rec.status == "MERGED"
     assert "C-OLD" in rec.superseded_claim_ids
     assert next(c for c in merged.claims if c.claim_id == "C-NEW").status == "ACTIVE"
+
+
+from alxai.reconcile import Adjudication, apply_adjudication
+
+
+def test_adjudication_requires_explicit_human_certificate_and_preserves_history():
+    base = create_state(parent_state_id=None, created_at=T0, state_id="STATE-000")
+    ea = evidence("E-AJ-A", "CHATGPT", ObservationMode.DIRECT_API, locator="a")
+    eb = evidence("E-AJ-B", "GROK", ObservationMode.DIRECT_API, locator="b")
+    ca = Claim(claim_id="C-AJ-A", subject="repo", predicate="head", object="sha-A",
+               source_authority="GitHub", observation_mode=ObservationMode.DIRECT_API,
+               epistemic_class=EpistemicClass.OBSERVED_FACT, observed_at=T0, evidence_refs=["E-AJ-A"])
+    cb = ca.model_copy(update={"claim_id": "C-AJ-B", "object": "sha-B", "evidence_refs": ["E-AJ-B"]})
+    conflicted, rec = reconcile_states(
+        base, branch_state(base, "STATE-AJ-L", [ca], [ea]), branch_state(base, "STATE-AJ-R", [cb], [eb]),
+        reconciliation_id="R-AJ", created_at=T0,
+    )
+    assert rec.status == "ADJUDICATION_REQUIRED"
+
+    adjudication = Adjudication(
+        adjudication_id="ADJ-001", reconciliation_id="R-AJ", decision_maker="HUMAN:AUTH-01",
+        scope="repo.head", selected_claim_id="C-AJ-B", rejected_claim_ids=["C-AJ-A"],
+        evidence_refs=["E-AJ-B"], authorized_actions=["supersede:C-AJ-A"],
+        decided_at=datetime(2026, 10, 5, 6, 0, tzinfo=timezone.utc),
+        rationale="Human authority selected the verified branch result.",
+    ).with_certificate()
+    resolved = apply_adjudication(conflicted, adjudication)
+    assert resolved.state_id == "STATE-ADJ-ADJ-001"
+    assert next(c for c in resolved.claims if c.claim_id == "C-AJ-B").status == "ACTIVE"
+    assert next(c for c in resolved.claims if c.claim_id == "C-AJ-A").status == "SUPERSEDED"
+    assert any(x.startswith("ADJUDICATED:ADJ-001") for x in resolved.conflicts)
+
+    tampered = adjudication.model_copy(update={"rationale": "changed"})
+    try:
+        apply_adjudication(conflicted, tampered)
+        assert False, "tampered adjudication certificate must be rejected"
+    except ValueError as exc:
+        assert "certificate" in str(exc)
