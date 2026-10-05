@@ -61,6 +61,15 @@ K — Knowledge OS Integration (active)
 > stale. The section is retained as the record of that workstream. The current active bounded
 > PR is `gate-hygiene/ci-gate-trigger-coverage-01` (CI gate trigger coverage boundary), which
 > adds no new workstream: it repairs the trigger filter of an existing gate.
+>
+> **Update 2026-10-05 (later).** That bounded PR **merged** as `3f61cf2e` (`main` advanced
+> `4550531 → 41bbce3 → 3f61cf2e` during the pass). There is now **no active bounded PR**.
+> Merged-change verification on `main`: `tests/test_ci_gate_trigger_coverage.py` **39/39**,
+> `tests/architecture` **11/11**. The remaining open work is the CE-01 `weaver.autonomy`
+> collection error and the CP10 `research/**` allowlist omission — both recorded as proposed,
+> neither authorized. A follow-up branch
+> `gate-hygiene/ci-gate-trigger-coverage-01-followup` reconciles the stale CI-observation
+> prose in this workstream's evidence doc.
 
 **PR #240** — `gate10/cp10-allowlist-arkadia-console-android` → `main`. **MERGED 2026-10-03.**
 Head `981870e` (the `3a28b79` recorded below was superseded before the merge).
