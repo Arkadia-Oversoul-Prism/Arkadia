@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from alxai.protocol import (
-    Claim, Evidence, EpistemicClass, ObservationMode,
+    Claim, Evidence, EpistemicClass, ObservationMode, Decision,
     create_delta, create_state, validate_packet, apply_delta, digest,
 )
 
