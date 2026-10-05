@@ -252,7 +252,7 @@ def test_reconcile_newer_direct_observation_supersedes_older_when_no_authority()
     assert next(c for c in merged.claims if c.claim_id == "C-NEW").status == "ACTIVE"
 
 
-from alxai.reconcile import Adjudication, apply_adjudication
+from alxai.reconcile import Adjudication, AuthorityBinding, apply_adjudication
 
 
 def test_adjudication_requires_explicit_human_certificate_and_preserves_history():
