@@ -548,3 +548,111 @@ The `401` (not `404`) proves the CEO-chat route survives the extraction into
 - Forbidden for the next pass: merging anything; touching the sovereign-reserved governance
   failures (Sec. 5); re-opening a duplicate budget PR; synthesizing a fingerprint without the
   dependency-complete environment **or** without stating clone depth.
+
+## 9. Sixth pass - 2026-10-05T10:0xZ (independent re-verification on a fresh full clone)
+
+Observation timestamp: **2026-10-05T10:05Z** (session clock). `git fetch --all --prune` performed.
+This section is authored ASCII-only, matching Sec. 8.
+
+### 9.1 Environment reconstruction
+
+- Fresh clone at `./Arkadia`, branch `main`, clean tree, remote `origin` on
+  `Arkadia-Oversoul-Prism/Arkadia`.
+- `git fetch --all --prune` -> no new refs beyond `origin/main`.
+- BASE_MAIN = `ccbec4061d66ff6a13dba16b3d2c24b124132102`
+  (`gate-hygiene: admit alxai/ to the CP10 mutation boundary (#310)`, 2026-10-05T07:13:22Z).
+- **Clone depth stated explicitly:** began shallow (`git rev-parse --is-shallow-repository`
+  -> `true`, `git rev-list --count HEAD` -> 1); `git fetch --unshallow` -> **2134** commits.
+- Dependency-complete environment: `pytest 9.1.1`, `pyyaml`, `fastapi`, `httpx`, `pydantic`
+  installed; `PYTHONPATH=<repo>/archive/legacy_python`.
+
+### 9.2 Live open-PR inventory (7)
+
+`GET /pulls?state=open` at `ccbec40` returns **7** PRs (#306, #307, #308, #309, #310 is merged,
+#311, #312). #310 is no longer open (merged `2026-10-05T07:13:22Z`). #307 is a **draft**; #311 is
+**stacked** on #309 (`base=feat/weaver-console-completion-trajectory`); #312 is this record.
+No new open PRs, no merges since #310.
+
+### 9.3 Baseline on `main` @ `ccbec40` reproduced byte-identically
+
+`pytest tests/ -q -rEf --continue-on-collection-errors` on the full clone:
+
+| metric | this pass | Sec. 8 (recorded) |
+|---|---|---|
+| summary | **17 failed / 1485 passed / 20 skipped / 1 error** | 17F / 1485P / 20S / 1E |
+| failing/error node set | **18 nodes** | 18 nodes |
+| node-set sha256 | `ffd491e3ac10d08f55e3522859a43313743cd77fe51a40c0c0076391d9f64824` | `ffd491e3...` |
+
+Byte-identical. The single collection error is the pre-existing CE-01 `weaver.autonomy`
+module-vs-package collision (`tests/test_autonomy.py`), reserved to the sovereign.
+
+### 9.4 PR #308 independently re-verified on the current base (integration, not isolation)
+
+Method (isolated worktree, no mutation of `main`):
+
+```
+git worktree add --detach /tmp/wt308 ccbec40
+git fetch origin refs/pull/308/head:refs/remotes/pr/308   # head 81c9d9d55a3a8153a9ce11575d3d57f9cd65f78e
+git -c user.name=openhands -c user.email=openhands@all-hands.dev merge --no-edit refs/remotes/pr/308   # rc=0, auto-merge, no conflict
+```
+
+| check | `main` `ccbec40` | composed (`ccbec40` + #308) |
+|---|---|---|
+| `wc -l api/main.py` | 2602 | **2427** |
+| `python -m py_compile api/main.py api/ceo_chat_routes.py` | OK | **OK** |
+| `pytest tests/architecture -q` | 10 passed / 1 failed | **11 passed** |
+| `pytest tests/test_tool_execution_perimeter.py -q` | (part of 41P) | **31 passed** |
+| `git ls-files \| scripts/cp10_mutation_boundary_policy.py --judge` | exit 0 | **exit 0** |
+| full suite | 17F / 1485P / 20S / 1E | **16F / 1486P / 20S / 1E** |
+
+Composed failing/error node set: **17 nodes**, sha256
+`a5df9a25e3cfefd7ce90aa7966a751ffc53acb3e2efa5dd65bdf240223bd2287` - **byte-identical to Sec. 6,
+7 and 8's composed-node hash**. Set delta (`main` -> composed): the only removal is
+`tests/architecture/test_layer_boundaries.py::test_api_main_line_count_within_budget`; **zero**
+nodes added, **zero** new errors. This reproduces the recorded hash a third time on a fresh clone.
+
+### 9.5 Gate-2 production boundary (re-derived, unchanged)
+
+`python scripts/gate2_production_observation.py` (read-only, no Vercel credential):
+
+| boundary | classification |
+|---|---|
+| current main resolved | **VERIFIED** |
+| `main` -> deployment identity | **STALE** (deployed SHA predates `ccbec40`) |
+| deployment build output observed | **BLOCKED** (deployment URL 302 -> Vercel SSO) |
+| alias reachable (`https://arkadia-prism.vercel.app/`) | **VERIFIED** (HTTP 200) |
+| alias -> deployment SHA binding | **UNKNOWN** |
+| build <-> source lineage | **UNKNOWN** |
+| browser-rendered UI correctness | **UNKNOWN** |
+| production acceptance | **NOT CLAIMED** (human authority) |
+
+Marker-set lineage, SG-04 gate and the source-lineage closure all behave as recorded in Sec. 7-8.
+This remains a **provider boundary** (no Vercel credential), not repository work. Repeating the
+pass cannot convert `STALE`/`BLOCKED`/`UNKNOWN` into `VERIFIED`.
+
+### 9.6 Repository guards
+
+| guard | result |
+|---|---|
+| CP10 mutation boundary judge (`git ls-files` on `main`) | **exit 0 - PASS** |
+| `scripts/agents_md_encoding_audit.py` | **Cyrillic 0, alterations 0, oracle reproduced=True, exit 1** (clean-and-corroborated status) |
+| `api/main.py` line count | 2602 (budget defect covered by #308) |
+
+### 9.7 Pass summary
+
+- BASE_MAIN unchanged at `ccbec40`; no merge; no new open PR; the only mutation in this pass is
+  this record.
+- Baseline reproduced **byte-identically** (18 nodes, `ffd491e3...`) on a full clone with the
+  dependency-complete environment.
+- **PR #308** independently re-verified on the current base: 2602 -> 2427, architecture **11/11**,
+  perimeter **31 passed**, CP10 exit 0, composed node set exactly **-1 / +0**, composed-node hash
+  `a5df9a25...` reproduced a **third** time.
+- Gate-2 production boundary remains `STALE`/`BLOCKED` at the provider boundary.
+- **Next authorized action:** sovereign review + merge of **PR #308** (the sole remaining
+  repository-owned gate defect). After it lands, re-measure `pytest tests/architecture` (expect
+  **11/11**), `python -m py_compile api/main.py` (expect OK),
+  `scripts/cp10_mutation_boundary_policy.py --judge` (expect exit 0), and re-derive the full-suite
+  node set (expect **17 nodes**).
+- **Forbidden for the next pass:** merging anything; touching the sovereign-reserved governance
+  failures; re-opening a duplicate budget PR; synthesizing a fingerprint without the
+  dependency-complete environment **or** without stating clone depth.
