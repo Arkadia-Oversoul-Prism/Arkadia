@@ -449,6 +449,49 @@ def test_delegated_verdict_admits_research_and_schemas_and_rejects_lookalikes():
         assert rc != 0, f"{path} must stay outside the boundary"
 
 
+
+# ---------------------------------------------------------------------------
+# Regression: `google_workspace/` — the Weaver Google Workspace Attention Bus
+# Apps Script surface introduced by PR #311.
+# ---------------------------------------------------------------------------
+_GOOGLE_WORKSPACE_CHANGESET = [
+    "google_workspace/Code.gs",
+    "google_workspace/appsscript.json",
+]
+
+
+def test_google_workspace_surface_is_legitimate():
+    ok, msg = evaluate_changed_paths(["google_workspace/appsscript.json"])
+    assert ok is True, msg
+
+
+def test_shipped_google_workspace_changeset_passes_policy():
+    """The exact two-path change set PR #311 adds under `google_workspace/`."""
+    ok, msg = evaluate_changed_paths(_GOOGLE_WORKSPACE_CHANGESET)
+    assert ok is True, msg
+
+
+def test_google_workspace_admission_is_not_overbroad():
+    """Admitting the tree must not admit its prefix lookalikes or unknown roots."""
+    for path in (
+        "google_workspace_evil/x.gs",
+        "google_workspace2/x.json",
+        "googleworkspace/x.gs",
+        "google_workspaces/x.json",
+    ):
+        ok, msg = evaluate_changed_paths([path])
+        assert ok is False, f"{path} should be rejected ({msg})"
+
+
+def test_delegated_verdict_admits_google_workspace_and_rejects_lookalikes():
+    """The CLI the workflow executes must agree with the imported API."""
+    rc, out = _run_judge("\n".join(_GOOGLE_WORKSPACE_CHANGESET))
+    assert rc == 0, out
+    for path in ("google_workspace_evil/x.gs", "google_workspace2/x.json"):
+        rc, out = _run_judge(path)
+        assert rc != 0, f"{path} must stay outside the boundary"
+
+
 def test_allowlist_admits_every_tracked_top_level_prefix():
     """A tracked prefix the allowlist omits reddens main on the next real commit."""
     # `vault/` is tracked only as scaffold and is deliberately outside the
