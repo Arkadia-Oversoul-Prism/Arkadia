@@ -96,6 +96,15 @@ def test_execution_attempt_creates_one_causally_joined_workevent(stores):
         execution_attempt_id=attempt.id,
         result_status="SUCCEEDED",
     )
+
+    # The actual Weaver terminal transition invokes the bridge automatically.
+    automatic_event = manager.get_by_execution_attempt(attempt.id, "human-1")
+    assert automatic_event is not None
+    assert automatic_event.execution_attempt_ref == completed_attempt.id
+    assert automatic_event.workspace_ref == "workspace-1"
+    assert len(manager.list("human-1")) == 1
+
+    # Calling the bridge explicitly again is a safe idempotent replay.
     event = capture_execution_workevent(
         store=store,
         subject="human-1",
