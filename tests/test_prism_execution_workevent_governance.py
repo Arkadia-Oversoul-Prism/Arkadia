@@ -196,18 +196,6 @@ def test_governance_records_require_the_previous_boundary(stores):
         verdict="ACCEPTED",
         findings={"observed": True},
     )
-    proposal, acceptance, authority = _proposal_and_acceptance(store)
-    authorization = store.authorize(
-        subject="human-1", proposal_id=proposal.id, authority_event_id=authority.id,
-        acceptance_id=acceptance.id, scope={"tools": ["test-tool"]}, constraints={},
-    )
-    attempt = store.execution_attempt(
-        subject="human-1", authorization_id=authorization.id,
-        tool_channel="test-tool", request_payload={},
-    )
-    store.complete_execution_attempt(
-        subject="human-1", execution_attempt_id=attempt.id, result_status="SUCCEEDED",
-    )
     evidence = store.evidence(
         subject="human-1",
         execution_attempt_id=attempt.id,
