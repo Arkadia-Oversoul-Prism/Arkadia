@@ -31,6 +31,7 @@ const PROJECT_LENS_TO_TAB: Partial<Record<SolSpireLens, ProjTab>> = {
   weaver: 'weaver',
   canvas: 'canvas',
   observatory: 'events',
+  'opportunity-radar': 'opportunity-radar',
 };
 
 const NAV: NavItem[] = [

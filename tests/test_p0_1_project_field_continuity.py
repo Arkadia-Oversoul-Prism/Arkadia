@@ -8,7 +8,7 @@ EXP = ROOT / "web/public_prism/src/components/solspire/SolSpireExperience.tsx"
 def test_project_lens_map_exists():
     src = EXP.read_text()
     assert "PROJECT_LENS_TO_TAB" in src
-    for lens in ("files", "tasks", "conversations", "memory", "knowledge", "weaver", "observatory"):
+    for lens in ("files", "tasks", "conversations", "memory", "knowledge", "weaver", "opportunity-radar", "observatory"):
         assert f"{lens}:" in src or f"'{lens}'" in src
 
 

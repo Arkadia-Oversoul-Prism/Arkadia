@@ -1079,6 +1079,18 @@ def _ingest_to_knowledge_os(title: str, content: str, source: str = "corpus", ex
         pass  # Never block the caller
 
 
+# ── Arkana Signal router (ARK-01 Gate 01) ────────────────────────────────────
+# Extracted to api/arkana_signal_routes.py to restore the 2600-line architecture
+# budget (tests/architecture/test_layer_boundaries.py::test_api_main_line_count_within_budget).
+# Route paths, request/response shapes, and behaviour are unchanged.
+try:
+    from api.arkana_signal_routes import router as _arkana_signal_router
+    app.include_router(_arkana_signal_router)
+    logger.info("[ARKANA-SIGNAL] Gate 01 signal router mounted")
+except Exception as _as_err:
+    logger.warning(f"[ARKANA-SIGNAL] Router mount skipped: {_as_err}")
+
+
 @app.post("/api/commune/resonance")
 async def commune_resonance(request: Request):
     try:
