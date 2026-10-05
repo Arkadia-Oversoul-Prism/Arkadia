@@ -5,7 +5,7 @@ from typing import Literal
 
 from .protocol import (
     ALXModel, Claim, DIRECT_MODES, Evidence, Event, Decision, State, Status,
-    _claim_key, _parse_dt,
+    _claim_key, _parse_dt, digest,
 )
 
 class Reconciliation(ALXModel):
@@ -200,10 +200,3 @@ def apply_adjudication(state: State, adjudication: Adjudication) -> State:
         capabilities=state.capabilities,
         source_registry=state.source_registry,
     ).with_root()
-
-
-def digest(value):
-    import hashlib, json
-    return "sha256:" + hashlib.sha256(
-        json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
-    ).hexdigest()
