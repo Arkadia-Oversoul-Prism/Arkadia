@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.net.ConnectivityManager
+import android.net.Network
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.text.InputType
@@ -16,6 +18,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import com.google.firebase.messaging.FirebaseMessaging
 
@@ -36,6 +39,27 @@ class MainActivity:AppCompatActivity(){
     private var recorder:MediaRecorder?=null
     private var activeVoice:Pair<String,File>?=null
     private var activeCamera:Pair<String,File>?=null
+    private var reconcileJob:Job?=null
+    private val networkCallback=object:ConnectivityManager.NetworkCallback(){
+        override fun onAvailable(network:Network){ reconcilePendingCaptures() }
+    }
+
+    private fun reconcilePendingCaptures(){
+        reconcileJob?.cancel()
+        reconcileJob=lifecycleScope.launch { repo.reconcilePendingCaptures(captures) }
+    }
+
+    override fun onStart(){
+        super.onStart()
+        val connectivity=getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        connectivity.registerDefaultNetworkCallback(networkCallback)
+    }
+
+    override fun onStop(){
+        val connectivity=getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        runCatching{connectivity.unregisterNetworkCallback(networkCallback)}
+        super.onStop()
+    }
 
     override fun onCreate(state:Bundle?){
         super.onCreate(state)
@@ -72,10 +96,8 @@ class MainActivity:AppCompatActivity(){
         mode("FIELD")
         connection.text="● LIVE · "+(identity?.currentUser?.email ?: "NO IDENTITY")
         registerAttentionPush()
-        lifecycleScope.launch {
-            repo.reconcilePendingCaptures(captures)
-            load()
-        }
+        reconcilePendingCaptures()
+        lifecycleScope.launch { load() }
     }
 
     private fun registerAttentionPush(){
@@ -289,12 +311,12 @@ class MainActivity:AppCompatActivity(){
             if(resultCode==RESULT_OK && pair!=null && pair.second.exists()){
                 val record=captures.record(pair.first,"camera",pair.second,"image/jpeg")
                 Toast.makeText(this,"Captured "+record.id+" • "+record.sha256.take(12)+"… • PENDING_SYNC",Toast.LENGTH_LONG).show()
-                lifecycleScope.launch { repo.reconcilePendingCaptures(captures) }
+                reconcilePendingCaptures()
             }else pair?.second?.delete()
         }else if(requestCode==502 && resultCode==RESULT_OK && data?.data!=null){
             val uri=data.data!!;val (id,_)=captures.newFile("bin")
             lifecycleScope.launch{runCatching{captures.copyUri(id,uri,contentResolver.getType(uri) ?: "application/octet-stream",extensionFor(uri))}.onSuccess{Toast.makeText(this@MainActivity,"Captured "+it.id+" • "+it.sizeBytes+" bytes • PENDING_SYNC",Toast.LENGTH_LONG).show()
-                lifecycleScope.launch { repo.reconcilePendingCaptures(captures) }}.onFailure{Toast.makeText(this@MainActivity,"File capture failed: "+it.message,Toast.LENGTH_LONG).show()}}
+                reconcilePendingCaptures()}.onFailure{Toast.makeText(this@MainActivity,"File capture failed: "+it.message,Toast.LENGTH_LONG).show()}}
         }
     }
 
