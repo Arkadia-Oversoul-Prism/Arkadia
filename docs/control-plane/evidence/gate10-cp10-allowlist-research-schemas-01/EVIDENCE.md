@@ -288,3 +288,85 @@ Gate 01 cannot be closed on a producer that emits non-conforming objects.
   Independently confirmed in this pass. Belongs to the PR's own workstream.
 - `#273` — build-breaking (missing `ArkanaWeaverCanvas`). Do not merge.
 - §7 budget breach and §8 contract violations — each needs its own bounded branch/PR.
+
+## 10. The "broader backend regression" gate executes ZERO tests in CI
+
+Measured from the CI logs of **this PR's own run** (`SG-02-FE.2-V`, run `37247757324`,
+job `validate`, head `fda0091`) — the gate is not merely weak, it is inert.
+
+### 10.1 The collection error stops the run before any test executes
+
+`weaver/autonomy` is a **tracked package** (`__init__.py`, `guard.py`,
+`proposal_engine.py`) while `weaver/autonomy.py` is a **tracked module** (91 lines)
+that defines `load_autonomy_config`, `validate_autonomy_config`, `run_scheduled_once`.
+`import weaver.autonomy` resolves to the **package**, whose `__init__.py` is a 195-byte
+stub (`__version__ = "9.0"`, `__status__ = "disabled"`) exporting none of them.
+
+```
+tests/test_autonomy.py:2: in <module>
+    from weaver.autonomy import load_autonomy_config, validate_autonomy_config, run_scheduled_once
+E   ImportError: cannot import name 'load_autonomy_config' from 'weaver.autonomy'
+```
+
+Because the collection error is **not** the first error, pytest interrupts the entire
+session. The CI log of step 21 ends:
+
+```
+ERROR tests/test_autonomy.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 skipped, 1 warning, 1 error in 2.96s
+```
+
+**2.96 s and `1 skipped`** — the full suite ran *no* tests. A `passed|failed` grep over
+that step's log returns **0** matches. This is pre-existing debt (the collision is present
+on `main` and is the CE-01 module-vs-package item `AGENTS.md` reserves to the sovereign);
+it is **not** introduced here.
+
+### 10.2 The gate then passes on the wrong signal
+
+Step 21 is `continue-on-error: true`, so its `outcome` is recorded as `failure`. Step 35
+(`Enforce CP10 executable gates`) tests it with
+`test '${{ steps.backend.outcome }}' = success`.
+
+The CI log shows every one of those 16 assertions printed as a **literal string**:
+
+```
+test 'success' = success
+```
+
+`steps.<id>.outcome` is **not available in a `run:` block** — GitHub exposes it only to a
+step's `if:`. With `continue-on-error: true` the step's conclusion is `success`, so the
+substitution yields the constant `'success'`, the `test` trivially passes, and the job
+reports **`validate: success`**. The enforcement step is therefore self-satisfying and
+cannot fail for any outcome.
+
+### 10.3 Consequence: the architecture suite is enforced by no workflow
+
+`test_api_main_line_count_within_budget` (10/11 on `main`, §7) **never runs in CI**.
+`tests/architecture` is executed by exactly one workflow, `provider-routing.yml`, which
+is path-filtered to `weaver/**`, `providers/**`, two named test files and one doc. A
+commit that touches only `api/main.py` (and no `weaver/` or `providers/` path) runs the
+architecture suite **nowhere**. The 2600-line budget is a repository convention, not a
+gate.
+
+### 10.4 Why this pass does not repair it
+
+Three independent defects, each consequential and each needing its own bounded
+workstream with its own tests:
+
+1. the `weaver/autonomy` package/module collision (CE-01 — reserved to the sovereign);
+2. `test '${{ steps.*.outcome }}'` used where it cannot work, plus the absent
+   `--continue-on-collection-errors` that would let the suite reach its own assertions;
+3. no workflow enforcing `tests/architecture`.
+
+Repairing any of them inside a boundary-allowlist PR would mix workstreams and make the
+delta unattributable. Recorded here so the next heartbeat reconstructs from evidence.
+
+### 10.5 Harness check (no green-washing)
+
+The SG-02 boundary step **does** have teeth and **is** trustworthy: step 32
+(`CP10 mutation boundary`) executes `scripts/cp10_mutation_boundary_policy.py`, the same
+module `tests/test_m02a_ci_gate_integrity.py` proves, and it judged **this** change set
+successfully — the PR touches both SG-02 trigger paths, so the boundary was required to
+run and was required to pass. The §10 defects are in the *test-execution* gates, not in
+the mutation boundary.
