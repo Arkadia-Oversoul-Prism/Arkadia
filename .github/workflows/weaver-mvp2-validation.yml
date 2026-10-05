@@ -17,6 +17,12 @@ on:
       - 'weaver/enterprise_orchestration.py'
       - 'RECONCILED-BOUNDARY-MAP-01.md'
       - '.github/workflows/weaver-mvp2-validation.yml'
+      # The engineering-router truthfulness guard judges router semantics: an
+      # unrecognized move status must be named, never silently skipped. Without
+      # these paths a router change is judged by no workflow and the hourly
+      # scheduler can regress to reporting "all complete" for a live frontier.
+      - 'tests/test_engineering_router_status_truthfulness.py'
+      - 'tests/test_engineering_scheduler_bootstrap.py'
   # The gate previously ran only on push to main, so it could never block a
   # broken PR — it could only report after the merge was already canonical.
   pull_request:
@@ -34,6 +40,10 @@ on:
       - 'weaver/enterprise_orchestration.py'
       - 'RECONCILED-BOUNDARY-MAP-01.md'
       - '.github/workflows/weaver-mvp2-validation.yml'
+      # Kept identical to the push filter above: a guard absent from the
+      # pull_request filter is judged by nothing until after the merge.
+      - 'tests/test_engineering_router_status_truthfulness.py'
+      - 'tests/test_engineering_scheduler_bootstrap.py'
   workflow_dispatch:
 
 jobs:
@@ -60,3 +70,11 @@ jobs:
           tests/test_verification_review_boundary.py
           tests/test_execution_workevent_boundary.py
           tests/test_authority_boundary.py
+
+      - name: Engineering-router status truthfulness guard
+        # Executed on every event (push, pull_request, dispatch) so a router change
+        # that regresses silent-skip behaviour is judged before it reaches main.
+        run: >-
+          python -m pytest -q
+          tests/test_engineering_router_status_truthfulness.py
+          tests/test_engineering_scheduler_bootstrap.py

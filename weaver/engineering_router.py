@@ -98,6 +98,7 @@ def select_next_move(
     completion_index = completion_index or {}
     moves = trajectory.get("moves") or []
     blockers: list[str] = []
+    unrecognized: list[str] = []
     by_id = {str(m.get("id")): m for m in moves if isinstance(m, dict)}
 
     for move in moves:
@@ -105,15 +106,15 @@ def select_next_move(
             continue
         mid = str(move.get("id", ""))
         st = str(move.get("status", "pending")).lower()
-        if st not in ACTIVE_STATUSES and not (
-            st in TERMINAL_DONE or completion_index.get(mid) in TERMINAL_DONE | {"accepted"}
-        ):
-            # unknown non-active status: skip unless pending-like
-            if st not in ACTIVE_STATUSES:
-                continue
         if _move_done(move, completion_index):
             continue
         if st not in ACTIVE_STATUSES:
+            # An unrecognized status is a data defect, not an absence of work. Skipping
+            # it silently reported "all complete or dependencies unresolved" for a
+            # trajectory that still carried an active frontier (G12-B at `in_progress`
+            # was dropped after PR #319 lifted `moves` to the top level), leaving the
+            # hourly session unable to name why it had no move.
+            unrecognized.append(f"{mid} ({st!r})")
             continue
 
         deps = move.get("depends_on") or []
@@ -147,6 +148,12 @@ def select_next_move(
 
         return move, blockers
 
+    if unrecognized:
+        blockers.append(
+            "unrecognized move status: " + ", ".join(unrecognized)
+            + " — cannot route; expected one of "
+            + ", ".join(sorted(ACTIVE_STATUSES | TERMINAL_DONE))
+        )
     if not blockers:
         blockers.append("no legal pending move (all complete or dependencies unresolved)")
     return None, blockers
