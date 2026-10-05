@@ -1,0 +1,27 @@
+{
+  "timeZone":"Africa/Lagos",
+  "exceptionLogging":"STACKDRIVER",
+  "runtimeVersion":"V8",
+  "oauthScopes":[
+    "https://www.googleapis.com/auth/script.external_request",
+    "https://www.googleapis.com/auth/workspace.studio.trigger",
+    "https://www.googleapis.com/auth/script.storage"
+  ],
+  "addOns":{"common":{"name":"Arkadia Attention Bridge"},
+    "studio":{"flows":{"workflowElements":[
+      {"id":"arkadiaAttention","state":"ACTIVE","name":"Arkadia Attention Event",
+       "description":"Starts when Arkadia emits a governed attention event.",
+       "workflowTrigger":{
+         "inputs":[{"id":"arkadiaUserId","description":"Arkadia Firebase UID owner.","cardinality":"SINGLE","dataType":{"basicType":"STRING"}}],
+         "outputs":[
+          {"id":"eventId","description":"Arkadia event ID","cardinality":"SINGLE","dataType":{"basicType":"STRING"}},
+          {"id":"eventType","description":"Event type","cardinality":"SINGLE","dataType":{"basicType":"STRING"}},
+          {"id":"subject","description":"Event subject","cardinality":"SINGLE","dataType":{"basicType":"STRING"}},
+          {"id":"claim","description":"Human-readable claim","cardinality":"SINGLE","dataType":{"basicType":"STRING"}},
+          {"id":"severity","description":"Event severity","cardinality":"SINGLE","dataType":{"basicType":"STRING"}}
+         ],
+         "onConfigFunction":"onConfigTrigger","onManageFunction":"onManageTrigger"
+       }}
+    ]}}}
+  }
+}
