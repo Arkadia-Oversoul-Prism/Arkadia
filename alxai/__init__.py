@@ -1,4 +1,5 @@
 """ARKANA LIBRA AL-XAI protocol primitives."""
+from .reconcile import Reconciliation, reconcile_states
 from .protocol import (
     ALXAI_VERSION, Claim, Evidence, Event, Decision, Delta, State,
     create_delta, create_state, validate_packet, apply_delta,
@@ -6,5 +7,5 @@ from .protocol import (
 
 __all__ = [
     "ALXAI_VERSION", "Claim", "Evidence", "Event", "Decision", "Delta", "State",
-    "create_delta", "create_state", "validate_packet", "apply_delta",
+    "create_delta", "create_state", "validate_packet", "apply_delta", "Reconciliation", "reconcile_states",
 ]
