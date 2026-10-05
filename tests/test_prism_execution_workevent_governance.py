@@ -205,3 +205,50 @@ def test_governance_records_require_the_previous_boundary(stores):
     assert completion.review_id == review.id
     assert production.completion_id == completion.id
     assert production.status == "ACCEPTED"
+
+def test_workevent_schema_migrates_legacy_table(tmp_path, monkeypatch):
+    import sqlite3
+
+    legacy_db = str(tmp_path / "legacy-workevents.db")
+    with sqlite3.connect(legacy_db) as conn:
+        conn.execute("""
+            CREATE TABLE work_events (
+                work_event_id TEXT PRIMARY KEY, event_type TEXT NOT NULL,
+                event_version INTEGER NOT NULL, occurred_at REAL NOT NULL,
+                recorded_at REAL NOT NULL, effective_from REAL, effective_until REAL,
+                subject_ref TEXT NOT NULL, workspace_ref TEXT NOT NULL, work_ref TEXT,
+                parent_event_ref TEXT, sequence_ref TEXT, scope_ref TEXT, actor_ref TEXT,
+                artifact_refs TEXT NOT NULL DEFAULT '[]', state_before_ref TEXT,
+                state_after_ref TEXT, decision_ref TEXT, witness_ref TEXT, status TEXT NOT NULL,
+                supersedes_ref TEXT, reversal_of_ref TEXT, created_by_event TEXT,
+                schema_version TEXT NOT NULL
+            )
+        """)
+    monkeypatch.setattr(wem, "_DB_PATH", legacy_db)
+    event = wem.WorkEventManager().create(
+        subject_ref="human-1", workspace_ref="workspace-1",
+        event_type="LEGACY_MIGRATION_PROBE", occurred_at=1.0,
+        execution_attempt_ref="exec-migrated",
+    )
+    assert event.execution_attempt_ref == "exec-migrated"
+    assert wem.WorkEventManager().get_by_execution_attempt("exec-migrated", "human-1")
+
+
+def test_authorization_schema_migrates_legacy_table(tmp_path, monkeypatch):
+    import sqlite3
+
+    legacy_db = str(tmp_path / "legacy-weaver.db")
+    with sqlite3.connect(legacy_db) as conn:
+        conn.execute("""
+            CREATE TABLE ew_authorizations (
+                id TEXT PRIMARY KEY, subject TEXT NOT NULL, proposal_id TEXT NOT NULL,
+                authority_event_id TEXT NOT NULL, scope TEXT NOT NULL,
+                constraints TEXT NOT NULL, expires_at REAL, granted_at REAL NOT NULL,
+                correlation_id TEXT NOT NULL
+            )
+        """)
+    monkeypatch.setattr(eo, "_DB_PATH", legacy_db)
+    with eo._db() as conn:
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(ew_authorizations)")}
+    assert "acceptance_id" in columns
+
