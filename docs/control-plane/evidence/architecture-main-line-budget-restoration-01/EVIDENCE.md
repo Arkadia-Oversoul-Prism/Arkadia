@@ -99,11 +99,13 @@ this branch's tree:
 | this extraction | 2594 | PASS |
 | this extraction + `arch/arkana-signal-gate-02-runtime` (`2d0970a`) | 2683 | **FAIL** |
 
-The #293 branch alone is **2719** lines. The #293 diff applies cleanly onto this
-extraction, so the extraction does not create a textual conflict — but it does **not**
-by itself restore the composed tree to budget. A further ~83-line reduction, or a
-relaxation of the #293 change, is required. This is recorded as a **dependent
-workstream**, not absorbed into this change (scope discipline).
+The #293 branch alone is **2894** lines (measured at live tip `2d0970a`; the earlier
+`2719` figure quoted in the commit message is `main` @ `71cbcb8`, the Gate 01 commit, not
+#293). The #293 diff applies cleanly onto this extraction, so the extraction does not
+create a textual conflict — but it does **not** by itself restore the composed tree to
+budget. A further ~83-line reduction, or a relaxation of the #293 change, is required.
+This is recorded as a **dependent workstream**, not absorbed into this change (scope
+discipline).
 
 ## 8. Separately reported defect (not repaired here)
 
