@@ -106,16 +106,16 @@ def reconcile_states(base: State, left: State, right: State, *, reconciliation_i
             conflicts.append(f"RECONCILIATION:{reconciliation_id}:{key}")
             reasons.append(f"contradictory direct observations require adjudication for {key}")
 
-    source_registry = list({s.source_id: s for s in [*base.source_registry, *left.source_registry, *right.source_registry]}.values())
+    source_registry = sorted({s.source_id: s for s in [*base.source_registry, *left.source_registry, *right.source_registry]}.values(), key=lambda x: x.source_id)
     result = State(
         state_id=f"STATE-MERGED-{reconciliation_id}",
         parent_state_id=base.state_id,
         protocol_version=base.protocol_version,
         created_at=created_at,
-        claims=list(claims.values()),
-        evidence=list(evidence.values()),
-        events=list(events.values()),
-        decisions=list(decisions.values()),
+        claims=sorted(claims.values(), key=lambda x: x.claim_id),
+        evidence=sorted(evidence.values(), key=lambda x: x.evidence_id),
+        events=sorted(events.values(), key=lambda x: x.event_id),
+        decisions=sorted(decisions.values(), key=lambda x: x.decision_id),
         conflicts=list(dict.fromkeys(conflicts)),
         unknowns=list(dict.fromkeys(base.unknowns + left.unknowns + right.unknowns)),
         capabilities=right.capabilities or left.capabilities or base.capabilities,
