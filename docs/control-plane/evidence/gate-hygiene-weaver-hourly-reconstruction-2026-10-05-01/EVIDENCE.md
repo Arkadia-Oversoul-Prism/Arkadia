@@ -760,3 +760,75 @@ sovereign-reserved governance failures (`test_verification_review_boundary`,
 `test_agents_md_encoding_adjudication`, `test_steward_filter`, `weaver/autonomy`); re-opening a
 duplicate budget PR; weakening the CP10 gate by removing a genuinely-tracked surface; synthesizing
 a fingerprint without the dependency-complete environment **or** without stating clone depth.
+
+---
+
+## 11. Eighth pass — companion task executed, reconstruction carried forward
+
+Observation timestamp: **2026-10-05T12:0xZ** (session clock).
+
+### 11.1 `main` unchanged since pass 7
+
+`origin/main` is still `ccbec4061d66ff6a13dba16b3d2c24b124132102` ("gate-hygiene: admit alxai/
+to the CP10 mutation boundary (#310)"). No new merges landed; the reconstruction below is on the
+same base.
+
+### 11.2 The §10.6 action was executed, not merely proposed
+
+The bounded companion task (admit `google_workspace/` to CP10) is now an open PR, isolated on its
+own branch as the step-11 rule requires (non-consequential follow-on, separated from this
+reconstruction and from #308):
+
+| item | value |
+| --- | --- |
+| PR | **#313** `gate-hygiene/cp10-admit-google-workspace-surface-01` |
+| head | `e612ad4f36d7ffeca8753cdd87d43251b98df098` |
+| base | `ccbec406` |
+| files | `scripts/cp10_mutation_boundary_policy.py`, `tests/test_m02a_ci_gate_integrity.py`, `docs/control-plane/evidence/gate-hygiene-cp10-admit-google-workspace-surface-01/EVIDENCE.md` |
+
+Re-measured this pass, in the dependency-complete environment:
+
+- m02a fitness: **64 passed** on the branch (was 60 on `main`).
+- CP10 judge on the branch tree: **PASS, exit 0**; on a composed #311 worktree: **PASS, exit 0**.
+- Negative control (current `main` policy vs #311 tree): **exit 1** — the omission is real.
+- Teeth retained: `SolSpireExperienceV3.tsx`, `secret-backdoor/bin/x`, `google_workspace_evil/x.gs`,
+  `somewhere/conftest.py` all still **exit 1**.
+- Full suite, same environment, `-rEf --continue-on-collection-errors`, `PYTHONPATH=<repo>/archive/legacy_python`:
+
+| tree | result | failing/error nodes | outcomes fingerprint |
+| --- | --- | --- | --- |
+| `main` `ccbec406` | 17F / 1485P / 20S / 1E | 18 | `41d30603f8ec52510dc817dba10aee7e471bc5083ef6bd77834857e9fb0aaa71` |
+| #313 branch | 17F / **1489P** / 20S / 1E | 18 | `41d30603f8ec52510dc817dba10aee7e471bc5083ef6bd77834857e9fb0aaa71` |
+
+Identical node set + fingerprint — **zero regression**; the `+4 passed` is exactly the four new
+fitness tests.
+
+### 11.3 Open PR inventory (7)
+
+`#306`, `#307`, `#308`, `#309`, `#311`, `#312`, **`#313`**. #313 supersedes the *unexecuted*
+recommendation in §10.6 item 2 — the admission now exists as reviewable code rather than a to-do.
+
+### 11.4 Classification (delta from pass 7)
+
+| item | class |
+| --- | --- |
+| `main` @ `ccbec406` resolved | **VERIFIED** |
+| CP10 admission of `google_workspace/` implemented | **IMPLEMENTED** (PR #313; merge = human authority) |
+| #311 safe to merge with #313 applied | **VERIFIED** (composed judge PASS, m02a 64P) |
+| #311 safe to merge **without** #313 | **CONTRADICTED** (unchanged) |
+| #308 budget defect | **OPEN / VERIFIED** — architecture 1F/10P (`api/main.py` 2602 > 2600), carried |
+| Gate-2 deployment parity | **STALE / BLOCKED** (provider boundary, unchanged) |
+| production acceptance | **NOT CLAIMED** |
+
+### 11.5 Next authorized action
+
+1. **Sovereign review + merge of #313**, then **#311** (companion first or together).
+2. **Sovereign review + merge of #308** — the only remaining repository-owned budget defect.
+3. Re-measure after merges: `pytest tests/architecture` (expect **11/11**), `py_compile` (OK),
+   CP10 judge (exit 0), full-suite node set (expect **17–18 nodes**, unchanged).
+
+**Forbidden for the next pass:** merging anything; pushing to `main`; touching the
+sovereign-reserved failures (`test_verification_review_boundary`,
+`test_agents_md_encoding_adjudication`, `test_steward_filter`, `weaver/autonomy`); re-opening a
+duplicate budget or CP10 PR; weakening the CP10 gate; synthesizing a fingerprint without the
+dependency-complete environment or without stating clone depth.
