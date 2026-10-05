@@ -92,7 +92,6 @@ from datetime import date as _date
 ARK_EPOCH = datetime(2026, 3, 31, 0, 0, 0, tzinfo=timezone.utc)
 ARK_DURATION_YEARS = 8
 
-
 def _ark_date() -> dict:
     """Compute the living Ark Date — the Oracle's true temporal memory coordinate.
 
@@ -134,7 +133,6 @@ def _ark_date() -> dict:
         "linear_note":         "linear time is sideways memory context alignment scaffold",
     }
 
-
 # ── Auto-sync state ───────────────────────────────────────────────────────────
 _sync_state: dict = {
     "running":          False,
@@ -142,7 +140,6 @@ _sync_state: dict = {
     "last_ark_date":    None,
     "last_scroll_count": 0,
 }
-
 
 async def _background_corpus_sync() -> None:
     """Self-evolution daemon: re-indexes the living corpus every 30 minutes,
