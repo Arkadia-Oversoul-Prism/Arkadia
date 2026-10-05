@@ -455,7 +455,10 @@ class EnterpriseOrchestrationStore:
         rid = _id("auth"); now = _now()
         row = Authorization(rid, subject, proposal_id, authority_event_id, acceptance_id, scope, constraints, expires_at, now, cid)
         with _db() as c:
-            c.execute("INSERT INTO ew_authorizations VALUES (?,?,?,?,?,?,?,?,?,?)",
+            c.execute("""INSERT INTO ew_authorizations
+                         (id, subject, proposal_id, authority_event_id, acceptance_id,
+                          scope, constraints, expires_at, granted_at, correlation_id)
+                         VALUES (?,?,?,?,?,?,?,?,?,?)""",
                       (rid, subject, proposal_id, authority_event_id, acceptance_id,
                        _json(scope), _json(constraints), expires_at, now, cid))
             c.execute("UPDATE ew_proposals SET status='AUTHORIZED' WHERE id=?", (proposal_id,))
