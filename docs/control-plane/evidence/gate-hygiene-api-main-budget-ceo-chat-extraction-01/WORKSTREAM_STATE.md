@@ -49,7 +49,24 @@ candidates only (do not start inside this PR):
 
 - Delete/close the two stale budget branches (sovereign action).
 - Env/order-dependent baseline nodes (`test_steward_filter`,
-  `test_verification_review_boundary`) remain their own debt workstream — not touched here.
+  `test_verification_review_boundary`) — reclassified by measurement in the T4 section
+  below as genuine baseline debt (they fail in isolation), not a flake; not touched here.
+
+## T4 classification — env-dependent test debt (measured, `dc6d156`)
+
+Corrected by measurement: the previously suspected "env/order-dependent" nodes are
+**genuine baseline debt**, not environment-dependent. Both groups fail in isolation:
+
+- `tests/test_steward_filter.py` — 3 failed. Root cause: `weaver/filters/steward.py`
+  Rule 4 threshold `mythic_count > len(text) / 100` is `< 1` for short text, so a single
+  mythic word (`"field"` in `"The field resonates. I will do this."`) blocks output that
+  the test requires to pass. A threshold-scaling design question, not a flake.
+- `tests/test_verification_review_boundary.py` — 4 failed. Root cause: the test asserts
+  the *absence* of a Review record type, but `weaver/enterprise_orchestration.py` now
+  defines `ew_reviews` / `ReviewRecord` / `review_id`. A semantic design conflict.
+
+Neither is touched here. Both are separate bounded workstreams requiring a design /
+authority decision; fixing them inside a line-budget PR would widen scope.
 
 ## Authorization
 
