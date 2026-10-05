@@ -265,14 +265,53 @@ async def sync_capture(
     workspace = get_workspace_manager().get_for_subject(user["uid"])
     if workspace is None:
         raise HTTPException(status_code=409, detail="Canonical workspace not found")
+
+    # Capture reconciliation is idempotent by authenticated subject + stable
+    # device capture id. The same retry must return the same canonical
+    # WorkEvent; a reused id with different capture metadata/digest is a
+    # deterministic conflict, never a second WorkEvent.
+    event_id = "CAPTURE-" + hashlib.sha256(
+        f"{user['uid']}:{safe_id}".encode("utf-8")
+    ).hexdigest()[:32]
+    state_after_ref = f"sha256:{body.sha256}"
+    scope_ref = (
+        f"capture-meta:{body.kind}:{body.mime_type}:{body.size_bytes}:"
+        f"{body.captured_at}"
+    )
+    workevents = get_workevent_manager()
+    existing = workevents.get(event_id, user["uid"])
+    if existing is not None:
+        if (
+            existing.workspace_ref != workspace.id
+            or existing.event_type != "CONSOLE_CAPTURE"
+            or existing.artifact_refs != [artifact_ref]
+            or existing.state_after_ref != state_after_ref
+            or existing.scope_ref != scope_ref
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="capture_id already reconciled with different capture content or metadata",
+            )
+        return {
+            "ok": True,
+            "capture_id": safe_id,
+            "artifact_ref": artifact_ref,
+            "work_event": existing.to_dict(),
+            "reconciled": True,
+            "idempotent_replay": True,
+        }
+
     from time import time
-    event = get_workevent_manager().create(
+    event = workevents.create(
         subject_ref=user["uid"],
         workspace_ref=workspace.id,
         event_type="CONSOLE_CAPTURE",
         occurred_at=time(),
+        work_event_id=event_id,
         actor_ref=user["uid"],
         artifact_refs=[artifact_ref],
+        state_after_ref=state_after_ref,
+        scope_ref=scope_ref,
         status="RECORDED",
     )
     return {
@@ -281,6 +320,7 @@ async def sync_capture(
         "artifact_ref": artifact_ref,
         "work_event": event.to_dict(),
         "reconciled": True,
+        "idempotent_replay": False,
     }
 
 
