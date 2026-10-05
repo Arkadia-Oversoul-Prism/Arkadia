@@ -222,3 +222,101 @@ This confirms the CP10 defect is a single-surface allowlist omission, fully cove
 - Forbidden for the next pass: merging anything; synthesizing a fingerprint without the
   dependency-complete environment; re-opening a duplicate budget/allowlist PR; touching the
   sovereign-reserved governance failures.
+
+## 6. Third pass — 2026-10-05T07:06Z (composed-tree integration proof)
+
+Observation timestamp: **2026-10-05T07:06Z** (session clock). `BASE_MAIN` is unchanged at
+`dc6d1563cd53e15f1c3ceb80b434fd37b62f3f11` (re-verified: `origin/main`, `origin/HEAD`, and the
+working branch all resolve to it; `git fetch --all --prune` performed).
+
+The first two passes verified PR #308 and PR #310 **in isolation** and explicitly left the
+composed tree unproven ("the composed tree equals the measured tree for these surfaces" was an
+argument from the diff, not a measurement, and #308 was `behind 6` on current `main`). The
+hourly contract's step 4 ("Review integration, not just individual PRs") requires the proposed
+combined tree to be reproduced in the proposed order. That measurement is the bounded work of
+this pass — it is what the sovereign needs to merge #310 then #308 with confidence.
+
+### 6.1 Method
+
+```
+git worktree add --detach /tmp/wt-compose main
+cd /tmp/wt-compose && git checkout -b compose-test main
+git merge --no-edit pr308   # rc=0, no conflict
+git merge --no-edit pr310   # rc=0, no conflict
+```
+Composed head: `7ffcfa9` (`Merge branch 'pr310'` → `d6508f0 Merge branch 'pr308'` → base `main`).
+Both merges are **textually clean**. Environment for all runs below:
+Python 3.13.15, `fastapi`/`httpx`/`pydantic`/`requests`/`python-multipart` installed, `pyyaml`
+present, `PYTHONPATH=<repo>/archive/legacy_python`, `pytest 9.1.1`.
+
+### 6.2 Gate measurements on the composed tree
+
+| check | main `dc6d1563` | composed (`pr308`+`pr310`) |
+|---|---|---|
+| `wc -l api/main.py` | **2602** (over budget) | **2427** (≤ 2600) |
+| `python -m py_compile api/main.py api/ceo_chat_routes.py` | OK | **OK** (no boot-break) |
+| `git ls-files \| scripts/cp10_mutation_boundary_policy.py --judge` | **exit 1** (rejects `alxai/*`) | **exit 0** — `Mutation boundary PASS` |
+| `pytest tests/architecture tests/test_m02a_ci_gate_integrity.py -q` | 4 failed / 68 passed | **71 passed** |
+| `pytest tests/test_tool_execution_perimeter.py -q` | 31 passed | **31 passed** |
+| full suite (`-q -rEf --continue-on-collection-errors`) | 20 failed / 1481 passed / 21 skipped / 1 error | **16 failed / 1485 passed / 21 skipped / 1 error** |
+
+Both gates the two PRs target — the `api/main.py` 2600-line budget and the CP10 mutation
+boundary — are green **on the tree that results from merging them together**, not merely on each
+branch separately.
+
+### 6.3 Regression attribution — by node identity, not counts
+
+Failing/error node set (`grep -E "^(FAILED|ERROR) " | sed 's/ - .*//' | sort -u`):
+
+- `main` `dc6d1563`: **21 nodes**, sha256 `6b9914d71e6102c00c6ba6bbb3f144078a53bac1b84c13844b9c1a373dc538df`
+- composed (`7ffcfa9`): **17 nodes**, sha256 `a5df9a25e3cfefd7ce90aa7966a751ffc53acb3e2efa5dd65bdf240223bd2287`
+
+Set delta:
+
+| | nodes |
+|---|---|
+| on `main`, absent in composed | `test_api_main_line_count_within_budget`, `test_allowlist_admits_every_tracked_top_level_prefix`, `test_allowlist_covers_every_tracked_surface`, `test_delegated_verdict_admits_every_tracked_surface` |
+| in composed, absent on `main` | **(none)** |
+
+The delta is **exactly the four gate nodes the two PRs repair** (`-4`); the composed tree
+introduces **zero** new failures. The remaining 17 nodes are the pre-existing baseline debt
+recorded in §5 (`test_verification_review_boundary` ×4, `test_steward_filter` ×3, `alxai/` CP10
+nodes now repaired, `test_solspire_r1_governance_convergence` ×2, `test_solspire_r3_execution_runtime`,
+`test_m02_reasomate_truth`, `test_identity_spine_w1`, `test_authority_api_enterprise_boundary`,
+`test_arcana_weaver_fusion`, `test_ais_w2_living_gate_grove_handoff`,
+`test_ais_capability_profile_onboarding`, and the CE-01 `test_autonomy.py` collection error).
+
+> Note: the §5 baseline node **set** is reproduced exactly here (same 21 node identities), though
+> its recorded sha256 `c1d2228e…`/`eecf01cc…` differs from this pass's `6b9914d7…`. The difference
+> is the extraction recipe, not the node set: this pass hashes the `sort -u` node list, while §5
+> used `scripts/baseline_fingerprint.py`. Node-by-node the two measurements agree, so no drift is
+> claimed.
+
+### 6.4 Behaviour preservation of the #308 extraction (runtime, not static)
+
+Merging #308 moves the CEO chat handler out of `api/main.py` into `api/ceo_chat_routes.py`. A
+static "route still exists" check is not sufficient, so the composed app was exercised with
+FastAPI's `TestClient`:
+
+```
+POST /api/ceo/chat          -> 401 Unauthorized   (route MOUNTED; auth dependency intact)
+POST /api/commune/resonance -> 503 Service Unavailable  (unchanged control)
+```
+
+A `404` would have meant the extraction dropped the route; the `401` proves the mount and its
+`_require_auth` dependency survive the composed merge, and the unrelated control route is
+unaffected.
+
+### 6.5 Pass summary
+
+- The composed tree of #308 + #310 restores **both** measured `main` gate defects and adds no
+  regression: budget 2602→2427, CP10 judge exit 1→0, architecture+integrity 4F→0F, full-suite
+  node delta exactly `-4 / +0`.
+- No merge performed; `BASE_MAIN` untouched; no new mutation beyond updating this record.
+- **Next authorized action (supersedes §5.4):** sovereign review + merge of **PR #310**, then
+  **PR #308**, in that order. This pass supplies the integration evidence that the two compose
+  cleanly; after each merge, re-measure `pytest tests/architecture` (expect 11/11),
+  `scripts/cp10_mutation_boundary_policy.py --judge` (expect exit 0), and the full-suite node set
+  (expect the composed 17-node set to shrink toward the baseline as each merge lands).
+- Forbidden for the next pass: merging anything; touching the sovereign-reserved governance
+  failures in §5; re-opening a duplicate budget/allowlist PR.
