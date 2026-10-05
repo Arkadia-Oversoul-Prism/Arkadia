@@ -804,6 +804,92 @@ async def _gemini_chat(messages: list[dict], system: str, api_key: str | None = 
     return None
 
 
+async def _gemini_signal_chat(
+    messages: list[dict],
+    system: str,
+    signal: dict,
+    audio_b64: str | None = None,
+    mime_type: str = "audio/webm",
+    api_key: str | None = None,
+) -> str:
+    """Gate 02: preserve the existing Arkana chat path while adding Signal evidence."""
+    from api.key_pool import acquire_key, report_failure, report_success
+
+    current_key = api_key or acquire_key()
+    if not current_key:
+        return None
+
+    # The signal object is derived evidence. The raw audio remains source evidence.
+    signal_context = json.dumps(signal, ensure_ascii=False)
+    contents = []
+    for m in messages:
+        role = "model" if m.get("role") in ("oracle", "assistant") else "user"
+        parts = [{"text": m["content"]}]
+        contents.append({"role": role, "parts": parts})
+
+    if contents:
+        evidence_parts = [
+            {
+                "text": (
+                    "ARKANA SIGNAL EVIDENCE PACKAGE.\n"
+                    "The Signal Object is derived interpretation, not source fact. "
+                    "Do not promote candidates or unresolved references into facts. "
+                    "The original audio, when present, is the primary source evidence.\n\n"
+                    + signal_context
+                )
+            }
+        ]
+        if audio_b64:
+            evidence_parts.append(
+                {"inline_data": {"mime_type": mime_type, "data": audio_b64}}
+            )
+        contents[-1]["parts"].extend(evidence_parts)
+
+    payload = {
+        "system_instruction": {
+            "parts": [{
+                "text": (
+                    system
+                    + "\n\n== SIGNAL FABRIC BOUNDARY ==\n"
+                    "You have been given a canonical Arkana Signal Object. "
+                    "Treat SOURCE, DERIVED, CANDIDATE, and CONTEXT as distinct epistemic classes. "
+                    "Unknown remains unknown. Human authority remains absolute."
+                )
+            }]
+        },
+        "contents": contents,
+        "generationConfig": {"temperature": 0.88, "maxOutputTokens": 16384},
+    }
+
+    tried: set[str] = set()
+    last_err = None
+    async with httpx.AsyncClient(timeout=90) as client:
+        while current_key and len(tried) < 8:
+            tried.add(current_key)
+            for model in GEMINI_MODELS:
+                url = (
+                    "https://generativelanguage.googleapis.com/v1beta/models/"
+                    f"{model}:generateContent?key={current_key}"
+                )
+                try:
+                    resp = await client.post(url, json=payload)
+                    if resp.status_code in (429, 403):
+                        last_err = resp.text
+                        break
+                    resp.raise_for_status()
+                    data = resp.json()
+                    report_success(current_key)
+                    return data["candidates"][0]["content"]["parts"][0]["text"]
+                except Exception as e:
+                    last_err = str(e)
+            report_failure(current_key)
+            current_key = acquire_key()
+            if current_key in tried:
+                break
+
+    raise Exception(f"All Gemini signal models failed. Last error: {last_err}")
+
+
 # ── ROUTES ────────────────────────────────────────────────────────────────────
 
 @app.get("/")
@@ -1312,6 +1398,9 @@ async def commune_resonance(request: Request):
     history    = body.get("history", [])
     session_id = body.get("session_id", "")
     project_id = body.get("project_id")
+    signal = body.get("signal") if isinstance(body.get("signal"), dict) else None
+    signal_audio_b64 = (body.get("audio_base64") or "").strip() or None
+    signal_mime_type = (body.get("mime_type") or "audio/webm").strip()
 
     if not message:
         return JSONResponse(status_code=400, content={"error": "No message."})
@@ -1492,7 +1581,7 @@ async def commune_resonance(request: Request):
     msgs = list(history[-10:]) + [{"role": "user", "content": message}]
 
     try:
-        reply     = await _gemini_chat(msgs, system, api_key=active_key)
+        if signal:\n            reply = await _gemini_signal_chat(msgs, system, signal, signal_audio_b64, signal_mime_type, api_key=active_key)\n        else:\n            reply = await _gemini_chat(msgs, system, api_key=active_key)
         from api.oracle_spine import archive_oracle_turn
         threading.Thread(
             target=archive_oracle_turn,
