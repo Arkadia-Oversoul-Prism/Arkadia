@@ -189,9 +189,21 @@ def test_governance_records_require_the_previous_boundary(stores):
         verdict="ACCEPTED",
         findings={"observed": True},
     )
+    proposal, acceptance, authority = _proposal_and_acceptance(store)
+    authorization = store.authorize(
+        subject="human-1", proposal_id=proposal.id, authority_event_id=authority.id,
+        acceptance_id=acceptance.id, scope={"tools": ["test-tool"]}, constraints={},
+    )
+    attempt = store.execution_attempt(
+        subject="human-1", authorization_id=authorization.id,
+        tool_channel="test-tool", request_payload={},
+    )
+    store.complete_execution_attempt(
+        subject="human-1", execution_attempt_id=attempt.id, result_status="SUCCEEDED",
+    )
     evidence = store.evidence(
         subject="human-1",
-        execution_attempt_id="exec-x",
+        execution_attempt_id=attempt.id,
         evidence_type="EXECUTION_RESULT",
         content_or_ref={"status": "SUCCEEDED"},
         source_ref=None,
@@ -230,9 +242,14 @@ def test_acceptance_must_correspond_to_verified_proposal_and_scope(stores):
     store, _ = stores
     proposal, acceptance, authority = _proposal_and_acceptance(store)
 
+    wrong_proposal = store.proposal(
+        subject="human-1", enterprise_id="workspace-1", objective="wrong",
+        rationale="wrong", recommended_actions=["wrong"], required_authority="human",
+        tool_selections=["test-tool"], correlation_id="wrong-correlation",
+    )
     with pytest.raises(ValueError, match="acceptance does not correspond"):
         store.authorize(
-            subject="human-1", proposal_id="wrong-proposal", authority_event_id=authority.id,
+            subject="human-1", proposal_id=wrong_proposal.id, authority_event_id=authority.id,
             acceptance_id=acceptance.id, scope={"tools": ["test-tool"]}, constraints={},
         )
 
@@ -282,8 +299,35 @@ def test_completion_requires_existing_subject_valid_causal_evidence(stores):
             condition="done", supporting_evidence_refs=["missing-evidence"],
         )
 
+    proposal, acceptance, authority = _proposal_and_acceptance(store)
+    authorization = store.authorize(
+        subject="human-1", proposal_id=proposal.id, authority_event_id=authority.id,
+        acceptance_id=acceptance.id, scope={"tools": ["test-tool"]}, constraints={},
+    )
+    human1_attempt = store.execution_attempt(
+        subject="human-1", authorization_id=authorization.id,
+        tool_channel="test-tool", request_payload={},
+    )
+    proposal2 = store.proposal(
+        subject="human-2", enterprise_id="workspace-1", objective="other",
+        rationale="other", recommended_actions=["execute"], required_authority="human",
+        tool_selections=["test-tool"], correlation_id="corr-human-2",
+    )
+    authority2 = store.authority_event(
+        subject="human-2", actor="human-2", authority_context="workspace-1",
+        action="AUTHORIZE", previous_state="ACCEPTED", new_state="AUTHORIZED",
+        origin="human", authentication_context="firebase", correlation_id="corr-human-2",
+    )
+    authorization2 = store.authorize(
+        subject="human-2", proposal_id=proposal2.id, authority_event_id=authority2.id,
+        scope={"tools": ["test-tool"]}, constraints={},
+    )
+    human2_attempt = store.execution_attempt(
+        subject="human-2", authorization_id=authorization2.id,
+        tool_channel="test-tool", request_payload={},
+    )
     foreign = store.evidence(
-        subject="human-2", execution_attempt_id="exec-causal",
+        subject="human-2", execution_attempt_id=human2_attempt.id,
         evidence_type="RESULT", content_or_ref={"status": "SUCCEEDED"},
     )
     with pytest.raises(ValueError, match="completion evidence must exist"):
@@ -293,7 +337,7 @@ def test_completion_requires_existing_subject_valid_causal_evidence(stores):
         )
 
     unrelated = store.evidence(
-        subject="human-1", execution_attempt_id="other-execution",
+        subject="human-1", execution_attempt_id=human1_attempt.id,
         evidence_type="RESULT", content_or_ref={"status": "SUCCEEDED"},
     )
     with pytest.raises(ValueError, match="causally linked"):
@@ -305,17 +349,26 @@ def test_completion_requires_existing_subject_valid_causal_evidence(stores):
 
 def test_production_acceptance_requires_real_production_authority(stores):
     store, manager = stores
+    proposal, acceptance, authority = _proposal_and_acceptance(store)
+    authorization = store.authorize(
+        subject="human-1", proposal_id=proposal.id, authority_event_id=authority.id,
+        acceptance_id=acceptance.id, scope={"tools": ["test-tool"]}, constraints={},
+    )
+    attempt = store.execution_attempt(
+        subject="human-1", authorization_id=authorization.id,
+        tool_channel="test-tool", request_payload={},
+    )
     event = manager.create(
         subject_ref="human-1", workspace_ref="workspace-1",
         event_type="EXECUTION_SUCCEEDED", occurred_at=1.0,
-        execution_attempt_ref="exec-prod",
+        execution_attempt_ref=attempt.id,
     )
     review = store.review(
         subject="human-1", work_event_id=event.work_event_id,
         reviewer="reviewer-1", verdict="ACCEPTED", findings={},
     )
     evidence = store.evidence(
-        subject="human-1", execution_attempt_id="exec-prod",
+        subject="human-1", execution_attempt_id=attempt.id,
         evidence_type="RESULT", content_or_ref={"status": "SUCCEEDED"},
     )
     completion = store.completion(
