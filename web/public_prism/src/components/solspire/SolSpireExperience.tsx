@@ -31,13 +31,14 @@ const PROJECT_LENS_TO_TAB: Partial<Record<SolSpireLens, ProjTab>> = {
   weaver: 'weaver',
   canvas: 'canvas',
   observatory: 'events',
+  'opportunity-radar': 'opportunity-radar',
 };
 
 const NAV: NavItem[] = [
   {id:'overview',label:'Home',sigil:'◎',accent:'#6A9FD8',question:'What matters now?'},
   {id:'projects',label:'Projects',sigil:'◈',accent:'#C9A84C',question:'What are you building?'},
   {id:'knowledge',label:'Knowledge',sigil:'◉',accent:'#00D4AA',question:'What do you want to remember?'},
-  {id:'weaver',label:'Work',sigil:'⚒',accent:'#B08DE8',question:'What is being worked on?'},
+  {id:'weaver',label:'Arkana Weaver',sigil:'⌁',accent:'#B08DE8',question:'What is being reasoned, proposed and worked on?'},
   {id:'engineering-lab',label:'Engineering Lab',sigil:'⌬',accent:'#00D4AA',question:'How is Arkadia doing?'},
   {id:'opportunity-radar',label:'Field',sigil:'◌',accent:'#C9A84C',question:'Where can Eden transact?'},
   {id:'settings',label:'Settings',sigil:'◆',accent:'#9A9AA2',question:'Keep the workspace simple.'},

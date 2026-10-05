@@ -55,8 +55,15 @@ K — Knowledge OS Integration (active)
 - 🟡 `web/public_prism/.env.production` — `VITE_API_URL` must be updated to `https://arkadia-kw64.onrender.com` in Vercel dashboard before next frontend deploy
 
 ### Active bounded PR (Phase 1 — Runtime Stabilization)
-**PR #240** — `gate10/cp10-allowlist-arkadia-console-android` → `main`.
-Head `3a28b79` (2026-10-03). **READY FOR SOVEREIGN MERGE** — not merged, not pushed to main.
+> **Reconciled 2026-10-05** (Weaver pass `gate-hygiene/ci-gate-trigger-coverage-01`, main
+> `4550531`). The PR recorded below was **merged 2026-10-03T17:45:33Z**, at head
+> `981870e256` — not the `3a28b79` recorded here. The "READY FOR SOVEREIGN MERGE" status was
+> stale. The section is retained as the record of that workstream. The current active bounded
+> PR is `gate-hygiene/ci-gate-trigger-coverage-01` (CI gate trigger coverage boundary), which
+> adds no new workstream: it repairs the trigger filter of an existing gate.
+
+**PR #240** — `gate10/cp10-allowlist-arkadia-console-android` → `main`. **MERGED 2026-10-03.**
+Head `981870e` (the `3a28b79` recorded below was superseded before the merge).
 
 - **Defect (real, repository-owned):** the CP10 mutation boundary (`SG-02-FE.2-V`) rejected
   **18 of 1726** tracked paths at `d798811`, all under the single top-level prefix
@@ -99,7 +106,39 @@ Standing non-K candidates awaiting a sovereign ruling or a separate bounded work
 (see `PARKING_LOT.md`): `weaver.autonomy` module/package shadowing (authority model);
 Spiral Grove registry declaration-order vs topological-order contract; baseline test debt.
 
+**Proposed bounded work recorded 2026-10-05** (discovered, not authorized, not started):
+1. *Reconcile `tests/fixtures/baseline_node_set.txt`* — 10 recorded nodes vs 20 live, a strict
+   subset. Needs the same measurement-backed retirement the 18→10 pass used, so a future pass
+   does not read unrecorded debt as a regression.
+2. *Widen `provider-routing.yml` to `api/**`* — the architecture suite asserts the
+   `api/main.py` line budget, so `api/**` belongs in the filter of any workflow that runs it.
+   Held back deliberately: that workflow also runs the full suite, which carries baseline debt,
+   so widening the trigger first would turn every API pull request red with debt it did not
+   introduce. Prerequisite: the baseline is not red.
+3. *Resolve PR #294's review-record boundary regression* — independently reproduced this pass
+   at head `2b8d4f51` (`tests/test_verification_review_boundary.py`: 4 failed / 6 passed;
+   `main` passes 10/10). Must be reconciled before #294 merges.
+
 ## Repository Health
+> **Reconciled 2026-10-05** (Weaver pass `gate-hygiene/ci-gate-trigger-coverage-01`, main
+> `4550531`). Measured live this pass, with the full suite run under `-rEf` (errors visible):
+> `python -m pytest tests/ -q -rEf --continue-on-collection-errors` →
+> **19 failed / 1444 passed / 22 skipped / 1 error**, i.e. **20 failing/error nodes**, outcomes
+> fingerprint `d7fe13dd60c33af8628d37fa6daad045f7bcf47831bd06f2787316e89e7a3807`.
+> Architecture fitness is **1 failed / 10 passed**, not 11/11: the single failure is
+> `test_api_main_line_count_within_budget` (`api/main.py` = 2805 lines, budget 2600), carried
+> by PR #296.
+> The recorded fixture `tests/fixtures/baseline_node_set.txt` holds **10** nodes that are a
+> **strict subset** of the live 20 (verified by set difference; zero fixture nodes are absent
+> from the live run). Ten live nodes are therefore unrecorded baseline debt — the
+> `test_m02a_ci_gate_integrity.py` trio (`research/**` allowlist omission, from #290),
+> four `test_agents_md_encoding_adjudication.py` nodes, the `api/main.py` line-budget node,
+> `test_ais_capability_profile_onboarding.py::test_home_is_offer_led_and_keeps_arkadia_entry_points`,
+> and `test_authority_api_enterprise_boundary.py::test_api_approval_does_not_create_enterprise_authorization_without_explicit_bridge`.
+> This is **fixture drift**, not a regression: this pass's own delta against the recorded
+> baseline is zero new failing nodes. Reconciling the fixture is recorded as a bounded
+> proposal, not performed here.
+
 - Architecture fitness tests: **11/11**
 - Full suite (`PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q
   --continue-on-collection-errors`): **9 failed / 1414 passed / 20 skipped / 1 error** —

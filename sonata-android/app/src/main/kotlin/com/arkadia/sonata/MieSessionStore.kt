@@ -13,6 +13,8 @@ data class MieSession(
 )
 
 class MieSessionStore(context: Context) {
+    private val undoStack = mutableListOf<List<MieMusicalObject>>()
+    private val redoStack = mutableListOf<List<MieMusicalObject>>()
     private val root = File(context.filesDir, "mie")
     private val sessionFile = File(root, "session.json")
     private var session: MieSession
@@ -24,7 +26,86 @@ class MieSessionStore(context: Context) {
 
     fun current(): MieSession = session
 
+    fun activeCaptures(): List<MieMusicalObject> = session.captures.filter { it.deletedAtEpochMs == null }
+
+    fun deletedCaptures(): List<MieMusicalObject> = session.captures.filter { it.deletedAtEpochMs != null }
+
+    fun canUndo(): Boolean = undoStack.isNotEmpty()
+    fun canRedo(): Boolean = redoStack.isNotEmpty()
+
+    private fun checkpoint() {
+        undoStack.add(session.captures.map { it.copy() })
+        if (undoStack.size > 50) undoStack.removeAt(0)
+        redoStack.clear()
+    }
+
+    private fun replaceCaptures(next: List<MieMusicalObject>) {
+        session.captures.clear()
+        session.captures.addAll(next)
+        save()
+    }
+
+    fun undo(): Boolean {
+        if (undoStack.isEmpty()) return false
+        redoStack.add(session.captures.map { it.copy() })
+        replaceCaptures(undoStack.removeAt(undoStack.lastIndex))
+        return true
+    }
+
+    fun redo(): Boolean {
+        if (redoStack.isEmpty()) return false
+        undoStack.add(session.captures.map { it.copy() })
+        replaceCaptures(redoStack.removeAt(redoStack.lastIndex))
+        return true
+    }
+
+    fun deleteCapture(id: String): Boolean {
+        val index = session.captures.indexOfFirst { it.id == id && it.deletedAtEpochMs == null }
+        if (index < 0) return false
+        checkpoint()
+        session.captures[index] = session.captures[index].copy(deletedAtEpochMs = System.currentTimeMillis())
+        save()
+        return true
+    }
+
+    fun restoreCapture(id: String): Boolean {
+        val index = session.captures.indexOfFirst { it.id == id && it.deletedAtEpochMs != null }
+        if (index < 0) return false
+        checkpoint()
+        session.captures[index] = session.captures[index].copy(deletedAtEpochMs = null)
+        save()
+        return true
+    }
+
+    fun cloneCapture(objectModel: MieMusicalObject, clonedSourcePath: String): MieMusicalObject {
+        checkpoint()
+        val clone = objectModel.copy(
+            id = UUID.randomUUID().toString(),
+            sourcePath = clonedSourcePath,
+            createdAtEpochMs = System.currentTimeMillis(),
+            parentId = null,
+            transformation = null,
+            loopDecision = null,
+            displayName = objectModel.displayName?.let { "$it copy" },
+            clonedFromId = objectModel.id,
+            deletedAtEpochMs = null
+        )
+        session.captures.add(0, clone)
+        save()
+        return clone
+    }
+
+    fun renameCapture(id: String, name: String?): Boolean {
+        val index = session.captures.indexOfFirst { it.id == id && it.deletedAtEpochMs == null }
+        if (index < 0) return false
+        checkpoint()
+        session.captures[index] = session.captures[index].copy(displayName = name?.trim()?.takeIf { it.isNotEmpty() })
+        save()
+        return true
+    }
+
     fun addCapture(objectModel: MieMusicalObject) {
+        checkpoint()
         session.captures.add(0, objectModel)
         save()
     }
@@ -32,6 +113,7 @@ class MieSessionStore(context: Context) {
     fun updateCapture(objectModel: MieMusicalObject) {
         val index = session.captures.indexOfFirst { it.id == objectModel.id }
         if (index >= 0) {
+            checkpoint()
             session.captures[index] = objectModel
             save()
         }
@@ -74,7 +156,10 @@ class MieSessionStore(context: Context) {
                     createdAtEpochMs = provenance.optLong("created_at_epoch_ms", System.currentTimeMillis()),
                     parentId = provenance.optString("parent_id").takeIf { it.isNotBlank() && it != "null" },
                     transformation = provenance.optString("transformation").takeIf { it.isNotBlank() && it != "null" },
-                    loopDecision = provenance.optString("loop_decision").takeIf { it.isNotBlank() && it != "null" }
+                    loopDecision = provenance.optString("loop_decision").takeIf { it.isNotBlank() && it != "null" },
+                    displayName = provenance.optString("display_name").takeIf { it.isNotBlank() && it != "null" },
+                    clonedFromId = provenance.optString("cloned_from_id").takeIf { it.isNotBlank() && it != "null" },
+                    deletedAtEpochMs = provenance.optLong("deleted_at_epoch_ms", Long.MIN_VALUE).let { if (it == Long.MIN_VALUE) null else it }
                 )
             }
             MieSession(

@@ -386,6 +386,69 @@ def test_shipped_musical_intention_engine_changeset_passes_policy():
     assert ok is True, msg
 
 
+# ---------------------------------------------------------------------------
+# Regression: `research/` — the Oversoul Prism control-plane research corpus
+# (lattice reconstruction, node transformation, convergence, conflict,
+# verification, resolution, acceptance), merged via PRs #277-#288; and
+# `schemas/` — the versioned public wire contracts, merged via PR #286
+# ("ARCH-01: define Arkana Signal Fabric v1"). Same omission class as
+# `economic_seams/` and `musical-intention-engine/`: tracked on main, omitted
+# from the allowlist, so three fitness tests were red and the CP10 gate would
+# reject the next ordinary commit touching either tree. Measured at ebe09a6:
+# 15 offenders under `research/` plus 1 under `schemas/`.
+# ---------------------------------------------------------------------------
+_RESEARCH_AND_SCHEMAS_CHANGESET = [
+    "research/oversoul_prism_3x3/validate.py",
+    "research/oversoul_prism_verification/probe.py",
+    "research/oversoul_prism_acceptance/README.md",
+    "schemas/arkana/signal/1.0/arkana-signal.schema.json",
+]
+
+
+def test_research_corpus_surface_is_legitimate():
+    ok, msg = evaluate_changed_paths(["research/oversoul_prism_3x3/validate.py"])
+    assert ok is True, msg
+
+
+def test_schemas_contract_surface_is_legitimate():
+    ok, msg = evaluate_changed_paths(
+        ["schemas/arkana/signal/1.0/arkana-signal.schema.json"]
+    )
+    assert ok is True, msg
+
+
+def test_shipped_research_and_schemas_changeset_passes_policy():
+    """The exact change set the CP10 gate rejected on main at ebe09a6."""
+    ok, msg = evaluate_changed_paths(_RESEARCH_AND_SCHEMAS_CHANGESET)
+    assert ok is True, msg
+
+
+def test_research_and_schemas_admission_is_not_overbroad():
+    """Admitting those trees must not weaken the boundary elsewhere.
+
+    Negative control: admitting `research/` and `schemas/` must not admit their
+    prefix lookalikes, nor any unknown root.
+    """
+    for path in (
+        "research_evil/x.py",
+        "schemas_evil/x.json",
+        "research2/x.py",
+        "schema/x.json",
+        "researches/x.py",
+    ):
+        ok, msg = evaluate_changed_paths([path])
+        assert ok is False, f"{path} should be rejected ({msg})"
+
+
+def test_delegated_verdict_admits_research_and_schemas_and_rejects_lookalikes():
+    """The CLI the workflow executes must agree with the imported API."""
+    rc, out = _run_judge("\n".join(_RESEARCH_AND_SCHEMAS_CHANGESET))
+    assert rc == 0, out
+    for path in ("research_evil/x.py", "schemas_evil/x.json", "schema/x.json"):
+        rc, out = _run_judge(path)
+        assert rc != 0, f"{path} must stay outside the boundary"
+
+
 def test_allowlist_admits_every_tracked_top_level_prefix():
     """A tracked prefix the allowlist omits reddens main on the next real commit."""
     # `vault/` is tracked only as scaffold and is deliberately outside the
@@ -611,6 +674,9 @@ def test_allowlist_rejects_unknown_lookalike_roots():
         "economic_seams_evil/x.py",
         "musical-intention-engine_evil/x.md",
         "musical_intention_engine/x.md",
+        "research_evil/x.py",
+        "schemas_evil/x.json",
+        "schema/x.json",
     ]:
         ok, msg = evaluate_changed_paths([path])
         assert ok is False, f"{path} should be rejected ({msg})"
