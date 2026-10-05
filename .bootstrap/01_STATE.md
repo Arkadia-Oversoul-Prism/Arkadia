@@ -119,6 +119,16 @@ Spiral Grove registry declaration-order vs topological-order contract; baseline 
    at head `2b8d4f51` (`tests/test_verification_review_boundary.py`: 4 failed / 6 passed;
    `main` passes 10/10). Must be reconciled before #294 merges.
 
+> **Superseding note, 2026-10-05.** `main` advanced to **`41bbce3`** during this pass
+> (`#298`, `#297`). The `api/main.py` line-budget debt above was **repaired on `main`** by a
+> route other than PR #296 (which stays open): `api/main.py` is now **2594** lines and
+> `tests/architecture` is **11/11 on both `main` and the branch**. Proposed item 2's
+> prerequisite (*"the baseline is not red"*) is therefore now met for the **architecture**
+> suite. It is **not** met for the broader suite: `test_autonomy.py` still raises the CE-01
+> `weaver.autonomy` collection error, and the pass measured `18F / 1467P / 22S / 1E` on both
+> trees. Item 2 remains **proposed, not authorized** — widening to `api/**` still needs the
+> broader baseline resolved first or an explicit sovereign override.
+
 ## Repository Health
 > **Reconciled 2026-10-05** (Weaver pass `gate-hygiene/ci-gate-trigger-coverage-01`, main
 > `4550531`). Measured live this pass, with the full suite run under `-rEf` (errors visible):
