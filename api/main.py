@@ -373,6 +373,11 @@ try:
 except Exception as _tx_err:
     logger.warning(f"[TRANSMISSIONS] Router mount skipped: {_tx_err}")
 
+# ── Google Workspace Human Attention Bus ────────────────────────────────
+from api.google_workspace_routes import router as _google_workspace_router
+app.include_router(_google_workspace_router)
+logger.info("[GOOGLE-WORKSPACE] OAuth + Tasks + Keep + Studio + FCM bridge mounted")
+
 # ── Key management router (Phase 2 extraction) ──────────────────────────
 from api.key_routes import router as _key_router
 app.include_router(_key_router)
