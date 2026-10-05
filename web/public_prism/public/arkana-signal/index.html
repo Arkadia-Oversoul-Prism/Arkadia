@@ -99,6 +99,7 @@ $('record').onclick=async()=>{
     recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
     recorder.onstop=async()=>{
       blob=new Blob(chunks,{type:mime.split(';')[0]});stream.getTracks().forEach(t=>t.stop());
+      $('record').textContent='● Capture';$('record').classList.remove('live');
       const duration=performance.now()-startedAt;
       const id=uid('sig');await putRaw(id,blob);
       rawUrl&&URL.revokeObjectURL(rawUrl);rawUrl=URL.createObjectURL(blob);
