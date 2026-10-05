@@ -123,9 +123,6 @@ def _db() -> sqlite3.Connection:
         evidence_refs TEXT NOT NULL, verdict TEXT NOT NULL, verified_at REAL NOT NULL,
         verifier TEXT NOT NULL, correlation_id TEXT NOT NULL
     );
-    auth_columns = {row["name"] for row in conn.execute("PRAGMA table_info(ew_authorizations)").fetchall()}
-    if "acceptance_id" not in auth_columns:
-        conn.execute("ALTER TABLE ew_authorizations ADD COLUMN acceptance_id TEXT")
     CREATE INDEX IF NOT EXISTS idx_ew_ops_stream ON ew_operational_events(subject, enterprise_id, timestamp);
     CREATE TABLE IF NOT EXISTS ew_acceptances (
         id TEXT PRIMARY KEY, subject TEXT NOT NULL, verification_id TEXT NOT NULL,
@@ -155,6 +152,9 @@ def _db() -> sqlite3.Connection:
     CREATE INDEX IF NOT EXISTS idx_ew_completions_work_event ON ew_completions(work_event_id, completed_at);
     CREATE INDEX IF NOT EXISTS idx_ew_prod_acceptances_completion ON ew_production_acceptances(completion_id, accepted_at);
     """)
+    auth_columns = {row["name"] for row in conn.execute("PRAGMA table_info(ew_authorizations)").fetchall()}
+    if "acceptance_id" not in auth_columns:
+        conn.execute("ALTER TABLE ew_authorizations ADD COLUMN acceptance_id TEXT")
     conn.commit()
     return conn
 
