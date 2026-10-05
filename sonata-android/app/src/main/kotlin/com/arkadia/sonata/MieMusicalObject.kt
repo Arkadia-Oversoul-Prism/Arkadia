@@ -17,7 +17,10 @@ data class MieMusicalObject(
     val createdAtEpochMs: Long = System.currentTimeMillis(),
     val parentId: String? = null,
     val transformation: String? = null,
-    val loopDecision: String? = null
+    val loopDecision: String? = null,
+    val displayName: String? = null,
+    val clonedFromId: String? = null,
+    val deletedAtEpochMs: Long? = null
 ) {
     fun noteName(): String? {
         val midi = detectedMidi ?: return null
@@ -47,9 +50,10 @@ data class MieMusicalObject(
             .put("parent_id", parentId)
             .put("transformation", transformation)
             .put("created_at_epoch_ms", createdAtEpochMs)
-        if (loopDecision != null) {
-            provenance.put("loop_decision", loopDecision)
-        }
+        if (loopDecision != null) provenance.put("loop_decision", loopDecision)
+        if (displayName != null) provenance.put("display_name", displayName)
+        if (clonedFromId != null) provenance.put("cloned_from_id", clonedFromId)
+        if (deletedAtEpochMs != null) provenance.put("deleted_at_epoch_ms", deletedAtEpochMs)
 
         return JSONObject()
             .put("id", id)

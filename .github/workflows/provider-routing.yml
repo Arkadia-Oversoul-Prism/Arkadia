@@ -3,8 +3,10 @@ name: Provider Routing Verification
 on:
   pull_request:
     paths:
+      - ".github/workflows/provider-routing.yml"
       - "weaver/**"
       - "providers/**"
+      - "tests/architecture/**"
       - "tests/test_weaver_k2.py"
       - "tests/test_key_pool.py"
       - "docs/verification/PROVIDER-ROUTING-AUDIT-BASELINE.md"
