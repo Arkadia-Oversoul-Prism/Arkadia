@@ -564,6 +564,19 @@ class EnterpriseOrchestrationStore:
                 c.execute("UPDATE ew_execution_attempts SET result_status='SUCCEEDED' WHERE id=?", (execution_attempt_id,))
         return row
 
+    def attention_delivery_ack(self, *, subject: str, event_id: str, channel: str):
+        """Return an existing delivery acknowledgement for replay-safe fanout."""
+        source_ref = f"attention:{event_id}:{channel}"
+        with _db() as c:
+            row = c.execute(
+                "SELECT * FROM ew_evidence WHERE subject=? AND evidence_type=? AND source_ref=? ORDER BY captured_at DESC LIMIT 1",
+                (subject, "ATTENTION_DELIVERY_ACK", source_ref),
+            ).fetchone()
+        return EvidenceRecord(
+            row["id"], row["subject"], row["execution_attempt_id"], row["source_ref"],
+            row["evidence_type"], json.loads(row["content_or_ref"]), row["captured_at"], row["correlation_id"],
+        ) if row else None
+
     def verify(self, *, subject: str, claim: str, evidence_refs: list[str],
                verifier: str, verdict: str, correlation_id: str | None = None) -> VerificationRecord:
         verdict = verdict.upper()
