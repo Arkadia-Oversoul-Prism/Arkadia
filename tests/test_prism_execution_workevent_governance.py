@@ -252,7 +252,7 @@ def test_acceptance_must_correspond_to_verified_proposal_and_scope(stores):
     wrong_proposal = store.proposal(
         subject="human-1", enterprise_id="workspace-1", objective="wrong",
         rationale="wrong", recommended_actions=["wrong"], required_authority="human",
-        tool_selections=["test-tool"], correlation_id="wrong-correlation",
+        tool_selections=["test-tool"], correlation_id="corr-prism-1",
     )
     with pytest.raises(ValueError, match="acceptance does not correspond"):
         store.authorize(
