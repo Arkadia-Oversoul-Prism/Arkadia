@@ -124,7 +124,33 @@ def _db() -> sqlite3.Connection:
         verifier TEXT NOT NULL, correlation_id TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_ew_ops_stream ON ew_operational_events(subject, enterprise_id, timestamp);
+    CREATE TABLE IF NOT EXISTS ew_acceptances (
+        id TEXT PRIMARY KEY, subject TEXT NOT NULL, verification_id TEXT NOT NULL,
+        accepted_result_ref TEXT NOT NULL, accepting_authority TEXT NOT NULL,
+        authorization_scope TEXT NOT NULL, context_ref TEXT NOT NULL,
+        accepted_at REAL NOT NULL, status TEXT NOT NULL, correlation_id TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS ew_reviews (
+        id TEXT PRIMARY KEY, subject TEXT NOT NULL, work_event_id TEXT NOT NULL,
+        reviewer TEXT NOT NULL, verdict TEXT NOT NULL, findings TEXT NOT NULL,
+        reviewed_at REAL NOT NULL, amendment_of TEXT, correlation_id TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS ew_completions (
+        id TEXT PRIMARY KEY, subject TEXT NOT NULL, work_event_id TEXT NOT NULL,
+        review_id TEXT NOT NULL, condition TEXT NOT NULL,
+        supporting_evidence_refs TEXT NOT NULL, completed_at REAL NOT NULL,
+        status TEXT NOT NULL, correlation_id TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS ew_production_acceptances (
+        id TEXT PRIMARY KEY, subject TEXT NOT NULL, completion_id TEXT NOT NULL,
+        accepting_authority TEXT NOT NULL, context_ref TEXT NOT NULL,
+        accepted_at REAL NOT NULL, status TEXT NOT NULL, correlation_id TEXT NOT NULL
+    );
     CREATE INDEX IF NOT EXISTS idx_ew_verifications_subject ON ew_verifications(subject, verified_at);
+    CREATE INDEX IF NOT EXISTS idx_ew_acceptances_subject ON ew_acceptances(subject, accepted_at);
+    CREATE INDEX IF NOT EXISTS idx_ew_reviews_work_event ON ew_reviews(work_event_id, reviewed_at);
+    CREATE INDEX IF NOT EXISTS idx_ew_completions_work_event ON ew_completions(work_event_id, completed_at);
+    CREATE INDEX IF NOT EXISTS idx_ew_prod_acceptances_completion ON ew_production_acceptances(completion_id, accepted_at);
     """)
     conn.commit()
     return conn
@@ -246,6 +272,58 @@ class EvidenceRecord:
     evidence_type: str
     content_or_ref: Any
     captured_at: float
+    correlation_id: str
+    def to_dict(self): return asdict(self)
+
+@dataclass(frozen=True)
+class AcceptanceRecord:
+    id: str
+    subject: str
+    verification_id: str
+    accepted_result_ref: str
+    accepting_authority: str
+    authorization_scope: Any
+    context_ref: str
+    accepted_at: float
+    status: str
+    correlation_id: str
+    def to_dict(self): return asdict(self)
+
+@dataclass(frozen=True)
+class ReviewRecord:
+    id: str
+    subject: str
+    work_event_id: str
+    reviewer: str
+    verdict: str
+    findings: Any
+    reviewed_at: float
+    amendment_of: str | None
+    correlation_id: str
+    def to_dict(self): return asdict(self)
+
+@dataclass(frozen=True)
+class CompletionRecord:
+    id: str
+    subject: str
+    work_event_id: str
+    review_id: str
+    condition: str
+    supporting_evidence_refs: list[str]
+    completed_at: float
+    status: str
+    correlation_id: str
+    def to_dict(self): return asdict(self)
+
+@dataclass(frozen=True)
+class ProductionAcceptanceRecord:
+    id: str
+    subject: str
+    completion_id: str
+    accepting_authority: str
+    context_ref: str
+    accepted_at: float
+    status: str
     correlation_id: str
     def to_dict(self): return asdict(self)
 
@@ -460,6 +538,102 @@ class EnterpriseOrchestrationStore:
         with _db() as c:
             c.execute("INSERT INTO ew_verifications VALUES (?,?,?,?,?,?,?,?)",
                       (rid, subject, claim, _json(evidence_refs), verdict, now, verifier, cid))
+        return row
+
+    def acceptance(self, *, subject: str, verification_id: str, accepted_result_ref: str,
+                    accepting_authority: str, authorization_scope: Any,
+                    context_ref: str, correlation_id: str | None = None) -> AcceptanceRecord:
+        verification = self._row("ew_verifications", verification_id)
+        if not verification or verification["subject"] != subject:
+            raise ValueError("matching verification required before acceptance")
+        if str(verification["verdict"]).upper() != "VERIFIED":
+            raise ValueError("only VERIFIED results may be accepted")
+        if not accepting_authority.strip():
+            raise ValueError("acceptance requires explicit accepting authority")
+        if not context_ref.strip():
+            raise ValueError("acceptance requires explicit context")
+        if not authorization_scope:
+            raise ValueError("acceptance requires explicit bounded scope")
+        cid = correlation_id or verification["correlation_id"]
+        rid = _id("accept"); now = _now()
+        row = AcceptanceRecord(rid, subject, verification_id, accepted_result_ref,
+                               accepting_authority, authorization_scope, context_ref,
+                               now, "ACCEPTED", cid)
+        with _db() as c:
+            c.execute("INSERT INTO ew_acceptances VALUES (?,?,?,?,?,?,?,?,?,?)",
+                      (rid, subject, verification_id, accepted_result_ref,
+                       accepting_authority, _json(authorization_scope), context_ref,
+                       now, "ACCEPTED", cid))
+        return row
+
+    def review(self, *, subject: str, work_event_id: str, reviewer: str,
+               verdict: str, findings: Any, amendment_of: str | None = None,
+               correlation_id: str | None = None) -> ReviewRecord:
+        verdict = str(verdict).upper()
+        if verdict not in {"ACCEPTED", "REJECTED", "CLARIFIED"}:
+            raise ValueError("unsupported review verdict")
+        if not reviewer.strip():
+            raise ValueError("review requires explicit reviewer")
+        if not work_event_id.strip():
+            raise ValueError("review requires WorkEvent reference")
+        from solspire.workevent_manager import get_workevent_manager
+        if get_workevent_manager().get(work_event_id, subject) is None:
+            raise ValueError("matching WorkEvent required before review")
+        cid = correlation_id or _id("corr")
+        rid = _id("review"); now = _now()
+        row = ReviewRecord(rid, subject, work_event_id, reviewer, verdict, findings,
+                           now, amendment_of, cid)
+        with _db() as c:
+            c.execute("INSERT INTO ew_reviews VALUES (?,?,?,?,?,?,?,?,?)",
+                      (rid, subject, work_event_id, reviewer, verdict, _json(findings),
+                       now, amendment_of, cid))
+        return row
+
+    def completion(self, *, subject: str, work_event_id: str, review_id: str,
+                   condition: str, supporting_evidence_refs: list[str],
+                   correlation_id: str | None = None) -> CompletionRecord:
+        review = self._row("ew_reviews", review_id)
+        if not review or review["subject"] != subject:
+            raise ValueError("matching review required before completion")
+        if review["work_event_id"] != work_event_id:
+            raise ValueError("review and WorkEvent mismatch")
+        if str(review["verdict"]).upper() != "ACCEPTED":
+            raise ValueError("completion requires an ACCEPTED review")
+        if not condition.strip():
+            raise ValueError("completion requires an explicit condition")
+        if not supporting_evidence_refs:
+            raise ValueError("completion requires supporting evidence")
+        cid = correlation_id or review["correlation_id"]
+        rid = _id("complete"); now = _now()
+        row = CompletionRecord(rid, subject, work_event_id, review_id, condition,
+                               list(supporting_evidence_refs), now, "COMPLETED", cid)
+        with _db() as c:
+            c.execute("INSERT INTO ew_completions VALUES (?,?,?,?,?,?,?,?,?)",
+                      (rid, subject, work_event_id, review_id, condition,
+                       _json(supporting_evidence_refs), now, "COMPLETED", cid))
+        return row
+
+    def production_acceptance(self, *, subject: str, completion_id: str,
+                              accepting_authority: str, context_ref: str,
+                              correlation_id: str | None = None) -> ProductionAcceptanceRecord:
+        completion = self._row("ew_completions", completion_id)
+        if not completion or completion["subject"] != subject:
+            raise ValueError("matching completion required before production acceptance")
+        if str(completion["status"]).upper() != "COMPLETED":
+            raise ValueError("production acceptance requires COMPLETED result")
+        if not accepting_authority.strip():
+            raise ValueError("production acceptance requires explicit authority")
+        if not context_ref.strip():
+            raise ValueError("production acceptance requires explicit context")
+        cid = correlation_id or completion["correlation_id"]
+        rid = _id("prodaccept"); now = _now()
+        row = ProductionAcceptanceRecord(rid, subject, completion_id,
+                                         accepting_authority, context_ref, now,
+                                         "ACCEPTED", cid)
+        with _db() as c:
+            c.execute("INSERT INTO ew_production_acceptances VALUES (?,?,?,?,?,?,?,?)",
+                      (rid, subject, completion_id, accepting_authority, context_ref,
+                       now, "ACCEPTED", cid))
         return row
 
     def stream(self, *, subject: str, enterprise_id: str, limit: int = 100) -> list[OperationalEvent]:
