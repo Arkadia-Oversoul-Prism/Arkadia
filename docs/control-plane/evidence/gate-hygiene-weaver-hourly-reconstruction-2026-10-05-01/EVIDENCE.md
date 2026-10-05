@@ -449,3 +449,102 @@ observation cannot convert `STALE`/`BLOCKED` into `VERIFIED`.
 - Forbidden for the next pass: merging anything; touching the sovereign-reserved governance
   failures (§5); re-opening a duplicate budget PR; synthesizing a fingerprint without the
   dependency-complete environment.
+
+## 8. Fifth pass - 2026-10-05T09:0xZ (clone-depth confound isolated; #308 re-verified)
+
+Observation timestamp: **2026-10-05T09:05Z** (session clock). `git fetch --all --prune` performed.
+(NB: this section is authored ASCII-only; earlier sections carry em-dash/section/ellipsis glyphs.)
+
+### 8.1 BASE_MAIN unchanged; #310's merge is confirmed closed on `main`
+
+BASE_MAIN = `ccbec4061d66ff6a13dba16b3d2c24b124132102` (unchanged since Sec. 7). Open-PR inventory
+is **6** (`GET /pulls?state=open`): #306, #307 (draft), #308, #309, #311 (stacked on #309), #312
+(this record). No new open PRs, no merges beyond #310.
+
+Re-derived (`git ls-files` = 1841 tracked paths):
+
+| check on `main` `ccbec40` | result |
+|---|---|
+| `git ls-files \| scripts/cp10_mutation_boundary_policy.py --judge` | **exit 0 - Mutation boundary PASS** |
+| CP10 integrity nodes in the full-suite failure set | **0** (#310's target stays closed) |
+| `wc -l api/main.py` | **2602** (still over the 2600 budget) |
+| `python -m py_compile api/main.py` | **OK** (no boot-break) |
+| `pytest tests/architecture tests/test_tool_execution_perimeter.py -q` | **1 failed / 41 passed** (the failure is `test_api_main_line_count_within_budget`) |
+
+The sole remaining repository-owned gate defect is still the `api/main.py` budget, fully covered by
+PR #308.
+
+### 8.2 A shallow clone changed the failure node *set* by one - measured, then eliminated
+
+This environment's clone began **grafted** (`git rev-parse --is-shallow-repository` -> true,
+`git rev-list --count HEAD` -> 1). On that shallow tree the full suite produced **19** nodes
+(sha256 `8268bc3040a8b72c5400baef21c034f757bba9aa58d4c9deecaed31f381be64a`) - one **more** than
+Sec. 7's 18. The extra node was
+`tests/test_agents_md_encoding_adjudication.py::test_corruption_origin_is_re_derivable`
+(`AssertionError: no corrupt revision found in history`), which fails **only** when the corrupt
+`AGENTS.md` revision is unreachable.
+
+`git fetch --unshallow` completed (now 2134 commits, `is-shallow-repository` -> false). On the
+full-history tree the same node **passes** (`18 passed, 5 skipped` in isolation) and the full
+suite returns **18** nodes, sha256
+**`ffd491e3ac10d08f55e3522859a43313743cd77fe51a40c0c0076391d9f64824`** - **byte-identical to
+Sec. 7's recorded value**. So Sec. 7's baseline was *not* wrong; it was measured on non-shallow
+history, and the `+1` node here was purely a shallow-clone artifact. This reproduces the
+repo-memory lesson ("full-history vs shallow clone changes the *node set*") in the exact direction
+predicted, and it means the fingerprint is only comparable when clone depth is stated.
+
+**Full-clone baseline at `ccbec40`:** `17 failed, 1485 passed, 20 skipped, 1 error`, **18 nodes**,
+sha256 `ffd491e3...` (matches Sec. 7).
+
+### 8.3 PR #308 re-verified against `ccbec40` on a full clone
+
+```
+git worktree add --detach /tmp/wt308b ccbec40
+git fetch origin pull/308/head:pr308   # head 81c9d9d55a3a8153a9ce11575d3d57f9cd65f78e
+git -c user.name=openhands -c user.email=openhands@all-hands.dev merge --no-edit pr308  # rc=0
+```
+
+| check | `main` `ccbec40` | composed (`ccbec40` + #308) |
+|---|---|---|
+| `wc -l api/main.py` | 2602 | **2427** |
+| `python -m py_compile api/main.py api/ceo_chat_routes.py` | OK | **OK** |
+| `pytest tests/architecture tests/test_tool_execution_perimeter.py -q` | 1F / 41P | **42 passed** |
+| `git ls-files \| scripts/cp10_mutation_boundary_policy.py --judge` | exit 0 | **exit 0** |
+| full suite (`-q -rEf --continue-on-collection-errors`) | 17F / 1485P / 20S / 1E | **16F / 1486P / 20S / 1E** |
+
+Composed failing/error node set: **17 nodes**, sha256
+`a5df9a25e3cfefd7ce90aa7966a751ffc53acb3e2efa5dd65bdf240223bd2287` - **byte-identical to Sec. 6's
+and Sec. 7's composed-node hashes**, now reproduced a second time on a full clone. Set delta
+(`main` -> composed): the only removal is `test_api_main_line_count_within_budget`; **zero** nodes
+added.
+
+### 8.4 Runtime proof of the #308 extraction on the composed tree
+
+Exercised the composed app with FastAPI's `TestClient` (not a static route check):
+
+```
+POST /api/ceo/chat          -> 401 Unauthorized   (route MOUNTED; _require_auth intact)
+POST /api/commune/resonance -> 400 Bad Request    (unrelated control unaffected)
+```
+
+The `401` (not `404`) proves the CEO-chat route survives the extraction into
+`api/ceo_chat_routes.py` with its auth dependency, and the control route still responds.
+
+### 8.5 Pass summary
+
+- BASE_MAIN unchanged at `ccbec40`; #310's CP10 repair remains **closed on `main`** (judge exit 0,
+  0 integrity nodes).
+- The `+1` node seen mid-pass was **isolated to clone depth** and eliminated by unshallowing; the
+  full-history baseline reproduces Sec. 7 exactly (18 nodes, `ffd491e3...`).
+- **PR #308** restores the one remaining gate defect on the current base: 2602 -> 2427,
+  architecture + perimeter 42 passed, CP10 exit 0, composed node set exactly `-1 / +0`,
+  composed-node hash `a5df9a25...` reproduced across base move **and** clone depth.
+- No merge performed; BASE_MAIN untouched; the only mutation is this record.
+- **Next authorized action (supersedes Sec. 7.6):** sovereign review + merge of **PR #308**. After
+  it lands, re-measure `pytest tests/architecture` (expect **11/11**), `python -m py_compile
+  api/main.py` (expect OK), `scripts/cp10_mutation_boundary_policy.py --judge` (expect exit 0), and
+  re-derive the full-suite node set (expect **17 nodes**). State the clone depth with any
+  fingerprint.
+- Forbidden for the next pass: merging anything; touching the sovereign-reserved governance
+  failures (Sec. 5); re-opening a duplicate budget PR; synthesizing a fingerprint without the
+  dependency-complete environment **or** without stating clone depth.
