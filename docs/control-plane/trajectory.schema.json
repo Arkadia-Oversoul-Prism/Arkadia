@@ -36,7 +36,18 @@
           "name": { "type": "string" },
           "status": {
             "type": "string",
-            "enum": ["pending", "revision_required", "completed", "accepted", "blocked", "failed", "aborted"]
+            "enum": [
+              "pending",
+              "revision_required",
+              "in_progress",
+              "merged_acceptance_pending",
+              "completed",
+              "accepted",
+              "merged",
+              "blocked",
+              "failed",
+              "aborted"
+            ]
           },
           "depends_on": { "type": "array", "items": { "type": "string" } },
           "packet": { "type": "string" },
