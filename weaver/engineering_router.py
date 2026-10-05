@@ -6,6 +6,7 @@ Dry-run by default.
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -18,7 +19,7 @@ except ImportError:  # pragma: no cover
 
 TRAJECTORY_PATH = Path("docs/control-plane/TRAJECTORY-ARKADIA-TRUTHFULNESS-01.yaml")
 EVIDENCE_DIR = Path("docs/control-plane/evidence")
-ACTIVE_STATUSES = frozenset({"pending", "revision_required"})
+ACTIVE_STATUSES = frozenset({"pending", "revision_required", "in_progress"})
 TERMINAL_DONE = frozenset({"completed", "accepted", "merged"})
 
 
@@ -162,7 +163,7 @@ class EngineeringRouter:
         self.repo_root = Path(repo_root)
         self.session_id = session_id or f"engineering-{int(time.time())}"
         self.dry_run = dry_run
-        self.trajectory_path = trajectory_path or (self.repo_root / TRAJECTORY_PATH)
+        self.trajectory_path = trajectory_path or (self.repo_root / Path(os.environ.get("ARKADIA_ENGINEERING_TRAJECTORY", str(TRAJECTORY_PATH))))
 
     def run(self) -> dict[str, Any]:
         sha = _repo_sha(self.repo_root)
