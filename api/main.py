@@ -1216,6 +1216,92 @@ peak_amplitude when available. Do not claim emotion as fact."""
     return {"signal": signal, "raw_audio_forwarded": True}
 
 
+@app.post("/api/arkana/signal/respond")
+async def arkana_signal_respond(request: Request):
+    """Gate 01 runtime seam: Arkana receives raw audio plus its Signal Object."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    signal = body.get("signal")
+    audio_b64 = (body.get("audio_base64") or "").strip()
+    mime_type = (body.get("mime_type") or "audio/webm").strip()
+    if not isinstance(signal, dict) or not audio_b64:
+        raise HTTPException(status_code=400, detail="signal and audio_base64 are required")
+    if len(audio_b64) > 12_000_000:
+        raise HTTPException(status_code=413, detail="Audio payload too large for Gate 01")
+
+    active_key = None
+    try:
+        node_user = await _get_current_user(request)
+        uid = node_user.get("uid") if node_user else None
+        if uid:
+            from api.user_key_store import get_active_key_for_user
+            active_key = get_active_key_for_user(uid)
+    except Exception:
+        pass
+    if not active_key:
+        try:
+            from api.key_pool import acquire_key
+            active_key = acquire_key() or GOOGLE_API_KEY
+        except Exception:
+            active_key = GOOGLE_API_KEY
+    if not active_key:
+        raise HTTPException(status_code=503, detail="No Gemini API key configured")
+
+    system = """You are ARKANA at Signal Gate 01.
+You receive BOTH the original human audio and a machine-readable Arkana Signal Object.
+Treat the audio as source evidence and the Signal Object as derived interpretation.
+Do not silently promote candidates into facts. If a reference is unresolved, say so.
+Do not infer or state emotional/personality attributes as facts. Human authority remains absolute.
+Respond directly to the human. Do not mention internal model mechanics unless relevant."""
+    user_text = json.dumps({
+        "signal_object": signal,
+        "instruction": "Respond to the captured utterance using the raw audio and structured evidence together."
+    }, ensure_ascii=False)
+    model = "gemini-3.8-flash"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={active_key}"
+    payload = {
+        "systemInstruction": {"parts": [{"text": system}]},
+        "contents": [{
+            "role": "user",
+            "parts": [
+                {"text": user_text},
+                {"inline_data": {"mime_type": mime_type, "data": audio_b64}},
+            ],
+        }],
+        "generationConfig": {"temperature": 0.65, "maxOutputTokens": 1400},
+    }
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(url, json=payload)
+        resp.raise_for_status()
+        data = resp.json()
+        reply = data["candidates"][0]["content"]["parts"][0]["text"]
+    except Exception as e:
+        logger.exception("[ARKANA-SIGNAL] multimodal response failed")
+        raise HTTPException(status_code=502, detail=f"Signal response failed: {e}")
+
+    response_id = "gen_" + str(_uuid_mod.uuid4())
+    return {
+        "response": {
+            "schema": "arkana.generated_media",
+            "schema_version": "1.0",
+            "id": response_id,
+            "derived_from": [signal.get("id")],
+            "generation_intent": "spoken_response",
+            "text": reply,
+            "provenance": {
+                "reasoning_ref": response_id,
+                "processor": "arkana-signal-gate-01",
+                "model": model,
+                "model_version": "current",
+                "created_at": _now_iso(),
+            },
+        }
+    }
+
+
 @app.post("/api/commune/resonance")
 async def commune_resonance(request: Request):
     try:
