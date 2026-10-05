@@ -269,12 +269,24 @@ def test_adjudication_requires_explicit_human_certificate_and_preserves_history(
     )
     assert rec.status == "ADJUDICATION_REQUIRED"
 
+    authority = Decision(
+        decision_id="AUTH-001", decision_maker="HUMAN:AUTH-01", decision_scope="repo.head",
+        question="Which branch result is accepted?", decision="Accept C-AJ-B",
+        evidence_refs=["E-AJ-B"], authorized_actions=["supersede:C-AJ-A"],
+        decided_at=T0, status="ACCEPTED",
+    )
+    conflicted = conflicted.model_copy(update={"decisions": [authority]}).with_root()
     adjudication = Adjudication(
         adjudication_id="ADJ-001", reconciliation_id="R-AJ", decision_maker="HUMAN:AUTH-01",
         scope="repo.head", selected_claim_id="C-AJ-B", rejected_claim_ids=["C-AJ-A"],
         evidence_refs=["E-AJ-B"], authorized_actions=["supersede:C-AJ-A"],
         decided_at=datetime(2026, 10, 5, 6, 0, tzinfo=timezone.utc),
         rationale="Human authority selected the verified branch result.",
+        authority_binding=AuthorityBinding(
+            authority_id="HUMAN:AUTH-01", authority_record_id="AUTH-001",
+            authority_record_digest=digest(authority.model_dump(mode="json")),
+            authority_scope="repo.head", granted_actions=["supersede:C-AJ-A"], issued_at=T0,
+        ),
     ).with_certificate()
     resolved = apply_adjudication(conflicted, adjudication)
     assert resolved.state_id == "STATE-ADJ-ADJ-001"
