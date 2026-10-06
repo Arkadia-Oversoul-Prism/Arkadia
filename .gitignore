@@ -69,6 +69,10 @@ docs/control-plane/evidence/**/WEAVER-ENGINEERING-RUN.md
 # The attention outbox is a local relay appended to on every worker run; it is
 # runtime output, not review state, so `git add -A` must not stage it.
 docs/control-plane/evidence/**/attention-events.jsonl
+# The scheduler writes its run result to the repository root before uploading it
+# as a build artifact. It is the same class of transient output as the per-run
+# reports above, so `git add -A` must not stage it.
+engineering-session-result.json
 !docs/control-plane/evidence/README.md
 
 # Knowledge OS private vault: generated runtime output must never be committed.
