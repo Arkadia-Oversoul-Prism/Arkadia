@@ -3,7 +3,7 @@ import { apiFetch } from '../lib/apiClient';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProjectKnowledgeGraph from '../components/solspire/ProjectKnowledgeGraph';
-import ProjectAgenticCanvas from '../components/solspire/ProjectAgenticCanvas';
+import ArkanaWeaverCanvas from '../components/solspire/ArkanaWeaverCanvas';
 import ProjectOpportunityRadar from '../components/solspire/ProjectOpportunityRadar';
 
 
@@ -1179,7 +1179,7 @@ function Settings({ project, onProjectUpdated, onArchive }: { project: Project; 
 const TABS: { id: ProjTab; label: string; sigil: string }[] = [
   { id: 'overview',       label: 'Overview',       sigil: '◈' },
   { id: 'opportunity-radar', label: 'Opportunity Radar', sigil: '◌' },
-  { id: 'weaver',         label: 'Weaver',         sigil: '⟐' },
+  { id: 'weaver',         label: 'Arkana Weaver',  sigil: '⌁' },
   { id: 'canvas',         label: 'Canvas',         sigil: '⌘' },
   { id: 'knowledge',      label: 'Knowledge',      sigil: '◈' },
   { id: 'conversations',  label: 'Conversations',  sigil: '💬' },
@@ -1260,7 +1260,7 @@ export default function ProjectDashboard({ project, onBack, onProjectUpdated, in
           {tab === 'knowledge'     && <motion.div key="kn" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><KnowledgePanel project={currentProject} /></motion.div>}
           {tab === 'opportunity-radar' && <motion.div key="opportunity-radar" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><ProjectOpportunityRadar project={currentProject} /></motion.div>}
           {tab === 'weaver'        && <motion.div key="wv" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><WeaverPanel project={currentProject} /></motion.div>}
-          {tab === 'canvas'        && <motion.div key="canvas" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><ProjectAgenticCanvas project={currentProject} /></motion.div>}
+          {tab === 'canvas'        && <motion.div key="canvas" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><ArkanaWeaverCanvas project={currentProject} /></motion.div>}
           {tab === 'overview'      && <motion.div key="ov" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><Overview project={currentProject} onTabChange={setTab} /></motion.div>}
           {tab === 'conversations' && <motion.div key="cv" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><Conversations project={currentProject} /></motion.div>}
           {tab === 'files'         && <motion.div key="fi" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><Files project={currentProject} /></motion.div>}

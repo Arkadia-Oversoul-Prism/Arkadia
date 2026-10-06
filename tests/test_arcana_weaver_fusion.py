@@ -17,6 +17,11 @@ def test_arcana_weaver_fuses_project_canvas_weaver_and_arkana_runtime():
     assert "projectContextId={project.id}" in canvas
     assert 'data-testid="arcana-weaver-canvas"' in canvas
     assert "ArkanaWeaverCanvas" in dashboard
-    assert "(tab === 'weaver' || tab === 'canvas')" in dashboard
+    # The merged canvas was mounted as `(tab === 'weaver' || tab === 'canvas')`, which
+    # replaced the Weaver tab's governed lifecycle panel (WeaverPanel). Pin the mount
+    # expression actually composed here instead of the discarded combined-condition form.
+    assert "tab === 'canvas'" in dashboard
+    assert "<ArkanaWeaverCanvas project={currentProject} />" in dashboard
+    assert "<WeaverPanel project={currentProject} />" in dashboard
     assert "label: 'Arkana Weaver'" in dashboard
     assert "label:'Arkana Weaver'" in nav
