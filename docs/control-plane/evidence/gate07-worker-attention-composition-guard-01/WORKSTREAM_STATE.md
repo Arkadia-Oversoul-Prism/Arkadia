@@ -67,3 +67,36 @@ records the defect the composition exposes.
 - **Forbidden actions:** merge, auto-merge, repair the router contract inside this PR,
   widen scope to unrelated baseline debt.
 - **Completion condition:** sovereign merges PR #329, or requests changes.
+
+## Pass 4 - verification and evidence correction (supersedes the block above)
+
+- **Head moved:** `e96778b` -> `2c5ef4f` (evidence-only commit; no source, test, or
+  workflow change). The block above cites `a8692c1`, which is superseded.
+- **Evidence correction:** `EVIDENCE.md` section 10 named `a086825` as the debt document's
+  last clean revision; it is itself corrupt. The last clean revision is `d848f3d6e`, and
+  the counts re-derived against it are recorded append-only in section 11. Section 10 is
+  left in place so the superseded measurement stays inspectable.
+- **Decisive control:** a single-CP1252 repair of line 0 round-trips yet still emits
+  `U+201A U+00C4 U+00EE`, so the single-codec criterion is necessary but not sufficient.
+  This is why the audit is stated as a chain over an oracle, not a codec candidate list.
+- **Baseline (this pass), `main` @ `4587890`, `-rEf`:** 10 failed / 1590 passed / 20
+  skipped / 1 xfailed / 1 collection error in 148.41s; node-set sha256
+  `fdc792071b6b4af45ea91782de08992605a04b40ed62ce9d00b771cdf2843cb1` (11 nodes). The
+  execution contract's `804 / 54 / 12 / 2` fingerprint no longer binds to current `main`.
+- **Guard re-confirmed** as a real seam guard: drives `EngineeringWorker.run()`, negative
+  control removes `_record_attention` and asserts the composed event is absent, strict
+  xfail records the idle-hour false-alert defect.
+
+### Deterministic next-action block (pass 4)
+
+- **Current state:** PR #329 at head `2c5ef4f`, `MERGEABLE`/`UNSTABLE`; CI
+  `mvp2-validation` pass, `Full-history secret scan` pass, `Vercel Preview Comments` pass.
+- **Evidence:** `EVIDENCE.md` section 6 fingerprints, section 9 CI wiring, section 9.1 CI
+  runtime observation, section 11 encoding correction; PR #329 comment (pass-4 glance).
+- **Blockers:** none for this pass. The router `NO_LEGAL_MOVE` blockers-contract repair is
+  still blocked on authorization and remains a separate bounded workstream.
+- **Authorized action:** sovereign review and merge of PR #329.
+- **Forbidden actions:** merge, auto-merge, repair the router contract inside this PR,
+  widen scope to baseline debt or the two encoding documents section 10 scopes out.
+- **Completion condition:** sovereign merges PR #329, or requests changes.
+
