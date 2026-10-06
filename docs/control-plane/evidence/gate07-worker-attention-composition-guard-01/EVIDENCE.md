@@ -241,16 +241,35 @@ The repair is decidable from the bytes, not from a remembered marker list:
 corrupt(repair(line)) == line          # proven for all 16 changed lines
 ```
 
-`corrupt` is the forward defect - UTF-8 bytes read back as CP1252, with the five
-undefined C1 positions (`0x81 0x8D 0x8F 0x90 0x9D`) passed through as identity.
-A line is corrupt iff its CP1252 encoding decodes as UTF-8; a line that is
-already clean, or whose bytes are not valid UTF-8, is left byte-identical. After
-the repair the only non-ASCII characters left are genuine typography
+`corrupt` is the forward defect - UTF-8 bytes read back through a single-byte
+decoder (CP1252 here), with the five undefined C1 positions (`0x81 0x8D 0x8F
+0x90 0x9D`) passed through as identity. A line is corrupt iff some decoder chain
+undoes it **and** re-applying that chain reproduces the line byte-exactly; a line
+that is already clean, or for which no chain is provable, is left byte-identical.
+After the repair the only non-ASCII characters left are genuine typography
 (`U+00A7 U+00B7 U+2014 U+2026 U+2192`), and re-running the classifier finds
 nothing to change.
 
+**One codec is a property of this file, not of the defect class.** This document's
+corruption is a single CP1252 pass, so the single-codec form is sufficient *here*.
+It is not sufficient in general: a document written through more than one encoder
+layer needs the **composed** chain, discovered by the same round-trip property
+rather than supplied as a candidate list. Measured on
+`.../gate-hygiene-baseline-test-debt-classification-01/BASELINE_TEST_DEBT_CLASSIFICATION.md`,
+**57** lines are repaired by a single CP1252 pass and **76** require a second
+(CP1252 then MacIceland). Applying only the single-codec rule there half-repairs
+those 76 lines: it accepts them and still emits the sequence `U+201A U+00C4 U+00EE`
+where an em dash belongs, which round-trips and so passes the single-codec test
+while leaving the line corrupted. The decidable rule is therefore per-document -
+discover the chain by the round-trip property and validate it against the file's
+last clean revision, not against one remembered codec. Where no clean revision
+exists and the provable chains disagree, the line is reported **undecidable** and
+left byte-identical rather than guessed (measured: the queue-drain document was
+born corrupt at its only revision and carries 4 such lines).
+
 Scope note: the two pre-existing evidence documents under
 `docs/control-plane/evidence/gate-hygiene-baseline-test-debt-classification-01/`
-and `.../gate-hygiene-queue-drain-verification-01/` carry the same defect. They
-are **not** touched here - repairing them is a separate bounded workstream with
-its own evidence, not a silent widening of this one.
+(133 decidable lines) and `.../gate-hygiene-queue-drain-verification-01/` (10
+decidable lines, 4 undecidable) carry a related defect. They are **not** touched
+here - repairing them is a separate bounded workstream with its own evidence, not
+a silent widening of this one.
