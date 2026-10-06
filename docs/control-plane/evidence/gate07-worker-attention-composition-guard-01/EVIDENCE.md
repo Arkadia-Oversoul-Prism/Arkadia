@@ -226,3 +226,31 @@ The run was triggered **by the new `pull_request` path filter** (the previous he
 `fcdfa1a` produced no `mvp2-validation` run), which is direct evidence that the filter
 selects the guard and that step 9 executes it. This converts the pass-1 finding from a
 source-level claim into an observed CI fact.
+
+## 10. Encoding repair of this document (added in pass 3)
+
+The EVIDENCE.md introduced by this workstream was itself written through a
+Windows-1252 encoder. Sixteen lines carried mojibake: `U+00C2 U+00AC` where a
+section sign belongs, `U+00E2 U+2020 U+2019` where an arrow belongs, `U+00E2
+U+20AC U+201D` where an em dash belongs. Repaired in this PR, in scope: it is
+the document this PR introduced, and no prose, count, or claim changed.
+
+The repair is decidable from the bytes, not from a remembered marker list:
+
+```
+corrupt(repair(line)) == line          # proven for all 16 changed lines
+```
+
+`corrupt` is the forward defect - UTF-8 bytes read back as CP1252, with the five
+undefined C1 positions (`0x81 0x8D 0x8F 0x90 0x9D`) passed through as identity.
+A line is corrupt iff its CP1252 encoding decodes as UTF-8; a line that is
+already clean, or whose bytes are not valid UTF-8, is left byte-identical. After
+the repair the only non-ASCII characters left are genuine typography
+(`U+00A7 U+00B7 U+2014 U+2026 U+2192`), and re-running the classifier finds
+nothing to change.
+
+Scope note: the two pre-existing evidence documents under
+`docs/control-plane/evidence/gate-hygiene-baseline-test-debt-classification-01/`
+and `.../gate-hygiene-queue-drain-verification-01/` carry the same defect. They
+are **not** touched here - repairing them is a separate bounded workstream with
+its own evidence, not a silent widening of this one.
