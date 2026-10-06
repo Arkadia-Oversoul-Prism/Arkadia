@@ -249,13 +249,29 @@ class WorkspaceStudioTriggerAdapter:
             }
 
 
+def _engineering_result_is_blocked(result: dict[str, Any]) -> bool:
+    """Whether an engineering result carries an unresolved boundary.
+
+    `FAILED` and `BLOCKED` are explicit. `NO_LEGAL_MOVE` is only a clean stop when it
+    has nothing to report; when the router returned it *with* blockers it means the
+    trajectory still carried a frontier the session could not route — a structural
+    slip, an unrecognized move status, or an unresolved dependency. Projecting that as
+    a plain state change suppressed the push and left the hourly stop invisible.
+    """
+    status = str(result.get("status") or "UNKNOWN")
+    if status in {"FAILED", "BLOCKED"}:
+        return True
+    return status == "NO_LEGAL_MOVE" and bool(result.get("blockers"))
+
+
 def build_engineering_attention_event(result: dict[str, Any]) -> AttentionEvent:
     move = result.get("next_move") or {}
     execution = result.get("execution") or {}
     status = str(result.get("status") or "UNKNOWN")
     move_id = str(move.get("id") or "NONE")
-    event_type = "WEAVER_STATE_CHANGED" if status not in {"FAILED", "BLOCKED"} else "WEAVER_BLOCKED"
-    high = status in {"FAILED", "BLOCKED"} or not execution.get("ok", True)
+    blocked = _engineering_result_is_blocked(result)
+    event_type = "WEAVER_BLOCKED" if blocked else "WEAVER_STATE_CHANGED"
+    high = blocked or not execution.get("ok", True)
     authority = bool(move.get("requires_human_authority", False)) or status in {
         "READY_FOR_REVIEW",
         "QUEUED",
