@@ -6,6 +6,7 @@ const outDir = process.env.EVIDENCE_DIR || "./evidence";
 const email = process.env.BROWSER_EMAIL || "";
 const password = process.env.BROWSER_PASSWORD || "";
 const authenticated = Boolean(email && password);
+const expectedStatus = process.env.EXPECTED_STATUS ? Number(process.env.EXPECTED_STATUS) : null;
 
 await fs.mkdir(outDir, { recursive: true });
 
@@ -44,10 +45,12 @@ async function step(name, fn) {
 }
 
 try {
-  await step("reach-render-pr", async () => {
+  await step("reach-target", async () => {
     const response = await page.goto(target, { waitUntil: "domcontentloaded", timeout: 90000 });
     await page.screenshot({ path: `${outDir}/render-pr.png`, fullPage: true });
-    return { status: response?.status() ?? null, final_url: page.url() };
+    const status = response?.status() ?? null;
+    if (expectedStatus !== null && status !== expectedStatus) throw new Error(`Expected HTTP ${expectedStatus}, got ${status}`);
+    return { status, final_url: page.url(), reachable: true };
   });
 
   if (authenticated) {
