@@ -285,12 +285,18 @@ async def engineering_event_stream(session_id: str, user: dict = Depends(require
     queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue(maxsize=128)
     loop = asyncio.get_running_loop()
 
+    def enqueue(record: dict[str, Any]) -> None:
+        try:
+            queue.put_nowait(record)
+        except asyncio.QueueFull:
+            return
+
     def on_event(record: dict[str, Any]) -> None:
         if record.get("session_id") != session_id:
             return
         try:
-            loop.call_soon_threadsafe(queue.put_nowait, record)
-        except (RuntimeError, asyncio.QueueFull):
+            loop.call_soon_threadsafe(enqueue, record)
+        except RuntimeError:
             return
 
     unsubscribe = get_event_stream().subscribe(on_event)
