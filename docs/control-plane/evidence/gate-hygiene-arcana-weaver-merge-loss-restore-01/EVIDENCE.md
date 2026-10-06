@@ -65,6 +65,19 @@ testid and CSS class names, never `ProjectDashboard.tsx`), so it is not a residu
 - re-add `import ArkanaWeaverCanvas from '../components/solspire/ArkanaWeaverCanvas';`
 - mount the canvas on the **`canvas` tab**, keeping `WeaverPanel` on the `weaver` tab
 - rename the `weaver` tab label `Weaver` → `Arkana Weaver`
+- **remove** the now-unused `import ProjectAgenticCanvas from '../components/solspire/ProjectAgenticCanvas';`
+
+**Why the removal is required, not cosmetic.** Mounting the fused canvas on `canvas`
+displaces `ProjectAgenticCanvas` from that tab. That component is **not lost** —
+`ArkanaWeaverCanvas.tsx:55` renders `<ProjectAgenticCanvas project={project} />`
+internally, so the fused canvas is a strict superset of the tab's old content. But the
+dashboard's own import then has **zero** remaining uses in the file (`grep -n
+ProjectAgenticCanvas ProjectDashboard.tsx` → the import line only), leaving a dangling
+import. That is the *same residue class this pass exists to repair* — a mount displaced
+while its import survived — so leaving it would be self-contradicting. No test pins the
+dashboard import; the pins are on `ProjectAgenticCanvas.tsx` itself
+(`test_solspire_project_instantiation_ui.py:58`) and on its presence inside the canvas
+(`test_arcana_weaver_fusion.py:16`), both of which still hold.
 
 **Correction to an earlier draft of this document.** An earlier revision stated the
 label was "already `Arkana Weaver` on `main` — unchanged". That was **false**: measured

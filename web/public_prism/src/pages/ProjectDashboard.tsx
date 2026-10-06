@@ -3,7 +3,6 @@ import { apiFetch } from '../lib/apiClient';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProjectKnowledgeGraph from '../components/solspire/ProjectKnowledgeGraph';
-import ProjectAgenticCanvas from '../components/solspire/ProjectAgenticCanvas';
 import ArkanaWeaverCanvas from '../components/solspire/ArkanaWeaverCanvas';
 import ProjectOpportunityRadar from '../components/solspire/ProjectOpportunityRadar';
 
