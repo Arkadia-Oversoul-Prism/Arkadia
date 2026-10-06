@@ -3,9 +3,9 @@
 | field | value |
 |---|---|
 | workstream | `gate07/worker-attention-seam-verification-02` |
-| subject | PR #329 (head `58ac44b1963ff0250aa34bc7bdcc48efc5c711ae`) |
+| subject | PR #329 (head `9c7c57644f1b383ca644fc2cd99d3375e6133112`; pass 2 verified `58ac44b1963ff0250aa34bc7bdcc48efc5c711ae`, superseded — see EVIDENCE.md §9) |
 | base | `main` @ `4587890efe0a4090aa9ffbf55413bcb4fe01e2bd` |
-| pass | 2 (independent verification) |
+| pass | 3 (reconciliation against the current subject head) |
 | status | **VERIFIED** — subject PR ready for sovereign merge |
 | authority required | sovereign review + merge of PR #329 |
 
@@ -19,6 +19,10 @@
   `f3e7364703a07b086d70ce6a86e7cc5a5cd5384cd93b69fc0f4be0278bfe2f48` on both sides —
   zero regression. `tests/architecture` 11/11 both sides.
 - No mutation of PR #329. No merge. No push to `main`.
+- Pass 3: PR #329 advanced to `9c7c5764`; the `58ac44b..9c7c5764` delta is documentation
+  only (no `.py`/`.yml` change), so all three claims hold unchanged. Non-vacuity mutations
+  re-run at `9c7c5764` (3F / 2F / 2F), CI run `37465288949` re-observed (guard step
+  `14 passed, 1 xfailed`), CP10 judge PASS, `api/main.py` 2432 (< 2600 budget).
 
 ## Next bounded task
 
