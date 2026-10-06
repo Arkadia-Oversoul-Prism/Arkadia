@@ -1,6 +1,6 @@
-# GATE-07 · Worker→attention composition seam — a clean hourly stop is composed into a pushed block
+# GATE-07 Â· Workerâ†’attention composition seam â€” a clean hourly stop is composed into a pushed block
 
-**Workstream:** hourly bounded-execution loop repair (scheduler → trajectory → router → worker → attention)
+**Workstream:** hourly bounded-execution loop repair (scheduler â†’ trajectory â†’ router â†’ worker â†’ attention)
 **Gate:** GATE-07 (durable Weaver loop)
 **Status:** IMPLEMENTED (repository-source proof; not a production claim)
 **Base main:** `4587890efe0a4090aa9ffbf55413bcb4fe01e2bd`
@@ -18,7 +18,7 @@ them:
   `build_engineering_attention_event` *classifies* `NO_LEGAL_MOVE`-with-blockers as a
   pushed HIGH `WEAVER_BLOCKED`.
 
-PR #323 introduced this distinction deliberately — `weaver/attention_bus.py:264`:
+PR #323 introduced this distinction deliberately â€” `weaver/attention_bus.py:264`:
 
 ```python
 return status == "NO_LEGAL_MOVE" and bool(result.get("blockers"))
@@ -47,11 +47,11 @@ hourly loop would push a HIGH false alert on every idle session.
 | layer | pinned by | what it proves |
 | --- | --- | --- |
 | router names the defect | `test_engineering_router_status_truthfulness.py` | a blocker string is produced |
-| attention classifies a blocker | `test_attention_truthfulness.py` | `NO_LEGAL_MOVE`+blockers → HIGH push |
-| **worker composes the two** | **unpinned before this PR** | — |
+| attention classifies a blocker | `test_attention_truthfulness.py` | `NO_LEGAL_MOVE`+blockers â†’ HIGH push |
+| **worker composes the two** | **unpinned before this PR** | â€” |
 
 `EngineeringWorker.run()` (`weaver/engineering_worker.py:69,99`) is what the scheduler
-actually invokes; it calls `_record_attention` → `build_engineering_attention_event` and
+actually invokes; it calls `_record_attention` â†’ `build_engineering_attention_event` and
 projects the event onto the result and the outbox. The chain could break at that seam
 (worker not calling the builder, not recording, not projecting) while both half-guards
 stayed green. It is also where the two halves disagree.
@@ -62,12 +62,12 @@ Driven through `EngineeringWorker.run()` with a synthetic trajectory in a `tmp_p
 sandbox:
 
 ```
-terminal-only  {DONE: completed}                    -> NO_LEGAL_MOVE  blockers=['no legal pending move …']
+terminal-only  {DONE: completed}                    -> NO_LEGAL_MOVE  blockers=['no legal pending move â€¦']
                                                        attention_event=WEAVER_BLOCKED sev=HIGH push=True
-unrecognized   {F-A: merged_acceptance_pending}     -> NO_LEGAL_MOVE  blockers=['unrecognized move status: …']
+unrecognized   {F-A: merged_acceptance_pending}     -> NO_LEGAL_MOVE  blockers=['unrecognized move status: â€¦']
                                                        attention_event=WEAVER_BLOCKED sev=HIGH push=True
 routable       {NEXT: pending}                      -> READY_FOR_REVIEW
-                                                       attention_event=… human_authority_required=True
+                                                       attention_event=â€¦ human_authority_required=True
 ```
 
 Row 1 is the defect: a genuine clean completion composes into a pushed HIGH block.
@@ -79,25 +79,25 @@ AssertionError: assert 'WEAVER_BLOCKED' == 'WEAVER_STATE_CHANGED'
 
 ## 4. Change
 
-`tests/test_worker_attention_composition.py` — test-only. Five tests drive the real
+`tests/test_worker_attention_composition.py` â€” test-only. Five tests drive the real
 `EngineeringWorker.run()` against a synthetic trajectory written under `tmp_path` (the
-repository tree is never touched; the outbox resolves to `tmp_path/docs/control-plane/…`):
+repository tree is never touched; the outbox resolves to `tmp_path/docs/control-plane/â€¦`):
 
 | test | role |
 | --- | --- |
 | `test_unrecognized_frontier_is_composed_into_a_pushed_block` | the live G12-A/G12-C shape survives the seam into a pushed block |
 | `test_composed_block_is_durable_in_the_outbox` | the event is recorded per channel, not merely returned in memory |
-| `test_clean_completion_stays_quiet_through_the_worker` | **strict xfail** — the recorded defect |
+| `test_clean_completion_stays_quiet_through_the_worker` | **strict xfail** â€” the recorded defect |
 | `test_routable_move_still_reaches_the_review_boundary` | ordinary routing unchanged; no merge/deploy |
 | `test_negative_control_seam_detector_flags_a_worker_that_skips_the_builder` | the detector fails on a worker that never consults the builder |
 
 The xfail is `strict=True`, so it flips to a **failure** the moment the router's blockers
-contract is repaired — the pin cannot be disarmed by leaving it green.
+contract is repaired â€” the pin cannot be disarmed by leaving it green.
 
 ## 5. Why the repair is not in this PR
 
 Repairing the defect requires changing `select_next_move` to distinguish "nothing to
-route, nothing wrong" from "nothing to route *because* something is wrong" — i.e. a
+route, nothing wrong" from "nothing to route *because* something is wrong" â€” i.e. a
 change to the router's `blockers` contract, consumed by `_engineering_result_is_blocked`
 and by the router's own status-truthfulness pins. That is a separate bounded workstream
 with its own regression boundary. This PR records the defect and pins the seam; it does
@@ -119,7 +119,7 @@ guard present : 10 failed, 1589 passed, 20 skipped, 1 xfailed, 1 error
 guard absent  : 10 failed, 1585 passed, 20 skipped,          1 error
 fingerprint (both): outcomes f3e7364703a07b086d70ce6a86e7cc5a5cd5384cd93b69fc0f4be0278bfe2f48
                     ids      92d344d0fbebcc3636e30509a1bfd72235f1ede2bede28d0b37edb6f0dcf6413
-failing/error nodes: 11 (10 failed, 1 error) — identical set on both sides
+failing/error nodes: 11 (10 failed, 1 error) â€” identical set on both sides
 ```
 
 Zero failing/error **node-set** delta. The `+4 passed` is exactly the four non-xfail
@@ -147,7 +147,7 @@ FAILED tests/test_steward_filter.py::test_compress_to_choices
 
 Test-only. No production module, no authority path, no mutation path, no merge/deploy
 surface. The guard writes only inside `tmp_path`; the repository tree is untouched
-(`git status --porcelain` → the single untracked test file). `docs/control-plane/evidence/attention-events.jsonl`
+(`git status --porcelain` â†’ the single untracked test file). `docs/control-plane/evidence/attention-events.jsonl`
 is pre-existing and gitignored (`.gitignore:71`).
 
 ## 8. Next bounded task
@@ -155,3 +155,51 @@ is pre-existing and gitignored (`.gitignore:71`).
 Repair the router's `NO_LEGAL_MOVE` blockers contract so a clean completion carries no
 blocker, then remove the strict xfail. That is a separate workstream and requires
 sovereign authorization to change a contract consumed by two existing test files.
+
+## 9. CI wiring (added in pass 2 of this workstream)
+
+The gap recorded by `fcdfa1a` is closed inside this same PR: the seam guard and the
+attention half-guard now run in `weaver-mvp2-validation.yml`, the workflow that already
+owns the router half-guard.
+
+| change | file |
+| --- | --- |
+| `tests/test_attention_truthfulness.py` + `tests/test_worker_attention_composition.py` added to **both** the `push` and `pull_request` path filters | `.github/workflows/weaver-mvp2-validation.yml` |
+| new step `Worker→attention composition seam guard` executes both files on every event | `.github/workflows/weaver-mvp2-validation.yml` |
+| `test_guard_is_selected_and_executed_by_a_workflow` pins the above | `tests/test_worker_attention_composition.py` |
+
+The self-guard is the same pattern the router half-guard uses (PR #322): it asserts both
+files appear in the `push` **and** `pull_request` filters, that the two filters are
+identical sets, and that both files are named in the seam-guard run step — a guard that
+is merely *triggered* but not *executed* is decoration.
+
+Negative controls, each measured by mutating the workflow and reverting:
+
+```
+remove the seam-guard entry from the pull_request filter only
+  -> FAILED … "pull_request filter does not select tests/test_worker_attention_composition.py"
+rename the run step
+  -> FAILED (step not found)
+drop the file from the run step's pytest argument list
+  -> FAILED ("the seam guard step does not execute …")
+```
+
+All three fire; the detector is not vacuous. Re-measured after the wiring:
+
+```
+guards + injection boundary + architecture          47 passed, 1 xfailed
+python -m pytest tests/architecture -q              11 passed
+full suite, -rEf --continue-on-collection-errors    10 failed, 1590 passed, 20 skipped,
+                                                    1 xfailed, 1 error
+fingerprint (identical to §6)                       outcomes f3e7364703a07b086d70ce6a86e7cc5a5cd5384cd93b69fc0f4be0278bfe2f48
+                                                    ids      92d344d0fbebcc3636e30509a1bfd72235f1ede2bede28d0b37edb6f0dcf6413
+```
+
+The `+1 passed` over §6 is exactly the new self-guard node; the failing/error node set is
+unchanged, so the wiring is regression-free. `api/main.py` is untouched (2432 lines);
+`python -m py_compile api/main.py` passes; CP10 boundary judge PASS on the changed paths.
+
+Boundary note: this edits a CI workflow, which §8 of pass 1 had classified as a distinct
+surface. It is a bounded, in-workstream change — the workflow that already owns the router
+half-guard gains the seam and attention halves, with no new authority or mutation path —
+and it is recorded here rather than silently folded in.

@@ -43,20 +43,23 @@ records the defect the composition exposes.
    sovereign authorization. Do **not** fold it into this pass.
 2. **No other seam** — the worker→attention path is the last unpinned layer of the
    hourly stop identified in this workstream.
-3. **The seam guard runs in no CI workflow** — measured at this pass:
+3. **CI wiring — CLOSED in pass 2 of this PR.** Measured at pass 1:
    `grep -rn "test_attention_truthfulness\|test_worker_attention_composition" .github/workflows/`
-   returns nothing, while `test_engineering_router_status_truthfulness.py` is wired into
-   `weaver-mvp2-validation.yml` (paths + run step). `arkadia-engineering-scheduler.yml`'s
-   `pull_request` path filter lists neither the attention half-guard nor this seam guard,
-   and its job runs only the two conformance tests. A guard that runs nowhere is
-   decoration (the `tests/architecture` lesson). Wiring it means editing a CI workflow —
-   a distinct surface — so it is **proposed**, not executed here. Decide which workflow
-   owns the seam (scheduler vs. weaver-mvp2-validation) before wiring.
+   returned nothing, while `test_engineering_router_status_truthfulness.py` is wired into
+   `weaver-mvp2-validation.yml`. A guard that runs nowhere is decoration (the
+   `tests/architecture` lesson). The seam and attention half-guards are now in that
+   workflow's `push` **and** `pull_request` path filters and executed by a
+   `Worker→attention composition seam guard` step, pinned by
+   `test_guard_is_selected_and_executed_by_a_workflow` with three measured negative
+   controls. See `EVIDENCE.md` §9. The workflow that already owns the router half was
+   chosen over `arkadia-engineering-scheduler.yml` so all three halves are judged in one
+   place; no new authority or mutation path is created.
 
 ## Deterministic next-action block
 
-- **Current state:** seam pinned, defect recorded, PR #329 open and review-gated.
-- **Evidence:** `EVIDENCE.md` (this directory); fingerprints in §6.
+- **Current state:** seam pinned, defect recorded, CI wiring closed, PR #329 open and
+  review-gated.
+- **Evidence:** `EVIDENCE.md` (this directory), §6 fingerprints and §9 CI wiring.
 - **Blockers:** none for this pass. The repair (task 1) is blocked on authorization.
 - **Authorized action:** sovereign review of PR #329.
 - **Forbidden actions:** merge, auto-merge, repair the router contract inside this PR,

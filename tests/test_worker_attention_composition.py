@@ -204,3 +204,45 @@ def test_negative_control_seam_detector_flags_a_worker_that_skips_the_builder(
     assert result["status"] == "NO_LEGAL_MOVE"
     assert "attention_event" not in result
     assert not (tmp_path / CONTROL_PLANE / "evidence" / "attention-events.jsonl").exists()
+
+
+def test_guard_is_selected_and_executed_by_a_workflow() -> None:
+    """A guard no workflow executes is decoration.
+
+    `weaver/engineering_worker.py` is not in any other workflow's path filter, and
+    `tests/test_attention_truthfulness.py` was pinned by PR #323 yet executed by no
+    workflow at all — so the seam and its attention half could both regress with every
+    gate green. This file must appear in both the `push` and `pull_request` filters of
+    its workflow (a guard absent from the pull_request filter is judged by nothing
+    until after the merge) and be executed by a step, not merely triggered.
+    """
+    root = Path(__file__).resolve().parents[1]
+    text = (root / ".github/workflows/weaver-mvp2-validation.yml").read_text(
+        encoding="utf-8"
+    )
+    # PyYAML parses the bare key `on` as the boolean True.
+    workflow = yaml.safe_load(text)
+    trigger = workflow.get(True, workflow.get("on"))
+    assert isinstance(trigger, dict)
+
+    guards = (
+        "tests/test_attention_truthfulness.py",
+        "tests/test_worker_attention_composition.py",
+    )
+    for event in ("push", "pull_request"):
+        paths = (trigger.get(event) or {}).get("paths") or []
+        for guard in guards:
+            assert guard in paths, f"{event} filter does not select {guard}"
+
+    push_paths = (trigger.get("push") or {}).get("paths") or []
+    pr_paths = (trigger.get("pull_request") or {}).get("paths") or []
+    assert set(push_paths) == set(pr_paths), (
+        "push and pull_request filters must be identical, or a PR can introduce "
+        "a surface the boundary only judges after merge"
+    )
+
+    # Executed, not merely triggered: both files must be named in a run step.
+    assert "Worker→attention composition seam guard" in text
+    step = text.split("Worker→attention composition seam guard", 1)[1]
+    for guard in guards:
+        assert guard in step, f"the seam guard step does not execute {guard}"
