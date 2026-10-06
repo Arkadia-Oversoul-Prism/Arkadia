@@ -98,6 +98,36 @@ def test_attention_outbox_control_is_not_ignored() -> None:
     )
 
 
+def test_scheduler_session_result_is_never_stageable() -> None:
+    """The scheduler's root-level run result is runtime output, not review state.
+
+    `.github/workflows/arkadia-engineering-scheduler.yml` writes
+    `engineering-session-result.json` to the repository root on every session — the
+    same run that appends the attention outbox — and then uploads it as a build
+    artifact. Untracked and, without an ignore rule, stageable by `git add -A` in a
+    hygiene pass, which would commit a transient run result to main.
+    """
+    assert _is_ignored("engineering-session-result.json"), (
+        "engineering-session-result.json is not ignored; a scheduler session or a "
+        "local reproduction would leave it stageable by `git add -A`"
+    )
+
+
+def test_session_result_ignore_is_scoped_to_the_run_result() -> None:
+    """Negative control: the rule names one runtime artifact, not every root file.
+
+    The tracked root manifests (`railway.json`, `vercel.json`) are durable review
+    state that a later session must be able to read. A blanket root-JSON ignore
+    would satisfy the assertion above while hiding them.
+    """
+    for path in ("railway.json", "vercel.json"):
+        assert not _is_ignored(path), (
+            f"{path} is tracked repository state but is ignored; the rule is broader "
+            f"than the runtime artifact it is meant to cover"
+        )
+
+
+
 def test_no_module_resolves_the_repository_canonical_store() -> None:
     """Every module-level `_DB_PATH` copy must point outside the repository.
 
