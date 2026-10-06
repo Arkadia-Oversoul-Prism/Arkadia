@@ -9,6 +9,7 @@ on:
       - "tests/architecture/**"
       - "tests/test_weaver_k2.py"
       - "tests/test_key_pool.py"
+      - "tests/test_ci_suite_collection_continuation.py"
       - "docs/verification/PROVIDER-ROUTING-AUDIT-BASELINE.md"
   workflow_dispatch:
 
@@ -32,4 +33,10 @@ jobs:
           python -m pytest tests/architecture -q
       - name: Broader test suite
         run: |
-          python -m pytest tests/ -q
+          # --continue-on-collection-errors is required, not cosmetic: the known
+          # CE-01 `weaver.autonomy` module-vs-package collision aborts the whole
+          # session on a bare `pytest tests/` ("Interrupted: 1 error during
+          # collection"), so no test runs and every weaver/** guard silently
+          # executes zero times in CI. This step's job is to judge the suite and
+          # report the pre-existing debt, not to abort before reaching it.
+          python -m pytest tests/ -q -rEf --continue-on-collection-errors
