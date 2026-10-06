@@ -192,3 +192,133 @@ def test_live_scheduler_trajectory_never_silently_skips():
         if unrecognized_present:
             assert "unrecognized move status" in joined
             assert not any("no legal pending move" in b for b in blockers)
+
+
+# ---------------------------------------------------------------------------
+# Dependency-blocked frontier must be named, not silently dropped.
+#
+# The unrecognized-status fix above made a *malformed* status visible. A move with a
+# perfectly legal status whose dependency is unmet was still dropped silently, so a
+# trajectory whose only active move is waiting on a sibling reported a frontier that
+# omitted it. Observed live on `TRAJECTORY-CONSOLE-COMPLETION-01.yaml`: `G12-B` is the
+# sole `in_progress` move and depends on `G12-A` (`merged_acceptance_pending`, not
+# terminal), so the session listed only the two unrecognized merged moves and never
+# said that G12-B was the next move or what it was waiting for.
+# ---------------------------------------------------------------------------
+def test_dependency_blocked_frontier_is_named_when_no_move_is_legal():
+    move, blockers = select_next_move(
+        _traj(
+            [
+                {"id": "A", "status": "merged_acceptance_pending", "spec": "s.md"},
+                {"id": "B", "status": "in_progress", "spec": "s.md", "depends_on": ["A"]},
+            ]
+        )
+    )
+    assert move is None
+    joined = " ".join(blockers)
+    assert "dependency-blocked frontier" in joined
+    assert "B" in joined and "A" in joined
+
+
+def test_dependency_blocked_is_not_misreported_as_all_complete():
+    """The load-bearing assertion: the fallback must not stand in for the real reason.
+
+    A dependency cycle between two *recognized* active moves leaves no legal move and
+    no unrecognized status, so pre-fix the router emitted only the fallback — the same
+    false "all complete" claim, with nothing named. Post-fix the cycle is named.
+    """
+    _, blockers = select_next_move(
+        _traj(
+            [
+                {"id": "A", "status": "in_progress", "spec": "s.md", "depends_on": ["B"]},
+                {"id": "B", "status": "in_progress", "spec": "s.md", "depends_on": ["A"]},
+            ]
+        )
+    )
+    joined = " ".join(blockers)
+    assert "dependency-blocked frontier" in joined
+    assert not any("no legal pending move" in b for b in blockers)
+
+
+def test_negative_control_dependency_blocker_absent_when_move_is_routable():
+    """Positive control: a routable frontier must not be reported as dependency-blocked.
+
+    Without this, `test_dependency_blocked_is_not_misreported_as_all_complete` would
+    also pass if the router always emitted the dependency blocker.
+    """
+    move, blockers = select_next_move(
+        _traj(
+            [
+                {"id": "A", "status": "pending", "spec": "s.md", "depends_on": []},
+                {"id": "B", "status": "in_progress", "spec": "s.md", "depends_on": ["A"]},
+            ]
+        )
+    )
+    assert move is not None and move["id"] == "A"
+    assert not any("dependency-blocked" in b for b in blockers)
+
+
+def test_missing_dependency_is_named_once_not_as_dependency_blocked():
+    """A dependency that does not exist is a different defect from an unmet one."""
+    _, blockers = select_next_move(
+        _traj([{"id": "B", "status": "in_progress", "spec": "s.md", "depends_on": ["A"]}])
+    )
+    joined = " ".join(blockers)
+    assert "missing dependency A" in joined
+    assert "dependency-blocked frontier" not in joined
+
+
+def test_live_console_trajectory_names_its_blocked_frontier():
+    """The trajectory the console completion trajectory carries must name its frontier.
+
+    Reads the trajectory the scheduler is pointed at via its env binding when it names
+    the console trajectory; falls back to the console trajectory path. Conditional on
+    the live state so it stays true after G12-A is accepted: it asserts the *naming*
+    invariant, not a frozen move list.
+    """
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    workflow = (root / ".github/workflows/arkadia-engineering-scheduler.yml").read_text(
+        encoding="utf-8"
+    )
+    match = re.search(
+        r"^\s*ARKADIA_ENGINEERING_TRAJECTORY:\s*(\S+)\s*$", workflow, re.MULTILINE
+    )
+    candidates = [root / match.group(1)] if match else []
+    candidates.append(root / "docs/control-plane/TRAJECTORY-CONSOLE-COMPLETION-01.yaml")
+
+    for path in candidates:
+        if not path.is_file():
+            continue
+        data = _load_yaml(path)
+        move, blockers = select_next_move(data)
+        if move is not None:
+            continue
+        joined = " ".join(blockers)
+        by_id = {str(m.get("id")): m for m in data["moves"]}
+        for m in data["moves"]:
+            st = str(m.get("status", "pending")).lower()
+            if st not in ACTIVE_STATUSES or _move_done_public(m):
+                continue
+            deps = m.get("depends_on") or []
+            if not deps:
+                continue
+            unmet = [
+                d
+                for d in deps
+                if str(d) in by_id
+                and str(by_id[str(d)].get("status", "pending")).lower()
+                not in TERMINAL_DONE
+            ]
+            if unmet:
+                assert str(m["id"]) in joined, (
+                    f"{path.name}: active move {m['id']} is dependency-blocked but "
+                    f"unnamed in the session blockers"
+                )
+
+
+def _move_done_public(move: dict) -> bool:
+    return str(move.get("status", "pending")).lower() in TERMINAL_DONE
+
