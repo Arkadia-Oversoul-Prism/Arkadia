@@ -203,3 +203,26 @@ Boundary note: this edits a CI workflow, which §8 of pass 1 had classified as a
 surface. It is a bounded, in-workstream change — the workflow that already owns the router
 half-guard gains the seam and attention halves, with no new authority or mutation path —
 and it is recorded here rather than silently folded in.
+
+### 9.1 Runtime observation of the wired guard (pushed head `a8692c1`)
+
+The wiring above was verified against the live workflow run, not inferred from the file.
+Head `a8692c1` was pushed to `gate07/worker-attention-composition-guard-01` and GitHub
+Actions selected and executed the guard:
+
+```
+run 37444445640   Weaver MVP2 validation   a8692c10   completed success
+  job mvp2-validation  completed success
+    step 8  Engineering-router status truthfulness guard      -> success
+    step 9  Worker→attention composition seam guard           -> success
+    log: python -m pytest -q tests/test_attention_truthfulness.py \
+                             tests/test_worker_attention_composition.py
+         14 passed, 1 xfailed in 0.22s
+run 37444445553   security-secret-scan       a8692c10   completed success
+check-runs         Vercel Preview Comments                success
+```
+
+The run was triggered **by the new `pull_request` path filter** (the previous head
+`fcdfa1a` produced no `mvp2-validation` run), which is direct evidence that the filter
+selects the guard and that step 9 executes it. This converts the pass-1 finding from a
+source-level claim into an observed CI fact.

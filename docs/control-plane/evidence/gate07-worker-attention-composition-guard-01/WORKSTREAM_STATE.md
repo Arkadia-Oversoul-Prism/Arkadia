@@ -57,9 +57,11 @@ records the defect the composition exposes.
 
 ## Deterministic next-action block
 
-- **Current state:** seam pinned, defect recorded, CI wiring closed, PR #329 open and
-  review-gated.
-- **Evidence:** `EVIDENCE.md` (this directory), §6 fingerprints and §9 CI wiring.
+- **Current state:** seam pinned, defect recorded, CI wiring closed **and observed in CI**,
+  PR #329 open and review-gated at head `a8692c1` (run `37444445640`, step 9
+  `Worker→attention composition seam guard` -> success, `14 passed, 1 xfailed`).
+- **Evidence:** `EVIDENCE.md` (this directory), §6 fingerprints, §9 CI wiring, §9.1 CI
+  runtime observation.
 - **Blockers:** none for this pass. The repair (task 1) is blocked on authorization.
 - **Authorized action:** sovereign review of PR #329.
 - **Forbidden actions:** merge, auto-merge, repair the router contract inside this PR,
