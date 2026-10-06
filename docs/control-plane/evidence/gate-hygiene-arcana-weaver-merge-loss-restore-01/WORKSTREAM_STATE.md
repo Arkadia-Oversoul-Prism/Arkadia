@@ -131,3 +131,30 @@ not a finding: the previously-named `key="arcana-weaver"` residue was measured a
 requires a fresh measurement before it becomes a task, and it must not be started
 inside this PR — the contract forbids consequential follow-on work in a PR awaiting
 merge. If it is authorized, it belongs on a separate bounded branch.
+
+## Open-PR inventory at this pass (live, `gh pr list`)
+
+Nine open PRs, all `MERGEABLE`, none draft. This pass touched only #326; the
+others are recorded so the next heartbeat does not re-derive the queue.
+
+| PR | branch | note |
+|---|---|---|
+| #326 | `gate-hygiene/arcana-weaver-merge-loss-restore-01` | **this pass** — head `0cc591f` |
+| #325 | `gate07/ci-suite-collection-continuation-01` | gate07 — make the judging broad-suite step execute the suite |
+| #324 | `gate07/chain-integration-evidence-01` | gate07 — composed scheduler→trajectory→router→attention chain |
+| #323 | `gate07/attention-truthfulness` | gate07 — unresolved `NO_LEGAL_MOVE` stop to the sovereign |
+| #322 | `gate07/router-status-truthfulness` | gate07 — unrecognized move status |
+| #321 | `gate-hygiene/scheduler-trajectory-schema-01` | gate-hygiene — trajectory status enum + CI-live schema guard |
+| #320 | `gate-hygiene/scheduler-runtime-outbox-ignored` | gate-hygiene — ignore scheduler runtime outbox (`attention-events.jsonl`) |
+| #319 | `gate-hygiene/scheduler-trajectory-conformance-01` | gate-hygiene — hourly scheduler trajectory conformance |
+| #306 | `feat/oversoul-prism-9cell-conformance` | prism — 9-cell branching/contradiction harness |
+
+Linkage worth noting: the untracked `docs/control-plane/evidence/attention-events.jsonl`
+observed in this working tree is the exact artifact PR #320 addresses. This pass
+correctly left it untracked rather than committing it, and #320 is the PR that
+resolves the underlying ignore rule — no action needed here, and no duplicate
+work should be opened for it.
+
+**Composition is not asserted.** Nine independently mergeable PRs are not nine
+compatible PRs. Nothing in this pass measured a combined tree, so no merge order
+or compatibility claim is made; that is a separate bounded task if authorized.
