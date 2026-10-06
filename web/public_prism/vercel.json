@@ -4,6 +4,13 @@
   "outputDirectory": "dist",
   "installCommand": "pnpm install --frozen-lockfile",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/api/:path*",
+      "destination": "https://arkadia-kw64.onrender.com/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }

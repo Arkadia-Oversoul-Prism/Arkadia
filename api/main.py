@@ -258,6 +258,8 @@ elif _is_production:
     # any localhost-based request to make credentialed cross-origin calls.
     _CORS_ORIGINS = [
         "https://arkadia-prism.vercel.app",
+        "https://arkadia-prism-jklhb9use-arkadia-prism.vercel.app",
+        "https://arkadia-prism-git-repair-vercel-public-pri-a9231d-arkadia-prism.vercel.app",
         "https://arkadia-kw64.onrender.com",
     ]
 else:
