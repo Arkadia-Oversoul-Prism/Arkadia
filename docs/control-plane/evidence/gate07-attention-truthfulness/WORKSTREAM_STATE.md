@@ -40,6 +40,20 @@ new guard file.
 Negative control: reverting the rule to status-only fails 5 guard tests; restoring → 9
 passed. `test_clean_no_legal_move_stays_quiet` catches an over-broad repair.
 
+## CI observation (measured, attributed — do not read as a new red)
+
+`provider-routing` (#323 head `d66756e`, run `37395109162`) steps:
+
+| step | result |
+| --- | --- |
+| Targeted K2 and key-pool regressions | 23 passed |
+| Relevant architecture regression | 11 passed |
+| Broader test suite (`pytest tests/ -q`) | **Interrupted: 1 error during collection** — CE-01 `weaver.autonomy` module-vs-package collision |
+
+The interrupt is **pre-existing on base `451e41a`** (`weaver/autonomy.py` module + `weaver/autonomy/` package both tracked) and this branch touches none of it (`git diff --name-only 451e41a..HEAD` → 4 files, no `weaver/autonomy*`). The two Vercel checks are also pre-existing/provider-side (build rate limit; console build failure on `main`).
+
+**Honest gap, recorded not papered over:** because the collection error interrupts the session before any test runs, the new guard is *selected* by `provider-routing.yml` (path `weaver/**`, runs `pytest tests/ -q`) but is **not executed in CI** while CE-01 stands. It executes and passes locally (9 passed). Do **not** "fix" this by adding `--continue-on-collection-errors` to the workflow — that masks the collection error and weakens the gate; the CE-01 collision is reserved to the sovereign.
+
 ## Relationship to the sibling stack
 
 #319 (scheduler trajectory conformance) → #321 (schema status enum + CI-live schema
