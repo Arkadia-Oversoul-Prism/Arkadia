@@ -69,6 +69,35 @@ def test_scratch_db_sidecars_remain_ignored() -> None:
         assert _is_ignored(path), f"{path} lost its ignore rule"
 
 
+def test_attention_outbox_is_never_stageable() -> None:
+    """The worker's attention outbox is runtime output, not review state.
+
+    `weaver/engineering_worker.py::_record_attention` appends to
+    `docs/control-plane/evidence/attention-events.jsonl` on every run, so the file
+    materialises the moment a scheduler session or a local test session runs the
+    worker — untracked and, without an ignore rule, stageable by `git add -A` in a
+    hygiene pass. Its sibling per-run reports are already ignored; this pins the
+    same invariant for the outbox.
+    """
+    assert _is_ignored("docs/control-plane/evidence/attention-events.jsonl"), (
+        "docs/control-plane/evidence/attention-events.jsonl is not ignored; a worker "
+        "run would leave it stageable by `git add -A`"
+    )
+
+
+def test_attention_outbox_control_is_not_ignored() -> None:
+    """Negative control: the ignore is a rule for the outbox, not a blanket tree ignore.
+
+    Without this, `test_attention_outbox_is_never_stageable` would still pass if a
+    future edit ignored all of `docs/control-plane/evidence/`, which would also hide
+    durable acceptance records the next scheduler wake must reconstruct from.
+    """
+    assert not _is_ignored("docs/control-plane/evidence/__hygiene_control__.txt"), (
+        "a non-outbox file under the evidence tree is ignored; the ignore rule is "
+        "broader than the runtime output it is meant to cover"
+    )
+
+
 def test_no_module_resolves_the_repository_canonical_store() -> None:
     """Every module-level `_DB_PATH` copy must point outside the repository.
 
