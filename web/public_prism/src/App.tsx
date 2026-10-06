@@ -40,7 +40,7 @@ const SOLSPIRE_LENSES = new Set<SolSpireLens>(['overview','projects','commercial
 function routeForView(view: View, section?: SolSpireLens): string {
   if (view === 'solariun') return section && section !== 'overview' ? `/solariun/${section}` : '/solariun';
   if (view === 'solspire') return '/solspire';
-  if (view === 'engineering-lab') return '/engineering-lab';
+  if (view === 'engineering-lab') return '/solspire/engineering-lab';
   const routes: Partial<Record<View, string>> = {
     home: '/', gate: '/living-gate', commune: '/oracle', about: '/about', login: '/login',
     novanet: '/nexus', ims: '/nexus/ims', grove: '/nexus/grove', larder: '/nexus/larder', distribute: '/nexus/distribution', encyclopedia: '/encyclopedia', 'spiral-codex': '/spiral-codex',
@@ -55,7 +55,7 @@ function resolvePath(pathname: string): RouteState {
   const solariun = path.match(/^\/solariun(?:\/([^/]+))?$/);
   if (solariun) { const candidate = solariun[1] as SolSpireLens | undefined; return { view:'solariun', section:candidate && SOLSPIRE_LENSES.has(candidate)?candidate:'overview', path:routeForView('solariun',candidate && SOLSPIRE_LENSES.has(candidate)?candidate:'overview') }; }
   if (path === '/solspire') return {view:'solspire',path:'/solspire'};
-  if (path === '/engineering-lab') return {view:'engineering-lab',path:'/engineering-lab'};
+  if (path === '/solspire/engineering-lab' || path === '/engineering-lab') return {view:'engineering-lab',path:'/solspire/engineering-lab'};
   const compatibility: Record<string, { view: View; section?: SolSpireLens }> = {
     '/codex': {view:'solariun',section:'knowledge'}, '/knowledge-os': {view:'solariun',section:'knowledge'},
     '/loops': {view:'solariun',section:'tasks'}, '/dashboard': {view:'solariun',section:'overview'},
