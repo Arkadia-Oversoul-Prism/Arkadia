@@ -78,20 +78,24 @@ residue named in the prior ledger is **not** live on `main` — it exists only i
 discarded branch blob `51e21ce` (see EVIDENCE §2/§6); the repair's mount uses
 `key="canvas"`. The remaining question is therefore unmeasured, not established.
 
-## CI on head `c31daba` (PR #326)
+## CI on head `5727d38` (PR #326)
 
 | gate | result | note |
 |---|---|---|
-| SG-02-FE.2-V | success | CP10 mutation boundary + frontend; diff touches its trigger paths |
-| Weaver MVP2 validation | success | — |
+| validate (SG-02-FE.2-V) | success | CP10 mutation boundary + frontend; diff touches its trigger paths |
+| mvp2-validation | success | — |
 | Full-history secret scan | success | whole-history range |
-| Vercel – arkadia-prism | success | preview build completed |
 | Vercel Preview Comments | success | — |
-| Vercel – console | **failure** | **pre-existing on `main`** — `commits/451e41a/status` → `failure` |
-| engineering-scheduler | failure on `main` | pre-existing, not attributable |
+| Vercel – arkadia-prism | **failure** | **"Deployment rate limited — retry in 24 hours."** — provider rate limit, not a build error |
+| Vercel – console | failure | pre-existing on `main`; `main`'s own description is also "Deployment rate limited" |
 
-CI is being re-established on the new head `53108b3`; the table above is the last
-complete measurement and is not carried forward as a claim about the new head.
+The two Vercel entries are **external provider boundaries**, not attributable
+failures. `Vercel – arkadia-prism` reads success on `main` `451e41a` but its
+description on this head is a rate-limit notice, so the transition is a provider
+quota event. This is the same class the repository records for Gate 2: repeating
+the pass cannot convert it, and it must not be reported as a code regression.
+It does mean the preview deployment for this head is **BLOCKED**, so the
+build-level evidence below rests on the local `pnpm build`, not on a preview URL.
 
 ## Corrections applied in this pass
 
