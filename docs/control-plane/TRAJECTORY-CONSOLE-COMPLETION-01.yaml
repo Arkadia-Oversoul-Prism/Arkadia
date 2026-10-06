@@ -27,62 +27,63 @@ trajectory:
       - autonomous_production_deploy
       - autonomous_next_move
     rule: The worker may implement one bounded move and record evidence, but cannot promote evidence to human acceptance, merge, deploy, or choose a second move in the same session.
-  moves:
-    - id: G12-A
-      name: canonical-capture-reconciliation
-      status: merged_acceptance_pending
-      depends_on: []
-      packet: console-offline-sync
-      spec: docs/control-plane/moves/G12-A-capture-reconciliation.md
-      existing_pr: 315
-      completion_rule: Human review/merge plus repository acceptance evidence.
-    - id: G12-B
-      name: durable-offline-queue-state-machine
-      status: in_progress
-      depends_on:
-        - G12-A
-      packet: console-offline-sync
-      spec: docs/control-plane/moves/G12-B-offline-queue.md
-      completion_rule: Restart durability and acknowledgement-loss replay are verified; acceptance remains human-gated.
-    - id: G12-C
-      name: network-triggered-reconciliation
-      status: merged_acceptance_pending
-      existing_pr: 316
-      depends_on:
-        - G12-B
-      packet: console-offline-sync
-      spec: docs/control-plane/moves/G12-C-network-reconciliation.md
-      completion_rule: Connectivity-triggered reconciliation is verified without autonomous consequential execution.
-    - id: G14
-      name: full-console-end-to-end
-      status: pending
-      depends_on:
-        - G12-C
-      packet: console-e2e
-      spec: docs/control-plane/moves/G14-console-e2e.md
-      completion_rule: Authenticated device/runtime evidence proves the canonical Console chain.
-    - id: G15
-      name: regression-security
-      status: pending
-      depends_on:
-        - G14
-      packet: console-release
-      spec: docs/control-plane/moves/G15-regression-security.md
-      completion_rule: Fresh targeted regression/security evidence is recorded; unrelated provider failures remain explicitly classified.
-    - id: G16
-      name: release-apk
-      status: pending
-      depends_on:
-        - G15
-      packet: console-release
-      spec: docs/control-plane/moves/G16-release-apk.md
-      completion_rule: Release build, artifact hash, gate ledger, and required device evidence are recorded; merge/deploy remain human-only.
-  routing_invariants:
-    - Select only the first legal incomplete move.
-    - Never infer acceptance from merge alone.
-    - Never select a dependent move while its prerequisite is still in progress.
-    - A blocked or revision-required move remains the frontier.
-    - One session may implement at most one move.
-    - Reconstruct repository truth at every wake.
-    - Existing PRs must be inspected before creating competing work.
-    - G11 is not to be silently marked complete by the router; if fresh evidence shows G11 blocks the selected G12 move, stop and report the blocker.
+moves:
+  - id: G12-A
+    name: canonical-capture-reconciliation
+    status: merged_acceptance_pending
+    depends_on: []
+    packet: console-offline-sync
+    spec: docs/control-plane/moves/G12-A-capture-reconciliation.md
+    existing_pr: 315
+    completion_rule: Human review/merge plus repository acceptance evidence.
+  - id: G12-B
+    name: durable-offline-queue-state-machine
+    status: in_progress
+    depends_on:
+      - G12-A
+    packet: console-offline-sync
+    spec: docs/control-plane/moves/G12-B-offline-queue.md
+    completion_rule: Restart durability and acknowledgement-loss replay are verified; acceptance remains human-gated.
+  - id: G12-C
+    name: network-triggered-reconciliation
+    status: merged_acceptance_pending
+    existing_pr: 316
+    depends_on:
+      - G12-B
+    packet: console-offline-sync
+    spec: docs/control-plane/moves/G12-C-network-reconciliation.md
+    completion_rule: Connectivity-triggered reconciliation is verified without autonomous consequential execution.
+  - id: G14
+    name: full-console-end-to-end
+    status: pending
+    depends_on:
+      - G12-C
+    packet: console-e2e
+    spec: docs/control-plane/moves/G14-console-e2e.md
+    completion_rule: Authenticated device/runtime evidence proves the canonical Console chain.
+  - id: G15
+    name: regression-security
+    status: pending
+    depends_on:
+      - G14
+    packet: console-release
+    spec: docs/control-plane/moves/G15-regression-security.md
+    completion_rule: Fresh targeted regression/security evidence is recorded; unrelated provider failures remain explicitly classified.
+  - id: G16
+    name: release-apk
+    status: pending
+    depends_on:
+      - G15
+    packet: console-release
+    spec: docs/control-plane/moves/G16-release-apk.md
+    completion_rule: Release build, artifact hash, gate ledger, and required device evidence are recorded; merge/deploy remain human-only.
+
+routing_invariants:
+  - Select only the first legal incomplete move.
+  - Never infer acceptance from merge alone.
+  - Never select a dependent move while its prerequisite is still in progress.
+  - A blocked or revision-required move remains the frontier.
+  - One session may implement at most one move.
+  - Reconstruct repository truth at every wake.
+  - Existing PRs must be inspected before creating competing work.
+  - G11 is not to be silently marked complete by the router; if fresh evidence shows G11 blocks the selected G12 move, stop and report the blocker.
