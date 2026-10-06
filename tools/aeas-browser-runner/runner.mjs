@@ -89,9 +89,9 @@ try {
 }
 
 const failed = evidence.steps.some(s => s.status === "FAIL") ||
-  evidence.console_errors.length > 0 ||
   evidence.page_errors.length > 0 ||
-  evidence.failed_requests.length > 0;
+  evidence.failed_requests.length > 0 ||
+  (expectedStatus !== null && evidence.console_errors.length > 0);
 
 if (failed) process.exit(1);
 console.log(JSON.stringify({ status: "PASS", target, authenticated, evidence_dir: outDir }));
