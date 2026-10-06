@@ -43,6 +43,15 @@ records the defect the composition exposes.
    sovereign authorization. Do **not** fold it into this pass.
 2. **No other seam** — the worker→attention path is the last unpinned layer of the
    hourly stop identified in this workstream.
+3. **The seam guard runs in no CI workflow** — measured at this pass:
+   `grep -rn "test_attention_truthfulness\|test_worker_attention_composition" .github/workflows/`
+   returns nothing, while `test_engineering_router_status_truthfulness.py` is wired into
+   `weaver-mvp2-validation.yml` (paths + run step). `arkadia-engineering-scheduler.yml`'s
+   `pull_request` path filter lists neither the attention half-guard nor this seam guard,
+   and its job runs only the two conformance tests. A guard that runs nowhere is
+   decoration (the `tests/architecture` lesson). Wiring it means editing a CI workflow —
+   a distinct surface — so it is **proposed**, not executed here. Decide which workflow
+   owns the seam (scheduler vs. weaver-mvp2-validation) before wiring.
 
 ## Deterministic next-action block
 
