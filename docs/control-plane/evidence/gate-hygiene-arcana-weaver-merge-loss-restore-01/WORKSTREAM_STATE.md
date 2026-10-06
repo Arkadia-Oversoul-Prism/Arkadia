@@ -110,3 +110,24 @@ corrected in place (rather than left standing):
    line is the only canvas mount and `<WeaverPanel` is mounted **0** times while
    `function WeaverPanel` is defined **1** time — the claim holds, but it is now
    evidence-backed rather than assumed.
+
+## Deterministic next-action block
+
+| field | value |
+|---|---|
+| current state | PR #326 open, mergeable, head `12b7276`, base `main` `451e41a` untouched |
+| evidence | three commits on the branch; EVIDENCE.md + this file; PR body; CI table above |
+| tests | branch 10F/1510P/20S/1E (`92d344d0fbeb…`); architecture 11/11; build exit 0 |
+| blockers | `Vercel – arkadia-prism` = provider rate limit (BLOCKED, external); no preview URL for this head |
+| authorized action | **human merge of PR #326** — nothing else is authorized by this pass |
+| forbidden actions | merge, push to `main`, deploy, reclassify the Vercel red as a code regression, start the rename-residue sweep |
+| completion condition | a human merges #326; a later pass then re-derives `main` and confirms the fusion mount is present |
+
+### Candidate follow-on — PROPOSED, NOT AUTHORIZED, NOT STARTED
+
+Sweep for other two-of-three rename residue live on `main`. It is a **hypothesis**,
+not a finding: the previously-named `key="arcana-weaver"` residue was measured and is
+**not** live on `main` (it exists only in the discarded branch blob `51e21ce`). It
+requires a fresh measurement before it becomes a task, and it must not be started
+inside this PR — the contract forbids consequential follow-on work in a PR awaiting
+merge. If it is authorized, it belongs on a separate bounded branch.
