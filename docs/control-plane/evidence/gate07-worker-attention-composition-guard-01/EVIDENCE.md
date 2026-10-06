@@ -273,3 +273,76 @@ Scope note: the two pre-existing evidence documents under
 decidable lines, 4 undecidable) carry a related defect. They are **not** touched
 here - repairing them is a separate bounded workstream with its own evidence, not
 a silent widening of this one.
+
+## 11. Independent verification and §10 count correction (added in pass 4)
+
+Pass 4 re-derived every load-bearing number in §10 from the bytes and found the
+§10 figures do not reproduce. The rule §10 states is correct; the counts quoted to
+support it are not. Corrected here rather than rewritten in place, so the earlier
+measurement stays inspectable.
+
+### 11.1 The true last-clean revision of the debt document
+
+§10 says the debt document's chains must be "validated against the file's last
+clean revision". Pass 3 named `a086825` as the oracle. `a086825` is **itself
+corrupt** - it still carries the `U+201A U+00C4 U+00EE` sequence where an em dash
+belongs - so it cannot serve as the clean oracle, and every count §10 derived
+against it is measured against a corrupt reference. The last clean revision is
+**`d848f3d6e`** (0 mojibake markers on the file's non-ASCII lines); every revision
+after it is corrupt. All figures below are measured against `d848f3d6e`.
+
+### 11.2 The decisive control: round-tripping is necessary but not sufficient
+
+§10's single-codec form accepts a line when `corrupt(repair(line)) == line`. The
+control below shows that test passing on a line that is still corrupted:
+
+| | codepoints |
+|---|---|
+| line 0 as it stands | `U+00E2 U+20AC U+0161 U+00C3 U+201E U+00C3 U+00AE` |
+| single-CP1252 "repair" | `U+201A U+00C4 U+00EE` |
+| round-trip `corrupt(repair) == line` | **True** |
+| true repair (CP1252 then MacIceland) | `U+2014` (em dash) |
+
+The single-codec repair round-trips *and* leaves the line corrupted, which is the
+defect §10 describes in prose but does not count. This is why the chain is
+discovered by the round-trip property over a composed codec set rather than fixed
+at one codec.
+
+### 11.3 Corrected counts (oracle `d848f3d6e`, chains provable by round-trip)
+
+**Debt document** - 136 non-ASCII lines:
+
+| class | count | §10 said |
+|---|---|---|
+| decidable, single CP1252 pass (depth 1) | **59** | 57 |
+| decidable, CP1252 then MacIceland (depth 2) | **73** | 76 |
+| undecidable (no provable chain / multi-result) | **4** | - |
+| sum decided | **132** | 133 |
+
+**Queue-drain document** - 47 non-ASCII lines: **14** decided by a unique
+single-pass chain and **33** with no provable chain, all left byte-identical.
+§10's "10 decidable lines, 4 undecidable" does not reproduce under either
+convention. The 33 are the document's genuine typography (real `U+2014 U+2192
+U+00A7 U+00B7`) *interleaved on the same lines* with corrupt sequences; no chain
+recovers the line as a whole, so it is not decidable and is correctly left alone.
+This is a stronger statement than §10's: the document is not "born corrupt and
+recoverable", it is **not decidable from the bytes**, and no repair of it is
+justified by this method.
+
+### 11.4 Baseline and guard verification (pass 4)
+
+- `main` @ `4587890` full suite: **10 failed / 1590 passed / 20 skipped / 1 xfailed
+  / 1 collection error** in 148.41s (`-rEf`). Failing/error node set sha256
+  `fdc792071b6b4af45ea91782de08992605a04b40ed62ce9d00b771cdf2843cb1` (11 nodes).
+  This supersedes the `804 passed / 54 failed / 12 skipped / 2 collection errors`
+  baseline recorded in the execution contract; that fingerprint no longer binds to
+  current `main` and must be re-measured, not inherited.
+- The composition seam guard is genuine, not tautological: it drives
+  `EngineeringWorker.run()` (the function the scheduler calls), carries a
+  **negative control** that monkeypatches `_record_attention` away and asserts the
+  composed event is then *absent* (so "always blocked" cannot satisfy it), and a
+  **strict xfail** recording a real defect (a terminal-only trajectory is a clean
+  stop but the router still emits a blocker, so every idle hour would alert).
+  `tests/test_worker_attention_composition.py`: 5 passed, 1 xfailed.
+- `mvp2-validation`, `Full-history secret scan`, and `Vercel Preview Comments` all
+  `success` at head `e96778b`, i.e. the guard is selected *and executed* by CI.
