@@ -51,27 +51,38 @@ dashboard arrived at `main` in a state the fusion work never intended — while 
 import-satisfying file (`ArkanaWeaverCanvas.tsx`) and the asserting test
 (`test_arcana_weaver_fusion.py`) both landed.
 
-Note the branch renamed `ArcanaWeaverCanvas` → `ArkanaWeaverCanvas` in the component
-file and in the dashboard import, but **not** in the mount's `motion.div key`
-(`key="arcana-weaver"`, still present on `main`). Two of three rename sites were
-applied — the signature of a hand-resolved merge, not a designed intermediate state.
+The branch's mount carried `key="arcana-weaver"` while its import and component file
+were named `ArkanaWeaverCanvas` — an inconsistent key inside the branch's own v3
+commit. That key is **not** present on `main` (measured: `git grep arcana-weaver
+origin/main -- web/public_prism/src/` matches only `ArkanaWeaverCanvas.tsx`'s own
+testid and CSS class names, never `ProjectDashboard.tsx`), so it is not a residue on
+`main` — see §7 for the correction of an earlier claim to the contrary.
 
 ## 3. The bounded repair
 
 `web/public_prism/src/pages/ProjectDashboard.tsx`:
 
 - re-add `import ArkanaWeaverCanvas from '../components/solspire/ArkanaWeaverCanvas';`
-- restore the `Arkana Weaver` tab label (already `Arkana Weaver` on `main` — unchanged)
 - mount the canvas on the **`canvas` tab**, keeping `WeaverPanel` on the `weaver` tab
+- rename the `weaver` tab label `Weaver` → `Arkana Weaver`
 
-Design note — why not restore the branch's literal form: the branch form
-`(tab === 'weaver' || tab === 'canvas') → <ArkanaWeaverCanvas>` **replaces** the
-`weaver` tab's `WeaverPanel`. On current `main` that panel is a governed surface
-(`K15_READY`, `BIND PASSSPEC`, `UI STATE ≠ AUTHORIZATION`, `Mutation: K15 → K3 ONLY`,
-and a `Mutation: K15 → K3` control). Restoring the combined condition would delete a
-governed lifecycle surface as a side effect of a naming repair. The composition here
-keeps the governed panel and still surfaces the fused canvas, on the tab whose id
-(`canvas`) the branch had already added to `ProjTab`, `TABS` and `PRIMARY_TABS`.
+**Correction to an earlier draft of this document.** An earlier revision stated the
+label was "already `Arkana Weaver` on `main` — unchanged". That was **false**: measured
+`git show origin/main:…/ProjectDashboard.tsx` → `label: 'Weaver'`, and the rename to
+`Arkana Weaver` is one of this branch's changes. The claim was corrected in place
+rather than left standing; the assertion it justified is unaffected, because the pin
+is `assert "label: 'Arkana Weaver'" in dashboard` against the **repaired** tree.
+
+Design note — why not restore the branch's literal form. The branch form is a
+**replacement, not a stack** (measured on the branch blob `51e21ce`): the single
+combined line is the *only* `<ArkanaWeaverCanvas` mount, and `<WeaverPanel` is
+mounted **0** times in that file while `function WeaverPanel` is still defined **1**
+time — the panel became dead code. On current `main` that panel is a governed surface
+(`K15_READY`, `BIND PASSSPEC`, `UI STATE ≠ AUTHORIZATION`, `Mutation: K15 → K3 ONLY`).
+Restoring the combined condition would therefore have deleted a governed lifecycle
+surface as a side effect of a naming repair. The composition here keeps the governed
+panel on `weaver` and surfaces the fused canvas on `canvas`, the tab whose id the
+branch had already added to `ProjTab`, `TABS` and `PRIMARY_TABS`.
 
 `tests/test_arcana_weaver_fusion.py`:
 
@@ -135,6 +146,19 @@ leaves a clean tree. Minified-chunk markers, convention stated explicitly
 The fused canvas testid and the governed `WeaverPanel` markers coexist in one built
 chunk — the fusion is real and the governed surface was not displaced.
 
+**Pre-change control.** On `main`, `ArkanaWeaverCanvas` has **zero** importers
+(`git grep ArkanaWeaverCanvas origin/main -- web/public_prism/src/` matches only its
+own definition file), so `arcana-weaver-canvas` is structurally absent from any
+`main`-built dashboard chunk. On this branch `ProjectDashboard.tsx` references it
+exactly **2** times (import + mount) and the built chunk carries exactly **2**
+occurrences. The contrast is presence/absence, and the count matches the reference
+count — the marker measures this branch's composition, not a pre-existing string.
+
+Caveat on the governed-panel markers (`K15_READY` etc.): they are **not** a
+presence/absence control for this change, because `main` also mounts `WeaverPanel` and
+would show them too. They are recorded only to show the governed surface still exists
+in the composed build; the discriminating control is the canvas testid above.
+
 ## 5. What this is not
 
 - **Not** a production-parity claim. This is repository-source + build evidence only.
@@ -147,7 +171,13 @@ chunk — the fusion is real and the governed surface was not displaced.
 
 ## 6. Next bounded task
 
-Sovereign review of this PR. A separate, unstarted candidate workstream (recorded,
-not executed — no self-expansion): the `motion.div key` rename residue
-(`key="arcana-weaver"` on the `canvas` tab) and any other two-of-three rename sites
-left by the same hand-resolution.
+Sovereign review of this PR.
+
+A separate candidate workstream is **recorded but not executed** (no self-expansion),
+and is weaker than an earlier draft of this section implied. The `motion.div
+key="arcana-weaver"` inconsistency exists only inside the **discarded branch** blob
+`51e21ce`; it never reached `main` (measured in §2), and this repair's mount uses
+`key="canvas"`. So there is no live residue to chase here. The remaining, genuinely
+open question is narrower: whether *other* two-of-three rename sites from the same
+hand-resolution are live on `main`. That has **not** been measured, so it is stated as
+an unmeasured hypothesis rather than a finding.

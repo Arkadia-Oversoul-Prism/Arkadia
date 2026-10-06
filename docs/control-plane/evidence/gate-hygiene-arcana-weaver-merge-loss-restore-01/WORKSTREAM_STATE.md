@@ -49,6 +49,35 @@ scheduler items. Not in scope for this pass; recorded, not executed.
 
 ## Next bounded task
 
-Sovereign review of this PR. Candidate follow-on (proposed, not authorized, not
-started): sweep the remaining two-of-three rename residue from the same
-hand-resolution (`motion.div key="arcana-weaver"` on the `canvas` tab).
+Sovereign review of PR #326. Candidate follow-on (proposed, **not authorized, not
+started**): sweep for *other* two-of-three rename residue from the same
+hand-resolution that is live on `main`. Note: the `motion.div key="arcana-weaver"`
+residue named in the prior ledger is **not** live on `main` — it exists only in the
+discarded branch blob `51e21ce` (see EVIDENCE §2/§6); the repair's mount uses
+`key="canvas"`. The remaining question is therefore unmeasured, not established.
+
+## CI on head `20449c296` (PR #326)
+
+| gate | result | note |
+|---|---|---|
+| SG-02-FE.2-V | success (2m0s) | CP10 mutation boundary + frontend; diff touches its trigger paths |
+| Weaver MVP2 validation | success (34s) | — |
+| Full-history secret scan | pass | whole-history range |
+| Vercel – arkadia-prism | pass | preview build completed |
+| Vercel Preview Comments | pass | — |
+| Vercel – console | **fail** | **pre-existing on `main`** — `commits/451e41a/status` → `failure` |
+| engineering-scheduler | failure on `main` | pre-existing, not attributable |
+
+## Corrections applied in this pass
+
+Two claims in the first draft of `EVIDENCE.md` were contradicted by measurement and
+corrected in place (rather than left standing):
+
+1. "the `weaver` tab label was already `Arkana Weaver` on `main` — unchanged" was
+   **false**. Measured: `origin/main` has `label: 'Weaver'`; the rename is this
+   branch's change.
+2. "the branch's combined condition **replaces** the `weaver` tab's `WeaverPanel`" was
+   asserted without measurement. Now measured on branch blob `51e21ce`: the combined
+   line is the only canvas mount and `<WeaverPanel` is mounted **0** times while
+   `function WeaverPanel` is defined **1** time — the claim holds, but it is now
+   evidence-backed rather than assumed.
