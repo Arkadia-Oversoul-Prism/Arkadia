@@ -40,7 +40,7 @@ decidable by a uniform rule; requires its own bounded workstream.
 ## Deterministic next-action block
 
 - **Current state:** verification complete; evidence committed on this branch.
-- **Evidence:** this directory; PR #329 comment `#issuecomment-6015216736`.
+- **Evidence:** this directory; pass-2 glance `#issuecomment-6015216736` (PR #329); pass-3 glance `#issuecomment-6017372789` (this PR).
 - **Blockers:** none.
 - **Authorized action:** sovereign review and merge of PR #329.
 - **Forbidden:** merge, self-authorize, push to `main`, mutate PR #329, expand scope.
