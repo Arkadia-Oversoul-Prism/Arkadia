@@ -15,6 +15,7 @@ import os
 import urllib.error
 import urllib.request
 from typing import Any
+import httpx
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -617,3 +618,89 @@ async def run_agent_loop(
         if "policy" in locals() and policy is not None and getattr(policy, "containerized", False):
             import shutil
             shutil.rmtree(os.path.dirname(policy.root), ignore_errors=True)
+
+
+# -- AEAS Browser Instrument --------------------------------------------------
+class BrowserProbeRequest(BaseModel):
+    session_id: str = Field(min_length=1)
+    expected_status: int | None = Field(default=None, ge=100, le=599)
+
+
+def _browser_runner_config() -> tuple[str, str]:
+    return (
+        os.environ.get("AEAS_BROWSER_RUNNER_URL", "").strip().rstrip("/"),
+        os.environ.get("AEAS_BROWSER_RUNNER_TOKEN", "").strip(),
+    )
+
+
+@router.get("/engineering/browser/status")
+async def engineering_browser_status(user: dict = Depends(require_auth)) -> dict:
+    """Check the isolated AEAS browser instrument without starting a browser run."""
+    runner_url, token = _browser_runner_config()
+    if not runner_url or not token:
+        return {
+            "status": "NOT_CONFIGURED",
+            "runner_url": runner_url or None,
+            "capability": "browser",
+        }
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                runner_url + "/health",
+                headers={"Authorization": "Bearer " + token},
+            )
+        return {
+            "status": "AVAILABLE" if response.status_code == 200 else "UNAVAILABLE",
+            "runner_url": runner_url,
+            "http_status": response.status_code,
+            "response": response.json() if response.headers.get("content-type", "").startswith("application/json") else None,
+            "capability": "browser",
+        }
+    except Exception as exc:
+        return {
+            "status": "UNAVAILABLE",
+            "runner_url": runner_url,
+            "capability": "browser",
+            "error": type(exc).__name__,
+        }
+
+
+@router.post("/engineering/browser/probe")
+async def engineering_browser_probe(
+    request: BrowserProbeRequest,
+    user: dict = Depends(require_auth),
+) -> dict:
+    """Dispatch a bounded browser probe through the isolated browser instrument.
+
+    The Lab remains the authorization boundary. The runner receives no arbitrary
+    target URL and cannot mutate the Lab runtime. The supplied session must belong
+    to the authenticated user.
+    """
+    runtime = get_runtime()
+    runtime.get_session(request.session_id, user["uid"])
+    runner_url, token = _browser_runner_config()
+    if not runner_url or not token:
+        raise HTTPException(status_code=503, detail="AEAS browser instrument is not configured")
+    payload = {"session_id": request.session_id}
+    if request.expected_status is not None:
+        payload["expected_status"] = request.expected_status
+    try:
+        async with httpx.AsyncClient(timeout=180.0) as client:
+            response = await client.post(
+                runner_url + "/probe",
+                json=payload,
+                headers={"Authorization": "Bearer " + token},
+            )
+        if response.status_code >= 500:
+            raise HTTPException(status_code=502, detail="AEAS browser instrument failed")
+        data = response.json()
+        return {
+            "status": "COMPLETED" if response.status_code == 200 else "FAILED",
+            "instrument": "aeas-browser-runner",
+            "session_id": request.session_id,
+            "result": data,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"AEAS browser instrument unavailable: {type(exc).__name__}") from exc
