@@ -23,6 +23,10 @@ on:
       # scheduler can regress to reporting "all complete" for a live frontier.
       - 'tests/test_engineering_router_status_truthfulness.py'
       - 'tests/test_engineering_scheduler_bootstrap.py'
+      # The closure guard judges the *other* direction of the same seam: every
+      # schema-legal move status must be routable or named unroutable. A schema
+      # that admits a status the router skips silently reddens nothing without it.
+      - 'tests/test_router_schema_vocabulary_closure.py'
   # The gate previously ran only on push to main, so it could never block a
   # broken PR — it could only report after the merge was already canonical.
   pull_request:
@@ -44,6 +48,7 @@ on:
       # pull_request filter is judged by nothing until after the merge.
       - 'tests/test_engineering_router_status_truthfulness.py'
       - 'tests/test_engineering_scheduler_bootstrap.py'
+      - 'tests/test_router_schema_vocabulary_closure.py'
   workflow_dispatch:
 
 jobs:
@@ -74,7 +79,10 @@ jobs:
       - name: Engineering-router status truthfulness guard
         # Executed on every event (push, pull_request, dispatch) so a router change
         # that regresses silent-skip behaviour is judged before it reaches main.
+        # The closure guard rides the same step: it pins the reverse seam
+        # (schema ⊆ router) that the truthfulness guard leaves untested.
         run: >-
           python -m pytest -q
           tests/test_engineering_router_status_truthfulness.py
           tests/test_engineering_scheduler_bootstrap.py
+          tests/test_router_schema_vocabulary_closure.py
