@@ -26,6 +26,7 @@ on:
       - "docs/control-plane/trajectory.schema.json"
       - "docs/control-plane/TRAJECTORY-*.yaml"
       - "tests/test_scheduler_trajectory_conformance.py"
+      - "tests/test_trajectory_schema_conformance.py"
 
 concurrency:
   # max_active_moves: 1 — one engineering session at a time
@@ -68,6 +69,13 @@ jobs:
         # still selects the guard, so removing the trigger fails the next session
         # rather than silently disabling the guard.
         run: python -m pytest tests/test_scheduler_trajectory_conformance.py -q
+
+      - name: Trajectory schema-vocabulary conformance guard
+        # The sibling guard above proves structure; this one proves the move
+        # status vocabulary agrees across the frozen schema, the router, and every
+        # live trajectory. It is stdlib-only, so unlike tests/test_m08_* it runs
+        # under `pip install pytest` and cannot be skipped for a missing install.
+        run: python -m pytest tests/test_trajectory_schema_conformance.py -q
 
       - name: Session + Engineering Runner (dry-run default)
         if: github.event_name != 'pull_request'
