@@ -259,7 +259,10 @@ def test_natlas_tester_onboarding_records_human_authorization(monkeypatch):
     assert result["scope"] == ["n_atlas:run"]
     assert runtime.authorizations[0]["scope_ref"] == "SES-tester"
     assert runtime.authorizations[0]["operations_allowed"] == ("read", "test")
-    assert store.attached == [("SES-tester", "tester-uid", "AUTH-tester")]
+    assert len(store.attached) == 1
+    assert store.attached[0][0] == "SES-tester"
+    assert store.attached[0][1].startswith("natlas-tester-")
+    assert store.attached[0][2] == "AUTH-tester"
     assert runtime.transitions == [("SES-tester", "tester-uid", "AUTHORIZED")]
 
 
