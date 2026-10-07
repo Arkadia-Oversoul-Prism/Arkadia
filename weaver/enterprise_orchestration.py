@@ -163,12 +163,47 @@ def _db() -> sqlite3.Connection:
     CREATE INDEX IF NOT EXISTS idx_ew_reviews_work_event ON ew_reviews(work_event_id, reviewed_at);
     CREATE INDEX IF NOT EXISTS idx_ew_completions_work_event ON ew_completions(work_event_id, completed_at);
     CREATE INDEX IF NOT EXISTS idx_ew_prod_acceptances_completion ON ew_production_acceptances(completion_id, accepted_at);
+    CREATE TABLE IF NOT EXISTS ew_portfolios (
+        id TEXT PRIMARY KEY, subject TEXT NOT NULL, name TEXT NOT NULL,
+        mandate TEXT NOT NULL, status TEXT NOT NULL, created_at REAL NOT NULL,
+        correlation_id TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS ew_initiatives (
+        id TEXT PRIMARY KEY, subject TEXT NOT NULL, portfolio_id TEXT NOT NULL,
+        name TEXT NOT NULL, objective TEXT NOT NULL, status TEXT NOT NULL,
+        created_at REAL NOT NULL, correlation_id TEXT NOT NULL,
+        FOREIGN KEY(portfolio_id) REFERENCES ew_portfolios(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_ew_initiatives_portfolio ON ew_initiatives(subject, portfolio_id);
     """)
     auth_columns = {row["name"] for row in conn.execute("PRAGMA table_info(ew_authorizations)").fetchall()}
     if "acceptance_id" not in auth_columns:
         conn.execute("ALTER TABLE ew_authorizations ADD COLUMN acceptance_id TEXT")
     conn.commit()
     return conn
+
+@dataclass(frozen=True)
+class PortfolioRecord:
+    id: str
+    subject: str
+    name: str
+    mandate: str
+    status: str
+    created_at: float
+    correlation_id: str
+    def to_dict(self): return asdict(self)
+
+@dataclass(frozen=True)
+class InitiativeRecord:
+    id: str
+    subject: str
+    portfolio_id: str
+    name: str
+    objective: str
+    status: str
+    created_at: float
+    correlation_id: str
+    def to_dict(self): return asdict(self)
 
 @dataclass(frozen=True)
 class CanonicalRecord:
@@ -357,6 +392,46 @@ class VerificationRecord:
 
 class EnterpriseOrchestrationStore:
     """Append-only canonical operational store with explicit transition gates."""
+
+    def portfolio(self, *, subject: str, name: str, mandate: str,
+                  status: str = "ACTIVE", correlation_id: str | None = None) -> PortfolioRecord:
+        if not subject or not name or not mandate:
+            raise ValueError("subject, name, and mandate are required")
+        cid = correlation_id or _id("corr")
+        rid = _id("portfolio")
+        now = _now()
+        row = PortfolioRecord(rid, subject, name, mandate, status.upper(), now, cid)
+        with _db() as c:
+            c.execute("INSERT INTO ew_portfolios VALUES (?,?,?,?,?,?,?)",
+                      (rid, subject, name, mandate, row.status, now, cid))
+        return row
+
+    def initiative(self, *, subject: str, portfolio_id: str, name: str,
+                   objective: str, status: str = "PLANNED",
+                   correlation_id: str | None = None) -> InitiativeRecord:
+        portfolio = self._row("ew_portfolios", portfolio_id)
+        if not portfolio or portfolio["subject"] != subject:
+            raise ValueError("portfolio is required and must belong to subject")
+        cid = correlation_id or portfolio["correlation_id"]
+        rid = _id("initiative")
+        now = _now()
+        row = InitiativeRecord(rid, subject, portfolio_id, name, objective, status.upper(), now, cid)
+        with _db() as c:
+            c.execute("INSERT INTO ew_initiatives VALUES (?,?,?,?,?,?,?,?)",
+                      (rid, subject, portfolio_id, name, objective, row.status, now, cid))
+        return row
+
+    def get_portfolio(self, *, subject: str, portfolio_id: str) -> PortfolioRecord | None:
+        row = self._row("ew_portfolios", portfolio_id)
+        if not row or row["subject"] != subject:
+            return None
+        return PortfolioRecord(**dict(row))
+
+    def get_initiative(self, *, subject: str, initiative_id: str) -> InitiativeRecord | None:
+        row = self._row("ew_initiatives", initiative_id)
+        if not row or row["subject"] != subject:
+            return None
+        return InitiativeRecord(**dict(row))
 
     def canonical_record(self, *, subject: str, source_channel: str, raw_payload: Any,
                          ingested_by: str, correlation_id: str | None = None) -> CanonicalRecord:
@@ -801,6 +876,7 @@ class EnterpriseOrchestrationStore:
                 return
             seen.add((k, rid))
             table = {
+                "PORTFOLIO": "ew_portfolios", "INITIATIVE": "ew_initiatives",
                 "CANONICAL_RECORD": "ew_canonical_records", "AUTHORITY_EVENT": "ew_authority_events",
                 "INTERPRETATION": "ew_interpretations", "KNOWLEDGE_MUTATION": "ew_knowledge_mutations",
                 "OPERATIONAL_EVENT": "ew_operational_events", "PROPOSAL": "ew_proposals",
@@ -814,7 +890,9 @@ class EnterpriseOrchestrationStore:
                 return
             data = dict(row)
             rows.append({"kind": k, "id": rid, "record": data})
-            if k == "VERIFICATION":
+            if k == "INITIATIVE":
+                visit("PORTFOLIO", row["portfolio_id"])
+            elif k == "VERIFICATION":
                 for ref in json.loads(row["evidence_refs"]):
                     visit("EVIDENCE", ref)
             elif k == "EVIDENCE":
@@ -851,6 +929,7 @@ class EnterpriseOrchestrationStore:
 
         def record(k: str, rid: str | None) -> dict[str, Any] | None:
             table = {
+                "PORTFOLIO": "ew_portfolios", "INITIATIVE": "ew_initiatives",
                 "CANONICAL_RECORD": "ew_canonical_records", "AUTHORITY_EVENT": "ew_authority_events",
                 "INTERPRETATION": "ew_interpretations", "KNOWLEDGE_MUTATION": "ew_knowledge_mutations",
                 "OPERATIONAL_EVENT": "ew_operational_events", "PROPOSAL": "ew_proposals",
@@ -873,7 +952,13 @@ class EnterpriseOrchestrationStore:
                 return
             seen.add(key)
             rows.append({"kind": k, "id": rid, "record": row})
-            if k == "CANONICAL_RECORD":
+            if k == "PORTFOLIO":
+                for r in self._rows_where("ew_initiatives", "portfolio_id", rid, subject):
+                    visit("INITIATIVE", r["id"])
+            elif k == "INITIATIVE":
+                for r in self._rows_where("ew_initiatives", "id", rid, subject):
+                    pass
+            elif k == "CANONICAL_RECORD":
                 for r in self._rows_where("ew_interpretations", "canonical_record_id", rid, subject):
                     visit("INTERPRETATION", r["id"])
                 for r in self._rows_where("ew_evidence", "source_ref", rid, subject):
