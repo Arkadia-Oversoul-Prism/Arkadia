@@ -2434,22 +2434,30 @@ from api.ceo_chat_routes import router as _ceo_chat_router
 app.include_router(_ceo_chat_router)
 
 # ── Canonical N-ATLaS Lab frontend ─────────────────────────────────────────
-# The focused N-ATLaS tester is intentionally served by the same FastAPI
-# origin as the governed Engineering Lab API. This keeps the tester on one
-# authorization/network boundary and avoids a second frontend deployment.
+# The focused N-ATLaS Lab is served by the same FastAPI origin as the governed
+# Engineering Lab API. Assets are origin-rooted so the same build can serve the
+# canonical /n-atlas-lab route and the temporary-beta compatibility alias.
 _CONSOLE_DIST = _os.path.abspath(
     _os.path.join(_os.path.dirname(__file__), "..", "web", "console", "dist")
 )
 if _os.path.isdir(_CONSOLE_DIST):
     app.mount(
-        "/n-atlas-tester",
-        StaticFiles(directory=_CONSOLE_DIST, html=True),
-        name="n-atlas-tester",
+        "/assets",
+        StaticFiles(directory=_os.path.join(_CONSOLE_DIST, "assets")),
+        name="console-assets",
     )
-    logger.info("[N-ATLAS] Canonical tester frontend mounted at /n-atlas-tester")
+
+    @app.get("/n-atlas-lab", include_in_schema=False)
+    @app.get("/n-atlas-lab/", include_in_schema=False)
+    @app.get("/n-atlas-tester", include_in_schema=False)
+    @app.get("/n-atlas-tester/", include_in_schema=False)
+    async def n_atlas_lab_frontend() -> FileResponse:
+        return FileResponse(_os.path.join(_CONSOLE_DIST, "index.html"))
+
+    logger.info("[N-ATLAS] Canonical Lab frontend mounted at /n-atlas-lab")
 else:
     logger.warning(
-        "[N-ATLAS] Console dist not found; /n-atlas-tester is unavailable. "
+        "[N-ATLAS] Console dist not found; N-ATLaS Lab frontend is unavailable. "
         "The Render Docker build must run the console build stage."
     )
 \n
