@@ -159,9 +159,13 @@ boundary.
 
 ## 9. Corrections recorded
 
-1. `gate-hygiene-post-merge-verification-06/EVIDENCE.md` §5 and its `WORKSTREAM_STATE.md`
-   state that #329/#330/#342/#343 "remain open and superseded". **Measured:** all four are
-   **CLOSED (not merged)** at 17:36. The corrected inventory is §2 above.
+1. The stale claim that #329/#330/#342/#343 "remain open and superseded" lives in
+   `gate-hygiene-post-merge-verification-06/WORKSTREAM_STATE.md` (line 41), **not** in that
+   pass's `EVIDENCE.md`. **Measured:** all four are **CLOSED (not merged)** at 17:36 (all
+   four also read `CONFLICTING/DIRTY` against `main`). The corrected inventory is §2 above.
+   (Pass-07 first cited `EVIDENCE.md` §5 as carrying this claim; a re-measurement found
+   `grep -c "329\|330\|342\|343"` over that file → `0` at its only revision, `67aec9d2`. The
+   mis-citation is corrected here — see §11.)
 2. `.bootstrap/01_STATE.md` records the fixture reconciliation and the #294 regression as
    open proposals; both are **already resolved** (§7). Recorded here rather than edited,
    because `.bootstrap/01_STATE.md`'s prose is itself under reconciliation ownership and this
@@ -175,3 +179,85 @@ boundary.
   `docs/control-plane/evidence/gate-hygiene-post-merge-verification-07/`.
 - The next permitted action is **sovereign review**. The next bounded engineering task is
   recorded in `WORKSTREAM_STATE.md` and requires a sovereign decision.
+
+## 11. Continuation — independent re-measurement (hourly pulse 2)
+
+Reconstructed again at 2026-10-07T20:06–20:30 UTC against the same `BASE_MAIN`
+`af3a3541`. Live state re-derived from the API, not from §1–§10 prose.
+
+### 11.1 Re-measurement reproduced every claim, and corrected one citation
+
+Every value in §1–§8 was independently reproduced this pulse:
+
+| claim (from §1–§8) | re-measured | result |
+| --- | --- | --- |
+| `HEAD` == `origin/main` == `af3a3541d…` | `git log -1 origin/main` | reproduced |
+| `api/main.py` = 2434 lines | `wc -l` | reproduced (under 2600) |
+| boot code compiles | `python -m py_compile api/main.py` | reproduced |
+| CP10 PASS on this pass's paths | `cp10_mutation_boundary_policy.py --judge` | reproduced (`JUDGE_EXIT=0`) |
+| full suite 10F/1760P/21S/1E → 11 nodes | `pytest tests/ -q --continue-on-collection-errors -rEf -p no:randomly` | reproduced exactly |
+| outcomes `f3e73647…` / ids `92d344d0…` | `scripts/baseline_fingerprint.py` | reproduced byte-exactly |
+| fixture 10 nodes → `9a54f5b4…` / `124bfdfd…` | same script on the fixture | reproduced |
+| live − fixture = exactly 1 node (#347's) | `comm` over sorted node lists | reproduced (fixture is a strict subset) |
+| `tests/test_baseline_fingerprint.py` | `pytest` | **24 passed** |
+| #329/#330/#342/#343 CLOSED (not merged) at 17:36 | `gh pr view` per PR | reproduced |
+| #334/#344/#346 MERGED | `gh pr view` per PR | reproduced |
+| #347 head `3f3024d97`, base `af3a3541d` | `gh pr view 347` | reproduced |
+| #294 MERGED (2026-10-05T03:40:02Z) | `gh pr view 294` | reproduced |
+
+**One defect found and corrected — §9 correction 1's citation.** §9 attributed the stale
+"#329/#330/#342/#343 remain open and superseded" claim to
+`gate-hygiene-post-merge-verification-06/EVIDENCE.md §5`. That file contains **zero**
+mentions of those PR numbers at its only revision, `67aec9d2`
+(`grep -c "329\|330\|342\|343"` → `0`). The claim actually lives in that pass's
+`WORKSTREAM_STATE.md` line 41. §9 is corrected in place. This is the repository's
+documented **non-reproducible-citation** defect class: a citation that does not resolve
+against its own source must be corrected, not reconciled.
+
+### 11.2 Shallow-clone fingerprint — the 15-node set is a clone-depth artifact, fully explained
+
+This pulse's clone is **shallow** (`git rev-parse --is-shallow-repository` → `true`;
+2222 commits). The full suite on this clone reports **15** failing/error nodes
+(14 failed, 1 error):
+
+```
+ERROR tests/test_autonomy.py
+FAILED tests/test_agents_md_encoding_adjudication.py::{test_cli_summarises_the_oracle_without_crashing,
+  test_corruption_origin_is_re_derivable, test_exit_code_does_not_call_a_divergent_clean_file_verified,
+  test_live_file_verdict_matches_its_state}
++ the 10 recorded fixture nodes
++ FAILED tests/test_ais_capability_profile_onboarding.py::test_home_is_offer_led_and_keeps_arkadia_entry_points
+```
+
+Set difference (shallow − full-clone) is exactly the **4** `test_agents_md_encoding_adjudication.py`
+nodes. Those nodes dereference an oracle revision (`6c43218a…`) that a depth-1 clone does not
+carry, so they fail on shallow clones and pass on full ones — the clone-depth class already
+recorded in `.bootstrap/01_STATE.md` and in
+`gate10-cp10-allowlist-research-schemas-01/EVIDENCE.md` and
+`gate07-trajectory-status-vocabulary-decision-01/WORKSTREAM_STATE.md`. It is **not** a
+regression and must not be attributed to any PR.
+
+To obtain a full-clone measurement this pulse fetched the branch under review with
+`--depth=1`, which does not deepen `main`'s ancestry; the full-clone 11-node run above was
+therefore measured in the parent clone. **The clone-depth-stable value is the 11-node set**
+(`f3e73647…` / `92d344d0…`), which is what §3 publishes.
+
+### 11.3 Live open-PR inventory (this pulse)
+
+| PR | branch | head | state | note |
+| --- | --- | --- | --- | --- |
+| #348 | `gate-hygiene/post-merge-verification-07` | `798fd3c2e` | OPEN / CLEAN | this pass |
+| #347 | `gate-hygiene/landing-headline-repin-01` | `3f3024d97` | OPEN / UNSTABLE | landing-headline re-pin; READY FOR SOVEREIGN MERGE |
+| #349 | `feat/voice-of-belonging-content-pipeline` | `3b1460f4d` | OPEN / UNSTABLE | separate workstream |
+| #350 | `gate01/ark-200k-portfolio-substrate-plan` | `14a0db25b` | OPEN / UNSTABLE | separate workstream (ARK-$200K-G01 plan) |
+
+No new sovereign instruction exists. The newest sovereign-authored comment is issue #345
+(2026-10-07T17:32:27Z), already executed by #350. No new open GATE-07 PR.
+
+### 11.4 No selectable bounded task (unchanged)
+
+The selection rule still finds no node both unowned and inside the pre-authorized envelope:
+the single unowned-in-fixture node is #347's (fixed there; step 11 forbids follow-on work),
+and every other node is CE-01 / F-01 / R1 / R3 / steward — each a recorded item awaiting a
+sovereign ruling. This pulse therefore performs the same bounded act: re-measure, correct,
+record, and stop at the sovereign boundary. **No consequential task selected.**

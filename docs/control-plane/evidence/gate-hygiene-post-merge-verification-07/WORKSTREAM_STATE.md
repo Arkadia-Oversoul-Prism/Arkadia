@@ -2,21 +2,28 @@
 
 ## Current state
 
-- **BASE_MAIN:** `af3a3541d9fedf8c2d38bb7a0aac56856a879523` (merge of #346)
+- **BASE_MAIN:** `af3a3541d9fedf8c2d38bb7a0aac56856a879523` (merge of #346) — unchanged at
+  the pulse-2 re-measurement (2026-10-07T20:06–20:30 UTC); `origin/main` did not move.
 - **Active gate:** GATE-07 (durable Weaver loop) — **complete, no open PR**
 - **This pass:** artifact-only reconstruction; no code/test/workflow mutation
-- **Result:** **IMPLEMENTED** (reconstruction + two ledger corrections; no runtime change
-  to prove)
+- **Result:** **IMPLEMENTED** (reconstruction + two ledger corrections + one citation
+  correction; no runtime change to prove)
 
 ## Evidence
 
 - `EVIDENCE.md` (this directory) — full reconstruction, fingerprints, node classification,
-  live PR inventory, proposal dispositions.
-- Fingerprint at `af3a3541`: outcomes `f3e73647…`, ids `92d344d0…` (11 nodes).
+  live PR inventory, proposal dispositions. §11 = the pulse-2 independent re-measurement.
+- Fingerprint at `af3a3541`: outcomes `f3e73647…`, ids `92d344d0…` (11 nodes) — reproduced
+  byte-exactly at pulse 2.
 - Recorded fixture: outcomes `9a54f5b4…`, ids `124bfdfd…` (10 nodes) — strict subset.
 - Architecture fitness: **11/11**. `tests/test_m02a_ci_gate_integrity.py`: **64 passed**.
+  `tests/test_baseline_fingerprint.py`: **24 passed**.
 - Boot code compiles; `api/main.py` = 2434/2600.
 - CP10 policy: PASS on this pass's paths.
+- **Clone-depth artifact:** the pulse-2 clone is shallow, so its full suite reports **15**
+  nodes = the 11-node set + the 4 `test_agents_md_encoding_adjudication.py` nodes (oracle
+  revision not carried by a depth-1 clone). Fully explained; not a regression. The
+  clone-depth-stable value remains the 11-node set.
 
 ## Blockers (sovereign decisions required)
 
@@ -53,6 +60,11 @@ No option is within the pre-authorized envelope. **Awaiting sovereign instructio
 3. If a new sovereign instruction exists on a PR/issue → execute that bounded task.
 4. Otherwise → repeat the artifact-only reconstruction and **do not** select a consequential
    task without authority.
+
+**Pulse 2 (2026-10-07T20:06–20:30 UTC):** step 1 executed; #347 still OPEN/UNSTABLE; no new
+sovereign instruction; no consequential task selected. Every §1–§8 claim reproduced. One
+citation defect corrected (EVIDENCE §9 correction 1 pointed at the wrong pass-06 file) and
+the shallow-clone 15-node set classified as a clone-depth artifact (EVIDENCE §11).
 
 ## Forbidden actions
 
