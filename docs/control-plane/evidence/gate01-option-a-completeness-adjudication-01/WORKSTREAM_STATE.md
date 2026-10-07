@@ -28,6 +28,8 @@
 - CI (run `37689596866`, head `dd398cb1`): the PR's own proof test is **green** — absent
   from the `FAILED` list. The remaining 15 failing/error nodes are byte-identical
   (sha256 `033b9e55…`) to `main` `17e626cd2` (run `37539664677`) — pre-existing debt.
+- Re-confirmed on final head `08156f9d` (run `37690145658`): same 15-node set,
+  same `033b9e55…` hash. Evidence commit does not move the failing set.
 
 ## Regression boundary
 Two files touched, both inside the hunk the PR already introduced:

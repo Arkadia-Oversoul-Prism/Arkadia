@@ -120,6 +120,11 @@ opened to add is green there.
   clone-depth-dependent nodes, not new defects. This is why the invariant is the node set
   compared **within one environment**, which the local before/after hashes above do.
 
+Re-confirmed on the final head `08156f9d` (run `37690145658`, same summary
+`14 failed, 1760 passed, 21 skipped, 1 error`): the 15-node set hashes to the
+**same** `033b9e55…` value as `main`. The evidence commit does not move the
+failing set.
+
 - `Vercel – arkadia-prism` / `Vercel – console`: provider rate limit
   `api-deployments-free-per-day` (>100 deployments/day on the free tier), and a
   pre-existing failure on `main`. Not a code defect.
