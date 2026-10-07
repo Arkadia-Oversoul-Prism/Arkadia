@@ -23,6 +23,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Discover EDNAi Space interface
+        env:
+          SPACE: KoladeOdunope/ednai-natlas-runtime
+        run: |
+          python - <<'PY'
+          import json, requests
+          base='https://huggingface.co'
+          space='KoladeOdunope/ednai-natlas-runtime'
+          for url in [f'{base}/api/spaces/{space}', f'{base}/api/spaces/{space}/tree/main', f'{base}/spaces/{space}/raw/main/README.md']:
+            print('\n===',url,'===')
+            r=requests.get(url,timeout=30); print('HTTP',r.status_code); print(r.text[:20000])
+          PY
       - name: Install validation dependencies
         run: python -m pip install --quiet requests
 
