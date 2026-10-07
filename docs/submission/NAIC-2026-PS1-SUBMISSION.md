@@ -152,3 +152,22 @@ The submission should make one narrow, defensible claim:
 > **Arkadia is a working N-ATLAS developer-infrastructure build with a real, governed integration path and sealed execution evidence.**
 
 It should not claim two human beta testers, production scale, broad adoption, or judge acceptance until those things are directly evidenced.
+
+## External tester path
+
+A temporary focused tester route is provided at:
+
+- `/n-atlas-tester`
+
+The tester flow intentionally removes Arkadia-specific architecture from the interface:
+
+1. Start Test
+2. N-ATLaS is selected and shown as ready
+3. Enter a prompt
+4. Run N-ATLaS
+5. Inspect the response
+6. Inspect the evidence and reproduction record
+
+The Start Test action creates a bounded 30-minute session and records the tester's explicit human authorization for that session. It does not create model authority, write access, merge authority, or deployment authority.
+
+This surface exists only to reduce external-beta friction. The canonical Engineering Lab and sealed NATLAS-LAB-001 evidence remain unchanged.
