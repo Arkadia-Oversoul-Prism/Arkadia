@@ -94,8 +94,12 @@ reviewable, green unit. The three PRs remain open and unmerged.
 all four would double-apply the same files. #343's guard is satisfied by this tree, so it
 is not dropped: it lands here, passing.
 
-Not included: #341's batch of the other six GATE-07 PRs (#330–#336). Those are orthogonal
-to this seam and carry their own composition review.
+**Correction (pass 3):** #330 is the *verification record for #329* — it is part of this
+seam, not orthogonal to it, and an earlier revision of this section grouped it with the
+unrelated batch. It is now folded in here (its two evidence files are added verbatim), so
+this branch is the composition of #329 + #330 + #342 + #343. Not included: #341's batch of
+the remaining GATE-07 PRs (#331–#336), which are orthogonal to this seam and carry their
+own composition review.
 
 ## 5. Provenance
 
@@ -104,3 +108,38 @@ to this seam and carry their own composition review.
   the xfail removal described in §2.
 * Confirmed `main` carries neither `CLEAN_STOP_BLOCKER` nor any of the three guard files,
   so this branch does not depend on an unapplied change.
+
+## 6. Pass 3 — #330 folded in, #343 lesson landed, re-measured
+
+Two gaps in the pass-2 artifact are closed here.
+
+**(a) #330 was omitted.** #330 is the independent *verification record* for the #329 seam
+(its authority is verification + evidence only — no code change, no merge, no push). It is
+part of this seam, so its two evidence files are added verbatim. #344 §4 previously listed
+it with the orthogonal #331–#336 batch; that grouping was wrong and is corrected above.
+
+**(b) #343's `AGENTS.md` lesson had not landed on this branch.** #343's substance is the
+durable lesson in `AGENTS.md`, not only its guard test (which §2 already satisfies). The
+lesson is now applied. It is a pure insertion — the encoding audit reports
+`alterations=0`, `reproduced=True`, Cyrillic `0 -> 0` — so it does not violate the
+standing insertion-only constraint on the live `AGENTS.md`.
+
+Re-measured on this tree (`main` @ `74e8ea5` + #329 + #330 + #342 + #343 + #344):
+
+| Check | Result |
+|-------|--------|
+| `pytest tests/architecture -q` | **11 passed** |
+| GATE-07 guard set (7 files) | **53 passed, 1 skipped** |
+| `python -m py_compile api/main.py` | OK (2434 lines, budget 2600) |
+| `AGENTS.md` encoding audit | Cyrillic `0 -> 0`, insertions-only, `alterations=0` |
+| Full suite vs `main` @ `74e8ea5` | failing/error node set **identical** (`f3e73647…`, 11 nodes); delta `+22 passed / +1 skipped` |
+
+The full-suite node-set identity is the load-bearing claim: the composed tree introduces
+no failing node that `main` does not already carry, and the `+22 passed` is exactly the new
+guard nodes.
+
+## 7. Merge disposition (Architect authority — recommendation only)
+
+Merge **#344** and close **#329, #330, #342, #343** as superseded. Merging #344 *and* any of
+those four would double-apply the same files. #330 is verification-only, so closing it
+loses no code — its record is preserved verbatim inside #344.
