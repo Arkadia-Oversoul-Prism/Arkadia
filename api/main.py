@@ -2460,4 +2460,3 @@ else:
         "[N-ATLAS] Console dist not found; N-ATLaS Lab frontend is unavailable. "
         "The Render Docker build must run the console build stage."
     )
-\n
