@@ -4,6 +4,8 @@ name: N-ATLAS external beta validation
 on:
   push:
     branches: [feat/n-atlas-developer-lab]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
