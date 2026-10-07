@@ -107,6 +107,34 @@ The first draft of this section claimed the router was "path-filtered out of
 every other workflow". That was false and is corrected above — the router is
 reached by three workflows, two of them by glob.
 
+## Rebase onto merged main (post-merge-verification 06)
+
+The seven-PR GATE-07 batch merged after this PR was opened, moving `main` from
+`17e626c` to `1a9d5ce`. This branch's base was therefore stale and the PR read
+`CONFLICTING` / `DIRTY`.
+
+The conflict is confined to `.github/workflows/weaver-mvp2-validation.yml` and is
+a **pure append collision**: the batch added the worker→attention composition
+guard to the push filter, the pull_request filter, and a new sibling run step,
+while this PR adds the schema→router closure guard to the same three places. Both
+are independent additions, so the resolution is the **union** — HEAD's closure
+lines first (they extend the existing truthfulness context), then `main`'s
+composition block. The closure test rides the truthfulness run step; the
+composition guard remains a sibling step. Verified after resolution:
+
+| Check | Result |
+| --- | --- |
+| `git diff --stat origin/main HEAD` | exactly this PR's 4 files, +431 |
+| YAML parse | OK |
+| closure guard occurrences | 3 (push filter, PR filter, run step) |
+| composition guard occurrences | 3 (push filter, PR filter, run step) |
+| guard set incl. closure | **85 passed, 1 skipped, 0 failed** |
+| `python -m py_compile api/main.py` | OK |
+| CP10 mutation boundary judge | PASS |
+
+The merge was pushed as a normal merge commit (fast-forward from `3a29fde` to
+`bc5085b`); no force-push. `main` is now an ancestor of this branch.
+
 ## Authorization boundary
 
 Review-gated. No merge, no deploy, no self-authorization, no gate promotion.
