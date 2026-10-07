@@ -411,3 +411,62 @@ body {
   .mie-state { grid-column:1 / -1; text-align:left; }
   .mie-object-hero h2 { font-size:48px; }
 }
+
+
+/* Temporary external N-ATLaS tester path */
+.tester-shell {
+  min-height: 100vh;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 48px 22px 36px;
+  box-sizing: border-box;
+  display: grid;
+  align-content: start;
+  gap: 18px;
+}
+.tester-header { margin-bottom: 10px; }
+.tester-kicker, .tester-step {
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  opacity: .58;
+}
+.tester-header h1 { font-size: clamp(30px, 6vw, 52px); line-height: 1.02; margin: 10px 0 12px; max-width: 720px; }
+.tester-header p, .tester-card p { max-width: 650px; line-height: 1.65; opacity: .72; }
+.tester-card {
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 16px;
+  padding: 22px;
+  background: rgba(255,255,255,.025);
+}
+.tester-start { text-align: center; padding: 34px 22px; }
+.tester-start p { margin: 8px auto 22px; }
+.tester-model { display:flex; justify-content:space-between; align-items:center; margin-top: 12px; font-size: 20px; }
+.tester-ready { font-size: 11px; letter-spacing:.1em; opacity:.7; }
+.tester-card label { display:block; margin: 14px 0 8px; font-size: 13px; }
+.tester-card textarea {
+  width:100%; box-sizing:border-box; padding:14px; min-height:130px;
+  resize:vertical; border:1px solid rgba(255,255,255,.14);
+  border-radius:10px; background:rgba(0,0,0,.16); color:inherit;
+  font:inherit; line-height:1.5;
+}
+.tester-primary {
+  margin-top:14px; border:0; border-radius:10px; padding:13px 18px;
+  font:inherit; font-weight:700; cursor:pointer;
+}
+.tester-primary:disabled { opacity:.45; cursor:not-allowed; }
+.tester-status, .tester-footer { font-size:11px; opacity:.5; margin-top:14px; }
+.tester-response { margin-top:14px; padding:18px; border-radius:10px; background:rgba(0,0,0,.16); line-height:1.7; white-space:pre-wrap; }
+.tester-evidence { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:14px; }
+.tester-evidence > div { border:1px solid rgba(255,255,255,.1); border-radius:10px; padding:12px; }
+.tester-evidence span { display:block; font-size:10px; opacity:.5; margin-bottom:5px; }
+.tester-evidence strong { font-size:12px; word-break:break-word; }
+.tester-details { margin-top:14px; }
+.tester-details summary { cursor:pointer; font-size:12px; opacity:.75; }
+.tester-details pre { overflow:auto; padding:14px; background:rgba(0,0,0,.2); border-radius:10px; font-size:11px; line-height:1.5; }
+.tester-error { border:1px solid rgba(214,106,106,.35); border-radius:10px; padding:12px; color:#D66A6A; font-size:12px; }
+@media (max-width: 600px) {
+  .tester-shell { padding: 28px 14px; }
+  .tester-card { padding: 17px; }
+  .tester-evidence { grid-template-columns:1fr; }
+}
