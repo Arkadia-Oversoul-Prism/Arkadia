@@ -445,6 +445,8 @@ async def get_current_user(request: Request) -> dict[str, Any] | None:
 
 async def require_auth(request: Request) -> dict[str, Any]:
     """Dependency that raises 401 if user is not authenticated."""
+    if token and token.startswith(_NATLAS_TOKEN_PREFIX):
+        raise HTTPException(status_code=401, detail="N-ATLaS tester capability is scoped to the N-ATLaS run endpoint")
     user = await get_current_user(request)
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required")
