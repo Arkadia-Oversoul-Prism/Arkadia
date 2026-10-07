@@ -46,3 +46,18 @@ decidable by a uniform rule; requires its own bounded workstream.
 - **Forbidden:** merge, self-authorize, push to `main`, mutate PR #329, expand scope.
 - **Completion condition:** PR #329 merged; `main` advanced; next pass reconstructs state
   from the new `main`.
+
+## Supersession — composed into PR #344 (pass 3, 2026-10-07)
+
+Measured at `987b682`: this record's subject (#329) and the companion repair (#342) cannot
+compose — `strict=True` xfail + the repair it declares will flip yields `XPASS(strict)`, red in
+every order. The three PRs (#329 / #342 / #343) plus this verification record (#330) are
+therefore composed into a single reconciled unit, **PR #344** (branch
+`gate07/strict-xfail-reconciliation-companion-01`), whose disposition is:
+
+- **merge #344**; close **#329, #330, #342, #343** as superseded. Merging #344 *and* any of
+  those double-applies the same files. This record is verification-only, so closing it loses
+  no code — its two documents are carried verbatim in #344.
+- The "Authorized action: merge PR #329" line above is **superseded** by that disposition.
+  Sovereign authority is unchanged; only the recommended target moves from #329 to #344.
+
