@@ -84,6 +84,16 @@ test_m02_reasomate_truth.py               (1)
 Zero node delta. This is baseline debt the contract says to **record, not fix** inside an
 unrelated gate. It is not attributable to this branch.
 
+**Re-confirmed on the pass-3 head `e4458ee`.** `provider-routing` failed on `Broader test
+suite` again (run `37657222572`, job `112915289014`): `14 failed, 1721 passed, 21 skipped,
+1 error`. Its failing/error node set is **byte-identical** to the same workflow's failure on
+`main` (`17e626cd`, run `37539664677`): sha256 `093938e8aa68086d838772a048564f44239643da7122401f697aa201573c4ce8`
+on both sides, 15 nodes. The four `test_agents_md_encoding_adjudication` nodes in that set
+are **clone-depth dependent** — they do not fail on a full local clone (absent from both the
+`main` and composed-tree full-suite logs here), so the AGENTS.md lesson in §6 does not
+introduce them. All other checks on `e4458ee` are green (mvp2-validation, engineering-scheduler,
+Full-history secret scan, Vercel Preview Comments).
+
 ## 4. What this branch is — and is not
 
 This branch is the **reconciled composition** of #329 + #342 + #343. It is a companion
