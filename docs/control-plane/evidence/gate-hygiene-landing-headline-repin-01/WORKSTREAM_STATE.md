@@ -2,6 +2,9 @@
 
 Pass: `gate-hygiene/landing-headline-repin-01`
 Reconstructed: 2026-10-07T17:06–17:58 UTC · BASE_MAIN `74e8ea53a30213db8783e6733679d2f11903de0b`
+Re-verified: continuation pass, 2026-10-07 later UTC · branch base = live `main`
+`af3a3541d9fedf8c2d38bb7a0aac56856a879523` (the `74e8ea53` above is the automation's
+17:05 fresh clone, taken before the 17:34–17:52 merges — a stale clone SHA, not the base).
 
 ## Current state
 
@@ -10,8 +13,8 @@ Reconstructed: 2026-10-07T17:06–17:58 UTC · BASE_MAIN `74e8ea53a30213db8783e6
 | canonical clone | `main`, ancestry intact, `origin/main` = `af3a3541d9fedf8c2d38bb7a0aac56856a879523` |
 | active gate | GATE-07 — durable Weaver loop (hourly bounded execution) |
 | this pass | test-debt fingerprint reconciliation (one drifted node) |
-| PR | this pass, base `main`, test + evidence only |
-| frontier | GATE-07 batch **merged and closed**; only the two AEAS PRs remain open, both conflicting |
+| PR | #347, base `main`, head `5f22022`, test + evidence only, `MERGEABLE/UNSTABLE` |
+| frontier | GATE-07 batch **merged and closed**; #337/#338 open = `BLOCKED` (AEAS authority), see below |
 
 ## What merged before this pass (sovereign action)
 
@@ -44,16 +47,47 @@ Repaired set == `tests/fixtures/baseline_node_set.txt` exactly. Delta `-1` node,
 introduced. Architecture 11/11; fingerprint guard 24/24; CP10 PASS; `api/main.py`
 2434/2600 (untouched).
 
-## Open PR inventory (live, at reconstruction)
+## Open PR inventory (live, re-measured this pass)
 
-| PR | branch | role |
-| --- | --- | --- |
-| #337 | `aeas-01-native-operator-surface` | AEAS operator surface — `CONFLICTING/DIRTY`, separate workstream |
-| #338 | `aeas-browser-runner-01` | AEAS browser runner — `CONFLICTING/DIRTY`, separate workstream |
+| PR | branch | mergeable | role |
+| --- | --- | --- | --- |
+| #337 | `aeas-01-native-operator-surface` | `MERGEABLE/UNSTABLE` | AEAS operator surface |
+| #338 | `aeas-browser-runner-01` | `CONFLICTING/DIRTY` | AEAS browser runner |
 
-Both AEAS PRs are out of scope for this pass: they conflict with `main`, they are
-large, and their own bodies scope them to an external provider boundary (Render
-browser verification while Vercel quota is unavailable). Not touched.
+Correction to the previous pass's ledger: it recorded **both** AEAS PRs as
+`CONFLICTING`. Re-measured live, `#337` is `MERGEABLE/UNSTABLE` (the `UNSTABLE` is the
+Vercel build-rate-limit status, §5 of `EVIDENCE.md`); only `#338` conflicts with `main`.
+
+## AEAS PRs are an authority boundary, not an engineering task
+
+Reconstruction resolved the question the previous pass left open — whether `#337`/`#338`
+should be composed into a superset. They must not be, and the reason is governance, not
+conflict mechanics:
+
+- `docs/control-plane/AEAS-v0.1.1.md` is `Status: FROZEN`, **`Implementation: NOT
+  AUTHORIZED`**, `Authority Ceiling: LEVEL 2 (specification only)`, `Human Authorization:
+  REQUIRED FOR ALL EXECUTION`; its freeze declaration states "No implementation is
+  authorized by this freeze." This is the state on current `main` (`af3a354`).
+- The authorization-provenance chain is normative (spec §1):
+  `ARCHITECT → AUTHORIZATION RECORD → ENGINEERING LAB → WORKER → EVIDENCE`, and "A task
+  without such a record is not authorized and must not be dispatched."
+- Both open PRs are *AEAS implementations*. `#337` adds an "AEAS-01 native operator
+  surface" (`api/lab_routes.py`, `App.tsx`, `ArkadiaNavigation.tsx`,
+  `EngineeringLabPage.tsx`); `#338` adds an "AEAS browser runner"
+  (`tools/aeas-browser-runner/**`, `api/lab_routes.py`, and the same three frontend
+  files). Neither body cites an architect-originated authorization record. The only AEAS
+  acceptance artifact on `main` is
+  `docs/control-plane/evidence/m07-aeas-freeze/ACCEPT.json`, which records
+  `aeas_implementation_activated: false` and `implementation_not_authorized: true`.
+- Composition is also **mechanically** blocked: measured on `main` `af3a354`, applying
+  `#337` then `#338` yields 29 conflict regions (`lab_routes.py` 5,
+  `EngineeringLabPage.tsx` 17, `App.tsx` 4, `ArkadiaNavigation.tsx` 3). The merge-base of
+  the two heads is `17e626c` (Merge PR #333) and `#337` is not an ancestor of `#338` —
+  divergent siblings, not a superset pair.
+
+**Classification: `#337` / `#338` = `BLOCKED` (authority).** Advancing them requires an
+architect-originated authorization record naming the bounded AEAS task, not a larger
+engineering pass. No composition, rebase, or conflict resolution was performed.
 
 ## Next bounded task
 

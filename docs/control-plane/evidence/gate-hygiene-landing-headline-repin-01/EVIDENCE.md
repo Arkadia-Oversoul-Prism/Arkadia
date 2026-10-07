@@ -27,6 +27,34 @@ staging boundary for Render browser verification while Vercel quota is unavailab
 an external/provider boundary, not repository work. This pass therefore does not touch
 them.
 
+### Continuation pass re-verification (2026-10-07, later UTC)
+
+A continuation pass re-derived every link above from live evidence rather than prose,
+and reproduced all of them. `origin/main` is still `af3a354`; this branch's base is
+`af3a354` (not 9 commits stale); `api/main.py` is 2434/2600 and `py_compile` is clean;
+the branch head is `5f22022`.
+
+The previous pass's `BASE_MAIN` column (`74e8ea53`) is the **automation's fresh clone**
+taken at 17:05 UTC, *before* the 17:34–17:52 merges landed — it is a stale clone SHA,
+not this branch's base. The live base is `af3a354`, and the repair targets
+(`tests/test_ais_capability_profile_onboarding.py` and the two evidence files) are
+untouched by those merges, so the repair remains valid and applicable.
+
+Independently re-measured in this pass:
+
+| check | result |
+| --- | --- |
+| unpatched `af3a354` full suite | 10F / 1760P / 21S / 1E — **11** nodes, `f3e73647…` |
+| repaired branch full suite | 9F / 1761P / 21S / 1E — **10** nodes, `9a54f5b4…` |
+| node-set delta | exactly **1 removed** (the repaired node), **0 introduced** |
+| `tests/architecture` | **11 passed** |
+| negative control (unpatched) | `1 failed, 3 passed` on the target file |
+| CP10 boundary judge on changed paths | **PASS** (exit 0) |
+| `main`/branch merge diff | evidence + test only, no boot code |
+
+The repaired node set equals `tests/fixtures/baseline_node_set.txt` byte-for-byte, and
+the repaired fingerprint pair is exactly the canonical pair recorded in `AGENTS.md`.
+
 ## 2. The defect
 
 `main` @ `af3a354` carries **11** failing/error nodes, but
@@ -173,7 +201,41 @@ provider `BLOCKED` is not converted into a repository defect.
 - No runtime/deployment claim is made. This is a repository-source + local-test
   claim only.
 
-## 6. Next bounded task (proposed, not executed)
+## 7. The AEAS PRs are an authority boundary, not an engineering task
+
+The previous pass recorded both AEAS PRs (#337, #338) as `CONFLICTING/DIRTY` and left
+their disposition open. Reconstruction closes that question: they must **not** be
+composed into a superset, and the reason is governance, not conflict mechanics.
+
+- `docs/control-plane/AEAS-v0.1.1.md` (on `main` `af3a354`) declares `Status: FROZEN`,
+  **`Implementation: NOT AUTHORIZED`**, `Authority Ceiling: LEVEL 2 (specification
+  only)`, and `Human Authorization: REQUIRED FOR ALL EXECUTION`. Its freeze declaration
+  states: "No implementation is authorized by this freeze."
+- The normative authorization-provenance chain (spec §1) is
+  `ARCHITECT → AUTHORIZATION RECORD → ENGINEERING LAB → WORKER → EVIDENCE`, and "A task
+  without such a record is not authorized and must not be dispatched."
+- Both PRs are *AEAS implementations*. `#337` = "AEAS-01 native Engineering Lab operator
+  surface" (`api/lab_routes.py`, `App.tsx`, `ArkadiaNavigation.tsx`,
+  `EngineeringLabPage.tsx`); `#338` = "AEAS browser runner 01: isolated execution
+  instrument" (`tools/aeas-browser-runner/**`, `api/lab_routes.py`, plus the same three
+  frontend files). Neither body cites an architect-originated authorization record.
+- The only AEAS acceptance artifact on `main` is
+  `docs/control-plane/evidence/m07-aeas-freeze/ACCEPT.json`, which records
+  `aeas_implementation_activated: false` and `implementation_not_authorized: true`.
+
+Live mergeability was also re-measured (correcting the previous pass, which recorded
+both as `CONFLICTING`): `#337` is `MERGEABLE/UNSTABLE` (the `UNSTABLE` is the Vercel
+build-rate-limit status of §5); only `#338` is `CONFLICTING/DIRTY`. Even so, composition
+is mechanically blocked — applying `#337` then `#338` on `af3a354` yields 29 conflict
+regions (`lab_routes.py` 5, `EngineeringLabPage.tsx` 17, `App.tsx` 4,
+`ArkadiaNavigation.tsx` 3), and the two heads diverge from merge-base `17e626c`
+(Merge PR #333) with `#337` not an ancestor of `#338`.
+
+**Classification: #337 / #338 = `BLOCKED` (authority).** Advancing them requires an
+architect-originated authorization record naming the bounded AEAS task. No composition,
+rebase, or conflict resolution was performed in this pass.
+
+## 8. Next bounded task (proposed, not executed)
 
 Attribution of the remaining 10 baseline debt nodes against the recorded fixture —
 each classified STALE_ASSERTION / REAL_DEFECT / ENVIRONMENT before any repair, one
