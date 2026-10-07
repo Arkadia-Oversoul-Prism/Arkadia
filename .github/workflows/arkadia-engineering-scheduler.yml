@@ -105,12 +105,18 @@ jobs:
           move = (result.get("next_move") or {}).get("id") or "NONE"
           print(f"::notice::status={result.get('status')} next_move={move}")
           print(json.dumps(result, indent=2))
-          # Orientation failure → fail job; NO_LEGAL_MOVE is clean stop (success)
-          if result.get("status") == "FAILED":
-              sys.exit(1)
+          # Publish the outcome before any failure exit. The always() report step
+          # interpolates these outputs, and with bash -e an exit 1 aborts the step,
+          # so a write after it would leave the report blank on exactly the FAILED
+          # orientation the report exists to explain (observed run 37379043890).
+          # Keep this comment free of backticks and dollar signs: the heredoc
+          # delimiter is unquoted, so the shell would expand them.
           with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
               fh.write(f"status={result.get('status')}\n")
               fh.write(f"move={move}\n")
+          # Orientation failure → fail job; NO_LEGAL_MOVE is clean stop (success)
+          if result.get("status") == "FAILED":
+              sys.exit(1)
           PY
 
       - name: Upload session evidence
@@ -124,6 +130,14 @@ jobs:
           if-no-files-found: warn
 
       - name: Session report
+        # A truthful stop must also be a legible one. `Status: NO_LEGAL_MOVE` with an
+        # empty `Move:` says the session did not proceed, but not why: the router's
+        # `blockers` — e.g. "unrecognized move status: G12-A ('merged_acceptance_pending')"
+        # — live only in engineering-session-result.json. When attention delivery is
+        # unconfigured this run log is the sole human-readable artifact, so a live
+        # frontier was reported as a clean stop with no cause (run 37523927861). The
+        # session writes the file before any failure exit, so it exists on every path;
+        # on a pull_request the runner step is skipped and the report says so.
         if: always()
         run: |
           echo "=== ARKADIA ENGINEERING SESSION ==="
@@ -133,3 +147,19 @@ jobs:
           echo "Trigger:${{ github.event_name }}"
           echo "Merge:  FORBIDDEN"
           echo "Deploy: FORBIDDEN"
+          python - << 'PY'
+          import json
+          import pathlib
+
+          result = pathlib.Path("engineering-session-result.json")
+          if not result.is_file():
+              print("Blockers: (session result unavailable)")
+          else:
+              blockers = json.loads(result.read_text(encoding="utf-8")).get("blockers") or []
+              if blockers:
+                  print("Blockers:")
+                  for blocker in blockers:
+                      print(f"  - {blocker}")
+              else:
+                  print("Blockers: none")
+          PY

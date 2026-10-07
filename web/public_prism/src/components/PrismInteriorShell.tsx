@@ -16,6 +16,7 @@ const PRIMARY = [
 ] as const;
 
 const SECONDARY = [
+  { key: 'voice', label: 'Voice Console', tone: '#00D4AA' },
   { key: 'personal-echofeild', label: 'Echo Field', tone: '#B08DE8' },
   { key: 'spiral-codex', label: 'Spiral Codex', tone: '#C9A84C' },
   { key: 'grove', label: 'Spiral Grove', tone: '#00D4AA' },
@@ -26,7 +27,7 @@ const SECONDARY = [
 function activeSurfaceFor(v: View) {
   if (v === 'novanet') return 'novanet';
   if (v === 'solariun') return 'solariun';
-  if (v === 'solspire') return 'solspire';
+  if (v === 'solspire' || v === 'voice') return 'solspire';
   if (v === 'loops' || v === 'codex' || v === 'personal-echofeild' || v === 'echofeild-matrix' || v === 'spiral-codex') return 'solariun';
   if (v === 'commune' || v === 'reasomate') return v === 'reasomate' ? 'reasomate' : 'commune';
   if (v === 'encyclopedia' || v === 'knowledge-os') return 'encyclopedia';
@@ -91,7 +92,7 @@ export default function PrismInteriorShell({ currentView, onNavigate, children }
   const sigil = identitySpine?.seed?.sigil || identitySpine?.symbolic?.sigil_seed || profile?.role_sigil || '◈';
   const nodeKey = profile?.node_key || codex?.node_key || 'private field';
   const activeSurface = activeSurfaceFor(currentView);
-  const solariunSurface = currentView === 'solspire' || currentView === 'loops' || currentView === 'codex' || currentView === 'personal-echofeild' || currentView === 'echofeild-matrix' || currentView === 'spiral-codex';
+  const solariunSurface = currentView === 'solspire' || currentView === 'voice' || currentView === 'loops' || currentView === 'codex' || currentView === 'personal-echofeild' || currentView === 'echofeild-matrix' || currentView === 'spiral-codex';
   if (solariunSurface) return <div data-testid="prism-interior-shell" style={{ minHeight: '100vh', width: '100%', maxWidth: '100vw', overflowX: 'hidden', background: '#0B0E17', color: '#F4F6F8' }}><style dangerouslySetInnerHTML={{__html:CLARITY_CSS}}/><IdentityPersistence displayName={displayName} role={role} username={username} sigil={sigil} nodeKey={nodeKey} /><NovaNetRail currentView={currentView} onNavigate={onNavigate} />{children}</div>;
   return <div data-testid="prism-interior-shell" style={{ minHeight: '100vh', width: '100%', maxWidth: '100vw', overflowX: 'hidden', background: '#0B0E17', color: '#F4F6F8' }}><header style={{ position: 'sticky', top: 0, zIndex: 30, width: '100%', boxSizing: 'border-box', borderBottom: '1px solid rgba(255,255,255,.10)', background: 'rgba(12,16,26,.96)', backdropFilter: 'blur(22px)', WebkitBackdropFilter: 'blur(22px)' }}><div style={{ maxWidth: 1180, width: '100%', margin: '0 auto', padding: '11px 16px 9px', boxSizing: 'border-box' }}><div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>{profile?.avatar_url ? <img src={profile.avatar_url} alt="" style={{ width: 30, height: 30, flexShrink: 0, borderRadius: 10, objectFit: 'cover', border: '1px solid rgba(201,168,76,.30)' }} /> : <div style={{ width: 30, height: 30, flexShrink: 0, borderRadius: 10, display: 'grid', placeItems: 'center', background: 'rgba(201,168,76,.10)', border: '1px solid rgba(201,168,76,.30)', color: '#E6C96A', fontFamily: 'Georgia,serif' }}>{sigil}</div>}<div style={{ minWidth: 0, flex: 1 }}><div style={{ display: 'flex', gap: 8, alignItems: 'baseline', minWidth: 0 }}><span style={{ font: '700 10px Inter,system-ui,sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</span><span style={{ font: '600 8px Inter,system-ui,sans-serif', color: 'rgba(244,246,248,.52)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{role}</span>{username && <span style={{ font: '700 8px ui-monospace,monospace', color: 'rgba(230,201,106,.72)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{username}</span>}</div><div style={{ font: '700 7px ui-monospace,monospace', color: 'rgba(244,246,248,.38)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nodeKey}</div></div><div style={{ flexShrink: 0, font: '700 7px ui-monospace,monospace', letterSpacing: '.16em', textTransform: 'uppercase', color: 'rgba(65,230,190,.82)' }}>PRISM · AUTHENTICATED</div></div><div style={{ display: 'flex', gap: 4, overflowX: 'auto', overflowY: 'hidden', paddingTop: 10, scrollbarWidth: 'none' }}>{PRIMARY.map(s => <SurfaceButton key={s.key} active={activeSurface === s.key} label={s.label} sub={s.sub} sigil={s.sigil} tone={s.tone} onClick={() => onNavigate(s.key)} />)}</div></div></header><main style={{ width: '100%', minWidth: 0, maxWidth: '100vw' }}>{children}</main></div>;
 }

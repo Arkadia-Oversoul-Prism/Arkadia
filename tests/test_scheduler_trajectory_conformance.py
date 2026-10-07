@@ -14,7 +14,11 @@ a trajectory that nests `moves` under `trajectory` must be rejected.
 """
 from __future__ import annotations
 
+import json
 import re
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -202,6 +206,118 @@ def test_negative_control_read_only_detector_flags_write():
     assert _non_read_scopes({"contents": "read", "actions": "read"}) == set()
 
 
+# --- session report truthfulness ----------------------------------------------------
+#
+# The hourly stop must be legible, not merely non-blank. `Status: NO_LEGAL_MOVE` with
+# an empty `Move:` says the session did not proceed; the router's `blockers` say why
+# (e.g. "unrecognized move status: G12-A ('merged_acceptance_pending')"). Those live
+# only in `engineering-session-result.json`, and with attention delivery unconfigured
+# the run log is the sole human-readable artifact. Observed live: run 37523927861
+# reported a clean stop while its session result named two unroutable frontier moves,
+# so a live frontier read as "nothing to do".
+#
+# The detector is pure and the negative control feeds it the pre-fix report body, so
+# the guard cannot be disarmed by reverting the report step to echo-only.
+
+
+def _report_step(workflow):
+    for job in (workflow.get("jobs") or {}).values():
+        if not isinstance(job, dict):
+            continue
+        for step in job.get("steps") or []:
+            if step.get("name") == "Session report":
+                yield step
+
+
+_REPORT_HEREDOC_RE = re.compile(
+    r"python - << 'PY'\n(.*?)\n\s*PY\s*$", re.DOTALL | re.MULTILINE
+)
+
+
+def _report_program(script: str) -> str | None:
+    """The blockers program embedded in the report step, or None if absent."""
+    match = _REPORT_HEREDOC_RE.search(script)
+    if not match:
+        return None
+    return textwrap.dedent(match.group(1))
+
+
+def _report_names_blockers(script: str) -> bool:
+    """True iff the report step reads the session result and prints its blockers."""
+    program = _report_program(script)
+    if program is None:
+        return False
+    return "engineering-session-result.json" in program and "blockers" in program
+
+
+def _live_report_step() -> dict:
+    workflow = yaml.safe_load(SCHEDULER_WORKFLOW.read_text(encoding="utf-8"))
+    steps = list(_report_step(workflow))
+    assert len(steps) == 1, "expected exactly one 'Session report' step"
+    return steps[0]
+
+
+def _run_report_program(program: str, cwd: Path) -> str:
+    proc = subprocess.run(
+        [sys.executable, "-c", program], cwd=cwd, capture_output=True, text=True
+    )
+    assert proc.returncode == 0, f"report program failed:\n{proc.stderr}"
+    return proc.stdout
+
+
+def test_session_report_runs_even_after_a_failure_exit():
+    """The report must execute on the FAILED orientation it exists to explain."""
+    step = _live_report_step()
+    assert step.get("if") == "always()", (
+        "the session report is not gated on always(); a FAILED session aborts the "
+        "runner step and the report would not run to name the cause"
+    )
+
+
+def test_session_report_surfaces_router_blockers(tmp_path: Path):
+    """The report must print the router's blockers, not just the status."""
+    step = _live_report_step()
+    program = _report_program(step.get("run") or "")
+    assert program, "the session report no longer embeds a blockers program"
+
+    blocker = (
+        "unrecognized move status: G12-A ('merged_acceptance_pending'), "
+        "G12-C ('merged_acceptance_pending') \u2014 cannot route"
+    )
+    (tmp_path / "engineering-session-result.json").write_text(
+        json.dumps({"status": "NO_LEGAL_MOVE", "blockers": [blocker]}),
+        encoding="utf-8",
+    )
+
+    out = _run_report_program(program, tmp_path)
+    assert blocker in out, f"report did not name the blocker:\n{out}"
+    assert "Blockers:" in out
+
+
+def test_session_report_states_an_absent_session_result(tmp_path: Path):
+    """On a pull_request the runner step is skipped; the report must still run."""
+    step = _live_report_step()
+    program = _report_program(step.get("run") or "")
+    out = _run_report_program(program, tmp_path)  # no session result written
+    assert "unavailable" in out.lower(), out
+
+
+def test_negative_control_pre_fix_report_is_silent():
+    """The pre-fix echo-only report must be reported as not naming blockers."""
+    pre_fix = (
+        'echo "=== ARKADIA ENGINEERING SESSION ==="\n'
+        'echo "SHA:    ${{ steps.sha.outputs.sha }}"\n'
+        'echo "Status: ${{ steps.runner.outputs.status }}"\n'
+        'echo "Move:   ${{ steps.runner.outputs.move }}"\n'
+        'echo "Merge:  FORBIDDEN"\n'
+    )
+    assert not _report_names_blockers(pre_fix), (
+        "the detector does not flag the pre-fix echo-only report; it cannot detect "
+        "the silent-stop defect it claims to detect"
+    )
+    assert _report_names_blockers(_live_report_step().get("run") or "")
+
+
 def test_negative_control_session_gate_detector_flags_ungated():
     ungated = {
         "jobs": {
@@ -230,3 +346,86 @@ def test_negative_control_session_gate_detector_flags_ungated():
         }
     }
     assert not _ungated_session_steps(gated)
+
+
+# --- the session's failure path must still report the outcome -----------------------
+#
+# `Session + Engineering Runner` writes `status`/`move` to `$GITHUB_OUTPUT` *after* the
+# `sys.exit(1)` guard, so on a `FAILED` orientation the job dies before those outputs are
+# written. The `if: always()` "Session report" step then interpolates `steps.runner.outputs.*`
+# — which are empty — and prints `Status:` / `Move:` with nothing after them.
+#
+# Observed in the live hourly session (`run 37379043890`, `main` @ `451e41a3`, 2026-10-05):
+# the report step printed the repository SHA and the `FORBIDDEN` lines, but `Status:` and
+# `Move:` were blank, while the failure itself was real (`invalid trajectory structure`).
+# The one step whose job is to summarise the session was silent about why it stopped — the
+# same "the stop must be visible" defect class the worker→attention seam guard pins one
+# layer up.
+#
+# These tests assert the ordering invariant (nothing may exit before the outputs are
+# written) and pin a negative control for the detector, so a reordering that reintroduces
+# the silent failure reddens CI instead of shipping.
+
+
+def _session_step(workflow):
+    steps = list(_session_steps(workflow))
+    assert len(steps) == 1, "expected exactly one session step"
+    return steps[0]
+
+
+def _reports_status_before_exiting(script: str) -> bool:
+    """Whether every `$GITHUB_OUTPUT` write precedes the earliest failure exit.
+
+    A `run:` block executes with `bash -e`, so an `exit 1` aborts the step; any
+    `$GITHUB_OUTPUT` write after it never lands, and the `if: always()` report step
+    interpolates an empty value. Two things keep the detector measuring the decision
+    rather than the prose around it: comments are dropped (a comment mentioning
+    `exit 1` is not a failure path), and the anchor is the output write itself, not a
+    `status=` substring that also appears in a `::notice::` print.
+    """
+    code = "\n".join(
+        line for line in script.splitlines() if not line.lstrip().startswith("#")
+    )
+    output_writes = [m.start() for m in re.finditer(r"GITHUB_OUTPUT", code)]
+    exits = [m.start() for m in re.finditer(r"\bexit\s*\(?\s*1\s*\)?", code)]
+    if not output_writes:
+        return False
+    if not exits:
+        return True
+    return min(exits) >= max(output_writes)
+
+
+def test_negative_control_output_ordering_detector_flags_exit_before_write():
+    silent = (
+        'if bad:\n    sys.exit(1)\n'
+        'with open(os.environ["GITHUB_OUTPUT"], "a") as fh:\n    fh.write(f"status=X\\n")\n'
+    )
+    assert not _reports_status_before_exiting(silent)
+    ordered = (
+        'with open(os.environ["GITHUB_OUTPUT"], "a") as fh:\n    fh.write(f"status=X\\n")\n'
+        'if bad:\n    sys.exit(1)\n'
+    )
+    assert _reports_status_before_exiting(ordered)
+    assert not _reports_status_before_exiting("print('no outputs written at all')\n")
+
+
+def test_negative_control_output_ordering_detector_ignores_comments():
+    """A comment mentioning `exit 1` is not a failure path."""
+    prose = (
+        "# an exit 1 here would abort the step\n"
+        'with open(os.environ["GITHUB_OUTPUT"], "a") as fh:\n    fh.write("status=X\\n")\n'
+    )
+    assert _reports_status_before_exiting(prose)
+
+
+def test_session_reports_status_and_move_before_any_failure_exit():
+    """A failing session must still publish `status`/`move` for the report step."""
+    workflow = yaml.safe_load(SCHEDULER_WORKFLOW.read_text(encoding="utf-8"))
+    script = _session_step(workflow)["run"]
+    assert _reports_status_before_exiting(script), (
+        "the session step exits before writing status/move to $GITHUB_OUTPUT; on a FAILED "
+        "orientation the `if: always()` report step interpolates empty values and prints a "
+        "blank Status/Move, hiding the reason the hourly session stopped"
+    )
+    assert "status=" in script and "move=" in script
+

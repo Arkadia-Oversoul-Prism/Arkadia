@@ -23,10 +23,6 @@ on:
       # scheduler can regress to reporting "all complete" for a live frontier.
       - 'tests/test_engineering_router_status_truthfulness.py'
       - 'tests/test_engineering_scheduler_bootstrap.py'
-      # The closure guard judges the *other* direction of the same seam: every
-      # schema-legal move status must be routable or named unroutable. A schema
-      # that admits a status the router skips silently reddens nothing without it.
-      - 'tests/test_router_schema_vocabulary_closure.py'
       # The worker→attention composition seam and its attention half-guard. The
       # seam is the layer the hourly scheduler actually invokes; both were pinned
       # but executed by no workflow, so the chain could break between the router
@@ -34,6 +30,10 @@ on:
       # identical to the pull_request filter below.
       - 'tests/test_attention_truthfulness.py'
       - 'tests/test_worker_attention_composition.py'
+      # The closure guard judges the *other* direction of the same seam: every
+      # schema-legal move status must be routable or named unroutable. A schema
+      # that admits a status the router skips silently reddens nothing without it.
+      - 'tests/test_router_schema_vocabulary_closure.py'
   # The gate previously ran only on push to main, so it could never block a
   # broken PR — it could only report after the merge was already canonical.
   pull_request:
@@ -55,9 +55,9 @@ on:
       # pull_request filter is judged by nothing until after the merge.
       - 'tests/test_engineering_router_status_truthfulness.py'
       - 'tests/test_engineering_scheduler_bootstrap.py'
-      - 'tests/test_router_schema_vocabulary_closure.py'
       - 'tests/test_attention_truthfulness.py'
       - 'tests/test_worker_attention_composition.py'
+      - 'tests/test_router_schema_vocabulary_closure.py'
   workflow_dispatch:
 
 jobs:
