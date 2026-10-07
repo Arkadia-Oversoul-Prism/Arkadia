@@ -548,23 +548,41 @@ jobs:
           retention-days: 30
       - name: Enforce CP10 executable gates
         if: always()
+        env:
+          PHASE3_HARNESS: ${{ steps.phase3_harness.outcome }}
+          PHASE3_COUNCIL: ${{ steps.phase3_council.outcome }}
+          PHASE4_PLANNER: ${{ steps.phase4_planner.outcome }}
+          PHASE5_EXECUTION: ${{ steps.phase5_execution.outcome }}
+          PHASE7_CALIBRATION: ${{ steps.phase7_calibration.outcome }}
+          PHASE8_POSSIBILITY: ${{ steps.phase8_possibility.outcome }}
+          PHASE9_DECISION: ${{ steps.phase9_decision.outcome }}
+          PHASE10_BINDING: ${{ steps.phase10_binding.outcome }}
+          LAB: ${{ steps.lab.outcome }}
+          BACKEND: ${{ steps.backend.outcome }}
+          BACKEND_READY: ${{ steps.backend_ready.outcome }}
+          API: ${{ steps.api.outcome }}
+          FRONTEND_READY: ${{ steps.frontend_ready.outcome }}
+          BROWSER: ${{ steps.browser.outcome }}
+          SECURITY: ${{ steps.security.outcome }}
+          MUTATION: ${{ steps.mutation.outcome }}
         run: |
-          test '${{ steps.phase3_harness.outcome }}' = success
-          test '${{ steps.phase3_council.outcome }}' = success
-          test '${{ steps.phase4_planner.outcome }}' = success
-          test '${{ steps.phase5_execution.outcome }}' = success
-          test '${{ steps.phase7_calibration.outcome }}' = success
-          test '${{ steps.phase8_possibility.outcome }}' = success
-          test '${{ steps.phase9_decision.outcome }}' = success
-          test '${{ steps.phase10_binding.outcome }}' = success
-          test '${{ steps.lab.outcome }}' = success
-          test '${{ steps.backend.outcome }}' = success
-          test '${{ steps.backend_ready.outcome }}' = success
-          test '${{ steps.api.outcome }}' = success
-          test '${{ steps.frontend_ready.outcome }}' = success
-          test '${{ steps.browser.outcome }}' = success
-          test '${{ steps.security.outcome }}' = success
-          test '${{ steps.mutation.outcome }}' = success
+          set -eu
+          test "$PHASE3_HARNESS" = success
+          test "$PHASE3_COUNCIL" = success
+          test "$PHASE4_PLANNER" = success
+          test "$PHASE5_EXECUTION" = success
+          test "$PHASE7_CALIBRATION" = success
+          test "$PHASE8_POSSIBILITY" = success
+          test "$PHASE9_DECISION" = success
+          test "$PHASE10_BINDING" = success
+          test "$LAB" = success
+          test "$BACKEND" = success
+          test "$BACKEND_READY" = success
+          test "$API" = success
+          test "$FRONTEND_READY" = success
+          test "$BROWSER" = success
+          test "$SECURITY" = success
+          test "$MUTATION" = success
           if grep -q 'Authenticated Engineering Lab lens: PASS' cp10-browser.log 2>/dev/null; then
             echo 'Authenticated browser Engineering Lab lens: PASS'
           elif grep -q 'DEFERRED BY ACCEPTANCE CRITERIA' cp10-browser.log 2>/dev/null; then
@@ -572,5 +590,5 @@ jobs:
           else
             echo 'Authenticated browser Engineering Lab lens: UNKNOWN (see cp10-browser.log)'
           fi
-          echo 'Executable CP10 gates: PASS (browser step outcome success).'
+          echo 'Executable CP10 gates: PASS.'
           exit 0
