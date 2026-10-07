@@ -92,6 +92,30 @@ Full suite `python -m pytest tests/ -q -rEf --continue-on-collection-errors`:
 debt (steward-filter, AIS/R1/R3, m02-reasomate, CE-01 `weaver.autonomy` collision),
 unrelated to this change and recorded, not fixed.
 
+### CI reconciliation (`provider-routing.yml`, job `112844663445`)
+
+`provider-routing` is **red on `main` itself**, not by this change. The job runs the
+canonical command `python -m pytest tests/ -q -rEf --continue-on-collection-errors`
+(`.github/workflows/provider-routing.yml:42`), the same one used above. Extracted
+failing-node sets:
+
+| revision | run / job | failing nodes | sha256 | summary |
+| --- | --- | --- | --- | --- |
+| `main` @ `17e626cd` | `37539664677` / `112529281094` | 14 | `2d523ab3277db33c6a3d027cd527ea34e3bbbc92c6bef440a84042b2cdad541f` | 14F / 1581P / 20S / 1E |
+| PR #342 @ `f2027d3f` | `37636691316` / `112844663445` | 14 | `2d523ab3277db33c6a3d027cd527ea34e3bbbc92c6bef440a84042b2cdad541f` | 14F / 1710P / 20S / 1E |
+
+**Identical 14-node set.** The 1 `ERROR` is the pre-existing CE-01
+`tests/test_autonomy.py` module-vs-package collision present in both. The PR's
+`+129` passed relative to the older `main` run is the accumulation of other merges
+between `17e626cd` and `74e8ea5`, not this change. The new guard
+`tests/test_router_clean_stop_contract.py` appears in neither failure nor error list;
+had it failed or errored the node set would differ, so it passed in CI.
+
+The absolute node count differs by environment (local 11 vs CI 14) — the documented
+dependency/PYTHONPATH delta in this repo, not drift. The load-bearing invariant holds
+within each environment: baseline vs change is node-for-node identical (CI `2d523ab3…`,
+local `f3e73647…`).
+
 ## Remaining uncertainty
 
 - Lane 1 (PR #329) is *not* auto-satisfied by this PR: its strict xfail is declared at
