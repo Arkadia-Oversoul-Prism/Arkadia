@@ -1,4 +1,6 @@
 import json
+import os
+import pytest
 
 from lab.engineering_lab import gateway as gateway_mod
 from lab.engineering_lab.gateway import ModelGateway, ModelResponse
@@ -80,3 +82,68 @@ def test_natlas_gradio_adapter_uses_real_event_contract(monkeypatch):
     assert calls[1][0].endswith("/gradio_api/call/generate/evt-123")
     payload = json.loads(calls[0][1].decode())
     assert payload["data"][0] == json.dumps([{"role": "user", "content": "Hello"}], ensure_ascii=False)
+
+
+@pytest.mark.asyncio
+async def test_native_natlas_route_live_external_gradio(monkeypatch):
+    if os.environ.get("N_ATLAS_LIVE_TEST") != "1":
+        pytest.skip("live external N-ATLaS validation is opt-in")
+
+    import api.lab_routes as lab_routes
+
+    class FakeRuntime:
+        def get_session(self, session_id, subject_uid):
+            return {
+                "session_id": session_id,
+                "subject_ref": subject_uid,
+                "workspace_ref": "WS-live-natlas",
+                "agent_id": "AGT-live-natlas",
+                "state": "AUTHORIZED",
+                "authorization_ref": "AUTH-live-natlas",
+            }
+
+    class FakeStore:
+        def __init__(self):
+            self.runs = []
+            self.evidence = []
+        def create_run(self, run):
+            self.runs.append(run)
+        def update_run(self, *args, **kwargs):
+            return None
+        def save_evidence(self, evidence):
+            self.evidence.append(evidence)
+
+    class FakeStream:
+        def __init__(self):
+            self.events = []
+        def emit(self, **kwargs):
+            self.events.append(kwargs)
+
+    store = FakeStore()
+    stream = FakeStream()
+    monkeypatch.setattr(lab_routes, "get_runtime", lambda: FakeRuntime())
+    monkeypatch.setattr(lab_routes, "get_store", lambda: store)
+    monkeypatch.setattr(lab_routes, "get_event_stream", lambda: stream)
+
+    result = await lab_routes.n_atlas_run(
+        lab_routes.NAtlasRunBody(
+            session_id="SES-live-natlas",
+            prompt="Respond briefly: What is the purpose of evidence in a governed AI workflow?",
+            model="N-ATLaS",
+        ),
+        user={"uid": "subject-live-natlas"},
+    )
+
+    assert result["provider"] == "n_atlas"
+    assert result["model"] == "N-ATLaS"
+    assert result["evaluation"]["passed"] is True
+    assert result["response"].strip()
+    assert len(store.evidence) == 1
+    assert store.evidence[0].detail["integration"] == "external Gradio N-ATLaS runtime"
+    event_types = [event["event_type"] for event in stream.events]
+    assert event_types == [
+        "RUN_STARTED",
+        "MODEL_TURN",
+        "EVIDENCE_RECORDED",
+        "RUN_FINISHED",
+    ]
