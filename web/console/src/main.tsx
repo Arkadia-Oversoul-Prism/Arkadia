@@ -10,6 +10,7 @@ import { WorkConsequence } from "./surfaces/WorkConsequence";
 import { Authority } from "./surfaces/Authority";
 import "./styles.css";
 import { MieLab } from "./surfaces/MieLab";
+import { NAtlasLab } from "./surfaces/NAtlasLab";
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
         <Route path="/work" element={<WorkConsequence />} />
         <Route path="/authority" element={<Authority />} />
         <Route path="/mie-lab" element={<MieLab />} />
+        <Route path="/n-atlas-lab" element={<NAtlasLab />} />
         <Route path="*" element={<Spine />} />
       </Routes>
     </Layout>
