@@ -189,6 +189,29 @@ jobs:
           name: ${{ matrix.id }}-evidence
           path: evidence/
 
+  native-golden:
+    name: native-arkadia-golden-workflow
+    needs: beta
+    if: ${{ needs.beta.result == 'success' }}
+    runs-on: ubuntu-latest
+    env:
+      N_ATLAS_BASE_URL: https://koladeodunope-ednai-natlas-runtime.hf.space
+      N_ATLAS_PROTOCOL: gradio
+      N_ATLAS_MODEL: N-ATLaS
+      N_ATLAS_LIVE_TEST: "1"
+      N_ATLAS_LIVE_EVIDENCE_DIR: evidence
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Arkadia runtime dependencies
+        run: python -m pip install --quiet -r requirements.txt
+      - name: Execute Arkadia native N-ATLaS golden path
+        run: python -m pytest -q tests/test_natlas_developer_lab.py -k native_natlas_route_live_external_gradio
+      - name: Upload native golden evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: natlas-native-golden-evidence
+          path: evidence/
+
   bundle:
     name: bundle-beta-evidence
     needs: beta
