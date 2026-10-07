@@ -120,6 +120,32 @@ Regression boundary: additive files only. No `weaver/`, no `api/`, no workflow, 
 PR is modified. The live full-suite failing node-set is therefore expected to be unchanged;
 the guard adds one node.
 
+## CI diagnosis — `Provider Routing Verification` is red on the baseline, not on a PR
+
+Measured this pass (read-only, GitHub API):
+
+* The only failing run on record is run `37539664677`, `head_sha`
+  `17e626cd27f8ea1e31f711fb787e6c7e5027ec70` — the **merge of PR #333**, an ancestor of
+  current `main` (`74e8ea53`). It was `event: workflow_dispatch`, `pull_requests: []`, so it
+  is not judging any open PR's head.
+* Steps 6 (`Targeted K2 and key-pool regressions`) and 7 (`Relevant architecture regression`)
+  **succeed**. The failure is step 8, `Broader test suite`, which runs
+  `python -m pytest tests/ -q -rEf --continue-on-collection-errors`.
+
+That step is structurally red for **any** revision carrying the documented baseline debt: the
+suite exits non-zero on 10 pre-existing failures + 1 collection error, and the step has no
+`continue-on-error` and no tolerance. There is no commit whose suite is green, so a red
+`Provider Routing Verification` on `main` is the baseline, not a regression. Confirming the
+failing node-set locally reproduces `main`'s recorded fingerprint `f3e73647…` (see above),
+so no open PR's head is implicated.
+
+Consequence for the batch: a PR whose path filter selects this workflow (any `weaver/**`
+change) cannot obtain a green `Provider Routing Verification` without either (a) repairing
+the baseline debt — a separate bounded workstream, explicitly out of scope here — or
+(b) making the workflow's `Broader test suite` step a **reported** diagnostic rather than a
+hard gate, which is a CI-contract change and therefore sovereign-gated. Neither is executed
+by this pass; this is a diagnosis, not a proposed patch.
+
 ## Remaining uncertainty
 
 * The reconciliation rule is a **decision record**, not an implementation. Materializing
