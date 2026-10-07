@@ -31,10 +31,10 @@ export function setTokenProvider(fn: TokenProvider): void {
 
 const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? "";
 
-async function get<T>(path: string, opts: { auth?: boolean; signal?: AbortSignal } = {}): Promise<T> {
+async function get<T>(path: string, opts: { auth?: boolean; signal?: AbortSignal; token?: string } = {}): Promise<T> {
   const headers: Record<string, string> = {};
   if (opts.auth !== false) {
-    const token = tokenProvider();
+    const token = opts.token ?? tokenProvider();
     if (token) headers["Authorization"] = `Bearer ${token}`;
   }
   const res = await fetch(`${BASE}${path}`, { method: "GET", headers, signal: opts.signal });
@@ -57,10 +57,10 @@ async function get<T>(path: string, opts: { auth?: boolean; signal?: AbortSignal
   return parsed as T;
 }
 
-async function post<T>(path: string, body: unknown, opts: { auth?: boolean } = {}): Promise<T> {
+async function post<T>(path: string, body: unknown, opts: { auth?: boolean; token?: string } = {}): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (opts.auth !== false) {
-    const token = tokenProvider();
+    const token = opts.token ?? tokenProvider();
     if (token) headers["Authorization"] = `Bearer ${token}`;
   }
   const res = await fetch(`${BASE}${path}`, { method: "POST", headers, body: JSON.stringify(body) });
