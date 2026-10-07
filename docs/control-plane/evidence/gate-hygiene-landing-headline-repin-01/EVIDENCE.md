@@ -133,7 +133,34 @@ Neither merge introduced a failure. #334's diff
 (`.github/workflows/weaver-mvp2-validation.yml`, evidence, `tests/test_router_schema_vocabulary_closure.py`)
 is present on `main` (`git cat-file -e af3a354:tests/test_router_schema_vocabulary_closure.py`).
 
-## 5. Remaining uncertainty
+## 5. CI on the PR head — Vercel failure is a provider boundary, not this diff
+
+`gh pr view 347` reports `mergeable=MERGEABLE/UNSTABLE`. The `UNSTABLE` is the two
+Vercel commit statuses. They must be attributed, not assumed:
+
+| status context | on `main` `af3a354` | on this PR head `7611786` | `target_url` |
+|---|---|---|---|
+| `Vercel – arkadia-prism` | success | **failure** | `vercel.com/arkadia-prism?upgradeToPro=build-rate-limit` |
+| `Vercel – console` | failure | failure | `vercel.com/arkadia-prism?upgradeToPro=build-rate-limit` |
+| `Full-history secret scan` (check-run) | success | **success** | — |
+
+Both failures carry the **same** `?upgradeToPro=build-rate-limit` target — the Vercel
+free-tier **build rate limit**, i.e. an external provider quota boundary. This is the
+same boundary the two open AEAS PRs name in their own bodies ("Render browser
+verification while Vercel quota is unavailable").
+
+It is **not attributable to this diff**: the PR changes exactly three paths, all of
+them under `tests/` and `docs/` (`gh pr view 347 --json files`), and contains **no**
+`web/public_prism/**` build input. `sg-02-fe-2-v.yml` is path-filtered and correctly
+does not run. The `arkadia-prism` flip success→failure between `af3a354` and this head
+is quota exhaustion over time, not a source change — `af3a354`'s own status was
+recorded while quota was still available.
+
+The required gate for this PR — the full-history secret scan — is **success**. The
+Vercel boundary is recorded as `BLOCKED` (provider), and per the standing rule a
+provider `BLOCKED` is not converted into a repository defect.
+
+## 6. Remaining uncertainty
 
 - The **other 10 debt nodes are untouched and unattributed here** — this pass
   repairs exactly one drifted node. They are the recorded baseline and are not
