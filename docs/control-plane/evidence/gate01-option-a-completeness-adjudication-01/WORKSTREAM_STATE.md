@@ -25,6 +25,9 @@
 - Proof test + 6 traversal consumers: **48 passed**; `tests/architecture`: **11 passed**
 - Full-suite failing/error node-set delta: **-1** (this PR's own node only), no new node
 - CP10 boundary judge: PASS; `py_compile api/main.py`: OK (2434/2600, untouched)
+- CI (run `37689596866`, head `dd398cb1`): the PR's own proof test is **green** — absent
+  from the `FAILED` list. The remaining 15 failing/error nodes are byte-identical
+  (sha256 `033b9e55…`) to `main` `17e626cd2` (run `37539664677`) — pre-existing debt.
 
 ## Regression boundary
 Two files touched, both inside the hunk the PR already introduced:

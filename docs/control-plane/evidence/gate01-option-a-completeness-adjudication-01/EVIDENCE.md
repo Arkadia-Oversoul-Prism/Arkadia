@@ -83,11 +83,43 @@ before: dfb8a55053694dfe2f16bc6c6c094f7b31a79851b03c75fd458f4a87dd562bf3  (22 no
 after:  4ede2e044de2b27873e97ce3f1ac1dfe6fefbbd69fc1250d84bdde2e5e390f3e  (21 nodes)
 ```
 
+## CI observation (post-push, head `dd398cb1`)
+
+Run `37689596866` (`Provider Routing Verification`, head
+`dd398cb1ad24675263c5f57b84d6213da32333c2`): steps 1–7 success, step 8
+**Broader test suite** failure. Summary:
+`14 failed, 1760 passed, 21 skipped, 2 warnings, 1 error in 141.06s`.
+
+Critically: `tests/test_ark_200k_gate_01_portfolio_initiative.py` does **not** appear in
+the `FAILED` list — **the PR's own proof test passes in CI**. The one node this PR was
+opened to add is green there.
+
 ## Red checks, attributed rather than hidden
 
 - `provider-routing` → **Broader test suite** step fails on this PR's head. It **also fails
-  on `main`** (`17e626cd2`, run `37539664677`), so it is pre-existing and not attributable
-  to this PR. Classified pre-existing, not fixed here (baseline-debt rule).
+  on `main`** (`17e626cd2`, run `37539664677`, summary `14 failed, 1581 passed, 20 skipped,
+  1 error in 141.21s`). Classified pre-existing, not fixed here (baseline-debt rule).
+
+  Attribution is by **node identity**, not by count (repo rule — passed counts move with how
+  many tests are present; here 1581 vs 1760 because `main` advanced between the two runs).
+  The 15 `FAILED`/`ERROR` nodes are **byte-identical** on both revisions:
+
+  ```
+  main 17e626cd2 (run 37539664677) : 15 nodes, sha256 033b9e555a66dcfb485c159d26c6fbf544f30f039d9b8e07bd9a26db0fe452d0
+  PR   dd398cb1 (run 37689596866) : 15 nodes, sha256 033b9e555a66dcfb485c159d26c6fbf544f30f039d9b8e07bd9a26db0fe452d0
+  only in main: []   only in PR: []
+  ```
+
+  Nodes: 4× `test_agents_md_encoding_adjudication` (full-history clone only), `test_ais_capability_profile_onboarding`,
+  `test_ais_w2_living_gate_grove_handoff`, `test_identity_spine_w1`, `test_m02_reasomate_truth`,
+  2× `test_solspire_r1_governance_convergence`, `test_solspire_r3_execution_runtime`,
+  3× `test_steward_filter`, `ERROR tests/test_autonomy.py` (CE-01).
+
+  The local full-suite run on this same tree reports 20 failed / 1754 passed: the extra
+  nodes are the full-history `test_agents_md_encoding_adjudication` family and
+  clone-depth-dependent nodes, not new defects. This is why the invariant is the node set
+  compared **within one environment**, which the local before/after hashes above do.
+
 - `Vercel – arkadia-prism` / `Vercel – console`: provider rate limit
   `api-deployments-free-per-day` (>100 deployments/day on the free tier), and a
   pre-existing failure on `main`. Not a code defect.
