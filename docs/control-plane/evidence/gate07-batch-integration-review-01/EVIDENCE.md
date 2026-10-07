@@ -1,10 +1,17 @@
-# Gate-07 — composed-batch integration review (PRs #329, #331, #332, #334, #335, #336)
+# Gate-07 — composed-batch integration review (PRs #329, #331, #332, #334, #335, #336, #340, #344)
 
 **Workstream:** `gate07/batch-integration-review-01`
 **Authority:** review + evidence only. No merge, no push to `main`, no mutation of any subject
 PR, no scope expansion.
-**Status:** IMPLEMENTED — integration measured; one released serialization constraint identified;
-subject PRs are individually mergeable today; the constraint applies only to a *batch* merge.
+**Status:** IMPLEMENTED — integration measured twice; the released serialization constraint is
+identified and now covers the second conflict seam (#334 × #344); subject PRs are individually
+mergeable today; the constraint applies only to a *batch* merge.
+
+> **Pass 2 (§7) supersedes the batch scope in §1–§6.** The pass-1 batch (#329, #331, #332, #334,
+> #335, #336) is stale: four of its members have been superseded by **#344**
+> (`gate07/strict-xfail-reconciliation-companion-01`, head `0127780c`), and the whole-batch
+> superset {#331, #332, #334, #335, #336, #340, #344} now composes and executes with **zero
+> regression**. §1–§6 remain as the pass-1 record; read §7 for the current integration truth.
 
 ## 1. Why this pass exists
 
@@ -147,3 +154,125 @@ Both were already recorded by the subject PRs and are **not** this pass's to rep
   order either alone advertises as conflict-free** — GitHub will present the same three
   conflicts. Merge the batch as a reviewed whole using §3's union so no guard is dropped from
   either path filter.
+
+---
+
+## 7. Pass 2 — the batch has moved; re-measured with #344 in the union
+
+Pass 1 measured six PRs against `main` @ `74e8ea5`. Between passes the batch changed shape, so
+the pass-1 batch is **superseded**. Pass 2 re-derived the union from live evidence, composed it,
+and executed it. No subject PR was mutated; no branch other than this one was touched.
+
+### 7.1 Reconstruction (live, this pass)
+
+| item | measured value |
+|---|---|
+| canonical `main` | `74e8ea53a30213db8783e6733679d2f11903de0b` (unchanged) |
+| superseding PR | **#344** `gate07/strict-xfail-reconciliation-companion-01` @ `0127780cb8013ec48976330f61cc6c17ec142333` (open, mergeable, moving under an active session) |
+| pass-2 union | {#331, #332, #334, #335, #336, #340, #344} |
+| #341 head (this PR) | `e66a5f1935cc74d816fe10237885bd5742c18951` |
+
+### 7.2 Supersession, verified by per-file content parity (not by prose)
+
+Each of #329/#330/#342/#343 was compared **file by file** against #344's head tree:
+
+| superseded | file | verdict |
+|---|---|---|
+| #329 | `.github/workflows/weaver-mvp2-validation.yml` | **same bytes** as #344 |
+| #329 | `tests/test_worker_attention_composition.py` | DIFF — #344 removes #329's `strict=True` xfail and re-materializes the assertion as a live invariant (`CLEAN_STOP_BLOCKER` sentinel) |
+| #342 | all 5 files (test, bus, router, 2 docs) | **same bytes** as #344 |
+| #343 | all 4 files (`AGENTS.md`, test, 2 docs) | **same bytes** as #344 |
+| #330 | 2 evidence docs | 1 same, 1 DIFF (`WORKSTREAM_STATE.md`) |
+
+So #344 carries #342 and #343 **byte-identically**, and supersedes #329 by *resolving* it (the
+strict xfail flips to a passing assertion). Merging #329/#330/#342/#343 alongside #344 is
+redundant; merging them *instead of* #344 would drop the clean-stop repair.
+
+### 7.3 The second conflict seam — #334 × #344, and why the pass-1 union still holds
+
+#344's contribution to `.github/workflows/weaver-mvp2-validation.yml` is **byte-identical to
+#329's** (verified: `diff` of the two `main...head` diffs is empty; the two head-tree files are
+identical). It therefore does **not** contain #334's
+`tests/test_router_schema_vocabulary_closure.py` in either path filter, nor #334's closure-guard
+line in the status-truthfulness step. Composing #334 with #344 reproduces the **same three
+conflict regions** pass 1 found between #334 and #329 — the peer session is working from the
+same seam.
+
+The §3 union resolution is unchanged and is the resolution for this seam too: keep **both**
+#334's closure-guard path/step entries **and** #344's (== #329's) composition-guard step. The
+artifact `weaver-mvp2-validation.resolved.yml` committed in pass 1 is **byte-identical** to the
+resolution pass 2 applied to the #344-inclusive union (`diff` empty) — pass 1's artifact is
+already correct for the new batch; it was not regenerated.
+
+Composition method: `git apply --3way` each PR's `main...head` diff in order
+{#331, #332, #335, #336, #340, #344}, applying #344 with
+`--exclude=.github/workflows/weaver-mvp2-validation.yml`, then #334 with the same exclude, then
+dropping in the resolved workflow. **All applications CLEAN** — the only conflict is the
+workflow, and it is resolved by union.
+
+### 7.4 Measurement — the composed tree, vs a freshly re-measured baseline
+
+Same environment, same command, both trees:
+
+```
+python -m pytest tests/ -q -rEf --continue-on-collection-errors
+main   (74e8ea5)          : 10 failed, 1703 passed, 20 skipped, 1 error
+composed (union)          : 10 failed, 1760 passed, 21 skipped, 1 error
+```
+
+Failing/error **node set** sha256, identical convention on both sides
+(`FAILED|ERROR` line, strip the status word, strip the trailing ` - message`, sort):
+
+```
+92d344d0fbebcc3636e30509a1bfd72235f1ede2bede28d0b37edb6f0dcf6413   (11 nodes, main AND composed)
+```
+
+The node set is **byte-identical** — regression is **unchanged**. `+57 passed` is the union's
+new passing tests; `+1 skipped` is #344's clean-stop repair turning #329's strict xfail into a
+skip/pass (the composed guard set below shows **no xfail**).
+
+> **Fingerprint convention, stated so it is not mistaken for drift.** The same node set hashes
+> differently depending on the transform: stripping only the trailing ` - message` yields
+> `f3e73647…`; stripping the status word as well yields `92d344d0…` — the value pass 1 recorded.
+> Both are the *same 11 nodes*; `92d344d0…` is the convention this workstream uses. No divergence.
+
+**GATE-07 guard set** (the batch's own files, composed):
+
+```
+python -m pytest -q \
+  tests/test_worker_attention_composition.py tests/test_attention_truthfulness.py \
+  tests/test_router_clean_stop_contract.py tests/test_gate07_strict_xfail_composition_reconciliation.py \
+  tests/test_router_schema_vocabulary_closure.py tests/test_engineering_router_status_truthfulness.py \
+  tests/test_scheduler_trajectory_conformance.py tests/test_voice_authority_boundary.py
+=> 91 passed, 1 skipped        (pass 1, without #344: 81 passed, 1 xfailed)
+```
+
+**Architecture fitness:** `python -m pytest tests/architecture -q` → **11 passed** on the
+composed tree (and on `main`).
+
+**CP10 mutation boundary:** `scripts/cp10_mutation_boundary_policy.py --judge` over the composed
+tree's 28 changed paths → **PASS** (exit 0).
+
+### 7.5 What pass 2 changes for the sovereign
+
+- The merge set is **{#331, #332, #334, #335, #336, #340, #344}** — not the pass-1 six.
+  #329, #330, #342, #343 are **superseded by #344** and should be closed, not merged.
+- The serialization constraint now names **#334 × #344** (same seam as #334 × #329); use the
+  union resolution on `.github/workflows/weaver-mvp2-validation.yml`.
+- Nothing else moved: `main` is still `74e8ea5`; every subject PR is individually mergeable.
+
+### 7.6 Authorization boundary (unchanged)
+
+Review and evidence only. **No merge, no self-authorization, no push to `main`, no mutation of
+any subject PR, no scope expansion.** The sovereign merges. A batch merge must apply the §3 union
+so neither #334's nor #344's workflow guard is dropped from the path filters.
+
+### 7.7 Remaining uncertainty (not claimed)
+
+- **#344 is under an active session** (`0127780c` at this pass; commits through `17:17:33Z`).
+  Its head may move again; §7 is a measurement of `0127780c`, not of its future head. Re-measure
+  before merging #344.
+- `test_engineering_lab_agent_loop.py::test_agent_loop_does_not_mutate_repository` is
+  intermittent under the full suite (`AGENTS.md`); it did **not** appear in either node set this
+  pass, so it is not affecting the comparison — but a future run may show it as a
+  count-only wobble. Attribute by node name, never by count.
