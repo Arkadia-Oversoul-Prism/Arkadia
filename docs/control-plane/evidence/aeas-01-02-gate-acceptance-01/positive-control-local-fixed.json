@@ -1,0 +1,240 @@
+{
+  "schema": "arkadia.aeas.gate-acceptance.v1",
+  "spa_origin": "http://localhost:5173",
+  "api_origin": "http://localhost:8000",
+  "lab_path": "/solspire/engineering-lab",
+  "started_at": "2026-10-07T01:45:42.596Z",
+  "gate2": {
+    "steps": [
+      {
+        "name": "spa-serves-login-route",
+        "status": "PASS",
+        "duration_ms": 2651,
+        "result": {
+          "status": 200,
+          "url": "http://localhost:5173/login"
+        }
+      },
+      {
+        "name": "authenticate-via-real-login-ui",
+        "status": "PASS",
+        "duration_ms": 6227,
+        "result": {
+          "provider": "firebase-identity-toolkit-via-login-ui",
+          "email_domain": "gmail.com",
+          "uid_prefix": "OKd9BxVX",
+          "id_token_present": true,
+          "id_token_is_jwt": true,
+          "fabricated": false
+        }
+      },
+      {
+        "name": "authenticated-lab-api-operation",
+        "status": "PASS",
+        "duration_ms": 2641,
+        "result": {
+          "overview_status": 200,
+          "sessions_status": 200,
+          "subject_binding": "Arkadia Lab",
+          "session_count": 0
+        }
+      },
+      {
+        "name": "engineering-lab-surface-renders",
+        "status": "PASS",
+        "duration_ms": 738,
+        "result": {
+          "url": "http://localhost:5173/solspire/engineering-lab",
+          "has_surface": true
+        }
+      }
+    ],
+    "lab_api_calls": [
+      {
+        "method": "GET",
+        "url": "http://localhost:8000/api/lab/overview",
+        "status": 200,
+        "authorized": true
+      },
+      {
+        "method": "GET",
+        "url": "http://localhost:8000/api/lab/engineering/sessions",
+        "status": 200,
+        "authorized": true
+      },
+      {
+        "method": "GET",
+        "url": "http://localhost:8000/api/lab/engineering/sessions",
+        "status": 200,
+        "authorized": true
+      },
+      {
+        "method": "GET",
+        "url": "http://localhost:8000/api/lab/engineering/sessions",
+        "status": 200,
+        "authorized": true
+      },
+      {
+        "method": "POST",
+        "url": "http://localhost:8000/api/lab/engineering/agents",
+        "status": 200,
+        "authorized": true
+      },
+      {
+        "method": "POST",
+        "url": "http://localhost:8000/api/lab/engineering/sessions",
+        "status": 200,
+        "authorized": true
+      },
+      {
+        "method": "GET",
+        "url": "http://localhost:8000/api/lab/engineering/sessions/SES-e329423f95e1/events",
+        "status": 200,
+        "authorized": true
+      },
+      {
+        "method": "POST",
+        "url": "http://localhost:8000/api/lab/engineering/sessions/SES-e329423f95e1/authorize",
+        "status": 200,
+        "authorized": true
+      },
+      {
+        "method": "GET",
+        "url": "http://localhost:8000/api/lab/engineering/sessions/SES-e329423f95e1",
+        "status": 200,
+        "authorized": true
+      },
+      {
+        "method": "GET",
+        "url": "http://localhost:8000/api/lab/engineering/sessions/SES-e329423f95e1/events",
+        "status": 200,
+        "authorized": true
+      }
+    ],
+    "authentication": {
+      "provider": "firebase-identity-toolkit-via-login-ui",
+      "email_domain": "gmail.com",
+      "uid_prefix": "OKd9BxVX",
+      "id_token_present": true,
+      "id_token_is_jwt": true,
+      "fabricated": false
+    }
+  },
+  "gate3": {
+    "steps": [
+      {
+        "name": "select-or-create-native-session",
+        "status": "PASS",
+        "duration_ms": 4108,
+        "result": {
+          "session_id": "SES-e329423f95e1"
+        }
+      },
+      {
+        "name": "sse-eventstream-live",
+        "status": "PASS",
+        "duration_ms": 78,
+        "result": {
+          "text": "● LIVE",
+          "transport": "LIVE"
+        }
+      },
+      {
+        "name": "trigger-native-lab-event",
+        "status": "PASS",
+        "duration_ms": 6099,
+        "result": {
+          "trigger": "human AUTHORIZE action",
+          "session_id": "SES-e329423f95e1"
+        }
+      },
+      {
+        "name": "native-event-reaches-events-pane",
+        "status": "PASS",
+        "duration_ms": 65,
+        "result": {
+          "count": 4,
+          "events": [
+            {
+              "event_id": "AEV-457e4498766b",
+              "sequence": "1",
+              "text": "#1 · SESSION CREATED1:45:55 AM{\n  \"objective\": \"Inspect the selected project and report its current engineering state.\","
+            },
+            {
+              "event_id": "AEV-412bf8741afc",
+              "sequence": "2",
+              "text": "#2 · SESSION TRANSITION1:45:59 AM{\n  \"state\": \"AUTHORIZED\"\n}"
+            },
+            {
+              "event_id": "AEV-412bf8741afc",
+              "sequence": "2",
+              "text": "SESSION TRANSITION#2 · AEV-412bf8741afc · —"
+            },
+            {
+              "event_id": "AEV-457e4498766b",
+              "sequence": "1",
+              "text": "SESSION CREATED#1 · AEV-457e4498766b · —"
+            }
+          ],
+          "native_event": {
+            "event_id": "AEV-412bf8741afc",
+            "sequence": "2",
+            "text": "#2 · SESSION TRANSITION1:45:59 AM{\n  \"state\": \"AUTHORIZED\"\n}"
+          }
+        }
+      },
+      {
+        "name": "capture-raw-sse-frames-from-browser",
+        "status": "PASS",
+        "duration_ms": 6,
+        "result": {
+          "status": 200,
+          "content_type": "text/event-stream; charset=utf-8",
+          "frame_count": 3
+        }
+      }
+    ],
+    "sse_responses": [
+      {
+        "url": "http://localhost:8000/api/lab/engineering/sessions/SES-e329423f95e1/events",
+        "status": 200,
+        "content_type": "text/event-stream; charset=utf-8",
+        "cache_control": "no-cache, no-transform"
+      },
+      {
+        "url": "http://localhost:8000/api/lab/engineering/sessions/SES-e329423f95e1/events",
+        "status": 200,
+        "content_type": "text/event-stream; charset=utf-8",
+        "cache_control": "no-cache, no-transform"
+      }
+    ],
+    "transport": {
+      "text": "● LIVE",
+      "transport": "LIVE"
+    },
+    "native_event": {
+      "event_id": "AEV-412bf8741afc",
+      "sequence": "2",
+      "text": "#2 · SESSION TRANSITION1:45:59 AM{\n  \"state\": \"AUTHORIZED\"\n}"
+    },
+    "raw_frames": {
+      "status": 200,
+      "content_type": "text/event-stream; charset=utf-8",
+      "frame_count": 3,
+      "frames": [
+        ": connected\n\n",
+        "event: agent\ndata: {\"event_id\": \"AEV-457e4498766b\", \"event_type\": \"SESSION_CREATED\", \"payload\": {\"objective\": \"Inspect the selected project and report its current engineering state.\", \"state\": \"PROPOSED\"}, \"run_id\": null, \"sequence\": 1, \"session_id\": \"SES-e329423f95e1\", \"timestamp_utc\": \"2026-10-07T01:45:55.062598+00:00\"}\n\n",
+        "event: agent\ndata: {\"event_id\": \"AEV-412bf8741afc\", \"event_type\": \"SESSION_TRANSITION\", \"payload\": {\"state\": \"AUTHORIZED\"}, \"run_id\": null, \"sequence\": 2, \"session_id\": \"SES-e329423f95e1\", \"timestamp_utc\": \"2026-10-07T01:45:59.241975+00:00\"}\n\n"
+      ]
+    }
+  },
+  "console_errors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+  ],
+  "page_errors": [],
+  "failed_requests": [],
+  "finished_at": "2026-10-07T01:46:05.375Z"
+}
