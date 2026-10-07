@@ -253,6 +253,12 @@ composed tree (and on `main`).
 **CP10 mutation boundary:** `scripts/cp10_mutation_boundary_policy.py --judge` over the composed
 tree's 28 changed paths → **PASS** (exit 0).
 
+**CI on the new head `21be12a`:** `Full-history secret scan` → **pass**; `Vercel Preview Comments`
+→ **pass**; `Vercel – arkadia-prism` → **pass**. `Vercel – console` → **fail**, but this is
+**pre-existing on `main` itself**, not attributable to this PR — the commit status on
+`main` @ `74e8ea5` already carries `Vercel – console: failure` (and `Vercel – arkadia-prism:
+success`), matching the `AGENTS.md` lesson. Classify it as pre-existing, not a new red gate.
+
 ### 7.5 What pass 2 changes for the sovereign
 
 - The merge set is **{#331, #332, #334, #335, #336, #340, #344}** — not the pass-1 six.
