@@ -1,0 +1,207 @@
+name: N-ATLAS external beta validation
+
+on:
+  push:
+    branches: [feat/n-atlas-developer-lab]
+  workflow_dispatch:
+
+jobs:
+  beta:
+    name: beta-${{ matrix.id }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: beta-01-english
+            language: English
+            prompt: "Respond briefly: What is the purpose of evidence in a governed AI workflow?"
+          - id: beta-02-hausa
+            language: Hausa
+            prompt: "Amsa a takaice da Hausa: Me ya sa hujja take da muhimmanci a tsarin AI mai mulki?"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install validation dependencies
+        run: python -m pip install --quiet requests
+
+      - name: Run external N-ATLAS inference and build evidence
+        env:
+          SPACE: KoladeOdunope/ednai-natlas-runtime
+          PROMPT: ${{ matrix.prompt }}
+          LANGUAGE: ${{ matrix.language }}
+          BETA_ID: ${{ matrix.id }}
+          GIT_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import hashlib, json, os, sys, time
+          from datetime import datetime, timezone
+          import requests
+
+          base = "https://koladeodunope-ednai-natlas-runtime.hf.space"
+          prompt = os.environ["PROMPT"]
+          language = os.environ["LANGUAGE"]
+          beta_id = os.environ["BETA_ID"]
+
+          def sha(s):
+              return hashlib.sha256(s.encode("utf-8")).hexdigest()
+
+          def now():
+              return datetime.now(timezone.utc).isoformat()
+
+          events = []
+          events.append({"event":"RUN_STARTED","timestamp":now(),"beta_id":beta_id})
+
+          response_text = ""
+          endpoint_used = None
+          raw = None
+          errors = []
+
+          # The public EDNAi runtime is documented as a simple messages-in/reply-out
+          # service. Discover its exposed contract first, then try conservative JSON
+          # shapes without treating any failed probe as successful inference.
+          for path in ["/openapi.json", "/api/openapi.json"]:
+              try:
+                  r = requests.get(base + path, timeout=20)
+                  if r.ok:
+                      try:
+                          raw = r.json()
+                          break
+                      except Exception:
+                          pass
+              except Exception as e:
+                  errors.append(f"GET {path}: {e}")
+
+          candidates = [
+              ("/v1/chat/completions", {"model":"N-ATLaS","messages":[{"role":"user","content":prompt}],"temperature":0.1,"max_tokens":128}),
+              ("/api/chat", {"messages":[{"role":"user","content":prompt}]}),
+              ("/chat", {"messages":[{"role":"user","content":prompt}]}),
+              ("/predict", {"messages":[{"role":"user","content":prompt}]}),
+              ("/api/predict", {"messages":[{"role":"user","content":prompt}]}),
+          ]
+
+          for path, payload in candidates:
+              try:
+                  r = requests.post(base + path, json=payload, timeout=180)
+                  if not r.ok:
+                      errors.append(f"POST {path}: HTTP {r.status_code} {r.text[:300]}")
+                      continue
+                  data = r.json()
+                  text = ""
+                  if isinstance(data, dict):
+                      choices = data.get("choices")
+                      if choices and isinstance(choices, list):
+                          msg = choices[0].get("message", {}) or {}
+                          text = msg.get("content") or choices[0].get("text") or ""
+                      if not text:
+                          for k in ("reply","response","text","output","content","answer"):
+                              if isinstance(data.get(k), str):
+                                  text = data[k]
+                                  break
+                  elif isinstance(data, str):
+                      text = data
+                  elif isinstance(data, list):
+                      for item in data:
+                          if isinstance(item, str) and item.strip():
+                              text = item
+                              break
+                          if isinstance(item, dict):
+                              for k in ("reply","response","text","output","content"):
+                                  if isinstance(item.get(k), str) and item[k].strip():
+                                      text = item[k]
+                                      break
+                          if text:
+                              break
+                  if text.strip():
+                      response_text = text.strip()
+                      endpoint_used = path
+                      raw = data
+                      break
+                  errors.append(f"POST {path}: empty/unrecognized response")
+              except Exception as e:
+                  errors.append(f"POST {path}: {e}")
+
+          if not response_text:
+              events.append({"event":"RUN_FAILED","timestamp":now(),"reason":"external runtime did not return usable inference","errors":errors[-10:]})
+              evidence = {
+                  "schema":"ARKADIA-NATLAS-EVIDENCE-001",
+                  "status":"FAILED",
+                  "beta_id":beta_id,
+                  "language":language,
+                  "runtime":base,
+                  "model":"N-ATLaS",
+                  "prompt_sha256":sha(prompt),
+                  "git_sha":os.environ["GIT_SHA"],
+                  "events":events,
+                  "errors":errors[-20:],
+              }
+              os.makedirs("evidence", exist_ok=True)
+              with open(f"evidence/{beta_id}.json","w") as f: json.dump(evidence,f,indent=2,ensure_ascii=False)
+              print(json.dumps(evidence,indent=2,ensure_ascii=False))
+              sys.exit(1)
+
+          events.append({"event":"MODEL_TURN","timestamp":now(),"provider":"external-space","model":"N-ATLaS","endpoint":endpoint_used})
+          evaluation = {"name":"non_empty_response","passed":bool(response_text)}
+          evidence = {
+              "schema":"ARKADIA-NATLAS-EVIDENCE-001",
+              "status":"PASS",
+              "beta_id":beta_id,
+              "language":language,
+              "runtime":base,
+              "endpoint":endpoint_used,
+              "provider":"external-space",
+              "model":"N-ATLaS",
+              "prompt_sha256":sha(prompt),
+              "response_sha256":sha(response_text),
+              "response_chars":len(response_text),
+              "evaluation":evaluation,
+              "events":events + [
+                  {"event":"EVIDENCE_RECORDED","timestamp":now()},
+                  {"event":"RUN_FINISHED","timestamp":now()}
+              ],
+              "reproduction":{"git_sha":os.environ["GIT_SHA"],"prompt":prompt},
+          }
+          os.makedirs("evidence", exist_ok=True)
+          with open(f"evidence/{beta_id}.json","w") as f: json.dump(evidence,f,indent=2,ensure_ascii=False)
+          with open(f"evidence/{beta_id}.txt","w") as f: f.write(response_text + "\n")
+          print(json.dumps(evidence,indent=2,ensure_ascii=False))
+          print("\nN-ATLAS RESPONSE:\n" + response_text)
+          PY
+
+      - name: Upload evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.id }}-evidence
+          path: evidence/
+
+  bundle:
+    name: bundle-beta-evidence
+    needs: beta
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: evidence
+          pattern: "*-evidence"
+          merge-multiple: true
+      - name: Verify bundle shape
+        run: |
+          test -n "$(find evidence -type f | head -1)"
+          python - <<'PY'
+          import glob, json, sys
+          files = glob.glob("evidence/*.json")
+          print("evidence files:", files)
+          statuses=[]
+          for p in files:
+              d=json.load(open(p))
+              statuses.append(d.get("status"))
+          print("statuses:", statuses)
+          if len(files) != 2 or any(s != "PASS" for s in statuses):
+              sys.exit(1)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: natlas-ps1-external-beta-evidence-bundle
+          path: evidence/
