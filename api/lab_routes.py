@@ -359,6 +359,71 @@ class NAtlasRunBody(BaseModel):
     model: str | None = None
 
 
+@router.post("/engineering/n-atlas/test-session")
+async def n_atlas_test_session(user: dict = Depends(require_auth)) -> dict:
+    """Create the smallest human-authorized session needed for an external PS1 test.
+
+    The tester explicitly invokes this endpoint by pressing START TEST. The
+    server records that human authorization against the newly created session;
+    it does not grant authority to the model or to the tester beyond this
+    bounded N-ATLaS run.
+    """
+    from solspire.workspace_manager import get_workspace_manager
+
+    uid = user["uid"]
+    workspace = get_workspace_manager().get_or_create(
+        uid, display_name="N-ATLaS External Test Workspace"
+    )
+    store = get_store()
+    agents = store.list_agents(uid)
+    agent = next(
+        (
+            item for item in agents
+            if item.get("display_name") == "N-ATLaS External Tester"
+        ),
+        None,
+    )
+    runtime = get_runtime()
+    if agent is None:
+        agent = runtime.register_agent(
+            subject_ref=uid,
+            role="BUILDER",
+            display_name="N-ATLaS External Tester",
+            capabilities=("READ", "TEST"),
+            write_allowed=False,
+            model_ref="N-ATLaS",
+        )
+
+    session = runtime.open_session(
+        subject_ref=uid,
+        workspace_ref=workspace.id,
+        agent_id=agent["agent_id"],
+        objective="External PS1 N-ATLaS developer test",
+    )
+    authorization = runtime.record_authorization(
+        subject_ref=uid,
+        scope_ref=session["session_id"],
+        operations_allowed=("read", "test"),
+        duration_minutes=30,
+    )
+    store.attach_authorization(
+        session["session_id"], uid, authorization["authorization_id"]
+    )
+    session = runtime.transition(session["session_id"], uid, "AUTHORIZED")
+    descriptor = get_gateway().describe("n_atlas")
+    if descriptor.status != "AVAILABLE":
+        raise HTTPException(
+            status_code=503,
+            detail={"state": descriptor.status, "detail": descriptor.detail},
+        )
+    return {
+        "session_id": session["session_id"],
+        "state": session["state"],
+        "model": descriptor.model,
+        "expires_in_minutes": 30,
+    }
+
+
 @router.get("/engineering/n-atlas/catalog")
 async def n_atlas_catalog() -> dict:
     """Truthful N-ATLAS integration status and capability descriptor."""
