@@ -104,6 +104,7 @@ def select_next_move(
     moves = trajectory.get("moves") or []
     blockers: list[str] = []
     unrecognized: list[str] = []
+    dependency_blocked: list[str] = []
     by_id = {str(m.get("id")): m for m in moves if isinstance(m, dict)}
 
     for move in moves:
@@ -124,6 +125,7 @@ def select_next_move(
 
         deps = move.get("depends_on") or []
         dep_block = False
+        dep_block_detail = ""
         for d in deps:
             dm = by_id.get(str(d))
             if dm is None:
@@ -132,8 +134,18 @@ def select_next_move(
                 break
             if not _move_done(dm, completion_index):
                 dep_block = True
+                dep_block_detail = (
+                    f"{mid} (depends on {d}, still {str(dm.get('status', 'pending')).lower()})"
+                )
                 break
         if dep_block:
+            # An unmet dependency is a named reason, not an absence of work. Reporting
+            # only "all complete or dependencies unresolved" let a live frontier (G12-B,
+            # the sole in_progress move, blocked on G12-A) be dropped from the report
+            # while the session listed just the two unrecognized merged moves — so the
+            # operator could not see which move was next or what it was waiting on.
+            if dep_block_detail:
+                dependency_blocked.append(dep_block_detail)
             continue
 
         spec = move.get("spec")
@@ -158,6 +170,10 @@ def select_next_move(
             "unrecognized move status: " + ", ".join(unrecognized)
             + " — cannot route; expected one of "
             + ", ".join(sorted(ACTIVE_STATUSES | TERMINAL_DONE))
+        )
+    if dependency_blocked:
+        blockers.append(
+            "dependency-blocked frontier: " + ", ".join(dependency_blocked)
         )
     if not blockers:
         blockers.append(CLEAN_STOP_BLOCKER)
