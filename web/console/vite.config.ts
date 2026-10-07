@@ -22,5 +22,5 @@ export default defineConfig({
       "^/static(?:/|$)": { target: BACKEND, changeOrigin: true },
     },
   },
-  build: { outDir: "dist", sourcemap: false, base: "/n-atlas-tester/" },
+  build: { outDir: "dist", sourcemap: false },
 });
