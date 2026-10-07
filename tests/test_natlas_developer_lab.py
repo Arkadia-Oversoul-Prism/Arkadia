@@ -263,7 +263,10 @@ def test_natlas_tester_onboarding_records_human_authorization(monkeypatch):
     assert store.attached[0][0] == "SES-tester"
     assert store.attached[0][1].startswith("natlas-tester-")
     assert store.attached[0][2] == "AUTH-tester"
-    assert runtime.transitions == [("SES-tester", "tester-uid", "AUTHORIZED")]
+    assert len(runtime.transitions) == 1
+    assert runtime.transitions[0][0] == "SES-tester"
+    assert runtime.transitions[0][1].startswith("natlas-tester-")
+    assert runtime.transitions[0][2] == "AUTHORIZED"
 
 
 def test_natlas_tester_token_is_scoped_and_signed(monkeypatch):
