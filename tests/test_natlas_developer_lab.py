@@ -166,3 +166,94 @@ async def test_native_natlas_route_live_external_gradio(monkeypatch):
         "EVIDENCE_RECORDED",
         "RUN_FINISHED",
     ]
+
+
+def test_natlas_tester_onboarding_records_human_authorization(monkeypatch):
+    import api.lab_routes as lab_routes
+
+    class FakeWorkspace:
+        id = "WS-tester"
+
+    class FakeWorkspaceManager:
+        def get_or_create(self, uid, display_name):
+            assert uid == "tester-uid"
+            assert display_name == "N-ATLaS External Test Workspace"
+            return FakeWorkspace()
+
+    class FakeStore:
+        def __init__(self):
+            self.auth = []
+            self.agents = []
+            self.attached = []
+
+        def list_agents(self, uid):
+            return self.agents
+
+        def attach_authorization(self, session_id, uid, auth_id):
+            self.attached.append((session_id, uid, auth_id))
+
+    class FakeRuntime:
+        def __init__(self):
+            self.authorizations = []
+            self.transitions = []
+
+        def register_agent(self, **kwargs):
+            return {"agent_id": "AGT-tester"}
+
+        def open_session(self, **kwargs):
+            return {
+                "session_id": "SES-tester",
+                "state": "PROPOSED",
+                "workspace_ref": kwargs["workspace_ref"],
+                "agent_id": kwargs["agent_id"],
+            }
+
+        def record_authorization(self, **kwargs):
+            self.authorizations.append(kwargs)
+            return {"authorization_id": "AUTH-tester"}
+
+        def transition(self, session_id, uid, target):
+            self.transitions.append((session_id, uid, target))
+            return {
+                "session_id": session_id,
+                "state": target,
+                "workspace_ref": "WS-tester",
+                "agent_id": "AGT-tester",
+            }
+
+    class FakeGateway:
+        class Descriptor:
+            status = "AVAILABLE"
+            model = "N-ATLaS"
+            detail = "available"
+
+        def describe(self, provider):
+            assert provider == "n_atlas"
+            return self.Descriptor()
+
+    store = FakeStore()
+    runtime = FakeRuntime()
+    monkeypatch.setattr(
+        lab_routes, "get_store", lambda: store
+    )
+    monkeypatch.setattr(
+        lab_routes, "get_runtime", lambda: runtime
+    )
+    monkeypatch.setattr(
+        lab_routes, "get_gateway", lambda: FakeGateway()
+    )
+    monkeypatch.setattr(
+        "solspire.workspace_manager.get_workspace_manager",
+        lambda: FakeWorkspaceManager(),
+    )
+
+    result = __import__("asyncio").run(
+        lab_routes.n_atlas_test_session(user={"uid": "tester-uid"})
+    )
+
+    assert result["session_id"] == "SES-tester"
+    assert result["state"] == "AUTHORIZED"
+    assert runtime.authorizations[0]["scope_ref"] == "SES-tester"
+    assert runtime.authorizations[0]["operations_allowed"] == ("read", "test")
+    assert store.attached == [("SES-tester", "tester-uid", "AUTH-tester")]
+    assert runtime.transitions == [("SES-tester", "tester-uid", "AUTHORIZED")]
