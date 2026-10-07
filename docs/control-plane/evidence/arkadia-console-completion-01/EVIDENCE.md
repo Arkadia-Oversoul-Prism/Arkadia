@@ -1,10 +1,34 @@
-# ARKADIA-CONSOLE-COMPLETION-01 — Voice authority-boundary guard
+# Voice authority-boundary guard (separate bounded workstream)
 
-Workstream: Arkadia Console completion (review-gated execution)
+Trajectory: `ARKADIA-CONSOLE-COMPLETION-01` (this PR is **not** a Console move — see
+classification below; it is an isolated, test-only voice-workstream guard)
 Pass: 1
 Base main: `74e8ea53a30213db8783e6733679d2f11903de0b`
 Branch: `gate12/voice-authority-boundary-guard-01`
 PR: #340
+
+## Router classification for this pass — NO LEGAL CONSOLE MOVE
+
+Derived from live evidence via the canonical router (`weaver/engineering_router.py
+::select_next_move`), not from prose:
+
+- **Truthfulness trajectory** (`TRAJECTORY-ARKADIA-TRUTHFULNESS-01.yaml`, the router's
+  default): M01–M09 all `completed` → `NO_LEGAL_MOVE` ("all complete"). Exhausted.
+- **Console trajectory** (`TRAJECTORY-CONSOLE-COMPLETION-01.yaml`, frontier `G12`):
+  unroutable. `G12-A` and `G12-C` carry status `merged_acceptance_pending` — legal in
+  `docs/control-plane/trajectory.schema.json` but **absent from `ACTIVE_STATUSES`** in
+  `weaver/engineering_router.py`, so the router reports
+  `unrecognized move status: G12-A ('merged_acceptance_pending'), G12-C (...)`. `G12-B`
+  is dependency-blocked behind `G12-A` (`depends_on: [G12-A]`).
+- This schema⊆router seam is already under sovereign review — **PRs #332** (vocabulary
+  decision, no execution) and **#334** (seam guard wired into CI), part of an open
+  `gate07/*` cluster (#329–#336). This pass does **not** compete with them, and does
+  **not** hand-edit the manifest to force a selection (that would be a governance change
+  via direct commit — forbidden).
+
+Classification: **BLOCKED** on the Console frontier (router vocabulary seam), with the
+handoff to PRs #332/#334. The work below is a separate, isolated, non-consequential
+bounded guard permitted under the contract.
 
 ## Objective
 
