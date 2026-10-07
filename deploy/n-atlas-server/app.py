@@ -36,6 +36,21 @@ def load_model():
     llm = Llama(model_path=path, **kwargs)
     return llm
 
+@app.on_event('startup')
+def startup_smoke():
+    if os.getenv('N_ATLAS_STARTUP_SMOKE', '1') != '1':
+        return
+    try:
+        result = load_model().create_chat_completion(
+            messages=[{'role':'user','content':'Respond with exactly: N-ATLAS LIVE'}],
+            max_tokens=8,
+            temperature=0.0,
+        )
+        text = result['choices'][0]['message'].get('content','').strip()
+        print('NATLAS_STARTUP_SMOKE provider=n_atlas response=' + repr(text), flush=True)
+    except Exception as exc:
+        print('NATLAS_STARTUP_SMOKE_FAILED provider=n_atlas error=' + repr(exc), flush=True)
+
 @app.get('/health')
 def health(): return {'status':'ok','provider':'n_atlas','model':'n-atlas'}
 
