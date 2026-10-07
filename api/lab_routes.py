@@ -262,6 +262,72 @@ async def transition_session(
         raise HTTPException(status_code=409, detail=str(exc))
 
 
+# -- AEAS-01: authenticated live event transport -----------------------------
+
+@router.get("/engineering/sessions/{session_id}/events")
+async def engineering_event_stream(session_id: str, user: dict = Depends(require_auth)):
+    """Stream this session's native EventStream over SSE.
+
+    This is a transport adapter only. It does not create another runtime,
+    event store, or authority path. The existing process-wide EventStream
+    remains the sole live producer and durable event log remains canonical.
+    """
+    from fastapi.responses import StreamingResponse
+    import asyncio
+    import json
+    from lab.engineering_lab.events import get_event_stream
+
+    try:
+        get_runtime().get_session(session_id, user["uid"])
+    except KeyError:
+        raise HTTPException(status_code=404, detail="session not found")
+
+    queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue(maxsize=128)
+    loop = asyncio.get_running_loop()
+
+    def enqueue(record: dict[str, Any]) -> None:
+        try:
+            queue.put_nowait(record)
+        except asyncio.QueueFull:
+            return
+
+    def on_event(record: dict[str, Any]) -> None:
+        if record.get("session_id") != session_id:
+            return
+        try:
+            loop.call_soon_threadsafe(enqueue, record)
+        except RuntimeError:
+            return
+
+    unsubscribe = get_event_stream().subscribe(on_event)
+
+    async def body():
+        try:
+            yield ": connected\\n\\n"
+            for record in get_event_stream().replay(session_id):
+                yield f"event: agent\\ndata: {json.dumps(record, sort_keys=True)}\\n\\n"
+            while True:
+                try:
+                    record = await asyncio.wait_for(queue.get(), timeout=15)
+                    if record is None:
+                        break
+                    yield f"event: agent\\ndata: {json.dumps(record, sort_keys=True)}\\n\\n"
+                except asyncio.TimeoutError:
+                    yield ": keepalive\\n\\n"
+        finally:
+            unsubscribe()
+
+    return StreamingResponse(
+        body(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 # -- EL-04: artifacts / canvas -----------------------------------------------
 
 @router.get("/engineering/artifacts")

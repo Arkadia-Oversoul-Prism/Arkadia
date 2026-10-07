@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import ArkadiaLandingPage from '../pages/ArkadiaLandingPage';
 import PrismInteriorShell from './PrismInteriorShell';
 
-type View = 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard' | 'nexus' | 'encyclopedia' | 'spiral-codex' | 'loops' | 'grove' | 'larder' | 'novanet' | 'ims' | 'distribute' | 'offerings' | 'aic' | 'pulse' | 'settings' | 'account' | 'sci' | 'solariun' | 'solspire' | 'knowledge-os' | 'reasomate' | 'personal-echofeild' | 'echofeild-matrix' | 'challenge' | 'voice';
+type View = 'home' | 'gate' | 'commune' | 'reset' | 'about' | 'login' | 'codex' | 'dashboard' | 'nexus' | 'encyclopedia' | 'spiral-codex' | 'loops' | 'grove' | 'larder' | 'novanet' | 'ims' | 'distribute' | 'offerings' | 'aic' | 'pulse' | 'settings' | 'account' | 'sci' | 'solariun' | 'solspire' | 'knowledge-os' | 'reasomate' | 'personal-echofeild' | 'echofeild-matrix' | 'challenge' | 'engineering-lab' | 'voice';
 interface NavProps { currentView: View; onNavigate: (view: View) => void; children: React.ReactNode; }
 interface NavItem { label: string; view: View; sigil: string; sub: string; color: string }
 interface NavGroup { label: string; items: NavItem[] }
@@ -18,6 +18,7 @@ const NAV_GROUPS: NavGroup[] = [
   { label: 'Workspaces', items: [
     { label: 'Solariun', view: 'solariun', sigil: '◈', sub: 'Personal Prism workspace', color: '#B08DE8' },
     { label: 'SolSpire', view: 'solspire', sigil: '▦', sub: 'Enterprise Prism workspace', color: '#C9A84C' },
+    { label: 'Engineering Lab', view: 'engineering-lab', sigil: '⌘', sub: 'Native governed engineering cockpit', color: '#00D4AA' },
     { label: 'Voice', view: 'voice', sigil: 'V', sub: 'Speech → governed execution', color: '#00D4AA' },
   ] },
   { label: 'System', items: [
@@ -28,7 +29,7 @@ const NAV_GROUPS: NavGroup[] = [
   ] },
 ];
 const VIEW_LABEL: Partial<Record<View, string>> = {
-  home: 'Home', gate: 'Living Gate', commune: 'Arkana', reset: 'Field Reset', about: 'About', login: 'Node Login', codex: 'Personal Codex', dashboard: 'Dashboard', nexus: 'NovaNet', encyclopedia: 'Encyclopedia Galactica', 'spiral-codex': 'Spiral Codex', loops: 'Open Loops', grove: 'Spiral Grove', larder: 'Living Larder', novanet: 'NovaNet', ims: 'IMS Archive', distribute: 'Distribute', offerings: 'Offerings', aic: 'AIC Diagnostic', pulse: 'Arkadian Pulse', settings: 'Settings', account: 'Profile & Account', sci: 'SCI', solariun: 'Solariun', solspire: 'SolSpire · Enterprise operations', 'knowledge-os': 'Knowledge OS · Prism continuity', reasomate: 'ReasoMate', 'personal-echofeild': 'Personal Echofeild', 'echofeild-matrix': 'Echofeild Crystal Matrix', challenge: 'Future Skills Lab', voice: 'Arkadia Voice · operator console',
+  home: 'Home', gate: 'Living Gate', commune: 'Arkana', reset: 'Field Reset', about: 'About', login: 'Node Login', codex: 'Personal Codex', dashboard: 'Dashboard', nexus: 'NovaNet', encyclopedia: 'Encyclopedia Galactica', 'spiral-codex': 'Spiral Codex', loops: 'Open Loops', grove: 'Spiral Grove', larder: 'Living Larder', novanet: 'NovaNet', ims: 'IMS Archive', distribute: 'Distribute', offerings: 'Offerings', aic: 'AIC Diagnostic', pulse: 'Arkadian Pulse', settings: 'Settings', account: 'Profile & Account', sci: 'SCI', solariun: 'Solariun', solspire: 'SolSpire · Enterprise operations', 'knowledge-os': 'Knowledge OS · Prism continuity', reasomate: 'ReasoMate', 'personal-echofeild': 'Personal Echofeild', 'echofeild-matrix': 'Echofeild Crystal Matrix', challenge: 'Future Skills Lab', 'engineering-lab': 'Engineering Lab · AEAS-01 operator surface', voice: 'Arkadia Voice · operator console',
 };
 function UserSection({ onNavigate, onClose }: { onNavigate: (v: View) => void; onClose: () => void }) {
   const { user, profile, signOut, isAuthenticated } = useAuth();
