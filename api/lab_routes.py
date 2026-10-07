@@ -445,7 +445,7 @@ async def n_atlas_run(body: NAtlasRunBody, user: dict = Depends(require_auth)) -
             "response_sha256": response_hash,
             "evaluation": evaluation,
             "usage": response.usage,
-            "integration": "self-hosted/OpenAI-compatible N-ATLAS adapter",
+            "integration": f"{os.environ.get('N_ATLAS_PROTOCOL', 'openai_compatible')} N-ATLaS runtime adapter",
         },
         timestamp_utc=utc_now(),
         provenance={"session_id": body.session_id,
@@ -469,7 +469,7 @@ async def n_atlas_run(body: NAtlasRunBody, user: dict = Depends(require_auth)) -
         "usage": response.usage,
         "evaluation": evaluation,
         "evidence": evidence.to_dict(),
-        "reproduction": {"provider": "n_atlas", "model": response.model, "prompt_sha256": prompt_hash},
+        "reproduction": {"provider": "n_atlas", "model": response.model, "prompt_sha256": prompt_hash, "protocol": os.environ.get("N_ATLAS_PROTOCOL", "openai_compatible")},
     }
 
 
