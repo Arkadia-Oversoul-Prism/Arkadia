@@ -141,6 +141,12 @@ async def test_native_natlas_route_live_external_gradio(monkeypatch):
     assert len(store.evidence) == 1
     assert store.evidence[0].detail["integration"] == "external Gradio N-ATLaS runtime"
     event_types = [event["event_type"] for event in stream.events]
+    evidence_dir = os.environ.get("N_ATLAS_LIVE_EVIDENCE_DIR")
+    if evidence_dir:
+        os.makedirs(evidence_dir, exist_ok=True)
+        with open(os.path.join(evidence_dir, "native-golden.json"), "w", encoding="utf-8") as fh:
+            json.dump({"status": "PASS", "run_id": result["run_id"], "response_sha256": result["evidence"]["detail"]["response_sha256"], "evidence": result["evidence"].to_dict()}, fh, indent=2, ensure_ascii=False)
+
     assert event_types == [
         "RUN_STARTED",
         "MODEL_TURN",
