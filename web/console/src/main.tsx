@@ -10,7 +10,6 @@ import { WorkConsequence } from "./surfaces/WorkConsequence";
 import { Authority } from "./surfaces/Authority";
 import "./styles.css";
 import { MieLab } from "./surfaces/MieLab";
-import { NAtlasLab } from "./surfaces/NAtlasLab";
 import { NAtlasTester } from "./surfaces/NAtlasTester";
 
 function App() {
