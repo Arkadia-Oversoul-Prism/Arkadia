@@ -176,7 +176,7 @@ def test_natlas_tester_onboarding_records_human_authorization(monkeypatch):
 
     class FakeWorkspaceManager:
         def get_or_create(self, uid, display_name):
-            assert uid == "tester-uid"
+            assert uid.startswith("natlas-tester-")
             assert display_name == "N-ATLaS External Test Workspace"
             return FakeWorkspace()
 
