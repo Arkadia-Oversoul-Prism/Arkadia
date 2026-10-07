@@ -135,6 +135,24 @@ composition guard remains a sibling step. Verified after resolution:
 The merge was pushed as a normal merge commit (fast-forward from `3a29fde` to
 `bc5085b`); no force-push. `main` is now an ancestor of this branch.
 
+### CI liveness — the guard actually executed (runtime evidence)
+
+The rebase was re-run in CI and the `mvp2-validation` job's own log shows the
+closure guard being selected and executed, not merely a green conclusion:
+
+```
+Run python -m pytest -q tests/test_engineering_router_status_truthfulness.py \
+  tests/test_engineering_scheduler_bootstrap.py \
+  tests/test_router_schema_vocabulary_closure.py
+44 passed in 0.43s
+```
+
+The sibling `Worker→attention composition seam guard` step also ran (`15 passed`).
+Check-runs at head `c03bfc6` (run `37661996421`, job `112931584250`):
+`mvp2-validation` pass, `Full-history secret scan` pass, `Vercel – arkadia-prism`
+pass. `Vercel – console` is a known pre-existing `main` failure, not attributable
+to this branch.
+
 ## Authorization boundary
 
 Review-gated. No merge, no deploy, no self-authorization, no gate promotion.
