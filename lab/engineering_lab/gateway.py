@@ -122,6 +122,21 @@ def _env_configured(provider: str) -> bool:
     return any(os.environ.get(var) for var in _PROVIDER_ENV.get(provider, ()))
 
 
+def _probe_natlas(base_url: str, timeout: float = 1.0) -> tuple[bool, str]:
+    """Probe an OpenAI-compatible N-ATLAS base URL without assuming a path."""
+    for path in ("/models", "/health", "/v1/models"):
+        try:
+            req = urllib.request.Request(base_url.rstrip("/") + path)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                if 200 <= resp.status < 300:
+                    return True, f"reachable via {path}"
+        except urllib.error.HTTPError:
+            return True, f"host reachable via {path}"
+        except Exception:
+            continue
+    return False, "unreachable"
+
+
 def _probe_local(base_url: str, timeout: float = 0.75) -> tuple[bool, str]:
     """Best-effort reachability probe for a local endpoint."""
     for path in ("/api/tags", "/v1/models", "/health"):
@@ -173,7 +188,7 @@ class ModelGateway:
                     status="UNCONFIGURED",
                     detail="N_ATLAS_BASE_URL is not configured",
                 )
-            reachable, detail = _probe_local(base, timeout=1.0)
+            reachable, detail = _probe_natlas(base, timeout=1.0)
             return ModelDescriptor(
                 provider, model, config_class, configured=reachable,
                 status="AVAILABLE" if reachable else "UNAVAILABLE",
