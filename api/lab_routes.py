@@ -34,6 +34,7 @@ from lab.engineering_lab.automations import (
 )
 from lab.engineering_lab.contracts import BoundaryViolation, EvidenceRecord, utc_now
 from lab.engineering_lab.gateway import ModelUnavailable, describe_gateway, get_gateway
+from lab.engineering_lab.events import get_event_stream
 from lab.engineering_lab.runtime import (
     CANONICAL_LOOP,
     BoundedOperation,
