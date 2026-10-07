@@ -85,54 +85,55 @@ jobs:
               except Exception as e:
                   errors.append(f"GET {path}: {e}")
 
-          candidates = [
-              ("/v1/chat/completions", {"model":"N-ATLaS","messages":[{"role":"user","content":prompt}],"temperature":0.1,"max_tokens":128}),
-              ("/api/chat", {"messages":[{"role":"user","content":prompt}]}),
-              ("/chat", {"messages":[{"role":"user","content":prompt}]}),
-              ("/predict", {"messages":[{"role":"user","content":prompt}]}),
-              ("/api/predict", {"messages":[{"role":"user","content":prompt}]}),
-          ]
-
-          for path, payload in candidates:
-              try:
-                  r = requests.post(base + path, json=payload, timeout=180)
-                  if not r.ok:
-                      errors.append(f"POST {path}: HTTP {r.status_code} {r.text[:300]}")
-                      continue
-                  data = r.json()
-                  text = ""
-                  if isinstance(data, dict):
-                      choices = data.get("choices")
-                      if choices and isinstance(choices, list):
-                          msg = choices[0].get("message", {}) or {}
-                          text = msg.get("content") or choices[0].get("text") or ""
-                      if not text:
-                          for k in ("reply","response","text","output","content","answer"):
-                              if isinstance(data.get(k), str):
-                                  text = data[k]
+          messages_json = json.dumps([{"role":"user","content":prompt}], ensure_ascii=False)
+          payload = {"data":[messages_json, 0.0, 128, False]}
+          try:
+              r = requests.post(base + "/gradio_api/call/generate", json=payload, timeout=30)
+              if not r.ok:
+                  errors.append(f"POST /gradio_api/call/generate: HTTP {r.status_code} {r.text[:500]}")
+              else:
+                  event_id = r.json().get("event_id")
+                  if not event_id:
+                      errors.append(f"POST /gradio_api/call/generate: missing event_id: {r.text[:500]}")
+                  else:
+                      endpoint_used = "/gradio_api/call/generate"
+                      deadline = time.time() + 240
+                      with requests.get(base + "/gradio_api/call/generate/" + event_id, stream=True, timeout=270) as stream:
+                          stream.raise_for_status()
+                          for line in stream.iter_lines(decode_unicode=True):
+                              if time.time() > deadline:
+                                  errors.append("GET /gradio_api/call/generate/{event_id}: timeout")
                                   break
-                  elif isinstance(data, str):
-                      text = data
-                  elif isinstance(data, list):
-                      for item in data:
-                          if isinstance(item, str) and item.strip():
-                              text = item
-                              break
-                          if isinstance(item, dict):
-                              for k in ("reply","response","text","output","content"):
-                                  if isinstance(item.get(k), str) and item[k].strip():
-                                      text = item[k]
-                                      break
-                          if text:
-                              break
-                  if text.strip():
-                      response_text = text.strip()
-                      endpoint_used = path
-                      raw = data
-                      break
-                  errors.append(f"POST {path}: empty/unrecognized response")
-              except Exception as e:
-                  errors.append(f"POST {path}: {e}")
+                              if not line or not line.startswith("data: "):
+                                  continue
+                              data_text = line[6:]
+                              if data_text == "[DONE]":
+                                  break
+                              try:
+                                  data = json.loads(data_text)
+                              except json.JSONDecodeError:
+                                  continue
+                              if isinstance(data, list) and data:
+                                  value = data[0]
+                                  if isinstance(value, str):
+                                      try:
+                                          parsed = json.loads(value)
+                                          if isinstance(parsed, dict):
+                                              response_text = str(parsed.get("text","")).strip()
+                                              raw = parsed
+                                          else:
+                                              response_text = value.strip()
+                                              raw = value
+                                      except json.JSONDecodeError:
+                                          response_text = value.strip()
+                                          raw = value
+                                  elif isinstance(value, dict):
+                                      response_text = str(value.get("text") or value.get("response") or value.get("output") or "").strip()
+                                      raw = value
+                              if response_text:
+                                  break
+          except Exception as e:
+              errors.append(f"Gradio generate: {e}")
 
           if not response_text:
               events.append({"event":"RUN_FAILED","timestamp":now(),"reason":"external runtime did not return usable inference","errors":errors[-10:]})
