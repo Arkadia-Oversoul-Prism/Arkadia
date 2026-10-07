@@ -124,6 +124,14 @@ jobs:
           if-no-files-found: warn
 
       - name: Session report
+        # A truthful stop must also be a legible one. `Status: NO_LEGAL_MOVE` with an
+        # empty `Move:` says the session did not proceed, but not why: the router's
+        # `blockers` — e.g. "unrecognized move status: G12-A ('merged_acceptance_pending')"
+        # — live only in engineering-session-result.json. When attention delivery is
+        # unconfigured this run log is the sole human-readable artifact, so a live
+        # frontier was reported as a clean stop with no cause (run 37523927861). The
+        # session writes the file before any failure exit, so it exists on every path;
+        # on a pull_request the runner step is skipped and the report says so.
         if: always()
         run: |
           echo "=== ARKADIA ENGINEERING SESSION ==="
@@ -133,3 +141,19 @@ jobs:
           echo "Trigger:${{ github.event_name }}"
           echo "Merge:  FORBIDDEN"
           echo "Deploy: FORBIDDEN"
+          python - << 'PY'
+          import json
+          import pathlib
+
+          result = pathlib.Path("engineering-session-result.json")
+          if not result.is_file():
+              print("Blockers: (session result unavailable)")
+          else:
+              blockers = json.loads(result.read_text(encoding="utf-8")).get("blockers") or []
+              if blockers:
+                  print("Blockers:")
+                  for blocker in blockers:
+                      print(f"  - {blocker}")
+              else:
+                  print("Blockers: none")
+          PY
