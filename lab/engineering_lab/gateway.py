@@ -31,6 +31,7 @@ LOCAL_PROVIDERS: tuple[str, ...] = (
     "ollama",
     "llama_cpp",
     "openai_compatible_local",
+    "n_atlas",
 )
 REMOTE_PROVIDERS: tuple[str, ...] = (
     "gemini",
@@ -54,6 +55,7 @@ CONFIG_CLASSES: dict[str, str] = {
     "native_arkadia_agent": "AGENT_RUNTIME",
     "openhands_compatible": "AGENT_RUNTIME",
     "acp_compatible": "AGENT_RUNTIME",
+    "n_atlas": "LOCAL",
 }
 
 #: Environment variables that, when present, indicate a provider is configured.
@@ -64,6 +66,7 @@ _PROVIDER_ENV: dict[str, tuple[str, ...]] = {
     "openai_compatible_local": ("LOCAL_MODEL_BASE_URL", "OLLAMA_BASE_URL"),
     "ollama": ("OLLAMA_BASE_URL", "OLLAMA_HOST"),
     "llama_cpp": ("LLAMA_CPP_BASE_URL",),
+    "n_atlas": ("N_ATLAS_BASE_URL",),
 }
 
 
@@ -150,6 +153,7 @@ class ModelGateway:
             "native_arkadia_agent": "arkadia-native",
             "openhands_compatible": "openhands",
             "acp_compatible": "acp",
+            "n_atlas": os.environ.get("N_ATLAS_MODEL", "N-ATLaS"),
         }
         if registry:
             self._models.update(registry)
@@ -161,6 +165,20 @@ class ModelGateway:
             raise ValueError(f"unknown provider '{provider}'")
         model = self._models.get(provider, "unknown")
         config_class = CONFIG_CLASSES[provider]
+        if provider == "n_atlas":
+            base = os.environ.get("N_ATLAS_BASE_URL")
+            if not base:
+                return ModelDescriptor(
+                    provider, model, config_class, configured=False,
+                    status="UNCONFIGURED",
+                    detail="N_ATLAS_BASE_URL is not configured",
+                )
+            reachable, detail = _probe_local(base, timeout=1.0)
+            return ModelDescriptor(
+                provider, model, config_class, configured=reachable,
+                status="AVAILABLE" if reachable else "UNAVAILABLE",
+                detail=detail,
+            )
         if provider in ("ollama", "llama_cpp", "openai_compatible_local"):
             base = (
                 os.environ.get("OLLAMA_BASE_URL")
@@ -399,6 +417,8 @@ def get_gateway() -> ModelGateway:
     global _GLOBAL_GATEWAY
     if _GLOBAL_GATEWAY is None:
         _GLOBAL_GATEWAY = ModelGateway()
+        from .natlas import NAtlasAdapter
+        _GLOBAL_GATEWAY.register_adapter("n_atlas", NAtlasAdapter())
     return _GLOBAL_GATEWAY
 
 
