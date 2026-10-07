@@ -844,3 +844,25 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   the required `status`, and `null` written into the `number`-only `interpretation.confidence` map
   (`$defs.candidate` allows `null` confidence, the top-level map does not). Pin the producer with a
   conformance test, including a negative control per violation, or the schema is decoration.
+
+
+## A strict xfail is a serialization constraint, not a preference (gate-hygiene)
+- `strict=True` records a defect a PR *expects* to be repaired — which means the repair is
+  the exact event that turns the node into a **failure** (XPASS). Two open GATE-07 PRs
+  (#329 = the guard with a strict xfail; #342 = the clean-stop repair that flips it) are
+  each green alone and **cannot both merge in either order**. Measured in a worktree at
+  `#329`'s tree with `#342`'s `weaver/` patch applied: `1 failed (strict XPASS), 5 passed`.
+- A PR body's suite delta can be true and still blind to the conflict. `#342` reported
+  `10 failed -> 9 failed` — correct **for `main` alone**, which counts the xfail as an
+  *expected* failure the repair resolves. It cannot see a *strict* xfail on another branch.
+  Before composing PRs, check whether any of them records the defect another one repairs.
+- Reconciliation rule (decision record, not an implementation):
+  `docs/control-plane/evidence/gate07-strict-xfail-composition-reconciliation-01/`. Merge
+  order is `#329` (with a companion change re-materializing the xfail as a strict positive
+  quiet-stop assertion) **then** `#342`, or one composed PR. The pre-repair literal is
+  preserved verbatim in the guard so the node stays reconstructable.
+- Guard: `tests/test_gate07_strict_xfail_composition_reconciliation.py` — a pure-source
+  detector (imports no `weaver` module) with a negative control that feeds it the measured
+  pre-repair pair and a positive control proving it is silent when the repair is absent.
+  It fails on the composed tree and passes on `main`: a guard that is silent on both is not
+  a guard.
