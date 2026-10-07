@@ -1,0 +1,144 @@
+{
+  "schema": "arkadia.aeas.gate-acceptance.v1",
+  "spa_origin": "http://localhost:5000",
+  "api_origin": "https://arkadia-pr-337.onrender.com",
+  "lab_path": "/solspire/engineering-lab",
+  "started_at": "2026-10-07T01:35:43.235Z",
+  "gate2": {
+    "steps": [
+      {
+        "name": "spa-serves-login-route",
+        "status": "PASS",
+        "duration_ms": 2639,
+        "result": {
+          "status": 200,
+          "url": "http://localhost:5000/login"
+        }
+      },
+      {
+        "name": "authenticate-via-real-login-ui",
+        "status": "PASS",
+        "duration_ms": 6311,
+        "result": {
+          "provider": "firebase-identity-toolkit-via-login-ui",
+          "email_domain": "gmail.com",
+          "uid_prefix": "OKd9BxVX",
+          "id_token_present": true,
+          "id_token_is_jwt": true,
+          "fabricated": false
+        }
+      },
+      {
+        "name": "authenticated-lab-api-operation",
+        "status": "PASS",
+        "duration_ms": 22504,
+        "result": {
+          "overview_status": 200,
+          "sessions_status": 200,
+          "subject_binding": "Arkadia Lab",
+          "session_count": 0
+        }
+      },
+      {
+        "name": "engineering-lab-surface-renders",
+        "status": "PASS",
+        "duration_ms": 1785,
+        "result": {
+          "url": "http://localhost:5000/solspire/engineering-lab",
+          "has_surface": true
+        }
+      }
+    ],
+    "lab_api_calls": [
+      {
+        "method": "GET",
+        "url": "https://arkadia-pr-337.onrender.com/api/lab/overview",
+        "status": 200,
+        "authorized": true
+      },
+      {
+        "method": "GET",
+        "url": "https://arkadia-pr-337.onrender.com/api/lab/engineering/sessions",
+        "status": 200,
+        "authorized": true
+      },
+      {
+        "method": "GET",
+        "url": "https://arkadia-pr-337.onrender.com/api/lab/engineering/sessions",
+        "status": 200,
+        "authorized": true
+      },
+      {
+        "method": "GET",
+        "url": "https://arkadia-pr-337.onrender.com/api/lab/engineering/sessions",
+        "status": 200,
+        "authorized": true
+      },
+      {
+        "method": "POST",
+        "url": "https://arkadia-pr-337.onrender.com/api/lab/engineering/agents",
+        "status": 200,
+        "authorized": true
+      },
+      {
+        "method": "POST",
+        "url": "https://arkadia-pr-337.onrender.com/api/lab/engineering/sessions",
+        "status": 200,
+        "authorized": true
+      },
+      {
+        "method": "GET",
+        "url": "https://arkadia-pr-337.onrender.com/api/lab/engineering/sessions/SES-7b944d5d5afe/events",
+        "status": 200,
+        "authorized": true
+      }
+    ],
+    "authentication": {
+      "provider": "firebase-identity-toolkit-via-login-ui",
+      "email_domain": "gmail.com",
+      "uid_prefix": "OKd9BxVX",
+      "id_token_present": true,
+      "id_token_is_jwt": true,
+      "fabricated": false
+    }
+  },
+  "gate3": {
+    "steps": [
+      {
+        "name": "select-or-create-native-session",
+        "status": "PASS",
+        "duration_ms": 4099,
+        "result": {
+          "session_id": "SES-7b944d5d5afe"
+        }
+      },
+      {
+        "name": "sse-eventstream-live",
+        "status": "FAIL",
+        "duration_ms": 30004,
+        "error": "TimeoutError: page.waitForFunction: Timeout 30000ms exceeded."
+      }
+    ],
+    "sse_responses": [
+      {
+        "url": "https://arkadia-pr-337.onrender.com/api/lab/engineering/sessions/SES-7b944d5d5afe/events",
+        "status": 200,
+        "content_type": "text/event-stream; charset=utf-8",
+        "cache_control": "no-cache, no-transform"
+      }
+    ],
+    "transport": null,
+    "native_event": null,
+    "raw_frames": null
+  },
+  "console_errors": [
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "Failed to load resource: the server responded with a status of 403 ()"
+  ],
+  "page_errors": [],
+  "failed_requests": [],
+  "aborted_at": "TimeoutError: page.waitForFunction: Timeout 30000ms exceeded.",
+  "finished_at": "2026-10-07T01:36:50.728Z"
+}

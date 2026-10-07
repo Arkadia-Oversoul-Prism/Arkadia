@@ -265,6 +265,26 @@ async def transition_session(
 
 # -- AEAS-01: authenticated live event transport -----------------------------
 
+# SSE frames are delimited by real LF bytes (0x0A). The escape sequences below
+# must stay single-backslash: a doubled backslash emits the two literal
+# characters 0x5C 0x6E, which conformant SSE parsers (including this app's own
+# client) do not treat as a frame boundary.
+_SSE_LF = "\n"
+
+
+def _sse_frame(event: str | None, data: str | None) -> str:
+    lines = []
+    if event is not None:
+        lines.append(f"event: {event}")
+    if data is not None:
+        lines.append(f"data: {data}")
+    return _SSE_LF.join(lines) + _SSE_LF + _SSE_LF
+
+
+def _sse_comment(text: str) -> str:
+    return f": {text}" + _SSE_LF + _SSE_LF
+
+
 @router.get("/engineering/sessions/{session_id}/events")
 async def engineering_event_stream(session_id: str, user: dict = Depends(require_auth)):
     """Stream this session's native EventStream over SSE.
@@ -304,17 +324,17 @@ async def engineering_event_stream(session_id: str, user: dict = Depends(require
 
     async def body():
         try:
-            yield ": connected\\n\\n"
+            yield _sse_comment("connected")
             for record in get_event_stream().replay(session_id):
-                yield f"event: agent\\ndata: {json.dumps(record, sort_keys=True)}\\n\\n"
+                yield _sse_frame("agent", json.dumps(record, sort_keys=True))
             while True:
                 try:
                     record = await asyncio.wait_for(queue.get(), timeout=15)
                     if record is None:
                         break
-                    yield f"event: agent\\ndata: {json.dumps(record, sort_keys=True)}\\n\\n"
+                    yield _sse_frame("agent", json.dumps(record, sort_keys=True))
                 except asyncio.TimeoutError:
-                    yield ": keepalive\\n\\n"
+                    yield _sse_comment("keepalive")
         finally:
             unsubscribe()
 
