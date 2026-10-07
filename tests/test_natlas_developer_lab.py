@@ -4,7 +4,7 @@ import pytest
 
 from lab.engineering_lab import gateway as gateway_mod
 from lab.engineering_lab.gateway import ModelGateway, ModelResponse
-from lab.engineering_lab.natlas import NAtlasAdapter
+from lab.engineering_lab.natlas import NAtlasAdapter, NAtlasGradioAdapter
 
 
 def test_natlas_is_truthfully_unconfigured_without_endpoint(monkeypatch):
@@ -139,7 +139,7 @@ async def test_native_natlas_route_live_external_gradio(monkeypatch):
     assert result["evaluation"]["passed"] is True
     assert result["response"].strip()
     assert len(store.evidence) == 1
-    assert store.evidence[0].detail["integration"] == "external Gradio N-ATLaS runtime"
+    assert store.evidence[0].detail["integration"] == "gradio N-ATLaS runtime adapter"
     event_types = [event["event_type"] for event in stream.events]
     evidence_dir = os.environ.get("N_ATLAS_LIVE_EVIDENCE_DIR")
     if evidence_dir:
