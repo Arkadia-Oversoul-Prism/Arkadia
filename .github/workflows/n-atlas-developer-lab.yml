@@ -1,0 +1,43 @@
+name: N-ATLAS Developer Lab
+
+on:
+  pull_request:
+    paths:
+      - "lab/engineering_lab/gateway.py"
+      - "lab/engineering_lab/natlas.py"
+      - "api/lab_routes.py"
+      - "tests/test_natlas_developer_lab.py"
+      - "web/console/**"
+      - "docs/architecture/NATLAS_DEVELOPER_LAB_V0.1.md"
+  workflow_dispatch:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install pytest
+      - name: N-ATLAS provider tests
+        run: python -m pytest tests/test_natlas_developer_lab.py -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web/console
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/console/package-lock.json
+      - run: npm ci
+      - name: Console typecheck and build
+        run: npm run build

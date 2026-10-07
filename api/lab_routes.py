@@ -11,7 +11,9 @@ self-authorize; consequential transitions remain human-only.
 
 from __future__ import annotations
 
+import hashlib
 import os
+import uuid
 import urllib.error
 import urllib.request
 from typing import Any
@@ -30,8 +32,9 @@ from lab.engineering_lab.automations import (
     grammar_view,
     make_automation,
 )
-from lab.engineering_lab.contracts import BoundaryViolation
-from lab.engineering_lab.gateway import describe_gateway
+from lab.engineering_lab.contracts import BoundaryViolation, EvidenceRecord, utc_now
+from lab.engineering_lab.gateway import ModelUnavailable, describe_gateway, get_gateway
+from lab.engineering_lab.events import get_event_stream
 from lab.engineering_lab.runtime import (
     CANONICAL_LOOP,
     BoundedOperation,
@@ -348,6 +351,191 @@ async def set_automation_state(
 @router.get("/engineering/gateway")
 async def model_gateway() -> dict:
     return describe_gateway()
+
+
+class NAtlasRunBody(BaseModel):
+    session_id: str
+    prompt: str = Field(min_length=1, max_length=12000)
+    model: str | None = None
+
+
+@router.post("/engineering/n-atlas/test-session")
+async def n_atlas_test_session(user: dict = Depends(require_auth)) -> dict:
+    """Create the smallest human-authorized session needed for an external PS1 test.
+
+    The tester explicitly invokes this endpoint by pressing START TEST. The
+    server records that human authorization against the newly created session;
+    it does not grant authority to the model or to the tester beyond this
+    bounded N-ATLaS run.
+    """
+    from solspire.workspace_manager import get_workspace_manager
+
+    uid = user["uid"]
+    workspace = get_workspace_manager().get_or_create(
+        uid, display_name="N-ATLaS External Test Workspace"
+    )
+    store = get_store()
+    agents = store.list_agents(uid)
+    agent = next(
+        (
+            item for item in agents
+            if item.get("display_name") == "N-ATLaS External Tester"
+        ),
+        None,
+    )
+    runtime = get_runtime()
+    if agent is None:
+        agent = runtime.register_agent(
+            subject_ref=uid,
+            role="BUILDER",
+            display_name="N-ATLaS External Tester",
+            capabilities=("READ", "TEST"),
+            write_allowed=False,
+            model_ref="N-ATLaS",
+        )
+
+    session = runtime.open_session(
+        subject_ref=uid,
+        workspace_ref=workspace.id,
+        agent_id=agent["agent_id"],
+        objective="External PS1 N-ATLaS developer test",
+    )
+    authorization = runtime.record_authorization(
+        subject_ref=uid,
+        scope_ref=session["session_id"],
+        operations_allowed=("read", "test"),
+        duration_minutes=30,
+    )
+    store.attach_authorization(
+        session["session_id"], uid, authorization["authorization_id"]
+    )
+    session = runtime.transition(session["session_id"], uid, "AUTHORIZED")
+    descriptor = get_gateway().describe("n_atlas")
+    if descriptor.status != "AVAILABLE":
+        raise HTTPException(
+            status_code=503,
+            detail={"state": descriptor.status, "detail": descriptor.detail},
+        )
+    return {
+        "session_id": session["session_id"],
+        "state": session["state"],
+        "model": descriptor.model,
+        "expires_in_minutes": 30,
+    }
+
+
+@router.get("/engineering/n-atlas/catalog")
+async def n_atlas_catalog() -> dict:
+    """Truthful N-ATLAS integration status and capability descriptor."""
+    gateway = get_gateway()
+    descriptor = gateway.describe("n_atlas")
+    return {
+        "provider": "n_atlas",
+        "descriptor": descriptor.to_dict(),
+        "golden_workflow": ["RUN", "INSPECT", "EVALUATE", "EVIDENCE", "VERIFY"],
+        "live_boundary": "hosted access remains unverified unless the configured endpoint is authorized and reachable",
+    }
+
+
+@router.post("/engineering/n-atlas/run")
+async def n_atlas_run(body: NAtlasRunBody, user: dict = Depends(require_auth)) -> dict:
+    """Run one governed N-ATLAS interaction and record evidence."""
+    runtime = get_runtime()
+    try:
+        session = runtime.get_session(body.session_id, user["uid"])
+    except KeyError:
+        raise HTTPException(status_code=404, detail="session not found")
+    if session["state"] not in ("AUTHORIZED", "QUEUED"):
+        raise HTTPException(status_code=409, detail=f"session must be AUTHORIZED or QUEUED (currently {session['state']})")
+
+    gateway = get_gateway()
+    descriptor = gateway.describe("n_atlas")
+    if descriptor.status != "AVAILABLE":
+        raise HTTPException(status_code=503, detail={"state": descriptor.status, "detail": descriptor.detail, "provider": "n_atlas"})
+
+    run_id = f"RUN-{uuid.uuid4().hex[:12]}"
+    from lab.engineering_lab.models import AgentRun
+    run = AgentRun(
+        run_id=run_id,
+        session_id=body.session_id,
+        agent_id=session["agent_id"],
+        state="RUNNING",
+        objective="N-ATLAS developer-lab golden workflow",
+        subject_ref=user["uid"],
+        plan={"provider": "n_atlas", "model": body.model or descriptor.model},
+    )
+    get_store().create_run(run)
+    get_event_stream().emit(session_id=body.session_id, run_id=run_id, event_type="RUN_STARTED",
+                            payload={"provider": "n_atlas", "model": body.model or descriptor.model})
+
+    prompt_hash = hashlib.sha256(body.prompt.encode("utf-8")).hexdigest()
+    try:
+        response = gateway.generate(
+            provider="n_atlas",
+            model=body.model or descriptor.model,
+            messages=[{"role": "user", "content": body.prompt}],
+        )
+    except ModelUnavailable as exc:
+        get_store().update_run(run_id, user["uid"], state="BLOCKED", result_state="BLOCKED")
+        get_event_stream().emit(session_id=body.session_id, run_id=run_id, event_type="BLOCKED",
+                                payload={"provider": "n_atlas", "reason": str(exc)})
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    response_hash = hashlib.sha256(response.text.encode("utf-8")).hexdigest()
+    evaluation = {
+        "name": "non_empty_response",
+        "passed": bool(response.text.strip()),
+        "rules": ["response must contain non-whitespace text"],
+    }
+    result_state = "IMPLEMENTED" if evaluation["passed"] else "BLOCKED"
+
+    get_event_stream().emit(
+        session_id=body.session_id, run_id=run_id, event_type="MODEL_TURN",
+        payload={"provider": response.provider, "model": response.model,
+                 "prompt_sha256": prompt_hash, "response_sha256": response_hash,
+                 "finish_reason": response.finish_reason},
+    )
+
+    evidence = EvidenceRecord(
+        evidence_id=f"EVD-{uuid.uuid4().hex[:12]}",
+        subject_ref=user["uid"],
+        workspace_ref=session["workspace_ref"],
+        run_ref=run_id,
+        state=result_state,
+        summary="N-ATLAS golden workflow execution",
+        detail={
+            "provider": response.provider,
+            "model": response.model,
+            "prompt_sha256": prompt_hash,
+            "response_sha256": response_hash,
+            "evaluation": evaluation,
+            "usage": response.usage,
+            "integration": f"{os.environ.get('N_ATLAS_PROTOCOL', 'openai_compatible')} N-ATLaS runtime adapter",
+        },
+        timestamp_utc=utc_now(),
+        provenance={"session_id": body.session_id,
+                    "authorization_ref": session.get("authorization_ref"),
+                    "provider_status": descriptor.status},
+    )
+    get_store().save_evidence(evidence)
+    get_store().update_run(run_id, user["uid"], state="VERIFYING",
+                           result_state=result_state, evidence_refs=(evidence.evidence_id,))
+    get_event_stream().emit(session_id=body.session_id, run_id=run_id, event_type="EVIDENCE_RECORDED",
+                            payload={"evidence_id": evidence.evidence_id, "state": result_state})
+    get_event_stream().emit(session_id=body.session_id, run_id=run_id, event_type="RUN_FINISHED",
+                            payload={"state": "VERIFYING", "result_state": result_state})
+
+    return {
+        "run_id": run_id,
+        "provider": response.provider,
+        "model": response.model,
+        "response": response.text,
+        "finish_reason": response.finish_reason,
+        "usage": response.usage,
+        "evaluation": evaluation,
+        "evidence": evidence.to_dict(),
+        "reproduction": {"provider": "n_atlas", "model": response.model, "prompt_sha256": prompt_hash, "protocol": os.environ.get("N_ATLAS_PROTOCOL", "openai_compatible")},
+    }
 
 
 # -- EL-05: external integration status --------------------------------------

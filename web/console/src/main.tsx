@@ -10,29 +10,45 @@ import { WorkConsequence } from "./surfaces/WorkConsequence";
 import { Authority } from "./surfaces/Authority";
 import "./styles.css";
 import { MieLab } from "./surfaces/MieLab";
+import { NAtlasTester } from "./surfaces/NAtlasTester";
 
 function App() {
   return (
-    <Layout>
-      <Routes>
-        <Route path="/" element={<Spine />} />
-        <Route path="/inspector" element={<BoundaryInspector />} />
-        <Route path="/boundary/:id" element={<BoundaryView />} />
-        <Route path="/work" element={<WorkConsequence />} />
-        <Route path="/authority" element={<Authority />} />
-        <Route path="/mie-lab" element={<MieLab />} />
-        <Route path="*" element={<Spine />} />
-      </Routes>
-    </Layout>
+    <Routes>
+      <Route path="/n-atlas-lab" element={<NAtlasTester />} />
+      <Route path="/n-atlas-tester" element={<NAtlasTester />} />
+      <Route
+        path="*"
+        element={
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Spine />} />
+              <Route path="/inspector" element={<BoundaryInspector />} />
+              <Route path="/boundary/:id" element={<BoundaryView />} />
+              <Route path="/work" element={<WorkConsequence />} />
+              <Route path="/authority" element={<Authority />} />
+              <Route path="/mie-lab" element={<MieLab />} />
+              
+              <Route path="*" element={<Spine />} />
+            </Routes>
+          </Layout>
+        }
+      />
+    </Routes>
   );
 }
 
-createRoot(document.getElementById("root")!).render(
+const root = document.getElementById("root");
+if (!root) {
+  throw new Error("Missing #root element");
+}
+
+createRoot(root).render(
   <StrictMode>
-    <AuthProvider>
-      <BrowserRouter>
+    <BrowserRouter>
+      <AuthProvider>
         <App />
-      </BrowserRouter>
-    </AuthProvider>
+      </AuthProvider>
+    </BrowserRouter>
   </StrictMode>,
 );
