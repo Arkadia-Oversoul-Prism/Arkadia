@@ -105,12 +105,18 @@ jobs:
           move = (result.get("next_move") or {}).get("id") or "NONE"
           print(f"::notice::status={result.get('status')} next_move={move}")
           print(json.dumps(result, indent=2))
-          # Orientation failure → fail job; NO_LEGAL_MOVE is clean stop (success)
-          if result.get("status") == "FAILED":
-              sys.exit(1)
+          # Publish the outcome before any failure exit. The always() report step
+          # interpolates these outputs, and with bash -e an exit 1 aborts the step,
+          # so a write after it would leave the report blank on exactly the FAILED
+          # orientation the report exists to explain (observed run 37379043890).
+          # Keep this comment free of backticks and dollar signs: the heredoc
+          # delimiter is unquoted, so the shell would expand them.
           with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
               fh.write(f"status={result.get('status')}\n")
               fh.write(f"move={move}\n")
+          # Orientation failure → fail job; NO_LEGAL_MOVE is clean stop (success)
+          if result.get("status") == "FAILED":
+              sys.exit(1)
           PY
 
       - name: Upload session evidence

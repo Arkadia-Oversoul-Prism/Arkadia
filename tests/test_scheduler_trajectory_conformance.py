@@ -346,3 +346,86 @@ def test_negative_control_session_gate_detector_flags_ungated():
         }
     }
     assert not _ungated_session_steps(gated)
+
+
+# --- the session's failure path must still report the outcome -----------------------
+#
+# `Session + Engineering Runner` writes `status`/`move` to `$GITHUB_OUTPUT` *after* the
+# `sys.exit(1)` guard, so on a `FAILED` orientation the job dies before those outputs are
+# written. The `if: always()` "Session report" step then interpolates `steps.runner.outputs.*`
+# — which are empty — and prints `Status:` / `Move:` with nothing after them.
+#
+# Observed in the live hourly session (`run 37379043890`, `main` @ `451e41a3`, 2026-10-05):
+# the report step printed the repository SHA and the `FORBIDDEN` lines, but `Status:` and
+# `Move:` were blank, while the failure itself was real (`invalid trajectory structure`).
+# The one step whose job is to summarise the session was silent about why it stopped — the
+# same "the stop must be visible" defect class the worker→attention seam guard pins one
+# layer up.
+#
+# These tests assert the ordering invariant (nothing may exit before the outputs are
+# written) and pin a negative control for the detector, so a reordering that reintroduces
+# the silent failure reddens CI instead of shipping.
+
+
+def _session_step(workflow):
+    steps = list(_session_steps(workflow))
+    assert len(steps) == 1, "expected exactly one session step"
+    return steps[0]
+
+
+def _reports_status_before_exiting(script: str) -> bool:
+    """Whether every `$GITHUB_OUTPUT` write precedes the earliest failure exit.
+
+    A `run:` block executes with `bash -e`, so an `exit 1` aborts the step; any
+    `$GITHUB_OUTPUT` write after it never lands, and the `if: always()` report step
+    interpolates an empty value. Two things keep the detector measuring the decision
+    rather than the prose around it: comments are dropped (a comment mentioning
+    `exit 1` is not a failure path), and the anchor is the output write itself, not a
+    `status=` substring that also appears in a `::notice::` print.
+    """
+    code = "\n".join(
+        line for line in script.splitlines() if not line.lstrip().startswith("#")
+    )
+    output_writes = [m.start() for m in re.finditer(r"GITHUB_OUTPUT", code)]
+    exits = [m.start() for m in re.finditer(r"\bexit\s*\(?\s*1\s*\)?", code)]
+    if not output_writes:
+        return False
+    if not exits:
+        return True
+    return min(exits) >= max(output_writes)
+
+
+def test_negative_control_output_ordering_detector_flags_exit_before_write():
+    silent = (
+        'if bad:\n    sys.exit(1)\n'
+        'with open(os.environ["GITHUB_OUTPUT"], "a") as fh:\n    fh.write(f"status=X\\n")\n'
+    )
+    assert not _reports_status_before_exiting(silent)
+    ordered = (
+        'with open(os.environ["GITHUB_OUTPUT"], "a") as fh:\n    fh.write(f"status=X\\n")\n'
+        'if bad:\n    sys.exit(1)\n'
+    )
+    assert _reports_status_before_exiting(ordered)
+    assert not _reports_status_before_exiting("print('no outputs written at all')\n")
+
+
+def test_negative_control_output_ordering_detector_ignores_comments():
+    """A comment mentioning `exit 1` is not a failure path."""
+    prose = (
+        "# an exit 1 here would abort the step\n"
+        'with open(os.environ["GITHUB_OUTPUT"], "a") as fh:\n    fh.write("status=X\\n")\n'
+    )
+    assert _reports_status_before_exiting(prose)
+
+
+def test_session_reports_status_and_move_before_any_failure_exit():
+    """A failing session must still publish `status`/`move` for the report step."""
+    workflow = yaml.safe_load(SCHEDULER_WORKFLOW.read_text(encoding="utf-8"))
+    script = _session_step(workflow)["run"]
+    assert _reports_status_before_exiting(script), (
+        "the session step exits before writing status/move to $GITHUB_OUTPUT; on a FAILED "
+        "orientation the `if: always()` report step interpolates empty values and prints a "
+        "blank Status/Move, hiding the reason the hourly session stopped"
+    )
+    assert "status=" in script and "move=" in script
+
