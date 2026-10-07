@@ -59,6 +59,31 @@ The failing/error node set is **identical** (10 names + `ERROR tests/test_autono
 pre-existing CE-01 collection error). Delta is `+22 passed / +1 skipped` — exactly the 22
 new guard nodes this tree adds (1 skipped). **Zero regression.**
 
+## 3b. CI on the PR head `30bccef` — Provider Routing is pre-existing red
+
+| Workflow | Result |
+|----------|--------|
+| Weaver MVP2 validation | **success** |
+| Arkadia Engineering Scheduler | success |
+| Full-history secret scan | success |
+| Vercel Preview Comments | success |
+| Provider Routing Verification | **failure** |
+
+`provider-routing.yml` is path-filtered to `weaver/**`, so this branch triggers it. Its
+`Broader test suite` step fails on a **14-node set that is byte-identical to the same
+workflow's failure on `main`** (`17e626cd`, run `37539664677`, 2026-10-06):
+
+```
+test_agents_md_encoding_adjudication.py  (4 nodes)   test_solspire_r1_governance_convergence.py (2)
+test_ais_capability_profile_onboarding.py (1)        test_solspire_r3_execution_runtime.py      (1)
+test_ais_w2_living_gate_grove_handoff.py  (1)        test_steward_filter.py                     (3)
+test_identity_spine_w1.py                 (1)        ERROR tests/test_autonomy.py (CE-01 collection)
+test_m02_reasomate_truth.py               (1)
+```
+
+Zero node delta. This is baseline debt the contract says to **record, not fix** inside an
+unrelated gate. It is not attributable to this branch.
+
 ## 4. What this branch is — and is not
 
 This branch is the **reconciled composition** of #329 + #342 + #343. It is a companion
