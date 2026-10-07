@@ -109,6 +109,18 @@ LEGIT = re.compile(
     # omitted, three fitness tests red on main. A published contract is a
     # first-class product surface, so it is enumerated explicitly.
     r"|schemas/"
+    # deploy/ carries the external N-ATLaS validation-gateway image
+    # (deploy/n-atlas-server/{Dockerfile,app.py,requirements.txt,README.md}),
+    # merged to main via PR #352 (merge a27c6c80). It was tracked while this
+    # allowlist still omitted it, so the CP10 gate rejected the #352 push to main
+    # (run 37695297845) and left three fitness tests red on main
+    # (test_allowlist_admits_every_tracked_top_level_prefix,
+    # test_allowlist_covers_every_tracked_surface,
+    # test_delegated_verdict_admits_every_tracked_surface). It is a first-class
+    # deployment surface the repository tracks, not scratch space, so it is
+    # enumerated rather than left to the generic rules. (The generic
+    # `Dockerfile$` rule did not cover it: the file is nested, not root-level.)
+    r"|deploy/"
     # runtime state, archive and asset trees the repository tracks
     r"|data/|archive/|artifacts/|attached_assets/|\"?attached_assets/"
     # vault/ tracks only its scaffold; generated notes stay outside the boundary
