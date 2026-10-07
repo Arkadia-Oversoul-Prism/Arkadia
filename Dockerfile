@@ -2,14 +2,14 @@
 FROM node:20-bookworm-slim AS console-build
 
 WORKDIR /build
-COPY web/console/package.json web/console/package.json
+COPY web/console/package.json web/console/package-lock.json web/console/
 COPY web/console/tsconfig.json ./web/console/
 COPY web/console/vite.config.ts web/console/vite.config.ts
 COPY web/console/index.html web/console/index.html
 COPY web/console/src web/console/src
 
 WORKDIR /build/web/console
-RUN npm install --no-audit --no-fund
+RUN npm ci --no-audit --no-fund
 RUN npm run build
 
 
