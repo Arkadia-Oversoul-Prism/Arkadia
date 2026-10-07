@@ -11,30 +11,29 @@ import { Authority } from "./surfaces/Authority";
 import "./styles.css";
 import { MieLab } from "./surfaces/MieLab";
 import { NAtlasLab } from "./surfaces/NAtlasLab";
+import { NAtlasTester } from "./surfaces/NAtlasTester";
 
 function App() {
   return (
-    <Layout>
-      <Routes>
-        <Route path="/" element={<Spine />} />
-        <Route path="/inspector" element={<BoundaryInspector />} />
-        <Route path="/boundary/:id" element={<BoundaryView />} />
-        <Route path="/work" element={<WorkConsequence />} />
-        <Route path="/authority" element={<Authority />} />
-        <Route path="/mie-lab" element={<MieLab />} />
-        <Route path="/n-atlas-lab" element={<NAtlasLab />} />
-        <Route path="*" element={<Spine />} />
-      </Routes>
-    </Layout>
+    <Routes>
+      <Route path="/n-atlas-tester" element={<NAtlasTester />} />
+      <Route
+        path="*"
+        element={
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Spine />} />
+              <Route path="/inspector" element={<BoundaryInspector />} />
+              <Route path="/boundary/:id" element={<BoundaryView />} />
+              <Route path="/work" element={<WorkConsequence />} />
+              <Route path="/authority" element={<Authority />} />
+              <Route path="/mie-lab" element={<MieLab />} />
+              <Route path="/n-atlas-lab" element={<NAtlasLab />} />
+              <Route path="*" element={<Spine />} />
+            </Routes>
+          </Layout>
+        }
+      />
+    </Routes>
   );
 }
-
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <AuthProvider>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </AuthProvider>
-  </StrictMode>,
-);
