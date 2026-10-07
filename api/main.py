@@ -2432,3 +2432,24 @@ async def agent_spawn(request: Request, user: dict = Depends(_require_auth)):
 
 from api.ceo_chat_routes import router as _ceo_chat_router
 app.include_router(_ceo_chat_router)
+
+# ── Canonical N-ATLaS Lab frontend ─────────────────────────────────────────
+# The focused N-ATLaS tester is intentionally served by the same FastAPI
+# origin as the governed Engineering Lab API. This keeps the tester on one
+# authorization/network boundary and avoids a second frontend deployment.
+_CONSOLE_DIST = _os.path.abspath(
+    _os.path.join(_os.path.dirname(__file__), "..", "web", "console", "dist")
+)
+if _os.path.isdir(_CONSOLE_DIST):
+    app.mount(
+        "/n-atlas-tester",
+        StaticFiles(directory=_CONSOLE_DIST, html=True),
+        name="n-atlas-tester",
+    )
+    logger.info("[N-ATLAS] Canonical tester frontend mounted at /n-atlas-tester")
+else:
+    logger.warning(
+        "[N-ATLAS] Console dist not found; /n-atlas-tester is unavailable. "
+        "The Render Docker build must run the console build stage."
+    )
+\n
