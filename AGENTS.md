@@ -866,3 +866,34 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   pre-repair pair and a positive control proving it is silent when the repair is absent.
   It fails on the composed tree and passes on `main`: a guard that is silent on both is not
   a guard.
+
+## PR #352 merge (N-ATLaS developer lab) — CP10 allowlist omission and two held pins (gate-hygiene)
+- PR #352 (`feat/n-atlas-developer-lab`, merge `a27c6c80`) landed on `main` at `2c6f6f1e`
+  carrying `deploy/n-atlas-server/{Dockerfile,app.py,requirements.txt,README.md}` — a tracked
+  tree the CP10 allowlist did not admit. The gate's own `push` run on that merge
+  (`37695297845`) **failed on `main`** with `Unexpected path outside legitimate surfaces:
+  deploy/n-atlas-server/Dockerfile`, and three `tests/test_m02a_ci_gate_integrity.py` nodes
+  went red. The generic `Dockerfile$` rule is root-level only; the tree is nested. Same
+  allowlist-omission class as `research/` and `schemas/` — remedied by admitting the surface
+  (PR #354, one additive `r"|deploy/"`), never by weakening the gate.
+- **A merged PR's green checks do not mean every gate ran green.** #352's rollup showed
+  `boundary: SUCCESS` while `validate: FAILURE`; `boundary` is a *different* job (beta
+  bundle evidence). Read the per-job conclusion, not the aggregate, and query the merge
+  commit's `push` run — a path-filtered workflow (`sg-02-fe-2-v.yml` triggers on `lab/**`
+  and `api/lab_routes.py`) runs on `main` only for the merge push.
+- **Node-identity delta, not counts, proved the repair.** `main` 16 nodes -> branch 13:
+  `main - branch` = exactly the 3 CP10 nodes, `branch - main` = empty. The remaining 13
+  decompose as the pre-merge baseline (`ff3f6d42`, 11 nodes) plus the 2 held nodes; the
+  recorded `tests/fixtures/baseline_node_set.txt` (10 nodes) is a strict subset of every run.
+- **Two #352 nodes are held as proposed work, not repaired** (`AGENTS.md` section 3): (1)
+  `test_engineering_lab_api.py::test_lab_mutation_endpoints_are_exactly_the_lab_state_set` —
+  three new routes `/engineering/n-atlas/{test-session,run,catalog}` call
+  `runtime.record_authorization(...)`, the *human* primitive (`originated_by` fixed to
+  `"human"`, store rejects otherwise) already used by `/sessions/{id}/authorize`
+  (`api/lab_routes.py:176`, `:403`); no repository/git/subprocess surface was added
+  (`natlas.py`, `gateway.py` use only `urllib.request`). The failing test is an inventory pin,
+  not a boundary assertion, and widening it is an owner/sovereign decision. (2)
+  `test_ci_gate_trigger_coverage.py::test_pr_pytest_workflow_is_selected_by_its_own_file[n-atlas-developer-lab.yml]`
+  — the new workflow's path filter omits its own file.
+- Evidence: `docs/control-plane/evidence/gate10-cp10-allowlist-deploy-surface-01/EVIDENCE.md`.
+
