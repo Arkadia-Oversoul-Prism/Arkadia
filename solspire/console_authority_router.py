@@ -74,11 +74,25 @@ async def authorize_proposal(
     body: AuthorizationRequest | None = None,
     user: dict[str, Any] = Depends(require_auth),
 ) -> dict[str, Any]:
+    """HTTP wrapper around :func:`authorize_proposal_sync` (paths unchanged)."""
+    return authorize_proposal_sync(proposal_id, body, user)
+
+
+def authorize_proposal_sync(
+    proposal_id: str,
+    body: AuthorizationRequest | None,
+    user: dict[str, Any],
+) -> dict[str, Any]:
     """Human gesture -> HAE -> Authorization.
 
     The SolSpire proposal must already be ACCEPTED. ACCEPTED is not itself
     authorization. A distinct canonical ARK-WEAVER-01 proposal is materialized
     from the accepted proposal and bound to the same correlation lineage.
+
+    Extracted verbatim from the route handler so the Arkadia Voice pipeline can
+    reuse the identical authorization boundary (govern authority enforced) over
+    a direct function call instead of an HTTP hop. The route above delegates
+    here; behaviour and paths are unchanged.
     """
     manager = get_proposal_manager()
     proposal = manager.get_proposal(proposal_id, user["uid"])

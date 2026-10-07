@@ -270,6 +270,38 @@ class ExecutionRuntime:
                     from solspire.project_manager import get_project_manager
                     p = get_project_manager().create(payload.get("name", "Unnamed"), owner_uid=ex.owner_uid)
                     return {"step": idx, "tool": tool, "ok": True, "project": p.to_dict()}
+                case "project_update":
+                    # Additive extension (Arkadia Voice): mirrors the canonical
+                    # field-write path of `PUT /solspire/projects/{id}`
+                    # (project_manager.apply_fields) so voice-driven project
+                    # updates run through this executor instead of a second one.
+                    import json as _json
+                    from solspire.project_manager import get_project_manager
+                    pm = get_project_manager()
+                    pid = str(payload.get("project_id") or "").strip()
+                    if not pid:
+                        return {"step": idx, "tool": tool, "ok": False,
+                                "error": "project_update requires project_id"}
+                    fields, vals = [], []
+                    if payload.get("name"):
+                        fields.append("name=?")
+                        vals.append(str(payload["name"]).strip())
+                    if payload.get("status"):
+                        fields.append("status=?")
+                        vals.append(str(payload["status"]))
+                    if payload.get("description") is not None:
+                        proj = pm.load(pid)
+                        proj.metadata["description"] = payload["description"]
+                        fields.append("metadata=?")
+                        vals.append(_json.dumps(proj.metadata))
+                    if not fields:
+                        return {"step": idx, "tool": tool, "ok": False,
+                                "error": "project_update requires name/status/description"}
+                    fields.append("updated_at=?")
+                    vals.append(time.time())
+                    vals.append(pid)
+                    pm.apply_fields(pid, fields, vals)
+                    return {"step": idx, "tool": tool, "ok": True, "project_id": pid}
                 case "llm" | _:
                     from solspire.provider_manager import get_manager
                     result = get_manager().invoke_model(
