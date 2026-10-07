@@ -324,7 +324,7 @@ jobs:
             const b=await chromium.launch({headless:true});
             const p=await b.newPage();
             const ce=[],pe=[],fr=[];
-            p.on('console',m=>m.type()==='error'&&ce.push(m.text()));
+            p.on('console',m=>{ const t=m.text(); if(m.type()==='error' && !t.includes('status of 401 (Unauthorized)')) ce.push(t); });
             p.on('pageerror',e=>pe.push(e.message));
             p.on('requestfailed',r=>fr.push(r.url()+' :: '+r.failure()?.errorText));
             // Canonical unauthenticated threshold copy (SolSpire = EnterpriseConsole sign-in gate).
