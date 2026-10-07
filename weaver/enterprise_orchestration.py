@@ -956,8 +956,9 @@ class EnterpriseOrchestrationStore:
                 for r in self._rows_where("ew_initiatives", "portfolio_id", rid, subject):
                     visit("INITIATIVE", r["id"])
             elif k == "INITIATIVE":
-                for r in self._rows_where("ew_initiatives", "id", rid, subject):
-                    pass
+                # No forward edge yet: the next Option B node (budget/contract/milestone)
+                # does not exist, and this walk never invents an edge it cannot store.
+                pass
             elif k == "CANONICAL_RECORD":
                 for r in self._rows_where("ew_interpretations", "canonical_record_id", rid, subject):
                     visit("INTERPRETATION", r["id"])

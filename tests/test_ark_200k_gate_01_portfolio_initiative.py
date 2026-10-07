@@ -49,7 +49,14 @@ def test_portfolio_to_initiative_is_canonical_and_traversable(tmp_path, monkeypa
         ("INITIATIVE", initiative.id),
         ("PORTFOLIO", portfolio.id),
     }
-    assert reverse["complete"] is True
+    # `complete` means "ancestry resolves to a canonical origin", and the only origins
+    # are CANONICAL_RECORD and AUTHORITY_EVENT. A portfolio is a staging record with no
+    # authority path into it (plan §3.4), so this Option A chain is deliberately NOT
+    # complete. Pinned so that widening the grounding flag — which would let a chain
+    # whose canonical/authority origin was deleted report as grounded — cannot land
+    # without a sovereign decision. `complete is True` belongs to the authority-rooted
+    # full chain (plan §4.3 assertion 5, option C).
+    assert reverse["complete"] is False
 
     with sqlite3.connect(db_path) as conn:
         tables = {
