@@ -37,3 +37,18 @@ function App() {
     </Routes>
   );
 }
+
+const root = document.getElementById("root");
+if (!root) {
+  throw new Error("Missing #root element");
+}
+
+createRoot(root).render(
+  <StrictMode>
+    <BrowserRouter>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </BrowserRouter>
+  </StrictMode>,
+);
