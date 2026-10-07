@@ -23,6 +23,13 @@ on:
       # scheduler can regress to reporting "all complete" for a live frontier.
       - 'tests/test_engineering_router_status_truthfulness.py'
       - 'tests/test_engineering_scheduler_bootstrap.py'
+      # The worker→attention composition seam and its attention half-guard. The
+      # seam is the layer the hourly scheduler actually invokes; both were pinned
+      # but executed by no workflow, so the chain could break between the router
+      # and the attention builder while both half-guards stayed green. Kept
+      # identical to the pull_request filter below.
+      - 'tests/test_attention_truthfulness.py'
+      - 'tests/test_worker_attention_composition.py'
   # The gate previously ran only on push to main, so it could never block a
   # broken PR — it could only report after the merge was already canonical.
   pull_request:
@@ -44,6 +51,8 @@ on:
       # pull_request filter is judged by nothing until after the merge.
       - 'tests/test_engineering_router_status_truthfulness.py'
       - 'tests/test_engineering_scheduler_bootstrap.py'
+      - 'tests/test_attention_truthfulness.py'
+      - 'tests/test_worker_attention_composition.py'
   workflow_dispatch:
 
 jobs:
@@ -78,3 +87,14 @@ jobs:
           python -m pytest -q
           tests/test_engineering_router_status_truthfulness.py
           tests/test_engineering_scheduler_bootstrap.py
+
+      - name: Worker→attention composition seam guard
+        # Executed on every event. The step above judges the router and the
+        # attention builder in isolation; this step drives the seam between them —
+        # `EngineeringWorker.run()`, what the hourly scheduler invokes — so a break
+        # that leaves both halves green fails here instead of silencing the hourly
+        # stop in production.
+        run: >-
+          python -m pytest -q
+          tests/test_attention_truthfulness.py
+          tests/test_worker_attention_composition.py

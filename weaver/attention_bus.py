@@ -18,6 +18,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
 
+from weaver.engineering_router import CLEAN_STOP_BLOCKER
+
 CHANNELS = ("tasks", "keep", "push", "workspace_studio")
 DEFAULT_KEEP_FEED = "ARKANA // FIELD FEED"
 DEFAULT_TASK_LIST = "@default"
@@ -257,11 +259,19 @@ def _engineering_result_is_blocked(result: dict[str, Any]) -> bool:
     trajectory still carried a frontier the session could not route — a structural
     slip, an unrecognized move status, or an unresolved dependency. Projecting that as
     a plain state change suppressed the push and left the hourly stop invisible.
+
+    `select_next_move` returns the clean-stop sentinel *as* a blocker, so a status-only
+    or non-empty-blockers test would push it — turning every idle hourly session into a
+    HIGH alert. A clean stop is the sentinel and nothing else; any other blocker is a
+    real boundary.
     """
     status = str(result.get("status") or "UNKNOWN")
     if status in {"FAILED", "BLOCKED"}:
         return True
-    return status == "NO_LEGAL_MOVE" and bool(result.get("blockers"))
+    if status != "NO_LEGAL_MOVE":
+        return False
+    blockers = [str(b) for b in (result.get("blockers") or [])]
+    return bool(blockers) and any(b != CLEAN_STOP_BLOCKER for b in blockers)
 
 
 def build_engineering_attention_event(result: dict[str, Any]) -> AttentionEvent:

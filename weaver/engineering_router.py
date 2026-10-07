@@ -22,6 +22,11 @@ EVIDENCE_DIR = Path("docs/control-plane/evidence")
 ACTIVE_STATUSES = frozenset({"pending", "revision_required", "in_progress"})
 TERMINAL_DONE = frozenset({"completed", "accepted", "merged"})
 
+# Emitted only when a trajectory has genuinely nothing left to route. It is a
+# *clean stop*, distinguished from every blocker (an unroutable frontier). Downstream
+# salience depends on the distinction: a clean stop stays quiet, a blocker is pushed.
+CLEAN_STOP_BLOCKER = "no legal pending move (all complete or dependencies unresolved)"
+
 
 @dataclass
 class RouteResult:
@@ -155,7 +160,7 @@ def select_next_move(
             + ", ".join(sorted(ACTIVE_STATUSES | TERMINAL_DONE))
         )
     if not blockers:
-        blockers.append("no legal pending move (all complete or dependencies unresolved)")
+        blockers.append(CLEAN_STOP_BLOCKER)
     return None, blockers
 
 
