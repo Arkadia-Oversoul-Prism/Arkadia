@@ -188,7 +188,9 @@ class ModelGateway:
                     status="UNCONFIGURED",
                     detail="N_ATLAS_BASE_URL is not configured",
                 )
+            protocol = os.environ.get("N_ATLAS_PROTOCOL", "openai_compatible").strip().lower()
             reachable, detail = _probe_natlas(base, timeout=1.0)
+            detail = f"protocol={protocol}; {detail}"
             return ModelDescriptor(
                 provider, model, config_class, configured=reachable,
                 status="AVAILABLE" if reachable else "UNAVAILABLE",
@@ -432,8 +434,10 @@ def get_gateway() -> ModelGateway:
     global _GLOBAL_GATEWAY
     if _GLOBAL_GATEWAY is None:
         _GLOBAL_GATEWAY = ModelGateway()
-        from .natlas import NAtlasAdapter
-        _GLOBAL_GATEWAY.register_adapter("n_atlas", NAtlasAdapter())
+        from .natlas import NAtlasAdapter, NAtlasGradioAdapter
+        protocol = os.environ.get("N_ATLAS_PROTOCOL", "openai_compatible").strip().lower()
+        adapter = NAtlasGradioAdapter() if protocol == "gradio" else NAtlasAdapter()
+        _GLOBAL_GATEWAY.register_adapter("n_atlas", adapter)
     return _GLOBAL_GATEWAY
 
 
