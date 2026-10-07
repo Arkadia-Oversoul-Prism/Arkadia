@@ -29,6 +29,8 @@ type TestSession = {
   session_id: string;
   state: string;
   model: string;
+  tester_token: string;
+  scope: string[];
 };
 
 export function NAtlasTester() {
@@ -45,7 +47,7 @@ export function NAtlasTester() {
   async function load() {
     setError("");
     try {
-      const catalogData = await api.get<Catalog>("/api/lab/engineering/n-atlas/catalog");
+      const catalogData = await api.get<Catalog>("/api/lab/engineering/n-atlas/catalog", { auth: false });
       setCatalog(catalogData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load N-ATLaS.");
@@ -60,7 +62,7 @@ export function NAtlasTester() {
     setOnboarding(true);
     setError("");
     try {
-      const data = await api.post<TestSession>("/api/lab/engineering/n-atlas/test-session", {});
+      const data = await api.post<TestSession>("/api/lab/engineering/n-atlas/test-session", {}, { auth: false });
       setSession(data);
     } catch (err) {
       setError(
@@ -85,7 +87,7 @@ export function NAtlasTester() {
         session_id: session.session_id,
         prompt: prompt.trim(),
         model: session.model,
-      });
+      }, { token: session.tester_token });
       setResult(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "N-ATLaS run failed.");
@@ -110,8 +112,8 @@ export function NAtlasTester() {
           <div className="tester-step">START</div>
           <h2>Ready to test?</h2>
           <p>
-            Click once to create your 30-minute test session. This records your
-            explicit authorization for this N-ATLaS test only.
+            Click once to create a 30-minute test session. No Arkadia account is required.
+            Your explicit authorization is recorded for this N-ATLaS test only.
           </p>
           <button
             className="tester-primary"
