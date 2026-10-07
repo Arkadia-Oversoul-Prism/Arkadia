@@ -16,6 +16,7 @@ import { NAtlasTester } from "./surfaces/NAtlasTester";
 function App() {
   return (
     <Routes>
+      <Route path="/n-atlas-lab" element={<NAtlasTester />} />
       <Route path="/n-atlas-tester" element={<NAtlasTester />} />
       <Route
         path="*"
@@ -28,7 +29,7 @@ function App() {
               <Route path="/work" element={<WorkConsequence />} />
               <Route path="/authority" element={<Authority />} />
               <Route path="/mie-lab" element={<MieLab />} />
-              <Route path="/n-atlas-lab" element={<NAtlasLab />} />
+              
               <Route path="*" element={<Spine />} />
             </Routes>
           </Layout>
