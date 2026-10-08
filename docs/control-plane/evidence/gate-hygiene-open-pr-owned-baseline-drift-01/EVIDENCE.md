@@ -584,9 +584,48 @@ canonical-fingerprint assertion); no node enters or leaves the failing/error set
 figure at `24a00f85` equals the `44137991` figure, so main's two natlas commits changed no
 node — consistent with §14.1's disjointness.
 
-### 14.4 Boundary and status
+### 14.4 Corrected figure — "22 errors" was a transcription error (22 *skipped*)
 
-Test/evidence only. No production file, no `api/main.py` (`py_compile` OK). No merge, no push
-to `main`, no force-push. PR #361, head `7c4955e6`, base `main` `24a00f85`,
-`MERGEABLE`/`CLEAN`. Status: **IMPLEMENTED** — proof complete for the reconciliation and the
-guards, merge withheld for human authority.
+This pass's own working note carried `16 failed / 1781 passed / 22 errors`. The log's summary
+line reads `16 failed, 1781 passed, 22 skipped, 2 warnings, 1 error`. **`22 errors` was wrong**:
+the suite has exactly **one** error (`tests/test_autonomy.py`, the CE-01 module-vs-package
+collision), and 22 is the *skipped* count. Corrected here rather than left standing, because a
+wrong figure is what makes the next pass re-derive a number that was already measured. Same
+correction applies to the `main` figure: `16F / 1772P / 22S / 1E`.
+
+The `-rEf` invocation is what makes this decidable: it prints both `FAILED` and `ERROR`
+summary lines, so the extractor sees 17 nodes and the node count reconciles with
+`16 failed + 1 error`. Under `-rf` the error line is invisible and the same tree fingerprints
+as 16 — a subset, not a baseline.
+
+### 14.5 Live node set equals the recorded fixture exactly
+
+Independent of the fingerprint hash, the 17 live node **ids** were diffed against
+`tests/fixtures/baseline_node_set.txt` (both prefix-stripped): **identical, zero delta**. The
+recorded set is therefore not merely hash-consistent but literally the same node list, and the
+compositional guard's fixture is proven current against a live `main` run in this pass.
+
+### 14.6 Boundary and status
+
+Test/evidence only. No production file, no `api/main.py` (`py_compile` OK, 2462 lines). No
+merge, no push to `main`, no force-push. PR #361, branch
+`gate-hygiene/open-pr-owned-baseline-drift-01`, base `main` `24a00f85`, head `a30931d6`,
+`MERGEABLE` / `mergeStateStatus: CLEAN`, stable across three consecutive reads.
+
+All **8** checks on the head are success, verified from `commits/<sha>/check-runs` and
+`commits/<sha>/status` rather than from memory:
+
+```
+beta-beta-01-english · beta-beta-02-hausa · native-arkadia-golden-workflow
+bundle-beta-evidence · Vercel Preview Comments · Full-history secret scan   (check-runs)
+Vercel – console · Vercel – arkadia-prism                                    (commit statuses)
+```
+
+**Corrected in this pass:** an intermediate read of `mergeStateStatus` returned `UNSTABLE`, and
+a draft of this section attributed it to a pre-existing Vercel failure. That attribution was
+**wrong on both counts** — the Vercel contexts are `success` at this head (measured, not
+remembered), and the `UNSTABLE` was transient while the newly-pushed head's checks were still
+registering. `CLEAN` is the settled state. Recorded rather than quietly dropped: an
+unverified "known-red gate" is exactly the kind of claim that survives into later passes.
+Status: **IMPLEMENTED** — proof complete for the reconciliation and the guards, merge withheld
+for human authority.
