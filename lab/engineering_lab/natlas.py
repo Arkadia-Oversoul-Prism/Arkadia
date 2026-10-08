@@ -136,7 +136,7 @@ class NAtlasGradioAdapter(ModelAdapter):
         req = urllib.request.Request(
             f"{self._base_url}/gradio_api/call/generate",
             data=json.dumps({"data": data}).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", **({"Authorization": f"Bearer {os.environ.get("HF_TOKEN")}" } if os.environ.get("HF_TOKEN") else {})},
             method="POST",
         )
         try:
