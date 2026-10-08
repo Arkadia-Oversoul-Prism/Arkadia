@@ -893,3 +893,15 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   read as a pass. Measured: `main` `f96d5fd2` 16F/1770P -> branch 13F/1773P, node-set delta
   exactly the three above and **zero additions** (sha256 `26c2b4c7...` -> `60ad29ee...`).
   Evidence: `docs/control-plane/evidence/gate-hygiene-solspire-r1-r3-contract-repin-01/`.
+
+## The CP10 judge takes BARE paths - `git status --porcelain` is not valid input (gate-hygiene)
+- `scripts/cp10_mutation_boundary_policy.py --judge` reads one **path** per line. Piping
+  `git status --porcelain` feeds it the 2-char status prefix as part of the path
+  (`A  docs/...`), so a legitimate new file is reported as "Unexpected path outside legitimate
+  repository surfaces" and the judge exits 1. Measured: the same file fails with the prefix and
+  **passes** without it. The canonical CI invocation pipes `git diff --name-only`, which emits
+  bare paths - use that for local self-verification, or `awk '{print $2}'` on porcelain.
+- The failure mode is a false *red*, but the mirror case is worse: a real omission can be masked
+  by a malformed invocation, so never conclude "allowlist omission" from a single red run. Confirm
+  the path in isolation before classifying it, per the GATE-10 rule that a plainly legitimate
+  path means the allowlist is wrong, not the commit.
