@@ -445,3 +445,87 @@ full suite, --depth 1 clone of this head                 -> 17 nodes  (identical
 
 No merge, no push to `main`, no production file touched. Branch
 `gate-hygiene/open-pr-owned-baseline-drift-01`, head `653151be`, PR #361.
+
+## 13. Addendum — era-set ownership moved from prose into a guard (2026-10-08)
+
+§2/§11 record the measured fact that the era set is **not** uniformly unowned: PR #357 repairs
+three of its ten nodes. That fact lived in prose only. Nothing read it, so a later pass could
+re-list the three as unowned — or drop them when #357 merges — and no test would notice. This
+pass makes the attribution inspectable and checked.
+
+### 13.1 What was added
+
+| path | change |
+|---|---|
+| `tests/fixtures/era_set_open_pr_owned_node_set.txt` | new — the three era-set nodes and their owner PR, `<node id>\t<owner PR>` |
+| `tests/test_baseline_fingerprint.py` | `ERA_SET_OPEN_PR_OWNED_SET` + `_fixture_node_ids()` helper; three guard functions |
+
+The two fixtures partition disjointly: `open_pr_owned_drift_node_set.txt` carries the seven
+nodes a live run added *beyond* the era set, the new one carries the three era-set nodes an
+open PR repairs, and `era_set ∪ drift == the recorded 17`.
+
+### 13.2 The guards, and what each one stops
+
+- `test_era_set_open_pr_owned_nodes_are_in_the_era_set` — every entry names an era-set node
+  (a node the era fixture does not carry would describe ownership of non-era debt), names an
+  owner PR (an entry with no owner could never be cleared on merge), and is disjoint from the
+  drift fixture.
+- `test_era_set_ownership_is_reported_for_every_era_set_open_pr` — the split is derived
+  (`10 = 3 owned + 7 unowned`) and the three owned nodes are asserted to still be live debt.
+- `test_recorded_counts_are_derived_from_the_fixtures_not_prose` — pins the recorded counts
+  (`16 failed`, `1 error`, `17` nodes, `10/3/7` era split, `7` drift) and re-derives them from
+  the fixtures, so a fixture edit that leaves a stale count fails instead of shipping.
+
+### 13.3 Negative control — the guards detect the defect they claim to detect
+
+Appended `tests/test_nonexistent.py::test_not_era_debt\t999` to the new fixture and re-ran the
+guard file:
+
+```
+FAILED tests/test_baseline_fingerprint.py::test_era_set_open_pr_owned_nodes_are_in_the_era_set
+FAILED tests/test_baseline_fingerprint.py::test_era_set_ownership_is_reported_for_every_era_set_open_pr
+FAILED tests/test_baseline_fingerprint.py::test_recorded_counts_are_derived_from_the_fixtures_not_prose
+3 failed, 30 passed
+```
+
+Restored, `33 passed` (was 30; the three new guard functions). The negative control is the
+same shape as §11.3 — edit the fixture the guard reads, not the predicate.
+
+### 13.4 Independent measurement of `main` alone (the "1776 vs 1772" prose)
+
+§2 shows `16 failed, 1776 passed, ...` while §2's note and §11.1 both say `main` is
+`16F / 1772P / 22S / 1E`. Re-measured this pass to settle which is which:
+
+| tree | measured | fingerprint |
+|---|---|---|
+| `main` `44137991` (full suite) | `16 failed, 1772 passed, 22 skipped, 1 error` — **17 nodes** | `26c2b4c7…` / `571e599f…` |
+| composed tree (`main` + this branch) | `16 failed, 1778 passed, 22 skipped, 1 error` — **17 nodes** | `26c2b4c7…` / `571e599f…` |
+
+So `main` alone is `1772P` and the branch is `1778P` (+6 = this pass's three guards plus the
+three added in §11/§12); the §2 `1776` figure was an earlier branch state. The `main` figure
+and the composed figure differ only in the passed count, which is not a fingerprint input, so
+the canonical pair is unaffected. Recorded because the pass's own prose carried both numbers
+without saying which tree each described.
+
+### 13.5 Boundary and observability gap (recorded, not acted on)
+
+Test/evidence only — no production file, no `api/main.py`. `python -m py_compile api/main.py`
+-> OK.
+
+**Observability gap, recorded as proposed work (not executed):** `grep -rn
+baseline_fingerprint .github/workflows/` returns **0** — this guard file is not a trigger path
+or a run target in any workflow, so the compositional guarantee holds only when the guard is
+invoked by hand. The same is true of the sibling `tests/test_ci_gate_trigger_coverage.py`
+(#355), which exists precisely to assert workflow trigger coverage. Wiring the fingerprint
+guard into a workflow is a bounded follow-on; it is out of scope for this reconciliation and
+is left as a proposal rather than silently widened into.
+
+### 13.6 Live verification recap
+
+```
+python -m pytest tests/test_baseline_fingerprint.py -q   -> 33 passed
+python -m pytest tests/architecture -q                   -> 11 passed
+full suite on `main` `44137991`                          -> 17 nodes (canonical pair)
+```
+
+No merge, no push to `main`, no production file touched. PR #361.

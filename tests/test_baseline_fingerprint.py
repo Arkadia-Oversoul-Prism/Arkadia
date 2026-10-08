@@ -237,6 +237,15 @@ OPEN_PR_OWNED_SET = (
     REPO_ROOT / "tests" / "fixtures" / "open_pr_owned_drift_node_set.txt"
 )
 
+# The *era*-set nodes whose repair is likewise carried by an open pull request. The earlier
+# pass recorded this in prose only ("PR #357 repairs three of them") — measured, but not
+# inspectable and not guarded, so nothing failed if a later pass re-listed them as unowned or
+# dropped them when #357 merged. #357's head passes all three while `main` fails them, so the
+# ownership belongs in a fixture the guard reads.
+ERA_SET_OPEN_PR_OWNED_SET = (
+    REPO_ROOT / "tests" / "fixtures" / "era_set_open_pr_owned_node_set.txt"
+)
+
 # The two nodes retired by `gate-hygiene/stale-gate-fixture-retirement-01`. They asserted a
 # root `gate/` directory and root `index.html` redirect that `f6718b9` / `377cdb3` archived
 # (the surface survives only under `archive/legacy_frontend/gate/`). The guard below fails if
@@ -554,11 +563,64 @@ def test_live_node_set_is_the_era_set_plus_the_open_pr_owned_set():
 
 
 def _open_pr_owned_node_ids() -> set[str]:
+    return _fixture_node_ids(OPEN_PR_OWNED_SET)
+
+
+def _era_set_open_pr_owned_node_ids() -> set[str]:
+    return _fixture_node_ids(ERA_SET_OPEN_PR_OWNED_SET)
+
+
+def _fixture_node_ids(path: Path) -> set[str]:
     return {
         line.split("\t", 1)[0].strip()
-        for line in OPEN_PR_OWNED_SET.read_text(encoding="utf-8").splitlines()
+        for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.startswith("#")
     }
+
+
+def test_era_set_open_pr_owned_nodes_are_in_the_era_set():
+    """Every era-owned entry must be an era-set node, and its owner must be named.
+
+    The companion fixture asserts the era set is not uniformly unowned. If an entry named a
+    node the era fixture does not carry, the fixture would describe ownership of a node that
+    is not era debt — the mirror defect. And an entry without an owner PR could not be cleared
+    when that PR merges, so the next pass would re-derive it.
+    """
+    _, era_ids = baseline_fingerprint.extract(str(SUPERSEDED_10_NODE_SET))
+    lines = [
+        line for line in ERA_SET_OPEN_PR_OWNED_SET.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+    assert len(lines) == 3
+    for line in lines:
+        node, _, pr = line.partition("\t")
+        assert node.startswith("tests/") and "::" in node, line
+        assert pr.strip().isdigit(), line
+    owned_ids = _era_set_open_pr_owned_node_ids()
+    assert owned_ids <= set(era_ids)
+    # The drift fixture and this one partition disjointly: a node cannot be both a node the
+    # era set already recorded and one a live run added beyond it.
+    assert owned_ids.isdisjoint(_open_pr_owned_node_ids())
+
+
+def test_era_set_ownership_is_reported_for_every_era_set_open_pr():
+    """The era set is not uniformly unowned, and the split must stay derivable.
+
+    The earlier pass recorded this split in prose: "the remaining seven era-set nodes ...
+    have no open-PR owner". Nothing checked it, so a later pass could re-list the three
+    #357-owned nodes as unowned — or drop them once #357 merges — without any test noticing.
+    This derives the split from the fixtures and fails if the recorded ownership stops
+    accounting for the whole era set.
+    """
+    _, era_ids = baseline_fingerprint.extract(str(SUPERSEDED_10_NODE_SET))
+    era_owned = _era_set_open_pr_owned_node_ids()
+    unowned = set(era_ids) - era_owned
+    assert len(era_ids) == 10
+    assert len(era_owned) == 3
+    assert len(unowned) == 7
+    # And the three era-owned nodes are still live debt — the recorded set carries them.
+    _, live_ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
+    assert era_owned <= set(live_ids)
 
 
 def test_open_pr_owned_nodes_are_all_recorded_baseline_debt():
@@ -672,3 +734,49 @@ def test_published_docs_carry_the_canonical_fingerprint(doc):
     assert CANONICAL_OUTCOMES_FINGERPRINT in text, (
         f"{doc} does not publish the canonical outcomes fingerprint"
     )
+
+
+# The counts a pass records in prose. A pass that changes a fixture and leaves a count
+# describing the old one is the failure mode this pins: the counts are derived from the
+# fixtures below, so the two can no longer drift apart silently.
+#
+# `main` and the branch measure the *same* 17-node set; the branch's extra passes are its
+# own new guard functions, so the passed count is NOT a fingerprint input and is
+# deliberately excluded. Only the failing/error counts are pinned.
+RECORDED_BASELINE_COUNTS = {
+    "failed": 16,
+    "errors": 1,
+    "nodes": 17,
+    "era_set": 10,
+    "era_set_open_pr_owned": 3,
+    "era_set_unowned": 7,
+    "open_pr_owned_drift": 7,
+}
+
+
+def test_recorded_counts_are_derived_from_the_fixtures_not_prose():
+    """Every recorded count must be reproducible from the fixtures.
+
+    This is the compositional half of the reconciliation: the drift fixture already makes an
+    *unattributed* node fail, and this guard makes a *mis-described* attribution fail. A
+    future pass may change a fixture and the doc together, but it cannot change one and leave
+    a count the other contradicts.
+    """
+    outcomes, ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
+    _, era_ids = baseline_fingerprint.extract(str(SUPERSEDED_10_NODE_SET))
+    era_owned = _era_set_open_pr_owned_node_ids()
+    drift = _open_pr_owned_node_ids()
+
+    derived = {
+        "failed": len([o for o in outcomes if o.startswith("FAILED ")]),
+        "errors": len([o for o in outcomes if o.startswith("ERROR ")]),
+        "nodes": len(ids),
+        "era_set": len(era_ids),
+        "era_set_open_pr_owned": len(era_owned),
+        "era_set_unowned": len(set(era_ids) - era_owned),
+        "open_pr_owned_drift": len(drift),
+    }
+    assert derived == RECORDED_BASELINE_COUNTS, derived
+    assert derived["nodes"] == derived["failed"] + derived["errors"]
+    # The era set and the drift set together account for every recorded node.
+    assert set(era_ids) | drift == set(ids)
