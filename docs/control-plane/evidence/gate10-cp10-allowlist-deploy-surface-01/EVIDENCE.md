@@ -390,7 +390,16 @@ head as well, and passed:
 | `5f52ddab` (this docs-only commit) | 37711825051 | success |
 
 So the CP10 evidence for this branch is the **green run at the current head**, not merely at
-`f7c212bd`. Corrected because "the gate did not run" is exactly the kind of claim that must not
+`f7c212bd`. The current head `e90a5769` ran SG-02 in
+run 37712478063 with range `f96d5fd2..HEAD` and the boundary step printed
+`Mutation boundary PASS (M02A legitimate-surface + constitutional denylist)`.
+
+## Vercel status is pre-existing, not attributable
+
+Both Vercel commit statuses read `failure / Deployment rate limited - retry in 24 hours.` on
+`main` at `f96d5fd2`, identically to this branch head. Provider rate limit, not this change.
+Recorded so a later pass does not attribute it to #354.
+ Corrected because "the gate did not run" is exactly the kind of claim that must not
 be left standing — the honest statement is that it ran and passed.
 
 ## Pass 3 authorization boundary
