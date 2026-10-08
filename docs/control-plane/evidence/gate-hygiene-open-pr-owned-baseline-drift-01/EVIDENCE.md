@@ -300,3 +300,60 @@ no `api/main.py` line touched. No node enters or leaves the recorded set.
 
 **Files changed in §10:** `tests/test_baseline_fingerprint.py` (probe predicate + complement
 branch), this evidence doc. No other path.
+
+## 11. Addendum — independent re-verification of the attribution and the guard (2026-10-08)
+
+A fresh clone re-derived every claim in §2/§4 from live evidence rather than repeating the
+recorded pair.
+
+### 11.1 The canonical pair reproduces from a live `main` run
+
+`python -m pytest tests/ -q -rEf --continue-on-collection-errors` on `main` `44137991`
+yielded `16 failed, 1772 passed, 22 skipped, 1 error`; `scripts/baseline_fingerprint.py` on
+that log reproduced **17** nodes and the canonical pair `26c2b4c7…` / `571e599f…` exactly.
+`tests/fixtures/baseline_node_set.txt` hashes to the same pair, so fixture and live run agree.
+
+### 11.2 Each of the 7 drift-set nodes was re-run at its owner's head
+
+Checked out each owner head (`git worktree add --detach`) and ran the *named node* there —
+not the whole file — so the pass/fail is attributable to that node:
+
+| owner PR | head | node(s) run | result |
+|---|---|---|---|
+| #347 | `3f3024d9` | `test_home_is_offer_led_and_keeps_arkadia_entry_points` | 1 passed |
+| #355 | `73104fdf` | `test_pr_pytest_workflow_is_selected_by_its_own_file[n-atlas-developer-lab.yml]` | 1 passed |
+| #356 | `1bfbcc4f` | `test_lab_mutation_endpoints_are_exactly_the_lab_state_set`, `test_lab_router_is_read_only_and_authenticated` | 2 passed |
+| #354 | `536a8c43` | `test_allowlist_admits_every_tracked_top_level_prefix`, `test_allowlist_covers_every_tracked_surface`, `test_delegated_verdict_admits_every_tracked_surface` | 3 passed |
+| #357 | `4c3d8fb8` | `test_r1_solspire_builders_delegate_to_weaver`, `test_r1_weaver_governance_is_canonical`, `test_runtime_is_explicitly_non_governed_and_blocks_mutation_tools` | 3 passed |
+
+All 7 drift-set nodes fail on `main` and pass at their owner's head, so the attribution is a
+measured fact, not a claim. #357 independently repairs three *era*-set nodes (the same three
+its §2.1 entry names), confirming the era set is not uniformly unowned.
+
+### 11.3 The compositional guard was proven against a real recorded-set edit
+
+§4's negative control feeds the *predicate* a synthetic set. That is weaker than editing the
+fixture the guard reads. This pass did the stronger thing: appended
+`FAILED tests/test_somewhere.py::test_a_new_unexplained_failure` to
+`tests/fixtures/baseline_node_set.txt` and re-ran the guard file. Measured:
+
+```
+FAILED tests/test_baseline_fingerprint.py::test_live_node_set_reproduces_the_canonical_fingerprint
+FAILED tests/test_baseline_fingerprint.py::test_live_node_set_is_the_era_set_plus_the_open_pr_owned_set
+2 failed, 28 passed
+```
+
+So a future node added to the recorded set without an era-set or open-PR owner **fails the
+guard at the file it edits** — the "must FAIL rather than be silently absorbed" property is
+demonstrated, not just asserted. Reverted; the fixture is byte-identical to its committed
+state.
+
+### 11.4 Live verification recap
+
+```
+python -m pytest tests/test_baseline_fingerprint.py -q   -> 30 passed
+python -m pytest tests/architecture -q                   -> 11 passed
+```
+
+Branch head `c6a18de5`; PR #361 open, `mergeable/clean`, six checks green (incl. Full-history
+secret scan). No merge, no push to `main`, no production file touched.

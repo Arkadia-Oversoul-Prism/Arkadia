@@ -18,6 +18,7 @@
 | depth-1 clone addendum | a depth-1 clone (the automation's shape) reports **21** nodes, not 18; the four extras are the `test_agents_md_encoding_adjudication.py` nodes named as `DEPTH1_CLONE_DEPENDENT_NODES` this pass (the earlier single-node count was measured as wrong and corrected) |
 | probe gate repair (§10) | the live probe's `--is-shallow-repository` predicate was `true` in *both* the automation's partial clone and a true `--depth 1` clone, so the probe failed its own assertion (empty failed set) instead of skipping. Re-gated on whether `AGENTS.md` history is absent (≤ 1 revision) and both directions are now asserted. Measured: 30 passed in both regimes; 1 failed on the branch's own CI before. |
 | status | IMPLEMENTED — ready for sovereign review |
+| independent re-verification (§11) | re-derived from a fresh clone: canonical pair reproduced from a live `main` run; all 7 drift-set nodes re-run at their owner heads (all pass); compositional guard proven by editing the recorded fixture itself (2 failed, 28 passed), not just the predicate |
 
 ## Deterministic next action
 
@@ -31,7 +32,7 @@
   merely structural. A follow-on pass repaired the probe's own gate predicate (§10), which had
   keyed on `--is-shallow-repository` — a flag `true` in both regimes — and therefore failed
   instead of skipping in the automation clone.
-- **Evidence**: `docs/control-plane/evidence/gate-hygiene-open-pr-owned-baseline-drift-01/EVIDENCE.md` (§8 set addendum, §10 probe-gate repair).
+- **Evidence**: `docs/control-plane/evidence/gate-hygiene-open-pr-owned-baseline-drift-01/EVIDENCE.md` (§8 set addendum, §10 probe-gate repair, §11 independent re-verification of the attribution and the compositional guard).
 - **Blockers**: none for this branch. The 3 `test_m02a_ci_gate_integrity.py::test_allowlist_*`
   failures remain `main` debt owned by open PR #354; the `test_autonomy.py` ERROR is the
   sovereign-reserved CE-01 collision.
