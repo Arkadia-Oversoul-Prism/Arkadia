@@ -6,9 +6,10 @@
 | gate | GATE-07 / GATE-10 hygiene (baseline-debt reduction, no authority change) |
 | status | **READY FOR SOVEREIGN MERGE** |
 | PR | #357 |
-| head | `0505f39bb63953d5e3f32a77d8916fecb6da41dd` |
+| head | `6590df0e1ba866ef616bd2148b511d006940a736` |
 | base main | `f96d5fd27d40110196ec22b114808efc0eb9dc05` |
-| checks | 6/6 success (`Full-history secret scan`, `bundle-beta-evidence`, `native-arkadia-golden-workflow`, `beta-beta-01-english`, `beta-beta-02-hausa`, `Vercel Preview Comments`); commit status `success` |
+| checks | **5/5 check-runs success** (`Full-history secret scan`, `bundle-beta-evidence`, `native-arkadia-golden-workflow`, `beta-beta-01-english`, `beta-beta-02-hausa`) |
+| commit status | `failure` - Vercel `build-rate-limit` (provider quota). **Pre-existing: identical on `main` `f96d5fd2`.** Not attributable to this change. |
 | mergeable | `true` / `clean` |
 | changed paths | `tests/test_solspire_r1_governance_convergence.py`, `tests/test_solspire_r3_execution_runtime.py`, `AGENTS.md`, this evidence dir |
 | production code | **none** |

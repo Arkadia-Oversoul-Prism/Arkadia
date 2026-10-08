@@ -143,6 +143,10 @@ error (CE-01 module-vs-package collision, reserved to the sovereign), 3 × `test
   source-side decision and is **not** in this change set.
 - The `-1` in `test_engineering_lab_api` is carried by open PR #356, which is green and awaiting
   sovereign review; it will land when that PR merges.
+- The commit status is `failure` solely from Vercel `build-rate-limit` (provider quota,
+  `?upgradeToPro=build-rate-limit`). It fails **identically on `main` `f96d5fd2`**, so it is
+  pre-existing and not attributable to this change. All 5 check-runs - including the
+  full-history secret scan - are `success` on head `6590df0e`.
 
 ## 8. Authorization
 
