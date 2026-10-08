@@ -938,3 +938,23 @@ node identity: `main` 17 nodes → branch 14; removed = exactly the 3 CP10 nodes
   Isolated rather than folded in because the CP10 PR declares "no change to the N-ATLaS
   workflows" as a non-goal (contract §11: isolate non-consequential follow-on work).
 
+
+## Attribution must be measured per-node, not per-PR (gate-hygiene)
+- An evidence doc recorded that **both** held `tests/test_engineering_lab_api.py` nodes were
+  introduced by #353, with the verifier "`git show 2c6f6f1e:api/lab_routes.py` contains zero
+  `n-atlas` occurrences". That verifier was **false** - `2c6f6f1e` contains three `n-atlas`
+  routes (lines 362/427/440). A false verifier in an evidence doc is a defect to correct in
+  place, not to reconcile: it makes the next workstream proceed from a non-reproducible premise.
+- The two nodes had **two different origins**. Node A
+  (`::test_lab_mutation_endpoints_are_exactly_the_lab_state_set`) is **#352** (`a27c6c80`): it
+  already fails at the branch merge-base `2c6f6f1e`, and `git merge-base --is-ancestor a27c6c80
+  2c6f6f1e` is true. Node B (`::test_lab_router_is_read_only_and_authenticated`) is **#353**
+  (`f96d5fd2`): `git log -S"require_lab_auth" -- api/lab_routes.py` returns exactly one commit.
+- **Method that resolves it:** intersect the node-set delta (`comm -13` / `comm -23` of the
+  sorted `FAILED`/`ERROR` node lists, `-rEf`, `--continue-on-collection-errors`) with the route
+  inventory **at the merge-base**. A node that already fails at the merge-base was not added by
+  the PR being blamed. Corroborate with `git log -S<symbol>` for the specific literal the node
+  pins (`require_auth` vs `require_lab_auth`) - the pinned literal changes origin to origin.
+- Do not attribute a multi-node delta to one PR because the PR is nearby in time. Branching the
+  delta into per-node origins can change **which PR owns the decision**, which matters when the
+  fix is a sovereign authorization-boundary choice rather than a mechanical list addition.
