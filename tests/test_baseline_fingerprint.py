@@ -217,6 +217,23 @@ SUPERSEDED_18_NODE_SET = (
     REPO_ROOT / "tests" / "fixtures" / "superseded_baseline_node_set_18.txt"
 )
 
+# The 10-node set that was canonical 2026-10-04 → 2026-10-08, before
+# `gate-hygiene/open-pr-owned-baseline-drift-01` recorded the 7 further nodes a live run
+# reports that open PRs are repairing. Retained so the superseded pair stays reproducible
+# from an era-correct set rather than only from prose.
+SUPERSEDED_10_NODE_SET = (
+    REPO_ROOT / "tests" / "fixtures" / "superseded_baseline_node_set_10.txt"
+)
+
+# The subset of the recorded baseline whose *repair* is carried by an open pull request.
+# Each of these fails on `main` and passes at its owner's head, so it is baseline debt a
+# future merge will remove — not a regression. Recorded so the next pass does not
+# re-derive the attribution, and so a node that leaves `main` without its owner merging
+# (i.e. mine to explain) is visible.
+OPEN_PR_OWNED_SET = (
+    REPO_ROOT / "tests" / "fixtures" / "open_pr_owned_drift_node_set.txt"
+)
+
 # The two nodes retired by `gate-hygiene/stale-gate-fixture-retirement-01`. They asserted a
 # root `gate/` directory and root `index.html` redirect that `f6718b9` / `377cdb3` archived
 # (the surface survives only under `archive/legacy_frontend/gate/`). The guard below fails if
@@ -247,17 +264,18 @@ CLONE_DEPTH_DEPENDENT_NODE = (
 )
 
 # Canonical values: `scripts/baseline_fingerprint.py` run on LIVE_NODE_SET.
-# Superseded 2026-10-04 by `gate-hygiene/baseline-node-set-live-reconciliation-01`,
-# which reconciled the recorded set with a live full-suite measurement: 8 of the 18
-# recorded entries had been *repaired* by later merges and now pass, so carrying them
-# as debt over-reported the repository's debt — the mirror of the stale-expectation
-# defect this file already guards against. The recorded set is now the 10 nodes a live
-# run actually reports. The prior 18-node pair is retained in SUPERSEDED_* below.
+# Superseded 2026-10-08 by `gate-hygiene/open-pr-owned-baseline-drift-01`: a live
+# `-rEf --continue-on-collection-errors` run on `main` `44137991` reports 16 failed /
+# 1776 passed / 22 skipped / 1 error — **17** nodes — while the recorded set carried 10.
+# The 7 unrecorded nodes are all repaired by open PRs (#347/#354/#355/#356) and were
+# therefore baseline debt, not regressions; recording them makes the fixture describe the
+# repository's live debt rather than a subset of it. The prior 10-node pair is retained in
+# SUPERSEDED_* below.
 CANONICAL_OUTCOMES_FINGERPRINT = (
-    "9a54f5b478d1135f27ab9e54d95706f03eae1ceb5d4c1f3ae075bffc4208ab38"
+    "26c2b4c7b5efb56d0d54ab5888cdf955589f7633490c9a0c33d1ef63bba85798"
 )
 CANONICAL_IDS_FINGERPRINT = (
-    "124bfdfd078fe878fe7c9de358ba271e977c4f7b73909b9d7d016b9ae9c1e87f"
+    "571e599f91e680fe41f7318b6000c84dee8edc7c9c0535a3c897c7da89881224"
 )
 
 # Values that were published but do not describe the recorded set. They must not
@@ -270,21 +288,25 @@ CANONICAL_IDS_FINGERPRINT = (
 # "unreproducible". `4d84e7eb…`/`da2ec262…` were reproducible only in a clone that
 # contained the PR-head revision `7d79f38…`. `a578a766…`/`8036fc06…` were the canonical
 # pair for the 20-node recorded set before the two archived-surface nodes were retired
-# 2026-10-03 by `gate-hygiene/stale-gate-fixture-retirement-01`. All four pairs are
-# superseded by the live-reconciled canonical value above.
+# 2026-10-03 by `gate-hygiene/stale-gate-fixture-retirement-01`. `6c7bf821…`/`2bc35996…`
+# were canonical for the 18-node set, and `9a54f5b4…`/`124bfdfd…` for the 10-node set
+# (2026-10-04 → 2026-10-08). All six pairs are superseded by the live-reconciled
+# canonical value above.
 SUPERSEDED_OUTCOMES_FINGERPRINTS = (
     "a59453b8a1e5a02899f469cf6ea7db9b5eaae658050261e1405c394cb0f3cf6f",
     "4d84e7eb2524d4a5a952405f6df8017398ce21cca44aec6d04fbb523d577c6a7",
     "a578a766c09c949c620c9d324248659812d215d3d1e875a0c25b42adb8912aa1",
-    # Canonical for the 18-node recorded set, 2026-10-03 → 2026-10-04. Superseded by
-    # the live reconciliation that removed the 8 entries a live run reports as passing.
+    # Canonical for the 18-node recorded set, 2026-10-03 → 2026-10-04.
     "6c7bf8218fd1e0ae9bc970653e98c18b3a78b69a5c4920dac9f4747c033e4648",
+    # Canonical for the 10-node recorded set, 2026-10-04 → 2026-10-08.
+    "9a54f5b478d1135f27ab9e54d95706f03eae1ceb5d4c1f3ae075bffc4208ab38",
 )
 SUPERSEDED_IDS_FINGERPRINTS = (
     "9a35c8122188e272ec5769d7a8f5cdba6160b4f2f1fba8a840019a487c1bcc22",
     "da2ec2620d09988e75702b6444ee8ee6ba5ded8bc067aac6c4e149245c27de71",
     "8036fc0692eb0358f037adb2cf9e2b234db1f41a4586ca0162f4e52350cfa713",
     "2bc35996b21de6529ffffab63446c8bd7295c388e841a2807101d189eaf7da01",
+    "124bfdfd078fe878fe7c9de358ba271e977c4f7b73909b9d7d016b9ae9c1e87f",
 )
 
 # Documents that publish a baseline fingerprint and must agree with the canonical
@@ -317,8 +339,8 @@ LIVE_RED_SHOULD_NOT_PASS_NODES = (
 def test_live_node_set_reproduces_the_canonical_fingerprint():
     """The recorded baseline set must hash to the published canonical value."""
     outcomes, ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
-    assert len(ids) == 10
-    assert sum(1 for o in outcomes if o.startswith("FAILED")) == 9
+    assert len(ids) == 17
+    assert sum(1 for o in outcomes if o.startswith("FAILED")) == 16
     assert sum(1 for o in outcomes if o.startswith("ERROR")) == 1
     assert baseline_fingerprint.fingerprint(outcomes) == CANONICAL_OUTCOMES_FINGERPRINT
     assert baseline_fingerprint.fingerprint(ids) == CANONICAL_IDS_FINGERPRINT
@@ -376,16 +398,85 @@ def test_superseded_18_node_set_reproduces_the_superseded_pair():
     assert baseline_fingerprint.fingerprint(ids) == SUPERSEDED_IDS_FINGERPRINTS[3]
 
 
-def test_live_node_set_is_a_proper_subset_of_the_superseded_18_node_set():
-    """Every recorded node must have been in the prior 18-node set.
+def test_live_node_set_is_the_era_set_plus_the_open_pr_owned_set():
+    """The recorded set must be reconstructable, with nothing silently absorbed.
 
-    The reconciliation only *removed* entries a live run reports as passing; it did not
-    invent debt. A node in the live set but absent from the 18-node set would mean a new
-    failure was silently absorbed into the baseline instead of being attributed.
+    The 2026-10-04 reconciliation only *removed* entries a live run reports as passing;
+    this 2026-10-08 pass *added* the 7 nodes a live run reports that open PRs are
+    repairing. Every added node must be accounted for by `OPEN_PR_OWNED_SET` — a node in
+    the recorded set but owned by neither the 10-node era set nor an open PR would mean a
+    new failure was silently absorbed into the baseline instead of being attributed.
+    This is the subset relation the earlier pass asserted, made compositional so it
+    survives an addition as well as a removal.
     """
     _, live_ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
-    _, prior_ids = baseline_fingerprint.extract(str(SUPERSEDED_18_NODE_SET))
-    assert set(live_ids) <= set(prior_ids)
+    _, era_ids = baseline_fingerprint.extract(str(SUPERSEDED_10_NODE_SET))
+    owned_ids = _open_pr_owned_node_ids()
+    assert set(live_ids) == set(era_ids) | owned_ids
+    # And the era set is still a *subset* — the reconciliation did not drop live debt.
+    assert set(era_ids) <= set(live_ids)
+
+
+def _open_pr_owned_node_ids() -> set[str]:
+    return {
+        line.split("\t", 1)[0].strip()
+        for line in OPEN_PR_OWNED_SET.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith("#")
+    }
+
+
+def test_open_pr_owned_nodes_are_all_recorded_baseline_debt():
+    """A PR-owned node must be part of the recorded set, and absent no other node.
+
+    The companion fixture names the nodes whose repair an open PR carries. If one were
+    listed but not recorded, the fixture would describe debt `main` does not have — the
+    mirror defect of leaving it unrecorded.
+    """
+    _, live_ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
+    owned_ids = _open_pr_owned_node_ids()
+    assert len(owned_ids) == 7
+    assert owned_ids <= set(live_ids)
+
+
+def test_open_pr_owned_entries_each_name_a_pr():
+    """Every companion entry must carry an owner PR, so it can be cleared on merge."""
+    lines = [
+        line for line in OPEN_PR_OWNED_SET.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+    assert len(lines) == 7
+    for line in lines:
+        node, _, pr = line.partition("\t")
+        assert node.startswith("tests/") and "::" in node, line
+        assert pr.strip().isdigit(), line
+
+
+def test_superseded_10_node_set_reproduces_the_superseded_pair():
+    """The era fixture must hash to the 10-node pair it is cited for.
+
+    `tests/fixtures/superseded_baseline_node_set_10.txt` is the only in-repo artifact that
+    carries the 2026-10-04 → 2026-10-08 recorded debt. Without this guard the file could be
+    edited or deleted while `SUPERSEDED_*` still cites the value, making the supersession
+    unreproducible from the repository alone.
+    """
+    outcomes, ids = baseline_fingerprint.extract(str(SUPERSEDED_10_NODE_SET))
+    assert len(ids) == 10
+    assert baseline_fingerprint.fingerprint(outcomes) == SUPERSEDED_OUTCOMES_FINGERPRINTS[4]
+    assert baseline_fingerprint.fingerprint(ids) == SUPERSEDED_IDS_FINGERPRINTS[4]
+
+
+def test_era_set_composition_rejects_an_unattributed_node():
+    """Negative control: a node owned by neither the era set nor an open PR must fail.
+
+    The compositional guard is only meaningful if a silently-absorbed node is actually
+    rejected. Feed it a synthetic recorded set that adds an unattributed node and confirm
+    the same predicate the test above applies would flag it.
+    """
+    _, era_ids = baseline_fingerprint.extract(str(SUPERSEDED_10_NODE_SET))
+    owned_ids = _open_pr_owned_node_ids()
+    absorbed = "tests/test_somewhere.py::test_a_new_unexplained_failure"
+    recorded = set(era_ids) | owned_ids | {absorbed}
+    assert recorded != set(era_ids) | owned_ids
 
 
 def test_superseded_values_are_the_superseded_set_plus_its_sibling():

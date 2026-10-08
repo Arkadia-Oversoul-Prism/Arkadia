@@ -170,11 +170,21 @@ Spiral Grove registry declaration-order vs topological-order contract; baseline 
   `python scripts/baseline_fingerprint.py <pytest log>` prints both values below and is
   covered by `tests/test_baseline_fingerprint.py`.
   - outcomes (canonical): `sha256("\n".join(sorted("FAILED|ERROR <nodeid>")) + "\n")` =
-    `9a54f5b478d1135f27ab9e54d95706f03eae1ceb5d4c1f3ae075bffc4208ab38`
+    `26c2b4c7b5efb56d0d54ab5888cdf955589f7633490c9a0c33d1ef63bba85798`
   - node set: `sha256("\n".join(sorted("<nodeid>")) + "\n")` =
-    `124bfdfd078fe878fe7c9de358ba271e977c4f7b73909b9d7d016b9ae9c1e87f`
-  - The recorded node set is `tests/fixtures/baseline_node_set.txt` (10 nodes); the two
+    `571e599f91e680fe41f7318b6000c84dee8edc7c9c0535a3c897c7da89881224`
+  - The recorded node set is `tests/fixtures/baseline_node_set.txt` (17 nodes); the two
     values above are what the script prints for it.
+  > **Superseded 2026-10-08** (`gate-hygiene/open-pr-owned-baseline-drift-01`): a live
+  > `-rEf --continue-on-collection-errors` run on `main` `44137991` reported **16 failed /
+  > 1776 passed / 22 skipped / 1 error** — 17 failing/error nodes — while the recorded set
+  > held 10. The 7 unrecorded nodes are each repaired by an open PR (#347 / #354 / #355 /
+  > #356) and were therefore baseline debt, not regressions. The recorded set is now the
+  > **17** nodes a live run actually reports; the prior 10-node pair (`9a54f5b4…` /
+  > `124bfdfd…`) is retained in `tests/fixtures/superseded_baseline_node_set_10.txt`, and
+  > the 7 PR-owned nodes are recorded in
+  > `tests/fixtures/open_pr_owned_drift_node_set.txt`. Evidence:
+  > `docs/control-plane/evidence/gate-hygiene-open-pr-owned-baseline-drift-01/`.
   > **Correction 2026-10-02** (`gate-hygiene/baseline-fingerprint-reconciliation-01`).
   > `gate-hygiene/baseline-fingerprint-reproducibility-01` (PR #203) set out to make the
   > fingerprint reproducible and merged `scripts/baseline_fingerprint.py`, but the pair it

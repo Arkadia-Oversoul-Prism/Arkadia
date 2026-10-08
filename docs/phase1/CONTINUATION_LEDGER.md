@@ -1769,7 +1769,21 @@ or mutation-path surface was touched.
   > 20-node set.
 - Baseline fingerprint independently reproduced from the measured node list:
   `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `9a54f5b478d1135f27ab9e54d95706f03eae1ceb5d4c1f3ae075bffc4208ab38`
+  `26c2b4c7b5efb56d0d54ab5888cdf955589f7633490c9a0c33d1ef63bba85798`
+  > **Note.** This line published the then-canonical value for the recorded set; it now
+  > carries the current canonical value so this document never points the next agent at a
+  > superseded pair. The value that stood here on 2026-10-04 was `9a54f5b4…` /
+  > `124bfdfd…`, superseded 2026-10-08 by
+  > `gate-hygiene/open-pr-owned-baseline-drift-01` — see the note below.
+  > **Superseded 2026-10-08** (`gate-hygiene/open-pr-owned-baseline-drift-01`): a live
+  > `-rEf --continue-on-collection-errors` run on `main` `44137991` reported 16 failed /
+  > 1776 passed / 22 skipped / 1 error (17 failing/error nodes), while the recorded set
+  > held 10. The 7 unrecorded nodes are each repaired by an open PR (#347 / #354 / #355 /
+  > #356), so they are baseline debt, not regressions. The recorded set is now the 17 live
+  > nodes and the canonical pair is `26c2b4c7…` / `571e599f…`. The prior 10-node pair is
+  > retained in `tests/fixtures/superseded_baseline_node_set_10.txt` and the 7 PR-owned
+  > nodes in `tests/fixtures/open_pr_owned_drift_node_set.txt`. Evidence:
+  > `docs/control-plane/evidence/gate-hygiene-open-pr-owned-baseline-drift-01/`.
   > **Superseded 2026-10-04** (`gate-hygiene/baseline-node-set-live-reconciliation-01`):
   > a live full-suite run on `main` `1b7c089` reported 9 failed / 1414 passed / 20 skipped /
   > 1 error (10 failing/error nodes). Eight of the 18 recorded entries now pass — repaired by

@@ -177,18 +177,20 @@ If any were introduced by this checkpoint: resolve them or record them explicitl
 ## Repository Health (re-measured 2026-10-04, `main` @ `1b7c089`)
 
 - Architecture fitness tests: **11/11**
-- Full suite: **9 failed / 1414 passed / 20 skipped / 1 error**. The recorded set is the
-  **10 failing/error nodes** a live run reports (`tests/fixtures/baseline_node_set.txt`);
-  8 entries previously recorded as debt now pass and were removed, their origin kept in
-  `tests/fixtures/superseded_baseline_node_set_18.txt`.
+- Full suite: **16 failed / 1776 passed / 22 skipped / 1 error**. The recorded set is the
+  **17 failing/error nodes** a live run reports (`tests/fixtures/baseline_node_set.txt`);
+  7 of them are repaired by open PRs (#347 / #354 / #355 / #356) and listed in
+  `tests/fixtures/open_pr_owned_drift_node_set.txt`. The prior 10-node recorded set is
+  retained in `tests/fixtures/superseded_baseline_node_set_10.txt`, and the older 18-node
+  set in `tests/fixtures/superseded_baseline_node_set_18.txt`.
   Classified baseline debt — not attributable to new work unless the node *set* changes.
 - Baseline fingerprint:
   `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `9a54f5b478d1135f27ab9e54d95706f03eae1ceb5d4c1f3ae075bffc4208ab38`
-  (node-set fingerprint `124bfdfd…`). Earlier published pairs (`a59453b8…`, `9a35c812…`,
-  `4d84e7eb…`, `da2ec262…`, `a578a766…`/`8036fc06…`, and `6c7bf821…`/`2bc35996…` when the
-  two archived-surface gate nodes were retired) are superseded — do not reuse them. See
-  `docs/control-plane/evidence/gate-hygiene-baseline-node-set-live-reconciliation-01/`.
+  `26c2b4c7b5efb56d0d54ab5888cdf955589f7633490c9a0c33d1ef63bba85798`
+  (node-set fingerprint `571e599f…`). Earlier published pairs (`a59453b8…`, `9a35c812…`,
+  `4d84e7eb…`, `da2ec262…`, `a578a766…`/`8036fc06…`, `6c7bf821…`/`2bc35996…`, and
+  `9a54f5b4…`/`124bfdfd…`) are superseded — do not reuse them. See
+  `docs/control-plane/evidence/gate-hygiene-open-pr-owned-baseline-drift-01/`.
 - Gate-2 production parity: **BLOCKED on provider auth** (Vercel Deployment Protection).
   External boundary, not a repository task. Do not re-run the pass expecting a different
   classification.

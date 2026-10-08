@@ -1,0 +1,12 @@
+# Nodes in the recorded baseline whose repair is carried by an OPEN pull request.
+# Each entry: '<node id>\t<owner PR>'. Measured at main 44137991 (2026-10-08).
+# These are baseline debt, NOT regressions: each node fails on main and passes at its
+# owner's head. Remove an entry when its owner merges. See
+# docs/control-plane/evidence/gate-hygiene-open-pr-owned-baseline-drift-01/.
+tests/test_ais_capability_profile_onboarding.py::test_home_is_offer_led_and_keeps_arkadia_entry_points	347
+tests/test_ci_gate_trigger_coverage.py::test_pr_pytest_workflow_is_selected_by_its_own_file[n-atlas-developer-lab.yml]	355
+tests/test_engineering_lab_api.py::test_lab_mutation_endpoints_are_exactly_the_lab_state_set	356
+tests/test_engineering_lab_api.py::test_lab_router_is_read_only_and_authenticated	356
+tests/test_m02a_ci_gate_integrity.py::test_allowlist_admits_every_tracked_top_level_prefix	354
+tests/test_m02a_ci_gate_integrity.py::test_allowlist_covers_every_tracked_surface	354
+tests/test_m02a_ci_gate_integrity.py::test_delegated_verdict_admits_every_tracked_surface	354
