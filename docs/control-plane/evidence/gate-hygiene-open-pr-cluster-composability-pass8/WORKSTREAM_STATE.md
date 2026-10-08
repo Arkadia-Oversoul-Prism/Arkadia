@@ -5,9 +5,11 @@
 | workstream | gate-hygiene — measured composability of the uncovered-debt PR cluster |
 | gate | GATE-07 / GATE-10 hygiene (baseline-debt reduction; no authority change) |
 | status | **READY FOR SOVEREIGN MERGE** |
-| PR | (this branch → PR) |
+| PR | #358 |
+| head | `26e2422b9176f03cdf0f711d16c5476bda79e095` |
+| checks | all pass (secret scan, beta, native-golden, Vercel ×2, bundle) |
 | base main | `f96d5fd27d40110196ec22b114808efc0eb9dc05` |
-| changed paths | `tests/test_open_pr_cluster_composability.py`, this evidence dir |
+| changed paths | `tests/test_open_pr_cluster_composability.py`, this evidence dir, `AGENTS.md` (tail append) |
 | production code | **none** |
 | node delta measured | cluster #354→#357 composed: `main` 17 nodes → 8 nodes, `-9 / +0` |
 
