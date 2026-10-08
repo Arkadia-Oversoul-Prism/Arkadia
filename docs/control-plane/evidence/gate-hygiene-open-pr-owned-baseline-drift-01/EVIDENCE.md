@@ -357,3 +357,91 @@ python -m pytest tests/architecture -q                   -> 11 passed
 
 Branch head `c6a18de5`; PR #361 open, `mergeable/clean`, six checks green (incl. Full-history
 secret scan). No merge, no push to `main`, no production file touched.
+
+## 12. Follow-on pass (`653151be`): remove the clone-depth dependence entirely
+
+§8 *recorded* the depth-1 divergence — a bare clone carried **21** failing/error nodes
+against the recorded 17, the four extras being `DEPTH1_CLONE_DEPENDENT_NODES` — and §10
+repaired the probe's own gate so it asserted the set in both regimes. Both were honest, but
+both left the four adjudication nodes *failing* in a history-absent clone. A clone that
+cannot resolve the history a test needs is not evidence of a defect; it is a checkout
+incapable of adjudicating. Reporting four false verdicts from it is the same defect class
+this workstream removes, one level down.
+
+This pass repairs the four nodes (test-side only; the audit instrument is untouched) and
+supersedes the "must fail in a bare clone" pin with the stronger, depth-independent
+invariant: **none of the four may fail in any clone regime.**
+
+### 12.1 The repair (tests/test_agents_md_encoding_adjudication.py)
+
+| node | before | after |
+|---|---|---|
+| `test_corruption_origin_is_re_derivable` | asserted "no corrupt revision in history" from absent history | `skip` when `CORRUPTION_COMMIT` does not resolve |
+| `test_live_file_verdict_matches_its_state` | read exit `(0, 1)` as the verdict; a depth-1 checkout exits `2` | `skip` when `ORACLE_REV` does not resolve |
+| `test_cli_summarises_the_oracle_without_crashing` | pinned `returncode in (0, 1)` | accepts the documented undecided exit `2`; `(0, 1, 2)` |
+| `test_exit_code_does_not_call_a_divergent_clean_file_verified` | `assert oracle is not None` from absent history | `skip` when `ORACLE_REV` or `CORRUPTION_COMMIT` does not resolve |
+
+Each already used `pytest.skip` elsewhere in the file for the same condition; the repair
+makes the guard uniform rather than special-casing four nodes. The three "already skips when
+the revision is unavailable" nodes (`test_gate2_parent_*`, `test_shadow_*`) and
+`test_corruption_origin_is_re_derivable`'s pre-existing history check are the precedent.
+
+### 12.2 The probe supersession (tests/test_baseline_fingerprint.py)
+
+`test_depth1_clone_nodes_are_exactly_the_extra_failures_in_a_bare_clone` previously asserted
+`failed == set(DEPTH1_CLONE_DEPENDENT_NODES)` in a history-absent clone — i.e. it *required*
+four failures. That assertion is the thing this pass removes, so it is superseded by
+`failed == set()` in **both** regimes (plus an explicit `errored == set()`), run with `-rEf`
+so a collection error is visible. The named tuple is retained: the guard below still checks
+the names are absent from the recorded set, and the probe still runs those exact nodes, so a
+node that regressed to failing in *either* regime is caught. The depth-dependence is removed,
+not relocated.
+
+### 12.3 Measurement — the failing-node set is now identical across clone depths
+
+Composed head `653151be74f1719fd167093cc834ce1f6d27cc49`, full suite, `python -m pytest
+tests/ -q -rEf --continue-on-collection-errors -p no:cacheprovider`,
+`PYTHONPATH=archive/legacy_python`:
+
+| regime | result | failing/error nodes | node-set sha256 |
+|---|---|---|---|
+| full history (worktree) | 16F / 1778P / 22S / 1E | **17** | `26c2b4c7b5efb56d0d54ab5888cdf955589f7633490c9a0c33d1ef63bba85798` |
+| `git clone --depth 1` (of this head) | 16F / 1774P / 26S / 1E | **17** | `26c2b4c7b5efb56d0d54ab5888cdf955589f7633490c9a0c33d1ef63bba85798` |
+
+`diff` of the two sorted node lists is empty; the sha256 of each equals the canonical
+outcomes fingerprint recorded in the fixture. The +4 skipped in the depth-1 clone are exactly
+the four repaired nodes — 0 failed, matching the new invariant. Before the repair the same
+depth-1 clone carried **21** nodes; the delta is `-4 / +0`.
+
+Direct per-file runs, both regimes:
+
+```
+full history : tests/test_agents_md_encoding_adjudication.py -> 18 passed, 5 skipped
+depth-1      : tests/test_agents_md_encoding_adjudication.py -> 14 passed, 9 skipped (was 4 failed)
+full history : tests/test_baseline_fingerprint.py           -> 30 passed
+```
+
+Architecture `tests/architecture -q` -> 11 passed. `api/main.py` untouched, `python -m
+py_compile` OK, 2462 / 2600.
+
+### 12.4 Composition note (why the probed repair and the probe moved together)
+
+This head adds one commit to the same bounded workstream. §8/§10 of this document and the
+`DEPTH1_CLONE_DEPENDENT_NODES` comment block pinned the *failure* of these four nodes; the
+repair is the event that removes it. That is not two independent changes but one, so it ships
+in one pass rather than as a contradiction the next reviewer would have to reconcile. The
+hashes in §2 remain valid (the full-history node set is unchanged); the "21 nodes" figures in
+§8 and §10 are superseded by the 17-vs-17 measurement above, and the comment blocks were
+updated to say so.
+
+### 12.5 Live verification recap
+
+```
+python -m pytest tests/test_baseline_fingerprint.py      -> 30 passed (both regimes)
+python -m pytest tests/architecture -q                   -> 11 passed
+full suite, full history                                 -> 17 nodes  (canonical fingerprint)
+full suite, --depth 1 clone of this head                 -> 17 nodes  (identical sha256)
+```
+
+No merge, no push to `main`, no production file touched. Branch
+`gate-hygiene/open-pr-owned-baseline-drift-01`, head `653151be`, PR #361.

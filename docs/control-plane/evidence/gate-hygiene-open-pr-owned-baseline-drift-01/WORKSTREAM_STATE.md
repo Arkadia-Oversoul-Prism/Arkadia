@@ -15,7 +15,8 @@
 | failure node-set delta | **none** — `tests/`, fixtures, docs only; no node enters or leaves the failing set |
 | `api/main.py` | untouched, compiles, 2462 / 2600 |
 | open PRs at pass start | 12 (#337–#358) |
-| depth-1 clone addendum | a depth-1 clone (the automation's shape) reports **21** nodes, not 18; the four extras are the `test_agents_md_encoding_adjudication.py` nodes named as `DEPTH1_CLONE_DEPENDENT_NODES` this pass (the earlier single-node count was measured as wrong and corrected) |
+| depth-1 clone addendum | a depth-1 clone (the automation's shape) *reported* **21** nodes (not 18); the four extras are the `test_agents_md_encoding_adjudication.py` nodes named as `DEPTH1_CLONE_DEPENDENT_NODES` (the earlier single-node count was measured as wrong and corrected). **Superseded by the depth-repair row below**: those four nodes are now repaired and the depth-1 clone reports the same 17 nodes as a full-history one. |
+| depth-repair (this pass) | the four `DEPTH1_CLONE_DEPENDENT_NODES` now decline (`skip`) when their pinned `AGENTS.md` revision is unresolvable, and the CLI summary node accepts the documented undecided exit `2`. The fingerprint probe's "must fail in a bare clone" pin is superseded by "must not fail in **any** clone regime". Measured: full history **17** nodes, `--depth 1` clone of this head **17** nodes, node-set sha256 `26c2b4c7…` **identical** (`-4 / +0`). Test/evidence only. |
 | probe gate repair (§10) | the live probe's `--is-shallow-repository` predicate was `true` in *both* the automation's partial clone and a true `--depth 1` clone, so the probe failed its own assertion (empty failed set) instead of skipping. Re-gated on whether `AGENTS.md` history is absent (≤ 1 revision) and both directions are now asserted. Measured: 30 passed in both regimes; 1 failed on the branch's own CI before. |
 | status | IMPLEMENTED — ready for sovereign review |
 | independent re-verification (§11) | re-derived from a fresh clone: canonical pair reproduced from a live `main` run; all 7 drift-set nodes re-run at their owner heads (all pass); compositional guard proven by editing the recorded fixture itself (2 failed, 28 passed), not just the predicate |
@@ -32,7 +33,12 @@
   merely structural. A follow-on pass repaired the probe's own gate predicate (§10), which had
   keyed on `--is-shallow-repository` — a flag `true` in both regimes — and therefore failed
   instead of skipping in the automation clone.
-- **Evidence**: `docs/control-plane/evidence/gate-hygiene-open-pr-owned-baseline-drift-01/EVIDENCE.md` (§8 set addendum, §10 probe-gate repair, §11 independent re-verification of the attribution and the compositional guard).
+- **Evidence**: `docs/control-plane/evidence/gate-hygiene-open-pr-owned-baseline-drift-01/EVIDENCE.md` (§8 set addendum, §10 probe-gate repair, §11 independent re-verification of the attribution and the compositional guard, §12 depth-repair pass removing the last clone-depth dependence).
+- **Depth-repair pass (`653151be`)**: the four `DEPTH1_CLONE_DEPENDENT_NODES` no longer fail in a
+  history-absent clone (they decline), and the probe that *required* those failures is superseded
+  by "must not fail in any regime". Decisive measurement: a true `git clone --depth 1` of this head
+  yields the **same 17 nodes** and the same node-set sha256 as a full-history run, so the
+  fingerprint is now clone-depth independent. Test/evidence only.
 - **Blockers**: none for this branch. The 3 `test_m02a_ci_gate_integrity.py::test_allowlist_*`
   failures remain `main` debt owned by open PR #354; the `test_autonomy.py` ERROR is the
   sovereign-reserved CE-01 collision.
