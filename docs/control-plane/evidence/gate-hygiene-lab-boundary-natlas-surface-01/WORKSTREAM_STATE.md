@@ -49,6 +49,31 @@ and tightens it with an explicit assertion on the anonymous Lab surface set.
 | 7 | AIS/identity/ReasoMate/SolSpire governance | unrelated subsystems — no PR yet |
 | 2 | `test_engineering_lab_api.py` | **this PR** |
 
+## CI observation (PR #356, head `a05fc8f7`, 2026-10-08)
+
+All three triggered workflows completed **success**:
+`security-secret-scan`, `N-ATLAS external beta validation` (run `37723231559`),
+`SG-02-FE.2-V` (run `37723231567`).
+
+SG-02-FE.2-V step-level read (not the job conclusion):
+* step 19 `CP10-A Lab tests` — `11 passed in 0.53s` (**real**, and it covers the
+  repaired file: `tests/test_engineering_lab_api.py` is a trigger path);
+* step 32 `CP10 mutation boundary` — `Mutation boundary PASS (M02A legitimate-surface +
+  constitutional denylist)`;
+* step 21 `CP10-B broader backend regression` — `Interrupted: 1 error during collection`
+  (`tests/test_autonomy.py`, the CE-01 `weaver.autonomy` module-vs-package collision).
+  The suite ran **zero** tests in CI. This is pre-existing `main` debt, not attributable
+  to this branch.
+* step 35 `Enforce CP10 executable gates` — prints `Executable CP10 gates: PASS (browser
+  step outcome success)`. As AGENTS.md records, `steps.<id>.outcome` is not available
+  inside a `run:` block, so this step's assertions are the literal string
+  `test 'success' = success` and **cannot fail**. It is not evidence of the CP10-B
+  result; step 21's log is.
+
+The CI job does not install `pytest-asyncio` (declared in `requirements.txt`), so the
+full suite is not a usable CI signal for this change. The full-suite node-set delta
+recorded above is a **local** measurement.
+
 ## Dependencies / interactions
 
 * PRs #337 and #338 (AEAS SSE transport) both edit `api/lab_routes.py` and share base
