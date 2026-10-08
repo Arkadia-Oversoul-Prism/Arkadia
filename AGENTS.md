@@ -866,3 +866,38 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   pre-repair pair and a positive control proving it is silent when the repair is absent.
   It fails on the composed tree and passes on `main`: a guard that is silent on both is not
   a guard.
+
+## Engineering Lab boundary guard vs. a deliberate surface change (gate-hygiene)
+- `tests/test_engineering_lab_api.py` pins two things that a *deliberate* surface change
+  must update in the same PR: the router-wide dependency **name** and the
+  `ALLOWED_MUTATION_ENDPOINTS` inventory. PR #353 replaced the router dependency
+  `require_auth` with `require_lab_auth` (a wrapper that delegates to `require_auth` and
+  exempts the public N-ATLaS tester paths) and added two Lab-state mutating endpoints
+  (`/api/lab/engineering/n-atlas/test-session`, `/api/lab/engineering/n-atlas/run`)
+  **without** updating the guard, so both nodes failed on `main` for reasons that are not
+  boundary violations. Repaired test-side in `gate-hygiene/lab-boundary-natlas-surface-01`.
+- **A failing boundary guard is not evidence of a boundary breach — read the diff first.**
+  The guard that actually enforces the mutation boundary is
+  `test_lab_route_has_no_repository_mutation_surface` (substring markers on every route
+  path); it still passed. The two failures were a stale *inventory* and a stale
+  *dependency-name pin*.
+- Repair pattern that preserves teeth: assert the dependency set is exactly
+  `{"require_lab_auth"}` **and** that `require_lab_auth` still delegates to `require_auth`,
+  then assert the anonymous Lab surface is exactly `_PUBLIC_NATLAS_PATHS`. That way a new
+  unexpected mutating endpoint, a new anonymous path, or a wrapper that stops delegating
+  all still fail — instead of merely appending names to a set.
+- Measured: `main` `f96d5fd2` full suite with `pytest-asyncio` installed (declared in
+  `requirements.txt`, **not** installed by the current CI job — without it one async node
+  errors) = **16 failed / 1770 passed / 22 skipped / 1 error**, i.e. **17** nodes.
+  After the repair: **14 failed / 1772 passed / 22 skipped / 1 error** = **15** nodes, and
+  the sorted node-set `diff` is exactly the two repaired nodes. Fingerprints — main
+  outcomes `26c2b4c7…` / ids `571e599f…`; branch outcomes `d9d7c736…` / ids `5127ffed…`.
+- **`tests/fixtures/baseline_node_set.txt` records only 10 nodes while `main` has 17.**
+  10 of the live failures are absent from the fixture, so the fixture is not a usable
+  baseline any more (the AGENTS.md note that "the contract's older `804p/54f` fingerprint
+  does not reproduce" is the same drift, now larger). Regenerating it is a **separate
+  bounded workstream** — do not fold it into an unrelated repair.
+- **Shared `base` is not composition safety.** PRs #337 and #338 both edit
+  `api/lab_routes.py` from base `f96d5fd2`; if either adds a mutating Lab endpoint it must
+  extend `ALLOWED_MUTATION_ENDPOINTS` in its own diff or that guard fails on the composed
+  tree. Check the guard whenever a PR touches `api/lab_routes.py`.

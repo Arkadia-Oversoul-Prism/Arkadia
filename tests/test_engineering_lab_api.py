@@ -13,6 +13,8 @@ boundary that must actually hold.
 """
 from __future__ import annotations
 
+import inspect
+
 from api.lab_routes import router
 
 #: Substrings that would indicate a repository-mutation or authority surface.
@@ -44,6 +46,19 @@ ALLOWED_MUTATION_ENDPOINTS = {
     "/api/lab/engineering/automations",
     "/api/lab/engineering/automations/{automation_id}/state",
     "/api/lab/engineering/voice/resolve",
+    # N-ATLaS external-tester onboarding (bounded tester session + governed
+    # run). Both write only Lab state via the existing runtime; the tester
+    # capability is a run-only, session-bound credential and neither endpoint
+    # creates an account or a general authorization.
+    "/api/lab/engineering/n-atlas/test-session",
+    "/api/lab/engineering/n-atlas/run",
+}
+
+#: The only Lab paths reachable without an Arkadia account. Any other addition
+#: is a widening of the anonymous surface and must fail this guard.
+PUBLIC_NATLAS_PATHS = {
+    "/api/lab/engineering/n-atlas/catalog",
+    "/api/lab/engineering/n-atlas/test-session",
 }
 
 
@@ -57,7 +72,15 @@ def test_lab_router_is_read_only_and_authenticated():
         getattr(getattr(dep, "dependency", None), "__name__", "")
         for dep in router.dependencies
     }
-    assert "require_auth" in dependency_names
+    # The router-wide dependency is ``require_lab_auth`` — a thin wrapper that
+    # delegates to ``require_auth`` and exempts the deliberate N-ATLaS public
+    # tester paths. Assert both halves: the wrapper is the only gate, and the
+    # anonymous surface is exactly the reviewed set.
+    assert dependency_names == {"require_lab_auth"}
+    from api.lab_routes import _PUBLIC_NATLAS_PATHS, require_lab_auth
+
+    assert _PUBLIC_NATLAS_PATHS == PUBLIC_NATLAS_PATHS
+    assert "require_auth" in inspect.getsource(require_lab_auth)
 
 
 def test_lab_route_has_no_repository_mutation_surface():
