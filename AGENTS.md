@@ -866,3 +866,20 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   pre-repair pair and a positive control proving it is silent when the repair is absent.
   It fails on the composed tree and passes on `main`: a guard that is silent on both is not
   a guard.
+
+## Test fingerprint convention: `outcomes` vs `ids` (gate-hygiene)
+- `scripts/baseline_fingerprint.py::extract` returns TWO node lists and `fingerprint()` hashes
+  each differently. The **outcomes** list holds `"FAILED <nodeid>"` / `"ERROR <nodeid>"` strings;
+  the **ids** list holds bare nodeids. Same tree, same run, two different sha256 values.
+- Always name which convention a quoted fingerprint uses. A fingerprint that "does not
+  reproduce" may simply have been hashed by the other one. Measured at `24a00f85` (full suite,
+  `-rEf --continue-on-collection-errors`): outcomes `26c2b4c7...` (17 nodes) and ids
+  `571e599f...` (17 nodes). Re-hashing the ids under the outcomes convention is NOT the same
+  value; do not "correct" a fingerprint before checking the convention.
+- The load-bearing comparison is always the sorted node SET delta, never the absolute counts:
+  `1775` vs `1777` passed moves with how many tests are present.
+- `tests/test_ais_w2_living_gate_grove_handoff::test_no_firebase_persistence_in_gate` is
+  **not** a stale pin. It detects that `LivingGate.tsx` carries no Firebase persistence, and the
+  failure is driven by the shared session leaking state between tests (a sibling node in the
+  same file passes in isolation). Re-pinning it would erase a live signal; it needs a fixture
+  fix, which is a separate bounded workstream.
