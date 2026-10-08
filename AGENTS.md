@@ -897,3 +897,44 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   — the new workflow's path filter omits its own file.
 - Evidence: `docs/control-plane/evidence/gate10-cp10-allowlist-deploy-surface-01/EVIDENCE.md`.
 
+## Pass 2 (same branch) — composed with main `f96d5fd2`; a #353 auth boundary is HELD
+
+Measured 2026-10-07. `main` advanced by #353 ("Fix N-ATLaS Lab public tester onboarding"),
+so the CP10 branch was merged with `f96d5fd2` (head `c9ef3664`) to make CI judge the true
+tree. Conflict-free (disjoint file sets). Composed-tree proof: `test_m02a_ci_gate_integrity`
+**64 passed**; policy `--judge` PASS (exit 0); negative controls still reject. Full-suite
+node identity: `main` 17 nodes → branch 14; removed = exactly the 3 CP10 nodes, **introduced
+= zero**. Use `-rEf` (the documented `-rf` hides `ERROR` lines → subset fingerprint).
+
+- **`#353` changed the Lab authentication boundary, and that is HELD, not reverted.**
+  `api/lab_routes.py` replaced the router-level `dependencies=[Depends(require_auth)]` with
+  `Depends(require_lab_auth)`; `require_lab_auth` returns `None` — *no authentication* — for
+  every path in `_PUBLIC_NATLAS_PATHS`, which includes the **POST**
+  `/api/lab/engineering/n-atlas/test-session`. That route mints a signed `natlas-tester.`
+  capability (new credential type, `api/auth.py::mint_natlas_tester_token`) and records a
+  human authorization; `require_auth` gained an acceptance branch for the token type
+  (`api/auth.py:454`). This reddens
+  `test_engineering_lab_api.py::test_lab_router_is_read_only_and_authenticated` and
+  contradicts `AGENTS.md`'s own "THE LAB IS OWNER-ONLY. AUTHENTICATION :=
+  SOVEREIGN_IDENTITY_ONLY." It engages the contract HARD STOP list ("a new authorization
+  path appears", "identity boundary changes unexpectedly") **and** it was intentionally
+  merged by the sovereign. So it is a design-vs-guard tension: either accept the public
+  tester path (then narrow the surface and update the guard + `ALLOWED_MUTATION_ENDPOINTS`),
+  or keep the Lab owner-only (re-express onboarding behind auth). **Neither may be chosen by
+  an agent** — editing the test to pass weakens the boundary; restoring `require_auth`
+  silently reverts sovereign design. Report, do not resolve.
+- **Classify a #353-introduced node by its own provenance, not by the branch it arrived on.**
+  `git show 2c6f6f1e:api/lab_routes.py` has zero `n-atlas` occurrences, so both
+  `test_engineering_lab_api` nodes are #353's, not held #352 work — the Pass 1 note (above)
+  grouped them under #352 and under-called the auth node as "not a HARD STOP"; that reading is
+  superseded here.
+- **Do not assume a branch's merge-base is `main`.** Here the merge-base was `2c6f6f1e`, an
+  *ancestor* of `f96d5fd2`, so the three-dot diff was already correct — but CI would still have
+  tested a pre-#353 tree. Merge `main` in before claiming the branch is green.
+- **The `#352` workflow self-trigger node is safe to fix, and is isolated in its own PR**
+  (`gate10/n-atlas-workflow-self-trigger-01`, commit `73104fdf`): an additive path-filter entry
+  adding `.github/workflows/n-atlas-developer-lab.yml` to the workflow's own `pull_request.paths`,
+  matching the invariant `test_ci_gate_trigger_coverage.py` asserts. `48 passed`; CP10 judge PASS.
+  Isolated rather than folded in because the CP10 PR declares "no change to the N-ATLaS
+  workflows" as a non-goal (contract §11: isolate non-consequential follow-on work).
+

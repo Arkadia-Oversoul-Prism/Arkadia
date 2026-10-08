@@ -122,3 +122,121 @@ question — whether three new Lab mutation endpoints should be added to
 Repository-source change only, on a dedicated branch, via pull request. No merge,
 no push to `main`, no authority-model change, no scope expansion. Human merge
 authority is required.
+
+---
+
+# Pass 2 — composition onto current main (`f96d5fd2`) and refined classification
+
+Pass: hourly bounded execution, 2026-10-07T23:0xZ
+Base main at start of pass: `f96d5fd2` ("Fix N-ATLaS Lab public tester onboarding (#353)")
+Branch head after composition: `c9ef3664` (merge of `f96d5fd2` into `57e4716c`)
+
+## Why the branch was composed with current main
+
+`main` advanced by one commit (`f96d5fd2`, PR #353) after this branch was created.
+The branch's merge-base with `main` was `2c6f6f1e`, which **is** an ancestor of
+`f96d5fd2`, so GitHub's three-dot diff was already the correct 3-file change set —
+but CI would have judged a tree that did not contain #353. Merging `main` into the
+branch makes CI test the true composition and keeps the PR mergeable.
+
+The merge was conflict-free: this branch touches `scripts/cp10_mutation_boundary_policy.py`,
+`AGENTS.md` and this evidence doc; #353 touched `api/auth.py`, `api/lab_routes.py`,
+`tests/test_natlas_developer_lab.py`, `web/console/src/api/client.ts`,
+`web/console/src/surfaces/NAtlasTester.tsx`. Disjoint file sets, so no hand
+resolution — and therefore no merge-loss risk (see `AGENTS.md` → "Merge-loss
+forensics").
+
+## Verification on the composed tree (measured, this environment)
+
+- `python -m pytest tests/test_m02a_ci_gate_integrity.py -q` → **64 passed**
+  (was 61 passed / 3 failed at `f96d5fd2`).
+- `python3 scripts/cp10_mutation_boundary_policy.py --judge` on the branch's own
+  diff (`AGENTS.md`, this evidence doc, `scripts/cp10_mutation_boundary_policy.py`)
+  → `Mutation boundary PASS`, **exit 0**.
+- Negative controls re-run on the composed tree and still reject:
+  unknown root → exit 1; `SolSpireExperienceV3.tsx` → exit 1.
+  `deploy/n-atlas-server/*` → PASS (exit 0, newly admitted).
+
+## Full-suite node-identity delta (the load-bearing measurement)
+
+Both runs: `python -m pytest tests/ -q -rEf --continue-on-collection-errors`, this
+environment. `-rEf` is required — the documented `-rf` suppresses pytest's `ERROR`
+summary lines and yields a subset fingerprint (`AGENTS.md` → "Baseline fingerprint").
+
+| tree | result | node set |
+|---|---|---|
+| `main` @ `f96d5fd2` | 16 failed / 1770 passed / 22 skipped / 1 error | 17 nodes · `26c2b4c7b5efb56d0d54ab5888cdf955589f7633490c9a0c33d1ef63bba85798` |
+| this branch @ `c9ef3664` | 13 failed / 1773 passed / 22 skipped / 1 error | 14 nodes · `0143dc4df4291b848fa00ca59ddca426985c0c7b0f77d9f4245c951c87793e38` |
+
+Removed (3), all `tests/test_m02a_ci_gate_integrity.py` allowlist-inventory nodes
+repaired by this PR. **Introduced: zero** (`comm -13` empty). The remaining 14
+nodes are baseline debt plus the two held #353 nodes below; none is attributable to
+this change.
+
+## Corrected classification of the two held #353 nodes
+
+The Pass 1 note above classified both held nodes as "not a HARD STOP". Re-measured
+on `f96d5fd2`, that is **too weak for one of them** and is superseded here.
+
+Both nodes are introduced by #353 (verified: `git show 2c6f6f1e:api/lab_routes.py`
+contains zero `n-atlas` occurrences; `f96d5fd2` adds the routes):
+
+1. `test_engineering_lab_api.py::test_lab_mutation_endpoints_are_exactly_the_lab_state_set`
+   — two new mutating routes, `/api/lab/engineering/n-atlas/test-session` and
+   `/api/lab/engineering/n-atlas/run`, are absent from `ALLOWED_MUTATION_ENDPOINTS`.
+   The endpoints are Lab-state operations (no git/subprocess surface), so this is an
+   inventory-completion question, not a boundary breach.
+
+2. `test_engineering_lab_api.py::test_lab_router_is_read_only_and_authenticated`
+   — **this is an authentication-boundary change.** #353 replaced the router-level
+   `dependencies=[Depends(require_auth)]` with `Depends(require_lab_auth)`, and
+   `require_lab_auth` returns `None` — *no authentication at all* — for every path in
+   `_PUBLIC_NATLAS_PATHS`:
+
+   ```python
+   _PUBLIC_NATLAS_PATHS = {
+       "/api/lab/engineering/n-atlas/catalog",
+       "/api/lab/engineering/n-atlas/test-session",
+   }
+
+   async def require_lab_auth(request: Request) -> None:
+       if request.url.path in _PUBLIC_NATLAS_PATHS:
+           return None            # <- unauthenticated
+       await require_auth(request)
+   ```
+
+   `/api/lab/engineering/n-atlas/test-session` is a **POST** that mints a signed
+   `natlas-tester.` capability token (new credential type,
+   `api/auth.py::mint_natlas_tester_token`) and records a human authorization via
+   `runtime.record_authorization(...)`. `require_auth` additionally gained an
+   acceptance branch for that token type (`api/auth.py:454`).
+
+## Why this is HELD, not repaired here
+
+The change is **intentional** — the sovereign merged #353, whose title is "Fix
+N-ATLaS Lab public tester onboarding". So this is not an accidental regression to
+be reverted. It is a tension between a human-authorized design and an older guard
+test that pins the previous design, and it engages the contract's own HARD STOP
+list ("a new authorization path appears", "identity boundary changes unexpectedly").
+It also contradicts the repository's standing invariant (`AGENTS.md`): *"THE LAB IS
+OWNER-ONLY. AUTHENTICATION := SOVEREIGN_IDENTITY_ONLY."*
+
+Resolving it requires a sovereign choice between two options, neither of which an
+agent may take unilaterally:
+
+- **A.** Accept the public tester path as designed, and update the guard test +
+  `ALLOWED_MUTATION_ENDPOINTS` to reflect it (with the public surface narrowed and
+  the capability's scope explicitly bounded); or
+- **B.** Keep the Lab owner-only, and re-express tester onboarding behind
+  authentication (or a separate non-Lab surface).
+
+Editing the guard test to make it pass would weaken the boundary; editing
+`api/lab_routes.py` to restore `require_auth` would silently revert sovereign-approved
+design. Both are forbidden without authorization. **Not touched in this PR.**
+
+## Pass 2 authorization boundary
+
+Repository-source change only, on a dedicated branch, via pull request. No merge, no
+push to `main`, no force-push, no authority-model change, no scope expansion. The
+`api/auth.py` / `api/lab_routes.py` boundary question above is reported, not resolved.
+Human merge authority is required.
