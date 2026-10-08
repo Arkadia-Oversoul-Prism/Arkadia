@@ -58,9 +58,24 @@
   recorded commits would need a force-push, which this contract forbids; the branch
   fast-forwards `edc18b98 → 7c4955e6` with no force and the merge commit absorbs main's
   advance. Both trees re-measured this pass: `main` `24a00f85` = `16F/1772P/22S/1E` (17 nodes)
-  and this head `7c4955e6` = `16F/1781P/22S/1E` (17 nodes) — **same canonical pair**
+  and this head = `16F/1781P/22S/1E` (17 nodes) — **same canonical pair**
   `26c2b4c7…`/`571e599f…`, zero node delta. On a non-rebased branch `git diff
   origin/main..HEAD` lists `lab/engineering_lab/natlas.py`; that is absence, not a revert.
   Recorded in `EVIDENCE.md` §14.
+- **Pass 13 addendum corrections (`d71bcfbd`, `d585e5cb`)** — two defects in this pass's *own*
+  notes, corrected in place rather than left standing:
+  (1) the head figure was quoted as `16F/1781P/22 errors`; the summary reads **22 skipped,
+      1 error**. Exactly one error (`tests/test_autonomy.py`, sovereign-reserved CE-01). Only
+      decidable under `-rEf`; under `-rf` the `ERROR` line is hidden and the tree fingerprints
+      as 16 nodes — a subset, not a baseline.
+  (2) an intermediate `mergeStateStatus: UNSTABLE` was drafted as a pre-existing Vercel
+      failure. **Measured, not remembered:** all 8 checks on the head are success (including
+      `Vercel – console` and `Vercel – arkadia-prism`) and the settled state is
+      `MERGEABLE`/`CLEAN`. The `UNSTABLE` is transient registration lag — **reproduced** on the
+      second push of this pass (`UNSTABLE, UNSTABLE, CLEAN`). Read per-check truth from
+      `commits/<sha>/check-runs` + `commits/<sha>/status`; poll merge state until it settles.
+  (3) the 17 live node **ids** diff clean against `tests/fixtures/baseline_node_set.txt`
+      (prefix-stripped, zero delta) — the recorded set is literally the same list, not merely
+      hash-consistent.
 - **Forbidden**: merge, force-push, push to `main`, fixing the CP10 allowlist here, touching
   `weaver/autonomy`.
