@@ -243,8 +243,12 @@ Human merge authority is required.
 
 ## Pass 2 — PR linkage and measured node sets
 
-- **PR #354** — `gate10/cp10-allowlist-deploy-surface-01`, head `7b9f3309`, base `f96d5fd2`.
-  This is the CP10 allowlist repair.
+- **PR #354** — `gate10/cp10-allowlist-deploy-surface-01`, head `f7c212bd`, base `f96d5fd2`.
+  This is the CP10 allowlist repair. (An earlier revision of this section cited head
+  `7b9f3309`; that was the head at the time of writing. `7b9f3309` is an ancestor of
+  `f7c212bd` and the advance is **docs-only** — `git diff --name-only 7b9f3309 f7c212bd`
+  returns only this evidence doc — so the node-set measurements below bind to the current
+  head unchanged. Corrected here rather than left standing.)
 - **PR #355** — `gate10/n-atlas-workflow-self-trigger-01`, head `73104fdf`, base `f96d5fd2`.
   Isolated bounded branch for held item 3 (n-atlas workflow self-selection), because this PR
   declares "no change to the N-ATLaS workflows" as a non-goal and contract §11 requires
@@ -266,12 +270,100 @@ required — `-rf` alone suppresses pytest's `ERROR` summary lines and yields a 
 Composition onto `main` was conflict-free: #354's file set and #353's file set are disjoint,
 so the merge had no hand resolution and carries no merge-loss risk.
 
+---
+
+# Pass 3 — reconciliation of the "main is red on CP10" premise, and measured composition
+
+Pass: hourly bounded execution, 2026-10-07T23:0xZ
+Base main: `f96d5fd2`. #354 head: `f7c212bd`. #355 head: `73104fdf`.
+
+## Reconciliation: the premise does reproduce — the earlier run was mis-scoped
+
+Pass 2 recorded an unresolved item: *"the judge on `main`'s tracked corpus (f96d5fd2) also
+returned PASS (main_judge_exit=0), so the 'main is red on CP10' premise did not reproduce."*
+
+That observation was an artefact of **which judge script was executed against which corpus**.
+A judge is only the gate for the tree that *carries* it:
+
+| judge script | corpus | result | exit |
+|---|---|---|---|
+| `f96d5fd2` (main's own policy) | `f96d5fd2` (main's own tree) | `Unexpected path … deploy/n-atlas-server/Dockerfile` | **1** |
+| `f7c212bd` (branch policy) | `f96d5fd2` (main's tree) | `Mutation boundary PASS` | 0 |
+| `f7c212bd` (branch policy) | `f7c212bd` (branch tree) | `Mutation boundary PASS` | 0 |
+| `73104fdf` (#355 policy — `deploy/` not admitted) | `73104fdf` (#355 tree) | `Unexpected path … deploy/n-atlas-server/Dockerfile` | **1** |
+
+The Pass 2 run executed the **branch's already-repaired policy** against main's corpus, which
+is why it passed: the branch policy admits `deploy/`, so it cannot reproduce the defect it
+repairs. The gate that is red on `main` is `main`'s own script, and it is red — **exit 1**,
+failing on `deploy/n-atlas-server/Dockerfile`, the first of the four `deploy/n-atlas-server/*`
+files. Corpora here are derived directly from git
+(`git ls-tree -r --name-only <rev>`), not from a working tree, so the main corpus contains no
+branch-only paths.
+
+The premise stands. No correction to the Pass 1 defect claim is needed.
+
+## The two PRs do not individually restore `main` to green — they compose
+
+Measured on the four target nodes
+(`tests/test_m02a_ci_gate_integrity.py` + `tests/test_ci_gate_trigger_coverage.py`):
+
+| tree | result | remaining red |
+|---|---|---|
+| `main` @ `f96d5fd2` | 4 failed / 108 passed | 3 allowlist-inventory + 1 trigger-coverage |
+| `#354` @ `f7c212bd` alone | 1 failed / 111 passed | trigger-coverage only |
+| `#355` @ `73104fdf` alone | 3 failed / 109 passed | allowlist-inventory only |
+| **composed (#355 + #354)** | **0 failed / 115 passed** | **none** |
+
+`git apply --3way` of both PR diffs onto `f96d5fd2` applied cleanly (the two PRs share no
+file), so there is no textual conflict and no merge-loss risk. **Both PRs must land for the
+CP10 gate and its fitness tests to be green on `main`; neither alone suffices.** Merge order
+is immaterial — the file sets are disjoint and the trigger-coverage and allowlist nodes are
+independent.
+
+## Composed full-suite node-identity delta
+
+`python -m pytest tests/ -q -rEf --continue-on-collection-errors`, this environment.
+
+| tree | result | nodes | outcomes fingerprint |
+|---|---|---|---|
+| `main` @ `f96d5fd2` | 16F / 1770P / 22S / 1E | 17 | `26c2b4c7b5efb56d0d54ab5888cdf955589f7633490c9a0c33d1ef63bba85798` |
+| composed (#355 + #354) | 12F / 1774P / 22S / 1E | 13 | `bae53864cab9d99b9a3b0a0a9eddacb7fa9f092809d3b8508abdb3abf58d9a6f` |
+
+Removed (4): the three `test_m02a_ci_gate_integrity` allowlist-inventory nodes and
+`test_ci_gate_trigger_coverage::test_pr_pytest_workflow_is_selected_by_its_own_file[n-atlas-developer-lab.yml]`.
+**Introduced: zero.** The remaining 13 nodes are baseline debt plus the two held #353 Lab
+nodes (`test_engineering_lab_api.py::test_lab_router_is_read_only_and_authenticated`,
+`::test_lab_mutation_endpoints_are_exactly_the_lab_state_set`) — the authentication-boundary
+question recorded above and **not** touched here.
+
+`tests/fixtures/baseline_node_set.txt` (10 nodes) is a strict subset of main's live 17-node
+set, confirmed by set difference — consistent with its documented role as a partial ledger.
+
+## Trigger-path note
+
+`sg-02-fe-2-v.yml` is path-filtered and does not list `AGENTS.md` or `docs/**`. This pass's
+change is **evidence-documentation only**, so it does not re-trigger the CP10 job; the green
+run at `f7c212bd` remains the CP10 evidence for this branch. No policy or test file changed.
+
+## Pass 3 authorization boundary
+
+Evidence-documentation only, on the existing dedicated branch, via the existing PR #354. No
+policy change, no denylist change, no test change, no merge, no push to `main`, no
+force-push, no authority-model change, no scope expansion. The
+`api/auth.py` / `api/lab_routes.py` boundary question remains **reported, not resolved**.
+Human merge authority is required.
+
 ## Deterministic next action
 
-- **Current state:** #354 and #355 both open, both measured, both `READY FOR MERGE` for their
-  own bounded scope. No merge performed; no push to `main`.
-- **Blockers:** none for either PR's own scope.
-- **Authorized action:** sovereign review and merge of #354 and/or #355.
+- **Current state:** #354 (`f7c212bd`) and #355 (`73104fdf`) both open, both `CLEAN` /
+  `MERGEABLE`, both measured, both `READY FOR MERGE` for their own bounded scope. The CP10
+  gate and its fitness tests go green only when **both** are merged. No merge performed; no
+  push to `main`.
+- **Blockers:** none for either PR's own scope. The two held `test_engineering_lab_api` nodes
+  are a **separate proposed workstream** requiring a sovereign choice (accept the public
+  tester path and update the guard + `ALLOWED_MUTATION_ENDPOINTS`, or keep the Lab owner-only
+  and re-express tester onboarding behind authentication).
+- **Authorized action:** sovereign review and merge of #354 and #355.
 - **Forbidden:** merging, pushing to `main`, editing `api/lab_routes.py` / `api/auth.py`,
   editing the `test_engineering_lab_api` guard, changing `ALLOWED_MUTATION_ENDPOINTS` or
   `REGISTERED_ARCHITECTURAL_DEBT`.
