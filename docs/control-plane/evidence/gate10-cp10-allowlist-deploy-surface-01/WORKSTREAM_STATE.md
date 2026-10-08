@@ -71,3 +71,31 @@ rate-limit status.
    dependency (`assert router.dependencies` passes), so this reads as a stale name pin, the
    documented test-side literal-defect class. It is an authentication-boundary assertion, so
    the equivalence of `require_lab_auth` to the expected guard must be confirmed, not assumed.
+
+---
+
+## Pass 4 — head, clone depth, and full-clone node sets (2026-10-08)
+
+- **BASE_MAIN:** `f96d5fd2` (still `origin/main`; unchanged this pass).
+- **ACTIVE_PR:** #354 `gate10/cp10-allowlist-deploy-surface-01`.
+  - True head: **`ba187124f29a248be5a98c21ddb4d0d6836879c6`** → advanced this pass to
+    `e55239ef` (evidence-only Pass 4 correction).
+  - Earlier citations `f7c212bd` / `e90a5769` / `696cc07b` are superseded; each advance is
+    documentation-only.
+- **#355** `73104fdf` — still open, not merged; owns the trigger-coverage node.
+- **Environment correction:** the clone **was shallow** (`--is-shallow-repository` -> `true`).
+  Deepened with `git fetch --unshallow --filter=blob:none` (32 `AGENTS.md` revisions).
+- **Node-set measurements (full clone, `-rEf --continue-on-collection-errors`):**
+  - `main` `f96d5fd2` -> 27F/1763P/18S/1E, **28** nodes, `d12b3aae...`.
+  - #354 `ba187124` -> 24F/1766P/18S/1E, **25** nodes, `153246a9...`.
+  - Removed = the 3 `test_m02a_ci_gate_integrity` nodes; **introduced = 0**.
+- **Corrected classification:** `test_corruption_origin_is_re_derivable` fails on shallow
+  `main` and passes on the branch only because a shallow clone sees 1 `AGENTS.md` revision.
+  On a full clone it is **absent** — a shallow-clone artefact / branch **false positive**, not
+  a repair this branch makes. Do not cite it as fixed by #354.
+- **CI at `ba187124`:** six check-runs all `success` (incl. SG-02 run 37714998141); combined
+  status `failure` only from the two pre-existing Vercel rate-limit contexts.
+- **Blocker:** none. **Forbidden:** the standing list (no merge, no push to `main`, no policy /
+  denylist / test / `AGENTS.md` change, no `api/lab_routes.py` or `api/auth.py` edit).
+- **Completion condition:** #354 and #355 merged by the sovereign; a fresh pass reconstructs
+  `main` and re-derives the node set on a full clone.
