@@ -866,3 +866,39 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   pre-repair pair and a positive control proving it is silent when the repair is absent.
   It fails on the composed tree and passes on `main`: a guard that is silent on both is not
   a guard.
+
+## Baseline-fingerprint guard is now executable — and its inputs are derived, not restated (gate-hygiene)
+- `tests/test_baseline_fingerprint.py` reconciles `tests/fixtures/baseline_node_set.txt`
+  against a live measurement, but at `main` @ `24a00f85` **no workflow ran it**
+  (`grep -rn baseline_fingerprint .github/workflows/` → 0). A reconciliation that only
+  holds when a human invokes it by hand is decoration; `.github/workflows/baseline-fingerprint.yml`
+  is the executable surface.
+- **A workflow's trigger filter must name every input the guard reads, not just the test
+  file.** The first draft named the guard, the script and `tests/fixtures/**` — incomplete,
+  because the guard also asserts that four published documents carry the canonical
+  fingerprint (`FINGERPRINT_DOCS`). A commit editing `.bootstrap/01_STATE.md` would change
+  what the guard asserts without executing the guard. The detector bit on that real
+  defect before it bit on any synthetic one.
+- `tests/test_baseline_fingerprint_ci_wiring.py` reads `FINGERPRINT_DOCS` from the guard's
+  source **by AST** rather than restating the list. A second hand-maintained copy drifts,
+  and a drifted copy makes the coverage assertion vacuous. Accepted consequence: adding an
+  entry to `FINGERPRINT_DOCS` requires adding the same path to the workflow filter in the
+  same change. Proven by a negative control that edits only the guard's list.
+- The invariant is stated over **every** workflow that runs the guard (parametrized), not
+  against this one file, so a second wiring is judged by the same rule and deleting this
+  one cannot make the assertions vacuous. Five negative controls cover: workflow omitting
+  its own file, a shallow checkout (`fetch-depth: 0` removed — the node set is
+  clone-depth sensitive), a dropped fixture glob, a dropped published doc, and a
+  guard-side-only input addition.
+- **A new workflow adds passing nodes to the generic scanner suites by construction**
+  (`test_ci_gate_trigger_coverage.py` +3, `test_ci_suite_collection_continuation.py` +1,
+  `test_workflow_injection_boundary.py` +1), so the branch's `+14 passed` exceeds its own
+  test file's 9. Measured by diffing `--collect-only` per file across both trees
+  (1809 → 1823), not inferred from the count delta.
+- Measured at `24a00f85`: full-suite node set **identical** on `main` and the branch —
+  outcomes `26c2b4c7…`, ids `571e599f…` (17 nodes, 16F/1E) on both. Architecture suite is
+  **11 passed** (the contract's "9/10" does not reproduce). Evidence:
+  `docs/control-plane/evidence/gate10-baseline-fingerprint-ci-wiring-01/`.
+- The four pre-existing failures this pass observed are owned elsewhere and were **not**
+  touched: the CP10 `deploy/` allowlist omission (PR #354) and the
+  `n-atlas-developer-lab.yml` trigger filter (PR #355).

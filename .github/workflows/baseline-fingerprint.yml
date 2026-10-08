@@ -1,0 +1,59 @@
+name: Baseline Fingerprint Verification
+
+# `tests/test_baseline_fingerprint.py` reconciles the recorded baseline node set with a
+# live measurement and fails when the two drift apart. Measured on `main` @ 24a00f85, no
+# workflow named it (`grep -rn baseline_fingerprint .github/workflows/` returned 0), so
+# the reconciliation held only when it was invoked by hand — a guard no workflow executes
+# is decoration. This workflow is the executable surface for that guard.
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/baseline-fingerprint.yml"
+      - "scripts/baseline_fingerprint.py"
+      - "tests/test_baseline_fingerprint.py"
+      - "tests/test_baseline_fingerprint_ci_wiring.py"
+      # The guard reads its node-set fixtures; a change to any of them is a change to
+      # what the guard asserts.
+      - "tests/fixtures/**"
+      # The guard also asserts that the documents publishing the canonical fingerprint
+      # (`FINGERPRINT_DOCS` in the guard) agree with it, so each is an input whose edit
+      # must execute the guard. `tests/test_baseline_fingerprint_ci_wiring.py` reads that
+      # list from the guard's own source, so an input added there without being added
+      # here fails CI.
+      - ".bootstrap/01_STATE.md"
+      - "MISSION.md"
+      - "NEXT_AGENT.md"
+      - "docs/phase1/CONTINUATION_LEDGER.md"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/baseline-fingerprint.yml"
+      - "scripts/baseline_fingerprint.py"
+      - "tests/test_baseline_fingerprint.py"
+      - "tests/test_baseline_fingerprint_ci_wiring.py"
+      - "tests/fixtures/**"
+      - ".bootstrap/01_STATE.md"
+      - "MISSION.md"
+      - "NEXT_AGENT.md"
+      - "docs/phase1/CONTINUATION_LEDGER.md"
+  workflow_dispatch:
+
+jobs:
+  baseline-fingerprint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history, not the default shallow checkout: the guard's node set is
+          # documented as clone-depth sensitive (the `AGENTS.md`-revision nodes), so a
+          # shallow checkout can change its verdict. Pinned by
+          # `tests/test_baseline_fingerprint_ci_wiring.py`.
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: pip install pytest pyyaml
+      - name: Baseline fingerprint guards
+        run: |
+          python -m pytest tests/test_baseline_fingerprint.py tests/test_baseline_fingerprint_ci_wiring.py -q
