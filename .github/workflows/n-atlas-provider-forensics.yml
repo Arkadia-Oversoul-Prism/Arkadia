@@ -17,8 +17,13 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           python - <<'PY'
-          import json, os, time
+          import hashlib
+          import json
+          import os
+          import time
+          from datetime import datetime, timezone
           from pathlib import Path
+
           import requests
 
           space = "KoladeOdunope/ednai-natlas-runtime"
@@ -26,7 +31,7 @@ jobs:
           runtime = "https://koladeodunope-ednai-natlas-runtime.hf.space"
           prompt = 'Rewrite this message in natural Nigerian English while keeping it professional: "Please send the document as soon as possible because we need to review it before the meeting."'
           out = Path("provider-forensics")
-          out.mkdir()
+          out.mkdir(parents=True, exist_ok=True)
 
           session = requests.Session()
           token = os.getenv("HF_TOKEN", "").strip()
@@ -35,74 +40,129 @@ jobs:
           def write(name, value):
               (out / name).write_text(value, encoding="utf-8")
 
-          # Public Space metadata and source.
+          def record_request(name, method, url, *, headers=None, json_payload=None, timeout=(10, 30)):
+              try:
+                  r = session.request(method, url, headers=headers, json=json_payload, timeout=timeout)
+                  write(name, r.text)
+                  print(name, r.status_code)
+                  return r
+              except requests.RequestException as exc:
+                  write(name, json.dumps({
+                      "request_error": type(exc).__name__,
+                      "detail": str(exc),
+                      "url": url,
+                  }, indent=2))
+                  print(name, "REQUEST_ERROR", type(exc).__name__, str(exc))
+                  return None
+
+          # Public Space metadata and source. Each request is independently bounded.
           for name, url in [
               ("space-metadata.json", f"{base}/api/spaces/{space}"),
               ("space-tree.json", f"{base}/api/spaces/{space}/tree/main"),
               ("app.py", f"{base}/spaces/{space}/raw/main/app.py"),
               ("README.md", f"{base}/spaces/{space}/raw/main/README.md"),
           ]:
-              r = session.get(url, timeout=30)
-              if name.endswith(".json"):
+              r = record_request(name, "GET", url, timeout=(10, 30))
+              if r is not None and name.endswith(".json"):
                   try:
                       write(name, json.dumps(r.json(), indent=2, ensure_ascii=False))
                   except Exception:
-                      write(name, r.text)
-              else:
-                  write(name, r.text)
-              print(name, r.status_code)
+                      pass
 
-          # Provider runtime metadata.
+          # Provider runtime metadata. Auth failures are evidence, not fatal workflow errors.
           for name, url in [
               ("runtime-api.json", f"{base}/api/spaces/{space}"),
               ("runtime-events.txt", f"{base}/api/spaces/{space}/events?tail=100"),
               ("runtime-logs.txt", f"{base}/api/spaces/{space}/logs/run?tail=300"),
           ]:
-              r = session.get(url, headers=headers, timeout=60)
-              write(name, r.text)
-              print(name, r.status_code)
+              record_request(name, "GET", url, headers=headers, timeout=(10, 30))
 
-          # Reproduce the exact failing request and retain the complete SSE event trace.
-          messages_json = json.dumps([{"role":"user","content":prompt}], ensure_ascii=False)
-          payload = {"data":[messages_json, 0.0, 128, False]}
-          post = session.post(runtime + "/gradio_api/call/generate", json=payload, timeout=30)
-          write("request-response.txt", post.text)
-          print("generate POST", post.status_code, post.text[:1000])
+          # Reproduce the exact failing request.
+          messages_json = json.dumps([{"role": "user", "content": prompt}], ensure_ascii=False)
+          payload = {"data": [messages_json, 0.0, 128, False]}
+          post = record_request(
+              "request-response.txt",
+              "POST",
+              runtime + "/gradio_api/call/generate",
+              json_payload=payload,
+              timeout=(10, 30),
+          )
 
           trace = []
-          if post.ok:
-              event_id = post.json().get("event_id")
-              trace.append({"phase":"submit","event_id":event_id})
+          if post is not None and post.ok:
+              try:
+                  event_id = post.json().get("event_id")
+              except Exception as exc:
+                  event_id = None
+                  trace.append({"phase": "submit-parse-error", "error": repr(exc), "body": post.text[:2000]})
+
+              trace.append({"phase": "submit", "event_id": event_id})
               if event_id:
-                  with session.get(runtime + "/gradio_api/call/generate/" + event_id,
-                                   stream=True, timeout=300) as stream:
-                      trace.append({"phase":"sse-http","status":stream.status_code,
-                                    "headers":{"content-type":stream.headers.get("content-type")}})
-                      current_event = None
-                      for line in stream.iter_lines(decode_unicode=True):
-                          if line is None:
-                              continue
-                          trace.append({"line":line})
-                          if line.startswith("event:"):
-                              current_event = line.split(":",1)[1].strip()
-                          if current_event == "error" and line.startswith("data:"):
-                              trace.append({"provider_error_event":line})
-                              if line.strip() == "data: null":
-                                  trace.append({"provider_error_is_null":True})
+                  sse_url = runtime + "/gradio_api/call/generate/" + event_id
+                  deadline = time.monotonic() + 180
+                  try:
+                      # Connect quickly, then bound socket inactivity. The outer deadline
+                      # prevents a healthy-but-never-terminal stream from hanging the job.
+                      with session.get(
+                          sse_url,
+                          stream=True,
+                          timeout=(10, 15),
+                      ) as stream:
+                          trace.append({
+                              "phase": "sse-http",
+                              "status": stream.status_code,
+                              "headers": {"content-type": stream.headers.get("content-type")},
+                          })
+                          current_event = None
+                          for line in stream.iter_lines(decode_unicode=True):
+                              if time.monotonic() >= deadline:
+                                  trace.append({"phase": "sse-deadline", "seconds": 180})
+                                  break
+                              if line is None:
+                                  continue
+                              trace.append({"line": line})
+                              if line.startswith("event:"):
+                                  current_event = line.split(":", 1)[1].strip()
+                              if current_event == "error" and line.startswith("data:"):
+                                  trace.append({"provider_error_event": line})
+                                  if line.strip() == "data: null":
+                                      trace.append({"provider_error_is_null": True})
+                              if current_event in {"complete", "error"}:
+                                  break
+                  except requests.RequestException as exc:
+                      trace.append({
+                          "phase": "sse-request-error",
+                          "error": type(exc).__name__,
+                          "detail": str(exc),
+                      })
+                  except Exception as exc:
+                      trace.append({
+                          "phase": "sse-unexpected-error",
+                          "error": type(exc).__name__,
+                          "detail": str(exc),
+                      })
+          elif post is not None:
+              trace.append({"phase": "submit-http-error", "status": post.status_code, "body": post.text[:2000]})
+          else:
+              trace.append({"phase": "submit-request-error"})
+
           write("sse-trace.json", json.dumps(trace, indent=2, ensure_ascii=False))
 
           summary = {
               "space": space,
               "space_sha": None,
               "provider_endpoint": "/gradio_api/call/generate",
-              "prompt_sha256": __import__("hashlib").sha256(prompt.encode()).hexdigest(),
+              "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(),
               "hf_token_present_for_authenticated_diagnostics": bool(token),
-              "generated_at_utc": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+              "generated_at_utc": datetime.now(timezone.utc).isoformat(),
           }
           try:
-              summary["space_sha"] = session.get(f"{base}/api/spaces/{space}", timeout=30).json().get("sha")
-          except Exception:
-              pass
+              r = session.get(f"{base}/api/spaces/{space}", timeout=(10, 30))
+              if r.ok:
+                  summary["space_sha"] = r.json().get("sha")
+          except requests.RequestException as exc:
+              summary["space_sha_error"] = f"{type(exc).__name__}: {exc}"
+
           write("summary.json", json.dumps(summary, indent=2))
           PY
 
