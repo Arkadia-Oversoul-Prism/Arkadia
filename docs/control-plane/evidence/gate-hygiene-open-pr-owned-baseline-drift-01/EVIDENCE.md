@@ -33,6 +33,10 @@ A live full-suite run on `main` `44137991` (`python -m pytest tests/ -q -rEf
 unrecorded nodes are each repaired by an open PR, so they are baseline debt a merge will
 remove — not regressions:
 
+> Re-measured at `44137991` (this pass's independent verification): `main` itself is
+> **16F / 1772P / 22S / 1E**; the 1776P figure above is this *branch* (the +4 passed are the
+> four new guard functions). The failing/error node set is identical on both sides.
+
 | node | owner PR |
 |---|---|
 | `test_ais_capability_profile_onboarding.py::test_home_is_offer_led_and_keeps_arkadia_entry_points` | #347 |
@@ -46,6 +50,25 @@ remove — not regressions:
 The attribution is recorded machine-readably in
 `tests/fixtures/open_pr_owned_drift_node_set.txt` (`<node id>\t<owner PR>`), so the next pass
 does not re-derive it and a node that leaves `main` without its owner merging is visible.
+
+### 2.1 Independent verification of the attribution (this pass)
+
+Every attributed node was re-checked by checking out each owner's head and running the node
+there — a node fails on `main` and must pass at its owner's head, or the attribution is only
+a claim:
+
+| owner PR | head verified | node(s) run | result |
+|---|---|---|---|
+| #347 | `3f3024d9` | `test_home_is_offer_led_and_keeps_arkadia_entry_points` | 1 passed |
+| #354 | `536a8c43` | `test_m02a_ci_gate_integrity.py` (file) | 64 passed |
+| #355 | `73104fdf` | `test_ci_gate_trigger_coverage.py` (file) | 48 passed |
+| #356 | `1bfbcc4f` | `test_engineering_lab_api.py` (file) | 5 passed |
+
+All 7 attributed nodes pass at their owners' heads. No open PR owns any of the 10 era-set
+nodes: `gh pr view <n> --json files` across #337–#360 shows none touching
+`test_steward_filter.py`, `test_identity_spine_w1.py`, `test_m02_reasomate_truth.py`,
+`test_ais_w2_living_gate_grove_handoff.py`, `test_solspire_r1_*`, `test_solspire_r3_*` or
+`weaver/`, so they remain pre-existing era debt rather than an attribution gap.
 
 ## 3. Canonical fingerprint (fixture and a live run agree)
 
@@ -113,7 +136,7 @@ python -m py_compile api/main.py                             -> ok (2462 / 2600 
 
 The full-suite failure node-set is **unchanged** between `main` and this branch: the branch
 touches only `tests/`, fixtures and docs, and the fingerprint file's own tests all pass
-(19 → 28 nodes in that file). No node enters or leaves the failing set.
+(24 → 28 collected tests; +4 guard functions). No node enters or leaves the failing set.
 
 ## 7. Baseline debt NOT fixed here (recorded, attributed)
 
