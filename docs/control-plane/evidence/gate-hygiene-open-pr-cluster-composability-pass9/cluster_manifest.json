@@ -1,0 +1,161 @@
+{
+  "measured_on": "4edab519a6033be2c4a1dface2c6e4b012b9be1c",
+  "note": "Full open-PR population at measurement time. AGENTS.md is the shared tail surface every gate-hygiene PR appends to; it is excluded from the semantic-overlap detection.",
+  "prs": {
+    "337": {
+      "branch": "aeas-01-native-operator-surface",
+      "sha": "acf13ff13f84",
+      "files": [
+        ".github/workflows/sg-02-fe-2-v.yml",
+        "api/lab_routes.py",
+        "web/public_prism/src/App.tsx",
+        "web/public_prism/src/components/ArkadiaNavigation.tsx",
+        "web/public_prism/src/pages/EngineeringLabPage.tsx"
+      ]
+    },
+    "338": {
+      "branch": "aeas-browser-runner-01",
+      "sha": "903acf415b26",
+      "files": [
+        "api/lab_routes.py",
+        "docs/control-plane/evidence/aeas-01-02-gate-acceptance-01/EVIDENCE.md",
+        "docs/control-plane/evidence/aeas-01-02-gate-acceptance-01/deployed-render-pr337.json",
+        "docs/control-plane/evidence/aeas-01-02-gate-acceptance-01/gate2-01-authenticated-login.png",
+        "docs/control-plane/evidence/aeas-01-02-gate-acceptance-01/gate2-02-lab-api-authorized.png",
+        "docs/control-plane/evidence/aeas-01-02-gate-acceptance-01/gate2-03-engineering-lab-surface.png",
+        "docs/control-plane/evidence/aeas-01-02-gate-acceptance-01/gate3-01-session-selected.png",
+        "docs/control-plane/evidence/aeas-01-02-gate-acceptance-01/gate3-02-transport-live.png",
+        "docs/control-plane/evidence/aeas-01-02-gate-acceptance-01/gate3-03-event-triggered.png",
+        "docs/control-plane/evidence/aeas-01-02-gate-acceptance-01/gate3-04-event-in-pane.png",
+        "docs/control-plane/evidence/aeas-01-02-gate-acceptance-01/positive-control-local-fixed.json",
+        "tests/fixtures/aeas/sse-wire-captured-malformed.bin",
+        "tests/test_aeas02_sse_transport.py",
+        "tools/aeas-browser-runner/README.md",
+        "tools/aeas-browser-runner/gate-acceptance.mjs",
+        "tools/aeas-browser-runner/package.json",
+        "tools/aeas-browser-runner/provision-identity.py",
+        "tools/aeas-browser-runner/runner.mjs",
+        "tools/aeas-browser-runner/server.mjs",
+        "tools/aeas-browser-runner/spa-host.mjs",
+        "tools/aeas-browser-runner/sse-parser-regression.mjs",
+        "web/public_prism/src/App.tsx",
+        "web/public_prism/src/components/ArkadiaNavigation.tsx",
+        "web/public_prism/src/lib/sseFrames.ts",
+        "web/public_prism/src/pages/EngineeringLabPage.tsx"
+      ]
+    },
+    "347": {
+      "branch": "gate-hygiene/landing-headline-repin-01",
+      "sha": "3f3024d97290",
+      "files": [
+        "docs/control-plane/evidence/gate-hygiene-landing-headline-repin-01/EVIDENCE.md",
+        "docs/control-plane/evidence/gate-hygiene-landing-headline-repin-01/WORKSTREAM_STATE.md",
+        "tests/test_ais_capability_profile_onboarding.py"
+      ]
+    },
+    "348": {
+      "branch": "gate-hygiene/post-merge-verification-07",
+      "sha": "2d88868ca4a1",
+      "files": [
+        "docs/control-plane/evidence/gate-hygiene-post-merge-verification-07/EVIDENCE.md",
+        "docs/control-plane/evidence/gate-hygiene-post-merge-verification-07/WORKSTREAM_STATE.md"
+      ]
+    },
+    "349": {
+      "branch": "feat/voice-of-belonging-content-pipeline",
+      "sha": "3b1460f4da66",
+      "files": [
+        "docs/content/VOICE_OF_BELONGING.md",
+        "docs/control-plane/VOICE_OF_BELONGING_AUTOMATION.yaml",
+        "growth/voice_of_belonging.py",
+        "tests/test_voice_of_belonging.py"
+      ]
+    },
+    "350": {
+      "branch": "gate01/ark-200k-portfolio-substrate-plan",
+      "sha": "14a0db25bec6",
+      "files": [
+        "docs/control-plane/evidence/gate-hygiene-post-merge-verification-08/EVIDENCE.md",
+        "docs/control-plane/evidence/gate-hygiene-post-merge-verification-08/WORKSTREAM_STATE.md",
+        "docs/readiness/ARK-200K-GATE-01-PLAN.md"
+      ]
+    },
+    "351": {
+      "branch": "gate01/portfolio-initiative-slice",
+      "sha": "c34efd53376d",
+      "files": [
+        "docs/control-plane/evidence/gate01-option-a-completeness-adjudication-01/EVIDENCE.md",
+        "docs/control-plane/evidence/gate01-option-a-completeness-adjudication-01/WORKSTREAM_STATE.md",
+        "tests/test_ark_200k_gate_01_portfolio_initiative.py",
+        "weaver/enterprise_orchestration.py"
+      ]
+    },
+    "354": {
+      "branch": "gate10/cp10-allowlist-deploy-surface-01",
+      "sha": "536a8c439efc",
+      "files": [
+        "AGENTS.md",
+        "docs/control-plane/evidence/gate10-cp10-allowlist-deploy-surface-01/EVIDENCE.md",
+        "docs/control-plane/evidence/gate10-cp10-allowlist-deploy-surface-01/WORKSTREAM_STATE.md",
+        "scripts/cp10_mutation_boundary_policy.py"
+      ]
+    },
+    "355": {
+      "branch": "gate10/n-atlas-workflow-self-trigger-01",
+      "sha": "73104fdfd8c5",
+      "files": [
+        ".github/workflows/n-atlas-developer-lab.yml"
+      ]
+    },
+    "356": {
+      "branch": "gate-hygiene/lab-boundary-natlas-surface-01",
+      "sha": "1bfbcc4f4516",
+      "files": [
+        "AGENTS.md",
+        "docs/control-plane/evidence/gate-hygiene-lab-boundary-natlas-surface-01/EVIDENCE.md",
+        "docs/control-plane/evidence/gate-hygiene-lab-boundary-natlas-surface-01/WORKSTREAM_STATE.md",
+        "tests/test_engineering_lab_api.py"
+      ]
+    },
+    "357": {
+      "branch": "gate-hygiene/solspire-r1-r3-contract-repin",
+      "sha": "4c3d8fb8db19",
+      "files": [
+        "AGENTS.md",
+        "docs/control-plane/evidence/gate-hygiene-solspire-r1-r3-contract-repin-01/EVIDENCE.md",
+        "docs/control-plane/evidence/gate-hygiene-solspire-r1-r3-contract-repin-01/WORKSTREAM_STATE.md",
+        "tests/test_solspire_r1_governance_convergence.py",
+        "tests/test_solspire_r3_execution_runtime.py"
+      ]
+    },
+    "358": {
+      "branch": "gate-hygiene/open-pr-cluster-composability-01",
+      "sha": "20fd62e2e75c",
+      "files": [
+        "AGENTS.md",
+        "docs/control-plane/evidence/gate-hygiene-open-pr-cluster-composability-pass8/EVIDENCE.md",
+        "docs/control-plane/evidence/gate-hygiene-open-pr-cluster-composability-pass8/WORKSTREAM_STATE.md",
+        "docs/control-plane/evidence/gate-hygiene-open-pr-cluster-composability-pass8/cluster_manifest.json",
+        "tests/test_open_pr_cluster_composability.py"
+      ]
+    }
+  },
+  "dependency_pairs": {
+    "337-338": {
+      "shared": [
+        "api/lab_routes.py",
+        "web/public_prism/src/App.tsx",
+        "web/public_prism/src/components/ArkadiaNavigation.tsx",
+        "web/public_prism/src/pages/EngineeringLabPage.tsx"
+      ],
+      "conflict_hunks": {
+        "api/lab_routes.py": 3,
+        "web/public_prism/src/App.tsx": 2,
+        "web/public_prism/src/components/ArkadiaNavigation.tsx": 3,
+        "web/public_prism/src/pages/EngineeringLabPage.tsx": 7
+      },
+      "class": "semantic dependency pair (component + its verification instrument), NOT an independent-overlap hazard",
+      "ancestor": "origin/pr337 is NOT an ancestor of origin/pr338 (same base main, independent branches that must be reconciled before merge)"
+    }
+  }
+}

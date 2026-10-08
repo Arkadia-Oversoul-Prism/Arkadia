@@ -884,3 +884,36 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   Guard: `tests/test_open_pr_cluster_composability.py` — a pure-source detector over the recorded
   cluster manifest, with a negative control (a shared test file must be reported) and a positive
   control (the measured cluster shares only `AGENTS.md`, so it is silent).
+
+## Widen the overlap check to the whole open-PR population, and classify dependency pairs (gate-hygiene)
+- A guard is only as wide as the population it reads. Pass 8 encoded the changed paths of the four
+  PRs it had measured (#354/#355/#356/#357), so its "no other path overlaps" claim was true of the
+  sub-cluster and silent about every other open PR. Intersecting the changed-path lists of **all
+  twelve** open PRs (excluding the shared `AGENTS.md` tail) finds exactly one non-tail overlap:
+  **#337 x #338** on `api/lab_routes.py`, `web/public_prism/src/App.tsx`,
+  `web/public_prism/src/components/ArkadiaNavigation.tsx`, and
+  `web/public_prism/src/pages/EngineeringLabPage.tsx`. Measure the population, not the sample.
+- **Not every overlap is the same defect.** #337 (AEAS-01 operator surface) and #338 (its browser
+  verification runner) are a **dependency pair**: #338's evidence cites #337's deployment, and
+  `origin/pr337` is not an ancestor of `origin/pr338`. They conflict on all four shared files (15
+  hunks) because they are a component and the instrument that verifies it - the remedy is to
+  **reconcile before either lands** (the prerequisite first, the other rebased onto it), not to
+  compose them and not to merge them blind in either order. An independent-overlap hazard (two
+  unrelated PRs on one source) has the opposite remedy: do not compose, surface the overlap. Encode
+  the pair as classified data so the next pass does not re-derive it or misread it.
+- **Prove the widened guard is non-vacuous, not merely green.** A detector that passes because it
+  finds no overlap would also pass if the manifest entry were dropped. Pair it with a positive
+  control that asserts the measured pair is *present* with its recorded paths, and a negative
+  control that feeds a synthetic unclassified pair and asserts it is reported. Measured: emptying
+  the known-pair set at runtime makes the detector report `('337', '338', [4 paths])` instead of
+  `[]`.
+- **Re-measure a composition when `main` moves under it; do not re-assert it.** Pass 8 measured at
+  `f96d5fd2`; `main` advanced to `4edab519` (PR #359, `lab/engineering_lab/natlas.py`). Composing
+  #354->#357 onto the new base gives the *same* 17 -> 8 node reduction (`-9 / +0`) with composed
+  fingerprints `e4415dbc...` / `2a8d57ad...` byte-identical to pass 8's - the strongest form of
+  "the base move is immaterial": a different base, the same failing set, zero added nodes. A
+  composition result at a stale base is not evidence about the current base until it reproduces.
+- Measured on `4edab519`: `main` 16 failed / 1772 passed / 22 skipped / 1 error -> **17 nodes**
+  (outcomes `26c2b4c7...`, ids `571e599f...`), reproducing pass 8's baseline. Evidence:
+  `docs/control-plane/evidence/gate-hygiene-open-pr-cluster-composability-pass9/`.
+  Guard: `tests/test_open_pr_cluster_composability.py` (pass-8 tests kept unchanged).
