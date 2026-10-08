@@ -181,6 +181,12 @@ on `f96d5fd2`, that is **too weak for one of them** and is superseded here.
 Both nodes are introduced by #353 (verified: `git show 2c6f6f1e:api/lab_routes.py`
 contains zero `n-atlas` occurrences; `f96d5fd2` adds the routes):
 
+> **CORRECTED -- see Pass 4 (below).** This verifier is **false**: `2c6f6f1e`
+> contains **three** `n-atlas` routes (lines 362/427/440). Only the *authentication*
+> node is #353; the *mutating-endpoint inventory* node is #352 (`a27c6c80`), inherited
+> by #353. The original sentence is retained as the record of what was claimed; the
+> corrected attribution is in Pass 4.
+
 1. `test_engineering_lab_api.py::test_lab_mutation_endpoints_are_exactly_the_lab_state_set`
    — two new mutating routes, `/api/lab/engineering/n-atlas/test-session` and
    `/api/lab/engineering/n-atlas/run`, are absent from `ALLOWED_MUTATION_ENDPOINTS`.
@@ -424,5 +430,134 @@ Human merge authority is required.
 - **Forbidden:** merging, pushing to `main`, editing `api/lab_routes.py` / `api/auth.py`,
   editing the `test_engineering_lab_api` guard, changing `ALLOWED_MUTATION_ENDPOINTS` or
   `REGISTERED_ARCHITECTURAL_DEBT`.
+- **Completion condition:** #354 and #355 merged by the sovereign, then a fresh pass
+  reconstructs `main` and re-derives the node set from live evidence.
+
+---
+
+# Pass 4 — correction: the two held nodes are NOT both attributable to #353
+
+Pass: hourly bounded execution, 2026-10-08
+Base main at start of pass: `f96d5fd2` ("Fix N-ATLaS Lab public tester onboarding (#353)")
+Branch head before this pass: `04662703`
+Working tree: detached HEAD on `04662703`, branch `gate10/cp10-allowlist-deploy-surface-01`
+
+## What this pass corrects
+
+Pass 2/3 recorded, in two places, the attribution:
+
+> "Both nodes are introduced by #353 (verified: `git show 2c6f6f1e:api/lab_routes.py`
+> contains zero `n-atlas` occurrences; `f96d5fd2` adds the routes)."
+
+**That parenthetical verifier is false.** `git show 2c6f6f1e:api/lab_routes.py` contains
+**three** `n-atlas` occurrences, not zero:
+
+| line | route |
+|---|---|
+| `362` | `@router.post("/engineering/n-atlas/test-session")` |
+| `427` | `@router.get("/engineering/n-atlas/catalog")` |
+| `440` | `@router.post("/engineering/n-atlas/run")` |
+
+It was never true. The measurement that produced "zero" was taken against the wrong
+revision or the wrong file; either way the recorded verification does not reproduce, and
+an evidence doc must not keep a non-reproducible verifier standing. This is a correction
+of record, not a change to any classification below it.
+
+## Re-derived attribution (measured this pass)
+
+The two held `tests/test_engineering_lab_api.py` nodes have **two different origins**.
+They are not a single #353 change.
+
+| node | origin | revision evidence |
+|---|---|---|
+| `::test_lab_mutation_endpoints_are_exactly_the_lab_state_set` | **#352** (`a27c6c80`, "Merge pull request #352 … feat/n-atlas-developer-lab") | `git merge-base --is-ancestor a27c6c80 2c6f6f1e` → **true**; the three `n-atlas` routes are already present at `2c6f6f1e` (lines 362/427/440), and `2c6f6f1e` is the merge-base of the branch with `main` |
+| `::test_lab_router_is_read_only_and_authenticated` | **#353** (`f96d5fd2`) | `git log -S"require_lab_auth" -- api/lab_routes.py` returns exactly one commit: `f96d5fd2`. `2c6f6f1e` still reads `dependencies=[Depends(require_auth)]` at line 48; `f96d5fd2` replaces it with `require_lab_auth` + `_PUBLIC_NATLAS_PATHS` |
+
+So the correction is narrow and material: the **authentication-boundary** node (node B) is
+a #353 change, as recorded; the **mutating-endpoint inventory** node (node A) is a #352
+change that #353 inherited. Calling both "#353" over-attributed node A to the wrong PR.
+
+`git show 2c6f6f1e:api/lab_routes.py:48` and `git show f96d5fd2:api/lab_routes.py:48`
+respectively, side by side:
+
+```python
+# 2c6f6f1e — node A's routes already exist, router still requires auth
+router = APIRouter(prefix="/api/lab", tags=["Engineering Lab"], dependencies=[Depends(require_auth)])
+
+# f96d5fd2 — node B's change: router auth is bypassed for two public paths
+_PUBLIC_NATLAS_PATHS = {
+    "/api/lab/engineering/n-atlas/catalog",
+    "/api/lab/engineering/n-atlas/test-session",
+}
+async def require_lab_auth(request: Request) -> None:
+    if request.url.path in _PUBLIC_NATLAS_PATHS:
+        return None
+    await require_auth(request)
+```
+
+## Node-set re-measurement, end to end (this environment)
+
+All runs: `python -m pytest tests/ -q -rEf --continue-on-collection-errors -p no:randomly`.
+Fingerprints via `scripts/baseline_fingerprint.py` (outcomes convention).
+
+| tree | result | nodes | outcomes fingerprint |
+|---|---|---|---|
+| `pre-#352` `ff3f6d42` | 5 passed (target file only) | — | — |
+| `2c6f6f1e` (merge-base: #352 merged, #353 absent) | 17 failed / 1768 passed / 21 skipped / 1 error | 18 | `8ee5308020d665378bb57f047bcd585db9c444d59aedc8cd2eaad8f12ae3b545` |
+| `main` @ `f96d5fd2` | 18 failed / 1769 passed / 21 skipped / 1 error | 19 | `ec5d4f6d478def902f0f5e0957250473209c49f1decc974d02d0533386e7a086` |
+| `main` + #354 + #355 (composed, this pass) | 14 failed / 1773 passed / 21 skipped / 1 error | 15 | `61ed0c5e1929dc34c005a4024ebd3b947f5955d505e19aa761ea68ef525907f1` |
+
+**#353's node delta** (`comm -13` / `comm -23` between `2c6f6f1e` and `f96d5fd2`):
+- added: `tests/test_engineering_lab_api.py::test_lab_router_is_read_only_and_authenticated` (node B)
+- removed: zero
+
+This is the decisive confirmation: #353 added **exactly one** held node, not two. Node A
+(`::test_lab_mutation_endpoints_are_exactly_the_lab_state_set`) is already failing at
+`2c6f6f1e`, i.e. it was introduced by #352.
+
+**Composed delta** (`main` → `main`+#354+#355): zero introduced (`comm -13` empty), four
+removed — the three `test_m02a_ci_gate_integrity.py` allowlist-inventory nodes plus
+`test_ci_gate_trigger_coverage.py::test_pr_pytest_workflow_is_selected_by_its_own_file[n-atlas-developer-lab.yml]`.
+The composed tree is strictly better than `main` and adds no debt.
+
+## Composition re-check (this pass)
+
+The composition was re-built from the current PR tips, not reused:
+- `/tmp/compose2` = `#354` head `04662703` + `#355`'s workflow diff applied. Applied cleanly.
+- `.github/workflows/n-atlas-developer-lab.yml` at the composed tree hashes to
+  **`efd88e1f0238…`**, identical to the previously recorded #355 head workflow hash —
+  the #355 head has not drifted.
+- `scripts/cp10_mutation_boundary_policy.py` differs between `/tmp/compose2` and the
+  checked-out `/tmp/compose` (`730953a1…` vs `f767b24f…`); this is the expected #354-vs-#355
+  divergence in that file's upstream content and did not block the workflow patch.
+
+## What is unchanged
+
+- The **authentication-boundary** classification of node B stands: #353 introduced a public
+  path (`/api/lab/engineering/n-atlas/test-session`, a POST that mints a `natlas-tester.`
+  token and records a human authorization) reachable without authentication. It engages the
+  contract HARD STOP list ("a new authorization path appears") and contradicts the standing
+  `AGENTS.md` invariant *"THE LAB IS OWNER-ONLY. AUTHENTICATION := SOVEREIGN_IDENTITY_ONLY."*
+- The **sovereign A/B decision remains open and must not be taken by an agent**:
+  - **Option A** — accept the public tester onboarding path; update the guard test and add
+    the three `n-atlas` endpoints to `ALLOWED_MUTATION_ENDPOINTS`.
+  - **Option B** — keep the Lab owner-only; re-express tester onboarding behind
+    authentication.
+- No merge, no push to `main`, no edit to `api/lab_routes.py` / `api/auth.py`, no edit to
+  the `test_engineering_lab_api` guard, no change to `ALLOWED_MUTATION_ENDPOINTS` or
+  `REGISTERED_ARCHITECTURAL_DEBT`.
+
+## Deterministic next action
+
+- **Current state:** #354 (`04662703`) and #355 (`73104fdf`, workflow hash `efd88e1f0238`)
+  open and mergeable; both measured; both `READY FOR SOVEREIGN MERGE` for their own bounded
+  scope. This correction is documentation-only on #354's existing branch.
+- **Blockers:** none for either PR's own scope. The two held Lab nodes remain a separate
+  proposed workstream gated on the A/B sovereign choice; the attribution error above is now
+  corrected so that workstream does not proceed from a false premise.
+- **Authorized action:** sovereign review and merge of #354 and #355.
+- **Forbidden:** merging, pushing to `main`, force-push, editing `api/lab_routes.py` /
+  `api/auth.py`, editing the `test_engineering_lab_api` guard, changing
+  `ALLOWED_MUTATION_ENDPOINTS` or `REGISTERED_ARCHITECTURAL_DEBT`.
 - **Completion condition:** #354 and #355 merged by the sovereign, then a fresh pass
   reconstructs `main` and re-derives the node set from live evidence.

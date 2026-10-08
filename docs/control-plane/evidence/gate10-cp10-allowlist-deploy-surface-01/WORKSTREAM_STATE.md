@@ -4,7 +4,7 @@
 **BASE_MAIN:** `f96d5fd27d40110196ec22b114808efc0eb9dc05`
 **Branch:** `gate10/cp10-allowlist-deploy-surface-01`
 **PR:** #354
-**Head at record:** `e7ce1d0fcecf11187876e06f08f63cefcf24a38d`
+**Head at record:** `04662703` (Pass 4 correction)
 **Status:** VERIFIED — READY FOR SOVEREIGN MERGE
 **Authority:** merge and authorization retained exclusively by the human sovereign.
 
@@ -14,7 +14,7 @@
   enumerated in `LEGIT`. The CP10 boundary step passes on the full PR range at the current
   head, and the three completeness fitness nodes pass on the branch and fail on `main`.
 - **Evidence:** `docs/control-plane/evidence/gate10-cp10-allowlist-deploy-surface-01/EVIDENCE.md`
-  (Passes 1–3c).
+  (Passes 1–3c, plus the Pass 4 attribution correction).
 - **Authorized action:** sovereign review and merge of PR #354.
 - **Forbidden actions:** merge, force-push, self-authorization, weakening the gate,
   reclassifying `REGISTERED_ARCHITECTURAL_DEBT`, widening scope into unrelated baseline debt.
@@ -57,8 +57,10 @@ rate-limit status.
 
 1. `test_lab_mutation_endpoints_are_exactly_the_lab_state_set` — the frozen
    `ALLOWED_MUTATION_ENDPOINTS` list in the test does not contain two mutating endpoints the
-   N-ATLAS work (PR #353, merge `f96d5fd2`) added: `/api/lab/engineering/n-atlas/run` and
-   `/api/lab/engineering/n-atlas/test-session`. **This is the same recurrence class as this
+   N-ATLAS work added: `/api/lab/engineering/n-atlas/run` and
+   `/api/lab/engineering/n-atlas/test-session`. **Attribution corrected in Pass 4:** these
+   routes originate in **PR #352** (merge `a27c6c80`), not #353; `2c6f6f1e` already contains
+   them at lines 362/427/440, and `git merge-base --is-ancestor a27c6c80 2c6f6f1e` is true. **This is the same recurrence class as this
    PR** — a frozen inventory that fell behind a legitimate new surface — but on a *different*
    list, and its assertion message is a mutation-boundary question ("review it against the
    no-repository-mutation boundary"), not a formatting one. It needs an owner's decision, not
