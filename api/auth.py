@@ -16,9 +16,12 @@ locally without credentials.
 from __future__ import annotations
 
 import base64
+import hashlib
+import hmac
 import json
 import logging
 import os
+import time
 from typing import Any
 
 from fastapi import HTTPException, Request
@@ -104,6 +107,54 @@ def _decode_jwt_payload_unsafe(token: str) -> dict[str, Any] | None:
         payload += "=" * (4 - len(payload) % 4)
         return json.loads(base64.urlsafe_b64decode(payload))
     except Exception:
+        return None
+
+
+_NATLAS_TOKEN_PREFIX = "natlas-tester."
+_NATLAS_TOKEN_TTL_SECONDS = 30 * 60
+
+
+def mint_natlas_tester_token(*, session_id: str, subject_ref: str, ttl_seconds: int = _NATLAS_TOKEN_TTL_SECONDS) -> str:
+    """Mint a short-lived capability token scoped to one N-ATLaS test session."""
+    secret = os.environ.get("SOVEREIGN_KEY", "").strip()
+    if not secret:
+        raise RuntimeError("SOVEREIGN_KEY is required for N-ATLaS tester capability tokens")
+    payload = {
+        "typ": "natlas-tester",
+        "sub": subject_ref,
+        "sid": session_id,
+        "scope": ["n_atlas:run"],
+        "exp": int(time.time()) + max(60, min(int(ttl_seconds), _NATLAS_TOKEN_TTL_SECONDS)),
+    }
+    encoded = base64.urlsafe_b64encode(
+        json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    ).rstrip(b"=").decode("ascii")
+    signature = hmac.new(secret.encode("utf-8"), encoded.encode("ascii"), hashlib.sha256).hexdigest()
+    return f"{_NATLAS_TOKEN_PREFIX}{encoded}.{signature}"
+
+
+def verify_natlas_tester_token(token: str) -> dict[str, Any] | None:
+    """Verify a tester capability and return its bounded claims, if valid."""
+    secret = os.environ.get("SOVEREIGN_KEY", "").strip()
+    if not secret or not token.startswith(_NATLAS_TOKEN_PREFIX):
+        return None
+    try:
+        encoded, signature = token[len(_NATLAS_TOKEN_PREFIX):].rsplit(".", 1)
+        expected = hmac.new(secret.encode("utf-8"), encoded.encode("ascii"), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(signature, expected):
+            return None
+        padded = encoded + "=" * (-len(encoded) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(padded.encode("ascii")))
+        if claims.get("typ") != "natlas-tester":
+            return None
+        if claims.get("scope") != ["n_atlas:run"]:
+            return None
+        if not claims.get("sid") or not claims.get("sub"):
+            return None
+        if int(claims.get("exp", 0)) <= int(time.time()):
+            return None
+        return claims
+    except (ValueError, TypeError, KeyError, json.JSONDecodeError):
         return None
 
 
@@ -393,12 +444,31 @@ async def get_current_user(request: Request) -> dict[str, Any] | None:
 
 
 async def require_auth(request: Request) -> dict[str, Any]:
-    """Dependency that raises 401 if user is not authenticated."""
+    """Dependency that raises 401 if user is not authenticated.
+
+    A short-lived N-ATLaS tester capability is accepted only on the canonical
+    N-ATLaS run endpoint. It cannot authenticate any other application route.
+    """
+    token = _extract_token(request)
+    if token and request.url.path == "/api/lab/engineering/n-atlas/run":
+        claims = verify_natlas_tester_token(token)
+        if claims:
+            return {
+                "uid": claims["sub"],
+                "email": "",
+                "display_name": "N-ATLaS External Tester",
+                "role": "External Tester",
+                "status": "tester",
+                "tester_session_id": claims["sid"],
+                "tester_scope": claims["scope"],
+                "tester_expires_at": claims["exp"],
+            }
+    if token and token.startswith(_NATLAS_TOKEN_PREFIX):
+        raise HTTPException(status_code=401, detail="N-ATLaS tester capability is scoped to the N-ATLaS run endpoint")
     user = await get_current_user(request)
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required")
     return user
-
 
 async def require_sovereign(request: Request) -> dict[str, Any]:
     """Dependency that requires access_level >= 3 (Sovereign)."""
@@ -412,6 +482,7 @@ async def require_sovereign(request: Request) -> dict[str, Any]:
 
 __all__ = [
     "verify_firebase_token",
+    "mint_natlas_tester_token", "verify_natlas_tester_token",
     "get_current_user", "require_auth", "require_sovereign",
     "build_user_profile", "load_user_profile_store", "save_user_profile_store", "get_node_by_key", "get_personal_codex",
     "normalize_handle", "resolve_uid_by_handle", "public_profile_by_handle",

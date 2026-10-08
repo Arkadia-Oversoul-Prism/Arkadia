@@ -176,7 +176,7 @@ def test_natlas_tester_onboarding_records_human_authorization(monkeypatch):
 
     class FakeWorkspaceManager:
         def get_or_create(self, uid, display_name):
-            assert uid == "tester-uid"
+            assert uid.startswith("natlas-tester-")
             assert display_name == "N-ATLaS External Test Workspace"
             return FakeWorkspace()
 
@@ -247,13 +247,56 @@ def test_natlas_tester_onboarding_records_human_authorization(monkeypatch):
         lambda: FakeWorkspaceManager(),
     )
 
+    monkeypatch.setattr(lab_routes, "mint_natlas_tester_token", lambda **kwargs: "natlas-tester.test.signature")
+
     result = __import__("asyncio").run(
-        lab_routes.n_atlas_test_session(user={"uid": "tester-uid"})
+        lab_routes.n_atlas_test_session()
     )
 
     assert result["session_id"] == "SES-tester"
     assert result["state"] == "AUTHORIZED"
+    assert result["tester_token"] == "natlas-tester.test.signature"
+    assert result["scope"] == ["n_atlas:run"]
     assert runtime.authorizations[0]["scope_ref"] == "SES-tester"
     assert runtime.authorizations[0]["operations_allowed"] == ("read", "test")
-    assert store.attached == [("SES-tester", "tester-uid", "AUTH-tester")]
-    assert runtime.transitions == [("SES-tester", "tester-uid", "AUTHORIZED")]
+    assert len(store.attached) == 1
+    assert store.attached[0][0] == "SES-tester"
+    assert store.attached[0][1].startswith("natlas-tester-")
+    assert store.attached[0][2] == "AUTH-tester"
+    assert len(runtime.transitions) == 1
+    assert runtime.transitions[0][0] == "SES-tester"
+    assert runtime.transitions[0][1].startswith("natlas-tester-")
+    assert runtime.transitions[0][2] == "AUTHORIZED"
+
+
+def test_natlas_tester_token_is_scoped_and_signed(monkeypatch):
+    from api import auth
+
+    monkeypatch.setenv("SOVEREIGN_KEY", "test-secret")
+    token = auth.mint_natlas_tester_token(session_id="SES-123", subject_ref="natlas-tester-123")
+    claims = auth.verify_natlas_tester_token(token)
+    assert claims is not None
+    assert claims["sid"] == "SES-123"
+    assert claims["sub"] == "natlas-tester-123"
+    assert claims["scope"] == ["n_atlas:run"]
+
+    tampered = token[:-1] + ("0" if token[-1] != "0" else "1")
+    assert auth.verify_natlas_tester_token(tampered) is None
+
+
+def test_natlas_tester_token_not_accepted_as_general_auth(monkeypatch):
+    from api import auth
+    from starlette.requests import Request
+
+    monkeypatch.setenv("SOVEREIGN_KEY", "test-secret")
+    token = auth.mint_natlas_tester_token(session_id="SES-123", subject_ref="natlas-tester-123")
+    scope = {"type": "http", "method": "GET", "path": "/api/me", "headers": [(b"authorization", f"Bearer {token}".encode())]}
+    request = Request(scope)
+
+    import asyncio
+    try:
+        asyncio.run(auth.require_auth(request))
+    except Exception as exc:
+        assert getattr(exc, "status_code", None) == 401
+    else:
+        raise AssertionError("N-ATLaS tester capability must not authenticate general routes")

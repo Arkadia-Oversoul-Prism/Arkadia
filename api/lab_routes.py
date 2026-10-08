@@ -18,10 +18,10 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from api.auth import require_auth
+from api.auth import mint_natlas_tester_token, require_auth
 from lab import build_overview
 from lab.engineering_lab.adapters import describe_integrations
 from lab.engineering_lab.android import android_capability_report, android_session_projection
@@ -45,7 +45,20 @@ from lab.engineering_lab.sandbox import SandboxPolicy
 from lab.engineering_lab.store import get_store
 from lab.engineering_lab.voice import resolve_voice_command, voice_boundary_report
 
-router = APIRouter(prefix="/api/lab", tags=["Engineering Lab"], dependencies=[Depends(require_auth)])
+_PUBLIC_NATLAS_PATHS = {
+    "/api/lab/engineering/n-atlas/catalog",
+    "/api/lab/engineering/n-atlas/test-session",
+}
+
+
+async def require_lab_auth(request: Request) -> None:
+    """Keep the Lab authenticated by default, with two narrow public tester paths."""
+    if request.url.path in _PUBLIC_NATLAS_PATHS:
+        return None
+    await require_auth(request)
+
+
+router = APIRouter(prefix="/api/lab", tags=["Engineering Lab"], dependencies=[Depends(require_lab_auth)])
 
 
 # -- EL-01: read-only substrate overview (existing) ---------------------------
@@ -360,45 +373,35 @@ class NAtlasRunBody(BaseModel):
 
 
 @router.post("/engineering/n-atlas/test-session")
-async def n_atlas_test_session(user: dict = Depends(require_auth)) -> dict:
-    """Create the smallest human-authorized session needed for an external PS1 test.
+async def n_atlas_test_session() -> dict:
+    """Create a minimal, anonymous external tester session for N-ATLaS only.
 
-    The tester explicitly invokes this endpoint by pressing START TEST. The
-    server records that human authorization against the newly created session;
-    it does not grant authority to the model or to the tester beyond this
-    bounded N-ATLaS run.
+    No Arkadia account is created and no general application authorization is
+    issued. The returned capability is a 30-minute, run-only credential bound
+    to this exact session.
     """
     from solspire.workspace_manager import get_workspace_manager
 
-    uid = user["uid"]
+    uid = f"natlas-tester-{uuid.uuid4().hex[:16]}"
     workspace = get_workspace_manager().get_or_create(
         uid, display_name="N-ATLaS External Test Workspace"
     )
     store = get_store()
-    agents = store.list_agents(uid)
-    agent = next(
-        (
-            item for item in agents
-            if item.get("display_name") == "N-ATLaS External Tester"
-        ),
-        None,
-    )
     runtime = get_runtime()
-    if agent is None:
-        agent = runtime.register_agent(
-            subject_ref=uid,
-            role="BUILDER",
-            display_name="N-ATLaS External Tester",
-            capabilities=("READ", "TEST"),
-            write_allowed=False,
-            model_ref="N-ATLaS",
-        )
+    agent = runtime.register_agent(
+        subject_ref=uid,
+        role="BUILDER",
+        display_name="N-ATLaS External Tester",
+        capabilities=("READ", "TEST"),
+        write_allowed=False,
+        model_ref="N-ATLaS",
+    )
 
     session = runtime.open_session(
         subject_ref=uid,
         workspace_ref=workspace.id,
         agent_id=agent["agent_id"],
-        objective="External PS1 N-ATLaS developer test",
+        objective="External N-ATLaS developer test",
     )
     authorization = runtime.record_authorization(
         subject_ref=uid,
@@ -416,11 +419,17 @@ async def n_atlas_test_session(user: dict = Depends(require_auth)) -> dict:
             status_code=503,
             detail={"state": descriptor.status, "detail": descriptor.detail},
         )
+
+    tester_token = mint_natlas_tester_token(
+        session_id=session["session_id"], subject_ref=uid, ttl_seconds=30 * 60
+    )
     return {
         "session_id": session["session_id"],
         "state": session["state"],
         "model": descriptor.model,
         "expires_in_minutes": 30,
+        "tester_token": tester_token,
+        "scope": ["n_atlas:run"],
     }
 
 
