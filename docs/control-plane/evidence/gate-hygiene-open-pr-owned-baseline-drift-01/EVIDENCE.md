@@ -214,8 +214,14 @@ asserted structurally is a list nobody checks; the probe is what makes the namin
 **passed**, and the full `tests/test_baseline_fingerprint.py` file there reported **30
 passed** (the depth branch executing, not skipping). A **negative control** — the named set
 reduced to three with the fourth removed — makes the probe **fail** in that same clone,
-proving it detects exactly the understatement the single-node version carried. On a
-full-history clone the file reports **29 passed, 1 skipped** (the depth branch skipped).
+proving it detects exactly the understatement the single-node version carried.
+
+> **Corrected at §10 below.** The sentence that followed here —
+> "On a full-history clone the file reports **29 passed, 1 skipped** (the depth branch
+> skipped)" — is **superseded**. The gate predicate it relied on (`--is-shallow-repository`)
+> does not discriminate the regime the probe asserts about, so in the hourly automation's own
+> clone the probe **failed** rather than skipping. §10 repairs the probe and states the
+> measured result.
 
 Fingerprint tests: 29 → **30** collected. No node enters or leaves the recorded set, and no
 production file is touched.
@@ -225,3 +231,72 @@ production file is touched.
 No merge, no push to `main`, no force-push, no production code change. The working branch is
 `gate-hygiene/open-pr-owned-baseline-drift-01`; the human sovereign decides what becomes
 canonical.
+
+## 10. Addendum — the probe's gate predicate was wrong (this pass, 2026-10-08)
+
+§8's live probe used `git rev-parse --is-shallow-repository` to decide "is this the depth-1
+clone?". **That predicate does not discriminate the regime the probe asserts about**, and the
+consequence was self-contradictory: on the branch's own CI (and in the hourly automation's
+clone) `tests/test_baseline_fingerprint.py` reported **29 passed, 1 failed** — the probe
+itself red — while the PR claimed a falsifiable probe.
+
+### Root cause
+
+The automation does not produce a *true* depth-1 clone; it produces a **partial / treeless
+shallow clone**. Measured in this run's workspace clone:
+
+| property | hourly automation clone | true `git clone --depth 1` |
+|---|---|---|
+| `git rev-parse --is-shallow-repository` | `true` | `true` |
+| `git rev-list --count HEAD -- AGENTS.md` | **26** | **1** |
+| pinned revisions resolve (`ORACLE_REV` `6c43218a48a4` etc.) | **yes** | **no** |
+| the four nodes' outcome | **all pass** | all fail |
+
+So `--is-shallow-repository` is `true` in *both* regimes, while the four nodes turn on whether
+the **pinned revisions resolve** — a property of the history actually present, not the shallow
+flag. The old branch skipped only when the flag was `false`, so in the automation clone it
+entered the depth branch, found the four nodes passing, and failed its
+`assert failed == set(DEPTH1_CLONE_DEPENDENT_NODES)` with an empty set.
+
+### Repair
+
+The live branch is now gated on **whether `AGENTS.md` history is absent**
+(`git log --format=%H -- AGENTS.md` <= 1 revision), which is the property the probe actually
+describes. Both branches are asserted, so the complement §8's docstring promised but never
+implemented now exists:
+
+- history absent -> `failed == set(DEPTH1_CLONE_DEPENDENT_NODES)` (unchanged claim)
+- history present -> `failed == set()` (the four adjudication nodes must pass)
+
+### Measured result
+
+| clone | before | after |
+|---|---|---|
+| hourly automation (partial, 26 revs of `AGENTS.md`) | **29 passed, 1 failed** | **30 passed** |
+| true `git clone --depth 1` | 30 passed | **30 passed** |
+
+The file now reports **30 passed in every clone regime** — a uniformly falsifiable probe,
+rather than one that skips in the regime it was written to describe.
+
+**Negative control (re-run).** With the named set reduced to three
+(`set(list(DEPTH1_CLONE_DEPENDENT_NODES)[:3])`), the probe **fails** in the true depth-1 clone
+with the four real node names in the message; restored, it passes. The detector still detects
+the understatement §8 designed it for.
+
+### Regression boundary
+
+Full suite on the branch, `python -m pytest tests/ -q -rEf
+--continue-on-collection-errors`:
+
+| tree | nodes | outcome |
+|---|---|---|
+| `main` `44137991` | **17** | `16 failed, 1772 passed, 22 skipped, 1 error` |
+| branch head | **17** | `16 failed, 1778 passed, 22 skipped, 1 error` |
+
+Node **set** is byte-identical to `main` (sorted `FAILED`/`ERROR` names compared); the
+`+6 passed` are the guard file's added assertions plus the previously-skipped depth branch now
+executing. **Zero regression.** `python -m py_compile api/main.py` -> OK; no production file and
+no `api/main.py` line touched. No node enters or leaves the recorded set.
+
+**Files changed in §10:** `tests/test_baseline_fingerprint.py` (probe predicate + complement
+branch), this evidence doc. No other path.

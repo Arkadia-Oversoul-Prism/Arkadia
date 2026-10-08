@@ -412,30 +412,41 @@ def test_depth1_clone_dependent_nodes_are_named_as_a_set_not_a_single_node():
     )
 
 
+def _agents_md_history_is_absent() -> bool:
+    """Whether this clone lacks the `AGENTS.md` history the four nodes dereference.
+
+    `--is-shallow-repository` is **not** the discriminator: the hourly automation's
+    partial clone reports `true` yet still carries 26 revisions of `AGENTS.md`, so the
+    four nodes pass there. The nodes turn on whether pinned revisions *resolve*, which is
+    a property of the history actually present, not of the shallow flag. A true
+    `git clone --depth 1` carries a single revision of the file and the nodes fail.
+    """
+    proc = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "log", "--format=%H", "--", "AGENTS.md"],
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return True
+    return len(proc.stdout.split()) <= 1
+
+
 def test_depth1_clone_nodes_are_exactly_the_extra_failures_in_a_bare_clone():
-    """Live probe: in a depth-1 clone the extra failures are exactly the named set.
+    """Live probe: the four nodes fail exactly when the history they read is absent.
 
     A named list is only worth its maintenance if it is checked against the clone it
-    describes. This runs the four candidate adjudication nodes in the *current* clone and
-    asserts their live pass/fail is the named set when history is absent (depth-1), and its
-    complement — all passing — when history is present. It skips its depth branch if
-    `--depth 1` cannot be fetched (offline CI), stating why, rather than silently passing.
+    describes. This runs the four candidate adjudication nodes in the *current* clone
+    and asserts their live pass/fail: the named set when `AGENTS.md` history is absent
+    (a `--depth 1` clone), and its complement — all passing — when history is present.
+    Both branches are exercised, so the file's count is stable across clone regimes
+    instead of skipping one of them.
     """
     derivative = REPO_ROOT / "tests" / "fixtures" / "depth1_clone_probe_node_set.txt"
     if derivative.exists():
         _, probe_ids = baseline_fingerprint.extract(str(derivative))
         assert set(probe_ids) == set(DEPTH1_CLONE_DEPENDENT_NODES)
 
-    shallow = subprocess.run(
-        ["git", "-C", str(REPO_ROOT), "rev-parse", "--is-shallow-repository"],
-        capture_output=True,
-        text=True,
-    )
-    if shallow.stdout.strip() != "true":
-        pytest.skip("not a depth-1 clone; the live depth branch needs a bare clone")
-
     files = sorted({n.split("::", 1)[0] for n in DEPTH1_CLONE_DEPENDENT_NODES})
-    nodes = " ".join(DEPTH1_CLONE_DEPENDENT_NODES)
     proc = subprocess.run(
         [sys.executable, "-m", "pytest", *files, "-q", "--no-header", "-p", "no:cacheprovider"],
         capture_output=True,
@@ -447,9 +458,16 @@ def test_depth1_clone_nodes_are_exactly_the_extra_failures_in_a_bare_clone():
         for line in proc.stdout.splitlines()
         if line.startswith("FAILED ")
     }
-    assert failed == set(DEPTH1_CLONE_DEPENDENT_NODES), (
-        f"a depth-1 clone failed {sorted(failed)}, not the named set {sorted(nodes)}"
-    )
+    if _agents_md_history_is_absent():
+        assert failed == set(DEPTH1_CLONE_DEPENDENT_NODES), (
+            f"history-absent clone failed {sorted(failed)}, not the named set "
+            f"{sorted(DEPTH1_CLONE_DEPENDENT_NODES)}"
+        )
+    else:
+        assert failed == set(), (
+            f"history-present clone failed {sorted(failed)}, expected none: with the pinned "
+            "history resolvable the four adjudication nodes must pass"
+        )
 
 
 def test_recorded_set_excludes_the_retired_archived_surface_nodes():
