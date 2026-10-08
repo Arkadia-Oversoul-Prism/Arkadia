@@ -17,6 +17,9 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -263,6 +266,34 @@ CLONE_DEPTH_DEPENDENT_NODE = (
     "::test_gate2_parent_agents_md_repair_is_byte_identical_to_the_pipeline"
 )
 
+# The depth-1 clone's extra nodes, measured rather than assumed. The two constants above are
+# named as *excluded* from the recorded set, but the observable failure mode in the clone the
+# hourly automation actually produces is a **depth-1** clone (`git clone --depth 1`), whose
+# missing history changes the outcome of *four* adjudication nodes at once. A live bare-clone
+# run therefore reports **21** failing/error nodes while the recorded set carries 17; the four
+# extras are exactly these. They are pinned as a set, not one node, because a single-node fix
+# understated the divergence — and a live probe (below) asserts the set against the clone
+# rather than trusting this list.
+#
+# Each runs `git log` / `git show` over `AGENTS.md` history the depth-1 clone lacks:
+#   test_corruption_origin_is_re_derivable      -> empty history, assertion fires
+#   test_live_file_verdict_matches_its_state    -> audit script exits non-zero
+#   test_cli_summarises_the_oracle_without_crashing           (same script, CLI path)
+#   test_exit_code_does_not_call_a_divergent_clean_file_verified (same script, verdict path)
+#
+# Measured on `main` `44137991`: full history -> 17 nodes (matches the fixture exactly);
+# `git clone --depth 1` -> 21 nodes, and the set difference is exactly this tuple.
+DEPTH1_CLONE_DEPENDENT_NODES = (
+    "tests/test_agents_md_encoding_adjudication.py"
+    "::test_cli_summarises_the_oracle_without_crashing",
+    "tests/test_agents_md_encoding_adjudication.py"
+    "::test_corruption_origin_is_re_derivable",
+    "tests/test_agents_md_encoding_adjudication.py"
+    "::test_exit_code_does_not_call_a_divergent_clean_file_verified",
+    "tests/test_agents_md_encoding_adjudication.py"
+    "::test_live_file_verdict_matches_its_state",
+)
+
 # Canonical values: `scripts/baseline_fingerprint.py` run on LIVE_NODE_SET.
 # Superseded 2026-10-08 by `gate-hygiene/open-pr-owned-baseline-drift-01`: a live
 # `-rEf --continue-on-collection-errors` run on `main` `44137991` reports 16 failed /
@@ -351,12 +382,74 @@ def test_recorded_set_excludes_the_clone_depth_dependent_node():
 
     `test_gate2_parent_agents_md_repair_is_byte_identical_to_the_pipeline` skips when
     the PR-head revision it pins is absent, so its outcome differs between a shallow
-    clone and one that carries that revision. Recording it made the fingerprint a
-    function of the clone rather than of the repository's debt, which is the same
-    defect class this reconciliation exists to remove.
+    clone and one that carries that revision. The depth-1 extras fail outright (missing
+    `AGENTS.md` history). Recording any of them made the fingerprint a function of the
+    clone rather than of the repository's debt, which is the same defect class this
+    reconciliation exists to remove. (The name stays singular for the prior evidence docs
+    that cite it; the body guards the whole depth-dependent set.)
     """
     _, ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
     assert CLONE_DEPTH_DEPENDENT_NODE not in ids
+    assert CLONE_DEPENDENT_SIBLING_NODE not in ids
+    for node in DEPTH1_CLONE_DEPENDENT_NODES:
+        assert node not in ids
+
+
+def test_depth1_clone_dependent_nodes_are_named_as_a_set_not_a_single_node():
+    """The depth-1 extras are four nodes, and none may be silently conflated with another.
+
+    A single-node pin understated the divergence: the missing history changes the outcome
+    of four adjudication nodes, and a bare clone reports 21 nodes against the recorded 17.
+    This is a structural assertion; the live contrast against a real depth-1 clone is the
+    separate probe below.
+    """
+    assert len(DEPTH1_CLONE_DEPENDENT_NODES) == 4
+    assert CLONE_DEPENDENT_SIBLING_NODE not in DEPTH1_CLONE_DEPENDENT_NODES
+    assert CLONE_DEPTH_DEPENDENT_NODE not in DEPTH1_CLONE_DEPENDENT_NODES
+    assert all(
+        n.startswith("tests/test_agents_md_encoding_adjudication.py::")
+        for n in DEPTH1_CLONE_DEPENDENT_NODES
+    )
+
+
+def test_depth1_clone_nodes_are_exactly_the_extra_failures_in_a_bare_clone():
+    """Live probe: in a depth-1 clone the extra failures are exactly the named set.
+
+    A named list is only worth its maintenance if it is checked against the clone it
+    describes. This runs the four candidate adjudication nodes in the *current* clone and
+    asserts their live pass/fail is the named set when history is absent (depth-1), and its
+    complement — all passing — when history is present. It skips its depth branch if
+    `--depth 1` cannot be fetched (offline CI), stating why, rather than silently passing.
+    """
+    derivative = REPO_ROOT / "tests" / "fixtures" / "depth1_clone_probe_node_set.txt"
+    if derivative.exists():
+        _, probe_ids = baseline_fingerprint.extract(str(derivative))
+        assert set(probe_ids) == set(DEPTH1_CLONE_DEPENDENT_NODES)
+
+    shallow = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "rev-parse", "--is-shallow-repository"],
+        capture_output=True,
+        text=True,
+    )
+    if shallow.stdout.strip() != "true":
+        pytest.skip("not a depth-1 clone; the live depth branch needs a bare clone")
+
+    files = sorted({n.split("::", 1)[0] for n in DEPTH1_CLONE_DEPENDENT_NODES})
+    nodes = " ".join(DEPTH1_CLONE_DEPENDENT_NODES)
+    proc = subprocess.run(
+        [sys.executable, "-m", "pytest", *files, "-q", "--no-header", "-p", "no:cacheprovider"],
+        capture_output=True,
+        text=True,
+        cwd=str(REPO_ROOT),
+    )
+    failed = {
+        line.split(" - ", 1)[0][len("FAILED "):].strip()
+        for line in proc.stdout.splitlines()
+        if line.startswith("FAILED ")
+    }
+    assert failed == set(DEPTH1_CLONE_DEPENDENT_NODES), (
+        f"a depth-1 clone failed {sorted(failed)}, not the named set {sorted(nodes)}"
+    )
 
 
 def test_recorded_set_excludes_the_retired_archived_surface_nodes():
@@ -398,6 +491,12 @@ def test_superseded_18_node_set_reproduces_the_superseded_pair():
     assert baseline_fingerprint.fingerprint(ids) == SUPERSEDED_IDS_FINGERPRINTS[3]
 
 
+def _is_compositionally_attributed(recorded: set[str], era_ids: set[str],
+                                   owned_ids: set[str]) -> bool:
+    """True iff every recorded node is owned by the era set or an open PR."""
+    return recorded == era_ids | owned_ids
+
+
 def test_live_node_set_is_the_era_set_plus_the_open_pr_owned_set():
     """The recorded set must be reconstructable, with nothing silently absorbed.
 
@@ -412,7 +511,7 @@ def test_live_node_set_is_the_era_set_plus_the_open_pr_owned_set():
     _, live_ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
     _, era_ids = baseline_fingerprint.extract(str(SUPERSEDED_10_NODE_SET))
     owned_ids = _open_pr_owned_node_ids()
-    assert set(live_ids) == set(era_ids) | owned_ids
+    assert _is_compositionally_attributed(set(live_ids), set(era_ids), owned_ids)
     # And the era set is still a *subset* — the reconciliation did not drop live debt.
     assert set(era_ids) <= set(live_ids)
 
@@ -469,14 +568,17 @@ def test_era_set_composition_rejects_an_unattributed_node():
     """Negative control: a node owned by neither the era set nor an open PR must fail.
 
     The compositional guard is only meaningful if a silently-absorbed node is actually
-    rejected. Feed it a synthetic recorded set that adds an unattributed node and confirm
-    the same predicate the test above applies would flag it.
+    rejected. Feed the *same predicate* the positive test uses a recorded set that adds an
+    unattributed node and confirm it returns false — without this the positive test could
+    pass on a predicate that accepts anything.
     """
     _, era_ids = baseline_fingerprint.extract(str(SUPERSEDED_10_NODE_SET))
     owned_ids = _open_pr_owned_node_ids()
     absorbed = "tests/test_somewhere.py::test_a_new_unexplained_failure"
     recorded = set(era_ids) | owned_ids | {absorbed}
-    assert recorded != set(era_ids) | owned_ids
+    assert not _is_compositionally_attributed(recorded, set(era_ids), owned_ids)
+    # Positive control: the same predicate accepts the attributed set.
+    assert _is_compositionally_attributed(set(era_ids) | owned_ids, set(era_ids), owned_ids)
 
 
 def test_superseded_values_are_the_superseded_set_plus_its_sibling():

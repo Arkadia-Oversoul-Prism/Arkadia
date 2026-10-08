@@ -163,7 +163,64 @@ an open PR (§2) or a pre-existing `main` debt:
 - `ERROR tests/test_autonomy.py` — the CE-01 `weaver.autonomy` module-vs-package collision,
   **reserved to the sovereign**; not touched.
 
-## 8. Boundary
+## 8. Addendum — the depth-1 clone's extra nodes: four, not one (this pass, 2026-10-08)
+
+The clone-depth guard above named **two** nodes, and both were described as ones that
+*skip* without a pinned revision. But a bare-clone run does not only skip: a **depth-1**
+clone — the shape the hourly automation's SDK actually produces — changes the outcome of
+**four** `test_agents_md_encoding_adjudication.py` nodes at once, so that clone reports
+**21** failing/error nodes while the recorded set carries 17. An earlier revision of this
+addendum named a single node; the live probe below **contradicted** that and the count was
+corrected. A single-node pin understated the divergence.
+
+| clone | `git rev-parse --is-shallow-repository` | `git rev-list --count HEAD` | nodes | extra nodes |
+|---|---|---|---|---|
+| full history | `false` | 2281 | **17** | — |
+| depth-1 | `true` | 1 | **21** | the four adjudication nodes below |
+
+Measured on `main` `44137991` with `python -m pytest tests/ -q -rEf
+--continue-on-collection-errors`:
+
+- full history → the recorded 17-node set, exactly
+- depth-1 → `20 failed, 1767 passed, 23 skipped, 1 error` (**21** nodes; the +4 are the
+  adjudication extras)
+
+The four extras, and why each fails once history is absent:
+
+| node | mechanism |
+|---|---|
+| `test_corruption_origin_is_re_derivable` | `git log -- AGENTS.md` is empty → `first_corrupt` stays `None` → assertion fires (the in-test `pytest.skip` guard is bypassed) |
+| `test_live_file_verdict_matches_its_state` | the audit CLI looks up `<oracle_rev>:AGENTS.md`, absent here, so it exits non-zero |
+| `test_cli_summarises_the_oracle_without_crashing` | same CLI path, its `returncode in (0, 1)` assertion fails |
+| `test_exit_code_does_not_call_a_divergent_clean_file_verified` | `_rev("AGENTS.md", ORACLE_REV)` is `None`, so its `assert oracle is not None` fails |
+
+The two nodes the guard already named are in the same file but take a different path: they
+read `GATE2_PARENT_REV` and `pytest.skip` when it is absent, so they never enter the set.
+These four instead dereference absent history and **fail**.
+
+The extra nodes were therefore **not** named anywhere, and the fixture was not reconstructable
+from the automation's own clone. The hardening replaces the single-node constant with
+`DEPTH1_CLONE_DEPENDENT_NODES` (a four-tuple), adds
+`test_depth1_clone_dependent_nodes_are_named_as_a_set_not_a_single_node`, extends
+`test_recorded_set_excludes_the_clone_depth_dependent_node` to assert all four stay out of
+the recorded set, and — the load-bearing part — adds a **live probe**,
+`test_depth1_clone_nodes_are_exactly_the_extra_failures_in_a_bare_clone`. The probe runs the
+four nodes in the *current* clone: in a depth-1 clone it asserts the failed set equals the
+named four; in a full-history clone it skips with a stated reason. A list that is only
+asserted structurally is a list nobody checks; the probe is what makes the naming falsifiable.
+
+**Live verification (this pass).** The probe was run in the automation's actual depth-1 clone
+(`git clone --depth 1`, `/tmp/shallow_probe`): `test_depth1_clone_nodes_are_exactly_the_extra_failures_in_a_bare_clone`
+**passed**, and the full `tests/test_baseline_fingerprint.py` file there reported **30
+passed** (the depth branch executing, not skipping). A **negative control** — the named set
+reduced to three with the fourth removed — makes the probe **fail** in that same clone,
+proving it detects exactly the understatement the single-node version carried. On a
+full-history clone the file reports **29 passed, 1 skipped** (the depth branch skipped).
+
+Fingerprint tests: 29 → **30** collected. No node enters or leaves the recorded set, and no
+production file is touched.
+
+## 9. Boundary
 
 No merge, no push to `main`, no force-push, no production code change. The working branch is
 `gate-hygiene/open-pr-owned-baseline-drift-01`; the human sovereign decides what becomes
