@@ -58,6 +58,22 @@ be composed as if independent - recorded in `#358`'s manifest, not re-derived he
 Composition note: `#358`'s guard reads a **frozen JSON manifest** of a measured PR population,
 not the live PR list, so adding this PR cannot redden it.
 
+## CI state at PR open (measured)
+
+PR **#363**, head `20008f0cb110497d695ed7ad2b12213c4b92fd5a`, base `main` @ `24a00f85`.
+All 7 check-runs **completed / success**: `native-arkadia-golden-workflow`,
+`bundle-beta-evidence`, `Vercel Preview Comments`, `beta-beta-01-english`,
+`beta-beta-02-hausa`, `Full-history secret scan`, `validate`. Workflow runs on the branch:
+`security-secret-scan` success, `N-ATLAS external beta validation` success,
+**`SG-02-FE.2-V` success** — the CP10 mutation boundary actually executed, because this PR
+touches `web/public_prism/**`, one of its trigger paths. `mergeable: true`.
+
+Note: `Vercel - arkadia-prism` / `Vercel - console` are known **failure on `main` itself**, so a
+Vercel failure here would not be attributable to this PR. Neither appears in this run's
+check-runs.
+
+Glance posted: PR #363 comment `6070974327`.
+
 ## Next-action block
 
 - **Current state:** two stale pins repaired; one production `ReferenceError` fixed; zero new
