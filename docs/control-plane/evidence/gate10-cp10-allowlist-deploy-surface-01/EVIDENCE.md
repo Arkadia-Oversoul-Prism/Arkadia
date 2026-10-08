@@ -556,8 +556,82 @@ The composition was re-built from the current PR tips, not reused:
   proposed workstream gated on the A/B sovereign choice; the attribution error above is now
   corrected so that workstream does not proceed from a false premise.
 - **Authorized action:** sovereign review and merge of #354 and #355.
-- **Forbidden:** merging, pushing to `main`, force-push, editing `api/lab_routes.py` /
-  `api/auth.py`, editing the `test_engineering_lab_api` guard, changing
-  `ALLOWED_MUTATION_ENDPOINTS` or `REGISTERED_ARCHITECTURAL_DEBT`.
 - **Completion condition:** #354 and #355 merged by the sovereign, then a fresh pass
   reconstructs `main` and re-derives the node set from live evidence.
+
+---
+
+# Pass 4 — head-SHA correction and full-clone re-measurement
+
+Pass: hourly bounded execution, 2026-10-08T02:0xZ
+Base main: `f96d5fd2` (unchanged; still `origin/main`). #354 head: `ba187124`.
+#355 head: `73104fdf` (still open, not merged).
+
+## Head SHA corrected
+
+Every earlier section of this document (and the PR body) cited `f7c212bd`, then `e90a5769`,
+then `696cc07b` as the branch head. The **live** head at this pass, `GET /pulls/354 →
+head.sha`, is:
+
+```
+ba187124f29a248be5a98c21ddb4d0d6836879c6
+```
+
+`git diff --name-only` from each cited SHA to `ba187124` returns only
+`AGENTS.md` and the two `gate10-cp10-allowlist-deploy-surface-01/` evidence files — the
+advance is documentation-only, so every policy/file measurement below binds to the current
+head unchanged. A stale head citation is a defect to correct in place; this section
+supersedes them.
+
+## The clone WAS shallow — and it made one node a false positive
+
+Earlier sections state "clone not shallow". That was **wrong for this environment**:
+`git rev-parse --is-shallow-repository` returned `true`. With a shallow clone, `main`
+exposed only **1** `AGENTS.md` revision vs **35** on the branch, so
+`tests/test_agents_md_encoding_adjudication.py::test_corruption_origin_is_re_derivable` —
+which walks `git log -- AGENTS.md` looking for the first corrupt revision and skips only when
+that history is *empty* — found no corrupt revision and **asserted**, rather than skipping.
+
+After `git fetch --unshallow --filter=blob:none origin` (full history, **32** `AGENTS.md`
+revisions), the node does **not** appear in the failure set. It was a shallow-clone artefact,
+**not** a repair attributable to this branch. This also refutes the archived claim (recorded
+in `AGENTS.md`) that #354 "fixes it": the branch touches no test, fixture, or source that the
+node reads.
+
+## Re-measured node sets (full clone)
+
+`pytest tests/ -q -rEf --continue-on-collection-errors`, full clone, this environment:
+
+| tree | result | nodes | node-set sha256 |
+|---|---|---|---|
+| `main` @ `f96d5fd2` | 27F / 1763P / 18S / 1E | 28 | `d12b3aae9bbc1980961d473cedbea7b6790e93cd0ec880fdb2193f60b9aa9b8f` |
+| #354 @ `ba187124` | 24F / 1766P / 18S / 1E | 25 | `153246a92d9ffd5bfaaa65a215ced6a9f0fb0023b1ee33e7a0f7ea46cf1f7ace` |
+
+- `main(28) − branch(25)` = exactly the **3** `test_m02a_ci_gate_integrity.py`
+  allowlist-inventory nodes → fixed.
+- `branch(25) − main(28)` = **∅** → **zero introduced**.
+
+The earlier `17 → 14` / `16F → 13F` figures were shallow-clone and/or `PYTHONPATH`-contended
+artefacts; the invariant they asserted (three CP10 nodes removed, nothing introduced) is
+confirmed here on a full clone. The trigger-coverage node
+(`test_ci_gate_trigger_coverage.py::…[n-atlas-developer-lab.yml]`) is repaired by **#355**,
+not by this branch; it is red on `main` and stays red on #354 alone, as Pass 3 recorded.
+
+## Current CI state at the true head `ba187124`
+
+`GET /commits/ba187124…/check-runs` → six runs, all `success`: `validate`, `SG-02-FE.2-V`
+(run 37714998141), `Full-history secret scan`, `N-ATLAS external beta validation`
+(37714998120), `native-arkadia-golden-workflow`, `bundle-beta-evidence`. Combined commit
+status is `failure` solely from the two pre-existing Vercel rate-limit contexts (identical on
+`main`). `mergeable=MERGEABLE`, `mergeStateStatus=UNSTABLE`.
+
+Tracked corpus at `ba187124`: **1956** blobs (earlier section recorded 1955 for
+`e7ce1d0f`; the doc-only advance does not change the tree, so read this as a one-blob
+enumeration difference, not a corpus change).
+
+## Pass 4 authorization boundary
+
+Documentation-only, on the existing dedicated branch, via the existing PR #354. No policy
+change, no denylist change, no test change, no `AGENTS.md` change, no merge, no push to
+`main`, no force-push, no authority-model change, no scope expansion. The Lab
+authentication-boundary A/B question remains reported, not resolved.
