@@ -1,0 +1,27 @@
+{
+  "measured_on": "f96d5fd27d40110196ec22b114808efc0eb9dc05",
+  "prs": {
+    "354": [
+      "AGENTS.md",
+      "docs/control-plane/evidence/gate10-cp10-allowlist-deploy-surface-01/EVIDENCE.md",
+      "docs/control-plane/evidence/gate10-cp10-allowlist-deploy-surface-01/WORKSTREAM_STATE.md",
+      "scripts/cp10_mutation_boundary_policy.py"
+    ],
+    "355": [
+      ".github/workflows/n-atlas-developer-lab.yml"
+    ],
+    "356": [
+      "AGENTS.md",
+      "docs/control-plane/evidence/gate-hygiene-lab-boundary-natlas-surface-01/EVIDENCE.md",
+      "docs/control-plane/evidence/gate-hygiene-lab-boundary-natlas-surface-01/WORKSTREAM_STATE.md",
+      "tests/test_engineering_lab_api.py"
+    ],
+    "357": [
+      "AGENTS.md",
+      "docs/control-plane/evidence/gate-hygiene-solspire-r1-r3-contract-repin-01/EVIDENCE.md",
+      "docs/control-plane/evidence/gate-hygiene-solspire-r1-r3-contract-repin-01/WORKSTREAM_STATE.md",
+      "tests/test_solspire_r1_governance_convergence.py",
+      "tests/test_solspire_r3_execution_runtime.py"
+    ]
+  }
+}
