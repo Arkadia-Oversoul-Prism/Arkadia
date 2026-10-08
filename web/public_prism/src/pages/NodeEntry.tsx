@@ -1,5 +1,4 @@
 import { apiFetch } from '../lib/apiClient';
-import { API_BASE } from '../lib/apiConfig';
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
@@ -41,7 +40,7 @@ const PATTERNS = [
   {name:'Steady Maker',nodes:['ground','flame','harmony'],text:'You like to turn ideas into things that are clear, useful, and steady.'},
   {name:'Quiet Noticer',nodes:['witness','breath','life'],text:'You notice, feel, learn, and move when the time is right.'},
 ];
-const AIS_URL = `${API_BASE.replace(/\/$/,'')}/api/me/ais-profile`;
+const AIS_PROFILE_PATH = '/api/me/ais-profile';
 function sigilFor(value:string){const chars=['◈','✦','⬡','◇','✧','◉','⌬','⟐','✺','❖','✥','△'];let n=2166136261;for(let i=0;i<value.length;i++){n^=value.charCodeAt(i);n=Math.imul(n,16777619);}return chars[(n>>>0)%chars.length];}
 function score(answers:AnswerMap){const raw=Object.fromEntries(NODES.map(n=>[n,0])) as Record<Node,number>;QUESTIONS.forEach(q=>{const choice=q[2].find(o=>o[0]===answers[q[0]]);if(choice)Object.entries(choice[1]).forEach(([n,w])=>raw[n as Node]+=Number(w));});DEEP.forEach(q=>{const v=Number(answers[q[0]]||0);if(v)raw[q[2] as Node]+=v;});const ranked=[...NODES].sort((a,b)=>raw[b]-raw[a]);const pattern=PATTERNS.map(p=>({...p,score:p.nodes.reduce((s,n)=>s+raw[n],0)})).sort((a,b)=>b.score-a.score)[0];return {raw,ranked,pattern,growth:ranked[ranked.length-1]};}
 

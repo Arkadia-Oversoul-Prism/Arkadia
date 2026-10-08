@@ -164,9 +164,18 @@ def test_surface_reuses_the_canonical_runtime_without_a_second_chat_path():
 
 def test_oracle_runtime_uses_the_shared_session_key():
     commune = ARKANA_COMMUNE.read_text()
-    assert "arkanaSessionId" in commune, (
-        "the Arkana runtime must key its thread on the shared session id so ReasoMate "
-        "and Oracle describe one longitudinal conversation"
+    # SUPERSEDED PIN (measured at 24a00f85): this node pinned the helper name
+    # `arkanaSessionId`. Commit 1f872f0 ("feat: wire Arkana Commune to first-class threads")
+    # replaced that call with a shared `ACTIVE_THREAD_KEY` plus a per-project derived
+    # `threadStorageKey`, so the literal cannot occur again. The property the node names —
+    # one shared, longitudinal conversation keyed off the shared session — still holds and
+    # is pinned directly.
+    assert "ACTIVE_THREAD_KEY" in commune, (
+        "the Arkana runtime must key its thread on one shared key so ReasoMate and Oracle "
+        "describe one longitudinal conversation"
+    )
+    assert "threadStorageKey" in commune, (
+        "per-project threads must derive from the shared session key rather than replace it"
     )
 
 

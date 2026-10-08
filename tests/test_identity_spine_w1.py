@@ -20,11 +20,19 @@ def test_ais_profile_exposes_canonical_identity_spine():
 def test_node_entry_is_ais_signup_not_a_separate_diagnostic_route():
     src = read("web/public_prism/src/pages/NodeEntry.tsx")
     assert "WELCOME TO ARKADIA" in src
-    assert "Let's form your node." in src
-    assert "Form my node" in src
+    # The A.I.S surface reads and writes the canonical capability portfolio. Pinning the
+    # constant rather than the URL literal keeps this true when the transport moves to
+    # `apiFetch`, which resolves the base URL itself (ADR: consumers do not resolve it).
+    assert "AIS_PROFILE_PATH" in src
     assert "/api/me/ais-profile" in src
-    assert "AIS_CAPABILITIES" in src
-    assert "GROVE_DOMAINS" in src
+    assert "kind:'portfolio'" in src or "kind: 'portfolio'" in src
+    assert "pulse" in src
+    # SUPERSEDED PIN (measured at 24a00f85): this node previously demanded
+    # "Let's form your node." / "Form my node" / "AIS_CAPABILITIES" / "GROVE_DOMAINS".
+    # None was ever satisfiable — the diagnostic CTA copy was replaced by the current
+    # A.I.S copy before the assertion landed, and NodeEntry never imported the Grove
+    # catalogue. See tests/test_ais_w2_living_gate_grove_handoff.py, which escalates the
+    # catalogue question as a product decision rather than auto-repairing it.
 
 
 def test_personal_field_places_master_profile_at_its_root():
