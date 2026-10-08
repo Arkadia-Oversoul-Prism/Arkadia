@@ -119,6 +119,9 @@ Spiral Grove registry declaration-order vs topological-order contract; baseline 
 1. *Reconcile `tests/fixtures/baseline_node_set.txt`* — 10 recorded nodes vs 20 live, a strict
    subset. Needs the same measurement-backed retirement the 18→10 pass used, so a future pass
    does not read unrecorded debt as a regression.
+   > **Addressed** — implemented in PR #361 (`gate-hygiene/open-pr-owned-baseline-drift-01`),
+   > awaiting sovereign merge. The recorded set is the live 17-node set and the guard fails
+   > closed on an unattributed node. This entry is retained as the discovery record.
 2. *Widen `provider-routing.yml` to `api/**`* — the architecture suite asserts the
    `api/main.py` line budget, so `api/**` belongs in the filter of any workflow that runs it.
    Held back deliberately: that workflow also runs the full suite, which carries baseline debt,
@@ -177,8 +180,10 @@ Spiral Grove registry declaration-order vs topological-order contract; baseline 
     values above are what the script prints for it.
   > **Superseded 2026-10-08** (`gate-hygiene/open-pr-owned-baseline-drift-01`): a live
   > `-rEf --continue-on-collection-errors` run on `main` `44137991` reported **16 failed /
-  > 1776 passed / 22 skipped / 1 error** — 17 failing/error nodes — while the recorded set
-  > held 10. The 7 unrecorded nodes are each repaired by an open PR (#347 / #354 / #355 /
+  > 1772 passed / 22 skipped / 1 error** — 17 failing/error nodes — while the recorded set
+  > held 10. (An earlier draft of this note cited 1776 passed, which is the *branch* figure,
+  > +4 for the new guard functions; `main` itself is 1772.) The 7 unrecorded nodes are each
+  > repaired by an open PR (#347 / #354 / #355 /
   > #356) and were therefore baseline debt, not regressions. The recorded set is now the
   > **17** nodes a live run actually reports; the prior 10-node pair (`9a54f5b4…` /
   > `124bfdfd…`) is retained in `tests/fixtures/superseded_baseline_node_set_10.txt`, and
