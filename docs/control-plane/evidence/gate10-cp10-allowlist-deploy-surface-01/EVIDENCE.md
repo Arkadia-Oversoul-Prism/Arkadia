@@ -240,3 +240,40 @@ Repository-source change only, on a dedicated branch, via pull request. No merge
 push to `main`, no force-push, no authority-model change, no scope expansion. The
 `api/auth.py` / `api/lab_routes.py` boundary question above is reported, not resolved.
 Human merge authority is required.
+
+## Pass 2 — PR linkage and measured node sets
+
+- **PR #354** — `gate10/cp10-allowlist-deploy-surface-01`, head `7b9f3309`, base `f96d5fd2`.
+  This is the CP10 allowlist repair.
+- **PR #355** — `gate10/n-atlas-workflow-self-trigger-01`, head `73104fdf`, base `f96d5fd2`.
+  Isolated bounded branch for held item 3 (n-atlas workflow self-selection), because this PR
+  declares "no change to the N-ATLaS workflows" as a non-goal and contract §11 requires
+  non-consequential follow-on work to be isolated rather than widening scope. One additive
+  trigger-path entry; `tests/test_ci_gate_trigger_coverage.py` **48 passed** (was 1F/47P);
+  CP10 judge on its diff → PASS, exit 0.
+
+Measured node sets, `pytest tests/ -q -rEf --continue-on-collection-errors` (the `-rEf` is
+required — `-rf` alone suppresses pytest's `ERROR` summary lines and yields a subset):
+
+| tree | result | nodes | sha256 |
+|---|---|---|---|
+| `main` @ `f96d5fd2` | 16F / 1770P / 22S / 1E | 17 | `26c2b4c7b5efb56d0d54ab5888cdf955589f7633490c9a0c33d1ef63bba85798` |
+| #354 @ `7b9f3309` | 13F / 1773P / 22S / 1E | 14 | `0143dc4df4291b848fa00ca59ddca426985c0c7b0f77d9f4245c951c87793e38` |
+
+`main(17) − branch(14)` = the 3 CP10 completeness nodes → fixed.
+`branch(14) − main(17)` = ∅ → nothing introduced.
+
+Composition onto `main` was conflict-free: #354's file set and #353's file set are disjoint,
+so the merge had no hand resolution and carries no merge-loss risk.
+
+## Deterministic next action
+
+- **Current state:** #354 and #355 both open, both measured, both `READY FOR MERGE` for their
+  own bounded scope. No merge performed; no push to `main`.
+- **Blockers:** none for either PR's own scope.
+- **Authorized action:** sovereign review and merge of #354 and/or #355.
+- **Forbidden:** merging, pushing to `main`, editing `api/lab_routes.py` / `api/auth.py`,
+  editing the `test_engineering_lab_api` guard, changing `ALLOWED_MUTATION_ENDPOINTS` or
+  `REGISTERED_ARCHITECTURAL_DEBT`.
+- **Completion condition:** #354 and #355 merged by the sovereign, then a fresh pass
+  reconstructs `main` and re-derives the node set from live evidence.
