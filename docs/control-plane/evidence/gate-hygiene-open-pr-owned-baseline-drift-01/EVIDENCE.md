@@ -529,3 +529,64 @@ full suite on `main` `44137991`                          -> 17 nodes (canonical 
 ```
 
 No merge, no push to `main`, no production file touched. PR #361.
+
+## 14. Addendum — `main` advanced under the branch; no rebase taken (2026-10-08, pass 13)
+
+### 14.1 BASE_MAIN moved, and the advance is disjoint from this change set
+
+`main` moved `441379913d1b03ceb6a5af45ea543ca6762cb482` → `24a00f856a0286cbb464a4b585117dd57a2646fa`
+(two commits: `06c4d8a1`, `24a00f85`, both "N-ATLaS Gradio" HF-auth fixes). Measured:
+
+```
+git diff --stat 44137991..origin/main
+  lab/engineering_lab/natlas.py | 4 ++--
+  1 file changed, 2 insertions(+), 2 deletions(-)
+```
+
+That path is **disjoint** from this PR's change set (`tests/`, `tests/fixtures/`, one evidence
+dir, plus ledger docs), so no semantic or textual conflict exists and the measured trees are
+independent. `gh pr view 361 --json mergeable,mergeStateStatus` reports
+`MERGEABLE` / `CLEAN` against the current base.
+
+### 14.2 A rebase was started and deliberately aborted
+
+`git rebase origin/main` was attempted and **aborted** (`git rebase --abort`, head returned to
+`7c4955e6`). Rewriting the 13 recorded commits would have required a **force-push**, which the
+execution contract forbids. The branch therefore fast-forwards `edc18b98 → 7c4955e6` on the
+remote with no force, and main's advance is absorbed by the merge commit. This is the
+governed route; a rebase is the sovereign's call, not the agent's.
+
+**Reading `git diff origin/main..HEAD` on a non-rebased branch.** That diff lists
+`lab/engineering_lab/natlas.py` as changed. This is **not** a revert: the branch's merge base
+is `44137991`, so it simply does not contain main's later natlas commits. A merge or squash
+retains them. Recorded so a reviewer does not read the non-rebased diff as a regression
+against `main`'s HF-auth fix.
+
+### 14.3 Both trees re-measured on the current base (not inherited from prose)
+
+Neither figure below is carried over from §2/§13; both were measured in this pass with
+`python -m pytest tests/ -q -rEf --continue-on-collection-errors` (`PYTHONPATH=archive/legacy_python`):
+
+| tree | result | nodes |
+|---|---|---|
+| `main` `24a00f85` (bare clone) | `16 failed, 1772 passed, 22 skipped, 2 warnings, 1 error` | 17 |
+| PR #361 head `7c4955e6` (composed) | `16 failed, 1781 passed, 22 skipped, 2 warnings, 1 error` | 17 |
+
+**Both hash to the same canonical pair**, i.e. zero node-set delta:
+
+```
+outcomes 26c2b4c7b5efb56d0d54ab5888cdf955589f7633490c9a0c33d1ef63bba85798
+ids      571e599f91e680fe41f7318b6000c84dee8edc7c9c0535a3c897c7da89881224
+```
+
+The `+9 passed` on the branch is the guard file's added assertions (30 → 33 functions plus the
+canonical-fingerprint assertion); no node enters or leaves the failing/error set. The 17-node
+figure at `24a00f85` equals the `44137991` figure, so main's two natlas commits changed no
+node — consistent with §14.1's disjointness.
+
+### 14.4 Boundary and status
+
+Test/evidence only. No production file, no `api/main.py` (`py_compile` OK). No merge, no push
+to `main`, no force-push. PR #361, head `7c4955e6`, base `main` `24a00f85`,
+`MERGEABLE`/`CLEAN`. Status: **IMPLEMENTED** — proof complete for the reconciliation and the
+guards, merge withheld for human authority.
