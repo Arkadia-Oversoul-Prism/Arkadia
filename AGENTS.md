@@ -866,3 +866,21 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   pre-repair pair and a positive control proving it is silent when the repair is absent.
   It fails on the composed tree and passes on `main`: a guard that is silent on both is not
   a guard.
+
+## Independent gate PRs compose only on the AGENTS.md tail — measure the cluster, not the pieces
+- A set of individually-green gate-hygiene PRs is **not** evidence the set is green. Every one
+  appends its account to the tail of `AGENTS.md`, so each diff hunk header is `@@ -866,3 +866,N @@`
+  and git cannot auto-merge two hunks that both claim the end of the same file. Measured on
+  `main` `f96d5fd2`: PRs #354/#355 compose cleanly; #356/#357 each conflict with #354 **only** on
+  `AGENTS.md`. The resolution is a **union append** (both accounts kept, in merge order) — it is a
+  mechanical tail collision, not a semantic conflict. Do not drop either side.
+- When a conflict is exactly this shape, prove it is *only* this shape: intersect the PRs' changed
+  paths. `#354`∩`#356`∩`#357` = `{AGENTS.md}` — every other path is disjoint. A pair sharing a
+  **test or script** path instead is a real semantic conflict and must be surfaced before composing.
+- Measured cluster result: composing **#354 → #355 → #356 → #357** onto `f96d5fd2` moves the
+  failing-node set **17 → 8** (`-9 / +0`, zero added nodes). The remaining 8 are all
+  sovereign-reserved or unscheduled (`test_steward_filter`, F-01, SH-07/W8, CE-01).
+- Evidence: `docs/control-plane/evidence/gate-hygiene-open-pr-cluster-composability-pass8/`.
+  Guard: `tests/test_open_pr_cluster_composability.py` — a pure-source detector over the recorded
+  cluster manifest, with a negative control (a shared test file must be reported) and a positive
+  control (the measured cluster shares only `AGENTS.md`, so it is silent).
