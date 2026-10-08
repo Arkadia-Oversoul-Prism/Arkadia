@@ -49,13 +49,80 @@ class NAtlasAdapter(ModelAdapter):
         return ModelResponse(provider=self.provider, model=payload.get("model") or model, text=message.get("content", "") or "", tool_calls=tool_calls, finish_reason=choice.get("finish_reason", "stop"), usage=payload.get("usage") or {})
 
 class NAtlasGradioAdapter(ModelAdapter):
-    """Adapter for the public Gradio runtime contract used by N-ATLaS."""
+    """Adapter for the public Gradio runtime contract used by N-ATLaS.
+
+    Gradio's queued HTTP API is an SSE protocol: POST returns an event id,
+    then GET returns named events (generating, complete, error, heartbeat).
+    The adapter consumes the event type explicitly so an error frame can never
+    be mistaken for model text and a later complete frame can replace partial
+    output.
+    """
 
     provider = "n_atlas"
 
     def __init__(self, base_url: str | None = None, timeout: float = 300.0) -> None:
         self._base_url = (base_url or os.environ.get("N_ATLAS_BASE_URL") or "").rstrip("/")
         self._timeout = timeout
+
+    @staticmethod
+    def _extract_text(value: Any) -> str:
+        """Extract text from the common Gradio output shapes without guessing."""
+        if isinstance(value, str):
+            text = value.strip()
+            if not text:
+                return ""
+            try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError:
+                return text
+            if parsed != value:
+                return NAtlasGradioAdapter._extract_text(parsed)
+            return text
+        if isinstance(value, dict):
+            for key in ("text", "response", "output", "content"):
+                if key in value:
+                    text = NAtlasGradioAdapter._extract_text(value[key])
+                    if text:
+                        return text
+            message = value.get("message")
+            if message is not None:
+                text = NAtlasGradioAdapter._extract_text(message)
+                if text:
+                    return text
+            return ""
+        if isinstance(value, (list, tuple)):
+            for item in value:
+                text = NAtlasGradioAdapter._extract_text(item)
+                if text:
+                    return text
+        return ""
+
+    @staticmethod
+    def _sse_frames(stream: Any):
+        """Yield (event_type, data_text) from an SSE response stream."""
+        event_type = "message"
+        data_lines: list[str] = []
+        while True:
+            raw = stream.readline()
+            if not raw:
+                if data_lines:
+                    yield event_type, "\n".join(data_lines)
+                break
+            if isinstance(raw, bytes):
+                raw = raw.decode("utf-8", errors="replace")
+            line = raw.rstrip("\r\n")
+            if not line:
+                if data_lines:
+                    yield event_type, "\n".join(data_lines)
+                event_type = "message"
+                data_lines = []
+                continue
+            if line.startswith("event:"):
+                event_type = line[6:].strip() or "message"
+            elif line.startswith("data:"):
+                data_lines.append(line[5:].lstrip())
+            elif line.startswith(":"):
+                continue
 
     def generate(self, *, model: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None, **options: Any) -> ModelResponse:
         if not self._base_url:
@@ -73,62 +140,64 @@ class NAtlasGradioAdapter(ModelAdapter):
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:
                 payload = json.loads(resp.read().decode("utf-8"))
             event_id = payload.get("event_id")
             if not event_id:
                 raise ModelUnavailable("N-ATLaS Gradio runtime returned no event_id")
+
             stream_req = urllib.request.Request(
                 f"{self._base_url}/gradio_api/call/generate/{event_id}",
                 headers={"Accept": "text/event-stream"},
                 method="GET",
             )
             response_text = ""
+            seen_events: list[str] = []
+            terminal_event = ""
             with urllib.request.urlopen(stream_req, timeout=self._timeout) as stream:
-                while True:
-                    line = stream.readline()
-                    if not line:
-                        break
-                    if isinstance(line, bytes):
-                        line = line.decode("utf-8", errors="replace")
-                    line = line.strip()
-                    if not line.startswith("data: "):
-                        continue
-                    data_text = line[6:]
+                for event_type, data_text in self._sse_frames(stream):
+                    seen_events.append(event_type)
                     if data_text == "[DONE]":
+                        terminal_event = event_type
                         break
                     try:
                         event_data = json.loads(data_text)
                     except json.JSONDecodeError:
-                        continue
-                    if not isinstance(event_data, list) or not event_data:
-                        continue
-                    value = event_data[0]
-                    if isinstance(value, str):
-                        try:
-                            parsed = json.loads(value)
-                        except json.JSONDecodeError:
-                            response_text = value.strip()
-                        else:
-                            if isinstance(parsed, dict):
-                                response_text = str(parsed.get("text") or parsed.get("response") or parsed.get("output") or "").strip()
-                            else:
-                                response_text = str(parsed).strip()
-                    elif isinstance(value, dict):
-                        response_text = str(value.get("text") or value.get("response") or value.get("output") or "").strip()
-                    if response_text:
+                        event_data = data_text
+
+                    if event_type == "error":
+                        detail = self._extract_text(event_data) or data_text.strip() or "unknown Gradio error"
+                        raise ModelUnavailable(f"N-ATLaS Gradio runtime error: {detail}")
+
+                    candidate = self._extract_text(event_data)
+                    if candidate:
+                        response_text = candidate
+
+                    if event_type == "complete":
+                        terminal_event = event_type
                         break
+
             if not response_text:
-                raise ModelUnavailable("N-ATLaS Gradio runtime returned no usable text")
+                events = ",".join(seen_events) or "none"
+                raise ModelUnavailable(
+                    f"N-ATLaS Gradio runtime returned no usable text "
+                    f"(event_id={event_id}, events={events})"
+                )
+
             return ModelResponse(
                 provider=self.provider,
                 model=model,
                 text=response_text,
                 finish_reason="stop",
-                usage={"protocol": "gradio", "endpoint": "/gradio_api/call/generate"},
+                usage={
+                    "protocol": "gradio",
+                    "endpoint": "/gradio_api/call/generate",
+                    "event_id": event_id,
+                    "sse_events": seen_events,
+                    "terminal_event": terminal_event or (seen_events[-1] if seen_events else ""),
+                },
             )
         except ModelUnavailable:
             raise
-        except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+        except (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError) as exc:
             raise ModelUnavailable(f"N-ATLaS Gradio inference call failed: {exc}") from exc
-
