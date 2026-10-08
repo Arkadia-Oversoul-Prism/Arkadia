@@ -166,7 +166,16 @@ class NAtlasGradioAdapter(ModelAdapter):
                         event_data = data_text
 
                     if event_type == "error":
-                        detail = self._extract_text(event_data) or data_text.strip() or "unknown Gradio error"
+                        detail = self._extract_text(event_data)
+                        if not detail:
+                            raw = data_text.strip()
+                            detail = (
+                                f"provider emitted error event with null/empty data "
+                                f"(event_id={event_id}, raw_data={raw!r}, events={seen_events})"
+                                if not raw or raw.lower() == "null"
+                                else f"provider emitted error event without usable text "
+                                     f"(event_id={event_id}, raw_data={raw!r}, events={seen_events})"
+                            )
                         raise ModelUnavailable(f"N-ATLaS Gradio runtime error: {detail}")
 
                     candidate = self._extract_text(event_data)
