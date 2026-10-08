@@ -64,11 +64,18 @@ a claim:
 | #355 | `73104fdf` | `test_ci_gate_trigger_coverage.py` (file) | 48 passed |
 | #356 | `1bfbcc4f` | `test_engineering_lab_api.py` (file) | 5 passed |
 
-All 7 attributed nodes pass at their owners' heads. No open PR owns any of the 10 era-set
-nodes: `gh pr view <n> --json files` across #337–#360 shows none touching
-`test_steward_filter.py`, `test_identity_spine_w1.py`, `test_m02_reasomate_truth.py`,
-`test_ais_w2_living_gate_grove_handoff.py`, `test_solspire_r1_*`, `test_solspire_r3_*` or
-`weaver/`, so they remain pre-existing era debt rather than an attribution gap.
+All 7 attributed nodes pass at their owners' heads. The 10 era-set nodes are **not** uniformly
+unowned: PR #357 (head `4c3d8fb8`) repairs three of them —
+`test_solspire_r1_governance_convergence.py::test_r1_solspire_builders_delegate_to_weaver`,
+`…::test_r1_weaver_governance_is_canonical`, and
+`test_solspire_r3_execution_runtime.py::test_runtime_is_explicitly_non_governed_and_blocks_mutation_tools`
+(fail on `main`, 3 passed at #357's head). The remaining seven era-set nodes
+(`test_autonomy.py` ERROR, `test_steward_filter.py`, `test_identity_spine_w1.py`,
+`test_m02_reasomate_truth.py`, `test_ais_w2_living_gate_grove_handoff.py`) have no open-PR
+owner — `gh pr view <n> --json files` across #337–#360 shows no PR touching them, so they
+remain pre-existing era debt. Either way the recorded set shrinks on merge: whether a node is
+repaired by a drift-set owner or an era-set owner, the next pass must re-measure rather than
+reuse this pair.
 
 ## 3. Canonical fingerprint (fixture and a live run agree)
 
