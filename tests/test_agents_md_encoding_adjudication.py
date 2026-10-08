@@ -181,6 +181,14 @@ def test_live_file_verdict_matches_its_state():
     on any given revision; the other states its reason and skips.
     """
     text = AGENTS_MD.read_text(encoding="utf-8")
+    if _rev("AGENTS.md", ORACLE_REV) is None:
+        # The verdict's positive claim is "clean *and* oracle-corroborated". Without the
+        # oracle revision — a `--depth 1` checkout resolves no history but the tip — the
+        # run is undecided (exit 2), and calling exit 2 a verdict would be the very
+        # overclaim exit 2 exists to prevent. The undecided behaviour is asserted directly
+        # by `test_cli_does_not_claim_clean_without_an_oracle`; here there is no verdict
+        # to read, so the live-state check declines rather than mis-fires.
+        pytest.skip(f"oracle revision {ORACLE_REV} unavailable in this clone")
     repaired = cyrillic_count(text) == 0
     proc = _run_cli()
     if repaired:
@@ -247,6 +255,12 @@ def test_corruption_origin_is_re_derivable():
     )
     if proc.returncode != 0 or not proc.stdout.strip():
         pytest.skip("AGENTS.md history unavailable in this clone")
+    if _rev("AGENTS.md", CORRUPTION_COMMIT) is None:
+        # A clone whose `AGENTS.md` history resolves no pinned revision (a `--depth 1`
+        # checkout carries the tip only) cannot contain the corruption origin, so the
+        # origin is unprovable here rather than disproved. Declining to adjudicate is
+        # correct; asserting "no corrupt revision" from absent history is not.
+        pytest.skip(f"pinned corruption origin {CORRUPTION_COMMIT} unavailable in this clone")
     revisions = proc.stdout.decode().split()
     first_corrupt = None
     for rev in reversed(revisions):
@@ -312,7 +326,11 @@ def test_cli_summarises_the_oracle_without_crashing():
     """
     proc = _run_cli()
     assert "KeyError" not in proc.stderr, proc.stderr
-    assert proc.returncode in (0, 1), proc.stdout + proc.stderr
+    # The invariant is "the summary does not crash and does not outrun its own verdict".
+    # Exit 2 is the documented undecided status when no oracle resolves (a `--depth 1`
+    # checkout), so it is a valid, coherent outcome — not a crash. Pinning `(0, 1)` here
+    # called a history-absent clone's undecided run a failure.
+    assert proc.returncode in (0, 1, 2), proc.stdout + proc.stderr
 
     machine = _run_cli("--json")
     assert machine.returncode == proc.returncode, machine.stdout + machine.stderr
@@ -419,6 +437,13 @@ def test_exit_code_does_not_call_a_divergent_clean_file_verified():
     oracle licenses exit 1 — anything else is exit 2.
     """
     oracle = _rev("AGENTS.md", ORACLE_REV)
+    corrupted = _rev("AGENTS.md", CORRUPTION_COMMIT)
+    if oracle is None or corrupted is None:
+        # Adjudicating exit codes requires an oracle to corroborate against and a
+        # corrupted revision to exercise the repair path. A `--depth 1` checkout
+        # resolves neither, so the classification is unexercisable here — decline
+        # rather than assert a verdict the clone cannot support.
+        pytest.skip(f"pinned revisions unavailable in this clone ({ORACLE_REV}, {CORRUPTION_COMMIT})")
     assert oracle is not None
 
     assert exit_code(audit("nothing wrong here\n", oracle=None)) == 2, "no oracle → unproven"
