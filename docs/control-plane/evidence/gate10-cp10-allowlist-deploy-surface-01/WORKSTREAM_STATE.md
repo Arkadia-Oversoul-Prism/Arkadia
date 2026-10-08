@@ -48,5 +48,24 @@ rate-limit status.
   here, at `deploy/`.
 - The guard is the point: a new tracked top-level tree must be enumerated, not admitted by a
   broadened rule. Do not replace the enumerated `deploy/` entry with a generic pattern.
-- Reported, not resolved (separate workstreams): the `test_engineering_lab_api.py`
-  Lab-endpoint-set failure, and the Lab authentication-boundary question.
+
+## Reported, not resolved — measured at `696cc07b` (separate workstreams)
+
+`tests/test_engineering_lab_api.py` → **2 failed, 3 passed**. Both are pre-existing on `main`
+`f96d5fd2` and are recorded here, not repaired: this PR's scope is the CP10 allowlist, and
+"do not expand scope to repair adjacent failures" governs.
+
+1. `test_lab_mutation_endpoints_are_exactly_the_lab_state_set` — the frozen
+   `ALLOWED_MUTATION_ENDPOINTS` list in the test does not contain two mutating endpoints the
+   N-ATLAS work (PR #353, merge `f96d5fd2`) added: `/api/lab/engineering/n-atlas/run` and
+   `/api/lab/engineering/n-atlas/test-session`. **This is the same recurrence class as this
+   PR** — a frozen inventory that fell behind a legitimate new surface — but on a *different*
+   list, and its assertion message is a mutation-boundary question ("review it against the
+   no-repository-mutation boundary"), not a formatting one. It needs an owner's decision, not
+   a mechanical addition: whether those endpoints are inside the Lab's declared no-mutation
+   boundary must be established before the list is widened.
+2. `test_lab_router_is_read_only_and_authenticated` — the router's dependency is named
+   `require_lab_auth`; the test pins the literal `require_auth`. The router *does* carry a
+   dependency (`assert router.dependencies` passes), so this reads as a stale name pin, the
+   documented test-side literal-defect class. It is an authentication-boundary assertion, so
+   the equivalence of `require_lab_auth` to the expected guard must be confirmed, not assumed.
