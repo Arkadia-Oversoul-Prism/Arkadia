@@ -866,3 +866,30 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   pre-repair pair and a positive control proving it is silent when the repair is absent.
   It fails on the composed tree and passes on `main`: a guard that is silent on both is not
   a guard.
+
+## A convergence can move a symbol and leave a test pinning its old address (gate-hygiene)
+- `test_r1_weaver_governance_is_canonical` asserted
+  `"execute_patch" in inspect.getsource(weaver.governance)`. The symbol is canonical Weaver
+  code, but the K3 convergence relocated it to `weaver.execution`; the assertion was pinning a
+  **module address**, not a behaviour. Pin the real owner *and* prove identity -
+  `solspire.project_execution.execute_patch is weaver.execution.execute_patch` - because a
+  bare `"name in source"` check also passes when a divergent duplicate exists.
+- `test_runtime_is_explicitly_non_governed_and_blocks_mutation_tools` asserted the per-step
+  **result-dict** refusal (`execution.results[0]["code"] == "MUTATION_DISABLED"`). Ancestor
+  `144d6015` converged `ExecutionRuntime.execute()` to reject the plan *before* a worker
+  thread exists, so the call **raises** and returns no `Execution`. The boundary got stronger
+  while the assertion went red. `MUTATION_DISABLED` is absent from the module entirely; the
+  per-step branch at `solspire/execution_runtime.py:243` is now dead for engineering tools.
+  A re-pin must assert the raise and prove refusal *precedes* execution
+  (`runtime._executions == {}`), not merely that some error was raised.
+- `test_r1_solspire_builders_delegate_to_weaver` compared two builders that were **given
+  different arguments**: SolSpire derives a default `pass_id`
+  (`solspire/project_execution.py:47`, `mvp1-<sha256[:10]>`, from `3bf582f1`) while the
+  canonical builder requires one. With equalized inputs the `PassSpec` and `PatchApproval` are
+  byte-identical - the delegation property held; the harness never exercised it. Before
+  calling a delegation test a failure, check that both sides receive the same inputs.
+- **A `for tool in TOOLS:` loop is vacuously satisfiable.** Pair it with a membership guard
+  (`{"fs_write", "github_commit"} <= _ENGINEERING_MUTATION_TOOLS`) so an emptied set cannot
+  read as a pass. Measured: `main` `f96d5fd2` 16F/1770P -> branch 13F/1773P, node-set delta
+  exactly the three above and **zero additions** (sha256 `26c2b4c7...` -> `60ad29ee...`).
+  Evidence: `docs/control-plane/evidence/gate-hygiene-solspire-r1-r3-contract-repin-01/`.

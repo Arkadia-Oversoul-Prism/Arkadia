@@ -14,22 +14,36 @@ def _plan(tool: str) -> object:
 
 
 def test_runtime_is_explicitly_non_governed_and_blocks_mutation_tools():
-    from solspire.execution_runtime import ExecutionRuntime
+    """The runtime must refuse engineering mutation and name the Weaver path.
+
+    Pre-repair expectation, retained verbatim so the drift stays reconstructable:
+    this node previously called `runtime.execute(_plan("fs_write"), ...)` and
+    asserted `execution.results[0]["code"] == "MUTATION_DISABLED"` — the per-step
+    result-dict refusal. The runtime was later converged to reject the plan
+    *before* a worker thread exists, so the per-step branch is unreachable for
+    engineering tools and no `Execution` is ever returned. The boundary is
+    unchanged; only the shape of the refusal drifted.
+    """
+    import pytest
+
+    from solspire.execution_runtime import ExecutionRuntime, _ENGINEERING_MUTATION_TOOLS
+
+    # Guard against a vacuous pass: an emptied tool set would satisfy the loop.
+    assert {"fs_write", "github_commit"} <= _ENGINEERING_MUTATION_TOOLS
 
     runtime = ExecutionRuntime()
-    execution = runtime.execute(_plan("fs_write"), owner_uid="r3-user")
+    for tool in sorted(_ENGINEERING_MUTATION_TOOLS):
+        with pytest.raises(PermissionError) as excinfo:
+            runtime.execute(_plan(tool), owner_uid="r3-user")
 
-    execution_thread_done = execution.completed_at is not None
-    if not execution_thread_done:
-        import time
-        deadline = time.time() + 2
-        while execution.completed_at is None and time.time() < deadline:
-            time.sleep(0.01)
+        message = str(excinfo.value)
+        assert "K15" in message
+        assert "K3" in message
+        assert tool in message
 
-    assert execution.results[0]["ok"] is False
-    assert execution.results[0]["code"] == "MUTATION_DISABLED"
-    assert "K15" in execution.results[0]["error"]
-    assert "K3" in execution.results[0]["error"]
+    # Refusal must precede execution: no plan carrying a mutation tool may be
+    # recorded as a started run.
+    assert runtime._executions == {}
 
 
 def test_runtime_still_supports_read_only_workflow_steps():

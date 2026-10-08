@@ -47,10 +47,18 @@ def test_r1_solspire_builders_delegate_to_weaver(repo_root=REPO_ROOT):
 
     patch = _patch(repo_root)
     project = {"id": "r1-project", "name": "R1 Project"}
-    sol_spec = build_pass_spec_for_patch(project, patch, repo_root=repo_root)
+    # The comparison must equalize the inputs. SolSpire derives a default
+    # `pass_id` when the caller supplies none; the canonical builder requires
+    # one. Passing the same `pass_id` to both exercises the property this test
+    # asserts — that SolSpire delegates construction to Weaver — instead of
+    # comparing two different arguments.
+    pass_id = "mvp1-r1-patch"
+    sol_spec = build_pass_spec_for_patch(
+        project, patch, pass_id=pass_id, objective="R1 Project", repo_root=repo_root
+    )
     canonical_spec = weaver_build_spec(
         patch,
-        pass_id="mvp1-r1-patch",
+        pass_id=pass_id,
         objective="R1 Project",
         repo_root=repo_root,
     ).to_dict()
@@ -75,13 +83,24 @@ def test_r1_solspire_has_no_local_governance_constructors():
 
 
 def test_r1_weaver_governance_is_canonical():
+    import weaver.execution as execution
     import weaver.governance as governance
 
     source = inspect.getsource(governance)
     assert "def evaluate_patch_readiness" in source
     assert "def build_pass_spec_for_patch" in source
     assert "def build_patch_approval" in source
-    assert "execute_patch" in source
+
+    # `execute_patch` is canonical Weaver code, but it lives in `weaver.execution`
+    # (the module that performs the governed K3 execution) rather than in the
+    # narrowly scoped governance module. Pin the real owner and prove SolSpire
+    # re-exports that same object instead of carrying a local copy.
+    assert "def execute_patch" in inspect.getsource(execution)
+    assert "def execute_patch" not in source
+
+    from solspire import project_execution
+
+    assert project_execution.execute_patch is execution.execute_patch
 
 
 def test_r1_project_execution_remains_k15_k3_adapter(repo_root=REPO_ROOT):
