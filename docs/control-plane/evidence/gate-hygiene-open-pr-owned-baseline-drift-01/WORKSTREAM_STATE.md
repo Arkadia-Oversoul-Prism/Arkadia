@@ -26,7 +26,8 @@
   failures remain `main` debt owned by open PR #354; the `test_autonomy.py` ERROR is the
   sovereign-reserved CE-01 collision.
 - **Authorized next action**: sovereign review and merge of this PR. Then re-measure `main`
-  and, with #347/#354/#355/#356 merged, expect the recorded set to shrink — re-run the
+  and, with #347/#354/#355/#356 (drift-set owners) and #357 (repairs three era-set solspire
+  nodes) merged, expect the recorded set to shrink — re-run the
   fingerprint pass rather than reuse this pair.
 - **Forbidden**: merge, force-push, push to `main`, fixing the CP10 allowlist here, touching
   `weaver/autonomy`.
