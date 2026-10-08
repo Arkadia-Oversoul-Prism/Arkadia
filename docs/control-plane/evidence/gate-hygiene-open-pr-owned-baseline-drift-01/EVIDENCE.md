@@ -627,5 +627,14 @@ a draft of this section attributed it to a pre-existing Vercel failure. That att
 remembered), and the `UNSTABLE` was transient while the newly-pushed head's checks were still
 registering. `CLEAN` is the settled state. Recorded rather than quietly dropped: an
 unverified "known-red gate" is exactly the kind of claim that survives into later passes.
+
+**The transient was then reproduced on a second push, so the explanation is measured, not
+inferred.** After pushing `d71bcfbd`, sequential reads of `mergeStateStatus` gave
+`UNSTABLE, UNSTABLE, CLEAN` — the same lag shape. This is a real trap for any pass that reads
+merge state immediately after a push and then *explains* the value from memory: the correct
+move is to poll until it settles and to read `commits/<sha>/check-runs` +
+`commits/<sha>/status` for the per-check truth, not to narrate the first value seen. Two
+consecutive pushes in this pass showed `UNSTABLE` on the first reads and `CLEAN` once checks
+registered; the settled value is the one to record.
 Status: **IMPLEMENTED** — proof complete for the reconciliation and the guards, merge withheld
 for human authority.
