@@ -294,11 +294,45 @@ A judge is only the gate for the tree that *carries* it:
 
 The Pass 2 run executed the **branch's already-repaired policy** against main's corpus, which
 is why it passed: the branch policy admits `deploy/`, so it cannot reproduce the defect it
-repairs. The gate that is red on `main` is `main`'s own script, and it is red — **exit 1**,
-failing on `deploy/n-atlas-server/Dockerfile`, the first of the four `deploy/n-atlas-server/*`
-files. Corpora here are derived directly from git
-(`git ls-tree -r --name-only <rev>`), not from a working tree, so the main corpus contains no
-branch-only paths.
+repairs. Main's own script on main's own tree is red — **exit 1**, failing on
+`deploy/n-atlas-server/Dockerfile`, the first of the four `deploy/n-atlas-server/*` files.
+Corpora here are derived directly from git (`git ls-tree -r --name-only <rev>`), not from a
+working tree, so the main corpus contains no branch-only paths.
+
+## Precise scope of "red on main": the gate judges a RANGE, not a tree
+
+This distinction was understated in the first revision of this pass and is corrected here.
+
+`sg-02-fe-2-v.yml` step `mutation` does **not** judge a tree. It calls
+`python scripts/cp10_mutation_boundary_policy.py --resolve-range` and then judges
+`git diff --name-only "$base" HEAD` — `pull_request.base.sha` for a PR (the full PR range),
+`push.before` for a push. A tracked path that no commit in the range touched is **not judged**,
+even though it is present in the tree.
+
+The live CI record shows exactly that:
+
+| main push | run | CP10 range | result |
+|---|---|---|---|
+| `a27c6c80` (#352, added `deploy/n-atlas-server/`) | 37695297845 | `…a27c6c80` — includes the new path | **failure** — `Unexpected path outside legitimate surfaces: deploy/n-atlas-server/Dockerfile` |
+| `f96d5fd2` (#353) | 37697169171 | `2c6f6f1e..HEAD` — `api/auth.py`, `api/lab_routes.py`, `tests/test_natlas_developer_lab.py`, `web/console/src/**` | **success** |
+
+So the executed gate is **green on main at `f96d5fd2`**, because that push's range contained no
+`deploy/` path. The red state on main is therefore:
+
+- **Real and historical** on the merge that introduced the surface — `a27c6c80`, run
+  37695297845, conclusion `failure`. That is the defect.
+- **Latent** on main HEAD: any future push whose range includes a `deploy/` path is rejected,
+  and any PR whose range includes one is rejected. #354 removes this latent red by admitting
+  the surface.
+- **Red now, range-independently,** through the fitness tests. `test_m02a_ci_gate_integrity.py`
+  asserts the *tree* invariant against `git ls-files` (`test_allowlist_admits_every_tracked_top_level_prefix`,
+  `test_allowlist_covers_every_tracked_surface`, `test_delegated_verdict_admits_every_tracked_surface`),
+  so those three nodes are red on main's HEAD tree even though main's HEAD push was green.
+
+An earlier revision of this pass said only "main's own script on main's own tree exits 1", which
+is true of the fitness-test invariant but must not be read as "the executed gate is red on main
+HEAD". It is not; it is red at `a27c6c80` and latent thereafter. Both readings support the same
+remedy, but the executed decision is the one CI acts on.
 
 The premise stands. No correction to the Pass 1 defect claim is needed.
 
@@ -339,11 +373,25 @@ question recorded above and **not** touched here.
 `tests/fixtures/baseline_node_set.txt` (10 nodes) is a strict subset of main's live 17-node
 set, confirmed by set difference — consistent with its documented role as a partial ledger.
 
-## Trigger-path note
+## Trigger-path note — corrected
 
-`sg-02-fe-2-v.yml` is path-filtered and does not list `AGENTS.md` or `docs/**`. This pass's
-change is **evidence-documentation only**, so it does not re-trigger the CP10 job; the green
-run at `f7c212bd` remains the CP10 evidence for this branch. No policy or test file changed.
+An earlier revision of this section claimed the docs-only commit "does not re-trigger the CP10
+job". **That was wrong, and it was wrong in the direction of assuming an untested gate.**
+
+`sg-02-fe-2-v.yml` does not list `docs/**` or `AGENTS.md` in its `paths:` filters, but the
+filter is evaluated against the **whole PR diff** on `pull_request`, and the PR diff contains
+`scripts/cp10_mutation_boundary_policy.py` (a listed path). SG-02 therefore ran on the docs-only
+head as well, and passed:
+
+| head | SG-02-FE.2-V run | conclusion |
+|---|---|---|
+| `7b9f3309` | 37709354794 | success |
+| `f7c212bd` | 37710023311 | success |
+| `5f52ddab` (this docs-only commit) | 37711825051 | success |
+
+So the CP10 evidence for this branch is the **green run at the current head**, not merely at
+`f7c212bd`. Corrected because "the gate did not run" is exactly the kind of claim that must not
+be left standing — the honest statement is that it ran and passed.
 
 ## Pass 3 authorization boundary
 
