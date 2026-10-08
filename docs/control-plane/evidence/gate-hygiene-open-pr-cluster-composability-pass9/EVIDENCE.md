@@ -186,3 +186,16 @@ The pass-8 tests and manifest are kept unchanged, so the prior values remain rep
   semantic work, and this pass does not perform it.
 - `test_autonomy.py` collection error is untouched (CE-01, sovereign-reserved).
 - CI conclusions for either tree are not claimed; the measurements above are local.
+
+## 9. CI / credential observation (factual, not a claim)
+
+- All required check-runs on the pass-9 commit `eebc90c8` report **SUCCESS**: `Full-history secret
+  scan`, `beta-beta-01-english`, `beta-beta-02-hausa`, `native-arkadia-golden-workflow`,
+  `bundle-beta-evidence`, `Vercel Preview Comments`.
+- Commit status `Vercel – arkadia-prism` reports **failure**, but the **same context fails on
+  `main` `4edab519` itself** (verified with `/commits/<sha>/status`), so it is pre-existing
+  production/config debt, **not** attributable to this PR. `Vercel – console` fails on `main` but
+  succeeds on this head, so it is not load-bearing either.
+- Read-only measurement used `gh`/`git` over the ambient credential; nothing was pushed to `main`
+  and no PR was merged.
+

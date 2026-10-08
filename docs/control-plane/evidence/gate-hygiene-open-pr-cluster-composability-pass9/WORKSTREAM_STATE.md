@@ -6,8 +6,10 @@
 | gate | GATE-07 / GATE-10 hygiene (baseline-debt reduction; no authority change) |
 | status | **READY FOR SOVEREIGN MERGE** |
 | PR | #358 |
-| head | `20fd62e2e75cb0938bf6deb7889714eb815e7c33` (pass-9 commits on top) |
+| head | current head of `gate-hygiene/open-pr-cluster-composability-01` (see PR #358; a pinned SHA here self-invalidates on the next commit) |
 | base main | `4edab519a6033be2c4a1dface2c6e4b012b9be1c` |
+| pass-9 measured commit | `eebc90c84ceeac38d2a58f3aaa85b0eb101f613a` (pass-8 head was `20fd62e2`) |
+| checks on the pass-9 commit | all required check-runs SUCCESS (secret scan, beta ×2, native-golden, bundle); `Vercel – arkadia-prism` **failure is pre-existing on `main` `4edab519`**, not attributable to this PR |
 | changed paths | `tests/test_open_pr_cluster_composability.py`, pass-8 + pass-9 evidence dirs, `AGENTS.md` (tail append) |
 | production code | **none** |
 | node delta measured | cluster #354→#357 composed on `4edab519`: `main` 17 nodes → 8 nodes, `-9 / +0` |
