@@ -3,6 +3,7 @@ from __future__ import annotations
 """Fail-closed market reference extraction and comparability gates."""
 
 from html.parser import HTMLParser
+import xml.etree.ElementTree as ET
 from datetime import datetime
 import re
 from typing import Any
@@ -152,6 +153,64 @@ _NIGERIAN_STATES = {
     "KWARA", "LAGOS", "NASARAWA", "NIGER", "OGUN", "ONDO", "OSUN", "OYO",
     "PLATEAU", "RIVERS", "SOKOTO", "TARABA", "YOBE", "ZAMFARA",
 }
+
+
+def parse_afdb_rss_items(xml_text: str, *, feed_url: str):
+    """Parse official AfDB RSS items; reject malformed feeds and non-AfDB item links."""
+    try:
+        root = ET.fromstring(xml_text or "")
+    except ET.ParseError as exc:
+        raise ValueError("AfDB procurement RSS is not valid XML") from exc
+
+    def local_name(tag):
+        return tag.rsplit("}", 1)[-1].casefold()
+
+    items = []
+    for element in root.iter():
+        if local_name(element.tag) not in {"item", "entry"}:
+            continue
+        fields = {}
+        for child in list(element):
+            key = local_name(child.tag)
+            value = (child.text or "").strip()
+            if key == "link" and not value:
+                value = (child.attrib.get("href") or "").strip()
+            if value:
+                fields.setdefault(key, value)
+        title = fields.get("title", "").strip()
+        link = fields.get("link", "").strip()
+        target = urljoin(feed_url, link) if link else ""
+        parsed = urlparse(target)
+        if (not title or parsed.scheme != "https" or not parsed.hostname
+                or not (parsed.hostname == "afdb.org" or parsed.hostname.endswith(".afdb.org"))):
+            continue
+        description = fields.get("description") or fields.get("summary") or fields.get("content") or ""
+        from html import unescape
+        description = re.sub(r"\\s+", " ", re.sub(r"<[^>]+>", " ", unescape(description))).strip()
+        items.append({
+            "source_id": "afdb_procurement",
+            "source_url": target,
+            "title": title[:500],
+            "published_at": fields.get("pubdate") or fields.get("published") or fields.get("updated"),
+            "excerpt": description[:1800],
+        })
+    if not items:
+        raise ValueError("AfDB procurement RSS contained no valid official items")
+    return items
+
+
+def fetch_afdb_procurement_items(session, feed_url: str, timeout: int = 25):
+    response = session.get(
+        feed_url, timeout=timeout,
+        headers={"User-Agent": "Arkadia-Economic-Seam-Engine/1.0",
+                 "Accept": "application/rss+xml, application/xml, text/xml"},
+    )
+    response.raise_for_status()
+    payload = response.content
+    if len(payload) > 10 * 1024 * 1024:
+        raise ValueError("AfDB procurement RSS exceeds the 10 MiB response limit")
+    encoding = getattr(response, "encoding", None) or "utf-8"
+    return parse_afdb_rss_items(payload.decode(encoding, errors="replace"), feed_url=feed_url)
 
 
 def parse_nepc_pdf_text(text: str, *, source_url: str):
