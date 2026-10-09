@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '../lib/apiClient';
+import { useAuth } from '../contexts/AuthContext';
 
 type Entry = {
   id:string; prospect:string; location:string; commodity:string; quantity:string; buyer_price:string;
@@ -16,6 +17,34 @@ export default function OpportunityRadarPage(){
   const [prospect,setProspect]=useState('');
   const [location,setLocation]=useState('');
   const [commodity,setCommodity]=useState('');
+  const { isSovereign } = useAuth();
+  const [scanBusy,setScanBusy]=useState(false);
+  const [scanMessage,setScanMessage]=useState('');
+  const [scanResult,setScanResult]=useState<any>(null);
+  const [sourceRuns,setSourceRuns]=useState<Array<{source_id:string;last_run?:string;status?:string;item_count?:number;error?:string|null}>>([]);
+
+  async function loadScanStatus(){
+    try {
+      const r=await apiFetch('/api/economic-seams/status');
+      const data=await r.json();
+      if(!r.ok) throw new Error(data?.detail||r.statusText);
+      setSourceRuns(Array.isArray(data?.runs)?data.runs:[]);
+    } catch(e:any) { setScanMessage(String(e.message||e)); }
+  }
+
+  async function runEconomicScan(){
+    if(!isSovereign || scanBusy) return;
+    setScanBusy(true); setScanMessage('Scan requested. Waiting for provider results…'); setScanResult(null);
+    try {
+      const r=await apiFetch('/api/economic-seams/scan',{method:'POST'});
+      const data=await r.json();
+      if(!r.ok) throw new Error(data?.detail||r.statusText);
+      setScanResult(data);
+      setScanMessage('Scan request completed. Source results below are reported by the backend; persisted records still require verification.');
+      await loadScanStatus();
+    } catch(e:any) { setScanMessage(String(e.message||e)); }
+    finally { setScanBusy(false); }
+  }
 
   async function load(){
     setLoading(true);
@@ -27,7 +56,7 @@ export default function OpportunityRadarPage(){
     } catch(e:any){ setError(String(e.message||e)); }
     finally{ setLoading(false); }
   }
-  useEffect(()=>{ load(); },[]);
+  useEffect(()=>{ load(); void loadScanStatus(); },[]);
 
   async function add(){
     if(!prospect.trim()) return;
