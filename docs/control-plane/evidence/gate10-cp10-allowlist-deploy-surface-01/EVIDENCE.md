@@ -635,3 +635,43 @@ Documentation-only, on the existing dedicated branch, via the existing PR #354. 
 change, no denylist change, no test change, no `AGENTS.md` change, no merge, no push to
 `main`, no force-push, no authority-model change, no scope expansion. The Lab
 authentication-boundary A/B question remains reported, not resolved.
+
+## Pass 5 — composed onto current `main` and unblocked (2026-10-09)
+
+Measured at `main` `f9ced6b6` (2026-10-09). The PR had drifted to `CONFLICTING/DIRTY`
+because its base (`6e3e1dac`, 2026-10-07) predated the intervening `AGENTS.md` ledger
+appends. The conflict was **ledger-only**: `scripts/cp10_mutation_boundary_policy.py` was
+unchanged on `main` since the merge base
+(`git log <base>..main -- scripts/cp10_mutation_boundary_policy.py` → empty), and the three
+additive `deploy/` lines merge cleanly.
+
+- **Composed merge:** `7c0c83ad`, parents `536a8c43` (previous PR tip) + `f9ced6b6` (`main`).
+  The sole conflict was `AGENTS.md`, an append-only collision of two private ledger
+  sections. Resolved by keeping **both** sections — only the three conflict marker lines
+  were removed (markers gone, both section headings present once, Cyrillic count `0`, so no
+  cp866 mojibake was reintroduced). No text was dropped or rewritten.
+- Diff vs `main` is exactly the 4 intended files: `scripts/cp10_mutation_boundary_policy.py`,
+  `EVIDENCE.md`, `WORKSTREAM_STATE.md`, `AGENTS.md`.
+- **Proof of the repair:** `tests/test_m02a_ci_gate_integrity.py` -> **64 passed** (was
+  61P/3F). `tests/architecture` -> **11 passed** (11/11).
+  `scripts/cp10_mutation_boundary_policy.py --judge` -> PASS (exit 0).
+  `python -m py_compile api/main.py` -> OK; `api/main.py` = **2450** lines (budget 2600).
+- **Regression boundary (node identity, not counts), full clone, `-rEf
+  --continue-on-collection-errors`:** `main` `f9ced6b6` -> **16** nodes,
+  `facc29a91e12fa3437362c6c4d40ac837393da7f4856c1bf018795d1032f87ed`; branch `7c0c83ad` ->
+  **13** nodes, `1212cbd96dbb3002d85c44ddde6aff85d064d4ae87f4119ec6344ea95e57f827`.
+  `main - branch` = exactly the 3 `test_m02a_ci_gate_integrity` nodes; `branch - main` =
+  **empty**. Zero nodes introduced. 12 pre-existing failures + 1 collection error
+  (`tests/test_autonomy.py`, the CE-01 module-vs-package collision) remain — recorded debt,
+  not repaired here.
+- `gh pr view 354` after the push: `mergeable=MERGEABLE`, `mergeStateStatus=UNSTABLE`
+  (was `CONFLICTING/DIRTY`).
+
+## Pass 5 authorization boundary
+
+Merge composition (`main` into the PR branch) plus `AGENTS.md` conflict resolution and
+in-repo evidence/state recording, on the existing dedicated branch, via the existing PR #354.
+No policy change beyond the already-present additive `deploy/` rule, no denylist change, no
+test change, no merge to `main`, no push to `main`, no force-push, no authority-model change,
+no scope expansion. The Lab authentication-boundary A/B question remains reported, not
+resolved. Merge remains the sovereign's action.

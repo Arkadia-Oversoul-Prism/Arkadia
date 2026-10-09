@@ -113,3 +113,17 @@ rate-limit status.
 - Consequence: the earlier "read-only token, push not possible" classification is
   **superseded** — it was the wrong token. Push is available; the authority boundary (no merge,
   no push to `main`) is unchanged and was respected.
+
+### Pass 5 next-action block (2026-10-09, after composing onto `main` `f9ced6b6`)
+
+- **Current state:** #354 composed onto current `main`. Head `7c0c83ad`; `MERGEABLE` /
+  `UNSTABLE`. `AGENTS.md` ledger conflict resolved keeping both sections.
+- **Evidence:** CP10 integrity 64 passed; architecture 11/11; judge PASS; node set
+  `main` 16 -> branch 13, removed = the 3 CP10 nodes, introduced = 0 (hashes in `EVIDENCE.md`).
+- **Blockers:** none for the PR itself. Sovereign merge is the only remaining step.
+- **Authorized actions (next pass):** reconstruct `main`; if #354 is merged, verify the CP10
+  gate and `test_m02a_ci_gate_integrity` are green on the merge commit; otherwise continue
+  the existing PR. Do not open a duplicate.
+- **Forbidden:** merge, push to `main`, force-push, policy/denylist/test/authority changes,
+  `api/lab_routes.py` or `api/auth.py` edits, scope expansion.
+- **Completion condition:** #354 merged by the sovereign and `main`'s CP10 gate green.
