@@ -14,6 +14,18 @@ This record is separate from the sealed `NATLAS-LAB-001` technical proof and fro
 
 The test session is short-lived and limited to the N-ATLaS tester path. Do not enter personal, confidential, or sensitive information into the prompt.
 
+## Separate provider-forensics observation (not human beta evidence)
+
+- Workflow run: [37956314731](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/37956314731), conclusion **SUCCESS**.
+- Workflow head: `9536175a8aff23dfa51fb04fa10f827efd7e30ec`.
+- Artifact: [natlas-provider-forensics, ID 11628790151](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/37956314731/artifacts/11628790151); SHA-256 `f035e15718de087cc0f6d09fcb6fe124255cce105366106a997c61b936435767`.
+- Runtime submit: HTTP 200; event ID `0677708e7bc7422bb82e817700010bda`.
+- SSE terminal event: `complete`; terminal payload parsed and includes a response claiming model `NCAIR1/N-ATLaS`, provider `ednai_zerogpu`, and usage totals of 87 tokens (68 prompt, 19 completion).
+- Observed output: “Kindly forward the document at your earliest convenience for our review ahead of the meeting.”
+- Runtime source metadata SHA: `b72ca9cfa9d87781b682aa9710df642a3744f177`.
+- Authenticated Hugging Face runtime events/logs: **SKIPPED**, because the GitHub Actions `HF_TOKEN` secret was absent. No provider runtime exception was retrieved. This run demonstrates a successful public inference response in this reproduction; it does **not** explain the earlier event or establish its root cause.
+- This automated forensic run is not a human beta test and must not be counted as tester A or B.
+
 ## Tester record A
 
 - Independent tester stable pseudonym or name:
