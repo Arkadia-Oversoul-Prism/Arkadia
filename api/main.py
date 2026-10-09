@@ -814,7 +814,15 @@ from api.arkana_signal_commune import gemini_signal_chat as _gemini_signal_chat
 # ── ROUTES ────────────────────────────────────────────────────────────────────
 
 @app.get("/")
-async def root():
+async def root(request: Request):
+    # Browser navigation gets the canonical Arkadia SPA; non-browser probes retain
+    # the historical liveness payload. /api/heartbeat remains the explicit probe.
+    if "text/html" in request.headers.get("accept", "").lower():
+        frontend_index = _os.path.abspath(
+            _os.path.join(_os.path.dirname(__file__), "..", "web", "public_prism", "dist", "index.html")
+        )
+        if _os.path.isfile(frontend_index):
+            return FileResponse(frontend_index)
     return {"message": "Arkadia Mind is breathing."}
 
 
@@ -2433,30 +2441,7 @@ async def agent_spawn(request: Request, user: dict = Depends(_require_auth)):
 from api.ceo_chat_routes import router as _ceo_chat_router
 app.include_router(_ceo_chat_router)
 
-# ── Canonical N-ATLaS Lab frontend ─────────────────────────────────────────
-# The focused N-ATLaS Lab is served by the same FastAPI origin as the governed
-# Engineering Lab API. Assets are origin-rooted so the same build can serve the
-# canonical /n-atlas-lab route and the temporary-beta compatibility alias.
-_CONSOLE_DIST = _os.path.abspath(
-    _os.path.join(_os.path.dirname(__file__), "..", "web", "console", "dist")
-)
-if _os.path.isdir(_CONSOLE_DIST):
-    app.mount(
-        "/assets",
-        StaticFiles(directory=_os.path.join(_CONSOLE_DIST, "assets")),
-        name="console-assets",
-    )
+# ── Canonical single-origin frontend composition ────────────────────────────
+from api.frontend_routes import configure_frontends
 
-    @app.get("/n-atlas-lab", include_in_schema=False)
-    @app.get("/n-atlas-lab/", include_in_schema=False)
-    @app.get("/n-atlas-tester", include_in_schema=False)
-    @app.get("/n-atlas-tester/", include_in_schema=False)
-    async def n_atlas_lab_frontend() -> FileResponse:
-        return FileResponse(_os.path.join(_CONSOLE_DIST, "index.html"))
-
-    logger.info("[N-ATLAS] Canonical Lab frontend mounted at /n-atlas-lab")
-else:
-    logger.warning(
-        "[N-ATLAS] Console dist not found; N-ATLaS Lab frontend is unavailable. "
-        "The Render Docker build must run the console build stage."
-    )
+configure_frontends(app)
