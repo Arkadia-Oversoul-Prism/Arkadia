@@ -39,10 +39,23 @@ The new routing tests exercise:
 - unknown API and SolSpire paths remain 404;
 - missing build output does not synthesize a frontend response.
 
+## CI measurements (GitHub Actions, 2026-10-09)
+
+On the implementation tree before this evidence-only update:
+
+- `tests/test_canonical_frontend_routing.py`: **2 passed**.
+- N-ATLaS provider tests: **8 passed, 1 skipped**.
+- Operator console TypeScript + Vite production build: **success**.
+- Docker build of the combined image: **success**; both frontends built (3,447 Prism modules and 56 console modules) and both dist directories copied into the final image.
+- N-ATLaS external beta validation: English and Hausa beta jobs and evidence bundling **success**.
+- Full-history secret scan: **success**.
+- Vercel checks remain **failure** due the provider's build-rate-limit response. Those checks are not the canonical Render Docker build and do not establish a Render failure.
+
+The workflow is configured to rerun the route tests, frontend build, and Docker image build when this evidence directory changes.
+
 ## Not yet established
 
-- Tests and Docker build have not yet been run in CI for this branch.
-- No deployment has been triggered by this change.
+- No production deployment has been triggered by this change.
 - No live browser observation has been completed against the proposed unified
   deployment.
 - No route-by-route parity claim has been made.
