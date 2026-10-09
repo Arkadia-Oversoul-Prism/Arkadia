@@ -23,9 +23,11 @@ export function SecurityVerification() {
     setAttestation(null);
     setMessage("Running bounded authorization probes…");
     const next: Row[] = [];
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 12000);
     try {
       try {
-        await api.get<Attestation>("/api/operator/security-verification", { auth: false });
+        await api.get<Attestation>("/api/operator/security-verification", { auth: false, signal: controller.signal });
         next.push({ id: "anonymous_401", status: "FAIL", detail: "Unauthenticated request unexpectedly succeeded." });
       } catch (error) {
         const status = statusOf(error);
@@ -37,7 +39,7 @@ export function SecurityVerification() {
       }
 
       try {
-        await api.get<Attestation>("/api/operator/security-verification", { token: "invalid.security-verification.token" });
+        await api.get<Attestation>("/api/operator/security-verification", { token: "invalid.security-verification.token", signal: controller.signal });
         next.push({ id: "invalid_token_401", status: "FAIL", detail: "Invalid bearer token unexpectedly succeeded." });
       } catch (error) {
         const status = statusOf(error);
@@ -49,7 +51,7 @@ export function SecurityVerification() {
       }
 
       try {
-        const result = await api.get<Attestation>("/api/operator/security-verification");
+        const result = await api.get<Attestation>("/api/operator/security-verification", { signal: controller.signal });
         setAttestation(result);
         const accepted = expectedIdentity === "sovereign" && result.result === "PASS";
         next.push({
@@ -84,6 +86,7 @@ export function SecurityVerification() {
           : "Authorization-denial probes passed. Repeat with the sovereign session to obtain the server attestation.")
         : "Verification has failed or unresolved checks. No credentials or caller identifiers were displayed.");
     } finally {
+      window.clearTimeout(timeoutId);
       setRunning(false);
     }
   }
