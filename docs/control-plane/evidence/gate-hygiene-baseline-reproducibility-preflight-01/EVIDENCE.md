@@ -156,6 +156,14 @@ being the pre-existing CP10 `deploy/n-atlas-server/` allowlist omission, reprodu
 `test_push_and_pull_request_filters_are_identical` passes: the new workflow's `push` and
 `pull_request` filters are identical, as that guard requires.
 
+### Runtime proof (the wiring is executed, not merely present)
+
+Wiring is no longer a source-level claim. At head `d4f07881` the workflow ran under
+CI: run **`38001869735`**, `event=pull_request`, `status=completed`,
+`conclusion=success`, `headSha=d4f0788103ac1355506c389005ce57884f66192b`. All **7**
+check-runs on that commit are `completed/success`, including `baseline-preflight` and
+`Full-history secret scan`.
+
 ## 6. Authority boundary
 
 A read-only preflight script and its guard test. No merge, no push to `main`, no
