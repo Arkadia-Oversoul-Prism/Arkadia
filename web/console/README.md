@@ -62,43 +62,40 @@ Standing non-claims (Render UNVERIFIED, Flamekeeper UNPROVISIONED,
 AUTHORITY-CLOSURE-01 PRE-PRODUCTION, NOT DEPLOYED) render persistently in the
 shell. They are not dismissible.
 
-## Deployment (Vercel) — and the Root Directory requirement
+## Deployment (canonical Render runtime)
 
-This is a **nested** Vite app. The repository's Vercel project currently serves
-`web/public_prism`; to serve the console instead (Option B) the project's **Root
-Directory** must be repointed — see below.
+Arkadia's production application is served from one Render web service:
+`https://arkadia-kw64.onrender.com` (Render service `Arkadia`, repository branch
+`main`, root `Dockerfile`). The Docker image builds both frontend applications
+and the FastAPI backend together.
 
-### The blocking setting: Root Directory
-
-Vercel's project **Root Directory** is set to `web/public_prism`. When Root
-Directory is set, Vercel uses the `vercel.json` **inside that directory**
-(`web/public_prism/vercel.json`) and **ignores the repository-root `vercel.json`**.
-Consequence, measured: commits that change only the root `vercel.json` (e.g. the
-repoint in #186) advance the production deployment but do **not** change what is
-served — `arkadia-prism.vercel.app` still returns `web/public_prism`'s bundle.
-
-To serve the console, set, in Vercel → Project → Settings → Build & Development:
-
-| Setting | Value |
+| Path | Surface |
 |---|---|
-| Root Directory | `web/console` |
-| Framework Preset | Vite |
-| Install Command | `pnpm install --frozen-lockfile` |
-| Build Command | `pnpm run build` (`tsc -b && vite build`) |
-| Output Directory | `dist` (relative to the Root Directory) |
-| Rewrite | `/(.*)` → `/index.html` (SPA routes) |
+| `/` and existing public app routes | Primary Arkadia experience: Solariun, Arkana, Canvas, and existing user-facing surfaces |
+| `/operator/` | Reconciled governance/operator console |
+| `/n-atlas-lab`, `/n-atlas-tester` | Focused N-ATLaS Lab compatibility routes |
+| `/api/*`, `/solspire/*`, `/health` | Existing backend APIs on the same origin |
 
-`vercel.json` in this directory pins the same contract once Root Directory is
-`web/console`. `pnpm`, not npm: the repository moved Vercel installs to pnpm
-because npm's CLI crashed on Vercel (`npm/cli#8404`); `pnpm-lock.yaml` is
-committed here to match.
+The primary frontend's build output is served at the origin root. The operator
+console is built with the `/operator/` asset base so its bundle cannot collide
+with the primary app's `/assets/*`. The existing N-ATLaS direct routes load the
+same operator bundle without creating a second service.
 
-The rewrite is required: `/inspector`, `/work`, `/authority`, and
-`/boundary/:id` are client-side routes and would 404 without it.
+## Legacy deployment boundary
 
-Note: repointing the Root Directory **replaces** the previous `web/public_prism`
-surface at `arkadia-prism.vercel.app`; that app is no longer served there.
+`web/public_prism` is retained as source for the existing Solariun/Arkana and
+Canvas experience during this consolidation. It is **not** intended to remain a
+separate production deployment. Do not archive or delete this source directory
+until the required screens and routes have been migrated or their continued
+ownership is explicitly decided. The former Vercel alias is not the canonical
+runtime; decommissioning external aliases and dormant Render static sites is a
+separate retirement step after route and runtime verification.
 
-`src/api/client.ts` reads `VITE_API_BASE` at build time (default `""`). Set
-`VITE_API_BASE` to the backend origin in the project's environment variables if
-the API is not same-origin.
+## Verification boundary
+
+A successful Docker build proves packaging, not full production parity. Before
+retiring legacy deployment targets, verify the root UI, Solariun Canvas routes,
+Arkana interaction, operator routes, N-ATLaS direct routes, same-origin API calls,
+authentication boundaries, and emitted Gate-2 evidence. Browser inspection blocked
+by deployment protection remains `BLOCKED`; unobserved behavior remains
+`UNKNOWN`; human acceptance remains `NOT CLAIMED`.
