@@ -173,11 +173,29 @@ Spiral Grove registry declaration-order vs topological-order contract; baseline 
   `python scripts/baseline_fingerprint.py <pytest log>` prints both values below and is
   covered by `tests/test_baseline_fingerprint.py`.
   - outcomes (canonical): `sha256("\n".join(sorted("FAILED|ERROR <nodeid>")) + "\n")` =
-    `26c2b4c7b5efb56d0d54ab5888cdf955589f7633490c9a0c33d1ef63bba85798`
+    `bfcfe5920c3789302e80c72618e1f280e3577a8395320c89f174147cd11ec733`
   - node set: `sha256("\n".join(sorted("<nodeid>")) + "\n")` =
-    `571e599f91e680fe41f7318b6000c84dee8edc7c9c0535a3c897c7da89881224`
-  - The recorded node set is `tests/fixtures/baseline_node_set.txt` (17 nodes); the two
+    `ed5e4714df236078d6eb04cb43197c22403d2c244caa3e7bc7d71d45f6c0a833`
+  - The recorded node set is `tests/fixtures/baseline_node_set.txt` (16 nodes); the two
     values above are what the script prints for it.
+  > **Superseded 2026-10-09** (`gate-hygiene/open-pr-owned-baseline-drift-01`): `main`
+  > advanced through #371, which added the n-atlas workflow's self-selection line, so the
+  > node credited to open PR #355 began *passing* while #355 stayed open. A live run on
+  > `main` `43c3e2b1` reports **15 failed / 1 error** — 16 failing/error nodes. The 17-node
+  > set recorded at the branch's base `44137991` is retained in
+  > `tests/fixtures/superseded_baseline_node_set_17.txt`; its pair is superseded, do not
+  > republish it.
+  > **Addendum 2026-10-09** (`gate-hygiene/open-pr-owned-baseline-drift-01`): the **era
+  > set** (the 10-node set recorded before the 17-node correction) is not uniformly unowned.
+  > PR #357 repairs 3 of its nodes; re-measured this pass, #363 (head `aa77f364`) repairs 2
+  > more (`test_identity_spine_w1.py`, `test_m02_reasomate_truth.py`) and #365 (head
+  > `d8679b49`) repairs 3 (`test_steward_filter.py`), so the era split is `10 = 8 owned + 2
+  > unowned`. Residual unowned era debt is **two** nodes: the `test_autonomy.py` ERROR
+  > (CE-01, sovereign-reserved) and
+  > `test_ais_w2_living_gate_grove_handoff.py::test_no_firebase_persistence_in_gate`. The
+  > era-set ownership is now `tests/fixtures/era_set_open_pr_owned_node_set.txt` (8 entries,
+  > tab-separated) guarded by `tests/test_baseline_fingerprint.py`; guard file **35 passed**,
+  > negative control (bogus fixture entry) **3 failed, 32 passed**. See EVIDENCE.md section 15.
   > **Superseded 2026-10-08** (`gate-hygiene/open-pr-owned-baseline-drift-01`): a live
   > `-rEf --continue-on-collection-errors` run on `main` `44137991` reported **16 failed /
   > 1772 passed / 22 skipped / 1 error** — 17 failing/error nodes — while the recorded set

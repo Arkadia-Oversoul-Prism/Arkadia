@@ -19,6 +19,7 @@
 | depth-repair (this pass) | the four `DEPTH1_CLONE_DEPENDENT_NODES` now decline (`skip`) when their pinned `AGENTS.md` revision is unresolvable, and the CLI summary node accepts the documented undecided exit `2`. The fingerprint probe's "must fail in a bare clone" pin is superseded by "must not fail in **any** clone regime". Measured: full history **17** nodes, `--depth 1` clone of this head **17** nodes, node-set sha256 `26c2b4c7â€¦` **identical** (`-4 / +0`). Test/evidence only. |
 | probe gate repair (Â§10) | the live probe's `--is-shallow-repository` predicate was `true` in *both* the automation's partial clone and a true `--depth 1` clone, so the probe failed its own assertion (empty failed set) instead of skipping. Re-gated on whether `AGENTS.md` history is absent (â‰¤ 1 revision) and both directions are now asserted. Measured: 30 passed in both regimes; 1 failed on the branch's own CI before. |
 | era-set ownership (Â§13) | the measured fact that #357 repairs three of the era set's ten nodes was prose-only; it is now `tests/fixtures/era_set_open_pr_owned_node_set.txt` plus three guards. Negative control: appending a bogus entry to the fixture â†’ `3 failed, 30 passed`; restored â†’ `33 passed`. `era_set âˆª drift == the recorded 17`. |
+| era-set ownership re-measured (2026-10-09) | #363 (head `aa77f364`) repairs 2 of the 7 residual era-set nodes and #365 (head `d8679b49`) repairs 3, so the era fixture grew 3 -> 8 and the split is `10 = 8 owned + 2 unowned`. Residual unowned era debt = `test_autonomy.py` ERROR (CE-01, sovereign-reserved) + `test_ais_w2_living_gate_grove_handoff.py::test_no_firebase_persistence_in_gate`. Negative control: bogus fixture entry -> `3 failed, 32 passed`; restored -> `35 passed` (guard file). See EVIDENCE.md section 15. |
 | status | IMPLEMENTED â€” ready for sovereign review |
 | independent re-verification (Â§11) | re-derived from a fresh clone: canonical pair reproduced from a live `main` run; all 7 drift-set nodes re-run at their owner heads (all pass); compositional guard proven by editing the recorded fixture itself (2 failed, 28 passed), not just the predicate |
 
@@ -48,9 +49,11 @@
   failures remain `main` debt owned by open PR #354; the `test_autonomy.py` ERROR is the
   sovereign-reserved CE-01 collision.
 - **Authorized next action**: sovereign review and merge of this PR. Then re-measure `main`
-  and, with #347/#354/#355/#356 (drift-set owners) and #357 (repairs three era-set solspire
-  nodes) merged, expect the recorded set to shrink â€” re-run the
-  fingerprint pass rather than reuse this pair.
+  and, with #347/#354/#356/#363/#365 (drift-set/era-set owners) and #357 (repairs three era-set
+  solspire nodes) merged, expect the recorded set to shrink â€” re-run the
+  fingerprint pass rather than reuse this pair. **Re-measured 2026-10-09 (`main` `43c3e2b1`)**:
+  the residual unowned era-set debt is now **two** nodes, not seven (#363/#365 close five of
+  the seven section 13 recorded) â€” see EVIDENCE.md section 15.
 - **Pass 13 addendum (base advance, no rebase)**: `main` moved
   `44137991 → 24a00f85` (two natlas HF-auth commits, `lab/engineering_lab/natlas.py` only).
   Disjoint from this change set, so `mergeable=MERGEABLE` / `mergeStateStatus=CLEAN` and no

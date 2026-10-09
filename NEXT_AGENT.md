@@ -110,17 +110,18 @@ reconciliation, NovaNet sample-data removal.
 
 Re-measured 2026-10-04 on `main` @ `1b7c089`:
 
-- Full suite: **16 failed / 1776 passed / 22 skipped / 1 error**. The recorded set is the
-  **17 failing/error nodes** a live run reports (`tests/fixtures/baseline_node_set.txt`);
-  7 of them are repaired by open PRs (#347 / #354 / #355 / #356) and listed in
+- Full suite: **15 failed / 1837 passed / 20 skipped / 1 error** (re-measured 2026-10-09 on
+  `main` `43c3e2b1`). The recorded set is the **16 failing/error nodes** a live run reports
+  (`tests/fixtures/baseline_node_set.txt`); 6 of them are repaired by open PRs
+  (#347 / #354 / #356) and listed in
   `tests/fixtures/open_pr_owned_drift_node_set.txt`. The prior 10-node recorded set is
   retained in `tests/fixtures/superseded_baseline_node_set_10.txt`, and the older 18-node
   set in `tests/fixtures/superseded_baseline_node_set_18.txt`.
 - Fingerprint `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `26c2b4c7b5efb56d0d54ab5888cdf955589f7633490c9a0c33d1ef63bba85798`
-  (node set `571e599f…`; recorded nodes in `tests/fixtures/baseline_node_set.txt`). Earlier
-  published pairs (`a59453b8…`, `9a35c812…`, `4d84e7eb…`, `da2ec262…`, `9a54f5b4…`/
-  `124bfdfd…`, and `6c7bf821…`/`2bc35996…`) are superseded — do not reuse them. See
+  `bfcfe5920c3789302e80c72618e1f280e3577a8395320c89f174147cd11ec733`
+  (node set `ed5e4714…`; recorded nodes in `tests/fixtures/baseline_node_set.txt`). Earlier
+  published pairs (`26c2b4c7…`/`571e599f…`, `a59453b8…`, `9a35c812…`, `4d84e7eb…`,
+  `da2ec262…`, `9a54f5b4…`/`124bfdfd…`, and `6c7bf821…`/`2bc35996…`) are superseded — do not reuse them. See
   `docs/control-plane/evidence/gate-hygiene-open-pr-owned-baseline-drift-01/`.
 
 Counts are environment-sensitive and at least one node

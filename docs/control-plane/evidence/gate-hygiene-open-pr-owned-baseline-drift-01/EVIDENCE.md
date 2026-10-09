@@ -71,11 +71,13 @@ unowned: PR #357 (head `4c3d8fb8`) repairs three of them —
 `test_solspire_r3_execution_runtime.py::test_runtime_is_explicitly_non_governed_and_blocks_mutation_tools`
 (fail on `main`, 3 passed at #357's head). The remaining seven era-set nodes
 (`test_autonomy.py` ERROR, `test_steward_filter.py`, `test_identity_spine_w1.py`,
-`test_m02_reasomate_truth.py`, `test_ais_w2_living_gate_grove_handoff.py`) have no open-PR
-owner — `gh pr view <n> --json files` across #337–#360 shows no PR touching them, so they
-remain pre-existing era debt. Either way the recorded set shrinks on merge: whether a node is
-repaired by a drift-set owner or an era-set owner, the next pass must re-measure rather than
-reuse this pair.
+`test_m02_reasomate_truth.py`, `test_ais_w2_living_gate_grove_handoff.py`) had no open-PR
+owner at this measurement. **Superseded 2026-10-09 (see §14)**: a later measurement found
+#363/#365 repair five of those seven — #363 the identity/ReasoMate nodes, #365 three
+`test_steward_filter.py` nodes — leaving a residual of **two** unowned era-set nodes
+(`test_autonomy.py` ERROR and `test_ais_w2_living_gate_grove_handoff.py`). Either way the
+recorded set shrinks on merge: whether a node is repaired by a drift-set owner or an era-set
+owner, the next pass must re-measure rather than reuse this pair.
 
 ## 3. Canonical fingerprint (fixture and a live run agree)
 
@@ -471,10 +473,12 @@ open PR repairs, and `era_set ∪ drift == the recorded 17`.
   owner PR (an entry with no owner could never be cleared on merge), and is disjoint from the
   drift fixture.
 - `test_era_set_ownership_is_reported_for_every_era_set_open_pr` — the split is derived
-  (`10 = 3 owned + 7 unowned`) and the three owned nodes are asserted to still be live debt.
+  (`10 = 3 owned + 7 unowned`; **superseded 2026-10-09 → `8 owned + 2 unowned`**, see §15) and
+  the owned nodes are asserted to still be live debt.
 - `test_recorded_counts_are_derived_from_the_fixtures_not_prose` — pins the recorded counts
-  (`16 failed`, `1 error`, `17` nodes, `10/3/7` era split, `7` drift) and re-derives them from
-  the fixtures, so a fixture edit that leaves a stale count fails instead of shipping.
+  (`16 failed`, `1 error`, `17` nodes, `10/3/7` era split, `7` drift; **era split and drift
+  superseded 2026-10-09 → `10/8/2` and `6`**, see §15) and re-derives them from the fixtures,
+  so a fixture edit that leaves a stale count fails instead of shipping.
 
 ### 13.3 Negative control — the guards detect the defect they claim to detect
 
@@ -638,3 +642,87 @@ consecutive pushes in this pass showed `UNSTABLE` on the first reads and `CLEAN`
 registered; the settled value is the one to record.
 Status: **IMPLEMENTED** — proof complete for the reconciliation and the guards, merge withheld
 for human authority.
+
+
+## 15. Addendum — era-set ownership re-measured; #363/#365 close five of the residual seven (2026-10-09)
+
+### 15.1 What was re-measured
+
+`main` advanced to `43c3e2b1` and two PRs opened **after** §13 was written were found to own
+five of the seven nodes §2/§13 had recorded as unowned. Measured from live PR contents
+(`pulls/{n}/files`) and from each owner's head:
+
+| owner PR | head | era-set nodes it repairs | `main` | owner head |
+|---|---|---|---|---|
+| #363 | `aa77f364` | `test_identity_spine_w1.py::test_node_entry_is_ais_signup_not_a_separate_diagnostic_route`, `test_m02_reasomate_truth.py::test_oracle_runtime_uses_the_shared_session_key` | FAILED | 2 passed |
+| #365 | `d8679b49` | `test_steward_filter.py::test_allows_mythic_with_action`, `::test_blocks_identity_claims`, `::test_compress_to_choices` | FAILED | 3 passed |
+
+So the era-set split is now `10 = 8 owned + 2 unowned`. The **residual unowned era-set debt is
+two nodes**:
+
+- `ERROR tests/test_autonomy.py` — the sovereign-reserved CE-01 module-vs-package collision.
+- `FAILED tests/test_ais_w2_living_gate_grove_handoff.py::test_no_firebase_persistence_in_gate` —
+  the `ais_w2` surface repair, no open-PR owner at this measurement.
+
+This is the same failure mode §13 named, one pass later: an attribution recorded as prose (or
+as a fixture) drifts when a new PR is opened against the same file, and nothing reads the prose.
+Nothing about the two nodes above is a regression — both are pre-existing `main` debt.
+
+### 15.2 What changed
+
+| path | change |
+|---|---|
+| `tests/fixtures/era_set_open_pr_owned_node_set.txt` | 3 → **8** entries (#357 ×3, #363 ×2, #365 ×3); header re-measured |
+| `tests/test_baseline_fingerprint.py` | `test_era_set_open_pr_owned_nodes_are_in_the_era_set` 3 → 8; `test_era_set_ownership_is_reported_for_every_era_set_open_pr` `10 = 8 + 2`; `RECORDED_BASELINE_COUNTS["era_set_open_pr_owned"]` 3 → 8, `["era_set_unowned"]` 7 → 2 |
+| `docs/control-plane/evidence/gate-hygiene-open-pr-owned-baseline-drift-01/EVIDENCE.md` | §2 era-set paragraph annotated **Superseded 2026-10-09**; this addendum |
+| `WORKSTREAM_STATE.md` (§13 row and next-action) | re-measured |
+
+### 15.3 Guards — and the negative control
+
+The guard suite is **44 passed** (guard file alone: 35). The three era-set/count guards are not
+merely updated to the new numbers: they *derive* the split from the fixtures, so a fixture edit
+that leaves a stale count fails. Negative control re-run this pass — appended
+`tests/test_nonexistent.py::test_not_era_debt\t999` to the era fixture:
+
+```
+FAILED tests/test_baseline_fingerprint.py::test_era_set_open_pr_owned_nodes_are_in_the_era_set
+FAILED tests/test_baseline_fingerprint.py::test_era_set_ownership_is_reported_for_every_era_set_open_pr
+FAILED tests/test_baseline_fingerprint.py::test_recorded_counts_are_derived_from_the_fixtures_not_prose
+3 failed, 32 passed
+```
+
+Restored → **35 passed** in the guard file. Same shape as §11.3/§13.3: edit the fixture the
+guard reads, not the predicate.
+
+### 15.4 Boundary
+
+Test/evidence only. No production file, no `api/main.py` (`py_compile` OK, 2447 lines). No
+merge, no push to `main`, no force-push.
+
+Note on §14.5's "17 live node ids": superseded by the `main`-advance correction recorded at the
+16-node canonical pair (`bfcfe592…` / `ed5e4714…`). The live-vs-fixture equality claim holds at
+**16** nodes; the earlier 17-node equality held at its own revision.
+
+### 15.5 Full-suite measurement of both trees this pass
+
+Measured, not inherited. Both runs `PYTHONPATH=<repo>/archive/legacy_python python -m pytest
+tests/ -q -rEf --continue-on-collection-errors`, in separate worktrees:
+
+| tree | revision | measured | nodes | ids fingerprint |
+|---|---|---|---|---|
+| `main` | `43c3e2b1` | `15 failed, 1837 passed, 20 skipped, 1 error` | 16 | `ed5e4714…` |
+| this branch | `6ec56386` | `15 failed, 1848 passed, 20 skipped, 1 error` | 16 | `ed5e4714…` |
+
+Sorted FAILED/ERROR node **set** delta = **zero** (`only branch: set()`, `only main: set()`),
+so the `+11 passed` is this pass's new guard functions, not a repaired node. This is the
+environment-independent claim; the counts above are environment-sensitive and are recorded,
+not pinned.
+
+**Correction, recorded rather than dropped:** the first draft of the doc edits cited
+`15 failed / 1777 passed / 22 skipped` and called it measured. It was **not** — it was a
+transcription (1776 + 1) of a stale figure. Re-measured this pass, the values are
+`1837 passed / 20 skipped` on `main` and `1848 / 20` on the branch. Both `MISSION.md` and
+`NEXT_AGENT.md` now carry the measured numbers. The failing/error **counts** (15/1) and the
+node set were correct in both drafts; only the passed/skipped counts were wrong, and because
+they are not fingerprint inputs the canonical pair was never at risk. Recorded because
+"counts that were transcribed rather than measured" is exactly the failure mode §14.4 names.

@@ -1,17 +1,28 @@
 # Nodes in the *era* set (the 10-node recorded set) whose repair is carried by an OPEN
-# pull request. Each entry: '<node id>\t<owner PR>'. Measured at main 44137991 (2026-10-08).
+# pull request. Each entry: '<node id>\t<owner PR>'. Measured at main 44137991 (2026-10-08),
+# re-measured at main 43c3e2b1 (2026-10-09).
 #
-# The drift fixture (open_pr_owned_drift_node_set.txt) records the 7 nodes a live run added
+# The drift fixture (open_pr_owned_drift_node_set.txt) records the 6 nodes a live run added
 # *beyond* the era set. This fixture records the complementary fact the earlier pass left in
-# prose only: the era set is not uniformly unowned. PR #357 repairs three of its ten nodes,
-# so "era set" and "unowned" are not synonyms — recording the ownership makes the next pass
-# read it from a fixture instead of re-deriving it, and makes the residual unowned set
-# (test_autonomy.py, test_steward_filter.py x3, test_identity_spine_w1.py,
-# test_m02_reasomate_truth.py, test_ais_w2_living_gate_grove_handoff.py — seven nodes)
+# prose only: the era set is not uniformly unowned. #357 repairs three of its ten nodes and
+# #363/#365 repair five more, so "era set" and "unowned" are not synonyms - recording the
+# ownership makes the next pass read it from a fixture instead of re-deriving it, and makes
+# the residual unowned set (test_autonomy.py ERROR, and
+# test_ais_w2_living_gate_grove_handoff.py::test_no_firebase_persistence_in_gate - two nodes)
 # the explicitly measured remainder rather than an inference.
+#
+# Re-measured 2026-10-09: the drift fixture already named #347/#354/#356 as drift-set owners,
+# but the era set's remaining owners were re-derivable only. #363 (head aa77f364) passes the
+# two identity/ReasoMate nodes and #365 (head d8679b49) passes the three steward-filter
+# nodes; both fail on main, so the residual unowned era debt is two nodes, not seven.
 #
 # Remove an entry when its owner merges; the next pass must re-measure, not reuse this set.
 # See docs/control-plane/evidence/gate-hygiene-open-pr-owned-baseline-drift-01/.
 tests/test_solspire_r1_governance_convergence.py::test_r1_solspire_builders_delegate_to_weaver	357
 tests/test_solspire_r1_governance_convergence.py::test_r1_weaver_governance_is_canonical	357
 tests/test_solspire_r3_execution_runtime.py::test_runtime_is_explicitly_non_governed_and_blocks_mutation_tools	357
+tests/test_identity_spine_w1.py::test_node_entry_is_ais_signup_not_a_separate_diagnostic_route	363
+tests/test_m02_reasomate_truth.py::test_oracle_runtime_uses_the_shared_session_key	363
+tests/test_steward_filter.py::test_allows_mythic_with_action	365
+tests/test_steward_filter.py::test_blocks_identity_claims	365
+tests/test_steward_filter.py::test_compress_to_choices	365

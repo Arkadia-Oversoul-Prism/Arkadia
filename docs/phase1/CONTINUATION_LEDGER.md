@@ -1769,7 +1769,14 @@ or mutation-path surface was touched.
   > 20-node set.
 - Baseline fingerprint independently reproduced from the measured node list:
   `sha256("\n".join(sorted(FAILED/ERROR node ids)) + "\n")` =
-  `26c2b4c7b5efb56d0d54ab5888cdf955589f7633490c9a0c33d1ef63bba85798`
+  `bfcfe5920c3789302e80c72618e1f280e3577a8395320c89f174147cd11ec733`
+  > **Superseded 2026-10-09** (`gate-hygiene/open-pr-owned-baseline-drift-01`): `main`
+  > advanced through #371, whose workflow added the n-atlas self-selection line, so the
+  > node that #355 was credited with repairing started passing while #355 stayed open. A
+  > live run on `main` `43c3e2b1` reports 15 failed / 1 error (16 failing/error nodes); the
+  > recorded set is now those 16 nodes and the canonical pair is `bfcfe592…` / `ed5e4714…`.
+  > The 17-node pair recorded at the base `44137991` is retained in
+  > `tests/fixtures/superseded_baseline_node_set_17.txt`.
   > **Note.** This line published the then-canonical value for the recorded set; it now
   > carries the current canonical value so this document never points the next agent at a
   > superseded pair. The value that stood here on 2026-10-04 was `9a54f5b4…` /

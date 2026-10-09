@@ -228,6 +228,17 @@ SUPERSEDED_10_NODE_SET = (
     REPO_ROOT / "tests" / "fixtures" / "superseded_baseline_node_set_10.txt"
 )
 
+# The 17-node set that was canonical 2026-10-08 → 2026-10-09, before `main` advanced past
+# this branch's base: #371 added the n-atlas workflow's self-selection line, so
+# `test_pr_pytest_workflow_is_selected_by_its_own_file[n-atlas-developer-lab.yml]` — a node
+# this reconciliation had recorded as open-PR-owned drift (#355) — now **passes** on `main`.
+# A recorded node that leaves the failing set while its credited owner is still open is the
+# exact defect `test_recorded_set_excludes_the_live_reconciled_repairs` exists to catch, so
+# the node is retired into this archival fixture and the value retained as a superseded pair.
+SUPERSEDED_17_NODE_SET = (
+    REPO_ROOT / "tests" / "fixtures" / "superseded_baseline_node_set_17.txt"
+)
+
 # The subset of the recorded baseline whose *repair* is carried by an open pull request.
 # Each of these fails on `main` and passes at its owner's head, so it is baseline debt a
 # future merge will remove — not a regression. Recorded so the next pass does not
@@ -312,17 +323,20 @@ DEPTH1_CLONE_DEPENDENT_NODES = (
 
 # Canonical values: `scripts/baseline_fingerprint.py` run on LIVE_NODE_SET.
 # Superseded 2026-10-08 by `gate-hygiene/open-pr-owned-baseline-drift-01`: a live
-# `-rEf --continue-on-collection-errors` run on `main` `44137991` reports 16 failed /
+# `-rEf --continue-on-collection-errors` run on `main` `44137991` reported 16 failed /
 # 1776 passed / 22 skipped / 1 error — **17** nodes — while the recorded set carried 10.
-# The 7 unrecorded nodes are all repaired by open PRs (#347/#354/#355/#356) and were
+# The 7 unrecorded nodes were all repaired by open PRs (#347/#354/#355/#356) and were
 # therefore baseline debt, not regressions; recording them makes the fixture describe the
-# repository's live debt rather than a subset of it. The prior 10-node pair is retained in
-# SUPERSEDED_* below.
+# repository's live debt rather than a subset of it.
+# Superseded 2026-10-09 by the `main`-advance correction: a live run on `main` `43c3e2b1`
+# reports 15 failed / 1 error — **16** nodes — one fewer than that 17, because #371 added the
+# n-atlas workflow's self-selection line so the node credited to open PR #355 now passes.
+# Both prior pairs (10 and 17 nodes) are retained in SUPERSEDED_* below.
 CANONICAL_OUTCOMES_FINGERPRINT = (
-    "26c2b4c7b5efb56d0d54ab5888cdf955589f7633490c9a0c33d1ef63bba85798"
+    "bfcfe5920c3789302e80c72618e1f280e3577a8395320c89f174147cd11ec733"
 )
 CANONICAL_IDS_FINGERPRINT = (
-    "571e599f91e680fe41f7318b6000c84dee8edc7c9c0535a3c897c7da89881224"
+    "ed5e4714df236078d6eb04cb43197c22403d2c244caa3e7bc7d71d45f6c0a833"
 )
 
 # Values that were published but do not describe the recorded set. They must not
@@ -347,6 +361,9 @@ SUPERSEDED_OUTCOMES_FINGERPRINTS = (
     "6c7bf8218fd1e0ae9bc970653e98c18b3a78b69a5c4920dac9f4747c033e4648",
     # Canonical for the 10-node recorded set, 2026-10-04 → 2026-10-08.
     "9a54f5b478d1135f27ab9e54d95706f03eae1ceb5d4c1f3ae075bffc4208ab38",
+    # Canonical for the 17-node recorded set, 2026-10-08 → 2026-10-09 (superseded when
+    # #371 repaired the n-atlas trigger node on `main`).
+    "26c2b4c7b5efb56d0d54ab5888cdf955589f7633490c9a0c33d1ef63bba85798",
 )
 SUPERSEDED_IDS_FINGERPRINTS = (
     "9a35c8122188e272ec5769d7a8f5cdba6160b4f2f1fba8a840019a487c1bcc22",
@@ -354,6 +371,8 @@ SUPERSEDED_IDS_FINGERPRINTS = (
     "8036fc0692eb0358f037adb2cf9e2b234db1f41a4586ca0162f4e52350cfa713",
     "2bc35996b21de6529ffffab63446c8bd7295c388e841a2807101d189eaf7da01",
     "124bfdfd078fe878fe7c9de358ba271e977c4f7b73909b9d7d016b9ae9c1e87f",
+    # Canonical for the 17-node recorded set, 2026-10-08 → 2026-10-09.
+    "571e599f91e680fe41f7318b6000c84dee8edc7c9c0535a3c897c7da89881224",
 )
 
 # Documents that publish a baseline fingerprint and must agree with the canonical
@@ -380,14 +399,18 @@ LIVE_RED_SHOULD_NOT_PASS_NODES = (
     "tests/test_spiral_grove_registry.py::test_ais_catalog_supports_progressive_creative_workflow",
     "tests/test_spiral_grove_registry.py::test_registry_rejects_prerequisite_cycle",
     "tests/test_upstream_causal_continuity_01.py::test_api_approval_does_not_create_enterprise_authorization",
+    # Repaired on `main` by #371 (the n-atlas workflow gained its own self-selection path),
+    # so the node credited to open PR #355 stopped failing while #355 was still open. Its
+    # leaving the failing set is not #355 merging; it must stay out of the recorded set.
+    "tests/test_ci_gate_trigger_coverage.py::test_pr_pytest_workflow_is_selected_by_its_own_file[n-atlas-developer-lab.yml]",
 )
 
 
 def test_live_node_set_reproduces_the_canonical_fingerprint():
     """The recorded baseline set must hash to the published canonical value."""
     outcomes, ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
-    assert len(ids) == 17
-    assert sum(1 for o in outcomes if o.startswith("FAILED")) == 16
+    assert len(ids) == 16
+    assert sum(1 for o in outcomes if o.startswith("FAILED")) == 15
     assert sum(1 for o in outcomes if o.startswith("ERROR")) == 1
     assert baseline_fingerprint.fingerprint(outcomes) == CANONICAL_OUTCOMES_FINGERPRINT
     assert baseline_fingerprint.fingerprint(ids) == CANONICAL_IDS_FINGERPRINT
@@ -585,13 +608,17 @@ def test_era_set_open_pr_owned_nodes_are_in_the_era_set():
     node the era fixture does not carry, the fixture would describe ownership of a node that
     is not era debt — the mirror defect. And an entry without an owner PR could not be cleared
     when that PR merges, so the next pass would re-derive it.
+
+    Re-measured 2026-10-09 at `main` `43c3e2b1`: the fixture grew 3 → 8 as #363/#365 were
+    found to own five more era-set nodes, so the residual unowned set shrank 7 → 2. The count
+    is derived below, so a fixture edit that leaves a stale split fails rather than ships.
     """
     _, era_ids = baseline_fingerprint.extract(str(SUPERSEDED_10_NODE_SET))
     lines = [
         line for line in ERA_SET_OPEN_PR_OWNED_SET.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.startswith("#")
     ]
-    assert len(lines) == 3
+    assert len(lines) == 8
     for line in lines:
         node, _, pr = line.partition("\t")
         assert node.startswith("tests/") and "::" in node, line
@@ -611,14 +638,18 @@ def test_era_set_ownership_is_reported_for_every_era_set_open_pr():
     #357-owned nodes as unowned — or drop them once #357 merges — without any test noticing.
     This derives the split from the fixtures and fails if the recorded ownership stops
     accounting for the whole era set.
+
+    Re-measured 2026-10-09 at `main` `43c3e2b1`: #363 owns the two identity/ReasoMate nodes
+    and #365 the three steward-filter nodes, so the split is now `10 = 8 owned + 2 unowned`
+    (the residual being the `test_autonomy.py` ERROR and `test_ais_w2_living_gate_grove_handoff.py`).
     """
     _, era_ids = baseline_fingerprint.extract(str(SUPERSEDED_10_NODE_SET))
     era_owned = _era_set_open_pr_owned_node_ids()
     unowned = set(era_ids) - era_owned
     assert len(era_ids) == 10
-    assert len(era_owned) == 3
-    assert len(unowned) == 7
-    # And the three era-owned nodes are still live debt — the recorded set carries them.
+    assert len(era_owned) == 8
+    assert len(unowned) == 2
+    # And the era-owned nodes are still live debt — the recorded set carries them.
     _, live_ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
     assert era_owned <= set(live_ids)
 
@@ -632,7 +663,7 @@ def test_open_pr_owned_nodes_are_all_recorded_baseline_debt():
     """
     _, live_ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
     owned_ids = _open_pr_owned_node_ids()
-    assert len(owned_ids) == 7
+    assert len(owned_ids) == 6
     assert owned_ids <= set(live_ids)
 
 
@@ -642,7 +673,7 @@ def test_open_pr_owned_entries_each_name_a_pr():
         line for line in OPEN_PR_OWNED_SET.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.startswith("#")
     ]
-    assert len(lines) == 7
+    assert len(lines) == 6
     for line in lines:
         node, _, pr = line.partition("\t")
         assert node.startswith("tests/") and "::" in node, line
@@ -661,6 +692,42 @@ def test_superseded_10_node_set_reproduces_the_superseded_pair():
     assert len(ids) == 10
     assert baseline_fingerprint.fingerprint(outcomes) == SUPERSEDED_OUTCOMES_FINGERPRINTS[4]
     assert baseline_fingerprint.fingerprint(ids) == SUPERSEDED_IDS_FINGERPRINTS[4]
+
+
+def test_superseded_17_node_set_reproduces_the_superseded_pair():
+    """The 17-node era fixture must hash to the pair it is cited for.
+
+    `tests/fixtures/superseded_baseline_node_set_17.txt` is the only in-repo artifact that
+    carries the 2026-10-08 → 2026-10-09 recorded debt: the set this reconciliation published
+    before `main` advanced through #371 and repaired the n-atlas trigger node. Without this
+    guard the file could be edited or deleted while `SUPERSEDED_*` still cites the value,
+    making the supersession unreproducible from the repository alone.
+    """
+    outcomes, ids = baseline_fingerprint.extract(str(SUPERSEDED_17_NODE_SET))
+    assert len(ids) == 17
+    assert baseline_fingerprint.fingerprint(outcomes) == SUPERSEDED_OUTCOMES_FINGERPRINTS[5]
+    assert baseline_fingerprint.fingerprint(ids) == SUPERSEDED_IDS_FINGERPRINTS[5]
+
+
+def test_superseded_17_node_set_excludes_the_repaired_node():
+    """The archival 17-node set must carry the node `main` later repaired.
+
+    The supersession only reproduces if the archived set still contains the n-atlas trigger
+    node: it is the single difference between the 17-node and the canonical 16-node set.
+    Deriving it here keeps the correction inspectable — a future edit that trimmed the
+    archival fixture would make the recorded 17-node pair unreproducible while the test
+    above still passed on a coincidental value.
+    """
+    _, ids = baseline_fingerprint.extract(str(SUPERSEDED_17_NODE_SET))
+    repaired = (
+        "tests/test_ci_gate_trigger_coverage.py"
+        "::test_pr_pytest_workflow_is_selected_by_its_own_file"
+        "[n-atlas-developer-lab.yml]"
+    )
+    _, live_ids = baseline_fingerprint.extract(str(LIVE_NODE_SET))
+    assert repaired in ids
+    assert repaired not in live_ids
+    assert len(set(ids) - set(live_ids)) == 1
 
 
 def test_era_set_composition_rejects_an_unattributed_node():
@@ -740,17 +807,17 @@ def test_published_docs_carry_the_canonical_fingerprint(doc):
 # describing the old one is the failure mode this pins: the counts are derived from the
 # fixtures below, so the two can no longer drift apart silently.
 #
-# `main` and the branch measure the *same* 17-node set; the branch's extra passes are its
+# `main` and the branch measure the *same* 16-node set; the branch's extra passes are its
 # own new guard functions, so the passed count is NOT a fingerprint input and is
 # deliberately excluded. Only the failing/error counts are pinned.
 RECORDED_BASELINE_COUNTS = {
-    "failed": 16,
+    "failed": 15,
     "errors": 1,
-    "nodes": 17,
+    "nodes": 16,
     "era_set": 10,
-    "era_set_open_pr_owned": 3,
-    "era_set_unowned": 7,
-    "open_pr_owned_drift": 7,
+    "era_set_open_pr_owned": 8,
+    "era_set_unowned": 2,
+    "open_pr_owned_drift": 6,
 }
 
 
