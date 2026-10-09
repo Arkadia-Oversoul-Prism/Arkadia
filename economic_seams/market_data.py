@@ -3,6 +3,7 @@ from __future__ import annotations
 """Fail-closed market reference extraction and comparability gates."""
 
 from html.parser import HTMLParser
+from datetime import datetime
 import re
 from typing import Any
 from urllib.parse import urljoin, urlparse
