@@ -86,5 +86,14 @@ def configure_frontends(app: FastAPI, repo_root: str | Path | None = None) -> No
                 return FileResponse(candidate)
             return FileResponse(prism_dist / "index.html")
 
-        app.add_api_route("/", prism_index, methods=["GET"], include_in_schema=False)
+        # api.main owns GET / so browser requests can receive the SPA while
+        # non-browser health probes keep their historical JSON response. In
+        # isolated tests or other apps, provide the root route if it is absent.
+        has_root_get = any(
+            getattr(route, "path", None) == "/"
+            and "GET" in (getattr(route, "methods", None) or set())
+            for route in app.routes
+        )
+        if not has_root_get:
+            app.add_api_route("/", prism_index, methods=["GET"], include_in_schema=False)
         app.add_api_route("/{path:path}", prism_route, methods=["GET"], include_in_schema=False)
