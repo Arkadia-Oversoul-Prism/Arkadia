@@ -14,10 +14,19 @@ Two oracles are used, and their limits are stated rather than glossed:
     Asset hashes are NOT used: the build output is environment-dependent, so a hash
     match proves nothing and a mismatch proves nothing.
   * source-lineage closure -- if every candidate deployment SHA is a descendant of
-    the last commit that touched a frontend build input, then every candidate
-    compiles byte-identical frontend source, and the artifact cannot discriminate
-    between them. The alias->SHA question becomes immaterial to *source* lineage
-    even though it remains unobservable.
+    the last commit that touched the *same* frontend build input, then every
+    candidate compiles byte-identical frontend source, and the artifact cannot
+    discriminate between them. The alias->SHA question becomes immaterial to
+    *source* lineage even though it remains unobservable.
+
+Neither oracle may be applied to a deployment of a different application. The
+root ``vercel.json`` was repointed to ``web/console`` (commit 404452e0), so the
+repository now produces two frontends with disjoint build inputs and disjoint
+marker sets. Comparing the marker set of one against the artifact of the other
+is meaningless, and a "no markers found" result must never be reported as
+agreement. The harness therefore reads which app the deployment's build input
+names before it reads any marker, and refuses to claim marker agreement it did
+not observe.
 """
 
 from __future__ import annotations
@@ -33,7 +42,30 @@ import urllib.request
 
 REPO = "Arkadia-Oversoul-Prism/Arkadia"
 ALIAS = "https://arkadia-prism.vercel.app/"
+
+# The harness observes the Prism surface. Its closure argument is valid only over
+# deployments built from the Prism build input: a Console deployment shares no
+# build input with Prism, so its ancestry says nothing about the Prism artifact.
 BUILD_INPUTS = ["web/public_prism/", ":!web/public_prism/dist"]
+
+# Every frontend the root ``vercel.json`` can be repointed at. A Production
+# deployment whose environment names a project with no build input here cannot
+# be placed on a build<->source lineage and must be classified, not assumed.
+KNOWN_FRONTENDS: dict[str, list[str]] = {
+    "arkadia-prism": ["web/public_prism/", ":!web/public_prism/dist"],
+    "console": ["web/console/", ":!web/console/dist"],
+}
+
+# The application the MARKERS literals below were drawn from. This is a property
+# of the marker list, NOT of any deployment: the harness must never assume the
+# artifact it fetched is the app its markers describe.
+#
+# The alias resolves to whichever project Vercel last assigned it to, and the
+# root project was repointed from ``web/public_prism`` to ``web/console`` at
+# 404452e0 (2026-10-02). From that commit the alias serves Console while these
+# markers remain Prism literals, so every marker reads 0 -- which is "this is a
+# different application", not "the artifact disagrees with the source".
+MARKER_APP = "arkadia-prism"
 
 # A Production record is labelled `Production`, `Production – arkadia-prism`, or
 # `Production – console`. An exact-equality test admitted only the bare form, so
@@ -102,8 +134,30 @@ def resolve_main() -> str:
     return sh(["git", "rev-parse", "origin/main"])
 
 
-def last_build_input_commit() -> tuple[str, str, str]:
-    out = sh(["git", "log", "-1", "--format=%H|%ci|%s", "--", *BUILD_INPUTS])
+def frontend_of(environment: str) -> str | None:
+    """Which frontend does a ``Production – <project>`` record name?
+
+    The project suffix is the only app identity the deployment API exposes, so it
+    is read from the label rather than inferred from the marker set. A record with
+    no known project suffix returns ``None``: its app is undetermined, and an
+    undetermined app cannot be scored against any marker set.
+    """
+    # Split on the label separator (en/em dash, or a spaced hyphen) -- never on a
+    # bare hyphen, which is part of project names like ``arkadia-prism``.
+    parts = re.split(r"\s+[\u2013\u2014]\s+|\s+-\s+", environment.strip())
+    if len(parts) < 2:
+        return None
+    project = parts[-1].strip().lower()
+    return project if project in KNOWN_FRONTENDS else None
+
+
+def last_build_input_commit(app: str = MARKER_APP) -> tuple[str, str, str]:
+    """Last commit that touched the build input of ``app``.
+
+    Scoped to one app: the two frontends have disjoint inputs, so a commit that
+    rebuilt Console is not evidence about Prism source and vice versa.
+    """
+    out = sh(["git", "log", "-1", "--format=%H|%ci|%s", "--", *KNOWN_FRONTENDS[app]])
     sha, date, subject = out.split("|", 2)
     return sha, date, subject
 
@@ -170,12 +224,50 @@ def classify_source_lineage(closure: list[dict], stale: list[str], prod: list[di
     between them, and the alias->SHA question is immaterial to *source*
     lineage. A candidate that does not exist locally cannot be checked and
     therefore cannot close the argument.
+
+    Source closure is *not* a marker observation. It says every candidate would
+    compile the same literals; it does not say any of those literals was read
+    from a served artifact. Claiming "marker set matches" from closure alone is
+    the defect this repairs: the verdict must name only what was observed.
     """
     if not prod or not closure or any(c.get("descendant_of_last_build_input") is None for c in closure):
         return "UNKNOWN"
     if lineage_closed(closure) and not stale:
-        return "VERIFIED (marker set matches, source closed)"
+        return "VERIFIED (source closed; marker set NOT observed)"
     return "UNKNOWN"
+
+
+def classify_marker_oracle(app: str | None, observed: dict[str, int] | None, stale: list[str]) -> str:
+    """Did the harness actually read a marker set off a served artifact?
+
+    ``app`` is the application the served artifact belongs to (from the
+    deployment label), or ``None`` when it could not be determined. ``observed``
+    is the per-marker occurrence count taken from the fetched document, or
+    ``None`` when nothing was fetched.
+
+    The marker list describes ``MARKER_APP``. An artifact belonging to any other
+    application cannot be scored against it at all: every literal reads 0 because
+    the surface is not in that build, which is a category error, not a
+    regression. Agreement additionally requires a positive reading -- an entirely
+    absent marker set is evidence that the artifact is not this app, never
+    evidence that it agrees. Without these distinctions an absent app and a
+    correct app produced the same verdict, which is exactly how a false
+    ``VERIFIED`` was reachable.
+    """
+    if app is None:
+        return f"NOT OBSERVED (served app undetermined; markers describe '{MARKER_APP}')"
+    if app != MARKER_APP:
+        return f"NOT OBSERVED (artifact is '{app}'; markers describe '{MARKER_APP}')"
+    if observed is None:
+        return "UNKNOWN (no artifact fetched)"
+    if stale:
+        return "UNKNOWN (marker list stale: literals absent from source)"
+    if not observed:
+        return "UNKNOWN (no markers read)"
+    if all(count > 0 for count in observed.values()):
+        return "VERIFIED (marker set observed in served artifact)"
+    absent = sorted(k for k, v in observed.items() if v == 0)
+    return f"CONTRADICTED (markers absent from served artifact: {', '.join(absent)})"
 
 
 def api(path: str, token: str | None):
@@ -364,8 +456,20 @@ def main() -> int:
     }
 
     # ---- link 6: source-lineage closure -------------------------------------
-    last_sha, last_date, last_subject = last_build_input_commit()
-    report["last_build_input_commit"] = {"sha": last_sha, "date": last_date, "subject": last_subject}
+    # The observed Production deployment names its app in the environment label;
+    # the closure argument is only meaningful over that app's build input.
+    deployed_app = frontend_of(prod[0]["environment"]) if prod else None
+    report["deployed_app"] = deployed_app
+    app_for_closure = deployed_app or MARKER_APP
+    if deployed_app is None and prod:
+        report["deployed_app_error"] = (
+            f"environment '{prod[0]['environment']}' names no known frontend; "
+            "build<->source lineage cannot be scoped"
+        )
+    last_sha, last_date, last_subject = last_build_input_commit(app_for_closure)
+    report["last_build_input_commit"] = {
+        "app": app_for_closure, "sha": last_sha, "date": last_date, "subject": last_subject
+    }
     closure = []
     for d in prod:
         sha = d["sha"]
@@ -389,6 +493,11 @@ def main() -> int:
         "UNKNOWN (immaterial: all candidates share frontend source)" if all_closure else "UNKNOWN"
     )
     report["boundaries"]["build <-> source lineage"] = classify_source_lineage(closure, stale, prod)
+    report["boundaries"]["marker-set oracle"] = classify_marker_oracle(
+        report.get("deployed_app") or MARKER_APP,
+        report["markers"].get("deployed"),
+        stale,
+    )
     report["boundaries"]["browser-rendered UI correctness"] = "UNKNOWN"
     report["boundaries"]["production acceptance"] = "NOT CLAIMED (human authority)"
 
@@ -419,6 +528,11 @@ def main() -> int:
               + (" (SSO redirect)" if report.get("deployment_url_status") != 200 else ""))
     print()
     print("MARKER-SET LINEAGE (literal : deployed / expected)")
+    print(f"  artifact app: {report.get('deployed_app') or 'UNDETERMINED'}"
+          f"   harness markers describe: {MARKER_APP}")
+    if report.get("deployed_app") != MARKER_APP:
+        print("  !! the served artifact is a DIFFERENT application than the marker list;")
+        print("     a zero count below is 'not this app', not a regression and not agreement.")
     for literal, (prov, expected, note) in MARKERS.items():
         d = dep_m.get(literal, 0)
         flag = ""
@@ -429,7 +543,11 @@ def main() -> int:
         print(f"  {literal:<38} {d}  ({'expect>0' if expected else 'expect 0'}){flag}")
     if lb is not None:
         match = all(lb.get(k, 0) == dep_m.get(k, 0) for k in MARKERS)
-        print(f"  local build marker set matches deployed: {match}")
+        if report.get("deployed_app") == MARKER_APP:
+            print(f"  local build marker set matches deployed: {match}")
+        else:
+            print("  local build marker set matches deployed: NOT COMPARABLE"
+                  f" (deployed app is '{report.get('deployed_app')}')")
     if stale:
         print(f"  !! STALE marker list -- literals gone from source: {stale}")
     print()
@@ -446,8 +564,12 @@ def main() -> int:
         print("     is immaterial to source lineage even though it is unobservable.")
     print()
     print("SG-04 REGRESSION")
-    print(f"  in source: {sg04_src}   in deployed artifact: {sg04_dep}"
-          f"   => REGRESSION: {report['sg04']['regression']}")
+    if report.get("deployed_app") != MARKER_APP:
+        print(f"  in source: {sg04_src}   NOT EVALUABLE against artifact: the served")
+        print(f"  document is the '{report.get('deployed_app')}' app, which has no SG-04 surface.")
+    else:
+        print(f"  in source: {sg04_src}   in deployed artifact: {sg04_dep}"
+              f"   => REGRESSION: {report['sg04']['regression']}")
     print()
     print("BOUNDARY CLASSIFICATION")
     for k, v in report["boundaries"].items():

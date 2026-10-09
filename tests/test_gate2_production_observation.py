@@ -29,8 +29,13 @@ unfiltered so the query predicate cannot reintroduce the omission.
 from pathlib import Path
 
 from scripts.gate2_production_observation import (
+    KNOWN_FRONTENDS,
+    MARKER_APP,
+    MARKERS,
     classify_deployment_identity,
+    classify_marker_oracle,
     classify_source_lineage,
+    frontend_of,
     lineage_closed,
     production_deployments,
 )
@@ -127,8 +132,11 @@ def _closure(*checked: bool | None) -> list[dict]:
 
 
 def test_lineage_verified_when_every_candidate_is_a_descendant():
+    """Source closure is verified, but the verdict must not claim a marker
+    observation it did not make. Closure says every candidate *would* compile the
+    same literals; it says nothing about any served artifact."""
     assert classify_source_lineage(_closure(True, True), [], [_dep(OTHER)]) == (
-        "VERIFIED (marker set matches, source closed)"
+        "VERIFIED (source closed; marker set NOT observed)"
     )
 
 
@@ -160,6 +168,115 @@ def test_lineage_closed_is_a_conjunction_not_an_existence_check():
     assert lineage_closed(_closure(True, False)) is False
 
 
+# ── the marker oracle must observe, and must know which app it saw ───────────
+#
+# Measured on the live run of 2026-10-09. The alias served the *Console* app
+# (root ``vercel.json`` was repointed to ``web/console`` at 404452e0) while the
+# harness scored it against *Prism* markers. Every Prism marker read 0, and the
+# harness still printed "VERIFIED (marker set matches, source closed)": an
+# entirely-absent marker set was reported as agreement. Source closure was
+# genuine; the marker claim was not observed at all, and the two were fused into
+# one verdict so the unobserved half could not fail on its own.
+
+
+def test_all_markers_absent_is_contradicted_not_verified():
+    """The defect, at the predicate: for the app the markers describe, a marker
+    list that reads 0 everywhere is the strongest possible evidence that the
+    artifact diverges. It must never be summarised as agreement."""
+    assert classify_marker_oracle(MARKER_APP, {m: 0 for m in MARKERS}, []) == (
+        "CONTRADICTED (markers absent from served artifact: "
+        + ", ".join(sorted(MARKERS)) + ")"
+    )
+
+
+def test_markers_present_is_the_only_verified_marker_verdict():
+    """Positive control: the verdict the harness was claiming without evidence is
+    reachable, but only from a positive reading of the app the markers describe."""
+    assert classify_marker_oracle(MARKER_APP, {m: 1 for m in MARKERS}, []) == (
+        "VERIFIED (marker set observed in served artifact)"
+    )
+
+
+def test_a_different_app_cannot_be_scored_against_this_marker_set():
+    """App identity is read from the deployment label, not inferred from markers.
+    The alias currently serves Console while the marker literals are Prism, so a
+    Console artifact reads 0 on every marker. That is 'not this application' --
+    a category error -- and must not be reported as CONTRADICTED, which would
+    assert the artifact was scored and disagreed."""
+    assert classify_marker_oracle("console", {m: 0 for m in MARKERS}, []) == (
+        f"NOT OBSERVED (artifact is 'console'; markers describe '{MARKER_APP}')"
+    )
+    assert classify_marker_oracle("console", {m: 1 for m in MARKERS}, []) == (
+        f"NOT OBSERVED (artifact is 'console'; markers describe '{MARKER_APP}')"
+    )
+
+
+def test_an_undetermined_app_is_not_observed():
+    """The marker list describes one application. With no app identity there is
+    nothing to score against, so the verdict must not fall through to the
+    fetched-artifact branches."""
+    assert classify_marker_oracle(None, {m: 1 for m in MARKERS}, []) == (
+        f"NOT OBSERVED (served app undetermined; markers describe '{MARKER_APP}')"
+    )
+
+
+def test_unfetched_artifact_is_unknown_not_verified():
+    """No artifact means no observation. ``None`` and ``{}`` are different states:
+    one is 'nothing was read', the other 'nothing was found'."""
+    assert classify_marker_oracle(MARKER_APP, None, []) == "UNKNOWN (no artifact fetched)"
+    assert classify_marker_oracle(MARKER_APP, {}, []) == "UNKNOWN (no markers read)"
+
+
+def test_stale_marker_list_still_blocks_the_marker_verdict():
+    assert classify_marker_oracle(MARKER_APP, {m: 1 for m in MARKERS}, ["opportunity-radar"]) == (
+        "UNKNOWN (marker list stale: literals absent from source)"
+    )
+
+
+def test_a_partial_reading_names_the_absent_markers():
+    """A marker set that is partly present must name what is missing rather than
+    degrade to a boolean."""
+    observed = {m: 1 for m in MARKERS}
+    observed["opportunity-radar"] = 0
+    verdict = classify_marker_oracle(MARKER_APP, observed, [])
+    assert verdict.startswith("CONTRADICTED")
+    assert "opportunity-radar" in verdict
+    assert "solspire-object-summary" not in verdict
+
+
+def test_the_pre_repair_verdict_is_unreachable_from_the_classifier():
+    """Negative control: the exact string the harness used to print without ever
+    reading a marker. It must not be producible by the classifier, so the defect
+    cannot return by restoring an older classifier."""
+    for app in ("console", MARKER_APP):
+        for observed in (None, {}, {m: 0 for m in MARKERS}, {m: 1 for m in MARKERS}):
+            assert "marker set matches" not in classify_marker_oracle(app, observed, [])
+    assert "marker set matches" not in classify_source_lineage(_closure(True, True), [], [_dep(OTHER)])
+
+
+def test_app_identity_is_read_from_the_deployment_label():
+    """The only app identity the deployment API exposes is the environment
+    suffix, so that is what the harness must parse. App identity is orthogonal to
+    the environment class: a Preview deployment of ``console`` is still the
+    ``console`` app."""
+    assert frontend_of("Production \u2013 console") == "console"
+    assert frontend_of("Production \u2013 arkadia-prism") == "arkadia-prism"
+    assert frontend_of("Preview \u2013 console") == "console"
+    assert frontend_of("Production - console") == "console"
+    assert frontend_of("Production") is None
+    assert frontend_of("Production \u2013 some-other-project") is None
+
+
+def test_build_input_scope_is_per_app_not_shared():
+    """The two frontends have disjoint build inputs. Scoring Console ancestry
+    against a Prism build input is the category error the harness made."""
+    assert KNOWN_FRONTENDS["console"] != KNOWN_FRONTENDS["arkadia-prism"]
+    assert "web/console/" in KNOWN_FRONTENDS["console"]
+    assert "web/public_prism/" in KNOWN_FRONTENDS["arkadia-prism"]
+    src = _SCRIPT.read_text(encoding="utf-8")
+    assert "last_build_input_commit(app_for_closure)" in src
+
+
 # ── the classifier is the only copy ──────────────────────────────────────────
 
 
@@ -168,6 +285,7 @@ def test_classifier_is_a_single_source_of_truth():
     inline copy that can drift from it (the defect this pass repairs)."""
     src = _SCRIPT.read_text(encoding="utf-8")
     assert 'report["boundaries"]["build <-> source lineage"] = classify_source_lineage(' in src
+    assert 'report["boundaries"]["marker-set oracle"] = classify_marker_oracle(' in src
     assert 'report["boundaries"]["main -> deployment identity"] = classify_deployment_identity(' in src
 
 
