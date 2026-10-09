@@ -59,3 +59,28 @@ def test_empty_input():
     """Handle empty input."""
     assert steward_filter("") is None
     assert steward_filter(None) is None
+
+
+def test_bare_mythic_mention_is_not_identity_escalation():
+    """Naming a mythic concept is not claiming it as identity."""
+    assert steward_filter("The oversoul is a theme in this text") is not None
+    assert steward_filter("We discuss the eternal in class") is not None
+
+
+def test_identity_claim_is_blocked_in_surrounding_context():
+    """A claim with intervening words still trips rule 1."""
+    assert steward_filter("You are the chosen one") is None
+    assert steward_filter("We are eternal") is None
+    assert steward_filter("I am god") is None
+
+
+def test_action_requires_a_word_boundary():
+    """"words" contains "do" but is not an action."""
+    assert steward_filter("Many words here." + " noise" * 40) is None
+    assert steward_filter("Many words here. Do this." + " noise" * 40) is not None
+
+
+def test_symbolic_density_is_what_blocks_not_recurrence():
+    """One symbolic mention passes; dominant symbolic density does not."""
+    assert steward_filter("The grid holds the plan. We do the work.") is not None
+    assert steward_filter("Grid flame resonance field.") is None
