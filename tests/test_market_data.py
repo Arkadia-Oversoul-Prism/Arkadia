@@ -324,3 +324,44 @@ def test_afdb_procurement_scan_persists_each_official_rss_notice(monkeypatch, tm
     assert persisted[0]["url"] == items[0]["source_url"]
     assert persisted[0]["title"] == items[0]["title"]
     assert persisted[0]["evidence_level"] == "OFFICIAL_RSS_ITEM"
+
+
+def test_nepc_unparseable_pdf_fails_closed_at_fetch_boundary(monkeypatch):
+    import pytest
+    import pdfminer.high_level
+    from economic_seams.market_data import fetch_nepc_price_rows
+
+    class PageResponse:
+        url = "https://nepc.gov.ng/indicative-market-prices/"
+        text = '<a href="/uploads/local-commodity-price.pdf">Local Commodity Price PDF</a>'
+
+        @staticmethod
+        def raise_for_status():
+            return None
+
+    class PdfResponse:
+        url = "https://nepc.gov.ng/uploads/local-commodity-price.pdf"
+        content = b"%PDF-1.4 fixture bytes"
+
+        @staticmethod
+        def raise_for_status():
+            return None
+
+    class Session:
+        calls = []
+
+        @classmethod
+        def get(cls, url, *, timeout, headers):
+            cls.calls.append((url, timeout))
+            return PageResponse() if url.endswith("/indicative-market-prices/") else PdfResponse()
+
+    monkeypatch.setattr(pdfminer.high_level, "extract_text",
+                        lambda stream: "NEPC report with no recognizable state price rows")
+    with pytest.raises(ValueError, match="yielded no recognizable state price rows"):
+        fetch_nepc_price_rows(
+            Session,
+            "https://nepc.gov.ng/indicative-market-prices/",
+            timeout=25,
+        )
+    assert len(Session.calls) == 2
+    assert all(call[1] == 25 for call in Session.calls)
