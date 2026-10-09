@@ -5,6 +5,9 @@
 **Measured at:** `main` `f9ced6b6b974a6e19a8a19b4d1360b59b037a2c8`
 **Gate:** Phase 1 (runtime stabilization) · feeds GATE-10
 **Predecessor:** `docs/control-plane/evidence/phase1-runtime-stabilization-01/EVIDENCE.md`
+**Follow-on:** `docs/control-plane/evidence/phase1-runtime-stabilization-02b-baseline-dependency-sensitivity/EVIDENCE.md`
+— the 16-node set below is dependency-sensitive; it reproduces only with the full
+declared `requirements.txt` (see §2 of that artifact).
 
 This artifact continues the Phase 1 workstream. It (a) records the live
 `main` baseline test-debt fingerprint, (b) classifies every currently failing /
