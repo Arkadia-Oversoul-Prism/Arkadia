@@ -87,6 +87,27 @@ Prism-surface observation requires either a Vercel credential, Deployment Protec
 relaxed, or a runtime observation from an operator with access. Repeating the pass
 cannot move `BLOCKED`/`UNKNOWN` to `VERIFIED`.
 
+## Pass 3 — ordering fault of the same defect class (2026-10-09)
+
+Head `b7eee811` → `48b0f14b` (PR #366).
+
+- Defect: `classify_sg04` read `report.get("deployed_app")` at line 469 while the key was
+  assigned at line 481. The classifier always saw `None`, so its evaluable branch was
+  unreachable and a genuine SG-04 regression could never be reported. The §7 tests pinned
+  call-site *presence*, not ordering — 32 tests were green on a vacuous call.
+- Repair: resolve `deployed_app` once before any classifier reads it; pass the local
+  binding to `classify_sg04`; closure reuses the same binding.
+- Guard: `test_deployed_app_is_resolved_before_the_sg04_classifier_reads_it` + negative
+  control `test_ordering_detector_flags_the_defective_order`.
+- Measured: 34 passed; pre-repair order → 1F/33P (non-vacuous); `tests/architecture` 11
+  passed; `py_compile` OK.
+- CI at `48b0f14b`: `Full-history secret scan`, `beta-beta-01-english`,
+  `beta-beta-02-hausa`, `bundle-beta-evidence`, `native-arkadia-golden-workflow` → pass.
+  `Vercel – arkadia-prism` / `Vercel – console` → fail (build rate limit) — pre-existing on
+  `main`, not attributable.
+- Status: READY FOR SOVEREIGN MERGE. Gate-2 closure itself remains `BLOCKED` on provider
+  auth (Vercel SSO); repository-source instrument fix only.
+
 ## Authority boundary
 
 Sovereign merge authority. No merge performed; no push to `main`; no force-push.
