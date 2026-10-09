@@ -176,11 +176,13 @@ def comparable_market_observations(left: dict, right: dict) -> bool:
                for key in required)
 
 
-def fetch_nepc_price_rows(session, page_url: str, timeout: int = 25):
+def fetch_nepc_price_rows(session, page_url: str, timeout: int = 25, evidence_callback=None):
     from io import BytesIO
     from pdfminer.high_level import extract_text
     page = session.get(page_url, timeout=timeout,
                        headers={"User-Agent": "Arkadia-Economic-Seam-Engine/1.0"})
+    if evidence_callback:
+        evidence_callback(page.url, page, None)
     page.raise_for_status()
     parser = _LinkParser()
     parser.feed(page.text)
@@ -197,6 +199,8 @@ def fetch_nepc_price_rows(session, page_url: str, timeout: int = 25):
         raise ValueError("No official NEPC local commodity price PDF link found")
     response = session.get(candidates[0], timeout=timeout,
                            headers={"User-Agent": "Arkadia-Economic-Seam-Engine/1.0"})
+    if evidence_callback:
+        evidence_callback(response.url, response, None)
     response.raise_for_status()
     payload = response.content
     if not payload.startswith(b"%PDF-") or len(payload) > 20 * 1024 * 1024:
