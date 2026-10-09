@@ -127,3 +127,27 @@ rate-limit status.
 - **Forbidden:** merge, push to `main`, force-push, policy/denylist/test/authority changes,
   `api/lab_routes.py` or `api/auth.py` edits, scope expansion.
 - **Completion condition:** #354 merged by the sovereign and `main`'s CP10 gate green.
+
+### Pass 6 next-action block (2026-10-09, on `main` `f9ced6b6b974a6e19a8a19b4d1360b59b037a2c8`)
+
+- **Current state:** #354 head `acce076b` (this pass adds a Pass 6 correction commit);
+  `MERGEABLE` / `UNSTABLE`. `AGENTS.md` ledger insertion-only; CP10 integrity 64 passed;
+  architecture 11/11; judge PASS.
+- **Root cause, corrected this pass:** `main`'s CP10 `validate` failure has a **single** cause —
+  the `mutation` step's three allowlist-inventory fitness nodes, promoted by `Enforce CP10
+  executable gates`. The `browser` step now **passes**; the historical `firebase-config.js`
+  404 (`net::ERR_ABORTED`) is a separate defect owned by **#384**, not this workstream.
+- **Composition:** #355's former trigger-coverage node is no longer red on `main`
+  (`grep -c trigger_coverage` = 0), so #355 is not a CP10 dependency today. #384 composes
+  cleanly with #354 (both paths admitted; its asset test 3 passed on the composed tree).
+- **Evidence:** node set `main` 16 (`facc29a9…`) -> branch 13
+  (`1212cbd9…`), removed = the 3 CP10 nodes, introduced = 0.
+- **Blockers:** none for #354. Sovereign merge of #354 and (separately) #384 is the remaining step.
+- **Authorized actions (next pass):** reconstruct `main`; if #354 is merged, verify the CP10
+  fitness nodes are green on the merge commit; otherwise continue the existing PR. Do not open a
+  duplicate. Do not fold #384's asset fix into #354.
+- **Forbidden:** merge, push to `main`, force-push, policy/denylist/test/authority changes beyond
+  the present additive rule, `api/lab_routes.py` or `api/auth.py` edits, scope expansion.
+- **Completion condition:** #354 merged by the sovereign and the three CP10 allowlist-inventory
+  nodes green on `main`.
+

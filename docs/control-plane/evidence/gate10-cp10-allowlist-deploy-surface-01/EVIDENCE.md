@@ -675,3 +675,98 @@ No policy change beyond the already-present additive `deploy/` rule, no denylist
 test change, no merge to `main`, no push to `main`, no force-push, no authority-model change,
 no scope expansion. The Lab authentication-boundary A/B question remains reported, not
 resolved. Merge remains the sovereign's action.
+
+---
+
+# Pass 6 (2026-10-09) — what actually reddens CP10 on `main` now
+
+The Pass 1 objective ("restore `main` to green on the CP10 mutation-boundary gate") is
+**partly correct and partly superseded by later drift**. Both claims below are measured at
+`main` @ `f9ced6b6b974a6e19a8a19b4d1360b59b037a2c8`, this environment.
+
+## Correction 1 — the *executed* gate already passes on `main` today
+
+`gh run view 37954341298` (push, `main`, `f9ced6b6`): the failing job `validate` fails on a
+**single** step — `Enforce CP10 executable gates`. The CP10 mutation-boundary step itself
+printed `Mutation boundary PASS (M02A legitimate-surface + constitutional denylist)`, and the
+fitness job `m02a` ran green in that range. So on the current tip the executed decision is
+**green**; the earlier framing that "the executed gate is red on main HEAD" was already
+corrected in Pass 2 and is re-confirmed here. What remains red is the *inventory invariant*
+asserted by three fitness tests, which is a real defect (a latent red for any future commit
+touching `deploy/`), not the executed gate.
+
+## Correction 2 — the current CP10 `main` red has ONE cause, and it is not the browser step
+
+`validate` is red because one step failed, and the enforcement step is now the *only* failure.
+Enumerating every failing step of run `37954341298` yields exactly:
+
+```
+validate
+  FAILED STEP: Enforce CP10 executable gates
+```
+
+The `browser` step (`CP10 browser route verification`) **passed**. Its `continue-on-error`
+means it cannot redden the job by itself; its failure is only *promoted* by the enforcement
+step, which was already going to exit non-zero on `mutation` (the three fitness nodes).
+
+The browser step's historical failure was a **separate, already-repaired** cause: the dangling
+`<script src="/firebase-config.js">` added by `d8eae1d`, served by the Vite dev server as an
+SPA fallback, produced `failedRequests=["http://127.0.0.1:5000/firebase-config.js :: net::ERR_ABORTED"]`
+x4 and `Error: Browser runtime errors observed`. That is owned by **PR #384**
+(`web/public_prism/public/firebase-config.js` + `tests/test_frontend_script_assets_resolve.py`),
+**not** by the allowlist workstream. It must not be folded into #354.
+
+## The live `main` failing/error node set (16 nodes, `facc29a9…`)
+
+```
+python -m pytest tests/ -q -rEf --continue-on-collection-errors
+```
+
+```
+ERROR   tests/test_autonomy.py
+FAILED  tests/test_ais_capability_profile_onboarding.py::test_home_is_offer_led_and_keeps_arkadia_entry_points
+FAILED  tests/test_ais_w2_living_gate_grove_handoff.py::test_no_firebase_persistence_in_gate
+FAILED  tests/test_engineering_lab_api.py::test_lab_mutation_endpoints_are_exactly_the_lab_state_set
+FAILED  tests/test_engineering_lab_api.py::test_lab_router_is_read_only_and_authenticated
+FAILED  tests/test_identity_spine_w1.py::test_node_entry_is_ais_signup_not_a_separate_diagnostic_route
+FAILED  tests/test_m02_reasomate_truth.py::test_oracle_runtime_uses_the_shared_session_key
+FAILED  tests/test_m02a_ci_gate_integrity.py::test_allowlist_admits_every_tracked_top_level_prefix
+FAILED  tests/test_m02a_ci_gate_integrity.py::test_allowlist_covers_every_tracked_surface
+FAILED  tests/test_m02a_ci_gate_integrity.py::test_delegated_verdict_admits_every_tracked_surface
+FAILED  tests/test_solspire_r1_governance_convergence.py::test_r1_solspire_builders_delegate_to_weaver
+FAILED  tests/test_solspire_r1_governance_convergence.py::test_r1_weaver_governance_is_canonical
+FAILED  tests/test_solspire_r3_execution_runtime.py::test_runtime_is_explicitly_non_governed_and_blocks_mutation_tools
+FAILED  tests/test_steward_filter.py::test_allows_mythic_with_action
+FAILED  tests/test_steward_filter.py::test_blocks_identity_claims
+FAILED  tests/test_steward_filter.py::test_compress_to_choices
+```
+
+This branch's tree yields the **same set minus the three `m02a` allowlist nodes** — 13 nodes,
+`1212cbd96dbb3002d85c44ddde6aff85d064d4ae87f4119ec6344ea95e57f827`. **Introduced: zero.**
+
+## Correction 3 — the trigger-coverage node is no longer red on `main`
+
+The Pass 2 section "The two PRs do not individually restore `main` to green — they compose"
+lists `test_ci_gate_trigger_coverage::test_pr_pytest_workflow_is_selected_by_its_own_file[n-atlas-developer-lab.yml]`
+as the fourth composition-blocking node. It is **absent from the current 16-node `main` set**:
+`grep -c trigger_coverage` over the live node list is `0`. That node was repaired by a later
+merge, so #355 (`.github/workflows/n-atlas-developer-lab.yml`) is no longer required to green
+the CP10 fitness suite at this revision. Whether #355 is still wanted on its own merits is a
+separate question; it is not a CP10 composition dependency today.
+
+## Composition evidence (measured on a worktree from `main` `f9ced6b6`)
+
+- **#354 policy admits the `deploy/` surface:** applying only the `scripts/cp10_mutation_boundary_policy.py`
+  diff onto `main` and judging the four `deploy/n-atlas-server/*` paths -> `Mutation boundary PASS`.
+- **#384 composes cleanly with #354:** both `web/public_prism/public/firebase-config.js` and
+  `tests/test_frontend_script_assets_resolve.py` are admitted by the composed policy
+  (`Mutation boundary PASS`), and `tests/test_frontend_script_assets_resolve.py` runs
+  **3 passed** on the composed tree. The two PRs are textually and semantically independent.
+
+## Bounded next action
+
+The allowlist workstream is complete and self-contained. The remaining CP10 `main` red is
+closed on the sovereign's merge of **#354** (repository policy) and **#384** (browser asset) —
+two disjoint, independently-measured surfaces. No further allowlist work is warranted. No
+merge, no push to `main`.
+
