@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Request, Response
 
 from api.auth import require_sovereign
 
@@ -17,6 +17,7 @@ router = APIRouter(tags=["operator-security"])
 
 @router.get("/api/operator/security-verification")
 async def security_verification(
+    request: Request,
     response: Response,
     user: dict[str, Any] = Depends(require_sovereign),
 ) -> dict[str, Any]:
@@ -32,10 +33,26 @@ async def security_verification(
     firebase_ready = bool(getattr(auth, "_firebase_app", None)) and not bool(
         getattr(auth, "_dev_mode", True)
     )
-    # The require_sovereign dependency has already accepted this request. In
-    # production, that path only accepts a Firebase Admin-verified ID token.
-    verified_identity = production and firebase_ready and bool(user.get("uid"))
-    sovereign_authorized = int(user.get("access_level", 0) or 0) >= 3
+
+    # Verify the exact bearer token through the same Firebase Admin verifier.
+    # Do not infer successful verification merely from a profile's uid field.
+    token = auth._extract_token(request)
+    try:
+        claims = auth.verify_firebase_token(token) if token else None
+    except Exception:
+        # Never propagate raw provider/auth exception details to the response or logs.
+        claims = None
+    verified_identity = (
+        production
+        and firebase_ready
+        and isinstance(claims, dict)
+        and bool(claims.get("uid"))
+        and claims.get("uid") == user.get("uid")
+    )
+    try:
+        sovereign_authorized = int(user.get("access_level", 0) or 0) >= 3
+    except (TypeError, ValueError):
+        sovereign_authorized = False
 
     checks = [
         {"id": "production_environment", "status": "PASS" if production else "FAIL"},
@@ -48,7 +65,7 @@ async def security_verification(
     response.headers["Cache-Control"] = "no-store, max-age=0"
     response.headers["Pragma"] = "no-cache"
 
-    # Deliberately exclude caller identity and all request headers from logs.
+    # Deliberately exclude caller identity, token material, and request headers.
     logger.info(
         "[OPERATOR_SECURITY_VERIFICATION] run_id=%s result=%s production=%s "
         "firebase_admin=%s verified_identity=%s sovereign_authorized=%s",
@@ -63,4 +80,3 @@ async def security_verification(
         "checks": checks,
         "redaction": "secret-values-and-caller-identifiers-omitted",
     }
-}
