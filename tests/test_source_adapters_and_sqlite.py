@@ -42,3 +42,27 @@ def test_sqlite_busy_timeout_is_set_before_use(tmp_path, monkeypatch):
     assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
     conn.close()
     knowledge_db._local.conn = None
+
+
+def test_sqlite_contention_waits_for_configured_busy_timeout(tmp_path):
+    import time
+
+    db_path = tmp_path / "contended.sqlite"
+    holder = sqlite3.connect(str(db_path), timeout=0.1)
+    contender = sqlite3.connect(str(db_path), timeout=0.2)
+    holder.execute("CREATE TABLE probe (id INTEGER)")
+    holder.commit()
+    holder.execute("BEGIN IMMEDIATE")
+    started = time.monotonic()
+    try:
+        try:
+            contender.execute("INSERT INTO probe (id) VALUES (1)")
+            assert False, "expected SQLITE_BUSY while the writer lock is held"
+        except sqlite3.OperationalError as exc:
+            assert "locked" in str(exc).lower()
+            elapsed = time.monotonic() - started
+            assert elapsed >= 0.15, f"busy timeout returned too early: {elapsed:.3f}s"
+    finally:
+        holder.rollback()
+        holder.close()
+        contender.close()
