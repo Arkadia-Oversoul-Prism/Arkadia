@@ -1,11 +1,7 @@
 /**
- * Read-only session identity.
- *
- * This console holds no login form and no mutation control. It mints an
- * unsigned dev token (mirroring the derived console's AuthContext) so the
- * read-only surfaces can reach an auth-gated substrate in dev-mode. Against a
- * production backend this token 401s — which is truthful, and is shown as such
- * rather than hidden.
+ * Read-only operator session identity. Reuse the signed-in Arkadia Firebase
+ * ID token from same-origin storage. Unsigned development tokens are created
+ * only in a Vite development build.
  */
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
@@ -32,7 +28,11 @@ interface AuthState {
 const AuthContext = createContext<AuthState>({ uid: DEV_UID, token: null });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token] = useState<string | null>(() => mintDevToken());
+  const [token] = useState<string | null>(() => {
+    const stored = window.localStorage.getItem("arkadia_token");
+    if (stored) return stored;
+    return import.meta.env.DEV ? mintDevToken() : null;
+  });
 
   useEffect(() => {
     setTokenProvider(() => token);
