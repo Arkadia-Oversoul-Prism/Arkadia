@@ -933,3 +933,72 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
 - **Merge order is the human sovereign's.** Recommended: **#366 first**, then **#368 rebased**
   onto it retaining both the page loop and `KNOWN_FRONTENDS`/`MARKER_APP`. Do not open a third
   competing PR on this file — compose into #368. Do not merge both unreconciled.
+## Baseline-fingerprint guard is now executable — and its inputs are derived, not restated (gate-hygiene)
+- `tests/test_baseline_fingerprint.py` pins `tests/fixtures/baseline_node_set.txt` to a
+  published fingerprint; it does **not** measure live. Measured at `main` @ `24a00f85`:
+  the live suite reports **17** failing/error nodes while the fixture holds **10**, and the
+  guard passes on both. Its verdict is a function of the fixture and the four
+  `FINGERPRINT_DOCS`, not of the repository's live debt. At that revision **no workflow ran
+  it** either (`grep -rn baseline_fingerprint .github/workflows/` → 0), so even the narrower
+  reconciliation held only when a human invoked it by hand — a guard no workflow executes is
+  decoration. `.github/workflows/baseline-fingerprint.yml` is the executable surface.
+- **A workflow's trigger filter must name every input the guard reads, not just the test
+  file.** The first draft named the guard, the script and `tests/fixtures/**` — incomplete,
+  because the guard also asserts that four published documents carry the canonical
+  fingerprint (`FINGERPRINT_DOCS`). A commit editing `.bootstrap/01_STATE.md` would change
+  what the guard asserts without executing the guard. The detector bit on that real
+  defect before it bit on any synthetic one.
+- `tests/test_baseline_fingerprint_ci_wiring.py` reads `FINGERPRINT_DOCS` from the guard's
+  source **by AST** rather than restating the list. A second hand-maintained copy drifts,
+  and a drifted copy makes the coverage assertion vacuous. Accepted consequence: adding an
+  entry to `FINGERPRINT_DOCS` requires adding the same path to the workflow filter in the
+  same change. Proven by a negative control that edits only the guard's list.
+- The invariant is stated over **every** workflow that runs the guard (parametrized), not
+  against this one file, so a second wiring is judged by the same rule and deleting this
+  one cannot make the assertions vacuous. Five negative controls cover: workflow omitting
+  its own file, a shallow checkout (`fetch-depth: 0` removed — the node set is
+  clone-depth sensitive), a dropped fixture glob, a dropped published doc, and a
+  guard-side-only input addition.
+- **A new workflow adds passing nodes to the generic scanner suites by construction**
+  (`test_ci_gate_trigger_coverage.py` +3, `test_ci_suite_collection_continuation.py` +1,
+  `test_workflow_injection_boundary.py` +1), so the branch's `+14 passed` exceeds its own
+  test file's 9. Measured by diffing `--collect-only` per file across both trees
+  (1809 → 1823), not inferred from the count delta.
+- Measured at `24a00f85`: full-suite node set **identical** on `main` and the branch —
+  outcomes `26c2b4c7…`, ids `571e599f…` (17 nodes, 16F/1E) on both. Architecture suite is
+  **11 passed** (the contract's "9/10" does not reproduce). Evidence:
+  `docs/control-plane/evidence/gate10-baseline-fingerprint-ci-wiring-01/`.
+- The **seven** pre-existing failures on live `main` were recorded, not repaired. Four are
+  owned: the CP10 `deploy/` allowlist omission (PR #354, `deploy/n-atlas-server/` added by
+  `e074a63b` / merged `a27c6c80` 2026-10-07) and the `n-atlas-developer-lab.yml` trigger
+  filter (PR #355). Three are **unowned drift** and must not be "fixed" opportunistically:
+  the Landing copy pin (`2b87e8ef`, 2026-10-04), and two `tests/test_engineering_lab_api.py`
+  pins broken by the new `/api/lab/engineering/n-atlas/*` mutating endpoints (`72432353`)
+  and by `require_auth` → `require_lab_auth` (`f96d5fd2`, PR #353). `api/lab_routes.py` is an
+  authority surface in `LAYER_MAP.py` and carries the Lab mutation boundary, so repairing
+  those two is an authority-boundary change — sovereign-only. Propose; do not execute.
+- At the reconciliation commit `05e031a1` (2026-10-04) neither `deploy/n-atlas-server/Dockerfile`
+  nor `.github/workflows/n-atlas-developer-lab.yml` existed (`git cat-file -e 05e031a1:<path>`
+  → absent) and the CP10 `LEGIT` list had no `deploy` rule, so the seven-node delta is **drift
+  after** the reconciliation, not debt it chose to ignore. A fixture-vs-live gap on `main` is
+  therefore not automatically a stale fixture — date the surfaces before classifying it.
+
+## Baseline-fingerprint guard: wiring is runtime-proven, scope is fixture-only (gate-hygiene)
+- The wiring is no longer a source-level claim. At branch head `26aa0d9a` run **`37863051418`**
+  (`event=pull_request`, `completed/success`) is the first execution of the guard under CI;
+  before this branch `grep -rn baseline_fingerprint .github/workflows/` was **0 matches**, so
+  the guard held only when a human invoked it by hand. All **7** check-runs on that commit are
+  `completed/success`, and the PR is `MERGEABLE` / `CLEAN`.
+- **Do not restate the scope overclaim this pass corrected.** The guard pins the *fixture* to
+  hardcoded constants (`grep -nE "subprocess|pytest\.main|--collect"
+  tests/test_baseline_fingerprint.py` → nothing); it does **not** measure live. Measured at
+  `24a00f85`: live suite 17 failing/error nodes vs fixture 10, guard green on both trees. A green
+  guard is therefore **not** evidence that the recorded set describes live debt — the
+  live-measurement gap is a recorded, non-executed follow-on.
+- The `+14 passed` a branch adding one workflow file carries is **not** a regression signal:
+  three generic suites iterate `.github/workflows/*.yml` and gain passing nodes by construction
+  (1809 → 1823). Compare the failing/error node **set**, never the totals.
+- The `tests/test_engineering_lab_api.py` pins (2) and the Landing-copy pin are **unowned drift**,
+  not fixture debt. Repairing the Lab ones edits `api/lab_routes.py` — an authority surface
+  carrying the Lab mutation boundary — so it is sovereign-only and was proposed, not executed.
+

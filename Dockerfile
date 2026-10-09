@@ -1,16 +1,20 @@
-# Build the canonical N-ATLaS Lab frontend into the same image as FastAPI.
-FROM node:20-bookworm-slim AS console-build
+# Build both Arkadia user-facing applications into the canonical Render image.
+FROM node:24-bookworm-slim AS frontend-build
 
 WORKDIR /build
-COPY web/console/package.json web/console/package-lock.json web/console/
-COPY web/console/tsconfig.json ./web/console/
-COPY web/console/vite.config.ts web/console/vite.config.ts
-COPY web/console/index.html web/console/index.html
-COPY web/console/src web/console/src
 
+# Primary Arkadia experience: Solariun, Arkana, Canvas, and the existing Prism UI.
+COPY web/public_prism/ ./web/public_prism/
+RUN npm install --global pnpm@10.26.1 \
+ && cd web/public_prism \
+ && pnpm install --frozen-lockfile \
+ && pnpm run build
+
+# Reconciled operator console and focused N-ATLaS tester.
+COPY web/console/ ./web/console/
 WORKDIR /build/web/console
-RUN npm ci --no-audit --no-fund
-RUN npm run build
+RUN npm ci --no-audit --no-fund \
+ && npm run build
 
 
 FROM python:3.11-slim
@@ -20,7 +24,6 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# System deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
@@ -28,19 +31,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
-# Copy all application files.
 COPY . /app
 
-# Replace the source-tree console build with the deterministic production build.
-COPY --from=console-build /build/web/console/dist /app/web/console/dist
+# Replace source-tree output with the deterministic builds from the frontend stage.
+COPY --from=frontend-build /build/web/public_prism/dist /app/web/public_prism/dist
+COPY --from=frontend-build /build/web/console/dist /app/web/console/dist
 
-# Runtime folder for JSON
 RUN mkdir -p /run
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the entrypoint
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
