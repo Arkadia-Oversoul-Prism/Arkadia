@@ -883,3 +883,49 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   failure is driven by the shared session leaking state between tests (a sibling node in the
   same file passes in isolation). Re-pinning it would erase a live signal; it needs a fixture
   fix, which is a separate bounded workstream.
+
+## Composing a PR patch requires its true merge-base — a grafted clone silently reverses `main` (gate-hygiene)
+- `git diff <main> <pr-head>` produces a **valid-looking patch that reverses every `main`-side
+  change** when the two revisions have no merge-base in the local history. In this repo the
+  shallow refs are **grafted** (`git log -1 <pr>` prints `(grafted, origin/pr/361, pr361)`), so
+  `git merge-base main <pr>` **exits 1** and `git rev-parse <sha> <pr>` fails with
+  `fatal: Needed a single revision` — the *second* argument cannot be resolved because the
+  ref is an unconnected history. `git diff A B` then degenerates to a tree diff whose direction
+  is meaningless, and `git apply` reports success while reverting main-side files.
+- Observed: applying such a patch onto #363's tree reported "applied cleanly" yet reverted
+  `lab/engineering_lab/natlas.py`, `tests/test_agents_md_encoding_adjudication.py` and
+  `tests/test_baseline_fingerprint.py` — all `main`-side work. **Read `git status --short` after
+  an apply and confirm the changed-path list matches the PR's own diff**, not the inverse.
+- The repair is to fetch the head with a depth that reaches its merge-base, then diff from the
+  real base:
+  `git fetch --depth=400 origin pull/<n>/head:<ref>` → `git merge-base main <ref>` (now exits 0)
+  → `git diff <merge-base> <ref>`. For #361 that is `441379913d1b`, not `24a00f85`.
+- Consequence: a PR's *recorded* base SHA in its body may not be its merge-base. Use the
+  measured merge-base for composition; use the PR body only for intent.
+
+## Composition of fixture-pinning PRs is a set-membership property, not an equality (gate-hygiene)
+- Two gate-hygiene PRs can both pin a baseline node set and still compose safely, because the
+  guards are **membership** assertions (`assert node not in ids`), not exact-set equalities.
+  Measured: #361's fixture patch applied onto #363's tree → the composed guard suite
+  (`test_baseline_fingerprint.py` + `test_agents_md_encoding_adjudication.py`) passes **54/54**.
+- The residual risk is directional and worth stating: #361 records nodes as *expected debt*, so a
+  **future** PR that leaves a recorded node failing would redden #361's guards. That is a
+  merge-order property of the pinning PR, not a defect in it. Check it before recommending order.
+- A clean `git apply` proves *no textual conflict* only. It never proves the composed tree passes
+  — run the composed suite. Report the two facts separately.
+
+## `git ls-files | judge` vs `git diff --name-only | judge` separates self-inflicted red from debt (gate-hygiene)
+- When a boundary gate goes red while you add an evidence directory, the question is whether
+  *your change* reddened it. Judge **your own diff** against the policy module:
+  `git diff --name-only <base>..HEAD | python scripts/cp10_mutation_boundary_policy.py --judge`
+  → exit 0 proves your paths are admitted. Then judge the full tracked corpus
+  (`git ls-files | … --judge`) to see the pre-existing offender.
+- Measured at #363: own diff **PASS** (exit 0); full corpus fails on exactly one path,
+  `deploy/n-atlas-server/Dockerfile` — the surface open PR #354 admits. So the three
+  `test_m02a_ci_gate_integrity` nodes are **#354-owned pre-existing `main` debt**, not an effect
+  of adding evidence. File-ownership alone cannot distinguish those two cases; this can.
+- Corollary: when a recorded fixture already describes the drift, **do not open a PR that
+  re-implements it.** Measure first (`GET /pulls/{n}/files`, then compare the proposed fixture
+  against an independent full-suite run) and reclassify the task `ALREADY_OWNED (<pr>)`.
+  A fixture that is byte-identical to your own independent measurement is the strongest
+  pre-merge confirmation available — record the agreement, do not duplicate the work.
