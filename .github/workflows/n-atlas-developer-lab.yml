@@ -13,6 +13,7 @@ on:
       - "api/frontend_routes.py"
       - "Dockerfile"
       - "tests/test_canonical_frontend_routing.py"
+      - "docs/control-plane/evidence/canonical-render-single-runtime-01/**"
       - ".github/workflows/n-atlas-developer-lab.yml"
       - "docs/architecture/NATLAS_DEVELOPER_LAB_V0.1.md"
   workflow_dispatch:
