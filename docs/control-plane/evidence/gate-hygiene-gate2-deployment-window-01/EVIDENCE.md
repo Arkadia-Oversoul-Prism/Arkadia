@@ -122,7 +122,26 @@ not the gate baseline — so only node identity is load-bearing: **zero node-set
 `+5 passed` is exactly the five new tests. Do not read the absolute failure count as a
 regression.
 
-## 7. Authority boundary
+## 7. CI
+
+On head `8d774a9f` all six check-runs pass (`Full-history secret scan`,
+`native-arkadia-golden-workflow`, `bundle-beta-evidence`, both `beta-*`, Vercel Preview
+Comments). `mergeable: MERGEABLE`.
+
+The only non-success is the `Vercel – arkadia-prism` **commit status**
+(`Vercel – console` is success). That status is a pre-existing chronic condition on `main`,
+not attributable to this change: it reads `failure` on 7 of the 8 most recent `main`
+commits (`06c4d8a1`, `44137991`, `4edab519`, `f96d5fd2`, `2c6f6f1e`, `a27c6c80`, `427a9287`)
+and `success` on the tip `24a00f85` alone. The head here is `docs`/`scripts`/`tests` only and
+cannot plausibly cause a Vercel build failure. Classified as pre-existing; do not read it as a
+regression of this PR.
+
+`sg-02-fe-2-v.yml` (CP10 mutation boundary) is **path-filtered** to
+`web/public_prism/**`, `spiral_grove/**`, `lab/**`, `api/lab_routes.py` and named test files;
+this PR touches none of them, so its absence from the check list is expected, not a gap. The
+boundary itself was still executed locally and passed (see §4 and the commit body).
+
+## 8. Authority boundary
 
 Harness + test source only. No merge. Branch
 `gate-hygiene/gate2-deployment-window-01` → PR against `main`. Human merges.
