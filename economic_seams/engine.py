@@ -157,7 +157,7 @@ def _scan_nocopo(c, source):
 
 def _scan_market_reference(c, source):
     """Persist parsed CBN FX / NEPC price rows as unclassified observations."""
-    from economic_seams.market_data import fetch_nepc_price_rows, normalize_market_tables
+    from economic_seams.market_data import fetch_nepc_price_rows, normalize_cbn_nfem_rows
     if source.id == "nepc_prices":
         rows = fetch_nepc_price_rows(requests, source.url, timeout=25)
         observation_url = source.url
@@ -165,7 +165,7 @@ def _scan_market_reference(c, source):
         response = requests.get(source.url, timeout=25, headers={"User-Agent": "Arkadia-Economic-Seam-Engine/1.0"})
         response.raise_for_status()
         observation_url = response.url
-        rows = normalize_market_tables(response.text, source_id=source.id, source_url=observation_url)
+        rows = normalize_cbn_nfem_rows(response.text, source_url=observation_url)
     if not rows:
         raise ValueError("No parseable market reference rows found; source layout may have changed")
     for row in rows:
