@@ -43,9 +43,11 @@ if (!root) {
   throw new Error("Missing #root element");
 }
 
+const isStandaloneLab = /^\/n-atlas-(?:lab|tester)\/?$/.test(window.location.pathname);
+
 createRoot(root).render(
   <StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename={isStandaloneLab ? "/" : "/operator"}>
       <AuthProvider>
         <App />
       </AuthProvider>
