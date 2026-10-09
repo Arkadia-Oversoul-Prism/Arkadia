@@ -1,0 +1,61 @@
+name: ARK-01 Signal Conformance
+
+# `schemas/arkana/signal/1.0/arkana-signal.schema.json` was admitted to the CP10
+# mutation boundary and a conformance test was written against it, but no job
+# selected that test and none installed `jsonschema`, so in CI it skipped for a
+# missing import and the pin was decoration. README.md's gate-hygiene lesson
+# applies verbatim: "a frozen schema that nothing validates against is not a
+# contract."
+#
+# Two jobs, deliberately separated:
+#   * `stdlib-guard` installs no validator and runs the stdlib-only pin. This is
+#     the guard that cannot skip; it is green only when the producer conforms.
+#   * `conformance` adds `jsonschema` and runs the fuller validation so both the
+#     real-schema check and the stdlib subset check agree on the same tree.
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/arkana-signal-conformance.yml"
+      - "api/arkana_signal_routes.py"
+      - "schemas/arkana/signal/**"
+      - "tests/test_arkana_signal_schema_guard.py"
+      - "tests/test_arkana_signal_schema_conformance.py"
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/arkana-signal-conformance.yml"
+      - "api/arkana_signal_routes.py"
+      - "schemas/arkana/signal/**"
+      - "tests/test_arkana_signal_schema_guard.py"
+      - "tests/test_arkana_signal_schema_conformance.py"
+
+jobs:
+  stdlib-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      # Deliberately omits jsonschema: the pin must be green in an environment
+      # that lacks the validator. If this job ever needs jsonschema to pass, the
+      # guard has become skippable again.
+      - run: pip install pytest pytest-asyncio fastapi httpx
+      - name: ARK-01 producer conformance (stdlib-only pin)
+        run: PYTHONPATH=. python -m pytest tests/test_arkana_signal_schema_guard.py -q
+
+  conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: pip install pytest pytest-asyncio fastapi httpx jsonschema
+      - name: ARK-01 producer conformance (real schema)
+        run: >-
+          PYTHONPATH=. python -m pytest
+          tests/test_arkana_signal_schema_guard.py
+          tests/test_arkana_signal_schema_conformance.py -q

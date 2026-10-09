@@ -300,3 +300,88 @@ def test_natlas_tester_token_not_accepted_as_general_auth(monkeypatch):
         assert getattr(exc, "status_code", None) == 401
     else:
         raise AssertionError("N-ATLaS tester capability must not authenticate general routes")
+
+
+def test_natlas_gradio_adapter_waits_for_complete_and_parses_sse_error(monkeypatch):
+    class FakeResponse:
+        def __init__(self, body):
+            self.body = body.encode()
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return None
+        def read(self):
+            return self.body
+        def readline(self):
+            if not hasattr(self, "_lines"):
+                self._lines = iter(self.body.splitlines(True))
+            try:
+                return next(self._lines)
+            except StopIteration:
+                return b""
+
+    calls = []
+    responses = [
+        FakeResponse(json.dumps({"event_id": "evt-stream"})),
+        FakeResponse(
+            'event: generating\n'
+            'data: ["first chunk"]\n\n'
+            'event: generating\n'
+            'data: ["complete chunk"]\n\n'
+            'event: complete\n'
+            'data: ["final response"]\n\n'
+        ),
+    ]
+
+    def fake_urlopen(request, timeout=0):
+        calls.append((request.full_url, timeout))
+        return responses.pop(0)
+
+    monkeypatch.setattr(gateway_mod.urllib.request, "urlopen", fake_urlopen)
+    result = NAtlasGradioAdapter(base_url="https://natlas.test").generate(
+        model="N-ATLaS",
+        messages=[{"role": "user", "content": "Hello"}],
+    )
+
+    assert result.text == "final response"
+    assert result.usage["sse_events"] == ["generating", "generating", "complete"]
+    assert result.usage["terminal_event"] == "complete"
+    assert calls[0][1] == 300.0
+    assert calls[1][1] == 300.0
+
+
+def test_natlas_gradio_adapter_surfaces_provider_error_event(monkeypatch):
+    class FakeResponse:
+        def __init__(self, body):
+            self.body = body.encode()
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return None
+        def read(self):
+            return self.body
+        def readline(self):
+            if not hasattr(self, "_lines"):
+                self._lines = iter(self.body.splitlines(True))
+            try:
+                return next(self._lines)
+            except StopIteration:
+                return b""
+
+    responses = [
+        FakeResponse(json.dumps({"event_id": "evt-error"})),
+        FakeResponse(
+            'event: error\n'
+            'data: "generation failed"\n\n'
+        ),
+    ]
+
+    def fake_urlopen(request, timeout=0):
+        return responses.pop(0)
+
+    monkeypatch.setattr(gateway_mod.urllib.request, "urlopen", fake_urlopen)
+    with pytest.raises(Exception, match="Gradio runtime error: generation failed"):
+        NAtlasGradioAdapter(base_url="https://natlas.test").generate(
+            model="N-ATLaS",
+            messages=[{"role": "user", "content": "Hello"}],
+        )

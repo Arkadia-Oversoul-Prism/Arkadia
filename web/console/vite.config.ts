@@ -8,6 +8,7 @@ import react from "@vitejs/plugin-react";
 const BACKEND = process.env.ARKADIA_BACKEND ?? "http://localhost:8080";
 
 export default defineConfig({
+  base: process.env.NODE_ENV === "production" ? "/operator/" : "/",
   plugins: [react()],
   server: {
     port: 5174,

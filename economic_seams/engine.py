@@ -32,8 +32,8 @@ SOURCES = [
     Source("cbn", "Central Bank of Nigeria", "cbn.gov.ng", "https://www.cbn.gov.ng/", "FINANCE", "CBN Act, banking/payment regulations and applicable circulars"),
     Source("niser", "Nigerian Institute of Social and Economic Research", "niser.gov.ng", "https://niser.gov.ng/v2/niser-economic-intelligence-report-2026/", "MACRO", "Public economic research; not itself a transaction authorization"),
     Source("worldbank_procurement", "World Bank Procurement Notices", "worldbank.org", "https://projects.worldbank.org/en/projects-operations/procurement", "DONOR_PROCUREMENT", "World Bank procurement framework and project procurement rules"),
-    Source("afdb_procurement", "African Development Bank Current Solicitations", "afdb.org", "https://www.afdb.org/en/about-us/corporate-procurement/procurement-notices/current-solicitations", "DONOR_PROCUREMENT", "AfDB procurement framework and solicitation rules"),
-    Source("afdb_trade_finance", "African Development Bank Trade Finance Program", "afdb.org", "https://www.afdb.org/en/topics-and-sectors/initiatives-partnerships/trade-finance-program", "TRADE_FINANCE", "AfDB Trade Finance Program instruments and eligibility rules"),
+    Source("afdb_procurement", "African Development Bank Current Solicitations RSS", "afdb.org", "https://www.afdb.org/en/about-us/corporate-procurement/procurement-notices/current-solicitations.xml", "DONOR_PROCUREMENT", "AfDB procurement framework and solicitation rules"),
+    Source("afdb_trade_finance", "African Development Bank Trade Finance Program News", "afdb.org", "https://www.afdb.org/en/news-keywords/trade-finance-program", "TRADE_FINANCE", "AfDB-published trade finance program news; instrument eligibility and transaction terms require primary-document verification"),
     Source("ifc_trade_finance", "IFC Global Supply Chain Finance", "ifc.org", "https://www.ifc.org/en/what-we-do/sector-expertise/trade-and-supply-chain-finance/global-supply-chain-finance", "TRADE_FINANCE", "IFC Global Supply Chain Finance program terms and partner-bank structures"),
     Source("ngx_disclosures", "Nigerian Exchange Disclosures", "ngxgroup.com", "https://ngxgroup.com/exchange/trade/investor-protection-education/x-compliance-report/", "PUBLIC_FILINGS", "NGX Listing Rules and issuer disclosure requirements"),
     Source("cbn_fx", "CBN Exchange Rates", "cbn.gov.ng", "https://www.cbn.gov.ng/rates/ExchRateByCurrency.html", "FX", "CBN official foreign-exchange market rate publication"),
@@ -155,15 +155,36 @@ def _scan_nocopo(c, source):
     return records, created
 
 
+def _scan_afdb_procurement(c, source):
+    """Persist individual notices from AfDB's documented current-solicitations RSS feed."""
+    from economic_seams.market_data import fetch_afdb_procurement_items
+    items = fetch_afdb_procurement_items(requests, source.url, timeout=25)
+    created = []
+    for item in items:
+        text = f"{item['title']} {item.get('excerpt') or ''}".strip()
+        digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        oid = hashlib.sha256(f"{source.id}:{item['source_url']}:{digest}".encode("utf-8")).hexdigest()[:24]
+        excerpt = _excerpt(text)
+        c.execute(
+            "INSERT OR REPLACE INTO observations VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (oid, source.id, item["source_url"], item["title"], item.get("published_at"),
+             _now(), digest, excerpt[:1800], source.legal_basis, "OFFICIAL_RSS_ITEM"),
+        )
+        created.extend(_detect(c, source, oid, excerpt))
+    return items, created
+
+
 def _scan_market_reference(c, source):
     """Persist parsed CBN FX / NEPC price rows as unclassified observations."""
-    from economic_seams.market_data import fetch_nepc_price_rows, normalize_market_tables
+    from economic_seams.market_data import fetch_nepc_price_rows, parse_cbn_nfem_rows
     if source.id == "nepc_prices":
-        rows = fetch_nepc_price_rows(requests, source.url)
+        rows = fetch_nepc_price_rows(requests, source.url, timeout=25)
+        observation_url = source.url
     else:
         response = requests.get(source.url, timeout=25, headers={"User-Agent": "Arkadia-Economic-Seam-Engine/1.0"})
         response.raise_for_status()
-        rows = normalize_market_tables(response.text, source_id=source.id, source_url=response.url)
+        observation_url = response.url
+        rows = parse_cbn_nfem_rows(response.text, source_url=observation_url)
     if not rows:
         raise ValueError("No parseable market reference rows found; source layout may have changed")
     for row in rows:
@@ -172,7 +193,7 @@ def _scan_market_reference(c, source):
         oid = hashlib.sha256(f"{source.id}:{digest}".encode("utf-8")).hexdigest()[:24]
         labels = " / ".join(row.get("labels", []) or [row.get("commodity_unit_heading", ""), row.get("state", "")])
         c.execute("INSERT OR REPLACE INTO observations VALUES (?,?,?,?,?,?,?,?,?,?)",
-                  (oid, source.id, response.url, f"{source.name}: {labels[:160]}", None, _now(), digest, raw[:1800], source.legal_basis, "UNCLASSIFIED_REFERENCE_ROW"))
+                  (oid, source.id, row.get("source_url") or observation_url, f"{source.name}: {labels[:160]}", None, _now(), digest, raw[:1800], source.legal_basis, "UNCLASSIFIED_REFERENCE_ROW"))
     return rows
 
 def scan_once():
@@ -182,6 +203,10 @@ def scan_once():
         try:
             if source.id == "nocopo":
                 records, source_created = _scan_nocopo(c, source)
+                created.extend(source_created)
+                item_count = len(records)
+            elif source.id == "afdb_procurement":
+                records, source_created = _scan_afdb_procurement(c, source)
                 created.extend(source_created)
                 item_count = len(records)
             elif source.id in {"cbn_fx", "nepc_prices"}:
