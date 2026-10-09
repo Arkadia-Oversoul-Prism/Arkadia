@@ -867,6 +867,72 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   It fails on the composed tree and passes on `main`: a guard that is silent on both is not
   a guard.
 
+## Gate-2 deployment window — an ordered, paginated endpoint makes a fixed window a false absence (gate-hygiene)
+- `scripts/gate2_production_observation.py` read a **single fixed** `/deployments` window
+  (`per_page=60`) and filtered it client-side to `environment == Production`. `/deployments` is
+  ordered by **creation time across every environment**, so Preview traffic dominates: at `main`
+  `24a00f85` the newest Production deploy sat at **index 71** — past the window — and the harness
+  printed `main -> deployment identity := UNKNOWN` while main **was** deployed and sha-identical.
+  The `UNKNOWN` read as *no deployment evidence*, which is exactly the dangerous direction for a
+  boundary whose purpose is to detect a missing deployment. A standing hourly pulse must not
+  report a false `UNKNOWN`/absent boundary when main is deployed.
+- **Proof of the artifact, not the deployment:** same SHA, same token — pre-repair `UNKNOWN` /
+  0 Production records; repaired `VERIFIED` / 4 records, newest `sha == main`. Slice check:
+  first 60 unfiltered records -> 0 Production; first 100 -> 4. Newest Production record was at
+  index 71 of the unfiltered list.
+- **Repair:** bounded newest-first page walk (`DEPLOYMENT_SCAN_PAGES = 5`, <=500 records, never
+  full history) that stops as soon as a Production record appears; plus a **window guard** — a
+  window shorter than the scan ceiling carrying **no** Production record returns `[]`
+  (unprovable absence -> `UNKNOWN`), never a `STALE` claim drawn from a truncated view.
+  `production_deployments()` stays a `scan_ceiling=limit` wrapper so existing call sites hold.
+- Generalise: **a fixed-size window over a time-ordered, paginated feed is not an absence
+  oracle.** Either page until the predicate matches (bounded), or treat an exhausted window as
+  unprovable. The negative control (`test_negative_control_truncated_window_hides_a_production_record`)
+  feeds the pre-repair shape a window one record short and asserts it yields nothing, so the
+  guard cannot be disarmed by narrowing the window.
+- Regression: full-suite failing/error **node set** unchanged vs `main` `24a00f85` (133 vs 133,
+  `comm -3` empty); the `+5 passed` is the new tests. Architecture 11/11. `api/main.py` untouched.
+- PR #368 (branch `gate-hygiene/gate2-deployment-window-01`). Does **not** close the standing
+  Gate-2 boundary — `deployment build output observed` stays `BLOCKED` on Vercel Deployment
+  Protection (SSO); production parity remains **NOT CLAIMED**.
+
+## Gate-2 deployment window vs marker oracle — two PRs, one file, independently necessary (gate-hygiene)
+- Measured 2026-10-09 at main `24a00f85`. `scripts/gate2_production_observation.py` has **two**
+  open bounded repairs touching it and its test, and **both are needed**: PR #368
+  (`gate-hygiene/gate2-deployment-window-01`) and PR #366
+  (`gate-hygiene/gate2-marker-oracle-soundness-01`).
+- #368 is the *deployment-window* fix: `GET /deployments` is ordered by creation time across
+  *every* environment, so a busy Preview cohort pushes the newest Production record off a single
+  page and the harness reports `main -> deployment identity := UNKNOWN` while main **is** deployed
+  (the absent state, not the real one). The fix **pages** the window
+  (`per_page=100&page=N`, bounded by `DEPLOYMENT_SCAN_PAGES`) instead of trusting one page.
+- #366 is the *marker-oracle* fix and does **not** paginate — it widens the fixed window with
+  `per_page = max(args.limit * 5, 50)`, which is strictly weaker: a cohort can still exceed any
+  fixed bound. #366 repairs a different soundness defect: the harness scored the **console**
+  artifact against **Prism** literals after the root `vercel.json` was repointed at `404452e0`
+  (2026-10-02), so every marker read 0 — which is "this is a different application", not
+  "the artifact disagrees with the source". #366 also introduces `KNOWN_FRONTENDS`/`MARKER_APP`.
+- **Textual conflict is real and measured, not assumed.** `git apply --3way` of #366's patch onto
+  #368's head in a detached worktree yields `UU` on **both** files; the script has one conflicted
+  region and the test two. The hunks are the adjacent constant blocks at `BUILD_INPUTS`
+  (`DEPLOYMENT_SCAN_PAGES` vs `KNOWN_FRONTENDS`/`MARKER_APP`). Git conflict-free is not proof of
+  semantic compatibility — and here it is not even conflict-free.
+- **The ABSENT marker rows do not contradict the lineage summary.** The run prints e.g.
+  `separate explicit downstream stages  0  (expect>0)  <-- ABSENT` for the deployed bundle, which
+  reads as a Prism divergence. It is not: the alias manifest is `assets/index-*.js` while the
+  Prism build emits `dist/assets/index-*.js`, so the harness **falls back** to `alias_bundle`
+  (printed explicitly) — the Console artifact. The marker table measures the Console artifact;
+  `SOURCE-LINEAGE CLOSURE` (ancestry-only) is independently `True`. The two are consistent. Do
+  not read the ABSENT rows as a Prism regression, and do not "repair" them inside #368.
+- A running harness can still *cite* a verification it never performs: `classify_source_lineage`
+  returns the literal `"VERIFIED (marker set matches, source closed)"` while never receiving the
+  marker comparison — the computed `match` is printed but fed to no classifier. PR #366 fixes
+  this (its `classify_source_lineage` comment says claiming a match "from closure alone" is
+  unsound) by splitting out `classify_marker_oracle`. Leave it to #366; do not duplicate it in
+  #368 (would compound the conflict).
+- **Merge order is the human sovereign's.** Recommended: **#366 first**, then **#368 rebased**
+  onto it retaining both the page loop and `KNOWN_FRONTENDS`/`MARKER_APP`. Do not open a third
+  competing PR on this file — compose into #368. Do not merge both unreconciled.
 ## Baseline-fingerprint guard is now executable — and its inputs are derived, not restated (gate-hygiene)
 - `tests/test_baseline_fingerprint.py` pins `tests/fixtures/baseline_node_set.txt` to a
   published fingerprint; it does **not** measure live. Measured at `main` @ `24a00f85`:
