@@ -186,7 +186,7 @@ def parse_afdb_rss_items(xml_text: str, *, feed_url: str):
             continue
         description = fields.get("description") or fields.get("summary") or fields.get("content") or ""
         from html import unescape
-        description = re.sub(r"\\s+", " ", re.sub(r"<[^>]+>", " ", unescape(description))).strip()
+        description = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", unescape(description))).strip()
         items.append({
             "source_id": "afdb_procurement",
             "source_url": target,
