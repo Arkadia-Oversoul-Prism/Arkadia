@@ -10,9 +10,12 @@ on:
       - "web/console/**"
       - "web/public_prism/**"
       - "api/main.py"
+      - "api/operator_security_routes.py"
       - "api/frontend_routes.py"
       - "Dockerfile"
       - "tests/test_canonical_frontend_routing.py"
+      - "tests/test_operator_security_verification.py"
+      - "docs/verification/OPERATOR_SECURITY_CONTROL.md"
       - "docs/control-plane/evidence/canonical-render-single-runtime-01/**"
       - ".github/workflows/n-atlas-developer-lab.yml"
       - "docs/architecture/NATLAS_DEVELOPER_LAB_V0.1.md"
@@ -34,6 +37,8 @@ jobs:
         run: python -m pytest tests/test_natlas_developer_lab.py -q
       - name: Canonical single-origin frontend route tests
         run: python -m pytest tests/test_canonical_frontend_routing.py -q
+      - name: Operator security verification tests
+        run: python -m pytest tests/test_operator_security_verification.py -q
 
   frontend:
     runs-on: ubuntu-latest
