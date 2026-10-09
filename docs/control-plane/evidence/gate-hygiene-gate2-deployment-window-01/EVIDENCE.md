@@ -175,3 +175,55 @@ not a Prism divergence.
 
 Harness + test source only. No merge. Branch
 `gate-hygiene/gate2-deployment-window-01` → PR against `main`. Human merges.
+
+## 10. Composition pass — #366 reconciled into this branch (bounded execute)
+
+Per the recommendation in §8, the marker-oracle repair (#366) is now **composed into this
+branch**, not left as a competing PR on the same two files.
+
+Composition sequence (merge only; **no force-push, no rebase of published history**):
+
+1. Branch was based on stale `24a00f85`. Merged **current `main`** (`43c3e2b1`) in —
+   conflict only in `AGENTS.md` (a tail-append collision); resolved by keeping **both**
+   sections (this workstream's lesson + main's baseline-fingerprint lesson).
+2. Merged `origin/gate-hygiene/gate2-marker-oracle-soundness-01` (#366) in — `UU` on **both**
+   instrument files, exactly as §8 predicted. Resolved by keeping **both** additive edits:
+   - `scripts/gate2_production_observation.py`: the `DEPLOYMENT_SCAN_PAGES` page loop **and**
+     `KNOWN_FRONTENDS`/`MARKER_APP`/`classify_marker_oracle`/`frontend_of`.
+   - `tests/test_gate2_production_observation.py`: both import sets and both test blocks.
+3. `main` did **not** touch either instrument file between `24a00f85` and `43c3e2b1`
+   (`git diff --stat 24a00f85 43c3e2b1 -- <files>` empty), so the resolution is not stale.
+
+Delta of the composition against the pre-merge branch tip is **#366's own repair only**
+(docstring widening, `KNOWN_FRONTENDS`/`MARKER_APP`, `frontend_of`, `last_build_input_commit(app)`,
+`classify_marker_oracle`, and the honest `classification_source_lineage` wording).
+
+### Measured verification (this environment)
+
+| Check | Command | Result |
+|---|---|---|
+| instrument unit tests | `pytest tests/test_gate2_production_observation.py -q -rEf` | **39 passed** |
+| architecture fitness | `pytest tests/architecture -q -rEf` | **11 passed** |
+| script compiles | `python -m py_compile scripts/gate2_production_observation.py` | OK |
+| end-to-end harness | `python scripts/gate2_production_observation.py` | runs; reports `marker-set oracle NOT OBSERVED (artifact is 'console')` — the soundness repair is live, no false `VERIFIED` |
+
+Full suite, **failure/error node-set** comparison (not counts) on the same command
+(`pytest tests/ -q -rEf --continue-on-collection-errors`):
+
+- branch: 78 failed / 1232 passed / 21 skipped / 57 errors
+- `main` `43c3e2b1` (detached worktree): 78 failed / 1212 passed / 21 skipped / 57 errors
+- failing/error node set sha256 **identical** on both:
+  `d13fafb499059b3ddbf56982da2e17eda354f579b01f07d2263c2b03392f002f` (135 nodes, 0-only-on-either side)
+- **+20 passed** == exactly the composed gate2 test additions. **Zero regression.**
+
+The large baseline failure/error totals are pre-existing environmental debt
+(`ModuleNotFoundError` for `weaver.*` suites, missing optional deps) present identically on
+`main`; they are recorded, not repaired (AGENTS.md "baseline debt" rule).
+
+### Disposition
+
+- This branch (PR #368) now carries **both** instrument repairs.
+- **PR #366** is superseded by this composition; it should be **closed** by the sovereign
+  once #368 merges (its content is byte-present on this head). No third PR was opened.
+- Merge remains the sovereign's exclusive action. No merge, no self-authorization.
+
