@@ -159,11 +159,13 @@ def _scan_market_reference(c, source):
     """Persist parsed CBN FX / NEPC price rows as unclassified observations."""
     from economic_seams.market_data import fetch_nepc_price_rows, normalize_market_tables
     if source.id == "nepc_prices":
-        rows = fetch_nepc_price_rows(requests, source.url)
+        rows = fetch_nepc_price_rows(requests, source.url, timeout=25)
+        observation_url = source.url
     else:
         response = requests.get(source.url, timeout=25, headers={"User-Agent": "Arkadia-Economic-Seam-Engine/1.0"})
         response.raise_for_status()
-        rows = normalize_market_tables(response.text, source_id=source.id, source_url=response.url)
+        observation_url = response.url
+        rows = normalize_market_tables(response.text, source_id=source.id, source_url=observation_url)
     if not rows:
         raise ValueError("No parseable market reference rows found; source layout may have changed")
     for row in rows:
@@ -172,7 +174,7 @@ def _scan_market_reference(c, source):
         oid = hashlib.sha256(f"{source.id}:{digest}".encode("utf-8")).hexdigest()[:24]
         labels = " / ".join(row.get("labels", []) or [row.get("commodity_unit_heading", ""), row.get("state", "")])
         c.execute("INSERT OR REPLACE INTO observations VALUES (?,?,?,?,?,?,?,?,?,?)",
-                  (oid, source.id, response.url, f"{source.name}: {labels[:160]}", None, _now(), digest, raw[:1800], source.legal_basis, "UNCLASSIFIED_REFERENCE_ROW"))
+                  (oid, source.id, row.get("source_url") or observation_url, f"{source.name}: {labels[:160]}", None, _now(), digest, raw[:1800], source.legal_basis, "UNCLASSIFIED_REFERENCE_ROW"))
     return rows
 
 def scan_once():
