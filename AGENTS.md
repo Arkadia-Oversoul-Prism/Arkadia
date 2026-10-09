@@ -936,3 +936,26 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   not fixture debt. Repairing the Lab ones edits `api/lab_routes.py` — an authority surface
   carrying the Lab mutation boundary — so it is sovereign-only and was proposed, not executed.
 
+
+## Recomposition goes stale: measure the PR head, not the PR body's history claim (gate-hygiene)
+- A composition PR's body argues from *history* ("branch B's head blobs are the pre-A base",
+  "a plain merge of B loses one repair"), but history can move between authoring and review.
+  Measured at `a47ea928`: PR #368 **merged #366 into its own branch** at `9837213f`
+  (2026-10-09 08:12Z), ~5 h before #378 was created (13:22Z). #368's head `aa6f4d2c`
+  therefore already carries both repairs (`scripts/gate2_production_observation.py` blob
+  `4db47217...`, `KNOWN_FRONTENDS=3` + `DEPLOYMENT_SCAN_PAGES=4`), and a plain
+  `git merge pr368` onto `main` is **conflict-free** and keeps both. #378's head is
+  blob-identical to #368 except for its own `EVIDENCE.md` (`pr368^{tree} 160f8757...` vs
+  `pr378^{tree} deb99ffe...`).
+- The told-apart value is the **SHA of the blob at the live head**, not a remembered one.
+  `git rev-parse <pr>:<path>` prints it in one command; `9b481812...` is the *base* blob
+  (`origin/main` and PR #370's head), not #368's. A claim like "composed blob `cf09b073...`"
+  should be checked with `git cat-file -t` - `cf09b073` is **not a valid object** here.
+- This is the same failure mode as a stale test citation: recomposition must be **measured at
+  the revision under review**, or it routes around a conflict that no longer exists. Verify a
+  composition with a real `git merge --no-ff` in a detached worktree, then read the resulting
+  blob - do not trust the body's history.
+- Guard against over-reading: the *content* of #378 is sound (39 gate2 tests, architecture
+  11/11, CP10 judge PASS, full-suite node set byte-identical to `main` - `bfcfe592...` /
+  `ed5e4714...`, 16 nodes). Only the premise is stale. Correct the body; merge one of the pair,
+  not both. Evidence: `docs/control-plane/evidence/gate-hygiene-gate2-instrument-composition-verification-01/`.
