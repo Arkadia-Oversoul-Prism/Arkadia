@@ -127,3 +127,61 @@ evidence that the app-identity split, not marker drift, produces the zero counts
 ## 6. Authority boundary
 
 Sovereign merge authority. No merge performed; no push to `main`; no force-push.
+
+---
+
+## 7. Residual defect found on independent verification (2026-10-09)
+
+Independently re-running the harness on the PR head `af496f2` surfaced a residual
+soundness gap of the **same class** the PR was opened to remove.
+
+**Symptom.** With no observable Production deployment (`prod count: 0`,
+`deployed_app: None`), the live run reported:
+
+```
+marker-set oracle   CONTRADICTED (markers absent from served artifact: ...)
+```
+
+An *undetermined* served app was classified `CONTRADICTED`. The tested classifier
+already returns `NOT OBSERVED` for `None`, so the intended branch was present but
+unreachable.
+
+**Root cause.** A single coercing expression at the report call site:
+
+```python
+report["boundaries"]["marker-set oracle"] = classify_marker_oracle(
+    report.get("deployed_app") or MARKER_APP,   # <-- None coerced to 'arkadia-prism'
+    ...
+)
+```
+
+`None` (nothing fetched) was rewritten to `MARKER_APP`, so the classifier scored an
+artifact it had never fetched. Because `report["markers"]["deployed"]` is `None` in
+that state, every marker read as absent and the verdict collapsed to `CONTRADICTED`.
+This is the identical fusion of *"the app I observed"* with *"the app my markers
+describe"* that the PR repairs — reintroduced at the call site instead of the
+constant.
+
+**Repair.** Pass the identity through unchanged; the tested predicate already handles
+`None`. Same class on the SG-04 link: `regression: true` was emitted for an artifact
+belonging to another (or no) app, because every SG-04 literal reads 0 when the surface
+is not in that build. The SG-04 verdict moves into a tested `classify_sg04` predicate
+that reports `regression: None` (not evaluable) unless the artifact is the app the
+literals describe.
+
+**Verification.**
+
+| command | result |
+|---|---|
+| `python -m pytest tests/test_gate2_production_observation.py -q` | **32 passed** (29 + 3 new) |
+| `python -m pytest tests/architecture -q` | **11 passed** |
+| `python -m py_compile scripts/gate2_production_observation.py` | OK |
+| live run, post-repair | `marker-set oracle NOT OBSERVED`; `sg04 regression None` |
+
+**Non-vacuousness.** Restoring the `or MARKER_APP` coercion and the inline SG-04 dict
+reddens exactly the two new source-level controls
+(`test_undetermined_app_does_not_reach_the_marker_call_site_as_this_app`,
+`test_sg04_is_produced_by_the_tested_predicate`), 2F/30P — measured, then reverted to
+32P. `test_an_undetermined_app_is_not_scored_for_sg04` carries both the NOT-EVALUABLE
+cases and the positive control that the real regression remains reachable when the
+artifact is the marker app.

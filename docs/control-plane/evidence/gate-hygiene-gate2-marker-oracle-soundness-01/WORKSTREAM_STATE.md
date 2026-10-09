@@ -32,6 +32,26 @@ The pre-repair harness fused source closure and the marker claim into one `VERIF
 so an absent marker set was reportable as agreement. That verdict is now unreachable
 by construction (negative control in the test file).
 
+## Pass 2 — residual soundness gap repaired (2026-10-09)
+
+Independent verification of the PR head `af496f2` found the same defect class surviving
+at the report call site: `report.get("deployed_app") or MARKER_APP` coerced `None`
+(no observable deployment) to `MARKER_APP`, making the classifier's `NOT OBSERVED`
+branch unreachable. The live run therefore printed `marker-set oracle CONTRADICTED`
+for an *undetermined* app instead of `NOT OBSERVED`. The SG-04 link had the same
+class of phantom verdict: `regression: true` for an artifact of another (or no) app.
+
+Repair: pass the app identity through unchanged; move the SG-04 verdict into a tested
+`classify_sg04` predicate that reports `regression: None` unless the artifact is the app
+the literals describe. Tests **32 passed** (29 + 3); both new source-level controls are
+non-vacuous (restoring the defect reddens them, 2F/30P). Architecture **11 passed**.
+
+| field | value |
+| --- | --- |
+| status | IMPLEMENTED (awaiting sovereign review; not VERIFIED) |
+| marker-set oracle (live) | `NOT OBSERVED (served app undetermined; markers describe 'arkadia-prism')` |
+| sg04 (live) | `evaluable: False`, `regression: None` |
+
 ## Pass 1 — independent reconciliation of PR #361 (measured, not inherited)
 
 PR #361 is **open** (head `04857ce2`, base `44137991`). It records a canonical 17-node
