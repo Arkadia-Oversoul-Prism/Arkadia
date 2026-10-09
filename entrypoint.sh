@@ -26,7 +26,7 @@ config_path.parent.mkdir(parents=True, exist_ok=True)
 config_path.write_text(
     "window.__ARKADIA_FIREBASE_CONFIG__ = "
     + json.dumps(config, separators=(",", ":"))
-    + ";\\n",
+    + ";" + chr(10),
     encoding="utf-8",
 )
 configured = all(config.values())
