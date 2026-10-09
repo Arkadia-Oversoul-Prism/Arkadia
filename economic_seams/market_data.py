@@ -3,6 +3,8 @@ from __future__ import annotations
 """Fail-closed market reference extraction and comparability gates."""
 
 from html.parser import HTMLParser
+import xml.etree.ElementTree as ET
+from datetime import datetime
 import re
 from typing import Any
 from urllib.parse import urljoin, urlparse
@@ -79,6 +81,52 @@ def normalize_market_tables(html: str, *, source_id: str, source_url: str):
     return observations
 
 
+def parse_cbn_nfem_rows(html: str, *, source_url: str):
+    """Extract only the CBN NFEM published rate, never adjacent high/low/closing columns."""
+    rows = []
+    for table_index, table in enumerate(parse_html_tables(html)):
+        for header_index, header in enumerate(table):
+            normalized = [re.sub(r"\s+", " ", cell).strip().casefold() for cell in header]
+            date_columns = [i for i, value in enumerate(normalized) if value == "date"]
+            rate_columns = [
+                i for i, value in enumerate(normalized)
+                if "nfem rate" in value and not any(term in value for term in
+                    ("highest", "lowest", "closing", "average", "turnover", "deals"))
+            ]
+            if not date_columns or not rate_columns:
+                continue
+            date_column, rate_column = date_columns[0], rate_columns[0]
+            for row_index, raw_cells in enumerate(table[header_index + 1:], start=header_index + 1):
+                cells = [re.sub(r"\s+", " ", cell).strip() for cell in raw_cells]
+                if max(date_column, rate_column) >= len(cells):
+                    continue
+                published_date, rate = cells[date_column], cells[rate_column]
+                try:
+                    parsed_date = datetime.strptime(published_date, "%B-%d-%Y").date().isoformat()
+                except ValueError:
+                    try:
+                        parsed_date = datetime.strptime(published_date, "%Y-%m-%d").date().isoformat()
+                    except ValueError:
+                        continue
+                if not _number(rate):
+                    continue
+                rows.append({
+                    "source_id": "cbn_fx",
+                    "source_url": source_url,
+                    "table_index": table_index,
+                    "row_index": row_index,
+                    "labels": [parsed_date, "NFEM Rate (₦/US$)"],
+                    "numeric_values": [rate.replace(",", "").replace("₦", "").strip()],
+                    "raw_cells": cells,
+                    "observed_date": parsed_date,
+                    "currency": "USD",
+                    "unit": "₦ per US$1",
+                    "quote_basis": "CBN NFEM volume-weighted average official rate",
+                    "interpretation": "CBN_REFERENCE_FX_RATE",
+                })
+    return rows
+
+
 class _LinkParser(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
@@ -105,6 +153,64 @@ _NIGERIAN_STATES = {
     "KWARA", "LAGOS", "NASARAWA", "NIGER", "OGUN", "ONDO", "OSUN", "OYO",
     "PLATEAU", "RIVERS", "SOKOTO", "TARABA", "YOBE", "ZAMFARA",
 }
+
+
+def parse_afdb_rss_items(xml_text: str, *, feed_url: str):
+    """Parse official AfDB RSS items; reject malformed feeds and non-AfDB item links."""
+    try:
+        root = ET.fromstring(xml_text or "")
+    except ET.ParseError as exc:
+        raise ValueError("AfDB procurement RSS is not valid XML") from exc
+
+    def local_name(tag):
+        return tag.rsplit("}", 1)[-1].casefold()
+
+    items = []
+    for element in root.iter():
+        if local_name(element.tag) not in {"item", "entry"}:
+            continue
+        fields = {}
+        for child in list(element):
+            key = local_name(child.tag)
+            value = (child.text or "").strip()
+            if key == "link" and not value:
+                value = (child.attrib.get("href") or "").strip()
+            if value:
+                fields.setdefault(key, value)
+        title = fields.get("title", "").strip()
+        link = fields.get("link", "").strip()
+        target = urljoin(feed_url, link) if link else ""
+        parsed = urlparse(target)
+        if (not title or parsed.scheme != "https" or not parsed.hostname
+                or not (parsed.hostname == "afdb.org" or parsed.hostname.endswith(".afdb.org"))):
+            continue
+        description = fields.get("description") or fields.get("summary") or fields.get("content") or ""
+        from html import unescape
+        description = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", unescape(description))).strip()
+        items.append({
+            "source_id": "afdb_procurement",
+            "source_url": target,
+            "title": title[:500],
+            "published_at": fields.get("pubdate") or fields.get("published") or fields.get("updated"),
+            "excerpt": description[:1800],
+        })
+    if not items:
+        raise ValueError("AfDB procurement RSS contained no valid official items")
+    return items
+
+
+def fetch_afdb_procurement_items(session, feed_url: str, timeout: int = 25):
+    response = session.get(
+        feed_url, timeout=timeout,
+        headers={"User-Agent": "Arkadia-Economic-Seam-Engine/1.0",
+                 "Accept": "application/rss+xml, application/xml, text/xml"},
+    )
+    response.raise_for_status()
+    payload = response.content
+    if len(payload) > 10 * 1024 * 1024:
+        raise ValueError("AfDB procurement RSS exceeds the 10 MiB response limit")
+    encoding = getattr(response, "encoding", None) or "utf-8"
+    return parse_afdb_rss_items(payload.decode(encoding, errors="replace"), feed_url=feed_url)
 
 
 def parse_nepc_pdf_text(text: str, *, source_url: str):
