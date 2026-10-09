@@ -916,3 +916,23 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   → absent) and the CP10 `LEGIT` list had no `deploy` rule, so the seven-node delta is **drift
   after** the reconciliation, not debt it chose to ignore. A fixture-vs-live gap on `main` is
   therefore not automatically a stale fixture — date the surfaces before classifying it.
+
+## Baseline-fingerprint guard: wiring is runtime-proven, scope is fixture-only (gate-hygiene)
+- The wiring is no longer a source-level claim. At branch head `26aa0d9a` run **`37863051418`**
+  (`event=pull_request`, `completed/success`) is the first execution of the guard under CI;
+  before this branch `grep -rn baseline_fingerprint .github/workflows/` was **0 matches**, so
+  the guard held only when a human invoked it by hand. All **7** check-runs on that commit are
+  `completed/success`, and the PR is `MERGEABLE` / `CLEAN`.
+- **Do not restate the scope overclaim this pass corrected.** The guard pins the *fixture* to
+  hardcoded constants (`grep -nE "subprocess|pytest\.main|--collect"
+  tests/test_baseline_fingerprint.py` → nothing); it does **not** measure live. Measured at
+  `24a00f85`: live suite 17 failing/error nodes vs fixture 10, guard green on both trees. A green
+  guard is therefore **not** evidence that the recorded set describes live debt — the
+  live-measurement gap is a recorded, non-executed follow-on.
+- The `+14 passed` a branch adding one workflow file carries is **not** a regression signal:
+  three generic suites iterate `.github/workflows/*.yml` and gain passing nodes by construction
+  (1809 → 1823). Compare the failing/error node **set**, never the totals.
+- The `tests/test_engineering_lab_api.py` pins (2) and the Landing-copy pin are **unowned drift**,
+  not fixture debt. Repairing the Lab ones edits `api/lab_routes.py` — an authority surface
+  carrying the Lab mutation boundary — so it is sovereign-only and was proposed, not executed.
+
