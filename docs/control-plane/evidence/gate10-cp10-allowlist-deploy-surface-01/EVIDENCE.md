@@ -855,3 +855,21 @@ of #354 closes both CP10 reds on `main`. Measured on the composed tree:
 This does not change policy beyond the already-present additive `deploy/` rule, does not touch
 the denylist, does not change any existing test, and does not alter the authority model. Merge
 is the sovereign's action.
+
+## CI verification (branch head `5fdb7f49`, run `37969257307`)
+
+`validate` job -> **success**, including the previously-red step:
+
+```
+CP10 browser route verification  [route] /solspire status=200
+CP10 browser route verification  [route] /solspire/projects status=200
+CP10 browser route verification  [route] /solspire/engineering-lab status=200
+CP10 browser route verification  consoleErrors=[]  pageErrors=[]  failedRequests=[]
+CP10 browser route verification  Unauthenticated route threshold PASS
+CP10 mutation boundary           Mutation boundary PASS (M02A legitimate-surface + constitutional denylist)
+Enforce CP10 executable gates    Executable CP10 gates: PASS (browser step outcome success).
+```
+
+`failedRequests=[]` is the direct proof the `d8eae1d` `/firebase-config.js` 404
+(`net::ERR_ABORTED` x4 on `main`) is repaired by the composed asset. This closes the CP10
+`validate` job on the branch; the sovereign merge of #354 is the remaining step.
