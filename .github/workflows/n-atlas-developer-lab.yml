@@ -8,6 +8,12 @@ on:
       - "api/lab_routes.py"
       - "tests/test_natlas_developer_lab.py"
       - "web/console/**"
+      - "web/public_prism/**"
+      - "api/main.py"
+      - "api/frontend_routes.py"
+      - "Dockerfile"
+      - "tests/test_canonical_frontend_routing.py"
+      - ".github/workflows/n-atlas-developer-lab.yml"
       - "docs/architecture/NATLAS_DEVELOPER_LAB_V0.1.md"
   workflow_dispatch:
 
@@ -25,6 +31,8 @@ jobs:
           pip install pytest
       - name: N-ATLAS provider tests
         run: python -m pytest tests/test_natlas_developer_lab.py -q
+      - name: Canonical single-origin frontend route tests
+        run: python -m pytest tests/test_canonical_frontend_routing.py -q
 
   frontend:
     runs-on: ubuntu-latest
@@ -41,3 +49,12 @@ jobs:
       - run: npm ci
       - name: Console typecheck and build
         run: npm run build
+
+
+  canonical-runtime-image:
+    name: Build canonical Render image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build both frontends and the FastAPI runtime in one image
+        run: docker build --pull -t arkadia-canonical-runtime .
