@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+"""Gate-2 canonical-alias <-> application binding (gate-hygiene).
+
+The production-observation harness scores the Prism MARKER table against whatever
+the canonical alias serves. That comparison is only meaningful when the alias
+actually serves the application those markers were drawn from.
+
+The repository-root ``vercel.json`` decides which frontend the *root* Vercel
+project builds, and Vercel assigns the canonical alias to that root project. When
+the root output directory is repointed at another frontend (the console), the
+alias serves a different application, so every Prism marker reads 0 -- which is
+"this artifact is not Prism", never "Prism disagrees with its source". Reporting
+the second when only the first is observed is the defect this module guards.
+
+Read-only. No network, no credential, no mutation. Standard library only.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+
+# The application the Gate-2 marker table describes. This is a property of the
+# marker list, not of any deployment: the observer must never assume the artifact
+# the alias serves is the app its markers were drawn from.
+MARKER_APP = "arkadia-prism"
+
+# Repository-root output directory -> application. A prefix match, because the
+# output directory may name a nested build path; an unlisted directory yields no
+# app and is scored fail-closed.
+KNOWN_ROOT_OUTPUTS: dict[str, str] = {
+    "web/public_prism": "arkadia-prism",
+    "web/console": "console",
+}
+
+
+def repo_root() -> str:
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def root_output_directory(root: str | None = None) -> str | None:
+    """The output directory the repository root ``vercel.json`` declares.
+
+    Returns ``None`` when the file is missing or unparseable: an unreadable
+    binding is undetermined, and an undetermined binding must not be read as
+    "unchanged".
+    """
+    path = os.path.join(root or repo_root(), "vercel.json")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            cfg = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    out = cfg.get("outputDirectory")
+    return out if isinstance(out, str) and out else None
+
+
+def app_of_output(output: str | None) -> str | None:
+    """Map an output directory to a known application, or ``None`` if unknown.
+
+    Longest-prefix wins so a nested path (``web/public_prism/dist``) resolves to
+    its parent app rather than to a shorter accidental match.
+    """
+    if not output:
+        return None
+    best: tuple[int, str] | None = None
+    for prefix, app in KNOWN_ROOT_OUTPUTS.items():
+        if output == prefix or output.startswith(prefix + "/"):
+            if best is None or len(prefix) > best[0]:
+                best = (len(prefix), app)
+    return best[1] if best else None
+
+
+def binding(root: str | None = None) -> dict:
+    """Classify whether the Gate-2 marker comparison applies to the alias.
+
+    ``marker_comparison_applicable`` is true only when the root project builds
+    the same application the marker table describes. It is false for a known
+    different app *and* for an undetermined one -- a value that cannot be placed
+    on the binding never authorises the comparison.
+    """
+    output = root_output_directory(root)
+    root_app = app_of_output(output)
+    return {
+        "marker_app": MARKER_APP,
+        "root_output_directory": output,
+        "root_app": root_app,
+        "alias_serves_marker_app": root_app == MARKER_APP,
+        "marker_comparison_applicable": root_app == MARKER_APP,
+    }
+
+
+def classify(b: dict) -> str:
+    """One-line, human-readable classification of the binding."""
+    if b["marker_comparison_applicable"]:
+        return "APPLICABLE -- the canonical alias builds the marker app"
+    if b["root_app"] is None:
+        return (
+            "NOT APPLICABLE -- root output directory is undetermined "
+            f"({b['root_output_directory']!r}); fail-closed"
+        )
+    return (
+        f"NOT APPLICABLE -- the canonical alias serves '{b['root_app']}', "
+        f"not the marker app '{b['marker_app']}'; a 0 marker is a different "
+        "application, not a disagreement"
+    )
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--json", action="store_true", help="emit machine-readable output")
+    ap.add_argument("--root", default=None, help="repository root (defaults to this repo)")
+    args = ap.parse_args()
+
+    b = binding(args.root)
+    if args.json:
+        print(json.dumps(b, indent=2))
+        return 0
+
+    print("ARKADIA ENGINEERING -- GATE-02 CANONICAL-ALIAS APP BINDING")
+    print("=" * 62)
+    print(f"marker app              : {b['marker_app']}")
+    print(f"root output directory   : {b['root_output_directory']}")
+    print(f"root project app        : {b['root_app']}")
+    print(f"alias serves marker app : {b['alias_serves_marker_app']}")
+    print(f"marker comparison       : {classify(b)}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

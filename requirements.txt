@@ -83,3 +83,12 @@ cryptography
 # is never awaited and asserts nothing -- a test that cannot fail is not
 # coverage. Declared explicitly so the async boundary is actually exercised.
 pytest-asyncio
+
+# jsonschema validates the ARK-01 signal envelope against its frozen canonical
+# contract (schemas/arkana/signal/1.0/arkana-signal.schema.json). That schema was
+# admitted to the CP10 allowlist but nothing pinned the producer to it, so
+# `POST /api/arkana/signal/ingest` emitted objects that fail their own contract
+# for ordinary model output (null confidence in the number-only map; candidates
+# missing the required `status`). Declared explicitly so the conformance test
+# exercises the real schema rather than a hand-rolled approximation.
+jsonschema
