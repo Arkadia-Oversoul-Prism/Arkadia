@@ -118,3 +118,36 @@ def test_cbn_malformed_rows_fail_closed():
 def test_nepc_unparseable_pdf_text_fails_with_no_rows():
     from economic_seams.market_data import parse_nepc_pdf_text
     assert parse_nepc_pdf_text("NEPC indicative prices\\nCommodity report\\nNo state prices available", source_url="https://nepc.gov.ng/example.pdf") == []
+
+
+def test_nepc_rows_persist_without_cbn_response_variable(monkeypatch, tmp_path):
+    import economic_seams.engine as engine
+    from economic_seams import market_data
+    monkeypatch.setattr(engine, "DB_PATH", str(tmp_path / "economic-seams.db"))
+    source = next(item for item in engine.SOURCES if item.id == "nepc_prices")
+    row = {"source_id": "nepc_prices", "source_url": "https://nepc.gov.ng/example.pdf", "commodity_unit_heading": "ONIONS (UNIT:50KG PER BAG)", "state": "KATSINA", "reported_values": ["₦ 58,000.00"], "interpretation": "INDICATIVE_LOCAL_PRICE"}
+    monkeypatch.setattr(market_data, "fetch_nepc_price_rows", lambda session, url, timeout=25: [row])
+    conn = engine._db()
+    rows = engine._scan_market_reference(conn, source)
+    persisted = conn.execute("SELECT source_id, url, title, excerpt FROM observations WHERE source_id='nepc_prices'").fetchall()
+    conn.commit()
+    conn.close()
+    assert len(rows) == 1
+    assert len(persisted) == 1
+    assert persisted[0]["url"] == row["source_url"]
+    assert "KATSINA" in persisted[0]["excerpt"]
+
+
+def test_nepc_unparseable_document_does_not_persist_rows(monkeypatch, tmp_path):
+    import pytest
+    import economic_seams.engine as engine
+    from economic_seams import market_data
+    monkeypatch.setattr(engine, "DB_PATH", str(tmp_path / "economic-seams.db"))
+    source = next(item for item in engine.SOURCES if item.id == "nepc_prices")
+    monkeypatch.setattr(market_data, "fetch_nepc_price_rows", lambda session, url, timeout=25: [])
+    conn = engine._db()
+    with pytest.raises(ValueError, match="No parseable market reference rows"):
+        engine._scan_market_reference(conn, source)
+    count = conn.execute("SELECT COUNT(*) FROM observations WHERE source_id='nepc_prices'").fetchone()[0]
+    conn.close()
+    assert count == 0
