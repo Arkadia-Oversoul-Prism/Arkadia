@@ -151,3 +151,32 @@ rate-limit status.
 - **Completion condition:** #354 merged by the sovereign and the three CP10 allowlist-inventory
   nodes green on `main`.
 
+
+### Pass 7 next-action block (2026-10-09, on `main` `f9ced6b6b974a6e19a8a19b4d1360b59b037a2c8`)
+
+- **Current state:** #354 head bumped this pass (`79192891` + the Pass 7 commit); `MERGEABLE` /
+  `UNSTABLE`. Insertion-only `AGENTS.md`; benchmark architecture 11/11; `test_m02a_ci_gate_integrity`
+  64 passed; boundary judge PASS.
+- **Root cause, corrected this pass (supersedes Pass 6):** `main`'s CP10 `validate` failure has a
+  **single** cause — the **`CP10 browser route verification` step**, whose `continue-on-error`
+  failure is promoted by `Enforce CP10 executable gates` (`test 'failure' = success`, resolved
+  from the real step outcome). The `mutation` step **passes** on `main`; the three `m02a`
+  allowlist-inventory nodes are **latent test-fitness debt**, never a step in `sg-02-fe-2-v.yml`.
+- **Browser root cause:** `d8eae1d` added `<script src="/firebase-config.js">` to
+  `index.html`; `web/public_prism/public/firebase-config.js` was never committed, so the Vite
+  dev server 404s it (`net::ERR_ABORTED` x4). Owned by #384.
+- **Bounded fix this pass:** #384's two files composed onto this branch (verified byte-identical
+  to `f744e36b`), so one sovereign merge of #354 closes both CP10 reds on `main`.
+- **Evidence (this environment):** `main` node set 16 (`bfcfe592…`) -> composed 13 (`bae53864…`),
+  delta = -3 (the 3 `m02a` nodes), introduced = 0. Pass 6's `facc29a9…` was incomplete
+  (omitted 3 genuinely-red nodes) and is superseded. `test_frontend_script_assets_resolve.py`
+  3 passed on the composed tree.
+- **Blockers:** none for #354. Sovereign merge is the only remaining step.
+- **Authorized actions (next pass):** reconstruct `main`; if #354 is merged, verify the CP10
+  `browser` step and the three `m02a` nodes are green on the merge commit; otherwise continue
+  the existing PR. Do not open a duplicate. #384 is now subsumed by #354 — recommend closing it
+  as superseded with a pointer, do not merge both.
+- **Forbidden:** merge, push to `main`, force-push, policy/denylist/test/authority changes beyond
+  the present additive `deploy/` rule, `api/lab_routes.py` or `api/auth.py` edits, scope expansion.
+- **Completion condition:** #354 merged by the sovereign and `main`'s CP10 `validate` job green
+  (browser step + the three allowlist-inventory nodes).

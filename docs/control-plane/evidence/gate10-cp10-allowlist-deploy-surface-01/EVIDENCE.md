@@ -770,3 +770,88 @@ closed on the sovereign's merge of **#354** (repository policy) and **#384** (br
 two disjoint, independently-measured surfaces. No further allowlist work is warranted. No
 merge, no push to `main`.
 
+
+# Pass 7 (2026-10-09) — correction to Pass 6 Corrections 1 and 2
+
+This pass was asked to consider composing the *browser-asset* repair (PR #384) onto this
+branch, because CP10 is red on `main`. Doing that required an independent re-measurement of
+the failing step, and that measurement **contradicts the literal step-attribution recorded in
+Pass 6 Corrections 1 and 2**. Both claims below are measured at `main` @
+`f9ced6b6b974a6e19a8a19b4d1360b59b037a2c8` and branch head `79192891`, this environment.
+
+## What Pass 6 got wrong
+
+Pass 6 Correction 2 asserted that "the `browser` step (`CP10 browser route verification`)
+**passed**" and that the enforcement step was checking the `mutation` step's `failure`
+outcome. That reading came from grepping the *echoed* command strings, which are always
+`test 'success' = success` for quiet steps. It is false.
+
+`steps.<id>.outcome` **is** resolvable inside the enforcement `run:` block (it emits `success`
+for quiet steps and `failure` for `continue-on-error` steps). The non-echo stdout of the
+enforcement step resolves the question unambiguously. Run `37954341298` (push, `main`,
+`f9ced6b6`) and run `37967556608` (this branch head, `79192891`) both print:
+
+```
+14 x test 'success' = success
+ 1 x test 'failure' = success          <- the browser step
+echo 'Executable CP10 gates: PASS (browser step outcome success).'
+```
+
+So the **single** enforced failing step is `CP10 browser route verification`. The `mutation`
+step **passed** on both runs (`Mutation boundary PASS (M02A legitimate-surface + constitutional denylist)`),
+and the fitness suite that asserts the allowlist inventory is **not a step in
+`sg-02-fe-2-v.yml` at all** — `tests/test_m02a_ci_gate_integrity.py` is only a *trigger path*
+(workflow lines 28/59), never executed by a `run:` step.
+
+## The real `main` CP10 red, from the log
+
+```
+CP10 browser route verification  [route] /solspire status=200 final=http://127.0.0.1:5000/solspire
+CP10 browser route verification  [route] /solspire/projects status=200 final=http://127.0.0.1:5000/
+CP10 browser route verification  [route] /solspire/engineering-lab status=200 final=http://127.0.0.1:5000/
+CP10 browser route verification  consoleErrors=[...404 (Not Found) x4]
+CP10 browser route verification  Error: Browser runtime errors observed
+CP10 browser route verification  pageErrors=[]
+CP10 browser route verification  failedRequests=["http://127.0.0.1:5000/firebase-config.js :: net::ERR_ABORTED" x4]
+CP10 browser route verification  ##[error]Process completed with exit code 1.
+```
+
+Root cause: `d8eae1d` ("Load runtime Firebase config before app bootstrap", 2026-10-09 15:17)
+added `<script src="/firebase-config.js">` to `web/public_prism/index.html`, but
+`web/public_prism/public/firebase-config.js` has **never been committed** (`git log --all --
+web/public_prism/public/firebase-config.js` -> only the #384 commit `f744e36b`, not an ancestor
+of `main`). The Vite dev server (`pnpm dev`, SPA fallback) 404s it.
+
+## Consequence for Pass 6's conclusion
+
+Pass 6's *conclusion* (the allowlist workstream does not close the CP10 `main` red; #384 owns
+the browser half) is correct. Its *reasoning* was inverted: the executed gate is **not** green
+on `main` — the browser step legitimately fails on `main`, and the three `m02a` allowlist
+nodes are latent test-fitness debt, not the executed red. Corrections 1 and 2 are superseded.
+
+## Re-measured node sets (this environment) — Pass 6's `facc29a9...` is superseded
+
+Full suite: `python -m pytest tests/ -q -rEf --continue-on-collection-errors`.
+
+- `main` `f9ced6b6`: **15 FAILED + 1 ERROR = 16 nodes**,
+  `sha256(sorted node list) = bfcfe5920c3789302e80c72618e1f280e3577a8395320c89f174147cd11ec733`.
+  The Pass 6 set (`facc29a9...`) omitted `tests/test_m02_reasomate_truth.py::test_oracle_runtime_uses_the_shared_session_key`
+  and the two `tests/test_solspire_r1_governance_convergence.py` nodes; it is superseded.
+- composed (#354 policy + #384 files on `main`): **12 FAILED + 1 ERROR = 13 nodes**,
+  `sha256 = bae53864cab9d99b9a3b0a0a9eddacb7fa9f092809d3b8508abdb3abf58d9a6f`.
+  Delta vs `main`: **-3**, exactly the three `m02a` allowlist nodes. **Introduced: zero.**
+
+## Bounded fix on this branch
+
+Compose #384's two files (`web/public_prism/public/firebase-config.js`,
+`tests/test_frontend_script_assets_resolve.py`) onto this branch, so a single sovereign merge
+of #354 closes both CP10 reds on `main`. Measured on the composed tree:
+
+- `python -m pytest tests/test_frontend_script_assets_resolve.py -q` -> **3 passed**
+- `python -m pytest tests/test_m02a_ci_gate_integrity.py -q` -> **64 passed**
+- boundary judge over the composed change set (`deploy/n-atlas-server/*`, `firebase-config.js`,
+  the asset test) -> `Mutation boundary PASS`, exit 0
+
+This does not change policy beyond the already-present additive `deploy/` rule, does not touch
+the denylist, does not change any existing test, and does not alter the authority model. Merge
+is the sovereign's action.
