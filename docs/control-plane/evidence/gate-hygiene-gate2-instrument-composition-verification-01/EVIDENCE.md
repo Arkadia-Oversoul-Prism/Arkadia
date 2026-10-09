@@ -148,7 +148,20 @@ Either way, the #378 body's claims "`#368`'s head blobs are the pre-#366 base" a
 plain Merge of #368 loses one repair" should be **corrected**; this pass does not edit
 #378 (evidence-only).
 
-## 8. Not claimed
+## 8. Pass 2 addendum (2026-10-09) — main drift + precision
+
+`main` advanced from `a47ea928` to `d466e13786a3925d26fd3f7eafb631c9cdc9dad1` (5
+Firebase-config commits; none touch the Gate-2 instrument). The newest Production
+deployment is still `a47ea9281743` (id `6957911584`), so `main → deployment identity`
+is **STALE**, and the deployment URL remains **BLOCKED** (SSO). The pass-1
+"blob-identical except EVIDENCE.md" line is corrected to "the Gate-2 instrument files
+are blob-identical (`scripts/gate2_production_observation.py` `4db472176d`,
+`vercel.json` `ccebe6abbd`, `tests/test_gate2_production_observation.py` `412734789f`);
+the other head differences are main-drift." Independent reproduction: composed suite
+16-node set byte-identical to `main` (`bfcfe592…`/`ed5e4714…`), CP10 judge PASS,
+AGENTS.md audit `alterations=0`. Details in `WORKSTREAM_STATE.md` (Pass 2).
+
+## 9. Not claimed
 
 Not production parity, not production acceptance, not Gate-2 closure. The standing
 boundary *deployment build output observed* remains **BLOCKED** on Vercel Deployment
