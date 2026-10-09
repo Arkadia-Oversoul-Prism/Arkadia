@@ -10,6 +10,7 @@ const SURFACES = [
   { to: "/authority", label: "Authority", index: "04", sub: "sovereign control" },
   { to: "/mie-lab", label: "Musical Intention Engine", index: "05", sub: "Gate 05 · visual lab" },
   { to: "/n-atlas-lab", label: "N-ATLAS Developer Lab", index: "06", sub: "PS1 · integration proof" },
+  { to: "/security-verification", label: "Security Verification", index: "07", sub: "read-only · auth evidence" },
 ];
 
 const TITLES: Record<string, string> = {
@@ -19,6 +20,7 @@ const TITLES: Record<string, string> = {
   "/authority": "04 · Authority",
   "/mie-lab": "05 · Musical Intention Engine · Web Lab",
   "/n-atlas-lab": "06 · N-ATLAS Developer Lab",
+  "/security-verification": "07 · Security Verification",
 };
 
 function titleFor(path: string): string {
