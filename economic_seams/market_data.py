@@ -85,7 +85,7 @@ def parse_cbn_nfem_rows(html: str, *, source_url: str):
     rows = []
     for table_index, table in enumerate(parse_html_tables(html)):
         for header_index, header in enumerate(table):
-            normalized = [re.sub(r"\\s+", " ", cell).strip().casefold() for cell in header]
+            normalized = [re.sub(r"\s+", " ", cell).strip().casefold() for cell in header]
             date_columns = [i for i, value in enumerate(normalized) if value == "date"]
             rate_columns = [
                 i for i, value in enumerate(normalized)
@@ -96,7 +96,7 @@ def parse_cbn_nfem_rows(html: str, *, source_url: str):
                 continue
             date_column, rate_column = date_columns[0], rate_columns[0]
             for row_index, raw_cells in enumerate(table[header_index + 1:], start=header_index + 1):
-                cells = [re.sub(r"\\s+", " ", cell).strip() for cell in raw_cells]
+                cells = [re.sub(r"\s+", " ", cell).strip() for cell in raw_cells]
                 if max(date_column, rate_column) >= len(cells):
                     continue
                 published_date, rate = cells[date_column], cells[rate_column]
