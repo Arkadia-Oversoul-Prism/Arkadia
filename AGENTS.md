@@ -936,3 +936,28 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   not fixture debt. Repairing the Lab ones edits `api/lab_routes.py` — an authority surface
   carrying the Lab mutation boundary — so it is sovereign-only and was proposed, not executed.
 
+
+## Branch mergeability is not patch composition - prove ancestry with a real merge (gate-hygiene)
+- PR #376 section 7 left one property open: the current-tip cluster was shown to compose by
+  `git apply --3way`, and noted "branch ancestry is not itself proven mergeable by this
+  method". Composition and ancestry are different properties. Merging the actual `pr-<n>`
+  refs with real `git merge --no-ff` at `a47ea928` closes it: the six branches compose,
+  the only conflict is the shared non-code `AGENTS.md` tail, and the merged tree reproduces
+  the two sovereign-reserved nodes (`tests/test_autonomy.py` CE-01, the living-gate F-01
+  pin) with **0** introduced; fingerprints `f607dffd`/`48e2b758`, matching #375/#376
+  though reached by merge rather than patch.
+- **An unset git committer identity silently no-ops `git merge --no-commit`.** With
+  `user.email`/`user.name` unset the merge is not applied; a loop that then reads `HEAD`
+  reports every step "clean" while nothing merged - a false negative that reads as a
+  successful composition. Configure identity before any merge loop, or the result is unproven.
+- **A stage-index union is not a valid append-union for the shared `AGENTS.md` tail.**
+  Resolving the conflict as `ours + theirs[main_len:]` uses `:3:` - the PR's contribution
+  over *its own* merge-base - sliced by the *current* file length. The four cluster PRs
+  append over three different merge-bases, so the offset is wrong and blocks are silently
+  dropped (observed negative block lengths; assembled arithmetic did not match the file).
+  Construct the union per PR as `pr_version[merge_base_len:]` and close the arithmetic:
+  `main 938 + 92 + 35 + 39 + 87 = 1191`, which equals the measured file. Then confirm with
+  the encoding audit against the oracle - `alterations=0`, `oracle_reproduced=True`, exit 1.
+- Passed/skipped totals are environment-dependent (1841/36 here vs 1857/20 at #375/#376,
+  identical 1875 total); the load-bearing invariant is the failing/error node **set**, which
+  matches exactly. Evidence: `docs/control-plane/evidence/gate-hygiene-current-tip-branch-mergeability-01/`.
