@@ -8,9 +8,22 @@
 
 ## 1. Objective (bounded)
 
-`tests/test_baseline_fingerprint.py` reconciles the recorded baseline node set
-(`tests/fixtures/baseline_node_set.txt`) with a live measurement of the repository and
-fails when the two drift apart. Measured on `main` @ `24a00f85`:
+`tests/test_baseline_fingerprint.py` pins the recorded baseline node set
+(`tests/fixtures/baseline_node_set.txt`) to a published fingerprint and fails when the
+recorded set drifts from it.
+
+**Corrected scope (measured this pass).** An earlier draft of this section said the guard
+"reconciles the recorded node set with a live measurement and fails when the two drift
+apart". That is an overclaim, and this pass disproved it. The guard hashes the *fixture*
+against hardcoded constants (`CANONICAL_OUTCOMES_FINGERPRINT` / `CANONICAL_IDS_FINGERPRINT`)
+and never invokes the suite; `grep -nE "subprocess|pytest\.main|--collect" tests/test_baseline_fingerprint.py`
+returns nothing. The live suite on `main` @ `24a00f85` reports **17** failing/error nodes
+(§7) while the recorded set holds **10**, and the guard passes on both trees. Its verdict is
+therefore a function of the fixture and of the four `FINGERPRINT_DOCS`, not of the
+repository's live debt.
+
+What remains true, and is what this pass wires: no workflow executed the guard. Measured on
+`main` @ `24a00f85`:
 
 ```
 grep -rn baseline_fingerprint .github/workflows/     -> 0 matches
@@ -38,7 +51,9 @@ fixture change, no CP10 allowlist change, no baseline-debt repair, no scope expa
 
 Four properties, asserted over **every** workflow that runs the guard (so a second
 wiring is judged by the same rule, and deleting this one cannot make the assertions
-vacuous):
+vacuous). The first three are stated here; the fourth is the derived-input invariant in
+§3.1 below. Every cited name is one of the suite's 9 test functions, verified by
+`grep -n "^def test_" tests/test_baseline_fingerprint_ci_wiring.py`:
 
 1. **Some workflow runs the guard.** `test_a_workflow_executes_the_fingerprint_guard`.
 2. **That workflow is selected by the surfaces it judges.**
@@ -65,6 +80,10 @@ filter and passes on the complete one — the detector bit on the real defect, n
 a synthetic one.
 
 ### The input list is derived, not restated
+
+4. **The published-doc list is read from the guard, not restated.**
+   `test_published_doc_list_is_read_from_the_guard_not_restated`. This is what makes
+   property 2 non-vacuous: the coverage assertion consumes the guard's own list.
 
 `_guard_published_docs()` reads `FINGERPRINT_DOCS` from the guard's source by AST. A
 second hand-maintained copy would drift, and a drifted copy would make the coverage
@@ -153,6 +172,8 @@ baseline does not reproduce here — the live suite is 11 nodes and all pass).
 These are red on `main` @ `24a00f85` and unchanged by this branch. They are recorded,
 not repaired — a different workstream owns each.
 
+### 7.1 Owned elsewhere (each has an open PR)
+
 | Node | Owner |
 |---|---|
 | `tests/test_ci_gate_trigger_coverage.py::test_pr_pytest_workflow_is_selected_by_its_own_file[n-atlas-developer-lab.yml]` | open PR #355 (touches `n-atlas-developer-lab.yml`) |
@@ -160,11 +181,43 @@ not repaired — a different workstream owns each.
 | `tests/test_m02a_ci_gate_integrity.py::test_allowlist_covers_every_tracked_surface` | open PR #354 |
 | `tests/test_m02a_ci_gate_integrity.py::test_delegated_verdict_admits_every_tracked_surface` | open PR #354 |
 
-The CP10 omission is real and pre-existing: PR #352 (merge `a27c6c80`) added the tracked
-tree `deploy/n-atlas-server/` and no rule in `scripts/cp10_mutation_boundary_policy.py::LEGIT`
-matches it (`git show origin/main:scripts/cp10_mutation_boundary_policy.py | grep deploy`
-→ nothing). **This pass does not touch that policy module**, so it neither fixes nor
-worsens the gate.
+The CP10 omission is real and pre-existing. `deploy/n-atlas-server/` was added by
+`e074a63b` (2026-10-07) and merged as PR #352 (`a27c6c80`, 2026-10-07 23:18), and no rule
+in `scripts/cp10_mutation_boundary_policy.py::LEGIT` matches it
+(`git show origin/main:scripts/cp10_mutation_boundary_policy.py | grep deploy` → nothing).
+**This pass does not touch that policy module**, so it neither fixes nor worsens the gate.
+
+### 7.2 Unowned drift — three nodes red on live `main` with no owner
+
+These three are red on live `main` and no open PR covers them. Each was introduced by a
+commit that post-dates the recorded fixture. They are recorded here and **not repaired**:
+`tests/architecture/LAYER_MAP.py` classifies `api/lab_routes.py` as an **authority
+surface**, and `api/lab_routes.py` carries the Engineering Lab mutation boundary
+(`record_authorization` rejects non-`human` origin). Editing either to make a test green
+is an authority-boundary change, which is sovereign-only. Proposing that work is in
+scope; executing it inside this pass is not.
+
+| Node | Introduced by | Date | Why it is red |
+|---|---|---|---|
+| `tests/test_ais_capability_profile_onboarding.py::test_home_is_offer_led_and_keeps_arkadia_entry_points` | `2b87e8ef` (PR #276) | 2026-10-04 | asserts the Landing copy `One intelligence. Four ways to work with it.`; the landing now renders `…ONE SYSTEM · MANY SURFACES · ONE CONTINUOUS FIELD` |
+| `tests/test_engineering_lab_api.py::test_lab_mutation_endpoints_are_exactly_the_lab_state_set` | `72432353` (2026-10-07) | 2026-10-07 | `/api/lab/engineering/n-atlas/run` and `/api/lab/engineering/n-atlas/test-session` are now mutating Lab endpoints; the pinned `ALLOWED_MUTATION_ENDPOINTS` set predates them |
+| `tests/test_engineering_lab_api.py::test_lab_router_is_read_only_and_authenticated` | `f96d5fd2` (PR #353) | 2026-10-07 | asserts `require_auth` is a router dependency; the router now carries `require_lab_auth` |
+
+### 7.3 The recorded set is stale, and the guard does not detect it
+
+The recorded set holds **10** nodes; live `main` reports **17** (§6). The seven-node
+difference is exactly §7.1 (4) + §7.2 (3). The guard passes on both because it hashes the
+fixture rather than measuring — see the corrected scope in §1. This is why §1's original
+wording was wrong, and why the guard's green is not evidence that the recorded set
+describes live debt.
+
+Provenance check that distinguishes drift from an ignored baseline: at the reconciliation
+commit `05e031a1` (2026-10-04, `gate-hygiene: reconcile baseline node set to live main`)
+neither `deploy/n-atlas-server/Dockerfile` nor `.github/workflows/n-atlas-developer-lab.yml`
+existed (`git cat-file -e 05e031a1:<path>` → absent for both), and the CP10 `LEGIT` list at
+that commit contained no `deploy` rule. The surfaces arrived on 2026-10-07, so these four
+nodes are **drift after** the reconciliation, not debt the reconciliation chose to ignore.
+The other three post-date it as well (2026-10-04 → 2026-10-07).
 
 ## 8. Authority boundary
 

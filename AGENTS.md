@@ -868,11 +868,14 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   a guard.
 
 ## Baseline-fingerprint guard is now executable — and its inputs are derived, not restated (gate-hygiene)
-- `tests/test_baseline_fingerprint.py` reconciles `tests/fixtures/baseline_node_set.txt`
-  against a live measurement, but at `main` @ `24a00f85` **no workflow ran it**
-  (`grep -rn baseline_fingerprint .github/workflows/` → 0). A reconciliation that only
-  holds when a human invokes it by hand is decoration; `.github/workflows/baseline-fingerprint.yml`
-  is the executable surface.
+- `tests/test_baseline_fingerprint.py` pins `tests/fixtures/baseline_node_set.txt` to a
+  published fingerprint; it does **not** measure live. Measured at `main` @ `24a00f85`:
+  the live suite reports **17** failing/error nodes while the fixture holds **10**, and the
+  guard passes on both. Its verdict is a function of the fixture and the four
+  `FINGERPRINT_DOCS`, not of the repository's live debt. At that revision **no workflow ran
+  it** either (`grep -rn baseline_fingerprint .github/workflows/` → 0), so even the narrower
+  reconciliation held only when a human invoked it by hand — a guard no workflow executes is
+  decoration. `.github/workflows/baseline-fingerprint.yml` is the executable surface.
 - **A workflow's trigger filter must name every input the guard reads, not just the test
   file.** The first draft named the guard, the script and `tests/fixtures/**` — incomplete,
   because the guard also asserts that four published documents carry the canonical
@@ -899,6 +902,17 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   outcomes `26c2b4c7…`, ids `571e599f…` (17 nodes, 16F/1E) on both. Architecture suite is
   **11 passed** (the contract's "9/10" does not reproduce). Evidence:
   `docs/control-plane/evidence/gate10-baseline-fingerprint-ci-wiring-01/`.
-- The four pre-existing failures this pass observed are owned elsewhere and were **not**
-  touched: the CP10 `deploy/` allowlist omission (PR #354) and the
-  `n-atlas-developer-lab.yml` trigger filter (PR #355).
+- The **seven** pre-existing failures on live `main` were recorded, not repaired. Four are
+  owned: the CP10 `deploy/` allowlist omission (PR #354, `deploy/n-atlas-server/` added by
+  `e074a63b` / merged `a27c6c80` 2026-10-07) and the `n-atlas-developer-lab.yml` trigger
+  filter (PR #355). Three are **unowned drift** and must not be "fixed" opportunistically:
+  the Landing copy pin (`2b87e8ef`, 2026-10-04), and two `tests/test_engineering_lab_api.py`
+  pins broken by the new `/api/lab/engineering/n-atlas/*` mutating endpoints (`72432353`)
+  and by `require_auth` → `require_lab_auth` (`f96d5fd2`, PR #353). `api/lab_routes.py` is an
+  authority surface in `LAYER_MAP.py` and carries the Lab mutation boundary, so repairing
+  those two is an authority-boundary change — sovereign-only. Propose; do not execute.
+- At the reconciliation commit `05e031a1` (2026-10-04) neither `deploy/n-atlas-server/Dockerfile`
+  nor `.github/workflows/n-atlas-developer-lab.yml` existed (`git cat-file -e 05e031a1:<path>`
+  → absent) and the CP10 `LEGIT` list had no `deploy` rule, so the seven-node delta is **drift
+  after** the reconciliation, not debt it chose to ignore. A fixture-vs-live gap on `main` is
+  therefore not automatically a stale fixture — date the surfaces before classifying it.

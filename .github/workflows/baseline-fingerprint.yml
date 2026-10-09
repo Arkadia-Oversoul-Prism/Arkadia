@@ -1,10 +1,14 @@
 name: Baseline Fingerprint Verification
 
-# `tests/test_baseline_fingerprint.py` reconciles the recorded baseline node set with a
-# live measurement and fails when the two drift apart. Measured on `main` @ 24a00f85, no
-# workflow named it (`grep -rn baseline_fingerprint .github/workflows/` returned 0), so
-# the reconciliation held only when it was invoked by hand — a guard no workflow executes
-# is decoration. This workflow is the executable surface for that guard.
+# `tests/test_baseline_fingerprint.py` pins the recorded baseline node set
+# (`tests/fixtures/baseline_node_set.txt`) to a published fingerprint and fails when the
+# recorded set drifts from it. It does NOT compare the fixture against a live run: measured
+# at `main` @ 24a00f85 the live suite reports 17 failing/error nodes while the recorded set
+# holds 10, and the guard passes on both. Its verdict is a function of the fixture and of
+# the four documents in `FINGERPRINT_DOCS`, not of the repository's live debt. No workflow
+# named it (`grep -rn baseline_fingerprint .github/workflows/` returned 0), so even that
+# narrower reconciliation held only when it was invoked by hand — a guard no workflow
+# executes is decoration. This workflow is the executable surface for that guard.
 on:
   pull_request:
     paths:
