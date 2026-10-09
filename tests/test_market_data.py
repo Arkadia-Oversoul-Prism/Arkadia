@@ -92,3 +92,29 @@ def test_cbn_normalization_requires_explicit_quote_context():
     with pytest.raises(ValueError, match="date"):
         normalize_cbn_fx_row(row, observed_date="", quote_basis="NFEM reference",
                              currency="USD")
+
+
+def test_cbn_fixture_requires_explicit_quote_context_and_preserves_rate():
+    from economic_seams.market_data import normalize_cbn_fx_row
+    fixture = """<table><tr><th>Currency</th><th>Rate</th></tr><tr><td>USD</td><td>1500.25</td></tr><tr><td>GBP</td><td>1900.10</td></tr></table>"""
+    rows = normalize_market_tables(fixture, source_id="cbn_fx", source_url="https://www.cbn.gov.ng/rates/ExchRateByCurrency.html")
+    assert len(rows) == 2
+    normalized = normalize_cbn_fx_row(rows[0], observed_date="2026-10-09", quote_basis="CBN published reference rate", currency="USD")
+    assert normalized["price"] == "1500.25"
+    assert normalized["observed_date"] == "2026-10-09"
+    assert normalized["quote_basis"] == "CBN published reference rate"
+
+
+def test_cbn_malformed_rows_fail_closed():
+    import pytest
+    html = """<table><tr><th>Currency</th><th>Rate</th></tr><tr><td>USD</td><td>not published</td></tr><tr><td></td><td>1500.25</td></tr></table>"""
+    rows = normalize_market_tables(html, source_id="cbn_fx", source_url="https://www.cbn.gov.ng/rates/ExchRateByCurrency.html")
+    assert rows == []
+    with pytest.raises(ValueError, match="exactly one explicit numeric rate"):
+        from economic_seams.market_data import normalize_cbn_fx_row
+        normalize_cbn_fx_row({"numeric_values": ["1500.25", "1501.00"]}, observed_date="2026-10-09", quote_basis="CBN published reference rate", currency="USD")
+
+
+def test_nepc_unparseable_pdf_text_fails_with_no_rows():
+    from economic_seams.market_data import parse_nepc_pdf_text
+    assert parse_nepc_pdf_text("NEPC indicative prices\\nCommodity report\\nNo state prices available", source_url="https://nepc.gov.ng/example.pdf") == []
