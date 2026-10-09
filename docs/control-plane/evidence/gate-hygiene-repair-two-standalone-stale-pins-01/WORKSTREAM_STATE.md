@@ -311,3 +311,49 @@ validate                 success
   `main`'s fingerprint and, once the #354/#355/#356/#357/#361 cluster has merged, re-measures
   whether #361's recorded set still describes the tree (its own instruction: "re-measure, not
   reuse").
+
+### Pass 3 addendum — #364 composition measured (the in-workstream newcomer)
+
+`#364` (GATE-10 baseline-fingerprint CI wiring) opened mid-pass and touches the same file
+family as this PR. Measured rather than assumed:
+
+**Textual composition — CONFLICT, and it is a trivial both-append.**
+`git apply --check` of #364's patch onto this tree fails at `AGENTS.md:866`
+(`git diff main pr364` — `merge-base main pr364` is `24a00f85`, so the diff direction is sound
+here; #364's ref *does* reach its base, unlike #361's grafted ref). Both PRs append to the end
+of the file: this PR adds 63 lines (oracle end `868` → `931`), #364 adds 70 (`868` → `938`).
+`git apply --3way` reports the same single conflict. (Measured then; this PR subsequently
+appended 24 more lines — see the closing addendum below, which supersedes the `1001` figure
+with `1025`.)
+
+**Resolution — the union, and it is verified, not argued.** Concatenating ours-then-theirs gives
+`1001` lines = `868 + 63 + 70` exactly, with zero conflict markers. The composed file passes
+`scripts/agents_md_encoding_audit.py`: `alterations=0`, `reproduced=True`, `cyrillic=0`, exit 1
+(clean-and-corroborated) — so the resolution preserves the insertion-only constraint that
+governs this file.
+
+**Composed-tree behaviour.** `test_baseline_fingerprint.py` +
+`test_baseline_fingerprint_ci_wiring.py` + `test_agents_md_encoding_adjudication.py` +
+`test_ci_gate_trigger_coverage.py` + `test_workflow_injection_boundary.py` →
+**1 failed, 131 passed, 2 skipped**. The single failure is
+`test_ci_gate_trigger_coverage.py::test_pr_pytest_workflow_is_selected_by_its_own_file[n-atlas-developer-lab.yml]`
+— **#355-owned**, and present on this tree *without* #364 (`1 failed, 47 passed`), so
+composition introduced nothing. `--collect-only` `1809 → 1823` (+14) matches #364's own recorded
+figure.
+
+**Classification:** the conflict is **mechanical and pre-diagnosed**, not semantic. Merge order
+is immaterial; whoever merges second resolves `AGENTS.md` as the union. This PR does **not**
+resolve it — rewriting `AGENTS.md` here would pre-empt a resolution for a branch that is not
+this PR's to settle, and the union is already proven above so the second merger has no work to
+do beyond concatenation.
+
+### Pass 3 closing addendum — supersedes the `1001` figure
+
+Appending the both-append lesson to `AGENTS.md` grew this PR's side by 24 lines
+(`931` → `955`), so the composed union is now
+`868 (main) + 87 (#363) + 70 (#364) = 1025`, not `1001`. The decidability test is unchanged and
+still holds: the union is the concatenation, markers `0`. The earlier `1001` is **superseded**,
+recorded here rather than silently rewritten, per the repo's stale-citation rule.
+
+Re-verified after the append: `scripts/agents_md_encoding_audit.py` → `alterations=0`,
+`reproduced=True`, `cyrillic=0`, exit 1; recovered sha256 `5148e88a12e5…` (supersedes `2cc44935b2…`).

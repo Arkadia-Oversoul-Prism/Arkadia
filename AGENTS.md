@@ -929,3 +929,27 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   against an independent full-suite run) and reclassify the task `ALREADY_OWNED (<pr>)`.
   A fixture that is byte-identical to your own independent measurement is the strongest
   pre-merge confirmation available — record the agreement, do not duplicate the work.
+
+## A both-append conflict is mechanically decidable: prove the union, do not argue it (gate-hygiene)
+- When two PRs each append a section to the **same tail of the same file**, `git apply` and
+  `git apply --3way` both report a conflict at the first appended line, and it *looks* semantic.
+  It is not: the resolution is the **concatenation**, and it is decidable by arithmetic.
+- Decidability test: `len(union) == len(main) + len(a) + len(b)` **and** zero conflict markers
+  remain. Measured here: `868 (main) + 63 (#363) + 70 (#364) = 1001` exactly, markers `0`.
+  An exact line-count identity is the proof; a plausible-looking merged file is not.
+- A union resolution can still violate a **file-level constraint** that neither PR breaks alone.
+  This file is insertion-only against an oracle revision, so the union must be re-audited:
+  `python scripts/agents_md_encoding_audit.py` → `alterations=0`, `reproduced=True`,
+  `cyrillic=0`, exit 1. Always re-run the file's own guard after resolving, not just the tests.
+- **Do not pre-empt the resolution on your own branch.** If a *newly opened* PR conflicts with
+  yours on a shared append, leaving the conflict for the second merger is correct when the
+  union is already proven and recorded: you avoid rewriting a file whose final content is not
+  yours to settle, and the second merger has no work beyond concatenation. State that
+  explicitly in the evidence so it is not later mistaken for an unresolved blocker.
+- Composition of a *newcomer* PR must be re-measured, never inferred from the earlier
+  inventory: this pass's first inventory (15 PRs) predated `#364`, and the newcomer is the only
+  PR in the population that conflicts. Re-run `GET /pulls?state=open` at the end of a pass.
+- Attribute the composed tree's failures by **removing the newcomer** and re-running the same
+  node. `test_ci_gate_trigger_coverage.py::…[n-atlas-developer-lab.yml]` failed identically with
+  and without `#364` (`1 failed, 47 passed` on the plain tree), so it is `#355`-owned debt and
+  composition introduced nothing.
