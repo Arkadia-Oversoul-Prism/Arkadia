@@ -116,4 +116,44 @@ exactly this guard file.
 
 ---
 
+## 10. Pass 2 — drift-pin absence defect repaired (2026-10-09)
+
+Base `main` has moved to `24a00f856a0286cbb464a4b585117dd57a2646fa`. The drift-pin test in this
+PR carried a latent defect: `_git_show_blob()` treated non-empty `stdout` from
+`git rev-parse <ref>` as presence. On a **missing** ref, `git rev-parse` exits `128` **and
+echoes the argument to stdout** (measured: `stdout == "origin/gate-hygiene/gate2-marker-oracle-soundness-01\n"`,
+`returncode == 128`), so an absent/never-fetched branch read as a *moved head* and hard-failed.
+
+Reproduced by deleting the two `origin/*` refs in the test clone:
+
+```
+before fix : 2 failed, 7 passed
+after fix  : 8 passed, 2 skipped   (skip is the intended "not fetched in this clone")
+```
+
+The repair gates on `result.returncode != 0`. A negative control
+(`test_absent_ref_is_read_as_absent_not_as_a_moved_head`) pins the exit-code contract. With both
+branches fetched the pin still holds: **10 passed**.
+
+This matters because the guard's own CI clone fetches only the branch under test; a stdout-only
+presence check would have shipped a guard that is red on its own default clone. Classified as a
+**test-side absence-detection defect**, not a composition or Gate-2 semantic change.
+
+### 10.1 Independent reproduction of pass-1 claims (same pass)
+
+Every pass-1 claim was re-measured on this pass rather than inherited:
+
+| claim | re-measurement |
+|---|---|
+| composed blobs | `cf09b073…` (script) and `07aefd2e…` (test) reproduced exactly; #366-alone script `82907d6e…` |
+| composed tests green | 39 passed |
+| composed script carries **both** markers | `DEPLOYMENT_SCAN_PAGES` ×4, `KNOWN_FRONTENDS` ×3 |
+| architecture | 11/11 |
+| branch vs `main` full suite | failing/error node identifiers **identical** (133 nodes each: 79 failed, 54 error; fingerprint `32427be6…`) |
+| #366 repairs the marker oracle | head harness reports `artifact app: UNDETERMINED` → `marker-set oracle: NOT OBSERVED` (served app is `console`, not the marker app `arkadia-prism`) |
+| #368 repairs the pagination artifact | head harness resolves `newest Production deploy: 24a00f85… id=6939001431`, `deploy SHA == main: True` (base `main` reports `UNAVAILABLE`) |
+| #369 disjoint | adds only new files; 12 tests pass at its head |
+
+---
+
 _This evidence record was created by an AI agent (OpenHands) on behalf of the sovereign._

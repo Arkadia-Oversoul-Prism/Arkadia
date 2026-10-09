@@ -123,9 +123,14 @@ def test_agents_md_only_overlap_is_not_a_hazard() -> None:
 
 
 def _git_show_blob(ref_path: str) -> str | None:
+    # ``git rev-parse`` echoes the *argument* to stdout on failure, so a missing ref
+    # still yields non-empty stdout. Gate on the exit code, or an absent branch is
+    # mistaken for a moved head (measured: exit 128 with stdout == ref_path).
     result = subprocess.run(
         ["git", "rev-parse", ref_path], cwd=REPO_ROOT, capture_output=True, text=True
     )
+    if result.returncode != 0:
+        return None
     return result.stdout.strip() or None
 
 
@@ -156,3 +161,15 @@ def test_recorded_head_blob_matches_live_branch_when_available(branch: str, path
         f"{branch} head moved: recorded {expected}, live {live}. Re-run "
         "`python scripts/gate2_366_368_composition.py --measure` and update the record."
     )
+
+
+def test_absent_ref_is_read_as_absent_not_as_a_moved_head() -> None:
+    """Negative control for the drift pin's absence detection.
+
+    ``git rev-parse <missing-ref>`` exits 128 with the ref echoed to stdout, so a
+    stdout-only presence check reads a deleted/never-fetched branch as a *moved head*
+    and hard-fails the guard in any clone that did not fetch the PR branches (CI).
+    Measured before the fix: simulating the absent refs gave ``2 failed, 7 passed``;
+    the control pins the exit-code contract so a future refactor cannot reintroduce it.
+    """
+    assert _git_show_blob("origin/this-ref-does-not-exist-arbitrary") is None

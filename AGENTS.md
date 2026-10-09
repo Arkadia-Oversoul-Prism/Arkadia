@@ -891,3 +891,11 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
 - Same class as the GATE-07 strict-xfail lesson above: **before composing PRs, check whether any
   records a defect another repairs, or edits a file another edits.**
 
+- **Drift pins must gate on exit code, not stdout.** `git rev-parse <missing-ref>` exits 128
+  **and echoes the argument to stdout**, so a presence check that reads non-empty stdout
+  mistakes a never-fetched branch for a **moved head** and hard-fails the guard in any clone
+  (including CI) that fetches only the branch under test. Measured in
+  `tests/test_gate2_366_368_composition_reconciliation.py`: deleting the two `origin/*` refs
+  gave `2 failed, 7 passed` before the fix (`returncode != 0` gate) and `8 passed, 2 skipped`
+  after. Pin the exit-code contract with a negative control or the guard ships red on its own
+  default clone. (Pass 2 of the #366 x #368 reconciliation.)
