@@ -181,3 +181,133 @@ the re-run it executes and passes. Do not read a `skipped` conclusion as a pass.
   code defect**. Re-run once, record the A/B, classify `external transient`, stop.
 - **Completion condition:** PR #363 merged by the sovereign; a fresh heartbeat then
   re-measures the fingerprint from the new `main`.
+
+---
+
+## Pass 3 — the pending measurement is done, it reproduces §4 byte-exactly, and the proposed next task is already owned
+
+**Observed:** 2026-10-08T22:06Z. **BASE_MAIN:** `24a00f85` (unchanged).
+**Head:** `c63c5f13` (`c63c5f131dc82b7a65a531f0ceb6e5be57eca3aa`), base unchanged.
+**Open PRs:** 16 (was 15 in pass 2; `#364` arrived).
+
+### 1. The full-suite fingerprint is now measured — and it confirms the recorded values
+
+Pass 2 left this as its only pending item. It is now complete, run as a single backgrounded
+command (`-rEf --continue-on-collection-errors`, the flag without which a collection error is
+invisible to a line-based extractor — see the `-rf` lesson in `AGENTS.md`).
+
+```
+main @ 24a00f85  16 failed / 1775 passed / 19 skipped / 1 error   17 nodes  147.93s
+#363 @ c63c5f13  14 failed / 1777 passed / 19 skipped / 1 error   15 nodes  144.81s
+```
+
+| convention | base `24a00f85` | head `c63c5f13` |
+|---|---|---|
+| outcomes sha256 | `26c2b4c7b5efb56d0d54ab5888cdf955589f7633490c9a0c33d1ef63bba85798` | `9a6239ae3aeb4a51d7629ff5a1cd65faaea461b3f1eb697171c84fcd6b01e8c1` |
+| ids sha256 | `571e599f91e680fe41f7318b6000c84dee8edc7c9c0535a3c897c7da89881224` | `0ea4bdd37ee6edbbeba45ce535eee885af76ce851bb0fbf34bd2fe226e3cdf31` |
+
+The base pair is **byte-identical to the values `EVIDENCE.md` §4 already published**, re-derived
+in a separate run — the recorded fingerprint reproduces. The node-set delta is exactly the two
+in-scope nodes and nothing else:
+
+```
+base-only   tests/test_identity_spine_w1.py::test_node_entry_is_ais_signup_not_a_separate_diagnostic_route
+base-only   tests/test_m02_reasomate_truth.py::test_oracle_runtime_uses_the_shared_session_key
+branch-only (new regressions)  <none>
+```
+
+`-2 failed / +2 passed / 0 new nodes` — PR #363 is regression-free on the full suite, now
+measured at the branch head rather than inherited from a prior pass.
+
+### 2. The CP10 nodes are #354-owned, and this PR's own diff passes the boundary judge
+
+Measured directly, not inferred from file-ownership alone. The PR's own changed paths are
+admitted by the gate it is judged by:
+
+```
+git diff --name-only 24a00f85..HEAD | python scripts/cp10_mutation_boundary_policy.py --judge
+  -> Mutation boundary PASS   (exit 0)
+```
+
+The full tracked corpus still fails, on exactly one path:
+
+```
+git ls-files | python scripts/cp10_mutation_boundary_policy.py --judge
+  -> Unexpected path outside legitimate surfaces: deploy/n-atlas-server/Dockerfile   (exit 1)
+```
+
+`deploy/` is the surface PR **#354** admits. So the three `test_m02a_ci_gate_integrity` nodes are
+#354-owned pre-existing debt on `main`, not an effect of adding an evidence directory — a
+result that file-ownership alone could not have distinguished from a self-inflicted reddening.
+
+### 3. The proposed next bounded task is already implemented by open PR #361 — do not duplicate it
+
+Pass 2 proposed `gate-hygiene/reconcile-open-pr-owned-fingerprint-01` as the next task. Measured
+this pass: **open PR #361 is that task, already written.** `gate-hygiene/open-pr-owned-baseline-
+drift-01` reconciles `tests/fixtures/baseline_node_set.txt`, attributes the drift to the open PRs
+that repair it, and adds the era/drift/ownership fixtures plus ~380 lines of guard.
+
+Its proposed 17-node fixture is **byte-identical to this pass's independent base measurement** —
+same sha256 `26c2b4c7…`, same node set. Two independent measurements of `main @ 24a00f85` agree,
+which is the strongest available confirmation short of a merge.
+
+**Composition was measured, not asserted.** #361's patch was applied onto this PR's tree
+(`git apply` of `git diff 441379913d1b pr361deep`, clean):
+
+```
+tests/test_baseline_fingerprint.py + tests/test_agents_md_encoding_adjudication.py
+  -> 54 passed, 2 skipped   (composed tree)
+```
+
+No textual conflict and no semantic breakage. One caution for the next pass: #361's guards are
+*set-membership* assertions, not exact-set equalities, so this PR's repairs do not redden them —
+but a *future* PR that leaves the two repaired nodes failing **would**, because #361's fixture
+records them as expected debt. That is a merge-order property of #361, not a defect in it.
+
+**Decision: no new PR is opened.** Creating one would duplicate #361's scope, which the
+continuity rule forbids. The proposed task is reclassified as `ALREADY_OWNED (#361)`.
+
+### 4. The true stable remainder after the cluster merges
+
+Subtracting every open-PR-owned node and this PR's two repairs, the residual unowned debt is
+**5 nodes**, and each is a recorded, deliberate non-repair:
+
+```
+ERROR  tests/test_autonomy.py                                    CE-01 weaver.autonomy module-vs-package
+FAILED tests/test_steward_filter.py::test_blocks_identity_claims
+FAILED tests/test_steward_filter.py::test_allows_mythic_with_action
+FAILED tests/test_steward_filter.py::test_compress_to_choices
+FAILED tests/test_ais_w2_living_gate_grove_handoff.py::test_no_firebase_persistence_in_gate
+```
+
+`test_autonomy.py` reports only as `ERROR` on the base run, consistent with the CE-01 collision
+interrupting collection; it is reserved to the sovereign. The `test_steward_filter` trio and the
+`LivingGate` persistence node are pre-existing `main` debt with a recorded reason not to re-pin.
+
+### 5. Pass 3 gate state at `c63c5f13`
+
+All **7** check-runs `success`; `mergeable: true`, `mergeable_state: clean`; combined commit
+status `success`.
+
+```
+Vercel Preview Comments  success    beta-beta-01-english     success
+native-arkadia-golden-workflow success    beta-beta-02-hausa  success
+bundle-beta-evidence     success    Full-history secret scan  success
+validate                 success
+```
+
+### Pass 3 next-action block
+
+- **Current state:** two stale pins repaired, one production `ReferenceError` fixed, full suite
+  measured at the branch head — `0` new failing nodes, base fingerprint reproduced byte-exactly.
+- **Evidence:** this section; `EVIDENCE.md` §4 (independently re-derived). Node-set sha256 base
+  `26c2b4c7…` / head `9a6239ae…` (outcomes), `571e599f…` / `0ea4bdd3…` (ids).
+- **Blockers:** none. No credential or dependency blocker this pass.
+- **Authorized action:** sovereign review and merge of PR #363.
+- **Forbidden actions:** merging; opening a duplicate of #361; re-pinning
+  `test_no_firebase_persistence_in_gate`; repairing CE-01; fixing any PR-owned node; treating a
+  fingerprint from the other convention as a non-reproduction.
+- **Completion condition:** PR #363 merged by the sovereign. The next heartbeat then re-derives
+  `main`'s fingerprint and, once the #354/#355/#356/#357/#361 cluster has merged, re-measures
+  whether #361's recorded set still describes the tree (its own instruction: "re-measure, not
+  reuse").
