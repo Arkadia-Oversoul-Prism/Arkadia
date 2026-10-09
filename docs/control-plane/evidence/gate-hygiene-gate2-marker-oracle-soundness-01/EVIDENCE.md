@@ -185,3 +185,59 @@ reddens exactly the two new source-level controls
 32P. `test_an_undetermined_app_is_not_scored_for_sg04` carries both the NOT-EVALUABLE
 cases and the positive control that the real regression remains reachable when the
 artifact is the marker app.
+
+---
+
+## 8. Identical defect class surviving as a report *ordering* fault (2026-10-09)
+
+The §7 repair removed the `or MARKER_APP` coercion so the classifier *can* receive the
+observed identity. It did not fix the order in which the report path supplies it.
+
+**Measured.** The SG-04 verdict is computed from `report.get("deployed_app")`, but the
+assignment that produces that key ran **twelve lines later**:
+
+```
+read  of report["deployed_app"]  : line 469   (classify_sg04 argument)
+write of report["deployed_app"]  : line 481   (link 6, source-lineage closure)
+```
+
+Proved by AST over the script: `report.get("deployed_app")` is read at lines
+`469, 522, 556, 558, 571, 575, 592, 594, 595` and written once at `481`. Line 469
+precedes 481.
+
+**Consequence.** For *every* run — including one where the served artifact **is**
+`arkadia-prism` and `activity-runtime-draft.v1:` is genuinely absent from the build —
+`classify_sg04` received `None`. The `evaluable` branch therefore never executed, and
+`regression` was `None` (not evaluable) even when the regression was real and evaluable.
+The §7 repair made the classifier *correct*; the call site made it *vacuous*. An SG-04
+regression had become unreportable — the harness would silently under-report, which is
+the same soundness failure as the false `VERIFIED` it was opened to fix, mirrored.
+
+The §7 tests pinned the *presence* of the call site
+(`test_sg04_is_produced_by_the_tested_predicate` asserts the string
+`report["sg04"] = classify_sg04(`). A presence assertion cannot see ordering, which is
+why 32 tests were green on a vacuous call site.
+
+**Repair.** Resolve `deployed_app` once, before any classifier reads it; pass the local
+binding to `classify_sg04`; the closure block reuses the same binding. No behaviour
+change for the marker oracle or closure links.
+
+**Verification.**
+
+| command | result |
+|---|---|
+| `python -m pytest tests/test_gate2_production_observation.py -q` | **34 passed** (32 + 2) |
+| `python -m pytest tests/architecture -q` | **11 passed** |
+| `python -m py_compile scripts/gate2_production_observation.py` | OK |
+
+**Non-vacuousness (measured).** Restoring the pre-repair order (SG-04 call before the
+assignment) reddens exactly
+`test_deployed_app_is_resolved_before_the_sg04_classifier_reads_it`
+(**1 failed / 33 passed**), then restored to **34 passed**.
+`test_ordering_detector_flags_the_defective_order` is the **negative control**: it feeds
+the detector the measured pre-repair snippet and asserts the detector reports it, so the
+ordering check cannot be disarmed by editing the script without reddening CI.
+
+**Boundary.** Repository-source claim. No change to the marker oracle, closure, or the
+`BLOCKED`/`UNKNOWN` boundary states: the deployment build output remains
+`BLOCKED` on provider auth.

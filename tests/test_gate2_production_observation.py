@@ -26,6 +26,7 @@ The label is now matched on an anchored production prefix, and the fetch is
 unfiltered so the query predicate cannot reintroduce the omission.
 """
 
+import ast
 from pathlib import Path
 
 from scripts.gate2_production_observation import (
@@ -339,3 +340,55 @@ def test_deployments_are_fetched_unfiltered():
     src = _SCRIPT.read_text(encoding="utf-8")
     assert "/deployments?environment=" not in src
     assert "/deployments?per_page=" in src
+
+
+# ── report ordering: identity is resolved before it is consumed ──────────────
+
+
+def _assignment_line(src: str, key: str) -> int:
+    """Line of the first ``report[key] = ...`` assignment."""
+    for node in ast.walk(ast.parse(src)):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if (
+                    isinstance(target, ast.Subscript)
+                    and isinstance(target.value, ast.Name)
+                    and target.value.id == "report"
+                    and isinstance(target.slice, ast.Constant)
+                    and target.slice.value == key
+                ):
+                    return node.lineno
+    raise AssertionError(f"no report[{key!r}] assignment found")
+
+
+def _sg04_call_line(src: str) -> int:
+    """Line of the ``report["sg04"] = classify_sg04(...)`` call."""
+    for node in ast.walk(ast.parse(src)):
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+            if isinstance(node.value.func, ast.Name) and node.value.func.id == "classify_sg04":
+                return node.lineno
+    raise AssertionError("no classify_sg04 call site found")
+
+
+def test_deployed_app_is_resolved_before_the_sg04_classifier_reads_it():
+    """The SG-04 verdict is scored against the *observed* app, so the identity
+    must be written to the report before the classifier consumes it.
+
+    A read that precedes the write yields ``None`` for every deployment -- the
+    same value as "no deployment observable" -- so the evaluable branch is
+    unreachable and a genuine SG-04 regression can never be reported. The
+    presence-only pins above did not catch this; ordering is the load-bearing
+    property."""
+    src = _SCRIPT.read_text(encoding="utf-8")
+    assert _assignment_line(src, "deployed_app") < _sg04_call_line(src)
+
+
+def test_ordering_detector_flags_the_defective_order():
+    """Negative control: fed the measured pre-repair order (SG-04 call before the
+    assignment), the detector must report the defect. Without this the assertion
+    above could pass on a script whose call site never runs."""
+    defective = (
+        'report["sg04"] = classify_sg04(report.get("deployed_app"), MARKER_APP, True, 0)\n'
+        'report["deployed_app"] = frontend_of(prod[0]["environment"]) if prod else None\n'
+    )
+    assert _sg04_call_line(defective) < _assignment_line(defective, "deployed_app")

@@ -463,10 +463,18 @@ def main() -> int:
     if lb is not None:
         report["markers"]["local_build"] = lb
 
+    # The observed Production deployment names its app in the environment label.
+    # Resolve it BEFORE any classifier reads it: the SG-04 verdict is scored
+    # against the observed app, and a read that precedes this write sees ``None``
+    # for every deployment -- collapsing the evaluable branch so a genuine
+    # regression can never be reported.
+    deployed_app = frontend_of(prod[0]["environment"]) if prod else None
+    report["deployed_app"] = deployed_app
+
     # SG-04 regression: expected in source, absent from artifact.
     dep_m = report["markers"].get("deployed", {})
     report["sg04"] = classify_sg04(
-        report.get("deployed_app"),
+        deployed_app,
         MARKER_APP,
         present.get("activity-runtime-draft.v1:", False),
         dep_m.get("activity-runtime-draft.v1:", 0),
@@ -475,10 +483,7 @@ def main() -> int:
     sg04_dep = report["sg04"]["in_deployed_artifact"]
 
     # ---- link 6: source-lineage closure -------------------------------------
-    # The observed Production deployment names its app in the environment label;
-    # the closure argument is only meaningful over that app's build input.
-    deployed_app = frontend_of(prod[0]["environment"]) if prod else None
-    report["deployed_app"] = deployed_app
+    # The closure argument is only meaningful over the observed app's build input.
     app_for_closure = deployed_app or MARKER_APP
     if deployed_app is None and prod:
         report["deployed_app_error"] = (
