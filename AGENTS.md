@@ -895,3 +895,41 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
 - PR #368 (branch `gate-hygiene/gate2-deployment-window-01`). Does **not** close the standing
   Gate-2 boundary — `deployment build output observed` stays `BLOCKED` on Vercel Deployment
   Protection (SSO); production parity remains **NOT CLAIMED**.
+
+## Gate-2 deployment window vs marker oracle — two PRs, one file, independently necessary (gate-hygiene)
+- Measured 2026-10-09 at main `24a00f85`. `scripts/gate2_production_observation.py` has **two**
+  open bounded repairs touching it and its test, and **both are needed**: PR #368
+  (`gate-hygiene/gate2-deployment-window-01`) and PR #366
+  (`gate-hygiene/gate2-marker-oracle-soundness-01`).
+- #368 is the *deployment-window* fix: `GET /deployments` is ordered by creation time across
+  *every* environment, so a busy Preview cohort pushes the newest Production record off a single
+  page and the harness reports `main -> deployment identity := UNKNOWN` while main **is** deployed
+  (the absent state, not the real one). The fix **pages** the window
+  (`per_page=100&page=N`, bounded by `DEPLOYMENT_SCAN_PAGES`) instead of trusting one page.
+- #366 is the *marker-oracle* fix and does **not** paginate — it widens the fixed window with
+  `per_page = max(args.limit * 5, 50)`, which is strictly weaker: a cohort can still exceed any
+  fixed bound. #366 repairs a different soundness defect: the harness scored the **console**
+  artifact against **Prism** literals after the root `vercel.json` was repointed at `404452e0`
+  (2026-10-02), so every marker read 0 — which is "this is a different application", not
+  "the artifact disagrees with the source". #366 also introduces `KNOWN_FRONTENDS`/`MARKER_APP`.
+- **Textual conflict is real and measured, not assumed.** `git apply --3way` of #366's patch onto
+  #368's head in a detached worktree yields `UU` on **both** files; the script has one conflicted
+  region and the test two. The hunks are the adjacent constant blocks at `BUILD_INPUTS`
+  (`DEPLOYMENT_SCAN_PAGES` vs `KNOWN_FRONTENDS`/`MARKER_APP`). Git conflict-free is not proof of
+  semantic compatibility — and here it is not even conflict-free.
+- **The ABSENT marker rows do not contradict the lineage summary.** The run prints e.g.
+  `separate explicit downstream stages  0  (expect>0)  <-- ABSENT` for the deployed bundle, which
+  reads as a Prism divergence. It is not: the alias manifest is `assets/index-*.js` while the
+  Prism build emits `dist/assets/index-*.js`, so the harness **falls back** to `alias_bundle`
+  (printed explicitly) — the Console artifact. The marker table measures the Console artifact;
+  `SOURCE-LINEAGE CLOSURE` (ancestry-only) is independently `True`. The two are consistent. Do
+  not read the ABSENT rows as a Prism regression, and do not "repair" them inside #368.
+- A running harness can still *cite* a verification it never performs: `classify_source_lineage`
+  returns the literal `"VERIFIED (marker set matches, source closed)"` while never receiving the
+  marker comparison — the computed `match` is printed but fed to no classifier. PR #366 fixes
+  this (its `classify_source_lineage` comment says claiming a match "from closure alone" is
+  unsound) by splitting out `classify_marker_oracle`. Leave it to #366; do not duplicate it in
+  #368 (would compound the conflict).
+- **Merge order is the human sovereign's.** Recommended: **#366 first**, then **#368 rebased**
+  onto it retaining both the page loop and `KNOWN_FRONTENDS`/`MARKER_APP`. Do not open a third
+  competing PR on this file — compose into #368. Do not merge both unreconciled.

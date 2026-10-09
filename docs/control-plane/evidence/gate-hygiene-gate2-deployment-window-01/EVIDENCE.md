@@ -141,7 +141,37 @@ regression of this PR.
 this PR touches none of them, so its absence from the check list is expected, not a gap. The
 boundary itself was still executed locally and passed (see §4 and the commit body).
 
-## 8. Authority boundary
+## 8. Composition with PR #366 (same file)
+
+This PR and **#366** (`gate-hygiene/gate2-marker-oracle-soundness-01`) both edit
+`scripts/gate2_production_observation.py` and `tests/test_gate2_production_observation.py`.
+Measured: `git apply --3way` of #366's patch onto this head in a detached worktree yields `UU`
+on **both** files (1 conflicted region in the script, 2 in the test).
+
+They are **independently necessary**, not duplicates:
+
+- **#368 (this PR)** — *deployment-window* correctness. `/deployments` is ordered by creation
+  time across **every** environment; a busy Preview cohort pushes the newest Production record
+  off a single page, so the link read `UNKNOWN` while main **was** deployed. The repair is real
+  **pagination** (`per_page=100&page=N`).
+- **#366** — *marker-oracle* soundness. It does **not** paginate; it widens the fixed window
+  (`per_page = max(args.limit*5, 50)`), which is strictly weaker. It repairs a different defect:
+  the harness scored the **console** artifact against **Prism** literals after the root
+  `vercel.json` was repointed at `404452e0`.
+
+The conflict is the adjacent constant block at `BUILD_INPUTS`: this PR adds
+`DEPLOYMENT_SCAN_PAGES`; #366 adds `KNOWN_FRONTENDS`/`MARKER_APP`.
+
+**Recommended merge order (sovereign's call):** #366 first, then rebase this PR onto it and
+keep both the page loop and `KNOWN_FRONTENDS`/`MARKER_APP`. Do **not** merge both unreconciled,
+and do not open a third PR on this file.
+
+`build <-> source lineage` remains `VERIFIED` by **ancestry closure** regardless of the marker
+table; the ABSENT marker rows in a live run are the Console artifact (the harness falls back to
+`alias_bundle`, `assets/index-*.js`, because the Prism build emits `dist/assets/index-*.js`),
+not a Prism divergence.
+
+## 9. Authority boundary
 
 Harness + test source only. No merge. Branch
 `gate-hygiene/gate2-deployment-window-01` → PR against `main`. Human merges.
