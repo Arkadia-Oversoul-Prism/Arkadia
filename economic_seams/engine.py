@@ -56,6 +56,7 @@ def _db():
     c = sqlite3.connect(DB_PATH, timeout=30)
     c.row_factory = sqlite3.Row
     c.execute("CREATE TABLE IF NOT EXISTS source_runs (source_id TEXT PRIMARY KEY, last_run TEXT, status TEXT, item_count INTEGER DEFAULT 0, error TEXT)")
+    c.execute("""CREATE TABLE IF NOT EXISTS source_fetch_evidence (id TEXT PRIMARY KEY, source_id TEXT NOT NULL, fetched_at TEXT NOT NULL, url TEXT NOT NULL, status_code INTEGER, content_type TEXT, content_hash TEXT, body_excerpt TEXT, error TEXT)""")
     c.execute("CREATE TABLE IF NOT EXISTS observations (id TEXT PRIMARY KEY, source_id TEXT, url TEXT, title TEXT, published_at TEXT, fetched_at TEXT, content_hash TEXT, excerpt TEXT, legal_basis TEXT, evidence_level TEXT)")
     c.execute("CREATE TABLE IF NOT EXISTS opportunities (id TEXT PRIMARY KEY, title TEXT, seam_type TEXT, status TEXT, legal_basis TEXT, evidence_ids TEXT, evidence_level TEXT, rationale TEXT, created_at TEXT, updated_at TEXT)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_obs_source ON observations(source_id)")
@@ -68,10 +69,50 @@ def _clean_html(raw):
     from html import unescape
     return re.sub(r"\s+", " ", unescape(text)).strip()
 
-def _fetch(source):
-    r = requests.get(source.url, timeout=25, headers={"User-Agent": "Arkadia-Economic-Seam-Engine/1.0"})
-    r.raise_for_status()
-    return r.url, _clean_html(r.text)[:2000000]
+def _record_fetch(c, source, url, response=None, error=None):
+    """Retain bounded source-response evidence; request headers and secrets are never stored."""
+    body = (getattr(response, "text", "") or "")[:2000] if response is not None else ""
+    status = response.status_code if response is not None else None
+    content_type = response.headers.get("Content-Type", "") if response is not None else None
+    digest = hashlib.sha256(body.encode("utf-8", errors="replace")).hexdigest() if body else None
+    evidence_id = hashlib.sha256(f"{source.id}:{url}:{_now()}:{status}:{digest}:{error}".encode()).hexdigest()[:24]
+    c.execute("INSERT INTO source_fetch_evidence VALUES (?,?,?,?,?,?,?,?,?)",
+        (evidence_id, source.id, _now(), url, status, content_type, digest,
+         _clean_html(body)[:1000] if body else "", str(error)[:500] if error else None))
+
+
+def _request_source(c, source, url):
+    response = None
+    try:
+        response = requests.get(url, timeout=25, headers={"User-Agent": "Arkadia-Economic-Seam-Engine/1.0"})
+        _record_fetch(c, source, response.url, response=response)
+        response.raise_for_status()
+        return response
+    except Exception as exc:
+        if response is None:
+            _record_fetch(c, source, url, error=exc)
+        raise
+
+
+def _fetch(source, c=None):
+    urls = [source.url]
+    if source.id == "afdb_procurement":
+        urls.extend([
+            "https://www.afdb.org/en/corporate-procurement/news-and-events/projects-and-operations/procurement.xml?order=title&sort=asc",
+            "https://www.afdb.org/en/corporate-procurement/projects-and-operations/procurement.xml?order=field_procurement_end_date&sort=desc",
+        ])
+    elif source.id == "afdb_trade_finance":
+        urls.append("https://www.afdb.org/en/topics-and-sectors/initiatives-partnerships/trade-finance-program")
+    failures = []
+    for url in dict.fromkeys(urls):
+        try:
+            response = _request_source(c, source, url) if c is not None else requests.get(
+                url, timeout=25, headers={"User-Agent": "Arkadia-Economic-Seam-Engine/1.0"})
+            response.raise_for_status()
+            return response.url, _clean_html(response.text)[:2000000]
+        except Exception as exc:
+            failures.append(f"{url}: {type(exc).__name__}: {exc}")
+    raise RuntimeError("All official source endpoints failed: " + " | ".join(failures)[:1500])
 
 def _excerpt(text):
     hits = []
@@ -158,11 +199,13 @@ def _scan_nocopo(c, source):
 def _scan_market_reference(c, source):
     """Persist parsed CBN FX / NEPC price rows as unclassified observations."""
     from economic_seams.market_data import fetch_nepc_price_rows, normalize_market_tables
+    response_url = source.url
     if source.id == "nepc_prices":
         rows = fetch_nepc_price_rows(requests, source.url)
+        response_url = rows[0].get("source_url", source.url) if rows else source.url
     else:
-        response = requests.get(source.url, timeout=25, headers={"User-Agent": "Arkadia-Economic-Seam-Engine/1.0"})
-        response.raise_for_status()
+        response = _request_source(c, source, source.url)
+        response_url = response.url
         rows = normalize_market_tables(response.text, source_id=source.id, source_url=response.url)
     if not rows:
         raise ValueError("No parseable market reference rows found; source layout may have changed")
@@ -172,7 +215,7 @@ def _scan_market_reference(c, source):
         oid = hashlib.sha256(f"{source.id}:{digest}".encode("utf-8")).hexdigest()[:24]
         labels = " / ".join(row.get("labels", []) or [row.get("commodity_unit_heading", ""), row.get("state", "")])
         c.execute("INSERT OR REPLACE INTO observations VALUES (?,?,?,?,?,?,?,?,?,?)",
-                  (oid, source.id, response.url, f"{source.name}: {labels[:160]}", None, _now(), digest, raw[:1800], source.legal_basis, "UNCLASSIFIED_REFERENCE_ROW"))
+                  (oid, source.id, row.get("source_url", response_url), f"{source.name}: {labels[:160]}", None, _now(), digest, raw[:1800], source.legal_basis, "UNCLASSIFIED_REFERENCE_ROW"))
     return rows
 
 def scan_once():
@@ -187,7 +230,7 @@ def scan_once():
             elif source.id in {"cbn_fx", "nepc_prices"}:
                 item_count = len(_scan_market_reference(c, source))
             else:
-                url, text = _fetch(source)
+                url, text = _fetch(source, c)
                 oid = _upsert_observation(c, source, url, text)
                 created += _detect(c, source, oid, _excerpt(text))
                 item_count = 1
