@@ -151,3 +151,61 @@ def test_nepc_unparseable_document_does_not_persist_rows(monkeypatch, tmp_path):
     count = conn.execute("SELECT COUNT(*) FROM observations WHERE source_id='nepc_prices'").fetchone()[0]
     conn.close()
     assert count == 0
+
+
+# Captured rendered CBN NFEM table excerpt from the official Exchange Rates page.
+# The column order and date/rate values match the published page's visible table.
+CBN_NFEM_SOURCE_FIXTURE = """<table>
+<tr><th>Date</th><th>NFEM Rate (₦/US$)</th><th>Highest Rate (₦/US$)</th><th>Lowest Rate (₦/US$)</th><th>Closing Rate (₦/US$)</th><th>Simple Aver. Rate (Mean) (₦/US$)</th><th>NFEM Interbank Turnover (US$)</th><th>No. of Deals at Interbank</th><th>NFEM Total Turnover (US$)</th><th>No. of Deals at NFEM</th></tr>
+<tr><td>September-25-2026</td><td>1,329.5138</td><td>1,331.0000</td><td>1,328.0000</td><td>1,330.0000</td><td>1,329.4957</td><td>111,064,460.7600</td><td>108</td><td>0.0000</td><td>0</td></tr>
+</table>"""
+
+
+def test_cbn_captured_nfem_fixture_selects_named_rate_not_adjacent_columns():
+    from economic_seams.market_data import parse_cbn_nfem_rows
+    rows = parse_cbn_nfem_rows(
+        CBN_NFEM_SOURCE_FIXTURE,
+        source_url="https://www.cbn.gov.ng/rates/ExchRateByCurrency.html",
+    )
+    assert len(rows) == 1
+    assert rows[0]["observed_date"] == "2026-09-25"
+    assert rows[0]["numeric_values"] == ["1329.5138"]
+    assert rows[0]["quote_basis"] == "CBN NFEM volume-weighted average official rate"
+    assert rows[0]["source_url"] == "https://www.cbn.gov.ng/rates/ExchRateByCurrency.html"
+
+
+def test_cbn_captured_fixture_normalizes_only_with_explicit_quote_context():
+    from economic_seams.market_data import normalize_cbn_fx_row, parse_cbn_nfem_rows
+    import pytest
+    row = parse_cbn_nfem_rows(
+        CBN_NFEM_SOURCE_FIXTURE,
+        source_url="https://www.cbn.gov.ng/rates/ExchRateByCurrency.html",
+    )[0]
+    normalized = normalize_cbn_fx_row(
+        row,
+        observed_date=row["observed_date"],
+        quote_basis=row["quote_basis"],
+        currency=row["currency"],
+        unit=row["unit"],
+    )
+    assert normalized["price"] == "1329.5138"
+    assert normalized["currency"] == "USD"
+    assert normalized["unit"] == "₦ per US$1"
+    with pytest.raises(ValueError, match="requires date"):
+        normalize_cbn_fx_row(row, observed_date="", quote_basis=row["quote_basis"],
+                              currency="USD", unit=row["unit"])
+
+
+def test_cbn_nfem_parser_rejects_malformed_rows_and_ambiguous_headers():
+    from economic_seams.market_data import parse_cbn_nfem_rows
+    malformed = """<table><tr><th>Date</th><th>NFEM Rate (₦/US$)</th></tr>
+    <tr><td>not-a-date</td><td>not-published</td></tr>
+    <tr><td>2026-10-09</td><td>n/a</td></tr></table>"""
+    assert parse_cbn_nfem_rows(
+        malformed, source_url="https://www.cbn.gov.ng/rates/ExchRateByCurrency.html"
+    ) == []
+    ambiguous = """<table><tr><th>Date</th><th>Rate</th></tr>
+    <tr><td>2026-10-09</td><td>1500.25</td></tr></table>"""
+    assert parse_cbn_nfem_rows(
+        ambiguous, source_url="https://www.cbn.gov.ng/rates/ExchRateByCurrency.html"
+    ) == []
