@@ -201,7 +201,7 @@ def _scan_market_reference(c, source):
     from economic_seams.market_data import fetch_nepc_price_rows, normalize_market_tables
     response_url = source.url
     if source.id == "nepc_prices":
-        rows = fetch_nepc_price_rows(requests, source.url)
+        rows = fetch_nepc_price_rows(requests, source.url, evidence_callback=lambda url, response, error: _record_fetch(c, source, url, response=response, error=error))
         response_url = rows[0].get("source_url", source.url) if rows else source.url
     else:
         response = _request_source(c, source, source.url)
