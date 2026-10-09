@@ -191,7 +191,7 @@ def fetch_nepc_price_rows(session, page_url: str, timeout: int = 25):
         parsed = urlparse(target)
         if (parsed.scheme == "https" and parsed.hostname == "nepc.gov.ng"
                 and parsed.path.lower().endswith(".pdf")
-                and "local commodity price" in label.lower()):
+                and any(term in (label + " " + parsed.path).lower() for term in ("commodity", "price", "indicative"))):
             candidates.append(target)
     if not candidates:
         raise ValueError("No official NEPC local commodity price PDF link found")
