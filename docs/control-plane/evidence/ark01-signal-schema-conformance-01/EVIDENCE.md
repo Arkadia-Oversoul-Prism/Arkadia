@@ -103,3 +103,74 @@ explicitly (with rationale) so the conformance test runs against the real schema
 
 Repository-source change only. Branch -> PR. Merge is reserved to the human
 sovereign.
+
+## 7. The pin was itself decoration until it could not skip (2026-10-09)
+
+§5 recorded the CI-inertness as remaining uncertainty. It is now measured and
+repaired, because a guard that disappears for a missing import is not a contract.
+
+**Measured, not asserted.** With `jsonschema` blocked:
+
+```
+PYTHONPATH=<no jsonschema> pytest tests/test_arkana_signal_schema_conformance.py -q
+# 2 passed, 14 skipped  ("could not import 'jsonschema'")
+```
+
+Every conformance assertion skipped. No CI job selected the file either:
+`alxai-conformance` installs pydantic+pytest (paths filter `alxai/**`,
+`tests/conformance/**`), `arkadia-engineering-scheduler` installs pyyaml+pytest;
+neither installs `jsonschema` nor selects this file. The whole-suite step in
+`sg-02-fe-2-v.yml` is `continue-on-error` and, on a bare `pytest tests/`, is
+interrupted by the CE-01 collection error before running anything. So the pin
+added in §2 executed **zero** times in CI.
+
+**Repair, two parts.**
+
+1. `tests/test_arkana_signal_schema_guard.py` — a **stdlib-only** pin that cannot
+   skip. It imports no validator; `test_guard_does_not_import_jsonschema` (an AST
+   check over its own file) fails if a `jsonschema` import or an `importorskip`
+   call is ever added, so the guard cannot silently become skippable again. It
+   ships a stated JSON-Schema subset validator (draft 2020-12 keywords the schema
+   uses) and
+   `test_the_stdlib_validator_covers_every_keyword_the_schema_uses` fails closed
+   if the schema introduces a keyword the subset ignores — a schema rewrite
+   cannot make the pin pass vacuously. Four negative controls feed the exact
+   pre-fix shapes (a `null` in the number-only confidence map, a candidate
+   without `status`, a missing top-level required field, an additional top-level
+   property) and assert the validator reports each; a positive control proves it
+   accepts a valid minimal object.
+
+2. `.github/workflows/arkana-signal-conformance.yml` — a job **without
+   `jsonschema`** runs the stdlib pin (the guard that cannot skip), and a second
+   job with `jsonschema` runs both the stdlib pin and the real-schema
+   conformance test. Path-filtered on the producer, the schema, both test files,
+   and its own file, with identical `push`/`pull_request` filters so a surface
+   judged on one is judged on the other.
+
+**Evidence.**
+
+| environment | `test_arkana_signal_schema_guard.py` |
+|---|---|
+| bare venv: `pytest pytest-asyncio fastapi httpx` (no `jsonschema`) | **13 passed** |
+| with `jsonschema` 4.26.0 | **13 passed** |
+| both files, minimal venv, no `jsonschema` | 13 + 16 = **29 passed** |
+
+**Non-vacuousness proof (measured, not claimed).** Reintroducing the pre-fix
+producer (candidates forwarded verbatim; `null` written into the confidence map)
+in a scratch copy turned the new guard **6 failed / 7 passed**; restoring the
+repair returns **13 passed**. The guard is a real detector against the exact
+defect §2 repaired.
+
+**Regression boundary.** The change adds one test file and one workflow; the
+producer, schema, and runtime paths are untouched. The workflow boundary guards
+(`tests/test_ci_gate_trigger_coverage.py`,
+`tests/test_workflow_injection_boundary.py`,
+`tests/test_ci_suite_collection_continuation.py`, `tests/test_m02a_ci_gate_integrity.py`)
+were run; the 4 failures they report (`n-atlas-developer-lab.yml` self-selection,
+and 3 `deploy/n-atlas-server/` CP10-allowlist omissions) are present on `main`
+and are unchanged by this workstream. The CP10 policy admits both new paths
+(`--judge` -> exit 0).
+
+**Remaining uncertainty.** This is a repository-source claim. It does not assert
+a production-parity or deployment identity; the ARK-01 pin is source conformance
+only.
