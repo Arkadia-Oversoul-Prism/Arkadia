@@ -34,6 +34,7 @@ from scripts.gate2_production_observation import (
     MARKERS,
     classify_deployment_identity,
     classify_marker_oracle,
+    classify_sg04,
     classify_source_lineage,
     frontend_of,
     lineage_closed,
@@ -287,6 +288,44 @@ def test_classifier_is_a_single_source_of_truth():
     assert 'report["boundaries"]["build <-> source lineage"] = classify_source_lineage(' in src
     assert 'report["boundaries"]["marker-set oracle"] = classify_marker_oracle(' in src
     assert 'report["boundaries"]["main -> deployment identity"] = classify_deployment_identity(' in src
+
+
+def test_undetermined_app_does_not_reach_the_marker_call_site_as_this_app():
+    """Negative control for the residual defect: the report path must hand the
+    classifier the *undetermined* identity, never a coerced ``MARKER_APP``.
+
+    When no Production deployment was observable, the marker link scored an
+    artifact it never fetched and printed ``CONTRADICTED (markers absent ...)``.
+    The tested classifier already returns NOT OBSERVED for ``None``; the defect
+    was a coercing ``or MARKER_APP`` at the call site that made that branch
+    unreachable. Pin the call site to the tested predicate and assert the
+    coercion is gone, so a re-introduced fallback reddens this test rather than
+    silently restoring the false verdict."""
+    src = _SCRIPT.read_text(encoding="utf-8")
+    assert 'report["boundaries"]["marker-set oracle"] = classify_marker_oracle(' in src
+    assert 'report.get("deployed_app") or MARKER_APP' not in src
+    assert 'report["boundaries"]["marker-set oracle"] = classify_marker_oracle(\n        report.get("deployed_app"),' in src
+
+
+def test_an_undetermined_app_is_not_scored_for_sg04():
+    """The SG-04 verdict must be NOT EVALUABLE (regression ``None``) when the
+    artifact does not belong to the app the SG-04 literals describe -- other
+    app, or undetermined. A ``regression: true`` there is a phantom: every
+    literal reads 0 because the surface is not in that build."""
+    assert classify_sg04(None, MARKER_APP, True, 0)["regression"] is None
+    assert classify_sg04(None, MARKER_APP, True, 0)["evaluable"] is False
+    assert classify_sg04("console", MARKER_APP, True, 0)["regression"] is None
+
+    # Positive control: the app the literals describe is scored, and the
+    # regression is still reachable from a real absence.
+    assert classify_sg04(MARKER_APP, MARKER_APP, True, 0)["regression"] is True
+    assert classify_sg04(MARKER_APP, MARKER_APP, True, 3)["regression"] is False
+    assert classify_sg04(MARKER_APP, MARKER_APP, False, 0)["regression"] is False
+
+
+def test_sg04_is_produced_by_the_tested_predicate():
+    src = _SCRIPT.read_text(encoding="utf-8")
+    assert 'report["sg04"] = classify_sg04(' in src
 
 
 def test_deployments_are_fetched_unfiltered():

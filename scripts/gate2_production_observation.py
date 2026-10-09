@@ -270,6 +270,24 @@ def classify_marker_oracle(app: str | None, observed: dict[str, int] | None, sta
     return f"CONTRADICTED (markers absent from served artifact: {', '.join(absent)})"
 
 
+def classify_sg04(app: str | None, app_for_surface: str, in_source: bool, in_artifact: int) -> dict:
+    """Whether the SG-04 surface can be scored against the observed artifact.
+
+    The SG-04 literals are ``app_for_surface``'s; a deployment of another app,
+    or an undetermined app, has no such surface. Scoring it anyway yields
+    ``regression: true`` on an artifact that was never evaluable -- a phantom
+    regression. When not evaluable the regression field is ``None`` (not proven
+    either way), never ``False`` and never ``True``.
+    """
+    evaluable = app == app_for_surface
+    return {
+        "in_source": in_source,
+        "in_deployed_artifact": in_artifact,
+        "evaluable": evaluable,
+        "regression": bool(in_source and in_artifact == 0) if evaluable else None,
+    }
+
+
 def api(path: str, token: str | None):
     req = urllib.request.Request(
         f"https://api.github.com/repos/{REPO}{path}",
@@ -447,13 +465,14 @@ def main() -> int:
 
     # SG-04 regression: expected in source, absent from artifact.
     dep_m = report["markers"].get("deployed", {})
-    sg04_src = present.get("activity-runtime-draft.v1:", False)
-    sg04_dep = dep_m.get("activity-runtime-draft.v1:", 0)
-    report["sg04"] = {
-        "in_source": sg04_src,
-        "in_deployed_artifact": sg04_dep,
-        "regression": bool(sg04_src and sg04_dep == 0),
-    }
+    report["sg04"] = classify_sg04(
+        report.get("deployed_app"),
+        MARKER_APP,
+        present.get("activity-runtime-draft.v1:", False),
+        dep_m.get("activity-runtime-draft.v1:", 0),
+    )
+    sg04_src = report["sg04"]["in_source"]
+    sg04_dep = report["sg04"]["in_deployed_artifact"]
 
     # ---- link 6: source-lineage closure -------------------------------------
     # The observed Production deployment names its app in the environment label;
@@ -493,8 +512,14 @@ def main() -> int:
         "UNKNOWN (immaterial: all candidates share frontend source)" if all_closure else "UNKNOWN"
     )
     report["boundaries"]["build <-> source lineage"] = classify_source_lineage(closure, stale, prod)
+    # Pass the app identity through unchanged. ``None`` means no Production
+    # deployment was observable, so there is no artifact to score and the
+    # classifier must report NOT OBSERVED. Coercing it to MARKER_APP here made
+    # the classifier's undetermined branch unreachable and let an unobserved
+    # artifact be reported as CONTRADICTED -- the same category error this
+    # harness was repaired to remove.
     report["boundaries"]["marker-set oracle"] = classify_marker_oracle(
-        report.get("deployed_app") or MARKER_APP,
+        report.get("deployed_app"),
         report["markers"].get("deployed"),
         stale,
     )
@@ -565,8 +590,12 @@ def main() -> int:
     print()
     print("SG-04 REGRESSION")
     if report.get("deployed_app") != MARKER_APP:
-        print(f"  in source: {sg04_src}   NOT EVALUABLE against artifact: the served")
-        print(f"  document is the '{report.get('deployed_app')}' app, which has no SG-04 surface.")
+        app_label = (
+            f"the '{report.get('deployed_app')}' app, which has no SG-04 surface"
+            if report.get("deployed_app") else
+            "the served app is undetermined, so no artifact can be scored"
+        )
+        print(f"  in source: {sg04_src}   NOT EVALUABLE against artifact: {app_label}.")
     else:
         print(f"  in source: {sg04_src}   in deployed artifact: {sg04_dep}"
               f"   => REGRESSION: {report['sg04']['regression']}")
