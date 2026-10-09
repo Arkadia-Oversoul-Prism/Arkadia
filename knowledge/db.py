@@ -26,8 +26,9 @@ def get_connection() -> sqlite3.Connection:
     """
     if not hasattr(_local, "conn") or _local.conn is None:
         _DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(str(_DB_PATH), check_same_thread=True)
+        conn = sqlite3.connect(str(_DB_PATH), timeout=30.0, check_same_thread=True)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA busy_timeout=30000")
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA foreign_keys=ON")
         _apply_schema(conn)
