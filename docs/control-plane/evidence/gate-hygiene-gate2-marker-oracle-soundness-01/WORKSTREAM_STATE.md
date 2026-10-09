@@ -3,7 +3,7 @@
 Observation time: 2026-10-09T01:2xZ
 Base main: `24a00f856a0286cbb464a4b585117dd57a2646fa`
 Branch: `gate-hygiene/gate2-marker-oracle-soundness-01`
-PR: #366 (head `589eca24e378b6385448ab672abfca074aa32c21`, base `main`)
+PR: #366 (base `main`; do not pin the moving head - the PR owns its head)
 
 ## Current state
 
