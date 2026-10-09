@@ -866,3 +866,28 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   pre-repair pair and a positive control proving it is silent when the repair is absent.
   It fails on the composed tree and passes on `main`: a guard that is silent on both is not
   a guard.
+
+## Two Gate-2 instrument PRs edit the same file — GitHub MERGEABLE cannot see it (gate-hygiene)
+- `pull_request.mergeable` / `mergeStateStatus` compares a head against the **base** only. Two
+  open PRs editing the same load-bearing file from the same base both read `MERGEABLE`, and that
+  is **not** evidence they compose. To find a cross-PR overlap, fetch `GET /pulls/{n}/files` for
+  **every** open PR and intersect the changed paths — a population, not a pair.
+- Measured at `24a00f85`: 21 open PRs yield exactly two non-`AGENTS.md` overlaps. #337x#338 is a
+  recorded dependency pair; **#366x#368** is a *same-instrument hazard* —
+  `scripts/gate2_production_observation.py` and `tests/test_gate2_production_observation.py`.
+  #366 repairs marker-oracle soundness; #368 repairs a pagination artifact that read
+  `main -> deployment identity := UNKNOWN` while main was deployed and sha-identical. Both green
+  alone (29 / 24 passed); a 3-way apply of #368 onto #366 yields `UU` on **both** files.
+- **The conflicts are additive, so the fix is "keep both", not "choose one."** #366 adds
+  `KNOWN_FRONTENDS` / `MARKER_APP`; #368 adds `DEPLOYMENT_SCAN_PAGES` + the paged fetch. Composed
+  tree: **39 passed**, script carries both markers. Merge **#366 first**, rebase #368 onto it
+  keeping both edits, or land one composed PR — dropping either repair is a silent loss. #369
+  adds only new files and does not join the hazard.
+- Guard: `tests/test_gate2_366_368_composition_reconciliation.py` (9 tests, source-level, imports
+  no application module) over the frozen manifest in `scripts/gate2_366_368_composition.py`
+  (`--measure` re-derives the drift pin). Positive control asserts the detector *finds* the two
+  measured pairs; negative control asserts an unclassified overlap is reported; a second positive
+  control proves the classification entry is load-bearing (drop it and the guard fires).
+- Same class as the GATE-07 strict-xfail lesson above: **before composing PRs, check whether any
+  records a defect another repairs, or edits a file another edits.**
+
