@@ -814,7 +814,15 @@ from api.arkana_signal_commune import gemini_signal_chat as _gemini_signal_chat
 # ── ROUTES ────────────────────────────────────────────────────────────────────
 
 @app.get("/")
-async def root():
+async def root(request: Request):
+    # Browser navigation gets the canonical Arkadia SPA; non-browser probes retain
+    # the historical liveness payload. /api/heartbeat remains the explicit probe.
+    if "text/html" in request.headers.get("accept", "").lower():
+        frontend_index = _os.path.abspath(
+            _os.path.join(_os.path.dirname(__file__), "..", "web", "public_prism", "dist", "index.html")
+        )
+        if _os.path.isfile(frontend_index):
+            return FileResponse(frontend_index)
     return {"message": "Arkadia Mind is breathing."}
 
 
