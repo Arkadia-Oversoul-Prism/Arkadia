@@ -209,3 +209,35 @@ def test_cbn_nfem_parser_rejects_malformed_rows_and_ambiguous_headers():
     assert parse_cbn_nfem_rows(
         ambiguous, source_url="https://www.cbn.gov.ng/rates/ExchRateByCurrency.html"
     ) == []
+
+
+def test_cbn_nfem_fixture_persists_source_date_rate_and_quote_basis(monkeypatch, tmp_path):
+    import economic_seams.engine as engine
+
+    monkeypatch.setattr(engine, "DB_PATH", str(tmp_path / "economic-seams.db"))
+    source = next(item for item in engine.SOURCES if item.id == "cbn_fx")
+
+    class FixtureResponse:
+        url = "https://www.cbn.gov.ng/rates/ExchRateByCurrency.html"
+        text = CBN_NFEM_SOURCE_FIXTURE
+
+        @staticmethod
+        def raise_for_status():
+            return None
+
+    monkeypatch.setattr(engine.requests, "get",
+                        lambda url, timeout, headers: FixtureResponse())
+    conn = engine._db()
+    rows = engine._scan_market_reference(conn, source)
+    persisted = conn.execute(
+        "SELECT source_id, url, title, excerpt FROM observations WHERE source_id='cbn_fx'"
+    ).fetchall()
+    conn.commit()
+    conn.close()
+
+    assert len(rows) == 1
+    assert len(persisted) == 1
+    assert persisted[0]["url"] == FixtureResponse.url
+    assert "2026-09-25" in persisted[0]["excerpt"]
+    assert "1329.5138" in persisted[0]["excerpt"]
+    assert "CBN NFEM volume-weighted average official rate" in persisted[0]["excerpt"]
