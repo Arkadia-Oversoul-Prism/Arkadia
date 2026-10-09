@@ -726,3 +726,34 @@ transcription (1776 + 1) of a stale figure. Re-measured this pass, the values ar
 node set were correct in both drafts; only the passed/skipped counts were wrong, and because
 they are not fingerprint inputs the canonical pair was never at risk. Recorded because
 "counts that were transcribed rather than measured" is exactly the failure mode §14.4 names.
+
+### 15.6 The two residual nodes are "unowned" *and* already classified in-repo
+
+The 16-node live set splits `14 open-PR-owned + 2 residual` (§15.3 fixtures: drift 6 + era-owned
+8). The two residual nodes are **not** unclassified debt — the repository already names them,
+and neither may be repaired inside an unrelated workstream:
+
+1. `ERROR tests/test_autonomy.py` — the **CE-01** `weaver/autonomy` module-vs-package collision.
+   `weaver/autonomy.py` (module, defines `load_autonomy_config`) and `weaver/autonomy/`
+   (package) both exist, so `from weaver.autonomy import ...` resolves to the package and the
+   import fails. Classified **sovereign-reserved** in
+   `docs/control-plane/evidence/gate-hygiene-ce02-stale-claim-reconciliation-01/WORKSTREAM_STATE.md`
+   ("sovereign decision, left red"). Not repaired here.
+2. `FAILED tests/test_ais_w2_living_gate_grove_handoff.py::test_no_firebase_persistence_in_gate`
+   — the test's own docstring names this **FINDING F-01**: a **proxy-invalidation awaiting a
+   sovereign decision**, "not stale-assertion drift, and it is deliberately left failing here."
+   The gate carries zero `firebase`/`firestore` references (its stated intent holds), but
+   `LivingGate.tsx` uses `sessionStorage` for a tab-scoped diagnostic handoff
+   (`arkadia.ais.diagnostic-handoff.v1`). The `assert "sessionStorage" not in src` proxy no
+   longer measures that intent; re-pinning it would **loosen a persistence boundary**, which is
+   a governance call. See
+   `docs/control-plane/evidence/gate-hygiene-baseline-stale-assertion-repair-living-gate-06/EVIDENCE.md`.
+
+Verified no open PR owns either node: `GET /pulls/<n>/files` over every open PR (337/338/347/
+348/349/350/351/354/355/356/357/358/362/363/365/366/368/370/372/373/374) matched no path
+bearing `living_gate`/`ais_w2`/`LivingGate`, and the six owner PRs (347/354/356/357/363/365)
+touch neither `test_autonomy.py` nor the living-gate test. **Phase-1 deliverable, final: the
+residual unowned debt is exactly these two sovereign-reserved nodes.**
+
+Boundary unchanged: test/evidence only; no repair to either node attempted.
+
