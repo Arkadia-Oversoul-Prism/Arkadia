@@ -79,6 +79,52 @@ def normalize_market_tables(html: str, *, source_id: str, source_url: str):
     return observations
 
 
+def parse_cbn_nfem_rows(html: str, *, source_url: str):
+    """Extract only the CBN NFEM published rate, never adjacent high/low/closing columns."""
+    rows = []
+    for table_index, table in enumerate(parse_html_tables(html)):
+        for header_index, header in enumerate(table):
+            normalized = [re.sub(r"\\s+", " ", cell).strip().casefold() for cell in header]
+            date_columns = [i for i, value in enumerate(normalized) if value == "date"]
+            rate_columns = [
+                i for i, value in enumerate(normalized)
+                if "nfem rate" in value and not any(term in value for term in
+                    ("highest", "lowest", "closing", "average", "turnover", "deals"))
+            ]
+            if not date_columns or not rate_columns:
+                continue
+            date_column, rate_column = date_columns[0], rate_columns[0]
+            for row_index, raw_cells in enumerate(table[header_index + 1:], start=header_index + 1):
+                cells = [re.sub(r"\\s+", " ", cell).strip() for cell in raw_cells]
+                if max(date_column, rate_column) >= len(cells):
+                    continue
+                published_date, rate = cells[date_column], cells[rate_column]
+                try:
+                    parsed_date = datetime.strptime(published_date, "%B-%d-%Y").date().isoformat()
+                except ValueError:
+                    try:
+                        parsed_date = datetime.strptime(published_date, "%Y-%m-%d").date().isoformat()
+                    except ValueError:
+                        continue
+                if not _number(rate):
+                    continue
+                rows.append({
+                    "source_id": "cbn_fx",
+                    "source_url": source_url,
+                    "table_index": table_index,
+                    "row_index": row_index,
+                    "labels": [parsed_date, "NFEM Rate (₦/US$)"],
+                    "numeric_values": [rate.replace(",", "").replace("₦", "").strip()],
+                    "raw_cells": cells,
+                    "observed_date": parsed_date,
+                    "currency": "USD",
+                    "unit": "₦ per US$1",
+                    "quote_basis": "CBN NFEM volume-weighted average official rate",
+                    "interpretation": "CBN_REFERENCE_FX_RATE",
+                })
+    return rows
+
+
 class _LinkParser(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
