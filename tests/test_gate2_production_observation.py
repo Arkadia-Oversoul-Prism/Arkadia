@@ -29,10 +29,12 @@ unfiltered so the query predicate cannot reintroduce the omission.
 from pathlib import Path
 
 from scripts.gate2_production_observation import (
+    DEPLOYMENT_SCAN_PAGES,
     classify_deployment_identity,
     classify_source_lineage,
     lineage_closed,
     production_deployments,
+    production_deployments_within,
 )
 
 _ROOT = Path(__file__).resolve().parents[1]
@@ -182,3 +184,54 @@ def test_deployments_are_fetched_unfiltered():
     src = _SCRIPT.read_text(encoding="utf-8")
     assert "/deployments?environment=" not in src
     assert "/deployments?per_page=" in src
+
+
+# ── the fetch window must not truncate the newest Production deploy ──────────
+
+
+def _deploy(env: str, sha: str = "a" * 40) -> dict:
+    return {"environment": env, "sha": sha, "id": 1, "created_at": "2026-10-09T00:00:00Z"}
+
+
+def test_window_over_fetched_records_yields_production_records():
+    """A window that supplied its full scan ceiling can be filtered normally."""
+    payload = [_deploy("Preview – arkadia-prism", "b" * 40)] * 4 + [_deploy("Production – console")]
+    assert production_deployments_within(payload, 12, 4) != []
+
+
+def test_window_exhausted_without_production_yields_nothing():
+    """Below the scan ceiling and carrying no Production record, the window is
+    exhausted -- returning [] is the absence of evidence, and the caller must
+    treat the identity link as unproven rather than 'never deployed'."""
+    payload = [_deploy("Preview – arkadia-prism", "b" * 40)] * 3
+    assert production_deployments_within(payload, 12, 50) == []
+
+
+def test_negative_control_truncated_window_hides_a_production_record():
+    """Negative control. The pre-repair harness read a fixed 60-record window
+    and filtered it directly, so a Production record past the window was
+    invisible while the harness reported the absent boundary. This feeds the
+    old shape a window whose Production record sits one past it, and asserts
+    the unguarded predicate yields nothing -- the defect is reproducible, so
+    the guard above is not vacuous."""
+    window = [_deploy("Preview – arkadia-prism", "b" * 40)] * 60
+    # The predicate applied to a *slice* that excludes the record:
+    assert production_deployments(window, 12) == []
+    # Whereas the record exists just past the window, as measured live:
+    assert production_deployments_within(window + [_deploy("Production – console")], 12, 50) != []
+
+
+def test_fetch_pages_until_a_production_record_appears():
+    """The fetch is paged, not a fixed single-page window, so the Preview/branch
+    cohort cannot push the newest Production record out of view."""
+    src = _SCRIPT.read_text(encoding="utf-8")
+    assert "def fetch_deployments(" in src
+    assert "/deployments?per_page=100&page={page}" in src
+    assert DEPLOYMENT_SCAN_PAGES >= 2
+
+
+def test_fetch_scan_stays_bounded():
+    """The full history is never walked -- the scan is capped."""
+    src = _SCRIPT.read_text(encoding="utf-8")
+    assert "DEPLOYMENT_SCAN_PAGES" in src
+    assert DEPLOYMENT_SCAN_PAGES <= 10

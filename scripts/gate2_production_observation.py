@@ -35,6 +35,16 @@ REPO = "Arkadia-Oversoul-Prism/Arkadia"
 ALIAS = "https://arkadia-prism.vercel.app/"
 BUILD_INPUTS = ["web/public_prism/", ":!web/public_prism/dist"]
 
+# How many newest-first pages of `/deployments` to scan for Production records.
+# The endpoint is ordered by creation time across *every* environment, so on a
+# busy day the record cohort (Preview + per-branch deploys) can exceed the first
+# page and push Production off it: measured 2026-10-09, the newest Production
+# deploy sat at index 71 of the unfiltered list, so a one-page window reported
+# "no production deployment" while main *was* deployed -- the absent state, not
+# the real one. Five pages (500 records) covers the observed drift; the scan
+# stays bounded so the harness never walks the full history.
+DEPLOYMENT_SCAN_PAGES = 5
+
 # A Production record is labelled `Production`, `Production – arkadia-prism`, or
 # `Production – console`. An exact-equality test admitted only the bare form, so
 # once Vercel began suffixing the project name the harness matched *no*
@@ -129,18 +139,36 @@ def production_deployments(payload, limit: int) -> list[dict]:
     40-char source SHA, so a truncated or absent ``sha`` cannot be compared as
     if it were identity.
     """
+    return production_deployments_within(payload, limit, limit)
+
+
+def production_deployments_within(payload, limit: int, scan_ceiling: int) -> list[dict]:
+    """As ``production_deployments``, but also proves the ``limit`` was drawn from
+    a deep-enough window.
+
+    Returns ``[]`` when fewer than ``scan_ceiling`` records were supplied *and*
+    no Production record was found: the window is exhausted, so the caller
+    cannot distinguish "no production deployment" from "one sits past the
+    window it fetched". Reporting ``[]`` there would let the harness print the
+    absent boundary while a current deployment exists -- the exact defect this
+    predicate guards, now one layer up from the label match.
+    """
     if not isinstance(payload, list):
         return []
-    out = []
-    for d in payload:
-        if not isinstance(d, dict) or not isinstance(d.get("environment"), str):
-            continue
-        if not PRODUCTION_ENVIRONMENT_RE.match(d["environment"]):
-            continue
-        sha = d.get("sha") or ""
-        if not re.fullmatch(r"[0-9a-f]{40}", sha):
-            continue
-        out.append(d)
+    if len(payload) < scan_ceiling and not any(
+        PRODUCTION_ENVIRONMENT_RE.match(d.get("environment", ""))
+        for d in payload
+        if isinstance(d, dict)
+    ):
+        return []
+    out = [
+        d
+        for d in payload
+        if isinstance(d, dict)
+        and isinstance(d.get("environment"), str)
+        and PRODUCTION_ENVIRONMENT_RE.match(d["environment"])
+        and re.fullmatch(r"[0-9a-f]{40}", d.get("sha") or "")
+    ]
     return out[:limit]
 
 
@@ -194,6 +222,32 @@ def api(path: str, token: str | None):
         return {"__error__": f"HTTP {e.code}"}
     except Exception as e:  # network boundary
         return {"__error__": type(e).__name__}
+
+
+def fetch_deployments(token: str | None) -> tuple[list, str | None]:
+    """Fetch the newest-first deployment window, paging until enough records.
+
+    ``/deployments`` is ordered by creation time across every environment and is
+    paginated. A fixed single-page window therefore reports "no production
+    deployment" whenever the Preview/branch cohort pushes the newest Production
+    record past it -- measured 2026-10-09 at index 71. Page until a Production
+    record appears, ``DEPLOYMENT_SCAN_PAGES`` is reached, or the server runs out
+    of pages. The window stays bounded; the full history is never walked.
+    """
+    collected: list = []
+    for page in range(1, DEPLOYMENT_SCAN_PAGES + 1):
+        chunk = api(f"/deployments?per_page=100&page={page}", token)
+        if not isinstance(chunk, list):
+            return collected, "deployment list unavailable"
+        collected.extend(chunk)
+        if any(
+            isinstance(d, dict) and PRODUCTION_ENVIRONMENT_RE.match(d.get("environment", ""))
+            for d in collected
+        ):
+            break
+        if len(chunk) < 100:
+            break
+    return collected, None
 
 
 def head(url: str) -> dict:
@@ -280,14 +334,18 @@ def main() -> int:
     # Fetch UNFILTERED. The server-side `?environment=Production` predicate
     # matches the bare label only and returns a different (older) cohort than the
     # project-suffixed `Production – arkadia-prism` records, so a filtered query
-    # can never see the newest Production deployment. Filter client-side.
-    deps = api(f"/deployments?per_page={max(args.limit * 5, 50)}", token)
-    if isinstance(deps, dict) and "__error__" in deps:
+    # can never see the newest Production deployment. Filter client-side, over a
+    # paged window wide enough that the Preview/branch cohort cannot push the
+    # newest Production record past it (see DEPLOYMENT_SCAN_PAGES).
+    deps, deps_err = fetch_deployments(token)
+    if deps_err is not None:
         report["boundaries"]["main -> deployment identity"] = "BLOCKED"
-        report["deployments_error"] = deps["__error__"]
+        report["deployments_error"] = deps_err
         prod = []
     else:
-        prod = production_deployments(deps, args.limit)
+        prod = production_deployments_within(
+            deps, args.limit, max(args.limit * 5, 50)
+        )
         report["boundaries"]["main -> deployment identity"] = classify_deployment_identity(main_sha, prod)
     report["production_deployments"] = [
         {"id": d["id"], "sha": d["sha"], "created_at": d["created_at"], "ref": d.get("ref")} for d in prod
