@@ -365,3 +365,12 @@ def test_nepc_unparseable_pdf_fails_closed_at_fetch_boundary(monkeypatch):
         )
     assert len(Session.calls) == 2
     assert all(call[1] == 25 for call in Session.calls)
+
+
+def test_afdb_sources_use_official_publication_routes_and_limit_claims():
+    import economic_seams.engine as engine
+
+    sources = {source.id: source for source in engine.SOURCES}
+    assert sources["afdb_procurement"].url.endswith("/current-solicitations.xml")
+    assert sources["afdb_trade_finance"].url == "https://www.afdb.org/en/news-keywords/trade-finance-program"
+    assert "require primary-document verification" in sources["afdb_trade_finance"].legal_basis
