@@ -11,6 +11,7 @@ import { Authority } from "./surfaces/Authority";
 import "./styles.css";
 import { MieLab } from "./surfaces/MieLab";
 import { NAtlasTester } from "./surfaces/NAtlasTester";
+import { SecurityVerification } from "./surfaces/SecurityVerification";
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
               <Route path="/work" element={<WorkConsequence />} />
               <Route path="/authority" element={<Authority />} />
               <Route path="/mie-lab" element={<MieLab />} />
+              <Route path="/security-verification" element={<SecurityVerification />} />
               
               <Route path="*" element={<Spine />} />
             </Routes>
