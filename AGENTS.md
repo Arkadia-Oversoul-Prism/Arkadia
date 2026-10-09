@@ -866,3 +866,32 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   pre-repair pair and a positive control proving it is silent when the repair is absent.
   It fails on the composed tree and passes on `main`: a guard that is silent on both is not
   a guard.
+
+## Gate-2 deployment window — an ordered, paginated endpoint makes a fixed window a false absence (gate-hygiene)
+- `scripts/gate2_production_observation.py` read a **single fixed** `/deployments` window
+  (`per_page=60`) and filtered it client-side to `environment == Production`. `/deployments` is
+  ordered by **creation time across every environment**, so Preview traffic dominates: at `main`
+  `24a00f85` the newest Production deploy sat at **index 71** — past the window — and the harness
+  printed `main -> deployment identity := UNKNOWN` while main **was** deployed and sha-identical.
+  The `UNKNOWN` read as *no deployment evidence*, which is exactly the dangerous direction for a
+  boundary whose purpose is to detect a missing deployment. A standing hourly pulse must not
+  report a false `UNKNOWN`/absent boundary when main is deployed.
+- **Proof of the artifact, not the deployment:** same SHA, same token — pre-repair `UNKNOWN` /
+  0 Production records; repaired `VERIFIED` / 4 records, newest `sha == main`. Slice check:
+  first 60 unfiltered records -> 0 Production; first 100 -> 4. Newest Production record was at
+  index 71 of the unfiltered list.
+- **Repair:** bounded newest-first page walk (`DEPLOYMENT_SCAN_PAGES = 5`, <=500 records, never
+  full history) that stops as soon as a Production record appears; plus a **window guard** — a
+  window shorter than the scan ceiling carrying **no** Production record returns `[]`
+  (unprovable absence -> `UNKNOWN`), never a `STALE` claim drawn from a truncated view.
+  `production_deployments()` stays a `scan_ceiling=limit` wrapper so existing call sites hold.
+- Generalise: **a fixed-size window over a time-ordered, paginated feed is not an absence
+  oracle.** Either page until the predicate matches (bounded), or treat an exhausted window as
+  unprovable. The negative control (`test_negative_control_truncated_window_hides_a_production_record`)
+  feeds the pre-repair shape a window one record short and asserts it yields nothing, so the
+  guard cannot be disarmed by narrowing the window.
+- Regression: full-suite failing/error **node set** unchanged vs `main` `24a00f85` (133 vs 133,
+  `comm -3` empty); the `+5 passed` is the new tests. Architecture 11/11. `api/main.py` untouched.
+- PR #368 (branch `gate-hygiene/gate2-deployment-window-01`). Does **not** close the standing
+  Gate-2 boundary — `deployment build output observed` stays `BLOCKED` on Vercel Deployment
+  Protection (SSO); production parity remains **NOT CLAIMED**.
