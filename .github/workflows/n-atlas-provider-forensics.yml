@@ -3,6 +3,8 @@ name: N-ATLAS provider forensics
 on:
   push:
     branches: [fix/natlas-forensics-capture-sse-payload]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
