@@ -241,3 +241,86 @@ def test_cbn_nfem_fixture_persists_source_date_rate_and_quote_basis(monkeypatch,
     assert "2026-09-25" in persisted[0]["excerpt"]
     assert "1329.5138" in persisted[0]["excerpt"]
     assert "CBN NFEM volume-weighted average official rate" in persisted[0]["excerpt"]
+
+
+AFDB_RSS_FIXTURE = """<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>Current Solicitations</title>
+<item><title>Supply of solar equipment</title><link>https://www.afdb.org/en/corporate-procurement/supply-solar-equipment</link><pubDate>Thu, 08 Oct 2026 00:00:00 GMT</pubDate><description><![CDATA[Open tender for solar equipment and installation.]]></description></item>
+</channel></rss>"""
+
+
+def test_afdb_official_rss_parser_preserves_notice_evidence():
+    from economic_seams.market_data import parse_afdb_rss_items
+    items = parse_afdb_rss_items(
+        AFDB_RSS_FIXTURE,
+        feed_url="https://www.afdb.org/en/about-us/corporate-procurement/procurement-notices/current-solicitations.xml",
+    )
+    assert len(items) == 1
+    assert items[0]["title"] == "Supply of solar equipment"
+    assert items[0]["source_url"].startswith("https://www.afdb.org/")
+    assert "solar equipment" in items[0]["excerpt"]
+    assert items[0]["published_at"] == "Thu, 08 Oct 2026 00:00:00 GMT"
+
+
+def test_afdb_official_rss_fetch_uses_bounded_timeout():
+    from economic_seams.market_data import fetch_afdb_procurement_items
+
+    class Response:
+        content = AFDB_RSS_FIXTURE.encode("utf-8")
+        encoding = "utf-8"
+        url = "https://www.afdb.org/en/about-us/corporate-procurement/procurement-notices/current-solicitations.xml"
+
+        @staticmethod
+        def raise_for_status():
+            return None
+
+    class Session:
+        called = None
+
+        @classmethod
+        def get(cls, url, *, timeout, headers):
+            cls.called = (url, timeout, headers)
+            return Response()
+
+    items = fetch_afdb_procurement_items(
+        Session,
+        "https://www.afdb.org/en/about-us/corporate-procurement/procurement-notices/current-solicitations.xml",
+    )
+    assert len(items) == 1
+    assert Session.called[1] == 25
+    assert "application/rss+xml" in Session.called[2]["Accept"]
+
+
+def test_afdb_rss_rejects_malformed_xml_and_non_official_links():
+    import pytest
+    from economic_seams.market_data import parse_afdb_rss_items
+
+    with pytest.raises(ValueError, match="not valid XML"):
+        parse_afdb_rss_items("<rss><item>", feed_url="https://www.afdb.org/feed.xml")
+    unsafe = """<rss><channel><item><title>notice</title><link>https://example.com/not-afdb</link></item></channel></rss>"""
+    with pytest.raises(ValueError, match="no valid official items"):
+        parse_afdb_rss_items(unsafe, feed_url="https://www.afdb.org/feed.xml")
+
+
+def test_afdb_procurement_scan_persists_each_official_rss_notice(monkeypatch, tmp_path):
+    import economic_seams.engine as engine
+    from economic_seams import market_data
+
+    monkeypatch.setattr(engine, "DB_PATH", str(tmp_path / "economic-seams.db"))
+    source = next(item for item in engine.SOURCES if item.id == "afdb_procurement")
+    monkeypatch.setattr(market_data, "fetch_afdb_procurement_items",
+                        lambda session, url, timeout=25: market_data.parse_afdb_rss_items(
+                            AFDB_RSS_FIXTURE, feed_url=url))
+    conn = engine._db()
+    items, _created = engine._scan_afdb_procurement(conn, source)
+    persisted = conn.execute(
+        "SELECT source_id, url, title, evidence_level FROM observations WHERE source_id='afdb_procurement'"
+    ).fetchall()
+    conn.commit()
+    conn.close()
+
+    assert len(items) == 1
+    assert len(persisted) == 1
+    assert persisted[0]["url"] == items[0]["source_url"]
+    assert persisted[0]["title"] == items[0]["title"]
+    assert persisted[0]["evidence_level"] == "OFFICIAL_RSS_ITEM"
