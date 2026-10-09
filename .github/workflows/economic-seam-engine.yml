@@ -28,6 +28,7 @@ on:
 
 jobs:
   test:
+    # Includes source-adapter evidence and controlled SQLite contention regressions.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
