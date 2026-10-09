@@ -1,0 +1,55 @@
+name: Baseline Reproducibility Preflight
+
+# `tests/test_baseline_preflight.py` proves `scripts/baseline_preflight.py` detects the
+# two environment properties that silently change a full-suite failing/error node set:
+# a shallow clone and a missing declared dependency. Measured on the PR that introduced
+# them, `grep -rn baseline_preflight .github/workflows/` returned 0 — the guard held
+# only when a human invoked it by hand. That is the defect class the repository already
+# names: a guard no workflow executes is decoration.
+#
+# The preflight reads its oracle revision from `scripts/agents_md_encoding_audit.py`
+# (`ORACLE_REV`) and its dependency contract from `requirements.txt`, so both are inputs
+# whose edit changes what the guard asserts. `tests/test_baseline_preflight_ci_wiring.py`
+# reads those inputs from the sources by AST rather than restating them here, and the
+# trigger filter must name every one or that test fails.
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/baseline-preflight.yml"
+      - "scripts/baseline_preflight.py"
+      - "tests/test_baseline_preflight.py"
+      - "tests/test_baseline_preflight_ci_wiring.py"
+      # The preflight derives its oracle revision from this module.
+      - "scripts/agents_md_encoding_audit.py"
+      # The dependency contract the preflight reconciles against.
+      - "requirements.txt"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/baseline-preflight.yml"
+      - "scripts/baseline_preflight.py"
+      - "tests/test_baseline_preflight.py"
+      - "tests/test_baseline_preflight_ci_wiring.py"
+      - "scripts/agents_md_encoding_audit.py"
+      - "requirements.txt"
+  workflow_dispatch:
+
+jobs:
+  baseline-preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history, not the default shallow checkout: one of the two properties
+          # the preflight exists to detect is a shallow clone, and its oracle-revision
+          # probe resolves `git show <ORACLE_REV>:AGENTS.md`. A shallow checkout here
+          # would make the gate's own environment indistinguishable from the defect.
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: pip install pytest pyyaml
+      - name: Baseline reproducibility preflight guards
+        run: |
+          python -m pytest tests/test_baseline_preflight.py tests/test_baseline_preflight_ci_wiring.py -q

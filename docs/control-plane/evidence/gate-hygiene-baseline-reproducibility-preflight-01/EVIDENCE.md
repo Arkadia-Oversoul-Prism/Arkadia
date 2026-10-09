@@ -100,7 +100,63 @@ Design notes:
 `api/main.py` is **untouched** (`git diff --name-only main...HEAD | grep -c
 api/main.py` → 0).
 
-## 5. Authority boundary
+Re-measured after the wiring commit, `main` in a clean detached worktree at
+`f9ced6b6` and the branch tree side by side, same command, same environment:
+
+| measurement | main `f9ced6b6` | branch | delta |
+|---|---|---|---|
+| failing/error node **set** | 16 (15F/1E) | 16 (15F/1E) | **none** |
+| node-set sha256 | `facc29a91e12fa34…` | `facc29a91e12fa34…` | identical |
+| full-suite passed | 1854 | 1870 | **+16** = the new guard suite |
+
+The `+16` is the new guard suite's own nodes; the failing/error node *set* is
+byte-identical, which is the load-bearing claim. Counts alone are not.
+
+## 5. CI wiring — the guard is executed, not decoration
+
+As introduced, `grep -rn baseline_preflight .github/workflows/` returned **0**: the
+preflight and its guard suite held only when a human invoked them by hand. The
+repository already names that defect class — *a guard no workflow executes is
+decoration* — and closed it once for `tests/test_baseline_fingerprint.py`
+(`.github/workflows/baseline-fingerprint.yml`). This pass closes it for the preflight.
+
+Added:
+
+- `.github/workflows/baseline-preflight.yml` — runs
+  `pytest tests/test_baseline_preflight.py tests/test_baseline_preflight_ci_wiring.py`,
+  `fetch-depth: 0` (a shallow checkout here would make the gate's own environment
+  indistinguishable from the defect it detects).
+- `tests/test_baseline_preflight_ci_wiring.py` — states the invariant generically over
+  every workflow that runs the guard: (1) some workflow must run it, selected on
+  `pull_request` by the guard file and **every input the script reads**; (2) full
+  history; (3) the guard step must be able to fail the job.
+
+**The input set is derived, not restated.** The script's inputs are read from
+`scripts/baseline_preflight.py` by AST: `from scripts.<module> import …` (it imports
+`ORACLE_REV` from `scripts/agents_md_encoding_audit.py`, a module the guard suite never
+names) and `<CONST> = REPO_ROOT / "<name>"` (`requirements.txt`). A hand-maintained copy
+would drift and make the coverage assertion vacuous. Accepted consequence: adding an
+import or a repo-root path literal to the script requires adding the same path to the
+workflow filter in the same change.
+
+### Proof (negative controls)
+
+| control | action | result |
+|---|---|---|
+| wiring removed | `mv .github/workflows/baseline-preflight.yml /tmp` | `test_a_workflow_executes_the_preflight_guard` **FAILED** (5 passed, 3 skipped) |
+| input dropped from filter | delete `- "requirements.txt"` | `test_guard_workflow_is_selected_by_every_input[baseline-preflight.yml]` **FAILED** (8 passed) |
+| restored | both reverted | **9 passed** |
+| guard suite | `pytest tests/test_baseline_preflight.py tests/test_baseline_preflight_ci_wiring.py -q` | **25 passed** |
+| live preflight | `python scripts/baseline_preflight.py` | full clone → 0 blocking findings, **exit 0** |
+
+The generic CI-scanner suites gain passing nodes by construction (three iterate
+`.github/workflows/*.yml`); measured together: **189 passed**, with the only 3 failures
+being the pre-existing CP10 `deploy/n-atlas-server/` allowlist omission, reproduced on
+`main` itself (see §4). `tests/test_ci_gate_trigger_coverage.py::`
+`test_push_and_pull_request_filters_are_identical` passes: the new workflow's `push` and
+`pull_request` filters are identical, as that guard requires.
+
+## 6. Authority boundary
 
 A read-only preflight script and its guard test. No merge, no push to `main`, no
 authority/mutation/identity path touched, no scope expansion. `AGENTS.md`
