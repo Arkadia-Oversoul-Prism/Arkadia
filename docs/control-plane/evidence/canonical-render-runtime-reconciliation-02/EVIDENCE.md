@@ -53,3 +53,39 @@ Acceptance remains `NOT CLAIMED` until:
 7. the resulting evidence is reviewed.
 
 No claim is made here that a code merge alone constitutes deployment verification or human acceptance.
+
+
+## Addendum — fresh live capture (GitHub-hosted runner, 2026-10-10)
+
+The first network-capable probe completed successfully on PR #401's earlier probe revision. Artifact: [canonical-render-runtime-probe.zip](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/38061446944/artifacts/11673855296). The capture was made against the live production origin, not a local TestClient.
+
+| Check | Observed result |
+|---|---|
+| `GET /openapi.json` | HTTP 200, JSON, 217,256 bytes |
+| OpenAPI paths | 288 |
+| OpenAPI operations | 331 |
+| Read-only GET probes | 153 |
+| Classified reachable | 37 |
+| Classified protected (401/403) | 98 |
+| Timeouts / unreachable | 3 |
+| Resource-not-found / 404 | 6 in the initial classifier; these were dynamic resource sentinel 404s, not proof that the router path was absent |
+| Request-shape rejected (400/422) | 9 |
+| `GET /health` | HTTP 200, `{"status":"radiant","path":"/health"}` |
+| `GET /api/version` | HTTP 200; reported source revision begins `17b931b4fe6d` |
+| `GET /` | HTTP 200, Prism SPA HTML, 1,419 bytes |
+| `GET /operator` | HTTP 200, operator-console SPA HTML, 807 bytes |
+| `GET /solariun/opportunity-radar` | HTTP 200, Prism SPA HTML, 1,419 bytes |
+| `GET /n-atlas-lab` | HTTP 200, operator-console SPA HTML, 807 bytes |
+| `GET /n-atlas-tester` | HTTP 200, operator-console SPA HTML, 807 bytes |
+
+The initial probe timed out on `GET /api/codex`, `GET /api/echoes`, and `GET /api/oracle-context`. These are **unresolved observations**, not confirmed endpoint failures. The probe was then hardened to retry timeouts and distinguish resource-level 404s from absent routes; its refreshed run is pending.
+
+### Live authorization observations
+
+- Anonymous request to `GET /api/operator/security-verification`: HTTP 401, `Authentication required`.
+- Malformed Bearer token: HTTP 401, `Authentication required`.
+- Authenticated but insufficiently privileged identity: **NOT TESTED**; no valid low-privilege Firebase token was available.
+
+### Interpretation
+
+The deployed unified UI and API surface are reachable on the canonical Render origin, and the runtime revision matched the observed main deployment at capture time. The 153 GET probes are not a complete acceptance test for all 331 operations: write methods were intentionally not invoked. The static source-route scanner is a partial comparison that reports exact local decorator matches and unmatched paths; nested `include_router` prefixes require explicit review. Production acceptance remains `NOT CLAIMED`.
