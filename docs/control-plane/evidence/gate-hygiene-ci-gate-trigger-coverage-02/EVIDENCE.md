@@ -216,3 +216,30 @@ The failing node is the **same** `steps.browser` assertion in both; it merely
 occupies ordinal 14 on `main` (16 assertions) and ordinal 15 on this branch (17).
 A "15th assertion" figure is therefore correct **for a revision that carries the
 added assertion** and wrong for `main` — it must be stated per revision.
+
+### Ground truth from the workflow source, and two sibling revisions (measured, 2026-10-10)
+
+The ordinal above is confirmed against the **workflow source**, not a log-line
+count. On `main` `f9ced6b6`, `.github/workflows/sg-02-fe-2-v.yml` (step `Enforce
+CP10 executable gates`) carries exactly **16** `test '…' = success` lines, ending
+`… frontend_ready (#13), browser (#14, fails), security (#15), mutation (#16)`.
+
+| revision (run) | body assertions | browser ordinal |
+|---|---|---|
+| `main` `f9ced6b6` (`37954341298`) | 16 | #14 |
+| this branch head `a017a06c` (`38023521476`) | 17 | #15 |
+| PR #354 head `ebb4077b` (`37967556608`) | 16 | #14 |
+| PR #388 head `63b3ce9b7c` (`38017136767`) | 16 | #14 |
+
+Every revision fails the identical node (`steps.browser.outcome`); the ordinal
+moves only with an added assertion.
+
+**Citation-convention note — not a disagreement about the node.** The sibling
+doc for PR #388 (`gate10/cp10-enforcement-step-truthfulness-01`) calls the same
+node "the 15th assertion" / "position 15". That counts the `##[group]Run test '…'`
+group-echo line as #1, so its "15" is the 15th *display marker* = the 14th
+*assertion*. Both docs name the same failing node under different counting
+conventions. The convention pinned here (assertion lines only, per the workflow
+source; reproducible with `grep -c "test '"` over the step body) is **not**
+asserted over #388's doc, which is its own authority and is not modified here.
+Recorded for the sovereign rather than reconciled unilaterally.
