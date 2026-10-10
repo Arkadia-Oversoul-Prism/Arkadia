@@ -36,6 +36,57 @@ data class CaptureRecord(
 class CaptureStore(private val context:Context){
     private val prefs=context.getSharedPreferences("arkadia_captures",Context.MODE_PRIVATE)
     private val dir=File(context.filesDir,"captures").apply{mkdirs()}
+
+    companion object {
+        // CaptureStore is Activity-scoped today. Recover only once per app process
+        // so Activity recreation cannot reset a sync that is still in flight.
+        private val processRecoveryLock = Any()
+        private var processRecoveryComplete = false
+    }
+
+    init {
+        synchronized(processRecoveryLock) {
+            if (!processRecoveryComplete) {
+                recoverInterruptedSyncs()
+                processRecoveryComplete = true
+            }
+        }
+    }
+
+    private fun recoverInterruptedSyncs() {
+        val all = JSONArray(prefs.getString("records","[]") ?: "[]")
+        var changed = false
+        for (i in 0 until all.length()) {
+            val o = all.optJSONObject(i) ?: continue
+            val current = parse(o)
+            val decision = recoverInterruptedSyncState(
+                syncState = current.syncState,
+                retryCount = current.retryCount,
+                lastError = current.lastError
+            )
+            if (decision != CaptureRecoveryDecision(
+                    current.syncState,
+                    current.retryCount,
+                    current.lastError
+                )) {
+                o.put("sync_state", decision.syncState.name)
+                o.put("retry_count", decision.retryCount)
+                if (decision.lastError == null) {
+                    o.put("last_error", JSONObject.NULL)
+                } else {
+                    o.put("last_error", decision.lastError)
+                }
+                changed = true
+            }
+        }
+        if (changed) {
+            // Recovery must be durable before pending() can schedule a replay.
+            check(prefs.edit().putString("records",all.toString()).commit()) {
+                "Unable to persist interrupted capture recovery"
+            }
+        }
+    }
+
     fun newFile(extension:String):Pair<String,File>{val id="CAP-"+UUID.randomUUID().toString().replace("-","").take(16);return id to File(dir,"$id.$extension")}
     fun record(id:String,kind:String,file:File,mimeType:String):CaptureRecord{
         val record=CaptureRecord(id,kind,file.absolutePath,mimeType,file.length(),sha256(file),Instant.now().toString())
