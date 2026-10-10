@@ -155,3 +155,34 @@ diff):
 - This branch therefore carries **no duplicate** of #388 guard
   (`test_enforcement_never_reads_step_conclusion`); it only *cites* it, so the two
   do not diverge.
+
+## Live confirmation of the #388 mechanism, and a pre-existing `main` red (measured, 2026-10-10)
+
+This branch's own `SG-02-FE.2-V` run on head `c3f186e7` (run `38023205848`, job
+`114128449343`) fails at step 36 `Enforce CP10 executable gates`, **not** at the
+new step 10. The enforcement step aborts on the 15th assertion:
+
+```
+test 'success' = success   x14
+test 'failure' = success   <-- 15th, exit 1
+```
+
+The 15th assertion is `test '${{ steps.browser.outcome }}' = success`, and the
+substituted value is the real `outcome` of step 30 `CP10 browser route
+verification` (`continue-on-error: true`). The jobs API reports that step as
+`success` because that is its *conclusion*; `${{ }}` inside the `run:` block sees
+its *outcome*. This is an **independent, live reproduction of the PR #388
+correction** - the substitution is not a constant, and the guard is not
+self-satisfying.
+
+**This red is pre-existing on `main`, not introduced here.** The same assertion
+fails identically on `main` `f9ced6b6` (run `37954341298`, job `113900901998`,
+log line `test 'failure' = success`), and `main`'s SG-02 runs have been failing
+since `d466e1378` (2026-10-09T14:19Z) while `27cc85d2` (2026-10-09T07:30Z) and
+earlier were green. The browser gate is deferred when Firebase web config is not
+supplied, so its `outcome` is `failure` on ordinary runs.
+
+Recorded, not repaired: the browser-gate acceptance criteria are a separate
+bounded workstream touching an acceptance surface. The correct classification of
+this branch's `SG-02-FE.2-V` result is therefore FAILED for the same pre-existing
+node as `main`, not a regression of this branch.

@@ -936,6 +936,24 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   not fixture debt. Repairing the Lab ones edits `api/lab_routes.py` — an authority surface
   carrying the Lab mutation boundary — so it is sovereign-only and was proposed, not executed.
 
+## The CP10 enforce step is red on `main` - the browser gate's outcome (gate-hygiene)
+- `sg-02-fe-2-v.yml` step 36 `Enforce CP10 executable gates` aborts on its 15th
+  assertion, `test '${{ steps.browser.outcome }}' = success`, because step 30
+  `CP10 browser route verification` carries `continue-on-error: true` and its
+  *outcome* is `failure` while its *conclusion* is `success`. The jobs API lists
+  the step as `success`; only the log shows the real value. This is a live
+  reproduction of the PR #388 correction - `${{ steps.<id>.outcome }}` **is**
+  substituted inside a `run:` block.
+- **It is pre-existing on `main`, not a PR regression.** The same assertion fails
+  on `main` `f9ced6b6` (run `37954341298`); `main`'s SG-02 runs have been red
+  since `d466e1378` (2026-10-09T14:19Z) while `27cc85d2` (2026-10-09T07:30Z) was
+  green. The browser gate is DEFERRED without Firebase web config, which yields
+  `outcome=failure`. Classify a PR's SG-02 red as this node unless the failing
+  assertion differs - do not attribute it to the PR under review.
+- Repairing it means deciding the browser gate's acceptance criteria (is a
+  DEFERRED authenticated lens a failure?). That is a separate bounded workstream
+  touching an acceptance surface; recorded here, not executed.
+
 ## A CI gate must be selected by the files it executes — and must itself be executed (gate-hygiene)
 - `tests/test_ci_gate_trigger_coverage.py` (added by #300, `3f61cf2e`) stated the
   "gate must be selected by what it judges" invariant but was run by **no workflow**
