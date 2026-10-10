@@ -101,3 +101,23 @@ basis for requiring runtime-identity evidence, not a resolution.
   sufficient proof that the application is functioning correctly.
 - No production configuration change, deployment, alias retirement, or resource deletion is
   authorized by this ADR. Those remain separate, explicitly authorized actions.
+
+
+---
+
+## Reconciliation addendum — 2026-10-10
+
+Render provider metadata identifies the canonical production service as:
+
+- Service: `Arkadia`
+- Service ID: `srv-db49jbh42hec73aj84qg`
+- Origin: `https://arkadia-qzu4.onrender.com`
+- Branch: `main`
+- Region: Oregon
+- Render SSH address: `srv-db49jbh42hec73aj84qg@ssh.oregon.render.com`
+- Live deploy ID: `dep-db54i61rn11c73d7cq10`
+- Live deploy commit: `17b931b4fe6dd9b27749894dd0d9b1dc9a2e14f5`
+
+The live deploy commit matches GitHub `main` at the time of inspection. This resolves the prior service-ID/hostname ambiguity at the provider-metadata boundary. The SSH address is a Render connection address, not a private SSH key or a GitHub deploy key; no private key was read or exposed.
+
+A fresh HTTP/OpenAPI and authorization probe is still required before runtime verification and acceptance can be marked complete. The current source includes `GET /api/version` for revision evidence.
