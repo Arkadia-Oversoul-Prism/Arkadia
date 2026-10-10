@@ -63,25 +63,33 @@ jobs:
                           signals["zero_gpu_count"] = value
               return signals
 
-          def get_stream_bounded(name, url, headers=None, timeout=(5, 12), max_lines=80, deadline_seconds=20):
+          def get_stream_bounded(name, url, headers=None, timeout=(5, 6), max_lines=80, deadline_seconds=20):
               """Read a bounded prefix of an (possibly infinite) SSE stream.
 
-              `/events` never closes, so `response.text` would block until the socket
-              times out. Read at most `max_lines` lines or `deadline_seconds`, whichever
-              comes first, and always write what was received.
+              `/events` replays recent events and then holds the connection open, so
+              `response.text` blocks until the socket times out. Read until the line
+              cap, the deadline, or a per-read timeout — the last of which simply means
+              the buffered prefix is complete, not that the read failed. Always write
+              whatever arrived.
               """
               collected = []
+              started = time.monotonic()
               try:
                   with session.get(url, headers=headers, timeout=timeout, stream=True) as response:
                       print(f"{name}: HTTP {response.status_code}")
-                      started = time.monotonic()
-                      for raw in response.iter_lines(decode_unicode=True):
-                          if raw is None:
-                              continue
-                          collected.append(raw if isinstance(raw, str) else raw.decode("utf-8", errors="replace"))
-                          if len(collected) >= max_lines or (time.monotonic() - started) >= deadline_seconds:
-                              break
+                      response.raise_for_status()
+                      try:
+                          for raw in response.iter_lines(decode_unicode=True):
+                              if raw is None:
+                                  continue
+                              collected.append(raw if isinstance(raw, str) else raw.decode("utf-8", errors="replace"))
+                              if len(collected) >= max_lines or (time.monotonic() - started) >= deadline_seconds:
+                                  break
+                      except requests.RequestException as exc:
+                          # A quiet stream means the buffered prefix is complete.
+                          print(f"{name}: stream quiesced after {len(collected)} lines ({type(exc).__name__})")
                   write(name, "\n".join(collected))
+                  print(f"{name}: captured {len(collected)} lines")
                   return "\n".join(collected)
               except requests.RequestException as exc:
                   detail = {"error_type": type(exc).__name__, "error": str(exc), "url": url}
