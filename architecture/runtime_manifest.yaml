@@ -107,25 +107,28 @@ notes:
 canonical_deployment:
   invariant: one_reconciled_deployment
   authority: docs/adr/ADR-016-single-canonical-deployment.md
-  # 1. Canonical source revision
+  # Reconciled from Render service metadata and live-deploy record on 2026-10-10.
   canonical_source_revision:
-    value: f9ced6b6b974a6e19a8a19b4d1360b59b037a2c8
+    value: 17b931b4fe6dd9b27749894dd0d9b1dc9a2e14f5
     status: observed
-    method: git rev-parse HEAD at preparation (2026-10-10)
-  # 2. Canonical deployment identity
+    method: GitHub main HEAD; matched Render live deploy commit
   canonical_deployment_identity:
-    value: unknown
-    status: unknown
-    note: >-
-      Repository documents name the Render service Arkadia (srv-d9i1bar7uimc73asnv0g).
-      The service-to-hostname mapping is not resolvable without Render management access.
-  # 3. Actual running revision
+    provider: Render
+    service_name: Arkadia
+    service_id: srv-db49jbh42hec73aj84qg
+    workspace_id: tea-db49ioh42hec73aj6jq0
+    origin: https://arkadia-qzu4.onrender.com
+    branch: main
+    region: oregon
+    ssh_address: srv-db49jbh42hec73aj84qg@ssh.oregon.render.com
+    status: verified_from_provider_metadata
   actual_running_revision:
-    value: unknown
-    status: unknown
+    value: 17b931b4fe6dd9b27749894dd0d9b1dc9a2e14f5
+    status: matched_provider_live_deploy_commit
+    deploy_id: dep-db54i61rn11c73d7cq10
     note: >-
-      No revision metadata endpoint existed at observation time. GET /api/version makes
-      this observable only after a build containing it is deployed.
+      Provider deploy metadata matches GitHub main. Runtime HTTP acceptance and the
+      GET /api/version response still require a fresh network probe.
   # 4. Internal module and route registration
   module_route_registration:
     status: source_defined
@@ -164,5 +167,6 @@ canonical_deployment:
     - no agent may establish an alternative canonical deployment without authorization
   historical_targets:
     - arkadia-kw64.onrender.com
-    - arkadia-qzu4.onrender.com
     - arkadia-prism.vercel.app
+  active_production_origin: https://arkadia-qzu4.onrender.com
+  active_production_service_id: srv-db49jbh42hec73aj84qg
