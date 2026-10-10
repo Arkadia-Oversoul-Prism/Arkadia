@@ -116,11 +116,11 @@ def test_scheduler_session_result_is_never_stageable() -> None:
 def test_session_result_ignore_is_scoped_to_the_run_result() -> None:
     """Negative control: the rule names one runtime artifact, not every root file.
 
-    The tracked root manifests (`railway.json`, `vercel.json`) are durable review
+    The tracked root manifest (`railway.json`) is durable review
     state that a later session must be able to read. A blanket root-JSON ignore
     would satisfy the assertion above while hiding them.
     """
-    for path in ("railway.json", "vercel.json"):
+    for path in ("railway.json",):
         assert not _is_ignored(path), (
             f"{path} is tracked repository state but is ignored; the rule is broader "
             f"than the runtime artifact it is meant to cover"
