@@ -43,6 +43,52 @@ jobs:
           def write(name, value):
               (OUT / name).write_text(value if isinstance(value, str) else json.dumps(value, indent=2, ensure_ascii=False), encoding="utf-8")
 
+          def parse_admission(text):
+              """Extract the provider PUBLIC admission signals from the /events SSE stream.
+
+              `/events` is unauthenticated and carries `stage` plus `zero-gpu-count`;
+              the latter is the ZeroGPU admission signal needed to explain a run that
+              fails with an `error` frame and null data.
+              """
+              signals = {"stage": None, "zero_gpu_count": None}
+              field = None
+              for line in text.splitlines():
+                  if line.startswith("event:"):
+                      field = line.split(":", 1)[1].strip()
+                  elif line.startswith("data:"):
+                      value = line.split(":", 1)[1].strip()
+                      if field == "stage":
+                          signals["stage"] = value
+                      elif field == "zero-gpu-count":
+                          signals["zero_gpu_count"] = value
+              return signals
+
+          def get_stream_bounded(name, url, headers=None, timeout=(5, 12), max_lines=80, deadline_seconds=20):
+              """Read a bounded prefix of an (possibly infinite) SSE stream.
+
+              `/events` never closes, so `response.text` would block until the socket
+              times out. Read at most `max_lines` lines or `deadline_seconds`, whichever
+              comes first, and always write what was received.
+              """
+              collected = []
+              try:
+                  with session.get(url, headers=headers, timeout=timeout, stream=True) as response:
+                      print(f"{name}: HTTP {response.status_code}")
+                      started = time.monotonic()
+                      for raw in response.iter_lines(decode_unicode=True):
+                          if raw is None:
+                              continue
+                          collected.append(raw if isinstance(raw, str) else raw.decode("utf-8", errors="replace"))
+                          if len(collected) >= max_lines or (time.monotonic() - started) >= deadline_seconds:
+                              break
+                  write(name, "\n".join(collected))
+                  return "\n".join(collected)
+              except requests.RequestException as exc:
+                  detail = {"error_type": type(exc).__name__, "error": str(exc), "url": url}
+                  write(name, detail)
+                  print(f"{name}: REQUEST_ERROR {type(exc).__name__}: {exc}")
+                  return None
+
           def get_text(name, url, headers=None, timeout=(5, 12)):
               try:
                   response = session.get(url, headers=headers, timeout=timeout)
@@ -59,9 +105,19 @@ jobs:
           get_text("app.py", f"{BASE}/spaces/{SPACE}/raw/main/app.py")
           get_text("README.md", f"{BASE}/spaces/{SPACE}/raw/main/README.md")
 
+          # Public admission signals: no credential required. This is what lets an
+          # operator distinguish "provider refused admission" from "provider is down"
+          # when an invocation dies with an error frame and null data.
+          admission = {"stage": None, "zero_gpu_count": None}
+          public_events = get_stream_bounded("space-events-public.txt", f"{BASE}/api/spaces/{SPACE}/events?tail=100")
+          if public_events:
+              admission = parse_admission(public_events)
+              write("space-admission.json", admission)
+              print(f"space admission: stage={admission['stage']} zero_gpu_count={admission['zero_gpu_count']}")
+
           if token:
               auth = {"Authorization": f"Bearer {token}"}
-              get_text("runtime-events.txt", f"{BASE}/api/spaces/{SPACE}/events?tail=100", auth)
+              get_stream_bounded("runtime-events.txt", f"{BASE}/api/spaces/{SPACE}/events?tail=100", auth)
               get_text("runtime-logs.txt", f"{BASE}/api/spaces/{SPACE}/logs/run?tail=300", auth)
           else:
               write("runtime-events.txt", "SKIPPED: HF_TOKEN GitHub Actions secret is not configured.")
@@ -140,6 +196,7 @@ jobs:
           summary = {
               "space": SPACE,
               "space_sha": None,
+              "space_admission": admission,
               "prompt_sha256": hashlib.sha256(PROMPT.encode()).hexdigest(),
               "hf_token_present_for_authenticated_diagnostics": bool(token),
               "authenticated_logs_status": "attempted" if token else "skipped_missing_github_secret",
