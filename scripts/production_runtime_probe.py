@@ -15,6 +15,7 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 
 BASE = os.environ.get("ARKADIA_PRODUCTION_ORIGIN", "https://arkadia-qzu4.onrender.com").rstrip("/")
 OUT = Path(os.environ.get("ARKADIA_PROBE_OUTPUT", "artifacts/canonical-render-runtime"))
@@ -119,6 +120,7 @@ report["openapi"] = {
     "operation_count": sum(1 for item in paths.values() for method in item if method.lower() in {"get", "post", "put", "patch", "delete", "options", "head"}),
     "response": openapi_result,
 }
+probe_jobs = []
 for path, item in sorted(paths.items()):
     for method, operation in sorted(item.items()):
         method = method.lower()
@@ -131,13 +133,23 @@ for path, item in sorted(paths.items()):
             "security_declared": bool(operation.get("security", schema.get("security", []))),
             "probe": "not_probed_non_get_method",
         }
-        # GET requests are expected to be safe by HTTP semantics. Never invoke write verbs.
         if method == "get":
-            response = request(probe_path(path), {"Accept": "application/json"})
-            entry["response"] = response
-            entry["classification"] = classify(response.get("status"))
             entry["probe"] = "GET"
-        report["endpoint_inventory"].append(entry)
+            probe_jobs.append((entry, probe_path(path)))
+
+# Bounded concurrency keeps a full production inventory from serially waiting on
+# every slow/missing route. The probes remain read-only and capped at 12 workers.
+with ThreadPoolExecutor(max_workers=12) as pool:
+    futures = [(entry, pool.submit(request, path, {"Accept": "application/json"})) for entry, path in probe_jobs]
+    for entry, future in futures:
+        response = future.result()
+        entry["response"] = response
+        entry["classification"] = classify(response.get("status"))
+for entry in sorted(
+    [e for e in report["endpoint_inventory"]] + [e for e, _ in probe_jobs],
+    key=lambda e: (e["path"], e["method"]),
+):
+    report["endpoint_inventory"].append(entry)
 
 # Authorization probes exercise the actual deployed Express/FastAPI boundary.
 # No credentials are printed or written into the artifact.
