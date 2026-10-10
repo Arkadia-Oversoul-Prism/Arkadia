@@ -1,0 +1,36 @@
+name: SolSpire Router Composition Tests
+
+on:
+  pull_request:
+    paths:
+      - "solspire/**"
+      - "tests/test_solspire_route_composition.py"
+      - "scripts/production_runtime_probe.py"
+      - ".github/workflows/solspire-route-composition.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "solspire/**"
+      - "tests/test_solspire_route_composition.py"
+      - "scripts/production_runtime_probe.py"
+      - ".github/workflows/solspire-route-composition.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  router-composition:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements.txt
+      - run: python -m pip install pytest
+      - name: Verify composed EDEN-OPS-02 routes
+        run: python -m pytest tests/test_solspire_route_composition.py -q
