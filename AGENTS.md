@@ -1095,3 +1095,52 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   acceptance stays `NOT CLAIMED` — a harness that observes the served artifact is not a
   deployment-identity observation.
 - Evidence: `docs/control-plane/evidence/gate2-render-alias-observation-01/`. PR #403.
+
+## A path-filtered guard with no `workflow_dispatch` has no execution at a revision that does not touch its paths (route-composition acceptance)
+- The composed-route contract `tests/test_solspire_route_composition.py` is executed by exactly
+  one workflow, `.github/workflows/solspire-route-composition.yml`, which is path-filtered to
+  `solspire/**`, `tests/test_solspire_route_composition.py`, `scripts/production_runtime_probe.py`
+  and itself. Measured at `main` `3b74c19d`: it has **1** run on record (`38066134354` at
+  `73fbb51a`, the PR #404 merge) and carries **no `workflow_dispatch`**, so any revision that
+  changes nothing under `solspire/**` — including `3b74c19d` itself — has **no** route-composition
+  execution, and the contract cannot be re-run against an exact revision on demand. Do not read
+  the absence of a run as a pass: `grep -rn test_solspire_route_composition .github/` names the
+  one workflow, and `status?head_sha=<full 40-char sha>` (never abbreviated) tells you whether it
+  ran at the revision you mean.
+- **Obtaining an execution at an exact revision does not require editing the workflow.** A
+  workflow *that already runs the same test* can be dispatched at `ref=main`:
+  `provider-routing.yml` runs `pytest tests/ -q -rEf --continue-on-collection-errors`, which
+  includes the contract, and it is dispatchable. `POST .../actions/workflows/<file>/dispatches`
+  with `{"ref":"main"}` yields a run whose `head_sha` is the current `main` SHA. Verify the
+  contract's node is **absent from the FAILED/ERROR list**, not merely that the job exited 0 — a
+  job can be red on unrelated pre-existing debt while the contract passed (measured: 22F/2047P at
+  `c8abb28e`, contract absent from the failing set).
+- **Repair the gap, then prove the repair at runtime.** Add `workflow_dispatch` to the dedicated
+  gate, select the new wiring guard in both `paths` filters, and run the guard **inside** the gate
+  so a rewrite of the gate is judged by itself. `tests/test_solspire_route_composition_ci_wiring.py`
+  states the invariant generically over every workflow that runs the contract (runs it;
+  dispatchable; filter names the contract file **and** `solspire/**`; step can fail) with a
+  negative control per defect form. A dispatched run then proves the wiring end-to-end rather than
+  asserting it in source — and, once the filter names the test file, the pull_request event
+  triggers the gate too (observed on PR #408: `router-composition` = success).
+- **`--collect-only` is how you attribute a `+N passed` delta.** A branch adding one test file
+  gains exactly its node count; here `+7 passed` (1822 -> 1829) matched `--collect-only` -> 7.
+  Compare the sorted failing/error **node set** across trees in the **same environment**, never
+  the raw failure count: the local debt (105 nodes) differs from CI's (23) by dependency set at
+  the same SHA, while `comm -3` on the node sets was empty on both `3b74c19d` and `c8abb28e`.
+- **A mid-examination deployment move must be re-measured, not reconciled by argument.** PR #405
+  merged while the first pass ran, advancing `main` `3b74c19d` -> `c8abb28e` and moving production
+  with it (`/api/version` followed). PR #405 touched only `scripts/production_runtime_probe.py`'s
+  `request_without_redirects` (the focused anomaly sub-probe), not the inventory/auth logic — but
+  the inventory was **re-dispatched and re-derived** at `c8abb28e` anyway and came out identical
+  (288 paths / 331 ops, 331/331 source match, same 40/98/9/6 classifications, 5/5 EDEN-OPS-02).
+  Record the drift; keep the superseded pass as such rather than silently restating it.
+- **`/openapi.json` is not an authorization oracle here.** The deployed document declares **no**
+  `components.securitySchemes` and no per-operation `security` across all 331 operations, while
+  98 of the 153 probed GETs return 401/403 at runtime (`security_declared == 0`). Establish the
+  boundary from **live probes**, never from the schema; and read the anonymously-reachable list
+  (40 routes, incl. `/api/keys`, `/api/provider-keys`, `/api/tts/keys`) as observed reachability,
+  not a declared public contract. `ARKADIA_PROBE_LOW_PRIVILEGE_BEARER` is unset, so 401
+  (unauthenticated) vs 403 (unauthorized) is **NOT TESTED** — record the limitation, do not claim
+  the distinction.
+- Evidence: `docs/control-plane/evidence/route-composition-acceptance-01/ACCEPTANCE.md`. PR #408.
