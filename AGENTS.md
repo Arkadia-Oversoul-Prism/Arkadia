@@ -1260,3 +1260,41 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   (`test_ci_gate_trigger_coverage.py`, `test_workflow_injection_boundary.py`). Compare the failing
   /error **node set**, never raw totals.
 
+
+## Docker IS available in this sandbox — via `sudo`, not `dockerd` as the user (gate-hygiene)
+- `dockerd` run directly as the unprivileged user fails: *"dockerd needs to be started with root
+  privileges."* `sudo dockerd > /tmp/dockerd.log 2>&1 &` then `sleep ~14` starts it, and **every**
+  docker call needs `sudo` (`sudo docker build|run|inspect`). Do not record a "no Docker available"
+  limitation from a failed unprivileged attempt — retry with `sudo` before writing `UNAVAILABLE`
+  into an evidence record. Two passes here downgraded a real defect to "NOT TESTED" on a false
+  premise.
+- **A `docker build` that exits 0 does not mean the image can start.** The n-atlas-server image
+  built cleanly and died instantly at `docker run`:
+  - base image declares **exec-form** `ENTRYPOINT ["/app/llama-server"]`;
+  - the Dockerfile's **shell-form** `CMD` is appended to an exec-form ENTRYPOINT as *extra argv*,
+    so the final command was `/app/llama-server /bin/sh -c "/app/llama-server -hf …"`;
+  - llama-server exited with `error: invalid argument: /bin/sh` and the image **could never serve a
+    request**. Docker's own build warning names the class: `JSONArgsRecommended`.
+  - Repair: `ENTRYPOINT []` so the shell-form CMD is the whole command and `${PORT}` /
+    `${N_ATLAS_MODEL_REPO}` still expand. Verified: model loaded, `listening on
+    http://0.0.0.0:8080`, `/health` -> `{"status":"ok"}`, and a real `NAtlasAdapter.generate`
+    returned `'OK'`.
+- **Test the shipped adapter, not a hand-rolled curl.** Driving
+  `lab/engineering_lab/natlas.py::NAtlasAdapter` end to end is what proves the OpenAI-compatible
+  contract the product actually speaks; a `curl` proves only that *a* request works.
+- **A test that freezes a shape can freeze a BUG.** An earlier revision of
+  `tests/test_natlas_selfhost_contract.py` asserted the broken shell-form `CMD` "so a fix is a
+  visible change" — which means the repair reddens the guard that was supposed to protect it.
+  When you pin a shape you have not executed, say so in the test, and re-point it the moment you
+  have evidence. Prove the pin bites by *removing the fix* and asserting the test reddens.
+- **A runtime echo is not a safety mechanism.** Asked for `model="N-ATLaS"`, the self-host adapter
+  returned `QuantFactory/N-ATLaS-GGUF:Q4_K_M` — the community quantization's own id. It is good
+  that the identity leaked here, but an `EVD-*` record would still have carried
+  `provider=n_atlas`; the **boundary**, not the echo, is what forbids substituting a derived model
+  for the official one (`NCAIR1/N-ATLaS` is `gated: auto` and ships **no GGUF**).
+- **Check the whole deployed unit's lineage before trusting its files.** `e074a63b` replaced
+  `deploy/n-atlas-server/Dockerfile` with the upstream llama.cpp image and never `COPY`s
+  `app.py`/`requirements.txt`; `grep -rn "deploy/n-atlas-server" .github/` is **0**, so nothing in
+  CI builds the directory. Files that exist and pass tests can still be absent from the runtime.
+- **Clean up your containers, and do not leave a daemon running** when the measurement is done.
+
