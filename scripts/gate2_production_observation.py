@@ -281,6 +281,13 @@ def classify_marker_oracle(app: str | None, observed: dict[str, int] | None, sta
     evidence that it agrees. Without these distinctions an absent app and a
     correct app produced the same verdict, which is exactly how a false
     ``VERIFIED`` was reachable.
+
+    Each literal carries an expected polarity (``MARKERS[literal][1]``): positive
+    literals must be present, control literals must be absent. A marker violates
+    when its reading disagrees with that polarity. Scoring controls as if they
+    were positive -- the earlier ``count > 0`` test -- marked a *correct* control
+    (reading 0) as absent and returned a false ``CONTRADICTED`` on a sound
+    artifact.
     """
     if app is None:
         return f"NOT OBSERVED (served app undetermined; markers describe '{MARKER_APP}')"
@@ -292,22 +299,29 @@ def classify_marker_oracle(app: str | None, observed: dict[str, int] | None, sta
         return "UNKNOWN (marker list stale: literals absent from source)"
     if not observed:
         return "UNKNOWN (no markers read)"
-    if all(count > 0 for count in observed.values()):
+    violation = sorted(
+        k for k, v in observed.items() if (v == 0) != (not MARKERS[k][1])
+    )
+    if not violation:
         return "VERIFIED (marker set observed in served artifact)"
-    absent = sorted(k for k, v in observed.items() if v == 0)
-    return f"CONTRADICTED (markers absent from served artifact: {', '.join(absent)})"
+    return f"CONTRADICTED (markers absent from served artifact: {', '.join(violation)})"
 
 
-def classify_sg04(app: str | None, app_for_surface: str, in_source: bool, in_artifact: int) -> dict:
+def classify_sg04(app: str | None, app_for_surface: str, in_source: bool, in_artifact: int | None) -> dict:
     """Whether the SG-04 surface can be scored against the observed artifact.
 
     The SG-04 literals are ``app_for_surface``'s; a deployment of another app,
     or an undetermined app, has no such surface. Scoring it anyway yields
     ``regression: true`` on an artifact that was never evaluable -- a phantom
-    regression. When not evaluable the regression field is ``None`` (not proven
-    either way), never ``False`` and never ``True``.
+    regression.
+
+    ``in_artifact is None`` means no artifact was fetched at all, which is
+    distinct from a fetched artifact in which the literal reads 0 times. The
+    latter is a real absence and still scores; the former is an absence of
+    observation and must not. The caller therefore passes ``None`` -- never a
+    defaulted 0 -- when the artifact was not read.
     """
-    evaluable = app == app_for_surface
+    evaluable = app == app_for_surface and in_artifact is not None
     return {
         "in_source": in_source,
         "in_deployed_artifact": in_artifact,
@@ -360,9 +374,22 @@ def fetch_deployments(token: str | None) -> tuple[list, str | None]:
     return collected, None
 
 
-def head(url: str) -> dict:
+# The canonical runtime serves the SPA at ``/`` only for browser navigations:
+# ``api/main.py::root`` returns the SPA when the request carries an HTML Accept
+# header and the historical liveness JSON otherwise. The alias observation must
+# therefore claim to be a browser, or it reads the JSON, finds no ``assets/``
+# reference, and reports ``manifest: none`` -- an artifact it never observed.
+# (Vercel rewrote every path to ``index.html``, which is why the missing header
+# went unnoticed until the runtime moved to Render.)
+BROWSER_ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+
+
+def head(url: str, accept: str | None = None) -> dict:
     """Observe a URL without following redirects."""
-    req = urllib.request.Request(url, method="GET", headers={"User-Agent": "arkadia-gate2-observation"})
+    headers = {"User-Agent": "arkadia-gate2-observation"}
+    if accept:
+        headers["Accept"] = accept
+    req = urllib.request.Request(url, method="GET", headers=headers)
 
     class NoRedirect(urllib.request.HTTPRedirectHandler):
         def redirect_request(self, *a, **k):
@@ -490,7 +517,9 @@ def main() -> int:
         report["boundaries"]["deployment build output observed"] = "UNKNOWN"
 
     # ---- link 4: alias observation ------------------------------------------
-    alias = head(ALIAS)
+    # Fetch as a browser (HTML Accept): the canonical runtime serves the SPA only
+    # to browser navigations, so an unspecified Accept reads the liveness JSON.
+    alias = head(ALIAS, BROWSER_ACCEPT)
     report["alias_status"] = alias.get("status")
     report["boundaries"]["alias reachable"] = "VERIFIED" if alias.get("status") == 200 else "FAILED"
     html = alias.get("body", b"").decode("utf-8", "ignore")
@@ -529,13 +558,15 @@ def main() -> int:
     deployed_app = frontend_of(prod[0]["environment"]) if prod else None
     report["deployed_app"] = deployed_app
 
-    # SG-04 regression: expected in source, absent from artifact.
-    dep_m = report["markers"].get("deployed", {})
+    # SG-04 regression: expected in source, absent from artifact. Read the
+    # artifact-derived count with no default so an unobserved artifact stays
+    # ``None`` (nothing was read) rather than collapsing to 0 (an absent literal).
+    dep_m = report["markers"].get("deployed")
     report["sg04"] = classify_sg04(
         deployed_app,
         MARKER_APP,
         present.get("activity-runtime-draft.v1:", False),
-        dep_m.get("activity-runtime-draft.v1:", 0),
+        None if dep_m is None else dep_m.get("activity-runtime-draft.v1:", 0),
     )
     sg04_src = report["sg04"]["in_source"]
     sg04_dep = report["sg04"]["in_deployed_artifact"]
@@ -621,15 +652,19 @@ def main() -> int:
     if report.get("deployed_app") != MARKER_APP:
         print("  !! the served artifact is a DIFFERENT application than the marker list;")
         print("     a zero count below is 'not this app', not a regression and not agreement.")
-    for literal, (prov, expected, note) in MARKERS.items():
-        d = dep_m.get(literal, 0)
-        flag = ""
-        if expected and d == 0:
-            flag = "  <-- ABSENT"
-        if not expected and d:
-            flag = "  <-- UNEXPECTED"
-        print(f"  {literal:<38} {d}  ({'expect>0' if expected else 'expect 0'}){flag}")
-    if lb is not None:
+    if dep_m is None:
+        print("  no artifact fetched -> no marker set read (NOT OBSERVED);")
+        print("     absence of a fetch is not a zero reading, so no literal is scored.")
+    else:
+        for literal, (prov, expected, note) in MARKERS.items():
+            d = dep_m.get(literal, 0)
+            flag = ""
+            if expected and d == 0:
+                flag = "  <-- ABSENT"
+            if not expected and d:
+                flag = "  <-- UNEXPECTED"
+            print(f"  {literal:<38} {d}  ({'expect>0' if expected else 'expect 0'}){flag}")
+    if lb is not None and dep_m is not None:
         match = all(lb.get(k, 0) == dep_m.get(k, 0) for k in MARKERS)
         if report.get("deployed_app") == MARKER_APP:
             print(f"  local build marker set matches deployed: {match}")
@@ -652,13 +687,18 @@ def main() -> int:
         print("     is immaterial to source lineage even though it is unobservable.")
     print()
     print("SG-04 REGRESSION")
-    if report.get("deployed_app") != MARKER_APP:
-        app_label = (
-            f"the '{report.get('deployed_app')}' app, which has no SG-04 surface"
-            if report.get("deployed_app") else
-            "the served app is undetermined, so no artifact can be scored"
-        )
-        print(f"  in source: {sg04_src}   NOT EVALUABLE against artifact: {app_label}.")
+    if not report["sg04"]["evaluable"]:
+        if report.get("deployed_app") != MARKER_APP:
+            app_label = (
+                f"the '{report.get('deployed_app')}' app, which has no SG-04 surface"
+                if report.get("deployed_app") else
+                "the served app is undetermined"
+            )
+            print(f"  in source: {sg04_src}   NOT EVALUABLE: score against {app_label}.")
+        else:
+            print(f"  in source: {sg04_src}   NOT EVALUABLE: no artifact was observed"
+                  " (marker read is 0 because nothing was fetched, not because the"
+                  " surface is absent).")
     else:
         print(f"  in source: {sg04_src}   in deployed artifact: {sg04_dep}"
               f"   => REGRESSION: {report['sg04']['regression']}")
