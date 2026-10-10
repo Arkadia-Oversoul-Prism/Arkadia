@@ -1,8 +1,0 @@
-{
-  "installCommand": "cd web/console && pnpm install --frozen-lockfile",
-  "buildCommand": "cd web/console && pnpm run build",
-  "outputDirectory": "web/console/dist",
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
-}
