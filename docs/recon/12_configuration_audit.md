@@ -35,3 +35,16 @@ Additional discovered but **not listed in replit.md** (documentation gap): `CORP
 1. Three simultaneous deploy configs for `openclaw/` (Render + Fly.io + Railway).
 2. Root `package.json` dependency versions (React 19/Vite 8/Tailwind 4) do not match the actually-shipped frontend (React 18/Vite 5/Tailwind 3) — risk of confusion for anyone running root-level `npm install`/`npm run` commands expecting them to affect the frontend.
 3. `replit.md`'s TF-IDF/summarization claims do not match the confirmed simpler implementations in code (priority-tier scoring, sliding-window history) — a documentation-drift issue, not a runtime contradiction.
+
+
+---
+
+## Reconciliation addendum — 2026-10-10
+
+This audit is a historical snapshot; its prior multi-provider frontend row is superseded.
+
+The canonical production application now uses Render service `Arkadia` (`srv-db49jbh42hec73aj84qg`) at `https://arkadia-qzu4.onrender.com`. Render metadata identifies repository `Arkadia-Oversoul-Prism/Arkadia`, branch `main`, root directory, and root `Dockerfile`. That Dockerfile builds `web/public_prism`, `web/console`, and the FastAPI runtime into one image.
+
+The active root, public-Prism, and console `vercel.json` files have been archived under `archive/deployment/legacy-vercel/`. Vercel-specific alias-observation scripts/tests have also been archived. Production CORS defaults and active bot/gateway/Android endpoint references are being reconciled to the canonical Render origin.
+
+The new workflow `.github/workflows/render-production-reconciliation.yml` captures fresh live OpenAPI from GitHub Actions' network, compares every path/method with the source composition root, and records frontend, API, and anonymous/invalid-bearer probes. Until that artifact passes against the post-merge deployment, fresh HTTP route acceptance remains `UNRESOLVED`. Authenticated non-sovereign behavior also remains `NOT_TESTED` until a safe signed test identity is provisioned.
