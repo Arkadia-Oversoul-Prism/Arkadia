@@ -5,7 +5,48 @@ Enforces sustainability, exit-validity, and action compression.
 Blocks identity inflation and symbolic drift.
 """
 
+import re
 from typing import Optional
+
+# Action-oriented vocabulary. Rule 2 admits mythic language when the passage is
+# action-grounded, so these stems are matched on word boundaries rather than as
+# bare substrings ("do" inside "words" is not an action).
+_ACTION_STEMS = ("do", "act", "choose", "decide", "maintain", "quit", "release")
+_ACTION_RE = re.compile(r"\b(?:" + "|".join(_ACTION_STEMS) + r")\w*\b")
+
+# Identity escalation is a *claim*, not a topic. Each entry requires its subject
+# ("you are divine") or a possessive ("divine authority"), so ordinary discussion
+# of a mythic word no longer trips the filter.
+_FORBIDDEN_IDENTITY = re.compile(
+    r"\b(?:you|we|i)\s+(?:are|am)\s+(?:\w+\s+){0,2}?"
+    r"(?:divine|chosen|ascended|eternal|transcendent|immortal|god)\b"
+    r"|\b(?:divine|chosen|ascended|transcendent|immortal|oversoul|sacred|holy|god)\s+"
+    r"(?:authority|mandate|right|being|one|self|status|nature|power)\b"
+    r"|\b(?:you|we|i)\s+(?:have|has)\s+(?:transcended|ascended)\b",
+    re.IGNORECASE,
+)
+
+# Symbolic drift, not mere recurrence. A single "grid"/"flame" mention is
+# description; a *dominant density* of symbolic terms with no action is drift.
+_MYTHIC_STEMS = ("grid", "flame", "resonance", "field", "symbolism")
+_MYTHIC_RE = re.compile(r"\b(?:" + "|".join(_MYTHIC_STEMS) + r")\w*\b", re.IGNORECASE)
+_WORD_RE = re.compile(r"[a-z']+")
+
+_MYTHIC_DENSITY_LIMIT = 0.25
+_MIN_WORDS_FOR_DENSITY = 4
+
+
+def _has_action(text: str) -> bool:
+    """True when the text is action-grounded."""
+    return _ACTION_RE.search(text.lower()) is not None
+
+
+def _mythic_density(text: str) -> float:
+    """Share of words that are symbolic terms (0.0 for empty text)."""
+    words = _WORD_RE.findall(text.lower())
+    if not words:
+        return 0.0
+    return len(_MYTHIC_RE.findall(text)) / len(words)
 
 
 def steward_filter(text: str, strict: bool = True) -> Optional[str]:
@@ -19,7 +60,8 @@ def steward_filter(text: str, strict: bool = True) -> Optional[str]:
     Rules:
     1. Block identity/belief escalation
     2. Block symbolism without action
-    3. Block sustainability violations
+    3. Require action-oriented language for complex outputs
+    4. Block mythic inflation (dominant symbolic density) in strict mode
     """
     if not text or not isinstance(text, str):
         return None
@@ -27,29 +69,21 @@ def steward_filter(text: str, strict: bool = True) -> Optional[str]:
     text_lower = text.lower()
 
     # Rule 1: Block identity escalation
-    forbidden_identity = [
-        "divine", "chosen", "ascended", "eternal",
-        "oversoul", "god", "transcendent", "immortal",
-        "sacred authority", "holy mandate"
-    ]
-    if any(word in text_lower for word in forbidden_identity):
+    if _FORBIDDEN_IDENTITY.search(text):
         return None
 
     # Rule 2: Block pure symbolism (no action)
-    if text_lower.count("symbolism") > 2 and "do" not in text_lower and "act" not in text_lower:
+    if text_lower.count("symbolism") > 2 and not _has_action(text_lower):
         return None
 
     # Rule 3: Require action-oriented language for complex outputs
-    if len(text) > 200:
-        action_words = ["do", "act", "choose", "decide", "maintain", "quit", "release"]
-        if not any(word in text_lower for word in action_words):
-            return None
+    if len(text) > 200 and not _has_action(text_lower):
+        return None
 
     # Rule 4: Check for mythic inflation (if strict mode)
     if strict:
-        mythic_words = ["grid", "flame", "node", "resonance", "field"]
-        mythic_count = sum(text_lower.count(word) for word in mythic_words)
-        if mythic_count > len(text) / 100:  # More than 1% mythic language
+        words = _WORD_RE.findall(text_lower)
+        if len(words) >= _MIN_WORDS_FOR_DENSITY and _mythic_density(text) > _MYTHIC_DENSITY_LIMIT:
             return None
 
     return text
@@ -63,14 +97,15 @@ def compress_to_choices(text: str) -> str:
     if not text:
         return ""
 
-    # Keep only sentences with action verbs
+    # Split into sentences first: keeping whole lines would preserve non-action
+    # sentences that merely share a line with a decision point.
     action_verbs = ["do", "choose", "quit", "maintain", "release", "adjust", "continue"]
-    lines = text.split("\n")
-    compressed = []
-
-    for line in lines:
-        if any(verb in line.lower() for verb in action_verbs):
-            compressed.append(line)
+    sentences = re.split(r"(?<=[.!?])\s+|\n", text)
+    compressed = [
+        sentence.strip()
+        for sentence in sentences
+        if sentence.strip() and any(verb in sentence.lower() for verb in action_verbs)
+    ]
 
     return "\n".join(compressed[:5])  # Max 5 decision points
 
