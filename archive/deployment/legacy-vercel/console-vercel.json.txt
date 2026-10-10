@@ -1,0 +1,13 @@
+ARCHIVED — INACTIVE LEGACY VERCEL CONFIGURATION
+
+Historical evidence only. Not an active deployment or routing configuration. Canonical production is Render service Arkadia at https://arkadia-qzu4.onrender.com.
+Original path: web/console/vercel.json
+
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm run build",
+  "outputDirectory": "dist",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
