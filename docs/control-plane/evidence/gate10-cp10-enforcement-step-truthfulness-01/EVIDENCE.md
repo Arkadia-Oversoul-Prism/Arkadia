@@ -146,3 +146,42 @@ is reserved to the sovereign.
 ## 9. Authorization required
 
 Human merge only. No gate promotion, no authority change, no scope expansion.
+
+## 10. Pass 4 - live re-measurement and CI disposition (gate-hygiene)
+
+Measured at HEAD `fa5e4bf5`, same sandbox, `python -m pytest tests/ -q -rEf
+--continue-on-collection-errors`:
+
+| Tree | Result |
+| --- | --- |
+| `main` @ `f9ced6b6b9` | 83 failed, 1569 passed, 34 skipped, 32 errors |
+| branch @ `fa5e4bf5` | 83 failed, 1572 passed, 34 skipped, 32 errors |
+
+The failing/error **node set** is byte-identical on both trees:
+`sha256 479b022a5bfe8e1f89645ca0e223180567b1dddb043038fc7b7bd1c7e86af10a`
+(116 unique node lines = 83 `FAILED` + 78 `ERROR` lines, **161** nodes). The
+only delta is `+3 passed` on the branch, which is exactly the three tests added
+by this PR. Zero regression, zero fixed node.
+
+**Supersedes the counts in §7.** §7 records `15 failed / 1 error` (16 nodes) as
+the pre-change baseline; the live re-measurement here records **161** nodes
+(83F + 32E) on both trees. The environment delta (32 errors here vs 1 in that
+run) is a dependency / CI-vs-sandbox difference, not a regression, and is not
+attributable to this PR. Per the standing rule the load-bearing invariant is
+node **identity** - measured here as identical - while counts move with
+environment. This pass re-measured rather than inheriting a prior fingerprint.
+
+**CI disposition at `fa5e4bf5`** (`gh api commits/<sha>/check-runs`): `validate`
+= failure; every other check-run (Full-history secret scan, Vercel Preview
+Comments, beta-beta-01-english, beta-beta-02-hausa, bundle-beta-evidence,
+native-arkadia-golden-workflow) = success. `validate` (the "Enforce CP10
+executable gates" job) is **also failure on `main` HEAD `f9ced6b6b9`** (run
+`37954341298`), so its red is pre-existing and not branch-introduced. The branch
+head's only red is the job that is red on `main` itself; PR #388's own gates
+pass.
+
+Note (subject of this PR): a green `validate` *conclusion* can mask a step whose
+own `outcome` is a failure, or that executes zero tests - `steps.<id>.outcome`
+is not available inside a `run:` block, and a collection error lets `pytest`
+exit 0 while running nothing. The truthful reading of the step is its log, not
+the job conclusion.
