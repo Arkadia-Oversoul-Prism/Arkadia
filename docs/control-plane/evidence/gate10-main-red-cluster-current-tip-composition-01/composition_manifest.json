@@ -1,0 +1,81 @@
+{
+  "pass": "gate10/main-red-cluster-current-tip-composition-01",
+  "base_main": "f9ced6b6b974a6e19a8a19b4d1360b59b037a2c8",
+  "measured": {
+    "main_full_suite_nodes": 16,
+    "main_full_suite_failed": 15,
+    "main_full_suite_errors": 1,
+    "main_outcomes_fingerprint": "bfcfe5920c3789302e80c72618e1f280e3577a8395320c89f174147cd11ec733",
+    "main_ids_fingerprint": "ed5e4714df236078d6eb04cb43197c22403d2c244caa3e7bc7d71d45f6c0a833",
+    "composed_cluster_nodes": 2,
+    "composed_cluster_failed": 1,
+    "composed_cluster_errors": 1,
+    "composed_outcomes_fingerprint": "f607dffd1abda8bc667897a4366c6afe1498ae6e5b02635ff682cbc6daeb2ad1",
+    "composed_ids_fingerprint": "48e2b758b3194bd267e7babf13609b3467ff46985a879c72a55ad5201f44b3a9",
+    "architecture": "11 passed",
+    "cp10_boundary_judge": "PASS",
+    "api_main_lines": 2450
+  },
+  "owner_cluster": [
+    "347",
+    "354",
+    "355",
+    "356",
+    "357",
+    "363",
+    "365",
+    "384",
+    "388"
+  ],
+  "repaired_nodes": 14,
+  "sovereign_reserved_nodes": [
+    "tests/test_autonomy.py",
+    "tests/test_ais_w2_living_gate_grove_handoff.py::test_no_firebase_persistence_in_gate"
+  ],
+  "no_new_failures": true,
+  "composed_node_set_is_subset_of_main": true,
+  "merge_order": {
+    "sequence": [
+      "384",
+      "354",
+      "347",
+      "356",
+      "363",
+      "365",
+      "388",
+      "357",
+      "355"
+    ],
+    "conflict_files": [
+      "AGENTS.md"
+    ],
+    "conflict_kind": "AGENTS.md tail-append only (union-resolvable)",
+    "load_bearing_conflicts": 0
+  },
+  "duplicate_pair": {
+    "superset_pr": "354",
+    "subset_pr": "384",
+    "shared_files": {
+      "web/public_prism/public/firebase-config.js": "d9973c17ad63e8411926d8bbce294ca0c2931551",
+      "tests/test_frontend_script_assets_resolve.py": "17be550d18b34392baecbdbe40dead112e658096"
+    },
+    "blobs_identical": true,
+    "real_merge_conflicts": 0,
+    "recommended_order": [
+      "384",
+      "354"
+    ]
+  },
+  "evidence_only_prs": {
+    "376": {
+      "base": "a47ea9281743",
+      "main_is_ancestor": false,
+      "superseded_by": "this pass"
+    },
+    "377": {
+      "base": "a47ea9281743",
+      "main_is_ancestor": false,
+      "superseded_by": "this pass"
+    }
+  }
+}
