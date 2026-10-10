@@ -21,6 +21,12 @@ on:
       - 'lab/execution/**'
       - 'tests/test_phase5_governed_execution.py'
       - 'tests/test_phase4_evolution_planner.py'
+      # The frontend-script-asset guard judges index.html and the assets it loads, so
+      # a change to the guard, to its own wiring assertion, or to any index.html
+      # script asset must run it. web/public_prism/** already selects the HTML and
+      # the public/ assets; these are the assertion surfaces themselves.
+      - 'tests/test_frontend_script_assets_resolve.py'
+      - 'tests/test_frontend_script_asset_ci_wiring.py'
       # The boundary's own contract surfaces: a change that rewrites the policy or
       # its fitness tests must be judged by the boundary it rewrites, or the gate
       # is self-exempt.
@@ -52,6 +58,12 @@ on:
       - 'lab/execution/**'
       - 'tests/test_phase5_governed_execution.py'
       - 'tests/test_phase4_evolution_planner.py'
+      # The frontend-script-asset guard judges index.html and the assets it loads, so
+      # a change to the guard, to its own wiring assertion, or to any index.html
+      # script asset must run it. web/public_prism/** already selects the HTML and
+      # the public/ assets; these are the assertion surfaces themselves.
+      - 'tests/test_frontend_script_assets_resolve.py'
+      - 'tests/test_frontend_script_asset_ci_wiring.py'
       # The boundary's own contract surfaces: a change that rewrites the policy or
       # its fitness tests must be judged by the boundary it rewrites, or the gate
       # is self-exempt.
@@ -124,6 +136,20 @@ jobs:
       - name: Install test runner
         working-directory: .
         run: python -m pip install pytest
+      # The CP10 browser step loads every root-absolute <script src> in index.html
+      # through the Vite dev server. A src with no committed file under
+      # web/public_prism/public/ 404s there and fails the browser step even though
+      # Vite builds cleanly — exactly the `/firebase-config.js` defect that turned
+      # main red. These two steps give that class of defect direct teeth in the
+      # gate instead of leaving the browser step to discover it minutes later.
+      - name: Frontend script asset resolution
+        id: frontend_asset_gate
+        working-directory: .
+        run: python -m pytest tests/test_frontend_script_assets_resolve.py -q
+      - name: Frontend script asset gate wiring
+        id: frontend_asset_wiring
+        working-directory: .
+        run: python -m pytest tests/test_frontend_script_asset_ci_wiring.py -q
       - name: Phase 3 harness self-test
         id: phase3_harness
         working-directory: .
@@ -549,6 +575,8 @@ jobs:
       - name: Enforce CP10 executable gates
         if: always()
         run: |
+          test '${{ steps.frontend_asset_gate.outcome }}' = success
+          test '${{ steps.frontend_asset_wiring.outcome }}' = success
           test '${{ steps.phase3_harness.outcome }}' = success
           test '${{ steps.phase3_council.outcome }}' = success
           test '${{ steps.phase4_planner.outcome }}' = success
