@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Gate 2 backend-runtime observation harness (gate-hygiene).
 
-The sibling harnesses close two links of the Gate 2 chain for the *frontend*:
-
-    gate2_production_observation.py -- marker-set lineage of the Vercel bundle
-    gate2_browser_observation.py    -- browser-rendered UI on 6 routes
+The older sibling harnesses observed the former split frontend. The canonical
+production verifier is now scripts/render_production_reconciliation.py, which
+captures live OpenAPI and compares every operation against source. The browser
+observer is also pointed at the canonical Render origin.
 
 Neither observes the backend. The Render service is the actual application
 runtime -- the Oracle spine, the TTS boundary, the API surface -- and it is
@@ -50,7 +50,7 @@ REPO = "Arkadia-Oversoul-Prism/Arkadia"
 # the service host are probed; Render's onrender.com hosts are not SSO-gated the
 # way Vercel Deployment Protection gates the frontend preview URLs.
 BACKEND_HOSTS = [
-    "https://arkadia-kw64.onrender.com",
+    "https://arkadia-qzu4.onrender.com",
 ]
 
 # Route prefixes that must be present for the backend to be the real Arkadia
