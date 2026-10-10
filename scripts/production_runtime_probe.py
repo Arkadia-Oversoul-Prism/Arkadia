@@ -170,6 +170,10 @@ for source_root in source_roots:
                         "router_variable": receiver,
                     })
 source_keys = {(item["method"], item["path"]) for item in source_declarations}
+for item in source_declarations:
+    if item["file"].startswith("solspire/") and not item["path"].startswith("/solspire"):
+        source_keys.add((item["method"], "/solspire" + item["path"]))
+
 runtime_keys = {
     (method.upper(), path)
     for path, item in paths.items()
