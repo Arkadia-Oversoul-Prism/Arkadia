@@ -195,7 +195,7 @@ report["source_inventory"] = {
     ],
     "source_declarations": source_declarations,
     "comparison_status": "exact_with_known_solspire_parent_prefix",
-    "limitation": "Nested include_router prefixes and routers imported from modules are not fully composed by this static scanner; unmatched entries require source-level review and are not automatically classified as absent.",
+    "limitation": "Known SolSpire child-router prefix is composed explicitly. Any remaining unmatched entries require source-level review and are not automatically classified as absent.",
 }
 report["openapi"] = {
     "classification": "reachable",
