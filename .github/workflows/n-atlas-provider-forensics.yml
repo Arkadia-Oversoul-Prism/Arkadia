@@ -1,0 +1,163 @@
+name: N-ATLAS provider forensics
+
+on:
+  push:
+    branches: [fix/natlas-forensics-capture-sse-payload]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provider-forensics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Install bounded diagnostics dependency
+        run: python -m pip install --quiet requests
+
+      - name: Capture provider source, authenticated logs when configured, and complete Gradio SSE frames
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import time
+          from datetime import datetime, timezone
+          from pathlib import Path
+          import requests
+
+          SPACE = "KoladeOdunope/ednai-natlas-runtime"
+          BASE = "https://huggingface.co"
+          RUNTIME = "https://koladeodunope-ednai-natlas-runtime.hf.space"
+          PROMPT = 'Rewrite this message in natural Nigerian English while keeping it professional: "Please send the document as soon as possible because we need to review it before the meeting."'
+          OUT = Path("provider-forensics")
+          OUT.mkdir(parents=True, exist_ok=True)
+          session = requests.Session()
+          token = os.getenv("HF_TOKEN", "").strip()
+
+          def write(name, value):
+              (OUT / name).write_text(value if isinstance(value, str) else json.dumps(value, indent=2, ensure_ascii=False), encoding="utf-8")
+
+          def get_text(name, url, headers=None, timeout=(5, 12)):
+              try:
+                  response = session.get(url, headers=headers, timeout=timeout)
+                  write(name, response.text)
+                  print(f"{name}: HTTP {response.status_code}")
+                  return response
+              except requests.RequestException as exc:
+                  detail = {"error_type": type(exc).__name__, "error": str(exc), "url": url}
+                  write(name, detail)
+                  print(f"{name}: REQUEST_ERROR {type(exc).__name__}: {exc}")
+                  return None
+
+          metadata = get_text("space-metadata.json", f"{BASE}/api/spaces/{SPACE}")
+          get_text("app.py", f"{BASE}/spaces/{SPACE}/raw/main/app.py")
+          get_text("README.md", f"{BASE}/spaces/{SPACE}/raw/main/README.md")
+
+          if token:
+              auth = {"Authorization": f"Bearer {token}"}
+              get_text("runtime-events.txt", f"{BASE}/api/spaces/{SPACE}/events?tail=100", auth)
+              get_text("runtime-logs.txt", f"{BASE}/api/spaces/{SPACE}/logs/run?tail=300", auth)
+          else:
+              write("runtime-events.txt", "SKIPPED: HF_TOKEN GitHub Actions secret is not configured.")
+              write("runtime-logs.txt", "SKIPPED: HF_TOKEN GitHub Actions secret is not configured.")
+              print("Authenticated provider logs: SKIPPED (HF_TOKEN absent); token value is never printed.")
+
+          messages = json.dumps([{"role": "user", "content": PROMPT}], ensure_ascii=False)
+          payload = {"data": [messages, 0.0, 128, False]}
+          trace = []
+          event_id = None
+          try:
+              post = session.post(RUNTIME + "/gradio_api/call/generate", json=payload, timeout=(5, 20))
+              write("request-response.txt", post.text)
+              trace.append({"phase": "submit", "http_status": post.status_code, "body": post.text[:4000]})
+              print(f"generate submit: HTTP {post.status_code}")
+              if post.ok:
+                  try:
+                      event_id = post.json().get("event_id")
+                  except (ValueError, AttributeError) as exc:
+                      trace.append({"phase": "submit-json-error", "error_type": type(exc).__name__, "error": str(exc)})
+          except requests.RequestException as exc:
+              trace.append({"phase": "submit-request-error", "error_type": type(exc).__name__, "error": str(exc)})
+              write("request-response.txt", {"error_type": type(exc).__name__, "error": str(exc)})
+
+          if event_id:
+              deadline = time.monotonic() + 180
+              frame_event = "message"
+              frame_data = []
+              frames = []
+              try:
+                  with session.get(RUNTIME + "/gradio_api/call/generate/" + event_id, stream=True, timeout=(5, 15)) as response:
+                      trace.append({"phase": "sse-http", "status": response.status_code, "content_type": response.headers.get("content-type")})
+                      response.raise_for_status()
+                      for raw in response.iter_lines(decode_unicode=True):
+                          if time.monotonic() >= deadline:
+                              trace.append({"phase": "sse-deadline", "seconds": 180})
+                              break
+                          if raw is None:
+                              continue
+                          line = raw if isinstance(raw, str) else raw.decode("utf-8", errors="replace")
+                          if line == "":
+                              if frame_data or frame_event != "message":
+                                  data = "\n".join(frame_data)
+                                  frame = {"event": frame_event, "data": data}
+                                  try:
+                                      frame["data_json"] = json.loads(data) if data else None
+                                  except ValueError:
+                                      pass
+                                  frames.append(frame)
+                                  trace.append({"phase": "sse-frame", **frame})
+                                  if frame_event in {"complete", "error"}:
+                                      break
+                              frame_event, frame_data = "message", []
+                          elif line.startswith("event:"):
+                              frame_event = line.split(":", 1)[1].strip()
+                          elif line.startswith("data:"):
+                              frame_data.append(line.split(":", 1)[1].lstrip())
+                      else:
+                          if frame_data or frame_event != "message":
+                              data = "\n".join(frame_data)
+                              frame = {"event": frame_event, "data": data}
+                              try:
+                                  frame["data_json"] = json.loads(data) if data else None
+                              except ValueError:
+                                  pass
+                              frames.append(frame)
+                              trace.append({"phase": "sse-frame-at-eof", **frame})
+              except requests.RequestException as exc:
+                  trace.append({"phase": "sse-request-error", "error_type": type(exc).__name__, "error": str(exc)})
+              write("sse-frames.json", frames)
+          else:
+              trace.append({"phase": "sse-not-started", "reason": "No event_id returned by submit."})
+              write("sse-frames.json", [])
+
+          write("sse-trace.json", trace)
+          summary = {
+              "space": SPACE,
+              "space_sha": None,
+              "prompt_sha256": hashlib.sha256(PROMPT.encode()).hexdigest(),
+              "hf_token_present_for_authenticated_diagnostics": bool(token),
+              "authenticated_logs_status": "attempted" if token else "skipped_missing_github_secret",
+              "event_id": event_id,
+              "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+          }
+          if metadata is not None and metadata.ok:
+              try:
+                  summary["space_sha"] = metadata.json().get("sha")
+              except ValueError:
+                  summary["space_metadata_parse"] = "invalid_json"
+          write("summary.json", summary)
+          PY
+
+      - name: Upload provider-forensics evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: natlas-provider-forensics
+          path: provider-forensics/
+          if-no-files-found: error
