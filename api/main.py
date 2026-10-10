@@ -256,11 +256,9 @@ elif _is_production:
     # Production without explicit config: lock to known frontend origins.
     # localhost origins must never be allowed in production — they would permit
     # any localhost-based request to make credentialed cross-origin calls.
+    # Canonical single-origin production runtime: frontend and API share this origin.
     _CORS_ORIGINS = [
-        "https://arkadia-prism.vercel.app",
-        "https://arkadia-prism-jklhb9use-arkadia-prism.vercel.app",
-        "https://arkadia-prism-git-repair-vercel-public-pri-a9231d-arkadia-prism.vercel.app",
-        "https://arkadia-kw64.onrender.com",
+        "https://arkadia-qzu4.onrender.com",
     ]
 else:
     # Development: include localhost variants for convenience
@@ -268,7 +266,7 @@ else:
         "http://localhost:5000",
         "http://localhost:5173",
         "http://localhost:3000",
-        "https://arkadia-kw64.onrender.com",
+        "https://arkadia-qzu4.onrender.com",
     ]
 logger.info("[CORS] allowed origins: %s", _CORS_ORIGINS)
 
