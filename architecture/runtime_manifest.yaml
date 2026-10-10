@@ -109,7 +109,7 @@ canonical_deployment:
   authority: docs/adr/ADR-016-single-canonical-deployment.md
   provider: render
   canonical_source_revision:
-    value: 17b931b4fe6dd9b27749894dd0d9b1dc9a2e14f5
+    value: 466d172ece09634b7ae4c407aaf3d55dbff938cb
     status: observed
     method: GitHub main ref observed 2026-10-10
   canonical_deployment_identity:
@@ -120,11 +120,11 @@ canonical_deployment:
     status: observed
     evidence: Render service metadata; Docker service connected to Arkadia-Oversoul-Prism/Arkadia main
   actual_running_revision:
-    value: 17b931b4fe6dd9b27749894dd0d9b1dc9a2e14f5
+    value: 466d172ece09634b7ae4c407aaf3d55dbff938cb
     status: observed
     method: Render deploy metadata reports this exact commit as latest status live
-    deploy_id: dep-db54i61rn11c73d7cq10
-    finished_at: "2026-10-10T14:20:57.386641Z"
+    deploy_id: dep-db5566jrjlhs73aeh9kg
+    finished_at: "2026-10-10T15:03:03.452266Z"
   render_ssh:
     address: srv-db49jbh42hec73aj84qg@ssh.oregon.render.com
     status: service_metadata_observed
@@ -141,11 +141,11 @@ canonical_deployment:
         evidence:
           render_service_id: srv-db49jbh42hec73aj84qg
           deploy_status: live
-          source_revision: 17b931b4fe6dd9b27749894dd0d9b1dc9a2e14f5
+          source_revision: 466d172ece09634b7ae4c407aaf3d55dbff938cb
         pending:
-          - fresh external HTTP/OpenAPI capture from a network-capable runner
-          - route-by-route source/runtime reconciliation
-          - anonymous/unauthenticated/unauthorized production matrix
+          - fresh external HTTP/OpenAPI capture from GitHub Actions runner (completed; artifact retained)
+          - route-by-route source/runtime reconciliation (288 OpenAPI paths; 331 operations; 326 exact local matches; five runtime operations need source-level mapping; 66 static source declarations need mount/composition review)
+          - anonymous and malformed-token production requests returned HTTP 401; valid low-privilege identity matrix remains untested
           - browser acceptance of root, Solariun, Arkana, Canvas, Operator, and N-ATLaS
       - host: arkadia-kw64.onrender.com
         reading: historical conflicting runtime; not canonical

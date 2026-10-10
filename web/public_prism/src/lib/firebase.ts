@@ -14,7 +14,7 @@ declare global {
 }
 
 // Prefer the runtime-injected public config for the canonical Render image.
-// Vite env values remain a fallback for local development and Vercel builds.
+// Vite env values remain a fallback for local development only.
 const runtimeConfig = typeof window !== 'undefined' ? window.__ARKADIA_FIREBASE_CONFIG__ : undefined;
 const apiKey = runtimeConfig?.apiKey || import.meta.env.VITE_FIREBASE_API_KEY;
 const authDomain = runtimeConfig?.authDomain || import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;

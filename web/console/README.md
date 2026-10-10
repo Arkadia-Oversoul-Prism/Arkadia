@@ -65,7 +65,7 @@ shell. They are not dismissible.
 ## Deployment (canonical Render runtime)
 
 Arkadia's production application is served from one Render web service:
-`https://arkadia-kw64.onrender.com` (Render service `Arkadia`, repository branch
+`https://arkadia-qzu4.onrender.com` (Render service `Arkadia`, repository branch
 `main`, root `Dockerfile`). The Docker image builds both frontend applications
 and the FastAPI backend together.
 

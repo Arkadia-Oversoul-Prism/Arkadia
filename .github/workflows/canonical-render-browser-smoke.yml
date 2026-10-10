@@ -1,0 +1,94 @@
+name: Canonical Render Browser Smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/canonical-render-browser-smoke.yml"
+      - "web/public_prism/**"
+      - "web/console/**"
+      - "api/frontend_routes.py"
+      - "Dockerfile"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      ARKADIA_PRODUCTION_ORIGIN: https://arkadia-qzu4.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright Chromium
+        run: |
+          npm init -y
+          npm install playwright
+          npx playwright install --with-deps chromium
+      - name: Exercise canonical production routes
+        run: |
+          mkdir -p artifacts/canonical-render-browser-smoke
+          node <<'NODE'
+          const fs = require('node:fs');
+          const { chromium } = require('playwright');
+          const base = process.env.ARKADIA_PRODUCTION_ORIGIN.replace(/\/$/, '');
+          const routes = [
+            { path: '/', surface: 'public entry' },
+            { path: '/solariun', surface: 'Solariun personal canvas' },
+            { path: '/oracle', surface: 'Arkana Oracle' },
+            { path: '/solspire', surface: 'Canvas / SolSpire workspace' },
+            { path: '/operator', surface: 'Operator Console' },
+            { path: '/n-atlas-lab', surface: 'N-ATLaS Lab' },
+            { path: '/n-atlas-tester', surface: 'N-ATLaS Tester' },
+          ];
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const report = { captured_at: new Date().toISOString(), origin: base, source_revision: process.env.GITHUB_SHA, routes: [], result: 'PASS' };
+            try {
+              for (const route of routes) {
+                const page = await browser.newPage();
+                const errors = [];
+                const pageErrors = [];
+                page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
+                page.on('pageerror', error => pageErrors.push(error.message));
+                let response = null;
+                let navigationError = null;
+                try {
+                  response = await page.goto(base + route.path, { waitUntil: 'domcontentloaded', timeout: 60000 });
+                  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+                  await page.waitForTimeout(1000);
+                } catch (error) { navigationError = error.message; }
+                const bodyText = await page.locator('body').innerText().catch(() => '');
+                const record = {
+                  path: route.path, surface: route.surface, status: response?.status() ?? null,
+                  final_url: page.url(), title: await page.title().catch(() => ''),
+                  body_characters: bodyText.trim().length, body_preview: bodyText.trim().slice(0, 240),
+                  console_errors: errors, page_errors: pageErrors, navigation_error: navigationError,
+                  screenshot: 'artifacts/canonical-render-browser-smoke/' + route.path.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '') + '.png'
+                };
+                await page.screenshot({ path: record.screenshot, fullPage: true }).catch(() => {});
+                if (!record.status || record.status >= 400 || record.body_characters === 0 || errors.length || pageErrors.length || navigationError) report.result = 'FAIL';
+                report.routes.push(record);
+                await page.close();
+              }
+            } finally {
+              await browser.close();
+            }
+            fs.writeFileSync('artifacts/canonical-render-browser-smoke/browser-route-report.json', JSON.stringify(report, null, 2));
+            console.log(JSON.stringify({ result: report.result, source_revision: report.source_revision, routes: report.routes.map(({path,surface,status,body_characters,console_errors,page_errors,navigation_error})=>({path,surface,status,body_characters,console_errors,page_errors,navigation_error})) }, null, 2));
+            if (report.result !== 'PASS') process.exit(1);
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
+      - name: Retain browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canonical-render-browser-smoke
+          path: artifacts/canonical-render-browser-smoke/
+          if-no-files-found: warn
+          retention-days: 30
