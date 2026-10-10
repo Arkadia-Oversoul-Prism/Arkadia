@@ -166,7 +166,7 @@ def main() -> int:
         "retired_vercel_origin": "https://arkadia-prism.vercel.app",
         "preflight_status": retired_origin["status"],
         "access_control_allow_origin": retired_origin["allow_origin"],
-        "verdict": "BLOCKED" if retired_origin["allow_origin"] else "NO_CROSS_ORIGIN_GRANT"
+        "verdict": "LEGACY_ORIGIN_ALLOWED" if retired_origin["allow_origin"] == "https://arkadia-prism.vercel.app" else "NO_CROSS_ORIGIN_GRANT"
     }
 
     report = {
@@ -218,6 +218,8 @@ def main() -> int:
             hard_failures.append(f"JSON endpoint failed: {path}")
     if probes["/api/__arkadia_reconciliation_missing_route__"].get("status") != 404:
         hard_failures.append("unknown API path did not fail closed with 404")
+    if retired_origin.get("allow_origin") == "https://arkadia-prism.vercel.app":
+        hard_failures.append("retired Vercel origin is still allowed by production CORS")
     for key in ["anonymous", "invalid_bearer"]:
         if auth_matrix[key]["status"] not in {401, 403}:
             hard_failures.append(f"protected security endpoint did not deny {key} access")
