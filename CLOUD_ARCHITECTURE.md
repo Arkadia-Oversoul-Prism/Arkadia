@@ -36,8 +36,8 @@
 └──────────────────────────────────────────────────────────┘
          │
 ┌────────▼───────────────────────────────────────────────┐
-│          PRISM — arkadia-prism.vercel.app              │
-│  React dashboard · IMS interface · distribution layer  │
+│     PRISM UI + OPERATOR CONSOLE — same Render origin   │
+│  React dashboard · Arkana · console · IMS interfaces   │
 └────────────────────────────────────────────────────────┘
 
 ┌────────────────────────────────────────────────────────┐
@@ -49,9 +49,9 @@
 
 ---
 
-## Deploying to Render (Oracle Backend)
+## Deploying the Canonical Render Runtime (UI + API)
 
-The Oracle auto-deploys from GitHub whenever you push to `main`.
+The unified Arkadia runtime auto-deploys from GitHub whenever you push to `main`; the root Dockerfile builds both frontends and FastAPI into one image.
 
 ### Required Environment Variables (set in Render dashboard)
 
@@ -192,7 +192,6 @@ Edit code in Replit (or locally)
         ↓
 git push origin main
         ↓
-Render auto-redeploys Oracle (2–3 min)
 Render auto-redeploys the unified frontend + backend image
         ↓
 Test against live endpoints
