@@ -63,6 +63,7 @@ class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 
 def request_without_redirects(path: str) -> dict:
+    """Capture response headers before reading the body, preserving them on read timeout."""
     url = BASE + path
     req = urllib.request.Request(
         url,
@@ -70,33 +71,13 @@ def request_without_redirects(path: str) -> dict:
     )
     opener = urllib.request.build_opener(NoRedirectHandler())
     started = time.monotonic()
-    try:
-        with opener.open(req, timeout=TIMEOUT) as response:
-            body = response.read(200_000)
-            headers = response.headers
-            return {
-                "requested_url": url,
-                "response_url": response.geturl(),
-                "status": response.status,
-                "location": headers.get("Location"),
-                "request_id": headers.get("X-Request-ID") or headers.get("X-Correlation-ID") or headers.get("Traceparent"),
-                "request_id_headers": {
-                    key: headers.get(key)
-                    for key in ("X-Request-ID", "X-Correlation-ID", "Traceparent", "CF-Ray", "X-Render-Origin-Server")
-                    if headers.get(key)
-                },
-                "elapsed_ms": round((time.monotonic() - started) * 1000),
-                "content_type": headers.get("Content-Type", ""),
-                "body_preview": body[:300].decode("utf-8", "replace"),
-                "redirect_followed": False,
-            }
-    except urllib.error.HTTPError as error:
-        body = error.read(200_000)
-        headers = error.headers
-        return {
+
+    def record(response, body: bytes = b"", body_read_error: Exception | None = None) -> dict:
+        headers = response.headers
+        result = {
             "requested_url": url,
-            "response_url": error.geturl(),
-            "status": error.code,
+            "response_url": response.geturl(),
+            "status": response.code if hasattr(response, "code") else response.status,
             "location": headers.get("Location"),
             "request_id": headers.get("X-Request-ID") or headers.get("X-Correlation-ID") or headers.get("Traceparent"),
             "request_id_headers": {
@@ -109,6 +90,21 @@ def request_without_redirects(path: str) -> dict:
             "body_preview": body[:300].decode("utf-8", "replace"),
             "redirect_followed": False,
         }
+        if body_read_error is not None:
+            result["body_read_error_type"] = type(body_read_error).__name__
+            result["body_read_error"] = str(body_read_error)[:300]
+        return result
+
+    try:
+        response = opener.open(req, timeout=TIMEOUT)
+    except urllib.error.HTTPError as error:
+        # urllib represents a no-follow 3xx as HTTPError; status and headers are
+        # already available even if reading the response body later stalls.
+        try:
+            body = error.read(200_000)
+            return record(error, body)
+        except Exception as body_error:
+            return record(error, body_read_error=body_error)
     except Exception as error:
         return {
             "requested_url": url,
@@ -121,8 +117,16 @@ def request_without_redirects(path: str) -> dict:
             "error_type": type(error).__name__,
             "error": str(error)[:300],
             "redirect_followed": False,
+            "response_headers_received": False,
         }
 
+    # Save metadata first. A body-read timeout must never erase the HTTP status,
+    # Location, or correlation headers already received from the server.
+    try:
+        body = response.read(200_000)
+        return record(response, body)
+    except Exception as body_error:
+        return record(response, body_read_error=body_error)
 
 def classify(status: int | None) -> str:
     if status is None:
