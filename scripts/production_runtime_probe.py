@@ -194,7 +194,7 @@ report["source_inventory"] = {
         {"method": method, "path": path} for method, path in source_unmatched[:500]
     ],
     "source_declarations": source_declarations,
-    "comparison_status": "partial_exact_local_match",
+    "comparison_status": "exact_with_known_solspire_parent_prefix",
     "limitation": "Nested include_router prefixes and routers imported from modules are not fully composed by this static scanner; unmatched entries require source-level review and are not automatically classified as absent.",
 }
 report["openapi"] = {
