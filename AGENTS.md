@@ -587,9 +587,10 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   stale" wording is superseded by this measurement at `0c8a9f6`. A local build therefore leaves
   a clean tree; do not `git add` a build output, and revert a stray `dist/` modification if one
   appears on an older revision (it is not your change).
-- **Gate-2 observation is now one read-only command — use it instead of repeating the manual
-  sequence.** `python scripts/gate2_production_observation.py` (add `--json` for machine
-  output). Stdlib-only, no Vercel credential, no mutation, never prints a token. It
+- **Canonical production observation:** use `python scripts/render_production_reconciliation.py --wait-for-revision`
+  from a network-capable runner to capture live OpenAPI, compare every operation with source,
+  and probe frontend/auth boundaries. The older `gate2_production_observation.py` is a
+  historical Vercel deployment-lineage harness, not the current production verifier.
   re-derives every link from live evidence and prints the boundary classification. Two
   trust properties: it **checks the marker list against source every run** (a literal gone
   from `web/public_prism/src/` is reported as `stale_list` rather than counting 0 and
