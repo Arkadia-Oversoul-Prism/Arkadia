@@ -75,3 +75,40 @@ The workflow is configured to rerun the route tests, frontend build, and Docker 
 6. Only after those checks, retire the separate public-Prism deployments and
    update external aliases. Preserve `BLOCKED`, `UNKNOWN`, and `NOT CLAIMED`
    wherever observations do not justify a stronger verdict.
+
+---
+
+## ADDENDUM — attribution and current status (2026-10-10)
+
+> Appended by a later pass. The findings above are **preserved unchanged**; this addendum
+> records attributable observations made after them and reconciles the packet's status line.
+> It does not erase the original scope, which was branch-bound and pre-deployment.
+
+### Status reconciliation
+
+The header still reads `IMPLEMENTED ON BRANCH · NOT DEPLOYED · NOT ACCEPTED`. That was true when
+written. Since then the consolidation commit `43c3e2b` (#371) is an **ancestor of `main`
+`f9ced6b6b974a6e19a8a19b4d1360b59b037a2c8`**, so "on branch" is superseded at the source level.
+**Deployment and acceptance remain `NOT CLAIMED`** — a merged build is not a deployed runtime, and
+a deployed runtime is not acceptance.
+
+### Attributed observations (read-only, 2026-10-10)
+
+Host + path observations only. The Render service-to-hostname mapping was **not** inspected and
+remains `UNKNOWN`. These observations are the basis for requiring runtime-identity evidence
+(ADR-016); they do not resolve canonical ownership.
+
+| Host | Observation | Reading |
+|---|---|---|
+| `arkadia-qzu4.onrender.com` | 287 OpenAPI paths; `/` (`Accept: text/html`) → 1419-byte Prism SPA; `/operator` → Console SPA; `/solariun/opportunity-radar` → Prism SPA; app bundle references no external backend | **Strongest observed unified-runtime candidate** |
+| `arkadia-kw64.onrender.com` | 286 OpenAPI paths; `/` → JSON liveness; `/operator` → 404; `/solariun/*` → 404; no `/api/operator/security-verification` | Conflicting, apparently older runtime |
+| `arkadia-prism.vercel.app` | `/api/heartbeat` → HTTP 200 `text/html`, 789 bytes (SPA shell), not backend JSON | Legacy split artifact |
+| `arkadia-prism-jklhb9use-arkadia-prism.vercel.app` | `/api/heartbeat` → 302 → `vercel.com/sso` (Deployment Protection) | Not observable without provider auth |
+
+### Outstanding uncertainty
+
+- Which Render service owns which hostname: `UNKNOWN` (needs Render access).
+- Actual running revision on any host: `UNKNOWN` (no revision metadata endpoint existed at
+  observation time; see `GET /api/version`).
+- Whether `qzu4` or `kw64` is the intended production custom domain: `UNKNOWN`.
+- Human production acceptance: `NOT CLAIMED`.

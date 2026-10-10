@@ -22,6 +22,12 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
+# Baked source revision for the read-only GET /api/version endpoint (ADR-016).
+# Left empty by default so a provider-injected runtime commit (e.g. Render's
+# RENDER_GIT_COMMIT) is used when no build arg is supplied.
+ARG ARKADIA_SOURCE_REVISION=""
+ENV ARKADIA_SOURCE_REVISION=${ARKADIA_SOURCE_REVISION}
+
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
