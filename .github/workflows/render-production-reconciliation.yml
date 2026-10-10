@@ -1,0 +1,58 @@
+name: Render production reconciliation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "api/**"
+      - "kernel/revision_identity.py"
+      - "web/public_prism/**"
+      - "web/console/**"
+      - "Dockerfile"
+      - "entrypoint.sh"
+      - "scripts/render_production_reconciliation.py"
+      - "tests/test_canonical_frontend_routing.py"
+      - "tests/test_operator_security_verification.py"
+      - ".github/workflows/render-production-reconciliation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-production-reconciliation
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      RENDER_CANONICAL_URL: https://arkadia-qzu4.onrender.com
+      GITHUB_SHA: \${{ github.sha }}
+      ARKADIA_PROBE_NON_SOVEREIGN_BEARER: \${{ secrets.ARKADIA_PROBE_NON_SOVEREIGN_BEARER }}
+      ARKADIA_PROBE_SOVEREIGN_BEARER: \${{ secrets.ARKADIA_PROBE_SOVEREIGN_BEARER }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - name: Verify source router and auth contracts
+        run: |
+          python -m pytest tests/test_canonical_frontend_routing.py tests/test_operator_security_verification.py tests/test_version_endpoint.py tests/test_version_reconciliation.py -q
+      - name: Capture live OpenAPI and reconcile every operation
+        run: python scripts/render_production_reconciliation.py --wait-for-revision
+      - name: Upload HTTP/OpenAPI/authorization evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: render-production-reconciliation-\${{ github.sha }}
+          path: artifacts/render-production/
+          if-no-files-found: warn
+          retention-days: 30
