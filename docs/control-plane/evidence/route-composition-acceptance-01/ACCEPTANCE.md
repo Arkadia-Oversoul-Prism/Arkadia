@@ -1,18 +1,24 @@
 # Route-Composition Acceptance — 01
 
 **Observer:** OpenHands agent (weaver role), on behalf of the human sovereign.
-**Observation window:** 2026-10-10T18:17Z – 18:32Z.
+**Observation window:** 2026-10-10T18:17Z – 18:42Z.
 **Verdict:** **ACCEPTED (repository + runtime observation)**. One boundary stays
 `BLOCKED` and one trust property stays `NOT TESTED`; neither is claimed as verified.
 
+> **Deployment drift detected and re-measured.** The examination began at `main`
+> `3b74c19d`. While it ran, PR #405 merged, advancing `main` to `c8abb28e`
+> (2026-10-10) and moving production with it. Nothing here restates the earlier
+> reading: every measurement was **re-derived at `c8abb28e`** (Section 11). The
+> `3b74c19d` readings are retained as a superseded first pass.
+
 ## 1. Exact revision under examination
 
-| Quantity | Value |
-| --- | --- |
-| canonical source revision (`main`) | `3b74c19d4000b25dfecb9bfc3ef50684d9fa54ec` |
-| local `main` == `origin/main` | yes (measured) |
-| runtime under examination | canonical Render origin `https://arkadia-qzu4.onrender.com` |
-| runtime `source_revision` (`/api/version`) | `3b74c19d4000b25dfecb9bfc3ef50684d9fa54ec` |
+| Quantity | First pass | Current (binding) |
+| --- | --- | --- |
+| canonical source revision (`main`) | `3b74c19d…` | **`c8abb28e4ac0fda5eb6b0117aa0ff979d93e5853`** |
+| local `main` == `origin/main` | yes | yes |
+| runtime origin | `https://arkadia-qzu4.onrender.com` | same |
+| runtime `source_revision` (`/api/version`) | `3b74c19d…` | **`c8abb28e…`** |
 
 `/api/version` reports `revision_source = RENDER_GIT_COMMIT` and
 `revision_conflict = false`. The canonical deployment is at the exact current revision.
@@ -40,37 +46,44 @@ repaired here (Section 6).
 
 ## 3. Execution against the exact revision (obtained via GitHub)
 
-Because the dedicated gate was not dispatchable, the contract was executed in CI at
-`3b74c19d` through a workflow that **does** run it:
+Because the dedicated gate was not dispatchable, the contract was executed in CI through
+a workflow that **does** run it. Both revisions were measured; the binding measurement is
+at the current revision `c8abb28e`.
 
 | Run | Workflow | Head SHA | Event | Result |
 | --- | --- | --- | --- | --- |
-| `38075478690` | Provider Routing Verification (`provider-routing.yml`) | `3b74c19d…` | `workflow_dispatch` | completed / **failure** (pre-existing debt) |
-| `38075479966` | Canonical Render Runtime Probe | `3b74c19d…` | `workflow_dispatch` | completed / **success** |
+| `38076487397` | Provider Routing Verification (`provider-routing.yml`) | **`c8abb28e…`** | `workflow_dispatch` | completed / **failure** (pre-existing debt) |
+| `38076486048` | Canonical Render Runtime Probe | **`c8abb28e…`** | `workflow_dispatch` | completed / **success** |
+| `38075478690` | Provider Routing Verification (superseded) | `3b74c19d…` | `workflow_dispatch` | completed / failure |
+| `38075479966` | Canonical Render Runtime Probe (superseded) | `3b74c19d…` | `workflow_dispatch` | completed / success |
 
 The Provider Routing broad-suite step runs
 `python -m pytest tests/ -q -rEf --continue-on-collection-errors`, which includes the
-composition contract. In that run: **22 failed, 2047 passed, 21 skipped, 1 error**
-(2m35s), and `tests/test_solspire_route_composition.py` is **absent from the
+composition contract. At `c8abb28e`: **22 failed, 2047 passed, 21 skipped, 1 error**
+(2m25s), and `tests/test_solspire_route_composition.py` is **absent from the
 FAILED/ERROR node list** → the contract **executed and passed in CI at the exact
 revision**. The 23-node failing/error set is pre-existing debt, not this contract.
+(The `3b74c19d` run reported the same shape: 22 failed, 2047 passed, 21 skipped, 1 error,
+contract absent from the failing set.)
 
 Local corroboration at the same revision: `python -m pytest
 tests/test_solspire_route_composition.py -q` → **1 passed**.
 
 Source-equivalence note (necessary, not sufficient): the three gate inputs
 (`solspire/console_router.py` `3a1bc916`, `tests/test_solspire_route_composition.py`
-`86e71b1e`, `scripts/production_runtime_probe.py` `271f67a1`) are **byte-identical**
-between `73fbb51a` and `3b74c19d`, so the earlier execution and this one exercise the
-same blobs — but the execution recorded here is the one at `3b74c19d` itself.
+`86e71b1e`, `scripts/production_runtime_probe.py`) are **byte-identical** between
+`73fbb51a` and `3b74c19d` — but the execution recorded here is at the revision
+actually dispatched, and the probe script changed in `c8abb28e` (Section 11).
 
 ## 4. The route inventory (drives Sections 4–5)
 
-Source: artifact `canonical-render-runtime-probe` (id `11678234179`) from run
-`38075479966`, produced by `scripts/production_runtime_probe.py` in read-only mode
-(`mode: read_only_get_probes; no mutation verbs invoked`).
+Source: artifact `canonical-render-runtime-probe` (id `11679036146`) from run
+`38076486048` at `c8abb28e`, produced by `scripts/production_runtime_probe.py` in
+read-only mode (`mode: read_only_get_probes; no mutation verbs invoked`).
 Artifact `production-route-inventory.json` sha256
-`5c43c59198314d508e2afe8821af1a2348ec11610f062a5359ff3c427b590e37`.
+`36937cb55b75672cc4c3bc0ac15e67d04af28549d397840d2726c5a07764b4fb`.
+(First pass at `3b74c19d`: artifact id `11678234179`, sha256 `5c43c591…`; the
+measured counts below are identical on both.)
 
 | Quantity | Measured |
 | --- | --- |
@@ -179,12 +192,14 @@ routes`) and 8 (`Route-composition CI-wiring guard`) both **success**. Check-run
 ## 7. Regression evidence (no new failure introduced)
 
 Full suite, branch vs `main`, **same environment** (`pytest tests/ -q -rEf
---continue-on-collection-errors`):
+--continue-on-collection-errors`), at the rebased current base:
 
 | Tree | Result |
 | --- | --- |
-| `main` `3b74c19d` | 86 failed, 1822 passed, 31 skipped, 19 errors |
-| branch `a6f4f260` | 86 failed, 1829 passed, 31 skipped, 19 errors |
+| `main` `c8abb28e` | 86 failed, 1822 passed, 31 skipped, 19 errors |
+| branch `bbe54278` (rebased on `c8abb28e`) | 86 failed, 1829 passed, 31 skipped, 19 errors |
+| `main` `3b74c19d` (first pass) | 86 failed, 1822 passed, 31 skipped, 19 errors |
+| branch `a6f4f260` (first pass) | 86 failed, 1829 passed, 31 skipped, 19 errors |
 
 - sorted failing/error **node set**: **identical** on both trees
   (`comm -3` empty); digest `be6bd2372e9a651f45f4e0089903a0317ba5140dc9f3349954a91dc283672da0`, 105 nodes.
@@ -231,3 +246,35 @@ python -m pytest tests/test_solspire_route_composition.py tests/test_solspire_ro
 # node-set regression (same environment)
 python -m pytest tests/ -q -rEf --continue-on-collection-errors
 ```
+
+## 11. Deployment drift re-measurement (binding)
+
+Between the first and second passes, `main` advanced `3b74c19d` → `c8abb28e`
+(PR #405, "Preserve codex response headers on body read timeout"), and production moved
+with it: `/api/version` reported `3b74c19d…` during the first pass and `c8abb28e…`
+during the second. The drift was **re-measured, not reconciled by argument**.
+
+What PR #405 changed: `scripts/production_runtime_probe.py` only — `request_without_redirects`
+(used solely by the focused anomaly sub-probe) now records response headers before reading
+the body, so a body-read timeout keeps the HTTP status/Location instead of erasing it.
+The OpenAPI route inventory, source-inventory composition, and authorization-matrix code
+were **not** changed.
+
+Re-measured at `c8abb28e` (run `38076486048`, artifact id `11679036146`):
+
+| Quantity | `3b74c19d` | `c8abb28e` |
+| --- | --- | --- |
+| deployed OpenAPI paths / operations | 288 / 331 | **288 / 331** |
+| source↔runtime exact matches | 331 / 331 | **331 / 331** |
+| runtime-only / source-only | 0 / 0 | **0 / 0** |
+| classifications (reachable/protected/shape-rejected/resource-404) | 40 / 98 / 9 / 6 | **40 / 98 / 9 / 6** |
+| auth matrix | anon 401, malformed 401, valid-low-priv NOT TESTED | **identical** |
+| EDEN-OPS-02 routes present in deployed OpenAPI | 5 / 5 | **5 / 5** |
+| contract node in CI failing set | absent (pass) | **absent (pass)** |
+| branch-vs-main failing/error node set | identical (105) | **identical (105)** |
+
+Drift classification: **the observed surface did not drift** despite the deployment
+moving. The inventory and the security/functional conclusions are therefore re-derived
+at the current revision rather than restated from the superseded pass. The artifact
+sha256 differs between passes (`5c43c591…` → `36937cb5…`) because the harness's
+anomaly-probe payload changed; the route inventory itself is unchanged.
