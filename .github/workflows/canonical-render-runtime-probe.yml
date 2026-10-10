@@ -1,0 +1,38 @@
+name: Canonical Render Runtime Probe
+
+on:
+  pull_request:
+    paths:
+      - "scripts/production_runtime_probe.py"
+      - ".github/workflows/canonical-render-runtime-probe.yml"
+      - "api/**"
+      - "web/public_prism/**"
+      - "web/console/**"
+      - "Dockerfile"
+      - "architecture/runtime_manifest.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-read-only-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ARKADIA_PRODUCTION_ORIGIN: https://arkadia-qzu4.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Capture production route inventory
+        run: python scripts/production_runtime_probe.py
+      - name: Upload live HTTP/OpenAPI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canonical-render-runtime-probe
+          path: artifacts/canonical-render-runtime/production-route-inventory.json
+          if-no-files-found: warn
+          retention-days: 30
