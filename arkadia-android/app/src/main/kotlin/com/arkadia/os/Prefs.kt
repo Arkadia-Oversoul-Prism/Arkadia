@@ -28,7 +28,7 @@ class Prefs(context: Context) {
         private const val KEY_API_URL = "api_url"
         private const val KEY_TOKEN = "api_token"
         private const val KEY_SESSION = "session_id"
-        const val DEFAULT_URL = "https://arkadia-prism.vercel.app"
-        const val DEFAULT_API_URL = "https://arkadia-kw64.onrender.com"
+        const val DEFAULT_URL = "https://arkadia-qzu4.onrender.com"
+        const val DEFAULT_API_URL = "https://arkadia-qzu4.onrender.com"
     }
 }
