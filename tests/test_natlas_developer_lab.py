@@ -385,3 +385,180 @@ def test_natlas_gradio_adapter_surfaces_provider_error_event(monkeypatch):
             model="N-ATLaS",
             messages=[{"role": "user", "content": "Hello"}],
         )
+
+
+# ---------------------------------------------------------------- provider-failure boundary
+
+
+def _failure_route_harness(monkeypatch, frames_body, *, descriptor_status="AVAILABLE"):
+    """Drive the REAL `/n-atlas/run` route with the provider's failure frame.
+
+    Only the storage/runtime/stream seams are stubbed (the same seams the live test
+    stubs); the route and the real `NAtlasGradioAdapter` are exercised unchanged, so
+    the assertion below is about product code rather than a reimplementation.
+
+    The injected frame is the one the Space actually emits on a ZeroGPU admission
+    rejection, captured from the provider-forensics artifacts:
+
+        event: error
+        data: null
+    """
+    import asyncio
+
+    import api.lab_routes as lab_routes
+
+    class FakeResponse:
+        def __init__(self, body):
+            self.body = body.encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def read(self):
+            return self.body
+
+        def readline(self):
+            if not hasattr(self, "_lines"):
+                self._lines = iter(self.body.splitlines(True))
+            try:
+                return next(self._lines)
+            except StopIteration:
+                return b""
+
+    class FakeRuntime:
+        def get_session(self, session_id, subject_uid):
+            return {
+                "session_id": session_id,
+                "subject_ref": subject_uid,
+                "workspace_ref": "WS-failure",
+                "agent_id": "AGT-failure",
+                "state": "AUTHORIZED",
+                "authorization_ref": "AUTH-failure",
+            }
+
+    class FakeStore:
+        def __init__(self):
+            self.runs = []
+            self.evidence = []
+            self.updates = []
+
+        def create_run(self, run):
+            self.runs.append(run)
+
+        def update_run(self, run_id, subject_uid, **kwargs):
+            self.updates.append(kwargs)
+
+        def save_evidence(self, evidence):
+            self.evidence.append(evidence)
+
+    class FakeStream:
+        def __init__(self):
+            self.events = []
+
+        def emit(self, **kwargs):
+            self.events.append(kwargs)
+
+    class FakeDescriptor:
+        def __init__(self, status):
+            self.status = status
+            self.model = "N-ATLaS"
+            self.detail = "harness"
+
+        def to_dict(self):
+            return {"status": self.status, "model": self.model}
+
+    class FakeGateway:
+        def describe(self, provider):
+            return FakeDescriptor(descriptor_status)
+
+        def generate(self, **kwargs):
+            return NAtlasGradioAdapter(base_url="https://natlas.test").generate(**kwargs)
+
+    responses = [FakeResponse(json.dumps({"event_id": "evt-failure"})), FakeResponse(frames_body)]
+
+    def fake_urlopen(request, timeout=0):
+        return responses.pop(0)
+
+    monkeypatch.setattr(gateway_mod.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(lab_routes, "get_runtime", lambda: FakeRuntime())
+    monkeypatch.setattr(lab_routes, "get_gateway", lambda: FakeGateway())
+
+    store, stream = FakeStore(), FakeStream()
+    monkeypatch.setattr(lab_routes, "get_store", lambda: store)
+    monkeypatch.setattr(lab_routes, "get_event_stream", lambda: stream)
+    return lab_routes, store, stream, asyncio
+
+
+def test_provider_error_frame_never_writes_a_false_pass(monkeypatch):
+    """A provider failure must not produce an evidence record or a passed evaluation.
+
+    The route already behaves correctly (it raises 503 and writes no `EVD-*`), but
+    nothing pinned that. Without this test, a future edit that wrote evidence before
+    checking the response would record a fabricated PASS with no failing assertion.
+    """
+    lab_routes, store, stream, asyncio = _failure_route_harness(
+        monkeypatch, 'event: error\ndata: null\n\n'
+    )
+
+    with pytest.raises(lab_routes.HTTPException) as excinfo:
+        asyncio.run(
+            lab_routes.n_atlas_run(
+                lab_routes.NAtlasRunBody(
+                    session_id="SES-failure", prompt="probe", model="N-ATLaS"
+                ),
+                user={"uid": "subject-failure"},
+            )
+        )
+
+    assert excinfo.value.status_code == 503
+    assert "error event with null/empty data" in str(excinfo.value.detail)
+
+    # The load-bearing assertion: no acceptance artefact for a failed inference.
+    assert store.evidence == [], (
+        "a failed provider run wrote an evidence record; a provider failure must never "
+        "be recorded as success"
+    )
+
+    # The run is still tracked, and tracked as blocked - not as a success.
+    assert len(store.runs) == 1
+    assert any(u.get("result_state") == "BLOCKED" for u in store.updates), store.updates
+    assert not any(u.get("result_state") == "IMPLEMENTED" for u in store.updates), store.updates
+
+    event_types = [event["event_type"] for event in stream.events]
+    assert event_types == ["RUN_STARTED", "BLOCKED"]
+    assert "EVIDENCE_RECORDED" not in event_types
+    assert "MODEL_TURN" not in event_types
+
+
+def test_provider_success_still_writes_exactly_one_evidence_record(monkeypatch):
+    """Positive control for the test above: the same harness must record a real pass.
+
+    A boundary test that passes on both trees proves nothing; this control fails if
+    the no-evidence assertion is satisfied by breaking the success path instead.
+    """
+    lab_routes, store, stream, asyncio = _failure_route_harness(
+        monkeypatch,
+        'event: complete\n'
+        'data: ["{\\"text\\": \\"ok\\", \\"model\\": \\"NCAIR1/N-ATLaS\\"}"]\n\n',
+    )
+
+    result = asyncio.run(
+        lab_routes.n_atlas_run(
+            lab_routes.NAtlasRunBody(session_id="SES-success", prompt="probe", model="N-ATLaS"),
+            user={"uid": "subject-success"},
+        )
+    )
+
+    assert result["evaluation"]["passed"] is True
+    assert len(store.evidence) == 1
+    assert store.evidence[0].state == "IMPLEMENTED"
+    assert [e["event_type"] for e in stream.events] == [
+        "RUN_STARTED",
+        "MODEL_TURN",
+        "EVIDENCE_RECORDED",
+        "RUN_FINISHED",
+    ]
+
