@@ -392,7 +392,7 @@ function PulseResults({ result, onReset }: { result: PulseResult; onReset: () =>
         </p>
         <p style={{ fontFamily: '"Cinzel", serif', fontSize: '22px', color: '#C9A84C', marginBottom: '16px' }}>$777</p>
         <a
-          href="https://arkadia-prism.vercel.app"
+          href="https://arkadia-qzu4.onrender.com"
           target="_blank"
           rel="noopener noreferrer"
           style={{
