@@ -91,11 +91,16 @@ and the 1s reachability probe succeeds, with `N_ATLAS_PROTOCOL=gradio` selecting
 | `N_ATLAS_PROTOCOL` | `gradio` | no |
 | `N_ATLAS_MODEL` | `N-ATLaS` (code default; optional) | no |
 
-**`HF_TOKEN` is not required** for this Space: the CI evidence below executed the full
-inference with no `HF_TOKEN` set, and the read-only probes returned `200` without a
-credential. The Gradio adapter *would* attach `Authorization: Bearer $HF_TOKEN` if the
-variable were present, so it remains optional hardening (only if the Space becomes private),
-never a committed value.
+**`HF_TOKEN` is not required** for this Space: the CI evidence below and the canonical
+runtime run (Section 4.1) both executed the full inference with no `HF_TOKEN`, and the
+read-only probes returned `200` without a credential. The Gradio adapter *would* attach
+`Authorization: Bearer $HF_TOKEN` if the variable were present, so it remains optional
+hardening (only if the Space becomes private), never a committed value.
+
+**Status: APPLIED.** The operator set `N_ATLAS_BASE_URL` and `N_ATLAS_PROTOCOL=gradio` (and
+`N_ATLAS_MODEL=N-ATLaS`) on the canonical Render service in merge mode; `HF_TOKEN` was
+untouched. The live catalog now reports `AVAILABLE` and Section 4.1 records the resulting
+genuine inference.
 
 ## 4. N-ATLAS genuine inference — BLOCKED on the canonical runtime, VERIFIED in CI
 
@@ -103,16 +108,33 @@ The golden workflow is `RUN → INSPECT → EVALUATE → EVIDENCE → VERIFY`. A
 current-revision inference requires a real provider response — not a fixture, mock, cached
 output, or source assertion.
 
-### 4.1 Canonical runtime `/api/lab` path — BLOCKED
+### 4.1 Canonical runtime `/api/lab` path — VERIFIED (post-configuration)
 
-| Workflow step | This pass | State |
-| --- | --- | --- |
-| INSPECT (provider availability) | `descriptor.status = UNCONFIGURED` | OBSERVED |
-| RUN | not performed — the gateway `describe("n_atlas")` is not `AVAILABLE`, so the route refuses with `503` before any model call | BLOCKED |
-| EVALUATE / EVIDENCE / VERIFY | not reached | BLOCKED |
+After the operator applied `N_ATLAS_BASE_URL` + `N_ATLAS_PROTOCOL=gradio` to the canonical
+Render service, the live catalog flipped and a genuine inference was executed through the
+deployed governed route.
 
-The canonical runtime cannot complete the chain while `N_ATLAS_BASE_URL` is unset
-(Section 3.1). This is the correct governed refusal; it is not a fabricated success.
+`GET /api/lab/engineering/n-atlas/catalog` → **`status: AVAILABLE`**, `configured: true`,
+`detail: "protocol=gradio; reachable via /models"`.
+
+One governed run via the public tester path (`POST …/n-atlas/test-session` →
+`POST …/n-atlas/run`), 2026-10-10T20:15:53Z:
+
+| Field | Value |
+| --- | --- |
+| `run_id` | `RUN-78944dd8c3dd` |
+| `provider` / `model` | `n_atlas` / `N-ATLaS` |
+| response | real text (240 chars), `response_sha256 f82de127…` |
+| `evaluation` | `{non_empty_response, passed: true}` |
+| `evidence_id` | `EVD-a46a79ffb52f`, `state IMPLEMENTED`, `run_ref = RUN-78944dd8c3dd` |
+| `provenance` | `session_id SES-2d92c6210889`, `authorization_ref AUTH-968bc1b3f574`, `provider_status AVAILABLE` |
+| `usage` | `protocol gradio`, `endpoint /gradio_api/call/generate`, `event_id`, `sse_events ["complete"]` |
+
+`response_sha256 f82de127…` is **byte-identical** to the CI external-beta evidence for the
+same prompt, so the canonical Route and the CI harness reach the same model with the same
+output. The governed chain `RUN → INSPECT → EVALUATE → EVIDENCE → VERIFY` completes on the
+canonical runtime. (Revision unchanged at `b58408ef`: this was a configuration change, not a
+code deployment.)
 
 ### 4.2 The same governed chain — VERIFIED via CI against the live Space
 
@@ -147,10 +169,9 @@ env var. Prior `NATLAS-LAB-001` results are historical and are not substituted.
 | --- | --- |
 | exact revision → request | VERIFIED for the read-only descriptors in Section 3 |
 | request → provider/model selection | VERIFIED (Section 3) |
-| provider selection → inference result | VERIFIED via CI (Section 4.2); BLOCKED on the canonical runtime (4.1) |
-| inference → evaluation | VERIFIED via CI (`passed: true`) |
-| evaluation → persisted evidence (`RUN-*` → `EVD-*`) | VERIFIED via CI (`RUN-80252ac3d7fd` → `EVD-c39db84ef035`) |
-| same chain through the canonical `/api/lab` route | BLOCKED (provider UNCONFIGURED) |
+| provider selection → inference result | VERIFIED on the canonical route (4.1) and via CI (4.2) |
+| inference → evaluation | VERIFIED (`passed: true`) |
+| evaluation → persisted evidence (`RUN-*` → `EVD-*`) | VERIFIED (`RUN-78944dd8c3dd` → `EVD-a46a79ffb52f`, and CI `RUN-80252ac3d7fd` → `EVD-c39db84ef035`) |
 
 ## 6. Security boundary checks (driven by the Section 2 inventory)
 
@@ -261,9 +282,9 @@ this environment, so the comparison is apples-to-apples.
 | Low-privilege authenticated rejection | NOT TESTED |
 | Secret non-exposure, three key endpoints | OBSERVED (masked metadata only) |
 | Unauthenticated mutation of global key store | NOT TESTED (source path OBSERVED) |
-| Effective N-ATLAS provider configuration | OBSERVED (UNCONFIGURED on the canonical runtime) |
+| Effective N-ATLAS provider configuration | VERIFIED (AVAILABLE, configured: true) |
+| N-ATLAS inference + evidence chain (canonical `/api/lab` route) | VERIFIED |
 | N-ATLAS inference + evidence chain (CI, live Space) | VERIFIED |
-| N-ATLAS inference + evidence chain (canonical `/api/lab` route) | BLOCKED (env var unset) |
 | Application semantics beyond route composition | NOT CLAIMED |
 | Production acceptance | NOT CLAIMED |
 
@@ -296,40 +317,31 @@ curl -s -o /dev/null -w '%{http_code}\n' https://koladeodunope-ednai-natlas-runt
 gh workflow run n-atlas-external-beta.yml --ref main
 ```
 
-## 11. Required follow-up: provision the canonical runtime (human/operator action)
+## 11. Provisioning the canonical runtime — COMPLETED by the operator
 
-**I did not and cannot perform this step.** This environment has no Render API credential
-(`curl https://api.render.com/v1/services` → `401`; no `RENDER_API_KEY`), and the canonical
-service is not declared by any `render.yaml` blueprint, so the environment variables are set
-in the Render dashboard only. Setting them is a production-configuration change and a
-`restart`, which requires the operator.
+The operator applied the configuration through Render's environment-variable update in merge
+mode on the canonical service (`srv-db49jbh42hec73aj84qg`), preserving existing settings:
 
-Exact action for the operator, on the canonical Render service for
-`https://arkadia-qzu4.onrender.com`:
+1. `N_ATLAS_BASE_URL = https://koladeodunope-ednai-natlas-runtime.hf.space` — applied
+2. `N_ATLAS_PROTOCOL = gradio` — applied
+3. `N_ATLAS_MODEL = N-ATLaS` — applied
+4. `HF_TOKEN` — untouched (not required for this public Space)
 
-1. Add environment variable `N_ATLAS_BASE_URL = https://koladeodunope-ednai-natlas-runtime.hf.space`
-2. Add environment variable `N_ATLAS_PROTOCOL = gradio`
-3. (optional) `N_ATLAS_MODEL = N-ATLaS`
-4. `HF_TOKEN` — **not required** for this public Space; add it only as a secret if the Space
-   becomes private, never as a plain value and never committed.
-5. Save and let the service restart.
-
-Verification after the restart (do not treat a healthy process as acceptance):
+The service restarted and the live catalog now reports `AVAILABLE` (Section 4.1), which is
+the recorded completion condition. Verification command:
 
 ```bash
 curl -s https://arkadia-qzu4.onrender.com/api/lab/engineering/n-atlas/catalog
-# expect descriptor.status == "AVAILABLE" and configured == true
+# observed: descriptor.status == "AVAILABLE", configured == true
 ```
-
-Then run one genuine inference through the canonical route and confirm the returned
-`run_id` / `evidence` correlation, per the golden-workflow contract.
 
 ## 12. Boundaries not claimed
 
-- No merge, deployment, production-configuration change, or restart was performed.
-- The N-ATLAS chain through the canonical `/api/lab` route remains BLOCKED until the env var
-  is provisioned (Section 11).
-- Low-privilege identity testing remains NOT TESTED (no such credential configured).
+- No merge, deployment, production-configuration change, or restart was performed **by the
+  agent**. The Render configuration change (Section 11) was performed by the operator.
+- The N-ATLAS chain through the canonical `/api/lab` route is now VERIFIED (Section 4.1).
+- Low-privilege identity testing remains NOT TESTED (no such credential configured); the
+  anonymous and malformed-bearer probes do not establish authenticated-rejection behaviour.
 - **Proposed follow-up (bounded, not done here):** confirm and remediate the unauthenticated
   mutation surface in `api/key_routes.py` (require user context for write endpoints, or bind
   them to a documented operator token). This changes an authority surface and needs sovereign
