@@ -1157,3 +1157,23 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   `continue-on-error: true`; both must redden the guard), then restore it byte-identically.
 - Corrected in PR #408 (second commit). Scope stayed the guard + record; the route
   inventory and authorization findings were not touched.
+- **A guard that looks for the word `pytest` still has the mention-vs-execution hole.** Fixing
+  the substring match to a token match is not enough: `echo pytest tests/test_solspire_route_composition.py`
+  tokenises to `["echo","pytest",...]`, and a detector that accepts a `pytest` word *anywhere* still
+  passes it. Require `pytest` to be the **invoked command word** — `pytest x` directly, or
+  `python -m pytest x` (the token immediately before it is `-m`) — and the contract to be an
+  *argument to it* (file, `file::test` node-id, or the containing directory). Prove it by mutating
+  the **real** workflow file to the `echo pytest …` form and asserting the guard reddens, then
+  restore byte-identically. (Applies to `tests/test_solspire_route_composition_ci_wiring.py`, now 24 tests.)
+- **Acceptance vs configuration.** A read-only runtime endpoint can settle an acceptance question
+  without a credential: `GET /api/lab/engineering/n-atlas/catalog` returns the **effective** N-ATLAS
+  provider state (`{"status":"UNCONFIGURED","detail":"N_ATLAS_BASE_URL is not configured"}`), which
+  is why a "genuine N-ATLAS inference" is BLOCKED rather than absent. Do not infer effective
+  configuration from repository defaults or from a `N_ATLAS_*` env-var name existing in source.
+- **Masked key metadata is a real, small disclosure.** `GET /api/keys`, `/api/provider-keys`,
+  `/api/tts/keys` are unauthenticated by design and fall back to the process-global env key; they
+  return `key[:4]+"****"+key[-4:]` (e.g. `AQ.A****FRAA`) — never the full secret, but a prefix
+  and suffix plus provider-presence metadata. Adjudicate the payload (fetch it) rather than calling
+  the endpoint "safe" or "a leak". Separately, `api/key_routes.py` write endpoints (`POST /api/keys`,
+  `POST /api/provider-keys`, their `DELETE`/`PATCH`) resolve community targets via the same fallback
+  — a source-level unauthenticated-mutation surface, runtime effect NOT TESTED, sovereign-only to repair.
