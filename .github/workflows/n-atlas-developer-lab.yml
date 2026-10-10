@@ -19,6 +19,9 @@ on:
       - "docs/control-plane/evidence/canonical-render-single-runtime-01/**"
       - ".github/workflows/n-atlas-developer-lab.yml"
       - "docs/architecture/NATLAS_DEVELOPER_LAB_V0.1.md"
+      # The gate must be selected by changes to itself, or its gate logic can be
+      # rewritten without being judged (same invariant as sg-02-fe-2-v.yml).
+      - ".github/workflows/n-atlas-developer-lab.yml"
   workflow_dispatch:
 
 jobs:
