@@ -111,18 +111,34 @@ def test_current_runtime_model_is_a_derived_quantization_not_the_official_repo()
     assert "NCAIR1/N-ATLaS" not in src
 
 
-def test_current_runtime_cmd_is_shell_form_against_an_exec_entrypoint():
-    """Documents the ENTRYPOINT/CMD interaction flagged for operator review.
+def test_current_runtime_clears_the_inherited_entrypoint():
+    """The image must start; the inherited exec-form ENTRYPOINT made it impossible.
 
-    The base image declares `ENTRYPOINT ["/app/llama-server"]`; a shell-form CMD is appended
-    as `["/bin/sh","-c",...]`, so llama-server receives `/bin/sh` as a positional argument.
-    NOT TESTED end-to-end (no Docker daemon in the verification environment). This test pins
-    the current shape so a fix is a visible, reviewable change.
+    The upstream image declares `ENTRYPOINT ["/app/llama-server"]`. With a shell-form CMD and
+    no `ENTRYPOINT []` override, Docker appends the CMD as argv, so llama-server received
+    `/bin/sh` as a positional argument and aborted with "error: invalid argument: /bin/sh".
+
+    Verified empirically on 2026-10-10 by building and running this image:
+    - unmodified: `error: invalid argument: /bin/sh`
+    - with `ENTRYPOINT []`: model loaded, `listening on http://0.0.0.0:8080`, `/health` -> ok
+
+    This test fails if the override is removed, forcing the regression to be visible.
     """
+    src = _source(DOCKERFILE)
+    assert "ENTRYPOINT []" in src, (
+        "the inherited exec-form ENTRYPOINT must be cleared, or the shell-form CMD is "
+        "appended as argv and the server exits with 'invalid argument: /bin/sh'"
+    )
+
+
+def test_current_runtime_pins_the_cmd_shape_the_entrypoint_override_requires():
+    """`ENTRYPOINT []` and a shell-form CMD are a pair; pinning one without the other drifts."""
     src = _source(DOCKERFILE)
     cmd = [line for line in src.splitlines() if line.startswith("CMD ")]
     assert cmd, "Dockerfile must declare a CMD"
-    assert not cmd[0].startswith("CMD ["), "expected the shell form that this finding documents"
+    assert not cmd[0].startswith("CMD ["), (
+        "the shell form is required so ${N_ATLAS_MODEL_REPO} and ${PORT} expand"
+    )
     assert "/app/llama-server" in cmd[0]
 
 

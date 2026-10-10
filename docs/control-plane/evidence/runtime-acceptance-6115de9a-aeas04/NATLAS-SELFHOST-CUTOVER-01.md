@@ -42,13 +42,64 @@ Consequences, each verified:
 - `grep -rn "deploy/n-atlas-server" .github/` → **0 matches**: **no CI job builds this directory.**
   Its image is not built, tested, or exercised anywhere.
 - The base image sets **`ENTRYPOINT ["/app/llama-server"]`** (exec form; confirmed from the ghcr
-  config blob `sha256:763fd800…`). The child's `CMD` is written in **shell form**, so Docker
-  appends it as `["/bin/sh","-c","/app/llama-server -hf …"]`, giving the final argv
-  `/app/llama-server /bin/sh -c "/app/llama-server -hf …"`. This is **very likely wrong** — the
-  server would receive `/bin/sh` as a positional argument rather than its flags. **NOT TESTED
-  end-to-end** (no Docker daemon here); flagged as a probable defect, not asserted as proven.
+  config blob `sha256:763fd800…`) while the child's `CMD` is **shell form**. Docker therefore
+  appends the CMD as argv, giving the final command
+  `/app/llama-server /bin/sh -c "/app/llama-server -hf …"`. **This was a real defect, now PROVEN
+  and repaired** — see §2.3.
 
-### 2.2 The self-hosted model is a *derived quantization*, not the official N-ATLaS
+### 2.3 The image could not start — proven by building and running it (2026-10-10)
+
+The earlier revision of this document flagged the `ENTRYPOINT`/`CMD` interaction as "NOT TESTED"
+because no Docker daemon was available. Docker **is** available here via `sudo dockerd`, so the
+flag was converted into a measurement instead of being left as a suspicion.
+
+**Built this directory's image as shipped and ran it:**
+
+```
+Entrypoint=["/app/llama-server"]
+Cmd=["/bin/sh","-c","/app/llama-server -hf ${N_ATLAS_MODEL_REPO} --host 0.0.0.0 --port ${PORT} -c 4096 -n 256"]
+
+$ docker run --rm -e PORT=8080 natlas-selfhost:probe
+error: invalid argument: /bin/sh
+```
+
+The image **exited immediately and could never serve a request.** Docker itself emits the
+diagnosis on build: `JSONArgsRecommended: JSON arguments recommended for CMD to prevent unintended
+behavior related to OS signals (line 5)`.
+
+**Repair applied** (`deploy/n-atlas-server/Dockerfile`) — clear the inherited exec-form entrypoint
+so the shell-form CMD is the whole command and `${PORT}`/`${N_ATLAS_MODEL_REPO}` keep expanding:
+
+```dockerfile
+ENTRYPOINT []
+```
+
+**Re-built the repository Dockerfile and ran it — verified end to end:**
+
+| Probe | Result |
+| --- | --- |
+| Container start | model loaded, `listening on http://0.0.0.0:8080` |
+| `GET /health` | `{"status":"ok"}` |
+| `GET /v1/models` | `QuantFactory/N-ATLaS-GGUF:Q4_K_M` |
+| **Real `NAtlasAdapter.generate`** | text `'OK'`, `finish_reason stop`, usage `{prompt 40, completion 2}` |
+
+That last row is the load-bearing one: it drives the **shipped adapter** from
+`lab/engineering_lab/natlas.py`, not a hand-rolled request, so the OpenAI-compatible contract the
+product actually speaks is satisfied by this image.
+
+**And it settles the identity question empirically.** Asked for `model="N-ATLaS"`, the adapter
+reported back:
+
+```
+model returned: QuantFactory/N-ATLaS-GGUF:Q4_K_M
+```
+
+The runtime echoes the **quantization's own id**, not the official `N-ATLaS`. A cutover to this
+instance would keep writing `EVD-*` records under `provider=n_atlas` while the returned model
+identity names a community GGUF. That is visible here only because the stack happens to echo it —
+do not rely on that echo as the safety mechanism; the boundary is what forbids the substitution.
+
+## 3. The self-hosted model is a *derived quantization*, not the official N-ATLaS
 
 This is the finding that governs the decision, and it is an **acceptance-boundary** issue, not a
 technical one:
@@ -58,6 +109,7 @@ technical one:
 | Repo | `NCAIR1/N-ATLaS` | `QuantFactory/N-ATLaS-GGUF` (Q4_K_M) |
 | GGUF | **none** (safetensors only) | community quantization |
 | Gated | **`gated: auto`** | public |
+| Model id echoed at runtime | `N-ATLaS` | `QuantFactory/N-ATLaS-GGUF:Q4_K_M` (measured, §2.3) |
 
 The directory's own README states the boundary explicitly:
 
@@ -70,7 +122,7 @@ And `docs/architecture/NATLAS_DEVELOPER_LAB_V0.1.md`:
 > hosted endpoint behavior, hosted authentication, latency, or production quota behavior.*
 
 **Therefore: pointing the canonical route at this instance would change what `N-ATLAS` means for
-the product.** A run would still be labelled `provider: n_atlas`, `model: N-ATLaS`, and would still
+the product.** A run would still be labelled `provider: n_atlas`, `model: N-ATLas`, and would still
 write an `EVD-*` record — but the bytes would come from a 4-bit community quantization rather than
 the official model. The acceptance evidence would look identical while measuring a different
 object. That is precisely the substitution the established boundary forbids.
@@ -79,15 +131,17 @@ It is also **not an equivalent swap for the incident**: the official repo is `ga
 **no GGUF**, so a llama.cpp build cannot serve the official weights without conversion, and the
 gated access needs authorization the agent does not hold.
 
-## 3. Correction to this pass's own earlier work
+## 4. Correction to this pass's own earlier work
 
-`tests/test_natlas_selfhost_contract.py` (added in the previous commit, PR #411) pins
-`deploy/n-atlas-server/app.py` — **a file the deployed image no longer contains.** The tests are
-green and the file is real, so they are not wrong as file assertions, but they **overstate the
-runtime contract**: they describe the superseded FastAPI gateway, not the llama.cpp server that
-`e074a63b` made canonical. That test needs to be re-pointed (see §5).
+`tests/test_natlas_selfhost_contract.py` (added in the previous commit, PR #411) pinned
+`deploy/n-atlas-server/app.py` — **a file the deployed image no longer contains.** The tests were
+green and the file is real, so they were not wrong as file assertions, but they **overstated the
+runtime contract**: they described the superseded FastAPI gateway, not the llama.cpp server that
+`e074a63b` made canonical. That test is now re-pointed, and it **also pinned the broken
+`CMD`/`ENTRYPOINT` shape as if it were correct** — the sharpest form of the defect, since a test
+that freezes a broken shape will red on the repair. Both are corrected in §2.3 and §5.
 
-## 4. What *is* executable, and was executed
+## 5. What *is* executable, and was executed
 
 The **safe, non-production** half of the request — preparing the self-host target and pinning it —
 was verified:
@@ -101,7 +155,7 @@ was verified:
 - The protocol switch is the default: `N_ATLAS_PROTOCOL` unset or `openai_compatible` selects
   `NAtlasAdapter` (`gateway.py:191,437-439`).
 
-## 5. Recommended path (requires the operator)
+## 6. Recommended path (requires the operator)
 
 Two options, with the trade-off stated plainly:
 
@@ -123,9 +177,15 @@ validation, then:
 The cutover itself — setting `N_ATLAS_BASE_URL`/`N_ATLAS_PROTOCOL` on Render — is a **single
 operator action** once the above is settled.
 
-## 6. Not claimed
+## 7. Not claimed
 
-- The Dockerfile `CMD`/`ENTRYPOINT` interaction is **NOT TESTED** end-to-end (no Docker daemon).
-- No claim that a self-hosted instance works; it has never been built in CI.
+- ~~The Dockerfile `CMD`/`ENTRYPOINT` interaction is **NOT TESTED** end-to-end~~ — **superseded**:
+  it is now PROVEN (the unmodified image exits `error: invalid argument: /bin/sh`) and REPAIRED
+  (`ENTRYPOINT []`), then re-verified end-to-end through the real `NAtlasAdapter` (§2.3).
+- No claim that a self-hosted instance serves the **official** N-ATLAS model: it serves the
+  community GGUF, and the adapter's returned model id names it. That is the boundary in §3.
+- **No CI job builds this image.** The repair was verified locally only; the image is not built,
+  tested, or exercised anywhere in CI, so the fix is not protected by any pipeline.
 - No production configuration was changed; no credential was used, printed, or committed.
-- **Production acceptance remains NOT CLAIMED.**
+- **Production acceptance remains NOT CLAIMED.** The official hosted route
+  (`RUN-a852a91251d7` → `EVD-55a25912d284`) is unchanged and remains the only accepted path.
