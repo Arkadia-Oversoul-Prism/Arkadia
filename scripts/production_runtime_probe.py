@@ -6,6 +6,7 @@ safe GET routes, and records the limits of the available authorization matrix.
 """
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
@@ -112,6 +113,86 @@ except Exception as error:
     sys.exit(2)
 
 paths = schema.get("paths", {})
+
+# Static source declaration inventory. Router prefixes declared in each module
+# are composed locally. Cross-module include_router(prefix=...) composition is
+# reported as a limitation rather than treated as proof of absence.
+source_declarations = []
+source_roots = [Path("api"), Path("solspire"), Path("kernel"), Path("providers"), Path("knowledge"), Path("lab"), Path("economic_seams")]
+route_methods = {"get", "post", "put", "patch", "delete", "options", "head", "api_route"}
+for source_root in source_roots:
+    if not source_root.exists():
+        continue
+    for source_file in source_root.rglob("*.py"):
+        if any(part in {"archive", "tests", "__pycache__"} for part in source_file.parts):
+            continue
+        try:
+            module_ast = ast.parse(source_file.read_text(encoding="utf-8"))
+        except (OSError, SyntaxError, UnicodeDecodeError):
+            continue
+        router_prefixes = {}
+        for node in ast.walk(module_ast):
+            if isinstance(node, (ast.Assign, ast.AnnAssign)):
+                value = node.value
+                if isinstance(value, ast.Call) and isinstance(value.func, ast.Name) and value.func.id == "APIRouter":
+                    prefix = ""
+                    for keyword in value.keywords:
+                        if keyword.arg == "prefix" and isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
+                            prefix = keyword.value.value
+                    targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                    for target in targets:
+                        if isinstance(target, ast.Name):
+                            router_prefixes[target.id] = prefix
+        for node in ast.walk(module_ast):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for decorator in node.decorator_list:
+                if not isinstance(decorator, ast.Call) or not isinstance(decorator.func, ast.Attribute):
+                    continue
+                method = decorator.func.attr.lower()
+                if method not in route_methods or not decorator.args:
+                    continue
+                route_value = decorator.args[0]
+                if not isinstance(route_value, ast.Constant) or not isinstance(route_value.value, str):
+                    continue
+                receiver = decorator.func.value.id if isinstance(decorator.func.value, ast.Name) else "dynamic"
+                prefix = router_prefixes.get(receiver, "") if receiver != "app" else ""
+                route_path = "/" + "/".join(part for part in (prefix.strip("/"), route_value.value.strip("/")) if part)
+                methods = [method.upper()]
+                if method == "api_route":
+                    for keyword in decorator.keywords:
+                        if keyword.arg == "methods" and isinstance(keyword.value, (ast.List, ast.Tuple)):
+                            methods = [e.value.upper() for e in keyword.value.elts if isinstance(e, ast.Constant) and isinstance(e.value, str)]
+                for verb in methods:
+                    source_declarations.append({
+                        "method": verb, "path": route_path,
+                        "file": str(source_file), "function": node.name,
+                        "router_variable": receiver,
+                    })
+source_keys = {(item["method"], item["path"]) for item in source_declarations}
+runtime_keys = {
+    (method.upper(), path)
+    for path, item in paths.items()
+    for method in item
+    if method.lower() in {"get", "post", "put", "patch", "delete", "options", "head"}
+}
+exact_matches = sorted(runtime_keys & source_keys)
+runtime_unmatched = sorted(runtime_keys - source_keys)
+source_unmatched = sorted(source_keys - runtime_keys)
+report["source_inventory"] = {
+    "static_route_declaration_count": len(source_declarations),
+    "unique_method_path_count": len(source_keys),
+    "exact_method_path_matches": len(exact_matches),
+    "runtime_operations_without_exact_local_decorator_match": [
+        {"method": method, "path": path} for method, path in runtime_unmatched[:500]
+    ],
+    "source_declarations_without_exact_runtime_match": [
+        {"method": method, "path": path} for method, path in source_unmatched[:500]
+    ],
+    "source_declarations": source_declarations,
+    "comparison_status": "partial_exact_local_match",
+    "limitation": "Nested include_router prefixes and routers imported from modules are not fully composed by this static scanner; unmatched entries require source-level review and are not automatically classified as absent.",
+}
 report["openapi"] = {
     "classification": "reachable",
     "title": schema.get("info", {}).get("title"),
