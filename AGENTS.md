@@ -1177,3 +1177,34 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   the endpoint "safe" or "a leak". Separately, `api/key_routes.py` write endpoints (`POST /api/keys`,
   `POST /api/provider-keys`, their `DELETE`/`PATCH`) resolve community targets via the same fallback
   — a source-level unauthenticated-mutation surface, runtime effect NOT TESTED, sovereign-only to repair.
+
+## Acceptance-record currency: an inherited PR status can be stale, and a path-filtered browser gate leaves no observation at the new revision (AEAS-04)
+- An inherited baseline said PR #409 was a *draft* with acceptance pending. It was already
+  **merged** (merge commit `6115de9a` = `main`, 2026-10-10T20:23:29Z) before the pass began.
+  Re-derive PR state (`pulls/{n}` -> `merged`, `merge_commit_sha`) before treating a "pending"
+  status as current; a merged PR is not a PR to reconcile.
+- The live canonical runtime tracks `main` automatically: at `main` `6115de9a` the live
+  `GET /api/version` `source_revision` == `6115de9a` (Render `RENDER_GIT_COMMIT`), so source<->runtime
+  consistency is a one-command check. The prior acceptance record measured `b58408ef`; a new record
+  is needed whenever `main` moves, because evidence binds to a revision.
+- `canonical-render-browser-smoke.yml` is **path-filtered** to `web/public_prism/**`,
+  `web/console/**`, `api/frontend_routes.py`, `Dockerfile`, and itself. A merge that touches none of
+  those (e.g. #409, a docs/test/guard change) fires **no** browser run, so the new revision has
+  **no browser observation** until `gh workflow run canonical-render-browser-smoke.yml --ref main`
+  is dispatched. Treat the absence of a run as unproven, not as a pass.
+- **`/api/health` is not a backend route**; `/health` is (`{"status":"radiant"}`). A `404` for
+  `/api/health` is correct, not a regression.
+- **The key-management write paths are anonymous-reachable at the handler level, runtime-observed.**
+  `api/auth.py::get_current_user` is an *optional* dependency that returns `None` (never raises), so
+  `api/key_routes.py`'s `if not user_id:` fallbacks run for anonymous callers. Proven without any
+  write: anonymous `POST /api/provider-keys {"provider":"__probe__","key":"x"}` -> `400 Unknown
+  provider` (handler executed, provider validated), and anonymous `POST /api/keys {"key":""}` ->
+  `400 'key' is required`, while a protected route returns `401`. A `400` (validation) rather than
+  `401` (auth) is the tell that the handler ran unauthenticated. The write effect itself is NOT
+  TESTED (no credential was mutated). Repairing it edits authorization -> sovereign-gated.
+- The documented N-ATLAS external acceptance criterion is **two independent human testers**
+  (`docs/submission/NAIC-2026-PS1-BETA-VALIDATION.md`, records A and B), both currently MISSING.
+  A genuine governed inference (`RUN-*` -> `EVD-*`) satisfies *one* execution, never that criterion.
+  At `6115de9a` the canonical route produced `RUN-766769015520` -> `EVD-e2203f62d506` with
+  `response_sha256 f82de127...`, byte-identical to the CI external-beta evidence and the prior
+  canonical run for the same prompt — three independent executions agree.
