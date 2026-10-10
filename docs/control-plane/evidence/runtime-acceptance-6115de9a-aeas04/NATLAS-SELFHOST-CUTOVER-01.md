@@ -186,6 +186,59 @@ operator action** once the above is settled.
   community GGUF, and the adapter's returned model id names it. That is the boundary in §3.
 - **No CI job builds this image.** The repair was verified locally only; the image is not built,
   tested, or exercised anywhere in CI, so the fix is not protected by any pipeline.
+  **Superseded (2026-10-10, second pass):** `n-atlas-developer-lab.yml` now builds the unit and
+  asserts the container reaches llama-server's startup path, and its `paths` filter selects
+  `deploy/n-atlas-server/**`. The gap is closed in source; see §8.
 - No production configuration was changed; no credential was used, printed, or committed.
 - **Production acceptance remains NOT CLAIMED.** The official hosted route
   (`RUN-a852a91251d7` → `EVD-55a25912d284`) is unchanged and remains the only accepted path.
+
+## 8. CI coverage gap closed (2026-10-10, second pass)
+
+The previous pass repaired the image **locally** and disclosed that nothing in CI built it. That
+disclosure was correct, and this pass closes it.
+
+**Measured coverage before the change** — which workflows actually executed the branch:
+
+| Suite | Executed by |
+| --- | --- |
+| `tests/test_natlas_selfhost_contract.py` | **nothing** (`grep -rn` in `.github/` → 0) |
+| `deploy/n-atlas-server/**` (image) | **nothing** (`grep -rn` in `.github/` → 0) |
+
+Only `provider-forensics`, the three `N-ATLAS external beta validation` jobs, `boot-syntax` and
+the secret scan ran on the branch. The N-ATLAS gate (`n-atlas-developer-lab.yml`) did **not**
+trigger, because its `paths` filter named `tests/test_natlas_developer_lab.py` but not the
+self-host contract or the deployment unit.
+
+**Repair** (`.github/workflows/n-atlas-developer-lab.yml`):
+
+1. `paths` now selects `tests/test_natlas_selfhost_contract.py`,
+   `tests/test_natlas_selfhost_ci_wiring.py`, and `deploy/n-atlas-server/**`.
+2. The `backend` job runs the self-host contract.
+3. **New `selfhost-image` job** builds `deploy/n-atlas-server` **and runs the image**, failing if
+   the logs show `invalid argument: /bin/sh` or if llama-server never reaches its startup path.
+
+Item 3 is the load-bearing one: the image on `main` **built cleanly and then died**, so a
+build-only job would have passed. "Builds" is not "starts".
+
+**Guard** — `tests/test_natlas_selfhost_ci_wiring.py` (10 tests) states the invariant generically
+over every workflow that runs the contract, deriving the deployment unit's domain from
+`git ls-files -- deploy/n-atlas-server` at test time rather than restating it. Four mutations of
+the **real** workflow were applied and **each was detected**, with the file restored
+byte-identically:
+
+| Mutation | Detected by |
+| --- | --- |
+| `deploy/n-atlas-server/**` dropped from `paths` | `..._selected_by_the_whole_deployment_unit` |
+| contract file dropped from `paths` | `..._selected_by_the_whole_deployment_unit` |
+| contract step removed | `test_a_workflow_executes_the_selfhost_contract` |
+| smoke step removed (build-only) | `test_a_workflow_builds_and_runs_the_deployment_unit` |
+
+The smoke step's own branch logic was exercised against the **real** log capture from §2.3:
+broken-image logs → `exit 1`, fixed-image logs → `exit 0`, empty logs (silent death) → `exit 1`.
+A gate that cannot fail for the outcome it names is not a gate.
+
+**Verification:** 179 passed / 1 skipped on the affected suites; full-suite failing/error **node
+set identical** to `main` (52 nodes, `sha256 95df9d36…`) — zero regression. CP10 mutation boundary
+PASS. The new job interpolates no `github.event.*`/`inputs.*` into `run:`.
+

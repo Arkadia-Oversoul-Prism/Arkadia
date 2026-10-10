@@ -7,6 +7,12 @@ on:
       - "lab/engineering_lab/natlas.py"
       - "api/lab_routes.py"
       - "tests/test_natlas_developer_lab.py"
+      # The self-host contract and the deployment unit it describes. The image is built by
+      # this workflow's `selfhost-image` job, so a change to the Dockerfile must run the job
+      # that builds and smoke-tests it.
+      - "tests/test_natlas_selfhost_contract.py"
+      - "tests/test_natlas_selfhost_ci_wiring.py"
+      - "deploy/n-atlas-server/**"
       - "web/console/**"
       - "web/public_prism/**"
       - "api/main.py"
@@ -38,6 +44,8 @@ jobs:
           pip install pytest
       - name: N-ATLAS provider tests
         run: python -m pytest tests/test_natlas_developer_lab.py -q
+      - name: N-ATLAS self-host contract
+        run: python -m pytest tests/test_natlas_selfhost_contract.py -q
       - name: Canonical single-origin frontend route tests
         run: python -m pytest tests/test_canonical_frontend_routing.py -q
       - name: Operator security verification tests
@@ -59,6 +67,41 @@ jobs:
       - name: Console typecheck and build
         run: npm run build
 
+
+  selfhost-image:
+    name: Build and smoke-test the N-ATLAS self-host image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the deployment unit
+        run: docker build -t natlas-selfhost:ci deploy/n-atlas-server
+      # The image shipped on main built cleanly and then died instantly at runtime: the base
+      # image's exec-form ENTRYPOINT ["/app/llama-server"] received the Dockerfile's shell-form
+      # CMD as extra argv, so llama-server got /bin/sh as a positional argument and exited with
+      # "error: invalid argument: /bin/sh". A clean `docker build` says nothing about that -
+      # only running it does. This step fails if the process never reaches llama-server's own
+      # startup logging.
+      - name: Start the image and assert llama-server actually runs
+        run: |
+          set -uo pipefail
+          cid=$(docker run -d -e PORT=8080 natlas-selfhost:ci)
+          # Give the process time to either die from argv parsing or reach its startup log.
+          # The model download continues past this point and is not required here.
+          sleep 25
+          logs=$(docker logs "$cid" 2>&1 || true)
+          docker rm -f "$cid" >/dev/null 2>&1 || true
+          echo "----- container logs -----"
+          echo "$logs"
+          echo "--------------------------"
+          if echo "$logs" | grep -q "invalid argument: /bin/sh"; then
+            echo "FAIL: the inherited exec-form ENTRYPOINT swallowed the shell-form CMD."
+            exit 1
+          fi
+          if ! echo "$logs" | grep -Eq "llama_server|load_model|initializing"; then
+            echo "FAIL: llama-server never reached its startup path; the image cannot serve."
+            exit 1
+          fi
+          echo "OK: llama-server started under the image's own command."
 
   canonical-runtime-image:
     name: Build canonical Render image
