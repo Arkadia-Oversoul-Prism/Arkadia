@@ -84,7 +84,7 @@ report = {
     "baseline": {},
     "openapi": {},
     "endpoint_inventory": [],
-    "frontend_routes": [],
+    "frontend_routes": {},
     "authorization_matrix": {},
     "limitations": [],
 }
