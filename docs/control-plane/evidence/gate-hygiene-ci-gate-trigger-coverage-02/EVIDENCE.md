@@ -85,3 +85,33 @@ mutation-path change. Merge is sovereign-only.
 The `api/**` question from pass 01 stays open and untouched: `sg-02-fe-2-v.yml`
 runs `pytest tests/ -q`, which carries pre-existing `main` failures, so widening to
 `api/**` would redden every API PR with debt it did not introduce.
+
+## CI execution (measured this pass, 2026-10-10)
+
+- PR **#390**, head `462278f4c49a21b066e90299d80b63dffa2381e1`.
+- `sg-02-fe-2-v.yml` run `38022403228` / job `114126018722`:
+  - **Step 10 "CI gate trigger coverage" -> success.** The guard added to this
+    workflow executes under CI and passes — the wiring is runtime-proven, not a
+    source-level claim.
+  - Step 33 "CP10 mutation boundary" -> success.
+  - Step 36 "Enforce CP10 executable gates" -> failure, on `test 'failure' =
+    success`: the **browser verification** step (30) failed with
+    `firebase-config.js :: net::ERR_ABORTED` (empty `FIREBASE_WEB_API_KEY` in the
+    job env).
+- **Pre-existing, not attributable to this PR.** `main` at `f9ced6b6` run
+  `37954341298` fails the **same** enforce step (`test 'failure' = success`) with
+  the **same** `firebase-config.js :: net::ERR_ABORTED` browser failure. The
+  earlier `main` runs at `27cc85d2` / `24a00f85` succeeded, so the browser step
+  regressed on `main` between `27cc85d2` and `f9ced6b6` — before this branch.
+- Other checks on the head: `Full-history secret scan` success, `governance`
+  success, `native-arkadia-golden-workflow` success, `bundle-beta-evidence`
+  success, `Vercel Preview Comments` success.
+
+## Independent base measurement (this pass)
+
+The full-suite node set was re-measured in a **detached worktree at `origin/main`**
+(`git worktree add --detach /tmp/base_wt origin/main`), not read from a fixture:
+base and branch both yield 16 failing/error nodes, outcomes sha256
+`bfcfe5920c3789302e80c72618e1f280e3577a8395320c89f174147cd11ec733`, ids sha256
+`ed5e4714df236078d6eb04cb43197c22403d2c244caa3e7bc7d71d45f6c0a833`. Zero delta,
+measured on both trees.
