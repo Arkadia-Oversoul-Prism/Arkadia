@@ -247,7 +247,7 @@ app = FastAPI(title="Arkadia Mind — Cycle 11", lifespan=lifespan)
 # covers localhost and the canonical Render deployment.
 #
 # Example (Render env var):
-#   CORS_ALLOWED_ORIGINS=https://arkadia-kw64.onrender.com,https://your-custom-domain.com
+#   CORS_ALLOWED_ORIGINS=https://arkadia-qzu4.onrender.com
 _cors_env = os.environ.get("CORS_ALLOWED_ORIGINS", "").strip()
 if _cors_env:
     # Explicit override — use exactly what is configured
@@ -257,10 +257,7 @@ elif _is_production:
     # localhost origins must never be allowed in production — they would permit
     # any localhost-based request to make credentialed cross-origin calls.
     _CORS_ORIGINS = [
-        "https://arkadia-prism.vercel.app",
-        "https://arkadia-prism-jklhb9use-arkadia-prism.vercel.app",
-        "https://arkadia-prism-git-repair-vercel-public-pri-a9231d-arkadia-prism.vercel.app",
-        "https://arkadia-kw64.onrender.com",
+        "https://arkadia-qzu4.onrender.com",
     ]
 else:
     # Development: include localhost variants for convenience
@@ -268,7 +265,7 @@ else:
         "http://localhost:5000",
         "http://localhost:5173",
         "http://localhost:3000",
-        "https://arkadia-kw64.onrender.com",
+        "https://arkadia-qzu4.onrender.com",
     ]
 logger.info("[CORS] allowed origins: %s", _CORS_ORIGINS)
 
