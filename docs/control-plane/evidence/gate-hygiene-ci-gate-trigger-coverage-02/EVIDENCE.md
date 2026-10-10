@@ -186,3 +186,12 @@ Recorded, not repaired: the browser-gate acceptance criteria are a separate
 bounded workstream touching an acceptance surface. The correct classification of
 this branch's `SG-02-FE.2-V` result is therefore FAILED for the same pre-existing
 node as `main`, not a regression of this branch.
+
+### Confirmation at the current head (2026-10-10)
+
+Re-measured at head `a017a06c` (run `38023521476`): step 36 aborts at log line
+2268, the **15th** assertion, `test 'failure' = success`. Assertion #2
+(`steps.trigger_coverage`) is `test 'success' = success` - the step this branch
+adds is genuinely enforced and passes. Assertion #15 is `steps.browser`, whose
+step 30 is reported by the jobs API as `conclusion: success` while its `outcome`
+is `failure`. Identical failing node to `main` `f9ced6b6`.
