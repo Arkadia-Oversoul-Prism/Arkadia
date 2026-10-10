@@ -9,6 +9,23 @@ from scripts.cp10_mutation_boundary_policy import evaluate_changed_paths, resolv
 _ROOT = Path(__file__).resolve().parents[1]
 _WORKFLOW = _ROOT / ".github/workflows/sg-02-fe-2-v.yml"
 
+# Matches the enforcement form `test "${{ steps.<id>.outcome }}" = success`.
+_ENFORCED_BY_OUTCOME = re.compile(r"steps\.([A-Za-z0-9_-]+)\.outcome\s*}}'\s*=\s*success")
+# The self-satisfying form the enforcement step must never use: a
+# `continue-on-error` step's conclusion is always `success`, so an assertion
+# built on it can never fail.
+_ENFORCED_BY_CONCLUSION = re.compile(r"steps\.([A-Za-z0-9_-]+)\.conclusion\s*}}'\s*=\s*success")
+
+
+def enforced_by_outcome(text: str) -> set:
+    """Step ids asserted through `steps.<id>.outcome`."""
+    return set(_ENFORCED_BY_OUTCOME.findall(text))
+
+
+def enforced_by_conclusion(text: str) -> set:
+    """Step ids asserted through `steps.<id>.conclusion` (self-satisfying)."""
+    return set(_ENFORCED_BY_CONCLUSION.findall(text))
+
 
 def test_legitimate_frontend_mutation_passes():
     ok, _ = evaluate_changed_paths(
@@ -607,7 +624,7 @@ def test_continue_on_error_gates_are_still_enforced_by_outcome():
     text = _WORKFLOW.read_text(encoding="utf-8")
     workflow = yaml.safe_load(text)
     steps = workflow["jobs"]["validate"]["steps"]
-    enforced = set(re.findall(r"steps\.([A-Za-z0-9_-]+)\.outcome\s*}}'\s*=\s*success", text))
+    enforced = enforced_by_outcome(text)
 
     infra_only = {
         "fb_user",  # provisions the disposable Firebase identity
@@ -634,6 +651,48 @@ def test_continue_on_error_gates_are_still_enforced_by_outcome():
             f"enforcement step '{s.get('name')}' must be able to fail the job"
         )
 
+
+def test_enforcement_never_reads_step_conclusion():
+    """The enforcement step must read `.outcome`, never `.conclusion`.
+
+    `continue-on-error: true` separates the two: `conclusion` is `success` for
+    every soft step whatever happened, `outcome` is the real result. An
+    assertion built on `.conclusion` collapses to the constant
+    `test 'success' = success` and cannot fail, so the gate it claims to be is
+    decorative. Measured evidence that the live form works (it is substituted,
+    not constant): at `main` `f9ced6b6` (run `37954341298`) and on PR #354's
+    head `ebb4077b` (run `37967556608`) the enforcement step runs 16
+    assertions; 15 print `test 'success' = success` and one -- the 15th --
+    prints `test 'failure' = success`, the real `outcome` of the soft `browser`
+    step, and the step exits 1.
+    """
+    text = _WORKFLOW.read_text(encoding="utf-8")
+    offenders = enforced_by_conclusion(text)
+    assert not offenders, (
+        "the CP10 enforcement step asserts steps.<id>.conclusion, which is "
+        f"always 'success' for a continue-on-error step: {sorted(offenders)}"
+    )
+
+
+def test_outcome_detector_is_not_blind():
+    """Negative control: the detector must flag the `.conclusion` form.
+
+    Without this, `test_enforcement_never_reads_step_conclusion` could pass
+    because the regex matches nothing, not because the workflow is correct.
+    """
+    vulnerable = (
+        "test '${{ steps.browser.conclusion }}' = success\n"
+        "test '${{ steps.backend.conclusion }}' = success\n"
+    )
+    assert enforced_by_conclusion(vulnerable) == {"browser", "backend"}
+    assert enforced_by_outcome(vulnerable) == set()
+
+
+def test_outcome_detector_matches_the_live_form():
+    """Positive control: the live `.outcome` form must be matched."""
+    correct = "test '${{ steps.browser.outcome }}' = success\n"
+    assert enforced_by_outcome(correct) == {"browser"}
+    assert enforced_by_conclusion(correct) == set()
 
 
 # ---------------------------------------------------------------------------

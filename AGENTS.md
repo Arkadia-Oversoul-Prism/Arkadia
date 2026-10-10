@@ -808,14 +808,29 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
 
 ## A green CI job can execute ZERO tests - read the step log, not the conclusion (gate-hygiene)
 - `sg-02-fe-2-v.yml` step 21 (`CP10-B broader backend regression`, `python -m pytest tests/ -q`)
-  is `continue-on-error: true`, so its step `outcome` is `failure`. Step 35
-  (`Enforce CP10 executable gates`) tests it with `test '${{ steps.backend.outcome }}' = success`
-  - but **`steps.<id>.outcome` is not available inside a `run:` block**; GitHub exposes it only
-  to a step's `if:`. The CI log prints every one of those 16 assertions as the *literal string*
-  `test 'success' = success`, because with `continue-on-error: true` the step's conclusion is
-  `success` and the substitution is a constant. The enforcement step is **self-satisfying** and
-  cannot fail for any outcome. A `run:`-block guard must read `steps.<id>.conclusion`, or the
-  decision must move to an `if:`.
+  is `continue-on-error: true`, so its step `outcome` is `failure` while its `conclusion` is
+  `success`. Step 35 (`Enforce CP10 executable gates`) tests the outcome of all 16 guarded steps
+  with `test '${{ steps.<id>.outcome }}' = success`.
+- **`steps.<id>.outcome` IS substituted inside a `run:` block - it is not a constant.** Measured
+  at `main` `f9ced6b6` (run `37954341298`, artifact `cp10-evidence-f9ced6b6…`) and on PR #354's
+  head `ebb4077b` (run `37967556608`), the log prints 15 of the 16 assertions as
+  `test 'success' = success` and one - the 15th - as **`test 'failure' = success`**, the true
+  `outcome` of the `browser` step (`id: browser`, `continue-on-error: true`). `test` returned 1 and
+  the enforcement step's conclusion is `failure`. The guard is therefore **not** self-satisfying:
+  it detects a `continue-on-error` step's real failure and reddens the job.
+- **This is why the earlier "constant substitution" reading was wrong.** `continue-on-error: true`
+  separates *conclusion* (`success` - what the jobs API and a step-level `if:` see) from *outcome*
+  (`failure` - what a `run:`-block `${{ }}` sees). The enforcement step reads `.outcome`, so it
+  works. The jobs API reports the *conclusion*, so a failing job can list its `continue-on-error`
+  steps as `success`; reading the jobs API alone is what hides the failure. On a fully green run
+  every substituted value is `success`, which is indistinguishable from a literal constant - so a
+  green run is not a test of the guard. A guard is only falsified by a run where it should fire.
+- **Do not "fix" this guard to read `.conclusion`.** `.conclusion` is `success` for every
+  `continue-on-error` step, so switching to it would make the guard genuinely self-satisfying -
+  i.e. it would introduce the exact defect the earlier note wrongly attributed to the live code.
+  `.outcome` is the correct selector here. Guard: the `.conclusion` invariant and its negative
+  control live in `tests/test_m02a_ci_gate_integrity.py` (`test_enforcement_never_reads_step_conclusion`,
+  `test_outcome_detector_is_not_blind`), which `sg-02-fe-2-v.yml` already triggers on.
 - **A collection error makes the suite exit 0 while running nothing.** `weaver/autonomy` is a
   *tracked package* (`__init__.py` + `guard.py` + `proposal_engine.py`, `__status__ = "disabled"`)
   and `weaver/autonomy.py` is a *tracked module* (91 lines) that actually defines
