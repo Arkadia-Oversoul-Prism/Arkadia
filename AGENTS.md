@@ -1208,3 +1208,55 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   At `6115de9a` the canonical route produced `RUN-766769015520` -> `EVD-e2203f62d506` with
   `response_sha256 f82de127...`, byte-identical to the CI external-beta evidence and the prior
   canonical run for the same prompt — three independent executions agree.
+
+## A "provider outage" can be your own deployment's missing identity — and the public admission signal was there all along (gate-hygiene)
+- The canonical N-ATLAS route returned `503` ("provider emitted error event with null/empty data")
+  for ~45 minutes while the **GitHub Actions** runner and, later, **Render** succeeded on the
+  identical `/generate` request. The failure was initially misclassified as a provider-wide
+  ZeroGPU outage (`ENVIRONMENTAL`). It was **`ATTRIBUTABLE`**: the deployment's own environment
+  lacked the provider credential. Measured 2026-10-10 at deployed revision `4f09b558` (==
+  `origin/main`, `revision_conflict false`): after the operator added an HF credential to Render,
+  `RUN-fefcc4967e1a -> EVD-29a396500a41` and `RUN-1480c94a1211` both completed (`terminal_event
+  complete`); a same-instant sandbox control (no credential, **both** `curl` and `requests`) still
+  produced `event: error` / `data: null`.
+- **Do not let "works in CI" stand in for "works in the deployment."** They exercise different
+  network positions and different environments. A green CI job is evidence about the CI runner,
+  never about the product's egress. The differential is detectable in seconds: run the deployment
+  route and a direct probe *in the same minute* and compare — a client-side differential with a
+  live provider rules out a provider outage without any credential.
+- **The ZeroGPU admission signal is PUBLIC.** `GET /api/spaces/<space>/events` needs no token and
+  carries `event: stage` + `event: zero-gpu-count`. The forensics workflow read it **only under
+  `HF_TOKEN`** and wrote `SKIPPED` otherwise, so the observability the incident needed was thrown
+  away for want of a secret. It is now always captured (`space-admission.json`, echoed into
+  `summary.json.space_admission`).
+- **An endless SSE stream makes `response.text` a hang, not a read.** The pre-existing
+  `get_text("runtime-events.txt", …/events…)` call was a latent hang: `/events` replays recent
+  events then holds the connection open. The repair races a line cap and a deadline, and treats a
+  per-read timeout as **"the buffered prefix is complete"** — not as a failure. A first cut caught
+  the timeout as a `RequestException` and discarded everything already collected, so the artifact
+  showed `stage: null, zero_gpu_count: null`: the fix measured nothing while the job stayed green.
+  **Inspect the artifact, not the job conclusion**, when the artifact *is* the deliverable.
+- **Attribute by same-instant control, and separate correlation from causation.** The credential
+  was added *between* the failing and passing Render measurements, so the link is a temporal
+  correlation, not a controlled A/B; the exact admission rule is **NOT TESTED**. Recorded
+  unreconciled: the GitHub runner is admitted **without** any credential, so admission is **not
+  solely token-gated**. A hypothesis disproved by experiment (the sandbox failed with `requests`
+  too, killing the client-library theory) belongs in the record alongside the one that held.
+- **Before "add a self-host runtime", check that one is not already tracked.**
+  `deploy/n-atlas-server/` already serves an OpenAI-compatible `/v1/chat/completions` over
+  `QuantFactory/N-ATLaS-GGUF`, selected by `N_ATLAS_PROTOCOL` (`openai_compatible` default) +
+  `N_ATLAS_BASE_URL` (`lab/engineering_lab/gateway.py:191,437-439`). The gap was not
+  implementation but a **contract pin**: `tests/test_natlas_selfhost_contract.py` now holds the
+  gateway to the adapter's expectations with a negative control that proves the detector flags a
+  missing route (it failed on first run and caught a wrong expectation in the test itself).
+
+## Adding tests to a repository that pins the *whole* test corpus
+- `tests/test_m02a_ci_gate_integrity.py` asserts every tracked path is admitted by
+  `scripts/cp10_mutation_boundary_policy.py`. New test files and workflows are admitted by the
+  existing rules (`tests/…`, `.github/workflows/…`), so no allowlist edit was needed — but run
+  `printf '<path>\n' | python scripts/cp10_mutation_boundary_policy.py --judge` for any
+  unfamiliar path before committing, rather than assuming.
+- A new workflow adds passing nodes to the generic workflow-scanning suites by construction
+  (`test_ci_gate_trigger_coverage.py`, `test_workflow_injection_boundary.py`). Compare the failing
+  /error **node set**, never raw totals.
+
