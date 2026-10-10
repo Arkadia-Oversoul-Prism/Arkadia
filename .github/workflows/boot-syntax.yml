@@ -1,0 +1,46 @@
+name: Boot Syntax Boundary
+
+# `tests/test_boot_syntax_boundary.py` makes the P1-A guard continuous and
+# repository-wide: `api/main.py` (the boot surface that shipped a SyntaxError in
+# `cd24bb1`, boot-breaking every Render deploy of that revision) and every tracked
+# Python file must parse. As introduced by #297 it was executed by *no* workflow —
+# `grep -rn test_boot_syntax .github/workflows/` returns 0 — so the boundary held
+# only when a human ran the suite by hand. That is the defect class this repository
+# already names: a guard no gate runs is decoration.
+#
+# The guard's input is the whole tracked Python corpus, so a path filter that named
+# a handful of files would be incomplete by construction: the next boot-broken module
+# would be added at a path no `paths:` entry selects, and the guard would never run on
+# the pull request that introduced it. The filter therefore selects every `.py` file
+# at any depth. `tests/test_boot_syntax_ci_wiring.py` proves the filter is complete
+# against the guard's own domain and proves the step can fail the job.
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/boot-syntax.yml"
+      - "**/*.py"
+      - "*.py"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/boot-syntax.yml"
+      - "**/*.py"
+      - "*.py"
+  workflow_dispatch:
+
+jobs:
+  boot-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: pip install pytest pyyaml
+      - name: Boot-syntax boundary guards
+        run: |
+          # The guard uses `compile()`, not `import`, so it needs no application
+          # dependency: it runs on a machine (like this job) that never installs
+          # fastapi/pydantic, and cannot misreport a dependency gap as a boot break.
+          python -m pytest tests/test_boot_syntax_boundary.py tests/test_boot_syntax_ci_wiring.py -q
