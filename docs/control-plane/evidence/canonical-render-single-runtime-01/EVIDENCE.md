@@ -181,3 +181,23 @@ builds the service. A revision is still not observable on any host until a build
 - Actual running revision on any host: `UNKNOWN` (unchanged).
 - Render service-to-hostname mapping: `UNKNOWN` (unchanged).
 - Production acceptance: `NOT CLAIMED` (unchanged).
+
+
+---
+
+## ADDENDUM 3 — Render management-plane reconciliation (2026-10-10)
+
+The earlier addenda correctly marked service-to-hostname mapping UNKNOWN because Render management access had not been inspected at that time. That uncertainty is now resolved by Render's service metadata:
+
+- Service: `Arkadia`
+- Service ID: `srv-db49jbh42hec73aj84qg`
+- Origin: `https://arkadia-qzu4.onrender.com`
+- Repository: `Arkadia-Oversoul-Prism/Arkadia`, branch `main`, root `.`, Dockerfile `./Dockerfile`
+- Region: Oregon
+- SSH address metadata: `srv-db49jbh42hec73aj84qg@ssh.oregon.render.com` (address only; no private key retrieved)
+- Deployment: `dep-db54i61rn11c73d7cq10`, state `live`
+- Deployed revision at observation: `17b931b4fe6dd9b27749894dd0d9b1dc9a2e14f5`
+
+The live deployment metadata confirms the canonical service mapping. The repository Dockerfile builds both the primary Prism frontend and operator console, then serves them with FastAPI in one Render image. The three active `vercel.json` files and Vercel-specific route-observation tools are being archived/removed from active paths in the reconciliation branch.
+
+A fresh post-change live HTTP/OpenAPI capture is still required. The GitHub Actions workflow `.github/workflows/render-production-reconciliation.yml` will upload the full live OpenAPI document, source inventory, per-path/method reconciliation, frontend probes, and anonymous/invalid-token authorization observations. Authenticated non-sovereign behavior remains NOT TESTED without a safe provisioned test identity. Production acceptance remains NOT CLAIMED until the workflow evidence and human review are complete.
