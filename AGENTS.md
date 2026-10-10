@@ -1144,3 +1144,16 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   (unauthenticated) vs 403 (unauthorized) is **NOT TESTED** — record the limitation, do not claim
   the distinction.
 - Evidence: `docs/control-plane/evidence/route-composition-acceptance-01/ACCEPTANCE.md`. PR #408.
+- **A wiring guard must test *execution*, not *mention*.** The first cut of
+  `tests/test_solspire_route_composition_ci_wiring.py` decided "this workflow runs the
+  contract" by substring-matching the path in a step's `run` string — so
+  `echo tests/test_solspire_route_composition.py` and even a comment passed it. Tokenise
+  the command (`shlex`, comments dropped) and require an actual `pytest` invocation whose
+  arguments contain the contract file *or its containing directory* (`pytest tests/ -q`
+  executes it too). Also inspect the **whole** exemption path: step *and* job
+  `continue-on-error`, plus step *and* job `if: false` — step-level alone lets a job-level
+  `continue-on-error: true` hide an always-passing gate. Prove the tightened detector on
+  the **real** workflow file (mutate the executing step to `echo`, and the job to
+  `continue-on-error: true`; both must redden the guard), then restore it byte-identically.
+- Corrected in PR #408 (second commit). Scope stayed the guard + record; the route
+  inventory and authorization findings were not touched.

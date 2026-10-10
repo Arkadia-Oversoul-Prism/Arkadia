@@ -8,7 +8,7 @@
 > **Deployment drift detected and re-measured.** The examination began at `main`
 > `3b74c19d`. While it ran, PR #405 merged, advancing `main` to `c8abb28e`
 > (2026-10-10) and moving production with it. Nothing here restates the earlier
-> reading: every measurement was **re-derived at `c8abb28e`** (Section 11). The
+> reading: every measurement was **re-derived at `c8abb28e`** (Section 12). The
 > `3b74c19d` readings are retained as a superseded first pass.
 
 ## 1. Exact revision under examination
@@ -73,7 +73,7 @@ Source-equivalence note (necessary, not sufficient): the three gate inputs
 (`solspire/console_router.py` `3a1bc916`, `tests/test_solspire_route_composition.py`
 `86e71b1e`, `scripts/production_runtime_probe.py`) are **byte-identical** between
 `73fbb51a` and `3b74c19d` — but the execution recorded here is at the revision
-actually dispatched, and the probe script changed in `c8abb28e` (Section 11).
+actually dispatched, and the probe script changed in `c8abb28e` (Section 12).
 
 ## 4. The route inventory (drives Sections 4–5)
 
@@ -160,7 +160,7 @@ operations, while 98 operations enforce 401/403 at runtime. Two consequences:
 2. The anonymously-reachable list must be read as *observed reachability*, not as a
    declared public contract. In particular `/api/keys`, `/api/provider-keys` and
    `/api/tts/keys` return metadata/previews anonymously; whether that leaks any secret
-   material is **not established here** and is proposed as follow-up (Section 8).
+   material is **not established here** and is proposed as follow-up (Section 10).
 
 ### 5.3 Functional route-availability result
 
@@ -177,11 +177,29 @@ the contract's 5 composed routes are all present. Functional composition is **PA
 - added `tests/test_solspire_route_composition_ci_wiring.py` to both `paths` filters;
 - added a step running that guard, so a rewrite of the gate is judged by itself.
 
-New guard `tests/test_solspire_route_composition_ci_wiring.py` (7 tests) states, over
-every workflow that runs the contract: (1) some workflow runs it; (2) such a workflow is
-dispatchable; (3) its `paths` filter names the contract file and `solspire/**`; (4) its
-contract step can fail the job. It carries negative controls for each defect form
-(missing dispatch, incomplete filter, `continue-on-error`) and a positive control.
+New guard `tests/test_solspire_route_composition_ci_wiring.py` (14 tests) is stated over
+every workflow that **mentions** the contract. Its four conditions are load-bearing:
+
+1. some workflow **executes** it — a step whose command is a pytest invocation whose
+   arguments contain the contract file or its containing directory (`pytest tests/ -q`
+   counts). A step that only *prints* or *comments* the path is a mention, not an
+   execution and does not satisfy this. The command is tokenised (`shlex`, comments
+   dropped) so prose cannot masquerade as an invocation.
+2. such a workflow is dispatchable (`workflow_dispatch`);
+3. its `paths` filter names the contract file **and** `solspire/**`;
+4. the executing step can actually fail the run — it is not exempted by step- or
+   job-level `continue-on-error`, nor by step- or job-level `if: false`.
+
+Negative controls cover each defect form: mention-without-execution (`echo` of the path),
+comment-only mention, a non-pytest command naming the path (`cat`), missing
+`workflow_dispatch`, an incomplete `paths` filter, `continue-on-error` at step and at job
+level, and `if: false` at step and at job level. Positive controls cover the wired shape
+and a directory invocation (`pytest tests/ -q`).
+
+**Live controls on the real workflow** (not synthetic dicts): replacing the executing
+step's `run` with `echo tests/test_solspire_route_composition.py` → **2 failed** (the
+loose predecessor detector passed this form); adding job-level `continue-on-error: true`
+→ **2 failed**. The workflow file was restored byte-identically after each control.
 
 **Runtime-proven:** dispatching the gate on the branch head
 (`ref=acceptance/route-composition-01`) produced run `38075821913` at `a6f4f260`, job
@@ -189,7 +207,31 @@ contract step can fail the job. It carries negative controls for each defect for
 routes`) and 8 (`Route-composition CI-wiring guard`) both **success**. Check-runs on
 `a6f4f260` include `router-composition` = **success**.
 
-## 7. Regression evidence (no new failure introduced)
+## 7. Guard-and-record correction (review findings, 2026-10-10)
+
+The record above and the guard shipped in the first pass were reviewed against the live
+branch. Three narrow defects were found in the **self-checking guard**, not in the route
+inventory or the runtime observations. They are corrected here; the corrected guard is a
+separate claim from the runtime observations and should be read as such.
+
+| # | Defect (pre-correction) | Consequence | Correction |
+| --- | --- | --- | --- |
+| 1 | `_runs_contract` matched the contract path **anywhere** in a step's `run` string | a step that merely `echo`ed or commented the path satisfied the "runs the contract" condition | the detector now tokenises each command and requires an actual **pytest invocation** whose arguments target the contract file or a directory containing it |
+| 2 | only step-level `continue-on-error` was inspected | a job-level `continue-on-error: true` left the contract step unable to fail the run, yet the guard passed | the whole execution path is inspected: step and job `continue-on-error`, and step and job `if: false` |
+| 3 | the guard was documented but the underlying execution-on-demand guarantee was not proven at the gate | — | the guard is run **inside** the gate (pre-existing) and is proven end-to-end by the CI run on this PR's head (see PR checks) |
+
+Measured before the correction: `_runs_contract("echo tests/test_solspire_route_composition.py")`
+→ `True` and `_runs_contract("# run tests/test_solspire_route_composition.py")` →
+`True` — both forms passed the pre-correction detector. After the correction, both are
+reported as `no effective step executes the contract`, and the live controls in Section 6
+confirm the bite on the real workflow file.
+
+Scope: this correction changes only the guard and this record. No change to
+`solspire/console_router.py`, the route inventory, the runtime observations, or the
+authorization findings. The pre-existing 22-failure / 1-error broad-suite result is
+unchanged debt and is not repaired here.
+
+## 8. Regression evidence (no new failure introduced)
 
 Full suite, branch vs `main`, **same environment** (`pytest tests/ -q -rEf
 --continue-on-collection-errors`), at the rebased current base:
@@ -197,13 +239,15 @@ Full suite, branch vs `main`, **same environment** (`pytest tests/ -q -rEf
 | Tree | Result |
 | --- | --- |
 | `main` `c8abb28e` | 86 failed, 1822 passed, 31 skipped, 19 errors |
-| branch `bbe54278` (rebased on `c8abb28e`) | 86 failed, 1829 passed, 31 skipped, 19 errors |
+| branch (guard-and-record correction) | 86 failed, 1836 passed, 31 skipped, 19 errors |
+| branch `bbe54278` (first corrected pass, guard = 7 tests) | 86 failed, 1829 passed, 31 skipped, 19 errors |
 | `main` `3b74c19d` (first pass) | 86 failed, 1822 passed, 31 skipped, 19 errors |
 | branch `a6f4f260` (first pass) | 86 failed, 1829 passed, 31 skipped, 19 errors |
 
 - sorted failing/error **node set**: **identical** on both trees
   (`comm -3` empty); digest `be6bd2372e9a651f45f4e0089903a0317ba5140dc9f3349954a91dc283672da0`, 105 nodes.
-- `+7 passed` is exactly the 7 new guard tests (`--collect-only` → 7 collected).
+- `+14 passed` over `main` is exactly the 14 corrected guard tests
+  (`--collect-only` → 14 collected); the earlier pass reported `+7` for the 7-test guard.
 
 The absolute 105-node local debt is an **environment delta** from the 23 nodes CI
 reported at the same revision (dependency set), not a regression; the load-bearing
@@ -214,7 +258,7 @@ Supporting suites, all green: `tests/architecture` + `test_ci_gate_trigger_cover
 **147 passed**; `tests/test_m02a_ci_gate_integrity.py` → **64 passed**; CP10
 `--judge` on the branch diff → **PASS**.
 
-## 8. Boundaries explicitly not claimed
+## 9. Boundaries explicitly not claimed
 
 | Boundary | State | Why |
 | --- | --- | --- |
@@ -225,7 +269,7 @@ Supporting suites, all green: `tests/architecture` + `test_ci_gate_trigger_cover
 | Production acceptance / deployment *identity* beyond revision metadata | **NOT CLAIMED** | `/api/version` matching revision is necessary, not sufficient (its own note says so) |
 | Pre-existing 23-node CI debt and 105-node local debt | **NOT REPAIRED** | out of scope; recorded, not silently resolved |
 
-## 9. Proposed follow-ups (not executed)
+## 10. Proposed follow-ups (not executed)
 
 1. Declare a `securitySchemes` entry (and per-operation `security`) so the OpenAPI
    document stops being a misleading authorization oracle.
@@ -233,7 +277,7 @@ Supporting suites, all green: `tests/architecture` + `test_ci_gate_trigger_cover
 3. Configure `ARKADIA_PROBE_LOW_PRIVILEGE_BEARER` so 401 (unauthenticated) and 403
    (unauthorized) can be distinguished.
 
-## 10. Reproduction commands
+## 11. Reproduction commands
 
 ```bash
 # exact revision
@@ -247,7 +291,7 @@ python -m pytest tests/test_solspire_route_composition.py tests/test_solspire_ro
 python -m pytest tests/ -q -rEf --continue-on-collection-errors
 ```
 
-## 11. Deployment drift re-measurement (binding)
+## 12. Deployment drift re-measurement (binding)
 
 Between the first and second passes, `main` advanced `3b74c19d` → `c8abb28e`
 (PR #405, "Preserve codex response headers on body read timeout"), and production moved
