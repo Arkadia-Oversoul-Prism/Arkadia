@@ -110,7 +110,81 @@ The blocker is on the provider boundary; no repository change removes it. In pri
 3. **Or point `N_ATLAS_BASE_URL` at a self-hosted N-ATLAS runtime**, keeping the same
    `protocol=gradio` (or `openai`) contract.
 
-## 7. What is *not* claimed
+## 8. RESOLUTION (later the same evening) — the operator added an HF credential to Render
+
+The operator added an HF credential to the canonical Render environment. Re-measured:
+
+| Client (egress) | Credential | Time (UTC) | Result |
+| --- | --- | --- | --- |
+| Canonical **Render** | **present** | 21:53:54 | **SUCCESS** — `RUN-fefcc4967e1a` → `EVD-29a396500a41`, `response_sha256 f82de127…` |
+| Canonical **Render** | **present** | 21:58:31 | **SUCCESS** — `RUN-1480c94a1211`, response `"OK"`, `terminal_event complete` |
+| Agent sandbox (`curl`) | absent | 21:58:31 | `event: error` / `data: null` |
+| Agent sandbox (`requests`) | absent | 21:58:38 | `event: error` / `data: null` |
+| GitHub Actions runner | absent | 21:57:05 | **SUCCESS** — `sse-frames.json` `event: complete`, real `usage` |
+
+**The canonical-route blocker is closed for the tested revision.** The failure the product
+surfaced (`503`) was the deployment's *own* lack of provider identity, not a provider outage.
+
+### What is proven, and what is not
+
+- **Proven (same-instant control):** at 21:58:31 Render succeeded while the sandbox failed within
+  seconds. Provider capacity was therefore available; the differing variable is the **client's
+  identity**, not CPU-only inference capacity.
+- **Proven:** the agent sandbox fails with **both** `curl` and `requests`, so the differential is
+  **not** the client library.
+- **NOT proven:** a clean causal experiment. The token was added *between* the failing and passing
+  Render measurements, so the observation is a temporal correlation, not a controlled A/B. A
+  concurrent Render-side env change cannot be excluded without a paired run. The token is the
+  load-bearing change observed; the exact admission rule is **NOT TESTED**.
+- **NOT reconciled:** the GitHub Actions runner is admitted **without** any credential
+  (`hf_token_present_for_authenticated_diagnostics: false` in run `38089548891`), while Render
+  needed one. Admission is therefore **not solely token-gated** — the full rule is **NOT TESTED**.
+  This remains an open observation, not a contradiction to paper over.
+
+## 9. Provider-side observability — repaired without a credential
+
+The forensics workflow already read the HF `/events` stream, but only under `HF_TOKEN`; without the
+secret it wrote `SKIPPED`. Yet `/events` is **public** and carries exactly the admission evidence
+this incident needed: `stage` and**`zero-gpu-count`** (observed steady at `0` throughout the
+failing window — the ZeroGPU admission signal, and weak support for the quota hypothesis, still
+**NOT TESTED** as the cause).
+
+The workflow now always captures it:
+
+- new `parse_admission()` → `space-admission.json`, echoed into `summary.json.space_admission`;
+- new `get_stream_bounded()` — the pre-existing `get_text("runtime-events.txt", …)` call was a
+  **latent hang**, because `/events` never closes and `response.text` blocks until the socket times
+  out. The reader now bounds by line count and deadline, and treats a **quiesced** stream as a
+  complete prefix rather than a failed read;
+- proven end-to-end: run **`38089548891`** artifact contains
+  `space-admission.json {"stage": "RUNNING", "zero_gpu_count": "0"}` and a real inference frame.
+
+A first cut of the reader caught the read timeout as a failure and discarded the prefix — the
+artifact showed `space_admission {stage: null, zero_gpu_count: null}`, i.e. the fix measured
+nothing. Caught by inspecting the artifact rather than trusting the green job, then corrected.
+
+## 10. Self-hosted N-ATLAS path (operator's second request)
+
+`deploy/n-atlas-server/` **already exists** — an OpenAI-compatible GGUF gateway
+(`/v1/chat/completions`, `/v1/models`, `/health`) over `QuantFactory/N-ATLaS-GGUF`, with an
+optional `N_ATLAS_API_KEY`. The gateway selects it when `N_ATLAS_PROTOCOL` is left at its default
+`openai_compatible` and `N_ATLAS_BASE_URL` points at the runtime
+(`lab/engineering_lab/gateway.py:191,437-439`). **No new implementation was written.**
+
+What was missing was a contract pin, so the gateway could silently drift from the adapter that
+consumes it. `tests/test_natlas_selfhost_contract.py` (11 tests) now pins the routes, the response
+shape the adapter reads (`choices[0].message.content`, `model`, `finish_reason`, `usage`), the
+optional-API-key behaviour, the no-fallback boundary, and the Dockerfile's model repo and `$PORT`
+binding — with a **negative control** proving the detector flags a missing route. That control
+earned its place immediately: it failed on its first run and exposed a wrong expectation in the
+test itself.
+
+**Recommended next action (operator):** after the current acceptance, point the Render
+`N_ATLAS_BASE_URL` at a self-hosted `deploy/n-atlas-server` instance and set `N_ATLAS_PROTOCOL`
+explicitly, which removes the shared-ZeroGPU admission differential as a class. This is a
+deployment/configuration action, not a repository change, and is **not executed here**.
+
+## 7. What was *not* claimed (as of the original investigation)
 
 - Not claimed that ZeroGPU quota exhaustion is the proven cause; it is the leading hypothesis
   consistent with the shared-pool hardware, and it is **NOT TESTED**.

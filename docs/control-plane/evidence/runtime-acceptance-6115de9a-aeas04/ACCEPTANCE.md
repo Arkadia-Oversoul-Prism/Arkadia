@@ -298,6 +298,37 @@ curl -s -X POST https://arkadia-qzu4.onrender.com/api/provider-keys \
   -H 'Content-Type: application/json' -d '{"provider":"__aeas04_probe__","key":"x"}'
 ```
 
+## 11a. Update — canonical N-ATLAS route restored (2026-10-10 ~21:53–21:59Z)
+
+After the operator added an HF credential to the canonical Render environment, the governed
+N-ATLAS route was re-measured and **succeeds**:
+
+| Field | Value |
+| --- | --- |
+| Deployed revision | `4f09b55854253233962d5899f328ba56889b293b` (`/api/version`, `revision_source RENDER_GIT_COMMIT`, `revision_conflict false`) |
+| `origin/main` at measurement | `4f09b558…` — **source ↔ runtime consistency VERIFIED** |
+| Catalog | `configured: true`, `status: AVAILABLE`, `protocol=gradio` |
+| Run 1 | `RUN-fefcc4967e1a` → `EVD-29a396500a41`, `response_sha256 f82de127…`, `terminal_event complete` |
+| Run 2 | `RUN-1480c94a1211`, response `"OK"`, `terminal_event complete` (21:58:31) |
+| Same-instant control | agent sandbox (no credential, both `curl` and `requests`) → `event: error` / `data: null` |
+
+**The `503` the product surfaced was the deployment's own lack of provider identity, not a
+provider outage.** Classification of the earlier failures is therefore revised:
+`ENVIRONMENTAL` (external infrastructure) → **`ATTRIBUTABLE` to the deployment's provider
+configuration**, which the operator has now corrected.
+
+**Boundaries that remain open** (do not read the above as acceptance):
+
+- The causal claim is a **temporal correlation, not a controlled A/B** — the credential was added
+  between the failing and passing measurements. Exact admission rule: **NOT TESTED**.
+- The GitHub Actions runner is admitted **without** any credential, so admission is not solely
+  token-gated. Unreconciled observation, recorded as such.
+- **Two independent human testers** (NAIC 2026 PS1) remain **MISSING** — human-gated.
+- No A/B paired run, no regression sweep of the broader product surfaces in this update.
+- **Production acceptance remains NOT CLAIMED.**
+
+Details: `NATLAS-ACCESS-DIFFERENTIAL-01.md` §8–§10.
+
 ## 11. Boundaries not claimed
 
 - No merge, deployment, production-configuration change, credential mutation, or restart was
