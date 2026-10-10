@@ -10,6 +10,16 @@ on:
       - "web/console/**"
       - "Dockerfile"
       - "architecture/runtime_manifest.yaml"
+  push:
+    branches: ["main"]
+    paths:
+      - "scripts/production_runtime_probe.py"
+      - ".github/workflows/canonical-render-runtime-probe.yml"
+      - "api/**"
+      - "web/public_prism/**"
+      - "web/console/**"
+      - "Dockerfile"
+      - "architecture/runtime_manifest.yaml"
   workflow_dispatch:
 
 permissions:
