@@ -1058,3 +1058,40 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   break. Keep it that way when wiring similar syntax guards.
 - Prove the wiring bites with a **live** negative control, not a synthetic one: replace
   `**/*.py` with `api/main.py` in the working tree and the coverage test must fail.
+
+## SPA-mode alias observation — an Accept header decides what the harness reads (gate-hygiene)
+- `scripts/gate2_production_observation.py::head()` fetched the canonical alias with
+  **no** `Accept` header. `api/main.py::root` serves the single-page app only when the
+  request is a browser navigation: otherwise it returns the tiny liveness JSON
+  (`{"status":"Arkadia Rebirth online",...}`, ~40 bytes). The harness therefore measured
+  the **liveness payload, never the SPA** — and because the minified marker strings live
+  only in the bundle, every marker, including the SG-04 `activity-runtime-draft.v1:`
+  mount, read `0` and printed a **phantom SG-04 regression**. Repaired with an explicit
+  `BROWSER_ACCEPT` (`text/html,application/xhtml+xml,...`) on the fetch.
+- **Dangerous direction.** A sentinel that defaults to "absent" turns a harness defect
+  into a production alarm ("the mount was dropped again"), which is indistinguishable
+  from the real regression it was built to catch. When a marker reads 0, first prove the
+  fetch actually retrieved the artifact that carries the marker: check the response's
+  `manifest`/asset name and byte size, not just HTTP 200.
+- **A polarity-blind oracle launders a real fix.** `classify_marker_oracle` scored
+  `all(count > 0)`, but the marker table deliberately includes a **control literal that
+  must be absent**. A correct `0` for the control was scored as a violation, so a
+  legitimately matched marker set could not read `VERIFIED`. The oracle must know each
+  entry's expected polarity (`expect > 0` vs `expect == 0`; a control may print either
+  ABSENT or a legacy ACCEPT value). Guarded by a **polarity negative control** —
+  a control-literal observation that is *correct* under its declared polarity and must
+  not be reported as a violation.
+- **A retirement invalidates a state-pinning test.** `tests/test_gate2_alias_app_binding.py::`
+  `test_live_root_config_names_a_known_frontend` pinned the *pre-retirement* root
+  `vercel.json`. The Render reconciliation removed that file at `5a292e11`
+  (2026-10-10). The test was made retirement-aware (call no root config a safe
+  NON_BINDING observation; keep the real cross-frontend violation a failure). Repairing
+  it removed the single failing node vs `main`.
+- Measured at `07834232`: `ALIAS https://arkadia-qzu4.onrender.com/` → HTTP 200,
+  `manifest assets/index-BzLymmg4.js` (892397 B), SG-04 `in deployed artifact: 1`,
+  marker-set oracle → `VERIFIED (marker set observed in served artifact)`. The
+  marker-list-stale guard still fires if a literal leaves source. `deployment build
+  output observed` stays `BLOCKED` (deployment URL behind Vercel SSO) and production
+  acceptance stays `NOT CLAIMED` — a harness that observes the served artifact is not a
+  deployment-identity observation.
+- Evidence: `docs/control-plane/evidence/gate2-render-alias-observation-01/`. PR #403.
