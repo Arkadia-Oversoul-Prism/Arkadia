@@ -112,3 +112,72 @@ remains `UNKNOWN`. These observations are the basis for requiring runtime-identi
   observation time; see `GET /api/version`).
 - Whether `qzu4` or `kw64` is the intended production custom domain: `UNKNOWN`.
 - Human production acceptance: `NOT CLAIMED`.
+
+---
+
+## ADDENDUM 2 - verification-oracle hardening (2026-10-10)
+
+> Appended by the pass that hardened the revision probe after review of PR #392. The sections
+> above are **preserved unchanged**. This addendum records a source-level change and the
+> measurements that motivated it. No deployment, no Render/Vercel change, no acceptance.
+
+### What the review found (measured, not inferred)
+
+The first revision of the probe carried **two independent absence vocabularies** - the endpoint
+accepted only a lowercase `unknown` as absent, the reconciliation utility also accepted
+`none`/`""`/`None` - so the two halves of one change set disagreed about what "absent" meant.
+A negative control against the pre-hardening implementation (`ba3c7b5`) measured the consequence:
+
+| Input (both sides) | Pre-hardening verdict | Consequence |
+|---|---|---|
+| `UNKNOWN` | `MATCH` | placeholder reported as **verified** |
+| `None` | `MATCH` | placeholder reported as **verified** |
+| `N/A` | `MATCH` | placeholder reported as **verified** |
+| `-` | `MATCH` | placeholder reported as **verified** |
+| `main` (a branch name) | `MATCH` | non-revision reported as **verified** |
+| `abc123` (truncated SHA) | `MATCH` | non-revision reported as **verified** |
+
+The pre-hardening endpoint also echoed any present value as `source_revision` with
+`metadata_present: true` (measured for `None`, `N/A`, `release-candidate-tag`), and reported no
+signal at all when a baked revision and the provider commit were both valid and disagreed - the
+shadowed provider value was not exposed in any field. The negative control surfaced a wider defect
+than the review's static reading: branch-name and truncated-SHA values matched, not only
+case/whitespace variants of the documented placeholder tokens.
+
+### The repair
+
+- `kernel/revision_identity.py` (**new**, layer 2, stdlib only) is now the single definition of
+  absent / placeholder / invalid / valid-revision, shared by the endpoint and the utility so the
+  two cannot drift again. Absence semantics are documented as a contract, not a convenience:
+  `""`, `unknown`, `none`, `null`, `nil`, `n/a`, `na`, `not available`, `unset`, `undefined`,
+  `-`, `--`, `?`, `tbd`, `placeholder` - compared after trimming, collapsing internal whitespace,
+  and case-folding.
+- A usable revision is now **required to be a Git object name** (7-40 hexadecimal characters).
+  A tag, a branch name, or a truncated SHA is classified `invalid` and never matches.
+- `GET /api/version` additionally reports `revision_conflict` and `revision_sources`, and echoes a
+  value **only after it validates as a revision**, so a misconfigured variable is classified rather
+  than dumped. `revision_conflict` is true only when `ARKADIA_SOURCE_REVISION` and
+  `RENDER_GIT_COMMIT` are both valid revisions that differ.
+- `scripts/version_reconciliation.py` gained the `CONFLICT` verdict (exit 4) and fails closed to
+  `UNKNOWN` when a reported revision source carries an invalid value. Only two valid revision
+  identifiers can now produce `MATCH` or `MISMATCH`; absence stays distinguishable from genuine
+  drift.
+
+### Build path, measured
+
+The new `ARG ARKADIA_SOURCE_REVISION` is **not supplied by any repository build path**. The only
+docker build in the repository is `.github/workflows/n-atlas-developer-lab.yml`, job
+`Build canonical Render image`, whose step is `docker build --pull -t arkadia-canonical-runtime .`
+- no `--build-arg`. It therefore remains inert, and at runtime on Render the reported revision is
+the provider-injected `RENDER_GIT_COMMIT`. The Dockerfile comment was corrected to say this;
+no production build configuration was added, and this addendum makes no claim about how Render
+builds the service. A revision is still not observable on any host until a build containing
+`/api/version` is deployed.
+
+### Status
+
+- Revision semantics: unified, fail-closed, negative-control-proven.
+- Conflict between revision sources: now visible; precedence is no longer silent proof.
+- Actual running revision on any host: `UNKNOWN` (unchanged).
+- Render service-to-hostname mapping: `UNKNOWN` (unchanged).
+- Production acceptance: `NOT CLAIMED` (unchanged).
