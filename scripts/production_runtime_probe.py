@@ -79,8 +79,39 @@ def probe_path(path: str) -> str:
     return re.sub(r"\{[^/{}]+\}", "probe-id", path)
 
 
+def current_version() -> dict:
+    try:
+        with urllib.request.urlopen(BASE + "/api/version", timeout=TIMEOUT) as response:
+            return json.loads(response.read(100_000))
+    except Exception as error:
+        return {"_error": type(error).__name__}
+
+
+EXPECTED_REVISION = os.environ.get("GITHUB_SHA", "") if os.environ.get("GITHUB_EVENT_NAME") == "push" else ""
+deployment_identity = {
+    "expected_revision": EXPECTED_REVISION or None,
+    "observed_revision": None,
+    "status": "not_applicable_for_pull_request_probe" if not EXPECTED_REVISION else "waiting_for_render_deploy",
+}
+if EXPECTED_REVISION:
+    deadline = time.monotonic() + 420
+    while True:
+        version = current_version()
+        observed = version.get("source_revision") if isinstance(version, dict) else None
+        deployment_identity["observed_revision"] = observed
+        deployment_identity["version_payload"] = version
+        if observed == EXPECTED_REVISION:
+            deployment_identity["status"] = "matched"
+            break
+        if time.monotonic() >= deadline:
+            deployment_identity["status"] = "mismatch_or_deploy_not_live_within_420_seconds"
+            break
+        time.sleep(20)
+
+
 report = {
     "captured_at": datetime.now(timezone.utc).isoformat(),
+    "deployment_identity": deployment_identity,
     "origin": BASE,
     "mode": "read_only_get_probes; no mutation verbs invoked",
     "baseline": {},
@@ -272,6 +303,7 @@ if not LOW_PRIVILEGE_TOKEN:
 summary = {
     "result": "CAPTURED",
     "origin": BASE,
+    "deployment_identity": report["deployment_identity"],
     "main_openapi_path_count": report["openapi"]["path_count"],
     "openapi_operation_count": report["openapi"]["operation_count"],
     "get_routes_probed": sum(1 for x in report["endpoint_inventory"] if x["probe"] == "GET"),
@@ -292,3 +324,5 @@ for entry in report["endpoint_inventory"]:
     if "classification" in entry:
         summary["classifications"][entry["classification"]] = summary["classifications"].get(entry["classification"], 0) + 1
 print(json.dumps(summary, indent=2))
+if EXPECTED_REVISION and deployment_identity["status"] != "matched":
+    sys.exit(3)
