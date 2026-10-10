@@ -8,6 +8,10 @@ on:
       - "solspire/workevent_manager.py"
       - "tests/test_prism_execution_workevent_governance.py"
       - "tests/test_execution_workevent_boundary.py"
+      - "tests/test_workevent_evidence_boundary.py"
+      - "tests/test_authority_boundary.py"
+      - "tests/test_evidence_verification_boundary.py"
+      - "tests/test_authority_api_enterprise_boundary.py"
       - ".github/workflows/prism-execution-workevent-governance.yml"
   push:
     branches:

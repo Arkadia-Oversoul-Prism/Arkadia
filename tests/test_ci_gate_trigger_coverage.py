@@ -54,6 +54,11 @@ _ARCHITECTURE_TEST_SURFACE = "tests/architecture/test_layer_boundaries.py"
 _PYTEST = re.compile(r"\bpytest\b")
 _ARCHITECTURE_RUN = re.compile(r"tests/architecture(?:/|\s|$|\\)")
 
+# A named test file a workflow executes, as opposed to a directory or suite glob.
+_NAMED_TEST_FILE = re.compile(r"tests/[\w./-]+\.py")
+# `${{ steps.<id>.outcome }}` — a step whose outcome a later step asserts.
+_STEP_OUTCOME = re.compile(r"steps\.([A-Za-z0-9_-]+)\.outcome")
+
 
 def _workflow_paths() -> list[Path]:
     return sorted(WORKFLOWS.glob("*.yml"))
@@ -101,6 +106,38 @@ def _runs_pytest(workflow: dict) -> bool:
 
 def _runs_architecture_suite(workflow: dict) -> bool:
     return any(_ARCHITECTURE_RUN.search(script) for script in _run_scripts(workflow))
+
+
+def _steps(workflow: dict) -> list[dict]:
+    return [step for job in (workflow.get("jobs") or {}).values() for step in job.get("steps") or []]
+
+
+def _enforced_named_tests(workflow: dict) -> set[str]:
+    """Named test files a workflow executes as a *load-bearing* step.
+
+    A step is load-bearing when it is not `continue-on-error`, or when its `id`
+    is asserted through `${{ steps.<id>.outcome }}` somewhere in the job — the
+    CP10 pattern, where a soft step is still the thing a later enforcement step
+    tests. File-level targets are read from the `pytest` command line, so a
+    directory or suite glob (`tests/`, `tests/architecture`) contributes nothing
+    here: this invariant is about a specific file the workflow commits to running.
+    """
+    steps = _steps(workflow)
+    asserted = {
+        match
+        for step in steps
+        if isinstance(step.get("run"), str)
+        for match in _STEP_OUTCOME.findall(step["run"])
+    }
+    named: set[str] = set()
+    for step in steps:
+        run = step.get("run")
+        if not isinstance(run, str) or not _PYTEST.search(run):
+            continue
+        if step.get("continue-on-error") and step.get("id") not in asserted:
+            continue
+        named.update(_NAMED_TEST_FILE.findall(run))
+    return named
 
 
 def _selects_path(path_filter: set[str], path: str) -> bool:
@@ -164,6 +201,54 @@ def test_runs_pytest_detector_distinguishes_the_forms():
     assert not _runs_pytest({"jobs": {"j": {"steps": [{"run": "python -m py_compile api/main.py"}]}}})
 
 
+def test_enforced_named_tests_reads_only_load_bearing_steps():
+    # An ordinary step contributes its named targets.
+    assert _enforced_named_tests(
+        {"jobs": {"j": {"steps": [{"run": "pytest tests/test_a.py -q"}]}}}
+    ) == {"tests/test_a.py"}
+    # A directory or suite glob names no file.
+    assert _enforced_named_tests(
+        {"jobs": {"j": {"steps": [{"run": "pytest tests/ -q"}]}}}
+    ) == set()
+
+
+def test_enforced_named_tests_ignores_unasserted_soft_steps():
+    # Negative control: a `continue-on-error` step whose outcome nothing asserts
+    # is not load-bearing, so it must NOT contribute targets — otherwise the
+    # invariant would demand triggers for advisory steps and redden on noise.
+    soft = {
+        "jobs": {
+            "j": {
+                "steps": [
+                    {"run": "pytest tests/test_advisory.py -q", "continue-on-error": True},
+                    {"id": "enforce", "run": "test 'true' = 'true'"},
+                ]
+            }
+        }
+    }
+    assert _enforced_named_tests(soft) == set()
+
+
+def test_enforced_named_tests_keeps_outcome_asserted_soft_steps():
+    # Positive counterpart: the CP10 form — a soft step IS load-bearing when a
+    # later step asserts `steps.<id>.outcome`, so its targets must be counted.
+    asserted = {
+        "jobs": {
+            "j": {
+                "steps": [
+                    {
+                        "id": "soft",
+                        "run": "pytest tests/test_judged.py -q",
+                        "continue-on-error": True,
+                    },
+                    {"run": "test '${{ steps.soft.outcome }}' = success"},
+                ]
+            }
+        }
+    }
+    assert _enforced_named_tests(asserted) == {"tests/test_judged.py"}
+
+
 # ---------------------------------------------------------------------------
 # The invariants, over every workflow that runs pytest
 # ---------------------------------------------------------------------------
@@ -212,4 +297,42 @@ def test_architecture_fitness_is_selected_by_the_surfaces_it_judges(name: str):
         f"{name} runs the architecture fitness suite on pull_request but does not "
         "trigger on tests/architecture/**; the assertions themselves can be "
         "changed without the gate that executes them running"
+    )
+
+
+# Every other named test file a workflow executes as a load-bearing step. Each
+# is a separate parametrisation so a failure names the exact forgotten file.
+def _executed_named_tests() -> list[tuple[str, str]]:
+    pairs: list[tuple[str, str]] = []
+    for path in _workflow_paths():
+        for target in sorted(_enforced_named_tests(_load(path.name))):
+            pairs.append((path.name, target))
+    return pairs
+
+
+@pytest.mark.parametrize(
+    ("name", "target"), _executed_named_tests(), ids=lambda v: v.replace("/", ".")
+)
+def test_executed_named_test_is_selected_by_its_file(name: str, target: str):
+    """A file a workflow runs as a gate must trigger that workflow.
+
+    A workflow that executes `pytest tests/test_x.py` as a load-bearing step
+    (not `continue-on-error`, or soft but with its outcome asserted) will *run*
+    when a change reaches the other surfaces in its filter — but editing
+    `tests/test_x.py` itself does not select it. The file can then be weakened
+    with the gate that executes it never running, and the failure only surfaces
+    after merge, on `main`. That is the same masking hole the sibling
+    `test_m02a_ci_gate_integrity.py` closed for the CP10 boundary's own
+    contract, stated here once over every executed target.
+    """
+    workflow = _load(name)
+    paths = _path_filter(_trigger_block(workflow), "pull_request")
+    if paths is None:
+        # `pull_request` is undeclared or unfiltered; an unfiltered event already
+        # selects the workflow for any changed file.
+        return
+    assert _selects_path(paths, target), (
+        f"{name} runs {target} as a load-bearing step but its pull_request "
+        f"trigger does not select {target}; the test can be changed without the "
+        "gate that executes it running"
     )

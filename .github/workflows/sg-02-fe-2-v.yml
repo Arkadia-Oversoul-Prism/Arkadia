@@ -21,11 +21,25 @@ on:
       - 'lab/execution/**'
       - 'tests/test_phase5_governed_execution.py'
       - 'tests/test_phase4_evolution_planner.py'
+      # Enforced phase gates and the SolSpire runtime/contract suite. Each is run
+      # as a load-bearing step above; a change to the test file itself must select
+      # this workflow or the gate that executes it never runs (the masking hole
+      # tests/test_m02a_ci_gate_integrity.py closed for the boundary's own file).
+      - 'tests/test_phase7_calibration.py'
+      - 'tests/test_phase8_possibility.py'
+      - 'tests/test_phase9_decision_queue.py'
+      - 'tests/test_phase10_binding.py'
+      - 'tests/test_engineering_lab_candidate_proposals.py'
+      - 'tests/test_solspire_project_execution_service.py'
+      - 'tests/test_solspire_integration_health.py'
+      - 'tests/test_solspire_larder_graph_binding.py'
+      - 'tests/test_solspire_template_health_contract.py'
       # The boundary's own contract surfaces: a change that rewrites the policy or
       # its fitness tests must be judged by the boundary it rewrites, or the gate
       # is self-exempt.
       - 'scripts/cp10_mutation_boundary_policy.py'
       - 'tests/test_m02a_ci_gate_integrity.py'
+      - 'tests/test_ci_gate_trigger_coverage.py'
       - 'requirements.txt'
       - '.github/workflows/sg-02-fe-2-v.yml'
   pull_request:
@@ -52,11 +66,25 @@ on:
       - 'lab/execution/**'
       - 'tests/test_phase5_governed_execution.py'
       - 'tests/test_phase4_evolution_planner.py'
+      # Enforced phase gates and the SolSpire runtime/contract suite. Each is run
+      # as a load-bearing step above; a change to the test file itself must select
+      # this workflow or the gate that executes it never runs (the masking hole
+      # tests/test_m02a_ci_gate_integrity.py closed for the boundary's own file).
+      - 'tests/test_phase7_calibration.py'
+      - 'tests/test_phase8_possibility.py'
+      - 'tests/test_phase9_decision_queue.py'
+      - 'tests/test_phase10_binding.py'
+      - 'tests/test_engineering_lab_candidate_proposals.py'
+      - 'tests/test_solspire_project_execution_service.py'
+      - 'tests/test_solspire_integration_health.py'
+      - 'tests/test_solspire_larder_graph_binding.py'
+      - 'tests/test_solspire_template_health_contract.py'
       # The boundary's own contract surfaces: a change that rewrites the policy or
       # its fitness tests must be judged by the boundary it rewrites, or the gate
       # is self-exempt.
       - 'scripts/cp10_mutation_boundary_policy.py'
       - 'tests/test_m02a_ci_gate_integrity.py'
+      - 'tests/test_ci_gate_trigger_coverage.py'
       - 'requirements.txt'
       - '.github/workflows/sg-02-fe-2-v.yml'
   workflow_dispatch:
@@ -124,6 +152,12 @@ jobs:
       - name: Install test runner
         working-directory: .
         run: python -m pip install pytest
+      - name: CI gate trigger coverage
+        id: trigger_coverage
+        working-directory: .
+        # Load-bearing, not advisory: a workflow that runs a named test as a gate
+        # must itself be selected by that file. An unwired guard is decoration.
+        run: python -m pytest tests/test_ci_gate_trigger_coverage.py -q
       - name: Phase 3 harness self-test
         id: phase3_harness
         working-directory: .
@@ -550,6 +584,7 @@ jobs:
         if: always()
         run: |
           test '${{ steps.phase3_harness.outcome }}' = success
+          test '${{ steps.trigger_coverage.outcome }}' = success
           test '${{ steps.phase3_council.outcome }}' = success
           test '${{ steps.phase4_planner.outcome }}' = success
           test '${{ steps.phase5_execution.outcome }}' = success

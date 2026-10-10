@@ -936,3 +936,29 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   not fixture debt. Repairing the Lab ones edits `api/lab_routes.py` — an authority surface
   carrying the Lab mutation boundary — so it is sovereign-only and was proposed, not executed.
 
+
+
+## A CI gate must be selected by the files it executes — and must itself be executed (gate-hygiene)
+- `tests/test_ci_gate_trigger_coverage.py` (added by #300, `3f61cf2e`) stated the
+  "gate must be selected by what it judges" invariant but was run by **no workflow**
+  (`grep -rl test_ci_gate_trigger_coverage .github/workflows/` -> 0). A guard no gate
+  executes is decoration, not a boundary — the same class as the baseline-fingerprint
+  guard before `.github/workflows/baseline-fingerprint.yml` existed.
+- The invariant was incomplete: it covered `tests/architecture/**` but not the **named
+  test files** a workflow executes as a load-bearing step. Measured across PR-triggered
+  workflows: **13** named files were executed but absent from the trigger filter — edit
+  the test and the gate that runs it never runs; the failure surfaces only after merge.
+  Repaired by adding them to `prism-execution-workevent-governance.yml` (+4) and
+  `sg-02-fe-2-v.yml` (+9). *Load-bearing* follows CP10 semantics: not `continue-on-error`,
+  **or** `continue-on-error` with its `id` asserted via `${{ steps.<id>.outcome }}` — an
+  unasserted soft step is advisory and must not redden the guard.
+- Wiring the guard introduces a self-reference: the workflow that runs the guard must
+  select the guard's own file. The extended `test_executed_named_test_is_selected_by_its_file`
+  is parametrised over every executed target, so it catches that class too.
+- **The `steps.<id>.outcome` assertions in the CP10 enforce step are self-satisfying**
+  under `continue-on-error` (the substitution is a constant), so the new guard step is
+  deliberately **not** `continue-on-error`. Do not "fix" the pre-existing lines inside an
+  unrelated workstream.
+- Measured at base `f9ced6b6`: full-suite node set byte-identical (16 nodes, sha256
+  `bfcfe592...`); architecture **11 passed**; guard **120 passed** post-repair. Evidence:
+  `docs/control-plane/evidence/gate-hygiene-ci-gate-trigger-coverage-02/`.
