@@ -103,3 +103,66 @@ notes:
   - Scheduled autonomy is disabled by governance configuration.
   - Provenance artifacts are archival and normative; they do not create authority.
   - No provenance candidate has been selected or implemented.
+
+canonical_deployment:
+  invariant: one_reconciled_deployment
+  authority: docs/adr/ADR-016-single-canonical-deployment.md
+  # 1. Canonical source revision
+  canonical_source_revision:
+    value: f9ced6b6b974a6e19a8a19b4d1360b59b037a2c8
+    status: observed
+    method: git rev-parse HEAD at preparation (2026-10-10)
+  # 2. Canonical deployment identity
+  canonical_deployment_identity:
+    value: unknown
+    status: unknown
+    note: >-
+      Repository documents name the Render service Arkadia (srv-d9i1bar7uimc73asnv0g).
+      The service-to-hostname mapping is not resolvable without Render management access.
+  # 3. Actual running revision
+  actual_running_revision:
+    value: unknown
+    status: unknown
+    note: >-
+      No revision metadata endpoint existed at observation time. GET /api/version makes
+      this observable only after a build containing it is deployed.
+  # 4. Internal module and route registration
+  module_route_registration:
+    status: source_defined
+    evidence: [api/frontend_routes.py, Dockerfile, api/main.py]
+  # 5. Runtime verification
+  runtime_verification:
+    status: partial
+    as_of: "2026-10-10"
+    observed:
+      - host: arkadia-qzu4.onrender.com
+        reading: strongest observed unified-runtime candidate
+        evidence:
+          openapi_paths: 287
+          root_prism_spa: true
+          operator_route: true
+          solariun_route: true
+          same_origin_api: true
+      - host: arkadia-kw64.onrender.com
+        reading: conflicting, apparently older runtime
+        evidence:
+          openapi_paths: 286
+          root_prism_spa: false
+          operator_route: false
+          solariun_route: false
+      - host: arkadia-prism.vercel.app
+        reading: legacy split artifact
+        evidence:
+          api_heartbeat_returns_html: true
+  # 6. Explicit acceptance
+  acceptance:
+    status: not_claimed
+  rules:
+    - an observed hostname is not proof of canonical ownership
+    - an HTTP 200 from an alternate deployment does not establish acceptance
+    - a running revision must be evidenced, never inferred from source
+    - no agent may establish an alternative canonical deployment without authorization
+  historical_targets:
+    - arkadia-kw64.onrender.com
+    - arkadia-qzu4.onrender.com
+    - arkadia-prism.vercel.app

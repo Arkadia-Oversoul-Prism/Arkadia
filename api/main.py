@@ -2441,6 +2441,10 @@ async def agent_spawn(request: Request, user: dict = Depends(_require_auth)):
 from api.operator_security_routes import router as _operator_security_router
 app.include_router(_operator_security_router)
 
+# ── Read-only deployment build/revision identity (ADR-016) ───────────────────
+from api.version_routes import router as _version_router
+app.include_router(_version_router)
+
 from api.ceo_chat_routes import router as _ceo_chat_router
 app.include_router(_ceo_chat_router)
 

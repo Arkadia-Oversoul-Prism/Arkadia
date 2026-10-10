@@ -319,11 +319,42 @@ authenticated node's private Knowledge OS vault — never the public scroll stor
 - Prefer `gh pr view <n> --json mergeable,mergeStateStatus,headRefOid` for PR truth; prefer
   `commits/<sha>/check-runs` for per-commit gate truth.
 
+## Canonical deployment model — ONE reconciled deployment (governing invariant)
+
+**Arkadia has ONE canonical, reconciled deployment.** The UI, API, authentication/authorization
+boundary, shared relational substrate, execution runtime, evidence systems, and product
+interfaces belong to one coherently governed deployment. Distinct modules, services, routes, and
+processes are implementation detail; they do **not** create independent canonical deployment
+authority.
+
+This is a sovereign decision, recorded as `docs/adr/ADR-016-single-canonical-deployment.md`.
+Agent rule: **an observed hostname is not proof of canonical ownership, and a successful HTTP
+response from an alternate deployment does not establish acceptance.** Do not interpret a
+separately observed Vercel deployment, historical frontend project, alternative Render hostname,
+or stale deployment record as authorization to establish a second canonical deployment.
+
+Keep these six concepts separate — conflating them is a defect:
+
+1. canonical source revision, 2. canonical deployment identity, 3. actual running revision,
+4. internal module/route registration, 5. runtime verification, 6. explicit acceptance.
+
+Runtime evidence must always identify the **actual deployment under examination** (host +
+revision). Deployment drift must be reported explicitly. No agent may establish an alternative
+canonical deployment, change production routing, or retire an alias without explicit
+authorization. `GET /api/version` is the read-only revision probe; a matching revision is
+necessary evidence of source↔runtime consistency but is **not** sufficient proof the application
+works, and it cannot prove what an already-running deployment serves until a build containing it
+is deployed.
+
 ## AEAS Runtime Boundary Pulse — current open trajectory
 
 The current runtime-integrity boundary is explicitly:
 
-**current main → deployment → production verification → UI/runtime evidence**
+**current main → canonical deployment → production verification → UI/runtime evidence**
+
+The deployment boundary has exactly one canonical target (ADR-016). Alternate hostnames
+(e.g. a separate Render hostname or the legacy Vercel alias) are drift to be recorded
+and classified, never adopted as a second authority.
 
 This boundary is a standing AEAS/Weaver trajectory item, not a one-time prose checkpoint.
 

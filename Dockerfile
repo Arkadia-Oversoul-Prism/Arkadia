@@ -22,6 +22,23 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
+# Baked source revision for the read-only GET /api/version endpoint (ADR-016).
+#
+# Empty by default, and NOT supplied by any repository build path: the only
+# docker build in this repository (.github/workflows/n-atlas-developer-lab.yml,
+# job "Build canonical Render image") runs `docker build --pull -t <tag> .`
+# with no --build-arg. So this build argument is inert unless a build supplies
+# it explicitly; at runtime on Render the reported revision comes from the
+# provider-injected RENDER_GIT_COMMIT.
+#
+# The empty default is also load-bearing: an empty or absent value is classified
+# as absent metadata and falls through to the provider commit instead of being
+# mistaken for a revision. If a future build does bake a revision here and it
+# disagrees with the provider commit, GET /api/version reports
+# revision_conflict: true rather than silently preferring the baked value.
+ARG ARKADIA_SOURCE_REVISION=""
+ENV ARKADIA_SOURCE_REVISION=${ARKADIA_SOURCE_REVISION}
+
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
