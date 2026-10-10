@@ -129,6 +129,24 @@ So the two workflow PRs compose with no new failures, but only under the union �
 wholesale "ours"/"theirs" resolution would silently drop one gate's steps. The measured
 compatibility is recorded on #390 (and the merge-order record on #391).
 
+## 4c. Runtime verification — the CP10 run on the branch head is green (measured)
+
+Run `38044616848` (`SG-02-FE.2-V`, event `pull_request`, head `cb3988ac`) completed
+**success** on this branch. Job `validate` steps of interest:
+
+| step | name | conclusion |
+|------|------|-----------|
+| 10 | Frontend script asset resolution | success |
+| 11 | Frontend script asset gate wiring | success |
+| 31 | CP10 browser route verification | success |
+| 37 | Enforce CP10 executable gates | success |
+
+Step 31 is the step that was red on `main` (`37954341298`); it is green here because the
+branch carries #384's committed `firebase-config.js`. Steps 10/11 are the newly wired
+guard, executed and passing. The `Full-history secret scan` run `38044616865` is also
+success. So the wiring is proven at the CI boundary, not only as a source-level claim —
+for this branch's tree.
+
 ## 5. Remaining uncertainty
 
 This is a repository-source claim. Whether `main`'s CP10 gate goes green requires a
