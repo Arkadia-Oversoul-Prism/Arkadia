@@ -88,6 +88,47 @@ exist on base `f744e36b` unchanged — this branch introduces **zero** new failu
 `git ls-files | python scripts/cp10_mutation_boundary_policy.py --judge` on the proposed
 changed-path list → `Mutation boundary PASS`.
 
+## 4a. Negative control — the guard detects the live `main` defect (measured)
+
+The wiring claim is only meaningful if the wired guard actually fails on the defect.
+Run against `main`'s own tree (`f9ced6b6`, guard copied in, no other change):
+
+```
+$ python -m pytest tests/test_frontend_script_assets_resolve.py -q -rEf
+FAILED ...::test_index_script_srcs_resolve_to_committed_assets
+FAILED ...::test_firebase_config_default_is_present_and_credential_free
+FAILED ...::test_detector_flags_a_dangling_script_src
+3 failed
+AssertionError: assert '/firebase-config.js' not in ['/firebase-config.js', '/ghost.js']
+```
+
+`git ls-files web/public_prism/public/` on `main` does **not** contain
+`firebase-config.js`, while `index.html:16` loads `/firebase-config.js`. On this branch
+(which carries #384's committed asset) the same guards are **10 passed**. A dangling
+`index.html` `src` therefore reproduces the live `main` failure as a **named test**, not
+just the `29 browser` step.
+
+## 4b. Composition with the CP10 cluster — `sg-02-fe-2-v.yml` is a shared hot file (measured)
+
+PR #390 (`gate-hygiene/ci-gate-trigger-coverage-02`) inserts into the **same regions** of
+`.github/workflows/sg-02-fe-2-v.yml` as this branch: both trigger `paths` filters and both
+step blocks (before `phase3_harness`). `git apply --3way` of #390's workflow patch onto
+this branch's tree produced a **real textual conflict** at all three anchors — it is not a
+clean merge.
+
+Union resolution (keep both sides at each anchor) was applied to a worktree of
+`090beb47` and measured:
+
+| check | result |
+|-------|--------|
+| `test_ci_gate_trigger_coverage` + `test_m02a_ci_gate_integrity` + `test_frontend_script_assets_resolve` + `test_frontend_script_asset_ci_wiring` | **193 passed / 3 failed** |
+| the 3 failures | the same pre-existing `deploy/n-atlas-server` allowlist omission (#354) |
+| `yaml.safe_load` of the composed workflow | parses |
+
+So the two workflow PRs compose with no new failures, but only under the union — a
+wholesale "ours"/"theirs" resolution would silently drop one gate's steps. The measured
+compatibility is recorded on #390 (and the merge-order record on #391).
+
 ## 5. Remaining uncertainty
 
 This is a repository-source claim. Whether `main`'s CP10 gate goes green requires a
@@ -97,4 +138,6 @@ production-parity claim is made here.
 ## 6. Authorization required
 
 **Human merge.** Merge order: PR #384 (repairs the browser step) must merge before or
-with this branch (stacked on it) — this branch depends on the guard file existing.
+with this branch (stacked on it) — this branch depends on the guard file existing. If #390
+merges too, the workflow must be resolved by the **union** of the two diffs (measured in
+§4b), not by taking one side.
