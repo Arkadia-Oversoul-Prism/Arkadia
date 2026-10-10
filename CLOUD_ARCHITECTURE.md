@@ -4,8 +4,7 @@
 
 | Service | URL | Platform |
 |---|---|---|
-| Oracle Backend | https://arkadia-qzu4.onrender.com | Render |
-| Prism Frontend | https://arkadia-qzu4.onrender.com | Render |
+| **Arkadia canonical runtime (FastAPI + Prism + Operator Console)** | https://arkadia-qzu4.onrender.com | **Render — one Docker web service** |
 | OpenClaw Gateway | Deploy via Railway (see below) | Railway |
 
 ---
