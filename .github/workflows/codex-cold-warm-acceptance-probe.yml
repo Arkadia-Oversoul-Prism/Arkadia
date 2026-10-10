@@ -120,9 +120,9 @@ jobs:
                       # The endpoint may return a large corpus. Count source markers
                       # from the captured prefix so hydration detection still works.
                       result["body_metrics"] = {
-                          "total_docs": int(m.group(1)) if (m := re.search(r'"total_docs"\\s*:\\s*(\\d+)', decoded)) else None,
-                          "live_docs": int(m.group(1)) if (m := re.search(r'"live_docs"\\s*:\\s*(\\d+)', decoded)) else None,
-                          "github_docs": len(re.findall(r'"source"\\s*:\\s*"github"', decoded)),
+                          "total_docs": int(m.group(1)) if (m := re.search(r'"total_docs"\s*:\s*(\d+)', decoded)) else None,
+                          "live_docs": int(m.group(1)) if (m := re.search(r'"live_docs"\s*:\s*(\d+)', decoded)) else None,
+                          "github_docs": len(re.findall(r'"source"\s*:\s*"github"', decoded)),
                           "metrics_from_truncated_body": result["body_truncated"],
                       }
                       result["body_preview"] = body[:500].decode("utf-8", "replace")
