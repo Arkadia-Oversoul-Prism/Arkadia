@@ -21,17 +21,7 @@
 
 ---
 
-## ⚠ One Manual Action Required Before Deploying Frontend
 
-`web/public_prism/.env.production` could not be updated by the agent (env file protection).
-
-**Before the next Vercel frontend deploy, set:**
-```
-VITE_API_URL=https://arkadia-qzu4.onrender.com
-```
-Either in the Vercel dashboard under Environment Variables, or by updating `.env.production` manually.
-
----
 
 ## Mission
 
@@ -189,7 +179,7 @@ If any were introduced by this checkpoint: resolve them or record them explicitl
   `4d84e7eb…`, `da2ec262…`, `a578a766…`/`8036fc06…`, and `6c7bf821…`/`2bc35996…` when the
   two archived-surface gate nodes were retired) are superseded — do not reuse them. See
   `docs/control-plane/evidence/gate-hygiene-baseline-node-set-live-reconciliation-01/`.
-- Gate-2 production parity: **BLOCKED on provider auth** (Vercel Deployment Protection).
+- Gate-2 production parity: **BLOCKED pending fresh Render runtime reconciliation evidence**.
   External boundary, not a repository task. Do not re-run the pass expecting a different
   classification.
 
