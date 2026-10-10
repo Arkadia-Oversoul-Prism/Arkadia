@@ -23,9 +23,9 @@ export const STANDING_STATES: StandingState[] = [
     tone: "verified",
     headline: "Render — PRODUCTION-VERIFIED",
     detail:
-      "The live host (arkadia-kw64.onrender.com) runs the merged hardened perimeter " +
-      "(PR #180, ae847dd). Anonymous calls 401; the self-approval guard is live. " +
-      "Verified by F.1–F.4 — never inferred.",
+      "The canonical host is arkadia-qzu4.onrender.com. A read-only production probe " +
+      "confirmed the deployed revision through /api/version and observed anonymous and malformed-token requests return 401. " +
+      "Valid low-privilege authorization and full boundary acceptance remain unverified.",
   },
   {
     id: "sovereign",

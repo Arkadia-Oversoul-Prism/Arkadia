@@ -247,7 +247,7 @@ app = FastAPI(title="Arkadia Mind — Cycle 11", lifespan=lifespan)
 # covers localhost and the canonical Render deployment.
 #
 # Example (Render env var):
-#   CORS_ALLOWED_ORIGINS=https://arkadia-kw64.onrender.com,https://your-custom-domain.com
+#   CORS_ALLOWED_ORIGINS=https://arkadia-qzu4.onrender.com,https://your-custom-domain.com
 _cors_env = os.environ.get("CORS_ALLOWED_ORIGINS", "").strip()
 if _cors_env:
     # Explicit override — use exactly what is configured

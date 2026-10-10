@@ -50,7 +50,7 @@ REPO = "Arkadia-Oversoul-Prism/Arkadia"
 # the service host are probed; Render's onrender.com hosts are not SSO-gated the
 # way Vercel Deployment Protection gates the frontend preview URLs.
 BACKEND_HOSTS = [
-    "https://arkadia-kw64.onrender.com",
+    "https://arkadia-qzu4.onrender.com",
 ]
 
 # Route prefixes that must be present for the backend to be the real Arkadia
