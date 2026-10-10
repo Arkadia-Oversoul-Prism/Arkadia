@@ -532,7 +532,7 @@ async def initialize_paystack(request: Request):
     amount_ngn = int(body.get("amount_ngn", 0))
     product_id = body.get("product_id", "")
     name       = body.get("name", "")
-    callback   = body.get("callback_url", "https://arkadia-prism.vercel.app/offerings")
+    callback   = body.get("callback_url", "https://arkadia-qzu4.onrender.com/offerings")
 
     if not email or not product_id:
         raise HTTPException(status_code=400, detail="email and product_id are required")

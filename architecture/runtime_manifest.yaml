@@ -107,62 +107,59 @@ notes:
 canonical_deployment:
   invariant: one_reconciled_deployment
   authority: docs/adr/ADR-016-single-canonical-deployment.md
-  # 1. Canonical source revision
+  provider: render
   canonical_source_revision:
-    value: f9ced6b6b974a6e19a8a19b4d1360b59b037a2c8
+    value: 17b931b4fe6dd9b27749894dd0d9b1dc9a2e14f5
     status: observed
-    method: git rev-parse HEAD at preparation (2026-10-10)
-  # 2. Canonical deployment identity
+    method: GitHub main ref observed 2026-10-10
   canonical_deployment_identity:
-    value: unknown
-    status: unknown
-    note: >-
-      Repository documents name the Render service Arkadia (srv-d9i1bar7uimc73asnv0g).
-      The service-to-hostname mapping is not resolvable without Render management access.
-  # 3. Actual running revision
+    provider: render
+    service_name: Arkadia
+    service_id: srv-db49jbh42hec73aj84qg
+    service_url: https://arkadia-qzu4.onrender.com
+    status: observed
+    evidence: Render service metadata; Docker service connected to Arkadia-Oversoul-Prism/Arkadia main
   actual_running_revision:
-    value: unknown
-    status: unknown
-    note: >-
-      No revision metadata endpoint existed at observation time. GET /api/version makes
-      this observable only after a build containing it is deployed.
-  # 4. Internal module and route registration
+    value: 17b931b4fe6dd9b27749894dd0d9b1dc9a2e14f5
+    status: observed
+    method: Render deploy metadata reports this exact commit as latest status live
+    deploy_id: dep-db54i61rn11c73d7cq10
+    finished_at: "2026-10-10T14:20:57.386641Z"
+  render_ssh:
+    address: srv-db49jbh42hec73aj84qg@ssh.oregon.render.com
+    status: service_metadata_observed
+    note: This is the Render SSH connection address, not an SSH private key. No private key is read or stored in this manifest.
   module_route_registration:
     status: source_defined
     evidence: [api/frontend_routes.py, Dockerfile, api/main.py]
-  # 5. Runtime verification
   runtime_verification:
     status: partial
     as_of: "2026-10-10"
     observed:
       - host: arkadia-qzu4.onrender.com
-        reading: strongest observed unified-runtime candidate
+        reading: canonical Render service; exact deployment SHA matches main at observation
         evidence:
-          openapi_paths: 287
-          root_prism_spa: true
-          operator_route: true
-          solariun_route: true
-          same_origin_api: true
+          render_service_id: srv-db49jbh42hec73aj84qg
+          deploy_status: live
+          source_revision: 17b931b4fe6dd9b27749894dd0d9b1dc9a2e14f5
+        pending:
+          - fresh external HTTP/OpenAPI capture from a network-capable runner
+          - route-by-route source/runtime reconciliation
+          - anonymous/unauthenticated/unauthorized production matrix
+          - browser acceptance of root, Solariun, Arkana, Canvas, Operator, and N-ATLaS
       - host: arkadia-kw64.onrender.com
-        reading: conflicting, apparently older runtime
-        evidence:
-          openapi_paths: 286
-          root_prism_spa: false
-          operator_route: false
-          solariun_route: false
+        reading: historical conflicting runtime; not canonical
+        status: legacy_noncanonical
       - host: arkadia-prism.vercel.app
-        reading: legacy split artifact
-        evidence:
-          api_heartbeat_returns_html: true
-  # 6. Explicit acceptance
+        reading: historical Vercel artifact; not canonical
+        status: archived_noncanonical
   acceptance:
     status: not_claimed
   rules:
-    - an observed hostname is not proof of canonical ownership
-    - an HTTP 200 from an alternate deployment does not establish acceptance
+    - an observed hostname is not proof of canonical ownership unless tied to Render service metadata
+    - a matching deployed revision is necessary but not sufficient for acceptance
     - a running revision must be evidenced, never inferred from source
     - no agent may establish an alternative canonical deployment without authorization
   historical_targets:
     - arkadia-kw64.onrender.com
-    - arkadia-qzu4.onrender.com
     - arkadia-prism.vercel.app
