@@ -44,9 +44,13 @@ named files are executed but absent from the trigger filter.
    (`id: trigger_coverage`, `run: python -m pytest tests/test_ci_gate_trigger_coverage.py -q`,
    asserted in "Enforce CP10 executable gates") and the guard's own file is added
    to that workflow's filter. The step is **not** `continue-on-error`, so the
-   assertion is real — unlike the pre-existing `${{ steps.<id>.outcome }}` lines in
-   that enforce step, which are self-satisfying under `continue-on-error` and are a
-   separate, documented class not repaired here.
+   assertion is real. It is enforced by the same `Enforce CP10 executable gates`
+   step as the pre-existing `${{ steps.<id>.outcome }}` lines. Those lines are
+   **not** self-satisfying: a `continue-on-error` step carries `outcome: failure`
+   while the jobs API reports `conclusion: success`, so the enforce step genuinely
+   reddens the job (measured — see "Self-correction" below). The corrected reading
+   of the `.outcome` mechanism is owned by PR #388; this branch does not duplicate
+   it.
 
 ### Measured violations, pre-repair (guard exited non-zero, 13 parametrisations)
 
@@ -195,3 +199,20 @@ Re-measured at head `a017a06c` (run `38023521476`): step 36 aborts at log line
 adds is genuinely enforced and passes. Assertion #15 is `steps.browser`, whose
 step 30 is reported by the jobs API as `conclusion: success` while its `outcome`
 is `failure`. Identical failing node to `main` `f9ced6b6`.
+
+### Assertion-count correction (measured, 2026-10-10)
+
+The "assertion count" is a property of *each revision's own enforce step*, not a
+constant. Re-measured by parsing the enforce-step body (`##[group]Run test …`
+block) from the downloaded job logs:
+
+- `main` `f9ced6b6` (run `37954341298`): **16** body assertions; the one
+  non-success is at body **#14** (`steps.browser`).
+- This branch's head (run `38023521476`, `a017a06c`): **17** body assertions; the
+  one non-success is at body **#15** (`steps.browser`). The added
+  `trigger_coverage` assertion (#2) prints `test 'success' = success`.
+
+The failing node is the **same** `steps.browser` assertion in both; it merely
+occupies ordinal 14 on `main` (16 assertions) and ordinal 15 on this branch (17).
+A "15th assertion" figure is therefore correct **for a revision that carries the
+added assertion** and wrong for `main` — it must be stated per revision.
