@@ -26,7 +26,7 @@ Set these in the Railway service dashboard under **Variables**.
 | `ENVIRONMENT` | Set to `production` to enable fail-fast auth and sovereign-key checks |
 | `SOVEREIGN_KEY` | Strong random secret — required when `ENVIRONMENT=production` |
 | `GOOGLE_API_KEY` | Google Gemini API key — oracle and planner |
-| `CORS_ALLOWED_ORIGINS` | Comma-separated list of allowed frontend origins, e.g. `https://your-prism.vercel.app` |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated list of allowed frontend origins, e.g. `https://arkadia-qzu4.onrender.com` |
 
 ### Recommended
 
