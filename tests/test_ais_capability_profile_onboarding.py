@@ -40,7 +40,13 @@ def test_home_is_offer_led_and_keeps_arkadia_entry_points():
     # SH-02 row 2 re-pin: the marketing tagline moved off the landing page.
     # The surface is now offer-led, so the copy is pinned to the live headline;
     # the two anchors it framed are still asserted below.
-    assert "One intelligence. Four ways to work with it." in landing
+    #
+    # Re-pinned again 2026-10-07 (gate-hygiene/landing-headline-repin-01): the
+    # SH-02e pin above named a headline that `2b87e8e` (#276, canonical
+    # Oversoul identity) then removed — a *source change* with no test-side
+    # re-pin, so the assertion drifted red on main. Pin the live architecture
+    # headline instead; the same two anchors it frames are asserted below.
+    assert "One Prism. Many ways to work with it." in landing
     # The landing surface is still reachable and still its own mount point.
     assert 'data-testid="arkadia-home-landing"' in landing
     assert "Spiral Grove" in landing
