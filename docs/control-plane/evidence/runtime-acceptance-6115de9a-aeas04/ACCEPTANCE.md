@@ -158,6 +158,15 @@ executions — CI harness, prior canonical run, and this run — received the sa
 the same prompt. The governed chain `RUN → INSPECT → EVALUATE → EVIDENCE → VERIFY` completes on
 the canonical runtime at `6115de9a`.
 
+**Temporal validity (superseding observation).** Later in the same pass (~21:10–21:22Z) the
+provider began emitting `event: error` / `data: null` for every invocation and the canonical
+route returned **503 BLOCKED** with no evidence written. The inference above is a *true
+observation at 20:49Z*, but its **current validity is STALE** while the provider errors persist.
+The provider runs on `zero-a10g` (ZeroGPU, shared/time-sliced); see
+`PROVIDER-INCIDENT-01.md` in this directory for the full timeline, the (unbroken) request
+contract, the provider runtime state, and the honest-degradation confirmation. **The canonical
+route does not fabricate success during the outage.**
+
 ### 5.3 N-ATLAS acceptance requirements
 
 The documented external acceptance contract (`docs/submission/NAIC-2026-PS1-BETA-VALIDATION.md`)
