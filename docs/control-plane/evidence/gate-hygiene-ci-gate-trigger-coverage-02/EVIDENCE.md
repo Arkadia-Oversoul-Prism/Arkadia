@@ -115,3 +115,23 @@ base and branch both yield 16 failing/error nodes, outcomes sha256
 `bfcfe5920c3789302e80c72618e1f280e3577a8395320c89f174147cd11ec733`, ids sha256
 `ed5e4714df236078d6eb04cb43197c22403d2c244caa3e7bc7d71d45f6c0a833`. Zero delta,
 measured on both trees.
+
+## Self-correction: the `steps.<id>.outcome` overclaim (2026-10-10, pass 02)
+
+The AGENTS.md paragraph appended by this PR originally asserted that the
+`Enforce CP10 executable gates` step is "self-satisfying" because
+`${{ steps.<id>.outcome }}` is a constant inside a `run:` block. **That claim is
+false and this branch's own CI run refutes it.** The enforce step failed on this
+PR's head with `test 'failure' = success` — the true `outcome` of the browser
+step — which is only possible if the substitution *is* performed.
+
+- The paragraph was corrected in place to state the measured behaviour
+  (`continue-on-error` separates *outcome* `failure` from *conclusion* `success`;
+  the enforce step reads `.outcome` and genuinely reddens the job).
+- The independent fix and its controls — `test_enforcement_never_reads_step_conclusion`,
+  the `.conclusion` negative control, and the "do not switch to `.conclusion`"
+  guard — are owned by **PR #388** (`gate10/cp10-enforcement-step-truthfulness-01`),
+  which is the correct home for that invariant. This branch does not duplicate it.
+- The two PRs touch **different regions** of `AGENTS.md` (`#390` appends at the end;
+  `#388` rewrites the "A green CI job can execute ZERO tests" section) and different
+  files otherwise, so they compose without conflict. Merge order is immaterial.

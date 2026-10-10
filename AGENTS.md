@@ -955,10 +955,17 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
 - Wiring the guard introduces a self-reference: the workflow that runs the guard must
   select the guard's own file. The extended `test_executed_named_test_is_selected_by_its_file`
   is parametrised over every executed target, so it catches that class too.
-- **The `steps.<id>.outcome` assertions in the CP10 enforce step are self-satisfying**
-  under `continue-on-error` (the substitution is a constant), so the new guard step is
-  deliberately **not** `continue-on-error`. Do not "fix" the pre-existing lines inside an
-  unrelated workstream.
+- **The new guard step is deliberately not `continue-on-error`**, so it is enforced by
+  the same `Enforce CP10 executable gates` step that guards the other load-bearing steps
+  (`test '${{ steps.trigger_coverage.outcome }}' = success`). *Corrected measurement:* that
+  `${{ steps.<id>.outcome }}` substitution **is** performed inside a `run:` block — a
+  `continue-on-error` step's `outcome` is `failure` while its `conclusion` is `success`, so
+  the enforce step genuinely reddens the job (measured: `test 'failure' = success`, exit 1).
+  An earlier note in this file claimed the substitution was a self-satisfying constant; that
+  reading was wrong. The full correction, its controls, and the "do not switch to
+  `.conclusion`" guard live in `tests/test_m02a_ci_gate_integrity.py`
+  (`test_enforcement_never_reads_step_conclusion`) and PR #388. Do not "fix" the
+  pre-existing enforce lines inside an unrelated workstream.
 - Measured at base `f9ced6b6`: full-suite node set byte-identical (16 nodes, sha256
   `bfcfe592...`); architecture **11 passed**; guard **120 passed** post-repair. Evidence:
   `docs/control-plane/evidence/gate-hygiene-ci-gate-trigger-coverage-02/`.
