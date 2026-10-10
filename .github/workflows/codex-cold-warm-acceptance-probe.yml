@@ -1,0 +1,208 @@
+name: Codex Cold/Warm Acceptance Probe
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/codex-cold-warm-acceptance-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cold-warm-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - name: Wait for this exact revision to become live on Render
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          BASE_URL: https://arkadia-qzu4.onrender.com
+        run: |
+          python - <<'PY'
+          import json, os, time, urllib.request
+          base = os.environ["BASE_URL"].rstrip("/")
+          expected = os.environ["EXPECTED_SHA"]
+          deadline = time.monotonic() + 480
+          last = None
+          while time.monotonic() < deadline:
+              try:
+                  with urllib.request.urlopen(base + "/api/version", timeout=8) as r:
+                      last = json.loads(r.read(200_000))
+                  observed = str(last.get("source_revision") or "")
+                  print(json.dumps({"wait":"render_revision","http_status":r.status,"expected":expected,"observed":observed,"version":last}))
+                  if observed == expected:
+                      print("Exact revision is live; next application request will be the cold codex probe.")
+                      break
+              except Exception as e:
+                  print(json.dumps({"wait":"render_revision","error_type":type(e).__name__,"error":str(e)[:200]}))
+              time.sleep(4)
+          else:
+              raise SystemExit("Timed out waiting for the exact GitHub SHA to become live on Render; no cold/warm claim can be made.")
+          PY
+
+      - name: Capture cold and warm no-follow responses
+        env:
+          BASE_URL: https://arkadia-qzu4.onrender.com
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import json, os, re, time, urllib.request, urllib.error
+          from urllib.request import HTTPRedirectHandler
+
+          BASE = os.environ["BASE_URL"].rstrip("/")
+          EXPECTED = os.environ["EXPECTED_SHA"]
+          MAX_BODY = 20_000_000
+          class NoRedirect(HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+          opener = urllib.request.build_opener(NoRedirect())
+
+          def probe(label, path):
+              url = BASE + path
+              req = urllib.request.Request(url, headers={
+                  "User-Agent": "Arkadia-Codex-ColdWarm-Acceptance/1.0",
+                  "Accept": "application/json",
+                  "Cache-Control": "no-cache",
+              })
+              started = time.monotonic()
+              try:
+                  response = opener.open(req, timeout=25)
+              except urllib.error.HTTPError as e:
+                  response = e
+              except Exception as e:
+                  return {
+                      "label": label, "requested_url": url, "status": None,
+                      "location": None, "response_headers_received": False,
+                      "elapsed_ms": round((time.monotonic()-started)*1000),
+                      "error_type": type(e).__name__, "error": str(e)[:300],
+                      "redirect_followed": False,
+                  }
+
+              headers = response.headers
+              result = {
+                  "label": label, "requested_url": url, "response_url": response.geturl(),
+                  "status": getattr(response, "code", getattr(response, "status", None)),
+                  "location": headers.get("Location"),
+                  "content_type": headers.get("Content-Type"),
+                  "content_length": headers.get("Content-Length"),
+                  "request_id_headers": {
+                      key: headers.get(key) for key in (
+                          "X-Request-ID", "X-Correlation-ID", "Traceparent",
+                          "CF-Ray", "X-Render-Origin-Server"
+                      ) if headers.get(key)
+                  },
+                  "headers_elapsed_ms": round((time.monotonic()-started)*1000),
+                  "redirect_followed": False,
+                  "response_headers_received": True,
+              }
+              try:
+                  body = response.read(MAX_BODY + 1)
+                  result["body_bytes_read"] = len(body)
+                  result["body_truncated"] = len(body) > MAX_BODY
+                  decoded = body.decode("utf-8", "replace")
+                  try:
+                      payload = json.loads(decoded) if len(body) <= MAX_BODY else None
+                  except Exception:
+                      payload = None
+                  if isinstance(payload, dict) and isinstance(payload.get("scrolls"), dict):
+                      scrolls = payload["scrolls"]
+                      result["body_metrics"] = {
+                          "status": payload.get("status"),
+                          "total_docs": payload.get("total_docs"),
+                          "live_docs": payload.get("live_docs"),
+                          "total_chars": payload.get("total_chars"),
+                          "github_docs": sum(1 for item in scrolls.values() if item.get("source") == "github"),
+                          "local_or_other_docs": sum(1 for item in scrolls.values() if item.get("source") != "github"),
+                      }
+                  else:
+                      # The endpoint may return a large corpus. Count source markers
+                      # from the captured prefix so hydration detection still works.
+                      result["body_metrics"] = {
+                          "total_docs": int(m.group(1)) if (m := re.search(r'"total_docs"\s*:\s*(\d+)', decoded)) else None,
+                          "live_docs": int(m.group(1)) if (m := re.search(r'"live_docs"\s*:\s*(\d+)', decoded)) else None,
+                          "github_docs": len(re.findall(r'"source"\s*:\s*"github"', decoded)),
+                          "metrics_from_truncated_body": result["body_truncated"],
+                      }
+                      result["body_preview"] = body[:500].decode("utf-8", "replace")
+                  result["body_read_error"] = None
+              except Exception as e:
+                  result["body_read_error"] = {"type":type(e).__name__,"message":str(e)[:300]}
+              result["elapsed_ms"] = round((time.monotonic()-started)*1000)
+              return result
+
+          report = {
+              "expected_sha": EXPECTED,
+              "base_url": BASE,
+              "redirect_following_disabled": True,
+              "cold_probe": None,
+              "hydration_waits": [],
+              "warm_probe": None,
+              "control_probe": None,
+              "acceptance": "BLOCKED",
+          }
+
+          # This is deliberately the first request to the application after the
+          # exact revision check, so /api/codex is observed on a fresh process/cache.
+          report["cold_probe"] = probe("cold_first_codex_request", "/api/codex")
+          print("COLD " + json.dumps(report["cold_probe"], sort_keys=True))
+
+          # Wait for an atomically published GitHub-backed snapshot. Polls are
+          # non-blocking stale-while-revalidate reads; no endpoint or cache is mutated.
+          deadline = time.monotonic() + 420
+          hydrated = False
+          while time.monotonic() < deadline:
+              time.sleep(30)
+              item = probe("hydration_readiness_poll", "/api/codex")
+              metrics = item.get("body_metrics") or {}
+              report["hydration_waits"].append({
+                  "status": item.get("status"),
+                  "elapsed_ms": item.get("elapsed_ms"),
+                  "location": item.get("location"),
+                  "request_id_headers": item.get("request_id_headers", {}),
+                  "body_metrics": metrics,
+                  "body_read_error": item.get("body_read_error"),
+              })
+              print("HYDRATION " + json.dumps(report["hydration_waits"][-1], sort_keys=True))
+              if item.get("status") == 200 and metrics.get("github_docs", 0) > 0:
+                  hydrated = True
+                  break
+
+          report["hydration_completed"] = hydrated
+          report["warm_probe"] = probe("warm_codex_request", "/api/codex")
+          report["control_probe"] = probe("unauthenticated_solspire_control", "/solspire/workspace")
+          warm = report["warm_probe"]
+          control = report["control_probe"]
+          warm_metrics = warm.get("body_metrics") or {}
+          report["acceptance"] = (
+              "PASS" if hydrated and warm.get("status") == 200
+              and warm.get("location") is None and control.get("status") == 401
+              else "BLOCKED"
+          )
+          report["acceptance_notes"] = {
+              "cold_probe_status": (report["cold_probe"] or {}).get("status"),
+              "cold_probe_location": (report["cold_probe"] or {}).get("location"),
+              "warm_probe_status": warm.get("status"),
+              "warm_probe_location": warm.get("location"),
+              "warm_github_docs": warm_metrics.get("github_docs"),
+              "hydration_completed": hydrated,
+              "control_expected_status": 401,
+              "control_actual_status": control.get("status"),
+              "note": "PASS requires a captured cold response, a fully published GitHub-backed cache, a healthy warm response with no redirect, and the expected unauthenticated 401 control."
+          }
+          with open("codex-cold-warm-acceptance.json", "w", encoding="utf-8") as f:
+              json.dump(report, f, indent=2, sort_keys=True)
+          print("ACCEPTANCE " + json.dumps(report["acceptance_notes"], sort_keys=True))
+          if report["acceptance"] != "PASS":
+              raise SystemExit("Cold/warm acceptance remains blocked; see artifact.")
+          PY
+
+      - name: Upload cold/warm acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-cold-warm-acceptance
+          path: codex-cold-warm-acceptance.json
+          if-no-files-found: warn
+          retention-days: 30
