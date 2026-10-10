@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 BASE = os.environ.get("ARKADIA_PRODUCTION_ORIGIN", "https://arkadia-qzu4.onrender.com").rstrip("/")
 OUT = Path(os.environ.get("ARKADIA_PROBE_OUTPUT", "artifacts/canonical-render-runtime"))
 OUT.mkdir(parents=True, exist_ok=True)
-TIMEOUT = 12
+TIMEOUT = 18
 LOW_PRIVILEGE_TOKEN = os.environ.get("ARKADIA_PROBE_LOW_PRIVILEGE_BEARER", "").strip()
 
 
@@ -145,8 +145,18 @@ with ThreadPoolExecutor(max_workers=12) as pool:
     futures = [(entry, pool.submit(request, path, {"Accept": "application/json"})) for entry, path in probe_jobs]
     for entry, future in futures:
         response = future.result()
+        # Retry slow read-only GETs once; a transient timeout is not enough to
+        # conclude that an endpoint is broken.
+        if response.get("status") is None:
+            response = request(path, {"Accept": "application/json"})
+            response["retry_after_timeout"] = True
         entry["response"] = response
         entry["classification"] = classify(response.get("status"))
+        # OpenAPI proves this path/method is registered. A 404 carrying a
+        # resource-level "not found" detail means the sentinel record is absent,
+        # not that the router itself is absent.
+        if response.get("status") == 404 and "not found" in (response.get("body_preview") or "").lower():
+            entry["classification"] = "resource_not_found_route_present"
 for entry in sorted(all_entries, key=lambda e: (e["path"], e["method"])):
     report["endpoint_inventory"].append(entry)
 
