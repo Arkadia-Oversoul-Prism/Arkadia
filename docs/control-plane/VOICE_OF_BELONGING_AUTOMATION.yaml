@@ -1,0 +1,61 @@
+version: "1"
+automation:
+  name: "voice-of-belonging-governed-cadence"
+  subject_ref: "human_creator"
+  trigger:
+    kind: "scheduled"
+    schedule: "existing_arkadia_scheduler"
+    detail: "scheduler wake evaluates due cadence slots; no second scheduler"
+  agent_role: "content_cadence_weaver"
+  objective: >-
+    Derive, draft, quality-check, and prepare one Voice of Belonging artifact
+    for the current cadence slot from canonical Arkadia work and knowledge.
+  tools:
+    - "knowledge.retrieval"
+    - "content.source_selection"
+    - "creative.poetic_engine"
+    - "content.qa"
+    - "content.asset_packaging"
+    - "attention.notify"
+    - "distribution.adapter"
+  sandbox:
+    write_allowed: true
+    external_publication: false
+  cadence:
+    timezone: "Africa/Lagos"
+    slots:
+      - key: "MON_TRANSMISSION"
+        weekday: 0
+        format: "transmission"
+      - key: "WED_WHISPER"
+        weekday: 2
+        format: "whisper"
+      - key: "FRI_TRANSMISSION"
+        weekday: 4
+        format: "transmission"
+      - key: "SAT_FIELD_NOTE"
+        weekday: 5
+        format: "field_note"
+  state_chain:
+    - SOURCE
+    - CANDIDATE
+    - DRAFT
+    - READY
+    - APPROVED
+    - PUBLISHED
+    - MEASURED
+    - REPURPOSE
+  governance:
+    provenance_required: true
+    evidence_required: true
+    human_approval_required: true
+    autonomous_publication: false
+    cadence_change_requires_human_authority: true
+    distribution_adapter_cannot_authorize: true
+  notification:
+    target: "existing_arkadia_attention_bus"
+    when:
+      - "READY"
+      - "BLOCKED"
+      - "PUBLISHED"
+      - "MEASURED"
