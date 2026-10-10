@@ -196,8 +196,15 @@ report["targeted_anomaly_probe"] = {
     "method": "GET",
     "redirect_policy": "follow_redirects=false",
     "results": {
-        "/api/codex": request_without_redirects("/api/codex"),
-        "/solspire/workspace": request_without_redirects("/solspire/workspace"),
+        # Repeat the historically anomalous endpoint so a transient timeout does
+        # not hide a redirect response; each attempt is independently captured.
+        "/api/codex": [
+            {"attempt": attempt, **request_without_redirects("/api/codex")}
+            for attempt in range(1, 4)
+        ],
+        "/solspire/workspace": [
+            {"attempt": 1, **request_without_redirects("/solspire/workspace")}
+        ],
     },
 }
 
