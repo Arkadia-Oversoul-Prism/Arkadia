@@ -121,6 +121,7 @@ report["openapi"] = {
     "response": openapi_result,
 }
 probe_jobs = []
+all_entries = []
 for path, item in sorted(paths.items()):
     for method, operation in sorted(item.items()):
         method = method.lower()
@@ -133,6 +134,7 @@ for path, item in sorted(paths.items()):
             "security_declared": bool(operation.get("security", schema.get("security", []))),
             "probe": "not_probed_non_get_method",
         }
+        all_entries.append(entry)
         if method == "get":
             entry["probe"] = "GET"
             probe_jobs.append((entry, probe_path(path)))
@@ -145,10 +147,7 @@ with ThreadPoolExecutor(max_workers=12) as pool:
         response = future.result()
         entry["response"] = response
         entry["classification"] = classify(response.get("status"))
-for entry in sorted(
-    [e for e in report["endpoint_inventory"]] + [e for e, _ in probe_jobs],
-    key=lambda e: (e["path"], e["method"]),
-):
+for entry in sorted(all_entries, key=lambda e: (e["path"], e["method"])):
     report["endpoint_inventory"].append(entry)
 
 # Authorization probes exercise the actual deployed Express/FastAPI boundary.
