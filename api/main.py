@@ -410,8 +410,10 @@ else:
 
 
 # ── In-memory cache (5-minute TTL) ───────────────────────────────────────────
-_cache: dict = {"scrolls": None, "at": 0.0}
-CACHE_TTL = 60   # 60-second in-memory TTL for near-real-time GitHub awareness
+_cache: dict = {"scrolls": None, "at": 0.0, "attempt_at": 0.0, "last_error": None}
+_refresh_lock = asyncio.Lock()
+_refresh_task: asyncio.Task | None = None
+CACHE_TTL = 60   # 60-second freshness window; requests use stale-while-revalidate
 
 # ── Direct-upload scroll store ────────────────────────────────────────────────
 DIRECT_SCROLLS_FILE = "data/direct_scrolls.json"
@@ -528,43 +530,46 @@ async def _fetch_raw(path: str) -> tuple[str, str | None]:
 
 
 async def _build_scrolls(tree_items: list[dict]) -> dict:
+    """Build the corpus with bounded parallel fetches instead of serial network waits."""
     scrolls: dict = {}
     fetched_at = _now_iso()
+    semaphore = asyncio.Semaphore(8)
 
-    for item in tree_items:
-        path     = item["path"]
+    async def build_one(item: dict) -> tuple[str, dict]:
+        path = item["path"]
         category, priority = _infer_category(path)
         readable = _is_readable(path)
-
         if readable:
-            content, error = await _fetch_raw(path)
-            chars   = len(content) if content else 0
+            # Bound simultaneous outbound fetches; each fetch retains its own timeout.
+            async with semaphore:
+                content, error = await _fetch_raw(path)
+            chars = len(content) if content else 0
             preview = content[:320] if content else ""
         else:
-            # Binary file (docx, pdf) — show metadata only
-            content = ""
-            preview = ""
-            chars   = 0
-            error   = None
+            content, preview, chars, error = "", "", 0, None
 
-        # Stable dedup key
         key = re.sub(r"[^a-zA-Z0-9]", "_", path)
-
-        scrolls[key] = {
-            "id":          key,
-            "source":      "github",
-            "category":    category,
-            "priority":    priority,
-            "label":       _make_label(path),
+        return key, {
+            "id": key,
+            "source": "github",
+            "category": category,
+            "priority": priority,
+            "label": _make_label(path),
             "description": path,
-            "chars":       chars,
-            "preview":     preview,
-            "content":     content,
-            "fetched_at":  fetched_at if readable and not error else None,
-            "error":       error,
-            "github_url":  f"https://github.com/{GITHUB_REPO}/blob/{GITHUB_BRANCH}/{path}",
+            "chars": chars,
+            "preview": preview,
+            "content": content,
+            "fetched_at": fetched_at if readable and not error else None,
+            "error": error,
+            "github_url": f"https://github.com/{GITHUB_REPO}/blob/{GITHUB_BRANCH}/{path}",
         }
 
+    # Batch task creation as well as network concurrency so a large repository
+    # tree cannot create an unbounded number of pending coroutines at once.
+    for offset in range(0, len(tree_items), 32):
+        batch = tree_items[offset:offset + 32]
+        results = await asyncio.gather(*(build_one(item) for item in batch))
+        scrolls.update(results)
     return scrolls
 
 
@@ -680,31 +685,73 @@ def _parse_open_loops() -> dict:
             "total": sum(len(g["loops"]) for g in groups), "groups": groups}
 
 
-async def _get_scrolls(force: bool = False) -> dict:
+async def _refresh_scrolls() -> dict:
+    """Single-flight corpus refresh; publish a complete snapshot atomically."""
+    async with _refresh_lock:
+        try:
+            tree = await _fetch_github_tree()
+            refreshed = await _build_scrolls(tree)
+            if not refreshed:
+                raise ValueError("GitHub returned empty tree — using local docs fallback")
+            # Publish only after the complete snapshot has been assembled.
+            _cache["scrolls"] = refreshed
+            _cache["at"] = time.time()
+            _cache["last_error"] = None
+            logger.info("Indexed %s Arkadia scrolls from GitHub", len(refreshed))
+        except Exception as error:
+            _cache["last_error"] = f"{type(error).__name__}: {error}"[:300]
+            logger.warning("GitHub corpus refresh failed: %s", _cache["last_error"])
+            if not _cache["scrolls"]:
+                fallback = _build_local_scrolls()
+                if fallback:
+                    _cache["scrolls"] = fallback
+                    _cache["at"] = time.time()
+        return dict(_cache["scrolls"] or {})
+
+
+def _schedule_corpus_refresh() -> None:
+    """Start at most one background refresh and rate-limit retries after failures."""
+    global _refresh_task
     now = time.time()
-    if not force and _cache["scrolls"] is not None and (now - _cache["at"]) < CACHE_TTL:
-        # Still merge in latest direct scrolls even from cache
-        scrolls = dict(_cache["scrolls"])
-        for ds in _load_direct_scrolls():
-            scrolls[ds["id"]] = ds
-        return scrolls
-    try:
-        tree    = await _fetch_github_tree()
-        scrolls = await _build_scrolls(tree)
-        if not scrolls:
-            raise ValueError("GitHub returned empty tree — using local docs fallback")
-        _cache["scrolls"] = scrolls
-        _cache["at"]      = now
-        logger.info(f"Indexed {len(scrolls)} Arkadia scrolls from GitHub")
-    except Exception as e:
-        logger.warning(f"GitHub fetch failed ({e}) — loading local docs fallback")
-        scrolls = _build_local_scrolls() or dict(_cache["scrolls"] or {})
-        if scrolls:
-            _cache["scrolls"] = scrolls
-            _cache["at"]      = now
-    # Merge direct uploads (always fresh — they live on disk)
-    for ds in _load_direct_scrolls():
-        scrolls[ds["id"]] = ds
+    if _refresh_task is not None and not _refresh_task.done():
+        return
+    if now - float(_cache.get("attempt_at", 0.0)) < 30:
+        return
+    _cache["attempt_at"] = now
+    _refresh_task = asyncio.create_task(_refresh_scrolls())
+
+
+async def _get_scrolls(force: bool = False) -> dict:
+    """Serve cached/local data immediately; refresh GitHub data without blocking reads."""
+    now = time.time()
+    cached = _cache.get("scrolls")
+    cache_age = now - float(_cache.get("at", 0.0))
+
+    if force:
+        # Explicit refreshes and the periodic sync may wait for the shared refresh.
+        global _refresh_task
+        if _refresh_task is not None and not _refresh_task.done():
+            await _refresh_task
+        else:
+            _cache["attempt_at"] = now
+            _refresh_task = asyncio.create_task(_refresh_scrolls())
+            await _refresh_task
+        cached = _cache.get("scrolls")
+    elif cached is None:
+        # Cold start: return local fallback immediately, then hydrate from GitHub.
+        fallback = _build_local_scrolls()
+        if fallback:
+            _cache["scrolls"] = fallback
+            _cache["at"] = now
+            cached = fallback
+        _schedule_corpus_refresh()
+    elif cache_age >= CACHE_TTL:
+        # Stale-while-revalidate: never make a user request wait for GitHub.
+        _schedule_corpus_refresh()
+
+    scrolls = dict(cached or {})
+    for direct_scroll in _load_direct_scrolls():
+        scrolls[direct_scroll["id"]] = direct_scroll
     return scrolls
 
 
