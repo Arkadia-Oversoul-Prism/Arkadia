@@ -101,3 +101,34 @@ basis for requiring runtime-identity evidence, not a resolution.
   sufficient proof that the application is functioning correctly.
 - No production configuration change, deployment, alias retirement, or resource deletion is
   authorized by this ADR. Those remain separate, explicitly authorized actions.
+
+
+---
+
+## ADDENDUM — Render service identity reconciled (2026-10-10)
+
+Render management metadata was inspected directly after the earlier source-only uncertainty.
+
+| Field | Verified value |
+|---|---|
+| Service | `Arkadia` |
+| Service ID | `srv-db49jbh42hec73aj84qg` |
+| Canonical origin | `https://arkadia-qzu4.onrender.com` |
+| Repository | `Arkadia-Oversoul-Prism/Arkadia` |
+| Branch / root | `main` / repository root |
+| Build/runtime | `./Dockerfile` / Docker web service |
+| Region | Oregon |
+| Render SSH address | `srv-db49jbh42hec73aj84qg@ssh.oregon.render.com` |
+| Live deployment at observation | `dep-db54i61rn11c73d7cq10` |
+| Deployed commit at observation | `17b931b4fe6dd9b27749894dd0d9b1dc9a2e14f5` |
+| Render deploy state | `live` |
+
+The root Dockerfile already builds both `web/public_prism` and `web/console` and copies both bundles into the same image as FastAPI. Render service metadata confirms this repository, root Dockerfile, branch `main`, and hostname mapping. The service identity and deployment SHA are therefore resolved at the management-plane boundary.
+
+The Render SSH address is connection metadata, **not an SSH private key**. No private SSH key was retrieved, displayed, or changed.
+
+### Remaining runtime acceptance
+
+A fresh HTTP/OpenAPI capture from a network that resolves the Render hostname is still required after the reconciliation commit deploys. The added GitHub Actions workflow performs this capture, compares every live OpenAPI path/method against the source composition root, probes the primary UI/API routes, and tests anonymous and invalid-bearer denial. It records authenticated-non-sovereign behavior as `NOT_TESTED` until a safe test identity is provisioned.
+
+**Status:** service identity VERIFIED; observed deployed revision VERIFIED for the observation time; fresh post-change HTTP/API parity and human production acceptance NOT YET CLAIMED.
