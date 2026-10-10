@@ -45,7 +45,7 @@ import subprocess
 import sys
 import tempfile
 
-ALIAS = "https://arkadia-prism.vercel.app"
+ALIAS = "https://arkadia-qzu4.onrender.com"
 
 # route -> (anchors, provenance). Anchors are lowercase ASCII substrings.
 ROUTES: dict[str, tuple[list[str], str]] = {
