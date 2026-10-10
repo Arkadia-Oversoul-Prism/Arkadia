@@ -242,3 +242,28 @@ A gate that cannot fail for the outcome it names is not a gate.
 set identical** to `main` (52 nodes, `sha256 95df9d36…`) — zero regression. CP10 mutation boundary
 PASS. The new job interpolates no `github.event.*`/`inputs.*` into `run:`.
 
+### 8.1 The wiring is runtime-proven, not asserted in source
+
+A wiring guard that only reads YAML is still a source claim. The gate was therefore dispatched for
+real and its log read back.
+
+Head `c88b2eb2` (`pull_request`), run **`38094183179`**, job
+**`114336555824`** ("Build and smoke-test the N-ATLAS self-host image") — **`completed/success`**,
+and the log shows the work actually happened rather than a skipped step:
+
+```
+docker build -t natlas-selfhost:ci deploy/n-atlas-server
+#5 naming to docker.io/library/natlas-selfhost:ci done
+0.00.037.992 I srv  llama_server: initializing ...
+OK: llama-server started under the image's own command.
+```
+
+That is the closed chain the gate exists to protect: **build → run → observe llama-server**. All
+**12** check-runs on `c88b2eb2` are `completed/success`, and the previously-untriggered N-ATLAS
+gate now runs (`backend`, `frontend`, `selfhost-image` all executed) because its `paths` filter
+selects the surfaces it judges.
+
+Scope note: this proves the deployment unit **starts**. It does **not** prove it serves the
+**official** N-ATLAS model — §3 stands unchanged, and production acceptance remains NOT CLAIMED.
+
+
