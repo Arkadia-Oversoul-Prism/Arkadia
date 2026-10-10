@@ -135,3 +135,23 @@ step — which is only possible if the substitution *is* performed.
 - The two PRs touch **different regions** of `AGENTS.md` (`#390` appends at the end;
   `#388` rewrites the "A green CI job can execute ZERO tests" section) and different
   files otherwise, so they compose without conflict. Merge order is immaterial.
+
+## Composition with PR #388 (measured, 2026-10-10)
+
+PR #388 (`gate10/cp10-enforcement-step-truthfulness-01`) is the independent
+authority on the `.outcome` invariant. Composed onto this branch head
+`c3f186e7` in a detached worktree (`git worktree add --detach /tmp/wt390 HEAD`;
+`git apply --3way` of #388 AGENTS.md + tests/test_m02a_ci_gate_integrity.py
+diff):
+
+- Both files apply **cleanly** — #390 appends a new section at the end of
+  `AGENTS.md`; #388 rewrites the "A green CI job can execute ZERO tests" section
+  in the middle. Disjoint regions, no textual conflict, merge order immaterial.
+- Composed tree: `cyrillic 0`, `AGENTS.md` 984 lines.
+- `tests/test_m02a_ci_gate_integrity.py` + `test_agents_md_*` +
+  `test_ci_gate_trigger_coverage.py` = **204 passed, 3 failed, 5 skipped**. The 3
+  failures are the **same** pre-existing `deploy/` allowlist-omission nodes present
+  on this branch alone — zero new failing nodes from composition.
+- This branch therefore carries **no duplicate** of #388 guard
+  (`test_enforcement_never_reads_step_conclusion`); it only *cites* it, so the two
+  do not diverge.
