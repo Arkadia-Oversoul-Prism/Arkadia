@@ -36,6 +36,7 @@ Observed sequence (`2026-10-10`):
 | ~21:12 | 5/5 probes → `event: error` `data: null` |
 | ~21:19–21:21 | 6/6 probes over 120 s → `event: error` `data: null` |
 | ~21:22 | 17 consecutive error frames total; no successful frame since ~20:49 |
+| ~21:33 | still failing; **both** named endpoints (`/generate`, `/transcribe`) and all parameter variations fail identically; `/gradio_api/info` and `/` still 200 |
 
 Failure frame body (verbatim):
 
@@ -43,6 +44,11 @@ Failure frame body (verbatim):
 event: error
 data: null
 ```
+
+**Not a local-IP quota.** The failure is also observed from the **canonical Render
+deployment** (`https://arkadia-qzu4.onrender.com`, a different network egress): its governed
+route returns `503` with the same provider error. The fault therefore survives across
+independent clients, ruling out client-side rate limiting or a probe-IP effect.
 
 ## 3. Request contract is unchanged (rules out a client/contract break)
 
@@ -57,6 +63,24 @@ data: null
 
 The **same** request shape returned `complete` at 20:49 and `error/null` later. The protocol
 and payload are correct; only the runtime outcome changed.
+
+### 3b. The failure is runtime-wide and parameter-independent (rules out our payload)
+
+Probed `~21:33Z` against the Space directly:
+
+| Variation | Result |
+| --- | --- |
+| our adapter params (`temperature 0.0`, `max_tokens 128`) | `event: error` / `data: null` |
+| the Space's own defaults (`temperature 0.2`, `max_tokens 512`) | `event: error` / `data: null` |
+| empty `data` array (`{"data":[]}`) | `event: error` / `data: null` |
+| the **other** named endpoint, `/transcribe` | `event: error` / `data: null` |
+| `GET /gradio_api/info` | `200` (API metadata served) |
+| `GET /` | `200` (static frontend served) |
+
+Every queued invocation — on **both** endpoints, regardless of parameters, including inputs
+that never reach the model — fails identically, while the Space's static/API-metadata surface
+stays up. This localises the fault to **gradio routing/queue execution (GPU admission)**, not
+to Arkadia's payload and not to the Space being entirely offline.
 
 ## 4. Provider runtime state
 
@@ -111,6 +135,26 @@ descriptor semantics on an authority surface, so it is recorded here as a propos
 | N-ATLAS inference acceptance right now | **BLOCKED** (provider) |
 | ZeroGPU availability | **NOT TESTED** (no HF credential; no authenticated runtime logs) |
 | Catalog-still-AVAILABLE observability gap | **OBSERVED** — proposed follow-up |
+| Auth-required hypothesis | **NOT TESTED**, and contradicted by prior evidence. `git log -S HF_TOKEN` returns **7** commits (the adapter and the forensics workflow reference it), and the `b58408ef` acceptance record documents a successful inference with **no** `HF_TOKEN`, concluding it is optional for this public Space. Weak hypothesis; not re-tested here (no credential available). |
+
+## 7b. Recovery procedure (for when the provider returns)
+
+No Arkadia code change is needed to recover: the Space is a `zero-a10g` (ZeroGPU) instance and
+is expected to resume on its own. To lift the `STALE` mark and re-establish the live claim:
+
+1. Wait for the Space to serve a successful `generate` (a single direct probe returning
+   `event: complete` is sufficient to resume testing).
+2. Re-run the external-beta harness:
+   `gh workflow run n-atlas-external-beta.yml --ref main` and confirm its evidence job succeeds.
+3. Re-run one governed inference on the canonical route
+   (`POST /api/lab/engineering/n-atlas/test-session` → `POST …/run`) and record the new
+   `RUN-*` / `EVD-*` pair with its `response_sha256`.
+4. Update this instance and `ACCEPTANCE.md` §5.2 with the new timestamp; the previous
+   `RUN-766769015520` / `EVD-e2203f62d506` observation stays in the audit trail.
+
+If the failure recurs, the durable fix is provider-side: move the Space off the shared
+ZeroGPU pool (dedicated GPU), or point `N_ATLAS_BASE_URL` at a self-hosted N-ATLAS runtime.
+Both are operator/provider actions, not repository changes.
 
 ## 8. What is *not* claimed
 
