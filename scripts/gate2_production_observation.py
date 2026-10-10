@@ -14,10 +14,19 @@ Two oracles are used, and their limits are stated rather than glossed:
     Asset hashes are NOT used: the build output is environment-dependent, so a hash
     match proves nothing and a mismatch proves nothing.
   * source-lineage closure -- if every candidate deployment SHA is a descendant of
-    the last commit that touched a frontend build input, then every candidate
-    compiles byte-identical frontend source, and the artifact cannot discriminate
-    between them. The alias->SHA question becomes immaterial to *source* lineage
-    even though it remains unobservable.
+    the last commit that touched the *same* frontend build input, then every
+    candidate compiles byte-identical frontend source, and the artifact cannot
+    discriminate between them. The alias->SHA question becomes immaterial to
+    *source* lineage even though it remains unobservable.
+
+Neither oracle may be applied to a deployment of a different application. The
+root ``vercel.json`` was repointed to ``web/console`` (commit 404452e0), so the
+repository now produces two frontends with disjoint build inputs and disjoint
+marker sets. Comparing the marker set of one against the artifact of the other
+is meaningless, and a "no markers found" result must never be reported as
+agreement. The harness therefore reads which app the deployment's build input
+names before it reads any marker, and refuses to claim marker agreement it did
+not observe.
 """
 
 from __future__ import annotations
@@ -33,7 +42,40 @@ import urllib.request
 
 REPO = "Arkadia-Oversoul-Prism/Arkadia"
 ALIAS = "https://arkadia-prism.vercel.app/"
+
+# The harness observes the Prism surface. Its closure argument is valid only over
+# deployments built from the Prism build input: a Console deployment shares no
+# build input with Prism, so its ancestry says nothing about the Prism artifact.
 BUILD_INPUTS = ["web/public_prism/", ":!web/public_prism/dist"]
+
+# How many newest-first pages of `/deployments` to scan for Production records.
+# The endpoint is ordered by creation time across *every* environment, so on a
+# busy day the record cohort (Preview + per-branch deploys) can exceed the first
+# page and push Production off it: measured 2026-10-09, the newest Production
+# deploy sat at index 71 of the unfiltered list, so a one-page window reported
+# "no production deployment" while main *was* deployed -- the absent state, not
+# the real one. Five pages (500 records) covers the observed drift; the scan
+# stays bounded so the harness never walks the full history.
+DEPLOYMENT_SCAN_PAGES = 5
+
+# Every frontend the root ``vercel.json`` can be repointed at. A Production
+# deployment whose environment names a project with no build input here cannot
+# be placed on a build<->source lineage and must be classified, not assumed.
+KNOWN_FRONTENDS: dict[str, list[str]] = {
+    "arkadia-prism": ["web/public_prism/", ":!web/public_prism/dist"],
+    "console": ["web/console/", ":!web/console/dist"],
+}
+
+# The application the MARKERS literals below were drawn from. This is a property
+# of the marker list, NOT of any deployment: the harness must never assume the
+# artifact it fetched is the app its markers describe.
+#
+# The alias resolves to whichever project Vercel last assigned it to, and the
+# root project was repointed from ``web/public_prism`` to ``web/console`` at
+# 404452e0 (2026-10-02). From that commit the alias serves Console while these
+# markers remain Prism literals, so every marker reads 0 -- which is "this is a
+# different application", not "the artifact disagrees with the source".
+MARKER_APP = "arkadia-prism"
 
 # A Production record is labelled `Production`, `Production – arkadia-prism`, or
 # `Production – console`. An exact-equality test admitted only the bare form, so
@@ -102,8 +144,30 @@ def resolve_main() -> str:
     return sh(["git", "rev-parse", "origin/main"])
 
 
-def last_build_input_commit() -> tuple[str, str, str]:
-    out = sh(["git", "log", "-1", "--format=%H|%ci|%s", "--", *BUILD_INPUTS])
+def frontend_of(environment: str) -> str | None:
+    """Which frontend does a ``Production – <project>`` record name?
+
+    The project suffix is the only app identity the deployment API exposes, so it
+    is read from the label rather than inferred from the marker set. A record with
+    no known project suffix returns ``None``: its app is undetermined, and an
+    undetermined app cannot be scored against any marker set.
+    """
+    # Split on the label separator (en/em dash, or a spaced hyphen) -- never on a
+    # bare hyphen, which is part of project names like ``arkadia-prism``.
+    parts = re.split(r"\s+[\u2013\u2014]\s+|\s+-\s+", environment.strip())
+    if len(parts) < 2:
+        return None
+    project = parts[-1].strip().lower()
+    return project if project in KNOWN_FRONTENDS else None
+
+
+def last_build_input_commit(app: str = MARKER_APP) -> tuple[str, str, str]:
+    """Last commit that touched the build input of ``app``.
+
+    Scoped to one app: the two frontends have disjoint inputs, so a commit that
+    rebuilt Console is not evidence about Prism source and vice versa.
+    """
+    out = sh(["git", "log", "-1", "--format=%H|%ci|%s", "--", *KNOWN_FRONTENDS[app]])
     sha, date, subject = out.split("|", 2)
     return sha, date, subject
 
@@ -129,18 +193,36 @@ def production_deployments(payload, limit: int) -> list[dict]:
     40-char source SHA, so a truncated or absent ``sha`` cannot be compared as
     if it were identity.
     """
+    return production_deployments_within(payload, limit, limit)
+
+
+def production_deployments_within(payload, limit: int, scan_ceiling: int) -> list[dict]:
+    """As ``production_deployments``, but also proves the ``limit`` was drawn from
+    a deep-enough window.
+
+    Returns ``[]`` when fewer than ``scan_ceiling`` records were supplied *and*
+    no Production record was found: the window is exhausted, so the caller
+    cannot distinguish "no production deployment" from "one sits past the
+    window it fetched". Reporting ``[]`` there would let the harness print the
+    absent boundary while a current deployment exists -- the exact defect this
+    predicate guards, now one layer up from the label match.
+    """
     if not isinstance(payload, list):
         return []
-    out = []
-    for d in payload:
-        if not isinstance(d, dict) or not isinstance(d.get("environment"), str):
-            continue
-        if not PRODUCTION_ENVIRONMENT_RE.match(d["environment"]):
-            continue
-        sha = d.get("sha") or ""
-        if not re.fullmatch(r"[0-9a-f]{40}", sha):
-            continue
-        out.append(d)
+    if len(payload) < scan_ceiling and not any(
+        PRODUCTION_ENVIRONMENT_RE.match(d.get("environment", ""))
+        for d in payload
+        if isinstance(d, dict)
+    ):
+        return []
+    out = [
+        d
+        for d in payload
+        if isinstance(d, dict)
+        and isinstance(d.get("environment"), str)
+        and PRODUCTION_ENVIRONMENT_RE.match(d["environment"])
+        and re.fullmatch(r"[0-9a-f]{40}", d.get("sha") or "")
+    ]
     return out[:limit]
 
 
@@ -170,12 +252,68 @@ def classify_source_lineage(closure: list[dict], stale: list[str], prod: list[di
     between them, and the alias->SHA question is immaterial to *source*
     lineage. A candidate that does not exist locally cannot be checked and
     therefore cannot close the argument.
+
+    Source closure is *not* a marker observation. It says every candidate would
+    compile the same literals; it does not say any of those literals was read
+    from a served artifact. Claiming "marker set matches" from closure alone is
+    the defect this repairs: the verdict must name only what was observed.
     """
     if not prod or not closure or any(c.get("descendant_of_last_build_input") is None for c in closure):
         return "UNKNOWN"
     if lineage_closed(closure) and not stale:
-        return "VERIFIED (marker set matches, source closed)"
+        return "VERIFIED (source closed; marker set NOT observed)"
     return "UNKNOWN"
+
+
+def classify_marker_oracle(app: str | None, observed: dict[str, int] | None, stale: list[str]) -> str:
+    """Did the harness actually read a marker set off a served artifact?
+
+    ``app`` is the application the served artifact belongs to (from the
+    deployment label), or ``None`` when it could not be determined. ``observed``
+    is the per-marker occurrence count taken from the fetched document, or
+    ``None`` when nothing was fetched.
+
+    The marker list describes ``MARKER_APP``. An artifact belonging to any other
+    application cannot be scored against it at all: every literal reads 0 because
+    the surface is not in that build, which is a category error, not a
+    regression. Agreement additionally requires a positive reading -- an entirely
+    absent marker set is evidence that the artifact is not this app, never
+    evidence that it agrees. Without these distinctions an absent app and a
+    correct app produced the same verdict, which is exactly how a false
+    ``VERIFIED`` was reachable.
+    """
+    if app is None:
+        return f"NOT OBSERVED (served app undetermined; markers describe '{MARKER_APP}')"
+    if app != MARKER_APP:
+        return f"NOT OBSERVED (artifact is '{app}'; markers describe '{MARKER_APP}')"
+    if observed is None:
+        return "UNKNOWN (no artifact fetched)"
+    if stale:
+        return "UNKNOWN (marker list stale: literals absent from source)"
+    if not observed:
+        return "UNKNOWN (no markers read)"
+    if all(count > 0 for count in observed.values()):
+        return "VERIFIED (marker set observed in served artifact)"
+    absent = sorted(k for k, v in observed.items() if v == 0)
+    return f"CONTRADICTED (markers absent from served artifact: {', '.join(absent)})"
+
+
+def classify_sg04(app: str | None, app_for_surface: str, in_source: bool, in_artifact: int) -> dict:
+    """Whether the SG-04 surface can be scored against the observed artifact.
+
+    The SG-04 literals are ``app_for_surface``'s; a deployment of another app,
+    or an undetermined app, has no such surface. Scoring it anyway yields
+    ``regression: true`` on an artifact that was never evaluable -- a phantom
+    regression. When not evaluable the regression field is ``None`` (not proven
+    either way), never ``False`` and never ``True``.
+    """
+    evaluable = app == app_for_surface
+    return {
+        "in_source": in_source,
+        "in_deployed_artifact": in_artifact,
+        "evaluable": evaluable,
+        "regression": bool(in_source and in_artifact == 0) if evaluable else None,
+    }
 
 
 def api(path: str, token: str | None):
@@ -194,6 +332,32 @@ def api(path: str, token: str | None):
         return {"__error__": f"HTTP {e.code}"}
     except Exception as e:  # network boundary
         return {"__error__": type(e).__name__}
+
+
+def fetch_deployments(token: str | None) -> tuple[list, str | None]:
+    """Fetch the newest-first deployment window, paging until enough records.
+
+    ``/deployments`` is ordered by creation time across every environment and is
+    paginated. A fixed single-page window therefore reports "no production
+    deployment" whenever the Preview/branch cohort pushes the newest Production
+    record past it -- measured 2026-10-09 at index 71. Page until a Production
+    record appears, ``DEPLOYMENT_SCAN_PAGES`` is reached, or the server runs out
+    of pages. The window stays bounded; the full history is never walked.
+    """
+    collected: list = []
+    for page in range(1, DEPLOYMENT_SCAN_PAGES + 1):
+        chunk = api(f"/deployments?per_page=100&page={page}", token)
+        if not isinstance(chunk, list):
+            return collected, "deployment list unavailable"
+        collected.extend(chunk)
+        if any(
+            isinstance(d, dict) and PRODUCTION_ENVIRONMENT_RE.match(d.get("environment", ""))
+            for d in collected
+        ):
+            break
+        if len(chunk) < 100:
+            break
+    return collected, None
 
 
 def head(url: str) -> dict:
@@ -280,14 +444,18 @@ def main() -> int:
     # Fetch UNFILTERED. The server-side `?environment=Production` predicate
     # matches the bare label only and returns a different (older) cohort than the
     # project-suffixed `Production – arkadia-prism` records, so a filtered query
-    # can never see the newest Production deployment. Filter client-side.
-    deps = api(f"/deployments?per_page={max(args.limit * 5, 50)}", token)
-    if isinstance(deps, dict) and "__error__" in deps:
+    # can never see the newest Production deployment. Filter client-side, over a
+    # paged window wide enough that the Preview/branch cohort cannot push the
+    # newest Production record past it (see DEPLOYMENT_SCAN_PAGES).
+    deps, deps_err = fetch_deployments(token)
+    if deps_err is not None:
         report["boundaries"]["main -> deployment identity"] = "BLOCKED"
-        report["deployments_error"] = deps["__error__"]
+        report["deployments_error"] = deps_err
         prod = []
     else:
-        prod = production_deployments(deps, args.limit)
+        prod = production_deployments_within(
+            deps, args.limit, max(args.limit * 5, 50)
+        )
         report["boundaries"]["main -> deployment identity"] = classify_deployment_identity(main_sha, prod)
     report["production_deployments"] = [
         {"id": d["id"], "sha": d["sha"], "created_at": d["created_at"], "ref": d.get("ref")} for d in prod
@@ -353,19 +521,37 @@ def main() -> int:
     if lb is not None:
         report["markers"]["local_build"] = lb
 
+    # The observed Production deployment names its app in the environment label.
+    # Resolve it BEFORE any classifier reads it: the SG-04 verdict is scored
+    # against the observed app, and a read that precedes this write sees ``None``
+    # for every deployment -- collapsing the evaluable branch so a genuine
+    # regression can never be reported.
+    deployed_app = frontend_of(prod[0]["environment"]) if prod else None
+    report["deployed_app"] = deployed_app
+
     # SG-04 regression: expected in source, absent from artifact.
     dep_m = report["markers"].get("deployed", {})
-    sg04_src = present.get("activity-runtime-draft.v1:", False)
-    sg04_dep = dep_m.get("activity-runtime-draft.v1:", 0)
-    report["sg04"] = {
-        "in_source": sg04_src,
-        "in_deployed_artifact": sg04_dep,
-        "regression": bool(sg04_src and sg04_dep == 0),
-    }
+    report["sg04"] = classify_sg04(
+        deployed_app,
+        MARKER_APP,
+        present.get("activity-runtime-draft.v1:", False),
+        dep_m.get("activity-runtime-draft.v1:", 0),
+    )
+    sg04_src = report["sg04"]["in_source"]
+    sg04_dep = report["sg04"]["in_deployed_artifact"]
 
     # ---- link 6: source-lineage closure -------------------------------------
-    last_sha, last_date, last_subject = last_build_input_commit()
-    report["last_build_input_commit"] = {"sha": last_sha, "date": last_date, "subject": last_subject}
+    # The closure argument is only meaningful over the observed app's build input.
+    app_for_closure = deployed_app or MARKER_APP
+    if deployed_app is None and prod:
+        report["deployed_app_error"] = (
+            f"environment '{prod[0]['environment']}' names no known frontend; "
+            "build<->source lineage cannot be scoped"
+        )
+    last_sha, last_date, last_subject = last_build_input_commit(app_for_closure)
+    report["last_build_input_commit"] = {
+        "app": app_for_closure, "sha": last_sha, "date": last_date, "subject": last_subject
+    }
     closure = []
     for d in prod:
         sha = d["sha"]
@@ -389,6 +575,17 @@ def main() -> int:
         "UNKNOWN (immaterial: all candidates share frontend source)" if all_closure else "UNKNOWN"
     )
     report["boundaries"]["build <-> source lineage"] = classify_source_lineage(closure, stale, prod)
+    # Pass the app identity through unchanged. ``None`` means no Production
+    # deployment was observable, so there is no artifact to score and the
+    # classifier must report NOT OBSERVED. Coercing it to MARKER_APP here made
+    # the classifier's undetermined branch unreachable and let an unobserved
+    # artifact be reported as CONTRADICTED -- the same category error this
+    # harness was repaired to remove.
+    report["boundaries"]["marker-set oracle"] = classify_marker_oracle(
+        report.get("deployed_app"),
+        report["markers"].get("deployed"),
+        stale,
+    )
     report["boundaries"]["browser-rendered UI correctness"] = "UNKNOWN"
     report["boundaries"]["production acceptance"] = "NOT CLAIMED (human authority)"
 
@@ -419,6 +616,11 @@ def main() -> int:
               + (" (SSO redirect)" if report.get("deployment_url_status") != 200 else ""))
     print()
     print("MARKER-SET LINEAGE (literal : deployed / expected)")
+    print(f"  artifact app: {report.get('deployed_app') or 'UNDETERMINED'}"
+          f"   harness markers describe: {MARKER_APP}")
+    if report.get("deployed_app") != MARKER_APP:
+        print("  !! the served artifact is a DIFFERENT application than the marker list;")
+        print("     a zero count below is 'not this app', not a regression and not agreement.")
     for literal, (prov, expected, note) in MARKERS.items():
         d = dep_m.get(literal, 0)
         flag = ""
@@ -429,7 +631,11 @@ def main() -> int:
         print(f"  {literal:<38} {d}  ({'expect>0' if expected else 'expect 0'}){flag}")
     if lb is not None:
         match = all(lb.get(k, 0) == dep_m.get(k, 0) for k in MARKERS)
-        print(f"  local build marker set matches deployed: {match}")
+        if report.get("deployed_app") == MARKER_APP:
+            print(f"  local build marker set matches deployed: {match}")
+        else:
+            print("  local build marker set matches deployed: NOT COMPARABLE"
+                  f" (deployed app is '{report.get('deployed_app')}')")
     if stale:
         print(f"  !! STALE marker list -- literals gone from source: {stale}")
     print()
@@ -446,8 +652,16 @@ def main() -> int:
         print("     is immaterial to source lineage even though it is unobservable.")
     print()
     print("SG-04 REGRESSION")
-    print(f"  in source: {sg04_src}   in deployed artifact: {sg04_dep}"
-          f"   => REGRESSION: {report['sg04']['regression']}")
+    if report.get("deployed_app") != MARKER_APP:
+        app_label = (
+            f"the '{report.get('deployed_app')}' app, which has no SG-04 surface"
+            if report.get("deployed_app") else
+            "the served app is undetermined, so no artifact can be scored"
+        )
+        print(f"  in source: {sg04_src}   NOT EVALUABLE against artifact: {app_label}.")
+    else:
+        print(f"  in source: {sg04_src}   in deployed artifact: {sg04_dep}"
+              f"   => REGRESSION: {report['sg04']['regression']}")
     print()
     print("BOUNDARY CLASSIFICATION")
     for k, v in report["boundaries"].items():
