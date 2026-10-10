@@ -936,8 +936,6 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   not fixture debt. Repairing the Lab ones edits `api/lab_routes.py` — an authority surface
   carrying the Lab mutation boundary — so it is sovereign-only and was proposed, not executed.
 
-
-
 ## A CI gate must be selected by the files it executes — and must itself be executed (gate-hygiene)
 - `tests/test_ci_gate_trigger_coverage.py` (added by #300, `3f61cf2e`) stated the
   "gate must be selected by what it judges" invariant but was run by **no workflow**
