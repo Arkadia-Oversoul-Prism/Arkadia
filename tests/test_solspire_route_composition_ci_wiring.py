@@ -99,22 +99,65 @@ def _run_lines(step: dict) -> list[list[str]]:
     return commands
 
 
-def _is_pytest_invocation(tokens: list[str]) -> bool:
-    return any(tok == "pytest" or tok.endswith("/pytest") for tok in tokens)
+def _command_tokens(tokens: list[str]) -> list[str]:
+    """The tokens from the invoked executable onward.
+
+    Leading `env` and `NAME=value` assignments are dropped, so `FOO=1 pytest x` and
+    `env pytest x` resolve to a `pytest` command word.
+    """
+    i = 0
+    if tokens and tokens[0] == "env":
+        i = 1
+    while i < len(tokens):
+        head = tokens[i].split("=", 1)[0]
+        if "=" in tokens[i] and head.isidentifier():
+            i += 1
+            continue
+        break
+    return tokens[i:]
 
 
-def _targets_contract(tokens: list[str]) -> bool:
-    return any(tok == _CONTRACT_FILE or tok in _CONTRACT_DIRS for tok in tokens)
+def _pytest_command_index(tokens: list[str]) -> int | None:
+    """Index of the `pytest` word **only when it is the invoked command**.
+
+    `pytest x` and `python -m pytest x` count; `echo pytest x` does not — a word that
+    merely appears as an argument is not an invocation. The index is into
+    `_command_tokens(tokens)`.
+    """
+    cmd = _command_tokens(tokens)
+    for i, tok in enumerate(cmd):
+        if tok == "pytest" or tok.endswith("/pytest"):
+            if i == 0 or cmd[i - 1] == "-m":
+                return i
+    return None
+
+
+def _pytest_invokes(tokens: list[str]) -> bool:
+    """Whether this command actually executes pytest against the contract.
+
+    The contract must appear as an argument to the pytest command word — the contract
+    file itself, a node-id selector on it (`file::test`), or the directory containing
+    it (`pytest tests/ -q` collects and runs it).
+    """
+    idx = _pytest_command_index(tokens)
+    if idx is None:
+        return False
+    arguments = _command_tokens(tokens)[idx + 1:]
+    for arg in arguments:
+        # Accept the file, a node-id selector on it (`file::test`), or the directory
+        # containing it (`pytest tests/ -q` collects and runs it).
+        if arg == _CONTRACT_FILE or arg.startswith(_CONTRACT_FILE + "::"):
+            return True
+        if arg in _CONTRACT_DIRS:
+            return True
+    return False
 
 
 def _invocations(workflow: dict):
     """Steps that execute the contract with pytest: (job_name, job, step) triples."""
     found = []
     for job_name, job, step in _steps(workflow):
-        if any(
-            _is_pytest_invocation(cmd) and _targets_contract(cmd)
-            for cmd in _run_lines(step)
-        ):
+        if any(_pytest_invokes(cmd) for cmd in _run_lines(step)):
             found.append((job_name, job, step))
     return found
 
@@ -269,6 +312,42 @@ def test_negative_control_comment_only_mention_is_flagged():
 def test_negative_control_a_non_pytest_command_is_flagged():
     """A step that names the path but does not invoke pytest is not an execution."""
     other = _minimal_workflow(f"cat {_CONTRACT_FILE}", **_WIRED_TRIGGER)
+    assert _audit(other) == [_EXEMPTION_DEFECT]
+
+
+@pytest.mark.parametrize(
+    "run",
+    [
+        f"echo pytest {_CONTRACT_FILE}",
+        f"printf %s pytest {_CONTRACT_FILE}",
+        f"echo 'python -m pytest {_CONTRACT_FILE}'",
+    ],
+)
+def test_negative_control_pytest_as_an_argument_is_flagged(run: str):
+    """`pytest` appearing as an *argument* to another command is not an invocation."""
+    mentioned = _minimal_workflow(run, **_WIRED_TRIGGER)
+    assert _audit(mentioned) == [_EXEMPTION_DEFECT]
+
+
+@pytest.mark.parametrize(
+    "run",
+    [
+        f"pytest {_CONTRACT_FILE} -q",
+        f"python -m pytest {_CONTRACT_FILE} -q",
+        f"python3 -m pytest {_CONTRACT_FILE}",
+        f"PYTHONPATH=. python -m pytest {_CONTRACT_FILE} -q",
+        f"env python -m pytest {_CONTRACT_FILE}",
+        f"python -m pytest {_CONTRACT_FILE}::test_one -q",
+    ],
+)
+def test_positive_control_real_pytest_invocations_are_accepted(run: str):
+    wired = _minimal_workflow(run, **_WIRED_TRIGGER)
+    assert _audit(wired) == []
+
+
+def test_negative_control_pytest_elsewhere_is_not_the_contract_execution():
+    """Running pytest on another file is not running the contract."""
+    other = _minimal_workflow("python -m pytest tests/test_other.py -q", **_WIRED_TRIGGER)
     assert _audit(other) == [_EXEMPTION_DEFECT]
 
 
