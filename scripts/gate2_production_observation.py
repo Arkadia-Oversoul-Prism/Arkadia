@@ -41,7 +41,7 @@ import urllib.error
 import urllib.request
 
 REPO = "Arkadia-Oversoul-Prism/Arkadia"
-ALIAS = "https://arkadia-prism.vercel.app/"
+ALIAS = "https://arkadia-qzu4.onrender.com/"
 
 # The harness observes the Prism surface. Its closure argument is valid only over
 # deployments built from the Prism build input: a Console deployment shares no
