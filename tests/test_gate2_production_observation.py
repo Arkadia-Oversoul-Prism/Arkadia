@@ -183,21 +183,45 @@ def test_lineage_closed_is_a_conjunction_not_an_existence_check():
 # one verdict so the unobserved half could not fail on its own.
 
 
+def _positive_markers() -> list[str]:
+    return sorted(m for m, (_p, expected, _n) in MARKERS.items() if expected)
+
+
+def _polar_reading() -> dict[str, int]:
+    """A marker set that agrees with each literal's declared polarity."""
+    return {m: (1 if expected else 0) for m, (_p, expected, _n) in MARKERS.items()}
+
+
 def test_all_markers_absent_is_contradicted_not_verified():
-    """The defect, at the predicate: for the app the markers describe, a marker
-    list that reads 0 everywhere is the strongest possible evidence that the
-    artifact diverges. It must never be summarised as agreement."""
+    """The defect, at the predicate: for the app the markers describe, a reading
+    in which every *positive* literal is absent is the strongest possible
+    evidence that the artifact diverges. Its absence set names the positive
+    literals only -- a control literal correctly reading 0 is not a violation."""
     assert classify_marker_oracle(MARKER_APP, {m: 0 for m in MARKERS}, []) == (
         "CONTRADICTED (markers absent from served artifact: "
-        + ", ".join(sorted(MARKERS)) + ")"
+        + ", ".join(_positive_markers()) + ")"
     )
 
 
 def test_markers_present_is_the_only_verified_marker_verdict():
     """Positive control: the verdict the harness was claiming without evidence is
-    reachable, but only from a positive reading of the app the markers describe."""
-    assert classify_marker_oracle(MARKER_APP, {m: 1 for m in MARKERS}, []) == (
+    reachable, but only from a reading that agrees with every literal's declared
+    polarity -- positive literals present, control literals absent."""
+    assert classify_marker_oracle(MARKER_APP, _polar_reading(), []) == (
         "VERIFIED (marker set observed in served artifact)"
+    )
+
+
+def test_a_present_control_marker_is_contradicted():
+    """Negative control for polarity: a control literal (declared absent) that is
+    found in the artifact is a divergence, not agreement. Scoring controls as if
+    they were positive is the defect this pins: an all-ones reading is *not*
+    ``VERIFIED``."""
+    reading = _polar_reading()
+    bad = next(m for m in MARKERS if not MARKERS[m][1])
+    reading[bad] = 1
+    assert classify_marker_oracle(MARKER_APP, reading, []) == (
+        f"CONTRADICTED (markers absent from served artifact: {bad})"
     )
 
 

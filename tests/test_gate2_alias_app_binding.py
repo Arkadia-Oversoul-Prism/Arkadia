@@ -124,9 +124,22 @@ def test_zero_markers_on_a_different_app_is_not_reported_as_agreement(tmp_path):
 
 
 def test_live_root_config_names_a_known_frontend():
-    """A repoint to an unlisted frontend reddens this test rather than shipping
-    an unclassified binding."""
+    """If the repository root still carries a ``vercel.json``, it must name a
+    frontend this module can classify -- a repoint to an unlisted frontend
+    reddens this test rather than shipping an unclassified binding.
+
+    The file was retired (removed at 5a292e11) when the canonical runtime moved
+    to Render, so its absence is the expected live state, not an unclassified
+    binding. Guarding that transition explicitly keeps the repoint guard intact
+    while allowing the retirement: the earlier unconditional ``output is not
+    None`` pinned the pre-retirement tree and went red the moment the file was
+    removed.
+    """
+    cfg = _ROOT / "vercel.json"
     output = root_output_directory(str(_ROOT))
+    if not cfg.exists():
+        assert output is None
+        return
     assert output is not None
     assert app_of_output(output) in set(KNOWN_ROOT_OUTPUTS.values())
 
