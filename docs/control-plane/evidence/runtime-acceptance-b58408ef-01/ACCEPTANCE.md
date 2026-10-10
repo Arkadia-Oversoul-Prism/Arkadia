@@ -48,22 +48,24 @@ authorization oracle. Authorization behaviour is established only by live probes
 ## 3. Effective provider configuration — allowlisted, secret-free
 
 Obtained from runtime descriptors, never from repository defaults or the mere existence of
-environment-variable names.
+environment-variable names. This section records **two observations separated in time**, and
+the current state is the *after* row; the *before* row is kept because it is the evidence
+that the gap was real and that the operator's change closed it.
 
-| Source | Field | Value | State |
+| Observation | `descriptor.status` | `configured` | `descriptor.detail` |
 | --- | --- | --- | --- |
-| `GET /api/lab/engineering/n-atlas/catalog` | `descriptor.status` | `UNCONFIGURED` | OBSERVED |
-| same | `descriptor.configured` | `false` | OBSERVED |
-| same | `descriptor.detail` | `N_ATLAS_BASE_URL is not configured` | OBSERVED |
-| same | `descriptor.model` | `N-ATLaS` | OBSERVED |
-| `GET /api/tts/status` | `engine` / `preferred_engine` | `edge_tts` | OBSERVED |
-| `GET /api/keys/pool` | Gemini pool size / available | `1` / `1` | OBSERVED |
+| **before** configuration (this pass, first probe) | `UNCONFIGURED` | `false` | `N_ATLAS_BASE_URL is not configured` |
+| **after** configuration (re-probe, Section 3.1) | `AVAILABLE` | `true` | `protocol=gradio; reachable via /models` |
 
-The running service's **effective N-ATLAS provider is unconfigured**. The configured model
-identifier for other Lab providers is recorded from source
-(`lab/engineering_lab/gateway.py`, `_MODEL_REFS`: gemini `gemini-2.0-flash`, openai
-`gpt-4o-mini`, claude `claude-3-5-sonnet-20241022`, deepseek `deepseek-chat`, n_atlas
-`N-ATLaS`) and is a **source-level** fact, not a runtime observation of an active call.
+Unchanged in both observations: `descriptor.model = N-ATLaS`; `GET /api/tts/status` →
+`edge_tts`; `GET /api/keys/pool` → size 1 / available 1.
+
+**Current effective N-ATLAS provider state: `AVAILABLE`, `configured: true`** (revision
+`b58408ef`, config-only change). The configured model identifier for other Lab providers is
+recorded from source (`lab/engineering_lab/gateway.py`, `_MODEL_REFS`: gemini
+`gemini-2.0-flash`, openai `gpt-4o-mini`, claude `claude-3-5-sonnet-20241022`, deepseek
+`deepseek-chat`, n_atlas `N-ATLaS`) and is a **source-level** fact, not a runtime observation
+of an active call.
 
 ### 3.1 The live N-ATLAS endpoint is public; the Render env var was the only gap (now applied)
 
@@ -76,9 +78,9 @@ The intended endpoint is documented in-repo (`.github/workflows/n-atlas-external
 | `GET https://koladeodunope-ednai-natlas-runtime.hf.space/openapi.json` | `200` | OBSERVED |
 | `GET .../gradio_api/info` | `200` | OBSERVED |
 
-The Space is reachable and public (no `Authorization` required), so the gap between the
-`UNCONFIGURED` live descriptor and the working CI job is a **Render environment-variable
-omission**, not a missing capability, adapter, or credential.
+The Space is reachable and public (no `Authorization` required), so the gap was between the
+**pre-configuration** `UNCONFIGURED` live descriptor and the working CI job — a **Render
+environment-variable omission**, not a missing capability, adapter, or credential.
 
 `get_gateway().describe("n_atlas")` (`lab/engineering_lab/gateway.py`) returns
 `UNCONFIGURED` exactly when `N_ATLAS_BASE_URL` is unset, and `AVAILABLE` when the URL is set
@@ -159,9 +161,9 @@ The native golden record ties the full chain with agreeing identifiers:
 - `usage.protocol = gradio`, `event_id`, `sse_events ["complete"]`.
 
 So a genuine N-ATLAS inference **with execution → evaluation → evidence correlation** is
-demonstrated for the current deployment lineage. What is *not* yet demonstrated is that same
-chain through the **canonical runtime's** `/api/lab` route, which stays BLOCKED pending the
-env var. Prior `NATLAS-LAB-001` results are historical and are not substituted.
+demonstrated for the current deployment lineage, and — after the configuration in
+Section 4.1 — through the **canonical runtime's** `/api/lab` route as well. Prior
+`NATLAS-LAB-001` results are historical and are not substituted.
 
 ## 5. Evidence-chain correlation (revision → request → … → evidence)
 
@@ -346,3 +348,18 @@ curl -s https://arkadia-qzu4.onrender.com/api/lab/engineering/n-atlas/catalog
   mutation surface in `api/key_routes.py` (require user context for write endpoints, or bind
   them to a documented operator token). This changes an authority surface and needs sovereign
   authorization.
+
+## 13. Tracked follow-ups (explicitly separate, not executed here)
+
+These are deliberately **not** folded into this acceptance record's verdicts; each needs its
+own bounded pass and evidence.
+
+1. **Low-privilege authenticated authorization test.** Establish with a real, authorized
+   low-privilege identity whether privileged operations are denied. The anonymous matrix and
+   the malformed-bearer probe do **not** establish this. Status per this pass: **NOT TESTED**
+   (`ARKADIA_PROBE_LOW_PRIVILEGE_BEARER` unset). Owner: unassigned; needs a provisioned test
+   identity.
+2. **Anonymous key-mutation boundary (`api/key_routes.py`).** Confirm whether an anonymous
+   caller can mutate the shared process-global key store, using an isolated/reversible test —
+   never by mutating production credentials. Status per this pass: source path **OBSERVED**,
+   runtime effect **NOT TESTED**. Owner: sovereign-gated (authority surface).
