@@ -7,7 +7,7 @@
 
 | Item | State |
 |---|---|
-| Backend | **LIVE** — https://arkadia-kw64.onrender.com |
+| Canonical runtime (frontend + backend) | **LIVE** — https://arkadia-qzu4.onrender.com |
 | Phase 0 — Endpoint migration | **COMPLETE** |
 | Workstream B | **COMPLETE** — SQLite durability in production |
 | Gate B | **CLOSED** |
@@ -27,7 +27,7 @@
 
 **Before the next Vercel frontend deploy, set:**
 ```
-VITE_API_URL=https://arkadia-kw64.onrender.com
+VITE_API_URL=https://arkadia-qzu4.onrender.com
 ```
 Either in the Vercel dashboard under Environment Variables, or by updating `.env.production` manually.
 
@@ -90,7 +90,7 @@ Assume these are facts. Do not re-verify them.
 - `knowledge/pipeline.py` — `ingest()` is the entry point; duplicate-detection makes it idempotent.
 - `knowledge/context_engine.py` — `assemble_context()` is the retrieval entry point.
 - Semantic search, knowledge graph, timeline, and embeddings all exist.
-- All production references point to `https://arkadia-kw64.onrender.com`.
+- All production references point to `https://arkadia-qzu4.onrender.com`.
 
 Do not rebuild any of these.
 
