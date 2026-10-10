@@ -56,6 +56,74 @@ def request(path: str, headers: dict[str, str] | None = None) -> dict:
         }
 
 
+class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Return 3xx responses as observations instead of following Location."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def request_without_redirects(path: str) -> dict:
+    url = BASE + path
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": "Arkadia-Codex-Anomaly-Probe/1.0", "Accept": "application/json"},
+    )
+    opener = urllib.request.build_opener(NoRedirectHandler())
+    started = time.monotonic()
+    try:
+        with opener.open(req, timeout=TIMEOUT) as response:
+            body = response.read(200_000)
+            headers = response.headers
+            return {
+                "requested_url": url,
+                "response_url": response.geturl(),
+                "status": response.status,
+                "location": headers.get("Location"),
+                "request_id": headers.get("X-Request-ID") or headers.get("X-Correlation-ID") or headers.get("Traceparent"),
+                "request_id_headers": {
+                    key: headers.get(key)
+                    for key in ("X-Request-ID", "X-Correlation-ID", "Traceparent", "CF-Ray", "X-Render-Origin-Server")
+                    if headers.get(key)
+                },
+                "elapsed_ms": round((time.monotonic() - started) * 1000),
+                "content_type": headers.get("Content-Type", ""),
+                "body_preview": body[:300].decode("utf-8", "replace"),
+                "redirect_followed": False,
+            }
+    except urllib.error.HTTPError as error:
+        body = error.read(200_000)
+        headers = error.headers
+        return {
+            "requested_url": url,
+            "response_url": error.geturl(),
+            "status": error.code,
+            "location": headers.get("Location"),
+            "request_id": headers.get("X-Request-ID") or headers.get("X-Correlation-ID") or headers.get("Traceparent"),
+            "request_id_headers": {
+                key: headers.get(key)
+                for key in ("X-Request-ID", "X-Correlation-ID", "Traceparent", "CF-Ray", "X-Render-Origin-Server")
+                if headers.get(key)
+            },
+            "elapsed_ms": round((time.monotonic() - started) * 1000),
+            "content_type": headers.get("Content-Type", ""),
+            "body_preview": body[:300].decode("utf-8", "replace"),
+            "redirect_followed": False,
+        }
+    except Exception as error:
+        return {
+            "requested_url": url,
+            "response_url": None,
+            "status": None,
+            "location": None,
+            "request_id": None,
+            "request_id_headers": {},
+            "elapsed_ms": round((time.monotonic() - started) * 1000),
+            "error_type": type(error).__name__,
+            "error": str(error)[:300],
+            "redirect_followed": False,
+        }
+
+
 def classify(status: int | None) -> str:
     if status is None:
         return "failing_or_unreachable"
@@ -120,6 +188,17 @@ report = {
     "frontend_routes": {},
     "authorization_matrix": {},
     "limitations": [],
+}
+
+# Focused anomaly capture: never follow a redirect for either path. Keep the
+# Location, response/request identifiers, elapsed time, and actual response URL.
+report["targeted_anomaly_probe"] = {
+    "method": "GET",
+    "redirect_policy": "follow_redirects=false",
+    "results": {
+        "/api/codex": request_without_redirects("/api/codex"),
+        "/solspire/workspace": request_without_redirects("/solspire/workspace"),
+    },
 }
 
 for path in ("/", "/health", "/api/version", "/openapi.json", "/operator", "/solariun/opportunity-radar", "/n-atlas-lab", "/n-atlas-tester"):
@@ -200,10 +279,90 @@ for source_root in source_roots:
                         "file": str(source_file), "function": node.name,
                         "router_variable": receiver,
                     })
-source_keys = {(item["method"], item["path"]) for item in source_declarations}
+# Resolve dynamically registered route functions back to the APIRouter passed
+# by their registration site. Example: register_eden_ops_02_routes(router) is
+# defined in a separate module, but its target router carries the caller's
+# /enterprise prefix and is itself mounted below /solspire.
+router_prefixes_by_file: dict[str, dict[str, str]] = {}
+registration_source_by_name: dict[str, str] = {}
+for source_root in source_roots:
+    if not source_root.exists():
+        continue
+    for source_file in source_root.rglob("*.py"):
+        if any(part in {"archive", "tests", "__pycache__"} for part in source_file.parts):
+            continue
+        try:
+            tree = ast.parse(source_file.read_text(encoding="utf-8"))
+        except (OSError, SyntaxError, UnicodeDecodeError):
+            continue
+        local_prefixes: dict[str, str] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Assign, ast.AnnAssign)):
+                value = node.value
+                if isinstance(value, ast.Call) and isinstance(value.func, ast.Name) and value.func.id == "APIRouter":
+                    prefix = next((kw.value.value for kw in value.keywords
+                                   if kw.arg == "prefix" and isinstance(kw.value, ast.Constant)
+                                   and isinstance(kw.value.value, str)), "")
+                    targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                    for target in targets:
+                        if isinstance(target, ast.Name):
+                            local_prefixes[target.id] = prefix
+        router_prefixes_by_file[str(source_file)] = local_prefixes
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                for alias in node.names:
+                    if alias.name.startswith("register_") and alias.name.endswith("_routes"):
+                        registration_source_by_name[alias.asname or alias.name] = str(
+                            Path(*node.module.split(".")).with_suffix(".py")
+                        )
+
+dynamic_prefix_by_file: dict[str, str] = {}
+for source_root in source_roots:
+    if not source_root.exists():
+        continue
+    for caller_file in source_root.rglob("*.py"):
+        if any(part in {"archive", "tests", "__pycache__"} for part in caller_file.parts):
+            continue
+        try:
+            tree = ast.parse(caller_file.read_text(encoding="utf-8"))
+        except (OSError, SyntaxError, UnicodeDecodeError):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
+                continue
+            function_name = node.func.id
+            target_file = registration_source_by_name.get(function_name)
+            if not target_file or not node.args or not isinstance(node.args[0], ast.Name):
+                continue
+            target_router = node.args[0].id
+            local_prefix = router_prefixes_by_file.get(str(caller_file), {}).get(target_router)
+            if local_prefix is None:
+                continue
+            composed = "/".join(part.strip("/") for part in (
+                "solspire" if str(caller_file).startswith("solspire/") else "",
+                local_prefix,
+            ) if part.strip("/"))
+            dynamic_prefix_by_file[target_file] = "/" + composed if composed else ""
+
+source_keys = set()
+composed_source_declarations = []
 for item in source_declarations:
-    if item["file"].startswith("solspire/") and not item["path"].startswith("/solspire"):
-        source_keys.add((item["method"], "/solspire" + item["path"]))
+    path = item["path"]
+    source_file = item["file"]
+    if source_file in dynamic_prefix_by_file:
+        prefix = dynamic_prefix_by_file[source_file]
+        path = "/" + "/".join(part.strip("/") for part in (prefix, path) if part.strip("/"))
+        item["composition"] = "dynamic_registration_site"
+        item["composed_path"] = path
+    elif source_file.startswith("solspire/") and not path.startswith("/solspire"):
+        path = "/solspire" + path
+        item["composition"] = "solspire_parent_router"
+        item["composed_path"] = path
+    else:
+        item["composition"] = "local_router_or_app"
+        item["composed_path"] = path
+    composed_source_declarations.append({**item, "path": path})
+    source_keys.add((item["method"], path))
 
 runtime_keys = {
     (method.upper(), path)
@@ -224,9 +383,10 @@ report["source_inventory"] = {
     "source_declarations_without_exact_runtime_match": [
         {"method": method, "path": path} for method, path in source_unmatched[:500]
     ],
-    "source_declarations": source_declarations,
-    "comparison_status": "exact_with_known_solspire_parent_prefix",
-    "limitation": "Known SolSpire child-router prefix is composed explicitly. Any remaining unmatched entries require source-level review and are not automatically classified as absent.",
+    "source_declarations": composed_source_declarations,
+    "dynamic_registration_prefixes": dynamic_prefix_by_file,
+    "comparison_status": "router_aware_nested_and_dynamic_registration_composition",
+    "limitation": "Static AST analysis composes SolSpire's parent prefix and statically identifiable register_*_routes(router) registrations. Remaining unmatched entries require source-level review and are not automatically classified as absent.",
 }
 report["openapi"] = {
     "classification": "reachable",
