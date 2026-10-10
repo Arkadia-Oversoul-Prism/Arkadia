@@ -936,3 +936,34 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   not fixture debt. Repairing the Lab ones edits `api/lab_routes.py` — an authority surface
   carrying the Lab mutation boundary — so it is sovereign-only and was proposed, not executed.
 
+
+## Main-red cluster: a duplicate-file PR pair is order-independent, not a conflict (gate-hygiene)
+- Two open PRs can share a load-bearing test+asset file **without** conflicting. PR #354
+  deliberately composes PR #384's CP10 browser-asset repair, so both carry
+  `web/public_prism/public/firebase-config.js` and `tests/test_frontend_script_assets_resolve.py`
+  as **byte-identical blobs** (`d9973c17...` / `17be550d...`). `main` is an ancestor of both, so
+  neither is stacked; they are independent branches off `main`.
+- **Prove order-independence with a real merge, not a patch.** `git merge origin/pr354` into a
+  detached worktree at `origin/pr384` reports "Merge made by the 'ort' strategy" with **zero
+  conflicts** and lists only #354's unique files (`AGENTS.md`, `cp10_mutation_boundary_policy.py`,
+  the two evidence docs). The shared blobs do not appear in the stat; same blob, nothing to merge.
+  Either order yields the same tree.
+- **The composed CP10 tree is green:** on `origin/pr354`, `tests/test_m02a_ci_gate_integrity.py`
+  plus `tests/test_frontend_script_assets_resolve.py` gives **67 passed**, and
+  `scripts/cp10_mutation_boundary_policy.py --judge` reports `Mutation boundary PASS` (exit 0). On
+  `main`, the three `deploy` allowlist nodes fail, so #354 is that repair's carrier.
+- Sequence in this repo's convention: **#384 first** (closes the runtime browser gate), **#354
+  second** (its embedded copies become no-ops). Reversed, #384 becomes a no-op merge; a reviewer
+  can then close it rather than merge it.
+- **Every `main`-red node is already owned** (full-suite baseline **16** nodes, outcomes
+  `bfcfe592...` / ids `ed5e4714...` at `f9ced6b6`; architecture **11 passed**; `api/main.py` 2450
+  lines). Owners: #356 (`engineering_lab_api` x2), #365 (`steward_filter` x2), #347
+  (`ais_capability_profile_onboarding`), #363 (AIS/frontend copy pins), #354 (CP10 allowlist x3).
+  Two are **not PR targets**: the `test_autonomy.py` collection ERROR is the CE-01 module-vs-package
+  collision reserved to the sovereign, and the Living-Gate `test_no_firebase_persistence_in_gate`
+  node is a documented sovereign-decision placeholder (F-01), not stale drift. **No genuinely
+  unowned baseline failure exists**; new safety work here is a continuity artifact, not a repair.
+- Guard: `tests/test_main_red_cluster_merge_order.py` reads the recorded manifest
+  (`docs/control-plane/evidence/gate-hygiene-main-red-cluster-merge-order-01/merge_order_manifest.json`)
+  and fails if a future overlap is **not** recorded as byte-identical, the signature of two live
+  PRs editing one source independently. Negative and positive controls included.

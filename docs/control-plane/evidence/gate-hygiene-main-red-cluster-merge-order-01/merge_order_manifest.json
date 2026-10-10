@@ -1,0 +1,52 @@
+{
+  "pass": "gate-hygiene/main-red-cluster-merge-order-01",
+  "base_main": "f9ced6b6b974a6e19a8a19b4d1360b59b037a2c8",
+  "measured": {
+    "full_suite_nodes": 16,
+    "full_suite_failed": 15,
+    "full_suite_errors": 1,
+    "outcomes_fingerprint": "bfcfe5920c3789302e80c72618e1f280e3577a8395320c89f174147cd11ec733",
+    "ids_fingerprint": "ed5e4714df236078d6eb04cb43197c22403d2c244caa3e7bc7d71d45f6c0a833",
+    "architecture": "11 passed",
+    "api_main_lines": 2450,
+    "agents_md_mojibake": 0
+  },
+  "baseline_node_owners": {
+    "tests/test_autonomy.py": "sovereign-reserved-ce01",
+    "tests/test_engineering_lab_api.py::test_lab_mutation_endpoints_are_exactly_the_lab_state_set": "356",
+    "tests/test_engineering_lab_api.py::test_lab_router_is_read_only_and_authenticated": "356",
+    "tests/test_steward_filter.py::test_allows_mythic_with_action": "365",
+    "tests/test_steward_filter.py::test_compress_to_choices": "365",
+    "tests/test_ais_capability_profile_onboarding.py::test_home_is_offer_led_and_keeps_arkadia_entry_points": "347",
+    "tests/test_ais_w2_living_gate_grove_handoff.py::test_no_firebase_persistence_in_gate": "sovereign-decision-f01",
+    "test_oracle_runtime_uses_the_shared_session_key": "363",
+    "tests/test_m02a_ci_gate_integrity.py (3 allowlist nodes)": "354"
+  },
+  "duplicate_file_relationship": {
+    "superset_pr": "354",
+    "subset_pr": "384",
+    "reason": "PR #354 deliberately composes PR #384's CP10 browser-asset repair so a single sovereign merge closes CP10.",
+    "shared_files": {
+      "web/public_prism/public/firebase-config.js": {
+        "pr384_blob": "d9973c17ad63e8411926d8bbce294ca0c2931551",
+        "pr354_blob": "d9973c17ad63e8411926d8bbce294ca0c2931551",
+        "identical": true
+      },
+      "tests/test_frontend_script_assets_resolve.py": {
+        "pr384_blob": "17be550d18b34392baecbdbe40dead112e658096",
+        "pr354_blob": "17be550d18b34392baecbdbe40dead112e658096",
+        "identical": true
+      }
+    },
+    "heads": {"384": "f744e36b", "354": "b6eec36b"},
+    "main_is_ancestor_of_both": true,
+    "real_merge_conflicts": 0,
+    "order_independent": true,
+    "recommended_order": ["384", "354"]
+  },
+  "composed_cp10_proof": {
+    "tree": "origin/pr354 (b6eec36b)",
+    "pytest": "67 passed (tests/test_m02a_ci_gate_integrity.py + tests/test_frontend_script_assets_resolve.py)",
+    "boundary_judge": "Mutation boundary PASS (exit 0)"
+  }
+}
