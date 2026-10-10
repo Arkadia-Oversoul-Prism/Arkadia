@@ -65,7 +65,7 @@ identifier for other Lab providers is recorded from source
 `gpt-4o-mini`, claude `claude-3-5-sonnet-20241022`, deepseek `deepseek-chat`, n_atlas
 `N-ATLaS`) and is a **source-level** fact, not a runtime observation of an active call.
 
-### 3.1 The live N-ATLAS endpoint exists and is public; only the Render env var is missing
+### 3.1 The live N-ATLAS endpoint is public; the Render env var was the only gap (now applied)
 
 The intended endpoint is documented in-repo (`.github/workflows/n-atlas-external-beta.yml`):
 `https://koladeodunope-ednai-natlas-runtime.hf.space`, called via the Gradio SSE contract
@@ -102,7 +102,7 @@ hardening (only if the Space becomes private), never a committed value.
 untouched. The live catalog now reports `AVAILABLE` and Section 4.1 records the resulting
 genuine inference.
 
-## 4. N-ATLAS genuine inference — BLOCKED on the canonical runtime, VERIFIED in CI
+## 4. N-ATLAS genuine inference — VERIFIED (canonical route and CI)
 
 The golden workflow is `RUN → INSPECT → EVALUATE → EVIDENCE → VERIFY`. A genuine
 current-revision inference requires a real provider response — not a fixture, mock, cached
