@@ -41,7 +41,7 @@ jobs:
             { path: '/', surface: 'public entry' },
             { path: '/solariun', surface: 'Solariun personal canvas' },
             { path: '/oracle', surface: 'Arkana Oracle' },
-            { path: '/solspire', surface: 'Canvas / SolSpire workspace' },
+            { path: '/solariun/engineering-lab', surface: 'Solariun Canvas / Engineering Lab' },
             { path: '/operator', surface: 'Operator Console' },
             { path: '/n-atlas-lab', surface: 'N-ATLaS Lab' },
             { path: '/n-atlas-tester', surface: 'N-ATLaS Tester' },
