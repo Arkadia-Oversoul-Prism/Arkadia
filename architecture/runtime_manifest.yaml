@@ -107,62 +107,64 @@ notes:
 canonical_deployment:
   invariant: one_reconciled_deployment
   authority: docs/adr/ADR-016-single-canonical-deployment.md
-  # 1. Canonical source revision
   canonical_source_revision:
-    value: f9ced6b6b974a6e19a8a19b4d1360b59b037a2c8
-    status: observed
-    method: git rev-parse HEAD at preparation (2026-10-10)
-  # 2. Canonical deployment identity
+    value: 17b931b4fe6dd9b27749894dd0d9b1dc9a2e14f5
+    status: observed_at_reconciliation_start
+    method: GitHub main + Render deployment metadata
+    observed_at: "2026-10-10T14:22:55Z"
   canonical_deployment_identity:
-    value: unknown
-    status: unknown
-    note: >-
-      Repository documents name the Render service Arkadia (srv-d9i1bar7uimc73asnv0g).
-      The service-to-hostname mapping is not resolvable without Render management access.
-  # 3. Actual running revision
+    value: "Render service Arkadia / srv-db49jbh42hec73aj84qg"
+    status: verified_by_render_management_api
+    origin: "https://arkadia-qzu4.onrender.com"
+    repository: "Arkadia-Oversoul-Prism/Arkadia"
+    branch: main
+    root_directory: "."
+    dockerfile: "./Dockerfile"
+    runtime: docker
+    region: oregon
+    render_ssh_address: "srv-db49jbh42hec73aj84qg@ssh.oregon.render.com"
   actual_running_revision:
-    value: unknown
-    status: unknown
+    value: 17b931b4fe6dd9b27749894dd0d9b1dc9a2e14f5
+    status: observed_by_render_deployment_metadata
+    deploy_id: dep-db54i61rn11c73d7cq10
+    deploy_status: live
+    observed_at: "2026-10-10T14:22:55Z"
     note: >-
-      No revision metadata endpoint existed at observation time. GET /api/version makes
-      this observable only after a build containing it is deployed.
-  # 4. Internal module and route registration
+      This is the deployed revision at reconciliation start. The next merged
+      source change will trigger a new Render deploy; the live HTTP reconciliation
+      workflow must record and verify that new revision before acceptance.
   module_route_registration:
     status: source_defined
     evidence: [api/frontend_routes.py, Dockerfile, api/main.py]
-  # 5. Runtime verification
+    architecture: one_image_two_frontends_one_fastapi_origin
   runtime_verification:
-    status: partial
-    as_of: "2026-10-10"
-    observed:
-      - host: arkadia-qzu4.onrender.com
-        reading: strongest observed unified-runtime candidate
-        evidence:
-          openapi_paths: 287
-          root_prism_spa: true
-          operator_route: true
-          solariun_route: true
-          same_origin_api: true
-      - host: arkadia-kw64.onrender.com
-        reading: conflicting, apparently older runtime
-        evidence:
-          openapi_paths: 286
-          root_prism_spa: false
-          operator_route: false
-          solariun_route: false
-      - host: arkadia-prism.vercel.app
-        reading: legacy split artifact
-        evidence:
-          api_heartbeat_returns_html: true
-  # 6. Explicit acceptance
+    status: pending_fresh_http_capture
+    canonical_host: "https://arkadia-qzu4.onrender.com"
+    required_paths:
+      - /
+      - /operator
+      - /n-atlas-tester
+      - /solariun/opportunity-radar
+      - /api/heartbeat
+      - /api/version
+      - /openapi.json
+    authorization_matrix:
+      - anonymous
+      - invalid_bearer
+      - unauthenticated
+      - authenticated_non_sovereign
+    notes:
+      - Render metadata confirms the service-to-host mapping and deployed commit.
+      - HTTP/OpenAPI capture must run from GitHub Actions or another network that resolves the host.
+      - Authenticated non-sovereign behavior remains unresolved until a safe test identity is provisioned.
   acceptance:
     status: not_claimed
   rules:
     - an observed hostname is not proof of canonical ownership
-    - an HTTP 200 from an alternate deployment does not establish acceptance
     - a running revision must be evidenced, never inferred from source
-    - no agent may establish an alternative canonical deployment without authorization
-  historical_targets:
+    - route inventory parity is necessary but not sufficient for behavioral acceptance
+    - no production acceptance without live route and authorization evidence
+  archived_targets:
     - arkadia-kw64.onrender.com
-    - arkadia-qzu4.onrender.com
     - arkadia-prism.vercel.app
+    - arkadia-prism-jklhb9use-arkadia-prism.vercel.app
