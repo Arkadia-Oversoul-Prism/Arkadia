@@ -60,6 +60,9 @@ def methods(document: dict) -> dict[str, list[str]]:
 
 
 def source_openapi() -> dict:
+    # Python sets sys.path[0] to scripts/ when this file is invoked by path.
+    # Add the repository root explicitly so the canonical api package resolves.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     # Import the repository composition root, not a hand-maintained route list.
     os.environ.setdefault("ENVIRONMENT", "development")
     os.environ.setdefault("SOVEREIGN_KEY", "ci-only-nonproduction-placeholder")
