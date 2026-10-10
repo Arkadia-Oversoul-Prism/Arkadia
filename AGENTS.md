@@ -1033,3 +1033,28 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   not fixture debt. Repairing the Lab ones edits `api/lab_routes.py` — an authority surface
   carrying the Lab mutation boundary — so it is sovereign-only and was proposed, not executed.
 
+
+
+## The P1-A boot-syntax guard was real but executed by no gate (gate-hygiene)
+- `tests/test_boot_syntax_boundary.py` (PR #297, `8d2d251a`) makes the P1-A guard
+  continuous: `api/main.py` and every tracked Python file must `compile()`. Measured at
+  `f9ced6b6`, `grep -rn test_boot_syntax .github/workflows/` returned **0** - it ran only
+  when a human invoked the suite by hand. `api/main.py` is named by exactly one workflow
+  path filter (`n-atlas-developer-lab.yml:12`, three named tests), and the CP10 workflow
+  is filtered to `web/public_prism/**`, `spiral_grove/**`, `lab/**`, `api/lab_routes.py`
+  and named test files, so a P1-A-shaped boot break runs the guard nowhere. This is the
+  same "a guard no workflow executes is decoration" class already closed for
+  `test_baseline_fingerprint.py` and `scripts/baseline_preflight.py`.
+- **A wiring filter for a whole-corpus guard must select the corpus, not a file list.**
+  The guard's domain is every tracked `.py` file (556 at `f9ced6b6`); a `paths:` list of
+  a few files omits the tree where the next boot-broken module lands. Use `**/*.py` plus
+  `*.py` (a leading `**/` also matches root). `tests/test_boot_syntax_ci_wiring.py`
+  derives the domain from `git ls-files -- '*.py'` at test time rather than restating it,
+  so a new module is judged by the same rule. Its glob is a real glob->regex translation
+  (`**/` -> `(?:.*/)?`), not a segment-count match - a naive matcher both misses root
+  files and passes incomplete filters.
+- **The boot guard uses `compile()`, not `import`**, so its CI job needs no application
+  dependency (only `pytest` + `pyyaml`): a dependency gap cannot be misreported as a boot
+  break. Keep it that way when wiring similar syntax guards.
+- Prove the wiring bites with a **live** negative control, not a synthetic one: replace
+  `**/*.py` with `api/main.py` in the working tree and the coverage test must fail.
