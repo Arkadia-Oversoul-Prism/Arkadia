@@ -22,6 +22,8 @@ function NavLink({
   return (
     <button
       onClick={onClick}
+      type="button"
+      aria-current={active ? "page" : undefined}
       data-testid={`nav-${label.toLowerCase().replace(/\s+/g, "-")}`}
       className={`rounded-lg px-3 py-2 text-left font-mono text-[11px] uppercase tracking-[0.16em] transition ${
         active ? `bg-white/5 ${accent}` : "text-white/45 hover:text-white/80"
@@ -69,7 +71,7 @@ export function Shell({
             </button>
           )}
         </div>
-        <nav className="flex flex-col gap-1">
+        <nav aria-label="Primary navigation" className="flex flex-col gap-1">
           {NAV_SURFACES.map((s) => (
             <NavLink key={s.id} active={current === s.id} label={s.name} accent={s.accent} onClick={() => onNavigate(s.id)} />
           ))}
@@ -84,7 +86,7 @@ export function Shell({
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Mobile navigation: the same surfaces, no second global nav bar. */}
-        <nav className="flex gap-1 overflow-x-auto border-b border-line bg-panel/40 p-2 md:hidden">
+        <nav aria-label="Primary navigation (mobile)" className="flex gap-1 overflow-x-auto border-b border-line bg-panel/40 p-2 md:hidden">
           {NAV_SURFACES.map((s) => (
             <NavLink key={s.id} active={current === s.id} label={s.name} accent={s.accent} onClick={() => onNavigate(s.id)} />
           ))}
