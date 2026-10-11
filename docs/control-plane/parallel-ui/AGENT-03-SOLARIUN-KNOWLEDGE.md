@@ -1,29 +1,27 @@
 # Agent 03 — Solariun & Knowledge OS
 
-**Branch:** `feat/prism-parallel-03-solariun-knowledge`  
-**PR:** #421 (draft bootstrap)  
-**Owns:** Solariun and Knowledge OS page modules, feature-local components, tests, and evidence. Exact paths must be discovered from the current tree and archive before edits.  
-**Shared contract:** `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` in `main` (accepted via PR #419); fetch/review it before edits.
+**Current slice:** PR #427 — verified multi-mode Knowledge OS search, schema repair, and owner-scoped search modes.
+**After merge:** create the next branch from freshly fetched `main`, open a new draft PR, update the active branch map through Workstream 1, and begin immediately.
+**Owns:** Solariun/Knowledge OS pages, feature-local components, search/timeline/file/graph features, and their tests/evidence. Shared routing, global navigation, endpoint/type registries remain Workstream 1's seam.
+**Contract:** `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md`.
 
-## Mission
-Reconcile personal workspace, capture, knowledge exploration/search, and related Solariun interactions with current identity, authorization, file, and knowledge contracts. Preserve personal sovereignty and the distinction between personal/private material and public corpus.
+## Immediate continuation task
 
-## First tasks
-1. Inspect current `main`, PR #418, archive README and relevant archived pages/components; identify exact legacy paths and current page modules. Do not guess file paths from product names.
-2. Build a feature/route matrix for Solariun home/workspace, capture, personal Codex/Echofeild, knowledge search/files/graph/timeline and any audio/read-aloud controls actually present.
-3. For every capability, inspect actual backend route/OpenAPI, handler, auth requirement, request/response schema, persistence and error behavior. Mark unsupported contracts UNKNOWN/BLOCKED; no endpoint invention.
-4. Use existing canonical API client and identity boundary. Prove personal uploads cannot leak into public corpus and public corpus reads cannot expose personal vault data.
-5. Implement one bounded vertical slice at a time in feature-owned files. For routes/shared nav/API registry changes, send workstream 1 an integration request instead of editing shared files.
+Build the next bounded feature: **Knowledge OS timeline retrieval**, using the existing `GET /api/knowledge/timeline` contract only after re-verifying its handler, auth behavior, response shape, and personal/public ownership rules.
+
+1. Re-fetch `main`; inspect the current handler and OpenAPI rather than relying on archived UI or this instruction.
+2. Implement a feature-local timeline panel with distinct loading, empty, auth-required, unavailable, and read-failed states. Do not represent a failed read as an empty timeline.
+3. Add backend tests proving authenticated users can read only their own plus explicitly public records, while anonymous callers see only public records. Include negative controls that would catch cross-owner leakage.
+4. Request any shared endpoint/type registry entry from Workstream 1; do not create a page-local endpoint or edit shared files.
+5. Only after the timeline boundary is proven, inspect file browsing/capture surfaces one at a time and implement the next real contract. Do not add a second memory store, pretend persistence, or client-side filtering as a substitute for server authorization.
 
 ## Hard boundaries
-- No edits to `App.tsx`, `lib/router.ts`, `lib/surfaces.ts`, global navigation/tokens, shared shell tests, NovaNet files, or Arkana/Weaver/Lab files.
-- Do not add a second memory database, fake persistence, pretend audio support, or weaken authorization.
-- No merge/deploy/acceptance.
 
-## Acceptance
-Evidence-backed route/API contract; real data and honest states; tests for personal/public separation and auth denial; typecheck/build; keyboard/mobile checks when affected; exact SHA and baseline comparison; unknowns recorded rather than filled by assumption.
+- No edits to shared routing/navigation/tokens/tests, NovaNet files, or Arkana/Weaver/Lab feature files.
+- No auth weakening, private-to-public data promotion, fabricated search results, or invented audio support.
+- Do not merge, deploy, or mark accepted.
+- Continue automatically after each merge. Escalate only a concrete security/privacy issue, human authority decision, destructive/data-loss risk, or genuine contract conflict; record exact evidence and continue with a safe non-overlapping task where possible.
 
+## Required PR evidence
 
-## Next wave — continue immediately after this PR closes
-
-Coordinator direction (2026-10-11): continue with the next feature-local vertical slice; do not wait for a new prompt. Verify the exact `POST /api/knowledge/search` handler, request/response schema, and owner-filter behavior. Mount `KnowledgeSearchPanel` in `KnowledgePage.tsx` only after confirming the shared endpoint registry contains the verified path; if it does not, send Workstream 1 a precise integration request and continue with a non-conflicting Knowledge OS task. Add tests for private/public separation, auth behavior, loading/empty/error states, and no fabricated results. Then reconcile the timeline and file browsing capabilities from the archive one at a time, implementing only real backend contracts. Preserve the backend's personal/public boundary; never apply a client-side filter as a substitute for server authorization.
+Verified route and response schema; owner/public isolation tests and negative controls; loading/empty/error tests; typecheck/build; exact base/head SHAs; baseline comparison; unknowns and next bounded task.
