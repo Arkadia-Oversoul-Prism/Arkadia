@@ -1,0 +1,313 @@
+name: Authenticated Canonical Render Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      vite_firebase_api_key:
+        description: "VITE_FIREBASE_API_KEY for disposable Firebase identity provisioning"
+        required: true
+        type: string
+      vite_firebase_auth_domain:
+        description: "VITE_FIREBASE_AUTH_DOMAIN for configuration consistency"
+        required: true
+        type: string
+      vite_firebase_project_id:
+        description: "VITE_FIREBASE_PROJECT_ID for configuration consistency"
+        required: true
+        type: string
+      vite_firebase_app_id:
+        description: "VITE_FIREBASE_APP_ID for configuration consistency"
+        required: true
+        type: string
+  pull_request:
+    paths:
+      - ".github/workflows/authenticated-canonical-render-acceptance.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install pyyaml
+      - name: Validate workflow structure without probing production
+        run: |
+          python - <<'PY'
+          import yaml
+          with open(".github/workflows/authenticated-canonical-render-acceptance.yml", encoding="utf-8") as f:
+              w = yaml.safe_load(f)
+          events = w.get("on", w.get(True, {}))
+          assert "workflow_dispatch" in events and "pull_request" in events
+          assert set(events["workflow_dispatch"]["inputs"]) == {
+              "vite_firebase_api_key", "vite_firebase_auth_domain",
+              "vite_firebase_project_id", "vite_firebase_app_id"
+          }
+          assert w["jobs"]["acceptance"]["if"] == "github.event_name == 'workflow_dispatch'"
+          print("workflow structure valid; pull requests cannot probe production")
+          PY
+
+  acceptance:
+    if: github.event_name == 'workflow_dispatch'
+    name: Authenticated API and browser acceptance on canonical Render
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      BASE_URL: https://arkadia-qzu4.onrender.com
+      TARGET_SHA: ${{ github.sha }}
+      FIREBASE_WEB_API_KEY: ${{ inputs.vite_firebase_api_key }}
+      VITE_FIREBASE_API_KEY: ${{ inputs.vite_firebase_api_key }}
+      VITE_FIREBASE_AUTH_DOMAIN: ${{ inputs.vite_firebase_auth_domain }}
+      VITE_FIREBASE_PROJECT_ID: ${{ inputs.vite_firebase_project_id }}
+      VITE_FIREBASE_APP_ID: ${{ inputs.vite_firebase_app_id }}
+      ARKADIA_PRODUCTION_BASE_URL: https://arkadia-qzu4.onrender.com
+      ARKADIA_RUN_PRODUCTION_ISOLATION: "1"
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install browser test dependencies
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Verify config inputs and run production authenticated acceptance
+        id: acceptance
+        run: |
+          python - <<'PY'
+          import json, os, re, sys, time
+          from datetime import datetime, timezone
+          from urllib.error import HTTPError, URLError
+          from urllib.request import Request, urlopen
+
+          sys.path.insert(0, ".")
+          from playwright.sync_api import sync_playwright
+          from tests.production.firebase_harness import (
+              provision_user, delete_user, refresh_id_token, ProductionClient
+          )
+
+          base = os.environ["BASE_URL"].rstrip("/")
+          target = os.environ["TARGET_SHA"]
+          required = ("VITE_FIREBASE_API_KEY", "VITE_FIREBASE_AUTH_DOMAIN",
+                      "VITE_FIREBASE_PROJECT_ID", "VITE_FIREBASE_APP_ID")
+          missing = [k for k in required if not os.environ.get(k, "").strip()]
+          report = {
+              "record_type": "canonical-render-authenticated-acceptance",
+              "checked_at": datetime.now(timezone.utc).isoformat(),
+              "canonical_origin": base,
+              "target_sha": target,
+              "live_sha": None,
+              "live_sha_match": False,
+              "firebase_config_inputs_present": not missing,
+              "firebase_config_values_recorded": False,
+              "identity_provisioned": False,
+              "identity_cleanup": "NOT_ATTEMPTED",
+              "api_checks": {},
+              "browser_checks": {},
+              "critical_failures": [],
+              "blockers": [],
+              "decision": "BLOCKED",
+          }
+          user = None
+
+          def safe_error(exc):
+              s = str(exc)
+              s = re.sub(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+", "[REDACTED_JWT]", s)
+              s = re.sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "[REDACTED_EMAIL]", s)
+              s = re.sub(r"AIza[0-9A-Za-z_-]{20,}", "[REDACTED_API_KEY]", s)
+              return s[:240]
+
+          def get_json(url, headers=None, timeout=20):
+              req = Request(url, headers={"User-Agent": "Arkadia-Authenticated-Acceptance/1.0", **(headers or {})})
+              try:
+                  with urlopen(req, timeout=timeout) as r:
+                      body = r.read()
+                      try: payload = json.loads(body)
+                      except Exception: payload = None
+                      return r.status, payload
+              except HTTPError as e:
+                  body = e.read()
+                  try: payload = json.loads(body)
+                  except Exception: payload = None
+                  return e.code, payload
+              except Exception as e:
+                  return None, {"error": safe_error(e)}
+
+          try:
+              if missing:
+                  raise RuntimeError("Missing required Firebase workflow inputs: " + ", ".join(missing))
+
+              # Require Render to serve the exact workflow commit before any acceptance claim.
+              deadline = time.monotonic() + 900
+              while time.monotonic() < deadline:
+                  status, version = get_json(base + "/api/version")
+                  if status == 200 and isinstance(version, dict):
+                      report["live_sha"] = version.get("source_revision")
+                      if report["live_sha"] == target:
+                          report["live_sha_match"] = True
+                          break
+                  time.sleep(10)
+              if not report["live_sha_match"]:
+                  report["critical_failures"].append("Render /api/version did not match the workflow SHA within 15 minutes.")
+                  raise RuntimeError("Exact live SHA precondition failed; authenticated probes were not run.")
+
+              # Use the supplied public Firebase web config only to create a disposable identity.
+              # Never record the config, password, ID token, authorization header, or raw response bodies.
+              user = provision_user(os.environ["GITHUB_RUN_ID"], "renderaccept")
+              report["identity_provisioned"] = True
+              report["identity_uid_present"] = bool(user.uid)
+
+              client_anon = ProductionClient(base_url=base)
+              client_auth = ProductionClient(base_url=base, user=user)
+
+              # A protected lab endpoint is the low-privilege positive control; sovereign-only
+              # operator security verification must remain denied to a normal Firebase user.
+              anon_status, _ = client_anon.get("/api/lab/overview")
+              report["api_checks"]["lab_overview_anonymous"] = {"status": anon_status, "expected": "401_or_403", "pass": anon_status in (401,403)}
+              auth_status, auth_payload = client_auth.get("/api/lab/overview")
+              report["api_checks"]["lab_overview_firebase_user"] = {
+                  "status": auth_status,
+                  "response_shape": sorted(list(auth_payload.keys()))[:30] if isinstance(auth_payload, dict) else None,
+                  "pass": auth_status == 200 and isinstance(auth_payload, dict),
+              }
+              denied_status, _ = client_auth.get("/api/operator/security-verification")
+              report["api_checks"]["operator_security_verification_firebase_user"] = {
+                  "status": denied_status, "expected": "401_or_403", "pass": denied_status in (401,403)
+              }
+              for key, result in report["api_checks"].items():
+                  if not result["pass"]:
+                      report["critical_failures"].append("API authorization assertion failed: " + key)
+
+              # Exercise the actual canonical Render login UI in a real browser context.
+              # Browser console text, URLs, screenshots, traces, and token-bearing storage are not persisted.
+              with sync_playwright() as p:
+                  browser = p.chromium.launch(headless=True)
+                  context = browser.new_context()
+                  page = context.new_page()
+                  page_errors = []
+                  console_errors = []
+                  page.on("pageerror", lambda e: page_errors.append(safe_error(e)))
+                  page.on("console", lambda m: console_errors.append(safe_error(m.text)) if m.type == "error" else None)
+
+                  response = page.goto(base + "/login", wait_until="domcontentloaded", timeout=60000)
+                  report["browser_checks"]["login_route"] = {"status": response.status if response else None}
+                  if not response or response.status != 200:
+                      raise RuntimeError("Canonical Render login route did not return HTTP 200.")
+
+                  page.get_by_test_id("tab-signin").click(timeout=15000)
+                  page.get_by_test_id("input-email-signin").fill(user.email)
+                  page.get_by_test_id("input-password-signin").fill(user._password)
+                  page.get_by_test_id("button-signin").click(timeout=15000)
+
+                  # Allow Firebase persistence/navigation to settle, then verify a protected deep link.
+                  page.wait_for_timeout(4000)
+                  lab_response = page.goto(base + "/engineering-lab", wait_until="domcontentloaded", timeout=60000)
+                  page.wait_for_timeout(3000)
+                  body = page.locator("body").inner_text(timeout=15000)
+                  unauth_marker = "Sign in to continue"
+                  has_lab_marker = any(x in body for x in ("Engineering Lab", "Lab overview", "N-ATLAS provider"))
+                  report["browser_checks"]["firebase_sign_in"] = {
+                      "pass": bool(lab_response and lab_response.status == 200 and unauth_marker not in body and has_lab_marker)
+                  }
+                  report["browser_checks"]["engineering_lab_authenticated"] = {
+                      "status": lab_response.status if lab_response else None,
+                      "sign_in_threshold_visible": unauth_marker in body,
+                      "authenticated_lab_marker_visible": has_lab_marker,
+                      "pass": bool(lab_response and lab_response.status == 200 and unauth_marker not in body and has_lab_marker),
+                  }
+                  report["browser_checks"]["runtime_errors"] = {
+                      "page_error_count": len(page_errors),
+                      "console_error_count": len(console_errors),
+                      "sample_errors_redacted": (page_errors + console_errors)[:5],
+                  }
+                  if not report["browser_checks"]["engineering_lab_authenticated"]["pass"]:
+                      report["critical_failures"].append("Authenticated Engineering Lab browser journey failed.")
+                  if page_errors:
+                      report["critical_failures"].append("Browser page errors occurred during authenticated journey.")
+                  await_context = context
+                  await_context.clear_cookies()
+                  browser.close()
+
+          except Exception as exc:
+              if not report["critical_failures"]:
+                  report["critical_failures"].append(safe_error(exc))
+          finally:
+              if user is not None:
+                  try:
+                      refresh_id_token(user)
+                      deleted = delete_user(user)
+                      report["identity_cleanup"] = "PASS" if deleted else "FAIL"
+                      if not deleted:
+                          report["critical_failures"].append("Disposable Firebase identity deletion was not confirmed.")
+                  except Exception as exc:
+                      report["identity_cleanup"] = "FAIL"
+                      report["critical_failures"].append("Disposable identity cleanup failed: " + safe_error(exc))
+              report["checked_at_finished"] = datetime.now(timezone.utc).isoformat()
+              report["decision"] = "ACCEPTED" if (
+                  report["live_sha_match"] and report["identity_provisioned"]
+                  and report["identity_cleanup"] == "PASS"
+                  and report["api_checks"] and all(x.get("pass") for x in report["api_checks"].values())
+                  and report["browser_checks"].get("firebase_sign_in", {}).get("pass")
+                  and report["browser_checks"].get("engineering_lab_authenticated", {}).get("pass")
+                  and not report["critical_failures"]
+              ) else "BLOCKED"
+              with open("authenticated-render-acceptance.json", "w", encoding="utf-8") as f:
+                  json.dump(report, f, indent=2, sort_keys=True)
+              summary = [
+                  "# Authenticated Canonical Render Acceptance",
+                  "",
+                  f"- Decision: **{report['decision']}**",
+                  f"- Target SHA: `{target}`",
+                  f"- Live SHA: `{report['live_sha']}`",
+                  f"- Exact SHA match: **{report['live_sha_match']}**",
+                  f"- Disposable identity provisioned: **{report['identity_provisioned']}**",
+                  f"- Disposable identity cleanup: **{report['identity_cleanup']}**",
+                  f"- API checks passed: {sum(bool(x.get('pass')) for x in report['api_checks'].values())}/{len(report['api_checks'])}",
+                  f"- Authenticated browser journey: **{report['browser_checks'].get('engineering_lab_authenticated', {}).get('pass', False)}**",
+                  "",
+                  "## Critical failures",
+                  *([f"- {x}" for x in report["critical_failures"]] or ["- None recorded."]),
+                  "",
+                  "Secrets, ID tokens, passwords, Firebase config values, and raw response bodies are not written to the report.",
+              ]
+              with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+                  f.write("\n".join(summary) + "\n")
+          if report["decision"] != "ACCEPTED":
+              raise SystemExit(1)
+          PY
+      - name: Scan evidence for leaked credentials
+        if: always()
+        run: |
+          python - <<'PY'
+          import pathlib, re, sys
+          p = pathlib.Path("authenticated-render-acceptance.json")
+          if not p.exists():
+              print("No acceptance report produced.")
+              raise SystemExit(0)
+          s = p.read_text(encoding="utf-8")
+          patterns = [
+              r"AIza[0-9A-Za-z_-]{20,}",
+              r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+",
+              r"Authorization.{0,30}Bearer",
+              r"BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY",
+          ]
+          hits = [x for x in patterns if re.search(x, s)]
+          if hits:
+              print("Credential scan failed; report must not be uploaded.")
+              raise SystemExit(1)
+          print("Redacted evidence scan PASS")
+          PY
+      - name: Upload redacted exact-SHA acceptance record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: authenticated-canonical-render-acceptance
+          path: authenticated-render-acceptance.json
+          if-no-files-found: warn
+          retention-days: 30
