@@ -1383,9 +1383,10 @@ async def forge(request: Request):
     """Sovereign-gated image generation via Gemini Flash Image."""
     body = await request.json()
 
-    # Sovereign gate check
-    provided_key = body.get("sovereign_key", "")
-    if not SOVEREIGN_KEY or not provided_key or provided_key != SOVEREIGN_KEY:
+    # Sovereign gate check. Credentials belong in a header, not the JSON body,
+    # so OpenAPI can describe the actual authentication boundary as a security scheme.
+    provided_key = request.headers.get("X-Sovereign-Key", "")
+    if not SOVEREIGN_KEY or not provided_key or not hmac.compare_digest(provided_key, SOVEREIGN_KEY):
         raise HTTPException(status_code=403, detail="Sovereign gate closed.")
 
     try:
