@@ -303,3 +303,68 @@ asserted here — W3's panel owns the call.
 archived shell/navigation gap inside W1's ownership (shared shell primitives
 under `src/components/`), non-overlapping with feature pages.
 
+
+---
+
+## Slice 3 — shared shell keyboard reachability (head `e70bca48`)
+
+**Defect (measured, not assumed).** `Shell.tsx` renders a persistent navigation
+block (`<aside>`, desktop and mobile `<nav>`) ahead of every surface, but the
+shell offered no way past it for a keyboard user, and the content landmark was
+an untagged, non-focusable `<main className="min-w-0 flex-1">`. A navigation
+therefore left keyboard focus on the surface the user had left. `grep -rn` over
+`web/arkadia_console/src/` for `skip-to|skip link|main-content|focus-visible`
+returned **0** matches before this slice.
+
+**Repair (W1-owned file only).** `web/arkadia_console/src/components/Shell.tsx`:
+
+- an `<a href="#main-content" data-testid="skip-to-content">` styled
+  `sr-only` / `focus:not-sr-only` so it is invisible until focused;
+- a `<main id="main-content" tabIndex={-1} aria-label="...content">` landmark —
+  the skip target must be programmatically focusable or the hash change moves
+  scroll but not keyboard focus;
+- a `useEffect(() => { mainRef.current?.focus() }, [current])` so focus follows
+  a route change.
+
+`sr-only` / `not-sr-only` are Tailwind default utilities; the emitted bundle
+confirms `.sr-only{position:absolute;width:1px;height:1px;...}` is present.
+
+**Guard + negative controls.** `tests/test_console_shell_nav_contract.py` gained
+`test_shell_is_keyboard_reachable_through_a_skip_link`,
+`test_route_change_moves_focus_to_the_content_landmark`, and **five** negative
+controls, each of which mutates the live shell text and asserts the detector
+reports the defect: no target landmark, wrong target, unfocusable landmark
+(`tabIndex` dropped), and focus not bound to the route (`[current]` -> `[]`).
+The controls assert their own mutation applied, so a silent control cannot pass.
+
+**Proof run (this tree).**
+
+| Check | Result |
+|---|---|
+| `pytest tests/test_console_shell_nav_contract.py` | 26 passed (was 20) |
+| shell-nav + endpoint-registry + canonical-frontend-routing + architecture | 54 passed |
+| `tsc --noEmit` (console) | exit 0 |
+| `pnpm build` (console) | exit 0 — `dist/assets/index-jbCt75MB.js` 42.30 kB |
+| Full suite `-rEf --continue-on-collection-errors` | 18 failed / 2227 passed / 20 skipped / 1 error |
+
+**Regression boundary (node set, same environment).** Failing/error node set on
+branch == on `main` `962434b`, byte-identical: 19 nodes,
+`sha256 716df34bc5a6ad51dd122ffb09175f1be7883f85a5f4bc07dc12831109b0a45e`
+(`git stash` -> measure main -> `git stash pop`). `comm -3` empty. The `+6
+passed` is exactly the six new nodes.
+
+**Boundaries / non-claims.** No merge, no deployment, no acceptance (ADR-016:
+Render `https://arkadia-qzu4.onrender.com` is canonical). No `App.tsx`,
+`router.ts`, `surfaces.ts`, `types.ts`, registry, or feature-page change; the
+`Shell.tsx` consumer surface (props, `NAV_SURFACES` filter, `NavLink`) is
+unchanged. This is a source-level contract plus a build; no runtime keyboard
+observation was captured, so runtime behavior is **IMPLEMENTED**, not VERIFIED.
+
+**Coordination (no pending W1 request).** Section 7.1 obligations were re-checked
+against the canonical app this pass: `/api/knowledge/search` (W3),
+`/api/commune/threads` (W4), and `/api/lab/engineering/sessions/{session_id}`
+(W4's `labSession` helper, `endpoints.labSessions`) are all served. WS2 records
+no pending endpoint/type request to W1 — its opportunity work goes through the
+existing `/solspire/buyer-recon` and `/api/economic-seams/opportunities` routes,
+which are outside W1's file ownership. W2-W4 are still drafts; nothing is
+blocked on W1.
