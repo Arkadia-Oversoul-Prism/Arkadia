@@ -3,9 +3,10 @@
 **Workstream:** 4 (Arkana/Oracle, Weaver, Engineering Lab)
 **Branch:** `feat/prism-parallel-04-arkana-weaver-lab`
 **PR:** #422 (draft)
-**Evidence bound to branch SHA:** `b5125f090d31abe1766b130cf1594f16c1c14e2c` (the commit this
-slice is layered on). The slice commit SHA is recorded in the PR comment; this file binds to
-the tree it describes.
+**Evidence bound to branch SHA:** slice commit `90b28844` (rebased onto `74936640`). Earlier
+drafting of this record named `b5125f09`, which was the branch head before the concurrent
+`feat(lab): add read-only canonical execution loop view` commit (`74936640`) landed; that
+citation is superseded. This file binds to the tree it describes.
 **PR base (`main` at read time):** `d2670ce8b41c500df5cf475f7c6526016c7bd3aa`
 **Observed `origin/main`:** `8dcb782d` — re-fetch before acting; neither SHA is a permanent pin.
 
@@ -111,6 +112,16 @@ restoring it byte-identically (`grep -c injected` -> 0, guard back to 13 passed)
 
 Two further controls are in-file: `test_negative_control_detector_flags_a_mutating_read_model`
 and `test_negative_control_state_vocabulary_detector`.
+
+### Composition with the concurrent branch commit
+
+While this slice was being prepared, `74936640` ("add read-only canonical execution loop view",
+`components/lab/ExecutionLoop.tsx`) landed on the same branch from another writer. The two
+commits add **disjoint** files in the same feature-local directory and are semantically
+compatible (both read-only; `ExecutionLoop` is a projection of the loop, not a run-status
+indicator). This slice was **rebased onto `74936640`** — the other writer's commit was preserved,
+not rewritten — and all verification above was **re-run on the composed tree**:
+`53 passed` (frontend guard set + architecture + new guard) and a clean `pnpm build`.
 
 ---
 
