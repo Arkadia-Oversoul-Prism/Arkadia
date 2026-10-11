@@ -109,6 +109,15 @@ would have been a guard that *no workflow executes*.
 control — removing only the step line while leaving the `paths` entries — reddens
 both wiring tests (**2 failed**, then reverted byte-identically).
 
+**A measurement defect this exposed, corrected.** My first full-suite parity run
+below happened while the test file was still **untracked**, so `git ls-files`
+excluded it from the derived domain and the guard passed *vacuously* — the same
+19-node result, with no hint of the omission. The failure only appeared once the
+file was committed. Both full-suite runs were therefore **re-measured with the
+file tracked**; the parity claim in §6 is the re-measured one. The guard is
+derived from tracked content precisely because that is the corpus CI judges, but
+it means an untracked new guard is invisible to it until commit.
+
 ## 5. Tests — 18, live handler over ASGI, no mocks
 
 | Group | Tests |
@@ -140,17 +149,20 @@ on call-site removal and the import-only shape is asserted as a control.
 | New suite | **18 passed** |
 | New + adjacent knowledge/console suites (6 files) | **118 passed** |
 | `tests/test_prism_console_ci_wiring.py` (the gate the new test joins) | **21 passed** |
-| Full suite, branch | 18 F / 2623 P / 17 S / 1 E |
+| Full suite, branch (test file **tracked**) | 18 F / 2623 P / 17 S / 1 E |
 | Full suite, baseline (changes stashed) | 18 F / 2605 P / 17 S / 1 E |
 | Failing/error node set | **identical** — `diff` empty, 19 nodes each side, both `sha256 204d0a4e31b89185b9e06b5d4cb027b156976df8cb7aafe42546a8703806736b` |
 | Architecture suite | **11 passed** |
 | `corepack pnpm build` | **succeeded** |
-| CP10 mutation-boundary judge | **PASS** (3 paths) |
+| CP10 mutation-boundary judge | **PASS** |
 | `python -m py_compile` | ok |
 | `api/main.py` | untouched, 2499 lines (budget 2600) |
 
 The `+18 passed` is exactly the new file. Compared by node **identity**, never
 counts; both runs used `-rEf` (not `-rf`, which suppresses the `ERROR` summary).
+The branch run was repeated once the test file was tracked (§4a); the node set is
+unchanged from the untracked run, and the console-contract guard is green in the
+tracked run.
 
 ## 7. Preserved invariants
 
