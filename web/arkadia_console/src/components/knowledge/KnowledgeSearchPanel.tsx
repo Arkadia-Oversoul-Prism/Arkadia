@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { ApiError, apiRequest } from "../../lib/apiClient";
 import { Panel } from "../ui";
 
@@ -37,7 +37,7 @@ export function KnowledgeSearchPanel({ endpoint }: { endpoint: string }) {
     setModes((current) => current.includes(mode) ? current.filter((item) => item !== mode) : [...current, mode]);
   }
 
-  async function search(event: React.FormEvent<HTMLFormElement>) {
+  async function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = query.trim();
     if (!trimmed || loading || modes.length === 0) return;
