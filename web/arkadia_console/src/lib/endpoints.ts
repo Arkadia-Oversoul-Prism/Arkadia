@@ -38,3 +38,20 @@ export const endpoints = {
 } as const;
 
 export type EndpointName = keyof typeof endpoints;
+
+/**
+ * Path builders for a parameterized sub-resource of a declared collection.
+ *
+ * A sub-resource is derived from its collection entry so the base path cannot
+ * drift from the registry, and each path parameter is percent-encoded so an id
+ * containing `/`, `?` or `#` cannot address a different route. Declared here
+ * (not in a feature module) so there is still one endpoint registry.
+ */
+
+/**
+ * `GET /api/lab/engineering/sessions/{session_id}` — the Engineering Lab
+ * session view (owner-scoped). Handler verified at `api/lab_routes.py`.
+ */
+export function labSession(sessionId: string): string {
+  return `${endpoints.labSessions}/${encodeURIComponent(sessionId)}`;
+}

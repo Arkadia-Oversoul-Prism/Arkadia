@@ -1,18 +1,22 @@
 # Prism Parallel UI Work — Shared Contracts
 
 **Status:** ACCEPTED — merged via PR #419 at `a29a9b8f18ada55cb9457ea3cdab98414522a4e8`.
-**Baseline observed:** `main` after the first four-workstream merge wave: `e924aec17ff2a68f3bce0ca61a183ca306416e3f`. Re-fetch `main` before every change; this SHA is not a permanent pin.
+**Baseline observed:** `main` after the next-wave bootstrap: `962434bed1bccb11fbf5edfcb0299317b12a8915` (PR #424 merge; first wave merged as #423 `972c3423`, #420 `55b27d10`, #421 `22941cc5`, #422 `e924aec1`). Re-fetch `main` before every change; this SHA is not a permanent pin. The branch map in §1 was last refreshed 2026-10-11 (Workstream 1) against the four next-wave branches below.
 **Canonical production:** https://arkadia-qzu4.onrender.com (ADR-016). No deployment is authorized.
 **Authority:** agents may inspect, implement, test, commit to their assigned branch, and update their PR. Human retains merge, production deployment, and acceptance.
 
 ## 1. Four workstreams and exclusive file ownership
 
-| Workstream | Branch | Exclusive source ownership | Must not edit |
-|---|---|---|---|
-| 1. Shell, navigation, design system, integration contracts | `feat/prism-parallel-01-shell-implementation` | `web/arkadia_console/src/App.tsx`; `src/lib/router.ts`; `src/lib/surfaces.ts`; `src/components/SurfaceLenses.tsx`; shared shell/navigation primitives and tokens; `src/lib/endpoints.ts`; `src/lib/types.ts`; shared shell/endpoint contract tests; this contract and shell instruction | Feature page internals owned by workstreams 2–4 |
-| 2. NovaNet and project Opportunity Radar | `feat/prism-parallel-02-novanet-opportunity` | `src/pages/NovaNetPage.tsx`; NovaNet-only components under `src/components/novanet/`; opportunity UI modules under `src/components/opportunities/`; **scoped backend repair ownership for `solspire/buyer_recon.py` and `solspire/buyer_recon_router.py` limited to the measured project/workspace board uniqueness and entry-create arity defects**; NovaNet/opportunity-specific tests and evidence | App/router/surfaces registry, global navigation, shared tokens, shared shell tests, unrelated SolSpire authority/authentication behavior |
-| 3. Solariun and Knowledge OS | `feat/prism-parallel-03-solariun-knowledge` | Solariun/Knowledge OS page modules and feature-local components/tests/evidence, after exact existing paths are discovered from current tree/archive and recorded in its PR | App/router/surfaces registry, global navigation, shared tokens, shared shell tests, NovaNet files |
-| 4. Arkana, Weaver, Engineering Lab | `feat/prism-parallel-04-arkana-weaver-lab` | Arkana/Oracle, Weaver, Engineering Lab feature-local page modules/components/tests/evidence, after exact paths/contracts are discovered and recorded in its PR | App/router/surfaces registry, global navigation, shared tokens, shared shell tests, NovaNet/Solariun files, runtime/authority model |
+Active branch map, re-measured 2026-10-11 at `main` `962434be`. Each next-wave branch starts from that revision; the heads below are observations, not pins.
+
+| Workstream | Branch | PR (draft) | Head observed | Exclusive source ownership | Must not edit |
+|---|---|---|---|---|---|
+| 1. Shell, navigation, design system, integration contracts | `feat/prism-next-01-shell-integration` | #425 | `e82f7465` | `web/arkadia_console/src/App.tsx`; `src/lib/router.ts`; `src/lib/surfaces.ts`; `src/components/SurfaceLenses.tsx`; shared shell/navigation primitives and tokens; `src/lib/endpoints.ts`; `src/lib/types.ts`; shared shell/endpoint contract tests; this contract and shell instruction | Feature page internals owned by workstreams 2–4 |
+| 2. NovaNet and project Opportunity Radar | `feat/prism-next-02-opportunity-backend` | #426 | `d3ef3729` | `src/pages/NovaNetPage.tsx`; NovaNet-only components under `src/components/novanet/`; opportunity UI modules under `src/components/opportunities/`; **scoped backend repair ownership for `solspire/buyer_recon.py` and `solspire/buyer_recon_router.py` limited to the measured project/workspace board uniqueness and entry-create arity defects**; NovaNet/opportunity-specific tests and evidence | App/router/surfaces registry, global navigation, shared tokens, shared shell tests, unrelated SolSpire authority/authentication behavior |
+| 3. Solariun and Knowledge OS | `feat/prism-next-03-knowledge-search` | #427 | `7b5b71c5` | Solariun/Knowledge OS page modules and feature-local components/tests/evidence, after exact existing paths are discovered from current tree/archive and recorded in its PR | App/router/surfaces registry, global navigation, shared tokens, shared shell tests, NovaNet files |
+| 4. Arkana, Weaver, Engineering Lab | `feat/prism-next-04-arkana-threads` | #428 | `91cac4bf` | Arkana/Oracle, Weaver, Engineering Lab feature-local page modules/components/tests/evidence, after exact paths/contracts are discovered and recorded in its PR | App/router/surfaces registry, global navigation, shared tokens, shared shell tests, NovaNet/Solariun files, runtime/authority model |
+
+The first-wave branches (`feat/prism-parallel-01-…` through `-04-…`) are closed history; do not reopen or continue them. The four next-wave branches above are the active threads, and all four agents continue automatically after each merge.
 
 **Important:** these are ownership boundaries, not proof that every proposed directory already exists. Inspect the live tree first. Do not create duplicate abstractions just to match a suggested path. If an existing file spans two owners, the shell/integration owner owns the seam; feature agents submit a narrow proposal instead of editing it.
 
