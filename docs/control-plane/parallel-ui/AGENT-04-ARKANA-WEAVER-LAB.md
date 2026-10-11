@@ -7,6 +7,21 @@
 **Owns:** Arkana/Oracle, Weaver, Engineering Lab feature-local pages/components/tests/evidence. Shared routing, global navigation, endpoint/type registries remain Workstream 1's seam.
 **Contract:** `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md`.
 
+## Slice status
+
+| Slice | Surface | State |
+|---|---|---|
+| 02–05 | Lab read model, agent registry, artifact canvas, Arkana thread history | landed on this branch |
+| **06** | **run → work-event → evidence trace** | **implemented, tested, evidenced** — `docs/control-plane/evidence/prism-w4-run-evidence-trace-01/EVIDENCE.md` |
+| next | automations read surface | **blocked** on Workstream 1's `labAutomations` registry entry |
+| next | next verified Arkana/Weaver read surface | not started |
+
+Slice 06 measured: 37 new test nodes; full-suite failing/error node set
+`521c63e1…` **identical** to `main` `f390526a` (28 nodes, `diff` empty); architecture
+11 passed; `tsc --noEmit` + `vite build` clean. Read-only by construction — the trace
+issues no request of its own and joins only handler-recorded reference fields
+(`event.run_id`, `evidence.run_ref`, `run.evidence_refs`).
+
 ## Start now — no new prompt required
 
 1. Re-fetch `main`; verify exact handler routes, response shapes, identity/owner scope, and stable foreign-key/reference fields. Never join records on guessed identifiers.

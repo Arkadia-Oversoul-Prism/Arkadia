@@ -1385,3 +1385,52 @@ From this addendum onward:
 ### Branch and review discipline
 
 Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstream's long-lived branch/PR. The accepted four-workstream plan runs alongside it: #423 owns shared shell/route integration, #420 opportunity/NovaNet feature modules, #421 Solariun/Knowledge OS, and #422 Arkana/Weaver/Lab. Read `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` on every pulse; respect its exclusive file ownership and integration protocol. Do not duplicate source changes already owned by another PR. Human merge, production-deployment, and acceptance authority remains final. Follow the route/suffix reconciliation, backend-contract reuse, archive-preservation, evidence, test, and stop conditions in both governing documents.
+
+## A pure projection makes a read-only claim structural, not promissory (Workstream 4)
+
+- The Engineering Lab session view `GET /api/lab/engineering/sessions/{id}` returns
+  `{session, agent, runs, events, evidence, artifacts, loop, reached_review_boundary,
+  human_decision_required}`. The run-to-evidence trace is a **pure projection** of that
+  view: `components/lab/labRunTrace.ts` has **no imports at all** (no React, no client,
+  no registry) and `LabRunTrace.tsx` issues no request of its own. A read-only surface
+  that fetches its own data is a second, unreviewed reader of the contract; one that
+  renders what its parent already holds cannot mutate anything, so the ceiling needs no
+  promise. Guard: `test_trace_fetches_nothing_of_its_own` (detector matches
+  `fetch|apiRequest|useHydration`).
+- **A dependency-free module can be *executed* by the test suite, not merely grepped.**
+  `labRunTrace.ts` is run under Node (`node --input-type=module -e`, absolute `file://`
+  URL so no driver file lands in the source tree) against the **real** runtime's session
+  view. Every governance reading is then an observed output rather than a source-level
+  string match - which matters because the repo's frontend tests are otherwise literal
+  pins that a rename can satisfy without changing behaviour. If Node is absent the tests
+  **skip with a stated reason**, never pass silently.
+- **Join on handler-recorded fields, and prove it by measurement.** The trace joins
+  `event.run_id == run.run_id`, `evidence.run_ref == run.run_id`, and
+  `run.evidence_refs` naming evidence ids. Driving the real runtime over an isolated
+  SQLite DB + event log showed `SESSION_CREATED` and `SESSION_TRANSITION` are
+  **session-scoped** (no `run_id`) while a run's own events all carry it. A fabricated
+  join field would report a healthy session as *empty* rather than raising, so the
+  measurement - not the interface - is the evidence.
+- **`IMPLEMENTED != VERIFIED` is a live reading, not a slogan.** A *successful* bounded
+  run is finished as `run.state = "VERIFYING"` while its evidence `state` stays
+  `IMPLEMENTED`. So "the verification stage was entered" and "verification concluded" are
+  genuinely different values, and the projection keeps them as separate fields
+  (`stage_entered` vs `asserted`). Collapsing them is the defect the surface exists to
+  prevent; the negative control shows an evidence record marked `VERIFIED` moves
+  `verification.asserted` and never moves acceptance.
+- **Acceptance reads only from the substrate's human terminal vocabulary.** The projection
+  declares `HUMAN_ACCEPTED_SESSION_STATES` and a guard asserts it **equals**
+  `contracts.HUMAN_TERMINAL_STATES` (currently `{"COMPLETED"}`) - equality, not subset, so
+  a new human-only terminal state cannot be silently read as not-accepted. A console-
+  invented state is worse than a missing one.
+- **A partial link is a first-class reading.** `run.evidence_refs` and `evidence.run_ref`
+  are independent fields, so evidence present under `run_ref` but absent from
+  `evidence_refs` is reported as `unreferenced_evidence_ids` rather than absorbed as
+  agreement. Dangling refs, unlinked events/evidence, unattributed evidence, and duplicate
+  evidence ids each get their own reading, and a fully-resolving view reports itself clean
+  - a detector that is silent on both the defect and its absence is not a detector.
+- **Measured at `f390526a` + this slice:** 37 new test nodes (18 + 19, matching the
+  `+37 passed` delta exactly); full-suite failing/error node set `521c63e1...` **identical**
+  to `main` (28 nodes, `diff` empty) - compare node identity, never counts. Architecture
+  11 passed. `tsc --noEmit` + `vite build` clean. No shared registry file edited;
+  `lib/endpoints.ts` stays Workstream 1's.
