@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -43,13 +42,6 @@ def _redact_remote_url(remote: str | None) -> str | None:
             host = authority.rsplit("@", 1)[1]
             return host + ("/" + suffix if separator else "")
 
-    # If malformed input still resembles a URL and parsing failed, remove any
-    # credential-bearing authority prefix rather than risk echoing it.
-    return re.sub(
-        r"(?i)([a-z][a-z0-9+.-]*://)[^/?#\\s]*@",
-        r"\\1",
-        remote,
-    )
 
 
 def _run(root: Path, args: list[str]) -> tuple[str | None, str | None]:
