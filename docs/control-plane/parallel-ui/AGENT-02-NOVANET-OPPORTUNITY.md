@@ -3,7 +3,7 @@
 **Branch:** `feat/prism-parallel-02-novanet-opportunity`  
 **PR:** #420 (draft bootstrap)  
 **Owns:** `src/pages/NovaNetPage.tsx`, NovaNet-only components, opportunity-radar feature modules and their tests/evidence. Shared registries and global shell are not owned here.  
-**Shared contract:** `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` in PR #419; fetch/review it before edits.
+**Shared contract:** `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` in `main` (accepted via PR #419); fetch/review it before edits.
 
 ## Mission
 Recover the useful NovaNet hub and project-level Opportunity Radar workflows from archived Prism and the current opportunity/project substrate. Each project should eventually expose its opportunity layer in the Projects/Weaver experience without creating a second store or pretending prospects are verified buyers.
