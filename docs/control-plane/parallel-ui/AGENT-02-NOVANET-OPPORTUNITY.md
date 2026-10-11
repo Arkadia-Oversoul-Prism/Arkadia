@@ -17,15 +17,29 @@ Implemented and tested (evidence: `docs/control-plane/evidence/prism-opportunity
   handlers: `POST .../entries` and `PATCH .../entries/{id}`.
 - `ProjectOpportunityRadar.tsx` mounts the controls; its read contract, distinct
   states and pinned copy are unchanged.
-- `tests/test_prism_opportunity_entry_flow.py` — 38 tests. The frontend half is
+- `tests/test_prism_opportunity_entry_flow.py` — 48 tests. The frontend half is
   **executed** through Node 24's native TypeScript support, not string-matched.
-- Full-suite failing/error **node set identical** to `main` `f390526a` (28 nodes,
-  `92fcd59c…`); `+38 passed` is exactly this file. Architecture 11/11. Build passes.
+- Full-suite failing/error **node set identical** to `main` `f390526a` (28 nodes);
+  `+48 passed` is exactly this file. Architecture 11/11. Build passes.
 
 Measured backend facts worth keeping (do not re-derive):
 
 - `require_project_owner` returns **404** for a non-owner *and* for a missing
   project, indistinguishably — the UI must not claim which occurred.
+- **The status field is a transaction-outcome surface, not a reconnaissance one.**
+  `BuyerReconEntryPatch` validates against the full `STATUSES` tuple, which
+  includes `EXECUTED` and `SETTLED`. An earlier revision of this slice offered the
+  whole vocabulary in the form's `<select>`, which made the outcome one click away
+  while the copy beneath it read "authorizes no … execution" — corrected at
+  `fb78c700` via `SETTABLE_STATUSES` (through `READY_TO_EXECUTE`), enforced in the
+  body builders and not only in the option list. Do not re-widen it; see
+  `EVIDENCE.md` §3a.
+- **MEASURED DEFECT 3 in `solspire/buyer_recon.py` (open, not repaired):**
+  `BuyerReconManager.update_entry` validates `status.upper()` then persists the
+  original value, so `PATCH {"status": "conversation"}` answers `200` and stores a
+  status outside the declared vocabulary. `create_entry` normalizes; `update_entry`
+  does not. Pinned by `test_update_does_not_normalize_a_lowercase_status`. Repair
+  needs its own authorization (`SHARED-CONTRACTS` §1/§7.1).
 - A blank `prospect` is refused on **create** (`400 prospect is required`) but
   **accepted on edit** (`200`, and it blanks the stored value). The edit body
   therefore omits `prospect` unless supplied.
