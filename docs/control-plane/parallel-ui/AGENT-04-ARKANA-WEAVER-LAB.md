@@ -3,7 +3,7 @@
 **Branch:** `feat/prism-parallel-04-arkana-weaver-lab`  
 **PR:** #422 (draft bootstrap)  
 **Owns:** Arkana/Oracle, Weaver and Engineering Lab feature-local page modules/components/tests/evidence. Exact paths must be discovered from the current tree and archive before edits.  
-**Shared contract:** `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` in PR #419; fetch/review it before edits.
+**Shared contract:** `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` in `main` (accepted via PR #419); fetch/review it before edits.
 
 ## Mission
 Recover useful Oracle/Arkana conversation and governed operational-workspace interactions while exposing only capabilities backed by real contracts and required authorization. Make proposal, approval, execution, work event, evidence, verification and review visibly distinct.
