@@ -7,6 +7,38 @@
 **Owns:** NovaNet feature modules, `src/components/opportunities/**`, scoped buyer-recon board/entry behavior in `solspire/buyer_recon.py` and `solspire/buyer_recon_router.py`, and related tests/evidence. Shared routing, global navigation, endpoint/type registries remain Workstream 1's seam.
 **Contract:** `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md`.
 
+## Slice 1 status — create/edit entry flow LANDED on this branch
+
+Implemented and tested (evidence: `docs/control-plane/evidence/prism-opportunity-entry-flow-01/EVIDENCE.md`):
+
+- `opportunityRadarContract.ts` now carries the write contract (`createEntryBody`,
+  `editEntryBody`, `parseEntryResponse`, `upsertEntry`, board-derived paths).
+- `ProspectEntryForm.tsx` (new, feature-local) drives only the two verified
+  handlers: `POST .../entries` and `PATCH .../entries/{id}`.
+- `ProjectOpportunityRadar.tsx` mounts the controls; its read contract, distinct
+  states and pinned copy are unchanged.
+- `tests/test_prism_opportunity_entry_flow.py` — 35 tests. The frontend half is
+  **executed** through Node 24's native TypeScript support, not string-matched.
+- Full-suite failing/error **node set identical** to `main` `f390526a` (28 nodes,
+  `92fcd59c…`); `+35 passed` is exactly this file. Architecture 11/11. Build passes.
+
+Measured backend facts worth keeping (do not re-derive):
+
+- `require_project_owner` returns **404** for a non-owner *and* for a missing
+  project, indistinguishably — the UI must not claim which occurred.
+- A blank `prospect` is refused on **create** (`400 prospect is required`) but
+  **accepted on edit** (`200`, and it blanks the stored value). The edit body
+  therefore omits `prospect` unless supplied.
+- `evidence_status` / `evidence` have **no verified UI write path**. They are never
+  sent, so the backend's `NONE` / `[]` stand. Do not add a control without an
+  independently verified, owner- and board-scoped handler.
+- `python-multipart` is required to import `solspire/console_router.py`; it is
+  missing in the sandbox by default and affects `main` identically.
+
+Next bounded task on the successor branch: the `evidence_status` / `evidence`
+capture path, only if such a handler is verified; otherwise the next archived
+Opportunity Radar / NovaNet capability whose contract measures cleanly.
+
 ## Start now — no new prompt required
 
 1. Re-fetch `main`; verify actual POST/PATCH methods, auth/owner checks, request/response shapes, and board-scoping behavior from handlers and tests before wiring UI.
