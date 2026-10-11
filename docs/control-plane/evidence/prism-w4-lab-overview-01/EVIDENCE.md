@@ -221,7 +221,48 @@ PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q -rEf --contin
 
 ---
 
-## 7. Limitations / next
+## 7. A pre-existing `main` failure observed on this PR — not caused by this branch
+
+PR #432's `console-contract` check went red after PR #435 merged to `main` mid-flight
+(adding `.github/workflows/prism-console-contract.yml`). It is **not** attributable to this
+branch. Measured, not argued:
+
+| Tree | `tests/test_prism_console_ci_wiring.py` |
+|---|---|
+| `main` `17988afd` | `2 failed, 17 passed, 2 skipped` |
+| this branch `511bddea` | `2 failed, 17 passed, 2 skipped` |
+
+`diff` on the two failing-node sets is empty; the failing nodes are
+`test_a_workflow_executes_the_whole_console_contract` and
+`test_wiring_workflow_is_a_complete_gate_that_selects_itself`, with the same messages.
+The gate is red on `main`'s **own push runs** (`bcc6a8b4`, `7b378cec`), and green only on
+`18a450d0` — the commit that introduced it.
+
+**Cause, measured:** `_console_domain()` derives its domain from `git ls-files` by needle
+match, so it grows whenever a new test mentions `web/arkadia_console` or
+`api/frontend_routes`. `prism-console-contract.yml` enumerates its guards as a **fixed
+list**, so three domain members added after #435 are not executed by it:
+`test_knowledge_projects_boundary.py`, `test_knowledge_timeline_boundary.py`,
+`test_prism_opportunity_entry_flow.py` (the last from #430). `_complete_gates()` therefore
+returns nothing and the guard fails. This is the repo's own documented omission class, one
+level up: not a missing allowlist entry but a *derived* domain vs a *restated* list.
+
+**Why this is not repaired here.** `prism-console-contract.yml` and
+`tests/test_prism_console_ci_wiring.py` are owned by the Workstream that introduced them
+(`gate10/prism-console-contract-ci-gating-01`, PR #435), and `SHARED-CONTRACTS.md` §4 says
+no agent edits another workstream's owned files or rebases another agent's branch. It is
+reported for its owner.
+
+**No coverage hole for this slice.** Six of this slice's test files do mention
+`web/arkadia_console`, so they join that derived domain — but they are executed by the
+judging step added in §6 (`CP10-C`), which is what actually gates them. The
+console-contract gate's incompleteness therefore does not leave this slice unenforced. I
+verified the two are independent: this branch's own run of the wiring guard **passes**
+(the file is absent from its tree, so the assertion cannot fire).
+
+---
+
+## 8. Limitations / next
 
 * The disclosure above is **escalated, not repaired** — the fix is a shared-substrate
   change requiring authorization.

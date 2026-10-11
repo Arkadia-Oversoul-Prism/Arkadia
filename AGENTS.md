@@ -1513,6 +1513,34 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   a declared ceiling, never a granted permission), `partial != observed` (a failed collector
   is an unobserved section, **not a zero**), and absent governance != autonomy.
 
+## A derived domain vs a restated list — the new console-contract gate is red on `main` (gate-hygiene)
+- `prism-console-contract.yml` (added by PR #435, merge `18a450d0`) derives its domain
+  **dynamically** — `_console_domain()` scans `git ls-files` for tests mentioning
+  `web/arkadia_console` or `api/frontend_routes` — but **executes a fixed list**. Any later
+  test that mentions the console joins the domain and is not run by the gate, so
+  `_complete_gates()` returns `[]` and the guard fails. Measured on `main` `17988afd`: three
+  domain members are unexecuted — `test_knowledge_projects_boundary.py`,
+  `test_knowledge_timeline_boundary.py`, `test_prism_opportunity_entry_flow.py` (the last
+  from #430). Green only at `18a450d0`; red on `main`'s own pushes `7b378cec` and `bcc6a8b4`.
+- **Generalise: when a guard derives its subject and a workflow restates it, the two drift on
+  the next commit that adds a member.** Either the workflow executes the derived set (a glob
+  or a `pytest` over the directory), or the guard must pin the list it expects. A gate that
+  derives one side and restates the other is guaranteed to go red on unrelated work — and it
+  goes red on `main`, not on the PR that trips it.
+- **Do not repair it from an unrelated branch.** `prism-console-contract.yml` and
+  `tests/test_prism_console_ci_wiring.py` belong to the workstream that introduced them
+  (`gate10/prism-console-contract-ci-gating-01`); `SHARED-CONTRACTS.md` §4 forbids editing
+  another workstream's owned files or rebasing its branch. Report it for its owner, with the
+  measurement, and record that the PR is not attributable.
+- **Attribution method that settles it in one run:** the same test file on both trees in the
+  same environment. Here `2 failed, 17 passed, 2 skipped` on `main` `17988afd` **and** on the
+  PR head `511bddea`, failing-node set `diff` empty. Note the asymmetry that makes a PR look
+  guilty: a file *absent* from the PR's tree makes the guard **pass** there, so the PR can be
+  green while `main` is red — read the guard's own tree before accepting either verdict.
+- **A PR can carry a red check that no diff of its own causes.** Before attributing, check
+  whether the workflow exists on the base branch and whether the base's own push runs are red.
+  `gh run list --workflow <f>.yml` shows `main` push runs failing the identical nodes.
+
 ## A green CI job can run none of your tests — check *execution*, not the conclusion (gate-hygiene, Workstream 4)
 - The 13 checks on PR #432 were all genuinely green, and **none of them executed the 94
   Workstream 4 test nodes**. The only broad-suite step, `sg-02-fe-2-v.yml` `CP10-B broader
