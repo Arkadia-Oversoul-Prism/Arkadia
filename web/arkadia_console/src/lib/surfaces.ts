@@ -73,7 +73,11 @@ export const SURFACES: SurfaceDef[] = [
     name: "SolSpire",
     boundary: "SolSpire",
     summary: "Team and enterprise workspace over the shared substrate.",
-    path: "/solspire",
+    // `/solspire` is a reserved backend API namespace (the SolSpire console
+    // kernel mounts there), so the SPA cannot be served on that path -- a hard
+    // load would fall through to the API and 404. The surface lives on a
+    // non-colliding route; the API contract still speaks `/solspire/*`.
+    path: "/enterprise",
     accent: "text-gold",
   },
   {
