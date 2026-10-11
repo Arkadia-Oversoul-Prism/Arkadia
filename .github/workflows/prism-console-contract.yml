@@ -1,0 +1,97 @@
+name: Prism Console Contract
+
+# The active console (`web/arkadia_console`) and the serving path that fronts it
+# (`api/frontend_routes.py`) are judged by twelve contract guards. Measured on
+# `main` @ `f390526`, no workflow executed any of them: the only console-aware
+# workflows (`sg-02-fe-2-v.yml`, `n-atlas-developer-lab.yml`,
+# `canonical-render-*.yml`) select named tests from other workstreams, so a
+# rewrite of a console guard, of the console source, or of the serving path
+# produced no contract check-run at all.
+#
+# Guard: `tests/test_prism_console_ci_wiring.py`, which derives the guard domain
+# from `git ls-files` at test time and asserts this filter selects all of it.
+
+on:
+  pull_request:
+    paths:
+      - "web/arkadia_console/**"
+      - "api/frontend_routes.py"
+      - "tests/test_aeas05_canonical_frontend_acceptance.py"
+      - "tests/test_canonical_frontend_routing.py"
+      - "tests/test_console_endpoint_registry_contract.py"
+      - "tests/test_console_shell_nav_contract.py"
+      - "tests/test_frontend_arkadia_console_rebuild_01.py"
+      - "tests/test_frontend_script_assets_resolve.py"
+      - "tests/test_knowledge_os_boundary.py"
+      - "tests/test_knowledge_search_boundary.py"
+      - "tests/test_prism_opportunity_radar_module.py"
+      - "tests/test_prism_w4_arkana_thread_history.py"
+      - "tests/test_prism_w4_lab_read_model.py"
+      - "tests/test_solariun_knowledge_slice_01.py"
+      - "tests/test_prism_console_ci_wiring.py"
+      - ".github/workflows/prism-console-contract.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "web/arkadia_console/**"
+      - "api/frontend_routes.py"
+      - "tests/test_aeas05_canonical_frontend_acceptance.py"
+      - "tests/test_canonical_frontend_routing.py"
+      - "tests/test_console_endpoint_registry_contract.py"
+      - "tests/test_console_shell_nav_contract.py"
+      - "tests/test_frontend_arkadia_console_rebuild_01.py"
+      - "tests/test_frontend_script_assets_resolve.py"
+      - "tests/test_knowledge_os_boundary.py"
+      - "tests/test_knowledge_search_boundary.py"
+      - "tests/test_prism_opportunity_radar_module.py"
+      - "tests/test_prism_w4_arkana_thread_history.py"
+      - "tests/test_prism_w4_lab_read_model.py"
+      - "tests/test_solariun_knowledge_slice_01.py"
+      - "tests/test_prism_console_ci_wiring.py"
+      - ".github/workflows/prism-console-contract.yml"
+  # The gate is path-filtered, so a revision touching none of the above never runs
+  # it. `workflow_dispatch` lets the console contract be executed against an exact
+  # revision on demand (it runs the workflow file from the dispatched ref, so
+  # `ref=main` yields an execution at the current main SHA).
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  console-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements.txt
+      - run: python -m pip install pytest
+      - name: Verify the console contract guards
+        # The list is the derived console-boundary domain. It is asserted against
+        # `git ls-files` by the wiring guard below, so a guard added, renamed, or
+        # removed reddens that guard until this step is updated in the same change.
+        run: >-
+          python -m pytest -q
+          tests/test_aeas05_canonical_frontend_acceptance.py
+          tests/test_canonical_frontend_routing.py
+          tests/test_console_endpoint_registry_contract.py
+          tests/test_console_shell_nav_contract.py
+          tests/test_frontend_arkadia_console_rebuild_01.py
+          tests/test_frontend_script_assets_resolve.py
+          tests/test_knowledge_os_boundary.py
+          tests/test_knowledge_search_boundary.py
+          tests/test_prism_opportunity_radar_module.py
+          tests/test_prism_w4_arkana_thread_history.py
+          tests/test_prism_w4_lab_read_model.py
+          tests/test_solariun_knowledge_slice_01.py
+      - name: Console-contract CI-wiring guard
+        # Judges the gate's own trigger: the domain must be selected by this file's
+        # `paths` filter and every executing step must be able to fail. A rewrite of
+        # this file is judged by itself, or the gate is self-exempt.
+        run: python -m pytest tests/test_prism_console_ci_wiring.py -q
