@@ -283,3 +283,62 @@ from `9b1b3ef1`.
   bundle; production parity is not claimed and would need a post-merge deployment.
 - No merge, no deployment, no acceptance. No Vercel deployment created or promoted.
 - No feature-owned path was edited; Workstream 2's opportunity implementation was reviewed only.
+
+### 8.8 Second shell/navigation gap — the archived Oracle deep links
+
+`resolvePath` handled `/nexus` but not `/oracle` or `/commune`. The archived Prism's route
+table declares `commune: '/oracle'` and accepts **both** `/oracle` and `/commune` as direct
+routes (`archive/frontend/arkadia-prism/web/public_prism/src/App.tsx:44,70`), and its home
+surface sends the Oracle portal to `commune` (`onNavigate('commune')`). The console names that
+surface `arkana`. So a real archived deep link — `/oracle` or `/commune` — fell through
+`resolvePath` to `home`, and §8.3's normalisation then wrote `/` to the address bar, making the
+loss permanent for a shared link.
+
+**Change:** both paths added to `PATH_ALIASES` → `arkana`. They are aliases, not surfaces:
+
+- Neither is a declared surface path, so neither duplicates a real route (the existing
+  alias-soundness detector rejects that).
+- Neither collides with a backend route. Measured against the live app:
+  `app.openapi()["paths"]` has no exact `/oracle`, `/commune`, `/nexus`, or `/arkana` entry and
+  no sibling under any of them; `_RESERVED_PREFIXES` contains none of them.
+
+**Guard** — one positive assertion and one negative control, both in
+`tests/test_console_shell_nav_contract.py`:
+
+- `test_oracle_and_commune_reconcile_to_the_arkana_surface` asserts both resolve to `arkana`,
+  that neither is a declared surface path, and re-runs `_alias_defects` so a future collision
+  is still caught.
+- `test_detector_flags_an_oracle_alias_that_falls_through_to_home` strips the two entries from
+  the **real** router and asserts they then reproduce the pre-repair fall-through to `/`.
+  A control that only asserted the repaired state would be silent on the defect.
+
+**Live negative control, measured:** deleting the two entries from the real `router.ts` reddens
+**3 nodes** (27 passed) — the new positive test, the new control, and the §8.3 canonical-path
+test, which now also probes `/oracle` and `/commune`. Restored byte-identically
+(`git diff --stat` → empty) and green again (**30 passed**).
+
+Two guards were drafted first and **removed** before commit: a Node-evaluated `PATH_ALIASES`
+reader plus its own alias-soundness test. Both duplicated the existing
+`_path_aliases` / `_alias_defects` suite (which already asserts alias targets are declared and
+that an alias never collides with a canonical path), and the reader failed on helper scope
+(`strip_types` is nested inside `_js_route_resolver`). Duplicating a guard is not a guard; the
+existing one was reused and extended instead.
+
+| Check | Result |
+|---|---|
+| `tests/test_console_shell_nav_contract.py` | **30 passed** (was 28) |
+| Both guards together | **47 passed** (was 43) |
+| **Live negative control** | entries removed → **3 failed, 27 passed**; restored → **30 passed**, empty mutation diff |
+| Typecheck + build | `corepack pnpm build` → **exit 0** |
+| Full suite | **27 failed / 2352 passed / 17 skipped / 1 error** |
+| Failing/error node set | **28 nodes, sha256 `92fcd59cb4f0aee3249c93045c3d1ddd5bfd591c24d5b628db829c0fd1645048`** — **identical** to the pre-change tree |
+| CP10 admission | `--judge` → **PASS** for both changed paths |
+
+The `+3 passed` is exactly this change's new node count. The failing set is unchanged, so the
+increment introduces no regression.
+
+**Still not reconciled (recorded, not executed):** the archived Prism also declared
+`/living-gate` + `/gate` (its `gate` view) and `/home`. The console has no `gate` surface —
+sign-in is `/login` — so `/gate` is not an alias of anything and reconciling it would require
+deciding what the surface *is*, which is a product decision, not a routing one. `/home` is the
+same case as `/` and is a candidate for a later bounded pass.
