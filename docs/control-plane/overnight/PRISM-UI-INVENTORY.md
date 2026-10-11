@@ -123,3 +123,57 @@ Produce the **Slice A shell/navigation inventory** as the next pulse: enumerate 
 - No Vercel deployment was created, promoted, or treated as evidence. Canonical production remains `https://arkadia-qzu4.onrender.com` (ADR-016).
 - UI implementation and browser/build evidence are **not** claimed. `web/arkadia_console` was not rebuilt in this pulse; the frontend build remains `NOT RUN`.
 - Every row marked `MISSING` is a *known gap*, not a defect claim against `main`.
+
+## 8. Pulse log (continuity — reconstruct from this, not from memory)
+
+| Pulse | Branch head | Slice | Deliverable | Status |
+|---|---|---|---|---|
+| 1 | `42ade73b75cf9…` | — | this inventory (feature/route matrix) | IMPLEMENTED |
+| 2 | `a5443d2a…` | A | `PRISM-UI-SLICE-A-SHELL-INVENTORY.md` + `test_console_shell_nav_contract.py` (11 tests) | IMPLEMENTED |
+| 3 | `1a2a5561…` | A.1 | NovaNet hub surface (`/novanet`, `/nexus` alias) + evidence record | IMPLEMENTED |
+
+### Pulse 3 — Slice A.1: NovaNet hub surface
+
+`/nexus` row (§2) moved `MISSING` → `IMPLEMENTED`. Evidence:
+`docs/control-plane/evidence/prism-ui-reconciliation-slice-a-novanet-01/EVIDENCE.md`.
+
+- Surface added at canonical `path: "/novanet"`; legacy `/nexus` is an inbound
+  **alias** via `PATH_ALIASES`, not a second surface (§5.1/§5.2).
+- Both contracts re-verified against the live route table (`/api/transmissions`
+  at `api/transmissions.py:103`, `/api/echoes` at `api/main.py:1660`); TS types
+  written from the handler return shapes.
+- The four hub sub-views (`/nexus/ims`, `/nexus/grove`, `/nexus/larder`,
+  `/nexus/distribution`) remain `MISSING` and render an explicit `NotYetWired`
+  state — no route invented for an un-reconciled contract.
+- `api/main.py` **not** touched by this slice; `python -m py_compile api/main.py` OK.
+
+### Baseline at pulse 3 (same-environment before/after)
+
+| Check | Result |
+|---|---|
+| Full suite, before / after the slice | 35F / 2114P / 34S / 1E — both |
+| Failing/error node **set** | identical; 36 nodes; sha256 `d7490390ece4a5d428c1b7b534d62d94d0c8419e1dd199fae202d3b1f7dfc08c` |
+| `tests/architecture` | **11 passed** |
+| Targeted frontend/route guards | **44 passed** (was 40; `+4` = new alias tests) |
+| `tsc --noEmit && vite build` | exit 0 — 63 modules |
+| CP10 mutation boundary | PASS |
+
+The pulse-3 absolute counts differ from the §5 bound-revision baseline
+(19F / 2133P / 20S, node-set sha256 `1ef23f26…`) by the installed dependency set
+in that sandbox. The pulse-3 claim rests on **node-set identity measured in one
+environment**, never on a count — per the repository rule that a count delta
+alone is not attributable evidence.
+
+### Next bounded move (proposed, not implemented)
+
+Reconcile `/nexus/ims` (`IMSArchivePage.tsx`, `/api/ims/inquiries`) — the only
+remaining hub row whose backend contract is already known. `grove`, `larder` and
+`distribution` stay `UNKNOWN` and require contract discovery before any surface
+is added. Do **not** invent routes for them.
+
+### Pulse-3 explicit non-claims
+
+- No merge, no deployment, no production acceptance. PR #418 remains a **draft**.
+- No claim that `https://arkadia-qzu4.onrender.com` serves the NovaNet surface —
+  the console has not been deployed with this change.
+- No Vercel path used, promoted, or treated as evidence (directive §8).
