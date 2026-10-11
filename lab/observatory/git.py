@@ -1,9 +1,55 @@
 from __future__ import annotations
 
 import ast
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
+
+
+def _redact_remote_url(remote: str | None) -> str | None:
+    """Remove URL userinfo before a remote is exposed in any read model.
+
+    Git remotes can embed credentials in URL userinfo, for example
+    https://user:token@example.invalid/org/repo.git. This value is informational
+    only, so preserve the host/path but never the userinfo. The conservative
+    fallback also handles malformed URL-like and SCP-style remote forms without
+    returning the authority prefix before @.
+    """
+    if not remote:
+        return remote
+
+    try:
+        parts = urlsplit(remote)
+        if parts.scheme and "@" in parts.netloc:
+            host = parts.netloc.rsplit("@", 1)[1]
+            return urlunsplit((parts.scheme, host, parts.path, parts.query, parts.fragment))
+    except ValueError:
+        # urlsplit can reject malformed IPv6/authority syntax; redact below.
+        pass
+
+    # Fail closed for malformed scheme URLs and SCP-style remotes. Only inspect
+    # the authority portion, so an @ in a path/query is preserved.
+    if "://" in remote:
+        scheme, remainder = remote.split("://", 1)
+        authority, separator, suffix = remainder.partition("/")
+        if "@" in authority:
+            host = authority.rsplit("@", 1)[1]
+            return scheme + "://" + host + ("/" + suffix if separator else "")
+    else:
+        authority, separator, suffix = remote.partition("/")
+        if "@" in authority:
+            host = authority.rsplit("@", 1)[1]
+            return host + ("/" + suffix if separator else "")
+
+    # If malformed input still resembles a URL and parsing failed, remove any
+    # credential-bearing authority prefix rather than risk echoing it.
+    return re.sub(
+        r"(?i)([a-z][a-z0-9+.-]*://)[^/?#\\s]*@",
+        r"\\1",
+        remote,
+    )
 
 
 def _run(root: Path, args: list[str]) -> tuple[str | None, str | None]:
@@ -20,7 +66,7 @@ def repository_state(repo_root: str = ".") -> dict[str, Any]:
     head, err2 = _run(root, ["rev-parse", "HEAD"])
     remote, err3 = _run(root, ["remote", "get-url", "origin"])
     status, err4 = _run(root, ["status", "--porcelain"])
-    return {"branch": branch or None, "head": head or None, "clean": status == "", "remote": remote or None, "status": "observed" if not (err or err2) else "unavailable", "reason": next((x for x in (err, err2, err3, err4) if x), None)}
+    return {"branch": branch or None, "head": head or None, "clean": status == "", "remote": _redact_remote_url(remote), "status": "observed" if not (err or err2) else "unavailable", "reason": next((x for x in (err or None, err2 or None, err3 or None, err4 or None) if x), None)}
 
 
 def commit_history(repo_root: str = ".", limit: int = 250) -> tuple[list[dict[str, Any]], dict[str, Any]]:
