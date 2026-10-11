@@ -188,12 +188,35 @@ accepted shape so the two gates stay comparable, and leaves derivation — if th
 — to #447's workstream rather than pre-empting it here. The judge's docstring records this
 explicitly, so a future pass does not read the enumeration as an oversight.
 
-## 8. Remaining uncertainty / authorization
+## 8. Runtime evidence (CI) — the gate now executes the whole domain
 
-* **Not claimed:** production parity, deployment identity, or acceptance. This is a
-  repository-source change with local proof; CI execution of the repaired gate has not yet been
-  observed at a revision carrying it.
-* The recurrence risk is structural: a hand-maintained inventory drifts again on the next
+Run **`38174340491`** on head `b54eaeb49a2041c5c68bc8365d4e903fcf253ed4`
+(`event=pull_request`, `completed/success`) is the first execution of the repaired gate. Both
+steps succeeded, and the step log proves the guards actually ran rather than merely that the job
+exited 0:
+
+```
+Verify the economic-seam contract guards
+  python -m pytest -q tests/test_deal_sheet.py tests/test_economic_seam_authority_boundary.py \
+    tests/test_economic_seam_correlation.py tests/test_economic_seam_engine.py \
+    tests/test_m02a_ci_gate_integrity.py tests/test_market_data.py tests/test_nocopo_adapter.py
+  124 passed in 1.48s
+
+Economic-seam CI-wiring guard
+  python -m pytest tests/test_economic_seam_ci_wiring.py -q
+  21 passed in 4.13s
+```
+
+`124 passed` in CI (against `124 passed` locally) confirms the two previously-unexecuted guards
+are now executed, and that the dependency gap recorded in §3 is a sandbox artifact only — CI
+installs `requirements.txt` and the node passes there.
+
+## 9. Remaining uncertainty / authorization
+
+* **Not claimed:** production parity, deployment identity, or acceptance. The CI run above is
+  evidence that the *gate* executes its whole domain at this revision; it is not a deployment
+  observation and does not establish that anything is running in production.
+* Recurrence risk is structural: a hand-maintained inventory drifts again on the next
   economic-seam guard. The judge now makes that drift *fail CI* instead of passing silently,
   which is the bounded repair. Removing the class entirely requires the derived-inventory
   execution surface — a separate bounded workstream for sovereign review (§7).
