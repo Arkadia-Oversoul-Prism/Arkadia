@@ -1,6 +1,7 @@
 """K5 — static ingestion source coverage."""
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from knowledge.static_ingestion import _SOURCES
@@ -15,16 +16,28 @@ def test_adr_corpus_is_a_declared_source():
 
 
 def test_adr_source_root_resolves_and_holds_the_records():
+    """The ADR corpus is a resolved directory of ADR records.
+
+    This asserted a *frozen six-name list*, so adding ADR-016 (``ba3c7b57``) reddened
+    the suite without any change to the declared source — the glob is ``*.md`` and
+    already picked the new record up. Pin the property instead: a non-empty corpus of
+    ``ADR-<n>-*.md`` records under a directory that resolves inside the repository,
+    retaining the earliest records so a silent loss is still a failure.
+    """
     adr = _sources_by_provider()["static:adr"]
     assert adr["root"].is_dir(), f"ADR root missing: {adr['root']}"
-    assert sorted(p.name for p in adr["root"].glob(adr["glob"])) == [
+    names = sorted(p.name for p in adr["root"].glob(adr["glob"]))
+    assert names, f"ADR corpus is empty: {adr['root']} / {adr['glob']}"
+    assert all(re.fullmatch(r"ADR-\d{3}-[\w-]+\.md", n) for n in names), names
+    # The corpus may grow; it must never silently lose its recorded history.
+    assert {
         "ADR-010-knowledge-vault.md",
         "ADR-011-provider-router.md",
         "ADR-012-context-engine.md",
         "ADR-013-phase0-security-hardening.md",
         "ADR-014-phase1-kernel-stabilisation.md",
         "ADR-015-dependency-direction-rule.md",
-    ]
+    } <= set(names), names
 
 
 def test_every_declared_source_uses_a_canonical_note_type():
