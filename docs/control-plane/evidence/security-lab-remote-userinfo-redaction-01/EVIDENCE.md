@@ -127,7 +127,19 @@ reading the file: every run step has `continue-on-error: None`.
 
 Because this branch **extends the file that workflow already executes**, the added
 nodes are executed by an existing judging gate — no new workflow is needed, and none
-was added. (The superseded pass added a parallel
+was added.
+
+**Runtime proof, not a source claim.** Run `38153892202` (`Lab Security Contract`,
+`event=pull_request`, `conclusion=success`) step *Execute remote-redaction contract*
+logged:
+
+```
+python -m pytest -q tests/test_repository_remote_redaction.py
+14 passed in 2.81s
+```
+
+`14` is this branch's extended node count (main's 7 + the 7 added here), so the added
+nodes demonstrably ran in a step with no `continue-on-error`. (The superseded pass added a parallel
 `.github/workflows/lab-remote-redaction.yml`; it was **removed** here as a duplicate of
 `main`'s gate.)
 
