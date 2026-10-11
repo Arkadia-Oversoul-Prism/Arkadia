@@ -1,8 +1,9 @@
-import { Page, Panel, Facts, ContractState } from "../components/ui";
+import { Page, Panel, Facts, ContractState, NotYetWired } from "../components/ui";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
 import { endpoints } from "../lib/endpoints";
 import type { KnowledgeStatus } from "../lib/types";
+import { KnowledgeGraphPanel } from "./knowledge/KnowledgeGraphPanel";
 
 export function KnowledgePage() {
   const status = useHydration<KnowledgeStatus>(endpoints.knowledgeStatus, (p) => apiRequest<KnowledgeStatus>(p));
@@ -41,6 +42,17 @@ export function KnowledgePage() {
           <ContractState state={status.state} error={status.error?.message} onRetry={status.reload} />
         )}
       </Panel>
+
+      <div className="mt-4">
+        <KnowledgeGraphPanel />
+      </div>
+
+      <div className="mt-4">
+        <NotYetWired
+          contract="/api/knowledge/timeline"
+          note="Continuity and the memory timeline are declared contracts, not yet wired into this surface."
+        />
+      </div>
     </Page>
   );
 }
