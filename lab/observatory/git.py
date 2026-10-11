@@ -42,6 +42,7 @@ def _redact_remote_url(remote: str | None) -> str | None:
             host = authority.rsplit("@", 1)[1]
             return host + ("/" + suffix if separator else "")
 
+    return remote
 
 
 def _run(root: Path, args: list[str]) -> tuple[str | None, str | None]:
