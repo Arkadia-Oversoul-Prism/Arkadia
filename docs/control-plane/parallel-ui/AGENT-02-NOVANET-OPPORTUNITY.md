@@ -23,3 +23,8 @@ Recover the useful NovaNet hub and project-level Opportunity Radar workflows fro
 
 ## Acceptance
 Real-contract data flow or honest not-wired state; distinct loading/empty/error/auth states; interaction tests and negative controls where practical; typecheck/build; exact evidence/commit SHA; explicit unknowns and next move.
+
+
+## Next wave — continue immediately after this PR closes
+
+Coordinator direction (2026-10-11): do not stop at the current read-only module. The measured backend blockers are now an authorized next slice in this workstream: `solspire/buyer_recon.py` has a create-entry column/value arity mismatch, and its board schema prevents one subject from holding both workspace and project boards. Reproduce both with focused tests first; implement the smallest safe, backwards-compatible SQLite migration/repair and route-level regression tests. Preserve owner authentication, `UNKNOWN` for unverified facts, and `execution_authority: NONE` / `budget_authority: NONE`; do not weaken authorization or invent commercial facts. Record migration/backfill behavior and test against both a fresh and existing schema. Then integrate and mount the project radar in the existing Projects menu/page, using the actual response shape and requesting Workstream 1 for shared endpoint/type/navigation edits. Keep NovaNet legacy subviews visibly not-wired unless their contracts are verified. If a migration risks existing user data, stop with the exact migration hazard and a safe alternative rather than guessing.
