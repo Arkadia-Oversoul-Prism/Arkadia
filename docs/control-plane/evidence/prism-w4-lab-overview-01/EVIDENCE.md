@@ -1,0 +1,157 @@
+# Workstream 4 — Lab substrate overview read surface, and a credential-disclosure finding
+
+**Slice:** 08 — `GET /api/lab/overview`
+**Branch:** `feat/prism-next2-04-run-evidence-trace`
+**PR:** #432 (draft)
+**Authority:** implement, test, commit, report. **No merge, no deployment, no acceptance.**
+
+---
+
+## 1. Why this surface
+
+`endpoints.labOverview` is declared in the shared registry
+(`web/arkadia_console/src/lib/endpoints.ts:29`) and was **unwired**. Like slice 07, it
+needs no registry change. It is also the Lab's self-description, and it carries the
+substrate's own governance ceiling — the one place the Lab states what it refuses to do.
+
+---
+
+## 2. Verified route / auth / data contract
+
+| | |
+|---|---|
+| Method + path | `GET /api/lab/overview` |
+| Router | `APIRouter(prefix="/api/lab", dependencies=[Depends(require_lab_auth)])` (`api/lab_routes.py:61`) |
+| Handler | `lab_overview() -> build_overview(".")` (`api/lab_routes.py:67`) |
+| Auth | Lab router default `require_lab_auth`. **Live check:** anonymous `GET https://arkadia-qzu4.onrender.com/api/lab/overview` → **401** `{"detail":"Authentication required"}` |
+| Response | `{schema_version, collector_version, analysis_version, observed_at, system, repository, architecture, trajectory, canon, patterns, graph, deployments, security, governance, errors, status}` |
+
+Measured in this environment: `status: observed`, `errors: []`, architecture
+`159 components / 968 modules / 41 services / 198 routes`, graph `2348 entities`,
+48 security observations, 4 patterns.
+
+**`governance` (the load-bearing block):**
+`{"maximum_authority": 2, "autonomous_mutation": false, "production_mutation": false, "approval_required": true}`
+
+---
+
+## 3. Security finding — `repository.remote` discloses remote userinfo
+
+**What it is.** `build_overview()` returns `repository.remote`, which is the verbatim
+output of `git remote get-url origin`
+(`lab/observatory/git.py:21`: `_run(root, ["remote", "get-url", "origin"])`). Git
+stores the remote URL including any `user:token@` userinfo, so wherever the remote was
+configured with a credential the response carries it.
+
+**Measured, this environment** (shape only — the value is never printed):
+
+```
+remote is None:               False
+has userinfo '@':             True      # e.g. https://<userinfo>@github.com/...
+scheme:                       https
+security.values_redacted:     True      # <-- scoped to observations only
+```
+
+**Why the handler's own flag does not cover it.** `security.values_redacted: true`
+reads as a blanket assurance, but `security_observations()` only classifies *file
+paths* that mention credential-ish **names** (`GEMINI_API_KEY`, `AIza`, …) and returns
+`"value redacted"` for those paths. It never inspects `repository.remote`, so the flag
+is silent about it. The response therefore asserts redaction while carrying an
+unredacted remote.
+
+**Reachability.**
+
+* Live canonical origin: **401** unauthenticated — not anonymously readable. Confirmed
+  by direct probe, not inferred.
+* The endpoint *is* exercised in CI: `.github/workflows/sg-02-fe-2-v.yml:245` fetches
+  `/api/lab/overview` with a synthetic unsigned token and asserts `200`. The step prints
+  only status codes and its secret-scan list (`AIza`, `PRIVATE KEY`, `GEMINI_API_KEY`,
+  `FIREBASE_SERVICE_ACCOUNT_JSON`) does **not** include a GitHub token shape, so the
+  response body is neither printed nor screened for this class.
+* Deployed image: the runtime stage of `Dockerfile` does **not** install `git`
+  (`apt-get install` list: build-essential, gcc, wget, ca-certificates), and
+  `python:3.11-slim` ships no `git` — **verified by running the base image**
+  (`command -v git` → `NO_GIT`). `_run` returns `(None, str(exc))` on `OSError`, so in
+  the canonical Render runtime `repository.remote` resolves to `None`.
+* **Conclusion:** the disclosure is real and handler-level, and its effect in the
+  canonical deployment is currently **masked by the absence of `git`** — not by any
+  redaction. It becomes live the moment `git` is installed in the runtime image (a
+  plausible change: `repository_state` also uses it for branch/HEAD) or the endpoint is
+  served from a git-bearing host. That is a latent, not an active, exposure — recorded
+  as such rather than overstated.
+
+**Classification:** concrete security/privacy finding → **escalated**, per the
+workstream's escalation rule. Repairing it means editing `lab/service.py` (and
+possibly `lab/observatory/git.py`), which is a substrate change outside this slice's
+UI scope; the UI boundary is hardened here instead.
+
+**UI-boundary mitigation (this slice).** `labOverview.ts::redactRemote()` strips
+userinfo before render and reports that it did; `LabOverviewSnapshot.tsx` renders only
+the redacted value and never the raw field. Guarded by
+`test_surface_never_renders_the_raw_remote`,
+`test_redaction_is_documented_as_a_handler_gap_not_a_handler_guarantee`, and a negative
+control proving the detector fires on a raw render. All tests use a **synthetic**
+credential literal.
+
+**Proposed follow-on (not executed here — needs authorization):** redact userinfo in
+`repository_state()` itself, so the guarantee is the handler's rather than each
+consumer's, and add a conformance test asserting no `@` userinfo appears in
+`repository.remote`. That is a shared-substrate change and is left for the sovereign.
+
+---
+
+## 4. Non-collapses this surface preserves
+
+| Non-collapse | Source | Reading |
+|---|---|---|
+| `observed` != authorized | `governance` declares a ceiling | `authority_granted: false`; the surface states the block is "not permissions this surface can confer" |
+| `partial` != `observed` | handler sets `"partial" if errors else "observed"` | `reading_incomplete` + per-component `component_failures`; a failed section renders as unobserved, never as zero |
+| absent governance != autonomy | handler may omit the block | a missing block reads "unknown ceiling", not "no ceiling" |
+| `security.values_redacted` != blanket redaction | scoped to observations | `handler_redaction_scope: "security.observations only"` |
+
+---
+
+## 5. Changed paths
+
+| Path | Role |
+|---|---|
+| `web/arkadia_console/src/components/lab/labOverview.ts` | pure projection incl. `redactRemote` |
+| `web/arkadia_console/src/components/lab/LabOverviewSnapshot.tsx` | read-only renderer |
+| `web/arkadia_console/src/pages/EngineeringLabPage.tsx` | mounts the surface |
+| `tests/test_prism_w4_lab_overview.py` | handler oracle + execution + redaction (12 tests) |
+| `tests/test_lab_overview_contract.py` | read-only ceiling + redaction wiring (13 tests) |
+
+No shared file edited.
+
+---
+
+## 6. Measured result
+
+```
+PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q -rEf --continue-on-collection-errors
+```
+
+| Tree | Summary | Failing/error node set sha256 | Nodes |
+|---|---|---|---|
+| `main` `f390526a` | 27F / 2342P / 17S / 1E | `521c63e1b75d3369aa6ca40e96c12268bd9c9b633e7584d514dd421e54ecdebe` | 28 |
+| branch (slices 06 + 07 + 08) | 27F / 2436P / 17S / 1E | `521c63e1b75d3369aa6ca40e96c12268bd9c9b633e7584d514dd421e54ecdebe` | 28 |
+
+`diff` on the sorted node sets is **empty**. `+94 passed` == `--collect-only`
+18 + 19 + 16 + 16 + 12 + 13 = **94**.
+
+* `tsc --noEmit && vite build` clean; `dist/assets/index-DtxIHBST.js` 83.37 kB.
+* `api/main.py` untouched (2499 lines).
+
+---
+
+## 7. Limitations / next
+
+* The disclosure above is **escalated, not repaired** — the fix is a shared-substrate
+  change requiring authorization.
+* Nothing here authorizes acting on the substrate. The snapshot is an observation.
+* Not claimed: merge, deployment, production parity, acceptance.
+
+**Next bounded move:** continue the Workstream 4 read-surface thread; the automations
+surface remains blocked on Workstream 1's `labAutomations` registry entry.
+
+_This document was written by an AI agent (OpenHands) on behalf of the repository owner._
