@@ -205,22 +205,16 @@ jobs:
                   page.get_by_test_id("input-password-signin").fill(user._password)
                   page.get_by_test_id("button-signin").click(timeout=15000)
 
-                  # Wait for the app to leave the sign-in flow, without logging current URL or form content.
-                  try:
-                      page.wait_for_function(
-                          "() => !location.pathname.endsWith('/login')",
-                          timeout=45000
-                      )
-                      report["browser_checks"]["firebase_sign_in"] = {"pass": True}
-                  except Exception:
-                      report["browser_checks"]["firebase_sign_in"] = {"pass": False}
-                      raise RuntimeError("Firebase sign-in did not leave the login route.")
-
+                  # Allow Firebase persistence/navigation to settle, then verify a protected deep link.
+                  page.wait_for_timeout(4000)
                   lab_response = page.goto(base + "/engineering-lab", wait_until="domcontentloaded", timeout=60000)
                   page.wait_for_timeout(3000)
                   body = page.locator("body").inner_text(timeout=15000)
                   unauth_marker = "Sign in to continue"
                   has_lab_marker = any(x in body for x in ("Engineering Lab", "Lab overview", "N-ATLAS provider"))
+                  report["browser_checks"]["firebase_sign_in"] = {
+                      "pass": bool(lab_response and lab_response.status == 200 and unauth_marker not in body and has_lab_marker)
+                  }
                   report["browser_checks"]["engineering_lab_authenticated"] = {
                       "status": lab_response.status if lab_response else None,
                       "sign_in_threshold_visible": unauth_marker in body,
