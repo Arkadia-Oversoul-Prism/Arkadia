@@ -361,3 +361,50 @@ corepack pnpm build   -> tsc clean; vite build OK
   full suite on the composed tree if `main` has moved.
 
 
+---
+
+## 9. Slice 05 -- BLOCKED: automations read surface needs a Workstream 1 registry entry
+
+`GET /api/lab/engineering/automations` **is** a served, real read contract:
+
+```
+{"automations": [...], "grammar": {grammar: [TRIGGER, AGENT, TOOLS, SANDBOX,
+ OUTPUT, EVIDENCE, NOTIFICATION, HUMAN_GATE], states, trigger_kinds,
+ may_prepare_consequential_action: true,
+ may_authorize_consequential_action: false, final_transition: "HUMAN_GATE"}}
+```
+
+Each record carries `{automation_id, name, state, trigger{kind,detail,schedule,
+event}, agent_role, objective, tools, sandbox_write_allowed,
+human_gate_required, may_authorize, notification_target, created_at, updated_at}`;
+`TRIGGER_KINDS = scheduled | repository_event | pr_event | runtime_health |
+manual | external_event`; `AUTOMATION_STATES = DRAFT | ENABLED | RUNNING |
+OBSERVED | COMPLETED | FAILED | AWAITING_HUMAN_ACTION`.
+
+**Blocker.** The surface cannot be mounted without an endpoint-registry entry,
+and `web/arkadia_console/src/lib/endpoints.ts` is owned by **Workstream 1**
+(SHARED-CONTRACTS section 1) and is not editable from this branch. SHARED-CONTRACTS
+section 3.3 forbids inventing an endpoint, and section 4 says to "pause that
+dependent slice and record the blocker" when a shared contract change is needed.
+No component was committed for this slice.
+
+**Workstream 1 request (adds to the earlier `labCanvas(id)`/`labSession(id)` ask):**
+add `labAutomations: "/api/lab/engineering/automations"` to `endpoints.ts`. The
+path is verified served (`api/lab_routes.py:335`); the response shape above is
+measured against `make_automation` + `grammar_view`.
+
+**Not wired, deliberately:** `POST /engineering/automations` (create) and
+`POST /engineering/automations/{id}/state` (transition) are mutating acts; the
+read surface would render the served grammar's `HUMAN_GATE` framing and keep
+both unwired.
+
+**Next bounded move (once the registry entry exists):** mount
+`components/lab/LabAutomations.tsx` with an oracle test over `make_automation` +
+`grammar_view` (owner scoping, trigger-kind and state vocabularies, the
+`may_authorize_consequential_action === false` gate, and a negative control).
+Until then, the non-overlapping move is to re-verify the Arkana thread-history
+slice against the current handler (done this pass; 29 passed) and keep the PR
+reconciled with `main`.
+
+
+
