@@ -1,0 +1,274 @@
+name: Canonical Render Acceptance Record
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/canonical-render-acceptance.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/canonical-render-acceptance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-workflow:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install pyyaml
+      - name: Validate acceptance workflow structure
+        run: |
+          python - <<'PY'
+          import yaml
+          with open(".github/workflows/canonical-render-acceptance.yml", encoding="utf-8") as handle:
+              workflow = yaml.safe_load(handle)
+          events = workflow.get("on", workflow.get(True, {}))
+          assert "pull_request" in events
+          assert "push" in events
+          assert "workflow_dispatch" in events
+          assert "validate-workflow" in workflow["jobs"]
+          assert "acceptance-record" in workflow["jobs"]
+          assert workflow["jobs"]["acceptance-record"]["if"] == "github.event_name != 'pull_request'"
+          print("workflow structure valid; pull requests cannot probe production")
+
+  acceptance-record:
+    if: github.event_name != 'pull_request'
+    name: Capture exact-SHA Render acceptance evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TARGET_SHA: ${{ github.sha }}
+      BASE_URL: https://arkadia-qzu4.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Wait for exact live SHA and capture read-only acceptance
+        id: capture
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          import time
+          from datetime import datetime, timezone
+          from urllib.error import HTTPError, URLError
+          from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
+
+          base = os.environ["BASE_URL"].rstrip("/")
+          target = os.environ["TARGET_SHA"]
+          report = {
+              "record_type": "canonical-render-read-only-acceptance",
+              "checked_at": datetime.now(timezone.utc).isoformat(),
+              "canonical_origin": base,
+              "target_sha": target,
+              "live_sha": None,
+              "live_sha_match": False,
+              "identity_poll_attempts": 0,
+              "health": None,
+              "api_version": None,
+              "openapi": None,
+              "routes": {},
+              "unauthenticated_controls": {},
+              "codex_no_follow": [],
+              "blockers": [
+                  "Valid low-privilege identity and authorized positive-control request were not exercised; no short-lived test identity was supplied to this read-only run.",
+                  "Authenticated Solariun/Canvas, Operator Console, Arkana chat, and N-ATLAS end-to-end user journeys require browser/session acceptance.",
+                  "OpenAPI security metadata and source/runtime route reconciliation remain open under issue #402.",
+                  "Legacy Vercel project/integration status, Render-to-GitHub SSH identity, and stale-origin inventory remain unverified.",
+              ],
+              "critical_failures": [],
+              "decision": "BLOCKED",
+          }
+
+          def request(path, timeout=25):
+              req = Request(base + path, headers={"User-Agent": "Arkadia-Render-Acceptance/1.0"})
+              try:
+                  with urlopen(req, timeout=timeout) as response:
+                      return {
+                          "status": response.status,
+                          "body": response.read(),
+                          "headers": dict(response.headers.items()),
+                          "error": None,
+                      }
+              except HTTPError as exc:
+                  return {
+                      "status": exc.code,
+                      "body": exc.read(),
+                      "headers": dict(exc.headers.items()),
+                      "error": None,
+                  }
+              except (URLError, TimeoutError, OSError) as exc:
+                  return {"status": None, "body": b"", "headers": {}, "error": str(exc)}
+
+          deadline = time.monotonic() + 900
+          version = None
+          while time.monotonic() < deadline:
+              report["identity_poll_attempts"] += 1
+              response = request("/api/version", timeout=20)
+              if response["status"] == 200:
+                  try:
+                      version = json.loads(response["body"])
+                      report["live_sha"] = version.get("source_revision")
+                      if report["live_sha"] == target:
+                          report["live_sha_match"] = True
+                          break
+                  except (ValueError, TypeError):
+                      version = None
+              time.sleep(10)
+
+          report["api_version"] = {
+              "status": response.get("status"),
+              "body": version,
+              "error": response.get("error"),
+          }
+          if not report["live_sha_match"]:
+              report["critical_failures"].append(
+                  "Canonical Render /api/version did not report the exact target SHA within 15 minutes."
+              )
+
+          def json_probe(path):
+              result = request(path)
+              parsed = None
+              if result["status"] == 200:
+                  try:
+                      parsed = json.loads(result["body"])
+                  except (ValueError, TypeError):
+                      pass
+              return {
+                  "status": result["status"],
+                  "json": parsed,
+                  "body_bytes": len(result["body"]),
+                  "error": result["error"],
+              }, parsed
+
+          health, health_json = json_probe("/health")
+          report["health"] = health
+          if health["status"] != 200:
+              report["critical_failures"].append("/health did not return HTTP 200.")
+
+          openapi_result, openapi = json_probe("/openapi.json")
+          if isinstance(openapi, dict):
+              paths = openapi.get("paths", {})
+              operations = [
+                  operation
+                  for path_item in paths.values() if isinstance(path_item, dict)
+                  for method, operation in path_item.items()
+                  if method.lower() in {"get", "post", "put", "patch", "delete", "options", "head"}
+                  and isinstance(operation, dict)
+              ]
+              global_security = bool(openapi.get("security"))
+              missing_security = sum(
+                  1 for operation in operations
+                  if not operation.get("security") and not global_security
+              )
+              report["openapi"] = {
+                  "status": openapi_result["status"],
+                  "version": openapi.get("openapi"),
+                  "path_count": len(paths),
+                  "operation_count": len(operations),
+                  "operations_without_declared_security": missing_security,
+                  "body_bytes": openapi_result["body_bytes"],
+              }
+              if missing_security:
+                  report["blockers"].append(
+                      f"OpenAPI declares no effective security requirement for {missing_security} operations; reconcile per operation and justified public exceptions."
+                  )
+          else:
+              report["openapi"] = openapi_result
+              report["critical_failures"].append("/openapi.json did not return a parseable OpenAPI document with HTTP 200.")
+
+          routes = [
+              "/", "/operator", "/solariun", "/oracle",
+              "/solariun/engineering-lab", "/n-atlas-lab",
+              "/n-atlas-tester", "/solariun/opportunity-radar",
+          ]
+          for path in routes:
+              result = request(path)
+              report["routes"][path] = {
+                  "status": result["status"],
+                  "body_bytes": len(result["body"]),
+                  "error": result["error"],
+              }
+              if result["status"] != 200 or not result["body"].strip():
+                  report["critical_failures"].append(
+                      f"Route {path} did not return HTTP 200 with a non-empty body."
+                  )
+
+          for path in ["/api/lab/overview", "/api/operator/security-verification"]:
+              result = request(path)
+              report["unauthenticated_controls"][path] = {
+                  "status": result["status"],
+                  "error": result["error"],
+              }
+              if result["status"] not in (401, 403):
+                  report["critical_failures"].append(
+                      f"Unauthenticated control {path} returned {result['status']}, expected 401 or 403."
+                  )
+
+          class NoRedirect(HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+
+          nofollow = build_opener(NoRedirect)
+          for attempt in ("first", "repeat"):
+              req = Request(base + "/api/codex", headers={"User-Agent": "Arkadia-Render-Acceptance/1.0"})
+              try:
+                  with nofollow.open(req, timeout=30) as response:
+                      item = {"attempt": attempt, "status": response.status, "location": response.headers.get("Location")}
+              except HTTPError as exc:
+                  item = {"attempt": attempt, "status": exc.code, "location": exc.headers.get("Location")}
+              except (URLError, TimeoutError, OSError) as exc:
+                  item = {"attempt": attempt, "status": None, "location": None, "error": str(exc)}
+              report["codex_no_follow"].append(item)
+              if item["status"] != 200 or item.get("location"):
+                  report["critical_failures"].append(
+                      f"/api/codex {attempt} no-follow read was not HTTP 200 without Location."
+                  )
+
+          report["decision"] = "BLOCKED" if report["blockers"] or report["critical_failures"] else "ACCEPTED"
+          report["capture_result"] = "PASS" if not report["critical_failures"] else "FAIL"
+          with open("render-acceptance.json", "w", encoding="utf-8") as handle:
+              json.dump(report, handle, indent=2, sort_keys=True)
+
+          summary = [
+              "# Canonical Render Acceptance Record",
+              "",
+              f"- Decision: **{report['decision']}**",
+              f"- Capture result: **{report['capture_result']}**",
+              f"- Target SHA: `{target}`",
+              f"- Live SHA: `{report['live_sha']}`",
+              f"- Exact SHA match: **{report['live_sha_match']}**",
+              f"- Checked at: {report['checked_at']}",
+              f"- Routes checked: {len(report['routes'])}",
+              f"- Critical failures: {len(report['critical_failures'])}",
+              "",
+              "## Blockers",
+              *[f"- {item}" for item in report["blockers"]],
+              "",
+              "## Critical probe failures",
+              *([f"- {item}" for item in report["critical_failures"]] or ["- None."]),
+              "",
+              "This job captures read-only evidence. A green capture job does not override the BLOCKED acceptance decision or imply authenticated workflow acceptance.",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
+              handle.write("\n".join(summary) + "\n")
+          if report["critical_failures"]:
+              sys.exit(1)
+          PY
+      - name: Upload exact-SHA acceptance record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canonical-render-acceptance
+          path: render-acceptance.json
+          if-no-files-found: warn
+          retention-days: 30
