@@ -1,4 +1,5 @@
 import { Page, Panel, ContractState, NotYetWired } from "../components/ui";
+import { LabSessionList } from "../components/lab/LabSessionList";
 import { useAuth } from "../contexts/AuthContext";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
@@ -49,9 +50,11 @@ export function WeaverPage() {
         )}
       </Panel>
 
+      <LabSessionList />
+
       <NotYetWired
         contract="/api/lab/engineering/sessions/{id}/execute"
-        note="Execution runs are proposed, authorized, and executed as separate stages. The run view is not yet built."
+        note="Authorize, execute, transition, and run-agent are mutating Lab-state acts on the session view above. They require a human decision and are not wired to this read-only surface — an approval is not an execution, and a run at the review boundary is not acceptance."
       />
     </Page>
   );

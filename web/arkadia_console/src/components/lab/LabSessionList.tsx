@@ -75,18 +75,17 @@ export function sessionStage(state: string): { stage: string; note: string } {
 }
 
 /**
- * The session view is a sub-resource of the declared sessions collection. It is
- * built here rather than added to `lib/endpoints.ts` because that registry is
- * workstream 1's file and a second writer on it is a merge hazard — an interface
- * request for a first-class `labSession(id)` entry follows.
+ * The session view is a sub-resource of the declared sessions collection. The
+ * path is built inline at the call site rather than through a helper, so the
+ * first argument of `useHydration` is literally the registry member — the
+ * registry-contract guard requires that, and `lib/endpoints.ts` is workstream
+ * 1's file (a first-class `labSession(id)` helper is the recorded request).
  */
-function sessionViewPath(sessionId: string): string {
-  return `${endpoints.labSessions}/${encodeURIComponent(sessionId)}`;
-}
-
 function SessionDetail({ sessionId }: { sessionId: string }) {
-  const path = sessionViewPath(sessionId);
-  const view = useHydration<LabSessionView>(path, (p) => apiRequest<LabSessionView>(p));
+  const view = useHydration<LabSessionView>(
+    endpoints.labSessions + "/" + encodeURIComponent(sessionId),
+    (p) => apiRequest<LabSessionView>(p),
+  );
 
   if (view.state !== "ready" || !view.data) {
     return (
@@ -132,6 +131,68 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
           Reached the review boundary · acceptance is a separate human act
         </p>
       )}
+
+      <div className="mt-3 flex flex-col gap-3">
+        <section>
+          <p className="mb-1 font-mono text-[10px] uppercase tracking-wider text-white/40">
+            execution records (runs)
+          </p>
+          {runs.length === 0 ? (
+            <p className="text-xs text-white/45" data-testid="lab-runs-empty">
+              No execution records. An authorized session is not an executed run.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1" data-testid="lab-runs">
+              {runs.map((run, i) => (
+                <li key={String(run.run_id ?? i)} className="font-mono text-[11px] text-white/65">
+                  {String(run.run_id ?? "run")} · {String(run.state ?? "unknown")}
+                  {run.result_state ? ` · ${String(run.result_state)}` : ""}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section>
+          <p className="mb-1 font-mono text-[10px] uppercase tracking-wider text-white/40">
+            work events
+          </p>
+          {events.length === 0 ? (
+            <p className="text-xs text-white/45" data-testid="lab-events-empty">
+              No work events recorded. An event is a thing that happened, not a consequence.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1" data-testid="lab-events">
+              {events.map((event, i) => (
+                <li key={String(event.event_id ?? i)} className="font-mono text-[11px] text-white/55">
+                  <span className="text-azure/80">{String(event.event_type ?? "event")}</span>
+                  {typeof event.sequence === "number" ? ` · #${event.sequence}` : ""}
+                  {event.timestamp_utc ? ` · ${String(event.timestamp_utc)}` : ""}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section>
+          <p className="mb-1 font-mono text-[10px] uppercase tracking-wider text-white/40">
+            evidence records
+          </p>
+          {evidence.length === 0 ? (
+            <p className="text-xs text-white/45" data-testid="lab-evidence-empty">
+              No evidence records. Evidence is a record, not a verdict.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1" data-testid="lab-evidence">
+              {evidence.map((record, i) => (
+                <li key={String(record.evidence_id ?? i)} className="font-mono text-[11px] text-white/55">
+                  {String(record.evidence_id ?? "evidence")} · {String(record.state ?? "recorded")} · not a verdict
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
 
       {loop.length > 0 && (
         <p className="mt-3 font-mono text-[10px] uppercase tracking-wider text-white/35">

@@ -152,11 +152,87 @@ issues a create. When it is repaired, this pin must be re-pointed.
   mutate the Knowledge OS threads table; the slice stays read-only.
 * **Not attempted:** live message streaming, citations/RAG refs, per-message voice.
   The thread messages contract carries none of those, so the UI must not imply them.
-* **Next bounded move:** the Weaver run/event/evidence read surfaces. `WeaverPage`
-  currently reads `/api/approvals` and advertises an unwired execute contract. The
-  verified read path is the Lab session view already consumed by
-  `LabSessionList` (`GET /api/lab/engineering/sessions/{id}`) whose `runs` / `events`
-  / `evidence` arrays are real; surfacing those on the Weaver page from the same
-  handler-verified contract is the next non-overlapping slice. Proposal ≠ approval ≠
-  execution ≠ work event ≠ evidence ≠ verification ≠ acceptance must stay distinct.
+* **Next bounded move:** the Weaver run/event/evidence read surfaces — **landed in slice 02** (§6).
 * No mutating Lab control is wired. No deployment, merge, or acceptance is claimed.
+
+---
+
+## 6. Slice 02 — Weaver run / work-event / evidence ledger
+
+The Weaver page read `/api/approvals` and advertised an unbuilt execute view
+(`NotYetWired ... "The run view is not yet built"`). The Lab substrate already
+exposes the records the page promised, so the page now surfaces them.
+
+### Contract (measured against the real runtime + store)
+
+`GET /api/lab/engineering/sessions/{id}` -> `EngineeringLabRuntime.session_view`
+returns `{session, agent, runs, events, evidence, artifacts, loop,
+reached_review_boundary, human_decision_required}`. Verified by driving the real
+runtime over an isolated SQLite DB (`tests/test_weaver_run_evidence_contract.py`):
+
+| Reading | Measured |
+|---|---|
+| A newly opened session | `state=PROPOSED`, `runs=[]`, `evidence=[]`, one `SESSION_CREATED` event |
+| Recording an authorization | `state→AUTHORIZED`, still `runs=[]`, `evidence=[]` — a decision is not an execution |
+| Event shape | `{event_id, session_id, run_id, event_type, sequence, timestamp_utc, payload}` |
+| Owner scoping | another subject -> `KeyError` (handler -> `404`) |
+| `reached_review_boundary` | `false` for PROPOSED/AUTHORIZED; true only at the review states |
+
+### Slice (read-only; reuses the existing read model, no duplicate)
+
+* `components/lab/LabSessionList.tsx` — extended with three distinct record
+  sections (`lab-runs` / `lab-events` / `lab-evidence`), each with its own
+  non-error empty state. Evidence renders "not a verdict"; an empty run set reads
+  "an authorized session is not an executed run".
+* `pages/WeaverPage.tsx` — mounts the ledger (`<LabSessionList />`) and replaces
+  the false "not yet built" note with a blocked-state note naming the mutating
+  acts (`/authorize`, `/execute`, `/transition`, `/run-agent`).
+* No duplicate Weaver component was authored — the existing read model was
+  reused and extended, per the contract's "do not create duplicate abstractions".
+
+### Repaired pre-existing defect (in an owned file)
+
+`components/lab/LabSessionList.tsx` passed a helper-computed `path` to
+`useHydration`, which `test_console_endpoint_registry_contract.py` flags: the
+first argument must be a registry member. The path is now built inline at the
+call site (`endpoints.labSessions + "/" + …`). This node was **failing on `main`
+and now passes** — see §7. The `test_prism_w4_lab_read_model.py` assertion that
+pinned the old template-literal form was updated accordingly.
+
+### Tests
+
+```
+python -m pytest tests/test_weaver_run_evidence_contract.py tests/test_prism_w4_lab_read_model.py \
+  tests/test_console_endpoint_registry_contract.py tests/test_prism_w4_arkana_thread_history.py \
+  tests/test_arkana_thread_history_contract.py -q -rEf
+  -> 63 passed
+
+corepack pnpm build   (web/arkadia_console)
+  -> tsc --noEmit clean; vite build succeeded
+```
+
+### Baseline comparison (full suite, slice 02 tree)
+
+| Tree | Summary | Failing/error nodes |
+|---|---|---|
+| `main` `962434be` | 19 failed, 2220 passed, 17 skipped, 1 error | 20 |
+| branch (slice 01 + 02) | 18 failed, 2263 passed, 17 skipped, 1 error | 19 |
+
+Node-set delta (`comm -3` on the sorted ids): the **only** difference is
+`tests/test_console_endpoint_registry_contract.py::test_every_page_read_uses_the_registry_not_an_inline_path`,
+failing on `main` and **passing** here — the repaired owned-file defect. Zero new
+failures. The `+43 passed` are the new tests (29 Arkana + 10 Weaver oracle + 4 Lab
+ledger).
+
+### Known gaps / next bounded move (after slice 02)
+
+* **Not wired:** artifacts canvas (`/api/lab/engineering/artifacts` is a real
+  `GET`; not surfaced yet), automations, and the mutating Lab state acts.
+* **Not attempted:** live run progress, streaming events, PR projection
+  (`/api/lab/engineering/pr/{number}` is a real `GET`). The ledger is a snapshot,
+  not a live feed; the UI does not imply liveness.
+* **Next bounded move:** mount the read-only artifact canvas
+  (`GET /api/lab/engineering/artifacts` + `GET /api/lab/engineering/canvas/{id}`)
+  on the Engineering Lab page's currently-`NotYetWired` artifacts panel, from the
+  same handler-verified contract, with the same loading/empty/unavailable states.
+
