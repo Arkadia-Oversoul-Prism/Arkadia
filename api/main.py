@@ -2497,3 +2497,8 @@ app.include_router(_ceo_chat_router)
 from api.frontend_routes import configure_frontends
 
 configure_frontends(app)
+
+
+# Publish the actual route authentication boundary in OpenAPI metadata.
+from api.openapi_security import install_openapi_security
+install_openapi_security(app)
