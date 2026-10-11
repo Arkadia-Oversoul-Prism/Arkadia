@@ -211,7 +211,19 @@ Economic-seam CI-wiring guard
 are now executed, and that the dependency gap recorded in §3 is a sandbox artifact only — CI
 installs `requirements.txt` and the node passes there.
 
-## 9. Remaining uncertainty / authorization
+## 9. The `tests/**` filter widening — trade-off, stated
+
+The filter was widened from seven named files to `tests/**`. That is the only way an **added**
+seam guard triggers the gate that must judge it: a filter naming today's guards cannot fire when a
+guard does not yet exist, which is precisely how the two guards went unexecuted.
+
+The cost is real and is recorded rather than glossed: any `tests/**` change now runs this gate, so
+a commit touching an unrelated test also executes the seam guards. Measured at this revision the
+step is ~1.5 s (`124 passed in 1.48s`) plus ~4.1 s for the judge, so the added cost is a few
+seconds on a job that already installs `requirements.txt`. A narrower filter was considered and
+rejected: naming a subset of guards restores the exact drift being repaired.
+
+## 10. Remaining uncertainty / authorization
 
 * **Not claimed:** production parity, deployment identity, or acceptance. The CI run above is
   evidence that the *gate* executes its whole domain at this revision; it is not a deployment
