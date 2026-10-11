@@ -323,4 +323,76 @@ That is consistent with a shared, time-sliced pool granting or refusing slots pe
 
 **Merged-worker note:** the underlying investigation shipped in PR #412 (`640fa55f`). The claim-scope correction at §9.4 and this section are recorded so the refined attribution is not left only in a pull request.
 
+## 10. Authenticated diagnostics — configuration is a human-only action (2026-10-11)
+
+The refinement requested here is: configure `HF_TOKEN` as a GitHub Actions secret so
+`n-atlas-provider-forensics` can read the Space's private runtime logs and settle quota vs
+cooldown. **This could not be executed by an agent, and the reason was measured rather than
+assumed.** What follows is the boundary, the readiness of the harness, and one defect that
+would make the action silently fail.
+
+### 10.1 The blocker: no credential and no secret-write permission
+
+| Required | Status | Evidence |
+| --- | --- | --- |
+| An `HF_TOKEN` value | **NOT AVAILABLE** | `HF_TOKEN` and `HUGGINGFACE_TOKEN` both absent from the environment (presence checked; no value read or printed) |
+| Permission to write the secret | **DENIED** | `gh secret set` → `403 Resource not accessible by integration` (`.../actions/secrets/public-key`); the same 403 blocks reading `.../actions/secrets` |
+
+So this is not a decision to defer; it is a capability that is absent. The secret must be set
+by a human with repository-admin rights. **No secret was set, read, printed, or committed.**
+
+### 10.2 The harness needs no change — its contract is verified
+
+`n-atlas-provider-forensics` already passes the token correctly and already fetches the right
+endpoints, so the operator's action alone should be sufficient. Verified arms-length, with no
+credential:
+
+| Endpoint (as used by the job) | Without a token | Conclusion |
+| --- | --- | --- |
+| `/api/spaces/<space>/events?tail=100` | **200** | public — the admission signal needs no credential |
+| `/api/spaces/<space>/logs/run?tail=300` | **401** `{"error":"Invalid username or password."}` | **this is exactly what the secret unlocks** |
+
+The token is also wired correctly on two counts that matter: it is delivered through
+`env: HF_TOKEN: ${{ secrets.HF_TOKEN }}` and referenced as a *quoted* variable inside the
+`run:` block — it is **never** interpolated as `${{ secrets.* }}` into shell text, so the
+`ADR-013 §1` / workflow-injection class does not apply here. Job permissions are
+`contents: read`, which is the correct least privilege for reading a public Space's logs.
+`workflow_dispatch` is present, so an operator can trigger it on the exact revision.
+
+### 10.3 The defect that would make the action silently fail — recorded, not repaired
+
+**`get_text()` never checks the HTTP status**, so a token without read access to that Space
+would produce a **green job** whose `runtime-logs.txt` contains a 401 error body instead of
+logs. The asymmetry is in the same file:
+
+```python
+get_stream_bounded(...)   # calls response.raise_for_status()   <- fails loudly
+get_text(...)             # never checks status; writes response.text  <- fails silently
+```
+
+`get_text` is used for `runtime-logs.txt` (`/logs/run?tail=300`) *and* for the public
+`space-metadata.json` / `app.py` / `README.md` fetches. So a blanket `raise_for_status()`
+would be a behaviour change with real blast radius, and that is why this is **recorded as a
+proposed follow-up rather than patched in this pass** — it edits a CI surface whose
+authenticated path cannot be exercised here (no token), so a patch could not be verified.
+
+**Proposed patch (for authorization, not applied):** give `get_text` a `required: bool = False`
+parameter; set `required=True` for the authenticated fetches only, so an auth failure is
+reported explicitly while the public fetches keep their current tolerance.
+
+Combined effect if left unpatched: an operator could set a token with insufficient scope, see
+a passing job and a populated `runtime-logs.txt`, and conclude "no errors in the logs" — a
+false negative of exactly the class this repository already guards against elsewhere.
+
+### 10.4 Status
+
+| Item | State |
+| --- | --- |
+| `HF_TOKEN` secret configured | **NOT DONE** — human-admin action (403 / no value); no secret touched |
+| Harness ready for the token | **VERIFIED** (contract + env wiring + dispatch + least privilege) |
+| Authenticated runtime logs read | **NO** — 401 without the secret |
+| Quota vs cooldown attribution | **NOT TESTED** — unchanged, and left explicit per instruction |
+| Silent-failure defect in `get_text` | **OBSERVED** — proposed follow-up, not repaired |
+
+
 
