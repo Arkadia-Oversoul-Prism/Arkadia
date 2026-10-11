@@ -51,6 +51,20 @@ export function routeForSurface(id: SurfaceId, section?: string): string {
 export function useRouter() {
   const [route, setRoute] = useState<Route>(() => resolvePath(window.location.pathname));
 
+  // An inbound legacy alias (`/nexus`), a trailing slash, or an unrouted path
+  // renders the correct surface but leaves the address bar disagreeing with it,
+  // so a copied or shared link keeps propagating a path the console does not
+  // declare. The archived Prism normalised once on load
+  // (`App.tsx:102 history.replaceState`); the console owns that here, in the one
+  // module that resolves a pathname. `replaceState` rather than `pushState`: the
+  // inbound path is not a navigation the user can go back to.
+  useEffect(() => {
+    const canonical = resolvePath(window.location.pathname).path;
+    if (window.location.pathname !== canonical) {
+      window.history.replaceState({}, "", canonical);
+    }
+  }, []);
+
   useEffect(() => {
     const onPop = () => setRoute(resolvePath(window.location.pathname));
     window.addEventListener("popstate", onPop);
