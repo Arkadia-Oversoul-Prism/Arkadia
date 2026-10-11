@@ -137,8 +137,9 @@ dependency in this sandbox). None is caused by, or repaired by, this pass.
 
 Taken in this pass (see §7): the registry guard's detector domain was widened from
 `useHydration` arguments to `apiRequest` **literals** — the bounded, decidable half of
-the gap recorded in §8.4. The remaining Workstream 1 candidates are the next
-shell/navigation gap from the live inventory.
+the gap recorded in §8.4. The remaining Workstream 1 candidate, the next shell/navigation
+gap from the live inventory, is taken in §8 (router address-bar normalisation), landed
+concurrently with §7.
 
 ## 7. Second bounded move — widened one-registry detector
 
@@ -163,3 +164,122 @@ including one that inlines every path.
 **Deliberately still out of scope:** `ProjectOpportunityRadar`'s `readPath` prop
 (Workstream 2's composition) and `KnowledgeGraphPanel`'s `readGraph(path)` (Workstream
 3's). Both receive their path from a caller; judging them is not a shell-owned decision.
+
+*Superseded:* this section previously ended by proposing to migrate the two feature-local
+canvas/session compositions (`LabArtifactCanvas.tsx:63`, `LabSessionList.tsx:86`) onto the
+new helpers and to widen the detector domain. Both proposals are now taken — the widening
+in §7, and the shell/navigation gap in §8. The helper migration remains the owning
+workstream's edit and is not Workstream 1's to make.
+
+---
+
+## 8. Continuation pass — router address-bar normalisation (shell gap)
+
+Appended after two concurrent passes on this branch landed while local work was in
+flight: `9b1b3ef1` (the registry reconciliation) and `e8b0b77a` (the widened
+one-registry detector, §7 above). Both were fetched and reconciled before this
+section was committed; no work was duplicated.
+
+### 8.1 Remote advance, and the duplicate dropped
+
+| Item | Value | How measured |
+|---|---|---|
+| Branch head on remote at this pass's start | `9b1b3ef1312978d6103e74a2a9153cf391203614` | `git ls-remote origin` |
+| Branch head in the working clone | `616aeae9e3885e330e873f098ab989f1e7551ad4` | `git rev-parse HEAD` |
+| Divergence | `1 2` (remote ahead 1, local ahead 2) | `git rev-list --left-right --count origin/…...HEAD` |
+
+`9b1b3ef1` added `labAutomations` and `labCanvas(id)` — the exact step-2 work — so the
+duplicate local commit was **dropped** rather than re-landed, and the non-overlapping
+work was rebased onto the remote head: `git rebase --onto 9b1b3ef1 abec3743 HEAD`.
+After the rebase, `git diff --stat origin/… HEAD` → `router.ts` +14,
+`test_console_shell_nav_contract.py` +109. `9b1b3ef1` touches neither file
+(`git show --name-only 9b1b3ef1`), so there is no overlap between the two.
+
+A **second** concurrent commit then landed mid-pass: `e8b0b77a` (the widened
+one-registry detector, §7) — which was this pass's own identified next bounded task,
+independently taken. It was fetched and reconciled the same way (`git rebase --onto
+e8b0b77a 9b1b3ef1`), with one evidence-file conflict resolved by keeping **both**
+sections: the remote's §7 and this pass's continuation, renumbered §8. No work was
+duplicated, and nothing already pushed was reverted.
+
+The guard this pass added is disjoint from `e8b0b77a`'s: that commit widens
+`test_console_endpoint_registry_contract.py`'s `apiRequest`-literal detector, while this
+pass adds the router-evaluation nodes to `test_console_shell_nav_contract.py`. Measured
+after the second rebase: `git diff --stat origin/… HEAD` → `router.ts` +14,
+`test_console_shell_nav_contract.py` +109, plus the three documentation files.
+
+### 8.2 The gap
+
+`useRouter` resolved a surface from an inbound pathname but never wrote the canonical path
+back. `/nexus` (the declared legacy alias), a trailing slash, or an unrouted path rendered
+the correct surface while the address bar kept the inbound value, so a copied or shared link
+kept propagating a path no surface declares. The archived Prism normalised once on load
+(`archive/frontend/arkadia-prism/web/public_prism/src/App.tsx:102 history.replaceState`);
+the console owned no equivalent. This is a shell/navigation gap in Workstream 1's own
+`lib/router.ts`, not a feature-page edit.
+
+### 8.3 Change and guard
+
+`lib/router.ts` (+14): one `useEffect` that resolves the inbound pathname and
+`history.replaceState`s the canonical path when the two differ. `replaceState`, not
+`pushState` — the inbound path is not a navigation the user can go back to. The rewrite is
+conditional, so a canonical path is untouched.
+
+The guard is an **evaluation, not a source-text pin**: `_js_route_resolver` strips type
+annotations and runs the real, pure `resolvePath`/`routeForSurface`/`SURFACES` code in Node
+over eight probes, then asserts each resolved path is a declared surface path or a section of
+one. Pinned: `/nexus` → `/novanet`, an unrouted path → `/`, and a section path
+(`/solariun/knowledge`) is not flattened. `_normalises_on_load` strips comments before
+matching, so the call's name appearing in a comment cannot pass as the call.
+
+Two defects in the guard's first draft are worth recording, because both are this
+repository's recurring failure modes:
+
+1. The detector matched `history.replaceState` **including in a comment**, so the
+   negative control (which removes only the call) still read as "repaired". Fixed by
+   stripping `//` comments before the match.
+2. The Node probe passed the probe list through `process.argv[2]`, but `node -e` makes
+   `argv[1]` the source and `argv[2]` the first extra argument — it received `undefined`
+   and died in `JSON.parse`. Fixed by embedding the probes in the generated script.
+
+### 8.4 Measurements
+
+| Check | Command | Result |
+|---|---|---|
+| Shell-nav guard | `pytest tests/test_console_shell_nav_contract.py -q -rEf` | **28 passed** |
+| Both guards together | `pytest tests/test_console_shell_nav_contract.py tests/test_console_endpoint_registry_contract.py -q -rEf` | **43 passed** |
+| **Live negative control** | replace the `replaceState` call in the real `router.ts`, rerun | **2 failed, 26 passed** — exactly the two new nodes; restored byte-identically → **28 passed**, empty mutation diff |
+| Typecheck + build | `corepack pnpm build` (`tsc --noEmit && vite build`) | **exit 0**, 74 modules |
+| CP10 admission | `--judge` per changed path | **PASS** for all five paths |
+| CP10 gate integrity | `pytest tests/test_m02a_ci_gate_integrity.py -q -rEf` | **64 passed** |
+| Full suite (branch, post-change) | `pytest tests/ -q -rEf --continue-on-collection-errors` | **27 failed, 2349 passed, 17 skipped, 1 error** |
+| Failing/error node set | sorted `FAILED`/`ERROR` lines | **28 nodes, sha256 `92fcd59cb4f0aee3249c93045c3d1ddd5bfd591c24d5b628db829c0fd1645048`** |
+| Node-set delta vs pre-change tree | `comm` | **empty** |
+
+The `+2 passed` (2347 → 2349) is exactly this pass's new node count. The 28-node failing set
+is the same set on both trees and is pre-existing debt, not attributable to this pass.
+
+### 8.5 Opportunity Radar — reviewed, not modified
+
+Mount chain read from live source: `SolSpirePage.tsx:33` → `OpportunityRadarSection` →
+`ProjectOpportunityRadar`. Paths come from `opportunityRadarContract.ts`
+(`BASE = "/solspire/buyer-recon"`, each `encodeURIComponent`-ed). All three composed shapes
+are served by the canonical app (`app.openapi()["paths"]` → `served=True`). The component is
+reconnaissance-only: no execute/spend control, and a network/server failure renders "not an
+empty board" rather than an empty board. **No shared integration change is needed**, and
+Workstream 2's merged evidence explicitly requests no shared endpoint constant for that path.
+
+### 8.6 Branch map refreshed
+
+`SHARED-CONTRACTS.md` §1 heads re-measured 2026-10-11T13:0xZ: W1 → `46326ba4`,
+W2 `e6780d47` → `d40de704`, W3 `a2024fba` → `f5f8b70e`, W4 unchanged `dcb3e2f2`; all four
+draft/OPEN/MERGEABLE; `main` unchanged at `f390526a`. `AGENT-01-SHELL.md` gained the measured
+facts a later pass must not re-derive, including the fetch-before-commit rule this pass learned
+from `9b1b3ef1`.
+
+### 8.7 Non-claims (this continuation)
+
+- The router change is a **repository-source** claim. It is not an observation of the deployed
+  bundle; production parity is not claimed and would need a post-merge deployment.
+- No merge, no deployment, no acceptance. No Vercel deployment created or promoted.
+- No feature-owned path was edited; Workstream 2's opportunity implementation was reviewed only.

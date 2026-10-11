@@ -17,10 +17,12 @@
 
 ## Measured contract facts (do not re-derive from memory)
 
+- **`useRouter` normalises the address bar on load** (`lib/router.ts`, this branch). It resolves the inbound pathname and `replaceState`s the canonical path when they differ, so `/nexus`, a trailing slash, or an unrouted path does not leave the address bar holding a path no surface declares. Reconciled from the archived Prism (`archive/frontend/arkadia-prism/web/public_prism/src/App.tsx:102 history.replaceState`). `tests/test_console_shell_nav_contract.py` evaluates the real router in Node rather than pinning its text.
 - The canvas route is a **sibling** of artifacts, not a sub-resource. Served: `/api/lab/engineering/artifacts` (GET), `/api/lab/engineering/canvas/{artifact_id}` (GET). **Not** served: `/api/lab/engineering/artifacts/{artifact_id}`, and `/api/lab/engineering/canvas` alone is not a route. This is why `labCanvas` derives its base by substitution and why a `labCanvasRoot` registry entry would fail the served-path guard.
 - `/api/commune/resonance` and `/api/knowledge/search` are **POST-only**; a GET probe returning 405/404 is not a defect.
-- Workstream 2's merged evidence explicitly requests **no** shared endpoint constant for `/solspire/buyer-recon`; that path is handler-derived in its own contract module. Do not add it to the registry.
+- Workstream 2's merged evidence explicitly requests **no** shared endpoint constant for `/solspire/buyer-recon`; that path is handler-derived in its own contract module. Do not add it to the registry. Its served shapes are `/solspire/buyer-recon/projects/{project_id}` and `/…/entries` (verified against `app.openapi()`), and the Projects mount is `SolSpirePage.tsx:33` → `OpportunityRadarSection` → `ProjectOpportunityRadar` (reviewed this pass; no shared change needed).
 - `knowledgeSearch` was already added by `67696372`; do not re-add it.
+- **A concurrent commit on this branch may land the same work.** Two landed while this pass's copies were uncommitted or in flight: `9b1b3ef1` ("reconcile shared endpoint contract against merged feature slices") added `labAutomations` + `labCanvas`, and `e8b0b77a` ("widen the one-registry guard to apiRequest literals") took the detector-widening that this pass had recorded as its own next move. `git fetch` + compare against `origin/<branch>` **before** committing and again before pushing; drop a duplicate rather than re-landing it, rebase the non-overlapping work onto the remote head, and keep **both** sides of a documentation conflict rather than picking one.
 
 ## Hard boundaries
 
