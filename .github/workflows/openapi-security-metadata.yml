@@ -12,6 +12,7 @@ on:
       - "api/**"
       - "solspire/**"
       - "tests/test_openapi_security_*.py"
+      - "tests/test_forge_openapi_security_boundary.py"
       - ".github/workflows/openapi-security-metadata.yml"
   push:
     branches: [main]
@@ -45,6 +46,6 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install pytest
       - name: Focused metadata unit tests
-        run: python -m pytest tests/test_openapi_security_metadata.py -q
+        run: python -m pytest tests/test_openapi_security_metadata.py tests/test_forge_openapi_security_boundary.py -q
       - name: Reconcile the full composed OpenAPI schema
         run: python -m pytest tests/test_openapi_security_production_contract.py -q -rA
