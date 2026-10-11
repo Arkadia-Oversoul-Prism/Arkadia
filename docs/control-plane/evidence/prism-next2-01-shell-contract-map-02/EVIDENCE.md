@@ -411,3 +411,30 @@ isolation. A clean re-run with no concurrent writes reproduced the baseline node
 Repository-source claim only. No merge, no deployment, no acceptance; production parity is
 not claimed. No feature-owned path (`opportunityRadarContract.ts`, `knowledgeContracts.ts`,
 `arkanaThreadsContract.ts`, the Lab components) was edited.
+
+### 9.5 Next bounded task (deterministic resume block)
+
+- **Current state:** `feat/prism-next2-01-shell-contract-map` @ `af379094`, rebased onto
+  `main` `f390526a`, pushed; PR #429 draft, `MERGEABLE/CLEAN`, 13/13 check-runs success.
+- **Evidence:** §9 above; negative control reconfirmed this pass (`lib/arkana.ts` planted
+  literal reddens the guard; file restored byte-identically, sha256 `4ecea80c…`).
+- **Blockers:** none. `main` advanced mid-pass (`962434b` → `f390526a`) and touched this same
+  guard (+182 lines) and `SHARED-CONTRACTS.md`; the branch **already contains** it
+  (`git merge-base --is-ancestor f390526a af379094` → true), and new main still carries
+  `rglob("*.tsx")`, so the `.ts` widening is not superseded.
+- **Authorized action:** continue WS1 §8 contract work on this branch; the remaining
+  unreviewed endpoint-contract shapes are the **caller-supplied path props** deliberately left
+  out of scope — `ProjectOpportunityRadar.readPath` (WS2 composition) and
+  `KnowledgeGraphPanel.readGraph(path)` (WS3 composition). Each belongs to its owning
+  workstream's contract, not the shell's.
+- **Forbidden:** merge, deployment, Vercel promotion/acceptance, editing WS2/WS3/WS4-owned
+  files, adding a second endpoint registry.
+- **Completion condition:** the guard judges every `apiRequest`/`useHydration` call site in
+  `web/arkadia_console/src/**/*.{ts,tsx}` (excluding `lib/apiClient.ts`), or each out-of-scope
+  shape is explicitly assigned to its owning workstream with a recorded rationale.
+
+**Classify deployments by `creator` + commit-status `context`, never by the `environment`
+label.** A pass here briefly read `render[bot]` per-branch previews as Vercel previews (the
+`environment` string is provider-formatted, e.g. `feat/… - Arkadia PR #429`) and nearly
+recorded a boundary regression. `creator=render[bot]` and zero Vercel commit statuses refute
+it.
