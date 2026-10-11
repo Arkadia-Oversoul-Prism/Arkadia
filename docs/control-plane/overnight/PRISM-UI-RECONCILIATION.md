@@ -137,7 +137,7 @@ A pulse with no safe, verified source change must produce a precise blocker/next
 
 The former single-branch/single-PR rule is superseded by the explicitly accepted parallel-work governance contract in `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md`.
 
-- **Workstream 1:** `feat/prism-parallel-01-shell-contracts` / PR #419 — shared shell, navigation, route/surface registry, shared tests and integration contracts.
+- **Governance contract:** PR #419 is merged into main. **Workstream 1 implementation:** `feat/prism-parallel-01-shell-implementation` / PR #423 — shared shell, navigation, route/surface registry, shared tests and integration contracts.
 - **Workstream 2:** `feat/prism-parallel-02-novanet-opportunity` / PR #420 — NovaNet page-local work and project Opportunity Radar feature modules.
 - **Workstream 3:** `feat/prism-parallel-03-solariun-knowledge` / PR #421 — Solariun and Knowledge OS feature-local modules.
 - **Workstream 4:** `feat/prism-parallel-04-arkana-weaver-lab` / PR #422 — Arkana, Weaver and Engineering Lab feature-local modules.
