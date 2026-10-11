@@ -1298,3 +1298,38 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
   CI builds the directory. Files that exist and pass tests can still be absent from the runtime.
 - **Clean up your containers, and do not leave a daemon running** when the measurement is done.
 
+
+## A dev-server browser gate cannot see a serving-path collision (AEAS-05)
+- The CP10 gate (`sg-02-fe-2-v.yml`, step "CP10 browser route verification") drives the
+  **Vite dev server** on port 5000. Vite serves the SPA for *every* path, so a route the
+  console declares but the canonical origin cannot serve still reads **200** in CI. Measured
+  at `main` `a58f0849`: the console declared its SolSpire surface at `path: "/solspire"`,
+  the gate probed `/solspire` and logged `status=200`, and the job was green — while the
+  canonical FastAPI origin returns `{"detail":"Route not found"}` (404) because `/solspire`
+  is a reserved backend namespace (`solspire/console_router.py` `prefix="/solspire"`;
+  `api/frontend_routes.py::_RESERVED_PREFIXES` refuses to serve the SPA there).
+- **A dev server is not the serving path.** Any route assertion in a browser gate must be
+  paired with an origin-level assertion, or it can only prove the bundle *mounts*, never
+  that a route *resolves* in production. `tests/test_canonical_frontend_routing.py` now binds
+  every declared surface path to the served SPA through `configure_frontends` (FastAPI
+  origin), with a reserved-namespace negative control; `tests/test_aeas05_canonical_frontend_acceptance.py`
+  binds the CP10 probe route to the declared surface table so the two cannot drift.
+- The surface path moved to `/enterprise` (no top-level backend route; only
+  `/solspire/enterprise/*` exists, under the reserved prefix). The `/solspire/*` **API
+  contract is unchanged** — only the UI route moved. A second contract defect was measured
+  live: `endpoints.solspireProjects` was `/api/solspire/projects` (404); the real path is
+  `/solspire/projects`. **Probe declared contract paths against the deployed `/openapi.json`
+  rather than trusting the endpoint map** — the console's `endpoints.ts` is a source claim,
+  not a measurement.
+- `/api/commune/resonance` is **POST-only**; a `GET` probe returning 404 is not a defect.
+  Classify before repairing.
+- Rollback doc staleness is a defect: `archive/frontend/arkadia-prism/README.md` still said
+  the Dockerfile and `api/frontend_routes.py` "name the retired path `web/public_prism`",
+  but after the cutover both name `web/arkadia_console`, so the documented rollback was not
+  followable. Corrected, and a **rehearsal** recorded: at `main` `a58f0849`, `git mv` back +
+  `pnpm install --frozen-lockfile` + build emits `assets/index-BzLymmg4.js` (890.33 kB) — the
+  same bundle the last measured Production deployment serving Prism (`c8abb28e4ac0`) served.
+  A recovery path that has never been executed is a claim, not readiness.
+- `Vercel – console` / `Vercel – arkadia-prism` commit statuses are **`failure` on `main`
+  itself** (measured at `a58f0849`), so a Vercel failure on a PR is pre-existing, not
+  branch-caused. Confirm against `main` before attributing.
