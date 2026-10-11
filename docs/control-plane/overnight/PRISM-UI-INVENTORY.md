@@ -131,7 +131,7 @@ Produce the **Slice A shell/navigation inventory** as the next pulse: enumerate 
 | 1 | `42ade73b75cf9…` | — | this inventory (feature/route matrix) | IMPLEMENTED |
 | 2 | `a5443d2a…` | A | `PRISM-UI-SLICE-A-SHELL-INVENTORY.md` + `test_console_shell_nav_contract.py` (11 tests) | IMPLEMENTED |
 | 3 | `1a2a5561…` | A.1 | NovaNet hub surface (`/novanet`, `/nexus` alias) + evidence record | IMPLEMENTED |
-| 4 | `75bbd859…` | A.2 | NovaNet lens strip reconciled to a navigable control (`SurfaceLenses.tsx`) + §4 guard | IMPLEMENTED |
+| 4 | `75bbd859…` → `56ca23b8…` | A.2 | NovaNet lens strip reconciled to a navigable control (`SurfaceLenses.tsx`) + §4 guard | IMPLEMENTED |
 
 ### Pulse 3 — Slice A.1: NovaNet hub surface
 
@@ -217,6 +217,18 @@ The `NovaNet primary rail + "More" lens strip` row (§2) moved `DEFERRED` →
 The before side was measured by stashing the change **in place** (same working
 directory), so the node-set identity is the load-bearing claim; the absolute
 counts differ from CI's by the installed dependency set.
+
+### Pulse-4 verification at the pushed head `56ca23b8`
+
+| Check | Result |
+|---|---|
+| Push | `75bbd859..56ca23b8` → `feat/prism-ui-reconciliation-overnight-01` (no force) |
+| CI check-runs on `56ca23b8` | **13/13 success** (`frontend`, `backend`, `boot-syntax`, `validate`, `Full-history secret scan`, `Build canonical Render image`, `Build and smoke-test the N-ATLAS self-host image`, `native-arkadia-golden-workflow`, `production-read-only-probe`, `provider-forensics`, `bundle-beta-evidence`, `beta-beta-01-english`, `beta-beta-02-hausa`) |
+| PR #418 | `OPEN` / draft / `MERGEABLE` / `CLEAN` at head `56ca23b8431ca6b628894bdf5eb1ff0d08e39c1d` |
+| Directive §8 (Vercel disconnect) | all **7** deployments on this ref are `render[bot]` previews; **zero** Vercel commit statuses on the head |
+
+CI greenness is evidence about one tree, not production parity: it is a CI-runner
+result, not an observation of the canonical Render runtime.
 
 ### Next bounded move (proposed, not implemented)
 
