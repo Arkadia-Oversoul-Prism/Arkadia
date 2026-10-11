@@ -1,7 +1,7 @@
 # Agent 01 — Shell, Navigation, Design System & Integration
 
-**Branch:** `feat/prism-parallel-01-shell-contracts`  
-**PR:** #419 (draft bootstrap)  
+**Branch:** `feat/prism-parallel-01-shell-implementation`  
+**PR:** #423 (implementation workstream; governance contract is merged in main)  
 **Owns:** `App.tsx`, `lib/router.ts`, `lib/surfaces.ts`, `components/SurfaceLenses.tsx`, shared shell/tokens, shared shell/navigation contract tests, and integration of shared endpoint/type registries.  
 **Contract:** read `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` first.
 
