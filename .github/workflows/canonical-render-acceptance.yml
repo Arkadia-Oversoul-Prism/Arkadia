@@ -1,6 +1,9 @@
 name: Canonical Render Acceptance Record
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/canonical-render-acceptance.yml"
   push:
     branches: ["main"]
     paths:
@@ -11,7 +14,32 @@ permissions:
   contents: read
 
 jobs:
+  validate-workflow:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install pyyaml
+      - name: Validate acceptance workflow structure
+        run: |
+          python - <<'PY'
+          import yaml
+          with open(".github/workflows/canonical-render-acceptance.yml", encoding="utf-8") as handle:
+              workflow = yaml.safe_load(handle)
+          events = workflow.get("on", workflow.get(True, {}))
+          assert "pull_request" in events
+          assert "push" in events
+          assert "workflow_dispatch" in events
+          assert "validate-workflow" in workflow["jobs"]
+          assert "acceptance-record" in workflow["jobs"]
+          assert workflow["jobs"]["acceptance-record"]["if"] == "github.event_name != 'pull_request'"
+          print("workflow structure valid; pull requests cannot probe production")
+
   acceptance-record:
+    if: github.event_name != 'pull_request'
     name: Capture exact-SHA Render acceptance evidence
     runs-on: ubuntu-latest
     timeout-minutes: 20
