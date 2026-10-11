@@ -25,6 +25,7 @@ on:
       - "api/**"
       - "solspire/**"
       - "tests/test_openapi_security_*.py"
+      - "tests/test_forge_openapi_security_boundary.py"
       - ".github/workflows/openapi-security-metadata.yml"
 
 permissions:

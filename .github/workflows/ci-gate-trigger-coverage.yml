@@ -1,0 +1,52 @@
+name: CI Gate Trigger Coverage
+
+# `tests/test_ci_gate_trigger_coverage.py` states the invariant that a CI gate must
+# be selected by the surfaces it judges. It was executed by *no* workflow: its only
+# execution site was the full-suite step inside `provider-routing.yml`, which is
+# path-filtered to `weaver/**`, `providers/**` and a handful of named files. A
+# workflow-only change therefore never ran it, and the guard was decoration.
+#
+# Measured on `main` @ `36df0ea8`: commit `7097d6a4` added
+# `openapi-security-metadata.yml` with a `tests/test_forge_openapi_security_boundary.py`
+# entry in the `pull_request` filter but not in the `push` filter. That node failed on
+# `main`, and the commit's only check-run was the secret scan — no gate judged it.
+#
+# The guard's domain is every workflow that runs pytest, so the filter must select
+# every workflow file at any depth. `tests/test_ci_gate_trigger_coverage_ci_wiring.py`
+# proves the filter is complete against the live tracked corpus and proves the step can
+# fail the job.
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/ci-gate-trigger-coverage.yml"
+      - "tests/test_ci_gate_trigger_coverage.py"
+      - "tests/test_ci_gate_trigger_coverage_ci_wiring.py"
+      - ".github/workflows/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/ci-gate-trigger-coverage.yml"
+      - "tests/test_ci_gate_trigger_coverage.py"
+      - "tests/test_ci_gate_trigger_coverage_ci_wiring.py"
+      - ".github/workflows/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trigger-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: pip install pytest pyyaml
+      - name: CI gate trigger-coverage guards
+        run: |
+          # The guard reads workflow YAML and the tracked file list only, so it
+          # needs no application dependency and cannot misreport a dependency gap
+          # as a filter defect.
+          python -m pytest tests/test_ci_gate_trigger_coverage.py tests/test_ci_gate_trigger_coverage_ci_wiring.py -q
