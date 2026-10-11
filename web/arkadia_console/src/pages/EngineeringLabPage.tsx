@@ -1,6 +1,7 @@
 import { Page, Panel, Facts, ContractState, NotYetWired } from "../components/ui";
 import { LabSessionList } from "../components/lab/LabSessionList";
 import { LabArtifactCanvas } from "../components/lab/LabArtifactCanvas";
+import { LabAgentRegistry } from "../components/lab/LabAgentRegistry";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
 import { endpoints } from "../lib/endpoints";
@@ -50,6 +51,8 @@ export function EngineeringLabPage() {
       <LabSessionList />
 
       <LabArtifactCanvas />
+
+      <LabAgentRegistry />
 
       <NotYetWired
         contract="/api/lab/engineering/sessions/{id}/execute"

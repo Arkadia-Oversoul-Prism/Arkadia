@@ -308,3 +308,42 @@ def test_canvas_declares_actions_but_does_not_wire_them():
     assert "actions.join" in component
     assert "not wired" in component
 
+
+# ---------------------------------------------------------------------------
+# Deployed-agent registry (slice 04), surfaced on the Engineering Lab page
+# ---------------------------------------------------------------------------
+
+AGENTS = CONSOLE / "src" / "components" / "lab" / "LabAgentRegistry.tsx"
+
+
+def test_lab_page_renders_the_agent_registry():
+    page = _read(PAGE)
+    assert 'import { LabAgentRegistry }' in page
+    assert "<LabAgentRegistry />" in page
+
+
+def test_agent_registry_reads_the_declared_agents_endpoint():
+    component = _read(AGENTS)
+    assert "endpoints.labAgents" in component
+
+
+def test_agent_registry_issues_no_mutating_request():
+    """Deploying an agent is a mutating act; it must not be wired here."""
+    assert mutating_calls(_read(AGENTS)) == []
+
+
+def test_agent_registry_does_not_reference_the_mutating_lab_endpoints():
+    component = _read(AGENTS)
+    for path in MUTATING_LAB_PATHS:
+        assert path not in component, f"agent registry reaches for the mutating Lab path '{path}'"
+
+
+def test_agent_registry_frames_capabilities_as_a_ceiling_not_a_grant():
+    component = _read(AGENTS)
+    assert "not a grant" in component
+    assert "not authority" in component
+
+
+def test_agent_registry_renders_an_empty_state():
+    assert 'data-testid="lab-agents-empty"' in _read(AGENTS)
+

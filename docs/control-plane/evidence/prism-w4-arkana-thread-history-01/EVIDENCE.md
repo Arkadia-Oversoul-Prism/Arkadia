@@ -219,10 +219,14 @@ corepack pnpm build   (web/arkadia_console)
 | branch (slice 01) | 19F / 2249P / 17S / 1E | 20 |
 | branch (slice 02) | 18F / 2263P / 17S / 1E | 19 |
 | branch (slice 03) | 18F / 2279P / 17S / 1E | 19 |
+| branch (slice 04) | 18F / 2293P / 17S / 1E | 19 |
 
 Node-set delta between slice 02 and slice 03 (`comm -3` on the sorted ids):
 **empty** -- no new failures. `+16 passed` = 10 canvas oracle + 6 canvas guard
 tests.
+
+Node-set delta between slice 03 and slice 04: **empty**. `+14 passed` = 8
+agent-registry oracle + 6 agent-registry guard tests.
 
 Node-set delta vs `main`: the **only** difference is
 `tests/test_console_endpoint_registry_contract.py::test_every_page_read_uses_the_registry_not_an_inline_path`,
@@ -301,6 +305,59 @@ corepack pnpm build   -> tsc clean; vite build OK
   (`GET /api/lab/engineering/agents`) on the Engineering Lab page next to the
   N-ATLAS panel -- it is a real `GET`, already registry-declared as
   `endpoints.labAgents` -- then continue to automations only if a read contract
-  exists.
+  exists. -- **landed in slice 04** (§8).
+
+---
+
+## 8. Slice 04 -- Engineering Lab deployed-agent registry
+
+### Contract (measured against the real runtime)
+
+`GET /api/lab/engineering/agents` -> `{"agents": [...]}`. Each record
+`{agent_id, role, display_name, capabilities, tool_access, model_ref,
+policy_ref, created_at}` with `tool_access = {tools, write_allowed,
+network_allowed, allowed_paths, forbidden_paths}`.
+
+| Reading | Measured |
+|---|---|
+| Owner scoping | own agents only; another subject -> `[]` |
+| Unknown role | `register_agent(role="engineer")` -> `ValueError` |
+| Capability ceiling | `REVIEWER` + `EDIT` -> `BoundaryViolation` (exceeds the role ceiling) |
+| Ceiling is real, not blanket | `BUILDER` + `EDIT` accepted (negative control) |
+| Read-only role | `SENTINEL` -> `write_allowed=false`; no `EXECUTE`/`MERGE`/`DEPLOY`/`AUTHORIZE` capability |
+
+### Slice (read-only)
+
+* `components/lab/LabAgentRegistry.tsx` -- lists deployed agents with role,
+  model, tool envelope, and declared capabilities. The copy states the contract:
+  a capability is a **declared ceiling**, a tool envelope is what the substrate
+  would enforce, and neither grants the surface power to act. Deploying an agent
+  (`POST /engineering/agents`) is a mutating act and stays unwired.
+* `pages/EngineeringLabPage.tsx` -- mounts the registry alongside the canvas.
+
+### Tests
+
+```
+pytest tests/test_lab_agent_registry_contract.py tests/test_lab_artifact_canvas_contract.py \
+       tests/test_prism_w4_lab_read_model.py tests/test_console_endpoint_registry_contract.py \
+       tests/test_weaver_run_evidence_contract.py tests/test_prism_w4_arkana_thread_history.py \
+       tests/test_arkana_thread_history_contract.py -q -rEf
+  -> 93 passed
+corepack pnpm build   -> tsc clean; vite build OK
+```
+
+### Known gaps / next bounded move (after slice 04)
+
+* **Not wired:** deploying an agent, and the declared canvas actions. Both are
+  mutating or unimplemented; neither is presented as available.
+* **Not attempted:** automations (EL-03) -- the directive names it, but it must
+  not be surface-mounted until a read contract for it exists and is verified
+  against a handler, per the same rule used here.
+* **Next bounded move:** the Arkana thread-history slice is already landed
+  (slice 01); the remaining Workstream 4 surfaces are the Weaver
+  evidence/event read views, which slices 02-04 now cover through the session
+  view, the canvas, and the agent registry. Next: reconcile this PR against the
+  shared contract before requesting anything from Workstream 1, and re-run the
+  full suite on the composed tree if `main` has moved.
 
 
