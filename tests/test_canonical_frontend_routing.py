@@ -107,3 +107,63 @@ def test_console_surface_paths_avoid_reserved_namespaces():
     # The detector would flag the pre-repair path.
     colliding = "/solspire"
     assert any(colliding == p or colliding.startswith(p + "/") for p in _RESERVED_PREFIXES)
+
+
+# ── a declared surface must not be shadowed by a real backend handler ────────
+#
+# The reserved-prefix list is a static denylist. A surface can also be broken by
+# a *real, non-reserved* backend route: FastAPI matches that handler before the
+# SPA catch-all, so the route returns raw JSON instead of the console. The test
+# above cannot see this -- it registers no backend handlers. This guard scans the
+# real `api.main` route table, so a surface added on top of any existing handler
+# (for example `/health`) is caught rather than shipping as a raw-JSON response.
+from starlette.routing import Match as _Match
+
+
+def _routes_shadowing(surface_path: str, routes) -> list[str]:
+    """Return the non-SPA route paths that would handle a GET for ``surface_path``."""
+    scope = {"type": "http", "method": "GET", "path": surface_path, "headers": []}
+    shadowing = []
+    for route in routes:
+        path = getattr(route, "path", None)
+        if path in ("/", "/{path:path}"):
+            continue  # the SPA mount owns these
+        try:
+            matched, _ = route.matches(scope)
+        except Exception:
+            continue
+        if matched == _Match.FULL:
+            shadowing.append(path or getattr(route, "path_format", "?"))
+    return shadowing
+
+
+def test_console_surface_paths_are_not_shadowed_by_a_backend_route():
+    """Each declared surface must reach the SPA, not a backend handler. On the
+    canonical origin a shadowing handler wins the match and the surface serves
+    raw JSON -- the exact failure the reserved-prefix test alone would miss."""
+    from api.main import app as canonical_app
+
+    routes = list(canonical_app.routes)
+    for path in _declared_console_paths():
+        shadowing = _routes_shadowing(path, routes)
+        assert not shadowing, (
+            f"console surface path {path} is shadowed by backend route(s) {shadowing}; "
+            f"it would serve raw JSON instead of the console SPA"
+        )
+
+
+def test_shadowing_detector_flags_a_non_reserved_backend_route():
+    """Negative control: the detector must flag a surface placed on a real,
+    non-reserved handler. `/health` is not in the reserved list, so only this
+    route-table scan can catch it."""
+    from fastapi import FastAPI as _FastAPI
+
+    probe = _FastAPI()
+
+    @probe.get("/dashboard")
+    async def _dashboard():
+        return {"backend": "json"}
+
+    assert _routes_shadowing("/dashboard", list(probe.routes)) == ["/dashboard"]
+    # A path with no handler is not shadowed -- the detector is not trivially true.
+    assert _routes_shadowing("/enterprise", list(probe.routes)) == []
