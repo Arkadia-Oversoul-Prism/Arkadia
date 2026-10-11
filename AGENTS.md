@@ -1333,3 +1333,30 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
 - `Vercel – console` / `Vercel – arkadia-prism` commit statuses are **`failure` on `main`
   itself** (measured at `a58f0849`), so a Vercel failure on a PR is pre-existing, not
   branch-caused. Confirm against `main` before attributing.
+
+## A reserved-prefix denylist is not a collision oracle — scan the real route table (AEAS-05)
+- A static `_RESERVED_PREFIXES` check proves a console surface is not on a *reserved*
+  namespace, but it registers **no backend handlers**, so it cannot see a surface placed on
+  a **real, non-reserved** route. FastAPI matches that handler before the SPA catch-all, so
+  the surface serves **raw JSON** — the exact failure class the reserved-prefix test was
+  written to prevent. Demonstrated: a `/dashboard` handler returns `{"backend":"json"}` at
+  `200` on a synthetic app while the reserved-prefix guard stays green.
+- **The synthetic-app test and the route-table scan are different properties.** Register a
+  fake backend route to catch the collision shape; the correct oracle for "does this surface
+  reach the SPA" is a scan of the **real** app's route table —
+  `starlette` `Route.matches({"type":"http","method":"GET","path":p,...})`, skipping the SPA
+  mount paths (`/`, `/{path:path}`). `tests/test_canonical_frontend_routing.py` now carries
+  both, each with a negative control. Verified on the live table: all nine surfaces
+  unshadowed, `/health` correctly reported shadowed (so the detector is not trivially true).
+- **A guard that is silent on both the defect and its absence is not a guard.** The added
+  control must fail on a planted defect (`/dashboard`) *and* stay silent on an unrouted path
+  (`/enterprise`) in the same test.
+- Served-artifact truth for the canonical runtime comes from the runtime's own revision
+  probe: after the merge, `/api/version` `source_revision == main` **and** the served bundle
+  is sha256-identical to a local build of that revision. The GitHub deployments API's newest
+  **Vercel** Production record can predate the merge while the canonical **Render** runtime
+  is already current — the two are different systems; do not read the Vercel record as the
+  Render runtime's revision.
+- `/solspire/projects` is the real, auth-gated backend contract (`401
+  {"detail":"Authentication required"}`) — a UI route must never be placed on `/solspire`,
+  which is reserved for that API.
