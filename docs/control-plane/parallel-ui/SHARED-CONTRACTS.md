@@ -73,3 +73,10 @@ Do not copy the entire PR #418 branch into every new branch: that would make fou
 - Keyboard/mobile checks recorded when affected.
 - Evidence and feature matrix bind to exact commit; uncertainty is explicit.
 - No merge/deploy/acceptance claim unless independently performed and authorized.
+
+
+## 6. Explicit supersession of the single-PR rule
+
+The current directive in `docs/control-plane/overnight/PRISM-UI-RECONCILIATION.md` §7 originally requires one long-lived branch/PR and prohibits parallel UI rebuild PRs. The user has since explicitly directed a four-PR parallel execution plan. This proposed contract supersedes **only that one-branch/one-PR constraint for the four named workstreams**, subject to human review/merge of this contract. All other governance remains in force: no duplicate ownership, no merge/deploy/acceptance by agents, no Vercel, evidence before claims, and no production change without explicit authorization.
+
+Until this contract is reviewed and accepted, treat the four new PRs as draft bootstrap artifacts only. Do not launch source-editing agents on the assumption that the governance conflict is already resolved. Once accepted, the coordinator should amend the overnight directive so Hourly Weaver and OpenHands consume this four-workstream contract rather than the old single-PR instruction.
