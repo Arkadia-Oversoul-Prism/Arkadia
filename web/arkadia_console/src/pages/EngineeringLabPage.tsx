@@ -1,5 +1,6 @@
 import { Page, Panel, Facts, ContractState, NotYetWired } from "../components/ui";
 import { LabSessionList } from "../components/lab/LabSessionList";
+import { LabArtifactCanvas } from "../components/lab/LabArtifactCanvas";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
 import { endpoints } from "../lib/endpoints";
@@ -48,13 +49,12 @@ export function EngineeringLabPage() {
 
       <LabSessionList />
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <NotYetWired
-          contract="POST /api/lab/engineering/sessions/{id}/authorize · /execute · /transition"
-          note="Authorize, execute, and transition are mutating Lab-state acts. They require a human decision and are not wired to this read-only surface."
-        />
-        <NotYetWired contract="/api/lab/engineering/artifacts" note="Artifact canvas and evidence records." />
-      </div>
+      <LabArtifactCanvas />
+
+      <NotYetWired
+        contract="/api/lab/engineering/sessions/{id}/execute"
+        note="The mutating Lab acts — authorize, execute, transition and run-agent — require a human decision and are not wired to this read-only surface. An approval is not an execution, and a run at the review boundary is not acceptance."
+      />
     </Page>
   );
 }

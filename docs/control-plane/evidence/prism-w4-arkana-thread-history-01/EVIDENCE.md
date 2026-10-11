@@ -1,4 +1,4 @@
-# Workstream 4 — Arkana thread history · Slice 01 evidence
+# Workstream 4 -- Arkana thread history · Slice 01 evidence
 
 **Branch:** `feat/prism-next-04-arkana-threads` (PR #428, draft)
 **Contract:** `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` (accepted in `main`, PR #419)
@@ -29,16 +29,16 @@ router and a real identity seam (`tests/test_arkana_thread_history_contract.py`)
 
 `_public_thread(row)` returns exactly
 `{id, uuid, title, project_id, created_at, updated_at}`. **`user_id` is deliberately
-omitted** — ownership is enforced server-side and never round-trips to the client.
+omitted** -- ownership is enforced server-side and never round-trips to the client.
 
 `GET .../messages` returns `{role, content, created_at}` per message. Roles are
-**`user` and `arkana`** — *not* `assistant`. A UI that reuses the resonance
+**`user` and `arkana`** -- *not* `assistant`. A UI that reuses the resonance
 endpoint's vocabulary (`assistant`) would render every reply with the wrong label,
 so this is pinned by both a source test and a backend test.
 
 The handler parses each `conversation` note's stored content for the literals
 `## Prompt\n\n` and `\n\n## Response\n\n`. A note missing either marker, a note with
-a prompt but no response, and non-`conversation` notes are **skipped** — the API
+a prompt but no response, and non-`conversation` notes are **skipped** -- the API
 never fabricates an assistant answer. Verified by a dedicated test.
 
 ### Failure states (measured)
@@ -47,12 +47,12 @@ never fabricates an assistant answer. Verified by a dedicated test.
 |---|---|
 | No identity | `401` on every route (`Authentication required`) |
 | Unknown uuid, or another owner's uuid | `404 {"detail":"Thread not found"}` |
-| Another identity's list | `200 {"threads": []}` — never a leak, never a 404 |
+| Another identity's list | `200 {"threads": []}` -- never a leak, never a 404 |
 | Empty thread messages | `200 {"messages": []}` |
 | Non-integer `project_id` | `422` on **list** (FastAPI query typing); `400` on **create** (manual body validation) |
 | Non-existent project on create | `404 Project not found` |
 | Empty title on rename | `400` |
-| **Body-less `POST`** | **`500`** — see §4 |
+| **Body-less `POST`** | **`500`** -- see §4 |
 
 The load-bearing distinction: **an empty collection is a `200`.** The UI therefore
 cannot infer "no data" from a failure, or a failure from "no data".
@@ -70,7 +70,7 @@ cannot infer "no data" from a failure, or a failure from "no data".
 | `tests/test_prism_w4_arkana_thread_history.py` | frontend source contract (15 tests) |
 
 * **Read-only by construction.** The slice issues only `GET`. It does not reference
-  the mutating thread verbs at all — opening, renaming, and appending a turn are
+  the mutating thread verbs at all -- opening, renaming, and appending a turn are
   human acts, deliberately unwired. Pinned by `test_slice_issues_no_mutating_request`
   and `test_slice_does_not_reference_the_mutating_thread_verbs`.
 * **Honest states.** Loading / auth-required / unavailable / read-failed come from the
@@ -129,7 +129,7 @@ The 20 pre-existing nodes include one that touches the console:
 failing on `components/lab/LabSessionList.tsx` (workstream 4's *previous* slice, on
 `main`). It is a **pre-existing** defect, not introduced here: the detector's regex
 `useHydration<[^>]*>\(\s*([^,\n]+)` mis-parses the nested generics in
-`useHydration<LabSessionView>(path, …)` — the path is legitimately built from
+`useHydration<LabSessionView>(path, …)` -- the path is legitimately built from
 `endpoints.labSessions` two lines above. It is recorded here and left for a bounded
 follow-up; this slice's own hydration arguments are registry-anchored and pass.
 
@@ -152,12 +152,12 @@ issues a create. When it is repaired, this pin must be re-pointed.
   mutate the Knowledge OS threads table; the slice stays read-only.
 * **Not attempted:** live message streaming, citations/RAG refs, per-message voice.
   The thread messages contract carries none of those, so the UI must not imply them.
-* **Next bounded move:** the Weaver run/event/evidence read surfaces — **landed in slice 02** (§6).
+* **Next bounded move:** the Weaver run/event/evidence read surfaces -- **landed in slice 02** (§6).
 * No mutating Lab control is wired. No deployment, merge, or acceptance is claimed.
 
 ---
 
-## 6. Slice 02 — Weaver run / work-event / evidence ledger
+## 6. Slice 02 -- Weaver run / work-event / evidence ledger
 
 The Weaver page read `/api/approvals` and advertised an unbuilt execute view
 (`NotYetWired ... "The run view is not yet built"`). The Lab substrate already
@@ -173,21 +173,21 @@ runtime over an isolated SQLite DB (`tests/test_weaver_run_evidence_contract.py`
 | Reading | Measured |
 |---|---|
 | A newly opened session | `state=PROPOSED`, `runs=[]`, `evidence=[]`, one `SESSION_CREATED` event |
-| Recording an authorization | `state→AUTHORIZED`, still `runs=[]`, `evidence=[]` — a decision is not an execution |
+| Recording an authorization | `state→AUTHORIZED`, still `runs=[]`, `evidence=[]` -- a decision is not an execution |
 | Event shape | `{event_id, session_id, run_id, event_type, sequence, timestamp_utc, payload}` |
 | Owner scoping | another subject -> `KeyError` (handler -> `404`) |
 | `reached_review_boundary` | `false` for PROPOSED/AUTHORIZED; true only at the review states |
 
 ### Slice (read-only; reuses the existing read model, no duplicate)
 
-* `components/lab/LabSessionList.tsx` — extended with three distinct record
+* `components/lab/LabSessionList.tsx` -- extended with three distinct record
   sections (`lab-runs` / `lab-events` / `lab-evidence`), each with its own
   non-error empty state. Evidence renders "not a verdict"; an empty run set reads
   "an authorized session is not an executed run".
-* `pages/WeaverPage.tsx` — mounts the ledger (`<LabSessionList />`) and replaces
+* `pages/WeaverPage.tsx` -- mounts the ledger (`<LabSessionList />`) and replaces
   the false "not yet built" note with a blocked-state note naming the mutating
   acts (`/authorize`, `/execute`, `/transition`, `/run-agent`).
-* No duplicate Weaver component was authored — the existing read model was
+* No duplicate Weaver component was authored -- the existing read model was
   reused and extended, per the contract's "do not create duplicate abstractions".
 
 ### Repaired pre-existing defect (in an owned file)
@@ -196,7 +196,7 @@ runtime over an isolated SQLite DB (`tests/test_weaver_run_evidence_contract.py`
 `useHydration`, which `test_console_endpoint_registry_contract.py` flags: the
 first argument must be a registry member. The path is now built inline at the
 call site (`endpoints.labSessions + "/" + …`). This node was **failing on `main`
-and now passes** — see §7. The `test_prism_w4_lab_read_model.py` assertion that
+and now passes** -- see §7. The `test_prism_w4_lab_read_model.py` assertion that
 pinned the old template-literal form was updated accordingly.
 
 ### Tests
@@ -211,18 +211,22 @@ corepack pnpm build   (web/arkadia_console)
   -> tsc --noEmit clean; vite build succeeded
 ```
 
-### Baseline comparison (full suite, slice 02 tree)
+### Baseline comparison (full suite)
 
 | Tree | Summary | Failing/error nodes |
 |---|---|---|
-| `main` `962434be` | 19 failed, 2220 passed, 17 skipped, 1 error | 20 |
-| branch (slice 01 + 02) | 18 failed, 2263 passed, 17 skipped, 1 error | 19 |
+| `main` `962434be` | 19F / 2220P / 17S / 1E | 20 |
+| branch (slice 01) | 19F / 2249P / 17S / 1E | 20 |
+| branch (slice 02) | 18F / 2263P / 17S / 1E | 19 |
+| branch (slice 03) | 18F / 2279P / 17S / 1E | 19 |
 
-Node-set delta (`comm -3` on the sorted ids): the **only** difference is
+Node-set delta between slice 02 and slice 03 (`comm -3` on the sorted ids):
+**empty** -- no new failures. `+16 passed` = 10 canvas oracle + 6 canvas guard
+tests.
+
+Node-set delta vs `main`: the **only** difference is
 `tests/test_console_endpoint_registry_contract.py::test_every_page_read_uses_the_registry_not_an_inline_path`,
-failing on `main` and **passing** here — the repaired owned-file defect. Zero new
-failures. The `+43 passed` are the new tests (29 Arkana + 10 Weaver oracle + 4 Lab
-ledger).
+failing on `main` and **passing** here (the repaired owned-file defect).
 
 ### Known gaps / next bounded move (after slice 02)
 
@@ -235,4 +239,68 @@ ledger).
   (`GET /api/lab/engineering/artifacts` + `GET /api/lab/engineering/canvas/{id}`)
   on the Engineering Lab page's currently-`NotYetWired` artifacts panel, from the
   same handler-verified contract, with the same loading/empty/unavailable states.
+  -- **landed in slice 03** (§7).
+
+---
+
+## 7. Slice 03 -- Engineering Lab artifact canvas
+
+The Engineering Lab page carried a `NotYetWired contract="/api/lab/engineering/artifacts"`
+placeholder for a contract that **is** served. This slice mounts the real
+read surface.
+
+### Contract (measured against the real store and `canvas_view`)
+
+| Endpoint | Response |
+|---|---|
+| `GET /api/lab/engineering/artifacts[?session_id=]` | `{"artifacts": [...], "count": n}`; each record `{artifact_id, session_id, run_id, kind, title, content, created_at}` |
+| `GET /api/lab/engineering/canvas/{artifact_id}` | `canvas_view(artifact)` → `{artifact, renderer, available, kind, actions, unavailable_reason}`; missing/foreign id → 404 |
+
+Measured (`tests/test_lab_artifact_canvas_contract.py`, isolated DB):
+
+| Reading | Measured |
+|---|---|
+| List, owner-scoped | own records only; another subject → `[]` |
+| `session_id` filter | matches only that session |
+| Content present | `available=true`, `renderer=MarkdownViewer` |
+| Content absent (`None`) | `available=false`, `unavailable_reason` non-empty |
+| Declared `actions` | `INSPECT, COMPARE, ANNOTATE, EXPORT, ATTACH, ARCHIVE` -- no `EXECUTE`/`AUTHORIZE`/`APPROVE`/`MERGE`/`DEPLOY` |
+| Cross-subject `get_artifact` | `None` (handler → 404) |
+
+### Slice (read-only)
+
+* `components/lab/LabArtifactCanvas.tsx` -- lists artifacts, expands one into its
+  canvas descriptor. Renders captured text as source only when it is genuinely a
+  present string; otherwise shows the backend's `unavailable_reason` or "captured
+  as structured data -- no text renderer wired". Declared actions render as a
+  **non-interactive label**, never buttons that would do nothing.
+* `pages/EngineeringLabPage.tsx` -- mounts the canvas and drops the placeholder
+  panel; the remaining `NotYetWired` names only the mutating acts.
+
+### Tests
+
+```
+pytest tests/test_lab_artifact_canvas_contract.py tests/test_prism_w4_lab_read_model.py \
+       tests/test_console_endpoint_registry_contract.py tests/test_weaver_run_evidence_contract.py \
+       tests/test_prism_w4_arkana_thread_history.py tests/test_arkana_thread_history_contract.py -q -rEf
+  -> 79 passed
+corepack pnpm build   -> tsc clean; vite build OK
+```
+
+### Known gaps / next bounded move (after slice 03)
+
+* **Not wired:** the declared canvas actions (`INSPECT`…`ARCHIVE`) -- no click
+  behavior, rendered as labels. Rendering an artifact is not verification, and
+  the UI does not imply it.
+* **Not attempted:** non-text renderers (diff/code/svg/image) -- the descriptor
+  names a canonical renderer but the console has no `DiffSurface`/`ImageSurface`
+  yet; structured content is reported honestly rather than faked. Live run
+  progress and PR projection (`GET /api/lab/engineering/pr/{number}`) remain
+  unsurfaced.
+* **Next bounded move:** surface the owner-scoped agent registry
+  (`GET /api/lab/engineering/agents`) on the Engineering Lab page next to the
+  N-ATLAS panel -- it is a real `GET`, already registry-declared as
+  `endpoints.labAgents` -- then continue to automations only if a read contract
+  exists.
+
 

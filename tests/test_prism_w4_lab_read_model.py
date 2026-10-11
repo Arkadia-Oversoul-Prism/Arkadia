@@ -261,3 +261,50 @@ def test_session_view_backend_supplies_the_three_record_arrays():
     for key in ('"runs": runs', '"events": events', '"evidence": evidence'):
         assert key in block, f"session_view does not return {key!r}"
 
+
+
+# ---------------------------------------------------------------------------
+# Artifact canvas (slice 03), surfaced on the Engineering Lab page
+# ---------------------------------------------------------------------------
+
+CANVAS = CONSOLE / "src" / "components" / "lab" / "LabArtifactCanvas.tsx"
+
+
+def test_lab_page_renders_the_artifact_canvas():
+    page = _read(PAGE)
+    assert 'import { LabArtifactCanvas }' in page
+    assert "<LabArtifactCanvas />" in page
+
+
+def test_canvas_reads_the_declared_artifacts_endpoint():
+    component = _read(CANVAS)
+    assert "endpoints.labArtifacts" in component, "the canvas must use the canonical endpoint map"
+
+
+def test_canvas_issues_no_mutating_request():
+    assert mutating_calls(_read(CANVAS)) == []
+
+
+def test_canvas_does_not_reference_the_mutating_lab_endpoints():
+    component = _read(CANVAS)
+    for path in MUTATING_LAB_PATHS:
+        assert path not in component, f"canvas reaches for the mutating Lab path '{path}'"
+
+
+def test_canvas_renders_unavailable_content_honestly():
+    """The truthfulness rule: an artifact with no captured content must render
+    the backend's reason, never a fabricated placeholder."""
+    component = _read(CANVAS)
+    assert "unavailable_reason" in component
+    assert 'data-testid="lab-canvas-unavailable"' in component
+    # It must not present a false success from an empty response.
+    assert "No artifacts captured" in component
+
+
+def test_canvas_declares_actions_but_does_not_wire_them():
+    """Declared actions are affordances, not authority; a non-interactive label
+    is the honest rendering."""
+    component = _read(CANVAS)
+    assert "actions.join" in component
+    assert "not wired" in component
+
