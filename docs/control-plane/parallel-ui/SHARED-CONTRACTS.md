@@ -1,7 +1,7 @@
 # Prism Parallel UI Work — Shared Contracts
 
 **Status:** ACCEPTED — merged via PR #419 at `a29a9b8f18ada55cb9457ea3cdab98414522a4e8`.
-**Baseline observed:** `main` at PR #418 base `d2670ce8b41c500df5cf475f7c6526016c7bd3aa`. Re-fetch `main` before every change; this SHA is not a permanent pin.
+**Baseline observed:** `main` after the first four-workstream merge wave: `e924aec17ff2a68f3bce0ca61a183ca306416e3f`. Re-fetch `main` before every change; this SHA is not a permanent pin.
 **Canonical production:** https://arkadia-qzu4.onrender.com (ADR-016). No deployment is authorized.
 **Authority:** agents may inspect, implement, test, commit to their assigned branch, and update their PR. Human retains merge, production deployment, and acceptance.
 
@@ -9,8 +9,8 @@
 
 | Workstream | Branch | Exclusive source ownership | Must not edit |
 |---|---|---|---|
-| 1. Shell, navigation, design system, integration contracts | `feat/prism-parallel-01-shell-contracts` | `web/arkadia_console/src/App.tsx`; `src/lib/router.ts`; `src/lib/surfaces.ts`; `src/components/SurfaceLenses.tsx`; shared shell/navigation primitives and tokens; `tests/test_console_shell_nav_contract.py`; this contract and shell instruction | Feature page internals owned by workstreams 2–4 |
-| 2. NovaNet and project Opportunity Radar | `feat/prism-parallel-02-novanet-opportunity` | `src/pages/NovaNetPage.tsx`; NovaNet-only components under `src/components/novanet/`; opportunity UI modules under `src/components/opportunities/` or a page-local feature folder approved by workstream 1; NovaNet/opportunity-specific tests and evidence | App/router/surfaces registry, global navigation, shared tokens, shared shell tests |
+| 1. Shell, navigation, design system, integration contracts | `feat/prism-parallel-01-shell-implementation` | `web/arkadia_console/src/App.tsx`; `src/lib/router.ts`; `src/lib/surfaces.ts`; `src/components/SurfaceLenses.tsx`; shared shell/navigation primitives and tokens; `src/lib/endpoints.ts`; `src/lib/types.ts`; shared shell/endpoint contract tests; this contract and shell instruction | Feature page internals owned by workstreams 2–4 |
+| 2. NovaNet and project Opportunity Radar | `feat/prism-parallel-02-novanet-opportunity` | `src/pages/NovaNetPage.tsx`; NovaNet-only components under `src/components/novanet/`; opportunity UI modules under `src/components/opportunities/`; **scoped backend repair ownership for `solspire/buyer_recon.py` and `solspire/buyer_recon_router.py` limited to the measured project/workspace board uniqueness and entry-create arity defects**; NovaNet/opportunity-specific tests and evidence | App/router/surfaces registry, global navigation, shared tokens, shared shell tests, unrelated SolSpire authority/authentication behavior |
 | 3. Solariun and Knowledge OS | `feat/prism-parallel-03-solariun-knowledge` | Solariun/Knowledge OS page modules and feature-local components/tests/evidence, after exact existing paths are discovered from current tree/archive and recorded in its PR | App/router/surfaces registry, global navigation, shared tokens, shared shell tests, NovaNet files |
 | 4. Arkana, Weaver, Engineering Lab | `feat/prism-parallel-04-arkana-weaver-lab` | Arkana/Oracle, Weaver, Engineering Lab feature-local page modules/components/tests/evidence, after exact paths/contracts are discovered and recorded in its PR | App/router/surfaces registry, global navigation, shared tokens, shared shell tests, NovaNet/Solariun files, runtime/authority model |
 
@@ -18,7 +18,7 @@
 
 ## 2. PR #418 — measured patch map and disposition
 
-PR #418 is open, draft, and not merged at the last observed read. Its head was `56ca23b8431ca6b628894bdf5eb1ff0d08e39c1d`; re-fetch live state before acting.
+PR #418 was merged via squash as `49de33d4ebaee7f73cd914182c430cc2fb523b4e`. Its NovaNet route alias, page, shell lens, endpoint/type entries, reconciliation inventory, and updated hourly governance instructions are now part of `main`. The four feature PRs were then merged: #423 `972c342380e718153fe7a3c20f0f63684f2dec82`, #420 `55b27d10ae61cef4d33c2b9d80c355bd64d8f481`, #421 `22941cc510747378992b7ac3b3df8e20ce26f8ae`, and #422 `e924aec17ff2a68f3bce0ca61a183ca306416e3f`.
 
 | Existing PR #418 path | Current content / ownership disposition |
 |---|---|
@@ -37,7 +37,7 @@ PR #418 is open, draft, and not merged at the last observed read. Its head was `
 | `web/arkadia_console/src/pages/NovaNetPage.tsx` | NovaNet feature implementation; workstream 2 owns. |
 | `docs/control-plane/evidence/console-complete-build/OVERNIGHT-BUILD.md` | Historical/parallel workstream handoff with supersession note; coordinator-owned continuity record. Do not revive its superseded baseline or Vercel assumptions. |
 
-Do not copy the entire PR #418 branch into every new branch: that would make four duplicate full-surface diffs. These four PRs begin as **parallel execution-plan/agent bootstrap PRs**. Existing functional code in #418 remains there until a human/coordinator explicitly chooses a migration strategy. Do not cherry-pick, split, close, or rewrite #418 automatically.
+The initial reconciliation and four workstream PRs are merged into `main`; do not cherry-pick or copy them into new branches. The next wave starts from fresh `main` with new PRs, not by reopening or duplicating the closed PRs. Historical evidence below remains useful for provenance, but PR #418 is no longer an active ownership blocker.
 
 ## 3. Shared frontend and API contract
 
@@ -53,13 +53,13 @@ Do not copy the entire PR #418 branch into every new branch: that would make fou
 
 ## 4. Parallel coordination protocol
 
-- Each agent reads `AGENTS.md`, ADR-016, the current reconciliation directive, this contract, its own instruction file, live `main`, PR #418, and current checks before editing.
-- Each agent edits only its owned files. Shared-file changes are proposed as a small interface request to workstream 1; no direct drive-by edits.
+- Each agent reads `AGENTS.md`, ADR-016, the current reconciliation directive, this contract, its own instruction file, live `main`, the latest merged workstream evidence, and current checks before editing. PR #418 is historical context, not an active blocker.
+- Each agent edits only its owned files. Shared frontend endpoint/type/route changes are integrated by Workstream 1. Workstream 2's backend ownership is the narrow exception explicitly listed in §1: only the two measured buyer-recon defects and regression tests; no unrelated auth/authority refactor.
 - Before implementation, each feature agent writes a short capability matrix: legacy source, current route, exact backend contract/auth, data states, tests, status and unknowns.
 - Keep PRs draft until their bounded slice has targeted tests, build/typecheck where applicable, evidence bound to exact commit, and baseline-failure comparison.
 - No agent merges another PR or rebases/force-pushes another agent's branch. If a contract change is needed, pause that dependent slice and record the blocker.
 - Integrator checks changed-file overlap, dependency direction, combined build/test behavior, route collision and authorization boundaries. Do not merge merely because individual PRs pass.
-- Branches start from the observed main for clean ownership. Because their bootstrap PRs are siblings, shared source integration is coordinated via PR #419's contract and review comments; after bootstrap, feature implementation PRs may depend on an explicit integration PR rather than duplicate shell changes.
+- Every next-wave branch starts from the observed current `main` for clean ownership. Keep four long-running source-editing threads active. When one PR merges, the agent immediately opens its next bounded PR from the new `main`; do not wait for the user to say 'continue'. If blocked on another workstream, keep progressing on a non-overlapping task and report the dependency.
 - Every handoff records starting `main` SHA, branch SHA, paths, commands/results, pre-existing failures by node identity, blockers, and exactly one next move.
 - Human acceptance is explicit. A green build, PR creation, or preview is not merge, production verification, or acceptance.
 
@@ -80,3 +80,15 @@ Do not copy the entire PR #418 branch into every new branch: that would make fou
 The current directive in `docs/control-plane/overnight/PRISM-UI-RECONCILIATION.md` §7 originally requires one long-lived branch/PR and prohibits parallel UI rebuild PRs. The user has since explicitly directed a four-PR parallel execution plan. This proposed contract supersedes **only that one-branch/one-PR constraint for the four named workstreams**, subject to human review/merge of this contract. All other governance remains in force: no duplicate ownership, no merge/deploy/acceptance by agents, no Vercel, evidence before claims, and no production change without explicit authorization.
 
 Until this contract is reviewed and accepted, treat the four new PRs as draft bootstrap artifacts only. Do not launch source-editing agents on the assumption that the governance conflict is already resolved. Once accepted, the coordinator should amend the overnight directive so Hourly Weaver and OpenHands consume this four-workstream contract rather than the old single-PR instruction.
+
+
+## 7.1 Next-wave scope assignment — 2026-10-11
+
+The first-wave PRs are merged. The next work begins immediately on fresh branches/PRs:
+
+- **Workstream 1:** own the shared integration seam. First resolve the Lab `labSession(id)` helper request and any verified Opportunity Radar endpoint/type request; then continue the next archived shell/navigation gap.
+- **Workstream 2:** explicitly owns the narrowly scoped backend repair in `solspire/buyer_recon.py` and `solspire/buyer_recon_router.py` for the two defects measured in its merged evidence: create-entry column/value arity mismatch and inability for one subject to hold both workspace and project boards. Add regression tests and a safe migration for existing data. No broader auth, execution, budget, or authority changes.
+- **Workstream 3:** mount the verified multi-mode Knowledge OS search panel into `KnowledgePage.tsx`, using only the handler-verified `POST /api/knowledge/search` contract and the shared endpoint registry; continue personal/public boundary tests.
+- **Workstream 4:** implement Arkana thread history against the verified `/api/commune/threads` handler, preserving truthful state and human-approval boundaries.
+
+All four agents should continue automatically after each merge. Human attention is required only for an explicit authority decision, a security/privacy risk, a destructive or data-loss migration decision that cannot be made safely, or a genuinely unresolved cross-workstream contract. An external provider failure must be reported with exact evidence but must not block unrelated UI work.
