@@ -291,3 +291,68 @@ Note on a transient record: a `Vercel – console` status read `pending` for a
 window on the PR-#415 head, then appeared as `failure` on the following push. That
 is status-refresh timing, not a second signal; the live probe above is the
 controlling observation.
+
+---
+
+# Post-disconnect boundary re-test (2026-10-11T03:00Z)
+
+Objective: re-run the boundary test **after** the reported provider-side Vercel
+disconnect, and confirm (a) no new Vercel deployment is created for the tested
+repository event and (b) Render remains the only canonical production origin.
+No production deployment, merge, or `main` change was made for this test.
+
+## Method (with a positive control, because a negative alone is not evidence)
+
+1. **Harness positive control.** The same watcher was pointed at
+   `2f19732a` — the pre-disconnect probe SHA — and correctly reported
+   `Vercel → success` + a `vercel[bot]` Preview deployment. The harness can
+   detect a Vercel trigger; a "none" from it is meaningful.
+2. **Test branch + PR + push.** `boundary-test/vercel-disconnect-01` was pushed
+   from `origin/main`, a **draft PR #416** opened (`03:00:15Z`), and a follow-up
+   commit pushed (`123f2381`, `03:00:20Z`). This reproduces the exact event class
+   that previously triggered Vercel (PR open + branch push).
+3. **Observation window.** Watched for ~5 minutes (12 polls + a settled re-check).
+
+## Result
+
+- `123f2381` commit statuses: **(NONE)** — no `Vercel` status at all.
+- `123f2381` deployments: **`render[bot]` only**
+  (`environment=boundary-test/vercel-disconnect-01`, `03:00:19Z`).
+- PR #416 timeline: `deployed by render[bot]` ×2; **no Vercel bot comment or event**.
+- Repository-wide: the newest `vercel[bot]` deployment record remains
+  `2026-10-11T02:31:37Z`; the `03:00` test produced **zero** Vercel records.
+  A clean cutoff across the reported disconnect.
+
+## Canonical path — unchanged
+
+- `main` = `1fd96e767575ade56e953a02fcf8f1db46073336` (PR #415 merge commit).
+- Canonical runtime `/api/version` → `source_revision=1fd96e76…`,
+  `revision_source=RENDER_GIT_COMMIT`, `revision_conflict=false`.
+- **Render remains the sole canonical production origin.**
+
+## Precision / limits
+
+- This establishes that **no Vercel deployment was created for the tested events
+  (branch push + draft-PR open/synchronize) after the reported disconnect**. It
+  does not enumerate every possible Vercel trigger, and it does not read the
+  provider settings directly (no Vercel credential here). The claim is scoped to
+  the observed events, not to "all Vercel triggers are disabled."
+- Render PR previews remain expected and are not a competing authority.
+
+## Boundary classification after re-test
+
+- Render is the canonical production origin — VERIFIED
+- `main` unchanged at the accepted revision — VERIFIED
+- pushes/PR updates no longer trigger Vercel — **VERIFIED for the tested event class**
+  (positive control on the pre-disconnect SHA confirms the detector works)
+- Vercel projects disconnected (provider setting) — REPORTED, not directly readable;
+  consistent with the observed cutoff
+
+## Second independent observation (PR #417 head, 03:05Z+)
+
+This evidence branch's own PR (#417) is a second post-disconnect data point of the
+same event class: head `e9163f5b` carries **no `Vercel` commit status** and only a
+`render[bot]` deployment (`environment=aeas05/vercel-disconnect-verification-01`).
+Repo-wide, the newest `vercel[bot]` deployment record remains
+`2026-10-11T02:31:37Z`. Two independent PRs after the reported disconnect produced
+zero Vercel activity.
