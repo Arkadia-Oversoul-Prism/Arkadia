@@ -1,6 +1,7 @@
 # Agent 04 — Arkana, Weaver & Engineering Lab
 
 **Active branch:** `feat/prism-next2-04-run-evidence-trace`
+**Active PR:** [#432](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/432) — draft, implementation in progress.
 **Base revision:** `f390526ab14e122fef358ef9b9e1cd438509463c`
 **Task:** create a read-only trace from run records to work events and evidence using stable, handler-verified references.
 **Owns:** Arkana/Oracle, Weaver, Engineering Lab feature-local pages/components/tests/evidence. Shared routing, global navigation, endpoint/type registries remain Workstream 1's seam.
