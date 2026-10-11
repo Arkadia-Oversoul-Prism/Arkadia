@@ -24,6 +24,7 @@ export const endpoints = {
   knowledgeGraph: "/api/knowledge/graph",
   knowledgeTimeline: "/api/knowledge/timeline",
   knowledgeProjects: "/api/knowledge/projects",
+  knowledgeSearch: "/api/knowledge/search",
 
   labOverview: "/api/lab/overview",
   labEngineeringOverview: "/api/lab/engineering/overview",

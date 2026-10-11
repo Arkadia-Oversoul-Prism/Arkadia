@@ -237,3 +237,69 @@ No feature-local file, shared token, route registry, `App.tsx`, `router.ts`,
 (shared shell primitives under `src/components/`, non-overlapping with the
 feature pages), continuing to hold the route/registry seam for the other three
 workstreams.
+
+---
+
+## 9. Pass N+1 — `knowledgeSearch` registry entry (WS3 integration request)
+
+**Objective (bounded).** W3 requested the verified `POST /api/knowledge/search`
+contract be added to the shared endpoint registry so its feature-local
+`KnowledgeSearchPanel` binds a canonical path instead of an inline literal.
+`endpoints.ts` is Workstream 1's file-level integration surface
+(`SHARED-CONTRACTS.md` `endpoints.ts` row); W3 provides the verified name/path
+and evidence. Adding it is exactly the recorded W1 integration duty.
+
+**Handler verification (this tree).** `app.openapi()["paths"]` on the
+composition root (`api.main:app`) lists `/api/knowledge/search`;
+`knowledgeSearch: "/api/knowledge/search"` declared in the registry resolves to
+`served == True`.
+
+| Field | Value |
+|---|---|
+| Registry key | `knowledgeSearch` |
+| Path | `/api/knowledge/search` |
+| Method | `POST` (registry stores the path only; method is the caller's contract) |
+| Served by canonical app | **yes** — present in `app.openapi()["paths"]`, `served == True` |
+| Owner | Workstream 1 (`endpoints.ts`); request originated W3 |
+
+**Change.** One insertion in `web/arkadia_console/src/lib/endpoints.ts`
+(no deletions, no other key or type altered). `KnowledgePage.tsx` was **not**
+touched — it is W3's feature page; W3 mounts its panel.
+
+**Guard / negative control.** `tests/test_console_endpoint_registry_contract.py`
+passes 11 on the branch. Negative control: mutating the value to an invented
+path (`/api/knowledge/ghost-search`) reddens
+`test_every_declared_endpoint_is_served_by_the_canonical_app`; restoring the
+verified path returns the file to `git diff --stat` = 1 insertion, guard green.
+The detector bites on the defect and is silent on the correct entry.
+
+**Proof run this pass.**
+
+| Check | Result |
+|---|---|
+| `pytest tests/test_console_endpoint_registry_contract.py` | 11 passed |
+| `pytest` registry + shell-nav + W4-lab + canonical-frontend-routing | 50 passed |
+| `pytest tests/architecture -q` | 11 passed (contract budget 10/10; 11/11 measured) |
+| `tsc --noEmit` (console) | exit 0 |
+| `pnpm build` (console) | exit 0 — `dist/assets/index-DJoUhqIx.js` 41.77 kB |
+| Full suite `-rEf --continue-on-collection-errors` | 18 failed / 2221 passed / 20 skipped / 1 error |
+
+**Regression boundary (node set, same environment).** Failing/error node set on
+branch == on `main` `962434b`, byte-identical: 19 nodes,
+`sha256 a24c695f24998816ee4537096cad075718f21ef47840c6380431fb639cb3ab36`
+(`git stash` -> measure main -> `git stash pop`). Zero new failures, zero
+unexplained errors. The change relative to §6 is the closure of the prior
+`test_every_page_read_uses_the_registry_not_an_inline_path` repair; the
+residual 18F/1E are pre-existing `main` debt (`test_autonomy.py` collection
+error = CE-01 module-vs-package collision, sovereign-reserved).
+
+**Boundaries / non-claims.** No merge, no deployment, no acceptance (ADR-016:
+Render `https://arkadia-qzu4.onrender.com` is canonical; no Vercel artifact was
+created or treated as evidence). No backend, authority, `App.tsx`, `router.ts`,
+`surfaces.ts`, `types.ts`, or shared token touched. Method semantics are not
+asserted here — W3's panel owns the call.
+
+**Next bounded move (W1).** Hold the route/registry seam for W2-W4; next
+archived shell/navigation gap inside W1's ownership (shared shell primitives
+under `src/components/`), non-overlapping with feature pages.
+
