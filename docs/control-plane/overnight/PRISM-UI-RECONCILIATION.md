@@ -20,7 +20,7 @@ Reconcile the product deliberately:
 - Map each useful legacy capability to the current canonical backend/API and current Arkadia architecture.
 - Implement the highest-value slices in the new console incrementally, reusing the current identity, authorization, workspace, project, evidence, and execution substrate.
 - Retain the archived source and its Git history. Do not delete the archive or make a production cutover.
-- Make each pulse leave a tested, reviewable improvement on **one long-lived branch and one PR**.
+- Make each pulse leave a tested, reviewable improvement within the **four-workstream parallel plan** governed by `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md`. Each workstream owns one branch/PR; shared files have exactly one owner.
 
 The target is not a cosmetic shell, a second application, or a large unreviewed rewrite. The target is a coherent product UI that regains Prism's depth while preserving the newer backend's stronger governed capabilities.
 
@@ -108,9 +108,20 @@ The prior UI accumulated route suffixes, aliases, and overlapping page structure
 5. Keep `lib/apiConfig.ts` as the canonical API base. No hardcoded fallback hostname, no Vercel origin, and no second production API base.
 6. Add a regression test for every resolved collision/alias family, including a negative control where practical.
 
-## 6. Per-pulse execution loop
+## 6. Per-pulse execution loop — four-workstream governance
 
-On **each Hourly Weaver pulse**, perform these steps in order:
+On **each Hourly Weaver pulse**, perform these steps in order. The accepted shared contract at `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` and the four durable agent instructions are mandatory inputs.
+
+1. **Reconstruct:** fetch current `main` SHA; PR #418 state/head/diff/checks; PRs #419–#422 state/head/checks; all four assigned branches; relevant files and current evidence. Do not assume a PR is merged or a branch is current from memory.
+2. **Select:** select one bounded task within the active workstream's ownership. State why it outranks alternatives.
+3. **Check ownership:** compare every intended path against the shared contract. If another workstream owns it, do not edit it; create a precise interface request/blocker for the owner.
+4. **Change:** edit only owned source/tests/evidence. No opportunistic refactors or duplicate implementations.
+5. **Verify:** run narrow tests, typecheck/build, route checks and applicable security/architecture guards. Compare new failures to a fresh baseline by node identity.
+6. **Record:** update feature matrix/work log with full SHA, paths, commands, exact results, failures, unknowns and next move.
+7. **Commit:** commit verified progress only to the workstream's assigned branch and update its existing PR. Never create a new PR for each pulse.
+8. **Reconcile:** reread branch/PR heads, checks and changed-file overlap across all four PRs. Stop if another actor moved a branch or semantic integration is unclear.
+9. **Integrate:** continuously identify dependency order and overlap; do not merge one PR into another or main automatically. Shared contract/interface changes go through Workstream 1 and require explicit human review.
+10. **Report:** end with exact state per workstream: IMPLEMENTED, BUILD/TEST PASSED, PREVIEW READY, PREVIEW VERIFIED, BLOCKED, or UNKNOWN. No inferred progress.
 
 1. **Reconstruct:** fetch current `main`, this branch, the existing PR, relevant open PRs, current CI/check-runs, and the latest evidence. Confirm the branch/PR is still the one authorized work surface. If `main` moved, inspect the delta before continuing.
 2. **Select:** choose one bounded, user-visible slice or one enabling inventory/test task. State why it outranks alternatives.
@@ -122,14 +133,20 @@ On **each Hourly Weaver pulse**, perform these steps in order:
 
 A pulse with no safe, verified source change must produce a precise blocker/next-action record rather than a speculative commit. Do not measure progress by number of files changed, lines written, or a claimed percentage.
 
-## 7. One branch, one PR, human merge
+## 7. Four branches, four PRs, human merge and acceptance
 
-- Branch: `feat/prism-ui-reconciliation-overnight-01` (unless this branch was already superseded; inspect live state before acting).
-- Target: `main`.
-- Use one long-lived PR for this workstream; hourly turns commit to the same branch/PR.
-- Do not create parallel UI-rebuild PRs or stack unrelated work into this one.
-- Keep the PR draft while work is in progress.
-- Human authority retains merge, production deployment, and production acceptance. Agents may inspect, implement, test, document, commit to the authorized branch, and update the PR; they may not merge it or deploy production.
+The former single-branch/single-PR rule is superseded by the explicitly accepted parallel-work governance contract in `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md`.
+
+- **Workstream 1:** `feat/prism-parallel-01-shell-contracts` / PR #419 — shared shell, navigation, route/surface registry, shared tests and integration contracts.
+- **Workstream 2:** `feat/prism-parallel-02-novanet-opportunity` / PR #420 — NovaNet page-local work and project Opportunity Radar feature modules.
+- **Workstream 3:** `feat/prism-parallel-03-solariun-knowledge` / PR #421 — Solariun and Knowledge OS feature-local modules.
+- **Workstream 4:** `feat/prism-parallel-04-arkana-weaver-lab` / PR #422 — Arkana, Weaver and Engineering Lab feature-local modules.
+- Every pulse must read the shared contract and the relevant durable instruction under `docs/control-plane/parallel-ui/`.
+- The single-owner table in the shared contract is binding. Shared route/API registry/type files are integrated by Workstream 1; feature agents submit exact contract changes rather than editing shared files directly.
+- Keep feature PRs draft while work is in progress. Do not mark a PR ready solely because an agent finished a turn.
+- **PR #418 disposition:** preserve it intact as the current existing shell + NovaNet implementation/evidence slice. Do not copy its changes into each new branch, rewrite its history, cherry-pick blindly, or close it automatically. Workstreams 1 and 2 must treat the paths already changed by #418 as existing implementation to reconcile, not recreate. Until #418 is merged or explicitly superseded by a human decision, avoid conflicting source edits to its owned files; Workstreams 1 and 2 may work on non-overlapping tests, inventory, evidence, and feature-local new modules while recording integration requests. Workstreams 3 and 4 may proceed in their isolated feature-owned paths.
+- Agents may inspect, implement, test, document, commit to their assigned branch, and update their PR. They may not merge any PR, deploy production, or declare product acceptance.
+- Integration means continuous overlap/dependency review and shared-contract reconciliation—not automatic merging. The human retains merge, production-deployment, and acceptance authority.
 - Do not force-push, bypass required checks, weaken tests, delete archive history, or change provider settings.
 
 ## 8. Deployment boundary — explicit current rule
