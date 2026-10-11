@@ -21,3 +21,8 @@ Recover useful Oracle/Arkana conversation and governed operational-workspace int
 
 ## Acceptance
 Real backend contract and auth; honest unavailable/error states; tests for unauthorized/read-only boundaries and state distinctions; typecheck/build; evidence bound to exact SHA; known gaps and one next bounded move.
+
+
+## Next wave — continue immediately after this PR closes
+
+Coordinator direction (2026-10-11): continue with Arkana thread history as the next bounded slice. Verify `/api/commune/threads` method, authentication, response schema, and failure behavior from the current handler/OpenAPI; then integrate history in the Arkana page with truthful loading/empty/unavailable/auth states and targeted tests. Request Workstream 1 to add any shared endpoint/type entry rather than editing the registry directly. After that, proceed to Weaver run/event/evidence read surfaces only where actual contracts exist. Keep all state boundaries explicit: proposal is not approval, approval is not execution, execution is not evidence, verification is not acceptance. No mutating Lab controls or provider/deployment changes are authorized by this instruction.
