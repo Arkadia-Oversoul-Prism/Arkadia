@@ -327,6 +327,52 @@ def test_unattributed_evidence_is_reported():
     assert any("no run reference" in line for line in ledger["unresolved"])
 
 
+def test_the_handler_filters_orphan_evidence_before_the_projection_sees_it(runtime):
+    """The evidence doc claims orphan evidence "cannot normally appear" because
+    ``session_view`` filters it. That claim is measured here against the real
+    handler rather than restated.
+
+    An evidence record whose ``run_ref`` names no run is written straight to the
+    store. The handler must not return it — which is exactly why the projection's
+    ``unlinked_evidence`` classification is only reachable from a view the
+    handler did not produce. If the filter is ever removed, this test reddens and
+    the projection's classification stops being hypothetical.
+    """
+    from lab.engineering_lab.contracts import EvidenceRecord
+
+    session = _authorized_session(runtime)
+    store = runtime._store
+    store.save_evidence(
+        EvidenceRecord(
+            evidence_id="EVD-orphan",
+            subject_ref=OWNER,
+            workspace_ref="ws-1",
+            run_ref="RUN-does-not-exist",
+            state="IMPLEMENTED",
+            summary="evidence naming no run in this session",
+            detail={},
+            timestamp_utc="2026-01-01T00:00:00+00:00",
+            provenance={},
+        )
+    )
+
+    view = runtime.session_view(session["session_id"], OWNER)
+    assert [e["evidence_id"] for e in view["evidence"]] == []
+
+    # The record exists in the store — it was dropped by the filter, not absent.
+    assert any(
+        e["evidence_id"] == "EVD-orphan"
+        for e in runtime._store.list_evidence(OWNER)
+    )
+
+    # And the projection, given that real view, reports nothing unresolved: it
+    # cannot see what the handler withheld. The classification is therefore a
+    # forward guard, not a live reading — stated rather than implied.
+    ledger = run_projection(view)
+    assert ledger["unlinked_evidence"] == []
+    assert ledger["unattributed_evidence"] == []
+
+
 def test_duplicate_evidence_is_deduplicated_and_reported():
     """A repeated evidence id must not be counted twice as two records, and the
     duplication must be visible rather than absorbed."""

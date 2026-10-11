@@ -97,6 +97,17 @@ orphan evidence cannot normally appear. It is classified anyway, so a future
 change to that filter surfaces as an unresolved link rather than a silent
 omission.
 
+**Measured, not restated.** `test_the_handler_filters_orphan_evidence_before_the_projection_sees_it`
+writes an `EvidenceRecord` whose `run_ref` names no run straight to the store and
+asserts three things against the **real** handler: the record is in
+`list_evidence(OWNER)`; `session_view` does not return it; and the projection,
+given that real view, reports nothing unresolved. So the projection's
+`unlinked_evidence` / `unattributed_evidence` classifications are a **forward
+guard** reachable only from a view the handler did not produce — stated as a
+measurement rather than implied. Removing the filter line from
+`runtime.py:610` reddens this test (verified as a live negative control, then the
+file restored byte-identically).
+
 ---
 
 ## 4. Owner isolation
@@ -196,6 +207,25 @@ this slice. The `+37 passed` is exactly the two new test files: `--collect-only`
 on them reports **37** nodes (18 + 19), matching the count delta. Both trees were
 measured in the same environment, back to back, with the branch re-measured after
 the final test edit.
+
+### Independently re-measured (second environment, after the orphan-filter test)
+
+A later pass added
+`test_the_handler_filters_orphan_evidence_before_the_projection_sees_it` (38 nodes
+in `test_prism_w4_run_evidence_trace.py` + 19 in `test_lab_run_trace_contract.py` =
+57 for the slice) and re-derived the fingerprint in a **different environment**
+where the dependency set differs from the one above:
+
+| Tree | Failing/error node set (sha256) | Nodes |
+|---|---|---|
+| `main` `f390526a` | `a24c695f24998816ee4537096cad075718f21ef47840c6380431fb639cb3ab36` | 19 |
+| branch | `a24c695f24998816ee4537096cad075718f21ef47840c6380431fb639cb3ab36` | 19 |
+
+`comm -3` on the two sorted node sets is **empty** again. The absolute fingerprint
+differs from the 28-node figure above because this environment's dependency set
+resolves a different set of pre-existing failures — the load-bearing invariant is
+the **node set**, not the count, and it is unchanged in both environments. The
+28-node figure is retained as the first measurement, not superseded.
 
 Architecture suite: **11 passed** (the contract's older "9/10" does not reproduce
 here; recorded as measured).
