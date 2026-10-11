@@ -15,6 +15,7 @@ def test_forge_uses_the_declared_sovereign_header_not_a_body_secret(monkeypatch)
         return None
 
     monkeypatch.setattr(main, "_generate_image", no_image)
+    monkeypatch.setattr(main, "_compile_forge_prompt", lambda archetype, prompt: prompt)
     client = TestClient(main.app)
 
     legacy_body_credential = client.post(
