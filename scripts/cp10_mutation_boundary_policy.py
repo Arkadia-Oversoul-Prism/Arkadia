@@ -109,6 +109,14 @@ LEGIT = re.compile(
     # omitted, three fitness tests red on main. A published contract is a
     # first-class product surface, so it is enumerated explicitly.
     r"|schemas/"
+    # federation/ carries the Agentic Civic Federation domain contract
+    # (federation/agent_card.py, the versioned Agent Card / Passport schema v0.1
+    # of issue #433). Enumerated in the same change that introduces the tree:
+    # the completeness invariant (test_allowlist_covers_every_tracked_surface)
+    # rejects any tracked surface this list omits, so the first commit touching
+    # federation/ would otherwise redden the CP10 gate on main. A published
+    # identity contract is a first-class product surface, not scratch space.
+    r"|federation/"
     # deploy/ carries the external N-ATLaS validation-gateway image
     # (deploy/n-atlas-server/{Dockerfile,app.py,requirements.txt,README.md}),
     # merged to main via PR #352 (merge a27c6c80). It was tracked while this
