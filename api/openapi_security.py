@@ -123,7 +123,7 @@ def _boundary(
             "algorithm": "HMAC-SHA256",
         }
 
-    if "SOVEREIGN_KEY" in source and "sovereign_key" in source:
+    if "SOVEREIGN_KEY" in source and "X-Sovereign-Key" in source:
         return [{SOVEREIGN_SCHEME: []}], {
             "classification": "sovereign_key_header",
             "runtime_guard": "X-Sovereign-Key",
