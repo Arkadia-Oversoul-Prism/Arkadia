@@ -1,7 +1,7 @@
 # Agent 01 — Shell, Navigation, Design System & Integration
 
-**Branch:** `feat/prism-parallel-01-shell-contracts`  
-**PR:** #419 (draft bootstrap)  
+**Branch:** `feat/prism-parallel-01-shell-implementation`  
+**PR:** #423 (implementation workstream; governance contract is merged in main)  
 **Owns:** `App.tsx`, `lib/router.ts`, `lib/surfaces.ts`, `components/SurfaceLenses.tsx`, shared shell/tokens, shared shell/navigation contract tests, and integration of shared endpoint/type registries.  
 **Contract:** read `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` first.
 
@@ -23,3 +23,8 @@ Reconcile archived Prism shell/navigation/visual primitives with the active `web
 
 ## Required PR evidence
 Archive/source paths; route map; files changed; targeted test commands/results; typecheck/build; negative controls; mobile/keyboard observations; baseline failure-node comparison; exact branch SHA; next bounded move.
+
+
+## Next wave — continue immediately after this PR closes
+
+Coordinator direction (2026-10-11): do not wait for another conversational prompt. After the current PR is merged, fetch fresh `main` and start a new branch/PR from it. First, resolve the integration requests already recorded by feature owners: (1) add a typed `labSession(id)` path helper to the shared endpoint registry only after re-verifying the actual GET handler and URL encoding; (2) integrate Workstream 2's project Opportunity Radar only after its backend contract and ownership checks are verified. Keep endpoint/type registry edits here; do not take over feature-local implementation. Run the endpoint-registry guard, shell/route tests, TypeScript/build, and route-table collision checks. Continue into the next highest-value archived shell/navigation gap when no shared-interface request is pending. Stop only for an actual authority, security, or unresolved contract conflict; record exact evidence and continue on a non-conflicting task where possible.
