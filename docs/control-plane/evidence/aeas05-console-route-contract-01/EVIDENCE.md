@@ -226,3 +226,68 @@ served — the archive is bit-for-bit recoverable.
 - **production acceptance — ACCEPTED (live observations passed; human authority
   remains final)**
 
+
+---
+
+# Deployment-boundary verification (2026-10-11T02:30Z, read-only)
+
+Objective: verify the deployment boundary — pushes/PR updates no longer trigger
+Vercel; Render is the only authorized production path; `main` stays at the accepted
+revision. No deployment or provider config was mutated.
+
+## Result: Vercel automation is STILL ACTIVE (user-reported disable NOT corroborated)
+
+A trivial probe commit pushed to the PR #415 branch (`2f19732a`) produced, within
+~35 s:
+
+- commit status **`Vercel` → `success`** at `2026-10-11T02:30:47Z`;
+- GitHub deployment `6989920048`, `environment=Preview`, **`creator=vercel[bot]`**,
+  `status=success`, `environment_url=https://console-c0nmdq6qb-arkadia-prism.vercel.app`.
+
+**The Git-connected Vercel deployment integration is still firing and still able
+to succeed.** The earlier evidence that it was disabled is not supported. Vercel
+also produced a **successful** PR-head deployment for PR #414
+(`5a330ec6`, `Vercel – arkadia-prism` success @ `02:02:15Z`), so this is not merely
+a failing bot — Vercel is a live, working deployment path.
+
+Subsequent PR-#415-head pushes (`666bd73b` @ `02:12:02Z`) also carry `Vercel –
+console` and `Vercel – arkadia-prism` statuses, i.e. after the claimed disable.
+
+## Required external action (not performed here)
+
+Disable the Vercel Git integration on **both** projects (`arkadia-prism` and
+`console`) in the Vercel dashboard, or disconnect them from this repository.
+This is a provider-side setting; no repository change can enforce it, and no
+Vercel credential exists in this environment (`VERCEL_TOKEN` unset) to change it.
+
+## Additional finding: Render also creates PR previews (expected, keep)
+
+GitHub deployments show `creator=render[bot]` PR-preview deployments
+(`environment=<branch> - Arkadia PR #NNN`, `environment_url` like
+`https://arkadia-pr-415.onrender.com`). These are Render preview environments and
+are consistent with Render being the canonical authority; they are **not** a
+competing deployment target and need no action. The probe push also created one
+(Render PR preview `6989918257`, status `failure` — an unrelated build result).
+
+## Canonical path — VERIFIED
+
+- `main` = `c404150a1c26927c0c11e210d1b75e54a5653213` (unchanged through the
+  verification; PR #415 is unmerged and touches docs only).
+- Canonical runtime `/api/version` → `source_revision=c404150a…`,
+  `revision_source=RENDER_GIT_COMMIT`, `revision_conflict=false`.
+- **Production = Render only.** Vercel remains an *active but non-authoritative*
+  path — reachable and succeeding, yet never the origin of acceptance.
+
+## Boundary classification after verification
+
+- Render is the canonical production origin — VERIFIED
+- `main` unchanged at the accepted revision — VERIFIED
+- pushes/PR updates no longer trigger Vercel — **FAILED** (live counter-observation)
+- Vercel integration disabled — **NOT CONFIRMED** (externally FAILED; provider-side)
+- no Vercel deployment accepted as production — upheld by policy, to be enforced
+  by disabling the integration
+
+Note on a transient record: a `Vercel – console` status read `pending` for a
+window on the PR-#415 head, then appeared as `failure` on the following push. That
+is status-refresh timing, not a second signal; the live probe above is the
+controlling observation.
