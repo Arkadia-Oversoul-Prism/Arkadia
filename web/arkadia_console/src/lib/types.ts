@@ -59,6 +59,54 @@ export interface ProjectList {
   count: number;
 }
 
+export interface TransmissionAuthor {
+  id?: string | null;
+  name: string;
+  avatar?: string;
+  role?: string;
+}
+
+export interface Transmission {
+  id: string;
+  author: TransmissionAuthor;
+  content: string;
+  timestamp: number;
+  edited_at?: number;
+  reactions?: Record<string, number>;
+  comments?: unknown[];
+  reposts?: number;
+  resonance?: number;
+  owner_uid?: string | null;
+}
+
+export interface TransmissionList {
+  transmissions: Transmission[];
+  total: number;
+}
+
+export interface EchoEntry {
+  id: string;
+  kind: string;
+  scope: "public" | "personal";
+  title: string;
+  category: string;
+  preview: string;
+  source: string;
+  resonance: number;
+  priority: number;
+}
+
+export interface EchoesFeed {
+  source: string;
+  public: EchoEntry[];
+  personal: EchoEntry[];
+  matrix: {
+    geometry: string;
+    dimensions: string[];
+    aggregate: number;
+  };
+}
+
 export interface LabOverview {
   [key: string]: unknown;
 }

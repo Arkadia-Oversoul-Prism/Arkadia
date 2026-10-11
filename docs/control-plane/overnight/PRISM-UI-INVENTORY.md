@@ -33,7 +33,7 @@ Legacy routes are from `archive/.../src/App.tsx`. "Current surface" is the conso
 | `/` `/home` | home | `App.tsx` direct | `home` → `/` | `/api/version`, `/health` | Reuse (shell) | IMPLEMENTED |
 | `/living-gate` `/gate` | gate | `App.tsx` direct | — (auth is `login`) | `/api/me` (auth) | Adapt → sign-in | DEFERRED |
 | `/oracle` `/commune` | commune | `ArkanaCommune.tsx` | `arkana` → `/arkana` | `/api/commune/resonance`, `/api/commune/threads` | Reuse (Slice C) | PARTIAL |
-| `/nexus` | novanet | `NovaNetPage.tsx` | `home` (no hub surface) | `/api/transmissions`, `/api/echoes` | Adapt (Slice A) | MISSING |
+| `/nexus` | novanet | `NovaNetPage.tsx` | `novanet` → `/novanet` (legacy `/nexus` aliased) | `/api/transmissions`, `/api/echoes` | Adapt (Slice A) | IMPLEMENTED |
 | `/nexus/ims` | ims | `IMSArchivePage.tsx` | — | `/api/ims/inquiries`, `/api/ims/inquiry` | Defer | MISSING |
 | `/nexus/grove` | grove | `SpiralGrovePage.tsx` | — | `UNKNOWN` | Defer | MISSING |
 | `/nexus/larder` | larder | `LivingLarderPage.tsx` | — | `UNKNOWN` | Defer | MISSING |

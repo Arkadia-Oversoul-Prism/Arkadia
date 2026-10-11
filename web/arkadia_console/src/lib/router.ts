@@ -17,8 +17,22 @@ export interface Route {
 
 const SECTION_PATTERN = /^\/([^/]+)\/([^/]+)$/;
 
+/**
+ * Legacy inbound-link aliases, reconciled to a canonical surface (directive §5.2).
+ *
+ * `/nexus` was the archived Prism hub's route for the NovaNet view
+ * (`routeForView: novanet -> '/nexus'`) and is referenced by archived deep
+ * links. It is an *alias*, not a second surface: it resolves to `novanet` and
+ * never gets its own entry in `surfaces.ts`.
+ */
+export const PATH_ALIASES: Record<string, SurfaceId> = {
+  "/nexus": "novanet",
+};
+
 export function resolvePath(pathname: string): Route {
   const path = pathname.replace(/\/+$/, "") || "/";
+  const alias = PATH_ALIASES[path];
+  if (alias) return { surface: alias, path: SURFACE_BY_ID[alias].path };
   const match = path.match(SECTION_PATTERN);
   if (match) {
     const surface = SURFACES.find((s) => s.path === `/${match[1]}`);

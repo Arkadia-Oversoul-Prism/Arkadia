@@ -161,6 +161,70 @@ def test_every_declared_surface_is_composed_in_the_app_root():
 
 
 # ---------------------------------------------------------------------------
+# Legacy route aliases (directive §5.2/§5.6)
+# ---------------------------------------------------------------------------
+
+
+def _path_aliases(text: str) -> dict[str, str]:
+    """The ``PATH_ALIASES`` map: legacy inbound path -> canonical SurfaceId."""
+    block = re.search(r"PATH_ALIASES[^=]*=\s*\{(.*?)\}", text, re.DOTALL)
+    assert block, "router.ts declares no PATH_ALIASES map"
+    return dict(re.findall(r'"([^"]+)"\s*:\s*"([^"]+)"', block.group(1)))
+
+
+def _alias_defects(router_text: str, surfaces_text: str) -> list[str]:
+    """Reasons a declared alias would be wrong. Empty == every alias is sound."""
+    aliases = _path_aliases(router_text)
+    ids = set(_declared_surface_ids(surfaces_text))
+    paths = set(_declared_paths(surfaces_text))
+    defects = []
+    for alias, target in sorted(aliases.items()):
+        if target not in ids:
+            defects.append(f"alias {alias!r} targets undeclared surface {target!r}")
+        if alias in paths:
+            defects.append(
+                f"alias {alias!r} collides with the canonical path of a declared "
+                f"surface -- an alias must not duplicate a real route"
+            )
+    return defects
+
+
+def test_legacy_route_aliases_resolve_to_declared_surfaces_only():
+    """A legacy path is an *alias*, never a second surface: it must resolve to a
+    surface that is actually declared, and must not shadow a canonical path."""
+    assert _path_aliases(ROUTER), (
+        "no legacy alias declared -- if /nexus support was removed, delete this "
+        "guard deliberately rather than letting it pass vacuously"
+    )
+    assert _alias_defects(ROUTER, SURFACES) == []
+
+
+def test_nexus_is_an_alias_of_novanet_not_a_second_surface():
+    """The archived Prism hub routed `novanet` to `/nexus`. Reconciliation keeps
+    the inbound path working while owning exactly one canonical surface."""
+    assert _path_aliases(ROUTER).get("/nexus") == "novanet"
+    assert "/nexus" not in _declared_paths(SURFACES)
+
+
+def test_detector_flags_an_alias_to_an_undeclared_surface():
+    """Negative control: an alias pointing at a surface nobody declared is dead
+    routing and must be reported."""
+    broken = ROUTER.replace('"/nexus": "novanet"', '"/nexus": "retired-hub"')
+    assert broken != ROUTER, "control did not mutate router.ts -- the detector is unproven"
+    defects = _alias_defects(broken, SURFACES)
+    assert any("undeclared surface" in d for d in defects), defects
+
+
+def test_detector_flags_an_alias_that_shadows_a_canonical_path():
+    """Negative control: an alias whose key is also a declared surface path would
+    create the duplicate route §5.1 forbids."""
+    shadowing = SURFACES.replace('path: "/arkana"', 'path: "/nexus"', 1)
+    assert shadowing != SURFACES, "control did not mutate surfaces.ts -- the detector is unproven"
+    defects = _alias_defects(ROUTER, shadowing)
+    assert any("collides with the canonical path" in d for d in defects), defects
+
+
+# ---------------------------------------------------------------------------
 # No hardcoded deployment origin (directive §5.5)
 # ---------------------------------------------------------------------------
 

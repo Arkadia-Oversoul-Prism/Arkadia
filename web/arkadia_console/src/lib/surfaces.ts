@@ -9,6 +9,7 @@
 
 export type SurfaceId =
   | "home"
+  | "novanet"
   | "arkana"
   | "solariun"
   | "engineering-lab"
@@ -40,6 +41,17 @@ export const SURFACES: SurfaceDef[] = [
     summary: "Unified shell, identity, and navigation across the product.",
     path: "/",
     accent: "text-gold",
+  },
+  {
+    id: "novanet",
+    name: "NovaNet",
+    boundary: "NovaNet",
+    summary: "Public field and hub — transmissions, echoes, and the shared Nexus surface.",
+    // The legacy hub lived on `/nexus` (an alias of `novanet`). The console
+    // declares one canonical path per surface (directive §5.1); `/nexus` is
+    // reconciled as an alias to this route, never a second surface.
+    path: "/novanet",
+    accent: "text-azure",
   },
   {
     id: "arkana",
