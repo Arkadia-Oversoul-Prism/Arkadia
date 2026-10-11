@@ -31,6 +31,33 @@ export type BuyerReconStatus = (typeof BUYER_RECON_STATUSES)[number];
 /** The backend's default for a commercial fact that has not been verified. */
 export const UNVERIFIED = "UNKNOWN";
 
+/**
+ * The statuses an operator may *set* from this surface.
+ *
+ * The backend vocabulary includes `EXECUTED` and `SETTLED`, which assert that a
+ * transaction happened and that it settled. Recording one is not reconnaissance:
+ * it is a claim about money, and this board's own response declares
+ * `execution_authority: "NONE"` / `budget_authority: "NONE"`. The ceiling is
+ * `READY_TO_EXECUTE` — "this is ready for a human to decide on" — and the two
+ * terminal statuses are readable but not settable.
+ *
+ * This mirrors `RECONNAISSANCE_STATUSES` in the archived Prism
+ * `ProjectOpportunityRadar`, which stopped its column set at the same place.
+ */
+export const SETTABLE_STATUSES: readonly BuyerReconStatus[] = BUYER_RECON_STATUSES.filter(
+  (status) => status !== "EXECUTED" && status !== "SETTLED",
+);
+
+/** Statuses that assert a transaction outcome: shown, never offered as a control. */
+export const TRANSACTION_OUTCOME_STATUSES: readonly BuyerReconStatus[] = BUYER_RECON_STATUSES.filter(
+  (status) => !(SETTABLE_STATUSES as readonly string[]).includes(status),
+);
+
+/** Whether a status may be recorded from reconnaissance. */
+export function isSettableStatus(value: string): value is BuyerReconStatus {
+  return (SETTABLE_STATUSES as readonly string[]).includes(value);
+}
+
 /** The backend's default evidence status for a newly captured prospect. */
 export const NO_EVIDENCE = "NONE";
 
@@ -79,6 +106,21 @@ const BASE = "/solspire/buyer-recon";
 
 export function projectBoardPath(projectId: string): string {
   return `${BASE}/projects/${encodeURIComponent(projectId)}`;
+}
+
+/**
+ * Sub-resource paths derived from the *board* path.
+ *
+ * `ProjectOpportunityRadar` is handed a board path and never a project id, so
+ * the write targets are derived from the same string it already reads. One
+ * derivation chain means the POST/PATCH target cannot drift from the GET.
+ */
+export function entriesPathFromBoard(boardPath: string): string {
+  return `${boardPath}/entries`;
+}
+
+export function entryPathFromBoard(boardPath: string, entryId: string): string {
+  return `${entriesPathFromBoard(boardPath)}/${encodeURIComponent(entryId)}`;
 }
 
 export function projectEntriesPath(projectId: string): string {
@@ -172,4 +214,197 @@ export function summarize(entries: OpportunityEntry[]): OpportunitySummary {
     if (entry.evidence_status && entry.evidence_status !== NO_EVIDENCE) withEvidence += 1;
   }
   return { total: entries.length, actionable, withEvidence, byStatus };
+}
+
+// ---------------------------------------------------------------------------
+// Write contract — `BuyerReconEntryInput` (POST) and `BuyerReconEntryPatch` (PATCH)
+// ---------------------------------------------------------------------------
+
+/**
+ * The fields the create/edit control may transmit, each with the backend's own
+ * declared default from `BuyerReconEntryInput`.
+ *
+ * A field is present here only if the handler declares it. Omitting an
+ * unverified commercial fact is what keeps it `UNKNOWN`: the backend default is
+ * applied server-side, so the client never asserts a value it does not hold.
+ * Blank means "not recorded" for the descriptive fields and `UNKNOWN` for the
+ * commercial ones — never `""`, which would read as a measured value of empty.
+ */
+export interface ProspectDraft {
+  prospect: string;
+  location: string;
+  buyer_type: string;
+  contact_route: string;
+  commodity: string;
+  estimated_demand: string;
+  procurement_frequency: string;
+  decision_maker: string;
+  current_price: string;
+  quantity: string;
+  specification: string;
+  delivery_point: string;
+  delivery_window: string;
+  payment_terms: string;
+  supplier: string;
+  source_price: string;
+  available_quantity: string;
+  logistics_quote: string;
+  packaging_qc_cost: string;
+  landed_cost: string;
+  buyer_price: string;
+  expected_gross_margin: string;
+  capital_required: string;
+  why_this_prospect: string;
+  status: string;
+  notes: string;
+}
+
+/** Descriptive (non-commercial) fields; blank is stored as blank by the handler. */
+export const DESCRIPTIVE_FIELDS = [
+  "location",
+  "buyer_type",
+  "contact_route",
+  "commodity",
+  "why_this_prospect",
+  "notes",
+] as const satisfies readonly (keyof ProspectDraft)[];
+
+/** Commercial fields; the backend's `UNKNOWN` sentinel is their honest default. */
+export const COMMERCIAL_FIELDS = [
+  "estimated_demand",
+  "procurement_frequency",
+  "decision_maker",
+  "current_price",
+  "quantity",
+  "specification",
+  "delivery_point",
+  "delivery_window",
+  "payment_terms",
+  "supplier",
+  "source_price",
+  "available_quantity",
+  "logistics_quote",
+  "packaging_qc_cost",
+  "landed_cost",
+  "buyer_price",
+  "expected_gross_margin",
+  "capital_required",
+] as const satisfies readonly (keyof ProspectDraft)[];
+
+export function emptyDraft(status: string = "UNCONTACTED"): ProspectDraft {
+  const draft = { prospect: "", status } as ProspectDraft;
+  for (const field of DESCRIPTIVE_FIELDS) draft[field] = "";
+  for (const field of COMMERCIAL_FIELDS) draft[field] = UNVERIFIED;
+  return draft;
+}
+
+/**
+ * A field is *supplied* only when the operator typed something that is not the
+ * unverified sentinel. An empty control means "not recorded" and is omitted, so
+ * the backend's own default is applied rather than the client asserting a value.
+ */
+export function isSupplied(field: keyof ProspectDraft, value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if ((COMMERCIAL_FIELDS as readonly string[]).includes(field) && trimmed.toUpperCase() === UNVERIFIED) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * The POST body for `BuyerReconEntryInput`.
+ *
+ * `prospect` is always present because the handler requires it; every other
+ * field is included only when supplied. `evidence_status` and `evidence` are
+ * deliberately never sent: capture records a prospect, it does not assert that
+ * evidence exists, so the backend's `NONE`/`[]` defaults stand.
+ */
+export function createEntryBody(draft: ProspectDraft): Record<string, unknown> {
+  const body: Record<string, unknown> = { prospect: draft.prospect.trim() };
+  for (const field of [...DESCRIPTIVE_FIELDS, ...COMMERCIAL_FIELDS]) {
+    if (isSupplied(field, draft[field])) body[field] = draft[field].trim();
+  }
+  if (isSettableStatus(draft.status)) body.status = draft.status;
+  return body;
+}
+
+/**
+ * The PATCH body for `BuyerReconEntryPatch` (declared `extra="allow"`).
+ *
+ * Only supplied fields are sent, so an edit is a partial update: a field the
+ * operator left untouched keeps its stored value rather than being rewritten.
+ * `prospect` is included only when supplied — the backend's create-time
+ * requirement is not a patch-time requirement, and sending an empty one would
+ * blank a recorded prospect.
+ *
+ * When the recorded entry is supplied as `base`, a field equal to its stored
+ * value is omitted too, so saving an unmodified form sends an empty body rather
+ * than rewriting every column with the value it already had.
+ */
+export function editEntryBody(draft: ProspectDraft, base?: OpportunityEntry): Record<string, unknown> {
+  const body: Record<string, unknown> = {};
+  for (const field of [...DESCRIPTIVE_FIELDS, ...COMMERCIAL_FIELDS]) {
+    if (!isSupplied(field, draft[field])) continue;
+    const next = draft[field].trim();
+    if (base && fact(base[field]) === next) continue;
+    body[field] = next;
+  }
+  if (isSupplied("prospect", draft.prospect)) {
+    const next = draft.prospect.trim();
+    if (!base || base.prospect !== next) body.prospect = next;
+  }
+  if (isSettableStatus(draft.status) && (!base || base.status !== draft.status)) {
+    body.status = draft.status;
+  }
+  return body;
+}
+
+/**
+ * Client-side pre-flight for the one rule the operator can violate locally:
+ * `BuyerReconManager.create_entry` raises `ValueError("prospect is required")`
+ * for a blank prospect, which the router reports as `400`.
+ *
+ * This mirrors the server rule so the control can explain it before a round
+ * trip. It is a convenience, not a boundary: the server remains the authority,
+ * and a blank prospect submitted anyway is still refused there.
+ */
+export function prospectRequired(draft: ProspectDraft): string | null {
+  return draft.prospect.trim() ? null : "A prospect is required. The backend refuses a blank one.";
+}
+
+/** True when an edit would send nothing — the PATCH would be a no-op. */
+export function isNoOpEdit(draft: ProspectDraft, base?: OpportunityEntry): boolean {
+  return Object.keys(editEntryBody(draft, base)).length === 0;
+}
+
+/** Seed an edit control from a recorded entry, carrying its values verbatim. */
+export function draftFromEntry(entry: OpportunityEntry): ProspectDraft {
+  const draft = emptyDraft(isKnownStatus(entry.status) ? entry.status : "UNCONTACTED");
+  draft.prospect = entry.prospect ?? "";
+  for (const field of DESCRIPTIVE_FIELDS) draft[field] = entry[field] ?? "";
+  for (const field of COMMERCIAL_FIELDS) draft[field] = fact(entry[field]);
+  return draft;
+}
+
+/**
+ * The mutation response is `{"entry": {...}}` on both routes
+ * (`create_project_buyer_recon_entry`, `update_project_buyer_recon_entry`).
+ * The client must read the created/updated entry from that key: a body without
+ * it is an unrecognised shape, not a successful empty write.
+ */
+export function parseEntryResponse(payload: unknown): OpportunityEntry | null {
+  if (typeof payload !== "object" || payload === null) return null;
+  const entry = (payload as { entry?: unknown }).entry;
+  if (typeof entry !== "object" || entry === null) return null;
+  const candidate = entry as Record<string, unknown>;
+  if (typeof candidate.id !== "string" || typeof candidate.prospect !== "string") return null;
+  return candidate as unknown as OpportunityEntry;
+}
+
+/** Replace one entry in a board list by id, keeping the server's ordering rule. */
+export function upsertEntry(entries: OpportunityEntry[], entry: OpportunityEntry): OpportunityEntry[] {
+  const index = entries.findIndex((item) => item.id === entry.id);
+  if (index < 0) return [entry, ...entries];
+  return entries.map((item) => (item.id === entry.id ? entry : item));
 }
