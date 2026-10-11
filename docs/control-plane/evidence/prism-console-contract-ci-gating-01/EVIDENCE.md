@@ -168,13 +168,33 @@ passed` is attributed by `--collect-only` per file, not inferred:
 A new workflow file adds passing nodes to the generic workflow-scanning suites by
 construction (+5). 21 + 5 = 26, which is exactly the observed delta.
 
-## 6. Limitations and next action
+## 6. Runtime proof — the gate executes (observed)
 
-- The gate is a **repository-source** claim until it runs. It cannot execute on `main`
-  before merge (its `paths` filter does not select anything `main` has changed since the
-  branch point), and it is not yet on the default branch to be dispatched. Runtime proof
-  is the first pull_request run on this branch, then `workflow_dispatch` at `ref=main`
-  after merge.
+The gate is no longer a source-level claim. Opening PR #435 fired the `pull_request`
+event, and the new gate selected itself and ran:
+
+| Observation | Value |
+| --- | --- |
+| run | **`38145306304`**, event `pull_request`, `completed/success` |
+| head | `a91d8e4da19d2ecf727c3f72fc3c61b1d7ca1b8a` |
+| job | `console-contract` -> `success` |
+| step "Verify the console contract guards" | `184 passed in 4.83s` |
+| step "Console-contract CI-wiring guard" | `21 passed in 3.57s` |
+| all check-runs on that commit | 8, every one `success` |
+| PR #435 state | `mergeable=MERGEABLE`, `mergeStateStatus=CLEAN` |
+
+Both steps report an explicit pass count, so this is **not** the "green job that
+executed zero tests" class: the numbers are the same 184 and 21 measured locally, and a
+zero-collection run would print `no tests ran`.
+
+Still outstanding for full closure: `workflow_dispatch` at `ref=main` after merge. That
+cannot be performed by this pass (it requires the gate on the default branch) and is the
+next action after human merge.
+
+## 7. Limitations and next action
+
+- Before this pass, the gate was a **repository-source** claim; §6 now records its first
+  execution. `workflow_dispatch` at `ref=main` remains unproven until after merge.
 - `sg-02-fe-2-v.yml`'s `continue-on-error: true` suite step is **recorded debt**, not
   repaired here (separate workstream, and it belongs to the CP10 gate's owner).
 - The guard does not attempt to prove the 12 guards *pass* — it proves they are
