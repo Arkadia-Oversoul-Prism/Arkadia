@@ -30,7 +30,7 @@ export const endpoints = {
   labGateway: "/api/lab/engineering/gateway",
   labNAtlasCatalog: "/api/lab/engineering/n-atlas/catalog",
 
-  solspireProjects: "/api/solspire/projects",
+  solspireProjects: "/solspire/projects",
   approvals: "/api/approvals",
 } as const;
 

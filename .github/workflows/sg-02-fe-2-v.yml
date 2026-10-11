@@ -334,19 +334,19 @@ jobs:
             // a defect in the console — bind the copy to the app actually served.
             const UNAUTH_THRESHOLD='Sign in to continue';
             const PRIVATE_MARKERS=['Deterministic observation','OBSERVED'];
-            const r0=await p.goto('http://127.0.0.1:5000/solspire',{waitUntil:'networkidle',timeout:60000});
+            const r0=await p.goto('http://127.0.0.1:5000/enterprise',{waitUntil:'networkidle',timeout:60000});
             const t0=await p.locator('body').innerText();
-            console.log(`[route] /solspire status=${r0?.status()} final=${p.url()}`);
-            if(r0?.status()!==200||!t0.includes(UNAUTH_THRESHOLD)) throw new Error('/solspire auth threshold failed');
+            console.log(`[route] /enterprise status=${r0?.status()} final=${p.url()}`);
+            if(r0?.status()!==200||!t0.includes(UNAUTH_THRESHOLD)) throw new Error('/enterprise auth threshold failed');
             // Deep links must not leak a private surface when unauthenticated.
-            for(const route of ['/solspire/projects','/solspire/engineering-lab']){
+            for(const route of ['/enterprise/projects','/engineering-lab']){
               const r=await p.goto('http://127.0.0.1:5000'+route,{waitUntil:'networkidle',timeout:60000});
               const text=await p.locator('body').innerText();
               console.log(`[route] ${route} status=${r?.status()} final=${p.url()}`);
               if(r?.status()!==200) throw new Error(`${route} did not resolve (status ${r?.status()})`);
               if(PRIVATE_MARKERS.some(m=>text.includes(m))) throw new Error(`${route} leaked a private surface while unauthenticated`);
             }
-            await p.goto('http://127.0.0.1:5000/solspire/engineering-lab',{waitUntil:'networkidle',timeout:60000});
+            await p.goto('http://127.0.0.1:5000/engineering-lab',{waitUntil:'networkidle',timeout:60000});
             await p.screenshot({path:'cp10-engineering-lab.png',fullPage:true});
             console.log('consoleErrors='+JSON.stringify(ce));
             console.log('pageErrors='+JSON.stringify(pe));

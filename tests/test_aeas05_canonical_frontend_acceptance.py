@@ -80,13 +80,30 @@ def test_cp10_gate_is_bound_to_the_console_threshold():
 
 def test_cp10_gate_authenticated_lens_targets_a_console_route():
     """The authenticated lens step must resolve the console's own Lab route. The
-    unauthenticated deep-link loop may still probe ``/solspire/*`` to prove it
-    leaks nothing; what matters is that the authenticated observation targets the
-    console surface."""
+    unauthenticated route loop probes the console's SolSpire surface (now
+    ``/enterprise``) to prove it leaks nothing; what matters is that the
+    authenticated observation targets the console surface."""
     assert "navigate_lab" in WORKFLOW
     lab_region = WORKFLOW.split("phase='navigate_lab'", 1)[1].split("phase=", 1)[0]
     assert "/engineering-lab'" in lab_region or "/engineering-lab\"" in lab_region
     assert "/solspire/engineering-lab" not in lab_region
+
+
+def test_cp10_gate_route_targets_a_declared_console_surface():
+    """The browser gate must drive a route the console actually declares. A route
+    the console does not serve is a phantom probe: on the Vite dev server every
+    path returns 200, so the gate stays green while the canonical FastAPI origin
+    would 404 that path. Bind the gate's first probe to the surface table."""
+    import re
+
+    declared = set(re.findall(r'path: "([^"]+)"', SURFACES))
+    probe = re.search(r"const r0=await p\.goto\('http://127\.0\.0\.1:5000([^']*)'", WORKFLOW)
+    assert probe, "the CP10 gate has no unauthenticated first probe"
+    route = probe.group(1)
+    assert route in declared, f"CP10 gate probes {route!r}, which is not a declared console surface"
+    # The retired Prism SolSpire path was the reserved backend namespace; it must
+    # not be probed as if it were a console surface.
+    assert "/solspire" not in route
 
 
 def test_cp10_gate_detector_would_flag_the_retired_copy():

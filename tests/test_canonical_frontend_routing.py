@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from pathlib import Path
 
 from api.frontend_routes import configure_frontends
 
@@ -51,3 +52,58 @@ def test_frontend_mounts_are_omitted_when_build_output_is_missing(tmp_path):
     client = TestClient(app)
 
     assert client.get("/api/missing").status_code == 404
+
+
+# ── every declared console surface must be servable on the FastAPI origin ────
+#
+# The CP10 browser gate drives the Vite dev server (port 5000), which serves the
+# SPA for *every* path and therefore cannot detect a surface path that collides
+# with a reserved backend namespace. On the canonical FastAPI origin such a path
+# falls through to the API and returns raw JSON (404 from the SPA handler's
+# reserved-prefix guard, or a backend handler's own status). A hard load or
+# refresh of that route is broken even though client-side navigation masks it.
+# This binds each declared surface path to the served SPA deterministically.
+import re as _re
+
+from api.frontend_routes import _RESERVED_PREFIXES
+
+_CONSOLE_SURFACES = (
+    Path(__file__).resolve().parents[1] / "web" / "arkadia_console" / "src" / "lib" / "surfaces.ts"
+)
+
+
+def _declared_console_paths() -> list[str]:
+    text = _CONSOLE_SURFACES.read_text(encoding="utf-8")
+    return _re.findall(r'path: "([^"]+)"', text)
+
+
+def test_every_console_surface_path_is_served_as_the_spa(tmp_path):
+    _write(tmp_path / "web" / "arkadia_console" / "dist" / "index.html", "<html>ARKADIA-CONSOLE-APP</html>")
+    app = FastAPI()
+    configure_frontends(app, tmp_path)
+    client = TestClient(app)
+
+    paths = _declared_console_paths()
+    assert paths, "no console surface paths were declared -- the guard would be vacuous"
+    for path in paths:
+        r = client.get(path, headers={"Accept": "text/html,application/xhtml+xml"})
+        assert r.status_code == 200, f"surface path {path} is not served (status {r.status_code})"
+        assert r.text == "<html>ARKADIA-CONSOLE-APP</html>", (
+            f"surface path {path} did not resolve to the console SPA -- it collides "
+            f"with a reserved backend namespace or a backend handler. Body: {r.text[:80]!r}"
+        )
+
+
+def test_console_surface_paths_avoid_reserved_namespaces():
+    """The negative control: a surface declared on a reserved prefix is exactly the
+    defect the guard above prevents. Pin the reserved list and prove a colliding
+    path is rejected, so the guard cannot be disarmed by editing surfaces.ts
+    alone."""
+    for path in _declared_console_paths():
+        for prefix in _RESERVED_PREFIXES:
+            assert not (path == prefix or path.startswith(prefix + "/")), (
+                f"console surface path {path} collides with reserved backend prefix {prefix}"
+            )
+    # The detector would flag the pre-repair path.
+    colliding = "/solspire"
+    assert any(colliding == p or colliding.startswith(p + "/") for p in _RESERVED_PREFIXES)
