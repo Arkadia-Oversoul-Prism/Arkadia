@@ -219,7 +219,17 @@ CASE B (control, event: complete)
 ```
 
 So: a **run** is persisted and correctly marked `BLOCKED`; **no `EVD-*` is written**; the
-route returns an explicit `503`. A failed inference cannot produce an acceptance record.
+route returns an explicit `503`.
+
+Scope of this claim, stated precisely: it is the route's **`ModelUnavailable` path** that
+writes no evidence, and that is what the test pins. A response that *arrives* but fails
+evaluation takes the other branch — it writes an `EVD-*` with `state=BLOCKED` (the
+`result_state = "IMPLEMENTED" if evaluation["passed"] else "BLOCKED"` line), which is an
+evidence record but **not** a false PASS. So the accurate claim is: **no path records a
+passing/`IMPLEMENTED` evidence for a failed inference**, not "no path writes evidence at all."
+
+The `catalog == AVAILABLE` gap (§6) is adjacent and unfixed: reachability still does not
+reflect inference outcome.
 
 ### 9.5 The tester returns to a usable state
 
@@ -270,6 +280,47 @@ unavailable for inference. Retrying cannot convert this to VERIFIED, so it is no
 | Failure before governed execution | **NO** — the run is created first; the failure is *inside* execution |
 | Tester usable after failure | **VERIFIED** — explicit 503, retry on the same session succeeds |
 | No false PASS | **VERIFIED** + now **guarded by test** |
-| Root cause | **ENVIRONMENTAL** (ZeroGPU admission); definitive quota/cooldown attribution **NOT TESTED** |
+| Root cause | **INFERRED: ENVIRONMENTAL (ZeroGPU admission)** — mechanism identified from the Space's source; the provider's `error`/`null` frame carries no detail, so quota vs cooldown attribution is **NOT TESTED** (§9.9) |
 | Controlled retry | **Still failing** (4/4 error frames) |
+
+### 9.9 Admission attribution — investigated separately (quota vs cooldown still NOT TESTED)
+
+Attribution was pursued as its own question, separately from the failure-path work.
+
+**Authorized diagnostic access is not available — checked, not assumed.**
+
+| Channel | Status |
+| --- | --- |
+| `HF_TOKEN` in the agent environment | **absent** (presence checked; value never read or printed) |
+| `HF_TOKEN` as a GitHub Actions secret | **not configured** — every run logs `authenticated_logs_status: skipped_missing_github_secret` and writes `SKIPPED: HF_TOKEN GitHub Actions secret is not configured.` |
+| Space public/gated | `private: false`, `gated: false` — no token needed for the **inference** path, only for the **private runtime logs** |
+
+The credential exists on the Space (its `app.py` would `raise RuntimeError` at import without it), but it is not available to this environment or to CI, and the repository's collection API is not readable by this integration. Per the governing rule, **quota vs cooldown attribution therefore remains NOT TESTED.** No authenticated runtime log was read, so no cause beyond the inference-level finding below is claimed.
+
+**What token-free evidence does establish — the failure is intermittent, not an outage.**
+
+This materially sharpens §3. Reading every recorded run's outcome in time order, failures are *isolated single calls interleaved with successes seconds apart*:
+
+| Time (UTC) | Run | Frames |
+| --- | --- | --- |
+| 2026-10-09T16:03:26.0 | `37956284383` | `complete` |
+| 2026-10-09T16:03:26 | `37956291373` | **`error`** |
+| 2026-10-09T16:03:34.7 | `37956308404` | `complete` |
+| 2026-10-10T21:55:35.1 | `38089446393` | `complete` |
+| … | `38089446122` | **`error`** (same minute) |
+| 2026-10-11T00:04:23.7 | `38097150267` | `complete` |
+| 2026-10-11T00:10:42–00:11 | this pass's probe | **`error` ×6** |
+
+So the same Space served a `complete` and an `error` **within the same second** on 2026-10-09, and served `complete` at 00:04 before rejecting 6/6 at 00:10. Of 64 recorded runs, only **3** error — and each time a neighbouring run succeeded immediately.
+
+**Consequence, stated precisely:** the Space's *declared* state (`stage: RUNNING`, `zero-gpu-count: 0`, `readyReplicas 1/1`) is necessary but **not sufficient** to predict admission. This generalises §6's "reachability ≠ inference" lesson one level further: **a healthy app-level state ≠ a granted GPU slot.** Admission is decided per-invocation by the shared ZeroGPU scheduler.
+
+That is consistent with a shared, time-sliced pool granting or refusing slots per call, and is the same class as the §3 mechanism — but it does **not** distinguish per-user quota exhaustion from a short cooldown, which requires the authenticated logs and remains **NOT TESTED**.
+
+**Recorded follow-up (unchanged, not implemented):** the `catalog == AVAILABLE` observability gap in §6 is now demonstrably load-bearing — the catalog reported `AVAILABLE` throughout, including periods where every inference was refused.
+
+**Retries were bounded, not repeated.** A finding of this shape cannot be converted to VERIFIED by retrying, so probing stopped after this measurement.
+
+**Merged-worker note:** the underlying investigation shipped in PR #412 (`640fa55f`). The claim-scope correction at §9.4 and this section are recorded so the refined attribution is not left only in a pull request.
+
 
