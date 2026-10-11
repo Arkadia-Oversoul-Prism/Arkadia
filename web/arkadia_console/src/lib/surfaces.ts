@@ -15,7 +15,8 @@ export type SurfaceId =
   | "solspire"
   | "knowledge"
   | "weaver"
-  | "about";
+  | "about"
+  | "login";
 
 export interface SurfaceDef {
   id: SurfaceId;
@@ -25,6 +26,10 @@ export interface SurfaceDef {
   summary: string;
   path: string;
   accent: string;
+  /** Protected surfaces require an authenticated identity to render their content. */
+  requiresAuth?: boolean;
+  /** False for surfaces reachable but not shown in global navigation (for example sign-in). */
+  nav?: boolean;
 }
 
 export const SURFACES: SurfaceDef[] = [
@@ -46,6 +51,7 @@ export const SURFACES: SurfaceDef[] = [
   },
   {
     id: "solariun",
+    requiresAuth: true,
     name: "Solariun",
     boundary: "Solariun",
     summary: "Personal workspace and cognitive canvas — projects and continuity.",
@@ -54,6 +60,7 @@ export const SURFACES: SurfaceDef[] = [
   },
   {
     id: "engineering-lab",
+    requiresAuth: true,
     name: "Engineering Lab",
     boundary: "Knowledge OS + Engineering Lab",
     summary: "Technical operations, task state, provider status, and evidence.",
@@ -62,6 +69,7 @@ export const SURFACES: SurfaceDef[] = [
   },
   {
     id: "solspire",
+    requiresAuth: true,
     name: "SolSpire",
     boundary: "SolSpire",
     summary: "Team and enterprise workspace over the shared substrate.",
@@ -70,6 +78,7 @@ export const SURFACES: SurfaceDef[] = [
   },
   {
     id: "knowledge",
+    requiresAuth: true,
     name: "Knowledge OS",
     boundary: "Knowledge OS + Engineering Lab",
     summary: "Continuity, memory, and the knowledge graph.",
@@ -78,6 +87,7 @@ export const SURFACES: SurfaceDef[] = [
   },
   {
     id: "weaver",
+    requiresAuth: true,
     name: "Weaver",
     boundary: "Weaver",
     summary: "Governed execution and orchestration. Proposal, approval, execution, verification.",
@@ -91,6 +101,15 @@ export const SURFACES: SurfaceDef[] = [
     summary: "Architecture, lineage, and principles.",
     path: "/about",
     accent: "text-azure",
+  },
+  {
+    id: "login",
+    name: "Sign in",
+    boundary: "ARKADIA",
+    summary: "Authenticate against the canonical Arkadia backend.",
+    path: "/login",
+    accent: "text-gold",
+    nav: false,
   },
 ];
 

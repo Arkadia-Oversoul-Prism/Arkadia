@@ -585,13 +585,19 @@ def test_delegated_verdict_admits_omitted_surfaces_and_rejects_lookalikes():
 
 def test_ci_does_not_assert_retired_private_workspace_marker():
     """The frontend no longer renders that marker, so a gate asserting it can never
-    pass. Comment lines that reference the history are fine."""
+    pass. Comment lines that reference the history are fine.
+
+    The gate now observes the Arkadia Console, whose protected surfaces render the
+    ``Sign in to continue`` threshold. The former ``Enter the enterprise layer.``
+    literal was the retired Prism SolSpire copy and is no longer asserted -- see
+    ``tests/test_aeas05_canonical_frontend_acceptance.py``.
+    """
     text = _WORKFLOW.read_text(encoding="utf-8")
     code = "\n".join(
         line for line in text.splitlines() if not line.lstrip().startswith(("//", "#"))
     )
     assert "'PRIVATE WORKSPACE'" not in code, "CI still asserts the retired marker"
-    assert "Enter the enterprise layer." in code
+    assert "Sign in to continue" in code
 
 
 def test_continue_on_error_gates_are_still_enforced_by_outcome():

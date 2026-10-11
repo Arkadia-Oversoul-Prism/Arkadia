@@ -43,9 +43,12 @@ import urllib.request
 REPO = "Arkadia-Oversoul-Prism/Arkadia"
 ALIAS = "https://arkadia-qzu4.onrender.com/"
 
-# The harness observes the Prism surface. Its closure argument is valid only over
-# deployments built from the Prism build input: a Console deployment shares no
-# build input with Prism, so its ancestry says nothing about the Prism artifact.
+# The harness observes the Prism surface by default. Its closure argument is
+# valid only over deployments built from the observed app's build input: a
+# Console deployment shares no build input with Prism, so its ancestry says
+# nothing about the Prism artifact. The historical Prism UI is archived under
+# archive/frontend/arkadia-prism; its build input is read there so the Prism
+# lineage stays observable after the move.
 BUILD_INPUTS = ["web/public_prism/", ":!web/public_prism/dist"]
 
 # How many newest-first pages of `/deployments` to scan for Production records.
@@ -61,21 +64,56 @@ DEPLOYMENT_SCAN_PAGES = 5
 # Every frontend the root ``vercel.json`` can be repointed at. A Production
 # deployment whose environment names a project with no build input here cannot
 # be placed on a build<->source lineage and must be classified, not assumed.
+# The historical Prism build input lives under the archive location so its
+# lineage stays observable; the console is the current canonical frontend.
 KNOWN_FRONTENDS: dict[str, list[str]] = {
-    "arkadia-prism": ["web/public_prism/", ":!web/public_prism/dist"],
+    "arkadia-prism": ["archive/frontend/arkadia-prism/web/public_prism/", ":!archive/frontend/arkadia-prism/web/public_prism/dist"],
     "arkadia-console": ["web/arkadia_console/", ":!web/arkadia_console/dist"],
     "console": ["web/console/", ":!web/console/dist"],
 }
 
-# The application the MARKERS literals below were drawn from. This is a property
-# of the marker list, NOT of any deployment: the harness must never assume the
-# artifact it fetched is the app its markers describe.
-#
-# The alias resolves to whichever project Vercel last assigned it to, and the
-# root project was repointed from ``web/public_prism`` to ``web/console`` at
-# 404452e0 (2026-10-02). From that commit the alias serves Console while these
-# markers remain Prism literals, so every marker reads 0 -- which is "this is a
-# different application", not "the artifact disagrees with the source".
+# Marker literals are a property of ONE application. Each app's list carries its
+# own source root, its own local build directory, and its own expected polarity
+# per literal (positive literals must be present, control literals absent).
+# Binding each observation to the app it measures is what prevents a marker
+# mismatch caused by observing a different application from reading as a defect
+# in the observed one.
+MARKER_APPS: dict[str, dict] = {
+    "arkadia-prism": {
+        "source_root": "archive/frontend/arkadia-prism/web/public_prism/src",
+        "dist_root": "archive/frontend/arkadia-prism/web/public_prism/dist/assets",
+        "markers": {
+            "separate explicit downstream stages": ("CapabilityChamber.tsx (SG-03 boundary)", True, "SG-03 chamber rewrite"),
+            "separate downstream stages": ("control: pre-SG-03 wording", False, "control -- must be absent"),
+            "activity-draft.v1:": ("CapabilityChamber.tsx (SG-03 draft key)", True, "SG-03"),
+            "learning-activity-work-surface": ("CapabilityChamber.tsx (SG-03 testid)", True, "SG-03"),
+            "sg03-contract-boundary": ("CapabilityChamber.tsx (SG-03 testid)", True, "SG-03"),
+            "solspire-object-summary": ("OpportunityRadarPage", True, "Solariun radar"),
+            "opportunity-radar": ("SolSpire lens registry", True, "Solariun radar route"),
+            "activity-runtime-draft.v1:": ("ActivityRuntime.tsx (SG-04 draft key)", True, "SG-04"),
+        },
+    },
+    # The console carries its own literals -- runtime strings from its source that
+    # survive minification -- plus a control literal that must be absent. These
+    # are the markers the harness scores when it observes the console artifact.
+    "arkadia-console": {
+        "source_root": "web/arkadia_console/src",
+        "dist_root": "web/arkadia_console/dist/assets",
+        "markers": {
+            "Protected surface": ("App.tsx auth threshold heading", True, "auth threshold"),
+            "Sign in to continue": ("App.tsx auth threshold copy", True, "auth threshold"),
+            "Go to sign in": ("App.tsx auth threshold link", True, "auth threshold"),
+            "Reading canonical contract": ("ui.tsx loading copy", True, "console states"),
+            "Human authority remains the decision boundary": ("Shell.tsx footer", True, "shell identity"),
+            "Arkadia is temporarily unreachable": ("AuthContext readable() copy", True, "console identity"),
+            "Enter the enterprise layer.": ("control: retired Prism SolSpire gate copy", False, "control -- must be absent"),
+        },
+    },
+}
+
+# The application whose marker set the default observation scores. A property of
+# the default, not of any deployment: the harness resolves the observed app from
+# the deployment label and scores that app's list (see ``classify_marker_oracle``).
 MARKER_APP = "arkadia-prism"
 
 # A Production record is labelled `Production`, `Production – arkadia-prism`, or
@@ -86,49 +124,21 @@ MARKER_APP = "arkadia-prism"
 # `Preview – ...` record cannot be admitted -- and never by equality.
 PRODUCTION_ENVIRONMENT_RE = re.compile(r"^Production\b")
 
-# literal -> (provenance, expected_in_source, discriminates)
-MARKERS: dict[str, tuple[str, bool, str]] = {
-    "separate explicit downstream stages": (
-        "CapabilityChamber.tsx (SG-03 boundary)",
-        True,
-        "SG-03 chamber rewrite",
-    ),
-    "separate downstream stages": (
-        "control: pre-SG-03 wording",
-        False,
-        "control -- must be absent",
-    ),
-    "activity-draft.v1:": (
-        "CapabilityChamber.tsx (SG-03 draft key)",
-        True,
-        "SG-03",
-    ),
-    "learning-activity-work-surface": (
-        "CapabilityChamber.tsx (SG-03 testid)",
-        True,
-        "SG-03",
-    ),
-    "sg03-contract-boundary": (
-        "CapabilityChamber.tsx (SG-03 testid)",
-        True,
-        "SG-03",
-    ),
-    "solspire-object-summary": (
-        "OpportunityRadarPage",
-        True,
-        "Solariun radar",
-    ),
-    "opportunity-radar": (
-        "SolSpire lens registry",
-        True,
-        "Solariun radar route",
-    ),
-    "activity-runtime-draft.v1:": (
-        "ActivityRuntime.tsx (SG-04 draft key)",
-        True,
-        "SG-04 -- RED on main, see classification",
-    ),
-}
+# Backwards-compatible alias: the default app's marker list. Callers that score a
+# specific app should read ``MARKER_APPS[app]["markers"]`` so the observation is
+# bound to the app it measures.
+MARKERS: dict[str, tuple[str, bool, str]] = MARKER_APPS[MARKER_APP]["markers"]
+
+
+def app_markers(app: str | None) -> dict[str, tuple[str, bool, str]]:
+    """The marker list for ``app``, or the default's when ``app`` is unknown."""
+    entry = MARKER_APPS.get(app or "")
+    return entry["markers"] if entry else MARKER_APPS[MARKER_APP]["markers"]
+
+
+# The console is deployed under two project labels ("arkadia-console",
+# "console"); both name the same application, so they share one marker list.
+MARKER_APPS["console"] = MARKER_APPS["arkadia-console"]
 
 
 def sh(args: list[str]) -> str:
@@ -266,24 +276,27 @@ def classify_source_lineage(closure: list[dict], stale: list[str], prod: list[di
     return "UNKNOWN"
 
 
-def classify_marker_oracle(app: str | None, observed: dict[str, int] | None, stale: list[str]) -> str:
+def classify_marker_oracle(app: str | None, observed: dict[str, int] | None, stale: list[str], markers: dict | None = None) -> str:
     """Did the harness actually read a marker set off a served artifact?
 
     ``app`` is the application the served artifact belongs to (from the
     deployment label), or ``None`` when it could not be determined. ``observed``
     is the per-marker occurrence count taken from the fetched document, or
-    ``None`` when nothing was fetched.
+    ``None`` when nothing was fetched. ``markers`` is the marker list to score
+    against; it defaults to the observed app's own list.
 
-    The marker list describes ``MARKER_APP``. An artifact belonging to any other
-    application cannot be scored against it at all: every literal reads 0 because
-    the surface is not in that build, which is a category error, not a
-    regression. Agreement additionally requires a positive reading -- an entirely
-    absent marker set is evidence that the artifact is not this app, never
-    evidence that it agrees. Without these distinctions an absent app and a
-    correct app produced the same verdict, which is exactly how a false
-    ``VERIFIED`` was reachable.
+    Each app has its OWN marker list (``MARKER_APPS``): the literals are a
+    property of that application, and scoring one app's artifact against another
+    app's literals is a category error. An artifact belonging to an app with no
+    declared marker list cannot be scored at all.
 
-    Each literal carries an expected polarity (``MARKERS[literal][1]``): positive
+    Agreement additionally requires a positive reading -- an entirely absent
+    marker set is evidence that the artifact is not this app, never evidence that
+    it agrees. Without these distinctions an absent app and a correct app
+    produced the same verdict, which is exactly how a false ``VERIFIED`` was
+    reachable.
+
+    Each literal carries an expected polarity (``markers[literal][1]``): positive
     literals must be present, control literals must be absent. A marker violates
     when its reading disagrees with that polarity. Scoring controls as if they
     were positive -- the earlier ``count > 0`` test -- marked a *correct* control
@@ -292,16 +305,22 @@ def classify_marker_oracle(app: str | None, observed: dict[str, int] | None, sta
     """
     if app is None:
         return f"NOT OBSERVED (served app undetermined; markers describe '{MARKER_APP}')"
-    if app != MARKER_APP:
-        return f"NOT OBSERVED (artifact is '{app}'; markers describe '{MARKER_APP}')"
+    if app not in MARKER_APPS:
+        return f"NOT OBSERVED (artifact is '{app}'; no marker list is declared for that app)"
+    markers = markers if markers is not None else MARKER_APPS[app]["markers"]
     if observed is None:
         return "UNKNOWN (no artifact fetched)"
     if stale:
         return "UNKNOWN (marker list stale: literals absent from source)"
     if not observed:
         return "UNKNOWN (no markers read)"
+    # A reading whose literals are not this app's marker set cannot be scored
+    # against it: that is the category error (one app's artifact, another app's
+    # literals), not a divergence in the observed app.
+    if set(observed) - set(markers):
+        return f"NOT OBSERVED (reading is not '{app}'s marker set)"
     violation = sorted(
-        k for k, v in observed.items() if (v == 0) != (not MARKERS[k][1])
+        k for k, v in observed.items() if (v == 0) != (not markers[k][1])
     )
     if not violation:
         return "VERIFIED (marker set observed in served artifact)"
@@ -411,18 +430,24 @@ def head(url: str, accept: str | None = None) -> dict:
         return {"status": None, "error": type(e).__name__, "body": b""}
 
 
-def markers_in(text: str) -> dict[str, int]:
-    return {m: text.count(m) for m in MARKERS}
+def markers_in(text: str, app: str = MARKER_APP) -> dict[str, int]:
+    return {m: text.count(m) for m in MARKER_APPS[app]["markers"]}
 
 
-def source_markers_present() -> dict[str, bool]:
+def source_markers_present(app: str = MARKER_APP) -> dict[str, bool]:
     """Confirm each literal still exists in the working tree, so a stale list is
-    detected rather than silently trusted."""
+    detected rather than silently trusted.
+
+    Scoped to ``app``'s source root: the Prism source lives under the archive
+    location, the console under ``web/arkadia_console``. A literal gone from its
+    own app's source makes *that* app's marker list stale.
+    """
     root = repo_root()
+    source_root = os.path.join(root, MARKER_APPS[app]["source_root"])
     present = {}
-    for literal, (prov, expected, _) in MARKERS.items():
+    for literal, (_prov, _expected, _note) in MARKER_APPS[app]["markers"].items():
         hit = False
-        for dirpath, dirnames, filenames in os.walk(os.path.join(root, "web", "public_prism", "src")):
+        for dirpath, _dirnames, filenames in os.walk(source_root):
             for fn in filenames:
                 if not fn.endswith((".ts", ".tsx")):
                     continue
@@ -439,9 +464,10 @@ def source_markers_present() -> dict[str, bool]:
     return present
 
 
-def local_bundle_markers() -> dict[str, int] | None:
-    """Marker set from a local build, if one exists. Optional corroboration only."""
-    dist = os.path.join(repo_root(), "web", "public_prism", "dist", "assets")
+def local_bundle_markers(app: str = MARKER_APP) -> dict[str, int] | None:
+    """Marker set from a local build of ``app``, if one exists. Optional
+    corroboration only."""
+    dist = os.path.join(repo_root(), MARKER_APPS[app]["dist_root"])
     if not os.path.isdir(dist):
         return None
     chunks = []
@@ -451,7 +477,7 @@ def local_bundle_markers() -> dict[str, int] | None:
                 chunks.append(fh.read())
     if not chunks:
         return None
-    return markers_in("".join(chunks))
+    return markers_in("".join(chunks), app)
 
 
 def main() -> int:
@@ -532,39 +558,45 @@ def main() -> int:
         if alias.get("headers", {}).get(k)
     }
 
+    # The observed Production deployment names its app in the environment label.
+    # Resolve it BEFORE any classifier reads it: the marker set, the SG-04 verdict
+    # and the source-lineage closure are all scoped to the observed app, and a read
+    # that precedes this write sees ``None`` for every deployment -- collapsing the
+    # evaluable branches so a genuine regression can never be reported.
+    deployed_app = frontend_of(prod[0]["environment"]) if prod else None
+    report["deployed_app"] = deployed_app
+
     # ---- link 5: marker-set lineage -----------------------------------------
+    # Score the artifact against the marker list of the app it actually belongs
+    # to. If the app is undetermined or has no declared list, no artifact is
+    # fetched for scoring and the oracle reports NOT OBSERVED rather than a
+    # category-error zero reading.
+    scorers = app_markers(deployed_app)
+    observed_app = deployed_app if deployed_app in MARKER_APPS else None
     js = next((a for a in assets if a.endswith(".js")), None)
-    if js:
+    if js and observed_app:
         bundle = head(ALIAS + js)
         text = bundle.get("body", b"").decode("utf-8", "ignore")
         report["alias_bundle"] = js
         report["alias_bundle_bytes"] = len(bundle.get("body", b""))
-        report["markers"]["deployed"] = markers_in(text)
+        report["markers"]["deployed"] = markers_in(text, observed_app)
         report["markers"]["deployed_total"] = sum(report["markers"]["deployed"].values())
 
-    present = source_markers_present()
+    present = source_markers_present(observed_app) if observed_app else {m: False for m in scorers}
     report["markers"]["source_literal_present"] = present
-    stale = [m for m, (_, expected, _) in MARKERS.items() if expected and not present[m]]
+    stale = [m for m, (_, expected, _) in scorers.items() if expected and not present[m]]
     report["markers"]["stale_list"] = stale
 
-    lb = local_bundle_markers()
+    lb = local_bundle_markers(observed_app) if observed_app else None
     if lb is not None:
         report["markers"]["local_build"] = lb
-
-    # The observed Production deployment names its app in the environment label.
-    # Resolve it BEFORE any classifier reads it: the SG-04 verdict is scored
-    # against the observed app, and a read that precedes this write sees ``None``
-    # for every deployment -- collapsing the evaluable branch so a genuine
-    # regression can never be reported.
-    deployed_app = frontend_of(prod[0]["environment"]) if prod else None
-    report["deployed_app"] = deployed_app
 
     # SG-04 regression: expected in source, absent from artifact. Read the
     # artifact-derived count with no default so an unobserved artifact stays
     # ``None`` (nothing was read) rather than collapsing to 0 (an absent literal).
     dep_m = report["markers"].get("deployed")
     report["sg04"] = classify_sg04(
-        deployed_app,
+        observed_app,
         MARKER_APP,
         present.get("activity-runtime-draft.v1:", False),
         None if dep_m is None else dep_m.get("activity-runtime-draft.v1:", 0),
@@ -649,29 +681,22 @@ def main() -> int:
     print()
     print("MARKER-SET LINEAGE (literal : deployed / expected)")
     print(f"  artifact app: {report.get('deployed_app') or 'UNDETERMINED'}"
-          f"   harness markers describe: {MARKER_APP}")
-    if report.get("deployed_app") != MARKER_APP:
-        print("  !! the served artifact is a DIFFERENT application than the marker list;")
-        print("     a zero count below is 'not this app', not a regression and not agreement.")
+          f"   scoring against: {observed_app or 'no declared marker list'}")
     if dep_m is None:
         print("  no artifact fetched -> no marker set read (NOT OBSERVED);")
         print("     absence of a fetch is not a zero reading, so no literal is scored.")
     else:
-        for literal, (prov, expected, note) in MARKERS.items():
+        for literal, (prov, expected, note) in scorers.items():
             d = dep_m.get(literal, 0)
             flag = ""
             if expected and d == 0:
                 flag = "  <-- ABSENT"
             if not expected and d:
                 flag = "  <-- UNEXPECTED"
-            print(f"  {literal:<38} {d}  ({'expect>0' if expected else 'expect 0'}){flag}")
+            print(f"  {literal:<46} {d}  ({'expect>0' if expected else 'expect 0'}){flag}")
     if lb is not None and dep_m is not None:
-        match = all(lb.get(k, 0) == dep_m.get(k, 0) for k in MARKERS)
-        if report.get("deployed_app") == MARKER_APP:
-            print(f"  local build marker set matches deployed: {match}")
-        else:
-            print("  local build marker set matches deployed: NOT COMPARABLE"
-                  f" (deployed app is '{report.get('deployed_app')}')")
+        match = all(lb.get(k, 0) == dep_m.get(k, 0) for k in scorers)
+        print(f"  local build marker set matches deployed: {match}")
     if stale:
         print(f"  !! STALE marker list -- literals gone from source: {stale}")
     print()

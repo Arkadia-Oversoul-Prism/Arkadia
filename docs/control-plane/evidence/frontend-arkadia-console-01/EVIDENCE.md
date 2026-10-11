@@ -94,5 +94,6 @@ instructions, and that the old path is gone — with negative controls.
 - Production parity or acceptance. Confirming the new frontend on the canonical
   runtime requires a deployment and a live observation (`GET /api/version`
   matching the merged SHA plus a browser read), which is a human-authorized step.
-- The Gate-2 harness marker semantics still describe the archived Prism app; that
-  reconciliation is a separate AEAS workstream.
+- The Gate-2 harness marker semantics were Prism-only in this revision; binding
+  the observation to the observed app is AEAS-05
+  (`docs/control-plane/evidence/aeas05-canonical-frontend-acceptance-01/`).

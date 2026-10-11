@@ -6,6 +6,8 @@ import type { ReactNode } from "react";
 import { SURFACES, type SurfaceId } from "../lib/surfaces";
 import { useAuth } from "../contexts/AuthContext";
 
+const NAV_SURFACES = SURFACES.filter((s) => s.nav !== false);
+
 function NavLink({
   active,
   label,
@@ -39,7 +41,7 @@ export function Shell({
   onNavigate: (id: SurfaceId) => void;
   children: ReactNode;
 }) {
-  const { profile, isAuthenticated, identityState } = useAuth();
+  const { profile, isAuthenticated, identityState, signOutNow } = useAuth();
 
   return (
     <div className="flex min-h-screen bg-ink text-white">
@@ -49,9 +51,26 @@ export function Shell({
           <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-white/35">
             {isAuthenticated && profile ? profile.display_name : "Not signed in"}
           </p>
+          {isAuthenticated ? (
+            <button
+              onClick={() => void signOutNow()}
+              data-testid="nav-sign-out"
+              className="mt-2 font-mono text-[10px] uppercase tracking-widest text-white/40 hover:text-white/80"
+            >
+              Sign out
+            </button>
+          ) : (
+            <button
+              onClick={() => onNavigate("login")}
+              data-testid="nav-sign-in"
+              className="mt-2 font-mono text-[10px] uppercase tracking-widest text-gold/80 hover:text-gold"
+            >
+              Sign in
+            </button>
+          )}
         </div>
         <nav className="flex flex-col gap-1">
-          {SURFACES.map((s) => (
+          {NAV_SURFACES.map((s) => (
             <NavLink key={s.id} active={current === s.id} label={s.name} accent={s.accent} onClick={() => onNavigate(s.id)} />
           ))}
         </nav>
@@ -66,7 +85,7 @@ export function Shell({
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Mobile navigation: the same surfaces, no second global nav bar. */}
         <nav className="flex gap-1 overflow-x-auto border-b border-line bg-panel/40 p-2 md:hidden">
-          {SURFACES.map((s) => (
+          {NAV_SURFACES.map((s) => (
             <NavLink key={s.id} active={current === s.id} label={s.name} accent={s.accent} onClick={() => onNavigate(s.id)} />
           ))}
         </nav>
