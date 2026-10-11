@@ -1,33 +1,56 @@
 name: economic-seam-engine
 
+# The provider-neutral economic seam engine (`economic_seams/`) and the sovereign
+# scan surface that fronts it (`api/economic_seam_routes.py`) are judged by a set of
+# contract guards. This gate must *execute* that set, and
+# `tests/test_economic_seam_ci_wiring.py` must *verify* it is executed.
+#
+# Measured on `main` @ `850216fc`, this gate ran five of the seven guards that name
+# the seam. Two arrived after the inventory below was written and were never
+# executed here: `tests/test_economic_seam_authority_boundary.py` (the
+# sovereign-boundary pin) and `tests/test_m02a_ci_gate_integrity.py` (which pins the
+# CP10 coupling to this seam). This change adds them.
+#
+# The inventory is asserted against `git ls-files` by the wiring judge below, so a
+# guard added, renamed, or removed reddens that judge until this step is updated in
+# the same change. The `paths` filter selects `tests/**` rather than an enumerated
+# guard list so a guard *added* to the corpus also triggers the judge that would
+# otherwise never run to report it unexecuted. The judge still asserts every derived
+# guard is selected, so narrowing this filter reddens it.
+#
+# Deriving this step's inventory (`pytest -q $(python scripts/..._domain.py)`) is a
+# wider execution surface and stays with the sovereign; the console-contract gate on
+# `main` carries the same enumerated shape and the same judge, deliberately.
+
 on:
   pull_request:
     paths:
       - 'economic_seams/**'
       - 'api/economic_seam_routes.py'
-      - 'tests/test_economic_seam_engine.py'
-      - 'tests/test_economic_seam_correlation.py'
-      - 'tests/test_nocopo_adapter.py'
-      - 'tests/test_market_data.py'
-      - 'economic_seams/deal_sheet.py'
-      - 'tests/test_deal_sheet.py'
+      - 'tests/**'
       - '.github/workflows/economic-seam-engine.yml'
   push:
     branches: [main]
     paths:
       - 'economic_seams/**'
       - 'api/economic_seam_routes.py'
-      - 'tests/test_economic_seam_engine.py'
-      - 'tests/test_economic_seam_correlation.py'
-      - 'tests/test_nocopo_adapter.py'
-      - 'tests/test_market_data.py'
-      - 'economic_seams/deal_sheet.py'
-      - 'tests/test_deal_sheet.py'
+      - 'tests/**'
       - '.github/workflows/economic-seam-engine.yml'
+  # The gate is path-filtered, so a revision touching none of the above never runs
+  # it. `workflow_dispatch` lets the seam contract be executed against an exact
+  # revision on demand (it runs the workflow file from the dispatched ref, so
+  # `ref=main` yields an execution at the current main SHA).
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: .
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -36,4 +59,20 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -r requirements.txt
       - run: python -m pip install pytest
-      - run: pytest -q tests/test_economic_seam_engine.py tests/test_economic_seam_correlation.py tests/test_nocopo_adapter.py tests/test_market_data.py tests/test_deal_sheet.py
+      - name: Verify the economic-seam contract guards
+        # The full derived domain. `tests/test_economic_seam_ci_wiring.py` asserts
+        # this list equals what the corpus yields, so it cannot silently shrink.
+        run: >-
+          python -m pytest -q
+          tests/test_deal_sheet.py
+          tests/test_economic_seam_authority_boundary.py
+          tests/test_economic_seam_correlation.py
+          tests/test_economic_seam_engine.py
+          tests/test_m02a_ci_gate_integrity.py
+          tests/test_market_data.py
+          tests/test_nocopo_adapter.py
+      - name: Economic-seam CI-wiring guard
+        # Judges the gate's own trigger: the domain must be selected by this file's
+        # `paths` filter and every executing step must be able to fail. A rewrite of
+        # this file is judged by itself, or the gate is self-exempt.
+        run: python -m pytest tests/test_economic_seam_ci_wiring.py -q
