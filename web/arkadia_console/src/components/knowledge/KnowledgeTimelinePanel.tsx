@@ -61,7 +61,7 @@ export function KnowledgeTimelinePanel() {
       <div className="mb-3">
         <p className="font-mono text-[11px] uppercase tracking-widest text-white/40">Timeline</p>
         <p className="mt-1 text-sm text-white/55">
-          The immutable event log for this node. Ownership is enforced by the backend.
+          The latest events from this node's immutable log. This is a bounded recent window; older events require an explicit offset query. Ownership is enforced by the backend.
         </p>
       </div>
 
@@ -107,7 +107,7 @@ function TimelineReading({ events, scope }: { events: TimelineEvent[]; scope: Re
     <div className="flex flex-col gap-4" data-testid="knowledge-timeline-events">
       <Facts
         rows={[
-          { label: "events", value: String(events.length) },
+          { label: "events shown", value: String(events.length) },
           { label: "scope", value: scope },
           { label: "first", value: events[0].created_at },
           { label: "latest", value: latest.created_at },

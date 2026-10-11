@@ -110,7 +110,7 @@ def query(
     where = f"WHERE {' AND '.join(conditions)}"
     params += [limit, offset]
     rows = execute(
-        f"SELECT * FROM timeline {where} ORDER BY id ASC LIMIT ? OFFSET ?",
+        f"SELECT * FROM (SELECT * FROM timeline {where} ORDER BY id DESC LIMIT ? OFFSET ?) AS latest_page ORDER BY id ASC",
         tuple(params),
     )
     for r in rows:
