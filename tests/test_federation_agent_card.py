@@ -678,6 +678,6 @@ def test_the_contract_module_does_not_import_application_layers():
             imported.append(node.module)
     for module in imported:
         top = module.split(".")[0]
-        assert top in {"__future__", "re", "datetime", "enum", "typing", "pydantic"}, (
+        assert top in {"__future__", "re", "datetime", "enum", "typing", "pydantic", "urllib"}, (
             f"unexpected import {module!r}: the contract must remain a leaf module"
         )

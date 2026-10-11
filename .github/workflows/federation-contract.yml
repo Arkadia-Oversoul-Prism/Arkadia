@@ -1,0 +1,37 @@
+name: Federation Contract
+
+on:
+  pull_request:
+    paths:
+      - "federation/**"
+      - "tests/test_federation_agent_card.py"
+      - "tests/test_federation_endpoint_uri_contract.py"
+      - ".github/workflows/federation-contract.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "federation/**"
+      - "tests/test_federation_agent_card.py"
+      - "tests/test_federation_endpoint_uri_contract.py"
+      - ".github/workflows/federation-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  federation-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements.txt
+      - run: python -m pip install pytest
+      - name: Execute Federation contract tests
+        run: python -m pytest -q tests/test_federation_agent_card.py tests/test_federation_endpoint_uri_contract.py
