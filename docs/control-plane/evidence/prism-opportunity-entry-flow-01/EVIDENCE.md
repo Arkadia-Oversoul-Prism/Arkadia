@@ -67,7 +67,7 @@ Two consequences shaped the implementation:
 | `web/arkadia_console/src/components/opportunities/opportunityRadarContract.ts` | Added the write contract: `ProspectDraft`, `DESCRIPTIVE_FIELDS`, `COMMERCIAL_FIELDS`, `emptyDraft`, `isSupplied`, `createEntryBody`, `editEntryBody`, `prospectRequired`, `isNoOpEdit`, `draftFromEntry`, `parseEntryResponse`, `upsertEntry`, and the board-derived path helpers `entriesPathFromBoard` / `entryPathFromBoard`. |
 | `web/arkadia_console/src/components/opportunities/ProspectEntryForm.tsx` | **New.** The create/edit control. Feature-local; no shared file edited. |
 | `web/arkadia_console/src/components/opportunities/ProjectOpportunityRadar.tsx` | Wired the form in (create button, per-entry edit button), added the confirmed-response upsert and per-entry commercial facts. The existing read contract, states and pinned copy are preserved verbatim. |
-| `tests/test_prism_opportunity_entry_flow.py` | **New.** 35 tests: backend write contract + executed frontend contract probe. |
+| `tests/test_prism_opportunity_entry_flow.py` | **New.** 38 tests: backend write contract, executed frontend contract probe, and a cross-layer binding that feeds the frontend-built bodies into the real handler. |
 
 No shared router, navigation, endpoint registry, type registry, shell test, or
 backend file was edited. `api/main.py` is untouched.
@@ -93,7 +93,7 @@ backend file was edited. `api/main.py` is untouched.
 
 ## 4. Tests
 
-`python -m pytest tests/test_prism_opportunity_entry_flow.py -q` → **35 passed**.
+`python -m pytest tests/test_prism_opportunity_entry_flow.py -q` → **38 passed**.
 
 Covered: create success + persisted state; the entry lands on the project board
 and not the workspace board; omitted commercial facts keep the `UNKNOWN` default;
@@ -107,6 +107,14 @@ The frontend half is **executed, not string-matched**: Node 24 runs TypeScript
 directly, so `opportunityRadarContract.ts` is imported through a subprocess and
 its body builders are driven against the shapes the handlers return.
 
+**Cross-layer binding.** The bodies the contract module produces are then POSTed
+and PATCHed into the *real* handler by the backend tests. A frontend change that
+emits a field the handler rejects, or omits one it needs, therefore fails a Python
+test rather than only showing up in a browser. The minimal body produces a wholly
+unverified entry; the rich body records exactly the supplied fields and leaves the
+rest at the backend default; the single-field edit leaves the recorded commercial
+fact intact.
+
 ### Negative controls (all present)
 
 - A supplied commercial fact *is* recorded (proves the `UNKNOWN` pin is not vacuous).
@@ -114,6 +122,8 @@ its body builders are driven against the shapes the handlers return.
 - The owner identity *is* what admits the write (same request, identity changed).
 - The own-board edit still succeeds (the narrowing did not break the guarded path).
 - The probe distinguishes a wrong body builder.
+- A body the frontend must not send (invalid status, sentinel written out) is
+  refused at the boundary with nothing persisted.
 
 ### Mutation check — the detectors bite (live, then restored)
 
@@ -126,6 +136,8 @@ restored. Restored byte-identically (`sha256sum` of all three files unchanged):
 | Surface resolves transport itself (`fetch`) | 2 failed |
 | Form trusts the draft instead of the server response | 1 failed |
 | Edit body rewrites every field (non-partial PATCH) | 2 failed |
+| Create body asserts evidence the operator did not record | 2 failed |
+| Create body sends the `UNKNOWN` sentinel explicitly | 2 failed |
 
 Two test-side defects were found and fixed during this pass: the method-selection
 assertion targeted the surface instead of the form, and the forbidden-token
@@ -143,7 +155,7 @@ detector matched the *prose* that documents the absence of a delete control.
 | Tree | Result | Failing/error node set sha256 |
 |---|---|---|
 | `main` `f390526a` | 27 failed, 2342 passed, 17 skipped, 1 error | `92fcd59cb4f0aee3249c93045c3d1ddd5bfd591c24d5b628db829c0fd1645048` (28 nodes) |
-| branch | 27 failed, 2377 passed, 17 skipped, 1 error | `92fcd59cb4f0aee3249c93045c3d1ddd5bfd591c24d5b628db829c0fd1645048` (28 nodes) |
+| branch | 27 failed, 2380 passed, 17 skipped, 1 error | `92fcd59cb4f0aee3249c93045c3d1ddd5bfd591c24d5b628db829c0fd1645048` (28 nodes) |
 
 `comm -3` on the sorted node sets is **empty** — zero regression. The `+35
 passed` is exactly this file's node count (`--collect-only` → 35). The 27

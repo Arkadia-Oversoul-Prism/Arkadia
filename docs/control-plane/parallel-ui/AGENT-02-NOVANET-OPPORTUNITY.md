@@ -17,10 +17,10 @@ Implemented and tested (evidence: `docs/control-plane/evidence/prism-opportunity
   handlers: `POST .../entries` and `PATCH .../entries/{id}`.
 - `ProjectOpportunityRadar.tsx` mounts the controls; its read contract, distinct
   states and pinned copy are unchanged.
-- `tests/test_prism_opportunity_entry_flow.py` — 35 tests. The frontend half is
+- `tests/test_prism_opportunity_entry_flow.py` — 38 tests. The frontend half is
   **executed** through Node 24's native TypeScript support, not string-matched.
 - Full-suite failing/error **node set identical** to `main` `f390526a` (28 nodes,
-  `92fcd59c…`); `+35 passed` is exactly this file. Architecture 11/11. Build passes.
+  `92fcd59c…`); `+38 passed` is exactly this file. Architecture 11/11. Build passes.
 
 Measured backend facts worth keeping (do not re-derive):
 

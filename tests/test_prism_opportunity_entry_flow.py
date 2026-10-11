@@ -498,6 +498,66 @@ def test_negative_control_the_probe_detects_a_wrong_body_builder(contract_probe)
 
 
 # ---------------------------------------------------------------------------
+# Cross-layer — the exact bodies the frontend builds, accepted by the real handler
+# ---------------------------------------------------------------------------
+
+
+def test_the_frontend_bodies_are_accepted_by_the_real_handler(app, contract_probe):
+    """Binds the executed frontend contract to the live backend.
+
+    The bodies come from the *contract module* (via the Node probe), not from this
+    test, so a frontend change that emits a field the handler rejects — or omits one
+    it needs — fails here rather than only in a browser.
+    """
+    project_id = _project(OWNER["uid"])
+    client = _client(app, OWNER)
+
+    created = client.post(_entries_path(project_id), json=contract_probe["create_rich"])
+    assert created.status_code == 201, created.text
+    entry = created.json()["entry"]
+    row = _persisted(entry["id"])
+    assert row["prospect"] == "Buyer A"
+    assert row["buyer_type"] == "Aggregator"
+    assert row["location"] == "Kano"
+    assert row["buyer_price"] == "NGN 1200/kg"
+    # Fields the frontend deliberately omitted keep the backend default.
+    assert row["landed_cost"] == "UNKNOWN"
+    assert row["capital_required"] == "UNKNOWN"
+    assert row["evidence_status"] == "NONE"
+
+    edited = client.patch(f"{_entries_path(project_id)}/{entry['id']}", json=contract_probe["edit_notes"])
+    assert edited.status_code == 200, edited.text
+    assert _persisted(entry["id"])["notes"] == "Asked for 20t"
+    # The edit sent one field, so the recorded commercial fact survives it.
+    assert _persisted(entry["id"])["buyer_price"] == "NGN 1200/kg"
+
+
+def test_the_frontend_minimal_body_creates_an_all_unknown_entry(app, contract_probe):
+    """A capture with only a prospect typed produces a wholly unverified entry."""
+    project_id = _project(OWNER["uid"])
+    response = _client(app, OWNER).post(_entries_path(project_id), json=contract_probe["create_minimal"])
+    assert response.status_code == 201, response.text
+    row = _persisted(response.json()["entry"]["id"])
+    assert row["prospect"] == "Buyer A"
+    assert row["status"] == "UNCONTACTED"
+    for field in ("buyer_price", "landed_cost", "expected_gross_margin", "supplier", "quantity"):
+        assert row[field] == "UNKNOWN", f"{field} must not have been asserted by the client"
+
+
+def test_negative_control_a_wrong_body_shape_is_rejected_by_the_handler(app):
+    """Proves the cross-layer pin can see a defect: a body the frontend must not send."""
+    project_id = _project(OWNER["uid"])
+    # The shape the pre-flow design would have produced: the sentinel written out.
+    response = _client(app, OWNER).post(
+        _entries_path(project_id),
+        json={"prospect": "Buyer A", "evidence_status": "NONE", "evidence": [], "status": "BOGUS"},
+    )
+    assert response.status_code == 400, "an invalid status must be refused at the boundary"
+    with buyer_recon._db() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM buyer_recon_entries").fetchone()[0] == 0
+
+
+# ---------------------------------------------------------------------------
 # Frontend surface — the control is present, bounded, and wired to verified routes
 # ---------------------------------------------------------------------------
 
