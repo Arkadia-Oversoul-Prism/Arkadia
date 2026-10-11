@@ -1,6 +1,7 @@
 # Agent 01 — Shell, Navigation, Design System & Integration
 
 **Active branch:** `feat/prism-next2-01-shell-contract-map`
+**Active PR:** [#429](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/429) — draft, implementation in progress.
 **Base revision:** `f390526ab14e122fef358ef9b9e1cd438509463c`
 **Task:** refresh the shared branch map and finish verified endpoint-registry seams needed by Workstream 4.
 **Owns:** shared app shell, `App.tsx`, router/surface registry, global navigation/lenses/tokens, shared shell/endpoint contract tests, `lib/endpoints.ts`, `lib/types.ts`, and integration seams.
