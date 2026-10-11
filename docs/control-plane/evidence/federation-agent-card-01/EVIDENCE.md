@@ -175,13 +175,29 @@ its absence is not a detector.
   `scripts/cp10_mutation_boundary_policy.py` and `tests/test_m02a_ci_gate_integrity.py`, both
   of which are in `sg-02-fe-2-v.yml`'s `pull_request` filter (verified by parsing the
   workflow's `on.pull_request.paths`).
-* The new tests **are collected** by that gate's `CP10-B broader backend regression` step
-  (`python -m pytest tests/ -q`, which collects `tests/` wholesale). However that step is
-  `continue-on-error: true` and the workflow's enforcement step reads
-  `steps.<id>.outcome`, which GitHub does not expose inside a `run:` block — a documented,
-  pre-existing self-satisfying guard. **The new tests are therefore not CI-enforced in this
-  slice**; they are proven locally (§3) and by the mutation controls (§6b). Wiring a
-  dedicated `federation/**` trigger is proposed work, not performed here.
+* The new tests are **not executed** by that gate in this run — measured, not inferred. The
+  `CP10-B broader backend regression` step (`python -m pytest tests/ -q`, no
+  `--continue-on-collection-errors`) aborted at the pre-existing `tests/test_autonomy.py`
+  collection error before running anything, and the job still reported success. Run
+  `38143632392`, job `114482364629`, step log:
+
+  ```
+  ERROR tests/test_autonomy.py
+  !!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+  1 skipped, 1 warning, 1 error in 4.72s
+  ```
+
+  Zero tests ran, and the step's conclusion was `success` because it is
+  `continue-on-error: true` and the enforcement step reads `steps.<id>.outcome` — which GitHub
+  does not expose inside a `run:` block, so the assertion is self-satisfying. **The new tests
+  are therefore not CI-enforced in this slice**; they are proven locally (§3) and by the
+  mutation controls (§6b). Wiring a dedicated `federation/**` trigger is proposed work, not
+  performed here.
+* What the CP10 gate **did** enforce at runtime on this head is the mutation boundary itself:
+  run `38143632392` printed `Mutation-boundary range:
+  f390526ab14e122fef358ef9b9e1cd438509463c..HEAD [pull_request.base.sha (full PR range)]`,
+  listed both `federation/` paths among the changed files, and then
+  `Mutation boundary PASS`. So the allowlist entry is proven at the gate, not only locally.
 
 
 ## 8. Files changed
