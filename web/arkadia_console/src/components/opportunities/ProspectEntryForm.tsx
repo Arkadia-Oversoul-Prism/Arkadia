@@ -30,14 +30,15 @@ import { useState, type FormEvent } from "react";
 import { ApiError, apiRequest } from "../../lib/apiClient";
 import { Panel } from "../ui";
 import {
-  BUYER_RECON_STATUSES,
   COMMERCIAL_FIELDS,
   DESCRIPTIVE_FIELDS,
+  SETTABLE_STATUSES,
   UNVERIFIED,
   createEntryBody,
   draftFromEntry,
   editEntryBody,
   emptyDraft,
+  isSettableStatus,
   entriesPathFromBoard,
   entryPathFromBoard,
   isNoOpEdit,
@@ -292,19 +293,35 @@ export function ProspectEntryForm({
           <label htmlFor="prospect-entry-status" className="font-mono text-[10px] uppercase tracking-widest text-white/40">
             Pipeline status
           </label>
-          <select
-            id="prospect-entry-status"
-            data-testid="prospect-entry-status"
-            value={draft.status}
-            onChange={(event) => update("status", event.target.value)}
-            className={inputClass}
-          >
-            {BUYER_RECON_STATUSES.map((status) => (
-              <option key={status} value={status}>
-                {status.replaceAll("_", " ")}
-              </option>
-            ))}
-          </select>
+          {isSettableStatus(draft.status) ? (
+            <select
+              id="prospect-entry-status"
+              data-testid="prospect-entry-status"
+              value={draft.status}
+              onChange={(event) => update("status", event.target.value)}
+              className={inputClass}
+            >
+              {SETTABLE_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {status.replaceAll("_", " ")}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <>
+              <input
+                id="prospect-entry-status"
+                data-testid="prospect-entry-status"
+                readOnly
+                value={draft.status}
+                aria-describedby="prospect-entry-status-locked"
+                className={inputClass}
+              />
+              <p id="prospect-entry-status-locked" className="text-[11px] text-amber-300/80">
+                This entry records a transaction outcome. It cannot be changed from reconnaissance.
+              </p>
+            </>
+          )}
           <p className="text-[11px] text-white/35">
             Recording a status is reconnaissance. It authorizes no spending, approval, or execution.
           </p>

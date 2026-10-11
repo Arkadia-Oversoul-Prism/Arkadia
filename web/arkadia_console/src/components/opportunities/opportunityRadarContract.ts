@@ -31,6 +31,33 @@ export type BuyerReconStatus = (typeof BUYER_RECON_STATUSES)[number];
 /** The backend's default for a commercial fact that has not been verified. */
 export const UNVERIFIED = "UNKNOWN";
 
+/**
+ * The statuses an operator may *set* from this surface.
+ *
+ * The backend vocabulary includes `EXECUTED` and `SETTLED`, which assert that a
+ * transaction happened and that it settled. Recording one is not reconnaissance:
+ * it is a claim about money, and this board's own response declares
+ * `execution_authority: "NONE"` / `budget_authority: "NONE"`. The ceiling is
+ * `READY_TO_EXECUTE` — "this is ready for a human to decide on" — and the two
+ * terminal statuses are readable but not settable.
+ *
+ * This mirrors `RECONNAISSANCE_STATUSES` in the archived Prism
+ * `ProjectOpportunityRadar`, which stopped its column set at the same place.
+ */
+export const SETTABLE_STATUSES: readonly BuyerReconStatus[] = BUYER_RECON_STATUSES.filter(
+  (status) => status !== "EXECUTED" && status !== "SETTLED",
+);
+
+/** Statuses that assert a transaction outcome: shown, never offered as a control. */
+export const TRANSACTION_OUTCOME_STATUSES: readonly BuyerReconStatus[] = BUYER_RECON_STATUSES.filter(
+  (status) => !(SETTABLE_STATUSES as readonly string[]).includes(status),
+);
+
+/** Whether a status may be recorded from reconnaissance. */
+export function isSettableStatus(value: string): value is BuyerReconStatus {
+  return (SETTABLE_STATUSES as readonly string[]).includes(value);
+}
+
 /** The backend's default evidence status for a newly captured prospect. */
 export const NO_EVIDENCE = "NONE";
 
@@ -298,7 +325,7 @@ export function createEntryBody(draft: ProspectDraft): Record<string, unknown> {
   for (const field of [...DESCRIPTIVE_FIELDS, ...COMMERCIAL_FIELDS]) {
     if (isSupplied(field, draft[field])) body[field] = draft[field].trim();
   }
-  if (isKnownStatus(draft.status)) body.status = draft.status;
+  if (isSettableStatus(draft.status)) body.status = draft.status;
   return body;
 }
 
@@ -327,7 +354,7 @@ export function editEntryBody(draft: ProspectDraft, base?: OpportunityEntry): Re
     const next = draft.prospect.trim();
     if (!base || base.prospect !== next) body.prospect = next;
   }
-  if (isKnownStatus(draft.status) && (!base || base.status !== draft.status)) {
+  if (isSettableStatus(draft.status) && (!base || base.status !== draft.status)) {
     body.status = draft.status;
   }
   return body;

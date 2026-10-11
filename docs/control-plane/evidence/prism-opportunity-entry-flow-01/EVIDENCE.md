@@ -86,14 +86,54 @@ backend file was edited. `api/main.py` is untouched.
   `NONE` / `[]` stand.
 - **No delete, bulk, spend, approve, or execute control.** Those have no verified
   handler and would imply authority this surface does not have.
+- **`EXECUTED` / `SETTLED` are readable, never settable** (§3a). Recording one
+  claims that money moved, and this board's own response declares
+  `execution_authority: "NONE"` / `budget_authority: "NONE"`. The settable
+  vocabulary stops at `READY_TO_EXECUTE`, and the ceiling is enforced in the body
+  builders — not only in the `<select>`'s option list. An entry already at a
+  terminal status renders read-only.
 - **No-op edits are explained, not sent.** Saving an unmodified form reports
   "No change to save" rather than issuing a write that records nothing.
 - **A board switch clears the form and the locally held entries**, so an edit
   control can never address an entry id belonging to another project's board.
 
+## 3a. The reconnaissance ceiling — a correction to the above
+
+**Measured at `8c0f5dd4` and corrected here.** The earlier wording — "No delete,
+bulk, spend, approve, or **execute** control … those have no verified handler" —
+was true about *handlers* and false about the **status field**. `BuyerReconEntryPatch`
+validates against the full `STATUSES` tuple, which includes `EXECUTED` and
+`SETTLED`, and the form's `<select>` offered the whole vocabulary. There was no
+button named Execute, but the outcome was one click away, and the form's own copy
+("Recording a status is reconnaissance. It authorizes no spending, approval, or
+execution.") sat directly beneath a control that could record exactly that.
+
+Measured before the repair, by executing the contract module under Node 24:
+
+```
+BUYER_RECON_STATUSES.includes("EXECUTED")   -> true
+createEntryBody({status:"EXECUTED"}).status -> "EXECUTED"
+editEntryBody({status:"EXECUTED"}, entry)   -> {status:"EXECUTED"}
+```
+
+The repair adds `SETTABLE_STATUSES` (the vocabulary through `READY_TO_EXECUTE`,
+mirroring the archived Prism `ProjectOpportunityRadar`'s `RECONNAISSANCE_STATUSES`
+column set) and `TRANSACTION_OUTCOME_STATUSES`. `createEntryBody` and
+`editEntryBody` gate on `isSettableStatus`, so the ceiling is **structural**: a
+caller that hands them an `EXECUTED` draft cannot produce a body that records the
+outcome. The form offers only `SETTABLE_STATUSES` and renders a recorded terminal
+status as a read-only field.
+
+**Both halves are stated, not implied.** `test_measured_the_exposure_the_ceiling_closes`
+records that the *server* still accepts `EXECUTED` through this PATCH. The ceiling
+is a product decision on the surface's side; there is no server-side guard, and
+none is claimed.
+
 ## 4. Tests
 
-`python -m pytest tests/test_prism_opportunity_entry_flow.py -q` → **38 passed**.
+`python -m pytest tests/test_prism_opportunity_entry_flow.py -q` → **48 passed**
+(38 at `8c0f5dd4`; +10 are the reconnaissance ceiling and MEASURED DEFECT 3
+sections added at this revision — §3a, §6).
 
 Covered: create success + persisted state; the entry lands on the project board
 and not the workspace board; omitted commercial facts keep the `UNKNOWN` default;
@@ -135,6 +175,8 @@ restored. Restored byte-identically (`sha256sum` of all three files unchanged):
 | Contract asserts `UNVERIFIED` commercial facts on the wire | 3 failed |
 | Surface resolves transport itself (`fetch`) | 2 failed |
 | Form trusts the draft instead of the server response | 1 failed |
+| `SETTABLE_STATUSES` → `BUYER_RECON_STATUSES` in the form's `<select>` **and** `isSettableStatus` → `isKnownStatus` in both body builders | 2 failed |
+| `isSettableStatus(draft.status) ?` → `true ?` (terminal status rendered as a select) | 1 failed |
 | Edit body rewrites every field (non-partial PATCH) | 2 failed |
 | Create body asserts evidence the operator did not record | 2 failed |
 | Create body sends the `UNKNOWN` sentinel explicitly | 2 failed |
@@ -162,6 +204,26 @@ passed` is exactly this file's node count (`--collect-only` → 35). The 27
 pre-existing failures and the `tests/test_autonomy.py` collection error (CE-01,
 reserved to the sovereign) are unchanged by this pass and were not repaired here.
 
+### Re-measured at this revision (48 tests, the reconnaissance ceiling)
+
+| Tree | Result | Node set (sorted `FAILED`/`ERROR` ids) |
+|---|---|---|
+| branch before this pass (`8c0f5dd4`) | 27 failed, 2342 passed, 17 skipped, 1 error | 28 nodes, `67745e62…` |
+| branch after this pass | 27 failed, 2390 passed, 17 skipped, 1 error | 28 nodes, `67745e62…` |
+
+`comm -3` on the sorted node sets is **empty** on both trees; the `+48 passed` is
+exactly this file. Note the fingerprint above (`92fcd59c…`) and this one
+(`67745e62…`) are **different conventions over the same 28 nodes** — the
+fingerprint script emits `ids` and `outcomes` digests, and a digest quoted from a
+different extractor is not comparable. The load-bearing fact is the node
+**identity** delta, which is empty.
+
+- `corepack pnpm build` after the ceiling change → **passed**,
+  `dist/assets/index-DGoSeuIt.js` 74.38 kB.
+
+CP10 mutation boundary: `python scripts/cp10_mutation_boundary_policy.py --judge`
+over every planned path → **PASS**.
+
 `python-multipart` had to be installed in this sandbox to import
 `solspire/console_router.py` at all; that is an environment gap, not a repository
 defect, and it affects `main` identically.
@@ -178,8 +240,18 @@ over every planned path → **PASS**.
   backend accepts both; no control was added, because asserting evidence from a
   capture form would misrepresent reconnaissance as proof.
 - **The status vocabulary is transcribed, not enforced client-side beyond a
-  membership check.** The server validates it; the client only offers declared
-  values.
+  membership check.** *Superseded at `8c0f5dd4`:* the client now enforces the
+  reconnaissance ceiling as well — see §3a. The server still validates the full
+  vocabulary, and the ceiling is the surface's own narrower rule.
+- **MEASURED DEFECT 3 (backend, not repaired).** `BuyerReconManager.update_entry`
+  validates `status.upper()` against `STATUSES` and then persists the original
+  value: `PATCH {"status": "conversation"}` answers `200` and stores
+  `"conversation"`, which is outside the declared vocabulary. `create_entry`
+  normalizes; `update_entry` does not. Pinned by
+  `test_update_does_not_normalize_a_lowercase_status` with
+  `test_create_normalizes_a_lowercase_status` as the control. `solspire/buyer_recon.py`
+  is byte-identical to `main`; repairing it is a separate bounded change needing
+  its own authorization (`SHARED-CONTRACTS` §1/§7.1).
 - **Runtime observation of this UI is NOT CLAIMED.** The build and the tests pass;
   no browser or deployed-runtime observation was made in this pass.
 - **Production deployment and acceptance are NOT CLAIMED.**

@@ -407,6 +407,24 @@ out.upsert_new = m.upsertEntry([entry], { id: "e2", prospect: "B" }).map((e) => 
 out.upsert_existing = m.upsertEntry([entry], { id: "e1", prospect: "A2" }).map((e) => e.prospect);
 out.statuses = m.BUYER_RECON_STATUSES;
 
+// The reconnaissance ceiling: EXECUTED / SETTLED are readable, not settable.
+out.settable_statuses = m.SETTABLE_STATUSES;
+out.transaction_outcomes = m.TRANSACTION_OUTCOME_STATUSES;
+
+// A draft at a transaction outcome must not produce a body that records it.
+const executed = m.emptyDraft();
+executed.prospect = "Buyer A";
+executed.status = "EXECUTED";
+out.create_from_executed = m.createEntryBody(executed);
+out.edit_from_executed = m.editEntryBody(executed, entry);
+
+// Control: a settable status still reaches the wire.
+const contacted = m.emptyDraft();
+contacted.prospect = "Buyer A";
+contacted.status = "CONTACTED";
+out.create_from_contacted = m.createEntryBody(contacted);
+out.edit_from_contacted = m.editEntryBody(contacted, entry);
+
 console.log(JSON.stringify(out));
 """
 
@@ -656,3 +674,153 @@ def test_negative_control_the_authority_pins_are_not_vacuous():
     # ...and the comment stripper must not be able to hide a real control.
     assert "fetch(" in injected.split("//")[0]
     assert "fetch(" not in _code_only(SURFACE_TS)
+
+
+# ---------------------------------------------------------------------------
+# The reconnaissance ceiling — EXECUTED / SETTLED are readable, not settable
+# ---------------------------------------------------------------------------
+
+#: Statuses that assert a transaction outcome. Recording one claims that money
+#: moved, and this board's own response declares `execution_authority: "NONE"`
+#: and `budget_authority: "NONE"`.
+TRANSACTION_OUTCOMES = ("EXECUTED", "SETTLED")
+
+
+def test_contract_ceiling_excludes_every_transaction_outcome(contract_probe):
+    """The settable vocabulary stops at `READY_TO_EXECUTE`."""
+    assert contract_probe["settable_statuses"] == [
+        status for status in buyer_recon.STATUSES if status not in TRANSACTION_OUTCOMES
+    ]
+    assert contract_probe["transaction_outcomes"] == list(TRANSACTION_OUTCOMES)
+    assert contract_probe["settable_statuses"][-1] == "READY_TO_EXECUTE"
+
+
+def test_create_and_edit_bodies_refuse_a_transaction_outcome(contract_probe):
+    """The ceiling is structural: a terminal status cannot reach the wire.
+
+    A caller that hands `createEntryBody` / `editEntryBody` an `EXECUTED` draft —
+    which the form could do if the `<select>` offered it — must not be able to
+    produce a body that records the outcome.
+    """
+    assert contract_probe["create_from_executed"] == {"prospect": "Buyer A"}
+    assert contract_probe["edit_from_executed"] == {}
+
+
+def test_negative_control_a_settable_status_still_reaches_the_wire(contract_probe):
+    """The ceiling must narrow the vocabulary, not disable it.
+
+    Without this, `test_create_and_edit_bodies_refuse_a_transaction_outcome`
+    would pass against a builder that emitted no status at all.
+    """
+    assert contract_probe["create_from_contacted"]["status"] == "CONTACTED"
+    assert contract_probe["edit_from_contacted"] == {"status": "CONTACTED"}
+
+
+def test_the_form_offers_only_settable_statuses():
+    """The `<select>` options are the ceiling, not the whole backend vocabulary."""
+    form = _code_only(FORM_TS)
+    assert "SETTABLE_STATUSES.map((status)" in form, "the options must be the reconnaissance ceiling"
+    assert "BUYER_RECON_STATUSES.map((status)" not in form, (
+        "offering the full vocabulary would make EXECUTED / SETTLED one click away"
+    )
+
+
+def test_a_recorded_transaction_outcome_is_read_only_in_the_form():
+    """An entry already at EXECUTED/SETTLED renders as a locked field, not a select."""
+    form = _code_only(FORM_TS)
+    assert "isSettableStatus(draft.status) ?" in form
+    assert "readOnly" in form, "a terminal status must not be editable"
+    assert "cannot be changed from reconnaissance" in FORM_TS.read_text(encoding="utf-8")
+
+
+def test_negative_control_the_settable_detector_flags_the_full_vocabulary():
+    """Prove the detector above fires on the defect it exists to catch."""
+    naive = "const options = BUYER_RECON_STATUSES.map((status) => status);"
+    assert "BUYER_RECON_STATUSES.map((status)" in naive
+    assert "SETTABLE_STATUSES.map((status)" not in naive
+
+
+def test_measured_the_exposure_the_ceiling_closes(app, contract_probe):
+    """Recorded honestly: the server *does* accept the outcome; the surface declines.
+
+    `BuyerReconEntryPatch` validates against the full `STATUSES` tuple, so the
+    PATCH route records `EXECUTED`. Before the ceiling, the form's `<select>`
+    offered that value — the surface's own "no execute control" claim was false
+    for the status field even though no button was named Execute. The ceiling is a
+    product decision on the surface's side; this test states both halves rather
+    than implying a server-side guard.
+    """
+    project_id = _project(OWNER["uid"])
+    created = _create(app, project_id, {"prospect": "Buyer A"}).json()["entry"]
+    response = _client(app, OWNER).patch(
+        f"{_entries_path(project_id)}/{created['id']}", json={"status": "EXECUTED"}
+    )
+    assert response.status_code == 200, response.text
+    assert _persisted(created["id"])["status"] == "EXECUTED", (
+        "the server accepts a transaction outcome; the surface's refusal is a product "
+        "decision recorded in the contract module, not a server-side guard"
+    )
+
+
+# ---------------------------------------------------------------------------
+# MEASURED DEFECT 3 — status is validated in upper case but persisted as sent
+# ---------------------------------------------------------------------------
+
+
+def test_update_does_not_normalize_a_lowercase_status(app):
+    """MEASURED DEFECT 3 in `solspire/buyer_recon.py` (recorded, NOT repaired).
+
+    `BuyerReconManager.update_entry` validates `status.upper()` against `STATUSES`
+    and then persists the original value, because the `for key, value in
+    patch.items()` loop reads `patch` — which was never reassigned:
+
+        status = patch.get("status")
+        if status is not None:
+            status = str(status).upper()          # validated in upper case
+            if status not in STATUSES:
+                raise ValueError("invalid status")
+        ...
+        for key, value in patch.items():          # ... but `patch` is unchanged
+            if key in allowed:
+                current[key] = str(value) if value is not None else ""
+
+    `create_entry` *does* normalize (it assigns the upper-cased local), so the two
+    paths disagree. A row can therefore carry a status outside the declared
+    vocabulary, and any consumer that groups or counts by `STATUSES` — this
+    radar's own `summarize`, the archived Prism column counts — silently misses it.
+
+    This is a backend defect outside this workstream's grant (`SHARED-CONTRACTS`
+    §1/§7.1). It is pinned rather than repaired: the test asserts the defect so it
+    cannot be mistaken for intended behaviour, and
+    `test_create_normalizes_a_lowercase_status` is the control proving the
+    asymmetry is real. Repairing it is a separate bounded change.
+    """
+    project_id = _project(OWNER["uid"])
+    created = _create(app, project_id, {"prospect": "Buyer A"}).json()["entry"]
+    response = _client(app, OWNER).patch(
+        f"{_entries_path(project_id)}/{created['id']}", json={"status": "conversation"}
+    )
+    assert response.status_code == 200, response.text
+    stored = _persisted(created["id"])["status"]
+    assert stored == "conversation", "if this now reads CONVERSATION, defect 3 was repaired"
+    assert stored not in buyer_recon.STATUSES, "the stored value is outside the declared vocabulary"
+
+
+def test_create_normalizes_a_lowercase_status(app):
+    """The control for defect 3: the create path *does* normalize."""
+    project_id = _project(OWNER["uid"])
+    created = _create(app, project_id, {"prospect": "Buyer A", "status": "contacted"}).json()["entry"]
+    assert _persisted(created["id"])["status"] == "CONTACTED"
+
+
+def test_the_surface_cannot_reach_defect_3():
+    """Why the console is unaffected in practice.
+
+    The status the form sends is always a member of `SETTABLE_STATUSES`, a slice
+    of the backend's own tuple, and the control is a `<select>` whose options are
+    that vocabulary — so a lower-cased status cannot be produced by a click.
+    """
+    form = _code_only(FORM_TS)
+    assert "toUpperCase()" not in form and "toLowerCase()" not in form, (
+        "the form must not case-fold a status it is about to send"
+    )
