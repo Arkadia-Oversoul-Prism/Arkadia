@@ -191,6 +191,12 @@ Still outstanding for full closure: `workflow_dispatch` at `ref=main` after merg
 cannot be performed by this pass (it requires the gate on the default branch) and is the
 next action after human merge.
 
+The observation reproduces on the evidence commit itself (`d7c6132`, run
+**`38145455772`**, same job `console-contract` -> `success`), with step counts
+`184 passed in 5.16s` and `21 passed in 3.74s`. The gate is re-selected by a change to
+the evidence record only because its `paths` filter includes itself; that is the intended
+self-selection, not an accident.
+
 ## 7. Limitations and next action
 
 - Before this pass, the gate was a **repository-source** claim; §6 now records its first
