@@ -1,35 +1,26 @@
 # Agent 01 — Shell, Navigation, Design System & Integration
 
-**Branch:** `feat/prism-next-01-shell-integration`  
-**PR:** next-wave shell/integration PR from current `main`  
-**Owns:** `App.tsx`, `lib/router.ts`, `lib/surfaces.ts`, `components/SurfaceLenses.tsx`, shared shell/tokens, shared shell/navigation contract tests, and integration of shared endpoint/type registries.  
-**Contract:** read `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` first.
+**Current slice:** PR #425 — shell accessibility, endpoint-registry guard, verified `labSession(id)` builder, and cross-workstream contract reconciliation.
+**After merge:** create the next branch from freshly fetched `main`, open a new draft PR, update the active branch map in `SHARED-CONTRACTS.md`, and begin immediately.
+**Owns:** shared app shell, `App.tsx`, router/surface registry, global navigation/lenses/tokens, shared shell/endpoint contract tests, `lib/endpoints.ts`, `lib/types.ts`, and integration seams.
+**Contract:** `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md`.
 
-## Mission
-Reconcile archived Prism shell/navigation/visual primitives with the active `web/arkadia_console/` without rebuilding feature pages or introducing a second route model. Preserve current route and serving-path constraints.
+## Immediate continuation task
 
-## First tasks
-1. Reconstruct current `main`, PR #418, the archive shell files, current shared components/tokens, and route guards. Record exact SHAs and overlapping paths.
-2. Produce a compact shared-interface contract: route declaration shape, navigation callback shape, design-token usage, API registry/type contribution protocol, and responsive/accessibility rules.
-3. Compare the existing #418 shell changes against main and archive. Do not duplicate them blindly; #418 remains an open draft until human/coordinator decides whether to retain or re-home its implementation.
-4. Implement only shared-shell/integration improvements that are independently bounded and tested. Coordinate API constants/types through reviewed patches from feature owners.
-5. Keep `tests/test_console_shell_nav_contract.py` non-vacuous with positive and negative controls. Check actual FastAPI route collisions, not only Vite catch-all behavior.
+1. Re-fetch `main` and reconcile the merged shell/endpoint work with the other three merged feature slices. Bind every observation to the exact main SHA.
+2. Verify the Opportunity Radar integration on the Projects surface after Workstream 2's PR merges. Review the actual project list and project-board contracts, confirm route ownership and failure states, and make only the shared integration changes proven necessary. Do not duplicate Workstream 2's feature-local implementation.
+3. Refresh the shared active branch/PR map once all four next-wave branches are replaced by fresh branches from current `main`.
+4. Continue the highest-value remaining shell/navigation gap from the live inventory/archive comparison. Prefer one bounded, testable improvement over a broad redesign.
+5. Run the endpoint-registry and shell/navigation guards, TypeScript/build, and actual route-collision checks. Keep negative controls non-vacuous and compare failure nodes against the current baseline.
 
 ## Hard boundaries
-- Do not implement NovaNet page internals, Opportunity Radar, Solariun/Knowledge pages, Arkana/Weaver/Engineering Lab feature internals.
+
+- Do not implement NovaNet/Opportunity, Knowledge OS, Arkana/Weaver/Lab feature internals.
 - Do not change backend authority/runtime contracts or deployment configuration.
 - Do not merge, deploy, or mark accepted.
-- Stop if route ownership, global shell ownership, or API contract is ambiguous; document the exact blocker.
+- Do not wait for another conversational prompt. Continue on the next non-overlapping task after each merge.
+- Escalate only a concrete security/privacy issue, explicit human authority decision, destructive/data-loss risk without a safe path, or genuine cross-workstream contract conflict. Record exact evidence in the PR thread; otherwise keep working.
 
 ## Required PR evidence
-Archive/source paths; route map; files changed; targeted test commands/results; typecheck/build; negative controls; mobile/keyboard observations; baseline failure-node comparison; exact branch SHA; next bounded move.
 
-
-## Next wave — continue immediately after this PR closes
-
-Coordinator direction (2026-10-11): do not wait for another conversational prompt. After the current PR is merged, fetch fresh `main` and start a new branch/PR from it. First, resolve the integration requests already recorded by feature owners: (1) add a typed `labSession(id)` path helper to the shared endpoint registry only after re-verifying the actual GET handler and URL encoding; (2) integrate Workstream 2's project Opportunity Radar only after its backend contract and ownership checks are verified. Keep endpoint/type registry edits here; do not take over feature-local implementation. Run the endpoint-registry guard, shell/route tests, TypeScript/build, and route-table collision checks. Continue into the next highest-value archived shell/navigation gap when no shared-interface request is pending. Stop only for an actual authority, security, or unresolved contract conflict; record exact evidence and continue on a non-conflicting task where possible.
-
-
-## Active branch — next wave
-
-Start from the current main revision observed for this wave: `962434bed1bccb11fbf5edfcb0299317b12a8915`. This branch is already created from that revision. Begin the bounded task in the Next wave section immediately. Do not wait for the coordinator to send another prompt. Keep this PR draft while implementation is in progress; after it merges, create the next branch from fresh main and continue the workstream. Only stop for a concrete security/privacy issue, explicit human authority decision, destructive/data-loss risk without a safe path, or a genuine cross-workstream contract conflict. Record such a blocker in the PR thread with exact evidence; otherwise continue with the next non-overlapping task.
+Exact base/head SHAs; changed paths and ownership check; API/route contract evidence; targeted tests and negative controls; typecheck/build; keyboard/mobile observations; baseline failure-node comparison; production observations separately from code-level evidence; one next bounded move.
