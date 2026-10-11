@@ -147,10 +147,15 @@ def test_session_collection_and_view_are_declared_get_routes():
 
 
 def test_read_model_view_path_is_the_backend_sub_resource():
-    """The view path the component builds must be the declared sub-resource."""
+    """The view path the component builds must be the declared sub-resource.
+
+    The path is built inline at the ``useHydration`` call so its first argument
+    is literally the registry member (the registry-contract guard requires
+    ``endpoints.*``). ``endpoints.labSessions`` is the collection the backend
+    declares.
+    """
     component = _read(COMPONENT)
-    assert "${endpoints.labSessions}/${encodeURIComponent(sessionId)}" in component
-    # endpoints.labSessions is the collection the backend declares.
+    assert 'endpoints.labSessions + "/" + encodeURIComponent(sessionId)' in component
     endpoints_ts = _read(CONSOLE / "src" / "lib" / "endpoints.ts")
     assert 'labSessions: "/api/lab/engineering/sessions"' in endpoints_ts
 
@@ -193,3 +198,152 @@ def test_negative_control_state_vocabulary_detector():
     divergent = 'const STATE_STAGE: Record<string, unknown> = {\n  PROPOSED: { stage: "PROPOSAL" },\n};'
     assert rendered_states(divergent) == {"PROPOSED"}
     assert rendered_states(divergent) != backend_states(_read(CONTRACTS))
+
+
+# ---------------------------------------------------------------------------
+# Run / work-event / evidence ledger, surfaced on the Weaver page
+# ---------------------------------------------------------------------------
+
+WEAVER_PAGE = CONSOLE / "src" / "pages" / "WeaverPage.tsx"
+LAB_RUNTIME = ROOT / "lab" / "engineering_lab" / "runtime.py"
+
+
+def test_weaver_page_renders_the_session_ledger():
+    """The Weaver page names runs/events/evidence from a real contract rather
+    than advertising an unbuilt execute view."""
+    page = _read(WEAVER_PAGE)
+    assert 'import { LabSessionList }' in page
+    assert "<LabSessionList />" in page
+
+
+def test_weaver_page_lists_the_three_record_classes():
+    """Each governance record class is rendered distinctly and labelled as what
+    it is, not as a later stage."""
+    component = _read(COMPONENT)
+    for testid in ("lab-runs", "lab-events", "lab-evidence"):
+        assert f'data-testid="{testid}"' in component
+    # Each class carries a distinct empty state (an empty ledger is not a failure).
+    for testid in ("lab-runs-empty", "lab-events-empty", "lab-evidence-empty"):
+        assert f'data-testid="{testid}"' in component
+    # Evidence is explicitly not a verdict; a run is an execution record.
+    assert "not a verdict" in component
+    assert "is not an executed run" in component
+
+
+def test_weaver_page_advertises_only_a_served_contract():
+    """The advertised `contract=` string must be a served path (its parameter
+    name may differ), so a page cannot advertise execution it does not perform.
+    """
+    import re
+
+    from api.main import app
+
+    advertised = re.findall(r'contract="([^"]+)"', _read(WEAVER_PAGE))
+    assert advertised, "the Weaver page advertises no blocked state -- the check would be vacuous"
+    served = {re.sub(r"\{[^}]*\}", "{}", p) for p in app.openapi()["paths"].keys()}
+    for value in advertised:
+        normalized = re.sub(r"\{[^}]*\}", "{}", value)
+        assert normalized in served, f"advertised contract {value!r} is not a served path"
+
+
+def test_weaver_ledger_does_not_assert_acceptance():
+    """The record ledger must not render an earlier stage as acceptance."""
+    component = _read(COMPONENT)
+    assert "review boundary" in component
+    assert "acceptance is a separate human act" in component
+
+
+def test_session_view_backend_supplies_the_three_record_arrays():
+    """The ledger reads `runs`/`events`/`evidence` from the session view; those
+    keys must be the ones `session_view` returns."""
+    view = _read(LAB_RUNTIME)
+    block = view.split("def session_view", 1)[1].split("def overview", 1)[0]
+    for key in ('"runs": runs', '"events": events', '"evidence": evidence'):
+        assert key in block, f"session_view does not return {key!r}"
+
+
+
+# ---------------------------------------------------------------------------
+# Artifact canvas (slice 03), surfaced on the Engineering Lab page
+# ---------------------------------------------------------------------------
+
+CANVAS = CONSOLE / "src" / "components" / "lab" / "LabArtifactCanvas.tsx"
+
+
+def test_lab_page_renders_the_artifact_canvas():
+    page = _read(PAGE)
+    assert 'import { LabArtifactCanvas }' in page
+    assert "<LabArtifactCanvas />" in page
+
+
+def test_canvas_reads_the_declared_artifacts_endpoint():
+    component = _read(CANVAS)
+    assert "endpoints.labArtifacts" in component, "the canvas must use the canonical endpoint map"
+
+
+def test_canvas_issues_no_mutating_request():
+    assert mutating_calls(_read(CANVAS)) == []
+
+
+def test_canvas_does_not_reference_the_mutating_lab_endpoints():
+    component = _read(CANVAS)
+    for path in MUTATING_LAB_PATHS:
+        assert path not in component, f"canvas reaches for the mutating Lab path '{path}'"
+
+
+def test_canvas_renders_unavailable_content_honestly():
+    """The truthfulness rule: an artifact with no captured content must render
+    the backend's reason, never a fabricated placeholder."""
+    component = _read(CANVAS)
+    assert "unavailable_reason" in component
+    assert 'data-testid="lab-canvas-unavailable"' in component
+    # It must not present a false success from an empty response.
+    assert "No artifacts captured" in component
+
+
+def test_canvas_declares_actions_but_does_not_wire_them():
+    """Declared actions are affordances, not authority; a non-interactive label
+    is the honest rendering."""
+    component = _read(CANVAS)
+    assert "actions.join" in component
+    assert "not wired" in component
+
+
+# ---------------------------------------------------------------------------
+# Deployed-agent registry (slice 04), surfaced on the Engineering Lab page
+# ---------------------------------------------------------------------------
+
+AGENTS = CONSOLE / "src" / "components" / "lab" / "LabAgentRegistry.tsx"
+
+
+def test_lab_page_renders_the_agent_registry():
+    page = _read(PAGE)
+    assert 'import { LabAgentRegistry }' in page
+    assert "<LabAgentRegistry />" in page
+
+
+def test_agent_registry_reads_the_declared_agents_endpoint():
+    component = _read(AGENTS)
+    assert "endpoints.labAgents" in component
+
+
+def test_agent_registry_issues_no_mutating_request():
+    """Deploying an agent is a mutating act; it must not be wired here."""
+    assert mutating_calls(_read(AGENTS)) == []
+
+
+def test_agent_registry_does_not_reference_the_mutating_lab_endpoints():
+    component = _read(AGENTS)
+    for path in MUTATING_LAB_PATHS:
+        assert path not in component, f"agent registry reaches for the mutating Lab path '{path}'"
+
+
+def test_agent_registry_frames_capabilities_as_a_ceiling_not_a_grant():
+    component = _read(AGENTS)
+    assert "not a grant" in component
+    assert "not authority" in component
+
+
+def test_agent_registry_renders_an_empty_state():
+    assert 'data-testid="lab-agents-empty"' in _read(AGENTS)
+
