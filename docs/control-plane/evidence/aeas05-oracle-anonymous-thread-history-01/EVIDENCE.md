@@ -117,3 +117,37 @@ head `f5775304` re-measured at **14/14 check-runs success**; PR #449 is `mergeab
 - The pre-rebase tree `e1f5b0e0` was based on `7b672157`; it is superseded by `f5775304`.
 - An earlier local attempt rebased onto `7097d6a4` (producing `972d64ed`) was discarded
   because publishing it would have required a force-push. No force-push was performed.
+
+## Open-PR queue inventory (measured at main `7097d6a4`, 2026-10-11T15:5xZ)
+
+Swept for composition against this change (`ArkanaThreadHistory.tsx`,
+`tests/test_prism_w4_arkana_thread_history.py`, this evidence path):
+
+| PR | draft | mergeable | head | touches this change? | note |
+|----|-------|-----------|------|----------------------|------|
+| #450 | yes | clean | `22b15091` | no | knowledge timeline-window copy |
+| #449 | no | clean | `ab419fc5` | self | 14/14 success |
+| #448 | yes | **dirty** | `95b1676a` | no | lab remote-userinfo redaction; based on `7b672157`, needs advance onto `7097d6a4` |
+| #447 | yes | clean | `b547412a` | no | console-contract gate-inventory derivation |
+| #436 | no | unknown | `4eb6e4a0` | no | `AGENTS.md` only |
+| #432 | yes | unknown | `e4b555ca` | no | `console-contract` failure; 21 files |
+
+`#447` and `#450` **both** modify `.github/workflows/prism-console-contract.yml`; if both are
+ever merged, that file needs review as a pair. Neither adds or removes
+`tests/test_prism_w4_arkana_thread_history.py` from the gate domain, so this change composes
+with each.
+
+## Next bounded task (continuity for the next pass)
+
+- **Primary:** human review/merge of #449, then observe the `Canonical Render Browser Smoke`
+  run at the merge commit — the `/oracle` route must stop returning 401 for anonymous visitors.
+  This is the only observation that converts the source claim into a runtime claim.
+- **Next safe workstream (not started, separate):** #448 is `dirty` (conflict) against current
+  `main` and is the oldest unadvanced fix PR; advancing it forward onto `7097d6a4` is bounded
+  and safe, subject to the Lab security surface being an authority-adjacent surface.
+- **Do not:** merge, deploy, or claim production acceptance. Force-push remains forbidden.
+
+## Exact completion condition
+
+`main` contains this change (merge commit), and the merge commit's
+`Canonical Render Browser Smoke` run is `completed/success`.
