@@ -1360,3 +1360,28 @@ Report: starting and ending main SHAs; exact PR inventory and disposition; each 
 - `/solspire/projects` is the real, auth-gated backend contract (`401
   {"detail":"Authentication required"}`) — a UI route must never be placed on `/solspire`,
   which is reserved for that API.
+
+
+---
+
+## Active workstream amendment — Prism UI reconciliation overnight (2026-10-11)
+
+**This dated addendum supersedes conflicting older UI-rebuild instructions and the older AEAS/Weaver hourly-pulse wording where it names Vercel as the production deployment target.** Historical text is retained for provenance; it is not the current instruction.
+
+Read and follow `docs/control-plane/overnight/PRISM-UI-RECONCILIATION.md` on every Upper Hands Engineering Lab / Weaver / Hourly Weaver pulse. It is the current operational contract for reconciling the archived Prism UI with `web/arkadia_console/`. The present console is a scaffold relative to the archived Prism product; the goal is evidence-led feature and interaction reconciliation, not a blind archive restore and not acceptance of the scaffold as feature-complete.
+
+Current starting main supplied and checked for this workstream: `1fd96e767575ade56e953a02fcf8f1db46073336` (PR #415 merge). Re-fetch live `main` and PR state on every pulse; this SHA is a starting observation, not a permanent pin.
+
+### Current deployment boundary correction
+
+The sole canonical production origin is `https://arkadia-qzu4.onrender.com` under ADR-016. The human reports disconnecting Vercel; three post-disconnect observations of the previously triggering branch-push / draft-PR event class produced no Vercel status/deployment, and a positive control demonstrated that the detector still observed the pre-disconnect behavior. Classify the tested event class as **VERIFIED**; provider-side settings themselves remain **REPORTED**, not directly inspected.
+
+From this addendum onward:
+- **Never deploy to, reconnect, promote, or accept Vercel as production.**
+- Do not follow older pulse wording that instructs an agent to discover/deploy Vercel production.
+- Treat an unexpected new Vercel deployment as a boundary regression: record exact evidence and stop for human review.
+- No production deployment, merge, or acceptance is authorized by the overnight UI workstream.
+
+### Branch and review discipline
+
+Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstream's long-lived branch/PR. The accepted four-workstream plan runs alongside it: #423 owns shared shell/route integration, #420 opportunity/NovaNet feature modules, #421 Solariun/Knowledge OS, and #422 Arkana/Weaver/Lab. Read `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` on every pulse; respect its exclusive file ownership and integration protocol. Do not duplicate source changes already owned by another PR. Human merge, production-deployment, and acceptance authority remains final. Follow the route/suffix reconciliation, backend-contract reuse, archive-preservation, evidence, test, and stop conditions in both governing documents.

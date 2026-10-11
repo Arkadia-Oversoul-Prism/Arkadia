@@ -17,6 +17,9 @@ export const endpoints = {
   arkanaResonance: "/api/commune/resonance",
   arkanaThreads: "/api/commune/threads",
 
+  transmissions: "/api/transmissions",
+  echoes: "/api/echoes",
+
   knowledgeStatus: "/api/knowledge/status",
   knowledgeGraph: "/api/knowledge/graph",
   knowledgeTimeline: "/api/knowledge/timeline",

@@ -12,6 +12,7 @@ import { Loading, Page, Panel } from "./components/ui";
 import { SURFACE_BY_ID } from "./lib/surfaces";
 import { useRouter } from "./lib/router";
 import { HomePage } from "./pages/HomePage";
+import { NovaNetPage } from "./pages/NovaNetPage";
 import { ArkanaPage } from "./pages/ArkanaPage";
 import { SolariunPage } from "./pages/SolariunPage";
 import { EngineeringLabPage } from "./pages/EngineeringLabPage";
@@ -53,6 +54,8 @@ function Surfaces() {
     switch (route.surface) {
       case "home":
         return <HomePage onNavigate={navigate} />;
+      case "novanet":
+        return <NovaNetPage section={route.section} onNavigate={navigate} />;
       case "arkana":
         return <ArkanaPage />;
       case "solariun":
