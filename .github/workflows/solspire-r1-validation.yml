@@ -10,6 +10,7 @@ on:
       - 'weaver/execution.py'
       - 'weaver/pass_spec.py'
       - 'tests/test_solspire_r1_governance_convergence.py'
+      - 'tests/test_weaver_mvp2_exec_binding.py'
       - '.github/workflows/solspire-r1-validation.yml'
   workflow_dispatch:
 

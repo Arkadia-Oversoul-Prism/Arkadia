@@ -26,6 +26,19 @@ on:
       # is self-exempt.
       - 'scripts/cp10_mutation_boundary_policy.py'
       - 'tests/test_m02a_ci_gate_integrity.py'
+      # The SolSpire isolated-runtime step (blocking, no continue-on-error)
+      # executes these nine guards and the filter selected none of them, so a
+      # change to one was judged by no gate at all. Kept in step with the
+      # executing step by tests/test_gate_filter_selection.py.
+      - 'tests/test_solspire_project_execution_service.py'
+      - 'tests/test_engineering_lab_candidate_proposals.py'
+      - 'tests/test_solspire_integration_health.py'
+      - 'tests/test_solspire_larder_graph_binding.py'
+      - 'tests/test_solspire_template_health_contract.py'
+      - 'tests/test_phase7_calibration.py'
+      - 'tests/test_phase8_possibility.py'
+      - 'tests/test_phase9_decision_queue.py'
+      - 'tests/test_phase10_binding.py'
       - 'requirements.txt'
       - '.github/workflows/sg-02-fe-2-v.yml'
   pull_request:
@@ -57,6 +70,19 @@ on:
       # is self-exempt.
       - 'scripts/cp10_mutation_boundary_policy.py'
       - 'tests/test_m02a_ci_gate_integrity.py'
+      # The SolSpire isolated-runtime step (blocking, no continue-on-error)
+      # executes these nine guards and the filter selected none of them, so a
+      # change to one was judged by no gate at all. Kept in step with the
+      # executing step by tests/test_gate_filter_selection.py.
+      - 'tests/test_solspire_project_execution_service.py'
+      - 'tests/test_engineering_lab_candidate_proposals.py'
+      - 'tests/test_solspire_integration_health.py'
+      - 'tests/test_solspire_larder_graph_binding.py'
+      - 'tests/test_solspire_template_health_contract.py'
+      - 'tests/test_phase7_calibration.py'
+      - 'tests/test_phase8_possibility.py'
+      - 'tests/test_phase9_decision_queue.py'
+      - 'tests/test_phase10_binding.py'
       - 'requirements.txt'
       - '.github/workflows/sg-02-fe-2-v.yml'
   workflow_dispatch:
