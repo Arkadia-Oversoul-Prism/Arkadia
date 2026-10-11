@@ -40,6 +40,7 @@ import re
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -363,12 +364,44 @@ class CommunicationEndpoint(_CardModel):
     state: ProvenanceState = ProvenanceState.DECLARED
     note: str | None = None
 
-    @field_validator("uri")
-    @classmethod
-    def _has_a_scheme(cls, value: str) -> str:
-        if "://" not in value:
-            raise ValueError("endpoint uri must include a scheme, e.g. 'https://…'")
-        return value
+    @model_validator(mode="after")
+    def _validate_declared_uri(self) -> "CommunicationEndpoint":
+        """Validate syntax and the declared transport without contacting the endpoint.
+
+        HTTPS/WSS require a matching scheme and a non-empty host; malformed
+        ports and embedded userinfo are refused. MCP/A2A use their declared
+        scheme markers. OTHER accepts any absolute URI scheme. These checks
+        establish syntax only, never reachability, ownership, or trust.
+        """
+        if any(ch.isspace() or ord(ch) < 32 or ord(ch) == 127 for ch in self.uri):
+            raise ValueError("endpoint uri must not contain whitespace or control characters")
+        try:
+            parsed = urlsplit(self.uri)
+        except ValueError as exc:
+            raise ValueError("endpoint uri is malformed") from exc
+
+        if not parsed.scheme:
+            raise ValueError("endpoint uri must include an absolute URI scheme")
+        if self.kind is not EndpointKind.OTHER and parsed.scheme.lower() != self.kind.value:
+            raise ValueError(
+                f"endpoint kind '{self.kind.value}' requires URI scheme '{self.kind.value}'"
+            )
+
+        if self.kind in (EndpointKind.HTTPS, EndpointKind.WSS):
+            if not parsed.netloc or not parsed.hostname:
+                raise ValueError("HTTPS/WSS endpoint uri requires a non-empty host")
+            if "@" in parsed.netloc:
+                raise ValueError("HTTPS/WSS endpoint uri must not embed userinfo")
+            try:
+                port = parsed.port
+            except ValueError as exc:
+                raise ValueError("endpoint uri has an invalid port") from exc
+            if port is not None and not 1 <= port <= 65535:
+                raise ValueError("endpoint uri port must be between 1 and 65535")
+        elif self.kind in (EndpointKind.MCP, EndpointKind.A2A) and not parsed.scheme:
+            raise ValueError(f"{self.kind.value.upper()} endpoint uri requires an absolute URI")
+
+        return self
 
 
 class PublicKeyReference(_CardModel):
