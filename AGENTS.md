@@ -1385,3 +1385,41 @@ From this addendum onward:
 ### Branch and review discipline
 
 Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstream's long-lived branch/PR. The accepted four-workstream plan runs alongside it: #423 owns shared shell/route integration, #420 opportunity/NovaNet feature modules, #421 Solariun/Knowledge OS, and #422 Arkana/Weaver/Lab. Read `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` on every pulse; respect its exclusive file ownership and integration protocol. Do not duplicate source changes already owned by another PR. Human merge, production-deployment, and acceptance authority remains final. Follow the route/suffix reconciliation, backend-contract reuse, archive-preservation, evidence, test, and stop conditions in both governing documents.
+
+## A content-derived guard domain grows silently, and sibling PRs compose into a red `main` (gate-hygiene)
+- `tests/test_prism_console_ci_wiring.py` (PR #435, merge `18a450d0`) derives the console-contract
+  domain from `git ls-files` **at test time** and requires
+  `.github/workflows/prism-console-contract.yml` to execute the whole derived domain. The gate names
+  its guards **explicitly**, in three places (the `pull_request` `paths` filter, the `push` `paths`
+  filter, and the executing step). Measured at `main` `17988afd`: derived domain **16**, gate
+  executes **13** — three console guards merged after #435 entered the domain without entering the
+  gate (`test_prism_opportunity_entry_flow.py` #430 `7b378cec`; `test_knowledge_projects_boundary.py`
+  + `test_knowledge_timeline_boundary.py` #431 `bcc6a8b4`). The gate workflow failed on both of
+  those push runs (`38146791182`, `38146795295`), and `main` was red.
+- **This is a composition hazard, not a per-PR defect — no single pull request could have observed
+  it.** #429 (`65403304`) landed *before* the guard existed, so it could not fail; #430 and #431 were
+  branched from `f390526a`, before the guard landed in `18a450d0`. Every PR was green against the
+  tree it was built on. When a guard's domain is **derived from the repository**, adding a matching
+  file on a sibling branch composes into a red `main` even though both branches passed. A
+  content-derived domain cannot be validated by the branch that adds a member to it — only by the
+  composition.
+- **Attribute by node identity, never by count.** The only failing/error nodes that changed between
+  `f390526` (19) and `17988afd` (21) are exactly the two wiring-guard nodes
+  (`test_a_workflow_executes_the_whole_console_contract`,
+  `test_wiring_workflow_is_a_complete_gate_that_selects_itself`); full-suite node set sha256 at
+  `17988afd` is `c2b6e0998382af6f3b75011f5fd8de899d966e68624211990eb2e3e0a3a8c5c4`. The guards
+  themselves were never broken — all 279 tests in the gate step pass. The defect was purely
+  **wiring/selection**.
+- **Repair is bounded to the gate** (9 inserted lines, 1 file): the three guards added to both
+  `paths` filters and the executing step. Prove it with a **live negative control** — remove one
+  guard from the real step, assert both nodes redden (`2 failed, 17 passed`), restore
+  byte-identically and assert `21 passed`. A synthetic fixture would not prove the detector reads
+  the real file.
+- **The recurrence risk is structural and was recorded, not repaired.** A hand-maintained list in
+  three places drifts again on the next console guard. Executing the derived domain directly (a
+  committed `scripts/run_prism_console_contract.py`, or `pytest tests/` with a derived `-k`) removes
+  the class — but it widens an execution surface, so it is a separate bounded workstream for
+  sovereign review. Discovery does not authorize execution.
+- `git push` in this sandbox needs `git config credential.helper '!gh auth git-credential'` and
+  `GIT_TERMINAL_PROMPT=0`; a bare push blocks on an interactive prompt. Evidence:
+  `docs/control-plane/evidence/gate10-prism-console-contract-domain-completion-01/`. PR #439.
