@@ -1,6 +1,6 @@
 # Agent 02 — NovaNet & Project Opportunity Radar
 
-**Branch:** `feat/prism-parallel-02-novanet-opportunity`  
+**Branch:** `feat/prism-next-02-opportunity-backend`  
 **PR:** #420 (draft bootstrap)  
 **Owns:** `src/pages/NovaNetPage.tsx`, NovaNet-only components, opportunity-radar feature modules and their tests/evidence. Shared registries and global shell are not owned here.  
 **Shared contract:** `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` in `main` (accepted via PR #419); fetch/review it before edits.
@@ -28,3 +28,8 @@ Real-contract data flow or honest not-wired state; distinct loading/empty/error/
 ## Next wave — continue immediately after this PR closes
 
 Coordinator direction (2026-10-11): do not stop at the current read-only module. The measured backend blockers are now an authorized next slice in this workstream: `solspire/buyer_recon.py` has a create-entry column/value arity mismatch, and its board schema prevents one subject from holding both workspace and project boards. Reproduce both with focused tests first; implement the smallest safe, backwards-compatible SQLite migration/repair and route-level regression tests. Preserve owner authentication, `UNKNOWN` for unverified facts, and `execution_authority: NONE` / `budget_authority: NONE`; do not weaken authorization or invent commercial facts. Record migration/backfill behavior and test against both a fresh and existing schema. Then integrate and mount the project radar in the existing Projects menu/page, using the actual response shape and requesting Workstream 1 for shared endpoint/type/navigation edits. Keep NovaNet legacy subviews visibly not-wired unless their contracts are verified. If a migration risks existing user data, stop with the exact migration hazard and a safe alternative rather than guessing.
+
+
+## Active branch — next wave
+
+Start from the current main revision observed for this wave: `962434bed1bccb11fbf5edfcb0299317b12a8915`. This branch is already created from that revision. Begin the bounded task in the Next wave section immediately. Do not wait for the coordinator to send another prompt. Keep this PR draft while implementation is in progress; after it merges, create the next branch from fresh main and continue the workstream. Only stop for a concrete security/privacy issue, explicit human authority decision, destructive/data-loss risk without a safe path, or a genuine cross-workstream contract conflict. Record such a blocker in the PR thread with exact evidence; otherwise continue with the next non-overlapping task.
