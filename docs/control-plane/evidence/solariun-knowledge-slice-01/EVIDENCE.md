@@ -173,11 +173,12 @@ test files, so no other node changed outcome.
 error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
 ```
 
-This is **pre-existing on the branch tip** `2c3bf45c`, proven by building a
-detached worktree of that commit alone (same error, no slice applied). It belongs
-to the concurrent search-panel slice and is **not** repaired here — that file is
-not this slice's ownership, and expanding scope to fix an adjacent failure is
-against the shared contract. Recorded for the coordinator.
+This was **pre-existing on the branch tip** `2c3bf45c`, proven by building a
+detached worktree of that commit alone (same error, no slice applied). It was
+initially recorded as "not repaired here" on the assumption it belonged to another
+slice — see §8: `components/knowledge/KnowledgeSearchPanel.tsx` is a Knowledge OS
+feature-local component and therefore **is** Workstream 3's ownership, so it was
+repaired on this branch.
 
 ---
 
@@ -223,3 +224,56 @@ branch baseline before this slice.
   consumer** in the console. Not this slice's capability; recorded as discovery.
 - No deployment identity or production observation is claimed. Render remains
   canonical (ADR-016); nothing was deployed.
+
+---
+
+## 8. Bounded repair — Workstream 3 build blocker (2026-10-11)
+
+**Defect.** `web/arkadia_console/src/components/knowledge/KnowledgeSearchPanel.tsx(133,27)`:
+
+```
+error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+```
+
+The panel types each record as `Record<string, unknown>`, so `record.note_type` is
+`unknown`. `unknown && <jsx>` yields `unknown`, which is not assignable to
+`ReactNode` when used as a JSX child. This is the root cause of **both** red PR #421
+jobs — `validate` and `Build canonical Render image` (`gh run view 38126349544
+--log-failed`, `web/arkadia_console` step, exit code 2). The `docker build` is not
+independently broken; it compiles the same console and hits the same `tsc` error.
+
+**Ownership.** `components/knowledge/` is a Knowledge OS feature-local path
+(`SHARED-CONTRACTS.md` §1, Workstream 3: "Solariun/Knowledge OS page modules and
+feature-local components/tests/evidence"). It is not a shell/router/surfaces/shared
+file, so this is in-workstream, not a drive-by edit. The prior §6a note deferred it
+to the coordinator; that deferral is superseded (see the corrected §6a).
+
+**Fix (minimal).** Derive `noteType` through the existing `asText` helper and gate
+on the string, matching how `title` and `detail` are already computed one line
+above:
+
+```tsx
+const noteType = asText(record.note_type);
+...
+{noteType && <p ...>{noteType}</p>}
+```
+
+**Verification.**
+
+```
+cd web/arkadia_console && corepack pnpm build
+  -> tsc clean; vite build OK (64 modules; index-CP2-Ifkb.js 32.95 kB)
+python -m pytest tests/test_solariun_knowledge_slice_01.py tests/test_knowledge_os_boundary.py -q
+  -> 24 passed
+python -m pytest tests/test_frontend_arkadia_console_rebuild_01.py \
+  tests/test_canonical_frontend_routing.py \
+  tests/test_aeas05_canonical_frontend_acceptance.py \
+  tests/test_documented_route_contract.py -q
+  -> 38 passed
+python -m pytest tests/architecture -q   -> 11 passed
+python -m py_compile api/main.py         -> OK (api/main.py untouched)
+```
+
+No behavior change beyond restoring compilation; no endpoint, route, token, or
+authority surface touched. Human retains merge and acceptance.
+

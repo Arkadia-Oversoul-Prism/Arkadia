@@ -126,11 +126,12 @@ export function KnowledgeSearchPanel({ endpoint }: { endpoint: string }) {
                     {records.map((record, index) => {
                       const title = asText(record.title) || asText(record.label) || asText(record.name) || `Record ${index + 1}`;
                       const detail = asText(record.content) || asText(record.description) || asText(record.target_ref) || asText(record.vault_path);
+                      const noteType = asText(record.note_type);
                       return (
                         <li key={asText(record.uuid) || asText(record.id) || `${mode}-${index}`} className="border-l border-line pl-3">
                           <p className="text-sm text-white/85">{title}</p>
                           {detail && <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-xs text-white/45">{detail}</p>}
-                          {record.note_type && <p className="mt-1 font-mono text-[10px] text-white/30">{asText(record.note_type)}</p>}
+                          {noteType && <p className="mt-1 font-mono text-[10px] text-white/30">{noteType}</p>}
                         </li>
                       );
                     })}
