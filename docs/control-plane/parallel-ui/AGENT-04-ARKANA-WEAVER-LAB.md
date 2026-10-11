@@ -1,6 +1,6 @@
 # Agent 04 — Arkana, Weaver & Engineering Lab
 
-**Branch:** `feat/prism-parallel-04-arkana-weaver-lab`  
+**Branch:** `feat/prism-next-04-arkana-threads`  
 **PR:** #422 (draft bootstrap)  
 **Owns:** Arkana/Oracle, Weaver and Engineering Lab feature-local page modules/components/tests/evidence. Exact paths must be discovered from the current tree and archive before edits.  
 **Shared contract:** `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` in `main` (accepted via PR #419); fetch/review it before edits.
@@ -26,3 +26,8 @@ Real backend contract and auth; honest unavailable/error states; tests for unaut
 ## Next wave — continue immediately after this PR closes
 
 Coordinator direction (2026-10-11): continue with Arkana thread history as the next bounded slice. Verify `/api/commune/threads` method, authentication, response schema, and failure behavior from the current handler/OpenAPI; then integrate history in the Arkana page with truthful loading/empty/unavailable/auth states and targeted tests. Request Workstream 1 to add any shared endpoint/type entry rather than editing the registry directly. After that, proceed to Weaver run/event/evidence read surfaces only where actual contracts exist. Keep all state boundaries explicit: proposal is not approval, approval is not execution, execution is not evidence, verification is not acceptance. No mutating Lab controls or provider/deployment changes are authorized by this instruction.
+
+
+## Active branch — next wave
+
+Start from the current main revision observed for this wave: `962434bed1bccb11fbf5edfcb0299317b12a8915`. This branch is already created from that revision. Begin the bounded task in the Next wave section immediately. Do not wait for the coordinator to send another prompt. Keep this PR draft while implementation is in progress; after it merges, create the next branch from fresh main and continue the workstream. Only stop for a concrete security/privacy issue, explicit human authority decision, destructive/data-loss risk without a safe path, or a genuine cross-workstream contract conflict. Record such a blocker in the PR thread with exact evidence; otherwise continue with the next non-overlapping task.
