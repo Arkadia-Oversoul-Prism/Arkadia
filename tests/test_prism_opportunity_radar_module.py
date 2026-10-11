@@ -22,29 +22,26 @@ Recorded capability matrix (status per row):
   | project ownership enforcement                  | WORKS (404 for non-owner)  |
   | reconnaissance-only authority block            | PRESENT                    |
   | unverified facts default to `UNKNOWN`          | PRESENT                    |
-  | project + workspace board coexist              | **BROKEN — defect 2**      |
-  | project/workspace entry **create** (POST)      | **BROKEN — defect 1**      |
+  | project + workspace board coexist              | **REPAIRED — was defect 2** |
+  | project/workspace entry **create** (POST)      | **REPAIRED — was defect 1** |
 
-**Defect 1 — entry create arity.** `BuyerReconManager.create_entry` supplies 34
-values to a 33-column `buyer_recon_entries` table, so *every* create raises
-`sqlite3.OperationalError: table buyer_recon_entries has 33 columns but 34
-values were supplied`.
+**Defect 1 — entry create arity (REPAIRED).** `BuyerReconManager.create_entry`
+was supplying 34 values to a 33-column `buyer_recon_entries` table. `create_entry`
+now names its columns explicitly (`_ENTRY_COLUMNS`) so the arity cannot drift.
+The pin below asserts the repair holds on a live create, on both scopes.
 
-**Defect 2 — one board per subject.** `buyer_recon_boards` declares
+**Defect 2 — one board per subject (REPAIRED).** `buyer_recon_boards` declared
 `subject_ref TEXT NOT NULL UNIQUE`, while `_project_board` keys the board by
-`f"{workspace.id}:project:{project_id}"`. The UNIQUE is on the *subject*, not on
-the composite, so a subject can hold exactly one board: whichever scope is read
-second raises `sqlite3.IntegrityError: UNIQUE constraint failed:
-buyer_recon_boards.subject_ref` → HTTP 500. Since `/solspire/buyer-recon` (the
-workspace board) is the natural first read, the **project-scoped radar is
-unreachable for any subject who has opened the workspace board** — which is the
-blocker for this workstream's project-level slice.
+`f"{workspace.id}:project:{project_id}"`. The unique constraint is now the
+composite `(workspace_ref, subject_ref)`, so one subject may hold one workspace
+board **and** one board per project. Existing databases are migrated in place by
+`_migrate_boards`; the migration rebuilds the table transactionally, copying
+every row, and is idempotent on an already-migrated database.
 
-Both were introduced at `5de6d476` (PR #199, 2026-10-02) and are reachable on the
-live deployment. They are pinned below as the *current* measured state; repairing
-either edits `solspire/buyer_recon.py`, which is outside this workstream's owned
-paths, so they are recorded as a proposed workstream rather than fixed. When they
-are repaired, these pins must be re-pointed to the working contract.
+Both repairs are owned by this workstream under `SHARED-CONTRACTS.md` §1/§7.1.
+The four former defect pins are re-pointed below to the repaired contract, and
+the migration is measured explicitly (fresh vs. legacy schema) in
+`tests/test_buyer_recon_board_contract.py`.
 
 Negative controls are included so a detector that returns a constant would be
 caught: the auth pin is proven to fire without an identity and to pass with
@@ -52,7 +49,6 @@ one, and the ownership pin is proven to fire for a non-owner.
 """
 from __future__ import annotations
 
-import re
 import time
 from pathlib import Path
 
@@ -69,6 +65,8 @@ from solspire.console_router import router as console_router
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_TS = ROOT / "web/arkadia_console/src/components/opportunities/opportunityRadarContract.ts"
 SURFACE_TS = ROOT / "web/arkadia_console/src/components/opportunities/ProjectOpportunityRadar.tsx"
+SECTION_TS = ROOT / "web/arkadia_console/src/components/opportunities/OpportunityRadarSection.tsx"
+SOLSPIRE_PAGE_TS = ROOT / "web/arkadia_console/src/pages/SolSpirePage.tsx"
 
 OWNER = {"uid": "subject-owner", "access_level": 1}
 OTHER = {"uid": "subject-other", "access_level": 1}
@@ -110,11 +108,12 @@ def _make_project(name: str, owner_uid: str) -> str:
 
 
 def _seed_entry(board_id: str, subject_ref: str, prospect: str) -> str:
-    """Insert a row through the store's own table so the read path can be exercised.
+    """Insert a row through the store's own table to measure the read path.
 
-    The create *route* is broken (see the module docstring), so a seeded row is
-    the only way to measure the read contract. Only NOT-NULL-without-default
-    columns are supplied; the table defaults the rest, including `UNKNOWN`.
+    The read contract is exercised here with a row written directly and with the
+    route-created row (`test_create_entry_persists_with_declared_arity`). Only
+    NOT-NULL-without-default columns are supplied; the table defaults the rest,
+    including `UNKNOWN`.
     """
     entry_id = f"seed-{prospect.lower().replace(' ', '-')}"
     with buyer_recon._db() as conn:
@@ -222,8 +221,8 @@ def test_unknown_project_resolves_to_not_found(app):
 def test_project_board_is_a_distinct_scope_from_the_workspace_board(app):
     """The project board is keyed `{workspace}:project:{id}`, so its id is its own.
 
-    Read in isolation, the project board is a distinct scope. The *coexistence*
-    of the two scopes is the defect pinned below.
+    Read in isolation, the project board is a distinct scope. Its *coexistence*
+    with the workspace board for one subject is asserted separately.
     """
     project_id = _make_project("Radar project", OWNER["uid"])
     client = _client(app, OWNER)
@@ -233,13 +232,12 @@ def test_project_board_is_a_distinct_scope_from_the_workspace_board(app):
     assert project_board["lifecycle"] == "active"
 
 
-def test_recorded_defect_project_and_workspace_board_cannot_coexist(app):
-    """MEASURED DEFECT 2, pinned as current state — re-point when repaired.
+def test_workspace_and_project_board_coexist_for_one_subject(app):
+    """REPAIRED DEFECT 2 — re-pointed from the prior defect pin.
 
-    `buyer_recon_boards.subject_ref` is UNIQUE while the project board is keyed
-    on the composite workspace ref, so the second scope read for one subject
-    raises `IntegrityError` → HTTP 500. The workspace board is the natural first
-    read, which makes the project radar unreachable for that subject.
+    `buyer_recon_boards` no longer constrains `subject_ref` alone; the scope is
+    the composite `(workspace_ref, subject_ref)`. One subject therefore holds its
+    workspace board **and** a distinct board per project, in any read order.
     """
     project_id = _make_project("Radar project", OWNER["uid"])
     client = _client(app, OWNER)
@@ -248,60 +246,68 @@ def test_recorded_defect_project_and_workspace_board_cannot_coexist(app):
     assert workspace_read.status_code == 200, "the workspace board read is the working path"
 
     project_read = client.get(f"/solspire/buyer-recon/projects/{project_id}")
-    assert project_read.status_code == 500, "the project board read no longer resolves once a board exists"
+    assert project_read.status_code == 200, "the project board must resolve alongside the workspace board"
+    assert project_read.json()["board"]["id"] != workspace_read.json()["board"]["id"]
 
     with buyer_recon._db() as conn:
         boards = conn.execute(
             "SELECT COUNT(*) FROM buyer_recon_boards WHERE subject_ref=?", (OWNER["uid"],)
         ).fetchone()[0]
-    assert boards == 1, "only one board may exist per subject — that is the defect"
+    assert boards == 2, "a subject holds one workspace board and one project board"
 
 
-def test_recorded_defect_project_board_first_then_workspace_also_fails(app):
-    """The collision is order-independent: either second read fails."""
+def test_workspace_board_first_then_project_board_also_coexists(app):
+    """The repaired contract is order-independent: either read order succeeds."""
     project_id = _make_project("Radar project", OWNER["uid"])
     client = _client(app, OWNER)
     assert client.get(f"/solspire/buyer-recon/projects/{project_id}").status_code == 200
-    assert client.get("/solspire/buyer-recon").status_code == 500
+    assert client.get("/solspire/buyer-recon").status_code == 200
+
+
+def test_two_project_boards_for_one_subject_are_distinct(app):
+    """The composite scope is per-project, so a second project board is its own."""
+    first = _make_project("Radar A", OWNER["uid"])
+    second = _make_project("Radar B", OWNER["uid"])
+    client = _client(app, OWNER)
+    board_a = client.get(f"/solspire/buyer-recon/projects/{first}").json()["board"]
+    board_b = client.get(f"/solspire/buyer-recon/projects/{second}").json()["board"]
+    assert board_a["id"] != board_b["id"]
+    assert board_a["workspace_ref"] != board_b["workspace_ref"]
 
 
 # ---------------------------------------------------------------------------
-# Recorded defect pin — the create path
+# Repaired pin — the create path
 # ---------------------------------------------------------------------------
 
 
-def test_recorded_defect_create_entry_arity_mismatch(app):
-    """MEASURED DEFECT, pinned as current state — re-point when repaired.
+def test_create_entry_persists_with_declared_arity(app):
+    """REPAIRED DEFECT 1 — re-pointed from the prior defect pin.
 
-    `create_entry` passes 34 values into a 33-column table, so no prospect can be
-    captured on any scope. Introduced at `5de6d476` (PR #199). Repairing it edits
-    `solspire/buyer_recon.py`, which this workstream does not own.
+    `create_entry` names its columns explicitly, so the value tuple and the table
+    columns cannot drift. A create now returns `201` and the row reads back.
     """
     source = (ROOT / "solspire/buyer_recon.py").read_text(encoding="utf-8")
-    insert = re.search(r"INSERT INTO buyer_recon_entries\s*\n\s*VALUES \((.*?)\)\"\"\"", source, re.S)
-    assert insert, "create_entry INSERT not found — the pin needs re-deriving"
-    placeholders = insert.group(1).count("?")
-
-    # Count the real table's columns, not a regex over the DDL.
-    with buyer_recon._db() as conn:
-        columns = len(conn.execute("PRAGMA table_info(buyer_recon_entries)").fetchall())
-    assert placeholders == 34 and columns == 33, "the arity mismatch changed; re-point this pin"
+    # The insert names its columns; a bare `VALUES (?,?,…)` cannot be re-derived
+    # from the source any more, which is exactly what the repair changed.
+    assert "INSERT INTO buyer_recon_entries ({columns})" in source, "the insert must name its columns"
+    assert "_ENTRY_COLUMNS" in source, "the column tuple must be derived from the dataclass"
 
     project_id = _make_project("Radar project", OWNER["uid"])
     response = _client(app, OWNER).post(
         f"/solspire/buyer-recon/projects/{project_id}/entries", json={"prospect": "Test Buyer"}
     )
-    assert response.status_code == 500
+    assert response.status_code == 201, response.text
 
     with buyer_recon._db() as conn:
         rows = conn.execute("SELECT COUNT(*) FROM buyer_recon_entries").fetchone()[0]
-    assert rows == 0, "no entry may persist through the broken create path"
+    assert rows == 1, "the created entry must persist"
 
 
-def test_recorded_defect_also_breaks_the_workspace_scope(app):
-    """The same arity defect is shared by both scopes — it is one manager method."""
+def test_create_entry_works_on_the_workspace_scope_too(app):
+    """The arity repair is shared by both scopes — it is one manager method."""
     response = _client(app, OWNER).post("/solspire/buyer-recon/entries", json={"prospect": "Test Buyer"})
-    assert response.status_code == 500
+    assert response.status_code == 201, response.text
+    assert response.json()["entry"]["prospect"] == "Test Buyer"
 
 
 # ---------------------------------------------------------------------------
@@ -355,3 +361,56 @@ def test_landed_surface_renders_distinct_states_and_invents_no_commercial_facts(
     # No execute/spend surface and no invented commercial claims.
     for invented in ("BUYER_COMMITMENT_SIGNED", "budget_ngn", "contract_value", "revenue", "onClick={handleExecute"):
         assert invented not in surface, f"the surface must not imply transaction authority ({invented})"
+
+
+# ---------------------------------------------------------------------------
+# Projects-surface mount — source-level, matching this repo's console style
+# ---------------------------------------------------------------------------
+
+
+def test_mount_section_selects_a_project_and_delegates_the_read():
+    """The section owns selection; the landed surface owns the read states."""
+    section = SECTION_TS.read_text(encoding="utf-8")
+    assert "<ProjectOpportunityRadar readPath={projectBoardPath(selected)} />" in section, (
+        "the section must delegate the read to the landed surface with a derived path"
+    )
+    assert 'import { projectBoardPath } from "./opportunityRadarContract";' in section
+    assert "projects.map((project) => (" in section, "options must come from the returned projects, never a fixed id"
+
+
+def test_mount_section_invents_no_project_or_commercial_fact():
+    section = SECTION_TS.read_text(encoding="utf-8")
+    # No transport of its own; the path comes from the contract module's helper.
+    for forbidden in ("fetch(", "http://", "https://", "VITE_API_URL", "API_BASE"):
+        assert forbidden not in section, f"the section must not resolve transport ({forbidden})"
+    assert "readPath={" in section, "the section must hand the landed surface a derived path"
+    # No execute/spend control and no invented commercial claim.
+    for invented in ("budget_ngn", "contract_value", "revenue", "onClick={handleExecute"):
+        assert invented not in section, f"the section must not imply transaction authority ({invented})"
+
+
+def test_mount_section_states_an_empty_project_list_honestly():
+    section = SECTION_TS.read_text(encoding="utf-8")
+    assert "No projects exist in this workspace yet" in section
+    assert "This is not an empty" in section, "an empty project list must not read as an empty opportunity board"
+
+
+def test_projects_surface_mounts_the_opportunity_radar_section():
+    """The Projects surface (SolSpire, inventory Slice D) renders the section.
+
+    The section only renders once the project list is `ready`, so a failed list
+    read cannot be presented as an empty opportunity board.
+    """
+    page = SOLSPIRE_PAGE_TS.read_text(encoding="utf-8")
+    assert "import { OpportunityRadarSection }" in page
+    assert "<OpportunityRadarSection projects={projects.data.projects} />" in page
+    assert 'projects.state === "ready" && projects.data' in page
+
+
+def test_negative_control_the_mount_pins_are_not_vacuous():
+    """Prove the mount detectors fail on the pre-mount page text."""
+    pre_mount = 'import { Page } from "../components/ui";\nexport function SolSpirePage() { return null; }\n'
+    assert "OpportunityRadarSection" not in pre_mount
+    assert "readPath={projectBoardPath(selected)}" not in pre_mount
+    assert "No projects exist in this workspace yet" not in pre_mount
+
