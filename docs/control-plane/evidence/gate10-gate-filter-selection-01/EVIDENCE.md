@@ -162,3 +162,49 @@ Full open inventory at this pass: **#458** (this PR), **#457**, **#455** (draft,
 **#447** (draft), **#436**, **#432** (draft). Files shared with this branch: only
 `sg-02-fe-2-v.yml` (#432), analysed above.
 
+### 8.1 Recurrence-risk guards: each premise is measured, not asserted
+
+Both guards that share this pass's defect class were tested against unpatched `main`
+@ `850216fc`, so the claim "this gate does not execute the whole domain" is a
+measurement rather than a restatement.
+
+- **#457 (economic-seam).** Its premise holds: `economic_seams/` is named by **seven**
+  guards and `economic-seam-engine.yml` executes five. `tests/test_economic_seam_authority_boundary.py`
+  (2 seam references) and `tests/test_m02a_ci_gate_integrity.py` (the CP10 coupling to the
+  seam, `tests/test_m02a_ci_gate_integrity.py:334-357`) are the two it does not run.
+  Its judge reddens on the unpatched workflow — `2 failed, 17 passed, 2 skipped` on
+  `test_a_workflow_executes_the_whole_economic_seam_contract` and
+  `test_wiring_workflow_is_a_complete_gate_that_selects_itself` — and is **green when
+  composed with this branch** (`133 passed`, including `test_m02a_ci_gate_integrity.py`).
+  Its `tests/**` filter widening is therefore a *superset*, not a narrowing, and this
+  branch's filter-selection guard does not object to it.
+- **#447 vs #450 — a second, unrecorded same-file collision.** Both edit
+  `.github/workflows/prism-console-contract.yml`, and they do **not** compose textually:
+  `UU` on that file in **three** hunks. #447 replaces the enumerated guard list with
+  `$(python scripts/console_contract_domain.py)`; #450 adds enumerated entries. Resolved
+  to the derivation, the derived domain (17 paths) **subsumes every path #450 adds**
+  (checked with `comm -13`; no missing entries) and the composition is green
+  (`92 passed`). This is the same merge-order constraint as #432: **#447 is
+  derivation-correct and #450 is additive, so #447 must land first and #450 must take
+  the derivation.** Note this is a *different* file from the #432 collision, so the
+  console-contract gate is the collision locus for two independent PR pairs.
+
+## 9. Measured baseline at this pass (full suite, same environment)
+
+`main` @ `850216fc` vs branch head `3a68eb4c`, full suite, `-q -rEf
+--continue-on-collection-errors`:
+
+| tree | result |
+|---|---|
+| `main` `850216fc` | 18 failed / 2642 passed / 21 skipped / 1 error (182.28s) |
+| branch `3a68eb4c` | 18 failed / 2686 passed / 21 skipped / 1 error (184.16s) |
+
+Failing/error **node set is byte-identical** — 19 nodes, `sha256
+777a3a9ef1f5cee98695e15e35eef7962f437b91719fb59e3cb2d8183886a94c` on both trees,
+`comm -3` empty. The `+44 passed` is exactly this branch's new guard node count, not a
+behavioural change elsewhere.
+
+The historical contract fingerprint (804/54/12, architecture 9/10) does **not**
+reproduce in this environment and is not used: attribute by node identity, never by
+totals. `tests/architecture` is 11/11 here, as recorded elsewhere in `AGENTS.md`.
+
