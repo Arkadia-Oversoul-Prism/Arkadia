@@ -22,3 +22,8 @@ Reconcile personal workspace, capture, knowledge exploration/search, and related
 
 ## Acceptance
 Evidence-backed route/API contract; real data and honest states; tests for personal/public separation and auth denial; typecheck/build; keyboard/mobile checks when affected; exact SHA and baseline comparison; unknowns recorded rather than filled by assumption.
+
+
+## Next wave — continue immediately after this PR closes
+
+Coordinator direction (2026-10-11): continue with the next feature-local vertical slice; do not wait for a new prompt. Verify the exact `POST /api/knowledge/search` handler, request/response schema, and owner-filter behavior. Mount `KnowledgeSearchPanel` in `KnowledgePage.tsx` only after confirming the shared endpoint registry contains the verified path; if it does not, send Workstream 1 a precise integration request and continue with a non-conflicting Knowledge OS task. Add tests for private/public separation, auth behavior, loading/empty/error states, and no fabricated results. Then reconcile the timeline and file browsing capabilities from the archive one at a time, implementing only real backend contracts. Preserve the backend's personal/public boundary; never apply a client-side filter as a substitute for server authorization.
