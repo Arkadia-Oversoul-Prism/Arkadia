@@ -10,8 +10,9 @@ Reconcile archived Prism shell/navigation/visual primitives with the active `web
 
 ## First tasks
 1. Reconstruct current `main`, PR #418, the archive shell files, current shared components/tokens, and route guards. Record exact SHAs and overlapping paths.
+2. **PR #418 overlap gate:** until PR #418 is merged or a human explicitly chooses a split, do not edit `App.tsx`, `lib/router.ts`, `lib/surfaces.ts`, `components/SurfaceLenses.tsx`, `endpoints.ts`, `types.ts`, or `tests/test_console_shell_nav_contract.py` because these are already changed in #418. Work first in this instruction/contract documentation and a new, separately named contract-test file only if it adds non-duplicative coverage. Submit proposed source changes as an interface/diff plan, not direct edits to overlapping paths.
 2. Produce a compact shared-interface contract: route declaration shape, navigation callback shape, design-token usage, API registry/type contribution protocol, and responsive/accessibility rules.
-3. Compare the existing #418 shell changes against main and archive. Do not duplicate them blindly; #418 remains an open draft until human/coordinator decides whether to retain or re-home its implementation.
+3. Compare the existing #418 shell changes against main and archive. Treat #418 as the current implementation candidate; do not duplicate it or re-home it automatically.
 4. Implement only shared-shell/integration improvements that are independently bounded and tested. Coordinate API constants/types through reviewed patches from feature owners.
 5. Keep `tests/test_console_shell_nav_contract.py` non-vacuous with positive and negative controls. Check actual FastAPI route collisions, not only Vite catch-all behavior.
 
