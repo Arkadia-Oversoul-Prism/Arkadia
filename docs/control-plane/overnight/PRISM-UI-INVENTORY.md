@@ -245,3 +245,70 @@ remain `UNKNOWN` and require contract discovery before any surface is added.
 - No claim that `https://arkadia-qzu4.onrender.com` serves this change; the
   console has not been deployed with it.
 - No Vercel path used, promoted, or treated as evidence (directive §8).
+
+### Pulse 5 — governance conflict measured; `/nexus/*` alias defect recorded
+
+Full record:
+`docs/control-plane/evidence/prism-ui-reconciliation-pulse5-governance-conflict-01/EVIDENCE.md`.
+No source edit this pass — the conflict below is a hard stop, not a patchable
+defect (contract §1/§4; directive §03/§09).
+
+**Finding 1 — `main` accepted a contract that re-homes this PR's files.**
+`docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` is present on `main` and
+self-describes as **ACCEPTED** (PR #419, merged `a29a9b8f`; verified
+`closed`/`merged`, ancestor of `origin/main`). §2 assigns `App.tsx`, `lib/router.ts`,
+`lib/surfaces.ts`, `components/SurfaceLenses.tsx`, `lib/endpoints.ts`,
+`lib/types.ts` and `tests/test_console_shell_nav_contract.py` to **workstream 1**,
+and §6 supersedes the one-branch rule for the four named workstreams. All four
+workstream PRs are open (#420–#423); **#423** (workstream 1) deliberately does not
+edit the overlapping paths, and its body says so. §2 also reserves #418's
+disposition to the human/coordinator: *"Do not cherry-pick, split, close, or
+rewrite #418 automatically."*
+
+Governance asymmetry to preserve: the `parallel-ui/` contract is **on `main`**,
+while the directive it would amend (`overnight/PRISM-UI-RECONCILIATION.md`) is
+**absent on `main`** and exists only on this branch. This branch therefore holds
+the directive's one-PR rule while `main` holds the contract that re-homes its files.
+
+**Finding 2 — `/nexus/*` deep links fall through to `home` (measured, not inferred).**
+`PATH_ALIASES` maps only the exact `/nexus`; alias resolution precedes path
+parsing, so `/nexus/ims|grove|larder|distribution` resolve to `home`. Executed
+under Node 24 against the verbatim `router.ts`/`surfaces.ts`:
+
+```
+/nexus -> novanet   /nexus/ims -> home   /nexus/grove -> home
+/nexus/larder -> home   /nexus/distribution -> home   /novanet/ims -> novanet (section ims)
+```
+
+Legacy binding confirmed from the archive (`…/public_prism/src/App.tsx:71-72`).
+This **corrects pulse-4**, which recorded those sub-views as rendering an explicit
+`NotYetWired` state — true of `/novanet/<lens>`, not of the legacy `/nexus/<sub>`
+URLs. The one-line fix belongs to workstream 1 (`router.ts`), the same seam as
+Finding 1, so it is recorded as a handoff rather than implemented here.
+`/api/ims/inquiries` remains sovereign-key gated while `apiClient` sends a Bearer
+token only, so alias restoration and an honest blocked state are separable — the
+alias fix does not by itself claim the IMS contract is serviceable.
+
+### Pulse-5 checks
+
+| Check | Result |
+|---|---|
+| `pytest tests/test_console_shell_nav_contract.py -q -rEf` | **20 passed** |
+| CP10 mutation boundary (`--judge`) | **PASS** (exit 0) |
+| `main` delta `d2670ce8..8dcb78d2` | 2 docs files, +107; no console source change |
+
+### Next bounded move (proposed, not implemented)
+
+**Sovereign/coordinator decision required before further source work on this
+branch.** The bounded ask: disposition of PR #418 relative to the accepted
+four-workstream contract. Until it is decided, source work on
+workstream-1-owned files is blocked. The smallest non-overlapping handoff that
+does not require that decision is the `/nexus/*` alias restoration for
+workstream 1 to apply (Finding 2).
+
+### Pulse-5 explicit non-claims
+
+- No merge, no deployment, no production acceptance. PR #418 remains a **draft**.
+- No claim that `https://arkadia-qzu4.onrender.com` serves this change.
+- No Vercel path used, promoted, or treated as evidence (directive §8).
+- Finding 2 is a source-level router measurement, not a runtime/device observation.
