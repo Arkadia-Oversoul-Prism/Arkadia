@@ -25,3 +25,37 @@
 ## Required evidence
 
 Verified route/schema; owner/public isolation tests and negative controls; loading/empty/error tests; typecheck/build; exact base/head SHAs; baseline comparison; unknowns and next bounded task.
+
+## Status — 2026-10-11 (issue #437 follow-up)
+
+**Active branch:** `feat/prism-next2-03-knowledge-timeline-latest-2` (PR #431 is
+closed history; PR #445 closed as a duplicate).
+**Active PR:** [#450](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/450) — draft, head `22b15091`.
+**Base:** `7b67215735945584e89fec50f97fe74dddfcbf28`.
+
+**Issue #437 was fixed on `main` while this pass ran** (PR #442, merge `56ada9dd`,
+issue closed). PR #445 duplicated that; it was closed, not merged. #450 is the
+non-duplicate residual on top of #442, and changes **no backend file**.
+
+Delivered (reader-side only): the panel's `first` fact renamed to `oldest shown`
+(it named `events[0]`, which under #442's newest window is only the oldest event
+*still shown*); a `window` fact (`newest`/`complete`) and an extent notice derived
+from the response; `TIMELINE_WINDOW_LIMIT` and the window vocabulary in
+`knowledgeContracts.ts`. #442's `latest` is now pinned by a test rather than left
+implied.
+
+**Gate lesson (new):** `tests/test_prism_console_ci_wiring.py` derives the
+console-contract domain from `git ls-files` at test time. A test module that
+*names* the console joins that domain, and the executing gate must select the
+whole domain **in the same change** — so adding such a test requires editing
+`.github/workflows/prism-console-contract.yml` too. Corollary: because the domain
+is tracked-content-derived, a **newly added but still untracked** guard is
+invisible to it and the guard passes *vacuously* until commit. Measure parity
+after committing, not before.
+
+Evidence: `docs/control-plane/evidence/prism-next2-knowledge-timeline-window-02/EVIDENCE.md`.
+
+**Next bounded task (non-overlapping):** a bounded "load older events" control on
+the measured `offset` contract; or `GET /api/knowledge/projects/{name_or_uuid}`,
+which needs a registry path builder (Workstream 1's file) — a request, not an edit.
+
