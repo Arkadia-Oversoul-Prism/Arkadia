@@ -31,10 +31,46 @@ def _dependency_callables(dependant: Any) -> Iterable[Any]:
 def _name(call: Any) -> str:
     return getattr(call, "__name__", call.__class__.__name__)
 
-def _boundary(route: APIRoute) -> tuple[list[dict[str, list[Any]]], dict[str, Any]]:
+def _join_path(prefix: str, path: str) -> str:
+    if not prefix:
+        return path
+    if path == prefix or path.startswith(prefix.rstrip("/") + "/"):
+        return path
+    return prefix.rstrip("/") + "/" + path.lstrip("/")
+
+
+def _route_bindings(routes: Iterable[Any], prefix: str = "", inherited: tuple[Any, ...] = ()):
+    """Flatten FastAPI's lazy included-router wrappers while preserving prefixes."""
+    for item in routes:
+        if isinstance(item, APIRoute):
+            yield _join_path(prefix, item.path), item, inherited
+            continue
+        original_router = getattr(item, "original_router", None)
+        if original_router is not None:
+            context = getattr(item, "include_context", None)
+            child_prefix = _join_path(prefix, getattr(context, "prefix", "") or "")
+            child_dependencies = tuple(getattr(context, "dependencies", ()) or ())
+            yield from _route_bindings(
+                getattr(original_router, "routes", ()),
+                child_prefix,
+                inherited + child_dependencies,
+            )
+            continue
+        nested = getattr(item, "routes", None)
+        if nested:
+            yield from _route_bindings(nested, prefix, inherited)
+
+
+def _boundary(
+    route: APIRoute, inherited_dependencies: tuple[Any, ...] = (), effective_path: str | None = None
+) -> tuple[list[dict[str, list[Any]]], dict[str, Any]]:
     calls = list(_dependency_callables(route.dependant))
-    names = {_name(call) for call in calls}
-    path = route.path
+    inherited_calls = [
+        getattr(dependency, "dependency", dependency)
+        for dependency in inherited_dependencies
+    ]
+    names = {_name(call) for call in calls + inherited_calls}
+    path = effective_path or route.path
 
     if path in PUBLIC_CAPABILITY_PATHS and "require_lab_auth" in names:
         return [], {
@@ -88,9 +124,8 @@ def install_openapi_security(app: FastAPI) -> None:
             "description": "Firebase ID token verified by Arkadia's auth dependency.",
         }
         routes = {
-            (route.path, method.lower()): route
-            for route in app.routes
-            if isinstance(route, APIRoute)
+            (effective_path, method.lower()): (route, inherited_dependencies)
+            for effective_path, route, inherited_dependencies in _route_bindings(app.routes)
             for method in route.methods or ()
             if method.lower() in HTTP_METHODS
         }
@@ -98,15 +133,16 @@ def install_openapi_security(app: FastAPI) -> None:
             for method, operation in path_item.items():
                 if method.lower() not in HTTP_METHODS or not isinstance(operation, dict):
                     continue
-                route = routes.get((path, method.lower()))
-                if route is None:
+                binding = routes.get((path, method.lower()))
+                if binding is None:
                     operation["security"] = []
                     operation["x-arkadia-auth-boundary"] = {
                         "classification": "unmatched_openapi_operation",
                         "review_required": True,
                     }
                     continue
-                security, boundary = _boundary(route)
+                route, inherited_dependencies = binding
+                security, boundary = _boundary(route, inherited_dependencies, path)
                 operation["security"] = security
                 operation["x-arkadia-auth-boundary"] = boundary
         app.openapi_schema = schema
