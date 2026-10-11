@@ -162,6 +162,20 @@ corepack pnpm install --frozen-lockfile && corepack pnpm build   (web/arkadia_co
 
 `node v24.21.0` / `pnpm 10.26.1` measured in this environment.
 
+### Independent reproduction in CI
+
+The `frontend` job ("Console typecheck and build", `tsc -b && vite build`) and the
+`Build canonical Render image` job (which builds `web/arkadia_console` per the
+root `Dockerfile`) both passed on head `1c0edeae`. The Render image job emitted
+
+```
+dist/assets/index-CHe0g7FZ.js   70.28 kB
+```
+
+— the **same asset hash and byte size** as the local build recorded above, so the
+bundle CI produced is the bundle measured here. `frontend` and `boot-syntax`
+passed, as did the full-history secret scan.
+
 ---
 
 ## 7. Measured suite delta
