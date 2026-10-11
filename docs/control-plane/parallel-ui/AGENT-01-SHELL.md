@@ -1,7 +1,7 @@
 # Agent 01 — Shell, Navigation, Design System & Integration
 
-**Branch:** `feat/prism-parallel-01-shell-implementation`  
-**PR:** #423 (implementation workstream; governance contract is merged in main)  
+**Branch:** `feat/prism-next-01-shell-integration`  
+**PR:** next-wave shell/integration PR from current `main`  
 **Owns:** `App.tsx`, `lib/router.ts`, `lib/surfaces.ts`, `components/SurfaceLenses.tsx`, shared shell/tokens, shared shell/navigation contract tests, and integration of shared endpoint/type registries.  
 **Contract:** read `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` first.
 
@@ -28,3 +28,8 @@ Archive/source paths; route map; files changed; targeted test commands/results; 
 ## Next wave — continue immediately after this PR closes
 
 Coordinator direction (2026-10-11): do not wait for another conversational prompt. After the current PR is merged, fetch fresh `main` and start a new branch/PR from it. First, resolve the integration requests already recorded by feature owners: (1) add a typed `labSession(id)` path helper to the shared endpoint registry only after re-verifying the actual GET handler and URL encoding; (2) integrate Workstream 2's project Opportunity Radar only after its backend contract and ownership checks are verified. Keep endpoint/type registry edits here; do not take over feature-local implementation. Run the endpoint-registry guard, shell/route tests, TypeScript/build, and route-table collision checks. Continue into the next highest-value archived shell/navigation gap when no shared-interface request is pending. Stop only for an actual authority, security, or unresolved contract conflict; record exact evidence and continue on a non-conflicting task where possible.
+
+
+## Active branch — next wave
+
+Start from the current main revision observed for this wave: `962434bed1bccb11fbf5edfcb0299317b12a8915`. This branch is already created from that revision. Begin the bounded task in the Next wave section immediately. Do not wait for the coordinator to send another prompt. Keep this PR draft while implementation is in progress; after it merges, create the next branch from fresh main and continue the workstream. Only stop for a concrete security/privacy issue, explicit human authority decision, destructive/data-loss risk without a safe path, or a genuine cross-workstream contract conflict. Record such a blocker in the PR thread with exact evidence; otherwise continue with the next non-overlapping task.
