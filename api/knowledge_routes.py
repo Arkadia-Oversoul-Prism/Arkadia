@@ -330,12 +330,25 @@ async def get_timeline(
     until: Optional[str] = None,
     limit: int = Query(100, le=500),
     offset: int = 0,
+    newest_first: bool = True,
 ):
+    """Read a bounded window of the owner's timeline.
+
+    A bounded read must answer "what happened most recently", so the default
+    window is the newest ``limit`` events, returned in ascending ``id`` order —
+    the last row is the newest event in the log, not merely the newest of the
+    oldest page. ``offset`` pages backwards from the newest event.
+
+    ``newest_first=false`` restores the oldest-first window (``offset`` pages
+    forward from the first event) for callers walking the whole log from its
+    beginning. Either way the response stays chronological.
+    """
     from knowledge import timeline as tl
     return tl.query(
         event_type=event_type, project_id=project_id, note_id=note_id,
         since=since, until=until, limit=limit, offset=offset,
         user_id=await _optional_user_id(request),
+        newest_first=newest_first,
     )
 
 

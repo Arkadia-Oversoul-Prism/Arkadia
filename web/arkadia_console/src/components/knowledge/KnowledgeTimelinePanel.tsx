@@ -13,6 +13,12 @@
  * the client already holds) and never reports a filtered answer as an empty
  * log. It applies no ownership filter of its own: a client-side filter cannot
  * prove a server-side boundary.
+ *
+ * The read is a *window*, not the whole log (issue 437). It asks for
+ * `TIMELINE_WINDOW_LIMIT` events and the backend returns the **newest** ones in
+ * ascending order, so the final row is the log's newest event and `latest` is
+ * truthful past 100 events. When the window is saturated the panel says older
+ * events exist beyond it rather than presenting the page as the complete log.
  */
 import { useState } from "react";
 import { Panel, Facts, ContractState } from "../../components/ui";
@@ -22,10 +28,13 @@ import { apiRequest, ApiError } from "../../lib/apiClient";
 import { endpoints } from "../../lib/endpoints";
 import {
   TIMELINE_EVENT_TYPES,
+  TIMELINE_WINDOW_LIMIT,
   classifyTimelineScope,
   emptyTimelineNotice,
   isTimelineEvents,
+  isWindowSaturated,
   timelineEventSummary,
+  timelineWindowNotice,
   type TimelineEvent,
   type ViewerKind,
 } from "../../pages/knowledge/knowledgeContracts";
@@ -50,9 +59,9 @@ export function KnowledgeTimelinePanel() {
 
   // Derived from the declared collection so the base path cannot drift from the
   // registry; the filter is a query parameter, not a second endpoint.
-  const timelinePath = eventType
-    ? `${endpoints.knowledgeTimeline}?event_type=${encodeURIComponent(eventType)}`
-    : endpoints.knowledgeTimeline;
+  const timelinePath = `${endpoints.knowledgeTimeline}?limit=${TIMELINE_WINDOW_LIMIT}${
+    eventType ? `&event_type=${encodeURIComponent(eventType)}` : ""
+  }`;
 
   const timeline = useHydration<TimelineEvent[]>(timelinePath, readTimeline, [isAuthenticated, eventType]);
 
@@ -101,7 +110,10 @@ function TimelineReading({ events, scope }: { events: TimelineEvent[]; scope: Re
     );
   }
 
+  // The backend returns the newest window in ascending order, so the last row
+  // is the log's newest event and the first row is the oldest one still shown.
   const latest = events[events.length - 1];
+  const window = { limit: TIMELINE_WINDOW_LIMIT, returned: events.length };
 
   return (
     <div className="flex flex-col gap-4" data-testid="knowledge-timeline-events">
@@ -109,10 +121,14 @@ function TimelineReading({ events, scope }: { events: TimelineEvent[]; scope: Re
         rows={[
           { label: "events", value: String(events.length) },
           { label: "scope", value: scope },
-          { label: "first", value: events[0].created_at },
+          { label: "window", value: isWindowSaturated(window) ? "newest" : "complete" },
+          { label: "oldest shown", value: events[0].created_at },
           { label: "latest", value: latest.created_at },
         ]}
       />
+      <p data-testid="knowledge-timeline-window" className="text-xs text-white/45">
+        {timelineWindowNotice(window)}
+      </p>
       <ol className="flex flex-col gap-2">
         {events.map((event) => (
           <li key={event.id} className="border-l border-line pl-3" data-testid={`knowledge-timeline-event-${event.id}`}>

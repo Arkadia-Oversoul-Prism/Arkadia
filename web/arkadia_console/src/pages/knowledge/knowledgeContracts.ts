@@ -182,6 +182,15 @@ export function recordDetail(record: Record<string, unknown>): string {
  * Query: `event_type`, `project_id`, `note_id`, `since`, `until`,
  * `limit` (default 100, `le=500`), `offset`; ascending by `id`.
  *
+ * **The bounded read returns the *newest* window.** A default read used to be
+ * the *oldest* `limit` rows, so `events[events.length - 1]` was the newest of
+ * that page rather than the newest event in the log: past 100 events the real
+ * latest event was simply absent, and the panel labelled the page's last row
+ * `latest` (issue 437). The handler now selects the newest `limit` rows and
+ * still returns them ascending, so the last row *is* the log's newest event.
+ * `events[0]` is therefore the oldest event *in the window*, never the oldest
+ * event in the log, and the copy below says so.
+ *
  * Ownership is *stricter* here than on the graph/search readers. The predicate
  * is `knowledge.timeline._timeline_owner_clause`: an authenticated caller gets
  * `user_id = ?` and an anonymous caller gets `1 = 0`. There is no public corpus
@@ -253,6 +262,42 @@ export function emptyTimelineNotice(scope: TimelineScope): string {
   return scope === "owner"
     ? "This node's timeline holds no events yet. The reader answered — this is an empty log, not a failed read."
     : "The timeline is owner-scoped and no identity is present, so nothing was readable. This is not an empty log.";
+}
+
+/**
+ * The window size a reader asks for. It matches the handler's own default
+ * (`Query(100, le=500)`) so the panel's copy describes the page the backend
+ * actually serves rather than an assumed one.
+ */
+export const TIMELINE_WINDOW_LIMIT = 100;
+
+/** The window contract, stated where the copy that depends on it can read it. */
+export interface TimelineWindow {
+  /** How many events the reader asked the backend for. */
+  limit: number;
+  /** Events actually returned; `< limit` means the whole log is in the window. */
+  returned: number;
+}
+
+/**
+ * A bounded read is a window, not the whole log. Once the backend fills the
+ * requested limit the window is *saturated* and older events exist beyond it —
+ * the reader must say so instead of presenting the page as the complete log.
+ */
+export function isWindowSaturated(window: TimelineWindow): boolean {
+  return window.returned >= window.limit;
+}
+
+/**
+ * Copy for the *start* of the window. The reader returns the newest page, so
+ * `events[0]` is the oldest event still visible — not the log's first event.
+ * Calling it `first` without that qualification is the same class of error as
+ * the `latest` mislabel this window contract exists to fix.
+ */
+export function timelineWindowNotice(window: TimelineWindow): string {
+  return isWindowSaturated(window)
+    ? `Showing the newest ${window.returned} events. The timeline holds older events beyond this window.`
+    : `Showing all ${window.returned} events in this timeline.`;
 }
 
 /** A short, non-invented label for an event: the fields its payload carries. */

@@ -89,7 +89,17 @@ def query(
     limit: int = 100,
     offset: int = 0,
     user_id: Optional[str] = None,
+    newest_first: bool = False,
 ) -> list[dict]:
+    """Read a bounded window of the log.
+
+    ``newest_first`` selects *which* window a bounded read returns: the newest
+    ``limit`` rows — with ``offset`` paging from the newest end towards older
+    rows — instead of the oldest. Rows are always returned in ascending ``id``
+    order either way, so the window stays chronological and its last element is
+    that window's newest event. Defaulting to ``False`` leaves a whole-log replay
+    (``replay_project``) reading from the oldest event, unchanged.
+    """
     conditions: list[str] = []
     params: list = []
     oc, op = _timeline_owner_clause(user_id)
@@ -109,10 +119,14 @@ def query(
         conditions.append("created_at <= ?"); params.append(until)
     where = f"WHERE {' AND '.join(conditions)}"
     params += [limit, offset]
+    order = "id DESC" if newest_first else "id ASC"
     rows = execute(
-        f"SELECT * FROM timeline {where} ORDER BY id ASC LIMIT ? OFFSET ?",
+        f"SELECT * FROM timeline {where} ORDER BY {order} LIMIT ? OFFSET ?",
         tuple(params),
     )
+    if newest_first:
+        # DESC selects the newest window; the contract returns it chronologically.
+        rows = list(reversed(rows))
     for r in rows:
         try:
             r["payload"] = json.loads(r["payload"])
