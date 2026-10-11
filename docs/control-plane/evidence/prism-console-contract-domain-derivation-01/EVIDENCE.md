@@ -10,11 +10,35 @@ truth and adds the regression that fails when a guard is added but not executed.
 Authority: read-only reconstruction, repository mutation on a dedicated branch, PR.
 No merge, no deployment, no production acceptance. `main` is untouched.
 
+## 0. Superseding measurement — a competing fix landed first
+
+While this pass ran, `main` advanced and a **competing bounded fix** merged:
+`b8869c04 gate10: complete console-contract gate coverage`. It repaired the same
+instance by **extending the fixed list** from twelve to sixteen (adding the three new
+guards to both `paths` filters and to the executing step).
+
+| Fact | Value |
+| --- | --- |
+| `main` at first observation | `17988afdde8460cfcaf778258bc43aed1fc9d21f` (red: 21 nodes) |
+| competing fix | `b8869c04` (extends the fixed list) |
+| `main` after rebase (this pass's base) | `7b67215735945584e89fec50f97fe74dddfcbf28` (green: 19 nodes) |
+
+The two fixes overlap but are **not** equivalent:
+
+- `b8869c04` repairs the **instance** — the next console guard to arrive re-opens the
+  same hole.
+- this pass removes the **class** — the gate derives its inventory, so a new guard is
+  executed without editing the gate, and `tests/test_prism_console_ci_wiring.py` fails
+  if the gate ever goes back to a fixed inventory.
+
+This branch is therefore rebased onto `7b672157` and the sections below are
+**re-measured at that base**, not at the superseded `17988afd`.
+
 ## 1. Reconstruction — the PR to repair is already merged
 
 | Fact | Value |
 | --- | --- |
-| `main` (observation time 2026-10-11T14:4xZ) | `17988afdde8460cfcaf778258bc43aed1fc9d21f` |
+| `main` (first observation 2026-10-11T14:4xZ) | `17988afdde8460cfcaf778258bc43aed1fc9d21f` |
 | PR #435 | `state=closed`, `merged=true` at `2026-10-11T14:17:29Z` |
 | PR #435 merge commit | `18a450d0e4a07db4e6ce20af51bd6582481680b9` |
 | PR #435 head | `b16d066506fe70dfbb6bf5743364f7e7f8bb815b` |
@@ -24,7 +48,7 @@ merged #435 branch. Per the merge policy a merged PR is not a PR to update, so t
 repair lands on a **new** branch `gate10/prism-console-contract-domain-derivation-01`
 and a new PR.
 
-## 2. The measured defect (at `main` `17988afd`)
+## 2. The measured defect (at `main` `17988afd`, before `b8869c04`)
 
 The gate's executing step named a **fixed list of twelve** guards. The wiring judge
 (`tests/test_prism_console_ci_wiring.py::_console_domain`) **derived** its domain from
@@ -89,37 +113,39 @@ Invariant 4 stays scoped to the *complete* gate(s): `sg-02-fe-2-v.yml`'s
 `continue-on-error: true` suite step is recorded pre-existing debt owned by another
 workstream. Recorded, not repaired.
 
-## 5. Proof
+## 5. Proof (all re-measured at `main` `7b672157` / branch `bdea8891`)
 
 ### 5.1 Wiring guard
 
 ```
 python -m pytest tests/test_prism_console_ci_wiring.py -q -rEf
-# 30 passed in 3.77s
+# 30 passed in 4.00s
 ```
 
 ### 5.2 The domain guards execute
 
 ```
 python -m pytest $(python scripts/console_contract_domain.py) -q
-# 309 passed in 12.59s     (16 guards, whole derived domain)
+# 310 passed in 11.64s     (16 guards, whole derived domain)
 ```
 
 ### 5.3 Live negative controls (real workflow file, restored byte-identically)
 
 Each mutation applied to `.github/workflows/prism-console-contract.yml`, the guard run,
-then the file restored from a copy and verified with `sha256sum -c`:
+then the file restored from a copy and verified with `sha256sum -c`
+(`854c46393690ccab43f974bfafddb280692e3fbf4ca94fb044f2518d2c246400`):
 
 | Mutation | Guard result |
 | --- | --- |
-| executing step → fixed 12-guard list (the post-#435 shape) | `3 failed, 25 passed, 2 skipped` |
+| executing step → fixed 15-guard list (the `b8869c04` shape) | `1 failed, 29 passed` |
 | job-level `continue-on-error: true` on the real gate | `2 failed, 26 passed, 2 skipped` |
-| one guard's `tests/**` filter entry narrowed to a single guard | `2 failed, 28 passed` |
+| `tests/**` filter narrowed to a single guard | `3 failed, 99 passed` |
 | restore | `.github/workflows/prism-console-contract.yml: OK` |
 
-The fixed-list mutation reddens `test_real_gate_inventory_is_derived_not_fixed` **and**
-the two complete-gate nodes — the invariant reports both the drift and the missing
-derivation. The narrowed filter also reddens
+The fixed-list mutation reddens `test_real_gate_inventory_is_derived_not_fixed` — the
+invariant reports the missing derivation directly. The narrowed filter reddens
+`test_complete_gate_is_selected_by_everything_it_judges`,
+`test_real_gate_selects_a_guard_added_after_the_gate`, **and**
 `tests/test_ci_gate_trigger_coverage.py::test_push_and_pull_request_filters_are_identical`,
 confirming the broadened filter is still judged for symmetry.
 
@@ -150,34 +176,32 @@ needed.
 
 ### 5.6 Regression — failing/error node SET
 
-Both trees measured in this same environment with
+Both trees measured **in this same environment** with
 `python -m pytest tests/ -q -rEf --continue-on-collection-errors`:
 
 | Tree | Result | Failing/error nodes |
 | --- | --- | --- |
-| `main` `17988afd` (baseline) | `20 failed, 2566 passed, 19 skipped, 1 error` | 21 |
-| branch | `18 failed, 2579 passed, 17 skipped, 1 error` | 19 |
-
-`comm -3` on the sorted node lists carries exactly **two** lines, both repaired nodes:
+| `main` `7b672157` (baseline) | `18 failed, 2605 passed, 17 skipped, 1 error` | 19 |
+| branch `bdea8891` | `18 failed, 2614 passed, 17 skipped, 1 error` | 19 |
 
 ```
-tests/test_prism_console_ci_wiring.py::test_a_workflow_executes_the_whole_console_contract
-tests/test_prism_console_ci_wiring.py::test_wiring_workflow_is_a_complete_gate_that_selects_itself
+comm -3 /tmp/main2-nodes.txt /tmp/branch2-nodes.txt     # empty
+sha256(main2-nodes.txt)   == 716df34bc5a6ad51dd122ffb09175f1be7883f85a5f4bc07dc12831109b0a45e
+sha256(branch2-nodes.txt) == 716df34bc5a6ad51dd122ffb09175f1be7883f85a5f4bc07dc12831109b0a45e
 ```
 
-Zero new failures; the two that clear are the drift defects this pass repairs. The
-skipped count drops 19 → 17 for the same reason — the two `test_complete_gate_*`
-parametrisations had *no case* to run on `main` (empty `_complete_gates()`) and now run.
+Zero new failures, zero repaired — because `b8869c04` already cleared the two drift
+nodes on `main`, and this pass adds no failing node. (The superseded `17988afd` delta
+was `21 → 19`, `comm -3` carrying exactly those two nodes.)
 
-The `+13 passed` is attributed by `--collect-only`, not inferred:
+The `+9 passed` is attributed by `--collect-only`, not inferred:
 
-| File | `main` | branch |
+| File | `main` `7b672157` | branch `bdea8891` |
 | --- | --- | --- |
 | `tests/test_prism_console_ci_wiring.py` | 21 | 30 |
-| whole suite (collected) | 2604 | 2613 |
+| whole suite (collected) | 2639 | 2648 |
 
-+9 collected is exactly the new wiring nodes; the remaining passed-delta is the two
-repaired nodes moving from failing to passing and the two skipped nodes now running.
++9 collected is exactly the new wiring nodes.
 
 ## 6. Limitations and next action
 
