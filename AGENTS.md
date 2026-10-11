@@ -1512,7 +1512,40 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
 - Other non-collapses this surface pins: `observed != authorized` (the `governance` block is
   a declared ceiling, never a granted permission), `partial != observed` (a failed collector
   is an unobserved section, **not a zero**), and absent governance != autonomy.
-- **Measured at `f390526a` (slices 06 + 07 + 08):** 94 new test nodes (18 + 19 + 16 + 16 + 12
-  + 13, matching the `+94 passed` delta exactly); failing/error node set `521c63e1...`
-  **identical** to `main` (28 nodes, `diff` empty). Build clean
-  (`dist/assets/index-DtxIHBST.js` 83.37 kB).
+
+## A green CI job can run none of your tests — check *execution*, not the conclusion (gate-hygiene, Workstream 4)
+- The 13 checks on PR #432 were all genuinely green, and **none of them executed the 94
+  Workstream 4 test nodes**. The only broad-suite step, `sg-02-fe-2-v.yml` `CP10-B broader
+  backend regression`, is `continue-on-error: true` **and** runs a bare `python -m pytest
+  tests/ -q`, which aborts at the CE-01 `weaver.autonomy` collision — measured in the PR's own
+  run `38145078942`: `ERROR tests/test_autonomy.py` / `Interrupted: 1 error during collection`
+  / `1 skipped, 1 warning, 1 error in 6.24s`. `provider-routing.yml` is the workflow that uses
+  `--continue-on-collection-errors`, but it is path-filtered to `weaver/**`, `providers/**`,
+  `tests/architecture/**` and two named files, so this branch never selected it. This is the
+  documented class ("a guard no workflow executes is decoration") in its **adjacent, still-open
+  form**: not "aborts at a collection error" but "the workflow that would run it was never
+  selected".
+- **The tell is a step log that ends in a collection error, not a failing test.** `grep -n
+  "Interrupted" <cp10 log>` is the one-line check. A `pytest tests/ -q` step that is
+  `continue-on-error: true` cannot gate anything anyway, so wiring a new guard into *that* step
+  would have been doubly useless.
+- **Repair shape:** a dedicated **judging** step (no `continue-on-error`) that runs the guards
+  **by name**, the files added to **both** `push` and `pull_request` path filters (asserted
+  identical), and `test '${{ steps.<id>.outcome }}' = success` added to the enforcement step.
+  A new guard must be added to all three or it is still decoration.
+- **A test that can skip must have its precondition asserted elsewhere.** The `lab/overview`
+  projection is a `.ts` module executed directly, needing native TypeScript stripping
+  (node >= 23.6). `_node()` skips below that version — so if CI's node were older, the
+  credential-redaction guard would silently skip while the job stayed green. The workflow's
+  node version (24.x) is therefore asserted in the wiring guard, and the skip names its
+  requirement instead of failing opaquely.
+- **Run the new guard before believing it.** `tests/test_prism_w4_ci_wiring.py` bit on its
+  first run with 9 failures: 2 were **real pre-existing gaps on this branch** (slices 02–05's
+  `test_prism_w4_lab_read_model.py` and `test_prism_w4_arkana_thread_history.py` were also
+  executed by no workflow) and 1 was a defect in the guard's own matcher (comparing a full
+  relative path against a basename). Prove the detector on the **real** file, then restore:
+  adding `continue-on-error: true` to the judging step → 10 failed; dropping one trigger path
+  from the `push` filter only → 2 failed. `cmp` the file back to byte-identical afterwards.
+- Measured at `f390526a` (slices 06–08 + wiring): 121 new nodes (18+19+16+16+12+13+27,
+  matching `+121 passed`); failing/error node set `521c63e1…` **identical** to `main`
+  (28 nodes, `diff` empty); CP10 boundary `--judge` PASS.

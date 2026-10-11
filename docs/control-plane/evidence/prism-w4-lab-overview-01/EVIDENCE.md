@@ -111,7 +111,60 @@ consumer's, and add a conformance test asserting no `@` userinfo appears in
 
 ---
 
-## 5. Changed paths
+## 6. A second finding — the Workstream 4 guards executed in no CI job
+
+While verifying this slice, I checked whether the new tests actually *run* in CI rather
+than assuming the green checks implied it. They did not.
+
+**Measured in the live run `38145078942` (this PR's own CI):**
+
+```
+CP10-B broader backend regression | python -m pytest tests/ -q
+  ERROR tests/test_autonomy.py
+  !!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+  1 skipped, 1 warning, 1 error in 6.24s
+```
+
+The only step that ran a broad suite is `continue-on-error: true` **and** invokes a bare
+`pytest tests/`, which aborts at the known CE-01 `weaver.autonomy` module-vs-package
+collision — so it executed **zero** tests. `provider-routing.yml`, the workflow that does
+use `--continue-on-collection-errors`, is path-filtered to `weaver/**`, `providers/**`,
+`tests/architecture/**` and two named files, so it was never selected by this branch.
+Net effect: **all 94 Workstream 4 test nodes — including the credential-redaction guard —
+executed in no CI job.** The 13 green checks were real, but none of them ran these tests.
+
+This is the repo's documented class (`tests/test_ci_suite_collection_continuation.py`: "a
+guard no workflow executes is decoration"), in its adjacent, still-open form.
+
+**Repair (in this slice):**
+
+* Added a **judging** step (`CP10-C Workstream 4 read surfaces`, `id: w4_surfaces`, no
+  `continue-on-error`) to `sg-02-fe-2-v.yml` that runs the Workstream 4 guards by name.
+* Added those files to **both** `push` and `pull_request` path filters (they are asserted
+  identical), so a change to a guard reaches the workflow that judges it.
+* Added `test '${{ steps.w4_surfaces.outcome }}' = success` to the enforcement step, so the
+  step's failure fails the job.
+* Made the Node requirement honest: the projection is a `.ts` module executed directly,
+  which needs native TypeScript stripping (node >= 23.6). `_node()` now skips **with a
+  stated reason** below that version instead of failing opaquely — and
+  `test_the_ci_node_version_can_strip_typescript` asserts the workflow's node (24.x) can,
+  because otherwise the redaction guard would silently skip while the job stayed green.
+* New guard `tests/test_prism_w4_ci_wiring.py` (27 tests) states the invariant generically
+  over every Workstream 4 guard, with negative controls.
+
+**The guard bit on first run** — 9 failures, of which 2 were real pre-existing gaps in this
+branch (`test_prism_w4_lab_read_model.py` and `test_prism_w4_arkana_thread_history.py`, from
+slices 02–05, were executed by no workflow either) and 1 was a defect in the guard's own
+path matcher (comparing a full relative path against a basename). All three are repaired.
+
+**Proven on the real workflow, not a synthetic copy.** Mutating `sg-02-fe-2-v.yml` to add
+`continue-on-error: true` to the judging step → **10 failed**; dropping one trigger path from
+the `push` filter only → **2 failed** (the coverage test and the filter-symmetry test). The
+file was restored byte-identically (`cmp` clean) after each.
+
+---
+
+## 7. Changed paths
 
 | Path | Role |
 |---|---|
@@ -120,12 +173,16 @@ consumer's, and add a conformance test asserting no `@` userinfo appears in
 | `web/arkadia_console/src/pages/EngineeringLabPage.tsx` | mounts the surface |
 | `tests/test_prism_w4_lab_overview.py` | handler oracle + execution + redaction (12 tests) |
 | `tests/test_lab_overview_contract.py` | read-only ceiling + redaction wiring (13 tests) |
+| `tests/test_prism_w4_ci_wiring.py` | CI execution/selection/node guards (27 tests) |
+| `.github/workflows/sg-02-fe-2-v.yml` | judging step, trigger paths, enforcement assertion |
 
-No shared file edited.
+`src/lib/endpoints.ts` (shared registry) is **not** edited: `labOverview` was already
+declared. The workflow edit is CI wiring for this slice's own guards, not a shared shell,
+route, endpoint or type registry.
 
 ---
 
-## 6. Measured result
+## 8. Measured result
 
 ```
 PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q -rEf --continue-on-collection-errors
@@ -134,10 +191,10 @@ PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q -rEf --contin
 | Tree | Summary | Failing/error node set sha256 | Nodes |
 |---|---|---|---|
 | `main` `f390526a` | 27F / 2342P / 17S / 1E | `521c63e1b75d3369aa6ca40e96c12268bd9c9b633e7584d514dd421e54ecdebe` | 28 |
-| branch (slices 06 + 07 + 08) | 27F / 2436P / 17S / 1E | `521c63e1b75d3369aa6ca40e96c12268bd9c9b633e7584d514dd421e54ecdebe` | 28 |
+| branch (slices 06 + 07 + 08 + wiring) | 27F / 2463P / 17S / 1E | `521c63e1b75d3369aa6ca40e96c12268bd9c9b633e7584d514dd421e54ecdebe` | 28 |
 
-`diff` on the sorted node sets is **empty**. `+94 passed` == `--collect-only`
-18 + 19 + 16 + 16 + 12 + 13 = **94**.
+`diff` on the sorted node sets is **empty**. `+121 passed` == `--collect-only`
+18 + 19 + 16 + 16 + 12 + 13 + 27 = **121**.
 
 * `tsc --noEmit && vite build` clean; `dist/assets/index-DtxIHBST.js` 83.37 kB.
 * `api/main.py` untouched (2499 lines).

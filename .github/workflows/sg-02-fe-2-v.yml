@@ -26,6 +26,15 @@ on:
       # is self-exempt.
       - 'scripts/cp10_mutation_boundary_policy.py'
       - 'tests/test_m02a_ci_gate_integrity.py'
+      - 'tests/test_prism_w4_run_evidence_trace.py'
+      - 'tests/test_lab_run_trace_contract.py'
+      - 'tests/test_prism_w4_model_gateway.py'
+      - 'tests/test_lab_model_gateway_contract.py'
+      - 'tests/test_prism_w4_lab_overview.py'
+      - 'tests/test_lab_overview_contract.py'
+      - 'tests/test_prism_w4_ci_wiring.py'
+      - 'tests/test_prism_w4_lab_read_model.py'
+      - 'tests/test_prism_w4_arkana_thread_history.py'
       - 'requirements.txt'
       - '.github/workflows/sg-02-fe-2-v.yml'
   pull_request:
@@ -57,6 +66,15 @@ on:
       # is self-exempt.
       - 'scripts/cp10_mutation_boundary_policy.py'
       - 'tests/test_m02a_ci_gate_integrity.py'
+      - 'tests/test_prism_w4_run_evidence_trace.py'
+      - 'tests/test_lab_run_trace_contract.py'
+      - 'tests/test_prism_w4_model_gateway.py'
+      - 'tests/test_lab_model_gateway_contract.py'
+      - 'tests/test_prism_w4_lab_overview.py'
+      - 'tests/test_lab_overview_contract.py'
+      - 'tests/test_prism_w4_ci_wiring.py'
+      - 'tests/test_prism_w4_lab_read_model.py'
+      - 'tests/test_prism_w4_arkana_thread_history.py'
       - 'requirements.txt'
       - '.github/workflows/sg-02-fe-2-v.yml'
   workflow_dispatch:
@@ -212,6 +230,27 @@ jobs:
         working-directory: .
         continue-on-error: true
         run: python -m pytest tests/ -q 2>&1 | tee cp10-backend.log
+      # Workstream 4 read-surface guards. Judging (no continue-on-error): the
+      # `lab/overview` projection tests execute the real `.ts` projection under
+      # Node, and one of them is the credential-redaction guard for
+      # `repository.remote`. A step that cannot fail would leave that guard
+      # unenforced. Node 24.x is set up above, which is what native TypeScript
+      # stripping requires.
+      - name: CP10-C Workstream 4 read surfaces
+        id: w4_surfaces
+        working-directory: .
+        run: |
+          python -m pytest \
+            tests/test_prism_w4_lab_read_model.py \
+            tests/test_prism_w4_arkana_thread_history.py \
+            tests/test_prism_w4_run_evidence_trace.py \
+            tests/test_lab_run_trace_contract.py \
+            tests/test_prism_w4_model_gateway.py \
+            tests/test_lab_model_gateway_contract.py \
+            tests/test_prism_w4_lab_overview.py \
+            tests/test_lab_overview_contract.py \
+            tests/test_prism_w4_ci_wiring.py \
+            -q 2>&1 | tee cp10-w4.log
       - name: Start existing backend runtime
         working-directory: .
         run: nohup env PYTHONPATH=. python -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --log-level info > cp10-backend-runtime.log 2>&1 &
@@ -560,6 +599,7 @@ jobs:
           test '${{ steps.phase9_decision.outcome }}' = success
           test '${{ steps.phase10_binding.outcome }}' = success
           test '${{ steps.lab.outcome }}' = success
+          test '${{ steps.w4_surfaces.outcome }}' = success
           test '${{ steps.backend.outcome }}' = success
           test '${{ steps.backend_ready.outcome }}' = success
           test '${{ steps.api.outcome }}' = success

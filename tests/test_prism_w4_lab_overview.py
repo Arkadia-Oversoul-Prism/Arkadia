@@ -43,6 +43,18 @@ def _node() -> str:
     found = shutil.which("node")
     if not found:
         pytest.skip("node is unavailable, so the projection cannot be executed here")
+    # The projection is a .ts module executed directly, which needs native type
+    # stripping (node >= 23.6, unflagged). On an older node the import fails for a
+    # reason that says nothing about the projection, so skip rather than report a
+    # false defect - and say which version was found.
+    completed = subprocess.run([found, "--version"], capture_output=True, text=True)
+    version = completed.stdout.strip().lstrip("v")
+    try:
+        major, minor = (int(p) for p in version.split(".")[:2])
+    except ValueError:
+        pytest.skip(f"cannot parse node version {version!r}")
+    if (major, minor) < (23, 6):
+        pytest.skip(f"node {version} has no native TypeScript stripping (needs >= 23.6)")
     return found
 
 
