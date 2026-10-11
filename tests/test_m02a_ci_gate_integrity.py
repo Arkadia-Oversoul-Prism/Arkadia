@@ -423,6 +423,55 @@ def test_shipped_research_and_schemas_changeset_passes_policy():
     assert ok is True, msg
 
 
+# ---------------------------------------------------------------------------
+# `federation/` is the Agentic Civic Federation domain contract introduced by
+# issue #433 (federation/agent_card.py, the versioned Agent Card / Passport
+# schema v0.1). It is enumerated in the same change that introduces the tree,
+# because the completeness invariant rejects any tracked surface the allowlist
+# omits: without the entry the first commit touching federation/ would redden the
+# CP10 gate on main.
+# ---------------------------------------------------------------------------
+_FEDERATION_CHANGESET = [
+    "federation/__init__.py",
+    "federation/agent_card.py",
+    "tests/test_federation_agent_card.py",
+    "docs/control-plane/evidence/federation-agent-card-01/EVIDENCE.md",
+]
+
+
+def test_federation_surface_is_legitimate():
+    ok, msg = evaluate_changed_paths(["federation/agent_card.py"])
+    assert ok is True, msg
+
+
+def test_shipped_federation_changeset_passes_policy():
+    """The exact change set this workstream ships must pass the gate it runs under."""
+    ok, msg = evaluate_changed_paths(_FEDERATION_CHANGESET)
+    assert ok is True, msg
+
+
+def test_federation_admission_is_not_overbroad():
+    """Admitting federation/ must not admit its lookalikes or any unknown root."""
+    for path in (
+        "federation_evil/x.py",
+        "federations/x.py",
+        "federation2/agent_card.py",
+        ".federation/agent_card.py",
+    ):
+        ok, msg = evaluate_changed_paths([path])
+        assert ok is False, f"{path} should still be rejected ({msg})"
+
+
+def test_delegated_verdict_admits_federation_and_rejects_lookalikes():
+    """The CLI the workflow executes must reach the same verdict as the API."""
+    for path in _FEDERATION_CHANGESET:
+        rc, out = _run_judge(path)
+        assert rc == 0, f"{path} must be admitted by the delegated judge: {out}"
+    for path in ("federation_evil/x.py", "federations/x.py"):
+        rc, out = _run_judge(path)
+        assert rc != 0, f"{path} must stay outside the boundary"
+
+
 def test_research_and_schemas_admission_is_not_overbroad():
     """Admitting those trees must not weaken the boundary elsewhere.
 
