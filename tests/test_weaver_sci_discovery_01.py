@@ -6,9 +6,9 @@ from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
-SCI_REG = ROOT / "web/public_prism/src/lib/sciCommandRegistry.ts"
-SCI_PAGE = ROOT / "web/public_prism/src/pages/SpiralCommandInterface.tsx"
-APP = ROOT / "web/public_prism/src/App.tsx"
+SCI_REG = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/lib/sciCommandRegistry.ts"
+SCI_PAGE = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/SpiralCommandInterface.tsx"
+APP = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/App.tsx"
 
 
 def _r(p: Path) -> str:

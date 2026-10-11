@@ -31,7 +31,12 @@ MARKER_APP = "arkadia-prism"
 # output directory may name a nested build path; an unlisted directory yields no
 # app and is scored fail-closed.
 KNOWN_ROOT_OUTPUTS: dict[str, str] = {
+    # Historical Prism build input. The UI is archived under
+    # archive/frontend/arkadia-prism, but this path remains the lineage key for
+    # the deployments that were built from it and for the marker list below.
     "web/public_prism": "arkadia-prism",
+    # The new canonical frontend, built from web/arkadia_console.
+    "web/arkadia_console": "arkadia-console",
     "web/console": "console",
 }
 

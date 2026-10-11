@@ -20,14 +20,14 @@ from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
-GATE = ROOT / "web/public_prism/src/pages/LivingGate.tsx"
-GROVE = ROOT / "web/public_prism/src/pages/SpiralGrovePage.tsx"
-CATALOG = ROOT / "web/public_prism/src/data/spiralGroveCatalog.ts"
-APP = ROOT / "web/public_prism/src/App.tsx"
-NAV = ROOT / "web/public_prism/src/components/ArkadiaNavigation.tsx"
-ENTRY = ROOT / "web/public_prism/src/pages/NodeEntry.tsx"
+GATE = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/LivingGate.tsx"
+GROVE = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/SpiralGrovePage.tsx"
+CATALOG = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/data/spiralGroveCatalog.ts"
+APP = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/App.tsx"
+NAV = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/ArkadiaNavigation.tsx"
+ENTRY = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/NodeEntry.tsx"
 PULSE_API = ROOT / "api/pulse.py"
-OFFERINGS = ROOT / "web/public_prism/src/pages/OfferingsPage.tsx"
+OFFERINGS = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/OfferingsPage.tsx"
 
 
 def _r(p: Path) -> str:
@@ -68,7 +68,7 @@ def test_pulse_analyze_endpoint_preserved():
     path: route → caller → transport.
     """
     assert '@router.post("/api/pulse/analyze")' in _r(PULSE_API)
-    pulse = _r(ROOT / "web/public_prism/src/pages/ArkadianPulse.tsx")
+    pulse = _r(ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/ArkadianPulse.tsx")
     assert "/api/pulse/analyze" in pulse
     assert "from '../lib/apiClient'" in pulse or 'from "../lib/apiClient"' in pulse
 
@@ -176,4 +176,4 @@ def test_node_entry_declares_the_ais_signup_boundary():
     # canonical catalogue is unreferenced there while `LivingGate.tsx` — which does import it —
     # is unmounted. "NodeEntry imports the canonical catalogue" and "LivingGate is the A.I.S
     # surface" are mutually exclusive, so the repair requires choosing one. Not patched here.
-    assert (ROOT / "web/public_prism/src/data/spiralGroveCatalog.ts").is_file()
+    assert (ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/data/spiralGroveCatalog.ts").is_file()

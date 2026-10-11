@@ -1,9 +1,9 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-LAB = ROOT / "web/public_prism/src/pages/FutureSkillsChallenge.tsx"
-OFFERINGS = ROOT / "web/public_prism/src/pages/OfferingsPage.tsx"
-LIVING_GATE = ROOT / "web/public_prism/src/pages/LivingGate.tsx"
+LAB = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/FutureSkillsChallenge.tsx"
+OFFERINGS = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/OfferingsPage.tsx"
+LIVING_GATE = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/LivingGate.tsx"
 
 
 def test_w9_lab_persists_anonymous_progress_and_writes_canonical_handoff():

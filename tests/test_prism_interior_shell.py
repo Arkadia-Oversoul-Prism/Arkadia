@@ -2,9 +2,9 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SHELL = ROOT / "web/public_prism/src/components/PrismInteriorShell.tsx"
-NAV = ROOT / "web/public_prism/src/components/ArkadiaNavigation.tsx"
-APP = ROOT / "web/public_prism/src/App.tsx"
+SHELL = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/PrismInteriorShell.tsx"
+NAV = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/ArkadiaNavigation.tsx"
+APP = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/App.tsx"
 
 
 def _rail(shell: str, name: str) -> list[tuple[str, str]]:

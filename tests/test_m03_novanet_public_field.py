@@ -2,10 +2,10 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-NOVANET = ROOT / "web/public_prism/src/pages/NovaNetPage.tsx"
-FIELD = ROOT / "web/public_prism/src/pages/SocialFieldVerified.tsx"
-REASOMATE = ROOT / "web/public_prism/src/components/ReasoMateSurface.tsx"
-APP = ROOT / "web/public_prism/src/App.tsx"
+NOVANET = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/NovaNetPage.tsx"
+FIELD = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/SocialFieldVerified.tsx"
+REASOMATE = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/ReasoMateSurface.tsx"
+APP = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/App.tsx"
 
 
 def test_novanet_page_is_public_field_surface():

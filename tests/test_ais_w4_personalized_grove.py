@@ -2,7 +2,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-GROVE = ROOT / "web/public_prism/src/pages/SpiralGrovePage.tsx"
+GROVE = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/SpiralGrovePage.tsx"
 
 
 def _r():

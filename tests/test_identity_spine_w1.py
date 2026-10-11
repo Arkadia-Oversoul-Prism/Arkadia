@@ -18,7 +18,7 @@ def test_ais_profile_exposes_canonical_identity_spine():
 
 
 def test_node_entry_is_ais_signup_not_a_separate_diagnostic_route():
-    src = read("web/public_prism/src/pages/NodeEntry.tsx")
+    src = read("archive/frontend/arkadia-prism/web/public_prism/src/pages/NodeEntry.tsx")
     assert "WELCOME TO ARKADIA" in src
     assert "Let's form your node." in src
     assert "Form my node" in src
@@ -28,14 +28,14 @@ def test_node_entry_is_ais_signup_not_a_separate_diagnostic_route():
 
 
 def test_personal_field_places_master_profile_at_its_root():
-    src = read("web/public_prism/src/pages/UniversalEchofeildMatrix.tsx")
+    src = read("archive/frontend/arkadia-prism/web/public_prism/src/pages/UniversalEchofeildMatrix.tsx")
     assert "import MasterProfile from './MasterProfile';" in src
     assert "<MasterProfile />" in src
     assert "Personal Codex · EchoField" in src
 
 
 def test_master_profile_is_longitudinal_and_non_destructive():
-    src = read("web/public_prism/src/pages/MasterProfile.tsx")
+    src = read("archive/frontend/arkadia-prism/web/public_prism/src/pages/MasterProfile.tsx")
     assert "/api/me/identity-spine" in src
     assert "Capability Baseline · Spiral Grove" in src
     assert "Relational Index" in src

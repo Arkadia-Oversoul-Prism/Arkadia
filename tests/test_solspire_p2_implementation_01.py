@@ -2,8 +2,8 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXP = ROOT / "web/public_prism/src/components/solspire/SolSpireExperience.tsx"
-DASH = ROOT / "web/public_prism/src/pages/ProjectDashboard.tsx"
+EXP = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx"
+DASH = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/ProjectDashboard.tsx"
 
 
 def test_p2_search_honest_coverage():

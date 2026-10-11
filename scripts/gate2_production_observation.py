@@ -63,6 +63,7 @@ DEPLOYMENT_SCAN_PAGES = 5
 # be placed on a build<->source lineage and must be classified, not assumed.
 KNOWN_FRONTENDS: dict[str, list[str]] = {
     "arkadia-prism": ["web/public_prism/", ":!web/public_prism/dist"],
+    "arkadia-console": ["web/arkadia_console/", ":!web/arkadia_console/dist"],
     "console": ["web/console/", ":!web/console/dist"],
 }
 

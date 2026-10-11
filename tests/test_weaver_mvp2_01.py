@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = str(Path(__file__).resolve().parents[1])
-FRONTEND = Path(REPO_ROOT) / "web/public_prism/src/pages/ProjectDashboard.tsx"
+FRONTEND = Path(REPO_ROOT) / "archive/frontend/arkadia-prism/web/public_prism/src/pages/ProjectDashboard.tsx"
 
 
 @pytest.fixture

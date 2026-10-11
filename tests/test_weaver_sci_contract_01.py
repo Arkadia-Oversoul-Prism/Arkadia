@@ -5,14 +5,14 @@ Boundary freeze only. No product redesign. No new authority.
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SCI_REG = ROOT / "web/public_prism/src/lib/sciCommandRegistry.ts"
-SCI_PAGE = ROOT / "web/public_prism/src/pages/SpiralCommandInterface.tsx"
-APP = ROOT / "web/public_prism/src/App.tsx"
-NAV = ROOT / "web/public_prism/src/components/ArkadiaNavigation.tsx"
-SOL = ROOT / "web/public_prism/src/components/solspire/SolSpireExperience.tsx"
-DASH = ROOT / "web/public_prism/src/pages/ProjectDashboard.tsx"
-NEXUS = ROOT / "web/public_prism/src/pages/NexusPage.tsx"
-MATRIX = ROOT / "web/public_prism/src/pages/UniversalEchofeildMatrix.tsx"
+SCI_REG = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/lib/sciCommandRegistry.ts"
+SCI_PAGE = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/SpiralCommandInterface.tsx"
+APP = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/App.tsx"
+NAV = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/ArkadiaNavigation.tsx"
+SOL = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx"
+DASH = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/ProjectDashboard.tsx"
+NEXUS = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/NexusPage.tsx"
+MATRIX = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/UniversalEchofeildMatrix.tsx"
 
 # The 'nexus' compatibility view now resolves to the canonical 'novanet' view via an
 # explicit redirect rather than a ternary. Same mapping, different expression.

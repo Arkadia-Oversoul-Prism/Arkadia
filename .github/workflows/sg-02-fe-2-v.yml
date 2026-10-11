@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'web/public_prism/**'
+      - 'web/arkadia_console/**'
       - 'spiral_grove/**'
       - 'lab/**'
       - 'api/lab_routes.py'
@@ -30,7 +30,7 @@ on:
       - '.github/workflows/sg-02-fe-2-v.yml'
   pull_request:
     paths:
-      - 'web/public_prism/**'
+      - 'web/arkadia_console/**'
       - 'spiral_grove/**'
       - 'lab/**'
       - 'api/lab_routes.py'
@@ -90,7 +90,7 @@ jobs:
       FIREBASE_WEB_API_KEY: ${{ github.event.inputs.vite_firebase_api_key || '' }}
     defaults:
       run:
-        working-directory: web/public_prism
+        working-directory: web/arkadia_console
     steps:
       - uses: actions/checkout@v4
         with:
@@ -107,10 +107,10 @@ jobs:
         with:
           node-version: 24.x
           cache: pnpm
-          cache-dependency-path: web/public_prism/pnpm-lock.yaml
+          cache-dependency-path: web/arkadia_console/pnpm-lock.yaml
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
-      - name: Build Prism
+      - name: Build Arkadia Console
         run: pnpm build
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -252,7 +252,7 @@ jobs:
           print('Lab response structure PASS; response secret scan PASS')
           PY
       - name: Start existing frontend runtime
-        # Job default cwd is web/public_prism; do not nest --dir web/public_prism again.
+        # Job default cwd is web/arkadia_console; do not nest --dir web/arkadia_console again.
         run: nohup pnpm dev --host 127.0.0.1 --port 5000 > "${GITHUB_WORKSPACE}/cp10-frontend-runtime.log" 2>&1 &
       - name: Frontend readiness
         id: frontend_ready
@@ -270,7 +270,7 @@ jobs:
           raise SystemExit('Frontend readiness FAIL')
           PY
       - name: Install Playwright Chromium
-        # Isolate from web/public_prism/package-lock.json (LOCKFILE-ORIGINATED
+        # Isolate from web/arkadia_console/package-lock.json (LOCKFILE-ORIGINATED
         # package-firewall.replit.local resolved URLs). Install remains mandatory.
         working-directory: ${{ runner.temp }}
         env:

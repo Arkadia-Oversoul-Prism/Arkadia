@@ -1,12 +1,18 @@
 # Build both Arkadia user-facing applications into the canonical Render image.
+# The primary application is the Arkadia Console (web/arkadia_console); the
+# retired Prism UI is archived under archive/frontend/arkadia-prism and is not built.
 FROM node:24-bookworm-slim AS frontend-build
 
 WORKDIR /build
 
-# Primary Arkadia experience: Solariun, Arkana, Canvas, and the existing Prism UI.
-COPY web/public_prism/ ./web/public_prism/
+# Primary Arkadia experience: the Arkadia Console (shell, Arkana, Solariun,
+# Engineering Lab, SolSpire, Knowledge OS, Weaver, About).
+#
+# The retired Prism UI is archived under archive/frontend/arkadia-prism and is
+# intentionally NOT built. See that directory's README for recovery.
+COPY web/arkadia_console/ ./web/arkadia_console/
 RUN npm install --global pnpm@10.26.1 \
- && cd web/public_prism \
+ && cd web/arkadia_console \
  && pnpm install --frozen-lockfile \
  && pnpm run build
 
@@ -51,7 +57,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY . /app
 
 # Replace source-tree output with the deterministic builds from the frontend stage.
-COPY --from=frontend-build /build/web/public_prism/dist /app/web/public_prism/dist
+COPY --from=frontend-build /build/web/arkadia_console/dist /app/web/arkadia_console/dist
 COPY --from=frontend-build /build/web/console/dist /app/web/console/dist
 
 RUN mkdir -p /run

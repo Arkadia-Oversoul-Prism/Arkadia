@@ -3,8 +3,8 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXP = ROOT / "web/public_prism/src/components/solspire/SolSpireExperience.tsx"
-CSS = ROOT / "web/public_prism/src/components/solspire/solspire-canonical.css"
+EXP = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx"
+CSS = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/solspire-canonical.css"
 
 
 def _arkana_overlay_region(src: str) -> str:

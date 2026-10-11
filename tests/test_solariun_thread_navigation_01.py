@@ -13,8 +13,8 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXP = ROOT / "web/public_prism/src/components/solspire/SolSpireExperience.tsx"
-COCKPIT = ROOT / "web/public_prism/src/components/solspire/SolariunHomeCockpit.tsx"
+EXP = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx"
+COCKPIT = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolariunHomeCockpit.tsx"
 
 
 def test_home_cockpit_accepts_a_bounded_navigation_prop():
