@@ -127,7 +127,11 @@ CREATE TABLE IF NOT EXISTS timeline (
 -- ─────────────────────────────────────────────────────────────
 -- REFERENCES  (external citations, URLs, cross-note refs)
 -- ─────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS references (
+-- `references` is a SQL reserved word, so the table name must stay quoted here
+-- (as it already is in `knowledge.search.reference_search`). Unquoted, SQLite
+-- raises "near \"references\": syntax error" and `_apply_schema` silently skips
+-- the statement, leaving the table absent and `/api/knowledge/search` a 500.
+CREATE TABLE IF NOT EXISTS "references" (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     source_note_id INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
     target_ref     TEXT NOT NULL,   -- URL, UUID, or external identifier

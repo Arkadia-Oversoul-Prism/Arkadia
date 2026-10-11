@@ -196,7 +196,10 @@ def timeline_search(
     keyword: Optional[str] = None,
     project_id: Optional[int] = None,
     limit: int = 50,
+    user_id: Optional[str] = None,
 ) -> list[dict]:
+    from knowledge.timeline import _timeline_owner_clause
+
     conditions: list[str] = []
     params: list = []
 
@@ -211,7 +214,11 @@ def timeline_search(
     if project_id is not None:
         conditions.append("project_id = ?"); params.append(project_id)
 
-    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    owner_sql, owner_params = _timeline_owner_clause(user_id)
+    conditions.append(owner_sql)
+    params.extend(owner_params)
+
+    where = f"WHERE {' AND '.join(conditions)}"
     params.append(limit)
 
     rows = execute(
@@ -244,10 +251,13 @@ def graph_search(
 # Project search
 # ─────────────────────────────────────────────────────────────────────────────
 
-def project_search(query: str, limit: int = 20) -> list[dict]:
+def project_search(query: str, limit: int = 20, user_id: Optional[str] = None) -> list[dict]:
+    from knowledge.vault import _project_owner_clause
+    clause, params = _project_owner_clause(user_id)
     return execute(
-        "SELECT * FROM projects WHERE name LIKE ? OR description LIKE ? ORDER BY updated_at DESC LIMIT ?",
-        (f"%{query}%", f"%{query}%", limit),
+        f"SELECT * FROM projects WHERE (name LIKE ? OR description LIKE ?) AND {clause} "
+        f"ORDER BY updated_at DESC LIMIT ?",
+        (f"%{query}%", f"%{query}%", *params, limit),
     )
 
 
@@ -321,14 +331,14 @@ def unified_search(
 
     if "timeline" in modes:
         results["timeline"] = timeline_search(
-            keyword=query, project_id=project_id, limit=min(top_k, 50)
+            keyword=query, project_id=project_id, limit=min(top_k, 50), user_id=user_id
         )
 
     if "graph" in modes and note_id_for_graph is not None:
-        results["graph"] = graph_search(note_id_for_graph, depth=2)
+        results["graph"] = graph_search(note_id_for_graph, depth=2, user_id=user_id)
 
     if "project" in modes:
-        results["project"] = project_search(query, limit=10)
+        results["project"] = project_search(query, limit=10, user_id=user_id)
 
     if "people" in modes:
         results["people"] = people_search(query, limit=10, user_id=user_id)

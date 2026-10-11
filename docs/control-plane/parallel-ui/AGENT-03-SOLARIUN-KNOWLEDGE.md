@@ -32,3 +32,18 @@ Coordinator direction (2026-10-11): continue with the next feature-local vertica
 ## Active branch — next wave
 
 Start from the current main revision observed for this wave: `962434bed1bccb11fbf5edfcb0299317b12a8915`. This branch is already created from that revision. Begin the bounded task in the Next wave section immediately. Do not wait for the coordinator to send another prompt. Keep this PR draft while implementation is in progress; after it merges, create the next branch from fresh main and continue the workstream. Only stop for a concrete security/privacy issue, explicit human authority decision, destructive/data-loss risk without a safe path, or a genuine cross-workstream contract conflict. Record such a blocker in the PR thread with exact evidence; otherwise continue with the next non-overlapping task.
+
+## Slice 01 — verified `POST /api/knowledge/search` (branch `feat/prism-next-03-knowledge-search`)
+
+Evidence: `docs/control-plane/evidence/prism-next-knowledge-search-01/EVIDENCE.md`.
+
+Verified the handler contract, then measured and repaired **three** defects on it:
+the `references` table DDL used an unquoted SQL reserved word (the table was never
+created → **live 500** for the default mode set and `modes=["reference"]`), and
+`unified_search` dispatched `project`/`timeline`/`graph` without `user_id`, so an
+anonymous caller read every owner's private projects and timeline events.
+
+`KnowledgeSearchPanel` is implemented against the verified contract and mounts from
+`KnowledgePage.tsx` **only** when the shared registry carries the path; the registry
+entry is a **Workstream 1** integration request (PR #425). Beyond the slices above,
+the next non-overlapping task is the Knowledge OS timeline read surface.

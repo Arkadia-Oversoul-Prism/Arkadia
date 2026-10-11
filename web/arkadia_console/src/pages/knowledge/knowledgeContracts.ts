@@ -108,3 +108,69 @@ export function scopeNotice(scope: GraphScope, viewer: ViewerKind): string | nul
     ? "No notes are readable in this scope yet."
     : "Only public-corpus notes are readable in this scope; no private material is exposed here.";
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * Knowledge search — POST /api/knowledge/search
+ *
+ * The handler (`api.knowledge_routes.search` -> `knowledge.search.unified_search`)
+ * returns a mapping of *mode name* to a list of records. The mode keys are not
+ * fixed: `unified_search` emits only the modes it was asked for, and an
+ * unrecognised key is simply another retrieved grouping. The moderator is
+ * therefore "is this an object whose every value is an array", not a fixed key
+ * list — a schema this client does not recognise must be an error, never a
+ * silent empty result.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+export type SearchRecords = Record<string, unknown>[];
+export type KnowledgeSearchData = Record<string, SearchRecords>;
+
+/** Modes the handler advertises. `graph` is excluded: it needs a note anchor. */
+export const SEARCH_MODES = [
+  { id: "semantic", label: "Semantic" },
+  { id: "fulltext", label: "Full text" },
+  { id: "tag", label: "Tags" },
+  { id: "timeline", label: "Timeline" },
+  { id: "project", label: "Projects" },
+  { id: "people", label: "People" },
+  { id: "reference", label: "References" },
+] as const;
+
+export function isKnowledgeSearchData(value: unknown): value is KnowledgeSearchData {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  return Object.values(value).every(Array.isArray);
+}
+
+/** Total retrieved records across every returned mode. */
+export function countSearchRecords(data: KnowledgeSearchData): number {
+  return Object.values(data).reduce((sum, records) => sum + records.length, 0);
+}
+
+/**
+ * Read a display title from a retrieved record.
+ *
+ * Records arrive from heterogeneous modes (`notes`, `projects`, `people`,
+ * `references`, `timeline` events), so there is no single title field. When no
+ * known field carries one the record is labelled by its mode and index — a
+ * *position*, never invented content. Fabricating a plausible title here would
+ * present a record the backend did not return.
+ */
+export function recordTitle(record: Record<string, unknown>, mode: string, index: number): string {
+  const candidates = ["title", "label", "name", "target_ref", "event_type", "vault_path"];
+  for (const field of candidates) {
+    const value = record[field];
+    if (typeof value === "string" && value.trim()) return value;
+  }
+  return `${mode} record ${index + 1}`;
+}
+
+/** Secondary copy for a record, drawn only from fields the record carries. */
+export function recordDetail(record: Record<string, unknown>): string {
+  for (const field of ["content", "description", "payload", "target_ref"]) {
+    const value = record[field];
+    if (typeof value === "string" && value.trim()) return value;
+    if (value !== undefined && value !== null && typeof value === "object") {
+      return JSON.stringify(value);
+    }
+  }
+  return "";
+}
