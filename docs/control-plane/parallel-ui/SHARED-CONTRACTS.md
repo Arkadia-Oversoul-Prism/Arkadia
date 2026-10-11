@@ -11,7 +11,7 @@ Active branch map, re-measured 2026-10-11 at `main` `f390526a`. Each branch belo
 
 | Workstream | Branch | PR (draft) | Head observed | Exclusive source ownership | Must not edit |
 |---|---|---|---|---|---|
-| 1. Shell, navigation, design system, integration contracts | `feat/prism-next2-01-shell-contract-map` | #429 | `459c2cd5` | `web/arkadia_console/src/App.tsx`; `src/lib/router.ts`; `src/lib/surfaces.ts`; `src/components/SurfaceLenses.tsx`; shared shell/navigation primitives and tokens; `src/lib/endpoints.ts`; `src/lib/types.ts`; shared shell/endpoint contract tests; this contract and shell instruction | Feature page internals owned by workstreams 2–4 |
+| 1. Shell, navigation, design system, integration contracts | `feat/prism-next2-01-shell-contract-map` | #429 | `616aeae9` | `web/arkadia_console/src/App.tsx`; `src/lib/router.ts`; `src/lib/surfaces.ts`; `src/components/SurfaceLenses.tsx`; shared shell/navigation primitives and tokens; `src/lib/endpoints.ts`; `src/lib/types.ts`; shared shell/endpoint contract tests; this contract and shell instruction | Feature page internals owned by workstreams 2–4 |
 | 2. NovaNet and project Opportunity Radar | `feat/prism-next2-02-opportunity-entry-flow` | #430 | `e6780d47` | `src/pages/NovaNetPage.tsx`; NovaNet-only components; opportunity UI under `src/components/opportunities/**`; scoped buyer-recon board/entry behavior in `solspire/buyer_recon.py` and `solspire/buyer_recon_router.py`; opportunity tests/evidence | App/router/surface registry, global navigation, shared tokens, shared shell tests, unrelated SolSpire authority/authentication behavior |
 | 3. Solariun and Knowledge OS | `feat/prism-next2-03-knowledge-timeline` | #431 | `a2024fba` | Solariun/Knowledge OS page modules and feature-local components/tests/evidence | App/router/surfaces registry, global navigation, shared tokens, shared shell tests, NovaNet files |
 | 4. Arkana, Weaver, Engineering Lab | `feat/prism-next2-04-run-evidence-trace` | #432 | `dcb3e2f2` | Arkana/Oracle, Weaver, Engineering Lab feature-local page modules/components/tests/evidence | App/router/surfaces registry, global navigation, shared tokens, shared shell tests, NovaNet/Solariun files, runtime/authority model |
@@ -96,3 +96,33 @@ The first-wave PRs are merged. The next work begins immediately on fresh branche
 - **Workstream 4:** implement Arkana thread history against the verified `/api/commune/threads` handler, preserving truthful state and human-approval boundaries.
 
 All four agents should continue automatically after each merge. Human attention is required only for an explicit authority decision, a security/privacy risk, a destructive or data-loss migration decision that cannot be made safely, or a genuinely unresolved cross-workstream contract. An external provider failure must be reported with exact evidence but must not block unrelated UI work.
+
+## 8. Shared endpoint/route contract reconciliation — 2026-10-11 (Workstream 1)
+
+Reconciled against the three merged feature slices at `main` `f390526a` (`67696372` shell/endpoints, `11a81fb2` opportunity, `3b606450` knowledge search, `f390526a` arkana/Lab). Every path below was read from `api.main:app`'s served OpenAPI schema in this environment, not from prose.
+
+### 8.1 Registry entries added this pass
+
+| Entry / builder | Value | Served route (verified) | Requester |
+|---|---|---|---|
+| `labAutomations` | `/api/lab/engineering/automations` | `GET` + `POST` (`api/lab_routes.py::list_automations` / `create_automation`) | Workstream 4 (`prism-w4-arkana-thread-history-01/EVIDENCE.md`) |
+| `labCanvas(id)` | derives its base from `endpoints.labArtifacts` | `GET /api/lab/engineering/canvas/{artifact_id}` (`api/lab_routes.py::get_canvas`) | Workstream 4 |
+| `labSession(id)` | unchanged, re-verified | `GET /api/lab/engineering/sessions/{session_id}` | Workstream 4 |
+
+**The canvas route is a sibling, not a sub-resource.** The backend declares `/api/lab/engineering/artifacts` and `/api/lab/engineering/canvas/{artifact_id}`; it does **not** serve `/api/lab/engineering/artifacts/{artifact_id}`, and `/api/lab/engineering/canvas` alone is not a route. A registry entry for the bare canvas root would therefore fail the served-path guard, so the canvas base is *derived* from the declared artifacts collection by substituting its terminal segment. The substitution is asserted, so a registry rename cannot degrade it into a silent no-op that composes a 404. Both the correct and the plausible-but-unserved shape are pinned, with a negative control that feeds the pre-repair composition to the same detector.
+
+### 8.2 Requests examined and declined (with the reason)
+
+| Candidate | Disposition | Evidence |
+|---|---|---|
+| `buyerRecon: "/solspire/buyer-recon"` | **Declined** | Workstream 2's own merged evidence explicitly requests *no* shared constant: "No route, surface id, endpoint constant, or shared type is requested: the contract module carries its own paths and types" (`prism-parallel-02-opportunity-radar-01/EVIDENCE.md` §5). The path is handler-derived in `opportunityRadarContract.ts` from `solspire/buyer_recon_router.py`'s declared routes. Adding a registry entry the owner declined would create a second declaration of the same contract, not a reconciliation. |
+| `knowledgeSearch` | **Already present** | Added by `67696372` (Workstream 1's previous pass). The merged W3 slice (`3b606450`) reads it through the registry shape and compiles against it; the entry is served (`POST /api/knowledge/search`). |
+
+### 8.3 Ownership boundary respected
+
+Workstreams 2–4 own their feature-local contract modules (`opportunityRadarContract.ts`, `knowledgeContracts.ts`, `arkanaThreadsContract.ts`, `LabArtifactCanvas.tsx`, `LabSessionList.tsx`). Their page-local compositions over a declared collection are the *one registry expressed*, which §3.1 permits; this pass did not edit any of them. Where a first-class helper now exists (`labCanvas`, `labSession`), migrating those call sites is the owning workstream's bounded follow-up, not a Workstream 1 edit.
+
+### 8.4 Recorded, not repaired
+
+- `WeaverPage.tsx:56` / `EngineeringLabPage.tsx:58` advertise `contract="/api/lab/engineering/sessions/{id}/execute"`; the served shape is `{session_id}`. Display copy in feature pages; already in the guard's `RECORDED_ADVERTISED_DRIFT`.
+- The registry guard inspects `useHydration` path arguments across `*.tsx`. `apiRequest` read call sites that receive a registry-derived binding (e.g. `ProjectOpportunityRadar`'s `readPath` prop, `KnowledgeGraphPanel`'s `readGraph(path)`) are outside that detector's domain by construction. Widening the detector to every `apiRequest` call is a separate bounded change; it is recorded here rather than executed inside this slice.

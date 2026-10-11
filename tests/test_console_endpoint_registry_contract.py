@@ -78,6 +78,22 @@ def _served_paths() -> set[str]:
     return set(app.openapi()["paths"].keys())
 
 
+def _canvas_route_template(artifacts_path: str, builder_body: str) -> str:
+    """The route template a ``labCanvas`` builder body composes.
+
+    The body is evaluated as *shape*, not executed: the derivation is the
+    ``.replace(/\\/artifacts$/, "/canvas")`` substitution, and the parameter
+    becomes the ``{artifact_id}`` template segment. A body without the
+    substitution keeps the artifacts collection and therefore composes the
+    route the backend does not serve — which is the defect the control feeds
+    to the detector.
+    """
+    base = artifacts_path
+    if re.search(r'\.replace\(\s*/\\/artifacts\$/\s*,\s*"/canvas"\s*\)', builder_body):
+        base = artifacts_path[: -len("/artifacts")] + "/canvas"
+    return f"{base}/{{artifact_id}}"
+
+
 def _hydration_path_arguments(text: str) -> list[str]:
     """The first argument of every ``useHydration<…>(`` call in a page."""
     return re.findall(r"useHydration<[^>]*>\(\s*([^,\n]+)", text)
@@ -282,6 +298,68 @@ def test_lab_session_builder_matches_the_served_route():
     assert re.sub(r"\$\{[^}]+\}", "", body).count("/") == 1, body
 
 
+def test_lab_canvas_builder_derives_from_artifacts_and_encodes():
+    """``labCanvas(id)`` must derive its base from a declared collection and
+    percent-encode the id.
+
+    The base is derived from ``endpoints.labArtifacts`` because the backend
+    serves ``/engineering/canvas/{artifact_id}`` as a **sibling** of
+    ``/engineering/artifacts`` — ``/engineering/canvas`` alone is not a route,
+    so declaring it as a registry entry would fail the served-path test above.
+    """
+    text = ENDPOINTS_PATH.read_text(encoding="utf-8")
+    body = _function_body(text, "labCanvas")
+    assert body, "endpoints.ts declares no `labCanvas(...)` path builder"
+    param = re.search(r"labCanvas\(([^):]*)(?::[^)]*)?\)", text).group(1).strip()
+    assert "endpoints.labArtifacts" in body, "the builder must derive from a declared collection"
+    assert f"encodeURIComponent({param})" in body, "the path parameter must be percent-encoded"
+
+
+def test_lab_canvas_builder_composes_the_served_route():
+    """The composed path must be exactly the served canvas route, and the
+    sub-resource spelling the backend does *not* serve must not be produced.
+
+    The backend declares ``/api/lab/engineering/canvas/{artifact_id}`` and does
+    **not** declare ``/api/lab/engineering/artifacts/{artifact_id}``. A builder
+    that merely appended the id to the artifacts collection would compose a
+    plausible path that 404s, so both the correct and the wrong shape are
+    asserted here.
+    """
+    declared = _declared_endpoints(ENDPOINTS_PATH.read_text(encoding="utf-8"))
+    served = _served_paths()
+    artifacts = declared["labArtifacts"]
+    assert artifacts in served, f"{artifacts!r} is not served"
+
+    text = ENDPOINTS_PATH.read_text(encoding="utf-8")
+    body = _function_body(text, "labCanvas")
+    # The same derivation the negative control feeds the detector: the live
+    # builder must compose the served canvas route, and the artifacts
+    # sub-resource the backend does not serve must stay unserved.
+    composed = _canvas_route_template(artifacts, body)
+    assert composed == "/api/lab/engineering/canvas/{artifact_id}", composed
+    assert composed in served, f"the canvas route {composed!r} is not served"
+    assert f"{artifacts}/{{artifact_id}}" not in served, (
+        "control premise broken: the artifacts sub-resource is now served, so the "
+        "sibling-canvas derivation must be re-derived rather than assumed"
+    )
+
+
+def test_registry_declares_the_automations_collection():
+    """``labAutomations`` is Workstream 4's recorded request. The entry must be
+    declared *and* served; the mutation routes under it stay out of the registry.
+    """
+    declared = _declared_endpoints(ENDPOINTS_PATH.read_text(encoding="utf-8"))
+    served = _served_paths()
+    assert declared.get("labAutomations") == "/api/lab/engineering/automations"
+    assert declared["labAutomations"] in served, "the automations collection is not served"
+
+    # The registry maps *read* collections. The mutating sub-routes are served
+    # but deliberately unwired by the UI, so a registry entry for them would
+    # advertise a mutation surface as a readable contract.
+    mutation_paths = {p for p in declared.values() if "/state" in p or p.endswith("/execute")}
+    assert mutation_paths == set(), f"registry declares mutation path(s): {sorted(mutation_paths)}"
+
+
 # ---------------------------------------------------------------------------
 # Negative controls -- each detector must flag the defect it claims to detect.
 # ---------------------------------------------------------------------------
@@ -296,6 +374,38 @@ def test_detector_flags_an_invented_endpoint():
     assert _unserved(invented, served) == ["ghostFeed -> /api/ghost-feed"]
     real = {"version": "/api/version"}
     assert _unserved(real, served) == []
+
+
+def test_detector_flags_an_artifacts_sub_resource_canvas_path():
+    """Negative control for the canvas builder: the plausible-but-unserved
+    shape must be reported by the same derivation + detector the live
+    assertion uses.
+
+    The pre-repair composition (append the id to the artifacts collection
+    without substituting the terminal segment) yields the template
+    ``/api/lab/engineering/artifacts/{artifact_id}``, which the backend does
+    not serve. If this control ever stops firing, the live assertion has been
+    disarmed rather than satisfied.
+    """
+    declared = _declared_endpoints(ENDPOINTS_PATH.read_text(encoding="utf-8"))
+    served = _served_paths()
+    artifacts = declared["labArtifacts"]
+
+    # The live derivation, applied to the real builder body.
+    live_body = _function_body(ENDPOINTS_PATH.read_text(encoding="utf-8"), "labCanvas")
+    live_template = _canvas_route_template(artifacts, live_body)
+    assert live_template in served, f"live builder composes an unserved route: {live_template}"
+
+    # The same derivation, applied to the pre-repair body (no substitution).
+    pre_repair_body = 'return `${endpoints.labArtifacts}/${encodeURIComponent(artifactId)}`;'
+    wrong_template = _canvas_route_template(artifacts, pre_repair_body)
+    assert wrong_template == f"{artifacts}/{{artifact_id}}", wrong_template
+    assert _unserved({"labCanvas": wrong_template}, served) == [
+        f"labCanvas -> {wrong_template}"
+    ], "the detector must report the artifacts sub-resource shape"
+
+    # And it stays silent on the served shape.
+    assert _unserved({"labCanvas": live_template}, served) == []
 
 
 def test_detector_flags_a_second_api_base_or_relative_path():
