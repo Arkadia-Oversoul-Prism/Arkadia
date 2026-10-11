@@ -289,7 +289,18 @@ def _js_route_resolver(router_text: str) -> dict:
     surfaces = strip_types(SURFACES_PATH.read_text(encoding="utf-8"))
     # The registry object is `as const`; strip the assertion for plain JS.
     router = strip_types(router_text).replace("as const", "")
-    probes = ["/nexus", "/novanet", "/nexus/", "/", "/about", "/invented", "/login/", "/solariun/knowledge"]
+    probes = [
+        "/nexus",
+        "/novanet",
+        "/nexus/",
+        "/",
+        "/about",
+        "/invented",
+        "/login/",
+        "/solariun/knowledge",
+        "/oracle",
+        "/commune",
+    ]
     script = (
         surfaces
         + "\n"
@@ -343,6 +354,8 @@ def test_the_router_normalises_the_address_bar_to_a_declared_surface_path():
         f"inbound pathname(s) resolve to a path no surface declares: {undeclared}"
     )
     assert resolved["/nexus"] == "/novanet", resolved
+    assert resolved["/oracle"] == "/arkana", resolved
+    assert resolved["/commune"] == "/arkana", resolved
     assert resolved["/invented"] == "/", resolved
     # A section path is already canonical: normalising it must not flatten it.
     assert resolved["/solariun/knowledge"] == "/solariun/knowledge", resolved
@@ -366,7 +379,6 @@ def test_detector_flags_a_router_that_leaves_the_inbound_path_in_the_address_bar
         "the detector must report a router that never rewrites the address bar"
     )
     assert _normalises_on_load(ROUTER), "the repaired router must not be reported"
-
 
 
 # ---------------------------------------------------------------------------
@@ -442,6 +454,43 @@ def test_nexus_is_an_alias_of_novanet_not_a_second_surface():
     the inbound path working while owning exactly one canonical surface."""
     assert _path_aliases(ROUTER).get("/nexus") == "novanet"
     assert "/nexus" not in _declared_paths(SURFACES)
+
+
+def test_oracle_and_commune_reconcile_to_the_arkana_surface():
+    """The archived Prism routed the Oracle view to `/oracle` (`commune: '/oracle'`)
+    and also accepted `/commune` directly, and its home surface sent the Oracle
+    portal to `commune`. The console names that surface `arkana`, so both inbound
+    paths must reconcile to it.
+
+    Without the aliases, `resolvePath` fell through to `home` -- a real archived
+    deep link silently landed on Home instead of the Oracle. The paths are
+    asserted *distinct from* the declared surface paths here because the
+    soundness detector above already rejects a collision.
+    """
+    aliases = _path_aliases(ROUTER)
+    assert aliases.get("/oracle") == "arkana", aliases
+    assert aliases.get("/commune") == "arkana", aliases
+    for legacy in ("/oracle", "/commune"):
+        assert legacy not in _declared_paths(SURFACES), (
+            f"{legacy} is an alias, not a second surface"
+        )
+    assert _alias_defects(ROUTER, SURFACES) == []
+
+
+def test_detector_flags_an_oracle_alias_that_falls_through_to_home():
+    """Negative control: the pre-repair shape -- `/oracle` and `/commune` absent
+    from the alias table -- must be reported, not silently accepted."""
+    repaired = _js_route_resolver(ROUTER)
+    assert repaired["/oracle"] == "/arkana", repaired
+
+    stripped = re.sub(
+        r'\n\s*"/oracle": "arkana",\n\s*"/commune": "arkana",', "", ROUTER
+    )
+    assert stripped != ROUTER, "control did not mutate router.ts -- detector unproven"
+    assert _js_route_resolver(stripped)["/oracle"] == "/", (
+        "the control must reproduce the pre-repair fall-through to home"
+    )
+    assert _js_route_resolver(stripped)["/commune"] == "/"
 
 
 def test_detector_flags_an_alias_to_an_undeclared_surface():

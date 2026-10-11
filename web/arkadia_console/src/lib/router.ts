@@ -24,9 +24,19 @@ const SECTION_PATTERN = /^\/([^/]+)\/([^/]+)$/;
  * (`routeForView: novanet -> '/nexus'`) and is referenced by archived deep
  * links. It is an *alias*, not a second surface: it resolves to `novanet` and
  * never gets its own entry in `surfaces.ts`.
+ *
+ * `/oracle` and `/commune` are the same case for the Oracle view. The archived
+ * Prism declared `commune: '/oracle'` and accepted both `/oracle` and `/commune`
+ * as direct routes, and its home surface sent the Oracle portal to `commune`.
+ * The console names that surface `arkana`, so both inbound paths reconcile to it
+ * — without an alias they fell through `resolvePath` to `home`, silently
+ * discarding the link. Neither path collides with a declared surface path or a
+ * backend route (verified against `app.openapi()`), so no surface may claim them.
  */
 export const PATH_ALIASES: Record<string, SurfaceId> = {
   "/nexus": "novanet",
+  "/oracle": "arkana",
+  "/commune": "arkana",
 };
 
 export function resolvePath(pathname: string): Route {
