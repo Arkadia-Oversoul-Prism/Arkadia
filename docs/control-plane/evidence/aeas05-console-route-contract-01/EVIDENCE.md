@@ -118,3 +118,176 @@ Human authorizes merge of PR #414 and a production deploy; then re-run
 `python scripts/gate2_production_observation.py` and the browser probe against
 the new deployed revision and confirm `/enterprise` serves the console SPA on
 the canonical origin.
+
+---
+
+# Production acceptance (recorded 2026-10-11)
+
+## Merge record
+
+- PR #414 merged `2026-10-11T02:04:27Z`, **merge commit
+  `c404150a1c26927c0c11e210d1b75e54a5653213`** (true two-parent merge:
+  parents `a58f0849` + `5a330ec6`).
+- `main` = `c404150a…` (origin/main, origin/HEAD, local main). No direct push to
+  `main` was made; the change landed only through the PR.
+- CI on the PR head `5a330ec6`: **14/14 check-runs success**. On the merge commit
+  `c404150a`: `validate`, `browser` (Canonical Render Browser Smoke), `boot-syntax`,
+  `Full-history secret scan` all `success`.
+- The two `Vercel – console` / `Vercel – arkadia-prism` commit statuses are
+  `failure` on `main` `a58f0849` as well — pre-existing, not attributable.
+
+## Source contract (reviewed, not assumed)
+
+Verified against the real `api.main` app with the built console present:
+
+| Contract | Expected | Observed |
+| --- | --- | --- |
+| `/enterprise` | console SPA | `200`, `text/html`, `<!DOCTYPE` |
+| every declared surface (`/`, `/arkana`, `/solariun`, `/engineering-lab`, `/enterprise`, `/knowledge`, `/weaver`, `/about`, `/login`) | console SPA | `200` SPA |
+| `/solspire/projects` | backend handler, auth-gated | `401 {"detail":"Authentication required"}`, `application/json` |
+
+`/solspire/projects` resolves to `solspire/console_router.py::list_projects`
+(`APIRouter(prefix="/solspire")`, `Depends(require_auth)`).
+
+## Regression controls (both defects are caught)
+
+1. **Reserved-path collision** — `test_console_surface_paths_avoid_reserved_namespaces`
+   pins `_RESERVED_PREFIXES` and rejects a surface on a reserved namespace.
+   Negative control proven: restoring `path: "/solspire"` → `2 failed`.
+2. **Surface shadowed by a real backend route (raw JSON)** — the reserved list is a
+   static denylist that cannot see a surface placed on a *real, non-reserved*
+   handler. Demonstrated gap: a `/dashboard` handler returns `{"backend":"json"}`
+   at `200` while the synthetic guard stays green. Added
+   `test_console_surface_paths_are_not_shadowed_by_a_backend_route`, which scans
+   the real `api.main` route table (`starlette` `Route.matches`, `method=GET`), so
+   every declared surface is proven not shadowed. Negative control
+   `test_shadowing_detector_flags_a_non_reserved_backend_route` flags `/dashboard`
+   and stays silent on an unrouted path. Verified on the live table: all nine
+   surfaces unshadowed; `/health` correctly reported shadowed.
+3. `test_every_console_surface_path_is_served_as_the_spa` — binds each declared
+   surface to the served SPA on the FastAPI origin.
+4. `test_cp10_gate_route_targets_a_declared_console_surface` — binds the CP10
+   gate's probe route to the declared surface table.
+
+## Deployment verification
+
+- `/api/version` → `source_revision = c404150a1c26927c0c11e210d1b75e54a5653213`,
+  `revision_source = RENDER_GIT_COMMIT`, `revision_conflict = false`,
+  `canonical_deployment = one_reconciled_deployment`. **Live == `main`.**
+- The GitHub deployment API still shows the newest Vercel **Production** record as
+  `c8abb28e4ac0` (2026-10-10), which predates this merge. That record is a Vercel
+  project, not the canonical Render runtime; the canonical runtime's own revision
+  probe is authoritative here and reads `c404150a`.
+- Served console bundle `assets/index-C_4Sk6d5.js` (30,875 B) is **sha256-identical**
+  to a local build of `c404150a`
+  (`9774fba8a48240808fff79e653568aa738541b1fd484f91692c25f0f622c7ea0`).
+- Gate-2 marker oracle: **VERIFIED** (`local build marker set matches deployed:
+  True`), control literal `Enter the enterprise layer.` → 0 (expected absent),
+  `last-modified` = the merge deploy time.
+
+## Browser acceptance — canonical origin (22/22)
+
+Playwright, read-only, against `https://arkadia-qzu4.onrender.com`:
+
+- `/enterprise` → `200`, console SPA (not raw JSON), auth threshold "Sign in to
+  continue" rendered.
+- Every declared surface → `200` SPA.
+- `/solspire/projects` → `401 application/json` (backend handler, auth-gated) —
+  not the SPA, not `404`.
+- Protected surfaces (`/engineering-lab`, `/weaver`, `/knowledge`, `/solariun`,
+  `/enterprise`) all render the threshold when unauthenticated; no leakage.
+- `/login` exposes `tab-signin`, `input-email-signin`, `input-password-signin`,
+  `button-signin`.
+- Arkana honest state: with `/api/**` aborted, no fabricated observation output;
+  with the backend up, `POST /api/commune/resonance` → `200` with
+  `reply/resonance/patterns/rag_hits/rag_refs/sources/memory`.
+- No console errors during the run.
+
+## Rollback readiness
+
+`archive/frontend/arkadia-prism/` (158 files, incl. `pnpm-lock.yaml`) is intact on
+`main`; the only change across the merge is the corrected README recovery
+procedure + rehearsal note. Rehearsal (recorded above) builds
+`assets/index-BzLymmg4.js`, the exact bundle the last Prism-serving deployment
+served — the archive is bit-for-bit recoverable.
+
+## Boundary classification (post-deploy)
+
+- current main resolved — VERIFIED
+- live revision == main (`/api/version`) — VERIFIED
+- alias reachable — VERIFIED
+- served artifact == local build of the deployed revision — VERIFIED
+- marker-set oracle — VERIFIED
+- canonical-origin browser acceptance (routes, gating, Arkana states) — OBSERVED, PASS
+- main → Vercel-deployment-record identity — STALE (record predates merge; the
+  Vercel record is not the canonical Render runtime)
+- deployment build output observed via a deployment-specific URL — BLOCKED
+  (Vercel SSO); observed via the canonical alias instead
+- **production acceptance — ACCEPTED (live observations passed; human authority
+  remains final)**
+
+
+---
+
+# Deployment-boundary verification (2026-10-11T02:30Z, read-only)
+
+Objective: verify the deployment boundary — pushes/PR updates no longer trigger
+Vercel; Render is the only authorized production path; `main` stays at the accepted
+revision. No deployment or provider config was mutated.
+
+## Result: Vercel automation is STILL ACTIVE (user-reported disable NOT corroborated)
+
+A trivial probe commit pushed to the PR #415 branch (`2f19732a`) produced, within
+~35 s:
+
+- commit status **`Vercel` → `success`** at `2026-10-11T02:30:47Z`;
+- GitHub deployment `6989920048`, `environment=Preview`, **`creator=vercel[bot]`**,
+  `status=success`, `environment_url=https://console-c0nmdq6qb-arkadia-prism.vercel.app`.
+
+**The Git-connected Vercel deployment integration is still firing and still able
+to succeed.** The earlier evidence that it was disabled is not supported. Vercel
+also produced a **successful** PR-head deployment for PR #414
+(`5a330ec6`, `Vercel – arkadia-prism` success @ `02:02:15Z`), so this is not merely
+a failing bot — Vercel is a live, working deployment path.
+
+Subsequent PR-#415-head pushes (`666bd73b` @ `02:12:02Z`) also carry `Vercel –
+console` and `Vercel – arkadia-prism` statuses, i.e. after the claimed disable.
+
+## Required external action (not performed here)
+
+Disable the Vercel Git integration on **both** projects (`arkadia-prism` and
+`console`) in the Vercel dashboard, or disconnect them from this repository.
+This is a provider-side setting; no repository change can enforce it, and no
+Vercel credential exists in this environment (`VERCEL_TOKEN` unset) to change it.
+
+## Additional finding: Render also creates PR previews (expected, keep)
+
+GitHub deployments show `creator=render[bot]` PR-preview deployments
+(`environment=<branch> - Arkadia PR #NNN`, `environment_url` like
+`https://arkadia-pr-415.onrender.com`). These are Render preview environments and
+are consistent with Render being the canonical authority; they are **not** a
+competing deployment target and need no action. The probe push also created one
+(Render PR preview `6989918257`, status `failure` — an unrelated build result).
+
+## Canonical path — VERIFIED
+
+- `main` = `c404150a1c26927c0c11e210d1b75e54a5653213` (unchanged through the
+  verification; PR #415 is unmerged and touches docs only).
+- Canonical runtime `/api/version` → `source_revision=c404150a…`,
+  `revision_source=RENDER_GIT_COMMIT`, `revision_conflict=false`.
+- **Production = Render only.** Vercel remains an *active but non-authoritative*
+  path — reachable and succeeding, yet never the origin of acceptance.
+
+## Boundary classification after verification
+
+- Render is the canonical production origin — VERIFIED
+- `main` unchanged at the accepted revision — VERIFIED
+- pushes/PR updates no longer trigger Vercel — **FAILED** (live counter-observation)
+- Vercel integration disabled — **NOT CONFIRMED** (externally FAILED; provider-side)
+- no Vercel deployment accepted as production — upheld by policy, to be enforced
+  by disabling the integration
+
+Note on a transient record: a `Vercel – console` status read `pending` for a
+window on the PR-#415 head, then appeared as `failure` on the following push. That
+is status-refresh timing, not a second signal; the live probe above is the
+controlling observation.
