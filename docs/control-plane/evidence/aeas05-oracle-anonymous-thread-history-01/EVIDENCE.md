@@ -96,3 +96,24 @@ two are textually disjoint. #447's derived-domain work should keep
 
 Merge, deployment, and acceptance are reserved to the human sovereign. This PR requests
 review only.
+
+## CI execution at the branch head (measured)
+
+Branch head `e1f5b0e085aa75b62af9d0979336708d4da540c6`: **14/14 check-runs
+`completed/success`**, including the two gates this change binds to —
+`Prism Console Contract` (the W4 guard domain) and `Boot Syntax Boundary`. `SG-02-FE.2-V`
+and `N-ATLAS Developer Lab` also completed success.
+
+Main then advanced `7b672157` -> `7097d6a4` (OpenAPI security metadata; disjoint paths:
+`api/openapi_security.py`, `api/main.py`, four new OpenAPI tests, two workflows). The branch
+was **merged forward** (not rebased) onto `7097d6a4` as `f5775304`, because force-push is
+forbidden by the execution contract. Composed-tree verification after the merge: architecture
+**11 passed**, `py_compile api/main.py` OK, and the eight bound guards **67 passed**. Branch
+head `f5775304` re-measured at **14/14 check-runs success**; PR #449 is `mergeable: true`,
+`mergeable_state: clean`, non-draft.
+
+## Superseded measurements (retained, not restated)
+
+- The pre-rebase tree `e1f5b0e0` was based on `7b672157`; it is superseded by `f5775304`.
+- An earlier local attempt rebased onto `7097d6a4` (producing `972d64ed`) was discarded
+  because publishing it would have required a force-push. No force-push was performed.
