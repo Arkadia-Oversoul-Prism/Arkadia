@@ -312,15 +312,31 @@ class BuyerReconManager:
             )
         return entry
 
-    def update_entry(self, entry_id: str, subject_ref: str, patch: dict[str, Any]) -> BuyerReconEntry:
+    def update_entry(
+        self, entry_id: str, subject_ref: str, patch: dict[str, Any],
+        board_id: str | None = None,
+    ) -> BuyerReconEntry:
+        """Update one entry owned by `subject_ref`.
+
+        `board_id` narrows the write to a single board. It is enforced *inside*
+        the transaction (selection and update both carry it), so a caller can
+        never observe or mutate a row on another board — a post-write check
+        would race the commit. The workspace and project routes pass their own
+        board; omitting it keeps the subject-wide behaviour for internal callers.
+        """
         allowed = set(BuyerReconEntry.__dataclass_fields__) - {"id","board_id","subject_ref","created_at","updated_at","evidence"}
         status = patch.get("status")
         if status is not None:
             status = str(status).upper()
             if status not in STATUSES:
                 raise ValueError("invalid status")
+        scope = "id=? AND subject_ref=?"
+        scope_values: list[Any] = [entry_id, subject_ref]
+        if board_id is not None:
+            scope += " AND board_id=?"
+            scope_values.append(board_id)
         with _db() as conn:
-            row = conn.execute("SELECT * FROM buyer_recon_entries WHERE id=? AND subject_ref=?", (entry_id, subject_ref)).fetchone()
+            row = conn.execute(f"SELECT * FROM buyer_recon_entries WHERE {scope}", scope_values).fetchone()
             if not row:
                 raise KeyError(entry_id)
             current = self._entry(row).to_dict()
@@ -339,9 +355,9 @@ class BuyerReconManager:
                 if dbkey == "evidence_json":
                     value = json.dumps(current.get("evidence") or patch.get("evidence") or [])
                 sets.append(f"{dbkey}=?"); values.append(value)
-            values.extend([entry_id, subject_ref])
-            conn.execute(f"UPDATE buyer_recon_entries SET {','.join(sets)} WHERE id=? AND subject_ref=?", values)
-            row = conn.execute("SELECT * FROM buyer_recon_entries WHERE id=? AND subject_ref=?", (entry_id, subject_ref)).fetchone()
+            values.extend(scope_values)
+            conn.execute(f"UPDATE buyer_recon_entries SET {','.join(sets)} WHERE {scope}", values)
+            row = conn.execute(f"SELECT * FROM buyer_recon_entries WHERE {scope}", scope_values).fetchone()
         return self._entry(row)
 
     @staticmethod

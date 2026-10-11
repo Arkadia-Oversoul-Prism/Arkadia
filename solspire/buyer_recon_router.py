@@ -118,9 +118,14 @@ async def create_buyer_recon_entry(
 async def update_buyer_recon_entry(
     entry_id: str, body: BuyerReconEntryPatch, user: dict = Depends(require_auth)
 ) -> dict[str, Any]:
+    # The workspace surface writes only its own board. `update_entry` scopes by
+    # subject alone, so without the board id an owner's workspace request could
+    # reach an entry on one of their project boards — both board kinds now exist
+    # for one subject. The project route narrows the same way.
+    board = _board(user)
     try:
         entry = get_buyer_recon_manager().update_entry(
-            entry_id, user["uid"], body.model_dump(exclude_unset=True)
+            entry_id, user["uid"], body.model_dump(exclude_unset=True), board.id
         )
     except KeyError:
         raise HTTPException(status_code=404, detail="Buyer recon entry not found")
@@ -173,13 +178,11 @@ async def update_project_buyer_recon_entry(
 ) -> dict[str, Any]:
     board = _project_board(project_id, user)
     try:
-        # The manager's subject binding plus project-specific board keeps records
-        # isolated even though entries share the canonical SQLite store.
+        # The board id is passed into the transaction itself, so an entry on a
+        # different board of the same subject cannot be read or written here.
         entry = get_buyer_recon_manager().update_entry(
-            entry_id, user["uid"], body.model_dump(exclude_unset=True)
+            entry_id, user["uid"], body.model_dump(exclude_unset=True), board.id
         )
-        if entry.board_id != board.id:
-            raise KeyError(entry_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Project buyer recon entry not found")
     except ValueError as exc:

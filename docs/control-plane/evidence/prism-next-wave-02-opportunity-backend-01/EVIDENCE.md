@@ -158,3 +158,69 @@ and is not repaired here.
   `https://arkadia-qzu4.onrender.com` (ADR-016).
 * `solspire/buyer_recon_router.py` is unmodified.
 * No shared file owned by another workstream was edited.
+
+## 9. Defect 3 — board-scope isolation on the write routes (this pass)
+
+Defect 2 gave one subject both a workspace board and one project board. Defect 3
+is the write-side consequence, measured after Defect 2's repair:
+
+```
+workspace PATCH of a project-board entry: 200   (entry row notes -> 'MUTATED-FROM-WORKSPACE')
+```
+
+`PATCH /solspire/buyer-recon/entries/{id}` scoped `update_entry` by **subject
+alone**, so an owner's workspace request reached an entry on one of their
+*project* boards. The project route already enforced `entry.board_id == board.id`;
+the workspace route did not. `SHARED-CONTRACTS.md` §1/§7.1 assigns
+`solspire/buyer_recon_router.py` to WS2 for exactly this defect class, so
+modifying it here supersedes §8's "unmodified" line.
+
+The first cut compared boards *after* `update_entry` returned and raised
+`KeyError`. Measured: status became `404` but the note **still landed** — the
+manager had already committed inside its own transaction, so a post-write refusal
+is a lie about the write. The repair moves the scope into the SQL:
+
+* `BuyerReconManager.update_entry(..., board_id: str | None = None)` — the board
+  id extends the `WHERE` clause of the pre-read, the `UPDATE`, and the re-select,
+  all inside one `with _db()` transaction. Omitting it preserves the prior
+  subject-wide behaviour for internal callers.
+* Both router call sites (`update_buyer_recon_entry`,
+  `update_project_buyer_recon_entry`) pass their own `board.id`.
+
+### Measured outcomes (`/tmp/repro_scope.py`)
+
+| Request | Expected | Observed |
+|---|---|---|
+| workspace PATCH of a project-board entry | 404, no mutation | 404, notes `''` |
+| project PATCH of its own entry | 200 | 200 |
+| workspace PATCH of a workspace-board entry (control) | 200 | 200, notes `'ws-ok'` |
+| project PATCH of a workspace-board entry (control) | 404, no mutation | 404, notes `''` |
+
+### Regression guard
+
+`tests/test_buyer_recon_router_board_scope.py` (7 tests) asserts isolation on
+**persisted state**, not on the response alone — the response was already a
+`404` in the unsound first cut. Two same-board controls pass on both trees.
+Proven to bite: on the pre-repair tree, 5 of the 7 fail; post-repair, 7 pass.
+
+### Suite delta (this environment)
+
+`pytest tests/ -q -rEf --continue-on-collection-errors`:
+
+| Tree | Result |
+|---|---|
+| `main` `962434be` | 36 failed / 2190 passed / 30 skipped / 1 error |
+| branch | 36 failed / 2218 passed / 30 skipped / 1 error |
+
+The failing/error **node set** is byte-identical (`comm -3` empty, 37 nodes each).
+Absolute counts differ from §7's recorded 19/2220 — that is a dependency delta
+between runs of the same revision, not a regression; only the node set is
+load-bearing.
+
+## 10. Superseded in §8
+
+`solspire/buyer_recon_router.py` **is** modified in this pass (board-scope
+isolation, above), under the §7.1 ownership grant. The other §8 non-claims stand:
+no merge, no deployment, no acceptance; canonical production remains
+`https://arkadia-qzu4.onrender.com` (ADR-016).
+
