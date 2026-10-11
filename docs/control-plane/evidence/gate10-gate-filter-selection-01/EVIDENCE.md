@@ -121,3 +121,44 @@ path set; sibling workflow-scanning guards (`test_workflow_injection_boundary.py
   next guard. Executing a derived domain directly (a committed runner script) removes the
   class, but widens an execution surface — a separate bounded workstream for sovereign
   review. Discovery does not authorize execution.
+
+## 7. Composition analysis of the open PR set (measured)
+
+A guard whose domain is derived from the repository cannot be validated by the branch that
+adds a member to it — only by the composition. This pass therefore composed the open PRs
+onto the branch head and measured, rather than reasoning about them.
+
+**Composed cleanly and green:**
+
+| composition | result |
+|---|---|
+| branch + #457 (economic-seam) + #447 (console-contract) | new guard `44 passed`; four wiring judges `200 passed`; CP10 composed path set `PASS` |
+| branch + #432 (Prism W4 lab), union-resolved on `sg-02-fe-2-v.yml` | filter guards `193 passed` |
+
+**#432 textually conflicts with this branch on `.github/workflows/sg-02-fe-2-v.yml`** (`UU`).
+Both sides are purely additive — this branch adds the nine SolSpire guards, #432 adds nine
+Prism-W4 guards — so the correct resolution is the union, and the union is measured green.
+Git conflict-free would not have proven semantic compatibility; here it is not even
+conflict-free. **Merge order matters: whichever lands second must take the union, not one
+side.**
+
+**A real cross-PR gate failure was found and is repaired by #447.** On the branch+#432
+tree, `tests/test_prism_console_ci_wiring.py` fails 2 nodes
+(`test_a_workflow_executes_the_whole_console_contract`,
+`test_wiring_workflow_is_a_complete_gate_that_selects_itself`): #432 adds console-contract
+guards to the derived domain while `prism-console-contract.yml` still runs an enumerated
+list. Applying #447's patch on top yields `57 passed` — the failure is exactly the class
+#447 removes. This is the composition hazard in its pure form: **#432 is green on the tree
+it was built on and reddens `main` the moment it lands without #447.**
+
+`AGENTS.md` conflicts on every composition because four open PRs (#432, #436, #450, #451)
+all edit it. Per the standing insertion-only constraint, resolution is append-only — never
+rewrite an oracle line.
+
+## 8. Open-PR overlap with recent direct-to-main commits
+
+Full open inventory at this pass: **#458** (this PR), **#457**, **#455** (draft, docs),
+**#451** (draft, lab redaction), **#450** (draft, knowledge timeline), **#449**,
+**#447** (draft), **#436**, **#432** (draft). Files shared with this branch: only
+`sg-02-fe-2-v.yml` (#432), analysed above.
+
