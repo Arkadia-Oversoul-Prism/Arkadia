@@ -3,7 +3,7 @@
 **Branch:** `feat/prism-parallel-03-solariun-knowledge`  
 **PR:** #421 (draft bootstrap)  
 **Owns:** Solariun and Knowledge OS page modules, feature-local components, tests, and evidence. Exact paths must be discovered from the current tree and archive before edits.  
-**Shared contract:** `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` in PR #419; fetch/review it before edits.
+**Shared contract:** `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` in `main` (accepted via PR #419); fetch/review it before edits.
 
 ## Mission
 Reconcile personal workspace, capture, knowledge exploration/search, and related Solariun interactions with current identity, authorization, file, and knowledge contracts. Preserve personal sovereignty and the distinction between personal/private material and public corpus.
