@@ -6,6 +6,7 @@ import type { KnowledgeStatus } from "../lib/types";
 import { KnowledgeGraphPanel } from "./knowledge/KnowledgeGraphPanel";
 import { KnowledgeSearchPanel } from "../components/knowledge/KnowledgeSearchPanel";
 import { KnowledgeTimelinePanel } from "../components/knowledge/KnowledgeTimelinePanel";
+import { KnowledgeProjectsPanel } from "../components/knowledge/KnowledgeProjectsPanel";
 
 export function KnowledgePage() {
   const status = useHydration<KnowledgeStatus>(endpoints.knowledgeStatus, (p) => apiRequest<KnowledgeStatus>(p));
@@ -55,6 +56,10 @@ export function KnowledgePage() {
 
       <div className="mt-4">
         <KnowledgeTimelinePanel />
+      </div>
+
+      <div className="mt-4">
+        <KnowledgeProjectsPanel />
       </div>
     </Page>
   );

@@ -224,12 +224,119 @@ the reader, and the console build.
 
 ---
 
-## 8. Next bounded task (non-overlapping)
+## 8. Second bounded slice — `GET /api/knowledge/projects` (this pass)
 
-`GET /api/knowledge/projects` (`::list_projects` → `knowledge.vault.list_projects`) is
-declared in the registry as `endpoints.knowledgeProjects` with **no consumer** in the
-console, and its owner predicate (`_project_owner_clause` → `own OR public`) differs
-from the timeline's. It is the next verified Knowledge OS surface: same handler-first
-verification, same owner-isolation negative controls, no shared-registry edit needed
-(the entry already exists). The Knowledge OS surface currently reads vault status,
-graph, search and timeline; projects would complete the declared read set.
+The next verified Knowledge OS surface, on the same branch, because PR #431 is not yet
+merged. `endpoints.knowledgeProjects` was declared in the registry with **no consumer**.
+
+### 8.1 Endpoint verification
+
+| Item | Measured value |
+|---|---|
+| Handler | `api/knowledge_routes.py::list_projects` |
+| Delegate | `knowledge.vault.list_projects` |
+| Method / path | `GET /api/knowledge/projects` (registry entry `endpoints.knowledgeProjects`) |
+| Response | a **bare JSON list**, `ORDER BY updated_at DESC` |
+| Row shape | `id, uuid, name, description, user_id, tags, status, created_at, updated_at` |
+| `tags` | a JSON **string** on the wire, not an array |
+| Auth | optional (`_optional_user_id`) |
+| Owner predicate | `knowledge.vault._project_owner_clause` — authenticated `(user_id = ? OR user_id IS NULL)`; anonymous `user_id IS NULL` |
+| Single-project read | `GET /api/knowledge/projects/{name_or_uuid}` → `::get_project`; `404` for a non-owner |
+
+### 8.2 The boundary is the **third** shape in this subsystem — and the opposite of the timeline's
+
+| Reader | Anonymous predicate | Public corpus? | Anonymous `[]` means |
+|---|---|---|---|
+| `knowledge/graph.py` | `user_id IS NULL` | yes | empty corpus |
+| `knowledge/search.py` | `user_id IS NULL` | yes | empty result set |
+| **`knowledge/vault.py::_project_owner_clause`** | **`user_id IS NULL`** | **yes** | **empty corpus** |
+| `knowledge/timeline.py::_timeline_owner_clause` | `1 = 0` | **no** | **refusal** |
+
+Measured live over an ASGI transport (no mocks):
+
+```
+raw rows:  SecretProj-A(user_id=USER_A)  SecretProj-B(user_id=USER_B)  PublicProj(user_id=None)
+GET /api/knowledge/projects  anon -> 200 [PublicProj]
+GET /api/knowledge/projects  A    -> 200 [PublicProj, SecretProj-A]
+GET /api/knowledge/projects  B    -> 200 [PublicProj, SecretProj-B]
+GET /api/knowledge/projects/SecretProj-A  anon -> 404   A -> 200   B -> 404
+```
+
+The panel therefore states the *opposite* invariant to the timeline panel: a `[]` here is
+always a genuine empty read (the public corpus is visible to everyone), and a **public-only
+answer to a signed-in viewer** is the boundary working, not a partial result. Conflating
+either with the timeline's ambiguity would be wrong.
+
+**No handler defect found.** Nothing under `knowledge/` was changed.
+
+### 8.3 Implemented
+
+| File | Change |
+|---|---|
+| `pages/knowledge/knowledgeContracts.ts` | project row shape, `isKnowledgeProjects` guard, `public`/`scoped` vocabulary, `projectNotice`, `projectTags` (parses the JSON-string column) |
+| `components/knowledge/KnowledgeProjectsPanel.tsx` | **new** — reads `endpoints.knowledgeProjects` through the shared client; distinct loading/empty/auth/unavailable/error states; labels ownership, never filters on it |
+| `pages/KnowledgePage.tsx` | mounts the projects panel |
+| `tests/test_knowledge_projects_boundary.py` | **new** — 17 tests |
+
+### 8.4 Negative controls — proven to bite, then reverted byte-identically
+
+| Control | Mutation | Result |
+|---|---|---|
+| anonymous project clause | `knowledge/vault.py`: `user_id IS NULL` → `1 = 1` | **4 failed** — anonymous reads a private project, non-owner single read stops 404-ing, and the clause detector reports `1=1` |
+| wrong contract direction | detector fed the timeline's `1 = 0` shape | reported, not silently accepted — the two readers do not share a predicate |
+| client-side filter | panel gains `.filter((project) => project.user_id !== null)` | **1 failed** |
+| comment vs code | a comment naming `user_id` ignored; a real filter flagged | as intended |
+
+`git diff` on `knowledge/vault.py` is empty after restore.
+
+### 8.5 Verification
+
+| Check | Result |
+|---|---|
+| Projects suite | **17 passed** |
+| Adjacent suites (9 files) | **133 passed** |
+| `corepack pnpm build` | **succeeded** (76 modules) |
+| Full suite node set | see §6.1 / §8.6 |
+
+### 8.6 Full-suite result for this slice
+
+See the measured block in §8.6.1 below.
+
+### 8.6.1 Measured
+
+Both slices present (timeline + projects), `PYTHONPATH=.:archive/legacy_python`:
+
+| Tree | Result | Node set |
+|---|---|---|
+| Branch (both slices) | **27 F / 2378 P / 17 S / 1 E** | 28 nodes, `521c63e1b75d3369aa6ca40e96c12268bd9c9b633e7584d514dd421e54ecdebe` |
+| Baseline (both slices stashed) | **27 F / 2342 P / 17 S / 1 E** | 28 nodes, `521c63e1b75d3369aa6ca40e96c12268bd9c9b633e7584d514dd421e54ecdebe` |
+
+`comm -3` empty. The `+36 passed` is exactly the two new test files (19 + 17).
+
+### 8.7 Remaining declared-but-unconsumed Knowledge OS surfaces
+
+- `GET /api/knowledge/projects/{name_or_uuid}` — verified and pinned at the boundary level
+  (fail-closed 404 for a non-owner); not given its own panel. A project detail view is the
+  next candidate, and it needs a registry **path builder** (the registry has none for
+  knowledge sub-resources), which is Workstream 1's file — so it is a request, not an edit.
+- `GET /api/knowledge/graph/{note_id}/traverse` — declared; not wired.
+- `GET /api/knowledge/timeline/recent`, `/timeline/replay/{project_id}` — declared; the
+  timeline panel reads the primary `query` contract only.
+- `endpoints.codex` / `endpoints.field` — declared with no consumer; not Knowledge OS.
+
+## 9. Next bounded task (non-overlapping)
+
+The declared Knowledge OS read set (status, graph, search, timeline, projects) is now fully
+consumed by the surface. The next non-overlapping candidates, in preference order:
+
+1. **Project detail** — needs `endpoints` path-builder support (Workstream 1's file). Submit
+   a precise request rather than editing the registry.
+2. **Graph traversal** — `GET /api/knowledge/graph/{note_id}/traverse`; same handler-first
+   verification, but it needs a note anchor the surface does not yet offer, so it is
+   blocked on a note-selection surface rather than on a contract.
+3. **`/timeline/recent` and `/timeline/replay/{project_id}`** — declared and owner-scoped;
+   lower value than the above because the primary timeline reader already covers the use
+   case, and `recent` merely reverses the same query.
+
+None of these requires a shared-registry edit except (1), which is why (1) is a request.
+

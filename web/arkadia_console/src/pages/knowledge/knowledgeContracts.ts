@@ -289,3 +289,89 @@ export const TIMELINE_EVENT_TYPES = [
   "capture_recorded",
   "capture_bound",
 ] as const;
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * Knowledge projects — GET /api/knowledge/projects
+ *
+ * Handler: `api.knowledge_routes.list_projects` -> `knowledge.vault.list_projects`.
+ * Response: a bare list of project rows, `ORDER BY updated_at DESC`.
+ *
+ * Ownership here is the **third** shape in this subsystem, and it differs from
+ * the timeline's: `knowledge.vault._project_owner_clause` is
+ * `(user_id = ? OR user_id IS NULL)` when authenticated and `user_id IS NULL`
+ * when anonymous. There *is* a public corpus on this reader, so an anonymous
+ * caller legitimately reads projects — unlike the timeline, where the anonymous
+ * scope is empty by construction.
+ *
+ * Consequence for the reader: a `[]` here is always a genuine empty read (the
+ * public corpus is visible to everyone), while a *non-empty public-only* answer
+ * for an authenticated viewer means their private projects are absent — which is
+ * the boundary working, not a partial result. The two must not be conflated.
+ *
+ * The single-project read (`GET /api/knowledge/projects/{name_or_uuid}`) is
+ * fail-closed: a non-owner receives `404`, not a distinguishable `403`.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/** One project row, as `knowledge.vault.list_projects` returns it. */
+export interface KnowledgeProject {
+  id: number;
+  uuid: string;
+  name: string;
+  description: string;
+  /** The private owner stamp; `null` means the public corpus. */
+  user_id: string | null;
+  tags: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Structural guard for the declared payload. A bare list of rows carrying at
+ * least an identity and an owner stamp; anything else is unrecognised.
+ */
+export function isKnowledgeProjects(value: unknown): value is KnowledgeProject[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        typeof entry === "object" &&
+        entry !== null &&
+        typeof (entry as { name?: unknown }).name === "string" &&
+        "user_id" in (entry as Record<string, unknown>),
+    )
+  );
+}
+
+/**
+ * `public`  the readable set holds public-corpus projects only;
+ * `scoped`  it holds the viewer's own private projects (and possibly public).
+ *
+ * There is no `empty` variant that is ambiguous here: unlike the timeline, the
+ * public corpus is readable without identity, so a `[]` is a real empty read.
+ */
+export type ProjectScope = "public" | "scoped";
+
+export function classifyProjectScope(projects: KnowledgeProject[]): ProjectScope {
+  return projects.some((project) => project.user_id !== null && project.user_id !== undefined)
+    ? "scoped"
+    : "public";
+}
+
+export function projectNotice(scope: ProjectScope, viewer: ViewerKind): string | null {
+  if (scope === "scoped") return null;
+  if (viewer === "anonymous") {
+    return "Signed-out view. The public corpus is readable; private projects are not part of this scope.";
+  }
+  return "Only public-corpus projects are readable in this scope; no private material is exposed here.";
+}
+
+/** Parse the `tags` column, which the reader stores as a JSON string. */
+export function projectTags(project: KnowledgeProject): string[] {
+  try {
+    const parsed = JSON.parse(project.tags);
+    return Array.isArray(parsed) ? parsed.filter((tag): tag is string => typeof tag === "string") : [];
+  } catch {
+    return [];
+  }
+}
