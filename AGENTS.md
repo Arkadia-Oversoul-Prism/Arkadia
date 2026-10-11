@@ -1539,6 +1539,20 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   credential-redaction guard would silently skip while the job stayed green. The workflow's
   node version (24.x) is therefore asserted in the wiring guard, and the skip names its
   requirement instead of failing opaquely.
+- **Do not assert an environment fact as if it were the code's behaviour.** The first CI run
+  carrying the new judging step (run `38146498321`) failed
+  `test_the_handler_really_does_carry_userinfo_on_the_remote` with *"control premise not met:
+  this environment's remote carries no userinfo"* — it passed locally and failed in CI, because
+  whether `git remote get-url origin` carries userinfo depends on **how the clone was made**:
+  a local clone with a credentialed remote URL embeds it, while `actions/checkout`
+  authenticates by HTTP header and leaves the remote clean. A premise test that *fails* on a
+  legitimate environment is worse than no premise test — it reddens CI for something the code
+  does not control. Make it a recorded observation that skips with the reason, and keep the
+  real assertions on synthetic inputs that do not depend on the environment. Verified both
+  ways: `12 passed` credentialed, `11 passed, 1 skipped` clean.
+- **Corollary worth stating:** the wiring is what surfaced that defect. A guard that runs
+  nowhere cannot tell you your own test is environment-dependent — the first CI run of the new
+  judging step caught in one run what the green local suite had hidden.
 - **Run the new guard before believing it.** `tests/test_prism_w4_ci_wiring.py` bit on its
   first run with 9 failures: 2 were **real pre-existing gaps on this branch** (slices 02–05's
   `test_prism_w4_lab_read_model.py` and `test_prism_w4_arkana_thread_history.py` were also

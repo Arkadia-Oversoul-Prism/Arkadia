@@ -162,6 +162,26 @@ path matcher (comparing a full relative path against a basename). All three are 
 the `push` filter only → **2 failed** (the coverage test and the filter-symmetry test). The
 file was restored byte-identically (`cmp` clean) after each.
 
+**The judging step immediately found a second defect — in this slice's own tests.** On the
+first CI run carrying the new step (run `38146498321`), `CP10-C` reported
+`1 failed, 166 passed`:
+
+```
+FAILED tests/test_prism_w4_lab_overview.py::test_the_handler_really_does_carry_userinfo_on_the_remote
+  AssertionError: control premise not met: this environment's remote carries no userinfo
+```
+
+The assertion passed locally and failed in CI, because **whether `git remote get-url origin`
+carries userinfo depends on how the clone was made**: this sandbox's remote URL embeds a
+credential, while `actions/checkout` authenticates by HTTP header and leaves the remote clean.
+The assertion was testing an *environment fact*, not the code — it is now a recorded
+observation that skips with that reason, and the redaction tests (which feed synthetic
+token-bearing views) do not depend on it. Verified in both directions: `12 passed` with a
+credentialed remote, `11 passed, 1 skipped` with a clean one.
+
+This is exactly the value the wiring was added for: the guard ran nowhere, and the first time
+it ran it caught something a green local suite had hidden.
+
 ---
 
 ## 7. Changed paths
