@@ -1,6 +1,7 @@
 # Agent 02 — NovaNet & Project Opportunity Radar
 
 **Active branch:** `feat/prism-next2-02-opportunity-entry-flow`
+**Active PR:** [#430](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/430) — draft, implementation in progress.
 **Base revision:** `f390526ab14e122fef358ef9b9e1cd438509463c`
 **Task:** create/edit prospect entries on the selected project board using verified routes.
 **Owns:** NovaNet feature modules, `src/components/opportunities/**`, scoped buyer-recon board/entry behavior in `solspire/buyer_recon.py` and `solspire/buyer_recon_router.py`, and related tests/evidence. Shared routing, global navigation, endpoint/type registries remain Workstream 1's seam.
