@@ -1,4 +1,5 @@
 import { Page, Panel, Facts, ContractState, NotYetWired } from "../components/ui";
+import { LabSessionList } from "../components/lab/LabSessionList";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
 import { endpoints } from "../lib/endpoints";
@@ -45,8 +46,13 @@ export function EngineeringLabPage() {
         </p>
       </Panel>
 
+      <LabSessionList />
+
       <div className="grid gap-4 md:grid-cols-2">
-        <NotYetWired contract="/api/lab/engineering/sessions" note="Session list, authorize, execute, and transition controls." />
+        <NotYetWired
+          contract="POST /api/lab/engineering/sessions/{id}/authorize · /execute · /transition"
+          note="Authorize, execute, and transition are mutating Lab-state acts. They require a human decision and are not wired to this read-only surface."
+        />
         <NotYetWired contract="/api/lab/engineering/artifacts" note="Artifact canvas and evidence records." />
       </div>
     </Page>
