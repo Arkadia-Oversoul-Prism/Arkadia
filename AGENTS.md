@@ -1434,3 +1434,45 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   to `main` (28 nodes, `diff` empty) - compare node identity, never counts. Architecture
   11 passed. `tsc --noEmit` + `vite build` clean. No shared registry file edited;
   `lib/endpoints.ts` stays Workstream 1's.
+
+## An unwired registry entry is the cheapest next read surface - and its own honesty rule is the test (Workstream 4)
+
+- `endpoints.labGateway` (`GET /api/lab/engineering/gateway`) was **declared in the shared
+  registry and read by no component**. Wiring an existing entry needs no registry edit, which
+  is exactly what a workstream forbidden from touching `lib/endpoints.ts` needs. Check
+  `grep -rl "endpoints.<name>" web/arkadia_console/src` before proposing a new endpoint: the
+  next slice may already be declared and merely unwired.
+- **A handler's own doctrine is the highest-value assertion available.** `gateway.py` states
+  "selection never fabricates availability ... the caller must treat model work as blocked -
+  not silently substitute a stub". The projection therefore keeps `configured` (an env var
+  fact) separate from `status` (a probe result), reports `configured_but_not_available`, and
+  emits a three-state verdict whose middle value is `MODEL_WORK_BLOCKED`. In this environment
+  the real handler output has **0 configured / 0 available** of 10 providers, so
+  `MODEL_WORK_BLOCKED` is the *correct observed reading* - do not "repair" it.
+- **A naive `group-by` is a lossy join, and the losses are the interesting cases.** The
+  handler emits `{local_providers, remote_providers, agent_providers, catalog}`; grouping the
+  catalog by group name silently drops any provider in no group and mislabels any provider
+  whose `config_class` disagrees with the group that names it. The projection reports
+  `ungrouped_providers`, `missing_from_catalog`, `duplicate_providers`,
+  `unknown_config_class` and per-group `group_class_mismatch` as first-class readings. Today
+  the three groups **partition** `CONFIG_CLASSES` exactly, so the lossless case is asserted
+  as a control premise and the lossy cases are negative controls.
+- **Read the vocabulary from the handler, and mind its type.** `CONFIG_CLASSES` in
+  `gateway.py` is a provider->class **dict**, not a class set, so the class vocabulary is its
+  `.values()`. Asserting `set(CONFIG_CLASSES) == {...}` fails and is a test-side defect, not
+  a source one. The guard now derives `set(CONFIG_CLASSES.values())` and compares the
+  projection's list to it for **equality** - a console-invented class is worse than a missing
+  one.
+- **A regex over a function body is not a side-effect detector; `ast` is.** Pinning
+  "`describe_gateway` performs no mutation" by matching the source between `def` and a blank
+  line failed on a legitimate one-line body. `ast.parse` + `ast.walk` finds the `FunctionDef`
+  wherever it moves, `ast.unparse` reads its real body, and the guard asserts exactly one
+  `Return` whose value calls `to_dict()`. A comment cannot satisfy it.
+- **A dead helper the compiler flags (`TS6133`) is a question, not always a deletion.** The
+  unused `groupFor()` was the group/class mapping the surface genuinely needed; it became the
+  `group_class_mismatch` reading instead of being removed. Prefer giving the helper its real
+  job over deleting the invariant it expresses.
+- **Measured at `f390526a` (slice 06 + 07):** 69 new test nodes (18 + 19 + 16 + 16, matching
+  the `+69 passed` delta exactly); failing/error node set `521c63e1...` **identical** to
+  `main` (28 nodes, `diff` empty). `tsc --noEmit` + `vite build` clean
+  (`dist/assets/index-BinH0HjF.js` 76.54 kB); `api/main.py` untouched at 2499 lines.

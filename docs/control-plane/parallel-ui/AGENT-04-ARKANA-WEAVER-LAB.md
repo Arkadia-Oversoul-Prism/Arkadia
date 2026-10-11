@@ -12,15 +12,24 @@
 | Slice | Surface | State |
 |---|---|---|
 | 02–05 | Lab read model, agent registry, artifact canvas, Arkana thread history | landed on this branch |
-| **06** | **run → work-event → evidence trace** | **implemented, tested, evidenced** — `docs/control-plane/evidence/prism-w4-run-evidence-trace-01/EVIDENCE.md` |
+| 06 | run → work-event → evidence trace | **implemented, tested, evidenced** — `docs/control-plane/evidence/prism-w4-run-evidence-trace-01/EVIDENCE.md` |
+| **07** | **model gateway read surface** | **implemented, tested, evidenced** — `docs/control-plane/evidence/prism-w4-model-gateway-01/EVIDENCE.md` |
+| next | `GET /api/lab/overview` (`endpoints.labOverview`) | declared in the registry, unwired — next bounded move |
 | next | automations read surface | **blocked** on Workstream 1's `labAutomations` registry entry |
-| next | next verified Arkana/Weaver read surface | not started |
 
 Slice 06 measured: 37 new test nodes; full-suite failing/error node set
 `521c63e1…` **identical** to `main` `f390526a` (28 nodes, `diff` empty); architecture
 11 passed; `tsc --noEmit` + `vite build` clean. Read-only by construction — the trace
 issues no request of its own and joins only handler-recorded reference fields
 (`event.run_id`, `evidence.run_ref`, `run.evidence_refs`).
+
+Slice 07 measured: 16 + 16 new test nodes; same node set and delta method; the
+projection is executed under Node against the real `describe_gateway()` output. The
+surface reads `endpoints.labGateway` (already declared) — **no registry edit needed**,
+which is why this slice was chosen while the automations surface stays blocked.
+
+**Choosing the next surface:** `grep -rl "endpoints.<name>" web/arkadia_console/src`
+first. A declared-but-unwired entry costs no shared-file change.
 
 ## Start now — no new prompt required
 
