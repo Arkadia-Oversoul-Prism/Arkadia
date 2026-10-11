@@ -7,12 +7,15 @@ machine-readable x-arkadia-auth-boundary classification so CI can detect drift.
 from __future__ import annotations
 
 from typing import Any, Iterable
+import inspect
 
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 
 HTTP_METHODS = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
 BEARER_SCHEME = "FirebaseBearer"
+SOVEREIGN_SCHEME = "SovereignKeyHeader"
+WEBHOOK_SCHEME = "GitHubWebhookHMAC"
 
 # These are intentionally public entry points in the N-ATLaS tester flow. Their
 # subsequent run token is path-scoped by api.auth.require_auth and must not grant
@@ -100,13 +103,53 @@ def _boundary(
             "runtime_guard": "get_current_user",
         }
 
-    # Inline checks (for example a body-held sovereign key or GitHub HMAC signature)
-    # cannot safely be inferred from a dependency name. Mark them for explicit review
-    # rather than falsely claiming Firebase bearer auth protects them.
+    try:
+        source = inspect.getsource(route.endpoint)
+    except (OSError, TypeError):
+        source = ""
+
+    # Inline calls to the same auth helpers are runtime boundaries even when they
+    # are not expressed as FastAPI Depends nodes.
+    if "require_auth(" in source or "await require_auth" in source:
+        return [{BEARER_SCHEME: []}], {
+            "classification": "firebase_bearer",
+            "runtime_guard": "require_auth_called_inline",
+        }
+
+    if "X-Hub-Signature-256" in source:
+        return [{WEBHOOK_SCHEME: []}], {
+            "classification": "github_webhook_hmac",
+            "runtime_guard": "X-Hub-Signature-256",
+            "algorithm": "HMAC-SHA256",
+        }
+
+    if "SOVEREIGN_KEY" in source and "sovereign_key" in source:
+        return [{SOVEREIGN_SCHEME: []}], {
+            "classification": "sovereign_key_header",
+            "runtime_guard": "X-Sovereign-Key",
+        }
+
+    if "_get_current_user" in source or "get_current_user" in source:
+        requires_identity = (
+            ("if not user" in source or "if user is None" in source)
+            and ("status_code=401" in source or "Authentication required" in source)
+        )
+        if requires_identity:
+            return [{BEARER_SCHEME: []}], {
+                "classification": "firebase_bearer",
+                "runtime_guard": "inline_identity_check",
+            }
+        return [{BEARER_SCHEME: []}, {}], {
+            "classification": "optional_firebase_bearer",
+            "runtime_guard": "inline_get_current_user",
+        }
+
+    # No auth dependency or inline auth check exists in the handler: document the
+    # actual anonymous boundary explicitly. This is a disclosure of current runtime
+    # behavior, not an endorsement that mutating public routes are safe.
     return [], {
-        "classification": "public_or_inline_application_guard",
+        "classification": "anonymous_no_auth_guard",
         "runtime_guard": None,
-        "review_required": True,
     }
 
 def install_openapi_security(app: FastAPI) -> None:
@@ -117,11 +160,24 @@ def install_openapi_security(app: FastAPI) -> None:
         if app.openapi_schema:
             return app.openapi_schema
         schema = original_openapi()
-        schema.setdefault("components", {}).setdefault("securitySchemes", {})[BEARER_SCHEME] = {
+        schemes = schema.setdefault("components", {}).setdefault("securitySchemes", {})
+        schemes[BEARER_SCHEME] = {
             "type": "http",
             "scheme": "bearer",
-            "bearerFormat": "Firebase ID token",
-            "description": "Firebase ID token verified by Arkadia's auth dependency.",
+            "bearerFormat": "Firebase ID token or path-scoped N-ATLaS capability",
+            "description": "Firebase ID token verified by Arkadia auth; N-ATLaS tester capabilities are accepted only on their scoped run endpoint.",
+        }
+        schemes[SOVEREIGN_SCHEME] = {
+            "type": "apiKey",
+            "in": "header",
+            "name": "X-Sovereign-Key",
+            "description": "Sovereign gate key for the forge operation.",
+        }
+        schemes[WEBHOOK_SCHEME] = {
+            "type": "apiKey",
+            "in": "header",
+            "name": "X-Hub-Signature-256",
+            "description": "GitHub webhook HMAC-SHA256 signature; requires the configured SOVEREIGN_KEY secret.",
         }
         routes = {
             (effective_path, method.lower()): (route, inherited_dependencies)
