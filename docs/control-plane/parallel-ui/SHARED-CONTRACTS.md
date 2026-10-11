@@ -1,6 +1,6 @@
 # Prism Parallel UI Work — Shared Contracts
 
-**Status:** coordination contract proposed in draft PR #419; not accepted until human review/merge.
+**Status:** ACCEPTED — merged via PR #419 at `a29a9b8f18ada55cb9457ea3cdab98414522a4e8`.
 **Baseline observed:** `main` at PR #418 base `d2670ce8b41c500df5cf475f7c6526016c7bd3aa`. Re-fetch `main` before every change; this SHA is not a permanent pin.
 **Canonical production:** https://arkadia-qzu4.onrender.com (ADR-016). No deployment is authorized.
 **Authority:** agents may inspect, implement, test, commit to their assigned branch, and update their PR. Human retains merge, production deployment, and acceptance.
