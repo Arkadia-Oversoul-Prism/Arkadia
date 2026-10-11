@@ -332,3 +332,33 @@ def test_detector_ignores_a_comment_but_flags_real_code():
     assert "user_id" not in strip_comments(prose_only)
     filtering = "const mine = events.filter((e) => e.user_id === me);"
     assert "user_id" in strip_comments(filtering)
+
+
+def test_default_page_includes_latest_event_after_more_than_100_owner_events(client):
+    """The default page is the newest bounded window, rendered chronologically."""
+    for index in range(125):
+        tl.record("decision", {"marker": f"TIMELINE_PAGE_{index}"}, user_id=USER_A)
+
+    latest_page = client.get("/api/knowledge/timeline", headers=_auth(USER_A)).json()
+    ids = [event["id"] for event in latest_page]
+    markers = _markers(latest_page)
+
+    assert len(latest_page) == 100
+    assert ids == sorted(ids), "the selected latest window remains chronological"
+    assert latest_page[0]["payload"]["marker"] == "TIMELINE_PAGE_25"
+    assert latest_page[-1]["payload"]["marker"] == "TIMELINE_PAGE_124"
+    assert "TIMELINE_PAGE_124" in markers
+    assert "TIMELINE_PAGE_0" not in markers
+
+    older_page = client.get(
+        "/api/knowledge/timeline?limit=100&offset=100",
+        headers=_auth(USER_A),
+    ).json()
+    older_ids = [event["id"] for event in older_page]
+    assert len(older_page) == 25
+    assert older_ids == sorted(older_ids)
+    assert max(older_ids) < min(ids)
+    assert not set(older_ids).intersection(ids)
+
+    # Anonymous remains fail-closed even when many private events exist.
+    assert client.get("/api/knowledge/timeline").json() == []
