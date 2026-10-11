@@ -98,3 +98,10 @@ Record the stop condition rather than improvising around it.
 Advance the live repository from the current state through **G11 → G12 → G14**, then perform G15/G16 release evidence work.
 
 The objective is not a percentage score. The objective is a machine-verifiable, human-governed Console loop that survives the physical/offline world.
+
+
+---
+
+## Supersession note — 2026-10-11
+
+This document describes an earlier Console-completion workstream with a different baseline and gate sequence. It is retained as historical context, but it is **not** the active overnight UI directive. The current instruction is `docs/control-plane/overnight/PRISM-UI-RECONCILIATION.md`, which supersedes this plan for Upper Hands Engineering Lab / Weaver / Hourly Weaver Automation pulses. Reconstruct live `main` and PR state before acting; do not reuse the old base SHA, branch, or assumption that the scaffold alone is the target. The active workstream preserves the archived Prism UI and reconciles its proven features into the new console. It also supersedes any Vercel-as-production language: Render at `https://arkadia-qzu4.onrender.com` is the sole canonical production origin under ADR-016, and no deployment is authorized by this workstream.
