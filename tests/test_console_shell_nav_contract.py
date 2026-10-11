@@ -169,6 +169,63 @@ def _lens_testid_owners(sources: dict[str, str]) -> list[str]:
     ]
 
 
+SKIP_TARGET = 'id="main-content"'
+
+
+def _skip_link_tag(shell_text: str) -> str | None:
+    """The opening tag of the skip-to-content link, or None."""
+    i = shell_text.find('data-testid="skip-to-content"')
+    if i == -1:
+        return None
+    start = shell_text.rfind("<", 0, i)
+    if start == -1:
+        return None
+    tag = _opening_tag_at(shell_text, start)
+    return tag[1] if tag else None
+
+
+def _main_landmark_tag(shell_text: str) -> str | None:
+    """The ``<main>`` tag carrying the skip-link target id, or None."""
+    for m in re.finditer(r"<main\b", shell_text):
+        tag = _opening_tag_at(shell_text, m.start())
+        if tag is not None and SKIP_TARGET in tag[1]:
+            return tag[1]
+    return None
+
+
+def _keyboard_landmark_defects(shell_text: str) -> list[str]:
+    """Reasons the shell is not keyboard-reachable. Empty == reachable.
+
+    Keyboard reachability has three parts that fail independently: the skip link
+    must exist, it must target a landmark that actually exists, and that
+    landmark must be programmatically focusable (``tabIndex=-1``) or the browser
+    clears the hash without moving focus.
+    """
+    defects = []
+    tag = _skip_link_tag(shell_text)
+    if tag is None:
+        defects.append("no skip-to-content link")
+    elif 'href="#main-content"' not in tag:
+        defects.append("skip link does not target #main-content")
+    landmark = _main_landmark_tag(shell_text)
+    if landmark is None:
+        defects.append("no content landmark with id=main-content")
+    elif "tabIndex" not in landmark:
+        defects.append("content landmark is not focusable")
+    return defects
+
+
+FOCUS_ON_ROUTE = re.compile(
+    r"useEffect\(\s*\(\)\s*=>\s*\{.*?\.focus\(\)\s*;?\s*\}\s*,\s*\[current\]\s*\)",
+    re.DOTALL,
+)
+
+
+def _focus_bound_to_route(shell_text: str) -> bool:
+    """True when focus is moved to the content landmark on a route change."""
+    return bool(FOCUS_ON_ROUTE.search(shell_text))
+
+
 # ---------------------------------------------------------------------------
 # One navigation model, one router/surface declaration
 # ---------------------------------------------------------------------------
@@ -445,4 +502,70 @@ def test_detector_reads_the_whole_tag_when_a_handler_contains_an_arrow():
     tag_name, tag_text = tags[0]
     assert tag_name == "button" and "onClick" in tag_text
     assert _decorative_lens_controls(live) == []
+
+
+# ---------------------------------------------------------------------------
+# Keyboard reachability of the shared shell (directive §4 Slice A, §9)
+# ---------------------------------------------------------------------------
+
+
+def test_shell_is_keyboard_reachable_through_a_skip_link():
+    """A persistent navigation block precedes every surface, so a keyboard user
+    must be able to jump past it. The skip link must target a real, focusable
+    content landmark — a link to a missing or unfocusable target is decorative.
+    """
+    assert _keyboard_landmark_defects(SHELL) == [], _keyboard_landmark_defects(SHELL)
+    # The skip link must be hidden until focused, not permanently visible or
+    # permanently hidden (either would make it unusable or noisy).
+    tag = _skip_link_tag(SHELL)
+    assert "sr-only" in tag and "focus:not-sr-only" in tag, tag
+
+
+def test_route_change_moves_focus_to_the_content_landmark():
+    """A navigation moves the app to a new surface; focus must follow it, or a
+    screen-reader/keyboard user stays parked in the nav of the surface they left.
+    """
+    assert _focus_bound_to_route(SHELL), (
+        "Shell.tsx must focus the content landmark in a useEffect keyed on the "
+        "current surface (the route change), not leave focus on the old surface"
+    )
+
+
+def test_detector_flags_a_skip_link_with_no_target_landmark():
+    """Negative control: the exact pre-repair shape — a skip link whose target
+    id does not exist in the shell — must be reported."""
+    stale = SHELL.replace('id="main-content"', 'id="somewhere-else"')
+    assert stale != SHELL, "control did not mutate Shell.tsx -- detector unproven"
+    assert any("no content landmark" in d for d in _keyboard_landmark_defects(stale)), (
+        _keyboard_landmark_defects(stale)
+    )
+
+
+def test_detector_flags_a_skip_link_pointing_at_the_wrong_target():
+    """Negative control: a skip link that exists but points somewhere other than
+    the focusable landmark is not a skip link."""
+    stale = SHELL.replace('href="#main-content"', 'href="#content"')
+    assert stale != SHELL, "control did not mutate Shell.tsx -- detector unproven"
+    assert any("does not target" in d for d in _keyboard_landmark_defects(stale)), (
+        _keyboard_landmark_defects(stale)
+    )
+
+
+def test_detector_flags_an_unfocusable_content_landmark():
+    """Negative control: dropping ``tabIndex`` leaves the landmark unfocusable;
+    the hash change would not move keyboard focus, so this must be reported."""
+    stale = re.sub(r"\n\s*tabIndex=\{-1\}\n", "\n", SHELL, count=1)
+    assert stale != SHELL, "control did not mutate Shell.tsx -- detector unproven"
+    assert any("not focusable" in d for d in _keyboard_landmark_defects(stale)), (
+        _keyboard_landmark_defects(stale)
+    )
+
+
+def test_detector_flags_focus_that_is_not_bound_to_the_route():
+    """Negative control: a ``focus()`` call that does not re-run per surface is
+    the defect — it focuses once and never follows later navigation."""
+    stale = SHELL.replace("}, [current]);", "}, []);")
+    assert stale != SHELL, "control did not mutate Shell.tsx -- detector unproven"
+    assert not _focus_bound_to_route(stale)
+
 

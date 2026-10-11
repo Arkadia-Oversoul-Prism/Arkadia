@@ -2,8 +2,8 @@
  * The unified application shell: persistent navigation, workspace identity, and
  * the shared aurora field. Mounted once by `App`.
  */
-import type { ReactNode } from "react";
-import { SURFACES, type SurfaceId } from "../lib/surfaces";
+import { useEffect, useRef, type ReactNode } from "react";
+import { SURFACES, SURFACE_BY_ID, type SurfaceId } from "../lib/surfaces";
 import { useAuth } from "../contexts/AuthContext";
 
 const NAV_SURFACES = SURFACES.filter((s) => s.nav !== false);
@@ -44,9 +44,25 @@ export function Shell({
   children: ReactNode;
 }) {
   const { profile, isAuthenticated, identityState, signOutNow } = useAuth();
+  const mainRef = useRef<HTMLElement>(null);
+
+  // A route change moves to a new surface, but the browser keeps the keyboard
+  // focus (and scroll position) where the previous surface left it. Focus the
+  // content landmark so keyboard and screen-reader users resume at the top of
+  // the new surface instead of in the navigation that is now behind them.
+  useEffect(() => {
+    mainRef.current?.focus();
+  }, [current]);
 
   return (
     <div className="flex min-h-screen bg-ink text-white">
+      <a
+        href="#main-content"
+        data-testid="skip-to-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded focus:border focus:border-gold/40 focus:bg-panel focus:px-3 focus:py-2 focus:font-mono focus:text-[11px] focus:uppercase focus:tracking-widest focus:text-gold"
+      >
+        Skip to content
+      </a>
       <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-panel/40 p-4 md:flex">
         <div className="mb-6 px-2">
           <p className="font-display text-lg tracking-[0.2em] text-gold">ARKADIA</p>
@@ -91,7 +107,15 @@ export function Shell({
             <NavLink key={s.id} active={current === s.id} label={s.name} accent={s.accent} onClick={() => onNavigate(s.id)} />
           ))}
         </nav>
-        <main className="min-w-0 flex-1">{children}</main>
+        <main
+          id="main-content"
+          ref={mainRef}
+          tabIndex={-1}
+          aria-label={`${SURFACE_BY_ID[current].name} content`}
+          className="min-w-0 flex-1 focus:outline-none"
+        >
+          {children}
+        </main>
       </div>
     </div>
   );
