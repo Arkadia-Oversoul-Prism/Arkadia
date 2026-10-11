@@ -253,6 +253,29 @@ def _tsx_sources() -> dict[str, str]:
     return {str(p.relative_to(SRC)): p.read_text(encoding="utf-8") for p in sorted(SRC.rglob("*.tsx"))}
 
 
+def _transport_sources() -> dict[str, str]:
+    """Every module the ``apiRequest`` detector scans.
+
+    ``.ts`` as well as ``.tsx``: the read is what carries the endpoint contract,
+    not the extension of the file that performs it, and ``lib/arkana.ts`` already
+    reaches the backend through ``apiRequest``. A ``.tsx``-only domain would let a
+    contract module (or a hook, or a plain helper) inline a path and pass the guard
+    — the same blind spot the ``useHydration`` widening closed for ``.tsx``.
+
+    ``lib/apiClient.ts`` is excluded because it *is* the transport: its own
+    ``fetch(path, …)`` takes the path as a parameter, so scanning it would report
+    the transport's signature rather than a page-local contract.
+    """
+    skip = {"lib/apiClient.ts"}
+    sources = {}
+    for pattern in ("*.ts", "*.tsx"):
+        for path in sorted(SRC.rglob(pattern)):
+            relative = str(path.relative_to(SRC))
+            if relative not in skip:
+                sources[relative] = path.read_text(encoding="utf-8")
+    return sources
+
+
 # ---------------------------------------------------------------------------
 # The registry is the one API surface map, and every entry is served
 # ---------------------------------------------------------------------------
@@ -305,7 +328,7 @@ def test_no_page_passes_a_literal_path_to_api_request():
     A **literal** can be judged, and a literal is exactly the second, unreviewed
     contract this guard exists to catch.
     """
-    defects = _inline_request_literals(_tsx_sources())
+    defects = _inline_request_literals(_transport_sources())
     assert defects == [], f"literal endpoint path(s) passed to apiRequest: {defects}"
 
 
@@ -330,6 +353,23 @@ def test_request_detector_is_not_trivially_true():
         "useHydration<T>(endpoints.echoes, (p) => apiRequest<T>(p), [flag]);",
     ):
         assert _inline_request_literals({"Page.tsx": legitimate}) == [], legitimate
+
+
+def test_transport_detector_domain_includes_ts_modules():
+    """Negative control: the detector's domain must not be ``.tsx``-only.
+
+    A path literal in a plain ``.ts`` module is the same second, unreviewed
+    contract as one in a page, and ``lib/arkana.ts`` already reaches the backend
+    through ``apiRequest``. If the domain narrowed back to ``*.tsx``, a contract
+    module could inline a path and pass the guard above — which is exactly the
+    blind spot this domain closes.
+    """
+    assert "lib/arkana.ts" in _transport_sources(), "a real .ts transport read must be scanned"
+    assert "lib/apiClient.ts" not in _transport_sources(), "the transport itself is a parameter"
+
+    inlined = {"lib/helper.ts": 'export const load = () => apiRequest<Thing>("/api/invented");\n'}
+    assert _inline_request_literals(inlined) != [], "a .ts literal must be reported"
+    assert "lib/helper.ts" not in _tsx_sources(), "control premise: .ts is outside the tsx domain"
 
 
 def test_registry_path_builders_derive_from_a_collection_and_encode():

@@ -342,3 +342,72 @@ increment introduces no regression.
 sign-in is `/login` — so `/gate` is not an alias of anything and reconciling it would require
 deciding what the surface *is*, which is a product decision, not a routing one. `/home` is the
 same case as `/` and is a candidate for a later bounded pass.
+
+---
+
+## 9. Transport-detector domain widened to `.ts` — 2026-10-11
+
+### 9.1 The defect
+
+§8.5 widened the one-registry guard from `useHydration` arguments to `apiRequest`
+literals, but ran the widened detector over `_tsx_sources()`. The read is what carries the
+endpoint contract, not the extension of the file that performs it: `lib/arkana.ts` reaches
+`POST /api/commune/resonance` through `apiRequest` and is a `.ts` module. A contract module,
+hook, or plain helper that inlined a path would therefore have passed
+`test_no_page_passes_a_literal_path_to_api_request` unjudged — the same blind spot the §8.5
+widening closed one layer down.
+
+Measured: a planted `apiRequest<unknown>("/api/ghost-feed")` in `lib/arkana.ts` was reported
+by the widened domain and **missed** by the pre-change `.tsx` domain (`[]`).
+
+### 9.2 The change (one file)
+
+`tests/test_console_endpoint_registry_contract.py`:
+
+- `_transport_sources()` — `.ts` **and** `.tsx` under `web/arkadia_console/src`, excluding
+  `lib/apiClient.ts`. The transport is excluded because it *is* the boundary: its own
+  `fetch(path, …)` receives the path as a parameter, so scanning it would report the
+  transport's signature rather than a page-local contract.
+- `test_no_page_passes_a_literal_path_to_api_request` now asserts over `_transport_sources()`.
+- `test_transport_detector_domain_includes_ts_modules` (new) pins the domain: a real `.ts`
+  transport read must be scanned, the transport itself must not, a `.ts` literal must be
+  reported, and the control premise (`.ts` is outside `_tsx_sources()`) must hold.
+
+No production source was edited. `_tsx_sources()` is retained and still used by the
+`useHydration` detector, whose path is always a page-local `.tsx` expression.
+
+### 9.3 Verification
+
+| Check | Result |
+|---|---|
+| `tests/test_console_endpoint_registry_contract.py` | **18 passed** (was 17) |
+| Guard + shell-nav + gate-integrity | **110 passed** |
+| `tests/architecture` | **11 passed** |
+| CP10 admission (`--judge`) | **PASS** for the changed path |
+| Live tree under the widened domain | **37 modules, 0 defects** (no false positive) |
+| **Live negative control** | planted `.ts` literal → `test_no_page_passes_a_literal_path_to_api_request` **FAILED**; file restored byte-identically (`sha256 4ecea80c…`) |
+| Load-bearing proof | widened domain reports the planted literal; pre-change `.tsx` domain returns `[]` |
+| Full suite (branch, clean run) | **27 failed / 2351 passed / 17 skipped / 1 error** |
+| Full suite (baseline `7a81095d`, same env) | **27 failed / 2350 passed / 17 skipped / 1 error** |
+| Failing/error **node set** vs baseline | **identical** — 28 nodes, sha256 `521c63e1b75d3369aa6ca40e96c12268bd9c9b633e7584d514dd421e54ecdebe` on both trees |
+| `+1 passed` attribution | exactly the one new node; the branch adds one test |
+
+The 28-node failing set is pre-existing debt (voice context/pipeline, `knowledge.db`
+cross-test contamination, the `weaver.autonomy` module-vs-package collection error, the
+sovereign-only `tests/test_engineering_lab_api.py` pins, Landing copy pins) — the same set on
+both trees.
+
+**Measurement note (a real hazard, recorded).** A first branch run reported **28** failures to
+the baseline's 27, the delta being
+`tests/test_engineering_lab_agent_loop.py::test_agent_loop_does_not_mutate_repository`. That
+node is the repo's **documented intermittent**: it snapshots global `git status --porcelain`
+around `execute_agent_loop`, so any concurrent repository write fails it — and this pass edited
+`SHARED-CONTRACTS.md` in that same worktree while its suite was running. It passes 1/1 in
+isolation. A clean re-run with no concurrent writes reproduced the baseline node set exactly
+(`521c63e1…`). Attribute this class of delta by **node identity**, never by count.
+
+### 9.4 Non-claims
+
+Repository-source claim only. No merge, no deployment, no acceptance; production parity is
+not claimed. No feature-owned path (`opportunityRadarContract.ts`, `knowledgeContracts.ts`,
+`arkanaThreadsContract.ts`, the Lab components) was edited.
