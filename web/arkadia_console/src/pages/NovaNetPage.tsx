@@ -8,30 +8,32 @@
  * fabricates content: an unavailable read renders the honest contract state.
  *
  * The legacy hub carried sub-views (`/nexus/ims`, `/nexus/grove`,
- * `/nexus/larder`, `/nexus/distribution`). They are declared here as lenses and
- * render their own honest "not yet wired" state until their contracts are
- * reconciled — they are not routed as separate top-level surfaces (directive §5).
+ * `/nexus/larder`, `/nexus/distribution`). They are not reconciled yet, so they
+ * are **not** rendered as controls: a lens that does nothing is a decorative
+ * control (directive §4). Their backend contracts also do not fit the console's
+ * client — `/api/ims/inquiries` is sovereign-key gated, which the Bearer-only
+ * `apiClient` cannot satisfy, so a lens pointing at it could only ever fail.
+ * The single "Nexus Hub" lens states that honestly instead.
  */
 import { Page, Panel, ContractState, NotYetWired } from "../components/ui";
+import { SurfaceLenses } from "../components/SurfaceLenses";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
 import { endpoints } from "../lib/endpoints";
+import type { SurfaceId } from "../lib/surfaces";
 import type { EchoesFeed, TransmissionList } from "../lib/types";
 
 const LENSES = [
   { id: "field", label: "Field" },
   { id: "echoes", label: "Echoes" },
-  { id: "ims", label: "IMS Archive" },
-  { id: "grove", label: "Spiral Grove" },
-  { id: "larder", label: "Larder" },
-  { id: "distribution", label: "Distribute" },
+  { id: "hub", label: "Nexus Hub" },
 ];
 
+/** The lens ids this surface declares; a section outside this set is not a lens. */
+const LENS_IDS = new Set(LENSES.map((l) => l.id));
+
 const DEFERRED: Record<string, string> = {
-  ims: "/api/ims/inquiries",
-  grove: "UNKNOWN",
-  larder: "UNKNOWN",
-  distribution: "UNKNOWN",
+  hub: "UNKNOWN",
 };
 
 function ago(ts: number): string {
@@ -42,25 +44,25 @@ function ago(ts: number): string {
   return `${Math.floor(delta / 86_400_000)}d`;
 }
 
-export function NovaNetPage({ section = "field" }: { section?: string }) {
+export function NovaNetPage({
+  section = "field",
+  onNavigate,
+}: {
+  section?: string;
+  onNavigate: (id: SurfaceId, section?: string) => void;
+}) {
   const field = useHydration<TransmissionList>(endpoints.transmissions, (p) => apiRequest<TransmissionList>(p));
   const echoes = useHydration<EchoesFeed>(endpoints.echoes, (p) => apiRequest<EchoesFeed>(p), [section === "echoes"]);
 
   return (
     <Page title="NovaNet" subtitle="The public field — transmissions, echoes, and the shared Nexus hub over one canonical backend.">
-      <div className="mb-4 flex flex-wrap gap-1" data-testid="novanet-lenses">
-        {LENSES.map((l) => (
-          <span
-            key={l.id}
-            data-testid={`novanet-lens-${l.id}`}
-            className={`rounded px-3 py-1 font-mono text-[11px] uppercase tracking-widest ${
-              section === l.id ? "bg-white/5 text-azure" : "text-white/40"
-            }`}
-          >
-            {l.label}
-          </span>
-        ))}
-      </div>
+      <SurfaceLenses
+        surface="novanet"
+        lenses={LENSES}
+        section={section}
+        accent="text-azure"
+        onNavigate={onNavigate}
+      />
 
       {(section === "field" || section === "echoes") && (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -130,10 +132,19 @@ export function NovaNetPage({ section = "field" }: { section?: string }) {
         </div>
       )}
 
-      {section !== "field" && section !== "echoes" && (
+      {!LENS_IDS.has(section) && (
         <NotYetWired
           contract={DEFERRED[section] ?? "UNKNOWN"}
-          note={`The legacy Nexus hub's "${section}" sub-view is declared but its contract is not reconciled in the console yet.`}
+          note={`"${section}" is not a lens of this surface. The reconciled lenses are ${[...LENS_IDS]
+            .map((id) => `"${id}"`)
+            .join(", ")}.`}
+        />
+      )}
+
+      {section === "hub" && (
+        <NotYetWired
+          contract={DEFERRED.hub}
+          note="The legacy Nexus hub's sub-views (IMS archive, Spiral Grove, Larder, distribution) are declared in the inventory but not reconciled in the console: their contracts are either unverified or sovereign-key gated, which the authenticated client cannot satisfy. No decorative controls are rendered for them."
         />
       )}
     </Page>

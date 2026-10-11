@@ -131,6 +131,7 @@ Produce the **Slice A shell/navigation inventory** as the next pulse: enumerate 
 | 1 | `42ade73b75cf9…` | — | this inventory (feature/route matrix) | IMPLEMENTED |
 | 2 | `a5443d2a…` | A | `PRISM-UI-SLICE-A-SHELL-INVENTORY.md` + `test_console_shell_nav_contract.py` (11 tests) | IMPLEMENTED |
 | 3 | `1a2a5561…` | A.1 | NovaNet hub surface (`/novanet`, `/nexus` alias) + evidence record | IMPLEMENTED |
+| 4 | `75bbd859…` | A.2 | NovaNet lens strip reconciled to a navigable control (`SurfaceLenses.tsx`) + §4 guard | IMPLEMENTED |
 
 ### Pulse 3 — Slice A.1: NovaNet hub surface
 
@@ -176,4 +177,59 @@ is added. Do **not** invent routes for them.
 - No merge, no deployment, no production acceptance. PR #418 remains a **draft**.
 - No claim that `https://arkadia-qzu4.onrender.com` serves the NovaNet surface —
   the console has not been deployed with this change.
+- No Vercel path used, promoted, or treated as evidence (directive §8).
+
+### Pulse 4 — Slice A.2: the lens strip becomes a control
+
+The `NovaNet primary rail + "More" lens strip` row (§2) moved `DEFERRED` →
+`IMPLEMENTED`. Evidence:
+`docs/control-plane/evidence/prism-ui-reconciliation-slice-a-novanet-01/EVIDENCE.md`
+(pulse-4 section).
+
+- **Defect measured, not assumed:** each lens rendered as
+  `<span data-testid=…>` with no `onClick` — the directive §4 decorative-control
+  class. The legacy `PrismInteriorShell.tsx` `SurfaceButton` it reconciles is a
+  real `<button onClick aria-current>`.
+- **Fix:** one shared `components/SurfaceLenses.tsx`; every lens is a real
+  `<button onClick={() => onNavigate(surface, l.id)}>` navigating through the
+  router `App.tsx` already owns. Lenses narrowed to the three the client can
+  honestly serve (`field`/`echoes`/`hub`); the sovereign-key-gated IMS contract
+  and the `UNKNOWN` grove/larder/distribution contracts are **not** rendered as
+  controls and are stated in the `hub` lens's `NotYetWired` note.
+- No new route, no local sub-view state, no second navigation model (§5.1/§5.4).
+- **Guard:** `tests/test_console_shell_nav_contract.py` `+5` tests (15 → 20),
+  carrying negative controls for the pre-repair shape, a removed `App.tsx`
+  binding, and a handler containing `=>` (a naive `<[^>]*>` scan would miss the
+  `onClick`).
+
+### Baseline at pulse 4 (same-environment, same-location before/after)
+
+| Check | Result |
+|---|---|
+| Full suite, before / after | 35F / 2118P → 35F / **2123P**, 34S / 1E both |
+| Failing/error node **set** | identical; 36 nodes; ids-sha256 `71522b9450fed649c107a2701db3e30b22d706bc9e4bc5f99fb1eb23000cf0f4` |
+| `tests/architecture` | **11 passed** |
+| Targeted frontend/route guards | **49 passed** (was 44; `+5` = the new tests) |
+| `tsc --noEmit && vite build` | exit 0 — 64 modules, 35.43 kB |
+| CP10 mutation boundary | PASS (exit 0) |
+| `python -m py_compile api/main.py` | OK; 2499 lines (< 2600 budget) |
+
+The before side was measured by stashing the change **in place** (same working
+directory), so the node-set identity is the load-bearing claim; the absolute
+counts differ from CI's by the installed dependency set.
+
+### Next bounded move (proposed, not implemented)
+
+Reconcile `/nexus/ims` (`IMSArchivePage.tsx`) **only** as far as its real
+contract allows: `/api/ims/inquiries` is sovereign-key gated and the console
+`apiClient` sends a Bearer token only, so a working lens is not available without
+an authorization decision. Record it as an honest blocked/not-wired state rather
+than shipping a control that can only fail. `grove`, `larder` and `distribution`
+remain `UNKNOWN` and require contract discovery before any surface is added.
+
+### Pulse-4 explicit non-claims
+
+- No merge, no deployment, no production acceptance. PR #418 remains a **draft**.
+- No claim that `https://arkadia-qzu4.onrender.com` serves this change; the
+  console has not been deployed with it.
 - No Vercel path used, promoted, or treated as evidence (directive §8).

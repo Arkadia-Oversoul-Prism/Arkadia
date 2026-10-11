@@ -97,6 +97,78 @@ def _ts_sources() -> dict[str, str]:
     }
 
 
+def _opening_tag_at(src: str, start: int) -> tuple[str, str] | None:
+    """``(tag_name, tag_text)`` for the JSX opening tag beginning at ``start``.
+
+    Scans to the matching ``>`` while tracking brace depth and string quotes, so
+    a ``=>`` inside a JSX expression container does not terminate the tag (a
+    naive ``<[^>]*>`` match would cut the attribute list in half and hide the
+    handler it is looking for).
+    """
+    m = re.match(r"<([A-Za-z][A-Za-z0-9.]*)", src[start:])
+    if not m:
+        return None
+    i, depth, quote = start + 1, 0, None
+    while i < len(src):
+        c = src[i]
+        if quote:
+            if c == quote:
+                quote = None
+        elif c in "\"'`":
+            quote = c
+        elif c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+        elif c == ">" and depth == 0:
+            return m.group(1), src[start : i + 1]
+        i += 1
+    return None
+
+
+def _elements_carrying_testid(src: str) -> list[tuple[str, str]]:
+    """Every JSX element whose opening tag carries a ``data-testid``."""
+    found = []
+    for m in re.finditer(r"data-testid=", src):
+        start = src.rfind("<", 0, m.start())
+        if start == -1:
+            continue
+        tag = _opening_tag_at(src, start)
+        if tag is not None and "data-testid=" in tag[1]:
+            found.append(tag)
+    return found
+
+
+LENS_CONTROL_TESTID = re.compile(r"-lens-")
+
+
+def _decorative_lens_controls(sources: dict[str, str]) -> list[str]:
+    """Lens controls that cannot navigate — the decorative control §4 forbids.
+
+    A per-lens testid marks something the user is meant to operate. If it is not
+    a ``<button>`` carrying an ``onClick`` it does nothing. The strip *container*
+    (``...-lenses``) carries no per-lens testid and is not a control, so it is
+    deliberately out of scope.
+    """
+    defects = []
+    for name, src in sources.items():
+        for tag_name, tag_text in _elements_carrying_testid(src):
+            if not LENS_CONTROL_TESTID.search(tag_text):
+                continue
+            if tag_name != "button" or "onClick" not in tag_text:
+                defects.append(f"{name}: <{tag_name}> {tag_text[:70]!r}")
+    return defects
+
+
+def _lens_testid_owners(sources: dict[str, str]) -> list[str]:
+    """Files that declare a per-lens testid — the lens strip's owner(s)."""
+    return [
+        name
+        for name, src in sources.items()
+        if any(LENS_CONTROL_TESTID.search(t) for _, t in _elements_carrying_testid(src))
+    ]
+
+
 # ---------------------------------------------------------------------------
 # One navigation model, one router/surface declaration
 # ---------------------------------------------------------------------------
@@ -298,3 +370,79 @@ def test_detector_flags_a_declared_surface_with_no_composition_case():
     assert declared == {"home", "ghost"}
     assert declared - _composition_root_surface_ids(app_missing) == {"ghost"}
     assert declared - _composition_root_surface_ids(app_present) == set()
+
+
+# ---------------------------------------------------------------------------
+# No decorative controls (directive §4 Slice A)
+# ---------------------------------------------------------------------------
+
+
+def test_no_lens_control_is_decorative():
+    """A lens the user can see must be operable. On `75bbd859` the NovaNet lens
+    strip rendered ``<span data-testid="novanet-lens-…">`` pills with no
+    ``onClick`` — the decorative control §4 forbids, which reads as navigation
+    and does nothing."""
+    defects = _decorative_lens_controls(_ts_sources())
+    assert defects == [], f"decorative lens control(s): {defects}"
+
+
+def test_the_lens_strip_is_declared_once():
+    """One control per surface. A second lens strip in a page would be a second
+    sub-view model — the same class as a second navigation owner."""
+    owners = _lens_testid_owners(_ts_sources())
+    assert owners == ["web/arkadia_console/src/components/SurfaceLenses.tsx"], (
+        f"the lens strip must be declared only in SurfaceLenses.tsx; found {owners}"
+    )
+
+
+def test_every_lens_control_navigates_through_the_shared_router():
+    """A lens is real navigation, not local state: it must call ``onNavigate``,
+    which the composition root binds to the shared router's ``navigate``."""
+    lenses = (SRC / "components" / "SurfaceLenses.tsx").read_text(encoding="utf-8")
+    assert "onNavigate(surface, l.id)" in lenses, (
+        "a lens must navigate to its own section through the shared router"
+    )
+    assert re.search(r"case \"novanet\":\s*\n\s*return <NovaNetPage[^>]*onNavigate=\{navigate\}", APP), (
+        "App.tsx must bind the NovaNet surface's onNavigate to the router's navigate"
+    )
+
+
+def test_detector_flags_a_decorative_lens_control():
+    """Negative control: the exact pre-repair shape (a span with a per-lens
+    testid) must be reported, and the repaired button must not be."""
+    stale = {
+        "src/pages/X.tsx": (
+            '<span\n  key={l.id}\n  data-testid={`novanet-lens-${l.id}`}\n'
+            '  className="rounded px-3 py-1"\n>\n  {l.label}\n</span>'
+        )
+    }
+    defects = _decorative_lens_controls(stale)
+    assert len(defects) == 1 and "span" in defects[0], defects
+    repaired = {
+        "src/components/SurfaceLenses.tsx": (
+            '<button\n  type="button"\n  onClick={() => onNavigate(surface, l.id)}\n'
+            '  data-testid={`surface-lens-${l.id}`}\n>\n  {l.label}\n</button>'
+        )
+    }
+    assert _decorative_lens_controls(repaired) == [], "a navigable lens must not be flagged"
+
+
+def test_detector_reads_the_whole_tag_when_a_handler_contains_an_arrow():
+    """The pre-repair shape with an inline ``=>`` handler is the harder case: a
+    naive ``<[^>]*>`` match stops at the ``=>`` and cannot see the ``onClick``.
+    The scanner must read the whole opening tag."""
+    live = {
+        "src/components/SurfaceLenses.tsx": (
+            '<button\n  key={l.id}\n  type="button"\n'
+            '  onClick={() => onNavigate(surface, l.id)}\n'
+            '  data-testid={`surface-lens-${l.id}`}\n'
+            '  className={section === l.id ? "bg-white/5 text-azure" : "text-white/40"}\n>\n'
+            "  {l.label}\n</button>"
+        )
+    }
+    tags = _elements_carrying_testid(live["src/components/SurfaceLenses.tsx"])
+    assert len(tags) == 1, tags
+    tag_name, tag_text = tags[0]
+    assert tag_name == "button" and "onClick" in tag_text
+    assert _decorative_lens_controls(live) == []
+

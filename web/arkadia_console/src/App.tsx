@@ -55,7 +55,7 @@ function Surfaces() {
       case "home":
         return <HomePage onNavigate={navigate} />;
       case "novanet":
-        return <NovaNetPage section={route.section} />;
+        return <NovaNetPage section={route.section} onNavigate={navigate} />;
       case "arkana":
         return <ArkanaPage />;
       case "solariun":

@@ -110,3 +110,92 @@ trivially true. Total route objects inspected: 61.
   serving this surface — the console has not been deployed with this change.
 - `web/arkadia_console/dist/` is untracked build output; not committed.
 - The remaining `MISSING` inventory rows are known gaps, not defects in `main`.
+
+---
+
+# Pulse 4 — Slice A.2: the NovaNet lens strip is now a control, not decoration
+
+Bounded objective: remove the decorative control the directive §4 forbids from
+the NovaNet surface and make its lens strip a single, navigable, regression-
+protected control. Authority: human retains merge, deployment, acceptance.
+
+## Revision binding
+
+| Item | Value |
+|---|---|
+| `main` (fetched) | `d2670ce8b41c500df5cf475f7c6526016c7bd3aa` |
+| Branch head at pulse start | `75bbd85956a61d1ec8f4fae10d0d42b5f8e06227` |
+| Ancestry | `main` is an ancestor of the branch (`0 behind / 2466 ahead`) |
+
+## The defect (measured, not inferred)
+
+`pages/NovaNetPage.tsx` rendered each lens as
+`<span data-testid={`novanet-lens-${l.id}`}>` with **no `onClick`** — a control
+that looks like navigation and does nothing (§4: "No decorative controls that
+do nothing"). The legacy shell it reconciles, `PrismInteriorShell.tsx`
+`SurfaceButton`, returns a real `<button type="button" onClick aria-current>`,
+so the console was a regression against the very pattern it recovers.
+
+Four of the six pills (`ims`, `grove`, `larder`, `distribution`) additionally
+pointed at contracts that do not fit this client: `/api/ims/inquiries` is
+sovereign-key gated (the `apiClient` sends a Bearer token only), so a working
+lens for it could only ever fail.
+
+## Change
+
+| Path | Change |
+|---|---|
+| `web/arkadia_console/src/components/SurfaceLenses.tsx` | **new** — the one lens strip: every lens is `<button onClick={() => onNavigate(surface, l.id)} aria-current>` navigating through the shared router |
+| `web/arkadia_console/src/pages/NovaNetPage.tsx` | lens strip replaced by `<SurfaceLenses>`; lenses narrowed to `field`/`echoes`/`hub`; `onNavigate` prop added |
+| `web/arkadia_console/src/App.tsx` | `case "novanet"` binds `onNavigate={navigate}` (the router's own navigate) |
+| `tests/test_console_shell_nav_contract.py` | §4 guard: 5 new tests (2 live assertions + 3 negative/robustness controls) |
+
+The un-reconciled hub sub-views are **not** rendered as controls — a lens that
+cannot navigate is not a control. They are stated honestly in the `hub` lens's
+`NotYetWired` note, and an unknown section still renders the surface's honest
+state rather than a silent default. No new route, no local sub-view state, no
+second navigation model (§5.1/§5.4).
+
+## Verification (measured in this environment, same location both sides)
+
+| Check | Baseline (`75bbd859`) | After | Verdict |
+|---|---|---|---|
+| Full suite | 35 failed / 2118 passed / 34 skipped / 1 error | 35 failed / 2123 passed / 34 skipped / 1 error | `+5 passed` |
+| Failing/error **node set** | 36 nodes, ids-sha256 `71522b9450fed649c107a2701db3e30b22d706bc9e4bc5f99fb1eb23000cf0f4` | identical, same sha256 | **zero node-set delta** (`diff` empty) |
+| Architecture fitness | — | `11 passed` | no regression |
+| Targeted frontend guards (4 files) | — | `49 passed` (was 44) | `+5`, exactly the new tests |
+| Guard test definitions | 15 | 20 | `+5` attributes the `+5 passed` |
+| `tsc --noEmit && vite build` | — | exit 0, 64 modules, `assets/index-CRYx0n-6.js` 35.43 kB | build passes |
+| `python -m py_compile api/main.py` | — | OK; `api/main.py` 2499 lines (< 2600) | boot code untouched |
+| CP10 boundary judge | — | PASS (exit 0) | every changed path admitted |
+
+The before/after pair was measured by stashing the change **in place**, so the
+suite ran from the same working directory on both sides; the regression claim is
+the node-set identity, never the absolute count (this sandbox's dependency set
+differs from CI's).
+
+## Negative controls — proven against the live tree
+
+The §4 guard is not a source-level assertion only. It was proven by mutating the
+**real** source and observing the failure:
+
+1. `SurfaceLenses.tsx` rewritten to the exact pre-repair shape (a `<span>` with a
+   per-lens testid) → `2 failed, 18 passed`; restored byte-identically
+   (`sha256 55098818f6c7942f75b282af92075e74c6a6682ccff0142270e2480604a3cedb`).
+2. `App.tsx` binding removed (`<NovaNetPage section={route.section} />`) →
+   `1 failed, 19 passed`; restored byte-identically
+   (`sha256 bf64817e308bac9fcdab0ff29cd6a470b0086aa69a958ca03637b211c2dedb90`).
+
+`test_detector_reads_the_whole_tag_when_a_handler_contains_an_arrow` covers the
+harder form: a naive `<[^>]*>` match stops at the `=>` in an inline handler and
+cannot see the `onClick`, so the scanner tracks brace depth and quotes.
+
+## Explicit non-claims
+
+- **No merge, no deployment, no production acceptance.** PR #418 stays draft.
+- No claim about the canonical runtime serving this change; the console has not
+  been deployed with it.
+- No Vercel deployment was created, promoted, or treated as evidence (§8).
+- The `hub` lens's `NotYetWired` state is an honest gap statement, not a defect
+  claim against `main`.
+
