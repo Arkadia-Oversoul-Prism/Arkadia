@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Page, Panel } from "../components/ui";
 import { askArkana, type ArkanaMessage } from "../lib/arkana";
 import { ApiError } from "../lib/apiClient";
+import { ArkanaThreadHistory } from "../components/arkana/ArkanaThreadHistory";
 
 interface Turn extends ArkanaMessage {
   resonance?: number;
@@ -36,6 +37,8 @@ export function ArkanaPage() {
 
   return (
     <Page title="Arkana" subtitle="Conversational intelligence and synthesis over the shared Oracle spine.">
+      <ArkanaThreadHistory />
+
       <Panel className="mb-4 min-h-[20rem]">
         {turns.length === 0 && <p className="text-sm text-white/40">No messages yet. Ask Arkana a question to begin.</p>}
         <ul className="flex flex-col gap-4">
