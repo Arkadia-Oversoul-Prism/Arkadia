@@ -2,7 +2,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXP = ROOT / "web/public_prism/src/components/solspire/SolSpireExperience.tsx"
+EXP = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx"
 
 
 def test_project_lens_map_exists():

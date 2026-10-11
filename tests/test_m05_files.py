@@ -48,7 +48,7 @@ def test_update_file_supports_rename(tmp_path, monkeypatch):
 
 
 def test_frontend_files_use_project_api():
-    dash = (ROOT / "web/public_prism/src/pages/ProjectDashboard.tsx").read_text()
+    dash = (ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/ProjectDashboard.tsx").read_text()
     assert "/solspire/projects/${project.id}/files" in dash
     assert "renameFile" in dash
     assert "copyFile" in dash

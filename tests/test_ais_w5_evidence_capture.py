@@ -2,7 +2,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CHAMBER = ROOT / "web/public_prism/src/components/spiral-grove/CapabilityChamber.tsx"
+CHAMBER = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/spiral-grove/CapabilityChamber.tsx"
 
 
 def _r():

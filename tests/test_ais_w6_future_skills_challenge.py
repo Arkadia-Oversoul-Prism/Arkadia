@@ -1,9 +1,9 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CHALLENGE = ROOT / "web/public_prism/src/pages/FutureSkillsChallenge.tsx"
-GATE = ROOT / "web/public_prism/src/pages/LivingGate.tsx"
-APP = ROOT / "web/public_prism/src/App.tsx"
+CHALLENGE = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/FutureSkillsChallenge.tsx"
+GATE = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/LivingGate.tsx"
+APP = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/App.tsx"
 
 
 def test_w6_is_self_guided_and_timed():

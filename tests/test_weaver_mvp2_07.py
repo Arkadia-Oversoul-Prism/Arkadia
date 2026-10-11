@@ -2,7 +2,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DASHBOARD = ROOT / "web" / "public_prism" / "src" / "pages" / "ProjectDashboard.tsx"
+DASHBOARD = ROOT / "archive" / "frontend" / "arkadia-prism" / "web" / "public_prism" / "src" / "pages" / "ProjectDashboard.tsx"
 
 
 def dashboard_text() -> str:

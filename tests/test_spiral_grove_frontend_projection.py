@@ -12,7 +12,7 @@ from spiral_grove.registry import build_ais_capability_catalog
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "web" / "public_prism" / "src"
+SRC = ROOT / "archive" / "frontend" / "arkadia-prism" / "web" / "public_prism" / "src"
 FRONTEND = SRC / "data" / "spiralGroveCatalog.ts"
 PAGE = SRC / "pages" / "SpiralGrovePage.tsx"
 GATEWAY = SRC / "components" / "spiral-grove" / "CrystalGateway.tsx"

@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/canonical-render-browser-smoke.yml"
-      - "web/public_prism/**"
+      - "web/arkadia_console/**"
       - "web/console/**"
       - "api/frontend_routes.py"
       - "Dockerfile"

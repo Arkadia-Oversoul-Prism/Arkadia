@@ -13,14 +13,18 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 
+# The Prism UI is archived; this guard inspects its preserved source so the
+# archived expression stays identifiable and free of obsolete identity claims.
+_PRISM = ROOT / "archive" / "frontend" / "arkadia-prism" / "web" / "public_prism"
+
 README_PATHS = sorted(ROOT.rglob("README.md"))
 UI_PATHS = [
-    ROOT / "web/public_prism/index.html",
-    ROOT / "web/public_prism/src/App.tsx",
-    ROOT / "web/public_prism/src/components/ArkadiaNavigation.tsx",
-    ROOT / "web/public_prism/src/components/PrismInteriorShell.tsx",
-    ROOT / "web/public_prism/src/pages/ArkadiaLandingPage.tsx",
-    ROOT / "web/public_prism/src/pages/AboutArkadia.tsx",
+    _PRISM / "index.html",
+    _PRISM / "src/App.tsx",
+    _PRISM / "src/components/ArkadiaNavigation.tsx",
+    _PRISM / "src/components/PrismInteriorShell.tsx",
+    _PRISM / "src/pages/ArkadiaLandingPage.tsx",
+    _PRISM / "src/pages/AboutArkadia.tsx",
 ]
 
 FORBIDDEN_IDENTITY_PATTERNS = [

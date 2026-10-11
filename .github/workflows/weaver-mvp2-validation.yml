@@ -6,7 +6,7 @@ on:
     paths:
       - 'solspire/**'
       - 'weaver/**'
-      - 'web/public_prism/src/pages/ProjectDashboard.tsx'
+      - 'archive/frontend/arkadia-prism/web/public_prism/src/pages/ProjectDashboard.tsx'
       - 'tests/test_weaver_mvp2_05.py'
       - 'tests/test_weaver_mvp2_07.py'
       - 'tests/test_evidence_verification_boundary.py'
@@ -40,7 +40,7 @@ on:
     paths:
       - 'solspire/**'
       - 'weaver/**'
-      - 'web/public_prism/src/pages/ProjectDashboard.tsx'
+      - 'archive/frontend/arkadia-prism/web/public_prism/src/pages/ProjectDashboard.tsx'
       - 'tests/test_weaver_mvp2_05.py'
       - 'tests/test_weaver_mvp2_07.py'
       - 'tests/test_evidence_verification_boundary.py'

@@ -2,8 +2,8 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DASH = ROOT / "web/public_prism/src/pages/ProjectDashboard.tsx"
-SOCIAL = ROOT / "web/public_prism/src/pages/SocialFieldVerified.tsx"
+DASH = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/ProjectDashboard.tsx"
+SOCIAL = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/SocialFieldVerified.tsx"
 
 
 def test_p0_2_activity_feed_markers():

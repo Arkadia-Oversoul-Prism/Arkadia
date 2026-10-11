@@ -2,17 +2,17 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = ROOT / "web/public_prism/src/App.tsx"
-FRAME = ROOT / "web/public_prism/src/components/ExperienceConsolidationFrame.tsx"
-CSS = ROOT / "web/public_prism/src/components/experience-consolidation.css"
+APP = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/App.tsx"
+FRAME = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/ExperienceConsolidationFrame.tsx"
+CSS = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/experience-consolidation.css"
 MAP = ROOT / "docs/architecture/SOLARIUN_EXPERIENCE_CONSOLIDATION_01_MAP.md"
 # Area C owners per the map ("Existing data/runtime": searchKnowledge over
 # Knowledge OS groups; existing Arkana context pack UI). The substrate grammar
 # moved out of the frame wrapper into the components that actually own it, so
 # the assertions follow it there rather than pinning the wrapper's prose.
-SOLSPIRE = ROOT / "web/public_prism/src/components/solspire/SolSpireExperience.tsx"
-CANONICAL_CSS = ROOT / "web/public_prism/src/components/solspire/solspire-canonical.css"
-DASHBOARD = ROOT / "web/public_prism/src/pages/ProjectDashboard.tsx"
+SOLSPIRE = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx"
+CANONICAL_CSS = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/solspire-canonical.css"
+DASHBOARD = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/ProjectDashboard.tsx"
 
 
 def test_area_a_novanet_is_bound_to_shared_experience_shell():
@@ -57,7 +57,7 @@ def test_area_c_solspire_substrate_uses_existing_search_and_context_grammar():
 
 def test_area_d_spiral_command_is_bound_to_existing_sci_surface():
     app = APP.read_text()
-    sci = (ROOT / "web/public_prism/src/pages/SpiralCommandInterface.tsx").read_text()
+    sci = (ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/SpiralCommandInterface.tsx").read_text()
     assert 'surface="Spiral Command"' in app
     assert "<SpiralCommandInterface" in app
     assert "'/sci': {view:'sci'}" in app

@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "web" / "public_prism" / "src"
+SRC = ROOT / "archive" / "frontend" / "arkadia-prism" / "web" / "public_prism" / "src"
 PAGE = SRC / "pages" / "SpiralGrovePage.tsx"
 CHAMBER = SRC / "components" / "spiral-grove" / "CapabilityChamber.tsx"
 

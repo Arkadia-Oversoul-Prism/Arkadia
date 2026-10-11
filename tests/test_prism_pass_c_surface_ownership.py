@@ -5,9 +5,9 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = ROOT / "web/public_prism/src/App.tsx"
-NAV = ROOT / "web/public_prism/src/components/ArkadiaNavigation.tsx"
-SOLARIUN = ROOT / "web/public_prism/src/pages/SolariunConsole.tsx"
+APP = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/App.tsx"
+NAV = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/ArkadiaNavigation.tsx"
+SOLARIUN = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/SolariunConsole.tsx"
 
 
 def _app() -> str:

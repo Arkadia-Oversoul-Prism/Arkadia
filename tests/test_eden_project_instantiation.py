@@ -28,5 +28,5 @@ def test_eden_runtime_is_generic_weaver_and_arkana():
 
 
 def test_arkana_reads_canonical_project_runtime_context():
-    source = (ROOT / "web/public_prism/src/components/solspire/SolSpireExperience.tsx").read_text()
+    source = (ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx").read_text()
     assert "/solspire/projects/" + "${pack.projectId}" + "/runtime-context" in source

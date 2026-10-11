@@ -10,13 +10,13 @@ def _write(path, content):
 
 
 def test_canonical_frontend_routes_share_one_origin_and_preserve_backend(tmp_path):
-    prism = tmp_path / "web" / "public_prism" / "dist"
-    console = tmp_path / "web" / "console" / "dist"
-    _write(prism / "index.html", "<html>ARKADIA-PRISM-APP</html>")
-    _write(prism / "assets" / "prism.js", "prism-asset")
-    _write(prism / "arkadia-mark.svg", "<svg>mark</svg>")
-    _write(console / "index.html", "<html>ARKADIA-CONSOLE-APP</html>")
-    _write(console / "assets" / "console.js", "console-asset")
+    console_app = tmp_path / "web" / "arkadia_console" / "dist"
+    operator = tmp_path / "web" / "console" / "dist"
+    _write(console_app / "index.html", "<html>ARKADIA-CONSOLE-APP</html>")
+    _write(console_app / "assets" / "console.js", "console-asset")
+    _write(console_app / "arkadia-mark.svg", "<svg>mark</svg>")
+    _write(operator / "index.html", "<html>ARKADIA-OPERATOR-APP</html>")
+    _write(operator / "assets" / "operator.js", "operator-asset")
 
     app = FastAPI()
 
@@ -27,15 +27,18 @@ def test_canonical_frontend_routes_share_one_origin_and_preserve_backend(tmp_pat
     configure_frontends(app, tmp_path)
     client = TestClient(app)
 
-    assert client.get("/").text == "<html>ARKADIA-PRISM-APP</html>"
-    assert client.get("/solariun/opportunity-radar").text == "<html>ARKADIA-PRISM-APP</html>"
-    assert client.get("/assets/prism.js").text == "prism-asset"
+    # The primary application is the Arkadia Console, served at the root.
+    assert client.get("/").text == "<html>ARKADIA-CONSOLE-APP</html>"
+    assert client.get("/solariun/opportunity-radar").text == "<html>ARKADIA-CONSOLE-APP</html>"
+    assert client.get("/arkana").text == "<html>ARKADIA-CONSOLE-APP</html>"
+    assert client.get("/assets/console.js").text == "console-asset"
     assert client.get("/arkadia-mark.svg").text == "<svg>mark</svg>"
 
-    assert client.get("/operator").text == "<html>ARKADIA-CONSOLE-APP</html>"
-    assert client.get("/operator/inspector").text == "<html>ARKADIA-CONSOLE-APP</html>"
-    assert client.get("/operator/assets/console.js").text == "console-asset"
-    assert client.get("/n-atlas-tester").text == "<html>ARKADIA-CONSOLE-APP</html>"
+    # The reconciled operator console remains mounted at /operator.
+    assert client.get("/operator").text == "<html>ARKADIA-OPERATOR-APP</html>"
+    assert client.get("/operator/inspector").text == "<html>ARKADIA-OPERATOR-APP</html>"
+    assert client.get("/operator/assets/operator.js").text == "operator-asset"
+    assert client.get("/n-atlas-tester").text == "<html>ARKADIA-OPERATOR-APP</html>"
 
     assert client.get("/api/known").json() == {"ok": True}
     assert client.get("/api/unknown").status_code == 404

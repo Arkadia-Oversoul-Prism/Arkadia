@@ -14,7 +14,7 @@ on:
       - "tests/test_natlas_selfhost_ci_wiring.py"
       - "deploy/n-atlas-server/**"
       - "web/console/**"
-      - "web/public_prism/**"
+      - "web/arkadia_console/**"
       - "api/main.py"
       - "api/operator_security_routes.py"
       - "api/frontend_routes.py"

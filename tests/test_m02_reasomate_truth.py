@@ -25,13 +25,13 @@ from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = ROOT / "web/public_prism/src/App.tsx"
-REASOMATE_PAGE = ROOT / "web/public_prism/src/pages/ReasoMatePage.tsx"
-REASOMATE_SURFACE = ROOT / "web/public_prism/src/components/ReasoMateSurface.tsx"
-NEXUS_PAGE = ROOT / "web/public_prism/src/pages/NexusPage.tsx"
-NAV = ROOT / "web/public_prism/src/components/ArkadiaNavigation.tsx"
-ARKANA_COMMUNE = ROOT / "web/public_prism/src/components/ArkanaCommune.tsx"
-PRISM_SHELL = ROOT / "web/public_prism/src/components/PrismInteriorShell.tsx"
+APP = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/App.tsx"
+REASOMATE_PAGE = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/ReasoMatePage.tsx"
+REASOMATE_SURFACE = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/ReasoMateSurface.tsx"
+NEXUS_PAGE = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/NexusPage.tsx"
+NAV = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/ArkadiaNavigation.tsx"
+ARKANA_COMMUNE = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/ArkanaCommune.tsx"
+PRISM_SHELL = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/PrismInteriorShell.tsx"
 
 SURFACE_MARKER = 'data-testid="reasomate-private-surface"'
 

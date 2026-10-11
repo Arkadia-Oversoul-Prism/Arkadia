@@ -1,10 +1,10 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = ROOT / "web/public_prism/src/App.tsx"
-FRAME = ROOT / "web/public_prism/src/components/ExperienceConsolidationFrame.tsx"
-REPAIR_CSS = ROOT / "web/public_prism/src/components/experience-repair.css"
-PROJECTS = ROOT / "web/public_prism/src/components/solspire/ProjectsWorkspace.tsx"
+APP = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/App.tsx"
+FRAME = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/ExperienceConsolidationFrame.tsx"
+REPAIR_CSS = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/experience-repair.css"
+PROJECTS = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/ProjectsWorkspace.tsx"
 
 
 def test_outer_experience_frame_is_not_a_second_navigation_shell():

@@ -17,7 +17,7 @@ Read-only. Performs no mutation, holds no credential, never prints a token.
 Anchor policy
 -------------
 Every anchor is a lowercase ASCII substring of a literal that exists in
-`web/public_prism/src`, and the script re-verifies each one against the working
+`archive/frontend/arkadia-prism/web/public_prism/src`, and the script re-verifies each one against the working
 tree before trusting it (a stale anchor list is detected, not silently believed).
 Lowercase ASCII substrings are used deliberately:
 
@@ -121,7 +121,7 @@ def repo_root() -> str:
 def source_anchors_present() -> dict[str, bool]:
     """Confirm each anchor still exists in the frontend source tree, so a stale
     anchor list is detected rather than silently trusted."""
-    src = os.path.join(repo_root(), "web", "public_prism", "src")
+    src = os.path.join(repo_root(), "archive", "frontend", "arkadia-prism", "web", "public_prism", "src")
     corpus: list[str] = []
     for dirpath, _dirnames, filenames in os.walk(src):
         for fn in filenames:

@@ -33,6 +33,7 @@ from scripts.gate2_production_observation import (
     DEPLOYMENT_SCAN_PAGES,
     KNOWN_FRONTENDS,
     MARKER_APP,
+    MARKER_APPS,
     MARKERS,
     classify_deployment_identity,
     classify_marker_oracle,
@@ -227,15 +228,27 @@ def test_a_present_control_marker_is_contradicted():
 
 def test_a_different_app_cannot_be_scored_against_this_marker_set():
     """App identity is read from the deployment label, not inferred from markers.
-    The alias currently serves Console while the marker literals are Prism, so a
-    Console artifact reads 0 on every marker. That is 'not this application' --
-    a category error -- and must not be reported as CONTRADICTED, which would
-    assert the artifact was scored and disagreed."""
-    assert classify_marker_oracle("console", {m: 0 for m in MARKERS}, []) == (
-        f"NOT OBSERVED (artifact is 'console'; markers describe '{MARKER_APP}')"
+
+    Each app now has its own marker list, so scoring ``console`` reads console's
+    literals, not Prism's. The category error is preserved for a *mismatched*
+    reading -- an artifact's reading (Prism literals) passed to a different app's
+    classifier must not be scored as that app's divergence."""
+    # Scoring console against console's own literals is a real evaluation, not a
+    # category error: an all-zero console reading is CONTRADICTED.
+    assert classify_marker_oracle("console", {m: 0 for m in MARKER_APPS["console"]["markers"]}, []).startswith(
+        "CONTRADICTED"
     )
+    # A Prism literal set passed to the console classifier is a category error.
     assert classify_marker_oracle("console", {m: 1 for m in MARKERS}, []) == (
-        f"NOT OBSERVED (artifact is 'console'; markers describe '{MARKER_APP}')"
+        "NOT OBSERVED (reading is not 'console's marker set)"
+    )
+
+
+def test_an_app_with_no_declared_marker_list_is_not_observed():
+    """An artifact that belongs to no app the harness has a marker list for cannot
+    be scored at all."""
+    assert classify_marker_oracle("some-other-project", {m: 1 for m in MARKERS}, []) == (
+        "NOT OBSERVED (artifact is 'some-other-project'; no marker list is declared for that app)"
     )
 
 
@@ -297,10 +310,12 @@ def test_app_identity_is_read_from_the_deployment_label():
 
 def test_build_input_scope_is_per_app_not_shared():
     """The two frontends have disjoint build inputs. Scoring Console ancestry
-    against a Prism build input is the category error the harness made."""
+    against a Prism build input is the category error the harness made. After the
+    Prism archive move, the Prism build input lives under the archive location."""
     assert KNOWN_FRONTENDS["console"] != KNOWN_FRONTENDS["arkadia-prism"]
     assert "web/console/" in KNOWN_FRONTENDS["console"]
-    assert "web/public_prism/" in KNOWN_FRONTENDS["arkadia-prism"]
+    assert any("web/public_prism/" in entry for entry in KNOWN_FRONTENDS["arkadia-prism"])
+    assert any("arkadia-prism" in entry for entry in KNOWN_FRONTENDS["arkadia-prism"])
     src = _SCRIPT.read_text(encoding="utf-8")
     assert "last_build_input_commit(app_for_closure)" in src
 

@@ -864,7 +864,7 @@ async def root(request: Request):
     # the historical liveness payload. /api/heartbeat remains the explicit probe.
     if "text/html" in request.headers.get("accept", "").lower():
         frontend_index = _os.path.abspath(
-            _os.path.join(_os.path.dirname(__file__), "..", "web", "public_prism", "dist", "index.html")
+            _os.path.join(_os.path.dirname(__file__), "..", "web", "arkadia_console", "dist", "index.html")
         )
         if _os.path.isfile(frontend_index):
             return FileResponse(frontend_index)

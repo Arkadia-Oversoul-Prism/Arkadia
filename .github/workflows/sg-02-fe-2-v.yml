@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'web/public_prism/**'
+      - 'web/arkadia_console/**'
       - 'spiral_grove/**'
       - 'lab/**'
       - 'api/lab_routes.py'
@@ -30,7 +30,7 @@ on:
       - '.github/workflows/sg-02-fe-2-v.yml'
   pull_request:
     paths:
-      - 'web/public_prism/**'
+      - 'web/arkadia_console/**'
       - 'spiral_grove/**'
       - 'lab/**'
       - 'api/lab_routes.py'
@@ -90,7 +90,7 @@ jobs:
       FIREBASE_WEB_API_KEY: ${{ github.event.inputs.vite_firebase_api_key || '' }}
     defaults:
       run:
-        working-directory: web/public_prism
+        working-directory: web/arkadia_console
     steps:
       - uses: actions/checkout@v4
         with:
@@ -107,10 +107,10 @@ jobs:
         with:
           node-version: 24.x
           cache: pnpm
-          cache-dependency-path: web/public_prism/pnpm-lock.yaml
+          cache-dependency-path: web/arkadia_console/pnpm-lock.yaml
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
-      - name: Build Prism
+      - name: Build Arkadia Console
         run: pnpm build
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -252,7 +252,7 @@ jobs:
           print('Lab response structure PASS; response secret scan PASS')
           PY
       - name: Start existing frontend runtime
-        # Job default cwd is web/public_prism; do not nest --dir web/public_prism again.
+        # Job default cwd is web/arkadia_console; do not nest --dir web/arkadia_console again.
         run: nohup pnpm dev --host 127.0.0.1 --port 5000 > "${GITHUB_WORKSPACE}/cp10-frontend-runtime.log" 2>&1 &
       - name: Frontend readiness
         id: frontend_ready
@@ -270,7 +270,7 @@ jobs:
           raise SystemExit('Frontend readiness FAIL')
           PY
       - name: Install Playwright Chromium
-        # Isolate from web/public_prism/package-lock.json (LOCKFILE-ORIGINATED
+        # Isolate from web/arkadia_console/package-lock.json (LOCKFILE-ORIGINATED
         # package-firewall.replit.local resolved URLs). Install remains mandatory.
         working-directory: ${{ runner.temp }}
         env:
@@ -327,10 +327,12 @@ jobs:
             p.on('console',m=>m.type()==='error'&&ce.push(m.text()));
             p.on('pageerror',e=>pe.push(e.message));
             p.on('requestfailed',r=>fr.push(r.url()+' :: '+r.failure()?.errorText));
-            // Canonical unauthenticated threshold copy (SolSpire = EnterpriseConsole sign-in gate).
-            // The historical 'PRIVATE WORKSPACE' marker was removed by the Solariun shell
-            // consolidation (5402553); asserting it coupled this gate to a retired string.
-            const UNAUTH_THRESHOLD='Enter the enterprise layer.';
+            // Application identity: this gate observes the Arkadia Console
+            // (web/arkadia_console), the canonical root application. Its protected
+            // surfaces render an explicit sign-in threshold when unauthenticated.
+            // A marker mismatch caused by observing a different application is not
+            // a defect in the console — bind the copy to the app actually served.
+            const UNAUTH_THRESHOLD='Sign in to continue';
             const PRIVATE_MARKERS=['Deterministic observation','OBSERVED'];
             const r0=await p.goto('http://127.0.0.1:5000/solspire',{waitUntil:'networkidle',timeout:60000});
             const t0=await p.locator('body').innerText();
@@ -399,10 +401,10 @@ jobs:
             console.log('[phase] post_submit url='+p.url());
             await dump('post_submit');
             phase='navigate_lab';
-            await p.goto('http://127.0.0.1:5000/solspire/engineering-lab',{waitUntil:'networkidle',timeout:90000});
+            await p.goto('http://127.0.0.1:5000/engineering-lab',{waitUntil:'networkidle',timeout:90000});
             for(let i=0;i<30;i++){
               const t=await p.locator('body').innerText();
-              if(!t.includes(UNAUTH_THRESHOLD) && (t.includes('Engineering Lab')||t.includes('Deterministic observation')||t.includes('OBSERVED')||t.includes('System state'))){ phase='hydrated_lab'; break; }
+              if(!t.includes(UNAUTH_THRESHOLD) && (t.includes('Engineering Lab')||t.includes('Lab overview')||t.includes('N-ATLAS provider'))){ phase='hydrated_lab'; break; }
               phase='wait_hydration_'+i;
               await p.waitForTimeout(2000);
               await p.reload({waitUntil:'networkidle'});
@@ -410,7 +412,7 @@ jobs:
             const body=await p.locator('body').innerText();
             await p.screenshot({path:'cp10-engineering-lab-authenticated.png',fullPage:true});
             if(body.includes(UNAUTH_THRESHOLD)){ await dump('lab_still_private'); throw new Error('Authenticated Lab lens FAIL: unauthenticated sign-in threshold still present'); }
-            if(!(body.includes('Engineering Lab')||body.includes('Deterministic observation')||body.includes('System state')||body.includes('OBSERVED'))){ await dump('lab_ui_missing'); throw new Error('Authenticated Lab lens FAIL: expected Lab observation UI not found'); }
+            if(!(body.includes('Engineering Lab')||body.includes('Lab overview')||body.includes('N-ATLAS provider'))){ await dump('lab_ui_missing'); throw new Error('Authenticated Lab lens FAIL: expected Lab observation UI not found'); }
             console.log('Authenticated Engineering Lab lens: PASS');
             await b.close();
           })().catch(e=>{console.error(e);process.exit(1)});

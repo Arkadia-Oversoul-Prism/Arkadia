@@ -19,7 +19,7 @@ def test_knowledge_os_thread_substrate_remains_canonical():
 
 
 def test_commune_uses_first_class_thread_id():
-    src = (ROOT / "web/public_prism/src/components/ArkanaCommune.tsx").read_text()
+    src = (ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/ArkanaCommune.tsx").read_text()
     assert "createArkanaThreadId" in src
     assert "/api/commune/threads" in src
     assert "session_id: activeThreadId" in src

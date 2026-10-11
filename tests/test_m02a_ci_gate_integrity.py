@@ -13,8 +13,8 @@ _WORKFLOW = _ROOT / ".github/workflows/sg-02-fe-2-v.yml"
 def test_legitimate_frontend_mutation_passes():
     ok, _ = evaluate_changed_paths(
         [
-            "web/public_prism/src/components/solspire/SolSpireExperience.tsx",
-            "web/public_prism/src/pages/ProjectDashboard.tsx",
+            "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx",
+            "archive/frontend/arkadia-prism/web/public_prism/src/pages/ProjectDashboard.tsx",
         ]
     )
     assert ok is True
@@ -44,7 +44,7 @@ def test_unknown_top_level_path_fails():
 
 def test_v3_dual_shell_forbidden():
     ok, msg = evaluate_changed_paths(
-        ["web/public_prism/src/components/solspire/SolSpireExperienceV3.tsx"]
+        ["archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperienceV3.tsx"]
     )
     assert ok is False
     assert "V3" in msg
@@ -52,7 +52,7 @@ def test_v3_dual_shell_forbidden():
 
 def test_v2_active_implementation_forbidden():
     ok, msg = evaluate_changed_paths(
-        ["web/public_prism/src/components/solspire/SolSpireExperienceV2.tsx"],
+        ["archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperienceV2.tsx"],
         v2_diff_adds_function=True,
     )
     assert ok is False
@@ -60,7 +60,7 @@ def test_v2_active_implementation_forbidden():
 
 def test_v2_stub_only_allowed():
     ok, _ = evaluate_changed_paths(
-        ["web/public_prism/src/components/solspire/SolSpireExperienceV2.tsx"],
+        ["archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperienceV2.tsx"],
         v2_diff_adds_function=False,
     )
     assert ok is True
@@ -105,8 +105,8 @@ _EDEN_OPS_02_CHANGESET = [
     "solspire/eden_ops_02_routes.py",
     "solspire/enterprise_router.py",
     "tests/test_eden_ops_02.py",
-    "web/public_prism/src/components/EdenControlRoom.tsx",
-    "web/public_prism/src/pages/EnterpriseConsole.tsx",
+    "archive/frontend/arkadia-prism/web/public_prism/src/components/EdenControlRoom.tsx",
+    "archive/frontend/arkadia-prism/web/public_prism/src/pages/EnterpriseConsole.tsx",
 ]
 
 
@@ -225,8 +225,8 @@ _SOLARIUN_THREAD_NAV_CHANGESET = [
     "AGENTS.md",
     "docs/control-plane/evidence/solariun-thread-calibration/EVIDENCE.md",
     "tests/test_solariun_thread_navigation_01.py",
-    "web/public_prism/src/components/solspire/SolSpireExperience.tsx",
-    "web/public_prism/src/components/solspire/SolariunHomeCockpit.tsx",
+    "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx",
+    "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolariunHomeCockpit.tsx",
 ]
 
 
@@ -286,8 +286,8 @@ def test_workflow_delegation_admits_root_docs_and_still_rejects_unknown_roots():
 # ---------------------------------------------------------------------------
 _OPPORTUNITY_RADAR_CHANGESET = [
     "opportunity_radar/SAPZ_CAPTURE_STATE.md",
-    "web/public_prism/src/pages/OpportunityRadarPage.tsx",
-    "web/public_prism/src/data/opportunityRadar.ts",
+    "archive/frontend/arkadia-prism/web/public_prism/src/pages/OpportunityRadarPage.tsx",
+    "archive/frontend/arkadia-prism/web/public_prism/src/data/opportunityRadar.ts",
 ]
 
 
@@ -585,13 +585,19 @@ def test_delegated_verdict_admits_omitted_surfaces_and_rejects_lookalikes():
 
 def test_ci_does_not_assert_retired_private_workspace_marker():
     """The frontend no longer renders that marker, so a gate asserting it can never
-    pass. Comment lines that reference the history are fine."""
+    pass. Comment lines that reference the history are fine.
+
+    The gate now observes the Arkadia Console, whose protected surfaces render the
+    ``Sign in to continue`` threshold. The former ``Enter the enterprise layer.``
+    literal was the retired Prism SolSpire copy and is no longer asserted -- see
+    ``tests/test_aeas05_canonical_frontend_acceptance.py``.
+    """
     text = _WORKFLOW.read_text(encoding="utf-8")
     code = "\n".join(
         line for line in text.splitlines() if not line.lstrip().startswith(("//", "#"))
     )
     assert "'PRIVATE WORKSPACE'" not in code, "CI still asserts the retired marker"
-    assert "Enter the enterprise layer." in code
+    assert "Sign in to continue" in code
 
 
 def test_continue_on_error_gates_are_still_enforced_by_outcome():
@@ -730,10 +736,10 @@ def test_workflow_still_forbids_constitutional_dual_shell():
     forbid = re.search(r"^\s*forbid='([^']+)'", _WORKFLOW.read_text(encoding="utf-8"), re.MULTILINE)
     assert forbid, "the V2/V3 forbid stage must still exist in the workflow"
     expr = forbid.group(1)
-    assert re.search(expr, "web/public_prism/src/components/solspire/SolSpireExperienceV3.tsx"), (
+    assert re.search(expr, "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperienceV3.tsx"), (
         "the constitutional V3 dual shell must still be forbidden"
     )
-    assert re.search(expr, "web/public_prism/src/components/solspire/SolSpireExperienceV2.tsx")
+    assert re.search(expr, "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperienceV2.tsx")
 
 
 # ---------------------------------------------------------------------------

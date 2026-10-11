@@ -2,7 +2,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DASH = ROOT / "web/public_prism/src/pages/ProjectDashboard.tsx"
+DASH = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/ProjectDashboard.tsx"
 
 
 def test_project_knowledge_markers():

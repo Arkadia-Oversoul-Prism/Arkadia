@@ -6,14 +6,14 @@ SCI_DISCOVERY_WITHOUT_AUTHORITY:
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SCI_PAGE = ROOT / "web" / "public_prism" / "src" / "pages" / "SpiralCommandInterface.tsx"
-SCI_REG = ROOT / "web" / "public_prism" / "src" / "lib" / "sciCommandRegistry.ts"
-APP = ROOT / "web" / "public_prism" / "src" / "App.tsx"
-NAV = ROOT / "web" / "public_prism" / "src" / "components" / "ArkadiaNavigation.tsx"
-DASHBOARD = ROOT / "web" / "public_prism" / "src" / "pages" / "ProjectDashboard.tsx"
-MATRIX = ROOT / "web" / "public_prism" / "src" / "pages" / "UniversalEchofeildMatrix.tsx"
-NOVANET = ROOT / "web" / "public_prism" / "src" / "pages" / "NovaNetPage.tsx"
-NEXUS = ROOT / "web" / "public_prism" / "src" / "pages" / "NexusPage.tsx"
+SCI_PAGE = ROOT / "archive" / "frontend" / "arkadia-prism" / "web" / "public_prism" / "src" / "pages" / "SpiralCommandInterface.tsx"
+SCI_REG = ROOT / "archive" / "frontend" / "arkadia-prism" / "web" / "public_prism" / "src" / "lib" / "sciCommandRegistry.ts"
+APP = ROOT / "archive" / "frontend" / "arkadia-prism" / "web" / "public_prism" / "src" / "App.tsx"
+NAV = ROOT / "archive" / "frontend" / "arkadia-prism" / "web" / "public_prism" / "src" / "components" / "ArkadiaNavigation.tsx"
+DASHBOARD = ROOT / "archive" / "frontend" / "arkadia-prism" / "web" / "public_prism" / "src" / "pages" / "ProjectDashboard.tsx"
+MATRIX = ROOT / "archive" / "frontend" / "arkadia-prism" / "web" / "public_prism" / "src" / "pages" / "UniversalEchofeildMatrix.tsx"
+NOVANET = ROOT / "archive" / "frontend" / "arkadia-prism" / "web" / "public_prism" / "src" / "pages" / "NovaNetPage.tsx"
+NEXUS = ROOT / "archive" / "frontend" / "arkadia-prism" / "web" / "public_prism" / "src" / "pages" / "NexusPage.tsx"
 
 
 def _read(p: Path) -> str:

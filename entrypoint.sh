@@ -21,7 +21,7 @@ keys = {
     "appId": "VITE_FIREBASE_APP_ID",
 }
 config = {field: os.environ.get(env_name, "").strip() for field, env_name in keys.items()}
-config_path = Path("/app/web/public_prism/dist/firebase-config.js")
+config_path = Path("/app/web/arkadia_console/dist/firebase-config.js")
 config_path.parent.mkdir(parents=True, exist_ok=True)
 config_path.write_text(
     "window.__ARKADIA_FIREBASE_CONFIG__ = "

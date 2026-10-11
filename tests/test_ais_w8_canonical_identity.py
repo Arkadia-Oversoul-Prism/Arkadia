@@ -2,11 +2,11 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-AUTH = ROOT / "web/public_prism/src/contexts/AuthContext.tsx"
-FIREBASE = ROOT / "web/public_prism/src/lib/firebase.ts"
-LOGIN = ROOT / "web/public_prism/src/pages/LoginPage.tsx"
-GATE = ROOT / "web/public_prism/src/pages/LivingGate.tsx"
-CHALLENGE = ROOT / "web/public_prism/src/pages/FutureSkillsChallenge.tsx"
+AUTH = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/contexts/AuthContext.tsx"
+FIREBASE = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/lib/firebase.ts"
+LOGIN = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/LoginPage.tsx"
+GATE = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/LivingGate.tsx"
+CHALLENGE = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/FutureSkillsChallenge.tsx"
 NODES = ROOT / "api/nodes.py"
 AIS_PROFILE = ROOT / "api/ais_profile.py"
 

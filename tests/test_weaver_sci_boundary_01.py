@@ -7,14 +7,14 @@ Weaver mutation remains K15->K3 only.
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SCI_PAGE = ROOT / "web/public_prism/src/pages/SpiralCommandInterface.tsx"
-SCI_REG = ROOT / "web/public_prism/src/lib/sciCommandRegistry.ts"
-APP = ROOT / "web/public_prism/src/App.tsx"
-NAV = ROOT / "web/public_prism/src/components/ArkadiaNavigation.tsx"
-SOL = ROOT / "web/public_prism/src/components/solspire/SolSpireExperience.tsx"
-DASH = ROOT / "web/public_prism/src/pages/ProjectDashboard.tsx"
-NEXUS = ROOT / "web/public_prism/src/pages/NexusPage.tsx"
-MATRIX = ROOT / "web/public_prism/src/pages/UniversalEchofeildMatrix.tsx"
+SCI_PAGE = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/SpiralCommandInterface.tsx"
+SCI_REG = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/lib/sciCommandRegistry.ts"
+APP = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/App.tsx"
+NAV = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/ArkadiaNavigation.tsx"
+SOL = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx"
+DASH = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/ProjectDashboard.tsx"
+NEXUS = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/NexusPage.tsx"
+MATRIX = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/pages/UniversalEchofeildMatrix.tsx"
 
 # The boundary marker moved from the navigation component to the descriptive SCI
 # registry, which is the canonical home for surface-ownership declarations.
