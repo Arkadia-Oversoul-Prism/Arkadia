@@ -1,35 +1,27 @@
 # Agent 02 — NovaNet & Project Opportunity Radar
 
-**Branch:** `feat/prism-next-02-opportunity-backend`  
-**PR:** #420 (draft bootstrap)  
-**Owns:** `src/pages/NovaNetPage.tsx`, NovaNet-only components, opportunity-radar feature modules and their tests/evidence. Shared registries and global shell are not owned here.  
-**Shared contract:** `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` in `main` (accepted via PR #419); fetch/review it before edits.
+**Current slice:** PR #426 — buyer-recon schema/ownership repairs and Projects-surface Opportunity Radar mount.
+**After merge:** create the next branch from freshly fetched `main`, open a new draft PR, update the active branch map in `SHARED-CONTRACTS.md` through Workstream 1, and begin immediately.
+**Owns:** NovaNet feature modules, `src/components/opportunities/**`, scoped buyer-recon board/entry behavior in `solspire/buyer_recon.py` and `solspire/buyer_recon_router.py`, and related tests/evidence. Shared routing, global navigation, endpoint/type registries remain Workstream 1's seam.
+**Contract:** `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md`.
 
-## Mission
-Recover the useful NovaNet hub and project-level Opportunity Radar workflows from archived Prism and the current opportunity/project substrate. Each project should eventually expose its opportunity layer in the Projects/Weaver experience without creating a second store or pretending prospects are verified buyers.
+## Immediate continuation task
 
-## First tasks
-1. Reconstruct live `main`, PR #418, and archive sources. Specifically map #418's existing `NovaNetPage.tsx`, NovaNet additions in `endpoints.ts`/`types.ts`, and evidence file. Do not duplicate the existing slice.
-2. **PR #418 overlap gate:** until #418 is merged or a human explicitly chooses a split, do not edit `NovaNetPage.tsx`, `endpoints.ts`, `types.ts`, `App.tsx`, `lib/router.ts`, `lib/surfaces.ts`, or shared navigation/tests. Start with verified API discovery, feature matrix, and new opportunity-only modules/tests under a feature-local path. If a NovaNet page integration is required, record a precise patch request for Workstream 1 and wait.
-2. Verify `/api/transmissions` and `/api/echoes` against current backend route table and handlers before relying on PR #418's evidence; re-check auth and response shapes.
-3. Discover the actual project/opportunity APIs and storage before implementing project radar. Record exact method/path/auth/schema/source; if unknown, keep the UI blocked and report the gap.
-4. Write a capability matrix for NovaNet hub, IMS, Grove, Larder, Distribution, and project Opportunity Radar. Do not invent routes for unverified subviews. Existing note: `/api/ims/inquiries` was reported as sovereign-key gated while the browser client sends bearer auth only; re-measure before proposing access.
-5. Implement page-local UI and tests only. For route/surface registration, shared endpoint/type registry changes, or navigation, send workstream 1 a narrow integration request with evidence rather than editing shared files.
+Build the next bounded Opportunity Radar slice: **create and edit a prospect entry on a selected project board**, using only verified existing POST/PATCH handlers and the canonical project-board scope.
+
+1. Re-fetch `main`; verify actual route methods, auth/owner checks, request/response shapes, and board-scoping behavior from handlers and tests before wiring UI.
+2. Add feature-local create/edit controls and targeted tests for success, validation errors, auth denial, wrong-board writes, and honest loading/empty/error states.
+3. Preserve unverified fields as `UNKNOWN`; do not turn an unverified prospect into a confirmed buyer, and do not invent contact facts, pricing, demand, or procurement commitments.
+4. Keep reconnaissance separate from budget, approval, transaction, spending, and execution authority. No delete/bulk actions unless an actual authorized handler is independently verified.
+5. Keep NovaNet legacy subviews visibly blocked/not-wired until their own contracts are verified. Record one capability at a time.
 
 ## Hard boundaries
-- No edits to `App.tsx`, `lib/router.ts`, `lib/surfaces.ts`, global nav/lenses, shared shell tests, or global token files.
-- No mock buyers, invented budget/contract claims, invented endpoints, duplicate persistence, or silent auth bypass.
-- No merge/deploy/acceptance.
 
-## Acceptance
-Real-contract data flow or honest not-wired state; distinct loading/empty/error/auth states; interaction tests and negative controls where practical; typecheck/build; exact evidence/commit SHA; explicit unknowns and next move.
+- No edits to `App.tsx`, router/surface registry, global nav/lenses/tokens, shared shell tests, or shared endpoint/type registries.
+- No duplicate persistence, invented endpoints, auth bypass, hidden writes, or claims that a UI action succeeded before the server confirms it.
+- Do not merge, deploy, or mark accepted.
+- Continue automatically after each merge. Escalate only a concrete security/privacy issue, human authority decision, destructive/data-loss risk, or genuine contract conflict; record exact evidence and continue elsewhere when safe.
 
+## Required PR evidence
 
-## Next wave — continue immediately after this PR closes
-
-Coordinator direction (2026-10-11): do not stop at the current read-only module. The measured backend blockers are now an authorized next slice in this workstream: `solspire/buyer_recon.py` has a create-entry column/value arity mismatch, and its board schema prevents one subject from holding both workspace and project boards. Reproduce both with focused tests first; implement the smallest safe, backwards-compatible SQLite migration/repair and route-level regression tests. Preserve owner authentication, `UNKNOWN` for unverified facts, and `execution_authority: NONE` / `budget_authority: NONE`; do not weaken authorization or invent commercial facts. Record migration/backfill behavior and test against both a fresh and existing schema. Then integrate and mount the project radar in the existing Projects menu/page, using the actual response shape and requesting Workstream 1 for shared endpoint/type/navigation edits. Keep NovaNet legacy subviews visibly not-wired unless their contracts are verified. If a migration risks existing user data, stop with the exact migration hazard and a safe alternative rather than guessing.
-
-
-## Active branch — next wave
-
-Start from the current main revision observed for this wave: `962434bed1bccb11fbf5edfcb0299317b12a8915`. This branch is already created from that revision. Begin the bounded task in the Next wave section immediately. Do not wait for the coordinator to send another prompt. Keep this PR draft while implementation is in progress; after it merges, create the next branch from fresh main and continue the workstream. Only stop for a concrete security/privacy issue, explicit human authority decision, destructive/data-loss risk without a safe path, or a genuine cross-workstream contract conflict. Record such a blocker in the PR thread with exact evidence; otherwise continue with the next non-overlapping task.
+Fresh/existing database migration results; owner and board-scope tests; verified endpoint/request/response contract; typecheck/build; negative controls; exact SHAs; explicit unknowns and next task.
