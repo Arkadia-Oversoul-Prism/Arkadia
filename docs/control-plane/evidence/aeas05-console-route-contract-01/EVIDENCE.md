@@ -347,3 +347,12 @@ No production deployment, merge, or `main` change was made for this test.
   (positive control on the pre-disconnect SHA confirms the detector works)
 - Vercel projects disconnected (provider setting) — REPORTED, not directly readable;
   consistent with the observed cutoff
+
+## Second independent observation (PR #417 head, 03:05Z+)
+
+This evidence branch's own PR (#417) is a second post-disconnect data point of the
+same event class: head `e9163f5b` carries **no `Vercel` commit status** and only a
+`render[bot]` deployment (`environment=aeas05/vercel-disconnect-verification-01`).
+Repo-wide, the newest `vercel[bot]` deployment record remains
+`2026-10-11T02:31:37Z`. Two independent PRs after the reported disconnect produced
+zero Vercel activity.
