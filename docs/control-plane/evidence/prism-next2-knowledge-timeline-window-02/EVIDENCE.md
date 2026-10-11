@@ -79,10 +79,35 @@ Both are reader-side; no handler change is needed or made.
 |---|---|
 | `pages/knowledge/knowledgeContracts.ts` | docblock corrected for the newest-window read; `TIMELINE_WINDOW_LIMIT`, `TimelineWindow`, `isWindowSaturated`, `timelineWindowNotice` added |
 | `components/knowledge/KnowledgeTimelinePanel.tsx` | requests `limit=${TIMELINE_WINDOW_LIMIT}`; renames `first` → **`oldest shown`**; adds a `window` fact (`newest`/`complete`) and a window-extent notice |
+| `.github/workflows/prism-console-contract.yml` | adds `tests/test_knowledge_timeline_window.py` to both `paths` filters and to the executing pytest step (see §4a) |
 | `tests/test_knowledge_timeline_window.py` | **new** — 18 tests |
 
 `events[events.length - 1]` remains `latest` and is now **pinned true** by a test,
 so the #442 property is asserted rather than assumed to survive.
+
+### 4a. The gate the new test joined, discovered by running CI rather than reasoning
+
+The first push reddened `console-contract`. `tests/test_prism_console_ci_wiring.py`
+derives its guard domain from `git ls-files` at test time: a test module belongs to
+the console-contract domain when it *names* the console
+(`web/arkadia_console`, `"arkadia_console"`, …). My new test reads
+`web/arkadia_console/src/...` to assert the panel's labels, so it entered that
+domain legitimately — and the guard requires the executing gate to select the
+domain **in the same change**:
+
+```
+no workflow executes the whole console-contract domain
+  -> 2 failed, 17 passed  (tests/test_prism_console_ci_wiring.py)
+```
+
+So the wiring was added to `.github/workflows/prism-console-contract.yml`.
+This is the guard working correctly, not a false positive: without it my new test
+would have been a guard that *no workflow executes*.
+
+**Verified rather than asserted:** the domain now has 17 entries including mine,
+`prism-console-contract.yml` is the complete gate, and the guard passes. A negative
+control — removing only the step line while leaving the `paths` entries — reddens
+both wiring tests (**2 failed**, then reverted byte-identically).
 
 ## 5. Tests — 18, live handler over ASGI, no mocks
 
@@ -114,6 +139,7 @@ on call-site removal and the import-only shape is asserted as a control.
 |---|---|
 | New suite | **18 passed** |
 | New + adjacent knowledge/console suites (6 files) | **118 passed** |
+| `tests/test_prism_console_ci_wiring.py` (the gate the new test joins) | **21 passed** |
 | Full suite, branch | 18 F / 2623 P / 17 S / 1 E |
 | Full suite, baseline (changes stashed) | 18 F / 2605 P / 17 S / 1 E |
 | Failing/error node set | **identical** — `diff` empty, 19 nodes each side, both `sha256 204d0a4e31b89185b9e06b5d4cb027b156976df8cb7aafe42546a8703806736b` |

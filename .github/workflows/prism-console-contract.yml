@@ -26,6 +26,7 @@ on:
       - "tests/test_knowledge_projects_boundary.py"
       - "tests/test_knowledge_search_boundary.py"
       - "tests/test_knowledge_timeline_boundary.py"
+      - "tests/test_knowledge_timeline_window.py"
       - "tests/test_prism_opportunity_entry_flow.py"
       - "tests/test_prism_opportunity_radar_module.py"
       - "tests/test_prism_w4_arkana_thread_history.py"
@@ -48,6 +49,7 @@ on:
       - "tests/test_knowledge_projects_boundary.py"
       - "tests/test_knowledge_search_boundary.py"
       - "tests/test_knowledge_timeline_boundary.py"
+      - "tests/test_knowledge_timeline_window.py"
       - "tests/test_prism_opportunity_entry_flow.py"
       - "tests/test_prism_opportunity_radar_module.py"
       - "tests/test_prism_w4_arkana_thread_history.py"
@@ -94,6 +96,7 @@ jobs:
           tests/test_knowledge_projects_boundary.py
           tests/test_knowledge_search_boundary.py
           tests/test_knowledge_timeline_boundary.py
+          tests/test_knowledge_timeline_window.py
           tests/test_prism_opportunity_entry_flow.py
           tests/test_prism_opportunity_radar_module.py
           tests/test_prism_w4_arkana_thread_history.py
