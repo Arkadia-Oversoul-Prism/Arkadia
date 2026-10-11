@@ -1423,3 +1423,22 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
 - `git push` in this sandbox needs `git config credential.helper '!gh auth git-credential'` and
   `GIT_TERMINAL_PROMPT=0`; a bare push blocks on an interactive prompt. Evidence:
   `docs/control-plane/evidence/gate10-prism-console-contract-domain-completion-01/`. PR #439.
+
+## The console-contract domain is **tracked**-content-derived — an untracked new guard passes vacuously
+- Reconfirmed 2026-10-11 on the #437 follow-up (PR #450, `feat/prism-next2-03-knowledge-timeline-latest-2`).
+  `tests/test_prism_console_ci_wiring.py::_console_domain()` derives its members from
+  `git ls-files -- tests/`, so a **newly added test module is not in the domain until it is
+  committed**. Measured: a full-suite parity run with `tests/test_knowledge_timeline_window.py`
+  untracked reported the same 19-node set as its baseline with **no hint** of the omission; the
+  guard's two nodes went red only once the file was committed (`2 failed, 17 passed`).
+- **Corollary that matters: measure parity after committing, not before.** An untracked file makes
+  every tracked-content-derived guard invisible to it, so a green pre-commit run is not evidence
+  about the tree CI will judge. Re-measure after `git add`, then compare node identity.
+- The trigger is the same class as PR #439's: a new test that *names* the console
+  (`web/arkadia_console`, `"arkadia_console"`) joins the derived domain, and a module that joins it
+  must have the gate wired **in the same change** — `paths` filters *and* the executing step of
+  `.github/workflows/prism-console-contract.yml`. A test-side label assertion against a `.tsx` file
+  is enough to trigger it; you do not have to touch the console source.
+- Wiring proven the way #439 prescribes — a **live negative control** on the real workflow (remove
+  the step line, keep the `paths` entries → `2 failed`), restored byte-identically → `21 passed`.
+  Evidence: `docs/control-plane/evidence/prism-next2-knowledge-timeline-window-02/EVIDENCE.md`.
