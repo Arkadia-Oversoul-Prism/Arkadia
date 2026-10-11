@@ -1,22 +1,26 @@
 # Prism Parallel UI Work — Shared Contracts
 
 **Status:** ACCEPTED — merged via PR #419 at `a29a9b8f18ada55cb9457ea3cdab98414522a4e8`.
-**Baseline observed:** `main` after the next-wave bootstrap: `962434bed1bccb11fbf5edfcb0299317b12a8915` (PR #424 merge; first wave merged as #423 `972c3423`, #420 `55b27d10`, #421 `22941cc5`, #422 `e924aec1`). Re-fetch `main` before every change; this SHA is not a permanent pin. The branch map in §1 was last refreshed 2026-10-11 (Workstream 1) against the four next-wave branches below.
-**Canonical production:** https://arkadia-qzu4.onrender.com (ADR-016). No deployment is authorized.
+**Baseline observed:** `main` after the four PRs #425–#428 were merged: `f390526ab14e122fef358ef9b9e1cd438509463c`. Re-fetch `main` before every change; this SHA is not a permanent pin. The current branch map was refreshed 2026-10-11 against the four active next-wave branches below.
+**Canonical production:** https://arkadia-qzu4.onrender.com (ADR-016). Render is configured to auto-deploy commits on `main`; this merge wave was explicitly authorized by the user for production observation. Agents may not trigger manual deployments or claim production acceptance.
 **Authority:** agents may inspect, implement, test, commit to their assigned branch, and update their PR. Human retains merge, production deployment, and acceptance.
 
 ## 1. Four workstreams and exclusive file ownership
 
-Active branch map, re-measured 2026-10-11 at `main` `962434be`. Each next-wave branch starts from that revision; the heads below are observations, not pins.
+Active branch map, re-measured 2026-10-11 at `main` `f390526a`. Each branch below starts from that revision; the heads are observations, not pins.
 
 | Workstream | Branch | PR (draft) | Head observed | Exclusive source ownership | Must not edit |
 |---|---|---|---|---|---|
-| 1. Shell, navigation, design system, integration contracts | `feat/prism-next-01-shell-integration` | #425 | `e82f7465` | `web/arkadia_console/src/App.tsx`; `src/lib/router.ts`; `src/lib/surfaces.ts`; `src/components/SurfaceLenses.tsx`; shared shell/navigation primitives and tokens; `src/lib/endpoints.ts`; `src/lib/types.ts`; shared shell/endpoint contract tests; this contract and shell instruction | Feature page internals owned by workstreams 2–4 |
-| 2. NovaNet and project Opportunity Radar | `feat/prism-next-02-opportunity-backend` | #426 | `d3ef3729` | `src/pages/NovaNetPage.tsx`; NovaNet-only components under `src/components/novanet/`; opportunity UI modules under `src/components/opportunities/`; **scoped backend repair ownership for `solspire/buyer_recon.py` and `solspire/buyer_recon_router.py` limited to the measured project/workspace board uniqueness and entry-create arity defects**; NovaNet/opportunity-specific tests and evidence | App/router/surfaces registry, global navigation, shared tokens, shared shell tests, unrelated SolSpire authority/authentication behavior |
-| 3. Solariun and Knowledge OS | `feat/prism-next-03-knowledge-search` | #427 | `7b5b71c5` | Solariun/Knowledge OS page modules and feature-local components/tests/evidence, after exact existing paths are discovered from current tree/archive and recorded in its PR | App/router/surfaces registry, global navigation, shared tokens, shared shell tests, NovaNet files |
-| 4. Arkana, Weaver, Engineering Lab | `feat/prism-next-04-arkana-threads` | #428 | `91cac4bf` | Arkana/Oracle, Weaver, Engineering Lab feature-local page modules/components/tests/evidence, after exact paths/contracts are discovered and recorded in its PR | App/router/surfaces registry, global navigation, shared tokens, shared shell tests, NovaNet/Solariun files, runtime/authority model |
+| 1. Shell, navigation, design system, integration contracts | `feat/prism-next2-01-shell-contract-map` | #429 | `46326ba4` | `web/arkadia_console/src/App.tsx`; `src/lib/router.ts`; `src/lib/surfaces.ts`; `src/components/SurfaceLenses.tsx`; shared shell/navigation primitives and tokens; `src/lib/endpoints.ts`; `src/lib/types.ts`; shared shell/endpoint contract tests; this contract and shell instruction | Feature page internals owned by workstreams 2–4 |
+| 2. NovaNet and project Opportunity Radar | `feat/prism-next2-02-opportunity-entry-flow` | #430 | `d40de704` | `src/pages/NovaNetPage.tsx`; NovaNet-only components; opportunity UI under `src/components/opportunities/**`; scoped buyer-recon board/entry behavior in `solspire/buyer_recon.py` and `solspire/buyer_recon_router.py`; opportunity tests/evidence | App/router/surface registry, global navigation, shared tokens, shared shell tests, unrelated SolSpire authority/authentication behavior |
+| 3. Solariun and Knowledge OS | `feat/prism-next2-03-knowledge-timeline` | #431 | `f5f8b70e` | Solariun/Knowledge OS page modules and feature-local components/tests/evidence | App/router/surfaces registry, global navigation, shared tokens, shared shell tests, NovaNet files |
+| 4. Arkana, Weaver, Engineering Lab | `feat/prism-next2-04-run-evidence-trace` | #432 | `dcb3e2f2` | Arkana/Oracle, Weaver, Engineering Lab feature-local page modules/components/tests/evidence | App/router/surfaces registry, global navigation, shared tokens, shared shell tests, NovaNet/Solariun files, runtime/authority model |
 
-The first-wave branches (`feat/prism-parallel-01-…` through `-04-…`) are closed history; do not reopen or continue them. The four next-wave branches above are the active threads, and all four agents continue automatically after each merge.
+Heads re-measured 2026-10-11T13:0xZ (`GET /pulls/{429,430,431,432}` + `git ls-remote`): all four are draft, `OPEN`,
+`MERGEABLE`. W2 advanced `e6780d47` → `d40de704` and W3 `a2024fba` → `f5f8b70e` since the previous map refresh; the
+columns above are the current observation, not a pin. `main` is unchanged at `f390526a`.
+
+The first-wave branches (`feat/prism-parallel-01-…` through `-04-…`) and the merged next-wave branches for PRs #425–#428 are closed history; do not reopen or continue them. The four `feat/prism-next2-*` branches above are the active threads. Each agent continues automatically after every merge by creating a fresh branch from current `main` and opening its next draft PR.
 
 **Important:** these are ownership boundaries, not proof that every proposed directory already exists. Inspect the live tree first. Do not create duplicate abstractions just to match a suggested path. If an existing file spans two owners, the shell/integration owner owns the seam; feature agents submit a narrow proposal instead of editing it.
 
@@ -96,3 +100,44 @@ The first-wave PRs are merged. The next work begins immediately on fresh branche
 - **Workstream 4:** implement Arkana thread history against the verified `/api/commune/threads` handler, preserving truthful state and human-approval boundaries.
 
 All four agents should continue automatically after each merge. Human attention is required only for an explicit authority decision, a security/privacy risk, a destructive or data-loss migration decision that cannot be made safely, or a genuinely unresolved cross-workstream contract. An external provider failure must be reported with exact evidence but must not block unrelated UI work.
+
+## 8. Shared endpoint/route contract reconciliation — 2026-10-11 (Workstream 1)
+
+Reconciled against the three merged feature slices at `main` `f390526a` (`67696372` shell/endpoints, `11a81fb2` opportunity, `3b606450` knowledge search, `f390526a` arkana/Lab). Every path below was read from `api.main:app`'s served OpenAPI schema in this environment, not from prose.
+
+### 8.1 Registry entries added this pass
+
+| Entry / builder | Value | Served route (verified) | Requester |
+|---|---|---|---|
+| `labAutomations` | `/api/lab/engineering/automations` | `GET` + `POST` (`api/lab_routes.py::list_automations` / `create_automation`) | Workstream 4 (`prism-w4-arkana-thread-history-01/EVIDENCE.md`) |
+| `labCanvas(id)` | derives its base from `endpoints.labArtifacts` | `GET /api/lab/engineering/canvas/{artifact_id}` (`api/lab_routes.py::get_canvas`) | Workstream 4 |
+| `labSession(id)` | unchanged, re-verified | `GET /api/lab/engineering/sessions/{session_id}` | Workstream 4 |
+
+**The canvas route is a sibling, not a sub-resource.** The backend declares `/api/lab/engineering/artifacts` and `/api/lab/engineering/canvas/{artifact_id}`; it does **not** serve `/api/lab/engineering/artifacts/{artifact_id}`, and `/api/lab/engineering/canvas` alone is not a route. A registry entry for the bare canvas root would therefore fail the served-path guard, so the canvas base is *derived* from the declared artifacts collection by substituting its terminal segment. The substitution is asserted, so a registry rename cannot degrade it into a silent no-op that composes a 404. Both the correct and the plausible-but-unserved shape are pinned, with a negative control that feeds the pre-repair composition to the same detector.
+
+### 8.2 Requests examined and declined (with the reason)
+
+| Candidate | Disposition | Evidence |
+|---|---|---|
+| `buyerRecon: "/solspire/buyer-recon"` | **Declined** | Workstream 2's own merged evidence explicitly requests *no* shared constant: "No route, surface id, endpoint constant, or shared type is requested: the contract module carries its own paths and types" (`prism-parallel-02-opportunity-radar-01/EVIDENCE.md` §5). The path is handler-derived in `opportunityRadarContract.ts` from `solspire/buyer_recon_router.py`'s declared routes. Adding a registry entry the owner declined would create a second declaration of the same contract, not a reconciliation. |
+| `knowledgeSearch` | **Already present** | Added by `67696372` (Workstream 1's previous pass). The merged W3 slice (`3b606450`) reads it through the registry shape and compiles against it; the entry is served (`POST /api/knowledge/search`). |
+
+### 8.3 Ownership boundary respected
+
+Workstreams 2–4 own their feature-local contract modules (`opportunityRadarContract.ts`, `knowledgeContracts.ts`, `arkanaThreadsContract.ts`, `LabArtifactCanvas.tsx`, `LabSessionList.tsx`). Their page-local compositions over a declared collection are the *one registry expressed*, which §3.1 permits; this pass did not edit any of them. Where a first-class helper now exists (`labCanvas`, `labSession`), migrating those call sites is the owning workstream's bounded follow-up, not a Workstream 1 edit.
+
+### 8.4 Recorded, not repaired
+
+- `WeaverPage.tsx:56` / `EngineeringLabPage.tsx:58` advertise `contract="/api/lab/engineering/sessions/{id}/execute"`; the served shape is `{session_id}`. Display copy in feature pages; already in the guard's `RECORDED_ADVERTISED_DRIFT`.
+
+### 8.5 Registry guard detector domain, widened (this pass)
+
+The one-registry guard (`tests/test_console_endpoint_registry_contract.py`) originally inspected only `useHydration` path arguments across `*.tsx`. That is complete for `useHydration`, whose path is always a page-local expression, but it left `apiRequest` call sites unjudged.
+
+The widening is deliberately **literal-only**, because `apiRequest` has a different dominant shape: `useHydration<T>(path, (p) => apiRequest<T>(p))` passes the path as a *callback parameter*, which is not a page-local decision and cannot be judged without interprocedural analysis. A **string or template literal** is decidable and is exactly the second, unreviewed endpoint contract the guard exists to catch. So the new detector flags literals and leaves registry-derived expressions, parameters, and local bindings alone by construction.
+
+Verified on the live tree: planting `apiRequest<VersionInfo>("/api/invented/route")` in `pages/HomePage.tsx` reddens `test_no_page_passes_a_literal_path_to_api_request`; the file was restored byte-identically. `test_request_detector_is_not_trivially_true` pins both polarities in-source (a literal and a template literal must be reported; five legitimate shapes must not), so a detector that matched nothing cannot pass by accident.
+
+**Deliberately still out of scope:** `ProjectOpportunityRadar`'s `readPath` prop and `KnowledgeGraphPanel`'s `readGraph(path)` — both receive their path from a caller, which is Workstream 2's and Workstream 3's composition respectively, not a shell-owned decision.
+
+**Domain correction (later pass, same day).** The widened detector originally ran over `*.tsx` only. The read is what carries the endpoint contract, not the file extension that performs it — `lib/arkana.ts` already reaches `POST /api/commune/resonance` through `apiRequest` — so a `.ts` contract module or helper could inline a path and pass unjudged. The domain is now `.ts` **and** `.tsx`, excluding `lib/apiClient.ts` (the transport itself, whose `fetch(path, …)` takes its path as a parameter). Measured: a planted `apiRequest<unknown>("/api/ghost-feed")` in `lib/arkana.ts` was reported by the widened domain and missed by the `.tsx`-only one. See the evidence doc §9.

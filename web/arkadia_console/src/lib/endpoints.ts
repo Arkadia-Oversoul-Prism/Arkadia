@@ -31,6 +31,7 @@ export const endpoints = {
   labSessions: "/api/lab/engineering/sessions",
   labAgents: "/api/lab/engineering/agents",
   labArtifacts: "/api/lab/engineering/artifacts",
+  labAutomations: "/api/lab/engineering/automations",
   labGateway: "/api/lab/engineering/gateway",
   labNAtlasCatalog: "/api/lab/engineering/n-atlas/catalog",
 
@@ -55,4 +56,24 @@ export type EndpointName = keyof typeof endpoints;
  */
 export function labSession(sessionId: string): string {
   return `${endpoints.labSessions}/${encodeURIComponent(sessionId)}`;
+}
+
+/**
+ * `GET /api/lab/engineering/canvas/{artifact_id}` — the artifact canvas view
+ * (owner-scoped). Handler verified at `api/lab_routes.py::get_canvas`.
+ *
+ * The served route is a **sibling** of `endpoints.labArtifacts`, not a
+ * sub-resource of it: the backend declares `/engineering/artifacts` and
+ * `/engineering/canvas/{artifact_id}` and does **not** serve
+ * `/engineering/artifacts/{artifact_id}`. The canvas base is therefore derived
+ * from the declared artifacts collection by replacing its terminal segment —
+ * so the base cannot drift from the registry — rather than by declaring a
+ * second collection entry for a path the app does not serve on its own
+ * (`/engineering/canvas` alone is not a route).
+ *
+ * The substitution is asserted in the contract guard, so a registry rename
+ * cannot turn this into a silent no-op that composes a 404.
+ */
+export function labCanvas(artifactId: string): string {
+  return `${endpoints.labArtifacts.replace(/\/artifacts$/, "/canvas")}/${encodeURIComponent(artifactId)}`;
 }

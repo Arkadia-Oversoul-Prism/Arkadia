@@ -78,9 +78,30 @@ def _served_paths() -> set[str]:
     return set(app.openapi()["paths"].keys())
 
 
+def _canvas_route_template(artifacts_path: str, builder_body: str) -> str:
+    """The route template a ``labCanvas`` builder body composes.
+
+    The body is evaluated as *shape*, not executed: the derivation is the
+    ``.replace(/\\/artifacts$/, "/canvas")`` substitution, and the parameter
+    becomes the ``{artifact_id}`` template segment. A body without the
+    substitution keeps the artifacts collection and therefore composes the
+    route the backend does not serve — which is the defect the control feeds
+    to the detector.
+    """
+    base = artifacts_path
+    if re.search(r'\.replace\(\s*/\\/artifacts\$/\s*,\s*"/canvas"\s*\)', builder_body):
+        base = artifacts_path[: -len("/artifacts")] + "/canvas"
+    return f"{base}/{{artifact_id}}"
+
+
 def _hydration_path_arguments(text: str) -> list[str]:
     """The first argument of every ``useHydration<…>(`` call in a page."""
     return re.findall(r"useHydration<[^>]*>\(\s*([^,\n]+)", text)
+
+
+def _request_path_arguments(text: str) -> list[str]:
+    """The first argument of every ``apiRequest<…>(`` call."""
+    return re.findall(r"apiRequest(?:\s*<[^>]*>)?\(\s*([^,\n]+)", text)
 
 
 def _balanced(text: str, start: int) -> str:
@@ -190,6 +211,35 @@ def _inline_path_arguments(sources: dict[str, str]) -> list[str]:
     return defects
 
 
+def _inline_request_literals(sources: dict[str, str]) -> list[str]:
+    """``apiRequest`` reads whose path argument is a raw string literal.
+
+    ``useHydration`` always receives a path expression written in the page, so
+    the detector above can judge every argument. ``apiRequest`` cannot be read
+    the same way: the dominant call shape is a callback that *receives* its path
+    (``useHydration<T>(path, (p) => apiRequest<T>(p))``), and the path there is
+    a function or prop parameter, not a page-local decision. Only a literal is
+    decidable without interprocedural analysis, and only a literal is a second,
+    unreviewed endpoint contract — so that is exactly what is flagged. A
+    registry-derived expression, a parameter, and a local binding are all
+    outside this detector's domain by construction.
+    """
+    defects = []
+    for name, src in sources.items():
+        derived = _registry_derived_names(src)
+        for arg in _request_path_arguments(src):
+            expression = arg.strip()
+            if not expression[:1] in {'"', "'", "`"}:
+                continue
+            if expression.startswith("endpoints."):
+                continue
+            root = re.match(r"[A-Za-z_$][\w$]*", expression)
+            if root and root.group(0) in derived:
+                continue
+            defects.append(f"{name}: apiRequest path literal {expression!r}")
+    return defects
+
+
 def _advertised_contract_strings(sources: dict[str, str]) -> dict[str, str]:
     """The ``contract="…"`` strings a page advertises on a ``NotYetWired`` panel."""
     found = {}
@@ -201,6 +251,29 @@ def _advertised_contract_strings(sources: dict[str, str]) -> dict[str, str]:
 
 def _tsx_sources() -> dict[str, str]:
     return {str(p.relative_to(SRC)): p.read_text(encoding="utf-8") for p in sorted(SRC.rglob("*.tsx"))}
+
+
+def _transport_sources() -> dict[str, str]:
+    """Every module the ``apiRequest`` detector scans.
+
+    ``.ts`` as well as ``.tsx``: the read is what carries the endpoint contract,
+    not the extension of the file that performs it, and ``lib/arkana.ts`` already
+    reaches the backend through ``apiRequest``. A ``.tsx``-only domain would let a
+    contract module (or a hook, or a plain helper) inline a path and pass the guard
+    — the same blind spot the ``useHydration`` widening closed for ``.tsx``.
+
+    ``lib/apiClient.ts`` is excluded because it *is* the transport: its own
+    ``fetch(path, …)`` takes the path as a parameter, so scanning it would report
+    the transport's signature rather than a page-local contract.
+    """
+    skip = {"lib/apiClient.ts"}
+    sources = {}
+    for pattern in ("*.ts", "*.tsx"):
+        for path in sorted(SRC.rglob(pattern)):
+            relative = str(path.relative_to(SRC))
+            if relative not in skip:
+                sources[relative] = path.read_text(encoding="utf-8")
+    return sources
 
 
 # ---------------------------------------------------------------------------
@@ -245,6 +318,60 @@ def test_every_page_read_uses_the_registry_not_an_inline_path():
     assert defects == [], f"page-local endpoint path(s): {defects}"
 
 
+def test_no_page_passes_a_literal_path_to_api_request():
+    """The same one-registry rule, widened to ``apiRequest``.
+
+    ``useHydration`` always receives its path as a page-local expression, so the
+    detector above judges every argument. ``apiRequest`` usually receives it as a
+    *parameter* (``useHydration<T>(path, (p) => apiRequest<T>(p))``), which is not
+    a page-local decision and cannot be judged without interprocedural analysis.
+    A **literal** can be judged, and a literal is exactly the second, unreviewed
+    contract this guard exists to catch.
+    """
+    defects = _inline_request_literals(_transport_sources())
+    assert defects == [], f"literal endpoint path(s) passed to apiRequest: {defects}"
+
+
+def test_request_detector_is_not_trivially_true():
+    """Negative control: a literal passed to ``apiRequest`` must be reported,
+    and the legitimate shapes must not be.
+
+    Without this, a detector that matched nothing at all would pass the guard
+    above on any tree -- including one that inlines every path.
+    """
+    invented = 'const r = await apiRequest<unknown>("/api/invented/route");'
+    assert _inline_request_literals({"Page.tsx": invented}) != []
+
+    template = "const r = await apiRequest<unknown>(`/api/invented/${id}`);"
+    assert _inline_request_literals({"Page.tsx": template}) != []
+
+    for legitimate in (
+        "const r = await apiRequest<unknown>(endpoints.knowledgeGraph);",
+        "const r = await apiRequest<unknown>(path);",
+        "const r = await apiRequest<unknown>(p);",
+        "const r = await apiRequest<unknown>(readPath);",
+        "useHydration<T>(endpoints.echoes, (p) => apiRequest<T>(p), [flag]);",
+    ):
+        assert _inline_request_literals({"Page.tsx": legitimate}) == [], legitimate
+
+
+def test_transport_detector_domain_includes_ts_modules():
+    """Negative control: the detector's domain must not be ``.tsx``-only.
+
+    A path literal in a plain ``.ts`` module is the same second, unreviewed
+    contract as one in a page, and ``lib/arkana.ts`` already reaches the backend
+    through ``apiRequest``. If the domain narrowed back to ``*.tsx``, a contract
+    module could inline a path and pass the guard above — which is exactly the
+    blind spot this domain closes.
+    """
+    assert "lib/arkana.ts" in _transport_sources(), "a real .ts transport read must be scanned"
+    assert "lib/apiClient.ts" not in _transport_sources(), "the transport itself is a parameter"
+
+    inlined = {"lib/helper.ts": 'export const load = () => apiRequest<Thing>("/api/invented");\n'}
+    assert _inline_request_literals(inlined) != [], "a .ts literal must be reported"
+    assert "lib/helper.ts" not in _tsx_sources(), "control premise: .ts is outside the tsx domain"
+
+
 def test_registry_path_builders_derive_from_a_collection_and_encode():
     """A parameterized sub-resource helper must be derived from its declared
     collection (so the base cannot drift) and percent-encode the parameter (so
@@ -282,6 +409,68 @@ def test_lab_session_builder_matches_the_served_route():
     assert re.sub(r"\$\{[^}]+\}", "", body).count("/") == 1, body
 
 
+def test_lab_canvas_builder_derives_from_artifacts_and_encodes():
+    """``labCanvas(id)`` must derive its base from a declared collection and
+    percent-encode the id.
+
+    The base is derived from ``endpoints.labArtifacts`` because the backend
+    serves ``/engineering/canvas/{artifact_id}`` as a **sibling** of
+    ``/engineering/artifacts`` — ``/engineering/canvas`` alone is not a route,
+    so declaring it as a registry entry would fail the served-path test above.
+    """
+    text = ENDPOINTS_PATH.read_text(encoding="utf-8")
+    body = _function_body(text, "labCanvas")
+    assert body, "endpoints.ts declares no `labCanvas(...)` path builder"
+    param = re.search(r"labCanvas\(([^):]*)(?::[^)]*)?\)", text).group(1).strip()
+    assert "endpoints.labArtifacts" in body, "the builder must derive from a declared collection"
+    assert f"encodeURIComponent({param})" in body, "the path parameter must be percent-encoded"
+
+
+def test_lab_canvas_builder_composes_the_served_route():
+    """The composed path must be exactly the served canvas route, and the
+    sub-resource spelling the backend does *not* serve must not be produced.
+
+    The backend declares ``/api/lab/engineering/canvas/{artifact_id}`` and does
+    **not** declare ``/api/lab/engineering/artifacts/{artifact_id}``. A builder
+    that merely appended the id to the artifacts collection would compose a
+    plausible path that 404s, so both the correct and the wrong shape are
+    asserted here.
+    """
+    declared = _declared_endpoints(ENDPOINTS_PATH.read_text(encoding="utf-8"))
+    served = _served_paths()
+    artifacts = declared["labArtifacts"]
+    assert artifacts in served, f"{artifacts!r} is not served"
+
+    text = ENDPOINTS_PATH.read_text(encoding="utf-8")
+    body = _function_body(text, "labCanvas")
+    # The same derivation the negative control feeds the detector: the live
+    # builder must compose the served canvas route, and the artifacts
+    # sub-resource the backend does not serve must stay unserved.
+    composed = _canvas_route_template(artifacts, body)
+    assert composed == "/api/lab/engineering/canvas/{artifact_id}", composed
+    assert composed in served, f"the canvas route {composed!r} is not served"
+    assert f"{artifacts}/{{artifact_id}}" not in served, (
+        "control premise broken: the artifacts sub-resource is now served, so the "
+        "sibling-canvas derivation must be re-derived rather than assumed"
+    )
+
+
+def test_registry_declares_the_automations_collection():
+    """``labAutomations`` is Workstream 4's recorded request. The entry must be
+    declared *and* served; the mutation routes under it stay out of the registry.
+    """
+    declared = _declared_endpoints(ENDPOINTS_PATH.read_text(encoding="utf-8"))
+    served = _served_paths()
+    assert declared.get("labAutomations") == "/api/lab/engineering/automations"
+    assert declared["labAutomations"] in served, "the automations collection is not served"
+
+    # The registry maps *read* collections. The mutating sub-routes are served
+    # but deliberately unwired by the UI, so a registry entry for them would
+    # advertise a mutation surface as a readable contract.
+    mutation_paths = {p for p in declared.values() if "/state" in p or p.endswith("/execute")}
+    assert mutation_paths == set(), f"registry declares mutation path(s): {sorted(mutation_paths)}"
+
+
 # ---------------------------------------------------------------------------
 # Negative controls -- each detector must flag the defect it claims to detect.
 # ---------------------------------------------------------------------------
@@ -296,6 +485,38 @@ def test_detector_flags_an_invented_endpoint():
     assert _unserved(invented, served) == ["ghostFeed -> /api/ghost-feed"]
     real = {"version": "/api/version"}
     assert _unserved(real, served) == []
+
+
+def test_detector_flags_an_artifacts_sub_resource_canvas_path():
+    """Negative control for the canvas builder: the plausible-but-unserved
+    shape must be reported by the same derivation + detector the live
+    assertion uses.
+
+    The pre-repair composition (append the id to the artifacts collection
+    without substituting the terminal segment) yields the template
+    ``/api/lab/engineering/artifacts/{artifact_id}``, which the backend does
+    not serve. If this control ever stops firing, the live assertion has been
+    disarmed rather than satisfied.
+    """
+    declared = _declared_endpoints(ENDPOINTS_PATH.read_text(encoding="utf-8"))
+    served = _served_paths()
+    artifacts = declared["labArtifacts"]
+
+    # The live derivation, applied to the real builder body.
+    live_body = _function_body(ENDPOINTS_PATH.read_text(encoding="utf-8"), "labCanvas")
+    live_template = _canvas_route_template(artifacts, live_body)
+    assert live_template in served, f"live builder composes an unserved route: {live_template}"
+
+    # The same derivation, applied to the pre-repair body (no substitution).
+    pre_repair_body = 'return `${endpoints.labArtifacts}/${encodeURIComponent(artifactId)}`;'
+    wrong_template = _canvas_route_template(artifacts, pre_repair_body)
+    assert wrong_template == f"{artifacts}/{{artifact_id}}", wrong_template
+    assert _unserved({"labCanvas": wrong_template}, served) == [
+        f"labCanvas -> {wrong_template}"
+    ], "the detector must report the artifacts sub-resource shape"
+
+    # And it stays silent on the served shape.
+    assert _unserved({"labCanvas": live_template}, served) == []
 
 
 def test_detector_flags_a_second_api_base_or_relative_path():
