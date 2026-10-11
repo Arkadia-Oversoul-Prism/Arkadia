@@ -1,4 +1,5 @@
 import { Page, Panel, Facts, ContractState, NotYetWired } from "../components/ui";
+import { OpportunityRadarSection } from "../components/opportunities/OpportunityRadarSection";
 import { useAuth } from "../contexts/AuthContext";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
@@ -21,6 +22,20 @@ export function SolSpirePage() {
           <Facts rows={[{ label: "count", value: String(projects.data.count) }]} />
         ) : (
           <ContractState state={projects.state} error={projects.error?.message} onRetry={projects.reload} />
+        )}
+      </Panel>
+
+      <Panel className="mb-4">
+        <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">
+          Project field · Opportunity Radar
+        </p>
+        {projects.state === "ready" && projects.data ? (
+          <OpportunityRadarSection projects={projects.data.projects} />
+        ) : (
+          <p className="text-sm text-white/60">
+            The project list must load before a project board can be selected. This is not an empty
+            opportunity board.
+          </p>
         )}
       </Panel>
 

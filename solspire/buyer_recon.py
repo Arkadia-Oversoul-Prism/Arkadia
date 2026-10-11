@@ -88,25 +88,106 @@ class BuyerReconEntry:
         return asdict(self)
 
 
+# The insert names its columns explicitly. `evidence` is the one dataclass field
+# whose column differs (`evidence_json`); every other field is a same-named
+# column, in the same order, so the value tuple stays aligned.
+_ENTRY_COLUMNS = tuple(
+    "evidence_json" if field == "evidence" else field
+    for field in BuyerReconEntry.__dataclass_fields__
+)
+
+
+_BOARDS_DDL = """
+    CREATE TABLE IF NOT EXISTS buyer_recon_boards (
+        id TEXT PRIMARY KEY,
+        workspace_ref TEXT NOT NULL,
+        subject_ref TEXT NOT NULL,
+        board_type TEXT NOT NULL,
+        display_name TEXT NOT NULL,
+        lifecycle TEXT NOT NULL DEFAULT 'active',
+        created_at REAL NOT NULL,
+        updated_at REAL NOT NULL
+    )
+    """
+
+_BOARDS_SCOPE_INDEX = """
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_buyer_recon_boards_scope
+    ON buyer_recon_boards(workspace_ref, subject_ref)
+    """
+
+# A subject must be able to hold one workspace board *and* one board per
+# project. The workspace board is keyed by the canonical workspace id and the
+# project board by `"{workspace_id}:project:{project_id}"`, so the scope is the
+# composite `(workspace_ref, subject_ref)`, not the subject alone.
+_BOARD_UNIQUE_COLUMNS = frozenset({"subject_ref"})
+
+
+def _unique_index_columns(conn: sqlite3.Connection, index: str) -> set[str]:
+    return {row[2] for row in conn.execute(f"PRAGMA index_info({index!r})").fetchall()}
+
+
+def _migrate_boards(conn: sqlite3.Connection) -> None:
+    """Replace the legacy one-board-per-subject constraint with a composite scope.
+
+    The original schema declared `subject_ref TEXT NOT NULL UNIQUE`, which
+    prevented a subject from holding both a workspace and a project board. A
+    standalone UNIQUE table constraint cannot be dropped in SQLite, so the table
+    is rebuilt in a single transaction: create the corrected shape, copy every
+    row, drop, rename, re-index. `PRAGMA legacy_alter_table=ON` keeps the
+    `buyer_recon_entries` foreign key pointed at this table by name across the
+    rename. No row is added, dropped, or rewritten.
+
+    A fresh database already has the composite index and is left untouched; the
+    migration is therefore idempotent.
+    """
+    indexes = conn.execute("PRAGMA index_list(buyer_recon_boards)").fetchall()
+    legacy = False
+    for row in indexes:
+        if not row["unique"]:
+            continue
+        columns = _unique_index_columns(conn, row["name"])
+        if columns == _BOARD_UNIQUE_COLUMNS:
+            legacy = True
+            break
+    if not legacy:
+        return
+
+    previous = conn.execute("PRAGMA legacy_alter_table").fetchone()[0]
+    conn.execute("PRAGMA legacy_alter_table=ON")
+    try:
+        conn.execute(
+            """CREATE TABLE buyer_recon_boards_rebuilt (
+                id TEXT PRIMARY KEY,
+                workspace_ref TEXT NOT NULL,
+                subject_ref TEXT NOT NULL,
+                board_type TEXT NOT NULL,
+                display_name TEXT NOT NULL,
+                lifecycle TEXT NOT NULL DEFAULT 'active',
+                created_at REAL NOT NULL,
+                updated_at REAL NOT NULL
+            )"""
+        )
+        conn.execute(
+            """INSERT INTO buyer_recon_boards_rebuilt
+               (id,workspace_ref,subject_ref,board_type,display_name,lifecycle,created_at,updated_at)
+               SELECT id,workspace_ref,subject_ref,board_type,display_name,lifecycle,created_at,updated_at
+               FROM buyer_recon_boards"""
+        )
+        conn.execute("DROP TABLE buyer_recon_boards")
+        conn.execute("ALTER TABLE buyer_recon_boards_rebuilt RENAME TO buyer_recon_boards")
+        conn.execute(_BOARDS_SCOPE_INDEX)
+    finally:
+        conn.execute(f"PRAGMA legacy_alter_table={int(bool(previous))}")
+
+
 def _db() -> sqlite3.Connection:
     os.makedirs(os.path.dirname(_DB_PATH), exist_ok=True)
     conn = sqlite3.connect(_DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS buyer_recon_boards (
-            id TEXT PRIMARY KEY,
-            workspace_ref TEXT NOT NULL UNIQUE,
-            subject_ref TEXT NOT NULL UNIQUE,
-            board_type TEXT NOT NULL,
-            display_name TEXT NOT NULL,
-            lifecycle TEXT NOT NULL DEFAULT 'active',
-            created_at REAL NOT NULL,
-            updated_at REAL NOT NULL
-        )
-        """
-    )
+    conn.execute(_BOARDS_DDL)
+    _migrate_boards(conn)
+    conn.execute(_BOARDS_SCOPE_INDEX)
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS buyer_recon_entries (
@@ -216,10 +297,11 @@ class BuyerReconManager:
             why_this_prospect=str(data.get("why_this_prospect") or ""), status=status, notes=str(data.get("notes") or ""),
             created_at=now, updated_at=now,
         )
+        columns = ",".join(_ENTRY_COLUMNS)
         with _db() as conn:
             conn.execute(
-                """INSERT INTO buyer_recon_entries
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                f"""INSERT INTO buyer_recon_entries ({columns})
+                VALUES ({','.join('?' * len(_ENTRY_COLUMNS))})""",
                 (entry.id,entry.board_id,entry.subject_ref,entry.prospect,entry.location,entry.buyer_type,
                  entry.contact_route,entry.commodity,entry.estimated_demand,entry.procurement_frequency,
                  entry.decision_maker,entry.current_price,entry.quantity,entry.specification,entry.delivery_point,
@@ -230,15 +312,31 @@ class BuyerReconManager:
             )
         return entry
 
-    def update_entry(self, entry_id: str, subject_ref: str, patch: dict[str, Any]) -> BuyerReconEntry:
+    def update_entry(
+        self, entry_id: str, subject_ref: str, patch: dict[str, Any],
+        board_id: str | None = None,
+    ) -> BuyerReconEntry:
+        """Update one entry owned by `subject_ref`.
+
+        `board_id` narrows the write to a single board. It is enforced *inside*
+        the transaction (selection and update both carry it), so a caller can
+        never observe or mutate a row on another board — a post-write check
+        would race the commit. The workspace and project routes pass their own
+        board; omitting it keeps the subject-wide behaviour for internal callers.
+        """
         allowed = set(BuyerReconEntry.__dataclass_fields__) - {"id","board_id","subject_ref","created_at","updated_at","evidence"}
         status = patch.get("status")
         if status is not None:
             status = str(status).upper()
             if status not in STATUSES:
                 raise ValueError("invalid status")
+        scope = "id=? AND subject_ref=?"
+        scope_values: list[Any] = [entry_id, subject_ref]
+        if board_id is not None:
+            scope += " AND board_id=?"
+            scope_values.append(board_id)
         with _db() as conn:
-            row = conn.execute("SELECT * FROM buyer_recon_entries WHERE id=? AND subject_ref=?", (entry_id, subject_ref)).fetchone()
+            row = conn.execute(f"SELECT * FROM buyer_recon_entries WHERE {scope}", scope_values).fetchone()
             if not row:
                 raise KeyError(entry_id)
             current = self._entry(row).to_dict()
@@ -257,9 +355,9 @@ class BuyerReconManager:
                 if dbkey == "evidence_json":
                     value = json.dumps(current.get("evidence") or patch.get("evidence") or [])
                 sets.append(f"{dbkey}=?"); values.append(value)
-            values.extend([entry_id, subject_ref])
-            conn.execute(f"UPDATE buyer_recon_entries SET {','.join(sets)} WHERE id=? AND subject_ref=?", values)
-            row = conn.execute("SELECT * FROM buyer_recon_entries WHERE id=? AND subject_ref=?", (entry_id, subject_ref)).fetchone()
+            values.extend(scope_values)
+            conn.execute(f"UPDATE buyer_recon_entries SET {','.join(sets)} WHERE {scope}", values)
+            row = conn.execute(f"SELECT * FROM buyer_recon_entries WHERE {scope}", scope_values).fetchone()
         return self._entry(row)
 
     @staticmethod
