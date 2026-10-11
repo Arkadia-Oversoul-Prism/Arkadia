@@ -128,8 +128,8 @@ On **each Hourly Weaver pulse**, perform these steps in order. The accepted shar
 3. **Change:** edit only the required source, tests, and evidence. No opportunistic refactors.
 4. **Verify:** run the narrow tests, TypeScript/build checks, route checks, and any applicable security/architecture guards. Compare new failures with a fresh baseline by test-node identity.
 5. **Record:** update the feature matrix and work log with full SHA, paths, commands, exact results, failures, unknowns, and next move.
-6. **Commit:** commit only verified progress to this same branch and update this same PR. Never open a new PR per pulse.
-7. **Reconcile:** reread the branch/PR head and checks before the next pulse. Stop if another actor moved the branch or if semantic integration is unclear.
+6. **Commit:** commit only verified progress to this same branch and update this same PR. Each of the four accepted workstreams also maintains its own durable branch/PR; do not create a new PR per pulse.
+7. **Reconcile:** reread `main`, this PR, PRs #420–#423, changed-file overlap and checks before the next pulse. PR #419 is the merged governance contract; #420–#423 are the four implementation workstreams. Stop only for a real ownership, safety, authority, or integration blocker—not because another workstream exists.
 
 A pulse with no safe, verified source change must produce a precise blocker/next-action record rather than a speculative commit. Do not measure progress by number of files changed, lines written, or a claimed percentage.
 
@@ -174,7 +174,7 @@ Build success alone is not UI acceptance. Local browser success is not productio
 
 ## 10. Overnight exit condition
 
-At the end of the overnight window, leave one reviewable PR and a deterministic handoff containing:
+At the end of this workstream window, leave its PR in a truthful state and a deterministic handoff containing:
 
 - starting and ending `main` SHA and branch head SHA;
 - the feature/route reconciliation matrix;
