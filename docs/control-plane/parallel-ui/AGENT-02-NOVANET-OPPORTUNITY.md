@@ -10,6 +10,7 @@ Recover the useful NovaNet hub and project-level Opportunity Radar workflows fro
 
 ## First tasks
 1. Reconstruct live `main`, PR #418, and archive sources. Specifically map #418's existing `NovaNetPage.tsx`, NovaNet additions in `endpoints.ts`/`types.ts`, and evidence file. Do not duplicate the existing slice.
+2. **PR #418 overlap gate:** until #418 is merged or a human explicitly chooses a split, do not edit `NovaNetPage.tsx`, `endpoints.ts`, `types.ts`, `App.tsx`, `lib/router.ts`, `lib/surfaces.ts`, or shared navigation/tests. Start with verified API discovery, feature matrix, and new opportunity-only modules/tests under a feature-local path. If a NovaNet page integration is required, record a precise patch request for Workstream 1 and wait.
 2. Verify `/api/transmissions` and `/api/echoes` against current backend route table and handlers before relying on PR #418's evidence; re-check auth and response shapes.
 3. Discover the actual project/opportunity APIs and storage before implementing project radar. Record exact method/path/auth/schema/source; if unknown, keep the UI blocked and report the gap.
 4. Write a capability matrix for NovaNet hub, IMS, Grove, Larder, Distribution, and project Opportunity Radar. Do not invent routes for unverified subviews. Existing note: `/api/ims/inquiries` was reported as sovereign-key gated while the browser client sends bearer auth only; re-measure before proposing access.
