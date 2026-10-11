@@ -125,4 +125,13 @@ Workstreams 2–4 own their feature-local contract modules (`opportunityRadarCon
 ### 8.4 Recorded, not repaired
 
 - `WeaverPage.tsx:56` / `EngineeringLabPage.tsx:58` advertise `contract="/api/lab/engineering/sessions/{id}/execute"`; the served shape is `{session_id}`. Display copy in feature pages; already in the guard's `RECORDED_ADVERTISED_DRIFT`.
-- The registry guard inspects `useHydration` path arguments across `*.tsx`. `apiRequest` read call sites that receive a registry-derived binding (e.g. `ProjectOpportunityRadar`'s `readPath` prop, `KnowledgeGraphPanel`'s `readGraph(path)`) are outside that detector's domain by construction. Widening the detector to every `apiRequest` call is a separate bounded change; it is recorded here rather than executed inside this slice.
+
+### 8.5 Registry guard detector domain, widened (this pass)
+
+The one-registry guard (`tests/test_console_endpoint_registry_contract.py`) originally inspected only `useHydration` path arguments across `*.tsx`. That is complete for `useHydration`, whose path is always a page-local expression, but it left `apiRequest` call sites unjudged.
+
+The widening is deliberately **literal-only**, because `apiRequest` has a different dominant shape: `useHydration<T>(path, (p) => apiRequest<T>(p))` passes the path as a *callback parameter*, which is not a page-local decision and cannot be judged without interprocedural analysis. A **string or template literal** is decidable and is exactly the second, unreviewed endpoint contract the guard exists to catch. So the new detector flags literals and leaves registry-derived expressions, parameters, and local bindings alone by construction.
+
+Verified on the live tree: planting `apiRequest<VersionInfo>("/api/invented/route")` in `pages/HomePage.tsx` reddens `test_no_page_passes_a_literal_path_to_api_request`; the file was restored byte-identically. `test_request_detector_is_not_trivially_true` pins both polarities in-source (a literal and a template literal must be reported; five legitimate shapes must not), so a detector that matched nothing cannot pass by accident.
+
+**Deliberately still out of scope:** `ProjectOpportunityRadar`'s `readPath` prop and `KnowledgeGraphPanel`'s `readGraph(path)` — both receive their path from a caller, which is Workstream 2's and Workstream 3's composition respectively, not a shell-owned decision.

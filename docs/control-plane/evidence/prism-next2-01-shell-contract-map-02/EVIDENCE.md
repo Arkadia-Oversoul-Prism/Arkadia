@@ -135,9 +135,31 @@ dependency in this sandbox). None is caused by, or repaired by, this pass.
 
 ## 6. Next bounded move
 
-Migrate the two feature-local canvas/session compositions
-(`LabArtifactCanvas.tsx:63`, `LabSessionList.tsx:86`) onto the new first-class helpers —
-but that is the owning workstream's edit. The non-overlapping Workstream 1 move is the
-next shell/navigation gap from the live inventory, or widening the registry guard's
-detector domain from `useHydration` arguments to every `apiRequest` read call site
-(recorded in §8.4 of the contract, not executed in this slice).
+Taken in this pass (see §7): the registry guard's detector domain was widened from
+`useHydration` arguments to `apiRequest` **literals** — the bounded, decidable half of
+the gap recorded in §8.4. The remaining Workstream 1 candidates are the next
+shell/navigation gap from the live inventory.
+
+## 7. Second bounded move — widened one-registry detector
+
+`useHydration` always receives its path as a page-local expression, so the original
+detector could judge every argument. `apiRequest` does not: its dominant shape is
+`useHydration<T>(path, (p) => apiRequest<T>(p))`, where the path is a *callback
+parameter* — not a page-local decision, and not decidable without interprocedural
+analysis. The widened detector therefore flags **string and template literals only**
+and leaves registry-derived expressions, parameters, and local bindings alone by
+construction. A literal is precisely the second, unreviewed endpoint contract the guard
+exists to catch.
+
+| Check | Result |
+|---|---|
+| Registry guard | **17 passed** (was 15) |
+| Live negative control | planting `apiRequest<VersionInfo>("/api/invented/route")` in `pages/HomePage.tsx` reddens `test_no_page_passes_a_literal_path_to_api_request`; restored byte-identically (`git status --porcelain` shows only the intended test edit) |
+| In-source control | `test_request_detector_is_not_trivially_true` pins both polarities — a string literal **and** a template literal must be reported; five legitimate shapes (registry member, three parameter forms, the `useHydration` callback form) must not |
+
+Without the in-source control, a detector that matched nothing would pass on any tree,
+including one that inlines every path.
+
+**Deliberately still out of scope:** `ProjectOpportunityRadar`'s `readPath` prop
+(Workstream 2's composition) and `KnowledgeGraphPanel`'s `readGraph(path)` (Workstream
+3's). Both receive their path from a caller; judging them is not a shell-owned decision.

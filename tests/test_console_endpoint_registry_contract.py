@@ -99,6 +99,11 @@ def _hydration_path_arguments(text: str) -> list[str]:
     return re.findall(r"useHydration<[^>]*>\(\s*([^,\n]+)", text)
 
 
+def _request_path_arguments(text: str) -> list[str]:
+    """The first argument of every ``apiRequest<…>(`` call."""
+    return re.findall(r"apiRequest(?:\s*<[^>]*>)?\(\s*([^,\n]+)", text)
+
+
 def _balanced(text: str, start: int) -> str:
     """Text from the ``{`` at *start* through its matching ``}``.
 
@@ -206,6 +211,35 @@ def _inline_path_arguments(sources: dict[str, str]) -> list[str]:
     return defects
 
 
+def _inline_request_literals(sources: dict[str, str]) -> list[str]:
+    """``apiRequest`` reads whose path argument is a raw string literal.
+
+    ``useHydration`` always receives a path expression written in the page, so
+    the detector above can judge every argument. ``apiRequest`` cannot be read
+    the same way: the dominant call shape is a callback that *receives* its path
+    (``useHydration<T>(path, (p) => apiRequest<T>(p))``), and the path there is
+    a function or prop parameter, not a page-local decision. Only a literal is
+    decidable without interprocedural analysis, and only a literal is a second,
+    unreviewed endpoint contract — so that is exactly what is flagged. A
+    registry-derived expression, a parameter, and a local binding are all
+    outside this detector's domain by construction.
+    """
+    defects = []
+    for name, src in sources.items():
+        derived = _registry_derived_names(src)
+        for arg in _request_path_arguments(src):
+            expression = arg.strip()
+            if not expression[:1] in {'"', "'", "`"}:
+                continue
+            if expression.startswith("endpoints."):
+                continue
+            root = re.match(r"[A-Za-z_$][\w$]*", expression)
+            if root and root.group(0) in derived:
+                continue
+            defects.append(f"{name}: apiRequest path literal {expression!r}")
+    return defects
+
+
 def _advertised_contract_strings(sources: dict[str, str]) -> dict[str, str]:
     """The ``contract="…"`` strings a page advertises on a ``NotYetWired`` panel."""
     found = {}
@@ -259,6 +293,43 @@ def test_every_page_read_uses_the_registry_not_an_inline_path():
     endpoint contract."""
     defects = _inline_path_arguments(_tsx_sources())
     assert defects == [], f"page-local endpoint path(s): {defects}"
+
+
+def test_no_page_passes_a_literal_path_to_api_request():
+    """The same one-registry rule, widened to ``apiRequest``.
+
+    ``useHydration`` always receives its path as a page-local expression, so the
+    detector above judges every argument. ``apiRequest`` usually receives it as a
+    *parameter* (``useHydration<T>(path, (p) => apiRequest<T>(p))``), which is not
+    a page-local decision and cannot be judged without interprocedural analysis.
+    A **literal** can be judged, and a literal is exactly the second, unreviewed
+    contract this guard exists to catch.
+    """
+    defects = _inline_request_literals(_tsx_sources())
+    assert defects == [], f"literal endpoint path(s) passed to apiRequest: {defects}"
+
+
+def test_request_detector_is_not_trivially_true():
+    """Negative control: a literal passed to ``apiRequest`` must be reported,
+    and the legitimate shapes must not be.
+
+    Without this, a detector that matched nothing at all would pass the guard
+    above on any tree -- including one that inlines every path.
+    """
+    invented = 'const r = await apiRequest<unknown>("/api/invented/route");'
+    assert _inline_request_literals({"Page.tsx": invented}) != []
+
+    template = "const r = await apiRequest<unknown>(`/api/invented/${id}`);"
+    assert _inline_request_literals({"Page.tsx": template}) != []
+
+    for legitimate in (
+        "const r = await apiRequest<unknown>(endpoints.knowledgeGraph);",
+        "const r = await apiRequest<unknown>(path);",
+        "const r = await apiRequest<unknown>(p);",
+        "const r = await apiRequest<unknown>(readPath);",
+        "useHydration<T>(endpoints.echoes, (p) => apiRequest<T>(p), [flag]);",
+    ):
+        assert _inline_request_literals({"Page.tsx": legitimate}) == [], legitimate
 
 
 def test_registry_path_builders_derive_from_a_collection_and_encode():
