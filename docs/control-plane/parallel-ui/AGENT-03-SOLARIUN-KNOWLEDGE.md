@@ -1,6 +1,7 @@
 # Agent 03 — Solariun & Knowledge OS
 
 **Active branch:** `feat/prism-next2-03-knowledge-timeline`
+**Active PR:** [#431](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/431) — draft, implementation in progress.
 **Base revision:** `f390526ab14e122fef358ef9b9e1cd438509463c`
 **Task:** build a feature-local Knowledge OS timeline reader against the existing handler.
 **Owns:** Solariun/Knowledge OS pages, feature-local components, search/timeline/file/graph features, and their tests/evidence. Shared routing, global navigation, endpoint/type registries remain Workstream 1's seam.
