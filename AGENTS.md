@@ -1476,3 +1476,43 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   the `+69 passed` delta exactly); failing/error node set `521c63e1...` **identical** to
   `main` (28 nodes, `diff` empty). `tsc --noEmit` + `vite build` clean
   (`dist/assets/index-BinH0HjF.js` 76.54 kB); `api/main.py` untouched at 2499 lines.
+
+## A handler can assert redaction while returning a credential (Workstream 4, slice 08)
+
+- `lab.service.build_overview()` returns `repository.remote` as the **verbatim** output of
+  `git remote get-url origin` (`lab/observatory/git.py:21`), so it carries whatever
+  `user:token@` userinfo the environment's remote URL holds. Measured here: the remote
+  **does** carry userinfo.
+- **`security.values_redacted: true` does not cover it.** `security_observations()` only
+  classifies *file paths* that mention credential-ish **names** (`GEMINI_API_KEY`, `AIza`,
+  …) and labels those paths "value redacted". It never inspects `repository.remote`, so the
+  response asserts a blanket redaction while carrying an unredacted remote. **A redaction
+  flag is only as wide as the code that sets it** - read the flag's implementation before
+  trusting it to cover a field you are about to render.
+- **Bound the claim before escalating, and classify latent vs active.** The live canonical
+  origin returns **401** anonymously (probed, not inferred). The endpoint *is* exercised in
+  CI (`sg-02-fe-2-v.yml:245`), but that step prints status codes only and its secret-scan
+  list does not include a GitHub-token shape. And the runtime image installs **no `git`** -
+  `Dockerfile`'s apt list is build-essential/gcc/wget/ca-certificates, and running
+  `python:3.11-slim` gives `command -v git` → `NO_GIT`, so `_run` returns `(None, str(exc))`
+  and the field resolves to `None` in the canonical Render runtime. The exposure is therefore
+  **latent, not active** - masked by the absence of a binary, not by any redaction. Do not
+  overstate it as a live leak, and do not understate it as safe: it goes live the moment
+  `git` enters the runtime image.
+- **Repair scope decides whether you may do it.** Redacting `repository_state()` itself
+  changes shared substrate (`lab/service.py`, `lab/observatory/git.py`) and is sovereign-only;
+  the UI boundary is what this slice may harden. Harden the consumer, escalate the producer,
+  and say which one you did.
+- **A redaction test needs a synthetic literal and a negative control.** Prove the strip with
+  a fake token (`SYNTHETIC...NOTAREALSECRET`) - never a real one - assert the literal is
+  absent from the whole serialized ledger (not just the field you changed), and add a control
+  that fails if the raw value were rendered instead. Also state the **control premise**: if
+  the environment's remote has no userinfo the test is vacuous, so assert it does (and skip
+  with a reason if not) rather than passing for the wrong reason.
+- Other non-collapses this surface pins: `observed != authorized` (the `governance` block is
+  a declared ceiling, never a granted permission), `partial != observed` (a failed collector
+  is an unobserved section, **not a zero**), and absent governance != autonomy.
+- **Measured at `f390526a` (slices 06 + 07 + 08):** 94 new test nodes (18 + 19 + 16 + 16 + 12
+  + 13, matching the `+94 passed` delta exactly); failing/error node set `521c63e1...`
+  **identical** to `main` (28 nodes, `diff` empty). Build clean
+  (`dist/assets/index-DtxIHBST.js` 83.37 kB).

@@ -14,7 +14,8 @@
 | 02–05 | Lab read model, agent registry, artifact canvas, Arkana thread history | landed on this branch |
 | 06 | run → work-event → evidence trace | **implemented, tested, evidenced** — `docs/control-plane/evidence/prism-w4-run-evidence-trace-01/EVIDENCE.md` |
 | **07** | **model gateway read surface** | **implemented, tested, evidenced** — `docs/control-plane/evidence/prism-w4-model-gateway-01/EVIDENCE.md` |
-| next | `GET /api/lab/overview` (`endpoints.labOverview`) | declared in the registry, unwired — next bounded move |
+| **08** | **substrate overview read surface** | **implemented, tested, evidenced** — `docs/control-plane/evidence/prism-w4-lab-overview-01/EVIDENCE.md`; carries an **escalated security finding** (`repository.remote` userinfo) |
+| next | `GET /api/lab/engineering/loop` | declared in the registry, unwired — next bounded move |
 | next | automations read surface | **blocked** on Workstream 1's `labAutomations` registry entry |
 
 Slice 06 measured: 37 new test nodes; full-suite failing/error node set
@@ -30,6 +31,14 @@ which is why this slice was chosen while the automations surface stays blocked.
 
 **Choosing the next surface:** `grep -rl "endpoints.<name>" web/arkadia_console/src`
 first. A declared-but-unwired entry costs no shared-file change.
+
+**Open escalation (slice 08) — awaiting a sovereign decision:** `build_overview()`
+returns `repository.remote` as the verbatim `git remote get-url origin` output, so it
+carries any `user:token@` userinfo. `security.values_redacted` is scoped to
+`security.observations` and does not cover it. Bounded by measurement: the canonical
+origin returns 401 anonymously, and the runtime image installs no `git`, so the field
+resolves to `None` there — **latent, not active**. The UI boundary redacts; repairing
+the handler (`lab/service.py`) is a shared-substrate change and is **not** done here.
 
 ## Start now — no new prompt required
 
