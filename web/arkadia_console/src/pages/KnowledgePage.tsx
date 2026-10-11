@@ -1,29 +1,14 @@
-import { Page, Panel, Facts, ContractState, NotYetWired } from "../components/ui";
+import { Page, Panel, Facts, ContractState } from "../components/ui";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
 import { endpoints } from "../lib/endpoints";
 import type { KnowledgeStatus } from "../lib/types";
 import { KnowledgeGraphPanel } from "./knowledge/KnowledgeGraphPanel";
 import { KnowledgeSearchPanel } from "../components/knowledge/KnowledgeSearchPanel";
-
-/**
- * The shared endpoint registry (`lib/endpoints.ts`) is owned by Workstream 1.
- * The verified `POST /api/knowledge/search` path is not yet an entry there, so it
- * is read through the registry *shape* rather than a named property: referencing
- * `endpoints.knowledgeSearch` directly would not compile until Workstream 1 adds
- * it, and inventing a page-local path is the second-registry defect §3.1 forbids.
- *
- * When the registry carries the path the panel mounts; until then the surface
- * shows the blocked state below instead of requesting an unregistered endpoint.
- */
-function registeredSearchEndpoint(): string | null {
-  const value = (endpoints as Record<string, string | undefined>)["knowledgeSearch"];
-  return typeof value === "string" && value.startsWith("/") ? value : null;
-}
+import { KnowledgeTimelinePanel } from "../components/knowledge/KnowledgeTimelinePanel";
 
 export function KnowledgePage() {
   const status = useHydration<KnowledgeStatus>(endpoints.knowledgeStatus, (p) => apiRequest<KnowledgeStatus>(p));
-  const searchEndpoint = registeredSearchEndpoint();
 
   return (
     <Page title="Knowledge OS" subtitle="Continuity, memory, and the knowledge graph — the shared memory substrate.">
@@ -65,21 +50,11 @@ export function KnowledgePage() {
       </div>
 
       <div className="mt-4">
-        {searchEndpoint ? (
-          <KnowledgeSearchPanel endpoint={searchEndpoint} />
-        ) : (
-          <NotYetWired
-            contract="/api/knowledge/search"
-            note="Verified handler contract (POST, optional auth, backend-enforced ownership), but the shared endpoint registry does not yet carry it. A precise integration request was sent to Workstream 1; the panel is implemented and mounts as soon as the registry entry exists."
-          />
-        )}
+        <KnowledgeSearchPanel endpoint={endpoints.knowledgeSearch} />
       </div>
 
       <div className="mt-4">
-        <NotYetWired
-          contract="/api/knowledge/timeline"
-          note="Continuity and the memory timeline are declared contracts, not yet wired into this surface."
-        />
+        <KnowledgeTimelinePanel />
       </div>
     </Page>
   );

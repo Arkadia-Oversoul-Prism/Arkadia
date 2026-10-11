@@ -174,3 +174,118 @@ export function recordDetail(record: Record<string, unknown>): string {
   }
   return "";
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * Knowledge timeline — GET /api/knowledge/timeline
+ *
+ * Handler: `api.knowledge_routes.get_timeline` -> `knowledge.timeline.query`.
+ * Query: `event_type`, `project_id`, `note_id`, `since`, `until`,
+ * `limit` (default 100, `le=500`), `offset`; ascending by `id`.
+ *
+ * Ownership is *stricter* here than on the graph/search readers. The predicate
+ * is `knowledge.timeline._timeline_owner_clause`: an authenticated caller gets
+ * `user_id = ?` and an anonymous caller gets `1 = 0`. There is no public corpus
+ * on this reader, so an anonymous answer is always `200 []`.
+ *
+ * That makes the transport status uninformative in the one case that matters:
+ * `200 []` is what *both* "this owner has no events" and "this caller owns
+ * nothing here" look like. The distinction is therefore derived from the
+ * viewer's *identity* (a fact the client already holds), never from the
+ * payload — the client cannot tell from a body whether the server filtered.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/** One appended timeline event, as `knowledge.timeline.query` returns it. */
+export interface TimelineEvent {
+  id: number;
+  event_type: string;
+  /** JSON payload, decoded by the reader before it is serialised to HTTP. */
+  payload: unknown;
+  note_id: number | null;
+  project_id: number | null;
+  provider: string | null;
+  persona: string | null;
+  user_id: string | null;
+  created_at: string;
+}
+
+/**
+ * Structural guard for the declared payload.
+ *
+ * `query` returns a bare list. An unrecognised body (an error object, a single
+ * event, a wrapper) must be an error the client does not recognise — never a
+ * timeline that renders as empty, because "empty" is a real and meaningful
+ * answer on this reader.
+ */
+export function isTimelineEvents(value: unknown): value is TimelineEvent[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        typeof entry === "object" &&
+        entry !== null &&
+        typeof (entry as { id?: unknown }).id === "number" &&
+        typeof (entry as { event_type?: unknown }).event_type === "string",
+    )
+  );
+}
+
+/**
+ * The reader is owner-scoped, so the scope of an answer is a function of the
+ * viewer, not of the payload:
+ *  - `owner`     an authenticated viewer; a `[]` here means *their own* log is
+ *                empty, which is a genuine empty read;
+ *  - `unscoped`  an anonymous viewer; the predicate is `1 = 0`, so a `[]` is a
+ *                refusal to answer, not an empty log, and must not be shown as
+ *                one.
+ */
+export type TimelineScope = "owner" | "unscoped";
+
+export function classifyTimelineScope(viewer: ViewerKind): TimelineScope {
+  return viewer === "authenticated" ? "owner" : "unscoped";
+}
+
+/**
+ * Copy for a successful-but-empty read. The two scopes carry opposite meanings
+ * and must never share wording: reporting a filtered `[]` as "no events yet"
+ * is the exact failure this panel exists to avoid.
+ */
+export function emptyTimelineNotice(scope: TimelineScope): string {
+  return scope === "owner"
+    ? "This node's timeline holds no events yet. The reader answered — this is an empty log, not a failed read."
+    : "The timeline is owner-scoped and no identity is present, so nothing was readable. This is not an empty log.";
+}
+
+/** A short, non-invented label for an event: the fields its payload carries. */
+export function timelineEventSummary(event: TimelineEvent): string {
+  const payload = event.payload;
+  if (payload !== null && typeof payload === "object") {
+    const keys = Object.keys(payload as Record<string, unknown>);
+    return keys.length > 0 ? keys.slice(0, 4).join(", ") : "—";
+  }
+  if (typeof payload === "string" && payload.trim()) return payload;
+  return "—";
+}
+
+/**
+ * The event types `knowledge.timeline.EVENT_TYPES` accepts. Offered as filter
+ * choices so the control cannot request a type the reader does not know.
+ */
+export const TIMELINE_EVENT_TYPES = [
+  "conversation",
+  "prompt",
+  "response",
+  "knowledge_created",
+  "knowledge_modified",
+  "review",
+  "decision",
+  "sync",
+  "error",
+  "pipeline_run",
+  "embed_complete",
+  "graph_link",
+  "search_query",
+  "provider_call",
+  "source_registered",
+  "capture_recorded",
+  "capture_bound",
+] as const;

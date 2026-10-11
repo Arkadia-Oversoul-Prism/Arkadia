@@ -355,14 +355,17 @@ def test_contracts_guard_rejects_a_non_array_mode_value():
 def test_page_mounts_search_only_from_the_registry_entry():
     """The verified path must be reached through the shared registry.
 
-    Workstream 1 owns ``lib/endpoints.ts``. Until it carries ``knowledgeSearch``
-    the page must render the blocked state rather than requesting an
-    unregistered endpoint or inventing a page-local path.
+    Workstream 1 owns ``lib/endpoints.ts``. The registry now carries
+    ``knowledgeSearch`` (integrated in ``67696372``), so the page mounts the panel
+    directly from the named registry entry. A page-local literal path is still the
+    second-registry defect §3.1 forbids and must not appear as a request target.
+
+    This pin was originally written for the *blocked* state, when the registry did
+    not yet carry the entry; that intermediate state is superseded, not violated.
     """
     page = PAGE.read_text(encoding="utf-8")
     assert "KnowledgeSearchPanel" in page
-    assert "knowledgeSearch" in page
-    assert "registeredSearchEndpoint" in page
+    assert "endpoints.knowledgeSearch" in page
     # The literal path may appear as advertised display copy, never as a request target.
     assert 'apiRequest<unknown>("/api/knowledge/search"' not in page
     assert 'apiRequest("/api/knowledge/search"' not in page
