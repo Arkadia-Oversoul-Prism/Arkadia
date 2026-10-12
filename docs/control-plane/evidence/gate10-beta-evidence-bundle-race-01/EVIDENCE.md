@@ -190,6 +190,30 @@ downloaded at 10:40:27 — before the golden artifact existed. A green here is t
 control). Do not upgrade this CI run into a race-open verification.
 
 
+### 5.2 The live script, executed against the race-open shape
+
+The script in §5.1 was read **out of the live workflow file** (not retyped) and executed against
+a directory reconstructed from the red run's own log line. This is the decisive race proof, and
+it does not depend on the timing of any CI run:
+
+```
+race-open (the red run's shape)    -> exit=0
+      evidence files: ['evidence/beta-01-english.json', 'evidence/beta-02-hausa.json', 'evidence/native-golden.json']
+      statuses: {'beta-01-english.json': 'PASS', 'beta-02-hausa.json': 'PASS', 'native-golden.json': 'FAILED'}
+golden passing                     -> exit=0
+beta missing                       -> exit=1
+beta not passing                   -> exit=1
+empty                              -> exit=1
+```
+
+The pre-repair form (`len(files) != 2`) on the identical directory exits **1** — that is red run
+`38233402572`. Same input, opposite verdict; the repair is what changed.
+
+Both CI runs on this branch (`38237761572`, `38239138455`) were race-**not**-open, so neither is
+a race-open observation. They are recorded as *the repaired step executing correctly on the
+happy path*, which is all they can support.
+
+
 ## 6. Composition
 
 No open PR touches `.github/workflows/n-atlas-external-beta.yml` or
