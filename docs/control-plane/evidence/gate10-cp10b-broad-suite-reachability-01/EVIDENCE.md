@@ -126,3 +126,18 @@ scripts/cp10_mutation_boundary_policy.py --judge` → PASS (exit 0).
   rather than by editing the judging-step invariant, so the two properties stay
   independently falsifiable.
 - No production-parity claim. Repository-source change only.
+
+## 7. PR CI attribution — `provider-routing: failure` is pre-existing on `main`
+
+The PR's `provider-routing` check is red. Attributed by measurement, not assumption:
+
+| Tree | event | nodes | sha256 | summary |
+|---|---|---|---|---|
+| branch `9a3ee6ff` | pull_request | 22 | `99b93375065754491d1185e45978f65c86651d936d0d8b32b4e0f008cc6cf9bf` | 21 failed, 2909 passed, 1 error |
+| `main` `26521e24` | workflow_dispatch (run `38249795854`) | 22 | `99b93375065754491d1185e45978f65c86651d936d0d8b32b4e0f008cc6cf9bf` | 21 failed, 2866 passed, 1 error |
+
+`comm -3` on the two sorted node sets is **empty**: the failing/error node set is
+identical on both trees. `provider-routing` fails on `main` itself, so the red check
+is **pre-existing debt**, not attributable to this branch. `+43 passed` differs by
+exactly the new guard nodes (`--collect-only` 48 → 91). The branch's own guard file
+is green in that run (all 91 collected, none in the failing set).
