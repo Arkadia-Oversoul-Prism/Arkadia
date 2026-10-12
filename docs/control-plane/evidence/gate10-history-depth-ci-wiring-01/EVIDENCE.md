@@ -221,6 +221,53 @@ the same trees:
 §9's regression claim uses the first; the CI comparison above uses the second. Both are
 correct. A digest quoted without its convention is not a measurement.
 
-## 11. Authority
+## 12. Attribution of the two `n-atlas-external-beta` failures on this head
+
+Head `a3c630a2` carried two red checks that `8f1dd97a` (12 minutes earlier, same branch,
+same workflow) did not: `beta-beta-02-hausa` and `bundle-beta-evidence`. Both are
+**pre-existing and not caused by this change**. The branch does not touch the beta
+workflow — `git diff --name-only 6109c72a a3c630a2` lists only `provider-routing.yml`,
+`AGENTS.md`, this file and `tests/test_history_depth_ci_wiring.py`.
+
+**`beta-beta-02-hausa` — transient external runtime.** The evidence payload names
+`runtime https://koladeodunope-ednai-natlas-runtime.hf.space`, `provider ednai_zerogpu`,
+and fails with `RUN_FAILED reason="external runtime did not return usable inference"`
+with `errors: []` — an empty error list, i.e. no transport error to attribute. A re-run
+of the failed jobs on the *same commit* returned `beta-beta-02-hausa success` and
+`beta-beta-01-english success`. The sibling commit `8f1dd97a` also passed it. A failure
+that does not reproduce on the same SHA is environmental, not branch-caused. Recorded as
+`ENVIRONMENTAL` / pre-existing.
+
+**`bundle-beta-evidence` — a latent race in the workflow, pre-existing on `main`.**
+The job runs `needs: beta` with `if: always()` and downloads every artifact matching
+`pattern: "*-evidence"`. That pattern selects **three** artifacts
+(`beta-01-english-evidence`, `beta-02-hausa-evidence`, `natlas-native-golden-evidence`),
+while the guard asserts `if len(files) != 2 or any(s != "PASS" ...): sys.exit(1)`.
+Because the bundle job is gated on `needs: beta` and the golden job is gated on
+`needs.beta.result == 'success'`, both become runnable at the same moment, and whether
+the third artifact is uploaded before the bundle step lists `evidence/*.json` is a race.
+Measured:
+
+| run | head | bundle start→end | golden start→end | bundle |
+|---|---|---|---|---|
+| `38088702840` | `4f09b558` | 21:43:43→21:43:49 | 21:43:43→21:44:24 | success |
+| `38232115080` | `8f1dd97a` | 09:47:26→09:47:30 | 09:47:26→09:48:12 | success |
+| `38233402572` | `a3c630a2` | 10:06:20→10:06:27 | 10:03:48→10:04:30 | failure |
+
+The two passing runs finished the bundle job in 6 s and 4 s, *before* the golden job
+completed — they listed two files. The failing run started the bundle job after the
+golden job had already uploaded, listed **three** files
+(`['native-golden.json','beta-01-english.json','beta-02-hausa.json']`) and failed on
+`len(files) != 2`. The second bundle re-run printed
+`statuses: ['PASS','PASS','FAILED']` — its third file was the golden evidence, read
+before its `status` field was final, which is the same race from the other side.
+
+So the guard's real invariant is "the two beta evidence files are present and PASS"; the
+`!= 2` count encodes an assumption about timing that the `*-evidence` glob does not
+guarantee. This defect is **not repaired here** — it is pre-existing on `main`, it is
+outside this gate's scope, and it is proposed as a separate bounded workstream. Discovery
+does not authorize execution.
+
+## 13. Authority
 
 No merge, no deployment, no acceptance. Human authority final.

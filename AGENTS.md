@@ -1559,3 +1559,31 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   merge solicited, and the PR body must name the unread precondition as unread rather than
   assert it does not apply. Evidence:
   `docs/control-plane/evidence/gate10-history-depth-ci-wiring-01/EVIDENCE.md`.
+
+## An artifact-glob guard that counts files encodes a RACE, not a shape (gate-hygiene)
+- `.github/workflows/n-atlas-external-beta.yml`'s `bundle-beta-evidence` job downloads
+  `pattern: "*-evidence"` (three artifacts: `beta-01-english-evidence`,
+  `beta-02-hausa-evidence`, `natlas-native-golden-evidence`) and then asserts
+  `if len(files) != 2 or any(s != "PASS" ...): sys.exit(1)`. The count encodes an
+  assumption the glob does not guarantee. The bundle job is gated on `needs: beta` with
+  `if: always()`; the golden job is gated on `needs.beta.result == 'success'`, so **both
+  become runnable at the same instant** and the third artifact's presence is a race.
+- Measured at `main` `6109c72a` (branch head `a3c630a2`): the bundle job took **6 s** and
+  **4 s** in its two passing runs, finishing *before* the golden job (41 s / 46 s), and
+  listed two files. The failing run started the bundle job *after* the golden job had
+  uploaded, listed three, and died on `len(files) != 2`. A second bundle re-run printed
+  `statuses: ['PASS','PASS','FAILED']` - the same race from the other side (the golden
+  `status` read before it was final). Three observations, one mechanism.
+- **A `*-evidence` glob is not a selector for "the two beta files".** Either name the two
+  artifacts explicitly, or assert the invariant you actually mean (both beta evidence
+  files present and `PASS`) rather than a total count that a sibling job can inflate.
+- **Do not attribute an external-runtime failure to a branch.** `beta-beta-02-hausa` failed
+  with `RUN_FAILED reason="external runtime did not return usable inference"` and
+  `errors: []` (no transport error to attribute), against the HF Space
+  `koladeodunope-ednai-natlas-runtime.hf.space`. It passed on the same commit after a
+  re-run and on the sibling commit `8f1dd97a` twelve minutes earlier. A failure that does
+  not reproduce on the **same SHA** is `ENVIRONMENTAL`, not branch-caused.
+- **The two `n-atlas-external-beta` reds on a docs-only commit were both pre-existing.**
+  `git diff --name-only 6109c72a a3c630a2` touches no beta workflow file, so neither could
+  have been caused by it. Re-run the failed jobs on the same SHA before writing
+  `CONTRADICTED`; the race is reproducible by timing, the runtime failure is not.
