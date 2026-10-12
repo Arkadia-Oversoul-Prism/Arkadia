@@ -301,6 +301,58 @@ export function timelineWindowNotice(window: TimelineWindow): string {
     : `Showing all ${window.returned} events in this timeline.`;
 }
 
+/* ───────────────────────────────────────────────────────────────────────────
+ * Knowledge timeline — paging backwards into older history
+ *
+ * `offset` pages *backwards from the newest event* (see the window contract
+ * above): the default read is the newest `limit`, and `offset = shown` returns
+ * the next page strictly older than everything already displayed. The reader
+ * therefore accumulates pages toward the *past*, not the future — it has no
+ * forward pager, because the newest window is already the present.
+ *
+ * Paging is a *bounded* control, not an "everything" control: each request asks
+ * for at most `limit` more rows, and the reader stops when a page comes back
+ * short of the limit, which is the backend's own signal that older history has
+ * been exhausted.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/** Whether the reader can still page further back, or has reached the start. */
+export type OlderPage = "more" | "start";
+
+/**
+ * Decide the next paging state from the *last page fetched*. A page shorter than
+ * the requested limit is the backend's signal that no older rows remain; a full
+ * page means older history is still beyond it. The decision is made from the
+ * response, never from an assumed log length.
+ */
+export function classifyOlderPage(returned: number, limit: number = TIMELINE_WINDOW_LIMIT): OlderPage {
+  return returned >= limit ? "more" : "start";
+}
+
+/**
+ * Merge an older page *beneath* the events already shown, dropping rows whose id
+ * is already present. The drop is a de-duplication, not an ownership filter —
+ * a repeated row would otherwise render twice if a caller re-requested an offset
+ * it already held. The reader applies no ownership filter of its own.
+ */
+export function mergeOlderEvents(existing: TimelineEvent[], page: TimelineEvent[]): TimelineEvent[] {
+  const seen = new Set(existing.map((event) => event.id));
+  return [...page.filter((event) => !seen.has(event.id)), ...existing];
+}
+
+/** The offset the next older request must carry: how many rows are shown so far. */
+export function olderOffset(shown: number): number {
+  return shown;
+}
+
+/** Copy for the paging control. The two states must never share wording: one
+ *  offers more history, the other states the history has been fully read. */
+export function olderEventsNotice(page: OlderPage): string {
+  return page === "more"
+    ? "Older events exist beyond this window. Load them below — this never rewrites the events already shown."
+    : "The start of the timeline has been reached; there are no older events to load.";
+}
+
 /** A short, non-invented label for an event: the fields its payload carries. */
 export function timelineEventSummary(event: TimelineEvent): string {
   const payload = event.payload;
