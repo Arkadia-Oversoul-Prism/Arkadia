@@ -219,6 +219,28 @@ which requires a single-dash token. Pinned by
 repair. Not `VERIFIED` in the runtime sense: a pure-source guard with no runtime observation to
 make. `AGENTS.md` is deliberately untouched (PR #482 edits it; workstream state persists here).
 
+### 11.6 The base moved mid-pass — re-measured, not reconciled by argument
+
+`main` advanced `6109c72` → `26521e24` (`fix(lab): report remote-redaction status truthfully`)
+while this pass ran. The earlier §11.4 numbers were therefore measured against a superseded base,
+so both sides were **re-measured** on the new base rather than carried forward:
+
+- The moved commits touch `AGENTS.md`, `lab/observatory/git.py`, `lab/service.py`,
+  `tests/test_repository_remote_redaction.py` and one evidence doc. **None** of them touch this
+  guard, its gate (`ci-verdict-step-integrity.yml`) or this evidence directory.
+- Composed tree (new `main` + this branch): merge is clean, `git diff --stat` shows **only** the
+  three files this pass changes.
+- Full suite, same environment, same command (`-q -rEf --continue-on-collection-errors`):
+  `main` `26521e24` → 61F / 1926P / 21S / 94E; composed → 61F / 1943P / 21S / 94E.
+- Failing/error node **set** sha256 is unchanged at
+  `d0541c6c1303f03b242b69d206beeb68b3a9becb5f25477d14fb16ba19823f26` (**155** nodes) on both
+  sides, `comm -3` empty. The `+17 passed` is again exactly the collect delta (13 → 30).
+- Composed tree: guard + architecture **41 passed**; `py_compile api/main.py` OK, 2505 lines;
+  CP10 judge on the composed diff PASS, exit 0.
+
+The `+17 passed` count is **identical** across the two bases, which is the expected shape: the
+guard's own nodes are the only addition, and the pre-existing debt is unaffected by the move.
+
 ## 12. Authority boundary
 
 No merge, no production deployment, no acceptance. Human merge authority is final.

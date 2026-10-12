@@ -8,26 +8,29 @@ Persisted so the next heartbeat reconstructs from evidence, not memory.
 |---|---|
 | Workstream | `gate10/cp10-broad-suite-execution-coverage` (decoration class) |
 | Branch | `gate10/exempt-enforcement-verdict-01` |
-| Base main | `6109c72ab9eedc2593d2cc6c50ebd01596c80072` |
-| Head | `16eeeb4da47a47992b15ec570a9dccd6c2b9fb0b` (pass 1) + this pass |
-| PR | #483 (open, MERGEABLE, CLEAN) |
+| Base main | `6109c72ab9eedc2593d2cc6c50ebd01596c80072`; **`main` moved to `26521e24` mid-pass** and both sides were re-measured there |
+| Head | `1af68c2880364f7ac3815b199adf665de784d455` |
+| PR | #483 (open, MERGEABLE, CLEAN, 10/10 checks success at head `1af68c28`) |
 | Result | **IMPLEMENTED** — Detectors 3 and 4 + controls green; corpus clean, so no repair |
-| Baseline debt | full suite 155 failing/error nodes at `6109c72` — pre-existing, unchanged |
+| Baseline debt | full suite 155 failing/error nodes at `6109c72` **and** at `26521e24` — pre-existing, unchanged |
 
 ## Evidence
 
 - Guard: **30 passed** (21 after pass 1, 13 on `main`). Focused guards + architecture:
   **265 passed**, architecture **11 passed**.
 - Regression by node identity: failing/error set sha256
-  `d0541c6c1303f03b242b69d206beeb68b3a9becb5f25477d14fb16ba19823f26` (155 nodes) on **both**
-  `main` `6109c72` and the branch, `comm -3` empty. `+17 passed` == the guard's collect delta
+  `d0541c6c1303f03b242b69d206beeb68b3a9becb5f25477d14fb16ba19823f26` (155 nodes) on `main`
+  `6109c72`, on the branch, and **re-measured unchanged** on `main` `26521e24` and on the
+  composed tree (`comm -3` empty in every pairing). `+17 passed` == the guard's collect delta
   (13 → 30), measured with `--collect-only`.
+- CI at head `1af68c28`: **10/10 checks success**, including the dedicated gate
+  `verdict-step-integrity` (run `38240697907`, `event=pull_request`, `head_sha` == head).
 - Live negative controls on the real `sg-02-fe-2-v.yml`, in memory only, restored byte-identically
   (sha256 `f1423a5087cc14dc00e7e63182daaa1a0a40b30b1ec9d15811dd1d88d06cbcd0`):
   `continue-on-error: true` → 2F (pass 1); `shell: bash {0}` → 2F; `shell: bash --noprofile {0}`
   → 2F (the precision control).
 - `python -m py_compile api/main.py` OK; `api/main.py` = 2505 lines (budget 2600). CP10 judge
-  on the changed paths: PASS, exit 0.
+  on the changed paths and on the composed diff: PASS, exit 0.
 
 ## Blockers
 
