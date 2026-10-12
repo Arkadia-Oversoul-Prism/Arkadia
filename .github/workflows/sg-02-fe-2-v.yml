@@ -26,6 +26,17 @@ on:
       # is self-exempt.
       - 'scripts/cp10_mutation_boundary_policy.py'
       - 'tests/test_m02a_ci_gate_integrity.py'
+      # The SolSpire isolated-runtime step executes these named guards; the
+      # path filters must select them too (tests/test_gate_filter_selection.py).
+      - 'tests/test_solspire_project_execution_service.py'
+      - 'tests/test_engineering_lab_candidate_proposals.py'
+      - 'tests/test_solspire_integration_health.py'
+      - 'tests/test_solspire_larder_graph_binding.py'
+      - 'tests/test_solspire_template_health_contract.py'
+      - 'tests/test_phase7_calibration.py'
+      - 'tests/test_phase8_possibility.py'
+      - 'tests/test_phase9_decision_queue.py'
+      - 'tests/test_phase10_binding.py'
       - 'requirements.txt'
       - '.github/workflows/sg-02-fe-2-v.yml'
   pull_request:
@@ -57,6 +68,17 @@ on:
       # is self-exempt.
       - 'scripts/cp10_mutation_boundary_policy.py'
       - 'tests/test_m02a_ci_gate_integrity.py'
+      # The SolSpire isolated-runtime step executes these named guards; the
+      # path filters must select them too (tests/test_gate_filter_selection.py).
+      - 'tests/test_solspire_project_execution_service.py'
+      - 'tests/test_engineering_lab_candidate_proposals.py'
+      - 'tests/test_solspire_integration_health.py'
+      - 'tests/test_solspire_larder_graph_binding.py'
+      - 'tests/test_solspire_template_health_contract.py'
+      - 'tests/test_phase7_calibration.py'
+      - 'tests/test_phase8_possibility.py'
+      - 'tests/test_phase9_decision_queue.py'
+      - 'tests/test_phase10_binding.py'
       - 'requirements.txt'
       - '.github/workflows/sg-02-fe-2-v.yml'
   workflow_dispatch:
@@ -187,9 +209,12 @@ jobs:
           python -m pytest tests/test_phase10_binding.py -q
           echo "Phase 10 Governed Binding deterministic gate PASS"
       - name: Grove contracts
+        id: grove
         working-directory: .
         continue-on-error: true
-        run: python -m pytest tests/test_spiral_grove_frontend_projection.py tests/test_spiral_grove_chambers.py tests/test_spiral_grove_learning_path.py tests/test_spiral_grove_learning_path_projection.py -q 2>&1 | tee cp10-grove.log
+        run: |
+          set -o pipefail
+          python -m pytest tests/test_spiral_grove_frontend_projection.py tests/test_spiral_grove_chambers.py tests/test_spiral_grove_learning_path.py tests/test_spiral_grove_learning_path_projection.py -q 2>&1 | tee cp10-grove.log
       - name: CP10-A Lab tests
         id: lab
         working-directory: .
@@ -559,6 +584,7 @@ jobs:
           test '${{ steps.phase8_possibility.outcome }}' = success
           test '${{ steps.phase9_decision.outcome }}' = success
           test '${{ steps.phase10_binding.outcome }}' = success
+          test '${{ steps.grove.outcome }}' = success
           test '${{ steps.lab.outcome }}' = success
           test '${{ steps.backend.outcome }}' = success
           test '${{ steps.backend_ready.outcome }}' = success

@@ -15,12 +15,18 @@ name: CI Gate Trigger Coverage
 # every workflow file at any depth. `tests/test_ci_gate_trigger_coverage_ci_wiring.py`
 # proves the filter is complete against the live tracked corpus and proves the step can
 # fail the job.
+#
+# `tests/test_gate_filter_selection.py` is the sibling invariant in the other direction:
+# a workflow that *executes* a named test file must *select* it. It is executed here
+# because this gate's domain is exactly the workflow corpus that guard reads, so a
+# rewrite of either is judged by the gate it rewrites.
 on:
   pull_request:
     paths:
       - ".github/workflows/ci-gate-trigger-coverage.yml"
       - "tests/test_ci_gate_trigger_coverage.py"
       - "tests/test_ci_gate_trigger_coverage_ci_wiring.py"
+      - "tests/test_gate_filter_selection.py"
       - ".github/workflows/**"
   push:
     branches: [main]
@@ -28,6 +34,7 @@ on:
       - ".github/workflows/ci-gate-trigger-coverage.yml"
       - "tests/test_ci_gate_trigger_coverage.py"
       - "tests/test_ci_gate_trigger_coverage_ci_wiring.py"
+      - "tests/test_gate_filter_selection.py"
       - ".github/workflows/**"
   workflow_dispatch:
 
@@ -46,7 +53,7 @@ jobs:
       - run: pip install pytest pyyaml
       - name: CI gate trigger-coverage guards
         run: |
-          # The guard reads workflow YAML and the tracked file list only, so it
-          # needs no application dependency and cannot misreport a dependency gap
+          # The guards read workflow YAML and the tracked file list only, so they
+          # need no application dependency and cannot misreport a dependency gap
           # as a filter defect.
-          python -m pytest tests/test_ci_gate_trigger_coverage.py tests/test_ci_gate_trigger_coverage_ci_wiring.py -q
+          python -m pytest tests/test_ci_gate_trigger_coverage.py tests/test_ci_gate_trigger_coverage_ci_wiring.py tests/test_gate_filter_selection.py -q
