@@ -10,6 +10,7 @@ on:
       - "tests/test_weaver_k2.py"
       - "tests/test_key_pool.py"
       - "tests/test_ci_suite_collection_continuation.py"
+      - "tests/test_history_depth_ci_wiring.py"
       - "docs/verification/PROVIDER-ROUTING-AUDIT-BASELINE.md"
   workflow_dispatch:
 
@@ -18,6 +19,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history, not the default depth-1. This job runs the whole suite
+          # (`pytest tests/`), and `tests/test_agents_md_encoding_adjudication.py`
+          # resolves pinned revisions (`ORACLE_REV` 6c43218a48a4 and the corruption
+          # commit) out of git history. On a shallow clone those objects are absent,
+          # so `scripts/agents_md_encoding_audit.py::exit_code` returns 2 ("undecided")
+          # instead of the 1 a clean file earns, and four nodes fail on a file that is
+          # provably clean. Measured at main 6109c72a: a --depth 1 clone gives
+          # `4 failed, 13 passed, 6 skipped` where full history gives
+          # `18 passed, 5 skipped`. In this job's log those failures are
+          # indistinguishable from the repository's genuine debt.
+          # Guard: tests/test_history_depth_ci_wiring.py
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
