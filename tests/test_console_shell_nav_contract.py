@@ -300,6 +300,16 @@ def _js_route_resolver(router_text: str) -> dict:
         "/solariun/knowledge",
         "/oracle",
         "/commune",
+        # Legacy hub sub-paths: an alias reconciles the *namespace*, not only its
+        # root (see `test_alias_sub_paths_resolve_into_the_target_surface`).
+        "/nexus/ims",
+        "/nexus/grove",
+        "/nexus/larder",
+        "/nexus/distribution",
+        # A deeper sub-path and a declared surface's own section, to prove the
+        # alias branch swallows neither.
+        "/nexus/a/b",
+        "/novanet/ims",
     ]
     script = (
         surfaces
@@ -491,6 +501,54 @@ def test_detector_flags_an_oracle_alias_that_falls_through_to_home():
         "the control must reproduce the pre-repair fall-through to home"
     )
     assert _js_route_resolver(stripped)["/commune"] == "/"
+
+
+# ---------------------------------------------------------------------------
+# Legacy alias namespace: a sub-path resolves into the aliased surface
+# ---------------------------------------------------------------------------
+
+
+def test_alias_sub_paths_resolve_into_the_target_surface():
+    """A legacy hub sub-path must land on the aliased surface, carrying the
+    sub-path as its section -- not fall through to `home`.
+
+    The archived hub declared `/nexus/ims`, `/nexus/grove`, `/nexus/larder` and
+    `/nexus/distribution` (`…/public_prism/src/App.tsx:71-72`). While the alias
+    table matched the exact string `/nexus` only, every one of them resolved to
+    `home` and the shared link was silently discarded. The section is carried, not
+    flattened: the target surface renders its own honest state for a lens it does
+    not implement (NovaNet renders `NotYetWired`), which is what "restore the
+    link" means -- it makes no claim the legacy sub-view's backend is serviceable.
+    """
+    resolved = _js_route_resolver(ROUTER)
+    for legacy in ("/nexus/ims", "/nexus/grove", "/nexus/larder", "/nexus/distribution"):
+        assert resolved[legacy] == f"/novanet{legacy.removeprefix('/nexus')}", (
+            f"{legacy} must resolve into the novanet surface, got {resolved[legacy]!r}"
+        )
+    # A deeper sub-path is still the aliased surface's section, not a discard.
+    assert resolved["/nexus/a/b"] == "/novanet/a/b", resolved
+    # The alias branch must not swallow a declared surface's own section.
+    assert resolved["/novanet/ims"] == "/novanet/ims", resolved
+    # And the exact alias roots are unchanged.
+    assert resolved["/nexus"] == "/novanet", resolved
+    assert resolved["/oracle"] == "/arkana", resolved
+
+
+def test_detector_flags_a_router_that_matches_only_the_alias_root():
+    """Negative control: the pre-repair shape -- the alias table consulted with
+    the full path instead of its first segment -- must reproduce the measured
+    fall-through to `home`, so the guard above is not trivially true."""
+    stale = ROUTER.replace(
+        'const alias = PATH_ALIASES[`/${segments[0] ?? ""}`];',
+        "const alias = PATH_ALIASES[path];",
+    )
+    assert stale != ROUTER, "control did not mutate router.ts -- detector unproven"
+    resolved = _js_route_resolver(stale)
+    assert resolved["/nexus/ims"] == "/", (
+        "the control must reproduce the measured pre-repair fall-through to home"
+    )
+    assert resolved["/nexus/grove"] == "/", resolved
+    assert resolved["/nexus"] == "/novanet", resolved
 
 
 def test_detector_flags_an_alias_to_an_undeclared_surface():
