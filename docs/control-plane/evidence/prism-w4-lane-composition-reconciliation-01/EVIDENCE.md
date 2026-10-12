@@ -67,3 +67,21 @@ cd web/arkadia_console && corepack pnpm install --frozen-lockfile && corepack pn
 Repository source only. No merge, no deployment, no acceptance, no production-parity claim.
 PRs #493 and #501 stay draft; the human sovereign selects merge order. Once either merges,
 the other must be rebased onto the new `main` rather than merged unreconciled.
+
+## 6. Cross-lane recon (same pass)
+
+Open PRs at base `49809f45`, `web/arkadia_console/src` files per PR (measured via the API):
+
+| PR | lane | src files |
+|----|------|-----------|
+| #497 | 1 (shell) | `lib/router.ts` |
+| #492 | 2 (opportunity) | `components/opportunities/*` |
+| #498 | 3 (knowledge) | `components/knowledge/KnowledgeTimelinePanel.tsx`, `pages/knowledge/knowledgeContracts.ts` |
+| #493 | 4 (lab/arkana) | `pages/EngineeringLabPage.tsx` (this branch, now the composed union) |
+| #501 | 4 (lab/arkana) | `pages/EngineeringLabPage.tsx` |
+
+No cross-lane src overlap: each lane's edits are disjoint from the others' at the file level.
+The one measured collision was intra-lane (#493 vs #501 on `EngineeringLabPage.tsx`), which
+this branch resolves by carrying the union. #497 edits lane-1's `router.ts`; no lane-4 file
+depends on an unmerged lane-1 change here, so no shared-file interface request is outstanding
+for this slice.
