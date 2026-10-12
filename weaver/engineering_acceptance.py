@@ -136,10 +136,18 @@ def evaluate_merge_readiness(
         reasons.append("independent approval for the exact candidate SHA is missing")
 
     if reasons:
+        blocking_prefixes = (
+            "candidate and base must be",
+            "observed PR head differs",
+            "evidence policy version does not match",
+            "required evidence bundle is incomplete",
+            "required gate missing:",
+            "gate evidence is stale",
+            "required gate lacks an evidence artifact:",
+            "repository branch-protection requirements are not satisfied",
+        )
         decision = Decision.BLOCKED if any(
-            "missing" in reason or "differs" in reason or "stale" in reason
-            or "incomplete" in reason or "not satisfied" in reason
-            for reason in reasons
+            reason.startswith(blocking_prefixes) for reason in reasons
         ) else Decision.NOT_READY
     elif pr.risk_class in policy.auto_merge_risk_classes and pr.policy_authorizes_auto_merge:
         decision = Decision.READY_TO_MERGE
