@@ -19,7 +19,7 @@ def ready_pr(**changes):
         for name in POLICY.required_gates
     }
     values = dict(
-        pr_number=17, head_sha=SHA, base_sha=BASE, observed_head_sha=SHA,
+        pr_number=17, head_sha=SHA, base_sha=BASE, observed_head_sha=SHA, observed_base_sha=BASE,
         checks=checks,
         reviews=(ReviewEvidence(True, "independent-reviewer", SHA),),
         draft=False, mergeable=True, branch_protection_satisfied=True,
@@ -119,3 +119,14 @@ def test_protected_change_can_be_ready_after_explicit_human_approval():
         explicit_human_approval=True,
     )
     assert evaluate_merge_readiness(pr, POLICY).decision is Decision.READY_TO_MERGE
+
+
+def test_base_movement_invalidates_acceptance_snapshot():
+    result = evaluate_merge_readiness(ready_pr(observed_base_sha=SHA), POLICY)
+    assert result.decision is Decision.BLOCKED
+    assert any("base differs" in reason for reason in result.reasons)
+
+
+def test_unknown_risk_class_fails_closed():
+    result = evaluate_merge_readiness(ready_pr(risk_class=RiskClass.UNKNOWN), POLICY)
+    assert result.decision is Decision.BLOCKED
