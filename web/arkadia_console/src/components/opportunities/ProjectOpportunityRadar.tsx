@@ -4,7 +4,11 @@ import { Panel } from "../ui";
 import { ProspectEntryForm } from "./ProspectEntryForm";
 import {
   UNVERIFIED,
+  advanceBody,
+  canAdvance,
+  entryPathFromBoard,
   fact,
+  parseEntryResponse,
   statusColumns,
   summarize,
   upsertEntry,
@@ -48,6 +52,7 @@ export function ProjectOpportunityRadar({ readPath }: { readPath: string }) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [entries, setEntries] = useState<OpportunityEntry[]>([]);
   const [form, setForm] = useState<{ mode: "create" } | { mode: "edit"; entry: OpportunityEntry } | null>(null);
+  const [advance, setAdvance] = useState<{ entryId: string; state: "saving" } | { entryId: string; state: "error"; message: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,6 +87,38 @@ export function ProjectOpportunityRadar({ readPath }: { readPath: string }) {
     setForm(null);
     setEntries([]);
   }, [readPath]);
+
+  /**
+   * Step one recorded prospect to the next pipeline status through the verified
+   * PATCH handler — the same write the edit form performs, narrowed to one value.
+   *
+   * The target comes from `advanceBody`, which refuses to step past the
+   * reconnaissance ceiling, so this control can never assert a transaction
+   * outcome. The row is replaced with the entry the server returned; a body
+   * without the declared `entry` key is treated as an unconfirmed write.
+   */
+  async function onAdvance(entry: OpportunityEntry) {
+    const body = advanceBody(entry.status);
+    if (Object.keys(body).length === 0) return;
+    setAdvance({ entryId: entry.id, state: "saving" });
+    try {
+      const payload = await apiRequest<unknown>(entryPathFromBoard(readPath, entry.id), {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      });
+      const saved = parseEntryResponse(payload);
+      if (!saved) {
+        setAdvance({ entryId: entry.id, state: "error", message: "The board did not confirm the advance." });
+        return;
+      }
+      setEntries((current) => upsertEntry(current, saved));
+      setAdvance(null);
+    } catch (caught: unknown) {
+      const error = caught instanceof ApiError ? caught : null;
+      const message = error?.message ?? (caught instanceof Error ? caught.message : "Request failed.");
+      setAdvance({ entryId: entry.id, state: "error", message });
+    }
+  }
 
   const summary = summarize(entries);
 
@@ -175,7 +212,7 @@ export function ProjectOpportunityRadar({ readPath }: { readPath: string }) {
                       </div>
                     </dl>
                     {entry.why_this_prospect && <p className="mt-2 text-xs text-white/60">{entry.why_this_prospect}</p>}
-                    <div className="mt-3">
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         data-testid={`opportunity-entry-edit-${entry.id}`}
@@ -184,7 +221,21 @@ export function ProjectOpportunityRadar({ readPath }: { readPath: string }) {
                       >
                         Edit
                       </button>
+                      {canAdvance(entry.status) && (
+                        <button
+                          type="button"
+                          data-testid={`opportunity-entry-advance-${entry.id}`}
+                          onClick={() => onAdvance(entry)}
+                          disabled={advance?.entryId === entry.id && advance.state === "saving"}
+                          className="rounded border border-emerald/40 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-emerald disabled:opacity-40"
+                        >
+                          Advance
+                        </button>
+                      )}
                     </div>
+                    {advance?.entryId === entry.id && advance.state === "error" && (
+                      <p role="alert" className="mt-2 text-xs text-rose-300">Advance failed: {advance.message}</p>
+                    )}
                   </li>
                 ))}
               </ul>

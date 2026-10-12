@@ -88,6 +88,43 @@ export function isTerminal(status: string): boolean {
   return nextStatus(status) === null;
 }
 
+/**
+ * The status a recorded entry may be advanced to from this surface.
+ *
+ * The archived Prism `ProjectOpportunityRadar` offered one ADVANCE control per
+ * entry that stepped to the next member of its `columns` array. That is the same
+ * write the edit form already performs, narrowed to a single value: one step
+ * forward within the declared vocabulary, stopping at `READY_TO_EXECUTE`.
+ *
+ * A terminal outcome (`EXECUTED`/`SETTLED`) is never a target. Recording one is
+ * a claim about money, and this board declares `execution_authority: "NONE"` —
+ * the write ceiling `SETTABLE_STATUSES` is exactly what forbids it, so the naive
+ * index step (which would send `EXECUTED` from `READY_TO_EXECUTE`) is not used.
+ *
+ * Returns `null` when no forward step is permitted: an unknown or off-vocabulary
+ * status, the ceiling, or a terminal status.
+ */
+export function advanceStatus(status: string): BuyerReconStatus | null {
+  const next = nextStatus(status);
+  return next !== null && isSettableStatus(next) ? next : null;
+}
+
+/** Whether an ADVANCE control is offered for a recorded status at all. */
+export function canAdvance(status: string): boolean {
+  return advanceStatus(status) !== null;
+}
+
+/**
+ * The PATCH body for an ADVANCE.
+ *
+ * Empty when there is no permitted step, so a caller can detect "nothing to do"
+ * rather than issuing a write that records nothing or asserts an outcome.
+ */
+export function advanceBody(status: string): Record<string, unknown> {
+  const next = advanceStatus(status);
+  return next !== null ? { status: next } : {};
+}
+
 /** A captured fact is unverified unless it carries a value the backend supplied. */
 export function isUnverified(value: string | undefined | null): boolean {
   return !value || value === UNVERIFIED;

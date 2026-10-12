@@ -436,6 +436,20 @@ const settled = { ...entry, id: "e3", status: "SETTLED" };
 const offVocab = { ...entry, id: "e4", status: "conversation" };
 out.summary_mixed = m.summarize([entry, settled, offVocab]);
 
+// The per-entry ADVANCE step: one status forward, never past the ceiling.
+out.advance_from_uncontacted = m.advanceBody("UNCONTACTED");
+out.advance_from_requirement = m.advanceBody("REQUIREMENT_CAPTURED");
+out.advance_from_ready = m.advanceBody("READY_TO_EXECUTE");
+out.advance_from_executed = m.advanceBody("EXECUTED");
+out.advance_from_settled = m.advanceBody("SETTLED");
+out.advance_from_off_vocab = m.advanceBody("conversation");
+out.advance_from_unknown = m.advanceBody("NOT_A_STATUS");
+out.advance_from_blank = m.advanceBody("");
+out.can_advance_uncontacted = m.canAdvance("UNCONTACTED");
+out.can_advance_ready = m.canAdvance("READY_TO_EXECUTE");
+out.can_advance_settled = m.canAdvance("SETTLED");
+out.advance_status_ready = m.advanceStatus("READY_TO_EXECUTE");
+
 console.log(JSON.stringify(out));
 """
 
@@ -916,6 +930,100 @@ def test_surface_renders_the_pipeline_strip_from_the_summary():
     assert 'data-testid="opportunity-off-vocabulary"' in surface
     assert "summary.offVocabulary > 0" in surface
 
+
+
+
+# ---------------------------------------------------------------------------
+# Per-entry ADVANCE — one step forward, through the verified PATCH handler
+# ---------------------------------------------------------------------------
+
+
+def test_executed_contract_advance_steps_one_status_forward(contract_probe):
+    """The archived Prism board offered one ADVANCE per entry; it is one PATCH."""
+    assert contract_probe["advance_from_uncontacted"] == {"status": "CONTACTED"}
+    assert contract_probe["advance_from_requirement"] == {"status": "PRICE_CONFIRMED"}
+
+
+def test_executed_contract_advance_stops_at_the_reconnaissance_ceiling(contract_probe):
+    """`READY_TO_EXECUTE` is the last step: a terminal outcome is never a target.
+
+    The archived Prism step was index-based and *would* have sent `EXECUTED` from
+    `READY_TO_EXECUTE`. The write ceiling forbids it, so the step stops here.
+    """
+    assert contract_probe["advance_from_ready"] == {}
+    assert contract_probe["can_advance_ready"] is False
+    assert contract_probe["advance_status_ready"] is None
+
+
+def test_executed_contract_advance_is_empty_for_an_unstepable_status(contract_probe):
+    for key in (
+        "advance_from_executed",
+        "advance_from_settled",
+        "advance_from_off_vocab",
+        "advance_from_unknown",
+        "advance_from_blank",
+    ):
+        assert contract_probe[key] == {}, f"{key} must not produce a write body"
+    assert contract_probe["can_advance_settled"] is False
+    assert contract_probe["can_advance_uncontacted"] is True
+
+
+def test_negative_control_a_naive_index_step_would_assert_an_outcome(contract_probe):
+    """Proves the ceiling is load-bearing: the archived index step would send EXECUTED."""
+    naive = buyer_recon.STATUSES[buyer_recon.STATUSES.index("READY_TO_EXECUTE") + 1]
+    assert naive == "EXECUTED", "the naive step lands on a transaction outcome"
+    assert contract_probe["advance_from_ready"] == {}, "the contract must refuse that step"
+    assert naive not in contract_probe["settable_statuses"]
+
+
+def test_the_frontend_advance_body_is_accepted_and_persisted_by_the_real_handler(app, contract_probe):
+    """Binds the executed advance body to the live handler, asserted on the row."""
+    project_id = _project(OWNER["uid"])
+    client = _client(app, OWNER)
+    created = client.post(
+        _entries_path(project_id),
+        json={"prospect": "Buyer A", "status": "UNCONTACTED"},
+    )
+    assert created.status_code == 201, created.text
+    entry_id = created.json()["entry"]["id"]
+
+    advanced = client.patch(
+        f"{_entries_path(project_id)}/{entry_id}", json=contract_probe["advance_from_uncontacted"]
+    )
+    assert advanced.status_code == 200, advanced.text
+    assert advanced.json()["entry"]["status"] == "CONTACTED"
+    assert _persisted(entry_id)["status"] == "CONTACTED"
+    # The advance carried only a status; the recorded prospect survives it.
+    assert _persisted(entry_id)["prospect"] == "Buyer A"
+
+
+def test_negative_control_the_ceiling_body_is_never_sent_to_the_handler(app):
+    """An empty advance body has nothing to send; posting it does not move the row."""
+    project_id = _project(OWNER["uid"])
+    client = _client(app, OWNER)
+    created = client.post(
+        _entries_path(project_id), json={"prospect": "Buyer A", "status": "READY_TO_EXECUTE"}
+    )
+    entry_id = created.json()["entry"]["id"]
+    # The contract produces {} here; an empty PATCH is a no-op, not an outcome write.
+    noop = client.patch(f"{_entries_path(project_id)}/{entry_id}", json={})
+    assert noop.status_code == 200, noop.text
+    assert _persisted(entry_id)["status"] == "READY_TO_EXECUTE", "the row must not advance to EXECUTED"
+
+
+def test_surface_offers_an_advance_control_only_when_a_step_is_permitted():
+    surface = SURFACE_TS.read_text(encoding="utf-8")
+    assert "canAdvance(entry.status)" in surface, "the control must be gated by the ceiling"
+    assert "opportunity-entry-advance-" in surface, "an advance control must exist per entry"
+    assert "advanceBody(entry.status)" in surface, "the body must come from the contract module"
+    assert 'method: "PATCH"' in surface
+    assert 'from "./opportunityRadarContract"' in surface
+
+
+def test_surface_advance_invents_no_delete_or_execute_path():
+    code = _code_only(SURFACE_TS)
+    for invented in ('"DELETE"', "'DELETE'", "handleExecute", "handleApprove", "settle(", "executeEntry"):
+        assert invented not in code, f"advance must not imply authority it does not have ({invented})"
 
 def test_surface_strip_asserts_no_execution_authority():
     """A per-status count is reconnaissance; it must not become an execute control."""

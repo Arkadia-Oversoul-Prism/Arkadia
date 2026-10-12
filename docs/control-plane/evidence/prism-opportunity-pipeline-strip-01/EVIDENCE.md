@@ -90,3 +90,39 @@ introduced (the touched files' own suites are green above).
   and **not** repaired; it is a separate bounded change.
 - Backend arity and one-board-per-subject defects named in the lane charter were
   already repaired and merged in earlier passes; nothing here duplicates them.
+
+---
+
+## 6. Successor slice in the same PR — per-entry ADVANCE
+
+The archived board also offered **one ADVANCE control per entry**, stepping the
+prospect to the next status. The landed console counted the pipeline but could
+not move a prospect through it. This slice reconciles that control onto the
+verified write path already in the module.
+
+| File | Change |
+|---|---|
+| `opportunityRadarContract.ts` | `advanceStatus()` / `canAdvance()` / `advanceBody()` — one step forward within `BUYER_RECON_STATUSES`, refusing any step that lands on a terminal outcome |
+| `ProjectOpportunityRadar.tsx` | per-entry **Advance** button (`data-testid="opportunity-entry-advance-<id>"`), gated by `canAdvance(entry.status)`, issuing the same `PATCH …/entries/{id}` the edit form uses and replacing the row from the confirmed response; a failed or unconfirmed advance states so (`role="alert"`) and does not move the row |
+| `tests/test_prism_opportunity_entry_flow.py` | +8 tests; Node probe extended with `advanceBody`/`canAdvance`/`advanceStatus` cases |
+
+**Bounded by the write ceiling.** The archived step was *index-based* and would
+have offered `EXECUTED` from `READY_TO_EXECUTE`. `advanceStatus` returns `null`
+unless the next status is in `SETTABLE_STATUSES`, so `READY_TO_EXECUTE` is the
+last step the surface will take and a terminal outcome can never be asserted
+(`test_negative_control_a_naive_index_step_would_assert_an_outcome` proves the
+naive step would assert one, and that the contract refuses it).
+
+**The empty body is not sent.** `advanceBody` returns `{}` when no step is
+permitted; the surface returns before issuing a request, so a no-op PATCH is
+never sent and the button is not rendered.
+
+### Proof added this slice
+
+- `python -m pytest tests/test_prism_opportunity_entry_flow.py tests/test_buyer_recon_router_board_scope.py tests/test_prism_opportunity_radar_module.py -q -rEf`
+  → **95 passed**.
+- The advance body is bound to the **live handler** and asserted on the persisted
+  row (`test_the_frontend_advance_body_is_accepted_and_persisted_by_the_real_handler`).
+- Frontend: `corepack pnpm build` (`tsc --noEmit && vite build`) → `✓ built`.
+- No `DELETE`/execute/approve path was added (surface test). No `api/main.py`
+  change, no route change, no new transport.
