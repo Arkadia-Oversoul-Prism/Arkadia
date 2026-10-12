@@ -152,14 +152,73 @@ so there is no production/runtime observation to make. The new guard's CI wiring
 
 ## 9. Remaining uncertainty / proposed follow-on
 
-- **Shell-level disarm is not detected.** §4: the corpus enforcement depends on `bash -e`. A
-  `shell:` override or `set +e` would disarm all 17 assertions without tripping any detector.
-  Proposed as a separate bounded pass; discovery does not authorize execution.
 - `test_ci_verdict_step_integrity_ci_wiring.py` was inspected and needs no change: it already
   covers execution (not mere mention), whole-corpus selection, self-selection, both exemption
   levels, and dispatchability.
-- Full-suite debt (207 nodes) is pre-existing and unchanged; not repaired here.
+- Full-suite debt (155 nodes locally at `6109c72`) is pre-existing and unchanged; not repaired here.
 
-## 10. Authority boundary
+## 11. Pass 2 — shell-level disarm detector (Detector 4)
+
+Pass 1 (§1–§10) recorded the shell-level disarm as a *proposed, unauthorized* follow-on. This
+pass executes it, on the same branch and the same guard file — composing into PR #483 rather
+than opening a competing PR that would conflict on the one file.
+
+### 11.1 The defect, precisely
+
+Pass 1's §4 established that the live corpus enforcement's 16 assertions are live *only*
+because the default shell is `bash -e {0}`: the first failing `test` aborts the step. That
+property is undeclared and unguarded. A `shell:` override without `-e`, or a `set +e` inside
+the script, makes every assertion evaluate and the trailing `exit 0` unconditional — the step
+then reports success whatever the named steps did. No pass-1 detector sees this: pass 1 covers
+an *exempted* step (status discarded), Detector 4 covers a *non-abortive* step (status never
+produced).
+
+### 11.2 Change
+
+| Path | Change |
+|---|---|
+| `tests/test_ci_verdict_step_integrity.py` | +9 tests, +1 inventory constant, +1 detector |
+
+- `_ERREXIT` / `_SET_PLUS_E` + `_shell_aborts(shell, run)`: an enforcement step aborts iff its
+  effective shell carries `-e`/`errexit` **and** the script does not clear it with `set +e`.
+  Step `shell:` wins, else `defaults.run.shell` on the job, else GitHub's `bash -e {0}`.
+- `abortless_enforcement_steps(workflow)` / `abortless_enforcement_inventory()`.
+- `REGISTERED_ABORTLESS_ENFORCEMENT_STEPS` — empty, because `shell:` is declared in **no**
+  workflow in the corpus (measured), so every enforcement runs under the abortive default.
+
+### 11.3 A precision defect found by probing the new regex, and fixed
+
+The first `_ERREXIT` used `(?:^|[\s-])-[A-Za-z]*e[A-Za-z]*`, whose class admits a second dash.
+Measured: `bash --noprofile {0}` → `aborts: True`. The long option `--noprofile` contains an
+`e`, so an *abortless* enforcement under it went **unreported** — a silent hole in the very
+detector written to close silent holes. Repaired to `(?:^|\s)-[A-Za-z]*e[A-Za-z]*(?=\s|$)`,
+which requires a single-dash token. Pinned by
+`test_errexit_detection_does_not_read_a_long_option_as_errexit` over
+`bash --noprofile {0}`, `bash -x {0}`, `bash --norc {0}`.
+
+### 11.4 Evidence
+
+- Guard: **30 passed** (was 21). Focused guards + architecture: **265 passed**, architecture
+  **11 passed**.
+- Live negative control on the real `sg-02-fe-2-v.yml`, twice:
+  - `shell: bash {0}` on the enforcement step → exactly **2** corpus invariants redden
+    (2F/27P).
+  - `shell: bash --noprofile {0}` → exactly the same 2 redden (2F/28P), which is the control
+    that catches the §11.3 precision defect.
+  - Restored byte-identically both times: sha256 `f1423a5087cc14dc00e7e63182daaa1a0a40b30b1ec9d15811dd1d88d06cbcd0`.
+- Regression by node identity: failing/error set sha256
+  `d0541c6c1303f03b242b69d206beeb68b3a9becb5f25477d14fb16ba19823f26` (155 nodes) on **both**
+  `main` `6109c72` and the branch, `comm -3` empty. The `+17 passed` (1926 → 1943) is exactly
+  the guard's collect delta (13 → 30 nodes), measured with `--collect-only`, not inferred.
+- `python -m py_compile api/main.py` → OK; `api/main.py` = 2505 lines (budget 2600).
+  CP10 judge on the changed path: PASS, exit 0.
+
+### 11.5 Result
+
+**IMPLEMENTED** — detector + controls green; the corpus is clean, so this is a detector, not a
+repair. Not `VERIFIED` in the runtime sense: a pure-source guard with no runtime observation to
+make. `AGENTS.md` is deliberately untouched (PR #482 edits it; workstream state persists here).
+
+## 12. Authority boundary
 
 No merge, no production deployment, no acceptance. Human merge authority is final.
