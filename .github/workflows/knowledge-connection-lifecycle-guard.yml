@@ -1,0 +1,64 @@
+name: Knowledge Connection Lifecycle Guard
+
+# `tests/test_knowledge_shared_connection_lifecycle.py` holds the shared Knowledge OS
+# sqlite connection boundary: `knowledge/db.py` caches one connection per thread in
+# `threading.local()`, and `None` is the only "needs creating" sentinel — a *closed*
+# handle left in that slot is handed back unchanged, so every later query in the
+# thread raises `ProgrammingError: Cannot operate on a closed database`.
+#
+# Measured on `main` @ `6109c72a`: the guard was executed by **no** workflow.
+# `grep -rln test_knowledge_shared_connection_lifecycle .github/workflows/` returned 0,
+# and the two workflows whose `tests/**` filter *selects* a change to it
+# (`economic-seam-engine.yml`, `prism-console-contract.yml`) run only their own derived
+# domains, so neither reaches it. `provider-routing.yml` — the only workflow that runs
+# the full suite — is path-filtered to `weaver/**`, `providers/**`, `api/lab_routes.py`
+# and named files, and is baseline-red on `main` besides. A guard no gate executes is
+# decoration; this workflow is the executable surface.
+#
+# The defect it holds is *order-dependent* — the file that poisons the shared slot is
+# not the file that fails — so it is invisible to per-file runs and can only be judged
+# by a session that runs both. That is why this gate executes the guard and the
+# busy-timeout test together, and why the guard is named explicitly rather than reached
+# through a directory argument.
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/knowledge-connection-lifecycle-guard.yml"
+      - "knowledge/__init__.py"
+      - "knowledge/db.py"
+      - "tests/test_knowledge_shared_connection_lifecycle.py"
+      - "tests/test_knowledge_shared_connection_lifecycle_ci_wiring.py"
+      - "tests/test_sqlite_busy_timeout.py"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/knowledge-connection-lifecycle-guard.yml"
+      - "knowledge/__init__.py"
+      - "knowledge/db.py"
+      - "tests/test_knowledge_shared_connection_lifecycle.py"
+      - "tests/test_knowledge_shared_connection_lifecycle_ci_wiring.py"
+      - "tests/test_sqlite_busy_timeout.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  knowledge-connection-lifecycle-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      # The guard and the contract it runs are stdlib + pytest only, so no application
+      # dependency is needed and a dependency gap cannot be misreported as a boundary
+      # break. `pyyaml` is required by the wiring guard, which reads workflow YAML.
+      # Both are derived from the executed modules by
+      # `tests/test_knowledge_shared_connection_lifecycle_ci_wiring.py`, so a new import
+      # that this step does not install reddens the guard instead of the job.
+      - run: pip install pytest pyyaml
+      - name: Shared connection lifecycle guard
+        run: |
+          python -m pytest tests/test_knowledge_shared_connection_lifecycle.py tests/test_sqlite_busy_timeout.py tests/test_knowledge_shared_connection_lifecycle_ci_wiring.py -q
