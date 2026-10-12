@@ -1,5 +1,5 @@
 from weaver.engineering_acceptance import (
-    CheckState, Decision, GateEvidence, MergePolicy,
+    CheckState, Decision, GateEvidence, HumanApprovalEvidence, MergePolicy,
     PullRequestEvidence, ReviewEvidence, RiskClass, evaluate_merge_readiness,
 )
 
@@ -23,7 +23,7 @@ def ready_pr(**changes):
         checks=checks,
         reviews=(ReviewEvidence(True, "independent-reviewer", SHA),),
         draft=False, mergeable=True, branch_protection_satisfied=True,
-        risk_class=RiskClass.ROUTINE, explicit_human_approval=False,
+        risk_class=RiskClass.ROUTINE, human_approvals=(),
         policy_authorizes_auto_merge=True, evidence_complete=True,
         policy_version=POLICY.version,
     )
@@ -116,7 +116,11 @@ def test_protected_change_can_be_ready_after_explicit_human_approval():
     pr = ready_pr(
         risk_class=RiskClass.PROTECTED,
         policy_authorizes_auto_merge=False,
-        explicit_human_approval=True,
+        human_approvals=(HumanApprovalEvidence(
+            approved=True, reviewer="sovereign-reviewer", reviewer_id="user-42",
+            reviewed_sha=SHA, record_id="approval-2026-10-12-001",
+            source="github-review", authorized=True,
+        ),),
     )
     assert evaluate_merge_readiness(pr, POLICY).decision is Decision.READY_TO_MERGE
 
