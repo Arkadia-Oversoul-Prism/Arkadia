@@ -19,12 +19,12 @@
 
 | Lane | Active PR / head | Base relationship to current main | Durable output / next action |
 |---|---|---|---|
-| W1 — Shell/navigation/integration | [#489](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/489), `8fff6eef4f6224236da5ae2f685e1f5d3f1774f5` | Base `ee684fff...`; current-main comparison: ahead 1, behind 2, diverged | Legacy `/nexus/<sub>` deep-link resolution. Recorded 32 focused shell-contract tests and broader checks on that head. Reconcile onto current main, rerun checks. |
+| W1 — Shell/navigation/integration | [#497](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/497), `b63b641800ccd10aa316f4be443a8ccc60b1615c` | Fresh base `49809f45274f2f81b24e01fefdfb3009e8717495`; ahead 5, behind 0 | Fresh-base replay of legacy `/nexus/<sub>` deep-link resolution. The original PR recorded 32 focused shell-contract tests; current-head CI is in progress, so no current-head test pass is claimed. |
 | W2 — NovaNet/Opportunity Radar | [#492](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/492), `2c24adb516f10c5491de0be50a1b732156598f62` | Fresh base `49809f45274f2f81b24e01fefdfb3009e8717495`; ahead 1, behind 0 | Per-status opportunity pipeline strip; off-vocabulary statuses counted instead of dropped. PR records 55 focused tests, 408 derived-domain tests, 11 architecture tests and frontend build. |
-| W3 — Solariun/Knowledge OS | [#491](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/491), `c2427815b4dd0bd7e1c1a3f003e39bad3d4edf97` | Base `ee684fff...`; current-main comparison: ahead 1, behind 2, diverged | “Load older events” paging. PR records 52 paging/window/boundary tests, 136 sibling contracts, 11 architecture tests and frontend build. Reconcile onto current main, rerun checks. |
+| W3 — Solariun/Knowledge OS | [#498](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/498), `7ca474846bc994b4e609bcdfeca1b88a1279fde6` | Fresh base `49809f45274f2f81b24e01fefdfb3009e8717495`; ahead 4, behind 0 | Fresh-base replay of “Load older events” paging. Original PR recorded 52 paging/window/boundary tests; current-head CI is in progress, so no current-head test pass is claimed. |
 | W4 — Arkana/Weaver/Engineering Lab | [#493](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/493), `d3e978d13d5a5f4bbb41776e46e8ef8bcb6ad619` | Fresh base `49809f45274f2f81b24e01fefdfb3009e8717495`; ahead 1, behind 0 | Read-only Lab automation grammar projection. PR records 49 focused tests, 450 derived-domain/wiring tests, 11 architecture tests and frontend build. Write-path remains intentionally unwired. |
 
-Check conclusions observed for lane heads: all nine reported workflow runs on each of #489, #491, #492 and #493 completed successfully. For #489/#491, these checks apply to their old heads, not to a reconciled head on current main. PR bodies contain the detailed command-level evidence; do not promote PR-reported tests to independently re-executed tests in this checkpoint.
+Check conclusions: old PRs #489 and #491 had nine successful workflow runs each on their old heads. Their fresh-main successors #497 and #498 now have current-head CI in progress. PRs #492 and #493 each have nine successful workflow runs on their fresh-base heads. PR bodies contain command-level evidence; do not promote PR-reported tests to independently re-executed tests in this checkpoint.
 
 ## 3. Control-plane router defect
 
@@ -44,4 +44,4 @@ Check conclusions observed for lane heads: all nine reported workflow runs on ea
 - No PR merged, no production deployment triggered, and no acceptance declared in this recovery.
 - Render remains the only canonical production origin.
 - Human retains merge, production-deployment, and acceptance authority.
-- Next: diagnose #495's failing router-status-truthfulness guard; reconcile W1 #489 and W3 #491 against current main and rerun checks; preserve W2 #492 and W4 #493 as fresh-base independent drafts; update the portfolio only with exact-SHA evidence.
+- Next: wait for and inspect current-head CI on #497/#498; keep #492/#493 as fresh-base independent drafts; use the corrected evidence/contract PR #496 to consolidate the live state; do not merge or claim acceptance.
