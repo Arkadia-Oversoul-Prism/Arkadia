@@ -12,10 +12,15 @@ def test_connection_waits_for_concurrent_sqlite_writers(tmp_path, monkeypatch):
     old_conn = getattr(db._local, "conn", None)
     if old_conn is not None:
         old_conn.close()
-    monkeypatch.setattr(db._local, "conn", None, raising=False)
+    # `get_connection()` treats `None` as "not yet created" and builds a fresh
+    # connection, but hands back a closed one unchanged. Clear the slot rather
+    # than restoring the closed handle, or every later query in this thread
+    # raises ProgrammingError for the rest of the session.
+    db._local.conn = None
 
     conn = db.get_connection()
     assert conn.execute("PRAGMA busy_timeout").fetchone()[0] == 30_000
     assert conn.execute("PRAGMA journal_mode").fetchone()[0].lower() == "wal"
     conn.close()
-    monkeypatch.setattr(db._local, "conn", None, raising=False)
+    db._local.conn = None
+
