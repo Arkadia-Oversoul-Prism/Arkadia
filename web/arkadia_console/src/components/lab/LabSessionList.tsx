@@ -13,6 +13,8 @@
  */
 import { useState } from "react";
 import { Panel, Facts, ContractState } from "../ui";
+import { LabRunTrace } from "./LabRunTrace";
+import type { LabEvidenceRecord, LabRunRecord, LabWorkEvent } from "./labRunTrace";
 import { useHydration } from "../../lib/useHydration";
 import { apiRequest } from "../../lib/apiClient";
 import { endpoints } from "../../lib/endpoints";
@@ -34,9 +36,9 @@ export interface LabSession {
 export interface LabSessionView {
   session: LabSession;
   agent: unknown;
-  runs: Array<Record<string, unknown>>;
-  events: Array<Record<string, unknown>>;
-  evidence: Array<Record<string, unknown>>;
+  runs: LabRunRecord[];
+  events: LabWorkEvent[];
+  evidence: LabEvidenceRecord[];
   artifacts: Array<Record<string, unknown>>;
   loop: string[];
   reached_review_boundary: boolean;
@@ -199,6 +201,10 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
           canonical loop: {loop.join(" → ")}
         </p>
       )}
+
+      <div className="mt-4">
+        <LabRunTrace view={view.data} />
+      </div>
     </div>
   );
 }
