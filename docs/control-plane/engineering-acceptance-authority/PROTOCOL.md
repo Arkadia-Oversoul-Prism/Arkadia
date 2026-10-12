@@ -28,13 +28,13 @@ The evaluator returns one of:
 - `READY_FOR_HUMAN_DECISION`: required evidence passes but policy does not authorize an automated merge and no explicit human approval is recorded.
 - `READY_TO_MERGE`: required gates and independent review pass, exact-SHA evidence is complete, repository requirements pass, and either (a) policy explicitly authorizes auto-merge for this risk class or (b) a valid explicit human approval is recorded.
 
-The decision is a snapshot, not a durable capability token. Any new commit, changed policy, dismissed review, changed check, or changed branch-protection state invalidates the snapshot and requires re-evaluation.
+The decision is a snapshot, not a durable capability token. Any new commit, base-branch movement, changed policy, dismissed review, changed check, or changed branch-protection state invalidates the snapshot and requires re-evaluation.
 
 ## Minimum evidence envelope
 
 Every decision record must include:
 
-- PR number, repository, base SHA, candidate head SHA, observed head SHA and observation time.
+- PR number, repository, intended base SHA, observed base SHA, candidate head SHA, observed head SHA and observation time.
 - Policy ID/version and risk classification, including why the classification applies.
 - Each required gate's state (`PASS`, `FAIL`, `BLOCKED`, `NOT_TESTED`), tested SHA, run/check identifier, artifact URL and verifier identity.
 - Independent approval identity and reviewed SHA where required.
@@ -72,7 +72,7 @@ Risk classification is itself policy-controlled. Workers may suggest a class but
 - Missing, failed, blocked, or not-tested required gates never yield readiness.
 - Evidence from an older or different SHA never satisfies a candidate.
 - A provider `SUCCEEDED` status without commit and test evidence is not success for acceptance.
-- Policy-version drift, unknown risk, unknown branch protection, or unknown mergeability fail closed.
+- Policy-version drift, unknown risk, base/head drift, unknown branch protection, or unknown mergeability fail closed.
 - A gate cannot grant merge/deploy permission by changing its own output.
 - A successful merge cannot be labeled accepted before post-merge verification.
 - A green PR cannot authorize deployment.
