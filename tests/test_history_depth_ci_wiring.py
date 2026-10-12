@@ -55,6 +55,7 @@ not exist, so no pull request could have observed the defect — only the compos
 
 from __future__ import annotations
 
+import ast
 import re
 import shlex
 import subprocess
@@ -246,6 +247,38 @@ def _history_dependent_guards() -> dict[str, str]:
     return guards
 
 
+def _guard_inputs(guard: str) -> set[str]:
+    """Tracked files a guard reads, derived from the guard's own source.
+
+    A guard's verdict is a function of its inputs, so an input whose edit does not
+    execute the guard changes what the guard asserts without running it. The inputs are
+    read from the source by AST — every string constant that names a tracked path — not
+    restated here: a hand-maintained copy drifts, and a drifted copy makes the
+    completeness assertion vacuous. This is the defect class the repository already
+    recorded for `FINGERPRINT_DOCS` and for the console-contract domain.
+
+    Test files are excluded: a guard's siblings are selected by the guard's own
+    directory, and naming them individually would make the rule unsatisfiable.
+    """
+    source = (ROOT / guard).read_text(encoding="utf-8")
+    tracked = _tracked_paths()
+    inputs: set[str] = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            value = node.value
+            if value in tracked and value != guard and not value.startswith("tests/"):
+                inputs.add(value)
+    return inputs
+
+
+def _tracked_paths() -> set[str]:
+    """Every path `git ls-files` reports, so the domain is the live corpus."""
+    proc = subprocess.run(
+        ["git", "-C", str(ROOT), "ls-files"], capture_output=True, text=True, check=True
+    )
+    return {line for line in proc.stdout.splitlines() if line}
+
+
 def _history_dependent_workflows() -> list[str]:
     guards = _history_dependent_guards()
     return [
@@ -423,6 +456,52 @@ def test_a_workflow_selects_itself_and_the_guard(name: str):
             f"{name} does not select {surface} in its pull_request paths filter. A "
             f"workflow that judges the boundary must be selected by a change to that "
             f"boundary, or the gate is decoration."
+        )
+
+
+@pytest.mark.parametrize("name", _judging_workflows())
+def test_a_workflow_selects_every_input_its_guard_reads(name: str):
+    """A guard's verdict is a function of its inputs, so each input must select the gate.
+
+    The gap this closes: `tests/test_agents_md_encoding_adjudication.py` reads
+    `AGENTS.md`, and `AGENTS.md` is named by no `paths` filter anywhere in the
+    repository (`grep -rn "AGENTS.md" .github/workflows/` matches two *comments* only).
+    An append to `AGENTS.md` therefore changed a guard's subject without executing it —
+    observed on this very branch, whose second commit touched only `AGENTS.md` and the
+    evidence record.
+    """
+    workflow = _load(WORKFLOWS / name)
+    events = workflow.get("on") or workflow.get(True) or {}
+    paths = set((events.get("pull_request") or {}).get("paths") or [])
+    for guard in _history_dependent_guards():
+        if not _workflow_executes(workflow, guard):
+            continue
+        for input_path in sorted(_guard_inputs(guard)):
+            assert _selects_path(paths, input_path), (
+                f"{name} judges {guard}, which reads {input_path}, but does not select "
+                f"{input_path} in its pull_request paths filter. A change to that input "
+                f"alters what the guard asserts without executing it."
+            )
+
+
+def test_negative_control_a_guard_input_the_filter_omits_is_reported():
+    """The detector must fire on the shape it exists to catch.
+
+    Fed the real filter minus one of the real inputs, it must report that input — so the
+    guard cannot be disarmed by trimming the filter while the assertion stays green.
+    """
+    workflow = _load(WORKFLOWS / "provider-routing.yml")
+    guard = next(iter(_history_dependent_guards()))
+    inputs = _guard_inputs(guard)
+    assert inputs, f"{guard} reads no tracked input; the control would be vacuous"
+    paths = set(
+        ((workflow.get("on") or workflow.get(True) or {})["pull_request"])["paths"]
+    )
+    for input_path in sorted(inputs):
+        trimmed = paths - {input_path}
+        assert not _selects_path(trimmed, input_path), (
+            f"removing {input_path} from the filter did not deselect it, so the "
+            f"completeness assertion cannot bite"
         )
 
 

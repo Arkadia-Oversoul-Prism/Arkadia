@@ -125,6 +125,54 @@ nothing else.
    opened as a **draft** and no merge is solicited. If the sovereign intends that family to
    be paused, #482 should be closed and will not be re-opened.
 
-## 8. Authority
+## 9. Guard inputs must select the gate — `AGENTS.md` was named by no filter
+
+The guard in §4 derives its domain from the repository, but until this pass it asserted only
+that a *guard file* selects the workflows that execute it. That is half the invariant: a
+guard's verdict is a function of its **inputs**, so an input whose edit does not execute the
+guard changes what the guard asserts without running it.
+
+Measured on this branch's own second commit — which touched `AGENTS.md` and the evidence
+record and nothing else: `grep -rn "AGENTS.md" .github/workflows/` returns matches in
+`baseline-preflight.yml` and `baseline-fingerprint.yml` **in comments only**, and no `paths`
+filter anywhere in the repository names it. `tests/test_agents_md_encoding_adjudication.py`
+reads `AGENTS.md`, so an `AGENTS.md`-only commit altered a judged guard's subject while
+running no whole-suite surface.
+
+Repair, both halves derived rather than restated:
+
+- `_guard_inputs(guard)` reads the guard's own source **by AST** and returns every string
+  constant that names a path in `git ls-files`. A hand-maintained list would drift, and a
+  drifted list makes the completeness assertion vacuous — the defect class the repository
+  already recorded for `FINGERPRINT_DOCS` and for the console-contract domain. Test files are
+  excluded: siblings are selected by the guard's directory, so naming them would make the
+  rule unsatisfiable.
+- `provider-routing.yml` (the sole *judging* whole-suite surface) selects `AGENTS.md`.
+
+**Negative controls.** (1) `test_negative_control_a_guard_input_the_filter_omits_is_reported`
+trims the real filter and requires each real input to become deselected, so the assertion
+cannot be disarmed by narrowing the filter. (2) Live control on the **real** workflow file:
+removing the `AGENTS.md` line reddens
+`test_a_workflow_selects_every_input_its_guard_reads[provider-routing.yml]`
+(**1 failed, 16 passed**); restoring it byte-identically returns **17 passed**. The detector
+was first run against the unmodified gap and failed there (**1 failed, 15 passed**) — it bit
+on the real defect before any synthetic one.
+
+**Regression boundary.** Fresh `main` (`6109c72a`) measured in the same environment, same
+extraction convention (`grep -E '^(FAILED|ERROR) ' | sort | sha256sum`):
+node set `c853c9a6d431a4166e4d2c1d3cca8f3fef5e094105f5e6eeaa028e2aa471891e` (18 nodes) on
+**both** trees, `comm -3` empty. Suite totals `17 failed / 2864 passed` on `main` vs
+`17 failed / 2881 passed` on the branch — the `+17` is attributed by `--collect-only`, not by
+the count: `tests/test_history_depth_ci_wiring.py` collects **17** on the branch and **0** on
+`main`, and the repository total moves `2900 → 2917`. The four generic workflow-scanning
+suites gain nothing; `tests/architecture` is **11 passed**; `python -m py_compile api/main.py`
+clean; `api/main.py` untouched (2505 lines, budget 2600).
+
+**Do not cite this fingerprint as the inherited one.** The inherited pass recorded a *different*
+extraction convention (`FAILED` only, no `ERROR` lines) and a 15-node guard. The recorded
+`7eaa2c11…` is a `FAILED`-only digest, not the `FAILED|ERROR` digest above; both are correct
+for their own convention, and comparing them across conventions is not a regression signal.
+
+## 10. Authority
 
 No merge, no deployment, no acceptance. Human authority final.
