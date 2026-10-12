@@ -1514,3 +1514,48 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
 - Evidence: `docs/control-plane/evidence/gate10-ci-coverage-reconnaissance-01/RECONNAISSANCE.md`
   (PR #461). The Defect-A repair is **proposed, not performed** — it mutates
   `sg-02-fe-2-v.yml` and needs sovereign authorization; discovery does not authorize execution.
+
+## A judging CI surface on a shallow clone fails a clean file (gate-hygiene)
+- `provider-routing.yml` is the repository's only whole-suite **judging** surface
+  (`python -m pytest tests/ -q -rEf --continue-on-collection-errors`, step 8, no
+  `continue-on-error`), and it checked out at the default depth-1. `tests/test_agents_md_encoding_adjudication.py`
+  resolves pinned revisions (`ORACLE_REV` 6c43218a48a4, the corruption commit) out of git
+  history, so `git cat-file -t 6c43218a48a4` fails and `scripts/agents_md_encoding_audit.py::exit_code`
+  returns **2** ("undecided") where a provably clean file earns **1**. Same SHA, same commit:
+  `--depth 1` gives `4 failed, 13 passed, 6 skipped` for that file where full history gives
+  `18 passed, 5 skipped`.
+- **A clone-depth defect is invisible in a node-set comparison and visible in a local-vs-CI
+  comparison.** At main `6109c72a` the local full clone reported 18 failing/error nodes and CI
+  reported 21; `comm -13` was **exactly** the four adjudication nodes and `comm -23` was
+  **empty**. A `--depth` clone and a full clone of the *same* commit are different
+  measurement environments, so comparing a shallow local baseline against full-history CI
+  attributes clone depth to the repository. Check `git rev-parse --is-shallow-repository`
+  before attributing any node delta.
+- **Repair:** `fetch-depth: 0` on the checkout. Do not touch `continue-on-error` — a
+  judging surface failing on *pre-existing* debt is correct behaviour, and widening the
+  exemption to get a green job would hide the debt the surface exists to report. Here the
+  job stays red on unrelated debt (the CE-01 `weaver.autonomy` collision and the sqlite
+  contamination class owned by open PR #481) while the four clone-depth nodes are gone.
+- **Guard:** `tests/test_history_depth_ci_wiring.py` (15 tests, PR #482). It derives two
+  domains rather than listing workflows: *executing* (a step actually invokes pytest over a
+  corpus containing a history-dependent guard — tokenised, `pytest` must be the invoked
+  command word, so `echo pytest …` does not qualify) and *judging* (executing minus any
+  workflow whose step **or** job carries `continue-on-error` / `if: false`). It asserts every
+  executing workflow fetches full history and every judging workflow selects itself and the
+  guard in its `pull_request` filter. A positive control asserts the two domains are
+  genuinely distinct — if they collapse, the exemption detector stopped working and the
+  invariant would silently narrow. Measured at `6109c72a`: executing
+  `['provider-routing.yml', 'sg-02-fe-2-v.yml']`, judging `['provider-routing.yml']`.
+- **Prove a workflow-wiring repair at runtime, not in source.** A path filter that omits the
+  guard is the *other* half of this defect class: the workflow executes the guard but a
+  change to the guard does not execute the workflow. Branch CI run `38228844451` on head
+  `c3af93b1` observed `provider-routing` triggering on the `pull_request` event and step 8's
+  log carrying **zero** occurrences of `test_agents_md_encoding_adjudication`. A source-level
+  assertion cannot show that.
+- **Read the sovereign's precondition before acting on a sibling.** PR #462 was closed by
+  `Arkadia-Oversoul-Prism` with an explicit precondition, and this pass could not read it —
+  GitHub exposes comments to API authentication, which the sandbox lacked. When a closed PR
+  gates a *family* of work, a new PR in that family must be opened as a **draft** with no
+  merge solicited, and the PR body must name the unread precondition as unread rather than
+  assert it does not apply. Evidence:
+  `docs/control-plane/evidence/gate10-history-depth-ci-wiring-01/EVIDENCE.md`.

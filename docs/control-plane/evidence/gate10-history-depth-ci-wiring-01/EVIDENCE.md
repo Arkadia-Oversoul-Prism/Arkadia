@@ -23,7 +23,7 @@ provably clean file earns **1**.
 
 | measurement | result |
 |---|---|
-| local, full clone | 18 failed / 2877 passed / 20 skipped / 1 error |
+| local, full clone | 17 failed / 2879 passed / 20 skipped / 1 error |
 | main CI run `38224653480` (head `6109c72a`) | 21 failed / 2859 passed / 21 skipped / 1 error |
 | `comm -13` local vs CI | exactly the 4 adjudication nodes |
 | `comm -23` local vs CI | empty |
@@ -32,6 +32,12 @@ provably clean file earns **1**.
 
 Node-set sha256: main CI `4d72c6b79c85ac97e4114aedd06479fee755ebf40b7dc60626f58ff3379b456f`
 (22 nodes); local `7eaa2c116c12b9e0a3993229db647bb76655c95983534db58a6fb171ceed6f6c` (18 nodes).
+
+**A correction.** An earlier draft of this record carried `18 failed / 2877 passed` for the
+local full clone — an inherited figure, not a measurement. Re-measured directly on the
+pristine `6109c72a` tree: `17 failed / 2879 passed`. The node *set* is unchanged by the
+correction (sha256 identical), so no conclusion moves; the number was simply wrong. Both
+the before-tree and after-tree measure `2879 passed`.
 
 ## 3. Repair
 
@@ -96,6 +102,15 @@ judging `['provider-routing.yml']`, guards
 `tests/test_ci_suite_collection_continuation.py` and the new guard → **194 passed**.
 `tests/architecture` → **11 passed**. `python -m py_compile api/main.py` clean;
 `api/main.py` untouched (2505 lines, budget 2600).
+
+The AGENTS.md append is insert-only and therefore node-neutral, proven rather than assumed:
+`pytest tests/ --collect-only --continue-on-collection-errors` gives **2915 collected on both
+trees** (the bare form interrupts at the CE-01 collection error and under-reports, so the
+continuation flag is required), and the full-suite failing/error node set hashes identically
+before and after. The `+24 passed` between main CI and branch CI is attributed by
+`--collect-only` per file: the four generic workflow-scanning suites collect **87 / 48 / 45 / 7
+on both trees**, and the new guard collects **15** — so the delta is the new file's nodes and
+nothing else.
 
 ## 7. Not done here — deliberately
 
