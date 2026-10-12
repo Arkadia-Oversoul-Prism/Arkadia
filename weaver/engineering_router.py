@@ -21,6 +21,9 @@ TRAJECTORY_PATH = Path("docs/control-plane/TRAJECTORY-ARKADIA-TRUTHFULNESS-01.ya
 EVIDENCE_DIR = Path("docs/control-plane/evidence")
 ACTIVE_STATUSES = frozenset({"pending", "revision_required", "in_progress"})
 TERMINAL_DONE = frozenset({"completed", "accepted", "merged"})
+# Valid trajectory states that cannot be dispatched as executable moves.
+# A merged PR remains pending until human acceptance evidence exists.
+NON_ROUTABLE_STATUSES = frozenset({"merged_acceptance_pending", "blocked", "failed", "aborted"})
 
 # Emitted only when a trajectory has genuinely nothing left to route. It is a
 # *clean stop*, distinguished from every blocker (an unroutable frontier). Downstream
@@ -114,6 +117,12 @@ def select_next_move(
         st = str(move.get("status", "pending")).lower()
         if _move_done(move, completion_index):
             continue
+        if st in NON_ROUTABLE_STATUSES:
+            if st == "merged_acceptance_pending":
+                blockers.append(f"{mid}: merged work awaits human acceptance evidence; merge alone is not acceptance")
+            else:
+                blockers.append(f"{mid}: move is not routable while status is {st!r}")
+            continue
         if st not in ACTIVE_STATUSES:
             # An unrecognized status is a data defect, not an absence of work. Skipping
             # it silently reported "all complete or dependencies unresolved" for a
@@ -169,7 +178,7 @@ def select_next_move(
         blockers.append(
             "unrecognized move status: " + ", ".join(unrecognized)
             + " — cannot route; expected one of "
-            + ", ".join(sorted(ACTIVE_STATUSES | TERMINAL_DONE))
+            + ", ".join(sorted(ACTIVE_STATUSES | TERMINAL_DONE | NON_ROUTABLE_STATUSES))
         )
     if dependency_blocked:
         blockers.append(
@@ -217,8 +226,9 @@ class EngineeringRouter:
         move, blockers = select_next_move(data, completion_index=completion)
 
         if move is None:
+            clean_stop = blockers == [CLEAN_STOP_BLOCKER]
             result = RouteResult(
-                status="NO_LEGAL_MOVE",
+                status="NO_LEGAL_MOVE" if clean_stop else "BLOCKED",
                 trajectory_id=tid,
                 repository_sha=sha,
                 session_id=self.session_id,
