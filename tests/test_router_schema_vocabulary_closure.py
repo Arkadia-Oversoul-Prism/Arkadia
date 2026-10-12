@@ -1,24 +1,21 @@
-"""Every schema-legal move status must be routable, or explicitly named unroutable.
+"""Every schema-legal move status must be active, terminal, or explicitly gated.
 
 `tests/test_trajectory_schema_conformance.py` guards the seam in one direction only:
 `router ⊆ schema` (the statuses the router acts on are schema-legal). The reverse
 direction — `schema ⊆ router` — was asserted nowhere, so the frozen contract could
 admit a status the router has no behaviour for and nothing failed.
 
-That gap is live. Four schema-legal statuses — `aborted`, `blocked`, `failed`,
-`merged_acceptance_pending` — are absent from `ACTIVE_STATUSES ∪ TERMINAL_DONE`, so
-`select_next_move()` cannot route a move carrying one. `merged_acceptance_pending`
-marks a live frontier (`G12-A`, `G12-C` on `TRAJECTORY-CONSOLE-COMPLETION-01.yaml`).
+That gap is live. Schema-legal states `aborted`, `blocked`, `failed`, `merged`, and
+`merged_acceptance_pending` require explicit non-routable treatment. The last marks a live
+frontier (`G12-A`, `G12-C` on `TRAJECTORY-CONSOLE-COMPLETION-01.yaml`).
 Before the truthfulness repair (PR #322) the skip was silent: the session reported the
 generic "no legal pending move (all complete or dependencies unresolved)" fallback for
 a trajectory that still carried active work. After #322 it is named — the frontier is
 still unroutable, but the session can say why.
 
-This guard pins the *classification* half of that seam, which is what the router can
-honestly promise: it does not demand that the vocabulary be closed (closing it, or
-teaching the router these four states, is a sovereign decision), only that a status
-outside the vocabulary is **reported** rather than skipped. The negative control pins
-the pre-#322 behaviour so this guard cannot be satisfied by reverting to a silent skip.
+This guard pins a complete status disposition: active statuses may route; completed/accepted
+statuses may terminate; merged-but-unaccepted and blocked/failure states are explicitly gated;
+statuses outside the schema are named as malformed. No gate status may satisfy a dependency.
 
 The guard is stdlib-only (plus `pytest`): it reads the JSON schema with `json`, the
 trajectory with a small line reader, and drives the router through its public
@@ -129,7 +126,7 @@ def test_every_schema_legal_status_is_routable_or_named_unroutable(status: str):
     )
 
 
-def test_schema_admits_exactly_four_statuses_the_router_cannot_route():
+def test_schema_statuses_have_explicit_active_terminal_or_gate_dispositions():
     """Pin the live vocabulary gap so a change to it is deliberate.
 
     `merged_acceptance_pending` encodes "the PR merged but repository acceptance
