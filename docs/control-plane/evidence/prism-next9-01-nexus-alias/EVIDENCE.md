@@ -6,6 +6,9 @@
 `tests/test_console_shell_nav_contract.py`. No file owned by Lane 2/3/4 is touched.
 **Authority:** inspection, implementation and test only. No merge, deployment, or acceptance.
 
+**Evidence freshness:** The reproduction and test/build results below were measured on predecessor PR #489 at its old base/head. The relevant source/test files were byte-identical between that old base and current main at branch cut, so the patch was replayed. These numbers are retained as historical provenance only. Current-head CI is tracked on PR #497; until it completes, this file does not claim the tests passed on the fresh head.
+
+
 ---
 
 ## 1. The defect (reproduced before any change)
@@ -98,7 +101,7 @@ legacy address bar to `/novanet/ims` instead of leaving a discarded path.
   existing assertion (`test_the_router_normalises_the_address_bar_to_a_declared_surface_path`)
   also judges the new paths.
 
-## 5. Checks run (this environment)
+## 5. Historical checks from predecessor PR #489 (not rerun on this head)
 
 | Check | Result |
 |---|---|
