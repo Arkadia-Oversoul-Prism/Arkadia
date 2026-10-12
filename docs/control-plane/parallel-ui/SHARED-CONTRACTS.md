@@ -22,6 +22,38 @@ The latest successful scheduled GitHub Engineering Scheduler run found during re
 
 The historical branches `feat/prism-next2-01-shell-contract-map`, `feat/prism-next2-02-opportunity-entry-flow`, `feat/prism-next2-03-knowledge-timeline`, and `feat/prism-next2-04-run-evidence-trace` must not be resumed as active work. #429–#431 are merged; #432 is closed unmerged; #475 is merged. After merge, each lane must start from a freshly fetched `main` and use one long-lived branch/PR for that lane. The GitHub scheduler's read-only permissions and dry-run behavior are not a substitute for an OpenHands dispatch mechanism.
 
+### Open-PR head and overlap reconciliation — measured 2026-10-12T12:27Z
+
+Nine PRs are open, all based on `main` `26521e246e575105ec9a42fec26dc66aeb4c98f4`. Heads are
+recorded above in §1 for lanes 1–4; the remaining open PRs are bounded gate10 / hygiene work
+carried by separate branches and are not among the four UI lanes:
+
+| PR | Branch | Head | Mergeable | Changed paths |
+|---|---|---|---|---|
+| #486 | `feat/prism-next3-01-contract-refresh` | `c30af89682` | true | `.gitleaks.toml`, this contract |
+| #481 | `gate10/sqlite-shared-connection-contamination-01` | `4ffe417e88` | true | knowledge-lifecycle guard workflow, test, evidence |
+| #482 | `gate10/history-depth-ci-wiring-01` | `03a4cabd3f` | **false** | `provider-routing.yml`, `AGENTS.md`, test, evidence |
+| #483 | `gate10/exempt-enforcement-verdict-01` | `4f96dbc4ce` | true | verdict-integrity test, evidence |
+| #484 | `gate10/beta-evidence-bundle-race-01` | `b7366e5f5d` | true | n-atlas-external-beta workflow, test, evidence |
+| #487 | `gate10/cp10-broad-suite-reach-01` | `9a3ee6ff09` | true | `sg-02-fe-2-v.yml`, test, evidence |
+| #485 | `fix/hourly-weaver-four-lane-handoff-2026-10-12` | `188755f5a0` | true | hourly handoff evidence, this workstream's directive |
+| #480 / #455 | bounded-technical-portfolio | `24f2f7a3e1` / `300b76c23f` | true | `docs/portfolio/BOUNDED_TECHNICAL_PORTFOLIO.md` |
+
+**Overlap:** the only changed-path overlap across the open PRs is #455 and #480, which both edit
+`docs/portfolio/BOUNDED_TECHNICAL_PORTFOLIO.md`; #480 is the reconciled successor of #455. The
+two `.github/workflows/*.yml` edits (#481, #482, #487) and the one `.gitleaks.toml` edit (#486)
+touch distinct files, so no two open PRs edit the same workflow or shared shell file.
+
+**Observed drift:** #482 is `mergeable=false` against current `main` — a real conflict in one of
+its changed files that its branch must resolve before merge. Reported here, not repaired: it is
+another lane's branch and resolving it is that lane's work, not this PR's. Not attributed to any
+change in this PR.
+
+**Mid-change actor check:** #486's head was `486024e0` at the start of this pass and no other
+open PR head moved during it; the only head this pass produced is #486's `c30af896`, from this
+PR's own fix commit.
+
+
 ### Exclusive source ownership
 
 | Workstream | Exclusive source ownership | Must not edit |
