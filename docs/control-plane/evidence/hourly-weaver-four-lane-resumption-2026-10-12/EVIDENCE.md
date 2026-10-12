@@ -21,19 +21,18 @@
 
 | Lane | Active PR / head | Base relationship to current main | Durable output / next action |
 |---|---|---|---|
-| W1 — Shell/navigation/integration | [#497](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/497), `cc1e8f7cb4f0047e208dd9e014a9b5166051face` | Fresh base `49809f45274f2f81b24e01fefdfb3009e8717495`; ahead 6, behind 0 | Fresh-base replay of legacy `/nexus/<sub>` deep-link resolution. The original PR recorded 32 focused shell-contract tests; current-head CI is in progress, so no current-head test pass is claimed. |
+| W1 — Shell/navigation/integration | [#497](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/497), `cc1e8f7cb4f0047e208dd9e014a9b5166051face` | Fresh base `49809f45274f2f81b24e01fefdfb3009e8717495`; ahead 6, behind 0 | Fresh-base replay of legacy `/nexus/<sub>` deep-link resolution. All nine reported workflow runs on this exact head completed successfully. The 32 focused shell-contract test count is historical predecessor evidence; no independent local test execution is claimed. |
 | W2 — NovaNet/Opportunity Radar | [#492](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/492), `2c24adb516f10c5491de0be50a1b732156598f62` | Fresh base `49809f45274f2f81b24e01fefdfb3009e8717495`; ahead 1, behind 0 | Per-status opportunity pipeline strip; off-vocabulary statuses counted instead of dropped. PR records 55 focused tests, 408 derived-domain tests, 11 architecture tests and frontend build. |
-| W3 — Solariun/Knowledge OS | [#498](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/498), `e7086afd0420f847cab6b9364857998db77b24e9` | Fresh base `49809f45274f2f81b24e01fefdfb3009e8717495`; ahead 5, behind 0 | Fresh-base replay of “Load older events” paging. Original PR recorded 52 paging/window/boundary tests; current-head CI is in progress, so no current-head test pass is claimed. |
+| W3 — Solariun/Knowledge OS | [#498](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/498), `e7086afd0420f847cab6b9364857998db77b24e9` | Fresh base `49809f45274f2f81b24e01fefdfb3009e8717495`; ahead 5, behind 0 | Fresh-base replay of “Load older events” paging. All nine reported workflow runs on this exact head completed successfully. The 52 paging/window/boundary test count is historical predecessor evidence; no independent local test execution is claimed. |
 | W4 — Arkana/Weaver/Engineering Lab | [#493](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/493), `d3e978d13d5a5f4bbb41776e46e8ef8bcb6ad619` | Fresh base `49809f45274f2f81b24e01fefdfb3009e8717495`; ahead 1, behind 0 | Read-only Lab automation grammar projection. PR records 49 focused tests, 450 derived-domain/wiring tests, 11 architecture tests and frontend build. Write-path remains intentionally unwired. |
 
-Check conclusions: old PRs #489 and #491 had nine successful workflow runs each on their old heads. Their fresh-main successors #497 and #498 now have current-head CI in progress. PRs #492 and #493 each have nine successful workflow runs on their fresh-base heads. PR bodies contain command-level evidence; do not promote PR-reported tests to independently re-executed tests in this checkpoint.
+Check conclusions: PRs #497, #492, #498, and #493 each have nine successful workflow runs on their recorded fresh-base heads. PR bodies contain command-level evidence; predecessor test counts remain historical and are not represented as independently re-executed in this checkpoint.
 
-## 3. Control-plane router defect
+## 3. Control-plane router defect and proposed repair
 
-- Proposed router PR [#495](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/495) is **closed without merge**.
-- The first patch violated the pinned vocabulary decision (8 failures / 36 passes). The revised patch preserved the vocabulary but changed `NO_LEGAL_MOVE` to `BLOCKED`; the worker→attention composition guard then failed 2 tests because it explicitly expects `NO_LEGAL_MOVE` with blocker details carried separately.
-- The source of truth is therefore the existing behavior: schema-only statuses remain named as unroutable, dependency blockers are recorded, and the worker/attention contract expects `NO_LEGAL_MOVE`. Do not change router semantics without revisiting the worker→attention contract and its governance decision together.
-- No router fix is accepted or claimed. The control-plane correction belongs first in coordinator interpretation and dispatch proof, not in a speculative router status rewrite.
+- Proposed router PR [#495](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/495) is **closed without merge** after two contract-conflicting approaches.
+- Fresh-main [PR #499](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/499), head `c1e7718b084f35a47322256f7f4ef58b8e34b31c`, proposes explicit non-routable gates for `merged`, `merged_acceptance_pending`, `blocked`, `failed`, and `aborted`; only `completed`/`accepted` remain terminal. It preserves the worker result `NO_LEGAL_MOVE` and projects the acceptance gate into the existing high-priority attention path.
+- This specifically avoids both unsafe alternatives: routing an already-merged move as active, or treating a merge as acceptance. Schema/router/worker-composition CI is still running; no fix is accepted or verified yet.
 
 ## 4. Portfolio boundary
 
@@ -46,4 +45,4 @@ Check conclusions: old PRs #489 and #491 had nine successful workflow runs each 
 - No PR merged, no production deployment triggered, and no acceptance declared in this recovery.
 - Render remains the only canonical production origin.
 - Human retains merge, production-deployment, and acceptance authority.
-- Next: wait for and inspect current-head CI on #497/#498; keep #492/#493 as fresh-base independent drafts; use the corrected evidence/contract PR #496 to consolidate the live state; do not merge or claim acceptance.
+- Next: inspect current-head CI on #499; retain #497/#492/#498/#493 as independent drafts (all nine reported workflows passed on each current head); recover the missing callable OpenHands dispatch/inspection interface; do not merge or claim acceptance.
