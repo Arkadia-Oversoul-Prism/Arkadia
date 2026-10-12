@@ -49,7 +49,6 @@ def test_protected_risk_requires_explicit_human_approval_even_if_auto_merge_flag
     pr = ready_pr(
         risk_class=RiskClass.PROTECTED,
         policy_authorizes_auto_merge=True,
-        explicit_human_approval=False,
     )
     assert evaluate_merge_readiness(pr, POLICY).decision is Decision.READY_FOR_HUMAN_DECISION
 
