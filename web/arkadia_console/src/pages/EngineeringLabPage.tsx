@@ -4,10 +4,19 @@ import { LabArtifactCanvas } from "../components/lab/LabArtifactCanvas";
 import { LabAgentRegistry } from "../components/lab/LabAgentRegistry";
 import { LabModelGateway } from "../components/lab/LabModelGateway";
 import { LabAutomationGrammar } from "../components/lab/LabAutomationGrammar";
+import { ExecutionLoop } from "../components/lab/ExecutionLoop";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
 import { endpoints } from "../lib/endpoints";
 import type { NAtlasCatalog } from "../lib/types";
+
+/** The runtime's own loop definition, read directly from the overview response.
+ *  A malformed payload yields no stages, so the surface reports an unfilled
+ *  definition rather than inferring one. */
+function readLoopStages(overview: Record<string, unknown> | null): string[] {
+  const loop = overview?.loop;
+  return Array.isArray(loop) ? loop.filter((stage): stage is string => typeof stage === "string") : [];
+}
 
 export function EngineeringLabPage() {
   const overview = useHydration<Record<string, unknown>>(endpoints.labEngineeringOverview, (p) =>
@@ -32,6 +41,8 @@ export function EngineeringLabPage() {
           <ContractState state={overview.state} error={overview.error?.message} onRetry={overview.reload} />
         )}
       </Panel>
+
+      <ExecutionLoop stages={readLoopStages(overview.state === "ready" ? overview.data : null)} />
 
       <Panel className="mb-4">
         <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">N-ATLAS provider (effective state)</p>
