@@ -3,6 +3,7 @@ import { LabSessionList } from "../components/lab/LabSessionList";
 import { LabArtifactCanvas } from "../components/lab/LabArtifactCanvas";
 import { LabAgentRegistry } from "../components/lab/LabAgentRegistry";
 import { LabModelGateway } from "../components/lab/LabModelGateway";
+import { LabAutomationGrammar } from "../components/lab/LabAutomationGrammar";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
 import { endpoints } from "../lib/endpoints";
@@ -56,6 +57,8 @@ export function EngineeringLabPage() {
       <LabAgentRegistry />
 
       <LabModelGateway />
+
+      <LabAutomationGrammar />
 
       <NotYetWired
         contract="/api/lab/engineering/sessions/{id}/execute"
