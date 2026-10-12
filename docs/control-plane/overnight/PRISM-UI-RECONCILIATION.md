@@ -110,44 +110,37 @@ The prior UI accumulated route suffixes, aliases, and overlapping page structure
 
 ## 6. Per-pulse execution loop — four-workstream governance
 
-On **each Hourly Weaver pulse**, perform these steps in order. The accepted shared contract at `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md` and the four durable agent instructions are mandatory inputs.
+On **each Hourly Weaver / OpenHands pulse**, the accepted contract at `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md`, `AGENTS.md`, the four durable workstream instructions, current `main`, live PRs/branches/checks, and latest run evidence are mandatory inputs. The contract defines ownership; live GitHub state defines what is currently active.
 
-1. **Reconstruct:** fetch current `main` SHA; PR #418 state/head/diff/checks; PRs #419–#422 state/head/checks; all four assigned branches; relevant files and current evidence. Do not assume a PR is merged or a branch is current from memory.
-2. **Select:** select one bounded task within the active workstream's ownership. State why it outranks alternatives.
-3. **Check ownership:** compare every intended path against the shared contract. If another workstream owns it, do not edit it; create a precise interface request/blocker for the owner.
-4. **Change:** edit only owned source/tests/evidence. No opportunistic refactors or duplicate implementations.
-5. **Verify:** run narrow tests, typecheck/build, route checks and applicable security/architecture guards. Compare new failures to a fresh baseline by node identity.
-6. **Record:** update feature matrix/work log with full SHA, paths, commands, exact results, failures, unknowns and next move.
-7. **Commit:** commit verified progress only to the workstream's assigned branch and update its existing PR. Never create a new PR for each pulse.
-8. **Reconcile:** reread branch/PR heads, checks and changed-file overlap across all four PRs. Stop if another actor moved a branch or semantic integration is unclear.
-9. **Integrate:** continuously identify dependency order and overlap; do not merge one PR into another or main automatically. Shared contract/interface changes go through Workstream 1 and require explicit human review.
-10. **Report:** end with exact state per workstream: IMPLEMENTED, BUILD/TEST PASSED, PREVIEW READY, PREVIEW VERIFIED, BLOCKED, or UNKNOWN. No inferred progress.
+1. **Prove the pulse source and outcome.** Identify the actual scheduler/run, trigger, timestamp, head SHA, dry-run setting, worker/agent dispatch evidence, and durable output. A green scheduler job is not proof that OpenHands agents were dispatched. If the run is only an orientation/dry-run or returns `NO_LEGAL_MOVE`, report that literally and do not claim source work advanced.
+2. **Reconstruct from live state.** Fetch current `main` SHA; enumerate all four assigned branches and matching open PRs; inspect head/base SHAs, latest meaningful commits, check conclusions, and changed files. Treat closed/merged PRs as history, never as active work surfaces. Never copy an old branch map forward without measurement.
+3. **Check contract freshness.** If the accepted shared contract's branch map contradicts live state, Workstream 1 must reconcile that coordinator-owned contract on its own branch/PR. Until merged, this directive's live reconstruction is authoritative for the current pulse; no stale PR number or branch may be resumed.
+4. **Select one bounded task per lane.** Stay inside the lane's exclusive ownership. State the concrete user-visible or enabling outcome and why it outranks alternatives. If a lane has no authorized OpenHands worker/dispatch, record the exact dispatch/control-plane blocker rather than pretending to run an agent.
+5. **Change and verify.** Edit only owned source/tests/evidence. Run narrow tests, typecheck/build, route checks and applicable security/architecture guards. Compare new failures with a fresh baseline by test-node identity.
+6. **Record durable evidence.** For each lane, record full base/head SHAs, branch and PR URL, last meaningful commit, changed paths, commands and exact results, checks, unknowns/blockers, and next bounded move. A status summary without these artifacts is not a work result.
+7. **Commit to the lane's long-lived PR.** Each lane uses one long-lived branch/PR at a time. After a human merge, that lane creates its next branch from freshly fetched `main` and opens its next draft PR. Never create a new PR for each pulse or resume a closed branch.
+8. **Reconcile cross-lane state.** Re-read all four heads/checks and inspect file overlap. Workstream 1 owns shared shell, routes, endpoint/type registries and the shared branch map. Feature lanes must request shared-seam changes rather than edit them directly.
+9. **Preserve human authority.** Agents may inspect, implement, test, commit and update draft PRs. They may not merge, deploy production, or declare acceptance. Production remains Render only.
+10. **Report exact per-lane outcomes.** Use `IMPLEMENTED`, `TESTED`, `BLOCKED`, or `NOT DISPATCHED` with linked evidence. Do not infer concurrency, advancement, or success from workflow status alone.
 
-1. **Reconstruct:** fetch current `main`, this branch, the existing PR, relevant open PRs, current CI/check-runs, and the latest evidence. Confirm the branch/PR is still the one authorized work surface. If `main` moved, inspect the delta before continuing.
-2. **Select:** choose one bounded, user-visible slice or one enabling inventory/test task. State why it outranks alternatives.
-3. **Change:** edit only the required source, tests, and evidence. No opportunistic refactors.
-4. **Verify:** run the narrow tests, TypeScript/build checks, route checks, and any applicable security/architecture guards. Compare new failures with a fresh baseline by test-node identity.
-5. **Record:** update the feature matrix and work log with full SHA, paths, commands, exact results, failures, unknowns, and next move.
-6. **Commit:** commit only verified progress to this same branch and update this same PR. Each of the four accepted workstreams also maintains its own durable branch/PR; do not create a new PR per pulse.
-7. **Reconcile:** reread `main`, this PR, PRs #420–#423, changed-file overlap and checks before the next pulse. PR #419 is the merged governance contract; #420–#423 are the four implementation workstreams. Stop only for a real ownership, safety, authority, or integration blocker—not because another workstream exists.
+A pulse with no safe, verified source change must produce a precise blocker and next action, not a speculative commit. Do not measure progress by file count, line count, percentage, or green scheduler status alone.
 
-A pulse with no safe, verified source change must produce a precise blocker/next-action record rather than a speculative commit. Do not measure progress by number of files changed, lines written, or a claimed percentage.
+## 7. Four workstreams — live branch map, not permanent identifiers
 
-## 7. Four branches, four PRs, human merge and acceptance
+The accepted parallel-work contract supersedes the former single-branch/single-PR rule. The shared contract defines exclusive ownership, but its branch/PR observations are snapshots, not durable identifiers. At the start of every pulse, reconstruct the live map from GitHub and reconcile it through Workstream 1.
 
-The former single-branch/single-PR rule is superseded by the explicitly accepted parallel-work governance contract in `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md`.
+**Last verified snapshot (2026-10-12, `main` `26521e246e575105ec9a42fec26dc66aeb4c98f4`):**
 
-- **Governance contract:** PR #419 is merged into main. **Workstream 1 implementation:** `feat/prism-parallel-01-shell-implementation` / PR #423 — shared shell, navigation, route/surface registry, shared tests and integration contracts.
-- **Workstream 2:** `feat/prism-parallel-02-novanet-opportunity` / PR #420 — NovaNet page-local work and project Opportunity Radar feature modules.
-- **Workstream 3:** `feat/prism-parallel-03-solariun-knowledge` / PR #421 — Solariun and Knowledge OS feature-local modules.
-- **Workstream 4:** `feat/prism-parallel-04-arkana-weaver-lab` / PR #422 — Arkana, Weaver and Engineering Lab feature-local modules.
-- Every pulse must read the shared contract and the relevant durable instruction under `docs/control-plane/parallel-ui/`.
-- The single-owner table in the shared contract is binding. Shared route/API registry/type files are integrated by Workstream 1; feature agents submit exact contract changes rather than editing shared files directly.
-- Keep feature PRs draft while work is in progress. Do not mark a PR ready solely because an agent finished a turn.
-- **PR #418 disposition:** preserve it intact as the current existing shell + NovaNet implementation/evidence slice. Do not copy its changes into each new branch, rewrite its history, cherry-pick blindly, or close it automatically. Workstreams 1 and 2 must treat the paths already changed by #418 as existing implementation to reconcile, not recreate. Until #418 is merged or explicitly superseded by a human decision, avoid conflicting source edits to its owned files; Workstreams 1 and 2 may work on non-overlapping tests, inventory, evidence, and feature-local new modules while recording integration requests. Workstreams 3 and 4 may proceed in their isolated feature-owned paths.
-- Agents may inspect, implement, test, document, commit to their assigned branch, and update their PR. They may not merge any PR, deploy production, or declare product acceptance.
-- Integration means continuous overlap/dependency review and shared-contract reconciliation—not automatic merging. The human retains merge, production-deployment, and acceptance authority.
-- Do not force-push, bypass required checks, weaken tests, delete archive history, or change provider settings.
+| Workstream | Last implementation PR | Verified disposition | Next required action |
+|---|---|---|---|
+| 1. Shell, navigation, design system, integration contracts | [#429](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/429) | Merged; old `feat/prism-next2-01-shell-contract-map` is history | Refresh shared contract branch map and select one fresh-base shell/integration task |
+| 2. NovaNet and project Opportunity Radar | [#430](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/430) | Merged; old `feat/prism-next2-02-opportunity-entry-flow` is history | Select one fresh-base, feature-local opportunity improvement |
+| 3. Solariun and Knowledge OS | [#431](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/431) | Merged; old `feat/prism-next2-03-knowledge-timeline` is history | Select one fresh-base, feature-local knowledge improvement |
+| 4. Arkana, Weaver, Engineering Lab | [#432](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/432) closed unmerged; retained trace/model-gateway work merged via [#475](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/475) | #432 is history; #475 is merged history, not an active PR | Select one fresh-base, feature-local Arkana/Weaver/Lab improvement |
+
+**Automation evidence boundary:** the latest successful GitHub scheduled Engineering Scheduler run found during this reconciliation is [#38165015207](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/38165015207), on 2026-10-11 at 18:43:34 UTC, at head `36df0ea8169087802e4fc34ae96496058a380d05`. Its actual log reports `status=NO_LEGAL_MOVE`, `next_move=NONE`, and `dry_run=true`. It proves the scheduler ran; it does **not** prove four OpenHands workstreams were dispatched or advanced. No newer scheduled run was found in the retrieved schedule-run history. Keep this limitation explicit until a real OpenHands dispatch and each lane's output are observed.
+
+The first-wave PRs (#420–#423), next-wave PRs (#429–#432), and reconciliation PRs #471–#475 are history according to their live dispositions. Do not reopen or continue them as active work. Create fresh branches from the current `main` for the next bounded tasks; Workstream 1 updates the accepted contract's active branch map in its own PR. The human retains merge, production-deployment, and acceptance authority.
 
 ## 8. Deployment boundary — explicit current rule
 
