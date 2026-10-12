@@ -60,6 +60,28 @@ def registry_anchored(paths: list[str]) -> bool:
     return all(p.strip().startswith("endpoints.") for p in paths)
 
 
+#: The exported component is the shell the Arkana surface mounts on *every* visit,
+#: including anonymous ones.
+EXPORTED_COMPONENT = "export function ArkanaThreadHistory()"
+
+
+def exported_component_body(text: str) -> str:
+    """The body of the exported `ArkanaThreadHistory` component.
+
+    The module's own closing brace of that function is the first line that is
+    exactly `}` at column zero -- every nested block closes indented -- so the
+    slice is unambiguous for this shape.
+    """
+    start = text.index(EXPORTED_COMPONENT)
+    end = text.index("\n}", start)
+    return text[start:end]
+
+
+def spends_anonymous_protected_read(body: str) -> bool:
+    """A component body that mounts an owner-scoped read unconditionally."""
+    return "useHydration<" in body or "apiRequest<" in body
+
+
 # ---------------------------------------------------------------------------
 # The slice is mounted on the Arkana page
 # ---------------------------------------------------------------------------
@@ -161,6 +183,60 @@ def test_contract_does_not_leak_the_owner_field():
     """
     contract = _read(CONTRACT)
     assert re.search(r"^\s*user_id\??\s*:", contract, re.M) is None
+
+
+# ---------------------------------------------------------------------------
+# Anonymous visit spends no owner-scoped read
+# ---------------------------------------------------------------------------
+
+
+def test_exported_shell_does_not_attempt_the_owner_scoped_read():
+    """The Arkana surface is public; the shell it mounts must not fetch a
+    protected contract before any identity is known.
+
+    Measured at `main` `7b672157`: `/oracle` rendered a clean page but the
+    browser logged `401` -- the canonical Render browser-smoke gate failed on
+    that one route alone -- because this slice spent its owner-scoped read for
+    every anonymous visit. The read now lives behind the identity gate.
+    """
+    component = _read(COMPONENT)
+    body = exported_component_body(component)
+    assert not spends_anonymous_protected_read(body), (
+        "the always-mounted Arkana thread-history shell issues an owner-scoped read; "
+        "an anonymous visitor cannot satisfy it"
+    )
+    # The gate is the shared identity context, not a page-local re-derivation.
+    assert "useAuth()" in body
+    assert "isAuthenticated" in body
+    assert "loading" in body
+
+
+def test_negative_control_detector_flags_an_ungated_shell():
+    """The detector must report the defect it exists to catch."""
+    ungated = (
+        "export function ArkanaThreadHistory() {\n"
+        "  const threads = useHydration<ArkanaThreadList>(endpoints.arkanaThreads, (p) =>\n"
+        "    apiRequest<ArkanaThreadList>(p),\n"
+        "  );\n"
+        "  return null;\n"
+        "}"
+    )
+    assert spends_anonymous_protected_read(exported_component_body(ungated)) is True
+    gated = (
+        "export function ArkanaThreadHistory() {\n"
+        "  const { loading, isAuthenticated } = useAuth();\n"
+        "  if (!isAuthenticated) return null;\n"
+        "  return <AuthenticatedThreadHistory />;\n"
+        "}"
+    )
+    assert spends_anonymous_protected_read(exported_component_body(gated)) is False
+
+
+def test_the_gated_read_still_targets_the_registry_collection():
+    """The gate must not hide the read: the authenticated slice still reads it."""
+    component = _read(COMPONENT)
+    assert hydration_path_arguments(component), "the module performs no hydration read at all"
+    assert "AuthenticatedThreadHistory" in component
 
 
 # ---------------------------------------------------------------------------
