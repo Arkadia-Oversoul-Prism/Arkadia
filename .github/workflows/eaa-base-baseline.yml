@@ -22,11 +22,13 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install pytest
-      - name: Run candidate failure set against exact EAA base SHA
+      - name: Run full suite against exact EAA base SHA
+        continue-on-error: true
         run: |
           python -m pytest tests/ -q -rEf --continue-on-collection-errors \
             --ignore=tests/test_autonomy.py
       - name: Reproduce autonomy collection error on exact base
+        if: always()
         continue-on-error: true
         run: |
           python -m pytest tests/test_autonomy.py -q
