@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://arkadia.invalid/schemas/engineering-acceptance-decision-v1.json",
+  "$id": "https://github.com/Arkadia-Oversoul-Prism/Arkadia/blob/main/docs/control-plane/engineering-acceptance-authority/decision.schema.json",
   "title": "Engineering Acceptance Authority decision envelope",
   "type": "object",
   "additionalProperties": false,
@@ -11,6 +11,7 @@
     "base_sha",
     "candidate_sha",
     "observed_head_sha",
+    "observed_base_sha",
     "policy_id",
     "policy_version",
     "risk_class",
@@ -27,6 +28,7 @@
     "base_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "candidate_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "observed_head_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "observed_base_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "policy_id": {"type": "string", "minLength": 1},
     "policy_version": {"type": "string", "minLength": 1},
     "risk_class": {"enum": ["ROUTINE", "ELEVATED", "PROTECTED", "UNKNOWN"]},
