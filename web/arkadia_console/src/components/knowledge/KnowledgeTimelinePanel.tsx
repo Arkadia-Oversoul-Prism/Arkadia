@@ -22,10 +22,13 @@ import { apiRequest, ApiError } from "../../lib/apiClient";
 import { endpoints } from "../../lib/endpoints";
 import {
   TIMELINE_EVENT_TYPES,
+  TIMELINE_WINDOW_LIMIT,
   classifyTimelineScope,
   emptyTimelineNotice,
   isTimelineEvents,
+  isWindowSaturated,
   timelineEventSummary,
+  timelineWindowNotice,
   type TimelineEvent,
   type ViewerKind,
 } from "../../pages/knowledge/knowledgeContracts";
@@ -49,10 +52,10 @@ export function KnowledgeTimelinePanel() {
   const [eventType, setEventType] = useState("");
 
   // Derived from the declared collection so the base path cannot drift from the
-  // registry; the filter is a query parameter, not a second endpoint.
-  const timelinePath = eventType
-    ? `${endpoints.knowledgeTimeline}?event_type=${encodeURIComponent(eventType)}`
-    : endpoints.knowledgeTimeline;
+  // registry; the limit and filter are query parameters, not a second endpoint.
+  const timelinePath = `${endpoints.knowledgeTimeline}?limit=${TIMELINE_WINDOW_LIMIT}${
+    eventType ? `&event_type=${encodeURIComponent(eventType)}` : ""
+  }`;
 
   const timeline = useHydration<TimelineEvent[]>(timelinePath, readTimeline, [isAuthenticated, eventType]);
 
@@ -102,6 +105,7 @@ function TimelineReading({ events, scope }: { events: TimelineEvent[]; scope: Re
   }
 
   const latest = events[events.length - 1];
+  const window = { limit: TIMELINE_WINDOW_LIMIT, returned: events.length };
 
   return (
     <div className="flex flex-col gap-4" data-testid="knowledge-timeline-events">
@@ -109,10 +113,14 @@ function TimelineReading({ events, scope }: { events: TimelineEvent[]; scope: Re
         rows={[
           { label: "events shown", value: String(events.length) },
           { label: "scope", value: scope },
-          { label: "first", value: events[0].created_at },
+          { label: "window", value: isWindowSaturated(window) ? "newest" : "complete" },
+          { label: "oldest shown", value: events[0].created_at },
           { label: "latest", value: latest.created_at },
         ]}
       />
+      <p data-testid="knowledge-timeline-window" className="text-xs text-white/45">
+        {timelineWindowNotice(window)}
+      </p>
       <ol className="flex flex-col gap-2">
         {events.map((event) => (
           <li key={event.id} className="border-l border-line pl-3" data-testid={`knowledge-timeline-event-${event.id}`}>
