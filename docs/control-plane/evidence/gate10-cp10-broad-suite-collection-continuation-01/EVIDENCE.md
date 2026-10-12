@@ -142,7 +142,8 @@ Two open GATE-10 PRs touch the contested file `.github/workflows/sg-02-fe-2-v.ym
 
 This repair touches the **CP10-B step** (~line 210-222), a region disjoint from both.
 Composition was checked by `git apply --3way` of each sibling patch onto this branch's
-head (`4f876645`) in a detached worktree:
+head (`4f876645`, the pre-amend commit; the pushed head `427da5a7` carries the same tree
+plus this evidence paragraph) in a detached worktree:
 
 ```
 git worktree add --detach /tmp/wt-compose 4f876645
@@ -152,6 +153,10 @@ git status --short | grep -E '^(UU|AA|DD)'   # NO CONFLICTS
 grep -n continue-on-collection-errors .github/workflows/sg-02-fe-2-v.yml
   -> 251: run: python -m pytest tests/ -q --continue-on-collection-errors ...
 ```
+
+The composition measurement binds to the **tree**, which is unchanged by the amend — only
+the commit SHA moved. The workflow and guard blobs at `4f876645` and `427da5a7` are
+byte-identical.
 
 **Semantic check (conflict-free is not proof of compatibility):** on the composed tree,
 
@@ -166,7 +171,58 @@ All three guards hold together, and the CP10-B step survives composition with th
 intact. Merge order is the sovereign's; the three regions are textually and semantically
 independent.
 
-## 6. What is NOT claimed
+## 6. CI attribution on the pushed head (measured, not argued)
+
+`gh pr checks 462` on the pushed head `427da5a7`:
+
+| Gate | Conclusion | Note |
+|---|---|---|
+| `validate` | **pass** | the gate this repair targets — it executes the full suite |
+| `boot-syntax` | pass | `api/main.py` untouched, still compiles |
+| `trigger-coverage` | pass | the new workflow/guard coverage holds |
+| `Full-history secret scan` | pass | |
+| `provider-routing` | **failure** | **pre-existing `main` debt — proven by node identity below** |
+
+`provider-routing` is the other whole-suite surface, and it also runs
+`tests/test_ci_suite_collection_continuation.py`, so its failure had to be attributed
+before this pass could be called safe. Attribution was **measured**, not inferred:
+
+```
+# controlled baseline: same workflow, same environment, ref=main
+gh workflow run provider-routing.yml --ref main      # run 38203666667
+#   head SHA = 850216fc99b0eab66a66f8a8290c0db33823b681   (== main)
+
+gh run view 38203666667 --log-failed | grep -oE "(FAILED|ERROR) tests/[^ ]+" | sort -u
+  -> 22 nodes   (/tmp/nodes_main.txt)
+gh run view 38203244231 --log-failed | ... | sort -u
+  -> 22 nodes   (/tmp/nodes_branch.txt)
+
+diff /tmp/nodes_main.txt /tmp/nodes_branch.txt
+  -> no output   =>  IDENTICAL FAILING/ERROR NODE SETS
+```
+
+`main` **itself** fails `provider-routing` on the same 22 nodes, and the branch's set is
+**identical**. None of the 22 nodes are in this repair's files
+(`grep -c test_ci_suite_collection_continuation /tmp/nodes_branch.txt` -> `0`). The failure
+is therefore **not attributable to this branch**; it is the documented pre-existing debt
+class (the CE-01 `weaver.autonomy` module-vs-package collision, the unowned
+`tests/test_engineering_lab_api.py` authority-surface pins, the Landing-copy pin, and the
+`AGENTS.md` encoding-adjudication pins), all of which this pass **recorded and did not
+touch**.
+
+**Why `validate` passing is the right signal here.** `validate` is the gate that runs the
+whole suite as a *judging* surface, and it went green on this head — which is only possible
+because the suite actually reached the tests. `provider-routing`'s red is the debt
+`continue-on-error` exists to *report*, and that is exactly the distinction the repair
+preserves: reporting vs. judging.
+
+**Superseded citation.** An earlier draft of this record named the composition head as
+`4f876645`. That was the pre-amend commit; the pushed head is `427da5a7`. The **tree** is
+unchanged by the amend — `git rev-parse 4f876645:<f>` and `git rev-parse 427da5a7:<f>` are
+byte-identical for both changed files (`ca41c49a…` workflow, `9322539976…` guard) — so the
+composition measurement still binds. The earlier SHA is superseded by this measurement.
+
+## 7. What is NOT claimed
 
 - No merge. Human sovereign retains merge authority.
 - This is a **repository-source** repair; the flag's effect in CI is proven by the

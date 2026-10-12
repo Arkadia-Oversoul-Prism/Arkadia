@@ -3,7 +3,23 @@
 **Gate** := GATE-10 (governed execution / gate hygiene)
 **Branch** := `gate10/cp10-broad-suite-collection-continuation-01`
 **BASE_MAIN** := `850216fc99b0eab66a66f8a8290c0db33823b681`
+**PR** := #462
+**Head at last pass** := `427da5a7a9aaf238a3c19e8570d98fd583a38c2c`
 **Status** := IMPLEMENTED (repository-source); PR open; **sovereign review required**
+
+## CI result on the pushed head (measured)
+
+| Gate | Conclusion |
+|---|---|
+| `validate` (runs the full suite as a *judging* surface) | **pass** |
+| `boot-syntax`, `trigger-coverage`, `Full-history secret scan` | pass |
+| `provider-routing` | failure — **pre-existing `main` debt, node-identical** |
+
+Attribution was measured, not argued: `gh workflow run provider-routing.yml --ref main`
+(run `38203666667`, head `850216fc` == main) reproduces the **same 22-node** failing/error
+set as the branch run (`38203244231`); `diff` of the two sorted node lists is empty, and
+none of the 22 nodes are in this repair's files. `main` itself fails `provider-routing`.
+See EVIDENCE.md §6.
 
 ## Objective
 
