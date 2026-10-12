@@ -1423,3 +1423,49 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
 - `git push` in this sandbox needs `git config credential.helper '!gh auth git-credential'` and
   `GIT_TERMINAL_PROMPT=0`; a bare push blocks on an interactive prompt. Evidence:
   `docs/control-plane/evidence/gate10-prism-console-contract-domain-completion-01/`. PR #439.
+
+## A shallow clone fails four AGENTS.md adjudication nodes on *every* revision (gate-hygiene)
+- Measured this pass on a `--depth` clone (`git rev-parse --is-shallow-repository` -> `true`):
+  `tests/test_agents_md_encoding_adjudication.py` reports **4 failed, 13 passed, 6 skipped** on
+  `main` `f390526` *and* identically on the branch head `b16d066` — the same four nodes:
+  `test_live_file_verdict_matches_its_state`, `test_corruption_origin_is_re_derivable`,
+  `test_cli_summarises_the_oracle_without_crashing`,
+  `test_exit_code_does_not_call_a_divergent_clean_file_verified`.
+- The cause is the **oracle revision**, not the working tree: `git cat-file -t 6c43218a48a4` ->
+  `fatal: Not a valid object name`. `_rev()` returns `None`, so `oracle_checked` is `False`,
+  `decidable_basis` falls to `"none"`, and `exit_code()` takes exit **2** instead of the
+  exit **1** that `test_live_file_verdict_matches_its_state` demands for a mojibake-free file.
+  The live file is clean (`cyrillic == 0`, `corrupted_lines == 0`); the *verdict* is what the
+  shallow clone cannot reach.
+- **Consequence for a regression claim:** when the baseline is measured in the same shallow
+  clone, those four nodes sit in the failing set on *both* sides, so a node-set comparison is
+  unaffected. Do not read them as branch-caused, and do not "repair" them — the repair is
+  `fetch-depth: 0`, which is already the documented requirement for this guard's CI wiring.
+- **A `+N passed` delta is still attributable by node identity.** This pass reproduced the
+  branch's recorded fingerprint exactly: `main` `22 failed, 2342 passed, 22 skipped, 1 error`
+  and branch `22 failed, 2368 passed, 22 skipped, 1 error`, with the sorted failing/error node
+  lists hashing identically (`sha256 8bc3c64dd160c369687b55bdfdf2789e1fd98c3dbfdb68ea5a11720dc1de9e40`,
+  23 nodes each, `comm -3` empty). The `+26` is the new wiring file's 21 nodes plus the
+  generic workflow-scanning suites gaining nodes by construction.
+- **An append that only adds lines leaves the AGENTS.md audit verdict untouched — but only
+  when the oracle revision is reachable.** Measured on a shallow `--depth` clone:
+  `scripts/agents_md_encoding_audit.py` reports `oracle_checked=False`,
+  `decidable_basis="none"`, `cyrillic_before == cyrillic_after == 0`, exit **2** — identical
+  on the committed blob and after an insert-only append. The counters that move are the
+  audit's own derived ones (`lines` 1388 -> this file's current length, `clean_lines` 1130 ->
+  +33, `non_ascii` 318 -> the count including the legitimate em dashes in this prose; Cyrillic
+  stays 0). Record the *baseline* values and the *delta*, never the post-append absolute
+  counts: a bullet that quotes its own file's length goes stale the moment it is edited, which
+  is how the first draft of this bullet came to assert `1409` — a number nobody measured.
+- **The decisive control is `git fetch --unshallow`.** Same file, same commit, oracle now
+  present (`6c43218a48a4`): `oracle_checked=True`, `decidable_basis="oracle"`,
+  `oracle_reproduced=True`, `oracle_alterations=[]`, and exit **1** — the clean-and-corroborated
+  code, not 2. The same two AGENTS.md-facing suites move from `4 failed, 79 passed, 6 skipped`
+  to `84 passed, 5 skipped` (adjudication alone: 4 failed -> 18 passed over the same 23 nodes).
+  So exit 2 was *entirely* clone depth and the append was never implicated. `decidable` stays
+  `False` even with the oracle because `cruft_delta_vs_oracle` is non-zero — **pre-existing
+  on HEAD** (delta 4: six U+00A7/U+00B7 against the oracle's two). This bullet must name
+  those characters by **codepoint**, never paste them: pasting them is itself what raises
+  the delta (the first draft of this line moved it 4 -> 6). `decidable` and `exit_code`
+  are different verdicts, and only the exit code carries the clean-file claim.
+  Insert-only edits are safe here; a line *rewrite* of oracle-carried text is not.
