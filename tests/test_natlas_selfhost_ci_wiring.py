@@ -134,6 +134,15 @@ def _contract_workflows() -> list[str]:
     return [p.name for p in _workflow_paths() if _runs_contract(_load(p))]
 
 
+def _wiring_steps(workflow: dict) -> list[dict]:
+    """Steps whose ``run:`` command names *this* wiring guard."""
+    return [s for s in _steps(workflow) if isinstance(s.get("run"), str) and _WIRING_FILE in s["run"]]
+
+
+def _executes_wiring_guard(workflow: dict) -> bool:
+    return bool(_wiring_steps(workflow))
+
+
 # ---------------------------------------------------------------- detector controls
 
 
@@ -234,3 +243,40 @@ def test_the_gate_selects_its_own_wiring_guard():
     paths = _path_filter(_trigger_block(_load(WORKFLOWS / name)), "pull_request")
     assert paths is not None
     assert _selects_path(paths, _WIRING_FILE)
+
+
+def test_executes_wiring_guard_detector_distinguishes_the_forms():
+    """Negative control for the execute-side detector: a mention is not an execution.
+
+    The pre-repair gate listed ``_WIRING_FILE`` in its ``paths`` filter but named it in no
+    ``run:`` block. A detector that accepted the word anywhere would read that as coverage.
+    """
+    runs_it = {"jobs": {"j": {"steps": [{"run": f"python -m pytest {_WIRING_FILE} -q"}]}}}
+    mentions_it = {"jobs": {"j": {"steps": [{"run": 'python -m pytest tests/test_natlas_developer_lab.py -q'}]}}}
+    assert _executes_wiring_guard(runs_it)
+    assert not _executes_wiring_guard(mentions_it)
+
+
+@pytest.mark.parametrize("name", _contract_workflows())
+def test_contract_workflow_executes_its_own_wiring_guard(name: str):
+    """Selecting the wiring guard is not executing it.
+
+    The gate's ``paths`` filter already named this file, so a change to it *triggered* the
+    job — while no step ran it. The guard asserted three facts about the gate (it runs the
+    contract, its filter covers the whole deployment unit, it smoke-runs the image) and was
+    itself executed by nothing. Requiring the gate to run the guard means a later rewrite of
+    the gate is judged by the guard it advertises, in the gate, on the same commit.
+    """
+    workflow = _load(WORKFLOWS / name)
+    paths = _path_filter(_trigger_block(workflow), "pull_request")
+    if paths is None or not _selects_path(paths, _WIRING_FILE):
+        pytest.skip(f"{name} does not select {_WIRING_FILE}; the execute-side rule does not bind")
+    assert _executes_wiring_guard(workflow), (
+        f"{name} selects {_WIRING_FILE} but no step executes it; a change to the guard "
+        "triggers the gate without the gate being judged by it"
+    )
+    for step in _wiring_steps(workflow):
+        assert not step.get("continue-on-error", False), (
+            f"{name} executes {_WIRING_FILE} with continue-on-error, so the wiring gate "
+            "cannot fail the job it guards"
+        )

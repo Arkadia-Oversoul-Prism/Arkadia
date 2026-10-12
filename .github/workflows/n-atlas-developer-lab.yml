@@ -41,11 +41,22 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: |
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install pytest
+          # pyyaml is not declared in requirements.txt, but the boundary guards below
+          # parse `.github/workflows/*.yml` with it. Naming it explicitly keeps a
+          # missing dependency from being misread as a filter defect.
+          pip install pytest pyyaml
       - name: N-ATLAS provider tests
         run: python -m pytest tests/test_natlas_developer_lab.py -q
       - name: N-ATLAS self-host contract
         run: python -m pytest tests/test_natlas_selfhost_contract.py -q
+      # This gate's `paths` filter selects `tests/test_natlas_selfhost_ci_wiring.py`, so a
+      # change to it triggers this job. Until now no step *executed* it: the guard that
+      # asserts this gate actually runs the contract, covers the whole deployment unit in
+      # its filter, and smoke-runs the image was itself run nowhere — the "a guard no gate
+      # executes is decoration" class. Executing it here means the gate is judged by the
+      # guard it advertises.
+      - name: N-ATLAS self-host wiring boundary
+        run: python -m pytest tests/test_natlas_selfhost_ci_wiring.py -q
       - name: Canonical single-origin frontend route tests
         run: python -m pytest tests/test_canonical_frontend_routing.py -q
       - name: Operator security verification tests
