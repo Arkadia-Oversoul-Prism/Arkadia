@@ -5,7 +5,7 @@ Adapters must collect authoritative GitHub/provider facts and pass them here.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 import re
 from typing import Mapping, Sequence
