@@ -9,11 +9,25 @@ alone, among tests from other workstreams, so a rewrite of any other console gua
 the console source, or of the serving path produced no contract check-run. A guard no
 workflow executes is decoration; this module keeps the domain executed.
 
+**Both sides derive from one source of truth.** ``scripts/console_contract_domain.py``
+is the single derivation. The gate runs
+``python -m pytest -q $(python scripts/console_contract_domain.py)`` so its executed
+inventory is *derived* rather than restated, and this module imports :func:`derive_domain`
+from that same file. A fixed list on either side drifts the moment a guard is added:
+measured on ``main`` @ ``17988afd``, PR #435 merged after three new console guards
+arrived (``tests/test_knowledge_projects_boundary.py``,
+``tests/test_knowledge_timeline_boundary.py``,
+``tests/test_prism_opportunity_entry_flow.py``); the gate ran the twelve it was written
+with, this judge derived 16, and ``_complete_gates()`` returned ``[]`` -- the whole
+console contract had no complete gate again, silently.
+
 The invariant is stated generically over the workflows that execute console guards:
 
-1. At least one workflow must execute the **whole derived domain** — a step that
+1. At least one workflow must execute the **whole derived domain** -- a step that
    merely *prints* or *comments* a path is a mention, not an execution, and a gate
-   that runs part of the domain leaves the rest unjudged.
+   that runs part of the domain leaves the rest unjudged. A *derived* inventory
+   (``$(python scripts/console_contract_domain.py)``) executes the whole domain by
+   construction, including a guard that did not exist when the gate was written.
 2. Such a gate must be selected by the surfaces it judges (``web/arkadia_console/**``,
    ``api/frontend_routes.py``), by every guard it runs, and by its own file, so a
    change to any of them is judged by the gate it changes.
@@ -25,70 +39,64 @@ The invariant is stated generically over the workflows that execute console guar
    suite on a ``continue-on-error: true`` step as recorded pre-existing debt from
    another workstream, and re-litigating that here would be scope expansion.
 
-The domain is derived from ``git ls-files`` at test time, never restated, so a guard
-that leaves the repository (or is renamed) reddens the invariant until the gate is
-updated in the same change. The detector is proven against the forms it is meant to
-catch, including mention-without-executing, partial coverage, and each exemption form.
+The domain is derived at test time, never restated, so a guard that leaves the
+repository (or is renamed) reddens the invariant until the gate is updated in the same
+change. The detector is proven against the forms it is meant to catch, including
+mention-without-executing, partial coverage, a fixed inventory left behind by a newly
+added guard, and each exemption form.
 """
 
 from __future__ import annotations
 
 import re
 import shlex
-import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 import yaml
+
+from scripts.console_contract_domain import (
+    DOMAIN_NEEDLES,
+    SURFACES,
+    derive_domain,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / ".github" / "workflows"
 
 _WORKFLOW_FILE = ".github/workflows/prism-console-contract.yml"
 
-# A guard belongs to the domain when it names the active console or the serving path
-# that fronts it. The joined spellings are included because several guards build the
-# path with ``Path`` segments (``"web" / "arkadia_console"``), which a slash-only
-# substring scan misses — measured: it hid 6 of 12 guards.
-_DOMAIN_NEEDLES = (
-    "web/arkadia_console",
-    "api/frontend_routes",
-    '"arkadia_console"',
-    "'arkadia_console'",
-    '"frontend_routes"',
-    "'frontend_routes'",
-)
-_SURFACES = ("web/arkadia_console/**", "api/frontend_routes.py")
+# The single source of truth for the guard domain. The gate must invoke it (via a
+# command substitution) so its executed inventory is derived, and this judge imports
+# `derive_domain` from it -- the two cannot disagree.
+_DOMAIN_SCRIPT = "scripts/console_contract_domain.py"
+
+_SURFACES = SURFACES
 
 _FALSEY_CONDITIONS = {"false", "${{ false }}", "0"}
 
-
-def _tracked_test_paths() -> list[str]:
-    """Every tracked test module, repo-relative — the domain is derived from this."""
-    result = subprocess.run(
-        ["git", "ls-files", "-z", "--", "tests/"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-    )
-    return sorted(p for p in result.stdout.split("\0") if p)
+# A shell command substitution running the domain script. Both `$(...)` and the
+# legacy backtick form are accepted; the script path is matched literally (escaped)
+# so `$(python scripts/console_contract_domain.py)` is recognised but a mention of
+# the *name* elsewhere is not.
+_DERIVED_INVENTORY = re.compile(
+    r"\$\(\s*\S*(?:python[0-9.]*|-m\s+python)\s+"
+    r"(?:\./)?"
+    + re.escape(_DOMAIN_SCRIPT)
+    + r"\s*\)|`\s*\S*python[0-9.]*\s+(?:\./)?"
+    + re.escape(_DOMAIN_SCRIPT)
+    + r"\s*`"
+)
 
 
 def _console_domain() -> list[str]:
-    """The console-contract guards, derived from their content at test time.
+    """The console-contract guards, derived from the shared source of truth.
 
-    Restating the list here would let it drift from the corpus it claims to cover: a
-    new console guard would be omitted from the gate while this file stayed green.
+    Restating the list here would let it drift from the corpus it claims to cover:
+    a new console guard would be omitted from the gate while this file stayed green.
     """
-    domain = []
-    for path in _tracked_test_paths():
-        name = Path(path).name
-        if not (name.startswith("test_") and name.endswith(".py")):
-            continue
-        text = (ROOT / path).read_text(encoding="utf-8", errors="ignore")
-        if any(needle in text for needle in _DOMAIN_NEEDLES):
-            domain.append(path)
-    return domain
+    return derive_domain(ROOT)
 
 
 def _workflow_paths() -> list[Path]:
@@ -193,15 +201,31 @@ def _pytest_command_index(tokens: list[str]) -> int | None:
     return None
 
 
+def _derives_inventory(tokens: list[str]) -> bool:
+    """Whether this command executes the domain script as a command substitution.
+
+    ``python -m pytest -q $(python scripts/console_contract_domain.py)`` runs the
+    whole derived domain at run time, including a guard added after the workflow was
+    written. That is the *derived* inventory the single-source-of-truth contract
+    requires, and it cannot be evaluated from a static argument list -- the guards
+    are whatever the script prints.
+    """
+    return bool(_DERIVED_INVENTORY.search(" ".join(tokens)))
+
+
 def _executed_guards(tokens: list[str]) -> set[str]:
     """Which guards this command executes with pytest.
 
     A guard counts when it is an argument to the pytest command word, or when the
-    containing directory is (``pytest tests/ -q`` collects and runs it).
+    containing directory is (``pytest tests/ -q`` collects and runs it). A command
+    that runs the domain script as a command substitution executes the whole derived
+    domain by construction.
     """
     idx = _pytest_command_index(tokens)
     if idx is None:
         return set()
+    if _derives_inventory(tokens):
+        return set(_console_domain())
     arguments = _command_tokens(tokens)[idx + 1:]
     executed: set[str] = set()
     for guard in _console_domain():
@@ -491,3 +515,100 @@ def test_detector_ignores_workflows_that_do_not_mention_the_domain():
         "python -m pytest tests/test_other.py -q", workflow_dispatch=None
     )
     assert not _mentions_domain(unrelated)
+
+
+# --- the drift regression: a newly added guard must be executed, not omitted --------
+
+_NEW_GUARD = "tests/test_newly_added_console_guard.py"
+
+
+@pytest.fixture
+def _grown_domain(monkeypatch):
+    """Simulate a guard added to the corpus after the gate was written.
+
+    The gate's executed inventory must follow the corpus -- if it does not, the new
+    guard is unexecuted and this fixture is how that becomes observable without
+    committing a dummy guard.
+    """
+    grown = [*_DOMAIN, _NEW_GUARD]
+    monkeypatch.setattr(sys.modules[__name__], "_console_domain", lambda: list(grown))
+    return grown
+
+
+_DERIVED_RUN = f"python -m pytest -q $(python {_DOMAIN_SCRIPT})"
+
+
+def test_derived_inventory_is_recognised_as_executing_the_run():
+    """The command substitution is an execution of the whole derived domain."""
+    assert _derives_inventory(shlex.split(_DERIVED_RUN))
+
+
+@pytest.mark.parametrize(
+    "run",
+    [
+        f"echo $(python {_DOMAIN_SCRIPT})",
+        f"# $(python {_DOMAIN_SCRIPT})",
+        f"echo 'python -m pytest $(python {_DOMAIN_SCRIPT})'",
+        f"python scripts/console_contract_domain.py",
+    ],
+)
+def test_derived_inventory_detector_rejects_non_executions(run: str):
+    """A mention of the script that does not run pytest is not an execution."""
+    assert _executed_guards(shlex.split(run)) == set()
+
+
+def test_derived_inventory_executes_a_guard_added_after_the_gate(_grown_domain):
+    """A *derived* inventory follows the corpus, so a new guard is executed.
+
+    This is the invariant the single-source-of-truth contract exists to hold: the
+    gate does not carry a fixed list, so a guard added later cannot leave it behind.
+    """
+    workflow = _minimal_workflow(_DERIVED_RUN, **_WIRED_TRIGGER)
+    executed = _effective_executed_by(workflow)
+    assert set(_grown_domain) <= executed, (
+        "a derived inventory left a newly added guard unexecuted"
+    )
+
+
+def test_fixed_inventory_omits_a_guard_added_after_the_gate(_grown_domain):
+    """Negative control: the measured post-#435 shape.
+
+    A gate carrying a fixed list -- the guards that existed when it was written --
+    silently stops executing the domain the moment a new guard arrives. Without this
+    control the drift regression above could not distinguish derived from fixed.
+    """
+    fixed = _minimal_workflow(f"python -m pytest -q {_ALL}", **_WIRED_TRIGGER)
+    executed = _effective_executed_by(fixed)
+    assert _NEW_GUARD not in executed
+    assert not executed >= set(_grown_domain), "a fixed inventory is not a complete gate"
+
+
+def test_real_gate_inventory_is_derived_not_fixed():
+    """The shipped gate must derive, or the drift regression is not actually held."""
+    workflow = _load(WORKFLOWS / Path(_WORKFLOW_FILE).name)
+    invocations = _invocations(workflow)
+    assert invocations, "the gate executes no console guard"
+    assert any(
+        _derives_inventory(command)
+        for _, _, step, _ in invocations
+        for command in _run_lines(step)
+    ), (
+        f"{_WORKFLOW_FILE} does not derive its executed inventory from "
+        f"{_DOMAIN_SCRIPT}; a fixed list drifts the moment a guard is added"
+    )
+
+
+def test_real_gate_selects_a_guard_added_after_the_gate(_grown_domain):
+    """A new guard changes `tests/**`, which must select the gate that judges it.
+
+    If the filter enumerated guards instead, adding one would leave the very judge
+    that reports it unexecuted without a trigger.
+    """
+    workflow = _load(WORKFLOWS / Path(_WORKFLOW_FILE).name)
+    for event in ("pull_request", "push"):
+        paths = _path_filter(_trigger_block(workflow), event)
+        assert paths is not None
+        assert _selects_path(paths, _NEW_GUARD), (
+            f"{event} paths filter would not select a newly added guard, so the "
+            "judge that reports it unexecuted would not run"
+        )

@@ -1,59 +1,46 @@
 name: Prism Console Contract
 
 # The active console (`web/arkadia_console`) and the serving path that fronts it
-# (`api/frontend_routes.py`) are judged by twelve contract guards. Measured on
-# `main` @ `f390526`, no workflow executed any of them: the only console-aware
-# workflows (`sg-02-fe-2-v.yml`, `n-atlas-developer-lab.yml`,
-# `canonical-render-*.yml`) select named tests from other workstreams, so a
-# rewrite of a console guard, of the console source, or of the serving path
-# produced no contract check-run at all.
+# (`api/frontend_routes.py`) are judged by a derived set of contract guards. This
+# gate must *execute* that whole set, and `tests/test_prism_console_ci_wiring.py`
+# must *verify* it is executed.
 #
-# Guard: `tests/test_prism_console_ci_wiring.py`, which derives the guard domain
-# from `git ls-files` at test time and asserts this filter selects all of it.
+# The executed inventory is DERIVED, not restated:
+#
+#     python -m pytest -q $(python scripts/console_contract_domain.py)
+#
+# `scripts/console_contract_domain.py` is the single source of truth, and the
+# wiring judge imports `derive_domain` from the same file. A fixed list here would
+# drift from that derivation the moment a guard is added: measured on `main` @
+# `17988afd`, after PR #435 merged, three new console guards arrived
+# (`tests/test_knowledge_projects_boundary.py`,
+# `tests/test_knowledge_timeline_boundary.py`,
+# `tests/test_prism_opportunity_entry_flow.py`) while this gate still ran the
+# twelve it was written with -- so `_complete_gates()` returned `[]` and the whole
+# console contract had no complete gate again, silently. `b8869c04` repaired that
+# instance by extending the fixed list to sixteen; this change removes the class by
+# deriving the inventory, so the next guard to arrive is executed without an edit.
+#
+# The `paths` filter selects `tests/**` rather than an enumerated guard list so a
+# guard *added* to the corpus also triggers the judge that would otherwise never
+# run to report it unexecuted. The judge still asserts every derived guard is
+# selected, so narrowing this filter reddens it.
 
 on:
   pull_request:
     paths:
       - "web/arkadia_console/**"
       - "api/frontend_routes.py"
-      - "tests/test_aeas05_canonical_frontend_acceptance.py"
-      - "tests/test_canonical_frontend_routing.py"
-      - "tests/test_console_endpoint_registry_contract.py"
-      - "tests/test_console_shell_nav_contract.py"
-      - "tests/test_frontend_arkadia_console_rebuild_01.py"
-      - "tests/test_frontend_script_assets_resolve.py"
-      - "tests/test_knowledge_os_boundary.py"
-      - "tests/test_knowledge_projects_boundary.py"
-      - "tests/test_knowledge_search_boundary.py"
-      - "tests/test_knowledge_timeline_boundary.py"
-      - "tests/test_prism_opportunity_entry_flow.py"
-      - "tests/test_prism_opportunity_radar_module.py"
-      - "tests/test_prism_w4_arkana_thread_history.py"
-      - "tests/test_prism_w4_lab_read_model.py"
-      - "tests/test_solariun_knowledge_slice_01.py"
-      - "tests/test_prism_console_ci_wiring.py"
+      - "scripts/console_contract_domain.py"
+      - "tests/**"
       - ".github/workflows/prism-console-contract.yml"
   push:
     branches: ["main"]
     paths:
       - "web/arkadia_console/**"
       - "api/frontend_routes.py"
-      - "tests/test_aeas05_canonical_frontend_acceptance.py"
-      - "tests/test_canonical_frontend_routing.py"
-      - "tests/test_console_endpoint_registry_contract.py"
-      - "tests/test_console_shell_nav_contract.py"
-      - "tests/test_frontend_arkadia_console_rebuild_01.py"
-      - "tests/test_frontend_script_assets_resolve.py"
-      - "tests/test_knowledge_os_boundary.py"
-      - "tests/test_knowledge_projects_boundary.py"
-      - "tests/test_knowledge_search_boundary.py"
-      - "tests/test_knowledge_timeline_boundary.py"
-      - "tests/test_prism_opportunity_entry_flow.py"
-      - "tests/test_prism_opportunity_radar_module.py"
-      - "tests/test_prism_w4_arkana_thread_history.py"
-      - "tests/test_prism_w4_lab_read_model.py"
-      - "tests/test_solariun_knowledge_slice_01.py"
-      - "tests/test_prism_console_ci_wiring.py"
+      - "scripts/console_contract_domain.py"
+      - "tests/**"
       - ".github/workflows/prism-console-contract.yml"
   # The gate is path-filtered, so a revision touching none of the above never runs
   # it. `workflow_dispatch` lets the console contract be executed against an exact
@@ -79,26 +66,13 @@ jobs:
       - run: python -m pip install -r requirements.txt
       - run: python -m pip install pytest
       - name: Verify the console contract guards
-        # The list is the derived console-boundary domain. It is asserted against
-        # `git ls-files` by the wiring guard below, so a guard added, renamed, or
-        # removed reddens that guard until this step is updated in the same change.
+        # The inventory is derived from `scripts/console_contract_domain.py`, the
+        # same source of truth the wiring judge imports. A guard added to the
+        # corpus is executed here without editing this file; a guard removed drops
+        # out of both.
         run: >-
           python -m pytest -q
-          tests/test_aeas05_canonical_frontend_acceptance.py
-          tests/test_canonical_frontend_routing.py
-          tests/test_console_endpoint_registry_contract.py
-          tests/test_console_shell_nav_contract.py
-          tests/test_frontend_arkadia_console_rebuild_01.py
-          tests/test_frontend_script_assets_resolve.py
-          tests/test_knowledge_os_boundary.py
-          tests/test_knowledge_projects_boundary.py
-          tests/test_knowledge_search_boundary.py
-          tests/test_knowledge_timeline_boundary.py
-          tests/test_prism_opportunity_entry_flow.py
-          tests/test_prism_opportunity_radar_module.py
-          tests/test_prism_w4_arkana_thread_history.py
-          tests/test_prism_w4_lab_read_model.py
-          tests/test_solariun_knowledge_slice_01.py
+          $(python scripts/console_contract_domain.py)
       - name: Console-contract CI-wiring guard
         # Judges the gate's own trigger: the domain must be selected by this file's
         # `paths` filter and every executing step must be able to fail. A rewrite of
