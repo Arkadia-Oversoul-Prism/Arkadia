@@ -66,11 +66,11 @@ def _run_worker(monkeypatch: pytest.MonkeyPatch, root: Path, trajectory: Path) -
 def test_unrecognized_frontier_is_composed_into_a_pushed_block(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """The router's named defect must survive the worker into a pushed event.
+    """The router's explicit acceptance gate must survive the worker into a pushed event.
 
-    This is the live G12-A/G12-C shape: a frontier move at a status the router does
-    not recognize. The router names it; the worker must project that naming as a
-    HIGH `WEAVER_BLOCKED` on the push channel, or the sovereign never sees the stop.
+    This is the live G12-A/G12-C shape: a schema-valid merged-but-unaccepted frontier.
+    The router names the human acceptance requirement; the worker must project it as
+    a HIGH `WEAVER_BLOCKED` on the push channel, or the sovereign never sees the stop.
     """
     trajectory = _write_trajectory(
         tmp_path,
@@ -82,7 +82,9 @@ def test_unrecognized_frontier_is_composed_into_a_pushed_block(
     result = _run_worker(monkeypatch, tmp_path, trajectory)
 
     assert result["status"] == "NO_LEGAL_MOVE"
-    assert any("unrecognized move status" in b for b in result["blockers"])
+    assert any("merged_acceptance_pending" in b for b in result["blockers"])
+    assert any("human review/acceptance evidence required" in b for b in result["blockers"])
+    assert not any("unrecognized move status" in b for b in result["blockers"])
 
     event = result["attention_event"]
     assert event["event_type"] == "WEAVER_BLOCKED"
