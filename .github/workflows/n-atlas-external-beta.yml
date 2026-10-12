@@ -220,24 +220,28 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Download the two beta evidence artifacts
+        uses: actions/download-artifact@v4
         with:
           path: evidence
-          pattern: "*-evidence"
+          pattern: "beta-*-evidence"
           merge-multiple: true
       - name: Verify bundle shape
         run: |
           test -n "$(find evidence -type f | head -1)"
           python - <<'PY'
           import glob, json, sys
-          files = glob.glob("evidence/*.json")
+          files = sorted(glob.glob("evidence/*.json"))
           print("evidence files:", files)
-          statuses=[]
-          for p in files:
-              d=json.load(open(p))
-              statuses.append(d.get("status"))
+          # Assert the two beta evidence files are present and passing. Deliberately
+          # not a total file count: the golden job's artifact also ends in
+          # `-evidence`, so any count of this directory is a race against that
+          # upload. See EVIDENCE.md.
+          expected = {"beta-01-english.json", "beta-02-hausa.json"}
+          seen = {f.rsplit("/", 1)[-1] for f in files}
+          statuses = {f.rsplit("/", 1)[-1]: json.load(open(f)).get("status") for f in files}
           print("statuses:", statuses)
-          if len(files) != 2 or any(s != "PASS" for s in statuses):
+          if expected - seen or any(statuses.get(n) != "PASS" for n in expected):
               sys.exit(1)
           PY
       - uses: actions/upload-artifact@v4
