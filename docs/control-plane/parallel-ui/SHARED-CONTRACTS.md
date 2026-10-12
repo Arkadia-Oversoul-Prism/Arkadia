@@ -1,28 +1,37 @@
 # Prism Parallel UI Work — Shared Contracts
 
 **Status:** ACCEPTED — merged via PR #419 at `a29a9b8f18ada55cb9457ea3cdab98414522a4e8`.
-**Baseline observed:** `main` after the four PRs #425–#428 were merged: `f390526ab14e122fef358ef9b9e1cd438509463c`. Re-fetch `main` before every change; this SHA is not a permanent pin. The current branch map was refreshed 2026-10-11 against the four active next-wave branches below.
-**Canonical production:** https://arkadia-qzu4.onrender.com (ADR-016). Render is configured to auto-deploy commits on `main`; this merge wave was explicitly authorized by the user for production observation. Agents may not trigger manual deployments or claim production acceptance.
+**Last reconciled:** 2026-10-12 against current `main` `26521e246e575105ec9a42fec26dc66aeb4c98f4`. Re-fetch `main` before every change; this SHA is a recorded observation, not a permanent pin.
+**Canonical production:** https://arkadia-qzu4.onrender.com (ADR-016). Render is the sole canonical production origin. Agents may not trigger manual deployments or claim production acceptance.
 **Authority:** agents may inspect, implement, test, commit to their assigned branch, and update their PR. Human retains merge, production deployment, and acceptance.
 
 ## 1. Four workstreams and exclusive file ownership
 
-Active branch map, re-measured 2026-10-11 at `main` `f390526a`. Each branch below starts from that revision; the heads are observations, not pins.
+### Live lane map — measured 2026-10-12
 
-| Workstream | Branch | PR (draft) | Head observed | Exclusive source ownership | Must not edit |
-|---|---|---|---|---|---|
-| 1. Shell, navigation, design system, integration contracts | `feat/prism-next2-01-shell-contract-map` | #429 | `46326ba4` | `web/arkadia_console/src/App.tsx`; `src/lib/router.ts`; `src/lib/surfaces.ts`; `src/components/SurfaceLenses.tsx`; shared shell/navigation primitives and tokens; `src/lib/endpoints.ts`; `src/lib/types.ts`; shared shell/endpoint contract tests; this contract and shell instruction | Feature page internals owned by workstreams 2–4 |
-| 2. NovaNet and project Opportunity Radar | `feat/prism-next2-02-opportunity-entry-flow` | #430 | `d40de704` | `src/pages/NovaNetPage.tsx`; NovaNet-only components; opportunity UI under `src/components/opportunities/**`; scoped buyer-recon board/entry behavior in `solspire/buyer_recon.py` and `solspire/buyer_recon_router.py`; opportunity tests/evidence | App/router/surface registry, global navigation, shared tokens, shared shell tests, unrelated SolSpire authority/authentication behavior |
-| 3. Solariun and Knowledge OS | `feat/prism-next2-03-knowledge-timeline` | #431 | `f5f8b70e` | Solariun/Knowledge OS page modules and feature-local components/tests/evidence | App/router/surfaces registry, global navigation, shared tokens, shared shell tests, NovaNet files |
-| 4. Arkana, Weaver, Engineering Lab | `feat/prism-next2-04-run-evidence-trace` | #432 | `dcb3e2f2` | Arkana/Oracle, Weaver, Engineering Lab feature-local page modules/components/tests/evidence | App/router/surfaces registry, global navigation, shared tokens, shared shell tests, NovaNet/Solariun files, runtime/authority model |
+| Workstream | Active branch / PR | Last meaningful merged implementation | Last meaningful commit | State / next action |
+|---|---|---|---|---|
+| 1. Shell, navigation, design system, integration contracts | `feat/prism-next3-01-contract-refresh` / this draft PR (opened from current main) | [#429](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/429) merged | `af56a86e31fca2077dd3f26c778cca6e119133e7` | This PR refreshes the stale contract map. After human merge, start a fresh shell/integration slice from then-current `main`. |
+| 2. NovaNet and project Opportunity Radar | **No active PR**; old branch `feat/prism-next2-02-opportunity-entry-flow` is historical | [#430](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/430) merged | `bd5f226c3708c170db9bcf35f8ef93e36fefa408` | Needs a fresh-base branch/PR and a verified bounded follow-on slice. |
+| 3. Solariun and Knowledge OS | **No active PR**; old branch `feat/prism-next2-03-knowledge-timeline` is historical | [#431](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/431) merged | `f5f8b70ea355dcdf7e2cd2020d6b62b4ff902903` | Needs a fresh-base branch/PR and a verified bounded follow-on slice. |
+| 4. Arkana, Weaver, Engineering Lab | **No active PR**; #432 closed unmerged; retained work merged through [#475](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/475) | [#475](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/475) merged | `308f2e4db2a805112e3d31c5ae81cb9521043027` | Needs a fresh-base branch/PR and a verified bounded follow-on slice. |
 
-Heads re-measured 2026-10-11T13:0xZ (`GET /pulls/{429,430,431,432}` + `git ls-remote`): all four are draft, `OPEN`,
-`MERGEABLE`. W2 advanced `e6780d47` → `d40de704` and W3 `a2024fba` → `f5f8b70e` since the previous map refresh; the
-columns above are the current observation, not a pin. `main` is unchanged at `f390526a`.
+### Current evidence and dispatch boundary
 
-The first-wave branches (`feat/prism-parallel-01-…` through `-04-…`) and the merged next-wave branches for PRs #425–#428 are closed history; do not reopen or continue them. The four `feat/prism-next2-*` branches above are the active threads. Each agent continues automatically after every merge by creating a fresh branch from current `main` and opening its next draft PR.
+The latest successful scheduled GitHub Engineering Scheduler run found during reconciliation is [#38165015207](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/38165015207), at head `36df0ea8169087802e4fc34ae96496058a380d05`, created 2026-10-11T18:43:34Z. Its actual log reports `status=NO_LEGAL_MOVE`, `next_move=NONE`, `dry_run=true`. This proves that the scheduler ran; it does **not** prove that the four OpenHands workstreams were dispatched or advanced. The retrieved schedule-run history contains no newer scheduled run. Do not claim four-way execution until each lane has a real worker dispatch and durable output.
 
-**Important:** these are ownership boundaries, not proof that every proposed directory already exists. Inspect the live tree first. Do not create duplicate abstractions just to match a suggested path. If an existing file spans two owners, the shell/integration owner owns the seam; feature agents submit a narrow proposal instead of editing it.
+The historical branches `feat/prism-next2-01-shell-contract-map`, `feat/prism-next2-02-opportunity-entry-flow`, `feat/prism-next2-03-knowledge-timeline`, and `feat/prism-next2-04-run-evidence-trace` must not be resumed as active work. #429–#431 are merged; #432 is closed unmerged; #475 is merged. After merge, each lane must start from a freshly fetched `main` and use one long-lived branch/PR for that lane. The GitHub scheduler's read-only permissions and dry-run behavior are not a substitute for an OpenHands dispatch mechanism.
+
+### Exclusive source ownership
+
+| Workstream | Exclusive source ownership | Must not edit |
+|---|---|---|
+| 1. Shell, navigation, design system, integration contracts | `web/arkadia_console/src/App.tsx`; `src/lib/router.ts`; `src/lib/surfaces.ts`; `src/components/SurfaceLenses.tsx`; shared shell/navigation primitives and tokens; `src/lib/endpoints.ts`; `src/lib/types.ts`; shared shell/endpoint contract tests; this contract and shell instruction | Feature page internals owned by workstreams 2–4 |
+| 2. NovaNet and project Opportunity Radar | `src/pages/NovaNetPage.tsx`; NovaNet-only components; opportunity UI under `src/components/opportunities/**`; scoped buyer-recon board/entry behavior in `solspire/buyer_recon.py` and `solspire/buyer_recon_router.py`; opportunity tests/evidence | App/router/surface registry, global navigation, shared tokens, shared shell tests, unrelated SolSpire authority/authentication behavior |
+| 3. Solariun and Knowledge OS | Solariun/Knowledge OS page modules and feature-local components/tests/evidence | App/router/surfaces registry, global navigation, shared tokens, shared shell tests, NovaNet files |
+| 4. Arkana, Weaver, Engineering Lab | Arkana/Oracle, Weaver, Engineering Lab feature-local pages/components/tests/evidence | App/router/surfaces registry, global navigation, shared tokens, NovaNet/Solariun files, runtime/authority model |
+
+**Ownership rules:** These are ownership boundaries, not proof every proposed directory exists. Inspect the live tree before editing. Shared seam changes go through Workstream 1; feature agents submit exact contract changes and evidence instead of editing shared files directly. Keep the four workstreams independent; one lane being blocked does not stop non-overlapping work in another lane.
 
 ## 2. PR #418 — measured patch map and disposition
 
