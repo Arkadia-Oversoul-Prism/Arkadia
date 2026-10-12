@@ -1514,3 +1514,47 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
 - Evidence: `docs/control-plane/evidence/gate10-ci-coverage-reconnaissance-01/RECONNAISSANCE.md`
   (PR #461). The Defect-A repair is **proposed, not performed** — it mutates
   `sg-02-fe-2-v.yml` and needs sovereign authorization; discovery does not authorize execution.
+
+
+## A fix you are authorized to write can land on `main` while you write it (gate-hygiene)
+- The slice-08 escalation authorized a shared-substrate repair to `lab/observatory/git.py`.
+  Between the pass starting at `main` `17988afd` and its push, `main` advanced **six**
+  commits and merged its **own** equivalent repair (`eaea5162`, 2026-10-11T16:15:17+01:00:
+  `_redact_remote_url()` + `tests/test_repository_remote_redaction.py` +
+  `.github/workflows/lab-security-contract.yml`). The draft branch then conflicted on that
+  file. **Re-measure the base before pushing an authorized change, not only before
+  authoring it** - an authorization to fix a defect does not reserve the fix.
+- **Do not rebase a duplicate over reviewed work, and do not force-push.** The contract's
+  "do not expand scope" rule cuts both ways: adopting `main`'s version and re-proposing
+  only the additive remainder is the correct reconciliation. Measured first that `main`'s
+  redactor was *sound* (the full edge-case matrix: `user:token@`, bare `token@`, a password
+  containing `@`, `ssh://`, SCP-style `git@host:path`, port/query/fragment, and
+  credential-free URLs returned unchanged) - then left it alone.
+- **A returned value is not a reading.** `main`'s `repository_state()` returns only the
+  redacted string, so a consumer cannot tell the configured remote from a rewritten one;
+  `remote_redacted` is now derived by comparing raw vs redacted (`bool(remote) and redacted
+  != remote`), so a **credential-free remote truthfully reports `False`**. A hardcoded
+  `True` would be the same defect as the blanket `values_redacted` flag it accompanies.
+- **Scope a blanket flag by naming what it covers.** `security.values_redacted: true` is set
+  only by `security_observations()`, which classifies *file paths* mentioning credential-ish
+  names and has never inspected `repository.remote`. Adding `redaction_scope:
+  "security.observations"` plus a separate `remote_userinfo_redacted` states both facts
+  instead of letting one flag imply the other.
+- **Extend the test file a judging gate already runs; do not add a parallel one.** `main`'s
+  `lab-security-contract.yml` already executes `tests/test_repository_remote_redaction.py`
+  in a step with no `continue-on-error`, so extending that file needs **no new workflow**
+  and no new wiring guard. Runtime-proven: run `38153892202` logged `14 passed in 2.81s`
+  (14 = `main`'s 7 + 7 added) - read the step log, not the job conclusion.
+- **`weaver/recon.py::git_identity` still returns the raw remote** (measured on `main`); it
+  reaches `weaver/analysis.py:122` via `build_context_packet`. The Weaver workbench is not
+  served by the canonical runtime (`grep -rn workbench api/main.py` -> 0), so exposure is
+  local-operator only. Recorded as a separate bounded change, **not** repaired under an
+  authorization that named `lab/`.
+- **`test_ci_gate_trigger_coverage.py::test_push_and_pull_request_filters_are_identical[openapi-security-metadata.yml]`
+  fails on `main` `7097d6a4` itself** (`1 failed, 74 passed`), identically on the branch.
+  Pre-existing, not attributable, not repaired.
+- Measured at `7097d6a4` (base) / `2488f133` (branch): failing/error node set
+  `6cd8bea1f7a4387f716e766a22704954b8bafd363396e95b12a0b02b80fc5dac` (20 nodes) **identical**
+  on both; `+7 passed` == `--collect-only` 7 -> 14. Evidence:
+  `docs/control-plane/evidence/security-lab-remote-userinfo-redaction-01/`. PR #451
+  (draft); PR #448 closed as superseded.

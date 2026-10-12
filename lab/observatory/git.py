@@ -59,7 +59,12 @@ def repository_state(repo_root: str = ".") -> dict[str, Any]:
     head, err2 = _run(root, ["rev-parse", "HEAD"])
     remote, err3 = _run(root, ["remote", "get-url", "origin"])
     status, err4 = _run(root, ["status", "--porcelain"])
-    return {"branch": branch or None, "head": head or None, "clean": status == "", "remote": _redact_remote_url(remote), "status": "observed" if not (err or err2) else "unavailable", "reason": next((x for x in (err or None, err2 or None, err3 or None, err4 or None) if x), None)}
+    redacted = _redact_remote_url(remote)
+    # Report the redaction as a reading, not an assumption: a consumer can render
+    # "the remote the environment is configured with" only if it is told whether
+    # the value it receives is the raw one. Derived from the comparison, so a
+    # credential-free remote truthfully reports False.
+    return {"branch": branch or None, "head": head or None, "clean": status == "", "remote": redacted, "remote_redacted": bool(remote) and redacted != remote, "status": "observed" if not (err or err2) else "unavailable", "reason": next((x for x in (err or None, err2 or None, err3 or None, err4 or None) if x), None)}
 
 
 def commit_history(repo_root: str = ".", limit: int = 250) -> tuple[list[dict[str, Any]], dict[str, Any]]:
