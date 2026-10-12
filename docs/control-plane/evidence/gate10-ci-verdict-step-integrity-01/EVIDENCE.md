@@ -37,6 +37,19 @@ Run **`38150620847`** — `event=push`, `head_sha=56ada9dd1511c788ade4a461b152a6
   (`grep -c` → 17 matches = 16 assertion lines + 1 `##[group]Run` header).
   A guard that cannot fail is decoration.
 
+## 2.1 Runtime verification of the repair (post-change, on the PR head)
+
+Run **`38186300846`** (`event=pull_request`, head `7cb7789a398132d44260426628143d9edfa72cec`):
+
+| Observation | Pre-change (`38150620847`) | Post-change (`38186300846`) |
+| --- | --- | --- |
+| `CP10 evidence summary` line | `echo "Grove contracts: "` — **empty** | `echo "Grove contracts: success"` |
+| Grove step command | `python -m pytest … \| tee cp10-grove.log` | `set -o pipefail` + the same pipeline |
+
+All **10** check-runs on `7cb7789a` are `completed/success`, including the new
+`verdict-step-integrity` gate and `validate`. The fix is therefore proven at runtime, not
+only in source: the previously-empty outcome now resolves, and the grove step can fail.
+
 ## 3. Change
 
 | File | Change |
