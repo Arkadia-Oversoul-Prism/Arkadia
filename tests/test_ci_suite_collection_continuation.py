@@ -15,6 +15,15 @@ The repair is the documented reproducibility flag: `--continue-on-collection-err
 It does not hide debt — the collection error and the pre-existing failures are
 still reported — it only stops the session from aborting before the suite runs.
 
+`continue-on-error` exempts a step from *judging*; it does not exempt it from
+*reporting*. The same class is live on a second surface: `sg-02-fe-2-v.yml`
+CP10-B runs the whole suite with `continue-on-error: true` and no
+`--continue-on-collection-errors`, so it aborts at the collection error and
+executes zero tests. It is the only broad-suite surface selected by
+`spiral_grove/**` and `lab/**`, so those paths reach no whole-suite execution at
+all. That non-gating surface is asserted too, with a control that reads the
+repository's own workflow file rather than a synthetic fixture.
+
 These tests read the workflows as text and as YAML. Each detector has a negative
 control, so the guard cannot be disarmed by rewriting a workflow without
 reddening a control.
@@ -59,8 +68,7 @@ def _workflow_files() -> list[Path]:
     return sorted(WORKFLOWS.glob("*.yml"))
 
 
-def _steps(path: Path) -> list[dict]:
-    workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
+def _steps_from_workflow(workflow: dict) -> list[dict]:
     steps: list[dict] = []
     for job in (workflow.get("jobs") or {}).values():
         if isinstance(job, dict):
@@ -68,8 +76,21 @@ def _steps(path: Path) -> list[dict]:
     return steps
 
 
+def _steps(path: Path) -> list[dict]:
+    return _steps_from_workflow(yaml.safe_load(path.read_text(encoding="utf-8")))
+
+
 def _broad_suite_steps(path: Path) -> list[dict]:
     return [step for step in _steps(path) if _broad_suite_invocations(step.get("run") or "")]
+
+
+def _broad_suite_steps_from_text(text: str) -> list[dict]:
+    """Same detector, over workflow text rather than a path (for live controls)."""
+    return [
+        step
+        for step in _steps_from_workflow(yaml.safe_load(text))
+        if _broad_suite_invocations(step.get("run") or "")
+    ]
 
 
 def _judging_broad_suite_steps(path: Path) -> list[dict]:
@@ -180,6 +201,57 @@ def test_negative_control_detector_ignores_file_targeted_invocations():
     """A file-targeted step is already immune and must not be flagged."""
     targeted = "          python -m pytest tests/test_attention_truthfulness.py -q"
     assert _broad_suite_invocations(targeted) == []
+
+
+@pytest.mark.parametrize("path", _workflow_files(), ids=lambda p: p.name)
+def test_broad_suite_steps_reach_the_suite(path: Path):
+    """Every broad-suite step must run the suite, whether or not it gates.
+
+    A step that aborts at the collection error executes zero tests, so it cannot
+    even *report* the debt it exists to surface. `continue-on-error` exempts a
+    step from judging; it does not exempt it from reporting. Measured on
+    `sg-02-fe-2-v.yml` CP10-B (run `38186457230`): the step logged
+    "Interrupted: 1 error during collection" and no test executed.
+    """
+    for step in _broad_suite_steps(path):
+        run = step.get("run") or ""
+        assert CONTINUE_FLAG in run, (
+            f"{path.name}: broad-suite step {step.get('name')!r} runs the whole "
+            f"suite without {CONTINUE_FLAG}; the known collection error interrupts "
+            f"the session and no test executes"
+        )
+
+
+def test_negative_control_live_workflow_flags_the_pre_repair_step():
+    """A control on the *real* workflow file, not a synthetic fixture.
+
+    Strip the flag from the actual CP10-B step in the repository's own workflow
+    text and the detector must flag it. This proves the assertion above reads the
+    live file rather than a hand-built dict that could drift from it.
+    """
+    text = (WORKFLOWS / "sg-02-fe-2-v.yml").read_text(encoding="utf-8")
+    steps = _broad_suite_steps_from_text(text)
+    assert steps, "the live sg-02-fe-2-v.yml no longer has a broad-suite step"
+
+    pre_repair = text.replace(CONTINUE_FLAG, "")
+    flagged = [
+        step
+        for step in _broad_suite_steps_from_text(pre_repair)
+        if CONTINUE_FLAG not in (step.get("run") or "")
+    ]
+    assert flagged, (
+        "with the flag stripped from the live workflow the detector found no "
+        "offending step; the assertion is not reading the real file"
+    )
+
+
+def test_positive_control_live_workflow_step_carries_the_flag():
+    """The live file must actually carry the flag, or the control proves nothing."""
+    text = (WORKFLOWS / "sg-02-fe-2-v.yml").read_text(encoding="utf-8")
+    assert CONTINUE_FLAG in text, (
+        "sg-02-fe-2-v.yml does not carry the flag; the CP10-B broad-suite step "
+        "would abort before executing any test"
+    )
 
 
 def test_negative_control_continue_on_error_step_is_not_a_judging_surface():

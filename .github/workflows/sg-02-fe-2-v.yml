@@ -211,7 +211,15 @@ jobs:
         id: backend
         working-directory: .
         continue-on-error: true
-        run: python -m pytest tests/ -q 2>&1 | tee cp10-backend.log
+        # --continue-on-collection-errors is required, not cosmetic. A bare
+        # `pytest tests/` *interrupts* on the known CE-01 `weaver.autonomy`
+        # module-vs-package collision ("Interrupted: 1 error during collection"),
+        # so the session aborts before any test runs. This is the only broad-suite
+        # surface selected by `spiral_grove/**` and `lab/**`, so without the flag
+        # those paths reach no whole-suite execution at all. The step stays
+        # `continue-on-error` — it reports the suite and its pre-existing debt; it
+        # does not gate.
+        run: python -m pytest tests/ -q --continue-on-collection-errors 2>&1 | tee cp10-backend.log
       - name: Start existing backend runtime
         working-directory: .
         run: nohup env PYTHONPATH=. python -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --log-level info > cp10-backend-runtime.log 2>&1 &
