@@ -13,13 +13,8 @@ useDefault = true
 description = "Known non-secret identifiers"
 regexTarget = "secret"
 regexes = [
-  '''^arkadia[.]ais[.]diagnostic-handoff[.]v1$''',
-  '''^arkadia[.]ais[.]capability-portfolio[.]v1$''',
-  '''^EXAVITQu4vr4xnSDxMaL
-]
-'',
-  # Non-secret surface-name pair falsely flagged by the generic-api-key heuristic in shared contract prose.
-  '''^NovaNet/Solariun
-]
-'',
+  "^arkadia[.]ais[.]diagnostic-handoff[.]v1$",
+  "^arkadia[.]ais[.]capability-portfolio[.]v1$",
+  "^EXAVITQu4vr4xnSDxMaL$",
+  "^NovaNet/Solariun$",
 ]
