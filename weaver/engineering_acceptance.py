@@ -53,6 +53,18 @@ class ReviewEvidence:
 
 
 @dataclass(frozen=True)
+class HumanApprovalEvidence:
+    """Auditable approval observed from a trusted review/approval source."""
+    approved: bool
+    reviewer: str
+    reviewer_id: str
+    reviewed_sha: str
+    record_id: str
+    source: str
+    authorized: bool = False
+
+
+@dataclass(frozen=True)
 class MergePolicy:
     version: str
     required_gates: tuple[str, ...]
@@ -74,7 +86,7 @@ class PullRequestEvidence:
     mergeable: bool = True
     branch_protection_satisfied: bool = False
     risk_class: RiskClass = RiskClass.ROUTINE
-    explicit_human_approval: bool = False
+    human_approvals: Sequence[HumanApprovalEvidence] = ()
     policy_authorizes_auto_merge: bool = False
     evidence_complete: bool = True
     policy_version: str = ""
@@ -141,6 +153,14 @@ def evaluate_merge_readiness(
     if policy.require_independent_approval and not approvals:
         reasons.append("independent approval for the exact candidate SHA is missing")
 
+    valid_human_approvals = [
+        approval for approval in pr.human_approvals
+        if approval.approved and approval.authorized
+        and approval.reviewer.strip() and approval.reviewer_id.strip()
+        and approval.reviewed_sha == pr.head_sha
+        and approval.record_id.strip() and approval.source.strip()
+    ]
+
     if reasons:
         blocking_prefixes = (
             "candidate and base must be",
@@ -159,7 +179,7 @@ def evaluate_merge_readiness(
         ) else Decision.NOT_READY
     elif pr.risk_class in policy.auto_merge_risk_classes and pr.policy_authorizes_auto_merge:
         decision = Decision.READY_TO_MERGE
-    elif pr.explicit_human_approval:
+    elif valid_human_approvals:
         decision = Decision.READY_TO_MERGE
     else:
         decision = Decision.READY_FOR_HUMAN_DECISION
