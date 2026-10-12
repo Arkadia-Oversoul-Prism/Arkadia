@@ -5,6 +5,9 @@
 - **Base**: `main` @ `49809f45274f2f81b24e01fefdfb3009e8717495` (2026-10-12)
 - **Authority**: draft PR only. No merge, no deploy, no acceptance. Human sovereign retains merge.
 
+**Evidence freshness:** The handler behavior and test/build results below were measured on predecessor PR #491 at its old base/head. The relevant source files were byte-identical between that old base and current main at branch cut, so the patch was replayed. These numbers are retained as historical provenance only. Current-head CI is tracked on PR #498; until it completes, this file does not claim the tests passed on the fresh head.
+
+
 ## Objective
 
 The timeline reader showed a single newest window and stated in prose that "older
@@ -42,7 +45,7 @@ Positively Lane-3-owned; **no shared file touched** (no `App.tsx`, `router.ts`,
 Each source detector carries a negative control (pre-repair shape fails it; an
 import-without-a-call fails it), following the sibling console guards' convention.
 
-## Verification performed (measured, this pulse)
+## Historical verification from predecessor PR #491 (not rerun on this head)
 
 | Command | Result |
 |---|---|
