@@ -322,3 +322,25 @@ the two job logs:
   repaired here.
 
 This is a repository-source/CI-log observation. No merge, no deployment, no acceptance.
+
+## 16. Citation currency — measured at `main` `ee684fff` (2026-10-12)
+
+Three citations carried by sections 4/5/7 and by the PR body are now **superseded**. They are
+corrected here, as a stale citation is a defect to correct rather than to reconcile.
+
+| cited as | actual state at `ee684fff` |
+|---|---|
+| "open PR #481" (the sqlite contamination class) | **MERGED** 2026-10-12T13:39:17Z. No longer open, no longer a live owner for that class. |
+| "CP10-B execution defect not repaired here" | **DISCHARGED on `main`** by PR #487 (`gate10/cp10-broad-suite-reach-01`, merged 2026-10-12T13:47:57Z). `sg-02-fe-2-v.yml:245` now runs `pytest tests/ -q --continue-on-collection-errors`. That is the same branch the continuity rule names; it is not an open workstream. |
+| "`tests/test_history_depth_ci_wiring.py` — 15 tests" | Guard collects **17 tests** at this head (`--collect-only` -> 17). The count grew by 2 in the section 9 guard-inputs pass. |
+| "negative control `2 failed, 13 passed`; repair `15 passed`" | Re-measured fresh on this head: reverted workflow -> **`2 failed, 15 passed`**; repaired -> **`17 passed`**. Magnitudes are reproducibility detail; the presence/absence contrast is load-bearing. |
+| "branch CI 18 nodes / +24 passed" | Branch CI at `bbd04f41` reports **9** failing/error nodes (8 failed, 1 error); `main` CI reports **22**. `comm -13` (newly broken) is **empty** in both passes. |
+
+The repair itself is unchanged and still absent from `main` at `ee684fff`: `provider-routing.yml`
+uses `actions/checkout@v4` with no `fetch-depth`, and neither the guard nor this evidence directory
+exists there. The branch remains necessary.
+
+Fresh bound on this head, measured not inherited: guard **17 passed**, architecture **11 passed**,
+AGENTS.md audit `alterations=0` / `reproduced=True` / `cyrillic=0`, `py_compile api/main.py` clean.
+
+This is a repository-source/CI-log observation. No merge, no deployment, no acceptance.
