@@ -4,10 +4,17 @@
 **Branch** := `gate10/cp10-broad-suite-collection-continuation-01`
 **BASE_MAIN** := `850216fc99b0eab66a66f8a8290c0db33823b681`
 **PR** := #462
-**Head at last pass** := `427da5a7a9aaf238a3c19e8570d98fd583a38c2c`
+**Head at last pass** := `812689be3a2d7f0b9e596b7bd044823cf884c360`
 **Status** := IMPLEMENTED (repository-source); PR open; **sovereign review required**
 
-## CI result on the pushed head (measured)
+## CI result (measured on both heads)
+
+Re-measured after the evidence-only commit — the result is unchanged:
+
+| Head | `validate` (judging, whole suite) | `provider-routing` (reporting) | node set vs `main` |
+|---|---|---|---|
+| `427da5a7` (repair) | **pass** | failure | 22 nodes, identical |
+| `812689be` (repair + evidence) | **pass** | failure | 22 nodes, identical |
 
 | Gate | Conclusion |
 |---|---|
@@ -17,9 +24,16 @@
 
 Attribution was measured, not argued: `gh workflow run provider-routing.yml --ref main`
 (run `38203666667`, head `850216fc` == main) reproduces the **same 22-node** failing/error
-set as the branch run (`38203244231`); `diff` of the two sorted node lists is empty, and
-none of the 22 nodes are in this repair's files. `main` itself fails `provider-routing`.
-See EVIDENCE.md §6.
+set as both branch runs (`38203244231`, `38203942626`); `diff` of the sorted node lists is
+empty each time, and none of the 22 nodes are in this repair's files. `main` itself fails
+`provider-routing`. See EVIDENCE.md §6.
+
+## Duplicate-repair check (all open PRs, measured)
+
+Scanned every open PR's diff for an actual `+`-line adding the flag to a workflow step:
+none exists. Other matches are prose only — `#461` (reconnaissance doc) and `#432`
+(evidence docs) *describe* the defect/flag; `#459` names it in a comment; `#458` and
+`#457` cite the documented command line. No sibling duplicates Defect A.
 
 ## Objective
 
