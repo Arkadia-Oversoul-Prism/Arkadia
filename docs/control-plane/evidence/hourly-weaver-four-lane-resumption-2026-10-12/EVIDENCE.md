@@ -10,8 +10,10 @@
 - Workflow: [Arkadia Engineering Scheduler](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/workflows/arkadia-engineering-scheduler.yml)
 - Latest successful scheduled run identified: [#38165015207](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/38165015207)
 - Event/time/head: scheduled, `2026-10-11T18:43:34Z`, `36df0ea8169087802e4fc34ae96496058a380d05`
-- Actual output: `status=NO_LEGAL_MOVE`, `next_move=NONE`, `dry_run=true`
-- Interpretation: scheduler job succeeded, but selected no move and did not prove four OpenHands dispatches.
+- Actual output: `status=NO_LEGAL_MOVE`, `next_move=NONE`, `dry_run=true`.
+- Exact blockers: `G12-A` and `G12-C` have `merged_acceptance_pending`, which the pinned router vocabulary intentionally reports as unrecognized; `G12-B` depends on `G12-A`; `G14` depends on `G12-C`; `G15` depends on `G14`; `G16` depends on `G15`.
+- The runner recorded an attention outbox event. Delivery status was `NOT_CONFIGURED`, with reason `ARKADIA_ATTENTION_DELIVERY_URL/SOVEREIGN_KEY/ARKADIA_ATTENTION_OWNER_UID not configured`; the run therefore had durable blocker evidence but no configured attention delivery.
+- Interpretation: the job did not silently skip the frontier—the artifact names the vocabulary and dependency blockers. `NO_LEGAL_MOVE` is the worker's current contract and is expected by the worker→attention composition tests; do not rename it without a coupled contract change. The scheduler still did not prove four OpenHands dispatches.
 - Pull-request-triggered scheduler run [#38294936054](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/38294936054) passed the conformance guards; its runner step was skipped because the event was `pull_request`. It is not a scheduled execution.
 - The connected tool surface exposes GitHub repository/PR operations but no callable OpenHands dispatch-and-run-inspection action. Actual lane outputs below establish useful work products; they do not retroactively prove the hourly scheduler dispatched those workers.
 
