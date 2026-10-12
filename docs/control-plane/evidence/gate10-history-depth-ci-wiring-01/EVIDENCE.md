@@ -271,3 +271,31 @@ does not authorize execution.
 ## 13. Authority
 
 No merge, no deployment, no acceptance. Human authority final.
+
+## 14. Reconciliation against current `main` (2026-10-12, hourly pulse)
+
+The branch had gone `DIRTY`/`CONFLICTING` (`mergeable=false`) because `main` had advanced
+past its base. Re-measured live:
+
+- `BASE_MAIN` = `ee684fffe6f4f1670a7d9e8928e9c5fc323b4c2a` (PR #487 merge, `cp10-broad-suite-reach-01`).
+- Merge base of the branch and `main` = `6109c72ab9eedc2593d2cc6c50ebd01596c80072`.
+- `main` appended a new hygiene section to `AGENTS.md` (`## A fix you are authorized to
+  write can land on main while you write it`); this branch appended its own
+  (`## A judging CI surface on a shallow clone fails a clean file`). Both are append-only
+  prose, so the conflict is a pure append collision.
+
+Resolution: merge `origin/main` into the branch and keep **both** appended sections in
+order (branch section first, `main`'s section second). No oracle-carried line was
+rewritten; the AGENTS.md encoding invariant holds (`cyrillic == 0`).
+
+Verification on the reconciled tree:
+
+- `tests/test_history_depth_ci_wiring.py` -> **17 passed**.
+- Full suite (`pytest tests/ -q -rEf --continue-on-collection-errors`) ->
+  `97 failed, 1908 passed, 21 skipped, 105 errors`.
+- Failing/error **node set** identical to `BASE_MAIN`: **202** nodes on both trees,
+  `sha256 533ed749a3b5b2bcbee341b2abbf29e0e64b52f2c11ddf4ab7977a85585ac20b`, `comm -3` empty.
+  The `+17 passed` is exactly this branch's new guard file. Zero regression.
+- Architecture suite: `11 passed`.
+
+Authority: no merge, no deployment, no acceptance. Human authority final.

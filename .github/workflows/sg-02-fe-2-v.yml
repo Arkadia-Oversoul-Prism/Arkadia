@@ -236,7 +236,13 @@ jobs:
         id: backend
         working-directory: .
         continue-on-error: true
-        run: python -m pytest tests/ -q 2>&1 | tee cp10-backend.log
+        # --continue-on-collection-errors is required, not cosmetic: the CE-01
+        # `weaver.autonomy` module-vs-package collision aborts a bare
+        # `pytest tests/` ("Interrupted: 1 error during collection"), so this
+        # step executed ZERO tests. The step is non-gating, so the flag cannot
+        # turn `main` red; it only changes the step's content from "nothing" to
+        # "the suite, reported". Sibling of provider-routing.yml's broader step.
+        run: python -m pytest tests/ -q --continue-on-collection-errors 2>&1 | tee cp10-backend.log
       - name: Start existing backend runtime
         working-directory: .
         run: nohup env PYTHONPATH=. python -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --log-level info > cp10-backend-runtime.log 2>&1 &

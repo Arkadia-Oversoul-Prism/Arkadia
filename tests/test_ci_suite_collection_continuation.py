@@ -194,3 +194,75 @@ def test_negative_control_continue_on_error_step_is_not_a_judging_surface():
         step.get("continue-on-error") is not True
         and bool(_broad_suite_invocations(step["run"]))
     ), "a continue-on-error step must not count as a judging surface"
+
+
+# ---------------------------------------------------------------------------
+# Reachability, independent of gating
+#
+# The judging-surface invariant above is scoped to `continue-on-error: false`, so
+# it is silent on a non-gating broad-suite step. The CP10-B step in
+# `sg-02-fe-2-v.yml` is exactly that shape, and it is the *only* broad-suite
+# surface selected by `lab/**` and `spiral_grove/**`. Measured at `main`
+# `26521e24` (run `38240790826`), it died at
+# `Interrupted: 1 error during collection` — `1 skipped, 1 error in 10.05s` —
+# so 177 tests reachable only through a broad-suite run executed zero times,
+# while the step's name still read like coverage.
+#
+# Gating and reaching are different properties. A step that never reaches the
+# suite cannot report, gate, or cover anything; the flag that makes it reach is
+# orthogonal to `continue-on-error`, so this invariant is stated over *every*
+# broad-suite step rather than only the judging ones.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("path", _workflow_files(), ids=lambda p: p.name)
+def test_every_broad_suite_step_reaches_the_suite(path: Path):
+    """Every broad-suite step — gating or not — must run the suite.
+
+    A bare `pytest tests/` aborts at the CE-01 collision, so such a step reports
+    nothing and the guards it collects go unexecuted. This is the defect measured
+    on the CP10-B step; it is *not* about the step's gating status.
+    """
+    for step in _broad_suite_steps(path):
+        run = step.get("run") or ""
+        assert CONTINUE_FLAG in run, (
+            f"{path.name}: broad-suite step {step.get('name')!r} runs the whole "
+            f"suite without {CONTINUE_FLAG}; the known collection error interrupts "
+            f"the session and zero tests execute, so the step reports nothing"
+        )
+
+
+def test_the_cp10b_step_is_a_broad_suite_reachability_instance():
+    """Pin the repaired surface so a rewrite of it is a visible change."""
+    steps = _broad_suite_steps(WORKFLOWS / "sg-02-fe-2-v.yml")
+    assert steps, "sg-02-fe-2-v.yml no longer has a broad-suite step"
+    backend = [s for s in steps if s.get("id") == "backend"]
+    assert backend, "the CP10-B broad-suite step (`id: backend`) is gone"
+    assert CONTINUE_FLAG in (backend[0].get("run") or ""), (
+        "the CP10-B step must continue past collection errors, or it runs zero tests"
+    )
+
+
+def test_negative_control_reachability_detector_flags_the_pre_fix_step():
+    """The reachability detector must flag the exact pre-fix CP10-B line."""
+    pre_fix = {
+        "name": "CP10-B broader backend regression",
+        "id": "backend",
+        "continue-on-error": True,
+        "run": "python -m pytest tests/ -q 2>&1 | tee cp10-backend.log",
+    }
+    assert _broad_suite_invocations(pre_fix["run"]), "the shape must be recognised"
+    assert CONTINUE_FLAG not in pre_fix["run"], (
+        "the pre-fix shape must lack the flag, or this control proves nothing"
+    )
+
+
+def test_positive_control_reachability_detector_accepts_the_repaired_step():
+    repaired = {
+        "name": "CP10-B broader backend regression",
+        "id": "backend",
+        "continue-on-error": True,
+        "run": "python -m pytest tests/ -q --continue-on-collection-errors 2>&1 | tee cp10-backend.log",
+    }
+    assert _broad_suite_invocations(repaired["run"]), "still a broad-suite step"
+    assert CONTINUE_FLAG in repaired["run"]
