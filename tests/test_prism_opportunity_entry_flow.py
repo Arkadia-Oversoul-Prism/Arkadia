@@ -425,6 +425,17 @@ contacted.status = "CONTACTED";
 out.create_from_contacted = m.createEntryBody(contacted);
 out.edit_from_contacted = m.editEntryBody(contacted, entry);
 
+// The pipeline strip: one ordered column per declared status.
+out.pipeline_columns = m.statusColumns().map((c) => c.status);
+out.pipeline_labels = m.statusColumns().map((c) => c.label);
+out.summary_empty = m.summarize([]);
+out.summary_one = m.summarize([entry]);
+// A board carrying a terminal outcome AND a defect-3 status (outside the declared
+// vocabulary): the columns must still total, and the stray must be counted.
+const settled = { ...entry, id: "e3", status: "SETTLED" };
+const offVocab = { ...entry, id: "e4", status: "conversation" };
+out.summary_mixed = m.summarize([entry, settled, offVocab]);
+
 console.log(JSON.stringify(out));
 """
 
@@ -824,3 +835,99 @@ def test_the_surface_cannot_reach_defect_3():
     assert "toUpperCase()" not in form and "toLowerCase()" not in form, (
         "the form must not case-fold a status it is about to send"
     )
+
+
+# ---------------------------------------------------------------------------
+# Pipeline strip — the per-status counts the board read already computes
+# ---------------------------------------------------------------------------
+
+
+def test_status_columns_cover_every_declared_status_in_backend_order(contract_probe):
+    """The strip renders one column per status, in the backend's own order.
+
+    Derived from `BUYER_RECON_STATUSES`, so a status added to the backend is a
+    column without a frontend edit; a status removed leaves no stale column.
+    """
+    assert contract_probe["pipeline_columns"] == list(buyer_recon.STATUSES)
+    # Labels are the status with underscores relieved, not a second vocabulary.
+    assert contract_probe["pipeline_labels"] == [
+        status.replace("_", " ") for status in buyer_recon.STATUSES
+    ]
+
+
+def test_strip_counts_every_entry_including_terminal_outcomes(contract_probe):
+    """A terminal outcome still has a home: the columns total the board.
+
+    The write ceiling (`SETTABLE_STATUSES`) stops EXECUTED/SETTLED being
+    *asserted*; it must not also stop a recorded one being *counted*, or the strip
+    would under-report a real board (the archived Prism strip showed every column).
+    """
+    mixed = contract_probe["summary_mixed"]
+    counted = sum(mixed["byStatus"][status] for status in buyer_recon.STATUSES)
+    # 2 in-vocabulary entries (UNCONTACTED + SETTLED) + 1 off-vocabulary stray.
+    assert mixed["total"] == 3
+    assert counted == 2, "in-vocabulary columns must count the settled entry too"
+    assert mixed["byStatus"]["UNCONTACTED"] == 1
+    assert mixed["byStatus"]["SETTLED"] == 1
+
+
+def test_strip_states_the_off_vocabulary_stray_instead_of_dropping_it(contract_probe):
+    """MEASURED DEFECT 3 makes a status outside the vocabulary persistable.
+
+    `byStatus` is keyed on the declared tuple, so such an entry has no column. Left
+    unreported the counts silently fail to total; the summary carries the stray and
+    the surface says so. This is the same defect pinned (not repaired) by
+    `test_update_does_not_normalize_a_lowercase_status` — here the *display* is
+    measured, not the backend.
+    """
+    mixed = contract_probe["summary_mixed"]
+    assert mixed["offVocabulary"] == 1
+    assert mixed["total"] == sum(
+        mixed["byStatus"][status] for status in buyer_recon.STATUSES
+    ) + mixed["offVocabulary"], "the strip plus the off-vocabulary note must total the board"
+
+
+def test_negative_control_the_stray_would_be_dropped_without_the_counter(contract_probe):
+    """Prove the counter is load-bearing rather than decorative.
+
+    Under the pre-change `summarize` (which only incremented declared keys) the
+    off-vocabulary entry vanished: the columns totalled one less than the board.
+    """
+    mixed = contract_probe["summary_mixed"]
+    assert mixed["offVocabulary"] > 0, "the detector must see a stray at all"
+    naive_total = sum(mixed["byStatus"][status] for status in buyer_recon.STATUSES)
+    assert naive_total != mixed["total"], "without the counter the total would not reconcile"
+
+
+def test_empty_board_reports_zeroed_columns_not_an_invented_row(contract_probe):
+    empty = contract_probe["summary_empty"]
+    assert empty["total"] == 0
+    assert empty["offVocabulary"] == 0
+    assert all(empty["byStatus"][status] == 0 for status in buyer_recon.STATUSES), (
+        "an empty board must yield zeroed columns, never a fabricated count"
+    )
+
+
+def test_surface_renders_the_pipeline_strip_from_the_summary():
+    surface = SURFACE_TS.read_text(encoding="utf-8")
+    assert 'data-testid="opportunity-pipeline"' in surface
+    assert "statusColumns().map(" in surface, "columns must be derived, not hardcoded"
+    assert "summary.byStatus[column.status] ?? 0" in surface
+    assert 'data-testid="opportunity-off-vocabulary"' in surface
+    assert "summary.offVocabulary > 0" in surface
+
+
+def test_surface_strip_asserts_no_execution_authority():
+    """A per-status count is reconnaissance; it must not become an execute control."""
+    code = _code_only(SURFACE_TS)
+    for invented in (
+        "onClick={handleExecute",
+        "handleApprove",
+        '"DELETE"',
+        "'DELETE'",
+        "budget_ngn",
+        "contract_value",
+        "revenue",
+    ):
+        assert invented not in code, f"the strip must not imply authority ({invented})"
+

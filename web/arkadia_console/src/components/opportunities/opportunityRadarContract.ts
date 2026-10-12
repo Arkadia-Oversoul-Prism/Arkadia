@@ -199,7 +199,18 @@ export interface OpportunitySummary {
   total: number;
   actionable: number;
   withEvidence: number;
+  /** Counts for the declared vocabulary; see `offVocabulary` for what it omits. */
   byStatus: Record<string, number>;
+  /**
+   * Entries whose stored status is outside `BUYER_RECON_STATUSES`.
+   *
+   * The backend can persist one: `update_entry` validates `status.upper()` but
+   * writes the value it was sent (`solspire/buyer_recon.py`, MEASURED DEFECT 3).
+   * `byStatus` is keyed on the declared tuple, so such an entry has no column —
+   * it would silently vanish from a per-status strip and the counts would not
+   * total. This carries it so the display can say so instead of under-reporting.
+   */
+  offVocabulary: number;
 }
 
 /** Counts derived from real entries only — an empty board stays visibly empty. */
@@ -208,12 +219,39 @@ export function summarize(entries: OpportunityEntry[]): OpportunitySummary {
   for (const status of BUYER_RECON_STATUSES) byStatus[status] = 0;
   let actionable = 0;
   let withEvidence = 0;
+  let offVocabulary = 0;
   for (const entry of entries) {
-    byStatus[entry.status] = (byStatus[entry.status] ?? 0) + 1;
+    if (isKnownStatus(entry.status)) {
+      byStatus[entry.status] += 1;
+    } else {
+      offVocabulary += 1;
+    }
     if ((ACTIONABLE_STATUSES as readonly string[]).includes(entry.status)) actionable += 1;
     if (entry.evidence_status && entry.evidence_status !== NO_EVIDENCE) withEvidence += 1;
   }
-  return { total: entries.length, actionable, withEvidence, byStatus };
+  return { total: entries.length, actionable, withEvidence, byStatus, offVocabulary };
+}
+
+export interface StatusColumn {
+  status: BuyerReconStatus;
+  /** The status with underscores relieved for display only — the value is unchanged. */
+  label: string;
+}
+
+/**
+ * The ordered columns of the pipeline strip: every status the backend declares.
+ *
+ * Unfiltered on purpose. The archived Prism `ProjectOpportunityRadar` rendered a
+ * column for every member of its `columns` array, including the two terminal
+ * outcome statuses, so a `SETTLED` entry still had a home on the board. Showing
+ * a terminal *count* is reconnaissance; the write ceiling (`SETTABLE_STATUSES`)
+ * is what keeps those statuses from being asserted, and it is unaffected here.
+ */
+export function statusColumns(): StatusColumn[] {
+  return BUYER_RECON_STATUSES.map((status) => ({
+    status,
+    label: status.replaceAll("_", " "),
+  }));
 }
 
 // ---------------------------------------------------------------------------

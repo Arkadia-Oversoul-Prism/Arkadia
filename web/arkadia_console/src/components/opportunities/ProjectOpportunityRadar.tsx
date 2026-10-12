@@ -5,6 +5,7 @@ import { ProspectEntryForm } from "./ProspectEntryForm";
 import {
   UNVERIFIED,
   fact,
+  statusColumns,
   summarize,
   upsertEntry,
   type OpportunityEntry,
@@ -121,6 +122,26 @@ export function ProjectOpportunityRadar({ readPath }: { readPath: string }) {
                 Reconnaissance only · execution: {state.board.authority.execution_authority ?? "unreported"} · budget: {state.board.authority.budget_authority ?? "unreported"}
               </p>
             )}
+            {/* Pipeline strip — a real count per declared status, over the same
+                entries the list below shows. A status the backend stored but does
+                not declare has no column here, so it is counted separately rather
+                than dropped (see the off-vocabulary note under the list). */}
+            <ul
+              className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4"
+              data-testid="opportunity-pipeline"
+            >
+              {statusColumns().map((column) => (
+                <li key={column.status} className="rounded border border-line bg-ink/40 px-2 py-1">
+                  <p className="font-mono text-[9px] uppercase tracking-widest text-white/40">{column.label}</p>
+                  <p
+                    className={`text-sm ${column.status === "READY_TO_EXECUTE" ? "text-gold" : "text-emerald"}`}
+                    data-testid={`opportunity-pipeline-${column.status}`}
+                  >
+                    {summary.byStatus[column.status] ?? 0}
+                  </p>
+                </li>
+              ))}
+            </ul>
             {entries.length === 0 ? (
               <p className="text-sm text-white/50">No prospects recorded for this project yet.</p>
             ) : (
@@ -171,6 +192,12 @@ export function ProjectOpportunityRadar({ readPath }: { readPath: string }) {
             <p className="mt-3 text-[11px] text-white/35">
               {summary.total} recorded prospect(s), {summary.actionable} at a decision stage. No spending or execution is authorized by this view.
             </p>
+            {summary.offVocabulary > 0 && (
+              <p className="mt-1 text-[11px] text-gold" data-testid="opportunity-off-vocabulary">
+                {summary.offVocabulary} recorded prospect(s) carry a status outside the declared pipeline
+                and are not counted in the columns above.
+              </p>
+            )}
           </>
         )}
       </Panel>
