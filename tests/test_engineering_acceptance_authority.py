@@ -94,7 +94,7 @@ def test_draft_and_unprotected_branch_are_not_merge_ready():
     result = evaluate_merge_readiness(
         ready_pr(draft=True, branch_protection_satisfied=False), POLICY
     )
-    assert result.decision is Decision.NOT_READY
+    assert result.decision is Decision.BLOCKED
     assert len(result.reasons) >= 2
 
 
