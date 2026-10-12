@@ -23,21 +23,24 @@ Both conditions were evaluated against the live tracked corpus, not against pros
 
 ## 2. The measured population
 
-Of **255** tracked `tests/**/test_*.py` files:
+Of **254** tracked test files at the `850216fc` base:
 
 | Class | Count |
 |---|---|
 | Executed by a gate a PR touching the file **would trigger** (named, or a real whole-suite run) | **78** |
 | Executed *only* by a broad-suite step | **177** |
 
-The **78/177** split is measured at the `850216fc` base. The **255** is the *branch-head*
-population and includes PR #460's own new guard
-(`tests/test_gitleaks_config_guard_ci_wiring.py`, 18 nodes), so at `850216fc` the population
-is **254** (`git ls-files -- tests | grep -cE '(^|/)test_.*\.py$'` → 253 plus
-`tests/gemini_test.py`). Two of the 255 are uncollectable by a bare `pytest tests/` run
-regardless of gate wiring — `tests/gemini_test.py` matches pytest's `*_test.py` default and
-collects 0 nodes, and `tests/render_test_console.py` raises a collection error — so they are
-not part of the broad-suite reach question.
+Both the **78/177** split and the **254** are measured at the `850216fc` base.
+`git ls-tree -r --name-only 850216fc -- tests | grep -cE '(^|/)test_.*\.py$'` → **253**,
+plus `tests/gemini_test.py`, which matches pytest's `*_test.py` default but not `test_*.py`.
+The **254** holds on this branch at **both** revisions (re-measured at base `850216fc` and at
+head `4e089064` → 253 / 254). The **255** that earlier revisions of this document carried is
+**PR #460's own branch-head** count (`6241bdb7`), which adds that PR's
+`tests/test_gitleaks_config_guard_ci_wiring.py`; it does **not** describe this branch, which
+does not touch `tests/`. Two of the 254 are uncollectable by a bare `pytest tests/` run
+regardless of gate wiring — `tests/gemini_test.py` collects 0 nodes (1 skipped), and
+`tests/render_test_console.py` raises a collection error — so they are not part of the
+broad-suite reach question.
 
 The 177 are not decoration per se — the two whole-suite surfaces are
 `provider-routing.yml` and `sg-02-fe-2-v.yml`. The question is whether those surfaces
@@ -175,3 +178,11 @@ tests/test_m02a_ci_gate_integrity.py -q` → **201 passed**.
   §7 "0 matches" claim, re-verified as still holding
   (`grep -rn test_gitleaks_config_guard .github/` at `850216fc` → 0). Documentation-only;
   no application code, no authority surface, no test change.
+- **Doc-currency pass, second half (2026-10-12)**: the §2 correction above was **still
+  ambiguous** and is superseded. Re-measured with `git ls-tree -r --name-only <sha> -- tests`
+  at **both** revisions: base `850216fc` → 253 / 254, head `4e089064` → 253 / 254. The **255**
+  is PR #460's own branch-head count (`6241bdb7`), not this branch's — this branch does not
+  touch `tests/`, so its population is 254 at every revision it carries. The §2 text now
+  states the revision each number belongs to instead of describing 255 as "the branch-head
+  population" without naming which branch. The 78/177 split is unaffected (it is measured at
+  `850216fc` and this branch adds no test file).
