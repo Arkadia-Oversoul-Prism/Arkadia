@@ -299,3 +299,26 @@ Verification on the reconciled tree:
 - Architecture suite: `11 passed`.
 
 Authority: no merge, no deployment, no acceptance. Human authority final.
+
+## 15. CI attribution on the reconciled head `cd5147dd` (provider-routing)
+
+`provider-routing` remains red on the reconciled head — as it is red on `main` itself
+(`workflow_dispatch` run `38249795854` at `26521e24`, before the recent merges). Comparing
+the two job logs:
+
+| Tree | Step 8 (`Broader test suite`) |
+|---|---|
+| `main` `26521e24` | `21 failed, 2866 passed, 21 skipped, 1 error` |
+| branch `cd5147dd` | `8 failed, 2979 passed, 16 skipped, 1 error` |
+
+- **Every one of the 9 failing/error nodes on the branch is also in `main`'s CI failure
+  set** (`comm -23` empty) — zero branch-caused failures.
+- The `fetch-depth: 0` repair is proven live: `tests/test_agents_md_encoding_adjudication.py`
+  contributes **4** failing nodes in `main`'s job log and **0** in the branch's. That is
+  exactly the defect this PR repairs.
+- The remaining red is pre-existing sovereign-owned debt (the CE-01 `weaver.autonomy`
+  module-vs-package collection error, the `test_engineering_lab_api.py` authority-boundary
+  pins, `test_solspire_r1/r3` governance pins, Landing/identity copy pins) and is **not**
+  repaired here.
+
+This is a repository-source/CI-log observation. No merge, no deployment, no acceptance.
