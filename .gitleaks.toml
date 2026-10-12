@@ -16,4 +16,10 @@ regexes = [
   '''^arkadia[.]ais[.]diagnostic-handoff[.]v1$''',
   '''^arkadia[.]ais[.]capability-portfolio[.]v1$''',
   '''^EXAVITQu4vr4xnSDxMaL$''',
+  # Prose fragment from docs/control-plane/parallel-ui/SHARED-CONTRACTS.md, where the
+  # neighbouring word "tokens" makes gitleaks' generic-api-key heuristic score
+  # "NovaNet/Solariun" as a candidate secret (entropy 3.625). It is two surface names,
+  # not a credential, and the finding lives in the commit that introduced it, so a
+  # tip-side reword cannot clear the ranged scan.
+  '''^NovaNet/Solariun$''',
 ]
