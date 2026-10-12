@@ -28,10 +28,10 @@ Check conclusions observed for lane heads: all nine reported workflow runs on ea
 
 ## 3. Control-plane router defect
 
-- Draft repair: [PR #495](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/495), branch `fix/weaver-acceptance-pending-router-current-main`, head `763af66386384e0b92e485e7ad91213313e43b4e`.
-- It recognizes `merged_acceptance_pending`, `blocked`, `failed`, and `aborted` as valid but non-routable states; requires human acceptance evidence after merge; and distinguishes a true clean stop from a blocked frontier.
-- PR checks observed: scheduler conformance job succeeded; Weaver MVP2 validation failed at `Engineering-router status truthfulness guard`; provider routing verification was still in progress at last observation.
-- The new regression test has not been independently executed in this session. **Do not merge or claim the fix verified until the failing guard is diagnosed and the complete relevant checks pass.**
+- Draft repair: [PR #495](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/495), branch `fix/weaver-acceptance-pending-router-current-main`, current head `e893cf804c43fa7da6800d32705062364b7e8144`.
+- It preserves the existing schema-vocabulary governance decision: the four schema-only states remain named as unroutable rather than silently skipped. It also distinguishes a true clean stop from a blocked frontier in the returned route status.
+- The initial head `763af663...` failed the Weaver MVP2 validation guard: 8 failures / 36 passes because it changed the explicitly pinned schema-only status vocabulary. That version was corrected. Current head `e893cf804c43fa7da6800d32705062364b7e8144` preserves the vocabulary decision and only changes the route result to `BLOCKED` when blockers exist, with regression tests for clean-stop versus blocked status.
+- No workflow runs were returned for the revised head at the last inspection. **Current patch is awaiting CI; do not claim it verified or merge it until the relevant checks pass.**
 
 ## 4. Portfolio boundary
 
