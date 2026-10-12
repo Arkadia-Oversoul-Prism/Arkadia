@@ -1,8 +1,10 @@
 # gate10/gitleaks-config-guard-ci-wiring-01 — a config guard no gate executed
 
-**Status:** IMPLEMENTED — wiring proven locally by live negative control and by the
-gate's own CI run (run `38197766990`, job `114644183192`); PR open, human merge required.
+**Status:** VERIFIED — the gate executes, its assertions run, and the job is green under
+its own `pull_request` event (run `38197766990` failed pre-repair; post-repair job
+`114646920385` → `24 passed`, all 9 check-runs success). PR open, human merge required.
 **Branch:** `gate10/gitleaks-config-guard-ci-wiring-01`
+**Head:** `6b6adb6e` (repair) on `ad9bb6f0` (initial wiring)
 **Base:** `main` @ `850216fc99b0eab66a66f8a8290c0db33823b681` ("gate10: repair ADR-016 static-corpus freshness pin")
 **Extends:** `docs/control-plane/evidence/gate-hygiene-gitleaks-config-guard-01/` (PR #314, guard introduced)
 
@@ -180,20 +182,45 @@ Live negative control on the **real** workflow file (`2cd5881abb7b0d82c0ced5cb49
 Local gate run after the repair: `tests/test_gitleaks_config_guard.py` +
 `tests/test_gitleaks_config_guard_ci_wiring.py` — **24 passed**.
 
-## 6. Remaining uncertainty / not claimed
+## 6. Runtime re-proof — VERIFIED
 
-- The dependency defect was found by CI, repaired, and proven by live negative control.
-  It is **not** yet re-proven by a post-repair CI run: the second commit's `pull_request`
-  event is the remaining evidence. Local `24 passed` is not a substitute for it.
+Post-repair commit `6b6adb6e`, all **9** check-runs `completed/success`:
+
+```
+ - gitleaks-config-guard | completed success   (job 114646920385)
+ - boot-syntax | completed success
+ - Full-history secret scan | completed success
+ - trigger-coverage | completed success
+ - bundle-beta-evidence | completed success
+ - provider-forensics | completed success
+ - beta-beta-01-english / -02-hausa | completed success
+ - native-arkadia-golden-workflow | completed success
+```
+
+Job log:
+
+```
+Successfully installed ... pytest-9.1.1 pyyaml-6.0.3
+python -m pytest tests/test_gitleaks_config_guard.py tests/test_gitleaks_config_guard_ci_wiring.py -q
+24 passed in 0.42s
+```
+
+The conclusion is corroborated by the **step log**, not read from the job badge: `24
+passed` proves the assertions executed, which the pre-repair run's `1 error during
+collection` did not. This closes the IMPLEMENTED -> VERIFIED step and is the runtime
+evidence the earlier revision lacked.
+
+## 7. Remaining uncertainty / not claimed
+
+- None outstanding for the wiring itself: the gate executes, selects every input it
+  reads, can fail, is dispatchable, and is green with assertions running.
 - Unchanged and out of scope: the standing Gate-2 production-parity boundary
   (`BLOCKED` on Vercel Deployment Protection) and the pre-existing `Vercel – console` /
   `Vercel – arkadia-prism` commit-status failures on `main` itself.
 - No merge, no push to `main`, no allowlist edit, no test weakened, no architecture
   reclassified.
 
-## 7. Next authorized action
+## 8. Next authorized action
 
-Sovereign review and merge of the PR on `gate10/gitleaks-config-guard-ci-wiring-01`.
-On merge, confirm the workflow's own `pull_request` run is green — that converts
-IMPLEMENTED into VERIFIED for the wiring.
+Sovereign review and merge of PR #460 on `gate10/gitleaks-config-guard-ci-wiring-01`.
 
