@@ -170,9 +170,57 @@ clean; `api/main.py` untouched (2505 lines, budget 2600).
 
 **Do not cite this fingerprint as the inherited one.** The inherited pass recorded a *different*
 extraction convention (`FAILED` only, no `ERROR` lines) and a 15-node guard. The recorded
-`7eaa2c11…` is a `FAILED`-only digest, not the `FAILED|ERROR` digest above; both are correct
+`7eaa2c11…` is a **`FAILED`-only digest**, not the `FAILED|ERROR` digest above; both are correct
 for their own convention, and comparing them across conventions is not a regression signal.
 
-## 10. Authority
+## 10. Runtime proof — CI `provider-routing` on this head, and the four adjudication nodes
+
+The `fetch-depth: 0` repair in §5 was a **source** claim until this pass. It now has a runtime
+observation at head `8f1dd97aee8fe99d8369b265491977a09f1ea2b3`, run `38232115303`, job
+`114753846310`, step `Broader test suite`:
+
+| tree | run | summary | nodes | ids sha256 |
+|---|---|---|---|---|
+| `main` `6109c72a` | `38224653480` | 21 failed / 2859 passed | **22** | `4d72c6b79c85ac97e4114aedd06479fee755ebf40b7dc60626f58ff3379b456f` |
+| branch `8f1dd97a` | `38232115303` | 17 failed / 2885 passed | **18** | `7eaa2c116c12b9e0a3993229db647bb76655c95983534db58a6fb171ceed6f6c` |
+
+`comm -3` of the two CI node-id sets is **exactly the four** `tests/test_agents_md_encoding_adjudication.py`
+nodes — and nothing else:
+
+```
+test_cli_summarises_the_oracle_without_crashing
+test_corruption_origin_is_re_derivable
+test_exit_code_does_not_call_a_divergent_clean_file_verified
+test_live_file_verdict_matches_its_state
+```
+
+This is the repair doing what it claims, observed in CI rather than argued: on `main`'s
+depth-1 checkout those four nodes are red; on this head the full-history checkout makes them
+green, and **no other node changes**. The branch's CI node set is byte-identical to the
+branch's local node set (`7eaa2c11…` both) — the four clone-depth artifacts are gone, which is
+why the branch carries **18** nodes against `main`'s **22**.
+
+**Note the direction.** The branch *reduces* the CI failure count by 4 relative to `main`
+without touching any of the four files it repairs — the fix is a checkout depth, not a test
+edit. The remaining 17 failures are pre-existing debt owned elsewhere (voice/sqlite, Lab
+authority pins, SolSpire R1/R3 pins, `test_autonomy.py` collection error) and are **not**
+repaired here.
+
+**`provider-routing` is red on `main` itself** (`38224653480`, measured at `6109c72a`), so its
+red status on this branch is pre-existing, not branch-caused. Classify accordingly.
+
+**Convention discipline — three digests, none comparable across conventions.** All measured on
+the same trees:
+
+| convention | branch value |
+|---|---|
+| `FAILED|ERROR` with pytest reason text | `c853c9a6…` |
+| node ids only (reason stripped) | `7eaa2c11…` |
+| `FAILED` only, ids only | `37ad6b6f…` |
+
+§9's regression claim uses the first; the CI comparison above uses the second. Both are
+correct. A digest quoted without its convention is not a measurement.
+
+## 11. Authority
 
 No merge, no deployment, no acceptance. Human authority final.
