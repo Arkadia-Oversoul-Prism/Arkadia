@@ -1,0 +1,58 @@
+name: Gitleaks Config Guard
+
+# `tests/test_gitleaks_config_guard.py` validates the root `.gitleaks.toml` the
+# Full-history secret scan reads. A config that fails to parse makes `gitleaks detect`
+# abort *without scanning* — a red "secret scan" that is really a configuration fault —
+# and an unanchored `allowlist.regexes` entry over-suppresses findings by matching a
+# substring of any secret value.
+#
+# Measured on `main` @ `850216fc`: the guard was executed by **no** workflow.
+# `grep -rln test_gitleaks_config_guard .github/workflows/` returned 0, so it held only
+# when a human ran the suite by hand. `provider-routing.yml` — the only workflow that
+# runs the full suite — is path-filtered to `weaver/**`, `providers/**`,
+# `api/lab_routes.py` and named files, so a commit editing `.gitleaks.toml`, or adding
+# the malformed entry the guard rejects, never ran it. A guard no gate executes is
+# decoration; this workflow is the executable surface.
+#
+# The guard's domain is the config it reads plus the guard itself, so both `paths`
+# filters name them. `tests/test_gitleaks_config_guard_ci_wiring.py` derives the guard's
+# inputs from its source and proves every one is selected, that the step can fail the
+# job, and that the gate is dispatchable.
+on:
+  pull_request:
+    paths:
+      - ".gitleaks.toml"
+      - ".github/workflows/gitleaks-config-guard.yml"
+      - "tests/test_gitleaks_config_guard.py"
+      - "tests/test_gitleaks_config_guard_ci_wiring.py"
+  push:
+    branches: [main]
+    paths:
+      - ".gitleaks.toml"
+      - ".github/workflows/gitleaks-config-guard.yml"
+      - "tests/test_gitleaks_config_guard.py"
+      - "tests/test_gitleaks_config_guard_ci_wiring.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks-config-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      # The contract guard is stdlib-only (`re`, `tomllib`, `pathlib`), so no
+      # application dependency is needed and a dependency gap cannot be misreported as
+      # a config fault. `pyyaml` is required by the wiring guard, which reads workflow
+      # YAML. Both are derived from the executed modules by
+      # `tests/test_gitleaks_config_guard_ci_wiring.py`, so a new import that this
+      # step does not install reddens the guard instead of the job.
+      - run: pip install pytest pyyaml
+      - name: Gitleaks config guard
+        run: |
+          python -m pytest tests/test_gitleaks_config_guard.py tests/test_gitleaks_config_guard_ci_wiring.py -q
