@@ -30,6 +30,15 @@ Of **255** tracked `tests/**/test_*.py` files:
 | Executed by a gate a PR touching the file **would trigger** (named, or a real whole-suite run) | **78** |
 | Executed *only* by a broad-suite step | **177** |
 
+The **78/177** split is measured at the `850216fc` base. The **255** is the *branch-head*
+population and includes PR #460's own new guard
+(`tests/test_gitleaks_config_guard_ci_wiring.py`, 18 nodes), so at `850216fc` the population
+is **254** (`git ls-files -- tests | grep -cE '(^|/)test_.*\.py$'` → 253 plus
+`tests/gemini_test.py`). Two of the 255 are uncollectable by a bare `pytest tests/` run
+regardless of gate wiring — `tests/gemini_test.py` matches pytest's `*_test.py` default and
+collects 0 nodes, and `tests/render_test_console.py` raises a collection error — so they are
+not part of the broad-suite reach question.
+
 The 177 are not decoration per se — the two whole-suite surfaces are
 `provider-routing.yml` and `sg-02-fe-2-v.yml`. The question is whether those surfaces
 actually reach the suite. Two of them do not.
@@ -132,10 +141,20 @@ The wiring is runtime-proven, not source-asserted: the gate's own runs on the br
 are `38197766990` (`failure`, first cut), `38198660357` (`success`), and `38198791620`
 (`success`, head `6241bdb7`).
 
-Baseline of the gate-hygiene guards at `850216fc`:
+Baseline of the gate-hygiene guards, measured on the branch at `6241bdb7` — where the
+new wiring guard exists:
 `python -m pytest tests/test_ci_gate_trigger_coverage.py
 tests/test_ci_suite_collection_continuation.py tests/test_gitleaks_config_guard_ci_wiring.py
 tests/test_m02a_ci_gate_integrity.py -q` → **217 passed**.
+
+That command is **not runnable at `850216fc`**, where the heading places it:
+`tests/test_gitleaks_config_guard_ci_wiring.py` is `ABSENT` on `main`
+(`git cat-file -e 850216fc:tests/test_gitleaks_config_guard_ci_wiring.py` → not found) and
+pytest exits `4` (`ERROR: file or directory not found`). It is a branch-head measurement,
+recorded here corrected rather than reconciled. On `main` the same set with the *config*
+guard in place of the wiring guard — `tests/test_ci_gate_trigger_coverage.py
+tests/test_ci_suite_collection_continuation.py tests/test_gitleaks_config_guard.py
+tests/test_m02a_ci_gate_integrity.py -q` → **201 passed**.
 
 ## 8. Status and next action
 
@@ -148,3 +167,11 @@ tests/test_m02a_ci_gate_integrity.py -q` → **217 passed**.
   (`gate10/cp10-broad-suite-reach-01`) — subject to sovereign authorization, since this
   pass's authorization covered reconnaissance and PR #460, not a new `sg-02-fe-2-v.yml`
   mutation.
+- **Doc-currency pass (2026-10-12)**: three citations in this document were re-measured and
+  corrected in place rather than reconciled — the §7 baseline command (217 passed is a
+  `6241bdb7` branch-head measurement, not `850216fc`; the file it names is absent on `main`,
+  where the equivalent set is 201 passed), the §2 population scope (255 is the branch-head
+  count; 254 at `850216fc`, of which 2 are uncollectable by a bare suite run), and the
+  §7 "0 matches" claim, re-verified as still holding
+  (`grep -rn test_gitleaks_config_guard .github/` at `850216fc` → 0). Documentation-only;
+  no application code, no authority surface, no test change.
