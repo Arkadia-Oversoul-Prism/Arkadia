@@ -28,10 +28,10 @@ Check conclusions observed for lane heads: all nine reported workflow runs on ea
 
 ## 3. Control-plane router defect
 
-- Draft repair: [PR #495](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/495), branch `fix/weaver-acceptance-pending-router-current-main`, current head `e893cf804c43fa7da6800d32705062364b7e8144`.
-- It preserves the existing schema-vocabulary governance decision: the four schema-only states remain named as unroutable rather than silently skipped. It also distinguishes a true clean stop from a blocked frontier in the returned route status.
-- The initial head `763af663...` failed the Weaver MVP2 validation guard: 8 failures / 36 passes because it changed the explicitly pinned schema-only status vocabulary. That version was corrected. Current head `e893cf804c43fa7da6800d32705062364b7e8144` preserves the vocabulary decision and only changes the route result to `BLOCKED` when blockers exist, with regression tests for clean-stop versus blocked status.
-- No workflow runs were returned for the revised head at the last inspection. **Current patch is awaiting CI; do not claim it verified or merge it until the relevant checks pass.**
+- Proposed router PR [#495](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/495) is **closed without merge**.
+- The first patch violated the pinned vocabulary decision (8 failures / 36 passes). The revised patch preserved the vocabulary but changed `NO_LEGAL_MOVE` to `BLOCKED`; the worker→attention composition guard then failed 2 tests because it explicitly expects `NO_LEGAL_MOVE` with blocker details carried separately.
+- The source of truth is therefore the existing behavior: schema-only statuses remain named as unroutable, dependency blockers are recorded, and the worker/attention contract expects `NO_LEGAL_MOVE`. Do not change router semantics without revisiting the worker→attention contract and its governance decision together.
+- No router fix is accepted or claimed. The control-plane correction belongs first in coordinator interpretation and dispatch proof, not in a speculative router status rewrite.
 
 ## 4. Portfolio boundary
 
