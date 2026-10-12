@@ -4,8 +4,12 @@
 **Branch** := `gate10/cp10-broad-suite-collection-continuation-01`
 **BASE_MAIN** := `850216fc99b0eab66a66f8a8290c0db33823b681`
 **PR** := #462
-**Head at last pass** := `812689be3a2d7f0b9e596b7bd044823cf884c360`
+**Heads measured** := `427da5a7` (repair) · `812689be` (repair + evidence) · `c35ab6d2`
 **Status** := IMPLEMENTED (repository-source); PR open; **sovereign review required**
+
+> The head moves with each evidence-only commit; the *result* does not. Every head above was
+> measured and produced the same outcome (see the table). Read the latest head from the PR,
+> not from this line.
 
 ## CI result (measured on both heads)
 
