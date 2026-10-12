@@ -1,6 +1,7 @@
 # gate10/gitleaks-config-guard-ci-wiring-01 — a config guard no gate executed
 
-**Status:** IMPLEMENTED — wiring proven locally by live negative control, PR open, human merge required.
+**Status:** IMPLEMENTED — wiring proven locally by live negative control and by the
+gate's own CI run (run `38197766990`, job `114644183192`); PR open, human merge required.
 **Branch:** `gate10/gitleaks-config-guard-ci-wiring-01`
 **Base:** `main` @ `850216fc99b0eab66a66f8a8290c0db33823b681` ("gate10: repair ADR-016 static-corpus freshness pin")
 **Extends:** `docs/control-plane/evidence/gate-hygiene-gitleaks-config-guard-01/` (PR #314, guard introduced)
@@ -97,37 +98,102 @@ WITHOUT workflow: 90 failed, 1641 passed, 22 skipped, 96 errors
 
 ## 4. Regression boundary
 
-- Failure/error **node set** identical on `main` @ `850216fc` and on this branch: 184
-  nodes, sha256 `d9dea976adfcf124f06403bcca697745d74508676c619917f51a63f5e6a3d0ff`
-  (`comm -3` empty in both directions).
-- The `+21 passed` is attributed by **`--collect-only`**, not inferred from the count
-  delta: 1756 -> 1777 nodes. Sixteen are this guard file's nodes; five are parametrized
+Measured against a **clean `origin/main` worktree** in this same environment (not the
+stashed branch tree, which still carried the uncommitted repair):
+
+- Failure/error **node set** identical: 184 nodes,
+  sha256 `af895cd9ccec7d7c1f5c6afe4257f02ff1387a8b6876b9651b77eb1a587c4711` on **both**
+  trees; `comm -3` empty in both directions.
+  (`88 failed / 1628 passed / 96 errors` on `main` vs `88 failed / 1651 passed / 96
+  errors` on the branch.)
+- The `+23 passed` is attributed by **`--collect-only`**, not inferred from the count
+  delta: 1756 -> 1779 nodes. Sixteen are this guard file's nodes; five are parametrized
   nodes the generic workflow scanners generate for a new workflow by construction
   (`test_ci_gate_trigger_coverage.py` x3, `test_ci_suite_collection_continuation.py` x1,
-  `test_workflow_injection_boundary.py` x1). Zero nodes are removed.
+  `test_workflow_injection_boundary.py` x1); two are the dependency controls added in
+  §5. Zero nodes are removed.
 - `tests/architecture` — **11 passed** (unchanged).
 - `python -m py_compile api/main.py` — OK. `api/main.py` is untouched (2505 lines,
   budget 2600).
-- CP10 boundary judge on both new paths — **exit 0**.
+- CP10 boundary judge on all three changed paths — **exit 0**.
 
-The 88 failed / 96 errors are pre-existing local debt at the same environment (the
-documented dependency-set delta; CI's own node set is smaller). None is attributable to
-this change, and no baseline debt was repaired.
+The 88 failed / 96 errors are pre-existing local debt at this environment (the
+documented dependency-set delta; CI's own node set is smaller — the local set is 184
+nodes against CI's ~23). None is attributable to this change, and no baseline debt was
+repaired. The earlier `90 failed / 1641 passed` figures in this document came from the
+first revision's gate run and are superseded by the measurement above.
 
-## 5. Remaining uncertainty / not claimed
+## 5. Runtime evidence — the gate failed on its own first run (a real defect, repaired)
 
-- The wiring is proven at the file level and by full-suite negative control. It is
-  **not** yet proven by a GitHub Actions run: the first runtime execution of
-  `gitleaks-config-guard.yml` occurs on this PR's own `pull_request` event, which is the
-  remaining evidence.
+The first revision of this branch was pushed and a PR opened. The new workflow **did**
+execute on its own `pull_request` event — which is itself the first proof that the wiring
+is live — and it **failed**:
+
+```
+check-runs on ad9bb6f0… : 9 runs
+ - gitleaks-config-guard | completed failure        (run 38197766990 / job 114644183192)
+ - boot-syntax | completed success
+ - Full-history secret scan | completed success
+ - trigger-coverage | completed success
+ - bundle-beta-evidence | completed success
+ - provider-forensics | completed success
+ - beta-beta-01-english / -02-hausa | completed success
+ - native-arkadia-golden-workflow | in_progress
+```
+
+Job log (verbatim):
+
+```
+ERROR collecting tests/test_gitleaks_config_guard_ci_wiring.py
+tests/test_gitleaks_config_guard_ci_wiring.py:43: in <module>
+    import yaml
+E   ModuleNotFoundError: No module named 'yaml'
+Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Process completed with exit code 2.
+```
+
+This is the defect class this workstream exists to close, occurring inside the gate
+itself: **the job's environment did not satisfy what the job executed.** The install step
+was `pip install pytest` while the wiring guard imports `yaml`. The consequence is the
+same false signal the contract guard protects against — a red job in which **no assertion
+ran**, indistinguishable at a glance from a real config fault.
+
+Two bounded repairs:
+
+1. `pip install pytest pyyaml` (matching the `boot-syntax.yml` convention — every other
+   workflow that scans workflow YAML installs `pyyaml` explicitly).
+2. A generalised invariant so it cannot recur: `_uninstalled_dependencies()` derives the
+   executed modules from the job's own commands and their third-party imports from their
+   AST, and reports any module the job never installs. A new import in either executed
+   module now reddens the guard instead of the job. Two controls pin it — a negative
+   control replaying the exact pre-fix shape (`pip install pytest` + a module importing
+   `yaml` must be reported) and a positive control (`pytest pyyaml` must be silent).
+
+Live negative control on the **real** workflow file (`2cd5881abb7b0d82c0ced5cb49b5a3a50a68fe7d46eab8bbd76d847f8ab66fb1`):
+
+| mutation of the real file | result |
+|---|---|
+| `pip install pytest` (the measured defect) | `1 failed, 17 passed` |
+| filter drops `.gitleaks.toml` (the measured defect) | `1 failed, 17 passed` |
+| restored byte-identically | `24 passed`, sha256 unchanged |
+
+Local gate run after the repair: `tests/test_gitleaks_config_guard.py` +
+`tests/test_gitleaks_config_guard_ci_wiring.py` — **24 passed**.
+
+## 6. Remaining uncertainty / not claimed
+
+- The dependency defect was found by CI, repaired, and proven by live negative control.
+  It is **not** yet re-proven by a post-repair CI run: the second commit's `pull_request`
+  event is the remaining evidence. Local `24 passed` is not a substitute for it.
 - Unchanged and out of scope: the standing Gate-2 production-parity boundary
   (`BLOCKED` on Vercel Deployment Protection) and the pre-existing `Vercel – console` /
   `Vercel – arkadia-prism` commit-status failures on `main` itself.
 - No merge, no push to `main`, no allowlist edit, no test weakened, no architecture
   reclassified.
 
-## 6. Next authorized action
+## 7. Next authorized action
 
 Sovereign review and merge of the PR on `gate10/gitleaks-config-guard-ci-wiring-01`.
 On merge, confirm the workflow's own `pull_request` run is green — that converts
 IMPLEMENTED into VERIFIED for the wiring.
+

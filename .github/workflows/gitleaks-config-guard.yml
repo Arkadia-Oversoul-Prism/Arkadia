@@ -46,9 +46,13 @@ jobs:
         with:
           python-version: "3.11"
       - run: python -m pip install --upgrade pip
-      # The guard is stdlib-only (`re`, `tomllib`, `pathlib`), so it needs no
-      # application dependency and cannot misreport a dependency gap as a config fault.
-      - run: pip install pytest
+      # The contract guard is stdlib-only (`re`, `tomllib`, `pathlib`), so no
+      # application dependency is needed and a dependency gap cannot be misreported as
+      # a config fault. `pyyaml` is required by the wiring guard, which reads workflow
+      # YAML. Both are derived from the executed modules by
+      # `tests/test_gitleaks_config_guard_ci_wiring.py`, so a new import that this
+      # step does not install reddens the guard instead of the job.
+      - run: pip install pytest pyyaml
       - name: Gitleaks config guard
         run: |
           python -m pytest tests/test_gitleaks_config_guard.py tests/test_gitleaks_config_guard_ci_wiring.py -q

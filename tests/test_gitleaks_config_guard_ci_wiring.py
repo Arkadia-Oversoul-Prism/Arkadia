@@ -26,6 +26,12 @@ The invariant is stated generically over every workflow that **executes** the gu
 4. An executing step must be able to fail the run: no step- or job-level
    `continue-on-error`, no `if: false`. Otherwise the job stays green when the config
    stops parsing.
+5. The job's environment must satisfy what it executes. A step that invokes a module
+   importing a third-party package the job never installs dies on a collection error —
+   a red job in which no assertion ran, which is the same class of false signal the
+   secret scan gives when `.gitleaks.toml` stops parsing. Both the executed modules and
+   their imports are derived from source, so a new import reddens the guard instead of
+   the job.
 
 The detector is proven against the forms it is meant to catch (negative controls),
 including the mention-without-executing form, each exemption form, and a filter that
@@ -265,6 +271,88 @@ def _effective_invocations(workflow: dict):
     ]
 
 
+def _executed_modules(job: dict) -> list[str]:
+    """Repo-relative test modules this job's steps actually invoke.
+
+    Derived from the executed commands, not restated: a module added to the step
+    without a matching dependency is then judged by the same rule.
+    """
+    found: list[str] = []
+    for step in (job or {}).get("steps") or []:
+        for cmd in _run_lines(step):
+            if not _pytest_invokes(cmd):
+                continue
+            for arg in cmd:
+                rel = arg.split("::", 1)[0]
+                if rel.endswith(".py") and (ROOT / rel).is_file() and rel not in found:
+                    found.append(rel)
+    return found
+
+
+def _module_dependencies(module: str) -> set[str]:
+    """Third-party top-level imports of a test module, from its AST.
+
+    Only modules that resolve to no stdlib top-level name and no local top-level
+    package are returned, so `pytest`/`yaml` are covered and `re`/`pathlib` are not.
+    """
+    import sys
+
+    tree = ast.parse((ROOT / module).read_text(encoding="utf-8"))
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                names.add(alias.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom):
+            if node.level == 0 and node.module:
+                names.add(node.module.split(".")[0])
+    stdlib = set(getattr(sys, "stdlib_module_names", ()))
+    third_party: set[str] = set()
+    for name in names:
+        if name in stdlib or name == "__future__":
+            continue
+        if (ROOT / name).exists() or (ROOT / f"{name}.py").exists():
+            continue
+        third_party.add(name)
+    return third_party
+
+
+def _uninstalled_dependencies(job: dict) -> list[str]:
+    """Third-party modules a job executes but never installs.
+
+    The job's environment must satisfy what it runs. This is the defect that made the
+    first revision of this gate fail on its own `pull_request` event: the step invoked a
+    module importing `yaml` while installing only `pytest`, and a collection error
+    reddened the job without any assertion having executed.
+    """
+    installed: set[str] = set()
+    for step in (job or {}).get("steps") or []:
+        for cmd in _run_lines(step):
+            tokens = _command_tokens(cmd)
+            if not tokens:
+                continue
+            if tokens[0] not in {"pip", "pip3", "python", "python3"}:
+                continue
+            if "install" not in tokens:
+                continue
+            for arg in tokens[tokens.index("install") + 1:]:
+                if arg.startswith("-"):
+                    continue
+                installed.add(re.split(r"[<>=!~\[;]", arg)[0].strip().lower())
+    required: set[str] = set()
+    for module in _executed_modules(job):
+        required |= _module_dependencies(module)
+    # Distribution names differ from import names only where the repo already declares
+    # a mapping; `pyyaml`/`pytest` are the pair this gate needs.
+    aliases = {"yaml": "pyyaml"}
+    missing = []
+    for name in sorted(required):
+        dist = aliases.get(name, name)
+        if name not in installed and dist not in installed:
+            missing.append(name)
+    return missing
+
+
 def _candidates() -> list[tuple[Path, dict]]:
     out = []
     for path in _workflow_paths():
@@ -291,6 +379,15 @@ def _audit(workflow: dict) -> list[str]:
     if not _is_dispatchable(trigger):
         defects.append("no workflow_dispatch: contract not executable on demand")
     defects.extend(_incomplete_filters(trigger))
+    for job_name, job in (workflow.get("jobs") or {}).items():
+        if not _effective_invocations({"jobs": {job_name: job}}):
+            continue
+        missing = _uninstalled_dependencies(job)
+        if missing:
+            defects.append(
+                f"job {job_name} executes modules importing "
+                f"{', '.join(missing)} but never installs them"
+            )
     return defects
 
 
@@ -327,9 +424,21 @@ def test_every_candidate_workflow_is_executable_and_can_fail(path: Path, workflo
 
 
 def _minimal_workflow(run: str, **trigger) -> dict:
+    """A dependency-satisfied wiring shape.
+
+    The install step is present so each control below isolates exactly one defect; the
+    dependency defect has its own control, which overrides `steps` wholesale.
+    """
     return {
         True: trigger,
-        "jobs": {"gitleaks-config-guard": {"steps": [{"run": run}]}},
+        "jobs": {
+            "gitleaks-config-guard": {
+                "steps": [
+                    {"run": "pip install pytest pyyaml"},
+                    {"run": run},
+                ]
+            }
+        },
     }
 
 
@@ -380,6 +489,32 @@ def test_negative_control_undispatchable_is_caught():
     assert any("workflow_dispatch" in d for d in _audit(wf))
 
 
+def test_negative_control_uninstalled_dependency_is_caught():
+    """The defect that reddened this gate's own first revision.
+
+    The step invoked a module importing `yaml` while installing only `pytest`, so the
+    job died on a collection error without any assertion having executed.
+    """
+    wf = _minimal_workflow(f"python -m pytest {_CONTRACT_FILE} -q", **_WIRED_TRIGGER)
+    job = wf["jobs"]["gitleaks-config-guard"]
+    job["steps"] = [
+        {"run": "pip install pytest"},
+        {"run": f"python -m pytest {_CONTRACT_FILE} {_GUARD_FILE} -q"},
+    ]
+    defects = _audit(wf)
+    assert any("never installs them" in d and "yaml" in d for d in defects), defects
+
+
+def test_positive_control_satisfied_dependencies_are_silent():
+    wf = _minimal_workflow(f"python -m pytest {_CONTRACT_FILE} -q", **_WIRED_TRIGGER)
+    job = wf["jobs"]["gitleaks-config-guard"]
+    job["steps"] = [
+        {"run": "pip install pytest pyyaml"},
+        {"run": f"python -m pytest {_CONTRACT_FILE} {_GUARD_FILE} -q"},
+    ]
+    assert _audit(wf) == []
+
+
 @pytest.mark.parametrize(
     "exempt",
     [
@@ -391,8 +526,11 @@ def test_negative_control_undispatchable_is_caught():
 )
 def test_negative_controls_exempted_steps_are_caught(exempt: dict):
     wf = _minimal_workflow(f"python -m pytest {_CONTRACT_FILE} -q", **_WIRED_TRIGGER)
-    step = wf["jobs"]["gitleaks-config-guard"]["steps"][0]
     job = wf["jobs"]["gitleaks-config-guard"]
+    # The step that executes the contract, not the install step.
+    step = next(
+        s for s in job["steps"] if _pytest_invokes(next(iter(_run_lines(s)), []))
+    )
     if "step_continue_on_error" in exempt:
         step["continue-on-error"] = True
     if "step_if" in exempt:
