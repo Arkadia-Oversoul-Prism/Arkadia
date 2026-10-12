@@ -450,6 +450,15 @@ out.can_advance_ready = m.canAdvance("READY_TO_EXECUTE");
 out.can_advance_settled = m.canAdvance("SETTLED");
 out.advance_status_ready = m.advanceStatus("READY_TO_EXECUTE");
 
+// Seeding an edit from an off-vocabulary entry must carry the stored status
+// verbatim, so an unrelated edit cannot silently rewrite it into a declared one.
+const offSeeded = m.draftFromEntry(offVocab);
+out.off_seed_status = offSeeded.status;
+out.off_seed_noop = m.isNoOpEdit(offSeeded, offVocab);
+offSeeded.notes = "Asked for 20t";
+out.off_seed_edit_body = m.editEntryBody(offSeeded, offVocab);
+out.off_seed_is_settable = m.isSettableStatus(offSeeded.status);
+
 console.log(JSON.stringify(out));
 """
 
@@ -1039,3 +1048,71 @@ def test_surface_strip_asserts_no_execution_authority():
     ):
         assert invented not in code, f"the strip must not imply authority ({invented})"
 
+
+
+# ---------------------------------------------------------------------------
+# Seeding an edit from an off-vocabulary entry — carried verbatim, not snapped
+# ---------------------------------------------------------------------------
+
+
+def test_seeding_an_edit_carries_an_off_vocabulary_status_verbatim(contract_probe):
+    """The edit control shows the status the entry actually has.
+
+    An entry can carry a status outside the declared vocabulary (MEASURED DEFECT 3,
+    pinned above). Snapping it to `UNCONTACTED` on seed displayed a status the entry
+    does not hold; the draft must carry the stored value instead.
+    """
+    assert contract_probe["off_seed_status"] == "conversation"
+    assert contract_probe["off_seed_status"] not in buyer_recon.STATUSES
+    assert contract_probe["off_seed_is_settable"] is False
+
+
+def test_an_unrelated_edit_does_not_rewrite_an_off_vocabulary_status(contract_probe):
+    """The consequential half: no silent status rewrite as a side effect of editing.
+
+    With the off-vocabulary status carried verbatim, `editEntryBody` transmits only
+    the field the operator changed — it never substitutes the seed default. The
+    stored off-vocabulary status is left untouched by a save.
+    """
+    assert contract_probe["off_seed_edit_body"] == {"notes": "Asked for 20t"}
+    assert "status" not in contract_probe["off_seed_edit_body"]
+
+
+def test_seeding_an_off_vocabulary_entry_round_trips_to_a_no_op(contract_probe):
+    """A seed that carries the stored status makes a no-change round trip a no-op."""
+    assert contract_probe["off_seed_noop"] is True
+
+
+def test_negative_control_the_snapping_seed_would_have_rewritten_the_status(contract_probe):
+    """Proves the verbatim carry is load-bearing, not decorative.
+
+    Under the pre-change seed (`isKnownStatus(entry.status) ? entry.status :
+    "UNCONTACTED"`) the draft read `UNCONTACTED` — which *is* settable — so the same
+    notes-only edit would have emitted `{"notes": ..., "status": "UNCONTACTED"}` and
+    silently rewritten a recorded status. Reconstruct that shape and show it diverges
+    from the measured body.
+    """
+    snap = "UNCONTACTED"
+    assert snap in contract_probe["settable_statuses"], "the snap target must be settable to bite"
+    assert contract_probe["off_seed_status"] != snap, "the fixed seed must not snap"
+    assert contract_probe["off_seed_edit_body"] != {"notes": "Asked for 20t", "status": snap}
+
+
+def test_edit_form_states_an_off_vocabulary_status_instead_of_a_transaction_note():
+    """The locked-status message must distinguish the two cases.
+
+    A terminal outcome and an off-vocabulary stray are both non-settable but not the
+    same fact; the transaction-outcome note would misdescribe the latter. The form
+    branches on `isKnownStatus` and carries a distinct testid for the stray.
+    """
+    form = FORM_TS.read_text(encoding="utf-8")
+    assert "isKnownStatus(draft.status)" in form, "the locked display must branch on the vocabulary"
+    assert 'data-testid="prospect-entry-status-off-vocabulary"' in form
+    assert "isKnownStatus," in form, "the predicate must be imported, not re-derived inline"
+
+
+def test_the_frontend_seed_no_longer_snaps_an_unknown_status():
+    """Source-level pin of the one-line change, so a revert is visible."""
+    contract = _code_only(CONTRACT_TS)
+    assert 'emptyDraft(isKnownStatus(entry.status) ? entry.status : "UNCONTACTED")' not in contract
+    assert "emptyDraft(entry.status)" in contract, "the seed must carry the stored status verbatim"

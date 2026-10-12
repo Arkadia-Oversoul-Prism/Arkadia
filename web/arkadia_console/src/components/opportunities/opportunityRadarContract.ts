@@ -453,9 +453,20 @@ export function isNoOpEdit(draft: ProspectDraft, base?: OpportunityEntry): boole
   return Object.keys(editEntryBody(draft, base)).length === 0;
 }
 
-/** Seed an edit control from a recorded entry, carrying its values verbatim. */
+/**
+ * Seed an edit control from a recorded entry, carrying its values verbatim.
+ *
+ * `status` is carried exactly as stored, including a value outside the declared
+ * vocabulary. Snapping an off-vocabulary status to `UNCONTACTED` here would both
+ * *display* a status the entry does not have and — because `UNCONTACTED` is
+ * settable while the stored value is not — make the next save emit
+ * `{"status": "UNCONTACTED"}` as a side effect of editing an unrelated field,
+ * silently rewriting a recorded status. `editEntryBody` refuses to transmit a
+ * non-settable status, so carrying the true value is what keeps an edit from
+ * asserting one the operator never chose.
+ */
 export function draftFromEntry(entry: OpportunityEntry): ProspectDraft {
-  const draft = emptyDraft(isKnownStatus(entry.status) ? entry.status : "UNCONTACTED");
+  const draft = emptyDraft(entry.status);
   draft.prospect = entry.prospect ?? "";
   for (const field of DESCRIPTIVE_FIELDS) draft[field] = entry[field] ?? "";
   for (const field of COMMERCIAL_FIELDS) draft[field] = fact(entry[field]);

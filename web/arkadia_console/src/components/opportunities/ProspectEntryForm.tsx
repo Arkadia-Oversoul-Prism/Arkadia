@@ -38,6 +38,7 @@ import {
   draftFromEntry,
   editEntryBody,
   emptyDraft,
+  isKnownStatus,
   isSettableStatus,
   entriesPathFromBoard,
   entryPathFromBoard,
@@ -317,9 +318,20 @@ export function ProspectEntryForm({
                 aria-describedby="prospect-entry-status-locked"
                 className={inputClass}
               />
-              <p id="prospect-entry-status-locked" className="text-[11px] text-amber-300/80">
-                This entry records a transaction outcome. It cannot be changed from reconnaissance.
-              </p>
+              {isKnownStatus(draft.status) ? (
+                <p id="prospect-entry-status-locked" className="text-[11px] text-amber-300/80">
+                  This entry records a transaction outcome. It cannot be changed from reconnaissance.
+                </p>
+              ) : (
+                <p
+                  id="prospect-entry-status-locked"
+                  data-testid="prospect-entry-status-off-vocabulary"
+                  className="text-[11px] text-amber-300/80"
+                >
+                  This entry carries a status outside the declared pipeline, shown as recorded. It is not
+                  silently reset to a declared status; a save leaves it untouched.
+                </p>
+              )}
             </>
           )}
           <p className="text-[11px] text-white/35">
