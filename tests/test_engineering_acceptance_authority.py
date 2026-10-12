@@ -1,5 +1,5 @@
 from weaver.engineering_acceptance import (
-    AcceptanceDecision, CheckState, Decision, GateEvidence, MergePolicy,
+    CheckState, Decision, GateEvidence, MergePolicy,
     PullRequestEvidence, ReviewEvidence, RiskClass, evaluate_merge_readiness,
 )
 
@@ -87,7 +87,7 @@ def test_head_movement_after_evaluation_blocks_old_evidence():
 
 def test_policy_version_mismatch_blocks_evaluation():
     result = evaluate_merge_readiness(ready_pr(policy_version="eaa-v0"), POLICY)
-    assert result.decision is Decision.NOT_READY
+    assert result.decision is Decision.BLOCKED
 
 
 def test_draft_and_unprotected_branch_are_not_merge_ready():
