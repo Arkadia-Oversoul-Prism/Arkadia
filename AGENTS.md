@@ -1469,3 +1469,48 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   the delta (the first draft of this line moved it 4 -> 6). `decidable` and `exit_code`
   are different verdicts, and only the exit code carries the clean-file claim.
   Insert-only edits are safe here; a line *rewrite* of oracle-carried text is not.
+
+## A broad-suite CI step can execute ZERO tests while its job stays green (gate-hygiene)
+- Measured 2026-10-12 at `main` `850216fc`. `sg-02-fe-2-v.yml` step `CP10-B broader backend
+  regression` runs `python -m pytest tests/ -q 2>&1 | tee cp10-backend.log` with
+  `continue-on-error: true`. **The `continue-on-error` is not the defect** — a non-judging
+  surface need not gate. The defect is that it also **executes nothing**: the session aborts
+  at the CE-01/dependency collection error, so the step cannot even *report*. Runtime proof,
+  run `38186457230` (`event=pull_request`, `conclusion=success`, head `12f8a0a6`):
+  `##[group]Run python -m pytest tests/ -q 2>&1 | tee cp10-backend.log` immediately followed
+  by `Interrupted: 1 error during collection`. Locally at `850216fc` a bare
+  `python -m pytest tests/ -q` yields `1 skipped, 76 errors in 5.70s` — **zero tests**.
+- **Consequence: two path filters reach no whole-suite execution at all.** `spiral_grove/**`
+  and `lab/**` select CP10-B (which aborts) and do *not* select `provider-routing.yml` (the
+  only other broad-suite surface). A PR touching only those trees runs no whole-suite step.
+- **Do not conflate `continue-on-error` with the defect, and do not read a green job as a
+  pass.** The check is: did the step *reach* the suite? Read the step log for
+  `Interrupted:` / `no tests ran` before treating a broad-suite step as coverage.
+- **Repair measured, not proposed blind:** `python -m pytest tests/ -q
+  --continue-on-collection-errors` on the same tree completes in **124 s**
+  (`88 failed, 1651 passed, 21 skipped, 96 errors`) instead of aborting. The flag hides
+  nothing — the collection errors and pre-existing failures are still reported. One token in
+  an already-selected file; it does not touch `continue-on-error`, so it cannot turn `main`
+  red for debt it did not introduce. **`--continue-on-collection-errors` is the documented
+  repair for this class and was the missing token here.**
+- **Executes to selects is a two-condition invariant, and the second condition is the one
+  normally skipped.** "A workflow executes this file" is not "a change to this file executes
+  this workflow". Measured over the live tracked corpus at `850216fc`: of **255**
+  `tests/**/test_*.py` files, **78** are executed by a gate a PR touching the file would
+  trigger; **177** are reached only through a broad-suite step — and this defect is why 177
+  is not automatically coverage. A file-targeted gate is not required when a real whole-suite
+  surface covers the path; only an aborting or absent surface breaks that cover.
+- **The directory-argument exclusion is unsupported.** `tests/test_gate_filter_selection.py`
+  (PR #458) excludes `pytest tests/` from the executes-to-selects invariant "by design". This
+  defect is the counterexample: a broad-suite step is the *only* execution site for 177 files
+  and can execute zero of them. The three properties `tests/test_ci_gate_trigger_coverage.py`
+  asserts (self-selection, `push`/`pull_request` filter symmetry, architecture-suite
+  selection) are narrower than the class and notice none of this. A directory argument is a
+  valid execution site only if it *reaches* the suite.
+- **Runtime-verified, not prose:** the `steps.<id>.outcome` claim is now observed. Same run
+  `38186457230`, the terminal enforcement step prints the literal string
+  `test 'success' = success` **16 times** — the substitution is a constant, so the enforcement
+  is self-satisfying. `steps.<id>.conclusion`, or an `if:`, are the workable forms.
+- Evidence: `docs/control-plane/evidence/gate10-ci-coverage-reconnaissance-01/RECONNAISSANCE.md`
+  (PR #461). The Defect-A repair is **proposed, not performed** — it mutates
+  `sg-02-fe-2-v.yml` and needs sovereign authorization; discovery does not authorize execution.
