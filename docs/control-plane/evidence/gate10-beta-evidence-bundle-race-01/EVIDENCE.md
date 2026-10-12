@@ -158,13 +158,37 @@ rewrite and requires it to be flagged.
 
 - `api/main.py` untouched. `python -m py_compile api/main.py` not required (no boot code).
 - Architecture fitness: **11 passed** (`python -m pytest tests/architecture -q`).
-- Full suite at `6109c72a`: **17 failed, 2872 passed, 20 skipped, 1 error** in 201.31s.
-  Sorted FAILED/ERROR node set (18 nodes) sha256:
-  `cdc1a04b7e7c006c6af0553804aa42157d00fc8f22d6ed40d44acff9cf2a7c89`.
-  This branch adds one passing node and changes no failing node.
+- **Measured on a pristine `main` worktree** (`git worktree add --detach` at `6109c72a`):
+  `17 failed, 2864 passed, 20 skipped, 1 error` in 206.87s.
+- Branch head: `17 failed, 2873 passed, 20 skipped, 1 error` in 201.65s.
+- Sorted FAILED/ERROR node set is **identical** on both trees — 18 nodes, sha256
+  `cdc1a04b7e7c006c6af0553804aa42157d00fc8f22d6ed40d44acff9cf2a7c89`,
+  `comm -3` empty in both directions. The `+9 passed` is exactly this guard file's 9 collected
+  nodes (`--collect-only` → 9). Zero new failures, zero repaired failures.
 - CP10 mutation boundary: `PASS` for every path this change touches
   (`tests/test_natlas_beta_evidence_bundle_boundary.py`,
   `.github/workflows/n-atlas-external-beta.yml`, this evidence file).
+
+### 5.1 CI observation (scoped)
+
+All 11 check-runs on branch head `e107ded2` are `completed/success`, including
+`bundle-beta-evidence` and `native-arkadia-golden-workflow`.
+
+The repaired step **executed** in run `38237761572` (job `114772634956`) and the narrowed glob
+selected exactly the beta artifacts:
+
+```
+evidence files: ['evidence/beta-01-english.json', 'evidence/beta-02-hausa.json']
+statuses: {'beta-01-english.json': 'PASS', 'beta-02-hausa.json': 'PASS'}
+```
+
+**This run was race-not-open, so it is not a race-open observation.** Artifact creation times:
+`beta-02` 10:40:18, `beta-01` 10:40:19, bundle 10:40:29, golden **10:40:58**; the bundle job
+downloaded at 10:40:27 — before the golden artifact existed. A green here is therefore
+*consistent with* the repair but does not by itself prove the race case is fixed. That proof is
+§4.2/§4.4 (the real script against the measured three-file directory, and the live negative
+control). Do not upgrade this CI run into a race-open verification.
+
 
 ## 6. Composition
 
@@ -182,6 +206,18 @@ No open PR touches `.github/workflows/n-atlas-external-beta.yml` or
 
 The workflow triggers on `pull_request: branches: [main]`, so CI exercises the repair on this
 PR itself — the repaired bundle job runs in this PR's own run.
+
+### 6.1 Sibling-PR composition hazard (recorded, not repaired)
+
+PR #479 and PR #482 **both append to `AGENTS.md` at the same tail line** — #479 `@@ -1514,3
++1514,47 @@` (+44/-0) and #482 `@@ -1514,3 +1514,76 @@` (+73/-0), against a live `AGENTS.md` of
+1516 lines. They are textually independent today but will conflict on whichever merges second.
+
+This is **not** caused by, and is not repaired by, this PR: neither `AGENTS.md` nor either of
+those branches' other files is touched here. Recorded because the composition check is where it
+surfaces, and because "no open PR touches *my* files" is a weaker statement than "the open
+queue composes". Rebase order is the sovereign's.
+
 
 ## 7. Remaining uncertainty
 
