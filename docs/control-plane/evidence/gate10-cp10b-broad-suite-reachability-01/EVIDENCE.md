@@ -141,3 +141,49 @@ identical on both trees. `provider-routing` fails on `main` itself, so the red c
 is **pre-existing debt**, not attributable to this branch. `+43 passed` differs by
 exactly the new guard nodes (`--collect-only` 48 → 91). The branch's own guard file
 is green in that run (all 91 collected, none in the failing set).
+
+## 8. Base move — recomposed onto current `main` (2026-10-12)
+
+`baseRefName` was still pinned to `26521e24` when this pass began, but `main` had
+advanced twice after this branch was cut:
+
+- `1a8094ad` — PR #481, the sqlite shared-connection lifecycle guard
+- `53c88add` — PR #483, the exempt-enforcement verdict guard
+
+The base was **re-measured before pushing** (a fix you are authorized to write can
+land on `main` while you write it). `main` is
+`53c88add32db54ffc2ce024b66c2e6ae2da813c5`. Current `main` and this branch are composed
+by a **non-force merge** of `main` into the branch (`45e04ba3`); no history was
+rewritten. The `sg-02-fe-2-v.yml` diff is unchanged from §3 — main's two merges touch
+other files, so the merge is conflict-free.
+
+### Re-measured on the composed tree (`45e04ba3`) vs `main` `53c88add`
+
+Same environment, both trees, `-q -rEf --continue-on-collection-errors`:
+
+| Tree | failing/error nodes | sha256 |
+|---|---|---|
+| `main` `53c88add` | 202 | `9e7d949a9d053fcc31284ba2afecbad0395877d535431a4c1808df35fabe8185` |
+| composed `45e04ba3` | 202 | `9e7d949a9d053fcc31284ba2afecbad0395877d535431a4c1808df35fabe8185` |
+
+`comm -3` empty — **zero regression**. Passed count moves `1847 -> 1891` (`+44`),
+attributable by `--collect-only` on the guard file: **49** on `main` -> **93** on the
+branch, exactly the new nodes (the reachability invariant is parametrized over the
+workflow corpus, so it gains one node per workflow).
+
+Adjacent guards together on the composed tree: `test_ci_suite_collection_continuation.py`,
+`test_ci_verdict_step_integrity.py`, `test_knowledge_shared_connection_lifecycle_ci_wiring.py`,
+`test_ci_gate_trigger_coverage.py`, `test_m02a_ci_gate_integrity.py`,
+`test_gate_filter_selection.py` -> **337 passed**. Architecture **11 passed**.
+`python -m py_compile api/main.py` -> clean. Workflow YAML parses.
+
+### Independent confirmation of §7
+
+`comm -3` on the `provider-routing` failing/error node sets extracted from the CI logs —
+PR #487 head (`eaa1da23`) vs `main` `26521e24` (run `38249795854`) — is **empty** (23
+lines each). The red `provider-routing` check is pre-existing debt on `main`, not
+attributable to this branch. `main` `26521e24` itself carries
+`provider-routing: failure` in its commit check-runs.
+
+**Not claimed:** no production-parity claim; CE-01 (`weaver.autonomy` module-vs-package
+collision) is untouched and remains sovereign-reserved. Repository-source change only.
