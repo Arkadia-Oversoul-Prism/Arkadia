@@ -25,6 +25,7 @@ class RiskClass(str, Enum):
     ROUTINE = "ROUTINE"
     ELEVATED = "ELEVATED"
     PROTECTED = "PROTECTED"
+    UNKNOWN = "UNKNOWN"
 
 
 class Decision(str, Enum):
@@ -66,6 +67,7 @@ class PullRequestEvidence:
     head_sha: str
     base_sha: str
     observed_head_sha: str
+    observed_base_sha: str
     checks: Mapping[str, GateEvidence]
     reviews: Sequence[ReviewEvidence] = ()
     draft: bool = False
@@ -102,6 +104,10 @@ def evaluate_merge_readiness(
         reasons.append("candidate and base must be full lowercase 40-character SHAs")
     if pr.observed_head_sha != pr.head_sha:
         reasons.append("observed PR head differs from evaluated candidate SHA")
+    if pr.observed_base_sha != pr.base_sha:
+        reasons.append("observed PR base differs from evaluated base SHA")
+    if pr.risk_class is RiskClass.UNKNOWN:
+        reasons.append("risk classification is unknown")
     if pr.policy_version != policy.version:
         reasons.append("evidence policy version does not match active policy")
     if not pr.evidence_complete:
@@ -139,6 +145,8 @@ def evaluate_merge_readiness(
         blocking_prefixes = (
             "candidate and base must be",
             "observed PR head differs",
+            "observed PR base differs",
+            "risk classification is unknown",
             "evidence policy version does not match",
             "required evidence bundle is incomplete",
             "required gate missing:",
