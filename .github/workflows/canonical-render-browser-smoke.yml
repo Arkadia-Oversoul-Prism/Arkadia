@@ -9,6 +9,9 @@ on:
       - "web/console/**"
       - "api/frontend_routes.py"
       - "Dockerfile"
+  pull_request:
+    paths:
+      - ".github/workflows/canonical-render-browser-smoke.yml"
   workflow_dispatch:
 
 permissions:
@@ -25,6 +28,25 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Wait for canonical Render readiness
+        run: |
+          set -eu
+          ready=0
+          for attempt in $(seq 1 30); do
+            status=$(curl --silent --show-error --max-time 2 --output /tmp/arkadia-health.json --write-out "%{http_code}" "$ARKADIA_PRODUCTION_ORIGIN/health" 2>/dev/null || true)
+            if [ "$status" = "200" ]; then
+              echo "Canonical Render health endpoint returned HTTP 200 on attempt $attempt."
+              ready=1
+              break
+            fi
+            echo "Canonical Render is not ready yet (attempt $attempt/30; /health HTTP $status)."
+            sleep 3
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "Canonical Render did not become healthy within 150 seconds; refusing to interpret deployment-time 503s as route results."
+            exit 1
+          fi
+
       - name: Install Playwright Chromium
         run: |
           npm init -y
