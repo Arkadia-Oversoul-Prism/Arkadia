@@ -3,6 +3,8 @@ import { LabSessionList } from "../components/lab/LabSessionList";
 import { LabArtifactCanvas } from "../components/lab/LabArtifactCanvas";
 import { LabAgentRegistry } from "../components/lab/LabAgentRegistry";
 import { LabModelGateway } from "../components/lab/LabModelGateway";
+import { LabOperationalSurfaces } from "../components/lab/LabOperationalSurfaces";
+import { scalarOverview } from "../components/lab/labOperational";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
 import { endpoints } from "../lib/endpoints";
@@ -22,15 +24,13 @@ export function EngineeringLabPage() {
       <Panel className="mb-4">
         <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">Lab overview</p>
         {overview.state === "ready" && overview.data ? (
-          <Facts
-            rows={Object.entries(overview.data)
-              .slice(0, 12)
-              .map(([k, v]) => ({ label: k, value: typeof v === "object" ? JSON.stringify(v) : String(v) }))}
-          />
+          <Facts rows={scalarOverview(overview.data)} />
         ) : (
           <ContractState state={overview.state} error={overview.error?.message} onRetry={overview.reload} />
         )}
       </Panel>
+
+      <LabOperationalSurfaces overview={overview.state === "ready" ? overview.data ?? null : null} />
 
       <Panel className="mb-4">
         <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">N-ATLAS provider (effective state)</p>
