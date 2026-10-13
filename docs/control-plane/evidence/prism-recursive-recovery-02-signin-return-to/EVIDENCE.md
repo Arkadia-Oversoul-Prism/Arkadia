@@ -8,6 +8,9 @@ return target that is external, invented, or loops back to `/login` degrades to
 the router's own fallback or is refused — it can never navigate off-origin.
 **Base SHA:** `dfbd2304db27746b22f0cda9b6961d1e37fda313` (main; this branch was
 cut directly from it)
+**Implementation commit:** `089b772a7008524b437cb87b6aeed1285c538b74`
+(candidate head when every verification below was executed; the PR head also
+carries this record — base SHA + PR head identify the exact candidate)
 **Branch:** `feat/prism-rec-02-signin-return-to`
 
 ## 1. Problem (measured at base SHA)
