@@ -259,3 +259,72 @@ def test_panel_opens_no_new_transport_or_authority():
     assert "fetch(" not in panel, "the reader uses apiRequest through useHydration; it opens no transport"
     assert re.search(r"\bapiRequest\b", panel), "reads still go through the shared client"
     assert "token" not in panel.lower() or "Bearer" not in panel, "the reader invents no authority"
+
+
+# ── an unresolved session must not be reported as a settled sign-out ────────
+#
+# The reader is owner-scoped (`knowledge.timeline._timeline_owner_clause`):
+# authenticated -> `user_id = ?`, anonymous -> `1 = 0`. Firebase restores a
+# session asynchronously, so the client is briefly *neither* signed in nor signed
+# out. Treating that window as "anonymous" makes the panel assert "no identity is
+# present" about a viewer who has one — a claim the client cannot yet make. The
+# scope vocabulary therefore carries a third value, `pending`, derived from the
+# auth context's own `identityState`.
+
+_PENDING_LITERAL = re.compile(r'"pending"')
+
+
+def test_scope_vocabulary_carries_the_pending_state():
+    contracts = CONTRACTS.read_text(encoding="utf-8")
+    assert re.search(r'export type TimelineScope = [^;]*"pending"', contracts), (
+        "the reader's scope must name the unresolved-identity state explicitly"
+    )
+    assert re.search(r'export type TimelineViewer = ViewerKind \| "pending"', contracts), (
+        "the viewer type must extend the shared ViewerKind rather than replace it"
+    )
+
+
+def test_classify_timeline_scope_resolves_pending_distinctly():
+    contracts = CONTRACTS.read_text(encoding="utf-8")
+    # The classifier must *branch* on the pending viewer; a ternary with only two
+    # arms would silently fold pending into unscoped.
+    assert re.search(r'viewer === "pending"\s*\?\s*"pending"', contracts), (
+        "classifyTimelineScope must return the pending scope, not fall through to unscoped"
+    )
+
+
+def test_empty_copy_gives_pending_its_own_wording():
+    contracts = CONTRACTS.read_text(encoding="utf-8")
+    assert "your session is still resolving" in contracts, "pending needs its own empty-read copy"
+    assert 'if (scope === "pending")' in contracts, (
+        "the empty notice must branch on pending, not share the unscoped arm"
+    )
+    # The pending notice and the settled-anonymous notice must never share wording:
+    # one states the session is unresolved, the other states no identity is present.
+    assert "no identity is present, so nothing was readable" in contracts
+
+
+def test_panel_derives_pending_from_the_auth_identity_state():
+    panel = PANEL.read_text(encoding="utf-8")
+    assert "identityState" in panel, "the panel must read the auth context's identity state"
+    assert re.search(r'identityState === "loading"', panel), (
+        "an unresolved session is the auth context's loading state"
+    )
+    assert re.search(r':\s*"anonymous"', panel), "a resolved signed-out viewer stays anonymous"
+
+
+def test_detector_flags_the_pre_repair_two_state_viewer():
+    """Negative control: the shape before this slice folds pending into anonymous."""
+    pre_repair_panel = (
+        'const { isAuthenticated } = useAuth();\n'
+        'const viewer: ViewerKind = isAuthenticated ? "authenticated" : "anonymous";\n'
+    )
+    assert "identityState" not in pre_repair_panel
+    assert not re.search(r'identityState === "loading"', pre_repair_panel), (
+        "the detector must not pass a viewer that never consults the identity state"
+    )
+    pre_repair_contracts = 'export type TimelineScope = "owner" | "unscoped";'
+    assert not _PENDING_LITERAL.search(pre_repair_contracts), (
+        "the detector must not pass a scope vocabulary with no pending member"
+    )
+

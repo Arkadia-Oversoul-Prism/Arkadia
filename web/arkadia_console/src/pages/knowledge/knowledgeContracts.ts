@@ -246,25 +246,44 @@ export function isTimelineEvents(value: unknown): value is TimelineEvent[] {
  * viewer, not of the payload:
  *  - `owner`     an authenticated viewer; a `[]` here means *their own* log is
  *                empty, which is a genuine empty read;
- *  - `unscoped`  an anonymous viewer; the predicate is `1 = 0`, so a `[]` is a
- *                refusal to answer, not an empty log, and must not be shown as
- *                one.
+ *  - `unscoped`  a resolved anonymous viewer; the predicate is `1 = 0`, so a
+ *                `[]` is a refusal to answer, not an empty log, and must not be
+ *                shown as one;
+ *  - `pending`   an identity that has not resolved yet. Firebase restores the
+ *                session asynchronously, so the client is briefly neither
+ *                signed in nor signed out. That state is not anonymity: the
+ *                reader is owner-scoped, so it also answers `[]`, but the
+ *                `unscoped` copy ("no identity is present") would be a claim the
+ *                client cannot yet make about the viewer.
  */
-export type TimelineScope = "owner" | "unscoped";
+export type TimelineScope = "owner" | "unscoped" | "pending";
 
-export function classifyTimelineScope(viewer: ViewerKind): TimelineScope {
-  return viewer === "authenticated" ? "owner" : "unscoped";
+/**
+ * The viewer as this reader resolves it. It extends the shared `ViewerKind` with
+ * the unresolved-identity state, which only surfaces that read a `1 = 0` scope
+ * need to distinguish.
+ */
+export type TimelineViewer = ViewerKind | "pending";
+
+export function classifyTimelineScope(viewer: TimelineViewer): TimelineScope {
+  if (viewer === "authenticated") return "owner";
+  return viewer === "pending" ? "pending" : "unscoped";
 }
 
 /**
- * Copy for a successful-but-empty read. The two scopes carry opposite meanings
- * and must never share wording: reporting a filtered `[]` as "no events yet"
- * is the exact failure this panel exists to avoid.
+ * Copy for a successful-but-empty read. The three scopes carry different
+ * meanings and must never share wording: reporting a filtered `[]` as "no events
+ * yet" is the exact failure this panel exists to avoid, and reporting an
+ * unresolved session as a settled sign-out is the same class of error.
  */
 export function emptyTimelineNotice(scope: TimelineScope): string {
-  return scope === "owner"
-    ? "This node's timeline holds no events yet. The reader answered — this is an empty log, not a failed read."
-    : "The timeline is owner-scoped and no identity is present, so nothing was readable. This is not an empty log.";
+  if (scope === "owner") {
+    return "This node's timeline holds no events yet. The reader answered — this is an empty log, not a failed read.";
+  }
+  if (scope === "pending") {
+    return "The reader is owner-scoped and your session is still resolving, so nothing was readable. This is not an empty log.";
+  }
+  return "The timeline is owner-scoped and no identity is present, so nothing was readable. This is not an empty log.";
 }
 
 /**

@@ -232,11 +232,18 @@ def test_empty_and_unreadable_are_distinguishable(client):
     # Anonymous -> the same `[]`, but a refusal, not an empty log.
     assert client.get("/api/knowledge/timeline").json() == []
 
-    # The two notices must not be the same string, or the distinction is lost.
-    owner_notice = re.search(r'return scope === "owner"\s*\?\s*"([^"]+)"', contracts)
-    unscoped_notice = re.search(r'\?\s*"([^"]+)"\s*:\s*"([^"]+)"', contracts)
-    assert owner_notice and unscoped_notice, "emptyTimelineNotice must branch on scope"
-    assert owner_notice.group(1) != unscoped_notice.group(2)
+    # Every scope must carry its own wording, or the distinction is lost. The
+    # reader now distinguishes three identities: owner, a settled anonymous
+    # viewer, and a session that has not resolved yet (`pending`).
+    body = re.search(
+        r"export function emptyTimelineNotice\(scope: TimelineScope\): string \{(.*?)\n\}",
+        contracts,
+        re.DOTALL,
+    )
+    assert body, "emptyTimelineNotice must exist"
+    notices = re.findall(r'return "([^"]+)"', body.group(1))
+    assert len(notices) == 3, "emptyTimelineNotice must branch on all three scopes"
+    assert len(set(notices)) == 3, "no two scope notices may share wording"
 
 
 def test_failed_read_is_not_rendered_as_an_empty_timeline():

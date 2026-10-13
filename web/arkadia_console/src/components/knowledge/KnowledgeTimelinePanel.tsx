@@ -35,7 +35,7 @@ import {
   timelineWindowNotice,
   type OlderPage,
   type TimelineEvent,
-  type ViewerKind,
+  type TimelineViewer,
 } from "../../pages/knowledge/knowledgeContracts";
 
 async function readTimeline(path: string): Promise<TimelineEvent[]> {
@@ -50,8 +50,16 @@ async function readTimeline(path: string): Promise<TimelineEvent[]> {
 }
 
 export function KnowledgeTimelinePanel() {
-  const { isAuthenticated } = useAuth();
-  const viewer: ViewerKind = isAuthenticated ? "authenticated" : "anonymous";
+  const { isAuthenticated, identityState } = useAuth();
+  // An unresolved identity is neither signed in nor signed out. Collapsing it to
+  // "anonymous" would let the panel state, for a signed-in viewer whose session
+  // is still restoring, that "no identity is present" — a claim about the viewer
+  // the client cannot yet make.
+  const viewer: TimelineViewer = isAuthenticated
+    ? "authenticated"
+    : identityState === "loading"
+      ? "pending"
+      : "anonymous";
   const scope = classifyTimelineScope(viewer);
 
   const [eventType, setEventType] = useState("");
@@ -99,7 +107,7 @@ export function KnowledgeTimelinePanel() {
       <div className="mb-3">
         <p className="font-mono text-[11px] uppercase tracking-widest text-white/40">Timeline</p>
         <p className="mt-1 text-sm text-white/55">
-          The latest events from this node's immutable log. This is a bounded recent window; older events require an explicit offset query. Ownership is enforced by the backend.
+          The latest events from this node's immutable log. The reader shows a bounded newest window and can page backwards into older history with the "Load older events" control below. Ownership is enforced by the backend.
         </p>
       </div>
 
