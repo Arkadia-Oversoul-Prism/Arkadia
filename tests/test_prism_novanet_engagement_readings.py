@@ -1,22 +1,33 @@
-"""Lane 2 — NovaNet public-field engagement readings (reactions / comments /
-reposts).
+"""Lane 2 — NovaNet public-field engagement (interactive reactions / comments).
 
 The public transmissions feed (`GET /api/transmissions`, `api/transmissions.py`)
 returns four reaction counters (``heart`` / ``fire`` / ``star`` / ``mind``), a
-``reposts`` count and a ``comments`` array on every post, and the archived Prism
-field card rendered exactly those readings. The console rendered none of them,
-so engagement a reader could already fetch was invisible.
+``reposts`` count and a ``comments`` array on every post. The archived Prism field
+card made the reaction and comment readings **interactive**; the console first
+rendered them read-only, so the interaction was missing even though both write
+handlers are live and verified.
+
+This guard now pins the **interactive** contract:
+
+  * ``POST /api/transmissions/{id}/react``   — ``{type}`` over the backend's four
+    declared keys; the server refuses anything else with 400.
+  * ``POST /api/transmissions/{id}/comment`` — ``{content}``; the server refuses
+    blank content with 400.
+
+and the boundaries that keep it honest:
+
+  * **exactly these two** write paths are composed — no third, unverified route;
+  * ``reposts`` carries **no** control, because the router declares no repost
+    write handler (a grep of `api/transmissions.py`);
+  * the paths are registry-derived, never inline literals;
+  * no count is invented — a value the server did not return reads its own ``0``.
 
 These are **source-level** assertions against the active console, matching the
 established convention for console contract guards
 (`tests/test_prism_novanet_author_controls.py`,
-`tests/test_prism_opportunity_entry_flow.py`).
-
-The invariant is **read-only fidelity**: the surface mirrors the backend's
-declared shape and invents no value, and it introduces no mutation it cannot
-prove. Each behavioural claim carries a **negative control** — a synthetic
-source that violates it must be reported by the same detector that judges the
-live tree, so the guard cannot be disarmed by rewriting the component.
+`tests/test_prism_opportunity_entry_flow.py`). Each behavioural claim carries a
+**negative control** — a synthetic source that violates it must be reported by
+the same detector that judges the live tree.
 """
 from __future__ import annotations
 
@@ -40,21 +51,53 @@ def _read(path: Path) -> str:
 
 
 def test_backend_declares_the_engagement_shape_it_serves():
-    """The readings are only legitimate because the feed carries them."""
+    """The readings and their write handlers are only legitimate because they exist."""
     src = _read(BACKEND)
     assert '"reactions": {"heart": 0, "fire": 0, "star": 0, "mind": 0}' in src
     assert '"comments": [], "reposts": 0' in src
     assert 'valid = {"heart", "fire", "star", "mind"}' in src
+    # The two wired write routes are the backend's own.
+    assert '@router.post("/api/transmissions/{post_id}/react")' in src
+    assert '@router.post("/api/transmissions/{post_id}/comment")' in src
 
 
-def test_engagement_component_exists_and_is_display_only():
+def test_reposts_has_no_write_handler_on_the_router():
+    """`reposts` stays a reading: the backend serves no repost mutation."""
+    src = _read(BACKEND)
+    assert not re.search(r"@router\.(post|patch|put)\([^)]*repost", src), (
+        "a repost write handler would make the read-only repost reading a lie"
+    )
+
+
+def test_engagement_component_exists_and_wires_exactly_the_two_routes():
     assert ENGAGEMENT.is_file(), "the NovaNet engagement component is missing"
     src = _read(ENGAGEMENT)
     assert "export function EngagementBar" in src
     assert 'data-testid="novanet-engagement"' in src
-    # A reading surface must not mutate: no request moves from this component.
-    assert "apiRequest" not in src, "the engagement surface must be read-only"
-    assert not re.search(r"\bmethod\s*:", src), "no HTTP method belongs on a reading surface"
+    # Both declared write routes are reachable from this component.
+    assert re.search(r"`\$\{endpoints\.transmissions\}/\$\{encodeURIComponent\([^)]*\)\}/react`", src), (
+        "the reaction path must be composed from the registry"
+    )
+    assert re.search(r"`\$\{endpoints\.transmissions\}/\$\{encodeURIComponent\([^)]*\)\}/comment`", src), (
+        "the comment path must be composed from the registry"
+    )
+
+
+def test_only_two_write_paths_are_wired():
+    """No third mutation path: exactly react + comment call `apiRequest`."""
+    src = _read(ENGAGEMENT)
+    calls = re.findall(r"apiRequest[^\n]*?\(([^,]+),", src)
+    assert len(calls) == 2, f"expected exactly two write calls, found {len(calls)}: {calls}"
+
+
+def test_mutation_paths_are_registry_derived_not_literals():
+    """No inline path: the base must come from ``endpoints.transmissions``."""
+    src = _read(ENGAGEMENT)
+    assert "endpoints.transmissions" in src, "the path base must be the registry collection"
+    assert not re.search(r'apiRequest[^\n]*\(\s*["\'`]/api/transmissions', src), (
+        "the mutation path must not be an inline literal"
+    )
+    assert "encodeURIComponent" in src
 
 
 def test_reaction_vocabulary_is_the_backends_own():
@@ -64,8 +107,6 @@ def test_reaction_vocabulary_is_the_backends_own():
         r'REACTION_TYPES\s*=\s*\[\s*"heart"\s*,\s*"fire"\s*,\s*"star"\s*,\s*"mind"\s*\]',
         src,
     ), "the reaction vocabulary must be the backend's four declared keys, in order"
-    for key in ("heart", "fire", "star", "mind"):
-        assert f'data-testid={{`novanet-reaction-${{type}}`}}' in src or key in src
 
 
 def test_no_invented_counts():
@@ -75,11 +116,21 @@ def test_no_invented_counts():
     assert "typeof transmission.reposts" in src, "reposts must be the server value when present"
 
 
-def test_page_mounts_the_engagement_surface_read_only():
-    """The page renders the readings and adds no write path for them."""
+def test_reposts_carries_no_control():
+    """The repost reading is shown without a button — no unverified capture path."""
+    src = _read(ENGAGEMENT)
+    block = re.search(r'data-testid="novanet-reposts"(.*?)</span>\s*</div>', src, re.S)
+    assert block, "the reposts reading must render"
+    assert "<button" not in block.group(1), "reposts must not carry a control (no write handler exists)"
+
+
+def test_page_mounts_the_engagement_surface_with_reload():
+    """The page renders the readings and re-reads the feed after a write."""
     src = _read(PAGE)
     assert "EngagementBar" in src, "the NovaNet field must render the declared readings"
-    assert "<EngagementBar transmission={t} />" in src, "the readings must render per transmission"
+    assert "<EngagementBar transmission={t} onChanged={field.reload} />" in src, (
+        "a write must re-read the feed so the server's counts are shown"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -92,10 +143,17 @@ _REACTION_VOCAB = re.compile(
 _ZERO_FALLBACK = re.compile(r"reactions\?\.\[type\]\s*\?\?\s*0")
 
 
-def _mutation_defect(source: str) -> bool:
-    """True when a reading surface carries a request/method it cannot prove."""
+def _third_path_defect(source: str) -> bool:
+    """True when the surface wires a write path beyond react + comment."""
+    calls = re.findall(r"apiRequest[^\n]*?\(([^,]+),", source)
+    return "export function EngagementBar" in source and len(calls) != 2
+
+
+def _inline_path_defect(source: str) -> bool:
+    """True when a mutation path is an inline literal rather than registry-derived."""
     return "export function EngagementBar" in source and (
-        "apiRequest" in source or re.search(r"\bmethod\s*:", source) is not None
+        re.search(r'apiRequest[^\n]*\(\s*["\'`]/api/transmissions', source) is not None
+        or "endpoints.transmissions" not in source
     )
 
 
@@ -115,20 +173,36 @@ def _unmounted_defect(source: str) -> bool:
 
 
 def test_detectors_are_silent_on_the_live_tree():
-    assert not _mutation_defect(_read(ENGAGEMENT))
+    assert not _third_path_defect(_read(ENGAGEMENT))
+    assert not _inline_path_defect(_read(ENGAGEMENT))
     assert not _invented_count_defect(_read(ENGAGEMENT))
     assert not _vocabulary_defect(_read(ENGAGEMENT))
     assert not _unmounted_defect(_read(PAGE))
 
 
-def test_detector_flags_a_mutating_reading_surface():
-    """Negative control: a reading bar that fires a request."""
+def test_detector_flags_a_third_write_path():
+    """Negative control: a repost path invented with no backend handler."""
     defect = (
         "export function EngagementBar({ transmission }) {\n"
-        '  return <button onClick={() => apiRequest("/api/transmissions/x/react", { method: "POST" })}>♥</button>;\n'
+        '  apiRequest(`${endpoints.transmissions}/${transmission.id}/react`, { method: "POST" });\n'
+        '  apiRequest(`${endpoints.transmissions}/${transmission.id}/comment`, { method: "POST" });\n'
+        '  apiRequest(`${endpoints.transmissions}/${transmission.id}/repost`, { method: "POST" });\n'
+        "  return null;\n"
         "}\n"
     )
-    assert _mutation_defect(defect), "the read-only detector missed a mutating surface"
+    assert _third_path_defect(defect), "the third-path detector missed an unwired route"
+
+
+def test_detector_flags_an_inline_path():
+    """Negative control: a mutation path that bypasses the registry."""
+    defect = (
+        "export function EngagementBar({ transmission }) {\n"
+        '  apiRequest("/api/transmissions/x/react", { method: "POST" });\n'
+        "  apiRequest(`${endpoints.transmissions}/${transmission.id}/comment`, { method: \"POST\" });\n"
+        "  return null;\n"
+        "}\n"
+    )
+    assert _inline_path_defect(defect), "the inline-path detector missed a literal route"
 
 
 def test_detector_flags_an_invented_count():
@@ -154,7 +228,7 @@ def test_detector_flags_a_dropped_mount():
     """Negative control: the page stops rendering the readings."""
     defect = (
         "export function NovaNetPage() {\n"
-        "  return <SurfaceLenses surface=\"novanet\" lenses={LENSES} />;\n"
+        '  return <SurfaceLenses surface="novanet" lenses={LENSES} />;\n'
         "}\n"
     )
     assert _unmounted_defect(defect), "the mount detector missed a dropped engagement surface"

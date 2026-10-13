@@ -101,9 +101,11 @@ export function NovaNetPage({
                       </div>
                       <p className="mt-2 whitespace-pre-wrap text-sm text-white/70">{t.content}</p>
                       {t.edited_at ? <p className="mt-1 font-mono text-[10px] text-white/25">edited</p> : null}
-                      {/* Declared engagement readings the feed already returns
-                          and the console discarded (see EngagementBar). Read-only. */}
-                      <EngagementBar transmission={t} />
+                      {/* Declared engagement readings the feed already returns,
+                          made interactive against the two live write handlers
+                          (react / comment) the router serves (see EngagementBar).
+                          `reposts` stays a reading — no verified write path. */}
+                      <EngagementBar transmission={t} onChanged={field.reload} />
                       <AuthorControls
                         transmission={t}
                         isOwn={Boolean(myUid && t.owner_uid && myUid === t.owner_uid)}
