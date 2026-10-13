@@ -100,3 +100,19 @@ Next bounded task on this lane: surface `notes` (excluded from the grid, still
 unrendered) **only if** it can be tied to a verified read field and needs no new
 control; otherwise reconcile the next archived radar capability that measures
 cleanly against a verified handler. Do not invent a capture path.
+
+## Lane continuity — 2026-10-13 (operator notes)
+
+`prism-opportunity-notes-render-01` (same draft PR #492, head `6dc3b13c` + this
+slice): `notes` was the last declared `BuyerReconEntryInput` read field the console
+never rendered. Traced end to end — declared `notes: str = ""`, stored in the
+`buyer_recon_entries` table (`DEFAULT ''`), returned by `to_dict()` on **both**
+reads, and writable through the same create/edit handlers `ProspectEntryForm`
+already drives — so **no new control or mutation path** was added. The surface now
+renders the note gated on its presence (`entry.notes &&`), display-only. Evidence:
+`docs/control-plane/evidence/prism-opportunity-notes-render-01/`.
+
+Next bounded task on this lane: reconcile the next archived Opportunity Radar /
+NovaNet capability **whose contract measures cleanly against a verified handler**.
+Do not wire `evidence_status` / `evidence` until a real handler is verified; do not
+invent a capture path for a field with no verified write route.

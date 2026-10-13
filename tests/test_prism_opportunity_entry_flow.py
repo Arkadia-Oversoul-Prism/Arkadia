@@ -451,6 +451,12 @@ const recorded = {
 };
 out.fact_rows_recorded = m.entryFacts(recorded);
 
+// Operator notes — a free-text read field the entry may carry. The archived
+// Prism radar declared it and the console never rendered it, so a recorded note
+// was invisible. A recorded note must read verbatim; an empty one is absent.
+out.notes_recorded = { ...entry, notes: "Asked for 20t" }.notes;
+out.notes_empty = entry.notes;
+
 // Evidence coverage: only an entry whose evidence_status differs from the
 // backend's NONE sentinel counts; a NONE entry must not.
 const withEvidence = { ...entry, id: "e5", evidence_status: "FIELD_VISIT" };
@@ -1242,3 +1248,49 @@ def test_the_frontend_seed_no_longer_snaps_an_unknown_status():
     contract = _code_only(CONTRACT_TS)
     assert 'emptyDraft(isKnownStatus(entry.status) ? entry.status : "UNCONTACTED")' not in contract
     assert "emptyDraft(entry.status)" in contract, "the seed must carry the stored status verbatim"
+
+
+# ---------------------------------------------------------------------------
+# Operator notes — the last declared read field with no console rendering
+# ---------------------------------------------------------------------------
+
+
+def test_read_returns_a_recorded_note_verbatim(app):
+    """`notes` is returned by both entry reads, so the console can render it.
+
+    The field has a backend default of `""` and no verified UI write path; a note
+    reaches the store through the same create/edit handlers the form already drives.
+    The read must carry it so the surface does not have to guess.
+    """
+    project_id = _project(OWNER["uid"])
+    entry = _create(app, project_id, {"prospect": "Buyer A", "notes": "Asked for 20t"}).json()["entry"]
+    assert entry["notes"] == "Asked for 20t"
+    assert _persisted(entry["id"])["notes"] == "Asked for 20t"
+    read = _client(app, OWNER).get(f"/solspire/buyer-recon/projects/{project_id}").json()["entries"][0]
+    assert read["notes"] == "Asked for 20t"
+
+
+def test_negative_control_an_entry_without_a_note_reads_the_empty_default(app):
+    """Prove the surface must gate on the note, not render the field unconditionally.
+
+    An entry created without a note carries the backend's `""` default. A surface
+    that rendered `notes` unconditionally would emit an empty paragraph; the gate
+    (`entry.notes &&`) renders nothing. This control fixes the value the gate sees.
+    """
+    project_id = _project(OWNER["uid"])
+    entry = _create(app, project_id, {"prospect": "Buyer A"}).json()["entry"]
+    assert entry["notes"] == "", "an un-noted entry defaults to the empty string"
+
+
+def test_notes_read_verbatim_in_the_contract_probe(contract_probe):
+    assert contract_probe["notes_recorded"] == "Asked for 20t"
+    assert contract_probe["notes_empty"] == ""
+
+
+def test_surface_renders_a_recorded_note_gated_on_its_presence():
+    """The note renders from the read field, only when the entry carries one."""
+    surface = SURFACE_TS.read_text(encoding="utf-8")
+    assert "entry.notes &&" in surface, "the note must be gated, not rendered unconditionally"
+    assert "opportunity-entry-notes-" in surface, "the note must be identifiable per entry"
+    # It reads the field off the entry the board read returned, not a re-typed copy.
+    assert "{entry.notes}" in surface

@@ -216,6 +216,17 @@ export function ProjectOpportunityRadar({ readPath }: { readPath: string }) {
                       ))}
                     </dl>
                     {entry.why_this_prospect && <p className="mt-2 text-xs text-white/60">{entry.why_this_prospect}</p>}
+                    {/* Operator notes — a free-text read field the handler returns
+                        (`notes`, default `""`) and the archived Prism radar declared
+                        but the console never rendered, so a recorded note was
+                        invisible. Display-only: it is shown only when the entry
+                        carries one, and it asserts nothing about the entry. */}
+                    {entry.notes && (
+                      <p className="mt-2 text-xs text-white/50" data-testid={`opportunity-entry-notes-${entry.id}`}>
+                        <span className="font-mono text-[10px] uppercase tracking-widest text-white/35">Notes: </span>
+                        {entry.notes}
+                      </p>
+                    )}
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <button
                         type="button"
