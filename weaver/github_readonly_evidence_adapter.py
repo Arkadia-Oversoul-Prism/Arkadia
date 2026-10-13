@@ -107,8 +107,11 @@ class GitHubReadOnlyEvidenceAdapter:
         results: list[dict[str, Any]] = []
         while url:
             payload, link_header = self._get(url)
+            if isinstance(payload, dict) and isinstance(payload.get("check_runs"), list):
+                # GitHub check-runs is an envelope; pull-request reviews are a list.
+                payload = payload["check_runs"]
             if not isinstance(payload, list):
-                raise EvidenceCollectionError(f"expected a list from {url}")
+                raise EvidenceCollectionError(f"expected a list or check-runs envelope from {url}")
             results.extend(item for item in payload if isinstance(item, dict))
             next_url = None
             if link_header:
