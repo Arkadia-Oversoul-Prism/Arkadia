@@ -148,7 +148,12 @@ class GitHubReadOnlyEvidenceAdapter:
                 latest[value] = item
         return list(latest.values())
 
-    def collect(self, pr_number: int, policy: MergePolicy) -> AdapterEvaluation:
+    def collect(
+        self,
+        pr_number: int,
+        policy: MergePolicy,
+        risk_class: RiskClass = RiskClass.UNKNOWN,
+    ) -> AdapterEvaluation:
         if not isinstance(pr_number, int) or pr_number < 1:
             raise ValueError("pr_number must be a positive integer")
         prefix = f"/repos/{self.repository}"
@@ -255,7 +260,6 @@ class GitHubReadOnlyEvidenceAdapter:
             complete = False
             warnings.append("PR head or base moved while evidence was being collected")
 
-        risk = RiskClass.UNKNOWN
         evidence = PullRequestEvidence(
             pr_number=pr_number,
             head_sha=head_sha,
@@ -267,7 +271,7 @@ class GitHubReadOnlyEvidenceAdapter:
             draft=bool(start.get("draft", True)),
             mergeable=start.get("mergeable") is True,
             branch_protection_satisfied=protection_ok,
-            risk_class=risk,
+            risk_class=risk_class,
             human_approvals=tuple(approvals),
             policy_authorizes_auto_merge=False,
             evidence_complete=complete,
