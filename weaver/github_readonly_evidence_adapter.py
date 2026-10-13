@@ -54,7 +54,7 @@ class GitHubReadOnlyEvidenceAdapter:
         timeout_seconds: float = 15.0,
         opener: Callable[..., Any] | None = None,
     ) -> None:
-        if not _REPO.fullmatch(repository):
+        if not _REPO.fullmatch(repository) or any(part in {".", ".."} for part in repository.split("/")):
             raise ValueError("repository must be in owner/repo form")
         self.repository = repository
         self._token = token if token is not None else os.getenv("GITHUB_TOKEN", "")
