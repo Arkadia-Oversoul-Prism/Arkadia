@@ -3,6 +3,7 @@ import { ApiError, apiRequest } from "../../lib/apiClient";
 import { Panel } from "../ui";
 import { ProspectEntryForm } from "./ProspectEntryForm";
 import {
+  NO_EVIDENCE,
   UNVERIFIED,
   advanceBody,
   canAdvance,
@@ -242,6 +243,15 @@ export function ProjectOpportunityRadar({ readPath }: { readPath: string }) {
             )}
             <p className="mt-3 text-[11px] text-white/35">
               {summary.total} recorded prospect(s), {summary.actionable} at a decision stage. No spending or execution is authorized by this view.
+            </p>
+            {/* Evidence coverage — the archived Prism radar surfaced a "with
+                evidence" metric; the console computed it (`summarize().withEvidence`)
+                but rendered nothing, so the structure was dead data. It counts the
+                entries whose `evidence_status` is not the backend's `NONE` sentinel;
+                it asserts nothing about the evidence itself. */}
+            <p className="mt-1 text-[11px] text-white/35" data-testid="opportunity-evidence-metric">
+              {summary.withEvidence} of {summary.total} recorded prospect(s) carry an evidence status other
+              than the backend's {NO_EVIDENCE} sentinel.
             </p>
             {summary.offVocabulary > 0 && (
               <p className="mt-1 text-[11px] text-gold" data-testid="opportunity-off-vocabulary">

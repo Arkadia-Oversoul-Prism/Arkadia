@@ -53,6 +53,20 @@ Next bounded task on the successor branch: the `evidence_status` / `evidence`
 capture path, only if such a handler is verified; otherwise the next archived
 Opportunity Radar / NovaNet capability whose contract measures cleanly.
 
+## Lane 2 continuity — evidence coverage (2026-10-13 pulse)
+
+The successor task above (`evidence_status` / `evidence` capture) is **not
+actionable**: no verified owner- and board-scoped write handler exists, so adding
+a capture control would invent a mutation path. The bounded move taken instead was
+**display-only**: render `summarize().withEvidence`, the third radar metric that
+was computed but never surfaced (`byStatus` and `offVocabulary` were reconciled by
+`prism-opportunity-pipeline-strip-01`). Evidence:
+`docs/control-plane/evidence/prism-opportunity-evidence-coverage-01/`.
+
+Next bounded task on this lane: reconcile the next archived Opportunity Radar /
+NovaNet capability **whose contract measures cleanly against a verified handler**.
+Do not wire `evidence_status` / `evidence` until a real handler is verified.
+
 ## Start now — no new prompt required
 
 1. Re-fetch `main`; verify actual POST/PATCH methods, auth/owner checks, request/response shapes, and board-scoping behavior from handlers and tests before wiring UI.

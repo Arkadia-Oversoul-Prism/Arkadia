@@ -435,6 +435,13 @@ out.summary_one = m.summarize([entry]);
 const settled = { ...entry, id: "e3", status: "SETTLED" };
 const offVocab = { ...entry, id: "e4", status: "conversation" };
 out.summary_mixed = m.summarize([entry, settled, offVocab]);
+out.no_evidence_sentinel = m.NO_EVIDENCE;
+
+// Evidence coverage: only an entry whose evidence_status differs from the
+// backend's NONE sentinel counts; a NONE entry must not.
+const withEvidence = { ...entry, id: "e5", evidence_status: "FIELD_VISIT" };
+out.summary_evidence = m.summarize([entry, withEvidence]);
+out.summary_evidence_none_only = m.summarize([entry, settled]).withEvidence;
 
 // The per-entry ADVANCE step: one status forward, never past the ceiling.
 out.advance_from_uncontacted = m.advanceBody("UNCONTACTED");
@@ -938,6 +945,46 @@ def test_surface_renders_the_pipeline_strip_from_the_summary():
     assert "summary.byStatus[column.status] ?? 0" in surface
     assert 'data-testid="opportunity-off-vocabulary"' in surface
     assert "summary.offVocabulary > 0" in surface
+
+
+# ---------------------------------------------------------------------------
+# Evidence coverage — the metric `summarize()` computed but no surface rendered
+# ---------------------------------------------------------------------------
+
+
+def test_evidence_metric_counts_only_entries_past_the_none_sentinel(contract_probe):
+    """`withEvidence` counts entries whose evidence status differs from `NONE`.
+
+    The summary already computed this; the surface rendered nothing, so the count
+    was dead data (the same gap the pipeline strip closed for `byStatus`). One
+    entry at the backend's `NONE` sentinel and one carrying a real status must
+    count exactly one.
+    """
+    summary = contract_probe["summary_evidence"]
+    assert summary["total"] == 2
+    assert summary["withEvidence"] == 1
+
+
+def test_negative_control_a_none_sentinel_entry_is_not_counted_as_evidenced(contract_probe):
+    """Prove the metric is not counting every entry.
+
+    A board where every entry sits at the backend's `NONE` sentinel must report
+    zero — otherwise the metric would claim evidence that does not exist, which is
+    exactly the over-claim the `NONE` sentinel exists to prevent.
+    """
+    assert contract_probe["summary_evidence_none_only"] == 0
+    assert contract_probe["no_evidence_sentinel"] == "NONE"
+
+
+def test_surface_renders_the_evidence_metric_from_the_summary():
+    surface = SURFACE_TS.read_text(encoding="utf-8")
+    assert 'data-testid="opportunity-evidence-metric"' in surface
+    assert "summary.withEvidence" in surface, "the metric must read the computed summary"
+    assert "NO_EVIDENCE" in surface, "the copy must name the backend sentinel it counts against"
+    # The sentinel comes from the contract module, not a re-typed literal.
+    assert "NO_EVIDENCE" in surface.split("from \"./opportunityRadarContract\"")[0] or (
+        "NO_EVIDENCE," in surface
+    ), "NO_EVIDENCE must be imported, not invented inline"
 
 
 
