@@ -88,7 +88,7 @@ def _without_ts_comments(source: str) -> str:
         char = source[i]
         if quote is not None:
             out.append(char)
-            if char == "\\\\" and i + 1 < len(source):
+            if char == "\\" and i + 1 < len(source):
                 out.append(source[i + 1])
                 i += 2
                 continue
@@ -102,17 +102,17 @@ def _without_ts_comments(source: str) -> str:
             i += 1
             continue
         if source.startswith("//", i):
-            end = source.find("\\n", i)
+            end = source.find("\n", i)
             if end == -1:
                 break
-            out.append("\\n")
+            out.append("\n")
             i = end + 1
             continue
         if source.startswith("/*", i):
             end = source.find("*/", i + 2)
             if end == -1:
                 break
-            out.append("\\n" * source[i:end + 2].count("\\n"))
+            out.append("\n" * source[i:end + 2].count("\n"))
             i = end + 2
             continue
         out.append(char)
