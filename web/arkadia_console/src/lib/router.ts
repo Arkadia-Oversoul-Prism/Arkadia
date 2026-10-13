@@ -33,6 +33,16 @@ const SECTION_PATTERN = /^\/([^/]+)\/([^/]+)$/;
  * discarding the link. Neither path collides with a declared surface path or a
  * backend route (verified against `app.openapi()`), so no surface may claim them.
  *
+ * `/gate` and `/living-gate` are the same case for authentication. The archived
+ * Prism declared a `gate` view (`direct: '/living-gate' -> gate, '/gate' -> gate`)
+ * that mounted `NodeEntry` — the sign-in / "create your node" surface — and every
+ * home portal sent an unauthenticated visitor to it. The inventory's disposition
+ * for that legacy route is "Adapt → sign-in" (`docs/control-plane/overnight/
+ * PRISM-UI-INVENTORY.md` §2), and the console names that declared capability
+ * `login` (its own name is "Sign in", path `/login`). Both inbound paths reconcile
+ * to it rather than being silently discarded to `home`; neither collides with the
+ * canonical `/login` path or a backend route.
+ *
  * `/home` and `/knowledge-os` were both entry points in the archived Prism's
  * `direct`/`compatibility` maps and both name a surface the console **declares**.
  * `/home` was an alternate spelling of the home route (`/`), and `/knowledge-os`
@@ -49,7 +59,6 @@ const SECTION_PATTERN = /^\/([^/]+)\/([^/]+)$/;
  *     the console now has both a `solariun` `knowledge` lens **and** a distinct
  *     `knowledge` surface, so choosing between them is a capability decision this
  *     alias table cannot make.
- *   - `/gate` + `/living-gate` — the archived `gate` view has no console surface.
  *   - `/dashboard`/`/loops`/`/settings`/`/account`/`/personal-echofeild`/
  *     `/echofeild-matrix` — each addressed a Solariun lens (`overview`/`tasks`/
  *     `settings`/`observatory`) the console does not declare.
@@ -60,6 +69,8 @@ export const PATH_ALIASES: Record<string, SurfaceId> = {
   "/commune": "arkana",
   "/home": "home",
   "/knowledge-os": "knowledge",
+  "/gate": "login",
+  "/living-gate": "login",
 };
 
 export function resolvePath(pathname: string): Route {
