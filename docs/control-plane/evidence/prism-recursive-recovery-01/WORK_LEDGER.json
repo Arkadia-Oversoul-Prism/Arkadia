@@ -1,0 +1,78 @@
+{
+  "ledger_id": "prism-recursive-recovery-01",
+  "created_utc": "2026-10-13",
+  "mission": "Recover useful Prism UI capabilities, interaction patterns, and visual coherence into the canonical Arkadia Console application.",
+  "observed_state": {
+    "repository": "Arkadia-Oversoul-Prism/Arkadia",
+    "branch": "main",
+    "head_sha": "dfbd2304db27746b22f0cda9b6961d1e37fda313",
+    "head_subject": "feat(weaver): add truthful read-only approval ledger",
+    "working_tree": "clean (pre-edit)",
+    "latest_main_ci": "all 5 most recent runs on main completed=success (2026-10-13T08:24Z, runs 38369053382-38369053620)",
+    "inherited_failures": "none observed on main head"
+  },
+  "canonical_targets": {
+    "production": "https://arkadia-qzu4.onrender.com",
+    "deployment": "Render only (ADR-016); no Vercel, no manual deploy from this task",
+    "frontend": "web/arkadia_console (React 18 + Vite 5 + TS + Tailwind 3, pnpm@10.26.1, node engines 24.x)",
+    "backend": "FastAPI (api/main.py), served by Dockerfile frontend-build stage",
+    "build_command": "cd web/arkadia_console && pnpm run build  (= tsc --noEmit && vite build)",
+    "frontend_test_convention": "pytest source-contract suites under tests/, some executing TS in Node"
+  },
+  "reference_sources": {
+    "archived_prism_ui": "archive/frontend/arkadia-prism/web/public_prism (135 src files, ~30k LOC; git mv history preserved; recovery procedure in archive/frontend/arkadia-prism/README.md)",
+    "prism_provenance_revision": "eb63342d1951e638b8952f4b66ea1308f052ed2f (last main revision serving Prism)",
+    "route_recovery_doc": "docs/architecture/SG-02-FE.1A-prism-route-recovery.md",
+    "parallel_ui_contract": "docs/control-plane/parallel-ui/SHARED-CONTRACTS.md",
+    "capability_matrix": "docs/control-plane/parallel-ui/CAPABILITY-MATRIX-02.md"
+  },
+  "available_tools": {
+    "gh_cli": "authenticated as freebuff-web[bot]; pr list/view/diff/run OK; push via Freebuff-managed GitHub App credential",
+    "node": "v22.23.2 (type stripping available)",
+    "pnpm": "10.26.1 available; frozen-lockfile install verified",
+    "python": "python3 + pytest 9.1.1 + requirements.txt installed this session",
+    "worker_dispatch": "NOT AVAILABLE — sequential execution only; no concurrent worker claim is made",
+    "browser_e2e": "NOT AVAILABLE in sandbox — source-contract tests + build are the executable evidence"
+  },
+  "open_workstreams": [
+    {"pr": 505, "branch": "feat/prism-next10-01-legacy-alias-families", "scope": "router.ts PATH_ALIASES /home /knowledge-os /gate /living-gate"},
+    {"pr": 507, "branch": "feat/prism-l1-legacy-route-coverage-01", "scope": "legacy route coverage tests"},
+    {"pr": 509, "branch": "feat/prism-lane3-project-detail-reader-01", "scope": "Knowledge project detail reader"},
+    {"pr": 501, "branch": "feat/prism-next9-04-canonical-loop-mount", "scope": "EngineeringLabPage canonical loop mount"},
+    {"pr": 492, "branch": "feat/prism-next7-02-pipeline-strip", "scope": "Opportunity Radar pipeline strip"},
+    {"pr": 498, "branch": "feat/prism-next9-03-knowledge-timeline-paging", "scope": "Knowledge timeline paging"},
+    {"pr": 497, "branch": "feat/prism-next9-01-nexus-alias", "scope": "/nexus sub-route deep links"},
+    {"pr": 493, "branch": "feat/prism-next8-04-automation-grammar", "scope": "Lab automation grammar projection"},
+    {"pr": 499, "branch": "fix/weaver-schema-status-semantics-2026-10-12", "scope": "Weaver schema status semantics"},
+    {"pr": 508, "branch": "feat/eaa-readonly-github-evidence-adapter", "scope": "EAA evidence adapter (non-UI)"},
+    {"pr": 504, "branch": "gate10/prism-next-wave-composition-reconciliation-01", "scope": "composition guard tests"},
+    {"pr": 503, "branch": "test/eaa-base-baseline-49809f4", "scope": "baseline test fixture (non-UI)"},
+    {"pr": 502, "branch": "feat/engineering-acceptance-authority", "scope": "EAA backend (non-UI)"},
+    {"pr": 500, "branch": "feat/gate-l4-openhands-dispatch-adapter", "scope": "dispatch adapter (non-UI)"},
+    {"pr": 496, "branch": "docs/control-plane-live-recovery-2026-10-12", "scope": "docs"},
+    {"pr": 484, "branch": "gate10/beta-evidence-bundle-race-01", "scope": "CI gate"},
+    {"pr": 482, "branch": "gate10/history-depth-ci-wiring-01", "scope": "CI gate"}
+  ],
+  "overlap_check": "All 17 open PRs were enumerated; none touches web/arkadia_console/src/pages/SolariunPage.tsx, components/SurfaceLenses.tsx, components/Shell.tsx, or App.tsx.",
+  "work_items": [
+    {
+      "id": "PRR-01",
+      "title": "Solariun lens strip becomes real routed navigation with truthful per-lens state",
+      "lane": "C (Solariun) / A (shared shell seam)",
+      "state": "IMPLEMENTED",
+      "source_state": "SolariunPage renders a decorative <span> strip (projects/knowledge/memory/weaver) that never navigates; content ignores `section`; /solariun/bogus silently renders the projects view; App.tsx passes no onNavigate to SolariunPage.",
+      "target_behavior": "Lenses render via shared SurfaceLenses, navigate to /solariun/<id> through the shared router with aria-current, content switches per lens (projects = real /solspire/projects read; knowledge/weaver = honest pointer to the canonical owning surface; memory = honest not-wired state; unknown section = honest not-a-lens state listing reconciled lenses).",
+      "in_scope": ["web/arkadia_console/src/pages/SolariunPage.tsx", "web/arkadia_console/src/App.tsx (one prop)", "tests/test_solariun_lens_contract.py (new)", "docs/control-plane/evidence/prism-recursive-recovery-01/*"],
+      "out_of_scope": ["router.ts (PR #505 owns aliases)", "backend handlers", "other surface pages owned by open PRs", "merge/deploy"],
+      "verification": "cd web/arkadia_console && pnpm run build; python3 -m pytest tests/test_solariun_lens_contract.py + six console contract suites"
+    }
+  ],
+  "baseline_evidence": {
+    "pnpm_run_build": "PASS (exit 0, dist emitted, 2026-10-13 pre-edit)",
+    "pytest_console_suites": "PASS — 85 passed (test_canonical_frontend_routing, test_frontend_arkadia_console_rebuild_01, test_aeas05_canonical_frontend_acceptance, test_console_endpoint_registry_contract, test_console_authority_chain, test_console_shell_nav_contract)"
+  },
+  "blockers": [
+    {"id": "BLK-01", "description": "No browser/e2e harness in sandbox; runtime UI claims are limited to build + executable source-contract tests.", "class": "NOT TESTED (browser)"},
+    {"id": "BLK-02", "description": "Solariun 'memory' lens has no verified read contract in the console endpoint registry; must render an honest not-wired state rather than data.", "class": "contract gap"}
+  ]
+}

@@ -1,9 +1,42 @@
+/**
+ * Solariun — the personal workspace and cognitive canvas.
+ *
+ * The lens strip is real navigation: every lens routes to `/solariun/<id>`
+ * through the shared router, so the strip and the address bar cannot disagree
+ * (the same contract `SurfaceLenses` already enforces for NovaNet). The archived
+ * Prism declared these lenses as routed sub-views of `/solariun`
+ * (`SolariunConsole` → `SolSpireExperience`, lenses overview/projects/knowledge/
+ * memory/weaver/…); the console reconciles that vocabulary to four lenses and
+ * gives each one a truthful state:
+ *
+ *  - `projects`  — the real `/solspire/projects` read (owner-scoped, unchanged).
+ *  - `knowledge` — the knowledge authority is the canonical Knowledge OS surface;
+ *                  this lens points there instead of duplicating its read.
+ *  - `weaver`    — the governance authority is the canonical Weaver surface;
+ *                  same rule: point, do not fork.
+ *  - `memory`    — no verified read contract exists in the endpoint registry, so
+ *                  it states that plainly. No memory data is inferred.
+ *
+ * A section outside the declared lens set renders an honest "not a lens" state
+ * listing the reconciled lenses — previously `/solariun/bogus` silently showed
+ * the projects view, leaving the address bar claiming something false.
+ */
 import { Page, Panel, Facts, ContractState, NotYetWired } from "../components/ui";
+import { SurfaceLenses } from "../components/SurfaceLenses";
 import { useAuth } from "../contexts/AuthContext";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
 import { endpoints } from "../lib/endpoints";
+import type { SurfaceId } from "../lib/surfaces";
 import type { NodeProfile, ProjectList } from "../lib/types";
+
+/**
+ * Sentinel, not a path: `NotYetWired` takes the advertised contract string, and
+ * UNKNOWN is the repository's classification for a claim that is not established
+ * (PUBLIC_SURFACE.md). It is a named constant so it reads as a classification,
+ * not an advertised route.
+ */
+const UNKNOWN_CONTRACT = "UNKNOWN";
 
 const LENSES = [
   { id: "projects", label: "Projects" },
@@ -12,28 +45,51 @@ const LENSES = [
   { id: "weaver", label: "Weaver" },
 ];
 
-export function SolariunPage({ section = "projects" }: { section?: string }) {
+/** The lens ids this surface declares; a section outside this set is not a lens. */
+const LENS_IDS = new Set(LENSES.map((l) => l.id));
+
+/**
+ * Lenses whose authority lives on another canonical surface. One intelligence,
+ * many interfaces: this lens names the canonical owner and offers the real
+ * navigation to it rather than re-reading the same contract here.
+ */
+const OWNING_SURFACE: Record<string, { surface: SurfaceId; name: string; body: string }> = {
+  knowledge: {
+    surface: "knowledge",
+    name: "Knowledge OS",
+    body: "Continuity, memory, and the knowledge graph are read from the canonical Knowledge OS surface over /api/knowledge/*. This lens does not duplicate that read.",
+  },
+  weaver: {
+    surface: "weaver",
+    name: "Weaver",
+    body: "Proposal, approval, execution, and verification are read from the canonical Weaver surface over /api/approvals and the Lab session view. This lens does not duplicate that read.",
+  },
+};
+
+export function SolariunPage({
+  section = "projects",
+  onNavigate,
+}: {
+  section?: string;
+  onNavigate: (id: SurfaceId, section?: string) => void;
+}) {
   const { profile, isAuthenticated, identityState } = useAuth();
   const projects = useHydration<ProjectList>(
     endpoints.solspireProjects,
     (p) => apiRequest<ProjectList>(p),
     [isAuthenticated],
   );
+  const owner = OWNING_SURFACE[section];
 
   return (
     <Page title="Solariun" subtitle="Your personal workspace and cognitive canvas — projects, knowledge, and continuity.">
-      <div className="mb-4 flex gap-1">
-        {LENSES.map((l) => (
-          <span
-            key={l.id}
-            className={`rounded px-3 py-1 font-mono text-[11px] uppercase tracking-widest ${
-              section === l.id ? "bg-white/5 text-violet" : "text-white/40"
-            }`}
-          >
-            {l.label}
-          </span>
-        ))}
-      </div>
+      <SurfaceLenses
+        surface="solariun"
+        lenses={LENSES}
+        section={section}
+        accent="text-violet"
+        onNavigate={onNavigate}
+      />
 
       <Panel className="mb-4">
         <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">Identity</p>
@@ -56,32 +112,69 @@ export function SolariunPage({ section = "projects" }: { section?: string }) {
         )}
       </Panel>
 
-      <Panel>
-        <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">Projects</p>
-        {projects.state === "ready" && projects.data ? (
-          projects.data.count === 0 ? (
-            <p className="text-sm text-white/50">No projects yet in this workspace.</p>
+      {section === "projects" && (
+        <Panel>
+          <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">Projects</p>
+          {projects.state === "ready" && projects.data ? (
+            projects.data.count === 0 ? (
+              <p className="text-sm text-white/50">No projects yet in this workspace.</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {projects.data.projects.map((p) => (
+                  <li key={p.id} className="rounded border border-line bg-ink/40 p-3">
+                    <p className="text-sm text-white/85">{p.name}</p>
+                    <p className="font-mono text-[11px] text-white/40">{p.status ?? "active"}</p>
+                  </li>
+                ))}
+              </ul>
+            )
           ) : (
-            <ul className="flex flex-col gap-2">
-              {projects.data.projects.map((p) => (
-                <li key={p.id} className="rounded border border-line bg-ink/40 p-3">
-                  <p className="text-sm text-white/85">{p.name}</p>
-                  <p className="font-mono text-[11px] text-white/40">{p.status ?? "active"}</p>
-                </li>
-              ))}
-            </ul>
-          )
-        ) : (
-          <ContractState state={projects.state} error={projects.error?.message} onRetry={projects.reload} />
-        )}
-      </Panel>
+            <ContractState state={projects.state} error={projects.error?.message} onRetry={projects.reload} />
+          )}
+        </Panel>
+      )}
 
-      <div className="mt-4">
+      {section === "projects" && (
+        <div className="mt-4">
+          <NotYetWired
+            contract="/api/solspire/projects/{id}/runtime-context"
+            note="The cognitive canvas and continuity views are scaffolded as lenses of this workspace."
+          />
+        </div>
+      )}
+
+      {owner && (
+        <div data-testid="solariun-authority-owner">
+          <Panel>
+            <p className="font-display text-lg text-gold">Authority lives on {owner.name}</p>
+            <p className="mt-1 text-sm text-white/60">{owner.body}</p>
+            <button
+              type="button"
+              onClick={() => onNavigate(owner.surface)}
+              data-testid={`solariun-open-${owner.surface}`}
+              className="mt-4 rounded border border-gold/40 bg-gold/10 px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-gold"
+            >
+              Open {owner.name}
+            </button>
+          </Panel>
+        </div>
+      )}
+
+      {section === "memory" && (
         <NotYetWired
-          contract="/api/solspire/projects/{id}/runtime-context"
-          note="The cognitive canvas and continuity views are scaffolded as lenses of this workspace."
+          contract={UNKNOWN_CONTRACT}
+          note="The archived Prism's Personal Echofeild / observatory lens has no verified read contract in the console endpoint registry (lib/endpoints.ts). Nothing is rendered for it here: no memory data is inferred."
         />
-      </div>
+      )}
+
+      {!LENS_IDS.has(section) && (
+        <NotYetWired
+          contract={UNKNOWN_CONTRACT}
+          note={`"${section}" is not a lens of this surface. The reconciled lenses are ${[...LENS_IDS]
+            .map((id) => `"${id}"`)
+            .join(", ")}.`}
+        />
+      )}
     </Page>
   );
 }
