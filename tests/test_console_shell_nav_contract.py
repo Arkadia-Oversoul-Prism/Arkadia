@@ -300,6 +300,8 @@ def _js_route_resolver(router_text: str) -> dict:
         "/solariun/knowledge",
         "/oracle",
         "/commune",
+        "/home",
+        "/knowledge-os",
     ]
     script = (
         surfaces
@@ -475,6 +477,44 @@ def test_oracle_and_commune_reconcile_to_the_arkana_surface():
             f"{legacy} is an alias, not a second surface"
         )
     assert _alias_defects(ROUTER, SURFACES) == []
+
+
+def test_home_and_knowledge_os_reconcile_to_declared_surfaces():
+    """Two more archived inbound paths name a surface the console *declares*, so
+    they must reconcile rather than fall through to `home`.
+
+    The archived Prism accepted `/home` as an alternate spelling of the home route
+    (`direct: {'': 'home', '/home': 'home'}`) and, in its `compatibility` table,
+    routed `/knowledge-os` to a knowledge view. The console's surface registry
+    declares a `knowledge` surface whose own name is "Knowledge OS", so
+    `/knowledge-os` names a declared capability literally; leaving it unaliased
+    made a shared deep link land on Home. Both targets are declared surfaces, and
+    the soundness detector above rejects a collision with a canonical path.
+    """
+    aliases = _path_aliases(ROUTER)
+    assert aliases.get("/home") == "home", aliases
+    assert aliases.get("/knowledge-os") == "knowledge", aliases
+    for legacy in ("/home", "/knowledge-os"):
+        assert legacy not in _declared_paths(SURFACES), (
+            f"{legacy} is an alias, not a second surface"
+        )
+    resolved = _js_route_resolver(ROUTER)
+    assert resolved["/home"] == "/", resolved
+    assert resolved["/knowledge-os"] == "/knowledge", resolved
+    assert _alias_defects(ROUTER, SURFACES) == []
+
+
+def test_detector_flags_an_unaliased_knowledge_os_that_falls_through_to_home():
+    """Negative control: the pre-repair shape -- `/knowledge-os` absent from the
+    alias table -- must reproduce the measured fall-through to `home`."""
+    repaired = _js_route_resolver(ROUTER)
+    assert repaired["/knowledge-os"] == "/knowledge", repaired
+
+    stripped = re.sub(r'\n\s*"/knowledge-os": "knowledge",', "", ROUTER)
+    assert stripped != ROUTER, "control did not mutate router.ts -- detector unproven"
+    assert _js_route_resolver(stripped)["/knowledge-os"] == "/", (
+        "the control must reproduce the pre-repair fall-through to home"
+    )
 
 
 def test_detector_flags_an_oracle_alias_that_falls_through_to_home():
