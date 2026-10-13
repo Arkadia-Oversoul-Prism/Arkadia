@@ -136,3 +136,23 @@ Next bounded task on this lane: reconcile the next archived NovaNet public-field
 capability **whose contract measures cleanly against a verified handler**
 (reactions / repost only if a real handler is verified). Do not invent a capture
 path for a capability with no verified write route.
+
+## Lane continuity — 2026-10-13 (engagement readings)
+
+`prism-novanet-engagement-readings-01` (same draft PR #492, head `e5e6871d` +
+this slice): the console public field discarded the engagement a reader could
+already fetch. `GET /api/transmissions` returns `reactions` (four backend-seeded
+keys), `comments` and `reposts` on every post; the archived Prism field card
+rendered all of them. New feature-local `src/components/novaNet/EngagementBar.tsx`
+renders them **read-only** — no request, no invented count (a missing reaction
+reads `?? 0`), the vocabulary is the backend's own four keys in its order.
+`NovaNetPage.tsx` mounts it per transmission, above the author controls.
+
+Scope decision: `reactions`/`comments` have live write handlers but were **not**
+wired here (a separate bounded slice); `reposts` has **no** handler, so it is a
+reading with no control. No shared file was touched. Evidence:
+`docs/control-plane/evidence/prism-novanet-engagement-readings-01/`.
+
+Next bounded task on this lane: wire the **reaction write path**
+(`POST /api/transmissions/{id}/react`, verified handler) with a negative control
+proving the client offers it only where the backend accepts it.
