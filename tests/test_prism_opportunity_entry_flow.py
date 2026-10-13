@@ -437,6 +437,20 @@ const offVocab = { ...entry, id: "e4", status: "conversation" };
 out.summary_mixed = m.summarize([entry, settled, offVocab]);
 out.no_evidence_sentinel = m.NO_EVIDENCE;
 
+// The reconnaissance fact grid: one row per declared descriptive/commercial
+// field, each value through `fact()` — an unverified fact reads UNKNOWN, never
+// a blank. A field the entry does carry keeps its recorded value verbatim.
+out.fact_fields = m.ENTRY_FACT_FIELDS;
+out.fact_rows_unfilled = m.entryFacts(entry);
+const recorded = {
+  ...entry,
+  location: "Kano",
+  commodity: "Maize",
+  buyer_price: "NGN 1200/kg",
+  landed_cost: "",
+};
+out.fact_rows_recorded = m.entryFacts(recorded);
+
 // Evidence coverage: only an entry whose evidence_status differs from the
 // backend's NONE sentinel counts; a NONE entry must not.
 const withEvidence = { ...entry, id: "e5", evidence_status: "FIELD_VISIT" };
@@ -987,6 +1001,71 @@ def test_surface_renders_the_evidence_metric_from_the_summary():
     ), "NO_EVIDENCE must be imported, not invented inline"
 
 
+# ---------------------------------------------------------------------------
+# Reconnaissance fact grid — the captured fields the console left invisible
+# ---------------------------------------------------------------------------
+
+
+def test_fact_grid_covers_the_declared_reconnaissance_fields(contract_probe):
+    """The grid carries the descriptive and commercial fields the handler declares.
+
+    The archived Prism radar rendered the whole captured grid; the console rendered
+    only three fields, so a recorded location, quantity, supplier, delivery window,
+    payment terms, or margin was invisible. The row set must match the contract's
+    own field declarations — not a hand-copied list that can drift from them.
+    """
+    fields = contract_probe["fact_fields"]
+    assert "location" in fields and "commodity" in fields and "quantity" in fields
+    assert "buyer_price" in fields and "landed_cost" in fields and "supplier" in fields
+    assert "delivery_window" in fields and "payment_terms" in fields
+    assert "capital_required" in fields and "expected_gross_margin" in fields
+    # The fields with their own UI are excluded, so nothing renders twice.
+    for dedicated in ("prospect", "status", "evidence_status", "why_this_prospect", "notes"):
+        assert dedicated not in fields, f"{dedicated} has its own control and must not be a grid row"
+
+
+def test_fact_rows_read_an_unverified_commercial_field_as_the_sentinel(contract_probe):
+    """Every unfilled row states the backend's `UNKNOWN`, never a blank.
+
+    A blank would read as a measured value of empty. The row value is passed through
+    `fact()`, so the unverified state is the sentinel the backend itself uses. The
+    probe entry carries descriptive facts only; every commercial fact it omits must
+    read as the sentinel.
+    """
+    rows = {row["field"]: row["value"] for row in contract_probe["fact_rows_unfilled"]}
+    assert rows["buyer_price"] == "UNKNOWN"
+    assert rows["quantity"] == "UNKNOWN" and rows["supplier"] == "UNKNOWN"
+    assert all(value != "" for value in rows.values()), "no row may render an empty value"
+
+
+def test_fact_rows_carry_a_recorded_value_verbatim(contract_probe):
+    """A fact the entry actually carries is shown as recorded, not overwritten."""
+    rows = {row["field"]: row["value"] for row in contract_probe["fact_rows_recorded"]}
+    assert rows["location"] == "Kano"
+    assert rows["commodity"] == "Maize"
+    assert rows["buyer_price"] == "NGN 1200/kg"
+
+
+def test_negative_control_an_empty_string_fact_reads_as_the_sentinel(contract_probe):
+    """Prove `fact()` is load-bearing, not decorative.
+
+    An entry whose stored `landed_cost` is the empty string (the backend default for
+    a non-commercial text field) must not render a blank cell — under a raw
+    passthrough it would. The control reconstructs that passthrough and shows it
+    diverges from the measured row.
+    """
+    rows = {row["field"]: row["value"] for row in contract_probe["fact_rows_recorded"]}
+    assert rows["landed_cost"] == "UNKNOWN", "an empty stored fact must read as the sentinel"
+    assert rows["landed_cost"] != "", "the raw passthrough would have rendered a blank"
+
+
+def test_surface_renders_the_fact_grid_from_the_contract():
+    surface = SURFACE_TS.read_text(encoding="utf-8")
+    assert "entryFacts(entry)" in surface, "the grid must be derived from the contract, not hardcoded"
+    assert "opportunity-entry-facts-" in surface, "the grid must be identifiable per entry"
+    # The value must come from the contract's `fact()`-backed row, not a raw label.
+    assert "item.value" in surface
+    assert "entryFacts," in surface, "the helper must be imported from the contract module"
 
 
 # ---------------------------------------------------------------------------

@@ -366,6 +366,53 @@ export const COMMERCIAL_FIELDS = [
   "capital_required",
 ] as const satisfies readonly (keyof ProspectDraft)[];
 
+/**
+ * One recorded reconnaissance fact, ready to render.
+ *
+ * `value` is passed through `fact()`, so an unverified commercial fact reads as
+ * the backend's own `UNKNOWN` sentinel rather than `""` — a blank would look
+ * like a measured value of empty.
+ */
+export interface EntryFact {
+  field: keyof OpportunityEntry;
+  /** The field name with underscores relieved for display only — the value is unchanged. */
+  label: string;
+  value: string;
+}
+
+/**
+ * The reconnaissance facts an entry carries that have no dedicated control.
+ *
+ * The archived Prism `ProjectOpportunityRadar` rendered the whole captured grid
+ * (location, commodity, quantity, buyer price, delivery, window, supplier,
+ * landed cost, capital, payment terms). The console rendered only three of the
+ * ~22 declared fields, so most of what the board stores was invisible. This
+ * derives the grid from the handler's own field set — descriptive and commercial
+ * from `BuyerReconEntryInput` — so the display cannot drift from the contract,
+ * and every value is passed through `fact()` so nothing is guessed.
+ *
+ * Excluded on purpose, because each has its own UI or is not a fact to display:
+ * `prospect` (the entry title), `status` (the status chip), `evidence_status`
+ * (the evidence line), `evidence` (never rendered as raw JSON here),
+ * `why_this_prospect` (its own paragraph), `notes` (own field, not yet rendered),
+ * and the server-managed `id` / `board_id` / `subject_ref` / timestamps.
+ */
+export const ENTRY_FACT_FIELDS = [...DESCRIPTIVE_FIELDS, ...COMMERCIAL_FIELDS].filter(
+  (field) => field !== "why_this_prospect" && field !== "notes",
+) as readonly (keyof OpportunityEntry)[];
+
+export function entryFactLabel(field: keyof OpportunityEntry): string {
+  return String(field).replaceAll("_", " ");
+}
+
+export function entryFacts(entry: OpportunityEntry): EntryFact[] {
+  return ENTRY_FACT_FIELDS.map((field) => ({
+    field,
+    label: entryFactLabel(field),
+    value: fact(entry[field] as string | undefined | null),
+  }));
+}
+
 export function emptyDraft(status: string = "UNCONTACTED"): ProspectDraft {
   const draft = { prospect: "", status } as ProspectDraft;
   for (const field of DESCRIPTIVE_FIELDS) draft[field] = "";

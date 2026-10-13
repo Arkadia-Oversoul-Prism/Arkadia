@@ -7,6 +7,7 @@ import {
   UNVERIFIED,
   advanceBody,
   canAdvance,
+  entryFacts,
   entryPathFromBoard,
   fact,
   parseEntryResponse,
@@ -198,19 +199,21 @@ export function ProjectOpportunityRadar({ readPath }: { readPath: string }) {
                     <p className="mt-2 font-mono text-[10px] uppercase tracking-wider text-white/35">
                       Evidence: {entry.evidence_status ?? "not reported"}
                     </p>
-                    <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-white/50 sm:grid-cols-3">
-                      <div>
-                        <dt className="font-mono text-[9px] uppercase tracking-widest text-white/30">Buyer price</dt>
-                        <dd>{fact(entry.buyer_price)}</dd>
-                      </div>
-                      <div>
-                        <dt className="font-mono text-[9px] uppercase tracking-widest text-white/30">Landed cost</dt>
-                        <dd>{fact(entry.landed_cost)}</dd>
-                      </div>
-                      <div>
-                        <dt className="font-mono text-[9px] uppercase tracking-widest text-white/30">Margin</dt>
-                        <dd>{fact(entry.expected_gross_margin)}</dd>
-                      </div>
+                    {/* The captured reconnaissance grid — every descriptive and
+                        commercial field the handler declares, each rendered through
+                        `fact()` so an unverified fact reads as the backend's own
+                        UNKNOWN sentinel rather than a blank. Display-only: it adds
+                        no control and asserts nothing about a value's truth. */}
+                    <dl
+                      className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-white/50 sm:grid-cols-3"
+                      data-testid={`opportunity-entry-facts-${entry.id}`}
+                    >
+                      {entryFacts(entry).map((item) => (
+                        <div key={item.field}>
+                          <dt className="font-mono text-[9px] uppercase tracking-widest text-white/30">{item.label}</dt>
+                          <dd>{item.value}</dd>
+                        </div>
+                      ))}
                     </dl>
                     {entry.why_this_prospect && <p className="mt-2 text-xs text-white/60">{entry.why_this_prospect}</p>}
                     <div className="mt-3 flex flex-wrap items-center gap-2">
