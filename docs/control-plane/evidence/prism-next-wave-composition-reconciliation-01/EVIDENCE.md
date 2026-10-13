@@ -172,3 +172,99 @@ as an observation; not repaired under this analysis scope.
 2. **Lane 4 owner:** confirm both new contract tests are selected by the console-contract gate.
 3. **Human sovereign:** decide the #493/#501 order and whether #502/#503 (EAA authority change)
    proceeds; that decision is outside agent authority.
+
+## 8. Re-measurement at live heads — §3's "union pending" is superseded (2026-10-13)
+
+§3–§6 above were measured against the *merge-base* heads `d3e978d1` (#493) and `31d66332` (#501).
+Both branches have since advanced. Re-derived from the live API at base `origin/main` `49809f45`:
+
+| PR | Live head | Draft | Mergeability |
+|---|---|---|---|
+| #492 | `2fe22cdf` | yes | MERGEABLE/CLEAN |
+| #493 | **`255d665f`** | yes | MERGEABLE/CLEAN |
+| #497 | `cc1e8f7c` | yes | MERGEABLE/CLEAN |
+| #498 | `e7086afd` | yes | MERGEABLE/CLEAN |
+| #501 | `31d66332` | yes | MERGEABLE/CLEAN |
+| #504 | `aab4dbf8` | yes | MERGEABLE/CLEAN |
+
+### 8.1 The union is already performed — #493's head strictly contains #501
+
+`feat/prism-next8-04-automation-grammar` advanced `d3e978d1` → `255d665f` (`6bda6978`,
+"prism-lane4: compose both Lab projections (automation-grammar + canonical-loop)"). #493's head now
+renders **both** projections:
+
+```
+web/arkadia_console/src/pages/EngineeringLabPage.tsx:6   import { LabAutomationGrammar } ...
+:7   import { ExecutionLoop } ...
+:45  <ExecutionLoop ... />
+:72  <LabAutomationGrammar />
+```
+
+Measured containment, `git diff --numstat 255d665f 31d66332 ':(exclude)docs'` — the *only*
+entries are **deletions** of content #493 adds:
+
+```
+0  314  tests/test_lab_automation_grammar_contract.py
+0  109  tests/test_prism_next_wave_composition_reconciliation_01.py
+0  370  tests/test_prism_w4_automation_grammar.py
+0  182  web/arkadia_console/src/components/lab/LabAutomationGrammar.tsx
+0  498  web/arkadia_console/src/components/lab/labAutomationGrammar.ts
+0    3  web/arkadia_console/src/pages/EngineeringLabPage.tsx
+```
+
+`git diff --quiet 255d665f 31d66332 -- tests/test_prism_w4_canonical_loop_mount.py` → **IDENTICAL**.
+`ExecutionLoop.tsx` and `test_prism_w4_canonical_loop_mount.py` are already on `main`; #501's sole
+non-doc delta over `main` is the 3-line `EngineeringLabPage.tsx` mount, which #493's head already
+carries. **#501 is subsumed.** The §7.1 recommendation ("compose #501 in") is therefore already
+satisfied and is superseded by this measurement.
+
+### 8.2 §3.2's "61 passed" is superseded by a clean four-lane composition
+
+#493's head also carries `tests/test_prism_next_wave_composition_reconciliation_01.py` — **identical**
+to this branch's copy (`git diff <#504> origin/feat/prism-next8-04-automation-grammar --
+tests/test_prism_next_wave_composition_reconciliation_01.py` → empty). The composition guard is
+not novel to #504; it is the shared lane-4 artifact.
+
+Four-lane composition measured in a detached worktree on `origin/main` `49809f45`, applying
+`#497 + #498 + #492 + #493` in that order: **every patch applied cleanly** (no `UU` on any file;
+disjoint file sets hold, since #493 subsumes #501).
+
+```
+python -m pytest tests/test_console_shell_nav_contract.py \
+  tests/test_knowledge_timeline_paging.py tests/test_prism_opportunity_entry_flow.py \
+  tests/test_prism_w4_automation_grammar.py tests/test_prism_w4_canonical_loop_mount.py \
+  tests/test_lab_automation_grammar_contract.py -q -rEf
+→ 179 passed in 8.19s
+
+python -m pytest tests/test_prism_next_wave_composition_reconciliation_01.py -q
+→ 5 passed          (both projections present on the composed tree)
+
+cd web/arkadia_console && corepack pnpm exec tsc --noEmit   → exit 0
+corepack pnpm build → ✓ built in 1.57s (84 modules; dist/assets/index-uAYAcU92.js)
+```
+
+### 8.3 The guard's negative control, proven on the real file
+
+The composed-tree pass in §8.2 is only meaningful because the guard reddens when a side is
+absent. Proven against the real `EngineeringLabPage.tsx`, not a fixture — applying the #504 guard
+onto the single-projection tree `31d66332` yields:
+
+```
+FAILED tests/test_prism_next_wave_composition_reconciliation_01.py::test_a_mounted_lane4_projection_requires_all_of_them
+   AssertionError: ... is missing ['automation-grammar'] ... 1 failed, 4 passed
+```
+
+So the guard is silent pre-composition, red on a one-sided merge, green on the union.
+
+### 8.4 Classification delta
+
+| Item | §3–§6 said | Re-measured 2026-10-13 |
+|---|---|---|
+| #493 ⨯ #501 textual conflict | CONTRADICTED | **RESOLVED in #493's head** (`255d665f`); #501 subsumed |
+| Union resolution | VERIFIED in a composed worktree (61 passed) | **VERIFIED**, four-lane, 179 passed + build green |
+| Composition guard location | this (#504) branch | also on #493's branch (identical blob) |
+| Merge / deploy / acceptance | NOT CLAIMED | **NOT CLAIMED** (unchanged; outside authority) |
+
+**Not performed:** no merge, no deploy, no acceptance. §8 is a measurement of live branch heads,
+not a merge recommendation. The sovereign still chooses the merge order; a PR that is *subsumed*
+(#501) is not thereby *approved* — closing it is a sovereign action, recorded here as a proposal.
