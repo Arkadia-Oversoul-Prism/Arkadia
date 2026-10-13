@@ -86,3 +86,5 @@ state machine is flagged).
 
 Draft PR with base = `feat/prism-rec-01-solariun-routed-lenses`; retargets to
 `main` after #510 merges.
+
+**Integration base:** `3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3` (current main); runtime-canvas feature retained in the same Solariun page. Combined-head acceptance remains pending CI.
