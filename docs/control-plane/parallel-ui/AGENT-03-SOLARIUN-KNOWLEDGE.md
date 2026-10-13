@@ -59,3 +59,39 @@ Evidence: `docs/control-plane/evidence/prism-next2-knowledge-timeline-window-02/
 the measured `offset` contract; or `GET /api/knowledge/projects/{name_or_uuid}`,
 which needs a registry path builder (Workstream 1's file) — a request, not an edit.
 
+
+## Status — 2026-10-13 (LANE 3, pulse)
+
+**Active branch:** `fix/knowledge-traverse-edge-dedup-01`
+**Active PR:** [#526](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/526) — draft, head `eecdc370b677`.
+**Base:** `3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3` (measured live this pulse; the
+`f390526…` base recorded above is superseded).
+
+Delivered: `knowledge/graph.py::traverse` now emits each edge once. It previously
+appended a `graph_edges` row on every hop whose frontier touched it, so a
+diamond/back-edge fixture returned the same row more than once. The reachable node
+set was already deduped by `visited`; only the edge projection carried the
+duplicate, which is why the node-set pins in `tests/test_isolation.py` never saw it.
+
+Guard: `tests/test_knowledge_graph_traverse_boundary.py` (new, 9 nodes) — set
+property over the returned edge list at depths 1–3, dedupe does not drop reachable
+nodes, relationship filter, ownership boundary, plus a negative control
+reconstructing the pre-repair accumulation (must still duplicate on the fixture)
+and a detector control. Measured: guard 9 passed; fix reverted 4 failed/5 passed;
+guard + `test_isolation` + `test_relational_lineage` 24 passed; architecture 11
+passed.
+
+Ownership note: uncommitted LANE-3 console work in the working tree
+(`KnowledgeGraphPanel.tsx`, `knowledgeContracts.ts`) was **deliberately left out of
+this commit** — PRs #509 and #498 both modify
+`web/arkadia_console/src/pages/knowledge/knowledgeContracts.ts`, and a second
+un-reconciled variant would manufacture a conflict for the sovereign. It stays on
+the working tree only.
+
+Evidence: `docs/control-plane/evidence/prism-lane3-graph-traverse-edge-set-01/EVIDENCE.md`.
+
+**Next bounded task (non-overlapping):** reconcile the node-inspection panel
+(`KnowledgeGraphPanel.tsx`) onto #498/#509 once one of them merges, rather than
+committing a competing `knowledgeContracts.ts`; or a read-only measurement of the
+`/graph/{note_id}/traverse` route contract against the deployed origin.
+
