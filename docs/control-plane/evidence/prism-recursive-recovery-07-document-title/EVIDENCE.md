@@ -5,6 +5,9 @@
 through the document title (WCAG 2.4.2), derived from the one surface table.
 **Base SHA:** `dfbd2304db27746b22f0cda9b6961d1e37fda313` (main; cut directly
 from main)
+**Implementation commit:** `266bd59901b8a6dda6a5ad4c240f0ec10611ca8e`
+(candidate head when every verification below was executed; the PR head also
+carries this record — base SHA + PR head identify the exact candidate)
 **Branch:** `feat/prism-rec-07-document-title`
 
 ## 1. Problem (measured)
