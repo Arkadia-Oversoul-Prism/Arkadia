@@ -81,11 +81,35 @@ fetch and only changes how the already-fetched object is presented.
 - `test_page_uses_the_projection_and_drops_the_raw_slice_dump` — verified to
   fail on the injected defect, then restored.
 
-## 6. Uncertainty / next move
+## 6. Original handoff boundary
 
-- `EngineeringLabPage.tsx` is shared with #493 and #501; whichever merges first
-  owns the final composition. This slice's page change is additive
-  (`LabOperationalSurfaces` beside the existing facts render) and does not remove
-  their hooks.
-- Exactly one next move: mark this PR draft and route to the integrator; do not
-  merge, deploy, or claim acceptance.
+At the initial handoff, `EngineeringLabPage.tsx` was shared with #493 and #501.
+This slice's page change is additive (`LabOperationalSurfaces` beside the
+existing facts render) and does not remove their hooks. The original "route to
+integrator; do not merge" note described that handoff state and is superseded by
+the founder's later instruction to repair the integration gates and integrate
+eligible work. It is not a current prohibition on integration.
+
+## 7. Integration correction and current acceptance boundary
+
+- **Current integration base:** `main` at
+  `3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3`. This branch is being reconciled
+  against that base rather than the original `dfbd2304` baseline.
+- **Design-token guard correction:** the reported `#493` matches were pull-request
+  references inside TS/TSX comments, not colour literals. The guard now removes
+  block and full-line comments before scanning. Regression controls prove that a
+  comment reference does not trip the guard and an actual page-local hex colour
+  still does. The guard was not weakened and the component's original PR reference
+  wording is preserved.
+- **Production 503 attribution:** the original seven-route smoke began at the same
+  time as a Render deployment and finished before that deployment became live.
+  After the deployment completed, the exact-revision smoke observed
+  `source_revision=24e5894992709847a67acb3a04954dbd871d3feb`; all seven routes
+  returned HTTP 200 with non-empty content and zero browser console/page errors.
+  The readiness workflow now requires the expected main SHA and allows up to
+  300 seconds for Render rollout. The current main deployment gate is checked
+  separately; a successful source test alone is not deployment acceptance.
+- **Acceptance remains pending** until the final candidate head's required CI
+  checks pass and the post-deploy smoke observes the exact deployed SHA and
+  validates all seven routes. No authenticated Solariun interaction has been
+  claimed from the unauthenticated route smoke.
