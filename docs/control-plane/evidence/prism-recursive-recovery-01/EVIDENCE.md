@@ -7,9 +7,10 @@ an undeclared section renders an honest "not a lens" state instead of silently
 showing the projects view.
 **Base SHA:** `dfbd2304db27746b22f0cda9b6961d1e37fda313` (main, clean tree;
 verified == `origin/main` after fetch)
-**Candidate head SHA:** recorded in the draft PR for this branch (this file
-cannot contain its own commit hash; base SHA + PR head identify the exact
-candidate).
+**Implementation commit:** `d8e541af4e830fb1e611c49a59c27edab3105b6c`
+(candidate head at the time every verification below was executed; this file
+cannot contain its own final commit hash — base SHA + PR head identify the
+exact candidate).
 
 ## 1. Relationship to the archived Prism reference
 

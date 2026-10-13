@@ -59,12 +59,23 @@
       "id": "PRR-01",
       "title": "Solariun lens strip becomes real routed navigation with truthful per-lens state",
       "lane": "C (Solariun) / A (shared shell seam)",
-      "state": "IMPLEMENTED",
+      "state": "READY FOR REVIEW",
+      "implementation_commit": "d8e541af4e830fb1e611c49a59c27edab3105b6c",
+      "branch": "feat/prism-rec-01-solariun-routed-lenses",
+      "verification": {
+        "build": "PASS",
+        "new_suite": "PASS (12 passed)",
+        "console_contract_suites": "PASS (97 passed)",
+        "solariun_prism_regression_suites": "PASS (89 passed)",
+        "ci_gate_integrity": "PASS (68 passed)",
+        "architecture": "PASS (11 passed)",
+        "browser": "NOT TESTED"
+      },
       "source_state": "SolariunPage renders a decorative <span> strip (projects/knowledge/memory/weaver) that never navigates; content ignores `section`; /solariun/bogus silently renders the projects view; App.tsx passes no onNavigate to SolariunPage.",
       "target_behavior": "Lenses render via shared SurfaceLenses, navigate to /solariun/<id> through the shared router with aria-current, content switches per lens (projects = real /solspire/projects read; knowledge/weaver = honest pointer to the canonical owning surface; memory = honest not-wired state; unknown section = honest not-a-lens state listing reconciled lenses).",
       "in_scope": ["web/arkadia_console/src/pages/SolariunPage.tsx", "web/arkadia_console/src/App.tsx (one prop)", "tests/test_solariun_lens_contract.py (new)", "docs/control-plane/evidence/prism-recursive-recovery-01/*"],
       "out_of_scope": ["router.ts (PR #505 owns aliases)", "backend handlers", "other surface pages owned by open PRs", "merge/deploy"],
-      "verification": "cd web/arkadia_console && pnpm run build; python3 -m pytest tests/test_solariun_lens_contract.py + six console contract suites"
+      "verification_commands": "cd web/arkadia_console && pnpm run build; python3 -m pytest tests/test_solariun_lens_contract.py + six console contract suites"
     }
   ],
   "baseline_evidence": {
