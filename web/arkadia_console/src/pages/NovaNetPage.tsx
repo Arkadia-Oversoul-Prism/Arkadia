@@ -41,6 +41,14 @@ const LENSES = [
 /** The lens ids this surface declares; a section outside this set is not a lens. */
 const LENS_IDS = new Set(LENSES.map((l) => l.id));
 
+/**
+ * The echoes panel renders at most this many public entries per read. The
+ * bound is single-sourced here so the rendered subset, the stated total, and
+ * the truncation notice can never drift apart: a reader must be able to see
+ * that the panel is showing a subset, not the whole stream.
+ */
+const ECHO_DISPLAY_LIMIT = 8;
+
 const DEFERRED: Record<string, string> = {
   hub: "UNKNOWN",
 };
@@ -130,7 +138,12 @@ export function NovaNetPage({
           </Panel>
 
           <Panel>
-            <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">Crystal Matrix · echoes</p>
+            <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">
+              Crystal Matrix · echoes
+              {echoes.state === "ready" && echoes.data
+                ? ` · ${echoes.data.public.length} public`
+                : ""}
+            </p>
             {echoes.state === "ready" && echoes.data ? (
               <div className="flex flex-col gap-3">
                 <p className="font-mono text-[11px] text-white/40">
@@ -146,16 +159,24 @@ export function NovaNetPage({
                 {echoes.data.public.length === 0 ? (
                   <p className="text-sm text-white/50">No public echoes in the stream yet.</p>
                 ) : (
-                  <ul className="flex flex-col gap-2" data-testid="novanet-echoes">
-                    {echoes.data.public.slice(0, 8).map((e) => (
-                      <li key={e.id} className="rounded border border-line bg-ink/40 p-3">
-                        <p className="text-sm text-white/85">{e.title}</p>
-                        <p className="font-mono text-[10px] text-white/35">
-                          {e.source} · resonance {e.resonance}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
+                  <>
+                    <ul className="flex flex-col gap-2" data-testid="novanet-echoes">
+                      {echoes.data.public.slice(0, ECHO_DISPLAY_LIMIT).map((e) => (
+                        <li key={e.id} className="rounded border border-line bg-ink/40 p-3">
+                          <p className="text-sm text-white/85">{e.title}</p>
+                          <p className="font-mono text-[10px] text-white/35">
+                            {e.source} · resonance {e.resonance}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                    {echoes.data.public.length > ECHO_DISPLAY_LIMIT && (
+                      <p className="font-mono text-[11px] text-white/40" data-testid="novanet-echoes-truncation">
+                        Showing {ECHO_DISPLAY_LIMIT} of {echoes.data.public.length} public echoes — the
+                        remainder is not rendered on this surface.
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             ) : (
