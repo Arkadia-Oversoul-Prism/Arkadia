@@ -174,3 +174,50 @@ def test_rejects_invalid_repository_and_non_numeric_allowlist():
         GitHubReadOnlyEvidenceAdapter(
             "owner/repo", token="test-token", authorized_reviewer_ids=frozenset({"reviewer-login"})
         )
+
+
+def test_check_runs_api_envelope_is_parsed_by_real_pagination_helper():
+    payload = {"total_count": 1, "check_runs": check_payload()}
+
+    def opener(request, timeout):
+        assert request.get_method() == "GET"
+        return FakeResponse(payload)
+
+    adapter = GitHubReadOnlyEvidenceAdapter(
+        "owner/repo", token="test-token", opener=opener
+    )
+    assert adapter._pages("/repos/owner/repo/commits/" + HEAD + "/check-runs") == check_payload()
+
+
+def test_full_collection_uses_get_only_and_no_write_capable_transport():
+    methods = []
+
+    def opener(request, timeout):
+        methods.append(request.get_method())
+        path = request.full_url.removeprefix("https://api.github.com")
+        if path.endswith("/pulls/17"):
+            payload = pr_payload()
+        elif "/check-runs" in path:
+            payload = {"total_count": 1, "check_runs": check_payload()}
+        elif path.endswith("/reviews?per_page=100"):
+            payload = review_payload()
+        elif path.endswith("/branches/main/protection"):
+            payload = PROTECTION
+        else:
+            raise AssertionError(f"unexpected API request: {path}")
+        return FakeResponse(payload)
+
+    adapter = GitHubReadOnlyEvidenceAdapter(
+        "owner/repo",
+        token="test-token",
+        authorized_reviewer_ids=frozenset({"42"}),
+        opener=opener,
+    )
+    result = adapter.collect(17, POLICY, risk_class=RiskClass.PROTECTED)
+
+    assert result.evidence.evidence_complete is True
+    assert methods and set(methods) == {"GET"}
+    assert not any(
+        name.lower() in {"post", "put", "patch", "delete"}
+        for name in methods
+    )
