@@ -9,6 +9,9 @@ boundary, and stating the deliberate 404 ambiguity instead of guessing.
 **Base (dependency):** this branch stacks on draft PR #510
 (`feat/prism-rec-01-solariun-routed-lenses` @ `31fd1d5`), which owns
 `SolariunPage.tsx`; its own base is `main` @ `dfbd230`.
+**Implementation commit:** `931c3f0c544c74cfb1be04ad7f48101f0d084107`
+(candidate head when every verification below was executed; base SHA + PR head
+identify the exact candidate).
 **Branch:** `feat/prism-rec-03-runtime-canvas`
 
 ## 1. Problem (measured)
