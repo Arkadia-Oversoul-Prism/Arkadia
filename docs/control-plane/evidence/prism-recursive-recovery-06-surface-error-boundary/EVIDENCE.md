@@ -7,8 +7,9 @@ actions) while the shell stays usable; the failure state cannot outlive the
 surface that produced it.
 **Base SHA:** `dfbd2304db27746b22f0cda9b6961d1e37fda313` (main; cut directly
 from main)
-**Implementation commit:** recorded in the PR head (base SHA + PR head identify
-the exact candidate)
+**Implementation commit:** `95339118ffafdcc3f5edf7f14d5bcb070262ca88`
+(candidate head when every verification below was executed; the PR head also
+carries this record — base SHA + PR head identify the exact candidate)
 
 ## 1. Problem (measured)
 
