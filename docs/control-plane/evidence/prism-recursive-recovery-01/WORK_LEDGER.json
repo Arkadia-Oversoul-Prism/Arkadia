@@ -129,6 +129,40 @@
       "state": "BLOCKED",
       "blocker": "Self-service registration creates identities on the canonical deployment (IDENTITY plane) — restoring it is a human product/authority decision, not recoverable UI authority. The dead tab is pinned by test_aeas05_canonical_frontend_acceptance.py (tab-signin), so its removal changes an acceptance contract. Needs a human decision: open registration vs invite-only vs remove the dead tab.",
       "reference": "archive/frontend/arkadia-prism/web/public_prism/src/pages/LoginPage.tsx (signin/register/magic tabs)"
+    },
+    {
+      "id": "PRR-06",
+      "title": "Honest surface render-failure error boundary",
+      "lane": "A (application shell)",
+      "state": "READY FOR REVIEW",
+      "pr": 514,
+      "implementation_commit": "95339118ffafdcc3f5edf7f14d5bcb070262ca88",
+      "branch": "feat/prism-rec-06-surface-error-boundary",
+      "base_sha": "dfbd2304db27746b22f0cda9b6961d1e37fda313",
+      "depends_on": [],
+      "source_state": "No error boundary anywhere in console or archive: a render exception in any surface blanked the whole canonical application with no recovery control.",
+      "target_behavior": "Boundary wraps the surface body inside the shell, keyed by route.surface so a caught failure cannot outlive its surface; fallback shows the real caught error, states that a render failure changes nothing on the backend while earlier content may be incomplete, and offers real reload + router-home actions; recorded via console.error only.",
+      "in_scope": ["web/arkadia_console/src/components/ErrorBoundary.tsx (new)", "web/arkadia_console/src/App.tsx (mount)", "tests/test_console_surface_error_boundary.py (new)"],
+      "out_of_scope": ["new dependencies (no React test renderer added)", "crash-reporting services", "backend", "merge/deploy"],
+      "verification": {"build": "PASS", "new_suite": "PASS (10 passed)", "shared_suites_baseline": "173 passed measured at dfbd230", "shared_suites_after": "183 passed", "browser": "NOT TESTED", "react_catch_runtime": "NOT TESTED (no renderer harness in repo)"},
+      "evidence": "docs/control-plane/evidence/prism-recursive-recovery-06-surface-error-boundary/EVIDENCE.md"
+    },
+    {
+      "id": "PRR-07",
+      "title": "Per-surface document title for screen-reader navigation announcements",
+      "lane": "F (cross-surface accessibility)",
+      "state": "READY FOR REVIEW",
+      "pr": 516,
+      "implementation_commit": "266bd59901b8a6dda6a5ad4c240f0ec10611ca8e",
+      "branch": "feat/prism-rec-07-document-title",
+      "base_sha": "dfbd2304db27746b22f0cda9b6961d1e37fda313",
+      "depends_on": [],
+      "source_state": "Static <title>ARKADIA</title>; zero document.title writes in src — no navigation announcement (WCAG 2.4.2). Honest classification: the archived Prism also used a static title, so this is quality work, not restoration.",
+      "target_behavior": "Shell writes `${SURFACE_BY_ID[current].name} · ARKADIA` in an effect keyed on [current]; exactly one module owns document.title; no second surface list.",
+      "in_scope": ["web/arkadia_console/src/components/Shell.tsx (one effect)", "tests/test_console_document_title_contract.py (new)"],
+      "out_of_scope": ["section-level titles (recorded refinement)", "index.html pre-hydration title", "merge/deploy"],
+      "verification": {"build": "PASS", "new_suite": "PASS (6 passed)", "shared_suites_baseline": "173 passed measured at dfbd230", "shared_suites_after": "179 passed", "browser": "NOT TESTED", "screen_reader": "NOT TESTED"},
+      "evidence": "docs/control-plane/evidence/prism-recursive-recovery-07-document-title/EVIDENCE.md"
     }
   ],
   "baseline_evidence": {
