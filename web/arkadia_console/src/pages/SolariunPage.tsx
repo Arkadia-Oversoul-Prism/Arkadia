@@ -9,7 +9,9 @@
  * memory/weaver/…); the console reconciles that vocabulary to four lenses and
  * gives each one a truthful state:
  *
- *  - `projects`  — the real `/solspire/projects` read (owner-scoped, unchanged).
+ *  - `projects`  — the real `/solspire/projects` read (owner-scoped), plus the
+ *                  per-project runtime-context canvas over its bounded
+ *                  projection contract.
  *  - `knowledge` — the knowledge authority is the canonical Knowledge OS surface;
  *                  this lens points there instead of duplicating its read.
  *  - `weaver`    — the governance authority is the canonical Weaver surface;
@@ -21,8 +23,11 @@
  * listing the reconciled lenses — previously `/solariun/bogus` silently showed
  * the projects view, leaving the address bar claiming something false.
  */
+import { useState } from "react";
 import { Page, Panel, Facts, ContractState, NotYetWired } from "../components/ui";
 import { SurfaceLenses } from "../components/SurfaceLenses";
+import { ProjectRuntimeCanvas } from "../components/solariun/ProjectRuntimeCanvas";
+import { PersonalFieldPanel } from "../components/solariun/PersonalFieldPanel";
 import { useAuth } from "../contexts/AuthContext";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
@@ -74,6 +79,7 @@ export function SolariunPage({
   onNavigate: (id: SurfaceId, section?: string) => void;
 }) {
   const { profile, isAuthenticated, identityState } = useAuth();
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const projects = useHydration<ProjectList>(
     endpoints.solspireProjects,
     (p) => apiRequest<ProjectList>(p),
@@ -122,7 +128,18 @@ export function SolariunPage({
               <ul className="flex flex-col gap-2">
                 {projects.data.projects.map((p) => (
                   <li key={p.id} className="rounded border border-line bg-ink/40 p-3">
-                    <p className="text-sm text-white/85">{p.name}</p>
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="text-sm text-white/85">{p.name}</p>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedProject((current) => (current === p.id ? null : p.id))}
+                        aria-pressed={selectedProject === p.id}
+                        data-testid={`solariun-runtime-${p.id}`}
+                        className="shrink-0 rounded border border-white/15 px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-white/50 hover:text-white/80"
+                      >
+                        Runtime
+                      </button>
+                    </div>
                     <p className="font-mono text-[11px] text-white/40">{p.status ?? "active"}</p>
                   </li>
                 ))}
@@ -134,12 +151,9 @@ export function SolariunPage({
         </Panel>
       )}
 
-      {section === "projects" && (
+      {section === "projects" && selectedProject && (
         <div className="mt-4">
-          <NotYetWired
-            contract="/api/solspire/projects/{id}/runtime-context"
-            note="The cognitive canvas and continuity views are scaffolded as lenses of this workspace."
-          />
+          <ProjectRuntimeCanvas projectId={selectedProject} />
         </div>
       )}
 
@@ -160,12 +174,7 @@ export function SolariunPage({
         </div>
       )}
 
-      {section === "memory" && (
-        <NotYetWired
-          contract={UNKNOWN_CONTRACT}
-          note="The archived Prism's Personal Echofeild / observatory lens has no verified read contract in the console endpoint registry (lib/endpoints.ts). Nothing is rendered for it here: no memory data is inferred."
-        />
-      )}
+      {section === "memory" && <PersonalFieldPanel />}
 
       {!LENS_IDS.has(section) && (
         <NotYetWired
