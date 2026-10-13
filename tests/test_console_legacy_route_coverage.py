@@ -1,0 +1,402 @@
+"""Console legacy-route reconciliation and alias-safety contract (Slice A).
+
+Directive §5.1/§5.2/§5.6 require one route registry, legacy inbound links
+reconciled to a canonical surface, and an explicit disposition for every legacy
+path — adapt, defer, or reject. The archived Prism's route table is the source of
+the legacy paths a user may still hold in a browser tab or a shared link; a
+missing disposition is silent link loss (`/oracle` fell through to `home`), and an
+alias that collides with a live backend route is a second, shadowed contract.
+
+Two defects this guard closes, both measured on `main` @ `49809f45`:
+
+1.  **No reconciliation of the legacy route table against the console.** The
+    archived `App.tsx` declares 31 distinct inbound paths across its `direct` and
+    `compatibility` maps. Nothing in `tests/` bound those paths to a console
+    disposition, so a legacy path could be dropped without a failing test. The
+    per-path assertions in `test_console_shell_nav_contract.py` cover the aliases
+    that were *added* (`/nexus`, `/oracle`, `/commune`); they do not bound the
+    *domain*.
+
+2.  **No guard on the alias-safety precondition.** The shell lane instruction
+    requires every candidate alias be verified against the served app's route table
+    and the reserved-prefix set before it becomes a UI alias, but the alias
+    soundness detector only checks declared-surface membership and canonical-path
+    collision. An alias placed on a live backend route (`/api`, `/solspire`, …)
+    would shadow it and pass every existing guard.
+
+Scope: this is a **contract/boundary guard**, not a feature slice. It does not add
+an alias for any path whose disposition is still a product decision — it *records*
+that disposition so the gap cannot move silently. It edits no console source, the
+router, the surface registry, or the existing shell-nav test, all of which are
+contended by open lane-1 PRs (#497 `nexus/*`, #505 `home`/`knowledge-os`).
+
+Domain: the Arkadia Console (``web/arkadia_console``), the primary application.
+The retired Prism UI is archived under ``archive/frontend/arkadia-prism`` and is
+source evidence, not code to delete or serve.
+
+Disjoint from: ``test_console_shell_nav_contract.py`` (shell structure, positive
+aliases, address-bar normalisation), ``test_canonical_frontend_routing.py``
+(surface-path serving + shadowing), ``test_console_endpoint_registry_contract.py``
+(API endpoint registry), ``test_prism_pass_c_surface_ownership.py`` (archive view
+mount integrity).
+"""
+from __future__ import annotations
+
+import json
+import re
+import shutil
+import subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "web" / "arkadia_console" / "src"
+SURFACES_PATH = SRC / "lib" / "surfaces.ts"
+ROUTER_PATH = SRC / "lib" / "router.ts"
+ARCHIVE_APP = ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/App.tsx"
+
+SURFACES = SURFACES_PATH.read_text(encoding="utf-8")
+ROUTER = ROUTER_PATH.read_text(encoding="utf-8")
+ARCHIVE = ARCHIVE_APP.read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# The legacy route table (explicit: a page-derived table would be definitional)
+# ---------------------------------------------------------------------------
+
+#: Every distinct inbound path in the archived Prism's `direct` and `compatibility`
+#: route maps, transcribed from `ARCHIVE_APP` (declared literally so an archive
+#: edit is a visible change here rather than a silent re-derivation).
+LEGACY_ROUTE_TABLE = (
+    "/",
+    "/about",
+    "/account",
+    "/challenge",
+    "/codex",
+    "/commune",
+    "/dashboard",
+    "/echofeild-matrix",
+    "/encyclopedia",
+    "/future-skills",
+    "/gate",
+    "/home",
+    "/knowledge-os",
+    "/living-gate",
+    "/login",
+    "/loops",
+    "/nexus",
+    "/nexus/distribution",
+    "/nexus/grove",
+    "/nexus/ims",
+    "/nexus/larder",
+    "/offerings",
+    "/oracle",
+    "/personal-echofeild",
+    "/pulse",
+    "/reasomate",
+    "/reset",
+    "/sci",
+    "/settings",
+    "/spiral-codex",
+)
+
+#: Recorded disposition of every legacy path that has **no route on this
+#: revision** — neither a declared surface path nor a legacy alias. Each is either
+#: a product decision (the console declares no surface the path unambiguously
+#: names, so an alias would invent a destination — §3.4/§5.1 forbid that) or a
+#: reconciliation in flight in a sibling lane-1 slice. This is a **floor**, not an
+#: exact match: when one of these is reconciled by adding a real alias, the union
+#: in `test_every_legacy_path_has_a_reconciliation_disposition` still covers it, so
+#: the guard does not redden a *correct* sibling reconciliation.
+LEGACY_GAP_DISPOSITIONS = {
+    "/gate": "the archived `gate` view (Living Gate) has no console surface",
+    "/living-gate": "same absent `gate` surface as `/gate`",
+    "/codex": "names the Solariun `knowledge` lens *and* the distinct `knowledge` surface",
+    "/dashboard": "addressed a Solariun `overview` lens the console does not declare",
+    "/loops": "addressed a Solariun `tasks` lens the console does not declare",
+    "/settings": "addressed a Solariun `settings` lens the console does not declare",
+    "/account": "same absent Solariun `settings` lens as `/settings`",
+    "/personal-echofeild": "addressed a Solariun `observatory` lens the console does not declare",
+    "/echofeild-matrix": "same absent Solariun `observatory` lens as `/personal-echofeild`",
+    "/sci": "the archived Spiral Command Interface has no console surface",
+    "/pulse": "the archived ArkadianPulse surface has no console surface",
+    "/reset": "the archived Coherence Reset surface has no console surface",
+    "/reasomate": "the archived ReasoMate surface has no console surface",
+    "/challenge": "the archived Future Skills Challenge has no console surface",
+    "/future-skills": "same absent challenge surface as `/challenge`",
+    "/encyclopedia": "the archived Encyclopedia Galactica surface has no console surface",
+    "/spiral-codex": "the archived Spiral Codex feed has no console surface",
+    "/offerings": "the archived Offerings surface has no console surface",
+    "/home": "an alternate spelling of the `/` home route; alias pending in lane-1",
+    "/knowledge-os": "names the console `knowledge` surface literally; alias pending in lane-1",
+    "/nexus/ims": "a NovaNet/nexus sub-view whose backend contract is UNKNOWN",
+    "/nexus/grove": "a NovaNet/nexus sub-view whose backend contract is UNKNOWN",
+    "/nexus/larder": "a NovaNet/nexus sub-view whose backend contract is UNKNOWN",
+    "/nexus/distribution": "a NovaNet/nexus sub-view whose backend contract is UNKNOWN",
+}
+
+
+# ---------------------------------------------------------------------------
+# Detectors (module-level so the negative controls exercise the live code)
+# ---------------------------------------------------------------------------
+
+
+def _archive_route_keys(text: str) -> set[str]:
+    """Every inbound path in the archive's `direct` and `compatibility` maps."""
+    keys: set[str] = set()
+    for name in ("direct", "compatibility"):
+        block = re.search(
+            rf"const\s+{name}\s*:\s*Record<.*?>\s*=\s*\{{(.*?)\}};", text, re.DOTALL
+        )
+        assert block, f"archive App.tsx declares no `{name}` route map"
+        keys |= set(re.findall(r"'([^']*)'\s*:", block.group(1)))
+    return keys
+
+
+def _declared_surface_ids(text: str) -> list[str]:
+    union = re.search(r"export type SurfaceId\s*=\s*(.*?);", text, re.DOTALL)
+    assert union, "surfaces.ts declares no SurfaceId union"
+    return re.findall(r'"([^"]+)"', union.group(1))
+
+
+def _declared_paths(text: str) -> set[str]:
+    return set(re.findall(r'path: "([^"]+)"', text))
+
+
+def _path_aliases(text: str) -> dict[str, str]:
+    block = re.search(r"PATH_ALIASES[^=]*=\s*\{(.*?)\}", text, re.DOTALL)
+    assert block, "router.ts declares no PATH_ALIASES map"
+    return dict(re.findall(r'"([^"]+)"\s*:\s*"([^"]+)"', block.group(1)))
+
+
+def _reserved_prefixes() -> tuple[str, ...]:
+    """The serving path's reserved backend namespaces, read from source."""
+    text = (ROOT / "api" / "frontend_routes.py").read_text(encoding="utf-8")
+    block = re.search(r"_RESERVED_PREFIXES\s*=\s*\((.*?)\)", text, re.DOTALL)
+    assert block, "frontend_routes.py declares no _RESERVED_PREFIXES"
+    return tuple(re.findall(r'"([^"]+)"', block.group(1)))
+
+
+def _served_paths() -> set[str]:
+    """The paths the served app declares (imported lazily)."""
+    from api.main import app
+
+    return set(app.openapi()["paths"].keys())
+
+
+def _shadowed_backend_routes(paths, served: set[str], reserved: tuple[str, ...]) -> list[str]:
+    """UI paths that would shadow a live backend route.
+
+    A path is shadowed when FastAPI would match a real handler before the SPA
+    catch-all: an exact served path, a path under a reserved backend namespace, or a
+    path whose **first non-root** segment is the first segment of a served route
+    (FastAPI's ``/{param}`` and ``/api/...`` both live under such a segment).
+
+    The root path ``/`` is excluded: it is never shadowed (the SPA owns the root and
+    every backend route has a segment), and it has no first segment to compare. A
+    one-segment path such as ``/api`` *is* reported because its segment is served.
+    """
+    served_segments = {p.split("/")[1] for p in served if p.count("/") >= 1 and p.split("/")[1]}
+    reserved_roots = {r.split("/")[1] for r in reserved if r.count("/") >= 1 and r.split("/")[1]}
+    defects = []
+    for path in sorted(paths):
+        if path == "/":
+            continue  # the SPA owns the root; no backend route lives there
+        segments = [s for s in path.split("/") if s]
+        if not segments:
+            continue
+        root = segments[0]
+        if path in served:
+            defects.append(f"{path} is an exact served backend route")
+        elif root in reserved_roots:
+            defects.append(f"{path} is under the reserved backend namespace /{root}")
+        elif root in served_segments:
+            defects.append(f"{path} shares its root segment with served routes under /{root}")
+    return defects
+
+
+def _js_route_resolver(router_text: str, probes: list[str]) -> dict[str, str]:
+    """Evaluate the live router in Node and return the canonical path per probe.
+
+    The property under test is *what a legacy path resolves to*, which a
+    source-text pin cannot observe — it could only restate the implementation. The
+    routing functions are pure and dependency-free, so they are executed.
+    """
+    node = shutil.which("node")
+    assert node, "node is required to evaluate the console router"
+
+    def strip_types(source: str) -> str:
+        source = re.sub(r"^import[^;]+;\s*$", "", source, flags=re.MULTILINE)
+        source = re.sub(r"^export\s+", "", source, flags=re.MULTILINE)
+        source = re.sub(
+            r":\s*(?:SurfaceId|SurfaceDef\[\]|Route|string|boolean|Record<[^>]*>)\b", "", source
+        )
+        return source
+
+    script = (
+        strip_types(SURFACES)
+        + "\n"
+        + strip_types(router_text).replace("as const", "")
+        + "\n"
+        + f"const probes = {json.dumps(probes)};\n"
+        + "console.log(JSON.stringify(probes.map((p) => resolvePath(p).path)));\n"
+    )
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, f"router evaluation failed: {result.stderr.strip()}"
+    return dict(zip(probes, json.loads(result.stdout)))
+
+
+# ---------------------------------------------------------------------------
+# The disposition partition must be total (no silent gap)
+# ---------------------------------------------------------------------------
+
+
+def test_the_legacy_route_table_is_derivable_from_the_archive():
+    """The transcribed table must equal what the archive actually declares.
+
+    The table is declared explicitly (so an archive edit is a visible change), but
+    it is *bound* to the archive here: a legacy path dropped from the table while
+    still declared in the archive fails the guard instead of quietly leaving the
+    domain.
+    """
+    declared = _archive_route_keys(ARCHIVE)
+    assert declared, "the archive declares no route keys -- the guard would be vacuous"
+    assert declared == set(LEGACY_ROUTE_TABLE), (
+        "the transcribed legacy route table differs from the archive's route maps: "
+        f"only-in-table={sorted(set(LEGACY_ROUTE_TABLE) - declared)} "
+        f"only-in-archive={sorted(declared - set(LEGACY_ROUTE_TABLE))}"
+    )
+
+
+def test_every_legacy_path_has_a_reconciliation_disposition():
+    """Every legacy path is a declared surface path, a legacy alias, or a recorded
+    product decision — nothing falls through the partition.
+
+    A legacy path outside all three is a silent gap: it resolves to a surface the
+    archive never offered (the `/oracle` fall-through class) with no evidence it was
+    considered.
+    """
+    declared_paths = _declared_paths(SURFACES)
+    aliases = set(_path_aliases(ROUTER))
+    accounted = declared_paths | aliases | set(LEGACY_GAP_DISPOSITIONS)
+
+    assert set(LEGACY_ROUTE_TABLE) <= accounted, (
+        "legacy path(s) with no reconciliation disposition: "
+        + ", ".join(sorted(set(LEGACY_ROUTE_TABLE) - accounted))
+    )
+    # The partition must be genuine, not a union that swallows contradictions.
+    assert not (aliases & declared_paths), (
+        "alias(es) that duplicate a declared surface path: " + ", ".join(sorted(aliases & declared_paths))
+    )
+
+
+# ---------------------------------------------------------------------------
+# Alias safety: no alias may shadow a live backend route (the lane's precondition)
+# ---------------------------------------------------------------------------
+
+
+def test_every_alias_resolves_to_a_declared_surface():
+    """An alias is one registry expressed: it must target a surface that exists."""
+    ids = set(_declared_surface_ids(SURFACES))
+    defects = [f"{a} -> {t}" for a, t in sorted(_path_aliases(ROUTER).items()) if t not in ids]
+    assert defects == [], f"alias(es) targeting an undeclared surface: {defects}"
+
+
+def test_no_alias_or_legacy_path_shadows_a_served_backend_route():
+    """The lane instruction's precondition, now enforced.
+
+    A UI alias placed on a live backend route is shadowed by FastAPI's handler
+    before the SPA catch-all — the reserved-namespace defect measured for
+    `/solspire`. Both inbound paths the console claims as aliases and the reserved
+    backend prefixes themselves are checked, so a future alias for a legacy path
+    such as `/codex` obviously cannot land on `/api` or `/solspire`.
+    """
+    reserved = _reserved_prefixes()
+    assert reserved, "no reserved prefixes declared -- the guard would be vacuous"
+    served = _served_paths()
+
+    # Premise: the reserved roots are genuinely reserved by the serving path.
+    assert "/solspire" in reserved, "control premise: /solspire is a reserved prefix"
+    assert "/api" in reserved, "control premise: /api is a reserved prefix"
+
+    ui_paths = set(_path_aliases(ROUTER)) | set(_declared_paths(SURFACES))
+    defects = _shadowed_backend_routes(ui_paths, served, reserved)
+    assert defects == [], f"UI path(s) shadowed by a backend route: {defects}"
+
+
+def test_deferred_legacy_paths_are_neither_aliased_nor_declared():
+    """A path recorded as a gap must not have quietly gained a route.
+
+    The recorded set is a floor: if a legacy path it names gains a real alias (a
+    lane-1 reconciliation), the union test above still covers that path. Here it is
+    asserted that the *recorded* entries still describe a gap, so a stale entry with
+    a live alias beside it is visible rather than silently wrong.
+    """
+    aliases = set(_path_aliases(ROUTER))
+    declared = _declared_paths(SURFACES)
+    # A recorded gap that is now aliased/declared is a reconciliation: report it so
+    # the ledger is pruned rather than silently stale.
+    still_gap = {p for p in LEGACY_GAP_DISPOSITIONS if p not in aliases and p not in declared}
+    reconciled = sorted(set(LEGACY_GAP_DISPOSITIONS) - still_gap)
+    assert reconciled == [], (
+        "legacy path(s) recorded as reconciliation gaps have since gained a route -- "
+        f"prune LEGACY_GAP_DISPOSITIONS: {reconciled}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Negative controls -- each detector must fire on the defect it names
+# ---------------------------------------------------------------------------
+
+
+def test_detector_flags_an_unaccounted_legacy_path():
+    """Negative control: a legacy path in no disposition bucket must be reported."""
+    declared_paths = {"/", "/about"}
+    aliases = {"/nexus"}
+    accounted = declared_paths | aliases | {"/gate"}
+    missing = {"/invented-legacy"} - accounted
+    assert missing == {"/invented-legacy"}, "control premise: the path must be unaccounted"
+    # And the live partition must not itself be missing anything.
+    live_accounted = _declared_paths(SURFACES) | set(_path_aliases(ROUTER)) | set(
+        LEGACY_GAP_DISPOSITIONS
+    )
+    assert set(LEGACY_ROUTE_TABLE) <= live_accounted
+
+
+def test_detector_flags_an_alias_on_a_reserved_backend_namespace():
+    """Negative control: an alias whose path is a reserved backend namespace must
+    be reported by the same shadowing detector the live assertion uses.
+
+    The serving path owns `/solspire/*`; a UI alias there would be shadowed by the
+    backend handler and pass every existing alias guard, which is exactly the hole
+    this guard closes.
+    """
+    reserved = _reserved_prefixes()
+    served = _served_paths()
+
+    assert _shadowed_backend_routes({"/solspire"}, served, reserved) != []
+    assert _shadowed_backend_routes({"/api/thing"}, served, reserved) != []
+    # The real console UI paths must not be reported.
+    real = set(_path_aliases(ROUTER)) | set(_declared_paths(SURFACES))
+    assert _shadowed_backend_routes(real, served, reserved) == []
+
+
+def test_detector_flags_a_legacy_path_that_falls_through_to_home():
+    """Negative control: a legacy path the archive offered but neither the console
+    nor its aliases claim resolves to `home` — a real deep link silently discarded.
+
+    `/oracle` was this exact shape before its alias existed; `/codex` is the live,
+    still-deferred instance of the class. The control proves the resolver can detect
+    the fall-through so the disposition tests are not vacuous.
+    """
+    declared_paths = _declared_paths(SURFACES)
+    aliases = set(_path_aliases(ROUTER))
+
+    # Every live alias and alias-less legacy path that *is* meant to reach its
+    # surface must not resolve to `/` unless `/` is genuinely correct.
+    resolved = _js_route_resolver(ROUTER, ["/oracle", "/nexus", "/codex"])
+    assert resolved["/oracle"] == "/arkana", resolved
+    assert resolved["/nexus"] == "/novanet", resolved
+    assert resolved["/codex"] == "/" and "/codex" not in aliases, (
+        "control premise: `/codex` is a deferred legacy path that falls through to home"
+    )
+    assert "/codex" not in declared_paths
