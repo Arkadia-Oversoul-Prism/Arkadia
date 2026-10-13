@@ -79,15 +79,61 @@ def _hardcoded_origins(sources: dict[str, str]) -> list[tuple[str, str]]:
     return [(name, src) for name, src in sources.items() if pattern.search(src)]
 
 
+def _without_ts_comments(source: str) -> str:
+    """Mask TS/JS comments without removing hashes inside strings or JSX classes."""
+    out = []
+    i = 0
+    quote = None
+    while i < len(source):
+        char = source[i]
+        if quote is not None:
+            out.append(char)
+            if char == "\\\\" and i + 1 < len(source):
+                out.append(source[i + 1])
+                i += 2
+                continue
+            if char == quote:
+                quote = None
+            i += 1
+            continue
+        if char in ("'", '"', "`"):
+            quote = char
+            out.append(char)
+            i += 1
+            continue
+        if source.startswith("//", i):
+            end = source.find("\\n", i)
+            if end == -1:
+                break
+            out.append("\\n")
+            i = end + 1
+            continue
+        if source.startswith("/*", i):
+            end = source.find("*/", i + 2)
+            if end == -1:
+                break
+            out.append("\\n" * source[i:end + 2].count("\\n"))
+            i = end + 2
+            continue
+        out.append(char)
+        i += 1
+    return "".join(out)
+
+
 def _hex_colour_literals(sources: dict[str, str]) -> list[tuple[str, str]]:
-    """Hex colour literals in TS/TSX source.
+    """Hex colour literals in TS/TSX source, excluding comments.
 
     Design tokens live in ``tailwind.config.js`` (one shared palette) and
     ``index.css``; a page-local hex is styling drift, the defect Slice A exists
-    to remove.
+    to remove. Comments may mention pull-request numbers such as `#493`; those
+    are not colour declarations and must not trip the detector.
     """
-    pattern = re.compile(r"#[0-9A-Fa-f]{3,8}\b")
-    return [(name, src) for name, src in sources.items() if pattern.search(src)]
+    pattern = re.compile(r"#[0-9A-Fa-f]{3,8}\\b")
+    return [
+        (name, src)
+        for name, src in sources.items()
+        if pattern.search(_without_ts_comments(src))
+    ]
 
 
 def _ts_sources() -> dict[str, str]:
@@ -573,6 +619,9 @@ def test_detector_flags_a_page_local_hex_literal():
     assert [n for n, _ in _hex_colour_literals(stale)] == ["src/pages/X.tsx"]
     clean = {'src/pages/X.tsx': '<span className="text-emerald" />'}
     assert _hex_colour_literals(clean) == []
+    # Issue references in comments are not CSS colours; keep the detector precise.
+    comments_only = {'src/pages/X.tsx': '// Related PR #493\\nconst label = "Solariun";'}
+    assert _hex_colour_literals(comments_only) == []
 
 
 def test_detector_flags_a_declared_surface_with_no_composition_case():
