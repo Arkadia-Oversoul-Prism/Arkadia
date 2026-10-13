@@ -20,7 +20,7 @@ This is **not** a new surface and **not** a redesign. The alias table reconciles
 | `/home` | `archive/frontend/arkadia-prism/web/public_prism/src/App.tsx` `direct: { '': 'home', '/home': 'home' }` | home (`/`) | **Adapt** → alias to the declared `home` surface (`/`) | none (`/home` not in `app.openapi()["paths"]`) |
 | `/knowledge-os` | same file, `compatibility: { '/knowledge-os': {view:'solariun',section:'knowledge'} }` | a knowledge view | **Adapt** → alias to the declared `knowledge` surface (`/knowledge`), whose registry name is literally "Knowledge OS" | none (`/knowledge-os` not a served route) |
 | `/codex` | same file, `compatibility: { '/codex': {view:'solariun',section:'knowledge'} }` | Solariun `knowledge` lens | **Defer** — see §5 | — |
-| `/gate`, `/living-gate` | `direct`/`compatibility` | legacy `gate` view | **Defer** — no console surface | — |
+| `/gate`, `/living-gate` | `direct`/`compatibility` | legacy `gate` view (`NodeEntry` sign-in) | **Adapt** (stage 02) → alias to the declared `login` surface (`/login`) | none (`/gate`/`/living-gate` not served routes) |
 | `/dashboard`, `/loops`, `/settings`, `/account`, `/personal-echofeild`, `/echofeild-matrix` | `compatibility` | Solariun lens (`overview`/`tasks`/`settings`/`observatory`) | **Defer** — target lens not declared by the console | — |
 
 ## 3. Method / evidence
@@ -59,8 +59,52 @@ python -m pytest tests/architecture -q                            -> 11 passed (
 ## 5. Explicit non-claims / deferred (recorded, not repaired)
 
 - `/codex` is **not** aliased. The archive routed it to Solariun's `knowledge` *lens*, but the console now declares **both** a `solariun` `knowledge` lens **and** a distinct `knowledge` surface. Choosing between them is a **capability/product decision**, not a routing one; aliasing would collapse that decision into this table. Proposed work, not executed (directive §3/§4 — a legacy path with no unambiguous declared target must not be force-resolved).
-- `/gate` + `/living-gate` and the Solariun-lens aliases (`/dashboard`, `/loops`, `/settings`, `/account`, `/personal-echofeild`, `/echofeild-matrix`) remain deferred: their targets are not declared surfaces/lenses in the console. Recorded here so a later pass does not re-derive them.
+- `/gate` + `/living-gate` were deferred in stage 01 and **reconciled to `login` in stage 02** (see §5b). The remaining Solariun-lens aliases (`/dashboard`, `/loops`, `/settings`, `/account`, `/personal-echofeild`, `/echofeild-matrix`) stay deferred: their target lenses are not declared in the console. Recorded here so a later pass does not re-derive them.
 - No merge, production deployment, or production acceptance. No Vercel deployment was created, promoted, or treated as evidence.
+
+## 5b. Stage 02 — `/gate` + `/living-gate` → `login` (this pass)
+
+**Reclassified from Defer to Adapt.** Stage 01 recorded `/gate`/`/living-gate` as deferred
+"no console surface". That was half right and half wrong: the archived `gate` view has no
+surface *of its own*, but its **recorded inventory disposition is "Adapt → sign-in"**
+(`docs/control-plane/overnight/PRISM-UI-INVENTORY.md` §2). The console **does** declare the
+capability it named — `login` (`SurfaceId: "login"`, name "Sign in", path `/login`). Deferral
+was therefore a stale classification, not a genuine product decision; this pass executes the
+recorded decision.
+
+- **Archived source:** `App.tsx` `direct` maps `/gate` and `/living-gate` to the `gate` view,
+  which mounts `NodeEntry` — the sign-in / "create your node" surface — and every home portal
+  routed an unauthenticated visitor there.
+- **Change:** `PATH_ALIASES` gains `"/gate": "login"` and `"/living-gate": "login"`. The
+  router comment's obsolete "Defer" bullet is replaced by a provenance paragraph naming the
+  inventory disposition.
+- **No collision:** neither path is a declared surface path, and neither is a served backend
+  route (`/login` is the canonical path; the aliases point at its surface id, not a new path).
+
+### Targeted proof (stage 02)
+
+```
+python -m pytest tests/test_console_shell_nav_contract.py -q -rEf            -> 34 passed (was 32)
+python -m pytest tests/architecture tests/test_console_shell_nav_contract.py \
+  tests/test_console_endpoint_registry_contract.py \
+  tests/test_canonical_frontend_routing.py -q -rEf                           -> 69 passed
+node_modules/.bin/tsc --noEmit                                               -> exit 0
+corepack pnpm build                                                          -> exit 0 (81 modules)
+python -m pytest tests/ -q -rEf --continue-on-collection-errors              -> 8 failed / 2964 passed / 1 error
+```
+
+- **`+2` attributed by node identity.** The two additions are exactly
+  `test_gate_and_living_gate_reconcile_to_the_login_surface` and its negative control
+  `test_detector_flags_an_unaliased_gate_that_falls_through_to_home`.
+- **Live negative control (real file).** Stripping the two alias lines from the real
+  `router.ts` reddens `2 failed, 32 passed` — both the positive test and the control fail —
+  and the control reproduces the pre-repair fall-through to `/`. Restoring byte-identically
+  returns `34 passed`. Both directions proven against the same file the guard reads.
+- **Zero failing nodes in touched files.** The full-suite failing/error set is the
+  pre-existing 9-node baseline (Lab API pins, SolSpire R1/R3, the CE-01 `test_autonomy.py`
+  collection error, and the archived
+  `archive/frontend/arkadia-prism/.../LivingGate.tsx` assertion). None involve `router.ts` or
+  `test_console_shell_nav_contract.py`.
 
 ## 6. Baseline / regression boundary
 
@@ -69,3 +113,8 @@ Baseline failures are **not** attributed to this work; the change is additive (o
 ## 7. One next bounded task
 
 Reconcile `/codex` **after** a capability decision records whether the console's archive-link contract should resolve it to the `solariun` `knowledge` lens or the `knowledge` surface — a decision this routing lane cannot make unilaterally. Until then, continue with the next Lane-1 gap that names an existing declared target.
+
+Stage 02 leaves **one** remaining adapt-class family unexecuted in this file: the Solariun-lens
+aliases (`/dashboard`, `/loops`, `/settings`, `/account`, `/personal-echofeild`,
+`/echofeild-matrix`), which stay deferred because their target lenses are not declared by the
+console — a Lane-3 (Solariun) capability question, not a Lane-1 routing one.
