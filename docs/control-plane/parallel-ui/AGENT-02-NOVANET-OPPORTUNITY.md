@@ -86,3 +86,17 @@ Do not wire `evidence_status` / `evidence` until a real handler is verified.
 ## Required evidence
 
 Verified route contract; owner and board-scope tests; validation/error states; typecheck/build; negative controls; exact SHAs; explicit unknowns and next task.
+
+## Lane continuity — 2026-10-13 (fact grid)
+
+`prism-opportunity-fact-grid-01` (same draft PR #492, head `6a94554`): the console
+rendered only three of the ~22 declared `BuyerReconEntryInput` facts. The grid is
+now **derived** from the contract's own `DESCRIPTIVE_FIELDS` + `COMMERCIAL_FIELDS`
+(so it cannot drift), every value through `fact()` (unverified reads `UNKNOWN`,
+never a blank). Display-only. Evidence:
+`docs/control-plane/evidence/prism-opportunity-fact-grid-01/`.
+
+Next bounded task on this lane: surface `notes` (excluded from the grid, still
+unrendered) **only if** it can be tied to a verified read field and needs no new
+control; otherwise reconcile the next archived radar capability that measures
+cleanly against a verified handler. Do not invent a capture path.
