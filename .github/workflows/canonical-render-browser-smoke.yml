@@ -28,22 +28,28 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Wait for canonical Render readiness
+      - name: Wait for canonical Render readiness and deployed revision
         run: |
           set -eu
+          require_revision=0
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            require_revision=1
+          fi
           ready=0
+          observed_revision=""
           for attempt in $(seq 1 30); do
-            status=$(curl --silent --show-error --max-time 2 --output /tmp/arkadia-health.json --write-out "%{http_code}" "$ARKADIA_PRODUCTION_ORIGIN/health" 2>/dev/null || true)
-            if [ "$status" = "200" ]; then
-              echo "Canonical Render health endpoint returned HTTP 200 on attempt $attempt."
+            status=$(curl --silent --show-error --max-time 2 --output /tmp/arkadia-version.json --write-out "%{http_code}" "$ARKADIA_PRODUCTION_ORIGIN/api/version" 2>/dev/null || true)
+            observed_revision=$(jq -r '.source_revision // empty' /tmp/arkadia-version.json 2>/dev/null || true)
+            if [ "$status" = "200" ] && { [ "$require_revision" -eq 0 ] || [ "$observed_revision" = "$GITHUB_SHA" ]; }; then
+              echo "Canonical Render is ready (HTTP 200, source revision $observed_revision; attempt $attempt)."
               ready=1
               break
             fi
-            echo "Canonical Render is not ready yet (attempt $attempt/30; /health HTTP $status)."
+            echo "Waiting for canonical Render (attempt $attempt/30; /api/version HTTP $status; observed revision $observed_revision)."
             sleep 3
           done
           if [ "$ready" -ne 1 ]; then
-            echo "Canonical Render did not become healthy within 150 seconds; refusing to interpret deployment-time 503s as route results."
+            echo "Canonical Render did not become ready on the expected revision within 150 seconds; refusing to interpret deployment-time responses as route results."
             exit 1
           fi
 
