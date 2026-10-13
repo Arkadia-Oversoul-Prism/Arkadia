@@ -15,10 +15,17 @@ import { endpoints } from "../../lib/endpoints";
 import {
   isKnowledgeGraphData,
   summarizeGraph,
+  summarizeProvenance,
+  provenanceReading,
+  provenanceNotice,
   scopeNotice,
   type KnowledgeGraphData,
   type ViewerKind,
 } from "./knowledgeContracts";
+
+/** Cap on the per-node provenance rows rendered, so a large scope cannot turn
+ *  the reading into an unbounded list. The count facts above stay exact. */
+const PROVENANCE_ROWS = 8;
 
 async function readGraph(path: string): Promise<KnowledgeGraphData> {
   const payload = await apiRequest<unknown>(path);
@@ -52,6 +59,8 @@ export function KnowledgeGraphPanel() {
 function GraphReading({ graph, viewer }: { graph: KnowledgeGraphData; viewer: ViewerKind }) {
   const summary = summarizeGraph(graph);
   const notice = scopeNotice(summary.scope, viewer);
+  const provenance = summarizeProvenance(graph);
+  const provenanceCopy = provenanceNotice(provenance);
 
   return (
     <div className="flex flex-col gap-4">
@@ -61,6 +70,8 @@ function GraphReading({ graph, viewer }: { graph: KnowledgeGraphData; viewer: Vi
           { label: "edges", value: String(summary.edges) },
           { label: "scope", value: summary.scope },
           { label: "viewer", value: viewer },
+          { label: "captured origin", value: String(provenance.captured) },
+          { label: "origin unknown", value: String(provenance.unknown) },
         ]}
       />
 
@@ -68,6 +79,22 @@ function GraphReading({ graph, viewer }: { graph: KnowledgeGraphData; viewer: Vi
         <p data-testid="knowledge-graph-scope" className="text-sm text-white/50">
           {notice}
         </p>
+      )}
+
+      {provenanceCopy && (
+        <p data-testid="knowledge-graph-provenance" className="text-sm text-white/50">
+          {provenanceCopy}
+        </p>
+      )}
+
+      {graph.nodes.length > 0 && (
+        <ul className="flex flex-col gap-1" data-testid="knowledge-graph-provenance-rows">
+          {graph.nodes.slice(0, PROVENANCE_ROWS).map((node) => (
+            <li key={node.id} className="font-mono text-[11px] text-white/60">
+              {node.title} · {provenanceReading(node)}
+            </li>
+          ))}
+        </ul>
       )}
 
       {summary.titles.length > 0 && (

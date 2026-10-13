@@ -17,8 +17,36 @@
 /** The viewer's authorization context, as the backend would resolve it. */
 export type ViewerKind = "anonymous" | "authenticated";
 
+/**
+ * The canonical GATE-01 provenance projection, as the graph attaches it.
+ *
+ * `state: "UNKNOWN"` is a *value the contract emits*, not a missing field: a
+ * note with no capture record did not come through the capture boundary, and
+ * the projection says so rather than inventing an origin. A note that did come
+ * through carries its source and the authorship that was actually *declared*
+ * (`declared: false` means the field was left unset — an absent attribution is
+ * not an attribution to anyone).
+ */
+export interface NodeProvenance {
+  state: string;
+  source?: {
+    source_uuid?: string | null;
+    source_kind?: string | null;
+    source_ref?: string | null;
+    title?: string | null;
+  } | null;
+  authorship?: {
+    authored_by?: string | null;
+    authored_by_kind?: string | null;
+    declared?: boolean;
+  } | null;
+  captured_at?: string | null;
+}
+
 /** One note as the graph projection returns it. `user_id` is the private owner
- *  stamp; `null` means the public/legacy corpus. */
+ *  stamp; `null` means the public/legacy corpus. `provenance` is the GATE-01
+ *  origin projection the handler attaches (`knowledge.graph._attach_provenance`),
+ *  so it is declared optional only for a body that predates that projection. */
 export interface GraphNode {
   id: number;
   uuid: string;
@@ -27,6 +55,7 @@ export interface GraphNode {
   project_id: number | null;
   created_at: string;
   user_id: string | null;
+  provenance?: NodeProvenance;
 }
 
 export interface GraphEdge {
@@ -107,6 +136,72 @@ export function scopeNotice(scope: GraphScope, viewer: ViewerKind): string | nul
   return scope === "empty"
     ? "No notes are readable in this scope yet."
     : "Only public-corpus notes are readable in this scope; no private material is exposed here.";
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * Provenance — the GATE-01 origin projection on each graph node
+ *
+ * `knowledge.graph._attach_provenance` attaches `capture.provenance_for_note`
+ * to every node. The vocabulary below maps that projection onto a *visible*
+ * reading. Three states must never be collapsed:
+ *
+ *   * `captured`   the note came through the capture boundary and carries a
+ *                  declared source;
+ *   * `unknown`    the projection said UNKNOWN (no capture record) — an absent
+ *                  origin, not an error and not an attribution;
+ *   * `undeclared` a capture record exists but the origin was not declared, so
+ *                  the note is captured with nothing attributed.
+ *
+ * Only the *declared* attribution is ever shown. A `declared: false` field is
+ * not rendered as a name, because the contract withholds the name.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+export type ProvenanceState = "captured" | "undeclared" | "unknown";
+
+export function classifyProvenance(node: GraphNode): ProvenanceState {
+  const provenance = node.provenance;
+  if (!provenance || provenance.state === "UNKNOWN" || provenance.state === undefined) {
+    return "unknown";
+  }
+  return provenance.source?.source_kind ? "captured" : "undeclared";
+}
+
+export interface ProvenanceSummary {
+  captured: number;
+  undeclared: number;
+  unknown: number;
+}
+
+export function summarizeProvenance(graph: KnowledgeGraphData): ProvenanceSummary {
+  const summary: ProvenanceSummary = { captured: 0, undeclared: 0, unknown: 0 };
+  for (const node of graph.nodes) {
+    summary[classifyProvenance(node)] += 1;
+  }
+  return summary;
+}
+
+/** The declared origin of a node, or a phrase that names why none is shown.
+ *  Never synthesises an attribution the contract did not declare. */
+export function provenanceReading(node: GraphNode): string {
+  const provenance = node.provenance;
+  const state = classifyProvenance(node);
+  if (state === "unknown") return "origin unknown — no capture record";
+  if (state === "undeclared") return "captured, origin not declared";
+  const source = provenance?.source;
+  const kind = source?.source_kind ?? "unknown";
+  const title = source?.title || source?.source_ref;
+  return title ? `${kind} · ${title}` : kind;
+}
+
+/** Copy for the provenance reading, stated as a boundary. An UNKNOWN origin is
+ *  reported as the contract's own value, not as a retrieval failure. */
+export function provenanceNotice(summary: ProvenanceSummary): string | null {
+  if (summary.unknown === 0) return null;
+  return (
+    `${summary.unknown} of ${summary.captured + summary.undeclared + summary.unknown} readable ` +
+    "nodes carry no capture record. The contract reports their origin as UNKNOWN; this reader " +
+    "shows that value rather than inferring an origin it was not given."
+  );
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
