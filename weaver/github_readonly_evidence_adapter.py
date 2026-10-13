@@ -16,6 +16,7 @@ from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
 from .engineering_acceptance import (
+    AcceptanceDecision,
     CheckState,
     GateEvidence,
     HumanApprovalEvidence,
@@ -38,7 +39,7 @@ class EvidenceCollectionError(RuntimeError):
 @dataclass(frozen=True)
 class AdapterEvaluation:
     evidence: PullRequestEvidence
-    decision: Any
+    decision: AcceptanceDecision
     warnings: tuple[str, ...]
 
 
