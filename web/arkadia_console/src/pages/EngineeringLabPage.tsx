@@ -1,5 +1,7 @@
 import { Page, Panel, Facts, ContractState, NotYetWired } from "../components/ui";
 import { LabSessionList } from "../components/lab/LabSessionList";
+import { LabAuthorityReadings } from "../components/lab/LabAuthorityReadings";
+import type { LabGovernanceSource } from "../components/lab/labGovernance";
 import { LabArtifactCanvas } from "../components/lab/LabArtifactCanvas";
 import { LabAgentRegistry } from "../components/lab/LabAgentRegistry";
 import { LabModelGateway } from "../components/lab/LabModelGateway";
@@ -48,6 +50,8 @@ export function EngineeringLabPage() {
           This reports the deployment's effective configuration, not repository defaults.
         </p>
       </Panel>
+
+      <LabAuthorityReadings source={overview.data as LabGovernanceSource | null} />
 
       <LabSessionList />
 
