@@ -60,6 +60,8 @@
       "title": "Solariun lens strip becomes real routed navigation with truthful per-lens state",
       "lane": "C (Solariun) / A (shared shell seam)",
       "state": "READY FOR REVIEW",
+      "pr": 510,
+      "pr_state": "draft; all 15 checks pass (2026-10-13)",
       "implementation_commit": "d8e541af4e830fb1e611c49a59c27edab3105b6c",
       "branch": "feat/prism-rec-01-solariun-routed-lenses",
       "verification": {
@@ -76,6 +78,57 @@
       "in_scope": ["web/arkadia_console/src/pages/SolariunPage.tsx", "web/arkadia_console/src/App.tsx (one prop)", "tests/test_solariun_lens_contract.py (new)", "docs/control-plane/evidence/prism-recursive-recovery-01/*"],
       "out_of_scope": ["router.ts (PR #505 owns aliases)", "backend handlers", "other surface pages owned by open PRs", "merge/deploy"],
       "verification_commands": "cd web/arkadia_console && pnpm run build; python3 -m pytest tests/test_solariun_lens_contract.py + six console contract suites"
+    },
+    {
+      "id": "PRR-02",
+      "title": "Sign-in returns the user to the destination it interrupted",
+      "lane": "A (shell/composition root) / F (journey integrity)",
+      "state": "READY FOR REVIEW",
+      "pr": 511,
+      "pr_state": "draft; all 15 checks pass (2026-10-13)",
+      "implementation_commit": "089b772a7008524b437cb87b6aeed1285c538b74",
+      "branch": "feat/prism-rec-02-signin-return-to",
+      "base_sha": "dfbd2304db27746b22f0cda9b6961d1e37fda313",
+      "depends_on": [],
+      "source_state": "Threshold and shell sign-in dropped the intended destination; after signIn resolved the user stayed on /login with no route back to the requested protected surface.",
+      "target_behavior": "Crossing to login records route.path via one shared wrapper; a confirmed sign-in consumes it (session memory, then ?returnTo=), validated through resolvePath so external/invented targets degrade to the router fallback and /login targets are refused; failure path navigates nothing and spends nothing.",
+      "in_scope": ["web/arkadia_console/src/lib/returnTo.ts (new)", "web/arkadia_console/src/App.tsx", "web/arkadia_console/src/pages/SignInPage.tsx", "tests/test_console_return_to_contract.py (new)"],
+      "out_of_scope": ["Shell.tsx (byte-identical to base)", "AuthContext.tsx / Firebase contract", "backend", "merge/deploy"],
+      "verification": {"build": "PASS", "new_suite": "PASS (15 passed)", "shared_suites_baseline": "181 passed measured at dfbd230", "shared_suites_after": "196 passed", "browser": "NOT TESTED"},
+      "evidence": "docs/control-plane/evidence/prism-recursive-recovery-02-signin-return-to/EVIDENCE.md"
+    },
+    {
+      "id": "PRR-03",
+      "title": "Solariun project runtime-context canvas over the served projection",
+      "lane": "C (Solariun)",
+      "state": "READY FOR REVIEW",
+      "pr": 513,
+      "pr_state": "draft (stacked on PR #510; base retargets to main after #510 merges)",
+      "implementation_commit": "931c3f0c544c74cfb1be04ad7f48101f0d084107",
+      "branch": "feat/prism-rec-03-runtime-canvas",
+      "depends_on": ["PRR-01 (PR #510) — owns SolariunPage.tsx"],
+      "source_state": "SolariunPage advertised runtime-context as NotYetWired with a wrong /api prefix while the backend serves GET /solspire/projects/{project_id}/runtime-context (owner-scoped).",
+      "target_behavior": "Per-project Runtime toggle opens a read-only canvas: registry-derived percent-encoded path builder, actual binding states with UNKNOWN never upgraded, epistemic_boundary shown, ambiguous 404 stated not guessed, store records as bounded counts.",
+      "in_scope": ["web/arkadia_console/src/lib/endpoints.ts (builder only)", "web/arkadia_console/src/components/solariun/ProjectRuntimeCanvas.tsx (new)", "web/arkadia_console/src/pages/SolariunPage.tsx", "tests/test_prism_solariun_runtime_context_ui.py (new)"],
+      "out_of_scope": ["backend handlers (read-only consumption)", "any write control", "merge/deploy"],
+      "verification": {"build": "PASS", "new_suite": "PASS (11 passed, backend executed against real console_router)", "shared_suites_baseline": "211 passed measured at 31fd1d5", "shared_suites_after": "222 passed", "browser": "NOT TESTED"},
+      "evidence": "docs/control-plane/evidence/prism-recursive-recovery-03-runtime-canvas/EVIDENCE.md"
+    },
+    {
+      "id": "PRR-04",
+      "title": "Solariun legacy inbound aliases (/codex, /loops, /dashboard, /settings, /account, /personal-echofeild, /echofeild-matrix)",
+      "lane": "A (router aliases)",
+      "state": "BLOCKED",
+      "blocker": "lib/router.ts PATH_ALIASES is owned by open PR #505 (/home, /knowledge-os, /gate, /living-gate); the archived mappings are section-bearing (e.g. /codex -> solariun/knowledge) and PATH_ALIASES maps path->surface only, so a correct recovery needs a section-aware alias structure — a structural change to the same file another draft PR is actively editing. Coordinate after #505 lands.",
+      "reference": "archive/frontend/arkadia-prism/web/public_prism/src/App.tsx (routeForView + LEGACY_ALIASES)"
+    },
+    {
+      "id": "PRR-05",
+      "title": "Sign-in surface: dead single 'Sign in' tab + archived register/magic-link flows",
+      "lane": "C (auth surface)",
+      "state": "BLOCKED",
+      "blocker": "Self-service registration creates identities on the canonical deployment (IDENTITY plane) — restoring it is a human product/authority decision, not recoverable UI authority. The dead tab is pinned by test_aeas05_canonical_frontend_acceptance.py (tab-signin), so its removal changes an acceptance contract. Needs a human decision: open registration vs invite-only vs remove the dead tab.",
+      "reference": "archive/frontend/arkadia-prism/web/public_prism/src/pages/LoginPage.tsx (signin/register/magic tabs)"
     }
   ],
   "baseline_evidence": {
@@ -84,6 +137,8 @@
   },
   "blockers": [
     {"id": "BLK-01", "description": "No browser/e2e harness in sandbox; runtime UI claims are limited to build + executable source-contract tests.", "class": "NOT TESTED (browser)"},
-    {"id": "BLK-02", "description": "Solariun 'memory' lens has no verified read contract in the console endpoint registry; must render an honest not-wired state rather than data.", "class": "contract gap"}
+    {"id": "BLK-02", "description": "Solariun 'memory' lens has no verified read contract in the console endpoint registry; must render an honest not-wired state rather than data.", "class": "contract gap"},
+    {"id": "BLK-03", "description": "router.ts alias work (PRR-04) collides with open PR #505; needs section-aware alias structure coordinated there.", "class": "file ownership / integration order"},
+    {"id": "BLK-04", "description": "Registration / dead sign-in tab (PRR-05) is an identity-plane authority decision reserved to a human.", "class": "authority boundary"}
   ]
 }
