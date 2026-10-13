@@ -16,8 +16,8 @@
  *                  this lens points there instead of duplicating its read.
  *  - `weaver`    — the governance authority is the canonical Weaver surface;
  *                  same rule: point, do not fork.
- *  - `memory`    — no verified read contract exists in the endpoint registry, so
- *                  it states that plainly. No memory data is inferred.
+ *  - `memory`    — the personal Echofeild read model (`/api/me/field`), with
+ *                  per-source provenance from the canonical contract.
  *
  * A section outside the declared lens set renders an honest "not a lens" state
  * listing the reconciled lenses — previously `/solariun/bogus` silently showed
