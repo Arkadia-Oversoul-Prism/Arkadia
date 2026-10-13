@@ -9,6 +9,9 @@ on:
       - "web/console/**"
       - "api/frontend_routes.py"
       - "Dockerfile"
+  pull_request:
+    paths:
+      - ".github/workflows/canonical-render-browser-smoke.yml"
   workflow_dispatch:
 
 permissions:
