@@ -116,3 +116,23 @@ Next bounded task on this lane: reconcile the next archived Opportunity Radar /
 NovaNet capability **whose contract measures cleanly against a verified handler**.
 Do not wire `evidence_status` / `evidence` until a real handler is verified; do not
 invent a capture path for a field with no verified write route.
+
+## Lane continuity — 2026-10-13 (author controls)
+
+`prism-novanet-author-controls-01` (same draft PR #492, head `44b854e2` + this
+slice): the console public field was read-only while the archived Prism field
+offered **author-only Edit / Delete** on a transmission. The backend contract is
+verified and served — `PATCH`/`DELETE /api/transmissions/{id}` in
+`api/transmissions.py`, owner derived from the verified Firebase uid (401
+anonymous / 403 non-owner) — so the capability was reconciled, not invented. New
+feature-local `src/components/novaNet/AuthorControls.tsx` renders **nothing** for
+a non-owner and composes its path from the one registry
+(`endpoints.transmissions` + `encodeURIComponent`); `NovaNetPage.tsx` mounts it
+gated on `myUid === t.owner_uid` and reloads the field on success. No shared file
+(`endpoints.ts`, `types.ts`, router, surfaces, `App.tsx`) was touched. Evidence:
+`docs/control-plane/evidence/prism-novanet-author-controls-01/`.
+
+Next bounded task on this lane: reconcile the next archived NovaNet public-field
+capability **whose contract measures cleanly against a verified handler**
+(reactions / repost only if a real handler is verified). Do not invent a capture
+path for a capability with no verified write route.

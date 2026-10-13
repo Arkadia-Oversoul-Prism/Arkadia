@@ -7,6 +7,11 @@
  * public reads, so this surface is reachable without an identity — but it never
  * fabricates content: an unavailable read renders the honest contract state.
  *
+ * The field renders the archived product's author-only Edit / Delete controls
+ * (`AuthorControls`): the public read is open, but the mutation is offered only
+ * to the verified owner whose uid equals the post's `owner_uid`, mirroring the
+ * backend's own 401/403 boundary rather than deciding ownership client-side.
+ *
  * The legacy hub carried sub-views (`/nexus/ims`, `/nexus/grove`,
  * `/nexus/larder`, `/nexus/distribution`). They are not reconciled yet, so they
  * are **not** rendered as controls: a lens that does nothing is a decorative
@@ -17,8 +22,10 @@
  */
 import { Page, Panel, ContractState, NotYetWired } from "../components/ui";
 import { SurfaceLenses } from "../components/SurfaceLenses";
+import { AuthorControls } from "../components/novaNet/AuthorControls";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
+import { useAuth } from "../contexts/AuthContext";
 import { endpoints } from "../lib/endpoints";
 import type { SurfaceId } from "../lib/surfaces";
 import type { EchoesFeed, TransmissionList } from "../lib/types";
@@ -54,6 +61,12 @@ export function NovaNetPage({
   const field = useHydration<TransmissionList>(endpoints.transmissions, (p) => apiRequest<TransmissionList>(p));
   const echoes = useHydration<EchoesFeed>(endpoints.echoes, (p) => apiRequest<EchoesFeed>(p), [section === "echoes"]);
 
+  // The verified uid gates the author controls. It is the same identity the
+  // backend resolves the owner from, so the client offers a mutation only where
+  // the backend would accept it — it never decides ownership itself.
+  const { user } = useAuth();
+  const myUid = user?.uid ?? null;
+
   return (
     <Page title="NovaNet" subtitle="The public field — transmissions, echoes, and the shared Nexus hub over one canonical backend.">
       <SurfaceLenses
@@ -87,6 +100,11 @@ export function NovaNetPage({
                       </div>
                       <p className="mt-2 whitespace-pre-wrap text-sm text-white/70">{t.content}</p>
                       {t.edited_at ? <p className="mt-1 font-mono text-[10px] text-white/25">edited</p> : null}
+                      <AuthorControls
+                        transmission={t}
+                        isOwn={Boolean(myUid && t.owner_uid && myUid === t.owner_uid)}
+                        onChanged={field.reload}
+                      />
                     </li>
                   ))}
                 </ul>
