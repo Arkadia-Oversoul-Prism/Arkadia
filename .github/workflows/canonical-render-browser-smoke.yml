@@ -46,7 +46,7 @@ jobs:
               break
             fi
             echo "Waiting for canonical Render (attempt $attempt/30; /api/version HTTP $status; observed revision $observed_revision)."
-            sleep 1
+            sleep 3
           done
           if [ "$ready" -ne 1 ]; then
             echo "Canonical Render did not become ready on the expected revision within 150 seconds; refusing to interpret deployment-time responses as route results."
