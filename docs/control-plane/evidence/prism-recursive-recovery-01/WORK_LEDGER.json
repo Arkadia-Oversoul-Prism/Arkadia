@@ -163,6 +163,23 @@
       "out_of_scope": ["section-level titles (recorded refinement)", "index.html pre-hydration title", "merge/deploy"],
       "verification": {"build": "PASS", "new_suite": "PASS (6 passed)", "shared_suites_baseline": "173 passed measured at dfbd230", "shared_suites_after": "179 passed", "browser": "NOT TESTED", "screen_reader": "NOT TESTED"},
       "evidence": "docs/control-plane/evidence/prism-recursive-recovery-07-document-title/EVIDENCE.md"
+    },
+    {
+      "id": "PRR-08",
+      "title": "Solariun memory lens reads the personal Echofeild read model",
+      "lane": "C (Solariun)",
+      "state": "READY FOR REVIEW",
+      "pr": 517,
+      "implementation_commit": "f7f9c7d836c207df4d655a176245d0f89de93aed",
+      "branch": "feat/prism-rec-08-memory-lens-field",
+      "depends_on": ["PRR-01 (PR #510) — owns SolariunPage.tsx"],
+      "supersedes": "PRR-01's memory-lens not-wired state and its 'no verified contract' claim — /api/me/field is served and registry-listed; the archived route table maps /personal-echofeild onto the solariun observatory lens. The PRR-01 test pinning the old state was superseded in the same commit, documented in the evidence record.",
+      "source_state": "Memory lens rendered an honest not-wired state; the claim that no verified contract existed was too strong (endpoints.field exists, served by api/echofeild.py::get_my_field under require_auth).",
+      "target_behavior": "Memory lens reads GET /api/me/field: counts only, with the contract's per-source provenance rendered verbatim — an unavailable source shows 'unavailable · not counted', never a confident zero.",
+      "in_scope": ["web/arkadia_console/src/components/solariun/PersonalFieldPanel.tsx (new)", "web/arkadia_console/src/pages/SolariunPage.tsx (memory block)", "tests/test_solariun_lens_contract.py (supersession)", "tests/test_prism_solariun_memory_lens.py (new)"],
+      "out_of_scope": ["backend (regression-covered by tests/test_echofeild_aggregator.py)", "record contents (counts only)", "merge/deploy"],
+      "verification": {"build": "PASS", "new_suite": "PASS (7 tests)", "shared_suites_baseline": "226 passed measured at b67b8f7", "shared_suites_after": "226 passed (233 with the new file)", "backend_contract_suite": "PASS unchanged", "browser": "NOT TESTED"},
+      "evidence": "docs/control-plane/evidence/prism-recursive-recovery-08-memory-lens-field/EVIDENCE.md"
     }
   ],
   "baseline_evidence": {
@@ -171,7 +188,7 @@
   },
   "blockers": [
     {"id": "BLK-01", "description": "No browser/e2e harness in sandbox; runtime UI claims are limited to build + executable source-contract tests.", "class": "NOT TESTED (browser)"},
-    {"id": "BLK-02", "description": "Solariun 'memory' lens has no verified read contract in the console endpoint registry; must render an honest not-wired state rather than data.", "class": "contract gap"},
+    {"id": "BLK-02", "description": "Solariun 'memory' lens — RESOLVED by PRR-08 (PR #517): the served /api/me/field contract is wired under the memory lens; the earlier 'no verified contract' claim was corrected.", "class": "resolved"},
     {"id": "BLK-03", "description": "router.ts alias work (PRR-04) collides with open PR #505; needs section-aware alias structure coordinated there.", "class": "file ownership / integration order"},
     {"id": "BLK-04", "description": "Registration / dead sign-in tab (PRR-05) is an identity-plane authority decision reserved to a human.", "class": "authority boundary"}
   ]
