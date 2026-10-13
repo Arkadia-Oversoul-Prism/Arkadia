@@ -128,7 +128,7 @@ def _hex_colour_literals(sources: dict[str, str]) -> list[tuple[str, str]]:
     to remove. Comments may mention pull-request numbers such as `#493`; those
     are not colour declarations and must not trip the detector.
     """
-    pattern = re.compile(r"#[0-9A-Fa-f]{3,8}\\b")
+    pattern = re.compile(r"#[0-9A-Fa-f]{3,8}\b")
     return [
         (name, src)
         for name, src in sources.items()
