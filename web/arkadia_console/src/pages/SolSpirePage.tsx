@@ -1,5 +1,6 @@
 import { Page, Panel, Facts, ContractState, NotYetWired } from "../components/ui";
 import { OpportunityRadarSection } from "../components/opportunities/OpportunityRadarSection";
+import { SolSpireControlPlane } from "../components/solspire/SolSpireControlPlane";
 import { useAuth } from "../contexts/AuthContext";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
@@ -39,11 +40,27 @@ export function SolSpirePage() {
         )}
       </Panel>
 
+      <div className="mb-4">
+        <SolSpireControlPlane />
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
-        <NotYetWired contract="/api/solspire/workloads" note="Team workload and assignment views." />
-        <NotYetWired contract="/api/solspire/proposals" note="Proposal and work-event surfaces." />
-        <NotYetWired contract="/api/solspire/pulses" note="Pulse and synthesis surfaces." />
-        <NotYetWired contract="/api/solspire/voice" note="Voice boundary for governed operations." />
+        <NotYetWired
+          contract="/solspire/proposals"
+          note="Proposal reads and the proposal decision endpoint are served, but a decision is a human act on the authority chain, so the console does not offer one yet."
+        />
+        <NotYetWired
+          contract="/solspire/workevents"
+          note="The work-event spine is served (list and single reads), but it is a provenance record whose event refs are not reconciled with the console's provenance surface yet."
+        />
+        <NotYetWired
+          contract="/solspire/enterprise/workspaces"
+          note="Enterprise workspace dashboards, control-room, tasks and members are served, but the console has no enterprise workspace projection yet."
+        />
+        <NotYetWired
+          contract="/solspire/voice/events"
+          note="Voice-boundary events and their chain are served, but the governed chain (understand → propose → authorize → execute → verify) has no console surface yet."
+        />
       </div>
     </Page>
   );
