@@ -59,7 +59,7 @@ function Surfaces() {
       case "arkana":
         return <ArkanaPage />;
       case "solariun":
-        return <SolariunPage section={route.section} />;
+        return <SolariunPage section={route.section} onNavigate={navigate} />;
       case "engineering-lab":
         return <EngineeringLabPage />;
       case "solspire":
