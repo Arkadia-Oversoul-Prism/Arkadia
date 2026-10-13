@@ -10,7 +10,7 @@
  * labelled reading.
  *
  * Ownership: the overview's automation-grammar render is owned by the sibling
- * Lane-4 slice (PR #493); this surface deliberately renders only the other three
+ * Lane-4 slice (PR 493); this surface deliberately renders only the other three
  * sub-reports. See `labOperational.ts` for the projection.
  *
  * Read-only by construction: it takes the already-fetched overview object and
@@ -139,7 +139,7 @@ function VoicePanel({ ledger }: { ledger: VoiceLedger }) {
  * Render the operational sub-reports carried by the Lab overview.
  *
  * Scope note (parallel-UI ownership): the overview also carries an automation
- * grammar, but rendering that is owned by the sibling Lane-4 slice (PR #493), so
+ * grammar, but rendering that is owned by the sibling Lane-4 slice (PR 493), so
  * this surface renders only the three projections that slice does not:
  * `integrations`, `android`, and `voice`.
  */
