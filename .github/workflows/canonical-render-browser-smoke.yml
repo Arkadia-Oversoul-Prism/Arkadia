@@ -30,14 +30,14 @@ jobs:
           set -eu
           ready=0
           for attempt in $(seq 1 30); do
-            status=$(curl --silent --show-error --max-time 5 --output /tmp/arkadia-health.json --write-out "%{http_code}" "$ARKADIA_PRODUCTION_ORIGIN/health" 2>/dev/null || true)
+            status=$(curl --silent --show-error --max-time 2 --output /tmp/arkadia-health.json --write-out "%{http_code}" "$ARKADIA_PRODUCTION_ORIGIN/health" 2>/dev/null || true)
             if [ "$status" = "200" ]; then
               echo "Canonical Render health endpoint returned HTTP 200 on attempt $attempt."
               ready=1
               break
             fi
             echo "Canonical Render is not ready yet (attempt $attempt/30; /health HTTP $status)."
-            sleep 5
+            sleep 3
           done
           if [ "$ready" -ne 1 ]; then
             echo "Canonical Render did not become healthy within 150 seconds; refusing to interpret deployment-time 503s as route results."
