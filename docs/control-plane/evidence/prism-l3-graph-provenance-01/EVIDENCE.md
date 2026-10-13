@@ -91,7 +91,38 @@ derives its reading from the projection rather than hardcoding a source string.
   until it is tracked. Parity must be measured **after** the commit that tracks
   it — measured in §4 above on the committed tree.
 
-## 7. Next bounded task (non-overlapping)
+## 7. Measured baseline (2026-10-13, base `3ca8582a`)
+
+Full suite, one pass: `python3 -m pytest tests/ -q -rEf --continue-on-collection-errors`
+→ `8 failed, 2997 passed, 20 skipped, 2 warnings, 1 error in 210.11s`.
+
+The failing/error **node set** (9 nodes, sorted) — all pre-existing, none in the
+Knowledge/lane-3 area, none attributable to this change:
+
+```
+ERROR  tests/test_autonomy.py
+FAILED tests/test_ais_w2_living_gate_grove_handoff.py::test_no_firebase_persistence_in_gate
+FAILED tests/test_engineering_lab_api.py::test_lab_mutation_endpoints_are_exactly_the_lab_state_set
+FAILED tests/test_engineering_lab_api.py::test_lab_router_is_read_only_and_authenticated
+FAILED tests/test_identity_spine_w1.py::test_node_entry_is_ais_signup_not_a_separate_diagnostic_route
+FAILED tests/test_m02_reasomate_truth.py::test_oracle_runtime_uses_the_shared_session_key
+FAILED tests/test_solspire_r1_governance_convergence.py::test_r1_solspire_builders_delegate_to_weaver
+FAILED tests/test_solspire_r1_governance_convergence.py::test_r1_weaver_governance_is_canonical
+FAILED tests/test_solspire_r3_execution_runtime.py::test_runtime_is_explicitly_non_governed_and_blocks_mutation_tools
+```
+
+node-set sha256 `c280ddc616fe4f4e9110bf4e6b6e538783a83d3764148d8a6d7ac45f6e8bc46b`.
+Compare by node identity, never by counts: no node in this set references
+`knowledge/` or the console reader, and every one is a pre-existing main-debt
+surface (autonomy package collision, Engineering Lab API pins, SolSpire R1/R3
+governance pins). Do not repair any of them inside this lane.
+
+Targeted proof on the committed tree:
+`python3 -m pytest tests/test_knowledge_graph_provenance_boundary.py tests/test_solariun_lens_contract.py -q -rEf`
+→ `24 passed`.
+
+## 8. Next bounded task (non-overlapping)
+
 
 Render the same provenance reading on the single-project detail reader
 (`GET /api/knowledge/projects/{name_or_uuid}`) once its registry path builder is
