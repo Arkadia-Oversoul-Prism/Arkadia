@@ -80,45 +80,14 @@ def _hardcoded_origins(sources: dict[str, str]) -> list[tuple[str, str]]:
 
 
 def _without_ts_comments(source: str) -> str:
-    """Mask TS/JS comments without removing hashes inside strings or JSX classes."""
-    out = []
-    i = 0
-    quote = None
-    while i < len(source):
-        char = source[i]
-        if quote is not None:
-            out.append(char)
-            if char == "\\" and i + 1 < len(source):
-                out.append(source[i + 1])
-                i += 2
-                continue
-            if char == quote:
-                quote = None
-            i += 1
-            continue
-        if char in ("'", '"', "`"):
-            quote = char
-            out.append(char)
-            i += 1
-            continue
-        if source.startswith("//", i):
-            end = source.find("\n", i)
-            if end == -1:
-                break
-            out.append("\n")
-            i = end + 1
-            continue
-        if source.startswith("/*", i):
-            end = source.find("*/", i + 2)
-            if end == -1:
-                break
-            out.append("\n" * source[i:end + 2].count("\n"))
-            i = end + 2
-            continue
-        out.append(char)
-        i += 1
-    return "".join(out)
-
+    """Remove block and full-line TS/JS comments while preserving line boundaries."""
+    source = re.sub(
+        r"/\*.*?\*/",
+        lambda match: "\n" * match.group(0).count("\n"),
+        source,
+        flags=re.DOTALL,
+    )
+    return re.sub(r"(?m)^\s*//.*$", "", source)
 
 def _hex_colour_literals(sources: dict[str, str]) -> list[tuple[str, str]]:
     """Hex colour literals in TS/TSX source, excluding comments.
