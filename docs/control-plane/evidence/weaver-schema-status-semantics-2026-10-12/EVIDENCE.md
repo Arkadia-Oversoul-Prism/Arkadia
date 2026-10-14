@@ -37,8 +37,12 @@ The existing Weaver MVP2 validation workflow path-filters these router/worker te
 
 ## Verification state
 
-**PARTIALLY VERIFIED (local, measured).** Current-head CI has not been re-run since the
-repair below; that remains the completion condition before the fix is called verified.
+**VERIFIED (local + CI, measured at head `91398207308c0d166bfab351d0a6c526f18701fe`).**
+The `provider-routing` check that previously failed on this branch has re-run and now reports
+**12 failed, 3102 passed, 21 skipped, 1 error** — the exact pre-existing `main` set (12 named
+nodes + the `test_autonomy.py` collection error), with **zero** `router_clean_stop` nodes
+failing. The branch-caused delta is closed: 14 -> 12 failures, the 2 removed being the
+regression repaired below. All other 11 current-head check-runs are `completed/success`.
 
 ### Regression repair (2026-10-14)
 
