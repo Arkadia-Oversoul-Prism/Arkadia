@@ -198,10 +198,75 @@ with the repair assertions among them (9 passed on
 `-k "normaliz or defect_3 or off_vocabulary"`).
 
 **Recorded mis-step, so it is not repeated.** An earlier, cheaper probe applied
-*only* #492's diff of that one test file and read `7 failed / 37 errors`. That was
+*only* #492's diff of that one test file and read `7 failed, 37 errors`. That was
 not a real conflict: #492's additions depend on frontend files (`ProspectEntryForm.tsx`,
 `ProjectOpportunityRadar.tsx`, the `novaNet/**` components) that are absent from a
 test-file-only composition, and the diff was taken against a HEAD carrying unrelated
 `main` drift rather than against #492's own merge base. A single-file patch is not a
 composition; compose the branch and run the tests. `git apply --3way --check` is a
 textual check only, and it also passed on the broken probe.
+
+## 9. Baseline fingerprint and regression boundary (measured, not inherited)
+
+Full suite, ONCE, on this branch at `012df025` (the `AGENTS.md` commit; the suite ran on
+that working tree, which is the tree this evidence doc extends):
+
+```
+python -m pytest tests/ -q -rEf --continue-on-collection-errors
+-> 8 failed, 3107 passed, 20 skipped, 1 error in 214.78s
+```
+
+The load-bearing artifact is the sorted FAILED/ERROR **node set**, not the counts.
+Branch node set (9 entries, sha256
+`215e4308371a01f5b0b73f1e2b5dca5bba30f6578f65bb7c8af6eca67bc8b741`):
+
+```
+tests/test_ais_w2_living_gate_grove_handoff.py::test_no_firebase_persistence_in_gate
+tests/test_autonomy.py                                      (collection ERROR - CE-01)
+tests/test_engineering_lab_api.py::test_lab_mutation_endpoints_are_exactly_the_lab_state_set
+tests/test_engineering_lab_api.py::test_lab_router_is_read_only_and_authenticated
+tests/test_identity_spine_w1.py::test_node_entry_is_ais_signup_not_a_separate_diagnostic_route
+tests/test_m02_reasomate_truth.py::test_oracle_runtime_uses_the_shared_session_key
+tests/test_solspire_r1_governance_convergence.py::test_r1_solspire_builders_delegate_to_weaver
+tests/test_solspire_r1_governance_convergence.py::test_r1_weaver_governance_is_canonical
+tests/test_solspire_r3_execution_runtime.py::test_runtime_is_explicitly_non_governed_and_blocks_mutation_tools
+```
+
+**None of the nine is attributable to this branch.** The eight runnable nodes were run
+directly against a detached worktree at `origin/main` `7580bd8f` and all eight fail
+there (`8 failed in 0.65s`), and `tests/test_autonomy.py` raises the documented CE-01
+module-vs-package collection error there (`Interrupted: 1 error during collection`).
+That is a targeted run of the same node list, not a second full pass.
+
+`tests/fixtures/baseline_node_set.txt` records a 10-node set that is a **superset**
+of these: it additionally carries three `tests/test_steward_filter.py` nodes that now
+pass, and it omits the two `tests/test_engineering_lab_api.py` nodes, which are
+unowned drift from the `/api/lab/engineering/n-atlas/*` endpoints and the
+`require_auth` -> `require_lab_auth` rename. Repairing those two edits
+`api/lab_routes.py`, an authority surface, so they are sovereign-only and were NOT
+touched here.
+
+Node delta attributable to this branch: `+2` collected (`--collect-only` 48 -> 50),
+matching the two negative controls added to `tests/test_prism_opportunity_entry_flow.py`.
+The branch's failing/error node set is unchanged from `main`.
+
+## 10. The single-file-patch trap, generalised
+
+The mis-step recorded in section 8 is worth stating as a rule, because the cheap probe
+produced a failure shape that reads exactly like a merge conflict.
+
+- **A one-file patch is not a composition.** Applying another PR's diff of a single
+  shared test file omits the source it depends on, so the resulting failures are an
+  artifact of the partial tree.
+- **Diff against the other PR's own merge base, not against your HEAD.**
+  `git diff HEAD <other-head>` silently reverts every unrelated `main` advance between
+  the two branches, so the patch under test is not the patch the other PR carries.
+  Test with `git merge-base --is-ancestor origin/main <other-head>`; when it fails, use
+  `git merge-base origin/main <other-head>` as the base.
+- **`git apply --3way --check` answers "do the hunks land", never "does the tree work".**
+  It exited 0 on the broken probe above.
+- Compose with `git merge --no-edit` on a detached worktree: it is the operation the
+  human will actually perform, and it reports conflicts by file rather than by hunk.
+
+This is also recorded in `AGENTS.md` so the next pulse reconstructs it from the
+repository rather than from a session transcript.
