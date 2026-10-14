@@ -1558,3 +1558,31 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   on both; `+7 passed` == `--collect-only` 7 -> 14. Evidence:
   `docs/control-plane/evidence/security-lab-remote-userinfo-redaction-01/`. PR #451
   (draft); PR #448 closed as superseded.
+
+## A guard's *extraction* can redden the state it exists to bless (gate-hygiene)
+- `tests/test_prism_next_wave_composition_reconciliation_01.py` derives the lane-4 projection
+  markers from the corpus (each lane-4 contract test pins its mount literal against a variable
+  bound to the page). The extraction resolved page-bound locals **module-wide**, and
+  `tests/test_prism_w4_lab_read_model.py` reuses one local name for two pages: `page` is bound to
+  `EngineeringLabPage.tsx` in some tests and to `WeaverPage.tsx` in another, which pins the
+  Weaver-only `<LabWorkLoop`. Module-wide resolution therefore counted a **Weaver** mount as a
+  **Lab-page** projection, and the guard failed the **correct** four-lane union composition
+  (`1 failed, 9 passed`, `missing [\x27<LabWorkLoop\x27]`).
+- **The dangerous direction is a guard that fails the composition it exists to bless.** A false
+  positive here would block the merge and push a reviewer to drop a real user-visible surface to
+  satisfy the guard - the failure the guard was written to prevent. When a composition guard goes
+  red, first ask whether the guard's *extraction* is wrong before editing the composed tree.
+- **Repair: resolve bindings per test function, inheriting module-level bindings.** A
+  function-local assignment shadows the module-level binding; module-level page-bound names stay
+  visible inside a function that does not rebind them. That is Python's real scoping, which a flat
+  module-wide set cannot express. The derived set is then 8 markers (the 9th was the phantom).
+- **Do not "fix" it by dropping doubly-bound names.** A first cut that discarded every name bound
+  to more than one page fell to **4** markers, silently losing `<LabAgentRegistry`,
+  `<LabArtifactCanvas`, `<LabModelGateway`, `<LabSessionList` - which are pinned in functions whose
+  binding is *inherited* from the module prelude. The paired control
+  (`test_control_a_name_reused_for_a_sibling_page_does_not_leak`) asserts both that the phantom is
+  gone **and** that a genuine pin survives, so an over-correction fails the control.
+- Prove a composition guard in **four** directions, on the **real** file: silent on the correct
+  union and on clean `main`; red on a one-sided composition (a real worktree, two merges,
+  `git checkout --theirs`); and red on a genuine dropped mount. A negative control that reads a
+  fixture rather than the file the guard reads proves nothing.
