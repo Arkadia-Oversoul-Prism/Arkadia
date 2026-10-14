@@ -363,3 +363,90 @@ printf '<guard path>\n' | python scripts/cp10_mutation_boundary_policy.py --judg
 This is a **test-side** change; no lane source, page, or component is modified, so no
 lane's ownership is crossed and the composition hazard itself is untouched. Merge order
 remains the sovereign's. **Not performed:** no merge, no deploy, no acceptance.
+
+## 10. Binding resolution repair — the guard reddened the correct union (pass 2026-10-14)
+
+**Scope:** the guard's extraction only. No page, component, or lane source was edited.
+**Authority:** inspection, implementation, test only. No merge, deploy, or acceptance.
+
+### 10.1 Defect — a local name reused for a sibling page invented a projection
+
+§9 made the guard derive its marker set from the corpus, which was the right direction. The
+extraction then resolved page-bound locals **module-wide**, and one corpus module reuses a local
+name for two different pages: `tests/test_prism_w4_lab_read_model.py` binds `page` to
+`EngineeringLabPage.tsx` at `:97` and `:274`/`:320` and to `WeaverPage.tsx` at `:403`, where it
+pins a Weaver-only mount:
+
+```
+def test_weaver_page_mounts_the_work_loop_read_model():
+    page = _read(WEAVER_PAGE)
+    assert "import { LabWorkLoop }" in page
+    assert "<LabWorkLoop />" in page
+```
+
+Module-wide resolution therefore counted `<LabWorkLoop` as a Lab-page projection. Measured on the
+**correct** four-lane union composition (`#497 + #498 + #492 + #493` on `origin/main` `3ca8582a`,
+with both sides' imports and mounts retained and zero conflict markers):
+
+```
+FAILED tests/test_prism_next_wave_composition_reconciliation_01.py::test_a_mounted_lane4_projection_requires_all_of_them
+  AssertionError: EngineeringLabPage.tsx mounts a lane-4 projection but is missing ['<LabWorkLoop']
+  1 failed, 9 passed
+```
+
+This is a **false positive in the dangerous direction for this guard**: the composition it exists
+to bless was the one it rejected. Left standing, it would block the merge of the correct union and
+push a reviewer toward dropping a real surface to satisfy it.
+
+### 10.2 Repair — resolve bindings per test function, with module-level inheritance
+
+Bindings are now resolved **per test function** (`_page_locals_in_block`, split on
+`_FUNC_BLOCK = ^def`). A function-local assignment shadows the module-level binding, and
+module-level page-bound names are inherited into every function that does not rebind them — the
+semantics Python actually has, which the flat set could not express. Two consequences, both
+measured:
+
+- the phantom disappears: the derived set is **8** markers on the union, not 9 (the extra was
+  `<LabWorkLoop`), and every one of the 8 is mounted;
+- the real pins are **not** lost: a first cut that simply dropped doubly-bound names fell to 4
+  markers (losing `<LabAgentRegistry`, `<LabArtifactCanvas`, `<LabModelGateway`, `<LabSessionList`,
+  which are pinned in functions whose block-local binding is inherited from the module prelude).
+  Per-function resolution with inheritance keeps all 8.
+
+### 10.3 Proven on the real file, all four directions
+
+| tree | expectation | measured |
+|---|---|---|
+| correct four-lane union | silent | **11 passed** |
+| clean `main` (pristine worktree) | silent | **11 passed** |
+| one-sided composition (real worktree, 2 merges, `--theirs`) | red | **1 failed, 10 passed** |
+| genuine drop of `<LabAuthorityReadings` from the union | red | **2 failed, 9 passed** |
+
+The one-sided tree is a *real* worktree (`git merge` of
+`origin/feat/prism-next8-04-automation-grammar` and
+`origin/feat/prism-l4-lab-operational-projection-01`, then `git checkout --theirs
+EngineeringLabPage.tsx`), not a fixture, so the negative control reads the same file the guard
+reads. Restoring the dropped mount returns the union to 11 passed.
+
+### 10.4 Controls
+
+- `test_control_a_name_reused_for_a_sibling_page_does_not_leak` — the shape above: a local bound
+  to the page in one test and to a sibling page in another must not leak. Asserts both that
+  `<LabWorkLoop` is absent from the derived set **and** that the genuine `<LabSessionList` pin is
+  still present, so a fix that over-corrects (dropping all page locals) fails this control too.
+- the pre-existing absence-pin, empty-document, and positive-union controls are unchanged and
+  still pass.
+
+### 10.5 Verification and boundary
+
+```
+python -m pytest tests/test_prism_next_wave_composition_reconciliation_01.py -q   -> 11 passed
+lane corpus (8 files, guard + read-model + governance + operational + loop mount +
+  grammar + gateway + ci wiring)                                                  -> 149 passed
+python -m pytest -q $(python scripts/console_contract_domain.py)                  -> 526 passed
+python -m pytest tests/test_prism_console_ci_wiring.py -q                         -> 30 passed
+```
+
+Test-side change only: no lane source, page, or component is modified, so no lane's ownership is
+crossed and the composition hazard itself is untouched. Merge order remains the sovereign's.
+**Not performed:** no merge, no deploy, no acceptance.
