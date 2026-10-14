@@ -233,3 +233,32 @@ Both files were restored byte-identically and the suite returned **24 passed**.
 - `tests/test_prism_console_ci_wiring.py` derives the console-contract domain at
   test time; the new nodes are inside an already-tracked file, so the domain is
   unchanged and no wiring edit was needed.
+
+---
+
+## 10. Full-suite regression measurement (2026-10-14, head `629cd352`)
+
+One full pass (the contract's one-pass budget), run on the committed tree:
+
+```
+python -m pytest tests/ -q -rEf --continue-on-collection-errors
+-> 8 failed, 3009 passed, 20 skipped, 2 warnings, 1 error in 209.88s
+```
+
+**The failing/error node set is byte-identical to the §7 baseline.** Sorted node
+list (9 nodes) → sha256
+`c280ddc616fe4f4e9110bf4e6b6e538783a83d3764148d8a6d7ac45f6e8bc46b` — the same
+hash recorded in §7 at base `3ca8582a`. Zero regression: no node was added to,
+removed from, or moved within the set.
+
+**The passed delta is attributable by node identity.** §7 recorded `2997 passed`
+at the base; this pass records `3009 passed`. The `+12` is exactly the 12 nodes
+added to `tests/test_knowledge_graph_provenance_boundary.py` this pass (§9.2),
+confirmed by `--collect-only` → 24 on the committed file versus 12 on its parent
+blob. Compare node identity, never totals: the totals move with the node count.
+
+Every node in the failing set is pre-existing main debt unrelated to this lane
+(autonomy package collision, Engineering Lab API pins, SolSpire R1/R3 governance
+pins, identity-spine and ReasoMate pins). None references `knowledge/` or the
+console reader. **Not repaired here** — out of lane, and repairing the Lab pins
+would edit an authority surface (`api/lab_routes.py`).
