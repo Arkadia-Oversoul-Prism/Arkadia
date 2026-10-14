@@ -216,6 +216,10 @@ python -m pytest tests/ -q -rEf --continue-on-collection-errors
 -> 8 failed, 3107 passed, 20 skipped, 1 error in 214.78s
 ```
 
+The PR body carries the same node set from an earlier run of the same tree
+(`... in 215.95s`). The wall time differs because they are two runs; the node set and
+its sha256 below are identical. Neither is a second full pass in this pulse.
+
 The load-bearing artifact is the sorted FAILED/ERROR **node set**, not the counts.
 Branch node set (9 entries, sha256
 `215e4308371a01f5b0b73f1e2b5dca5bba30f6578f65bb7c8af6eca67bc8b741`):
