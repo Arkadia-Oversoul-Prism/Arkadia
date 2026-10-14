@@ -218,3 +218,140 @@ def test_negative_control_panel_does_not_hardcode_an_origin():
     the contract, never a value the surface invents."""
     source = PANEL_TSX.read_text(encoding="utf-8")
     assert not re.search(r"captured_by\s*=\s*\"", source)
+
+
+# ── handler side: the authorship dimension the projection also carries ───────
+
+def test_capture_with_a_declared_author_reports_it(client):
+    """The declared-author branch of the projection is reachable, so the reader
+    that renders it is bound to a real value rather than an unreachable one."""
+    capture_and_ingest(
+        source_kind="manual",
+        source_ref="l3://authored",
+        source_title="L3 Authored",
+        raw_content="body with a declared author",
+        content_kind="manual",
+        title="authored note",
+        authored_by=USER_A,
+        authored_by_kind="human",
+    )
+    graph = client.get("/api/knowledge/graph").json()
+    authorship = graph["nodes"][0]["provenance"]["authorship"]
+    assert authorship["declared"] is True
+    assert authorship["authored_by"] == USER_A
+    assert authorship["authored_by_kind"] == "human"
+
+
+def test_declared_author_with_unknown_kind_keeps_the_name(client):
+    """An actor declared without a nature is still a declared attribution: the
+    projection keeps the name and records the kind as UNKNOWN, never assuming
+    'human'. The reader must not upgrade that to a kind the contract withheld."""
+    capture_and_ingest(
+        source_kind="manual",
+        source_ref="l3://authored-unknown-kind",
+        source_title="L3 Authored Unknown Kind",
+        raw_content="body with a nameless-kind author",
+        content_kind="manual",
+        title="authored unknown kind note",
+        authored_by=USER_A,
+        authored_by_kind="unknown",
+    )
+    graph = client.get("/api/knowledge/graph").json()
+    authorship = graph["nodes"][0]["provenance"]["authorship"]
+    assert authorship["declared"] is True
+    assert authorship["authored_by"] == USER_A
+    assert authorship["authored_by_kind"] == "unknown"
+
+
+def test_unknown_projection_is_narrowed_to_the_state_literal(client):
+    """The declared contract for a note with no capture record.
+
+    ``knowledge.graph._attach_provenance`` does not forward
+    ``provenance_for_note``'s UNKNOWN dict verbatim — it replaces it with the
+    bare literal ``{"state": "UNKNOWN"}``. So an UNKNOWN node carries **no**
+    ``authorship`` (or ``source``) key at all, rather than an explicit
+    ``declared: False``. Pinned here because the reader must handle the absent
+    key, not a present-but-empty object: a reader that assumed the key exists
+    would throw on exactly the nodes whose origin is unknown.
+    """
+    create_note("plain note", "no capture record for this one", user_id=None)
+    graph = client.get("/api/knowledge/graph").json()
+    provenance = graph["nodes"][0]["provenance"]
+    assert provenance == {"state": "UNKNOWN"}
+    assert "authorship" not in provenance and "source" not in provenance
+
+
+# ── console side: the authorship reading, read from source ───────────────────
+
+def test_reader_declares_a_separate_authorship_reading():
+    source = _contracts_source()
+    assert "export function authorDeclared" in source
+    assert "export function summarizeAuthorship" in source
+    assert "export function authorshipReading" in source
+    assert "export function authorshipNotice" in source
+
+
+def test_reader_requires_both_declared_and_a_name_to_render_an_author():
+    """`declared: true` with an absent name is not an attribution. The reading
+    must demand the name too, not the flag alone."""
+    source = _contracts_source()
+    declared = source.split("export function authorDeclared", 1)[1].split("\n}", 1)[0]
+    assert "authorship?.declared" in declared
+    assert "authorship?.authored_by" in declared
+
+
+def test_authorship_reading_names_the_absence_never_a_person():
+    source = _contracts_source()
+    reading = source.split("export function authorshipReading", 1)[1].split("\n}", 1)[0]
+    assert "author not declared" in reading
+
+
+def test_authorship_notice_counts_reconcile_with_the_node_total():
+    """The undeclared share is stated against the whole readable set, not against
+    the captured subset alone."""
+    source = _contracts_source()
+    notice = source.split("export function authorshipNotice", 1)[1]
+    assert "summary.declared + summary.undeclared" in notice
+
+
+def test_panel_renders_the_authorship_reading():
+    source = PANEL_TSX.read_text(encoding="utf-8")
+    assert "summarizeAuthorship" in source
+    assert "authorshipReading" in source
+    assert 'data-testid="knowledge-graph-authorship"' in source
+    assert 'label: "author not declared"' in source
+
+
+def test_panel_row_reads_authorship_for_every_node(client):
+    """The per-node row carries the authorship reading alongside the origin, so a
+    node whose origin is UNKNOWN still states its authorship. Read from the row
+    template, which is what the reader emits for every node it renders."""
+    source = PANEL_TSX.read_text(encoding="utf-8")
+    row = source.split('data-testid="knowledge-graph-provenance-rows"', 1)[1]
+    assert "provenanceReading(node)" in row
+    assert "authorshipReading(node)" in row
+
+
+def test_authorship_summary_keys_off_the_same_predicate_as_the_reading():
+    """The count and the per-node reading must be derived from one predicate. If
+    the summariser bucketed on anything else, the declared count could disagree
+    with the rows it is printed above."""
+    source = _contracts_source()
+    summary = source.split("export function summarizeAuthorship", 1)[1].split("\n}", 1)[0]
+    assert "authorDeclared(node)" in summary
+
+
+def test_negative_control_an_authorship_blind_reader_is_not_the_contract():
+    """The projection carries authorship; a reader that ignored it would fail
+    here. This is the control that makes the authorship assertions load-bearing."""
+    contracts = _contracts_source()
+    panel = PANEL_TSX.read_text(encoding="utf-8")
+    assert "authorship" in contracts and "authorship" in panel
+
+
+def test_negative_control_panel_never_hardcodes_an_author():
+    """No literal author may appear in the panel — authorship is data from the
+    contract, never a value the surface invents."""
+    source = PANEL_TSX.read_text(encoding="utf-8")
+    assert not re.search(r"authored_by\s*=\s*\"", source)
+    assert not re.search(r"author\s*=\s*\"", source)

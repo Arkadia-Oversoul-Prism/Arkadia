@@ -46,7 +46,12 @@ export interface NodeProvenance {
 /** One note as the graph projection returns it. `user_id` is the private owner
  *  stamp; `null` means the public/legacy corpus. `provenance` is the GATE-01
  *  origin projection the handler attaches (`knowledge.graph._attach_provenance`),
- *  so it is declared optional only for a body that predates that projection. */
+ *  so it is declared optional only for a body that predates that projection.
+ *
+ *  For a node with no capture record the projection is narrowed to the bare
+ *  literal `{"state": "UNKNOWN"}` — no `source` and no `authorship` key at all.
+ *  Both sub-objects are therefore optional, and every reading below tolerates
+ *  their absence rather than assuming the capture-shaped object. */
 export interface GraphNode {
   id: number;
   uuid: string;
@@ -201,6 +206,63 @@ export function provenanceNotice(summary: ProvenanceSummary): string | null {
     `${summary.unknown} of ${summary.captured + summary.undeclared + summary.unknown} readable ` +
     "nodes carry no capture record. The contract reports their origin as UNKNOWN; this reader " +
     "shows that value rather than inferring an origin it was not given."
+  );
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * Authorship — the second dimension of the same projection
+ *
+ * `provenance_for_note` returns `authorship: {authored_by, authored_by_kind,
+ * declared}` alongside `source`. It is a *separate* fact from the origin: a note
+ * can carry a declared source and no declared author, and the reverse. Folding
+ * the two into one enum would collapse states the contract keeps apart, so
+ * authorship gets its own reading.
+ *
+ * Only `declared: true` **with a name present** is ever rendered as a name. The
+ * contract withholds the author by leaving the field unset; a reader that
+ * printed a placeholder, a user id, or the string "unknown" in that position
+ * would be inventing an attribution the boundary deliberately did not make.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/** Whether the contract declared an author for this node's capture. */
+export function authorDeclared(node: GraphNode): boolean {
+  const authorship = node.provenance?.authorship;
+  return Boolean(authorship?.declared) && Boolean(authorship?.authored_by);
+}
+
+export interface AuthorshipSummary {
+  declared: number;
+  undeclared: number;
+}
+
+/** Counted over every readable node, so the declared share reconciles with the
+ *  node total rather than with the captured subset alone. */
+export function summarizeAuthorship(graph: KnowledgeGraphData): AuthorshipSummary {
+  const summary: AuthorshipSummary = { declared: 0, undeclared: 0 };
+  for (const node of graph.nodes) {
+    summary[authorDeclared(node) ? "declared" : "undeclared"] += 1;
+  }
+  return summary;
+}
+
+/** The declared author, or a phrase naming the absence. Never a substitute. */
+export function authorshipReading(node: GraphNode): string {
+  const authorship = node.provenance?.authorship;
+  if (!authorDeclared(node)) return "author not declared";
+  const kind = authorship?.authored_by_kind ?? "unknown";
+  return kind && kind !== "unknown"
+    ? `author ${authorship?.authored_by} (${kind})`
+    : `author ${authorship?.authored_by}`;
+}
+
+/** Copy for the authorship reading. Stated only when there is something to
+ *  report: an all-declared scope has no boundary to describe. */
+export function authorshipNotice(summary: AuthorshipSummary): string | null {
+  if (summary.undeclared === 0) return null;
+  return (
+    `${summary.undeclared} of ${summary.declared + summary.undeclared} readable nodes carry a ` +
+    "capture whose author was not declared. This reader shows that absence rather than " +
+    "attributing the note to anyone."
   );
 }
 

@@ -16,8 +16,11 @@ import {
   isKnowledgeGraphData,
   summarizeGraph,
   summarizeProvenance,
+  summarizeAuthorship,
   provenanceReading,
   provenanceNotice,
+  authorshipReading,
+  authorshipNotice,
   scopeNotice,
   type KnowledgeGraphData,
   type ViewerKind,
@@ -61,6 +64,8 @@ function GraphReading({ graph, viewer }: { graph: KnowledgeGraphData; viewer: Vi
   const notice = scopeNotice(summary.scope, viewer);
   const provenance = summarizeProvenance(graph);
   const provenanceCopy = provenanceNotice(provenance);
+  const authorship = summarizeAuthorship(graph);
+  const authorshipCopy = authorshipNotice(authorship);
 
   return (
     <div className="flex flex-col gap-4">
@@ -72,6 +77,8 @@ function GraphReading({ graph, viewer }: { graph: KnowledgeGraphData; viewer: Vi
           { label: "viewer", value: viewer },
           { label: "captured origin", value: String(provenance.captured) },
           { label: "origin unknown", value: String(provenance.unknown) },
+          { label: "author declared", value: String(authorship.declared) },
+          { label: "author not declared", value: String(authorship.undeclared) },
         ]}
       />
 
@@ -87,11 +94,17 @@ function GraphReading({ graph, viewer }: { graph: KnowledgeGraphData; viewer: Vi
         </p>
       )}
 
+      {authorshipCopy && (
+        <p data-testid="knowledge-graph-authorship" className="text-sm text-white/50">
+          {authorshipCopy}
+        </p>
+      )}
+
       {graph.nodes.length > 0 && (
         <ul className="flex flex-col gap-1" data-testid="knowledge-graph-provenance-rows">
           {graph.nodes.slice(0, PROVENANCE_ROWS).map((node) => (
             <li key={node.id} className="font-mono text-[11px] text-white/60">
-              {node.title} · {provenanceReading(node)}
+              {node.title} · {provenanceReading(node)} · {authorshipReading(node)}
             </li>
           ))}
         </ul>
