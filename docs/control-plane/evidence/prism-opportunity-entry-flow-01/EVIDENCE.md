@@ -252,6 +252,13 @@ over every planned path → **PASS**.
   `test_create_normalizes_a_lowercase_status` as the control. `solspire/buyer_recon.py`
   is byte-identical to `main`; repairing it is a separate bounded change needing
   its own authorization (`SHARED-CONTRACTS` §1/§7.1).
+  - *Superseded at `7580bd8f` (2026-10-14):* repaired by
+    `fix/prism-l2-buyer-recon-status-normalization-01` (draft PR #538), authorized by
+    `SHARED-CONTRACTS` §7.1. `update_entry` now applies a normalised mapping, so
+    `PATCH {"status": "conversation"}` persists `CONVERSATION`. The pin
+    `test_update_does_not_normalize_a_lowercase_status` is rewritten as
+    `test_update_normalizes_a_lowercase_status` with two negative controls. See
+    `docs/control-plane/evidence/prism-l2-buyer-recon-status-normalization-01/EVIDENCE.md`.
 - **Runtime observation of this UI is NOT CLAIMED.** The build and the tests pass;
   no browser or deployed-runtime observation was made in this pass.
 - **Production deployment and acceptance are NOT CLAIMED.**
