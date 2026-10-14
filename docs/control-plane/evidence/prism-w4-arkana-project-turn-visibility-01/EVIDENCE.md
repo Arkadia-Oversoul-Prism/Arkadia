@@ -111,3 +111,31 @@ targeted oracle + the negative control). No baseline node set is claimed as chan
 ## 5. Authority
 
 Merge, deployment, and acceptance remain the human sovereign's. This PR is draft.
+
+---
+
+## 6. Pulse record — next-action block
+
+**Pulse:** PRISM-W4 · Lane 4 (Arkana / Weaver / Engineering Lab) · pass 1, 2026-10-14.
+**Starting `main`:** `3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3`.
+**Branch head:** `226aef2022f047cd4fe1cd3a88683478e451e2d2` (PR #531, draft).
+**Live state:** `OPEN` / `isDraft: true` / `mergeable: MERGEABLE` / `mergeStateStatus: CLEAN`.
+**CI:** 11/11 check-runs `completed/success` on the head (secret scan, boot-syntax, console-contract,
+test, provider-forensics, security-metadata, production-read-only-probe,
+native-arkadia-golden-workflow, bundle-beta-evidence, beta-beta-01-english, beta-beta-02-hausa).
+
+| | |
+|---|---|
+| **Current state** | Bounded backend repair complete, tested, pushed; PR open and draft. |
+| **Evidence** | This document; negative control 4F/14P with the fix reverted; targeted suite 39 passed; architecture 11 passed; CP10 judge PASS. |
+| **Blockers** | None for this slice. Production observation of the repair is **BLOCKED** on authorization (no deploy permitted to this workstream). |
+| **Authorized action (next pulse)** | Advance the oldest unadvanced lane. If Lane 4 is next again, the bounded candidate is the preserved `test_recorded_defect_bodyless_create_is_a_server_error` pin — re-point it to `400` and repair `create_arkana_thread` to tolerate a missing/empty body. That is mutation-side and must be its own bounded PR. |
+| **Forbidden** | Merge, deploy, force-push, mark ready, weaken the preserved pin, or edit any lane-1 shared file (`App.tsx`, `router.ts`, `surfaces.ts`, `endpoints.ts`, `types.ts`, `SurfaceLenses.tsx`). |
+| **Completion condition** | Sovereign reviews and merges; a post-merge deployment is observed serving the repaired handler; only then may production parity be claimed. |
+
+**Note on `AGENTS.md`:** two open PRs (#504, #482) currently touch `AGENTS.md`, so the lesson from
+this pulse is persisted here rather than appended to that contested shared file. The transferable
+lesson: *one thread, two canonical note shapes — when a reader understands only one producer's
+shape, the other producer's rows are silently dropped and the API reports an empty success, which is
+indistinguishable from a lost read. Pin the reader against every producer's shape, in both
+directions, or the empty state lies.*
