@@ -37,7 +37,43 @@ The existing Weaver MVP2 validation workflow path-filters these router/worker te
 
 ## Verification state
 
-**NOT YET VERIFIED on this branch.** The commits are proposed changes. Current-head CI must pass before the fix is described as verified. No local test execution is claimed. No merge, production deployment, acceptance, trajectory rewrite, or autonomous dispatch is claimed.
+**PARTIALLY VERIFIED (local, measured).** Current-head CI has not been re-run since the
+repair below; that remains the completion condition before the fix is called verified.
+
+### Regression repair (2026-10-14)
+
+The branch's reclassification of `merged_acceptance_pending` from *unrecognized* to a named
+non-routable gate left `tests/test_router_clean_stop_contract.py` (a file this branch did not
+touch) still using that status as its exemplar of an *unrecognized* frontier. Two nodes failed
+as a result — a branch-caused regression, not pre-existing `main` debt (measured: `11 passed`
+at base `49809f45`; `2 failed, 85 passed` on the branch head).
+
+The guard's documented purpose is preserved, not relaxed:
+
+- `test_unrecognized_frontier_is_not_a_clean_stop` now uses a genuinely out-of-schema status
+  (`awaiting_sovereign`), so the *unrecognized data defect* marker stays covered.
+- New `test_acceptance_pending_gate_is_named_not_unrecognized` pins the gate path: the frontier
+  is named by its status + the human-acceptance marker, is **not** reported as unrecognized, and
+  is **not** a clean stop.
+- `test_unroutable_frontier_reaches_the_sovereign_through_the_worker` now asserts the
+  acceptance-gate marker survives into a pushed `HIGH` `WEAVER_BLOCKED` event.
+
+Measured (branch head, local):
+
+- `tests/test_router_clean_stop_contract.py` + 6 router-adjacent files: **88 passed** (base: 86).
+  Node attribution by `--collect-only`: 25 -> 27 (+2 = the new guard).
+- Live negative control: removing `merged_acceptance_pending` from `NON_ROUTABLE_STATUSES` in
+  `weaver/engineering_router.py` reddens exactly the two gate-path nodes
+  (`2 failed, 10 passed`); the file is then restored byte-identically.
+
+**Pre-existing debt, not attributable to this branch:** `provider-routing` is failing on `main`
+itself (12 nodes: `test_autonomy.py` collection error, 4 `test_agents_md_encoding_adjudication`,
+`test_ais_w2_living_gate_grove_handoff`, 2 `test_engineering_lab_api`, `test_identity_spine_w1`,
+`test_m02_reasomate_truth`, 2 `test_solspire_r1_governance_convergence`,
+`test_solspire_r3_execution_runtime`). The branch adds zero nodes to that set.
+
+No merge, production deployment, acceptance, trajectory rewrite, or autonomous dispatch is
+claimed.
 
 ## Dispatch boundary
 
