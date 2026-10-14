@@ -213,13 +213,17 @@ def test_authority_lenses_point_at_declared_canonical_surfaces():
         assert f'case "{surface}":' in APP, f"no composition-root case for {surface}"
 
 
-def test_memory_lens_states_no_verified_contract():
-    """`memory` has no verified read contract — it must say so, not render data."""
-    block = re.search(r'\{section === "memory" &&\s*\((.*?)\n\s*\)\}', SOLARIUN, re.DOTALL)
-    assert block, "the memory lens has no content branch"
-    assert "NotYetWired" in block.group(1)
-    assert "UNKNOWN" in block.group(1)
-    assert "no verified read contract" in block.group(1)
+def test_memory_lens_mounts_the_personal_field_read_model():
+    """Superseded by PRR-08 (prism-recursive-recovery-08-memory-lens-field):
+    the memory lens reads the verified `GET /api/me/field` contract
+    (`api/echofeild.py::get_my_field`, registry member `endpoints.field`), so
+    the earlier honest not-wired state is replaced by the real read."""
+    assert 'section === "memory" && <PersonalFieldPanel />' in SOLARIUN, (
+        "the memory lens must mount the personal field read model"
+    )
+    assert "no verified read contract" not in SOLARIUN, (
+        "the superseded not-wired claim must be gone — the contract is verified"
+    )
 
 
 def test_unknown_section_renders_the_honest_not_a_lens_state():
