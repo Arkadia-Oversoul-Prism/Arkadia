@@ -450,3 +450,112 @@ python -m pytest tests/test_prism_console_ci_wiring.py -q                       
 Test-side change only: no lane source, page, or component is modified, so no lane's ownership is
 crossed and the composition hazard itself is untouched. Merge order remains the sovereign's.
 **Not performed:** no merge, no deploy, no acceptance.
+
+## 11. Next-wave composition — four lane-4 PRs measured as a union (pass 2026-10-14)
+
+Measured against live `main` `3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3`. No merge,
+no deploy, no acceptance — inspection, composition and test only.
+
+### 11.1 Inventory — lane-4 PRs writing the same page
+
+| PR | head | files touching the Lab surface |
+|----|------|--------------------------------|
+| #493 | `255d665f` | `EngineeringLabPage.tsx` (+ `LabAutomationGrammar`, grammar contract) |
+| #501 | `31d66332` | `EngineeringLabPage.tsx` (`ExecutionLoop` mount) |
+| #512 | `f8da5158` | `EngineeringLabPage.tsx` (+ `LabOperationalSurfaces`, `labOperational`) |
+| #524 | `aad8a986` | `EngineeringLabPage.tsx` (+ `LabAuthorityReadings`, `labGovernance`) |
+| #525 | `daef33c4` | `WeaverPage.tsx` (+ `LabWorkLoop`) — a *sibling* page, no page conflict |
+
+#504 (`1489d2bd`) is the composition guard + record, not a surface change.
+
+### 11.2 Textual conflict is real, and it is a union, not a disagreement
+
+Composing #493 -> #512 in a detached worktree conflicts on
+`web/arkadia_console/src/pages/EngineeringLabPage.tsx` (`UU`, 2 regions). Both sides add
+an independent import and an independent mount:
+
+- #493 adds `import { LabAutomationGrammar }` + `import { ExecutionLoop }` and their mounts;
+- #512 adds `import { LabOperationalSurfaces }` + `import { scalarOverview }` and its mount.
+
+Neither side is wrong. Resolving with either side alone drops the other lane's user-visible
+surface. The correct resolution is the **union** (both imports, both mounts). #524 then
+auto-merged with no further conflict.
+
+### 11.3 The composed union, verified
+
+Composed tree = `main` -> #493 -> #512 (union resolution) -> #524 -> #525.
+
+- lane-4 contract tests on the union: **160 passed** (`test_prism_w4_automation_grammar`,
+  `test_prism_w4_canonical_loop_mount`, `test_prism_w4_lab_operational_projection`,
+  `test_prism_w4_lab_governance_readings`, `test_prism_w4_lab_read_model`,
+  `test_lab_automation_grammar_contract`, `test_console_shell_nav_contract`,
+  `test_prism_next_wave_composition_reconciliation_01`).
+- the **fixed** derived guard (#504's `3305ec80`) is silent on the union: **11 passed**.
+- frontend `corepack pnpm build` (`tsc --noEmit && vite build`): **succeeds** — 91 modules,
+  `dist/assets/index-BH5cDjJK.js` 123.02 kB. A union of TS imports is not merely a text
+  merge; it type-checks.
+
+### 11.4 Negative control — a one-sided resolution reddens the guard
+
+Resolving the #493/#512 conflict to **one side only** (`--ours`, the #493 side) and running
+the fixed guard: **1 failed, 10 passed** —
+`AssertionError: ... is missing ['<LabOperationalSurfaces']`. The guard bites on the exact
+composition defect it exists to catch, on the real file.
+
+### 11.5 Composition hazard — merge order can silently revert the guard repair
+
+#493 carries the guard at the **pre-fix** blob `cad8bd65` (identical to #504's pre-repair
+blob). #504 carries it at the **fixed** blob `3305ec80`.
+
+Merging #504 **then** #493 produces an **add/add conflict** on the guard file
+(`git ls-files -u` -> stage 2 = `3305ec80`, stage 3 = `cad8bd65`). The natural conflict
+resolution (`git checkout --theirs`, i.e. take #493's branch) silently **reverts the repair**:
+
+- guard blob becomes `cad8bd65` again;
+- the guard still reports **5 passed** — no failure signal;
+- the repaired controls (`test_control_a_name_reused_for_a_sibling_page_does_not_leak`,
+  `test_control_a_module_not_binding_the_page_yields_nothing`, ...) and the derived-set
+  assertions are gone;
+- the one-sided `EngineeringLabPage.tsx` from #493 is accepted, so
+  `tests/test_prism_w4_lab_operational_projection.py` (a #512 file, present in the composed
+  tree) is left guarding a surface the page no longer mounts.
+
+**No single PR could observe this.** #493 was branched before #504 existed; #504 is green
+alone; #493 is green alone. The defect is purely in the composition.
+
+**Merge-order rule for the sovereign:** the fixed guard (#504) must be the **surviving**
+version of `tests/test_prism_next_wave_composition_reconciliation_01.py`. If #493 is merged
+after #504, resolve that add/add conflict to `--ours` (#504's `3305ec80`), not `--theirs`.
+
+### 11.6 Repair — the revert is now detected, not merely recorded
+
+A reverted guard cannot police its own deletion, so the invariant lives in a sibling
+file the reverting side does not carry:
+`tests/test_prism_next_wave_composition_guard_integrity.py` asserts the composition
+guard still carries the per-function binding machinery (`_block_bindings`,
+`_page_locals_in_block`) and the controls that prove it (the non-empty-set assertion
+and the two controls). It is a pure function over source text
+(`missing_features`), so the controls need no worktree.
+
+- Negative control, synthetic: the detector reports all five features missing from a
+  pre-repair-shaped source (`test_negative_control_the_pre_repair_shape_is_reported`).
+- Negative control, **real**: replacing the live guard file with the pre-repair blob
+  `cad8bd65` reddens it — **1 failed, 2 passed**; restoring `3305ec80` returns
+  **3 passed**. Proven by mutating the real file and restoring it byte-identically.
+- Positive control: a source carrying every feature yields no gap.
+
+The module names the console page path, so it enters the console-contract guard
+**domain** (`scripts/console_contract_domain.py`, derived at test time). Measured: the
+domain grows 22 -> 23 and `tests/test_prism_console_ci_wiring.py` stays **30 passed** —
+the gate executes the integrity check without editing the workflow, so the file is not
+a guard no gate runs.
+
+Test-side only: no lane source, page, or component is modified, so no lane ownership is
+crossed. The composition hazard itself is untouched; merge order remains the sovereign's.
+
+### 11.7 Boundary
+
+Inspection / composition / test only. No merge, no deploy, no acceptance. Production parity
+and canonical-deployment acceptance remain **NOT CLAIMED**; ADR-016's single canonical origin
+is unchanged. Human merge authority is final.
+
