@@ -1558,3 +1558,24 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   on both; `+7 passed` == `--collect-only` 7 -> 14. Evidence:
   `docs/control-plane/evidence/security-lab-remote-userinfo-redaction-01/`. PR #451
   (draft); PR #448 closed as superseded.
+
+## Composition is a branch merge, not a single-file patch (parallel-lane gate-hygiene)
+- Two open PRs in the same lane can touch the same test file without conflicting. Verified here:
+  `#538` (`solspire/buyer_recon.py` + `tests/test_prism_opportunity_entry_flow.py`) and `#492`
+  (`feat/prism-next7-02-pipeline-strip`, which rewrites the opportunity/NovaNet frontend and appends
+  to the same test file). `git merge --no-edit <#492 head>` onto the #538 branch in a detached
+  worktree produced **zero unmerged files**, and the composed entry-flow module is **83 passed**.
+- **A one-file patch is not a composition.** Applying only #492's diff of that single test file read
+  `7 failed / 37 errors` — not a conflict, but the missing frontend (`ProspectEntryForm.tsx`,
+  `ProjectOpportunityRadar.tsx`, the `novaNet/**` components) that #492's new assertions exercise.
+  A partial tree produces failures that look like a merge problem and are not one.
+- **Diff against the other PR's own merge base, not against your HEAD.** `git diff HEAD <other-head>`
+  silently reverts every unrelated `main` advance between the two branches, so the patch you test is
+  not the patch the other PR contains. Check with
+  `git merge-base --is-ancestor origin/main <other-head>`; when it fails, use
+  `git merge-base origin/main <other-head>` as the base.
+- **`git apply --3way --check` is textual only and passes on a semantically broken composition.**
+  It exited 0 on the bad probe above. It answers "do the hunks land", never "does the tree work".
+  Compose the branch and run the tests.
+- Prefer `git merge --no-edit` on a worktree over patch surgery: it is the operation the human will
+  actually perform, and it reports conflicts by file rather than by hunk.
