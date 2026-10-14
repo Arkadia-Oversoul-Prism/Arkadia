@@ -102,7 +102,35 @@ Pre-existing failures recorded, **not** attributed to this slice and **not** rep
 This slice adds **+8** test nodes (5 new artifact tests + 3 new contract guards) and changes
 no source outside its own feature-local files, so no baseline node can change fingerprint.
 
-## 6. Remaining uncertainty
+## 7. CI at head `f6000f07` (runtime-observed, not inferred)
+
+All 9 workflow runs on the head are `completed/success`: `security-secret-scan`,
+`SG-02-FE.2-V` (the CP10 mutation boundary), `Boot Syntax Boundary`, `Prism Console
+Contract`, `Canonical Render Runtime Probe`, `N-ATLAS Developer Lab`, `N-ATLAS external
+beta validation`, `economic-seam-engine`, `N-ATLAS provider forensics`.
+
+Read from the step log, not the job conclusion:
+
+```
+Prism Console Contract · "Verify the console contract guards" -> 559 passed in 24.70s
+Prism Console Contract · "Console-contract CI-wiring guard"   -> 30 passed in 5.02s
+```
+
+**Vercel boundary:** `[.check_runs[].name | select(test("Vercel";"i"))]` on this head is
+`[]` — no Vercel deployment was triggered by this branch push, consistent with the
+post-disconnect expectation in the overnight contract. Recorded as an observation, not as
+provider-configuration proof.
+
+CP10 judged the branch diff directly:
+
+```
+git diff --name-only main...HEAD | python scripts/cp10_mutation_boundary_policy.py --judge
+-> Mutation boundary PASS (M02A legitimate-surface + constitutional denylist), exit 0
+```
+
+`api/main.py` diff against `main`: **0 lines**.
+
+## 8. Remaining uncertainty
 
 - The two touched test files' node count is the attribution basis; a second full-suite run
   was deliberately not performed (time budget, and the change is source-additive within
