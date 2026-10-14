@@ -22,6 +22,7 @@ import yaml
 
 from weaver.engineering_router import (
     ACTIVE_STATUSES,
+    NON_ROUTABLE_STATUSES,
     TERMINAL_DONE,
     _load_yaml,
     select_next_move,
@@ -43,14 +44,34 @@ def test_status_vocabularies_are_disjoint():
     assert ACTIVE_STATUSES.isdisjoint(TERMINAL_DONE)
 
 
-def test_unrecognized_status_is_reported_not_silently_skipped():
+def test_schema_valid_acceptance_pending_is_named_as_a_gate_not_an_unknown_status():
     move, blockers = select_next_move(
         _traj([{"id": "A", "status": "merged_acceptance_pending", "spec": "s.md"}])
     )
     assert move is None
     joined = " ".join(blockers)
-    assert "unrecognized move status" in joined
+    assert "unrecognized move status" not in joined
     assert "A" in joined and "merged_acceptance_pending" in joined
+    assert "human review/acceptance evidence required" in joined
+    assert not any("no legal pending move" in b for b in blockers)
+
+
+def test_merged_pr_status_does_not_satisfy_acceptance_or_dependencies():
+    from weaver.engineering_router import _move_done
+
+    assert "merged" in NON_ROUTABLE_STATUSES
+    assert "merged" not in TERMINAL_DONE
+    assert not _move_done({"id": "A", "status": "merged"}, {})
+    move, blockers = select_next_move(
+        _traj([
+            {"id": "A", "status": "merged", "spec": "s.md"},
+            {"id": "B", "status": "pending", "spec": "s.md", "depends_on": ["A"]},
+        ])
+    )
+    assert move is None
+    joined = " ".join(blockers)
+    assert "A" in joined and "merged" in joined
+    assert "B" in joined and "dependency-blocked frontier" in joined
 
 
 def test_unrecognized_status_is_not_misreported_as_all_complete():
@@ -70,8 +91,8 @@ def test_every_unrecognized_move_is_named():
     _, blockers = select_next_move(
         _traj(
             [
-                {"id": "A", "status": "merged_acceptance_pending", "spec": "s.md"},
-                {"id": "B", "status": "awaiting_sovereign", "spec": "s.md"},
+                {"id": "A", "status": "awaiting_sovereign", "spec": "s.md"},
+                {"id": "B", "status": "quantum_pending", "spec": "s.md"},
             ]
         )
     )
@@ -185,7 +206,7 @@ def test_live_scheduler_trajectory_never_silently_skips():
         joined = " ".join(blockers)
         unrecognized_present = any(
             str(m.get("status", "pending")).lower()
-            not in ACTIVE_STATUSES | TERMINAL_DONE
+            not in ACTIVE_STATUSES | TERMINAL_DONE | NON_ROUTABLE_STATUSES
             for m in data["moves"]
             if str(m.get("status", "pending")).lower() not in TERMINAL_DONE
         )

@@ -1,5 +1,7 @@
 # EVIDENCE — gate07/trajectory-status-vocabulary-decision-01
 
+> **Superseding implementation disposition — 2026-10-12:** The user subsequently directed that the control plane be corrected. The conservative implementation is recorded at `docs/control-plane/evidence/weaver-schema-status-semantics-2026-10-12/EVIDENCE.md` on PR branch `fix/weaver-schema-status-semantics-2026-10-12`. It does **not** add `merged_acceptance_pending` to active statuses or mark it done. Instead, `merged`, `merged_acceptance_pending`, `blocked`, `failed`, and `aborted` become explicit non-routable gates; only `completed`/`accepted` are terminal. This supersedes the earlier recommendation to leave schema-valid states outside router classification, while preserving its central safety rule: a merge does not satisfy acceptance and gated dependencies remain blocked. The implementation remains unverified until current-head CI passes.
+
 Workstream: `gate07/durable-weaver-loop` (GATE-07)
 Move class: bounded **verification + decision record** (no gate promotion, no authority
 change, no subject-PR mutation)
