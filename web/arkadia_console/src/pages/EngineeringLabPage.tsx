@@ -3,10 +3,19 @@ import { LabSessionList } from "../components/lab/LabSessionList";
 import { LabArtifactCanvas } from "../components/lab/LabArtifactCanvas";
 import { LabAgentRegistry } from "../components/lab/LabAgentRegistry";
 import { LabModelGateway } from "../components/lab/LabModelGateway";
+import { ExecutionLoop } from "../components/lab/ExecutionLoop";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
 import { endpoints } from "../lib/endpoints";
 import type { NAtlasCatalog } from "../lib/types";
+
+/** The runtime's own loop definition, read straight from the overview payload.
+ *  A malformed payload yields no stages, so the surface reports an unfilled
+ *  definition rather than inferring one. */
+function readLoopStages(overview: Record<string, unknown> | null): string[] {
+  const loop = overview?.loop;
+  return Array.isArray(loop) ? loop.filter((stage): stage is string => typeof stage === "string") : [];
+}
 
 export function EngineeringLabPage() {
   const overview = useHydration<Record<string, unknown>>(endpoints.labEngineeringOverview, (p) =>
@@ -48,6 +57,8 @@ export function EngineeringLabPage() {
           This reports the deployment's effective configuration, not repository defaults.
         </p>
       </Panel>
+
+      <ExecutionLoop stages={readLoopStages(overview.state === "ready" ? overview.data : null)} />
 
       <LabSessionList />
 
