@@ -77,3 +77,17 @@ export function labSession(sessionId: string): string {
 export function labCanvas(artifactId: string): string {
   return `${endpoints.labArtifacts.replace(/\/artifacts$/, "/canvas")}/${encodeURIComponent(artifactId)}`;
 }
+
+/**
+ * `GET /solspire/projects/{project_id}/runtime-context` — the bounded project
+ * runtime-context projection (owner-scoped). Handler verified at
+ * `solspire/console_router.py::project_runtime_context`, mounted under the
+ * `/solspire` router with `require_auth` + `require_project_owner`.
+ *
+ * The sub-resource is derived from the declared `solspireProjects` collection
+ * so the base cannot drift from the registry, and the id is percent-encoded so
+ * an id containing `/`, `?` or `#` cannot address a different route.
+ */
+export function solspireProjectRuntime(projectId: string): string {
+  return `${endpoints.solspireProjects}/${encodeURIComponent(projectId)}/runtime-context`;
+}
