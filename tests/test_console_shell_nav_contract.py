@@ -329,6 +329,67 @@ def _js_route_resolver(router_text: str) -> dict:
     return dict(zip(probes, json.loads(result.stdout)))
 
 
+def _strip_types(source: str) -> str:
+    source = re.sub(r"^import[^;]+;\s*$", "", source, flags=re.MULTILINE)
+    source = re.sub(r"^export\s+", "", source, flags=re.MULTILINE)
+    source = re.sub(
+        r":\s*(?:SurfaceId|SurfaceDef\[\]|Route|string|boolean|Record<[^>]*>)\b", "", source
+    )
+    return source
+
+
+def _reread_canonical_paths(router_text: str) -> list[tuple[str, str, str]]:
+    """Inbound paths whose canonical path the router does not read back unchanged.
+
+    `useRouter` resolves the inbound pathname and `replaceState`s the canonical
+    path on load, so a canonical path that resolves to something *else* is a
+    shared link the normalisation silently rewrites -- the class this guard exists
+    to prevent. Returns `(inbound, canonical, reread)` for every offender.
+    """
+    import json
+    import shutil
+    import subprocess
+
+    node = shutil.which("node")
+    surfaces = _strip_types(SURFACES_PATH.read_text(encoding="utf-8"))
+    router = _strip_types(router_text).replace("as const", "")
+    probes = [
+        "/nexus",
+        "/nexus/ims",
+        "/nexus/a/b",
+        "/nexus/a/b/c",
+        "/oracle/x",
+        "/commune/x/y",
+        "/novanet",
+        "/novanet/ims",
+        "/novanet/a/b",
+        "/solariun/knowledge",
+        "/solariun/a/b",
+        "/",
+        "/login/",
+        "/invented",
+    ]
+    script = (
+        surfaces
+        + "\n"
+        + router
+        + "\n"
+        + f"const probes = {json.dumps(probes)};\n"
+        + "console.log(JSON.stringify(probes.map((p) => {\n"
+        + "  const a = resolvePath(p).path;\n"
+        + "  return [p, a, resolvePath(a).path];\n"
+        + "})));\n"
+    )
+    result = subprocess.run(
+        [node, "-e", script],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, f"router evaluation failed: {result.stderr.strip()}"
+    return [tuple(row) for row in json.loads(result.stdout) if row[1] != row[2]]
+
+
 def _normalises_on_load(router_text: str) -> bool:
     """True when the router writes a resolved canonical path back to the address bar.
 
@@ -525,8 +586,12 @@ def test_alias_sub_paths_resolve_into_the_target_surface():
         assert resolved[legacy] == f"/novanet{legacy.removeprefix('/nexus')}", (
             f"{legacy} must resolve into the novanet surface, got {resolved[legacy]!r}"
         )
-    # A deeper sub-path is still the aliased surface's section, not a discard.
-    assert resolved["/nexus/a/b"] == "/novanet/a/b", resolved
+    # A remainder deeper than one segment has no canonical address-bar form: a
+    # declared surface accepts a section only at `<surface>/<one segment>`
+    # (`SECTION_PATTERN`), so the alias resolves to the surface with no section
+    # rather than emitting a path the router cannot read back (see
+    # `test_the_alias_branch_emits_only_paths_the_router_reads_back`).
+    assert resolved["/nexus/a/b"] == "/novanet", resolved
     # The alias branch must not swallow a declared surface's own section.
     assert resolved["/novanet/ims"] == "/novanet/ims", resolved
     # And the exact alias roots are unchanged.
@@ -549,6 +614,34 @@ def test_detector_flags_a_router_that_matches_only_the_alias_root():
     )
     assert resolved["/nexus/grove"] == "/", resolved
     assert resolved["/nexus"] == "/novanet", resolved
+
+
+def test_the_alias_branch_emits_only_paths_the_router_reads_back():
+    """Every path the alias branch returns must be one `resolvePath` reads back
+    unchanged, or the normalisation-on-load rewrites the shared link.
+
+    A two-segment remainder (`/nexus/a/b`) is the case: the aliased surface
+    resolved it but its canonical path `/novanet/a/b` is not a `<surface>/<one
+    segment>` section, so re-reading it fell through to `home` and the
+    address-bar normalisation rewrote the link to `/` -- the silent discard this
+    slice exists to prevent, restored through a second door.
+    """
+    assert _reread_canonical_paths(ROUTER) == [], (
+        "the router emits a canonical path it does not read back unchanged"
+    )
+
+
+def test_detector_flags_a_canonical_path_the_router_does_not_read_back():
+    """Negative control: the pre-repair shape -- the remainder joined at any depth
+    -- must reproduce a non-idempotent canonical path, so the guard above is not
+    trivially true."""
+    stale = ROUTER.replace(
+        "const section = segments.length === 2 ? segments[1] : undefined;",
+        'const section = segments.length > 1 ? segments.slice(1).join("/") : undefined;',
+    )
+    assert stale != ROUTER, "control did not mutate router.ts -- detector unproven"
+    offenders = _reread_canonical_paths(stale)
+    assert ("/nexus/a/b", "/novanet/a/b", "/") in offenders, offenders
 
 
 def test_detector_flags_an_alias_to_an_undeclared_surface():

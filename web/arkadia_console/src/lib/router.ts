@@ -55,7 +55,16 @@ export function resolvePath(pathname: string): Route {
   const segments = path.split("/").filter(Boolean);
   const alias = PATH_ALIASES[`/${segments[0] ?? ""}`];
   if (alias) {
-    const section = segments.length > 1 ? segments.slice(1).join("/") : undefined;
+    // Only a *single* remainder segment is a section. A declared surface accepts
+    // a section only when the whole path is `<surface>/<one segment>`
+    // (`SECTION_PATTERN`), so a two-segment remainder (`/nexus/a/b`) has no
+    // canonical path: the aliased surface resolves it, but its address-bar form
+    // falls through to `home`, and the normalisation on load would then rewrite a
+    // shared `/nexus/a/b` link to `/`, discarding it again. Carrying only the
+    // supported depth keeps every returned path one the resolver reads back
+    // unchanged — `/nexus/ims` still reaches NovaNet, and the alias branch cannot
+    // emit a path the router itself does not understand.
+    const section = segments.length === 2 ? segments[1] : undefined;
     const base = SURFACE_BY_ID[alias].path;
     return { surface: alias, section, path: section ? `${base}/${section}` : base };
   }
