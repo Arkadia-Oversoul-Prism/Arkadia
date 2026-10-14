@@ -268,3 +268,98 @@ So the guard is silent pre-composition, red on a one-sided merge, green on the u
 **Not performed:** no merge, no deploy, no acceptance. §8 is a measurement of live branch heads,
 not a merge recommendation. The sovereign still chooses the merge order; a PR that is *subsumed*
 (#501) is not thereby *approved* — closing it is a sovereign action, recorded here as a proposal.
+
+## 9. Composition guard derivation repair (pass 2026-10-14)
+
+**Scope:** the guard's *domain*. No page, component, or lane source was edited.
+**Authority:** inspection, implementation, test only. No merge, deploy, or acceptance.
+
+### 9.1 Defect — the guard judged a hand-maintained table, not the lane-4 set
+
+§8 wrote the guard with a static projection table of two entries
+(`<LabAutomationGrammar`, `<ExecutionLoop`). Lane 4 has since grown two more
+projections, and the table could not see them. Measured at the live heads
+(2026-10-14), the guard is green on every one of them while remaining blind to the
+mount that the tree in question actually adds:
+
+| tree | page mounts | guard markers known | guard verdict |
+|---|---|---|---|
+| `main` | AgentRegistry, ArtifactCanvas, ModelGateway, SessionList | 2 | 5 passed |
+| `#493` | + `ExecutionLoop`, `LabAutomationGrammar` | 2 | 5 passed |
+| `#512` | + `LabOperationalSurfaces` | 2 | 5 passed |
+| `#524` | + `LabAuthorityReadings` | 2 | 5 passed |
+
+**One-sided composition, measured.** Composing #512 x #524 in a worktree
+(`git apply --3way`, no conflict markers) yields a page mounting *both* new
+surfaces — 5 passed. Then dropping only the `<LabAuthorityReadings` mount, the shape
+a one-sided conflict resolution produces, still reported:
+
+```
+.....                                             [100%]
+5 passed in 0.08s
+```
+
+That is the defect: the negative control in §8.3 was proven with a marker the *table*
+names (`<LabAutomationGrammar`). For a projection the table does not name, the guard
+has no negative control at all and reports success on a page that lost a lane's
+user-visible surface.
+
+### 9.2 Repair — derive the projection set from the corpus
+
+`tests/test_prism_next_wave_composition_reconciliation_01.py` now derives its markers
+rather than restating them. Each lane-4 contract test already pins its projection with
+a literal mount assertion against a variable bound to the page
+(`assert "<LabX" in page`); the detector reads those same literals via
+`projections_in_module()` and maps each marker to its pinning test. Two invariants are
+stated:
+
+1. every derived projection present in the page implies **all** of them are present
+   (silent pre-composition, so a tree that legitimately carries no lane is not reddened);
+2. every lane-4 component the page *imports* from `components/lab/` is also *rendered*
+   — the merge-loss shape where a hand-resolved merge keeps the `import` and drops the
+   render.
+
+Derived set per tree: `main` 4, `#493` 6, `#512` 5, `#524` 5.
+
+### 9.3 Proven on the real file, both directions
+
+```
+one-sided composed tree (LabAuthorityReadings dropped):
+  FAILED test_a_mounted_lane4_projection_requires_all_of_them
+  FAILED test_every_imported_lane4_component_is_rendered
+  2 failed, 8 passed
+
+restored composed tree:                      10 passed
+main / #493 / #512 / #524 (coherent trees):  10 passed each
+```
+
+Controls, all in-file: the negative control drops a marker from the **derived** set, so
+it fails if the guard regresses to a static table; a positive control asserts the union
+is silent; and a paired control proves `assert "X" not in page` (an *absence* pin, as in
+#512's own surface contract) does not enter the marker set. **The absence-pin control was
+itself proven to have teeth:** widening both detectors to `(?:not\s+)?in` reddens it
+(`1 failed, 9 passed`), and the guard restores byte-identically to `10 passed`.
+
+### 9.4 CI execution site — corrected measurement
+
+An earlier reconnaissance note in this pass claimed the guard was referenced by no
+workflow. That was a **false negative from grepping the literal path**: the console gate
+executes its inventory through the *derived* domain
+(`python -m pytest -q $(python scripts/console_contract_domain.py)`), which lists
+`tests/test_prism_next_wave_composition_reconciliation_01.py` (domain size 22 on this
+tree). `tests/test_prism_console_ci_wiring.py` -> 30 passed. No wiring change is needed,
+and none was made.
+
+### 9.5 Verification and boundary
+
+```
+python -m pytest tests/test_prism_next_wave_composition_reconciliation_01.py -q  -> 10 passed
+python -m pytest tests/test_prism_next_wave_composition_reconciliation_01.py \
+    tests/test_prism_console_ci_wiring.py tests/test_m02a_ci_gate_integrity.py -q -> 106 passed
+python -m pytest tests/architecture -q                                          -> 11 passed
+printf '<guard path>\n' | python scripts/cp10_mutation_boundary_policy.py --judge -> ADMITTED
+```
+
+This is a **test-side** change; no lane source, page, or component is modified, so no
+lane's ownership is crossed and the composition hazard itself is untouched. Merge order
+remains the sovereign's. **Not performed:** no merge, no deploy, no acceptance.
