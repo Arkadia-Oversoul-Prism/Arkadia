@@ -31,16 +31,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { apiRequest } from "../../lib/apiClient";
 import { endpoints } from "../../lib/endpoints";
 import type { ArkanaThread, ArkanaThreadList, ArkanaThreadMessages } from "./arkanaThreadsContract";
-
-/** A timestamp the backend may return in either ISO-8601 or SQLite form. */
-function readableTime(value: string | null): string {
-  if (!value) return "—";
-  // SQLite's DATETIME default is `YYYY-MM-DD HH:MM:SS` (space, no zone); the
-  // browser parses that inconsistently, so normalise it to ISO before parsing.
-  const normalized = value.includes("T") ? value : value.replace(" ", "T");
-  const parsed = new Date(normalized);
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
-}
+import { readableTime } from "./arkanaThreadTime";
 
 function MessageList({ uuid }: { uuid: string }) {
   // Anchor the parameterised sub-resource on the declared collection: the
