@@ -173,3 +173,19 @@ are all unmodified; the change is two presentation files.
 - `Shell.tsx:115` (global search) has no focus cue of its own; the shared ring now
   covers it. Whether it should also carry a `focus:border-*` is a separate, small
   design decision left to Lane 1 rather than widened into this slice.
+### CI confirmation — measured, not asserted
+
+Read from the run log, not from the job conclusion.
+
+- **`console-contract` (run `38544636238`) — PASS.** Step log: `Verify the console contract
+  guards` ✓ and `Console-contract CI-wiring guard` ✓. This is the runtime proof that the new
+  guard is *executed*, not merely admitted to the derived domain (26 -> 27).
+- Also green on head `83f049ca`: `backend`, `frontend`, `test`, `boot-syntax`,
+  `production-read-only-probe`, `provider-forensics`, `bundle-beta-evidence`,
+  `native-arkadia-golden-workflow`, `beta-beta-01-english`, `beta-beta-02-hausa`,
+  `Full-history secret scan`.
+
+Still in flight at the time of writing (not failures): the two Docker image builds
+(`Build canonical Render image`, `Build and smoke-test the N-ATLAS self-host image`) and
+`validate`. PR stays **draft**; the two Vercel commit statuses are the known pre-existing
+failure on `main` itself and are not attributable to this branch.
