@@ -102,3 +102,35 @@ No backend file was touched: the route already exists.
   else is wired (a control with no verified handler would be decorative).
 - Baseline debt on `main` was not repaired or attributed to this change; the delta is the
   new guard's own nodes only.
+
+## Full-suite attribution (measured, one pass — no second full run)
+
+`python -m pytest tests/ -q -rEf --continue-on-collection-errors` at head `d4b9c1fe`:
+
+```
+8 failed, 3032 passed, 17 skipped, 2 warnings, 1 error in 217.03s
+```
+
+Failing/error node set (9 nodes) sha256
+`c280ddc616fe4f4e9110bf4e6b6e538783a83d3764148d8a6d7ac45f6e8bc46b`.
+
+The same seven files that carry those nodes were then measured on a detached worktree at
+`origin/main` (`2a1bca75`) in the **same environment** — `8 failed, 35 passed, 1 error` —
+and the sorted failing/error node list is **byte-identical** (`diff` empty, same sha256):
+
+```
+ERROR  tests/test_autonomy.py
+FAILED tests/test_ais_w2_living_gate_grove_handoff.py::test_no_firebase_persistence_in_gate
+FAILED tests/test_engineering_lab_api.py::test_lab_mutation_endpoints_are_exactly_the_lab_state_set
+FAILED tests/test_engineering_lab_api.py::test_lab_router_is_read_only_and_authenticated
+FAILED tests/test_identity_spine_w1.py::test_node_entry_is_ais_signup_not_a_separate_diagnostic_route
+FAILED tests/test_m02_reasomate_truth.py::test_oracle_runtime_uses_the_shared_session_key
+FAILED tests/test_solspire_r1_governance_convergence.py::test_r1_solspire_builders_delegate_to_weaver
+FAILED tests/test_solspire_r1_governance_convergence.py::test_r1_weaver_governance_is_canonical
+FAILED tests/test_solspire_r3_execution_runtime.py::test_runtime_is_explicitly_non_governed_and_blocks_mutation_tools
+```
+
+Zero node-set delta; no node from this change's guard is in the failing set. The absolute
+counts (`3032 passed` here vs the lower totals recorded in `AGENTS.md`) are
+dependency-set dependent in this sandbox — **compare node identity, never totals**. This is
+a record of pre-existing `main` debt, not attributed to, and not repaired by, this slice.
