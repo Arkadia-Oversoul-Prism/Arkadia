@@ -274,3 +274,31 @@ produced a failure shape that reads exactly like a merge conflict.
 
 This is also recorded in `AGENTS.md` so the next pulse reconstructs it from the
 repository rather than from a session transcript.
+
+## 11. Next-action block (deterministic; resume without conversational memory)
+
+**Current state.** Branch `fix/prism-l2-buyer-recon-status-normalization-01`, head
+`5f75b053`, pushed. PR #538 open, draft, `MERGEABLE`. All 12 check-runs on the head are
+`pass`; the console-contract gate reports `548 passed` and the `test` gate reports real
+executions (read from the step logs, not from the job conclusions). `origin/main` is
+`7580bd8f` and moved zero times during this pulse.
+
+**Evidence.** This document. Failing/error node set sha256
+`215e4308371a01f5b0b73f1e2b5dca5bba30f6578f65bb7c8af6eca67bc8b741` (9 entries), each
+re-run and failing on `main` too. `--collect-only` `48 -> 50` = the two new negative
+controls. Composition with #492 clean, composed module `83 passed`, revert-only control
+`1 failed, 82 passed`.
+
+**Blockers.** None for this slice. #492 is behind `main`; it must be rebased before the
+two can be composed for real, and that rebase is #492's own lane work.
+
+**Authorized action.** Merge review of #538 is the sovereign's. Nothing further is
+authorized in this lane without a new bounded slice.
+
+**Forbidden.** Merge, deploy, mark ready, claim production parity, widen the slice into
+`evidence_status`/`evidence` capture (gated on an independently verified owner- and
+board-scoped handler, per `prism-opportunity-entry-flow-01` section 7), or repair
+`tests/fixtures/baseline_node_set.txt`.
+
+**Completion condition for this workstream.** The sovereign merges or closes #538. On
+merge, open the lane's next bounded PR from the new `main`; do not continue this one.
