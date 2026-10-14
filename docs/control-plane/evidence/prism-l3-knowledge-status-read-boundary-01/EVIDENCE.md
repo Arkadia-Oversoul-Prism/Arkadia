@@ -80,3 +80,48 @@ controls close that:
 Lane 3 owns Solariun/Knowledge OS page modules and their feature-local components/tests.
 This slice touches only Lane-3 files plus a new Lane-3 test. No file owned by Lanes 1, 2 or 4
 was edited. Human retains merge, deployment and acceptance authority.
+
+## 7. CI execution (runtime evidence, not a source claim)
+
+Branch head `d2c00b1c1fea838c49da4871a0d9e7a6f202314a`, PR #534. All **14** completed
+check-runs on that commit are `completed/success`.
+
+The gate that matters is `Prism Console Contract` (run `38549361027`). Its step log, not its
+conclusion, was read:
+
+```
+console-contract  Verify the console contract guards  458 passed in 20.13s
+console-contract  Console-contract CI-wiring guard    30 passed in 4.93s
+```
+
+`458 passed` is the **derived** domain — `scripts/console_contract_domain.py` returned 26
+paths including `tests/test_knowledge_status_read_boundary.py`, and the workflow executes
+`pytest -q $(python scripts/console_contract_domain.py)`. So the new guard is executed by the
+existing gate with **no workflow edit**, and `tests/test_prism_console_ci_wiring.py` (30
+passed) judges that wiring. A green job alone would not have proved the guard *ran*; the step
+log does.
+
+## 8. Composition with the sibling Lane 3 PRs (measured, not assumed)
+
+Three open PRs also modify `web/arkadia_console/src/pages/knowledge/knowledgeContracts.ts`.
+Measured by applying each PR's diff to **this** head in a detached worktree
+(`git apply --3way`):
+
+| PR | Branch | Result | Nature |
+|---|---|---|---|
+| #498 | `feat/prism-next9-03-knowledge-timeline-paging` | **clean** | disjoint hunks (timeline region, lines ~246/301) |
+| #527 | `feat/prism-l3-graph-provenance-01` | **clean** | disjoint hunks (graph region, lines ~17/27/109) |
+| #509 | `feat/prism-lane3-project-detail-reader-01` | **conflict** | **EOF append collision only** |
+
+This slice's region is a single pure addition (`@@ -412,6 +412,79 @@`) between
+`projectNotice` and `projectTags` — nothing on `main` is rewritten.
+
+For #509 the conflict is **not** a design disagreement: both PRs append a block after
+`projectNotice`. Symbol sets are disjoint — #509 adds `isKnowledgeProject` /
+`projectRefusalNotice`; this slice adds `KnowledgeStatusReading` /
+`isKnowledgeStatusReading` / `statusFailureDetail` / `requireKnowledgeStatusReading`. The
+resolution is "keep both blocks". Recorded here so the next pass does not re-derive a
+conflict that is purely positional. Merge order remains the sovereign's.
+
+No symbol is re-declared against any sibling, so a composed tree has no redeclaration error
+independent of the textual conflict.
