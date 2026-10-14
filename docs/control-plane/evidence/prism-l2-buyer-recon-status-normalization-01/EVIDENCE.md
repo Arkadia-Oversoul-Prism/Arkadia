@@ -179,3 +179,29 @@ The `+2` is exactly the two new negative controls.
 Lane 2's next verified capability remains the `evidence_status` / `evidence`
 capture path, gated on an independently verified owner- and board-scoped handler,
 as recorded in `prism-opportunity-entry-flow-01` §7. Unrelated to this repair.
+
+## 8. Composition with the other open Lane-2 PR (#492)
+
+The other open Lane-2 PR, #492 (`feat/prism-next7-02-pipeline-strip`), also touches
+`tests/test_prism_opportunity_entry_flow.py`, so the composition was measured rather
+than assumed.
+
+`git -c user.name=... merge --no-edit acfbf521` onto this branch in a detached
+worktree: **clean, zero unmerged files**. On the composed tree:
+
+```
+python -m pytest tests/test_prism_opportunity_entry_flow.py -q -rEf
+-> 83 passed in 4.49s
+```
+
+with the repair assertions among them (9 passed on
+`-k "normaliz or defect_3 or off_vocabulary"`).
+
+**Recorded mis-step, so it is not repeated.** An earlier, cheaper probe applied
+*only* #492's diff of that one test file and read `7 failed / 37 errors`. That was
+not a real conflict: #492's additions depend on frontend files (`ProspectEntryForm.tsx`,
+`ProjectOpportunityRadar.tsx`, the `novaNet/**` components) that are absent from a
+test-file-only composition, and the diff was taken against a HEAD carrying unrelated
+`main` drift rather than against #492's own merge base. A single-file patch is not a
+composition; compose the branch and run the tests. `git apply --3way --check` is a
+textual check only, and it also passed on the broken probe.
