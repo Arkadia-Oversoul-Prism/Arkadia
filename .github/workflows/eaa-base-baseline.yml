@@ -3,6 +3,11 @@ on:
   pull_request:
     paths:
       - ".github/workflows/eaa-base-baseline.yml"
+      # This workflow executes `tests/test_autonomy.py` (twice: ignored in the broad
+      # run, then run alone to reproduce the CE-01 collection error), so a change to
+      # that file must select the gate that runs it. Without this entry the guard
+      # `tests/test_gate_filter_selection.py` correctly reports an omitted executed file.
+      - "tests/test_autonomy.py"
   workflow_dispatch:
 permissions:
   contents: read
