@@ -24,6 +24,7 @@ import { Page, Panel, ContractState, NotYetWired } from "../components/ui";
 import { SurfaceLenses } from "../components/SurfaceLenses";
 import { AuthorControls } from "../components/novaNet/AuthorControls";
 import { EngagementBar } from "../components/novaNet/EngagementBar";
+import { TransmissionComposer } from "../components/novaNet/TransmissionComposer";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -65,7 +66,7 @@ export function NovaNetPage({
   // The verified uid gates the author controls. It is the same identity the
   // backend resolves the owner from, so the client offers a mutation only where
   // the backend would accept it — it never decides ownership itself.
-  const { user } = useAuth();
+  const { user, profile, isAuthenticated } = useAuth();
   const myUid = user?.uid ?? null;
 
   return (
@@ -84,6 +85,14 @@ export function NovaNetPage({
             <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">
               Public field · {field.data ? `${field.data.total} transmissions` : "—"}
             </p>
+            {/* The archived field opened with a composer gated on the verified
+                identity. `POST /api/transmissions` is live; on success the feed
+                is re-read so the server's own list (and count) is shown. */}
+            <TransmissionComposer
+              isAuthenticated={isAuthenticated}
+              profile={profile}
+              onCreated={() => field.reload()}
+            />
             {field.state === "ready" && field.data ? (
               field.data.transmissions.length === 0 ? (
                 <p className="text-sm text-white/50">The field is quiet — no public transmissions yet.</p>
