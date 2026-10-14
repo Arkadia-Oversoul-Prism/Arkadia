@@ -127,3 +127,109 @@ Targeted proof on the committed tree:
 Render the same provenance reading on the single-project detail reader
 (`GET /api/knowledge/projects/{name_or_uuid}`) once its registry path builder is
 available — a Workstream 1 request, not an edit.
+
+---
+
+## 9. Authorship reader pass — and two corrections to the above (2026-10-14)
+
+**Head SHA:** `5f363f68` (branch `feat/prism-l3-graph-provenance-01`).
+**Bounded objective:** the projection attaches a **second** dimension per node —
+`authorship` (`authored_by`, `authored_by_kind`, `declared`) — beside `source`.
+The reader added in §3 read only `source`, so the contract's declared-authorship
+dimension was invisible. Add a separate authorship reading.
+
+### 9.1 Correction — the graph node shape for UNKNOWN (supersedes §1)
+
+§1 above states that `_attach_provenance` attaches the *full* UNKNOWN dict
+(`note_id`, `state`, `unknown`, `source`, `authorship`) to every node. **That is
+wrong, and it was measured this pass.** Read the source
+(`knowledge/graph.py::_attach_provenance`, lines 16–31):
+
+```python
+node["provenance"] = (
+    {"state": "UNKNOWN"} if provenance.get("state") == "UNKNOWN" else provenance
+)
+```
+
+The projection **narrows** an UNKNOWN capture projection to the bare literal
+`{"state": "UNKNOWN"}`. So on a graph node with no capture record there is **no**
+`authorship` key and **no** `source` key at all — not a present-but-empty
+sub-object. (`capture.provenance_for_note` does return the full dict; the graph
+projection is where the narrowing happens.) The reader must therefore tolerate the
+absent key. Pinned by
+`test_unknown_projection_is_narrowed_to_the_state_literal`, which asserts the node
+projection is exactly `{"state": "UNKNOWN"}`. §1's dict describes
+`provenance_for_note`, not the node.
+
+### 9.2 Correction — the node delta of the authorship commit
+
+The commit message for `5f363f68` says "was 22 before this change" and describes a
+`+9` node delta. **Measured, it is +12** and the file went **12 → 24**:
+
+```
+git show 5f363f68~1:tests/test_knowledge_graph_provenance_boundary.py | grep -c '^def test_'   -> 12
+grep -c '^def test_' tests/test_knowledge_graph_provenance_boundary.py                          -> 24
+```
+
+The 12 added nodes, by group: **3** handler-side projection controls
+(`test_capture_with_a_declared_author_reports_it`,
+`test_declared_author_with_unknown_kind_keeps_the_name`,
+`test_unknown_projection_is_narrowed_to_the_state_literal`), **7** console-side
+source readings, **2** negative controls. The commit message's `22` was the
+12-node file plus a stale recollection; the file never held 22. Force-push is
+forbidden, so the commit message stands as written and this section supersedes it.
+
+### 9.3 Changed paths (this pass)
+
+| Path | Change |
+|---|---|
+| `knowledgeContracts.ts` | adds `authorDeclared`, `summarizeAuthorship`, `authorshipReading`, `authorshipNotice`; documents the narrowed UNKNOWN node shape on `GraphNode`. |
+| `KnowledgeGraphPanel.tsx` | binds the authorship reading into `GraphReading` (declared/undeclared totals + copy) and into each node row beside the origin reading. |
+| `tests/test_knowledge_graph_provenance_boundary.py` | 12 new nodes (see §9.2). |
+
+No shared file is touched (`App.tsx`, `router.ts`, `surfaces.ts`, `endpoints.ts`,
+`types.ts`, `SurfaceLenses.tsx`). No backend file is modified.
+
+### 9.4 Verification (measured on the committed tree)
+
+| Command | Result |
+|---|---|
+| `python -m pytest tests/test_knowledge_graph_provenance_boundary.py -q -rEf` | **24 passed** |
+| `python -m pytest tests/test_knowledge*.py -q -rEf` (10 files) | **122 passed** |
+| `python -m pytest tests/architecture -q -rEf` | **11 passed** |
+| `cd web/arkadia_console && corepack pnpm build` | **exit 0** — `tsc --noEmit` clean, `vite build` → `dist/assets/index-D6wL-ywD.js` (103.07 kB) |
+
+No full-suite re-run this pulse (one-pass budget). No node in the knowledge or
+architecture suites changed state, so the §7 baseline node set is unchanged by
+this pass.
+
+### 9.5 Negative control (proved on the real files, not a fixture)
+
+1. Remove `· {authorshipReading(node)}` from the real
+   `KnowledgeGraphPanel.tsx` → `1 failed, 22 passed`
+   (`test_panel_row_reads_authorship_for_every_node`).
+2. Collapse `summary[authorDeclared(node) ? "declared" : "undeclared"]` to a
+   constant in the real `knowledgeContracts.ts` → `1 failed, 23 passed`
+   (`test_authorship_summary_keys_off_the_same_predicate_as_the_reading` — a guard
+   added **because** the first mutation alone did not redden the suite, so the
+   original control had a blind spot).
+
+Both files were restored byte-identically and the suite returned **24 passed**.
+
+### 9.6 Boundary semantics proven
+
+- Only `declared: true` **with a name present** renders as a name; the absent case
+  reads `author not declared`. The reader never substitutes a placeholder, a user
+  id, or the literal `unknown` for an author the boundary withheld.
+- A declared actor whose `authored_by_kind` is `unknown` keeps its name and reports
+  the kind as unknown — the reader does not upgrade it to `human`.
+- Authorship stays distinct from origin: a note can carry a declared source and no
+  declared author, and the two readings do not collapse into one enum.
+
+### 9.7 Known limits
+
+- **No browser observation.** Source-contract suite plus production build only; a
+  source-side claim, not a rendered-UI or production-parity claim.
+- `tests/test_prism_console_ci_wiring.py` derives the console-contract domain at
+  test time; the new nodes are inside an already-tracked file, so the domain is
+  unchanged and no wiring edit was needed.
