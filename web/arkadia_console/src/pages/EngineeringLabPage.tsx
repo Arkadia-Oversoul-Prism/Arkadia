@@ -1,12 +1,26 @@
 import { Page, Panel, Facts, ContractState, NotYetWired } from "../components/ui";
 import { LabSessionList } from "../components/lab/LabSessionList";
+import { LabAuthorityReadings } from "../components/lab/LabAuthorityReadings";
+import type { LabGovernanceSource } from "../components/lab/labGovernance";
 import { LabArtifactCanvas } from "../components/lab/LabArtifactCanvas";
 import { LabAgentRegistry } from "../components/lab/LabAgentRegistry";
 import { LabModelGateway } from "../components/lab/LabModelGateway";
+import { LabAutomationGrammar } from "../components/lab/LabAutomationGrammar";
+import { LabOperationalSurfaces } from "../components/lab/LabOperationalSurfaces";
+import { scalarOverview } from "../components/lab/labOperational";
+import { ExecutionLoop } from "../components/lab/ExecutionLoop";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
 import { endpoints } from "../lib/endpoints";
 import type { NAtlasCatalog } from "../lib/types";
+
+/** The runtime's own loop definition, read directly from the overview response.
+ *  A malformed payload yields no stages, so the surface reports an unfilled
+ *  definition rather than inferring one. */
+function readLoopStages(overview: Record<string, unknown> | null): string[] {
+  const loop = overview?.loop;
+  return Array.isArray(loop) ? loop.filter((stage): stage is string => typeof stage === "string") : [];
+}
 
 export function EngineeringLabPage() {
   const overview = useHydration<Record<string, unknown>>(endpoints.labEngineeringOverview, (p) =>
@@ -22,15 +36,15 @@ export function EngineeringLabPage() {
       <Panel className="mb-4">
         <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">Lab overview</p>
         {overview.state === "ready" && overview.data ? (
-          <Facts
-            rows={Object.entries(overview.data)
-              .slice(0, 12)
-              .map(([k, v]) => ({ label: k, value: typeof v === "object" ? JSON.stringify(v) : String(v) }))}
-          />
+          <Facts rows={scalarOverview(overview.data)} />
         ) : (
           <ContractState state={overview.state} error={overview.error?.message} onRetry={overview.reload} />
         )}
       </Panel>
+
+      <LabOperationalSurfaces overview={overview.state === "ready" ? overview.data ?? null : null} />
+
+      <ExecutionLoop stages={readLoopStages(overview.state === "ready" ? overview.data : null)} />
 
       <Panel className="mb-4">
         <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-white/40">N-ATLAS provider (effective state)</p>
@@ -49,6 +63,8 @@ export function EngineeringLabPage() {
         </p>
       </Panel>
 
+      <LabAuthorityReadings source={overview.data as LabGovernanceSource | null} />
+
       <LabSessionList />
 
       <LabArtifactCanvas />
@@ -56,6 +72,8 @@ export function EngineeringLabPage() {
       <LabAgentRegistry />
 
       <LabModelGateway />
+
+      <LabAutomationGrammar />
 
       <NotYetWired
         contract="/api/lab/engineering/sessions/{id}/execute"
