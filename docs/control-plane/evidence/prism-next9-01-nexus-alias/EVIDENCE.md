@@ -125,3 +125,64 @@ the two added guards, and the pre-existing console-contract set is unchanged.
 - No file owned by Lane 2, 3, or 4 was edited.
 - The IMS/Grove/Larder/Distribution backend contracts remain unwired; only inbound link
   *resolution* is restored.
+
+## 7. Pulse 2026-10-14 - alias depth idempotence repair (head `e4bfcfff`)
+
+**Measured base.** Live `main` was `7580bd8f` (`Merge pull request #533`). The PR's
+recorded base `49809f45` is an ancestor of `main`; the branch was re-composed onto
+`7580bd8f` with `git merge --no-commit --no-ff` and merged **without conflict**
+(`Auto-merging tests/test_console_shell_nav_contract.py`).
+
+**Defect (measured, not inferred).** The alias branch carried the path remainder as
+the section at *any* depth, so `/nexus/a/b` returned
+`{surface: novanet, section: "a/b", path: "/novanet/a/b"}`. `SECTION_PATTERN` is
+`/^\/([^/]+)\/([^/]+)$/`, so re-reading `/novanet/a/b` falls through to `home`, and
+`useRouter`'s normalisation-on-load (`window.history.replaceState({}, "", canonical)`)
+rewrites the address bar to `/`. A shared `/nexus/a/b` link is therefore discarded -
+the same silent link loss the slice exists to prevent, restored through a second door.
+
+Node trace, same tree, before and after:
+
+| inbound | pre-repair canonical | re-read | post-repair canonical | re-read |
+|---|---|---|---|---|
+| `/nexus` | `/novanet` | `/novanet` | `/novanet` | `/novanet` |
+| `/nexus/ims` | `/novanet/ims` | `/novanet/ims` | `/novanet/ims` | `/novanet/ims` |
+| `/nexus/a/b` | `/novanet/a/b` | **`/`** | `/novanet` | `/novanet` |
+
+**Repair.** `const section = segments.length === 2 ? segments[1] : undefined;` - carry
+the remainder only at the one depth a declared surface accepts. Deeper paths resolve to
+the aliased surface with no section, so the alias branch cannot emit a path the router
+itself does not read back.
+
+**Guard.** `_reread_canonical_paths(router_text)` resolves each inbound probe and then
+re-resolves the canonical path it returned, reporting any `(inbound, canonical, reread)`
+where the two disagree - the property is *idempotence of `resolvePath`*, which is what
+makes the address-bar normalisation safe, rather than a restatement of the probe table.
+`test_the_alias_branch_emits_only_paths_the_router_reads_back` asserts the offender list
+is empty; `test_detector_flags_a_canonical_path_the_router_does_not_read_back` is its
+negative control, reconstructing the pre-repair shape by substituting the any-depth join
+and asserting `("/nexus/a/b", "/novanet/a/b", "/")` reappears. A guard that is silent on
+both the defect and its absence is not a guard.
+
+**Tests, same environment.**
+
+| Check | Result |
+|---|---|
+| `python -m pytest tests/test_console_shell_nav_contract.py -q -rEf` | **34 passed** (was 32; +2 new guards) |
+| `python -m pytest tests/test_console_shell_nav_contract.py tests/test_canonical_frontend_routing.py tests/test_console_endpoint_registry_contract.py tests/test_prism_console_ci_wiring.py -q -rEf` | **88 passed** |
+| composed tree (`7580bd8f` + branch) `tests/test_console_shell_nav_contract.py` | **34 passed** |
+| `python -m pytest tests/architecture -q` | **11 passed** |
+| `cp10_mutation_boundary_policy.py --judge` (all three changed paths) | **PASS** (exit 0) |
+| `python -m py_compile api/main.py` | OK; `api/main.py` = **2505 lines** (budget 2600) |
+
+Attribution is by node identity: the `+2` is exactly the two guards added, and the
+composed-tree run reproduces the same result as the branch alone.
+
+**Defect still live on `main`.** `main` `7580bd8f` carries the *older* shape,
+`PATH_ALIASES[path]` matching the exact string only, so `/nexus/ims` resolves to `home` -
+this slice's original subject is unrepaired on `main`, not merely its depth edge.
+
+**Non-claims.** No merge, no deployment, no production acceptance; the PR stays draft.
+No file owned by Lane 2, 3, or 4 was touched. No Vercel path used or treated as evidence
+(ADR-016).
+
