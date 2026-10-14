@@ -412,6 +412,79 @@ export function projectNotice(scope: ProjectScope, viewer: ViewerKind): string |
   return "Only public-corpus projects are readable in this scope; no private material is exposed here.";
 }
 
+/* ───────────────────────────────────────────────────────────────────────────
+ * Knowledge OS status — GET /api/knowledge/status
+ *
+ * The handler (`api.knowledge_routes.knowledge_os_status`) answers **HTTP 200
+ * for a failed read as well**. Its `except` branch returns
+ * `{"status": "error", "detail": ...}` — no `vault`, no `graph`, no `timeline`
+ * block. Measured live: forcing the vault read to raise yields
+ * `200 {"status": "error", "detail": "…"}`. The transport therefore cannot carry
+ * this distinction, so a reader that trusts the status code dereferences
+ * `vault.notes` on the error envelope: a render failure, presented as though the
+ * vault were merely empty.
+ *
+ * The shape is validated here instead. An unrecognised body is an error, never a
+ * zeroed reading, and the handler's own failure envelope is a *recognised*
+ * failure that must not validate as a reading.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+export interface KnowledgeStatusReading {
+  status: string;
+  vault: { notes: number; projects: number; chunks: number; embeddings: number; pending_embeddings: number };
+  graph: { edges: number };
+  timeline: { events: number };
+  graph_health: string;
+  last_ingestion: string | null;
+  nodes_by_type: Record<string, number>;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function isKnowledgeStatusReading(value: unknown): value is KnowledgeStatusReading {
+  if (!isRecord(value)) return false;
+  if (typeof value.status !== "string") return false;
+  // The handler's failure envelope arrives with a 200. It is a recognised
+  // failure, not a reading — treating it as one is how a dead vault renders as
+  // an empty vault. This is checked before the blocks so a partial error body
+  // carrying some blocks is still refused.
+  if (value.status === "error") return false;
+  return isRecord(value.vault) && isRecord(value.graph) && isRecord(value.timeline);
+}
+
+/**
+ * The reader the status surface must use: it either returns a validated reading
+ * or throws with the handler's own failure detail.
+ *
+ * Pure — it takes the parsed body rather than a path, so the contract is
+ * executable in isolation (see `tests/test_knowledge_status_read_boundary.py`,
+ * which drives this function through Node). The page's `readStatus` is the thin
+ * fetch wrapper around it.
+ */
+export function requireKnowledgeStatusReading(payload: unknown): KnowledgeStatusReading {
+  if (!isKnowledgeStatusReading(payload)) {
+    throw new Error(
+      statusFailureDetail(payload) ??
+        "The vault status read returned an unrecognised body.",
+    );
+  }
+  return payload;
+}
+
+/**
+ * The handler's failure detail, when the body is its 200-with-`status: "error"`
+ * envelope. `null` for any other body, so this cannot be read as a general
+ * "something went wrong" message on a healthy response.
+ */
+export function statusFailureDetail(value: unknown): string | null {
+  if (!isRecord(value) || value.status !== "error") return null;
+  return typeof value.detail === "string" && value.detail.length > 0
+    ? value.detail
+    : "The vault status read failed server-side.";
+}
+
 /** Parse the `tags` column, which the reader stores as a JSON string. */
 export function projectTags(project: KnowledgeProject): string[] {
   try {
