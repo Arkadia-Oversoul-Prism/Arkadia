@@ -156,3 +156,39 @@ reading with no control. No shared file was touched. Evidence:
 Next bounded task on this lane: wire the **reaction write path**
 (`POST /api/transmissions/{id}/react`, verified handler) with a negative control
 proving the client offers it only where the backend accepts it.
+
+## Lane continuity — 2026-10-14 (echoes completeness composed into #492)
+
+`prism-l2-echoes-completeness-01` was opened as a **sibling** PR (#528,
+`feat/prism-l2-echoes-completeness-01`) from `main` `3ca8582a`, editing the same
+`web/arkadia_console/src/pages/NovaNetPage.tsx` base blob (`ef3ccf69`) as PR #492
+(from `49809f45`). Siblings editing one file from one ancestor conflict on merge,
+so the slice was **composed** into the lane branch rather than left to race:
+`git cherry-pick -x e162371d` onto `feat/prism-next7-02-pipeline-strip`, commit
+`75fcc947`. The #492 hunks (7/17/54/70/87) and #528's (32/97/113) do not overlap;
+the cherry-pick auto-merged and **both** slices are present.
+
+The slice repairs a truthfulness defect: the Crystal-Matrix echoes panel rendered a
+bare `EchoesFeed.public.slice(0, 8)` with no stated total and no notice — a subset
+presented as the whole stream. It now single-sources `ECHO_DISPLAY_LIMIT`, states
+the public total in the header, and renders a truncation notice
+(`data-testid="novanet-echoes-truncation"`).
+
+The new guard `tests/test_prism_novanet_echoes_completeness.py` (3 nodes, with a
+negative control that reconstructs the pre-change silent cap) is **derived** into
+the console-contract domain by `scripts/console_contract_domain.py`, so
+`.github/workflows/prism-console-contract.yml` executes it with **no workflow
+edit** — the drift class PR #435 removed. Evidence:
+`docs/control-plane/evidence/prism-l2-echoes-completeness-01/`.
+
+Measured at `75fcc947`: derived domain **473 passed**, new guard **3 passed**,
+lane-2 guards **117 passed**, architecture **11/11**, console build clean with the
+marker in the bundle. Full-suite node set 9 nodes, sha256 `c280ddc6…` —
+byte-identical to the branch baseline at `d4b9c1fe` (zero regression).
+
+**Disposition:** PR #528 is superseded by this composition; close it once #492 is
+reviewed (agents do not close PRs). Draft; no merge, deployment, or acceptance.
+
+Next bounded task on this lane: wire the **reaction write path**
+(`POST /api/transmissions/{id}/react`, verified handler) with a negative control
+proving the client offers it only where the backend accepts it.
