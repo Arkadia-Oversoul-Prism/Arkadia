@@ -1,0 +1,160 @@
+{
+  "record": "aeas-engineering-lab-composition-01",
+  "observed_at": "2026-10-14",
+  "repository": "Arkadia-Oversoul-Prism/Arkadia",
+  "canonical_production": "https://arkadia-qzu4.onrender.com",
+  "authority": {
+    "merge": "NOT GRANTED",
+    "eaa_dispatch": "NOT GRANTED",
+    "production_change": "NONE PERFORMED",
+    "unrelated_pr_dispositions": "UNCHANGED"
+  },
+  "baseline": {
+    "branch": "main",
+    "sha": "2a1bca755bd6e93413ccbe78790e65d3aec1c2b1",
+    "title": "feat(solariun): add runtime and personal memory lenses"
+  },
+  "candidate": {
+    "branch": "aeas/engineering-lab-composition-01",
+    "base_sha": "2a1bca755bd6e93413ccbe78790e65d3aec1c2b1"
+  },
+  "sources": [
+    {
+      "pr": 512,
+      "title": "Lane 4: render the Lab operational readings (integrations / android / voice)",
+      "head_sha": "f8da5158424b06c9638fb6529c43e0c39b84dd0c",
+      "base_sha": "3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3",
+      "state": "open draft",
+      "disposition": "included",
+      "evidence": "LabOperationalSurfaces.tsx + labOperational.ts (new) imported verbatim; page uses scalarOverview() and mounts <LabOperationalSurfaces>; tests/test_prism_w4_lab_operational_projection.py + test_console_shell_nav_contract.py comment-stripping fix imported."
+    },
+    {
+      "pr": 530,
+      "title": "lane-4 render integrity - mount the orphaned canonical work loop",
+      "head_sha": "f54d463c6a29d4aecb3c51961af6e41c83d096f9",
+      "base_sha": "3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3",
+      "state": "open draft",
+      "disposition": "included",
+      "evidence": "tests/test_prism_w4_lane4_render_integrity.py imported verbatim. Its negative control (test_control_the_real_pre_mount_page_reports_the_canonical_loop) is the load-bearing constraint that forced the single-mount decision: it requires ExecutionLoop to have exactly one consumer (the Lab page)."
+    },
+    {
+      "pr": 524,
+      "title": "read-only Lab operational authority reading (Lane 4)",
+      "head_sha": "aad8a986e3a69240dc0bf190e2dd3dca14aa0d14",
+      "base_sha": "3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3",
+      "state": "open draft",
+      "disposition": "included",
+      "evidence": "LabAuthorityReadings.tsx + labGovernance.ts (new) imported verbatim; page mounts <LabAuthorityReadings source={overview.data as LabGovernanceSource | null} />; tests/test_prism_w4_lab_governance_readings.py imported."
+    },
+    {
+      "pr": 493,
+      "title": "read-only Lab automation grammar projection",
+      "head_sha": "255d665f4fe6c5702fa7416d775dc0028a11adae",
+      "base_sha": "49809f45274f2f81b24e01fefdfb3009e8717495",
+      "state": "open draft",
+      "disposition": "partially included",
+      "evidence": "INCLUDED: LabAutomationGrammar.tsx + labAutomationGrammar.ts, test_lab_automation_grammar_contract.py, test_prism_w4_automation_grammar.py, test_prism_w4_canonical_loop_mount.py (byte-identical to #501's copy), <LabAutomationGrammar /> mount. SUPERSEDED: #493's copy of tests/test_prism_next_wave_composition_reconciliation_01.py (5 nodes, hand-maintained 2-marker table) - replaced by #504's derived 11-node version."
+    },
+    {
+      "pr": 501,
+      "title": "mount the canonical work-loop projection on the Lab surface",
+      "head_sha": "31d66332c78d9a18829fc190b21c31618ecf6c74",
+      "base_sha": "49809f45274f2f81b24e01fefdfb3009e8717495",
+      "state": "open draft",
+      "disposition": "superseded by combined implementation",
+      "evidence": "Its entire change (ExecutionLoop import + readLoopStages + mount; tests/test_prism_w4_canonical_loop_mount.py) is contained in #493's head, which is itself included. Measured: diff(pr/493:tests/test_prism_w4_canonical_loop_mount.py, pr/501:...) is empty; #493 additionally renders <LabAutomationGrammar>."
+    },
+    {
+      "pr": 525,
+      "title": "recover canonical work-loop read model onto Weaver surface",
+      "head_sha": "daef33c4d0535c392bc4a54e228471a1c432cf08",
+      "base_sha": "3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3",
+      "state": "open draft",
+      "disposition": "superseded by combined implementation",
+      "evidence": "LabWorkLoop.tsx + WeaverPage mount reverted; tests/test_prism_w4_lab_read_model.py kept at main. Reason: a second mount of the same canonical loop (via a second hydration of the same overview endpoint) violates the directive's single-canonical-mount requirement and falsified #530's sole-consumer control. #525's identified defect (orphaned ExecutionLoop) is repaired by the canonical Lab-page mount."
+    },
+    {
+      "pr": 504,
+      "title": "guard lane-4 projection composition + record next-wave reconciliation",
+      "head_sha": "a9cefd21426b19c39eae718dd46291fcc133f6c2",
+      "base_sha": "49809f45274f2f81b24e01fefdfb3009e8717495",
+      "state": "open draft",
+      "disposition": "partially included",
+      "evidence": "INCLUDED: tests/test_prism_next_wave_composition_reconciliation_01.py (derived 11-node guard), tests/test_prism_next_wave_composition_guard_integrity.py, evidence record. EXCLUDED: AGENTS.md append - the live AGENTS.md is under a standing insertion-only/oracle constraint (scripts/agents_md_encoding_audit.py); re-deriving it under this workstream risks a regression, so the lesson is not appended here."
+    }
+  ],
+  "reconciliation_decisions": [
+    {
+      "decision": "Exactly one canonical Engineering Lab work-loop mount",
+      "chosen": "web/arkadia_console/src/pages/EngineeringLabPage.tsx -> <ExecutionLoop stages={readLoopStages(overview...)} />",
+      "rationale": "The loop is the Engineering Lab runtime's CANONICAL_LOOP (lab/engineering_lab/runtime.py:49, served via GET /api/lab/engineering/overview). The Lab page already hydrates that endpoint, so the mount adds no fetch. #493/#501/#530 converge on this mount; #525's Weaver mount would be a second mount plus a second hydration of the same endpoint."
+    },
+    {
+      "decision": "Composition conflict between #530 and #525",
+      "measured": "tests/test_prism_w4_lane4_render_integrity.py::test_control_the_real_pre_mount_page_reports_the_canonical_loop FAILS on the #525-inclusive tree (1 failed, 139 passed); passes on the #525-excluded tree (132 passed).",
+      "resolution": "Revert #525; the control then holds without modifying the guard (no assertion was weakened or removed)."
+    }
+  ],
+  "verification": {
+    "focused_lab_composition": {
+      "command": "python -m pytest -q -rEf tests/test_prism_next_wave_composition_reconciliation_01.py tests/test_prism_next_wave_composition_guard_integrity.py tests/test_prism_w4_lane4_render_integrity.py tests/test_prism_w4_canonical_loop_mount.py tests/test_lab_automation_grammar_contract.py tests/test_prism_w4_automation_grammar.py tests/test_prism_w4_lab_governance_readings.py tests/test_prism_w4_lab_operational_projection.py tests/test_prism_w4_lab_read_model.py",
+      "result": "132 passed"
+    },
+    "derived_console_contract_gate": {
+      "command": "python -m pytest -q -rEf $(python scripts/console_contract_domain.py)",
+      "result": "546 passed"
+    },
+    "weaver_and_surface_contracts": {
+      "command": "python -m pytest -q -rEf tests/test_prism_w4_weaver_approval_ledger.py tests/test_console_endpoint_registry_contract.py tests/test_console_shell_nav_contract.py tests/test_prism_console_ci_wiring.py",
+      "result": "91 passed"
+    },
+    "architecture": {"command": "python -m pytest tests/architecture -q", "result": "11 passed"},
+    "boot_syntax": {"command": "python -m py_compile api/main.py", "result": "OK", "api_main_lines": 2505},
+    "cp10_boundary": {"command": "git diff --cached --name-only | python scripts/cp10_mutation_boundary_policy.py --judge", "result": "PASS", "exit": 0},
+    "frontend_build": {
+      "command": "corepack pnpm install --frozen-lockfile && corepack pnpm build (tsc --noEmit && vite build)",
+      "result": "built in 2.10s, 92 modules, 0 type errors",
+      "artifacts": ["dist/assets/index-CDg7ghfL.js", "dist/assets/index-mcy-D84c.css"]
+    },
+    "full_suite_candidate": {
+      "command": "PYTHONPATH=<repo>/archive/legacy_python python -m pytest tests/ -q -rEf --continue-on-collection-errors",
+      "result": "8 failed, 3108 passed, 17 skipped, 1 error",
+      "outcomes_fingerprint": "c280ddc616fe4f4e9110bf4e6b6e538783a83d3764148d8a6d7ac45f6e8bc46b",
+      "ids_fingerprint": "215e4308371a01f5b0b73f1e2b5dca5bba30f6578f65bb7c8af6eca67bc8b741",
+      "nodes": 9
+    },
+    "full_suite_baseline": {
+      "command": "same, in a detached worktree at 2a1bca75",
+      "result": "8 failed, 3006 passed, 17 skipped, 1 error",
+      "outcomes_fingerprint": "c280ddc616fe4f4e9110bf4e6b6e538783a83d3764148d8a6d7ac45f6e8bc46b",
+      "ids_fingerprint": "215e4308371a01f5b0b73f1e2b5dca5bba30f6578f65bb7c8af6eca67bc8b741",
+      "nodes": 9
+    },
+    "regression_delta": {
+      "node_set": "IDENTICAL (comm -3 empty; same fingerprints on both trees)",
+      "passed_delta": "+102, fully attributed by --collect-only: 11+3+7+12+22+27+8+12 = 102 new test nodes from the eight imported test files"
+    },
+    "live_negative_control": {
+      "action": "dropped <LabOperationalSurfaces ... /> from the real composed EngineeringLabPage.tsx",
+      "result": "2 failed (test_a_mounted_lane4_projection_requires_all_of_them, test_every_imported_lane4_component_is_rendered), 21 passed",
+      "restore": "byte-identical; re-run 23 passed"
+    }
+  },
+  "pre_existing_failures_not_attributable": [
+    "tests/test_engineering_lab_api.py::test_lab_router_is_read_only_and_authenticated",
+    "tests/test_engineering_lab_api.py::test_lab_mutation_endpoints_are_exactly_the_lab_state_set",
+    "tests/test_identity_spine_w1.py::test_node_entry_is_ais_signup_not_a_separate_diagnostic_route",
+    "tests/test_m02_reasomate_truth.py::test_oracle_runtime_uses_the_shared_session_key",
+    "tests/test_solspire_r1_governance_convergence.py::test_r1_solspire_builders_delegate_to_weaver",
+    "tests/test_solspire_r1_governance_convergence.py::test_r1_weaver_governance_is_canonical",
+    "tests/test_solspire_r3_execution_runtime.py::test_runtime_is_explicitly_non_governed_and_blocks_mutation_tools",
+    "+ 1 collection error"
+  ],
+  "gate": "PASS",
+  "not_claimed": [
+    "merge",
+    "production deployment",
+    "production parity or acceptance",
+    "EAA/dispatch advancement"
+  ]
+}
