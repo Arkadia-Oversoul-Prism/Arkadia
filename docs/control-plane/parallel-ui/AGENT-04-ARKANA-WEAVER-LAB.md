@@ -1,6 +1,6 @@
 # Agent 04 — Arkana, Weaver & Engineering Lab
 
-**Current slice:** PR #428 — read-only Arkana thread history and verified Lab session/run/event/evidence/artifact/agent views.
+**Current slice:** PR #536 (`feat/prism-l4-run-artifact-trace-01`, base `7580bd8`) — join run → artifact in the Lab trace, so the artifact a write run captured is visible on its run. Supersedes PR #428 (read-only Arkana thread history + verified Lab session/run/event/evidence/artifact/agent views), which merged on 2026-10-11 at `71190dd3`.
 **After merge:** create the next branch from freshly fetched `main`, open a new draft PR, update the active branch map through Workstream 1, and begin immediately.
 **Owns:** Arkana/Oracle, Weaver, Engineering Lab feature-local pages/components/tests/evidence. Shared routing, global navigation, endpoint/type registries remain Workstream 1's seam.
 **Contract:** `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md`.

@@ -9,6 +9,8 @@
  *   run → work events   `event.run_id === run.run_id`
  *   run → evidence      `evidence.run_ref === run.run_id`
  *   run → evidence_refs `run.evidence_refs` names evidence ids
+ *   run → artifacts     `artifact.run_id === run.run_id`
+ *   run → artifact_refs `run.artifact_refs` names artifact ids
  *
  * Every join is a *recorded* reference. A reference that does not resolve is
  * reported as unresolved rather than dropped or guessed, so the surface can
@@ -19,6 +21,8 @@
  * In particular `verification` is derived only from recorded *state* values, so
  * the presence of an evidence record is never presented as verification, and
  * acceptance is reported only when the session carries the human terminal state.
+ * An artifact is a *captured proposal*: it is linked to the run that captured it
+ * and is never read as an applied change, an evidence record, or a verdict.
  *
  * No network, no React, no store access: this file is importable and executable
  * on its own so its behaviour can be measured directly (see
@@ -60,6 +64,20 @@ export interface LabEvidenceRecord {
   provenance?: Record<string, unknown>;
 }
 
+/**
+ * An artifact captured by a run — the proposal the substrate prepares and stops
+ * short of applying. `run_id` is the recorded link to the run that captured it.
+ */
+export interface LabArtifactRecord {
+  artifact_id: string;
+  session_id?: string;
+  run_id?: string | null;
+  kind?: string;
+  title?: string;
+  content?: unknown;
+  created_at?: string;
+}
+
 export interface LabTraceSession {
   session_id: string;
   state?: string;
@@ -73,6 +91,7 @@ export interface LabTraceSource {
   runs?: LabRunRecord[];
   events?: LabWorkEvent[];
   evidence?: LabEvidenceRecord[];
+  artifacts?: LabArtifactRecord[];
   reached_review_boundary?: boolean;
   human_decision_required?: boolean;
 }
@@ -140,6 +159,12 @@ export interface RunTrace {
   dangling_evidence_refs: string[];
   /** Evidence linked to this run that the run's own `evidence_refs` omits. */
   unreferenced_evidence_ids: string[];
+  /** Artifacts joined by `artifact.run_id === run.run_id`. */
+  artifacts: LabArtifactRecord[];
+  /** `run.artifact_refs` entries with no matching artifact in this view. */
+  dangling_artifact_refs: string[];
+  /** Artifacts linked to this run that the run's own `artifact_refs` omits. */
+  unreferenced_artifact_ids: string[];
   verification: RunVerification;
   review: RunReview;
 }
@@ -160,8 +185,14 @@ export interface RunTraceLedger {
   unlinked_evidence: LabEvidenceRecord[];
   /** Evidence with no `run_ref` at all. */
   unattributed_evidence: LabEvidenceRecord[];
+  /** Artifacts whose `run_id` names no run in this view. */
+  unlinked_artifacts: LabArtifactRecord[];
+  /** Artifacts with no `run_id` at all. */
+  unattributed_artifacts: LabArtifactRecord[];
   /** Evidence ids that appear more than once in the view. */
   duplicate_evidence_ids: string[];
+  /** Artifact ids that appear more than once in the view. */
+  duplicate_artifact_ids: string[];
   /** Runs that produced evidence but no recorded value asserts verification. */
   evidence_without_verification: string[];
   /** Runs that produced evidence and also carry a recorded verification basis. */
@@ -276,6 +307,8 @@ export function buildRunTrace(source: LabTraceSource): RunTraceLedger {
 
   const evidenceDedup = dedupeById(asArray(source.evidence), (r) => r.evidence_id);
   const evidence = evidenceDedup.unique;
+  const artifactDedup = dedupeById(asArray(source.artifacts), (r) => r.artifact_id);
+  const artifacts = artifactDedup.unique;
   const events = asArray(source.events);
 
   const runsById = new Map<string, LabRunRecord>();
@@ -315,11 +348,31 @@ export function buildRunTrace(source: LabTraceSource): RunTraceLedger {
     evidenceByRun.set(record.run_ref, bucket);
   }
 
+  const artifactsByRun = new Map<string, LabArtifactRecord[]>();
+  const unlinkedArtifacts: LabArtifactRecord[] = [];
+  const unattributedArtifacts: LabArtifactRecord[] = [];
+  for (const artifact of artifacts) {
+    if (!artifact.run_id) {
+      unattributedArtifacts.push(artifact);
+      continue;
+    }
+    if (!runsById.has(artifact.run_id)) {
+      unlinkedArtifacts.push(artifact);
+      continue;
+    }
+    const bucket = artifactsByRun.get(artifact.run_id) ?? [];
+    bucket.push(artifact);
+    artifactsByRun.set(artifact.run_id, bucket);
+  }
+
   const traces: RunTrace[] = runs.map((run) => {
     const runEvents = eventsByRun.get(run.run_id) ?? [];
     const runEvidence = evidenceByRun.get(run.run_id) ?? [];
     const declared = asArray(run.evidence_refs);
     const present = new Set<string>(runEvidence.map((r) => r.evidence_id));
+    const runArtifacts = artifactsByRun.get(run.run_id) ?? [];
+    const declaredArtifacts = asArray(run.artifact_refs);
+    const artifactsPresent = new Set<string>(runArtifacts.map((a) => a.artifact_id));
     return {
       run_id: run.run_id,
       state: run.state ?? "UNKNOWN",
@@ -333,6 +386,11 @@ export function buildRunTrace(source: LabTraceSource): RunTraceLedger {
       unreferenced_evidence_ids: runEvidence
         .map((r) => r.evidence_id)
         .filter((id) => declared.indexOf(id) === -1),
+      artifacts: runArtifacts,
+      dangling_artifact_refs: declaredArtifacts.filter((id) => !artifactsPresent.has(id)),
+      unreferenced_artifact_ids: runArtifacts
+        .map((a) => a.artifact_id)
+        .filter((id) => declaredArtifacts.indexOf(id) === -1),
       verification: verificationFor(run, runEvidence),
       review: reviewFor(run, sessionState, reached, humanDecisionRequired),
     };
@@ -350,16 +408,31 @@ export function buildRunTrace(source: LabTraceSource): RunTraceLedger {
   if (unattributedEvidence.length > 0) {
     unresolved.push(`${unattributedEvidence.length} evidence record(s) carry no run reference.`);
   }
+  if (unlinkedArtifacts.length > 0) {
+    unresolved.push(`${unlinkedArtifacts.length} artifact(s) name a run not in this view.`);
+  }
+  if (unattributedArtifacts.length > 0) {
+    unresolved.push(`${unattributedArtifacts.length} artifact(s) carry no run reference.`);
+  }
   const dangling = traces.reduce((n, t) => n + t.dangling_evidence_refs.length, 0);
   if (dangling > 0) {
     unresolved.push(`${dangling} declared evidence reference(s) do not resolve.`);
+  }
+  const danglingArtifacts = traces.reduce((n, t) => n + t.dangling_artifact_refs.length, 0);
+  if (danglingArtifacts > 0) {
+    unresolved.push(`${danglingArtifacts} declared artifact reference(s) do not resolve.`);
   }
   if (evidenceDedup.duplicates.length > 0) {
     unresolved.push(
       `duplicate evidence id(s) in the view: ${evidenceDedup.duplicates.join(", ")}.`,
     );
   }
-  if (unresolved.length === 0 && (runs.length > 0 || events.length > 0)) {
+  if (artifactDedup.duplicates.length > 0) {
+    unresolved.push(
+      `duplicate artifact id(s) in the view: ${artifactDedup.duplicates.join(", ")}.`,
+    );
+  }
+  if (unresolved.length === 0 && (runs.length > 0 || events.length > 0 || artifacts.length > 0)) {
     unresolved.push("Every recorded reference in this view resolves.");
   }
 
@@ -369,7 +442,10 @@ export function buildRunTrace(source: LabTraceSource): RunTraceLedger {
     unlinked_events: unlinkedEvents,
     unlinked_evidence: unlinkedEvidence,
     unattributed_evidence: unattributedEvidence,
+    unlinked_artifacts: unlinkedArtifacts,
+    unattributed_artifacts: unattributedArtifacts,
     duplicate_evidence_ids: evidenceDedup.duplicates,
+    duplicate_artifact_ids: artifactDedup.duplicates,
     evidence_without_verification: traces
       .filter((t) => t.evidence.length > 0 && !t.verification.asserted)
       .map((t) => t.run_id),

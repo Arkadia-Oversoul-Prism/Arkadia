@@ -1,5 +1,5 @@
 /**
- * Engineering Lab — run → work-event → evidence trace (Workstream 4, feature-local).
+ * Engineering Lab — run → work-event → evidence → artifact trace (Workstream 4, feature-local).
  *
  * Renders the linkage ledger produced by `labRunTrace.ts` over the session view
  * the surface already holds. It issues no request of its own: it is a pure
@@ -10,6 +10,10 @@
  *
  *   execution (a run) != evidence (a record) != verification (a recorded state)
  *   != review (a boundary) != acceptance (a human act)
+ *
+ * An artifact is a *captured proposal*: it is shown joined to the run that
+ * captured it and is never presented as an applied change, an evidence record,
+ * or a verdict.
  *
  * A reference that does not resolve is shown as unresolved. Nothing is inferred
  * from a record's mere presence, and acceptance is reported only from the human
@@ -34,7 +38,8 @@ function RunRow({ trace }: { trace: RunTrace }) {
         {trace.result_state && <span className="text-white/45">result: {trace.result_state}</span>}
         <span className="text-white/45">
           {trace.events.length} event{trace.events.length === 1 ? "" : "s"} ·{" "}
-          {trace.evidence.length} evidence
+          {trace.evidence.length} evidence · {trace.artifacts.length} artifact
+          {trace.artifacts.length === 1 ? "" : "s"}
         </span>
       </div>
       {trace.objective && <p className="mt-1 text-xs text-white/55">{trace.objective}</p>}
@@ -82,12 +87,30 @@ function RunRow({ trace }: { trace: RunTrace }) {
         </ul>
       )}
 
-      {(trace.dangling_evidence_refs.length > 0 || trace.unreferenced_evidence_ids.length > 0) && (
+      {trace.artifacts.length > 0 && (
+        <ul className="mt-2 flex flex-col gap-0.5" data-testid={`lab-trace-artifacts-${trace.run_id}`}>
+          {trace.artifacts.map((artifact) => (
+            <li key={artifact.artifact_id} className="font-mono text-[10px] text-white/50">
+              {artifact.artifact_id} · {artifact.kind ?? "artifact"}
+              {artifact.title ? ` · ${artifact.title}` : ""} · captured, not applied
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {(trace.dangling_evidence_refs.length > 0 ||
+        trace.unreferenced_evidence_ids.length > 0 ||
+        trace.dangling_artifact_refs.length > 0 ||
+        trace.unreferenced_artifact_ids.length > 0) && (
         <p className="mt-2 text-[11px] text-gold/80" data-testid={`lab-trace-partial-${trace.run_id}`}>
           {trace.dangling_evidence_refs.length > 0 &&
             `declared evidence reference(s) that do not resolve: ${trace.dangling_evidence_refs.join(", ")}. `}
           {trace.unreferenced_evidence_ids.length > 0 &&
-            `evidence linked by run_ref but absent from the run's own evidence_refs: ${trace.unreferenced_evidence_ids.join(", ")}.`}
+            `evidence linked by run_ref but absent from the run's own evidence_refs: ${trace.unreferenced_evidence_ids.join(", ")}. `}
+          {trace.dangling_artifact_refs.length > 0 &&
+            `declared artifact reference(s) that do not resolve: ${trace.dangling_artifact_refs.join(", ")}. `}
+          {trace.unreferenced_artifact_ids.length > 0 &&
+            `artifacts linked by run_id but absent from the run's own artifact_refs: ${trace.unreferenced_artifact_ids.join(", ")}.`}
         </p>
       )}
     </li>
@@ -101,13 +124,14 @@ export function LabRunTrace({ view }: { view: LabTraceSource }) {
   return (
     <Panel className="mb-4">
       <p className="mb-1 font-mono text-[11px] uppercase tracking-widest text-white/40">
-        Run → work event → evidence trace
+        Run → work event → evidence → artifact trace
       </p>
       <p className="mb-4 text-xs text-white/40">
-        Read-only. Each run is joined to its work events and evidence records on the references the
-        substrate recorded. A reference that does not resolve is reported as unresolved, never
-        guessed. An execution is not evidence, evidence is not verification, verification is not
-        review, and review is not acceptance.
+        Read-only. Each run is joined to its work events, evidence records, and captured artifacts
+        on the references the substrate recorded. A reference that does not resolve is reported as
+        unresolved, never guessed. An execution is not evidence, evidence is not verification,
+        verification is not review, review is not acceptance, and an artifact is a captured
+        proposal, not an applied change.
       </p>
 
       {ledger.runs.length === 0 ? (

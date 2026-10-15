@@ -58,6 +58,7 @@ function ReadingRow({ reading }: { reading: ApprovalReading }) {
         {reading.subject_ref && <span>subject {reading.subject_ref}</span>}
         {reading.decided_by && <span>decided by {reading.decided_by}</span>}
         {reading.consumed_at && <span>consumed {reading.consumed_at}</span>}
+        {reading.self_rejected && <span data-testid={`weaver-approval-withdrawn-${reading.id}`}>withdrawn</span>}
       </dl>
       <p
         className={`mt-2 text-xs ${reading.boundary_violation ? "text-red-300" : "text-white/50"}`}
