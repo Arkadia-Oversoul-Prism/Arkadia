@@ -246,25 +246,44 @@ export function isTimelineEvents(value: unknown): value is TimelineEvent[] {
  * viewer, not of the payload:
  *  - `owner`     an authenticated viewer; a `[]` here means *their own* log is
  *                empty, which is a genuine empty read;
- *  - `unscoped`  an anonymous viewer; the predicate is `1 = 0`, so a `[]` is a
- *                refusal to answer, not an empty log, and must not be shown as
- *                one.
+ *  - `unscoped`  a resolved anonymous viewer; the predicate is `1 = 0`, so a
+ *                `[]` is a refusal to answer, not an empty log, and must not be
+ *                shown as one;
+ *  - `pending`   an identity that has not resolved yet. Firebase restores the
+ *                session asynchronously, so the client is briefly neither
+ *                signed in nor signed out. That state is not anonymity: the
+ *                reader is owner-scoped, so it also answers `[]`, but the
+ *                `unscoped` copy ("no identity is present") would be a claim the
+ *                client cannot yet make about the viewer.
  */
-export type TimelineScope = "owner" | "unscoped";
+export type TimelineScope = "owner" | "unscoped" | "pending";
 
-export function classifyTimelineScope(viewer: ViewerKind): TimelineScope {
-  return viewer === "authenticated" ? "owner" : "unscoped";
+/**
+ * The viewer as this reader resolves it. It extends the shared `ViewerKind` with
+ * the unresolved-identity state, which only surfaces that read a `1 = 0` scope
+ * need to distinguish.
+ */
+export type TimelineViewer = ViewerKind | "pending";
+
+export function classifyTimelineScope(viewer: TimelineViewer): TimelineScope {
+  if (viewer === "authenticated") return "owner";
+  return viewer === "pending" ? "pending" : "unscoped";
 }
 
 /**
- * Copy for a successful-but-empty read. The two scopes carry opposite meanings
- * and must never share wording: reporting a filtered `[]` as "no events yet"
- * is the exact failure this panel exists to avoid.
+ * Copy for a successful-but-empty read. The three scopes carry different
+ * meanings and must never share wording: reporting a filtered `[]` as "no events
+ * yet" is the exact failure this panel exists to avoid, and reporting an
+ * unresolved session as a settled sign-out is the same class of error.
  */
 export function emptyTimelineNotice(scope: TimelineScope): string {
-  return scope === "owner"
-    ? "This node's timeline holds no events yet. The reader answered — this is an empty log, not a failed read."
-    : "The timeline is owner-scoped and no identity is present, so nothing was readable. This is not an empty log.";
+  if (scope === "owner") {
+    return "This node's timeline holds no events yet. The reader answered — this is an empty log, not a failed read.";
+  }
+  if (scope === "pending") {
+    return "The reader is owner-scoped and your session is still resolving, so nothing was readable. This is not an empty log.";
+  }
+  return "The timeline is owner-scoped and no identity is present, so nothing was readable. This is not an empty log.";
 }
 
 /**
@@ -299,6 +318,58 @@ export function timelineWindowNotice(window: TimelineWindow): string {
   return isWindowSaturated(window)
     ? `Showing the newest ${window.returned} events. The timeline holds older events beyond this window.`
     : `Showing all ${window.returned} events in this timeline.`;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * Knowledge timeline — paging backwards into older history
+ *
+ * `offset` pages *backwards from the newest event* (see the window contract
+ * above): the default read is the newest `limit`, and `offset = shown` returns
+ * the next page strictly older than everything already displayed. The reader
+ * therefore accumulates pages toward the *past*, not the future — it has no
+ * forward pager, because the newest window is already the present.
+ *
+ * Paging is a *bounded* control, not an "everything" control: each request asks
+ * for at most `limit` more rows, and the reader stops when a page comes back
+ * short of the limit, which is the backend's own signal that older history has
+ * been exhausted.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/** Whether the reader can still page further back, or has reached the start. */
+export type OlderPage = "more" | "start";
+
+/**
+ * Decide the next paging state from the *last page fetched*. A page shorter than
+ * the requested limit is the backend's signal that no older rows remain; a full
+ * page means older history is still beyond it. The decision is made from the
+ * response, never from an assumed log length.
+ */
+export function classifyOlderPage(returned: number, limit: number = TIMELINE_WINDOW_LIMIT): OlderPage {
+  return returned >= limit ? "more" : "start";
+}
+
+/**
+ * Merge an older page *beneath* the events already shown, dropping rows whose id
+ * is already present. The drop is a de-duplication, not an ownership filter —
+ * a repeated row would otherwise render twice if a caller re-requested an offset
+ * it already held. The reader applies no ownership filter of its own.
+ */
+export function mergeOlderEvents(existing: TimelineEvent[], page: TimelineEvent[]): TimelineEvent[] {
+  const seen = new Set(existing.map((event) => event.id));
+  return [...page.filter((event) => !seen.has(event.id)), ...existing];
+}
+
+/** The offset the next older request must carry: how many rows are shown so far. */
+export function olderOffset(shown: number): number {
+  return shown;
+}
+
+/** Copy for the paging control. The two states must never share wording: one
+ *  offers more history, the other states the history has been fully read. */
+export function olderEventsNotice(page: OlderPage): string {
+  return page === "more"
+    ? "Older events exist beyond this window. Load them below — this never rewrites the events already shown."
+    : "The start of the timeline has been reached; there are no older events to load.";
 }
 
 /** A short, non-invented label for an event: the fields its payload carries. */

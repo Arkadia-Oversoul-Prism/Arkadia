@@ -23,14 +23,19 @@ import { endpoints } from "../../lib/endpoints";
 import {
   TIMELINE_EVENT_TYPES,
   TIMELINE_WINDOW_LIMIT,
+  classifyOlderPage,
   classifyTimelineScope,
   emptyTimelineNotice,
   isTimelineEvents,
   isWindowSaturated,
+  mergeOlderEvents,
+  olderEventsNotice,
+  olderOffset,
   timelineEventSummary,
   timelineWindowNotice,
+  type OlderPage,
   type TimelineEvent,
-  type ViewerKind,
+  type TimelineViewer,
 } from "../../pages/knowledge/knowledgeContracts";
 
 async function readTimeline(path: string): Promise<TimelineEvent[]> {
@@ -45,8 +50,16 @@ async function readTimeline(path: string): Promise<TimelineEvent[]> {
 }
 
 export function KnowledgeTimelinePanel() {
-  const { isAuthenticated } = useAuth();
-  const viewer: ViewerKind = isAuthenticated ? "authenticated" : "anonymous";
+  const { isAuthenticated, identityState } = useAuth();
+  // An unresolved identity is neither signed in nor signed out. Collapsing it to
+  // "anonymous" would let the panel state, for a signed-in viewer whose session
+  // is still restoring, that "no identity is present" — a claim about the viewer
+  // the client cannot yet make.
+  const viewer: TimelineViewer = isAuthenticated
+    ? "authenticated"
+    : identityState === "loading"
+      ? "pending"
+      : "anonymous";
   const scope = classifyTimelineScope(viewer);
 
   const [eventType, setEventType] = useState("");
@@ -59,12 +72,42 @@ export function KnowledgeTimelinePanel() {
 
   const timeline = useHydration<TimelineEvent[]>(timelinePath, readTimeline, [isAuthenticated, eventType]);
 
+  // Older pages accumulate *beneath* the newest window. `pageState` is null until
+  // the reader has probed for more, so its first render derives "more"/"start"
+  // from the window's own saturation rather than asserting history exists.
+  const [older, setOlder] = useState<TimelineEvent[]>([]);
+  const [pageState, setPageState] = useState<OlderPage | null>(null);
+  const [paging, setPaging] = useState<"idle" | "loading" | "error">("idle");
+
+  function resetPaging() {
+    setOlder([]);
+    setPageState(null);
+    setPaging("idle");
+  }
+
+  async function loadOlder(shown: number) {
+    if (!timeline.data) return;
+    const filter = eventType ? `&event_type=${encodeURIComponent(eventType)}` : "";
+    const path = `${endpoints.knowledgeTimeline}?limit=${TIMELINE_WINDOW_LIMIT}&offset=${olderOffset(shown)}${filter}`;
+    setPaging("loading");
+    try {
+      const page = await readTimeline(path);
+      setOlder((prev) => mergeOlderEvents(prev, page));
+      setPageState(classifyOlderPage(page.length, TIMELINE_WINDOW_LIMIT));
+      setPaging("idle");
+    } catch {
+      // A failed older page leaves the rows already shown intact; the reader
+      // states the failure instead of silently dropping history.
+      setPaging("error");
+    }
+  }
+
   return (
     <Panel data-testid="knowledge-timeline-panel">
       <div className="mb-3">
         <p className="font-mono text-[11px] uppercase tracking-widest text-white/40">Timeline</p>
         <p className="mt-1 text-sm text-white/55">
-          The latest events from this node's immutable log. This is a bounded recent window; older events require an explicit offset query. Ownership is enforced by the backend.
+          The latest events from this node's immutable log. The reader shows a bounded newest window and can page backwards into older history with the "Load older events" control below. Ownership is enforced by the backend.
         </p>
       </div>
 
@@ -73,7 +116,10 @@ export function KnowledgeTimelinePanel() {
         <select
           id="knowledge-timeline-event-type"
           value={eventType}
-          onChange={(event) => setEventType(event.target.value)}
+          onChange={(event) => {
+            setEventType(event.target.value);
+            resetPaging();
+          }}
           className="rounded-lg border border-line bg-ink/50 px-3 py-2 text-sm text-white outline-none focus:border-emerald/50"
         >
           <option value="">All event types</option>
@@ -87,7 +133,14 @@ export function KnowledgeTimelinePanel() {
       </div>
 
       {timeline.state === "ready" && timeline.data ? (
-        <TimelineReading events={timeline.data} scope={scope} />
+        <TimelineReading
+          newest={timeline.data}
+          older={older}
+          scope={scope}
+          pageState={pageState}
+          paging={paging}
+          onLoadOlder={loadOlder}
+        />
       ) : (
         <ContractState state={timeline.state} error={timeline.error?.message} onRetry={timeline.reload} />
       )}
@@ -95,7 +148,23 @@ export function KnowledgeTimelinePanel() {
   );
 }
 
-function TimelineReading({ events, scope }: { events: TimelineEvent[]; scope: ReturnType<typeof classifyTimelineScope> }) {
+function TimelineReading({
+  newest,
+  older,
+  scope,
+  pageState,
+  paging,
+  onLoadOlder,
+}: {
+  newest: TimelineEvent[];
+  older: TimelineEvent[];
+  scope: ReturnType<typeof classifyTimelineScope>;
+  pageState: OlderPage | null;
+  paging: "idle" | "loading" | "error";
+  onLoadOlder: (shown: number) => void;
+}) {
+  // The rendered list is the newest window with older pages merged *beneath* it.
+  const events = mergeOlderEvents(newest, older);
   if (events.length === 0) {
     return (
       <p data-testid="knowledge-timeline-empty" className="text-sm text-white/50">
@@ -105,7 +174,10 @@ function TimelineReading({ events, scope }: { events: TimelineEvent[]; scope: Re
   }
 
   const latest = events[events.length - 1];
-  const window = { limit: TIMELINE_WINDOW_LIMIT, returned: events.length };
+  const window = { limit: TIMELINE_WINDOW_LIMIT, returned: newest.length };
+  // Until a page has been probed, the window's own saturation decides whether
+  // more history is offered; afterwards the backend's last response governs.
+  const resolvedPage: OlderPage = pageState ?? (isWindowSaturated(window) ? "more" : "start");
 
   return (
     <div className="flex flex-col gap-4" data-testid="knowledge-timeline-events">
@@ -132,6 +204,25 @@ function TimelineReading({ events, scope }: { events: TimelineEvent[]; scope: Re
           </li>
         ))}
       </ol>
+      <div className="flex flex-col gap-1 border-t border-line pt-3" data-testid="knowledge-timeline-paging">
+        <p data-testid="knowledge-timeline-older-notice" className="text-xs text-white/45">
+          {olderEventsNotice(resolvedPage)}
+        </p>
+        {paging === "error" ? (
+          <p data-testid="knowledge-timeline-older-error" className="text-xs text-amber-300/80">
+            The older page could not be read. The events already shown are unchanged.
+          </p>
+        ) : null}
+        <button
+          type="button"
+          data-testid="knowledge-timeline-load-older"
+          disabled={resolvedPage === "start" || paging === "loading"}
+          onClick={() => onLoadOlder(events.length)}
+          className="mt-1 self-start rounded-lg border border-line px-3 py-1.5 text-xs text-white/80 disabled:cursor-not-allowed disabled:opacity-40 enabled:hover:border-emerald/50"
+        >
+          {paging === "loading" ? "Loading older events…" : "Load older events"}
+        </button>
+      </div>
     </div>
   );
 }
