@@ -41,8 +41,34 @@ export const PATH_ALIASES: Record<string, SurfaceId> = {
 
 export function resolvePath(pathname: string): Route {
   const path = pathname.replace(/\/+$/, "") || "/";
-  const alias = PATH_ALIASES[path];
-  if (alias) return { surface: alias, path: SURFACE_BY_ID[alias].path };
+
+  // An alias reconciles the legacy inbound *namespace*, not only its root. The
+  // archived hub declared `/nexus/ims`, `/nexus/grove`, `/nexus/larder` and
+  // `/nexus/distribution` (`archive/frontend/arkadia-prism/web/public_prism/
+  // src/App.tsx:71-72`), and every one of them resolved to `home` while the
+  // alias table matched the exact string `/nexus` only. The remainder of the
+  // path becomes the section — exactly as for a declared surface such as
+  // `/solariun/knowledge` — so `/nexus/ims` reaches NovaNet and renders its own
+  // honest `NotYetWired` state for an undelivered lens, instead of silently
+  // discarding the shared link. This restores *resolution*; it claims nothing
+  // about whether a legacy sub-view's backend contract is serviceable.
+  const segments = path.split("/").filter(Boolean);
+  const alias = PATH_ALIASES[`/${segments[0] ?? ""}`];
+  if (alias) {
+    // Only a *single* remainder segment is a section. A declared surface accepts
+    // a section only when the whole path is `<surface>/<one segment>`
+    // (`SECTION_PATTERN`), so a two-segment remainder (`/nexus/a/b`) has no
+    // canonical path: the aliased surface resolves it, but its address-bar form
+    // falls through to `home`, and the normalisation on load would then rewrite a
+    // shared `/nexus/a/b` link to `/`, discarding it again. Carrying only the
+    // supported depth keeps every returned path one the resolver reads back
+    // unchanged — `/nexus/ims` still reaches NovaNet, and the alias branch cannot
+    // emit a path the router itself does not understand.
+    const section = segments.length === 2 ? segments[1] : undefined;
+    const base = SURFACE_BY_ID[alias].path;
+    return { surface: alias, section, path: section ? `${base}/${section}` : base };
+  }
+
   const match = path.match(SECTION_PATTERN);
   if (match) {
     const surface = SURFACES.find((s) => s.path === `/${match[1]}`);
