@@ -88,6 +88,43 @@ export function isTerminal(status: string): boolean {
   return nextStatus(status) === null;
 }
 
+/**
+ * The status a recorded entry may be advanced to from this surface.
+ *
+ * The archived Prism `ProjectOpportunityRadar` offered one ADVANCE control per
+ * entry that stepped to the next member of its `columns` array. That is the same
+ * write the edit form already performs, narrowed to a single value: one step
+ * forward within the declared vocabulary, stopping at `READY_TO_EXECUTE`.
+ *
+ * A terminal outcome (`EXECUTED`/`SETTLED`) is never a target. Recording one is
+ * a claim about money, and this board declares `execution_authority: "NONE"` —
+ * the write ceiling `SETTABLE_STATUSES` is exactly what forbids it, so the naive
+ * index step (which would send `EXECUTED` from `READY_TO_EXECUTE`) is not used.
+ *
+ * Returns `null` when no forward step is permitted: an unknown or off-vocabulary
+ * status, the ceiling, or a terminal status.
+ */
+export function advanceStatus(status: string): BuyerReconStatus | null {
+  const next = nextStatus(status);
+  return next !== null && isSettableStatus(next) ? next : null;
+}
+
+/** Whether an ADVANCE control is offered for a recorded status at all. */
+export function canAdvance(status: string): boolean {
+  return advanceStatus(status) !== null;
+}
+
+/**
+ * The PATCH body for an ADVANCE.
+ *
+ * Empty when there is no permitted step, so a caller can detect "nothing to do"
+ * rather than issuing a write that records nothing or asserts an outcome.
+ */
+export function advanceBody(status: string): Record<string, unknown> {
+  const next = advanceStatus(status);
+  return next !== null ? { status: next } : {};
+}
+
 /** A captured fact is unverified unless it carries a value the backend supplied. */
 export function isUnverified(value: string | undefined | null): boolean {
   return !value || value === UNVERIFIED;
@@ -199,7 +236,18 @@ export interface OpportunitySummary {
   total: number;
   actionable: number;
   withEvidence: number;
+  /** Counts for the declared vocabulary; see `offVocabulary` for what it omits. */
   byStatus: Record<string, number>;
+  /**
+   * Entries whose stored status is outside `BUYER_RECON_STATUSES`.
+   *
+   * The backend can persist one: `update_entry` validates `status.upper()` but
+   * writes the value it was sent (`solspire/buyer_recon.py`, MEASURED DEFECT 3).
+   * `byStatus` is keyed on the declared tuple, so such an entry has no column —
+   * it would silently vanish from a per-status strip and the counts would not
+   * total. This carries it so the display can say so instead of under-reporting.
+   */
+  offVocabulary: number;
 }
 
 /** Counts derived from real entries only — an empty board stays visibly empty. */
@@ -208,12 +256,39 @@ export function summarize(entries: OpportunityEntry[]): OpportunitySummary {
   for (const status of BUYER_RECON_STATUSES) byStatus[status] = 0;
   let actionable = 0;
   let withEvidence = 0;
+  let offVocabulary = 0;
   for (const entry of entries) {
-    byStatus[entry.status] = (byStatus[entry.status] ?? 0) + 1;
+    if (isKnownStatus(entry.status)) {
+      byStatus[entry.status] += 1;
+    } else {
+      offVocabulary += 1;
+    }
     if ((ACTIONABLE_STATUSES as readonly string[]).includes(entry.status)) actionable += 1;
     if (entry.evidence_status && entry.evidence_status !== NO_EVIDENCE) withEvidence += 1;
   }
-  return { total: entries.length, actionable, withEvidence, byStatus };
+  return { total: entries.length, actionable, withEvidence, byStatus, offVocabulary };
+}
+
+export interface StatusColumn {
+  status: BuyerReconStatus;
+  /** The status with underscores relieved for display only — the value is unchanged. */
+  label: string;
+}
+
+/**
+ * The ordered columns of the pipeline strip: every status the backend declares.
+ *
+ * Unfiltered on purpose. The archived Prism `ProjectOpportunityRadar` rendered a
+ * column for every member of its `columns` array, including the two terminal
+ * outcome statuses, so a `SETTLED` entry still had a home on the board. Showing
+ * a terminal *count* is reconnaissance; the write ceiling (`SETTABLE_STATUSES`)
+ * is what keeps those statuses from being asserted, and it is unaffected here.
+ */
+export function statusColumns(): StatusColumn[] {
+  return BUYER_RECON_STATUSES.map((status) => ({
+    status,
+    label: status.replaceAll("_", " "),
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -290,6 +365,53 @@ export const COMMERCIAL_FIELDS = [
   "expected_gross_margin",
   "capital_required",
 ] as const satisfies readonly (keyof ProspectDraft)[];
+
+/**
+ * One recorded reconnaissance fact, ready to render.
+ *
+ * `value` is passed through `fact()`, so an unverified commercial fact reads as
+ * the backend's own `UNKNOWN` sentinel rather than `""` — a blank would look
+ * like a measured value of empty.
+ */
+export interface EntryFact {
+  field: keyof OpportunityEntry;
+  /** The field name with underscores relieved for display only — the value is unchanged. */
+  label: string;
+  value: string;
+}
+
+/**
+ * The reconnaissance facts an entry carries that have no dedicated control.
+ *
+ * The archived Prism `ProjectOpportunityRadar` rendered the whole captured grid
+ * (location, commodity, quantity, buyer price, delivery, window, supplier,
+ * landed cost, capital, payment terms). The console rendered only three of the
+ * ~22 declared fields, so most of what the board stores was invisible. This
+ * derives the grid from the handler's own field set — descriptive and commercial
+ * from `BuyerReconEntryInput` — so the display cannot drift from the contract,
+ * and every value is passed through `fact()` so nothing is guessed.
+ *
+ * Excluded on purpose, because each has its own UI or is not a fact to display:
+ * `prospect` (the entry title), `status` (the status chip), `evidence_status`
+ * (the evidence line), `evidence` (never rendered as raw JSON here),
+ * `why_this_prospect` (its own paragraph), `notes` (own field, not yet rendered),
+ * and the server-managed `id` / `board_id` / `subject_ref` / timestamps.
+ */
+export const ENTRY_FACT_FIELDS = [...DESCRIPTIVE_FIELDS, ...COMMERCIAL_FIELDS].filter(
+  (field) => field !== "why_this_prospect" && field !== "notes",
+) as readonly (keyof OpportunityEntry)[];
+
+export function entryFactLabel(field: keyof OpportunityEntry): string {
+  return String(field).replaceAll("_", " ");
+}
+
+export function entryFacts(entry: OpportunityEntry): EntryFact[] {
+  return ENTRY_FACT_FIELDS.map((field) => ({
+    field,
+    label: entryFactLabel(field),
+    value: fact(entry[field] as string | undefined | null),
+  }));
+}
 
 export function emptyDraft(status: string = "UNCONTACTED"): ProspectDraft {
   const draft = { prospect: "", status } as ProspectDraft;
@@ -378,9 +500,20 @@ export function isNoOpEdit(draft: ProspectDraft, base?: OpportunityEntry): boole
   return Object.keys(editEntryBody(draft, base)).length === 0;
 }
 
-/** Seed an edit control from a recorded entry, carrying its values verbatim. */
+/**
+ * Seed an edit control from a recorded entry, carrying its values verbatim.
+ *
+ * `status` is carried exactly as stored, including a value outside the declared
+ * vocabulary. Snapping an off-vocabulary status to `UNCONTACTED` here would both
+ * *display* a status the entry does not have and — because `UNCONTACTED` is
+ * settable while the stored value is not — make the next save emit
+ * `{"status": "UNCONTACTED"}` as a side effect of editing an unrelated field,
+ * silently rewriting a recorded status. `editEntryBody` refuses to transmit a
+ * non-settable status, so carrying the true value is what keeps an edit from
+ * asserting one the operator never chose.
+ */
 export function draftFromEntry(entry: OpportunityEntry): ProspectDraft {
-  const draft = emptyDraft(isKnownStatus(entry.status) ? entry.status : "UNCONTACTED");
+  const draft = emptyDraft(entry.status);
   draft.prospect = entry.prospect ?? "";
   for (const field of DESCRIPTIVE_FIELDS) draft[field] = entry[field] ?? "";
   for (const field of COMMERCIAL_FIELDS) draft[field] = fact(entry[field]);

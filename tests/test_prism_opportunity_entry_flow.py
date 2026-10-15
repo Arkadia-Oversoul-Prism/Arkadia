@@ -425,6 +425,67 @@ contacted.status = "CONTACTED";
 out.create_from_contacted = m.createEntryBody(contacted);
 out.edit_from_contacted = m.editEntryBody(contacted, entry);
 
+// The pipeline strip: one ordered column per declared status.
+out.pipeline_columns = m.statusColumns().map((c) => c.status);
+out.pipeline_labels = m.statusColumns().map((c) => c.label);
+out.summary_empty = m.summarize([]);
+out.summary_one = m.summarize([entry]);
+// A board carrying a terminal outcome AND a defect-3 status (outside the declared
+// vocabulary): the columns must still total, and the stray must be counted.
+const settled = { ...entry, id: "e3", status: "SETTLED" };
+const offVocab = { ...entry, id: "e4", status: "conversation" };
+out.summary_mixed = m.summarize([entry, settled, offVocab]);
+out.no_evidence_sentinel = m.NO_EVIDENCE;
+
+// The reconnaissance fact grid: one row per declared descriptive/commercial
+// field, each value through `fact()` — an unverified fact reads UNKNOWN, never
+// a blank. A field the entry does carry keeps its recorded value verbatim.
+out.fact_fields = m.ENTRY_FACT_FIELDS;
+out.fact_rows_unfilled = m.entryFacts(entry);
+const recorded = {
+  ...entry,
+  location: "Kano",
+  commodity: "Maize",
+  buyer_price: "NGN 1200/kg",
+  landed_cost: "",
+};
+out.fact_rows_recorded = m.entryFacts(recorded);
+
+// Operator notes — a free-text read field the entry may carry. The archived
+// Prism radar declared it and the console never rendered it, so a recorded note
+// was invisible. A recorded note must read verbatim; an empty one is absent.
+out.notes_recorded = { ...entry, notes: "Asked for 20t" }.notes;
+out.notes_empty = entry.notes;
+
+// Evidence coverage: only an entry whose evidence_status differs from the
+// backend's NONE sentinel counts; a NONE entry must not.
+const withEvidence = { ...entry, id: "e5", evidence_status: "FIELD_VISIT" };
+out.summary_evidence = m.summarize([entry, withEvidence]);
+out.summary_evidence_none_only = m.summarize([entry, settled]).withEvidence;
+
+// The per-entry ADVANCE step: one status forward, never past the ceiling.
+out.advance_from_uncontacted = m.advanceBody("UNCONTACTED");
+out.advance_from_requirement = m.advanceBody("REQUIREMENT_CAPTURED");
+out.advance_from_ready = m.advanceBody("READY_TO_EXECUTE");
+out.advance_from_executed = m.advanceBody("EXECUTED");
+out.advance_from_settled = m.advanceBody("SETTLED");
+out.advance_from_off_vocab = m.advanceBody("conversation");
+out.advance_from_unknown = m.advanceBody("NOT_A_STATUS");
+out.advance_from_blank = m.advanceBody("");
+out.can_advance_uncontacted = m.canAdvance("UNCONTACTED");
+out.can_advance_ready = m.canAdvance("READY_TO_EXECUTE");
+out.can_advance_settled = m.canAdvance("SETTLED");
+out.advance_status_ready = m.advanceStatus("READY_TO_EXECUTE");
+
+// Seeding an edit from an off-vocabulary entry must carry the stored status
+// verbatim, so an unrelated edit cannot silently rewrite it into a declared one.
+const offSeeded = m.draftFromEntry(offVocab);
+out.off_seed_status = offSeeded.status;
+out.off_seed_noop = m.isNoOpEdit(offSeeded, offVocab);
+offSeeded.notes = "Asked for 20t";
+out.off_seed_edit_body = m.editEntryBody(offSeeded, offVocab);
+out.off_seed_is_settable = m.isSettableStatus(offSeeded.status);
+
 console.log(JSON.stringify(out));
 """
 
@@ -824,3 +885,412 @@ def test_the_surface_cannot_reach_defect_3():
     assert "toUpperCase()" not in form and "toLowerCase()" not in form, (
         "the form must not case-fold a status it is about to send"
     )
+
+
+# ---------------------------------------------------------------------------
+# Pipeline strip — the per-status counts the board read already computes
+# ---------------------------------------------------------------------------
+
+
+def test_status_columns_cover_every_declared_status_in_backend_order(contract_probe):
+    """The strip renders one column per status, in the backend's own order.
+
+    Derived from `BUYER_RECON_STATUSES`, so a status added to the backend is a
+    column without a frontend edit; a status removed leaves no stale column.
+    """
+    assert contract_probe["pipeline_columns"] == list(buyer_recon.STATUSES)
+    # Labels are the status with underscores relieved, not a second vocabulary.
+    assert contract_probe["pipeline_labels"] == [
+        status.replace("_", " ") for status in buyer_recon.STATUSES
+    ]
+
+
+def test_strip_counts_every_entry_including_terminal_outcomes(contract_probe):
+    """A terminal outcome still has a home: the columns total the board.
+
+    The write ceiling (`SETTABLE_STATUSES`) stops EXECUTED/SETTLED being
+    *asserted*; it must not also stop a recorded one being *counted*, or the strip
+    would under-report a real board (the archived Prism strip showed every column).
+    """
+    mixed = contract_probe["summary_mixed"]
+    counted = sum(mixed["byStatus"][status] for status in buyer_recon.STATUSES)
+    # 2 in-vocabulary entries (UNCONTACTED + SETTLED) + 1 off-vocabulary stray.
+    assert mixed["total"] == 3
+    assert counted == 2, "in-vocabulary columns must count the settled entry too"
+    assert mixed["byStatus"]["UNCONTACTED"] == 1
+    assert mixed["byStatus"]["SETTLED"] == 1
+
+
+def test_strip_states_the_off_vocabulary_stray_instead_of_dropping_it(contract_probe):
+    """MEASURED DEFECT 3 makes a status outside the vocabulary persistable.
+
+    `byStatus` is keyed on the declared tuple, so such an entry has no column. Left
+    unreported the counts silently fail to total; the summary carries the stray and
+    the surface says so. This is the same defect pinned (not repaired) by
+    `test_update_does_not_normalize_a_lowercase_status` — here the *display* is
+    measured, not the backend.
+    """
+    mixed = contract_probe["summary_mixed"]
+    assert mixed["offVocabulary"] == 1
+    assert mixed["total"] == sum(
+        mixed["byStatus"][status] for status in buyer_recon.STATUSES
+    ) + mixed["offVocabulary"], "the strip plus the off-vocabulary note must total the board"
+
+
+def test_negative_control_the_stray_would_be_dropped_without_the_counter(contract_probe):
+    """Prove the counter is load-bearing rather than decorative.
+
+    Under the pre-change `summarize` (which only incremented declared keys) the
+    off-vocabulary entry vanished: the columns totalled one less than the board.
+    """
+    mixed = contract_probe["summary_mixed"]
+    assert mixed["offVocabulary"] > 0, "the detector must see a stray at all"
+    naive_total = sum(mixed["byStatus"][status] for status in buyer_recon.STATUSES)
+    assert naive_total != mixed["total"], "without the counter the total would not reconcile"
+
+
+def test_empty_board_reports_zeroed_columns_not_an_invented_row(contract_probe):
+    empty = contract_probe["summary_empty"]
+    assert empty["total"] == 0
+    assert empty["offVocabulary"] == 0
+    assert all(empty["byStatus"][status] == 0 for status in buyer_recon.STATUSES), (
+        "an empty board must yield zeroed columns, never a fabricated count"
+    )
+
+
+def test_surface_renders_the_pipeline_strip_from_the_summary():
+    surface = SURFACE_TS.read_text(encoding="utf-8")
+    assert 'data-testid="opportunity-pipeline"' in surface
+    assert "statusColumns().map(" in surface, "columns must be derived, not hardcoded"
+    assert "summary.byStatus[column.status] ?? 0" in surface
+    assert 'data-testid="opportunity-off-vocabulary"' in surface
+    assert "summary.offVocabulary > 0" in surface
+
+
+# ---------------------------------------------------------------------------
+# Evidence coverage — the metric `summarize()` computed but no surface rendered
+# ---------------------------------------------------------------------------
+
+
+def test_evidence_metric_counts_only_entries_past_the_none_sentinel(contract_probe):
+    """`withEvidence` counts entries whose evidence status differs from `NONE`.
+
+    The summary already computed this; the surface rendered nothing, so the count
+    was dead data (the same gap the pipeline strip closed for `byStatus`). One
+    entry at the backend's `NONE` sentinel and one carrying a real status must
+    count exactly one.
+    """
+    summary = contract_probe["summary_evidence"]
+    assert summary["total"] == 2
+    assert summary["withEvidence"] == 1
+
+
+def test_negative_control_a_none_sentinel_entry_is_not_counted_as_evidenced(contract_probe):
+    """Prove the metric is not counting every entry.
+
+    A board where every entry sits at the backend's `NONE` sentinel must report
+    zero — otherwise the metric would claim evidence that does not exist, which is
+    exactly the over-claim the `NONE` sentinel exists to prevent.
+    """
+    assert contract_probe["summary_evidence_none_only"] == 0
+    assert contract_probe["no_evidence_sentinel"] == "NONE"
+
+
+def test_surface_renders_the_evidence_metric_from_the_summary():
+    surface = SURFACE_TS.read_text(encoding="utf-8")
+    assert 'data-testid="opportunity-evidence-metric"' in surface
+    assert "summary.withEvidence" in surface, "the metric must read the computed summary"
+    assert "NO_EVIDENCE" in surface, "the copy must name the backend sentinel it counts against"
+    # The sentinel comes from the contract module, not a re-typed literal.
+    assert "NO_EVIDENCE" in surface.split("from \"./opportunityRadarContract\"")[0] or (
+        "NO_EVIDENCE," in surface
+    ), "NO_EVIDENCE must be imported, not invented inline"
+
+
+# ---------------------------------------------------------------------------
+# Reconnaissance fact grid — the captured fields the console left invisible
+# ---------------------------------------------------------------------------
+
+
+def test_fact_grid_covers_the_declared_reconnaissance_fields(contract_probe):
+    """The grid carries the descriptive and commercial fields the handler declares.
+
+    The archived Prism radar rendered the whole captured grid; the console rendered
+    only three fields, so a recorded location, quantity, supplier, delivery window,
+    payment terms, or margin was invisible. The row set must match the contract's
+    own field declarations — not a hand-copied list that can drift from them.
+    """
+    fields = contract_probe["fact_fields"]
+    assert "location" in fields and "commodity" in fields and "quantity" in fields
+    assert "buyer_price" in fields and "landed_cost" in fields and "supplier" in fields
+    assert "delivery_window" in fields and "payment_terms" in fields
+    assert "capital_required" in fields and "expected_gross_margin" in fields
+    # The fields with their own UI are excluded, so nothing renders twice.
+    for dedicated in ("prospect", "status", "evidence_status", "why_this_prospect", "notes"):
+        assert dedicated not in fields, f"{dedicated} has its own control and must not be a grid row"
+
+
+def test_fact_rows_read_an_unverified_commercial_field_as_the_sentinel(contract_probe):
+    """Every unfilled row states the backend's `UNKNOWN`, never a blank.
+
+    A blank would read as a measured value of empty. The row value is passed through
+    `fact()`, so the unverified state is the sentinel the backend itself uses. The
+    probe entry carries descriptive facts only; every commercial fact it omits must
+    read as the sentinel.
+    """
+    rows = {row["field"]: row["value"] for row in contract_probe["fact_rows_unfilled"]}
+    assert rows["buyer_price"] == "UNKNOWN"
+    assert rows["quantity"] == "UNKNOWN" and rows["supplier"] == "UNKNOWN"
+    assert all(value != "" for value in rows.values()), "no row may render an empty value"
+
+
+def test_fact_rows_carry_a_recorded_value_verbatim(contract_probe):
+    """A fact the entry actually carries is shown as recorded, not overwritten."""
+    rows = {row["field"]: row["value"] for row in contract_probe["fact_rows_recorded"]}
+    assert rows["location"] == "Kano"
+    assert rows["commodity"] == "Maize"
+    assert rows["buyer_price"] == "NGN 1200/kg"
+
+
+def test_negative_control_an_empty_string_fact_reads_as_the_sentinel(contract_probe):
+    """Prove `fact()` is load-bearing, not decorative.
+
+    An entry whose stored `landed_cost` is the empty string (the backend default for
+    a non-commercial text field) must not render a blank cell — under a raw
+    passthrough it would. The control reconstructs that passthrough and shows it
+    diverges from the measured row.
+    """
+    rows = {row["field"]: row["value"] for row in contract_probe["fact_rows_recorded"]}
+    assert rows["landed_cost"] == "UNKNOWN", "an empty stored fact must read as the sentinel"
+    assert rows["landed_cost"] != "", "the raw passthrough would have rendered a blank"
+
+
+def test_surface_renders_the_fact_grid_from_the_contract():
+    surface = SURFACE_TS.read_text(encoding="utf-8")
+    assert "entryFacts(entry)" in surface, "the grid must be derived from the contract, not hardcoded"
+    assert "opportunity-entry-facts-" in surface, "the grid must be identifiable per entry"
+    # The value must come from the contract's `fact()`-backed row, not a raw label.
+    assert "item.value" in surface
+    assert "entryFacts," in surface, "the helper must be imported from the contract module"
+
+
+# ---------------------------------------------------------------------------
+# Per-entry ADVANCE — one step forward, through the verified PATCH handler
+# ---------------------------------------------------------------------------
+
+
+def test_executed_contract_advance_steps_one_status_forward(contract_probe):
+    """The archived Prism board offered one ADVANCE per entry; it is one PATCH."""
+    assert contract_probe["advance_from_uncontacted"] == {"status": "CONTACTED"}
+    assert contract_probe["advance_from_requirement"] == {"status": "PRICE_CONFIRMED"}
+
+
+def test_executed_contract_advance_stops_at_the_reconnaissance_ceiling(contract_probe):
+    """`READY_TO_EXECUTE` is the last step: a terminal outcome is never a target.
+
+    The archived Prism step was index-based and *would* have sent `EXECUTED` from
+    `READY_TO_EXECUTE`. The write ceiling forbids it, so the step stops here.
+    """
+    assert contract_probe["advance_from_ready"] == {}
+    assert contract_probe["can_advance_ready"] is False
+    assert contract_probe["advance_status_ready"] is None
+
+
+def test_executed_contract_advance_is_empty_for_an_unstepable_status(contract_probe):
+    for key in (
+        "advance_from_executed",
+        "advance_from_settled",
+        "advance_from_off_vocab",
+        "advance_from_unknown",
+        "advance_from_blank",
+    ):
+        assert contract_probe[key] == {}, f"{key} must not produce a write body"
+    assert contract_probe["can_advance_settled"] is False
+    assert contract_probe["can_advance_uncontacted"] is True
+
+
+def test_negative_control_a_naive_index_step_would_assert_an_outcome(contract_probe):
+    """Proves the ceiling is load-bearing: the archived index step would send EXECUTED."""
+    naive = buyer_recon.STATUSES[buyer_recon.STATUSES.index("READY_TO_EXECUTE") + 1]
+    assert naive == "EXECUTED", "the naive step lands on a transaction outcome"
+    assert contract_probe["advance_from_ready"] == {}, "the contract must refuse that step"
+    assert naive not in contract_probe["settable_statuses"]
+
+
+def test_the_frontend_advance_body_is_accepted_and_persisted_by_the_real_handler(app, contract_probe):
+    """Binds the executed advance body to the live handler, asserted on the row."""
+    project_id = _project(OWNER["uid"])
+    client = _client(app, OWNER)
+    created = client.post(
+        _entries_path(project_id),
+        json={"prospect": "Buyer A", "status": "UNCONTACTED"},
+    )
+    assert created.status_code == 201, created.text
+    entry_id = created.json()["entry"]["id"]
+
+    advanced = client.patch(
+        f"{_entries_path(project_id)}/{entry_id}", json=contract_probe["advance_from_uncontacted"]
+    )
+    assert advanced.status_code == 200, advanced.text
+    assert advanced.json()["entry"]["status"] == "CONTACTED"
+    assert _persisted(entry_id)["status"] == "CONTACTED"
+    # The advance carried only a status; the recorded prospect survives it.
+    assert _persisted(entry_id)["prospect"] == "Buyer A"
+
+
+def test_negative_control_the_ceiling_body_is_never_sent_to_the_handler(app):
+    """An empty advance body has nothing to send; posting it does not move the row."""
+    project_id = _project(OWNER["uid"])
+    client = _client(app, OWNER)
+    created = client.post(
+        _entries_path(project_id), json={"prospect": "Buyer A", "status": "READY_TO_EXECUTE"}
+    )
+    entry_id = created.json()["entry"]["id"]
+    # The contract produces {} here; an empty PATCH is a no-op, not an outcome write.
+    noop = client.patch(f"{_entries_path(project_id)}/{entry_id}", json={})
+    assert noop.status_code == 200, noop.text
+    assert _persisted(entry_id)["status"] == "READY_TO_EXECUTE", "the row must not advance to EXECUTED"
+
+
+def test_surface_offers_an_advance_control_only_when_a_step_is_permitted():
+    surface = SURFACE_TS.read_text(encoding="utf-8")
+    assert "canAdvance(entry.status)" in surface, "the control must be gated by the ceiling"
+    assert "opportunity-entry-advance-" in surface, "an advance control must exist per entry"
+    assert "advanceBody(entry.status)" in surface, "the body must come from the contract module"
+    assert 'method: "PATCH"' in surface
+    assert 'from "./opportunityRadarContract"' in surface
+
+
+def test_surface_advance_invents_no_delete_or_execute_path():
+    code = _code_only(SURFACE_TS)
+    for invented in ('"DELETE"', "'DELETE'", "handleExecute", "handleApprove", "settle(", "executeEntry"):
+        assert invented not in code, f"advance must not imply authority it does not have ({invented})"
+
+def test_surface_strip_asserts_no_execution_authority():
+    """A per-status count is reconnaissance; it must not become an execute control."""
+    code = _code_only(SURFACE_TS)
+    for invented in (
+        "onClick={handleExecute",
+        "handleApprove",
+        '"DELETE"',
+        "'DELETE'",
+        "budget_ngn",
+        "contract_value",
+        "revenue",
+    ):
+        assert invented not in code, f"the strip must not imply authority ({invented})"
+
+
+
+# ---------------------------------------------------------------------------
+# Seeding an edit from an off-vocabulary entry — carried verbatim, not snapped
+# ---------------------------------------------------------------------------
+
+
+def test_seeding_an_edit_carries_an_off_vocabulary_status_verbatim(contract_probe):
+    """The edit control shows the status the entry actually has.
+
+    An entry can carry a status outside the declared vocabulary (MEASURED DEFECT 3,
+    pinned above). Snapping it to `UNCONTACTED` on seed displayed a status the entry
+    does not hold; the draft must carry the stored value instead.
+    """
+    assert contract_probe["off_seed_status"] == "conversation"
+    assert contract_probe["off_seed_status"] not in buyer_recon.STATUSES
+    assert contract_probe["off_seed_is_settable"] is False
+
+
+def test_an_unrelated_edit_does_not_rewrite_an_off_vocabulary_status(contract_probe):
+    """The consequential half: no silent status rewrite as a side effect of editing.
+
+    With the off-vocabulary status carried verbatim, `editEntryBody` transmits only
+    the field the operator changed — it never substitutes the seed default. The
+    stored off-vocabulary status is left untouched by a save.
+    """
+    assert contract_probe["off_seed_edit_body"] == {"notes": "Asked for 20t"}
+    assert "status" not in contract_probe["off_seed_edit_body"]
+
+
+def test_seeding_an_off_vocabulary_entry_round_trips_to_a_no_op(contract_probe):
+    """A seed that carries the stored status makes a no-change round trip a no-op."""
+    assert contract_probe["off_seed_noop"] is True
+
+
+def test_negative_control_the_snapping_seed_would_have_rewritten_the_status(contract_probe):
+    """Proves the verbatim carry is load-bearing, not decorative.
+
+    Under the pre-change seed (`isKnownStatus(entry.status) ? entry.status :
+    "UNCONTACTED"`) the draft read `UNCONTACTED` — which *is* settable — so the same
+    notes-only edit would have emitted `{"notes": ..., "status": "UNCONTACTED"}` and
+    silently rewritten a recorded status. Reconstruct that shape and show it diverges
+    from the measured body.
+    """
+    snap = "UNCONTACTED"
+    assert snap in contract_probe["settable_statuses"], "the snap target must be settable to bite"
+    assert contract_probe["off_seed_status"] != snap, "the fixed seed must not snap"
+    assert contract_probe["off_seed_edit_body"] != {"notes": "Asked for 20t", "status": snap}
+
+
+def test_edit_form_states_an_off_vocabulary_status_instead_of_a_transaction_note():
+    """The locked-status message must distinguish the two cases.
+
+    A terminal outcome and an off-vocabulary stray are both non-settable but not the
+    same fact; the transaction-outcome note would misdescribe the latter. The form
+    branches on `isKnownStatus` and carries a distinct testid for the stray.
+    """
+    form = FORM_TS.read_text(encoding="utf-8")
+    assert "isKnownStatus(draft.status)" in form, "the locked display must branch on the vocabulary"
+    assert 'data-testid="prospect-entry-status-off-vocabulary"' in form
+    assert "isKnownStatus," in form, "the predicate must be imported, not re-derived inline"
+
+
+def test_the_frontend_seed_no_longer_snaps_an_unknown_status():
+    """Source-level pin of the one-line change, so a revert is visible."""
+    contract = _code_only(CONTRACT_TS)
+    assert 'emptyDraft(isKnownStatus(entry.status) ? entry.status : "UNCONTACTED")' not in contract
+    assert "emptyDraft(entry.status)" in contract, "the seed must carry the stored status verbatim"
+
+
+# ---------------------------------------------------------------------------
+# Operator notes — the last declared read field with no console rendering
+# ---------------------------------------------------------------------------
+
+
+def test_read_returns_a_recorded_note_verbatim(app):
+    """`notes` is returned by both entry reads, so the console can render it.
+
+    The field has a backend default of `""` and no verified UI write path; a note
+    reaches the store through the same create/edit handlers the form already drives.
+    The read must carry it so the surface does not have to guess.
+    """
+    project_id = _project(OWNER["uid"])
+    entry = _create(app, project_id, {"prospect": "Buyer A", "notes": "Asked for 20t"}).json()["entry"]
+    assert entry["notes"] == "Asked for 20t"
+    assert _persisted(entry["id"])["notes"] == "Asked for 20t"
+    read = _client(app, OWNER).get(f"/solspire/buyer-recon/projects/{project_id}").json()["entries"][0]
+    assert read["notes"] == "Asked for 20t"
+
+
+def test_negative_control_an_entry_without_a_note_reads_the_empty_default(app):
+    """Prove the surface must gate on the note, not render the field unconditionally.
+
+    An entry created without a note carries the backend's `""` default. A surface
+    that rendered `notes` unconditionally would emit an empty paragraph; the gate
+    (`entry.notes &&`) renders nothing. This control fixes the value the gate sees.
+    """
+    project_id = _project(OWNER["uid"])
+    entry = _create(app, project_id, {"prospect": "Buyer A"}).json()["entry"]
+    assert entry["notes"] == "", "an un-noted entry defaults to the empty string"
+
+
+def test_notes_read_verbatim_in_the_contract_probe(contract_probe):
+    assert contract_probe["notes_recorded"] == "Asked for 20t"
+    assert contract_probe["notes_empty"] == ""
+
+
+def test_surface_renders_a_recorded_note_gated_on_its_presence():
+    """The note renders from the read field, only when the entry carries one."""
+    surface = SURFACE_TS.read_text(encoding="utf-8")
+    assert "entry.notes &&" in surface, "the note must be gated, not rendered unconditionally"
+    assert "opportunity-entry-notes-" in surface, "the note must be identifiable per entry"
+    # It reads the field off the entry the board read returned, not a re-typed copy.
+    assert "{entry.notes}" in surface

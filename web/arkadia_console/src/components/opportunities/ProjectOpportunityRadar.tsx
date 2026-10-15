@@ -3,8 +3,15 @@ import { ApiError, apiRequest } from "../../lib/apiClient";
 import { Panel } from "../ui";
 import { ProspectEntryForm } from "./ProspectEntryForm";
 import {
+  NO_EVIDENCE,
   UNVERIFIED,
+  advanceBody,
+  canAdvance,
+  entryFacts,
+  entryPathFromBoard,
   fact,
+  parseEntryResponse,
+  statusColumns,
   summarize,
   upsertEntry,
   type OpportunityEntry,
@@ -47,6 +54,7 @@ export function ProjectOpportunityRadar({ readPath }: { readPath: string }) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [entries, setEntries] = useState<OpportunityEntry[]>([]);
   const [form, setForm] = useState<{ mode: "create" } | { mode: "edit"; entry: OpportunityEntry } | null>(null);
+  const [advance, setAdvance] = useState<{ entryId: string; state: "saving" } | { entryId: string; state: "error"; message: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,6 +89,38 @@ export function ProjectOpportunityRadar({ readPath }: { readPath: string }) {
     setForm(null);
     setEntries([]);
   }, [readPath]);
+
+  /**
+   * Step one recorded prospect to the next pipeline status through the verified
+   * PATCH handler — the same write the edit form performs, narrowed to one value.
+   *
+   * The target comes from `advanceBody`, which refuses to step past the
+   * reconnaissance ceiling, so this control can never assert a transaction
+   * outcome. The row is replaced with the entry the server returned; a body
+   * without the declared `entry` key is treated as an unconfirmed write.
+   */
+  async function onAdvance(entry: OpportunityEntry) {
+    const body = advanceBody(entry.status);
+    if (Object.keys(body).length === 0) return;
+    setAdvance({ entryId: entry.id, state: "saving" });
+    try {
+      const payload = await apiRequest<unknown>(entryPathFromBoard(readPath, entry.id), {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      });
+      const saved = parseEntryResponse(payload);
+      if (!saved) {
+        setAdvance({ entryId: entry.id, state: "error", message: "The board did not confirm the advance." });
+        return;
+      }
+      setEntries((current) => upsertEntry(current, saved));
+      setAdvance(null);
+    } catch (caught: unknown) {
+      const error = caught instanceof ApiError ? caught : null;
+      const message = error?.message ?? (caught instanceof Error ? caught.message : "Request failed.");
+      setAdvance({ entryId: entry.id, state: "error", message });
+    }
+  }
 
   const summary = summarize(entries);
 
@@ -121,6 +161,26 @@ export function ProjectOpportunityRadar({ readPath }: { readPath: string }) {
                 Reconnaissance only · execution: {state.board.authority.execution_authority ?? "unreported"} · budget: {state.board.authority.budget_authority ?? "unreported"}
               </p>
             )}
+            {/* Pipeline strip — a real count per declared status, over the same
+                entries the list below shows. A status the backend stored but does
+                not declare has no column here, so it is counted separately rather
+                than dropped (see the off-vocabulary note under the list). */}
+            <ul
+              className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4"
+              data-testid="opportunity-pipeline"
+            >
+              {statusColumns().map((column) => (
+                <li key={column.status} className="rounded border border-line bg-ink/40 px-2 py-1">
+                  <p className="font-mono text-[9px] uppercase tracking-widest text-white/40">{column.label}</p>
+                  <p
+                    className={`text-sm ${column.status === "READY_TO_EXECUTE" ? "text-gold" : "text-emerald"}`}
+                    data-testid={`opportunity-pipeline-${column.status}`}
+                  >
+                    {summary.byStatus[column.status] ?? 0}
+                  </p>
+                </li>
+              ))}
+            </ul>
             {entries.length === 0 ? (
               <p className="text-sm text-white/50">No prospects recorded for this project yet.</p>
             ) : (
@@ -139,22 +199,35 @@ export function ProjectOpportunityRadar({ readPath }: { readPath: string }) {
                     <p className="mt-2 font-mono text-[10px] uppercase tracking-wider text-white/35">
                       Evidence: {entry.evidence_status ?? "not reported"}
                     </p>
-                    <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-white/50 sm:grid-cols-3">
-                      <div>
-                        <dt className="font-mono text-[9px] uppercase tracking-widest text-white/30">Buyer price</dt>
-                        <dd>{fact(entry.buyer_price)}</dd>
-                      </div>
-                      <div>
-                        <dt className="font-mono text-[9px] uppercase tracking-widest text-white/30">Landed cost</dt>
-                        <dd>{fact(entry.landed_cost)}</dd>
-                      </div>
-                      <div>
-                        <dt className="font-mono text-[9px] uppercase tracking-widest text-white/30">Margin</dt>
-                        <dd>{fact(entry.expected_gross_margin)}</dd>
-                      </div>
+                    {/* The captured reconnaissance grid — every descriptive and
+                        commercial field the handler declares, each rendered through
+                        `fact()` so an unverified fact reads as the backend's own
+                        UNKNOWN sentinel rather than a blank. Display-only: it adds
+                        no control and asserts nothing about a value's truth. */}
+                    <dl
+                      className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-white/50 sm:grid-cols-3"
+                      data-testid={`opportunity-entry-facts-${entry.id}`}
+                    >
+                      {entryFacts(entry).map((item) => (
+                        <div key={item.field}>
+                          <dt className="font-mono text-[9px] uppercase tracking-widest text-white/30">{item.label}</dt>
+                          <dd>{item.value}</dd>
+                        </div>
+                      ))}
                     </dl>
                     {entry.why_this_prospect && <p className="mt-2 text-xs text-white/60">{entry.why_this_prospect}</p>}
-                    <div className="mt-3">
+                    {/* Operator notes — a free-text read field the handler returns
+                        (`notes`, default `""`) and the archived Prism radar declared
+                        but the console never rendered, so a recorded note was
+                        invisible. Display-only: it is shown only when the entry
+                        carries one, and it asserts nothing about the entry. */}
+                    {entry.notes && (
+                      <p className="mt-2 text-xs text-white/50" data-testid={`opportunity-entry-notes-${entry.id}`}>
+                        <span className="font-mono text-[10px] uppercase tracking-widest text-white/35">Notes: </span>
+                        {entry.notes}
+                      </p>
+                    )}
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         data-testid={`opportunity-entry-edit-${entry.id}`}
@@ -163,7 +236,21 @@ export function ProjectOpportunityRadar({ readPath }: { readPath: string }) {
                       >
                         Edit
                       </button>
+                      {canAdvance(entry.status) && (
+                        <button
+                          type="button"
+                          data-testid={`opportunity-entry-advance-${entry.id}`}
+                          onClick={() => onAdvance(entry)}
+                          disabled={advance?.entryId === entry.id && advance.state === "saving"}
+                          className="rounded border border-emerald/40 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-emerald disabled:opacity-40"
+                        >
+                          Advance
+                        </button>
+                      )}
                     </div>
+                    {advance?.entryId === entry.id && advance.state === "error" && (
+                      <p role="alert" className="mt-2 text-xs text-rose-300">Advance failed: {advance.message}</p>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -171,6 +258,21 @@ export function ProjectOpportunityRadar({ readPath }: { readPath: string }) {
             <p className="mt-3 text-[11px] text-white/35">
               {summary.total} recorded prospect(s), {summary.actionable} at a decision stage. No spending or execution is authorized by this view.
             </p>
+            {/* Evidence coverage — the archived Prism radar surfaced a "with
+                evidence" metric; the console computed it (`summarize().withEvidence`)
+                but rendered nothing, so the structure was dead data. It counts the
+                entries whose `evidence_status` is not the backend's `NONE` sentinel;
+                it asserts nothing about the evidence itself. */}
+            <p className="mt-1 text-[11px] text-white/35" data-testid="opportunity-evidence-metric">
+              {summary.withEvidence} of {summary.total} recorded prospect(s) carry an evidence status other
+              than the backend's {NO_EVIDENCE} sentinel.
+            </p>
+            {summary.offVocabulary > 0 && (
+              <p className="mt-1 text-[11px] text-gold" data-testid="opportunity-off-vocabulary">
+                {summary.offVocabulary} recorded prospect(s) carry a status outside the declared pipeline
+                and are not counted in the columns above.
+              </p>
+            )}
           </>
         )}
       </Panel>

@@ -53,6 +53,20 @@ Next bounded task on the successor branch: the `evidence_status` / `evidence`
 capture path, only if such a handler is verified; otherwise the next archived
 Opportunity Radar / NovaNet capability whose contract measures cleanly.
 
+## Lane 2 continuity — evidence coverage (2026-10-13 pulse)
+
+The successor task above (`evidence_status` / `evidence` capture) is **not
+actionable**: no verified owner- and board-scoped write handler exists, so adding
+a capture control would invent a mutation path. The bounded move taken instead was
+**display-only**: render `summarize().withEvidence`, the third radar metric that
+was computed but never surfaced (`byStatus` and `offVocabulary` were reconciled by
+`prism-opportunity-pipeline-strip-01`). Evidence:
+`docs/control-plane/evidence/prism-opportunity-evidence-coverage-01/`.
+
+Next bounded task on this lane: reconcile the next archived Opportunity Radar /
+NovaNet capability **whose contract measures cleanly against a verified handler**.
+Do not wire `evidence_status` / `evidence` until a real handler is verified.
+
 ## Start now — no new prompt required
 
 1. Re-fetch `main`; verify actual POST/PATCH methods, auth/owner checks, request/response shapes, and board-scoping behavior from handlers and tests before wiring UI.
@@ -72,3 +86,109 @@ Opportunity Radar / NovaNet capability whose contract measures cleanly.
 ## Required evidence
 
 Verified route contract; owner and board-scope tests; validation/error states; typecheck/build; negative controls; exact SHAs; explicit unknowns and next task.
+
+## Lane continuity — 2026-10-13 (fact grid)
+
+`prism-opportunity-fact-grid-01` (same draft PR #492, head `6a94554`): the console
+rendered only three of the ~22 declared `BuyerReconEntryInput` facts. The grid is
+now **derived** from the contract's own `DESCRIPTIVE_FIELDS` + `COMMERCIAL_FIELDS`
+(so it cannot drift), every value through `fact()` (unverified reads `UNKNOWN`,
+never a blank). Display-only. Evidence:
+`docs/control-plane/evidence/prism-opportunity-fact-grid-01/`.
+
+Next bounded task on this lane: surface `notes` (excluded from the grid, still
+unrendered) **only if** it can be tied to a verified read field and needs no new
+control; otherwise reconcile the next archived radar capability that measures
+cleanly against a verified handler. Do not invent a capture path.
+
+## Lane continuity — 2026-10-13 (operator notes)
+
+`prism-opportunity-notes-render-01` (same draft PR #492, head `6dc3b13c` + this
+slice): `notes` was the last declared `BuyerReconEntryInput` read field the console
+never rendered. Traced end to end — declared `notes: str = ""`, stored in the
+`buyer_recon_entries` table (`DEFAULT ''`), returned by `to_dict()` on **both**
+reads, and writable through the same create/edit handlers `ProspectEntryForm`
+already drives — so **no new control or mutation path** was added. The surface now
+renders the note gated on its presence (`entry.notes &&`), display-only. Evidence:
+`docs/control-plane/evidence/prism-opportunity-notes-render-01/`.
+
+Next bounded task on this lane: reconcile the next archived Opportunity Radar /
+NovaNet capability **whose contract measures cleanly against a verified handler**.
+Do not wire `evidence_status` / `evidence` until a real handler is verified; do not
+invent a capture path for a field with no verified write route.
+
+## Lane continuity — 2026-10-13 (author controls)
+
+`prism-novanet-author-controls-01` (same draft PR #492, head `44b854e2` + this
+slice): the console public field was read-only while the archived Prism field
+offered **author-only Edit / Delete** on a transmission. The backend contract is
+verified and served — `PATCH`/`DELETE /api/transmissions/{id}` in
+`api/transmissions.py`, owner derived from the verified Firebase uid (401
+anonymous / 403 non-owner) — so the capability was reconciled, not invented. New
+feature-local `src/components/novaNet/AuthorControls.tsx` renders **nothing** for
+a non-owner and composes its path from the one registry
+(`endpoints.transmissions` + `encodeURIComponent`); `NovaNetPage.tsx` mounts it
+gated on `myUid === t.owner_uid` and reloads the field on success. No shared file
+(`endpoints.ts`, `types.ts`, router, surfaces, `App.tsx`) was touched. Evidence:
+`docs/control-plane/evidence/prism-novanet-author-controls-01/`.
+
+Next bounded task on this lane: reconcile the next archived NovaNet public-field
+capability **whose contract measures cleanly against a verified handler**
+(reactions / repost only if a real handler is verified). Do not invent a capture
+path for a capability with no verified write route.
+
+## Lane continuity — 2026-10-13 (engagement readings)
+
+`prism-novanet-engagement-readings-01` (same draft PR #492, head `e5e6871d` +
+this slice): the console public field discarded the engagement a reader could
+already fetch. `GET /api/transmissions` returns `reactions` (four backend-seeded
+keys), `comments` and `reposts` on every post; the archived Prism field card
+rendered all of them. New feature-local `src/components/novaNet/EngagementBar.tsx`
+renders them **read-only** — no request, no invented count (a missing reaction
+reads `?? 0`), the vocabulary is the backend's own four keys in its order.
+`NovaNetPage.tsx` mounts it per transmission, above the author controls.
+
+Scope decision: `reactions`/`comments` have live write handlers but were **not**
+wired here (a separate bounded slice); `reposts` has **no** handler, so it is a
+reading with no control. No shared file was touched. Evidence:
+`docs/control-plane/evidence/prism-novanet-engagement-readings-01/`.
+
+Next bounded task on this lane: wire the **reaction write path**
+(`POST /api/transmissions/{id}/react`, verified handler) with a negative control
+proving the client offers it only where the backend accepts it.
+
+## Lane continuity — 2026-10-14 (echoes completeness composed into #492)
+
+`prism-l2-echoes-completeness-01` was opened as a **sibling** PR (#528,
+`feat/prism-l2-echoes-completeness-01`) from `main` `3ca8582a`, editing the same
+`web/arkadia_console/src/pages/NovaNetPage.tsx` base blob (`ef3ccf69`) as PR #492
+(from `49809f45`). Siblings editing one file from one ancestor conflict on merge,
+so the slice was **composed** into the lane branch rather than left to race:
+`git cherry-pick -x e162371d` onto `feat/prism-next7-02-pipeline-strip`, commit
+`75fcc947`. The #492 hunks (7/17/54/70/87) and #528's (32/97/113) do not overlap;
+the cherry-pick auto-merged and **both** slices are present.
+
+The slice repairs a truthfulness defect: the Crystal-Matrix echoes panel rendered a
+bare `EchoesFeed.public.slice(0, 8)` with no stated total and no notice — a subset
+presented as the whole stream. It now single-sources `ECHO_DISPLAY_LIMIT`, states
+the public total in the header, and renders a truncation notice
+(`data-testid="novanet-echoes-truncation"`).
+
+The new guard `tests/test_prism_novanet_echoes_completeness.py` (3 nodes, with a
+negative control that reconstructs the pre-change silent cap) is **derived** into
+the console-contract domain by `scripts/console_contract_domain.py`, so
+`.github/workflows/prism-console-contract.yml` executes it with **no workflow
+edit** — the drift class PR #435 removed. Evidence:
+`docs/control-plane/evidence/prism-l2-echoes-completeness-01/`.
+
+Measured at `75fcc947`: derived domain **473 passed**, new guard **3 passed**,
+lane-2 guards **117 passed**, architecture **11/11**, console build clean with the
+marker in the bundle. Full-suite node set 9 nodes, sha256 `c280ddc6…` —
+byte-identical to the branch baseline at `d4b9c1fe` (zero regression).
+
+**Disposition:** PR #528 is superseded by this composition; close it once #492 is
+reviewed (agents do not close PRs). Draft; no merge, deployment, or acceptance.
+
+Next bounded task on this lane: wire the **reaction write path**
+(`POST /api/transmissions/{id}/react`, verified handler) with a negative control
+proving the client offers it only where the backend accepts it.
