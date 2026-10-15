@@ -14,7 +14,12 @@
 import { useState } from "react";
 import { Panel, Facts, ContractState } from "../ui";
 import { LabRunTrace } from "./LabRunTrace";
-import type { LabEvidenceRecord, LabRunRecord, LabWorkEvent } from "./labRunTrace";
+import type {
+  LabArtifactRecord,
+  LabEvidenceRecord,
+  LabRunRecord,
+  LabWorkEvent,
+} from "./labRunTrace";
 import { useHydration } from "../../lib/useHydration";
 import { apiRequest } from "../../lib/apiClient";
 import { endpoints } from "../../lib/endpoints";
@@ -39,7 +44,7 @@ export interface LabSessionView {
   runs: LabRunRecord[];
   events: LabWorkEvent[];
   evidence: LabEvidenceRecord[];
-  artifacts: Array<Record<string, unknown>>;
+  artifacts: LabArtifactRecord[];
   loop: string[];
   reached_review_boundary: boolean;
   human_decision_required: boolean;
