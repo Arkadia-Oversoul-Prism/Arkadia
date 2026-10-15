@@ -17,6 +17,32 @@
 /** The viewer's authorization context, as the backend would resolve it. */
 export type ViewerKind = "anonymous" | "authenticated";
 
+/**
+ * The canonical GATE-01 provenance projection, as the graph attaches it.
+ *
+ * `state: "UNKNOWN"` is a *value the contract emits*, not a missing field: a
+ * note with no capture record did not come through the capture boundary, and
+ * the projection says so rather than inventing an origin. A note that did come
+ * through carries its source and the authorship that was actually *declared*
+ * (`declared: false` means the field was left unset — an absent attribution is
+ * not an attribution to anyone).
+ */
+export interface NodeProvenance {
+  state: string;
+  source?: {
+    source_uuid?: string | null;
+    source_kind?: string | null;
+    source_ref?: string | null;
+    title?: string | null;
+  } | null;
+  authorship?: {
+    authored_by?: string | null;
+    authored_by_kind?: string | null;
+    declared?: boolean;
+  } | null;
+  captured_at?: string | null;
+}
+
 /** One note as the graph projection returns it. `user_id` is the private owner
  *  stamp; `null` means the public/legacy corpus. */
 export interface GraphNode {
@@ -27,6 +53,7 @@ export interface GraphNode {
   project_id: number | null;
   created_at: string;
   user_id: string | null;
+  provenance?: NodeProvenance;
 }
 
 export interface GraphEdge {
@@ -108,6 +135,130 @@ export function scopeNotice(scope: GraphScope, viewer: ViewerKind): string | nul
     ? "No notes are readable in this scope yet."
     : "Only public-corpus notes are readable in this scope; no private material is exposed here.";
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * Provenance — the GATE-01 origin projection on each graph node
+ *
+ * `knowledge.graph._attach_provenance` attaches `capture.provenance_for_note`
+ * to every node. The vocabulary below maps that projection onto a *visible*
+ * reading. Three states must never be collapsed:
+ *
+ *   * `captured`   the note came through the capture boundary and carries a
+ *                  declared source;
+ *   * `unknown`    the projection said UNKNOWN (no capture record) — an absent
+ *                  origin, not an error and not an attribution;
+ *   * `undeclared` a capture record exists but the origin was not declared, so
+ *                  the note is captured with nothing attributed.
+ *
+ * Only the *declared* attribution is ever shown. A `declared: false` field is
+ * not rendered as a name, because the contract withholds the name.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+export type ProvenanceState = "captured" | "undeclared" | "unknown";
+
+export function classifyProvenance(node: GraphNode): ProvenanceState {
+  const provenance = node.provenance;
+  if (!provenance || provenance.state === "UNKNOWN" || provenance.state === undefined) {
+    return "unknown";
+  }
+  return provenance.source?.source_kind ? "captured" : "undeclared";
+}
+
+export interface ProvenanceSummary {
+  captured: number;
+  undeclared: number;
+  unknown: number;
+}
+
+export function summarizeProvenance(graph: KnowledgeGraphData): ProvenanceSummary {
+  const summary: ProvenanceSummary = { captured: 0, undeclared: 0, unknown: 0 };
+  for (const node of graph.nodes) {
+    summary[classifyProvenance(node)] += 1;
+  }
+  return summary;
+}
+
+/** The declared origin of a node, or a phrase that names why none is shown.
+ *  Never synthesises an attribution the contract did not declare. */
+export function provenanceReading(node: GraphNode): string {
+  const provenance = node.provenance;
+  const state = classifyProvenance(node);
+  if (state === "unknown") return "origin unknown — no capture record";
+  if (state === "undeclared") return "captured, origin not declared";
+  const source = provenance?.source;
+  const kind = source?.source_kind ?? "unknown";
+  const title = source?.title || source?.source_ref;
+  return title ? `${kind} · ${title}` : kind;
+}
+
+/** Copy for the provenance reading, stated as a boundary. An UNKNOWN origin is
+ *  reported as the contract's own value, not as a retrieval failure. */
+export function provenanceNotice(summary: ProvenanceSummary): string | null {
+  if (summary.unknown === 0) return null;
+  return (
+    `${summary.unknown} of ${summary.captured + summary.undeclared + summary.unknown} readable ` +
+    "nodes carry no capture record. The contract reports their origin as UNKNOWN; this reader " +
+    "shows that value rather than inferring an origin it was not given."
+  );
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * Authorship — the second dimension of the same projection
+ *
+ * `provenance_for_note` returns `authorship: {authored_by, authored_by_kind,
+ * declared}` alongside `source`. It is a *separate* fact from the origin: a note
+ * can carry a declared source and no declared author, and the reverse. Folding
+ * the two into one enum would collapse states the contract keeps apart, so
+ * authorship gets its own reading.
+ *
+ * Only `declared: true` **with a name present** is ever rendered as a name. The
+ * contract withholds the author by leaving the field unset; a reader that
+ * printed a placeholder, a user id, or the string "unknown" in that position
+ * would be inventing an attribution the boundary deliberately did not make.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/** Whether the contract declared an author for this node's capture. */
+export function authorDeclared(node: GraphNode): boolean {
+  const authorship = node.provenance?.authorship;
+  return Boolean(authorship?.declared) && Boolean(authorship?.authored_by);
+}
+
+export interface AuthorshipSummary {
+  declared: number;
+  undeclared: number;
+}
+
+/** Counted over every readable node, so the declared share reconciles with the
+ *  node total rather than with the captured subset alone. */
+export function summarizeAuthorship(graph: KnowledgeGraphData): AuthorshipSummary {
+  const summary: AuthorshipSummary = { declared: 0, undeclared: 0 };
+  for (const node of graph.nodes) {
+    summary[authorDeclared(node) ? "declared" : "undeclared"] += 1;
+  }
+  return summary;
+}
+
+/** The declared author, or a phrase naming the absence. Never a substitute. */
+export function authorshipReading(node: GraphNode): string {
+  const authorship = node.provenance?.authorship;
+  if (!authorDeclared(node)) return "author not declared";
+  const kind = authorship?.authored_by_kind ?? "unknown";
+  return kind && kind !== "unknown"
+    ? `author ${authorship?.authored_by} (${kind})`
+    : `author ${authorship?.authored_by}`;
+}
+
+/** Copy for the authorship reading. Stated only when there is something to
+ *  report: an all-declared scope has no boundary to describe. */
+export function authorshipNotice(summary: AuthorshipSummary): string | null {
+  if (summary.undeclared === 0) return null;
+  return (
+    `${summary.undeclared} of ${summary.declared + summary.undeclared} readable nodes carry a ` +
+    "capture whose author was not declared. This reader shows that absence rather than " +
+    "attributing the note to anyone."
+  );
+}
+
 
 /* ───────────────────────────────────────────────────────────────────────────
  * Knowledge search — POST /api/knowledge/search
@@ -514,6 +665,80 @@ export function projectRefusalNotice(): string {
     "reader cannot tell the two apart — by design."
   );
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * Knowledge OS status — GET /api/knowledge/status
+ *
+ * The handler (`api.knowledge_routes.knowledge_os_status`) answers **HTTP 200
+ * for a failed read as well**. Its `except` branch returns
+ * `{"status": "error", "detail": ...}` — no `vault`, no `graph`, no `timeline`
+ * block. Measured live: forcing the vault read to raise yields
+ * `200 {"status": "error", "detail": "…"}`. The transport therefore cannot carry
+ * this distinction, so a reader that trusts the status code dereferences
+ * `vault.notes` on the error envelope: a render failure, presented as though the
+ * vault were merely empty.
+ *
+ * The shape is validated here instead. An unrecognised body is an error, never a
+ * zeroed reading, and the handler's own failure envelope is a *recognised*
+ * failure that must not validate as a reading.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+export interface KnowledgeStatusReading {
+  status: string;
+  vault: { notes: number; projects: number; chunks: number; embeddings: number; pending_embeddings: number };
+  graph: { edges: number };
+  timeline: { events: number };
+  graph_health: string;
+  last_ingestion: string | null;
+  nodes_by_type: Record<string, number>;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function isKnowledgeStatusReading(value: unknown): value is KnowledgeStatusReading {
+  if (!isRecord(value)) return false;
+  if (typeof value.status !== "string") return false;
+  // The handler's failure envelope arrives with a 200. It is a recognised
+  // failure, not a reading — treating it as one is how a dead vault renders as
+  // an empty vault. This is checked before the blocks so a partial error body
+  // carrying some blocks is still refused.
+  if (value.status === "error") return false;
+  return isRecord(value.vault) && isRecord(value.graph) && isRecord(value.timeline);
+}
+
+/**
+ * The reader the status surface must use: it either returns a validated reading
+ * or throws with the handler's own failure detail.
+ *
+ * Pure — it takes the parsed body rather than a path, so the contract is
+ * executable in isolation (see `tests/test_knowledge_status_read_boundary.py`,
+ * which drives this function through Node). The page's `readStatus` is the thin
+ * fetch wrapper around it.
+ */
+export function requireKnowledgeStatusReading(payload: unknown): KnowledgeStatusReading {
+  if (!isKnowledgeStatusReading(payload)) {
+    throw new Error(
+      statusFailureDetail(payload) ??
+        "The vault status read returned an unrecognised body.",
+    );
+  }
+  return payload;
+}
+
+/**
+ * The handler's failure detail, when the body is its 200-with-`status: "error"`
+ * envelope. `null` for any other body, so this cannot be read as a general
+ * "something went wrong" message on a healthy response.
+ */
+export function statusFailureDetail(value: unknown): string | null {
+  if (!isRecord(value) || value.status !== "error") return null;
+  return typeof value.detail === "string" && value.detail.length > 0
+    ? value.detail
+    : "The vault status read failed server-side.";
+}
+
 
 /** Parse the `tags` column, which the reader stores as a JSON string. */
 export function projectTags(project: KnowledgeProject): string[] {
