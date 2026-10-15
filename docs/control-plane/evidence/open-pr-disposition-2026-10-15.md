@@ -150,3 +150,13 @@ Subject to completion of the listed gates, the coherent review batch is:
 - #553 EAA/dispatch chain — held until exact-head provider-routing and baseline checks complete and provider-routing failure attribution is acceptable
 
 #525 remains outside the batch until its old work-loop implementation is reconciled with the canonical #533 composition. #539 remains held on the failed external beta validation. The original split source PRs stay open until the replacement candidate is accepted and a release is explicitly authorized; do not close them early merely because a draft candidate exists.
+
+
+## Final gate refresh — 2026-10-15T20:37Z
+
+- #556 current head `01e9647c8464044b41e14b72f1691125453054ca`: **15/15 checks passed**.
+- #554 current head `da7e0279457017200b7eb4ed9f25a0d48bbaf7d1`: **15/15 checks passed**.
+- #555 current head `32251bc960f0877aeb01cec699df73a7053b8221`: **16/16 checks passed**.
+- #553 current head `62160d6ba0e6c7b22db7b4909c87c6cc0755b4ad`: the second full-history provider-routing pass is running after repairing the economic-seam/SG-02 trigger and history-depth inputs, and correcting the reporting exemption assertion to step-level semantics. Do not infer a pass from the earlier run.
+- #539 external beta validation was rerun on the same source SHA `4335db3cb28f56029235b2ab2d0d31e8ced68c19`; the rerun is in progress. Until it completes, keep #539 held rather than classifying the prior failure as environmental.
+- The current-base candidate set now includes #556 for Home/SolSpire/auth recovery. No source PRs were closed except #528 and #503 where supersession was established and commented. No code candidate has been merged or deployed.
