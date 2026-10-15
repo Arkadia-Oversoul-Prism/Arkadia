@@ -518,7 +518,7 @@ _GRAPH_VERSION    = "1.0.0"   # operational graph version
 
 
 @router.get("/status")
-async def knowledge_os_status():
+async def knowledge_os_status(request: Request):
     """
     Arkadia Knowledge OS health summary — extended with canonical ontology stats.
     Backwards-compatible: all original keys are preserved.
@@ -526,6 +526,7 @@ async def knowledge_os_status():
     from knowledge.db import execute_one, execute
     from knowledge.node_types import NODE_TYPES
     from knowledge.relationship_types import RELATIONSHIP_TYPES
+    user_id = await _optional_user_id(request)
     try:
         # ── Core counts ──────────────────────────────────────────────────────
         note_count    = execute_one("SELECT COUNT(*) as n FROM notes")
@@ -559,7 +560,7 @@ async def knowledge_os_status():
 
         # ── Graph health quick summary ────────────────────────────────────────
         from knowledge.graph_health import evaluate_graph_health
-        health = evaluate_graph_health()
+        health = evaluate_graph_health(user_id)
 
         # ── Last ingestion timestamp ──────────────────────────────────────────
         last_ingestion_row = execute_one(
@@ -645,23 +646,39 @@ async def knowledge_os_status():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.get("/relationships")
-async def graph_relationships():
+async def graph_relationships(request: Request):
     """
-    Operational Knowledge Graph analytics.
-    Exposes relationship counts, node connectivity, density, components,
-    and top connected nodes — structured for future visualizations.
+    Operational Knowledge Graph analytics, scoped to the caller's accessible
+    subgraph — own notes plus the public NULL-owner corpus, public only when
+    anonymous. Counts, distribution and top-connected nodes therefore never
+    describe or name another owner's private material.
     Does NOT expose internal implementation details.
     """
     from knowledge.db import execute, execute_one
     from knowledge.relationship_types import RELATIONSHIP_REGISTRY
-    from knowledge.graph_health import _check_graph_connectivity
-    try:
-        total_nodes = execute_one("SELECT COUNT(*) as n FROM notes")["n"] or 0
-        total_edges = execute_one("SELECT COUNT(*) as n FROM graph_edges")["n"] or 0
+    from knowledge.graph_health import (
+        _accessible_edge_sql,
+        _check_graph_connectivity,
+        _note_owner_clause,
+    )
 
-        # ── Relationship type distribution ────────────────────────────────────
+    user_id = await _optional_user_id(request)
+    note_clause, note_params = _note_owner_clause(user_id)
+    edge_sql, edge_params = _accessible_edge_sql(user_id)
+    try:
+        total_nodes = execute_one(
+            f"SELECT COUNT(*) as n FROM notes WHERE {note_clause}", note_params
+        )["n"] or 0
+        total_edges = execute_one(
+            f"SELECT COUNT(*) as n FROM ({edge_sql})", edge_params
+        )["n"] or 0
+
+        # ── Relationship type distribution (accessible edges only) ────────────
+        dist_sql, dist_params = _accessible_edge_sql(user_id, select="e.relationship")
         rel_rows = execute(
-            "SELECT relationship, COUNT(*) as cnt FROM graph_edges GROUP BY relationship ORDER BY cnt DESC"
+            f"SELECT relationship, COUNT(*) as cnt FROM ({dist_sql}) "
+            "GROUP BY relationship ORDER BY cnt DESC",
+            dist_params,
         )
         rel_distribution = []
         for row in rel_rows:
@@ -673,16 +690,19 @@ async def graph_relationships():
                 "count": row["cnt"],
             })
 
-        # ── Top connected nodes (highest degree) ─────────────────────────────
+        # ── Top connected nodes (highest degree, accessible edges only) ───────
         degree_rows = execute(
-            """
+            f"""
             SELECT n.id, n.title, n.note_type,
-                   (SELECT COUNT(*) FROM graph_edges WHERE source_note_id = n.id
-                     OR target_note_id = n.id) as degree
+                   (SELECT COUNT(*) FROM ({edge_sql}) e
+                     WHERE e.source_note_id = n.id
+                        OR e.target_note_id = n.id) as degree
             FROM notes n
+            WHERE {note_clause}
             ORDER BY degree DESC
             LIMIT 10
-            """
+            """,
+            (*edge_params, *note_params),
         )
         top_nodes = [
             {
@@ -699,7 +719,7 @@ async def graph_relationships():
         density   = round(total_edges / max_edges, 6) if max_edges else 0.0
 
         # ── Node connectivity summary ─────────────────────────────────────────
-        connectivity = _check_graph_connectivity()
+        connectivity = _check_graph_connectivity(user_id)
 
         # ── Average degree ────────────────────────────────────────────────────
         avg_degree = round((2 * total_edges) / total_nodes, 2) if total_nodes else 0.0
@@ -725,11 +745,11 @@ async def graph_relationships():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.get("/graph/health")
-async def graph_health():
-    """Full graph health evaluation — powers SolSpire diagnostics."""
+async def graph_health(request: Request):
+    """Full graph health evaluation, scoped to the caller's accessible subgraph."""
     try:
         from knowledge.graph_health import evaluate_graph_health
-        return evaluate_graph_health()
+        return evaluate_graph_health(await _optional_user_id(request))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
