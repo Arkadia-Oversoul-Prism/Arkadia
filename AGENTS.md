@@ -1515,6 +1515,78 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   (PR #461). The Defect-A repair is **proposed, not performed** — it mutates
   `sg-02-fe-2-v.yml` and needs sovereign authorization; discovery does not authorize execution.
 
+## A judging CI surface on a shallow clone fails a clean file (gate-hygiene)
+- `provider-routing.yml` is the repository's only whole-suite **judging** surface
+  (`python -m pytest tests/ -q -rEf --continue-on-collection-errors`, step 8, no
+  `continue-on-error`), and it checked out at the default depth-1. `tests/test_agents_md_encoding_adjudication.py`
+  resolves pinned revisions (`ORACLE_REV` 6c43218a48a4, the corruption commit) out of git
+  history, so `git cat-file -t 6c43218a48a4` fails and `scripts/agents_md_encoding_audit.py::exit_code`
+  returns **2** ("undecided") where a provably clean file earns **1**. Same SHA, same commit:
+  `--depth 1` gives `4 failed, 13 passed, 6 skipped` for that file where full history gives
+  `18 passed, 5 skipped`.
+- **A clone-depth defect is invisible in a node-set comparison and visible in a local-vs-CI
+  comparison.** At main `6109c72a` the local full clone reported 18 failing/error nodes and CI
+  reported 21; `comm -13` was **exactly** the four adjudication nodes and `comm -23` was
+  **empty**. A `--depth` clone and a full clone of the *same* commit are different
+  measurement environments, so comparing a shallow local baseline against full-history CI
+  attributes clone depth to the repository. Check `git rev-parse --is-shallow-repository`
+  before attributing any node delta.
+- **Repair:** `fetch-depth: 0` on the checkout. Do not touch `continue-on-error` — a
+  judging surface failing on *pre-existing* debt is correct behaviour, and widening the
+  exemption to get a green job would hide the debt the surface exists to report. Here the
+  job stays red on unrelated debt (the CE-01 `weaver.autonomy` collision and the sqlite
+  contamination class owned by open PR #481) while the four clone-depth nodes are gone.
+- **Guard:** `tests/test_history_depth_ci_wiring.py` (15 tests, PR #482). It derives two
+  domains rather than listing workflows: *executing* (a step actually invokes pytest over a
+  corpus containing a history-dependent guard — tokenised, `pytest` must be the invoked
+  command word, so `echo pytest …` does not qualify) and *judging* (executing minus any
+  workflow whose step **or** job carries `continue-on-error` / `if: false`). It asserts every
+  executing workflow fetches full history and every judging workflow selects itself and the
+  guard in its `pull_request` filter. A positive control asserts the two domains are
+  genuinely distinct — if they collapse, the exemption detector stopped working and the
+  invariant would silently narrow. Measured at `6109c72a`: executing
+  `['provider-routing.yml', 'sg-02-fe-2-v.yml']`, judging `['provider-routing.yml']`.
+- **Prove a workflow-wiring repair at runtime, not in source.** A path filter that omits the
+  guard is the *other* half of this defect class: the workflow executes the guard but a
+  change to the guard does not execute the workflow. Branch CI run `38228844451` on head
+  `c3af93b1` observed `provider-routing` triggering on the `pull_request` event and step 8's
+  log carrying **zero** occurrences of `test_agents_md_encoding_adjudication`. A source-level
+  assertion cannot show that.
+- **Read the sovereign's precondition before acting on a sibling.** PR #462 was closed by
+  `Arkadia-Oversoul-Prism` with an explicit precondition, and this pass could not read it —
+  GitHub exposes comments to API authentication, which the sandbox lacked. When a closed PR
+  gates a *family* of work, a new PR in that family must be opened as a **draft** with no
+  merge solicited, and the PR body must name the unread precondition as unread rather than
+  assert it does not apply. Evidence:
+  `docs/control-plane/evidence/gate10-history-depth-ci-wiring-01/EVIDENCE.md`.
+
+## An artifact-glob guard that counts files encodes a RACE, not a shape (gate-hygiene)
+- `.github/workflows/n-atlas-external-beta.yml`'s `bundle-beta-evidence` job downloads
+  `pattern: "*-evidence"` (three artifacts: `beta-01-english-evidence`,
+  `beta-02-hausa-evidence`, `natlas-native-golden-evidence`) and then asserts
+  `if len(files) != 2 or any(s != "PASS" ...): sys.exit(1)`. The count encodes an
+  assumption the glob does not guarantee. The bundle job is gated on `needs: beta` with
+  `if: always()`; the golden job is gated on `needs.beta.result == 'success'`, so **both
+  become runnable at the same instant** and the third artifact's presence is a race.
+- Measured at `main` `6109c72a` (branch head `a3c630a2`): the bundle job took **6 s** and
+  **4 s** in its two passing runs, finishing *before* the golden job (41 s / 46 s), and
+  listed two files. The failing run started the bundle job *after* the golden job had
+  uploaded, listed three, and died on `len(files) != 2`. A second bundle re-run printed
+  `statuses: ['PASS','PASS','FAILED']` - the same race from the other side (the golden
+  `status` read before it was final). Three observations, one mechanism.
+- **A `*-evidence` glob is not a selector for "the two beta files".** Either name the two
+  artifacts explicitly, or assert the invariant you actually mean (both beta evidence
+  files present and `PASS`) rather than a total count that a sibling job can inflate.
+- **Do not attribute an external-runtime failure to a branch.** `beta-beta-02-hausa` failed
+  with `RUN_FAILED reason="external runtime did not return usable inference"` and
+  `errors: []` (no transport error to attribute), against the HF Space
+  `koladeodunope-ednai-natlas-runtime.hf.space`. It passed on the same commit after a
+  re-run and on the sibling commit `8f1dd97a` twelve minutes earlier. A failure that does
+  not reproduce on the **same SHA** is `ENVIRONMENTAL`, not branch-caused.
+- **The two `n-atlas-external-beta` reds on a docs-only commit were both pre-existing.**
+  `git diff --name-only 6109c72a a3c630a2` touches no beta workflow file, so neither could
+  have been caused by it. Re-run the failed jobs on the same SHA before writing
+  `CONTRADICTED`; the race is reproducible by timing, the runtime failure is not.
 
 ## A fix you are authorized to write can land on `main` while you write it (gate-hygiene)
 - The slice-08 escalation authorized a shared-substrate repair to `lab/observatory/git.py`.
