@@ -1,8 +1,8 @@
 {
- "observed_at_utc": "2026-10-15T06:24:32Z",
+ "observed_at_utc": "2026-10-15T11:45:00Z",
  "repository": "Arkadia-Oversoul-Prism/Arkadia",
  "main_sha": "7580bd8f0ca2925518d78775f9a323ff0df8bc66",
- "open_pr_count": 44,
+ "open_pr_count": 45,
  "lanes": {
   "L1": {
    "label": "Shell / navigation / design system / integration seam",
@@ -1157,7 +1157,9 @@
    "prs": [
     482,
     504,
-    538
+    538,
+    540,
+    544
    ]
   },
   {
@@ -1193,6 +1195,20 @@
    "prs": [
     496,
     535
+   ]
+  },
+  {
+   "file": "docs/control-plane/evidence/prism-l2-buyer-recon-status-normalization-01/EVIDENCE.md",
+   "prs": [
+    538,
+    544
+   ]
+  },
+  {
+   "file": "docs/control-plane/evidence/prism-opportunity-entry-flow-01/EVIDENCE.md",
+   "prs": [
+    538,
+    544
    ]
   },
   {
@@ -1249,6 +1265,13 @@
    "prs": [
     496,
     535
+   ]
+  },
+  {
+   "file": "solspire/buyer_recon.py",
+   "prs": [
+    538,
+    544
    ]
   },
   {
@@ -1319,7 +1342,8 @@
    "file": "tests/test_prism_opportunity_entry_flow.py",
    "prs": [
     492,
-    538
+    538,
+    544
    ]
   },
   {
@@ -1427,7 +1451,7 @@
   }
  ],
  "main_moved_since_previous_observation": false,
- "previous_observation_utc": "2026-10-15T05:57:03Z",
+ "previous_observation_utc": "2026-10-15T06:24:32Z",
  "mergeable_state_counts": {
   "clean": 32,
   "unstable": 8,
@@ -1449,8 +1473,8 @@
   535,
   543
  ],
- "lane_selected_this_pass": "L2",
- "lane_selection_basis": "#538 advanced 2026-10-14T22:31:50Z; L1 #540 02:23:04Z, L4 #541 03:13:13Z, L3 #542 05:51:05Z are all more recent",
+ "lane_selected_this_pass": null,
+ "lane_selection_basis": "recon-only pass; no lane advanced (no lane source modified)",
  "lane2_defect_probe": {
   "subject": "solspire/buyer_recon.py::BuyerReconManager.update_entry",
   "present_on_main": true,
@@ -1573,5 +1597,22 @@
    "docs/control-plane/evidence/prism-lane-state-reconstruction-01/EVIDENCE.md",
    "docs/control-plane/evidence/prism-lane-state-reconstruction-01/lane-snapshot.json"
   ]
+ },
+ "superseded_prs": {
+  "prs": [
+   493,
+   501,
+   512,
+   530
+  ],
+  "basis": "per-file blob comparison of each head vs main 7580bd8f; residue is an earlier form of content main carries (scalarOverview supersedes the inline Object.entries(...).slice(0,12) expression)",
+  "disposition": "RECOMMEND CLOSE - human-sovereign action, not performed by this pass"
+ },
+ "lane2_next_task_superseded_by": {
+  "section": "13",
+  "pr": 544,
+  "head": "73575cd781d871b213b8dc5a9e1b93afeba88f2a",
+  "created_at": "2026-10-15T07:28:35Z",
+  "basis": "same file (solspire/buyer_recon.py) and same scope already in flight"
  }
 }

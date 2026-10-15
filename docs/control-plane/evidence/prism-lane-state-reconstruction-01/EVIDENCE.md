@@ -615,3 +615,136 @@ Required evidence: a regression test per case (A, C, E) **plus the row-B negativ
 the patch is honoured rather than that evidence is ignored. Authority: none required — Lane-2 owns this file.
 Do **not** fold this into `#538`; `#538` is a reviewed bounded repair and this is a separate defect.
 
+
+## 14. Refresh — 2026-10-15T11:28:29Z (supersedes §13's next-bounded-task, and reclassifies four "conflicts")
+
+Base `main` is **unchanged** at `7580bd8f0ca2925518d78775f9a323ff0df8bc66`. The lane inventory of
+§12 is unchanged (L1 `[507,529,540]` · L2 `[528,538,544]` · L3 `[527,534,537,542]` ·
+L4 `[512,524,536,541]`). Open PRs moved **44 → 45**: `set(now) - set(snapshot) == {544}` and the
+removal set is empty, so exactly one PR (#544) is new and none closed. What changed is the
+**interpretation** of two things this record previously reported without following through: the four
+`CONFLICTING/DIRTY` lane PRs, and §13's chosen next task.
+
+### 14.1 §13's next bounded task is already in flight — do not open a competing Lane-2 task
+
+§13 proposed repairing `BuyerReconManager.update_entry` patch semantics on a new Lane-2 branch.
+**That work already exists as PR #544** (`prism-l2-evidence-patch-replacement-01`), which this
+record's own §12 inventory listed and did not connect to §13:
+
+| Field | Measured |
+|---|---|
+| PR / branch | **#544** `prism-l2-evidence-patch-replacement-01`, `state=open`, `draft=true` |
+| Head / base | `73575cd781d871b213b8dc5a9e1b93afeba88f2a` / `7580bd8f` (current `main`) |
+| Created | `2026-10-15T07:28:35Z` — **63 minutes after** §13 was written |
+| Files | `solspire/buyer_recon.py`, `tests/test_prism_opportunity_entry_flow.py`, `AGENTS.md`, and three evidence docs |
+
+So §13 is **superseded as a task assignment**: opening it would duplicate a Lane-2 branch that
+already targets the same file with the same scope. §13's *analysis* stands; its *instruction* does
+not. This is the second time in this record that a "next task" was overtaken by a concurrent lane
+pulse — the pattern is that this workstream advances faster than a 6-hourly evidence refresh, and a
+task proposal must be re-checked against live PRs before it is repeated.
+
+### 14.2 The four `CONFLICTING/DIRTY` lane PRs are **superseded**, not unresolved conflicts
+
+§4 recorded `#493` and `#501` as `CONFLICT` and §5 quantified `EngineeringLabPage.tsx` contention.
+This refresh measured *what the conflict actually consists of*, and the answer changes the
+disposition. PR #533 (`aeas/engineering-lab-composition-01`, head `8d52eb3f`, merge commit
+`7580bd8f` — **confirmed an ancestor of `main`** by `git merge-base --is-ancestor`) already composed
+the seven L4 candidates. Comparing each dirty PR's own head against current `main`, per file:
+
+| PR | File | PR-head blob | main blob | Content unique to the PR head |
+|---|---|---|---|---|
+| #493 | `components/lab/LabAutomationGrammar.tsx` | `5af30fef` | `5af30fef` | **identical** |
+| #493 | `components/lab/labAutomationGrammar.ts` | `6fc78bf5` | `6fc78bf5` | **identical** |
+| #493 | `pages/EngineeringLabPage.tsx` | `e53a2250` | `4ff0fa78` | 3 lines — the inline `rows={Object.entries(overview.data).slice(0, 12).map(...)}` Facts expression |
+| #493 | `tests/test_prism_next_wave_composition_reconciliation_01.py` | `cad8bd65` | `3305ec80` | 42 lines; `main` is the larger/superset file (340 vs 109 lines) |
+| #501 | `pages/EngineeringLabPage.tsx` | `1f851406` | `4ff0fa78` | 3 lines — same inline expression |
+| #512 | `components/lab/LabOperationalSurfaces.tsx` | `06e3a522` | `06e3a522` | **identical** |
+| #512 | `components/lab/labOperational.ts` | `c5ae3215` | `c5ae3215` | **identical** |
+| #512 | `pages/EngineeringLabPage.tsx` | `cbf272c9` | `4ff0fa78` | **0 lines** |
+| #530 | `pages/EngineeringLabPage.tsx` | `502e23f9` | `4ff0fa78` | 4 lines — same inline expression, plus a stale docstring line |
+
+The unique residue is not competing design. `main` replaces the inline expression with the shared
+helper `scalarOverview(overview.data)` (`components/lab/labOperational.ts:229`, imported at
+`EngineeringLabPage.tsx:10`), and `#530`'s extra line is an older docstring ("read straight from the
+overview payload") where `main` reads "read directly from the overview response". Every residue line
+is **an earlier form of content `main` already carries in a later form**. `#512` has zero page
+residue and byte-identical component blobs.
+
+**Consequence for the disposition:** these four are not conflicts awaiting a resolution — they are
+**superseded candidates for close**. `CONFLICTING/DIRTY` here is an artifact of a stale base
+(`49809f4`/`3ca8582`) plus git's inability to see that the "conflicting" content is already present
+in a superseding form. Closing or merging them is a **human-sovereign action**; this pass
+recommends and does not perform it. A repair or rebase of any of the four would re-introduce content
+that `main` has already moved past.
+
+### 14.3 `AGENTS.md` is contested by **five** open PRs, and the contention is an append-anchor collision
+
+This pass re-derived the contention set from scratch rather than trusting §5's or §12's list: over
+all 45 open PRs, `GET /pulls/{n}/files`, unioned by path. **45 paths are touched by more than one
+open PR.** `AGENTS.md` is touched by **five**: `#482`, `#504`, `#538`, `#540`, `#544` — §12's
+snapshot recorded three (`482, 504, 538`) because it predates `#540` and `#544`.
+
+The five are not independent: each appends a lesson block at the **same tail anchor**.
+
+- `main` `AGENTS.md` = **1560** lines, ending at the `security-lab-remote-userinfo-redaction-01` bullet;
+- **#540** appends **+28** lines (a `lane_state.py` guard-hygiene lesson);
+- **#544** appends **+21** lines (a composition-is-a-branch-merge lesson).
+
+Merge-probed in a detached worktree at `7580bd8f` (`user.email`/`user.name` set first — see §14.4):
+
+| Step | Result |
+|---|---|
+| `git merge --no-commit --no-ff` **#540** alone | *"Automatic merge went well"* — 0 conflicts |
+| `git merge --no-commit --no-ff` **#544** on top | **CONFLICT (content) in `AGENTS.md`**; 0 other conflicted paths |
+
+The conflict is **textual only**: both are append-only additions at one anchor, so the resolution is
+mechanical (keep both blocks, in either order). Git cannot auto-merge it because the two hunks share
+the same trailing context. **Generalise the hazard rather than the instance:** `AGENTS.md` is a
+single file that every lane pulse is instructed to append its lesson to, so a five-way append
+contention is the *expected* steady state of this workstream, not an accident. Each PR is green
+alone; the collision exists only in composition, and only the composition reveals it. Recorded as a
+**decision for the sovereign**, not a repair: the mechanical resolution (concatenate both blocks) is
+safe, but who performs it and in which merge order is a human call.
+
+The same derivation found two other contention classes worth naming, because they are *code*, not
+docs:
+
+| Path | PRs | Note |
+|---|---|---|
+| `web/arkadia_console/src/pages/EngineeringLabPage.tsx` | `493, 501, 512, 524, 530` | five-way; §14.2 shows four of the five are superseded |
+| `web/arkadia_console/src/pages/knowledge/knowledgeContracts.ts` | `498, 509, 527, 534` | four-way; all four are L3/Lane-3, i.e. **within-lane** contention |
+| `web/arkadia_console/src/App.tsx` | `511, 514` | the Lane-1 seam file — cross-lane edits here must be Lane-1-coordinated |
+| `tests/test_prism_opportunity_entry_flow.py` | `492, 538, 544` | Lane-2; `#538` and `#544` are both open and both target `solspire/buyer_recon.py` |
+
+### 14.4 Method corrections for this record's own tooling (third such audit)
+
+§12.5 retracted four claims from §12.3. This pass retracts four **measurement-method** errors made
+while producing this refresh, recorded so the next pass does not repeat them:
+
+| # | What was run | What it actually measured | Correct form |
+|---|---|---|---|
+| 1 | `git diff <head>~1 <head>` on a `--depth=1`-fetched PR head | **0 files for all four PRs** — a depth-1 fetch has `parents=1`, so `~1` does not resolve to the real parent | fetch the **branch** with `--depth=N`, or read changed files from the API |
+| 2 | Parsing `diff --git` / `+++ b/` with a regex for `b/…` | false "NEW FILE on main" for `web/arkadia_console/...` — the `b/` inside `web/` matched | `git apply --numstat <patch>` or `GET /pulls/{n}/files` |
+| 3 | `git merge` in a fresh worktree | died with *"unable to auto-detect email address"*, which reads as a merge failure | set `user.email`/`user.name` in the worktree first |
+| 4 | `git fetch --depth=1 origin <sha>` then `git merge <sha>` | *"refusing to merge unrelated histories"* — a bare-SHA fetch yields a parentless commit | fetch `refs/remotes/x/<name>` from the branch, then merge that ref |
+
+Correction (1) is the one that matters: it produced a **false "0 files changed"** for four PRs
+simultaneously, and the shape of the false result (uniformly zero) is what exposed it.
+
+### 14.5 Classification for this refresh
+
+| Boundary | State | Basis |
+|---|---|---|
+| `main` / ancestry | **VERIFIED** | `7580bd8f`, unchanged across three observations; `8d52eb3f` confirmed ancestor |
+| Lane/PR inventory (44→45 PRs) | **VERIFIED** | live per-PR `gh api`; L1/L2/L3/L4 sets identical to §12; delta = `{544}` only |
+| §13's next bounded task | **CONTRADICTED** | superseded by PR #544 (created `07:28:35Z`, same file/scope) |
+| `#493`/`#501`/`#512`/`#530` "conflicts" | **RECLASSIFIED → superseded** | per-file blob comparison vs `main`; residue is earlier forms of content `main` carries |
+| `AGENTS.md` five-way contention (`482,504,538,540,544`) | **VERIFIED (textual)** | merge probe: 540 clean, 544 on top conflicts in exactly one file |
+| Cross-PR path contention (45 shared paths) | **VERIFIED (counts)** | per-PR `/files` unioned; **composition safety not probed beyond `AGENTS.md`** |
+| Disposition of the four superseded PRs | **NOT PERFORMED — sovereign** | close/merge is a human action; recommendation only |
+| Runtime / production / deployment | **NOT CLAIMED** | no runtime probe; out of scope |
+
+**No lane source was modified by this refresh.** Files written: this record and its
+`lane-snapshot.json` companion, on the existing draft branch `prism-lane-state-reconstruction-01`.
+
