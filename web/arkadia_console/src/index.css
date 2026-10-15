@@ -39,3 +39,42 @@ body {
   padding-left: 16px;
   padding-right: 16px;
 }
+
+/*
+ * The one shared focus ring. Every interactive element takes the same emerald
+ * outline, drawn from the `emerald` design token, so keyboard focus never
+ * depends on the browser default ring — which flips colour with the OS theme
+ * and can be near-invisible over the aurora field. Recovered from the archived
+ * Prism (`index.css`): `button:focus-visible, a:focus-visible, input:focus-visible,
+ * textarea:focus-visible { outline: 2px solid rgba(0,212,170,.65) }`.
+ *
+ * `:focus-visible` (not `:focus`) keeps the ring off a mouse click, matching
+ * platform behaviour. A control that opts out with `outline-none` supplies its
+ * own `focus:border-*` cue instead.
+ */
+@layer base {
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    @apply outline outline-2 outline-offset-2 outline-emerald/65;
+  }
+}
+
+/*
+ * Honour the OS "reduce motion" setting. Loading pulses and hover transitions
+ * are decoration, never information, so they collapse to a single frame rather
+ * than being the only thing on screen that still moves. Recovered verbatim from
+ * the archived Prism (`index.css`).
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
