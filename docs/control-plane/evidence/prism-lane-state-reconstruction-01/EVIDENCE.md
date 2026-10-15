@@ -374,3 +374,124 @@ Like §0/§9, this refresh is a **read + record**. It regenerated `lane-snapshot
 on the PR's own branch. It created, merged, closed, retargeted and pushed **no** lane branch, and probed no
 deployment. The one open question it does not answer — whether the 15 PRs 8 commits behind `main` still compose
 — is left explicitly unmeasured rather than assumed.
+
+---
+
+## 12. Refresh — 2026-10-15T06:24:32Z (supersedes §1 and §3 inventory numbers again)
+
+**Observed:** 2026-10-15T06:24:32Z · **`main`:** `7580bd8f0ca2925518d78775f9a323ff0df8bc66` (**unchanged** from §11 —
+no merge landed between the 05:57Z and 06:24Z observations) · **open PRs:** **44** (was 43).
+
+### 12.1 Correction — the §0 auth-boundary claim is wrong and must not be repeated
+
+§0 states "`gh auth status` reports 'not logged into any GitHub hosts' — `gh` is **not** authenticated here."
+**That is contradicted by measurement at this observation:**
+
+```
+$ gh auth status
+github.com
+  ✓ Logged in to github.com account Arkadia-Oversoul-Prism (GH_TOKEN)
+  - Active account: true
+  - Git operations protocol: https
+$ GH_TOKEN="$github_token" gh api user --jq .login
+Arkadia-Oversoul-Prism
+```
+
+The env `GITHUB_TOKEN` **is** empty (`${#GITHUB_TOKEN}` → `0`), and the automation contract already warns that an
+empty env token is *not* a blocker. §0 reached the right conclusion by the wrong route (it fell back to the clone
+remote credential) but recorded a false premise. **All §12 reads were made with `gh` + the ambient
+`GH_TOKEN`/`github_token`.** Corrected here rather than rewritten in §0, because §0 is a dated observation and the
+correction is the auditable fact. No token value is printed.
+
+### 12.2 Lane 2 — defect verification (the pass's substantive measurement)
+
+Lane 2 was the selected lane (least-recently-advanced: `#538` at 2026-10-14T22:31Z). `#538`
+(`fix/prism-l2-buyer-recon-status-normalization-01`, head `1a36f235`, behind **0**) repairs status normalisation
+only. Its diff against `main` is **one file, `solspire/buyer_recon.py`, +10/-3** — it normalises `status` into a
+local `normalized` mapping and persists it upper-case. **It does not touch the evidence branch of the same
+method.** Measured behaviour, `main` `7580bd8f` vs `#538` head `1a36f235`, same probe, isolated DB
+(`SOLSPIRE_PROJECTS_DB=/tmp/p*.db`):
+
+| # | Existing | Patch | `main` result | `#538` result | Verdict |
+|---|---|---|---|---|---|
+| A | `evidence=[{"kind":"old"}]` | `{"evidence":[{"kind":"new"}]}` | `[{"kind":"old"}]` | `[{"kind":"old"}]` | **evidence patch is a silent no-op** |
+| B (negative control) | `evidence=[]` | `{"evidence":[{"kind":"new"}]}` | `[{"kind":"new"}]` | `[{"kind":"new"}]` | persists *only* because the row was empty |
+| C | `evidence=[{"kind":"old"}]` | `{"evidence":[]}` | `[{"kind":"old"}]` | `[{"kind":"old"}]` | clearing evidence is a silent no-op |
+| D | `status="CONTACTED"` | `{"status":"conversation"}` | `'conversation'` | `'CONVERSATION'` | `#538` genuinely fixes this |
+| E | `prospect="A"` | `{"prospect":""}` | `''` | `''` | blank accepted; `create_entry` rejects blank |
+
+**Mechanism (read from source, `solspire/buyer_recon.py::update_entry`).** `current` is seeded from
+`self._entry(row).to_dict()`, so `current["evidence"]` is a **list**. The final loop then serialises with
+`json.dumps(current.get("evidence") or patch.get("evidence") or [])` — the truthy existing list always wins, so a
+non-empty `evidence` patch is discarded (rows A and C). Row B passes only because `[] or patch[...]` falls through
+to the patch: **the negative control is what proves this is a precedence defect rather than "patches are
+ignored."** `#538`'s change from `patch` to `normalized` is a *different* key (`normalized` has no `evidence` in
+row A), so the defect survives the repair. Row E is a validation asymmetry: `create_entry` enforces
+`prospect.strip()` non-empty; `update_entry` does not.
+
+**Reachability.** `BuyerReconEntryPatch` is `ConfigDict(extra="allow")` with **no declared fields**, so
+`{"evidence": [...]}` and `{"prospect": ""}` both reach the manager from
+`PATCH /solspire/buyer-recon/entries/{id}` and `PATCH /solspire/buyer-recon/projects/{id}/entries/{entry_id}`.
+This is not a dead branch — it is the documented patch surface. **No test pins it:** `update_entry` appears in
+`tests/test_buyer_recon_router_board_scope.py:159` (board scoping) and in
+`tests/test_prism_opportunity_entry_flow.py:773` (a *source-level string* assertion about status validation), and
+both files pass on `main` (`22 passed in 1.73s`). So the defect is real, reachable, and **unpinned by any test** —
+the negative control in row B is what makes that a finding rather than a guess.
+
+**Classification:** `VERIFIED` as a defect present on `main` and still present at `#538`'s head.
+**Not repaired by this pass** — `solspire/buyer_recon.py` is **Lane 2 owned** and this pass is a Lane-state
+reconstruction whose hard constraint is that no lane source may be modified. Recorded as the next bounded Lane-2
+task in §13.
+
+### 12.3 Inventory delta vs §11 (05:57Z → 06:24Z)
+
+- Open PRs **43 → 44**; the new PR is **#543** `gate03/knowledge-timeline-bounded-limit-01`
+  (created 2026-10-15T06:27:47Z, **`unstable`**, behind 0, 11 checks) — governing **Lane 3**.
+- Lane distribution: **L1 9 · L2 3 · L3 8 · L4 17 · control-plane 7** (§11 counted L3 as 5; the earlier lane
+  classifier missed `#526`, `#542`, `#543`, which touch `api/knowledge_routes.py` and
+  `tests/test_knowledge_timeline_boundary.py` rather than `src/components/knowledge/**`. §3's Lane-2 count of 4
+  included `#526`, which is Knowledge-OS work; the live Lane-2 set is `#492`, `#528`, `#538`).
+- `mergeable_state`: **32 clean · 8 unstable · 4 dirty**; dirty = `#493`, `#501`, `#512`, `#530` (unchanged set).
+  unstable = `#482`, `#499`, `#500`, `#502`, `#503`, `#508`, `#535`, **`#543`**.
+- Contested files (touched by ≥2 open PRs): **40 → 42**. New: `api/knowledge_routes.py` (`#542`, `#543`) and
+  `tests/test_knowledge_timeline_boundary.py` (`#498`, `#543`).
+- Highest-contention surfaces unchanged: `EngineeringLabPage.tsx` **5×** (`#493`, `#501`, `#512`, `#524`, `#530`),
+  `knowledgeContracts.ts` **4×** (`#498`, `#509`, `#527`, `#534`), `AGENTS.md` **3×** (`#482`, `#504`, `#538`),
+  `test_console_shell_nav_contract.py` **3×** (`#497`, `#505`, `#512`).
+- `main` **has not moved**; every PR's base lag in §3/§11 still holds at this observation.
+
+### 12.4 Contract-doc ownership — one correction
+
+`AGENT-01-SHELL.md` is no longer unclaimed: **#540** `feat/prism-l1-lane-doc-currency-01` (Lane 1, behind 0,
+`clean`, 12 checks) edits it (+7/-4) and adds `scripts/lane_state.py`, `docs/control-plane/parallel-ui/lane-state.json`,
+`tests/test_lane_instruction_doc_currency.py` and `.github/workflows/lane-doc-currency.yml`. §10's "next bounded
+task: repair the lane instruction-doc drift" is therefore **already in flight on #540** — do not open a competing
+doc-currency PR. `AGENTS.md` remains global and is still edited from three feature PRs (`#482`, `#504`, `#538`).
+
+### 12.5 Classification for this refresh
+
+| Boundary | State | Basis |
+|---|---|---|
+| `main` / ancestry | **VERIFIED** | `gh api commits/main` → `7580bd8f`, unchanged across two observations |
+| Lane/PR inventory (44 PRs) | **VERIFIED** | live per-PR `gh api`, head/base SHAs, check-runs, mergeable_state |
+| Cross-lane file contention | **VERIFIED (counts)** | per-PR `/files`, unioned; **composition safety not re-probed this pass** |
+| Lane-2 `update_entry` evidence-patch defect | **VERIFIED (defect exists)** | 5-case probe with negative control, on `main` and on `#538` head |
+| Lane-2 repair | **NOT PERFORMED** | lane source is off-limits to this reconstruction pass |
+| Runtime / production / deployment | **NOT CLAIMED** | no runtime probe; out of scope |
+| §0's `gh` auth premise | **CONTRADICTED** | corrected in §12.1 |
+
+**No branch, PR, or lane source was modified by this refresh.** The only files written are this evidence record
+and its `lane-snapshot.json` companion, on the existing draft branch `prism-lane-state-reconstruction-01`.
+
+## 13. Next bounded task (revised)
+
+**Lane 2 — repair `BuyerReconManager.update_entry` patch semantics**, on a Lane-2-owned branch from live `main`
+(`7580bd8f`), scope limited to `solspire/buyer_recon.py` + `tests/test_buyer_recon_board_contract.py`:
+1. give the patch precedence over the seeded `current` value for `evidence`
+   (`json.dumps(patch["evidence"] if "evidence" in patch else current.get("evidence") or [])`);
+2. reject a blank `prospect` the way `create_entry` does (parity, not new policy);
+3. keep `#538`'s status normalisation — it is complementary, and merging `#538` first is the cheapest order.
+Required evidence: a regression test per case (A, C, E) **plus the row-B negative control**, so the test proves
+the patch is honoured rather than that evidence is ignored. Authority: none required — Lane-2 owns this file.
+Do **not** fold this into `#538`; `#538` is a reviewed bounded repair and this is a separate defect.
+
