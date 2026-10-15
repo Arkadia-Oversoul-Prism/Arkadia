@@ -102,11 +102,19 @@ re-running the fitness test reddens exactly the two live-corpus nodes:
 ```
 FAILED ...::test_live_guarded_docs_agree_with_the_snapshot
 FAILED ...::test_lane_one_shell_doc_does_not_name_a_merged_pr
-2 failed, 13 passed
+2 failed, 21 passed
 ```
 
-Restore → `15 passed`. A synthetic fixture would not prove the detector reads
+Restore → `23 passed`. A synthetic fixture would not prove the detector reads
 the real file; this control does.
+
+> Measured 2026-10-15 on the hardened guard (schema `arkadia.lane-state/1.1`).
+> An earlier revision of this document recorded `2 failed, 13 passed` /
+> `15 passed`; those were the counts of a **12-test-definition** revision and
+> were never re-measured after the guard gained its liveness, freshness and
+> merge-commit controls. The node count is **23** at every commit from
+> `196af3e55` onward, so the discrepancy is parametrization/definition drift,
+> not file growth. The values above supersede them.
 
 ## Regression boundary
 
@@ -115,16 +123,22 @@ Measured this pass by `--collect-only` diff across two worktrees (`main`
 
 | | main | branch | delta |
 |---|---|---|---|
-| whole suite | 3132 collected | 3154 collected | **+22** |
-| `tests/test_lane_instruction_doc_currency.py` | (absent) | 15 | +15 |
+| whole suite | 3132 collected | 3162 collected | **+30** |
+| `tests/test_lane_instruction_doc_currency.py` | (absent) | 23 | +23 |
 | `test_ci_gate_trigger_coverage.py` | 90 | 93 | +3 |
 | `test_workflow_injection_boundary.py` | 46 | 47 | +1 |
 | `test_ci_suite_collection_continuation.py` | 93 | 95 | +2 |
 | `test_gate_filter_selection.py` | 47 | 48 | +1 |
 
-`+22` = the 15 new nodes **plus 7** the generic workflow-scanning suites gain by
+`+30` = the 23 new nodes **plus 7** the generic workflow-scanning suites gain by
 construction from one new workflow file. That is the whole delta; no other file
 changes node count.
+
+> Superseded: an earlier revision recorded `3154` / `+22` / `15`. Both the whole
+> suite and the guard file were re-measured at this head; the `+30` and the 23
+> above supersede them. `test_gate_filter_selection.py` (+1) is the one suite in
+> the table that is *not* a workflow scanner — it enumerates gate filters, so a
+> new workflow adds a node there too.
 
 - `tests/architecture` — **11 passed** (measured, unchanged).
 - CP10 mutation boundary — all six new/modified paths judged ADMITTED
@@ -139,11 +153,20 @@ changes node count.
 - The snapshot is a hand-refreshed mirror; it is not self-updating from GitHub.
   The guard is read-only and never fetches. Refresh the snapshot by re-measuring
   the lane PRs with the GitHub reads API (read-only) on any pulse that advances a
-  lane. When the snapshot's `base_main` falls behind live `main`, the guard
-  reports freshness — but it does not itself detect a moved `main`. This is
-  recorded, not repaired.
-- The lane-2/3/4 deferrals clear when #492/#526/#536 merge; the disposition
-  check forces that reclassification.
+  lane.
+  > Corrected 2026-10-15: an earlier revision of this document said the guard
+  > "does not itself detect a moved `main`". It now does. `resolve_main()` reads
+  > the local `main` ref and `_freshness_findings()` reddens when the snapshot's
+  > `base_main` disagrees, so a snapshot left behind by a moved `main` fails
+  > `--check` instead of passing silently. Measured: `--check --base-main
+  > <stale 40-char sha>` → `exit=1` with a `re-measure` finding, while the
+  > current base → `exit=0`. When `main` is unresolvable the guard **abstains**
+  > (prints `unknown`) rather than claiming either parity or drift — an
+  > unprovable freshness is not a pass.
+- The lane-2/3/4 deferrals clear when the named owning PR merges; the disposition
+  check forces that reclassification. Each deferral is validated as **owned and
+  live** (the referenced PR must be open and in the snapshot), so a deferral
+  cannot outlive the PR it defers to.
 
 ## Authorization
 

@@ -30,6 +30,14 @@ jobs:
       PYTHONPATH: .
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The liveness oracle decides "is this PR merged?" from local git
+          # history (``git merge-base --is-ancestor``). A default depth-1
+          # checkout does not hold the merge commits of the lane PRs, so the
+          # oracle would report every PR as undecidable -- or, read naively, as
+          # "not merged", a silent pass in the exact direction it exists to
+          # catch. Full history is a requirement of the check, not a preference.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
