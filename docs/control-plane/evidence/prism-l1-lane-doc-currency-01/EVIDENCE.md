@@ -14,9 +14,14 @@ GitHub REST `pulls` API, read-only:
 
 - `AGENT-01-SHELL.md` declared **Active branch** `feat/prism-next2-01-shell-contract-map`
   and **Active PR #429**. PR #429 is `state=closed merged=true`.
-- `AGENT-02` declared #430, `AGENT-03` declared #431, `AGENT-04` declared #428 —
-  all `closed merged=true`.
-- All four docs declared base revision `f390526ab14e122fef358ef9b9e1cd438509463c`.
+- `AGENT-02` declared #430 (`closed merged=true`); `AGENT-04` declared #428
+  (`closed merged=true`); `AGENT-03`'s wave header named #431 (`closed merged=true`)
+  but carried a later dated status block naming **#450** as the authoritative
+  pointer (last declaration wins) — #450 is `closed merged=false`, i.e. closed
+  without merge. Every one of the four docs' authoritative pointers named a
+  closed thread.
+- Lanes 1, 2 and 3 also declared base revision
+  `f390526ab14e122fef358ef9b9e1cd438509463c`; lane 4 carries no base-revision field.
 
 A successor agent reading a lane doc would resume a **merged** thread. This is
 the continuity failure the lane-doc format exists to prevent.
@@ -73,16 +78,21 @@ python -m pytest tests/test_lane_instruction_doc_currency.py -q -rEf   -> 15 pas
 python scripts/lane_state.py --check --base-main 7580bd8f...           -> exit 0
 ```
 
-Guard on the **pre-repair** docs (all four), before the repair:
+Guard run against the **unrepaired** lanes 2/3/4 in the current tree (lane 1 is
+repaired in this branch, so it no longer reports; the pre-repair lane-1 finding
+took the same shape with `PR #429`):
 
 ```
-DRIFT lane 1 (AGENT-01-SHELL.md): declares PR #429, which is not an open lane PR
-DRIFT lane 2 (AGENT-02-...): declares PR #430, ...
-DRIFT lane 3 (AGENT-03-...): declares PR #431, ...
-DRIFT lane 4 (AGENT-04-...): declares PR #428, ...
+DRIFT lane 2 (AGENT-02-...): declares PR #430, which is not an open lane PR in the snapshot (open: [492, 507, 526, 527, 528, 529, 534, 536, 537, 538])
+DRIFT lane 3 (AGENT-03-...): declares PR #450, which is not an open lane PR in the snapshot (open: [...])
+DRIFT lane 4 (AGENT-04-...): declares PR #428, which is not an open lane PR in the snapshot (open: [...])
 DRIFT lane 4 (AGENT-04-...): no **Active branch:** pointer
 exit=1
 ```
+
+Lanes 2/3/4 are deliberately left doc-unrepaired (lane ownership — see above);
+they are recorded `deferred` in the snapshot, so the top-level `--check`
+invocation judges only the `current` lane 1 and exits 0.
 
 ### Live negative control
 
@@ -92,7 +102,7 @@ re-running the fitness test reddens exactly the two live-corpus nodes:
 ```
 FAILED ...::test_live_guarded_docs_agree_with_the_snapshot
 FAILED ...::test_lane_one_shell_doc_does_not_name_a_merged_pr
-2 failed, 12 passed
+2 failed, 13 passed
 ```
 
 Restore → `15 passed`. A synthetic fixture would not prove the detector reads
