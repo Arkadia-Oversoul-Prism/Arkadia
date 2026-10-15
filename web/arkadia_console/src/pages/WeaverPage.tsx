@@ -1,5 +1,6 @@
 import { Page, NotYetWired } from "../components/ui";
 import { LabSessionList } from "../components/lab/LabSessionList";
+import { LabWorkLoop } from "../components/lab/LabWorkLoop";
 import { ApprovalLedger } from "../components/weaver/ApprovalLedger";
 
 export function WeaverPage() {
@@ -9,6 +10,8 @@ export function WeaverPage() {
       subtitle="Governed execution and orchestration. Proposal, approval, execution, and verification remain distinct stages."
     >
       <ApprovalLedger />
+
+      <LabWorkLoop />
 
       <LabSessionList />
 
