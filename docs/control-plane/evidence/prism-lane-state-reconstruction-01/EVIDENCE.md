@@ -454,24 +454,62 @@ task in §13.
   bucketed by file path only, so the explicitly lane-prefixed branches `feat/prism-l1-legacy-route-coverage-01`
   (#507) and `feat/prism-l1-lane-doc-currency-01` (#540) fell through to `control-plane`, and six
   `feat/eaa-*` / `feat/gate-l4-*` PRs (#496, #499, #500, #502, #508, #535) were pulled into `L4` by the
-  `lab`/`weaver` substring in their paths. **A PR's branch prefix is the lane's own declaration and outranks
-  a path heuristic** — the re-derivation now preserves the prior snapshot's assignment and rule-classifies
-  only genuinely new PRs, so #543 is the sole rule-classified addition. §3's Lane-2 count of 4 included
+  `lab`/`weaver` substring in their paths. The re-derivation now preserves the prior snapshot's
+  assignment and rule-classifies only genuinely new PRs, so #543 is the sole rule-classified addition.
+  §3's Lane-2 count of 4 included
   `#526`, which is Knowledge-OS work; the live Lane-2 set is `#492`, `#528`, `#538`.
   **This is the third count correction in this record (Lane 3 was 5, then 7, now 8).** The cause is the same
   each time — a lane classifier keyed on paths rather than on the lane's own branch prefix — and it is the
   reason §3's per-lane numbers should be read as indicative, not as a stable series.
+- **Correction: "branch prefix outranks a path heuristic" is FALSE as a governing rule — retracted.**
+  An earlier revision of this section asserted that *"a PR's branch prefix is the lane's own declaration
+  and outranks a path heuristic."* **Counterexample, measured:** **#500** is
+  `feat/gate-l4-openhands-dispatch-adapter` — a branch whose own prefix declares **L4** — yet its lane is
+  **`control-plane`** in **both** `d6e9e072` and `HEAD`. Its changed files are
+  `weaver/openhands_dispatch.py`, `tests/test_gate_l4_*.py`, `.github/workflows/gate-l4-dispatch-contract.yml`
+  and `docs/control-plane/gate-l4/**` — i.e. Weaver/control-plane surfaces, which is why control-plane is
+  correct and the prefix is not. Symmetrically, #507 and #540 are `feat/prism-l1-*` and *are* L1, but #535
+  (`eaa/chain-composition-01`) and #543 (`gate03/…`) carry no lane token at all. **No single rule reproduces
+  the assignment in both directions**; the honest description is that the lane field is a **preserved prior
+  assignment** with new PRs rule-classified, which is what the snapshot generator actually does. Recorded
+  because the false rule would license a future pass to "fix" #500 to L4 and corrupt the record.
 - `mergeable_state`: **32 clean · 8 unstable · 4 dirty**; dirty = `#493`, `#501`, `#512`, `#530` (unchanged set).
   unstable = `#482`, `#499`, `#500`, `#502`, `#503`, `#508`, `#535`, **`#543`**.
-- **Schema repair, disclosed.** The snapshot committed at `f2fec7c5` was **structurally broken**: its
-  top-level keys were the five *lane names* (`CP`, `L2`, `L4`, `L1`, `L3`) instead of the document
-  schema, so `observed_at_utc`, `repository`, `main_sha`, `open_pr_count`, `lanes` and
-  `contested_files` were all absent, and any consumer reading `snapshot["main_sha"]` would fail. It also
-  renamed the `control-plane` key to `CP`, which is why the raw diff of this refresh is large:
-  the churn is the **restoration of the schema and the lane key**,
-  not new observation content. Verified mechanically - 44 PRs on both sides, **13 lane moves, all of
-  them the buggy classifier's**, and **0 per-PR key-order differences**, so no PR record changed shape.
-  The document now carries the prior six keys as a stable prefix plus ten added fields.
+- **Schema disclosure — RETRACTED, corrected below (this record's own prior claim was FALSE).** The
+  earlier revision of this section asserted that the snapshot committed at `f2fec7c5` was
+  *structurally broken* — that its top-level keys were the five lane names instead of the document
+  schema, and that `observed_at_utc`, `repository`, `main_sha`, `open_pr_count`, `lanes` and
+  `contested_files` were "all absent". **That claim is disproven.** `git show f2fec7c5:<snapshot>`
+  carries **all 16** top-level schema keys:
+  `observed_at_utc, repository, main_sha, main_moved_since_previous_observation,
+  previous_observation_utc, open_pr_count, mergeable_state_counts, dirty_prs, unstable_prs, lanes,
+  contested_files, lane_selected_this_pass, lane_selection_basis, lane2_defect_probe, auth_boundary,
+  mutations_this_pass`. The top-level key **set** is identical at `f2fec7c5` and `HEAD`
+  (`set(a) == set(b)` -> `True`); only the **order** differs, and a consumer reading
+  `snapshot["main_sha"]` at `f2fec7c5` succeeds. No schema repair was performed or needed.
+  Two *real* shape differences do exist and are the entire cause of the large raw diff:
+  the `lanes` **key name** was `CP` at `f2fec7c5` and is `control-plane` at `HEAD`, and
+  `contested_files` is a **dict** at `f2fec7c5` and a **list** at `HEAD`. Both are deliberate
+  re-normalisations in this record, not repairs of breakage.
+- **Lane re-derivation — the false claim carried a true fact inside it.** The lane-membership churn
+  is **8 moves, not 13**, and the direction was **the reverse of what was stated**. Measured
+  mechanically across the three revisions:
+  `d6e9e072 -> f2fec7c5` = 8 moves (`#496, #499, #500, #502, #507, #508, #535, #540`);
+  `f2fec7c5 -> HEAD` = the **same 8** moves; and **`d6e9e072 -> HEAD` = 0 moves**.
+  So `f2fec7c5` was the **anomalous** revision (the "buggy classifier" snapshot), and `HEAD` is a
+  **restoration to the `d6e9e072` assignment** — the opposite of the earlier framing, which described
+  the moves as "all of them the buggy classifier's" belonging to the earlier revision. Per-lane counts:
+  `d6e9e072` = L1 11 · L2 3 · L3 7 · L4 11 · control-plane 11 (43 PRs);
+  `f2fec7c5` = L1 9 · L2 3 · L3 8 · L4 17 · control-plane 7 (44 PRs);
+  `HEAD` = L1 11 · L2 3 · L3 8 · L4 11 · control-plane 11 (44 PRs). The **+1 L3 and +1 total** versus
+  `d6e9e072` is **#543** (`api/knowledge_routes.py`, `knowledge/timeline.py`,
+  `tests/test_knowledge_timeline_boundary.py`) — Lane 3. The **0 per-PR key-order differences** claim
+  was **verified true** and stands.
+- **Why the false claim was made (recorded so it is not repeated).** The revision was mis-diagnosed by
+  reading the `lanes` **key names** (`CP`, `L2`, `L4`, `L1`, `L3`) as if they were the document's
+  top-level keys, then inferring the rest of the schema was absent. The top-level key set was never
+  re-read. **A key-name observation about one nested object is not a schema observation** — the
+  correction is `set(json.load(...))`, which is the check that should have preceded the disclosure.
 - Contested files (touched by ≥2 open PRs): **40 → 42**. New: `api/knowledge_routes.py` (`#542`, `#543`) and
   `tests/test_knowledge_timeline_boundary.py` (`#498`, `#543`).
 - Highest-contention surfaces unchanged: `EngineeringLabPage.tsx` **5×** (`#493`, `#501`, `#512`, `#524`, `#530`),
@@ -487,7 +525,68 @@ task in §13.
 task: repair the lane instruction-doc drift" is therefore **already in flight on #540** — do not open a competing
 doc-currency PR. `AGENTS.md` remains global and is still edited from three feature PRs (`#482`, `#504`, `#538`).
 
-### 12.5 Classification for this refresh
+### 12.5 Self-audit of §12.3 — four claims were wrong; corrections and evidence
+
+This sub-section exists because §12.3 was published (commit `b594bd27` and PR comment
+`6186151005`) carrying claims that this pass then **disproved by re-measurement**. The audit
+method is `git show <rev>:<snapshot>` + `set(json.load(...))` + live `gh` per-PR reads; every
+number below is reproducible with those three commands.
+
+| # | §12.3 claim | Measured truth | Verdict |
+|---|---|---|---|
+| 1 | `f2fec7c5` was *structurally broken*; schema keys "all absent" | `f2fec7c5` carries **all 16** top-level keys; `set(f2fec7c5) == set(HEAD)` -> `True`; `snapshot["main_sha"]` reads fine | **FALSE — retracted** |
+| 2 | "13 lane moves, all of them the buggy classifier's" (moves belong to the *later* revision) | **8** moves, and they belong to **`f2fec7c5`**; `d6e9e072 -> HEAD` = **0 moves** | **FALSE — retracted** |
+| 3 | "A PR's branch prefix … outranks a path heuristic" | **#500** is `feat/gate-l4-*` yet `control-plane` in **both** revisions | **FALSE — retracted** |
+| 4 | §12.3 heading window `(05:57Z → 06:24Z)`, `observed_at_utc` `06:24:32Z` | **#543 was created `06:27:47Z`** — after the stated observation instant | **CONTRADICTED** |
+
+**On (1) and (2) — the false claim and the true fact inside it.** The lane-membership churn was
+described with the wrong magnitude *and* the wrong direction. Measured across the three revisions:
+
+- `d6e9e072 -> f2fec7c5` = **8** moves: `#496, #499, #500, #502, #507, #508, #535, #540`
+- `f2fec7c5 -> HEAD` = **the same 8** moves
+- **`d6e9e072 -> HEAD` = 0 moves**
+
+So `f2fec7c5` is the **anomalous** revision and `HEAD` is a **restoration to the `d6e9e072`
+assignment** — the exact opposite of "all of them the buggy classifier's" belonging to the prior
+snapshot. Per-lane counts: `d6e9e072` = L1 11 · L2 3 · L3 7 · L4 11 · control-plane 11 (43 PRs);
+`f2fec7c5` = L1 9 · L2 3 · L3 8 · L4 17 · control-plane 7 (44 PRs); `HEAD` = L1 11 · L2 3 · L3 8 ·
+L4 11 · control-plane 11 (44 PRs). The **+1 L3 / +1 total** vs `d6e9e072` is **#543**, Lane 3. The
+"**0 per-PR key-order differences**" claim was **verified true** and stands.
+
+Two *real* shape differences — not breakage — are the entire cause of the large raw diff: the
+`lanes` **key name** is `CP` at `f2fec7c5` vs `control-plane` at `HEAD`, and `contested_files` is a
+**dict** at `f2fec7c5` vs a **list** at `HEAD`.
+
+**On (3) — the rule is falsified by its own dataset.** #500 (`feat/gate-l4-openhands-dispatch-adapter`)
+declares L4 in its branch prefix yet is `control-plane` in both revisions, because its changed files
+are `weaver/openhands_dispatch.py`, `tests/test_gate_l4_*.py` and `docs/control-plane/gate-l4/**` —
+Weaver/control-plane surfaces. #535 (`eaa/chain-composition-01`) and #543 (`gate03/…`) carry no lane
+token at all. **No single rule reproduces the assignment in both directions.** The accurate
+description is that the lane field is a **preserved prior assignment** with genuinely new PRs
+rule-classified. This matters: the retracted rule would license a future pass to "correct" #500 to L4
+and corrupt the record.
+
+**On (4) — the snapshot contains content that postdates its own observation timestamp.** The heading
+window is `05:57Z → 06:24Z` and `observed_at_utc` is `06:24:32Z`, but `#543` was created at
+`06:27:47Z`. The `#543` record therefore cannot have been observed at the stamped instant; the stamp
+was not advanced when the record was refreshed. **The inventory content is correct; the timestamp
+label is not.** Treat `observed_at_utc` in this record as a lower bound on the observation, not an
+exact instant, and re-stamp it on the next refresh.
+
+**Live drift since the snapshot (measured, not repaired).** At this audit the live mergeability is
+**33 clean · 7 unstable · 4 dirty** against the snapshot's **32 · 8 · 4**: **`#543` has moved
+`unstable → CLEAN`** (its 11 checks concluded; `failing_checks` was already empty). The dirty set is
+unchanged (`#493`, `#501`, `#512`, `#530`). This is ordinary check-run convergence, **not** a defect
+in the snapshot — the snapshot was correct when taken — but it is why the snapshot's
+`mergeable_state_counts` should be read as a timestamped reading.
+
+**Process note, recorded so it is not repeated.** All three false claims share one root cause: a
+**nested key-name observation** (`lanes` keys, branch-prefix tokens) was promoted to a **whole-document
+schema or governing-rule claim** without re-reading the top level. The correct check is
+`set(json.load(...))` for schema and a full-dataset counterexample search for a rule. Publishing
+before that check is what produced the retraction.
+
+### 12.6 Classification for this refresh
 
 | Boundary | State | Basis |
 |---|---|---|
@@ -496,6 +595,8 @@ doc-currency PR. `AGENTS.md` remains global and is still edited from three featu
 | Cross-lane file contention | **VERIFIED (counts)** | per-PR `/files`, unioned; **composition safety not re-probed this pass** |
 | Lane-2 `update_entry` evidence-patch defect | **VERIFIED (defect exists)** | 5-case probe with negative control, on `main` and on `#538` head |
 | Lane-2 repair | **NOT PERFORMED** | lane source is off-limits to this reconstruction pass |
+| §12.3's schema / lane-move / branch-prefix claims | **CONTRADICTED** | retracted in §12.5 with counterexamples |
+| §12.3's `observed_at_utc` stamp | **CONTRADICTED** | content postdates the stamp (#543 created `06:27:47Z`) |
 | Runtime / production / deployment | **NOT CLAIMED** | no runtime probe; out of scope |
 | §0's `gh` auth premise | **CONTRADICTED** | corrected in §12.1 |
 
