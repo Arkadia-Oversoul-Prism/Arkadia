@@ -32,17 +32,77 @@ const SECTION_PATTERN = /^\/([^/]+)\/([^/]+)$/;
  * — without an alias they fell through `resolvePath` to `home`, silently
  * discarding the link. Neither path collides with a declared surface path or a
  * backend route (verified against `app.openapi()`), so no surface may claim them.
+ *
+ * `/gate` and `/living-gate` are the same case for authentication. The archived
+ * Prism declared a `gate` view (`direct: '/living-gate' -> gate, '/gate' -> gate`)
+ * that mounted `NodeEntry` — the sign-in / "create your node" surface — and every
+ * home portal sent an unauthenticated visitor to it. The inventory's disposition
+ * for that legacy route is "Adapt → sign-in" (`docs/control-plane/overnight/
+ * PRISM-UI-INVENTORY.md` §2), and the console names that declared capability
+ * `login` (its own name is "Sign in", path `/login`). Both inbound paths reconcile
+ * to it rather than being silently discarded to `home`; neither collides with the
+ * canonical `/login` path or a backend route.
+ *
+ * `/home` and `/knowledge-os` were both entry points in the archived Prism's
+ * `direct`/`compatibility` maps and both name a surface the console **declares**.
+ * `/home` was an alternate spelling of the home route (`/`), and `/knowledge-os`
+ * names the console's own `knowledge` surface literally ("Knowledge OS"). The
+ * console rejects `/knowledge-os` as a section of anything (`SECTION_PATTERN`
+ * needs two segments) and finds no surface at that path, so without the alias it
+ * fell through `resolvePath` to `home` — a real archived deep link silently
+ * landed on Home instead of the Knowledge OS. Neither path collides with a
+ * declared surface path or a backend route (verified against `app.openapi()`).
+ *
+ * Deliberately **not** aliased (product decisions, not routing ones — §3/§4
+ * forbid inventing a destination for an absent surface):
+ *   - `/codex` — the archive routed it to `solariun`'s `knowledge` *lens*, but
+ *     the console now has both a `solariun` `knowledge` lens **and** a distinct
+ *     `knowledge` surface, so choosing between them is a capability decision this
+ *     alias table cannot make.
+ *   - `/dashboard`/`/loops`/`/settings`/`/account`/`/personal-echofeild`/
+ *     `/echofeild-matrix` — each addressed a Solariun lens (`overview`/`tasks`/
+ *     `settings`/`observatory`) the console does not declare.
  */
 export const PATH_ALIASES: Record<string, SurfaceId> = {
   "/nexus": "novanet",
   "/oracle": "arkana",
   "/commune": "arkana",
+  "/home": "home",
+  "/knowledge-os": "knowledge",
+  "/gate": "login",
+  "/living-gate": "login",
 };
 
 export function resolvePath(pathname: string): Route {
   const path = pathname.replace(/\/+$/, "") || "/";
-  const alias = PATH_ALIASES[path];
-  if (alias) return { surface: alias, path: SURFACE_BY_ID[alias].path };
+
+  // An alias reconciles the legacy inbound *namespace*, not only its root. The
+  // archived hub declared `/nexus/ims`, `/nexus/grove`, `/nexus/larder` and
+  // `/nexus/distribution` (`archive/frontend/arkadia-prism/web/public_prism/
+  // src/App.tsx:71-72`), and every one of them resolved to `home` while the
+  // alias table matched the exact string `/nexus` only. The remainder of the
+  // path becomes the section — exactly as for a declared surface such as
+  // `/solariun/knowledge` — so `/nexus/ims` reaches NovaNet and renders its own
+  // honest `NotYetWired` state for an undelivered lens, instead of silently
+  // discarding the shared link. This restores *resolution*; it claims nothing
+  // about whether a legacy sub-view's backend contract is serviceable.
+  const segments = path.split("/").filter(Boolean);
+  const alias = PATH_ALIASES[`/${segments[0] ?? ""}`];
+  if (alias) {
+    // Only a *single* remainder segment is a section. A declared surface accepts
+    // a section only when the whole path is `<surface>/<one segment>`
+    // (`SECTION_PATTERN`), so a two-segment remainder (`/nexus/a/b`) has no
+    // canonical path: the aliased surface resolves it, but its address-bar form
+    // falls through to `home`, and the normalisation on load would then rewrite a
+    // shared `/nexus/a/b` link to `/`, discarding it again. Carrying only the
+    // supported depth keeps every returned path one the resolver reads back
+    // unchanged — `/nexus/ims` still reaches NovaNet, and the alias branch cannot
+    // emit a path the router itself does not understand.
+    const section = segments.length === 2 ? segments[1] : undefined;
+    const base = SURFACE_BY_ID[alias].path;
+    return { surface: alias, section, path: section ? `${base}/${section}` : base };
+  }
+
   const match = path.match(SECTION_PATTERN);
   if (match) {
     const surface = SURFACES.find((s) => s.path === `/${match[1]}`);
