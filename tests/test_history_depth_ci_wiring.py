@@ -528,20 +528,26 @@ def test_negative_control_a_guard_mention_is_not_a_guard_execution():
     assert not _workflow_executes(workflow, _GUARD_FILE)
 
 
-def test_positive_control_a_reporting_surface_is_executing_but_not_judging():
-    """The executing and judging domains are different properties, and both must be real.
+def test_positive_control_a_reporting_step_executes_but_does_not_judge():
+    """A whole-suite reporting step is exempt even if sibling strict steps judge.
 
-    `sg-02-fe-2-v.yml` is the live instance: it runs the whole suite (so it executes the
-    history-dependent guard) under `continue-on-error` (so it cannot redden a job). If the
-    two domains ever collapse into one, the exemption detector stopped working and the
-    fetch-depth invariant silently narrowed to the judging surface.
+    SG-02 runs the complete suite under continue-on-error, but also has strict
+    contract steps. The boundary is therefore asserted per step, not by
+    incorrectly classifying the entire mixed workflow as non-judging.
     """
-    executing = set(_history_dependent_workflows())
-    judging = set(_judging_workflows())
-    assert judging <= executing, "a judging surface must also be an executing one"
-    reporting_only = executing - judging
-    assert reporting_only, (
-        "no reporting-only surface is in the executing domain; either the exemption "
-        "detector stopped recognising `continue-on-error`, or the whole-suite reporting "
-        "surface no longer runs a history-dependent guard"
+    workflow = _load(WORKFLOWS / "sg-02-fe-2-v.yml")
+    guards = _history_dependent_guards()
+    assert guards, "history-dependent guard domain must not be empty"
+    exempt = _exempt_steps(workflow)
+    reporting = []
+    for job in (workflow.get("jobs") or {}).values():
+        for step in job.get("steps") or []:
+            run = step.get("run")
+            if not isinstance(run, str) or id(step) not in exempt:
+                continue
+            if any(_workflow_executes({"jobs": {"probe": {"steps": [step]}}}, guard) for guard in guards):
+                reporting.append(step)
+    assert reporting, (
+        "SG-02 must retain an exempt step that executes a history-dependent guard; "
+        "do not convert reporting into a judging gate or remove the whole-suite report"
     )

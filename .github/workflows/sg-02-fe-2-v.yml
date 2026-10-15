@@ -26,6 +26,8 @@ on:
       # is self-exempt.
       - 'scripts/cp10_mutation_boundary_policy.py'
       - 'tests/test_m02a_ci_gate_integrity.py'
+      - 'tests/test_history_depth_ci_wiring.py'
+      - 'AGENTS.md'
       # The SolSpire isolated-runtime step executes these named guards; the
       # path filters must select them too (tests/test_gate_filter_selection.py).
       - 'tests/test_solspire_project_execution_service.py'
@@ -68,6 +70,8 @@ on:
       # is self-exempt.
       - 'scripts/cp10_mutation_boundary_policy.py'
       - 'tests/test_m02a_ci_gate_integrity.py'
+      - 'tests/test_history_depth_ci_wiring.py'
+      - 'AGENTS.md'
       # The SolSpire isolated-runtime step executes these named guards; the
       # path filters must select them too (tests/test_gate_filter_selection.py).
       - 'tests/test_solspire_project_execution_service.py'

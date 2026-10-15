@@ -1542,10 +1542,13 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   command word, so `echo pytest …` does not qualify) and *judging* (executing minus any
   workflow whose step **or** job carries `continue-on-error` / `if: false`). It asserts every
   executing workflow fetches full history and every judging workflow selects itself and the
-  guard in its `pull_request` filter. A positive control asserts the two domains are
-  genuinely distinct — if they collapse, the exemption detector stopped working and the
-  invariant would silently narrow. Measured at `6109c72a`: executing
-  `['provider-routing.yml', 'sg-02-fe-2-v.yml']`, judging `['provider-routing.yml']`.
+  guard in its `pull_request` filter. The positive control asserts that an exempt *step* executing a history-dependent
+  guard remains in the executing domain, even when sibling strict steps make the same
+  workflow judging. At the recorded `6109c72a` baseline, executing was
+  `['provider-routing.yml', 'sg-02-fe-2-v.yml']` and judging was
+  `['provider-routing.yml']`. SG-02 later gained strict guard steps, so workflow-level
+  sets no longer differ. The invariant is step-level: do not downgrade strict steps to
+  manufacture a reporting-only workflow.
 - **Prove a workflow-wiring repair at runtime, not in source.** A path filter that omits the
   guard is the *other* half of this defect class: the workflow executes the guard but a
   change to the guard does not execute the workflow. Branch CI run `38228844451` on head

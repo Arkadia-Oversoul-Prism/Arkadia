@@ -29,6 +29,7 @@ on:
       - 'api/economic_seam_routes.py'
       - 'tests/**'
       - '.github/workflows/economic-seam-engine.yml'
+      - '.github/workflows/sg-02-fe-2-v.yml'
   push:
     branches: [main]
     paths:
@@ -36,6 +37,7 @@ on:
       - 'api/economic_seam_routes.py'
       - 'tests/**'
       - '.github/workflows/economic-seam-engine.yml'
+      - '.github/workflows/sg-02-fe-2-v.yml'
   # The gate is path-filtered, so a revision touching none of the above never runs
   # it. `workflow_dispatch` lets the seam contract be executed against an exact
   # revision on demand (it runs the workflow file from the dispatched ref, so
@@ -53,6 +55,8 @@ jobs:
       PYTHONPATH: .
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

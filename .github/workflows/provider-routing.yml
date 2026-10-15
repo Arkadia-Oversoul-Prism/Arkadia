@@ -19,6 +19,7 @@ on:
       # `tests/test_history_depth_ci_wiring.py` derives the input list from the guards'
       # own sources, so an input added there without being added here fails CI.
       - "AGENTS.md"
+      - "README.md"
       - "docs/verification/PROVIDER-ROUTING-AUDIT-BASELINE.md"
   workflow_dispatch:
 
