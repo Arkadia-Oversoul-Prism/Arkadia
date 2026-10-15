@@ -20,7 +20,16 @@ except ImportError:  # pragma: no cover
 TRAJECTORY_PATH = Path("docs/control-plane/TRAJECTORY-ARKADIA-TRUTHFULNESS-01.yaml")
 EVIDENCE_DIR = Path("docs/control-plane/evidence")
 ACTIVE_STATUSES = frozenset({"pending", "revision_required", "in_progress"})
-TERMINAL_DONE = frozenset({"completed", "accepted", "merged"})
+# Only verified completion/acceptance closes a move. A merged PR alone is not acceptance.
+TERMINAL_DONE = frozenset({"completed", "accepted"})
+# Schema-valid states that require human action and must never be selected or treated as done.
+NON_ROUTABLE_STATUSES = frozenset({
+    "merged",
+    "merged_acceptance_pending",
+    "blocked",
+    "failed",
+    "aborted",
+})
 
 # Emitted only when a trajectory has genuinely nothing left to route. It is a
 # *clean stop*, distinguished from every blocker (an unroutable frontier). Downstream
@@ -114,12 +123,16 @@ def select_next_move(
         st = str(move.get("status", "pending")).lower()
         if _move_done(move, completion_index):
             continue
+        if st in NON_ROUTABLE_STATUSES:
+            # These are valid schema states, but none authorizes execution or proves
+            # acceptance. A merged PR must not satisfy dependencies before acceptance.
+            blockers.append(
+                f"{mid} ({st!r}): non-routable status; human review/acceptance evidence required"
+            )
+            continue
         if st not in ACTIVE_STATUSES:
-            # An unrecognized status is a data defect, not an absence of work. Skipping
-            # it silently reported "all complete or dependencies unresolved" for a
-            # trajectory that still carried an active frontier (G12-B at `in_progress`
-            # was dropped after PR #319 lifted `moves` to the top level), leaving the
-            # hourly session unable to name why it had no move.
+            # A status outside the frozen schema vocabulary is a data defect, not an
+            # absence of work. Name it instead of silently skipping the frontier.
             unrecognized.append(f"{mid} ({st!r})")
             continue
 
