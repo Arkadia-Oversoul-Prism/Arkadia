@@ -235,6 +235,24 @@ verbatim would work on a merged PR.
   (the docs sit under Lane 1's instruction ownership and `SHARED-CONTRACTS.md` is coordinator-owned). It is
   recorded as the next bounded task rather than executed from a non-owning lane.
 
+## 9a. Check-run closure on this record's head
+
+Recorded after push, on head `c07ee677` (branch `prism-lane-state-reconstruction-01`), read from
+`commits/<sha>/check-runs`:
+
+| Check-run | Conclusion |
+|---|---|
+| Full-history secret scan | success |
+| beta-beta-01-english | success |
+| beta-beta-02-hausa | success |
+| bundle-beta-evidence | success |
+| provider-forensics | success |
+| native-arkadia-golden-workflow | success |
+
+6/6 `completed/success`; PR `mergeable_state: clean` against `main` `7580bd8f`. `main`'s own baseline
+(`console-contract`, `boot-syntax`, `production-read-only-probe`, `browser`, `validate`, `test`) is likewise
+`success` at this SHA — this branch introduces no new red gate. PR: **#539** (draft).
+
 ## 10. Next bounded task (one, explicit)
 
 **Repair the lane instruction-doc drift** — update `AGENT-01..04` active-branch/PR pointers (and, if the
