@@ -43,15 +43,6 @@ export interface NodeProvenance {
   captured_at?: string | null;
 }
 
- *  stamp; `null` means the public/legacy corpus. `provenance` is the GATE-01
- *  origin projection the handler attaches (`knowledge.graph._attach_provenance`),
- *  so it is declared optional only for a body that predates that projection.
- *
- *  For a node with no capture record the projection is narrowed to the bare
- *  literal `{"state": "UNKNOWN"}` — no `source` and no `authorship` key at all.
- *  Both sub-objects are therefore optional, and every reading below tolerates
- *  their absence rather than assuming the capture-shaped object. */
-
 /** One note as the graph projection returns it. `user_id` is the private owner
  *  stamp; `null` means the public/legacy corpus. */
 export interface GraphNode {
