@@ -7,6 +7,7 @@
  */
 import { apiRequest } from "./apiClient";
 import { endpoints } from "./endpoints";
+import { buildProvenance, type ArkanaProvenance } from "../components/arkana/arkanaProvenanceContract";
 
 export interface ArkanaMessage {
   role: "user" | "assistant";
@@ -23,10 +24,18 @@ export interface ArkanaReply {
   reply: string;
   resonance: number;
   patterns: unknown[];
+  /** Corpus scrolls `_rag_context` scored into the prompt: `{ id, label, category }`. */
   rag_refs: Array<Record<string, unknown>>;
   rag_hits: number;
-  sources: Record<string, unknown>;
+  /** Knowledge OS notes actually injected, from `oracle_spine.build_sources`. */
+  sources: Array<Record<string, unknown>>;
+  /** Knowledge OS turn metadata: `notes_retrieved`, `thread_id`, `source`, … */
   memory: Record<string, unknown>;
+}
+
+/** A reply plus the provenance channels it reported. */
+export interface ArkanaTurn extends ArkanaReply {
+  provenance: ArkanaProvenance;
 }
 
 /** A stable, session-scoped conversation id (persisted for continuity). */
@@ -46,8 +55,8 @@ export async function askArkana(
   message: string,
   history: ArkanaMessage[],
   projectId?: string,
-): Promise<ArkanaReply> {
-  return apiRequest<ArkanaReply>(endpoints.arkanaResonance, {
+): Promise<ArkanaTurn> {
+  const reply = await apiRequest<ArkanaReply>(endpoints.arkanaResonance, {
     method: "POST",
     body: JSON.stringify({
       message,
@@ -56,4 +65,14 @@ export async function askArkana(
       project_id: projectId ?? null,
     }),
   });
+  // Normalise the provenance channels here so the surface renders exactly what
+  // the response carried — the extra field never leaves this boundary.
+  return {
+    ...reply,
+    provenance: buildProvenance({
+      rag_refs: reply.rag_refs,
+      sources: reply.sources,
+      memory: reply.memory,
+    }),
+  };
 }
