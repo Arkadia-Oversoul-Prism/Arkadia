@@ -332,6 +332,94 @@ def test_edit_of_an_unknown_entry_on_this_board_is_not_found(app):
     assert response.json()["detail"] == "Project buyer recon entry not found"
 
 
+# ---------------------------------------------------------------------------
+# `evidence` on edit — replacement, preservation, and clearing
+#
+# `evidence` is the one entry field whose column differs (`evidence_json`) and
+# whose value is a list, so it is the one field the generic `current[key] = ...`
+# loop cannot carry. A PATCH that supplies it must replace the stored list; a
+# PATCH that omits it must leave the stored list alone. The two directions are
+# asserted separately because a single test can pass by conflating them, and the
+# preservation direction is the one that fails silently.
+# ---------------------------------------------------------------------------
+
+
+def test_edit_replaces_stored_evidence_when_the_patch_supplies_it(app):
+    """The defect: a stored non-empty list outranked the patch and the write vanished."""
+    project_id = _project(OWNER["uid"])
+    entry = _create(
+        app, project_id, {"prospect": "Buyer A", "evidence": [{"kind": "quote", "ref": "OLD"}]}
+    ).json()["entry"]
+    assert entry["evidence"] == [{"kind": "quote", "ref": "OLD"}]
+
+    body = _client(app, OWNER).patch(
+        f"{_entries_path(project_id)}/{entry['id']}",
+        json={"evidence": [{"kind": "invoice", "ref": "NEW"}]},
+    ).json()["entry"]
+    assert body["evidence"] == [{"kind": "invoice", "ref": "NEW"}]
+    row = _persisted(entry["id"])
+    assert json.loads(row["evidence_json"]) == [{"kind": "invoice", "ref": "NEW"}]
+
+
+def test_edit_populates_evidence_on_an_entry_that_had_none(app):
+    project_id = _project(OWNER["uid"])
+    entry = _create(app, project_id, {"prospect": "Buyer A"}).json()["entry"]
+    assert entry["evidence"] == []
+
+    _client(app, OWNER).patch(
+        f"{_entries_path(project_id)}/{entry['id']}", json={"evidence": [{"kind": "note"}]}
+    )
+    assert json.loads(_persisted(entry["id"])["evidence_json"]) == [{"kind": "note"}]
+
+
+def test_edit_that_omits_evidence_preserves_the_stored_list(app):
+    """Negative control for the repair: fixing replacement must not wipe the list.
+
+    A repair that unconditionally rewrites the column from the patch would pass
+    the replacement test above and destroy every other entry's evidence here.
+    """
+    project_id = _project(OWNER["uid"])
+    entry = _create(
+        app, project_id, {"prospect": "Buyer A", "evidence": [{"kind": "quote", "ref": "KEEP"}]}
+    ).json()["entry"]
+
+    body = _client(app, OWNER).patch(
+        f"{_entries_path(project_id)}/{entry['id']}", json={"notes": "unrelated edit"}
+    ).json()["entry"]
+    assert body["evidence"] == [{"kind": "quote", "ref": "KEEP"}]
+    assert json.loads(_persisted(entry["id"])["evidence_json"]) == [{"kind": "quote", "ref": "KEEP"}]
+
+
+def test_edit_can_clear_evidence_with_an_explicit_empty_list(app):
+    """Supplying `[]` is a deliberate clear, distinct from omitting the field."""
+    project_id = _project(OWNER["uid"])
+    entry = _create(
+        app, project_id, {"prospect": "Buyer A", "evidence": [{"kind": "quote"}]}
+    ).json()["entry"]
+
+    body = _client(app, OWNER).patch(
+        f"{_entries_path(project_id)}/{entry['id']}", json={"evidence": []}
+    ).json()["entry"]
+    assert body["evidence"] == []
+    assert json.loads(_persisted(entry["id"])["evidence_json"]) == []
+
+
+def test_an_evidence_edit_cannot_reach_another_projects_board(app):
+    """The board scope holds for the evidence column too, asserted on persisted state."""
+    first = _project(OWNER["uid"], "Evidence board A")
+    second = _project(OWNER["uid"], "Evidence board B")
+    entry = _create(
+        app, first, {"prospect": "Buyer A", "evidence": [{"kind": "quote", "ref": "A"}]}
+    ).json()["entry"]
+
+    response = _client(app, OWNER).patch(
+        f"{_entries_path(second)}/{entry['id']}",
+        json={"evidence": [{"kind": "trespass"}]},
+    )
+    assert response.status_code == 404
+    assert json.loads(_persisted(entry["id"])["evidence_json"]) == [{"kind": "quote", "ref": "A"}]
+
+
 def test_created_entry_is_read_back_through_the_board_read(app):
     """End-to-end: the create response is visible to the read the surface performs."""
     project_id = _project(OWNER["uid"])
@@ -824,16 +912,16 @@ def test_measured_the_exposure_the_ceiling_closes(app, contract_probe):
 
 
 # ---------------------------------------------------------------------------
-# MEASURED DEFECT 3 — status is validated in upper case but persisted as sent
+# DEFECT 3 (REPAIRED) — status is validated in upper case and now persisted so
 # ---------------------------------------------------------------------------
 
 
-def test_update_does_not_normalize_a_lowercase_status(app):
-    """MEASURED DEFECT 3 in `solspire/buyer_recon.py` (recorded, NOT repaired).
+def test_update_normalizes_a_lowercase_status(app):
+    """DEFECT 3, repaired: the update path normalises the status it persists.
 
-    `BuyerReconManager.update_entry` validates `status.upper()` against `STATUSES`
-    and then persists the original value, because the `for key, value in
-    patch.items()` loop reads `patch` — which was never reassigned:
+    `BuyerReconManager.update_entry` validated `status.upper()` against `STATUSES`
+    and then persisted the original value, because the update loop read the
+    caller's `patch` dict, which was never reassigned:
 
         status = patch.get("status")
         if status is not None:
@@ -845,16 +933,14 @@ def test_update_does_not_normalize_a_lowercase_status(app):
             if key in allowed:
                 current[key] = str(value) if value is not None else ""
 
-    `create_entry` *does* normalize (it assigns the upper-cased local), so the two
-    paths disagree. A row can therefore carry a status outside the declared
-    vocabulary, and any consumer that groups or counts by `STATUSES` — this
-    radar's own `summarize`, the archived Prism column counts — silently misses it.
+    `create_entry` normalised; `update_entry` did not, so a row could carry a
+    status outside the declared vocabulary and any consumer that groups or counts
+    by `STATUSES` — this radar's own `summarize`, the archived Prism column
+    counts — silently missed it. The repair normalises into a local mapping, so
+    validation and persistence agree.
 
-    This is a backend defect outside this workstream's grant (`SHARED-CONTRACTS`
-    §1/§7.1). It is pinned rather than repaired: the test asserts the defect so it
-    cannot be mistaken for intended behaviour, and
-    `test_create_normalizes_a_lowercase_status` is the control proving the
-    asymmetry is real. Repairing it is a separate bounded change.
+    This is the write the frontend cannot produce (its `<select>` offers only the
+    declared vocabulary), so it is exercised at the manager/route boundary.
     """
     project_id = _project(OWNER["uid"])
     created = _create(app, project_id, {"prospect": "Buyer A"}).json()["entry"]
@@ -863,8 +949,44 @@ def test_update_does_not_normalize_a_lowercase_status(app):
     )
     assert response.status_code == 200, response.text
     stored = _persisted(created["id"])["status"]
-    assert stored == "conversation", "if this now reads CONVERSATION, defect 3 was repaired"
-    assert stored not in buyer_recon.STATUSES, "the stored value is outside the declared vocabulary"
+    assert stored == "CONVERSATION", "the status must be persisted in the validated case"
+    assert stored in buyer_recon.STATUSES, "the stored value must be inside the declared vocabulary"
+    # The response echoes the persisted row, not the request.
+    assert response.json()["entry"]["status"] == "CONVERSATION"
+
+
+def test_negative_control_an_unknown_status_is_still_refused(app):
+    """The repair normalises case; it must not widen what the vocabulary accepts.
+
+    A control for the repair above: a value that is not in `STATUSES` even after
+    upper-casing is still refused, and the refusal does not write.
+    """
+    project_id = _project(OWNER["uid"])
+    created = _create(app, project_id, {"prospect": "Buyer A"}).json()["entry"]
+    response = _client(app, OWNER).patch(
+        f"{_entries_path(project_id)}/{created['id']}", json={"status": "not_a_status"}
+    )
+    assert response.status_code == 400, response.text
+    assert _persisted(created["id"])["status"] == "UNCONTACTED", "a refused write must not persist"
+
+
+def test_negative_control_a_raw_off_vocabulary_write_is_detectable(app):
+    """The invariant these tests assert is not vacuous.
+
+    The pre-repair shape — persisting the raw, un-normalised value — is reproduced
+    by writing the row directly, bypassing the manager. The detector
+    (`stored in STATUSES`) must flag it, so a future regression that reintroduced
+    the raw write would fail `test_update_normalizes_a_lowercase_status` rather
+    than passing on a constant.
+    """
+    project_id = _project(OWNER["uid"])
+    created = _create(app, project_id, {"prospect": "Buyer A"}).json()["entry"]
+    with buyer_recon._db() as conn:
+        conn.execute(
+            "UPDATE buyer_recon_entries SET status=? WHERE id=?", ("conversation", created["id"])
+        )
+    stored = _persisted(created["id"])["status"]
+    assert stored not in buyer_recon.STATUSES, "the detector must see an off-vocabulary row"
 
 
 def test_create_normalizes_a_lowercase_status(app):
