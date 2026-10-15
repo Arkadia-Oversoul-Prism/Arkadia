@@ -5,23 +5,43 @@ Merge authority NOT GRANTED. EAA/dispatch authority NOT GRANTED.
 
 ## 1. Outcome
 
-**INCONCLUSIVE.**
+**BLOCKED** — on the directive's premise, not on a candidate defect.
 
-The directive's premise no longer holds: **six of the seven named source PRs were
-closed unmerged at ~17:03Z on 2026-10-15**, roughly one hour before this pass began,
-with a recorded disposition of "CLOSE AS SUPERSEDED" by merged **#533**
-(merge commit `7580bd8f0ca2925518d78775f9a323ff0df8bc66`). Their content is on `main`
-through that merge, not through their own heads. The seventh (#525) is open and was
-already decided HELD in the prior pass.
+**Why BLOCKED and not INCONCLUSIVE.** `BLOCKED` is "required evidence or execution
+capability is unavailable"; `INCONCLUSIVE` is "results do not establish either pass or
+failure". Here the results establish a great deal — what is unavailable is the *source
+material the directive names*. **Six of the seven named source PRs were closed unmerged
+at ~17:03Z on 2026-10-15**, about an hour before this pass began, each with a recorded
+disposition of "CLOSE AS SUPERSEDED" by merged **#533** (merge commit
+`7580bd8f0ca2925518d78775f9a323ff0df8bc66`). Their content is on `main` through that
+merge, not through their own heads. The seventh (#525) is open and was already decided
+HELD in the prior pass.
 
-A "combined candidate" that reconciles seven source heads cannot be built when six of
-those heads are closed and their artifacts are absent from `main`. This is a
-`BLOCKED`-class premise failure, but the gate is marked `INCONCLUSIVE` because a real
-composition *does* exist on `main` (#533) and its invariants were verified here — so
-the results neither establish a new candidate pass nor demonstrate a defect.
+A single "combined candidate" that reconciles seven source heads cannot be built when
+six of those heads are closed and their artifacts are absent from `main`. That is a
+capability/premise block, stated plainly rather than worked around.
 
-The Engineering Lab composition itself is **already on `main` and verified**; what
-follows is that verification plus four separately-authorized bounded repairs.
+**What is *not* blocked, and was done instead.** The substantive Engineering Lab
+composition is **already on `main`** (via #533) and its governing invariant was
+verified directly on `main` — exactly one canonical work-loop render site. On top of
+that, four separately-scoped bounded repairs were rebuilt against current `main` and
+validated at exact heads (section 5).
+
+Acceptance-gate boxes, honestly:
+
+| Gate item | Status |
+|---|---|
+| Baseline and all source heads recorded | satisfied |
+| All seven source PRs have evidence-backed reconciliation decisions | satisfied (6 "already present via #533", 1 "held") |
+| No unresolved conflicts remain | satisfied (test conflicts resolved as unions) |
+| Exactly one canonical work-loop mount verified | satisfied (on `main`) |
+| Operational/authority/grammar/Weaver/composition contracts pass | satisfied via #533 on `main` (17 passed) |
+| Relevant regressions pass | satisfied (node set identical) |
+| Frontend production build completes | satisfied (2 candidates + control) |
+| Results tied to exact final candidate SHA | satisfied |
+| Changed-file inventory and test evidence retained | satisfied |
+| No unauthorized merge / production / unrelated disposition change | satisfied |
+| **One coherent candidate composed from the seven named heads** | **BLOCKED — six heads closed unmerged** |
 
 ## 2. Baseline
 
