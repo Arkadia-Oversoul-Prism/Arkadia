@@ -122,3 +122,31 @@ No candidate in this table is merged. Green PR-triggered checks establish engine
 - #555 Weaver/Lab candidate passed 16/16 reported checks at `32251bc960f0877aeb01cec699df73a7053b8221`.
 
 No code candidate has been merged. These transitions reduce duplicate queue entries but do not authorize production release.
+
+
+## Exact-head status refresh — 2026-10-15T20:34Z
+
+| PR | Exact head SHA | Check-runs | Result | Decision |
+|---|---|---:|---|---|
+| #553 EAA/dispatch + full-history provider gate | `b0e20e9e6524066c7522ab351d4cf0310a143c22` | 19 | 17 success; `provider-routing` and `baseline` still running | **Hold**; the full-history repair is included, but provider boundary is not accepted until the current exact-head gate finishes |
+| #554 Knowledge status/provenance contracts | `da7e0279457017200b7eb4ed9f25a0d48bbaf7d1` | 15 | 15 success after correcting the JSDoc placement | **Eligible for review** |
+| #555 Weaver withdrawal + Lab run/artifact trace | `32251bc960f0877aeb01cec699df73a7053b8221` | 16 | 16 success | **Eligible for review** |
+| #556 Home + SolSpire + authorization-state recovery | `01e9647c8464044b41e14b72f1691125453054ca` | 13 | checks newly queued | **Hold** until exact-head checks finish |
+
+#556 combines the previously separate #521/#522/#523 changes while preserving the current-main `endpoints.ts` and applying #521's patch to it. #528 is now closed as superseded because its code and test are already on current `main`; it is not part of the release batch.
+
+## Release batch candidate set
+
+Subject to completion of the listed gates, the coherent review batch is:
+- #547 Arkana visibility + UTC thread history — 16/16 pass
+- #548 Knowledge search visibility + graph traversal — 10/10 pass
+- #549 Knowledge graph owner scope + bounded timeline — 11/11 pass
+- #550 error boundary + Arkana provenance + document title — 15/15 pass
+- #551 legacy aliases + accessible lens navigation — 15/15 pass
+- #554 Knowledge status-read + graph provenance contracts — 15/15 pass
+- #555 Weaver withdrawal + Lab trace — 16/16 pass
+- #556 Home + SolSpire + authorization state — awaiting checks
+- #552 EAA baseline trigger coverage — 9/9 pass, but its functionality is also incorporated into #553
+- #553 EAA/dispatch chain — held until exact-head provider-routing and baseline checks complete and provider-routing failure attribution is acceptable
+
+#525 remains outside the batch until its old work-loop implementation is reconciled with the canonical #533 composition. #539 remains held on the failed external beta validation. The original split source PRs stay open until the replacement candidate is accepted and a release is explicitly authorized; do not close them early merely because a draft candidate exists.
