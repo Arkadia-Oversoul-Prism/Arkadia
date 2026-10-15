@@ -1618,3 +1618,44 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
 - `main` auto-deploys (Railway `autoDeploy`; Render tracks `main`), so a branch that merely
   *contains* a workflow repair carries no production effect - but the reviewer should still be
   told the deploy coupling exists rather than discovering it.
+## A PR's test file can be older than `main`, and "take the newer PR's file" then deletes tests (parallel-lane gate-hygiene)
+- Two conflicting PRs repairing one function are **one bounded unit**, not two merges.
+  `#538` (`1a36f23536`) and `#544` (`73575cd781`) both edit
+  `solspire/buyer_recon.py::BuyerReconManager.update_entry` from base `7580bd8f`; composing
+  them independently puts two competing edits on one function. `#544` is a **strict superset**
+  of `#538` (measured: `git show 1a36f23536:… | grep evidence_supplied` -> absent; #544 adds
+  only the `evidence_supplied` block), so the source is taken from `#544` alone.
+- **A PR branched from an older base carries an older copy of every file it touches — including
+  its test file.** `main`'s `tests/test_prism_opportunity_entry_flow.py` has **81** nodes;
+  `#544`'s copy has **55**, because it predates main's opportunity-radar drift. Copying #544's
+  file wholesale would have **deleted 34 tests** while the PR looked like a clean superset.
+  Always measure `--collect-only` (or a `def test_` count) on both sides before adopting a
+  file from a stale-base branch.
+- **Union by 3-way-patching the diff, not by copying the file.** `git checkout main -- <test>`
+  then `git apply --3way <PR's diff of that file>` produced a clean apply and the correct
+  union: 88 nodes = main's 81 **minus 1** + #544's 8. Verify the union with a probe-key diff
+  too (here: #544 contributes 22 `out.*` keys, the union carries 51, **0** dropped).
+- **A union can be self-contradictory, and the one dropped node is the tell.** Exactly one node
+  left the set: `test_update_does_not_normalize_a_lowercase_status` — the pin that records the
+  *unrepaired* defect. `#544` replaces it with `test_update_normalizes_a_lowercase_status`. The
+  two are mutually exclusive by construction (one asserts the status is not normalized, the
+  other that it is), so keeping both would be incoherent. Dropping a node is only defensible
+  when it is *the superseded pin*, named explicitly — never as an unexamined side effect.
+- **Attribute the pass delta from the node set, not the count.** `+7 passed` (3269 -> 3276) is
+  exactly #544's 8 new tests minus the 1 superseded pin. Failing/error node-set sha256 was
+  `d9615caa…` (10 nodes) on **both** `main` `341867eb` and the candidate — identical, so no
+  regression. CI (`provider-routing`) gave the same result independently: 14 nodes each,
+  sha256 `d5b21991…` on both.
+- **Prove each repair is load-bearing by reverting it alone.** Status fix reverted -> **1
+  failed** (its own test); evidence fix reverted -> **3 failed** (its own three tests). Neither
+  revert reddens the other's tests, so the two repairs are independent and each is pinned.
+- **An `AGENTS.md` from a stale base will drop main's newer lines.** #544's copy is **1581**
+  lines vs main's **1588**, and main is *not* a prefix of it. Append only #544's 20-line
+  section to main's file; do not adopt the file. Audit after: `alterations=0`, Cyrillic
+  `0 -> 0`, `oracle_reproduced=True`, main's 1588 lines byte-preserved.
+- **Check whether the frontend build is implicated before running it.** This unit touches
+  `solspire/buyer_recon.py`, a test file and docs — **0** paths under `web/`. The production
+  build is not implicated, and saying so is more honest than running it for appearance.
+- Evidence: `docs/control-plane/evidence/l2-buyer-recon-combined-01/EVIDENCE.md`.
+  Candidate `e79c9758` on `l2/buyer-recon-combined-01`; `main` unmoved at `341867eb`;
+  no merge, no production change, no EAA/dispatch movement.
