@@ -12,11 +12,13 @@
  * absent — the boundary working, not a partial result. The panel reports which
  * of the two scopes it received and never substitutes mock data.
  */
+import { useState } from "react";
 import { Panel, Facts, ContractState } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import { useHydration } from "../../lib/useHydration";
 import { apiRequest, ApiError } from "../../lib/apiClient";
 import { endpoints } from "../../lib/endpoints";
+import { KnowledgeProjectDetail } from "./KnowledgeProjectDetail";
 import {
   classifyProjectScope,
   isKnowledgeProjects,
@@ -58,6 +60,7 @@ export function KnowledgeProjectsPanel() {
 function ProjectsReading({ projects, viewer }: { projects: KnowledgeProject[]; viewer: ViewerKind }) {
   const scope = classifyProjectScope(projects);
   const notice = projectNotice(scope, viewer);
+  const [selected, setSelected] = useState<string | null>(null);
 
   if (projects.length === 0) {
     return (
@@ -87,9 +90,17 @@ function ProjectsReading({ projects, viewer }: { projects: KnowledgeProject[]; v
       <ul className="flex flex-col gap-2">
         {projects.map((project) => {
           const tags = projectTags(project);
+          const isOpen = selected === project.name;
           return (
             <li key={project.uuid} className="border-l border-line pl-3" data-testid={`knowledge-project-${project.uuid}`}>
-              <p className="text-sm text-white/85">{project.name}</p>
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                onClick={() => setSelected(isOpen ? null : project.name)}
+                className="text-left"
+              >
+                <span className="text-sm text-white/85">{project.name}</span>
+              </button>
               {project.description && <p className="mt-1 text-xs text-white/50">{project.description}</p>}
               <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-white/35">
                 {project.status} · {project.user_id ? "private" : "public"} · {project.updated_at}
@@ -102,6 +113,11 @@ function ProjectsReading({ projects, viewer }: { projects: KnowledgeProject[]; v
                     </li>
                   ))}
                 </ul>
+              )}
+              {isOpen && (
+                <div className="mt-3">
+                  <KnowledgeProjectDetail identifier={project.name} />
+                </div>
               )}
             </li>
           );

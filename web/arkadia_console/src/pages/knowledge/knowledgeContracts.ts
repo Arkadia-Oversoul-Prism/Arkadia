@@ -483,6 +483,38 @@ export function projectNotice(scope: ProjectScope, viewer: ViewerKind): string |
   return "Only public-corpus projects are readable in this scope; no private material is exposed here.";
 }
 
+/**
+ * Structural guard for a *single* project row — the payload of
+ * `GET /api/knowledge/projects/{name_or_uuid}` (`::get_project`). It is the same
+ * row shape as the collection, without the list wrapper. An unrecognised body
+ * (an error object, a wrapper, a bare string) must be an error the client does
+ * not recognise — never a project the backend did not return.
+ */
+export function isKnowledgeProject(value: unknown): value is KnowledgeProject {
+  return isKnowledgeProjects([value]);
+}
+
+/**
+ * The single-project read is **fail-closed and deliberately indistinguishable**.
+ * `knowledge.vault.get_project` applies the same ownership predicate as the
+ * collection (`(user_id = ? OR user_id IS NULL)` authenticated, `user_id IS NULL`
+ * anonymous), and `api.knowledge_routes.get_project` answers `404` when the
+ * predicate matches no row.
+ *
+ * A `404` therefore means *either* "no such project" *or* "this project is not
+ * readable by you" — the handler does not distinguish them, so neither may this
+ * reader. Rendering a `404` as an ordinary transport error presents a real
+ * boundary answer as a fault; guessing which of the two it was invents a fact
+ * the contract withholds. Both are wrong, and the copy below says so.
+ */
+export function projectRefusalNotice(): string {
+  return (
+    "No project is readable at this address. The backend refuses a project the " +
+    "caller cannot read with the same 404 as one that does not exist, so this " +
+    "reader cannot tell the two apart — by design."
+  );
+}
+
 /** Parse the `tags` column, which the reader stores as a JSON string. */
 export function projectTags(project: KnowledgeProject): string[] {
   try {
