@@ -10,6 +10,18 @@
 
 This document is the active work instruction for the overnight UI workstream. Every Engineering Lab / Weaver pulse must read it alongside `AGENTS.md`, the current `main` SHA, the live PR state, and the evidence files it cites. Do not depend on conversation memory or an old automation prompt.
 
+
+## Live recovery checkpoint — 2026-10-12
+
+**Observed current main:** `49809f45274f2f81b24e01fefdfb3009e8717495`. This checkpoint supersedes older branch-map snapshots below; historical snapshots remain provenance, not current assignments.
+
+- W1 shell/navigation: [PR #497](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/497), head `cc1e8f7cb4f0047e208dd9e014a9b5166051face`, is fresh-base from current main; all nine reported workflow runs on this head completed successfully. The predecessor #489 is closed as historical.
+- W2 Opportunity Radar: [PR #492](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/492), head `2c24adb516f10c5491de0be50a1b732156598f62`, is 1 commit ahead of current main. Focused tests/build evidence are recorded in the PR; verify the live check set before any readiness claim.
+- W3 Knowledge OS: [PR #498](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/498), head `e7086afd0420f847cab6b9364857998db77b24e9`, is fresh-base from current main; all nine reported workflow runs on this head completed successfully. The predecessor #491 is closed as historical.
+- W4 Engineering Lab: [PR #493](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/493), head `d3e978d13d5a5f4bbb41776e46e8ef8bcb6ad619`, is 1 commit ahead of current main. Focused tests/build evidence are recorded in the PR; write-path remains unwired.
+- Control plane: proposed router PR [#495](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/495) is closed without merge. Fresh-main [PR #499](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/499), head `c1e7718b084f35a47322256f7f4ef58b8e34b31c`, now classifies merged-but-unaccepted and blocked/failure statuses as explicit non-routable gates, preserves `NO_LEGAL_MOVE`, and prevents `merged` alone from satisfying dependencies. Current-head CI is in progress; this is a proposal, not a verified fix.
+- Scheduler truth: scheduled run [#38165015207](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/38165015207) reported `NO_LEGAL_MOVE`, `next_move=NONE`, `dry_run=true`, with explicit `merged_acceptance_pending` and downstream dependency blockers. The attention outbox was recorded, but delivery was `NOT_CONFIGURED` because the URL, sovereign key and owner UID settings were absent. Pull-request-triggered scheduler run [#38294936054](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/38294936054) passed conformance checks but skipped the runner. Neither event proves an OpenHands hourly dispatch. The connected tools do not expose a callable OpenHands dispatch-and-run-inspection interface; this remains a specific BLOCKED dependency.
+- Authority: no merge, production deployment, or acceptance is performed by this checkpoint. Render remains the sole canonical production origin.
 ## 1. Objective
 
 The current `web/arkadia_console/` UI is a **thin scaffold**, not feature parity with the retired Prism product. The archived Prism frontend contains roughly 30k lines across 135 source files and must be treated as a valuable, recoverable implementation and product-history source—not discarded, not blindly restored, and not assumed to be compatible with today's backend contracts.

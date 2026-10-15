@@ -1,0 +1,32 @@
+name: Engineering Acceptance Authority Contract
+on:
+  pull_request:
+    paths:
+      - "weaver/engineering_acceptance.py"
+      - "tests/test_engineering_acceptance_authority.py"
+      - "docs/control-plane/engineering-acceptance-authority/**"
+      - ".github/workflows/engineering-acceptance-authority.yml"
+  push:
+    branches: [main]
+    paths:
+      - "weaver/engineering_acceptance.py"
+      - "tests/test_engineering_acceptance_authority.py"
+      - "docs/control-plane/engineering-acceptance-authority/**"
+      - ".github/workflows/engineering-acceptance-authority.yml"
+permissions:
+  contents: read
+jobs:
+  acceptance-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test runner
+        run: python -m pip install pytest
+      - name: Validate decision schema
+        run: python -m json.tool docs/control-plane/engineering-acceptance-authority/decision.schema.json > /dev/null
+      - name: Run focused evaluator tests
+        run: python -m pytest tests/test_engineering_acceptance_authority.py -q
