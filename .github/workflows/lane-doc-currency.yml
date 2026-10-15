@@ -1,0 +1,49 @@
+name: Lane Doc Currency
+
+# Executes the lane instruction-doc currency guard. Before this workflow, the
+# guard tests ran only when a human invoked pytest by hand; the drift they
+# detect (a lane doc pointing at a merged PR) had no continuous surface.
+on:
+  pull_request:
+    paths:
+      - "docs/control-plane/parallel-ui/**"
+      - "scripts/lane_state.py"
+      - "tests/test_lane_instruction_doc_currency.py"
+      - ".github/workflows/lane-doc-currency.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "docs/control-plane/parallel-ui/**"
+      - "scripts/lane_state.py"
+      - "tests/test_lane_instruction_doc_currency.py"
+      - ".github/workflows/lane-doc-currency.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lane-doc-currency:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The liveness oracle decides "is this PR merged?" from local git
+          # history (``git merge-base --is-ancestor``). A default depth-1
+          # checkout does not hold the merge commits of the lane PRs, so the
+          # oracle would report every PR as undecidable -- or, read naively, as
+          # "not merged", a silent pass in the exact direction it exists to
+          # catch. Full history is a requirement of the check, not a preference.
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install pytest
+      - name: Execute lane instruction-doc currency guard
+        run: python -m pytest -q tests/test_lane_instruction_doc_currency.py
+      - name: Execute the guard as the gate executes it
+        run: python scripts/lane_state.py --check

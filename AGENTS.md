@@ -1558,3 +1558,31 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   on both; `+7 passed` == `--collect-only` 7 -> 14. Evidence:
   `docs/control-plane/evidence/security-lab-remote-userinfo-redaction-01/`. PR #451
   (draft); PR #448 closed as superseded.
+
+## A guard that prints a verdict but does not act on it is not a guard (gate-hygiene)
+- `scripts/lane_state.py --check` compared the snapshot's `base_main` against live `main` and
+  **exited 0 regardless**. The freshness comparison was a print, not a decision, so a snapshot
+  measured against a superseded `main` passed silently — the exact staleness that makes every
+  currency claim in `docs/control-plane/parallel-ui/AGENT-0N-*.md` unsound. A surface that
+  computes the right answer and then discards it is worse than no surface: it manufactures
+  confidence.
+- **A snapshot that cannot answer its own central question is undecidable, not lenient.** Lane
+  1's `merged_prs` held bare PR numbers, so "is this PR merged?" was not derivable from the
+  snapshot alone. Schema `arkadia.lane-state/1.1` stores `{number, merge_commit_sha}` objects
+  with **full-length** SHAs; `_liveness_findings` then decides merged-ness by
+  `git merge-base --is-ancestor <merge_commit_sha> HEAD`, i.e. by repository ancestry rather
+  than by trusting a field the snapshot itself wrote.
+- **A liveness oracle changes the checkout's requirements.** An ancestry-based check on a
+  depth-1 clone reports every PR undecidable, which reads as a pass in exactly the direction the
+  check exists to catch. The workflow carries `fetch-depth: 0`; the guard needs it.
+- **Abstain rather than claim parity.** When `main` is unresolvable the guard prints `unknown`
+  and neither passes nor reports drift. An unprovable freshness is not a pass.
+- **The node count is the attribution, and a stale number is a defect to correct.** The evidence
+  doc recorded `15` nodes / `+22` / `2 failed, 13 passed`; re-measured at this head it is `23` /
+  `+30` / `2 failed, 21 passed`, and the `+30` decomposes as 23 new nodes plus 7 the generic
+  workflow-scanning suites gain by construction from one new workflow file. Re-measure, then say
+  which value supersedes which — do not reconcile the two.
+- **Textual composability is not semantic compatibility.** Of 55 paths touched across 10 open
+  lane PRs, 4 are touched by more than one PR. `git merge --no-commit --no-ff` in a detached
+  worktree showed **zero** conflicted paths for both contended pairs, which proves only that the
+  trees merge cleanly. Whether the composed tree passes its gate is a separate measurement.

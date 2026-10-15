@@ -1,9 +1,12 @@
 # Agent 01 — Shell, Navigation, Design System & Integration
 
-**Active branch:** `feat/prism-next2-01-shell-contract-map`
-**Active PR:** [#429](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/429) — draft, implementation in progress.
-**Base revision:** `f390526ab14e122fef358ef9b9e1cd438509463c`
-**Task:** refresh the shared branch map and finish verified endpoint-registry seams needed by Workstream 4.
+**Active branch:** `feat/prism-l1-legacy-route-coverage-01`
+**Active PR:** [#507](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/507) — draft, implementation in progress.
+**Base revision:** `7580bd8f0ca2925518d78775f9a323ff0df8bc66`
+**Task:** advance the Lane-1 shared shell/navigation seam; the next bounded task is repairing lane instruction-doc drift against a machine-readable lane-state snapshot (`docs/control-plane/parallel-ui/lane-state.json`), guarded by `tests/test_lane_instruction_doc_currency.py`.
+
+> Superseded pointers (2026-10-15): the earlier `feat/prism-next2-01-shell-contract-map` branch and wave PRs (#423/#425/#426/#427/#429) are **merged and closed** history; the live Lane-1 threads are PR #507 and PR #529. Do not reopen or continue a merged thread.
+
 **Owns:** shared app shell, `App.tsx`, router/surface registry, global navigation/lenses/tokens, shared shell/endpoint contract tests, `lib/endpoints.ts`, `lib/types.ts`, and integration seams.
 **Contract:** `docs/control-plane/parallel-ui/SHARED-CONTRACTS.md`.
 
