@@ -8,9 +8,11 @@
  */
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { Shell } from "./components/Shell";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Loading, Page, Panel } from "./components/ui";
-import { SURFACE_BY_ID } from "./lib/surfaces";
+import { SURFACE_BY_ID, type SurfaceId } from "./lib/surfaces";
 import { useRouter } from "./lib/router";
+import { rememberReturnTo } from "./lib/returnTo";
 import { HomePage } from "./pages/HomePage";
 import { NovaNetPage } from "./pages/NovaNetPage";
 import { ArkanaPage } from "./pages/ArkanaPage";
@@ -22,7 +24,7 @@ import { WeaverPage } from "./pages/WeaverPage";
 import { AboutPage } from "./pages/AboutPage";
 import { SignInPage } from "./pages/SignInPage";
 
-function AuthThreshold() {
+function AuthThreshold({ onNavigate }: { onNavigate: (id: SurfaceId, section?: string) => void }) {
   return (
     <Page title="Protected surface" subtitle="This surface requires an authenticated Arkadia identity.">
       <Panel className="border-gold/30">
@@ -34,6 +36,13 @@ function AuthThreshold() {
         <a
           href="/login"
           data-testid="auth-threshold-signin"
+          onClick={(event) => {
+            // The address bar still holds the protected path the user asked
+            // for; the navigation wrapper below remembers it before crossing.
+            // The href stays a real link for anything that skips this handler.
+            event.preventDefault();
+            onNavigate("login");
+          }}
           className="mt-4 inline-block rounded border border-gold/40 bg-gold/10 px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-gold"
         >
           Go to sign in
@@ -48,9 +57,19 @@ function Surfaces() {
   const { isAuthenticated, loading } = useAuth();
   const def = SURFACE_BY_ID[route.surface];
 
+  // One entry for every trip into the sign-in surface: remember the path the
+  // user was on before crossing, so a confirmed sign-in can return them there.
+  // Both sign-in entries (the threshold and the shell button) reach `login`
+  // through this wrapper, and the address-bar pathname itself stays owned by
+  // the router — nothing outside `lib/router.ts` parses it.
+  const handleNavigate = (id: SurfaceId, section?: string) => {
+    if (id === "login") rememberReturnTo(route.path);
+    navigate(id, section);
+  };
+
   const body = (() => {
     if (def.requiresAuth && loading) return <Loading label="Verifying identity…" />;
-    if (def.requiresAuth && !isAuthenticated) return <AuthThreshold />;
+    if (def.requiresAuth && !isAuthenticated) return <AuthThreshold onNavigate={handleNavigate} />;
     switch (route.surface) {
       case "home":
         return <HomePage onNavigate={navigate} />;
@@ -71,15 +90,19 @@ function Surfaces() {
       case "about":
         return <AboutPage />;
       case "login":
-        return <SignInPage />;
+        return <SignInPage onNavigate={handleNavigate} />;
       default:
         return <HomePage onNavigate={navigate} />;
     }
   })();
 
   return (
-    <Shell current={route.surface} onNavigate={(id) => navigate(id)}>
-      {body}
+    <Shell current={route.surface} onNavigate={handleNavigate}>
+      {/* Keyed by surface: crossing surfaces remounts the boundary, so a
+          caught failure cannot outlive the surface that produced it. */}
+      <ErrorBoundary key={route.surface} surface={SURFACE_BY_ID[route.surface].name} onHome={() => navigate("home")}>
+        {body}
+      </ErrorBoundary>
     </Shell>
   );
 }

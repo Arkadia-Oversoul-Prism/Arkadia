@@ -8,8 +8,10 @@
 import { FormEvent, useState } from "react";
 import { Page, Panel } from "../components/ui";
 import { useAuth } from "../contexts/AuthContext";
+import { consumeReturnTo } from "../lib/returnTo";
+import type { SurfaceId } from "../lib/surfaces";
 
-export function SignInPage() {
+export function SignInPage({ onNavigate }: { onNavigate: (id: SurfaceId, section?: string) => void }) {
   const { signIn, firebaseConfigured, identityState, identityError } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,6 +24,11 @@ export function SignInPage() {
     setLocalError(null);
     try {
       await signIn(email, password);
+      // Only a confirmed sign-in crosses back: the destination is consumed
+      // (and cleared) here, validated through the router, so a failed sign-in
+      // neither navigates nor spends the remembered destination.
+      const destination = consumeReturnTo(window.location.search);
+      if (destination) onNavigate(destination.surface, destination.section);
     } catch (error) {
       setLocalError(error instanceof Error ? error.message : "Sign-in failed.");
     } finally {
