@@ -325,11 +325,23 @@ class BuyerReconManager:
         board; omitting it keeps the subject-wide behaviour for internal callers.
         """
         allowed = set(BuyerReconEntry.__dataclass_fields__) - {"id","board_id","subject_ref","created_at","updated_at","evidence"}
+        # Normalise into a local mapping rather than mutating the caller's dict.
+        # The status is validated in upper case and must be *persisted* upper case,
+        # the same way `create_entry` does; otherwise a lower-cased status passes
+        # validation and is stored outside the declared vocabulary, where any
+        # consumer that groups or counts by `STATUSES` silently misses the row.
+        normalized = dict(patch)
         status = patch.get("status")
         if status is not None:
             status = str(status).upper()
             if status not in STATUSES:
                 raise ValueError("invalid status")
+            normalized["status"] = status
+        # `evidence` is the one field whose column differs, and `current` carries
+        # the *stored* list. Whether the caller supplied evidence must therefore
+        # be tracked separately: deriving it from `current` lets the stored list
+        # outrank the patch and the write is silently dropped.
+        evidence_supplied = "evidence" in normalized
         scope = "id=? AND subject_ref=?"
         scope_values: list[Any] = [entry_id, subject_ref]
         if board_id is not None:
@@ -340,11 +352,11 @@ class BuyerReconManager:
             if not row:
                 raise KeyError(entry_id)
             current = self._entry(row).to_dict()
-            for key, value in patch.items():
+            for key, value in normalized.items():
                 if key in allowed:
                     current[key] = str(value) if value is not None else ""
-            if "evidence" in patch:
-                current["evidence_json"] = json.dumps(patch["evidence"] or [])
+            if evidence_supplied:
+                current["evidence"] = list(normalized["evidence"] or [])
             current["updated_at"] = time.time()
             sets = []
             values = []
@@ -353,7 +365,7 @@ class BuyerReconManager:
                     continue
                 dbkey = "evidence_json" if key == "evidence" else key
                 if dbkey == "evidence_json":
-                    value = json.dumps(current.get("evidence") or patch.get("evidence") or [])
+                    value = json.dumps(current.get("evidence") or [])
                 sets.append(f"{dbkey}=?"); values.append(value)
             values.extend(scope_values)
             conn.execute(f"UPDATE buyer_recon_entries SET {','.join(sets)} WHERE {scope}", values)
