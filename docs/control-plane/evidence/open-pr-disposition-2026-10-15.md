@@ -108,3 +108,17 @@ All candidate heads below are based on `04e1b83b89e51a994af68b529a1076665f9b3ae5
 ## Release posture
 
 No candidate in this table is merged. Green PR-triggered checks establish engineering evidence on the exact candidate head, not production behavior. The coherent release batch should be assembled only after the remaining running checks finish, #554 is green, and #553's provider-routing result is adjudicated against a same-current-base node fingerprint without weakening the gate. Since `main` auto-deploys to Render, no merge has been performed.
+
+
+## Queue state transitions after the 20:26Z refresh
+
+- **#528 closed unmerged as superseded.** Its current-main NovaNet implementation already contains the same bounded public echoes limit, public total label, and truncation notice; its test file blob is identical to current `main` (`c9a1f6dff972ecb8da70107053d277f8a90b91b6`). Comment posted on #528.
+- **#503 closed unmerged as superseded by #552.** The trigger-coverage repair retains the exact-base baseline workflow and expands the path filter to cover `tests/test_autonomy.py` plus the EAA/dispatch/provider-routing inputs. #552's exact head had 9/9 checks pass. Comment posted on #503.
+- #538 and #544 remain closed unmerged as superseded by #545.
+- #525 remains open/held. Its old `LabWorkLoop.tsx` approach is not being restored over the canonical work-loop composition; no exact evidence yet proves the desired Weaver read model is already present.
+- #527/#534's shared contract was composed as #554. Its first candidate head failed because the provenance interface was inserted inside the preceding JSDoc. That syntax placement was corrected; the latest head is `da7e0279457017200b7eb4ed9f25a0d48bbaf7d1`, with 14/15 checks successful and only `validate` still running at this refresh.
+- #551's stale legacy-gap entries were removed only for the four paths now aliased by #505; the new exact head passed 15/15 checks.
+- #553 now includes #482's full-history provider-routing checkout and guard. Latest head `b0e20e9e6524066c7522ab351d4cf0310a143c22`: 17/19 checks passed; `baseline` and `provider-routing` remained in progress. The previous provider-routing run reported 13 failed nodes, 3,332 passed, 21 skipped, and 1 collection error. This remains **not mergeable by policy** until the current exact-head provider-routing run completes and its failures are attributed without weakening the gate.
+- #555 Weaver/Lab candidate passed 16/16 reported checks at `32251bc960f0877aeb01cec699df73a7053b8221`.
+
+No code candidate has been merged. These transitions reduce duplicate queue entries but do not authorize production release.
