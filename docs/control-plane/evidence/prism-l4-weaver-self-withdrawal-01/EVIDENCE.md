@@ -167,3 +167,28 @@ change is confined to Weaver feature-local components and their guard.
   not record. Recorded, not repaired: it needs a serving-side field.
 - Next Lane-4 read surface, per `AGENT-04`: the Arkana thread-history slice
   (continuation of PR #428's family), still read-only.
+
+## 7. Lane-state ledger entry (persisted for the next pulse)
+
+Measured 2026-10-15 against live `origin/main` `7580bd8f`.
+
+```
+lane:             4 — Arkana / Weaver / Engineering Lab
+rotation status:  selected (oldest unadvanced lane among the four; #429/#430/#431
+                  and #428 are all merged, and their next-wave PRs #432/#433-class
+                  branches are closed — the four-lane wave has been re-based by
+                  later passes)
+branch:           feat/prism-l4-weaver-self-withdrawal-01  (new, from 7580bd8f)
+pr:               #541  (draft)
+status:           IMPLEMENTED / READY FOR SOVEREIGN REVIEW
+ownership check:  no shared shell file and no backend authority file touched;
+                  scanned all 42 open PRs for collisions on the two touched
+                  components — none found. No composed-tree conflict observed.
+next bounded move: Lane-4 read-only Arkana thread-history continuation
+                  (the family of merged #428 / draft #532 / #531).
+```
+
+`main` had advanced `f390526a` → `7580bd8f` since the branch map's last refresh; the
+four `feat/prism-next2-*` rows in `SHARED-CONTRACTS.md` §1 now describe **closed**
+PRs (#429–#432 are all `closed`; #428 merged). That map is Workstream-1-owned, so
+the drift is recorded here rather than edited from Lane 4.
