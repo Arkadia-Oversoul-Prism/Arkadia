@@ -1,24 +1,21 @@
-"""Every schema-legal move status must be routable, or explicitly named unroutable.
+"""Every schema-legal move status must be active, terminal, or explicitly gated.
 
 `tests/test_trajectory_schema_conformance.py` guards the seam in one direction only:
 `router ⊆ schema` (the statuses the router acts on are schema-legal). The reverse
 direction — `schema ⊆ router` — was asserted nowhere, so the frozen contract could
 admit a status the router has no behaviour for and nothing failed.
 
-That gap is live. Four schema-legal statuses — `aborted`, `blocked`, `failed`,
-`merged_acceptance_pending` — are absent from `ACTIVE_STATUSES ∪ TERMINAL_DONE`, so
-`select_next_move()` cannot route a move carrying one. `merged_acceptance_pending`
-marks a live frontier (`G12-A`, `G12-C` on `TRAJECTORY-CONSOLE-COMPLETION-01.yaml`).
+That gap is live. Schema-legal states `aborted`, `blocked`, `failed`, `merged`, and
+`merged_acceptance_pending` require explicit non-routable treatment. The last marks a live
+frontier (`G12-A`, `G12-C` on `TRAJECTORY-CONSOLE-COMPLETION-01.yaml`).
 Before the truthfulness repair (PR #322) the skip was silent: the session reported the
 generic "no legal pending move (all complete or dependencies unresolved)" fallback for
 a trajectory that still carried active work. After #322 it is named — the frontier is
 still unroutable, but the session can say why.
 
-This guard pins the *classification* half of that seam, which is what the router can
-honestly promise: it does not demand that the vocabulary be closed (closing it, or
-teaching the router these four states, is a sovereign decision), only that a status
-outside the vocabulary is **reported** rather than skipped. The negative control pins
-the pre-#322 behaviour so this guard cannot be satisfied by reverting to a silent skip.
+This guard pins a complete status disposition: active statuses may route; completed/accepted
+statuses may terminate; merged-but-unaccepted and blocked/failure states are explicitly gated;
+statuses outside the schema are named as malformed. No gate status may satisfy a dependency.
 
 The guard is stdlib-only (plus `pytest`): it reads the JSON schema with `json`, the
 trajectory with a small line reader, and drives the router through its public
@@ -34,6 +31,7 @@ import pytest
 
 from weaver.engineering_router import (
     ACTIVE_STATUSES,
+    NON_ROUTABLE_STATUSES,
     TERMINAL_DONE,
     _load_yaml,
     select_next_move,
@@ -44,7 +42,7 @@ SCHEMA = ROOT / "docs/control-plane/trajectory.schema.json"
 CONTROL_PLANE = ROOT / "docs/control-plane"
 LIVE_TRAJECTORY = CONTROL_PLANE / "TRAJECTORY-CONSOLE-COMPLETION-01.yaml"
 
-_ROUTER_VOCABULARY = frozenset(ACTIVE_STATUSES) | frozenset(TERMINAL_DONE)
+_ROUTER_VOCABULARY = frozenset(ACTIVE_STATUSES) | frozenset(TERMINAL_DONE) | frozenset(NON_ROUTABLE_STATUSES)
 
 # The pre-#322 fallback. Kept here as the control it is: the generic message the
 # router emitted for *any* unroutable frontier, including a live one.
@@ -107,19 +105,28 @@ def test_every_schema_legal_status_is_routable_or_named_unroutable(status: str):
     reports "all complete or dependencies unresolved" for live work.
     """
     move, blockers = _route(status)
-    if status in _ROUTER_VOCABULARY:
-        assert move is not None or any(
-            _PREFIX_GENERIC_FALLBACK in b for b in blockers
-        ), f"known status {status!r} produced neither a move nor the terminal fallback"
+    if status in ACTIVE_STATUSES:
+        assert move is not None, f"active status {status!r} was not selected: {blockers}"
         return
-    assert move is None, f"unroutable status {status!r} was silently selected"
+    if status in TERMINAL_DONE:
+        assert move is None
+        assert any(_PREFIX_GENERIC_FALLBACK in b for b in blockers)
+        return
+    if status in NON_ROUTABLE_STATUSES:
+        assert move is None, f"gated status {status!r} was selected"
+        joined = " ".join(blockers)
+        assert status in joined and "human review/acceptance evidence required" in joined
+        assert "unrecognized move status" not in joined
+        assert not any(_PREFIX_GENERIC_FALLBACK in b for b in blockers)
+        return
+    assert move is None, f"unknown status {status!r} was silently selected"
     assert _is_named_unroutable(move, blockers, status), (
-        f"status {status!r} is schema-legal but the router skipped it silently; "
+        f"status {status!r} is outside the schema but the router skipped it silently; "
         f"blockers={blockers}"
     )
 
 
-def test_schema_admits_exactly_four_statuses_the_router_cannot_route():
+def test_schema_statuses_have_explicit_active_terminal_or_gate_dispositions():
     """Pin the live vocabulary gap so a change to it is deliberate.
 
     `merged_acceptance_pending` encodes "the PR merged but repository acceptance
@@ -132,10 +139,14 @@ def test_schema_admits_exactly_four_statuses_the_router_cannot_route():
     holding. Closing the gap is a sovereign decision (see
     `docs/control-plane/evidence/gate07-trajectory-status-vocabulary-decision-01/`).
     """
-    assert _schema_move_enum() - _ROUTER_VOCABULARY == {
+    assert _schema_move_enum() == (
+        set(ACTIVE_STATUSES) | set(TERMINAL_DONE) | set(NON_ROUTABLE_STATUSES)
+    )
+    assert NON_ROUTABLE_STATUSES == {
         "aborted",
         "blocked",
         "failed",
+        "merged",
         "merged_acceptance_pending",
     }
 
@@ -160,17 +171,21 @@ def test_live_trajectory_frontier_is_unroutable_and_named():
     Not a failure of the router: it is the data that is outside the vocabulary.
     The router's obligation is to name it, which this pins.
     """
-    unroutable = sorted(
+    gated = sorted(
         {str(m.get("status")) for m in _live_moves()}
-        - set(_ROUTER_VOCABULARY)
+        & set(NON_ROUTABLE_STATUSES)
     )
-    assert unroutable == ["merged_acceptance_pending"], (
-        f"live trajectory unroutable statuses changed: {unroutable}"
+    assert gated == ["merged_acceptance_pending"], (
+        f"live trajectory gated statuses changed: {gated}"
     )
 
     move, blockers = select_next_move(_load_yaml(LIVE_TRAJECTORY))
-    assert move is None, "live trajectory now routes — re-decide this record"
-    assert _is_named_unroutable(move, blockers, "merged_acceptance_pending")
+    assert move is None, "live trajectory unexpectedly selected a move"
+    joined = " ".join(blockers)
+    assert "merged_acceptance_pending" in joined
+    assert "human review/acceptance evidence required" in joined
+    assert "dependency-blocked frontier" in joined
+    assert "unrecognized move status" not in joined
 
 
 # ---------------------------------------------------------------------------
@@ -189,10 +204,11 @@ def test_negative_control_pre_fix_router_would_have_skipped_silently():
     generic = [f"{_PREFIX_GENERIC_FALLBACK} (all complete or dependencies unresolved)"]
     assert not _is_named_unroutable(None, generic, "merged_acceptance_pending")
 
-    # The real router is not in that state: it names the status.
-    move, blockers = _route("merged_acceptance_pending")
+    # Unknown statuses remain explicitly named; schema-valid gated statuses use a
+    # separate human-acceptance blocker and are never treated as completion.
+    move, blockers = _route("quantum_pending")
     assert move is None
-    assert _is_named_unroutable(move, blockers, "merged_acceptance_pending")
+    assert _is_named_unroutable(move, blockers, "quantum_pending")
 
 
 def test_negative_control_future_status_outside_the_schema_is_still_named():

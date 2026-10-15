@@ -55,13 +55,32 @@ def test_terminal_only_trajectory_reports_only_the_clean_stop_sentinel():
 
 
 def test_unrecognized_frontier_is_not_a_clean_stop():
-    """An unrecognized move status is a defect, not an absence of work."""
+    """A status outside the frozen schema is a defect, not an absence of work."""
+    move, blockers = select_next_move(
+        _traj([{"id": "A", "status": "awaiting_sovereign", "spec": "s.md"}])
+    )
+    assert move is None
+    joined = " ".join(blockers)
+    assert "unrecognized move status" in joined
+    assert CLEAN_STOP_BLOCKER not in blockers
+
+
+def test_acceptance_pending_gate_is_named_not_unrecognized():
+    """A schema-legal merged-but-unaccepted status is a human gate, not a data defect.
+
+    `merged_acceptance_pending` once fell through to the generic "unrecognized move
+    status" marker. The router now classifies it as a non-routable gate, so that marker
+    (reserved for statuses *outside* the frozen schema) no longer applies — but the
+    frontier must still be a blocked stop, never a clean one.
+    """
     move, blockers = select_next_move(
         _traj([{"id": "A", "status": "merged_acceptance_pending", "spec": "s.md"}])
     )
     assert move is None
     joined = " ".join(blockers)
-    assert "unrecognized move status" in joined
+    assert "merged_acceptance_pending" in joined
+    assert "human review/acceptance evidence required" in joined
+    assert "unrecognized move status" not in joined
     assert CLEAN_STOP_BLOCKER not in blockers
 
 
@@ -164,7 +183,10 @@ def test_unroutable_frontier_reaches_the_sovereign_through_the_worker(
         ),
     )
     assert result["status"] == "NO_LEGAL_MOVE"
-    assert any("unrecognized move status" in b for b in result["blockers"])
+    # The router names the acceptance gate; the worker must project that naming as a
+    # HIGH block. The load-bearing property is the pushed block, not which marker the
+    # router uses to name it.
+    assert any("human review/acceptance evidence required" in b for b in result["blockers"])
 
     event = result["attention_event"]
     assert event["event_type"] == "WEAVER_BLOCKED"
