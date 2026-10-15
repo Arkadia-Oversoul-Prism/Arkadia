@@ -320,6 +320,29 @@ async def add_edge(req: GraphEdgeRequest):
 # Timeline
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Both timeline readers bound how many rows a single request may read. The bound
+# has to be a *floor as well as a ceiling*: SQLite reads `LIMIT -1` as "no limit",
+# so a negative value passes a `le=` ceiling untouched and returns the whole
+# readable log. `limit` and `offset` therefore carry `ge=` bounds and are clamped
+# at the handler, and the module-level readers clamp too so an in-process caller
+# cannot bypass the bound by going around the route. Defaults are preserved:
+# `query` still defaults to 100, `recent` to 20, `replay_project` to its own 10000.
+TIMELINE_MAX_LIMIT = 500
+
+
+def _bounded_limit(limit: int, default: int, maximum: int = TIMELINE_MAX_LIMIT) -> int:
+    """Clamp a caller-supplied row count into ``[0, maximum]``.
+
+    ``None``/unparseable input falls back to ``default``. A negative value would
+    otherwise reach SQLite as the unbounded ``LIMIT -1``.
+    """
+    try:
+        value = int(limit)
+    except (TypeError, ValueError):
+        return default
+    return max(0, min(value, maximum))
+
+
 @router.get("/timeline")
 async def get_timeline(
     request: Request,
@@ -328,21 +351,22 @@ async def get_timeline(
     note_id: Optional[int] = None,
     since: Optional[str] = None,
     until: Optional[str] = None,
-    limit: int = Query(100, le=500),
-    offset: int = 0,
+    limit: int = Query(100, ge=0, le=TIMELINE_MAX_LIMIT),
+    offset: int = Query(0, ge=0),
 ):
     from knowledge import timeline as tl
     return tl.query(
         event_type=event_type, project_id=project_id, note_id=note_id,
-        since=since, until=until, limit=limit, offset=offset,
+        since=since, until=until,
+        limit=_bounded_limit(limit, default=100), offset=max(0, offset),
         user_id=await _optional_user_id(request),
     )
 
 
 @router.get("/timeline/recent")
-async def recent_timeline(request: Request, limit: int = 20):
+async def recent_timeline(request: Request, limit: int = Query(20, ge=0, le=TIMELINE_MAX_LIMIT)):
     from knowledge import timeline as tl
-    return tl.recent(limit=limit, user_id=await _optional_user_id(request))
+    return tl.recent(limit=_bounded_limit(limit, default=20), user_id=await _optional_user_id(request))
 
 
 @router.get("/timeline/replay/{project_id}")
