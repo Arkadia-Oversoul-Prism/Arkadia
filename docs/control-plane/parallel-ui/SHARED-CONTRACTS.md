@@ -1,28 +1,44 @@
 # Prism Parallel UI Work — Shared Contracts
 
 **Status:** ACCEPTED — merged via PR #419 at `a29a9b8f18ada55cb9457ea3cdab98414522a4e8`.
-**Baseline observed:** `main` after the four PRs #425–#428 were merged: `f390526ab14e122fef358ef9b9e1cd438509463c`. Re-fetch `main` before every change; this SHA is not a permanent pin. The current branch map was refreshed 2026-10-11 against the four active next-wave branches below.
-**Canonical production:** https://arkadia-qzu4.onrender.com (ADR-016). Render is configured to auto-deploy commits on `main`; this merge wave was explicitly authorized by the user for production observation. Agents may not trigger manual deployments or claim production acceptance.
-**Authority:** agents may inspect, implement, test, commit to their assigned branch, and update their PR. Human retains merge, production deployment, and acceptance.
+**Live recovery baseline:** `main` `49809f45274f2f81b24e01fefdfb3009e8717495`, observed 2026-10-12. This is an evidence pin, not a permanent branch reference; fetch `main` before every new change.
+**Canonical production:** `https://arkadia-qzu4.onrender.com` (ADR-016). Render is the only canonical production origin. No workstream may trigger a manual production deployment or claim production acceptance.
+**Authority:** agents may inspect, implement, test, commit to their assigned branch, and update their PR. Human retains merge, production deployment, and acceptance authority.
 
 ## 1. Four workstreams and exclusive file ownership
 
-Active branch map, re-measured 2026-10-11 at `main` `f390526a`. Each branch below starts from that revision; the heads are observations, not pins.
+### Live lane map — measured against `main` 49809f45274f2f81b24e01fefdfb3009e8717495
 
-| Workstream | Branch | PR (draft) | Head observed | Exclusive source ownership | Must not edit |
-|---|---|---|---|---|---|
-| 1. Shell, navigation, design system, integration contracts | `feat/prism-next2-01-shell-contract-map` | #429 | `46326ba4` | `web/arkadia_console/src/App.tsx`; `src/lib/router.ts`; `src/lib/surfaces.ts`; `src/components/SurfaceLenses.tsx`; shared shell/navigation primitives and tokens; `src/lib/endpoints.ts`; `src/lib/types.ts`; shared shell/endpoint contract tests; this contract and shell instruction | Feature page internals owned by workstreams 2–4 |
-| 2. NovaNet and project Opportunity Radar | `feat/prism-next2-02-opportunity-entry-flow` | #430 | `d40de704` | `src/pages/NovaNetPage.tsx`; NovaNet-only components; opportunity UI under `src/components/opportunities/**`; scoped buyer-recon board/entry behavior in `solspire/buyer_recon.py` and `solspire/buyer_recon_router.py`; opportunity tests/evidence | App/router/surface registry, global navigation, shared tokens, shared shell tests, unrelated SolSpire authority/authentication behavior |
-| 3. Solariun and Knowledge OS | `feat/prism-next2-03-knowledge-timeline` | #431 | `f5f8b70e` | Solariun/Knowledge OS page modules and feature-local components/tests/evidence | App/router/surfaces registry, global navigation, shared tokens, shared shell tests, NovaNet files |
-| 4. Arkana, Weaver, Engineering Lab | `feat/prism-next2-04-run-evidence-trace` | #432 | `dcb3e2f2` | Arkana/Oracle, Weaver, Engineering Lab feature-local page modules/components/tests/evidence | App/router/surfaces registry, global navigation, shared tokens, shared shell tests, NovaNet/Solariun files, runtime/authority model |
+| Workstream | Active implementation PR | Base/head relationship to current main | Verified output and next bounded move |
+|---|---|---|---|
+| 1. Shell, navigation, design system, integration contracts | [#497](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/497), draft | Fresh base `49809f45274f2f81b24e01fefdfb3009e8717495`; head `cc1e8f7cb4f0047e208dd9e014a9b5166051face`; **6 commits ahead, 0 behind** | Fresh-base replay of legacy `/nexus/<sub>` deep-link resolution. Original PR recorded 32 focused shell-contract tests; current-head CI is running and must be inspected before verification claims. |
+| 2. NovaNet and project Opportunity Radar | [#492](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/492), draft | Fresh base `49809f45274f2f81b24e01fefdfb3009e8717495`; head `2c24adb516f10c5491de0be50a1b732156598f62`; **1 commit ahead, 0 behind** | Opportunity pipeline strip and off-vocabulary counts; PR records 55 focused tests, 408 derived-domain tests, 11 architecture tests and frontend build. Keep backend normalization out of scope. |
+| 3. Solariun and Knowledge OS | [#498](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/498), draft | Fresh base `49809f45274f2f81b24e01fefdfb3009e8717495`; head `e7086afd0420f847cab6b9364857998db77b24e9`; **5 commits ahead, 0 behind** | Fresh-base replay of Knowledge Timeline “load older events” paging. Original PR recorded 52 paging/window/boundary tests; current-head CI is running and must be inspected before verification claims. |
+| 4. Arkana, Weaver, Engineering Lab | [#493](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/493), draft | Fresh base `49809f45274f2f81b24e01fefdfb3009e8717495`; head `d3e978d13d5a5f4bbb41776e46e8ef8bcb6ad619`; **1 commit ahead, 0 behind** | Read-only Lab automation grammar projection; PR records 49 focused tests, 450 derived-domain/wiring tests, 11 architecture tests and frontend build. Write-path remains intentionally unwired. |
 
-Heads re-measured 2026-10-11T13:0xZ (`GET /pulls/{429,430,431,432}` + `git ls-remote`): all four are draft, `OPEN`,
-`MERGEABLE`. W2 advanced `e6780d47` → `d40de704` and W3 `a2024fba` → `f5f8b70e` since the previous map refresh; the
-columns above are the current observation, not a pin. `main` is unchanged at `f390526a`.
+**Control-plane repair (separate from the four UI lanes):** [PR #499](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/499), head `c1e7718b084f35a47322256f7f4ef58b8e34b31c`, is a fresh-main draft. It gives schema-valid gated states explicit non-routable dispositions, removes `merged` from terminal completion, and preserves the worker `NO_LEGAL_MOVE` contract. Current-head CI is in progress; no fix is yet verified or merged.
+### Dispatch and durable-output proof
 
-The first-wave branches (`feat/prism-parallel-01-…` through `-04-…`) and the merged next-wave branches for PRs #425–#428 are closed history; do not reopen or continue them. The four `feat/prism-next2-*` branches above are the active threads. Each agent continues automatically after every merge by creating a fresh branch from current `main` and opening its next draft PR.
+The latest successful **scheduled** Engineering Scheduler run identified in the current evidence remains [#38165015207](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/38165015207), at head `36df0ea8169087802e4fc34ae96496058a380d05`; its recorded result was `NO_LEGAL_MOVE`, `next_move=NONE`, `dry_run=true`. Later pull-request-triggered scheduler checks (including run [#38294936054](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/38294936054)) skip the runner by design and are conformance checks, not hourly OpenHands dispatches. The connected tool surface has no callable OpenHands dispatch/run-inspection action; that dependency remains BLOCKED. Current fresh-base lane PRs are #497 (W1), #492 (W2), #498 (W3), and #493 (W4); #489 and #491 are closed historical predecessors. The scheduler record alone does not prove dispatch; each lane's branch, commit, tests and PR are the durable output evidence.
 
-**Important:** these are ownership boundaries, not proof that every proposed directory already exists. Inspect the live tree first. Do not create duplicate abstractions just to match a suggested path. If an existing file spans two owners, the shell/integration owner owns the seam; feature agents submit a narrow proposal instead of editing it.
+A lane is considered actively advanced only when its worker dispatch can be tied to a lane, and the lane leaves durable evidence: branch and commit SHA, scoped source diff, targeted test result, and updated PR. If dispatch capability is unavailable, mark that lane BLOCKED with the exact missing dependency; do not simulate activity. This document itself is not evidence of four-way execution.
+
+### Exclusive source ownership
+
+| Workstream | Exclusive source ownership | Must not edit |
+|---|---|---|
+| 1. Shell, navigation, design system, integration contracts | `web/arkadia_console/src/App.tsx`; `src/lib/router.ts`; `src/lib/surfaces.ts`; `src/components/SurfaceLenses.tsx`; shared shell/navigation primitives and tokens; `src/lib/endpoints.ts`; `src/lib/types.ts`; shared shell/endpoint contract tests; this contract and shell instruction | Feature page internals owned by workstreams 2–4 |
+| 2. NovaNet and project Opportunity Radar | `src/pages/NovaNetPage.tsx`; NovaNet-only components; opportunity UI under `src/components/opportunities/**`; scoped buyer-recon board/entry behavior in `solspire/buyer_recon.py` and `solspire/buyer_recon_router.py`; opportunity tests/evidence | App/router/surface registry, global navigation, shared design variables, shared shell tests, unrelated SolSpire identity and authorization behavior |
+| 3. Solariun and Knowledge OS | Solariun/Knowledge OS page modules and feature-local components/tests/evidence | App/router/surfaces registry, global navigation, shared design variables, shared shell tests, NovaNet files |
+| 4. Arkana, Weaver, Engineering Lab | Arkana/Oracle, Weaver, Engineering Lab feature-local pages/components/tests/evidence | App/router/surfaces registry, global navigation, shared design variables, NovaNet/Solariun files, runtime governance model |
+
+These are ownership boundaries, not proof that every suggested directory exists. Inspect the current tree before editing. Shared seam changes go through Workstream 1; feature agents propose exact integration changes rather than editing shared files. Keep the four workstreams independent: one lane being blocked does not stop non-overlapping work in another lane. Do not create parallel project, conversation, knowledge, file, task, or authority systems.
+
+### Merge and verification gates
+
+A draft is not merge-ready merely because its checks are green. Before merge, reconcile its base with current `main`, inspect the full diff and changed-path overlap, verify the checks belong to the current head, run relevant targeted tests, and confirm that no protected boundary changed. A source diff or CI run is not browser verification. Preview readiness is not preview verification; preview verification is not production acceptance.
+
+No production deployment or production acceptance is authorized by this contract. Render remains the sole canonical production origin; all work stops at the human merge/deployment/acceptance gate.
 
 ## 2. PR #418 — measured patch map and disposition
 
