@@ -446,13 +446,32 @@ task in §13.
 ### 12.3 Inventory delta vs §11 (05:57Z → 06:24Z)
 
 - Open PRs **43 → 44**; the new PR is **#543** `gate03/knowledge-timeline-bounded-limit-01`
-  (created 2026-10-15T06:27:47Z, **`unstable`**, behind 0, 11 checks) — governing **Lane 3**.
-- Lane distribution: **L1 9 · L2 3 · L3 8 · L4 17 · control-plane 7** (§11 counted L3 as 5; the earlier lane
-  classifier missed `#526`, `#542`, `#543`, which touch `api/knowledge_routes.py` and
-  `tests/test_knowledge_timeline_boundary.py` rather than `src/components/knowledge/**`. §3's Lane-2 count of 4
-  included `#526`, which is Knowledge-OS work; the live Lane-2 set is `#492`, `#528`, `#538`).
+  (created 2026-10-15T06:27:47Z, **`unstable`**, behind 0, 11 checks) — governing **Lane 3**
+  (`knowledge/timeline.py`, `api/knowledge_routes.py`, `tests/test_knowledge_timeline_boundary.py`).
+- Lane distribution: **L1 11 · L2 3 · L3 8 · L4 11 · control-plane 11**.
+  **Correction to a first reading of this pass.** A fresh keyword classifier initially reported
+  **L1 9 · L2 3 · L3 8 · L4 17 · control-plane 7**; that was a *classifier defect*, not lane drift. It
+  bucketed by file path only, so the explicitly lane-prefixed branches `feat/prism-l1-legacy-route-coverage-01`
+  (#507) and `feat/prism-l1-lane-doc-currency-01` (#540) fell through to `control-plane`, and six
+  `feat/eaa-*` / `feat/gate-l4-*` PRs (#496, #499, #500, #502, #508, #535) were pulled into `L4` by the
+  `lab`/`weaver` substring in their paths. **A PR's branch prefix is the lane's own declaration and outranks
+  a path heuristic** — the re-derivation now preserves the prior snapshot's assignment and rule-classifies
+  only genuinely new PRs, so #543 is the sole rule-classified addition. §3's Lane-2 count of 4 included
+  `#526`, which is Knowledge-OS work; the live Lane-2 set is `#492`, `#528`, `#538`.
+  **This is the third count correction in this record (Lane 3 was 5, then 7, now 8).** The cause is the same
+  each time — a lane classifier keyed on paths rather than on the lane's own branch prefix — and it is the
+  reason §3's per-lane numbers should be read as indicative, not as a stable series.
 - `mergeable_state`: **32 clean · 8 unstable · 4 dirty**; dirty = `#493`, `#501`, `#512`, `#530` (unchanged set).
   unstable = `#482`, `#499`, `#500`, `#502`, `#503`, `#508`, `#535`, **`#543`**.
+- **Schema repair, disclosed.** The snapshot committed at `f2fec7c5` was **structurally broken**: its
+  top-level keys were the five *lane names* (`CP`, `L2`, `L4`, `L1`, `L3`) instead of the document
+  schema, so `observed_at_utc`, `repository`, `main_sha`, `open_pr_count`, `lanes` and
+  `contested_files` were all absent, and any consumer reading `snapshot["main_sha"]` would fail. It also
+  renamed the `control-plane` key to `CP`, which is why the raw diff of this refresh is large:
+  the churn is the **restoration of the schema and the lane key**,
+  not new observation content. Verified mechanically - 44 PRs on both sides, **13 lane moves, all of
+  them the buggy classifier's**, and **0 per-PR key-order differences**, so no PR record changed shape.
+  The document now carries the prior six keys as a stable prefix plus ten added fields.
 - Contested files (touched by ≥2 open PRs): **40 → 42**. New: `api/knowledge_routes.py` (`#542`, `#543`) and
   `tests/test_knowledge_timeline_boundary.py` (`#498`, `#543`).
 - Highest-contention surfaces unchanged: `EngineeringLabPage.tsx` **5×** (`#493`, `#501`, `#512`, `#524`, `#530`),
