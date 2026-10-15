@@ -114,3 +114,39 @@ Human review of `8f4a6ea0`, then a separate acceptance decision. If accepted,
 #538 becomes **superseded by the combined candidate** and #544 **partially
 included** (its source is taken; its test file is superseded by the union).
 Do not merge without explicit authorization.
+
+## 8. Exact-head verification of the published tip (added on review request)
+
+A reviewer querying the **branch tip** `e79c9758eef6276426ea41f8cf4c809f3f5031e8`
+for CI checks correctly found none, and asked for confirmation that the recorded
+results belong to its code ancestor. Confirmed, with the reason:
+
+| SHA | check-runs | reason |
+|---|---|---|
+| `8f4a6ea056ca85d1504bc070ac3b17c2dd63c99c` (code) | **4** | the workflows ran on this commit |
+| `e79c9758eef6276426ea41f8cf4c809f3f5031e8` (tip) | **0** | the only commit on top adds one docs file |
+
+- Published branch tip == `e79c9758eef6276426ea41f8cf4c809f3f5031e8` (verified via
+  `git ls-remote`, not from local state).
+- `8f4a6ea0` **is** an ancestor of `e79c9758`; the reverse is false. The diff
+  between them is **one file, 116 insertions** —
+  `docs/control-plane/evidence/l2-buyer-recon-combined-01/EVIDENCE.md`. No code
+  path differs between the two SHAs.
+- The tip touches **no** workflow path filter, so no workflow re-runs on it.
+  The absence of checks on the tip is therefore expected, not a gap.
+
+The four check-runs on the code commit `8f4a6ea0`:
+
+| Check | Conclusion | Run |
+|---|---|---|
+| `router-composition` (SolSpire Router Composition Tests) | success | https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/38790040753 |
+| `boundary` (SolSpire project execution boundary) | success | https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/38790054478 |
+| `governance` (Prism Execution-WorkEvent Governance) | success | https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/38790058061 |
+| `provider-routing` (Provider Routing Verification) | **failure** | https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/38790036691 |
+
+`provider-routing` is red **on `main` itself**, so it is not attributable to the
+candidate. Two independent `main` runs fail identically (`38791309255`,
+`38783706933`), and the node sets match exactly (14 nodes, sha256
+`d5b21991…` on both `main` and the candidate). Its count delta
+(13F/3260P -> 13F/3267P) is the same `+7` seen in the full suite, with the
+failure count unchanged.
