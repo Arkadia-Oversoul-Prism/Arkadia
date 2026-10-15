@@ -1586,3 +1586,35 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   lane PRs, 4 are touched by more than one PR. `git merge --no-commit --no-ff` in a detached
   worktree showed **zero** conflicted paths for both contended pairs, which proves only that the
   trees merge cleanly. Whether the composed tree passes its gate is a separate measurement.
+
+## A source PR can be closed as superseded while the directive naming it is still in flight (gate-hygiene)
+- A seven-PR composition directive named #512, #530, #524, #493, #501, #525, #504. Six were
+  **closed unmerged at ~17:03Z on 2026-10-15**, about an hour before the pass ran, each with a
+  recorded disposition "CLOSE AS SUPERSEDED" by merged **#533** (`7580bd8f`). The directive
+  predated the closures. **Re-derive PR state at pass start** (`gh pr view <n> --json
+  state,mergedAt,closedAt`) - `state: CLOSED` with `mergedAt: null` and no `mergeCommit` is
+  "closed unmerged", which is a different fact from "merged" and from "open".
+- **Absent artifacts are the tell.** After such a closure, the PR's own files are missing from
+  `main` even though its *behavior* is present via the superseding merge. Checking
+  `git cat-file -e <main>:<path>` for each artifact distinguishes the two: here
+  `LabWorkLoop.tsx`, `LabOperationalReadings.tsx`, `AutomationGrammar.tsx` and
+  `test_prism_w4_lab_composition.py` are **absent**, while `ExecutionLoop.tsx`,
+  `EngineeringLabPage.tsx` and `test_prism_w4_lab_read_model.py` are **on main** via #533.
+- **The invariant that matters is still checkable after the composition lands.** The
+  one-canonical-work-loop invariant was verified on `main` directly: sole render site
+  `EngineeringLabPage.tsx:47`, that page the only importer of `ExecutionLoop`, and
+  `tests/test_prism_w4_lane4_render_integrity.py` + `tests/test_prism_w4_canonical_loop_mount.py`
+  -> **17 passed** (incl. `test_no_lane4_projection_is_orphaned`). A closed source PR does not
+  weaken the invariant; it moves where you measure it.
+- A `fetch-depth: 0` repair removes **more than the adjudication nodes**. Measured in CI:
+  `provider-routing` at `main` `341867eb` reports **14** failing/error nodes; at the repaired head
+  `b63f74e8` it reports **9**. The five removed are the four
+  `test_agents_md_encoding_adjudication.py` nodes **plus**
+  `tests/test_lane_instruction_doc_currency.py::test_detector_flags_a_merged_pr_left_recorded_as_open`,
+  whose log reads `merge commit 972c3423 is not in this clone (shallow checkout?); liveness is
+  UNKNOWN, not a pass`. `comm -13` (introduced) is **empty**. **Any oracle that resolves a commit
+  out of history is a shallow-checkout defect**, not only the one already documented - so measure
+  the node *set* before and after a depth repair instead of predicting it from the known case.
+- `main` auto-deploys (Railway `autoDeploy`; Render tracks `main`), so a branch that merely
+  *contains* a workflow repair carries no production effect - but the reviewer should still be
+  told the deploy coupling exists rather than discovering it.
