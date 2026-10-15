@@ -1,0 +1,840 @@
+{
+  "observed_at_utc": "2026-10-15T01:24:32Z",
+  "repository": "Arkadia-Oversoul-Prism/Arkadia",
+  "main_sha": "7580bd8f0ca2925518d78775f9a323ff0df8bc66",
+  "open_pr_count": 39,
+  "lanes": {
+    "L1": {
+      "label": "Shell / navigation / design system / integration seam",
+      "instruction_doc": "AGENT-01-SHELL.md",
+      "active_pr_count": 11,
+      "prs": [
+        {
+          "pr": 496,
+          "title": "docs(control-plane): reconcile live workstreams and portfolio evidence",
+          "branch": "docs/control-plane-live-recovery-2026-10-12",
+          "head": "967f30d9016543ee895bdb7a5119c08fab2e9e5f",
+          "base": "49809f45274f2f81b24e01fefdfb3009e8717495",
+          "behind_main": 8,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 7,
+          "failing_checks": []
+        },
+        {
+          "pr": 497,
+          "title": "feat(console): preserve legacy /nexus sub-route deep links [Lane 1]",
+          "branch": "feat/prism-next9-01-nexus-alias",
+          "head": "a14d3fa9ed0104dfea5bed168b25a72afffc6a71",
+          "base": "49809f45274f2f81b24e01fefdfb3009e8717495",
+          "behind_main": 8,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 15,
+          "failing_checks": []
+        },
+        {
+          "pr": 504,
+          "title": "test(control-plane): guard lane-4 projection composition + record next-wave reconciliation [analysis]",
+          "branch": "gate10/prism-next-wave-composition-reconciliation-01",
+          "head": "a9cefd21426b19c39eae718dd46291fcc133f6c2",
+          "base": "49809f45274f2f81b24e01fefdfb3009e8717495",
+          "behind_main": 8,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 9,
+          "failing_checks": []
+        },
+        {
+          "pr": 505,
+          "title": "Lane 1: reconcile legacy inbound aliases (/home, /knowledge-os, /gate, /living-gate)",
+          "branch": "feat/prism-next10-01-legacy-alias-families",
+          "head": "8cb030c03886c6943cc0c7003ff8afc5342bb96d",
+          "base": "49809f45274f2f81b24e01fefdfb3009e8717495",
+          "behind_main": 8,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 15,
+          "failing_checks": []
+        },
+        {
+          "pr": 507,
+          "title": "test(prism-l1): legacy-route reconciliation + alias-safety guard (Slice A)",
+          "branch": "feat/prism-l1-legacy-route-coverage-01",
+          "head": "3a19810ea4b795133f9eb80eddca2f06f20b37e7",
+          "base": "49809f45274f2f81b24e01fefdfb3009e8717495",
+          "behind_main": 8,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 9,
+          "failing_checks": []
+        },
+        {
+          "pr": 511,
+          "title": "Lane A/F: sign-in returns the user to the destination it interrupted (PRR-02)",
+          "branch": "feat/prism-rec-02-signin-return-to",
+          "head": "7af66444cbfa2300a40d5122d85f4e123879dca7",
+          "base": "dfbd2304db27746b22f0cda9b6961d1e37fda313",
+          "behind_main": 7,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 15,
+          "failing_checks": []
+        },
+        {
+          "pr": 514,
+          "title": "Lane A: honest surface render-failure boundary (PRR-06)",
+          "branch": "feat/prism-rec-06-surface-error-boundary",
+          "head": "e48cbf2620ad1d0f88bbaaf8f275d74d10319b5b",
+          "base": "dfbd2304db27746b22f0cda9b6961d1e37fda313",
+          "behind_main": 7,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 15,
+          "failing_checks": []
+        },
+        {
+          "pr": 516,
+          "title": "Lane F: per-surface document title for screen-reader navigation announcements (PRR-07)",
+          "branch": "feat/prism-rec-07-document-title",
+          "head": "dc91354eae3dca6ef98308f9fbd7f9cf569d0ff3",
+          "base": "dfbd2304db27746b22f0cda9b6961d1e37fda313",
+          "behind_main": 7,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 15,
+          "failing_checks": []
+        },
+        {
+          "pr": 522,
+          "title": "PRR-10: Home identity-aware primary entry action",
+          "branch": "feat/prism-rec-10-home-entry-threshold",
+          "head": "dcdff997d08cd2cf4cb98ef61e9422020acbf8f6",
+          "base": "3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3",
+          "behind_main": 3,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 15,
+          "failing_checks": []
+        },
+        {
+          "pr": 523,
+          "title": "PRR-11 \u00b7 console reports a 403 authorization refusal as itself, not as a sign-in prompt",
+          "branch": "fix/console-authorization-state-forbidden",
+          "head": "309f7c8f9d89d8b2b1c1aba2d70678ad93caa888",
+          "base": "3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3",
+          "behind_main": 3,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 15,
+          "failing_checks": []
+        },
+        {
+          "pr": 529,
+          "title": "Lane 1: the shared lens strip becomes a labelled navigation landmark (Slice A)",
+          "branch": "feat/prism-l1-lens-strip-keyboard-01",
+          "head": "95eb5b7b0134ab44fd8ccdf3b9257032fc7aaa77",
+          "base": "2a1bca755bd6e93413ccbe78790e65d3aec1c2b1",
+          "behind_main": 2,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 15,
+          "failing_checks": []
+        }
+      ]
+    },
+    "L2": {
+      "label": "NovaNet + project Opportunity Radar",
+      "instruction_doc": "AGENT-02-NOVANET-OPPORTUNITY.md",
+      "active_pr_count": 4,
+      "prs": [
+        {
+          "pr": 492,
+          "title": "LANE2: Opportunity Radar \u2014 pipeline strip, per-entry ADVANCE, evidence-coverage metric",
+          "branch": "feat/prism-next7-02-pipeline-strip",
+          "head": "acfbf521fd037f48289dd19c4c074841630c29c9",
+          "base": "49809f45274f2f81b24e01fefdfb3009e8717495",
+          "behind_main": 8,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 15,
+          "failing_checks": []
+        },
+        {
+          "pr": 526,
+          "title": "LANE 3 \u00b7 Knowledge OS \u2014 return each graph edge once from traverse (draft)",
+          "branch": "fix/knowledge-traverse-edge-dedup-01",
+          "head": "cb868ce4ade47c7c74fdd4666b47739e7888b0f2",
+          "base": "3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3",
+          "behind_main": 3,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 9,
+          "failing_checks": []
+        },
+        {
+          "pr": 528,
+          "title": "feat(prism-l2): NovaNet echoes panel states total and notices truncation",
+          "branch": "feat/prism-l2-echoes-completeness-01",
+          "head": "e162371df67b52769ce291fe71407875386ea438",
+          "base": "3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3",
+          "behind_main": 3,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 15,
+          "failing_checks": []
+        },
+        {
+          "pr": 538,
+          "title": "Lane 2: repair buyer_recon update_entry status normalization (DEFECT 3)",
+          "branch": "fix/prism-l2-buyer-recon-status-normalization-01",
+          "head": "1a36f23536c6387dc7e460888f4637d2bfb94759",
+          "base": "7580bd8f0ca2925518d78775f9a323ff0df8bc66",
+          "behind_main": 0,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 12,
+          "failing_checks": []
+        }
+      ]
+    },
+    "L3": {
+      "label": "Solariun + Knowledge OS",
+      "instruction_doc": "AGENT-03-SOLARIUN-KNOWLEDGE.md",
+      "active_pr_count": 5,
+      "prs": [
+        {
+          "pr": 498,
+          "title": "feat(knowledge): add truthful older-event paging [Lane 3]",
+          "branch": "feat/prism-next9-03-knowledge-timeline-paging",
+          "head": "b7f2749d0831031413209b8ab0265115d4d232fa",
+          "base": "49809f45274f2f81b24e01fefdfb3009e8717495",
+          "behind_main": 8,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 15,
+          "failing_checks": []
+        },
+        {
+          "pr": 509,
+          "title": "Lane 3: Knowledge OS single-project detail reader (bounded slice)",
+          "branch": "feat/prism-lane3-project-detail-reader-01",
+          "head": "c057055fd3681040bf66759cea4d293790c7139f",
+          "base": "49809f45274f2f81b24e01fefdfb3009e8717495",
+          "behind_main": 8,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 15,
+          "failing_checks": []
+        },
+        {
+          "pr": 527,
+          "title": "PRR-L3-13 \u00b7 Knowledge Graph provenance boundary recovery (Lane 3, draft)",
+          "branch": "feat/prism-l3-graph-provenance-01",
+          "head": "c8320003b423149402867c54fa78abe5754b02ce",
+          "base": "3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3",
+          "behind_main": 3,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 15,
+          "failing_checks": []
+        },
+        {
+          "pr": 534,
+          "title": "Lane 3: validate the knowledge status body before reading it (bounded slice)",
+          "branch": "feat/prism-l3-knowledge-status-read-boundary-01",
+          "head": "fb9bee79378d22f7f27b873959b92a471d3ce133",
+          "base": "2a1bca755bd6e93413ccbe78790e65d3aec1c2b1",
+          "behind_main": 2,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 15,
+          "failing_checks": []
+        },
+        {
+          "pr": 537,
+          "title": "fix(knowledge): scope reference search to the owning note's visibility",
+          "branch": "fix/prism-l3-reference-search-owner-scope-01",
+          "head": "8f6cb08a19bc8511790d10e13fa77919cd060c34",
+          "base": "7580bd8f0ca2925518d78775f9a323ff0df8bc66",
+          "behind_main": 0,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 9,
+          "failing_checks": []
+        }
+      ]
+    },
+    "L4": {
+      "label": "Arkana + Weaver + Engineering Lab",
+      "instruction_doc": "AGENT-04-ARKANA-WEAVER-LAB.md",
+      "active_pr_count": 10,
+      "prs": [
+        {
+          "pr": 493,
+          "title": "feat(prism-lane4): read-only Lab automation grammar projection",
+          "branch": "feat/prism-next8-04-automation-grammar",
+          "head": "255d665f4fe6c5702fa7416d775dc0028a11adae",
+          "base": "49809f45274f2f81b24e01fefdfb3009e8717495",
+          "behind_main": 8,
+          "draft": true,
+          "mergeable": false,
+          "mergeable_state": "dirty",
+          "checks": 15,
+          "failing_checks": []
+        },
+        {
+          "pr": 501,
+          "title": "Lane 4: mount the canonical work-loop projection on the Lab surface",
+          "branch": "feat/prism-next9-04-canonical-loop-mount",
+          "head": "31d66332c78d9a18829fc190b21c31618ecf6c74",
+          "base": "49809f45274f2f81b24e01fefdfb3009e8717495",
+          "behind_main": 8,
+          "draft": true,
+          "mergeable": false,
+          "mergeable_state": "dirty",
+          "checks": 15,
+          "failing_checks": []
+        },
+        {
+          "pr": 515,
+          "title": "PRISM-REC-05 \u00b7 Lane 04 \u00b7 Arkana response provenance (read-only)",
+          "branch": "feat/prism-rec-05-arkana-provenance",
+          "head": "757cc6772dd6c60925952ec1fd24e7db4f7a6bf5",
+          "base": "dfbd2304db27746b22f0cda9b6961d1e37fda313",
+          "behind_main": 7,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 15,
+          "failing_checks": []
+        },
+        {
+          "pr": 512,
+          "title": "Lane 4: render the Lab operational readings (integrations \u00b7 android \u00b7 voice) instead of a raw slice dump",
+          "branch": "feat/prism-l4-lab-operational-projection-01",
+          "head": "f8da5158424b06c9638fb6529c43e0c39b84dd0c",
+          "base": "3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3",
+          "behind_main": 3,
+          "draft": true,
+          "mergeable": false,
+          "mergeable_state": "dirty",
+          "checks": 15,
+          "failing_checks": []
+        },
+        {
+          "pr": 524,
+          "title": "feat(console-lab): read-only Lab operational authority reading (Lane 4)",
+          "branch": "feat/prism-l4-lab-governance-readings-01",
+          "head": "aad8a986e3a69240dc0bf190e2dd3dca14aa0d14",
+          "base": "3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3",
+          "behind_main": 3,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 15,
+          "failing_checks": []
+        },
+        {
+          "pr": 525,
+          "title": "feat(console): recover canonical work-loop read model onto Weaver surface",
+          "branch": "feat/prism-rec-12-lab-authority-boundary",
+          "head": "daef33c4d0535c392bc4a54e228471a1c432cf08",
+          "base": "3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3",
+          "behind_main": 3,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 15,
+          "failing_checks": []
+        },
+        {
+          "pr": 530,
+          "title": "feat(console): lane-4 render integrity \u2014 mount the orphaned canonical work loop",
+          "branch": "gate-lane4/render-integrity-01",
+          "head": "f54d463c6a29d4aecb3c51961af6e41c83d096f9",
+          "base": "3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3",
+          "behind_main": 3,
+          "draft": true,
+          "mergeable": false,
+          "mergeable_state": "dirty",
+          "checks": 15,
+          "failing_checks": []
+        },
+        {
+          "pr": 531,
+          "title": "PRISM-W4 \u00b7 Arkana thread history \u00b7 project-turn visibility (bounded backend repair)",
+          "branch": "feat/prism-w4-arkana-project-turn-visibility",
+          "head": "d0a8902d88e8fb5941a8639a1c9106c7b712b2e9",
+          "base": "3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3",
+          "behind_main": 3,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 11,
+          "failing_checks": []
+        },
+        {
+          "pr": 532,
+          "title": "PRISM-W4 \u00b7 Arkana thread history \u00b7 timestamps read as the UTC they are (Lane 4)",
+          "branch": "feat/prism-w4-arkana-thread-time-truth",
+          "head": "aec31cb143724953a4c6209df2cb96a45e004f4b",
+          "base": "3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3",
+          "behind_main": 3,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 15,
+          "failing_checks": []
+        },
+        {
+          "pr": 536,
+          "title": "Lane 4: join run -> artifact in the Lab trace",
+          "branch": "feat/prism-l4-run-artifact-trace-01",
+          "head": "5490b0b52d623c9ca60896d8ce8ec96bdb7d7638",
+          "base": "7580bd8f0ca2925518d78775f9a323ff0df8bc66",
+          "behind_main": 0,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 15,
+          "failing_checks": []
+        }
+      ]
+    },
+    "control-plane": {
+      "label": "Gate-10 / EAA / control-plane (non-UI lane)",
+      "instruction_doc": null,
+      "active_pr_count": 8,
+      "prs": [
+        {
+          "pr": 484,
+          "title": "gate10: stop the beta evidence bundle racing a sibling job's artifact",
+          "branch": "gate10/beta-evidence-bundle-race-01",
+          "head": "b7366e5f5d5f71ddb7c611007c3823fa362c48ef",
+          "base": "6109c72ab9eedc2593d2cc6c50ebd01596c80072",
+          "behind_main": 22,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "clean",
+          "checks": 11,
+          "failing_checks": []
+        },
+        {
+          "pr": 482,
+          "title": "gate10: give the judging suite a clone it can decide on",
+          "branch": "gate10/history-depth-ci-wiring-01",
+          "head": "0cc7c9e766d80e4a1a6028cbd611bdd7be063a10",
+          "base": "ee684fffe6f4f1670a7d9e8928e9c5fc323b4c2a",
+          "behind_main": 10,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "unstable",
+          "checks": 12,
+          "failing_checks": [
+            "provider-routing"
+          ]
+        },
+        {
+          "pr": 499,
+          "title": "fix(weaver): classify merged-but-unaccepted states as human gates",
+          "branch": "fix/weaver-schema-status-semantics-2026-10-12",
+          "head": "d04ba3b608691bb26a096fd2a2d025939360ff2d",
+          "base": "49809f45274f2f81b24e01fefdfb3009e8717495",
+          "behind_main": 8,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "unstable",
+          "checks": 12,
+          "failing_checks": [
+            "provider-routing"
+          ]
+        },
+        {
+          "pr": 500,
+          "title": "feat(gate-l4): define OpenHands dispatch and run-inspection adapter",
+          "branch": "feat/gate-l4-openhands-dispatch-adapter",
+          "head": "7640bbad51bdafe00ed84d59bbc0178dd734f44c",
+          "base": "49809f45274f2f81b24e01fefdfb3009e8717495",
+          "behind_main": 8,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "unstable",
+          "checks": 14,
+          "failing_checks": [
+            "provider-routing"
+          ]
+        },
+        {
+          "pr": 502,
+          "title": "feat(control-plane): introduce Engineering Acceptance Authority",
+          "branch": "feat/engineering-acceptance-authority",
+          "head": "ef82cb9e2d05f3f48bf91fcb0abf0aeacd11fb52",
+          "base": "49809f45274f2f81b24e01fefdfb3009e8717495",
+          "behind_main": 8,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "unstable",
+          "checks": 14,
+          "failing_checks": [
+            "provider-routing"
+          ]
+        },
+        {
+          "pr": 503,
+          "title": "test: establish EAA exact-base regression baseline",
+          "branch": "test/eaa-base-baseline-49809f4",
+          "head": "37e89b4aa2dc743257acf0195e77fc055be95a96",
+          "base": "49809f45274f2f81b24e01fefdfb3009e8717495",
+          "behind_main": 8,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "unstable",
+          "checks": 9,
+          "failing_checks": [
+            "trigger-coverage"
+          ]
+        },
+        {
+          "pr": 508,
+          "title": "feat(eaa): add read-only GitHub evidence adapter",
+          "branch": "feat/eaa-readonly-github-evidence-adapter",
+          "head": "071ecd8c5f3b9a0c76c80bcf7f156c50aec4a2cb",
+          "base": "ef82cb9e2d05f3f48bf91fcb0abf0aeacd11fb52",
+          "behind_main": 8,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "unstable",
+          "checks": 6,
+          "failing_checks": [
+            "provider-routing"
+          ]
+        },
+        {
+          "pr": 535,
+          "title": "feat(eaa): compose the EAA/dispatch chain onto verified base 7580bd8f",
+          "branch": "eaa/chain-composition-01",
+          "head": "8b6eadd77aa1751efd2bc3b69722a1af8e8e1c72",
+          "base": "7580bd8f0ca2925518d78775f9a323ff0df8bc66",
+          "behind_main": 0,
+          "draft": true,
+          "mergeable": true,
+          "mergeable_state": "unstable",
+          "checks": 18,
+          "failing_checks": [
+            "provider-routing"
+          ]
+        }
+      ]
+    }
+  },
+  "contested_files": [
+    {
+      "file": "web/arkadia_console/src/pages/EngineeringLabPage.tsx",
+      "prs": [
+        493,
+        501,
+        512,
+        524,
+        530
+      ]
+    },
+    {
+      "file": "web/arkadia_console/src/pages/knowledge/knowledgeContracts.ts",
+      "prs": [
+        498,
+        509,
+        527,
+        534
+      ]
+    },
+    {
+      "file": "AGENTS.md",
+      "prs": [
+        482,
+        504,
+        538
+      ]
+    },
+    {
+      "file": "tests/test_console_shell_nav_contract.py",
+      "prs": [
+        497,
+        505,
+        512
+      ]
+    },
+    {
+      "file": ".github/workflows/eaa-base-baseline.yml",
+      "prs": [
+        503,
+        535
+      ]
+    },
+    {
+      "file": ".github/workflows/engineering-acceptance-authority.yml",
+      "prs": [
+        502,
+        535
+      ]
+    },
+    {
+      "file": ".github/workflows/gate-l4-dispatch-contract.yml",
+      "prs": [
+        500,
+        535
+      ]
+    },
+    {
+      "file": ".gitleaks.toml",
+      "prs": [
+        496,
+        535
+      ]
+    },
+    {
+      "file": "docs/control-plane/engineering-acceptance-authority/PROTOCOL.md",
+      "prs": [
+        502,
+        535
+      ]
+    },
+    {
+      "file": "docs/control-plane/engineering-acceptance-authority/decision.schema.json",
+      "prs": [
+        502,
+        535
+      ]
+    },
+    {
+      "file": "docs/control-plane/evidence/gate07-trajectory-status-vocabulary-decision-01/EVIDENCE.md",
+      "prs": [
+        499,
+        535
+      ]
+    },
+    {
+      "file": "docs/control-plane/evidence/hourly-weaver-four-lane-resumption-2026-10-12/EVIDENCE.md",
+      "prs": [
+        496,
+        535
+      ]
+    },
+    {
+      "file": "docs/control-plane/evidence/weaver-schema-status-semantics-2026-10-12/EVIDENCE.md",
+      "prs": [
+        499,
+        535
+      ]
+    },
+    {
+      "file": "docs/control-plane/gate-l4/EVIDENCE-ACCEPTANCE-01.md",
+      "prs": [
+        500,
+        535
+      ]
+    },
+    {
+      "file": "docs/control-plane/gate-l4/OPENHANDS_DISPATCH_API_CONTRACT.md",
+      "prs": [
+        500,
+        535
+      ]
+    },
+    {
+      "file": "docs/control-plane/gate-l4/OPENHANDS_DISPATCH_REQUEST.schema.json",
+      "prs": [
+        500,
+        535
+      ]
+    },
+    {
+      "file": "docs/control-plane/overnight/PRISM-UI-RECONCILIATION.md",
+      "prs": [
+        496,
+        535
+      ]
+    },
+    {
+      "file": "docs/control-plane/parallel-ui/SHARED-CONTRACTS.md",
+      "prs": [
+        496,
+        535
+      ]
+    },
+    {
+      "file": "docs/engineering/github-readonly-evidence-adapter.md",
+      "prs": [
+        508,
+        535
+      ]
+    },
+    {
+      "file": "docs/portfolio/BOUNDED_TECHNICAL_PORTFOLIO.md",
+      "prs": [
+        496,
+        535
+      ]
+    },
+    {
+      "file": "tests/test_engineering_acceptance_authority.py",
+      "prs": [
+        502,
+        535
+      ]
+    },
+    {
+      "file": "tests/test_engineering_router_status_truthfulness.py",
+      "prs": [
+        499,
+        535
+      ]
+    },
+    {
+      "file": "tests/test_gate_l4_dispatch_security.py",
+      "prs": [
+        500,
+        535
+      ]
+    },
+    {
+      "file": "tests/test_gate_l4_run_inspection.py",
+      "prs": [
+        500,
+        535
+      ]
+    },
+    {
+      "file": "tests/test_github_readonly_evidence_adapter.py",
+      "prs": [
+        508,
+        535
+      ]
+    },
+    {
+      "file": "tests/test_prism_next_wave_composition_reconciliation_01.py",
+      "prs": [
+        493,
+        504
+      ]
+    },
+    {
+      "file": "tests/test_prism_novanet_echoes_completeness.py",
+      "prs": [
+        492,
+        528
+      ]
+    },
+    {
+      "file": "tests/test_prism_opportunity_entry_flow.py",
+      "prs": [
+        492,
+        538
+      ]
+    },
+    {
+      "file": "tests/test_prism_w4_canonical_loop_mount.py",
+      "prs": [
+        493,
+        501
+      ]
+    },
+    {
+      "file": "tests/test_router_clean_stop_contract.py",
+      "prs": [
+        499,
+        535
+      ]
+    },
+    {
+      "file": "tests/test_router_schema_vocabulary_closure.py",
+      "prs": [
+        499,
+        535
+      ]
+    },
+    {
+      "file": "tests/test_trajectory_schema_conformance.py",
+      "prs": [
+        499,
+        535
+      ]
+    },
+    {
+      "file": "tests/test_worker_attention_composition.py",
+      "prs": [
+        499,
+        535
+      ]
+    },
+    {
+      "file": "weaver/engineering_acceptance.py",
+      "prs": [
+        502,
+        535
+      ]
+    },
+    {
+      "file": "weaver/engineering_router.py",
+      "prs": [
+        499,
+        535
+      ]
+    },
+    {
+      "file": "weaver/github_readonly_evidence_adapter.py",
+      "prs": [
+        508,
+        535
+      ]
+    },
+    {
+      "file": "weaver/openhands_dispatch.py",
+      "prs": [
+        500,
+        535
+      ]
+    },
+    {
+      "file": "web/arkadia_console/src/App.tsx",
+      "prs": [
+        511,
+        514
+      ]
+    },
+    {
+      "file": "web/arkadia_console/src/lib/router.ts",
+      "prs": [
+        497,
+        505
+      ]
+    },
+    {
+      "file": "web/arkadia_console/src/pages/NovaNetPage.tsx",
+      "prs": [
+        492,
+        528
+      ]
+    }
+  ]
+}
