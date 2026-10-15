@@ -266,3 +266,111 @@ doc names a merged/closed PR as its active thread.
 - **Evidence:** the stale-pointer set in §6, re-derived live at authoring time; guard negative control that feeds
   it a merged-PR pointer and asserts failure.
 - **Regression boundary:** documentation + one new test file; no runtime, API, or authority surface.
+
+---
+
+## 11. Refresh — 2026-10-15T05:57:03Z (supersedes the inventory numbers in §1 and §3)
+
+**Appended, not rewritten.** The §1/§3 tables are the 01:24:32Z observation and are left byte-identical as
+provenance; the numbers below supersede them. Re-derived from live GitHub REST reads at `main` `7580bd8f`
+(unchanged) plus local `git rev-list` for base lag. `lane-snapshot.json` in this directory has been regenerated
+to the same schema with the current data.
+
+### 11.1 Delta vs §1/§3
+
+| Measure | §1 (01:24:32Z) | §11 (05:57:03Z) |
+|---|---|---|
+| Open PRs | 39 | **43** |
+| L1 shell / nav | 11 | 11 |
+| L2 NovaNet / opportunity | 4 | 3 |
+| L3 Solariun / Knowledge | 5 | **7** |
+| L4 Arkana / Weaver / Lab | 10 | **11** |
+| Control-plane track | 8 | **11** |
+| `clean` | 28 | 32 |
+| `dirty` | 4 — #493, #501, #512, #530 | **4 — unchanged, same set** |
+| `unstable` | 7 — #482, #499, #500, #502, #503, #508, #535 | **7 — unchanged, same set** |
+| Contested files (≥2 PRs) | 40 | **40 — unchanged membership** |
+| Draft | 39 of 39 | **43 of 43** |
+
+**No head moved.** Every PR present in both observations has an identical `head`, `mergeable_state`,
+`behind_main` and check count. The entire delta is four new PRs plus three lane re-classifications:
+
+| PR | Branch | Lane | state | behind | checks |
+|---|---|---|---|---|---|
+| #540 | `feat/prism-l1-lane-doc-currency-01` | L1 | clean | 0 | 12 |
+| #541 | `feat/prism-l4-weaver-self-withdrawal-01` | L4 | clean | 0 | 15 |
+| #542 | `fix/prism-l3-graph-analytics-owner-scope-01` | L3 | clean | 0 | 11 |
+| #539 | `prism-lane-state-reconstruction-01` | control-plane | clean | 0 | 6 |
+
+**§3 lane-assignment corrections (measurement, not re-mapping).** Three PRs in §3's tables were filed under the
+wrong lane. Each is moved here with the reason stated, so the earlier placement is not silently overwritten:
+
+- **#496** (`docs/control-plane-live-recovery-2026-10-12`) — §3 listed it under Lane 1. It edits
+  `SHARED-CONTRACTS.md` + `PRISM-UI-RECONCILIATION.md`, which the contract assigns to the **coordinator**, so it
+  belongs to the control-plane track, not to a UI lane.
+- **#504** (`gate10/prism-next-wave-composition-reconciliation-01`) — §3 listed it under Lane 1. It is a
+  `gate10/` composition-reconciliation PR: control-plane, not shell.
+- **#526** (`fix/knowledge-traverse-edge-dedup-01`) — §3 listed it under Lane 2 with a note that it "also touches
+  Lane 3 test surface". Its changed files are knowledge-graph traversal and its subject is knowledge-edge dedup:
+  **Lane 3**, not Lane 2.
+
+Consequence for lane counts: L1 11→11, L2 4→3, L3 5→7, L4 10→11, control-plane 8→11. Only #526, #496 and #504
+moved lanes; the L1 and L4 *increases* are new PRs (#540, #541), not re-classification.
+
+### 11.2 The one uncounted PR of §1 is now accounted for
+
+§1 reported `Open PRs = 39` while its own §3 tables enumerated 38. The refreshed snapshot enumerates **43 of
+43** (sum of lane counts equals the headline). The gap was a counting convention, not a missing PR, and it is
+closed: the machine-readable snapshot is now the single enumeration, and its per-lane counts sum to
+`open_pr_count`.
+
+### 11.3 Mergeability reading is unchanged, and still not a merge signal
+
+All four `dirty` PRs remain in **Lane 4** and all four still touch
+`web/arkadia_console/src/pages/EngineeringLabPage.tsx`. §4's warning stands verbatim: `clean` is a statement
+about the PR's *own* recorded base, and 15 PRs are 8 commits behind `main`. `behind_main` distribution now:
+`0:8, 2:2, 3:12, 7:4, 8:15, 10:1, 22:1`.
+
+The two failing checks are unchanged and pre-existing: `provider-routing` (6 PRs — #482, #499, #500, #502,
+#508, #535) and `trigger-coverage` (1 — #503). No new failing check appeared with the four new PRs.
+
+### 11.4 Lane 3 contention did not grow
+
+Lane 3 rose from 5 to 7 open PRs, but `knowledgeContracts.ts` still has exactly the same four claimants
+(#498, #509, #527, #534). The two new Lane-3 PRs touch **no contested file**:
+
+- **#526** — edge-dedup on the traversal path; disjoint from the contract module.
+- **#542** — `api/knowledge_routes.py`, `knowledge/graph_health.py`, one new test file, one evidence file. All
+  four paths are currently sole-owned; #542 composes with every open PR in the repository.
+
+### 11.5 Doc-drift status moved — and the fix is already in flight
+
+§10 named "repair the lane instruction-doc drift" as the next bounded task. It has since been **taken**:
+**#540** (`feat/prism-l1-lane-doc-currency-01`, Lane 1) adds `scripts/lane_state.py`,
+`docs/control-plane/parallel-ui/lane-state.json`, a `.github/workflows/lane-doc-currency.yml` gate and
+`tests/test_lane_instruction_doc_currency.py`. Its snapshot already carries the live lane map for all four
+lanes and marks Lane 3's doc **`doc_guard: deferred`, `deferred_to_pr: 526`** — i.e. #540 deliberately does
+*not* edit `AGENT-03-SOLARIUN-KNOWLEDGE.md` while #526 owns that doc.
+
+**This is why the Lane-3 pulse did not edit `AGENT-03-SOLARIUN-KNOWLEDGE.md`.** Editing it from a non-owning
+lane would (a) violate `SHARED-CONTRACTS.md` exclusive file ownership and (b) collide with #540's own guard,
+which requires the doc to agree with its snapshot. The drift is therefore **IN FLIGHT on Lane 1 (#540)**, not
+open — §10's task is superseded.
+
+### 11.6 Result classification for the refresh
+
+| Boundary | State | Basis |
+|---|---|---|
+| Live inventory (43 PRs, per-lane, head/base/state) | **VERIFIED** | live REST reads; per-lane counts sum to the headline |
+| Delta vs the 01:24:32Z observation | **VERIFIED** | head/state/behind/checks compared PR-by-PR; no head moved |
+| Lane re-classification of #496/#504/#526 | **VERIFIED** | changed-file lists read from `/pulls/{n}/files` |
+| Cross-lane composition safety | **UNCHANGED FROM §4** | still one lane measured fully; not re-composed this pass |
+| Lane-3 doc-drift repair | **IN FLIGHT — #540** | not open; do not duplicate |
+| Runtime / production / deployment identity | **NOT CLAIMED** | no runtime probe; out of scope for a state reconstruction |
+
+### 11.7 Addendum — this addendum mutates no branch
+
+Like §0/§9, this refresh is a **read + record**. It regenerated `lane-snapshot.json` and appended this section
+on the PR's own branch. It created, merged, closed, retargeted and pushed **no** lane branch, and probed no
+deployment. The one open question it does not answer — whether the 15 PRs 8 commits behind `main` still compose
+— is left explicitly unmeasured rather than assumed.
