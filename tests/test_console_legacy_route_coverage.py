@@ -108,8 +108,6 @@ LEGACY_ROUTE_TABLE = (
 #: in `test_every_legacy_path_has_a_reconciliation_disposition` still covers it, so
 #: the guard does not redden a *correct* sibling reconciliation.
 LEGACY_GAP_DISPOSITIONS = {
-    "/gate": "the archived `gate` view (Living Gate) has no console surface",
-    "/living-gate": "same absent `gate` surface as `/gate`",
     "/codex": "names the Solariun `knowledge` lens *and* the distinct `knowledge` surface",
     "/dashboard": "addressed a Solariun `overview` lens the console does not declare",
     "/loops": "addressed a Solariun `tasks` lens the console does not declare",
@@ -126,8 +124,6 @@ LEGACY_GAP_DISPOSITIONS = {
     "/encyclopedia": "the archived Encyclopedia Galactica surface has no console surface",
     "/spiral-codex": "the archived Spiral Codex feed has no console surface",
     "/offerings": "the archived Offerings surface has no console surface",
-    "/home": "an alternate spelling of the `/` home route; alias pending in lane-1",
-    "/knowledge-os": "names the console `knowledge` surface literally; alias pending in lane-1",
     "/nexus/ims": "a NovaNet/nexus sub-view whose backend contract is UNKNOWN",
     "/nexus/grove": "a NovaNet/nexus sub-view whose backend contract is UNKNOWN",
     "/nexus/larder": "a NovaNet/nexus sub-view whose backend contract is UNKNOWN",
