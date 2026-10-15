@@ -332,6 +332,94 @@ def test_edit_of_an_unknown_entry_on_this_board_is_not_found(app):
     assert response.json()["detail"] == "Project buyer recon entry not found"
 
 
+# ---------------------------------------------------------------------------
+# `evidence` on edit — replacement, preservation, and clearing
+#
+# `evidence` is the one entry field whose column differs (`evidence_json`) and
+# whose value is a list, so it is the one field the generic `current[key] = ...`
+# loop cannot carry. A PATCH that supplies it must replace the stored list; a
+# PATCH that omits it must leave the stored list alone. The two directions are
+# asserted separately because a single test can pass by conflating them, and the
+# preservation direction is the one that fails silently.
+# ---------------------------------------------------------------------------
+
+
+def test_edit_replaces_stored_evidence_when_the_patch_supplies_it(app):
+    """The defect: a stored non-empty list outranked the patch and the write vanished."""
+    project_id = _project(OWNER["uid"])
+    entry = _create(
+        app, project_id, {"prospect": "Buyer A", "evidence": [{"kind": "quote", "ref": "OLD"}]}
+    ).json()["entry"]
+    assert entry["evidence"] == [{"kind": "quote", "ref": "OLD"}]
+
+    body = _client(app, OWNER).patch(
+        f"{_entries_path(project_id)}/{entry['id']}",
+        json={"evidence": [{"kind": "invoice", "ref": "NEW"}]},
+    ).json()["entry"]
+    assert body["evidence"] == [{"kind": "invoice", "ref": "NEW"}]
+    row = _persisted(entry["id"])
+    assert json.loads(row["evidence_json"]) == [{"kind": "invoice", "ref": "NEW"}]
+
+
+def test_edit_populates_evidence_on_an_entry_that_had_none(app):
+    project_id = _project(OWNER["uid"])
+    entry = _create(app, project_id, {"prospect": "Buyer A"}).json()["entry"]
+    assert entry["evidence"] == []
+
+    _client(app, OWNER).patch(
+        f"{_entries_path(project_id)}/{entry['id']}", json={"evidence": [{"kind": "note"}]}
+    )
+    assert json.loads(_persisted(entry["id"])["evidence_json"]) == [{"kind": "note"}]
+
+
+def test_edit_that_omits_evidence_preserves_the_stored_list(app):
+    """Negative control for the repair: fixing replacement must not wipe the list.
+
+    A repair that unconditionally rewrites the column from the patch would pass
+    the replacement test above and destroy every other entry's evidence here.
+    """
+    project_id = _project(OWNER["uid"])
+    entry = _create(
+        app, project_id, {"prospect": "Buyer A", "evidence": [{"kind": "quote", "ref": "KEEP"}]}
+    ).json()["entry"]
+
+    body = _client(app, OWNER).patch(
+        f"{_entries_path(project_id)}/{entry['id']}", json={"notes": "unrelated edit"}
+    ).json()["entry"]
+    assert body["evidence"] == [{"kind": "quote", "ref": "KEEP"}]
+    assert json.loads(_persisted(entry["id"])["evidence_json"]) == [{"kind": "quote", "ref": "KEEP"}]
+
+
+def test_edit_can_clear_evidence_with_an_explicit_empty_list(app):
+    """Supplying `[]` is a deliberate clear, distinct from omitting the field."""
+    project_id = _project(OWNER["uid"])
+    entry = _create(
+        app, project_id, {"prospect": "Buyer A", "evidence": [{"kind": "quote"}]}
+    ).json()["entry"]
+
+    body = _client(app, OWNER).patch(
+        f"{_entries_path(project_id)}/{entry['id']}", json={"evidence": []}
+    ).json()["entry"]
+    assert body["evidence"] == []
+    assert json.loads(_persisted(entry["id"])["evidence_json"]) == []
+
+
+def test_an_evidence_edit_cannot_reach_another_projects_board(app):
+    """The board scope holds for the evidence column too, asserted on persisted state."""
+    first = _project(OWNER["uid"], "Evidence board A")
+    second = _project(OWNER["uid"], "Evidence board B")
+    entry = _create(
+        app, first, {"prospect": "Buyer A", "evidence": [{"kind": "quote", "ref": "A"}]}
+    ).json()["entry"]
+
+    response = _client(app, OWNER).patch(
+        f"{_entries_path(second)}/{entry['id']}",
+        json={"evidence": [{"kind": "trespass"}]},
+    )
+    assert response.status_code == 404
+    assert json.loads(_persisted(entry["id"])["evidence_json"]) == [{"kind": "quote", "ref": "A"}]
+
+
 def test_created_entry_is_read_back_through_the_board_read(app):
     """End-to-end: the create response is visible to the read the surface performs."""
     project_id = _project(OWNER["uid"])

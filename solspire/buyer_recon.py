@@ -337,6 +337,11 @@ class BuyerReconManager:
             if status not in STATUSES:
                 raise ValueError("invalid status")
             normalized["status"] = status
+        # `evidence` is the one field whose column differs, and `current` carries
+        # the *stored* list. Whether the caller supplied evidence must therefore
+        # be tracked separately: deriving it from `current` lets the stored list
+        # outrank the patch and the write is silently dropped.
+        evidence_supplied = "evidence" in normalized
         scope = "id=? AND subject_ref=?"
         scope_values: list[Any] = [entry_id, subject_ref]
         if board_id is not None:
@@ -350,8 +355,8 @@ class BuyerReconManager:
             for key, value in normalized.items():
                 if key in allowed:
                     current[key] = str(value) if value is not None else ""
-            if "evidence" in normalized:
-                current["evidence_json"] = json.dumps(normalized["evidence"] or [])
+            if evidence_supplied:
+                current["evidence"] = list(normalized["evidence"] or [])
             current["updated_at"] = time.time()
             sets = []
             values = []
@@ -360,7 +365,7 @@ class BuyerReconManager:
                     continue
                 dbkey = "evidence_json" if key == "evidence" else key
                 if dbkey == "evidence_json":
-                    value = json.dumps(current.get("evidence") or patch.get("evidence") or [])
+                    value = json.dumps(current.get("evidence") or [])
                 sets.append(f"{dbkey}=?"); values.append(value)
             values.extend(scope_values)
             conn.execute(f"UPDATE buyer_recon_entries SET {','.join(sets)} WHERE {scope}", values)
