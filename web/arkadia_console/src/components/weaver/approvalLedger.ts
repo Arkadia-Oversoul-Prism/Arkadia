@@ -24,10 +24,15 @@
  *     never yield the `consumed` phase; only a real `consumed_at` can. A record
  *     that carried `consumed_at` while still `pending` is contradictory and is
  *     reported as such rather than being quietly advanced.
- *   * **Self-decision is a violation.** `api_approve` refuses a principal that
- *     decides its own request (403). When a record's `subject_ref` equals its
- *     `decided_by`, the ledger reports a boundary violation instead of showing a
- *     decision the backend would have refused.
+ *   * **Self-approval is a violation; self-rejection is not.** `api_approve`
+ *     refuses a principal that decides its own request (403). `api_reject`
+ *     explicitly *permits* it — "withdrawing one's own request is not a
+ *     governance decision over another's consequential operation" — so a
+ *     self-rejection is a legitimate withdrawal the backend does produce. When a
+ *     record's `subject_ref` equals its `decided_by`, the ledger reports a
+ *     boundary violation only for an **approval**; a **self-rejection** is read
+ *     as a permitted withdrawal, never accused of a boundary the backend does
+ *     not enforce.
  *
  * The record shape, the status vocabulary, and the phase ceiling are pinned to
  * the handler and to the tool-execution surface by
@@ -90,9 +95,19 @@ export interface ApprovalReading {
   consumed: boolean;
   /** True when `subject_ref` and `decided_by` name the same identity. */
   self_decided: boolean;
+  /**
+   * True when the requester approved its own request — the one self-decision the
+   * backend refuses (`api_approve` → 403).
+   */
+  self_approved: boolean;
+  /**
+   * True when the requester rejected its own request — *permitted* by `api_reject`
+   * ("withdrawing one's own request"), so a legitimate record, not a violation.
+   */
+  self_rejected: boolean;
   /** True when `consumed_at` is present but the record is still `pending`. */
   contradictory: boolean;
-  /** True when the backend would refuse the recorded decision (self-decision). */
+  /** True when the recorded state is one the backend would refuse (self-approval, or contradictory). */
   boundary_violation: boolean;
   subject_ref: string | null;
   decided_by: string | null;
@@ -139,6 +154,11 @@ export function readApproval(record: ApprovalRecord, index: number): ApprovalRea
 
   const consumed = consumed_at !== null;
   const self_decided = subject_ref !== null && decided_by !== null && subject_ref === decided_by;
+  // Only self-*approval* is refused by the backend (`api_approve` -> 403).
+  // Self-rejection is explicitly permitted (`api_reject`: withdrawing one's own
+  // request), so the two self-decisions must not collapse into one flag.
+  const self_approved = self_decided && status === "approved";
+  const self_rejected = self_decided && status === "rejected";
   // A pending record cannot have been consumed: the act precedes no decision.
   const contradictory = consumed && status === "pending";
 
@@ -148,7 +168,7 @@ export function readApproval(record: ApprovalRecord, index: number): ApprovalRea
   else if (status === "pending") phase = "REQUESTED";
   else phase = "DECIDED";
 
-  const boundary_violation = self_decided || contradictory;
+  const boundary_violation = self_approved || contradictory;
 
   return {
     id,
@@ -159,6 +179,8 @@ export function readApproval(record: ApprovalRecord, index: number): ApprovalRea
     phase,
     consumed,
     self_decided,
+    self_approved,
+    self_rejected,
     contradictory,
     boundary_violation,
     subject_ref,
@@ -166,21 +188,25 @@ export function readApproval(record: ApprovalRecord, index: number): ApprovalRea
     created_at: nullable(record.created_at),
     decided_at,
     consumed_at,
-    note: noteFor(phase, boundary_violation, self_decided, contradictory),
+    note: noteFor(phase, boundary_violation, self_approved, self_rejected, contradictory),
   };
 }
 
 function noteFor(
   phase: ApprovalPhase,
   violation: boolean,
-  self_decided: boolean,
+  self_approved: boolean,
+  self_rejected: boolean,
   contradictory: boolean,
 ): string {
-  if (self_decided) {
-    return "Boundary violation: a principal may not decide its own request (the backend refuses self-approval).";
+  if (self_approved) {
+    return "Boundary violation: a principal may not approve its own request (the backend refuses self-approval).";
   }
   if (contradictory) {
     return "Contradictory record: a consumed approval cannot still be pending.";
+  }
+  if (self_rejected) {
+    return "Withdrawn by the requester. Self-rejection is permitted — withdrawing one's own request is not a governance decision over another's operation.";
   }
   switch (phase) {
     case "REQUESTED":
