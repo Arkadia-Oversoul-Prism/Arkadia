@@ -86,3 +86,25 @@ All are draft candidates on current main `04e1b83b89e51a994af68b529a1076665f9b3a
 - **#527 + #534** share `knowledgeContracts.ts`. Both patch orders failed to apply cleanly against current `main`; no combined candidate was published. **Hold for semantic reconciliation**, do not copy either stale file wholesale.
 - **EAA/dispatch (#482, #499, #500, #502, #503, #508, #535)** remains uncomposed. #503 has `CI Gate Trigger Coverage` failure; #502/#500/#508/#535 have provider-routing failures on their reported heads. Current-base node-fingerprint comparison and exact-SHA authority review are required before a combined candidate can be considered.
 - The initial 30-row table is the inventory of the original open queue at the time it was fetched. The five candidates above are new queue entries and are recorded separately so they do not silently inflate or obscure the original dispositions.
+
+
+## Exact-head candidate status refresh — 2026-10-15T20:26Z
+
+All candidate heads below are based on `04e1b83b89e51a994af68b529a1076665f9b3ae5`. Check counts are live GitHub check-runs observed at this refresh, not inferred from legacy combined status.
+
+| PR | Exact head SHA | Check-runs | Current result | Disposition |
+|---|---|---:|---|---|
+| #546 disposition record | `baa53c0c1f866b7bd666b14fb18ba20caf3780fe` | 6 | 6 success | **Hold** as documentation candidate; no code/release effect |
+| #547 Arkana thread visibility + UTC | `1a2dd149250b13a3d858fa853a2cbe64d73ba15c` | 16 | 16 success | **Eligible for review**; source #531/#532 remain open until disposition after release decision |
+| #548 Knowledge search + traversal | `574605dce6f6791b05dd726a606ca2779e1f1ef6` | 10 | 10 success after refreshing `lane-state.json` and rebinding Lane 2 deferral to open #528 | **Eligible for review**; source #526/#537 remain open pending release |
+| #549 Knowledge graph owner scope + timeline bounds | `a0aecb2631333e4b93072a456dacab4c36ae4745` | 11 | 11 success | **Eligible for review**; source #542/#543 remain open pending release |
+| #550 console error boundary + Arkana provenance + document title | `dc7619caa44fee91215fc6a5160a12853a9dba6d` | 15 | 15 success | **Eligible for review**; current `App.tsx` identity-aware navigation preserved |
+| #551 legacy aliases + accessible lens navigation | `6d592a1825a29c745f61ce61b5d909c78585fe01` | 15 | 15 success after removing `/gate`, `/living-gate`, `/home`, `/knowledge-os` from the recorded gap set now covered by aliases | **Eligible for review**; source #505/#507/#529 remain open pending release |
+| #552 EAA baseline trigger coverage | `1ffcfb3824cc6a145bd8328e271b4397c1daca5d` | 9 | 9 success; baseline workflow pinned to historical SHA unchanged | **Eligible for review** as a bounded CI wiring repair; does not clear provider-routing failures |
+| #553 EAA/dispatch/read-only evidence composition | `06cb8ad17429137d7f455e8f8cf3ab1d02e19be2` | 19 | 17 success; baseline + provider-routing still running at refresh | **Hold** until both complete; provider boundary remains fail-closed |
+| #554 Knowledge status + graph provenance contracts | `b2dc00872ff2ade92cbba412dd51b5fe4e730d75` | 13 | 2 success; remaining exact-head checks running after a TypeScript syntax repair | **Hold** until all checks complete; the prior head failed because provenance interface documentation was inserted inside the preceding JSDoc, now relocated |
+| #555 Weaver withdrawal + Lab run/artifact trace | `32251bc960f0877aeb01cec699df73a7053b8221` | 16 | 12 success; native workflow, console-contract, canonical Render image, and validate still running | **Hold** until all checks complete; #525 remains separately held |
+
+## Release posture
+
+No candidate in this table is merged. Green PR-triggered checks establish engineering evidence on the exact candidate head, not production behavior. The coherent release batch should be assembled only after the remaining running checks finish, #554 is green, and #553's provider-routing result is adjudicated against a same-current-base node fingerprint without weakening the gate. Since `main` auto-deploys to Render, no merge has been performed.
