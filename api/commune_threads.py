@@ -1,6 +1,7 @@
 """First-class Arkana thread API over the canonical Knowledge OS threads table."""
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -26,6 +27,48 @@ def _public_thread(row: dict) -> dict[str, Any]:
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at"),
     }
+
+
+#: The Oracle spine's conversation notes carry both turns in one note.
+_ORACLE_PROMPT = "## Prompt\n\n"
+_ORACLE_RESPONSE = "\n\n## Response\n\n"
+
+#: Project conversation notes carry one turn per note, headed `Role: <role>`.
+_PROJECT_HEADER = re.compile(r"^Role:[ \t]*(\S+)", re.MULTILINE)
+
+#: Roles that are an Arkana answer rather than a user turn, across producers.
+_ASSISTANT_ROLES = frozenset({"arkana", "assistant", "model"})
+
+
+def _turn_messages(content: str) -> list[tuple[str, str]]:
+    """Every ``(role, content)`` turn a conversation note records.
+
+    Two producers write ``note_type='conversation'`` notes into the same thread,
+    each in its own shape, and both are canonical:
+
+    * ``knowledge.pipeline.ingest_conversation`` writes the Oracle spine's pair in
+      a single note — ``## Prompt`` then ``## Response`` — so one row is two turns.
+    * ``solspire.conversation_bridge`` writes one turn per note, headed
+      ``Role: <role>``, so one row is one turn.
+
+    A note in neither shape is skipped rather than guessed at: an unknown body
+    must never become a fabricated message.
+    """
+    if _ORACLE_PROMPT in content:
+        prompt, _, rest = content.partition(_ORACLE_PROMPT)
+        if _ORACLE_RESPONSE not in rest:
+            # A half-written pair has no answer; report nothing rather than
+            # inventing one.
+            return []
+        question, _, answer = rest.partition(_ORACLE_RESPONSE)
+        return [("user", question), ("arkana", answer)]
+
+    match = _PROJECT_HEADER.search(content)
+    if not match:
+        return []
+    body = content[match.end():].strip("\n")
+    role = "arkana" if match.group(1).lower() in _ASSISTANT_ROLES else "user"
+    return [(role, body)] if body else []
 
 
 @router.get("")
@@ -96,17 +139,7 @@ async def list_arkana_thread_messages(thread_uuid: str, request: Request) -> dic
     ) or []
     messages: list[dict[str, Any]] = []
     for row in rows:
-        content = row.get("content") or ""
-        prompt_marker = "## Prompt\n\n"
-        response_marker = "\n\n## Response\n\n"
-        if prompt_marker not in content:
-            continue
-        prompt = content.split(prompt_marker, 1)[1]
-        response = prompt.split(response_marker, 1) if response_marker in prompt else []
-        if response:
-            prompt, answer = response[0], response[1]
-            messages.extend([
-                {"role": "user", "content": prompt, "created_at": row.get("created_at")},
-                {"role": "arkana", "content": answer, "created_at": row.get("created_at")},
-            ])
+        created_at = row.get("created_at")
+        for role, body in _turn_messages(row.get("content") or ""):
+            messages.append({"role": role, "content": body, "created_at": created_at})
     return {"messages": messages}

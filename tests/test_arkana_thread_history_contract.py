@@ -278,3 +278,76 @@ def test_recorded_defect_bodyless_create_is_a_server_error(auth_as):
     """
     response = auth_as(OWNER).post("/api/commune/threads", content=b"", headers={"Content-Type": "application/json"})
     assert response.status_code == 500
+
+
+# ---------------------------------------------------------------------------
+# The second conversation producer (project conversations)
+# ---------------------------------------------------------------------------
+
+def _project_turn(thread_id: int, uid: str, role: str, content: str) -> None:
+    """A note in the shape ``solspire.conversation_bridge`` actually writes."""
+    kdb.execute(
+        "INSERT INTO notes (uuid, title, content, vault_path, note_type, thread_id, user_id) VALUES (?,?,?,?,?,?,?)",
+        (
+            f"proj-{role}-{content[:8]}",
+            f"Project conversation · {role}",
+            f"Project: p-1\nConversation: conv-1\nRole: {role}\n\n{content}",
+            "Projects/n.md",
+            "conversation",
+            thread_id,
+            uid,
+        ),
+    )
+
+
+def test_project_conversation_turns_are_visible(app, auth_as):
+    """The project producer's notes are conversation turns, not invisible rows.
+
+    Measured defect: `solspire/conversation_bridge.py` writes one
+    ``note_type='conversation'`` note per turn headed ``Role: <role>``, while the
+    handler only understood the Oracle spine's ``## Prompt``/``## Response`` pair
+    — so a thread with recorded project turns answered ``messages: []``, which a
+    UI cannot distinguish from an empty thread.
+    """
+    thread = _seed_thread(OWNER, "Project convo")
+    _project_turn(thread["id"], OWNER, "user", "What is the plan?")
+    _project_turn(thread["id"], OWNER, "assistant", "Ship the bounded slice.")
+    payload = auth_as(OWNER).get(f"/api/commune/threads/{thread['uuid']}/messages").json()
+    assert _messages_detector(payload) == []
+    assert [(m["role"], m["content"]) for m in payload["messages"]] == [
+        ("user", "What is the plan?"),
+        ("arkana", "Ship the bounded slice."),
+    ]
+
+
+def test_both_producers_compose_in_one_thread(app, auth_as):
+    """A thread written by both producers keeps every turn, in note order."""
+    thread = _seed_thread(OWNER, "Mixed convo")
+    _project_turn(thread["id"], OWNER, "user", "first")
+    _seed_turn(thread["id"], OWNER, "second", "second answer")
+    payload = auth_as(OWNER).get(f"/api/commune/threads/{thread['uuid']}/messages").json()
+    assert [m["role"] for m in payload["messages"]] == ["user", "user", "arkana"]
+    assert [m["content"] for m in payload["messages"]] == ["first", "second", "second answer"]
+
+
+def test_unknown_role_heading_is_a_user_turn_not_a_fabricated_answer(app, auth_as):
+    """Only known answer roles become `arkana`; anything else is a user turn."""
+    thread = _seed_thread(OWNER, "Roles")
+    _project_turn(thread["id"], OWNER, "system", "a preamble")
+    payload = auth_as(OWNER).get(f"/api/commune/threads/{thread['uuid']}/messages").json()
+    assert [(m["role"], m["content"]) for m in payload["messages"]] == [("user", "a preamble")]
+
+
+def test_negative_control_the_turn_reader_flags_the_unparsed_shape():
+    """The reader must return nothing for the shapes it exists to reject, and a
+    turn for each shape it claims to understand — otherwise the guard above could
+    pass against a reader that returns a turn for *any* note."""
+    from api.commune_threads import _turn_messages
+
+    assert _turn_messages("## Prompt\n\nq\n\n## Response\n\na") == [("user", "q"), ("arkana", "a")]
+    assert _turn_messages("Conversation: c\nRole: assistant\n\nhi") == [("arkana", "hi")]
+    # The pre-repair defect: the project shape was unparsed, so this returned [].
+    assert _turn_messages("just prose") == []
+    assert _turn_messages("## Prompt\n\nonly a question") == []
+    assert _turn_messages("Role: user\n\n") == []
+    assert _turn_messages("Project: p\nConversation: c\nRole: user") == []
