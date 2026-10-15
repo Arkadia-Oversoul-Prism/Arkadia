@@ -110,15 +110,29 @@ the real file; this control does.
 
 ## Regression boundary
 
-- `tests/test_lane_instruction_doc_currency.py` is new (+15 nodes).
-- `tests/architecture` — **11 passed** (unchanged).
-- CP10 mutation boundary — all new paths PASS (`cp10_mutation_boundary_policy.py --judge`).
-- `tests/test_m02a_ci_gate_integrity.py`, `test_ci_gate_trigger_coverage.py`,
-  `test_workflow_injection_boundary.py`, `test_gate_filter_selection.py` —
-  219 + 141 passed (the new workflow is admitted; a new workflow adds passing
-  nodes to the generic scanners by construction).
+Measured this pass by `--collect-only` diff across two worktrees (`main`
+`7580bd8f` vs this branch), which is how a `+N` delta is attributed:
+
+| | main | branch | delta |
+|---|---|---|---|
+| whole suite | 3132 collected | 3154 collected | **+22** |
+| `tests/test_lane_instruction_doc_currency.py` | (absent) | 15 | +15 |
+| `test_ci_gate_trigger_coverage.py` | 90 | 93 | +3 |
+| `test_workflow_injection_boundary.py` | 46 | 47 | +1 |
+| `test_ci_suite_collection_continuation.py` | 93 | 95 | +2 |
+| `test_gate_filter_selection.py` | 47 | 48 | +1 |
+
+`+22` = the 15 new nodes **plus 7** the generic workflow-scanning suites gain by
+construction from one new workflow file. That is the whole delta; no other file
+changes node count.
+
+- `tests/architecture` — **11 passed** (measured, unchanged).
+- CP10 mutation boundary — all six new/modified paths judged ADMITTED
+  (`cp10_mutation_boundary_policy.py --judge`, measured).
+- `tests/test_m02a_ci_gate_integrity.py` + the four scanner suites —
+  **351 passed** (measured).
 - No shared/other-lane file was edited.
-- `api/main.py` untouched.
+- `api/main.py` untouched (boot-code rule not triggered).
 
 ## Remaining uncertainty
 
