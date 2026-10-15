@@ -5,8 +5,16 @@
  * real navigation to `<surface-path>/<lens-id>` through the shared router, so the
  * strip and the address bar cannot disagree. A lens is never a decorative pill:
  * if it cannot navigate, it is not rendered as a control.
+ *
+ * The strip is a *labelled navigation landmark*, not an anonymous `<div>`. It is
+ * a navigation region inside the surface, so a screen-reader or keyboard user must
+ * be able to reach it as a landmark and hear what it switches; the archived Prism
+ * rendered the same strip as `<nav aria-label="NovaNet primary navigation">`, and a
+ * bare `<div>` of buttons announces only a pile of unlabelled controls. The name is
+ * derived from the surface registry (`SURFACE_BY_ID`) rather than hardcoded, so the
+ * one route/surface declaration stays the single source of that vocabulary.
  */
-import type { SurfaceId } from "../lib/surfaces";
+import { SURFACE_BY_ID, type SurfaceId } from "../lib/surfaces";
 
 export interface SurfaceLens {
   id: string;
@@ -27,7 +35,11 @@ export function SurfaceLenses({
   onNavigate: (id: SurfaceId, section?: string) => void;
 }) {
   return (
-    <div className="mb-4 flex flex-wrap gap-1" data-testid={`${surface}-lenses`}>
+    <nav
+      aria-label={`${SURFACE_BY_ID[surface].name} views`}
+      data-testid={`${surface}-lenses`}
+      className="mb-4 flex flex-wrap gap-1"
+    >
       {lenses.map((l) => (
         <button
           key={l.id}
@@ -42,6 +54,6 @@ export function SurfaceLenses({
           {l.label}
         </button>
       ))}
-    </div>
+    </nav>
   );
 }
