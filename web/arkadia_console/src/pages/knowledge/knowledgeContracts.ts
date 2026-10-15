@@ -17,8 +17,6 @@
 /** The viewer's authorization context, as the backend would resolve it. */
 export type ViewerKind = "anonymous" | "authenticated";
 
-/** One note as the graph projection returns it. `user_id` is the private owner
- *  stamp; `null` means the public/legacy corpus. */
 /**
  * The canonical GATE-01 provenance projection, as the graph attaches it.
  *
@@ -54,6 +52,8 @@ export interface NodeProvenance {
  *  Both sub-objects are therefore optional, and every reading below tolerates
  *  their absence rather than assuming the capture-shaped object. */
 
+/** One note as the graph projection returns it. `user_id` is the private owner
+ *  stamp; `null` means the public/legacy corpus. */
 export interface GraphNode {
   id: number;
   uuid: string;
