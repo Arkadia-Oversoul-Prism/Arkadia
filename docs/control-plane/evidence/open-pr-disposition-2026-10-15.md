@@ -67,3 +67,22 @@ Before proposing one release batch:
 - close as superseded only after the replacement contains the change and tests, with a comment recording that evidence;
 - re-fetch `main` and each candidate head immediately before asking for release authorization;
 - do not merge any release-batch PR without explicit authorization, because merge auto-deploys to Render.
+
+
+## Candidate compositions created after the initial inventory
+
+All are draft candidates on current main `04e1b83b89e51a994af68b529a1076665f9b3ae5`; none is merged or released.
+
+| Candidate PR | Exact head | Sources | Current gate state | Decision |
+|---|---|---|---|---|
+| [#547](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/547) | `1a2dd149250b13a3d858fa853a2cbe64d73ba15c` | #531 + #532 | 16 checks; backend, frontend, test, console-contract, production-read-only-probe and other checks passed; `validate` was in progress at last read | **Hold for final check completion**, then review exact-head results |
+| [#548](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/548) | `e219acd28adef1376d92429566e4226df443d606` | #537 + #526 | 10 checks; 9 passed, `lane-doc-currency` failed | **Repair** documentation-currency gate; code merge blocked until exact-head gate is green |
+| [#549](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/549) | `a0aecb2631333e4b93072a456dacab4c36ae4745` | #542 + #543 | 11 checks; several were still in progress at last read | **Hold for exact-head CI**; specifically verify owner-scope SQL and limit floors |
+| [#550](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/550) | `dc7619caa44fee91215fc6a5160a12853a9dba6d` | #514 + #515 + #516 | Newly opened; checks not yet fully observed | **Hold for exact-head CI**; manually integrated error boundary into current `App.tsx` to preserve identity-aware navigation |
+| [#551](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/551) | `367037d12ada094f44acd4205b048049385c93bb` | #505 + #507 + #529 | Newly opened; checks not yet fully observed | **Hold for exact-head CI**; current `tests/test_console_shell_nav_contract.py` was preserved because stale patch context did not apply |
+
+### Still not composed
+
+- **#527 + #534** share `knowledgeContracts.ts`. Both patch orders failed to apply cleanly against current `main`; no combined candidate was published. **Hold for semantic reconciliation**, do not copy either stale file wholesale.
+- **EAA/dispatch (#482, #499, #500, #502, #503, #508, #535)** remains uncomposed. #503 has `CI Gate Trigger Coverage` failure; #502/#500/#508/#535 have provider-routing failures on their reported heads. Current-base node-fingerprint comparison and exact-SHA authority review are required before a combined candidate can be considered.
+- The initial 30-row table is the inventory of the original open queue at the time it was fetched. The five candidates above are new queue entries and are recorded separately so they do not silently inflate or obscure the original dispositions.
