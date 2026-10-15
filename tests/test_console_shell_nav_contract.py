@@ -325,6 +325,12 @@ def _js_route_resolver(router_text: str) -> dict:
         # alias branch swallows neither.
         "/nexus/a/b",
         "/novanet/ims",
+        # The legacy alias families this unit adds: the namespace aliases and
+        # their declared-surface targets, in one union with the above.
+        "/home",
+        "/knowledge-os",
+        "/gate",
+        "/living-gate",
     ]
     script = (
         surfaces
@@ -561,6 +567,86 @@ def test_oracle_and_commune_reconcile_to_the_arkana_surface():
             f"{legacy} is an alias, not a second surface"
         )
     assert _alias_defects(ROUTER, SURFACES) == []
+
+
+def test_home_and_knowledge_os_reconcile_to_declared_surfaces():
+    """Two more archived inbound paths name a surface the console *declares*, so
+    they must reconcile rather than fall through to `home`.
+
+    The archived Prism accepted `/home` as an alternate spelling of the home route
+    (`direct: {'': 'home', '/home': 'home'}`) and, in its `compatibility` table,
+    routed `/knowledge-os` to a knowledge view. The console's surface registry
+    declares a `knowledge` surface whose own name is "Knowledge OS", so
+    `/knowledge-os` names a declared capability literally; leaving it unaliased
+    made a shared deep link land on Home. Both targets are declared surfaces, and
+    the soundness detector above rejects a collision with a canonical path.
+    """
+    aliases = _path_aliases(ROUTER)
+    assert aliases.get("/home") == "home", aliases
+    assert aliases.get("/knowledge-os") == "knowledge", aliases
+    for legacy in ("/home", "/knowledge-os"):
+        assert legacy not in _declared_paths(SURFACES), (
+            f"{legacy} is an alias, not a second surface"
+        )
+    resolved = _js_route_resolver(ROUTER)
+    assert resolved["/home"] == "/", resolved
+    assert resolved["/knowledge-os"] == "/knowledge", resolved
+    assert _alias_defects(ROUTER, SURFACES) == []
+
+
+def test_detector_flags_an_unaliased_knowledge_os_that_falls_through_to_home():
+    """Negative control: the pre-repair shape -- `/knowledge-os` absent from the
+    alias table -- must reproduce the measured fall-through to `home`."""
+    repaired = _js_route_resolver(ROUTER)
+    assert repaired["/knowledge-os"] == "/knowledge", repaired
+
+    stripped = re.sub(r'\n\s*"/knowledge-os": "knowledge",', "", ROUTER)
+    assert stripped != ROUTER, "control did not mutate router.ts -- detector unproven"
+    assert _js_route_resolver(stripped)["/knowledge-os"] == "/", (
+        "the control must reproduce the pre-repair fall-through to home"
+    )
+
+
+def test_gate_and_living_gate_reconcile_to_the_login_surface():
+    """The archived Prism declared a `gate` view (`direct: '/living-gate' -> gate,
+    '/gate' -> gate`) that mounted `NodeEntry` — the sign-in / "create your node"
+    surface — and every home portal sent an unauthenticated visitor to it. The
+    inventory's recorded disposition for that legacy route is "Adapt -> sign-in"
+    (`docs/control-plane/overnight/PRISM-UI-INVENTORY.md` §2); the console names
+    that declared capability `login`.
+
+    Without the aliases the inbound paths fell through `resolvePath` to `home`, so
+    a shared sign-in deep link silently opened the Home surface instead. The paths
+    are asserted *distinct from* the declared surface paths, because the soundness
+    detector above already rejects a collision with a canonical path.
+    """
+    aliases = _path_aliases(ROUTER)
+    assert aliases.get("/gate") == "login", aliases
+    assert aliases.get("/living-gate") == "login", aliases
+    for legacy in ("/gate", "/living-gate"):
+        assert legacy not in _declared_paths(SURFACES), (
+            f"{legacy} is an alias, not a second surface"
+        )
+    resolved = _js_route_resolver(ROUTER)
+    assert resolved["/gate"] == "/login", resolved
+    assert resolved["/living-gate"] == "/login", resolved
+    assert _alias_defects(ROUTER, SURFACES) == []
+
+
+def test_detector_flags_an_unaliased_gate_that_falls_through_to_home():
+    """Negative control: the pre-repair shape -- `/gate` and `/living-gate` absent
+    from the alias table -- must reproduce the measured fall-through to `home`."""
+    repaired = _js_route_resolver(ROUTER)
+    assert repaired["/gate"] == "/login", repaired
+
+    stripped = re.sub(
+        r'\n\s*"/gate": "login",\n\s*"/living-gate": "login",', "", ROUTER
+    )
+    assert stripped != ROUTER, "control did not mutate router.ts -- detector unproven"
+    assert _js_route_resolver(stripped)["/gate"] == "/", (
+        "the control must reproduce the pre-repair fall-through to home"
+    )
+    assert _js_route_resolver(stripped)["/living-gate"] == "/"
 
 
 def test_detector_flags_an_oracle_alias_that_falls_through_to_home():
