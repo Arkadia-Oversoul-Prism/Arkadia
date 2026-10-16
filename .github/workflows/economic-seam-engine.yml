@@ -32,6 +32,7 @@ on:
       - '.github/workflows/sg-02-fe-2-v.yml'
       - 'AGENTS.md'
       - 'CURRENT_STATE.md'
+      - 'NEXT_AGENT.md'
   push:
     branches: [main]
     paths:
@@ -42,6 +43,7 @@ on:
       - '.github/workflows/sg-02-fe-2-v.yml'
       - 'AGENTS.md'
       - 'CURRENT_STATE.md'
+      - 'NEXT_AGENT.md'
   # The gate is path-filtered, so a revision touching none of the above never runs
   # it. `workflow_dispatch` lets the seam contract be executed against an exact
   # revision on demand (it runs the workflow file from the dispatched ref, so
