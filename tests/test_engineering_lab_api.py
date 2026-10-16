@@ -44,6 +44,8 @@ ALLOWED_MUTATION_ENDPOINTS = {
     "/api/lab/engineering/automations",
     "/api/lab/engineering/automations/{automation_id}/state",
     "/api/lab/engineering/voice/resolve",
+    "/api/lab/engineering/n-atlas/test-session",
+    "/api/lab/engineering/n-atlas/run",
 }
 
 
@@ -57,7 +59,7 @@ def test_lab_router_is_read_only_and_authenticated():
         getattr(getattr(dep, "dependency", None), "__name__", "")
         for dep in router.dependencies
     }
-    assert "require_auth" in dependency_names
+    assert "require_lab_auth" in dependency_names
 
 
 def test_lab_route_has_no_repository_mutation_surface():
