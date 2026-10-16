@@ -31,6 +31,7 @@ on:
       - 'README.md'
       - 'CURRENT_STATE.md'
       - 'NEXT_AGENT.md'
+      - 'PARKING_LOT.md'
       # The SolSpire isolated-runtime step executes these named guards; the
       # path filters must select them too (tests/test_gate_filter_selection.py).
       - 'tests/test_solspire_project_execution_service.py'
@@ -78,6 +79,7 @@ on:
       - 'README.md'
       - 'CURRENT_STATE.md'
       - 'NEXT_AGENT.md'
+      - 'PARKING_LOT.md'
       # The SolSpire isolated-runtime step executes these named guards; the
       # path filters must select them too (tests/test_gate_filter_selection.py).
       - 'tests/test_solspire_project_execution_service.py'
