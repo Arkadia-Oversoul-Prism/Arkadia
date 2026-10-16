@@ -1,9 +1,9 @@
 {
   "schema": "arkadia.lane-state/1.1",
-  "observed_at": "2026-10-15T20:18:00Z",
+  "observed_at": "2026-10-16T04:55:00Z",
   "base_main": "04e1b83b89e51a994af68b529a1076665f9b3ae5",
-  "source": "GitHub REST pulls API, read-only, remeasured after #545 merged",
-  "note": "Machine-readable mirror of the four Prism UI lane threads, remeasured after main advanced to 04e1b83b89e51a994af68b529a1076665f9b3ae5. Open source PRs remain listed while their current-base composition candidates are draft; do not close sources until replacement gates pass and dispositions are recorded. The guard is read-only and never fetches.",
+  "source": "GitHub REST PR state rechecked 2026-10-16; lane 2 has no open lane PR after #545 merged and #528 closed unmerged",
+  "note": "Machine-readable mirror of four Prism UI lane threads. Lane 2 is idle: #545 is merged and #528 is closed unmerged; no lane-2 source PR remains open. Do not revive closed PR references. Other lane sources remain open while composed candidates are draft; do not close sources until replacement gates pass and dispositions are recorded.",
   "lanes": {
     "1": {
       "doc": "AGENT-01-SHELL.md",
@@ -59,15 +59,9 @@
     "2": {
       "doc": "AGENT-02-NOVANET-OPPORTUNITY.md",
       "title": "NovaNet + project Opportunity Radar",
-      "active_pr": 528,
-      "active_branch": "feat/prism-l2-echoes-completeness-01",
-      "open_prs": [
-        {
-          "number": 528,
-          "branch": "feat/prism-l2-echoes-completeness-01",
-          "head_sha": "e162371df67b52769ce291fe71407875386ea438"
-        }
-      ],
+      "active_pr": null,
+      "active_branch": null,
+      "open_prs": [],
       "merged_prs": [
         {
           "number": 420,
@@ -86,8 +80,7 @@
           "merge_commit_sha": "04e1b83b89e51a994af68b529a1076665f9b3ae5"
         }
       ],
-      "doc_guard": "deferred",
-      "deferred_to_pr": 528
+      "doc_guard": "idle"
     },
     "3": {
       "doc": "AGENT-03-SOLARIUN-KNOWLEDGE.md",
