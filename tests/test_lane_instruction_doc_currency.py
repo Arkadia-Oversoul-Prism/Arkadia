@@ -240,6 +240,7 @@ def test_detector_flags_a_branch_that_does_not_match_its_pr(tmp_path):
 
 def test_disposition_check_flags_a_deferral_to_a_closed_pr():
     state = copy.deepcopy(live_state())
+    state["lanes"]["2"]["doc_guard"] = "deferred"
     state["lanes"]["2"]["deferred_to_pr"] = 99999999  # not in the snapshot
     findings = guard._disposition_findings(state)
     assert any("#99999999" in f for f in findings), findings
@@ -249,7 +250,7 @@ def test_disposition_check_flags_an_unknown_disposition():
     state = copy.deepcopy(live_state())
     state["lanes"]["1"]["doc_guard"] = "ignored"
     findings = guard._disposition_findings(state)
-    assert any("must be 'current' or 'deferred'" in f for f in findings), findings
+    assert any("must be 'current', 'deferred', or 'idle'" in f for f in findings), findings
 
 
 @pytest.mark.parametrize("lane_no", ["1", "2", "3", "4"])
