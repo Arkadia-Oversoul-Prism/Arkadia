@@ -201,3 +201,12 @@ This section supersedes earlier status claims wherever the exact head differs. C
 ### Release decision
 
 No code candidate has been merged in this refresh. The review batch is #547, #549, #550, #551, #554, #555, and #556, with #548 pending fresh CI and #553 explicitly excluded pending provider-boundary adjudication. This is a **review-eligible batch, not an implicit release approval**. Merge to `main` remains a production release and requires explicit authorization.
+
+
+## Correction — exact heads after lane-state and EAA test repairs
+
+- Current #548 head is `3da97fa5316f1f38a15c7aa081e45e39205763b7`, base `04e1b83b89e51a994af68b529a1076665f9b3ae5`. Its latest 10/10 check runs are completed successfully. The lane-state currency check passed after adding an explicit `idle` disposition for lane 2 and correcting the negative-control tests. #548 is now review-eligible at source-CI level.
+- Current #553 head is `2524480a5772e13a58282990b752cd2d49d169a5`, base `04e1b83b89e51a994af68b529a1076665f9b3ae5`. It includes the three `CURRENT_STATE.md` trigger-filter repairs and a test-contract update that names the actual `require_lab_auth` router dependency and includes both N-ATLaS state-changing routes in the explicit allowed mutation inventory. The exact-head run remains in progress: provider-routing, baseline, validation, main test, console contract, and native workflow are not yet complete. No EAA eligibility claim is made until those finish.
+- #551 legacy-route coverage was rechecked against #505 at exact #551 head `330907c05a629155e38fdd2584c505d3340ec73c`: every test function from #505's `tests/test_console_shell_nav_contract.py` is present, with four additional alias namespace and route round-trip negative controls. Its 15/15 checks are successful. #505 was then commented and closed unmerged as superseded by #551.
+- #556 authorization-state checks were revalidated at `01e9647c8464044b41e14b72f1691125453054ca`; all 15/15 checks completed successfully. This remains CI-level contract evidence, not a production/runtime authorization acceptance.
+- Remaining source PRs #482, #499, #500, #502, #508, #535, and #552 remain open while #553 is held. Their changed-paths are represented in the EAA composition candidate, but they will not be closed until #553's exact-head gate finishes and the candidate is proven to retain their required behavior. #525 remains held; #539 remains historical until its snapshot is refreshed. No additional source PR was closed in this correction.
