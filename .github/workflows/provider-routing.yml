@@ -22,6 +22,7 @@ on:
       - "README.md"
       - "CURRENT_STATE.md"
       - 'NEXT_AGENT.md'
+      - 'PARKING_LOT.md'
       - ".github/workflows/sg-02-fe-2-v.yml"
       - "docs/verification/PROVIDER-ROUTING-AUDIT-BASELINE.md"
   workflow_dispatch:
