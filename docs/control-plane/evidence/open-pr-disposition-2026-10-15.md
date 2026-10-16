@@ -291,3 +291,12 @@ The source heads for #538 and #544 were compared with current main `04e1b83b89e5
 ### Queue record freshness correction
 
 At the latest refresh, documentation PR #546 is at `a6841aa568e1d34c2ae4a82199043136e891523e` with 6/6 completed successful checks. EAA candidate #553 is at `558fa9d8e20243ab78e195233c48e2040fe0fabe`; 17/20 checks are complete and the three long-running checks are `provider-routing`, `baseline`, and `validate`. This row supersedes earlier check counts and candidate heads in the ledger.
+
+
+## Provider-routing exact-head continuation — 2026-10-16 12:55 WAT
+
+- The latest completed provider-routing run for #553 head `558fa9d8e20243ab78e195233c48e2040fe0fabe` remains red: **9 failed, 3,363 passed, 16 skipped, 1 collection error**.
+- The workflow input guard identified `ROADMAP.md` as another required input read by `tests/test_m02a_ci_gate_integrity.py` but absent from the three judged workflows' pull-request path filters. Added `ROADMAP.md` to the filters in `economic-seam-engine.yml`, `provider-routing.yml`, and `sg-02-fe-2-v.yml`.
+- Those three commits produced current #553 head `8f745dc92fc0306b610342dd297e5829629c82c8` (base `04e1b83b89e51a994af68b529a1076665f9b3ae5`). New exact-head checks had not yet appeared when queried; all new status claims are pending.
+- The same prior provider-routing run still showed six product-contract failures beyond the three missing-input path-filter failures: Living Gate's sessionStorage proxy, identity-spine archived NodeEntry copy, Arkana shared-session continuity, two SolSpire R1 governance expectations, and the ExecutionRuntime mutation-denial expectation; plus one collection error in `tests/test_autonomy.py`. These remain unresolved; no assertions were waived and no gate is marked PASS.
+- Current action: wait for the exact `8f745dc...` checks, inspect the next provider-routing and baseline logs, then address the remaining contract mismatches in separate bounded repairs. #553 remains HOLD and is not in the proposed release batch.
