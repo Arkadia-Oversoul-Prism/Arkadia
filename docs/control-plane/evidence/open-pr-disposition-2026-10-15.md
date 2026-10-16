@@ -221,14 +221,14 @@ The following is the live open-PR set returned by GitHub REST, with each head an
 | #556 | `01e9647c8464044b41e14b72f1691125453054ca` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 15/15 pass | Review-eligible |
 | #555 | `32251bc960f0877aeb01cec699df73a7053b8221` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 16/16 pass | Review-eligible |
 | #554 | `da7e0279457017200b7eb4ed9f25a0d48bbaf7d1` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 15/15 pass | Review-eligible |
-| #553 | `2524480a5772e13a58282990b752cd2d49d169a5` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 17 success, 3 pending: `provider-routing`, `baseline`, `validate` | Hold; fail-closed |
+| #553 | `558fa9d8e20243ab78e195233c48e2040fe0fabe` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 17/20 complete; `provider-routing`, `baseline`, `validate` in progress at last read | Hold; fail-closed |
 | #552 | `1ffcfb3824cc6a145bd8328e271b4397c1daca5d` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 9/9 pass | Hold as source repair while #553 is unresolved |
 | #551 | `330907c05a629155e38fdd2584c505d3340ec73c` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 15/15 pass | Review-eligible |
 | #550 | `dc7619caa44fee91215fc6a5160a12853a9dba6d` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 15/15 pass | Review-eligible |
 | #549 | `a0aecb2631333e4b93072a456dacab4c36ae4745` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 11/11 pass | Review-eligible |
 | #548 | `3da97fa5316f1f38a15c7aa081e45e39205763b7` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 10/10 pass | Review-eligible |
 | #547 | `1a2dd149250b13a3d858fa853a2cbe64d73ba15c` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 16/16 pass | Review-eligible |
-| #546 | `f0b17500f7c733a6a7573573b6797441d0896477` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 2 pass, 4 pending on this documentation-only revision | Documentation candidate; do not merge as release authorization |
+| #546 | `a6841aa568e1d34c2ae4a82199043136e891523e` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 6/6 checks passed on this documentation-only revision | Published disposition record; do not merge as release authorization |
 | #539 | `4335db3cb28f56029235b2ab2d0d31e8ced68c19` | `7580bd8f0ca2925518d78775f9a323ff0df8bc66` | 6/6 pass | Hold; historical snapshot has stale base/queue counts |
 | #535 | `8b6eadd77aa1751efd2bc3b69722a1af8e8e1c72` | `7580bd8f0ca2925518d78775f9a323ff0df8bc66` | 17 pass, `provider-routing` failed | Hold; superseded in intent by #553 but do not close until replacement gate is accepted |
 | #525 | `daef33c4d0535c392bc4a54e228471a1c432cf08` | `3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3` | 15/15 pass | Hold; stale base and canonical work-loop semantic reconciliation outstanding |
@@ -286,3 +286,8 @@ The source heads for #538 and #544 were compared with current main `04e1b83b89e5
 - Do not read the baseline job's green job conclusion as a green test suite: the workflow intentionally records the baseline with `continue-on-error` and prints the observed suite outcome. The exact observed baseline suite was red.
 - At the time of this update, #553 head `558fa9d8e20243ab78e195233c48e2040fe0fabe` had 14/20 checks complete; provider-routing, baseline, and browser validation were still in progress. No eligibility claim is made until the new provider-routing result is inspected.
 - The remaining failures are being treated as separate product-contract work, not gate exemptions. The Living Gate test's own evidence explicitly labels its `sessionStorage` finding a proxy invalidation requiring a sovereign product decision; the conflicting identity-spine test likewise documents incompatible surface assumptions. Do not auto-edit either test or archived surface merely to make CI green. Arkana shared-session continuity and SolSpire governance/runtime expectations need their own contract-level adjudication.
+
+
+### Queue record freshness correction
+
+At the latest refresh, documentation PR #546 is at `a6841aa568e1d34c2ae4a82199043136e891523e` with 6/6 completed successful checks. EAA candidate #553 is at `558fa9d8e20243ab78e195233c48e2040fe0fabe`; 17/20 checks are complete and the three long-running checks are `provider-routing`, `baseline`, and `validate`. This row supersedes earlier check counts and candidate heads in the ledger.
