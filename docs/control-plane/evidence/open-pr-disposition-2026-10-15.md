@@ -258,3 +258,12 @@ The following is the live open-PR set returned by GitHub REST, with each head an
 **Excluded:** #553 until provider-routing, baseline, and validation complete with no unresolved product-contract failures; #546 is documentation-only; #539, #525, #496, and the EAA source PRs remain held for their stated reasons.
 
 No code candidate has been merged. This is a review batch for sovereign authorization, not permission to merge or deploy.
+
+
+## Exact-head update — 2026-10-16 12:40 WAT
+
+- The live #553 head is now `97cb909b011aa34b47423e4ff68227c0ea42203f`, base `04e1b83b89e51a994af68b529a1076665f9b3ae5`. This supersedes prior #553 head references above for current check status.
+- Repair added `NEXT_AGENT.md` to the relevant pull-request/push path filters in `.github/workflows/economic-seam-engine.yml`, `.github/workflows/provider-routing.yml`, and `.github/workflows/sg-02-fe-2-v.yml`. This responds to the history-depth wiring guard's exact missing-input finding; it does not waive any product contract.
+- On first inspection of the exact new head, GitHub reported 18 checks: 9 were still queued/in progress, including `provider-routing`, `baseline`, and `validate`. Therefore no new PASS claim is made. Refresh these exact-SHA checks and inspect the full provider-routing log before disposition.
+- #538 and #544 are confirmed closed unmerged (heads `1a36f23536c6387dc7e460888f4637d2bfb94759` and `73575cd781d871b213b8dc5a9e1b93afeba88f2a`, respectively); #545 is merged. Their closure state is confirmed, but any future claim that every semantic detail is represented by #545 must be grounded in the exact merge/content comparison, not inferred from closure alone.
+- The latest PR listing returns 20 open PRs. The queue remains: #547–#551, #553–#556, #539, #538/#544 already closed, #552, #482, #535, #525, #508, #502, #500, #499, and #496; #538/#544 are not counted among open items. The exact open set in the ledger above is 20 entries and should be refreshed again after the EAA run completes.
