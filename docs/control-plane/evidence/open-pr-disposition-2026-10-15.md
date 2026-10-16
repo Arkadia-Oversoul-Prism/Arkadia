@@ -169,3 +169,35 @@ Subject to completion of the listed gates, the coherent review batch is:
 - #539's external beta validation passed on same-SHA rerun (attempt 2), but its evidence snapshot remains stale at base `7580bd8f` with historical open-PR counts 39/45. It stays **open/held for evidence refresh**, not closed as redundant.
 - Live open queue at this refresh: **21 PRs**. It consists of the ten current-base candidates/docs entries #546–#556 (with #546 documentation-only), plus held source work #482, #496, #499, #500, #502, #505, #508, #525, #535, and #539. #503 and #528 are closed unmerged as superseded; #538/#544 remain closed unmerged as superseded by #545.
 - #553's second provider-routing run exposed 11 failures, 3,361 passes, 16 skips, and one collection error; a third current-base repair now addresses the exact remaining history-guard path-filter failures. The new head `99763d3ff1d74360630d569a81e0ce2095f197d8` is running CI. Do not merge the EAA chain unless its provider-routing boundary is green on this exact head and remaining full-suite debt is explicitly adjudicated without weakening gates.
+
+
+## Exact-head reconciliation refresh — 2026-10-16
+
+This section supersedes earlier status claims wherever the exact head differs. Current `main` remains `04e1b83b89e51a994af68b529a1076665f9b3ae5`; no release merge was performed in this pass.
+
+### Current-base candidate status
+
+| PR | Exact head SHA | Base SHA | Latest observed checks | Disposition |
+|---|---|---|---|---|
+| #547 Arkana thread visibility + UTC history | `1a2dd149250b13a3d858fa853a2cbe64d73ba15c` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 16/16 completed successfully | Review-eligible; production acceptance not claimed |
+| #548 Knowledge search visibility + graph traversal | `7c085b45ab3c55c50ffc69ce40d07ccc86e39a01` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | New checks queued/in progress after lane-state repair | Hold until exact-head CI passes; #528 dependency has been removed from the snapshot and lane 2 is now represented as idle |
+| #549 Knowledge graph owner scope + bounded timeline | `a0aecb2631333e4b93072a456dacab4c36ae4745` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 11/11 completed successfully | Review-eligible |
+| #550 Console error boundary + Arkana provenance + title recovery | `dc7619caa44fee91215fc6a5160a12853a9dba6d` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 15/15 completed successfully | Review-eligible |
+| #551 Legacy aliases + accessible lens navigation | `330907c05a629155e38fdd2584c505d3340ec73c` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 15/15 completed successfully | Review-eligible; route/test coverage rechecked against #505 |
+| #554 Knowledge status + graph provenance contracts | `da7e0279457017200b7eb4ed9f25a0d48bbaf7d1` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 15/15 completed successfully | Review-eligible |
+| #555 Weaver withdrawal + Lab run/artifact trace | `32251bc960f0877aeb01cec699df73a7053b8221` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 16/16 completed successfully | Review-eligible |
+| #556 Home + SolSpire + authorization state | `01e9647c8464044b41e14b72f1691125453054ca` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 15/15 completed successfully | Review-eligible; authorization-state contract checks passed, no runtime acceptance claimed |
+| #553 EAA/dispatch + read-only evidence chain | `c034fe4cb10bcfa5763ed4e6a77cb86109a3b8ce` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | New exact-head run in progress | **Hold**; provider-routing remains fail-closed until exact-head run and remaining product-contract failures are adjudicated |
+
+### Repairs and queue transitions
+
+- #548: removed the stale lane-2 deferral to closed #528. The snapshot now records lane 2 as `idle` with no open lane PR; the guard and tests explicitly support that state instead of inventing a live owner. This is a candidate-branch repair; its fresh checks have not yet completed.
+- #553: added `CURRENT_STATE.md` to the relevant path filters in `.github/workflows/economic-seam-engine.yml`, `.github/workflows/provider-routing.yml`, and `.github/workflows/sg-02-fe-2-v.yml`. Repair commit/head: `c034fe4cb10bcfa5763ed4e6a77cb86109a3b8ce`. The prior exact-head run on `99763d3ff1d74360630d569a81e0ce2095f197d8` failed with 11 test failures and one collection error. Besides the now-addressed three path-filter omissions, it exposed independent product-contract failures in Lab auth/mutation-route inventory, identity-spine copy, Arkana shared-session identity, SolSpire governance, and execution-runtime mutation policy. Those failures are not waived; the new exact-head run must be inspected before any eligibility decision.
+- #551: exact-head changed-file and test-name comparison confirms every test function from #505 is present in #551's `tests/test_console_shell_nav_contract.py`, with four additional alias-namespace and route-round-trip negative controls. The current candidate's router contains the legacy alias implementation. #505 was commented and closed unmerged as superseded by #551; no production release was authorized.
+- #556: exact-head check runs are all successful, including console contract and authorization-state checks. This is source-level CI evidence only; no live authorization/runtime acceptance is claimed.
+- #528 and #503 remain closed unmerged as superseded. #538 and #544 are closed unmerged as superseded by merged #545. #539 remains historical evidence only until its lane snapshot is refreshed against the current queue.
+- #525 remains held pending reconciliation with canonical Engineering Lab composition. #482, #496, #499, #500, #502, #508, #535 and any other still-open source PRs must not be closed merely because a composed candidate exists; require exact changed-file/content coverage plus candidate checks first.
+
+### Release decision
+
+No code candidate has been merged in this refresh. The review batch is #547, #549, #550, #551, #554, #555, and #556, with #548 pending fresh CI and #553 explicitly excluded pending provider-boundary adjudication. This is a **review-eligible batch, not an implicit release approval**. Merge to `main` remains a production release and requires explicit authorization.
