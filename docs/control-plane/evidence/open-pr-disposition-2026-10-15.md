@@ -267,3 +267,13 @@ No code candidate has been merged. This is a review batch for sovereign authoriz
 - On first inspection of the exact new head, GitHub reported 18 checks: 9 were still queued/in progress, including `provider-routing`, `baseline`, and `validate`. Therefore no new PASS claim is made. Refresh these exact-SHA checks and inspect the full provider-routing log before disposition.
 - #538 and #544 are confirmed closed unmerged (heads `1a36f23536c6387dc7e460888f4637d2bfb94759` and `73575cd781d871b213b8dc5a9e1b93afeba88f2a`, respectively); #545 is merged. Their closure state is confirmed, but any future claim that every semantic detail is represented by #545 must be grounded in the exact merge/content comparison, not inferred from closure alone.
 - The latest PR listing returns 20 open PRs. The queue remains: #547–#551, #553–#556, #539, #538/#544 already closed, #552, #482, #535, #525, #508, #502, #500, #499, and #496; #538/#544 are not counted among open items. The exact open set in the ledger above is 20 entries and should be refreshed again after the EAA run completes.
+
+
+### Semantic coverage check for the closed Lane 2 source PRs
+
+The source heads for #538 and #544 were compared with current main `04e1b83b89e51a994af68b529a1076665f9b3ae5` after confirming both are closed unmerged and #545 is merged.
+
+- **#538 status normalization:** source `1a36f23536c6387dc7e460888f4637d2bfb94759` and current main differ in blob SHA for `solspire/buyer_recon.py` and `tests/test_prism_opportunity_entry_flow.py`, so byte identity is not claimed. The required behavior is present: `update_entry` uppercases the supplied status, validates it against `STATUSES`, writes the normalized patch, and tests reject invalid status while asserting persisted state. The source's two evidence documents are blob-identical to current main.
+- **#544 evidence patch preservation:** source `73575cd781d871b213b8dc5a9e1b93afeba88f2a` and current main have byte-identical `solspire/buyer_recon.py`; both use an explicit evidence-supplied check and update the persisted evidence field when present. The current test file differs from the source revision because it includes the evidence-patch regression family, including replace, populate, and omitted-evidence-preservation cases. The dedicated evidence-patch evidence document is blob-identical to current main.
+- Conclusion: required #538 and #544 behaviors are represented in current main; this is a semantic coverage finding, not a claim that all files are identical. Neither closed PR is reopened by this check.
+
