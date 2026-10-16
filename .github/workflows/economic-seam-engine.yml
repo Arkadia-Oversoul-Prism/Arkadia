@@ -35,6 +35,7 @@ on:
       - 'NEXT_AGENT.md'
       - 'PARKING_LOT.md'
       - 'ROADMAP.md'
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/EdenControlRoom.tsx"
   push:
     branches: [main]
     paths:
