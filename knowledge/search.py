@@ -283,10 +283,23 @@ def people_search(
 # Reference search
 # ─────────────────────────────────────────────────────────────────────────────
 
-def reference_search(query: str, limit: int = 20) -> list[dict]:
+def reference_search(query: str, limit: int = 20, user_id: Optional[str] = None) -> list[dict]:
+    """Search external citations, scoped by the *owning note's* visibility.
+
+    A ``references`` row carries no owner of its own — it inherits one from its
+    ``source_note_id``. The mode was originally dispatched without a ``user_id``
+    (it did not accept one), so every caller received every owner's citations,
+    the one mode ``unified_search``'s ownership guard did not cover. The owner
+    predicate is therefore applied to the joined note.
+    """
+    owner_sql, owner_params = _notes_owner_sql(user_id, table_alias="notes")
     return execute(
-        "SELECT * FROM \"references\" WHERE target_ref LIKE ? OR label LIKE ? ORDER BY created_at DESC LIMIT ?",
-        (f"%{query}%", f"%{query}%", limit),
+        "SELECT \"references\".* FROM \"references\" "
+        "JOIN notes ON notes.id = \"references\".source_note_id "
+        "WHERE (\"references\".target_ref LIKE ? OR \"references\".label LIKE ?) "
+        f"AND {owner_sql} "
+        "ORDER BY \"references\".created_at DESC LIMIT ?",
+        (f"%{query}%", f"%{query}%", *owner_params, limit),
     )
 
 
@@ -344,6 +357,6 @@ def unified_search(
         results["people"] = people_search(query, limit=10, user_id=user_id)
 
     if "reference" in modes:
-        results["reference"] = reference_search(query, limit=10)
+        results["reference"] = reference_search(query, limit=10, user_id=user_id)
 
     return results
