@@ -210,3 +210,51 @@ No code candidate has been merged in this refresh. The review batch is #547, #54
 - #551 legacy-route coverage was rechecked against #505 at exact #551 head `330907c05a629155e38fdd2584c505d3340ec73c`: every test function from #505's `tests/test_console_shell_nav_contract.py` is present, with four additional alias namespace and route round-trip negative controls. Its 15/15 checks are successful. #505 was then commented and closed unmerged as superseded by #551.
 - #556 authorization-state checks were revalidated at `01e9647c8464044b41e14b72f1691125453054ca`; all 15/15 checks completed successfully. This remains CI-level contract evidence, not a production/runtime authorization acceptance.
 - Remaining source PRs #482, #499, #500, #502, #508, #535, and #552 remain open while #553 is held. Their changed-paths are represented in the EAA composition candidate, but they will not be closed until #553's exact-head gate finishes and the candidate is proven to retain their required behavior. #525 remains held; #539 remains historical until its snapshot is refreshed. No additional source PR was closed in this correction.
+
+
+## Live open-queue ledger — 2026-10-16
+
+The following is the live open-PR set returned by GitHub REST, with each head and base read from the PR record. Check counts below are from the exact listed head SHA. “Pending” means no conclusion yet; “provider-routing failed” is a real red check, not a warning to ignore.
+
+| PR | Head SHA | Base SHA | Exact-head checks | Disposition |
+|---|---|---|---|---|
+| #556 | `01e9647c8464044b41e14b72f1691125453054ca` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 15/15 pass | Review-eligible |
+| #555 | `32251bc960f0877aeb01cec699df73a7053b8221` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 16/16 pass | Review-eligible |
+| #554 | `da7e0279457017200b7eb4ed9f25a0d48bbaf7d1` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 15/15 pass | Review-eligible |
+| #553 | `2524480a5772e13a58282990b752cd2d49d169a5` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 17 success, 3 pending: `provider-routing`, `baseline`, `validate` | Hold; fail-closed |
+| #552 | `1ffcfb3824cc6a145bd8328e271b4397c1daca5d` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 9/9 pass | Hold as source repair while #553 is unresolved |
+| #551 | `330907c05a629155e38fdd2584c505d3340ec73c` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 15/15 pass | Review-eligible |
+| #550 | `dc7619caa44fee91215fc6a5160a12853a9dba6d` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 15/15 pass | Review-eligible |
+| #549 | `a0aecb2631333e4b93072a456dacab4c36ae4745` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 11/11 pass | Review-eligible |
+| #548 | `3da97fa5316f1f38a15c7aa081e45e39205763b7` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 10/10 pass | Review-eligible |
+| #547 | `1a2dd149250b13a3d858fa853a2cbe64d73ba15c` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 16/16 pass | Review-eligible |
+| #546 | `f0b17500f7c733a6a7573573b6797441d0896477` | `04e1b83b89e51a994af68b529a1076665f9b3ae5` | 2 pass, 4 pending on this documentation-only revision | Documentation candidate; do not merge as release authorization |
+| #539 | `4335db3cb28f56029235b2ab2d0d31e8ced68c19` | `7580bd8f0ca2925518d78775f9a323ff0df8bc66` | 6/6 pass | Hold; historical snapshot has stale base/queue counts |
+| #535 | `8b6eadd77aa1751efd2bc3b69722a1af8e8e1c72` | `7580bd8f0ca2925518d78775f9a323ff0df8bc66` | 17 pass, `provider-routing` failed | Hold; superseded in intent by #553 but do not close until replacement gate is accepted |
+| #525 | `daef33c4d0535c392bc4a54e228471a1c432cf08` | `3ca8582ab3cbcd5950fe8a2eab1de2500c1255c3` | 15/15 pass | Hold; stale base and canonical work-loop semantic reconciliation outstanding |
+| #508 | `071ecd8c5f3b9a0c76c80bcf7f156c50aec4a2cb` | `ef82cb9e2d05f3f48bf91fcb0abf0aeacd11fb52` | 5 pass, `provider-routing` failed | Hold; replacement evidence is in #553 but gate remains red/pending |
+| #502 | `ef82cb9e2d05f3f48bf91fcb0abf0aeacd11fb52` | `49809f45274f2f81b24e01fefdfb3009e8717495` | 13 pass, `provider-routing` failed | Hold; stale base, represented in #553 |
+| #500 | `7640bbad51bdafe00ed84d59bbc0178dd734f44c` | `49809f45274f2f81b24e01fefdfb3009e8717495` | 13 pass, `provider-routing` failed | Hold; stale base, represented in #553 |
+| #499 | `d04ba3b608691bb26a096fd2a2d025939360ff2d` | `49809f45274f2f81b24e01fefdfb3009e8717495` | 11 pass, `provider-routing` failed | Hold; stale base, represented in #553 |
+| #496 | `967f30d9016543ee895bdb7a5119c08fab2e9e5f` | `49809f45274f2f81b24e01fefdfb3009e8717495` | 7/7 pass | Hold for current-base reconciliation; portfolio/evidence scope is not subsumed by the UI batch |
+| #482 | `0cc7c9e766d80e4a1a6028cbd611bdd7be063a10` | `ee684fffe6f4f1670a7d9e8928e9c5fc323b4c2a` | 11 pass, `provider-routing` failed | Hold as source PR until #553 passes exact-head provider gate |
+
+### Source-to-composition overlap map
+
+- #547 combines #531 + #532 (Arkana visibility/history).
+- #548 combines #537 + #526 (Knowledge search owner scope + graph traversal); it additionally repairs lane-state semantics to remove closed #528 from the active snapshot.
+- #549 combines #542 + #543 (Knowledge graph owner scope + bounded timeline).
+- #550 combines #514 + #515 + #516 (console recovery + Arkana provenance + title).
+- #551 combines #505 + #507 + #529 (legacy aliases + route guards + accessible lenses). #505 was closed unmerged only after exact-head test-name and router-content comparison proved inclusion in #551.
+- #554 combines #527 + #534 (Knowledge status/provenance contracts).
+- #555 combines #536 + #541 (Lab run/artifact trace + Weaver withdrawal); #525 is intentionally separate.
+- #556 combines #521 + #522 + #523 (Home/SolSpire/auth state).
+- #553 contains the composed #535 chain plus the #552 baseline trigger repair and #482 history-depth repair. Its workflow files overlap #482 and #552; the exact source path sets are present, but acceptance remains blocked by the latest exact-head run. Therefore #482/#499/#500/#502/#508/#535/#552 remain open for now.
+
+### Authorization boundary
+
+**Review batch:** #547, #548, #549, #550, #551, #554, #555, #556.
+
+**Excluded:** #553 until provider-routing, baseline, and validation complete with no unresolved product-contract failures; #546 is documentation-only; #539, #525, #496, and the EAA source PRs remain held for their stated reasons.
+
+No code candidate has been merged. This is a review batch for sovereign authorization, not permission to merge or deploy.
