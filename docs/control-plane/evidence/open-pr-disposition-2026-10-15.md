@@ -308,3 +308,15 @@ At the latest refresh, documentation PR #546 is at `a6841aa568e1d34c2ae4a8219904
 - Added `archive/frontend/arkadia-prism/web/public_prism/src/components/EdenControlRoom.tsx` to the pull-request path filters in `.github/workflows/economic-seam-engine.yml`, `.github/workflows/provider-routing.yml`, and `.github/workflows/sg-02-fe-2-v.yml`. These commits advanced #553 to `27499d5d187d5fcc602855edb17135ee2c7af41d`. Fresh checks have not yet appeared for this exact head. This is a narrow trigger-coverage repair only; it does not resolve the product-contract failures above.
 - #552 was closed unmerged as superseded by #553 after verifying its sole changed file `.github/workflows/eaa-base-baseline.yml` is blob-identical at both PR heads (blob `3252b229e65c0fe13ec49feabead43392c6e89fa`). #553 remains HOLD; no merge/deployment authorization is implied.
 - #482 remains open: its evidence document is blob-identical in #553, but the workflow, `AGENTS.md`, and guard test differ; complete semantic coverage is not yet proven. #535 also remains open: its branch is substantially diverged from #553, so filename overlap alone is not enough to close it as superseded.
+
+## Follow-up — workflow filter symmetry and latest EAA head
+
+The run on #553 head `27499d5d187d5fcc602855edb17135ee2c7af41d` confirmed the archived Eden input had been added to pull-request filters but not consistently to push filters, and the history-depth guard also identified the archived `SolSpireExperience.tsx` as a source input not selected by the relevant workflow filters. Repairs were applied to all three guarded workflows:
+
+- `.github/workflows/economic-seam-engine.yml` — `0358887338f295c22530d6887fc785d7f5eb1707`
+- `.github/workflows/provider-routing.yml` — `54be6bd0d78112ca865a28a4aa9f01dd15875c5c`
+- `.github/workflows/sg-02-fe-2-v.yml` — `a6e4968a345db96915b78004699679ae7da30944`
+
+Current #553 exact head is therefore `a6e4968a345db96915b78004699679ae7da30944`. Its new workflow run is queued/in progress; no conclusion is yet available. The previous run at `27499d5d187d5fcc602855edb17135ee2c7af41d` failed trigger symmetry and provider-routing with **12 failed, 3,360 passed, 16 skipped, 1 collection error**. In addition to the filter issues, the confirmed unresolved failures include the Living Gate `sessionStorage` policy/test mismatch, identity-spine copy mismatch, Arkana shared-session continuity, SolSpire R1 governance expectations, ExecutionRuntime's deliberate mutation refusal versus test expectation, and `tests/test_autonomy.py` collection error. The baseline run also reports AGENTS.md history/encoding adjudication failures and Lab route inventory/auth-policy mismatches. These remain blockers, not waived checks.
+
+#553 remains HOLD. No production merge or deployment. Queue disposition is still in progress; source PRs are not to be closed based on filename overlap alone.
