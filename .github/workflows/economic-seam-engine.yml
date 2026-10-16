@@ -33,6 +33,7 @@ on:
       - 'AGENTS.md'
       - 'CURRENT_STATE.md'
       - 'NEXT_AGENT.md'
+      - 'PARKING_LOT.md'
   push:
     branches: [main]
     paths:
@@ -44,6 +45,7 @@ on:
       - 'AGENTS.md'
       - 'CURRENT_STATE.md'
       - 'NEXT_AGENT.md'
+      - 'PARKING_LOT.md'
   # The gate is path-filtered, so a revision touching none of the above never runs
   # it. `workflow_dispatch` lets the seam contract be executed against an exact
   # revision on demand (it runs the workflow file from the dispatched ref, so
