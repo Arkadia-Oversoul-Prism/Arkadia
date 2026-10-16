@@ -320,3 +320,9 @@ The run on #553 head `27499d5d187d5fcc602855edb17135ee2c7af41d` confirmed the ar
 Current #553 exact head is therefore `a6e4968a345db96915b78004699679ae7da30944`. Its new workflow run is queued/in progress; no conclusion is yet available. The previous run at `27499d5d187d5fcc602855edb17135ee2c7af41d` failed trigger symmetry and provider-routing with **12 failed, 3,360 passed, 16 skipped, 1 collection error**. In addition to the filter issues, the confirmed unresolved failures include the Living Gate `sessionStorage` policy/test mismatch, identity-spine copy mismatch, Arkana shared-session continuity, SolSpire R1 governance expectations, ExecutionRuntime's deliberate mutation refusal versus test expectation, and `tests/test_autonomy.py` collection error. The baseline run also reports AGENTS.md history/encoding adjudication failures and Lab route inventory/auth-policy mismatches. These remain blockers, not waived checks.
 
 #553 remains HOLD. No production merge or deployment. Queue disposition is still in progress; source PRs are not to be closed based on filename overlap alone.
+
+## Latest branch movement — 2026-10-16
+
+After the prior run failed trigger symmetry, the next exact #553 head is `bd1eb4498b401711d2b7bd9fa2fbd5cf08818872`. The failing `trigger-coverage` check showed the archived `SolSpireExperience.tsx` input was present in the SG pull-request filter but absent from its push filter. It has now been added to the push filter in commit `bd1eb4498b401711d2b7bd9fa2fbd5cf08818872`. Checks for this exact head have not yet been published, so the fix is awaiting verification.
+
+The exact-file comparison for #482 confirms the evidence file is identical in #553, while `.github/workflows/provider-routing.yml`, `AGENTS.md`, and `tests/test_history_depth_ci_wiring.py` differ. #482 remains open pending semantic review of those changes; no supersession closure is claimed.
