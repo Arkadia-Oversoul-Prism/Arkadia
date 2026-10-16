@@ -111,6 +111,14 @@ def test_lane_one_shell_doc_does_not_name_a_merged_pr():
     )
 
 
+def test_idle_lane_has_no_open_pr_and_is_not_guarded_as_active_work():
+    state = live_state()
+    for lane_no, lane in state["lanes"].items():
+        if lane["doc_guard"] == "idle":
+            assert lane["open_prs"] == [], f"lane {lane_no}: idle lane has open PRs"
+            assert lane_no not in guard.current_lanes(state)
+
+
 def test_every_deferral_is_owned_by_an_open_pr():
     state = live_state()
     open_prs = guard._pr_index(state)
