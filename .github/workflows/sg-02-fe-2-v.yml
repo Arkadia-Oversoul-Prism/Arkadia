@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "archive/frontend/arkadia-prism/web/public_prism/src/data/opportunityRadar.ts"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/pages/EnterpriseConsole.tsx"
       - 'web/arkadia_console/**'
       - 'spiral_grove/**'
       - 'lab/**'
@@ -89,6 +90,7 @@ on:
       - 'ROADMAP.md'
       - "archive/frontend/arkadia-prism/web/public_prism/src/components/EdenControlRoom.tsx"
       - "archive/frontend/arkadia-prism/web/public_prism/src/data/opportunityRadar.ts"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/pages/EnterpriseConsole.tsx"
       - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx"
       - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperienceV2.tsx"
       - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolariunHomeCockpit.tsx"
