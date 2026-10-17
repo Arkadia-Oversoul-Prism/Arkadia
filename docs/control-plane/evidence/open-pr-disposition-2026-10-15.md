@@ -482,3 +482,14 @@ Bounded repairs committed on the #553 branch:
 - `weaver/autonomy/logger.py`: preserve the historical logger import path by re-exporting `weaver.logger.get_logger`.
 
 Latest candidate head is `cc14fdbf2cc67bc9fde97bca1557aa2669cc11c9`; base remains `04e1b83b89e51a994af68b529a1076665f9b3ae5`. Fresh exact-head CI has been queued and has not yet completed. The provider-routing, validate, and baseline results therefore remain unverified after these repairs. #553 remains **HOLD**; no merge or deployment occurred.
+
+
+### #553 follow-up: completed provider-routing evidence and trigger-input repairs — 2026-10-17
+
+Exact candidate head `cc14fdbf2cc67bc9fde97bca1557aa2669cc11c9` completed all 22 checks: 21 passed, 1 failed. `trigger-coverage`, `boot-syntax`, and `validate` passed; `provider-routing` failed. The provider-routing log reports 13 failed, 3361 passed, 16 skipped. The baseline job's own nested suite reported 12 failed, 2955 passed, 21 skipped; its outer success status does not establish a clean nested suite.
+
+The new history-depth guard identified missing archived source inputs: `ProjectDashboard.tsx` in economic-seam-engine and provider-routing pull-request filters, and `OpportunityRadarPage.tsx` in the sg-02 pull-request filter. Added those explicit selections on the candidate branch; exact push/PR symmetry will be judged by fresh CI. The latest resulting head is `be2a63fe71108cd2d78e608899aa4551f14fac82`; all 19 checks were queued at the last poll (0 completed), so no post-fix result is yet available.
+
+Remaining failures must not be papered over: (1) `tests/test_autonomy.py` expects an autonomous run despite canonical `governance/autonomy.json` setting `enabled: false`; this is a governance contradiction and autonomy remains disabled. (2) `test_no_firebase_persistence_in_gate` explicitly documents its sessionStorage proxy as a known sovereign adjudication, because the code uses tab-scoped diagnostic handoff storage; no persistence policy was relaxed. (3) mutation-boundary tests disagree over whether a blocked request returns an auditable failed execution or raises `PermissionError`; this is an API-contract conflict and must be resolved deliberately while preserving fail-closed mutation denial. Other current full-suite failures concern NodeEntry copy, Arkana shared-session identity, and SolSpire R1 identifiers/governance exports; keep them distinct from trigger defects and do not rewrite tests solely for green CI.
+
+#553 remains **HOLD** pending fresh exact-head CI and explicit adjudication of the listed contract conflicts. No merge or deployment.
