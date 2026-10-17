@@ -8,10 +8,9 @@ preserves the historical SolSpire API for callers.
 """
 from __future__ import annotations
 
-import hashlib
 from typing import Any
 
-from weaver.execution import execute_patch, pass_spec_hash, patch_content_hash
+from weaver.governance import execute_patch, pass_spec_hash, patch_content_hash
 from weaver.governance import (
     build_patch_approval as _weaver_build_patch_approval,
     build_pass_spec_for_patch as _weaver_build_pass_spec_for_patch,
@@ -44,7 +43,7 @@ def build_pass_spec_for_patch(
     repo_root: str = ".",
 ) -> dict[str, Any]:
     """Compatibility adapter; PassSpec construction semantics belong to Weaver."""
-    resolved_pass_id = pass_id or f"mvp1-{hashlib.sha256((patch.get('patch_id') or 'x').encode()).hexdigest()[:10]}"
+    resolved_pass_id = pass_id or f"mvp1-{patch.get('patch_id') or 'x'}"
     resolved_objective = objective or str(
         (patch.get("review") or {}).get("objective")
         or project.get("name")
