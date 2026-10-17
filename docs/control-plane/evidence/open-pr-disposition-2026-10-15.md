@@ -446,3 +446,12 @@ The failed provider-routing log precisely identified three remaining missing pul
 Those were added on the current #553 branch, producing latest head `418283c1e5acdd18fd2ef62b5b0eb284314ace8e`; base remains `04e1b83b89e51a994af68b529a1076665f9b3ae5`. Fresh exact-head checks had not yet appeared at the first query. #553 remains HOLD.
 
 Provider-routing's real remaining suite failures at the prior head: `load_autonomy_config` is not exported from `weaver.autonomy` (collection error); Identity Spine's required node-entry copy is missing; Arkana shared-session thread binding fails; SolSpire R1 builder identifier / Weaver governance expectations fail; the ExecutionRuntime mutation-boundary test expects the opposite behavior to the implemented explicit mutation block; and `LivingGate.tsx` has tab-scoped `sessionStorage` diagnostics/portfolio handoff that conflicts with a broad “no sessionStorage” test proxy despite no Firebase persistence. Do not weaken the execution-runtime mutation prohibition or erase legitimate tab-scoped state merely to satisfy brittle string assertions. Resolve the missing export and actual product contracts in their owning workstreams; adjudicate the proxy test's intended persistence boundary explicitly.
+
+
+### #553 follow-up: trigger symmetry repair
+
+The first rerun on `418283c1e5acdd18fd2ef62b5b0eb284314ace8e` found that the missing inputs had been added to pull-request filters, but the repository's trigger-coverage guard also requires push/pull-request symmetry. Exact log: 158 passed, 2 failed; failures were:
+- economic-seam-engine.yml: archived `pages/EnterpriseConsole.tsx` selected only on pull request.
+- sg-02-fe-2-v.yml: archived `data/opportunityRadar.ts` selected only on pull request.
+
+Added the missing push selections. Latest #553 head is now `04bd3f1b9d1cb878c51f33fb641bd3007256b0ad`. The candidate's new check-runs had not yet appeared at the first query, so syntax, trigger symmetry, and provider-routing remain unverified on this latest head. HOLD remains in force; no merge or deployment.
