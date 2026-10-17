@@ -344,3 +344,21 @@ Corrected both path entries in all three files on #553's branch:
 - `.github/workflows/sg-02-fe-2-v.yml` — commit `62124b35bbc1dfe99ada01a4a4cb5e494423d260`
 
 Latest #553 head: `62124b35bbc1dfe99ada01a4a4cb5e494423d260`; base remains `04e1b83b89e51a994af68b529a1076665f9b3ae5`. The syntax repair is committed but **awaiting exact-head CI verification**. Previous failing results are not retroactively cleared. The product-contract failures and collection error described above remain open until a new run provides evidence. #553 stays HOLD; `main` is unchanged; no production merge or deployment occurred.
+
+
+## Exact-head follow-up — history-depth guard and remaining provider-routing failures
+
+Observed after the YAML repair on #553 head `62124b35bbc1dfe99ada01a4a4cb5e494423d260`:
+- `trigger-coverage`: PASS, 160 tests.
+- The YAML parse failures were resolved, but `provider-routing` still failed.
+- The three `test_history_depth_ci_wiring.py` cases now identify one additional guarded input: `archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolariunHomeCockpit.tsx`, read by `tests/test_m02a_ci_gate_integrity.py`, but missing from all three guarded workflows' pull-request path filters.
+- Other product/contract failures remain: Identity Spine expected copy; Arkana/ReasoMate shared session key; SolSpire R1 builder identifier and Weaver governance API; and the execution runtime's explicit mutation prohibition (the last is a policy/test mismatch, not authorization to relax the guard).
+- `tests/test_autonomy.py` collection still errors because `load_autonomy_config` is not exported from `weaver.autonomy`.
+- The earlier baseline job is configured `continue-on-error`; its green Actions conclusion is not evidence that the baseline suite passed. Its log shows Lab auth/route inventory mismatches, plus the Identity Spine, Arkana session, SolSpire governance, and runtime issues.
+
+Repair added the missing archived `SolariunHomeCockpit.tsx` input to each of:
+- `.github/workflows/economic-seam-engine.yml` — commit `d84fb97f950df82bc3e904b8fb641fcc0e63a5f5`
+- `.github/workflows/provider-routing.yml` — commit `7b96471900ec8bf0a61d15af205e2ef4e3c6aa10`
+- `.github/workflows/sg-02-fe-2-v.yml` — commit `e18fea17cec611f3f1577999377d7a88fb43d633`
+
+Current #553 head is `e18fea17cec611f3f1577999377d7a88fb43d633`; no checks were yet published at the immediate post-commit query. Exact-head verification is pending. #553 remains HOLD. No merge or production deployment.
