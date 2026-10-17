@@ -19,7 +19,7 @@ import remarkGfm from 'remark-gfm';
 import { Volume2, Square, Send, Trash2, Copy, Check, RotateCcw, Pencil, Paperclip, FileText, X, Bookmark } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { API_BASE as API_BASE_CFG } from '../lib/apiConfig';
-import { createArkanaThreadId } from '../lib/arkanaSession';
+import { arkanaSessionId, createArkanaThreadId } from '../lib/arkanaSession';
 import ArkDate from './ArkDate';
 import MarkdownViewer from './MarkdownViewer';
 import OracleVoicePlayer from './OracleVoicePlayer';
@@ -727,7 +727,7 @@ const ArkanaCommune: React.FC<ArkanaProps> = ({ initialMessage, projectId, proje
       const body: Record<string, unknown> = {
         message: messageWithContext,
         timestamp: Date.now(),
-        session_id: activeThreadId,
+        session_id: arkanaSessionId(user?.uid, sovereignToken),
         ...(projectId != null ? { project_id: projectId } : projectContextId ? { project_id: Number(projectContextId) } : {}),
       };
       if (sovereignToken.trim()) body.sovereign_token = sovereignToken.trim();
