@@ -36,7 +36,7 @@ on:
       - "archive/frontend/arkadia-prism/web/public_prism/src/components/EdenControlRoom.tsx"
       - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx"
       - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperienceV2.tsx"
-      "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolariunHomeCockpit.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolariunHomeCockpit.tsx"
       # The SolSpire isolated-runtime step executes these named guards; the
       # path filters must select them too (tests/test_gate_filter_selection.py).
       - 'tests/test_solspire_project_execution_service.py'
