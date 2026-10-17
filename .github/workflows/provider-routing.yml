@@ -11,6 +11,7 @@ on:
       - "tests/test_key_pool.py"
       - "tests/test_ci_suite_collection_continuation.py"
       - "tests/test_history_depth_ci_wiring.py"
+      - "conftest.py"
       # `AGENTS.md` is an *input* to a guard this job judges, not incidental prose:
       # `tests/test_agents_md_encoding_adjudication.py` reads it, so a change to it
       # alters what the guard asserts. Named by no other filter in the repository
