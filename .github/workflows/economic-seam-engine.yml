@@ -40,6 +40,7 @@ on:
       - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx"
       - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperienceV2.tsx"
       - "archive/frontend/arkadia-prism/web/public_prism/src/pages/EnterpriseConsole.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/pages/OpportunityRadarPage.tsx"
       - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolariunHomeCockpit.tsx"
   push:
     branches: [main]
