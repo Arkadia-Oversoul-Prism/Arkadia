@@ -44,6 +44,7 @@ on:
   push:
     branches: [main]
     paths:
+      - "archive/frontend/arkadia-prism/web/public_prism/src/pages/EnterpriseConsole.tsx"
       - "archive/frontend/arkadia-prism/web/public_prism/src/data/opportunityRadar.ts"
       - 'economic_seams/**'
       - 'api/economic_seam_routes.py'
