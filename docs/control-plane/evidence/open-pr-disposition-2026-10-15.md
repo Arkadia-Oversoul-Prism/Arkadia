@@ -332,3 +332,15 @@ The exact-file comparison for #482 confirms the evidence file is identical in #5
 The completed provider-routing check on #553 head `bd1eb4498b401711d2b7bd9fa2fbd5cf08818872` returned **9 failed, 3,363 passed, 16 skipped, 1 collection error**. The remaining trigger-coverage failures identified one additional source input read by `tests/test_m02a_ci_gate_integrity.py`: archived `SolSpireExperienceV2.tsx`. It was missing from the pull-request filters of all three guarded workflows. The new head `cfcfe172f638719bce01c9294ae517a20c798da0` adds that input to the affected pull-request filters in `economic-seam-engine.yml`, `provider-routing.yml`, and both push/pull-request filters in `sg-02-fe-2-v.yml` so the SG filters stay symmetric. Exact-head checks have not yet appeared; this is not a verified pass.
 
 The same run reconfirms non-trigger failures: Living Gate's test still asserts no `sessionStorage` while implementation uses it for tab-scoped diagnostic handoff; `tests/test_identity_spine_w1.py` expects onboarding copy absent from current `IdentitySpinePage.tsx`; Arkana's runtime does not meet the shared-session key contract; two SolSpire R1 governance assertions do not match current Weaver code; ExecutionRuntime rejects `fs_write` under the declared mutation-disabled policy; and `tests/test_autonomy.py` collection fails because `load_autonomy_config` cannot be imported from `weaver.autonomy`. These require explicit product/architecture decisions or code repairs, not assertion deletion or policy weakening.
+
+
+## Exact-head correction — workflow YAML syntax
+
+The first CI run for #553 head `cfcfe172f638719bce01c9294ae517a20c798da0` exposed a malformed YAML quoting regression in the three guarded workflow files. The `SolSpireExperience.tsx` path entry lacked its closing quote, and the `SolSpireExperienceV2.tsx` entry had an extra quote. This caused YAML parse/collection failures in trigger coverage, console-contract, gitleaks-config-guard, mvp2-validation, boot-syntax, and verdict-step-integrity.
+
+Corrected both path entries in all three files on #553's branch:
+- `.github/workflows/economic-seam-engine.yml` — commit `574432196ce412dfe094ae9730c7881d03371edf`
+- `.github/workflows/provider-routing.yml` — commit `454658620b384d5db25ff44836a4a0d3c64b8e28`
+- `.github/workflows/sg-02-fe-2-v.yml` — commit `62124b35bbc1dfe99ada01a4a4cb5e494423d260`
+
+Latest #553 head: `62124b35bbc1dfe99ada01a4a4cb5e494423d260`; base remains `04e1b83b89e51a994af68b529a1076665f9b3ae5`. The syntax repair is committed but **awaiting exact-head CI verification**. Previous failing results are not retroactively cleared. The product-contract failures and collection error described above remain open until a new run provides evidence. #553 stays HOLD; `main` is unchanged; no production merge or deployment occurred.
