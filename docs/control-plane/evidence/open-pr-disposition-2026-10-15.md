@@ -389,3 +389,28 @@ Added the missing `opportunityRadar.ts` selections to both push and pull-request
 - `.github/workflows/sg-02-fe-2-v.yml` — `0cc9d9d6f50f31ee46a12d7e64c25650607b7020`
 
 Current #553 head is `0cc9d9d6f50f31ee46a12d7e64c25650607b7020`; base remains `04e1b83b89e51a994af68b529a1076665f9b3ae5`. At immediate post-commit query, no checks had been published yet. Prior exact-head run still recorded 12 failures, 3,360 passes, 16 skips, and one collection error. Remaining failures include the missing `load_autonomy_config` export, product-contract assertions for Identity Spine and Arkana shared-session behavior, SolSpire governance expectations, and the explicit ExecutionRuntime mutation prohibition. These are not waived. #553 remains HOLD pending fresh exact-head checks; `main` remains unchanged; no merge or deployment.
+
+
+## Bounded repair exact-head audit — #548, #551, #556
+
+Rechecked the current PR metadata and exact-head check runs for the requested dependency, route-coverage, and authorization boundaries. These are source/CI findings, not live production acceptance and not merge authorization.
+
+### #548 — Knowledge search + graph traversal
+- Exact head: `3da97fa5316f1f38a15c7aa081e45e39205763b7`; base: `04e1b83b89e51a994af68b529a1076665f9b3ae5` (current `main`).
+- PR scope names #537 reference-search owner visibility and #526 graph-edge deduplication; changed implementation/test paths are `knowledge/search.py`, `knowledge/graph.py`, and their new boundary tests. No changed implementation or test references #528.
+- `lane-state.json` mentions #528 only as historical queue state: it explicitly says #528 is closed unmerged, lane 2 is idle, and no lane-2 source PR remains open. That is not an active dependency on #528.
+- Owner-scope contract in `knowledge/search.py`: authenticated callers receive own-or-public notes; anonymous callers receive public-only notes. The exact-head checks are green (10 checks); candidate remains draft and needs review before merge.
+
+### #551 — legacy-route coverage + lens navigation
+- Exact head: `330907c05a629155e38fdd2584c505d3340ec73c`; base: current `main` `04e1b83b89e51a994af68b529a1076665f9b3ae5`.
+- Exact-head checks are green, including `test` (124 passed plus 21 in a second test segment), `console-contract` (705 passed plus 30 in a second segment), `frontend`, and `validate`.
+- The dedicated `tests/test_console_legacy_route_coverage.py` binds the archived route table to explicit dispositions and checks alias safety against reserved/backend paths. The current router declares seven aliases: `/nexus`, `/oracle`, `/commune`, `/home`, `/knowledge-os`, `/gate`, and `/living-gate`; deeper `/nexus/*` resolution is bounded to one section segment. Unsupported legacy destinations remain explicit product-decision gaps rather than fabricated aliases.
+- This satisfies the requested exact-head route-coverage revalidation at source/CI level; it does not establish production route acceptance.
+
+### #556 — authorization-state behavior
+- Exact head: `01e9647c8464044b41e14b72f1691125453054ca`; base: current `main` `04e1b83b89e51a994af68b529a1076665f9b3ae5`.
+- Exact-head checks are green, including `test` (124 passed plus 21 in a second test segment), `console-contract` (701 passed plus 30 in a second segment), `frontend`, and `validate`.
+- `tests/test_console_authorization_state_contract.py` asserts `FORBIDDEN` maps to the distinct `forbidden` hydration state, not `auth-required`; the shared panel uses “Not authorized for this identity” and does not tell an already-signed-in viewer to sign in again. Its negative control detects the pre-repair conflation. `SolSpireControlPlane.tsx` remains read-only; no create/decide/execute control was added.
+- This satisfies the requested exact-head authorization revalidation at source/CI level; it does not establish production authorization acceptance.
+
+Disposition remains **HOLD / review required** for these draft candidates until the full per-PR decision record and release boundary permit any merge. No merge or deployment was performed.
