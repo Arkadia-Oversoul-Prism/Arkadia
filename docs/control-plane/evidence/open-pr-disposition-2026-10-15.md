@@ -519,3 +519,12 @@ Candidate repairs since that run:
 Latest candidate head: `a73b2d801e7f653fbc2fd0e0afac3c454aa93c42`, base `04e1b83b89e51a994af68b529a1076665f9b3ae5`. All 19 exact-head checks were queued at the latest poll; no post-repair result is available yet.
 
 Intentionally unresolved: `test_no_firebase_persistence_in_gate` is explicitly marked in the repository as a proxy-invalidation awaiting sovereign decision. The Living Gate uses tab-scoped `sessionStorage` for diagnostic handoff; this record does not authorize removing that behavior or relaxing the persistence guard. Keep this as an explicit policy hold pending a decision. #553 remains **HOLD**; no merge or deployment.
+
+
+### #553 exact-head CI refresh — 2026-10-17 11:02 UTC
+
+After the `a73b2d801e7f653fbc2fd0e0afac3c454aa93c42` run was observed queued (18 queued, one completed, no failures yet), a final test-isolation correction was made: `tests/test_autonomy.py` now changes into its temporary repository root before validating the isolated enabled configuration, so its temporary `governance/roles.json` is the file actually read by the scheduler. This preserves the canonical repository config `enabled: false`.
+
+Current candidate head: `b4f7c0c0f0bc61a9f8179a4ed1dbd990d3207ba7`, base remains `04e1b83b89e51a994af68b529a1076665f9b3ae5`. GitHub has registered 19 exact-head checks; at the latest poll 18 are queued and one is pending, with no post-fix conclusion available. The earlier head's checks cannot be treated as evidence for this head. The queue is not yet producing completed results; continue polling before claiming the repairs pass.
+
+The only explicitly retained policy hold from the previously observed failure set is the documented Living Gate `sessionStorage` proxy-invalidation, pending sovereign adjudication. All other observed failures have candidate source or test-contract repairs, but those repairs remain unverified until exact-head CI completes. #553 remains **HOLD**; no merge or deployment.
