@@ -471,3 +471,14 @@ At the last exact-head poll for `86d3f34a`, 2/20 checks had completed and both p
 
 
 At the latest poll, #553 remained at exact head `86d3f34ad7a46b3374c93965396e1967db09c878`: 7/20 checks completed, all 7 successful; `trigger-coverage` and `boot-syntax` are green. `provider-routing` and `validate` are still in progress, with `baseline` queued. No conclusion about the full provider suite can be made until those checks finish. #553 remains HOLD.
+
+
+### #553 follow-up: package-resolution failures and bounded repairs — 2026-10-17
+
+On exact head `86d3f34ad7a46b3374c93965396e1967db09c878`, `trigger-coverage` and `boot-syntax` passed, while `provider-routing` and `validate` failed. The logs identify a package-resolution defect introduced by exposing the legacy API at `weaver.autonomy`: callers import `weaver.autonomy.logger`, but the split package did not contain that module. The legacy runtime also used package-relative imports that no longer resolved after it moved under `weaver/autonomy/`.
+
+Bounded repairs committed on the #553 branch:
+- `weaver/autonomy/legacy_runtime.py`: resolve logger, recursive engine, and git operations from the parent `weaver` package.
+- `weaver/autonomy/logger.py`: preserve the historical logger import path by re-exporting `weaver.logger.get_logger`.
+
+Latest candidate head is `cc14fdbf2cc67bc9fde97bca1557aa2669cc11c9`; base remains `04e1b83b89e51a994af68b529a1076665f9b3ae5`. Fresh exact-head CI has been queued and has not yet completed. The provider-routing, validate, and baseline results therefore remain unverified after these repairs. #553 remains **HOLD**; no merge or deployment occurred.
