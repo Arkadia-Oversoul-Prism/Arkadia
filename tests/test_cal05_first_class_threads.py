@@ -22,4 +22,5 @@ def test_commune_uses_first_class_thread_id():
     src = (ROOT / "archive/frontend/arkadia-prism/web/public_prism/src/components/ArkanaCommune.tsx").read_text()
     assert "createArkanaThreadId" in src
     assert "/api/commune/threads" in src
-    assert "session_id: activeThreadId" in src
+    assert "session_id: arkanaSessionId(user?.uid, sovereignToken)" in src
+    assert "activeThreadId" in src  # thread identity remains distinct from human session identity
