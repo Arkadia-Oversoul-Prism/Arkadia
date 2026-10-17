@@ -19,6 +19,9 @@ def test_autonomy_run_respects_limits(monkeypatch, tmp_path):
     # Create a copy of autonomy.json with a low commit limit
     from pathlib import Path
     aconf = load_autonomy_config()
+    # Exercise the scheduler's limit enforcement with an explicitly enabled
+    # isolated test config; the canonical repository config remains disabled.
+    aconf['enabled'] = True
     aconf['max_commits_per_run'] = 1
     # Run scheduled once with use_stub True and patched environment
     monkeypatch.setenv('ARKADIA_AUTONOMOUS', 'true')
