@@ -28,6 +28,7 @@ on:
       - "archive/frontend/arkadia-prism/web/public_prism/src/components/EdenControlRoom.tsx"
       - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx"
       - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperienceV2.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/pages/EnterpriseConsole.tsx"
       - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolariunHomeCockpit.tsx"
       - ".github/workflows/sg-02-fe-2-v.yml"
       - "docs/verification/PROVIDER-ROUTING-AUDIT-BASELINE.md"
