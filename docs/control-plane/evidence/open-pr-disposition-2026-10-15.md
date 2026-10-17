@@ -432,3 +432,17 @@ At the 2026-10-17 recheck, each candidate below was still open/draft, based dire
 | #556 Home / SolSpire control-plane / authorization state | `01e9647c8464044b41e14b72f1691125453054ca` | 15/15 | Source/CI green; focused authorization behavior revalidated above |
 
 These are green CI results on the recorded heads, not a claim that the eight candidates have been merged, that production acceptance has occurred, or that live routes/API behavior has been accepted. Keep all candidates draft until the queue decision record authorizes integration and the required current-base composition/release evidence is satisfied. No merge or deployment occurred.
+
+
+## #553 post-repair exact-head result — 2026-10-17
+
+The exact-head run for `0cc9d9d6f50f31ee46a12d7e64c25650607b7020` completed all 20 checks: 19 succeeded and `provider-routing` failed. `trigger-coverage`, `boot-syntax`, `validate`, `baseline`, `dispatch-contract`, `acceptance-contract`, `provider-forensics`, `test`, `console-contract`, secret scan, and lane currency all passed. The baseline's overall success is not evidence that its nested full-suite invocation passed: its logs show 12 failures and one collection error in that separate invocation.
+
+The failed provider-routing log precisely identified three remaining missing pull-request filter inputs:
+- `economic-seam-engine.yml` must select archived `pages/EnterpriseConsole.tsx` because `tests/test_m02a_ci_gate_integrity.py` reads it.
+- `provider-routing.yml` must select that same archived `pages/EnterpriseConsole.tsx` input.
+- `sg-02-fe-2-v.yml` must select archived `data/opportunityRadar.ts` in its pull-request filter.
+
+Those were added on the current #553 branch, producing latest head `418283c1e5acdd18fd2ef62b5b0eb284314ace8e`; base remains `04e1b83b89e51a994af68b529a1076665f9b3ae5`. Fresh exact-head checks had not yet appeared at the first query. #553 remains HOLD.
+
+Provider-routing's real remaining suite failures at the prior head: `load_autonomy_config` is not exported from `weaver.autonomy` (collection error); Identity Spine's required node-entry copy is missing; Arkana shared-session thread binding fails; SolSpire R1 builder identifier / Weaver governance expectations fail; the ExecutionRuntime mutation-boundary test expects the opposite behavior to the implemented explicit mutation block; and `LivingGate.tsx` has tab-scoped `sessionStorage` diagnostics/portfolio handoff that conflicts with a broad “no sessionStorage” test proxy despite no Firebase persistence. Do not weaken the execution-runtime mutation prohibition or erase legitimate tab-scoped state merely to satisfy brittle string assertions. Resolve the missing export and actual product contracts in their owning workstreams; adjudicate the proxy test's intended persistence boundary explicitly.
