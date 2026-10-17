@@ -414,3 +414,21 @@ Rechecked the current PR metadata and exact-head check runs for the requested de
 - This satisfies the requested exact-head authorization revalidation at source/CI level; it does not establish production authorization acceptance.
 
 Disposition remains **HOLD / review required** for these draft candidates until the full per-PR decision record and release boundary permit any merge. No merge or deployment was performed.
+
+
+## Bounded repair group — exact-head CI inventory
+
+At the 2026-10-17 recheck, each candidate below was still open/draft, based directly on current `main` `04e1b83b89e51a994af68b529a1076665f9b3ae5`, with every check run present on its listed head completed successfully:
+
+| PR | Exact head | Completed checks | CI disposition |
+|---|---|---:|---|
+| #547 Arkana thread visibility / UTC history | `1a2dd149250b13a3d858fa853a2cbe64d73ba15c` | 16/16 | Source/CI green |
+| #548 Knowledge search visibility / graph traversal | `3da97fa5316f1f38a15c7aa081e45e39205763b7` | 10/10 | Source/CI green; no active #528 dependency |
+| #549 Knowledge graph owner scope / bounded timeline | `a0aecb2631333e4b93072a456dacab4c36ae4745` | 11/11 | Source/CI green |
+| #550 Console error boundary / Arkana provenance / title recovery | `dc7619caa44fee91215fc6a5160a12853a9dba6d` | 15/15 | Source/CI green |
+| #551 Legacy route coverage / keyboard lens navigation | `330907c05a629155e38fdd2584c505d3340ec73c` | 15/15 | Source/CI green; focused coverage revalidated above |
+| #554 Knowledge status-read / graph provenance | `da7e0279457017200b7eb4ed9f25a0d48bbaf7d1` | 15/15 | Source/CI green |
+| #555 Weaver withdrawal / Lab run-artifact trace | `32251bc960f0877aeb01cec699df73a7053b8221` | 16/16 | Source/CI green |
+| #556 Home / SolSpire control-plane / authorization state | `01e9647c8464044b41e14b72f1691125453054ca` | 15/15 | Source/CI green; focused authorization behavior revalidated above |
+
+These are green CI results on the recorded heads, not a claim that the eight candidates have been merged, that production acceptance has occurred, or that live routes/API behavior has been accepted. Keep all candidates draft until the queue decision record authorizes integration and the required current-base composition/release evidence is satisfied. No merge or deployment occurred.
