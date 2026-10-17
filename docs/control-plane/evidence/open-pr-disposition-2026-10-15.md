@@ -362,3 +362,15 @@ Repair added the missing archived `SolariunHomeCockpit.tsx` input to each of:
 - `.github/workflows/sg-02-fe-2-v.yml` — commit `e18fea17cec611f3f1577999377d7a88fb43d633`
 
 Current #553 head is `e18fea17cec611f3f1577999377d7a88fb43d633`; no checks were yet published at the immediate post-commit query. Exact-head verification is pending. #553 remains HOLD. No merge or production deployment.
+
+
+## Follow-up correction — path-filter YAML sequence entry
+
+The first insertion of `SolariunHomeCockpit.tsx` on candidate head `e18fea17cec611f3f1577999377d7a88fb43d633` omitted the YAML list dash. The `boot-syntax` check failed at that head (line 41 in `economic-seam-engine.yml`). This was an integration error in the repair, not a passing check.
+
+Added the missing dash in all three guarded workflow filters:
+- `.github/workflows/economic-seam-engine.yml` — `a1bb987a92cbebf262aa1fc1dc9ddf67a6a04ef3`
+- `.github/workflows/provider-routing.yml` — `167aafd1112d4d75e8a0cc048b4a7f2e0a0a1573`
+- `.github/workflows/sg-02-fe-2-v.yml` — `d2c6cd5ee53a305adbd8e3b1c622b70efaf8dc9e`
+
+Latest #553 candidate head: `d2c6cd5ee53a305adbd8e3b1c622b70efaf8dc9e`. New exact-head checks are pending. The malformed intermediate head remains a failed historical run; no claim of current syntax success until the new `boot-syntax` result passes. #553 remains HOLD; `main` unchanged; no merge or deployment.
