@@ -455,3 +455,16 @@ The first rerun on `418283c1e5acdd18fd2ef62b5b0eb284314ace8e` found that the mis
 - sg-02-fe-2-v.yml: archived `data/opportunityRadar.ts` selected only on pull request.
 
 Added the missing push selections. Latest #553 head is now `04bd3f1b9d1cb878c51f33fb641bd3007256b0ad`. The candidate's new check-runs had not yet appeared at the first query, so syntax, trigger symmetry, and provider-routing remain unverified on this latest head. HOLD remains in force; no merge or deployment.
+
+
+### #553 follow-up: history-depth inputs and provider-suite repairs — 2026-10-17
+
+Latest candidate head: `86d3f34ad7a46b3374c93965396e1967db09c878`; base remains `04e1b83b89e51a994af68b529a1076665f9b3ae5`.
+
+The exact-head `trigger-coverage` check now passes. The full-history provider-routing job at the preceding head `04bd3f1b9d1cb878c51f33fb641bd3007256b0ad` identified additional input-selection defects from `tests/test_history_depth_ci_wiring.py`: economic-seam-engine and provider-routing must select archived `pages/OpportunityRadarPage.tsx` on pull requests; sg-02 must select archived `pages/EnterpriseConsole.tsx` on pull requests. Those PR inputs were added. The economic-seam OpportunityRadarPage input was also added to its push filter after `trigger-coverage` confirmed the required push/PR symmetry. Existing archived input selections remain symmetric where both events are declared.
+
+Two separate code repairs are now on #553's candidate branch:
+- `weaver/autonomy/__init__.py` now exports the legacy scheduled-autonomy API through `weaver/autonomy/legacy_runtime.py`, addressing the observed collection error caused by the package namespace shadowing `weaver/autonomy.py`.
+- `solspire/execution_runtime.py` records a terminal `MUTATION_DISABLED` result and returns a failed execution record for forbidden engineering mutation tools. The denial occurs before worker creation; it does not invoke K3 or enable mutation.
+
+At the last exact-head poll for `86d3f34a`, 2/20 checks had completed and both passed (`trigger-coverage` and one other check); `boot-syntax` was in progress and `provider-routing`, `baseline`, and `validate` were queued. Therefore these repairs are not yet verified by the full suite. Prior provider-routing output also contains two product/test contract discrepancies explicitly left unresolved by existing evidence: the tab-scoped sessionStorage proxy test and the archived NodeEntry copy/catalogue contract. The Arkana shared-session binding and SolSpire R1 identifier/governance assertions also require separate contract adjudication; do not change them merely to silence string assertions. Keep #553 HOLD until the latest-head full suite and required evidence are reviewed. No merge or deployment.
