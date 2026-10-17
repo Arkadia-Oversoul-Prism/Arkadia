@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - "archive/frontend/arkadia-prism/web/public_prism/src/data/opportunityRadar.ts"
       - 'web/arkadia_console/**'
       - 'spiral_grove/**'
       - 'lab/**'
