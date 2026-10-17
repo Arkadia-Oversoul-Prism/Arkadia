@@ -54,6 +54,7 @@ on:
       - 'economic_seams/**'
       - 'api/economic_seam_routes.py'
       - 'tests/**'
+      - 'conftest.py'
       - '.github/workflows/economic-seam-engine.yml'
       - '.github/workflows/sg-02-fe-2-v.yml'
       - 'AGENTS.md'
