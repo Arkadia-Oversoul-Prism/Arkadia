@@ -3,9 +3,9 @@ import os
 import time
 from typing import Dict, Optional
 
-from .logger import get_logger
-from .recursive import RecursiveEngine
-from .git_ops import last_commit_messages
+from ..logger import get_logger
+from ..recursive import RecursiveEngine
+from ..git_ops import last_commit_messages
 
 LOGGER = get_logger()
 
