@@ -85,6 +85,7 @@ on:
       - 'scripts/cp10_mutation_boundary_policy.py'
       - 'tests/test_m02a_ci_gate_integrity.py'
       - 'tests/test_history_depth_ci_wiring.py'
+      - 'conftest.py'
       - 'AGENTS.md'
       - 'README.md'
       - 'CURRENT_STATE.md'
