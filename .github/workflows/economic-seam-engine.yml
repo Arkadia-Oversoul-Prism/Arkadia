@@ -36,8 +36,8 @@ on:
       - 'PARKING_LOT.md'
       - 'ROADMAP.md'
       - "archive/frontend/arkadia-prism/web/public_prism/src/components/EdenControlRoom.tsx"
-      - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx
-      - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperienceV2.tsx""
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperienceV2.tsx"
   push:
     branches: [main]
     paths:
@@ -52,8 +52,8 @@ on:
       - 'PARKING_LOT.md'
       - 'ROADMAP.md'
       - "archive/frontend/arkadia-prism/web/public_prism/src/components/EdenControlRoom.tsx"
-      - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx
-      - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperienceV2.tsx""
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperienceV2.tsx"
   # The gate is path-filtered, so a revision touching none of the above never runs
   # it. `workflow_dispatch` lets the seam contract be executed against an exact
   # revision on demand (it runs the workflow file from the dispatched ref, so
