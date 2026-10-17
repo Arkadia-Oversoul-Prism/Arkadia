@@ -374,3 +374,18 @@ Added the missing dash in all three guarded workflow filters:
 - `.github/workflows/sg-02-fe-2-v.yml` — `d2c6cd5ee53a305adbd8e3b1c622b70efaf8dc9e`
 
 Latest #553 candidate head: `d2c6cd5ee53a305adbd8e3b1c622b70efaf8dc9e`. New exact-head checks are pending. The malformed intermediate head remains a failed historical run; no claim of current syntax success until the new `boot-syntax` result passes. #553 remains HOLD; `main` unchanged; no merge or deployment.
+
+
+## Exact-head follow-up — archived guard-input and symmetric-trigger repair
+
+The exact-head run for #553 at `d2c6cd5ee53a305adbd8e3b1c622b70efaf8dc9e` confirmed `boot-syntax` PASS, but `trigger-coverage` and `provider-routing` still failed. The logs isolate two workflow-filter defects:
+
+- `archive/frontend/arkadia-prism/web/public_prism/src/data/opportunityRadar.ts` is read by `tests/test_m02a_ci_gate_integrity.py` but was not selected by the relevant guarded workflow pull-request filters.
+- `SolariunHomeCockpit.tsx` had been added to push filters without the corresponding pull-request entries in `economic-seam-engine.yml` and `sg-02-fe-2-v.yml`, violating trigger symmetry.
+
+Added the missing `opportunityRadar.ts` selections to both push and pull-request filters in `economic-seam-engine.yml`, and to the provider-routing pull-request filter; aligned `SolariunHomeCockpit.tsx` in the economic-seam push filter and SG-02 pull-request filter. Exact repair commits:
+- `.github/workflows/economic-seam-engine.yml` — `990ccd37028750a7de6ac0c654fe3a70bf8513e6`
+- `.github/workflows/provider-routing.yml` — `a667fe69015e1a5f10771bd2d1efa77287ef47a5`
+- `.github/workflows/sg-02-fe-2-v.yml` — `0cc9d9d6f50f31ee46a12d7e64c25650607b7020`
+
+Current #553 head is `0cc9d9d6f50f31ee46a12d7e64c25650607b7020`; base remains `04e1b83b89e51a994af68b529a1076665f9b3ae5`. At immediate post-commit query, no checks had been published yet. Prior exact-head run still recorded 12 failures, 3,360 passes, 16 skips, and one collection error. Remaining failures include the missing `load_autonomy_config` export, product-contract assertions for Identity Spine and Arkana shared-session behavior, SolSpire governance expectations, and the explicit ExecutionRuntime mutation prohibition. These are not waived. #553 remains HOLD pending fresh exact-head checks; `main` remains unchanged; no merge or deployment.
