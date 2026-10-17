@@ -502,3 +502,20 @@ After the prior recorded head, provider-routing confirmed that ArkanaCommune was
 These source changes and the three missing workflow path selections are now at candidate head `b555b07410d32efc98b41521b0871a298b1cfd07`, based on `04e1b83b89e51a994af68b529a1076665f9b3ae5`. GitHub reports 19 workflow runs attached to this exact SHA, all queued or pending at the latest poll; no post-fix CI conclusion is available yet. The prior exact-head result remains 21/22 checks with provider-routing failed and must not be substituted for the new head's evidence.
 
 The sessionStorage policy conflict and disabled-autonomy test contradiction remain intentionally unresolved. The mutation-denial API disagreement remains unresolved: do not remove the no-mutation boundary, and do not claim a consistent contract until the expected behavior (raised denial versus auditable failed execution) is reconciled across tests and callers. #553 remains **HOLD**. No merge or deployment.
+
+
+### #553 follow-up: exact-head CI defects repaired and adjudication boundary retained — 2026-10-17
+
+Collected the full result for `b555b07410d32efc98b41521b0871a298b1cfd07`: 19/19 workflows completed, 16 passed and 3 failed. The failures isolated workflow-trigger asymmetry/input selection, the SolSpire mutation-denial contract, the Arkana session-ID test's stale expectation, NodeEntry copy, R1 pass-spec objective precedence, and an autonomy test that expected a run while inheriting canonical `enabled: false`. The broader provider suite reported 15 failed, 3359 passed, 16 skipped.
+
+Candidate repairs since that run:
+- Made the three workflow input sets cover `ProjectDashboard.tsx`, `OpportunityRadarPage.tsx`, and root `conftest.py` where the guards read them; the SG-02 pull-request filter now includes `OpportunityRadarPage.tsx` symmetrically with push.
+- Preserved SolSpire's fail-closed, pre-worker mutation denial as a terminal, owner-scoped audit record. Updated the convergence test to assert that contract instead of expecting an exception, consistent with the R3 lifecycle test; no mutation tool is invoked.
+- Updated the Arkana thread contract test to require canonical `arkanaSessionId(user?.uid, sovereignToken)` for cross-surface human identity while retaining the distinct first-class thread ID.
+- Restored the expected NodeEntry “Let's form your node.” copy without replacing the current onboarding flow.
+- Changed the SolSpire adapter to prefer the project's name for the default objective, matching canonical Weaver builder arguments.
+- Changed the autonomy limit test to enable autonomy only in its isolated test configuration. The repository's canonical `governance/autonomy.json` remains `enabled: false`.
+
+Latest candidate head: `a73b2d801e7f653fbc2fd0e0afac3c454aa93c42`, base `04e1b83b89e51a994af68b529a1076665f9b3ae5`. All 19 exact-head checks were queued at the latest poll; no post-repair result is available yet.
+
+Intentionally unresolved: `test_no_firebase_persistence_in_gate` is explicitly marked in the repository as a proxy-invalidation awaiting sovereign decision. The Living Gate uses tab-scoped `sessionStorage` for diagnostic handoff; this record does not authorize removing that behavior or relaxing the persistence guard. Keep this as an explicit policy hold pending a decision. #553 remains **HOLD**; no merge or deployment.
