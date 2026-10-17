@@ -17,8 +17,18 @@ def test_generic_execution_runtime_rejects_engineering_mutation(tool: str) -> No
         steps=[{"tool": tool, "payload": {}}],
     )
 
-    with pytest.raises(PermissionError, match="Weaver K15 → K3"):
-        runtime.execute(plan, owner_uid="test-user")
+    execution = runtime.execute(plan, owner_uid="test-user")
+
+    # The denial is a terminal, owner-scoped audit record, created before any
+    # worker/tool can run. It preserves the Weaver-only mutation boundary.
+    assert execution.status.value == "failed"
+    assert execution.completed_at is not None
+    assert execution.owner_uid == "test-user"
+    assert execution.results
+    assert execution.results[0]["ok"] is False
+    assert execution.results[0]["status"] == "BLOCKED"
+    assert execution.results[0]["code"] == "MUTATION_DISABLED"
+    assert "Weaver K15 → K3" in execution.results[0]["error"]
 
 
 def test_direct_filesystem_write_fails_closed() -> None:

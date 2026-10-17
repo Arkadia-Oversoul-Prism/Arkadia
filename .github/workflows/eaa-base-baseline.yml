@@ -1,0 +1,45 @@
+name: EAA Base-SHA Regression Baseline
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/eaa-base-baseline.yml"
+      - ".github/workflows/engineering-acceptance-authority.yml"
+      - ".github/workflows/gate-l4-dispatch-contract.yml"
+      - ".github/workflows/provider-routing.yml"
+      - "weaver/engineering_acceptance.py"
+      - "weaver/openhands_dispatch.py"
+      - "docs/control-plane/engineering-acceptance-authority/**"
+      - "docs/control-plane/gate-l4/**"
+      - "tests/test_engineering_acceptance_authority.py"
+      - "tests/test_gate_l4_dispatch_security.py"
+      - "tests/test_gate_l4_run_inspection.py"
+      - "tests/test_autonomy.py"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 49809f45274f2f81b24e01fefdfb3009e8717495
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install project requirements
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install pytest
+      - name: Run full suite against exact EAA base SHA
+        continue-on-error: true
+        run: |
+          python -m pytest tests/ -q -rEf --continue-on-collection-errors \
+            --ignore=tests/test_autonomy.py
+      - name: Reproduce autonomy collection error on exact base
+        if: always()
+        continue-on-error: true
+        run: |
+          python -m pytest tests/test_autonomy.py -q
