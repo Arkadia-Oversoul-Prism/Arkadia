@@ -11,6 +11,7 @@ def test_autonomy_config_exists_and_valid():
 def test_autonomy_run_respects_limits(monkeypatch, tmp_path):
     # Prepare a temporary repo root and override AUTONOMY_PATH
     monkeypatch.setenv('REPO_ROOT', str(tmp_path))
+    monkeypatch.chdir(tmp_path)
     # Make sure roles.json includes Flamekeeper
     roles_dir = tmp_path / 'governance'
     roles_dir.mkdir(parents=True, exist_ok=True)
