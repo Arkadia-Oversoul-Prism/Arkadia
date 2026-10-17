@@ -45,8 +45,8 @@ def build_pass_spec_for_patch(
     """Compatibility adapter; PassSpec construction semantics belong to Weaver."""
     resolved_pass_id = pass_id or f"mvp1-{patch.get('patch_id') or 'x'}"
     resolved_objective = objective or str(
-        (patch.get("review") or {}).get("objective")
-        or project.get("name")
+        project.get("name")
+        or (patch.get("review") or {}).get("objective")
         or "MVP governed execution"
     )
     spec = _weaver_build_pass_spec_for_patch(
