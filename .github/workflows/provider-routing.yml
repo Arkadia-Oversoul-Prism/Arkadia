@@ -35,6 +35,7 @@ on:
       - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolariunHomeCockpit.tsx"
       - ".github/workflows/sg-02-fe-2-v.yml"
       - "docs/verification/PROVIDER-ROUTING-AUDIT-BASELINE.md"
+      - "docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md"
   workflow_dispatch:
 
 jobs:
