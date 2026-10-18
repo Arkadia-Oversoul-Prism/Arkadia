@@ -15,7 +15,7 @@ def test_autonomy_run_respects_limits(monkeypatch, tmp_path):
     # Make sure roles.json includes Flamekeeper
     roles_dir = tmp_path / 'governance'
     roles_dir.mkdir(parents=True, exist_ok=True)
-    (roles_dir / 'roles.json').write_text('{"Flamekeeper": {}}')
+    (roles_dir / 'roles.json').write_text('{"Flamekeeper": {}, "governance": {}}')
 
     # Create a copy of autonomy.json with a low commit limit
     from pathlib import Path
