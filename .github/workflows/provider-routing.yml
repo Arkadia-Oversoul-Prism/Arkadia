@@ -37,6 +37,7 @@ on:
       - "docs/verification/PROVIDER-ROUTING-AUDIT-BASELINE.md"
       - "docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md"
       - "docs/control-plane/TRAJECTORY-ARKADIA-TRUTHFULNESS-01.yaml"
+      - "docs/control-plane/WEAVER-RUN-PROTOCOL.md"
   workflow_dispatch:
 
 jobs:
