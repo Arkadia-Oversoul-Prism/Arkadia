@@ -39,6 +39,7 @@ on:
       - "docs/control-plane/TRAJECTORY-ARKADIA-TRUTHFULNESS-01.yaml"
       - "docs/control-plane/WEAVER-RUN-PROTOCOL.md"
       - "docs/control-plane/evidence/federation-agent-card-01/EVIDENCE.md"
+      - "docs/control-plane/evidence/solariun-thread-calibration/EVIDENCE.md"
   workflow_dispatch:
 
 jobs:
