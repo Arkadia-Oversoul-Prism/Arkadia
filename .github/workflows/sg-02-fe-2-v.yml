@@ -56,6 +56,8 @@ on:
       - 'tests/test_phase10_binding.py'
       - 'requirements.txt'
       - '.github/workflows/sg-02-fe-2-v.yml'
+      - "archive/frontend/arkadia-prism/web/public_prism/src/pages/ProjectDashboard.tsx"
+      - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
   pull_request:
     paths:
       - 'web/arkadia_console/**'
@@ -114,6 +116,7 @@ on:
       - 'tests/test_phase10_binding.py'
       - 'requirements.txt'
       - '.github/workflows/sg-02-fe-2-v.yml'
+      - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
   workflow_dispatch:
     inputs:
       vite_firebase_api_key:
