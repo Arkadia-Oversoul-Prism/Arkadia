@@ -61,6 +61,7 @@ on:
       - 'docs/control-plane/TRAJECTORY-ARKADIA-TRUTHFULNESS-01.yaml'
       - 'docs/control-plane/WEAVER-RUN-PROTOCOL.md'
       - 'docs/control-plane/evidence/federation-agent-card-01/EVIDENCE.md'
+      - 'docs/control-plane/evidence/solariun-thread-calibration/EVIDENCE.md'
   pull_request:
     paths:
       - 'web/arkadia_console/**'
@@ -123,6 +124,7 @@ on:
       - 'docs/control-plane/TRAJECTORY-ARKADIA-TRUTHFULNESS-01.yaml'
       - 'docs/control-plane/WEAVER-RUN-PROTOCOL.md'
       - 'docs/control-plane/evidence/federation-agent-card-01/EVIDENCE.md'
+      - 'docs/control-plane/evidence/solariun-thread-calibration/EVIDENCE.md'
   workflow_dispatch:
     inputs:
       vite_firebase_api_key:
