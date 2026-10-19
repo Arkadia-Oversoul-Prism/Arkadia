@@ -47,6 +47,7 @@ on:
       - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolariunHomeCockpit.tsx"
       - 'docs/control-plane/TRAJECTORY-ARKADIA-TRUTHFULNESS-01.yaml'
       - 'docs/control-plane/WEAVER-RUN-PROTOCOL.md'
+      - 'docs/control-plane/evidence/federation-agent-card-01/EVIDENCE.md'
   push:
     branches: [main]
     paths:
@@ -75,6 +76,8 @@ on:
   # revision on demand (it runs the workflow file from the dispatched ref, so
   # `ref=main` yields an execution at the current main SHA).
       - 'docs/control-plane/TRAJECTORY-ARKADIA-TRUTHFULNESS-01.yaml'
+      - 'docs/control-plane/WEAVER-RUN-PROTOCOL.md'
+      - 'docs/control-plane/evidence/federation-agent-card-01/EVIDENCE.md'
   workflow_dispatch:
 
 permissions:
