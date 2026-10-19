@@ -16,6 +16,7 @@ on:
       - "tests/test_market_data.py"
       - "tests/test_nocopo_adapter.py"
       - "enterprises/eden-food-systems/enterprise.json"
+      - "enterprises/eden-food-systems/tasks.seed.json"
       - "providers/**"
       - "tests/architecture/**"
       - "tests/test_weaver_k2.py"
