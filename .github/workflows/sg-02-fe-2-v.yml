@@ -16,6 +16,7 @@ on:
       - 'economic_seams/correlation.py'
       - 'economic_seams/engine.py'
       - 'economic_seams/market_data.py'
+      - 'economic_seams/nocopo.py'
 
       - 'api/lab_routes.py'
       - 'tests/test_spiral_grove_frontend_projection.py'
@@ -77,6 +78,7 @@ on:
       - 'economic_seams/correlation.py'
       - 'economic_seams/engine.py'
       - 'economic_seams/market_data.py'
+      - 'economic_seams/nocopo.py'
 
       - 'api/lab_routes.py'
       - 'tests/test_spiral_grove_frontend_projection.py'
