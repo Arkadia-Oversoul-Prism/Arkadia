@@ -69,6 +69,7 @@ on:
       - 'web/arkadia_console/**'
       - 'spiral_grove/**'
       - 'lab/**'
+      - 'economic_seams/__init__.py'
       - 'api/lab_routes.py'
       - 'tests/test_spiral_grove_frontend_projection.py'
       - 'tests/test_spiral_grove_chambers.py'
