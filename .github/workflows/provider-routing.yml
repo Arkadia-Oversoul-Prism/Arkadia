@@ -6,6 +6,7 @@ on:
       - ".github/workflows/provider-routing.yml"
       - "weaver/**"
       - "economic_seams/**"
+      - "federation/__init__.py"
       - "api/economic_seam_routes.py"
       - "tests/test_deal_sheet.py"
       - "tests/test_economic_seam_authority_boundary.py"
