@@ -60,6 +60,7 @@ on:
       - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
       - 'docs/control-plane/TRAJECTORY-ARKADIA-TRUTHFULNESS-01.yaml'
       - 'docs/control-plane/WEAVER-RUN-PROTOCOL.md'
+      - 'docs/control-plane/moves/M02A-ci-gate-integrity.md'
       - 'docs/control-plane/evidence/federation-agent-card-01/EVIDENCE.md'
       - 'docs/control-plane/evidence/solariun-thread-calibration/EVIDENCE.md'
   pull_request:
@@ -123,6 +124,7 @@ on:
       - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
       - 'docs/control-plane/TRAJECTORY-ARKADIA-TRUTHFULNESS-01.yaml'
       - 'docs/control-plane/WEAVER-RUN-PROTOCOL.md'
+      - 'docs/control-plane/moves/M02A-ci-gate-integrity.md'
       - 'docs/control-plane/evidence/federation-agent-card-01/EVIDENCE.md'
       - 'docs/control-plane/evidence/solariun-thread-calibration/EVIDENCE.md'
   workflow_dispatch:
