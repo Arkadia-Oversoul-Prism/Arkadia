@@ -34,6 +34,7 @@ on:
       - 'tests/**'
       - 'conftest.py'
       - 'google_workspace/Code.gs'
+      - 'google_workspace/appsscript.json'
 
       - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
       - '.github/workflows/economic-seam-engine.yml'
@@ -72,6 +73,7 @@ on:
       - 'tests/**'
       - 'conftest.py'
       - 'google_workspace/Code.gs'
+      - 'google_workspace/appsscript.json'
 
       - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
       - '.github/workflows/economic-seam-engine.yml'
