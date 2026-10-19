@@ -60,6 +60,7 @@ on:
       - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
       - 'docs/control-plane/TRAJECTORY-ARKADIA-TRUTHFULNESS-01.yaml'
       - 'docs/control-plane/WEAVER-RUN-PROTOCOL.md'
+      - 'docs/control-plane/evidence/federation-agent-card-01/EVIDENCE.md'
   pull_request:
     paths:
       - 'web/arkadia_console/**'
@@ -121,6 +122,7 @@ on:
       - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
       - 'docs/control-plane/TRAJECTORY-ARKADIA-TRUTHFULNESS-01.yaml'
       - 'docs/control-plane/WEAVER-RUN-PROTOCOL.md'
+      - 'docs/control-plane/evidence/federation-agent-card-01/EVIDENCE.md'
   workflow_dispatch:
     inputs:
       vite_firebase_api_key:
