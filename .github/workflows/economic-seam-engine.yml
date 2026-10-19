@@ -27,6 +27,7 @@ on:
     paths:
       - 'economic_seams/**'
       - 'enterprises/eden-food-systems/enterprise.json'
+      - 'enterprises/eden-food-systems/tasks.seed.json'
       - 'api/economic_seam_routes.py'
       - 'tests/**'
       - 'conftest.py'
@@ -60,6 +61,7 @@ on:
       - "archive/frontend/arkadia-prism/web/public_prism/src/data/opportunityRadar.ts"
       - 'economic_seams/**'
       - 'enterprises/eden-food-systems/enterprise.json'
+      - 'enterprises/eden-food-systems/tasks.seed.json'
       - 'api/economic_seam_routes.py'
       - 'tests/**'
       - 'conftest.py'
