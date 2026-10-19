@@ -15,6 +15,7 @@ on:
       - "tests/test_economic_seam_correlation.py"
       - "tests/test_economic_seam_engine.py"
       - "tests/test_m02a_ci_gate_integrity.py"
+      - "google_workspace/Code.gs"
       - "tests/test_market_data.py"
       - "tests/test_nocopo_adapter.py"
       - "enterprises/eden-food-systems/enterprise.json"
