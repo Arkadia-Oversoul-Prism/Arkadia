@@ -58,6 +58,8 @@ on:
       - '.github/workflows/sg-02-fe-2-v.yml'
       - "archive/frontend/arkadia-prism/web/public_prism/src/pages/ProjectDashboard.tsx"
       - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
+      - 'docs/control-plane/TRAJECTORY-ARKADIA-TRUTHFULNESS-01.yaml'
+      - 'docs/control-plane/WEAVER-RUN-PROTOCOL.md'
   pull_request:
     paths:
       - 'web/arkadia_console/**'
@@ -118,6 +120,7 @@ on:
       - '.github/workflows/sg-02-fe-2-v.yml'
       - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
       - 'docs/control-plane/TRAJECTORY-ARKADIA-TRUTHFULNESS-01.yaml'
+      - 'docs/control-plane/WEAVER-RUN-PROTOCOL.md'
   workflow_dispatch:
     inputs:
       vite_firebase_api_key:
