@@ -13,6 +13,7 @@ on:
       - 'spiral_grove/**'
       - 'lab/**'
       - 'economic_seams/__init__.py'
+      - 'economic_seams/correlation.py'
       - 'api/lab_routes.py'
       - 'tests/test_spiral_grove_frontend_projection.py'
       - 'tests/test_spiral_grove_chambers.py'
