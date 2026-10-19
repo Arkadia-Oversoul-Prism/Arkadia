@@ -26,6 +26,7 @@ on:
   pull_request:
     paths:
       - 'economic_seams/**'
+      - 'federation/__init__.py'
       - 'enterprises/eden-food-systems/enterprise.json'
       - 'enterprises/eden-food-systems/tasks.seed.json'
       - 'api/economic_seam_routes.py'
