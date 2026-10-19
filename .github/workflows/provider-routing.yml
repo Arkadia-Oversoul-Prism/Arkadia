@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/provider-routing.yml"
       - "weaver/**"
+      - "economic_seams/**"
+      - "enterprises/eden-food-systems/enterprise.json"
       - "providers/**"
       - "tests/architecture/**"
       - "tests/test_weaver_k2.py"
