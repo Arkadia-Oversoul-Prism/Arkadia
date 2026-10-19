@@ -46,6 +46,7 @@ on:
       - "archive/frontend/arkadia-prism/web/public_prism/src/pages/ProjectDashboard.tsx"
       - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolariunHomeCockpit.tsx"
       - 'docs/control-plane/TRAJECTORY-ARKADIA-TRUTHFULNESS-01.yaml'
+      - 'docs/control-plane/WEAVER-RUN-PROTOCOL.md'
   push:
     branches: [main]
     paths:
