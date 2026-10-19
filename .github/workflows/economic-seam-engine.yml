@@ -32,9 +32,8 @@ on:
       - 'enterprises/eden-food-systems/tasks.seed.json'
       - 'api/economic_seam_routes.py'
       - 'tests/**'
-      - 'conftest.py'
-      - 'google_workspace/Code.gs'
-      - 'google_workspace/Code.gs'
+      - 'conftest.py'      - 'google_workspace/Code.gs'
+
       - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
       - '.github/workflows/economic-seam-engine.yml'
       - '.github/workflows/sg-02-fe-2-v.yml'
@@ -70,7 +69,8 @@ on:
       - 'enterprises/eden-food-systems/tasks.seed.json'
       - 'api/economic_seam_routes.py'
       - 'tests/**'
-      - 'conftest.py'
+      - 'conftest.py'      - 'google_workspace/Code.gs'
+
       - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
       - '.github/workflows/economic-seam-engine.yml'
       - '.github/workflows/sg-02-fe-2-v.yml'
