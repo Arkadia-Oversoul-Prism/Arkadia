@@ -15,6 +15,8 @@ on:
       - 'economic_seams/__init__.py'
       - 'economic_seams/correlation.py'
       - 'economic_seams/engine.py'
+      - 'economic_seams/market_data.py'
+      - 'economic_seams/market_data.py'
       - 'api/lab_routes.py'
       - 'tests/test_spiral_grove_frontend_projection.py'
       - 'tests/test_spiral_grove_chambers.py'
