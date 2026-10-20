@@ -39,6 +39,7 @@ on:
       - 'knowledge/vault.py'
       - 'lab/council/evaluators.py'
       - 'musical-intention-engine/00-CONSTITUTION.md'
+      - 'musical-intention-engine/03-MUSICAL-OBJECT-SPEC.md'
       - 'google_workspace/appsscript.json'
 
       - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
@@ -83,6 +84,7 @@ on:
       - 'knowledge/vault.py'
       - 'lab/council/evaluators.py'
       - 'musical-intention-engine/00-CONSTITUTION.md'
+      - 'musical-intention-engine/03-MUSICAL-OBJECT-SPEC.md'
       - 'google_workspace/appsscript.json'
 
       - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
