@@ -37,6 +37,7 @@ on:
       - 'knowledge/context_engine.py'
       - 'knowledge/static_ingestion.py'
       - 'knowledge/vault.py'
+      - 'lab/council/evaluators.py'
       - 'google_workspace/appsscript.json'
 
       - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
@@ -79,6 +80,7 @@ on:
       - 'knowledge/context_engine.py'
       - 'knowledge/static_ingestion.py'
       - 'knowledge/vault.py'
+       - 'lab/council/evaluators.py'
       - 'google_workspace/appsscript.json'
 
       - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
