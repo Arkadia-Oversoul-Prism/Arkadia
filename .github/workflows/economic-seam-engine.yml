@@ -74,6 +74,7 @@ on:
       - 'tests/**'
       - 'conftest.py'
       - 'google_workspace/Code.gs'
+      - 'knowledge/context_engine.py'
       - 'google_workspace/appsscript.json'
 
       - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
