@@ -17,6 +17,7 @@ on:
       - "tests/test_m02a_ci_gate_integrity.py"
       - "google_workspace/Code.gs"
       - "knowledge/context_engine.py"
+      - "knowledge/vault.py"
       - "knowledge/static_ingestion.py"
       - "google_workspace/appsscript.json"
       - "tests/test_market_data.py"
