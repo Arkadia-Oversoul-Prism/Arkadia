@@ -82,6 +82,7 @@ on:
       - 'economic_seams/engine.py'
       - 'economic_seams/market_data.py'
       - 'economic_seams/nocopo.py'
+      - 'enterprises/eden-food-systems/enterprise.json'
 
       - 'api/lab_routes.py'
       - 'tests/test_spiral_grove_frontend_projection.py'
