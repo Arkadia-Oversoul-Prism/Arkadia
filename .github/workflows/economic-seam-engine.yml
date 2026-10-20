@@ -78,6 +78,7 @@ on:
       - 'google_workspace/Code.gs'
       - 'knowledge/context_engine.py'
       - 'knowledge/static_ingestion.py'
+      - 'knowledge/vault.py'
       - 'google_workspace/appsscript.json'
 
       - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
