@@ -18,6 +18,7 @@ on:
       - "google_workspace/Code.gs"
       - "knowledge/context_engine.py"
       - "knowledge/vault.py"
+      - "lab/council/evaluators.py"
       - "knowledge/static_ingestion.py"
       - "google_workspace/appsscript.json"
       - "tests/test_market_data.py"
