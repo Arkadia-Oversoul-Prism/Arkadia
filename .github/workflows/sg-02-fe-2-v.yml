@@ -16,6 +16,8 @@ on:
       - 'economic_seams/correlation.py'
       - 'economic_seams/engine.py'
       - 'economic_seams/market_data.py'
+      - 'enterprises/eden-food-systems/enterprise.json'
+      - 'enterprises/eden-food-systems/enterprise.json'
       - 'economic_seams/nocopo.py'
 
       - 'api/lab_routes.py'
