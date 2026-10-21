@@ -68,6 +68,25 @@ def test_unrecognized_frontier_is_not_a_clean_stop():
     assert CLEAN_STOP_BLOCKER not in blockers
 
 
+def test_acceptance_pending_gate_is_named_not_unrecognized():
+    """A schema-legal merged-but-unaccepted status is a human gate, not a data defect.
+
+    `merged_acceptance_pending` once fell through to the generic "unrecognized move
+    status" marker. The router now classifies it as a non-routable gate, so that marker
+    (reserved for statuses *outside* the frozen schema) no longer applies — but the
+    frontier must still be a blocked stop, never a clean one.
+    """
+    move, blockers = select_next_move(
+        _traj([{"id": "A", "status": "merged_acceptance_pending", "spec": "s.md"}])
+    )
+    assert move is None
+    joined = " ".join(blockers)
+    assert "merged_acceptance_pending" in joined
+    assert "human review/acceptance evidence required" in joined
+    assert "unrecognized move status" not in joined
+    assert CLEAN_STOP_BLOCKER not in blockers
+
+
 def test_missing_spec_is_not_a_clean_stop():
     """A recognized active move with no spec is an unroutable frontier, not a clean stop."""
     _, blockers = select_next_move(_traj([{"id": "A", "status": "pending"}]))
