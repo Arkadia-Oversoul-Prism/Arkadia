@@ -112,11 +112,39 @@ class ExecutionRuntime:
             if step.get("tool") in _ENGINEERING_MUTATION_TOOLS
         ]
         if blocked:
-            raise PermissionError(
+            # Record a terminal denial as an auditable execution result. The
+            # mutation is still rejected before any worker or tool can run; callers
+            # receive the same lifecycle shape as other refused workflow steps.
+            now = time.time()
+            message = (
                 "Engineering mutation is disabled in SolSpire ExecutionRuntime; "
                 "use the governed Weaver K15 → K3 path. "
                 f"Blocked tools: {', '.join(blocked)}"
             )
+            exec_id = str(uuid.uuid4())
+            execution = Execution(
+                id=exec_id,
+                plan=plan,
+                status=ExecutionStatus.FAILED,
+                started_at=now,
+                completed_at=now,
+                results=[{
+                    "step": index,
+                    "tool": tool,
+                    "ok": False,
+                    "status": "BLOCKED",
+                    "code": "MUTATION_DISABLED",
+                    "error": message,
+                } for index, tool in enumerate(
+                    step.get("tool") for step in plan.steps
+                    if step.get("tool") in _ENGINEERING_MUTATION_TOOLS
+                )],
+                error=message,
+                owner_uid=owner_uid,
+            )
+            with self._lock:
+                self._executions[exec_id] = execution
+            return execution
 
         exec_id = str(uuid.uuid4())
         execution = Execution(

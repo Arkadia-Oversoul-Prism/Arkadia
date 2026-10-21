@@ -26,20 +26,90 @@ on:
   pull_request:
     paths:
       - 'economic_seams/**'
+      - 'federation/__init__.py'
+      - 'federation/agent_card.py'
+      - 'enterprises/eden-food-systems/enterprise.json'
+      - 'enterprises/eden-food-systems/tasks.seed.json'
       - 'api/economic_seam_routes.py'
       - 'tests/**'
+      - 'conftest.py'
+      - 'google_workspace/Code.gs'
+      - 'knowledge/context_engine.py'
+      - 'knowledge/static_ingestion.py'
+      - 'knowledge/vault.py'
+      - 'lab/council/evaluators.py'
+      - 'musical-intention-engine/00-CONSTITUTION.md'
+      - 'musical-intention-engine/03-MUSICAL-OBJECT-SPEC.md'
+      - 'musical-intention-engine/06-EXPERIMENTS/EXP-001.md'
+      - 'google_workspace/appsscript.json'
+
+      - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
       - '.github/workflows/economic-seam-engine.yml'
+      - '.github/workflows/sg-02-fe-2-v.yml'
+      - 'AGENTS.md'
+      - 'CURRENT_STATE.md'
+      - 'NEXT_AGENT.md'
+      - 'PARKING_LOT.md'
+      - 'ROADMAP.md'
+      - "archive/frontend/arkadia-prism/web/public_prism/src/data/opportunityRadar.ts"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/EdenControlRoom.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperienceV2.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/pages/EnterpriseConsole.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/pages/OpportunityRadarPage.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/pages/ProjectDashboard.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolariunHomeCockpit.tsx"
+      - 'docs/control-plane/TRAJECTORY-ARKADIA-TRUTHFULNESS-01.yaml'
+      - 'docs/control-plane/WEAVER-RUN-PROTOCOL.md'
+      - 'docs/control-plane/moves/M02A-ci-gate-integrity.md'
+      - 'docs/control-plane/evidence/federation-agent-card-01/EVIDENCE.md'
+      - 'docs/control-plane/evidence/solariun-thread-calibration/EVIDENCE.md'
   push:
     branches: [main]
     paths:
+      - "archive/frontend/arkadia-prism/web/public_prism/src/pages/EnterpriseConsole.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/pages/OpportunityRadarPage.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/pages/ProjectDashboard.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/data/opportunityRadar.ts"
       - 'economic_seams/**'
+      - 'federation/__init__.py'
+      - 'federation/agent_card.py'
+      - 'enterprises/eden-food-systems/enterprise.json'
+      - 'enterprises/eden-food-systems/tasks.seed.json'
       - 'api/economic_seam_routes.py'
       - 'tests/**'
+      - 'conftest.py'
+      - 'google_workspace/Code.gs'
+      - 'knowledge/context_engine.py'
+      - 'knowledge/static_ingestion.py'
+      - 'knowledge/vault.py'
+      - 'lab/council/evaluators.py'
+      - 'musical-intention-engine/00-CONSTITUTION.md'
+      - 'musical-intention-engine/03-MUSICAL-OBJECT-SPEC.md'
+      - 'musical-intention-engine/06-EXPERIMENTS/EXP-001.md'
+      - 'google_workspace/appsscript.json'
+
+      - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
       - '.github/workflows/economic-seam-engine.yml'
+      - '.github/workflows/sg-02-fe-2-v.yml'
+      - 'AGENTS.md'
+      - 'CURRENT_STATE.md'
+      - 'NEXT_AGENT.md'
+      - 'PARKING_LOT.md'
+      - 'ROADMAP.md'
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/EdenControlRoom.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperienceV2.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolariunHomeCockpit.tsx"
   # The gate is path-filtered, so a revision touching none of the above never runs
   # it. `workflow_dispatch` lets the seam contract be executed against an exact
   # revision on demand (it runs the workflow file from the dispatched ref, so
   # `ref=main` yields an execution at the current main SHA).
+      - 'docs/control-plane/TRAJECTORY-ARKADIA-TRUTHFULNESS-01.yaml'
+      - 'docs/control-plane/WEAVER-RUN-PROTOCOL.md'
+      - 'docs/control-plane/moves/M02A-ci-gate-integrity.md'
+      - 'docs/control-plane/evidence/federation-agent-card-01/EVIDENCE.md'
+      - 'docs/control-plane/evidence/solariun-thread-calibration/EVIDENCE.md'
   workflow_dispatch:
 
 permissions:
@@ -53,6 +123,8 @@ jobs:
       PYTHONPATH: .
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

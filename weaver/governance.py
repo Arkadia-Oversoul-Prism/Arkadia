@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .execution import PatchApproval, pass_spec_hash, patch_content_hash
+from .execution import PatchApproval, execute_patch, pass_spec_hash, patch_content_hash
 from .pass_spec import PassSpec, current_head, path_in_allowlist
 
 
@@ -190,6 +190,7 @@ def build_patch_approval(
 __all__ = [
     "PatchApproval",
     "build_patch_approval",
+    "execute_patch",
     "build_pass_spec_for_patch",
     "evaluate_patch_readiness",
 ]

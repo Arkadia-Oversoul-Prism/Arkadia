@@ -11,14 +11,18 @@ def test_autonomy_config_exists_and_valid():
 def test_autonomy_run_respects_limits(monkeypatch, tmp_path):
     # Prepare a temporary repo root and override AUTONOMY_PATH
     monkeypatch.setenv('REPO_ROOT', str(tmp_path))
+    monkeypatch.chdir(tmp_path)
     # Make sure roles.json includes Flamekeeper
     roles_dir = tmp_path / 'governance'
     roles_dir.mkdir(parents=True, exist_ok=True)
-    (roles_dir / 'roles.json').write_text('{"Flamekeeper": {}}')
+    (roles_dir / 'roles.json').write_text('{"Flamekeeper": {}, "governance": {}}')
 
     # Create a copy of autonomy.json with a low commit limit
     from pathlib import Path
     aconf = load_autonomy_config()
+    # Exercise the scheduler's limit enforcement with an explicitly enabled
+    # isolated test config; the canonical repository config remains disabled.
+    aconf['enabled'] = True
     aconf['max_commits_per_run'] = 1
     # Run scheduled once with use_stub True and patched environment
     monkeypatch.setenv('ARKADIA_AUTONOMOUS', 'true')

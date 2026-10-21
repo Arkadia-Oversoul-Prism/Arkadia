@@ -4,9 +4,23 @@ on:
   push:
     branches: [main]
     paths:
+      - "archive/frontend/arkadia-prism/web/public_prism/src/data/opportunityRadar.ts"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/pages/EnterpriseConsole.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/pages/OpportunityRadarPage.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/pages/OpportunityRadarPage.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/pages/OpportunityRadarPage.tsx"
       - 'web/arkadia_console/**'
       - 'spiral_grove/**'
       - 'lab/**'
+      - 'economic_seams/__init__.py'
+      - 'economic_seams/correlation.py'
+      - 'economic_seams/engine.py'
+      - 'economic_seams/market_data.py'
+      - 'enterprises/eden-food-systems/enterprise.json'
+      - 'enterprises/eden-food-systems/enterprise.json'
+      - 'economic_seams/nocopo.py'
+      - 'enterprises/eden-food-systems/enterprise.json'
+
       - 'api/lab_routes.py'
       - 'tests/test_spiral_grove_frontend_projection.py'
       - 'tests/test_spiral_grove_chambers.py'
@@ -26,6 +40,18 @@ on:
       # is self-exempt.
       - 'scripts/cp10_mutation_boundary_policy.py'
       - 'tests/test_m02a_ci_gate_integrity.py'
+      - 'tests/test_history_depth_ci_wiring.py'
+      - 'conftest.py'
+      - 'AGENTS.md'
+      - 'README.md'
+      - 'CURRENT_STATE.md'
+      - 'NEXT_AGENT.md'
+      - 'PARKING_LOT.md'
+      - 'ROADMAP.md'
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/EdenControlRoom.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperienceV2.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolariunHomeCockpit.tsx"
       # The SolSpire isolated-runtime step executes these named guards; the
       # path filters must select them too (tests/test_gate_filter_selection.py).
       - 'tests/test_solspire_project_execution_service.py'
@@ -39,11 +65,25 @@ on:
       - 'tests/test_phase10_binding.py'
       - 'requirements.txt'
       - '.github/workflows/sg-02-fe-2-v.yml'
+      - "archive/frontend/arkadia-prism/web/public_prism/src/pages/ProjectDashboard.tsx"
+      - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
+      - 'docs/control-plane/TRAJECTORY-ARKADIA-TRUTHFULNESS-01.yaml'
+      - 'docs/control-plane/WEAVER-RUN-PROTOCOL.md'
+      - 'docs/control-plane/moves/M02A-ci-gate-integrity.md'
+      - 'docs/control-plane/evidence/federation-agent-card-01/EVIDENCE.md'
+      - 'docs/control-plane/evidence/solariun-thread-calibration/EVIDENCE.md'
   pull_request:
     paths:
       - 'web/arkadia_console/**'
       - 'spiral_grove/**'
       - 'lab/**'
+      - 'economic_seams/__init__.py'
+      - 'economic_seams/correlation.py'
+      - 'economic_seams/engine.py'
+      - 'economic_seams/market_data.py'
+      - 'economic_seams/nocopo.py'
+      - 'enterprises/eden-food-systems/enterprise.json'
+
       - 'api/lab_routes.py'
       - 'tests/test_spiral_grove_frontend_projection.py'
       - 'tests/test_spiral_grove_chambers.py'
@@ -68,6 +108,22 @@ on:
       # is self-exempt.
       - 'scripts/cp10_mutation_boundary_policy.py'
       - 'tests/test_m02a_ci_gate_integrity.py'
+      - 'tests/test_history_depth_ci_wiring.py'
+      - 'conftest.py'
+      - 'AGENTS.md'
+      - 'README.md'
+      - 'CURRENT_STATE.md'
+      - 'NEXT_AGENT.md'
+      - 'PARKING_LOT.md'
+      - 'ROADMAP.md'
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/EdenControlRoom.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/data/opportunityRadar.ts"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/pages/EnterpriseConsole.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/pages/OpportunityRadarPage.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/pages/ProjectDashboard.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperience.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolSpireExperienceV2.tsx"
+      - "archive/frontend/arkadia-prism/web/public_prism/src/components/solspire/SolariunHomeCockpit.tsx"
       # The SolSpire isolated-runtime step executes these named guards; the
       # path filters must select them too (tests/test_gate_filter_selection.py).
       - 'tests/test_solspire_project_execution_service.py'
@@ -81,6 +137,12 @@ on:
       - 'tests/test_phase10_binding.py'
       - 'requirements.txt'
       - '.github/workflows/sg-02-fe-2-v.yml'
+      - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
+      - 'docs/control-plane/TRAJECTORY-ARKADIA-TRUTHFULNESS-01.yaml'
+      - 'docs/control-plane/WEAVER-RUN-PROTOCOL.md'
+      - 'docs/control-plane/moves/M02A-ci-gate-integrity.md'
+      - 'docs/control-plane/evidence/federation-agent-card-01/EVIDENCE.md'
+      - 'docs/control-plane/evidence/solariun-thread-calibration/EVIDENCE.md'
   workflow_dispatch:
     inputs:
       vite_firebase_api_key:
