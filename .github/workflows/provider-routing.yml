@@ -17,6 +17,7 @@ on:
       - "tests/test_m02a_ci_gate_integrity.py"
       - "google_workspace/Code.gs"
       - "knowledge/context_engine.py"
+      - "musical-intention-engine/00-CONSTITUTION.md"
       - "knowledge/vault.py"
       - "lab/council/evaluators.py"
       - "knowledge/static_ingestion.py"
