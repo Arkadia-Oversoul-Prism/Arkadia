@@ -40,6 +40,7 @@ on:
       - 'lab/council/evaluators.py'
       - 'musical-intention-engine/00-CONSTITUTION.md'
       - 'musical-intention-engine/03-MUSICAL-OBJECT-SPEC.md'
+      - 'musical-intention-engine/06-EXPERIMENTS/EXP-001.md'
       - 'google_workspace/appsscript.json'
 
       - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
@@ -85,6 +86,7 @@ on:
       - 'lab/council/evaluators.py'
       - 'musical-intention-engine/00-CONSTITUTION.md'
       - 'musical-intention-engine/03-MUSICAL-OBJECT-SPEC.md'
+      - 'musical-intention-engine/06-EXPERIMENTS/EXP-001.md'
       - 'google_workspace/appsscript.json'
 
       - 'docs/architecture/EDEN-OPS-02_IMPLEMENTATION.md'
