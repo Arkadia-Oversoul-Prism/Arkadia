@@ -18,6 +18,7 @@ on:
       - "google_workspace/Code.gs"
       - "knowledge/context_engine.py"
       - "musical-intention-engine/00-CONSTITUTION.md"
+      - "musical-intention-engine/03-MUSICAL-OBJECT-SPEC.md"
       - "knowledge/vault.py"
       - "lab/council/evaluators.py"
       - "knowledge/static_ingestion.py"
