@@ -45,6 +45,7 @@ export function Shell({
 }) {
   const { profile, isAuthenticated, identityState, signOutNow } = useAuth();
   const mainRef = useRef<HTMLElement>(null);
+  const mobileNavRef = useRef<HTMLElement>(null);
 
   // A route change moves to a new surface, but the browser keeps the keyboard
   // focus (and scroll position) where the previous surface left it. Focus the
@@ -52,6 +53,29 @@ export function Shell({
   // the new surface instead of in the navigation that is now behind them.
   useEffect(() => {
     mainRef.current?.focus();
+  }, [current]);
+
+  // The mobile strip is wider than the viewport and scrolls horizontally, so a
+  // surface whose item sits past the right edge would render with no visible
+  // current-page marker — the one thing the strip exists to show. Reveal the
+  // active item on every route change. Only `scrollLeft` is adjusted: a
+  // `scrollIntoView` here would also move the page vertically. The scroll is
+  // instant (no `behavior: "smooth"`), so it needs no reduced-motion guard.
+  useEffect(() => {
+    const nav = mobileNavRef.current;
+    // `md:hidden` leaves the strip in the DOM with no layout box on desktop;
+    // every rect reads 0 there, which would compute a spurious offset.
+    if (!nav || nav.clientWidth === 0) return;
+    const active = nav.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!active) return;
+    const navBox = nav.getBoundingClientRect();
+    const box = active.getBoundingClientRect();
+    const pad = 8; // matches the strip's `p-2`
+    if (box.left < navBox.left + pad) {
+      nav.scrollLeft -= navBox.left + pad - box.left;
+    } else if (box.right > navBox.right - pad) {
+      nav.scrollLeft += box.right - (navBox.right - pad);
+    }
   }, [current]);
 
   return (
@@ -102,7 +126,11 @@ export function Shell({
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Mobile navigation: the same surfaces, no second global nav bar. */}
-        <nav aria-label="Primary navigation (mobile)" className="flex gap-1 overflow-x-auto border-b border-line bg-panel/40 p-2 md:hidden">
+        <nav
+          ref={mobileNavRef}
+          aria-label="Primary navigation (mobile)"
+          className="flex gap-1 overflow-x-auto border-b border-line bg-panel/40 p-2 md:hidden"
+        >
           {NAV_SURFACES.map((s) => (
             <NavLink key={s.id} active={current === s.id} label={s.name} accent={s.accent} onClick={() => onNavigate(s.id)} />
           ))}
