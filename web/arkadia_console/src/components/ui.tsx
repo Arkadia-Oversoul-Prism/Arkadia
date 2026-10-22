@@ -33,7 +33,18 @@ export function Facts({ rows }: { rows: Array<{ label: string; value: ReactNode 
       {rows.map((row) => (
         <div key={row.label} className="contents">
           <dt className="font-mono text-[11px] uppercase tracking-wider text-white/40">{row.label}</dt>
-          <dd className="text-white/85">{row.value}</dd>
+          {/*
+           * `min-w-0 break-words`: this column holds arbitrary contract readings,
+           * including long unbroken tokens — a 40-char revision SHA, an `EVD-…`
+           * evidence id, a session id, or the raw `JSON.stringify` output that
+           * `scalarOverview` emits for an object-valued overview key. Measured in
+           * Chromium 390x844 against the canonical deployment: substituting a
+           * 164-char unbroken value into this element took the document from 0 to
+           * 405px of horizontal overflow. `min-w-0` lets the grid track shrink
+           * below the token's intrinsic width and `break-words` wraps it; neither
+           * affects a value that already fits.
+           */}
+          <dd className="min-w-0 break-words text-white/85">{row.value}</dd>
         </div>
       ))}
     </dl>
