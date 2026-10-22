@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - ".github/workflows/provider-routing.yml"
+      - "scripts/provider_routing_gate.py"
+      - "scripts/baseline_fingerprint.py"
+      - "tests/test_provider_routing_gate.py"
       - "weaver/**"
       - "providers/**"
       - "tests/architecture/**"
@@ -13,30 +16,211 @@ on:
       - "docs/verification/PROVIDER-ROUTING-AUDIT-BASELINE.md"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   provider-routing:
     runs-on: ubuntu-latest
+    env:
+      # The exact command is recorded into the baseline/candidate evidence and
+      # compared for equality by the gate. It must be identical on both sides or
+      # the comparison is INCONCLUSIVE, so it is defined once, here.
+      GATE_COMMAND: "python -m pytest tests/ -q -rEf --continue-on-collection-errors"
+      GATE_PYTHON: "3.11"
+      GATE_DEPS: "requirements.txt"
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The gate derives the candidate's merge base with `git merge-base`, and
+          # resolves the baseline commit. A depth-1 clone cannot answer either.
+          fetch-depth: 0
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
       - run: python -m pip install --upgrade pip
-      - run: |
+
+      - name: Install dependencies
+        run: |
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install pytest
+
       - name: Targeted K2 and key-pool regressions
         run: |
           python -m pytest tests/test_weaver_k2.py tests/test_key_pool.py -q
+
       - name: Relevant architecture regression
         run: |
           python -m pytest tests/architecture -q
-      - name: Broader test suite
+
+      - name: Gate self-controls
         run: |
-          # --continue-on-collection-errors is required, not cosmetic: the known
-          # CE-01 `weaver.autonomy` module-vs-package collision aborts the whole
-          # session on a bare `pytest tests/` ("Interrupted: 1 error during
-          # collection"), so no test runs and every weaver/** guard silently
-          # executes zero times in CI. This step's job is to judge the suite and
-          # report the pre-existing debt, not to abort before reaching it.
-          python -m pytest tests/ -q -rEf --continue-on-collection-errors
+          # The gate's own tests. A gate that cannot be shown to reject
+          # internally-inconsistent evidence is not a gate.
+          python -m pytest tests/test_provider_routing_gate.py -q
+
+      - name: Resolve comparison revisions
+        id: revs
+        env:
+          # Event-derived values reach the shell through the environment and are
+          # referenced quoted. `${{ }}` is substituted before bash parses the
+          # script, so interpolating event text into a `run:` block is a command
+          # injection surface (ADR-013 §1; see tests/test_workflow_injection_boundary.py).
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_REF: ${{ github.base_ref }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BASE_REF="origin/${PR_BASE_REF}"
+            HEAD_REF="${PR_HEAD_SHA}"
+          else
+            BASE_REF="origin/main"
+            HEAD_REF="${PUSH_SHA}"
+          fi
+          BASE_SHA="$(git merge-base "$BASE_REF" "$HEAD_REF")"
+          echo "base_ref=$BASE_REF" >> "$GITHUB_OUTPUT"
+          echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
+          echo "merge_base=$BASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$(git rev-parse "$HEAD_REF")" >> "$GITHUB_OUTPUT"
+          echo "merge base for ${BASE_REF}..${HEAD_REF}: ${BASE_SHA}"
+
+      - name: Baseline suite at the merge base
+        id: baseline_run
+        continue-on-error: true
+        env:
+          BASE_SHA: ${{ steps.revs.outputs.merge_base }}
+        run: |
+          # Run the suite against the candidate's MERGE BASE, not against whatever
+          # `main` happens to be now. If the base differs from main, a main-measured
+          # baseline would be stale and the gate would (correctly) refuse it.
+          git worktree add --detach "$RUNNER_TEMP/baseline-wt" "$BASE_SHA"
+          cd "$RUNNER_TEMP/baseline-wt"
+          python -m pytest tests/ -q -rEf --continue-on-collection-errors \
+            > "$GITHUB_WORKSPACE/baseline.log" 2>&1 || true
+          tail -3 "$GITHUB_WORKSPACE/baseline.log" || true
+
+      - name: Record baseline identity
+        run: |
+          python - <<'PY'
+          import json, os, sys
+          sys.path.insert(0, "scripts")
+          from baseline_fingerprint import extract, fingerprint
+          log = "baseline.log"
+          outcomes, ids = extract(log)
+          record = {
+              "schema": "arkadia.provider-routing-baseline/1",
+              "source_sha": os.environ["BASE_SHA"],
+              "environment": {
+                  "python": os.environ["GATE_PYTHON"],
+                  "command": os.environ["GATE_COMMAND"],
+                  "dependency_source": os.environ["GATE_DEPS"],
+              },
+              "log": log,
+              "nodes": len(ids),
+              "ids_fingerprint": fingerprint(ids),
+              "outcomes_fingerprint": fingerprint(outcomes),
+          }
+          with open("baseline.json", "w") as fh:
+              json.dump(record, fh, indent=2, sort_keys=True)
+          print(json.dumps(record, indent=2, sort_keys=True))
+          PY
+        env:
+          BASE_SHA: ${{ steps.revs.outputs.merge_base }}
+
+      - name: Judge the candidate suite against the merge-base baseline
+        id: judge
+        env:
+          BASE_SHA: ${{ steps.revs.outputs.merge_base }}
+        # Deliberately NOT `continue-on-error`. This step is the judging surface
+        # for the whole suite, so it must be able to fail the job. It runs the
+        # suite itself (with `--continue-on-collection-errors`, so the known CE-01
+        # collection error does not abort the session before any test executes)
+        # and then exits with the *gate's* verdict rather than pytest's raw exit
+        # code. That is the entire point: a candidate that introduces no new
+        # failing node passes even though the suite is not green, and a candidate
+        # that introduces one fails.
+        #
+        # tests/test_ci_suite_collection_continuation.py asserts this step exists
+        # and carries the continuation flag; do not demote it to
+        # `continue-on-error` without moving the judgment somewhere that can fail.
+        run: |
+          set +e
+          python -m pytest tests/ -q -rEf --continue-on-collection-errors > candidate.log 2>&1
+          tail -3 candidate.log
+          python scripts/provider_routing_gate.py \
+            --baseline baseline.json \
+            --candidate candidate.log \
+            --candidate-base-sha "$BASE_SHA" \
+            --python "$GATE_PYTHON" \
+            --command "$GATE_COMMAND" \
+            --dependency-source "$GATE_DEPS" \
+            --report gate-result.json \
+            --json
+          GATE_EXIT=$?
+          echo "gate_exit=$GATE_EXIT" >> "$GITHUB_OUTPUT"
+          exit $GATE_EXIT
+
+      - name: Emit evidence manifest
+        if: always()
+        run: |
+          python - <<'PY'
+          import json, os, pathlib
+          manifest = {
+              "schema": "arkadia.provider-routing-evidence/1",
+              "workflow": "provider-routing.yml",
+              "run_id": os.environ.get("GITHUB_RUN_ID"),
+              "run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
+              "event": os.environ.get("GITHUB_EVENT_NAME"),
+              "repository": os.environ.get("GITHUB_REPOSITORY"),
+              "candidate_sha": os.environ.get("HEAD_SHA"),
+              "merge_base_sha": os.environ.get("BASE_SHA"),
+              "environment": {
+                  "python": os.environ.get("GATE_PYTHON"),
+                  "command": os.environ.get("GATE_COMMAND"),
+                  "dependency_source": os.environ.get("GATE_DEPS"),
+              },
+              "artifacts": ["baseline.log", "candidate.log", "baseline.json",
+                            "gate-result.json"],
+          }
+          for name in ("baseline.json", "gate-result.json"):
+              p = pathlib.Path(name)
+              manifest[name] = json.loads(p.read_text()) if p.exists() else None
+          pathlib.Path("evidence-manifest.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True))
+          print(json.dumps(manifest, indent=2, sort_keys=True))
+          PY
+        env:
+          BASE_SHA: ${{ steps.revs.outputs.merge_base }}
+          HEAD_SHA: ${{ steps.revs.outputs.head_sha }}
+
+      - name: Upload gate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-routing-evidence-${{ github.run_id }}
+          path: |
+            baseline.log
+            candidate.log
+            baseline.json
+            gate-result.json
+            evidence-manifest.json
+          if-no-files-found: error
+
+      - name: Enforce the gate verdict
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ ! -f gate-result.json ]; then
+            echo "::error::no gate result was produced; treating as INCONCLUSIVE"
+            exit 2
+          fi
+          VERDICT="$(python -c "import json;print(json.load(open('gate-result.json'))['verdict'])")"
+          case "$VERDICT" in
+            PASS) echo "gate verdict: PASS" ;;
+            FAIL) echo "::error::gate verdict FAIL — the candidate introduces new failing nodes"; exit 1 ;;
+            *)    echo "::error::gate verdict $VERDICT — evidence is missing, stale or incomparable"; exit 2 ;;
+          esac
