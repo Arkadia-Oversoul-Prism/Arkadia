@@ -5,8 +5,64 @@
 **Canonical production origin:** `https://arkadia-qzu4.onrender.com` (ADR-016)
 **Authorization:** investigate / reconcile / implement locally / verify. **No** merge, push,
 deploy, production mutation, or acceptance.
-**Status:** bounded implementation complete and verified; 2 defects repaired, 1 drift class
-recorded; merge/deploy/acceptance **NOT CLAIMED**.
+**Status:** bounded implementation complete and verified; 3 defects repaired (2 in product source,
+1 in this mission's own first cut), 1 drift class and 1 routing gap reported; merge/deploy/
+acceptance **NOT CLAIMED**.
+
+---
+
+## 0. Revision note — a second defect in this branch, found while preparing review
+
+A verification pass carried out **to enable** human review found a real defect in the branch
+itself, so the branch was re-cut. Read this before reviewing any SHA.
+
+Commit `3f38c942` accidentally **tracked a build artifact** —
+`web/arkadia_console/dist-verify/` (7 files, ~1,600 lines of minified JS). A later commit removed
+it, so the **net** diff was always clean and every test result in this document is unaffected.
+But the intermediate commit is permanent history, and a patch series that adds then deletes a
+1.5k-line artifact is not something that should be merged.
+
+The artifact was inspected before any decision was made: `firebase-config.js` is the documented
+**inert** default (`window.__ARKADIA_FIREBASE_CONFIG__ = window.__ARKADIA_FIREBASE_CONFIG__ || {}`)
+and the only embedded absolute URL is the public canonical origin
+`https://arkadia-qzu4.onrender.com`. **No credential, token, or private value is present**, and a
+regex scan of the candidate diff for credential shapes returned nothing.
+
+| | SHA | tree |
+|---|---|---|
+| Base (`main`) | `3cd81f76d0149a8a821a5152813ac50a68144b0e` | — |
+| **Candidate (review this)** | `mission/ark-vsr-2026-10-22-clean` @ `9dd305f6` | `ddf21933` |
+| Superseded, kept for audit | `mission/ark-vsr-2026-10-22` @ `48da2897` | `ddf21933` |
+
+The clean branch re-applies the same five commits with the artifact stripped, so **no commit in it
+carries the artifact** while the final tree is **byte-identical**. Nothing was rewritten or
+force-pushed; the original is preserved as `-original`.
+
+Verified: sequential `git am` of the five patches onto the base reproduces tree `ddf21933` exactly,
+and the 20 guards pass on the reproduced tree.
+
+**A local review bundle is at `/tmp/vsr-bundle/`** (`README.md`, `full.diff`, `commits/*.patch`,
+test logs, node sets, measurement harnesses + captured JSON). It exists because the earlier review
+could not inspect a branch that had never been pushed — the reviewer's request for local artifacts
+is what surfaced the artifact defect above.
+
+### One measurement caveat, recorded rather than smoothed over
+
+A candidate suite run reported a **10th** failing node,
+`tests/test_weaver_mvp2_exec_binding.py::test_eb_valid_reaches_k15_seam`, absent from every
+baseline run. It was traced, not dismissed. Its fixture calls `current_head(repo_root)` — it reads
+**live git HEAD** — and the assertion message is `HEAD drift: patch base ...`. `git checkout` and
+`cherry-pick` were running in the same working tree **while the suite executed**, so the fixture's
+captured `base_head_sha` went stale mid-run.
+
+Re-run with no concurrent git activity: **8 failed / 3350 passed / 17 skipped / 1 error**, with the
+failing/error node set **byte-identical to baseline** (`sha256 c280ddc6…`, 9 nodes, `comm -3`
+empty). The node is a harness race, not a product defect — this diff contains no Python. It is the
+same cross-test-contamination class already recorded for
+`test_engineering_lab_agent_loop_does_not_mutate_repository`.
+
+**Do not run the full suite in the same working tree you are checking out branches in.** The
+fixture will capture a HEAD that moves underneath it.
 
 ---
 
@@ -228,6 +284,44 @@ One observation explicitly **not** attributed to this change: `/` and `/about` s
 viewport and it is **also 66** — pre-existing, from the content-landmark focus scrolling the
 tall Home page. Not caused by, and not repaired by, this work.
 
+### VSR-001b — a second defect in the first cut of my own repair
+
+An adversarial stress pass over the repair (not over the original product) found that the first
+cut was **incomplete**. It keyed the reveal on `[current]` alone, so it fixed the reported defect
+and left a narrower one: a route change is not the only event that can hide the active item.
+Narrowing the viewport grows the strip's scrollable range without moving `scrollLeft`, stranding
+the active item past the right edge again.
+
+Measured against that first cut in Chromium — **4/4 narrowings failed**:
+
+| Resize | active item right edge | strip right edge | fully visible |
+|---|---|---|---|
+| 700 → 400 | 692 | 400 | ❌ |
+| 600 → 360 | 592 | 360 | ❌ |
+| 390 → 320 | 382 | 320 | ❌ |
+| 767 → 300 | 759 | 300 | ❌ |
+
+**Repair** (`07c93d6c`): the reveal becomes a `useCallback` invoked from both the route effect and
+a `ResizeObserver` on the strip. Observing the strip rather than `window.resize` covers the case
+without introducing a second breakpoint constant that could drift from Tailwind's `md:`.
+
+All four narrowings now report `fullyVisible: true`. Two risks were ruled out by measurement
+rather than assumed:
+
+- **ResizeObserver feedback loop** — the observer fires **once**, attribute-mutation growth while
+  idle is **0**, and `scrollLeft` is stable across 8 samples (409 every time). A loop would show
+  as unbounded growth in one of those counters.
+- **Desktop inertness** — at 1280px the strip's `clientWidth` is `0` (`md:hidden`), so the reveal
+  returns early and never computes an offset from zeroed rects.
+
+A **font-swap race** was also tested and **not reproduced**: sampling from `waitUntil: 'commit'`
+onward, the first measurable sample was already correct (`scrollLeft 411`, then settling to 409),
+so the reveal is not racing webfont metrics.
+
+This is recorded because the first cut was committed as a fix and would have shipped a partial
+one. The lesson is that "the reported symptom is gone" and "the defect class is closed" are
+different claims, and only the second is worth asserting.
+
 ---
 
 ## 5. VIS-002 — Engineering Lab density — **CONFIRMED LATENT DEFECT, REPAIRED**
@@ -265,6 +359,23 @@ shared by every surface.
 
 **Repair** (`3f38c942`, `components/ui.tsx`, 1 file): `min-w-0 break-words` on the `dd`. The
 `minmax(0,10rem)` label cap is unchanged, so no existing reading is re-laid-out.
+
+### The `display: contents` question, settled by measurement
+
+The `dd` is not a direct grid child: it sits inside `<div className="contents">`, which makes the
+`div` generate no box, so the `dt`/`dd` participate in the *grandparent* grid. That makes "does
+`min-w-0` on the `dd` actually work?" a real question rather than an assumption, so it was tested
+against the **exact** DOM structure and the production stylesheet, at 390px:
+
+| | strip overflow | `dd` width | `dt` (label) width |
+|---|---|---|---|
+| pre-repair | **414px** | 772 | **0** |
+| repaired | **0px** | 198 | 160 |
+
+The fix is confirmed effective through the `contents` wrapper. It also exposed a symptom the
+original measurement had not shown: pre-repair the value column squeezed the **label to zero
+width** — the label was being pushed out of the layout entirely, not merely the value overflowing.
+The repair restores it (160px, the `minmax(0,10rem)` cap).
 
 ---
 
@@ -322,13 +433,15 @@ The Weaver/Engineering Lab panel therefore advertises a real contract.
 | ID | Defect | Class | Status | Evidence |
 |---|---|---|---|---|
 | **VSR-001** | Mobile nav never reveals the active item on a programmatic route change | product defect | **REPAIRED** `ded3b7ab` | Chromium A/B + production reproduction |
-| **VSR-002** | Shared `Facts` value column cannot wrap a long token → up to 405px document overflow | latent defect | **REPAIRED** `3f38c942` | Chromium A/B on live element |
+| **VSR-001b** | The first cut of that repair ignored viewport resize — 4/4 narrowings stranded the active item again | defect in the repair | **REPAIRED** `07c93d6c` | Chromium resize matrix + loop check |
+| **VSR-002** | Shared `Facts` value column cannot wrap a long token → up to 405px document overflow, and the label column collapsed to 0px | latent defect | **REPAIRED** `3f38c942` | Chromium A/B on live element + exact-DOM harness |
 | **VSR-003** | Four SolSpire scaffolds advertise `/api/solspire/*` (404); real contracts are `/solspire/*` and are implemented | recorded drift | **REPORTED** — owned by Workstream 2 | deployed `/openapi.json` + live 401/404 probes |
 | **VSR-004** | `/engineering` silently resolves to Home and rewrites the address bar | routing gap | **REPORTED** — needs a product decision | `router.ts::resolvePath` fallthrough |
 | **VSR-005** | `/solspire` as a UI route returns API `404 Route not found` | by design | **NOT A DEFECT** | `_RESERVED_PREFIXES` |
 | **VSR-006** | Reported palette (6 values) does not match the real tokens | report inaccuracy | **NOT A DEFECT** — no change made | `tailwind.config.js` + computed styles |
 | **VSR-007** | Mobile nav items "clipped" | report inaccuracy | **NOT A DEFECT** — intentional scroll affordance | document overflow 0px |
 | **VSR-008** | `window.scrollY = 66` on mobile `/` and `/about` | pre-existing | **NOT ATTRIBUTED** — present on unfixed production | production A/B |
+| **VSR-009** | Font-swap race could reveal before webfont metrics settle | hypothesised | **NOT REPRODUCED** | sampled from `waitUntil: 'commit'`; correct at first measurable sample |
 
 **VSR-004 detail.** `/engineering` is absent from `PATH_ALIASES`, so `resolvePath` returns
 `{surface:"home", path:"/"}` and the load-time `replaceState` rewrites the bar to `/`. The user
@@ -346,17 +459,24 @@ forbids. Left as a decision, not taken unilaterally.
 
 | File | Tests | Purpose |
 |---|---|---|
-| `tests/test_console_mobile_nav_active_reveal.py` | 10 | VSR-001 |
+| `tests/test_console_mobile_nav_active_reveal.py` | 12 | VSR-001 / VSR-001b |
 | `tests/test_console_facts_value_overflow_contract.py` | 8 | VSR-002 |
 
 **Each guard was proven to bite by reverting the source fix and re-running:**
 
 ```
-VSR-001  pre-repair Shell.tsx  → 10 failed
-         repaired Shell.tsx    → 10 passed
-VSR-002  pre-repair ui.tsx     →  4 failed, 4 passed
-         repaired ui.tsx       →  8 passed
+VSR-001   pre-repair Shell.tsx (main)   → 11 failed,  1 passed
+          first-cut route-only Shell    →  6 failed,  6 passed
+          repaired Shell.tsx            → 12 passed
+
+VSR-002   pre-repair ui.tsx             →  4 failed,  4 passed
+          repaired ui.tsx               →  8 passed
 ```
+
+The three-state row for VSR-001 is the important one. The middle state is **my own first cut**:
+it satisfies the ref, marker, horizontal-only, and layout-box assertions and still leaves the
+active item off-screen on a resize. Without the negative control that reconstructs that shape,
+the regression would have shipped with a green guard.
 
 A guard that cannot fail on the defect it claims to detect is not a guard; this is measured,
 not asserted.
@@ -366,7 +486,7 @@ not asserted.
 | Tree | Result |
 |---|---|
 | `main` `3cd81f76` (isolated worktree) | **8 failed, 3330 passed, 17 skipped, 1 error** |
-| branch `ded3b7ab` | **8 failed, 3340 passed, 17 skipped, 1 error** |
+| branch `07c93d6c` | **8 failed, 3350 passed, 17 skipped, 1 error** |
 
 ```
 failing/error node sets, sorted:
@@ -375,17 +495,26 @@ failing/error node sets, sorted:
   comm -3 → empty
 ```
 
-**Zero regression, attributed by node identity, not by count.** The `+10 passed` is exactly the
-new guard file's node count. The 8 pre-existing failures and 1 collection error are unchanged
+**Zero regression, attributed by node identity, not by count.** The `+20 passed` is exactly the
+two new guard files' 20 nodes. The 8 pre-existing failures and 1 collection error are unchanged
 and were **not** repaired — they are unrelated debt (`test_solspire_r1_governance_convergence`,
 `test_solspire_r3_execution_runtime`, `test_identity_spine_w1`, `test_m02_reasomate_truth`,
 others).
 
+The baseline was **re-derived** after an environment restart wiped `/tmp`, rather than reused
+from the earlier run; both derivations agreed exactly, which is itself worth noting because a
+baseline that only exists in one's notes is not a baseline.
+
 ### Other checks
 
-- `cd web/arkadia_console && pnpm build` → **clean** (`tsc --noEmit` + vite, 97 modules, 1.6s).
-- Focused console contract set (12 files incl. shell-nav, endpoint-registry, canonical-routing,
-  legacy-route, return-to, lens-landmark, focus-ring, aeas05, rebuild-01) → **146 passed**.
+- `cd web/arkadia_console && pnpm build` → **clean** (`tsc --noEmit` + vite, 1.7s).
+- The repository's own derived console-contract gate, run exactly as CI runs it
+  (`python -m pytest -q $(python scripts/console_contract_domain.py)`) → **725 passed**. Both new
+  guard files enter that derived domain automatically (the workflow derives its inventory and
+  filters on `tests/**`), so no workflow edit was needed — verified, not assumed.
+- `tests/test_prism_console_ci_wiring.py` + `tests/test_m02a_ci_gate_integrity.py` → **98 passed**.
+- CP10 mutation boundary admits all five changed paths (`--judge` → admitted each).
+- Focused console contract set (12 files) → **146 passed**.
 - All nine routes loaded in Chromium → expected `<h1>`, **zero JS page errors**.
 - `/health` and `/api/version` read-only probes → `200`.
 
@@ -411,10 +540,19 @@ Stated explicitly, because an unverified claim is not evidence:
   rewrite on a direct load was not separately captured.
 - **VSR-002's trigger is synthetic.** The 405px figure comes from substituting a 164-char token
   into the live element. No live page was observed overflowing. Recorded as latent, not as an
-  observed production overflow.
+  observed production overflow. The exact-DOM harness that produced the 414px figure (§5) is a
+  reconstruction of the component's structure, not the component itself — it uses the production
+  stylesheet and the production class strings, but it is a harness.
+- **VSR-001b was measured against the repaired branch, not against production.** Production still
+  runs the unfixed `3cd81f76`, so the resize behaviour there is the *original* defect (no reveal at
+  all), not this one. VSR-001b is a defect that existed only inside this mission's own first cut.
+- **The `ResizeObserver` loop check is a measurement, not a proof.** Zero growth across a 2.5s
+  idle window and a stable `scrollLeft` across 8 samples is strong evidence against a feedback
+  loop; it does not exhaustively prove one cannot occur under a different layout.
 - **Render build logs and metrics were not inspected** (no provider access). No runtime
   explanation is offered for anything beyond the HTTP responses recorded in §1.
-- **No keep-alive or polling was performed.** Two endpoint reads, both recorded above.
+- **No keep-alive or polling was performed.** Endpoint reads were limited to the probes recorded
+  in §1 and §2.
 - **`test_solspire_r1_governance_convergence` and `test_solspire_r3_execution_runtime` failures
   are pre-existing and unowned by this mission.** They were not investigated or repaired.
 
@@ -440,8 +578,9 @@ Stated explicitly, because an unverified claim is not evidence:
 
 ## 11. Handoff — one next authorized action
 
-**State:** two verified repairs on `mission/ark-vsr-2026-10-22` (`ded3b7ab`, `3f38c942`), each with
-a proven guard; zero regression by node identity; production confirmed at `3cd81f76`.
+**State:** three verified repairs on `mission/ark-vsr-2026-10-22` (`ded3b7ab`, `3f38c942`,
+`07c93d6c`), each with a guard proven to fail on the defect it detects; zero regression by node
+identity; production confirmed at `3cd81f76`; working tree clean.
 
 **Evidence:** this file. Measurements are reproducible with Playwright + system Chromium against
 `https://arkadia-qzu4.onrender.com` and the local preview build.
@@ -457,5 +596,19 @@ auto-deploys), so it is explicitly outside agent authority.
 VSR-003 inside this branch (ownership); adding an `/engineering` alias without a product
 decision.
 
-**Completion condition:** the human either merges both commits, or rejects them with reasons —
-and VSR-003/VSR-004 are routed to their owning workstreams.
+**Completion condition:** the human either merges all three commits, or rejects them with
+reasons — and VSR-003/VSR-004 are routed to their owning workstreams.
+
+### Changeset
+
+```
+docs/control-plane/evidence/ark-vsr-2026-10-22/EVIDENCE.md   (this file)
+tests/test_console_facts_value_overflow_contract.py          8 tests
+tests/test_console_mobile_nav_active_reveal.py              12 tests
+web/arkadia_console/.gitignore                              ignore dist-verify/
+web/arkadia_console/src/components/Shell.tsx                VSR-001 / VSR-001b
+web/arkadia_console/src/components/ui.tsx                   VSR-002
+```
+
+Two source files, two guard files, one evidence record, one gitignore line. No dependency
+changes, no refactors, no formatting churn, no build output tracked.
