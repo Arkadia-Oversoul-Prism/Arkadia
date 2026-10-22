@@ -2,7 +2,7 @@
  * The unified application shell: persistent navigation, workspace identity, and
  * the shared aurora field. Mounted once by `App`.
  */
-import { useEffect, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, type ReactNode } from "react";
 import { SURFACES, SURFACE_BY_ID, type SurfaceId } from "../lib/surfaces";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -61,7 +61,14 @@ export function Shell({
   // active item on every route change. Only `scrollLeft` is adjusted: a
   // `scrollIntoView` here would also move the page vertically. The scroll is
   // instant (no `behavior: "smooth"`), so it needs no reduced-motion guard.
-  useEffect(() => {
+  //
+  // A route change is not the only event that can hide the active item: narrowing
+  // the viewport grows the strip's scrollable range without moving `scrollLeft`,
+  // which strands the active item off-screen again (measured 4/4 at 700→400,
+  // 600→360, 390→320 and 767→300, active item past the right edge every time).
+  // The reveal is therefore a callback invoked from both effects below, rather
+  // than logic owned by the route effect alone.
+  const revealActiveItem = useCallback(() => {
     const nav = mobileNavRef.current;
     // `md:hidden` leaves the strip in the DOM with no layout box on desktop;
     // every rect reads 0 there, which would compute a spurious offset.
@@ -76,7 +83,22 @@ export function Shell({
     } else if (box.right > navBox.right - pad) {
       nav.scrollLeft += box.right - (navBox.right - pad);
     }
-  }, [current]);
+  }, []);
+
+  useEffect(() => {
+    revealActiveItem();
+  }, [current, revealActiveItem]);
+
+  // Observed on the strip itself rather than on `window.resize`: the strip's
+  // scrollable range changes whenever its own box changes, which covers a
+  // viewport resize without a second, independent breakpoint constant.
+  useEffect(() => {
+    const nav = mobileNavRef.current;
+    if (!nav || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => revealActiveItem());
+    observer.observe(nav);
+    return () => observer.disconnect();
+  }, [revealActiveItem]);
 
   return (
     <div className="flex min-h-screen bg-ink text-white">

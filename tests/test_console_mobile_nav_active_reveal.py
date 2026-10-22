@@ -30,7 +30,16 @@ independently:
    follows later navigation;
 3. the reveal moves the strip *horizontally only* — a ``scrollIntoView`` would also
    scroll the page vertically, and the shell already owns vertical position through
-   its content-landmark focus.
+   its content-landmark focus;
+4. the reveal re-runs when the strip's own box changes. A route change is not the
+   only event that can hide the active item: narrowing the viewport grows the
+   strip's scrollable range without moving ``scrollLeft``, stranding the active
+   item off-screen again. Measured on the first cut of this repair, which keyed the
+   reveal on ``[current]`` alone — **4/4** narrowings left the active item past the
+   right edge (700→400, 600→360, 390→320, 767→300). The reveal is therefore a
+   callback invoked from both a route effect and a ``ResizeObserver`` on the strip,
+   and this property is asserted separately because a route-only reveal passes
+   every other assertion here while still failing this case.
 
 Domain: the Arkadia Console (``web/arkadia_console``). Disjoint from
 ``test_console_shell_nav_contract.py`` (navigation/shell/design invariants: one nav
@@ -107,22 +116,46 @@ def _strip_ref_name(shell_text: str) -> str | None:
 def _reveal_effect(shell_text: str, ref_name: str) -> str | None:
     """The ``useEffect`` that reveals the active item, or None.
 
-    Identified by behaviour, not by position: the effect must reference the strip's
-    ref, adjust ``scrollLeft``, and be keyed on ``[current]``. A reveal that never
-    re-runs is the defect it exists to prevent.
+    Identified by behaviour, not by position: the effect must be keyed on
+    ``[current]`` and must reach the strip's ref. The reveal itself lives in a
+    ``useCallback`` shared with the resize observer (see ``_reveal_callback``), so
+    the effect invokes it by name; a self-contained effect is still accepted.
     """
     for m in re.finditer(r"useEffect\(\s*\(\)\s*=>\s*\{", shell_text):
         body = _balanced_braces(shell_text, m.end() - 1)
         if body is None:
             continue
-        if ref_name not in body:
-            continue
-        if "scrollLeft" not in body:
-            continue
         tail = shell_text[m.end() + len(body) - 1 :][:120]
-        if re.search(r",\s*\[current\]\s*\)", tail):
+        if not re.search(r",\s*\[current[,\]]", tail):
+            continue
+        if ref_name in body or "revealActiveItem" in body:
             return body
     return None
+
+
+def _reveal_callback(shell_text: str, ref_name: str) -> str | None:
+    """The callback that performs the reveal, or None.
+
+    When the reveal is shared between the route effect and the resize observer it
+    is a ``useCallback``; when it is owned by the route effect alone there is no
+    callback and ``_reveal_effect`` carries the body. Returns the callback body
+    when one exists, so the horizontal-only and marker assertions apply to
+    whichever form the source uses.
+    """
+    m = re.search(r"const (\w+) = useCallback\(\s*\(\)\s*=>\s*\{", shell_text)
+    if not m:
+        return None
+    body = _balanced_braces(shell_text, m.end() - 1)
+    if body is None:
+        return None
+    if ref_name not in body:
+        return None
+    return body
+
+
+def _reveal_body(shell_text: str, ref_name: str) -> str | None:
+    """Whichever form carries the reveal: the callback if present, else the effect."""
+    return _reveal_callback(shell_text, ref_name) or _reveal_effect(shell_text, ref_name)
 
 
 def _balanced_braces(src: str, open_index: int) -> str | None:
@@ -142,8 +175,8 @@ def _balanced_braces(src: str, open_index: int) -> str | None:
 def _reveal_defects(shell_text: str) -> list[str]:
     """Reasons the mobile strip does not reveal its active item. Empty == reveals.
 
-    Three independent parts: a ref to scroll, a reveal keyed on the route, and a
-    horizontal-only movement.
+    Four independent parts: a ref to scroll, a reveal keyed on the route, a
+    horizontal-only movement, and a re-reveal when the strip's box changes.
     """
     defects = []
     tag = _mobile_nav_tag(shell_text)
@@ -157,11 +190,17 @@ def _reveal_defects(shell_text: str) -> list[str]:
         defects.append("the mobile strip is not bound to a ref, so nothing can scroll it")
         return defects
 
-    body = _reveal_effect(shell_text, ref_name)
+    if _reveal_effect(shell_text, ref_name) is None:
+        defects.append(
+            f"no useEffect keyed on [current] reveals the active item through {ref_name}, "
+            "so it is never revealed on a programmatic route change"
+        )
+
+    body = _reveal_body(shell_text, ref_name)
     if body is None:
         defects.append(
-            f"no useEffect keyed on [current] adjusts {ref_name}.scrollLeft, so the "
-            "active item is never revealed on a programmatic route change"
+            f"no reveal body adjusts {ref_name}.scrollLeft, so the active item is "
+            "never revealed"
         )
     else:
         # A reveal that scrolls the page as well as the strip changes the shell's
@@ -176,6 +215,20 @@ def _reveal_defects(shell_text: str) -> list[str]:
                 "the reveal does not guard on the strip having a layout box, so it "
                 "runs with zeroed rects on desktop (md:hidden)"
             )
+
+    # Narrowing the viewport grows the strip's scrollable range without moving
+    # `scrollLeft`, stranding the active item off-screen again. A route-only reveal
+    # passes every assertion above and still fails this case (measured 4/4).
+    if not re.search(r"ResizeObserver", shell_text):
+        defects.append(
+            "the reveal is not re-run when the strip's box changes, so narrowing the "
+            "viewport strands the active item off-screen again"
+        )
+    elif _reveal_callback(shell_text, ref_name) is None:
+        defects.append(
+            "a ResizeObserver exists but the reveal is not a shared callback, so the "
+            "observer cannot re-run the same reveal the route effect uses"
+        )
     return defects
 
 
@@ -200,12 +253,25 @@ def test_active_item_is_revealed_on_a_route_change():
     assert _reveal_defects(SHELL) == [], _reveal_defects(SHELL)
 
 
+def test_active_item_is_re_revealed_when_the_strip_box_changes():
+    """Narrowing the viewport must not strand the active item off-screen.
+
+    Asserted separately from the route-change property because the first cut of this
+    repair satisfied every other assertion here and still failed this case: keyed on
+    ``[current]`` alone, the reveal never re-ran on a resize, and 4/4 narrowings left
+    the active item past the right edge.
+    """
+    assert not any("box changes" in d or "shared callback" in d for d in _reveal_defects(SHELL)), (
+        _reveal_defects(SHELL)
+    )
+
+
 def test_reveal_moves_the_strip_horizontally_only():
     """Vertical position belongs to the content-landmark focus, not to this effect."""
     ref_name = _strip_ref_name(SHELL)
     assert ref_name is not None
-    body = _reveal_effect(SHELL, ref_name)
-    assert body is not None, "no reveal effect found"
+    body = _reveal_body(SHELL, ref_name)
+    assert body is not None, "no reveal found"
     assert "scrollIntoView" not in body, (
         "scrollIntoView would also scroll the page vertically on every navigation"
     )
@@ -219,7 +285,7 @@ def test_reveal_targets_the_declared_active_marker():
     the strip would go back to showing no current page.
     """
     ref_name = _strip_ref_name(SHELL)
-    body = _reveal_effect(SHELL, ref_name)
+    body = _reveal_body(SHELL, ref_name)
     assert body is not None
     assert 'aria-current="page"' in body, (
         "the reveal must locate the active item through the aria-current marker the "
@@ -233,12 +299,25 @@ def test_reveal_targets_the_declared_active_marker():
 
 
 def _strip_reveal_effect(shell_text: str) -> str:
-    """The measured pre-repair shape: the strip with no reveal effect at all."""
-    start = shell_text.find("  // The mobile strip is wider than the viewport")
-    assert start != -1, "control could not locate the reveal effect -- detector unproven"
-    end = shell_text.find("  return (", start)
-    assert end != -1, "control could not locate the end of the reveal effect"
-    stale = shell_text[:start] + shell_text[end:]
+    """The measured pre-repair shape: the strip with no reveal logic at all.
+
+    Located structurally, not by a comment: the reveal is either a ``useCallback``
+    or a ``useEffect``, and it sits immediately before the component's own
+    ``return (``. Both bounds are searched *after* the shell's ``mainRef``
+    declaration, because module-level components earlier in the file (``NavLink``)
+    also end in ``return (`` and an unanchored search would slice the wrong span.
+    """
+    anchor = shell_text.find("const mainRef = useRef")
+    assert anchor != -1, "control could not locate the shell body -- detector unproven"
+    end = shell_text.find("  return (", anchor)
+    assert end != -1, "control could not locate the component return -- detector unproven"
+    starts = [i for i in (
+        shell_text.find("  const revealActiveItem = useCallback", anchor),
+        shell_text.find("  // The mobile strip is wider than the viewport", anchor),
+    ) if i != -1]
+    assert starts, "control could not locate the reveal block -- detector unproven"
+    assert min(starts) < end, "control bounds are inverted -- detector unproven"
+    stale = shell_text[: min(starts)] + shell_text[end:]
     assert stale != shell_text, "control did not mutate Shell.tsx -- detector unproven"
     return stale
 
@@ -257,6 +336,20 @@ def test_detector_flags_a_strip_with_no_reveal_effect():
     assert _reveal_defects(SHELL) == []
 
 
+def test_detector_flags_a_route_only_reveal_that_ignores_resize():
+    """Negative control: the first cut of this repair, which failed 4/4 on narrowing.
+
+    A reveal keyed on ``[current]`` alone satisfies every other assertion in this
+    file — the ref, the marker, the horizontal-only movement, the layout-box guard —
+    and still leaves the active item off-screen after the viewport narrows. If this
+    detector did not exist, that regression would ship unnoticed.
+    """
+    stale = SHELL.replace("useCallback", "_unusedCallback")
+    assert stale != SHELL, "control did not mutate Shell.tsx -- detector unproven"
+    defects = _reveal_defects(stale)
+    assert any("box changes" in d or "shared callback" in d for d in defects), defects
+
+
 def test_detector_flags_an_unbound_strip():
     """Negative control: without a ref there is nothing to scroll."""
     stale = re.sub(r"ref=\{mobileNavRef\}\n", "", SHELL, count=1)
@@ -266,7 +359,7 @@ def test_detector_flags_an_unbound_strip():
 
 def test_detector_flags_a_reveal_that_does_not_follow_the_route():
     """Negative control: a reveal keyed on ``[]`` runs once and never again."""
-    stale = SHELL.replace("  }, [current]);\n\n  return (", "  }, []);\n\n  return (")
+    stale = SHELL.replace("  }, [current, revealActiveItem]);", "  }, []);")
     assert stale != SHELL, "control did not mutate Shell.tsx -- detector unproven"
     assert any("never revealed" in d for d in _reveal_defects(stale)), _reveal_defects(stale)
 
