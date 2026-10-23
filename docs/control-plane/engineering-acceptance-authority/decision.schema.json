@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Arkadia-Oversoul-Prism/Arkadia/blob/main/docs/control-plane/engineering-acceptance-authority/decision.schema.json",
+  "title": "Engineering Acceptance Authority decision envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_id",
+    "repository",
+    "pull_request",
+    "base_sha",
+    "candidate_sha",
+    "observed_head_sha",
+    "observed_base_sha",
+    "policy_id",
+    "policy_version",
+    "risk_class",
+    "gates",
+    "decision",
+    "reasons",
+    "evaluator_version",
+    "post_merge_verification_required"
+  ],
+  "properties": {
+    "record_id": {"type": "string", "minLength": 1},
+    "repository": {"type": "string", "pattern": "^[^/]+/[^/]+$"},
+    "pull_request": {"type": "integer", "minimum": 1},
+    "base_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "candidate_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "observed_head_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "observed_base_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "policy_id": {"type": "string", "minLength": 1},
+    "policy_version": {"type": "string", "minLength": 1},
+    "risk_class": {"enum": ["ROUTINE", "ELEVATED", "PROTECTED", "UNKNOWN"]},
+    "gates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "state", "tested_sha", "artifact_url", "verified_by"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "state": {"enum": ["PASS", "FAIL", "BLOCKED", "NOT_TESTED"]},
+          "tested_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+          "check_run_id": {"type": ["string", "integer"]},
+          "artifact_url": {"type": ["string", "null"]},
+          "verified_by": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "decision": {"enum": ["BLOCKED", "NOT_READY", "READY_FOR_HUMAN_DECISION", "READY_TO_MERGE"]},
+    "reasons": {"type": "array", "items": {"type": "string"}},
+    "evaluator_version": {"type": "string", "minLength": 1},
+    "actor_or_policy_authority": {"type": ["string", "null"]},
+    "human_approval_ref": {"type": ["string", "null"]},
+    "merge_commit_sha": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+    "post_merge_verification_required": {"type": "boolean"},
+    "post_merge_verification_ref": {"type": ["string", "null"]},
+    "deployment_authorization_ref": {"type": ["string", "null"]},
+    "observed_at": {"type": ["string", "null"], "format": "date-time"}
+  }
+}
