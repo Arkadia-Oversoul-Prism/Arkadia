@@ -107,6 +107,15 @@ def _unwrappable_value_column_defects(ui_text: str) -> list[str]:
             "the Facts value column has no break-words, so a token wider than the "
             "track overflows instead of wrapping"
         )
+    # `whitespace-nowrap` (and `whitespace-pre`) suppress wrapping outright, so the
+    # column can carry `break-words` and still overflow. Measured: adding
+    # `whitespace-nowrap` after `break-words` left the earlier detector reporting no
+    # defect at all, so the guard would have stayed green through a real regression.
+    if re.search(r"\bwhitespace-(nowrap|pre)\b", tag):
+        defects.append(
+            "the Facts value column sets whitespace-nowrap/pre, which suppresses the "
+            "wrapping break-words is there to provide"
+        )
     return defects
 
 
@@ -199,3 +208,42 @@ def test_detector_flags_a_repaired_value_column_that_moved_the_label_cap():
     assert stale != UI, "control did not mutate ui.tsx -- detector unproven"
     assert _facts_grid(stale) is not None
     assert "minmax(0,10rem)" not in _facts_grid(stale)
+
+
+def test_detector_flags_a_column_whose_wrapping_is_suppressed():
+    """Negative control: ``whitespace-nowrap`` defeats ``break-words``.
+
+    The column then carries both classes and still overflows, so a guard that only
+    looked for ``break-words`` reported no defect. Measured: this variant returned an
+    empty defect list before the clause was added, while its own negative control
+    still failed -- for the unrelated reason that the anchor string had moved. A
+    control that fails for the wrong reason is indistinguishable from a catch.
+    """
+    stale = UI.replace(
+        '<dd className="min-w-0 break-words text-white/85">',
+        '<dd className="min-w-0 break-words whitespace-nowrap text-white/85">',
+    )
+    assert stale != UI, "control did not mutate ui.tsx -- detector unproven"
+    defects = _unwrappable_value_column_defects(stale)
+    # Exactly one defect, and it is the suppression -- `min-w-0` and `break-words`
+    # are both still present, which is the point of the variant. Matching on the
+    # distinctive clause ("sets whitespace-") rather than the substring
+    # "break-words", which also appears inside the suppression message itself.
+    assert len(defects) == 1, defects
+    assert "sets whitespace-nowrap" in defects[0], defects
+
+
+def test_negative_controls_anchor_on_the_live_source():
+    """A control whose anchor is absent must not be mistaken for a catch.
+
+    ``str.replace`` on a missing anchor returns the input unchanged, and the
+    following ``assert any(...)`` then fails for the wrong reason. Asserting the
+    anchor is present keeps a moved literal from reading as a detector hit.
+    """
+    anchors = [
+        '<dd className="min-w-0 break-words text-white/85">',
+        "minmax(0,10rem)",
+        "export function Facts(",
+    ]
+    for a in anchors:
+        assert a in UI, f"negative-control anchor has moved: {a!r}"

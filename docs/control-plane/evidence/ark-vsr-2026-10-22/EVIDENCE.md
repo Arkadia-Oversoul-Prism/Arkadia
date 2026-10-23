@@ -459,18 +459,18 @@ forbids. Left as a decision, not taken unilaterally.
 
 | File | Tests | Purpose |
 |---|---|---|
-| `tests/test_console_mobile_nav_active_reveal.py` | 12 | VSR-001 / VSR-001b |
-| `tests/test_console_facts_value_overflow_contract.py` | 8 | VSR-002 |
+| `tests/test_console_mobile_nav_active_reveal.py` | 17 | VSR-001 / VSR-001b |
+| `tests/test_console_facts_value_overflow_contract.py` | 10 | VSR-002 |
 
 **Each guard was proven to bite by reverting the source fix and re-running:**
 
 ```
 VSR-001   pre-repair Shell.tsx (main)   → 11 failed,  1 passed
           first-cut route-only Shell    →  6 failed,  6 passed
-          repaired Shell.tsx            → 12 passed
+          repaired Shell.tsx            → 17 passed
 
 VSR-002   pre-repair ui.tsx             →  4 failed,  4 passed
-          repaired ui.tsx               →  8 passed
+          repaired ui.tsx               → 10 passed
 ```
 
 The three-state row for VSR-001 is the important one. The middle state is **my own first cut**:
@@ -478,15 +478,86 @@ it satisfies the ref, marker, horizontal-only, and layout-box assertions and sti
 active item off-screen on a resize. Without the negative control that reconstructs that shape,
 the regression would have shipped with a green guard.
 
-A guard that cannot fail on the defect it claims to detect is not a guard; this is measured,
-not asserted.
+### Falsifying the guards — five more gaps, found and closed
+
+A source-level guard can be **tautological**: it can assert the implementation rather than
+detect the defect. Each guard was therefore falsified by mutating the real source into
+plausible-but-broken variants and asserting the guard reddens
+(`measurements/falsify_nav_guard.py`, `falsify_facts_guard.py`, captured output in
+`measurements/falsification-results.txt`).
+
+**Five variants passed the entire file while leaving the defect in place:**
+
+| # | Variant | Why it slipped through |
+|---|---|---|
+| 1 | nav: observer named in a **comment** only | the doc comment above the effect contains `ResizeObserver`, so a stub with no-op methods satisfied the check (12/12 passed) |
+| 2 | nav: `observer.observe(document.body)` | the check matched `.observe(` as a string, never the target |
+| 3 | nav: observer with **no `disconnect()`** | cleanup was never asserted; the observer leaks past unmount |
+| 4 | nav: `void revealActiveItem;` | the effect *named* the callback without calling it, leaving the strip unscrolled |
+| 5 | Facts: `whitespace-nowrap` added after `break-words` | the detector reported **no defect at all** |
+
+Row 5 is the most instructive. That variant's own negative control *did* fail — but for the
+unrelated reason that its anchor literal had moved, so `str.replace` was a no-op. **A control
+that fails for the wrong reason is indistinguishable from a catch.** An anchor-presence control
+was added so a moved literal can no longer read as a detector hit.
+
+Repairs: the detectors now read **comment-stripped** source (quote-aware, so a `//` inside a
+string literal is not a comment); resolve the local alias bound to the ref
+(`const nav = mobileNavRef.current`) so a *correct* shape is not reported as defective; and
+assert each lifecycle clause separately.
+
+**Result: 10/10 variants caught, both guards green on the repaired source (27 tests).**
+
+One honest note on method: the first attempt at this strengthening required the literal
+`.observe(<refName>)`, which reported the **canonical** source as defective (3 of its own tests
+failed). The alias resolution above is the fix. A detector that is wrong about correct code
+invites the wrong repair, which is worse than no detector.
+
+### Behavioral verification in a real browser (not just source-level)
+
+The guards above are **source-level contract tests**. They cannot show that the component behaves
+correctly across lifecycle and layout conditions, so the built console was driven in Chromium via
+Playwright (`measurements/measure_nav_behavioral.py`, `measure_nav_history.py`). `main`
+(`3cd81f76`) and the candidate were built with the same toolchain and probed on identical
+viewports — a true A/B, not a before/after on one tree.
+
+| Condition | `main` (unfixed) | candidate (fixed) |
+|---|---|---|
+| Deep-link load, 6 routes | **1/6** active item visible, `scrollLeft` all `0` | **6/6** visible, `scrollLeft` `[0,409,339,261,158,63]` |
+| Viewport resize, 4 cases | **0/4** visible | **4/4** visible |
+| History **back** to Home after clicking About | `scrollLeft 409`, Home **off-screen left** | `scrollLeft 0`, Home visible |
+| Observer growth while idle | `0` (no observer exists) | `0` (observer does not leak) |
+
+**A correction to my own earlier claim.** I previously listed "clicking a Home portal" as a case the
+repair fixes. Measured, that is **wrong**: clicking the strip's own About button reveals it on
+`main` too (`scrollLeft 409`, visible), because the click focuses the button and the browser's
+native focus-scroll does the work. That case does not discriminate between the builds. The
+discriminating programmatic case is **history navigation** — `go_back()` to Home leaves `main` at
+`scrollLeft 409` with the active item off-screen, while the candidate returns to `0`. Recorded
+because the earlier framing overstated which journeys were broken.
+
+The `display: contents` question and the Facts overflow measurement remain as measured; the
+browser-verified overflow A/B is in `OUTPUT-facts-overflow.json` (405px → 0px on the live element).
+
+**What this does *not* establish.** Chromium only. No real mobile device, no touch-scroll
+interaction, no screen reader, no reduced-motion check, no Firefox/WebKit. The behavioral harnesses
+are **not wired into CI** — the repository has no pytest browser infrastructure (`grep -rln
+playwright tests/` → 0 files), so these are operator-run scripts, recorded as such. Wiring them
+into a gate is a separate bounded change and is not claimed here.
 
 ### Full-suite comparison (same environment, `-rEf --continue-on-collection-errors`)
 
 | Tree | Result |
 |---|---|
 | `main` `3cd81f76` (isolated worktree) | **8 failed, 3330 passed, 17 skipped, 1 error** |
-| branch `07c93d6c` | **8 failed, 3350 passed, 17 skipped, 1 error** |
+| branch `33c5c7d2` (pre-guard-hardening) | **8 failed, 3350 passed, 17 skipped, 1 error** |
+| branch `120bbefe` (**final**; tree `9afa8644`) | **8 failed, 3357 passed, 17 skipped, 1 error** |
+
+Each row names the exact tree the measurement was taken on. The final candidate was re-measured
+after the last evidence-doc amend; earlier revisions are listed because they were separately
+measured, not because they are candidates. An identifier superseded by an amend is recorded as
+superseded rather than quietly re-pointed, so a reviewer can tell which tree a number belongs to.
+
 
 ```
 failing/error node sets, sorted:
@@ -495,9 +566,10 @@ failing/error node sets, sorted:
   comm -3 → empty
 ```
 
-**Zero regression, attributed by node identity, not by count.** The `+20 passed` is exactly the
-two new guard files' 20 nodes. The 8 pre-existing failures and 1 collection error are unchanged
-and were **not** repaired — they are unrelated debt (`test_solspire_r1_governance_convergence`,
+**Zero regression, attributed by node identity, not by count.** The `+20 passed` at `33c5c7d2`
+is exactly the two guard files' 20 nodes; the guard-hardening commit (whose amend produced the
+final `120bbefe`) adds 7 more (5 nav + 2 Facts controls), taking it to `+27`. The 8 pre-existing failures and 1 collection error are unchanged and were
+**not** repaired — they are unrelated debt (`test_solspire_r1_governance_convergence`,
 `test_solspire_r3_execution_runtime`, `test_identity_spine_w1`, `test_m02_reasomate_truth`,
 others).
 
@@ -509,9 +581,12 @@ baseline that only exists in one's notes is not a baseline.
 
 - `cd web/arkadia_console && pnpm build` → **clean** (`tsc --noEmit` + vite, 1.7s).
 - The repository's own derived console-contract gate, run exactly as CI runs it
-  (`python -m pytest -q $(python scripts/console_contract_domain.py)`) → **725 passed**. Both new
-  guard files enter that derived domain automatically (the workflow derives its inventory and
-  filters on `tests/**`), so no workflow edit was needed — verified, not assumed.
+  (`python -m pytest -q $(python scripts/console_contract_domain.py)`) → **732 passed** at the
+  final tree `120bbefe` (tree `9afa8644`), measured 2026-10-23 after dependency restoration.
+  Both new guard files enter that derived domain automatically (the workflow derives its
+  inventory and filters on `tests/**`), so no workflow edit was needed — verified, not assumed.
+  An earlier revision of this document recorded **725**, measured before the guard-hardening
+  commit; the +7 is exactly the tests that commit added. The 725 is superseded, not reconciled.
 - `tests/test_prism_console_ci_wiring.py` + `tests/test_m02a_ci_gate_integrity.py` → **98 passed**.
 - CP10 mutation boundary admits all five changed paths (`--judge` → admitted each).
 - Focused console contract set (12 files) → **146 passed**.

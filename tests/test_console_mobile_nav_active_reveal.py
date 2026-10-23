@@ -21,7 +21,7 @@ canonical deployment, so this is a product defect and not a local build artifact
 The repair is the smallest one consistent with the existing architecture: keep the
 single horizontally-scrolling strip (do not add a hamburger, a second nav model, or
 a new breakpoint) and, in an effect keyed on the current surface, adjust the
-strip's ``scrollLeft`` so the active item is inside the visible band. Three
+strip's ``scrollLeft`` so the active item is inside the visible band. Four
 properties are load-bearing and each is asserted separately, because they fail
 independently:
 
@@ -65,6 +65,48 @@ MOBILE_NAV_LABEL = "Primary navigation (mobile)"
 # Detectors (module level, so the negative controls exercise the same code the
 # live assertions use).
 # ---------------------------------------------------------------------------
+
+
+def _strip_comments(src: str) -> str:
+    """Source with JS comments removed, so a decoy comment cannot satisfy a detector.
+
+    Quote-aware: a ``//`` or ``/*`` inside a string literal is not a comment. This
+    exists because a comment naming ``ResizeObserver`` satisfied the earlier
+    detector while no observer was constructed at all (measured: 12/12 passed on a
+    build with the observer replaced by a stub).
+    """
+    out: list[str] = []
+    i, n, quote = 0, len(src), None
+    while i < n:
+        c = src[i]
+        if quote:
+            out.append(c)
+            if c == "\\" and i + 1 < n:
+                out.append(src[i + 1])
+                i += 2
+                continue
+            if c == quote:
+                quote = None
+            i += 1
+            continue
+        if c in "\"'`":
+            quote = c
+            out.append(c)
+            i += 1
+            continue
+        if c == "/" and i + 1 < n and src[i + 1] == "/":
+            while i < n and src[i] != "\n":
+                i += 1
+            continue
+        if c == "/" and i + 1 < n and src[i + 1] == "*":
+            i += 2
+            while i + 1 < n and not (src[i] == "*" and src[i + 1] == "/"):
+                i += 1
+            i += 2
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
 
 
 def _opening_tag_at(src: str, start: int) -> str | None:
@@ -128,7 +170,13 @@ def _reveal_effect(shell_text: str, ref_name: str) -> str | None:
         tail = shell_text[m.end() + len(body) - 1 :][:120]
         if not re.search(r",\s*\[current[,\]]", tail):
             continue
-        if ref_name in body or "revealActiveItem" in body:
+        # The effect must actually reach the strip: either a property access on the
+        # ref (a self-contained reveal) or an invocation of the shared callback.
+        # A bare mention -- `void revealActiveItem;` -- leaves the strip unscrolled
+        # and previously satisfied this detector (measured: 12/12 passed).
+        if re.search(rf"{re.escape(ref_name)}\s*\.", body) or re.search(
+            r"\brevealActiveItem\s*\(", body
+        ):
             return body
     return None
 
@@ -151,6 +199,35 @@ def _reveal_callback(shell_text: str, ref_name: str) -> str | None:
     if ref_name not in body:
         return None
     return body
+
+
+def _resize_observer(code: str, ref_name: str) -> tuple[bool, bool, bool] | None:
+    """``(constructed, observes_the_strip, disconnected)`` for the resize effect.
+
+    ``code`` must already be comment-stripped. Returns ``None`` when no
+    ``ResizeObserver`` is referenced at all, so the caller can distinguish "no
+    observer" from "an observer that does nothing". Three clauses, because each
+    fails independently and each leaves a real defect: a referenced-but-never-
+    constructed observer (stub), one that observes something other than the strip,
+    and one that is never disconnected (leaks past unmount).
+
+    ``.observe(...)`` is commonly called with a local alias (``const nav =
+    mobileNavRef.current; observer.observe(nav)``), so every name bound to
+    ``<ref_name>.current`` is resolved and accepted. Requiring the literal ref name
+    would report the canonical shape as defective -- a detector that is wrong about
+    correct code is worse than no detector, because it invites the wrong repair.
+    """
+    if "ResizeObserver" not in code:
+        return None
+    constructed = re.search(r"new\s+ResizeObserver\s*\(", code) is not None
+    targets = {ref_name}
+    targets |= set(re.findall(rf"const\s+(\w+)\s*=\s*{re.escape(ref_name)}\.current", code))
+    targets |= set(re.findall(rf"let\s+(\w+)\s*=\s*{re.escape(ref_name)}\.current", code))
+    observed = any(
+        re.search(rf"\.observe\s*\(\s*{re.escape(t)}\s*\)", code) is not None for t in targets
+    )
+    disconnected = re.search(r"\.disconnect\s*\(\s*\)", code) is not None
+    return constructed, observed, disconnected
 
 
 def _reveal_body(shell_text: str, ref_name: str) -> str | None:
@@ -219,12 +296,35 @@ def _reveal_defects(shell_text: str) -> list[str]:
     # Narrowing the viewport grows the strip's scrollable range without moving
     # `scrollLeft`, stranding the active item off-screen again. A route-only reveal
     # passes every assertion above and still fails this case (measured 4/4).
-    if not re.search(r"ResizeObserver", shell_text):
+    #
+    # Every clause below is evaluated against COMMENT-STRIPPED source: a decoy
+    # comment naming ResizeObserver previously satisfied this check while the
+    # observer was a stub with no-op methods (measured: 12/12 passed).
+    code = _strip_comments(shell_text)
+    obs = _resize_observer(code, ref_name)
+    if obs is None:
         defects.append(
             "the reveal is not re-run when the strip's box changes, so narrowing the "
             "viewport strands the active item off-screen again"
         )
-    elif _reveal_callback(shell_text, ref_name) is None:
+    else:
+        constructed, observed, disconnected = obs
+        if not constructed:
+            defects.append(
+                "a ResizeObserver is referenced but never constructed, so nothing "
+                "re-runs the reveal when the strip's box changes"
+            )
+        if not observed:
+            defects.append(
+                f"the ResizeObserver does not observe the strip ({ref_name}), so a "
+                "box change on the strip does not re-run the reveal"
+            )
+        if not disconnected:
+            defects.append(
+                "the ResizeObserver is never disconnected, so it leaks and keeps "
+                "observing a detached strip after unmount"
+            )
+    if _reveal_callback(shell_text, ref_name) is None:
         defects.append(
             "a ResizeObserver exists but the reveal is not a shared callback, so the "
             "observer cannot re-run the same reveal the route effect uses"
@@ -387,3 +487,62 @@ def test_detector_is_silent_on_a_correctly_repaired_strip():
     """Positive control: the repaired shape must not be reported."""
     assert _reveal_defects(SHELL) == []
     assert _strip_ref_name(SHELL) == "mobileNavRef"
+
+
+# ---------------------------------------------------------------------------
+# Controls for the four gaps found by falsifying the guard against plausible
+# variants. Each of these variants passed the whole file before the detector was
+# strengthened (measured: 12/12 on every one of them).
+# ---------------------------------------------------------------------------
+
+
+def test_detector_flags_an_observer_that_exists_only_in_a_comment():
+    """A comment naming ``ResizeObserver`` is not an observer.
+
+    Before the detector was made comment-aware, replacing the real observer with a
+    stub whose methods were no-ops passed all twelve assertions, because the
+    doc comment above the effect names ``ResizeObserver``.
+    """
+    stale = SHELL.replace(
+        "const observer = new ResizeObserver(() => revealActiveItem());",
+        "const observer = { observe() {}, disconnect() {} };",
+    )
+    assert stale != SHELL, "control did not mutate Shell.tsx -- detector unproven"
+    defects = _reveal_defects(stale)
+    assert any("never constructed" in d for d in defects), defects
+
+
+def test_detector_flags_an_observer_that_watches_the_wrong_element():
+    """Observing anything other than the strip cannot re-run the reveal on resize."""
+    stale = SHELL.replace("observer.observe(nav);", "observer.observe(document.body);")
+    assert stale != SHELL, "control did not mutate Shell.tsx -- detector unproven"
+    defects = _reveal_defects(stale)
+    assert any("does not observe the strip" in d for d in defects), defects
+
+
+def test_detector_flags_an_observer_that_is_never_disconnected():
+    """An observer with no cleanup leaks and keeps observing a detached strip."""
+    stale = SHELL.replace("    return () => observer.disconnect();\n", "")
+    assert stale != SHELL, "control did not mutate Shell.tsx -- detector unproven"
+    defects = _reveal_defects(stale)
+    assert any("never disconnected" in d for d in defects), defects
+
+
+def test_detector_flags_a_route_effect_that_never_invokes_the_reveal():
+    """Naming the callback without calling it leaves the strip unscrolled."""
+    stale = SHELL.replace(
+        "    revealActiveItem();\n  }, [current, revealActiveItem]);",
+        "    void revealActiveItem;\n  }, [current, revealActiveItem]);",
+    )
+    assert stale != SHELL, "control did not mutate Shell.tsx -- detector unproven"
+    defects = _reveal_defects(stale)
+    assert any("never revealed" in d for d in defects), defects
+
+
+def test_comment_stripper_keeps_code_and_drops_comments():
+    """The stripper must not eat real code: a URL in a string is not a comment."""
+    src = 'const a = "https://x//y"; // note\nconst b = 1; /* block */ const c = 2;'
+    stripped = _strip_comments(src)
+    assert "https://x//y" in stripped, stripped
+    assert "note" not in stripped and "block" not in stripped, stripped
+    assert "const b = 1;" in stripped and "const c = 2;" in stripped, stripped
