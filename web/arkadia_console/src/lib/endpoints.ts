@@ -20,6 +20,36 @@ export const endpoints = {
   transmissions: "/api/transmissions",
   echoes: "/api/echoes",
 
+  /**
+   * The shared public document corpus — the Encyclopedia Galactica.
+   *
+   * Distinct from `codex` (`/api/me/codex`, the authenticated node's *personal*
+   * corpus). This is the open read the archived `/encyclopedia` and
+   * `/spiral-codex` routes were built on (`NexusSpiralCodex`, `SpiralCodexFeed`),
+   * verified `200` on the canonical deployment with 661 documents.
+   *
+   * The archive also fetched `/api/codex/categories` alongside it; that route is
+   * **not served** (absent from `app.openapi()`, `404` on production), so
+   * categories are derived from each document's own `category` field rather than
+   * requested from a path that does not exist.
+   */
+  publicCodex: "/api/codex",
+
+  /**
+   * The Encyclopedia Galactica living star-date readout — `kernel/stellar.py`.
+   *
+   * Verified `200` anonymously on the canonical deployment (no identity
+   * required). The archived `StellarCartography` component fetched exactly this
+   * path and was mounted as the header of `NexusSpiralCodex`
+   * (`archive/.../src/pages/NexusSpiralCodex.tsx:953`), replacing a minimal
+   * "Ark Y1 · D140" chip. It is the header of the same lens that reads
+   * `publicCodex` above, so the two are wired together on one surface.
+   *
+   * Distinct from the unrelated `/api/ark-date` (which returns the Ark Date
+   * section alone and is not reconciled here).
+   */
+  stellarCartography: "/api/stellar-cartography",
+
   knowledgeStatus: "/api/knowledge/status",
   knowledgeGraph: "/api/knowledge/graph",
   knowledgeTimeline: "/api/knowledge/timeline",
@@ -41,6 +71,21 @@ export const endpoints = {
   solspirePulses: "/solspire/pulses",
   solspireSyntheses: "/solspire/syntheses",
   approvals: "/api/approvals",
+
+  /**
+   * Voice / read-aloud. `POST /api/tts` returns an audio body, not JSON, so it
+   * is read by `lib/voice.ts` rather than through `apiRequest`; the path is
+   * still declared here so there is one API surface map (§3.1).
+   *
+   * `/api/tts/status` reports which engine will actually serve a request
+   * (`edge_tts` when no ElevenLabs key is configured). It is the contract the
+   * UI must read before claiming a voice quality: `aetheria` is declared
+   * `requires_elevenlabs`, and without a key it silently falls back to the
+   * Edge voice — a locked voice presented as available is a fabricated claim.
+   */
+  tts: "/api/tts",
+  ttsStatus: "/api/tts/status",
+  ttsVoices: "/api/tts/voices",
 } as const;
 
 export type EndpointName = keyof typeof endpoints;

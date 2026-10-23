@@ -15,16 +15,23 @@
  * The legacy hub carried sub-views (`/nexus/ims`, `/nexus/grove`,
  * `/nexus/larder`, `/nexus/distribution`). They are not reconciled yet, so they
  * are **not** rendered as controls: a lens that does nothing is a decorative
- * control (directive §4). Their backend contracts also do not fit the console's
- * client — `/api/ims/inquiries` is sovereign-key gated, which the Bearer-only
- * `apiClient` cannot satisfy, so a lens pointing at it could only ever fail.
- * The single "Nexus Hub" lens states that honestly instead.
+ * control (directive §4).
+ *
+ * The `codex` lens **is** reconciled. The archive's `/encyclopedia` and
+ * `/spiral-codex` routes both read `GET /api/codex` — the shared public corpus,
+ * an open read serving 661 documents and 4.4M characters on the canonical
+ * deployment — and the console referenced it nowhere. Unlike the deferred
+ * sub-views it needs no identity, so the earlier blanket claim that the hub's
+ * contracts are "unverified or sovereign-key gated" was wrong for it and is
+ * corrected in the note below.
  */
 import { Page, Panel, ContractState, NotYetWired } from "../components/ui";
 import { SurfaceLenses } from "../components/SurfaceLenses";
 import { AuthorControls } from "../components/novaNet/AuthorControls";
 import { EngagementBar } from "../components/novaNet/EngagementBar";
 import { TransmissionComposer } from "../components/novaNet/TransmissionComposer";
+import { SpiralCodexPanel } from "../components/novaNet/SpiralCodexPanel";
+import { StellarCartographyPanel } from "../components/novaNet/StellarCartographyPanel";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -35,6 +42,7 @@ import type { EchoesFeed, TransmissionList } from "../lib/types";
 const LENSES = [
   { id: "field", label: "Field" },
   { id: "echoes", label: "Echoes" },
+  { id: "codex", label: "Encyclopedia Galactica" },
   { id: "hub", label: "Nexus Hub" },
 ];
 
@@ -70,7 +78,6 @@ export function NovaNetPage({
 }) {
   const field = useHydration<TransmissionList>(endpoints.transmissions, (p) => apiRequest<TransmissionList>(p));
   const echoes = useHydration<EchoesFeed>(endpoints.echoes, (p) => apiRequest<EchoesFeed>(p), [section === "echoes"]);
-
   // The verified uid gates the author controls. It is the same identity the
   // backend resolves the owner from, so the client offers a mutation only where
   // the backend would accept it — it never decides ownership itself.
@@ -186,6 +193,15 @@ export function NovaNetPage({
         </div>
       )}
 
+      {section === "codex" && (
+        <>
+          {/* The readout heads the lens, as it did in the archive
+              (`NexusSpiralCodex.tsx:953`), above the corpus it indexes. */}
+          <StellarCartographyPanel />
+          <SpiralCodexPanel />
+        </>
+      )}
+
       {!LENS_IDS.has(section) && (
         <NotYetWired
           contract={DEFERRED[section] ?? "UNKNOWN"}
@@ -198,7 +214,7 @@ export function NovaNetPage({
       {section === "hub" && (
         <NotYetWired
           contract={DEFERRED.hub}
-          note="The legacy Nexus hub's sub-views (IMS archive, Spiral Grove, Larder, distribution) are declared in the inventory but not reconciled in the console: their contracts are either unverified or sovereign-key gated, which the authenticated client cannot satisfy. No decorative controls are rendered for them."
+          note="The legacy Nexus hub's remaining sub-views (IMS archive, Spiral Grove, Larder, distribution) are declared in the inventory but not reconciled in the console, so no decorative controls are rendered for them. This is not a blanket 'unverified' claim: the shared corpus (/api/codex) was measured as an open read and IS reconciled on the Encyclopedia Galactica lens. For the rest, the measured reasons differ — /api/ims/inquiries answers 403 'Sovereign key required', which the Bearer-only client cannot satisfy, while the distribution and grove contracts are not yet classified."
         />
       )}
     </Page>

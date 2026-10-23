@@ -315,6 +315,10 @@ def _js_route_resolver(router_text: str) -> dict:
         "/solariun/knowledge",
         "/oracle",
         "/commune",
+        "/home",
+        "/knowledge-os",
+        "/gate",
+        "/living-gate",
         # Legacy hub sub-paths: an alias reconciles the *namespace*, not only its
         # root (see `test_alias_sub_paths_resolve_into_the_target_surface`).
         "/nexus/ims",
@@ -561,6 +565,55 @@ def test_oracle_and_commune_reconcile_to_the_arkana_surface():
             f"{legacy} is an alias, not a second surface"
         )
     assert _alias_defects(ROUTER, SURFACES) == []
+
+
+def test_home_and_knowledge_os_reconcile_to_declared_surfaces():
+    """Two more archived inbound paths name a surface the console declares."""
+    aliases = _path_aliases(ROUTER)
+    assert aliases.get("/home") == "home", aliases
+    assert aliases.get("/knowledge-os") == "knowledge", aliases
+    for legacy in ("/home", "/knowledge-os"):
+        assert legacy not in _declared_paths(SURFACES), f"{legacy} is an alias, not a second surface"
+    resolved = _js_route_resolver(ROUTER)
+    assert resolved["/home"] == "/", resolved
+    assert resolved["/knowledge-os"] == "/knowledge", resolved
+    assert _alias_defects(ROUTER, SURFACES) == []
+
+
+def test_detector_flags_an_unaliased_knowledge_os_that_falls_through_to_home():
+    """Negative control: removing the alias must reproduce the measured fall-through."""
+    repaired = _js_route_resolver(ROUTER)
+    assert repaired["/knowledge-os"] == "/knowledge", repaired
+    stripped = re.sub(r'\n\s*"/knowledge-os": "knowledge",', "", ROUTER)
+    assert stripped != ROUTER, "control did not mutate router.ts -- detector unproven"
+    assert _js_route_resolver(stripped)["/knowledge-os"] == "/", (
+        "the control must reproduce the pre-repair fall-through to home"
+    )
+
+
+def test_gate_and_living_gate_reconcile_to_the_login_surface():
+    """Archived gate paths mount the sign-in capability, not Home."""
+    aliases = _path_aliases(ROUTER)
+    assert aliases.get("/gate") == "login", aliases
+    assert aliases.get("/living-gate") == "login", aliases
+    for legacy in ("/gate", "/living-gate"):
+        assert legacy not in _declared_paths(SURFACES), f"{legacy} is an alias, not a second surface"
+    resolved = _js_route_resolver(ROUTER)
+    assert resolved["/gate"] == "/login", resolved
+    assert resolved["/living-gate"] == "/login", resolved
+    assert _alias_defects(ROUTER, SURFACES) == []
+
+
+def test_detector_flags_an_unaliased_gate_that_falls_through_to_home():
+    """Negative control: removing both aliases must reproduce the pre-repair fall-through."""
+    repaired = _js_route_resolver(ROUTER)
+    assert repaired["/gate"] == "/login", repaired
+    stripped = re.sub(r'\n\s*"/gate": "login",\n\s*"/living-gate": "login",', "", ROUTER)
+    assert stripped != ROUTER, "control did not mutate router.ts -- detector unproven"
+    assert _js_route_resolver(stripped)["/gate"] == "/", (
+        "the control must reproduce the pre-repair fall-through to home"
+    )
+    assert _js_route_resolver(stripped)["/living-gate"] == "/"
 
 
 def test_detector_flags_an_oracle_alias_that_falls_through_to_home():
