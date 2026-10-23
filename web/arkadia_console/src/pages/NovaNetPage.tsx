@@ -31,6 +31,7 @@ import { AuthorControls } from "../components/novaNet/AuthorControls";
 import { EngagementBar } from "../components/novaNet/EngagementBar";
 import { TransmissionComposer } from "../components/novaNet/TransmissionComposer";
 import { SpiralCodexPanel } from "../components/novaNet/SpiralCodexPanel";
+import { StellarCartographyPanel } from "../components/novaNet/StellarCartographyPanel";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -192,7 +193,14 @@ export function NovaNetPage({
         </div>
       )}
 
-      {section === "codex" && <SpiralCodexPanel />}
+      {section === "codex" && (
+        <>
+          {/* The readout heads the lens, as it did in the archive
+              (`NexusSpiralCodex.tsx:953`), above the corpus it indexes. */}
+          <StellarCartographyPanel />
+          <SpiralCodexPanel />
+        </>
+      )}
 
       {!LENS_IDS.has(section) && (
         <NotYetWired

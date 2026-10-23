@@ -35,6 +35,21 @@ export const endpoints = {
    */
   publicCodex: "/api/codex",
 
+  /**
+   * The Encyclopedia Galactica living star-date readout — `kernel/stellar.py`.
+   *
+   * Verified `200` anonymously on the canonical deployment (no identity
+   * required). The archived `StellarCartography` component fetched exactly this
+   * path and was mounted as the header of `NexusSpiralCodex`
+   * (`archive/.../src/pages/NexusSpiralCodex.tsx:953`), replacing a minimal
+   * "Ark Y1 · D140" chip. It is the header of the same lens that reads
+   * `publicCodex` above, so the two are wired together on one surface.
+   *
+   * Distinct from the unrelated `/api/ark-date` (which returns the Ark Date
+   * section alone and is not reconciled here).
+   */
+  stellarCartography: "/api/stellar-cartography",
+
   knowledgeStatus: "/api/knowledge/status",
   knowledgeGraph: "/api/knowledge/graph",
   knowledgeTimeline: "/api/knowledge/timeline",
