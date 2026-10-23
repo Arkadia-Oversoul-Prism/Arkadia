@@ -2,7 +2,7 @@
  * The unified application shell: persistent navigation, workspace identity, and
  * the shared aurora field. Mounted once by `App`.
  */
-import { useEffect, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, type ReactNode } from "react";
 import { SURFACES, SURFACE_BY_ID, type SurfaceId } from "../lib/surfaces";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -45,6 +45,7 @@ export function Shell({
 }) {
   const { profile, isAuthenticated, identityState, signOutNow } = useAuth();
   const mainRef = useRef<HTMLElement>(null);
+  const mobileNavRef = useRef<HTMLElement>(null);
 
   // A route change moves to a new surface, but the browser keeps the keyboard
   // focus (and scroll position) where the previous surface left it. Focus the
@@ -53,6 +54,51 @@ export function Shell({
   useEffect(() => {
     mainRef.current?.focus();
   }, [current]);
+
+  // The mobile strip is wider than the viewport and scrolls horizontally, so a
+  // surface whose item sits past the right edge would render with no visible
+  // current-page marker — the one thing the strip exists to show. Reveal the
+  // active item on every route change. Only `scrollLeft` is adjusted: a
+  // `scrollIntoView` here would also move the page vertically. The scroll is
+  // instant (no `behavior: "smooth"`), so it needs no reduced-motion guard.
+  //
+  // A route change is not the only event that can hide the active item: narrowing
+  // the viewport grows the strip's scrollable range without moving `scrollLeft`,
+  // which strands the active item off-screen again (measured 4/4 at 700→400,
+  // 600→360, 390→320 and 767→300, active item past the right edge every time).
+  // The reveal is therefore a callback invoked from both effects below, rather
+  // than logic owned by the route effect alone.
+  const revealActiveItem = useCallback(() => {
+    const nav = mobileNavRef.current;
+    // `md:hidden` leaves the strip in the DOM with no layout box on desktop;
+    // every rect reads 0 there, which would compute a spurious offset.
+    if (!nav || nav.clientWidth === 0) return;
+    const active = nav.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!active) return;
+    const navBox = nav.getBoundingClientRect();
+    const box = active.getBoundingClientRect();
+    const pad = 8; // matches the strip's `p-2`
+    if (box.left < navBox.left + pad) {
+      nav.scrollLeft -= navBox.left + pad - box.left;
+    } else if (box.right > navBox.right - pad) {
+      nav.scrollLeft += box.right - (navBox.right - pad);
+    }
+  }, []);
+
+  useEffect(() => {
+    revealActiveItem();
+  }, [current, revealActiveItem]);
+
+  // Observed on the strip itself rather than on `window.resize`: the strip's
+  // scrollable range changes whenever its own box changes, which covers a
+  // viewport resize without a second, independent breakpoint constant.
+  useEffect(() => {
+    const nav = mobileNavRef.current;
+    if (!nav || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => revealActiveItem());
+    observer.observe(nav);
+    return () => observer.disconnect();
+  }, [revealActiveItem]);
 
   return (
     <div className="flex min-h-screen bg-ink text-white">
@@ -102,7 +148,11 @@ export function Shell({
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Mobile navigation: the same surfaces, no second global nav bar. */}
-        <nav aria-label="Primary navigation (mobile)" className="flex gap-1 overflow-x-auto border-b border-line bg-panel/40 p-2 md:hidden">
+        <nav
+          ref={mobileNavRef}
+          aria-label="Primary navigation (mobile)"
+          className="flex gap-1 overflow-x-auto border-b border-line bg-panel/40 p-2 md:hidden"
+        >
           {NAV_SURFACES.map((s) => (
             <NavLink key={s.id} active={current === s.id} label={s.name} accent={s.accent} onClick={() => onNavigate(s.id)} />
           ))}
