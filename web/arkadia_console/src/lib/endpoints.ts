@@ -37,6 +37,21 @@ export const endpoints = {
 
   solspireProjects: "/solspire/projects",
   approvals: "/api/approvals",
+
+  /**
+   * Voice / read-aloud. `POST /api/tts` returns an audio body, not JSON, so it
+   * is read by `lib/voice.ts` rather than through `apiRequest`; the path is
+   * still declared here so there is one API surface map (§3.1).
+   *
+   * `/api/tts/status` reports which engine will actually serve a request
+   * (`edge_tts` when no ElevenLabs key is configured). It is the contract the
+   * UI must read before claiming a voice quality: `aetheria` is declared
+   * `requires_elevenlabs`, and without a key it silently falls back to the
+   * Edge voice — a locked voice presented as available is a fabricated claim.
+   */
+  tts: "/api/tts",
+  ttsStatus: "/api/tts/status",
+  ttsVoices: "/api/tts/voices",
 } as const;
 
 export type EndpointName = keyof typeof endpoints;

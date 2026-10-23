@@ -3,6 +3,7 @@ import { Page, Panel } from "../components/ui";
 import { askArkana, type ArkanaMessage } from "../lib/arkana";
 import { ApiError } from "../lib/apiClient";
 import { ArkanaThreadHistory } from "../components/arkana/ArkanaThreadHistory";
+import { ReadAloud } from "../components/ReadAloud";
 
 interface Turn extends ArkanaMessage {
   resonance?: number;
@@ -49,6 +50,13 @@ export function ArkanaPage() {
                 {turn.resonance !== undefined && ` · resonance ${turn.resonance}`}
               </p>
               <p className={turn.role === "assistant" ? "text-emerald/90" : "text-white/85"}>{turn.content}</p>
+              {turn.role === "assistant" && (
+                <ReadAloud
+                  text={turn.content}
+                  label="Listen"
+                  testId={`arkana-listen-${i}`}
+                />
+              )}
             </li>
           ))}
         </ul>
