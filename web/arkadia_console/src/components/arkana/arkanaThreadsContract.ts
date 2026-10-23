@@ -42,7 +42,10 @@ export type ArkanaThreadRole = "user" | "arkana";
 export interface ArkanaThreadMessage {
   role: ArkanaThreadRole;
   content: string;
-  /** SQLite's `created_at` default format (`YYYY-MM-DD HH:MM:SS`), not ISO-8601. */
+  /**
+   * SQLite's `created_at` default format (`YYYY-MM-DD HH:MM:SS`), not ISO-8601,
+   * and **zoneless UTC** — read it through `arkanaThreadTime.readableTime`.
+   */
   created_at: string | null;
 }
 
