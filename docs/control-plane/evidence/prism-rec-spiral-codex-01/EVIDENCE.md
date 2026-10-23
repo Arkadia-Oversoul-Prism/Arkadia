@@ -302,6 +302,22 @@ This is the derived-inventory repair from PR #439 working as designed: a new con
 executed by the gate **without an edit**, which is precisely the class that had composed into
 a red `main` at `17988afd` when the inventory was hand-maintained.
 
+### 7.4.3 Runtime CI proof (not a source claim)
+
+Verified on the pushed head `7246b6df`, **not** inferred from a green conclusion:
+
+| Run | Workflow | Result |
+|---|---|---|
+| `39929195798` | Prism Console Contract | **753 passed** (guard step), wiring guard **30 passed** |
+| `39929195708` | SG-02-FE.2-V (CP10) | **40/40 steps success**; `Executable CP10 gates: PASS (browser step outcome success)` |
+| — | all 9 runs on this head | **0 failures** |
+
+The gate executed the *derived* domain (`python -m pytest -q $(python scripts/console_contract_domain.py)`),
+and `scripts/console_contract_domain.py` at this commit lists
+`tests/test_console_spiral_codex_contract.py` — **46** guards, up from **45** on `main`. The
+guard's 21 nodes are therefore provably inside the executed set, which is why the step count
+is evidence and the green tick alone would not be.
+
 ### 7.5 Regression
 
 Both trees measured in the **same environment**, in the same session: the branch in place,
