@@ -68,6 +68,10 @@ export function ContractState({ state, error, onRetry }: { state: HydrationState
       title: "Authentication required",
       body: "This surface reads a protected contract. Sign in to load it.",
     },
+    forbidden: {
+      title: "Not authorized for this identity",
+      body: "You are signed in, but this identity is not entitled to read this contract. Signing in again will not change the answer — the backend refused the read.",
+    },
     unavailable: {
       title: "Backend unavailable",
       body: "Arkadia is not reachable right now. The contract was not read — this is not an empty result.",

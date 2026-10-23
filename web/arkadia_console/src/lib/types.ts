@@ -59,6 +59,73 @@ export interface ProjectList {
   count: number;
 }
 
+/**
+ * SolSpire control-plane reads, derived from the served handlers and their
+ * managers' `to_dict()` shapes:
+ * `solspire/console_router.py::get_canonical_workspace`,
+ * `solspire/workload_router.py::get_canonical_workload`,
+ * `solspire/pulse_router.py::list_daily_pulses`,
+ * `solspire/synthesis_router.py::list_weekly_syntheses`.
+ * Only the fields the console renders are declared.
+ */
+export interface SolspireWorkspace {
+  id: string;
+  workspace_type: string;
+  canonical_subject_ref: string;
+  display_name: string;
+  lifecycle: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface SolspireWorkspaceRead {
+  workspace: SolspireWorkspace;
+  canonical: boolean;
+  subject_binding: string;
+}
+
+export interface SolspireWorkload {
+  workload_id: string;
+  display_name: string;
+  title: string;
+  objective: string;
+  phase: string;
+  status: string;
+}
+
+/** `GET /solspire/workloads` answers `404` until a canonical workload exists. */
+export interface SolspireWorkloadRead {
+  workload: SolspireWorkload;
+}
+
+export interface SolspirePulse {
+  pulse_id: string;
+  version: number;
+  date: string;
+  period: string;
+  state_summary: string;
+  status: string;
+}
+
+export interface SolspirePulseList {
+  pulses: SolspirePulse[];
+  count: number;
+}
+
+export interface SolspireSynthesis {
+  synthesis_id: string;
+  version: number;
+  period_start: string;
+  period_end: string;
+  summary: string;
+  status: string;
+}
+
+export interface SolspireSynthesisList {
+  syntheses: SolspireSynthesis[];
+  count: number;
+}
+
 export interface TransmissionAuthor {
   id?: string | null;
   name: string;

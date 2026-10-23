@@ -66,6 +66,10 @@ export const endpoints = {
   labNAtlasCatalog: "/api/lab/engineering/n-atlas/catalog",
 
   solspireProjects: "/solspire/projects",
+  solspireWorkspace: "/solspire/workspace",
+  solspireWorkloads: "/solspire/workloads",
+  solspirePulses: "/solspire/pulses",
+  solspireSyntheses: "/solspire/syntheses",
   approvals: "/api/approvals",
 
   /**
