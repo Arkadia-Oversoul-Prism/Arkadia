@@ -190,3 +190,20 @@ sweep over every open PR:
 
 So this slice collides with nothing in flight: `router.ts` is uncontended, and the one
 contended lane-1 file (`App.tsx`, #550) is untouched here.
+
+## 9. CI, at head `98e8b01b` (runtime-observed, not asserted)
+
+`gh pr checks 562` -> **15 successful, 0 failing, 0 pending**. The load-bearing ones:
+
+| check | meaning for this slice |
+|---|---|
+| `Prism Console Contract/console-contract` | executes the lane-1 shell/nav contract in CI, so the new guards are gated, not local-only |
+| `SG-02-FE.2-V/validate` | CP10 mutation boundary — the changed paths are legitimate repository surfaces |
+| `N-ATLAS Developer Lab/frontend` | the console builds in CI, not only locally |
+| `security-secret-scan/Full-history secret scan` | clean |
+
+The remaining checks (`boot-syntax`, `backend`, `test`, `provider-forensics`, the N-ATLAS beta
+and Render-image jobs) pass and are untouched by a router-only change.
+
+This is a **repository-source** claim: CI proves the guards and the build. It is **not** a
+production observation — the codex lens's served rendering is FU-3, after a merge.
