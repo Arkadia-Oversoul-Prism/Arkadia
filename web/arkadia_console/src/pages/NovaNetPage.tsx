@@ -126,29 +126,29 @@ export function NovaNetPage({
                 <>
                   <ul className="flex flex-col gap-2" data-testid="novanet-transmissions">
                     {field.data.transmissions.map((t) => (
-                    <li key={t.id} className="rounded border border-line bg-ink/40 p-3">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <p className="text-sm text-white/85">
-                          <span className="text-azure">{t.author?.avatar ?? "◈"}</span>{" "}
-                          {t.author?.name ?? "Node"}
-                          {t.author?.role ? <span className="text-white/40"> · {t.author.role}</span> : null}
-                        </p>
-                        <p className="font-mono text-[10px] text-white/30">{ago(t.timestamp)}</p>
-                      </div>
-                      <p className="mt-2 whitespace-pre-wrap text-sm text-white/70">{t.content}</p>
-                      {t.edited_at ? <p className="mt-1 font-mono text-[10px] text-white/25">edited</p> : null}
-                      {/* Declared engagement readings the feed already returns,
-                          made interactive against the two live write handlers
-                          (react / comment) the router serves (see EngagementBar).
-                          `reposts` stays a reading — no verified write path. */}
-                      <EngagementBar transmission={t} onChanged={field.reload} />
-                      <AuthorControls
-                        transmission={t}
-                        isOwn={Boolean(myUid && t.owner_uid && myUid === t.owner_uid)}
-                        onChanged={field.reload}
-                      />
-                    </li>
-                  ))}
+                      <li key={t.id} className="rounded border border-line bg-ink/40 p-3">
+                        <div className="flex items-baseline justify-between gap-3">
+                          <p className="text-sm text-white/85">
+                            <span className="text-azure">{t.author?.avatar ?? "◈"}</span>{" "}
+                            {t.author?.name ?? "Node"}
+                            {t.author?.role ? <span className="text-white/40"> · {t.author.role}</span> : null}
+                          </p>
+                          <p className="font-mono text-[10px] text-white/30">{ago(t.timestamp)}</p>
+                        </div>
+                        <p className="mt-2 whitespace-pre-wrap text-sm text-white/70">{t.content}</p>
+                        {t.edited_at ? <p className="mt-1 font-mono text-[10px] text-white/25">edited</p> : null}
+                        {/* Declared engagement readings the feed already returns,
+                            made interactive against the two live write handlers
+                            (react / comment) the router serves (see EngagementBar).
+                            `reposts` stays a reading — no verified write path. */}
+                        <EngagementBar transmission={t} onChanged={field.reload} />
+                        <AuthorControls
+                          transmission={t}
+                          isOwn={Boolean(myUid && t.owner_uid && myUid === t.owner_uid)}
+                          onChanged={field.reload}
+                        />
+                      </li>
+                    ))}
                   </ul>
                   {field.data.total > field.data.transmissions.length && (
                     <p
