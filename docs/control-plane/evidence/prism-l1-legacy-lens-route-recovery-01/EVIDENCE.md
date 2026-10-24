@@ -138,3 +138,55 @@ still points at a lane-state refresh against `base_main 7580bd8f`, which is now 
 `main` `68acf89f`. `scripts/lane_state.py --check` currently passes (23 passed in
 `tests/test_lane_instruction_doc_currency.py`), so the repair is a snapshot refresh, not a
 failing guard — measure before editing.
+
+---
+
+## 7. Baseline attribution (measured, not inherited)
+
+One full-suite pass at branch head `ff799cf9`, the only one this pulse:
+
+```
+python -m pytest tests/ -q -rEf --continue-on-collection-errors
+-> 8 failed, 3435 passed, 20 skipped, 3 warnings, 1 error in 246.95s
+```
+
+**Failing/error node set — 9 nodes**, sorted, `sha256 c280ddc616fe4f4e9110bf4e6b6e538783a83d3764148d8a6d7ac45f6e8bc46b`:
+
+```
+ERROR  tests/test_autonomy.py
+FAILED tests/test_ais_w2_living_gate_grove_handoff.py::test_no_firebase_persistence_in_gate
+FAILED tests/test_engineering_lab_api.py::test_lab_mutation_endpoints_are_exactly_the_lab_state_set
+FAILED tests/test_engineering_lab_api.py::test_lab_router_is_read_only_and_authenticated
+FAILED tests/test_identity_spine_w1.py::test_node_entry_is_ais_signup_not_a_separate_diagnostic_route
+FAILED tests/test_m02_reasomate_truth.py::test_oracle_runtime_uses_the_shared_session_key
+FAILED tests/test_solspire_r1_governance_convergence.py::test_r1_solspire_builders_delegate_to_weaver
+FAILED tests/test_solspire_r1_governance_convergence.py::test_r1_weaver_governance_is_canonical
+FAILED tests/test_solspire_r3_execution_runtime.py::test_runtime_is_explicitly_non_governed_and_blocks_mutation_tools
+```
+
+**Every one of the nine was reproduced on `main` in a detached worktree** (targeted runs, not a
+second full pass):
+
+| node group | on `main` `68acf89f` |
+|---|---|
+| `test_engineering_lab_api.py` (2) | `2 failed, 15 passed` |
+| `test_ais_w2…`, `test_identity_spine_w1…`, `test_m02_reasomate_truth…`, `test_solspire_r1…` (2), `test_solspire_r3…` | `6 failed, 3 passed` |
+| `test_autonomy.py` | the CE-01 `weaver.autonomy` module-vs-package collection error, sovereign-reserved |
+
+**Attribution: zero delta.** None of the nine is caused by this slice, and this slice repairs
+none of them — they are recorded pre-existing debt, not silently fixed. The `+53` on the two
+guard files is exactly this slice's own tests (`--collect-only`: 44 + 9).
+
+## 8. Collision check, measured against the live queue
+
+18 open PRs at the time of measurement (17 before this one). A per-PR `gh pr diff --name-only`
+sweep over every open PR:
+
+| lane-1 shell file | open PRs touching it |
+|---|---|
+| `web/arkadia_console/src/lib/router.ts` | **none** before this PR; #562 is the only one |
+| `web/arkadia_console/src/App.tsx` | #550 only |
+| `lib/surfaces.ts`, `lib/endpoints.ts`, `lib/types.ts`, `components/SurfaceLenses.tsx` | none |
+
+So this slice collides with nothing in flight: `router.ts` is uncontended, and the one
+contended lane-1 file (`App.tsx`, #550) is untouched here.
