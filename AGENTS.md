@@ -1606,3 +1606,31 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   Compose the branch and run the tests.
 - Prefer `git merge --no-edit` on a worktree over patch surgery: it is the operation the human will
   actually perform, and it reports conflicts by file rather than by hunk.
+## Lane 1 shell/nav — FU-1 legacy lens routes recovered (prism-l1-legacy-lens-route-recovery-01)
+- `lib/router.ts` now carries **`LENS_ALIASES: Record<string, {surface, section}>`**, resolved
+  **before** the segment branch. `/encyclopedia` and `/spiral-codex` → `/novanet/codex`. `PATH_ALIASES`
+  maps a path to a *surface* and cannot express surface + lens, so a plain entry would land on the
+  right surface showing the wrong view — the shape FU-1 forbids. Emit through `routeForSurface` so
+  the path written to the address bar is the one the resolver reads back. **Exact paths only**:
+  `/encyclopedia/x` still reaches `home`; the branch is not a catch-all.
+- Two-guard convention for a route claim: `test_console_shell_nav_contract.py` executes
+  `resolvePath` **in Node against the real module** (not a text pin), and
+  `test_console_legacy_route_coverage.py` scans the **real `app.openapi()` route table** to prove no
+  alias shadows a served backend route. A negative control must mutate the *real* `router.ts` and
+  assert the detector fires — and assert the mutation landed, or the control passes vacuously.
+- Measured at head `9bbe6b2c` (base `main` `68acf89f`): 53 passed on the two guard files,
+  architecture 11 passed, console build exit 0, **CI 15/15**. Full suite **once**:
+  `8 failed, 3435 passed, 20 skipped, 1 error` — 9 failing/error nodes,
+  `sha256 c280ddc616fe4f4e9110bf4e6b6e538783a83d3764148d8a6d7ac45f6e8bc46b`. All nine reproduce on
+  `main` in a detached worktree → **zero delta**, none repaired. The 2 `test_engineering_lab_api.py`
+  nodes are the known authority-surface pins; `test_autonomy.py` is the CE-01 collision. Do not
+  attribute either to a router change.
+- **Merge = release** on this repo (Render auto-deploys `main`), so a router slice's acceptance is a
+  *post-merge runtime observation*, never the PR's own CI. FU-3 owns that; this PR claims
+  repository-source correctness only.
+- PR #562 (draft). Next lane-1 task: refresh `AGENT-01-SHELL.md` / `lane-state.json` against live
+  `main` — the snapshot's `base_main` `7580bd8f` is behind `68acf89f`, yet `scripts/lane_state.py
+  --check` still exits 0, so **measure before editing**; a passing freshness check is not proof the
+  snapshot is current.
+- Collision sweep before pushing a lane-1 file: `gh pr diff <n> --name-only` over every open PR.
+  `lib/router.ts` was contended by none; `App.tsx` only by #550. Re-run it — the queue moves hourly.
