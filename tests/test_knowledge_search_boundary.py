@@ -70,6 +70,8 @@ PRIVATE_B = "ARKADIA_PRIVATE_SEARCH_CANARY_WS3_B"
 PUBLIC_MARK = "ARKADIA_PUBLIC_SEARCH_MARKER_WS3"
 PROJECT_A = "ARKADIA_PRIVATE_PROJECT_WS3_A"
 PROJECT_PUBLIC = "ARKADIA_PUBLIC_PROJECT_WS3"
+REFERENCE_PRIVATE_A = "ARKADIA_PRIVATE_REFERENCE_WS3_A"
+REFERENCE_PUBLIC = "ARKADIA_PUBLIC_REFERENCE_WS3"
 
 
 def _token(uid: str) -> str:
@@ -166,6 +168,65 @@ def test_reference_search_reads_the_quoted_table(client):
     )
     body = client.post("/api/knowledge/search", json={"query": "alpha-reference", "modes": ["reference"], "top_k": 5}).json()
     assert any("alpha-reference" in str(r.get("target_ref", "")) for r in body["reference"])
+
+
+# ── private / public separation (references) ─────────────────────────────────
+#
+# A ``references`` row has no owner column; it inherits visibility from the note
+# it cites. The mode was the one dispatch ``unified_search`` did not forward
+# ``user_id`` to (the function did not accept one), so every caller — including
+# an anonymous one — read every owner's citations. Measured before the repair:
+# an anonymous ``POST /api/knowledge/search`` returned a private note's citation.
+
+def _seed_references() -> None:
+    private = create_note(title=PRIVATE_A, content="private alpha", user_id=USER_A)
+    public = create_note(title=PUBLIC_MARK, content="open alpha corpus", user_id=None)
+    execute(
+        'INSERT INTO "references" (source_note_id, target_ref, ref_type, label) VALUES (?, ?, ?, ?)',
+        (private["id"], "https://private.example/alpha", "url", REFERENCE_PRIVATE_A),
+    )
+    execute(
+        'INSERT INTO "references" (source_note_id, target_ref, ref_type, label) VALUES (?, ?, ?, ?)',
+        (public["id"], "https://public.example/alpha", "url", REFERENCE_PUBLIC),
+    )
+
+
+def _reference_labels(records: list[dict]) -> set[str]:
+    return {str(r.get("label")) for r in records}
+
+
+def test_reference_mode_does_not_leak_private_citations(client):
+    _seed_references()
+    anon = client.post("/api/knowledge/search", json={"query": "alpha", "modes": ["reference"]}).json()["reference"]
+    assert REFERENCE_PUBLIC in _reference_labels(anon), "the public corpus must remain readable (positive control)"
+    assert REFERENCE_PRIVATE_A not in _reference_labels(anon), "an anonymous caller must not read a private citation"
+
+    other = client.post(
+        "/api/knowledge/search", json={"query": "alpha", "modes": ["reference"]}, headers=_auth(USER_B)
+    ).json()["reference"]
+    assert REFERENCE_PRIVATE_A not in _reference_labels(other), "a non-owner must not read another owner's citation"
+
+    owner = client.post(
+        "/api/knowledge/search", json={"query": "alpha", "modes": ["reference"]}, headers=_auth(USER_A)
+    ).json()["reference"]
+    assert REFERENCE_PRIVATE_A in _reference_labels(owner), "the owner must still see their own citation (positive control)"
+
+
+def test_reference_mode_does_not_leak_through_the_default_mode_set(client):
+    """The default dispatch includes ``reference``; the leak was reachable there too."""
+    _seed_references()
+    body = client.post("/api/knowledge/search", json={"query": "alpha", "top_k": 10}).json()
+    assert REFERENCE_PUBLIC in _reference_labels(body["reference"])
+    assert REFERENCE_PRIVATE_A not in _reference_labels(body["reference"])
+
+
+def test_reference_search_owns_the_predicate_not_the_caller():
+    """The boundary is the backend's: the function must accept and apply ``user_id``."""
+    import inspect
+
+    from knowledge.search import reference_search
+
+    assert "user_id" in inspect.signature(reference_search).parameters
 
 
 # ── private / public separation (notes) ──────────────────────────────────────
@@ -269,7 +330,7 @@ def test_detector_flags_the_pre_repair_ddl():
 
 
 _UNSCOPED_CALL = re.compile(
-    r"results\[[^\]]+\]\s*=\s*(project_search|timeline_search|people_search|graph_search)\("
+    r"results\[[^\]]+\]\s*=\s*(project_search|timeline_search|people_search|graph_search|reference_search)\("
 )
 
 
@@ -315,6 +376,19 @@ def test_detector_flags_an_unscoped_dispatch():
     stale = 'results["project"] = project_search(query, limit=10)'
     assert _unscoped_search_calls(stale) == ["project_search"]
     clean = 'results["project"] = project_search(query, limit=10, user_id=user_id)'
+    assert _unscoped_search_calls(clean) == []
+
+
+def test_detector_flags_an_unscoped_reference_dispatch():
+    """Negative control for the mode the detector originally omitted.
+
+    ``reference_search`` was absent from the pattern, so the pre-repair dispatch
+    ``results["reference"] = reference_search(query, limit=10)`` was *not*
+    reported — the guard could not see the one mode that actually leaked.
+    """
+    stale = 'results["reference"] = reference_search(query, limit=10)'
+    assert _unscoped_search_calls(stale) == ["reference_search"]
+    clean = 'results["reference"] = reference_search(query, limit=10, user_id=user_id)'
     assert _unscoped_search_calls(clean) == []
 
 

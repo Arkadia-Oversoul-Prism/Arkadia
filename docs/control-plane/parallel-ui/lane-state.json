@@ -1,150 +1,201 @@
 {
- "schema": "arkadia.lane-state/1.1",
- "observed_at": "2026-10-15T02:20:00Z",
- "base_main": "7580bd8f0ca2925518d78775f9a323ff0df8bc66",
- "source": "GitHub REST pulls API, read-only, measured this pulse",
- "note": "Machine-readable mirror of the four Prism UI lane threads. The guard (scripts/lane_state.py --check) is read-only: it judges the lane docs against this file and never fetches. Refresh the snapshot by re-measuring the lane PRs with the GitHub reads API (read-only) on any pulse that advances a lane. Each merged_prs entry records its merge_commit_sha so the guard can prove a declared PR merged from local history alone, without trusting this file's open_prs list.",
- "lanes": {
-  "1": {
-   "doc": "AGENT-01-SHELL.md",
-   "title": "Shell / navigation / design system / integration seam",
-   "active_pr": 507,
-   "active_branch": "feat/prism-l1-legacy-route-coverage-01",
-   "open_prs": [
-    {
-     "number": 507,
-     "branch": "feat/prism-l1-legacy-route-coverage-01",
-     "head_sha": "3a19810ea4b795133f9eb80eddca2f06f20b37e7"
+  "schema": "arkadia.lane-state/1.1",
+  "observed_at": "2026-10-16T04:55:00Z",
+  "base_main": "04e1b83b89e51a994af68b529a1076665f9b3ae5",
+  "source": "GitHub REST PR state rechecked 2026-10-16; lane 2 has no open lane PR after #545 merged and #528 closed unmerged",
+  "note": "Machine-readable mirror of four Prism UI lane threads. Lane 2 is idle: #545 is merged and #528 is closed unmerged; no lane-2 source PR remains open. Do not revive closed PR references. Other lane sources remain open while composed candidates are draft; do not close sources until replacement gates pass and dispositions are recorded.",
+  "lanes": {
+    "1": {
+      "doc": "AGENT-01-SHELL.md",
+      "title": "Shell / navigation / design system / integration seam",
+      "active_pr": 507,
+      "active_branch": "feat/prism-l1-legacy-route-coverage-01",
+      "open_prs": [
+        {
+          "number": 505,
+          "branch": "feat/prism-next10-01-legacy-alias-families",
+          "head_sha": "8cb030c03886c6943cc0c7003ff8afc5342bb96d"
+        },
+        {
+          "number": 507,
+          "branch": "feat/prism-l1-legacy-route-coverage-01",
+          "head_sha": "3a19810ea4b795133f9eb80eddca2f06f20b37e7"
+        },
+        {
+          "number": 529,
+          "branch": "feat/prism-l1-lens-strip-keyboard-01",
+          "head_sha": "95eb5b7b0134ab44fd8ccdf3b9257032fc7aaa77"
+        },
+        {
+          "number": 551,
+          "branch": "integration/legacy-aliases-and-lens-accessibility-01",
+          "head_sha": "6d592a1825a29c745f61ce61b5d909c78585fe01"
+        }
+      ],
+      "merged_prs": [
+        {
+          "number": 423,
+          "merge_commit_sha": "972c342380e718153fe7a3c20f0f63684f2dec82"
+        },
+        {
+          "number": 425,
+          "merge_commit_sha": "6769637221ff7a8b4d6037e20e8a4751c68295bd"
+        },
+        {
+          "number": 426,
+          "merge_commit_sha": "11a81fb23692bb841be3c6976c716f5f3f56f879"
+        },
+        {
+          "number": 427,
+          "merge_commit_sha": "3b60645020537a0392e71ebff441cabfbb39c3ef"
+        },
+        {
+          "number": 429,
+          "merge_commit_sha": "65403304b6dcaa4f4e818cabbb7722892b3b152b"
+        }
+      ],
+      "doc_guard": "current"
     },
-    {
-     "number": 529,
-     "branch": "feat/prism-l1-lens-strip-keyboard-01",
-     "head_sha": "95eb5b7b0134ab44fd8ccdf3b9257032fc7aaa77"
+    "2": {
+      "doc": "AGENT-02-NOVANET-OPPORTUNITY.md",
+      "title": "NovaNet + project Opportunity Radar",
+      "active_pr": null,
+      "active_branch": null,
+      "open_prs": [],
+      "merged_prs": [
+        {
+          "number": 420,
+          "merge_commit_sha": "55b27d10ae61cef4d33c2b9d80c355bd64d8f481"
+        },
+        {
+          "number": 430,
+          "merge_commit_sha": "7b378cecee1a0202a91d2c297bb11fc38d6af3e6"
+        },
+        {
+          "number": 492,
+          "merge_commit_sha": "7030ccb2f2646d74d07b9871783bb586dda82298"
+        },
+        {
+          "number": 545,
+          "merge_commit_sha": "04e1b83b89e51a994af68b529a1076665f9b3ae5"
+        }
+      ],
+      "doc_guard": "idle"
+    },
+    "3": {
+      "doc": "AGENT-03-SOLARIUN-KNOWLEDGE.md",
+      "title": "Solariun + Knowledge OS",
+      "active_pr": 526,
+      "active_branch": "fix/knowledge-traverse-edge-dedup-01",
+      "open_prs": [
+        {
+          "number": 526,
+          "branch": "fix/knowledge-traverse-edge-dedup-01",
+          "head_sha": "cb868ce4ade47c7c74fdd4666b47739e7888b0f2"
+        },
+        {
+          "number": 527,
+          "branch": "feat/prism-l3-graph-provenance-01",
+          "head_sha": "c8320003b423149402867c54fa78abe5754b02ce"
+        },
+        {
+          "number": 534,
+          "branch": "feat/prism-l3-knowledge-status-read-boundary-01",
+          "head_sha": "fb9bee79378d22f7f27b873959b92a471d3ce133"
+        },
+        {
+          "number": 537,
+          "branch": "fix/prism-l3-reference-search-owner-scope-01",
+          "head_sha": "8f6cb08a19bc8511790d10e13fa77919cd060c34"
+        },
+        {
+          "number": 542,
+          "branch": "fix/prism-l3-graph-analytics-owner-scope-01",
+          "head_sha": "934037d9b892fe5604378eedc5485aa52c6d436f"
+        },
+        {
+          "number": 543,
+          "branch": "gate03/knowledge-timeline-bounded-limit-01",
+          "head_sha": "1a4b71aa37c38bcd00001d2e2b7c0b7530d5055b"
+        },
+        {
+          "number": 548,
+          "branch": "integration/knowledge-search-graph-boundaries-01",
+          "head_sha": "e219acd28adef1376d92429566e4226df443d606"
+        },
+        {
+          "number": 549,
+          "branch": "integration/knowledge-routes-graph-scope-timeline-bounds-01",
+          "head_sha": "a0aecb2631333e4b93072a456dacab4c36ae4745"
+        }
+      ],
+      "merged_prs": [
+        {
+          "number": 421,
+          "merge_commit_sha": "22941cc510747378992b7ac3b3df8e20ce26f8ae"
+        },
+        {
+          "number": 431,
+          "merge_commit_sha": "bcc6a8b4c0824bcd7c5e9b869d5edddf9a8b633c"
+        }
+      ],
+      "doc_guard": "deferred",
+      "deferred_to_pr": 526
+    },
+    "4": {
+      "doc": "AGENT-04-ARKANA-WEAVER-LAB.md",
+      "title": "Arkana + Weaver + Engineering Lab",
+      "active_pr": 536,
+      "active_branch": "feat/prism-l4-run-artifact-trace-01",
+      "open_prs": [
+        {
+          "number": 525,
+          "branch": "feat/prism-rec-12-lab-authority-boundary",
+          "head_sha": "daef33c4d0535c392bc4a54e228471a1c432cf08"
+        },
+        {
+          "number": 531,
+          "branch": "feat/prism-w4-arkana-project-turn-visibility",
+          "head_sha": "d0a8902d88e8fb5941a8639a1c9106c7b712b2e9"
+        },
+        {
+          "number": 532,
+          "branch": "feat/prism-w4-arkana-thread-time-truth",
+          "head_sha": "aec31cb143724953a4c6209df2cb96a45e004f4b"
+        },
+        {
+          "number": 536,
+          "branch": "feat/prism-l4-run-artifact-trace-01",
+          "head_sha": "5490b0b52d623c9ca60896d8ce8ec96bdb7d7638"
+        },
+        {
+          "number": 541,
+          "branch": "feat/prism-l4-weaver-self-withdrawal-01",
+          "head_sha": "c9a96a03ee445a37db64e2493bfc251695c14c54"
+        },
+        {
+          "number": 547,
+          "branch": "integration/arkana-thread-history-visibility-utc-01",
+          "head_sha": "1a2dd149250b13a3d858fa853a2cbe64d73ba15c"
+        },
+        {
+          "number": 550,
+          "branch": "integration/console-arkana-shell-recovery-01",
+          "head_sha": "dc7619caa44fee91215fc6a5160a12853a9dba6d"
+        }
+      ],
+      "merged_prs": [
+        {
+          "number": 422,
+          "merge_commit_sha": "e924aec17ff2a68f3bce0ca61a183ca306416e3f"
+        },
+        {
+          "number": 428,
+          "merge_commit_sha": "f390526ab14e122fef358ef9b9e1cd438509463c"
+        }
+      ],
+      "doc_guard": "deferred",
+      "deferred_to_pr": 536
     }
-   ],
-   "merged_prs": [
-    {
-     "number": 423,
-     "merge_commit_sha": "972c342380e718153fe7a3c20f0f63684f2dec82"
-    },
-    {
-     "number": 425,
-     "merge_commit_sha": "6769637221ff7a8b4d6037e20e8a4751c68295bd"
-    },
-    {
-     "number": 426,
-     "merge_commit_sha": "11a81fb23692bb841be3c6976c716f5f3f56f879"
-    },
-    {
-     "number": 427,
-     "merge_commit_sha": "3b60645020537a0392e71ebff441cabfbb39c3ef"
-    },
-    {
-     "number": 429,
-     "merge_commit_sha": "65403304b6dcaa4f4e818cabbb7722892b3b152b"
-    }
-   ],
-   "doc_guard": "current"
-  },
-  "2": {
-   "doc": "AGENT-02-NOVANET-OPPORTUNITY.md",
-   "title": "NovaNet + project Opportunity Radar",
-   "active_pr": 528,
-   "active_branch": "feat/prism-l2-echoes-completeness-01",
-   "open_prs": [
-    {
-     "number": 492,
-     "branch": "feat/prism-next7-02-pipeline-strip",
-     "head_sha": "acfbf521fd037f48289dd19c4c074841630c29c9"
-    },
-    {
-     "number": 528,
-     "branch": "feat/prism-l2-echoes-completeness-01",
-     "head_sha": "e162371df67b52769ce291fe71407875386ea438"
-    },
-    {
-     "number": 538,
-     "branch": "fix/prism-l2-buyer-recon-status-normalization-01",
-     "head_sha": "1a36f23536c6387dc7e460888f4637d2bfb94759"
-    }
-   ],
-   "merged_prs": [
-    {
-     "number": 420,
-     "merge_commit_sha": "55b27d10ae61cef4d33c2b9d80c355bd64d8f481"
-    },
-    {
-     "number": 430,
-     "merge_commit_sha": "7b378cecee1a0202a91d2c297bb11fc38d6af3e6"
-    }
-   ],
-   "doc_guard": "deferred",
-   "deferred_to_pr": 492
-  },
-  "3": {
-   "doc": "AGENT-03-SOLARIUN-KNOWLEDGE.md",
-   "title": "Solariun + Knowledge OS",
-   "active_pr": 534,
-   "active_branch": "feat/prism-l3-knowledge-status-read-boundary-01",
-   "open_prs": [
-    {
-     "number": 526,
-     "branch": "fix/knowledge-traverse-edge-dedup-01",
-     "head_sha": "cb868ce4ade47c7c74fdd4666b47739e7888b0f2"
-    },
-    {
-     "number": 527,
-     "branch": "feat/prism-l3-graph-provenance-01",
-     "head_sha": "c8320003b423149402867c54fa78abe5754b02ce"
-    },
-    {
-     "number": 534,
-     "branch": "feat/prism-l3-knowledge-status-read-boundary-01",
-     "head_sha": "fb9bee79378d22f7f27b873959b92a471d3ce133"
-    },
-    {
-     "number": 537,
-     "branch": "fix/prism-l3-reference-search-owner-scope-01",
-     "head_sha": "8f6cb08a19bc8511790d10e13fa77919cd060c34"
-    }
-   ],
-   "merged_prs": [
-    {
-     "number": 421,
-     "merge_commit_sha": "22941cc510747378992b7ac3b3df8e20ce26f8ae"
-    },
-    {
-     "number": 431,
-     "merge_commit_sha": "bcc6a8b4c0824bcd7c5e9b869d5edddf9a8b633c"
-    }
-   ],
-   "doc_guard": "deferred",
-   "deferred_to_pr": 526
-  },
-  "4": {
-   "doc": "AGENT-04-ARKANA-WEAVER-LAB.md",
-   "title": "Arkana + Weaver + Engineering Lab",
-   "active_pr": 536,
-   "active_branch": "feat/prism-l4-run-artifact-trace-01",
-   "open_prs": [
-    {
-     "number": 536,
-     "branch": "feat/prism-l4-run-artifact-trace-01",
-     "head_sha": "5490b0b52d623c9ca60896d8ce8ec96bdb7d7638"
-    }
-   ],
-   "merged_prs": [
-    {
-     "number": 422,
-     "merge_commit_sha": "e924aec17ff2a68f3bce0ca61a183ca306416e3f"
-    },
-    {
-     "number": 428,
-     "merge_commit_sha": "f390526ab14e122fef358ef9b9e1cd438509463c"
-    }
-   ],
-   "doc_guard": "deferred",
-   "deferred_to_pr": 536
   }
- }
 }

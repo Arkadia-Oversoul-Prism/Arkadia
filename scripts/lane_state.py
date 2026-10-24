@@ -561,22 +561,27 @@ def _disposition_findings(state: dict) -> list[str]:
     """Validate per-lane doc disposition. A deferral must be *owned and live*.
 
     A lane may mark its instruction doc ``deferred`` only while another open PR
-    is repairing that same doc. The deferral therefore names ``deferred_to_pr``,
-    and it is only valid while that PR is still open in the snapshot. Once it
-    merges the reference goes stale, the lane must be reclassified ``current``,
-    and the doc is judged again -- so a deferral cannot become a permanent
-    exemption by quietly pointing at a merged PR.
+    is repairing that same doc. A lane with no active lane PR may be marked
+    ``idle``; idle lanes are not exempt from being truthful, but their stale
+    historical pointers are not treated as active work. A deferral names
+    ``deferred_to_pr`` and is valid only while that PR is open.
     """
     findings: list[str] = []
     open_prs = _pr_index(state)
     for lane_no in _lane_numbers(state):
         lane = state["lanes"][lane_no]
         disposition = lane.get("doc_guard")
-        if disposition not in {"current", "deferred"}:
+        if disposition not in {"current", "deferred", "idle"}:
             findings.append(
-                f"lane {lane_no}: doc_guard must be 'current' or 'deferred', "
+                f"lane {lane_no}: doc_guard must be 'current', 'deferred', or 'idle', "
                 f"got {disposition!r}"
             )
+            continue
+        if disposition == "idle":
+            if lane.get("open_prs"):
+                findings.append(
+                    f"lane {lane_no}: doc_guard=idle but lane still lists open PRs"
+                )
             continue
         if disposition == "deferred":
             owner = lane.get("deferred_to_pr")
