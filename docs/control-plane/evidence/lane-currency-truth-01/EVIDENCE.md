@@ -5,7 +5,8 @@
 **Base main:** `68acf89f3045a01b0ba04038fabac4edfb5f937e`
 **Observed:** 2026-10-24
 **Status:** REPAIR COMPLETE, NOT MERGED — human merge authority not exercised.
-Production acceptance NOT CLAIMED (this workstream does not deploy).
+Exact-head reconciliation performed (§4). Production acceptance NOT CLAIMED
+(this workstream does not deploy).
 
 ---
 
@@ -192,22 +193,30 @@ wiring guard stayed green.
 
 ### 3.3 Regression measurement (same environment, both trees)
 
-Environment: Python 3.13.15, `PYTHONPATH=archive/legacy_python`, `-rEf
---continue-on-collection-errors`.
+Environment: Python 3.13.15, pytest 9.1.1, `PYTHONPATH=archive/legacy_python`,
+`-rEf --continue-on-collection-errors`. Both trees measured in the same session.
 
 | Tree | Result |
 |---|---|
 | `main` `68acf89f` | 97 failed, 2966 passed, 31 skipped, 42 errors |
-| branch `24d5134f` | 97 failed, 2994 passed, 31 skipped, 42 errors |
+| branch `3a703e91` | 97 failed, 3006 passed, 31 skipped, 42 errors |
 
 Failing/error **node set**: 140 nodes both sides, `sha256`
 `db78e124b4ca58a93abef501281d7532b406c537da8fc89a0b82a47b6e75cb87` on **both**;
 `comm -3` empty. **Zero regression.**
 
-`+28 passed` attributed by `--collect-only` arithmetic, not inferred from the
-total: lane-currency 23 → 38 (**+15**), `test_knowledge_graph_traverse_boundary`
-0 → 9 (**+9**), `test_knowledge_search_boundary` 21 → 25 (**+4**). The `+13`
-outside lane-currency is PR #548's own tests, carried by the composition.
+`+40 passed` attributed by `--collect-only` arithmetic, not inferred from the
+total: lane-currency contract 23 → 38 (**+15**), lane-currency wiring 0 → 12
+(**+12**), `test_knowledge_graph_traverse_boundary` 0 → 9 (**+9**),
+`test_knowledge_search_boundary` 21 → 25 (**+4**). The `+13` outside
+lane-currency is PR #548's own tests, carried by the composition.
+
+**A superseded figure, reconciled rather than restated.** An earlier pass recorded
+`+28` for this branch. Both numbers are correct *for their own commit*: `+28`
+(= 15+9+4) was measured at `24d5134f`, and
+`git cat-file -e 24d5134f:tests/test_lane_currency_ci_wiring.py` returns absent —
+the wiring guard did not exist yet. The `+12` it adds is the difference. Quote
+`+40` for head `3a703e91`, and say which commit a delta belongs to.
 
 An earlier measurement of this same branch read `112 failed, 2277 passed, 111
 errors` because `fastapi` was absent from the sandbox. It is superseded by the
@@ -230,17 +239,96 @@ competing patch was pushed over #548's work.
 
 ---
 
-## 4. Gate-2 boundary (unchanged)
+## 4. Exact-head reconciliation (2026-10-24T12:09Z)
+
+Re-derived from live state rather than restated. Observation timestamp
+`2026-10-24T12:09:12Z`.
+
+| Property | Value |
+|---|---|
+| PR | #563, `OPEN`, `draft=true`, `MERGEABLE` / `CLEAN` |
+| Reviewed head | `3a703e91396e037e813c32f40a09b679343f9a4b` |
+| Local `HEAD` | `3a703e91396e037e813c32f40a09b679343f9a4b` — **matches** |
+| Branch base | `main` `68acf89f3045a01b0ba04038fabac4edfb5f937e` |
+| Live `main` | `68acf89f3045a01b0ba04038fabac4edfb5f937e` — **unchanged**, 0 commits behind |
+| Working tree | clean (agent memory is gitignored) |
+
+**Reviewed diff == tested diff, by object identity.** Every one of the 16 changed
+paths was compared between the local object store and GitHub's contents API at
+that exact head; all 16 git blob SHAs are identical. This is stronger than
+comparing a patch: it establishes the bytes, not just the diff.
+
+**Checks bound to the exact head.** `commits/3a703e91…/check-runs` reports
+`total_count: 12`, all `completed/success`, every `head_sha` equal to the full
+head. The gate run is `40088929871` (`event=pull_request`,
+`head_sha=3a703e91…`).
+
+**Negative control on the SHA trap** (recorded in `AGENTS.md`): the abbreviated
+SHA `3a703e91` passed to `?head_sha=` returns `total_count: 0` while the full
+40-character SHA returns `9` — the same tree, the same token, the same instant.
+A `0` from a short SHA is *unproven*, not *absent*. Re-measured here rather than
+trusted from memory.
+
+**Suites at the exact head.** contract 38 passed, wiring 12 passed, architecture
+11 passed; `api/main.py` 2505 lines (budget 2600), untouched; both scripts and
+`api/main.py` compile clean.
+
+**A mid-session environment reset was detected and repaired.** The container lost
+its site-packages between passes (`ModuleNotFoundError: No module named
+'pytest'`), which would have read as a catastrophic regression had it been
+attributed to the change. Reinstalled (`pytest` 9.1.1, `fastapi` 0.162.0) and
+both trees re-measured in the same session. Recorded because the failure mode is
+indistinguishable from a real one at the summary line.
+
+**`gh` credential availability is intermittent, not absent.** One `gh pr view`
+call failed with "please run `gh auth login`" while `gh auth status` reported a
+valid session and an immediately-following identical call succeeded. Do not
+conclude the credential is missing from a single failure; retry and re-read
+`gh auth status` before recording a BLOCKED boundary.
+
+---
+
+## 5. Gate-2 boundary (unchanged)
 
 No merge, no deployment, no production claim. `api/main.py` untouched. Human merge
 and release authority not exercised.
 
 ---
 
-## 5. Next permitted action
+## 6. Preserved handoff — remaining lane-document debt (NOT repaired here)
 
-Human review of `gate-hygiene/lane-currency-truth-01`, then (separately
-authorized) merge. After `#548`/`#555` land or are superseded, re-point
-`AGENT-03` and `AGENT-04` at live lane threads and re-run
-`python scripts/lane_state.py --check --verify-live`; it should then be clean
-with no NOTES.
+Recorded so the debt survives this workstream rather than being silently closed
+with it. These are **outside this guard's ownership**; repairing them from a lane
+that does not own the docs would be a scope violation, so they are reported (3
+NOTEs in CI) and left standing.
+
+| Lane | Doc | Declares | Live state | Owner |
+|---|---|---|---|---|
+| 2 | `AGENT-02-NOVANET-OPPORTUNITY.md` | #430 | MERGED | lane-2 owner |
+| 3 | `AGENT-03-SOLARIUN-KNOWLEDGE.md` | #526 | CLOSED, unmerged | PR #548 |
+| 4 | `AGENT-04-ARKANA-WEAVER-LAB.md` | #428 | MERGED | PR #555 (its head names closed #536) |
+
+Lane 1 was re-pointed at live PR #562 as part of this repair, because this guard
+owns it.
+
+**Re-entry condition:** when #548 and #555 land or are superseded, re-point
+`AGENT-03` and `AGENT-04` at live lane threads and run
+`python scripts/lane_state.py --check --verify-live`. It should then be clean
+with no NOTEs. Until that happens, a successor agent reading AGENT-02/03/04 is
+sent to a dead thread — the oracle now says so out loud, which is the change that
+matters: **the debt is visible, not repaired, and not concealed.**
+
+The measured handoff was also posted to PR #548 (comment `6383546506`), which owns
+lanes 3 and 4.
+
+---
+
+## 7. Next permitted action
+
+Human exact-head review of `gate-hygiene/lane-currency-truth-01` at
+`3a703e91`, then — separately authorized — merge. Merge, deployment, and
+acceptance are three separate decisions; the 12/12 checks and `MERGEABLE/CLEAN`
+status are evidence, not authorization.
+
+Scope is deliberately bounded: this PR repairs the guard and makes the oracle
+operational. It does **not** repair the four lane documents.
