@@ -337,6 +337,88 @@ lanes 3 and 4.
 
 ---
 
+## 8. Snapshot refresh widens the gate's own blocking scope (measured 2026-10-24T16:2xZ)
+
+Re-running this workstream's own refresher against live state surfaced a defect the
+first pass could not see, because the pass that wrote the snapshot ran before the
+condition existed.
+
+`python scripts/lane_state_refresh.py --write` moved lane 2 from
+`doc_guard: idle` to `doc_guard: current`: PR **#564**
+(`feat/prism-l2-field-completeness-01`, opened 2026-10-24T12:55Z) is the first open
+PR whose changed paths fall inside lane 2's exclusive ownership
+(`web/arkadia_console/src/pages/NovaNetPage.tsx`). The snapshot is a *derived*
+mirror, so recording that was correct.
+
+The consequence was not anticipated by the first pass. The guard's **blocking**
+scope is:
+
+```
+findings += check_lane_docs(state, lanes=current_lanes(state))
+```
+
+`current_lanes` reads the snapshot's `doc_guard` field -- a field the refresher
+writes. So a refresh can widen the gate's teeth onto a lane whose doc it does not
+repair. Measured immediately after the refresh, at `main` `68acf89f`:
+
+```
+$ python scripts/lane_state.py --check
+  DRIFT lane 2 (AGENT-02-NOVANET-OPPORTUNITY.md): declares PR #430, which is not an
+    open lane PR in the snapshot (open: [..., 562, 563, 564])
+  exit 1
+
+$ python -m pytest tests/test_lane_instruction_doc_currency.py -q
+  1 failed, 49 passed
+  test_live_guarded_docs_agree_with_the_snapshot
+```
+
+`AGENT-02` declares PR #430, which is **MERGED**. The finding was therefore
+*correct*, and the refreshed tree could not be merged as it stood: the gate was red
+on the workstream that owns the gate. This is the same class the first pass
+recorded -- a lane instruction pointing a successor agent at a dead thread -- one
+lane further along.
+
+### 8.1 The repair, and why it is an append
+
+`AGENT-02-NOVANET-OPPORTUNITY.md` gains one appended dated status block naming the
+live lane-2 thread (#564 / `feat/prism-l2-field-completeness-01`). No code change, no
+shared file, no mutation path, no new abstraction. Appending is the convention the
+document already uses and the one `declared_branch`/`declared_pr` implement
+(last declaration wins), so the stale pointers above it stay as provenance rather
+than being destroyed.
+
+`AGENT-03` and `AGENT-04` are deliberately **not** touched: they are `deferred` to
+open PRs #548 and #555, which install their own pointers. That is §6's measured
+handoff, and repairing them from here would be a scope violation.
+
+### 8.2 The design tension is recorded, not resolved
+
+The honest statement is that this workstream repaired a lane-2-owned document
+because the guard it owns began blocking on it. The alternative -- leaving the
+snapshot un-refreshed so lane 2 stayed `idle` -- would have passed CI while
+recording a falsehood (an open lane PR omitted from the mirror), which is precisely
+the hand-transcription drift this workstream exists to remove.
+
+The underlying tension is real and is left for sovereign review: **a gate whose
+blocking scope is derived from a field its own refresher writes can widen its own
+teeth.** Resolving it means either fixing the blocking scope to a stated lane set or
+making the refresher refuse to widen scope, and either is a design change to the
+guard rather than a bounded repair. Recorded here so a successor pass does not
+re-invent the question; do not "fix" it inside a pointer-repair slice.
+
+### 8.3 Verification at this head
+
+| Check | Result |
+|---|---|
+| `tests/test_lane_instruction_doc_currency.py` | **38 passed** |
+| `tests/test_lane_currency_ci_wiring.py` | **12 passed** |
+| `tests/architecture` | **11 passed** |
+| `scripts/lane_state.py --check` | exit **0** |
+| `scripts/lane_state.py --check --verify-live` | exit **0** (2 NOTEs, lanes 3 and 4) |
+
+The two remaining NOTEs are the §6 handoff, unchanged and still reported rather than
+hidden.
+
 ## 7. Next permitted action
 
 Human exact-head review of `gate-hygiene/lane-currency-truth-01` at

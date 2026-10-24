@@ -192,3 +192,49 @@ reviewed (agents do not close PRs). Draft; no merge, deployment, or acceptance.
 Next bounded task on this lane: wire the **reaction write path**
 (`POST /api/transmissions/{id}/react`, verified handler) with a negative control
 proving the client offers it only where the backend accepts it.
+
+## Status — 2026-10-24 (LANE 2, pointer re-point after snapshot refresh)
+
+**Active branch:** `feat/prism-l2-field-completeness-01`
+**Active PR:** [#564](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/564) — draft, head `7c7cdd439c1707741ebc3621b0fa81cbbe2ca850`.
+**Base:** `68acf89f3045a01b0ba04038fabac4edfb5f937e` (measured live this pulse; every
+earlier base recorded above is superseded).
+
+Every `**Active PR:**` pointer above is stale. The header names PR #430, which is
+**MERGED** (`merge_commit_sha` `04e1b83b89e51a994af68b529a1076665f9b3ae5`), and the
+dated continuity blocks that follow name #492/#528 — both also no longer open
+threads. This block is appended rather than rewritten, per the last-wins convention
+`scripts/lane_state.py::declared_branch`/`declared_pr` implement: the last
+declaration in the document is the authoritative one, so appending is how a lane
+updates its pointer without destroying the provenance above it.
+
+Measured, not asserted. `scripts/lane_state_refresh.py` re-derived the lane-state
+snapshot from live PR state and moved this lane from `doc_guard: idle` to
+`doc_guard: current` (PR #564, opened 2026-10-24T12:55Z, is the first open PR whose
+changed paths fall inside lane 2's exclusive ownership —
+`web/arkadia_console/src/pages/NovaNetPage.tsx`). `python scripts/lane_state.py
+--check --verify-live` then reported:
+
+```
+DRIFT lane 2 (AGENT-02-NOVANET-OPPORTUNITY.md): declares PR #430, which is not an
+  open lane PR in the snapshot (open: [..., 562, 563, 564])
+DRIFT lane 2 (AGENT-02-NOVANET-OPPORTUNITY.md) declares PR #430, which is MERGED
+```
+
+The finding was correct: a successor agent reading this document would have resumed
+a merged thread. This block is the repair.
+
+Note on the mechanism, recorded rather than silently fixed: the guard's *blocking*
+scope is `current_lanes(state)`, which is derived from the snapshot's `doc_guard`
+field — a field the refresher writes. A refresh can therefore widen the gate's teeth
+onto a lane whose doc it does not repair, which is exactly how this lane became red.
+The tension is real and is left for sovereign review rather than resolved here; see
+`docs/control-plane/evidence/lane-currency-truth-01/EVIDENCE.md` §8.
+
+`AGENT-03` and `AGENT-04` are **not** repaired here: they are `deferred` to open PRs
+#548 and #555, which install their own pointers. That is the documented measured
+handoff, and editing those docs from this workstream would be a scope violation.
+
+**Next bounded task on this lane:** wire the reaction write path
+(`POST /api/transmissions/{id}/react`, verified handler) with a negative control
+proving the client offers it only where the backend accepts it.

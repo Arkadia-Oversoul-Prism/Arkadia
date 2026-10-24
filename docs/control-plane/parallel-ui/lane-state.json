@@ -1,6 +1,6 @@
 {
  "schema": "arkadia.lane-state/1.2",
- "observed_at": "2026-10-24T10:42:39Z",
+ "observed_at": "2026-10-24T16:18:32Z",
  "base_main": "68acf89f3045a01b0ba04038fabac4edfb5f937e",
  "source": "GitHub REST reads API (Arkadia-Oversoul-Prism/Arkadia), read-only, derived by scripts/lane_state_refresh.py",
  "note": "Machine-readable mirror of the four Prism UI lane threads, DERIVED from live PR state rather than hand-transcribed. Lane assignment is by exclusive path ownership (SHARED-CONTRACTS.md section 1); a PR touching more than one lane's owned paths appears in each. scripts/lane_state.py judges the docs against this file; --verify-live additionally requires every claimed-open PR to be authoritatively open. Refresh with scripts/lane_state_refresh.py --write.",
@@ -59,9 +59,18 @@
   "2": {
    "doc": "AGENT-02-NOVANET-OPPORTUNITY.md",
    "title": "NovaNet + project Opportunity Radar",
-   "active_pr": null,
-   "active_branch": null,
-   "open_prs": [],
+   "active_pr": 564,
+   "active_branch": "feat/prism-l2-field-completeness-01",
+   "open_prs": [
+    {
+     "number": 564,
+     "branch": "feat/prism-l2-field-completeness-01",
+     "head_sha": "7c7cdd439c1707741ebc3621b0fa81cbbe2ca850",
+     "draft": true,
+     "updated_at": "2026-10-24T12:55:56Z",
+     "title": "Lane 2: the NovaNet public field states its page bound"
+    }
+   ],
    "merged_prs": [
     {
      "number": 420,
@@ -80,20 +89,20 @@
      "merge_commit_sha": "04e1b83b89e51a994af68b529a1076665f9b3ae5"
     }
    ],
-   "doc_guard": "idle"
+   "doc_guard": "current"
   },
   "3": {
    "doc": "AGENT-03-SOLARIUN-KNOWLEDGE.md",
    "title": "Solariun + Knowledge OS",
-   "active_pr": 548,
-   "active_branch": "integration/knowledge-search-graph-boundaries-01",
+   "active_pr": 563,
+   "active_branch": "gate-hygiene/lane-currency-truth-01",
    "open_prs": [
     {
      "number": 548,
      "branch": "integration/knowledge-search-graph-boundaries-01",
      "head_sha": "3da97fa5316f1f38a15c7aa081e45e39205763b7",
      "draft": true,
-     "updated_at": "2026-10-16T04:41:18Z",
+     "updated_at": "2026-10-24T11:16:38Z",
      "title": "compose Knowledge search visibility and graph traversal repairs"
     },
     {
@@ -111,6 +120,14 @@
      "draft": true,
      "updated_at": "2026-10-15T20:27:49Z",
      "title": "compose Knowledge status-read and graph-provenance contracts"
+    },
+    {
+     "number": 563,
+     "branch": "gate-hygiene/lane-currency-truth-01",
+     "head_sha": "8e4ca7b1ef7f1414799e7cad865975270be8c89f",
+     "draft": true,
+     "updated_at": "2026-10-24T12:26:10Z",
+     "title": "Lane-currency guard: decide freshness by guarded-path movement, add an authoritative PR-state oracle"
     }
    ],
    "merged_prs": [
