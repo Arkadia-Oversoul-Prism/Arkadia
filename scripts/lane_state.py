@@ -349,6 +349,77 @@ def _pr_state_findings(
     return findings
 
 
+def _declared_pointer_findings(
+    state: dict,
+    records: dict[int, dict],
+    failure: str | None = None,
+    lane_dir: Path = LANE_DIR,
+    lanes: list[str] | None = None,
+) -> list[str]:
+    """Require a lane doc's own declared PR to be authoritatively open.
+
+    This closes the *deferral* hole. ``check_lane_docs`` skips a lane whose doc
+    is mid-repair elsewhere, which is right for the snapshot-agreement property --
+    but it meant a deferred doc's pointer was judged by nobody, and the pointer
+    is exactly what a successor agent reads. Measured 2026-10-24: open PR #548
+    installs ``**Active PR:** #526`` into ``AGENT-03`` and open PR #555 installs
+    ``#536`` into ``AGENT-04``; #526 and #536 are both closed without merging.
+    Each of those PRs passed its own gate, because both lanes were deferred.
+
+    So liveness is judged on the *document*, for every lane, independently of
+    disposition. Callers pass ``lanes`` to separate *blocking* scope (the lanes
+    whose docs this guard owns) from *reporting* scope (all lanes): a dead
+    pointer is always reported, and it blocks when its lane is one the guard
+    judges. The old hole was that it was reported nowhere; it is not that it
+    blocks nowhere.
+
+    An earlier draft let a lane suppress this finding by naming an open "owner"
+    PR that would re-point the doc. Measurement killed it: the two PRs that
+    would have been named as owners each *install* a dead pointer rather than
+    repair one, so the suppression would have been false. A deferral that
+    suppresses a finding it does not fix is the same defect as the one being
+    repaired, one level up.
+    """
+    if failure:
+        return [
+            f"live PR state unavailable ({failure}); declared lane-doc pointers "
+            f"are UNKNOWN, not a pass"
+        ]
+
+    findings: list[str] = []
+    for lane_no in lanes if lanes is not None else _lane_numbers(state):
+        if lane_no not in state["lanes"]:
+            continue
+        doc = lane_dir / state["lanes"][lane_no]["doc"]
+        if not doc.exists():
+            continue
+        number = declared_pr(doc.read_text(encoding="utf-8"))
+        if number is None:
+            # A lane with no declared PR is stating that it has no active
+            # thread, which is the truthful form for an idle lane.
+            continue
+        record = records.get(number)
+        if record is None:
+            findings.append(
+                f"lane {lane_no} ({doc.name}) declares PR #{number}, which is not "
+                f"in the live PR response; its state is UNKNOWN, not a pass"
+            )
+            continue
+        status = pr_status(record)
+        if status == "OPEN":
+            continue
+        detail = "MERGED" if status == "MERGED" else (
+            "CLOSED without merging" if status == "CLOSED_UNMERGED"
+            else f"UNKNOWN ({record.get('state')!r})"
+        )
+        findings.append(
+            f"lane {lane_no} ({doc.name}) declares PR #{number}, which is {detail} "
+            f"-- the lane instruction points a successor agent at a dead thread; "
+            f"re-point it at a live lane PR"
+        )
+    return findings
+
+
 def pr_status(record: dict) -> str:
     """Classify one GitHub PR record into the four states the guard decides on.
 
@@ -386,7 +457,7 @@ def fetch_pr_records(
 
     records: dict[int, dict] = {}
     for number in sorted(set(numbers)):
-        url = f"{API}/{repo_slug}/pulls/{number}"
+        url = f"{API}/repos/{repo_slug}/pulls/{number}"
         req = urllib.request.Request(
             url,
             headers={
@@ -460,6 +531,25 @@ def resolve_main(repo: Path = REPO) -> str | None:
     return None
 
 
+def _rev_list(spec: str, paths: list[str], repo: Path = REPO) -> list[str] | None:
+    """Commit SHAs (newest first) in ``spec`` touching ``paths``; None on failure.
+
+    None is returned rather than an empty list because the two are *not* the
+    same answer here: "no commits touched these paths" is a freshness pass, and
+    a git failure that silently reads as one would convert an unprovable state
+    into the most permissive verdict available.
+    """
+    proc = subprocess.run(
+        ["git", "rev-list", spec, "--", *paths],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return None
+    return [c for c in proc.stdout.split() if c]
+
+
 def _freshness_findings(state: dict, current_main: str | None, repo: Path = REPO) -> list[str]:
     """Flag a snapshot superseded by movement in the paths it governs.
 
@@ -467,94 +557,119 @@ def _freshness_findings(state: dict, current_main: str | None, repo: Path = REPO
     snapshot is a measurement of the lane threads, and unrelated merges move
     ``main`` without changing any fact it records -- so SHA inequality alone is
     not staleness, and treating it as such reddens the gate on every merge.
+    Measured 2026-10-24 at ``main`` 68acf89f: 31 commits had landed since the
+    snapshot's ``7580bd8f``, exactly **two** touched
+    ``docs/control-plane/parallel-ui/``, the four lane docs still agreed with
+    the snapshot, and the guard failed anyway.
 
-    Staleness is therefore: a commit in ``(base_main, current_main]`` touched a
-    **guarded path**. The paths are derived from the snapshot itself (each lane's
-    declared ``doc``, plus the snapshot), so a lane added to the snapshot is
-    guarded without editing this function.
+    Staleness is therefore: **a lane doc the snapshot names changed after the
+    snapshot was last written.** That reference point is derived, not recorded.
+    An earlier draft exempted a snapshot-declared ``refresh_commit``, which
+    cannot work: the commit that writes the snapshot necessarily appears in its
+    own window, so recording the exemption requires knowing a SHA that does not
+    exist until the commit is made -- and any snapshot shipped without it
+    re-reddens ``main`` the moment it merges. Deriving "the newest commit that
+    touched the snapshot" has neither problem, and it is correct under both
+    squash and merge topologies (measured: a single commit touching doc +
+    snapshot, a doc edit with no refresh, a refresh *after* a doc edit, and a
+    doc edit *after* a refresh all classify correctly).
 
-    The snapshot's own recording commit is exempt. Without that exemption the
-    snapshot can never be fresh: the commit that writes it necessarily appears
-    in its own window, so every refresh would immediately re-redden the gate and
-    the only way to pass would be to never refresh. ``refresh_commit`` names
-    that commit explicitly rather than inferring it, because "the last commit
-    that touched this file" is a fact the guard can be *told* and then verified.
+    Note what this does *not* claim: a snapshot commit is treated as a
+    re-measurement whether or not it really re-measured anything. That residue
+    is covered by the other two oracles rather than by this one -- a doc that
+    disagrees with the snapshot fails :func:`check_lane_docs`, and a snapshot
+    whose PRs have closed fails :func:`_pr_state_findings`.
 
     Every inability to establish the window is a finding, not a pass. That
-    includes an unresolvable base, a base that is not an ancestor of current
-    ``main`` (a rebased or rewritten ``main`` -- the window would be meaningless),
-    and a git failure. Failing closed here is the only safe direction: the check
-    exists to stop a superseded snapshot from laundering stale lane pointers.
+    includes an unresolvable current ``main``, a ``base_main`` absent from the
+    clone, a ``base_main`` that is not an ancestor of current ``main`` (a
+    rewritten ``main`` -- the recorded provenance is void), and a git failure.
+    Failing closed is the only safe direction: this check exists to stop a
+    superseded snapshot from laundering stale lane pointers.
     """
     if current_main is None:
         return [
             "current main is not resolvable (shallow or detached clone?); "
-            "snapshot freshness is UNKNOWN, not a pass -- re-measure with a "
-            "clone that holds main's history"
+            "snapshot freshness is UNKNOWN, not a pass -- re-measure the lane "
+            "PRs from a clone that holds main's history"
         ]
 
     base = state.get("base_main")
     if not base:
-        return ["snapshot has no base_main; freshness is UNKNOWN, not a pass"]
+        return [
+            "snapshot has no base_main; freshness is UNKNOWN, not a pass -- "
+            "re-measure the lane PRs"
+        ]
 
     if not commit_is_present(base, repo=repo):
         return [
             f"snapshot base_main {base} is not in this clone; freshness is "
-            f"UNKNOWN, not a pass"
+            f"UNKNOWN, not a pass -- re-measure the lane PRs from a full clone"
         ]
 
     if not is_ancestor_of_head(base, repo=repo):
         return [
             f"snapshot base_main {base[:8]} is not an ancestor of HEAD "
-            f"{current_main[:8]}; the recorded window cannot be established "
-            f"(was main rewritten?), so freshness is UNKNOWN, not a pass"
+            f"{current_main[:8]}; the recorded provenance is void (was main "
+            f"rewritten?), so freshness is UNKNOWN, not a pass -- re-measure "
+            f"the lane PRs against the current main"
         ]
 
-    guarded = guarded_paths(state)
-    proc = subprocess.run(
-        ["git", "rev-list", f"{base}..{current_main}", "--", *guarded],
-        cwd=repo,
-        capture_output=True,
-        text=True,
+    snapshot_commits = _rev_list(
+        f"{base}..{current_main}", [str(LANE_STATE.relative_to(REPO))], repo=repo
     )
-    if proc.returncode != 0:
+    if snapshot_commits is None:
         return [
-            f"cannot compute the guarded-path window {base[:8]}..{current_main[:8]} "
-            f"({proc.stderr.strip() or 'git rev-list failed'}); freshness is "
-            f"UNKNOWN, not a pass"
+            f"cannot read the snapshot's history in {base[:8]}..{current_main[:8]}; "
+            f"freshness is UNKNOWN, not a pass -- re-measure the lane PRs"
+        ]
+    reference = snapshot_commits[0] if snapshot_commits else base
+
+    docs = guarded_doc_paths(state)
+    changed = _rev_list(f"{reference}..{current_main}", docs, repo=repo)
+    if changed is None:
+        return [
+            f"cannot compute the guarded-path window {reference[:8]}.."
+            f"{current_main[:8]}; freshness is UNKNOWN, not a pass -- "
+            f"re-measure the lane PRs"
         ]
 
-    commits = [c for c in proc.stdout.split() if c]
-    exempt = state.get("refresh_commit")
-    if exempt:
-        commits = [c for c in commits if not c.startswith(str(exempt)[:8])]
-
-    if commits:
+    if changed:
         return [
-            f"snapshot is stale: {len(commits)} commit(s) since base_main "
-            f"{base[:8]} touched a guarded path ({', '.join(guarded)}) -- "
+            f"snapshot is stale: {len(changed)} commit(s) since it was recorded "
+            f"({reference[:8]}) changed a guarded lane doc ({', '.join(docs)}) -- "
             f"re-measure the lane PRs and refresh the snapshot "
-            f"(first: {commits[0][:8]})"
+            f"(first: {changed[0][:8]})"
         ]
     return []
 
 
-def guarded_paths(state: dict) -> list[str]:
-    """The repository paths whose movement makes the snapshot stale.
+def guarded_doc_paths(state: dict) -> list[str]:
+    """The lane instruction docs whose movement makes the snapshot stale.
 
     Derived from the snapshot rather than hardcoded, so adding a lane cannot
-    silently leave its doc unguarded. Each lane's declared ``doc`` is resolved
-    relative to :data:`LANE_DIR`, and the snapshot itself is always guarded --
-    a commit that rewrites the snapshot is by definition a re-measurement, and
-    one that moves it without re-measuring the PRs is exactly what the
-    freshness check must catch.
+    silently leave its doc unguarded. The snapshot file itself is deliberately
+    *excluded*: it is the reference point the comparison is anchored on, so
+    including it would make every refresh invalidate itself.
     """
-    paths = {str(LANE_STATE.relative_to(REPO))}
-    for lane in state["lanes"].values():
-        doc = lane.get("doc")
-        if doc:
-            paths.add(str((LANE_DIR / doc).relative_to(REPO)))
-    return sorted(paths)
+    return sorted(
+        str((LANE_DIR / lane["doc"]).relative_to(REPO))
+        for lane in state["lanes"].values()
+        if lane.get("doc")
+    )
+
+
+def guarded_paths(state: dict) -> list[str]:
+    """Every path the guard owns: the lane docs plus the snapshot itself.
+
+    Reported for operator context and used where a total inventory is wanted
+    (the printed freshness line). The freshness *decision* uses
+    :func:`guarded_doc_paths`, which omits the snapshot so a refresh cannot
+    invalidate itself.
+    """
+    return sorted(
+        set(guarded_doc_paths(state)) | {str(LANE_STATE.relative_to(REPO))}
+    )
 
 
 def _disposition_findings(state: dict) -> list[str]:
@@ -698,13 +813,34 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.verify_live:
         numbers = sorted(claimed_open_prs(state))
-        records, failure = fetch_pr_records(numbers)
+        declared = {
+            declared_pr((LANE_DIR / state["lanes"][n]["doc"]).read_text(encoding="utf-8"))
+            for n in _lane_numbers(state)
+            if (LANE_DIR / state["lanes"][n]["doc"]).exists()
+        }
+        records, failure = fetch_pr_records(
+            numbers + sorted(n for n in declared if n is not None)
+        )
         findings += _pr_state_findings(state, records, failure)
+        # Dead pointers block only for the lanes this guard owns. Every lane is
+        # still *reported*: a finding nobody prints is the hole being repaired.
+        # Blocking on a doc the guard does not own would make the gate
+        # permanently red for work it cannot do -- the failure mode that trains
+        # operators to ignore a gate.
+        owned = current_lanes(state)
+        findings += _declared_pointer_findings(state, records, failure, lanes=owned)
+        advisory = [
+            f
+            for f in _declared_pointer_findings(state, records, failure)
+            if f not in findings
+        ]
         print(
-            f"live PR state: {len(records)}/{len(numbers)} claimed-open PR(s) "
-            f"read from {DEFAULT_REPO}"
+            f"live PR state: {len(records)} PR(s) read from {DEFAULT_REPO} "
+            f"({len(numbers)} claimed-open + declared doc pointers)"
             + (f" -- {failure}" if failure else "")
         )
+        for note in advisory:
+            print(f"  NOTE {note} (lane not owned by this guard; reported, not blocking)")
 
     print(freshness_text(state, base_main))
     print(f"doc-guard lanes: {current_lanes(state)}; deferred: "

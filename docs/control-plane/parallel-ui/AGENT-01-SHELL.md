@@ -39,3 +39,44 @@
 ## Required evidence
 
 Exact base/head SHAs; route/OpenAPI verification; ownership/overlap check; targeted tests and negative controls; typecheck/build; baseline failure-node comparison; current branch map; one next bounded task.
+
+## Status — 2026-10-24 (LANE 1, lane-currency truth repair)
+
+**Active branch:** `feat/prism-l1-legacy-lens-route-recovery-01`
+**Active PR:** [#562](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/562) — draft, head `0a6d4db698ccc715a5e790b02d240838ea78eeaa`.
+**Base:** `68acf89f3045a01b0ba04038fabac4edfb5f937e` (measured live this pulse; every
+earlier base recorded above is superseded).
+
+The pointers above are stale and were repaired by *appending* this block, per the
+last-wins convention already used by lanes 2–4. Measured live this pulse: **all four**
+lane docs named a dead thread — `AGENT-01` named PR #507 (closed without merging),
+`AGENT-02` #430 (merged), `AGENT-03` #526 (closed without merging), `AGENT-04` #428
+(merged). A successor agent reading any of them would have resumed a closed thread,
+which is the continuity failure the lane model exists to prevent.
+
+Two of those four were *hidden by the deferral mechanism*, which is the more important
+finding: `AGENT-03`'s `#526` was installed by open PR #548 and `AGENT-04`'s `#536` by
+open PR #555, each while its own lane was `deferred`, so the currency guard judged
+neither pointer. `scripts/lane_state.py --verify-live` now judges liveness on the
+*document*, for every lane, independently of disposition.
+
+Repaired in this pass:
+
+- Freshness no longer compares SHAs. `snapshot.base_main == current main` reddened on
+  any unrelated merge (31 commits had landed since the recorded base; two touched a
+  guarded path). Staleness is now "a lane doc changed after the snapshot was recorded".
+- `--verify-live` adds an authoritative PR-state oracle (GitHub reads API, read-only):
+  OPEN / MERGED / CLOSED_UNMERGED / UNKNOWN, with UNKNOWN failing closed.
+- The snapshot is now *derived* (`scripts/lane_state_refresh.py --write`) instead of
+  hand-transcribed — the transcription step is what let ten closed PRs stay recorded
+  as open.
+
+Ownership note: this pass repaired only Lane 1's own instruction doc. `AGENT-03` and
+`AGENT-04` are owned by PRs #548 and #555; their dead pointers are recorded here as a
+measured handoff, not edited from a lane that does not own them.
+
+Evidence: `docs/control-plane/evidence/lane-currency-truth-01/EVIDENCE.md`.
+
+**Next bounded task:** once #548 and #555 land or are superseded, re-point `AGENT-03`
+and `AGENT-04` at their live lane threads, then re-run
+`python scripts/lane_state.py --check --verify-live` and expect it to be clean.
