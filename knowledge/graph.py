@@ -106,6 +106,13 @@ def traverse(
     visited: set[int] = {start_id}
     frontier: list[int] = [start_id]
     all_edges: list[dict] = []
+    # An edge is emitted once, when its first endpoint joins the frontier. A later
+    # hop whose frontier still touches an already-emitted edge (e.g. a diamond or
+    # a back-edge) must not append the same row again: the returned edge list is a
+    # set of readable edges, not a record of every hop that rediscovered one. The
+    # row `id` is the edge's identity (`UNIQUE(source_note_id, target_note_id,
+    # relationship)`), so it is the correct dedupe key.
+    seen_edges: set[int] = set()
 
     for _ in range(max_depth):
         if not frontier:
@@ -122,7 +129,9 @@ def traverse(
             src, tgt = edge["source_note_id"], edge["target_note_id"]
             if src not in allowed or tgt not in allowed:
                 continue
-            all_edges.append(edge)
+            if edge["id"] not in seen_edges:
+                seen_edges.add(edge["id"])
+                all_edges.append(edge)
             for nid in (src, tgt):
                 if nid not in visited and nid in allowed:
                     visited.add(nid)

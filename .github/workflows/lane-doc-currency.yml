@@ -8,14 +8,18 @@ on:
     paths:
       - "docs/control-plane/parallel-ui/**"
       - "scripts/lane_state.py"
+      - "scripts/lane_state_refresh.py"
       - "tests/test_lane_instruction_doc_currency.py"
+      - "tests/test_lane_currency_ci_wiring.py"
       - ".github/workflows/lane-doc-currency.yml"
   push:
     branches: ["main"]
     paths:
       - "docs/control-plane/parallel-ui/**"
       - "scripts/lane_state.py"
+      - "scripts/lane_state_refresh.py"
       - "tests/test_lane_instruction_doc_currency.py"
+      - "tests/test_lane_currency_ci_wiring.py"
       - ".github/workflows/lane-doc-currency.yml"
   workflow_dispatch:
 
@@ -45,5 +49,27 @@ jobs:
       - run: python -m pip install pytest
       - name: Execute lane instruction-doc currency guard
         run: python -m pytest -q tests/test_lane_instruction_doc_currency.py
+      - name: Execute the wiring guard (judges this workflow)
+        # Run inside the gate so a rewrite of this workflow is judged by the
+        # workflow it rewrites -- otherwise the gate can be disarmed by editing
+        # the one file it is meant to constrain.
+        run: python -m pytest -q tests/test_lane_currency_ci_wiring.py
       - name: Execute the guard as the gate executes it
         run: python scripts/lane_state.py --check
+      - name: Verify lane PR state against GitHub (authoritative oracle)
+        # The offline check can only prove the docs agree with the *snapshot*.
+        # It cannot prove the snapshot agrees with GitHub -- and that is where
+        # the measured failure was: all ten PRs the snapshot recorded as open
+        # had closed, three of them unmerged, so every lane instruction pointed
+        # a successor agent at a dead thread. An oracle no workflow executes is
+        # decoration, so it runs here.
+        #
+        # Reads only (GET, never a mutation); the token is used for the request
+        # and never printed. It fails closed: if GitHub cannot be reached the
+        # step reports UNKNOWN and fails, rather than reading an unanswered
+        # question as "no dead pointers". A transient outage therefore reddens
+        # this step -- re-run it; that is the safe direction for a staleness
+        # check, and the alternative (a silent pass) is the defect being fixed.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/lane_state.py --check --verify-live

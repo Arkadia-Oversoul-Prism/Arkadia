@@ -82,3 +82,8 @@ vault/**
 !vault/**/.gitkeep
 !vault/Index/README.md
 !vault/Templates/**
+
+# Agent-runtime scratch: local agent memory and session state. Never part of a
+# change; a `git add -A` must not be able to stage it. (This was learned the
+# hard way: an amend was needed to remove it from a commit in this workstream.)
+.openhands/
