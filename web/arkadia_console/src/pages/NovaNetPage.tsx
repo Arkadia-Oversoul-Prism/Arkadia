@@ -56,6 +56,11 @@ const LENS_IDS = new Set(LENSES.map((l) => l.id));
  * that the panel is showing a subset, not the whole stream.
  */
 const ECHO_DISPLAY_LIMIT = 8;
+/** The field's requested page size. The handler caps `limit` at 50 and reports
+ *  the uncapped `total`, so a page is asked for explicitly here: the render
+ *  bound is the request's, and the notice compares what arrived against `total`
+ *  rather than against a second copy of the server's cap. */
+const FIELD_PAGE_LIMIT = 50;
 
 const DEFERRED: Record<string, string> = {
   hub: "UNKNOWN",
@@ -76,7 +81,10 @@ export function NovaNetPage({
   section?: string;
   onNavigate: (id: SurfaceId, section?: string) => void;
 }) {
-  const field = useHydration<TransmissionList>(endpoints.transmissions, (p) => apiRequest<TransmissionList>(p));
+  const field = useHydration<TransmissionList>(
+    `${endpoints.transmissions}?limit=${FIELD_PAGE_LIMIT}`,
+    (p) => apiRequest<TransmissionList>(p),
+  );
   const echoes = useHydration<EchoesFeed>(endpoints.echoes, (p) => apiRequest<EchoesFeed>(p), [section === "echoes"]);
   // The verified uid gates the author controls. It is the same identity the
   // backend resolves the owner from, so the client offers a mutation only where
@@ -112,8 +120,9 @@ export function NovaNetPage({
               field.data.transmissions.length === 0 ? (
                 <p className="text-sm text-white/50">The field is quiet — no public transmissions yet.</p>
               ) : (
-                <ul className="flex flex-col gap-2" data-testid="novanet-transmissions">
-                  {field.data.transmissions.map((t) => (
+                <>
+                  <ul className="flex flex-col gap-2" data-testid="novanet-transmissions">
+                    {field.data.transmissions.map((t) => (
                     <li key={t.id} className="rounded border border-line bg-ink/40 p-3">
                       <div className="flex items-baseline justify-between gap-3">
                         <p className="text-sm text-white/85">
@@ -137,7 +146,17 @@ export function NovaNetPage({
                       />
                     </li>
                   ))}
-                </ul>
+                  </ul>
+                  {field.data.total > field.data.transmissions.length && (
+                    <p
+                      className="font-mono text-[11px] text-white/40"
+                      data-testid="novanet-transmissions-truncation"
+                    >
+                      Showing {field.data.transmissions.length} of {field.data.total} public transmissions —
+                      the remainder is not rendered on this surface.
+                    </p>
+                  )}
+                </>
               )
             ) : (
               <ContractState state={field.state} error={field.error?.message} onRetry={field.reload} />
