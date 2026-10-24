@@ -47,9 +47,9 @@ def _schema_move_enum() -> set[str]:
 
 
 def _router_vocabulary() -> set[str]:
-    from weaver.engineering_router import ACTIVE_STATUSES, TERMINAL_DONE
+    from weaver.engineering_router import ACTIVE_STATUSES, NON_ROUTABLE_STATUSES, TERMINAL_DONE
 
-    return set(ACTIVE_STATUSES) | set(TERMINAL_DONE)
+    return set(ACTIVE_STATUSES) | set(TERMINAL_DONE) | set(NON_ROUTABLE_STATUSES)
 
 
 def _trajectory_files() -> list[Path]:
@@ -159,8 +159,9 @@ def test_schema_move_enum_covers_the_router_vocabulary():
     """
     enum = _schema_move_enum()
     vocabulary = _router_vocabulary()
-    assert vocabulary <= enum, (
-        f"router statuses absent from the schema enum: {sorted(vocabulary - enum)}"
+    assert vocabulary == enum, (
+        f"schema/router status dispositions differ; missing from router classification: "
+        f"{sorted(enum - vocabulary)}; absent from schema: {sorted(vocabulary - enum)}"
     )
 
 

@@ -55,13 +55,16 @@ def test_terminal_only_trajectory_reports_only_the_clean_stop_sentinel():
 
 
 def test_unrecognized_frontier_is_not_a_clean_stop():
-    """An unrecognized move status is a defect, not an absence of work."""
+    """A frontier the router cannot route is a defect, not an absence of work."""
     move, blockers = select_next_move(
         _traj([{"id": "A", "status": "merged_acceptance_pending", "spec": "s.md"}])
     )
     assert move is None
     joined = " ".join(blockers)
-    assert "unrecognized move status" in joined
+    # `merged_acceptance_pending` is schema-legal but gated, so the router names the
+    # acceptance boundary rather than the pre-gate generic "unrecognized move status"
+    # marker (which is reserved for statuses outside the frozen schema).
+    assert "merged_acceptance_pending" in joined
     assert CLEAN_STOP_BLOCKER not in blockers
 
 
@@ -164,7 +167,7 @@ def test_unroutable_frontier_reaches_the_sovereign_through_the_worker(
         ),
     )
     assert result["status"] == "NO_LEGAL_MOVE"
-    assert any("unrecognized move status" in b for b in result["blockers"])
+    assert any("merged_acceptance_pending" in b for b in result["blockers"])
 
     event = result["attention_event"]
     assert event["event_type"] == "WEAVER_BLOCKED"
