@@ -79,6 +79,22 @@ def _timeline_owner_clause(user_id: Optional[str]) -> tuple[str, list]:
     return "1 = 0", []
 
 
+# SQLite reads ``LIMIT -1`` as "no limit", so an unclamped negative row count
+# returns the caller's entire readable log. The readers clamp to a floor of 0 so a
+# negative value can never widen a read; the ceiling here is the widest internal
+# read (`replay_project`) rather than the route bound, which `api.knowledge_routes`
+# applies separately.
+_MAX_READ_LIMIT = 10000
+
+
+def _clamp_read_limit(limit: int) -> int:
+    try:
+        value = int(limit)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, min(value, _MAX_READ_LIMIT))
+
+
 def query(
     event_type: Optional[str] = None,
     project_id: Optional[int] = None,
@@ -90,6 +106,11 @@ def query(
     offset: int = 0,
     user_id: Optional[str] = None,
 ) -> list[dict]:
+    limit = _clamp_read_limit(limit)
+    try:
+        offset = max(0, int(offset))
+    except (TypeError, ValueError):
+        offset = 0
     conditions: list[str] = []
     params: list = []
     oc, op = _timeline_owner_clause(user_id)
@@ -129,7 +150,7 @@ def recent(limit: int = 20, user_id: Optional[str] = None) -> list[dict]:
     oc, op = _timeline_owner_clause(user_id)
     rows = execute(
         f"SELECT * FROM timeline WHERE {oc} ORDER BY id DESC LIMIT ?",
-        tuple(op + [limit]),
+        tuple(op + [_clamp_read_limit(limit)]),
     )
     for r in rows:
         try:

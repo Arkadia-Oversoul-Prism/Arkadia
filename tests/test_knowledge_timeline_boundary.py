@@ -52,6 +52,7 @@ pytestmark = pytest.mark.skipif(
 ROOT = Path(__file__).resolve().parents[1]
 CONSOLE = ROOT / "web" / "arkadia_console" / "src"
 TIMELINE_SOURCE = ROOT / "knowledge" / "timeline.py"
+ROUTES = ROOT / "api" / "knowledge_routes.py"
 PANEL = CONSOLE / "components" / "knowledge" / "KnowledgeTimelinePanel.tsx"
 CONTRACTS = CONSOLE / "pages" / "knowledge" / "knowledgeContracts.ts"
 
@@ -369,3 +370,109 @@ def test_default_page_includes_latest_event_after_more_than_100_owner_events(cli
 
     # Anonymous remains fail-closed even when many private events exist.
     assert client.get("/api/knowledge/timeline").json() == []
+
+
+# ── the read bound is a floor as well as a ceiling ───────────────────────────
+#
+# `le=500` bounds the top of the range but not the bottom, and SQLite reads
+# `LIMIT -1` as "no limit". Measured on `main` @ `7580bd8` with 600 owner events:
+# `GET /api/knowledge/timeline?limit=-1` answered **200** with **1200** rows (the
+# seeded 600 plus the suite's), i.e. the whole readable log, while `limit=501` was
+# correctly refused with 422. `GET /api/knowledge/timeline/recent?limit=-1` and
+# `?limit=999999` were worse: `recent_timeline` declared a bare `limit: int = 20`
+# with no bound at all, so **both** returned the entire log. The ceiling test
+# above passed throughout -- it only ever probed `501`.
+
+def _seed_many(count: int, uid: str = USER_A) -> None:
+    for index in range(count):
+        tl.record("decision", {"marker": f"TIMELINE_BOUND_{index}"}, user_id=uid)
+
+
+def test_negative_limit_cannot_widen_the_read(client):
+    """A negative row count must not become SQLite's unbounded ``LIMIT -1``."""
+    _seed_many(600)
+    response = client.get("/api/knowledge/timeline?limit=-1", headers=_auth(USER_A))
+    assert response.status_code == 422, (
+        "a negative limit must be refused, not forwarded to SQLite as 'no limit'"
+    )
+
+
+def test_negative_offset_is_refused_not_read_as_zero(client):
+    _seed()
+    assert client.get("/api/knowledge/timeline?offset=-5", headers=_auth(USER_A)).status_code == 422
+
+
+def test_the_ceiling_still_holds_after_the_floor_was_added(client):
+    """The floor must not replace the ceiling: both ends stay enforced."""
+    _seed_many(600)
+    assert client.get("/api/knowledge/timeline?limit=501", headers=_auth(USER_A)).status_code == 422
+    assert client.get("/api/knowledge/timeline?limit=999999", headers=_auth(USER_A)).status_code == 422
+
+
+def test_recent_reader_is_bounded_at_all(client):
+    """``/timeline/recent`` declared no bound, so *any* oversized limit was honoured."""
+    _seed_many(600)
+    for limit in ("-1", "999999"):
+        assert client.get(f"/api/knowledge/timeline/recent?limit={limit}", headers=_auth(USER_A)).status_code == 422, (
+            f"recent limit={limit} must be refused"
+        )
+    # The declared default still works and still returns the newest window.
+    body = client.get("/api/knowledge/timeline/recent", headers=_auth(USER_A)).json()
+    assert len(body) == 20
+    assert body == sorted(body, key=lambda event: event["id"])
+
+
+def test_in_process_callers_cannot_bypass_the_route_bound():
+    """The route is not the only caller: a module-level read must clamp too.
+
+    ``knowledge.timeline.query``/``recent`` are called directly in-process
+    (``api.echofeild`` uses ``recent``), so a handler-only fix would leave a
+    second unbounded path. ``replay_project`` keeps its own wider 10000 ceiling.
+    """
+    _seed_many(600)
+    assert len(tl.query(limit=-1, user_id=USER_A)) == 0
+    assert len(tl.recent(limit=-1, user_id=USER_A)) == 0
+    assert len(tl.query(limit=999999, user_id=USER_A)) == 600
+    assert len(tl.replay_project(1, user_id=USER_A)) == 0
+
+
+def test_detector_flags_an_unbounded_limit_declaration():
+    """Negative control: the detector must bite on the pre-repair declarations."""
+    pre_repair = "async def recent_timeline(request: Request, limit: int = 20):\n    ...\n"
+    assert _unbounded_route_limit(_function_source(pre_repair, "recent_timeline")) is True
+    # And must be silent on the repaired shape, or it is not a detector.
+    repaired = (
+        "async def recent_timeline(request: Request, "
+        "limit: int = Query(20, ge=0, le=TIMELINE_MAX_LIMIT)):\n    ...\n"
+    )
+    assert _unbounded_route_limit(_function_source(repaired, "recent_timeline")) is False
+
+
+def test_route_declares_a_floor_on_every_timeline_reader():
+    """Source-level pin so the floor cannot be dropped without reddening."""
+    source = ROUTES.read_text(encoding="utf-8")
+    for reader in ("get_timeline", "recent_timeline"):
+        signature = _function_source(source, reader)
+        assert signature, f"{reader} must exist in the route module"
+        assert "ge=0" in signature, f"{reader} must declare a lower bound on limit"
+        assert not _unbounded_route_limit(signature), f"{reader} must not take a bare limit"
+
+
+def _function_source(source: str, name: str) -> str:
+    """Return the ``def <name>(...)`` parameter list, or '' when absent."""
+    match = re.search(rf"def {re.escape(name)}\((.*?)\)\s*(?:->[^:]*)?:", source, re.S)
+    return match.group(1) if match else ""
+
+
+def _unbounded_route_limit(function_signature: str) -> bool:
+    """True when a reader takes a bare ``limit: int`` with no bound at all.
+
+    A bare integer default is the pre-repair shape; ``Query(...)`` with ``ge``/``le``
+    is the repaired one. The detector reads the parameter, not the line, so it is
+    insensitive to how the signature is wrapped.
+    """
+    match = re.search(r"limit\s*:\s*int\s*=\s*([^,)]*)", function_signature)
+    if not match:
+        return False
+    return bool(re.fullmatch(r"\d+", match.group(1).strip()))
+
