@@ -42,11 +42,44 @@ merged PR into an open one. The oracle is deliberately one-directional: it can
 prove *merged*, never *open* (an absent commit proves nothing), so it is a
 rejection rule layered on top of the snapshot, not a replacement for it.
 
-Freshness is **reported, not asserted**: the guard cannot know the current
-``main`` without the network, so ``--check`` prints the comparison and fails
-only when the caller supplies ``--base-main``. The docstring says so because the
-earlier revision claimed freshness was checked while the workflow never passed
-``--base-main`` at all.
+That one-directionality left a second continuity hole, and it is the more
+dangerous one because it is silent. Local ancestry can prove *merged*; it can
+never prove *closed without merging*, which is precisely the state a lane
+instruction must stop naming. Measured 2026-10-24: **all ten** PRs the snapshot
+listed under ``open_prs`` were closed, and three of those ten had never merged.
+The guard printed "lane instruction docs consistent with snapshot" regardless,
+so a successor agent would have been sent to a dead thread -- the failure the
+lane model exists to prevent. ``merged_prs`` only covers PRs the snapshot
+already believes merged, so a PR the snapshot wrongly believes open is never
+tested at all.
+
+Hence the **authoritative** oracle: :func:`fetch_pr_records` reads live PR
+state from the GitHub REST API (read-only, ``GET`` only) and
+:func:`_pr_state_findings` requires every claimed-open lane PR -- including a
+``deferred_to_pr`` -- to be reported *open*, with ``merged`` read separately
+from ``state`` because GitHub returns ``closed`` for both a merged and an
+abandoned PR. It is opt-in via ``--verify-live`` so the default ``--check``
+stays offline, and every failure to obtain state (no token, transport error,
+non-200) is ``UNKNOWN`` and fails closed rather than reading as open.
+
+Freshness is decided by a **guarded-path window**, not by SHA equality. The
+earlier rule was ``snapshot.base_main == current main``, which conflates two
+different conditions: a snapshot can be perfectly current while ``main`` has
+moved, as long as the movement did not touch anything the snapshot governs.
+Measured 2026-10-24 at ``main`` 68acf89f: 31 commits had landed since the
+snapshot's ``7580bd8f``, exactly **two** of them touched
+``docs/control-plane/parallel-ui/``, and the four lane docs agreed with the
+snapshot -- yet the guard reported drift, because the SHAs differed. A rule
+that reddens on unrelated merges trains its operators to ignore it.
+
+So staleness is now: does any commit in ``(base_main, current_main]`` touch a
+**guarded path** (the lane docs the snapshot names, plus the snapshot itself)?
+The commit that recorded the snapshot is exempt -- it *is* the measurement, so
+it cannot invalidate itself. Every way of failing to establish that window
+(unresolvable base, a base that is not an ancestor of current ``main``, an
+unreadable clone) is reported as drift rather than passed: an unprovable
+freshness is not a pass, and it is not a pass in the direction that matters,
+because it would let a genuinely superseded snapshot through.
 
 The snapshot (:data:`LANE_STATE`) is the single machine-readable copy. The docs
 are repaired from it rather than restated in two places, and ``--check`` exits
@@ -55,20 +88,29 @@ CI and proven by the fitness test.
 
 Read-only. ``--check`` parses docs and the snapshot and mutates nothing, and it
 does not fetch: the snapshot is refreshed by re-measuring the lane PRs with the
-GitHub reads API outside this script (see the EVIDENCE record).
+GitHub reads API outside this script (see the EVIDENCE record). ``--verify-live``
+adds the one read-only network call the guard can make -- ``GET`` on each
+claimed-open PR -- so the authoritative liveness oracle can be executed rather
+than merely described; it is opt-in so the default check stays offline.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 LANE_DIR = REPO / "docs" / "control-plane" / "parallel-ui"
 LANE_STATE = LANE_DIR / "lane-state.json"
+
+API = "https://api.github.com"
+DEFAULT_REPO = "Arkadia-Oversoul-Prism/Arkadia"
 
 # A doc declares its pointer with a bold field. Both forms appear in the corpus:
 # "*Active branch:*" and "**Active branch:**".
@@ -220,6 +262,160 @@ def _liveness_findings(state: dict, repo: Path = REPO) -> list[str]:
     return findings
 
 
+def claimed_open_prs(state: dict) -> dict[int, list[str]]:
+    """Every PR the snapshot claims is open, mapped to where the claim is made.
+
+    Two places make an open-claim, and both are load-bearing: ``open_prs`` (the
+    lane's live threads) and ``deferred_to_pr`` (a lane whose doc is being
+    repaired elsewhere). A deferral pointing at a closed PR is the same
+    continuity defect as an ``open_prs`` entry that has closed -- it tells a
+    successor agent the doc is being handled by a thread that no longer exists --
+    so both are collected here and judged by one rule.
+    """
+    claims: dict[int, list[str]] = {}
+    for lane_no in _lane_numbers(state):
+        lane = state["lanes"][lane_no]
+        for pr in lane.get("open_prs", []):
+            claims.setdefault(int(pr["number"]), []).append(f"lane {lane_no} open_prs")
+        owner = lane.get("deferred_to_pr")
+        if owner is not None:
+            claims.setdefault(int(owner), []).append(f"lane {lane_no} deferred_to_pr")
+    return claims
+
+
+def _pr_state_findings(
+    state: dict, records: dict[int, dict], failure: str | None = None
+) -> list[str]:
+    """Require every claimed-open lane PR to be *authoritatively* open.
+
+    The local-ancestry oracle in :func:`_liveness_findings` can only prove
+    *merged*. It is silent on a PR that was closed without merging, which is the
+    state a lane instruction most needs to stop naming, and it cannot confirm
+    that a PR is still open at all. Measured 2026-10-24: ten PRs recorded under
+    ``open_prs`` were closed -- three of them never merged -- and the guard
+    passed, because ``merged_prs`` only ever covered PRs the snapshot already
+    believed merged.
+
+    So this is the authoritative half: live PR state, fetched read-only. The
+    decision table is total and fails closed.
+
+      OPEN            the claim stands.
+      MERGED          the claim is stale -- re-measure and re-point the lane.
+      CLOSED_UNMERGED the claim is stale *and* the thread is dead -- the case
+                      local ancestry can never see.
+      UNKNOWN         no token, transport error, non-200, or a PR number absent
+                      from the response. Reported, never treated as open.
+
+    ``merged`` is read separately from ``state`` because GitHub reports
+    ``state == "closed"`` for a merged PR *and* for an abandoned one; collapsing
+    them would make the two findings above indistinguishable to an operator.
+    """
+    if failure:
+        return [
+            f"live PR state unavailable ({failure}); every claimed-open lane PR "
+            f"is UNKNOWN, not a pass -- re-measure with GitHub read access"
+        ]
+
+    findings: list[str] = []
+    for number, claimants in sorted(claimed_open_prs(state).items()):
+        where = ", ".join(claimants)
+        record = records.get(number)
+        if record is None:
+            findings.append(
+                f"PR #{number} ({where}) is not in the live PR response; its state "
+                f"is UNKNOWN, not a pass -- re-measure the lane PRs"
+            )
+            continue
+        status = pr_status(record)
+        if status == "OPEN":
+            continue
+        if status == "MERGED":
+            findings.append(
+                f"PR #{number} ({where}) is recorded as open but is MERGED "
+                f"(merge commit {str(record.get('merge_commit_sha'))[:8]}); "
+                f"re-measure the lane PRs and re-point the lane"
+            )
+        elif status == "CLOSED_UNMERGED":
+            findings.append(
+                f"PR #{number} ({where}) is recorded as open but is CLOSED without "
+                f"merging; the thread is dead -- re-measure the lane PRs and "
+                f"re-point the lane, do not send an agent to it"
+            )
+        else:
+            findings.append(
+                f"PR #{number} ({where}) has an unrecognised live state "
+                f"{record.get('state')!r}; classified UNKNOWN, not a pass"
+            )
+    return findings
+
+
+def pr_status(record: dict) -> str:
+    """Classify one GitHub PR record into the four states the guard decides on.
+
+    ``merged`` is consulted before ``state`` because GitHub returns
+    ``state == "closed"`` for both outcomes. A record missing either field, or
+    carrying a state outside the known set, is ``UNKNOWN`` -- guessing there
+    would defeat the whole point of asking an authority.
+    """
+    state = record.get("state")
+    if state == "open":
+        return "OPEN"
+    if state == "closed":
+        if record.get("merged") is True:
+            return "MERGED"
+        if record.get("merged") is False:
+            return "CLOSED_UNMERGED"
+        return "UNKNOWN"
+    return "UNKNOWN"
+
+
+def fetch_pr_records(
+    numbers: list[int], repo_slug: str = DEFAULT_REPO, timeout: float = 20.0
+) -> tuple[dict[int, dict], str | None]:
+    """Read live PR state for ``numbers`` from the GitHub REST API.
+
+    Read-only: ``GET`` only, no mutation, and the token is never printed or
+    logged. Returns ``(records, failure)`` -- exactly one of which is meaningful.
+    Any transport, auth, or non-200 outcome becomes a ``failure`` string so the
+    caller can fail closed; it never degrades to an empty-but-successful read,
+    which would look identical to "no PRs exist" and pass every claim.
+    """
+    token = _github_token()
+    if not token:
+        return {}, "no GitHub token in GH_TOKEN/GITHUB_TOKEN/GITHUB_PERSONAL_ACCESS_TOKEN"
+
+    records: dict[int, dict] = {}
+    for number in sorted(set(numbers)):
+        url = f"{API}/{repo_slug}/pulls/{number}"
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+                "User-Agent": "arkadia-lane-state-guard",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                if resp.status != 200:
+                    return records, f"PR #{number}: HTTP {resp.status}"
+                records[number] = json.loads(resp.read().decode())
+        except urllib.error.HTTPError as exc:
+            return records, f"PR #{number}: HTTP {exc.code}"
+        except Exception as exc:  # transport, DNS, timeout, malformed JSON
+            return records, f"PR #{number}: {type(exc).__name__}"
+    return records, None
+
+
+def _github_token() -> str | None:
+    for name in ("GH_TOKEN", "GITHUB_TOKEN", "GITHUB_PERSONAL_ACCESS_TOKEN"):
+        value = os.environ.get(name)
+        if value:
+            return value
+    return None
+
+
 def _merge_commit_findings(state: dict) -> list[str]:
     """Every recorded merged PR must carry a merge commit, or liveness is blind.
 
@@ -264,22 +460,101 @@ def resolve_main(repo: Path = REPO) -> str | None:
     return None
 
 
-def _freshness_findings(state: dict, current_main: str | None) -> list[str]:
-    """Flag a snapshot measured against a superseded ``main``.
+def _freshness_findings(state: dict, current_main: str | None, repo: Path = REPO) -> list[str]:
+    """Flag a snapshot superseded by movement in the paths it governs.
 
-    A stale snapshot is what makes the currency check unsound, so this is an
-    assertion when ``main`` can be resolved, not merely a printed note. When it
-    cannot be resolved the caller reports ``unknown`` and the check abstains --
-    an unprovable freshness is not a pass, and it is not a drift claim either.
+    The criterion is deliberately *not* ``base_main == current_main``. A
+    snapshot is a measurement of the lane threads, and unrelated merges move
+    ``main`` without changing any fact it records -- so SHA inequality alone is
+    not staleness, and treating it as such reddens the gate on every merge.
+
+    Staleness is therefore: a commit in ``(base_main, current_main]`` touched a
+    **guarded path**. The paths are derived from the snapshot itself (each lane's
+    declared ``doc``, plus the snapshot), so a lane added to the snapshot is
+    guarded without editing this function.
+
+    The snapshot's own recording commit is exempt. Without that exemption the
+    snapshot can never be fresh: the commit that writes it necessarily appears
+    in its own window, so every refresh would immediately re-redden the gate and
+    the only way to pass would be to never refresh. ``refresh_commit`` names
+    that commit explicitly rather than inferring it, because "the last commit
+    that touched this file" is a fact the guard can be *told* and then verified.
+
+    Every inability to establish the window is a finding, not a pass. That
+    includes an unresolvable base, a base that is not an ancestor of current
+    ``main`` (a rebased or rewritten ``main`` -- the window would be meaningless),
+    and a git failure. Failing closed here is the only safe direction: the check
+    exists to stop a superseded snapshot from laundering stale lane pointers.
     """
     if current_main is None:
-        return []
-    if state.get("base_main") != current_main:
         return [
-            f"snapshot base_main {state.get('base_main')} != current main "
-            f"{current_main}; re-measure the lane PRs and refresh the snapshot"
+            "current main is not resolvable (shallow or detached clone?); "
+            "snapshot freshness is UNKNOWN, not a pass -- re-measure with a "
+            "clone that holds main's history"
+        ]
+
+    base = state.get("base_main")
+    if not base:
+        return ["snapshot has no base_main; freshness is UNKNOWN, not a pass"]
+
+    if not commit_is_present(base, repo=repo):
+        return [
+            f"snapshot base_main {base} is not in this clone; freshness is "
+            f"UNKNOWN, not a pass"
+        ]
+
+    if not is_ancestor_of_head(base, repo=repo):
+        return [
+            f"snapshot base_main {base[:8]} is not an ancestor of HEAD "
+            f"{current_main[:8]}; the recorded window cannot be established "
+            f"(was main rewritten?), so freshness is UNKNOWN, not a pass"
+        ]
+
+    guarded = guarded_paths(state)
+    proc = subprocess.run(
+        ["git", "rev-list", f"{base}..{current_main}", "--", *guarded],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return [
+            f"cannot compute the guarded-path window {base[:8]}..{current_main[:8]} "
+            f"({proc.stderr.strip() or 'git rev-list failed'}); freshness is "
+            f"UNKNOWN, not a pass"
+        ]
+
+    commits = [c for c in proc.stdout.split() if c]
+    exempt = state.get("refresh_commit")
+    if exempt:
+        commits = [c for c in commits if not c.startswith(str(exempt)[:8])]
+
+    if commits:
+        return [
+            f"snapshot is stale: {len(commits)} commit(s) since base_main "
+            f"{base[:8]} touched a guarded path ({', '.join(guarded)}) -- "
+            f"re-measure the lane PRs and refresh the snapshot "
+            f"(first: {commits[0][:8]})"
         ]
     return []
+
+
+def guarded_paths(state: dict) -> list[str]:
+    """The repository paths whose movement makes the snapshot stale.
+
+    Derived from the snapshot rather than hardcoded, so adding a lane cannot
+    silently leave its doc unguarded. Each lane's declared ``doc`` is resolved
+    relative to :data:`LANE_DIR`, and the snapshot itself is always guarded --
+    a commit that rewrites the snapshot is by definition a re-measurement, and
+    one that moves it without re-measuring the PRs is exactly what the
+    freshness check must catch.
+    """
+    paths = {str(LANE_STATE.relative_to(REPO))}
+    for lane in state["lanes"].values():
+        doc = lane.get("doc")
+        if doc:
+            paths.add(str((LANE_DIR / doc).relative_to(REPO)))
+    return sorted(paths)
 
 
 def _disposition_findings(state: dict) -> list[str]:
@@ -378,7 +653,10 @@ def check_lane_docs(
 def freshness_text(state: dict, base_main: str | None) -> str:
     if base_main is None:
         return f"base main: {state['base_main']} (current: unknown -- not resolvable)"
-    return f"base main: {state['base_main']} (current: {base_main})"
+    return (
+        f"base main: {state['base_main']} (current: {base_main}); "
+        f"guarded paths: {', '.join(guarded_paths(state))}"
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -388,6 +666,15 @@ def main(argv: list[str] | None = None) -> int:
         "--base-main",
         default=None,
         help="current main SHA; default is resolved from local refs (origin/main)",
+    )
+    ap.add_argument(
+        "--verify-live",
+        action="store_true",
+        help=(
+            "also require every claimed-open lane PR to be authoritatively open "
+            "per the GitHub reads API (needs GH_TOKEN/GITHUB_TOKEN); an "
+            "unavailable live state fails closed"
+        ),
     )
     args = ap.parse_args(argv)
 
@@ -403,6 +690,17 @@ def main(argv: list[str] | None = None) -> int:
     findings += _freshness_findings(state, base_main)
     findings += check_lane_docs(state, lanes=current_lanes(state))
     findings += _liveness_findings(state)
+
+    if args.verify_live:
+        numbers = sorted(claimed_open_prs(state))
+        records, failure = fetch_pr_records(numbers)
+        findings += _pr_state_findings(state, records, failure)
+        print(
+            f"live PR state: {len(records)}/{len(numbers)} claimed-open PR(s) "
+            f"read from {DEFAULT_REPO}"
+            + (f" -- {failure}" if failure else "")
+        )
+
     print(freshness_text(state, base_main))
     print(f"doc-guard lanes: {current_lanes(state)}; deferred: "
           f"{[n for n in _lane_numbers(state) if n not in current_lanes(state)]}")
