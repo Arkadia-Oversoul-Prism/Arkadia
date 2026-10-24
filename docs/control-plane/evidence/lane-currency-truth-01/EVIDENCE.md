@@ -247,8 +247,9 @@ Re-derived from live state rather than restated. Observation timestamp
 | Property | Value |
 |---|---|
 | PR | #563, `OPEN`, `draft=true`, `MERGEABLE` / `CLEAN` |
-| Reviewed head | `3a703e91396e037e813c32f40a09b679343f9a4b` |
-| Local `HEAD` | `3a703e91396e037e813c32f40a09b679343f9a4b` — **matches** |
+| Reconciled head | `3a703e91396e037e813c32f40a09b679343f9a4b` (12/12 success, run `40088929871`) |
+| Current head | `7a60c2b9cf9d43fa5c6f4dcf4ac45fd02acaabc6` (12/12 success, run `40093400494`) |
+| Local `HEAD` | `7a60c2b9cf9d43fa5c6f4dcf4ac45fd02acaabc6` — **matches** |
 | Branch base | `main` `68acf89f3045a01b0ba04038fabac4edfb5f937e` |
 | Live `main` | `68acf89f3045a01b0ba04038fabac4edfb5f937e` — **unchanged**, 0 commits behind |
 | Working tree | clean (agent memory is gitignored) |
@@ -268,6 +269,19 @@ SHA `3a703e91` passed to `?head_sha=` returns `total_count: 0` while the full
 40-character SHA returns `9` — the same tree, the same token, the same instant.
 A `0` from a short SHA is *unproven*, not *absent*. Re-measured here rather than
 trusted from memory.
+
+**This document's own commit moved the head it describes — stated, not hidden.**
+Reconciling §4 required editing this file, which advanced the head from
+`3a703e91` to `7a60c2b9`. That is a genuine circularity, so it was resolved by
+measurement rather than by wording: `git diff --name-only 3a703e91..7a60c2b9`
+shows **exactly one** path (this document), and every code artifact was compared
+by blob SHA across the two heads — `scripts/lane_state.py`,
+`scripts/lane_state_refresh.py`, both test files, the workflow, the snapshot and
+the lane doc are all byte-identical. The reconciled head was therefore re-verified
+rather than assumed: 12/12 checks success on `7a60c2b9` (run `40093400494`), with
+the gate log independently reproducing `live PR state: 15 PR(s) read` and all
+three NOTEs. **The reviewed code is the tested code; only the prose around it
+changed.**
 
 **Suites at the exact head.** contract 38 passed, wiring 12 passed, architecture
 11 passed; `api/main.py` 2505 lines (budget 2600), untouched; both scripts and
