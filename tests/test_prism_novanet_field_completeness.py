@@ -26,6 +26,7 @@ lane's owned surface.
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -135,10 +136,22 @@ def test_field_panel_states_total_and_notices_truncation():
 
 def test_page_size_is_single_sourced_and_drives_the_request():
     # The bound is declared once and the request uses that name, so the fetched
-    # page and the notice cannot drift apart.
+    # page and the notice cannot drift apart. The path is a *registry-derived
+    # binding*, not an inline path: the Lane 1 registry contract
+    # (`test_every_page_read_uses_the_registry_not_an_inline_path`) requires that
+    # shape, so this guard pins it too rather than letting the fix redden Lane 1.
     assert "const FIELD_PAGE_LIMIT = 50;" in SOURCE
-    assert "`${endpoints.transmissions}?limit=${FIELD_PAGE_LIMIT}`" in SOURCE
+    assert "const fieldPath = `${endpoints.transmissions}?limit=${FIELD_PAGE_LIMIT}`;" in SOURCE
+    assert "useHydration<TransmissionList>(\n    fieldPath," in SOURCE
     assert FIELD_START in SOURCE
+
+
+def test_the_field_path_is_registry_derived_not_inline():
+    """The slice must not reintroduce a page-local endpoint contract."""
+    assert re.search(r"const fieldPath = `\$\{endpoints\.transmissions\}", SOURCE)
+    # The argument handed to useHydration must be the binding, never a template
+    # literal written at the call site.
+    assert "useHydration<TransmissionList>(\n    `" not in SOURCE
 
 
 def test_negative_control_detector_flags_the_pre_change_form():

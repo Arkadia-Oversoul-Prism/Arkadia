@@ -81,8 +81,11 @@ export function NovaNetPage({
   section?: string;
   onNavigate: (id: SurfaceId, section?: string) => void;
 }) {
+  // A registry-derived binding, not an inline path: the one registry expressed
+  // with a page size, which is the sanctioned shape for a sub-resource read.
+  const fieldPath = `${endpoints.transmissions}?limit=${FIELD_PAGE_LIMIT}`;
   const field = useHydration<TransmissionList>(
-    `${endpoints.transmissions}?limit=${FIELD_PAGE_LIMIT}`,
+    fieldPath,
     (p) => apiRequest<TransmissionList>(p),
   );
   const echoes = useHydration<EchoesFeed>(endpoints.echoes, (p) => apiRequest<EchoesFeed>(p), [section === "echoes"]);
