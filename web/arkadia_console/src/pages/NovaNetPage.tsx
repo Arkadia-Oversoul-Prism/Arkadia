@@ -56,6 +56,11 @@ const LENS_IDS = new Set(LENSES.map((l) => l.id));
  * that the panel is showing a subset, not the whole stream.
  */
 const ECHO_DISPLAY_LIMIT = 8;
+/** The field's requested page size. The handler caps `limit` at 50 and reports
+ *  the uncapped `total`, so a page is asked for explicitly here: the render
+ *  bound is the request's, and the notice compares what arrived against `total`
+ *  rather than against a second copy of the server's cap. */
+const FIELD_PAGE_LIMIT = 50;
 
 const DEFERRED: Record<string, string> = {
   hub: "UNKNOWN",
@@ -76,7 +81,13 @@ export function NovaNetPage({
   section?: string;
   onNavigate: (id: SurfaceId, section?: string) => void;
 }) {
-  const field = useHydration<TransmissionList>(endpoints.transmissions, (p) => apiRequest<TransmissionList>(p));
+  // A registry-derived binding, not an inline path: the one registry expressed
+  // with a page size, which is the sanctioned shape for a sub-resource read.
+  const fieldPath = `${endpoints.transmissions}?limit=${FIELD_PAGE_LIMIT}`;
+  const field = useHydration<TransmissionList>(
+    fieldPath,
+    (p) => apiRequest<TransmissionList>(p),
+  );
   const echoes = useHydration<EchoesFeed>(endpoints.echoes, (p) => apiRequest<EchoesFeed>(p), [section === "echoes"]);
   // The verified uid gates the author controls. It is the same identity the
   // backend resolves the owner from, so the client offers a mutation only where
@@ -112,32 +123,43 @@ export function NovaNetPage({
               field.data.transmissions.length === 0 ? (
                 <p className="text-sm text-white/50">The field is quiet — no public transmissions yet.</p>
               ) : (
-                <ul className="flex flex-col gap-2" data-testid="novanet-transmissions">
-                  {field.data.transmissions.map((t) => (
-                    <li key={t.id} className="rounded border border-line bg-ink/40 p-3">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <p className="text-sm text-white/85">
-                          <span className="text-azure">{t.author?.avatar ?? "◈"}</span>{" "}
-                          {t.author?.name ?? "Node"}
-                          {t.author?.role ? <span className="text-white/40"> · {t.author.role}</span> : null}
-                        </p>
-                        <p className="font-mono text-[10px] text-white/30">{ago(t.timestamp)}</p>
-                      </div>
-                      <p className="mt-2 whitespace-pre-wrap text-sm text-white/70">{t.content}</p>
-                      {t.edited_at ? <p className="mt-1 font-mono text-[10px] text-white/25">edited</p> : null}
-                      {/* Declared engagement readings the feed already returns,
-                          made interactive against the two live write handlers
-                          (react / comment) the router serves (see EngagementBar).
-                          `reposts` stays a reading — no verified write path. */}
-                      <EngagementBar transmission={t} onChanged={field.reload} />
-                      <AuthorControls
-                        transmission={t}
-                        isOwn={Boolean(myUid && t.owner_uid && myUid === t.owner_uid)}
-                        onChanged={field.reload}
-                      />
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  <ul className="flex flex-col gap-2" data-testid="novanet-transmissions">
+                    {field.data.transmissions.map((t) => (
+                      <li key={t.id} className="rounded border border-line bg-ink/40 p-3">
+                        <div className="flex items-baseline justify-between gap-3">
+                          <p className="text-sm text-white/85">
+                            <span className="text-azure">{t.author?.avatar ?? "◈"}</span>{" "}
+                            {t.author?.name ?? "Node"}
+                            {t.author?.role ? <span className="text-white/40"> · {t.author.role}</span> : null}
+                          </p>
+                          <p className="font-mono text-[10px] text-white/30">{ago(t.timestamp)}</p>
+                        </div>
+                        <p className="mt-2 whitespace-pre-wrap text-sm text-white/70">{t.content}</p>
+                        {t.edited_at ? <p className="mt-1 font-mono text-[10px] text-white/25">edited</p> : null}
+                        {/* Declared engagement readings the feed already returns,
+                            made interactive against the two live write handlers
+                            (react / comment) the router serves (see EngagementBar).
+                            `reposts` stays a reading — no verified write path. */}
+                        <EngagementBar transmission={t} onChanged={field.reload} />
+                        <AuthorControls
+                          transmission={t}
+                          isOwn={Boolean(myUid && t.owner_uid && myUid === t.owner_uid)}
+                          onChanged={field.reload}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                  {field.data.total > field.data.transmissions.length && (
+                    <p
+                      className="font-mono text-[11px] text-white/40"
+                      data-testid="novanet-transmissions-truncation"
+                    >
+                      Showing {field.data.transmissions.length} of {field.data.total} public transmissions —
+                      the remainder is not rendered on this surface.
+                    </p>
+                  )}
+                </>
               )
             ) : (
               <ContractState state={field.state} error={field.error?.message} onRetry={field.reload} />
