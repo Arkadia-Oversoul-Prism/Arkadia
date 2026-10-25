@@ -18,11 +18,14 @@ PR #418; navigation/shell/design invariants, no endpoint or backend assertions),
 ``test_documented_route_contract.py`` (the ``DEPLOYMENT_GUIDE.md`` table). No guard
 is duplicated.
 
-A related drift is recorded, not repaired here: the ``contract="…"`` strings that
-``NotYetWired`` *advertises* are page-owned display copy, not registry entries, and
-several name paths the backend does not serve. They live in feature pages owned by
-other workstreams, so this file records them as a bounded finding
-(``test_advertised_contract_strings_are_recorded``) rather than editing those pages.
+A related surface is bounded here rather than repaired: the ``contract="…"`` strings
+that ``NotYetWired`` *advertises* are page-owned display copy, not registry entries.
+``test_advertised_contract_strings_are_recorded`` requires each to resolve to a served
+handler, so a page cannot promise a route the backend does not serve. Measured at
+``main`` @ ``36f53be2`` all six advertised strings are served — the six entries this
+file previously recorded as drift were false positives of two detector defects (a
+``{id}`` compared against a served ``{session_id}``; a ``/api/…`` value compared
+against unstripped served paths), each now carrying a negative control.
 """
 import re
 from pathlib import Path
@@ -240,13 +243,28 @@ def _inline_request_literals(sources: dict[str, str]) -> list[str]:
     return defects
 
 
-def _advertised_contract_strings(sources: dict[str, str]) -> dict[str, str]:
-    """The ``contract="…"`` strings a page advertises on a ``NotYetWired`` panel."""
-    found = {}
-    for name, src in sources.items():
-        for match in re.finditer(r'contract="([^"]+)"', src):
-            found[name] = match.group(1)
-    return found
+def _advertised_contract_strings(sources: dict[str, str]) -> list[str]:
+    """Every ``contract="…"`` string a page advertises on a ``NotYetWired`` panel.
+
+    **Every occurrence, not one per file.** The previous shape keyed the result by
+    file name, so a file advertising four contracts contributed only its *last*
+    one: measured on ``main`` @ ``36f53be2``, ``pages/SolSpirePage.tsx`` advertises
+    four and the guard judged one, silently dropping ``/solspire/proposals``,
+    ``/solspire/workevents`` and ``/solspire/enterprise/workspaces`` — three
+    quarters of that file's advertised surface. An invented contract placed as any
+    but the final ``contract=`` in a multi-advertising file was invisible to the
+    guard, which is exactly the drift the guard exists to bound. Returning the flat
+    list removes the overwrite; a file name is no longer a key that can be clobbered.
+
+    Deduplicated, because the same string legitimately appears in two pages
+    (``/api/lab/engineering/sessions/{id}/execute`` in both ``EngineeringLabPage``
+    and ``WeaverPage``); the guard bounds *which* contracts are advertised, not how
+    many panels advertise them.
+    """
+    found: list[str] = []
+    for src in sources.values():
+        found.extend(re.findall(r'contract="([^"]+)"', src))
+    return sorted(set(found))
 
 
 def _tsx_sources() -> dict[str, str]:
@@ -582,49 +600,121 @@ def test_detector_accepts_a_registry_derived_sub_resource_path():
 
 
 # ---------------------------------------------------------------------------
-# Recorded finding (not repaired here): advertised contract strings
+# Advertised contract strings -- the panel copy must not promise an unserved route
 # ---------------------------------------------------------------------------
 
-#: Advertised ``contract="…"`` strings measured at ``a29a9b8f`` that the served app
-#: does not serve as written. Each is display copy inside a feature page owned by
-#: another workstream, so it is recorded here rather than edited.
-RECORDED_ADVERTISED_DRIFT = {
-    "/api/solspire/voice",
-    "/api/lab/engineering/sessions/{id}/execute",
-    "/api/solspire/projects/{id}/runtime-context",
-    "/api/solspire/workloads",
-    "/api/solspire/proposals",
-    "/api/solspire/pulses",
-}
+#: Advertised ``contract="…"`` strings that the served app does not serve.
+#:
+#: **Empty, measured at ``main`` @ ``36f53be2``.** The set previously held six
+#: entries, and every one of them was a false positive produced by the two
+#: detector defects this file now carries a negative control for: a ``{id}``
+#: advertised against a served ``{session_id}``, and ``/api/…`` values compared
+#: against unstripped served paths. With the normalization repaired, all six
+#: advertised strings resolve to served handlers, so the honest recorded set is
+#: empty and a *new* invented string fails immediately. A non-empty entry here is
+#: a real drift, not a convention.
+RECORDED_ADVERTISED_DRIFT: set[str] = set()
+
+
+def _normalized_route(path: str) -> str:
+    """A route reduced to its shape: leading ``/api`` dropped, params erased.
+
+    The leading ``/api`` is dropped because the canonical app serves the same
+    surface under both spellings — ``/health`` *and* ``/api/health``,
+    ``/api/version`` *and* ``/version`` — so an advertised ``/api/…`` and a served
+    ``/…`` are the same contract. The strip must be applied to **both** sides of
+    the comparison; applying it to only the advertised value (the pre-repair
+    shape) can never match a served ``/api/…`` route whose parameter name differs,
+    which is how the recorded set acquired four phantom entries.
+    """
+    stripped = path[4:] if path.startswith("/api/") else path
+    return re.sub(r"\{[^}]*\}", "{}", stripped)
+
+
+def _advertised_but_unserved(advertised, served: set[str]) -> list[str]:
+    """Advertised strings with no handler in the served route table."""
+    normalized_served = {_normalized_route(p) for p in served}
+    return sorted(
+        v for v in advertised if v not in served and _normalized_route(v) not in normalized_served
+    )
 
 
 def test_advertised_contract_strings_are_recorded():
     """Bound the drift: every advertised string the backend does not serve must be
     one we have recorded, so a *new* invented contract string is visible.
 
+    The domain is every module the transport detector scans (``.ts`` and ``.tsx``,
+    less the transport itself): the read carries the endpoint contract regardless
+    of file extension, and a ``contract=`` string in a plain ``.ts`` module would
+    otherwise be invisible to the guard.
+
     The set is a floor, not an exact match: fixing one of these pages is a
-    feature-page edit owned by another workstream, so this test must not fail
-    when one is repaired.
+    feature-page edit owned by another workstream, so this test must not fail when
+    one is repaired.
     """
-    advertised = set(_advertised_contract_strings(_tsx_sources()).values())
+    advertised = set(_advertised_contract_strings(_transport_sources()))
+    assert advertised, "no advertised contract string found -- the guard would be vacuous"
     served = _served_paths()
-    normalized_served = {re.sub(r"\{[^}]*\}", "{}", p) for p in served}
 
-    def is_served(value: str) -> bool:
-        stripped = value[4:] if value.startswith("/api/") else value
-        if value in served:
-            return True
-        # A page may legitimately advertise the served shape with its own param
-        # name (e.g. `{id}` for a served `{project_id}`).
-        return re.sub(r"\{[^}]*\}", "{}", stripped) in normalized_served
-
-    unrecorded = sorted(v for v in advertised if not is_served(v) and v not in RECORDED_ADVERTISED_DRIFT)
+    unrecorded = sorted(v for v in _advertised_but_unserved(advertised, served) if v not in RECORDED_ADVERTISED_DRIFT)
     assert unrecorded == [], (
         "advertised contract string(s) that the canonical app does not serve and that are "
         "not in RECORDED_ADVERTISED_DRIFT: " + ", ".join(unrecorded)
     )
-    # Positive control: the recorded set is not vacuous -- at least one recorded
-    # string is genuinely unserved at this revision.
-    assert any(v in advertised for v in RECORDED_ADVERTISED_DRIFT), (
-        "no recorded drift string is still advertised -- prune RECORDED_ADVERTISED_DRIFT"
+
+
+def test_advertised_contract_detector_sees_every_occurrence_in_a_file():
+    """Negative control: a file advertising several contracts must contribute all
+    of them, not only its last.
+
+    Measured on ``main`` @ ``36f53be2``: ``pages/SolSpirePage.tsx`` advertises four
+    contracts and the detector returned one, so an invented contract written as any
+    but the final ``contract=`` in that file passed the guard above. The control
+    feeds the exact pre-repair shape — four panels, the invented string first — and
+    requires it to be reported.
+    """
+    page = (
+        '<NotYetWired contract="/api/invented/ghost-contract" note="a" />\n'
+        '<NotYetWired contract="/solspire/proposals" note="b" />\n'
+        '<NotYetWired contract="/solspire/workevents" note="c" />\n'
+        '<NotYetWired contract="/solspire/voice/events" note="d" />\n'
     )
+    found = _advertised_contract_strings({"pages/SolSpirePage.tsx": page})
+    assert "/api/invented/ghost-contract" in found, (
+        f"the first of several contracts in one file was dropped: {found}"
+    )
+    assert len(found) == 4, found
+
+    # The live file's real shape must be fully seen, not truncated to one entry.
+    live = _advertised_contract_strings(_transport_sources())
+    assert "/solspire/proposals" in live, "the live SolSpirePage contracts must all be seen"
+    assert "/solspire/enterprise/workspaces" in live
+
+
+def test_advertised_contract_detector_normalizes_both_sides():
+    """Negative control: an advertised route must match a served route that spells
+    its path parameter differently, and the ``/api`` prefix must not decide it.
+
+    Measured on ``main`` @ ``36f53be2``: the guard advertised
+    ``/api/lab/engineering/sessions/{id}/execute`` against a served
+    ``/api/lab/engineering/sessions/{session_id}/execute`` and reported it
+    unserved — the strip was applied to the advertised value only, so the
+    normalized forms could never meet. Four of the six recorded "drift" entries
+    were this artifact.
+    """
+    served = _served_paths()
+    assert "/api/lab/engineering/sessions/{session_id}/execute" in served, "control premise"
+
+    # The live advertised spelling must be accepted against the served param name.
+    assert _advertised_but_unserved({"/api/lab/engineering/sessions/{id}/execute"}, served) == []
+
+    # The /api spelling of a served route must be accepted too, in both directions.
+    assert _advertised_but_unserved({"/api/knowledge/graph"}, served) == []
+    assert _advertised_but_unserved({"/knowledge/graph"}, served) == []
+
+    # And a genuinely invented route is still reported -- the normalization must not
+    # make the detector trivially true.
+    assert _advertised_but_unserved({"/api/invented/ghost-contract"}, served) == [
+        "/api/invented/ghost-contract"
+    ]
+    assert _advertised_but_unserved({"/solspire/invented"}, served) == ["/solspire/invented"]
