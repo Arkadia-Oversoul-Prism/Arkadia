@@ -389,3 +389,99 @@ Until an implementation and its tests demonstrate that property — or `idle` is
 this change — **#548 remains held**.
 
 I have edited neither branch. This is a measured recommendation, not a decision.
+
+---
+
+## 10. Option A is implementable — measured, with a biting control
+
+§9 recommended Option B (remove `idle`) on the grounds that it is unnecessary and already
+suppressing a finding. That leaves Option A (retain `idle`, preserve pointer enforcement) as
+a **claim** unless it is shown to be implementable. It is. This section records the proof so
+the owner has both options measured rather than one measured and one asserted.
+
+### 10.1 The repair is one scoping line
+
+The escape exists because the blocking check is scoped to `current_lanes()`:
+
+```python
+owned = current_lanes(state)            # scripts/lane_state.py:830 — idle lanes excluded
+```
+
+Option A extends `owned` to include `idle` lanes, so an `idle` lane keeps its declared-pointer
+check while remaining outside active-work judgement:
+
+```python
+owned = current_lanes(state) + [
+    n for n in _lane_numbers(state)
+    if state['lanes'][n].get('doc_guard') == 'idle'
+]
+```
+
+### 10.2 Measured effect on the patched tree
+
+| lane 3 state | lane-3 findings | classification |
+| --- | --- | --- |
+| `idle` + `[]` — **the escape path** | **1** | `DRIFT … declares PR #526, which is CLOSED without merging` |
+| `current` + `[]` — control | 2 | DRIFT ×2 |
+| `idle` + `[548]` | 3 | includes `DRIFT lane 3: doc_guard=idle but lane still lists open PRs` |
+
+The escape is closed: `idle`+`[]` goes from **0** blocking findings (unpatched) to **1**.
+
+### 10.3 The control bites — and only after it was fixed
+
+The first version of the control asserted `'lane 3' in out and 'CLOSED without merging' in out`.
+It **passed on the unpatched tree**, so it was not a control: the dead-pointer text appears in
+a `NOTE` on the unpatched tree and a `DRIFT` on the patched tree, and a substring check cannot
+distinguish them. This is the same "control that fires for the wrong reason" failure recorded
+earlier in this workstream.
+
+The corrected control asserts the **classification**, not a substring:
+
+```
+_classify(out) -> 'blocking' if the dead-pointer line starts with DRIFT
+                  'advisory' if it starts with NOTE
+```
+
+Result:
+
+| tree | control outcome |
+| --- | --- |
+| unpatched merged tree | **1 failed, 2 passed** — `an idle lane escaped reference integrity: its dead-pointer finding was 'advisory', not blocking` |
+| patched (Option A) tree | **3 passed** |
+
+Plus a self-contained control (`test_control_detects_the_advisory_form`) that feeds the
+classifier both shapes, so the detector cannot be disarmed by editing the fixture.
+
+### 10.4 Option A introduces no regression
+
+`tests/test_lane_instruction_doc_currency.py` failing-node **sets**, compared by node identity:
+
+| tree | failing nodes |
+| --- | --- |
+| unpatched merged tree (baseline) | 4 — `test_lane_one_shell_doc_does_not_name_a_merged_pr`, `test_live_guarded_docs_agree_with_the_snapshot`, `test_live_pointer_check_agrees_with_the_committed_docs`, `test_snapshot_exists_and_is_well_formed` |
+| patched (Option A) tree | **identical 4** |
+
+`diff` of the two sorted node sets is empty. The 4 baseline failures are pre-existing on the
+merged tree and are not attributable to the patch.
+
+*(One transient during measurement: an early patched run showed 5 failures because my own test
+harness had left `lane-state.json` mutated between runs. Re-run on a restored snapshot: 4
+failures, node-identical to baseline. Recorded because a leaked fixture is easy to misread as
+a regression — which is exactly how it read for one run.)*
+
+### 10.5 Both options, measured
+
+| | Option A — retain `idle`, enforce pointers | Option B — remove `idle` |
+| --- | --- | --- |
+| Escape closed | **yes** (1 blocking DRIFT; control bites) | n/a — state removed |
+| New failures | **none** (node-identical to baseline) | none (fewer states) |
+| Cost | 1 scoping line + 1 regression test | remove the `idle` branch + its 2 tests; reconcile lane 2 to the derived state |
+| Residual concern | keeps a state with no derivation path (hand-edit only) | none identified |
+| Needs | the negative test above | lane 2 pointer correction (needed either way — #564 is open) |
+
+**My recommendation remains Option B**, but now with the qualification that Option A is
+*proven implementable at low cost* rather than merely defensible. If the owner wants `idle`
+retained, §10.1–10.4 give the exact repair and the test that must accompany it.
+
+**Neither option has been applied to any branch.** Both were built and measured in scratch
+worktrees, which have been removed.
