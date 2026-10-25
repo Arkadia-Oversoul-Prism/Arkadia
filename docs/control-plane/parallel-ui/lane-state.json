@@ -1,25 +1,31 @@
 {
- "schema": "arkadia.lane-state/1.1",
- "observed_at": "2026-10-15T02:20:00Z",
- "base_main": "7580bd8f0ca2925518d78775f9a323ff0df8bc66",
- "source": "GitHub REST pulls API, read-only, measured this pulse",
- "note": "Machine-readable mirror of the four Prism UI lane threads. The guard (scripts/lane_state.py --check) is read-only: it judges the lane docs against this file and never fetches. Refresh the snapshot by re-measuring the lane PRs with the GitHub reads API (read-only) on any pulse that advances a lane. Each merged_prs entry records its merge_commit_sha so the guard can prove a declared PR merged from local history alone, without trusting this file's open_prs list.",
+ "schema": "arkadia.lane-state/1.2",
+ "observed_at": "2026-10-25T04:48:21Z",
+ "base_main": "68acf89f3045a01b0ba04038fabac4edfb5f937e",
+ "source": "GitHub REST reads API (Arkadia-Oversoul-Prism/Arkadia), read-only, derived by scripts/lane_state_refresh.py",
+ "note": "Machine-readable mirror of the four Prism UI lane threads, DERIVED from live PR state rather than hand-transcribed. Lane assignment is by exclusive path ownership (SHARED-CONTRACTS.md section 1); a PR touching more than one lane's owned paths appears in each. scripts/lane_state.py judges the docs against this file; --verify-live additionally requires every claimed-open PR to be authoritatively open. Refresh with scripts/lane_state_refresh.py --write.",
  "lanes": {
   "1": {
    "doc": "AGENT-01-SHELL.md",
    "title": "Shell / navigation / design system / integration seam",
-   "active_pr": 507,
-   "active_branch": "feat/prism-l1-legacy-route-coverage-01",
+   "active_pr": 562,
+   "active_branch": "feat/prism-l1-legacy-lens-route-recovery-01",
    "open_prs": [
     {
-     "number": 507,
-     "branch": "feat/prism-l1-legacy-route-coverage-01",
-     "head_sha": "3a19810ea4b795133f9eb80eddca2f06f20b37e7"
+     "number": 550,
+     "branch": "integration/console-arkana-shell-recovery-01",
+     "head_sha": "dc7619caa44fee91215fc6a5160a12853a9dba6d",
+     "draft": true,
+     "updated_at": "2026-10-15T20:14:45Z",
+     "title": "compose console error boundary, Arkana provenance, and shell title recovery"
     },
     {
-     "number": 529,
-     "branch": "feat/prism-l1-lens-strip-keyboard-01",
-     "head_sha": "95eb5b7b0134ab44fd8ccdf3b9257032fc7aaa77"
+     "number": 562,
+     "branch": "feat/prism-l1-legacy-lens-route-recovery-01",
+     "head_sha": "0a6d4db698ccc715a5e790b02d240838ea78eeaa",
+     "draft": true,
+     "updated_at": "2026-10-24T09:02:44Z",
+     "title": "Prism L1: recover /encyclopedia and /spiral-codex deep links (FU-1)"
     }
    ],
    "merged_prs": [
@@ -49,23 +55,16 @@
   "2": {
    "doc": "AGENT-02-NOVANET-OPPORTUNITY.md",
    "title": "NovaNet + project Opportunity Radar",
-   "active_pr": 528,
-   "active_branch": "feat/prism-l2-echoes-completeness-01",
+   "active_pr": 564,
+   "active_branch": "feat/prism-l2-field-completeness-01",
    "open_prs": [
     {
-     "number": 492,
-     "branch": "feat/prism-next7-02-pipeline-strip",
-     "head_sha": "acfbf521fd037f48289dd19c4c074841630c29c9"
-    },
-    {
-     "number": 528,
-     "branch": "feat/prism-l2-echoes-completeness-01",
-     "head_sha": "e162371df67b52769ce291fe71407875386ea438"
-    },
-    {
-     "number": 538,
-     "branch": "fix/prism-l2-buyer-recon-status-normalization-01",
-     "head_sha": "1a36f23536c6387dc7e460888f4637d2bfb94759"
+     "number": 564,
+     "branch": "feat/prism-l2-field-completeness-01",
+     "head_sha": "7c7cdd439c1707741ebc3621b0fa81cbbe2ca850",
+     "draft": true,
+     "updated_at": "2026-10-24T12:55:56Z",
+     "title": "Lane 2: the NovaNet public field states its page bound"
     }
    ],
    "merged_prs": [
@@ -76,36 +75,51 @@
     {
      "number": 430,
      "merge_commit_sha": "7b378cecee1a0202a91d2c297bb11fc38d6af3e6"
+    },
+    {
+     "number": 492,
+     "merge_commit_sha": "7030ccb2f2646d74d07b9871783bb586dda82298"
     }
    ],
-   "doc_guard": "deferred",
-   "deferred_to_pr": 492
+   "doc_guard": "current"
   },
   "3": {
    "doc": "AGENT-03-SOLARIUN-KNOWLEDGE.md",
    "title": "Solariun + Knowledge OS",
-   "active_pr": 534,
-   "active_branch": "feat/prism-l3-knowledge-status-read-boundary-01",
+   "active_pr": 563,
+   "active_branch": "gate-hygiene/lane-currency-truth-01",
    "open_prs": [
     {
-     "number": 526,
-     "branch": "fix/knowledge-traverse-edge-dedup-01",
-     "head_sha": "cb868ce4ade47c7c74fdd4666b47739e7888b0f2"
+     "number": 548,
+     "branch": "integration/knowledge-search-graph-boundaries-01",
+     "head_sha": "3da97fa5316f1f38a15c7aa081e45e39205763b7",
+     "draft": true,
+     "updated_at": "2026-10-24T11:16:38Z",
+     "title": "compose Knowledge search visibility and graph traversal repairs"
     },
     {
-     "number": 527,
-     "branch": "feat/prism-l3-graph-provenance-01",
-     "head_sha": "c8320003b423149402867c54fa78abe5754b02ce"
+     "number": 549,
+     "branch": "integration/knowledge-routes-graph-scope-timeline-bounds-01",
+     "head_sha": "a0aecb2631333e4b93072a456dacab4c36ae4745",
+     "draft": true,
+     "updated_at": "2026-10-15T20:12:40Z",
+     "title": "compose Knowledge graph owner scope and bounded timeline reads"
     },
     {
-     "number": 534,
-     "branch": "feat/prism-l3-knowledge-status-read-boundary-01",
-     "head_sha": "fb9bee79378d22f7f27b873959b92a471d3ce133"
+     "number": 554,
+     "branch": "integration/knowledge-status-and-provenance-contracts-01",
+     "head_sha": "da7e0279457017200b7eb4ed9f25a0d48bbaf7d1",
+     "draft": true,
+     "updated_at": "2026-10-15T20:27:49Z",
+     "title": "compose Knowledge status-read and graph-provenance contracts"
     },
     {
-     "number": 537,
-     "branch": "fix/prism-l3-reference-search-owner-scope-01",
-     "head_sha": "8f6cb08a19bc8511790d10e13fa77919cd060c34"
+     "number": 563,
+     "branch": "gate-hygiene/lane-currency-truth-01",
+     "head_sha": "1a39c84304621f28d7597537e9f24f92a47b817d",
+     "draft": true,
+     "updated_at": "2026-10-25T03:40:54Z",
+     "title": "Lane-currency guard: decide freshness by guarded-path movement, add an authoritative PR-state oracle"
     }
    ],
    "merged_prs": [
@@ -119,18 +133,77 @@
     }
    ],
    "doc_guard": "deferred",
-   "deferred_to_pr": 526
+   "deferred_to_pr": 548
   },
   "4": {
    "doc": "AGENT-04-ARKANA-WEAVER-LAB.md",
    "title": "Arkana + Weaver + Engineering Lab",
-   "active_pr": 536,
-   "active_branch": "feat/prism-l4-run-artifact-trace-01",
+   "active_pr": 553,
+   "active_branch": "integration/eaa-dispatch-readonly-evidence-current-main",
    "open_prs": [
     {
-     "number": 536,
-     "branch": "feat/prism-l4-run-artifact-trace-01",
-     "head_sha": "5490b0b52d623c9ca60896d8ce8ec96bdb7d7638"
+     "number": 499,
+     "branch": "fix/weaver-schema-status-semantics-2026-10-12",
+     "head_sha": "d04ba3b608691bb26a096fd2a2d025939360ff2d",
+     "draft": true,
+     "updated_at": "2026-10-14T23:45:11Z",
+     "title": "fix(weaver): classify merged-but-unaccepted states as human gates"
+    },
+    {
+     "number": 508,
+     "branch": "feat/eaa-readonly-github-evidence-adapter",
+     "head_sha": "071ecd8c5f3b9a0c76c80bcf7f156c50aec4a2cb",
+     "draft": true,
+     "updated_at": "2026-10-13T06:44:46Z",
+     "title": "feat(eaa): add read-only GitHub evidence adapter"
+    },
+    {
+     "number": 525,
+     "branch": "feat/prism-rec-12-lab-authority-boundary",
+     "head_sha": "daef33c4d0535c392bc4a54e228471a1c432cf08",
+     "draft": true,
+     "updated_at": "2026-10-13T19:46:14Z",
+     "title": "feat(console): recover canonical work-loop read model onto Weaver surface"
+    },
+    {
+     "number": 535,
+     "branch": "eaa/chain-composition-01",
+     "head_sha": "8b6eadd77aa1751efd2bc3b69722a1af8e8e1c72",
+     "draft": true,
+     "updated_at": "2026-10-15T17:43:37Z",
+     "title": "feat(eaa): compose the EAA/dispatch chain onto verified base 7580bd8f"
+    },
+    {
+     "number": 547,
+     "branch": "integration/arkana-thread-history-visibility-utc-01",
+     "head_sha": "1a2dd149250b13a3d858fa853a2cbe64d73ba15c",
+     "draft": true,
+     "updated_at": "2026-10-15T20:10:33Z",
+     "title": "compose Arkana thread visibility and UTC history repairs"
+    },
+    {
+     "number": 550,
+     "branch": "integration/console-arkana-shell-recovery-01",
+     "head_sha": "dc7619caa44fee91215fc6a5160a12853a9dba6d",
+     "draft": true,
+     "updated_at": "2026-10-15T20:14:45Z",
+     "title": "compose console error boundary, Arkana provenance, and shell title recovery"
+    },
+    {
+     "number": 553,
+     "branch": "integration/eaa-dispatch-readonly-evidence-current-main",
+     "head_sha": "899d22424d78f1306ffdedf2bc334ab2bf5079e8",
+     "draft": true,
+     "updated_at": "2026-10-21T19:21:29Z",
+     "title": "recompose EAA, dispatch, and read-only evidence chain on current main"
+    },
+    {
+     "number": 555,
+     "branch": "integration/weaver-lab-trace-and-withdrawal-01",
+     "head_sha": "32251bc960f0877aeb01cec699df73a7053b8221",
+     "draft": true,
+     "updated_at": "2026-10-15T20:25:54Z",
+     "title": "compose Weaver withdrawal and Lab run-artifact trace"
     }
    ],
    "merged_prs": [
@@ -144,7 +217,104 @@
     }
    ],
    "doc_guard": "deferred",
-   "deferred_to_pr": 536
+   "deferred_to_pr": 555
   }
- }
+ },
+ "unassigned_open_prs": [
+  {
+   "number": 482,
+   "branch": "gate10/history-depth-ci-wiring-01",
+   "head_sha": "0cc7c9e766d80e4a1a6028cbd611bdd7be063a10",
+   "draft": true,
+   "updated_at": "2026-10-15T17:43:23Z",
+   "title": "gate10: give the judging suite a clone it can decide on"
+  },
+  {
+   "number": 496,
+   "branch": "docs/control-plane-live-recovery-2026-10-12",
+   "head_sha": "967f30d9016543ee895bdb7a5119c08fab2e9e5f",
+   "draft": true,
+   "updated_at": "2026-10-12T19:24:20Z",
+   "title": "docs(control-plane): reconcile live workstreams and portfolio evidence"
+  },
+  {
+   "number": 500,
+   "branch": "feat/gate-l4-openhands-dispatch-adapter",
+   "head_sha": "7640bbad51bdafe00ed84d59bbc0178dd734f44c",
+   "draft": true,
+   "updated_at": "2026-10-12T19:49:26Z",
+   "title": "feat(gate-l4): define OpenHands dispatch and run-inspection adapter"
+  },
+  {
+   "number": 502,
+   "branch": "feat/engineering-acceptance-authority",
+   "head_sha": "ef82cb9e2d05f3f48bf91fcb0abf0aeacd11fb52",
+   "draft": true,
+   "updated_at": "2026-10-12T21:11:55Z",
+   "title": "feat(control-plane): introduce Engineering Acceptance Authority"
+  },
+  {
+   "number": 539,
+   "branch": "prism-lane-state-reconstruction-01",
+   "head_sha": "4335db3cb28f56029235b2ab2d0d31e8ced68c19",
+   "draft": true,
+   "updated_at": "2026-10-15T20:45:57Z",
+   "title": "evidence(prism): reconstruct live lane state across the four Prism UI lanes [draft]"
+  },
+  {
+   "number": 546,
+   "branch": "ops/pr-disposition-current-main-2026-10-15",
+   "head_sha": "a28f324fc9b289c3b7cb4bc26224e330f60230c1",
+   "draft": true,
+   "updated_at": "2026-10-17T11:02:04Z",
+   "title": "docs: current-base disposition record for open PR queue"
+  }
+ ],
+ "closed_unmerged": [
+  {
+   "number": 507,
+   "branch": "feat/prism-l1-legacy-route-coverage-01",
+   "state": "closed_unmerged"
+  },
+  {
+   "number": 526,
+   "branch": "fix/knowledge-traverse-edge-dedup-01",
+   "state": "closed_unmerged"
+  },
+  {
+   "number": 527,
+   "branch": "feat/prism-l3-graph-provenance-01",
+   "state": "closed_unmerged"
+  },
+  {
+   "number": 528,
+   "branch": "feat/prism-l2-echoes-completeness-01",
+   "state": "closed_unmerged"
+  },
+  {
+   "number": 529,
+   "branch": "feat/prism-l1-lens-strip-keyboard-01",
+   "state": "closed_unmerged"
+  },
+  {
+   "number": 534,
+   "branch": "feat/prism-l3-knowledge-status-read-boundary-01",
+   "state": "closed_unmerged"
+  },
+  {
+   "number": 536,
+   "branch": "feat/prism-l4-run-artifact-trace-01",
+   "state": "closed_unmerged"
+  },
+  {
+   "number": 537,
+   "branch": "fix/prism-l3-reference-search-owner-scope-01",
+   "state": "closed_unmerged"
+  },
+  {
+   "number": 538,
+   "branch": "fix/prism-l2-buyer-recon-status-normalization-01",
+   "state": "closed_unmerged"
+  }
+ ]
 }
