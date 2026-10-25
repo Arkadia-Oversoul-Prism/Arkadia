@@ -1,6 +1,6 @@
 {
  "schema": "arkadia.lane-state/1.2",
- "observed_at": "2026-10-25T11:25:39Z",
+ "observed_at": "2026-10-25T15:24:13Z",
  "base_main": "36f53be22d753ffe269f05cbf3fb39212f744207",
  "source": "GitHub REST reads API (Arkadia-Oversoul-Prism/Arkadia), read-only, derived by scripts/lane_state_refresh.py",
  "note": "Machine-readable mirror of the four Prism UI lane threads, DERIVED from live PR state rather than hand-transcribed. Lane assignment is by exclusive path ownership (SHARED-CONTRACTS.md section 1); a PR touching more than one lane's owned paths appears in each. scripts/lane_state.py judges the docs against this file; --verify-live additionally requires every claimed-open PR to be authoritatively open. Refresh with scripts/lane_state_refresh.py --write.",
@@ -149,15 +149,6 @@
      "title": "fix(weaver): classify merged-but-unaccepted states as human gates"
     },
     {
-     "number": 508,
-     "branch": "feat/eaa-readonly-github-evidence-adapter",
-     "head_sha": "071ecd8c5f3b9a0c76c80bcf7f156c50aec4a2cb",
-     "base_ref": "feat/engineering-acceptance-authority",
-     "draft": true,
-     "updated_at": "2026-10-13T06:44:46Z",
-     "title": "feat(eaa): add read-only GitHub evidence adapter"
-    },
-    {
      "number": 525,
      "branch": "feat/prism-rec-12-lab-authority-boundary",
      "head_sha": "daef33c4d0535c392bc4a54e228471a1c432cf08",
@@ -293,17 +284,40 @@
   {
    "number": 568,
    "branch": "gate-hygiene/lane-guard-fixed-scope-01",
-   "head_sha": "1af22160a06b650bfa70041696d20fbb1fec4cde",
+   "head_sha": "95c7aa9e9e8768a2dc8ac5c927a5de0299466170",
    "base_ref": "gate-hygiene/lane-guard-authority-boundary-01",
    "draft": true,
-   "updated_at": "2026-10-25T10:29:20Z",
+   "updated_at": "2026-10-25T15:20:06Z",
    "title": "Lane guard: derive the enforced set from a constant, not from PR activity"
+  },
+  {
+   "number": 569,
+   "branch": "gate-hygiene/lane-state-refresh-01",
+   "head_sha": "d75ba224a2eab4b63383607dbc8ca77b3828b010",
+   "base_ref": "main",
+   "draft": true,
+   "updated_at": "2026-10-25T13:37:11Z",
+   "title": "Lane-state refresh: clear main's latent #563 drift"
+  },
+  {
+   "number": 570,
+   "branch": "gate10/lane1-advertised-contract-completeness-01",
+   "head_sha": "3d4e3aa7f9b752dcde8f2584472dd542d9a456d0",
+   "base_ref": "main",
+   "draft": true,
+   "updated_at": "2026-10-25T14:21:23Z",
+   "title": "Lane 1: judge every advertised contract, not one per file"
   }
  ],
  "closed_unmerged": [
   {
    "number": 507,
    "branch": "feat/prism-l1-legacy-route-coverage-01",
+   "state": "closed_unmerged"
+  },
+  {
+   "number": 508,
+   "branch": "feat/eaa-readonly-github-evidence-adapter",
    "state": "closed_unmerged"
   },
   {
