@@ -123,16 +123,46 @@ the current verdict.
 | `python -m pytest tests/test_console_endpoint_registry_contract.py -q -rEf` | **20 passed** |
 | `python -m pytest tests/architecture -q` | **11 passed** |
 | `python -m pytest tests/test_prism_console_ci_wiring.py tests/test_console_legacy_route_coverage.py tests/test_console_shell_nav_contract.py -q` | **76 passed** |
-| full suite (`-q -rEf --continue-on-collection-errors`) | see §6 |
+| full suite (`-q -rEf --continue-on-collection-errors`) | 8 failed, 3454 passed, 1 error — see §6 |
 
 The file restored byte-identically after each control (`diff -q` clean) and the suite
 re-run green, so the controls did not leave residue.
 
 ## 6. Regression boundary
 
-The guard's own node count moves 17 → 20 (+3: two negative controls and the reworked
-recorded-set node). No console source file, no other lane's file, and no workflow is
-touched, so the console-contract CI gate's derived domain is unchanged.
+The guard's own node count moves **18 → 20** (`--collect-only`, measured on both trees):
+the two new negative controls. The pre-existing recorded-set node was reworked in place
+rather than duplicated, so it is not an addition.
+
+Full-suite baseline on `main` @ `36f53be2` (measured, one pass,
+`-q -rEf --continue-on-collection-errors`):
+
+```
+8 failed, 3454 passed, 20 skipped, 3 warnings, 1 error in 239.33s
+```
+
+Failing/error node set — **9 nodes**, sha256 `c280ddc616fe4f4e9110bf4e…`:
+
+```
+ERROR  tests/test_autonomy.py
+FAILED tests/test_ais_w2_living_gate_grove_handoff.py::test_no_firebase_persistence_in_gate
+FAILED tests/test_engineering_lab_api.py::test_lab_mutation_endpoints_are_exactly_the_lab_state_set
+FAILED tests/test_engineering_lab_api.py::test_lab_router_is_read_only_and_authenticated
+FAILED tests/test_identity_spine_w1.py::test_node_entry_is_ais_signup_not_a_separate_diagnostic_route
+FAILED tests/test_m02_reasomate_truth.py::test_oracle_runtime_uses_the_shared_session_key
+FAILED tests/test_solspire_r1_governance_convergence.py::test_r1_solspire_builders_delegate_to_weaver
+FAILED tests/test_solspire_r1_governance_convergence.py::test_r1_weaver_governance_is_canonical
+FAILED tests/test_solspire_r3_execution_runtime.py::test_runtime_is_explicitly_non_governed_and_blocks_mutation_tools
+```
+
+**None of these is in the changed file** (`grep -c endpoint_registry` → 0), so no
+baseline failure is attributable to this change and none was repaired. The
+`test_engineering_lab_api.py` pair and the `test_autonomy.py` CE-01 collection error are
+the recorded, sovereign-owned pre-existing debt described in `AGENTS.md`; they are left
+alone.
+
+No console source file, no other lane's file, and no workflow is touched, so the
+console-contract CI gate's derived domain is unchanged.
 
 ## 7. Scope and authority boundary
 
