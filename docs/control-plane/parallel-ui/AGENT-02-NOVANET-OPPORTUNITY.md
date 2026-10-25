@@ -238,3 +238,41 @@ handoff, and editing those docs from this workstream would be a scope violation.
 **Next bounded task on this lane:** wire the reaction write path
 (`POST /api/transmissions/{id}/react`, verified handler) with a negative control
 proving the client offers it only where the backend accepts it.
+
+## Lane continuity — 2026-10-25 (field completeness: the remainder becomes retrievable)
+
+`feat/prism-l2-field-completeness-01` (draft PR #564, head `e2c563ef`): the field
+panel disclosed its own truncation but offered no way to act on it. The notice
+read "Showing 50 of N public transmissions — the remainder is not rendered on
+this surface", which is honest and still leaves the reader holding a page
+presented as the field.
+
+The remedy was already served: `GET /api/transmissions` takes **`offset` as well
+as `limit`** (`api/transmissions.py`), so the remainder is retrievable without
+inventing a contract. The render bound became state (`fieldPage`, initialised
+from the one declared `FIELD_PAGE_LIMIT`) and the notice gained a bounded
+"Show more" control (`data-testid="novanet-transmissions-more"`) that grows it by
+one page per request, capped at the handler's own 100 ceiling and retiring on the
+last page. No shared file (`endpoints.ts`, `types.ts`, router, surfaces,
+`App.tsx`) was touched.
+
+Two guard nodes were added to `tests/test_prism_novanet_field_completeness.py`:
+`test_the_disclosed_remainder_is_retrievable` and a negative control that
+reconstructs the bare-notice form and asserts the retrievability detector flags
+it **while the silent-cap detector still passes it** — proving the two measure
+different properties rather than restating one another.
+
+Measured at `e2c563ef`: guard **9 passed**; console-contract derived domain
+**815 passed**; wiring **30 passed**; architecture **11/11**; console build clean
+with the marker in the bundle and the pre-change control absent. The live negative
+control (control removed from the real `NovaNetPage.tsx`) reddened the guard
+(`2 failed`), then the file was restored byte-identically.
+
+**Disposition:** draft; no merge, deployment, or acceptance.
+
+**Next bounded task on this lane:** reconcile the next archived NovaNet
+public-field capability whose contract measures cleanly against a verified
+handler. `GET /api/transmissions` supports `offset`, so a *deep-linkable* page
+position (e.g. surfacing `offset` in the path/query rather than only in component
+state) is the nearest unclaimed slice; confirm a real handler before wiring any
+new write path.
