@@ -318,6 +318,98 @@ def test_detector_flags_an_unscoped_dispatch():
     assert _unscoped_search_calls(clean) == []
 
 
+# ── the request's top_k reaches every mode ───────────────────────────────────
+#
+# ``project``, ``people`` and ``reference`` were dispatched with a hardcoded
+# ``limit=10``, so the request's ``top_k`` was accepted and then discarded: with
+# 25 matching rows each returned exactly 10 at ``top_k=5``, ``10`` *and* ``50``.
+# ``semantic``/``fulltext``/``tag``/``timeline`` forwarded it, so the panel's
+# ``top_k: 20`` was honoured for some modes and silently ignored for others.
+
+BOUND_MARK = "ARKADIA_BOUND_CANARY_WS3"
+BOUND_ROWS = 25
+
+
+def _seed_bound_rows() -> None:
+    """More matching rows than the old hardcoded ceiling, in all three modes."""
+    note = create_note(title=f"{BOUND_MARK} anchor", content="anchor", user_id=None)
+    for index in range(BOUND_ROWS):
+        create_project(f"{BOUND_MARK} project {index}", f"bound canary {index}", user_id=None)
+        execute(
+            'INSERT INTO "references" (source_note_id, target_ref, label) VALUES (?, ?, ?)',
+            (note["id"], f"{BOUND_MARK}-reference-{index}", f"bound canary {index}"),
+        )
+
+
+def _bound_counts(client, top_k: int) -> dict[str, int]:
+    body = client.post(
+        "/api/knowledge/search",
+        json={"query": BOUND_MARK, "modes": ["project", "reference"], "top_k": top_k},
+    ).json()
+    return {mode: len(records) for mode, records in body.items()}
+
+
+@pytest.mark.parametrize("top_k", [5, 20, 100])
+def test_every_mode_honours_the_requested_top_k(client, top_k):
+    """Each mode returns ``min(top_k, matching)`` — the request's bound, not a constant."""
+    _seed_bound_rows()
+    counts = _bound_counts(client, top_k)
+    expected = min(top_k, BOUND_ROWS)
+    for mode, count in counts.items():
+        assert count == expected, f"mode {mode!r} returned {count}, expected {expected} at top_k={top_k}"
+
+
+def test_top_k_below_the_old_ceiling_is_not_over_delivered(client):
+    """Positive control for the pin above: the pre-repair code returned 10 here.
+
+    ``min(top_k, rows)`` alone would also pass if the ceiling moved to some other
+    constant, so the discriminating case is a bound *below* the old hardcoded 10.
+    """
+    _seed_bound_rows()
+    assert _bound_counts(client, 5) == {"project": 5, "reference": 5}
+
+
+def test_non_positive_top_k_reads_no_rows_rather_than_every_row(client):
+    """SQLite reads a negative ``LIMIT`` as *unlimited*.
+
+    A repair that forwarded ``top_k`` verbatim would turn ``top_k=-1`` into an
+    unbounded read of the whole store, so the bound is floored at 0.
+    """
+    _seed_bound_rows()
+    assert _bound_counts(client, 0) == {"project": 0, "reference": 0}
+    assert _bound_counts(client, -1) == {"project": 0, "reference": 0}
+
+
+_HARDCODED_LIMIT_CALL = re.compile(
+    r"results\[[^\]]+\]\s*=\s*(project_search|people_search|reference_search)\([^)]*\blimit\s*=\s*\d+"
+)
+
+
+def _hardcoded_limit_calls(text: str) -> list[str]:
+    """``unified_search`` dispatches that pin a literal ``limit`` instead of ``top_k``.
+
+    A literal here is not merely a default: it overrides the caller's ``top_k``,
+    so the request's bound is accepted and discarded for that mode only.
+    """
+    return [match.group(1) for match in _HARDCODED_LIMIT_CALL.finditer(text)]
+
+
+def test_unified_search_pins_no_literal_mode_limit():
+    body = SEARCH_SRC.read_text(encoding="utf-8")
+    assert _hardcoded_limit_calls(body) == [], "a literal limit discards the request's top_k"
+
+
+def test_detector_flags_the_pre_repair_hardcoded_limit():
+    """Negative control: the detector must bite on the exact pre-repair shape."""
+    stale = 'results["reference"] = reference_search(query, limit=10)'
+    assert _hardcoded_limit_calls(stale) == ["reference_search"]
+    clean = 'results["reference"] = reference_search(query, limit=mode_limit)'
+    assert _hardcoded_limit_calls(clean) == []
+    # A forwarded top_k is the repaired shape for the modes that already worked.
+    forwarded = 'results["timeline"] = timeline_search(keyword=query, limit=min(top_k, 50), user_id=user_id)'
+    assert _hardcoded_limit_calls(forwarded) == []
+
+
 # ── the panel keeps the boundary server-side and honest states visible ───────
 
 def _panel_source() -> str:

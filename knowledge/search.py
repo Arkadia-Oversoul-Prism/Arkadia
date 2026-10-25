@@ -316,6 +316,13 @@ def unified_search(
 
     results: dict = {}
 
+    # ``project``/``people``/``reference`` previously pinned ``limit=10``, so the
+    # request's ``top_k`` was accepted and discarded: measured with 25 matching
+    # rows, each returned exactly 10 at ``top_k=5``, ``10`` and ``50``. Floored at
+    # 0 because SQLite reads a negative ``LIMIT`` as unlimited, which would turn
+    # the repair into an unbounded read.
+    mode_limit = max(0, top_k)
+
     if "semantic" in modes:
         results["semantic"] = semantic_search(query, top_k=top_k, user_id=user_id)
 
@@ -338,12 +345,12 @@ def unified_search(
         results["graph"] = graph_search(note_id_for_graph, depth=2, user_id=user_id)
 
     if "project" in modes:
-        results["project"] = project_search(query, limit=10, user_id=user_id)
+        results["project"] = project_search(query, limit=mode_limit, user_id=user_id)
 
     if "people" in modes:
-        results["people"] = people_search(query, limit=10, user_id=user_id)
+        results["people"] = people_search(query, limit=mode_limit, user_id=user_id)
 
     if "reference" in modes:
-        results["reference"] = reference_search(query, limit=10)
+        results["reference"] = reference_search(query, limit=mode_limit)
 
     return results
