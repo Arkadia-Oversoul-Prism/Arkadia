@@ -4,9 +4,9 @@
 **Branch:** `gate-hygiene/lane-currency-truth-01`
 **Base main:** `68acf89f3045a01b0ba04038fabac4edfb5f937e`
 **Observed:** 2026-10-24
-**Status:** REPAIR COMPLETE, NOT MERGED — human merge authority not exercised.
+**Status:** MERGED as `3a1088c5` (PR #565, squash) onto `68acf89f`; superseded PR #563 closed.
 Exact-head reconciliation performed (§4). Production acceptance NOT CLAIMED
-(this workstream does not deploy).
+(this workstream does not deploy). **§6 and §7 carry superseded figures — read §10 first.**
 
 ---
 
@@ -49,6 +49,11 @@ Measured live at `68acf89f`:
 | 2 | `AGENT-02-NOVANET-OPPORTUNITY.md` | #430 | **MERGED** | pre-existing |
 | 3 | `AGENT-03-SOLARIUN-KNOWLEDGE.md` | #526 | **CLOSED, unmerged** | open PR **#548** |
 | 4 | `AGENT-04-ARKANA-WEAVER-LAB.md` | #428 | **MERGED** | pre-existing |
+
+> **Superseded at `3a1088f` (2026-10-25) — see §10.** The lane-2 row is stale: the
+> shipped snapshot declares lane 2 `current` at **#564** (§8.1's append), not #430,
+> and lane 1 is #562. The #430/#428 rows describe `68acf89f`, before the repair.
+> Lane 3 declares #450 (CLOSED, unmerged), not #526, and lane 4 declares #431.
 
 **All four** lane instructions pointed a successor agent at a dead thread. Two of
 them were *installed by open PRs* (#548 → `#526`, #555 → `#536`), each while its
@@ -318,9 +323,15 @@ NOTEs in CI) and left standing.
 
 | Lane | Doc | Declares | Live state | Owner |
 |---|---|---|---|---|
-| 2 | `AGENT-02-NOVANET-OPPORTUNITY.md` | #430 | MERGED | lane-2 owner |
-| 3 | `AGENT-03-SOLARIUN-KNOWLEDGE.md` | #526 | CLOSED, unmerged | PR #548 |
-| 4 | `AGENT-04-ARKANA-WEAVER-LAB.md` | #428 | MERGED | PR #555 (its head names closed #536) |
+| 2 | `AGENT-02-NOVANET-OPPORTUNITY.md` | #564 | OPEN | lane-2 owner — **re-pointed by this repair (§8.1)** |
+| 3 | `AGENT-03-SOLARIUN-KNOWLEDGE.md` | #450 | CLOSED, unmerged | PR #548 |
+| 4 | `AGENT-04-ARKANA-WEAVER-LAB.md` | #431 | MERGED | PR #555 |
+
+> **Superseded at `3a1088f` (2026-10-25).** This table was derived at `68acf89f`
+> and describes the pre-repair state; the rows above are the shipped ones. The
+> "3 NOTEs" figure was measured before §8.1's lane-2 append, which *removed* one:
+> the shipped gate reports **2 NOTEs** (lanes 3 and 4), which is what §10.2
+> measures and what CI reproduces.
 
 Lane 1 was re-pointed at live PR #562 as part of this repair, because this guard
 owns it.
@@ -516,3 +527,66 @@ deploy, or constitute acceptance.
 The lane-2 re-point from `1a39c843` is retained (it is this guard's own blocking scope), but
 #548's `idle` design is not — so #548 and this branch remain independently mergeable in either
 order.
+
+---
+
+## 10. Shipped state, and the corrections §6/§7 needed (measured 2026-10-25)
+
+### 10.1 What actually landed
+
+PR #565, squash merge **`3a1088c5`**, onto `68acf89f`. Diff verified after the merge
+by re-reading `origin/main`: 10 files, 2185+/76-, **0** paths under `knowledge/` or
+`tests/test_knowledge_*`. Superseded PR #563 (head `1a39c843`, 17 files / 2717+,
+carrying #548's seven commits) is **CLOSED**; nothing in it is needed.
+
+**The original defect is repaired on `main`.** Before: `scripts/lane_state.py --check`
+on `main` exited **1** — the gate was red against its own repository. After:
+exit **0**, and it is green *while `main` has advanced one commit past the snapshot's
+`base_main`* (`68acf89f` → `3a1088c5`). That is precisely the false failure the old
+SHA-equality rule produced, so the fix is demonstrated by the shipped revision itself
+rather than by a fixture.
+
+Continuously enforced, not just at PR time: the `push` run on `3a1088c5`
+(`Lane Doc Currency`, run `40164716935`) is `completed/success`, and its log shows the
+**live oracle executing** — `python scripts/lane_state.py --check --verify-live`
+followed by the two NOTEs and `lane instruction docs consistent with snapshot
+(2 guarded lanes)`. A green conclusion alone would not have proved the step ran.
+
+### 10.2 Corrections to §6 and §7 — both were measured at the wrong revision
+
+§6's table and §7's table were derived at `68acf89f`, **before** §8.1's lane-2 append.
+They were left standing after the append and after the merge, so they described a
+state that no longer existed. Corrected in place with a dated supersession note rather
+than rewritten, so the pre-repair measurement stays as provenance.
+
+| Claim | §6/§7 said | Shipped state | Why it moved |
+|---|---|---|---|
+| lane 1 declares | #507 (CLOSED) | **#562** (open) | this repair re-pointed it |
+| lane 2 declares | #430 (MERGED) | **#564** (open) | §8.1's append |
+| lane 3 declares | #526 (CLOSED) | **#450** (CLOSED, unmerged) | #548 owns lane 3 |
+| lane 4 declares | #428 (MERGED) | **#431** (MERGED) | #555 owns lane 4 |
+| NOTEs in CI | "3 NOTEs" | **2 NOTEs** | the lane-2 append removed one |
+
+The "3 NOTEs" figure was the sharper error: §7 asserted it in the same document whose
+own §10.2 later measured 2, and CI reproduces 2. It was a stale count carried forward
+from a pre-append run, not a disagreement about the state.
+
+### 10.3 Verification of this documentation-only change
+
+The change is prose in one evidence file — no code, no guard, no snapshot. It cannot
+alter the gate's verdict, and it is verified as such: `git diff --name-only` is exactly
+one path. Because it edits a tracked path it is nonetheless run through CP10's
+`--judge` before pushing.
+
+### 10.4 What is still open, and what is still not claimed
+
+- **#548 and #555** remain open and own lanes 3/4. Measured composition of #548's head
+  (`3da97fa5`) with this repair: the only conflict is `lane-state.json`, a **derived**
+  file whose correct resolution is `lane_state_refresh.py --write`, not hand-editing.
+  The code files auto-merge cleanly and both designs coexist (composed tree `a0671dfc`:
+  guard exit 0, 50 contract/wiring passed, #548's 34 knowledge tests passed). #548 is
+  currently `CONFLICTING` against `main` for unrelated reasons.
+- **The §8.2 design tension remains open** — a gate whose blocking scope is derived
+  from a field its own refresher writes can widen its own teeth. Recorded, not resolved;
+  resolving it is a design change to the guard and belongs to the sovereign.
+- Production acceptance remains **NOT CLAIMED**. This workstream does not deploy.
