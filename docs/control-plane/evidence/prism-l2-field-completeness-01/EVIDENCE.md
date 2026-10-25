@@ -129,3 +129,83 @@ above and verified green. Baseline debt is recorded, not repaired: the
 ## Status
 
 IMPLEMENTED — draft PR, not marked ready. Human merge authority is final.
+
+## Lane-continuity drift repair + main-gate diagnosis — 2026-10-25
+
+### 1. The inherited claim "main's lane gate is red because two repair PRs are open" is STALE
+
+Both named repair PRs are **already MERGED**, measured live:
+
+| PR | state | merged_at | head |
+|----|-------|-----------|------|
+| #565 `gate-hygiene/lane-currency-isolated-01` | MERGED | 2026-10-25T05:13:02Z | `a671c4e4` |
+| #566 `docs/lane-currency-evidence-currency-01` | MERGED | 2026-10-25T07:46:12Z | `a9bc2c45` |
+| #492 `feat/prism-next7-02-pipeline-strip` | MERGED | — | `acfbf521` |
+
+So they are not open repair PRs and are not a reason to open another. The only
+`main` push run of `lane-doc-currency.yml` on record is **success** at `3a1088c5`
+(2026-10-25T05:13:04Z). The red runs at 15:20Z/17:28Z are **pull_request** runs on
+lane branches, not on `main`.
+
+### 2. main's gate IS red, for a different and still-open reason
+
+`scripts/lane_state.py --check --verify-live` exits **1** on `origin/main`'s own
+`lane-state.json` (`36f53be2`), with two findings:
+
+```
+DRIFT PR #508 (lane 4 open_prs) is recorded as open but is CLOSED without merging
+DRIFT PR #563 (lane 3 open_prs) is recorded as open but is CLOSED without merging
+```
+
+Measured live: **#508 CLOSED 2026-10-25T15:23:41Z** (not merged), **#563 CLOSED
+2026-10-25T05:16:10Z** (not merged). The snapshot's `open_prs` still lists both, so
+the snapshot is stale against its own oracle.
+
+Cause is `_liveness_findings`' documented limit: it adjudicates a claimed-open PR
+**only when a merge commit is recorded** for it (`if not commit: continue`). A PR
+closed *without* merging has no merge commit, so the local-ancestry oracle cannot
+see it. The live-GitHub oracle (`--verify-live`) can, which is why only the
+`--verify-live` run reddens.
+
+**This drift is owned by two already-open PRs — do not open a third.**
+- #569 `gate-hygiene/lane-state-refresh-01` — clears the #563 record (touches
+  `docs/control-plane/parallel-ui/lane-state.json`).
+- #568 `gate-hygiene/lane-guard-fixed-scope-01` — derives the enforced set from a
+  constant rather than PR activity.
+- #571 `gate-hygiene/lane-state-refresh-composition-01` — records that #569 is a
+  strict subset of #568.
+
+### 3. Lane instruction-doc drift — one real instance, repaired on this branch
+
+`AGENT-02-NOVANET-OPPORTUNITY.md`'s own header named
+`feat/prism-next2-02-opportunity-entry-flow` / **PR #430** as Active branch/PR.
+#430 is **MERGED** (`04e1b83b`) — a successor agent following the header is sent to a
+dead thread. Re-pointed at the live lane thread (`feat/prism-l2-field-completeness-01`,
+PR #564), base re-measured at `36f53be2`.
+
+The guard itself reports the two remaining doc-pointer defects as **NOTE, not
+blocking**, because those lanes are `deferred`:
+
+```
+NOTE lane 3 (AGENT-03-SOLARIUN-KNOWLEDGE.md) declares PR #450, CLOSED without merging
+NOTE lane 4 (AGENT-04-ARKANA-WEAVER-LAB.md) declares PR #428, MERGED
+```
+
+Those are real drift in lane 3/lane 4 docs, outside lane 2's ownership — recorded
+here, not repaired here.
+
+### 4. Verification
+
+- `tests/test_lane_instruction_doc_currency.py` + `tests/test_lane_currency_ci_wiring.py`
+  → **49 passed** (before and after the header edit).
+- `scripts/lane_state.py --check --verify-live` after the edit → **exit 1**, and the
+  lane-2 finding is gone; the two remaining findings are the inherited
+  `lane-state.json` records above.
+- Earlier in this branch: field-completeness tests 9 → 11 passed; console contract
+  domain 30 → 815 passed; `corepack pnpm build` clean (104 modules, 1.73s) with the
+  retrieval control absent from the minified bundle (0 occurrences).
+
+### 5. Boundary
+
+No merge, no deployment, no acceptance. `main`'s gate repair is left to the two open
+PRs that already own it.
