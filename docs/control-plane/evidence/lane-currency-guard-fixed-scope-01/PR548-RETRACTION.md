@@ -295,3 +295,97 @@ git worktree remove --force /tmp/wt
 
 Steps 2–3 are the ones I skipped; step 1 alone produced the retracted claim, and step 3 done
 with `git show :N:` produced a second near-miss. Both are now recorded in project memory.
+
+---
+
+## 9. `idle` is not speculative — it is in use, it suppresses a live finding, and it is unnecessary
+
+§7 established that `idle` downgrades a blocking finding to a NOTE. The obvious follow-up
+question is whether `idle` is *needed*. Measured on the merged tree (`main` + `3da97fa5316f`),
+it is **not** — and it is actively suppressing a finding that is a snapshot defect, not a doc
+defect.
+
+### 9.1 `idle` is in use, on lane 2
+
+| revision | lane 2 `doc_guard` | lane 2 `open_prs` |
+| --- | --- | --- |
+| `main` | `current` | `[564]` |
+| `3da97fa5316f` (#548) | **`idle`** | **`[]`** |
+
+So #548 is not proposing an unused state — it **converts lane 2** from `current`+`[564]` to
+`idle`+`[]`, and its snapshot `note` states the rationale:
+
+> "Lane 2 is idle: #545 is merged and #528 is closed unmerged; **no lane-2 source PR remains
+> open**. Do not revive closed PR references."
+
+### 9.2 The premise of that note is false at the merged revision
+
+`#564` — "Lane 2: the NovaNet public field states its page bound", head branch
+`feat/prism-l2-field-completeness-01` — is **open** (`state=open`, `merged=false`,
+`merged_at=null`). It was **created 2026-10-24T12:35:43Z**; #548's last commit is
+**2026-10-16T04:41:16Z**.
+
+The `idle` state was therefore correct **when written** and became stale eight days later.
+That is ordinary staleness — but it is exactly the condition the guard exists to detect, and
+`idle` makes the guard unable to report it.
+
+### 9.3 Measured effect on lane 2
+
+Lane 2's doc declares `declared_pr = 564` (verified by running `declared_pr` on the merged
+tree). With #548's shipped state:
+
+| lane 2 state | lane-2 DRIFT findings |
+| --- | --- |
+| `idle` + `[]` (as shipped by #548) | **0** |
+| `current` + `[]` (same, one field changed) | **1** — `declares PR #564, which is not an open lane PR in the snapshot` |
+| `current` + `[564]` (the state on `main`) | 0 |
+
+The single field `doc_guard` is the difference between the guard reporting a stale lane
+pointer and reporting nothing.
+
+### 9.4 And `idle` is unnecessary — the refresh already produces the correct state
+
+`scripts/lane_state_refresh.py` cannot emit `idle` (line 255: `lane["doc_guard"] = "deferred"
+if lane.get("deferred_to_pr") else "current"`). Running it on the merged tree **overwrites**
+the hand-written `idle` with a derived disposition:
+
+```
+before:  lane 2  doc_guard=idle      open_prs=[]
+after:   lane 2  doc_guard=deferred  open_prs=[564]  deferred_to_pr=564
+guard:   doc-guard lanes: ['1']; deferred: ['2','3','4']
+         lane instruction docs consistent with snapshot (1 guarded lanes)
+```
+
+The canonical, derived state **needs no `idle` at all**. `idle` is a hand-maintained
+exemption that the repository's own refresh mechanism would never produce and immediately
+discards.
+
+### 9.5 Recommendation, now evidence-based
+
+§7 offered two options as a design preference. The measurements make the case concrete:
+
+**Option B is the supported one — remove `idle` from this integration.** Reasons, in order of
+weight:
+
+1. **It is unnecessary.** The refresh derives `deferred`/`current` and produces a clean gate
+   without it (§9.4).
+2. **It is already suppressing a real finding**, on lane 2, through ordinary staleness (§9.3).
+3. **It is unreachable by the canonical mechanism**, so it can only be introduced or removed
+   by hand-editing the snapshot — an exemption with no derivation path (§9.4).
+4. **Its escape path is unpinned.** #548's tests cover only positive cases; nothing asserts
+   that an idle lane with a closed declared pointer still fails the gate (§7.3).
+
+**Option A** (retain `idle`, preserve pointer enforcement) remains defensible, but it must
+carry the negative test named in the acceptance criterion: *a lane may be excluded from
+active-work enforcement without silently losing reference-integrity enforcement.* Under that
+criterion, `idle` as shipped does **not** pass.
+
+### 9.6 Acceptance criterion (recorded verbatim, as the governing condition)
+
+> A lane may be excluded from active-work enforcement without silently losing
+> reference-integrity enforcement.
+
+Until an implementation and its tests demonstrate that property — or `idle` is removed from
+this change — **#548 remains held**.
+
+I have edited neither branch. This is a measured recommendation, not a decision.
