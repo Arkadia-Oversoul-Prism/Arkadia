@@ -25,6 +25,7 @@
  * contracts are "unverified or sovereign-key gated" was wrong for it and is
  * corrected in the note below.
  */
+import { useState } from "react";
 import { Page, Panel, ContractState, NotYetWired } from "../components/ui";
 import { SurfaceLenses } from "../components/SurfaceLenses";
 import { AuthorControls } from "../components/novaNet/AuthorControls";
@@ -61,6 +62,9 @@ const ECHO_DISPLAY_LIMIT = 8;
  *  bound is the request's, and the notice compares what arrived against `total`
  *  rather than against a second copy of the server's cap. */
 const FIELD_PAGE_LIMIT = 50;
+/** The handler's own `limit` ceiling (`api/transmissions.py`). A request past it
+ *  is clamped, so the render bound never asks for more than the handler serves. */
+const TRANSMISSION_PAGE_CEILING = 100;
 
 const DEFERRED: Record<string, string> = {
   hub: "UNKNOWN",
@@ -81,9 +85,15 @@ export function NovaNetPage({
   section?: string;
   onNavigate: (id: SurfaceId, section?: string) => void;
 }) {
+  // The render bound the reader has asked for: one page at first, grown by a
+  // page per request. The handler's own `offset`/`limit` contract is what makes
+  // the remainder the notice names actually reachable, so the bound has to be
+  // state rather than a constant — a disclosure with no way to retrieve what it
+  // discloses still leaves the reader with a page presented as the field.
+  const [fieldPage, setFieldPage] = useState(FIELD_PAGE_LIMIT);
   // A registry-derived binding, not an inline path: the one registry expressed
   // with a page size, which is the sanctioned shape for a sub-resource read.
-  const fieldPath = `${endpoints.transmissions}?limit=${FIELD_PAGE_LIMIT}`;
+  const fieldPath = `${endpoints.transmissions}?limit=${fieldPage}`;
   const field = useHydration<TransmissionList>(
     fieldPath,
     (p) => apiRequest<TransmissionList>(p),
@@ -151,13 +161,33 @@ export function NovaNetPage({
                     ))}
                   </ul>
                   {field.data.total > field.data.transmissions.length && (
-                    <p
-                      className="font-mono text-[11px] text-white/40"
-                      data-testid="novanet-transmissions-truncation"
-                    >
-                      Showing {field.data.transmissions.length} of {field.data.total} public transmissions —
-                      the remainder is not rendered on this surface.
-                    </p>
+                    <div className="flex flex-col gap-2">
+                      <p
+                        className="font-mono text-[11px] text-white/40"
+                        data-testid="novanet-transmissions-truncation"
+                      >
+                        Showing {field.data.transmissions.length} of {field.data.total} public transmissions —
+                        the remainder is not rendered on this surface.
+                      </p>
+                      {/* The disclosure above is only honest if the remainder can
+                          actually be retrieved: `GET /api/transmissions` takes
+                          `limit` and `offset`, so one more page is one more read.
+                          Growth is bounded by the handler's own 100 ceiling, and
+                          the last page is whatever is left, so the control retires
+                          exactly when the whole field is rendered. */}
+                      {fieldPage < TRANSMISSION_PAGE_CEILING && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFieldPage((page) => Math.min(page + FIELD_PAGE_LIMIT, TRANSMISSION_PAGE_CEILING))
+                          }
+                          className="self-start rounded border border-line px-3 py-1 font-mono text-[11px] text-white/70 transition-colors hover:border-azure/50 hover:text-white"
+                          data-testid="novanet-transmissions-more"
+                        >
+                          Show more ({field.data.total - field.data.transmissions.length} remaining)
+                        </button>
+                      )}
+                    </div>
                   )}
                 </>
               )
