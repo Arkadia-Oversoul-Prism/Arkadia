@@ -109,6 +109,13 @@ REPO = Path(__file__).resolve().parents[1]
 LANE_DIR = REPO / "docs" / "control-plane" / "parallel-ui"
 LANE_STATE = LANE_DIR / "lane-state.json"
 
+# The canonical lane set. A literal, by design: the guard's scope must not be a
+# function of the inputs it judges. Kept in step with ``LANE_OWNERSHIP`` in
+# ``scripts/lane_state_refresh.py`` by ``tests/test_lane_guard_fixed_scope.py``,
+# so the pair cannot drift silently. See ``enforced_lanes`` for why this is not
+# read from the snapshot.
+CANONICAL_LANES = ("1", "2", "3", "4")
+
 API = "https://api.github.com"
 DEFAULT_REPO = "Arkadia-Oversoul-Prism/Arkadia"
 
@@ -708,10 +715,62 @@ def _disposition_findings(state: dict) -> list[str]:
     return findings
 
 
+def enforced_lanes(state: dict) -> list[str]:
+    """The lanes this guard judges. Derived from a constant, never from PR activity.
+
+    This was previously derived from ``doc_guard``, which
+    ``scripts/lane_state_refresh.py`` computes from **live open PRs**: a lane
+    became ``deferred`` when some open PR touched one of its owned code paths and
+    its doc. The consequence was that a pull request could remove its own lane
+    from judgement -- and one broad PR touching every lane's paths and docs could
+    empty the enforced set entirely, leaving a guard that examined nothing and
+    reported success.
+
+    That is a scope inversion: the activity under judgement was deciding the
+    scope of judgement. Measured by ``scripts/lane_scope_probe.py``, which fails
+    three of four checks against the derived design.
+
+    The enforced set is now ``CANONICAL_LANES`` -- a literal, independent of
+    GitHub, of the snapshot, and of every other input. Adding a lane is a
+    deliberate edit here plus in ``LANE_OWNERSHIP``; a test asserts the two agree
+    so the pair cannot drift. The snapshot may only ever *add* lanes (so a lane
+    present in the snapshot but missing from the constant is still judged), never
+    remove one.
+
+    ``doc_guard`` is retained as a *descriptive* field -- an operator still sees
+    which lanes are mid-repair -- but it no longer controls what is judged.
+    """
+    return sorted(set(CANONICAL_LANES) | set(_lane_numbers(state)))
+
+
 def current_lanes(state: dict) -> list[str]:
-    return [
-        n for n in _lane_numbers(state) if state["lanes"][n].get("doc_guard") == "current"
-    ]
+    """Deprecated alias for :func:`enforced_lanes`. Retained for existing callers."""
+    return enforced_lanes(state)
+
+
+def _enforced_set_findings(lanes: list[str]) -> list[str]:
+    """Fail closed when the enforced set is empty or otherwise unestablished.
+
+    A guard that judges nothing reports success, which is indistinguishable from
+    a guard that judged everything and found no drift. The derived-scope design
+    made that reachable; this makes it a finding regardless of how the set is
+    computed, so a future refactor cannot silently reintroduce a vacuous pass.
+    """
+    if not lanes:
+        return [
+            "enforced lane set is EMPTY -- the guard would judge no lane and "
+            "report success; refusing to pass vacuously. Re-measure the lane set."
+        ]
+    unknown = [n for n in lanes if n not in CANONICAL_LANES]
+    if unknown:
+        # Not a failure: the snapshot may legitimately carry a new lane before
+        # the constant is updated. Reported so the pair is visibly out of step.
+        return [
+            f"lane(s) {unknown} are judged but absent from CANONICAL_LANES; add them "
+            f"to scripts/lane_state.py so the guard's scope stays independent of the "
+            f"snapshot"
+        ]
+    return []
 
 
 def check_lane_docs(
@@ -803,7 +862,11 @@ def main(argv: list[str] | None = None) -> int:
     findings = _disposition_findings(state)
     findings += _merge_commit_findings(state)
     findings += _freshness_findings(state, base_main)
-    findings += check_lane_docs(state, lanes=current_lanes(state))
+    # The enforced set is fixed, so every lane's doc is judged on every run. A
+    # deferral no longer hides a lane from this check.
+    enforced = enforced_lanes(state)
+    findings += _enforced_set_findings(enforced)
+    findings += check_lane_docs(state, lanes=enforced)
     findings += _liveness_findings(state)
 
     if args.verify_live:
@@ -817,29 +880,23 @@ def main(argv: list[str] | None = None) -> int:
             numbers + sorted(n for n in declared if n is not None)
         )
         findings += _pr_state_findings(state, records, failure)
-        # Dead pointers block only for the lanes this guard owns. Every lane is
-        # still *reported*: a finding nobody prints is the hole being repaired.
-        # Blocking on a doc the guard does not own would make the gate
-        # permanently red for work it cannot do -- the failure mode that trains
-        # operators to ignore a gate.
-        owned = current_lanes(state)
-        findings += _declared_pointer_findings(state, records, failure, lanes=owned)
-        advisory = [
-            f
-            for f in _declared_pointer_findings(state, records, failure)
-            if f not in findings
-        ]
+        # Every lane is judged, so every dead pointer blocks. Previously only
+        # lanes whose doc_guard was "current" blocked, which meant a deferral
+        # silenced a dead pointer as well as the doc-agreement check -- the same
+        # scope inversion, in a second place.
+        findings += _declared_pointer_findings(state, records, failure, lanes=enforced)
         print(
             f"live PR state: {len(records)} PR(s) read from {DEFAULT_REPO} "
             f"({len(numbers)} claimed-open + declared doc pointers)"
             + (f" -- {failure}" if failure else "")
         )
-        for note in advisory:
-            print(f"  NOTE {note} (lane not owned by this guard; reported, not blocking)")
 
     print(freshness_text(state, base_main))
-    print(f"doc-guard lanes: {current_lanes(state)}; deferred: "
-          f"{[n for n in _lane_numbers(state) if n not in current_lanes(state)]}")
+    print(f"enforced lanes: {enforced}; doc_guard (descriptive): "
+          f"{[n for n in _lane_numbers(state) if state['lanes'][n].get('doc_guard') == 'current']}"
+          f" current, "
+          f"{[n for n in _lane_numbers(state) if state['lanes'][n].get('doc_guard') == 'deferred']}"
+          f" deferred")
     if findings:
         for f in findings:
             print(f"  DRIFT {f}")
@@ -847,7 +904,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(
         f"lane instruction docs consistent with snapshot "
-        f"({len(current_lanes(state))} guarded lanes)"
+        f"({len(enforced)} enforced lanes)"
     )
     return 0
 

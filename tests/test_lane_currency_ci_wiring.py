@@ -32,6 +32,7 @@ REPO = Path(__file__).resolve().parents[1]
 WORKFLOW = REPO / ".github/workflows/lane-doc-currency.yml"
 CONTRACT = "tests/test_lane_instruction_doc_currency.py"
 WIRING = "tests/test_lane_currency_ci_wiring.py"
+FIXED_SCOPE = "tests/test_lane_guard_fixed_scope.py"
 
 # Every path the currency contract reads. A change to any of them can change
 # what the contract asserts, so each must select the workflow that runs it.
@@ -43,6 +44,7 @@ REQUIRED_FILTERS = (
     "scripts/lane_state_refresh.py",
     CONTRACT,
     WIRING,
+    FIXED_SCOPE,
 )
 
 
@@ -90,6 +92,40 @@ def _invokes(tokens: list[str], target: str) -> bool:
     else:
         return False
     return target in rest
+
+
+@pytest.mark.parametrize("target", [CONTRACT, WIRING, FIXED_SCOPE])
+def test_workflow_executes_every_guard_it_selects(target):
+    """Selection without execution is not coverage.
+
+    A path filter decides *when* the workflow runs; only the step decides *what*
+    it runs. The two can drift apart: the new fixed-scope guard was added to both
+    filters but not to any step, and every other assertion in this file stayed
+    green -- the gate would have selected itself on that file's changes and then
+    executed nothing that reads it. Measured on the real workflow by deleting the
+    step and observing this node redden, while the filter assertions held.
+
+    Parametrized over every guard rather than written for one file, so a future
+    guard added to the filters without a step is caught by the same rule.
+    """
+    commands = _commands(_workflow_text())
+    assert any(_invokes(c, target) for c in commands), (
+        f"the workflow selects changes to {target} but never executes it"
+    )
+
+
+def test_every_executed_guard_is_also_selected():
+    """The converse: an executed guard must also select the workflow.
+
+    A step that runs a file no filter names means a change to that file does not
+    trigger the gate that judges it. Both directions are needed; either alone
+    leaves a way for a guard to stop being continuous.
+    """
+    text = _workflow_text()
+    pull_request, _, push = text.partition("  push:")
+    for target in (CONTRACT, WIRING, FIXED_SCOPE):
+        assert target in pull_request, f"pull_request filter omits {target}"
+        assert target in push, f"push filter omits {target}"
 
 
 def test_workflow_exists_and_runs_the_contract():

@@ -25,3 +25,17 @@ Build the next bounded read-only slice: **a traceable run-to-evidence review vie
 ## Required PR evidence
 
 Verified route/auth/data contract; source-bound references; owner/read-only/state-boundary tests; negative controls; typecheck/build; exact SHAs; unresolved links and next bounded move.
+
+## Status — 2026-10-25 (lane reference re-measurement, lane 4)
+
+**Active branch:** `integration/eaa-dispatch-readonly-evidence-current-main`
+**Active PR:** [#553](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/553) — draft, the live lane 4 thread.
+
+Supersedes the `#428` pointer at the top of this document, which **merged on 2026-10-11**
+at `71190dd3`, and `#536`, which is closed without merging. Neither is a live thread.
+
+This block also supplies the `**Active branch:**` pointer this document previously
+lacked, which the guard requires. It exists because the lane guard's enforced set is no
+longer derived from `doc_guard`: lane 4 is judged on every run, so a stale pointer here
+blocks the gate instead of being hidden by a deferral. The lane docs are lane-owned; this
+edit is a reference correction only — it changes no task, no ownership, and no scope.

@@ -1,7 +1,7 @@
 {
  "schema": "arkadia.lane-state/1.2",
- "observed_at": "2026-10-25T04:48:21Z",
- "base_main": "68acf89f3045a01b0ba04038fabac4edfb5f937e",
+ "observed_at": "2026-10-25T08:06:15Z",
+ "base_main": "36f53be22d753ffe269f05cbf3fb39212f744207",
  "source": "GitHub REST reads API (Arkadia-Oversoul-Prism/Arkadia), read-only, derived by scripts/lane_state_refresh.py",
  "note": "Machine-readable mirror of the four Prism UI lane threads, DERIVED from live PR state rather than hand-transcribed. Lane assignment is by exclusive path ownership (SHARED-CONTRACTS.md section 1); a PR touching more than one lane's owned paths appears in each. scripts/lane_state.py judges the docs against this file; --verify-live additionally requires every claimed-open PR to be authoritatively open. Refresh with scripts/lane_state_refresh.py --write.",
  "lanes": {
@@ -86,8 +86,8 @@
   "3": {
    "doc": "AGENT-03-SOLARIUN-KNOWLEDGE.md",
    "title": "Solariun + Knowledge OS",
-   "active_pr": 563,
-   "active_branch": "gate-hygiene/lane-currency-truth-01",
+   "active_pr": 548,
+   "active_branch": "integration/knowledge-search-graph-boundaries-01",
    "open_prs": [
     {
      "number": 548,
@@ -112,14 +112,6 @@
      "draft": true,
      "updated_at": "2026-10-15T20:27:49Z",
      "title": "compose Knowledge status-read and graph-provenance contracts"
-    },
-    {
-     "number": 563,
-     "branch": "gate-hygiene/lane-currency-truth-01",
-     "head_sha": "1a39c84304621f28d7597537e9f24f92a47b817d",
-     "draft": true,
-     "updated_at": "2026-10-25T03:40:54Z",
-     "title": "Lane-currency guard: decide freshness by guarded-path movement, add an authoritative PR-state oracle"
     }
    ],
    "merged_prs": [
@@ -268,6 +260,14 @@
    "draft": true,
    "updated_at": "2026-10-17T11:02:04Z",
    "title": "docs: current-base disposition record for open PR queue"
+  },
+  {
+   "number": 567,
+   "branch": "gate-hygiene/lane-guard-authority-boundary-01",
+   "head_sha": "bebb6ed4ca0a599d77ac36b53f9658579cfb6750",
+   "draft": true,
+   "updated_at": "2026-10-25T07:53:55Z",
+   "title": "Incident record + design investigation: unauthorized lane-guard release and its scope defect"
   }
  ],
  "closed_unmerged": [
@@ -314,6 +314,11 @@
   {
    "number": 538,
    "branch": "fix/prism-l2-buyer-recon-status-normalization-01",
+   "state": "closed_unmerged"
+  },
+  {
+   "number": 563,
+   "branch": "gate-hygiene/lane-currency-truth-01",
    "state": "closed_unmerged"
   }
  ]

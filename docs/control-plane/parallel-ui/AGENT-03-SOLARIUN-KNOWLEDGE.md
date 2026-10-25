@@ -59,3 +59,17 @@ Evidence: `docs/control-plane/evidence/prism-next2-knowledge-timeline-window-02/
 the measured `offset` contract; or `GET /api/knowledge/projects/{name_or_uuid}`,
 which needs a registry path builder (Workstream 1's file) — a request, not an edit.
 
+
+## Status — 2026-10-25 (lane reference re-measurement, lane 3)
+
+**Active branch:** `integration/knowledge-search-graph-boundaries-01`
+**Active PR:** [#548](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/548) — draft, the live lane 3 thread.
+
+Supersedes every earlier pointer in this document. Re-measured against live GitHub
+state, not carried forward: the `#450` pointer above is **closed without merging** (the
+thread is dead — a successor following it is sent nowhere), and `#431` is merged.
+
+This block exists because the lane guard's enforced set is no longer derived from
+`doc_guard`: lane 3 is judged on every run, so a stale pointer here blocks the gate
+instead of being hidden by a deferral. The lane docs are lane-owned; this edit is a
+reference correction only — it changes no task, no ownership, and no scope.
