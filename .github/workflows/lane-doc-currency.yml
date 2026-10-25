@@ -3,15 +3,36 @@ name: Lane Doc Currency
 # Executes the lane instruction-doc currency guard. Before this workflow, the
 # guard tests ran only when a human invoked pytest by hand; the drift they
 # detect (a lane doc pointing at a merged PR) had no continuous surface.
+#
+# The executed inventory is DERIVED, not restated:
+#
+#     python -m pytest -q $(python scripts/lane_guard_domain.py)
+#
+# `scripts/lane_guard_domain.py` is the single source of truth, and the wiring
+# judge imports `derive_domain` from the same file. A fixed list here drifts from
+# that derivation the moment a guard is added: measured at `76f6d87a`, the domain
+# is 4 guards while this gate executed 3 and filtered 3 -- #567 added
+# `tests/test_lane_guard_scope_boundary.py` and nothing here ever named it, so the
+# acceptance test for the scope repair was executed by no workflow. This is the
+# same class PR #435 removed for the console contract.
+#
+# The `paths` filter selects `tests/**` rather than an enumerated guard list so a
+# guard *added* to the corpus also triggers the judge that would otherwise never
+# run to report it unexecuted. The judge still asserts every derived guard is
+# selected, so narrowing this filter reddens it.
 on:
   pull_request:
     paths:
       - "docs/control-plane/parallel-ui/**"
       - "scripts/lane_state.py"
       - "scripts/lane_state_refresh.py"
+      - "scripts/lane_scope_probe.py"
+      - "scripts/lane_guard_domain.py"
       - "tests/test_lane_instruction_doc_currency.py"
       - "tests/test_lane_currency_ci_wiring.py"
       - "tests/test_lane_guard_fixed_scope.py"
+      - "tests/test_lane_guard_scope_boundary.py"
+      - "tests/**"
       - ".github/workflows/lane-doc-currency.yml"
   push:
     branches: ["main"]
@@ -19,10 +40,18 @@ on:
       - "docs/control-plane/parallel-ui/**"
       - "scripts/lane_state.py"
       - "scripts/lane_state_refresh.py"
+      - "scripts/lane_scope_probe.py"
+      - "scripts/lane_guard_domain.py"
       - "tests/test_lane_instruction_doc_currency.py"
       - "tests/test_lane_currency_ci_wiring.py"
       - "tests/test_lane_guard_fixed_scope.py"
+      - "tests/test_lane_guard_scope_boundary.py"
+      - "tests/**"
       - ".github/workflows/lane-doc-currency.yml"
+  # The gate is path-filtered, so a revision touching none of the above never runs
+  # it. `workflow_dispatch` lets the lane contract be executed against an exact
+  # revision on demand (it runs the workflow file from the dispatched ref, so
+  # `ref=main` yields an execution at the current main SHA).
   workflow_dispatch:
 
 permissions:
@@ -49,16 +78,12 @@ jobs:
           python-version: "3.11"
       - run: python -m pip install --upgrade pip
       - run: python -m pip install pytest
-      - name: Execute lane instruction-doc currency guard
-        run: python -m pytest -q tests/test_lane_instruction_doc_currency.py
-      - name: Execute the wiring guard (judges this workflow)
-        # Run inside the gate so a rewrite of this workflow is judged by the
-        # workflow it rewrites -- otherwise the gate can be disarmed by editing
-        # the one file it is meant to constrain.
-        run: python -m pytest -q tests/test_lane_currency_ci_wiring.py
-      - name: Execute the fixed-scope guard (judges the guard's scope)
-        run: python -m pytest -q tests/test_lane_guard_fixed_scope.py
-
+      - name: Execute the whole derived lane-guard domain
+        # The inventory is derived, so a guard added to the corpus (e.g.
+        # tests/test_lane_guard_scope_boundary.py) is executed without editing
+        # this file. A fixed list silently stopped covering the domain the moment
+        # a guard arrived.
+        run: python -m pytest -q $(python scripts/lane_guard_domain.py)
       - name: Execute the guard as the gate executes it
         run: python scripts/lane_state.py --check
       - name: Verify lane PR state against GitHub (authoritative oracle)

@@ -577,8 +577,15 @@ def test_a_workflow_executes_the_lane_doc_guard():
         ".github/workflows/lane-doc-currency.yml",
     ):
         assert needed in workflow, f"lane-doc-currency.yml filter omits {needed}"
-    # It must actually invoke pytest on the guard, not merely mention it.
-    assert "pytest -q tests/test_lane_instruction_doc_currency.py" in workflow
+    # It must actually invoke pytest on the guard, not merely mention it. The
+    # inventory is derived (`$(python scripts/lane_guard_domain.py)`), so this
+    # pins the derived form rather than a literal file list: a fixed list stops
+    # covering the corpus the moment a guard is added, and this guard must be
+    # one of the guards that executes.
+    assert "pytest -q $(python scripts/lane_guard_domain.py)" in workflow, (
+        "lane-doc-currency.yml must execute the derived lane-guard domain"
+    )
+    assert "scripts/lane_guard_domain.py" in workflow
     # The liveness oracle reads git ancestry, so the checkout must carry full
     # history. A depth-1 checkout makes the oracle undecidable (or, read
     # naively, silently permissive) -- pin the requirement to the workflow.
