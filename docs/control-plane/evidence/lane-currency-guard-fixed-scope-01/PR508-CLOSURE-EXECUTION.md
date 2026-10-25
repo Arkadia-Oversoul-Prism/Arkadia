@@ -140,3 +140,46 @@ So the two-step requirement is real; only my explanation of *why* was wrong.
 - #548's lane-3 pointer is still unresolved; #555's ordering fragility is unchanged.
 - The `unassigned_open_prs` coverage limit stands (see `PR508-REVERIFICATION.md` §3) and was
   **not** repaired here.
+
+---
+
+## 6. #568 re-verified at its exact head (post-closure)
+
+**Head:** `f960f6ba3eea2cff54da80b4811c2e57d460ed55`.
+
+All **7** check-runs `success`:
+
+| check | conclusion |
+| --- | --- |
+| `lane-doc-currency` | **success** (was FAILURE before the closure) |
+| `test` | success |
+| `verdict-step-integrity` | success |
+| `trigger-coverage` | success |
+| `boot-syntax` | success |
+| `console-contract` | success |
+| `Full-history secret scan` | success |
+
+Workflow runs on that head: `Lane Doc Currency` `40207089634`, `Prism Console Contract`
+`40207089633`, `Boot Syntax Boundary` `40207089658`, `CI Gate Trigger Coverage`
+`40207089748`, `CI Verdict Step Integrity` `40207089788`, `economic-seam-engine`
+`40207089746`, `security-secret-scan` `40207089815` — all `success`.
+
+**Non-vacuity, from the step log of run `40207089634` (job `121210242723`):**
+
+```
+88 passed in 0.55s
+enforced lanes: ['1', '2', '3', '4']; doc_guard (descriptive): ['1','2'] current, ['3','4'] deferred
+lane instruction docs consistent with snapshot (4 enforced lanes)
+```
+
+The guard executed 88 tests and judged **4 enforced lanes** — not a vacuous pass, and not a
+gate that silently stopped judging.
+
+**What this does NOT establish.** A green `lane-doc-currency` means the lane-currency guard
+is satisfied at this head. It is not:
+- a green *full* gate for the composition — #553's `provider-routing` failures are
+  untouched by this pass;
+- release acceptance, merge authorization, or production acceptance;
+- a repair of #548's lane-3 pointer or #555's ordering fragility.
+
+The release decision for `#567 → #568` remains separate and unauthorized.
