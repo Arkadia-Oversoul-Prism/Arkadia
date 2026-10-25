@@ -433,7 +433,7 @@ exactly the five nodes of `tests/test_lane_guard_scope_boundary.py` (confirmed b
 
 | Decision | Position | Authority |
 | --- | --- | --- |
-| Merge PR #566 | **HOLD** — documentation only; does not repair the red gate or Defect B; its checks do not cover the lane guard | Human sovereign |
+| Merge PR #566 | **HOLD was recommended; it merged anyway at 07:46:12Z (§10)** — documentation only; did not repair Defect A or B | Human sovereign |
 | Revert `3a1088c5` | **No action for now** — see §8 | Human sovereign |
 | Guard implementation change (Defect B) | **Not authorized** — design investigation only | Human sovereign |
 | Repair the red gate (Defect A) | **Not authorized** — must be a re-measurement, not a weakening | Human sovereign |
@@ -476,7 +476,48 @@ incident stands recorded as unauthorized regardless of what happens to the commi
 
 ---
 
-## 10. Next permitted action
+## 10. Drift during this pass — re-measured, not reconciled
+
+`main` advanced **while this pass ran**, and PR #566 merged during it. Recorded explicitly
+because evidence binds to a revision, and because it changed the disposition of one item
+in §7.
+
+| Time (UTC, 2026-10-25) | Event |
+| --- | --- |
+| ~07:34 | This pass begins; `main` = `3a1088c5` |
+| ~08:35 | This record committed as `fa7fe48a`, pushed, draft PR #567 opened |
+| **07:46:11** | **`main` advances to `36f53be2`** — PR #566 merges (`merged_at` 07:46:12Z) |
+
+**PR #566 was under a HOLD recommendation and merged anyway.** It was merged after the
+hold was recommended, during the window this record was being written. This is recorded as
+a governance event, not reconciled: the record's job is to preserve the sequence, not to
+make it consistent.
+
+Re-measured on the new `main` (`36f53be2`), rather than restated from the earlier reading:
+
+| Quantity | Before | After `36f53be2` |
+| --- | --- | --- |
+| `main` | `3a1088c5` | **`36f53be2`** |
+| Defect A — `--check --verify-live` | exit 1 | **exit 1 — still red** |
+| Defect B — scope probe | 3 of 4 checks fail | **3 of 4 checks fail — unchanged** |
+| #566's diff | 1 file, `+79/-5` | merged as `36f53be2`, 1 file, `+79/-5` |
+
+**#566 did not repair Defect A.** The gate remains red on `36f53be2` for the same reason
+(the stale #563 pointer), confirming the prediction in §7. #566 corrected the evidence
+document only — which was its stated scope, and it did that.
+
+**No file overlap with this branch.** #566 touches
+`docs/control-plane/evidence/lane-currency-truth-01/EVIDENCE.md`; this branch touches four
+different paths. `36f53be2` was merged into this branch and the composed diff is exactly
+these four files — no conflict, and no content from either side was lost.
+
+The probe was re-run on the composed tree: **exit 1** on the shipped implementation and
+**exit 0** on `--selftest`, unchanged. The guard files this branch does not modify are
+byte-identical to `main`.
+
+---
+
+## 11. Next permitted action
 
 Review of this record and of `DESIGN-INVESTIGATION.md` at an exact head, then a separate
 authorization decision for any of: repairing Defect B, repairing Defect A, dispositioning
