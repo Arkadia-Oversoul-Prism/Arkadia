@@ -228,6 +228,18 @@ def build(
             "number": number,
             "branch": pr["head"]["ref"],
             "head_sha": pr["head"]["sha"],
+            # The base branch is recorded because a PR whose base is another
+            # branch is *stacked*: merging it lands that branch's commits too,
+            # which no reviewer of this PR ever saw. Without this field the
+            # snapshot cannot tell a stacked PR from a normal one, so the guard
+            # that reads it cannot report the hazard.
+            #
+            # An absent field is recorded as ``None`` rather than raising: the
+            # guard has an explicit UNKNOWN path for it (fail closed), so a
+            # malformed API record becomes a reported unknown, not a crash in the
+            # producer -- a crash here would abort the whole snapshot and hide
+            # every other lane's state.
+            "base_ref": (pr.get("base") or {}).get("ref"),
             "draft": pr["draft"],
             "updated_at": pr.get("updated_at"),
             "title": pr["title"],

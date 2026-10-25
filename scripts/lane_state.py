@@ -118,6 +118,9 @@ CANONICAL_LANES = ("1", "2", "3", "4")
 
 API = "https://api.github.com"
 DEFAULT_REPO = "Arkadia-Oversoul-Prism/Arkadia"
+# The only branch a lane PR may target. A PR based on another branch is stacked,
+# and merging it lands commits its own review never covered.
+DEFAULT_BRANCH = "main"
 
 # A doc declares its pointer with a bold field. Both forms appear in the corpus:
 # "*Active branch:*" and "**Active branch:**".
@@ -352,6 +355,52 @@ def _pr_state_findings(
             findings.append(
                 f"PR #{number} ({where}) has an unrecognised live state "
                 f"{record.get('state')!r}; classified UNKNOWN, not a pass"
+            )
+    return findings
+
+
+def _base_branch_findings(state: dict, records: dict[int, dict]) -> list[str]:
+    """Require every claimed-open lane PR to target ``main``.
+
+    A PR whose base branch is another branch is *stacked*: merging it lands its
+    base branch's commits as well, which the reviewer of this PR never saw. The
+    hazard is structural rather than a matter of intent -- the PR looks
+    mergeable, its own checks are green, and its diff against its base is
+    exactly what it advertises, so nothing in the ordinary review path shows the
+    extra commits. Measured 2026-10-25: the lane repair PR #568 targets #567's
+    branch rather than ``main``, and #567's own body records that merging it
+    "would itself require authorization" -- so merging the child would silently
+    land an unauthorized parent.
+
+    The liveness oracle could not see this: it proves *merged-ness* from local
+    ancestry, and ancestry is identical for a stacked PR and an unstacked one.
+    This is the missing half of "is this PR safe to merge as advertised".
+
+    The default branch is a constant, not a snapshot field, so a snapshot cannot
+    redefine what counts as unstacked. A record missing ``base`` is reported as
+    UNKNOWN rather than assumed to target ``main``.
+    """
+    findings: list[str] = []
+    for number, claimants in sorted(claimed_open_prs(state).items()):
+        record = records.get(number)
+        if record is None:
+            # Absence is already reported by ``_pr_state_findings``; restating it
+            # here would double-count one fact as two findings.
+            continue
+        base = (record.get("base") or {}).get("ref")
+        where = ", ".join(claimants)
+        if base is None:
+            findings.append(
+                f"PR #{number} ({where}) has no readable base branch; whether it "
+                f"is stacked is UNKNOWN, not a pass -- re-measure the lane PRs"
+            )
+        elif base != DEFAULT_BRANCH:
+            findings.append(
+                f"PR #{number} ({where}) targets base branch {base!r}, not "
+                f"{DEFAULT_BRANCH!r}; it is STACKED, so merging it would land its "
+                f"base branch's commits unreviewed -- re-point it at "
+                f"{DEFAULT_BRANCH!r}, or obtain explicit authorization for the "
+                f"whole stack before merging"
             )
     return findings
 
@@ -885,6 +934,7 @@ def main(argv: list[str] | None = None) -> int:
         # silenced a dead pointer as well as the doc-agreement check -- the same
         # scope inversion, in a second place.
         findings += _declared_pointer_findings(state, records, failure, lanes=enforced)
+        findings += _base_branch_findings(state, records)
         print(
             f"live PR state: {len(records)} PR(s) read from {DEFAULT_REPO} "
             f"({len(numbers)} claimed-open + declared doc pointers)"
