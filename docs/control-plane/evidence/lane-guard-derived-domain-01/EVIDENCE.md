@@ -109,7 +109,27 @@ Repaired to require the interpreter as the **first** token; a regression control
 (`test_detector_rejects_echo_prefixed_interpreter_invocation`) now pins that form. A guard
 whose detector cannot fail is not a guard, and this control is why the hole is not shipped.
 
-## 6. Regression boundary
+## 6. Runtime proof in CI (not a source-level claim)
+
+The wiring is proven at runtime, on the real gate, at this branch head:
+
+* run **`40184568716`** (`Lane Doc Currency`, event `pull_request`, `completed/success`),
+  job `121142513326`.
+* The step log prints the derived command itself —
+  `python -m pytest -q $(python scripts/lane_guard_domain.py)` — followed by
+  **`81 passed in 0.63s`**, matching the local measurement exactly.
+* The same run's `--verify-live` step reads live PR state (`13 PR(s) read`) and still
+  reports `enforced lanes: ['1', '2', '3', '4']` — i.e. the enforced set does **not** move
+  with PR activity, which is the property #567/#568 exist to guarantee, now observed in CI
+  rather than asserted in source.
+* All **7** check-runs on `4edb5afa` are `completed/success`
+  (`lane-doc-currency`, `test`, `Full-history secret scan`, `verdict-step-integrity`,
+  `boot-syntax`, `trigger-coverage`, `console-contract`).
+
+A guard that no workflow executes is decoration; this one is now executed, and its
+execution is recorded rather than inferred.
+
+## 7. Regression boundary
 
 * `api/main.py` untouched (budget unaffected).
 * No authority surface, no mutation path, no identity boundary changed.
@@ -117,7 +137,7 @@ whose detector cannot fail is not a guard, and this control is why the hole is n
   (`scripts/lane_guard_domain.py`, the workflow, and the two test files).
 * The four derived guards pass; `tests/architecture` unaffected by this change.
 
-## 7. Remaining uncertainty
+## 8. Remaining uncertainty
 
 * The **domain needle set** is a heuristic. A future lane guard that names the substrate
   differently (e.g. only `parallel-ui`) would be missed. `test_domain_is_derived_and_not_empty`
