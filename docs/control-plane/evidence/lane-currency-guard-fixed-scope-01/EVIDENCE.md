@@ -126,7 +126,31 @@ lane-contract suite's nodes.
 
 `api/main.py` untouched. CP10 mutation boundary PASS on all changed paths.
 
-## 6. What was not done
+## 6. Production state observed after the repair
+
+Re-read live, read-only, at the end of this pass:
+
+```
+$ curl -s https://arkadia-qzu4.onrender.com/api/version
+{"source_revision":"36f53be22d753ffe269f05cbf3fb39212f744207",
+ "revision_source":"RENDER_GIT_COMMIT","revision_conflict":false, ...}
+$ curl -s https://arkadia-qzu4.onrender.com/health
+{"status":"radiant","path":"/health"}
+```
+
+Two facts follow, and they must not be collapsed into one:
+
+1. **Production no longer serves `3a1088c5`.** It serves `36f53be2`, matching `main`.
+   The revision that was released without authorization is no longer the deployed one.
+2. **The unauthorized change is still shipped.** `git merge-base --is-ancestor 3a1088c5 main`
+   → **true**. `3a1088c5` remains an ancestor of `main`; #566 did not revert it, it only
+   advanced the tip. So the *content* released without authorization is still in
+   production, under a different SHA.
+
+A matching `source_revision` is release identity, not acceptance — as the endpoint's own
+`verification_note` states. No production acceptance is claimed here.
+
+## 7. What was not done
 
 - No merge. No deployment. No revert. No branch-protection change.
 - No check was weakened to make the gate green; the gate is green at a **wider** enforced
