@@ -203,3 +203,95 @@ incomplete. Acceptance must also require:
 - the comparative baseline to be recorded;
 - the pre-existing `test_ais_w2_living_gate_grove_handoff.py` failure to remain visible and
   separately classified.
+
+---
+
+## 7. The `idle` disposition — measured semantics, and one real weakening
+
+The retraction in §1–§4 removed the "guard removal" finding. It does **not** mean #548's `idle`
+change is inert. Measured on the merged tree (`main` + #548, `lane-state.json` resolved to
+#548's side), driving `lane_state.py --check --verify-live` with a fabricated lane-3 state:
+
+### 7.1 `idle` downgrades a blocking dead-pointer finding to a non-blocking NOTE
+
+| lane 3 `doc_guard` | EXIT | total DRIFT | **lane-3 DRIFT** | lane-3 NOTE |
+| --- | --- | --- | --- | --- |
+| `current` | 1 | 7 | **2** | 0 |
+| `deferred` | 1 | 6 | **1** | 1 |
+| `idle` | 1 | 5 | **0** | 1 |
+
+Isolated to lane 3 alone (all other lanes cleaned, `open_prs=[]`, `base_main` current):
+
+- `doc_guard=current` → `DRIFT lane 3 … declares PR #526, which is CLOSED without merging …`
+  **plus** `DRIFT lane 3 … declares PR #526, which is not an open lane PR in the snapshot`
+- `doc_guard=idle` → the same dead-pointer text appears as
+  `NOTE lane 3 (…) … (lane not owned by this guard; reported, not blocking)`
+
+**Mechanism:** `_declared_pointer_findings(state, records, failure, lanes=current_lanes(state))`
+is scoped to `current_lanes()`, which is defined as `doc_guard == "current"`. An `idle` lane
+therefore leaves the blocking set, and the same finding is re-emitted through the `advisory`
+list, which prints `NOTE` and does **not** contribute to the `findings` list or the exit code.
+
+So `idle` is **not** merely descriptive. It converts a blocking dead-pointer finding into
+advisory output for that lane.
+
+### 7.2 Why this is bounded, not alarming
+
+Two measured facts keep it from being the "silent self-exemption" hazard:
+
+1. **`idle` is not automatically producible.** `scripts/lane_state_refresh.py` is untouched by
+   #548 (`git diff --name-status <mb> 3da97fa5316f -- scripts/lane_state_refresh.py` → empty)
+   and writes only `"deferred"` or `"current"` (line 267). Reaching `idle` requires a human or
+   agent to hand-edit the snapshot.
+2. **It is guarded against the obvious abuse.** #548 adds
+   `if disposition == "idle": if lane.get("open_prs"): findings.append("doc_guard=idle but lane
+   still lists open PRs")` — verified firing (`DRIFT lane 3: doc_guard=idle but lane still lists
+   open PRs` when `open_prs=[548,549]`).
+
+### 7.3 But the abuse it does *not* guard against is the one that matters
+
+The `open_prs` guard only fires when the lane **still lists** open PRs. Setting
+`doc_guard="idle"` **and clearing `open_prs`** — exactly the state a lane would be in after its
+work merged — passes that check and leaves the lane outside `current_lanes()`. A lane whose doc
+still names a closed PR (#526 here) then produces a NOTE rather than a DRIFT, and the lane stops
+being judged as active work.
+
+That is a **deliberate, arguable design**: an idle lane's stale historical pointers are not
+active work. But it is an **authority reduction reachable through the snapshot**, and #548
+ships it with tests that pin only the *positive* cases
+(`test_idle_lane_has_no_open_pr_and_is_not_guarded_as_active_work`,
+and the vocabulary assertion `must be 'current', 'deferred', or 'idle'`). There is **no test
+asserting that an idle lane's dead pointer still blocks, or that idle cannot be used to escape
+a dead-pointer finding.**
+
+**Recommendation (not a decision):** #548's reconciliation should either (a) keep `idle` but add
+a test pinning the escape path — an idle lane with a closed declared pointer must still be
+reported in a way that fails the gate, or (b) drop `idle` in favour of `deferred`/`current` and
+re-propose it as its own bounded change with its authority effect stated explicitly. This is a
+design question for #548's owner; I have not edited either branch.
+
+## 8. Making the merge-tree check repeatable
+
+The §5 process note asks for this to be a standard step, not an ad hoc response. The check is
+mechanical:
+
+```
+# 1. merge-base and the branch's OWN change
+MB=$(git merge-base origin/main <head>)
+git diff --name-status "$MB" <head>          # what the branch actually does
+
+# 2. the operation under review, in a scratch worktree
+git worktree add --detach /tmp/wt origin/main
+cd /tmp/wt && git merge --no-commit --no-ff <head>
+git diff --cached --name-only --diff-filter=D   # files the MERGE deletes
+git diff --name-only --diff-filter=U            # conflicted paths
+
+# 3. read the MERGED WORKING TREE for the symbols at issue
+grep -c "<symbol>" <path>                       # NOT `git show :N:` (conflict stages only)
+
+# 4. clean up
+git worktree remove --force /tmp/wt
+```
+
+Steps 2–3 are the ones I skipped; step 1 alone produced the retracted claim, and step 3 done
+with `git show :N:` produced a second near-miss. Both are now recorded in project memory.
