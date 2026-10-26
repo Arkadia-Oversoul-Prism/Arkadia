@@ -278,3 +278,70 @@ handler. `GET /api/transmissions` supports `offset`, so a *deep-linkable* page
 position (e.g. surfacing `offset` in the path/query rather than only in component
 state) is the nearest unclaimed slice; confirm a real handler before wiring any
 new write path.
+
+## Lane continuity — 2026-10-26 (the window moves; the clamp bounds one read, not the field)
+
+Same branch and draft PR #564, head `64060506` at the start of this pulse. The
+previous slice's remedy carried its own defect one level up, and it was measured,
+not inferred.
+
+**The defect.** `feat/prism-l2-field-completeness-01` made the disclosed
+remainder retrievable by *growing* `limit`: `Math.min(page + FIELD_PAGE_LIMIT,
+TRANSMISSION_PAGE_CEILING)` with the control retired by `fieldPage <
+TRANSMISSION_PAGE_CEILING`. That ladder climbs 50 → 100 and stops, because 100 is
+the handler's own **per-request** `limit` clamp (`api/transmissions.py`), not a
+bound on the field. Executed against the real handler with 150 posts stored:
+`GET /api/transmissions?limit=100` returns 100 posts and `total: 150`. The panel
+therefore rendered 100 of 150, printed "the remainder is not rendered on this
+surface", and had **already removed the control** — the reader was told 50 posts
+existed and given no way to reach them. That is the exact defect class this
+slice's own evidence names ("a disclosure with no way to retrieve what it
+discloses"), reintroduced by conflating a per-request clamp with a field bound.
+
+**The repair.** The handler serves `offset` beside `limit` (verified:
+`?limit=100&offset=100` → 50 returned), so the window *moves* rather than widens.
+`fieldOffset` replaces `fieldPage`; the request carries `?limit=${FIELD_PAGE_LIMIT}
+&offset=${fieldOffset}`; the notice states the window position ("Showing 1–50 of
+150 … this is a window over the field, not the whole of it"); "Show more" advances
+one page and "Newer" returns, both guarded on the field's own end
+(`fieldOffset + field.data.transmissions.length < field.data.total`), so the
+older-page control retires exactly when the last page is rendered and the whole
+field is reachable from any position. `TRANSMISSION_PAGE_CEILING` was deleted:
+its premise was the defect, and a constant that encodes a wrong invariant is
+worse than no constant.
+
+**The guard was corrected, not merely updated.** `find_unretrievable_disclosure`
+had *required* `TRANSMISSION_PAGE_CEILING` to be present — it encoded the wrong
+invariant and would have passed a field that retires its control with a remainder
+still named. It now measures the real property: the window position is state, the
+request carries an offset, and the control retires on the field's end. A new
+negative control (`test_negative_control_detector_flags_a_window_that_retires_early`)
+feeds it the **shipped** form reconstructed verbatim and asserts it is flagged
+*while `find_silent_cap` still passes it* — the two detectors measure different
+properties rather than restating one another.
+
+Measured at this head: guard **10 passed** (was 9); console-contract derived domain
+**816 passed** (52 guard files, was 815); wiring **30 passed**; architecture
+**11/11**; console build clean. Bundle markers: `novanet-transmissions-newer` and
+`novanet-transmissions-more` present, the slice-specific pre-change notice
+("public transmissions — the remainder is not rendered") **absent**. Live negative
+control: the real `NovaNetPage.tsx` mutated to the shipped ladder reddened the
+guard (`3 failed, 7 passed`), then was restored byte-identically (`10 passed`).
+
+**Bundle-control correction (recorded, not hidden).** The first control chosen for
+the bundle check — the bare phrase "not rendered on this surface" — is **shared
+prose**, emitted by two *other* panels (`SpiralCodexPanel.tsx` and the public-echoes
+panel), so it read 1 and looked like a divergence. It is not one: the control was
+wrong, and it was replaced with a slice-specific string. Do not reuse that phrase as
+a control.
+
+**Disposition:** draft; no merge, deployment, or acceptance.
+
+**Next bounded task on this lane:** the sibling disclosure measured while fixing
+this one — the public-echoes panel renders "Showing N of M public echoes — the
+remainder is not rendered on this surface" and `GET /api/echoes`
+(`api/main.py::echoes_feed`) **takes no `limit` or `offset` at all**, so that
+remainder is genuinely unreachable and cannot be repaired by the client. Confirm
+the handler signature before proposing any change; if it is confirmed, the correct
+disposition is a backend contract proposal, not a UI slice — a UI control cannot
+reach a remainder the endpoint never serves.

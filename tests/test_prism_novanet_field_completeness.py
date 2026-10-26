@@ -72,13 +72,13 @@ def find_silent_cap(src: str) -> list[str]:
 
 
 def drop_retrieval_control(src: str) -> str:
-    """Remove the retrieval control's JSX block, keeping the notice it accompanies.
+    """Remove the older-page control's JSX block, keeping the notice it accompanies.
 
     Located by the control's own guard expression and removed by balanced braces,
     not by a comment marker: a reconstruction anchored on prose breaks the moment
     the prose moves, and a negative control that raises is not a control.
     """
-    anchor = "{fieldPage < TRANSMISSION_PAGE_CEILING && ("
+    anchor = "{fieldOffset + field.data.transmissions.length < field.data.total && ("
     start = src.find(anchor)
     if start < 0:
         return src
@@ -98,21 +98,35 @@ def find_unretrievable_disclosure(src: str) -> list[str]:
 
     A notice that names a remainder the surface offers no way to read is a
     disclosure without a remedy: the reader is told the field is larger than the
-    page and left holding the page. The handler serves `limit` **and** `offset`
-    (`api/transmissions.py`), so the remedy exists and is verified — the detector
-    asks only whether the render bound is *state* and whether a control grows it,
-    bounded by the handler's own ceiling rather than by an invented one.
+    page and left holding the page.
+
+    The property is *the window can still move while a remainder exists* — not
+    "the growth stops somewhere". An earlier revision of this detector required
+    the growth to be capped by the handler's own `limit` ceiling, which encodes
+    the opposite of the property: the ceiling bounds **one request**, not the
+    field, so capping the window at it retires the control while a remainder is
+    still named. That is the defect this detector now measures, and
+    `test_negative_control_detector_flags_a_window_that_retires_early` feeds it
+    the shipped form that had exactly that shape.
     """
     block = field_block(src)
     problems: list[str] = []
     if "novanet-transmissions-more" not in block:
         problems.append("the truncation notice offers no way to retrieve the remainder")
-    if "useState(FIELD_PAGE_LIMIT)" not in src:
-        problems.append("the render bound is a constant, so no control can grow it")
-    if "setFieldPage" not in block:
-        problems.append("no control grows the render bound")
-    if "TRANSMISSION_PAGE_CEILING" not in src:
-        problems.append("the growth is not bounded by the handler's own limit ceiling")
+    if "useState(0)" not in src:
+        problems.append("the window position is not state, so no control can move it")
+    if "setFieldOffset" not in block:
+        problems.append("no control moves the window")
+    # The window must advance by a page, not by a step that stops short of the
+    # field: the request carries `limit` and `offset` together, so every page of
+    # the field is one more read regardless of the handler's per-request clamp.
+    if "?limit=${FIELD_PAGE_LIMIT}&offset=${fieldOffset}" not in src:
+        problems.append("the request does not carry a window offset, so it can only re-read one page")
+    # The control's own guard must compare the window's end against the total. A
+    # guard on any other quantity (the page size, a request ceiling) retires the
+    # control while the notice still names a remainder.
+    if "fieldOffset + field.data.transmissions.length < field.data.total" not in block:
+        problems.append("the older-page control retires on a quantity other than the field's end")
     return problems
 
 
@@ -185,12 +199,16 @@ def test_page_size_is_single_sourced_and_drives_the_request():
     # binding*, not an inline path: the Lane 1 registry contract
     # (`test_every_page_read_uses_the_registry_not_an_inline_path`) requires that
     # shape, so this guard pins it too rather than letting the fix redden Lane 1.
-    # The bound is state because the remainder must be retrievable, so the
-    # request carries `fieldPage` — initialised from the one declared bound and
-    # grown by it, never by a second literal.
+    # The window position is state because the remainder must stay reachable, so
+    # the request carries `fieldOffset` — moved by one declared page at a time,
+    # never by a second literal and never capped at the handler's per-request
+    # clamp (which bounds one read, not the field).
     assert "const FIELD_PAGE_LIMIT = 50;" in SOURCE
-    assert "const [fieldPage, setFieldPage] = useState(FIELD_PAGE_LIMIT);" in SOURCE
-    assert "const fieldPath = `${endpoints.transmissions}?limit=${fieldPage}`;" in SOURCE
+    assert "const [fieldOffset, setFieldOffset] = useState(0);" in SOURCE
+    assert (
+        "const fieldPath = `${endpoints.transmissions}?limit=${FIELD_PAGE_LIMIT}&offset=${fieldOffset}`;"
+        in SOURCE
+    )
     assert "useHydration<TransmissionList>(\n    fieldPath," in SOURCE
     assert FIELD_START in SOURCE
 
@@ -221,27 +239,68 @@ def test_the_disclosed_remainder_is_retrievable():
     unreadable — the panel says "not rendered on this surface" and offers no way
     to render it. `GET /api/transmissions` serves `offset` as well as `limit`, so
     the remedy is a verified contract, not an invention: this node requires the
-    render bound to be state and a control to grow it.
+    window position to be state and a control to move it while a remainder exists.
     """
     assert find_unretrievable_disclosure(SOURCE) == [], find_unretrievable_disclosure(SOURCE)
-    # The control is bounded by the handler's own ceiling, not by a number chosen
-    # here, and it retires on the last page (the notice's own condition).
-    assert "Math.min(page + FIELD_PAGE_LIMIT, TRANSMISSION_PAGE_CEILING)" in SOURCE
-    assert "fieldPage < TRANSMISSION_PAGE_CEILING" in SOURCE
+    # The control retires on the field's own end, not on the handler's per-request
+    # clamp: the clamp bounds one read, so a control guarded on it would vanish
+    # with a remainder still named.
+    assert "fieldOffset + field.data.transmissions.length < field.data.total" in SOURCE
+    assert "setFieldOffset((offset) => offset + FIELD_PAGE_LIMIT)" in SOURCE
+
+
+def test_negative_control_detector_flags_a_window_that_retires_early():
+    """The detector must flag the exact shape this slice removes: a window whose
+    control retires at the handler's per-request clamp while the notice still
+    names a remainder.
+
+    This is the shipped form reconstructed verbatim — `fieldPage` grown by
+    `Math.min(page + FIELD_PAGE_LIMIT, TRANSMISSION_PAGE_CEILING)` and a control
+    guarded on `fieldPage < TRANSMISSION_PAGE_CEILING`. Measured against the real
+    handler with 150 posts stored, that ladder stops at `limit=100` with 50 posts
+    still unrendered and no control left to reach them. A detector that passes
+    this reconstruction is not measuring retrievability at all.
+    """
+    early = (
+        SOURCE.replace(
+            "const [fieldOffset, setFieldOffset] = useState(0);",
+            "const [fieldPage, setFieldPage] = useState(FIELD_PAGE_LIMIT);",
+        )
+        .replace("?limit=${FIELD_PAGE_LIMIT}&offset=${fieldOffset}", "?limit=${fieldPage}")
+        .replace(
+            "fieldOffset + field.data.transmissions.length < field.data.total",
+            "fieldPage < TRANSMISSION_PAGE_CEILING",
+        )
+        .replace(
+            "setFieldOffset((offset) => offset + FIELD_PAGE_LIMIT)",
+            "setFieldPage((page) => Math.min(page + FIELD_PAGE_LIMIT, TRANSMISSION_PAGE_CEILING))",
+        )
+    )
+    # Keep the control in the reconstruction: this control is *present* and still
+    # cannot reach the remainder, which is what distinguishes it from the bare
+    # notice the other negative control covers.
+    assert "novanet-transmissions-more" in early, "the reconstruction dropped the control"
+    problems = find_unretrievable_disclosure(early)
+    assert problems, "detector failed to flag a window that retires with a remainder named"
+    assert any("retires on a quantity other than the field's end" in p for p in problems)
+    assert any("does not carry a window offset" in p for p in problems)
+    # ...and the silent-cap detector still passes it, proving the two measure
+    # different properties rather than one re-stating the other.
+    assert find_silent_cap(early) == []
 
 
 def test_negative_control_detector_flags_a_notice_without_a_remedy():
     """The detector must flag the exact shape this slice removes: a bare notice.
 
-    The reconstruction is the pre-change panel verbatim — a constant bound and a
+    The reconstruction is the pre-change panel verbatim — a fixed window and a
     notice with no control — so a detector that is silent here is not measuring
     retrievability at all.
     """
     old = SOURCE.replace(
-        "const [fieldPage, setFieldPage] = useState(FIELD_PAGE_LIMIT);",
-        "const fieldPage = FIELD_PAGE_LIMIT;",
-    ).replace("?limit=${fieldPage}", "?limit=${FIELD_PAGE_LIMIT}")
-    # Drop the retrieval control, keeping the notice it accompanies.
+        "const [fieldOffset, setFieldOffset] = useState(0);",
+        "const fieldOffset = 0;",
+    ).replace("&offset=${fieldOffset}", "")
+    # Drop the older-page control, keeping the notice it accompanies.
     old = drop_retrieval_control(old)
     assert "novanet-transmissions-more" not in old, "the reconstruction kept the control"
     problems = find_unretrievable_disclosure(old)

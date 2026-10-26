@@ -57,14 +57,13 @@ const LENS_IDS = new Set(LENSES.map((l) => l.id));
  * that the panel is showing a subset, not the whole stream.
  */
 const ECHO_DISPLAY_LIMIT = 8;
-/** The field's requested page size. The handler caps `limit` at 50 and reports
- *  the uncapped `total`, so a page is asked for explicitly here: the render
- *  bound is the request's, and the notice compares what arrived against `total`
- *  rather than against a second copy of the server's cap. */
+/** The field's requested page size. The handler caps a *single request's*
+ *  `limit` at 100 and reports the uncapped `total`, so a page is asked for
+ *  explicitly here: the window's size is the request's, and the notice compares
+ *  what arrived against `total` rather than against a second copy of the cap.
+ *  This bounds one read. It does **not** bound the field — see the window
+ *  comment below. */
 const FIELD_PAGE_LIMIT = 50;
-/** The handler's own `limit` ceiling (`api/transmissions.py`). A request past it
- *  is clamped, so the render bound never asks for more than the handler serves. */
-const TRANSMISSION_PAGE_CEILING = 100;
 
 const DEFERRED: Record<string, string> = {
   hub: "UNKNOWN",
@@ -85,15 +84,17 @@ export function NovaNetPage({
   section?: string;
   onNavigate: (id: SurfaceId, section?: string) => void;
 }) {
-  // The render bound the reader has asked for: one page at first, grown by a
-  // page per request. The handler's own `offset`/`limit` contract is what makes
-  // the remainder the notice names actually reachable, so the bound has to be
-  // state rather than a constant — a disclosure with no way to retrieve what it
-  // discloses still leaves the reader with a page presented as the field.
-  const [fieldPage, setFieldPage] = useState(FIELD_PAGE_LIMIT);
+  // The window over the field. The handler's `limit` ceiling bounds one request,
+  // not the field: past a single page the reader is looking at a *window*, and
+  // the only honest way to show the rest is to move that window. Growing `limit`
+  // instead would stop at the handler's own clamp and leave the notice naming a
+  // remainder the surface could no longer reach — the same defect one level up.
+  // `GET /api/transmissions` serves `offset` beside `limit`, so the window
+  // advances by one page per request and the whole field stays reachable.
+  const [fieldOffset, setFieldOffset] = useState(0);
   // A registry-derived binding, not an inline path: the one registry expressed
-  // with a page size, which is the sanctioned shape for a sub-resource read.
-  const fieldPath = `${endpoints.transmissions}?limit=${fieldPage}`;
+  // with a window, which is the sanctioned shape for a sub-resource read.
+  const fieldPath = `${endpoints.transmissions}?limit=${FIELD_PAGE_LIMIT}&offset=${fieldOffset}`;
   const field = useHydration<TransmissionList>(
     fieldPath,
     (p) => apiRequest<TransmissionList>(p),
@@ -166,27 +167,41 @@ export function NovaNetPage({
                         className="font-mono text-[11px] text-white/40"
                         data-testid="novanet-transmissions-truncation"
                       >
-                        Showing {field.data.transmissions.length} of {field.data.total} public transmissions —
-                        the remainder is not rendered on this surface.
+                        Showing {fieldOffset + 1}–{fieldOffset + field.data.transmissions.length} of{" "}
+                        {field.data.total} public transmissions — this is a window over the field, not
+                        the whole of it.
                       </p>
-                      {/* The disclosure above is only honest if the remainder can
-                          actually be retrieved: `GET /api/transmissions` takes
-                          `limit` and `offset`, so one more page is one more read.
-                          Growth is bounded by the handler's own 100 ceiling, and
-                          the last page is whatever is left, so the control retires
-                          exactly when the whole field is rendered. */}
-                      {fieldPage < TRANSMISSION_PAGE_CEILING && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setFieldPage((page) => Math.min(page + FIELD_PAGE_LIMIT, TRANSMISSION_PAGE_CEILING))
-                          }
-                          className="self-start rounded border border-line px-3 py-1 font-mono text-[11px] text-white/70 transition-colors hover:border-azure/50 hover:text-white"
-                          data-testid="novanet-transmissions-more"
-                        >
-                          Show more ({field.data.total - field.data.transmissions.length} remaining)
-                        </button>
-                      )}
+                      {/* The disclosure above is only honest while the window can
+                          still move: `GET /api/transmissions` takes `offset`
+                          beside `limit`, so every page of the field is one more
+                          read. Both directions are offered, so a reader who has
+                          paged forward can return, and the older-page control
+                          retires exactly when the last page is rendered. */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {fieldOffset > 0 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setFieldOffset((offset) => Math.max(0, offset - FIELD_PAGE_LIMIT))
+                            }
+                            className="self-start rounded border border-line px-3 py-1 font-mono text-[11px] text-white/70 transition-colors hover:border-azure/50 hover:text-white"
+                            data-testid="novanet-transmissions-newer"
+                          >
+                            Newer
+                          </button>
+                        )}
+                        {fieldOffset + field.data.transmissions.length < field.data.total && (
+                          <button
+                            type="button"
+                            onClick={() => setFieldOffset((offset) => offset + FIELD_PAGE_LIMIT)}
+                            className="self-start rounded border border-line px-3 py-1 font-mono text-[11px] text-white/70 transition-colors hover:border-azure/50 hover:text-white"
+                            data-testid="novanet-transmissions-more"
+                          >
+                            Show more ({field.data.total - fieldOffset - field.data.transmissions.length}{" "}
+                            remaining)
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </>
