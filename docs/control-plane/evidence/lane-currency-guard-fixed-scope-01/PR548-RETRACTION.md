@@ -938,3 +938,60 @@ change, and neither has been implemented or measured.
 
 **#553's repair design is therefore open again, and now bounded by a measured negative result**
 rather than by a preference. The proposal in §15.4 must not be implemented as written.
+
+---
+
+## 17. Credential remediation — status, sweep, and a blast-radius warning
+
+### 17.1 What has been done
+
+- **Embedded credential removed from the remote.** `git remote set-url origin
+  https://github.com/Arkadia-Oversoul-Prism/Arkadia.git`. `origin` now contains **no** userinfo;
+  `git config --get-regexp '^remote\.'` returns no credential-bearing line.
+- **No leftover copies.** `grep -rl "ghu_" .git/` → **0 files**. `.git/config` carries no
+  credential. No `~/.git-credentials` and no `~/.config/gh/hosts.yml` exist. A sweep of every
+  `.git/config` in the sandbox found **no other credential-bearing remote**.
+- **Fingerprint recorded for revocation** (value never printed): prefix `ghu_`, length 40,
+  `sha256 a3dc473209386a767fcab1f68f5c31681dc91daa17b9ba9f7c813b3575a07a22`.
+- **The plaintext is no longer on disk**, so liveness cannot be tested from here. Removal from
+  the remote is a **mitigation**, not revocation, and is not evidence that revocation happened.
+
+### 17.2 I cannot revoke it
+
+`gh` is unauthenticated in this sandbox (`gh auth status` → not logged in), and
+`/applications/grants` returns **404**. There is no revocation surface available to an agent
+here. Revocation is a human action in GitHub Settings.
+
+### 17.3 Blast radius — read this before revoking
+
+The exposed credential and this environment's `GITHUB_TOKEN` are **both** `ghu_`-shaped GitHub
+App user access tokens (40 chars, different values):
+
+| | prefix | length | `sha256[:16]` |
+| --- | --- | --- | --- |
+| exposed (was in `origin`) | `ghu_` | 40 | `a3dc473209386a76` |
+| environment `GITHUB_TOKEN` | `ghu_` | 40 | `7c38436be5f49fa7` |
+
+The only installation visible to the environment token is **`openhands-ai` (id 156585514)** on
+`Arkadia-Oversoul-Prism`, and the environment token is currently **valid** (`/user` → 200).
+
+**Therefore:** if the exposed credential and the environment token were minted by the *same*
+app authorization, revoking that authorization **wholesale will very likely revoke this
+environment's own credentials too** — the agent platform would lose push and API access
+mid-session. Two safer routes:
+
+1. **Revoke the specific token** if GitHub offers a per-token revocation for that app
+   authorization, leaving other tokens intact; or
+2. **Accept the broader revocation deliberately** and re-authenticate afterward, expecting the
+   environment's credentials to be invalidated and re-issued.
+
+This is stated as a consequence to plan for, not as a reason to skip revocation. The exposure is
+real and the token should be treated as disclosed.
+
+### 17.4 Residual risk
+
+The value appeared in this session's tool output, which is retained in the conversation record.
+Mitigations applied: removed from the remote, confirmed absent from `.git/`, no credential
+store written, no shell history file exists. **Residual:** the session transcript itself, and any
+provider-side log of the tool call. Neither is reachable from here, and neither is cleared by
+anything done in this pass.
