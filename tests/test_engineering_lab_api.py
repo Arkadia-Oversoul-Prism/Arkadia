@@ -41,7 +41,6 @@ ROUTER_AUTH_DEPENDENCY = "require_lab_auth"
 #: without any caller identity.
 DECLARED_PUBLIC_PATHS = {
     "/api/lab/engineering/n-atlas/catalog",
-    "/api/lab/engineering/n-atlas/test-session",
 }
 
 #: The complete set of mutating endpoints the Lab is permitted to expose. Every
@@ -64,16 +63,11 @@ ALLOWED_MUTATION_ENDPOINTS = {
     "/api/lab/engineering/voice/resolve",
 }
 
-#: Unauthenticated endpoints that mutate Lab state and reach the substrate's
-#: authority-recording call. The substrate stamps every authorization record
-#: ``originated_by="human"`` and rejects anything else, so a caller that reaches
-#: that call without a human identity produces a record whose provenance is not
-#: truthful. These paths are flagged for human disposition — narrow the surface,
-#: require authentication, or stop short of ``AUTHORIZED``. They are *not*
-#: approved by appearing here, and the guard below fails while they exist.
-UNDISPOSITIONED_PUBLIC_AUTHORITY_ENDPOINTS = {
-    "/api/lab/engineering/n-atlas/test-session",
-}
+#: Public authority endpoints that still lack a human disposition. The
+#: test-session route was dispositioned to require authentication; this set
+#: remains empty unless another unauthenticated authority path is introduced.
+#: The shared provenance defect is tracked separately and remains unresolved.
+UNDISPOSITIONED_PUBLIC_AUTHORITY_ENDPOINTS: set[str] = set()
 
 
 def test_lab_router_is_read_only_and_authenticated():
@@ -131,69 +125,45 @@ def test_public_authority_endpoints_are_dispositioned():
     )
 
 
-def test_public_tester_session_reaches_the_authority_call_without_a_human():
-    """E-13/E-14: the public tester path performs authority-shaped work.
+def test_natlas_test_session_requires_authenticated_identity_and_tracks_open_provenance_gap():
+    """Stage 1b: the route is authenticated and uses verified caller identity.
 
-    This is a source-level guard, not a behavioural one: it asserts that the
-    public ``test-session`` handler calls the substrate's authority-recording
-    method and drives the session to ``AUTHORIZED``, while the substrate stamps
-    every such record ``originated_by="human"`` and rejects any other value.
-
-    The mismatch is the point. A caller with no identity reaches a call whose
-    only admissible provenance is ``human``, so the resulting record asserts a
-    human origin that did not occur. The guard is written to *fail* while that
-    remains true and undispositioned, so the condition is visible rather than
-    approved. It does not assert the route is safe, and it does not run the
-    route.
+    This source-level guard does not claim the shared provenance defect is fixed:
+    record_authorization still stamps originated_by="human" independently of an
+    actual authorization event. Boundary B remains open for separate design.
     """
     import ast
     from pathlib import Path
 
     source = Path(__file__).resolve().parents[1] / "api" / "lab_routes.py"
-    tree = ast.parse(source.read_text(encoding="utf-8"))
+    source_text = source.read_text(encoding="utf-8")
+    tree = ast.parse(source_text)
     handler = next(
         node
         for node in ast.walk(tree)
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
         and node.name == "n_atlas_test_session"
     )
-    called = {
-        node.func.attr
-        for node in ast.walk(handler)
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
-    }
-    reaches_authority_call = "record_authorization" in called
-    drives_to_authorized = "AUTHORIZED" in ast.dump(handler)
 
+    user_arg = next(arg for arg in handler.args.args if arg.arg == "user")
+    assert isinstance(user_arg.annotation, ast.Name) and user_arg.annotation.id == "dict"
+    user_default = handler.args.defaults[-1]
+    assert isinstance(user_default, ast.Call)
+    assert isinstance(user_default.func, ast.Name) and user_default.func.id == "Depends"
+    assert len(user_default.args) == 1
+    assert isinstance(user_default.args[0], ast.Name)
+    assert user_default.args[0].id == "require_auth"
+    handler_text = ast.get_source_segment(source_text, handler)
+    assert 'uid = user["uid"]' in handler_text
+    assert 'natlas-tester-' not in handler_text
+
+    # Preserve the evidence boundary: this stage does not repair shared provenance.
     runtime_source = (
         Path(__file__).resolve().parents[1] / "lab" / "engineering_lab" / "runtime.py"
     ).read_text(encoding="utf-8")
     assert '"originated_by": "human"' in runtime_source, (
-        "the substrate no longer hardcodes a human origin; this guard's premise "
-        "has changed and the finding must be re-derived"
+        "the shared provenance implementation changed; re-audit Boundary B"
     )
-
-    # The invariant is a biconditional, so it holds on both sides of a repair:
-    # while the handler reaches the authority call, it must be flagged; once the
-    # handler no longer does, it must not be. Asserting only the first direction
-    # would make this guard fail after a correct fix.
-    flagged = (
-        "/api/lab/engineering/n-atlas/test-session"
-        in UNDISPOSITIONED_PUBLIC_AUTHORITY_ENDPOINTS
-    )
-    assert reaches_authority_call == flagged, (
-        "the public tester path and its disposition flag disagree: "
-        f"reaches authority call={reaches_authority_call}, flagged={flagged}. "
-        "Either the handler still originates authority unauthenticated and must "
-        "stay flagged, or it no longer does and the flag must be cleared as a "
-        "recorded human disposition."
-    )
-    if reaches_authority_call:
-        assert drives_to_authorized, (
-            "the public tester path reaches the authority call but no longer "
-            "drives the session to AUTHORIZED; re-measure its footprint"
-        )
-
 
 def test_lab_route_has_no_repository_mutation_surface():
     """No route may touch the repository, authority, provenance, or credentials."""
