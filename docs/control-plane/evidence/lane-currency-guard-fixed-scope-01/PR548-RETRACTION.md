@@ -591,3 +591,124 @@ The baselines in §10 and §11 were therefore **re-measured in the restored envi
 the §11 baseline (4 failed / 34 passed) reproduces the §10 baseline exactly, so the comparison
 holds. Any future pass that cannot reproduce this should check the environment before
 attributing a difference to the change.
+
+---
+
+## 13. Integration review — the three questions, and two corrections to this record
+
+Read-only. `main` = `36f53be2`. No merge, revert, deployment, or repository mutation.
+
+### 13.1 Live heads (queried this pass)
+
+| PR | state | head | base | mergeable_state |
+| --- | --- | --- | --- | --- |
+| #548 | open, **draft** | `3da97fa5` | `04e1b83b` | `dirty` |
+| #553 | open, **draft** | `899d2242` | `04e1b83b` | `dirty` |
+| #565 | **merged** | `a671c4e4` | `68acf89f` | — |
+| #566 | **merged** | `a9bc2c45` | `3a1088c5` | — |
+| #567 | open, draft | `bebb6ed4` | **`36f53be2` (main)** | `clean` |
+| #568 | open, draft | `a1679a3a` | **`bebb6ed4` (#567 head)** | `clean` |
+
+Two structural facts, both material:
+
+1. **#566 is merged** — its merge commit is `36f53be2`, which **is** `main` (compare → `identical`,
+   `ahead_by 0`, `behind_by 0`). #566 is no longer a pending decision; it is part of the baseline.
+   Its merge is recorded at `2026-10-25T07:46:12Z`.
+2. **#568 is stacked on #567, not on `main`.** `#568.base.sha == #567.head.sha`. Reviewing #568 in
+   isolation measures a diff against #567, not against `main`; the pair must be composed in order.
+
+### 13.2 CORRECTION A — `idle` is not in `main`; #548 introduces it
+
+Measured across revisions:
+
+| revision | `lane_state.py` contains `"idle"` |
+| --- | --- |
+| `main` (`36f53be2`) | **no** |
+| `#548` (`3da97fa5`) | **yes** (2 refs) |
+| `#567` (`bebb6ed4`) | **no** |
+| `#568` (`a1679a3a`) | **no** |
+
+`main`'s vocabulary is already `must be 'current' or 'deferred'`. **`idle` exists only inside
+#548.** This sharpens §7–§11 rather than overturning them: the finding is not "the repository has
+a weakened state" but "#548 *adds* a weakened state to a tree that does not have one." That
+makes Option B the smaller change in the integration sense — the merge simply does not take the
+`idle` branch — and it means §11.2's "fails closed" property is already the property of `main`.
+
+### 13.3 CORRECTION B — the 4 baseline failures were an artifact of the #548 merge, not of `main`
+
+§10.4 and §11.4 measured a baseline of **4 failed / 34 passed** for
+`tests/test_lane_instruction_doc_currency.py`. That measurement was taken on a worktree with
+#548 merged in. Measured on **`main` itself**, and on the **#567→#568 composed tree**:
+
+| tree | result |
+| --- | --- |
+| `main` (`36f53be2`) | **37 passed** |
+| `#567` then `#568` composed | **37 passed** |
+
+Both are **37 passed, zero failures**, with identical (empty) failing-node sets. The 4 failures
+belong to the #548 tree alone. My §10–§11 comparisons were valid **for choosing between Option A
+and Option B within #548's tree**, but the phrase "pre-existing on the merged tree" in §10.4/§11.4
+is wrong: they are pre-existing **on #548**, not on `main`. Corrected here.
+
+### 13.4 Question 1 — does the exact candidate contain the Option B edits?
+
+**#568 already carries Option B's vocabulary removal.**
+
+- `scripts/lane_state.py` in #568: `if disposition not in {"current", "deferred"}` — no `idle`
+  branch; vocabulary message reads `must be 'current' or 'deferred'`.
+- `tests/test_lane_instruction_doc_currency.py:537` in #568 asserts the same string.
+
+So the `idle` removal is **not outstanding work on #568**. It is outstanding only as a
+*rejection of #548's* `idle` branch, which the #567/#568 stack never takes.
+
+One divergence to record, not a defect: #568's lane 2 is **`current` + `[564]`** — identical to
+`main`. That is a third state, not the `deferred`+`[564]` I proposed in §11.1. It is **also
+correct**: `declared_pr(lane 2) == 564` and #564 is open, so `current`+`[564]` is consistent and
+produces no finding (verified: composed tree reports *lane instruction docs consistent with
+snapshot (4 enforced lanes)*). My `deferred` edit was a valid alternative, not a requirement.
+`lane_state_refresh.py` does derive `deferred` for lane 2, so the two states differ in *how* the
+lane is described, not in whether the pointer is enforced.
+
+### 13.5 Question 2 — does the composed tree preserve the measured behavior?
+
+Composed `main` + `#567` + `#568` in a scratch worktree (`git merge --no-edit`, stack order):
+
+- **Conflicts: 0.** Deletions by the merge: **none**.
+- `idle` absent from the composed `lane_state.py` (0 refs).
+- **`idle` fails closed** in the composed tree:
+  `DRIFT lane 3: doc_guard must be 'current' or 'deferred', got 'idle'` (exit 1).
+- **Live oracle preserved**: `--verify-live` reports *lane instruction docs consistent with
+  snapshot (4 enforced lanes)*; the guard still detects a `current` lane 3 pointing at a closed
+  PR (`DRIFT lane 3 … declares PR #548, which is not an open lane PR in the snapshot`).
+- `test_lane_currency_ci_wiring.py` + `test_lane_guard_fixed_scope.py` +
+  `test_lane_guard_stacked_pr.py`: **46 passed**.
+
+### 13.6 Question 3 — heads, merge-bases, and checks across the set
+
+- **#567 base = `main`** (`36f53be2`); **#568 base = #567 head**. Neither is in `main`
+  (`git merge-base --is-ancestor #567 main` → **false**), so the stack is genuinely unmerged and
+  its composition has never been exercised on `main`.
+- **#548 and #553 share base `04e1b83b`**, which **is** an ancestor of `main` — both are stale
+  against current `main` and both report `mergeable_state: dirty`. Their recorded bases are not
+  the current main, so any "checks green" statement about them describes an older tree.
+- **#553 remains independently blocked** — the CI-wiring defect is a true positive, and its
+  repair surface (§6) is 19/16/28 missing inputs with the push/pull_request symmetry constraint.
+  Composing #553 with the #567/#568 stack has **not** been measured and is not implied by
+  anything above.
+- **#567/#568 checks** were green at `a1679a3a` (7/7). That establishes the stack's own gate
+  passes at its head; it does **not** establish release acceptance, and it does not cover the
+  composition with #553.
+
+### 13.7 What this changes
+
+- **#548's `idle` is an addition, not a pre-existing condition** (§13.2) — so Option B for #548
+  is "do not take the branch", and the escape never reaches `main`.
+- **The #567→#568 stack already implements the Option B property** and composes cleanly (§13.4,
+  §13.5). No Option B edit is outstanding there.
+- **The baseline in §10/§11 was #548-tree-specific** (§13.3). `main` and the composed stack are
+  both **37 passed**.
+- **Lane 2 needs no change** in the #567/#568 candidate; my §11.1 `deferred` edit was an
+  alternative, not a requirement (§13.4).
+
+Read-only review only. Nothing merged, closed, reverted, retargeted, or deployed. Scratch
+worktrees removed; working tree clean and equal to `HEAD`.
