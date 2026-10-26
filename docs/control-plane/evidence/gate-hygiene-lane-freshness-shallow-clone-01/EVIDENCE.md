@@ -175,3 +175,83 @@ helper, two controls, this record.
 
 No merge, no deployment, no production claim. Branch pushed, PR opened as **draft**,
 left draft. Human merge authority is final.
+
+## 10. Follow-on: the live oracle is red on `main` itself (recorded, not repaired)
+
+Running the guard's CI form (`--check --verify-live`) surfaced a **second, unrelated**
+defect that this PR does not touch. It is recorded here because it is what a reviewer will
+see in this PR's `lane-doc-currency` job, and because leaving it unexplained would invite
+the wrong attribution.
+
+**Observation.** `python scripts/lane_state.py --check --verify-live` on **unmodified
+`main` `36f53be2`** exits **1**:
+
+```
+  DRIFT PR #508 (lane 4 open_prs) is recorded as open but is CLOSED without merging; the thread is dead
+  DRIFT PR #563 (lane 3 open_prs) is recorded as open but is CLOSED without merging; the thread is dead
+```
+
+Identical output on this branch. The two extra DRIFTs are **not** caused by the freshness
+change — the freshness path is a different function, and it now reports nothing.
+
+**This is real drift, not an artifact.** Live PR state confirms it: `#508 state=CLOSED
+merged=null`, `#563 state=CLOSED merged=null`.
+
+**Why CI was green until now — a timing artifact, and the cleanest possible proof.**
+
+| event | time (UTC) | guard verdict |
+|---|---|---|
+| `main` run 125 (`3a1088c5`) | 2026-10-25T05:13:04 | **success** |
+| **#563 closed** | 2026-10-25T05:16:10 | — (3 min after the green run) |
+| #569's `lane-doc-currency` run `40198315487` | 2026-10-25T13:35:36 | **success** |
+| **#508 closed** | 2026-10-25T15:23:41 | — |
+| this branch's run `40248995125` | 2026-10-26T00:22 | **failure** |
+
+Every green run predates a closure; every run after the second closure is red. #563 was
+closed three minutes after `main`'s last green run, and #508 eight hours after #569's. The
+oracle is not flaky — it is **live**, and the recorded lane state went stale twice.
+
+**Why `--verify-live` is the only step that reddens.** Its sibling steps in the same job all
+passed: `Execute lane instruction-doc currency guard` = success, `Execute the wiring guard
+(judges this workflow)` = success, `Execute the guard as the gate executes it` = success.
+The offline assertions are green; only the step that reads live GitHub state fails. That is
+the correct shape for a live oracle and it means **this PR's own guard tests pass**.
+
+**Ownership: this is not this PR's scope.** The stale records live in
+`docs/control-plane/parallel-ui/lane-state.json`, which this PR does not modify
+(`git diff origin/main -- docs/control-plane/parallel-ui/lane-state.json` → empty).
+
+- **#569 (`gate-hygiene/lane-state-refresh-01`) is the PR that owns it** and partially
+  repairs it: its tree removes the `#563` record but **still carries `#508`**, so a
+  worktree at #569's head re-measured live **also exits 1** (only one DRIFT instead of two).
+  #569 therefore does not close this on its own.
+- Five open PRs touch `lane-state.json` (#548, #553, #555, #568, #569), so any repair here
+  would collide with four of them — the same composition hazard this repository has already
+  recorded for derived-domain guards.
+- Repairing it means re-measuring the lane PRs and re-pointing lanes 3 and 4, which is
+  **lane-state bookkeeping**, not lane-*freshness* logic.
+
+**Classified:** pre-existing on `main`, reproducible there, owned by another lane,
+**recorded and proposed — not executed.** Discovery does not authorize execution.
+
+### Note on the two NOTEs (also pre-existing, also not blocking)
+
+The same run prints, and did so before this change:
+
+```
+  NOTE lane 3 (AGENT-03-SOLARIUN-KNOWLEDGE.md) declares PR #450, which is CLOSED without merging
+  NOTE lane 4 (AGENT-04-ARKANA-WEAVER-LAB.md) declares PR #428, which is MERGED
+```
+
+The guard itself labels these `(lane not owned by this guard; reported, not blocking)`.
+Verified live: `#450 state=CLOSED merged=null`, `#428 state=MERGED`. They do not affect the
+exit code and are outside this PR's scope.
+
+### Consequence for this PR's check status
+
+`lane-doc-currency` shows **fail** on this PR, and it **also fails on `main` at the same
+SHA** for the same two reasons. It is therefore **not attributable to this PR** — the
+standard this repository already applies to `Vercel – arkadia-prism` /
+`Vercel – console`, which are `failure` on `main` itself. The PR's own contract tests (39 +
+51 nodes) and the architecture suite (11) pass, and the freshness defect this PR repairs is
+observably gone from the live output.
