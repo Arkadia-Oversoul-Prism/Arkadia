@@ -485,3 +485,109 @@ retained, §10.1–10.4 give the exact repair and the test that must accompany i
 
 **Neither option has been applied to any branch.** Both were built and measured in scratch
 worktrees, which have been removed.
+
+---
+
+## 11. Option B is now measured too — and it is the cheaper of the two
+
+§10 proved Option A. Option B was still a **preference**. This section closes that asymmetry,
+so the owner is choosing between two measured designs rather than one measured and one argued.
+
+### 11.1 What Option B actually is
+
+Three edits, all bounded:
+
+1. `scripts/lane_state.py` — remove `idle` from the disposition vocabulary:
+   `{"current", "deferred", "idle"}` → `{"current", "deferred"}`, delete the `idle` branch,
+   drop the `idle` sentence from `_disposition_findings`' docstring.
+2. `docs/control-plane/parallel-ui/lane-state.json` — reconcile lane 2 to the state the
+   repository's own refresh already derives: `deferred`, `deferred_to_pr = 564`,
+   `open_prs = [564]`.
+3. `tests/test_lane_instruction_doc_currency.py` — re-point the one vocabulary assertion
+   (`must be 'current', 'deferred', or 'idle'` → `must be 'current' or 'deferred'`).
+
+### 11.2 Option B closes the escape by making it unrepresentable
+
+`idle` is no longer a legal disposition, so the §7/§9 escape **fails closed**:
+
+```
+DRIFT lane 3: doc_guard must be 'current' or 'deferred', got 'idle'
+```
+
+That is a stronger property than Option A's. Option A keeps the escape representable and
+**blocks** it; Option B removes the representation, so the escape cannot be re-introduced by a
+future snapshot edit without failing validation.
+
+### 11.3 The live guard and lane 2
+
+- **Live guard intact.** With `--verify-live`, a `current` lane 3 pointing at closed #526 still
+  produces both findings (`declares PR #526, which is not an open lane PR` **and**
+  `CLOSED without merging`), exit 1. `--verify-live` remains present in
+  `.github/workflows/lane-doc-currency.yml`.
+- **Lane 2 is repaired, not merely silenced.** It is now `deferred`, owned by **open #564** —
+  the state `lane_state_refresh.py` derives. No `idle`, no suppressed finding.
+
+### 11.4 No regression, by node identity
+
+| tree | `test_lane_instruction_doc_currency.py` |
+| --- | --- |
+| unpatched merged tree (baseline) | **4 failed / 34 passed** |
+| Option B (with the companion test edit) | **4 failed / 34 passed — node-identical** |
+
+`diff` of the sorted failing-node sets is empty. The 4 are pre-existing on the merged tree.
+
+Without the companion test edit there is exactly **one** new node —
+`test_disposition_check_flags_an_unknown_disposition`, which pins the old vocabulary string
+`"must be 'current', 'deferred', or 'idle'"`. That is the expected coupling, not a defect: the
+test asserts the vocabulary Option B intentionally changes. `test_ci_gate_trigger_coverage.py`
+is **93 passed** on the Option B tree.
+
+### 11.5 The two options, both measured
+
+| | Option A — retain `idle` | Option B — remove `idle` |
+| --- | --- | --- |
+| Escape closed | yes — **blocked** at the enforcement boundary | yes — **unrepresentable** (validation fails closed) |
+| Escape re-introducible by snapshot edit | **yes** | **no** |
+| New failures | none (node-identical) | none (node-identical, with companion test edit) |
+| Files touched | 1 (`lane_state.py`) + 1 test | 1 (`lane_state.py`) + snapshot + 1 test |
+| Lane 2 | still needs pointer repair | repaired to the derived state |
+| Residual | keeps a state with no derivation path | none identified |
+
+### 11.6 Recommendation
+
+**Option B.** It is no longer merely preferable in principle — it is measured to be as safe as
+Option A on regression, strictly stronger on the escape (unrepresentable rather than blocked),
+and it removes a state whose only producer is a hand edit. Option A remains a proven fallback
+with a known residual.
+
+**Neither option has been applied to any branch.** Both were built and measured in scratch
+worktrees, since removed; the working tree is clean and matches `HEAD`.
+
+## 12. Harness faults recorded as part of the reproduction standard
+
+Three faults were hit during §10–§11. All three are recorded because each can produce a
+confident wrong answer, and the standard for a trustworthy reproduction should name them.
+
+1. **A substring assertion cannot distinguish a blocking finding from an advisory note.** The
+   same dead-pointer text is emitted as `NOTE` (advisory) or `DRIFT` (blocking) depending on
+   the lane's disposition. A control asserting `'lane 3' in out and 'CLOSED without merging' in
+   out` **passed on the unpatched tree** and proved nothing. Controls must assert the
+   **classification** (line prefix), and should include a self-contained case feeding the
+   classifier both forms.
+2. **A leaked fixture can make a regression appear real — or conceal one.** An early patched
+   run reported 5 failures against a baseline of 4; the extra failure was a `lane-state.json`
+   left mutated by the previous run. The harness had also mutated the **real repository's**
+   snapshot (caught by `git status`, restored with `git checkout --`). Restore mutated state in
+   a `finally:` block, and verify `git status` is clean before comparing node sets.
+3. **Running pytest from the wrong working directory tests the wrong tree.** The guard resolves
+   its paths relative to the **current** directory, so `pytest /tmp/wtX/tests/...` invoked from
+   the main repository resolved against the main repository and "passed" while testing the
+   wrong tree. Always `cd` into the candidate worktree and pass a **relative** path.
+
+**One environment note, for reproduction:** midway through this session the interpreter's
+`site-packages` was reset and `pytest`/`pyyaml` disappeared (`python3 -m pytest` →
+`No module named pytest`). They were reinstalled from the repository's own `requirements.txt`.
+The baselines in §10 and §11 were therefore **re-measured in the restored environment**;
+the §11 baseline (4 failed / 34 passed) reproduces the §10 baseline exactly, so the comparison
+holds. Any future pass that cannot reproduce this should check the environment before
+attributing a difference to the change.
