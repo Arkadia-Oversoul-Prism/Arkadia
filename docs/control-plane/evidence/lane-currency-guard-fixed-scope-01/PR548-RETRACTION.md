@@ -863,3 +863,78 @@ Unchanged from §13.6. #553 touches 50 files including `weaver/autonomy/`, `weav
 and 12 test modules; the stack touches `scripts/lane_state*.py`, `scripts/lane_guard_domain.py`
 and the lane tests. The two sets are disjoint, which is **textual** compatibility only. Composing
 them creates a new candidate whose behavior is not established by any measurement in this record.
+
+---
+
+## 16. The #553 narrowing is NOT safely implementable — a measured reversal
+
+§15.4 recommended "narrow the predicate: a path literal is an input only if the guard *reads*
+it," and flagged that the narrowing must stay conservative or it trades a false positive for a
+false negative. I built it and measured it. **The flag was correct and the recommendation is
+withdrawn.** Measured on #553's tree (`899d2242`); read-only, scratch worktree removed.
+
+### 16.1 The naive read-only predicate is a false-negative machine
+
+A first cut — a literal counts only if it appears inside a `read_text`/`open`/`read_bytes` call
+— takes `tests/test_m02a_ci_gate_integrity.py` from **55 inputs to 1**, which looked like the
+intended outcome. Applied across the corpus it drops **268** literals over ~95 guards, **40 of
+them to zero**.
+
+Those zeros are not all spurious. `tests/test_ais_w2_living_gate_grove_handoff.py` binds nine
+paths to names and reads them through a local helper:
+
+```python
+GATE = ROOT / "archive/.../LivingGate.tsx"
+def _r(p: Path) -> str:
+    return p.read_text(encoding="utf-8")
+src = _r(GATE)
+```
+
+The literal never sits inside the read call, so the naive predicate reports **0** inputs.
+
+### 16.2 Mutation proves that is a genuine input
+
+Removing a literal the guard asserts from `LivingGate.tsx`:
+
+| | result |
+| --- | --- |
+| before | **1 failed, 9 passed** |
+| after removing `onEnterSpiralGrove?: () => void;` | **3 failed, 7 passed** |
+
+`LivingGate.tsx` **is** a genuine content dependency. The naive predicate's `0` is a **false
+negative**, not a cleanup.
+
+### 16.3 A dataflow-aware predicate still fails
+
+Adding name→reader propagation (bind `X = ROOT / "path"`, follow `X` into a reader call) keeps
+151 of 316 literals, drops 165, and reduces **40 guards to zero**. It *still* misses
+`LivingGate.tsx`, because the read goes through a **user-defined helper** (`_r`), not a
+recognised reader name. Following that edge requires resolving arbitrary call chains — which is
+the whole problem, not a detail.
+
+| predicate | kept / 316 | guards → 0 | keeps `LivingGate.tsx`? |
+| --- | --- | --- | --- |
+| current (any tracked-path constant) | 316 | 0 | yes |
+| naive read-only | 48 | 40 | **no — false negative** |
+| dataflow + name propagation | 151 | 40 | **no — false negative** |
+
+### 16.4 The corrected conclusion
+
+**Both narrowing attempts introduce false negatives on a file that mutation testing proves is a
+real input.** For a coverage guard this is the worse error: the guard would stop demanding a
+workflow select a file whose edit changes what the guard asserts — silently, and in the direction
+of less coverage. The false positive is loud (a red gate); the false negative is silent.
+
+So the §15.4 recommendation is **withdrawn**. What survives from §15 is the *finding*, which is
+independent of the repair: the three reported failures are false positives, and "expand the
+inputs" would add 116 selections for files whose contents the guard never reads.
+
+**What a sound repair would require, stated as a requirement rather than a design:** the
+predicate must be *sound* (never omit a genuine input) before it may be *precise* (omit
+non-inputs). Reaching soundness here needs whole-program reachability — resolving helper calls
+like `_r` — or a different mechanism entirely, such as the guard **declaring its inputs
+explicitly** and a test checking the declaration against observed reads. Neither is a one-line
+change, and neither has been implemented or measured.
+
+**#553's repair design is therefore open again, and now bounded by a measured negative result**
+rather than by a preference. The proposal in §15.4 must not be implemented as written.
