@@ -214,6 +214,22 @@ baseline failure is attributable to this change and none was repaired. The
 the recorded, sovereign-owned pre-existing debt described in `AGENTS.md`; they are left
 alone.
 
+Branch side, same environment, same invocation:
+
+```
+8 failed, 3456 passed, 20 skipped, 3 warnings, 1 error in 235.41s
+outcomes fingerprint c280ddc616fe4f4e9110bf4e6b6e538783a83d3764148d8a6d7ac45f6e8bc46b
+ids fingerprint      215e4308371a01f5b0b73f1e2b5dca5bba30f6578f65bb7c8af6eca67bc8b741
+```
+
+The outcomes fingerprint is **byte-identical** to the `main` value above — the
+failing/error **node set is unchanged**, which is the load-bearing claim. The
+`3454 → 3456` passed delta is `+2`, and `--collect-only` measures `18 → 20` on the same
+two trees: the delta is exactly the two new negative controls, not new coverage
+elsewhere. Derived with `scripts/baseline_fingerprint.py` (the canonical extractor, which
+hashes sorted `FAILED`/`ERROR` node ids rather than printed reason text, so the value does
+not depend on terminal width).
+
 No console source file, no other lane's file, and no workflow is touched, so the
 console-contract CI gate's derived domain is unchanged.
 
