@@ -712,3 +712,64 @@ Composed `main` + `#567` + `#568` in a scratch worktree (`git merge --no-edit`, 
 
 Read-only review only. Nothing merged, closed, reverted, retargeted, or deployed. Scratch
 worktrees removed; working tree clean and equal to `HEAD`.
+
+---
+
+## 14. Amendments — three claims in this record are superseded
+
+§13.2, §13.3 and §13.4 corrected the substance. The affected sentences earlier in this record
+are annotated here rather than rewritten, so the sequence of what was believed and when stays
+readable. Where a claim is superseded, this section is authoritative.
+
+| § | claim as written | superseded by |
+| --- | --- | --- |
+| §9.1 | "`idle` is in use, on lane 2" | True **of #548's tree only**. `idle` is absent from `main` (`36f53be2`), `#567`, and `#568`; **#548 introduces it** (§13.2). The heading reads as though the repository had `idle`; it does not. |
+| §9.5, §11.6 | "It is already suppressing a real finding", "removes a state whose only producer is a hand edit" | Correct **within #548's tree**. Since `main` has no `idle`, the finding is "#548 *adds* a weakened state to a tree that does not have one" — a branch-introduced regression, not a pre-existing repository condition. |
+| §10.4, §11.4 | "The 4 are pre-existing on the merged tree" | **Wrong.** The 4 failures belong to the **#548 tree alone**. `main` (`36f53be2`) and the `#567`+`#568` composition are each **37 passed, zero failures** (§13.3). The Option A/B comparison remains valid *within* #548's tree; the attribution to `main` does not. |
+| §11.1, §11.5 | "reconcile lane 2 to the derived state" | **Not required.** In the `#567`/`#568` candidate lane 2 is `current` + `[564]`, identical to `main`, and that is **also correct**: `declared_pr(lane 2) == 564` and #564 is open, so it is consistent and produces no finding (§13.4). The `deferred` edit was a valid alternative, not a requirement. |
+| §11.5 | "Lane 2 — still needs pointer repair" | Superseded by the row above. Lane 2 needs no change in the `#567`/`#568` candidate. |
+| §9.4, §11.2 | "the canonical derived state needs no `idle` at all" | Still correct, and now weaker than the fact that matters: `main`'s vocabulary is **already** `must be 'current' or 'deferred'`. No Option B patch is needed to obtain the fail-closed property; it is obtained by **not admitting #548's branch**. |
+
+**What is not superseded.** The measurements themselves stand: `idle` downgrades a blocking
+`DRIFT` to an advisory `NOTE` (§7); the escape is reachable by `idle` + cleared `open_prs`
+(§7.3); Option A closes it at the enforcement boundary (§10); Option B makes it unrepresentable
+(§11); and the three harness faults are real (§12). Only the *attribution* of `idle` to the
+repository, and of the 4 failures to `main`, were wrong.
+
+### 14.1 Corrected statement of the #548 finding
+
+> **#548 introduces a disposition (`idle`) that `main` does not have, and that disposition
+> converts a blocking dead-pointer finding into a non-blocking note for the lane that adopts it.
+> The preferred disposition is therefore not to admit that change.** Preserving the fail-closed
+> vocabulary requires no patch to `main`.
+
+### 14.2 A credential disclosure I must report
+
+While pushing after a `terminal reset` cleared the `gh` session, a `git push` failure message
+printed the credential embedded in the `origin` URL:
+
+```
+fatal: could not read Password for 'https://<credential>@github.com/...': terminal prompts disabled
+```
+
+Facts, established by hash comparison (values never printed):
+
+- The **exposed credential is the pre-existing one already embedded in `remote.origin.url`**
+  (40 chars, prefix `ghu_`), **not** the `GITHUB_TOKEN` environment variable. The two are
+  different values (`sha256[:16]` `a3dc4732…` vs `de53f291…`).
+- It was exposed in **this session's command output**, which is retained in the conversation
+  log — not in a repository file. `.git/config` was not written with a new credential, and no
+  shell history file exists.
+- The subsequent one-shot push (`git push https://${GITHUB_TOKEN}@…`) put the **env token** on a
+  command line. That token is **masked by the platform** in tool output (`<secret-hidden>`), and
+  it is a different value from the exposed one.
+
+**Recommended action, for the human:** the credential embedded in `origin` (prefix `ghu_`) has
+been displayed in a session log and should be treated as **disclosed** — rotate or revoke it, and
+replace the embedded-credential remote with a credential-safe path (`gh auth login` plus the
+`!gh auth git-credential` helper, or an SSH remote). I have **not** changed the remote, rotated
+anything, or written any credential; that is an authorization decision.
+
+A better operational note than the one in §13.7: prefer a credential helper over a URL-embedded
+token, and prefer **not** to place a token on a command line at all — a `fatal:` message can echo
+the URL back into the log, as happened here.
