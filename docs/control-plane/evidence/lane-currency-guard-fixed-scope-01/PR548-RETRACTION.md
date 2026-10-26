@@ -773,3 +773,93 @@ anything, or written any credential; that is an authorization decision.
 A better operational note than the one in §13.7: prefer a credential helper over a URL-embedded
 token, and prefer **not** to place a token on a command line at all — a `fatal:` message can echo
 the URL back into the log, as happened here.
+
+---
+
+## 15. #553's open design question — measured, and the detector is over-broad
+
+§13.6 recorded #553 as independently blocked with its repair design unresolved: expand the
+workflow's selected inputs, or narrow the history-dependent guard? Measured this pass on #553's
+own tree (`899d2242`, base `04e1b83b`). Read-only; scratch worktree removed.
+
+### 15.1 The failing nodes
+
+`tests/test_history_depth_ci_wiring.py` on #553's tree: **3 failed, 19 passed** — all three are
+`test_a_workflow_selects_every_input_its_guard_reads[<workflow>]`, for
+`economic-seam-engine.yml`, `provider-routing.yml`, and `sg-02-fe-2-v.yml`. In every case the
+demanded guard is the same one:
+
+```
+sg-02-fe-2-v.yml judges tests/test_m02a_ci_gate_integrity.py, which reads
+enterprises/eden-food-systems/tasks.seed.json, but does not select it in its
+pull_request paths filter.
+```
+
+### 15.2 What the detector treats as an "input"
+
+`_guard_inputs()` walks the guard's AST and takes **every string constant that names a tracked
+path** (`ast.Constant`, value in `git ls-files`, not `tests/`). For
+`tests/test_m02a_ci_gate_integrity.py` that is **55 paths**.
+
+But the guard reads almost none of them. Measured: of the 55, exactly **1** appears in a
+filesystem-reading call (`docs/control-plane/TRAJECTORY-ARKADIA-TRUTHFULNESS-01.yaml`). The other
+**54** are *string payloads* — changesets handed to `evaluate_changed_paths()` as data, e.g.:
+
+```python
+_EDEN_OPS_02_CHANGESET = [
+    "enterprises/eden-food-systems/tasks.seed.json",   # a string, never opened
+    ...
+]
+ok, msg = evaluate_changed_paths(_EDEN_OPS_02_CHANGESET)
+```
+
+The guard's verdict is a function of that **list of strings**, not of the files' contents.
+
+### 15.3 Empirical confirmation — the three demanded paths are not inputs
+
+Mutating each demanded file's **content** and re-running the guard:
+
+| path | before | after content edit | verdict changes? |
+| --- | --- | --- | --- |
+| `enterprises/eden-food-systems/tasks.seed.json` | 68 passed | 68 passed | **no** |
+| `musical-intention-engine/OPENHANDS-MVP-01.md` | 68 passed | 68 passed | **no** |
+| `musical-intention-engine/06-EXPERIMENTS/EXP-001.md` | 68 passed | 68 passed | **no** |
+
+All three are **false positives**. Editing the file changes nothing the guard asserts, so
+demanding the workflow select it protects no property.
+
+*A control flaw in my own first run, recorded:* I compared the full pytest summary line, which
+includes a duration (`68 passed in 0.30s` vs `0.32s`), so two of the three read as "DIFFERS".
+Comparing the **pass/fail counts** only gives the correct answer. Same class as the substring
+fault in §12 — assert the invariant, not the surrounding text.
+
+### 15.4 The design question, answered
+
+**Option "expand" is not viable.** The detector demands, per workflow, **29** (economic-seam),
+**52** (provider-routing), and **35** (sg-02) additional paths — 116 selections total — for files
+whose contents the guard never reads. Adding them would widen three workflows' triggers
+permanently to satisfy an over-broad detector, and would have to be repeated for every guard that
+names a path as data.
+
+**Option "narrow the guard" is the correct repair**, and the narrowing is precise: a path literal
+is an *input* only if the guard **reads** it. The mechanical form is to resolve the literal to a
+filesystem read (a `read_text`/`open`/`read_bytes` call, or a `Path(...)` expression that is then
+read) rather than accepting any tracked-path constant. That reduces this guard's input set from
+**55 to 1**, which is what the guard's verdict actually depends on.
+
+The predicate must stay conservative in the safe direction: a guard whose read is indirect
+(helper function, table-driven path) could be under-detected, so the narrowing needs its own
+**negative control** — a guard that reads a path indirectly must still be reported — or it trades
+a false positive for a false negative, which is the worse error for a coverage guard.
+
+**This is a proposal, not a change.** `tests/test_history_depth_ci_wiring.py` is #553's own
+artifact and part of its review surface; narrowing it alters what #553 asserts, so it belongs to
+#553's decision and needs the same measurement-against-baseline discipline as everything else
+here. Nothing was modified.
+
+### 15.5 Composition with the #567/#568 stack remains unmeasured
+
+Unchanged from §13.6. #553 touches 50 files including `weaver/autonomy/`, `weaver/engineering_*`,
+and 12 test modules; the stack touches `scripts/lane_state*.py`, `scripts/lane_guard_domain.py`
+and the lane tests. The two sets are disjoint, which is **textual** compatibility only. Composing
+them creates a new candidate whose behavior is not established by any measurement in this record.
