@@ -216,6 +216,35 @@ def is_ancestor_of_head(commit: str, repo: Path = REPO) -> bool:
     return proc.returncode == 0
 
 
+def clone_is_shallow(repo: Path = REPO) -> bool:
+    """True when this clone's history is truncated.
+
+    A shallow checkout grafts HEAD's ancestry, so ``merge-base --is-ancestor``
+    cannot walk past the graft and exits non-zero for a commit that *is* an
+    ancestor in the real history. That is the opposite conclusion from a
+    rewritten ``main``, and the two need opposite responses: a truncated clone
+    is repaired by fetching history, a rewritten ``main`` by re-measuring the
+    lane PRs. Reporting the first as the second sends an operator to
+    investigate a rewrite that never happened.
+
+    Measured 2026-10-26 at ``main`` 36f53be2: on a depth-1 clone the guard
+    reported "the recorded provenance is void (was main rewritten?)" for
+    ``base_main`` 68acf89f, and the identical tree returned exit 0 from
+    ``--check`` after ``git fetch --unshallow``. The commit was present in both
+    clones, so only the ancestry walk was truncated.
+
+    Read-only. A git failure reports *not* shallow, so the caller falls back to
+    the ancestry verdict rather than claiming a truncation it did not observe.
+    """
+    proc = subprocess.run(
+        ["git", "rev-parse", "--is-shallow-repository"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    )
+    return proc.returncode == 0 and proc.stdout.strip() == "true"
+
+
 def _liveness_findings(state: dict, repo: Path = REPO) -> list[str]:
     """Flag a PR the snapshot *claims is open* that is provably already merged.
 
@@ -586,6 +615,11 @@ def _freshness_findings(state: dict, current_main: str | None, repo: Path = REPO
     rewritten ``main`` -- the recorded provenance is void), and a git failure.
     Failing closed is the only safe direction: this check exists to stop a
     superseded snapshot from laundering stale lane pointers.
+
+    A non-ancestor ``base_main`` is split by :func:`clone_is_shallow`, because
+    the ancestry exit code cannot tell a truncated checkout from a rewritten
+    ``main`` and the two require opposite responses. Both remain findings; only
+    the diagnosis and the instructed repair differ.
     """
     if current_main is None:
         return [
@@ -608,6 +642,17 @@ def _freshness_findings(state: dict, current_main: str | None, repo: Path = REPO
         ]
 
     if not is_ancestor_of_head(base, repo=repo):
+        # Distinguish a truncated clone from a rewritten ``main``. The two are
+        # indistinguishable from the ancestry exit code alone, and the wrong
+        # diagnosis sends an operator hunting a rewrite that never happened.
+        if clone_is_shallow(repo=repo):
+            return [
+                f"snapshot base_main {base[:8]} is not an ancestor of HEAD "
+                f"{current_main[:8]} in this *shallow* clone; the checkout "
+                f"truncates the ancestry walk, so whether the recorded "
+                f"provenance still holds is UNKNOWN, not a pass -- re-run from a "
+                f"full clone (fetch-depth: 0 / git fetch --unshallow)"
+            ]
         return [
             f"snapshot base_main {base[:8]} is not an ancestor of HEAD "
             f"{current_main[:8]}; the recorded provenance is void (was main "

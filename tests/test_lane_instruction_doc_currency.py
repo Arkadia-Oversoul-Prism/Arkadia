@@ -435,6 +435,95 @@ def test_freshness_fails_closed_when_the_base_is_not_an_ancestor(tmp_path, monke
     assert findings and "UNKNOWN, not a pass" in findings[0]
 
 
+def _shallow_clone_with_detached_base(tmp_path):
+    """A depth-1 clone holding ``base`` as an object that is not walkable.
+
+    Mirrors the measured artifact exactly: the commit is *present* (fetched
+    alongside a lane branch, as the automation's clone does) but the graft on
+    HEAD truncates the ancestry walk, so ``merge-base --is-ancestor`` exits
+    non-zero for a commit that is a true ancestor in the real history.
+    """
+    import subprocess
+
+    origin = _scratch_repo(tmp_path / "origin")
+    base = _commit(origin, "base")
+    subprocess.run(["git", "branch", "side", base], cwd=origin, check=True)
+    (origin / "a.txt").write_text("a\n", encoding="utf-8")
+    _commit(origin, "second")
+    (origin / "b.txt").write_text("b\n", encoding="utf-8")
+    _commit(origin, "third")
+
+    clone = tmp_path / "shallow"
+    subprocess.run(
+        ["git", "clone", "-q", "--depth", "1", f"file://{origin}", str(clone)],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "fetch", "-q", "--depth", "1", "origin", "side"], cwd=clone, check=True
+    )
+    return clone, base
+
+
+def test_freshness_names_a_truncated_clone_instead_of_a_rewritten_main(tmp_path, monkeypatch):
+    """A depth-1 checkout must not be reported as "was main rewritten?".
+
+    Both are findings, but they demand opposite repairs: a truncated clone is
+    repaired by fetching history, a rewritten ``main`` by re-measuring the lane
+    PRs. Diagnosing the first as the second sends an operator to investigate a
+    rewrite that never happened. Measured 2026-10-26 at ``main`` 36f53be2: the
+    same tree returned exit 0 from ``--check`` after ``git fetch --unshallow``.
+    """
+    clone, base = _shallow_clone_with_detached_base(tmp_path)
+    monkeypatch.setattr(guard, "REPO", clone)
+    monkeypatch.setattr(guard, "LANE_DIR", clone / "docs/control-plane/parallel-ui")
+    monkeypatch.setattr(
+        guard, "LANE_STATE", clone / "docs/control-plane/parallel-ui/lane-state.json"
+    )
+
+    assert guard.clone_is_shallow(repo=clone) is True
+    assert guard.commit_is_present(base, repo=clone) is True
+    assert guard.is_ancestor_of_head(base, repo=clone) is False
+
+    state = {
+        "schema": "arkadia.lane-state/1.2",
+        "base_main": base,
+        "lanes": {"1": {"doc": "AGENT-01-SHELL.md", "open_prs": [], "merged_prs": []}},
+    }
+    findings = guard._freshness_findings(state, _head(clone), repo=clone)
+    assert findings, "a truncated ancestry walk is not a pass"
+    assert "shallow" in findings[0], findings
+    assert "rewritten" not in findings[0], (
+        "a truncated checkout must not be diagnosed as a rewritten main"
+    )
+    assert "UNKNOWN, not a pass" in findings[0]
+
+
+def test_freshness_still_reports_a_rewritten_main_on_a_full_clone(tmp_path, monkeypatch):
+    """The positive control for the split: a real rewrite still says so.
+
+    Without this, the shallow branch could swallow the rewritten-main finding
+    entirely and the guard would be silent on the defect it exists to catch.
+    """
+    import subprocess
+
+    repo = _scratch_repo(tmp_path)
+    base = _commit(repo, "base")
+    state = _scratch_state(repo, monkeypatch)  # base_main = the base commit
+    (repo / "orphan.txt").write_text("x\n", encoding="utf-8")
+    orphan = _commit(repo, "will be orphaned")
+    subprocess.run(["git", "branch", "side", orphan], cwd=repo, check=True)
+    subprocess.run(["git", "reset", "-q", "--hard", base], cwd=repo, check=True)
+
+    assert guard.clone_is_shallow(repo=repo) is False
+    assert guard.commit_is_present(orphan, repo=repo) is True
+    assert guard.is_ancestor_of_head(orphan, repo=repo) is False
+
+    state["base_main"] = orphan
+    findings = guard._freshness_findings(state, _head(repo), repo=repo)
+    assert findings and "rewritten" in findings[0], findings
+    assert "shallow" not in findings[0]
+
+
 def test_detector_flags_a_merged_pr_left_recorded_as_open():
     """Feed the liveness oracle the stale-snapshot shape and require a finding.
 
