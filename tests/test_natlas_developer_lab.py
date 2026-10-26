@@ -168,7 +168,7 @@ async def test_native_natlas_route_live_external_gradio(monkeypatch):
     ]
 
 
-def test_natlas_tester_onboarding_records_human_authorization(monkeypatch):
+def test_natlas_tester_onboarding_uses_authenticated_identity(monkeypatch):
     import api.lab_routes as lab_routes
 
     class FakeWorkspace:
@@ -176,7 +176,7 @@ def test_natlas_tester_onboarding_records_human_authorization(monkeypatch):
 
     class FakeWorkspaceManager:
         def get_or_create(self, uid, display_name):
-            assert uid.startswith("natlas-tester-")
+            assert uid == "tester-account-123"
             assert display_name == "N-ATLaS External Test Workspace"
             return FakeWorkspace()
 
@@ -250,7 +250,7 @@ def test_natlas_tester_onboarding_records_human_authorization(monkeypatch):
     monkeypatch.setattr(lab_routes, "mint_natlas_tester_token", lambda **kwargs: "natlas-tester.test.signature")
 
     result = __import__("asyncio").run(
-        lab_routes.n_atlas_test_session()
+        lab_routes.n_atlas_test_session(user={"uid": "tester-account-123"})
     )
 
     assert result["session_id"] == "SES-tester"
@@ -261,11 +261,11 @@ def test_natlas_tester_onboarding_records_human_authorization(monkeypatch):
     assert runtime.authorizations[0]["operations_allowed"] == ("read", "test")
     assert len(store.attached) == 1
     assert store.attached[0][0] == "SES-tester"
-    assert store.attached[0][1].startswith("natlas-tester-")
+    assert store.attached[0][1] == "tester-account-123"
     assert store.attached[0][2] == "AUTH-tester"
     assert len(runtime.transitions) == 1
     assert runtime.transitions[0][0] == "SES-tester"
-    assert runtime.transitions[0][1].startswith("natlas-tester-")
+    assert runtime.transitions[0][1] == "tester-account-123"
     assert runtime.transitions[0][2] == "AUTHORIZED"
 
 
