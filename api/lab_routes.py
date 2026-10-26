@@ -47,12 +47,11 @@ from lab.engineering_lab.voice import resolve_voice_command, voice_boundary_repo
 
 _PUBLIC_NATLAS_PATHS = {
     "/api/lab/engineering/n-atlas/catalog",
-    "/api/lab/engineering/n-atlas/test-session",
 }
 
 
 async def require_lab_auth(request: Request) -> None:
-    """Keep the Lab authenticated by default, with two narrow public tester paths."""
+    """Keep the Lab authenticated by default, with one public catalog path."""
     if request.url.path in _PUBLIC_NATLAS_PATHS:
         return None
     await require_auth(request)
@@ -373,16 +372,18 @@ class NAtlasRunBody(BaseModel):
 
 
 @router.post("/engineering/n-atlas/test-session")
-async def n_atlas_test_session() -> dict:
-    """Create a minimal, anonymous external tester session for N-ATLaS only.
+async def n_atlas_test_session(user: dict = Depends(require_auth)) -> dict:
+    """Create an authenticated external tester session for N-ATLaS only.
 
-    No Arkadia account is created and no general application authorization is
-    issued. The returned capability is a 30-minute, run-only credential bound
-    to this exact session.
+    The caller identity comes from the verified authentication context. This
+    route still creates an authorization record; the shared provenance and
+    execution-enforcement gaps are separate, unresolved boundaries.
+    The returned capability is a 30-minute, run-only credential intended for
+    this session.
     """
     from solspire.workspace_manager import get_workspace_manager
 
-    uid = f"natlas-tester-{uuid.uuid4().hex[:16]}"
+    uid = user["uid"]
     workspace = get_workspace_manager().get_or_create(
         uid, display_name="N-ATLaS External Test Workspace"
     )
