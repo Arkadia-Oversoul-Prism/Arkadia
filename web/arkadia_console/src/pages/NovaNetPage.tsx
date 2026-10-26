@@ -25,7 +25,7 @@
  * contracts are "unverified or sovereign-key gated" was wrong for it and is
  * corrected in the note below.
  */
-import { Page, Panel, ContractState, NotYetWired } from "../components/ui";
+import { Page, Panel, Facts, ContractState, NotYetWired } from "../components/ui";
 import { SurfaceLenses } from "../components/SurfaceLenses";
 import { AuthorControls } from "../components/novaNet/AuthorControls";
 import { EngagementBar } from "../components/novaNet/EngagementBar";
@@ -57,9 +57,63 @@ const LENS_IDS = new Set(LENSES.map((l) => l.id));
  */
 const ECHO_DISPLAY_LIMIT = 8;
 
-const DEFERRED: Record<string, string> = {
-  hub: "UNKNOWN",
+type HubSubView = { contract: string; disposition: string };
+
+/**
+ * The legacy Nexus hub sub-views that are declared in the reconciliation
+ * inventory but not reconciled here, each with the contract *measured on this
+ * revision*. The table is the single source for both the panel's `contract` and
+ * its note, so the rendered claim cannot drift from the measurement.
+ *
+ * A sub-view is listed only after its handler (or the measured absence of one)
+ * was read. `UNKNOWN` is deliberately not a value here: leaving the whole lens
+ * as UNKNOWN is what this table replaces.
+ */
+const HUB_SUBVIEWS: Record<string, HubSubView> = {
+  ims: {
+    contract: "GET /api/ims/inquiries",
+    disposition:
+      "Sovereign-only. The handler requires an x-sovereign-key header and answers 403 'Sovereign key required' without it; the Bearer-only client cannot satisfy that, so the archive is not reconciled.",
+  },
+  grove: {
+    contract: "none — no HTTP surface on this revision",
+    disposition:
+      "spiral_grove/ is a capability registry and learning-path domain layer; it declares no router and is not mounted in api/main.py, so there is no contract to reconcile against.",
+  },
+  larder: {
+    contract: "POST /api/orders (open) · GET /api/orders (sovereign-only)",
+    disposition:
+      "Order intake is open, but the read is gated on the same x-sovereign-key header as the IMS archive. A lens could accept an order and then never list what it submitted, which is a worse state than not rendering one.",
+  },
+  distribution: {
+    contract: "GET /api/distribution/releases/{artist_id} (open)",
+    disposition:
+      "The read is open, but the archived DistributePage drives upload, covenant/sign and submit — all write paths. No release-creation authority was verified, so no decorative control is rendered.",
+  },
 };
+
+/** Sub-views in the inventory that this revision does not classify. */
+const UNCLASSIFIED_HUB_SUBVIEWS: readonly string[] = [];
+
+const HUB_SUBVIEW_IDS = Object.keys(HUB_SUBVIEWS);
+
+const HUB_CONTRACT_SUMMARY = HUB_SUBVIEW_IDS.map(
+  (id) => `${id}: ${HUB_SUBVIEWS[id].contract}`,
+).join(" · ");
+
+const HUB_NOTE = [
+  "The legacy Nexus hub's remaining sub-views are declared in the reconciliation inventory but not reconciled in the console, so no decorative controls are rendered for them.",
+  "Each was measured on this revision rather than left as a blanket 'unverified' claim:",
+  ...HUB_SUBVIEW_IDS.map((id) => `${id} — ${HUB_SUBVIEWS[id].disposition}`),
+  "The shared corpus (/api/codex) was measured as an open read and IS reconciled on the Encyclopedia Galactica lens.",
+].join(" ");
+
+/**
+ * A section outside `LENS_IDS` is not a lens of this surface, so this page holds
+ * no contract reading for it. Named rather than inlined so the panel does not
+ * read as if a per-section contract had been looked up and came back unknown.
+ */
+const NON_LENS_CONTRACT = "UNKNOWN";
 
 function ago(ts: number): string {
   const delta = Date.now() - ts;
@@ -204,7 +258,7 @@ export function NovaNetPage({
 
       {!LENS_IDS.has(section) && (
         <NotYetWired
-          contract={DEFERRED[section] ?? "UNKNOWN"}
+          contract={NON_LENS_CONTRACT}
           note={`"${section}" is not a lens of this surface. The reconciled lenses are ${[...LENS_IDS]
             .map((id) => `"${id}"`)
             .join(", ")}.`}
@@ -212,10 +266,28 @@ export function NovaNetPage({
       )}
 
       {section === "hub" && (
-        <NotYetWired
-          contract={DEFERRED.hub}
-          note="The legacy Nexus hub's remaining sub-views (IMS archive, Spiral Grove, Larder, distribution) are declared in the inventory but not reconciled in the console, so no decorative controls are rendered for them. This is not a blanket 'unverified' claim: the shared corpus (/api/codex) was measured as an open read and IS reconciled on the Encyclopedia Galactica lens. For the rest, the measured reasons differ — /api/ims/inquiries answers 403 'Sovereign key required', which the Bearer-only client cannot satisfy, while the distribution and grove contracts are not yet classified."
-        />
+        <>
+          <NotYetWired contract={HUB_CONTRACT_SUMMARY} note={HUB_NOTE} />
+          <Panel className="mt-4">
+            <p
+              className="font-mono text-[11px] uppercase tracking-widest text-white/40"
+              data-testid="novanet-hub-classification"
+            >
+              Hub sub-view contracts · measured
+            </p>
+            <Facts
+              rows={HUB_SUBVIEW_IDS.map((id) => ({
+                label: id,
+                value: `${HUB_SUBVIEWS[id].contract} — ${HUB_SUBVIEWS[id].disposition}`,
+              }))}
+            />
+            {UNCLASSIFIED_HUB_SUBVIEWS.length > 0 && (
+              <p className="mt-3 font-mono text-[11px] text-amber-300/80">
+                Not yet classified: {UNCLASSIFIED_HUB_SUBVIEWS.join(", ")}
+              </p>
+            )}
+          </Panel>
+        </>
       )}
     </Page>
   );
