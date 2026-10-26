@@ -1606,3 +1606,38 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   Compose the branch and run the tests.
 - Prefer `git merge --no-edit` on a worktree over patch surgery: it is the operation the human will
   actually perform, and it reports conflicts by file rather than by hunk.
+## A hand-maintained probe list is an inventory, not an oracle (Prism L1 router)
+- `web/arkadia_console/src/lib/router.ts` resolved a pathname and wrote the canonical path back
+  to the address bar. Its alias branch joined a section to the aliased surface's declared path
+  with a template literal: `path: section ? `${base}/${section}` : base`. `home` is declared at
+  `/`, so a legacy lens sub-path under a root-surface alias emitted `//x` for `/home/x`. A leading
+  `//` is an AUTHORITY, not a path, so the router replaceState'd a protocol-relative URL and a
+  shared link became an off-origin navigation (open-redirect class). The defect was specific to an
+  alias whose target surface is declared at `/`; every non-root alias was already correct.
+- The guard that exists for exactly this,
+  `test_the_alias_branch_emits_only_paths_the_router_reads_back`, reported 38 passed on the live
+  defect. It re-resolves each canonical path and reports non-idempotent ones - but its probes were
+  a HAND-WRITTEN list covering only non-root aliases (`/nexus`, `/nexus/ims`, `/oracle/x`,
+  `/commune/x/y`). `/home/x` was never probed. A probe list is an inventory of what someone
+  thought of; it is not an oracle over the alias set. When a table (PATH_ALIASES) is the input to a
+  property, derive the probes from the table, so a newly declared alias is judged by the same rule
+  instead of escaping it.
+- Repair: delegate both the section decision and the path join to `routeForSurface`, so the alias
+  branch cannot disagree with the navigation wrapper about which paths are addressable. `/home/x`
+  -> `/`; every non-root alias unchanged.
+- Negative control must reproduce the pre-repair SHAPE, not merely a wrong value: the new control
+  in `tests/test_console_shell_nav_contract.py` uses the original template join plus the root
+  surface's section decision and asserts `("/home/x", "//x", "/")` is reported. Prove it on the
+  REAL file too: reverting `router.ts` in the working tree reddens the read-back guard, restoring
+  it passes. A synthetic fixture alone would not prove the detector reads the shipped source.
+- Scope note: `tests/test_console_shell_nav_contract.py` is in the derived console-contract domain
+  (`scripts/console_contract_domain.py`), and `.github/workflows/prism-console-contract.yml`
+  derives its executed inventory the same way, so this file needs no gate edit. Runtime-verified on
+  PR #573 head `5419c55a`: `console-contract` success, step log `807 passed in 24.44s`.
+- Full suite at that head: 8 failed / 3455 passed / 1 error; the 9 failing/error nodes are
+  IDENTICAL when re-run on a stashed clean main tree (`8 failed, 1 error`), so zero nodes are
+  attributable. Compare node identity, not counts. Node-set sha256
+  `c280ddc616fe4f4e9110bf4e6b6e538783a83d3764148d8a6d7ac45f6e8bc46b`.
+- A test-side check of the "which workflows run this guard" question exits non-zero for unrelated
+  reasons; read `.github/workflows/prism-console-contract.yml` directly rather than concluding
+  "unwired" from a failed grep wrapper.
