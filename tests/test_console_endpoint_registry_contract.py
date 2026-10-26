@@ -606,29 +606,34 @@ def test_detector_accepts_a_registry_derived_sub_resource_path():
 #: Advertised ``contract="…"`` strings that the served app does not serve.
 #:
 #: **Empty, measured at ``main`` @ ``36f53be2``.** The set previously held six
-#: entries, and every one of them was a false positive produced by the two
-#: detector defects this file now carries a negative control for: a ``{id}``
-#: advertised against a served ``{session_id}``, and ``/api/…`` values compared
-#: against unstripped served paths. With the normalization repaired, all six
-#: advertised strings resolve to served handlers, so the honest recorded set is
-#: empty and a *new* invented string fails immediately. A non-empty entry here is
-#: a real drift, not a convention.
+#: entries, false for two different reasons. One
+#: (``/api/lab/engineering/sessions/{id}/execute``) is still advertised and was a
+#: detector false positive: the comparison was decided by the *parameter name*
+#: (``{id}`` against a served ``{session_id}``), which ``_normalized_route`` below
+#: now erases. The other five were advertised only at the revision the set was
+#: recorded against (``a29a9b8f``) and had already been repaired in source by
+#: ``68acf89f`` — stale recorded entries, which no normalization change could
+#: have resolved. A non-empty entry here is a real drift, not a convention.
 RECORDED_ADVERTISED_DRIFT: set[str] = set()
 
 
 def _normalized_route(path: str) -> str:
-    """A route reduced to its shape: leading ``/api`` dropped, params erased.
+    """A route reduced to its shape: **parameter names erased, path left intact**.
 
-    The leading ``/api`` is dropped because the canonical app serves the same
-    surface under both spellings — ``/health`` *and* ``/api/health``,
-    ``/api/version`` *and* ``/version`` — so an advertised ``/api/…`` and a served
-    ``/…`` are the same contract. The strip must be applied to **both** sides of
-    the comparison; applying it to only the advertised value (the pre-repair
-    shape) can never match a served ``/api/…`` route whose parameter name differs,
-    which is how the recorded set acquired four phantom entries.
+    Only the parameter name is insignificant. ``/api`` is a real route-group
+    distinction in this app, not a spelling variant: measured at ``main`` @
+    ``36f53be2`` the served OpenAPI table holds 288 paths, ``/api/solspire/*``
+    has **0** routes against ``/solspire/*``'s **116**, and the set of paths
+    served under *both* spellings is **empty** — ``/api/health`` is unserved while
+    ``/health`` is served, ``/api/version`` is served while ``/version`` is not.
+    There is no ``/api``-stripping middleware.
+
+    Dropping the prefix would therefore make the detector accept paths the app
+    does not serve (``/version``, ``/knowledge/graph``), which is a false-negative
+    class the guard did not have. The prefix must stay significant; only
+    ``{id}`` vs ``{session_id}`` is a naming difference.
     """
-    stripped = path[4:] if path.startswith("/api/") else path
-    return re.sub(r"\{[^}]*\}", "{}", stripped)
+    return re.sub(r"\{[^}]*\}", "{}", path)
 
 
 def _advertised_but_unserved(advertised, served: set[str]) -> list[str]:
@@ -691,26 +696,36 @@ def test_advertised_contract_detector_sees_every_occurrence_in_a_file():
     assert "/solspire/enterprise/workspaces" in live
 
 
-def test_advertised_contract_detector_normalizes_both_sides():
+def test_advertised_contract_detector_normalizes_only_the_parameter_name():
     """Negative control: an advertised route must match a served route that spells
-    its path parameter differently, and the ``/api`` prefix must not decide it.
+    its path parameter differently, and the ``/api`` prefix must remain significant.
+
+    Two opposite errors are pinned here, because a one-sided control cannot tell
+    them apart.
 
     Measured on ``main`` @ ``36f53be2``: the guard advertised
     ``/api/lab/engineering/sessions/{id}/execute`` against a served
     ``/api/lab/engineering/sessions/{session_id}/execute`` and reported it
-    unserved — the strip was applied to the advertised value only, so the
-    normalized forms could never meet. Four of the six recorded "drift" entries
-    were this artifact.
+    unserved — the parameter *name* decided the comparison, so the first repair
+    erased parameter names. That repair also dropped the ``/api`` prefix, which is
+    a real route-group distinction in this app: the served table holds 288 paths,
+    ``/api/solspire/*`` has **0** against ``/solspire/*``'s **116**, and **no**
+    path is served under both spellings. Stripping the prefix therefore accepted
+    ``/version`` and ``/knowledge/graph``, which the app does not serve — a
+    false-negative class the guard did not have before.
     """
     served = _served_paths()
     assert "/api/lab/engineering/sessions/{session_id}/execute" in served, "control premise"
+    assert "/api/version" in served and "/version" not in served, "control premise"
 
-    # The live advertised spelling must be accepted against the served param name.
+    # The parameter name is insignificant: the live advertised spelling matches.
     assert _advertised_but_unserved({"/api/lab/engineering/sessions/{id}/execute"}, served) == []
 
-    # The /api spelling of a served route must be accepted too, in both directions.
+    # The prefix is significant in both directions: the *unserved* spelling of a
+    # served route must still be reported, and the served spelling must not be.
+    assert _advertised_but_unserved({"/version"}, served) == ["/version"]
+    assert _advertised_but_unserved({"/knowledge/graph"}, served) == ["/knowledge/graph"]
     assert _advertised_but_unserved({"/api/knowledge/graph"}, served) == []
-    assert _advertised_but_unserved({"/knowledge/graph"}, served) == []
 
     # And a genuinely invented route is still reported -- the normalization must not
     # make the detector trivially true.

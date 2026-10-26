@@ -58,21 +58,22 @@ FAILED tests/test_console_endpoint_registry_contract.py::test_advertised_contrac
 
 The control detects the defect it claims to detect.
 
-## 3. Defect B — the `/api` strip was applied to one side only
+## 3. Defect B — the comparison was decided by the *parameter name*, and the first repair over-corrected
 
-The pre-repair `is_served()` stripped the leading `/api/` from the **advertised** value and
-then compared it against **unstripped** served paths:
+The pre-repair `is_served()` erased `{…}` on the advertised value and compared it against
+an **unstripped** served path:
 
 ```python
 stripped = value[4:] if value.startswith("/api/") else value
-return re.sub(r"\{[^}]*\}", "{}", stripped) in normalized_served   # served side NOT stripped
+return re.sub(r"\{[^}]*\}", "{}", stripped) in normalized_served   # served side NOT normalized
 ```
 
-The normalized forms could therefore never meet for a served `/api/…` route:
+The served side was never normalized, so the two forms could not meet for a route whose
+parameter is spelled differently:
 
 ```
-stripped+normalized : /lab/engineering/sessions/{}/execute
-served normalized   : /api/lab/engineering/sessions/{}/execute
+advertised+normalized : /api/lab/engineering/sessions/{}/execute
+served (unnormalized) : /api/lab/engineering/sessions/{session_id}/execute
 ```
 
 Measured:
@@ -82,21 +83,47 @@ is_served('/api/lab/engineering/sessions/{id}/execute')          = False
 is_served('/api/lab/engineering/sessions/{session_id}/execute')  = True
 ```
 
-Four of the six recorded "drift" entries were this artifact.
+So the real defect is that **the parameter name decided the comparison**. The repair is to
+erase the parameter name on **both** sides.
 
-**Negative control (Control B).** The one-sided strip and the unstripped served set were
-restored into the real file:
+### The first repair's second change was wrong and is reverted here
+
+The first repair also dropped the leading `/api/` from the normalized form, on the stated
+premise that the app "serves the same surface under both spellings — `/health` *and*
+`/api/health`, `/api/version` *and* `/version`". **That premise is false**, measured at
+`main` @ `36f53be2` against `api.main.app.openapi()["paths"]` (288 paths):
+
+| measurement | value |
+|---|---|
+| paths served under **both** `/x` and `/api/x` | **0** |
+| `/api/solspire/*` routes | **0** |
+| `/solspire/*` routes | **116** |
+| `/api/health` served / `/health` served | False / True |
+| `/api/version` served / `/version` served | True / False |
+
+`/api` is a real route-group distinction in this app, not a spelling variant, and there is
+no prefix-stripping middleware. Dropping it makes the detector accept paths the app does
+**not** serve — `/version` and `/knowledge/graph` both normalize to a served route and
+would pass. That is a false-negative class the guard did not have before this PR. The
+prefix is therefore restored as **significant**, and only the parameter name is erased.
+
+**Negative control (Control B).** The first repair's `_normalized_route` (prefix-stripping)
+was restored into the real file and the suite run:
 
 ```
-E  Left contains one more item: '/api/lab/engineering/sessions/{id}/execute'
-FAILED tests/test_console_endpoint_registry_contract.py::test_advertised_contract_strings_are_recorded
-FAILED tests/test_console_endpoint_registry_contract.py::test_advertised_contract_detector_normalizes_both_sides
-2 failed, 18 passed in 1.33s
+E  assert [] == ['/version']
+E    Right contains one more item: '/version'
+FAILED tests/test_console_endpoint_registry_contract.py::test_advertised_contract_detector_normalizes_only_the_parameter_name
+1 failed, 19 passed in 1.22s
 ```
 
-## 4. The recorded set was entirely false
+The control fails on the over-correction and passes on the corrected form, so it pins both
+directions of the defect rather than only the original one.
 
-Under the corrected normalization the complete advertised inventory is:
+## 4. The recorded set was false, but not for the reason first recorded
+
+Under the corrected normalization the complete advertised inventory at `main` @ `36f53be2`
+is five strings, all served:
 
 | advertised string | advertised by | served? |
 |---|---|---|
@@ -106,9 +133,35 @@ Under the corrected normalization the complete advertised inventory is:
 | `/solspire/enterprise/workspaces` | `SolSpirePage.tsx` | yes |
 | `/solspire/voice/events` | `SolSpirePage.tsx` | yes |
 
-`RECORDED_ADVERTISED_DRIFT` is therefore `set()` — measured, not assumed. Every one of the
-six entries it previously held was a detector false positive. A non-empty entry is now a
-real drift rather than a convention, and a new invented string fails immediately.
+`RECORDED_ADVERTISED_DRIFT` is therefore `set()` — measured, not assumed.
+
+The six entries it previously held were false for **two different reasons**, and the first
+repair's evidence doc mis-stated the second:
+
+- **One** (`/api/lab/engineering/sessions/{id}/execute`) is still advertised verbatim at
+  `main` and was a **detector false positive** — the parameter-name defect above. This is
+  the only entry the normalization repair actually resolves.
+- **Five** (`/api/solspire/{workloads,proposals,pulses,voice}` and
+  `/api/solspire/projects/{id}/runtime-context`) were advertised at the revision the set
+  was recorded against (`a29a9b8f`) but **had already been repaired in source** by
+  `68acf89f` (PR #556), which rewrote the `NotYetWired` panels to the real paths
+  (`/solspire/proposals`, `/solspire/workevents`, `/solspire/enterprise/workspaces`,
+  `/solspire/voice/events`). `git log -S'/api/solspire/proposals' -- web/arkadia_console/src/`
+  shows exactly two commits: the scaffold that introduced it (`c081d200`) and the repair
+  that removed it (`68acf89f`).
+
+  These five were **stale recorded entries**, not live drift and not normalization
+  artifacts. The first repair's doc claimed all six were produced by its two detector
+  defects; that is wrong for these five, which no normalization change could have
+  affected. The recorded set is a *floor*, so a stale entry does not by itself make the
+  guard red — but it does make the doc's attribution false, and a false attribution in an
+  evidence record is a defect to correct rather than reconcile.
+
+**Note on measurement depth.** `git log -S` over a shallow clone is not an absence oracle:
+this clone began `--depth 1` (`git rev-list --count HEAD` → 1, `a29a9b8f` unresolvable), so
+the first attempt to date these literals returned "never present in src history" and that
+reading was wrong. After `git fetch --unshallow` (2548 commits) the two-commit history above
+is the measured one. A history-wide claim requires a non-shallow clone.
 
 The `_transport_sources()` domain (`.ts` **and** `.tsx`, less the transport module) is used
 rather than `_tsx_sources()`: the read carries the endpoint contract regardless of file
