@@ -372,13 +372,18 @@ def _reread_canonical_paths(router_text: str) -> list[tuple[str, str, str]]:
     node = shutil.which("node")
     surfaces = _strip_types(SURFACES_PATH.read_text(encoding="utf-8"))
     router = _strip_types(router_text).replace("as const", "")
+    # The alias probes are *derived* from `PATH_ALIASES`, not hand-listed. A
+    # hand-maintained list is how this guard missed `/home/x`: the alias branch
+    # emitted the protocol-relative `//x` (a browser reads that as a *host*, not a
+    # path) while every probed alias read back unchanged, so the detector stayed
+    # green on a live defect. Deriving the probes means a newly declared alias is
+    # judged by the same rule instead of silently escaping it.
+    alias_probes: list[str] = []
+    for alias in sorted(_path_aliases(router_text)):
+        alias_probes += [alias, f"{alias}/x", f"{alias}/x/y"]
     probes = [
-        "/nexus",
-        "/nexus/ims",
-        "/nexus/a/b",
-        "/nexus/a/b/c",
-        "/oracle/x",
-        "/commune/x/y",
+        # Declared-surface and fallback probes, which exercise the section branch
+        # and the `home` fallback rather than the alias branch.
         "/novanet",
         "/novanet/ims",
         "/novanet/a/b",
@@ -387,7 +392,10 @@ def _reread_canonical_paths(router_text: str) -> list[tuple[str, str, str]]:
         "/",
         "/login/",
         "/invented",
-    ]
+        # Deeper than any section, to prove the alias branch bounds the depth.
+        "/nexus/a/b",
+        "/nexus/a/b/c",
+    ] + alias_probes
     script = (
         surfaces
         + "\n"
@@ -704,12 +712,36 @@ def test_detector_flags_a_canonical_path_the_router_does_not_read_back():
     -- must reproduce a non-idempotent canonical path, so the guard above is not
     trivially true."""
     stale = ROUTER.replace(
-        "const section = segments.length === 2 ? segments[1] : undefined;",
+        'const section = segments.length === 2 && base !== "/" ? segments[1] : undefined;',
         'const section = segments.length > 1 ? segments.slice(1).join("/") : undefined;',
     )
     assert stale != ROUTER, "control did not mutate router.ts -- detector unproven"
     offenders = _reread_canonical_paths(stale)
     assert ("/nexus/a/b", "/novanet/a/b", "/") in offenders, offenders
+
+
+def test_detector_flags_a_protocol_relative_path_from_the_alias_branch():
+    """Negative control: the pre-repair shape that emits `//<segment>` for a
+    section on the *root* surface must be reported.
+
+    `home` is declared at `/`, so the old `${base}/${section}` join emitted
+    ``//x`` for `/home/x`. That is not a path: a browser reads a leading `//` as
+    the start of an authority, so `//x` resolves to host ``x``. The read-back
+    guard missed it because every alias it probed belonged to a non-root surface;
+    the probe list is now derived from `PATH_ALIASES` so this shape cannot escape
+    again. This control feeds the detector the exact pre-repair join and asserts
+    the offender is reported.
+    """
+    stale = ROUTER.replace(
+        "return { surface: alias, section, path: routeForSurface(alias, section) };",
+        "return { surface: alias, section, path: section ? `${base}/${section}` : base };",
+    ).replace(
+        "const section = segments.length === 2 && base !== \"/\" ? segments[1] : undefined;",
+        "const section = segments.length === 2 ? segments[1] : undefined;",
+    )
+    assert stale != ROUTER, "control did not mutate router.ts -- detector unproven"
+    offenders = _reread_canonical_paths(stale)
+    assert ("/home/x", "//x", "/") in offenders, offenders
 
 
 def test_detector_flags_an_alias_to_an_undeclared_surface():

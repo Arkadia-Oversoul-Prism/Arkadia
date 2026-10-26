@@ -98,9 +98,16 @@ export function resolvePath(pathname: string): Route {
     // supported depth keeps every returned path one the resolver reads back
     // unchanged — `/nexus/ims` still reaches NovaNet, and the alias branch cannot
     // emit a path the router itself does not understand.
-    const section = segments.length === 2 ? segments[1] : undefined;
+    //
+    // The root surface is the same rule in a second shape. `home` is declared at
+    // `/`, so joining a section to it emits `//<segment>`: a protocol-relative
+    // URL, which a browser reads as a *host*, not a path. Both the join and the
+    // section are therefore delegated to `routeForSurface`, so the alias branch
+    // cannot disagree with the navigation wrapper about which paths are
+    // addressable.
     const base = SURFACE_BY_ID[alias].path;
-    return { surface: alias, section, path: section ? `${base}/${section}` : base };
+    const section = segments.length === 2 && base !== "/" ? segments[1] : undefined;
+    return { surface: alias, section, path: routeForSurface(alias, section) };
   }
 
   const match = path.match(SECTION_PATTERN);
