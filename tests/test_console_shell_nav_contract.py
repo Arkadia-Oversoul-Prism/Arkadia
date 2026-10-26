@@ -758,7 +758,35 @@ def _lens_aliases(text: str) -> dict[str, tuple[str, str]]:
     }
 
 
-def _lens_alias_defects(router_text: str, surfaces_text: str) -> list[str]:
+def _surface_page_modules(app_text: str) -> dict[str, str]:
+    """``surface id -> page module`` from the composition root's switch.
+
+    Derived from ``App.tsx`` rather than restated, so a surface added to the switch
+    is judged by the lens check without a second hand-maintained mapping.
+    """
+    return dict(
+        re.findall(r'case\s+"([^"]+)":\s*return\s+<(\w+)', app_text)
+    )
+
+
+def _declared_lenses(surface: str, app_text: str) -> set[str]:
+    """The lens ids the page module composed for ``surface`` declares.
+
+    A surface with no page module, or whose page declares no ``LENSES`` array,
+    renders no lens at all: it has no ``LENS_IDS`` branch, so *any* section is
+    silently ignored.
+    """
+    module = _surface_page_modules(app_text).get(surface)
+    if not module:
+        return set()
+    page = SRC / "pages" / f"{module}.tsx"
+    if not page.exists():
+        return set()
+    block = re.search(r"const LENSES = \[(.*?)\];", page.read_text(encoding="utf-8"), re.DOTALL)
+    return set(re.findall(r'id: "([^"]+)"', block.group(1))) if block else set()
+
+
+def _lens_alias_defects(router_text: str, surfaces_text: str, app_text: str) -> list[str]:
     """Reasons a declared lens alias would be wrong. Empty == every one is sound.
 
     A lens alias has the same two preconditions as a surface alias (the target
@@ -766,6 +794,12 @@ def _lens_alias_defects(router_text: str, surfaces_text: str) -> list[str]:
     third that is unique to it: the section must name a lens the target surface
     actually renders, or the resolver sends the link to the surface's "not a lens"
     state -- the same silent-loss class in a new shape.
+
+    The third precondition is decided against the target surface's **declared**
+    lens set, not against the surface-id list. Testing membership in ``SurfaceId``
+    only rejects a section that is some *other surface's* id; a section that is
+    neither a surface nor a lens (``codex`` misspelled, or a lens renamed in the
+    page) is a wrong destination too, and the surface-id check cannot see it.
     """
     aliases = _lens_aliases(router_text)
     ids = set(_declared_surface_ids(surfaces_text))
@@ -784,6 +818,11 @@ def _lens_alias_defects(router_text: str, surfaces_text: str) -> list[str]:
                 f"lens alias {path!r} names {section!r} as a section, but that is a "
                 f"surface id, not a lens"
             )
+        elif section and section not in _declared_lenses(surface, app_text):
+            defects.append(
+                f"lens alias {path!r} names {section!r} as a section of {surface!r}, "
+                f"but that surface renders no such lens"
+            )
     return defects
 
 
@@ -801,7 +840,7 @@ def test_legacy_lens_routes_resolve_to_the_lens_they_addressed():
         "no lens alias declared -- if /encyclopedia support was removed, delete this "
         "guard deliberately rather than letting it pass vacuously"
     )
-    assert _lens_alias_defects(ROUTER, SURFACES) == []
+    assert _lens_alias_defects(ROUTER, SURFACES, APP) == []
     for legacy in ("/encyclopedia", "/spiral-codex"):
         assert legacy not in _path_aliases(ROUTER), (
             f"{legacy} addresses a lens, not a surface -- it must not be a PATH_ALIASES entry"
@@ -857,7 +896,7 @@ def test_detector_flags_a_lens_alias_naming_a_surface_as_a_section():
     destination and must be reported, so the soundness detector is not vacuous."""
     broken = ROUTER.replace('section: "codex" }', 'section: "solariun" }', 1)
     assert broken != ROUTER, "control did not mutate router.ts -- detector unproven"
-    defects = _lens_alias_defects(broken, SURFACES)
+    defects = _lens_alias_defects(broken, SURFACES, APP)
     assert any("not a lens" in d for d in defects), defects
 
 
@@ -883,8 +922,41 @@ def test_detector_flags_a_lens_alias_to_an_undeclared_surface():
         1,
     )
     assert broken != ROUTER, "control did not mutate router.ts -- detector unproven"
-    defects = _lens_alias_defects(broken, SURFACES)
+    defects = _lens_alias_defects(broken, SURFACES, APP)
     assert any("undeclared surface" in d for d in defects), defects
+
+
+def test_the_lens_check_is_decided_against_declared_lenses_not_surface_ids():
+    """The section precondition must be decided against the target surface's
+    *declared lens set*.
+
+    Both checks reject `solariun` as a section of `novanet`, so a detector that only
+    tested membership in `SurfaceId` looks correct on that input. The difference is
+    a section that is neither a surface nor a lens: it reaches the page's
+    "not a lens" branch and silently discards the deep link, yet it is invisible to
+    a surface-id check.
+    """
+    assert _lens_alias_defects(ROUTER, SURFACES, APP) == []
+    # The declared set is derived from the composed page module, not restated.
+    assert _declared_lenses("novanet", APP) == {"field", "echoes", "codex", "hub"}
+    assert _declared_lenses("solariun", APP) == {"projects", "knowledge", "memory", "weaver"}
+    # A surface with no lens strip declares none: any section is discarded.
+    assert _declared_lenses("home", APP) == set()
+
+
+def test_detector_flags_a_lens_alias_naming_a_section_the_surface_does_not_render():
+    """Negative control: the pre-fix shape. A section that is neither a surface id
+    nor a declared lens is a wrong destination, and the surface-id check alone is
+    silent on it -- so the control proves the declared-lens check is load-bearing."""
+    broken = ROUTER.replace('section: "codex" }', 'section: "encyclopedia" }', 1)
+    assert broken != ROUTER, "control did not mutate router.ts -- detector unproven"
+    # The section is not a surface id, so the weaker check cannot see it.
+    assert "encyclopedia" not in set(_declared_surface_ids(SURFACES))
+    defects = _lens_alias_defects(broken, SURFACES, APP)
+    assert any("renders no such lens" in d for d in defects), defects
+    # And the defect is real, not merely reported: the link lands on the
+    # surface's "not a lens" state instead of the codex lens.
+    assert _js_route_resolver(broken)["/encyclopedia"] == "/novanet/encyclopedia"
 
 
 # ---------------------------------------------------------------------------
