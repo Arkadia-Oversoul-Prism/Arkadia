@@ -207,3 +207,98 @@ and Render-image jobs) pass and are untouched by a router-only change.
 
 This is a **repository-source** claim: CI proves the guards and the build. It is **not** a
 production observation — the codex lens's served rendering is FU-3, after a merge.
+
+## 10. Pass 2 — the section precondition was decided against the wrong set
+
+### 10.1 The defect
+
+Section 4 introduced `_lens_alias_defects`, whose docstring states the third
+precondition as *"the section must name a lens the target surface actually renders"*.
+The implementation tested membership in `SurfaceId` instead:
+
+```python
+if section in ids:          # ids == the SurfaceId union
+    defects.append("... that is a surface id, not a lens")
+```
+
+That rejects a section naming some **other surface** — the shape section 6 used as its
+control — but it is silent on a section that is neither a surface nor a lens. That is the
+same silent-loss class in a new shape: the resolver emits the deep link, the page has no
+`LENS_IDS` branch for it, and the section is discarded without a trace. The docstring
+promised the check the code did not perform.
+
+### 10.2 Measured on the real file
+
+`web/arkadia_console/src/lib/router.ts`, mutated to `section: "encyclopedia"` (not a
+declared NovaNet lens), then restored byte-identically:
+
+| `section` value | surface-id-only check (pre-repair) | declared-lens check (this commit) |
+|---|---|---|
+| `solariun` (a surface id) | 1 defect | 1 defect |
+| `encyclopedia` (neither) | **`[]` — silent** | 2 defects |
+
+`/encyclopedia` then resolves to `/novanet/encyclopedia`, the page's not-a-lens state.
+
+### 10.3 The repair
+
+`_declared_lenses(surface, app_text)` derives each surface's declared lens set from the
+page module the **composition root composes** — `App.tsx`'s switch gives
+`surface -> page module`, and that module's `LENSES` array gives the ids:
+
+```
+App.tsx  case "novanet": return <NovaNetPage ... />   ->  pages/NovaNetPage.tsx
+         LENSES = [field, echoes, codex, hub]
+```
+
+Derived rather than restated, so a surface added to the switch or a lens renamed in a
+page is judged by the same rule instead of escaping it. A surface with no lens strip (no
+`LENSES` array, or no composed module) declares none, so **any** section is a defect —
+which is correct: it has no `LENS_IDS` branch to honour one.
+
+### 10.4 Verification
+
+| check | result |
+|---|---|
+| `test_console_shell_nav_contract.py` + `test_console_legacy_route_coverage.py` + `test_console_endpoint_registry_contract.py` | **73 passed** (was 71) |
+| derived console-contract gate domain | **815 passed** |
+| architecture fitness | **11 passed** |
+| live negative control on the real `router.ts` | **7 nodes red**; file restored byte-identically |
+| negative control asserts the defect is real, not merely reported | `/encyclopedia` -> `/novanet/encyclopedia` |
+
+Test-side only: `router.ts` is unmodified in this commit. The gate domain already
+includes this file (`scripts/console_contract_domain.py`), so no wiring change is needed.
+
+### 10.5 Composition with the second lane-1 PR (#573)
+
+A prior handoff recorded #573 as docs-only (`AGENTS.md` + evidence). **That is wrong.**
+`gh pr view 573 --json files` returns four paths, two of which are load-bearing:
+
+```
+AGENTS.md
+docs/control-plane/evidence/prism-l1-alias-path-idempotence-01/EVIDENCE.md
+tests/test_console_shell_nav_contract.py     <-- shared with this PR
+web/arkadia_console/src/lib/router.ts        <-- shared with this PR
+```
+
+#573 repairs the protocol-relative join: `path: section ? \`${base}/${section}\` : base`
+emitted `//x` for `/home/x`, because `home` is declared at `/`. A leading `//` is an
+authority, not a path, so the router `replaceState`'d an off-origin URL.
+
+Composed (`git merge pr573` onto this branch, in a detached worktree):
+
+- `router.ts` and the test **auto-merge**; only `AGENTS.md` conflicts — both sides append
+  a section, so the resolution keeps both. Confirmed by measurement, not assumed.
+- Composed gate domain: **816 passed** (815 + #573's own new node).
+- Composed resolver still satisfies FU-1: `/encyclopedia` and `/spiral-codex` ->
+  `/novanet/codex`; `/encyclopedia/x` and `/spiral-codex/a/b` -> `/` (bounded, not a
+  catch-all).
+
+The two repairs are **complementary, not overlapping**. #573 derives its probes from
+`PATH_ALIASES` and fixes the join; the declared-lens check makes a protocol-relative
+*lens* alias unrepresentable in the first place — a `LENS_ALIASES` entry may only target a
+surface that declares the named lens, and a root-declared surface (`home`) declares none,
+so `{ surface: "home", section: "x" }` is rejected before it can emit `//x`. Verified on
+the composed tree.
+
+Neither PR is merged, marked ready, or deployed. Both remain draft, pending sovereign
+review.
