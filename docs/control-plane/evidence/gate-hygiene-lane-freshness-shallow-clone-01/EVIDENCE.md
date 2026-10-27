@@ -255,3 +255,60 @@ standard this repository already applies to `Vercel – arkadia-prism` /
 `Vercel – console`, which are `failure` on `main` itself. The PR's own contract tests (39 +
 51 nodes) and the architecture suite (11) pass, and the freshness defect this PR repairs is
 observably gone from the live output.
+
+---
+
+## §7 — Correction: the liveness oracle had the same gap and failed OPEN (commit `38efd8c4`)
+
+**A claim in this document's PR body was false and is corrected here.** It stated that
+`_liveness_findings` "already carried this guard". It did not. What it carried was the
+**absent-object** branch — a merge commit the clone cannot see *at all* — which reports
+UNKNOWN and does fail closed. That is a different shape from the one this PR's own fixture
+measures, and the false equivalence is exactly what the §5 measurement discipline exists to
+catch.
+
+### The defect, measured
+
+`_liveness_findings` exists to catch a snapshot that still claims a **merged** PR is open.
+On a depth-1 clone it returned **no finding** for precisely that case:
+
+| clone | merge commit present | `--is-ancestor` | liveness verdict |
+|---|---|---|---|
+| depth-1 | `True` | `False` (graft truncates the walk) | **silent — no finding** |
+| full | `True` | `True` | `already an ancestor of HEAD` |
+
+The commit is present as an object, so the absent-object branch does not fire. The graft on
+HEAD truncates the ancestry walk, `not an ancestor` is read as `not merged`, and the stale
+open-claim passes. **Fail-open in the direction the oracle exists to guard.**
+
+### The repair
+
+After the ancestor check fails, split on `clone_is_shallow` and report UNKNOWN, not a pass.
+Both remain findings; only the diagnosis and the instructed repair differ (fetch history vs
+re-measure the lane PRs).
+
+### Red-green proof (the negative control bites)
+
+```
+# fix removed:
+FAILED tests/test_lane_instruction_doc_currency.py::test_liveness_reports_undecidable_for_a_present_but_unwalkable_merge_commit
+E       assert []
+1 failed, 40 passed in 0.67s
+
+# fix restored:
+41 passed in 0.66s
+```
+
+`assert []` *is* the silent pass, reproduced. The positive control proves a full clone still
+names the stale claim, so the shallow branch cannot swallow the finding it exists to catch.
+
+### Scope and standing
+
+- Two files on this PR's own branch: `scripts/lane_state.py`,
+  `tests/test_lane_instruction_doc_currency.py`. `lane-state.json` untouched.
+- `python scripts/lane_state.py --check` → **exit 0** on this tree.
+- The pre-existing live drift (`#508`, `#563`) and the two NOTEs (`#450`, `#428`) are
+  unchanged, owned by #568/#569 and the lane owners, and were **not** repaired here.
+- The `lane-doc-currency` failure on this PR is reproduced on `main` at the same SHA and is
+  therefore not attributable to this PR.
+- No merge, no deploy, no acceptance claimed.
