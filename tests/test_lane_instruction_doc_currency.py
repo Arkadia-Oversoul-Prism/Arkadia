@@ -558,6 +558,116 @@ def test_liveness_reports_undecidable_when_the_clone_lacks_the_commit():
     assert any("UNKNOWN, not a pass" in f for f in findings), findings
 
 
+def _shallow_clone_with_unwalkable_merge_commit(tmp_path):
+    """A depth-1 clone holding a *real merged* commit as an unwalkable object.
+
+    Distinct from :func:`_shallow_clone_with_detached_base`: that fixture models
+    a ``base_main`` whose ancestry is truncated. This one models the *liveness*
+    shape -- a merge commit that git can read (``cat-file`` succeeds, so
+    ``commit_is_present`` is True) but that the graft on HEAD cannot walk to.
+    ``merge-base --is-ancestor`` therefore exits non-zero for a commit that is a
+    true ancestor in the real history, which is the shape that made
+    ``_liveness_findings`` report a merged PR as "not merged" -- a silent pass.
+    """
+    import subprocess
+
+    origin = _scratch_repo(tmp_path / "origin")
+    _commit(origin, "base")
+    subprocess.run(["git", "checkout", "-q", "-b", "merged-branch"], cwd=origin, check=True)
+    (origin / "work.txt").write_text("work\n", encoding="utf-8")
+    _commit(origin, "merged work")
+    subprocess.run(["git", "checkout", "-q", "main"], cwd=origin, check=True)
+    subprocess.run(
+        ["git", "merge", "-q", "--no-ff", "-m", "merge it", "merged-branch"],
+        cwd=origin,
+        check=True,
+    )
+    merge_commit = _head(origin)
+    # A ref that *is* the merge commit, so a depth-1 fetch lands it as a
+    # grafted object -- present, but not reachable by the ancestry walk.
+    subprocess.run(["git", "branch", "merged-tip", merge_commit], cwd=origin, check=True)
+    (origin / "after.txt").write_text("after\n", encoding="utf-8")
+    _commit(origin, "after the merge")
+
+    clone = tmp_path / "shallow"
+    subprocess.run(
+        ["git", "clone", "-q", "--depth", "1", f"file://{origin}", str(clone)],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "fetch", "-q", "--depth", "1", "origin", "merged-tip"],
+        cwd=clone,
+        check=True,
+    )
+    return clone, merge_commit, origin
+
+
+def test_liveness_reports_undecidable_for_a_present_but_unwalkable_merge_commit(tmp_path):
+    """A truncated clone must not score a *merged* PR as still open.
+
+    The fail-open shape: the commit is present, so the existing absent-object
+    guard does not fire; ``merge-base --is-ancestor`` exits non-zero because the
+    graft stops the walk; and a naive reader concludes "not merged" and reports
+    nothing. Measured 2026-10-26 on a depth-1 clone: the oracle returned **no
+    finding** for a stale open-claim on a genuinely merged PR, while the same
+    tree on a full clone reports "already an ancestor of HEAD".
+    """
+    clone, merge_commit, origin = _shallow_clone_with_unwalkable_merge_commit(tmp_path)
+
+    assert guard.clone_is_shallow(repo=clone) is True
+    assert guard.commit_is_present(merge_commit, repo=clone) is True
+    assert guard.is_ancestor_of_head(merge_commit, repo=clone) is False
+    # The negative control's premise: on a full clone this commit *is* an
+    # ancestor, so the truncated verdict is a clone artifact, not a rewrite.
+    assert guard.is_ancestor_of_head(merge_commit, repo=origin) is True
+
+    state = {
+        "schema": "arkadia.lane-state/1.2",
+        "lanes": {
+            "1": {
+                "open_prs": [{"number": 999, "branch": "x", "head_sha": "0" * 40}],
+                "merged_prs": [{"number": 999, "merge_commit_sha": merge_commit}],
+            }
+        },
+    }
+    findings = guard._liveness_findings(state, repo=clone)
+    assert findings, (
+        "a merged PR still claimed open must not pass on a truncated clone"
+    )
+    assert "shallow" in findings[0], findings
+    assert "UNKNOWN, not a pass" in findings[0], findings
+
+
+def test_liveness_still_reports_the_stale_claim_on_a_full_clone(tmp_path):
+    """The positive control: a full clone still names the stale snapshot.
+
+    Without this, the shallow branch could swallow the stale-claim finding
+    entirely -- the guard would be silent on the defect it exists to catch.
+    """
+    clone, merge_commit, origin = _shallow_clone_with_unwalkable_merge_commit(tmp_path)
+
+    import subprocess
+
+    full = tmp_path / "full"
+    subprocess.run(["git", "clone", "-q", f"file://{origin}", str(full)], check=True)
+
+    assert guard.clone_is_shallow(repo=full) is False
+    assert guard.is_ancestor_of_head(merge_commit, repo=full) is True
+
+    state = {
+        "schema": "arkadia.lane-state/1.2",
+        "lanes": {
+            "1": {
+                "open_prs": [{"number": 999, "branch": "x", "head_sha": "0" * 40}],
+                "merged_prs": [{"number": 999, "merge_commit_sha": merge_commit}],
+            }
+        },
+    }
+    findings = guard._liveness_findings(state, repo=full)
+    assert findings and "already an ancestor of HEAD" in findings[0], findings
+    assert "shallow" not in findings[0], findings
+
+
 def test_merge_commit_check_flags_a_bare_pr_number():
     state = copy.deepcopy(live_state())
     state["lanes"]["1"]["merged_prs"] = [429]

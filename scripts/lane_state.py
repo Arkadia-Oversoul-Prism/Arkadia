@@ -262,6 +262,12 @@ def _liveness_findings(state: dict, repo: Path = REPO) -> list[str]:
     doc naming its *previous* merged wave is expected and is judged by the PR
     that owns it -- not by this guard. What lane 1 can and must judge is whether
     the snapshot's own open-PR claims are sound, and that is this function.
+
+    A merge commit that is *present but unwalkable* is split out by
+    :func:`clone_is_shallow`, for the same reason ``_freshness_findings`` splits
+    its non-ancestor branch: on a truncated checkout the graft on HEAD stops the
+    ancestry walk, so a non-ancestor verdict is undecidable rather than a
+    "not merged" pass.
     """
     findings: list[str] = []
     merged = merged_pr_commits(state)
@@ -287,6 +293,22 @@ def _liveness_findings(state: dict, repo: Path = REPO) -> list[str]:
                     f"lane {lane_no}: PR #{number} is recorded as open but its "
                     f"merge commit {commit[:8]} is already an ancestor of HEAD -- "
                     f"the snapshot is stale; re-measure the lane PRs"
+                )
+                continue
+            if clone_is_shallow(repo=repo):
+                # The commit is present but unwalkable: the graft on HEAD stops
+                # the ancestry walk, so "not an ancestor" here does not mean
+                # "not merged". Scoring it as *not* merged is a silent pass in
+                # exactly the direction this oracle exists to catch -- a
+                # snapshot still claiming a merged PR is open would go
+                # unreported. Fail closed instead; the diagnosis is the same
+                # split :func:`_freshness_findings` makes, for the same reason.
+                findings.append(
+                    f"lane {lane_no}: PR #{number} cannot be adjudicated -- merge "
+                    f"commit {commit[:8]} is in this clone but this is a *shallow* "
+                    f"checkout, whose graft truncates the ancestry walk; liveness "
+                    f"is UNKNOWN, not a pass -- re-run from a full clone "
+                    f"(fetch-depth: 0 / git fetch --unshallow)"
                 )
     return findings
 
