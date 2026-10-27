@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Arkadia-Oversoul-Prism/Arkadia
-          ref: fa34301c2c02e2579b054e40858eca02c16cd149
+          ref: 36f53be22d753ffe269f05cbf3fb39212f744207
           path: source
           fetch-depth: 0
 
@@ -107,7 +107,7 @@ jobs:
       - name: Upload metrics and provenance
         uses: actions/upload-artifact@v4
         with:
-          name: arkadia-human-edge-metrics-fa34301
+          name: arkadia-human-edge-metrics-36f53be
           path: |
             candidate-revision.txt
             file-extension-inventory.txt
