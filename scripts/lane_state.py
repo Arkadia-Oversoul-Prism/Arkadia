@@ -708,9 +708,17 @@ def _disposition_findings(state: dict) -> list[str]:
     return findings
 
 
-def current_lanes(state: dict) -> list[str]:
+def current_lanes(state: dict, invert: bool = False) -> list[str]:
+    """Lane numbers whose doc this guard judges.
+
+    ``invert`` returns the complement -- the deferred lanes, which
+    :func:`deferred_branch_findings` judges for the property
+    :func:`check_lane_docs` cannot reach.
+    """
     return [
-        n for n in _lane_numbers(state) if state["lanes"][n].get("doc_guard") == "current"
+        n
+        for n in _lane_numbers(state)
+        if (state["lanes"][n].get("doc_guard") != "current") is invert
     ]
 
 
@@ -765,6 +773,49 @@ def check_lane_docs(
     return findings
 
 
+def deferred_branch_findings(
+    state: dict, lane_dir: Path = LANE_DIR, lanes: list[str] | None = None
+) -> list[str]:
+    """Branch/head agreement for lanes ``check_lane_docs`` does not judge.
+
+    A deferred lane's doc is mid-repair on its own open PR, so ``check_lane_docs``
+    excludes it by design. That exclusion is correct for the *snapshot-agreement*
+    property, but it silently dropped the branch/head agreement check as well:
+    measured, a deferred lane whose doc declares a branch its PR does not head was
+    reported by nobody. ``_declared_pointer_findings`` covers pointer *liveness*,
+    not branch agreement, so the two are disjoint and this closes the remainder.
+
+    Scoped to the case where the declared PR is **live in the snapshot**. When it
+    is not, the pointer itself is already the finding (and is reported advisory
+    today), so blocking here would duplicate a pre-existing signal rather than
+    close a hole. Measured against the live snapshot at ``36f53be2``: zero new
+    findings, because both deferred lanes point at dead threads -- the branch
+    comparison is only meaningful once the pointer is live.
+    """
+    findings: list[str] = []
+    open_prs = _pr_index(state)
+    selected = _lane_numbers(state) if lanes is None else lanes
+    for lane_no in selected:
+        if lane_no not in state["lanes"] or lane_no in current_lanes(state):
+            continue  # already judged by check_lane_docs
+        lane = state["lanes"][lane_no]
+        doc = lane_dir / lane["doc"]
+        if not doc.exists():
+            continue
+        text = doc.read_text(encoding="utf-8")
+        pr = declared_pr(text)
+        if pr is None or pr not in open_prs:
+            continue  # pointer not live: reported by _declared_pointer_findings
+        branch = declared_branch(text)
+        expected = open_prs[pr]["branch"]
+        if branch != expected:
+            findings.append(
+                f"lane {lane_no} ({lane['doc']}): declares branch `{branch}` "
+                f"but PR #{pr} heads `{expected}`"
+            )
+    return findings
+
+
 def freshness_text(state: dict, base_main: str | None) -> str:
     if base_main is None:
         return f"base main: {state['base_main']} (current: unknown -- not resolvable)"
@@ -804,6 +855,9 @@ def main(argv: list[str] | None = None) -> int:
     findings += _merge_commit_findings(state)
     findings += _freshness_findings(state, base_main)
     findings += check_lane_docs(state, lanes=current_lanes(state))
+    # A deferred lane's doc is excluded above by design, which also excluded its
+    # branch/head agreement check -- judged by nobody until this ran.
+    findings += deferred_branch_findings(state, lanes=current_lanes(state, invert=True))
     findings += _liveness_findings(state)
 
     if args.verify_live:
