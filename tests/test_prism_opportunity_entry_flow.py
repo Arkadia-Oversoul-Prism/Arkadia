@@ -1044,13 +1044,15 @@ def test_strip_counts_every_entry_including_terminal_outcomes(contract_probe):
 
 
 def test_strip_states_the_off_vocabulary_stray_instead_of_dropping_it(contract_probe):
-    """MEASURED DEFECT 3 makes a status outside the vocabulary persistable.
+    """A pre-repair row outside the vocabulary stays countable.
 
-    `byStatus` is keyed on the declared tuple, so such an entry has no column. Left
-    unreported the counts silently fail to total; the summary carries the stray and
-    the surface says so. This is the same defect pinned (not repaired) by
-    `test_update_does_not_normalize_a_lowercase_status` — here the *display* is
-    measured, not the backend.
+    The write path was repaired at `8f4a6ea0`: `update_entry` now normalizes before
+    persisting, so the API can no longer *create* such a row (pinned by
+    `test_update_normalizes_a_lowercase_status`). Rows written before that repair
+    remain, and the repair migrated none of them. `byStatus` is keyed on the declared
+    tuple, so such a row has no column: left unreported the counts silently fail to
+    total. The summary carries the stray and the surface says so — here the
+    *display* of a legacy row is measured, not the backend write.
     """
     mixed = contract_probe["summary_mixed"]
     assert mixed["offVocabulary"] == 1
@@ -1312,9 +1314,10 @@ def test_surface_strip_asserts_no_execution_authority():
 def test_seeding_an_edit_carries_an_off_vocabulary_status_verbatim(contract_probe):
     """The edit control shows the status the entry actually has.
 
-    An entry can carry a status outside the declared vocabulary (MEASURED DEFECT 3,
-    pinned above). Snapping it to `UNCONTACTED` on seed displayed a status the entry
-    does not hold; the draft must carry the stored value instead.
+    An entry written before the `8f4a6ea0` normalization repair can carry a status
+    outside the declared vocabulary (see the display case above). Snapping it to
+    `UNCONTACTED` on seed displayed a status the entry does not hold; the draft must
+    carry the stored value instead.
     """
     assert contract_probe["off_seed_status"] == "conversation"
     assert contract_probe["off_seed_status"] not in buyer_recon.STATUSES
@@ -1416,3 +1419,81 @@ def test_surface_renders_a_recorded_note_gated_on_its_presence():
     assert "opportunity-entry-notes-" in surface, "the note must be identifiable per entry"
     # It reads the field off the entry the board read returned, not a re-typed copy.
     assert "{entry.notes}" in surface
+
+
+# ---------------------------------------------------------------------------
+# Citation integrity — a repaired defect must not stay cited as live
+# ---------------------------------------------------------------------------
+
+# The stale form this guard exists to catch: an identifier naming the buyer-recon
+# status defect next to a token claiming it is still live. Both halves are built by
+# concatenation so the guard's own prose cannot satisfy or trip its own detector.
+_DEFECT_ID = "MEASURED " + "DEFECT" + " 3"
+_STALE_TOKENS = ("not repaired", "unrepaired", "open,", "(open")
+
+DEFECT_3_SURFACES = (
+    CONTRACT_TS,
+    FORM_TS,
+    SURFACE_TS,
+    ROOT / "docs/control-plane/parallel-ui/AGENT-02-NOVANET-OPPORTUNITY.md",
+    ROOT / "docs/control-plane/evidence/lane2-defect3-citation-integrity-01/EVIDENCE.md",
+    Path(__file__),
+)
+
+_WINDOW = 3
+
+
+def find_live_defect_citation(text: str) -> list[int]:
+    """Line numbers where the identifier and a still-live claim sit within `_WINDOW` lines.
+
+    Window-scoped rather than single-line: the measured stale form wrapped across two
+    lines in `AGENT-02` (identifier on one, the claim on the next), so a line-scoped
+    detector would have missed the very instance it was written for.
+    """
+    lines = text.splitlines()
+    hits: list[int] = []
+    for i, line in enumerate(lines):
+        if _DEFECT_ID not in line:
+            continue
+        window = " ".join(lines[i:i + _WINDOW]).lower()
+        if any(token in window for token in _STALE_TOKENS):
+            hits.append(i + 1)
+    return hits
+
+
+def test_no_surface_still_cites_the_repaired_defect_as_live():
+    """The `8f4a6ea0` repair must not be contradicted by a citation that outlived it.
+
+    Three surfaces kept asserting this defect was live for twelve days after it was
+    repaired, and one named a pinning test that has never existed in the repository.
+    This asserts the class over every surface that carried the claim, so a future edit
+    that restores the stale wording fails here instead of misleading the next agent.
+    """
+    for path in DEFECT_3_SURFACES:
+        hits = find_live_defect_citation(path.read_text(encoding="utf-8"))
+        assert hits == [], f"{path.name} still carries a live citation at line(s) {hits}"
+
+
+def test_negative_control_the_detector_flags_the_stale_form():
+    """Prove the detector bites: feed it the exact pre-correction form.
+
+    Without this the guard could pass because it matches nothing at all — the failure
+    mode of every source-level assertion, and the reason a passing guard is not by
+    itself evidence that it measures anything.
+    """
+    stale = (
+        "- **" + _DEFECT_ID + " in `solspire/buyer_recon.py` (open, not repaired):**\n"
+        "  `BuyerReconManager.update_entry` validates `status.upper()` then persists\n"
+    )
+    assert find_live_defect_citation(stale) != [], (
+        "the detector must flag the measured stale form"
+    )
+
+
+def test_positive_control_the_repaired_form_is_not_flagged():
+    """The corrected wording must pass, so the guard is not satisfied by silence alone."""
+    repaired = (
+        "- **" + _DEFECT_ID + " in `solspire/buyer_recon.py` — REPAIRED at `8f4a6ea0`\n"
+        "  (2026-10-15). This bullet asserted the defect was still live until 2026-10-27.**\n"
+    )
+    assert find_live_defect_citation(repaired) == []

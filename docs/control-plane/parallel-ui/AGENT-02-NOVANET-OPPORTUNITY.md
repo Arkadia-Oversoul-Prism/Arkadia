@@ -34,12 +34,20 @@ Measured backend facts worth keeping (do not re-derive):
   `fb78c700` via `SETTABLE_STATUSES` (through `READY_TO_EXECUTE`), enforced in the
   body builders and not only in the option list. Do not re-widen it; see
   `EVIDENCE.md` §3a.
-- **MEASURED DEFECT 3 in `solspire/buyer_recon.py` (open, not repaired):**
-  `BuyerReconManager.update_entry` validates `status.upper()` then persists the
-  original value, so `PATCH {"status": "conversation"}` answers `200` and stores a
-  status outside the declared vocabulary. `create_entry` normalizes; `update_entry`
-  does not. Pinned by `test_update_does_not_normalize_a_lowercase_status`. Repair
-  needs its own authorization (`SHARED-CONTRACTS` §1/§7.1).
+- **MEASURED DEFECT 3 in `solspire/buyer_recon.py` — REPAIRED at `8f4a6ea0`
+  (2026-10-15).** This bullet asserted the defect was still live until 2026-10-27;
+  that assertion was stale, and it is corrected here rather than deleted.
+  `update_entry` used to validate `status.upper()` and then persist the value it was
+  sent, so `PATCH {"status": "conversation"}` answered `200` and stored a status
+  outside the declared vocabulary; `create_entry` normalized and `update_entry` did
+  not. The repair normalizes into a local mapping before the write, so the API can no
+  longer create such a row. The pinning test this bullet named,
+  `test_update_does_not_normalize_a_lowercase_status`, **does not exist in the
+  repository** (`grep -rn` over `tests/` → 0 matches) and never did; the repair
+  carries `test_update_normalizes_a_lowercase_status` plus a create-path control.
+  Rows written before the repair were **not** migrated, which is why the client still
+  counts an off-vocabulary status rather than assuming none can exist
+  (`opportunityRadarContract.ts`). Do not cite this defect as open.
 - A blank `prospect` is refused on **create** (`400 prospect is required`) but
   **accepted on edit** (`200`, and it blanks the stored value). The edit body
   therefore omits `prospect` unless supplied.
@@ -238,3 +246,63 @@ handoff, and editing those docs from this workstream would be a scope violation.
 **Next bounded task on this lane:** wire the reaction write path
 (`POST /api/transmissions/{id}/react`, verified handler) with a negative control
 proving the client offers it only where the backend accepts it.
+
+## Lane continuity — 2026-10-27 (a repaired defect was still cited as live on three surfaces)
+
+**Slice record, not the lane header.** The lane's Active branch/PR pointer is owned by
+[#564](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/564); this section records one
+bounded slice of lane 2 and deliberately does not restate or contest that pointer. Two
+surfaces claiming to be "the" active PR is the drift class this workstream exists to remove.
+**Slice branch:** `gate10/lane2-defect3-citation-integrity-01`
+**Slice PR:** [#576](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/576) — draft.
+**Base revision:** `36f53be22d753ffe269f05cbf3fb39212f744207` (measured live 2026-10-25; every
+earlier base recorded above is superseded).
+**Task:** citation integrity — stop the lane's own contract surfaces from asserting a
+defect that was repaired twelve days earlier.
+
+**The defect, measured not inferred.** `8f4a6ea0` (2026-10-15) repaired MEASURED DEFECT 3
+(`update_entry` now normalizes the status before persisting). Three surfaces kept the
+pre-repair claim:
+
+- this document's own §"MEASURED DEFECT 3" bullet, which asserted the defect was still live
+  (its exact wording is preserved in git history at `36f53be2`; it is not pasted here, because
+  a verbatim quote is indistinguishable from the claim itself and the guard below cannot tell
+  them apart — the same reason `AGENTS.md` describes corrupt sequences by codepoint);
+- `web/arkadia_console/src/components/opportunities/opportunityRadarContract.ts`, whose
+  `offVocabulary` doc-comment asserted the backend "writes the value it was sent";
+- `tests/test_prism_opportunity_entry_flow.py`, in two docstrings.
+
+The bullet also named a pinning test, `test_update_does_not_normalize_a_lowercase_status`,
+that **does not exist in the repository** — `grep -rn` over `tests/` returns 0 matches, and
+`git log -S` over the file's history never contained it. The repair in fact carries
+`test_update_normalizes_a_lowercase_status` (line 919) plus a create-path control at 992.
+
+**Why the client counter stays.** The repair migrated no existing row, so a row written
+before `8f4a6ea0` can still carry an off-vocabulary status. `byStatus` is keyed on the
+declared tuple, so such a row has no column and would silently fail to total. The
+`offVocabulary` counter and the two seeding tests therefore remain load-bearing — the
+*premise* was wrong, not the capability. This is the distinction the stale citations erased.
+
+**Repair.** Correct the three surfaces, and pin the class with a guard in
+`tests/test_prism_opportunity_entry_flow.py`:
+`find_live_defect_citation` is **window-scoped** (3 lines) rather than line-scoped, because
+the measured stale form in this document wrapped the identifier and the claim onto separate
+lines — a line-scoped detector would have missed the instance it was written for. The
+identifier and the stale tokens are built by concatenation so the guard's own prose can
+neither satisfy nor trip its detector. `test_no_surface_still_cites_the_repaired_defect_as_live`
+runs it over all five surfaces; a **negative control** feeds the verbatim pre-correction form
+and a **positive control** feeds the repaired form, so the guard is not satisfied by silence.
+
+**Measured at this head** (base `36f53be2`): entry-flow file **91 passed** (was 88);
+console-contract derived domain **51 guard files**; wiring **30 passed**; architecture
+**11/11**; console build clean (`dist/assets/index-Ct9LTJ1F.js`). Live negative control: this
+document mutated back to the stale form reddened the guard (`1 failed`), then restored
+byte-identically (`1 passed`). `scripts/lane_state.py --check` is **exit 0 on both** the
+pristine and the edited tree — this slice is gate-neutral and does not touch the snapshot
+staleness that `#568`/`#569` own.
+
+**Not in scope, recorded:** `GET /api/echoes` (`api/main.py::echoes_feed`) still takes no
+`limit`/`offset`, so the public-echoes remainder is genuinely unreachable. That is a backend
+contract proposal, not a UI slice, and it is unchanged by this pass.
+
+**Disposition:** draft; no merge, deployment, or acceptance.

@@ -241,11 +241,13 @@ export interface OpportunitySummary {
   /**
    * Entries whose stored status is outside `BUYER_RECON_STATUSES`.
    *
-   * The backend can persist one: `update_entry` validates `status.upper()` but
-   * writes the value it was sent (`solspire/buyer_recon.py`, MEASURED DEFECT 3).
-   * `byStatus` is keyed on the declared tuple, so such an entry has no column —
-   * it would silently vanish from a per-status strip and the counts would not
-   * total. This carries it so the display can say so instead of under-reporting.
+   * The backend no longer persists one through the API: `update_entry` normalizes
+   * the status to upper case before the write, repaired at `8f4a6ea0`
+   * (`solspire/buyer_recon.py`). A row written *before* that repair still carries
+   * one — the repair migrated no existing row — so the counter stays. `byStatus` is
+   * keyed on the declared tuple, so such an entry has no column: it would silently
+   * vanish from a per-status strip and the counts would not total. This carries it
+   * so the display can say so instead of under-reporting.
    */
   offVocabulary: number;
 }
