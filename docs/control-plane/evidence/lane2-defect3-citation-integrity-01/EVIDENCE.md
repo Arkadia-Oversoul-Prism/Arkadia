@@ -121,3 +121,27 @@ both of which modify `lane-state.json`; it is recorded here, not executed here.
 ## 8. Authorization
 
 Human merge authority is final. This is a draft; nothing here is merged, deployed, or accepted.
+
+## 9. Which open PR actually clears the red lane gate — measured, not inferred
+
+Two open PRs both modify `lane-state.json`, and only one of them clears the gate. Measured by
+substituting each PR's snapshot into this tree and running the CI command
+(`scripts/lane_state.py --check --verify-live`):
+
+| Snapshot substituted | Exit | Remaining DRIFT |
+|---|---|---|
+| `main` `36f53be2` (unmodified) | **1** | #508, #563 |
+| `#569` `lane-state-refresh-01` | **1** | **#508** |
+| `#568` `lane-guard-fixed-scope-01` | **0** | none |
+
+`#569` refreshes the snapshot but **still lists #508 as open** (it was closed unmerged at
+15:23:41Z, and the refresh re-derived before that), so merging `#569` alone leaves the gate red.
+`#568` removes both stale entries and is the snapshot that actually clears it.
+
+This is a composition fact neither PR can observe alone, and it is the same class recorded in
+`#564`'s slice: a per-PR gate cannot see a cross-PR outcome. Recorded here; the repair is not
+performed here, and `lane-state.json` is untouched by this slice (`git diff HEAD --stat` → 0 lines).
+
+**Useful consequence for lane 2:** with `#568`'s snapshot in place, this branch's `AGENT-02` edits
+still verify — the run reports `lane instruction docs consistent with snapshot (2 guarded lanes)`.
+The slice is compatible with the snapshot that clears the gate.
