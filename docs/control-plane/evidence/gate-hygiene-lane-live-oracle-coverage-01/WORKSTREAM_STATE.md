@@ -59,13 +59,55 @@ No open lane-state PR supplies it (`git grep -l "_pr_state_findings("` empty for
 Baseline measured in this pass, not inherited. `+6 passed` = exactly the six added nodes.
 No existing node changed state. No test pins a node count for this file.
 
+## Slice 2 — the read that feeds the oracle (pass 2)
+
+Measured at branch head `ab5be5e7`, advanced to `eb99f38e`.
+
+Slice 1 covered the **decide** half (`_pr_state_findings`). The **read** half had zero
+coverage: `grep -n "fetch_pr_records\|_github_token" tests/ --include=*.py` → **0** hits,
+on this branch head and on `main`. The decision table was therefore judged on a record set
+no test ever built through the code path that produces it.
+
+The class is the silent-pass shape one layer out, and `fetch_pr_records`'s own docstring
+names it: a read degrading to *empty-but-successful* "would look identical to 'no PRs
+exist' and pass every claim". Nine controls appended to the same single test file
+(non-200 / raised `HTTPError` / transport-by-type / malformed body / absent credential /
+credential hygiene / partial-read dominance, plus a positive control for the authorised
+GET-dedupe-sorted walk and a negative control requiring the five failure modes to remain
+distinct messages). `scripts/lane_state.py` byte-identical afterwards.
+
+Measured: slice-1 baseline **55 passed** → **64 passed** (+9 = exactly the added nodes).
+Architecture **11 passed**. `--check` exit 0; `--verify-live` exit 1 with 2 DRIFT + 2 NOTE,
+identical to `main`. CP10 mutation-boundary judge on the touched path → exit 0, PASS.
+
+Negative controls (guard mutated, run, restored byte-identically):
+no-token → `({}, None)` and transport/parse → `(records, None)` ⇒ **4 failed, 48 passed**;
+`sorted(set(numbers))` → `numbers` ⇒ **1 failed, 51 passed**.
+
+Regression: full-suite FAILED/ERROR node set **identical** to `main` `36f53be2` measured in
+the same environment (`diff` → empty), node-set sha256
+`c280ddc616fe4f4e9110bf4e6b6e538783a83d3764148d8a6d7ac45f6e8bc46b`.
+
+### Inherited gate failure — measured, not caused by this diff
+
+At `eb99f38e` the `lane-doc-currency` job runs four steps: three pass (the currency guard,
+the wiring guard, and the guard-as-the-gate-executes-it) and only
+`Verify lane PR state against GitHub (authoritative oracle)` fails. That step is red on
+`main` `36f53be2` for the same reason: the snapshot claims **#508** (lane 4) and **#563**
+(lane 3) open while both are closed without merging. This diff touches no file the gate
+reads (`scripts/lane_state.py` untouched; `tests/` and `docs/control-plane/evidence/` are
+not guarded paths), so the gate's verdict is invariant across it. Re-pointing lanes 3/4 and
+refreshing the snapshot is lane-owned work — **recorded here, not performed**.
+
 ## Blockers / dependencies
 
 None. `gh` auth verified working this pass (`gh api user` → 200).
 
 ## Next permitted action
 
-Sovereign review of #576. Merge is sovereign-only. No further work inside this PR.
+Sovereign review of #576 at head `eb99f38e`. Merge is sovereign-only. No further work
+inside this PR. The lane-doc-currency red is inherited from `main` and is lane-owned;
+it is recorded, not repaired here.
 
 ## Forbidden actions
 
