@@ -254,7 +254,7 @@ proving the client offers it only where the backend accepts it.
 bounded slice of lane 2 and deliberately does not restate or contest that pointer. Two
 surfaces claiming to be "the" active PR is the drift class this workstream exists to remove.
 **Slice branch:** `gate10/lane2-defect3-citation-integrity-01`
-**Slice PR:** [#576](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/576) — draft.
+**Slice PR:** [#575](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/575) — draft.
 **Base revision:** `36f53be22d753ffe269f05cbf3fb39212f744207` (measured live 2026-10-25; every
 earlier base recorded above is superseded).
 **Task:** citation integrity — stop the lane's own contract surfaces from asserting a
