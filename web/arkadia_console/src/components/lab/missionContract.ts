@@ -201,3 +201,50 @@ export function getSessionView(sessionId: string): Promise<LabSessionView> {
  * rather than inventing a project binding it cannot verify.
  */
 export const MISSION_WORKSPACE_REF = "workspace:engineering-lab-mission";
+
+/**
+ * The session id a mission workspace may offer to resume, per operator.
+ *
+ * Measured constraint: the substrate **retains** a session across a page
+ * reload (a fresh token for the same uid reads it back; a different uid gets
+ * `404`), but nothing *reads an authorization back* — `GET
+ * /sessions/{id}/authorize` is `405`, there is no `/authorizations` route, and
+ * the session view carries only `authorization_ref`, not the record. A resumed
+ * workspace therefore restores the session and the substrate's own events, and
+ * re-reads state from the server; it must never reconstruct an authorization
+ * object from a stored id, because it cannot know the original
+ * `originated_by` / `operations_allowed` / duration.
+ *
+ * Scoped by uid so a shared browser cannot offer one operator's session to
+ * another. This is a convenience hint only: the server is the authority, and a
+ * stale or foreign id is refused with `404` on read.
+ */
+const RESUME_KEY = "arkadia_engineering_lab_mission_session";
+
+function resumeKey(uid: string): string {
+  return `${RESUME_KEY}:${uid}`;
+}
+
+export function rememberMissionSession(uid: string, sessionId: string): void {
+  try {
+    window.localStorage.setItem(resumeKey(uid), sessionId);
+  } catch {
+    /* storage unavailable — resume is a convenience, never a requirement */
+  }
+}
+
+export function forgetMissionSession(uid: string): void {
+  try {
+    window.localStorage.removeItem(resumeKey(uid));
+  } catch {
+    /* see above */
+  }
+}
+
+export function recallMissionSession(uid: string): string | null {
+  try {
+    return window.localStorage.getItem(resumeKey(uid));
+  } catch {
+    return null;
+  }
+}

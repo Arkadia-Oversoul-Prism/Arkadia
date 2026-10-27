@@ -23,7 +23,14 @@ step calls the real backend and renders the real response.
 | `web/arkadia_console/src/components/lab/missionContract.ts` | new — the served request/response shapes |
 | `web/arkadia_console/src/components/lab/MissionWorkspace.tsx` | new — the surface |
 | `web/arkadia_console/src/pages/EngineeringLabPage.tsx` | mounts `<MissionWorkspace />`, restores the `NotYetWired` panel |
-| `tests/test_lab_mission_workspace_contract.py` | new — 9 contract tests |
+| `tests/test_lab_mission_workspace_contract.py` | new — 14 contract tests (9 lifecycle + 5 resume) |
+
+Second slice (2026-10-27, §6.2) — resume across a reload:
+
+| Path | Change |
+|---|---|
+| `components/lab/missionContract.ts` | +`rememberMissionSession` / `forgetMissionSession` / `recallMissionSession`, uid-scoped |
+| `components/lab/MissionWorkspace.tsx` | mount-confirmed resume offer; gates read `session.authorization_ref` |
 
 The lifecycle is exposed as five explicit steps, not one "run" button, because
 authorization is a human decision rather than a side effect of creating work:
@@ -259,6 +266,60 @@ Two nodes named in §6 no longer exist under those names in the current environm
 (`test_engineering_lab_api.py::test_public_authority_endpoints_are_dispositioned` and
 `test_engineering_lab_api.py::test_lab_router_is_read_only_and_authenticated` appear in one
 measurement and not the other); the node-set hash above is the authoritative comparison.
+
+## 6.2 Resume across a reload — second slice (2026-10-27)
+
+The first slice held its entire state in `useState`, so a page reload presented a
+blank form while the substrate still held a live mission. Three facts were
+measured against the running backend before any code was written, because each
+one constrains what a resume is allowed to do:
+
+| Claim | Measurement |
+|---|---|
+| a retained session survives a new client | same uid, **new token** → `200`, `READY_FOR_REVIEW`, 1 run, 13 events |
+| a different operator is refused | different uid → **`404 session not found`** |
+| a resumed session at the boundary cannot run again | re-execute → **`400 session must be AUTHORIZED or QUEUED to execute (currently READY_FOR_REVIEW); SESSION != AUTHORIZATION`**, runs still 1 |
+| an authorization cannot be read back | `GET …/{id}/authorize` → **`405`**; `GET /authorizations` → **`404`**; session view has no `authorization` key; only `authorization_ref` survives |
+
+The third and fourth rows are the load-bearing ones. Resume therefore restores
+the session, its state and the substrate's own events **from the server**, and
+deliberately does **not** restore an authorization: the original `originated_by`,
+`operations_allowed` and duration are unknowable, so reconstructing the object
+would assert `originated_by: "human"` on evidence the surface does not have —
+inventing the exact claim the substrate exists to keep.
+
+### 6.2.1 A defect in this slice's own first cut
+
+`canAttempt` / `canAuthorize` were keyed off the local `authorization` object. A
+resumed session carries `authorization_ref` while that object is empty, so
+**step 3 would have executed successfully** and the surface would have reported
+`BOUNDARY NOT ENFORCED` — a false alarm about a gate that held. That is worse
+than a missed check: it destroys the operator's trust in the one signal that
+matters. The gates now read `session?.authorization_ref`, i.e. the substrate's
+own statement. Recorded rather than quietly fixed.
+
+### 6.2.2 Verification
+
+```
+tests/test_lab_mission_workspace_contract.py     9 -> 14 passed
+console-contract domain (52 files, derived)      820 passed
+```
+
+Negative controls, planted into the **real** file and reverted byte-identically:
+
+| Planted defect | Result |
+|---|---|
+| reconstruct an authorization in `onResume` | `2 failed` (the contract test **and** its own control) |
+| revert `canAttempt` to the local `authorization` object | `1 failed` |
+| restored | `14 passed` |
+
+Regression, same branch, same environment, before and after:
+
+```
+pre-resume : 15 failed / 3446 passed   16 nodes  8ecf24ab…
+post-resume: 15 failed / 3451 passed   16 nodes  8ecf24ab…
+NEW: NONE      GONE: NONE      collect: 3490 -> 3495 = +5 == the new tests
+```
 
 ## 7. Not claimed
 

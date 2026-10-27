@@ -77,9 +77,15 @@ def test_execute_is_gated_by_a_separate_authorization_call():
 
     workspace = _read(WORKSPACE)
     # The execute button is enabled only when an authorization is present.
-    assert re.search(r"const canExecute = Boolean\(session && authorization\)", workspace), (
+    # "Present" means the SUBSTRATE reports one (`session.authorization_ref`),
+    # not that this component recorded one locally: a resumed session carries
+    # the reference while the local object is empty, and gating on the local
+    # object would let step 3 succeed and raise a false BOUNDARY NOT ENFORCED.
+    assert re.search(r"const canExecute = Boolean\(session\) && sessionAuthorized", workspace), (
         "execution must require a recorded authorization"
     )
+    assert "sessionAuthorized" in workspace
+    assert "session?.authorization_ref" in workspace
     # And an explicit pre-approval attempt exists, so the gate is observable.
     assert "onExecuteUnauthorized" in workspace
     assert "Attempt before approval" in workspace
@@ -259,3 +265,167 @@ def _function_body(source: str, brace_at: int) -> str | None:
             if depth == 0:
                 return source[brace_at : i + 1]
     return None
+
+
+# -- resume across a reload ---------------------------------------------------
+
+
+def test_resume_never_reconstructs_an_authorization():
+    """A resumed session must not fabricate an authorization record.
+
+    Measured against the running backend: no served route reads an
+    authorization back. `GET /sessions/{id}/authorize` is `405`, there is no
+    `/authorizations` collection (`404`), and the session view carries only
+    `authorization_ref` — not the record. The original `originated_by`,
+    `operations_allowed`, and duration are therefore unknowable client-side.
+
+    A surface that rebuilt an `LabAuthorization` from the stored id would be
+    asserting `originated_by: "human"` on evidence it does not have — inventing
+    the very claim the substrate exists to keep. Resume must read the session
+    and its state from the server and leave the authorization absent.
+    """
+    workspace = _read(WORKSPACE)
+    contract = _read(CONTRACT)
+
+    # The resume handler must not set an authorization.
+    body = _resume_handler_body(workspace)
+    assert body is not None, "the resume handler must exist"
+    assert "setAuthorization" not in body, (
+        "resume must not reconstruct an authorization; no route can read one back"
+    )
+    assert "setSession" in body and "getSessionView" in body, (
+        "resume must re-read the session from the server"
+    )
+
+    # And the client must not offer an authorization accessor at all.
+    assert "getAuthorization" not in contract, (
+        "there is no served authorization read; a client accessor would be a fabrication"
+    )
+    # The session view is the only source of authorization *identity*.
+    assert "authorization_ref" in contract
+
+
+def test_resume_does_not_treat_a_stored_id_as_authority():
+    """A stored id is a hint. It must be confirmed by a real read.
+
+    The id lives in localStorage, which any script on the origin can write. If
+    the surface adopted it without a read, a forged id would present as a live
+    mission. The mount effect must confirm it and discard it on failure.
+    """
+    workspace = _read(WORKSPACE)
+    effect = _resume_effect_body(workspace)
+    assert effect is not None, "the mount effect must exist"
+    assert "getSessionView" in effect, "the retained id must be confirmed by a real read"
+    assert "forgetMissionSession" in effect, (
+        "an unconfirmable id must be discarded, not left to offer a mission that is not there"
+    )
+    # The offer is held separately from the live session.
+    assert "resumable" in workspace
+    assert re.search(r"setResumable\(view\.session\.session_id\)", workspace), (
+        "the offer must be set from the server's own session, not from storage"
+    )
+
+
+def test_authorized_state_is_read_from_the_substrate_not_local_state():
+    """The gates must ask the substrate whether an authorization exists.
+
+    Measured defect in this slice's own first cut: `canAttempt`/`canAuthorize`
+    were keyed off the local `authorization` object. A resumed session carries
+    `authorization_ref` while that object is empty, so step 3 would have
+    *succeeded* and the surface would have reported "BOUNDARY NOT ENFORCED" —
+    a false alarm about a gate that held, which is worse than a missed check
+    because it destroys the operator's trust in the one signal that matters.
+    """
+    workspace = _read(WORKSPACE)
+    assert "sessionAuthorized" in workspace
+    assert "session?.authorization_ref" in workspace, (
+        "the authorization test must consult the server-reported reference"
+    )
+    assert re.search(r"const canAttempt = Boolean\(session\) && !sessionAuthorized", workspace)
+    assert re.search(r"const canAuthorize = Boolean\(session\) && !sessionAuthorized", workspace)
+    assert re.search(r"const canExecute = Boolean\(session\) && sessionAuthorized", workspace)
+    # The bare-object form must be gone.
+    assert not re.search(r"const canExecute = Boolean\(session && authorization\)", workspace), (
+        "gating on the local object reintroduces the false BOUNDARY NOT ENFORCED alarm"
+    )
+
+
+def test_resume_is_scoped_per_operator():
+    """One operator's stored session id must not be offered to another."""
+    contract = _read(CONTRACT)
+    assert "resumeKey(uid)" in contract or "`${RESUME_KEY}:${uid}`" in contract, (
+        "the stored id must be namespaced by uid"
+    )
+    workspace = _read(WORKSPACE)
+    assert "uid" in workspace
+    assert "recallMissionSession(uid)" in workspace
+    assert "rememberMissionSession(uid" in workspace
+
+
+def test_negative_control_resume_detector_flags_a_reconstructed_authorization():
+    """Negative control: the detector must bite on the defect it claims to.
+
+    The defect is a resume handler that sets an authorization object it cannot
+    have read. Fed that shape the detector must report it; fed the repaired
+    shape it must not. A guard silent on both is not a guard.
+    """
+    broken = (
+        "const onResume = useCallback(async () => {\n"
+        "  const view = await getSessionView(resumable);\n"
+        "  setSession(view.session);\n"
+        "  setAuthorization({ authorization_id: view.session.authorization_ref,\n"
+        "    originated_by: 'human', operations_allowed: ['read'], duration_minutes: 60 });\n"
+        "}, [resumable]);\n"
+    )
+    assert _resume_reconstructs_authorization(broken) is True, (
+        "the detector must flag a reconstructed authorization"
+    )
+
+    repaired = (
+        "const onResume = useCallback(async () => {\n"
+        "  const view = await getSessionView(resumable);\n"
+        "  setSession(view.session);\n"
+        "  setBackendEvents(view.events ?? []);\n"
+        "}, [resumable]);\n"
+    )
+    assert _resume_reconstructs_authorization(repaired) is False, (
+        "the detector must accept a resume that only re-reads"
+    )
+
+    # And the live file must be in the accepted state.
+    assert _resume_reconstructs_authorization(_read(WORKSPACE)) is False
+
+
+def _resume_handler_body(source: str) -> str | None:
+    """The body of the `onResume` callback, or ``None``."""
+    match = re.search(r"const onResume = useCallback\(", source)
+    if match is None:
+        return None
+    brace = source.find("{", match.end())
+    if brace == -1:
+        return None
+    return _function_body(source, brace)
+
+
+def _resume_effect_body(source: str) -> str | None:
+    """The body of the mount effect that confirms a retained session."""
+    match = re.search(r"useEffect\(\(\) => \{", source)
+    if match is None:
+        return None
+    brace = source.find("{", match.end() - 1)
+    if brace == -1:
+        return None
+    return _function_body(source, brace)
+
+
+def _resume_reconstructs_authorization(source: str) -> bool:
+    """True when a resume handler sets an authorization it cannot have read.
+
+    The defect is a *shape*: a resume path that writes an authorization object
+    while no served route returns one. Matching the handler name alone would
+    pass any rename; this judges what the handler does.
+    """
+    body = _resume_handler_body(source)
+    if body is None:
+        return False
+    return re.search(r"setAuthorization\s*\(", body) is not None
