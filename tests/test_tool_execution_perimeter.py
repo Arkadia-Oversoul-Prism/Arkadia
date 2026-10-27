@@ -318,3 +318,142 @@ def test_tool_and_approval_routes_declare_require_auth():
     assert "user" in inspect.signature(_c.ceo_chat).parameters
     import api.plan_routes as _p
     assert "user" in inspect.signature(_p.run_plan).parameters
+
+
+# ── 6. Proposal binding: an approval authorizes only the operation it records ──
+# The defect these cover: the approval check validated the tool and subject but
+# never the operation, so an approval for payload A authorized execution of
+# payload B. Each case below pairs a request that must be refused with one that
+# must still succeed, so a detector that refuses everything cannot pass.
+
+def test_requested_payload_must_match_the_approved_proposal(client, as_user):
+    """Approving A and requesting B is refused, and B does not execute."""
+    aid = _request_approval(client, "execute_shell", {"command": "whoami"})
+    assert _approve(client, as_user, aid).status_code == 200
+    r = client.post(
+        "/api/tools/execute_shell/run",
+        json={"payload": {"command": "echo substituted"}, "approval_id": aid},
+    )
+    assert r.status_code == 403, r.text
+    assert "approved proposal" in r.json()["detail"]
+
+
+def test_substituted_payload_does_not_consume_the_approval(client, as_user):
+    """A refused substitution must not burn an approval still legitimately usable."""
+    aid = _request_approval(client, "execute_shell", {"command": "whoami"})
+    assert _approve(client, as_user, aid).status_code == 200
+    refused = client.post(
+        "/api/tools/execute_shell/run",
+        json={"payload": {"command": "echo substituted"}, "approval_id": aid},
+    )
+    assert refused.status_code == 403
+    # the approval survives the refusal and still authorizes its own operation
+    ok = client.post(
+        "/api/tools/execute_shell/run",
+        json={"payload": {"command": "whoami"}, "approval_id": aid},
+    )
+    assert ok.status_code == 200, ok.text
+
+
+def test_approved_operation_executes_the_approved_payload(client, as_user):
+    """The executed bytes are the approved bytes."""
+    aid = _request_approval(client, "execute_shell", {"command": "whoami"})
+    assert _approve(client, as_user, aid).status_code == 200
+    r = client.post(
+        "/api/tools/execute_shell/run",
+        json={"payload": {"command": "whoami"}, "approval_id": aid},
+    )
+    assert r.status_code == 200
+    body = str(r.json())
+    assert "whoami" in body or "uid=" in body
+
+
+def test_canonicalisation_is_key_order_independent(client, as_user):
+    """Key order must not change the proposal: the same operation in a different
+    order is the SAME operation, and must not be refused."""
+    aid = _request_approval(
+        client, "execute_shell", {"command": "echo hi", "timeout": 5}
+    )
+    assert _approve(client, as_user, aid).status_code == 200
+    r = client.post(
+        "/api/tools/execute_shell/run",
+        json={"payload": {"timeout": 5, "command": "echo hi"}, "approval_id": aid},
+    )
+    assert r.status_code == 200, r.text
+
+
+def test_extra_field_is_a_different_proposal(client, as_user):
+    """An added field changes the operation and must be refused."""
+    aid = _request_approval(client, "execute_shell", {"command": "echo hi"})
+    assert _approve(client, as_user, aid).status_code == 200
+    r = client.post(
+        "/api/tools/execute_shell/run",
+        json={
+            "payload": {"command": "echo hi", "workdir": "/tmp"},
+            "approval_id": aid,
+        },
+    )
+    assert r.status_code == 403, r.text
+
+
+def test_non_finite_number_is_not_canonicalizable():
+    """NaN/Infinity have no stable canonical form and are refused."""
+    from api.approval_routes import UncanonicalizablePayload, proposal_digest
+
+    with pytest.raises(UncanonicalizablePayload):
+        proposal_digest("execute_shell", {"command": "x", "n": float("nan")}, "s")
+    with pytest.raises(UncanonicalizablePayload):
+        proposal_digest("execute_shell", {"command": "x", "n": float("inf")}, "s")
+
+
+def test_approval_without_a_recorded_digest_is_not_spendable(client, as_user):
+    """Fail closed: an approval predating binding cannot be bound to an operation.
+
+    This is the negative control for the binding check. It plants a record with
+    no digest and asserts the boundary refuses it — proving the check reads the
+    digest rather than merely accepting any approved record.
+    """
+    aid = _request_approval(client, "execute_shell", {"command": "whoami"})
+    assert _approve(client, as_user, aid).status_code == 200
+    with APPROVAL_LOCK:
+        PENDING_APPROVALS[aid].pop("proposal_digest", None)
+    r = client.post(
+        "/api/tools/execute_shell/run",
+        json={"payload": {"command": "whoami"}, "approval_id": aid},
+    )
+    assert r.status_code == 403, r.text
+    assert "predates proposal binding" in r.json()["detail"]
+
+
+def test_digest_detects_a_tampered_record(client, as_user):
+    """If the stored payload is altered after approval, the digest no longer
+    matches and the approval is refused rather than executing the altered bytes."""
+    aid = _request_approval(client, "execute_shell", {"command": "whoami"})
+    assert _approve(client, as_user, aid).status_code == 200
+    with APPROVAL_LOCK:
+        PENDING_APPROVALS[aid]["payload"] = {"command": "echo tampered"}
+    r = client.post(
+        "/api/tools/execute_shell/run",
+        json={"payload": {"command": "whoami"}, "approval_id": aid},
+    )
+    assert r.status_code == 403, r.text
+
+
+def test_both_writers_record_a_proposal_digest(client, as_user):
+    """The single constructor is the only writer, so every queued approval
+    carries a digest and no path can omit the binding."""
+    aid = _request_approval(client, "execute_shell", {"command": "whoami"})
+    with APPROVAL_LOCK:
+        assert PENDING_APPROVALS[aid].get("proposal_digest")
+
+
+def test_ceo_writer_does_not_construct_records_directly():
+    """Source guard: ceo_chat_routes must queue through the constructor rather
+    than building the record literal itself, so the digest cannot be omitted."""
+    from api import ceo_chat_routes
+
+    src = inspect.getsource(ceo_chat_routes)
+    assert "PENDING_APPROVALS[" not in src, (
+        "ceo_chat_routes writes the approval store directly; it must call "
+        "queue_approval so the proposal digest is always recorded"
+    )

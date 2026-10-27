@@ -2256,6 +2256,69 @@ def _approval_is_valid(approval: dict, tool_name: str, user: dict) -> bool:
     return subject is not None and subject == user.get("uid")
 
 
+def _approved_payload_for_execution(
+    approval: dict, tool_name: str, user: dict, requested: dict
+) -> dict:
+    """Return the payload an approval authorizes, or raise 403.
+
+    Two checks, and both are needed:
+
+    1. the *requested* operation must match the approved proposal, so a caller
+       asking to run something else is refused explicitly rather than silently
+       handed the approved operation instead; and
+    2. the returned payload is the *stored* one, so the bytes that execute are
+       the bytes that were approved. A digest comparison alone would leave a
+       window in which a request passes the check and then executes something
+       else.
+    """
+    from api.approval_routes import UncanonicalizablePayload, proposal_digest
+
+    stored = approval.get("payload")
+    recorded = approval.get("proposal_digest")
+    subject = approval.get("subject_ref") or ""
+
+    if not recorded:
+        # An approval queued before digest binding existed cannot be bound to an
+        # operation, so it is not spendable. Fail closed rather than execute.
+        raise HTTPException(
+            status_code=403,
+            detail="Approval predates proposal binding and is not spendable.",
+        )
+    if not isinstance(stored, dict):
+        raise HTTPException(status_code=403, detail="Approval payload is not an object.")
+
+    # (2) the record must be internally consistent with its own digest
+    try:
+        recomputed = proposal_digest(tool_name, stored, subject)
+    except UncanonicalizablePayload as exc:
+        raise HTTPException(
+            status_code=403, detail=f"Approval payload is not canonicalizable: {exc}"
+        )
+    if not hmac.compare_digest(recomputed, recorded):
+        raise HTTPException(
+            status_code=403,
+            detail="Approval record does not match its recorded proposal digest.",
+        )
+
+    # (1) the request must be the operation that was approved
+    try:
+        requested_digest = proposal_digest(tool_name, requested, subject)
+    except UncanonicalizablePayload as exc:
+        raise HTTPException(
+            status_code=403, detail=f"Requested payload is not canonicalizable: {exc}"
+        )
+    if not hmac.compare_digest(requested_digest, recorded):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Requested operation does not match the approved proposal. "
+                "An approval authorizes only the operation it records."
+            ),
+        )
+
+    return stored
+
+
 @app.get("/api/tools")
 async def list_tools_endpoint(user: dict = Depends(_require_auth)):
     try:
@@ -2306,9 +2369,16 @@ async def run_tool_endpoint(
                     status_code=403,
                     detail=f"Approval '{approval_id}' is not valid for tool '{tool_name}'.",
                 )
+            # Resolve the approved payload before consuming: a rejection here
+            # must not burn an approval the caller could still legitimately use.
+            approved_payload = _approved_payload_for_execution(
+                approval, tool_name, user, payload
+            )
             # Consume the approval so a single decision authorizes a single run.
             approval["consumed_at"] = _now_iso()
             approval["consumed_by"] = user.get("uid")
+        # Execute the approved operation, not whatever the request carried.
+        payload = approved_payload
 
     try:
         result = tool.run(payload)
