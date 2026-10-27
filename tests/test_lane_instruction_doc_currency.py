@@ -645,6 +645,230 @@ def test_live_oracle_judges_a_deferral_owner_not_only_open_prs():
     assert any("CLOSED without merging" in f for f in findings), findings
 
 
+# ------------------------------------ live oracle: the read that feeds it
+#
+# The controls above judge a *given* record set. Nothing judged the read that
+# produces it: ``fetch_pr_records`` is the only place the guard talks to an
+# authority, and each of its failure modes has to become a *named* failure
+# rather than an empty-but-successful read. An empty successful read is
+# indistinguishable from "no PRs exist" and would clear every claim the guard
+# exists to make -- the same silent-pass shape, one layer further out.
+
+
+class _FakeResponse:
+    """The subset of an ``http.client.HTTPResponse`` that the fetch reads."""
+
+    def __init__(self, payload: bytes, status: int = 200):
+        self.status = status
+        self._payload = payload
+
+    def read(self) -> bytes:
+        return self._payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def _fake_urlopen(records: dict[int, dict], status: int = 200, seen: list | None = None):
+    def _open(req, timeout=None):
+        if seen is not None:
+            seen.append(req)
+        number = int(str(req.full_url).rsplit("/", 1)[-1])
+        return _FakeResponse(json.dumps(records[number]).encode(), status)
+
+    return _open
+
+
+def _no_token(monkeypatch):
+    for name in ("GH_TOKEN", "GITHUB_TOKEN", "GITHUB_PERSONAL_ACCESS_TOKEN"):
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_live_oracle_reads_each_distinct_pr_once_with_an_authorised_get(monkeypatch):
+    """The positive control for the read: without it every failure below could
+    be constant. Also pins the dedupe and the ordering, so a duplicate request
+    or an unsorted walk is a visible change rather than a silent one."""
+    monkeypatch.setenv("GH_TOKEN", "sentinel-token")
+    seen: list = []
+    records = {
+        7: {"state": "open", "merged": False},
+        9: {"state": "closed", "merged": True},
+    }
+    monkeypatch.setattr(guard.urllib.request, "urlopen", _fake_urlopen(records, seen=seen))
+
+    got, failure = guard.fetch_pr_records([9, 7, 7], repo_slug="owner/name")
+
+    assert failure is None
+    assert got == records
+    assert [r.full_url for r in seen] == [
+        f"{guard.API}/repos/owner/name/pulls/7",
+        f"{guard.API}/repos/owner/name/pulls/9",
+    ]
+    assert all(r.get_method() == "GET" for r in seen), "the oracle must not mutate"
+    assert all(
+        r.get_header("Authorization") == "Bearer sentinel-token" for r in seen
+    ), seen
+
+
+def test_live_oracle_reports_a_non_200_response_as_a_failure(monkeypatch):
+    monkeypatch.setenv("GH_TOKEN", "sentinel-token")
+    monkeypatch.setattr(
+        guard.urllib.request, "urlopen", _fake_urlopen({7: {"state": "open"}}, status=404)
+    )
+
+    got, failure = guard.fetch_pr_records([7])
+
+    assert failure is not None and "HTTP 404" in failure, failure
+    assert 7 not in got
+
+
+def test_live_oracle_reports_an_http_error_as_a_failure(monkeypatch):
+    """A raised ``HTTPError`` must not escape as an exception or as a pass."""
+    monkeypatch.setenv("GH_TOKEN", "sentinel-token")
+
+    def _raise(req, timeout=None):
+        raise guard.urllib.error.HTTPError(req.full_url, 403, "Forbidden", {}, None)
+
+    monkeypatch.setattr(guard.urllib.request, "urlopen", _raise)
+
+    got, failure = guard.fetch_pr_records([7])
+
+    assert failure is not None and "HTTP 403" in failure, failure
+    assert got == {}
+
+
+def test_live_oracle_reports_a_transport_error_by_type_and_never_raises(monkeypatch):
+    """A DNS/timeout failure must name its type, so an operator can tell a
+    retryable transport fault from an auth fault."""
+    monkeypatch.setenv("GH_TOKEN", "sentinel-token")
+
+    def _raise(req, timeout=None):
+        raise guard.urllib.error.URLError("name resolution")
+
+    monkeypatch.setattr(guard.urllib.request, "urlopen", _raise)
+
+    got, failure = guard.fetch_pr_records([7])
+
+    assert failure is not None and "URLError" in failure, failure
+    assert got == {}
+
+
+def test_live_oracle_reports_a_malformed_body_as_a_failure(monkeypatch):
+    """A 200 carrying a non-JSON body is not a record set."""
+    monkeypatch.setenv("GH_TOKEN", "sentinel-token")
+    monkeypatch.setattr(
+        guard.urllib.request,
+        "urlopen",
+        lambda req, timeout=None: _FakeResponse(b"<html>not json</html>"),
+    )
+
+    got, failure = guard.fetch_pr_records([7])
+
+    assert failure is not None and "JSONDecodeError" in failure, failure
+    assert 7 not in got
+
+
+def test_live_oracle_without_a_token_fails_closed_without_a_request(monkeypatch):
+    """No credential is UNKNOWN, and it must not be attempted anonymously --
+    an unauthenticated read of a private repo would 404 and read as 'absent'."""
+    _no_token(monkeypatch)
+    called: list = []
+    monkeypatch.setattr(
+        guard.urllib.request, "urlopen", lambda *a, **k: called.append(a)
+    )
+
+    got, failure = guard.fetch_pr_records([7])
+
+    assert got == {}
+    assert failure is not None and "no GitHub token" in failure, failure
+    assert called == [], "no request may be issued without a credential"
+
+
+def test_live_oracle_never_prints_the_token(monkeypatch, capsys):
+    monkeypatch.setenv("GH_TOKEN", "sentinel-token-value")
+    monkeypatch.setattr(
+        guard.urllib.request,
+        "urlopen",
+        _fake_urlopen({7: {"state": "open", "merged": False}}),
+    )
+
+    guard.fetch_pr_records([7])
+
+    captured = capsys.readouterr()
+    assert "sentinel-token-value" not in captured.out
+    assert "sentinel-token-value" not in captured.err
+
+
+def test_a_partial_read_is_discarded_when_a_later_pr_fails(monkeypatch):
+    """Half a record set is not a record set.
+
+    ``fetch_pr_records`` returns the records it collected before a failure, so a
+    caller that consulted them could clear a claim from a read that never
+    completed. ``_pr_state_findings`` must let the failure dominate: the claim
+    here is genuinely open in the partial read, and it still must not pass.
+    """
+    monkeypatch.setenv("GH_TOKEN", "sentinel-token")
+    calls = {"n": 0}
+
+    def _open(req, timeout=None):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return _FakeResponse(json.dumps({"state": "open", "merged": False}).encode())
+        raise guard.urllib.error.HTTPError(req.full_url, 500, "boom", {}, None)
+
+    monkeypatch.setattr(guard.urllib.request, "urlopen", _open)
+
+    records, failure = guard.fetch_pr_records([1, 2])
+    assert 1 in records and failure is not None, (records, failure)
+
+    findings = guard._pr_state_findings(_claim_state(1), records, failure)
+
+    assert len(findings) == 1, findings
+    assert "live PR state unavailable" in findings[0], findings
+
+
+def test_the_failure_classifier_does_not_collapse_to_one_message(monkeypatch):
+    """Negative control for the five failure controls above.
+
+    A classifier that returned a single generic string would satisfy every
+    ``failure is not None`` assertion while telling an operator nothing about
+    whether to retry, fix a token, or fix a URL. Each mode must be distinct.
+    """
+    monkeypatch.setenv("GH_TOKEN", "sentinel-token")
+    messages: list[str] = []
+
+    monkeypatch.setattr(
+        guard.urllib.request, "urlopen", _fake_urlopen({7: {}}, status=404)
+    )
+    messages.append(guard.fetch_pr_records([7])[1])
+
+    def _http_error(req, timeout=None):
+        raise guard.urllib.error.HTTPError(req.full_url, 403, "Forbidden", {}, None)
+
+    monkeypatch.setattr(guard.urllib.request, "urlopen", _http_error)
+    messages.append(guard.fetch_pr_records([7])[1])
+
+    def _transport(req, timeout=None):
+        raise guard.urllib.error.URLError("dns")
+
+    monkeypatch.setattr(guard.urllib.request, "urlopen", _transport)
+    messages.append(guard.fetch_pr_records([7])[1])
+
+    monkeypatch.setattr(
+        guard.urllib.request, "urlopen", lambda req, timeout=None: _FakeResponse(b"nope")
+    )
+    messages.append(guard.fetch_pr_records([7])[1])
+
+    _no_token(monkeypatch)
+    messages.append(guard.fetch_pr_records([7])[1])
+
+    assert all(m is not None for m in messages), messages
+    assert len(set(messages)) == len(messages), messages
+
+
 # ------------------------------------------------------------------- wiring
 
 
