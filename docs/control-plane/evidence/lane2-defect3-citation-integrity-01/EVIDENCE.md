@@ -70,9 +70,32 @@ would have been the naive repair.
 **Live negative control, on the real file** (not a synthetic fixture): this document mutated
 back to the stale form reddened the guard (`1 failed`); restored byte-identically, `1 passed`.
 
-**Gate neutrality.** `scripts/lane_state.py --check` is **exit 0 on both** the pristine and the
-edited tree — verified by `git stash`. This slice does not touch the snapshot staleness that
-`#568`/`#569`/`#572` own, and does not worsen the lane gate.
+**Gate neutrality, corrected.** An earlier draft of this record claimed
+`scripts/lane_state.py --check` is "exit 0 on both" trees. That is true only of the **offline**
+variant. The CI gate runs `--check --verify-live`, which consults GitHub as the authoritative
+oracle, and it is **exit 1 on pristine `main` `36f53be2` itself**, with byte-identical output to
+this branch:
+
+```
+DRIFT PR #508 (lane 4 open_prs) is recorded as open but is CLOSED without merging
+DRIFT PR #563 (lane 3 open_prs) is recorded as open but is CLOSED without merging
+```
+
+Measured cause — the snapshot was **correct when written and decayed in place**:
+
+| Event | Time (2026-10-25) |
+|---|---|
+| `lane-state.json` last written (`3a1088c5`) | 05:13:01Z |
+| `main` lane-doc-currency run `40164716935` → success | 05:13:04Z |
+| PR #563 closed unmerged | 05:16:10Z (+3 min) |
+| PR #508 closed unmerged | 15:23:41Z (+10 h) |
+
+The only `main` run that passed was 3 seconds after the snapshot was written and 3 minutes before
+the first closure. Nothing re-measured it afterwards, so the gate went red on a tree nobody had
+changed — and it stays red until the snapshot is refreshed. `git diff HEAD --stat --
+docs/control-plane/parallel-ui/lane-state.json` is **0 lines**: this slice never touched the file.
+Repair is owned by **#568** (`lane-guard-fixed-scope-01`) and **#569** (`lane-state-refresh-01`),
+both of which modify `lane-state.json`; it is recorded here, not executed here.
 
 ## 6. What this pass did not do, and why
 
