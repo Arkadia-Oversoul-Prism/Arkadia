@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Arkadia-Oversoul-Prism/Arkadia
-          ref: 36f53be22d753ffe269f05cbf3fb39212f744207
+          ref: fa34301c2c02e2579b054e40858eca02c16cd149
           path: source
           fetch-depth: 0
 
@@ -32,7 +32,7 @@ jobs:
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
           scc --version
 
-      - name: Record exact source revision and repository inventory
+      - name: Record exact source revision and inventory
         shell: bash
         run: |
           set -euo pipefail
@@ -46,8 +46,12 @@ jobs:
           printf 'tracked_bytes=%s\n' "$(git ls-files -z | xargs -0 -r stat -c '%s' | awk '{s+=$1} END {printf "%.0f",s}')" >> ../candidate-revision.txt
           printf '\nTop-level tracked paths:\n' >> ../candidate-revision.txt
           git ls-tree --name-only HEAD >> ../candidate-revision.txt
+          printf '\nFile extension inventory:\n' > ../file-extension-inventory.txt
+          git ls-files | awk -F. 'NF>1 {print tolower($NF)}' | sort | uniq -c | sort -nr >> ../file-extension-inventory.txt
           printf '\nBuild/test configuration files:\n' >> ../candidate-revision.txt
-          git ls-files | grep -Ei '(^|/)(package\.json|pyproject\.toml|pytest\.ini|tox\.ini|Dockerfile|docker-compose[^/]*|vercel\.json|railway\.json|render\.yaml|requirements[^/]*|Makefile|build\.gradle(\.kts)?|settings\.gradle(\.kts)?|gradlew|pom\.xml|Cargo\.toml|go\.mod|tsconfig\.json|vitest\.config\.[^/]+|jest\.config\.[^/]+)$' >> ../candidate-revision.txt || true
+          git ls-files | grep -Ei '(^|/)(package\.json|pnpm-lock\.yaml|pyproject\.toml|pytest\.ini|tox\.ini|Dockerfile|docker-compose[^/]*|vercel\.json|railway\.json|render\.yaml|requirements[^/]*|Makefile|build\.gradle(\.kts)?|settings\.gradle(\.kts)?|gradlew|pom\.xml|Cargo\.toml|go\.mod|tsconfig[^/]*\.json|vitest\.config\.[^/]+|jest\.config\.[^/]+)$' >> ../candidate-revision.txt || true
+          git ls-files | grep -Ei '(^|/)(tests?|__tests__)/|(^|/)[^/]+\.(test|spec)\.[^/]+$' | sort > ../test-file-inventory.txt || true
+          git log -1 --format='%H%n%cs%n%s' > ../head-commit-metadata.txt
 
       - name: Run Human Edge scc reports
         shell: bash
@@ -103,9 +107,12 @@ jobs:
       - name: Upload metrics and provenance
         uses: actions/upload-artifact@v4
         with:
-          name: arkadia-human-edge-metrics-36f53be
+          name: arkadia-human-edge-metrics-fa34301
           path: |
             candidate-revision.txt
+            file-extension-inventory.txt
+            test-file-inventory.txt
+            head-commit-metadata.txt
             scc-report.json
             scc-summary.txt
             scc-generated.txt
