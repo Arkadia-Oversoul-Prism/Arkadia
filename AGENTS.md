@@ -1606,3 +1606,46 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   Compose the branch and run the tests.
 - Prefer `git merge --no-edit` on a worktree over patch surgery: it is the operation the human will
   actually perform, and it reports conflicts by file rather than by hunk.
+## A citation to a defect is evidence, and it decays the moment the defect is repaired (lane-2 citation integrity)
+- A repaired defect can stay cited as **live** on the very surfaces that exist to describe the
+  lane. Measured 2026-10-27: `8f4a6ea0` (2026-10-15) repaired the `update_entry` status
+  normalization in `solspire/buyer_recon.py`, yet three lane-2 surfaces still asserted it was
+  open — `AGENT-02-NOVANET-OPPORTUNITY.md`'s defect bullet, `opportunityRadarContract.ts`'s
+  `offVocabulary` doc-comment, and two docstrings in `tests/test_prism_opportunity_entry_flow.py`.
+- **A citation can name a test that does not exist.** The bullet pinned
+  `test_update_does_not_normalize_a_lowercase_status`; `grep -rn` over `tests/` returns 0 matches
+  and the identifier never appears in the file's history. The repair actually carries
+  `test_update_normalizes_a_lowercase_status`. A non-existent-test citation is not reconcilable —
+  record it, do not argue with it.
+- **Correct the citation, do not delete the capability it justified.** The repair migrated no
+  existing row, so a pre-`8f4a6ea0` row can still hold an off-vocabulary status; `byStatus` is
+  keyed on the declared tuple, so such a row has no column and the counts silently fail to total.
+  `offVocabulary` and its two seeding tests therefore stay. The *premise* was wrong; the capability
+  is not. Deleting it would have been the naive repair.
+- **A line-scoped detector misses the defect it was written for.** The measured stale form wrapped
+  the identifier and the claim onto separate lines. `find_live_defect_citation` is **window-scoped
+  (3 lines)**, and its identifier/token literals are built by concatenation so the guard's own
+  prose can neither satisfy nor trip it. Guard: negative control on the verbatim pre-correction
+  form, positive control on the repaired form, run over six surfaces. A guard silent on both is
+  not a guard.
+- **`--check` and `--check --verify-live` are different verdicts, and only one is the CI gate.**
+  `scripts/lane_state.py --check` is exit 0 offline; the `lane-doc-currency` workflow runs
+  `--check --verify-live`, which consults GitHub as the authoritative oracle. An offline pass is
+  **not** evidence the gate is green. Read the workflow's step command before claiming gate
+  neutrality.
+- **A snapshot guard reddens on a tree nobody changed, and the red is not yours.** At `main`
+  `36f53be2` the `--verify-live` run is exit 1 on `DRIFT PR #508` / `DRIFT PR #563` (recorded open,
+  actually closed unmerged). Measured cause: `lane-state.json` was written 2026-10-25 05:13:01Z,
+  `main`'s only green run was 05:13:04Z, `#563` closed 05:16:10Z and `#508` 15:23:41Z. The snapshot
+  was correct when written and decayed in place. Confirm a red lane gate against pristine `main`
+  before attributing it to a branch, and check `git diff --stat` on `lane-state.json` — 0 lines
+  means the slice did not touch the guarded file.
+- **Which open PR clears a red gate is a composition fact, measured by substitution.** Two open
+  PRs both modify `lane-state.json` and only one clears it: substituting each snapshot and running
+  the CI command gives `main` → exit 1 (#508, #563), `#569` → **exit 1 (#508 still stale)**,
+  `#568` → **exit 0**. Merging `#569` alone leaves the gate red. Neither PR can observe this alone
+  — the same cross-PR class as the content-derived console-contract domain. Flag it; do not merge.
+- Measured at `36f53be2` (branch head `b40d04fd`): entry-flow **91 passed** (was 88), architecture
+  **11/11**, console-wiring + lane-currency + control-plane **91 passed**, CP10 **PASS**, console
+  build clean, `boot-syntax` PASS, `console-contract` PASS; the single red check
+  (`lane-doc-currency`) is identical on `main`. PR #575, draft.
