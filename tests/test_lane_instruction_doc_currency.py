@@ -555,6 +555,96 @@ def test_last_declaration_wins_over_the_wave_header(lane_no):
     assert guard.declared_pr(text) == 507
 
 
+# ------------------------------------------- live oracle: the decision itself
+#
+# ``--verify-live`` is the only half that can see a PR *closed without merging*,
+# and until now it was covered only by the wiring guard -- which asserts the
+# workflow invokes the flag, never that the flag decides correctly. An oracle
+# that is executed but whose verdict is never asserted is the "prints a verdict
+# but does not act on it" class: it can be inverted and every test stays green.
+# These controls pin each row of the decision table, so an inversion reddens.
+
+
+def _claim_state(number: int) -> dict:
+    """A minimal well-formed state whose only lane 1 claim is ``number`` open."""
+    return {
+        "schema": "arkadia.lane-state/1.2",
+        "base_main": "0" * 40,
+        "lanes": {
+            "1": {
+                "doc": "AGENT-01-SHELL.md",
+                "open_prs": [{"number": number, "branch": "b", "head_sha": "0" * 40}],
+                "merged_prs": [],
+            }
+        },
+    }
+
+
+def test_live_oracle_is_silent_for_a_genuinely_open_pr():
+    """The positive control. Without it every finding below could be constant."""
+    state = _claim_state(101)
+    records = {101: {"state": "open", "merged": False}}
+    assert guard._pr_state_findings(state, records) == []
+
+
+def test_live_oracle_flags_a_claim_that_is_actually_merged():
+    state = _claim_state(102)
+    records = {102: {"state": "closed", "merged": True, "merge_commit_sha": "b" * 40}}
+    findings = guard._pr_state_findings(state, records)
+    assert any("MERGED" in f for f in findings), findings
+
+
+def test_live_oracle_flags_a_claim_closed_without_merging():
+    """The case local ancestry can never see: closed, and the thread is dead."""
+    state = _claim_state(103)
+    records = {103: {"state": "closed", "merged": False}}
+    findings = guard._pr_state_findings(state, records)
+    assert any("CLOSED without merging" in f for f in findings), findings
+    assert any("do not send an agent to it" in f for f in findings), findings
+
+
+def test_live_oracle_reports_absence_as_unknown_not_as_open():
+    """A PR missing from the response is undecidable, never a pass."""
+    state = _claim_state(104)
+    findings = guard._pr_state_findings(state, {})
+    assert any("not in the live PR response" in f for f in findings), findings
+    assert any("UNKNOWN, not a pass" in f for f in findings), findings
+
+
+def test_live_oracle_fails_closed_when_github_cannot_be_reached():
+    """A transport failure must report every claim undecidable, not clear it."""
+    state = _claim_state(105)
+    findings = guard._pr_state_findings(state, {}, failure="HTTP 403")
+    assert len(findings) == 1, findings
+    assert "live PR state unavailable" in findings[0], findings
+    assert "UNKNOWN, not a pass" in findings[0], findings
+
+
+def test_live_oracle_judges_a_deferral_owner_not_only_open_prs():
+    """A lane deferred to a PR that has since closed is the same dead thread.
+
+    ``claimed_open_prs`` folds ``deferred_to_pr`` into the claim set for exactly
+    this reason; a repair that only walked ``open_prs`` would leave a deferred
+    lane pointing a successor at a closed PR with the guard silent.
+    """
+    state = {
+        "schema": "arkadia.lane-state/1.2",
+        "base_main": "0" * 40,
+        "lanes": {
+            "3": {
+                "doc": "AGENT-03-SOLARIUN-KNOWLEDGE.md",
+                "open_prs": [],
+                "merged_prs": [],
+                "deferred_to_pr": 106,
+            }
+        },
+    }
+    records = {106: {"state": "closed", "merged": False}}
+    findings = guard._pr_state_findings(state, records)
+    assert any("deferred_to_pr" in f for f in findings), findings
+    assert any("CLOSED without merging" in f for f in findings), findings
+
+
 # ------------------------------------------------------------------- wiring
 
 
