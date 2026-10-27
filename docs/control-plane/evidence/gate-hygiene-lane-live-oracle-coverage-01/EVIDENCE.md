@@ -64,6 +64,29 @@ The `+6 passed` is exactly the six added nodes. No existing node changed state. 
 pins a node count for this file (`grep -rn test_lane_instruction_doc_currency tests/`
 returns one filename reference in the wiring guard, no count).
 
+## CI attribution — `lane-doc-currency` is red on `main` itself
+
+The `lane-doc-currency` gate runs `python scripts/lane_state.py --check --verify-live`.
+On this branch it **fails**, and the failure is **not branch-caused**. Proven by
+measurement, not argument:
+
+- A detached worktree at pristine `main` `36f53be2` (verified `git diff --quiet HEAD --
+  scripts/lane_state.py`) exits **1** with output **byte-identical** to the branch's
+  (`diff /tmp/main_guard.txt /tmp/branch_guard.txt` → identical).
+- Both carry the same 2 DRIFT lines (#508 lane 4, #563 lane 3) and 2 NOTE lines.
+- The last `main` run, `3a1088c5` (run `40164716935`, success), **predates** `36f53be2`;
+  the two later `main` commits moved the snapshot's claims to closed PRs without
+  re-pointing them, so the gate reddened on `main` and no PR was needed to cause it.
+
+The diff in this PR touches **no** file the gate reads (`scripts/lane_state.py` untouched;
+`tests/` and `docs/control-plane/evidence/` are not guarded paths), so the gate's verdict
+is invariant across this change. The repair — re-pointing lanes 3 and 4 and clearing the
+stale snapshot claims — is owned by the lanes and by #548 / #555 / #574, and is
+**recorded here, not performed**.
+
+Note: `--check` alone exits **0**; it is the `--check --verify-live` combination the
+workflow runs that exits 1.
+
 ## Boundaries and non-claims
 
 - **Not repaired, recorded.** The live snapshot still carries two dead open-PR claims
