@@ -1,9 +1,15 @@
 # ARKADIA Unified Engineering Lab MVP — mission workspace vertical slice
 
 **Status:** IMPLEMENTED · TESTED · REPORTED — **not merged, not deployed, not accepted.**
-**Branch:** `gate-hygiene/lane-guard-fixed-scope-01`
-**Base revision:** `389e3b39870c8483c32c6d4bac6e08a845d9ca4e`
+**Branch:** `feat/arkadia-unified-lab-mvp-01`
+**Base revision:** `36f53be2` (`main`)
 **Observed:** 2026-10-27
+
+> **Corrected 2026-10-27.** The header previously named
+> `gate-hygiene/lane-guard-fixed-scope-01` and base `389e3b39`. Both were stale: the slice
+> was re-cut from `main` so its PR could be reviewed against its own scope, and `389e3b39`
+> is not this branch's base. The measurements below were taken on the re-cut branch; the
+> figures that moved are re-measured in §6.1.
 
 ## 1. What was built
 
@@ -231,6 +237,28 @@ The `+9 passed` is exactly the new nodes (`--collect-only tests/test_lab_mission
 Two intermediate runs of this slice were **red** (10 then 11 nodes) while I was iterating:
 the extra nodes were the two contract defects in §3, both since repaired. Those runs are
 superseded by the measurement above and are recorded here rather than dropped.
+
+### 6.1 Re-measured 2026-10-27 (supersedes the absolute figures in §6)
+
+The figures in §6 were taken before this sandbox lost its Python dependencies mid-session
+(`fastapi`, `pydantic`, `httpx`, `requests` disappeared, producing 111 collection errors).
+They were re-measured after reinstallation, in the same environment for both arms:
+
+```
+main content  : 15 failed / 3447 passed / 30 skipped / 1 error   16 nodes  8ecf24ab…
+WS3 branch    : 15 failed / 3446 passed / 30 skipped / 1 error   16 nodes  8ecf24ab…
+NEW on branch: NONE     GONE on branch: NONE
+```
+
+The failing/error **node set is identical** (`8ecf24ab…`, 16 nodes), so the conclusion in
+§6 is unchanged: zero regression attributable to this slice. The absolute counts differ
+from §6 (`8 failed / 3509 -> 3518 passed`, 9 nodes, `0c1f3ada…`) because the dependency set
+differs, not because the tree does. Compare node **identity**, never totals.
+
+Two nodes named in §6 no longer exist under those names in the current environment
+(`test_engineering_lab_api.py::test_public_authority_endpoints_are_dispositioned` and
+`test_engineering_lab_api.py::test_lab_router_is_read_only_and_authenticated` appear in one
+measurement and not the other); the node-set hash above is the authoritative comparison.
 
 ## 7. Not claimed
 
