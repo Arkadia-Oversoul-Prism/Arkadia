@@ -1606,3 +1606,45 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   Compose the branch and run the tests.
 - Prefer `git merge --no-edit` on a worktree over patch surgery: it is the operation the human will
   actually perform, and it reports conflicts by file rather than by hunk.
+## Residual recovery: a closed PR's fix can be half-landed, and the missing half is the guard (gate-hygiene)
+- PR #482 was closed unmerged, and its headline fix (`fetch-depth: 0`) **is on `main`** (landed
+  separately by `b287659e`). Treating "the fix is already there" as "the residual is resolved"
+  is wrong: the *guard* was never landed, and running it against live `main` fails **2** nodes
+  (`test_a_workflow_selects_itself_and_the_guard[provider-routing.yml]`,
+  `test_a_workflow_selects_every_input_its_guard_reads[provider-routing.yml]`). Re-run a
+  recovered guard against current `main` **before** deciding a residual is already present —
+  the guard is often the only artifact that still carries the defect.
+- The residual was a `paths:` filter omission, not a `fetch-depth` omission. `provider-routing.yml`
+  executes `tests/test_agents_md_encoding_adjudication.py`, which reads `AGENTS.md`, yet
+  `grep -rn "AGENTS.md" .github/workflows/` matched only **comments** — so an `AGENTS.md`-only
+  commit ran no whole-suite gate anywhere in the repository. A workflow's `paths:` filter must
+  name every **input** its guards read, not just the test files it runs.
+- The `#553` variant is not a competing repair. It failed the same 2 nodes on the same tree with
+  a differently-named assertion — same defect, different detector. Compare variants by the
+  **defect** they detect, not by their assertion text or their PR titles.
+- **`clone_is_shallow()` on `lane_state.py` was missing, and the fail-open shape is why it
+  matters.** A truncated checkout and a rewritten `main` both reach the same non-ancestor branch
+  and emitted the same finding ("was main rewritten?"). Worse, in `_liveness_findings` a merge
+  commit that is **present but unwalkable** has `commit_is_present == True` (so the absent-object
+  guard does not fire) while `--is-ancestor` exits non-zero (so a naive reader concludes "not
+  merged") — the harness reported **nothing** for a stale open-claim on a genuinely merged PR.
+  Two conditions needing opposite responses (fetch history vs. re-measure the lane PRs) must not
+  share one verdict.
+- **Disable the behavior at its definition, not at a call site.** A negative control that patched
+  `if clone_is_shallow(...)` to `if False` reddened only one node, because the two call sites in
+  `_freshness_findings` and `_liveness_findings` share the same indentation and the `str.replace`
+  hit one of them twice. Patching the function body to `return False` reddened **both** intended
+  nodes. When a repair has several call sites, prove it through the shared definition.
+- **A repair that splits a verdict must keep the original verdict alive.** The controls that
+  matter here are the *positive* ones: under the disabled split, the rewritten-`main` case still
+  says "rewritten" and the full-clone stale claim is still reported. A guard that only proves the
+  new branch is a guard that may have swallowed the old one.
+- **"Approximately 15 residual lines" is not a specification.** #499's load-bearing change is
+  `TERMINAL_DONE` losing `merged`, which decides *when a merge becomes authoritative* — squarely
+  the directive's mandatory human-review gate. The repository had already classified it: the
+  decision record on `main`
+  (`docs/control-plane/evidence/gate07-trajectory-status-vocabulary-decision-01/EVIDENCE.md` section 5)
+  says the candidate repairs "are not behaviour-equivalent" and the choice "decides an authority
+  question". Read the existing decision record before re-deriving a governance question from
+  scratch — and record `merged_acceptance_pending` as **already present** when the guard behaviour
+  exists under different vocabulary rather than as "blocked".

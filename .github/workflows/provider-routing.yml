@@ -13,6 +13,15 @@ on:
       - "tests/test_weaver_k2.py"
       - "tests/test_key_pool.py"
       - "tests/test_ci_suite_collection_continuation.py"
+      - "tests/test_history_depth_ci_wiring.py"
+      # `AGENTS.md` is an *input* to a guard this job judges, not incidental prose:
+      # `tests/test_agents_md_encoding_adjudication.py` reads it, so a change to it
+      # alters what the guard asserts. Named by no other filter in the repository
+      # (`grep -rn "AGENTS.md" .github/workflows/` matched only comments), so without
+      # this line an AGENTS.md-only commit runs no whole-suite gate.
+      # `tests/test_history_depth_ci_wiring.py` derives the input list from the guards'
+      # own sources, so an input added there without being added here fails CI.
+      - "AGENTS.md"
       - "docs/verification/PROVIDER-ROUTING-AUDIT-BASELINE.md"
   workflow_dispatch:
 
