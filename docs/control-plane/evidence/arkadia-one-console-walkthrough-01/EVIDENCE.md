@@ -451,3 +451,96 @@ construction from one new workflow file — not a regression signal.
   are unchanged on both trees and are **not** attributable to this change.
 
 **Next permitted action:** sovereign review of the branch; merge authority is the human's.
+
+---
+
+## 15. Post-merge verification — the G2 repair is NOT on `main` (2026-10-28)
+
+**Status:** CORRECTION. Recorded because a merge success is not integration verification.
+
+The sovereign reported merging "the PR". Measured immediately after, from live evidence:
+
+### 15.1 What actually advanced `main`
+
+```
+origin/main  9195334c  ->  6d299eb8
+6d299eb8  lane-doc-currency: add the idle disposition so the guard is satisfiable
+          for an empty lane (#584)
+```
+
+`6d299eb8` is **PR #584** (`gate-hygiene/lane-currency-idle-disposition-01`, merged
+2026-10-28T16:02:38Z). Its diff is 9 files, all lane-currency work
+(`scripts/lane_state.py`, `scripts/lane_state_refresh.py`,
+`tests/test_lane_instruction_doc_currency.py`, four `AGENTS-0N-*.md`, `lane-state.json`,
+one evidence doc). **None of it is the G2 repair.**
+
+### 15.2 The G2 branch was never pushed
+
+| Check | Result |
+|---|---|
+| `git ls-remote --heads origin \| grep arkadia-one-console-walkthrough-01` | **0 matches** |
+| `gh pr list --state all` filtered to this branch | **0 PRs**, in any state |
+| `git merge-base --is-ancestor <each of the 5 commits> origin/main` | **NOT in main** (all 5) |
+| `git cat-file -e origin/main:web/console/src/lib/revision.ts` | **ABSENT** |
+| `git cat-file -e origin/main:tests/test_console_posture_currency.py` | **ABSENT** |
+| `git cat-file -e origin/main:.github/workflows/operator-console-posture.yml` | **ABSENT** |
+| `git cat-file -e origin/main:docs/architecture/ARKADIA-ONE-MISSION-CONTRACT-01.md` | **ABSENT** |
+
+The branch exists **only** in this workspace (`bf7712f6`). There was no PR to merge: the work
+was committed locally and never pushed. `gh` is also unauthenticated in this environment
+(`gh auth status` → not logged in), which is consistent — nothing was ever opened.
+
+**No textual overlap** between `#584`'s 9 files and this branch's 12: `comm -12` on the two
+changed-file lists is empty. So `#584` is not a partial landing of this work; the two are
+disjoint.
+
+### 15.3 The defect is live on `main` — measured, not inferred
+
+The guard was run against a **detached worktree of `origin/main` (`6d299eb8`)** with full
+dependencies installed:
+
+```
+8 failed, 12 passed
+  test_every_cited_evidence_test_exists[executionNotWorkEvent.ts]
+  test_no_boundary_instance_claims_an_undeployed_posture[approvalNotExecution.ts]
+  test_no_boundary_instance_claims_an_undeployed_posture[evidenceNotVerification.ts]
+  test_no_boundary_instance_claims_an_undeployed_posture[executionNotWorkEvent.ts]
+  test_no_boundary_instance_claims_an_undeployed_posture[workeventNotEvidence.ts]
+  test_the_revision_is_not_hardcoded_outside_one_module
+  test_the_map_derivation_point_is_a_real_commit
+  test_the_running_revision_is_read_from_the_runtime
+```
+
+**This is the identical failure set as the pre-repair negative control in §11** — same 8 nodes.
+That is the strongest available confirmation that the defect is unfixed on `main`, and it also
+re-confirms the guard detects exactly the measured defects and nothing else.
+
+Direct source checks on `origin/main` agree:
+
+| Check | `origin/main` |
+|---|---|
+| `ae847dd` in `Layout.tsx` / `standing.ts` / `grammar.ts` | 1 hit each (still hardcoded) |
+| `deployed:` in all four boundary data files | `false` in all four |
+| dead citation `no_execution_or_job_reference_field` | still present |
+
+### 15.4 Method note — a mid-pass environment reset
+
+Partway through this verification the sandbox lost its Python environment: `pip list` reported
+only `pip`, `pytest` and `fastapi` were unimportable, and no venv or alternate interpreter
+existed. Reinstalling (`pytest`, `pyyaml`, then `requirements.txt`) was required to obtain a
+trustworthy number.
+
+This matters for reading the result: the **first** run of the guard on `main` reported
+`12 failed`, and 4 of those were `ModuleNotFoundError: No module named 'httpx'` — an
+environment artifact, not a defect. The reported figure is the post-install run, where those
+4 pass. **Do not cite the 12-failure run**; it conflates a broken environment with a live
+defect, which is precisely the mis-attribution class this record exists to prevent.
+
+### 15.5 Disposition
+
+- The G2 repair is **complete and verified on the branch**, and **absent from `main`**.
+- The branch is **local only** and **not pushed**. Nothing is deployed; production remains at
+  `9195334c` and still serves the defective `/operator` bundle.
+- The next action is **not** another verification pass. It is to push the branch and open the
+  PR, or to confirm that a different branch/PR was intended — the sovereign's report and the
+  measured repository state disagree, and the disagreement is the finding.
