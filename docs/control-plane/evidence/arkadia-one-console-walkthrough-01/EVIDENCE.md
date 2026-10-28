@@ -544,3 +544,139 @@ defect, which is precisely the mis-attribution class this record exists to preve
 - The next action is **not** another verification pass. It is to push the branch and open the
   PR, or to confirm that a different branch/PR was intended — the sovereign's report and the
   measured repository state disagree, and the disagreement is the finding.
+
+---
+
+## 16. Merge, integration verification and production observation (2026-10-28)
+
+**Status:** MERGED and PRODUCTION-OBSERVED. Authorized by the sovereign in-session
+("authorized to commit, push, create PR, merge and proceed").
+
+### 16.1 What was pushed and merged
+
+| Item | Value |
+|---|---|
+| PR | **#585** — "Bind the operator console's claims to the substrate, and guard them" |
+| Branch | `evidence/arkadia-one-console-walkthrough-01` |
+| Verified head | `ca010ef290e0ad16b6186c45b9390cbb4ddccabf` (pinned in the merge call) |
+| Base | `6d299eb8` |
+| Merge commit | **`01e2fcca40cdd21974679c71fe9159d5acaba7d0`** (squash) |
+| Size | 8 commits, 13 files, +1750 / −40 |
+
+The branch was merged **after** a merge of `origin/main` into it (`9195334c → 6d299eb8`),
+with zero conflicted paths and a re-verified composed tree.
+
+### 16.2 Integration verified — not inferred from the merge API
+
+A merge API success is not integration verification. Confirmed on `origin/main` after the
+merge:
+
+| Path | On `main` |
+|---|---|
+| `web/console/src/lib/revision.ts` | PRESENT |
+| `tests/test_console_posture_currency.py` | PRESENT |
+| `tests/test_console_posture_currency_ci_wiring.py` | PRESENT |
+| `.github/workflows/operator-console-posture.yml` | PRESENT |
+| `docs/architecture/ARKADIA-ONE-MISSION-CONTRACT-01.md` | PRESENT |
+| `ae847dd` in `Layout.tsx` / `standing.ts` / `grammar.ts` | **0 hits each** |
+| `fetch-depth: 0` on the gate | present (line 65) |
+
+Post-merge full suite: **8 failed, 3675 passed, 17 skipped, 1 error**. Failing/error node set
+sha256 `215e4308371a01f5b0b73f1e2b5dca5bba30f6578f65bb7c8af6eca67bc8b741` — **identical** to the
+pre-merge baseline measured in the same environment (9 nodes, `comm -3` empty). The `+42 passed`
+is fully attributed: 20 + 15 new guard nodes plus 7 the generic workflow-scanning suites gain by
+construction from one new workflow file.
+
+### 16.3 The gate was RED on first CI run — a real wiring defect, found and repaired
+
+The gate added by this PR failed on its **first** run (`40723970215`, job `posture-currency`,
+head `230cda2f`):
+
+```
+AssertionError: MAP_DERIVED_FROM=ae847dd is not a commit in this repository
+assert 128 == 0
+1 failed, 19 passed in 1.98s
+```
+
+**Cause: the gate's own wiring, not the tree.** `test_the_map_derivation_point_is_a_real_commit`
+runs `git cat-file -e` on `MAP_DERIVED_FROM`, so that commit must exist as an object.
+`actions/checkout` defaults to `fetch-depth: 1`, which omits it. Reproduced locally before
+repairing: a `--depth 1` clone yields `1 failed, 19 passed`; a full clone yields `20 passed`.
+
+This is the documented clone-depth class (`test_agents_md_encoding_adjudication.py`,
+`scripts/lane_state.py`) — and note its shape: **a wiring defect that reads as a posture
+defect**, which is the same mis-attribution class this gate exists to prevent.
+
+**Repair:** `fetch-depth: 0`. **Guard:** `test_a_workflow_provides_the_history_its_guard_reads`,
+parametrised over the derived gate set, plus a negative control covering a default checkout, an
+explicit `depth: 1`, a missing checkout, and accepting `fetch-depth: 0` as int **and** quoted
+string. Proven by mutation against the **real** workflow file: removing the block reddens
+exactly that node (`1 failed, 14 passed`); restoring it byte-identically (`cmp` confirms) gives
+`15 passed`.
+
+### 16.4 Final CI state and runtime proof the gate executes
+
+All **17** check-runs on the corrected head `ca010ef2` are `completed/success`, including
+`posture-currency`.
+
+The gate's step log was read directly rather than trusting the job conclusion — the lesson that
+a green job can execute zero tests:
+
+```
+Operator console posture currency      -> 20 passed in 1.66s
+Posture-currency CI-wiring guard       -> 15 passed in 2.04s
+fetch-depth: 0 present in the checkout
+```
+
+Both guards genuinely executed.
+
+### 16.5 Production observation — the repair is LIVE
+
+The merge triggered the canonical Render deployment (a provider consequence of the merge, not
+an agent deployment action; ADR-016 reserves deployment separately).
+
+```
+GET /api/version -> source_revision: 01e2fcca40cdd21974679c71fe9159d5acaba7d0
+                    revision_conflict: False
+                    (== the merge commit; pre-merge the live value was 6d299eb8)
+```
+
+The `/operator` bundle is `assets/index-Ua3bkGBc.js` (244,713 bytes), **sha256
+`03ac92873e0e8248…`, byte-identical to a local build of the merged revision** — the strongest
+available lineage evidence, and the marker-set check agrees:
+
+| Marker | Live bundle | Meaning |
+|---|---|---|
+| `revision unavailable` | present | the unreadable-state fallback, i.e. never a remembered SHA |
+| `source_revision` | present | the live read |
+| `ae847dd` | 1 occurrence | **the labelled derivation constant only** |
+
+Context check on the single `ae847dd` occurrence:
+
+```
+const ki="ae847dd", ym=()=>be.get("/api/version",{auth:!1});
+```
+
+The constant sits immediately beside the live `/api/version` read — the derivation point is
+preserved as **labelled history**, no longer presented as the running revision.
+
+**The console renders the repair in production.** `/operator` now shows:
+
+```
+01e2fcc · running     map: ae847dd
+```
+
+The running revision and the map derivation point are **separately labelled**. Before this
+change the stamp read `ae847dd` — an ancestor commit — as though it were the running revision.
+
+### 16.6 Boundary — what is still NOT claimed
+
+- **Production acceptance is NOT claimed.** `productionVerified` remains `false` on all four
+  boundary instances: no operator credential exists to verify the separation as an authorized
+  principal. Deployment ≠ verification ≠ acceptance.
+- **G1 remains open and user-owned** (least-privilege operator access). Six of the nine console
+  surfaces have never been observed authenticated.
+- **The G8 contract is design only** — not implemented, not deployed, not accepted.
+- The 8 pre-existing failing/error nodes (including the two `test_engineering_lab_api.py` pins
+  from PR #353 and the n-atlas endpoints) are unchanged on both sides and are not attributable
+  to this work.
