@@ -91,3 +91,22 @@ holds. The snapshot's `base_main` is the live `4de6fc4d`.
   derived from the snapshot's own `doc_guard` field, so a refresh can widen the gate's
   teeth onto a lane whose doc it does not repair — already noted for sovereign review in
   `docs/control-plane/evidence/lane-currency-truth-01/EVIDENCE.md` §8.
+
+## 7. Same-commit refresh is load-bearing — proven, not assumed
+
+A commit that touches a lane doc **after** the newest snapshot-touching commit makes the
+snapshot stale again. Measured, not reasoned: the markdown blank-line fix landed as a
+second commit `1f2d0499`, and simulating `main` at that two-commit tip gave
+
+- guard -> **1 failed, 45 passed**
+- `lane_state.py --check` -> exit **1**, `DRIFT snapshot is stale: 1 commit(s) since it was
+  recorded (dd130da5) changed a guarded lane doc (first: 1f2d0499)`
+
+The repair is to make the snapshot refresh the **tip**: re-measuring live state at the end
+of the pass leaves the newest snapshot-touching commit equal to the branch tip, so the
+guarded-path window is empty on merge. This is a fast-forward addition, not a force-push
+(force-push is prohibited by the contract).
+
+A cosmetic defect was also caught and fixed: the appended blocks opened with a heading
+glued to the preceding paragraph, so Markdown rendered them as continuation text rather
+than headings. Each now has blank-line separation.
