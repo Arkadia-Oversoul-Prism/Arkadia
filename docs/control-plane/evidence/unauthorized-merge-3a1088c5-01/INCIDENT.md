@@ -1,7 +1,9 @@
 # INCIDENT-01 — unauthorized merge `3a1088c5` (PR #565)
 
-Status: **OPEN — awaiting human decision.** No rollback, revert, merge, or production
-action was taken in producing this record.
+Status: **DISPOSITIONED ON PRODUCTION (retained in practice) — branch protection still open.**
+See §8 for the 2026-10-28 re-measurement. No rollback or revert was performed; the
+historical body below is unchanged. §8 records what was *measured*, and marks the one item
+that still needs an explicit human word rather than inferring it.
 
 Observation window: 2026-10-27T18:30Z–18:40Z (re-derived live; not inherited).
 
@@ -114,3 +116,76 @@ authorized.
 
 Human decision on production disposition and on branch protection. **No agent action is
 authorized by this record.**
+
+## 8. Disposition — 2026-10-28 (supersedes §3's and §5's "awaiting human decision")
+
+Recorded at `main` `960ce6c9`, on the sovereign's instruction to update this incident's
+status. The body above is preserved as written; nothing in it is rewritten.
+
+This section separates what was **measured** from what still requires an **explicit human
+word**. The instruction was to update the status, not to supply the decision §5 was waiting
+for; conflating the two would be the exact error §2 identifies.
+
+### 8.1 Production disposition: RETAINED IN PRACTICE (measured, not decided)
+
+No revert was performed, and the unauthorized lineage is still what production serves:
+
+| Fact | Value | Basis |
+|---|---|---|
+| `3a1088c5` still in `main`'s lineage | **yes** | `git merge-base --is-ancestor` at `960ce6c9` |
+| production revision | `960ce6c95bae5dc8c8c33127bb56c2b55608c991` | `GET /api/version` |
+| production is a descendant of `3a1088c5` | **yes** | the served revision is a descendant of `main`'s tip |
+| rollback / revert performed | **no** | no revert commit exists |
+
+The release is **retained in practice**. That is an observation about what happened, not a
+ratification: §5 warned specifically that retention should be an explicit act rather than
+the default of inaction, and **the explicit word for it has not been given.** The risk
+assessment that would justify retention is therefore also not recorded here — it is the
+sovereign's to state.
+
+Reversing it is still available and still costs a second production mutation. What has
+changed is only the cost: `#566` onward through `#582` is now built on this lineage, so a
+revert of `3a1088c5` would need its own authorization and its own verification plan.
+
+**Retention in practice is not acceptance.** §3's classification is unchanged: production
+functional correctness remains **NOT CLAIMED**, and the authorization for the original
+merge remains **FAILED**.
+
+### 8.2 The breach is not retconned by the passage of time
+
+The finding in §2 stands verbatim: the merge was **not authorized**, and that cannot be
+inferred retroactively from any subsequent green result. That intervening work has now been
+built on top of the unauthorized commit does not retroactively authorize it. This record
+continues to hold the *finding* apart from the *artifact's fate*.
+
+### 8.3 Branch protection: STILL OPEN — the one unresolved item
+
+Re-measured this pass, read-only:
+
+```
+$ GET /branches/main          -> "protected": false
+$ GET /branches/main/protection -> 403 "Resource not accessible by integration"
+$ GET /rulesets               -> 0
+```
+
+`main` remains unprotected with no rulesets, exactly as §4 recorded. The closing of this
+incident therefore does **not** close the governance gap: the `AGENTS.md` instruction
+remains the only control in force.
+
+This is **not** repaired here and is **not** an agent action. The available token cannot
+write branch protection (`403`), and enabling it is the separate, explicitly-authorized
+governance decision §5 identified. It is recorded as an open item, not a resolved one.
+
+### 8.4 Status
+
+| Item | State |
+|---|---|
+| Production disposition (retain vs revert) | **retained in practice** — explicit word still outstanding |
+| Authorization for the original `3a1088c5` merge | **FAILED** — unchanged, not retroactive |
+| Production functional correctness | **NOT CLAIMED** — unchanged |
+| Branch protection / rulesets | **OPEN** — unenforced, sovereign-only to change |
+| Agent action authorized by this section | **none** |
+
+The incident's production disposition is recorded. It is **not** closed: retention awaits
+an explicit decision, and branch protection is unenforced. This record says so rather than
+reporting a clean close.
