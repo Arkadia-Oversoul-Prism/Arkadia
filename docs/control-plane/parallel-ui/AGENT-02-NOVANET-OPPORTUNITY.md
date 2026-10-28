@@ -256,6 +256,7 @@ snapshot: a lane that declares itself idle while it still lists open PRs is repo
 The earlier pointers above are retained as provenance, not as live work. When this lane
 opens its next bounded PR, append a new pointer block; the guard reads the *last*
 declaration, so the appended block supersedes this status.
+
 ## Task currency — 2026-10-28 (reconciled against live state)
 
 Three forward-looking claims recorded above are now **discharged**, not outstanding.
