@@ -9,6 +9,7 @@ import { LabAutomationGrammar } from "../components/lab/LabAutomationGrammar";
 import { LabOperationalSurfaces } from "../components/lab/LabOperationalSurfaces";
 import { scalarOverview } from "../components/lab/labOperational";
 import { ExecutionLoop } from "../components/lab/ExecutionLoop";
+import { MissionWorkspace } from "../components/lab/MissionWorkspace";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
 import { endpoints } from "../lib/endpoints";
@@ -65,6 +66,8 @@ export function EngineeringLabPage() {
 
       <LabAuthorityReadings source={overview.data as LabGovernanceSource | null} />
 
+      <MissionWorkspace />
+
       <LabSessionList />
 
       <LabArtifactCanvas />
@@ -76,8 +79,8 @@ export function EngineeringLabPage() {
       <LabAutomationGrammar />
 
       <NotYetWired
-        contract="/api/lab/engineering/sessions/{id}/execute"
-        note="The mutating Lab acts — authorize, execute, transition and run-agent — require a human decision and are not wired to this read-only surface. An approval is not an execution, and a run at the review boundary is not acceptance."
+        contract="/api/lab/engineering/sessions/{session_id}/transition"
+        note="The mission workspace above wires exactly one bounded act: a read-only mission that creates a session, records a human authorize decision, and executes a single read-only run to the review boundary. The remaining mutating Lab acts — transition, run-agent, merge and production deploy — require a separate human decision and are not wired to this surface. An approval is not an execution, and a run at the review boundary is not acceptance."
       />
     </Page>
   );
