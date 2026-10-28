@@ -485,3 +485,217 @@ def test_negative_control_verification_detector_flags_an_inflated_verification()
     (trace,) = inflated["runs"]
     assert trace["verification"]["asserted"] is True
     assert trace["verification"]["asserted_basis"] == ["evidence.state=VERIFIED (EVD-1)"]
+
+
+# ---------------------------------------------------------------------------
+# run → artifact: the captured proposal is joined, and is not evidence
+# ---------------------------------------------------------------------------
+
+
+def _execute_write(runtime, session, workspace, uid: str = OWNER) -> dict:
+    """A bounded write run — the only run kind that captures an artifact."""
+    from lab.engineering_lab.runtime import BoundedOperation, BoundedTask
+    from lab.engineering_lab.sandbox import SandboxPolicy
+
+    return runtime.execute_bounded_task(
+        subject_ref=uid,
+        session_id=session["session_id"],
+        task=BoundedTask(
+            objective="prepare a change set",
+            operations=(BoundedOperation(kind="write", target="out.txt", content="hi"),),
+            acceptance=("prepared",),
+            requires_write=True,
+        ),
+        sandbox_policy=SandboxPolicy(root=str(workspace), write_allowed=True),
+    )
+
+
+def test_run_id_is_the_field_artifacts_reference(runtime, workspace):
+    """The artifact join must be on a field the substrate writes.
+
+    ``_capture_artifact`` records ``run_id`` on the artifact and the run records
+    the artifact id in its own ``artifact_refs``. If either changed, the
+    projection would report zero artifact links for a run that has one.
+    """
+    session = _authorized_session(runtime, role="BUILDER", write=True)
+    sid = session["session_id"]
+    result = _execute_write(runtime, session, workspace)
+    run_id = result["run_id"]
+
+    view = runtime.session_view(sid, OWNER)
+    (run,) = view["runs"]
+    (artifact,) = view["artifacts"]
+    assert artifact["run_id"] == run_id
+    assert artifact["artifact_id"] in run["artifact_refs"]
+
+
+def test_projection_joins_a_real_artifact(runtime, workspace):
+    """Executed end to end: a write run's artifact appears under its run, with
+    the reference sets the substrate actually recorded."""
+    session = _authorized_session(runtime, role="BUILDER", write=True)
+    sid = session["session_id"]
+    result = _execute_write(runtime, session, workspace)
+    run_id = result["run_id"]
+
+    ledger = run_projection(runtime.session_view(sid, OWNER))
+
+    (trace,) = ledger["runs"]
+    assert trace["run_id"] == run_id
+    assert [a["artifact_id"] for a in trace["artifacts"]] == result["artifact_refs"]
+    assert trace["dangling_artifact_refs"] == []
+    assert trace["unreferenced_artifact_ids"] == []
+    assert ledger["unlinked_artifacts"] == []
+    assert ledger["unattributed_artifacts"] == []
+    assert ledger["unresolved"] == ["Every recorded reference in this view resolves."]
+
+
+def test_artifact_is_a_captured_proposal_not_evidence_or_verification(runtime, workspace):
+    """The non-collapse the artifact join must preserve: an artifact is not an
+    evidence record, and its presence asserts nothing about verification."""
+    session = _authorized_session(runtime, role="BUILDER", write=True)
+    result = _execute_write(runtime, session, workspace)
+    ledger = run_projection(runtime.session_view(session["session_id"], OWNER))
+
+    (trace,) = ledger["runs"]
+    assert trace["artifacts"], "control premise: the write run captured an artifact"
+    assert trace["artifacts"][0]["artifact_id"] not in [
+        e["evidence_id"] for e in trace["evidence"]
+    ]
+    assert trace["verification"]["asserted"] is False
+    assert ledger["acceptance"]["state"] == "NOT_RECORDED"
+
+
+def test_read_run_captures_no_artifact(runtime, workspace):
+    """A read run prepares nothing, so it captures no artifact. The projection
+    must report an empty artifact list rather than infer one from the run."""
+    session = _authorized_session(runtime)
+    result = _execute_read(runtime, session, workspace)
+    assert result["artifact_refs"] == [], "control premise: a read run captures nothing"
+
+    ledger = run_projection(runtime.session_view(session["session_id"], OWNER))
+    (trace,) = ledger["runs"]
+    assert trace["artifacts"] == []
+    assert trace["dangling_artifact_refs"] == []
+
+
+def test_authorization_alone_produces_no_artifact(runtime):
+    """Negative control: a recorded authorization is not a capture. No run means
+    no artifact, and the trace stays empty."""
+    session = _authorized_session(runtime, role="BUILDER", write=True)
+    view = runtime.session_view(session["session_id"], OWNER)
+    assert view["artifacts"] == [], "control premise: authorization alone captures nothing"
+    ledger = run_projection(view)
+    assert ledger["runs"] == []
+    assert ledger["unlinked_artifacts"] == []
+    assert ledger["unattributed_artifacts"] == []
+
+
+def test_missing_artifact_link_is_reported_not_dropped():
+    """A declared ``artifact_ref`` with no matching artifact, an artifact naming
+    an absent run, and an artifact with no ``run_id`` must all be reported."""
+    ledger = run_projection(
+        {
+            "session": {"session_id": "SES-1", "state": "VERIFYING"},
+            "runs": [
+                {
+                    "run_id": "RUN-1",
+                    "state": "VERIFYING",
+                    "evidence_refs": [],
+                    "artifact_refs": ["ART-missing", "ART-1"],
+                }
+            ],
+            "events": [],
+            "evidence": [],
+            "artifacts": [
+                {"artifact_id": "ART-1", "run_id": "RUN-1", "kind": "diff"},
+                {"artifact_id": "ART-2", "run_id": "RUN-ghost", "kind": "diff"},
+                {"artifact_id": "ART-3", "kind": "diff"},
+            ],
+        }
+    )
+    (trace,) = ledger["runs"]
+    assert trace["dangling_artifact_refs"] == ["ART-missing"]
+    assert [a["artifact_id"] for a in ledger["unlinked_artifacts"]] == ["ART-2"]
+    assert [a["artifact_id"] for a in ledger["unattributed_artifacts"]] == ["ART-3"]
+    assert any("artifact reference(s) do not resolve" in line for line in ledger["unresolved"])
+
+
+def test_partial_link_artifact_run_id_and_artifact_refs_disagree():
+    """The two ways a run and its artifact can be linked are independent fields.
+    An artifact present under ``run_id`` but absent from ``artifact_refs`` must be
+    reported as a partial link, not silently accepted as agreement."""
+    ledger = run_projection(
+        {
+            "session": {"session_id": "SES-1", "state": "VERIFYING"},
+            "runs": [{"run_id": "RUN-1", "state": "VERIFYING", "evidence_refs": [], "artifact_refs": []}],
+            "events": [],
+            "evidence": [],
+            "artifacts": [{"artifact_id": "ART-1", "run_id": "RUN-1", "kind": "diff"}],
+        }
+    )
+    (trace,) = ledger["runs"]
+    assert trace["unreferenced_artifact_ids"] == ["ART-1"]
+    assert trace["dangling_artifact_refs"] == []
+    assert trace["artifacts"][0]["artifact_id"] == "ART-1"
+
+
+def test_negative_control_artifact_detector_flags_a_ghost_artifact():
+    """The artifact detector must fire on an artifact naming an absent run, or it
+    is trivially true. This is the same view the evidence detector is proved on,
+    with the artifact analogue."""
+    ledger = run_projection(
+        {
+            "session": {"session_id": "SES-1", "state": "VERIFYING"},
+            "runs": [{"run_id": "RUN-1", "state": "VERIFYING", "evidence_refs": [], "artifact_refs": []}],
+            "events": [],
+            "evidence": [],
+            "artifacts": [{"artifact_id": "ART-ghost", "run_id": "RUN-absent", "kind": "diff"}],
+        }
+    )
+    assert [a["artifact_id"] for a in ledger["unlinked_artifacts"]] == ["ART-ghost"]
+    assert any("name a run not in this view" in line for line in ledger["unresolved"])
+
+
+def test_negative_control_artifact_link_detector_sees_a_clean_view_as_clean():
+    """A fully-resolving view that includes an artifact must not be reported as
+    unresolved — otherwise adding the join would make every view look broken."""
+    clean = run_projection(
+        {
+            "session": {"session_id": "SES-1", "state": "READY_FOR_REVIEW"},
+            "runs": [
+                {
+                    "run_id": "RUN-1",
+                    "state": "READY_FOR_REVIEW",
+                    "evidence_refs": ["EVD-1"],
+                    "artifact_refs": ["ART-1"],
+                }
+            ],
+            "events": [],
+            "evidence": [{"evidence_id": "EVD-1", "run_ref": "RUN-1", "state": "IMPLEMENTED"}],
+            "artifacts": [{"artifact_id": "ART-1", "run_id": "RUN-1", "kind": "diff"}],
+        }
+    )
+    assert clean["unresolved"] == ["Every recorded reference in this view resolves."]
+    assert clean["runs"][0]["artifacts"][0]["artifact_id"] == "ART-1"
+
+
+def test_a_view_without_artifacts_is_unchanged_by_the_artifact_join():
+    """Backward compatibility: a view that carries no ``artifacts`` key (the shape
+    every pre-existing caller sends) must project exactly as before — empty
+    artifact lists and no new unresolved line."""
+    ledger = run_projection(
+        {
+            "session": {"session_id": "SES-1", "state": "VERIFYING"},
+            "runs": [{"run_id": "RUN-1", "state": "VERIFYING", "evidence_refs": ["EVD-1"]}],
+            "events": [],
+            "evidence": [{"evidence_id": "EVD-1", "run_ref": "RUN-1", "state": "IMPLEMENTED"}],
+        }
+    )
+    (trace,) = ledger["runs"]
+    assert trace["artifacts"] == []
+    assert trace["dangling_artifact_refs"] == []
+    assert trace["unreferenced_artifact_ids"] == []
+    assert ledger["unlinked_artifacts"] == []
+    assert ledger["unattributed_artifacts"] == []
+    assert ledger["unresolved"] == ["Every recorded reference in this view resolves."]
+

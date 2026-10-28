@@ -121,8 +121,6 @@ LEGACY_GAP_DISPOSITIONS = {
     "/reasomate": "the archived ReasoMate surface has no console surface",
     "/challenge": "the archived Future Skills Challenge has no console surface",
     "/future-skills": "same absent challenge surface as `/challenge`",
-    "/encyclopedia": "the archived Encyclopedia Galactica surface is reconciled as the NovaNet `codex` lens; the legacy path itself is not aliased (the alias table maps one path segment to a surface, and this path needs a default lens)",
-    "/spiral-codex": "same reconciled capability as `/encyclopedia` (the shared corpus, `GET /api/codex`); the legacy path is likewise unaliased",
     "/offerings": "the archived Offerings surface has no console surface",
     "/nexus/ims": "a NovaNet/nexus sub-view whose backend contract is UNKNOWN",
     "/nexus/grove": "a NovaNet/nexus sub-view whose backend contract is UNKNOWN",
@@ -162,6 +160,24 @@ def _path_aliases(text: str) -> dict[str, str]:
     block = re.search(r"PATH_ALIASES[^=]*=\s*\{(.*?)\}", text, re.DOTALL)
     assert block, "router.ts declares no PATH_ALIASES map"
     return dict(re.findall(r'"([^"]+)"\s*:\s*"([^"]+)"', block.group(1)))
+
+
+def _lens_aliases(text: str) -> dict[str, str]:
+    """Legacy inbound path -> the canonical path a lens alias resolves to.
+
+    A lens alias addresses a **surface + section**, not a surface, so it lives in
+    its own table. The value is an object literal; the parser matches the whole
+    object so the nested keys are not read as aliases.
+    """
+    block = re.search(r"LENS_ALIASES[^=]*=\s*\{(.*?)\n\};", text, re.DOTALL)
+    assert block, "router.ts declares no LENS_ALIASES map"
+    return {
+        path: f"/{surface}/{section}"
+        for path, surface, section in re.findall(
+            r'"([^"]+)"\s*:\s*\{\s*surface:\s*"([^"]+)"\s*,\s*section:\s*"([^"]+)"\s*\}',
+            block.group(1),
+        )
+    }
 
 
 def _reserved_prefixes() -> tuple[str, ...]:
@@ -273,7 +289,8 @@ def test_every_legacy_path_has_a_reconciliation_disposition():
     """
     declared_paths = _declared_paths(SURFACES)
     aliases = set(_path_aliases(ROUTER))
-    accounted = declared_paths | aliases | set(LEGACY_GAP_DISPOSITIONS)
+    lens_aliases = set(_lens_aliases(ROUTER))
+    accounted = declared_paths | aliases | lens_aliases | set(LEGACY_GAP_DISPOSITIONS)
 
     assert set(LEGACY_ROUTE_TABLE) <= accounted, (
         "legacy path(s) with no reconciliation disposition: "
@@ -283,6 +300,38 @@ def test_every_legacy_path_has_a_reconciliation_disposition():
     assert not (aliases & declared_paths), (
         "alias(es) that duplicate a declared surface path: " + ", ".join(sorted(aliases & declared_paths))
     )
+    # A lens alias resolves to a *section* of a surface, so it must not duplicate
+    # either a canonical surface path or a plain alias key.
+    assert not (lens_aliases & declared_paths), (
+        "lens alias(es) that duplicate a declared surface path: "
+        + ", ".join(sorted(lens_aliases & declared_paths))
+    )
+    assert not (lens_aliases & aliases), (
+        "path(s) declared as both a surface alias and a lens alias: "
+        + ", ".join(sorted(lens_aliases & aliases))
+    )
+
+
+def test_lens_aliases_reconcile_a_path_that_would_otherwise_be_silent_loss():
+    """`/encyclopedia` and `/spiral-codex` are reconciled, not left as gaps.
+
+    Both were recorded as reconciliation gaps because `PATH_ALIASES` maps one path
+    segment to a *surface* and cannot express "NovaNet's codex lens". A lens alias
+    table can, so the gap is closed: each must now resolve to the surface's own
+    section path rather than falling through to `home`.
+    """
+    lens_aliases = _lens_aliases(ROUTER)
+    assert lens_aliases, "no lens alias declared -- the guard would be vacuous"
+    for legacy in ("/encyclopedia", "/spiral-codex"):
+        assert lens_aliases[legacy] == "/novanet/codex", lens_aliases
+        assert legacy not in LEGACY_GAP_DISPOSITIONS, (
+            f"{legacy} is reconciled by a lens alias but is still recorded as a gap"
+        )
+    resolved = _js_route_resolver(ROUTER, ["/encyclopedia", "/spiral-codex"])
+    assert resolved == {
+        "/encyclopedia": "/novanet/codex",
+        "/spiral-codex": "/novanet/codex",
+    }, resolved
 
 
 # ---------------------------------------------------------------------------
@@ -314,7 +363,9 @@ def test_no_alias_or_legacy_path_shadows_a_served_backend_route():
     assert "/solspire" in reserved, "control premise: /solspire is a reserved prefix"
     assert "/api" in reserved, "control premise: /api is a reserved prefix"
 
-    ui_paths = set(_path_aliases(ROUTER)) | set(_declared_paths(SURFACES))
+    ui_paths = (
+        set(_path_aliases(ROUTER)) | set(_lens_aliases(ROUTER)) | set(_declared_paths(SURFACES))
+    )
     defects = _shadowed_backend_routes(ui_paths, served, reserved)
     assert defects == [], f"UI path(s) shadowed by a backend route: {defects}"
 
@@ -348,12 +399,18 @@ def test_detector_flags_an_unaccounted_legacy_path():
     """Negative control: a legacy path in no disposition bucket must be reported."""
     declared_paths = {"/", "/about"}
     aliases = {"/nexus"}
-    accounted = declared_paths | aliases | {"/gate"}
+    lens_aliases = {"/encyclopedia"}
+    accounted = declared_paths | aliases | lens_aliases | {"/gate"}
     missing = {"/invented-legacy"} - accounted
     assert missing == {"/invented-legacy"}, "control premise: the path must be unaccounted"
-    # And the live partition must not itself be missing anything.
-    live_accounted = _declared_paths(SURFACES) | set(_path_aliases(ROUTER)) | set(
-        LEGACY_GAP_DISPOSITIONS
+    # And the live partition must not itself be missing anything. This restates the
+    # partition, so it must name every bucket the live assertion uses -- including
+    # the lens-alias table, or the control would report a false gap.
+    live_accounted = (
+        _declared_paths(SURFACES)
+        | set(_path_aliases(ROUTER))
+        | set(_lens_aliases(ROUTER))
+        | set(LEGACY_GAP_DISPOSITIONS)
     )
     assert set(LEGACY_ROUTE_TABLE) <= live_accounted
 

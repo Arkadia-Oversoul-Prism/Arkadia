@@ -329,6 +329,12 @@ def _js_route_resolver(router_text: str) -> dict:
         # alias branch swallows neither.
         "/nexus/a/b",
         "/novanet/ims",
+        # Lens aliases: a legacy path that addressed a lens within a surface.
+        "/encyclopedia",
+        "/spiral-codex",
+        "/encyclopedia/",
+        "/encyclopedia/x",
+        "/spiral-codex/a/b",
     ]
     script = (
         surfaces
@@ -372,22 +378,33 @@ def _reread_canonical_paths(router_text: str) -> list[tuple[str, str, str]]:
     node = shutil.which("node")
     surfaces = _strip_types(SURFACES_PATH.read_text(encoding="utf-8"))
     router = _strip_types(router_text).replace("as const", "")
+    # The alias probes are *derived* from `PATH_ALIASES`, not hand-listed. A
+    # hand-maintained list is how this guard missed `/home/x`: the alias branch
+    # emitted the protocol-relative `//x` (a browser reads that as a *host*, not a
+    # path) while every probed alias read back unchanged, so the detector stayed
+    # green on a live defect. Deriving the probes means a newly declared alias is
+    # judged by the same rule instead of silently escaping it.
+    alias_probes: list[str] = []
+    for alias in sorted(_path_aliases(router_text)):
+        alias_probes += [alias, f"{alias}/x", f"{alias}/x/y"]
     probes = [
-        "/nexus",
-        "/nexus/ims",
-        "/nexus/a/b",
-        "/nexus/a/b/c",
-        "/oracle/x",
-        "/commune/x/y",
+        # Declared-surface and fallback probes, which exercise the section branch
+        # and the `home` fallback rather than the alias branch.
         "/novanet",
         "/novanet/ims",
         "/novanet/a/b",
         "/solariun/knowledge",
         "/solariun/a/b",
+        "/encyclopedia",
+        "/spiral-codex",
+        "/encyclopedia/x",
         "/",
         "/login/",
         "/invented",
-    ]
+        # Deeper than any section, to prove the alias branch bounds the depth.
+        "/nexus/a/b",
+        "/nexus/a/b/c",
+    ] + alias_probes
     script = (
         surfaces
         + "\n"
@@ -704,12 +721,36 @@ def test_detector_flags_a_canonical_path_the_router_does_not_read_back():
     -- must reproduce a non-idempotent canonical path, so the guard above is not
     trivially true."""
     stale = ROUTER.replace(
-        "const section = segments.length === 2 ? segments[1] : undefined;",
+        'const section = segments.length === 2 && base !== "/" ? segments[1] : undefined;',
         'const section = segments.length > 1 ? segments.slice(1).join("/") : undefined;',
     )
     assert stale != ROUTER, "control did not mutate router.ts -- detector unproven"
     offenders = _reread_canonical_paths(stale)
     assert ("/nexus/a/b", "/novanet/a/b", "/") in offenders, offenders
+
+
+def test_detector_flags_a_protocol_relative_path_from_the_alias_branch():
+    """Negative control: the pre-repair shape that emits `//<segment>` for a
+    section on the *root* surface must be reported.
+
+    `home` is declared at `/`, so the old `${base}/${section}` join emitted
+    ``//x`` for `/home/x`. That is not a path: a browser reads a leading `//` as
+    the start of an authority, so `//x` resolves to host ``x``. The read-back
+    guard missed it because every alias it probed belonged to a non-root surface;
+    the probe list is now derived from `PATH_ALIASES` so this shape cannot escape
+    again. This control feeds the detector the exact pre-repair join and asserts
+    the offender is reported.
+    """
+    stale = ROUTER.replace(
+        "return { surface: alias, section, path: routeForSurface(alias, section) };",
+        "return { surface: alias, section, path: section ? `${base}/${section}` : base };",
+    ).replace(
+        "const section = segments.length === 2 && base !== \"/\" ? segments[1] : undefined;",
+        "const section = segments.length === 2 ? segments[1] : undefined;",
+    )
+    assert stale != ROUTER, "control did not mutate router.ts -- detector unproven"
+    offenders = _reread_canonical_paths(stale)
+    assert ("/home/x", "//x", "/") in offenders, offenders
 
 
 def test_detector_flags_an_alias_to_an_undeclared_surface():
@@ -728,6 +769,226 @@ def test_detector_flags_an_alias_that_shadows_a_canonical_path():
     assert shadowing != SURFACES, "control did not mutate surfaces.ts -- the detector is unproven"
     defects = _alias_defects(ROUTER, shadowing)
     assert any("collides with the canonical path" in d for d in defects), defects
+
+
+def _lens_aliases(text: str) -> dict[str, tuple[str, str]]:
+    """The ``LENS_ALIASES`` map: legacy inbound path -> (SurfaceId, section).
+
+    A lens alias cannot live in ``PATH_ALIASES`` (that maps a path to a *surface*),
+    so it gets its own table and its own parser. The value is an object literal, so
+    a plain `"k": "v"` scan would read the nested keys as aliases; the parser
+    matches the whole object instead.
+    """
+    block = re.search(r"LENS_ALIASES[^=]*=\s*\{(.*?)\n\};", text, re.DOTALL)
+    assert block, "router.ts declares no LENS_ALIASES map"
+    return {
+        path: (surface, section)
+        for path, surface, section in re.findall(
+            r'"([^"]+)"\s*:\s*\{\s*surface:\s*"([^"]+)"\s*,\s*section:\s*"([^"]+)"\s*\}',
+            block.group(1),
+        )
+    }
+
+
+def _surface_page_modules(app_text: str) -> dict[str, str]:
+    """``surface id -> page module`` from the composition root's switch.
+
+    Derived from ``App.tsx`` rather than restated, so a surface added to the switch
+    is judged by the lens check without a second hand-maintained mapping.
+    """
+    return dict(
+        re.findall(r'case\s+"([^"]+)":\s*return\s+<(\w+)', app_text)
+    )
+
+
+def _declared_lenses(surface: str, app_text: str) -> set[str]:
+    """The lens ids the page module composed for ``surface`` declares.
+
+    A surface with no page module, or whose page declares no ``LENSES`` array,
+    renders no lens at all: it has no ``LENS_IDS`` branch, so *any* section is
+    silently ignored.
+    """
+    module = _surface_page_modules(app_text).get(surface)
+    if not module:
+        return set()
+    page = SRC / "pages" / f"{module}.tsx"
+    if not page.exists():
+        return set()
+    block = re.search(r"const LENSES = \[(.*?)\];", page.read_text(encoding="utf-8"), re.DOTALL)
+    return set(re.findall(r'id: "([^"]+)"', block.group(1))) if block else set()
+
+
+def _lens_alias_defects(router_text: str, surfaces_text: str, app_text: str) -> list[str]:
+    """Reasons a declared lens alias would be wrong. Empty == every one is sound.
+
+    A lens alias has the same two preconditions as a surface alias (the target
+    surface must be declared, the path must not shadow a canonical route), plus a
+    third that is unique to it: the section must name a lens the target surface
+    actually renders, or the resolver sends the link to the surface's "not a lens"
+    state -- the same silent-loss class in a new shape.
+
+    The third precondition is decided against the target surface's **declared**
+    lens set, not against the surface-id list. Testing membership in ``SurfaceId``
+    only rejects a section that is some *other surface's* id; a section that is
+    neither a surface nor a lens (``codex`` misspelled, or a lens renamed in the
+    page) is a wrong destination too, and the surface-id check cannot see it.
+    """
+    aliases = _lens_aliases(router_text)
+    ids = set(_declared_surface_ids(surfaces_text))
+    paths = set(_declared_paths(surfaces_text))
+    defects = []
+    for path, (surface, section) in sorted(aliases.items()):
+        if surface not in ids:
+            defects.append(f"lens alias {path!r} targets undeclared surface {surface!r}")
+        if path in paths:
+            defects.append(
+                f"lens alias {path!r} collides with the canonical path of a declared "
+                f"surface -- an alias must not duplicate a real route"
+            )
+        if section in ids:
+            defects.append(
+                f"lens alias {path!r} names {section!r} as a section, but that is a "
+                f"surface id, not a lens"
+            )
+        elif section and section not in _declared_lenses(surface, app_text):
+            defects.append(
+                f"lens alias {path!r} names {section!r} as a section of {surface!r}, "
+                f"but that surface renders no such lens"
+            )
+    return defects
+
+
+def test_legacy_lens_routes_resolve_to_the_lens_they_addressed():
+    """`/encyclopedia` and `/spiral-codex` must reach NovaNet's `codex` lens.
+
+    The archived Prism routed both to `NexusSpiralCodex`, which the console
+    expresses as the NovaNet `codex` lens; before this they fell through
+    `resolvePath` to `home`, so a real deep link was silently discarded. The
+    assertion is on the *whole* route -- surface **and** section -- because
+    resolving to `novanet` without the lens is the right surface showing the wrong
+    view, which is what a `PATH_ALIASES` entry would have produced.
+    """
+    assert _lens_aliases(ROUTER), (
+        "no lens alias declared -- if /encyclopedia support was removed, delete this "
+        "guard deliberately rather than letting it pass vacuously"
+    )
+    assert _lens_alias_defects(ROUTER, SURFACES, APP) == []
+    for legacy in ("/encyclopedia", "/spiral-codex"):
+        assert legacy not in _path_aliases(ROUTER), (
+            f"{legacy} addresses a lens, not a surface -- it must not be a PATH_ALIASES entry"
+        )
+        assert legacy not in _declared_paths(SURFACES), (
+            f"{legacy} is an alias, not a second surface"
+        )
+    assert _lens_aliases(ROUTER) == {
+        "/encyclopedia": ("novanet", "codex"),
+        "/spiral-codex": ("novanet", "codex"),
+    }
+
+
+def test_lens_alias_round_trips_through_the_surface_route_helper():
+    """The path a lens alias emits must be the one `routeForSurface` produces.
+
+    `useRouter` writes the canonical path to the address bar on load, so a lens
+    alias that built its path by concatenation could emit a form the resolver does
+    not read back -- reintroducing the silent rewrite this slice prevents. Executed
+    in Node against the real module rather than pinned as text.
+    """
+    assert _reread_canonical_paths(ROUTER) == [], (
+        "the router emits a canonical path it does not read back unchanged"
+    )
+    resolved = _js_route_resolver(ROUTER)
+    for legacy in ("/encyclopedia", "/spiral-codex"):
+        assert resolved[legacy] == "/novanet/codex", resolved
+    # A trailing slash normalises the same way every other alias does.
+    assert resolved["/encyclopedia/"] == "/novanet/codex", resolved
+
+
+def test_detector_flags_a_lens_alias_that_loses_the_lens():
+    """Negative control: the shape a naive `PATH_ALIASES` entry would produce --
+    the right surface, no lens -- must be reported by the round-trip assertion.
+
+    This is the defect FU-1 explicitly forbids ("that would resolve /encyclopedia
+    to NovaNet *without* selecting the codex lens, i.e. to the wrong view of the
+    right surface"). The control mutates the real table to that shape.
+    """
+    assert _js_route_resolver(ROUTER)["/encyclopedia"] == "/novanet/codex"
+    stale = ROUTER.replace(
+        '"/encyclopedia": { surface: "novanet", section: "codex" },',
+        '"/encyclopedia": { surface: "novanet", section: "" },',
+    )
+    assert stale != ROUTER, "control did not mutate router.ts -- detector unproven"
+    assert _js_route_resolver(stale)["/encyclopedia"] == "/novanet", (
+        "the control must reproduce the lens-losing shape"
+    )
+
+
+def test_detector_flags_a_lens_alias_naming_a_surface_as_a_section():
+    """Negative control: a section that is actually a surface id is a wrong
+    destination and must be reported, so the soundness detector is not vacuous."""
+    broken = ROUTER.replace('section: "codex" }', 'section: "solariun" }', 1)
+    assert broken != ROUTER, "control did not mutate router.ts -- detector unproven"
+    defects = _lens_alias_defects(broken, SURFACES, APP)
+    assert any("not a lens" in d for d in defects), defects
+
+
+def test_an_unknown_legacy_path_still_falls_through_to_home():
+    """Control: the lens-alias branch must not become a catch-all.
+
+    `/encyclopedia/x` is not a route the archive declared (its table holds exact
+    paths, no sub-paths), and `/invented` was never a path at all. Both must still
+    land on `home` rather than being absorbed by the new branch.
+    """
+    resolved = _js_route_resolver(ROUTER)
+    assert resolved["/invented"] == "/", resolved
+    assert resolved["/encyclopedia/x"] == "/", resolved
+    assert resolved["/spiral-codex/a/b"] == "/", resolved
+
+
+def test_detector_flags_a_lens_alias_to_an_undeclared_surface():
+    """Negative control: a lens alias pointing at a surface nobody declared is dead
+    routing and must be reported."""
+    broken = ROUTER.replace(
+        '{ surface: "novanet", section: "codex" }',
+        '{ surface: "retired-hub", section: "codex" }',
+        1,
+    )
+    assert broken != ROUTER, "control did not mutate router.ts -- detector unproven"
+    defects = _lens_alias_defects(broken, SURFACES, APP)
+    assert any("undeclared surface" in d for d in defects), defects
+
+
+def test_the_lens_check_is_decided_against_declared_lenses_not_surface_ids():
+    """The section precondition must be decided against the target surface's
+    *declared lens set*.
+
+    Both checks reject `solariun` as a section of `novanet`, so a detector that only
+    tested membership in `SurfaceId` looks correct on that input. The difference is
+    a section that is neither a surface nor a lens: it reaches the page's
+    "not a lens" branch and silently discards the deep link, yet it is invisible to
+    a surface-id check.
+    """
+    assert _lens_alias_defects(ROUTER, SURFACES, APP) == []
+    # The declared set is derived from the composed page module, not restated.
+    assert _declared_lenses("novanet", APP) == {"field", "echoes", "codex", "hub"}
+    assert _declared_lenses("solariun", APP) == {"projects", "knowledge", "memory", "weaver"}
+    # A surface with no lens strip declares none: any section is discarded.
+    assert _declared_lenses("home", APP) == set()
+
+
+def test_detector_flags_a_lens_alias_naming_a_section_the_surface_does_not_render():
+    """Negative control: the pre-fix shape. A section that is neither a surface id
+    nor a declared lens is a wrong destination, and the surface-id check alone is
+    silent on it -- so the control proves the declared-lens check is load-bearing."""
+    broken = ROUTER.replace('section: "codex" }', 'section: "encyclopedia" }', 1)
+    assert broken != ROUTER, "control did not mutate router.ts -- detector unproven"
+    # The section is not a surface id, so the weaker check cannot see it.
+    assert "encyclopedia" not in set(_declared_surface_ids(SURFACES))
+    defects = _lens_alias_defects(broken, SURFACES, APP)
+    assert any("renders no such lens" in d for d in defects), defects
+    # And the defect is real, not merely reported: the link lands on the
+    # surface's "not a lens" state instead of the codex lens.
+    assert _js_route_resolver(broken)["/encyclopedia"] == "/novanet/encyclopedia"
 
 
 # ---------------------------------------------------------------------------

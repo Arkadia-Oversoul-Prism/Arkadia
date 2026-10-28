@@ -307,3 +307,51 @@ def test_projection_does_not_invent_a_reference_field():
     store = _read(ROOT / "lab" / "engineering_lab" / "store.py")
     for field in ("run_id", "run_ref", "evidence_refs", "evidence_id", "event_id"):
         assert field in runtime or field in store, f"the substrate records no '{field}'"
+
+
+# ---------------------------------------------------------------------------
+# run → artifact: the join is present, and reads only recorded fields
+# ---------------------------------------------------------------------------
+
+
+def test_artifact_join_is_declared_and_rendered():
+    """The run → artifact linkage must exist in the projection and be visible.
+
+    Without the join the surface silently omits the artifact a write run
+    captured, which is the gap this guard closes. The rendering testid proves the
+    linkage reaches the operator rather than staying an internal field.
+    """
+    projection = _read(TRACE_TS)
+    assert "artifacts?: LabArtifactRecord[]" in projection, "the source omits artifacts"
+    assert "artifactsByRun" in projection, "the projection performs no artifact join"
+    assert "dangling_artifact_refs" in projection and "unreferenced_artifact_ids" in projection
+    assert 'data-testid={`lab-trace-artifacts-${trace.run_id}`}' in _read(TRACE_TSX)
+
+
+def test_artifact_join_reads_only_substrate_recorded_fields():
+    """The artifact join must be on fields the substrate writes.
+
+    ``store.save_artifact`` persists ``run_id`` on the artifact and the run
+    carries ``artifact_refs``; a console-invented field would join nothing.
+    """
+    runtime = _read(ROOT / "lab" / "engineering_lab" / "runtime.py")
+    store = _read(ROOT / "lab" / "engineering_lab" / "store.py")
+    for field in ("artifact_id", "artifact_refs"):
+        assert field in runtime or field in store, f"the substrate records no '{field}'"
+    projection = _read(TRACE_TS)
+    assert "artifact.run_id" in projection, "the artifact join does not read the recorded run_id"
+    assert "run.artifact_refs" in projection, "the projection ignores the run's declared artifact_refs"
+
+
+def test_artifact_is_not_presented_as_evidence_or_verification():
+    """An artifact is a captured proposal, not a record and not a verdict.
+
+    The projection must not fold an artifact into the evidence list or into the
+    verification reading — the non-collapse the surface exists to preserve.
+    """
+    source = _read(TRACE_TSX)
+    assert "captured, not applied" in source, "the artifact is not marked as a proposal"
+    projection = _read(TRACE_TS)
+    match = re.search(r"function verificationFor\(.*?\n\}", projection, re.DOTALL)
+    assert match, "the projection declares no verificationFor"
+    assert "artifact" not in match.group(0), "the verification reading reads artifacts"
