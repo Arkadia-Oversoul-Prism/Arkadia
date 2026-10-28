@@ -373,3 +373,30 @@ R499 remains **not recovered — human review required** (section 4). The re-mea
 its load-bearing change is `TERMINAL_DONE` losing `merged` in `weaver/engineering_router.py`,
 which decides *when a merge becomes authoritative* — the directive's mandatory human-review
 gate. No router change was made, and none is proposed here.
+
+### 8.9 Why `provider-routing.yml` is *not* byte-identical to the preserved #482 head
+
+Three of the four recovered artifacts are byte-identical to their preserved sources:
+
+| artifact | preserved source | sha256 (16) | status |
+|---|---|---|---|
+| `tests/test_history_depth_ci_wiring.py` | #482 `0cc7c9e7` | `7566aa7acc8314d0` | IDENTICAL |
+| `scripts/lane_state.py` | #572 `1a89ebf0` | `014bf5b066a7776b` | IDENTICAL |
+| `tests/test_lane_instruction_doc_currency.py` | #572 `1a89ebf0` | `689fc00241343fe3` | IDENTICAL |
+| `.github/workflows/provider-routing.yml` | #482 `0cc7c9e7` | `341860b3...` vs `758eba82...` | **DIFFERS, by design** |
+
+`provider-routing.yml` differs because the directive prohibits reapplying workflow fixes already
+present on `main`: `fetch-depth: 0` is **already** in `main`'s `provider-routing.yml` (line 37).
+Copying the preserved file wholesale would have re-applied an already-integrated fix and reverted
+every unrelated `main` advance in the file. Instead the branch takes **`main`'s** version and adds
+only the missing filter entries — the whole diff is `+9 / -0`:
+
+```
++      - "tests/test_history_depth_ci_wiring.py"
++      # `AGENTS.md` is an *input* to a guard this job judges, not incidental prose: ...
++      - "AGENTS.md"
+```
+
+That is the minimal correct delta, and it is why the "one of four differs" result is expected
+rather than a provenance failure. The guard that consumes this filter is byte-identical; only the
+filter was extended.
