@@ -13,6 +13,7 @@
  * Source: RECONCILED-CONSOLE-ARCHITECTURE-01.md §2, §9.
  */
 import type { Posture, EdgeStatus } from "./posture";
+import { MAP_DERIVED_FROM } from "./revision";
 
 export type StageId =
   | "IDENTITY"
@@ -101,7 +102,7 @@ const LOCAL_ONLY: Posture = {
 const PRODUCTION_VERIFIED: Posture = {
   mechanism: "ENFORCED",
   deployment: { implemented: true, tested: true, deployed: true, productionVerified: true },
-  note: "DEPLOYED on the merged host (ae847dd); PRODUCTION-VERIFIED by F.1–F.4.",
+  note: `DEPLOYED on the merged host (${MAP_DERIVED_FROM}); PRODUCTION-VERIFIED by F.1–F.4.`,
 };
 
 export const STAGES: Stage[] = [

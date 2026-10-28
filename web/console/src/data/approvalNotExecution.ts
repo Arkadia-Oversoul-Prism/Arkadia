@@ -24,10 +24,13 @@ export const APPROVAL_NOT_EXECUTION: BoundaryInstance = {
     "a single event that both decided and acted.",
   posture: {
     mechanism: "ENFORCED",
-    deployment: { implemented: true, tested: true, deployed: false, productionVerified: false },
+    deployment: { implemented: true, tested: true, deployed: true, productionVerified: false },
     note:
-      "Enforced in code and covered by tests on the branch. NOT DEPLOYED; the live host " +
-      "still runs the pre-hardening collapse.",
+      "Enforced in code, covered by tests, and DEPLOYED: the surfaces this boundary names " +
+      "are served by the live runtime (POST /api/approvals/request, " +
+      "POST /api/approvals/{id}/approve, POST /api/tools/{tool_name}/run). Production " +
+      "verification of the separation by an authorized principal is NOT CLAIMED — it " +
+      "requires an operator credential this console does not hold.",
   },
   nonCollapses: [
     {
@@ -65,7 +68,7 @@ export const APPROVAL_NOT_EXECUTION: BoundaryInstance = {
   ],
   unresolved: [
     "EXECUTION ≠ EVIDENCE is recorded (consumed_at / consumed_by) but not yet surfaced as its own view.",
-    "Deployment: the branch is not deployed; production posture is UNVERIFIED.",
+    "Deployment: the surfaces this boundary names are served by the live runtime. Production verification of the separation by an authorized principal is NOT CLAIMED (no operator credential).",
     "Declared vs enforced authority disagree: governance/roles.json grants Govern to Flamekeeper only, but _has_govern_authority also accepts the access_level >= 3 sovereign tier, which existing nodes occupy. Not resolved.",
     "Flamekeeper is UNPROVISIONED, so AUTHORIZE is unreachable for ordinary principals — but not for a sovereign-tier principal.",
   ],

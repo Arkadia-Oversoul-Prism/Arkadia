@@ -1,0 +1,82 @@
+name: Operator Console Posture Currency
+
+# `tests/test_console_posture_currency.py` binds the operator console's claims to
+# the substrate they describe: every cited evidence test must exist in the corpus,
+# every declared surface must be served by the canonical application, no boundary
+# instance may claim an undeployed posture while its surfaces are live, and the
+# revision stamp may not be hardcoded outside one module.
+#
+# Until this workflow existed, **no** gate executed any of those checks
+# (`grep -rn test_console_posture_currency .github/workflows/` returned 0). That is
+# how three drifts survived on `main` @ `9195334c`: a dead citation, four false
+# `deployed: false` flags, and a revision stamp naming an ancestor commit. This is
+# the same "a guard no gate executes is decoration" class already closed for
+# `test_boot_syntax_boundary.py` and `test_baseline_fingerprint.py`.
+#
+# The guard's inputs are wide by construction, so the filter names each of them:
+#   * `web/console/**`    — the console whose claims are judged
+#   * `tests/**`          — the corpus the citations must resolve against, so
+#                           adding/renaming/removing a test re-runs the guard
+#   * `api/**`            — the route table the declared surfaces must resolve against
+# `tests/test_console_posture_currency_ci_wiring.py` derives those inputs from the
+# guard's own source and fails when this filter omits any of them, so a narrowed
+# filter reddens CI instead of silently reducing coverage.
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/operator-console-posture.yml"
+      - "tests/test_console_posture_currency.py"
+      - "tests/test_console_posture_currency_ci_wiring.py"
+      - "web/console/**"
+      - "tests/**"
+      - "api/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/operator-console-posture.yml"
+      - "tests/test_console_posture_currency.py"
+      - "tests/test_console_posture_currency_ci_wiring.py"
+      - "web/console/**"
+      - "tests/**"
+      - "api/**"
+  # Path-filtered, so a revision touching none of the above never runs it.
+  # `workflow_dispatch` lets the guard be executed against an exact revision on
+  # demand (`ref=main` yields an execution at the current main SHA).
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  posture-currency:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The guard reads repository *history*, not just the tree: it resolves
+          # `MAP_DERIVED_FROM` with `git cat-file -e`, so the derivation commit
+          # must be present as an object. The default `fetch-depth: 1` omits it
+          # and the guard fails with "ae847dd is not a commit in this repository"
+          # — a wiring defect that reads as a posture defect. Measured: a depth-1
+          # clone yields `1 failed, 19 passed`; a full clone yields `20 passed`.
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      # The guard imports `api.main` to read the served route table, so it needs
+      # the application dependency set — unlike the boot-syntax guard, which uses
+      # `compile()` and deliberately needs nothing. A missing dependency here
+      # would be misread as a posture defect, so it is installed explicitly.
+      - run: python -m pip install -r requirements.txt
+      - run: python -m pip install pytest pyyaml
+      - name: Operator console posture currency
+        run: python -m pytest tests/test_console_posture_currency.py -q
+      - name: Posture-currency CI-wiring guard
+        # Judges this workflow's own trigger: every input the guard reads must be
+        # selected, and every executing step must be able to fail. A rewrite of
+        # this file is judged by itself, or the gate is self-exempt.
+        run: python -m pytest tests/test_console_posture_currency_ci_wiring.py -q

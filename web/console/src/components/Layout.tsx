@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 import { STANDING_STATES } from "../lib/standing";
+import { MAP_DERIVED_FROM, revisionLabel, useLiveRevision } from "../lib/revision";
 import { StandingBanner } from "./ui";
 
 const SURFACES = [
@@ -31,6 +32,7 @@ function titleFor(path: string): string {
 
 export function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
+  const revision = useLiveRevision();
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -68,7 +70,13 @@ export function Layout({ children }: { children: ReactNode }) {
         <header className="topbar">
           <h1>{titleFor(location.pathname)}</h1>
           <div className="spacer" />
-          <span className="topbar-meta tiny mono">ae847dd · reconciled</span>
+          {/* The running revision is READ from the runtime, not remembered. The map's
+              derivation point is shown separately because it is history, not the
+              live revision — conflating them is what made this stamp wrong. */}
+          <span className="topbar-meta tiny mono" title="GET /api/version → source_revision">
+            {revisionLabel(revision)}
+          </span>
+          <span className="topbar-meta tiny mono faint">map: {MAP_DERIVED_FROM}</span>
         </header>
 
         {/* Standing non-claims: first-class, persistent, never dismissed. */}
