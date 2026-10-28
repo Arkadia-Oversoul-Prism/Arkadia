@@ -33,11 +33,13 @@ export const EVIDENCE_NOT_VERIFICATION: BoundaryInstance = {
     "the ABSENCE of a foreign key between them — the link is a correlation, measured not assumed.",
   posture: {
     mechanism: "ENFORCED",
-    deployment: { implemented: true, tested: true, deployed: false, productionVerified: false },
+    deployment: { implemented: true, tested: true, deployed: true, productionVerified: false },
     note:
-      "Measured on the branch. Evidence is created without a verification; verification is a " +
-      "separate call whose evidence_refs is a substring-matched JSON list, not a foreign key. " +
-      "NOT DEPLOYED; production UNVERIFIED.",
+      "The surface this boundary names is served by the live runtime (GET " +
+      "/solspire/enterprise/workspaces/{enterprise_id}/control-room). Measured: evidence is " +
+      "created without a verification; verification is a separate call whose evidence_refs " +
+      "is a substring-matched JSON list, not a foreign key. Production verification by an " +
+      "authorized principal is NOT CLAIMED (no operator credential).",
   },
   nonCollapses: [
     {
@@ -75,7 +77,7 @@ export const EVIDENCE_NOT_VERIFICATION: BoundaryInstance = {
     "No HTTP route creates evidence or verification, and no route exposes either as a first-class record; both are readable only through the control-room projection.",
     "The creators (EnterpriseOrchestrationStore.evidence/verify, eden_ops.execute_and_evidence, simulate_eden_supplier_path) are reachable only from tests or unrouted code paths.",
     "Whether evidence should carry a durable forward pointer to its verification is a later architectural decision; the correlation is recorded, not resolved.",
-    "Deployment: the branch is not deployed; production posture is UNVERIFIED.",
+    "Deployment: the surface this boundary names is served by the live runtime. Production verification by an authorized principal is NOT CLAIMED (no operator credential)."
   ],
   verbs: ["SEE", "DISTINGUISH", "INSPECT", "VERIFY"],
   verbsBlockedByProvisioning: [],

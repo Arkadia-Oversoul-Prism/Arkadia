@@ -7,6 +7,7 @@
  *
  * Source: RECONCILED-BOUNDARY-MAP-01.md §0.
  */
+import { MAP_DERIVED_FROM } from "./revision";
 
 export type StandingTone = "unverified" | "unprovisioned" | "preproduction" | "undeployed" | "verified" | "partial";
 
@@ -50,8 +51,10 @@ export const STANDING_STATES: StandingState[] = [
     tone: "verified",
     headline: "Boundary changes — DEPLOYED",
     detail:
-      "BC-1 / BC-2 / BC-3 are merged (PR #180, ae847dd) and production-verified by " +
+      "BC-1 / BC-2 / BC-3 are merged (PR #180, " + MAP_DERIVED_FROM + ") and production-verified by " +
       "F.1–F.4. The provenance edges (EXECUTION → WORK_EVENT → EVIDENCE → VERIFICATION) " +
-      "remain CONTRADICTED — absence is the measurement, not a deployment gap.",
+      "are no longer CONTRADICTED: PR #294 (" + MAP_DERIVED_FROM + " onwards) added an explicit " +
+      "execution → WorkEvent causal bridge, so that edge is DEMONSTRATED. Evidence → " +
+      "Verification remains a correlation, not a foreign key.",
   },
 ];

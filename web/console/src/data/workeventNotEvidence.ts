@@ -28,10 +28,13 @@ export const WORK_EVENT_NOT_EVIDENCE: BoundaryInstance = {
     "ABSENCE of a durable WorkEvent → Evidence identifier, measured rather than assumed.",
   posture: {
     mechanism: "ENFORCED",
-    deployment: { implemented: true, tested: true, deployed: false, productionVerified: false },
+    deployment: { implemented: true, tested: true, deployed: true, productionVerified: false },
     note:
-      "Measured on the branch. A WorkEvent created through its router produces no evidence and no " +
-      "verification; its reference fields stay opaque strings. NOT DEPLOYED; production UNVERIFIED.",
+      "The surfaces this boundary names are served by the live runtime (POST|GET " +
+      "/solspire/workevents, GET /solspire/workevents/{work_event_id}). Measured: a " +
+      "WorkEvent created through its router produces no evidence and no verification; its " +
+      "reference fields stay opaque strings. Production verification by an authorized " +
+      "principal is NOT CLAIMED (no operator credential).",
   },
   nonCollapses: [
     {
@@ -77,7 +80,7 @@ export const WORK_EVENT_NOT_EVIDENCE: BoundaryInstance = {
     "The enterprise evidence → verification → proposal chain is read over HTTP only as a projection (GET /solspire/workspaces/{id}/control-room); the forward_walk / reverse_walk graph itself has no HTTP route — implemented, unexposed.",
     "No dedicated route exposes evidence or verification as first-class records; the console cannot list them.",
     "Whether a WorkEvent should produce or reference evidence is a later architectural decision; the absence is recorded, not resolved.",
-    "Deployment: the branch is not deployed; production posture is UNVERIFIED.",
+    "Deployment: the surfaces this boundary names are served by the live runtime. Production verification by an authorized principal is NOT CLAIMED (no operator credential).",
   ],
   verbs: ["SEE", "DISTINGUISH", "INSPECT", "VERIFY"],
   verbsBlockedByProvisioning: [],
