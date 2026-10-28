@@ -359,3 +359,80 @@ def test_negative_control_a_directory_argument_is_recognised():
     """`pytest tests/` executes the guard and must count as execution."""
     assert _invokes_pytest_with("python -m pytest tests/ -q -rEf", GUARD)
     assert not _invokes_pytest_with("python -m pytest tests/test_other.py", GUARD)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Clone depth — the guard reads history, so the checkout must provide it
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _checkout_steps(workflow: dict):
+    """Every `actions/checkout` step in the workflow, with its `with:` block."""
+    for _job, step in _iter_steps(workflow):
+        if step is None:
+            continue
+        uses = str(step.get("uses") or "")
+        if uses.startswith("actions/checkout@"):
+            yield step
+
+
+def _checkout_provides_history(workflow: dict) -> bool:
+    """True when some checkout step fetches full history (``fetch-depth: 0``).
+
+    A workflow with no checkout step at all is treated as not providing history:
+    the guard cannot resolve a commit that was never fetched.
+    """
+    for step in _checkout_steps(workflow):
+        depth = (step.get("with") or {}).get("fetch-depth")
+        # YAML may parse `0` as int or `"0"` as str depending on quoting.
+        if depth is not None and str(depth).strip() == "0":
+            return True
+    return False
+
+
+@pytest.mark.parametrize("workflow_name", _gates() or ["<none>"])
+def test_a_workflow_provides_the_history_its_guard_reads(workflow_name: str):
+    """A gate must fetch full history, because the guard resolves a real commit.
+
+    `test_the_map_derivation_point_is_a_real_commit` runs `git cat-file -e` on
+    `MAP_DERIVED_FROM`, so that object must exist in the checkout. The default
+    `fetch-depth: 1` omits it and the guard fails with
+    "MAP_DERIVED_FROM=ae847dd is not a commit in this repository" — a wiring
+    defect that reads as a posture defect.
+
+    Measured on a depth-1 clone of this branch: `1 failed, 19 passed`. On a full
+    clone: `20 passed`. This test is what makes the difference visible in CI
+    rather than in a red gate nobody can explain.
+    """
+    workflow = yaml.safe_load((WORKFLOWS / workflow_name).read_text(encoding="utf-8")) or {}
+    assert _checkout_provides_history(workflow), (
+        f"{workflow_name} executes {GUARD}, which reads repository history, but its "
+        f"checkout does not set `fetch-depth: 0`; the guard will fail on a shallow clone"
+    )
+
+
+def test_the_history_invariant_is_not_vacuous():
+    """The derived gate set must be non-empty, or the parametrisation asserts nothing."""
+    assert _gates(), "no gates derived; the history invariant would be vacuous"
+
+
+def test_negative_control_a_shallow_checkout_is_caught():
+    """The detector must flag the exact pre-repair shape and accept the repair."""
+    shallow = {
+        "jobs": {"j": {"steps": [{"uses": "actions/checkout@v4"}]}},
+    }
+    explicit_shallow = {
+        "jobs": {"j": {"steps": [{"uses": "actions/checkout@v4", "with": {"fetch-depth": 1}}]}},
+    }
+    repaired = {
+        "jobs": {"j": {"steps": [{"uses": "actions/checkout@v4", "with": {"fetch-depth": 0}}]}},
+    }
+    quoted = {
+        "jobs": {"j": {"steps": [{"uses": "actions/checkout@v4", "with": {"fetch-depth": "0"}}]}},
+    }
+    no_checkout = {"jobs": {"j": {"steps": [{"run": "pytest tests/"}]}}}
+
+    assert not _checkout_provides_history(shallow), "default depth must be flagged"
+    assert not _checkout_provides_history(explicit_shallow), "depth 1 must be flagged"
+    assert not _checkout_provides_history(no_checkout), "no checkout cannot provide history"
+    assert _checkout_provides_history(repaired), "fetch-depth: 0 (int) must pass"
+    assert _checkout_provides_history(quoted), "fetch-depth: '0' (str) must pass"

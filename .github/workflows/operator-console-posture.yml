@@ -55,6 +55,14 @@ jobs:
       PYTHONPATH: .
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The guard reads repository *history*, not just the tree: it resolves
+          # `MAP_DERIVED_FROM` with `git cat-file -e`, so the derivation commit
+          # must be present as an object. The default `fetch-depth: 1` omits it
+          # and the guard fails with "ae847dd is not a commit in this repository"
+          # — a wiring defect that reads as a posture defect. Measured: a depth-1
+          # clone yields `1 failed, 19 passed`; a full clone yields `20 passed`.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
