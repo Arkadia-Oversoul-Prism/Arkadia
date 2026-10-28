@@ -785,3 +785,86 @@ def test_a_workflow_executes_the_lane_doc_guard():
         "lane-doc-currency.yml must check out full history (fetch-depth: 0) for "
         "the merge-ancestry liveness oracle"
     )
+
+
+# ------------------------------------------- deferred-lane branch agreement
+#
+# A deferred lane's doc is excluded from ``check_lane_docs`` by design, because it
+# is mid-repair on its own open PR. That exclusion also dropped the branch/head
+# agreement check: measured, a deferred lane declaring a branch its live PR does
+# not head was reported by nobody -- ``_declared_pointer_findings`` covers pointer
+# *liveness*, which is a disjoint property. ``deferred_branch_findings`` closes it.
+
+
+def test_deferred_lane_branch_mismatch_is_reported(tmp_path):
+    """Negative control: the detector must bite on the exact shape it claims to.
+
+    Feeds the detector a deferred lane whose doc declares a branch its live PR
+    does not head, and asserts it is reported. Pre-repair, this input produced no
+    finding anywhere -- so a guard that is silent here is not a guard.
+    """
+    state = live_state()
+    lane = state["lanes"]["3"]
+    live_pr = lane["open_prs"][0]
+    (tmp_path / lane["doc"]).write_text(
+        f"**Active PR:** #{live_pr['number']}\n"
+        f"**Active branch:** `DELIBERATELY-WRONG-BRANCH`\n",
+        encoding="utf-8",
+    )
+    assert lane["doc_guard"] == "deferred", "this control requires a deferred lane"
+    findings = guard.deferred_branch_findings(state, lane_dir=tmp_path, lanes=["3"])
+    assert findings, "a deferred lane's branch mismatch must be reported"
+    assert "DELIBERATELY-WRONG-BRANCH" in findings[0]
+    assert live_pr["branch"] in findings[0]
+
+
+def test_deferred_lane_with_a_matching_branch_is_not_reported(tmp_path):
+    """Positive control: agreement must stay silent, or the guard is trivially true."""
+    state = live_state()
+    lane = state["lanes"]["3"]
+    live_pr = lane["open_prs"][0]
+    (tmp_path / lane["doc"]).write_text(
+        f"**Active PR:** #{live_pr['number']}\n"
+        f"**Active branch:** `{live_pr['branch']}`\n",
+        encoding="utf-8",
+    )
+    assert guard.deferred_branch_findings(state, lane_dir=tmp_path, lanes=["3"]) == []
+
+
+def test_deferred_branch_guard_does_not_judge_current_lanes(tmp_path):
+    """The scope is the complement: a judged lane must not be double-reported.
+
+    ``check_lane_docs`` already owns the current lanes. If this also judged them,
+    one defect would produce two findings and the two would drift apart.
+    """
+    state = live_state()
+    assert guard.current_lanes(state, invert=True) == ["3", "4"]
+    assert set(guard.current_lanes(state)) & set(guard.current_lanes(state, invert=True)) == set()
+    assert sorted(guard.current_lanes(state) + guard.current_lanes(state, invert=True)) == sorted(
+        guard._lane_numbers(state)
+    )
+
+
+def test_deferred_branch_guard_is_wired_into_the_check():
+    """A detector nothing calls is decoration.
+
+    ``deferred_branch_findings`` must be invoked from the ``--check`` path, or the
+    hole it closes stays open while the function and its tests sit green.
+    """
+    source = (REPO / "scripts" / "lane_state.py").read_text(encoding="utf-8")
+    assert "findings += deferred_branch_findings(" in source, (
+        "deferred_branch_findings must be called from the --check path"
+    )
+
+
+def test_live_tree_has_no_deferred_branch_mismatch():
+    """The live snapshot's deferred lanes must not currently mismatch.
+
+    Measured at main 36f53be2: both deferred lanes point at dead threads, so the
+    branch comparison is not reached and this is empty. That is the honest state,
+    not a claim that the lanes are healthy -- their dead pointers are reported by
+    ``_declared_pointer_findings``.
+    """
+    state = live_state()
+    findings = guard.deferred_branch_findings(state, lanes=guard.current_lanes(state, invert=True))
+    assert findings == [], findings
