@@ -143,20 +143,28 @@ def test_control_an_import_without_a_render_is_still_orphaned():
 
 
 def test_control_the_real_pre_mount_page_reports_the_canonical_loop():
-    """Feed the detector the measured pre-mount page, not a synthetic stand-in.
+    """Feed the detector the measured pre-mount tree, not a synthetic stand-in.
 
-    Before this slice the page carried no ``ExecutionLoop`` line at all and the
-    detector reported the component; afterwards the same tree minus exactly the
-    mount lines must report it again. Both directions are the real file, so the
-    control cannot be satisfied by a fixture that does not resemble the defect.
+    Before this slice no module imported ``ExecutionLoop``; afterwards, removing
+    every *consuming* reference from the real tree must make the detector report
+    it again. Both directions are the real files, so the control cannot be
+    satisfied by a fixture that does not resemble the defect.
+
+    Every consumer is stripped rather than the page alone. A second legitimate
+    mount of the same projection (``LabWorkLoop``, rendered by the Weaver surface)
+    keeps the component reached while the page is stripped, so a page-only strip
+    would stop testing the defect it exists to catch without ever going red - the
+    control would silently decay into decoration. The defining module is left
+    untouched, so the export still exists to be judged.
     """
-    key = str(PAGE.relative_to(ROOT)).replace("\\", "/")
     loop_key = str(LOOP_COMPONENT.relative_to(ROOT)).replace("\\", "/")
     sources = _console_sources()
-    stripped = "\n".join(
-        line for line in sources[key].splitlines() if "ExecutionLoop" not in line
-    )
-    sources[key] = stripped
+    for path, text in list(sources.items()):
+        if path == loop_key:
+            continue
+        sources[path] = "\n".join(
+            line for line in text.splitlines() if "ExecutionLoop" not in line
+        )
     assert (loop_key, "ExecutionLoop") in orphaned_projections(sources)
 
 

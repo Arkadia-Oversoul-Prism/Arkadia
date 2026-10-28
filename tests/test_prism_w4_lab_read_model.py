@@ -347,3 +347,95 @@ def test_agent_registry_frames_capabilities_as_a_ceiling_not_a_grant():
 def test_agent_registry_renders_an_empty_state():
     assert 'data-testid="lab-agents-empty"' in _read(AGENTS)
 
+
+# ---------------------------------------------------------------------------
+# Canonical work-loop read model (recovered capability, surfaced on Weaver)
+# ---------------------------------------------------------------------------
+#
+# `components/lab/ExecutionLoop.tsx` described the canonical work loop but was
+# imported by nothing -- a defined capability that reached no surface. The
+# recovery is a feature-local read model (`LabWorkLoop`) that hydrates the loop
+# from the Lab's own overview and mounts it on the Weaver page. The loop is a
+# runtime *definition*, not a live run-status indicator and not an authorization.
+
+WORK_LOOP = CONSOLE / "src" / "components" / "lab" / "LabWorkLoop.tsx"
+EXECUTION_LOOP = CONSOLE / "src" / "components" / "lab" / "ExecutionLoop.tsx"
+
+
+def _console_sources() -> dict[str, str]:
+    """Every console source module, keyed by repo-relative path."""
+    return {
+        str(p.relative_to(ROOT)): p.read_text(encoding="utf-8")
+        for p in CONSOLE.glob("src/**/*.ts*")
+        if p.is_file()
+    }
+
+
+def is_imported(name: str, sources: dict[str, str]) -> bool:
+    """True when some module imports the named export (its own file aside).
+
+    Pure, so the negative control below exercises the same code the live
+    assertion uses.
+    """
+    pattern = re.compile(r"import\s*\{[^}]*\b" + re.escape(name) + r"\b[^}]*\}\s*from")
+    return any(pattern.search(src) for src in sources.values())
+
+
+def test_recovered_capability_is_no_longer_orphaned():
+    """The work-loop capability must be imported by the read model that mounts it.
+
+    Before the recovery, `ExecutionLoop` was imported by nothing; this guards
+    against a regression to a defined-but-unreachable component.
+    """
+    assert is_imported("ExecutionLoop", _console_sources()), (
+        "ExecutionLoop is orphaned again -- a capability that reaches no surface"
+    )
+
+
+def test_negative_control_orphan_detector_flags_an_unimported_name():
+    """The detector must report the defect it exists to catch."""
+    assert is_imported("ExecutionLoop", {}) is False
+    assert is_imported("ThisNameIsNeverImported", _console_sources()) is False
+    assert is_imported("LabWorkLoop", _console_sources()) is True
+
+
+def test_weaver_page_mounts_the_work_loop_read_model():
+    page = _read(WEAVER_PAGE)
+    assert "import { LabWorkLoop }" in page
+    assert "<LabWorkLoop />" in page
+
+
+def test_work_loop_reads_the_declared_overview_endpoint():
+    component = _read(WORK_LOOP)
+    assert "endpoints.labEngineeringOverview" in component, (
+        "the work-loop read model must use the canonical endpoint map"
+    )
+
+
+def test_work_loop_issues_no_mutating_request():
+    component = _read(WORK_LOOP)
+    assert mutating_calls(component) == []
+
+
+def test_work_loop_does_not_reference_the_mutating_lab_endpoints():
+    component = _read(WORK_LOOP)
+    for path in MUTATING_LAB_PATHS:
+        assert path not in component, f"work-loop read model reaches for the mutating Lab path '{path}'"
+
+
+def test_work_loop_states_it_is_a_definition_not_a_run_status():
+    """Recovering the loop must not imply the pipeline has been entered, let
+    alone that any stage is an approval or an execution."""
+    component = _read(EXECUTION_LOOP)
+    assert "runtime definition" in component.lower()
+    assert "not a live run-status" in component
+    assert "authorization" in component
+
+
+def test_work_loop_only_renders_stages_the_backend_returned():
+    """A UI that invents a stage would let the surface imply a pipeline the
+    backend never declared. Only string stages from the served overview pass."""
+    component = _read(WORK_LOOP)
+    assert "Array.isArray(loop)" in component
+    assert "typeof stage === \"string\"" in component
+

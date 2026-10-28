@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { Page, Panel } from "../components/ui";
 import { askArkana, type ArkanaMessage } from "../lib/arkana";
+import type { ArkanaProvenance } from "../components/arkana/arkanaProvenanceContract";
+import { ArkanaProvenancePanel } from "../components/arkana/ArkanaProvenancePanel";
 import { ApiError } from "../lib/apiClient";
 import { ArkanaThreadHistory } from "../components/arkana/ArkanaThreadHistory";
 import { ReadAloud } from "../components/ReadAloud";
 
 interface Turn extends ArkanaMessage {
   resonance?: number;
+  provenance?: ArkanaProvenance;
 }
 
 export function ArkanaPage() {
@@ -25,7 +28,10 @@ export function ArkanaPage() {
     setTurns((prev) => [...prev, { role: "user", content: message }]);
     try {
       const result = await askArkana(message, history);
-      setTurns((prev) => [...prev, { role: "assistant", content: result.reply, resonance: result.resonance }]);
+      setTurns((prev) => [
+        ...prev,
+        { role: "assistant", content: result.reply, resonance: result.resonance, provenance: result.provenance },
+      ]);
     } catch (caught) {
       // A real failure is shown as a real failure — never a fabricated reply.
       const detail = caught instanceof ApiError ? caught.message : "Arkana could not respond.";
@@ -57,6 +63,7 @@ export function ArkanaPage() {
                   testId={`arkana-listen-${i}`}
                 />
               )}
+              {turn.provenance && <ArkanaProvenancePanel provenance={turn.provenance} />}
             </li>
           ))}
         </ul>

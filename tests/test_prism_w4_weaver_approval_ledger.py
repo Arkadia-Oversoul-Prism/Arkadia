@@ -181,6 +181,76 @@ def test_self_decision_is_a_boundary_violation():
     assert ledger["violations"] and ledger["violations"][0]["id"] == "self"
 
 
+def test_self_rejection_is_a_permitted_withdrawal_not_a_violation():
+    """The backend *permits* self-rejection (`api_reject`: "withdrawing one's own
+    request is not a governance decision over another's consequential operation"),
+    while it refuses self-approval (`api_approve` -> 403). A self-rejection is
+    therefore a legitimate record and must not be accused of the self-approval
+    boundary.
+
+    This is a **negative control** for the split: both records name the same
+    identity as requester and decider, so a projection that flags every
+    self-decision reddens the withdrawal assertion, and one that flags no
+    self-decision reddens the approval assertion. Neither can pass by accident.
+    """
+    ledger = run_projection(
+        {
+            "approvals": [
+                {
+                    "id": "withdrawn",
+                    "status": "rejected",
+                    "subject_ref": "u-1",
+                    "decided_by": "u-1",
+                    "consumed_at": None,
+                },
+                {
+                    "id": "self-approved",
+                    "status": "approved",
+                    "subject_ref": "u-1",
+                    "decided_by": "u-1",
+                    "consumed_at": None,
+                },
+            ]
+        }
+    )
+    by_id = {r["id"]: r for r in ledger["readings"]}
+
+    withdrawn = by_id["withdrawn"]
+    assert withdrawn["self_decided"] is True
+    assert withdrawn["self_rejected"] is True
+    assert withdrawn["self_approved"] is False
+    assert withdrawn["boundary_violation"] is False, (
+        "a permitted self-rejection was reported as a boundary violation"
+    )
+    assert withdrawn["phase"] == "DECIDED"
+    assert "withdraw" in withdrawn["note"].lower()
+
+    approved = by_id["self-approved"]
+    assert approved["self_approved"] is True
+    assert approved["self_rejected"] is False
+    assert approved["boundary_violation"] is True
+
+    ids = [v["id"] for v in ledger["violations"]]
+    assert "self-approved" in ids and "withdrawn" not in ids
+
+
+def test_a_distinct_decider_is_never_a_self_decision():
+    """The guard must not widen: a decision rendered by a *different* principal is
+    ordinary, for both an approval and a rejection."""
+    ledger = run_projection(
+        {
+            "approvals": [
+                {"id": "ok-a", "status": "approved", "subject_ref": "u-1", "decided_by": "u-2"},
+                {"id": "ok-r", "status": "rejected", "subject_ref": "u-1", "decided_by": "u-2"},
+            ]
+        }
+    )
+    for reading in ledger["readings"]:
+        assert reading["self_decided"] is False
+        assert reading["boundary_violation"] is False
+    assert ledger["violations"] == []
+
+
 def test_contradictory_record_is_flagged_not_advanced():
     """A consumed record that is still `pending` cannot have been produced by the
     handler; it is flagged rather than rendered as a normal pending request."""

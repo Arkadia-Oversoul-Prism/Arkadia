@@ -1,15 +1,37 @@
 import { Page, Panel, Facts, ContractState } from "../components/ui";
 import { useHydration } from "../lib/useHydration";
-import { apiRequest } from "../lib/apiClient";
+import { ApiError, apiRequest } from "../lib/apiClient";
 import { endpoints } from "../lib/endpoints";
-import type { KnowledgeStatus } from "../lib/types";
+import {
+  requireKnowledgeStatusReading,
+  type KnowledgeStatusReading,
+} from "./knowledge/knowledgeContracts";
 import { KnowledgeGraphPanel } from "./knowledge/KnowledgeGraphPanel";
 import { KnowledgeSearchPanel } from "../components/knowledge/KnowledgeSearchPanel";
 import { KnowledgeTimelinePanel } from "../components/knowledge/KnowledgeTimelinePanel";
 import { KnowledgeProjectsPanel } from "../components/knowledge/KnowledgeProjectsPanel";
 
+/**
+ * The status handler answers `200 {"status":"error", ...}` for a failed read, so
+ * the status code cannot be trusted as the reading. The body is validated
+ * through the shared contract reader, which keeps a dead vault from rendering as
+ * a zeroed one — and keeps this reader from dereferencing `vault.notes` on the
+ * handler's failure envelope.
+ */
+async function readStatus(path: string): Promise<KnowledgeStatusReading> {
+  const payload = await apiRequest<unknown>(path);
+  try {
+    return requireKnowledgeStatusReading(payload);
+  } catch (err) {
+    throw new ApiError(
+      err instanceof Error ? err.message : "The knowledge status contract returned an unrecognised shape.",
+      { kind: "UNKNOWN", path },
+    );
+  }
+}
+
 export function KnowledgePage() {
-  const status = useHydration<KnowledgeStatus>(endpoints.knowledgeStatus, (p) => apiRequest<KnowledgeStatus>(p));
+  const status = useHydration<KnowledgeStatusReading>(endpoints.knowledgeStatus, readStatus);
 
   return (
     <Page title="Knowledge OS" subtitle="Continuity, memory, and the knowledge graph — the shared memory substrate.">

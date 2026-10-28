@@ -99,6 +99,13 @@ export function Shell({
     observer.observe(nav);
     return () => observer.disconnect();
   }, [revealActiveItem]);
+  // The document title is how a screen reader announces a navigation (WCAG
+  // 2.4.2). One static <title> for every route leaves that announcement
+  // unchanged, so the shell — the single owner of "which surface is current" —
+  // derives the title from the surface table rather than a second list.
+  useEffect(() => {
+    document.title = `${SURFACE_BY_ID[current].name} · ARKADIA`;
+  }, [current]);
 
   return (
     <div className="flex min-h-screen bg-ink text-white">

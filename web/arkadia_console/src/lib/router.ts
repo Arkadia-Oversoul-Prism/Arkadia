@@ -73,8 +73,45 @@ export const PATH_ALIASES: Record<string, SurfaceId> = {
   "/living-gate": "login",
 };
 
+/**
+ * Legacy inbound paths that addressed a **lens within** a surface, not a surface.
+ *
+ * `PATH_ALIASES` maps a legacy path to a `SurfaceId`, which is the right shape for
+ * `/nexus` → `novanet` but cannot express `/encyclopedia`: the archived Prism
+ * routed that path to `NexusSpiralCodex`, which the console now expresses as the
+ * NovaNet **`codex`** lens. The destination is *surface + section*, so putting it
+ * in `PATH_ALIASES` would resolve it to NovaNet *without* selecting the lens — the
+ * right surface showing the wrong view. Lens addressing therefore gets its own
+ * table rather than being forced into the surface-shaped one.
+ *
+ * Both paths read `GET /api/codex`, the shared public corpus
+ * (`NovaNetPage.tsx` renders it as the "Encyclopedia Galactica" lens), and both
+ * resolve to `novanet` + `codex`. Neither collides with a declared surface path
+ * or a backend route. The archived Prism declared these as exact routes with no
+ * sub-paths, so only the exact path matches: a deeper path (`/encyclopedia/x`)
+ * has no canonical form here and falls through to `home` rather than emitting a
+ * path the router cannot read back.
+ */
+export const LENS_ALIASES: Record<string, { surface: SurfaceId; section: string }> = {
+  "/encyclopedia": { surface: "novanet", section: "codex" },
+  "/spiral-codex": { surface: "novanet", section: "codex" },
+};
+
 export function resolvePath(pathname: string): Route {
   const path = pathname.replace(/\/+$/, "") || "/";
+
+  // A lens alias carries a section, so it is resolved before the segment branch:
+  // `/encyclopedia` must land on NovaNet's `codex` lens, not on NovaNet's default
+  // view. `routeForSurface` is used rather than string concatenation so the
+  // emitted path is exactly the one the resolver reads back.
+  const lens = LENS_ALIASES[path];
+  if (lens) {
+    return {
+      surface: lens.surface,
+      section: lens.section,
+      path: routeForSurface(lens.surface, lens.section),
+    };
+  }
 
   // An alias reconciles the legacy inbound *namespace*, not only its root. The
   // archived hub declared `/nexus/ims`, `/nexus/grove`, `/nexus/larder` and
@@ -98,9 +135,16 @@ export function resolvePath(pathname: string): Route {
     // supported depth keeps every returned path one the resolver reads back
     // unchanged — `/nexus/ims` still reaches NovaNet, and the alias branch cannot
     // emit a path the router itself does not understand.
-    const section = segments.length === 2 ? segments[1] : undefined;
+    //
+    // The root surface is the same rule in a second shape. `home` is declared at
+    // `/`, so joining a section to it emits `//<segment>`: a protocol-relative
+    // URL, which a browser reads as a *host*, not a path. Both the join and the
+    // section are therefore delegated to `routeForSurface`, so the alias branch
+    // cannot disagree with the navigation wrapper about which paths are
+    // addressable.
     const base = SURFACE_BY_ID[alias].path;
-    return { surface: alias, section, path: section ? `${base}/${section}` : base };
+    const section = segments.length === 2 && base !== "/" ? segments[1] : undefined;
+    return { surface: alias, section, path: routeForSurface(alias, section) };
   }
 
   const match = path.match(SECTION_PATTERN);

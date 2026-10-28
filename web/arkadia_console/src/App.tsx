@@ -8,6 +8,7 @@
  */
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { Shell } from "./components/Shell";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Loading, Page, Panel } from "./components/ui";
 import { SURFACE_BY_ID, type SurfaceId } from "./lib/surfaces";
 import { useRouter } from "./lib/router";
@@ -97,7 +98,9 @@ function Surfaces() {
 
   return (
     <Shell current={route.surface} onNavigate={handleNavigate}>
-      {body}
+      <ErrorBoundary key={route.surface} surface={SURFACE_BY_ID[route.surface].name} onHome={() => navigate("home")}>
+        {body}
+      </ErrorBoundary>
     </Shell>
   );
 }
