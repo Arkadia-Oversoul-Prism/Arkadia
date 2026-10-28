@@ -1,0 +1,530 @@
+# EVIDENCE — residual recovery from closed PRs #482 / #572 / #499
+
+Directive: `RESIDUAL-RECOVERY-2026-10-27-01`
+Branch: `gate-hygiene/residual-recovery-2026-10-27-01`
+Base: `main` @ `36f53be2` (verified live == local HEAD == `origin/main`; 0 open PRs)
+Mode: bounded recovery and reconciliation — recover only what is missing
+Authority: human sovereign (directive A1-A5)
+
+## 1. Reconstruction (live, this pass)
+
+| item | measured value |
+|---|---|
+| `origin/main` | `36f53be22d753ffe269f05cbf3fb39212f744207` |
+| open PRs | **0** |
+| `#482` | closed, unmerged (head `0cc7c9e7`, merge base `ee684fff`) |
+| `#572` | closed, unmerged |
+| `#499` | closed, unmerged (merge base `49809f45`) |
+| `#553` | closed variant that also carried a history-depth guard |
+| clone depth | `--is-shallow-repository` -> `false` (full clone) |
+
+All three directives' reported findings were revalidated against live source rather than
+taken from PR prose. Two residuals are **genuinely missing**; one is **already present**.
+
+## 2. R482 — history-depth test coverage: MISSING (recovered)
+
+### What is already on `main` (do not reapply)
+
+`fetch-depth: 0` is present on both history-dependent workflows:
+
+- `provider-routing.yml` — added by `b287659e` ("attribute regressions against a merge-base baseline")
+- `sg-02-fe-2-v.yml`
+
+`tests/test_history_depth_ci_wiring.py` is **absent** from `main`
+(`git ls-files` -> 0 paths), and no equivalent guard exists (the other `*_ci_wiring.py`
+guards assert different properties).
+
+### The defect the missing guard would have caught — and did catch
+
+The guard variant was run against live `main` **before** any patch. It failed **2** nodes:
+
+```
+FAILED tests/test_history_depth_ci_wiring.py::test_a_workflow_selects_itself_and_the_guard[provider-routing.yml]
+FAILED tests/test_history_depth_ci_wiring.py::test_a_workflow_selects_every_input_its_guard_reads[provider-routing.yml]
+2 failed, 15 passed
+```
+
+The failing assertion names the real omission:
+
+> `provider-routing.yml` judges `tests/test_agents_md_encoding_adjudication.py`, which reads
+> `AGENTS.md`, but does not select `AGENTS.md` in its `pull_request` paths filter.
+
+Measured domain membership at `36f53be2`:
+
+| workflow | `fetch-depth: 0` | executes a history-dependent guard |
+|---|---|---|
+| `provider-routing.yml` | **True** | yes |
+| `sg-02-fe-2-v.yml` | **True** | yes |
+| `economic-seam-engine.yml` | False | none |
+| `lane-doc-currency.yml` | True | none |
+| `baseline-fingerprint.yml` | True | none |
+
+So the residual is **not** the `fetch-depth` fix (already landed). It is the **two
+`paths:` filter omissions** in `provider-routing.yml`, plus the guard that pins them.
+
+The #553 variant failed the same 2 nodes on the same tree — with the same root cause reached
+by a differently-named assertion. The two variants are not competing repairs; they detect the
+same live defect. This recovery carries the #482 variant.
+
+### The fix (4 inserted lines, 1 file)
+
+`.github/workflows/provider-routing.yml` `pull_request.paths`:
+
+```yaml
+      - "tests/test_history_depth_ci_wiring.py"
+      - "AGENTS.md"
+```
+
+Why each is load-bearing:
+
+- `tests/test_history_depth_ci_wiring.py` — the guard selects **itself**, so a rewrite of the
+  guard is judged by the guard.
+- `AGENTS.md` — it is an **input**, not prose. `tests/test_agents_md_encoding_adjudication.py`
+  reads it, and `provider-routing.yml` executes that guard. `grep -rn "AGENTS.md"
+  .github/workflows/` matched only comments, so before this line an `AGENTS.md`-only commit
+  ran **no** whole-suite gate anywhere in the repository.
+
+### Verification
+
+| check | result |
+|---|---|
+| `tests/test_history_depth_ci_wiring.py` before patch | **2 failed, 15 passed** |
+| `tests/test_history_depth_ci_wiring.py` after patch | **17 passed** |
+| negative control A — `fetch-depth: 0` -> `1` | `1 failed` (`..._fetches_full_history[provider-routing.yml]`) |
+| negative control B — drop the guard from `paths` | `1 failed` (`..._selects_itself_and_the_guard[provider-routing.yml]`) |
+
+Both controls were applied to the **real** workflow file and restored byte-identically.
+
+## 3. R572 — shallow-clone detection: MISSING (recovered)
+
+`clone_is_shallow()` is absent from `scripts/lane_state.py` on `main`
+(`grep -rn clone_is_shallow scripts/ tests/` matches only `scripts/baseline_preflight.py`,
+a different module with its own copy).
+
+`scripts/lane_state.py` on `main` cannot distinguish a **truncated checkout** from a
+**rewritten `main`**. Both reach the same non-ancestor branch and emit the same finding:
+
+```
+snapshot base_main <sha> is not an ancestor of HEAD <sha>; the recorded provenance is void
+(was main rewritten?)
+```
+
+The two conditions require **opposite responses** — a truncated clone is repaired by fetching
+history, a rewritten `main` by re-measuring the lane PRs. Diagnosing the first as the second
+sends an operator to investigate a rewrite that never happened.
+
+The repair adds `clone_is_shallow(repo)` (`git rev-parse --is-shallow-repository`, read-only,
+fails to **not** shallow) and splits two call sites:
+
+- `_freshness_findings` — non-ancestor `base_main`: names the shallow checkout, "UNKNOWN, not
+  a pass", and the repair (`fetch-depth: 0` / `git fetch --unshallow`).
+- `_liveness_findings` — a merge commit that is **present but unwalkable**. This is the
+  fail-open shape: `commit_is_present` is True so the absent-object guard does not fire,
+  `--is-ancestor` exits non-zero because the graft stops the walk, and a naive reader
+  concludes "not merged" and reports **nothing** for a stale open-claim on a genuinely merged
+  PR.
+
+### Verification
+
+`tests/test_lane_instruction_doc_currency.py` — **41 passed** (base 37; `--collect-only`
+attribution: +4 = the 4 new nodes).
+
+| negative control | result |
+|---|---|
+| `clone_is_shallow` -> `return False` (split disabled at the definition) | **2 failed, 39 passed** — exactly `test_freshness_names_a_truncated_clone_instead_of_a_rewritten_main` and `test_liveness_reports_undecidable_for_a_present_but_unwalkable_merge_commit` |
+
+Both **positive controls** keep passing under the disabled split, which is what proves the
+guard does not swallow the defects it exists to catch:
+
+- `test_freshness_still_reports_a_rewritten_main_on_a_full_clone` — a real rewrite still says
+  "rewritten" and must **not** say "shallow".
+- `test_liveness_still_reports_the_stale_claim_on_a_full_clone` — a full clone still names the
+  stale snapshot as "already an ancestor of HEAD".
+
+Fixture provenance: the shallow fixtures build a real `--depth 1` clone over a `file://`
+origin with a `--depth 1` fetch of a side ref, so the commit is genuinely present and
+genuinely unwalkable. The `is_ancestor_of_head(merge_commit, repo=origin) is True` assertion
+is the control's premise — the truncated verdict is a clone artifact, not a rewrite.
+
+## 4. R499 — `merged_acceptance_pending` gate: ALREADY PRESENT (not recovered)
+
+**This residual is not missing. The behaviour is on `main` under different vocabulary.**
+
+`grep -rn "merged_acceptance_pending"` at `36f53be2` matches **12 test modules** and the live
+trajectory. The router's current behaviour already satisfies the directive's stated objective:
+
+| directive requirement | live behaviour at `36f53be2` |
+|---|---|
+| never silently selected | `select_next_move` -> `None` |
+| never a clean stop | blocked stop, not `CLEAN_STOP_BLOCKER` |
+| named, not a data defect | the #322 truthfulness repair names the frontier |
+| merge != acceptance | enforced at a different seam (see below) |
+
+Measured: `tests/test_router_schema_vocabulary_closure.py`,
+`test_engineering_router_status_truthfulness.py`, `test_router_clean_stop_contract.py`,
+`test_trajectory_schema_conformance.py`, `test_worker_attention_composition.py` ->
+**54 passed** on unmodified `main`.
+
+### Why the #499 diff is NOT recoverable within this directive
+
+The #499 diff is **not** merely a `merged_acceptance_pending` gate. Its load-bearing change is:
+
+```python
+-TERMINAL_DONE = frozenset({"completed", "accepted", "merged"})
++TERMINAL_DONE = frozenset({"completed", "accepted"})
+```
+
+That **removes `merged` from the terminal set** — i.e. it changes *when a merge becomes
+authoritative*. The directive's section 4 MANDATORY HUMAN-REVIEW GATE reads:
+
+> If the repair requires interpreting or changing **who can authorize acceptance, when a merge
+> becomes authoritative**, K15/K3 governance, protected authority code, approval enforcement,
+> or the identity boundary, **STOP before implementing that interpretation.**
+
+This is that case, and the repository already says so in a decision record that is **on
+`main`**: `docs/control-plane/evidence/gate07-trajectory-status-vocabulary-decision-01/EVIDENCE.md`
+section 5 ("Authority classification (the reason this is not executed)") concludes that the
+candidate repairs "are not behaviour-equivalent" and that the choice "decides an authority
+question", which the contract "classifies correctly as a human-authority decision".
+
+Additional contradiction recorded, not reconciled: the #499 branch's own evidence document
+(`weaver-schema-status-semantics-2026-10-12/EVIDENCE.md`) states the implementation "remains
+unverified until current-head CI passes" while its Verification section claims **VERIFIED**
+at head `91398207...` with "all other 11 current-head check-runs are `completed/success`". The
+`weaver/` tree has since moved on `main`; the two claims cannot both describe the current
+tree, so the diff's verification does not transfer.
+
+### Disposition
+
+**HUMAN REVIEW REQUIRED.** The specific decision is a single, precisely-bounded question:
+
+> May `merged` be removed from `TERMINAL_DONE` so that a merged PR no longer satisfies
+> acceptance or a dependent move's dependency?
+
+This directive explicitly does not authorize that interpretation ("This directive does not
+authorize constitutional reinterpretation or a new authorization path"). The findings are
+preserved here; no router change was made.
+
+## 5. Cross-residual reconciliation
+
+Effective-diff comparison found **no shared file, no shared invariant, and no test
+dependency** between the two recovered residuals:
+
+| residual | files | layer |
+|---|---|---|
+| R482 | `.github/workflows/provider-routing.yml`, `tests/test_history_depth_ci_wiring.py` | CI wiring / test-only |
+| R572 | `scripts/lane_state.py`, `tests/test_lane_instruction_doc_currency.py` | lane guard / test-only |
+| R499 | — | not recovered (human gate) |
+
+One integration unit is safe: the two residuals are disjoint, neither touches
+`api/main.py`, `api/lab_routes.py`, `weaver/engineering_router.py`, or any protected authority
+surface. Minimum-artifact rule satisfied — **one** PR, not three.
+
+CP10 boundary: all touched paths are admitted by
+`scripts/cp10_mutation_boundary_policy.py --judge` (checked per path before staging).
+
+## 6. Scope statement
+
+Changed: exactly 5 paths (4 recovered + this record). No `api/main.py`, no `api/lab_routes.py`,
+no `weaver/engineering_router.py`, no lane-owned frontend, no governance record.
+
+Not claimed: merge, production deployment, acceptance, or autonomous dispatch. Verification
+here is local test evidence against an exact revision.
+
+## 7. Remaining work
+
+1. **R499 human decision** — the `merged` / `TERMINAL_DONE` question above. Sovereign-only.
+2. **#499's router evidence document** is unverified against the current `weaver/` tree; if the
+   sovereign approves the semantics, the diff needs re-derivation, not a patch transfer.
+3. **Incidental finding, PROPOSED and out of scope:** `provider-routing.yml` now names
+   `AGENTS.md` as an input, so an `AGENTS.md`-only commit runs the whole suite. `sg-02-fe-2-v.yml`
+   also executes the adjudication guard but does not name `AGENTS.md`; the recovered guard only
+   asserts this for **judging** surfaces, and `sg-02-fe-2-v.yml` is exempted by its
+   `continue-on-error` step. Whether that exemption should persist is a separate bounded
+   question — recorded, not repaired.
+
+## 8. Second-pass verification of this record (2026-10-28, independent re-measurement)
+
+A later pulse under the same directive re-derived every load-bearing claim above from live
+evidence rather than trusting this document. Result: the recovery stands; three claims needed
+correction or completion, and are recorded here rather than rewritten in place.
+
+### 8.1 Base revision re-verified, open-PR count corrected
+
+| item | section 1 says | re-measured 2026-10-28 |
+|---|---|---|
+| `origin/main` | `36f53be2` | `36f53be22d753ffe269f05cbf3fb39212f744207` — **unchanged** |
+| open PRs | **0** | **5** (`#577`, `#578`, `#579`, `#580`, `#581`) |
+
+Section 1's "0 open PRs" was accurate *when written* (before this branch's PR existed) and is
+superseded by the live count above. The base SHA is unchanged, so the recovery is still bound
+to the revision it was measured against.
+
+### 8.2 `lane-doc-currency` is red on `main` itself — it does not gate this PR
+
+The `lane-doc-currency` check is **FAILURE** on this PR's head `fa30ab31`. It is not caused by
+this change and does not block integration:
+
+- The failing step is the last one, `python scripts/lane_state.py --check --verify-live`, and
+  this PR does not touch that workflow
+  (`git diff 36f53be2 fa30ab31 -- .github/workflows/lane-doc-currency.yml` -> empty).
+- Re-measured directly: `--check --verify-live` exits **1** with **16** DRIFT findings on
+  `main` @ `36f53be2` *and* on this branch's head — byte-identical. The plain `--check` (the
+  snapshot-only step) exits **0** on both.
+- The drift is a stale snapshot, not a code defect: `docs/control-plane/parallel-ui/lane-state.json`
+  records 12 PRs as open (last base `68acf89f`) while only 5 are open. This PR does not touch
+  the snapshot.
+- The red is **pre-existing and repository-wide**, not attributable to any one branch: 14
+  consecutive `lane-doc-currency` runs are `failure`, including a `workflow_dispatch` run on
+  `main` @ `36f53be2` itself and runs on four unrelated branches.
+- It does not gate merges: the repository declares **no rulesets** (`GET /rulesets` -> `[]`),
+  and `#566` merged into `main` (`36f53be2`, 2026-10-25) with this check red.
+
+The mechanical repair exists but is **out of scope** for this directive: the snapshot is
+derived by `scripts/lane_state_refresh.py --write` (dry run here reports the full
+open/merged/closed reclassification). The refresh is a separate bounded workstream; it was
+measured, not executed.
+
+### 8.3 R572's `clone_is_shallow` guard: present, and its controls re-proved
+
+Section 3's negative control is reproduced exactly and independently. Disabling the behavior at
+its **definition** (`clone_is_shallow` -> `return False`, so both call sites are covered) reddens
+precisely the two intended nodes and nothing else:
+
+```
+FAILED tests/test_lane_instruction_doc_currency.py::test_freshness_names_a_truncated_clone_instead_of_a_rewritten_main
+FAILED tests/test_lane_instruction_doc_currency.py::test_liveness_reports_undecidable_for_a_present_but_unwalkable_merge_commit
+2 failed, 39 passed
+```
+
+Restored: `41 passed`. The positive direction also holds — under the disabled split the
+rewritten-`main` case still reports "rewritten", so the split did not swallow the original
+verdict. The two recovered files are **byte-identical** to the preserved #572 head `1a89ebf0`
+(`scripts/lane_state.py` sha256 prefix `014bf5b0`, `tests/test_lane_instruction_doc_currency.py`
+`689fc002`), so this is a provenance-preserving recovery, not a re-implementation.
+
+### 8.4 R482's filter guard: present, and the #553 signature reproduced
+
+Section 2's negative control is reproduced exactly. Removing the two recovered `paths:` entries
+(`tests/test_history_depth_ci_wiring.py`, `AGENTS.md`) restores `main`'s state and reddens the
+same two nodes the #553 variant failed:
+
+```
+FAILED tests/test_history_depth_ci_wiring.py::test_a_workflow_selects_itself_and_the_guard[provider-routing.yml]
+FAILED tests/test_history_depth_ci_wiring.py::test_a_workflow_selects_every_input_its_guard_reads[provider-routing.yml]
+2 failed, 15 passed
+```
+
+Restored: `17 passed`. The recovered guard is byte-identical to the preserved #482 head
+`0cc7c9e7` (sha256 `7566aa7acc8314d098de2be3bf9dd28a90df2be8e07b9079abcfbb329e33c510`).
+
+### 8.5 The "three workflows" discrepancy is resolved: the guard domain is derived
+
+The directive reports #553 failing `test_a_workflow_selects_every_input_its_guard_reads` for
+**three** workflows (`economic-seam-engine.yml`, `provider-routing.yml`, `sg-02-fe-2-v.yml`).
+Re-measured at `36f53be2`, the guard parametrizes **one**:
+
+| workflow | history-dependent | a *judging* script executes the guard |
+|---|---|---|
+| `provider-routing.yml` | True | **True** |
+| `sg-02-fe-2-v.yml` | True | False (its guard step is `continue-on-error`-exempt) |
+| `economic-seam-engine.yml` | False | False |
+
+So the domain is a live measurement, not a stale list: the other two workflows are excluded
+because they do not judge the guard, not because the guard forgot them. No defect; the
+directive's figure describes an earlier revision.
+
+### 8.6 Regression boundary — failing/error node set, not counts
+
+Full suite, `-rEf --continue-on-collection-errors`, same environment:
+
+| tree | result |
+|---|---|
+| `main` @ `36f53be2` | `112 failed, 2276 passed, 21 skipped, 111 errors` |
+| this branch @ `1711771e` | `112 failed, 2297 passed, 21 skipped, 111 errors` |
+
+**The failing/error node set is identical on both trees** — 223 nodes each, sorted-node-list
+sha256 `9accc10a2ae4a59e64dd11ff0f792262784e50099c4921c78ca8a10587bb74e6` on both, and
+`comm -3` empty in both directions. Zero regression, demonstrated by node **identity**, not by
+counts. The counts move only in `passed`: `2276 -> 2297` (`+21`).
+
+That `+21` is attributed by `--collect-only` and is exactly the recovered tests: `+4` in
+`tests/test_lane_instruction_doc_currency.py` (37 -> 41) plus `17` in the new
+`tests/test_history_depth_ci_wiring.py` (absent on `main`, `git ls-files` -> 0). No pre-existing
+node was repaired, and none was broken.
+
+### 8.7 CP10 boundary and provenance re-checked
+
+All six touched paths are admitted by `scripts/cp10_mutation_boundary_policy.py --judge`
+(per-path check). Full diff vs `main`: 6 files, `+1109 / -1` —
+`.github/workflows/provider-routing.yml`, `AGENTS.md`, this record,
+`scripts/lane_state.py`, `tests/test_history_depth_ci_wiring.py`,
+`tests/test_lane_instruction_doc_currency.py`. No `api/main.py`, no `api/lab_routes.py`, no
+`weaver/engineering_router.py`, no lane-owned frontend, no governance record.
+
+The `AGENTS.md` addition is an append (insertion-only): the encoding audit on this tree reports
+`Cyrillic 0 -> 0`, `oracle 6c43218a48a4 insertions-only inserted=1433 alterations=0
+reproduced=True`, and the `AGENTS.md`-facing suites are unchanged at `58 passed, 5 skipped` on
+both trees. No oracle-carried line was rewritten.
+
+### 8.8 Unchanged disposition
+
+R499 remains **not recovered — human review required** (section 4). The re-measurement confirms
+its load-bearing change is `TERMINAL_DONE` losing `merged` in `weaver/engineering_router.py`,
+which decides *when a merge becomes authoritative* — the directive's mandatory human-review
+gate. No router change was made, and none is proposed here.
+
+### 8.9 Why `provider-routing.yml` is *not* byte-identical to the preserved #482 head
+
+Three of the four recovered artifacts are byte-identical to their preserved sources:
+
+| artifact | preserved source | sha256 (16) | status |
+|---|---|---|---|
+| `tests/test_history_depth_ci_wiring.py` | #482 `0cc7c9e7` | `7566aa7acc8314d0` | IDENTICAL |
+| `scripts/lane_state.py` | #572 `1a89ebf0` | `014bf5b066a7776b` | IDENTICAL |
+| `tests/test_lane_instruction_doc_currency.py` | #572 `1a89ebf0` | `689fc00241343fe3` | IDENTICAL |
+| `.github/workflows/provider-routing.yml` | #482 `0cc7c9e7` | `341860b3...` vs `758eba82...` | **DIFFERS, by design** |
+
+`provider-routing.yml` differs because the directive prohibits reapplying workflow fixes already
+present on `main`: `fetch-depth: 0` is **already** in `main`'s `provider-routing.yml` (line 37).
+Copying the preserved file wholesale would have re-applied an already-integrated fix and reverted
+every unrelated `main` advance in the file. Instead the branch takes **`main`'s** version and adds
+only the missing filter entries — the whole diff is `+9 / -0`:
+
+```
++      - "tests/test_history_depth_ci_wiring.py"
++      # `AGENTS.md` is an *input* to a guard this job judges, not incidental prose: ...
++      - "AGENTS.md"
+```
+
+That is the minimal correct delta, and it is why the "one of four differs" result is expected
+rather than a provenance failure. The guard that consumes this filter is byte-identical; only the
+filter was extended.
+
+### 8.10 T6 — `lane-doc-currency` attribution closed by a same-instant differential
+
+Section 8.2 argued the red check is pre-existing. That argument is now *executed* rather than
+inferred, using the strongest available control: **run `main`'s own `lane_state.py` against live
+GitHub** and compare it with the branch's.
+
+| tree | command | exit | DRIFT PR set | DRIFT lanes |
+|---|---|---|---|---|
+| `main` @ `36f53be2` (its own script) | `python3 scripts/lane_state.py --check --verify-live` | **1** | 499, 508, 525, 535, 547, 548, 549, 550, 553, 554, 555, 562, 563, 564 | 1, 2 |
+| PR #577 head `7dd44086` | same | **1** | identical 14 | 1, 2 |
+
+The two DRIFT sets are **equal as sets**. The recovered code therefore does not introduce the
+failure: a tree that contains none of it fails identically, on the same 14 PRs, in the same
+minute, against the same live GitHub state.
+
+- The failing step in both CI runs is step 9, `Verify lane PR state against GitHub
+  (authoritative oracle)`. Step 9 exists on `main` **and** on the branch, so it is not introduced
+  here (`git show 36f53be2:.github/workflows/lane-doc-currency.yml` carries it).
+- The **reason string is byte-identical** between the two CI logs, including the two
+  non-blocking `NOTE` lines about lanes 3 and 4 (deferred lanes, deliberately not judged).
+- The drift is a stale snapshot: `lane-state.json` records 14 PRs as open while the live API
+  reports **5**. Neither this PR nor `main` touches the snapshot.
+
+**Conclusion (T6): NOT ATTRIBUTABLE to PR #577.** The check is red on `main` itself and the
+recovered code does not change its verdict. It does not gate the merge: `GET /rulesets` -> `[]`
+and `GET /branches/main/protection` -> *"Branch not protected"*, so no required check exists;
+`#566` reached `main` (`36f53be2`) with this check red.
+
+### 8.11 Composition measurement against the live sibling PRs (M8/M9)
+
+The open-PR inventory was re-measured this pass: **5** open PRs (`#577` ready; `#578`, `#579`,
+`#580`, `#581` draft). `#580` is the sibling of interest because it touches the *same two R572
+files*:
+
+| path | #577 | #580 |
+|---|---|---|
+| `scripts/lane_state.py` | yes | yes |
+| `tests/test_lane_instruction_doc_currency.py` | yes | yes |
+| `docs/control-plane/evidence/.../DESIGN-INVESTIGATION.md` | no | yes |
+
+Composition was measured by the operation the human will actually perform —
+`git merge --no-edit 6caa1adb` (the `#580` head) onto the `#577` head in a detached worktree —
+not by a single-file patch:
+
+- **No unmerged files.** The merge is textually clean.
+- **No merge-loss.** Token counts on the composed tree equal the *union* of both parents for both
+  shared files (`clone_is_shallow` 5 = `#577`'s 5 + `#580`'s 0; deferred-judging markers 27 =
+  `#577`'s 19 + `#580`'s 27, so neither side's contribution was dropped). This is the
+  merge-loss signature from `AGENTS.md`: a hybrid that takes some tokens from parent 1 and some
+  from parent 2 without a recompile. Here every load-bearing token is present.
+- **Composed behaviour passes.** `tests/test_history_depth_ci_wiring.py` +
+  `tests/test_lane_instruction_doc_currency.py` -> **63 passed**; `#580`'s own new node
+  `test_live_tree_has_no_deferred_branch_mismatch` is collected in the composed tree.
+- **Composed `--check` exits 0** (`lane instruction docs consistent with snapshot (2 guarded
+  lanes)`).
+
+`#580` is a **draft** and is *not* a prerequisite of this recovery: `#577`'s own tests pass
+without it. Merge order is the human sovereign's. `#578`, `#579` and `#581` touch disjoint
+paths (`web/arkadia_console/**`, `weaver/**`, lane records) and do not interact with this diff.
+
+### 8.12 M1-M13 disposition for PR #577
+
+| criterion | state | evidence |
+|---|---|---|
+| M1 canonical target | PASS | `base.ref == main`, canonical repository |
+| M2 provenance | PASS | head `7dd44086`; recovered files hash-identical to the preserved closed heads |
+| M3 scope | PASS | 6 changed paths, all within the directive's scope; CP10 admits all 6 |
+| M4 governance | PASS | no authority/identity/K15-K3/approval surface touched; R499 deliberately not recovered |
+| M5 reviews | PASS | `required_pull_request_reviews` is null; repository requires none |
+| M6 checks | **FAIL** | `lane-doc-currency` = failure — pre-existing on `main` (§8.10), but the criterion admits no exemption |
+| M7 tests | PASS | R482 17 passed; R572 63 passed; negative controls bite and restore byte-identically |
+| M8 conflicts/freshness | PASS | `mergeable: true`; `main` unchanged at `36f53be2`; composition measured (§8.11) |
+| M9 dependencies | PASS | no prerequisite; `#580` not required |
+| M10 regression boundary | PASS | failing/error node set identical, 223 nodes both trees |
+| M11 merge method | PASS (would be) | PR merge only; no direct push, no force-push |
+| M12 authorization | PASS | within the directive's A1-A5 |
+| M13 final revalidation | NOT REACHED | blocked at M6 |
+
+**Disposition: NOT ELIGIBLE — fail-closed at M6.** The directive's A4 requires *every* applicable
+criterion, and M6 forbids treating a check as passed because it was previously green or because it
+is someone else's debt. The M6 failure is provably not caused by this branch (§8.10), which makes
+it a *repository-level* blocker rather than a defect in the recovery — but the criterion is not
+satisfied, so no merge is performed and no criterion is waived.
+
+The same M6 condition is red on `main` and on every unrelated branch measured, so this is not a
+reason to repair the recovery. The mechanical unblock is the stale-snapshot refresh
+(`scripts/lane_state_refresh.py --write`), which is a **separate bounded workstream** — measured
+in §8.2, not executed here.
+
+### 8.13 R482's wiring is runtime-proven, not asserted in source
+
+A source-level claim that a workflow *selects* a guard is not evidence that the workflow
+*executes* it — the distinction `AGENTS.md` records as "executes to selects". It is now closed by
+execution: on head `16c2209d`, `provider-routing` (the gate this recovery extends) reports
+`completed / success` in run `40660968550`. The R482 recovery is therefore proven at runtime, not
+merely in the diff.
+
+Full check-run set on `16c2209d`:
+
+| check | conclusion |
+|---|---|
+| `provider-routing` (the gate this PR wires) | **success** |
+| `boot-syntax`, `console-contract`, `trigger-coverage`, `test`, `verdict-step-integrity` | success |
+| `Full-history secret scan` | success |
+| `bundle-beta-evidence`, `provider-forensics`, `native-arkadia-golden-workflow`, beta-01/02 | success |
+| `lane-doc-currency` | **failure** — pre-existing on `main` (§8.10) |
+
+`provider-routing` passing matters more than it looks: it runs the full suite with
+`-rEf --continue-on-collection-errors`, so the recovered `tests/test_history_depth_ci_wiring.py`
+executed under CI, in the workflow it judges.
+
+### 8.14 M6, read carefully: the ambiguity is recorded, and fail-closed governs
+
+M6 reads "**all required** GitHub status checks pass". The repository declares **no** required
+checks — `GET /rulesets` -> `[]`, `GET /branches/main/protection` -> 404 ("Branch not
+protected") — so under a literal reading there is nothing for M6 to test and it is vacuous. Under
+the reading its second sentence implies ("Checks must not be skipped, overridden, or treated as
+passed merely because they were previously green"), `lane-doc-currency` is red and M6 fails.
+
+Both readings are recorded; neither is resolved by preference. The contract's FAIL-CLOSED rule
+covers exactly this case — "If ANY mandatory criterion is false, **unknown**, stale, or
+unverifiable, DO NOT MERGE" — so the disposition stays **NOT ELIGIBLE** and no merge is
+performed. Choosing the permissive reading because it permits a merge would be the
+"treat an absent decision as approval" failure the contract prohibits.
+
+Note also that A4 is permissive, not mandatory ("Weaver *may* merge ... only when"). Nothing in
+this directive requires a merge, so there is no pressure to resolve the ambiguity in its favour.
