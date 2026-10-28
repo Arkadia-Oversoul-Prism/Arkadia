@@ -341,13 +341,17 @@ Full suite, `-rEf --continue-on-collection-errors`, same environment:
 | tree | result |
 |---|---|
 | `main` @ `36f53be2` | `112 failed, 2276 passed, 21 skipped, 111 errors` |
-| this branch @ `fa30ab31` | see 8.7 |
+| this branch @ `1711771e` | `112 failed, 2297 passed, 21 skipped, 111 errors` |
 
-`main`'s sorted FAILED/ERROR node set is **223** nodes (`/tmp/nodes_main.txt` in the pulse that
-measured it). The branch's delta is attributed by **node identity** and by `--collect-only`, not
-by count: `+21` collected nodes = `+4` in `tests/test_lane_instruction_doc_currency.py`
-(37 -> 41) plus `17` in the new `tests/test_history_depth_ci_wiring.py` (absent on `main`,
-`git ls-files` -> 0). Those are exactly the recovered tests.
+**The failing/error node set is identical on both trees** — 223 nodes each, sorted-node-list
+sha256 `9accc10a2ae4a59e64dd11ff0f792262784e50099c4921c78ca8a10587bb74e6` on both, and
+`comm -3` empty in both directions. Zero regression, demonstrated by node **identity**, not by
+counts. The counts move only in `passed`: `2276 -> 2297` (`+21`).
+
+That `+21` is attributed by `--collect-only` and is exactly the recovered tests: `+4` in
+`tests/test_lane_instruction_doc_currency.py` (37 -> 41) plus `17` in the new
+`tests/test_history_depth_ci_wiring.py` (absent on `main`, `git ls-files` -> 0). No pre-existing
+node was repaired, and none was broken.
 
 ### 8.7 CP10 boundary and provenance re-checked
 
