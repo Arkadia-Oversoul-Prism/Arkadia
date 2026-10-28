@@ -489,3 +489,42 @@ The same M6 condition is red on `main` and on every unrelated branch measured, s
 reason to repair the recovery. The mechanical unblock is the stale-snapshot refresh
 (`scripts/lane_state_refresh.py --write`), which is a **separate bounded workstream** — measured
 in §8.2, not executed here.
+
+### 8.13 R482's wiring is runtime-proven, not asserted in source
+
+A source-level claim that a workflow *selects* a guard is not evidence that the workflow
+*executes* it — the distinction `AGENTS.md` records as "executes to selects". It is now closed by
+execution: on head `16c2209d`, `provider-routing` (the gate this recovery extends) reports
+`completed / success` in run `40660968550`. The R482 recovery is therefore proven at runtime, not
+merely in the diff.
+
+Full check-run set on `16c2209d`:
+
+| check | conclusion |
+|---|---|
+| `provider-routing` (the gate this PR wires) | **success** |
+| `boot-syntax`, `console-contract`, `trigger-coverage`, `test`, `verdict-step-integrity` | success |
+| `Full-history secret scan` | success |
+| `bundle-beta-evidence`, `provider-forensics`, `native-arkadia-golden-workflow`, beta-01/02 | success |
+| `lane-doc-currency` | **failure** — pre-existing on `main` (§8.10) |
+
+`provider-routing` passing matters more than it looks: it runs the full suite with
+`-rEf --continue-on-collection-errors`, so the recovered `tests/test_history_depth_ci_wiring.py`
+executed under CI, in the workflow it judges.
+
+### 8.14 M6, read carefully: the ambiguity is recorded, and fail-closed governs
+
+M6 reads "**all required** GitHub status checks pass". The repository declares **no** required
+checks — `GET /rulesets` -> `[]`, `GET /branches/main/protection` -> 404 ("Branch not
+protected") — so under a literal reading there is nothing for M6 to test and it is vacuous. Under
+the reading its second sentence implies ("Checks must not be skipped, overridden, or treated as
+passed merely because they were previously green"), `lane-doc-currency` is red and M6 fails.
+
+Both readings are recorded; neither is resolved by preference. The contract's FAIL-CLOSED rule
+covers exactly this case — "If ANY mandatory criterion is false, **unknown**, stale, or
+unverifiable, DO NOT MERGE" — so the disposition stays **NOT ELIGIBLE** and no merge is
+performed. Choosing the permissive reading because it permits a merge would be the
+"treat an absent decision as approval" failure the contract prohibits.
+
+Note also that A4 is permissive, not mandatory ("Weaver *may* merge ... only when"). Nothing in
+this directive requires a merge, so there is no pressure to resolve the ambiguity in its favour.
