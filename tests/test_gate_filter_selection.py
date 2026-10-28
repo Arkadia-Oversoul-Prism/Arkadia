@@ -27,18 +27,46 @@ The invariant is stated generically over the live corpus:
     test file T that a step of W names as a pytest argument:
         E's filter must select T.
 
-Files reached only through a directory argument (``pytest tests/`` or
-``pytest tests/architecture``) are deliberately **excluded**: their domain is a
-directory, and requiring the filter to enumerate its members would restate the corpus
-and drift. Those are judged by ``test_ci_gate_trigger_coverage.py`` and by the
-per-surface wiring guards, which derive their own domain at test time.
+Directory arguments (``pytest tests/`` or ``pytest tests/architecture``) are a *site*
+the detector must see, not a case it may ignore: a file reached only through one of them
+has no named selector, so the invariant above says nothing about it. Two rules cover
+them, and a third is deliberately **not** asserted.
+
+1. A directory argument is detected as an execution site
+   (``test_detector_detects_directory_execution_sites``).
+2. A **judging** directory site — one that can fail the job, i.e. neither the step nor
+   its job sets ``continue-on-error`` — must select at least one member of the directory
+   it runs (``test_a_judging_directory_site_selects_a_member``). A judging step that runs
+   a directory its filter selects nothing from is the "gate that cannot be reached"
+   shape: the step can fail, and no change to the tree it runs would ever trigger it.
+
+The stronger reading — *every* member of a directory a judging step runs must be
+selected — is **not** asserted, and the reason is measured rather than stylistic. On
+`main` @ `36f53be2` it breaches 3 times (``provider-routing.yml`` omits 294 of 299
+members; ``sg-02-fe-2-v.yml`` omits 279 on each of ``pull_request`` and ``push``), and
+satisfying it would mean adding ``tests/**`` to the whole-suite gate's filter — every
+test edit triggering a full-suite run — and editing a workflow outside this change.
+"Enumerate the directory's membership" restates the corpus, which is the drift this file
+exists to avoid.
+
+The measured size of the unasserted gap is **207 of 299** tracked ``test_*.py`` files
+that are executed only through a directory argument by a workflow whose filter selects no
+file under it. That is recorded debt, not a property this change can make true; it needs
+roughly 200 filter edits and is out of scope here.
+
+The defect this change repairs is narrower and is pinned directly: an ``api/main.py``
+edit fired six workflows and **none of them ran ``pytest tests/``**, so neither the
+approval-perimeter guard nor the ``api/main.py`` line-count budget test had a selected
+execution site. ``test_the_whole_suite_gate_selects_the_surfaces_it_judges`` states that
+contract over the surfaces this change wires.
 
 Controls
 --------
 ``test_detector_flags_the_omitted_named_guard`` and
 ``test_detector_ignores_directory_reached_guards`` prove the detector reads the real
-workflow file and is not trivially true or trivially false; the directory case is the
-positive control that keeps the rule from over-reaching.
+workflow file and is not trivially true or trivially false. Each new rule carries a
+negative control that fails when the rule is removed, so the assertions cannot be
+disarmed by editing the workflow without reddening this file.
 """
 
 from __future__ import annotations
@@ -175,6 +203,104 @@ def _executed_named_tests(workflow: dict, tracked: set[str]) -> set[str]:
     return executed
 
 
+def _directory_arguments(run: str, tracked: set[str]) -> set[str]:
+    """Tracked directories passed as arguments to a real pytest invocation.
+
+    A directory argument is an execution *site*: it runs every test file beneath it.
+    It is deliberately not resolved to its members here — that membership is the corpus,
+    and enumerating it is what the class-level docstring explains must not happen.
+    """
+    found: set[str] = set()
+    for words in _command_words(run):
+        for index, word in enumerate(words):
+            if word != "pytest" or not (index == 0 or words[index - 1] == "-m"):
+                continue
+            for argument in words[index + 1 :]:
+                if argument.startswith("-"):
+                    continue
+                candidate = argument.split("::")[0].rstrip("/")
+                if candidate in tracked:
+                    continue
+                if any(path.startswith(candidate + "/") for path in tracked):
+                    found.add(candidate)
+            break
+    return found
+
+
+def _judging_directory_sites() -> list[tuple[str, str, str]]:
+    """``(workflow, event, directory)`` for every directory site that can fail the job.
+
+    A step that carries ``continue-on-error`` — or whose job does — reports without
+    judging, so it cannot be the execution site of an enforcement boundary. Reading the
+    step *and* the job is the whole exemption path; reading the step alone would let a
+    job-level ``continue-on-error: true`` hide an always-passing gate.
+    """
+    tracked = _tracked_test_paths()
+    sites: list[tuple[str, str, str]] = []
+    for path in _workflow_paths():
+        workflow = _load(path)
+        trigger = _trigger_block(workflow)
+        for job in (workflow.get("jobs") or {}).values():
+            if job.get("continue-on-error"):
+                continue
+            for step in job.get("steps") or []:
+                run = step.get("run")
+                if not isinstance(run, str) or step.get("continue-on-error"):
+                    continue
+                for directory in sorted(_directory_arguments(run, tracked)):
+                    for event in _TRIGGER_EVENTS:
+                        if _path_filter(trigger, event) is None:
+                            continue
+                        sites.append((path.name, event, directory))
+    return sites
+
+
+# Surfaces this change wires into the whole-suite gate. Each is a file whose change must
+# select a workflow that runs the full suite, because the guard or budget it is judged by
+# has no other execution site.
+WHOLE_SUITE_JUDGED_SURFACES = (
+    "api/main.py",
+    "api/approval_routes.py",
+    "api/ceo_chat_routes.py",
+    "tests/test_tool_execution_perimeter.py",
+)
+
+# Paths that must NOT be dragged into the whole-suite gate by that wiring: widening a
+# filter until it selects everything is not a repair, it is a different defect.
+UNRELATED_CONTROL_PATHS = (
+    "web/arkadia_console/src/App.tsx",
+    "docs/control-plane/overnight/PRISM-UI-RECONCILIATION.md",
+    "android/sonata-android/app/build.gradle.kts",
+)
+
+
+def _whole_suite_judging_workflows() -> list[tuple[str, dict]]:
+    """Workflows with a directory site running the whole suite in a judging step."""
+    tracked = _tracked_test_paths()
+    found: list[tuple[str, dict]] = []
+    for path in _workflow_paths():
+        workflow = _load(path)
+        for job in (workflow.get("jobs") or {}).values():
+            if job.get("continue-on-error"):
+                continue
+            for step in job.get("steps") or []:
+                run = step.get("run")
+                if not isinstance(run, str) or step.get("continue-on-error"):
+                    continue
+                if "tests" in _directory_arguments(run, tracked):
+                    found.append((path.name, workflow))
+                    break
+    return found
+
+
+def _selects_any_member(path_filter: set[str], directory: str, tracked: set[str]) -> bool:
+    """Whether a filter selects at least one tracked file beneath ``directory``."""
+    return any(
+        path.startswith(directory + "/") and _selects_path(path_filter, path)
+        for path in tracked
+    )
+
+
 def _omissions() -> list[tuple[str, str, str]]:
     """``(workflow, event, test_file)`` triples that breach the invariant."""
     tracked = _tracked_test_paths()
@@ -254,6 +380,189 @@ def test_selector_accepts_the_forms_github_uses():
 def test_selector_rejects_unrelated_paths():
     assert not _selects_path({"weaver/**", "providers/**"}, "tests/test_key_pool.py")
     assert not _selects_path({"tests/*.py"}, "tests/architecture/test_layers.py")
+
+
+# ------------------------------------------------- directory sites: detection and judging
+
+
+def test_detector_detects_directory_execution_sites():
+    """A directory argument is a site, and it is read from a real pytest invocation."""
+    tracked = _tracked_test_paths()
+    assert _directory_arguments(
+        "python -m pytest tests/ -q -rEf --continue-on-collection-errors", tracked
+    ) == {"tests"}
+    assert _directory_arguments("python -m pytest tests/architecture -q", tracked) == {
+        "tests/architecture"
+    }
+    assert _directory_arguments("python -m pytest tests/architecture/ -q", tracked) == {
+        "tests/architecture"
+    }
+    # A mention is still not an execution, and a named file is not a directory.
+    assert _directory_arguments("echo pytest tests/", tracked) == set()
+    assert _directory_arguments("python -m pytest tests/test_key_pool.py -q", tracked) == set()
+
+
+def test_detector_ignores_directory_reached_guards():
+    """Positive control: a directory argument is not a *named* selector.
+
+    ``pytest tests/`` and ``pytest tests/architecture`` execute every file beneath
+    them; requiring the named-selector rule to enumerate that membership would restate
+    the corpus. The directory rules are separate and stated below.
+    """
+    tracked = _tracked_test_paths()
+    assert _named_test_arguments("python -m pytest tests/ -q", tracked) == set()
+    assert _named_test_arguments("python -m pytest tests/architecture -q", tracked) == set()
+    assert _named_test_arguments(
+        "python -m pytest tests/test_key_pool.py -q", tracked
+    ) == {"tests/test_key_pool.py"}
+
+
+def test_a_judging_directory_site_selects_a_member():
+    """A judging directory site must be reachable: its filter selects some member.
+
+    A step that can fail the job while running a directory its filter selects nothing
+    from is a gate no change to that tree can trigger — the defect measured on `main`
+    @ `36f53be2`, where an ``api/main.py`` edit fired six workflows and none of them ran
+    the full suite.
+    """
+    tracked = _tracked_test_paths()
+    breaches: list[str] = []
+    for name, event, directory in _judging_directory_sites():
+        path_filter = _path_filter(_trigger_block(_load(WORKFLOWS / name)), event)
+        if path_filter is None:
+            continue
+        if not _selects_any_member(path_filter, directory, tracked):
+            breaches.append(f"{name} [{event}] runs `pytest {directory}/` but selects no member")
+    assert not breaches, (
+        "a judging step runs a test directory its paths filter cannot reach, so the "
+        "gate can fail but no change to the tree it runs will ever trigger it:\n  "
+        + "\n  ".join(breaches)
+    )
+
+
+def test_judging_directory_sites_are_non_empty():
+    """The rule above must have a domain, or it is vacuously true."""
+    sites = _judging_directory_sites()
+    assert sites, (
+        "no judging directory site was found; the invariant above would be vacuous. "
+        "Either the detector stopped reading directory arguments or every whole-suite "
+        "step became `continue-on-error`."
+    )
+    assert any(name == "provider-routing.yml" for name, _, _ in sites), (
+        "provider-routing.yml no longer registers a judging directory site; the "
+        "whole-suite gate has been demoted to a reporting surface"
+    )
+
+
+def test_negative_control_a_judging_site_without_a_reachable_member_is_reported():
+    """The rule bites: strip every member-selecting entry and it must report.
+
+    Mutates the real workflow's filter in memory — the file on disk is untouched — so a
+    reader cannot disarm the rule by editing the workflow without reddening this file.
+    """
+    tracked = _tracked_test_paths()
+    name, event, directory = next(
+        (n, e, d)
+        for n, e, d in _judging_directory_sites()
+        if n == "provider-routing.yml" and d == "tests"
+    )
+    workflow = _load(WORKFLOWS / name)
+    path_filter = _path_filter(_trigger_block(workflow), event)
+    assert path_filter is not None
+    assert _selects_any_member(path_filter, directory, tracked), (
+        "precondition failed: provider-routing.yml must currently reach its directory"
+    )
+    stripped = {
+        pattern
+        for pattern in path_filter
+        if not any(
+            _glob_to_regex(pattern).match(path)
+            for path in tracked
+            if path.startswith(directory + "/")
+        )
+    }
+    assert stripped != path_filter, "mutation applied nothing; the control would be vacuous"
+    assert not _selects_any_member(stripped, directory, tracked), (
+        "removing every member-selecting entry still reports a reachable member, so the "
+        "detector is not reading the filter"
+    )
+
+
+# --------------------------------------------- the surfaces this change wires in
+
+
+@pytest.mark.parametrize("surface", WHOLE_SUITE_JUDGED_SURFACES)
+def test_the_whole_suite_gate_selects_the_surfaces_it_judges(surface: str):
+    """A change to ``surface`` must select a workflow that runs the whole suite.
+
+    This is the contract the wiring repair establishes, and the reason it is stated over
+    a named surface list rather than inferred: ``tests/test_tool_execution_perimeter.py``
+    and ``tests/architecture/test_layer_boundaries.py`` (the ``api/main.py`` line-count
+    budget) are executed only through the whole-suite step, so a filter that omits these
+    files leaves both guards with no execution site at all.
+    """
+    gates = _whole_suite_judging_workflows()
+    assert gates, "no workflow runs the whole suite in a judging step"
+    selected = [
+        name
+        for name, workflow in gates
+        if any(
+            (path_filter := _path_filter(_trigger_block(workflow), event)) is not None
+            and _selects_path(path_filter, surface)
+            for event in _TRIGGER_EVENTS
+        )
+    ]
+    assert selected, (
+        f"no whole-suite judging workflow selects {surface}; a change to it is judged by "
+        f"no gate that runs the suite. Candidate gates: {sorted(n for n, _ in gates)}"
+    )
+
+
+def test_the_wiring_does_not_drag_unrelated_paths_into_the_gate():
+    """The converse control: the widened filter must not select everything.
+
+    A filter widened until it matches unrelated surfaces is not a repair — it makes the
+    whole suite run on every change. These paths are unrelated to the approval perimeter
+    and must stay out.
+    """
+    gates = dict(_whole_suite_judging_workflows())
+    assert "provider-routing.yml" in gates, "the whole-suite gate is missing"
+    trigger = _trigger_block(gates["provider-routing.yml"])
+    for surface in UNRELATED_CONTROL_PATHS:
+        selected = any(
+            (path_filter := _path_filter(trigger, event)) is not None
+            and _selects_path(path_filter, surface)
+            for event in _TRIGGER_EVENTS
+        )
+        assert not selected, (
+            f"provider-routing.yml now selects {surface}, an unrelated path; the filter "
+            f"has been broadened past the surfaces it judges"
+        )
+
+
+def test_negative_control_a_removed_surface_is_reported():
+    """Removing one wired surface from the filter must breach the contract."""
+    workflow = _load(WORKFLOWS / "provider-routing.yml")
+    trigger = _trigger_block(workflow)
+    for event in _TRIGGER_EVENTS:
+        block = trigger.get(event)
+        if not isinstance(block, dict) or not isinstance(block.get("paths"), list):
+            continue
+        block["paths"] = [
+            p
+            for p in block["paths"]
+            if not _glob_to_regex(p).match("tests/test_tool_execution_perimeter.py")
+        ]
+    selected = [
+        event
+        for event in _TRIGGER_EVENTS
+        if (path_filter := _path_filter(trigger, event)) is not None
+        and _selects_path(path_filter, "tests/test_tool_execution_perimeter.py")
+    ]
+    assert not selected, (
+        "the mutated filter still selects the perimeter guard, so the mutation applied "
+        "nothing and this control is vacuous"
+    )
 
 
 # ---------------------------------------------------------------- the invariant

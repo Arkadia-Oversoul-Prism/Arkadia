@@ -14,6 +14,19 @@ on:
       - "tests/test_key_pool.py"
       - "tests/test_ci_suite_collection_continuation.py"
       - "tests/test_history_depth_ci_wiring.py"
+      - "tests/test_tool_execution_perimeter.py"
+      # The approval-perimeter modules. This job is the *only* whole-suite judging gate
+      # in the repository, and it is the only execution site for two guards that read
+      # these files: `tests/test_tool_execution_perimeter.py` (the approval-digest
+      # boundary) and `tests/architecture/test_layer_boundaries.py`'s
+      # `test_api_main_line_count_within_budget` (the 2600-line budget). Measured at
+      # `main` `36f53be2`: an `api/main.py` edit selected six workflows and **none of
+      # them ran `pytest tests/`**, so neither guard had a selected execution site.
+      # `tests/test_gate_filter_selection.py` asserts this list stays complete, and
+      # asserts the converse — that these entries do not drag unrelated paths in.
+      - "api/main.py"
+      - "api/approval_routes.py"
+      - "api/ceo_chat_routes.py"
       # `AGENTS.md` is an *input* to a guard this job judges, not incidental prose:
       # `tests/test_agents_md_encoding_adjudication.py` reads it, so a change to it
       # alters what the guard asserts. Named by no other filter in the repository
