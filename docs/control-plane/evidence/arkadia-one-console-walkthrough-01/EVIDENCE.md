@@ -178,6 +178,10 @@ authentication and no credential was available. This is `UNKNOWN`, not `FAILING`
 
 ## 5. Defect found — the `/operator` console makes claims that are now false
 
+> **Status: REPAIRED.** This section is the *pre-repair* measurement, retained as
+> provenance. The repair, its guard and its CI wiring are §9–§14. Read this section as
+> what was found, not as current state.
+
 `web/console` is a **second, unreconciled** application whose data is hardcoded, not read from
 the substrate. Its own README says it was derived from `RECONCILED-BOUNDARY-MAP-01.md`, and the
 map "has veto power". The map has since been overtaken by events:
@@ -202,7 +206,7 @@ its runtime block reports the true revision.
 | # | Gap | Evidence | Classification |
 |---|---|---|---|
 | G1 | **No operator credential exists**, so 6 of 9 surfaces were never seen authenticated | no test account in repo; Firebase refuses invalid creds | BLOCKED on human |
-| G2 | `/operator` renders stale, false posture claims | §5 | DEFECT — bounded repair |
+| G2 | `/operator` rendered stale, false posture claims | §5 | **REPAIRED** — §9–§14 (not deployed; no production acceptance claimed) |
 | G3 | Solariun `memory` lens + Weaver `LabWorkLoop`/`ApprovalLedger` unverified in UI | behind auth | BLOCKED (G1) |
 | G4 | SolSpire: 4 declared contracts unwired (`/solspire/proposals`, `workevents`, `enterprise/workspaces`, `voice/events`) | `NotYetWired` in `SolSpirePage.tsx:48-62` | PARTIAL by design |
 | G5 | NovaNet Nexus Hub sub-views (IMS, Grove, Larder, distribution) unreconciled | `NotYetWired` `NovaNetPage.tsx:283` | PARTIAL by design |
@@ -233,3 +237,217 @@ its runtime block reports the true revision.
 - Authenticated behaviour of any surface: **UNKNOWN** (no credential).
 - The mission lifecycle in the live UI: **UNKNOWN** (source- and test-verified only).
 - G2's repair: **proposed, not performed** — discovery does not authorize mutation.
+
+---
+
+## 9. G2 — the operator console's claims were bound to nothing (REPAIRED)
+
+**Date:** 2026-10-28 · **Base:** `9195334c` · **Branch:** `evidence/arkadia-one-console-walkthrough-01`
+
+The read-only walkthrough found the operator console's stale revision. Following it
+established that the stale revision was the **least** significant defect: the console's
+claims were bound to no substrate at all, so three drifts had accumulated.
+
+### 9.1 A frozen revision
+
+`ae847dd · reconciled` was hardcoded in three files:
+
+| File | Line |
+|---|---|
+| `web/console/src/components/Layout.tsx` | 71 |
+| `web/console/src/lib/standing.ts` | 53 |
+| `web/console/src/lib/grammar.ts` | 104 |
+
+`git merge-base --is-ancestor ae847dd HEAD` → **true**, so it is an ancestor of `main`,
+not the running revision. Measured live, the runtime reports
+`source_revision 9195334c6baba0b9349a1d931bc5773614944cd1`. The stamp therefore
+misreported every deployment after `ae847dd`.
+
+### 9.2 The console contradicted itself — four false `deployed: false` flags
+
+All four boundary instances carried `deployed: false` with "NOT DEPLOYED; the live host
+still runs the pre-hardening collapse", while `standing.ts` in the **same bundle** said
+"Boundary changes — DEPLOYED ... production-verified by F.1–F.4". One app, two opposite
+claims about the same boundaries.
+
+Measured against the live `/openapi.json`, **every surface the four instances name is
+served**:
+
+| Boundary instance | Declared surfaces | Live |
+|---|---|---|
+| `approvalNotExecution.ts` | `POST /api/approvals/request`, `POST /api/approvals/{id}/approve`, `POST /api/tools/{tool_name}/run` | all present |
+| `executionNotWorkEvent.ts` | `POST /api/tools/{tool_name}/run`, `POST /api/job/create`, `GET /api/jobs`, `POST /solspire/workevents` | all present |
+| `workeventNotEvidence.ts` | `POST\|GET /solspire/workevents`, `GET /solspire/workevents/{work_event_id}` | all present |
+| `evidenceNotVerification.ts` | `GET /solspire/enterprise/workspaces/{enterprise_id}/control-room` | present |
+
+So the four `deployed: false` flags were false. Corrected to `deployed: true`;
+`productionVerified` stays `false` — no operator credential exists to verify the
+separation as an authorized principal. That distinction is preserved, not collapsed.
+
+### 9.3 The boundary itself moved — the superseded premise
+
+`executionNotWorkEvent.ts` asserted "there is no durable execution → WorkEvent identifier
+and no code path that would create one", citing
+`test_workevent_model_has_no_execution_or_job_reference_field`.
+
+**That test exists at no revision.** `grep -rn` over the whole tree returns 0, and
+`git log --all -S` matches only commits that introduced and then superseded the phrasing.
+What exists is its **opposite**:
+
+```
+tests/test_execution_workevent_boundary.py:222
+def test_workevent_model_has_explicit_execution_causal_reference():
+    fields = set(_wem.WorkEvent.__dataclass_fields__.keys())
+    assert "execution_attempt_ref" in fields
+```
+
+Because PR #294 (`abac77db`, 2026-10-05, ancestor of `main`) added the bridge:
+
+- `solspire/workevent_manager.py:39` — `WorkEvent.execution_attempt_ref: str | None`
+- `solspire/workevent_manager.py:101` — unique index `idx_work_events_execution_attempt`
+- `solspire/workevent_manager.py:220` — `get_by_execution_attempt()`
+- `weaver/execution_workevent_bridge.py` — `capture_execution_workevent()`, one WorkEvent
+  per terminal execution attempt
+- `weaver/enterprise_orchestration.py:519` — invoked automatically on terminal transition
+
+The boundary was an **absence**; it is now an **explicit, observational bridge**. The
+console still rendered the pre-bridge world. Corrected, with the superseded reading kept
+as provenance.
+
+**Root cause:** the console is derived from a map, and nothing told it the map had moved.
+The tests were updated for the bridge (65 passed across the four boundary files); the
+console data was not.
+
+### 9.4 Why it went unnoticed — nothing judged the console
+
+- `grep -rln "web/console" tests/` → only unrelated `test_gate2_*.py`.
+- No test asserted a posture flag matched reality.
+- No test asserted a cited test name existed.
+- `scripts/console_contract_domain.py` covers `web/arkadia_console` **only** — `web/console`
+  is outside the derived domain, so `prism-console-contract.yml` never saw it.
+
+## 10. The repair
+
+**A. One revision source, read not remembered.** New `web/console/src/lib/revision.ts`
+exports `MAP_DERIVED_FROM` (the map's derivation point, labelled as history) and
+`useLiveRevision()`, which reads `GET /api/version → source_revision`. `Layout.tsx` renders
+both, separately labelled. An unreadable probe prints "revision unavailable" — it never
+falls back to a remembered SHA. The Dockerfile's inert build-arg was deliberately **not**
+used: it explicitly warns it must not be mistaken for a revision.
+
+**B. Posture corrected from the substrate.** Four `deployed: false` → `true`;
+`productionVerified` remains `false` with the reason stated.
+
+**C. Premise and citations corrected.** `executionNotWorkEvent.ts` now records the
+explicit bridge, cites `test_execution_attempt_creates_one_causally_joined_workevent` and
+`test_workevent_capture_does_not_mark_completion`, and retains the superseded reading as
+provenance.
+
+## 11. The guard
+
+`tests/test_console_posture_currency.py` — **20 tests**, binding each claim to its
+substrate:
+
+1. Every cited evidence test must exist in the corpus (`git ls-files -- tests/`).
+2. Every declared surface must be served by the canonical app's route table.
+3. No boundary instance may claim an undeployed posture while its surfaces are live.
+4. The revision may not be hardcoded outside `revision.ts`.
+5. `MAP_DERIVED_FROM` must resolve to a real commit.
+
+**Live negative control** — guard run against the restored pre-repair tree:
+
+```
+8 failed, 12 passed
+  test_every_cited_evidence_test_exists[executionNotWorkEvent.ts]
+  test_no_boundary_instance_claims_an_undeployed_posture[approvalNotExecution.ts]
+  test_no_boundary_instance_claims_an_undeployed_posture[evidenceNotVerification.ts]
+  test_no_boundary_instance_claims_an_undeployed_posture[executionNotWorkEvent.ts]
+  test_no_boundary_instance_claims_an_undeployed_posture[workeventNotEvidence.ts]
+  test_the_revision_is_not_hardcoded_outside_one_module
+  test_the_map_derivation_point_is_a_real_commit
+  test_the_running_revision_is_read_from_the_runtime
+```
+
+Restored byte-identically (`git status --porcelain` empty) → **20 passed**. The guard
+detects exactly the measured defects and nothing else.
+
+A first draft of the surface detector was **too loose** and failed on its own repair:
+`"[^"]+"` matched a path named inside a prose note
+(`"...POST /api/x/approve, POST /api/y/run). Production..."`). Tightened to `[^"\s]+`,
+with the measured case recorded in the source.
+
+## 12. CI wiring — the guard is now executed
+
+`grep -rn test_console_posture_currency .github/workflows/` was **0**, so the guard held
+only when a human ran it by hand. New gate
+`.github/workflows/operator-console-posture.yml`: path-filtered, `workflow_dispatch`,
+`permissions: contents: read`, installs `requirements.txt` (the guard imports `api.main`
+for the route table).
+
+`tests/test_console_posture_currency_ci_wiring.py` — **12 tests**, deriving the guard's
+inputs from its own source **by AST** rather than restating them, and separating a **gate**
+from an **incidental executor**: `sg-02-fe-2-v.yml` and `provider-routing.yml` run the whole
+`tests/` tree so they execute the guard in passing, but neither names it, so neither is
+selected by a change to it. Requiring a broad-suite workflow to name every input of every
+test it happens to run would be absurd; requiring a dedicated gate to name its inputs is
+the point. (Found by the guard's own first run — 8 failures, all three incidental executors
+flagged.)
+
+**Live negative controls against the real workflow file**, each restored byte-identically:
+
+| Mutation | Result |
+|---|---|
+| executing step → `echo pytest …` | 1 failed (`test_a_dedicated_gate_exists_for_the_guard`) |
+| drop `tests/**` from the filter | 1 failed (input coverage) |
+| `continue-on-error: true` on the step | 1 failed (step can fail the run) |
+| remove `workflow_dispatch` | 1 failed (dispatchable) |
+
+**Composition check:** the guard text contains **none** of
+`scripts/console_contract_domain.py`'s content needles, so it stays outside the derived
+console-contract domain (59 files) and `prism-console-contract.yml` needs no edit — avoiding
+the hazard where a new domain member reddens `main`.
+
+## 13. Verification
+
+**Build** — `npm --prefix web/console run build`: passes, 58 modules (was 57).
+Baseline before the change reproduced `dist/assets/index-BkqSAT5t.js` (241.92 kB) —
+byte-identical to what live `/operator` serves.
+
+**Regression, by node identity not count** (the convention here — counts move with the
+environment):
+
+```
+baseline 9195334c : 25 failed, 3603 passed, 30 skipped, 1 error
+branch            : 25 failed, 3642 passed, 30 skipped, 1 error
+failing/error node set sha256 (both) : 4733ab8f1e0071e5ce666003a1bf8ce82474e0b1f8cfa6c594c4882206ed6fdf
+comm -3 base branch : empty (26 nodes each)
+```
+
+**Zero regression.** The `+39 passed` is fully attributed by `--collect-only` per file:
+
+| File | delta |
+|---|---|
+| `test_console_posture_currency.py` | +20 (new) |
+| `test_console_posture_currency_ci_wiring.py` | +12 (new) |
+| `test_ci_gate_trigger_coverage.py` | +3 |
+| `test_ci_suite_collection_continuation.py` | +2 |
+| `test_workflow_injection_boundary.py` | +1 |
+| `test_gate_filter_selection.py` | +1 |
+| **total** | **+39** |
+
+The `+7` outside my two files is the generic workflow-scanning suites gaining nodes by
+construction from one new workflow file — not a regression signal.
+
+`tests/test_ci_gate_trigger_coverage.py` + `tests/test_m02a_ci_gate_integrity.py`:
+**164 passed**. Both new paths ADMITTED by `scripts/cp10_mutation_boundary_policy.py`.
+
+## 14. Boundary — what this does NOT claim
+
+- **No deployment.** Production still serves `9195334c`. This is a repository-source change.
+- **No production acceptance.** `productionVerified` remains `false` on all four instances.
+- **No operator credential** was used, held, or requested.
+- **G1 and G8 untouched.** This is G2 only.
+- The four **pre-existing** failures in `test_voice_asr.py` and the other baseline failures
+  are unchanged on both trees and are **not** attributable to this change.
+
+**Next permitted action:** sovereign review of the branch; merge authority is the human's.
