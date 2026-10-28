@@ -7,25 +7,22 @@ This is a pure move, not a rewrite.
 
 Shared state is referenced from its owning modules rather than re-created, so the
 approval queue written here is the same object the tool-run boundary in api/main.py
-and api/approval_routes.py read:
+and api/approval_routes.py read. This module queues through ``queue_approval``
+rather than constructing records itself, so the proposal digest that binds an
+approval to its operation is always recorded:
 
-  * ``APPROVAL_LOCK`` / ``PENDING_APPROVALS`` — api/approval_routes.py
+  * ``queue_approval`` — api/approval_routes.py (the single record constructor)
   * ``require_auth`` / ``get_current_user`` — api/auth.py
 """
 from __future__ import annotations
 
 import logging
 import os
-import uuid as _uuid_mod
-from datetime import datetime, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from api.approval_routes import (
-    APPROVAL_LOCK as _APPROVAL_LOCK,
-    PENDING_APPROVALS as _PENDING_APPROVALS,
-)
+from api.approval_routes import queue_approval
 from api.auth import (
     get_current_user as _get_current_user,
     require_auth as _require_auth,
@@ -36,10 +33,6 @@ logger = logging.getLogger("arkadia")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 
 router = APIRouter()
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 @router.post("/api/ceo/chat")
@@ -174,22 +167,14 @@ Always speak directly, intelligently and sovereignly. You remember context from 
                 auto_results.append({"tool": tool_name, "error": "Tool not found"})
                 continue
             if needs_approval:
-                # Queue for approval
-                appr_id = str(_uuid_mod.uuid4())[:12]
-                with _APPROVAL_LOCK:
-                    _PENDING_APPROVALS[appr_id] = {
-                        "id": appr_id,
-                        "tool_name": tool_name,
-                        "payload": payload,
-                        "description": tc.get("description", f"Run {tool_name}"),
-                        "status": "pending",
-                        "created_at": _now_iso(),
-                        "decided_at": None,
-                        "subject_ref": user.get("uid"),
-                        "decided_by": None,
-                        "consumed_at": None,
-                        "consumed_by": None,
-                    }
+                # Queue for approval through the single record constructor so
+                # the digest binding cannot be omitted on this path.
+                appr_id = queue_approval(
+                    tool_name,
+                    payload,
+                    tc.get("description", f"Run {tool_name}"),
+                    subject_ref=user.get("uid"),
+                )
                 pending_approvals.append({
                     "approval_id": appr_id,
                     "tool_name": tool_name,

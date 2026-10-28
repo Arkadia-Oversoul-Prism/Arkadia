@@ -21,6 +21,8 @@ Verified boundary (reconciliation/verified-boundary-01):
   * **subject scoping**— an approval is spendable only by the subject that
     requested it, and a decision is never self-approved.
 """
+import hashlib
+import json
 import logging
 import threading
 import uuid
@@ -40,6 +42,61 @@ router = APIRouter()
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+class UncanonicalizablePayload(ValueError):
+    """Raised when a payload cannot be reduced to a deterministic canonical form.
+
+    Approval binding depends on two requests producing byte-identical canonical
+    bytes, so an ambiguous value must be refused rather than coerced.
+    """
+
+
+def _reject_constant(value: str) -> None:
+    # json.loads accepts NaN/Infinity by default; they have no stable textual
+    # form, so they must never reach the canonical encoder.
+    raise UncanonicalizablePayload(f"non-finite number {value!r} is not canonicalizable")
+
+
+def canonical_proposal(tool_name: str, payload: dict, subject_ref: str) -> str:
+    """Return the canonical text of the operation an approval authorizes.
+
+    Covers the tool identity, the payload, and the subject — the three things
+    that together define *what* was approved and *for whom*. Deliberately
+    excludes expiry and policy version: those are validity properties, not
+    identity properties, so changing them changes whether the approval is still
+    usable, not what it authorized.
+
+    Determinism is the whole point: equal proposals must serialize to equal
+    bytes, so the same approval is spendable by the same operation however the
+    caller happened to order its JSON.
+    """
+    try:
+        encoded = json.dumps(
+            {"tool": tool_name, "payload": payload, "subject": subject_ref},
+            separators=(",", ":"),
+            sort_keys=True,
+            allow_nan=False,
+        )
+    except (TypeError, ValueError) as exc:
+        raise UncanonicalizablePayload(str(exc)) from exc
+    # A second pass with parse_constant rejects NaN/Infinity that arrived as
+    # literals rather than as Python floats.
+    json.loads(encoded, parse_constant=_reject_constant)
+    return encoded
+
+
+def proposal_digest(tool_name: str, payload: dict, subject_ref: str) -> str:
+    """SHA-256 over the canonical proposal.
+
+    Equal digests are computational evidence that two proposals correspond,
+    conditional on SHA-256 collision resistance. A digest is *not* evidence that
+    a human approved anything — consent comes from the recorded decision, and
+    the digest only binds that decision to an operation.
+    """
+    return hashlib.sha256(
+        canonical_proposal(tool_name, payload, subject_ref).encode("utf-8")
+    ).hexdigest()
 
 
 #: Arkadia's governance layer (governance/roles.json) grants the `Govern`
@@ -104,6 +161,10 @@ def queue_approval(
             "decided_by": None,
             "consumed_at": None,
             "consumed_by": None,
+            # Computed here, in the single record constructor, so no caller can
+            # queue an approval that the execution boundary would be unable to
+            # bind to an operation.
+            "proposal_digest": proposal_digest(tool_name, payload, subject_ref or ""),
         }
     return approval_id
 
