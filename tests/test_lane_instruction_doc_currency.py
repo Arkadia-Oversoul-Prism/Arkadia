@@ -105,6 +105,42 @@ def live_state() -> dict:
     return json.loads(LANE_STATE.read_text(encoding="utf-8"))
 
 
+def _state_with_open_lane(
+    lane_no: str = "3",
+    *,
+    deferred: bool = False,
+    number: int = 900001,
+    branch: str = "feat/synthetic-lane",
+) -> dict:
+    """A snapshot carrying one synthetic open PR in ``lane_no``.
+
+    The controls below need a lane that *has* a live thread. They used to read
+    one out of the live snapshot, which coupled them to live data: measured
+    2026-10-28 at ``main`` ``9195334c`` every lane is idle, so ``open_prs[0]``
+    raised IndexError and the control could not execute at all. Constructing the
+    shape keeps the control's power -- it still feeds the detector the defect it
+    claims to detect -- without depending on what happens to be open today.
+    """
+    state = copy.deepcopy(live_state())
+    lane = state["lanes"][lane_no]
+    lane["open_prs"] = [
+        {
+            "number": number,
+            "branch": branch,
+            "head_sha": "0" * 40,
+            "draft": True,
+            "title": "synthetic control",
+        }
+    ]
+    if deferred:
+        lane["doc_guard"] = "deferred"
+        lane["deferred_to_pr"] = number
+    else:
+        lane["doc_guard"] = "current"
+        lane.pop("deferred_to_pr", None)
+    return state
+
+
 # ------------------------------------------------- authoritative PR-state oracle
 
 
@@ -217,21 +253,32 @@ def test_declared_pointer_reports_lanes_outside_the_blocking_scope(tmp_path):
 
 
 def test_live_pointer_check_agrees_with_the_committed_docs():
-    """The committed lane-1 doc must name a live PR.
+    """A lane that holds an open thread must point at it.
 
     Offline form: the snapshot records lane 1's open PRs, and the doc's declared
     pointer must be among them. This is the local half of the oracle; the live
     half (``--verify-live``) is what proves the snapshot's own claim.
+
+    A lane holding no open PR has no PR to point at, and its truthful declaration
+    is the idle form instead -- measured 2026-10-28 at ``main`` ``9195334c``: zero
+    open PRs repo-wide, so all four lanes are idle. The pin that demanded a live
+    PR pointer here was therefore unsatisfiable, which is the defect this repair
+    closes; it now asserts the *disjunction* the guard actually implements.
     """
     state = live_state()
-    declared = guard.declared_pr(
-        (LANE_STATE.parent / state["lanes"]["1"]["doc"]).read_text(encoding="utf-8")
-    )
+    text = (LANE_STATE.parent / state["lanes"]["1"]["doc"]).read_text(encoding="utf-8")
     open_numbers = {p["number"] for p in state["lanes"]["1"]["open_prs"]}
-    assert declared in open_numbers, (
-        f"AGENT-01 declares #{declared}, which the snapshot does not list as an "
-        f"open lane-1 PR ({sorted(open_numbers)})"
-    )
+    if open_numbers:
+        declared = guard.declared_pr(text)
+        assert declared in open_numbers, (
+            f"AGENT-01 declares #{declared}, which the snapshot does not list as an "
+            f"open lane-1 PR ({sorted(open_numbers)})"
+        )
+    else:
+        assert guard.declared_idle(text), (
+            "AGENT-01 holds no open PR, so its doc must positively declare the idle "
+            "state (**Active thread:** none) rather than name a dead thread"
+        )
 
 
 # ---------------------------------------------------------------- real corpus
@@ -286,15 +333,23 @@ def test_live_guarded_docs_agree_with_the_snapshot():
 
 def test_lane_one_shell_doc_is_guarded_current():
     # Lane 1 owns the shell instruction (SHARED-CONTRACTS.md row 1). Its doc is
-    # the one this workstream repairs, so it must not be deferred away.
+    # the one this workstream repairs, so it must not be deferred away -- and it
+    # must not be idle either, because an idle lane is still *judged* by
+    # check_lane_docs (see current_lanes). Only ``deferred`` leaves the blocking
+    # scope; measured 2026-10-28, all four lanes are idle and all four are judged.
     state = live_state()
-    assert state["lanes"]["1"]["doc_guard"] == "current"
+    assert state["lanes"]["1"]["doc_guard"] in {"current", "idle"}
 
 
 def test_lane_one_shell_doc_does_not_name_a_merged_pr():
     state = live_state()
     lane = state["lanes"]["1"]
     text = (LANE_DIR / lane["doc"]).read_text(encoding="utf-8")
+    if guard.declared_idle(text):
+        # An idle lane's doc retains its earlier pointers as provenance; the idle
+        # declaration supersedes them. Asserting on the superseded pointer here
+        # would forbid recording the lane's own history.
+        return
     declared = guard.declared_pr(text)
     assert declared in guard._pr_index(state), (
         f"AGENT-01-SHELL.md declares PR #{declared}, not an open lane PR"
@@ -710,11 +765,9 @@ def test_detector_flags_a_doc_pointing_at_a_merged_pr(tmp_path):
 
 
 def test_detector_flags_a_branch_that_does_not_match_its_pr(tmp_path):
-    state = live_state()
-    live = guard._pr_index(state)
-    open_number = sorted(live)[0]
+    state = _state_with_open_lane("1", number=900001, branch="feat/synthetic-lane")
     (tmp_path / "AGENT-01-SHELL.md").write_text(
-        f"**Active branch:** `feat/wrong-branch`\n**Active PR:** #{open_number}\n",
+        f"**Active branch:** `feat/wrong-branch`\n**Active PR:** #900001\n",
         encoding="utf-8",
     )
     findings = guard.check_lane_docs(state, lane_dir=tmp_path, lanes=["1"])
@@ -733,7 +786,7 @@ def test_disposition_check_flags_an_unknown_disposition():
     state = copy.deepcopy(live_state())
     state["lanes"]["1"]["doc_guard"] = "ignored"
     findings = guard._disposition_findings(state)
-    assert any("must be 'current' or 'deferred'" in f for f in findings), findings
+    assert any("must be 'current', 'deferred', or 'idle'" in f for f in findings), findings
 
 
 @pytest.mark.parametrize("lane_no", ["1", "2", "3", "4"])
@@ -803,42 +856,36 @@ def test_deferred_lane_branch_mismatch_is_reported(tmp_path):
     does not head, and asserts it is reported. Pre-repair, this input produced no
     finding anywhere -- so a guard that is silent here is not a guard.
     """
-    state = live_state()
-    lane = state["lanes"]["3"]
-    live_pr = lane["open_prs"][0]
-    (tmp_path / lane["doc"]).write_text(
-        f"**Active PR:** #{live_pr['number']}\n"
-        f"**Active branch:** `DELIBERATELY-WRONG-BRANCH`\n",
+    state = _state_with_open_lane("3", deferred=True, number=900003, branch="feat/synthetic-lane")
+    (tmp_path / "AGENT-03-SOLARIUN-KNOWLEDGE.md").write_text(
+        "**Active PR:** #900003\n**Active branch:** `DELIBERATELY-WRONG-BRANCH`\n",
         encoding="utf-8",
     )
-    assert lane["doc_guard"] == "deferred", "this control requires a deferred lane"
     findings = guard.deferred_branch_findings(state, lane_dir=tmp_path, lanes=["3"])
     assert findings, "a deferred lane's branch mismatch must be reported"
     assert "DELIBERATELY-WRONG-BRANCH" in findings[0]
-    assert live_pr["branch"] in findings[0]
+    assert "feat/synthetic-lane" in findings[0]
 
 
 def test_deferred_lane_with_a_matching_branch_is_not_reported(tmp_path):
     """Positive control: agreement must stay silent, or the guard is trivially true."""
-    state = live_state()
-    lane = state["lanes"]["3"]
-    live_pr = lane["open_prs"][0]
-    (tmp_path / lane["doc"]).write_text(
-        f"**Active PR:** #{live_pr['number']}\n"
-        f"**Active branch:** `{live_pr['branch']}`\n",
+    state = _state_with_open_lane("3", deferred=True, number=900003, branch="feat/synthetic-lane")
+    (tmp_path / "AGENT-03-SOLARIUN-KNOWLEDGE.md").write_text(
+        "**Active PR:** #900003\n**Active branch:** `feat/synthetic-lane`\n",
         encoding="utf-8",
     )
     assert guard.deferred_branch_findings(state, lane_dir=tmp_path, lanes=["3"]) == []
 
 
-def test_deferred_branch_guard_does_not_judge_current_lanes(tmp_path):
+def test_deferred_branch_guard_does_not_judge_current_lanes():
     """The scope is the complement: a judged lane must not be double-reported.
 
     ``check_lane_docs`` already owns the current lanes. If this also judged them,
     one defect would produce two findings and the two would drift apart.
     """
-    state = live_state()
-    assert guard.current_lanes(state, invert=True) == ["3", "4"]
+    state = _state_with_open_lane("3", deferred=True, number=900003)
+    assert guard.current_lanes(state, invert=True) == ["3"]
+    assert "3" not in guard.current_lanes(state)
     assert set(guard.current_lanes(state)) & set(guard.current_lanes(state, invert=True)) == set()
     assert sorted(guard.current_lanes(state) + guard.current_lanes(state, invert=True)) == sorted(
         guard._lane_numbers(state)

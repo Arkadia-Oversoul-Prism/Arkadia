@@ -116,6 +116,12 @@ DEFAULT_REPO = "Arkadia-Oversoul-Prism/Arkadia"
 # "*Active branch:*" and "**Active branch:**".
 _BRANCH_RE = re.compile(r"^\*\*(?:Active|Current)\s+branch:\*\*\s*`([^`]+)`", re.MULTILINE)
 _PR_RE = re.compile(r"^\*\*(?:Active|Current)\s+slice:\*\*\s*PR\s*#(\d+)|^\*\*(?:Active|Current)\s+PR:\*\*\s*\[?#(\d+)", re.MULTILINE)
+# A lane that holds no open PR must *state* that, not leave the pointer blank:
+# an omitted pointer is indistinguishable from a doc that forgot to declare one,
+# which is the defect this check exists to catch. The declaration is therefore
+# positive and machine-checkable, so "no active thread" cannot be spelled by
+# silence.
+_IDLE_RE = re.compile(r"^\*\*Active\s+thread:\*\*\s*`?none`?\b", re.MULTILINE)
 
 
 def _lane_numbers(state: dict) -> list[str]:
@@ -140,6 +146,21 @@ def declared_pr(text: str) -> int | None:
         return None
     g1, g2 = matches[-1]
     return int(g1 or g2)
+
+
+def declared_idle(text: str) -> bool:
+    """Whether the doc positively declares that it holds no active thread.
+
+    Last-wins like :func:`declared_pr`: a lane that later opens a thread appends
+    its new pointer, and the newest declaration is the authoritative one. The
+    comparison is by *position*, not by kind, so an appended ``**Active PR:**``
+    supersedes an earlier idle declaration and vice versa.
+    """
+    pr = _PR_RE.search(text)
+    idle = _IDLE_RE.search(text)
+    if idle is None:
+        return False
+    return pr is None or idle.start() > pr.start()
 
 
 def _pr_index(state: dict) -> dict[int, dict]:
@@ -444,7 +465,16 @@ def _declared_pointer_findings(
         doc = lane_dir / state["lanes"][lane_no]["doc"]
         if not doc.exists():
             continue
-        number = declared_pr(doc.read_text(encoding="utf-8"))
+        text = doc.read_text(encoding="utf-8")
+        if declared_idle(text) and not state["lanes"][lane_no].get("open_prs"):
+            # The doc positively declares no active thread and the snapshot
+            # agrees the lane holds no open PR, so any earlier pointer it still
+            # carries is provenance, not a live pointer. The suppression is
+            # deliberately conditional on *both* facts: a lane that declares
+            # idle while the snapshot lists its own open PRs keeps its pointer
+            # judged here, so an idle claim cannot be used to hide live work.
+            continue
+        number = declared_pr(text)
         if number is None:
             # A lane with no declared PR is stating that it has no active
             # thread, which is the truthful form for an idle lane.
@@ -748,17 +778,43 @@ def _disposition_findings(state: dict) -> list[str]:
     merges the reference goes stale, the lane must be reclassified ``current``,
     and the doc is judged again -- so a deferral cannot become a permanent
     exemption by quietly pointing at a merged PR.
+
+    ``idle`` is the third state, for a lane that holds no open PR at all. It is
+    not an exemption: an idle lane is still judged by :func:`check_lane_docs`
+    and must positively declare ``**Active thread:** none``. Without it the
+    guard was unsatisfiable for an empty lane -- the doc was required to name an
+    open PR, and a lane holding none cannot name one, so *every* disposition of
+    an idle lane reported drift.
     """
     findings: list[str] = []
     open_prs = _pr_index(state)
     for lane_no in _lane_numbers(state):
         lane = state["lanes"][lane_no]
         disposition = lane.get("doc_guard")
-        if disposition not in {"current", "deferred"}:
+        if disposition not in {"current", "deferred", "idle"}:
             findings.append(
-                f"lane {lane_no}: doc_guard must be 'current' or 'deferred', "
-                f"got {disposition!r}"
+                f"lane {lane_no}: doc_guard must be 'current', 'deferred', or "
+                f"'idle', got {disposition!r}"
             )
+            continue
+        if disposition == "idle":
+            # ``idle`` is a claim about the lane's *own* thread count, so it is
+            # checked against the lane's own open PRs. A lane that declares
+            # itself idle while it lists open PRs is not idle -- it is a lane
+            # whose instruction tells a successor agent to stand down while live
+            # work exists, which is the continuity failure in the opposite
+            # direction.
+            if lane.get("open_prs"):
+                findings.append(
+                    f"lane {lane_no}: doc_guard=idle but the lane lists open PRs "
+                    f"{sorted(p['number'] for p in lane['open_prs'])}; reclassify "
+                    f"the lane as 'current'"
+                )
+            if lane.get("deferred_to_pr") is not None:
+                findings.append(
+                    f"lane {lane_no}: doc_guard=idle cannot also carry "
+                    f"deferred_to_pr=#{lane['deferred_to_pr']}; pick one"
+                )
             continue
         if disposition == "deferred":
             owner = lane.get("deferred_to_pr")
@@ -781,11 +837,17 @@ def current_lanes(state: dict, invert: bool = False) -> list[str]:
     ``invert`` returns the complement -- the deferred lanes, which
     :func:`deferred_branch_findings` judges for the property
     :func:`check_lane_docs` cannot reach.
+
+    An ``idle`` lane is judged, not exempted. Its doc must still *state* that it
+    holds no active thread, and the snapshot must agree the lane is empty; an
+    idle lane that says nothing at all is the "forgot to declare" defect, and it
+    is reported by :func:`check_lane_docs`. Only ``deferred`` -- a doc mid-repair
+    on another open PR -- leaves the blocking scope.
     """
     return [
         n
         for n in _lane_numbers(state)
-        if (state["lanes"][n].get("doc_guard") != "current") is invert
+        if (state["lanes"][n].get("doc_guard") == "deferred") is invert
     ]
 
 
@@ -817,6 +879,29 @@ def check_lane_docs(
         text = doc.read_text(encoding="utf-8")
         pr = declared_pr(text)
         branch = declared_branch(text)
+
+        if declared_idle(text):
+            # The lane states it holds no active thread. That is the truthful
+            # form for an idle lane, and it is *checked*, not trusted: the claim
+            # is only accepted while the snapshot agrees the lane is idle. A
+            # lane that declares idle while the snapshot lists open PRs of its
+            # own is the continuity failure in the opposite direction -- an
+            # instruction telling a successor agent to stand down while live
+            # work exists in this lane. (``lane["open_prs"]``, not the repo-wide
+            # index: another lane's thread is not this lane's work.)
+            #
+            # ``declared_idle`` is last-wins, so a lane that retains its earlier
+            # wave-header pointer as provenance and appends the idle block is
+            # judged idle -- which is why this test does not also require
+            # ``pr is None``.
+            if lane.get("open_prs"):
+                findings.append(
+                    f"lane {lane_no} ({lane['doc']}): declares no active thread, "
+                    f"but the snapshot lists open lane PRs "
+                    f"{sorted(p['number'] for p in lane['open_prs'])} -- "
+                    f"re-point it at a live lane PR"
+                )
+            continue
 
         if pr is None:
             findings.append(f"lane {lane_no} ({lane['doc']}): no **Active PR:** pointer")

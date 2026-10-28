@@ -245,14 +245,22 @@ def build(
                 # exemption dressed up as ownership.
                 lanes[lane_no]["deferred_to_pr"] = number
 
-    # Disposition, in the vocabulary the guard accepts (``current``/``deferred``).
-    # A lane with a live thread is judged; a lane whose doc is being repaired by
-    # another open PR defers. A lane with no open PR at all is also ``current`` --
-    # judged rather than silently exempted. (PR #548 adds an ``idle`` state for
-    # that case; adopting it would import another lane's design into this repair.)
+    # Disposition, in the vocabulary the guard accepts (``current``/``deferred``/
+    # ``idle``). A lane with a live thread is judged; a lane whose doc is being
+    # repaired by another open PR defers; a lane that holds no open PR at all is
+    # ``idle`` -- a truthful state, not an exemption. ``current`` for an empty
+    # lane was the defect: the guard still required such a doc to name an open
+    # PR, which no lane can do when it holds none, so the gate was unsatisfiable
+    # for every idle lane (measured 2026-10-28: 0 open PRs repo-wide, 4 idle
+    # lanes, ``--check --verify-live`` red).
     for lane_no, lane in lanes.items():
         lane["open_prs"].sort(key=lambda p: p["number"])
-        lane["doc_guard"] = "deferred" if lane.get("deferred_to_pr") else "current"
+        if lane.get("deferred_to_pr"):
+            lane["doc_guard"] = "deferred"
+        elif lane["open_prs"]:
+            lane["doc_guard"] = "current"
+        else:
+            lane["doc_guard"] = "idle"
         lane["active_pr"], lane["active_branch"] = _active_thread(lane["open_prs"])
         if lane.get("deferred_to_pr") is None:
             lane.pop("deferred_to_pr", None)
