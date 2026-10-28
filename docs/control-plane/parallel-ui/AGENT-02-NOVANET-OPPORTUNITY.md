@@ -256,3 +256,28 @@ snapshot: a lane that declares itself idle while it still lists open PRs is repo
 The earlier pointers above are retained as provenance, not as live work. When this lane
 opens its next bounded PR, append a new pointer block; the guard reads the *last*
 declaration, so the appended block supersedes this status.
+## Task currency — 2026-10-28 (reconciled against live state)
+
+Three forward-looking claims recorded above are now **discharged**, not outstanding.
+Measured from live GitHub state and repository source at `main` `4de6fc4d`:
+
+- **`PR #528` disposition is discharged.** The note to "close #528 once #492 is reviewed"
+  is complete: #528 is **closed without merging**, and #492 is **merged** (`7030ccb2`).
+  The truncation work #528 described is on `main` — `web/arkadia_console/src/pages/
+  NovaNetPage.tsx` carries `ECHO_DISPLAY_LIMIT` (line 59) and the
+  `novanet-echoes-truncation` notice (line 248), pinned by
+  `tests/test_prism_novanet_echoes_completeness.py`.
+- **The #548 / #555 deferral is stale.** Both PRs are **closed without merging**, and
+  `AGENT-03` and `AGENT-04` were re-pointed to their idle disposition by PR #584. The
+  "not repaired here, deferred to open PRs" paragraph describes a handoff that no longer
+  exists.
+- **The reaction write path is delivered.** The "next bounded task" recorded above — wire
+  `POST /api/transmissions/{id}/react` with a client negative control — is complete: the
+  handler is `api/transmissions.py` (`@router.post("/api/transmissions/{post_id}/react")`),
+  the client surface is `web/arkadia_console/src/components/novaNet/EngagementBar.tsx`
+  (mounted in `NovaNetPage.tsx`), and it is pinned by
+  `tests/test_prism_novanet_engagement_readings.py` (15 nodes).
+
+The repository holds **zero open PRs** in every lane, so the idle declaration above is the
+current truth. This block adds no pointer declaration, so that idle disposition remains the
+last-wins declaration for this lane.

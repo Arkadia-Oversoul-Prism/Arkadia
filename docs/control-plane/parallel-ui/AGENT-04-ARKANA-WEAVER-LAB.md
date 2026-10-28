@@ -43,3 +43,17 @@ snapshot: a lane that declares itself idle while it still lists open PRs is repo
 The earlier pointers above are retained as provenance, not as live work. When this lane
 opens its next bounded PR, append a new pointer block; the guard reads the *last*
 declaration, so the appended block supersedes this status.
+## Task currency — 2026-10-28 (reconciled against live state)
+
+The forward-looking task recorded above — a traceable run-to-evidence review view — is
+**delivered**, not outstanding. Measured from repository source at `main` `4de6fc4d`:
+
+- `web/arkadia_console/src/components/lab/LabRunTrace.tsx` and its projection module
+  `labRunTrace.ts` are present (added by `eb874fd6`, "feat(lab): add run trace and model
+  gateway projections").
+- Pinned by `tests/test_lab_run_trace_contract.py` (22 nodes) and
+  `tests/test_prism_w4_run_evidence_trace.py` (29 nodes).
+
+The repository holds **zero open PRs** in every lane, so the idle declaration above is the
+current truth. This block adds no pointer declaration, so that idle disposition remains the
+last-wins declaration for this lane.

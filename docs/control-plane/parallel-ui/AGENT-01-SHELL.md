@@ -98,3 +98,17 @@ snapshot: a lane that declares itself idle while it still lists open PRs is repo
 The earlier pointers above are retained as provenance, not as live work. When this lane
 opens its next bounded PR, append a new pointer block; the guard reads the *last*
 declaration, so the appended block supersedes this status.
+## Task currency — 2026-10-28 (reconciled against live state)
+
+The forward-looking handoff recorded above is **discharged**, not outstanding. Measured
+from live GitHub state at `main` `4de6fc4d`:
+
+- PR #548 and PR #555 are **closed without merging**. The instruction to "re-point
+  `AGENT-03` and `AGENT-04` once #548 and #555 land or are superseded" no longer has a
+  subject: neither PR will land, and both lanes were already re-pointed to their idle
+  disposition by PR #584. No successor action remains on that handoff.
+- The repository holds **zero open PRs** in every lane, so this lane's own idle
+  declaration above is the current truth.
+
+Retained as provenance. This block adds no pointer declaration, so the idle disposition
+recorded above remains the last-wins declaration for this lane.

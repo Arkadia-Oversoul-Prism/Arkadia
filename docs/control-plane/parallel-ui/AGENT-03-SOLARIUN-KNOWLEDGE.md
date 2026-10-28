@@ -77,3 +77,18 @@ snapshot: a lane that declares itself idle while it still lists open PRs is repo
 The earlier pointers above are retained as provenance, not as live work. When this lane
 opens its next bounded PR, append a new pointer block; the guard reads the *last*
 declaration, so the appended block supersedes this status.
+## Task currency — 2026-10-28 (reconciled against live state)
+
+The forward-looking task recorded above — a bounded "load older events" control — is
+**delivered**, not outstanding. Measured from repository source at `main` `4de6fc4d`:
+
+- `web/arkadia_console/src/components/knowledge/KnowledgeTimelinePanel.tsx` implements
+  `loadOlder` (line 88), passes it as `onLoadOlder` (line 142), and renders the
+  "Load older events" control (line 223), with the bounded newest-window description at
+  line 110.
+- Pinned by `tests/test_knowledge_timeline_paging.py` (19 nodes) and
+  `tests/test_knowledge_timeline_window.py` (18 nodes).
+
+The repository holds **zero open PRs** in every lane, so the idle declaration above is the
+current truth. This block adds no pointer declaration, so that idle disposition remains the
+last-wins declaration for this lane.
