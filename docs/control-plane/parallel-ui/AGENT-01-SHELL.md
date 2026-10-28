@@ -80,3 +80,21 @@ Evidence: `docs/control-plane/evidence/lane-currency-truth-01/EVIDENCE.md`.
 **Next bounded task:** once #548 and #555 land or are superseded, re-point `AGENT-03`
 and `AGENT-04` at their live lane threads, then re-run
 `python scripts/lane_state.py --check --verify-live` and expect it to be clean.
+
+## Status — 2026-10-28 (reconciled against live state)
+
+**Active thread:** none
+
+Lane 1 holds no open PR. Measured from live GitHub state at `main` `9195334c`: every PR
+previously listed for this lane has merged or closed without merging, so the lane has no
+live thread and no successor agent should be sent to one of the pointers recorded above.
+
+This declaration is positive and machine-checked, not silence. `scripts/lane_state.py`
+requires an idle lane to *state* that it holds no active thread, because a doc that simply
+omits its pointer is indistinguishable from a doc that forgot to declare one — which is the
+defect this guard exists to catch. The guard also cross-checks the claim against the
+snapshot: a lane that declares itself idle while it still lists open PRs is reported.
+
+The earlier pointers above are retained as provenance, not as live work. When this lane
+opens its next bounded PR, append a new pointer block; the guard reads the *last*
+declaration, so the appended block supersedes this status.
