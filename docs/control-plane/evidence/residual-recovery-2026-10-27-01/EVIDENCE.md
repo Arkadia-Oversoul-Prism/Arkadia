@@ -400,3 +400,92 @@ only the missing filter entries — the whole diff is `+9 / -0`:
 That is the minimal correct delta, and it is why the "one of four differs" result is expected
 rather than a provenance failure. The guard that consumes this filter is byte-identical; only the
 filter was extended.
+
+### 8.10 T6 — `lane-doc-currency` attribution closed by a same-instant differential
+
+Section 8.2 argued the red check is pre-existing. That argument is now *executed* rather than
+inferred, using the strongest available control: **run `main`'s own `lane_state.py` against live
+GitHub** and compare it with the branch's.
+
+| tree | command | exit | DRIFT PR set | DRIFT lanes |
+|---|---|---|---|---|
+| `main` @ `36f53be2` (its own script) | `python3 scripts/lane_state.py --check --verify-live` | **1** | 499, 508, 525, 535, 547, 548, 549, 550, 553, 554, 555, 562, 563, 564 | 1, 2 |
+| PR #577 head `7dd44086` | same | **1** | identical 14 | 1, 2 |
+
+The two DRIFT sets are **equal as sets**. The recovered code therefore does not introduce the
+failure: a tree that contains none of it fails identically, on the same 14 PRs, in the same
+minute, against the same live GitHub state.
+
+- The failing step in both CI runs is step 9, `Verify lane PR state against GitHub
+  (authoritative oracle)`. Step 9 exists on `main` **and** on the branch, so it is not introduced
+  here (`git show 36f53be2:.github/workflows/lane-doc-currency.yml` carries it).
+- The **reason string is byte-identical** between the two CI logs, including the two
+  non-blocking `NOTE` lines about lanes 3 and 4 (deferred lanes, deliberately not judged).
+- The drift is a stale snapshot: `lane-state.json` records 14 PRs as open while the live API
+  reports **5**. Neither this PR nor `main` touches the snapshot.
+
+**Conclusion (T6): NOT ATTRIBUTABLE to PR #577.** The check is red on `main` itself and the
+recovered code does not change its verdict. It does not gate the merge: `GET /rulesets` -> `[]`
+and `GET /branches/main/protection` -> *"Branch not protected"*, so no required check exists;
+`#566` reached `main` (`36f53be2`) with this check red.
+
+### 8.11 Composition measurement against the live sibling PRs (M8/M9)
+
+The open-PR inventory was re-measured this pass: **5** open PRs (`#577` ready; `#578`, `#579`,
+`#580`, `#581` draft). `#580` is the sibling of interest because it touches the *same two R572
+files*:
+
+| path | #577 | #580 |
+|---|---|---|
+| `scripts/lane_state.py` | yes | yes |
+| `tests/test_lane_instruction_doc_currency.py` | yes | yes |
+| `docs/control-plane/evidence/.../DESIGN-INVESTIGATION.md` | no | yes |
+
+Composition was measured by the operation the human will actually perform —
+`git merge --no-edit 6caa1adb` (the `#580` head) onto the `#577` head in a detached worktree —
+not by a single-file patch:
+
+- **No unmerged files.** The merge is textually clean.
+- **No merge-loss.** Token counts on the composed tree equal the *union* of both parents for both
+  shared files (`clone_is_shallow` 5 = `#577`'s 5 + `#580`'s 0; deferred-judging markers 27 =
+  `#577`'s 19 + `#580`'s 27, so neither side's contribution was dropped). This is the
+  merge-loss signature from `AGENTS.md`: a hybrid that takes some tokens from parent 1 and some
+  from parent 2 without a recompile. Here every load-bearing token is present.
+- **Composed behaviour passes.** `tests/test_history_depth_ci_wiring.py` +
+  `tests/test_lane_instruction_doc_currency.py` -> **63 passed**; `#580`'s own new node
+  `test_live_tree_has_no_deferred_branch_mismatch` is collected in the composed tree.
+- **Composed `--check` exits 0** (`lane instruction docs consistent with snapshot (2 guarded
+  lanes)`).
+
+`#580` is a **draft** and is *not* a prerequisite of this recovery: `#577`'s own tests pass
+without it. Merge order is the human sovereign's. `#578`, `#579` and `#581` touch disjoint
+paths (`web/arkadia_console/**`, `weaver/**`, lane records) and do not interact with this diff.
+
+### 8.12 M1-M13 disposition for PR #577
+
+| criterion | state | evidence |
+|---|---|---|
+| M1 canonical target | PASS | `base.ref == main`, canonical repository |
+| M2 provenance | PASS | head `7dd44086`; recovered files hash-identical to the preserved closed heads |
+| M3 scope | PASS | 6 changed paths, all within the directive's scope; CP10 admits all 6 |
+| M4 governance | PASS | no authority/identity/K15-K3/approval surface touched; R499 deliberately not recovered |
+| M5 reviews | PASS | `required_pull_request_reviews` is null; repository requires none |
+| M6 checks | **FAIL** | `lane-doc-currency` = failure — pre-existing on `main` (§8.10), but the criterion admits no exemption |
+| M7 tests | PASS | R482 17 passed; R572 63 passed; negative controls bite and restore byte-identically |
+| M8 conflicts/freshness | PASS | `mergeable: true`; `main` unchanged at `36f53be2`; composition measured (§8.11) |
+| M9 dependencies | PASS | no prerequisite; `#580` not required |
+| M10 regression boundary | PASS | failing/error node set identical, 223 nodes both trees |
+| M11 merge method | PASS (would be) | PR merge only; no direct push, no force-push |
+| M12 authorization | PASS | within the directive's A1-A5 |
+| M13 final revalidation | NOT REACHED | blocked at M6 |
+
+**Disposition: NOT ELIGIBLE — fail-closed at M6.** The directive's A4 requires *every* applicable
+criterion, and M6 forbids treating a check as passed because it was previously green or because it
+is someone else's debt. The M6 failure is provably not caused by this branch (§8.10), which makes
+it a *repository-level* blocker rather than a defect in the recovery — but the criterion is not
+satisfied, so no merge is performed and no criterion is waived.
+
+The same M6 condition is red on `main` and on every unrelated branch measured, so this is not a
+reason to repair the recovery. The mechanical unblock is the stale-snapshot refresh
+(`scripts/lane_state_refresh.py --write`), which is a **separate bounded workstream** — measured
+in §8.2, not executed here.
