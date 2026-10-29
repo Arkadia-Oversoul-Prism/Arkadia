@@ -367,7 +367,7 @@ export function MissionWorkspace() {
     <div className="space-y-4" data-testid="mission-workspace">
       <Panel>
         <div className="mb-3 flex items-center justify-between">
-          <p className="font-mono text-[11px] uppercase tracking-widest text-white/40">Mission workspace</p>
+          <p className="font-mono text-[11px] uppercase tracking-widest text-white/40">Mission Control</p>
           <button
             type="button"
             onClick={reset}
