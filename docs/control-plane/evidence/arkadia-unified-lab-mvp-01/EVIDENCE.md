@@ -655,8 +655,18 @@ Fresh inspection found that `onCreateSession` used `targetList` and `refreshView
 
 ### Pre-CI correction — same move
 
-During post-write source inspection, the first draft had over-escaped the newline separator and its new source-contract regex. Both were corrected in follow-up commit \`fix(lab): preserve literal newline target separator\` before treating any check result as acceptance. The branch-head CI on the superseded draft is not evidence for the corrected source; use only the latest head's checks.
+Post-write inspection found two separate over-escaping defects in the first draft. Commit `e6262e05587c6b183524a5fcc94962166777d4f8` corrected the TypeScript target separator, but its source-contract regex still failed. The failure was observed in Prism Console Contract run `40967600085` (1 failed, 950 passed in 37.26s). Commit `1cdc797a2916938d685971d1e93c37489372f6b4` replaced that regex with scoped string assertions; only the current-head checks below are evidence for the corrected test.
 
 ### CI result and guard correction — 2026-10-29
 
 On commit `e6262e05587c6b183524a5fcc94962166777d4f8`, Prism Console Contract run `40967600085` reported **1 failed, 950 passed in 37.26s**. The failing assertion was the new scope-closure regression test's over-escaped regular expression; it did not indicate a runtime or backend failure. Replaced that expression with scoped source assertions for the memoized target block, persisted target list, and callback dependencies. The next branch-head CI run is the verification authority for this correction.
+### Current-head verification snapshot — 2026-10-29
+
+**Code/test head:** `1cdc797a2916938d685971d1e93c37489372f6b4`  
+**PR:** [#591](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/591)
+
+- Prism Console Contract run [`40968707631`](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/40968707631): **951 passed in 32.62s**; the same job's CI-wiring guard passed **30 in 4.29s**.
+- SG-02-FE.2-V run [`40968707623`](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/40968707623): **Build Arkadia Console**, **CP10-A Lab tests**, and **SolSpire isolated runtime/integration contract tests** passed.
+- At this snapshot, **15 of 16** checks had succeeded and SG-02-FE.2-V remained in progress at **CP10-B broader backend regression**. CP10 API verification and CP10 browser-route verification had not started.
+- Other completed checks on this head included frontend/backend jobs, canonical container-image build, self-host image build, boot-syntax, full-history secret scan, provider forensics, and the read-only production probe. Their success is CI evidence only, not production deployment or browser acceptance.
+- The evidence-only follow-up commit will trigger a fresh check set. No merge, production deployment, or protected-boundary change occurred.
