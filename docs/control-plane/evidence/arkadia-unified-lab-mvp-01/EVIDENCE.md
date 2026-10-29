@@ -504,3 +504,40 @@ On resume, `MissionWorkspace` re-read the session from the canonical session-vie
 - Desktop/mobile interaction, preview acceptance and production verification remain UNKNOWN / unclaimed.
 - No merge, deployment, backend change, protected-boundary change, or production configuration change occurred.
 
+## 8.6 Mission-first Engineering Lab composition — 2026-10-29 22:08 UTC
+
+**Move ID:** `DEA-01-LAB-MISSION-FIRST-01`  
+**Canonical directive:** [Issue #590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/issues/590)  
+**Existing PR updated:** [#591](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/591)  
+**Baseline code/test head:** `d9325478a2d4a65ebd3051c56d536580703d4127`  
+**Page composition commit:** `ad83909e19afee74bef588035c9c0cf8cf6f08c4`  
+**Mission label commit:** `e1f49a7e291fa05e8bd6e8ebdc263ef9c0507e53`  
+**Regression-test commit:** `ad0bf651b8b48927d5ff56f426d7a45aae1cd34b`
+
+### Problem and bounded integration
+
+The served Engineering Lab page mounted overview, operational surfaces, the loop, provider state and authority readings before the MissionWorkspace, then rendered the remaining technical surfaces as one uninterrupted sequence. The primary governed mission path was therefore below several technical panels.
+
+- Moved MissionWorkspace to the first content position beneath the Engineering Lab page heading.
+- Renamed its visible section heading to **Mission Control**.
+- Grouped the existing overview, provider, authority, session, artifact, agent, model, automation and not-yet-wired surfaces in a native, keyboard-accessible `<details>` disclosure titled **Engineering evidence & diagnostics**.
+- Kept all existing components, routes, API contracts, and truthful state handling. No backend, persistence, authorization, identity, or production changes.
+- Added `test_engineering_lab_leads_with_mission_control_and_discloses_diagnostics` to assert the primary ordering and continued reachability of the existing surfaces.
+
+### Verification snapshots and freshness
+
+On the immediately preceding code/test head `d9325478a2d4a65ebd3051c56d536580703d4127` (before this layout move):
+- Prism Console Contract run [40962930190](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/40962930190): `python -m pytest -q $(python scripts/console_contract_domain.py)` — **948 passed in 35.14s**.
+- Same run/job: `python -m pytest tests/test_prism_console_ci_wiring.py -q` — **30 passed in 4.45s**.
+- SG-02-FE.2-V run [40962930365](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/40962930365): **Build Arkadia Console** and **CP10-A Lab tests** steps reported success; **CP10-B broader backend regression** was still running at last observation.
+- Canonical Render Runtime Probe run [40962930145](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/40962930145), security-secret-scan run `40962930066`, and Boot Syntax Boundary run `40962930117` reported success on that head.
+
+These are explicitly prior-head results and do **not** verify the layout change. Fresh CI is required on the final head created by this evidence update. No authenticated browser, responsive-device, preview, or production verification is claimed.
+
+### Remaining acceptance gaps
+
+- Fresh final-head console contract, build, and broader regression checks.
+- Authenticated browser verification of mission-first composition and disclosure behavior at desktop/mobile widths.
+- Preview verification and live revision confirmation.
+- Human review/merge and production authority remain final.
+
