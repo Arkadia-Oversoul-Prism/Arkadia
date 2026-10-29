@@ -395,3 +395,37 @@ The derived console-contract domain includes `tests/test_lab_mission_workspace_c
 - No manual desktop/mobile interaction or preview acceptance is claimed.
 
 This snapshot records results observed on the stated head. Any subsequent evidence-only commit causes CI to evaluate the new PR head again; the results above are not represented as checks on that future head.
+
+
+## 8.2 Mission scope preview and intent lock — 2026-10-29 21:32 UTC
+
+**Move ID:** `DEA-01-SCOPE-INTENT-01`  
+**Canonical directive:** [Issue #590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/issues/590)  
+**Existing PR updated:** [#591](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/591)  
+**Baseline PR head:** `5b6ca321b31f967fe9fb11bd65fb47b954932e43`  
+**Implementation commit:** `1f769909f989d11d578269b038407710ff3109c7`  
+**Contract-test commit:** `ef825a22ee213074041a569a7d150fa86a785cb7`
+
+### Problem and bounded change
+
+The mission form allowed the objective and read targets to change after the server had created a session. The execute request uses current form values, while the persisted session records the objective supplied at creation; changing inputs afterward could make the visible intent drift from the session's original intent.
+
+- Added a responsive, source-derived scope preview for intent, selected role, read targets, operation ceiling, and human gate.
+- The preview explicitly says it is a local draft, not a backend-generated plan or evidence; after session creation it shows the server-confirmed session ID.
+- Intent and target inputs lock after session creation to prevent post-creation scope drift.
+- Mission creation requires a non-empty objective and at least one read target.
+- Added a source-level regression contract test for the preview, draft truthfulness, input lock, and read-only request ceiling.
+- No backend, canonical API, identity, authorization subsystem, provenance, WorkEvent, workspace, persistence schema, production configuration, merge, or deployment changes.
+
+### Verification snapshot before this change
+
+At baseline head `5b6ca321b31f967fe9fb11bd65fb47b954932e43`, PR workflow runs returned completed/success for: Canonical Render Runtime Probe `40957961284`, N-ATLAS provider forensics `40957961324`, economic-seam-engine `40957961278`, N-ATLAS external beta validation `40957961537`, Operator Console Posture Currency `40957961611`, Boot Syntax Boundary `40957961405`, security-secret-scan `40957961253`, Prism Console Contract `40957961519`, N-ATLAS Developer Lab `40957961558`, and SG-02-FE.2-V `40957961733`.
+
+Those results apply to the baseline head only. This implementation commit and the following contract-test commit require fresh CI on the final PR head. No local build, local pytest, authenticated browser, responsive device, preview, or production verification is claimed from this connector-backed run.
+
+### Remaining acceptance gaps
+
+- Await fresh CI on the final PR head.
+- Authenticated browser verification of the new scope preview at desktop and mobile widths remains UNKNOWN.
+- Preview and production verification remain unclaimed.
+- Human review/merge and production authority remain final.
