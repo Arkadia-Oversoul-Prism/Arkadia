@@ -35,11 +35,13 @@ from lab.engineering_lab.automations import (
 from lab.engineering_lab.contracts import BoundaryViolation, EvidenceRecord, utc_now
 from lab.engineering_lab.gateway import ModelUnavailable, describe_gateway, get_gateway
 from lab.engineering_lab.events import get_event_stream
+from lab.engineering_lab.repository import observe_repository
 from lab.engineering_lab.runtime import (
     CANONICAL_LOOP,
     BoundedOperation,
     BoundedTask,
     get_runtime,
+    workspace_root,
 )
 from lab.engineering_lab.sandbox import SandboxPolicy
 from lab.engineering_lab.store import get_store
@@ -89,6 +91,22 @@ async def engineering_overview(user: dict = Depends(require_auth)) -> dict:
 async def engineering_loop() -> dict:
     """The canonical C09 loop stages (EL-10)."""
     return {"loop": list(CANONICAL_LOOP)}
+
+
+# -- AEAS-01 P0.3: read-only repository & change inspection -------------------
+
+@router.get("/engineering/repository")
+async def engineering_repository(user: dict = Depends(require_auth)) -> dict:
+    """Observe branch, source revision, working-tree changes, and the real diff.
+
+    This is the Lab's inspectable-engineering-output reading: what the tree
+    actually contains right now, observed through the bounded read-only git
+    boundary. It observes the same workspace bounded execution runs against
+    (``workspace_root()``), never a client-supplied path, and performs no
+    repository mutation of any kind — the response's ``boundary`` field states
+    the envelope it stayed inside.
+    """
+    return observe_repository(workspace_root())
 
 
 # -- EL-09: agents -----------------------------------------------------------

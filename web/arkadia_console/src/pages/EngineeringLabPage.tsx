@@ -10,6 +10,7 @@ import { LabOperationalSurfaces } from "../components/lab/LabOperationalSurfaces
 import { scalarOverview } from "../components/lab/labOperational";
 import { ExecutionLoop } from "../components/lab/ExecutionLoop";
 import { MissionWorkspace } from "../components/lab/MissionWorkspace";
+import { LabRepositoryContext } from "../components/lab/LabRepositoryContext";
 import { useHydration } from "../lib/useHydration";
 import { apiRequest } from "../lib/apiClient";
 import { endpoints } from "../lib/endpoints";
@@ -67,6 +68,8 @@ export function EngineeringLabPage() {
       <LabAuthorityReadings source={overview.data as LabGovernanceSource | null} />
 
       <MissionWorkspace />
+
+      <LabRepositoryContext />
 
       <LabSessionList />
 
