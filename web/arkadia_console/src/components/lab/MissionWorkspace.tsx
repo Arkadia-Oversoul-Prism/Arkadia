@@ -318,7 +318,6 @@ export function MissionWorkspace() {
     }
   }, [session, objective, targetList, note, refreshView]);
 
-  const busy = phase === "working";
   // "Has an authorization" must mean the SUBSTRATE says so, not that this
   // component recorded one. A resumed session carries `authorization_ref` while
   // the local authorization object is empty (no route can read one back). Keyed
@@ -326,10 +325,28 @@ export function MissionWorkspace() {
   // successfully and then report "BOUNDARY NOT ENFORCED" — a false alarm about
   // a gate that held.
   const sessionAuthorized = Boolean(session?.authorization_ref) || Boolean(authorization);
+  const executableState = session?.state === "AUTHORIZED" || session?.state === "QUEUED";
+  const busy = phase === "working";
+  const nextDecision = (() => {
+    if (busy) return "A bounded operation is in progress. Wait for the returned state before taking another action.";
+    if (!agentId) return "Deploy a read-only agent to begin.";
+    if (!session) return "Create a mission to capture intent and scope.";
+    if (session.state === "READY_FOR_REVIEW") {
+      return "Inspect the recorded events and evidence. This session is at the human-review boundary and cannot execute again.";
+    }
+    if (run) return "Inspect the returned evidence. Human acceptance remains a separate act.";
+    if (executableState && sessionAuthorized) {
+      return "Execute the bounded read-only run; the substrate reports this session as executable.";
+    }
+    if (session.state === "PROPOSED" && !sessionAuthorized) {
+      return "Review the scope, then record explicit human authorization before execution.";
+    }
+    return `No next action is enabled for substrate state ${session.state}. Refresh the session or inspect its recorded events.`;
+  })();
   const canCreateSession = Boolean(agentId) && !session && !busy;
   const canAttempt = Boolean(session) && !sessionAuthorized && !busy;
   const canAuthorize = Boolean(session) && !sessionAuthorized && !busy;
-  const canExecute = Boolean(session) && sessionAuthorized && !run && !busy;
+  const canExecute = Boolean(session) && sessionAuthorized && executableState && !run && !busy;
 
   return (
     <div className="space-y-4" data-testid="mission-workspace">
@@ -345,6 +362,14 @@ export function MissionWorkspace() {
           >
             Reset
           </button>
+        </div>
+
+        <div
+          className="mb-4 rounded-lg border border-gold/25 bg-gold/5 px-3 py-3"
+          data-testid="mission-next-decision"
+        >
+          <p className="font-mono text-[10px] uppercase tracking-widest text-gold/80">Next decision</p>
+          <p className="mt-1 text-sm leading-6 text-white/75">{nextDecision}</p>
         </div>
 
         {resumable ? (
