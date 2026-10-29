@@ -1721,3 +1721,24 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
   none is measuring the wrong thing.
 - **Check `.gitignore` family coverage before any `git add -A` in a hygiene pass**, and
   prefer explicit paths over `-A` when committing inside a lane branch.
+
+## A hygiene guard can enter a content-derived gate domain and redden a file you never touched (gate-hygiene)
+- Measured 2026-10-29 at `main` `b5bc34cb`. The `data/economic_seams.db*` `.gitignore` guard
+  added to `tests/test_repo_hygiene_gitignore.py` names the `economic_seams` seam, so it entered
+  the domain that `tests/test_economic_seam_ci_wiring.py` derives **at test time** (`git ls-files
+  -- tests/` plus a needle scan). The `economic-seam-engine.yml` executing step **enumerates** that
+  domain, so the guard was in the domain and executed by no gate: `21 passed` on `main`, `2 failed,
+  17 passed` on the branch, with `_complete_gates()` returning `[]`. The failing file was one the
+  change never touched. This is the composition hazard already recorded for the console-contract
+  gate: **a content-derived domain cannot be validated by the branch that adds a member to it, only
+  by the composition.**
+- The gate's own header comment carries the contract — "a guard added, renamed, or removed reddens
+  that judge until this step is updated in the same change" — so the repair is mechanical: add the
+  guard to the executing step (1 line) and record provenance. No `paths` filter change was needed
+  because it already selects `tests/**`.
+- Prove it with a **live** negative control on the real workflow file (remove the guard from the
+  step → both judge nodes return; restore byte-identically → 21 passed). A synthetic fixture would
+  only prove the judge agrees with itself.
+- Attribute by the failing/error **node set**, not the count: the two nodes are
+  `test_a_workflow_executes_the_whole_economic_seam_contract` and
+  `test_wiring_workflow_is_a_complete_gate_that_selects_itself`.

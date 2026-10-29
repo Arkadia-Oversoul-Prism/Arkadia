@@ -124,3 +124,49 @@ ownership plus the repository-hygiene surface:
 The negative control is the load-bearing evidence: it shows the new guard detects the
 artifact class rather than merely passing alongside it. It also discriminates correctly —
 reddening on three of four paths, not on all four or none.
+
+---
+
+## 3. Composition repair — the hygiene guard entered the economic-seam domain (2026-10-29)
+
+Measured at `main` `b5bc34cb`. The `data/economic_seams.db*` guard added in §2 names the
+`economic_seams` seam, and `tests/test_economic_seam_ci_wiring.py` derives its **domain from
+guard content at test time** (`git ls-files -- tests/`, then a needle scan for
+`economic_seams` / `economic_seam_routes`). Adding a needle-naming guard therefore added a
+member to a domain the gate's executing step **enumerates**.
+
+The result was a red branch on a file the change never touched:
+
+| Tree | `tests/test_economic_seam_ci_wiring.py` |
+| --- | --- |
+| `main` `b5bc34cb` | **21 passed** |
+| this branch @ `bbb6f6d` | **2 failed, 17 passed** |
+
+The two failing nodes are `test_a_workflow_executes_the_whole_economic_seam_contract` and
+`test_wiring_workflow_is_a_complete_gate_that_selects_itself`, both reporting the domain as
+unexecuted (`_complete_gates()` → `[]`). This is the class already recorded in AGENTS.md:
+**a content-derived domain cannot be validated by the branch that adds a member to it — only
+by the composition.** The gate's own comment states the contract: *"a guard added, renamed,
+or removed reddens that judge until this step is updated in the same change."*
+
+### Repair
+
+`.github/workflows/economic-seam-engine.yml` — `tests/test_repo_hygiene_gitignore.py` added to
+the executing step (1 line), plus a dated provenance paragraph in the header comment. No
+trigger filter change was needed: `paths` already selects `tests/**`.
+
+### Verification
+
+| Check | Result |
+| --- | --- |
+| `pytest tests/test_economic_seam_ci_wiring.py -q` | **21 passed** (was 2 failed / 17 passed) |
+| Negative control: remove the guard from the real step | **2 failed, 17 passed** — both judge nodes return |
+| Restore byte-identically | **21 passed** |
+| Gate domain (the step's own 8 files) | **140 passed** |
+| `pytest tests/architecture -q` | **11 passed** |
+| CI on `a7d6134` | `test` **success** (was `failure` on `bbb6f6d`) |
+
+The negative control is live against the real workflow file, not a synthetic fixture, so it
+proves the judge reads the gate rather than merely agreeing with it.
+
+`api/main.py` is untouched by this pass.
