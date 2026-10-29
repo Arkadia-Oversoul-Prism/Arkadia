@@ -43,6 +43,7 @@ import {
   type LabEvent,
   type LabRunResult,
   type LabSession,
+  type LabSessionView,
   type MissionSessionHint,
   MISSION_WORKSPACE_REF,
 } from "./missionContract";
@@ -63,6 +64,36 @@ function stamp(): string {
 function describeError(error: unknown): string {
   if (error instanceof ApiError) return `${error.status ?? "—"} ${error.kind}: ${error.message}`;
   return error instanceof Error ? error.message : String(error);
+}
+
+type EvidencePanelState = "IDLE" | "LOADING" | "LIVE" | "EMPTY" | "UNAVAILABLE" | "FAILED";
+
+function classifyEvidenceFailure(error: unknown): EvidencePanelState {
+  if (
+    error instanceof ApiError &&
+    (error.kind === "NETWORK_ERROR" || [401, 403, 404, 503].includes(error.status ?? 0))
+  ) {
+    return "UNAVAILABLE";
+  }
+  return "FAILED";
+}
+
+function recordText(record: Record<string, unknown>, key: string, fallback = "—"): string {
+  const value = record[key];
+  if (typeof value === "string" && value.trim()) return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return fallback;
+}
+
+function recordJson(record: Record<string, unknown>, key: string, fallback: string): string {
+  const value = record[key];
+  if (value === undefined || value === null) return fallback;
+  try {
+    const encoded = JSON.stringify(value);
+    return typeof encoded === "string" ? encoded.slice(0, 400) : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function StateChip({ state }: { state: string }) {
@@ -96,6 +127,10 @@ export function MissionWorkspace() {
   const [run, setRun] = useState<LabRunResult | null>(null);
   const [steps, setSteps] = useState<StepRecord[]>([]);
   const [backendEvents, setBackendEvents] = useState<LabEvent[]>([]);
+  const [sessionEvidence, setSessionEvidence] = useState<Array<Record<string, unknown>>>([]);
+  const [sessionArtifacts, setSessionArtifacts] = useState<Array<Record<string, unknown>>>([]);
+  const [evidenceState, setEvidenceState] = useState<EvidencePanelState>("IDLE");
+  const [evidenceError, setEvidenceError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   /** A retained session this operator could resume, if the server still serves
@@ -108,12 +143,39 @@ export function MissionWorkspace() {
     setSteps((prev) => [...prev, { label, detail, ok, at: stamp() }]);
   }, []);
 
-  /** Pull the session view so the timeline shows the substrate's own events. */
-  const refreshView = useCallback(async (sessionId: string) => {
-    const view = await getSessionView(sessionId);
-    if (view.session) setSession(view.session);
+  /** Apply only the canonical session-view response; evidence is never synthesized locally. */
+  const applySessionView = useCallback((view: LabSessionView) => {
+    if (!view.session) {
+      setEvidenceState("UNAVAILABLE");
+      setEvidenceError("The session-view response did not include a session.");
+      setBackendEvents(view.events ?? []);
+      setSessionEvidence([]);
+      setSessionArtifacts([]);
+      return;
+    }
+    setSession(view.session);
     setBackendEvents(view.events ?? []);
+    const evidence = view.evidence ?? [];
+    const artifacts = view.artifacts ?? [];
+    setSessionEvidence(evidence);
+    setSessionArtifacts(artifacts);
+    setEvidenceError(null);
+    setEvidenceState(evidence.length > 0 || artifacts.length > 0 ? "LIVE" : "EMPTY");
   }, []);
+
+  /** Pull the session view so the timeline and evidence panel reflect server records. */
+  const refreshView = useCallback(async (sessionId: string) => {
+    setEvidenceState("LOADING");
+    setEvidenceError(null);
+    try {
+      const view = await getSessionView(sessionId);
+      applySessionView(view);
+    } catch (e) {
+      setEvidenceState(classifyEvidenceFailure(e));
+      setEvidenceError(describeError(e));
+      throw e;
+    }
+  }, [applySessionView]);
 
   /**
    * On mount, offer to resume a retained session.
@@ -155,9 +217,11 @@ export function MissionWorkspace() {
     if (!uid || !resumable) return;
     setPhase("working");
     setError(null);
+    setEvidenceState("LOADING");
+    setEvidenceError(null);
     try {
       const view = await getSessionView(resumable.session_id);
-      setSession(view.session);
+      applySessionView(view);
       // Restore server-confirmed mission context; this is not an authorization.
       setAgentId(view.session.agent_id);
       setObjective(view.session.objective);
@@ -168,7 +232,6 @@ export function MissionWorkspace() {
         setTargets("");
         setResumeScopeKnown(false);
       }
-      setBackendEvents(view.events ?? []);
       setResumable(null);
       const runs = view.runs ?? [];
       const last = runs.length > 0 ? (runs[runs.length - 1] as unknown as LabRunResult) : null;
@@ -190,13 +253,15 @@ export function MissionWorkspace() {
     } catch (e) {
       const detail = describeError(e);
       setError(detail);
+      setEvidenceState(classifyEvidenceFailure(e));
+      setEvidenceError(detail);
       forgetMissionSession(uid);
       setResumable(null);
       note("Resume failed", detail, false);
     } finally {
       setPhase("idle");
     }
-  }, [uid, resumable, note]);
+  }, [uid, resumable, note, applySessionView]);
 
   /** Discard the resume hint without touching the session server-side. */
   const onDismissResume = useCallback(() => {
@@ -213,6 +278,10 @@ export function MissionWorkspace() {
     setResumeScopeKnown(null);
     setSteps([]);
     setBackendEvents([]);
+    setSessionEvidence([]);
+    setSessionArtifacts([]);
+    setEvidenceState("IDLE");
+    setEvidenceError(null);
     setError(null);
   }, [uid]);
 
@@ -362,6 +431,11 @@ export function MissionWorkspace() {
   const canAttempt = Boolean(session) && targetList.length > 0 && !sessionAuthorized && !busy;
   const canAuthorize = Boolean(session) && targetList.length > 0 && !sessionAuthorized && !busy;
   const canExecute = Boolean(session) && sessionAuthorized && executableState && targetList.length > 0 && !run && !busy;
+
+  const onRefreshEvidence = useCallback(() => {
+    if (!session || busy) return;
+    void refreshView(session.session_id).catch(() => undefined);
+  }, [session, busy, refreshView]);
 
   return (
     <div className="space-y-4" data-testid="mission-workspace">
@@ -705,6 +779,102 @@ export function MissionWorkspace() {
             This run reached <span className="font-mono">{run.state}</span> — a proposal awaiting human review. It is
             not an acceptance, and the substrate cannot merge, deploy, or self-authorize.
           </p>
+        </Panel>
+      ) : null}
+
+      {session ? (
+        <Panel data-testid="mission-recorded-evidence">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="font-mono text-[11px] uppercase tracking-widest text-white/40">Recorded evidence &amp; artifacts</p>
+              <p className="mt-1 text-xs text-white/35">Server-returned records linked to this session; missing records are not inferred.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <StateChip state={evidenceState} />
+              <button
+                type="button"
+                onClick={onRefreshEvidence}
+                disabled={busy}
+                className="rounded border border-white/20 px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-white/55 hover:border-white/40 disabled:opacity-30"
+              >
+                Refresh evidence
+              </button>
+            </div>
+          </div>
+
+          {evidenceState === "IDLE" ? (
+            <p className="text-xs text-white/40">Evidence has not been loaded for this session view yet.</p>
+          ) : null}
+          {evidenceState === "LOADING" ? (
+            <p className="text-xs text-white/40" aria-live="polite">Loading server-recorded evidence…</p>
+          ) : null}
+          {evidenceState === "EMPTY" ? (
+            <p className="text-xs text-white/40">The server returned no evidence records or artifacts for this session yet.</p>
+          ) : null}
+          {evidenceState === "UNAVAILABLE" ? (
+            <p className="text-xs text-amber-200/80">Server evidence is unavailable. No local substitute is shown.{evidenceError ? ` ${evidenceError}` : ""}</p>
+          ) : null}
+          {evidenceState === "FAILED" ? (
+            <p className="text-xs text-red-300">The evidence read failed: {evidenceError ?? "failure detail unavailable"}.</p>
+          ) : null}
+
+          {evidenceState === "LIVE" ? (
+            <div className="space-y-4">
+              {sessionEvidence.length > 0 ? (
+                <section>
+                  <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-white/40">Evidence records ({sessionEvidence.length})</p>
+                  <ul className="space-y-2">
+                    {sessionEvidence.map((record, index) => (
+                      <li key={recordText(record, "evidence_id", `evidence-${index}`)} className="rounded border border-line bg-ink/50 p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="break-all font-mono text-[11px] text-azure">{recordText(record, "evidence_id", "Evidence ID unavailable")}</span>
+                          <StateChip state={recordText(record, "state", "UNKNOWN")} />
+                        </div>
+                        <p className="mt-2 text-sm text-white/75">{recordText(record, "summary", "Summary not supplied by the server.")}</p>
+                        <dl className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
+                          <div>
+                            <dt className="font-mono text-[10px] uppercase tracking-widest text-white/35">run reference</dt>
+                            <dd className="mt-0.5 break-all font-mono text-white/60">{recordText(record, "run_ref", "Not supplied")}</dd>
+                          </div>
+                          <div>
+                            <dt className="font-mono text-[10px] uppercase tracking-widest text-white/35">recorded at</dt>
+                            <dd className="mt-0.5 break-all font-mono text-white/60">{recordText(record, "timestamp_utc", "Timestamp unavailable")}</dd>
+                          </div>
+                        </dl>
+                        <details className="mt-2">
+                          <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-widest text-white/45">Provenance &amp; detail</summary>
+                          <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px] text-white/50">provenance: {recordJson(record, "provenance", "not supplied by the server")}
+detail: {recordJson(record, "detail", "not supplied by the server")}</pre>
+                        </details>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+
+              {sessionArtifacts.length > 0 ? (
+                <section>
+                  <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-white/40">Artifacts ({sessionArtifacts.length})</p>
+                  <ul className="space-y-2">
+                    {sessionArtifacts.map((artifact, index) => (
+                      <li key={recordText(artifact, "artifact_id", `artifact-${index}`)} className="rounded border border-line bg-ink/50 p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="break-all font-mono text-[11px] text-azure">{recordText(artifact, "artifact_id", "Artifact ID unavailable")}</span>
+                          <span className="font-mono text-[10px] uppercase tracking-widest text-white/45">{recordText(artifact, "kind", "Kind unavailable")}</span>
+                        </div>
+                        <p className="mt-2 text-sm text-white/75">{recordText(artifact, "title", "Title not supplied by the server.")}</p>
+                        <p className="mt-1 break-all font-mono text-[10px] text-white/40">run {recordText(artifact, "run_id", "reference unavailable")} · {recordText(artifact, "created_at", "timestamp unavailable")}</p>
+                        <details className="mt-2">
+                          <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-widest text-white/45">Artifact content</summary>
+                          <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px] text-white/50">{recordJson(artifact, "content", "Content not supplied by the server.")}</pre>
+                        </details>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+            </div>
+          ) : null}
         </Panel>
       ) : null}
     </div>
