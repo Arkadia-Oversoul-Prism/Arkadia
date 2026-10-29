@@ -626,3 +626,28 @@ Updated the assertion to require both `applySessionView(view)` and `getSessionVi
 
 Fresh CI is required on the successor head after this evidence append. No merge or deployment occurred.
 
+
+
+## 9. DEA-01 mission scope capture closure — 2026-10-29
+
+**Move ID:** `DEA-01-MISSION-SCOPE-CLOSURE-01`  
+**Canonical directive:** [Issue #590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/issues/590)  
+**Baseline head:** `086b283cb9e748e1fddf393dc8be37dd0c032ca6` on `feat/dea-01-mission-state-guard-01` (PR #591).  
+**Observed:** 2026-10-29 22:36 UTC.
+
+### Problem
+
+Fresh inspection found that `onCreateSession` used `targetList` and `refreshView` but its `useCallback` dependencies were only `[agentId, objective, note, uid]`. If the operator changed targets after the agent was created, the retained callback could persist an earlier target list into the uid-scoped resume hint. The served session view does not return original targets, so this hint is the only scope continuity available to the UI; stale scope would make refresh/re-entry misleading.
+
+### Bounded change
+
+- Memoize parsed targets from the editable `targets` input with `useMemo`.
+- Include `targetList` and `refreshView` in the session-creation callback dependencies.
+- Add a source-contract regression test that pins both the target-input dependency and persisted current scope.
+- No backend/API, identity, authorization, provenance, WorkEvent, workspace, persistence contract, production configuration, or deployment changes.
+
+### Verification
+
+- Before this change, commit `086b283cb9e748e1fddf393dc8be37dd0c032ca6` had 16 successful GitHub check runs, including **Prism Console Contract** (run `40965521458`, completed `2026-10-29T22:25:18Z`) and **SG-02-FE.2-V** (run `40965521534`, completed `2026-10-29T22:28:26Z`). These are baseline results only and do not verify this change.
+- New branch-head CI is required after this commit. No local test/build or authenticated browser/device run is claimed from this connector-backed execution.
+- Not merged, not deployed, not accepted.

@@ -22,7 +22,7 @@
  *     still confirm — it re-reads the view and never reconstructs an
  *     authorization from a stored id, because no route can read one back.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Panel } from "../ui";
 import { ApiError } from "../../lib/apiClient";
 import { useAuth } from "../../contexts/AuthContext";
@@ -297,10 +297,14 @@ export function MissionWorkspace() {
     setError(null);
   }, [uid]);
 
-  const targetList = targets
-    .split(/[,\n]/)
-    .map((t) => t.trim())
-    .filter(Boolean);
+  const targetList = useMemo(
+    () =>
+      targets
+        .split(/[,\\n]/)
+        .map((t) => t.trim())
+        .filter(Boolean),
+    [targets],
+  );
 
   /** Step 1 — deploy a bounded agent. No agent receives implicit authority. */
   const onCreateAgent = useCallback(async () => {
@@ -336,7 +340,7 @@ export function MissionWorkspace() {
     } finally {
       setPhase("idle");
     }
-  }, [agentId, objective, note, uid]);
+  }, [agentId, objective, note, uid, targetList, refreshView]);
 
   /**
    * Step 3 — attempt execution BEFORE authorization.

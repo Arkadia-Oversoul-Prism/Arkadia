@@ -525,3 +525,17 @@ def test_mission_control_reads_server_evidence_and_artifacts_with_truthful_state
     assert 'recordJson(artifact, "content"' in workspace
     assert "No local substitute is shown." in workspace
 
+
+
+def test_session_creation_persists_current_scope_hint():
+    """The persisted resume hint must capture the current targets, not a stale callback closure."""
+    workspace = _read(WORKSPACE)
+    assert re.search(r"const targetList = useMemo\\(\\(\\) =>[\\s\\S]*?\\}, \\[targets\\]\\);", workspace), (
+        "the parsed target list must be memoized against the editable target input"
+    )
+    assert re.search(
+        r"const onCreateSession = useCallback\\(async \\(\\) => \\{[\\s\\S]*?"
+        r"rememberMissionSession\\(uid, created\\.session_id, created\\.objective \\|\\| objective, targetList\\);"
+        r"[\\s\\S]*?\\}, \\[agentId, objective, note, uid, targetList, refreshView\\]\\);",
+        workspace,
+    ), "session creation must capture current scope and refresh callback dependencies"
