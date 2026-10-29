@@ -82,7 +82,7 @@ def test_execute_is_gated_by_a_separate_authorization_call():
     # the reference while the local object is empty, and gating on the local
     # object would let step 3 succeed and raise a false BOUNDARY NOT ENFORCED.
     assert re.search(
-        r"const canExecute = Boolean\(session\) && sessionAuthorized && executableState && !run && !busy;",
+        r"const canExecute = Boolean\(session\) && sessionAuthorized && executableState && targetList\.length > 0 && !run && !busy;",
         workspace,
     ), "execution must require authorization, an executable substrate state, and no active/completed local run"
     assert "sessionAuthorized" in workspace
@@ -322,7 +322,7 @@ def test_resume_does_not_treat_a_stored_id_as_authority():
     )
     # The offer is held separately from the live session.
     assert "resumable" in workspace
-    assert re.search(r"setResumable\(view\.session\.session_id\)", workspace), (
+    assert re.search(r"setResumable\(\{\s*\.\.\.retained,\s*session_id:\s*view\.session\.session_id,\s*objective:\s*view\.session\.objective\s*\}\)", workspace), (
         "the offer must be set from the server's own session, not from storage"
     )
 
@@ -342,9 +342,9 @@ def test_authorized_state_is_read_from_the_substrate_not_local_state():
     assert "session?.authorization_ref" in workspace, (
         "the authorization test must consult the server-reported reference"
     )
-    assert re.search(r"const canAttempt = Boolean\(session\) && !sessionAuthorized", workspace)
-    assert re.search(r"const canAuthorize = Boolean\(session\) && !sessionAuthorized", workspace)
-    assert re.search(r"const canExecute = Boolean\(session\) && sessionAuthorized", workspace)
+    assert re.search(r"const canAttempt = Boolean\(session\) && targetList\.length > 0 && !sessionAuthorized", workspace)
+    assert re.search(r"const canAuthorize = Boolean\(session\) && targetList\.length > 0 && !sessionAuthorized", workspace)
+    assert re.search(r"const canExecute = Boolean\(session\) && sessionAuthorized && executableState && targetList\.length > 0", workspace)
     # The bare-object form must be gone.
     assert not re.search(r"const canExecute = Boolean\(session && authorization\)", workspace), (
         "gating on the local object reintroduces the false BOUNDARY NOT ENFORCED alarm"
