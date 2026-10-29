@@ -158,6 +158,8 @@ export function MissionWorkspace() {
     try {
       const view = await getSessionView(resumable.session_id);
       setSession(view.session);
+      // Restore server-confirmed mission context; this is not an authorization.
+      setAgentId(view.session.agent_id);
       setObjective(view.session.objective);
       if (resumable.targets && resumable.targets.length > 0) {
         setTargets(resumable.targets.join(", "));
