@@ -561,3 +561,34 @@ Read-only Render inventory observed service `srv-db49jbh42hec73aj84qg` (Arkadia,
 
 This evidence append creates a new PR head. The test/build results above are tied to `3c458183`; fresh checks on the evidence-only successor head are required before treating that successor as fully checked. No authenticated browser, desktop/mobile, preview, or production acceptance is claimed.
 
+## 8.8 Session evidence and artifact projection — 2026-10-29 22:18 UTC
+
+**Move ID:** `DEA-01-SESSION-EVIDENCE-01`  
+**Canonical directive:** [Issue #590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/issues/590)  
+**Existing PR updated:** [#591](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/591)  
+**Baseline head:** `09d880eb4c3979ea55ac38cd96eaead4f7b2bc5a`  
+**Implementation commit:** `2702b1c34d37f3a7b22de460b1845a2626089891`  
+**Regression-test commit:** `85f43a3b023348e86cfc4993160720bc1a2d5d21`
+
+### Problem and bounded repair
+
+The canonical `GET session view` contract returns server-filtered `evidence` and `artifacts` linked to the session's runs. Before this move, MissionWorkspace consumed the session, events and last run, but did not project the returned evidence records or artifacts into the primary mission surface. A run could show evidence references without making the linked server records and provenance inspectable in Mission Control.
+
+- Added state for server-returned evidence and artifacts; refresh and resume both apply the same canonical session-view response.
+- Added a compact **Recorded evidence & artifacts** panel showing actual IDs, state, summary, run reference, timestamp, provenance/detail, artifact metadata and returned content.
+- Added distinct `IDLE`, `LOADING`, `LIVE`, `EMPTY`, `UNAVAILABLE` and `FAILED` states. Missing fields are labeled unavailable rather than replaced with synthetic values.
+- Added a refresh action that re-reads the existing session-view endpoint.
+- Added `test_mission_control_reads_server_evidence_and_artifacts_with_truthful_states`.
+- No new endpoint, backend route, persistence, database, authority, or protected-boundary change.
+
+### Verification freshness
+
+The prior head `09d880eb4c3979ea55ac38cd96eaead4f7b2bc5a` passed the console contract domain (**949 passed in 42.91s**), CI-wiring guard (**30 passed in 4.45s**), console build and CP10-A Lab test step. Those results predate this evidence-panel change and are not claimed as its verification. Fresh CI is required on the successor head after this evidence append.
+
+### Remaining acceptance gaps
+
+- Fresh console contract/build and broader backend regression for the evidence-panel code.
+- CP10 API and authenticated browser route verification; desktop/mobile responsive behavior remains unverified.
+- Preview unavailable because Render pull-request previews are disabled; production remains on main revision `d9a16f1269b2ab8ce74b527b3f2f0f00ad2793c2`.
+- Human review/merge and production authority remain final.
+
