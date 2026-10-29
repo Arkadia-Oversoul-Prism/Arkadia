@@ -117,7 +117,7 @@ recorded above remains the last-wins declaration for this lane.
 ## Status — 2026-10-29 (LANE 1, endpoint-registry oracle repair)
 
 **Active branch:** `feat/prism-l1-endpoint-registry-oracle-symmetry-01`
-**Active PR:** opened as draft from base `b5bc34cb178d0ec8a804ce6f5761e4bd5e0c7989`
+**Active PR:** #588 (draft) — opened from base `b5bc34cb178d0ec8a804ce6f5761e4bd5e0c7989`
 **Base:** `b5bc34cb178d0ec8a804ce6f5761e4bd5e0c7989` (measured live this pulse; supersedes
 every earlier base recorded above).
 
