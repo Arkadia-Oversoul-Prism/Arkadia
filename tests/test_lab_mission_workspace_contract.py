@@ -439,3 +439,16 @@ def test_resumed_review_boundary_does_not_offer_reexecution():
     assert 'session.state === "READY_FOR_REVIEW"' in workspace
     assert 'data-testid="mission-next-decision"' in workspace
     assert "cannot execute again" in workspace
+
+
+def test_scope_preview_is_truthful_and_locks_persisted_intent():
+    """The operator can inspect the exact draft scope, and persisted intent cannot drift."""
+    workspace = _read(WORKSPACE)
+    contract = _read(CONTRACT)
+    assert 'data-testid="mission-scope-preview"' in workspace
+    assert "LOCAL DRAFT · NOT PERSISTED" in workspace
+    assert "not a backend-generated plan or evidence" in workspace
+    assert 'const canCreateSession = Boolean(agentId) && objective.trim().length > 0 && targetList.length > 0 && !session && !busy;' in workspace
+    assert workspace.count("disabled={Boolean(session) || Boolean(run) || busy}") >= 2
+    assert "requires_write: false" in contract
+    assert 'kind: "read"' in contract
