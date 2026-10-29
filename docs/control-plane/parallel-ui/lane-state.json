@@ -1,7 +1,7 @@
 {
  "schema": "arkadia.lane-state/1.2",
- "observed_at": "2026-10-28T14:26:58Z",
- "base_main": "9195334c6baba0b9349a1d931bc5773614944cd1",
+ "observed_at": "2026-10-28T17:09:17Z",
+ "base_main": "4de6fc4d8e52553985a7b5d6183d53f1017f8d44",
  "source": "GitHub REST reads API (Arkadia-Oversoul-Prism/Arkadia), read-only, derived by scripts/lane_state_refresh.py",
  "note": "Machine-readable mirror of the four Prism UI lane threads, DERIVED from live PR state rather than hand-transcribed. Lane assignment is by exclusive path ownership (SHARED-CONTRACTS.md section 1); a PR touching more than one lane's owned paths appears in each. scripts/lane_state.py judges the docs against this file; --verify-live additionally requires every claimed-open PR to be authoritatively open. Refresh with scripts/lane_state_refresh.py --write.",
  "lanes": {
@@ -94,7 +94,16 @@
    "doc_guard": "idle"
   }
  },
- "unassigned_open_prs": [],
+ "unassigned_open_prs": [
+  {
+   "number": 587,
+   "branch": "lane-doc-task-currency-01",
+   "head_sha": "1f2d0499c1df6e7e27af98849810b82cebf24db6",
+   "draft": true,
+   "updated_at": "2026-10-28T17:08:15Z",
+   "title": "Lane-doc task currency: discharge delivered tasks and refresh the snapshot"
+  }
+ ],
  "closed_unmerged": [
   {
    "number": 499,
