@@ -156,11 +156,11 @@ def declared_idle(text: str) -> bool:
     comparison is by *position*, not by kind, so an appended ``**Active PR:**``
     supersedes an earlier idle declaration and vice versa.
     """
-    pr = _PR_RE.search(text)
+    prs = list(_PR_RE.finditer(text))
     idle = _IDLE_RE.search(text)
     if idle is None:
         return False
-    return pr is None or idle.start() > pr.start()
+    return not prs or idle.start() > prs[-1].start()
 
 
 def _pr_index(state: dict) -> dict[int, dict]:

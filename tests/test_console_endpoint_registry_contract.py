@@ -23,6 +23,12 @@ A related drift is recorded, not repaired here: the ``contract="…"`` strings t
 several name paths the backend does not serve. They live in feature pages owned by
 other workstreams, so this file records them as a bounded finding
 (``test_advertised_contract_strings_are_recorded``) rather than editing those pages.
+
+Re-measured 2026-10-29 at ``main`` ``b5bc34cb``: the oracle that decided "served" was
+wrong in both directions, and the extractor that fed it dropped every advertised
+literal but the last one per file. Both are repaired here; see :func:`_is_served` and
+:func:`_advertised_contract_strings`. The repair *reduces* the recorded set from six
+entries to one — four were never drift, and two are no longer advertised.
 """
 import re
 from pathlib import Path
@@ -63,6 +69,35 @@ def _malformed_entries(declared: dict[str, str]) -> list[str]:
         elif path.rstrip("/") != path:
             defects.append(f"{name} -> {path!r} has a trailing slash")
     return defects
+
+
+def _param_normalized(path: str) -> str:
+    """A path with every parameter segment collapsed to ``{}``."""
+    return re.sub(r"\{[^}]*\}", "{}", path)
+
+
+def _is_served(value: str, served: set[str]) -> bool:
+    """Whether the served app declares ``value``.
+
+    The comparison is **symmetric**: both sides are parameter-normalized, and the
+    ``/api`` prefix is significant on both. The earlier oracle stripped ``/api/``
+    from the *advertised* side only, which made the comparison a one-way prefix
+    removal and wrong in both directions:
+
+    * false positive — ``/api/lab/engineering/sessions/{id}/execute`` read as
+      unserved while the app serves it under ``{session_id}``, because the strip
+      discarded the only prefix that distinguishes it from ``/lab/...``;
+    * false negative — ``/api/solspire/proposals`` read as *served* while no such
+      route exists, because the strip collapsed it onto the real ``/solspire/...``
+      handler. That is the dangerous direction: a genuinely invented endpoint
+      passed the guard whose entire purpose is to catch invented endpoints.
+
+    A page may still legitimately advertise the served shape with its own parameter
+    name (``{id}`` for a served ``{project_id}``), which the normalization keeps.
+    """
+    if value in served:
+        return True
+    return _param_normalized(value) in {_param_normalized(p) for p in served}
 
 
 def _unserved(declared: dict[str, str], served: set[str]) -> list[str]:
@@ -240,12 +275,19 @@ def _inline_request_literals(sources: dict[str, str]) -> list[str]:
     return defects
 
 
-def _advertised_contract_strings(sources: dict[str, str]) -> dict[str, str]:
-    """The ``contract="…"`` strings a page advertises on a ``NotYetWired`` panel."""
-    found = {}
+def _advertised_contract_strings(sources: dict[str, str]) -> dict[str, list[str]]:
+    """Every literal ``contract="…"`` string a page advertises on a ``NotYetWired`` panel.
+
+    *Every* literal, not one per file. Keying by file kept only the last match, so
+    ``SolSpirePage`` (four panels) had three of its advertised contracts silently
+    unjudged — the same blind spot, one level down. Expression-valued props
+    (``contract={DEFERRED[section]}``) are not literals and cannot be read statically.
+    """
+    found: dict[str, list[str]] = {}
     for name, src in sources.items():
-        for match in re.finditer(r'contract="([^"]+)"', src):
-            found[name] = match.group(1)
+        values = [match.group(1) for match in re.finditer(r'contract="([^"]+)"', src)]
+        if values:
+            found[name] = list(dict.fromkeys(values))
     return found
 
 
@@ -581,6 +623,64 @@ def test_detector_accepts_a_registry_derived_sub_resource_path():
     ]
 
 
+def test_served_oracle_is_prefix_symmetric_in_both_directions():
+    """The oracle must not treat ``/api`` as an optional prefix.
+
+    The pre-repair shape stripped ``/api/`` from the advertised value only, which
+    made a *served* ``/api`` route read as unserved and — the dangerous direction —
+    an *unserved* ``/api`` route read as served by collapsing onto its bare twin.
+    Both controls below fail against that shape and pass against the repair.
+    """
+    served = _served_paths()
+    assert "/api/version" in served, "control premise: /api/version must be served"
+
+    # False positive: a served /api route advertised with a different param name.
+    assert _is_served("/api/lab/engineering/sessions/{id}/execute", served) is True, (
+        "a served /api route with a page-local parameter name must read as served"
+    )
+    # The bare twin is a different route and is not served.
+    assert _is_served("/lab/engineering/sessions/{id}/execute", served) is False, (
+        "dropping the /api prefix must not make an unserved route read as served"
+    )
+
+    # False negative: a genuinely invented /api route that has a served bare twin.
+    assert "/solspire/proposals" in served, "control premise: /solspire/proposals must be served"
+    assert _is_served("/api/solspire/proposals", served) is False, (
+        "an invented /api route must not pass by collapsing onto its /solspire handler"
+    )
+
+
+def test_advertised_extractor_returns_every_literal_not_just_the_last():
+    """A file with several ``NotYetWired`` panels advertises several contracts.
+
+    Keying the result by file kept only the final match, so the earlier panels of
+    ``SolSpirePage`` were never judged. The control feeds the exact multi-panel
+    shape and requires every literal back; it fails against the keyed-by-file form.
+    """
+    multi_panel = {
+        "pages/X.tsx": (
+            'const a = <NotYetWired contract="/solspire/proposals" />;\n'
+            'const b = <NotYetWired contract="/solspire/workevents" />;\n'
+            'const c = <NotYetWired contract="/api/invented/route" />;\n'
+            "const d = <NotYetWired contract={DEFERRED[section]} />;\n"
+        )
+    }
+    assert _advertised_contract_strings(multi_panel) == {
+        "pages/X.tsx": [
+            "/solspire/proposals",
+            "/solspire/workevents",
+            "/api/invented/route",
+        ]
+    }, "every literal must be returned; an expression-valued prop is not a literal"
+
+    # The live tree must exercise the multi-value path, or the control above is
+    # the only thing holding the shape.
+    live = _advertised_contract_strings(_tsx_sources())
+    assert any(len(values) > 1 for values in live.values()), (
+        "no live page advertises more than one contract -- the multi-panel path is untested"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Recorded finding (not repaired here): advertised contract strings
 # ---------------------------------------------------------------------------
@@ -588,14 +688,21 @@ def test_detector_accepts_a_registry_derived_sub_resource_path():
 #: Advertised ``contract="…"`` strings measured at ``a29a9b8f`` that the served app
 #: does not serve as written. Each is display copy inside a feature page owned by
 #: another workstream, so it is recorded here rather than edited.
-RECORDED_ADVERTISED_DRIFT = {
-    "/api/solspire/voice",
-    "/api/lab/engineering/sessions/{id}/execute",
-    "/api/solspire/projects/{id}/runtime-context",
-    "/api/solspire/workloads",
-    "/api/solspire/proposals",
-    "/api/solspire/pulses",
-}
+#:
+#: Re-measured 2026-10-29 at ``main`` ``b5bc34cb``, and again at the repaired oracle.
+#: The record is now **empty**, and that is a measurement, not a cleanup: every entry
+#: the pre-repair oracle reported was an artifact of its one-way ``/api/`` strip
+#: (see :func:`_is_served`). Four named routes the app *does* serve under the
+#: ``/solspire`` prefix had been collapsed onto their bare twin; two of those
+#: (``proposals``, ``workloads``) are no longer advertised by any page; and the last
+#: entry, ``/api/lab/engineering/sessions/{id}/execute``, advertised by
+#: ``pages/WeaverPage.tsx``, **resolves** — the handler serves ``{session_id}`` and
+#: parameter normalization keeps it, which is the intended page-local naming case.
+#:
+#: So the repaired oracle leaves no unserved advertised contract at this revision.
+#: This stays a floor, not an exact match: a *new* invented contract string is still
+#: visible, because the assertion below fails on any advertised string outside it.
+RECORDED_ADVERTISED_DRIFT: set[str] = set()
 
 
 def test_advertised_contract_strings_are_recorded():
@@ -606,25 +713,38 @@ def test_advertised_contract_strings_are_recorded():
     feature-page edit owned by another workstream, so this test must not fail
     when one is repaired.
     """
-    advertised = set(_advertised_contract_strings(_tsx_sources()).values())
+    advertised = {
+        value
+        for values in _advertised_contract_strings(_tsx_sources()).values()
+        for value in values
+    }
     served = _served_paths()
-    normalized_served = {re.sub(r"\{[^}]*\}", "{}", p) for p in served}
 
-    def is_served(value: str) -> bool:
-        stripped = value[4:] if value.startswith("/api/") else value
-        if value in served:
-            return True
-        # A page may legitimately advertise the served shape with its own param
-        # name (e.g. `{id}` for a served `{project_id}`).
-        return re.sub(r"\{[^}]*\}", "{}", stripped) in normalized_served
-
-    unrecorded = sorted(v for v in advertised if not is_served(v) and v not in RECORDED_ADVERTISED_DRIFT)
+    unrecorded = sorted(
+        v for v in advertised if not _is_served(v, served) and v not in RECORDED_ADVERTISED_DRIFT
+    )
     assert unrecorded == [], (
         "advertised contract string(s) that the canonical app does not serve and that are "
         "not in RECORDED_ADVERTISED_DRIFT: " + ", ".join(unrecorded)
     )
-    # Positive control: the recorded set is not vacuous -- at least one recorded
-    # string is genuinely unserved at this revision.
-    assert any(v in advertised for v in RECORDED_ADVERTISED_DRIFT), (
-        "no recorded drift string is still advertised -- prune RECORDED_ADVERTISED_DRIFT"
+    # The recorded set is a floor, and it may legitimately be empty. What it may
+    # not be is *stale*: an entry that is still advertised and that the app now
+    # serves is a false record, so it must be pruned rather than carried.
+    stale = sorted(
+        v for v in RECORDED_ADVERTISED_DRIFT if v in advertised and _is_served(v, served)
+    )
+    assert stale == [], (
+        "recorded drift string(s) that the canonical app actually serves -- prune "
+        "RECORDED_ADVERTISED_DRIFT: " + ", ".join(stale)
+    )
+    # Negative control for the detector: it must not be trivially true. An invented
+    # ``/api`` route with a served bare twin is exactly the shape the pre-repair
+    # oracle passed by collapsing the prefix, and it must be reported here.
+    invented = "/api/solspire/proposals"
+    assert "/solspire/proposals" in served, "control premise: the bare twin must be served"
+    assert _is_served(invented, served) is False, (
+        "detector control: an invented /api route must not read as served"
+    )
+    assert invented not in RECORDED_ADVERTISED_DRIFT, (
+        "the invented control route must not be pre-recorded, or the control is vacuous"
     )
