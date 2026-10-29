@@ -294,8 +294,8 @@ def test_resume_never_reconstructs_an_authorization():
     assert "setAuthorization" not in body, (
         "resume must not reconstruct an authorization; no route can read one back"
     )
-    assert "setSession" in body and "getSessionView" in body, (
-        "resume must re-read the session from the server"
+    assert "applySessionView(view)" in body and "getSessionView" in body, (
+        "resume must apply the session view re-read from the server"
     )
 
     # And the client must not offer an authorization accessor at all.
