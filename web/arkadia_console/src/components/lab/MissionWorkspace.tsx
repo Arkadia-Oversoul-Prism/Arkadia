@@ -155,12 +155,24 @@ export function MissionWorkspace() {
     }
     setSession(view.session);
     setBackendEvents(view.events ?? []);
-    const evidence = view.evidence ?? [];
-    const artifacts = view.artifacts ?? [];
-    setSessionEvidence(evidence);
-    setSessionArtifacts(artifacts);
-    setEvidenceError(null);
-    setEvidenceState(evidence.length > 0 || artifacts.length > 0 ? "LIVE" : "EMPTY");
+    const evidence = Array.isArray(view.evidence) ? view.evidence : null;
+    const artifacts = Array.isArray(view.artifacts) ? view.artifacts : null;
+    setSessionEvidence(evidence ?? []);
+    setSessionArtifacts(artifacts ?? []);
+    if ((evidence?.length ?? 0) > 0 || (artifacts?.length ?? 0) > 0) {
+      setEvidenceState("LIVE");
+      setEvidenceError(
+        evidence === null || artifacts === null
+          ? "The session view omitted one or more evidence collections; only returned records are shown."
+          : null,
+      );
+    } else if (evidence !== null && artifacts !== null) {
+      setEvidenceState("EMPTY");
+      setEvidenceError(null);
+    } else {
+      setEvidenceState("UNAVAILABLE");
+      setEvidenceError("The session view did not return both evidence and artifact collections.");
+    }
   }, []);
 
   /** Pull the session view so the timeline and evidence panel reflect server records. */
@@ -819,6 +831,9 @@ export function MissionWorkspace() {
             <p className="text-xs text-red-300">The evidence read failed: {evidenceError ?? "failure detail unavailable"}.</p>
           ) : null}
 
+          {evidenceState === "LIVE" && evidenceError ? (
+            <p className="mb-3 text-xs text-amber-200/80">{evidenceError}</p>
+          ) : null}
           {evidenceState === "LIVE" ? (
             <div className="space-y-4">
               {sessionEvidence.length > 0 ? (
