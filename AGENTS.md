@@ -1742,3 +1742,37 @@ Keep `feat/prism-ui-reconciliation-overnight-01` as this reconciliation workstre
 - Attribute by the failing/error **node set**, not the count: the two nodes are
   `test_a_workflow_executes_the_whole_economic_seam_contract` and
   `test_wiring_workflow_is_a_complete_gate_that_selects_itself`.
+
+
+## A guard that reads the FIRST declaration when its contract says LAST stops judging a live lane (lane-doc-currency)
+- `scripts/lane_state.py::declared_idle` compared the idle declaration against the **first** `_PR_RE`
+  match while the sibling `declared_pr` — and `declared_idle`'s own docstring — specify **last-wins**.
+  A doc carrying a pointer *before* the idle line and a newer pointer *after* it was reported idle, so
+  the guard silently stopped judging a live lane. Reproduce with pointers at `[0, 51, 78]` and idle at
+  `26`: pre-repair `declared_idle` -> `True` (reads the stale #121), repaired -> `False` (reads #11099).
+  A shape with the idle line **outside** the pointer range does not reproduce the defect — the
+  discriminating shape needs pointers on **both sides** of the idle declaration.
+- **The oracle repair and the snapshot refresh are one atomic change.** Repairing `declared_idle` alone
+  is green on `main` but red on the branch that owns the doc (`--check` exit **1**): `AGENT-01-SHELL.md`
+  appends its own `**Active PR:**` pointer, so the corrected oracle finally sees lane 1 as live and then
+  requires the doc to agree with a snapshot that still calls it idle. Adding the ownership line alone is
+  red on **both** trees. Compose the matrix before choosing the slice; a variant that is green on `main`
+  can be red on the tree that carries it.
+- **A synthetic control that deep-copies live state is not hermetic.** `_state_with_open_lane` copied the
+  live snapshot and overrode one lane, so a `deferred_to_pr` / `doc_guard` on *another* lane leaked in and
+  failed a test the control never constructed. Clear the live disposition before applying the synthetic one.
+- **`unassigned_open_prs` is written and printed but never judged.** `lane_state_refresh.py` writes it
+  (line 289) and prints it (line 390); `grep -rn unassigned_open_prs` finds **no reader** in
+  `lane_state.py` or its tests. The committed snapshot listed #587 there while #587 was merged and *was*
+  `main` HEAD. A merged PR cannot be "unassigned open" — the field is a write-only artifact. Wiring it
+  into a decision changes what the gate judges: a separate bounded workstream, recorded not repaired.
+- **`check_lane_docs` returns `[]` when a lane's doc declares a PR the snapshot calls idle**
+  (`lane 1: open_prs=[], unassigned=[588]`, doc declares #588 -> no finding). Recorded, not repaired.
+- Lane 1's `LANE_OWNERSHIP` omitted `tests/test_console_endpoint_registry_contract.py`, so a Lane 1 PR
+  touching its own contract test was classified unassigned and lane 1 stayed idle.
+- Measured on PR #588 head `77ef6792`: lane suite **46 passed**, lane + wiring **58 passed**,
+  `--check` exit 0, `--check --verify-live` exit 0 (`doc-guard lanes: ['2','3','4']; deferred: ['1']`),
+  architecture **11 passed**, and the `lane-doc-currency` check-run itself **success** — the repaired
+  guard is runtime-proven, not source-asserted. Full suite once: 8 failed / 3680 passed / 1 error, and
+  the 9 failing/error nodes are **identical** to the same files on `main` `b5bc34cb` — zero regression,
+  attributed by node identity.
