@@ -541,3 +541,23 @@ These are explicitly prior-head results and do **not** verify the layout change.
 - Preview verification and live revision confirmation.
 - Human review/merge and production authority remain final.
 
+## 8.7 Final-head CI and runtime boundary snapshot — 2026-10-29 22:12 UTC
+
+**Code/test/evidence head checked:** `3c45818375346860cfd334ea72d0567d2b0d2743`  
+**PR:** [#591](https://github.com/Arkadia-Oversoul-Prism/Arkadia/pull/591)  
+**Canonical directive:** [Issue #590](https://github.com/Arkadia-Oversoul-Prism/Arkadia/issues/590)
+
+### Checks observed on head `3c458183`
+
+- Prism Console Contract run [40963717103](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/40963717103), job `123762752659`:
+  - `python -m pytest -q $(python scripts/console_contract_domain.py)` — **949 passed in 37.54s**.
+  - `python -m pytest tests/test_prism_console_ci_wiring.py -q` — **30 passed in 5.53s**.
+- SG-02-FE.2-V run [40963716864](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/40963716864): **Build Arkadia Console** and **CP10-A Lab tests** steps succeeded. **CP10-B broader backend regression** was still in progress at this snapshot; CP10 API and browser route verification had not yet started.
+- These workflows reported success on the same head: Canonical Render Runtime Probe `40963716740`, security-secret-scan `40963716795`, Boot Syntax Boundary `40963716704`, N-ATLAS provider forensics `40963717031`, N-ATLAS external beta validation `40963716718`, economic-seam-engine `40963716904`, Operator Console Posture Currency `40963716950`, and N-ATLAS Developer Lab `40963716863`.
+
+### Production / preview boundary
+
+Read-only Render inventory observed service `srv-db49jbh42hec73aj84qg` (Arkadia, branch `main`, automatic deploy on commit, preview generation off, pull-request previews disabled). Latest listed live deployment was `dep-dbhr75bvnpks73f00n6g`, commit `d9a16f1269b2ab8ce74b527b3f2f0f00ad2793c2`, finished `2026-10-29T21:00:00.778943Z`. The PR head is not deployed; no production deploy was triggered.
+
+This evidence append creates a new PR head. The test/build results above are tied to `3c458183`; fresh checks on the evidence-only successor head are required before treating that successor as fully checked. No authenticated browser, desktop/mobile, preview, or production acceptance is claimed.
+
