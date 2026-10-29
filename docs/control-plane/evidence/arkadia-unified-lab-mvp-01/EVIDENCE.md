@@ -457,3 +457,23 @@ The existing resume hint stored only a session ID. The server session view retur
 - No local build/pytest or authenticated browser/device run is claimed from this connector-backed execution.
 - No backend, canonical API, identity, authorization subsystem, provenance, WorkEvent, workspace, database, merge, or production deployment changes.
 - Desktop/mobile behavior and preview/production verification remain UNKNOWN / unclaimed.
+
+
+## 8.4 CI finding and source-contract correction — 2026-10-29 21:49 UTC
+
+**Affected PR head:** `953bd71444eda4580de4e7fdcf14b99ca0ac7d10`  
+**Workflow:** [Prism Console Contract run 40960749813](https://github.com/Arkadia-Oversoul-Prism/Arkadia/actions/runs/40960749813)  
+**Job:** `123752552174`  
+**Observed result:** `3 failed, 944 passed in 32.63s`.
+
+The three failures were stale source-contract assertions after the intended scope-safety change:
+- expected `canExecute` without the new non-empty-target guard;
+- expected `setResumable(view.session.session_id)` rather than the server-confirmed object carrying the local scope hint;
+- expected `canAttempt` / `canAuthorize` without the non-empty-target guard.
+
+The code paths were changed intentionally to prevent execution or authorization with an unknown/empty target scope. The assertions have now been updated to pin those stricter conditions and the object-shaped, server-confirmed resume offer.
+
+**Correction commit:** `d6d66553634737c8117830e03aa0c8440018065b`  
+**Verification:** fresh CI required on the new head; no pass is claimed from the failed run. The independent runtime probe and other completed workflow checks at the affected head were successful, but they do not replace the contract suite.
+
+No production, backend, identity, authorization subsystem, canonical API, merge, or deployment action occurred.
